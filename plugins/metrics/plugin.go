@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 
+	gossippkg "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -214,8 +215,8 @@ func registerLocalMetrics() {
 		isSyncBeaconSynced.Store(synced)
 	}))
 
-	gossip.Manager().Events().NeighborRemoved.Attach(onNeighborRemoved)
-	gossip.Manager().Events().NeighborAdded.Attach(onNeighborAdded)
+	gossip.Manager().NeighborsEvents(gossippkg.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
+	gossip.Manager().NeighborsEvents(gossippkg.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
 
 	autopeering.Selection().Events().IncomingPeering.Attach(onAutopeeringSelection)
 	autopeering.Selection().Events().OutgoingPeering.Attach(onAutopeeringSelection)
