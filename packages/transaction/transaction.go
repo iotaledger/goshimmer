@@ -1,8 +1,8 @@
 package transaction
 
 import (
-    "github.com/iotadevelopment/go/packages/curl"
-    "github.com/iotadevelopment/go/packages/ternary"
+    "github.com/iotaledger/goshimmer/packages/curl"
+    "github.com/iotaledger/goshimmer/packages/ternary"
 )
 
 type Transaction struct {
