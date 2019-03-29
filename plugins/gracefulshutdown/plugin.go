@@ -10,8 +10,12 @@ import (
     "time"
 )
 
-func run(plugin *node.Plugin) {
+// maximum amount of time to wait for background processes to terminate. After that the process is killed.
+const WAIT_TO_KILL_TIME_IN_SECONDS = 10
+
+var PLUGIN = node.NewPlugin("Graceful Shutdown", func(plugin *node.Plugin) {
     gracefulStop := make(chan os.Signal)
+
     signal.Notify(gracefulStop, syscall.SIGTERM)
     signal.Notify(gracefulStop, syscall.SIGINT)
 
@@ -26,9 +30,9 @@ func run(plugin *node.Plugin) {
                 secondsSinceStart := x.Sub(start).Seconds()
 
                 if secondsSinceStart <= WAIT_TO_KILL_TIME_IN_SECONDS {
-                    plugin.LogWarning("Received shutdown request - waiting (max " + strconv.Itoa(WAIT_TO_KILL_TIME_IN_SECONDS - int(secondsSinceStart)) + " seconds) to finish processing ...")
+                    plugin.LogWarning("Received shutdown request - waiting (max " + strconv.Itoa(WAIT_TO_KILL_TIME_IN_SECONDS-int(secondsSinceStart)) + " seconds) to finish processing ...")
                 } else {
-                    plugin.LogFailure("The background processes did not terminate in time! Forcing shutdown ...")
+                    plugin.LogFailure("Background processes did not terminate in time! Forcing shutdown ...")
 
                     os.Exit(1)
                 }
@@ -37,6 +41,4 @@ func run(plugin *node.Plugin) {
 
         daemon.Shutdown()
     }()
-}
-
-var PLUGIN = node.NewPlugin("Graceful Shutdown", run)
+})
