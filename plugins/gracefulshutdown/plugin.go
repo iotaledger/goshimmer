@@ -1,0 +1,42 @@
+package gracefulshutdown
+
+import (
+    "github.com/iotaledger/goshimmer/packages/daemon"
+    "github.com/iotaledger/goshimmer/packages/node"
+    "os"
+    "os/signal"
+    "strconv"
+    "syscall"
+    "time"
+)
+
+func run(plugin *node.Plugin) {
+    gracefulStop := make(chan os.Signal)
+    signal.Notify(gracefulStop, syscall.SIGTERM)
+    signal.Notify(gracefulStop, syscall.SIGINT)
+
+    go func() {
+        <- gracefulStop
+
+        plugin.LogWarning("Received shutdown request - waiting (max " + strconv.Itoa(WAIT_TO_KILL_TIME_IN_SECONDS) + " seconds) to finish processing ...")
+
+        go func() {
+            start := time.Now()
+            for x := range time.Tick(1 * time.Second) {
+                secondsSinceStart := x.Sub(start).Seconds()
+
+                if secondsSinceStart <= WAIT_TO_KILL_TIME_IN_SECONDS {
+                    plugin.LogWarning("Received shutdown request - waiting (max " + strconv.Itoa(WAIT_TO_KILL_TIME_IN_SECONDS - int(secondsSinceStart)) + " seconds) to finish processing ...")
+                } else {
+                    plugin.LogFailure("The background processes did not terminate in time! Forcing shutdown ...")
+
+                    os.Exit(1)
+                }
+            }
+        }()
+
+        daemon.Shutdown()
+    }()
+}
+
+var PLUGIN = node.NewPlugin("Graceful Shutdown", run)
