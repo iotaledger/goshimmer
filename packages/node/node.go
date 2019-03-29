@@ -3,6 +3,7 @@ package node
 import (
     "fmt"
     "github.com/iotaledger/goshimmer/packages/daemon"
+    "strings"
     "sync"
 )
 
@@ -13,7 +14,13 @@ type Node struct {
     logLevel      int
 }
 
+var disabledPlugins = make(map[string]bool)
+
 func Load(plugins ...*Plugin) *Node {
+    for _, disabledPlugin := range strings.Fields(*DISABLE_PLUGINS.Value) {
+        disabledPlugins[strings.ToLower(disabledPlugin)] = true
+    }
+
     fmt.Println("  _____ _   _ ________  ______  ___ ___________ ")
     fmt.Println(" /  ___| | | |_   _|  \\/  ||  \\/  ||  ___| ___ \\")
     fmt.Println(" \\ `--.| |_| | | | | .  . || .  . || |__ | |_/ /")
@@ -23,7 +30,7 @@ func Load(plugins ...*Plugin) *Node {
     fmt.Println()
 
     node := &Node{
-        logLevel:      LOG_LEVEL_INFO,
+        logLevel:      *LOG_LEVEL.Value,
         loggers:       make([]*Logger, 0),
         wg:            &sync.WaitGroup{},
         loadedPlugins: make([]*Plugin, 0),
@@ -91,16 +98,23 @@ func (node *Node) Load(plugins ...*Plugin) {
 
     if len(plugins) >= 1 {
         for _, plugin := range plugins {
-            plugin.wg = node.wg
-            plugin.Node = node
+            fmt.Println(*DISABLE_PLUGINS.Value)
+            fmt.Println(disabledPlugins)
+            fmt.Println(strings.ToLower(strings.Replace(plugin.Name, " ", "", -1)))
+            if _, exists := disabledPlugins[strings.ToLower(strings.Replace(plugin.Name, " ", "", -1))]; !exists {
+                plugin.wg = node.wg
+                plugin.Node = node
 
-            plugin.Events.Configure.Trigger(plugin)
+                plugin.Events.Configure.Trigger(plugin)
 
-            node.LogInfo("Node", "Loading Plugin: "+plugin.Name+" ... done")
+                node.LogInfo("Node", "Loading Plugin: " + plugin.Name + " ... done")
+
+                node.loadedPlugins = append(node.loadedPlugins, plugin)
+            }
         }
     }
 
-    node.loadedPlugins = append(node.loadedPlugins, plugins...)
+    //node.loadedPlugins = append(node.loadedPlugins, plugins...)
 }
 
 func (node *Node) Run() {
