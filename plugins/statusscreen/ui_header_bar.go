@@ -6,6 +6,7 @@ import (
     "github.com/iotaledger/goshimmer/packages/accountability"
     "github.com/iotaledger/goshimmer/plugins/autopeering/peermanager"
     "github.com/rivo/tview"
+    "math"
     "strconv"
     "time"
 )
@@ -62,23 +63,47 @@ func (headerBar *UIHeaderBar) Update() {
     fmt.Fprintln(headerBar.InfoContainer)
     fmt.Fprintln(headerBar.InfoContainer)
     fmt.Fprintln(headerBar.InfoContainer)
-    fmt.Fprintln(headerBar.InfoContainer, "[::b]Node Identifier: [::d]" + accountability.OWN_ID.StringIdentifier + "  ")
-    fmt.Fprintln(headerBar.InfoContainer, "[::b]Known Peers: [::d]" + strconv.Itoa(len(peermanager.KNOWN_PEERS.Peers)) + "  ")
+    fmt.Fprintf(headerBar.InfoContainer, "[::b]Node ID: [::d]%40v  ", accountability.OWN_ID.StringIdentifier)
+    fmt.Fprintln(headerBar.InfoContainer)
+    fmt.Fprintf(headerBar.InfoContainer, "[::b]Known Peers: [::d]%40v  ", strconv.Itoa(len(peermanager.KNOWN_PEERS.Peers)))
+    fmt.Fprintln(headerBar.InfoContainer)
     fmt.Fprintf(headerBar.InfoContainer, "[::b]Uptime: [::d]");
 
+    padded := false
     if int(duration.Seconds()) / (60 * 60 * 24) > 0 {
+        days := int(duration.Hours()) / 24
+
+        numberLength := int(math.Log10(float64(days))) + 1
+        padLength := 31 - numberLength
+
+        fmt.Fprintf(headerBar.InfoContainer, "%*v", padLength, "")
+
+        padded = true
+
         // d
-        fmt.Fprintf(headerBar.InfoContainer, "%02dd ", int(duration.Hours()) / 24)
+        fmt.Fprintf(headerBar.InfoContainer, "%02dd ", days)
     }
 
     if int(duration.Seconds()) / (60 * 60) > 0 {
+        if !padded {
+            fmt.Fprintf(headerBar.InfoContainer, "%29v", "")
+            padded = true
+        }
         fmt.Fprintf(headerBar.InfoContainer, "%02dh ", int(duration.Hours()) % 24)
     }
 
     if int(duration.Seconds()) / 60 > 0 {
+        if !padded {
+            fmt.Fprintf(headerBar.InfoContainer, "%33v", "")
+            padded = true
+        }
         fmt.Fprintf(headerBar.InfoContainer, "%02dm ", int(duration.Minutes()) % 60)
     }
 
+    if !padded {
+        fmt.Fprintf(headerBar.InfoContainer, "%37v", "")
+        padded = true
+    }
     fmt.Fprintf(headerBar.InfoContainer, "%02ds  ", int(duration.Seconds()) % 60)
 }
 
