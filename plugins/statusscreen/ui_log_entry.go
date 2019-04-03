@@ -34,7 +34,7 @@ func NewUILogEntry(message StatusMessage) *UILogEntry {
     logEntry.LogLevelContainer.SetTextColor(tcell.ColorBlack)
     logEntry.LogLevelContainer.SetDynamicColors(true)
 
-    textColor := "black"
+    textColor := "black::d"
     switch message.LogLevel {
     case node.LOG_LEVEL_INFO:
         fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [blue::d]INFO [black::d]]")
@@ -43,20 +43,22 @@ func NewUILogEntry(message StatusMessage) *UILogEntry {
     case node.LOG_LEVEL_WARNING:
         fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [yellow::d]WARN [black::d]]")
 
-        textColor = "yellow"
+        textColor = "yellow::d"
     case node.LOG_LEVEL_FAILURE:
         fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [red::d]FAIL [black::d]]")
 
-        textColor = "red"
+        textColor = "red::d"
     case node.LOG_LEVEL_DEBUG:
-        fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [blue::d]NOTE [black::b]]")
+        fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [black::b]NOTE [black::d]]")
+
+        textColor = "black::b"
     }
 
     fmt.Fprintf(logEntry.TimeContainer, "  [black::b]" + message.Time.Format("15:04:05"))
     if message.Source == "Node" {
-        fmt.Fprintf(logEntry.MessageContainer, "[" + textColor + "::d]" + message.Message)
+        fmt.Fprintf(logEntry.MessageContainer, "[" + textColor + "]" + message.Message)
     } else {
-        fmt.Fprintf(logEntry.MessageContainer, "[" + textColor + "::d]" + message.Source + ": " + message.Message)
+        fmt.Fprintf(logEntry.MessageContainer, "[" + textColor + "]" + message.Source + ": " + message.Message)
     }
 
     logEntry.Primitive.
