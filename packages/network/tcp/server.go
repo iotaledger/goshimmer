@@ -39,7 +39,7 @@ func (this *Server) Listen(port int) *Server {
                 this.Events.Error.Trigger(err)
             }
         } else {
-            peer := network.NewPeer("tcp", socket)
+            peer := network.NewManagedConnection(socket)
 
             go this.Events.Connect.Trigger(peer)
         }

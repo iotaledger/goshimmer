@@ -1,4 +1,4 @@
-package protocol
+package request
 
 import "github.com/pkg/errors"
 

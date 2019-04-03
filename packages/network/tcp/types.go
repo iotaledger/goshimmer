@@ -6,4 +6,4 @@ type Callback = func()
 
 type ErrorConsumer = func(e error)
 
-type PeerConsumer = func(peer network.Connection)
+type PeerConsumer = func(conn *network.ManagedConnection)

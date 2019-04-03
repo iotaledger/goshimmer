@@ -73,6 +73,16 @@ func (node *Node) LogInfo(pluginName string, message string) {
     }
 }
 
+func (node *Node) LogDebug(pluginName string, message string) {
+    if node.logLevel >= LOG_LEVEL_DEBUG {
+        for _, logger := range node.loggers {
+            if logger.Enabled {
+                logger.LogDebug(pluginName, message)
+            }
+        }
+    }
+}
+
 func (node *Node) LogWarning(pluginName string, message string) {
     if node.logLevel >= LOG_LEVEL_WARNING {
         for _, logger := range node.loggers {
@@ -98,9 +108,6 @@ func (node *Node) Load(plugins ...*Plugin) {
 
     if len(plugins) >= 1 {
         for _, plugin := range plugins {
-            fmt.Println(*DISABLE_PLUGINS.Value)
-            fmt.Println(disabledPlugins)
-            fmt.Println(strings.ToLower(strings.Replace(plugin.Name, " ", "", -1)))
             if _, exists := disabledPlugins[strings.ToLower(strings.Replace(plugin.Name, " ", "", -1))]; !exists {
                 plugin.wg = node.wg
                 plugin.Node = node

@@ -2,6 +2,7 @@ package udp
 
 import (
     "net"
+    "strconv"
 )
 
 type serverEvents struct {
@@ -12,8 +13,9 @@ type serverEvents struct {
 }
 
 type Server struct {
-    Socket *net.UDPConn
-    Events serverEvents
+    Socket            net.PacketConn
+    ReceiveBufferSize int
+    Events            serverEvents
 }
 
 func (this *Server) Shutdown() {
@@ -26,10 +28,7 @@ func (this *Server) Shutdown() {
 }
 
 func (this *Server) Listen(address string, port int) {
-    if socket, err := net.ListenUDP("udp", &net.UDPAddr{
-        Port: port,
-        IP:   net.ParseIP(address),
-    }); err != nil {
+    if socket, err := net.ListenPacket("udp", address + ":" + strconv.Itoa(port)); err != nil {
         this.Events.Error.Trigger(err)
 
         return
@@ -40,20 +39,21 @@ func (this *Server) Listen(address string, port int) {
     this.Events.Start.Trigger()
     defer this.Events.Shutdown.Trigger()
 
-    buf := make([]byte, 1500)
+    buf := make([]byte, this.ReceiveBufferSize)
     for this.Socket != nil {
-        if bytesRead, addr, err := this.Socket.ReadFromUDP(buf); err != nil {
+        if bytesRead, addr, err := this.Socket.ReadFrom(buf); err != nil {
             if this.Socket != nil {
                 this.Events.Error.Trigger(err)
             }
         } else {
-            this.Events.ReceiveData.Trigger(addr, buf[:bytesRead])
+            this.Events.ReceiveData.Trigger(addr.(*net.UDPAddr), buf[:bytesRead])
         }
     }
 }
 
-func NewServer() *Server {
+func NewServer(receiveBufferSize int) *Server {
     return &Server{
+        ReceiveBufferSize: receiveBufferSize,
         Events: serverEvents{
             Start:       &callbackEvent{make(map[uintptr]Callback)},
             Shutdown:    &callbackEvent{make(map[uintptr]Callback)},

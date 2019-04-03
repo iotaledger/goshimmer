@@ -3,21 +3,24 @@ package peermanager
 import (
     "github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
     "net"
     "strconv"
     "strings"
 )
 
-func getEntryNodes() []*protocol.Peer {
-    result := make([]*protocol.Peer, 0)
+var ENTRY_NODES = parseEntryNodes()
+
+func parseEntryNodes() []*peer.Peer {
+    result := make([]*peer.Peer, 0)
 
     for _, entryNodeDefinition := range strings.Fields(*parameters.ENTRY_NODES.Value) {
         if entryNodeDefinition == "" {
             continue
         }
 
-        entryNode := &protocol.Peer{
-            Identity: UNKNOWN_IDENTITY,
+        entryNode := &peer.Peer{
+            Identity: nil,
         }
 
         protocolBits := strings.Split(entryNodeDefinition, "://")
@@ -26,9 +29,9 @@ func getEntryNodes() []*protocol.Peer {
         }
         switch protocolBits[0] {
         case "tcp":
-            entryNode.PeeringProtocolType = protocol.TCP_PROTOCOL
+            entryNode.PeeringProtocolType = protocol.PROTOCOL_TYPE_TCP
         case "udp":
-            entryNode.PeeringProtocolType = protocol.UDP_PROTOCOL
+            entryNode.PeeringProtocolType = protocol.PROTOCOL_TYPE_UDP
         }
 
         addressBits := strings.Split(protocolBits[1], ":")
@@ -70,5 +73,3 @@ func getEntryNodes() []*protocol.Peer {
 
     return result
 }
-
-var ENTRY_NODES = getEntryNodes()

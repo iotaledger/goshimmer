@@ -41,4 +41,7 @@ var DEFAULT_LOGGER = &node.Logger{
     LogFailure: func(pluginName string, message string) {
         storeStatusMessage(pluginName, message, node.LOG_LEVEL_FAILURE)
     },
+    LogDebug: func(pluginName string, message string) {
+        storeStatusMessage(pluginName, message, node.LOG_LEVEL_DEBUG)
+    },
 }

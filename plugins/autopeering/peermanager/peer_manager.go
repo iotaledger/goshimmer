@@ -1,94 +1,170 @@
 package peermanager
 
 import (
-    "github.com/iotaledger/goshimmer/packages/accountability"
     "github.com/iotaledger/goshimmer/packages/daemon"
     "github.com/iotaledger/goshimmer/packages/network"
     "github.com/iotaledger/goshimmer/packages/node"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/salt"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/saltmanager"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/server"
-    "math"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/request"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/response"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/server/tcp"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/server/udp"
     "net"
     "strconv"
     "time"
 )
 
-var PEERING_REQUEST *protocol.PeeringRequest
-
-var KNOWN_PEERS = &PeerList{make(map[string]*protocol.Peer)}
-
-var CHOSEN_NEIGHBORS = &PeerList{make(map[string]*protocol.Peer)}
-
-var ACCEPTED_NEIGHBORS = &PeerList{make(map[string]*protocol.Peer)}
-
-func configurePeeringRequest() {
-    PEERING_REQUEST = &protocol.PeeringRequest{
-        Issuer: &protocol.Peer{
-            Identity:            accountability.OWN_ID,
-            PeeringProtocolType: protocol.TCP_PROTOCOL,
-            PeeringPort:         uint16(*parameters.UDP_PORT.Value),
-            GossipProtocolType:  protocol.TCP_PROTOCOL,
-            GossipPort:          uint16(*parameters.UDP_PORT.Value),
-            Address:             net.IPv4(0, 0, 0, 0),
-        },
-        Salt: saltmanager.PUBLIC_SALT,
-    }
-    PEERING_REQUEST.Sign()
-
-    saltmanager.Events.UpdatePublicSalt.Attach(func(salt *salt.Salt) {
-        PEERING_REQUEST.Sign()
-    })
-}
-
 func Configure(plugin *node.Plugin) {
     configurePeeringRequest()
 
-    server.Events.ReceivePeeringRequest.Attach(func(ip net.IP, peeringRequest *protocol.PeeringRequest) {
-        peer := peeringRequest.Issuer
-        peer.Address = ip
-
-        KNOWN_PEERS.Update(peer)
-
-        plugin.LogInfo("received peering request from " + peeringRequest.Issuer.Identity.StringIdentifier)
+    // setup processing of peering requests
+    udp.Events.ReceiveRequest.Attach(func(peeringRequest *request.Request) {
+        processPeeringRequest(plugin, peeringRequest, nil)
     })
-    server.Events.ReceiveTCPPeeringRequest.Attach(func(conn network.Connection, request *protocol.PeeringRequest) {
-        peer := request.Issuer
-        peer.Address = conn.GetConnection().RemoteAddr().(*net.TCPAddr).IP
-
-        KNOWN_PEERS.Update(peer)
-
-        plugin.LogInfo("received peering request from " + request.Issuer.Identity.StringIdentifier)
-
-        sendPeeringResponse(conn.GetConnection())
+    tcp.Events.ReceiveRequest.Attach(func(conn *network.ManagedConnection, peeringRequest *request.Request) {
+        processPeeringRequest(plugin, peeringRequest, conn)
     })
-    server.Events.Error.Attach(func(ip net.IP, err error) {
-        plugin.LogFailure("invalid peering request from " + ip.String())
+
+    // setup processing of peering responses
+    udp.Events.ReceiveResponse.Attach(func(peeringResponse *response.Response) {
+        processPeeringResponse(plugin, peeringResponse, nil)
+    })
+    tcp.Events.ReceiveResponse.Attach(func(conn *network.ManagedConnection, peeringResponse *response.Response) {
+        processPeeringResponse(plugin, peeringResponse, conn)
+    })
+
+    udp.Events.Error.Attach(func(ip net.IP, err error) {
+        plugin.LogDebug("error when communicating with " + ip.String() + ": " + err.Error())
+    })
+    tcp.Events.Error.Attach(func(ip net.IP, err error) {
+        plugin.LogDebug("invalid peering request from " + ip.String() + ": " + err.Error())
     })
 }
 
 func Run(plugin *node.Plugin) {
+    // setup background worker that contacts "chosen neighbors"
     daemon.BackgroundWorker(func() {
-        chooseNeighbors(plugin)
+        plugin.LogInfo("Starting Peer Manager ...")
+        plugin.LogSuccess("Starting Peer Manager ... done")
+
+        sendPeeringRequests(plugin)
 
         ticker := time.NewTicker(FIND_NEIGHBOR_INTERVAL)
         for {
             select {
-            case <- daemon.ShutdownSignal:
+            case <-daemon.ShutdownSignal:
                 return
-            case <- ticker.C:
-                chooseNeighbors(plugin)
+            case <-ticker.C:
+                sendPeeringRequests(plugin)
             }
         }
     })
 }
 
-func Shutdown(plugin *node.Plugin) {}
+func Shutdown(plugin *node.Plugin) {
+    plugin.LogInfo("Stopping Peer Manager ...")
+    plugin.LogSuccess("Stopping Peer Manager ... done")
+}
 
-func generateProposedNodeCandidates() []*protocol.Peer {
-    peers := make([]*protocol.Peer, 0)
+func processPeeringRequest(plugin *node.Plugin, peeringRequest *request.Request, conn net.Conn) {
+    if KNOWN_PEERS.Update(peeringRequest.Issuer) {
+        plugin.LogInfo("new peer detected: " + peeringRequest.Issuer.Address.String() + " / " + peeringRequest.Issuer.Identity.StringIdentifier)
+    }
+
+    if conn == nil {
+        plugin.LogDebug("received UDP peering request from " + peeringRequest.Issuer.Identity.StringIdentifier)
+
+        var protocolString string
+        switch peeringRequest.Issuer.PeeringProtocolType {
+        case protocol.PROTOCOL_TYPE_TCP:
+            protocolString = "tcp"
+        case protocol.PROTOCOL_TYPE_UDP:
+            protocolString = "udp"
+        default:
+            plugin.LogFailure("unsupported peering protocol in request from " + peeringRequest.Issuer.Address.String())
+
+            return
+        }
+
+        var err error
+        conn, err = net.Dial(protocolString, peeringRequest.Issuer.Address.String() + ":" + strconv.Itoa(int(peeringRequest.Issuer.PeeringPort)))
+        if err != nil {
+            plugin.LogDebug("error when connecting to " + peeringRequest.Issuer.Address.String() + " during peering process: " + err.Error())
+
+            return
+        }
+    } else {
+        plugin.LogDebug("received TCP peering request from " + peeringRequest.Issuer.Identity.StringIdentifier)
+    }
+
+    sendFittingPeeringResponse(conn)
+}
+
+func processPeeringResponse(plugin *node.Plugin, peeringResponse *response.Response, conn *network.ManagedConnection) {
+    if KNOWN_PEERS.Update(peeringResponse.Issuer) {
+        plugin.LogInfo("new peer detected: " + peeringResponse.Issuer.Address.String() + " / " + peeringResponse.Issuer.Identity.StringIdentifier)
+    }
+    for _, peer := range peeringResponse.Peers {
+        if KNOWN_PEERS.Update(peer) {
+            plugin.LogInfo("new peer detected: " + peer.Address.String() + " / " + peer.Identity.StringIdentifier)
+        }
+    }
+
+    if conn == nil {
+        plugin.LogDebug("received UDP peering response from " + peeringResponse.Issuer.Identity.StringIdentifier)
+    } else {
+        plugin.LogDebug("received TCP peering response from " + peeringResponse.Issuer.Identity.StringIdentifier)
+
+        conn.Close()
+    }
+
+    switch peeringResponse.Type {
+    case response.TYPE_ACCEPT:
+        CHOSEN_NEIGHBORS.Update(peeringResponse.Issuer)
+    case response.TYPE_REJECT:
+    default:
+        plugin.LogDebug("invalid response type in peering response of " + peeringResponse.Issuer.Address.String() + ":" + strconv.Itoa(int(peeringResponse.Issuer.PeeringPort)))
+    }
+}
+
+func sendFittingPeeringResponse(conn net.Conn) {
+    var peeringResponse *response.Response
+    if len(ACCEPTED_NEIGHBORS.Peers) < protocol.NEIGHBOR_COUNT/2 {
+        peeringResponse = generateAcceptResponse()
+    } else {
+        peeringResponse = generateRejectResponse()
+    }
+
+    peeringResponse.Sign()
+
+    conn.Write(peeringResponse.Marshal())
+    conn.Close()
+}
+
+func generateAcceptResponse() *response.Response {
+    peeringResponse := &response.Response{
+        Type:   response.TYPE_ACCEPT,
+        Issuer: PEERING_REQUEST.Issuer,
+        Peers:  generateProposedNodeCandidates(),
+    }
+
+    return peeringResponse
+}
+
+func generateRejectResponse() *response.Response {
+    peeringResponse := &response.Response{
+        Type:   response.TYPE_REJECT,
+        Issuer: PEERING_REQUEST.Issuer,
+        Peers:  generateProposedNodeCandidates(),
+    }
+
+    return peeringResponse
+}
+
+
+func generateProposedNodeCandidates() []*peer.Peer {
+    peers := make([]*peer.Peer, 0)
     for _, peer := range KNOWN_PEERS.Peers {
         peers = append(peers, peer)
     }
@@ -96,92 +172,69 @@ func generateProposedNodeCandidates() []*protocol.Peer {
     return peers
 }
 
-func rejectPeeringRequest(conn net.Conn) {
-    conn.Write((&protocol.PeeringResponse{
-        Type:   protocol.PEERING_RESPONSE_REJECT,
-        Issuer: PEERING_REQUEST.Issuer,
-        Peers:  generateProposedNodeCandidates(),
-    }).Sign().Marshal())
-    conn.Close()
-}
+//region PEERING REQUEST RELATED METHODS ///////////////////////////////////////////////////////////////////////////////
 
-func acceptPeeringRequest(conn net.Conn) {
-    conn.Write((&protocol.PeeringResponse{
-        Type:   protocol.PEERING_RESPONSE_ACCEPT,
-        Issuer: PEERING_REQUEST.Issuer,
-        Peers:  generateProposedNodeCandidates(),
-    }).Sign().Marshal())
-    conn.Close()
-}
-
-func sendPeeringResponse(conn net.Conn) {
-    if len(ACCEPTED_NEIGHBORS.Peers) < protocol.NEIGHBOR_COUNT / 2 {
-        acceptPeeringRequest(conn)
-    } else {
-        rejectPeeringRequest(conn)
+func sendPeeringRequests(plugin *node.Plugin) {
+    for _, peer := range getChosenNeighborCandidates() {
+        sendPeeringRequest(plugin, peer)
     }
 }
 
-func sendPeeringRequest(plugin *node.Plugin, peer *protocol.Peer) {
-    var protocolString string
+func sendPeeringRequest(plugin *node.Plugin, peer *peer.Peer) {
     switch peer.PeeringProtocolType {
-    case protocol.TCP_PROTOCOL:
-        protocolString = "tcp"
-    case protocol.UDP_PROTOCOL:
-        protocolString = "udp"
+    case protocol.PROTOCOL_TYPE_TCP:
+        sendTCPPeeringRequest(plugin, peer)
+
+    case protocol.PROTOCOL_TYPE_UDP:
+        sendUDPPeeringRequest(plugin, peer)
+
     default:
         panic("invalid protocol in known peers")
     }
+}
 
-    conn, err := net.Dial(protocolString, peer.Address.String() + ":" + strconv.Itoa(int(peer.PeeringPort)))
-    if err != nil {
-        plugin.LogFailure(err.Error())
-    } else {
-        conn := network.NewPeer(protocolString, conn)
+func sendTCPPeeringRequest(plugin *node.Plugin, peer *peer.Peer) {
+    go func() {
+        tcpConnection, err := net.Dial("tcp", peer.Address.String() + ":" + strconv.Itoa(int(peer.PeeringPort)))
+        if err != nil {
+            plugin.LogDebug("error while trying to send TCP peering request to " + peer.String() + ": " + err.Error())
+        } else {
+            mConn := network.NewManagedConnection(tcpConnection)
 
-        conn.Write(PEERING_REQUEST.Marshal())
+            plugin.LogDebug("sending TCP peering request to " + peer.String())
 
-        buffer := make([]byte, protocol.PEERING_RESPONSE_MARSHALLED_TOTAL_SIZE)
-        offset := 0
-        conn.OnReceiveData(func(data []byte) {
-            remainingCapacity := int(math.Min(float64(protocol.PEERING_RESPONSE_MARSHALLED_TOTAL_SIZE - offset), float64(len(data))))
+            if _, err := mConn.Write(PEERING_REQUEST.Marshal()); err != nil {
+                plugin.LogDebug("error while trying to send TCP peering request to " + peer.String() + ": " + err.Error())
 
-            copy(buffer[offset:], data[:remainingCapacity])
-            offset += len(data)
-
-            if offset >= protocol.PEERING_RESPONSE_MARSHALLED_TOTAL_SIZE {
-                peeringResponse, err := protocol.UnmarshalPeeringResponse(buffer)
-                if err != nil {
-                    plugin.LogFailure("invalid peering response from " + conn.GetConnection().RemoteAddr().String())
-                } else {
-                    processPeeringResponse(plugin, peeringResponse)
-                }
-
-                conn.GetConnection().Close()
+                return
             }
-        })
 
-        go conn.HandleConnection()
-    }
+            tcp.HandleConnection(mConn)
+        }
+    }()
 }
 
-func processPeeringResponse(plugin *node.Plugin, response *protocol.PeeringResponse) {
-    KNOWN_PEERS.Update(response.Issuer)
-    for _, peer := range response.Peers {
-        KNOWN_PEERS.Update(peer)
-    }
+func sendUDPPeeringRequest(plugin *node.Plugin, peer *peer.Peer) {
+    go func() {
+        udpConnection, err := net.Dial("udp", peer.Address.String()+":"+strconv.Itoa(int(peer.PeeringPort)))
+        if err != nil {
+            plugin.LogDebug("error while trying to send peering request to " + peer.Address.String() + ":" + strconv.Itoa(int(peer.PeeringPort)) + " / " + peer.Identity.StringIdentifier + ": " + err.Error())
+        } else {
+            mConn := network.NewManagedConnection(udpConnection)
 
-    switch response.Type {
-    case protocol.PEERING_RESPONSE_ACCEPT:
-        CHOSEN_NEIGHBORS.Update(response.Issuer)
-    case protocol.PEERING_RESPONSE_REJECT:
-    default:
-        plugin.LogInfo("invalid response type in peering response of " + response.Issuer.Address.String() + ":" + strconv.Itoa(int(response.Issuer.PeeringPort)))
-    }
+            if _, err := mConn.Write(PEERING_REQUEST.Marshal()); err != nil {
+                plugin.LogDebug("error while trying to send peering request to " + peer.Address.String() + ":" + strconv.Itoa(int(peer.PeeringPort)) + " / " + peer.Identity.StringIdentifier + ": " + err.Error())
+
+                return
+            }
+
+            // setup listener for incoming responses
+        }
+    }()
 }
 
-func getChosenNeighborCandidates() []*protocol.Peer {
-    result := make([]*protocol.Peer, 0)
+func getChosenNeighborCandidates() []*peer.Peer {
+    result := make([]*peer.Peer, 0)
 
     for _, peer := range KNOWN_PEERS.Peers {
         result = append(result, peer)
@@ -194,8 +247,4 @@ func getChosenNeighborCandidates() []*protocol.Peer {
     return result
 }
 
-func chooseNeighbors(plugin *node.Plugin) {
-    for _, peer := range getChosenNeighborCandidates() {
-        sendPeeringRequest(plugin, peer)
-    }
-}
+//endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////

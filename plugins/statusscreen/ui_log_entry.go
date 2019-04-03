@@ -48,9 +48,11 @@ func NewUILogEntry(message StatusMessage) *UILogEntry {
         fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [red::d]FAIL [black::d]]")
 
         textColor = "red"
+    case node.LOG_LEVEL_DEBUG:
+        fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [blue::d]NOTE [black::b]]")
     }
 
-    fmt.Fprintf(logEntry.TimeContainer, "  [black::b]" + message.Time.Format("01/02/2006 03:04:05 PM"))
+    fmt.Fprintf(logEntry.TimeContainer, "  [black::b]" + message.Time.Format("15:04:05"))
     if message.Source == "Node" {
         fmt.Fprintf(logEntry.MessageContainer, "[" + textColor + "::d]" + message.Message)
     } else {
@@ -58,7 +60,7 @@ func NewUILogEntry(message StatusMessage) *UILogEntry {
     }
 
     logEntry.Primitive.
-        SetColumns(25, 0, 11).
+        SetColumns(11, 0, 11).
         SetRows(1).
         SetBorders(false).
         AddItem(logEntry.TimeContainer, 0, 0, 1, 1, 0, 0, false).

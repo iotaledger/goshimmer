@@ -1,27 +1,28 @@
-package protocol
+package request
 
 import (
     "bytes"
     "github.com/iotaledger/goshimmer/packages/identity"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/salt"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/salt"
     "github.com/iotaledger/goshimmer/plugins/autopeering/saltmanager"
     "time"
 )
 
-type PeeringRequest struct {
-    Issuer    *Peer
+type Request struct {
+    Issuer    *peer.Peer
     Salt      *salt.Salt
     Signature [SIGNATURE_SIZE]byte
 }
 
-func UnmarshalPeeringRequest(data []byte) (*PeeringRequest, error) {
-    if data[0] != PACKET_HEADER || len(data) != PEERING_REQUEST_MARSHALLED_TOTAL_SIZE {
+func Unmarshal(data []byte) (*Request, error) {
+    if data[0] != MARSHALLED_PACKET_HEADER || len(data) != MARSHALLED_TOTAL_SIZE {
         return nil, ErrMalformedPeeringRequest
     }
 
-    peeringRequest := &PeeringRequest{}
+    peeringRequest := &Request{}
 
-    if unmarshalledPeer, err := UnmarshalPeer(data[ISSUER_START:ISSUER_END]); err != nil {
+    if unmarshalledPeer, err := peer.Unmarshal(data[ISSUER_START:ISSUER_END]); err != nil {
         return nil, err
     } else {
         peeringRequest.Issuer = unmarshalledPeer
@@ -34,7 +35,7 @@ func UnmarshalPeeringRequest(data []byte) (*PeeringRequest, error) {
     }
 
     now := time.Now()
-    if peeringRequest.Salt.ExpirationTime.Before(now) {
+    if peeringRequest.Salt.ExpirationTime.Before(now.Add(-1 * time.Minute)) {
         return nil, ErrPublicSaltExpired
     }
     if peeringRequest.Salt.ExpirationTime.After(now.Add(saltmanager.PUBLIC_SALT_LIFETIME + 1*time.Minute)) {
@@ -53,19 +54,18 @@ func UnmarshalPeeringRequest(data []byte) (*PeeringRequest, error) {
     return peeringRequest, nil
 }
 
-func (this *PeeringRequest) Sign() {
-    dataToSign := this.Marshal()[:SIGNATURE_START]
-    if signature, err := this.Issuer.Identity.Sign(dataToSign); err != nil {
+func (this *Request) Sign() {
+    if signature, err := this.Issuer.Identity.Sign(this.Marshal()[:SIGNATURE_START]); err != nil {
         panic(err)
     } else {
         copy(this.Signature[:], signature)
     }
 }
 
-func (this *PeeringRequest) Marshal() []byte {
-    result := make([]byte, PEERING_REQUEST_MARSHALLED_TOTAL_SIZE)
+func (this *Request) Marshal() []byte {
+    result := make([]byte, MARSHALLED_TOTAL_SIZE)
 
-    result[PACKET_HEADER_START] = PACKET_HEADER
+    result[PACKET_HEADER_START] = MARSHALLED_PACKET_HEADER
     copy(result[ISSUER_START:ISSUER_END], this.Issuer.Marshal())
     copy(result[SALT_START:SALT_END], this.Salt.Marshal())
     copy(result[SIGNATURE_START:SIGNATURE_END], this.Signature[:SIGNATURE_SIZE])

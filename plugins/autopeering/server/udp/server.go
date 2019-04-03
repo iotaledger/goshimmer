@@ -1,25 +1,28 @@
-package server
+package udp
 
 import (
     "github.com/iotaledger/goshimmer/packages/daemon"
     "github.com/iotaledger/goshimmer/packages/network/udp"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/request"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/response"
+    "github.com/pkg/errors"
+    "math"
     "net"
     "strconv"
 )
 
-var udpServer = udp.NewServer()
+var udpServer = udp.NewServer(int(math.Max(float64(request.MARSHALLED_TOTAL_SIZE), float64(response.MARSHALLED_TOTAL_SIZE))))
 
-func ConfigureUDPServer(plugin *node.Plugin) {
+func ConfigureServer(plugin *node.Plugin) {
     Events.Error.Attach(func(ip net.IP, err error) {
-        plugin.LogFailure(err.Error())
+        plugin.LogFailure("u" + err.Error())
     })
 
     udpServer.Events.ReceiveData.Attach(processReceivedData)
     udpServer.Events.Error.Attach(func(err error) {
-        plugin.LogFailure(err.Error())
+        plugin.LogFailure("error in udp server: " + err.Error())
     })
     udpServer.Events.Start.Attach(func() {
         if *parameters.ADDRESS.Value == "0.0.0.0" {
@@ -33,7 +36,7 @@ func ConfigureUDPServer(plugin *node.Plugin) {
     })
 }
 
-func RunUDPServer(plugin *node.Plugin) {
+func RunServer(plugin *node.Plugin) {
     daemon.BackgroundWorker(func() {
         if *parameters.ADDRESS.Value == "0.0.0.0" {
             plugin.LogInfo("Starting UDP Server (port " + strconv.Itoa(*parameters.UDP_PORT.Value) + ") ...")
@@ -52,11 +55,25 @@ func ShutdownUDPServer(plugin *node.Plugin) {
 }
 
 func processReceivedData(addr *net.UDPAddr, data []byte) {
+    switch data[0] {
+    case request.MARSHALLED_PACKET_HEADER:
+        if peeringRequest, err := request.Unmarshal(data); err != nil {
+            Events.Error.Trigger(addr.IP, err)
+        } else {
+            peeringRequest.Issuer.Address = addr.IP
 
-    if peeringRequest, err := protocol.UnmarshalPeeringRequest(data); err != nil {
-        Events.Error.Trigger(addr.IP, err)
-    } else {
-        Events.ReceivePeeringRequest.Trigger(addr.IP, peeringRequest)
+            Events.ReceiveRequest.Trigger(peeringRequest)
+        }
+    case response.MARHSALLED_PACKET_HEADER:
+        if peeringResponse, err := response.Unmarshal(data); err != nil {
+            Events.Error.Trigger(addr.IP, err)
+        } else {
+            peeringResponse.Issuer.Address = addr.IP
+
+            Events.ReceiveResponse.Trigger(peeringResponse)
+        }
+    default:
+        Events.Error.Trigger(addr.IP, errors.New("invalid UDP peering packet from " + addr.IP.String()))
     }
 }
 

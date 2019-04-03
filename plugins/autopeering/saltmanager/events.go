@@ -1,7 +1,7 @@
 package saltmanager
 
 import (
-    "github.com/iotaledger/goshimmer/plugins/autopeering/salt"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/salt"
     "reflect"
 )
 

@@ -2,19 +2,21 @@ package server
 
 import (
     "github.com/iotaledger/goshimmer/packages/node"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/server/tcp"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/server/udp"
 )
 
 func Configure(plugin *node.Plugin) {
-    ConfigureUDPServer(plugin)
-    ConfigureTCPServer(plugin)
+    udp.ConfigureServer(plugin)
+    tcp.ConfigureServer(plugin)
 }
 
 func Run(plugin *node.Plugin) {
-    RunUDPServer(plugin)
-    RunTCPServer(plugin)
+    udp.RunServer(plugin)
+    tcp.RunServer(plugin)
 }
 
 func Shutdown(plugin *node.Plugin) {
-    ShutdownUDPServer(plugin)
-    ShutdownTCPServer(plugin)
+    udp.ShutdownUDPServer(plugin)
+    tcp.ShutdownServer(plugin)
 }

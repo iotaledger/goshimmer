@@ -49,3 +49,7 @@ func (plugin *Plugin) LogWarning(message string) {
 func (plugin *Plugin) LogFailure(message string) {
     plugin.Node.LogFailure(plugin.Name, message)
 }
+
+func (plugin *Plugin) LogDebug(message string) {
+    plugin.Node.LogDebug(plugin.Name, message)
+}

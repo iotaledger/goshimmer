@@ -8,6 +8,7 @@ type Logger struct {
     LogSuccess func(pluginName string, message string)
     LogWarning func(pluginName string, message string)
     LogFailure func(pluginName string, message string)
+    LogDebug func(pluginName string, message string)
 }
 
 func pluginPrefix(pluginName string) string {
@@ -34,5 +35,8 @@ var DEFAULT_LOGGER = &Logger{
     },
     LogFailure: func(pluginName string, message string) {
         fmt.Println("[ FAIL ] " + pluginPrefix(pluginName) + message)
+    },
+    LogDebug: func(pluginName string, message string) {
+        fmt.Println("[ NOTE ] " + pluginPrefix(pluginName) + message)
     },
 }

@@ -6,7 +6,7 @@ import (
     "github.com/iotaledger/goshimmer/packages/identity"
 )
 
-var OWN_ID *identity.Identity
+var OWN_ID = getIdentity()
 
 func generateNewIdentity() *identity.Identity {
     newIdentity := identity.GenerateRandomIdentity()
@@ -42,8 +42,4 @@ func getIdentity() *identity.Identity {
     }
 
     return identity.NewIdentity(publicKey, privateKey)
-}
-
-func init() {
-    OWN_ID = getIdentity()
 }

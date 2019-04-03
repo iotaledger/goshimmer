@@ -3,41 +3,36 @@ package peermanager
 import (
     "bytes"
     "github.com/iotaledger/goshimmer/packages/accountability"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol"
-    "time"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
 )
 
 type PeerList struct {
-    Peers map[string]*protocol.Peer
+    Peers map[string]*peer.Peer
 }
 
-func (this *PeerList) Update(peer *protocol.Peer) {
-    if peer.Identity == UNKNOWN_IDENTITY || bytes.Equal(peer.Identity.Identifier, accountability.OWN_ID.Identifier) {
-        return
+func (this *PeerList) Update(peer *peer.Peer) bool {
+    if peer.Identity == nil || bytes.Equal(peer.Identity.Identifier, accountability.OWN_ID.Identifier) {
+        return false
     }
-
-    now := time.Now()
 
     if existingPeer, exists := this.Peers[peer.Identity.StringIdentifier]; exists {
         existingPeer.Address = peer.Address
         existingPeer.GossipPort = peer.GossipPort
         existingPeer.PeeringPort = peer.PeeringPort
-        existingPeer.LastSeen = now
-        existingPeer.LastContact = now
 
         // trigger update peer
-    } else {
-        peer.FirstSeen = now
-        peer.LastSeen = now
-        peer.LastContact = now
 
+        return false
+    } else {
         this.Peers[peer.Identity.StringIdentifier] = peer
 
         // trigger add peer
+
+        return true
     }
 }
 
-func (this *PeerList) Add(peer *protocol.Peer) {
+func (this *PeerList) Add(peer *peer.Peer) {
     this.Peers[peer.Identity.StringIdentifier] = peer
 }
 
