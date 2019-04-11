@@ -7,7 +7,7 @@ import (
     "crypto/sha256"
     "fmt"
     "github.com/ethereum/go-ethereum/crypto/secp256k1"
-    "github.com/iotadevelopment/consensus/crypto"
+    "github.com/iotaledger/goshimmer/packages/crypto"
 )
 
 type Identity struct {
