@@ -1,8 +1,6 @@
-package protocol
+package types
 
 const (
-    NEIGHBOR_COUNT = 8
-
     PROTOCOL_TYPE_TCP = ProtocolType(0)
     PROTOCOL_TYPE_UDP = ProtocolType(1)
 

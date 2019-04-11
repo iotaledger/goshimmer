@@ -1,7 +1,7 @@
 package tcp
 
 import (
-    "github.com/iotaledger/goshimmer/packages/network"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/ping"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/request"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/response"
     "net"
@@ -9,50 +9,70 @@ import (
 )
 
 var Events = &pluginEvents{
-    ReceiveRequest: &requestEvent{make(map[uintptr]ConnectionPeeringRequestConsumer)},
-    ReceiveResponse: &responseEvent{make(map[uintptr]ConnectionPeeringResponseConsumer)},
-    Error:          &ipErrorEvent{make(map[uintptr]IPErrorConsumer)},
+    ReceivePing:     &pingEvent{make(map[uintptr]PingConsumer)},
+    ReceiveRequest:  &requestEvent{make(map[uintptr]RequestConsumer)},
+    ReceiveResponse: &responseEvent{make(map[uintptr]ResponseConsumer)},
+    Error:           &ipErrorEvent{make(map[uintptr]IPErrorConsumer)},
 }
 
 type pluginEvents struct {
+    ReceivePing     *pingEvent
     ReceiveRequest  *requestEvent
     ReceiveResponse *responseEvent
     Error           *ipErrorEvent
 }
 
-type requestEvent struct {
-    callbacks map[uintptr]ConnectionPeeringRequestConsumer
+type pingEvent struct {
+    callbacks map[uintptr]PingConsumer
 }
 
-func (this *requestEvent) Attach(callback ConnectionPeeringRequestConsumer) {
+func (this *pingEvent) Attach(callback PingConsumer) {
     this.callbacks[reflect.ValueOf(callback).Pointer()] = callback
 }
 
-func (this *requestEvent) Detach(callback ConnectionPeeringRequestConsumer) {
+func (this *pingEvent) Detach(callback PingConsumer) {
     delete(this.callbacks, reflect.ValueOf(callback).Pointer())
 }
 
-func (this *requestEvent) Trigger(conn *network.ManagedConnection, request *request.Request) {
+func (this *pingEvent) Trigger(ping *ping.Ping) {
     for _, callback := range this.callbacks {
-        callback(conn, request)
+        callback(ping)
+    }
+}
+
+type requestEvent struct {
+    callbacks map[uintptr]RequestConsumer
+}
+
+func (this *requestEvent) Attach(callback RequestConsumer) {
+    this.callbacks[reflect.ValueOf(callback).Pointer()] = callback
+}
+
+func (this *requestEvent) Detach(callback RequestConsumer) {
+    delete(this.callbacks, reflect.ValueOf(callback).Pointer())
+}
+
+func (this *requestEvent) Trigger(req *request.Request) {
+    for _, callback := range this.callbacks {
+        callback(req)
     }
 }
 
 type responseEvent struct {
-    callbacks map[uintptr]ConnectionPeeringResponseConsumer
+    callbacks map[uintptr]ResponseConsumer
 }
 
-func (this *responseEvent) Attach(callback ConnectionPeeringResponseConsumer) {
+func (this *responseEvent) Attach(callback ResponseConsumer) {
     this.callbacks[reflect.ValueOf(callback).Pointer()] = callback
 }
 
-func (this *responseEvent) Detach(callback ConnectionPeeringResponseConsumer) {
+func (this *responseEvent) Detach(callback ResponseConsumer) {
     delete(this.callbacks, reflect.ValueOf(callback).Pointer())
 }
 
-func (this *responseEvent) Trigger(conn *network.ManagedConnection, peeringResponse *response.Response) {
+func (this *responseEvent) Trigger(peeringResponse *response.Response) {
     for _, callback := range this.callbacks {
-        callback(conn, peeringResponse)
+        callback(peeringResponse)
     }
 }
 

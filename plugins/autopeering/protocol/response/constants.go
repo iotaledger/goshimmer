@@ -1,7 +1,7 @@
 package response
 
 import (
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
 )
 
@@ -9,7 +9,7 @@ const (
     TYPE_REJECT = Type(0)
     TYPE_ACCEPT = Type(1)
 
-    MARSHALLED_PEERS_AMOUNT  = protocol.NEIGHBOR_COUNT + protocol.NEIGHBOR_COUNT*protocol.NEIGHBOR_COUNT
+    MARSHALLED_PEERS_AMOUNT  = constants.NEIGHBOR_COUNT + constants.NEIGHBOR_COUNT * constants.NEIGHBOR_COUNT
     MARHSALLED_PACKET_HEADER = 0xBC
 
     MARSHALLED_PACKET_HEADER_START = 0

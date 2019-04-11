@@ -1,6 +1,7 @@
 package udp
 
 import (
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/ping"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/request"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/response"
     "net"
@@ -8,15 +9,35 @@ import (
 )
 
 var Events = &pluginEvents{
-    ReceiveRequest: &requestEvent{make(map[uintptr]ConnectionPeeringRequestConsumer)},
+    ReceivePing:     &pingEvent{make(map[uintptr]PingConsumer)},
+    ReceiveRequest:  &requestEvent{make(map[uintptr]ConnectionPeeringRequestConsumer)},
     ReceiveResponse: &responseEvent{make(map[uintptr]ConnectionPeeringResponseConsumer)},
-    Error:          &ipErrorEvent{make(map[uintptr]IPErrorConsumer)},
+    Error:           &ipErrorEvent{make(map[uintptr]IPErrorConsumer)},
 }
 
 type pluginEvents struct {
+    ReceivePing     *pingEvent
     ReceiveRequest  *requestEvent
     ReceiveResponse *responseEvent
     Error           *ipErrorEvent
+}
+
+type pingEvent struct {
+    callbacks map[uintptr]PingConsumer
+}
+
+func (this *pingEvent) Attach(callback PingConsumer) {
+    this.callbacks[reflect.ValueOf(callback).Pointer()] = callback
+}
+
+func (this *pingEvent) Detach(callback PingConsumer) {
+    delete(this.callbacks, reflect.ValueOf(callback).Pointer())
+}
+
+func (this *pingEvent) Trigger(ping *ping.Ping) {
+    for _, callback := range this.callbacks {
+        callback(ping)
+    }
 }
 
 type requestEvent struct {
@@ -72,4 +93,3 @@ func (this *ipErrorEvent) Trigger(ip net.IP, err error) {
         callback(ip, err)
     }
 }
-

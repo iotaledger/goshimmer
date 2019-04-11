@@ -4,14 +4,13 @@ import (
     "bytes"
     "github.com/iotaledger/goshimmer/packages/identity"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/salt"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/response"
     "github.com/iotaledger/goshimmer/plugins/autopeering/saltmanager"
     "time"
 )
 
 type Request struct {
     Issuer    *peer.Peer
-    Salt      *salt.Salt
     Signature [SIGNATURE_SIZE]byte
 }
 
@@ -28,17 +27,11 @@ func Unmarshal(data []byte) (*Request, error) {
         peeringRequest.Issuer = unmarshalledPeer
     }
 
-    if unmarshalledSalt, err := salt.Unmarshal(data[SALT_START:SALT_END]); err != nil {
-        return nil, err
-    } else {
-        peeringRequest.Salt = unmarshalledSalt
-    }
-
     now := time.Now()
-    if peeringRequest.Salt.ExpirationTime.Before(now.Add(-1 * time.Minute)) {
+    if peeringRequest.Issuer.Salt.ExpirationTime.Before(now.Add(-1 * time.Minute)) {
         return nil, ErrPublicSaltExpired
     }
-    if peeringRequest.Salt.ExpirationTime.After(now.Add(saltmanager.PUBLIC_SALT_LIFETIME + 1*time.Minute)) {
+    if peeringRequest.Issuer.Salt.ExpirationTime.After(now.Add(saltmanager.PUBLIC_SALT_LIFETIME + 1*time.Minute)) {
         return nil, ErrPublicSaltInvalidLifetime
     }
 
@@ -54,6 +47,29 @@ func Unmarshal(data []byte) (*Request, error) {
     return peeringRequest, nil
 }
 
+func (this *Request) Accept(peers []*peer.Peer) error {
+    if _, err := this.Issuer.Connect(); err != nil {
+        return err
+    }
+
+    peeringResponse := &response.Response{
+        Type:   response.TYPE_ACCEPT,
+        Issuer: OUTGOING_REQUEST.Issuer,
+        Peers:  peers,
+    }
+    peeringResponse.Sign()
+
+    if err := this.Issuer.Send(peeringResponse.Marshal(), false); err != nil {
+        return err
+    }
+
+    return nil
+}
+
+func (this *Request) Reject(peers []*peer.Peer) error {
+    return nil
+}
+
 func (this *Request) Sign() {
     if signature, err := this.Issuer.Identity.Sign(this.Marshal()[:SIGNATURE_START]); err != nil {
         panic(err)
@@ -67,7 +83,6 @@ func (this *Request) Marshal() []byte {
 
     result[PACKET_HEADER_START] = MARSHALLED_PACKET_HEADER
     copy(result[ISSUER_START:ISSUER_END], this.Issuer.Marshal())
-    copy(result[SALT_START:SALT_END], this.Salt.Marshal())
     copy(result[SIGNATURE_START:SIGNATURE_END], this.Signature[:SIGNATURE_SIZE])
 
     return result

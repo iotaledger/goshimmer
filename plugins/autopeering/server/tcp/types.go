@@ -1,15 +1,17 @@
 package tcp
 
 import (
-    "github.com/iotaledger/goshimmer/packages/network"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/ping"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/request"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/response"
     "net"
 )
 
-type ConnectionPeeringRequestConsumer = func(conn *network.ManagedConnection, request *request.Request)
+type PingConsumer = func(p *ping.Ping)
 
-type ConnectionPeeringResponseConsumer = func(conn *network.ManagedConnection, peeringResponse *response.Response)
+type RequestConsumer = func(req *request.Request)
+
+type ResponseConsumer = func(peeringResponse *response.Response)
 
 type IPErrorConsumer = func(ip net.IP, err error)
 

@@ -8,4 +8,5 @@ const (
     STATE_INITIAL  = byte(0)
     STATE_REQUEST  = byte(1)
     STATE_RESPONSE = byte(2)
+    STATE_PING     = byte(3)
 )

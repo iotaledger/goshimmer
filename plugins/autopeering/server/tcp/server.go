@@ -6,6 +6,7 @@ import (
     "github.com/iotaledger/goshimmer/packages/network/tcp"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/ping"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/request"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/response"
     "github.com/pkg/errors"
@@ -62,7 +63,7 @@ func HandleConnection(conn *network.ManagedConnection) {
         ProcessIncomingPacket(&connectionState, &receiveBuffer, conn, data, &offset)
     })
 
-    go conn.Read(make([]byte, int(math.Max(request.MARSHALLED_TOTAL_SIZE, response.MARSHALLED_TOTAL_SIZE))))
+    go conn.Read(make([]byte, int(math.Max(ping.MARSHALLED_TOTAL_SIZE, math.Max(request.MARSHALLED_TOTAL_SIZE, response.MARSHALLED_TOTAL_SIZE)))))
 }
 
 func ProcessIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int) {
@@ -83,6 +84,8 @@ func ProcessIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *n
             *receiveBuffer = make([]byte, request.MARSHALLED_TOTAL_SIZE)
         case STATE_RESPONSE:
             *receiveBuffer = make([]byte, response.MARSHALLED_TOTAL_SIZE)
+        case STATE_PING:
+            *receiveBuffer = make([]byte, ping.MARSHALLED_TOTAL_SIZE)
         }
     }
 
@@ -91,27 +94,33 @@ func ProcessIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *n
         processIncomingRequestPacket(connectionState, receiveBuffer, conn, data, offset)
     case STATE_RESPONSE:
         processIncomingResponsePacket(connectionState, receiveBuffer, conn, data, offset)
+    case STATE_PING:
+        processIncomingPingPacket(connectionState, receiveBuffer, conn, data, offset)
     }
 }
 
 func parsePackageHeader(data []byte) (ConnectionState, []byte, error) {
     var connectionState ConnectionState
-    var receivedData []byte
+    var receiveBuffer []byte
 
     switch data[0] {
     case request.MARSHALLED_PACKET_HEADER:
-        receivedData = make([]byte, request.MARSHALLED_TOTAL_SIZE)
+        receiveBuffer = make([]byte, request.MARSHALLED_TOTAL_SIZE)
 
         connectionState = STATE_REQUEST
     case response.MARHSALLED_PACKET_HEADER:
-        receivedData = make([]byte, response.MARSHALLED_TOTAL_SIZE)
+        receiveBuffer = make([]byte, response.MARSHALLED_TOTAL_SIZE)
 
         connectionState = STATE_RESPONSE
+    case ping.MARSHALLED_PACKET_HEADER:
+        receiveBuffer = make([]byte, ping.MARSHALLED_TOTAL_SIZE)
+
+        connectionState = STATE_PING
     default:
         return 0, nil, errors.New("invalid package header")
     }
 
-    return connectionState, receivedData, nil
+    return connectionState, receiveBuffer, nil
 }
 
 func processIncomingRequestPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int) {
@@ -122,16 +131,21 @@ func processIncomingRequestPacket(connectionState *byte, receiveBuffer *[]byte, 
     if *offset + len(data) < request.MARSHALLED_TOTAL_SIZE {
         *offset += len(data)
     } else {
-        if peeringRequest, err := request.Unmarshal(*receiveBuffer); err != nil {
+        if req, err := request.Unmarshal(*receiveBuffer); err != nil {
             Events.Error.Trigger(conn.RemoteAddr().(*net.TCPAddr).IP, err)
 
             conn.Close()
 
             return
         } else {
-            peeringRequest.Issuer.Address = conn.RemoteAddr().(*net.TCPAddr).IP
+            req.Issuer.Conn = conn
+            req.Issuer.Address = conn.RemoteAddr().(*net.TCPAddr).IP
 
-            Events.ReceiveRequest.Trigger(conn, peeringRequest)
+            req.Issuer.Conn.Events.Close.Attach(func() {
+                req.Issuer.Conn = nil
+            })
+
+            Events.ReceiveRequest.Trigger(req)
         }
 
         *connectionState = STATE_INITIAL
@@ -150,22 +164,60 @@ func processIncomingResponsePacket(connectionState *byte, receiveBuffer *[]byte,
     if *offset + len(data) < response.MARSHALLED_TOTAL_SIZE {
         *offset += len(data)
     } else {
-        if peeringResponse, err := response.Unmarshal(*receiveBuffer); err != nil {
+        if res, err := response.Unmarshal(*receiveBuffer); err != nil {
             Events.Error.Trigger(conn.RemoteAddr().(*net.TCPAddr).IP, err)
 
             conn.Close()
 
             return
         } else {
-            peeringResponse.Issuer.Address = conn.RemoteAddr().(*net.TCPAddr).IP
+            res.Issuer.Conn = conn
+            res.Issuer.Address = conn.RemoteAddr().(*net.TCPAddr).IP
 
-            Events.ReceiveResponse.Trigger(conn, peeringResponse)
+            res.Issuer.Conn.Events.Close.Attach(func() {
+                res.Issuer.Conn = nil
+            })
+
+            Events.ReceiveResponse.Trigger(res)
         }
 
         *connectionState = STATE_INITIAL
 
         if *offset + len(data) > response.MARSHALLED_TOTAL_SIZE {
             ProcessIncomingPacket(connectionState, receiveBuffer, conn, data[response.MARSHALLED_TOTAL_SIZE:], offset)
+        }
+    }
+}
+
+func processIncomingPingPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int) {
+    remainingCapacity := int(math.Min(float64(ping.MARSHALLED_TOTAL_SIZE - *offset), float64(len(data))))
+
+    copy((*receiveBuffer)[*offset:], data[:remainingCapacity])
+
+    if *offset + len(data) < ping.MARSHALLED_TOTAL_SIZE {
+        *offset += len(data)
+    } else {
+        if ping, err := ping.Unmarshal(*receiveBuffer); err != nil {
+            Events.Error.Trigger(conn.RemoteAddr().(*net.TCPAddr).IP, err)
+
+            conn.Close()
+
+            return
+        } else {
+            ping.Issuer.Conn = conn
+            ping.Issuer.Address = conn.RemoteAddr().(*net.TCPAddr).IP
+
+            ping.Issuer.Conn.Events.Close.Attach(func() {
+                ping.Issuer.Conn = nil
+            })
+
+            Events.ReceivePing.Trigger(ping)
+        }
+
+        *connectionState = STATE_INITIAL
+
+        if *offset + len(data) > ping.MARSHALLED_TOTAL_SIZE {
+            ProcessIncomingPacket(connectionState, receiveBuffer, conn, data[ping.MARSHALLED_TOTAL_SIZE:], offset)
         }
     }
 }

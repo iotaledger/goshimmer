@@ -1,9 +1,11 @@
 package peermanager
 
 import (
+    "github.com/iotaledger/goshimmer/packages/identity"
     "github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol"
+    peermanagerTypes "github.com/iotaledger/goshimmer/plugins/autopeering/peermanager/types"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/types"
     "net"
     "strconv"
     "strings"
@@ -11,8 +13,8 @@ import (
 
 var ENTRY_NODES = parseEntryNodes()
 
-func parseEntryNodes() []*peer.Peer {
-    result := make([]*peer.Peer, 0)
+func parseEntryNodes() peermanagerTypes.PeerList {
+    result := make(peermanagerTypes.PeerList, 0)
 
     for _, entryNodeDefinition := range strings.Fields(*parameters.ENTRY_NODES.Value) {
         if entryNodeDefinition == "" {
@@ -29,12 +31,20 @@ func parseEntryNodes() []*peer.Peer {
         }
         switch protocolBits[0] {
         case "tcp":
-            entryNode.PeeringProtocolType = protocol.PROTOCOL_TYPE_TCP
+            entryNode.PeeringProtocolType = types.PROTOCOL_TYPE_TCP
         case "udp":
-            entryNode.PeeringProtocolType = protocol.PROTOCOL_TYPE_UDP
+            entryNode.PeeringProtocolType = types.PROTOCOL_TYPE_UDP
         }
 
-        addressBits := strings.Split(protocolBits[1], ":")
+        identityBits := strings.Split(protocolBits[1], "@")
+        if len(identityBits) != 2 {
+            panic("error while parsing identity of entry node: " + entryNodeDefinition)
+        }
+        entryNode.Identity = &identity.Identity{
+            StringIdentifier: identityBits[0],
+        }
+
+        addressBits := strings.Split(identityBits[1], ":")
         switch len(addressBits) {
         case 2:
             host := addressBits[0]
