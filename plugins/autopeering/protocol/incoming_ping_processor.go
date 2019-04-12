@@ -5,14 +5,13 @@ import (
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
 )
 
-func createIncomingPingProcessor(plugin *node.Plugin) func(p *ping.Ping) {
-    return func(p *ping.Ping) {
-        if p.Issuer.Conn != nil {
-            plugin.LogDebug("received TCP ping from " + p.Issuer.String())
-        } else {
-            plugin.LogDebug("received UDP ping from " + p.Issuer.String())
-        }
+func createIncomingPingProcessor(plugin *node.Plugin) func(ping *ping.Ping) {
+    return func(ping *ping.Ping) {
+        plugin.LogDebug("received ping from " + ping.Issuer.String())
 
-        Events.DiscoverPeer.Trigger(p.Issuer)
+        Events.DiscoverPeer.Trigger(ping.Issuer)
+        for _, neighbor := range ping.Neighbors {
+            Events.DiscoverPeer.Trigger(neighbor)
+        }
     }
 }

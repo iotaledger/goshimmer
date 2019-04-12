@@ -8,19 +8,13 @@ import (
 )
 
 func Configure(plugin *node.Plugin) {
-    incomingPingProcessor := createIncomingPingProcessor(plugin)
-    incomingRequestProcessor := createIncomingRequestProcessor(plugin)
-    incomingResponseProcessor := createIncomingResponseProcessor(plugin)
     errorHandler := createErrorHandler(plugin)
 
-    udp.Events.ReceivePing.Attach(incomingPingProcessor)
-    udp.Events.ReceiveRequest.Attach(incomingRequestProcessor)
-    udp.Events.ReceiveResponse.Attach(incomingResponseProcessor)
+    udp.Events.ReceivePing.Attach(createIncomingPingProcessor(plugin))
     udp.Events.Error.Attach(errorHandler)
 
-    tcp.Events.ReceivePing.Attach(incomingPingProcessor)
-    tcp.Events.ReceiveRequest.Attach(incomingRequestProcessor)
-    tcp.Events.ReceiveResponse.Attach(incomingResponseProcessor)
+    tcp.Events.ReceiveRequest.Attach(createIncomingRequestProcessor(plugin))
+    tcp.Events.ReceiveResponse.Attach(createIncomingResponseProcessor(plugin))
     tcp.Events.Error.Attach(errorHandler)
 }
 

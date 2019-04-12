@@ -12,7 +12,6 @@ import (
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/salt"
-    "github.com/iotaledger/goshimmer/plugins/gossip/neighbormanager"
     "math/rand"
     "net"
     "time"
@@ -62,30 +61,31 @@ func createOutgoingPingProcessor(plugin *node.Plugin) func() {
 }
 
 func pingPeers(plugin *node.Plugin, outgoingPing *ping.Ping) {
-    pingDelay := constants.PING_CYCLE_LENGTH / time.Duration(len(neighborhood.LIST_INSTANCE))
+    if len(neighborhood.LIST_INSTANCE) >= 1 {
+        pingDelay := constants.PING_CYCLE_LENGTH / time.Duration(len(neighborhood.LIST_INSTANCE))
 
-    if lastPing.Add(pingDelay).Before(time.Now()) {
-        chosenPeers := make(map[string]*peer.Peer)
+        if lastPing.Add(pingDelay).Before(time.Now()) {
+            chosenPeers := make(map[string]*peer.Peer)
 
-        for i := 0; i < constants.PING_CONTACT_COUNT_PER_CYCLE; i++ {
-            randomNeighborHoodPeer := neighborhood.LIST_INSTANCE[rand.Intn(len(neighborhood.LIST_INSTANCE))]
+            for i := 0; i < constants.PING_CONTACT_COUNT_PER_CYCLE; i++ {
+                randomNeighborHoodPeer := neighborhood.LIST_INSTANCE[rand.Intn(len(neighborhood.LIST_INSTANCE))]
 
-            nodeId := randomNeighborHoodPeer.Identity.StringIdentifier
-
-            if !neighbormanager.ACCEPTED_NEIGHBORS.Contains(nodeId) && !neighbormanager.CHOSEN_NEIGHBORS.Contains(nodeId) &&
-                nodeId != accountability.OWN_ID.StringIdentifier {
-                chosenPeers[randomNeighborHoodPeer.Identity.StringIdentifier] = randomNeighborHoodPeer
+                if randomNeighborHoodPeer.Identity.StringIdentifier != accountability.OWN_ID.StringIdentifier {
+                    chosenPeers[randomNeighborHoodPeer.Identity.StringIdentifier] = randomNeighborHoodPeer
+                }
             }
+
+            for _, chosenPeer := range chosenPeers {
+                go func(chosenPeer *peer.Peer) {
+                    if _, err := chosenPeer.Send(outgoingPing.Marshal(), types.PROTOCOL_TYPE_UDP, false); err != nil {
+                        plugin.LogDebug("error when sending ping to " + chosenPeer.String() + ": " + err.Error())
+                    } else {
+                        plugin.LogDebug("sent ping to " + chosenPeer.String())
+                    }
+                }(chosenPeer)
+            }
+
+            lastPing = time.Now()
         }
-
-        for _, chosenPeer := range chosenPeers {
-            go func(chosenPeer *peer.Peer) {
-                chosenPeer.Send(outgoingPing.Marshal(), types.PROTOCOL_TYPE_UDP, false)
-
-                plugin.LogDebug("sent ping to " + chosenPeer.String())
-            }(chosenPeer)
-        }
-
-        lastPing = time.Now()
     }
 }

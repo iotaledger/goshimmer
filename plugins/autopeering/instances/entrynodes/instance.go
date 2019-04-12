@@ -1,6 +1,7 @@
 package entrynodes
 
 import (
+    "encoding/hex"
     "github.com/iotaledger/goshimmer/packages/identity"
     "github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
@@ -28,8 +29,13 @@ func parseEntryNodes() peerlist.PeerList {
         if len(identityBits) != 2 {
             panic("error while parsing identity of entry node: " + entryNodeDefinition)
         }
-        entryNode.Identity = &identity.Identity{
-            StringIdentifier: identityBits[0],
+        if decodedIdentifier, err := hex.DecodeString(identityBits[0]); err != nil {
+            panic("error while parsing identity of entry node: " + entryNodeDefinition)
+        } else {
+            entryNode.Identity = &identity.Identity{
+                Identifier: decodedIdentifier,
+                StringIdentifier: identityBits[0],
+            }
         }
 
         addressBits := strings.Split(identityBits[1], ":")

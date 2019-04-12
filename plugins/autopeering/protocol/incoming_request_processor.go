@@ -13,13 +13,9 @@ import (
 
 func createIncomingRequestProcessor(plugin *node.Plugin) func(req *request.Request) {
     return func(req *request.Request) {
-        Events.DiscoverPeer.Trigger(req.Issuer)
+        plugin.LogDebug("received peering request from " + req.Issuer.String())
 
-        if req.Issuer.Conn != nil {
-            plugin.LogDebug("received TCP peering request from " + req.Issuer.String())
-        } else {
-            plugin.LogDebug("received UDP peering request from " + req.Issuer.String())
-        }
+        Events.DiscoverPeer.Trigger(req.Issuer)
 
         if len(neighbormanager.ACCEPTED_NEIGHBORS) <= constants.NEIGHBOR_COUNT / 2 {
             if err := req.Accept(proposedPeeringCandidates(req)); err != nil {
