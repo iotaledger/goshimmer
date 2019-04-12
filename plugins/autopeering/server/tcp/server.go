@@ -6,9 +6,9 @@ import (
     "github.com/iotaledger/goshimmer/packages/network/tcp"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/ping"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/request"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/response"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
     "github.com/pkg/errors"
     "math"
     "net"
@@ -24,9 +24,9 @@ func ConfigureServer(plugin *node.Plugin) {
     })
     server.Events.Start.Attach(func() {
         if *parameters.ADDRESS.Value == "0.0.0.0" {
-            plugin.LogSuccess("Starting TCP Server (port " + strconv.Itoa(*parameters.TCP_PORT.Value) + ") ... done")
+            plugin.LogSuccess("Starting TCP Server (port " + strconv.Itoa(*parameters.PORT.Value) + ") ... done")
         } else {
-            plugin.LogSuccess("Starting TCP Server (" + *parameters.ADDRESS.Value + ":" + strconv.Itoa(*parameters.TCP_PORT.Value) + ") ... done")
+            plugin.LogSuccess("Starting TCP Server (" + *parameters.ADDRESS.Value + ":" + strconv.Itoa(*parameters.PORT.Value) + ") ... done")
         }
     })
     server.Events.Shutdown.Attach(func() {
@@ -37,12 +37,12 @@ func ConfigureServer(plugin *node.Plugin) {
 func RunServer(plugin *node.Plugin) {
     daemon.BackgroundWorker(func() {
         if *parameters.ADDRESS.Value == "0.0.0.0" {
-            plugin.LogInfo("Starting TCP Server (port " + strconv.Itoa(*parameters.TCP_PORT.Value) + ") ...")
+            plugin.LogInfo("Starting TCP Server (port " + strconv.Itoa(*parameters.PORT.Value) + ") ...")
         } else {
-            plugin.LogInfo("Starting TCP Server (" + *parameters.ADDRESS.Value + ":" + strconv.Itoa(*parameters.TCP_PORT.Value) + ") ...")
+            plugin.LogInfo("Starting TCP Server (" + *parameters.ADDRESS.Value + ":" + strconv.Itoa(*parameters.PORT.Value) + ") ...")
         }
 
-        server.Listen(*parameters.TCP_PORT.Value)
+        server.Listen(*parameters.PORT.Value)
     })
 }
 

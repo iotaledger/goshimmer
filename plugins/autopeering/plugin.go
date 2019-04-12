@@ -3,11 +3,11 @@ package autopeering
 import (
     "github.com/iotaledger/goshimmer/packages/daemon"
     "github.com/iotaledger/goshimmer/packages/node"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/peermanager"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/request"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/response"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
     "github.com/iotaledger/goshimmer/plugins/autopeering/server"
     "github.com/iotaledger/goshimmer/plugins/gossip/neighbormanager"
 )
@@ -33,7 +33,7 @@ func configure(plugin *node.Plugin) {
     })
 
     protocol.Events.DiscoverPeer.Attach(func(p *peer.Peer) {
-        if peermanager.KNOWN_PEERS.AddOrUpdate(p) {
+        if knownpeers.INSTANCE.AddOrUpdate(p) {
             plugin.LogInfo("new peer detected: " + p.Address.String() + " / " + p.Identity.StringIdentifier)
         }
     })

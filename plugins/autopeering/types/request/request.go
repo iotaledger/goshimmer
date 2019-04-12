@@ -3,8 +3,10 @@ package request
 import (
     "bytes"
     "github.com/iotaledger/goshimmer/packages/identity"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/response"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/instances/ownpeer"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/types"
     "github.com/iotaledger/goshimmer/plugins/autopeering/saltmanager"
     "time"
 )
@@ -48,18 +50,14 @@ func Unmarshal(data []byte) (*Request, error) {
 }
 
 func (this *Request) Accept(peers []*peer.Peer) error {
-    if _, err := this.Issuer.Connect(); err != nil {
-        return err
-    }
-
     peeringResponse := &response.Response{
         Type:   response.TYPE_ACCEPT,
-        Issuer: OUTGOING_REQUEST.Issuer,
+        Issuer: ownpeer.INSTANCE,
         Peers:  peers,
     }
     peeringResponse.Sign()
 
-    if err := this.Issuer.Send(peeringResponse.Marshal(), false); err != nil {
+    if _, err := this.Issuer.Send(peeringResponse.Marshal(), types.PROTOCOL_TYPE_TCP, false); err != nil {
         return err
     }
 

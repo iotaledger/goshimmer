@@ -4,7 +4,7 @@ import (
     "github.com/dgraph-io/badger"
     "github.com/iotaledger/goshimmer/packages/daemon"
     "github.com/iotaledger/goshimmer/packages/settings"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/salt"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/salt"
     "time"
 )
 

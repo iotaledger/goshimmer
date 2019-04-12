@@ -2,7 +2,7 @@ package ping
 
 import (
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 )
 
 const (

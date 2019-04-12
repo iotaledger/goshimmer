@@ -1,13 +1,13 @@
-package peermanager
+package neighborhood
 
 import "reflect"
 
 var Events = moduleEvents{
-    UpdateNeighborhood: &callbackEvent{make(map[uintptr]Callback)},
+    Update: &callbackEvent{make(map[uintptr]Callback)},
 }
 
 type moduleEvents struct {
-    UpdateNeighborhood *callbackEvent
+    Update *callbackEvent
 }
 
 type callbackEvent struct {

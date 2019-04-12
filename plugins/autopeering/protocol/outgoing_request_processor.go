@@ -4,21 +4,22 @@ import (
     "github.com/iotaledger/goshimmer/packages/accountability"
     "github.com/iotaledger/goshimmer/packages/daemon"
     "github.com/iotaledger/goshimmer/packages/node"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/peermanager"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighborcandidates"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/instances/outgoingrequest"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/request"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/types"
     "github.com/iotaledger/goshimmer/plugins/autopeering/server/tcp"
     "github.com/iotaledger/goshimmer/plugins/gossip/neighbormanager"
     "time"
 )
 
-func createChosenNeighborProcessor(plugin *node.Plugin) func() {
+func createOutgoingRequestProcessor(plugin *node.Plugin) func() {
     return func() {
         plugin.LogInfo("Starting Chosen Neighbor Processor ...")
         plugin.LogSuccess("Starting Chosen Neighbor Processor ... done")
 
-        chooseNeighbors(plugin)
+        sendOutgoingRequests(plugin)
 
         ticker := time.NewTicker(constants.FIND_NEIGHBOR_INTERVAL)
         ticker:
@@ -29,7 +30,7 @@ func createChosenNeighborProcessor(plugin *node.Plugin) func() {
 
                 break ticker
             case <- ticker.C:
-                chooseNeighbors(plugin)
+                sendOutgoingRequests(plugin)
             }
         }
 
@@ -37,8 +38,8 @@ func createChosenNeighborProcessor(plugin *node.Plugin) func() {
     }
 }
 
-func chooseNeighbors(plugin *node.Plugin) {
-    for _, chosenNeighborCandidate := range peermanager.CHOSEN_NEIGHBOR_CANDIDATES {
+func sendOutgoingRequests(plugin *node.Plugin) {
+    for _, chosenNeighborCandidate := range chosenneighborcandidates.INSTANCE {
         go func(peer *peer.Peer) {
             nodeId := peer.Identity.StringIdentifier
 
@@ -46,14 +47,14 @@ func chooseNeighbors(plugin *node.Plugin) {
                 !neighbormanager.CHOSEN_NEIGHBORS.Contains(nodeId) &&
                 accountability.OWN_ID.StringIdentifier != nodeId {
 
-                if connectionAlive, err := request.Send(peer); err != nil {
+                if dialed, err := peer.Send(outgoingrequest.INSTANCE.Marshal(), types.PROTOCOL_TYPE_TCP, true); err != nil {
                     plugin.LogDebug(err.Error())
-                } else if connectionAlive {
-                    plugin.LogDebug("sent TCP peering request to " + peer.String())
-
-                    tcp.HandleConnection(peer.Conn)
                 } else {
-                    plugin.LogDebug("sent UDP peering request to " + peer.String())
+                    plugin.LogDebug("sent peering request to " + peer.String())
+
+                    if dialed {
+                        tcp.HandleConnection(peer.Conn)
+                    }
                 }
             }
         }(chosenNeighborCandidate)

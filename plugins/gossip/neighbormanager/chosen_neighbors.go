@@ -1,7 +1,7 @@
 package neighbormanager
 
 import (
-    "github.com/iotaledger/goshimmer/plugins/autopeering/peermanager/types"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/peerregister"
 )
 
-var CHOSEN_NEIGHBORS = make(types.PeerRegister)
+var CHOSEN_NEIGHBORS = make(peerregister.PeerRegister)

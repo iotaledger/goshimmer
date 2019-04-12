@@ -1,9 +1,9 @@
 package protocol
 
 import (
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/request"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/response"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
     "reflect"
 )
 

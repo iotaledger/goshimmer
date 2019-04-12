@@ -1,10 +1,11 @@
-package types
+package peerregister
 
 import (
     "bytes"
     "github.com/iotaledger/goshimmer/packages/accountability"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/request"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/peerlist"
 )
 
 type PeerRegister map[string]*peer.Peer
@@ -44,8 +45,8 @@ func (this PeerRegister) Filter(filterFn func(this PeerRegister, req *request.Re
     return filterFn(this, req)
 }
 
-func (this PeerRegister) List() PeerList {
-    peerList := make(PeerList, len(this))
+func (this PeerRegister) List() peerlist.PeerList {
+    peerList := make(peerlist.PeerList, len(this))
 
     counter := 0
     for _, currentPeer := range this {

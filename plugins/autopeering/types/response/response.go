@@ -3,7 +3,7 @@ package response
 import (
     "bytes"
     "github.com/iotaledger/goshimmer/packages/identity"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
     "github.com/pkg/errors"
 )
 

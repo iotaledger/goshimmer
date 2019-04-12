@@ -2,7 +2,7 @@ package protocol
 
 import (
     "github.com/iotaledger/goshimmer/packages/node"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/ping"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
 )
 
 func createIncomingPingProcessor(plugin *node.Plugin) func(p *ping.Ping) {

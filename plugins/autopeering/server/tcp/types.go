@@ -1,9 +1,9 @@
 package tcp
 
 import (
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/ping"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/request"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/response"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
     "net"
 )
 

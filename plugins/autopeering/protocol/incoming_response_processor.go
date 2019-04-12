@@ -2,7 +2,7 @@ package protocol
 
 import (
     "github.com/iotaledger/goshimmer/packages/node"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/response"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
     "strconv"
 )
 

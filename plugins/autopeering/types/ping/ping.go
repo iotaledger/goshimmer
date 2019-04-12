@@ -3,14 +3,13 @@ package ping
 import (
     "bytes"
     "github.com/iotaledger/goshimmer/packages/identity"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/peermanager/types"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
     "github.com/iotaledger/goshimmer/plugins/autopeering/saltmanager"
 )
 
 type Ping struct {
     Issuer    *peer.Peer
-    Neighbors types.PeerList
+    Neighbors []*peer.Peer
     Signature [MARSHALLED_SIGNATURE_SIZE]byte
 }
 

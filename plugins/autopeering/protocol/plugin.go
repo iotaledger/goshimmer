@@ -25,6 +25,6 @@ func Configure(plugin *node.Plugin) {
 }
 
 func Run(plugin *node.Plugin) {
-    daemon.BackgroundWorker(createChosenNeighborProcessor(plugin))
+    daemon.BackgroundWorker(createOutgoingRequestProcessor(plugin))
     daemon.BackgroundWorker(createOutgoingPingProcessor(plugin))
 }

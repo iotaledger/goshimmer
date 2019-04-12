@@ -5,9 +5,9 @@ import (
     "github.com/iotaledger/goshimmer/packages/network/udp"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/ping"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/request"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/response"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
     "github.com/pkg/errors"
     "math"
     "net"
@@ -18,7 +18,7 @@ var udpServer = udp.NewServer(int(math.Max(float64(request.MARSHALLED_TOTAL_SIZE
 
 func ConfigureServer(plugin *node.Plugin) {
     Events.Error.Attach(func(ip net.IP, err error) {
-        plugin.LogFailure("u" + err.Error())
+        plugin.LogFailure(err.Error())
     })
 
     udpServer.Events.ReceiveData.Attach(processReceivedData)
@@ -27,9 +27,9 @@ func ConfigureServer(plugin *node.Plugin) {
     })
     udpServer.Events.Start.Attach(func() {
         if *parameters.ADDRESS.Value == "0.0.0.0" {
-            plugin.LogSuccess("Starting UDP Server (port " + strconv.Itoa(*parameters.UDP_PORT.Value) + ") ... done")
+            plugin.LogSuccess("Starting UDP Server (port " + strconv.Itoa(*parameters.PORT.Value) + ") ... done")
         } else {
-            plugin.LogSuccess("Starting UDP Server (" + *parameters.ADDRESS.Value + ":" + strconv.Itoa(*parameters.UDP_PORT.Value) + ") ... done")
+            plugin.LogSuccess("Starting UDP Server (" + *parameters.ADDRESS.Value + ":" + strconv.Itoa(*parameters.PORT.Value) + ") ... done")
         }
     })
     udpServer.Events.Shutdown.Attach(func() {
@@ -40,12 +40,12 @@ func ConfigureServer(plugin *node.Plugin) {
 func RunServer(plugin *node.Plugin) {
     daemon.BackgroundWorker(func() {
         if *parameters.ADDRESS.Value == "0.0.0.0" {
-            plugin.LogInfo("Starting UDP Server (port " + strconv.Itoa(*parameters.UDP_PORT.Value) + ") ...")
+            plugin.LogInfo("Starting UDP Server (port " + strconv.Itoa(*parameters.PORT.Value) + ") ...")
         } else {
-            plugin.LogInfo("Starting UDP Server (" + *parameters.ADDRESS.Value + ":" + strconv.Itoa(*parameters.UDP_PORT.Value) + ") ...")
+            plugin.LogInfo("Starting UDP Server (" + *parameters.ADDRESS.Value + ":" + strconv.Itoa(*parameters.PORT.Value) + ") ...")
         }
 
-        udpServer.Listen(*parameters.ADDRESS.Value, *parameters.UDP_PORT.Value)
+        udpServer.Listen(*parameters.ADDRESS.Value, *parameters.PORT.Value)
     })
 }
 

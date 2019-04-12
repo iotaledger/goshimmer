@@ -1,7 +1,7 @@
-package types
+package peerlist
 
 import (
-    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/peer"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
     "sort"
 )
 
