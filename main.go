@@ -2,6 +2,7 @@ package main
 
 import (
     "github.com/iotaledger/goshimmer/packages/node"
+    "github.com/iotaledger/goshimmer/plugins/analysis"
     "github.com/iotaledger/goshimmer/plugins/autopeering"
     "github.com/iotaledger/goshimmer/plugins/cli"
     "github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
@@ -14,5 +15,6 @@ func main() {
         autopeering.PLUGIN,
         statusscreen.PLUGIN,
         gracefulshutdown.PLUGIN,
+        analysis.PLUGIN,
     )
 }

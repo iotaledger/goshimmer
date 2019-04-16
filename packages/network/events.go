@@ -52,7 +52,7 @@ func (this *dataEvent) Attach(callback DataConsumer) {
     this.callbacks[reflect.ValueOf(callback).Pointer()] = callback
 }
 
-func (this *dataEvent) Detach(callback ErrorConsumer) {
+func (this *dataEvent) Detach(callback DataConsumer) {
     delete(this.callbacks, reflect.ValueOf(callback).Pointer())
 }
 

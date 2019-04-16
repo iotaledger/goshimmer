@@ -6,8 +6,8 @@ import (
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peerlist"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
     "github.com/iotaledger/goshimmer/plugins/gossip/neighbormanager"
 )
 
@@ -16,6 +16,8 @@ func createIncomingRequestProcessor(plugin *node.Plugin) func(req *request.Reque
         plugin.LogDebug("received peering request from " + req.Issuer.String())
 
         Events.DiscoverPeer.Trigger(req.Issuer)
+
+        //distanceFn := chosenneighborcandidates.DISTANCE(ownpeer.INSTANCE)
 
         if len(neighbormanager.ACCEPTED_NEIGHBORS) <= constants.NEIGHBOR_COUNT / 2 {
             if err := req.Accept(proposedPeeringCandidates(req)); err != nil {
@@ -40,5 +42,5 @@ func createIncomingRequestProcessor(plugin *node.Plugin) func(req *request.Reque
 func proposedPeeringCandidates(req *request.Request) peerlist.PeerList {
     return neighborhood.LIST_INSTANCE.Filter(func(p *peer.Peer) bool {
         return p.Identity.PublicKey != nil
-    }).Sort(chosenneighborcandidates.DISTANCE(req))
+    }).Sort(chosenneighborcandidates.DISTANCE(req.Issuer))
 }

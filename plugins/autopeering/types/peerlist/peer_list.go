@@ -22,7 +22,7 @@ func (this PeerList) Filter(predicate func(p *peer.Peer) bool) PeerList {
 }
 
 // Sorts the PeerRegister by their distance to an anchor.
-func (this PeerList) Sort(distance func(p *peer.Peer) float64) PeerList {
+func (this PeerList) Sort(distance func(p *peer.Peer) uint64) PeerList {
     sort.Slice(this, func(i, j int) bool {
         return distance(this[i]) < distance(this[j])
     })

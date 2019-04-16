@@ -151,7 +151,7 @@ func processIncomingRequestPacket(connectionState *byte, receiveBuffer *[]byte, 
         *connectionState = STATE_INITIAL
 
         if *offset + len(data) > request.MARSHALLED_TOTAL_SIZE {
-            ProcessIncomingPacket(connectionState, receiveBuffer, conn, data[request.MARSHALLED_TOTAL_SIZE:], offset)
+            ProcessIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset)
         }
     }
 }
@@ -184,7 +184,7 @@ func processIncomingResponsePacket(connectionState *byte, receiveBuffer *[]byte,
         *connectionState = STATE_INITIAL
 
         if *offset + len(data) > response.MARSHALLED_TOTAL_SIZE {
-            ProcessIncomingPacket(connectionState, receiveBuffer, conn, data[response.MARSHALLED_TOTAL_SIZE:], offset)
+            ProcessIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset)
         }
     }
 }
@@ -217,7 +217,7 @@ func processIncomingPingPacket(connectionState *byte, receiveBuffer *[]byte, con
         *connectionState = STATE_INITIAL
 
         if *offset + len(data) > ping.MARSHALLED_TOTAL_SIZE {
-            ProcessIncomingPacket(connectionState, receiveBuffer, conn, data[ping.MARSHALLED_TOTAL_SIZE:], offset)
+            ProcessIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset)
         }
     }
 }
