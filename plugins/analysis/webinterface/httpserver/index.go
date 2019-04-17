@@ -34,7 +34,7 @@ func index(w http.ResponseWriter, r *http.Request) {
           break;
 
           case "A":
-            addNode(e.data.substr(1));
+            //addNode(e.data.substr(1));
           break;
 
           case "a":
@@ -42,6 +42,8 @@ func index(w http.ResponseWriter, r *http.Request) {
           break;
 
           case "C":
+             addNode(e.data.substr(1, 40));
+             addNode(e.data.substr(41, 40));
              connectNodes(e.data.substr(1, 40), e.data.substr(41, 40));
           break;
 
@@ -72,13 +74,27 @@ func index(w http.ResponseWriter, r *http.Request) {
         .enableNodeDrag(false)
         .onNodeHover(node => elem.style.cursor = node ? 'pointer' : null)
         .onNodeClick(removeNodeX)
-        .linkDirectionalParticles(3)
-        .linkDirectionalParticleWidth(0.8)
-        .linkDirectionalParticleSpeed(0.01)
+        //.linkDirectionalParticles(3)
+        //.linkDirectionalParticleWidth(0.8)
+        //.linkDirectionalParticleSpeed(0.01)
         .nodeColor(node => node.online ? 'rgba(0,255,0,1)' : 'rgba(255,255,255,1)')
         .graphData(data);
 
-    function addNode(nodeId) {
+    var updateRequired = true;
+
+    setInterval(function() {
+      if (updateRequired) {
+        Graph.graphData(data);
+
+        updateRequired = false;
+      }
+    }, 500)
+
+    updateGraph = function() {
+      updateRequired = true;
+    };
+
+    function addNode(nodeId, displayImmediately) {
       node = {id : nodeId, online: false};
 
       if (!(node.id in nodesById)) {
@@ -86,7 +102,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 
         nodesById[node.id] = node;
 
-        Graph.graphData(data);
+        updateGraph();
       }
     }
 
@@ -96,31 +112,35 @@ func index(w http.ResponseWriter, r *http.Request) {
 
       delete nodesById[nodeId];
 
-      Graph.graphData(data);
+      updateGraph();
     }
 
     function setNodeOnline(nodeId) {
-      nodesById[nodeId].online = true;
+      if (nodeId in nodesById) {
+        nodesById[nodeId].online = true;
+      }
 
-      Graph.graphData(data);
+      updateGraph();
     }
 
     function setNodeOffline(nodeId) {
-      nodesById[nodeId].online = false;
+      if (nodeId in nodesById) {
+        nodesById[nodeId].online = false;
 
-      Graph.graphData(data);
+        updateGraph();
+      }
     }
 
     function connectNodes(sourceNodeId, targetNodeId) {
       data.links = [...data.links, { source: sourceNodeId, target: targetNodeId }];
 
-      Graph.graphData(data);
+      updateGraph();
     }
 
     function disconnectNodes(sourceNodeId, targetNodeId) {
       data.links = data.links.filter(l => !(l.source.id == sourceNodeId && l.target.id == targetNodeId) && !(l.source.id == targetNodeId && l.target.id == sourceNodeId));
 
-      Graph.graphData(data);
+      updateGraph();
     }
 
     function removeNodeX(node) {

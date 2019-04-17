@@ -3,6 +3,7 @@ package response
 import (
     "bytes"
     "github.com/iotaledger/goshimmer/packages/identity"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
     "github.com/pkg/errors"
 )
@@ -76,11 +77,13 @@ func (this *Response) Marshal() []byte {
     copy(result[MARSHALLED_ISSUER_START:MARSHALLED_ISSUER_END], this.Issuer.Marshal())
 
     for i, peer := range this.Peers {
-        PEERING_RESPONSE_MARSHALLED_PEER_START := MARSHALLED_PEERS_START + (i * MARSHALLED_PEER_SIZE)
-        PEERING_RESPONSE_MARSHALLED_PEER_END := PEERING_RESPONSE_MARSHALLED_PEER_START + MARSHALLED_PEER_SIZE
+        if i < constants.NEIGHBOR_COUNT {
+            PEERING_RESPONSE_MARSHALLED_PEER_START := MARSHALLED_PEERS_START + (i * MARSHALLED_PEER_SIZE)
+            PEERING_RESPONSE_MARSHALLED_PEER_END := PEERING_RESPONSE_MARSHALLED_PEER_START + MARSHALLED_PEER_SIZE
 
-        result[PEERING_RESPONSE_MARSHALLED_PEER_START] = 1
-        copy(result[PEERING_RESPONSE_MARSHALLED_PEER_START+1:PEERING_RESPONSE_MARSHALLED_PEER_END], peer.Marshal()[:MARSHALLED_PEER_SIZE-1])
+            result[PEERING_RESPONSE_MARSHALLED_PEER_START] = 1
+            copy(result[PEERING_RESPONSE_MARSHALLED_PEER_START+1:PEERING_RESPONSE_MARSHALLED_PEER_END], peer.Marshal()[:MARSHALLED_PEER_SIZE-1])
+        }
     }
 
     copy(result[MARSHALLED_SIGNATURE_START:MARSHALLED_SIGNATURE_END], this.Signature[:MARSHALLED_SIGNATURE_SIZE])

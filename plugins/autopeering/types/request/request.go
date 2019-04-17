@@ -65,6 +65,17 @@ func (this *Request) Accept(peers []*peer.Peer) error {
 }
 
 func (this *Request) Reject(peers []*peer.Peer) error {
+    peeringResponse := &response.Response{
+        Type:   response.TYPE_REJECT,
+        Issuer: ownpeer.INSTANCE,
+        Peers:  peers,
+    }
+    peeringResponse.Sign()
+
+    if _, err := this.Issuer.Send(peeringResponse.Marshal(), types.PROTOCOL_TYPE_TCP, false); err != nil {
+        return err
+    }
+
     return nil
 }
 

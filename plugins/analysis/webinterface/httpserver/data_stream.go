@@ -8,10 +8,25 @@ import (
     "golang.org/x/net/websocket"
 )
 
+var nodes = make(map[string]bool)
+var links = make(map[string]map[string]bool)
+
 func dataStream(ws *websocket.Conn) {
     eventHandlers := &types.EventHandlers{
-        AddNode:         func(nodeId string) { fmt.Fprint(ws, "A"+nodeId) },
-        RemoveNode:      func(nodeId string) { fmt.Fprint(ws, "a"+nodeId) },
+        AddNode:         func(nodeId string) {
+            if _, exists := nodes[nodeId]; !exists {
+                nodes[nodeId] = true
+
+                fmt.Fprint(ws, "A"+nodeId)
+            }
+        },
+        RemoveNode:      func(nodeId string) {
+            if _, exists := nodes[nodeId]; exists {
+                delete(nodes, nodeId)
+
+                fmt.Fprint(ws, "a"+nodeId)
+            }
+        },
         ConnectNodes:    func(sourceId string, targetId string) { fmt.Fprint(ws, "C"+sourceId+targetId) },
         DisconnectNodes: func(sourceId string, targetId string) { fmt.Fprint(ws, "c"+sourceId+targetId) },
         NodeOnline:      func(nodeId string) { fmt.Fprint(ws, "O"+nodeId) },

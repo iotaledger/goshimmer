@@ -1,6 +1,7 @@
 package neighborhood
 
 import (
+    "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/packages/timeutil"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/outgoingrequest"
@@ -27,7 +28,7 @@ var NEIGHBORHOOD_SELECTOR = func(this peerregister.PeerRegister, req *request.Re
 
 var lastUpdate = time.Now()
 
-func init() {
+func Configure(plugin *node.Plugin) {
     updateNeighborHood()
 
     go timeutil.Ticker(updateNeighborHood, 1 * time.Second)

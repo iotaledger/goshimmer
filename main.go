@@ -13,8 +13,8 @@ func main() {
     node.Run(
         cli.PLUGIN,
         autopeering.PLUGIN,
+        analysis.PLUGIN,
         statusscreen.PLUGIN,
         gracefulshutdown.PLUGIN,
-        analysis.PLUGIN,
     )
 }

@@ -1,6 +1,7 @@
 package chosenneighborcandidates
 
 import (
+    "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/outgoingrequest"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
@@ -16,7 +17,7 @@ var DISTANCE = func(anchor *peer.Peer) func(p *peer.Peer) uint64 {
     }
 }
 
-func init() {
+func Configure(plugin *node.Plugin) {
     updateNeighborCandidates()
 
     neighborhood.Events.Update.Attach(updateNeighborCandidates)

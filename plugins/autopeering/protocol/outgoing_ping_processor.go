@@ -5,7 +5,7 @@ import (
     "github.com/iotaledger/goshimmer/packages/daemon"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/instances/ownpeer"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/types"
     "github.com/iotaledger/goshimmer/plugins/autopeering/saltmanager"
@@ -13,7 +13,6 @@ import (
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/salt"
     "math/rand"
-    "net"
     "time"
 )
 
@@ -27,13 +26,7 @@ func createOutgoingPingProcessor(plugin *node.Plugin) func() {
         lastPing = time.Now().Add(-constants.PING_CYCLE_LENGTH)
         
         outgoingPing := &ping.Ping{
-            Issuer: &peer.Peer{
-                Identity:            accountability.OWN_ID,
-                Address:             net.IPv4(0, 0, 0, 0),
-                PeeringPort:         uint16(*parameters.PORT.Value),
-                GossipPort:          uint16(*parameters.PORT.Value),
-                Salt:                saltmanager.PUBLIC_SALT,
-            },
+            Issuer: ownpeer.INSTANCE,
         }
         outgoingPing.Sign()
 

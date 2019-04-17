@@ -2,8 +2,8 @@ package cli
 
 import (
     "flag"
-    "github.com/iotaledger/goshimmer/packages/parameter"
     "github.com/iotaledger/goshimmer/packages/node"
+    "github.com/iotaledger/goshimmer/packages/parameter"
     "strings"
 )
 

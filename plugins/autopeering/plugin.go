@@ -3,6 +3,7 @@ package autopeering
 import (
     "github.com/iotaledger/goshimmer/packages/daemon"
     "github.com/iotaledger/goshimmer/packages/node"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/instances"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
@@ -13,6 +14,7 @@ import (
 )
 
 func configure(plugin *node.Plugin) {
+    instances.Configure(plugin)
     server.Configure(plugin)
     protocol.Configure(plugin)
 

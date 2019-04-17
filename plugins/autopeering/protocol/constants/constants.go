@@ -3,9 +3,9 @@ package constants
 import "time"
 
 const (
-    NEIGHBOR_COUNT = 8
+    NEIGHBOR_COUNT = 4
 
-    FIND_NEIGHBOR_INTERVAL = 5 * time.Second
+    FIND_NEIGHBOR_INTERVAL = 60 * time.Second
 
     // How often does the outgoing ping processor check if new pings should be sent.
     PING_PROCESS_INTERVAL = 1 * time.Second

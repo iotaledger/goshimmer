@@ -63,6 +63,7 @@ func HandleConnection(conn *network.ManagedConnection) {
     }
     onDisconnect = func() {
         Events.NodeOffline.Trigger(connectedNodeId)
+        Events.RemoveNode.Trigger(connectedNodeId)
 
         conn.Events.ReceiveData.Detach(onReceiveData)
         conn.Events.Close.Detach(onDisconnect)

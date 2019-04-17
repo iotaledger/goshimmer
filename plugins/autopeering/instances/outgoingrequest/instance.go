@@ -1,6 +1,7 @@
 package outgoingrequest
 
 import (
+    "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/ownpeer"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/salt"
@@ -9,7 +10,7 @@ import (
 
 var INSTANCE *request.Request
 
-func init() {
+func Configure(plugin *node.Plugin) {
     INSTANCE = &request.Request{
         Issuer: ownpeer.INSTANCE,
     }
