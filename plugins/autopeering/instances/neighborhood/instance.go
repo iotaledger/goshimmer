@@ -11,16 +11,16 @@ import (
     "time"
 )
 
-var INSTANCE peerregister.PeerRegister
+var INSTANCE *peerregister.PeerRegister
 
 var LIST_INSTANCE peerlist.PeerList
 
 // Selects a fixed neighborhood from all known peers - this allows nodes to "stay in the same circles" that share their
 // view on the ledger an is a preparation for economic clustering
-var NEIGHBORHOOD_SELECTOR = func(this peerregister.PeerRegister, req *request.Request) peerregister.PeerRegister {
-    filteredPeers := make(peerregister.PeerRegister)
-    for id, peer := range this {
-        filteredPeers[id] = peer
+var NEIGHBORHOOD_SELECTOR = func(this *peerregister.PeerRegister, req *request.Request) *peerregister.PeerRegister {
+    filteredPeers := peerregister.New()
+    for id, peer := range this.Peers {
+        filteredPeers.Peers[id] = peer
     }
 
     return filteredPeers
@@ -35,7 +35,7 @@ func Configure(plugin *node.Plugin) {
 }
 
 func updateNeighborHood() {
-    if float64(len(INSTANCE)) * 1.2 <= float64(len(knownpeers.INSTANCE)) || lastUpdate.Before(time.Now().Add(-300 * time.Second)) {
+    if INSTANCE == nil || float64(len(INSTANCE.Peers)) * 1.2 <= float64(len(knownpeers.INSTANCE.Peers)) || lastUpdate.Before(time.Now().Add(-300 * time.Second)) {
         INSTANCE = knownpeers.INSTANCE.Filter(NEIGHBORHOOD_SELECTOR, outgoingrequest.INSTANCE)
         LIST_INSTANCE = INSTANCE.List()
 

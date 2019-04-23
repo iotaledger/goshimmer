@@ -6,17 +6,27 @@ import (
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peerlist"
+    "sync"
 )
 
-type PeerRegister map[string]*peer.Peer
+type PeerRegister struct {
+    Peers map[string]*peer.Peer
+    Lock sync.RWMutex
+}
+
+func New() *PeerRegister {
+    return &PeerRegister{
+        Peers: make(map[string]*peer.Peer),
+    }
+}
 
 // returns true if a new entry was added
-func (this PeerRegister) AddOrUpdate(peer *peer.Peer) bool {
+func (this *PeerRegister) AddOrUpdate(peer *peer.Peer) bool {
     if peer.Identity == nil || bytes.Equal(peer.Identity.Identifier, accountability.OWN_ID.Identifier) {
         return false
     }
 
-    if existingPeer, exists := this[peer.Identity.StringIdentifier]; exists {
+    if existingPeer, exists := this.Peers[peer.Identity.StringIdentifier]; exists {
         existingPeer.Address = peer.Address
         existingPeer.GossipPort = peer.GossipPort
         existingPeer.PeeringPort = peer.PeeringPort
@@ -25,7 +35,7 @@ func (this PeerRegister) AddOrUpdate(peer *peer.Peer) bool {
 
         return false
     } else {
-        this[peer.Identity.StringIdentifier] = peer
+        this.Peers[peer.Identity.StringIdentifier] = peer
 
         // trigger add peer
 
@@ -33,23 +43,23 @@ func (this PeerRegister) AddOrUpdate(peer *peer.Peer) bool {
     }
 }
 
-func (this PeerRegister) Contains(key string) bool {
-    if _, exists := this[key]; exists {
+func (this *PeerRegister) Contains(key string) bool {
+    if _, exists := this.Peers[key]; exists {
         return true
     } else {
         return false
     }
 }
 
-func (this PeerRegister) Filter(filterFn func(this PeerRegister, req *request.Request) PeerRegister, req *request.Request) PeerRegister {
+func (this *PeerRegister) Filter(filterFn func(this *PeerRegister, req *request.Request) *PeerRegister, req *request.Request) *PeerRegister {
     return filterFn(this, req)
 }
 
-func (this PeerRegister) List() peerlist.PeerList {
-    peerList := make(peerlist.PeerList, len(this))
+func (this *PeerRegister) List() peerlist.PeerList {
+    peerList := make(peerlist.PeerList, len(this.Peers))
 
     counter := 0
-    for _, currentPeer := range this {
+    for _, currentPeer := range this.Peers {
         peerList[counter] = currentPeer
         counter++
     }

@@ -8,11 +8,11 @@ import (
     "github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
     "github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
     "github.com/iotaledger/goshimmer/plugins/analysis/types/ping"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
-    "github.com/iotaledger/goshimmer/plugins/gossip/neighbormanager"
     "net"
     "time"
 )
@@ -88,10 +88,10 @@ func setupHooks(conn *network.ManagedConnection, eventDispatchers *EventDispatch
 }
 
 func reportChosenNeighbors(dispatchers *EventDispatchers) {
-    for _, chosenNeighbor := range neighbormanager.CHOSEN_NEIGHBORS {
+    for _, chosenNeighbor := range chosenneighbors.INSTANCE.Peers {
         dispatchers.AddNode(chosenNeighbor.Identity.Identifier)
     }
-    for _, chosenNeighbor := range neighbormanager.CHOSEN_NEIGHBORS {
+    for _, chosenNeighbor := range chosenneighbors.INSTANCE.Peers {
         dispatchers.ConnectNodes(accountability.OWN_ID.Identifier, chosenNeighbor.Identity.Identifier)
     }
 }

@@ -13,3 +13,7 @@ func (this *logger) Infof(string, ...interface{}) {
 func (this *logger) Warningf(string, ...interface{}) {
     // disable logging
 }
+
+func (this *logger) Debugf(string, ...interface{}) {
+	// disable logging
+}

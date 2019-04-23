@@ -4,9 +4,10 @@ import (
     "fmt"
     "github.com/gdamore/tcell"
     "github.com/iotaledger/goshimmer/packages/accountability"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
-    "github.com/iotaledger/goshimmer/plugins/gossip/neighbormanager"
     "github.com/rivo/tview"
     "math"
     "strconv"
@@ -66,9 +67,9 @@ func (headerBar *UIHeaderBar) Update() {
     fmt.Fprintln(headerBar.InfoContainer)
     fmt.Fprintf(headerBar.InfoContainer, "[::b]Node ID: [::d]%40v  ", accountability.OWN_ID.StringIdentifier)
     fmt.Fprintln(headerBar.InfoContainer)
-    fmt.Fprintf(headerBar.InfoContainer, "[::b]Neighbors: [::d]%40v  ", strconv.Itoa(len(neighbormanager.CHOSEN_NEIGHBORS)) + " chosen / " + strconv.Itoa(len(neighbormanager.ACCEPTED_NEIGHBORS)) + " accepted")
+    fmt.Fprintf(headerBar.InfoContainer, "[::b]Neighbors: [::d]%40v  ", strconv.Itoa(len(chosenneighbors.INSTANCE.Peers)) + " chosen / " + strconv.Itoa(len(acceptedneighbors.INSTANCE.Peers)) + " accepted")
     fmt.Fprintln(headerBar.InfoContainer)
-    fmt.Fprintf(headerBar.InfoContainer, "[::b]Known Peers: [::d]%40v  ", strconv.Itoa(len(knownpeers.INSTANCE)) + " total / " + strconv.Itoa(len(neighborhood.INSTANCE)) + " neighborhood")
+    fmt.Fprintf(headerBar.InfoContainer, "[::b]Known Peers: [::d]%40v  ", strconv.Itoa(len(knownpeers.INSTANCE.Peers)) + " total / " + strconv.Itoa(len(neighborhood.INSTANCE.Peers)) + " neighborhood")
     fmt.Fprintln(headerBar.InfoContainer)
     fmt.Fprintf(headerBar.InfoContainer, "[::b]Uptime: [::d]");
 

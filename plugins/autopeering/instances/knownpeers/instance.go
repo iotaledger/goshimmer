@@ -6,14 +6,14 @@ import (
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peerregister"
 )
 
-var INSTANCE = initKnownPeers()
+var INSTANCE *peerregister.PeerRegister
 
 func Configure(plugin *node.Plugin) {
     INSTANCE = initKnownPeers()
 }
 
-func initKnownPeers() peerregister.PeerRegister {
-    knownPeers := make(peerregister.PeerRegister)
+func initKnownPeers() *peerregister.PeerRegister {
+    knownPeers := peerregister.New()
     for _, entryNode := range entrynodes.INSTANCE {
         knownPeers.AddOrUpdate(entryNode)
     }
