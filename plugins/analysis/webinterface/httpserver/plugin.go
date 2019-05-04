@@ -2,6 +2,7 @@ package httpserver
 
 import (
     "github.com/iotaledger/goshimmer/packages/daemon"
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/node"
     "golang.org/x/net/context"
     "golang.org/x/net/websocket"
@@ -21,12 +22,12 @@ func Configure(plugin *node.Plugin) {
     router.Handle("/datastream", websocket.Handler(dataStream))
     router.HandleFunc("/", index)
 
-    daemon.Events.Shutdown.Attach(func() {
+    daemon.Events.Shutdown.Attach(events.NewClosure(func() {
         ctx, cancel := context.WithTimeout(context.Background(), 0 * time.Second)
         defer cancel()
 
         httpServer.Shutdown(ctx)
-    })
+    }))
 }
 
 func Run(plugin *node.Plugin) {

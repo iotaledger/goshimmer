@@ -7,6 +7,15 @@ import (
 
 type PeerList []*peer.Peer
 
+func (this PeerList) Clone() PeerList {
+    result := make(PeerList, len(this))
+    for i, entry := range this {
+        result[i] = entry
+    }
+
+    return result
+}
+
 func (this PeerList) Filter(predicate func(p *peer.Peer) bool) PeerList {
     peerList := make(PeerList, len(this))
 

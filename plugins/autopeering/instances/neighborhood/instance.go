@@ -1,13 +1,14 @@
 package neighborhood
 
 import (
+    "github.com/iotaledger/goshimmer/packages/daemon"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/packages/timeutil"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/outgoingrequest"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peerlist"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peerregister"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
     "time"
 )
 
@@ -30,8 +31,12 @@ var lastUpdate = time.Now()
 
 func Configure(plugin *node.Plugin) {
     updateNeighborHood()
+}
 
-    go timeutil.Ticker(updateNeighborHood, 1 * time.Second)
+func Run(plugin *node.Plugin) {
+    daemon.BackgroundWorker(func() {
+        timeutil.Ticker(updateNeighborHood, 1 * time.Second)
+    })
 }
 
 func updateNeighborHood() {

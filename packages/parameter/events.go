@@ -1,52 +1,16 @@
 package parameter
 
-import "reflect"
+import (
+    "github.com/iotaledger/goshimmer/packages/events"
+)
 
-type moduleEvents struct {
-    AddInt    *intParameterEvent
-    AddString *stringParameterEvent
+var Events = struct {
+    AddInt    *events.Event
+    AddString *events.Event
+}{
+    events.NewEvent(intParameterCaller),
+    events.NewEvent(stringParameterCaller),
 }
 
-//region intParameterEvent /////////////////////////////////////////////////////////////////////////////////////////////
-
-type intParameterEvent struct {
-    callbacks map[uintptr]IntParameterConsumer
-}
-
-func (this *intParameterEvent) Attach(callback IntParameterConsumer) {
-    this.callbacks[reflect.ValueOf(callback).Pointer()] = callback
-}
-
-func (this *intParameterEvent) Detach(callback IntParameterConsumer) {
-    delete(this.callbacks, reflect.ValueOf(callback).Pointer())
-}
-
-func (this *intParameterEvent) Trigger(param *IntParameter) {
-    for _, callback := range this.callbacks {
-        callback(param)
-    }
-}
-
-//endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-//region stringParameterEvent //////////////////////////////////////////////////////////////////////////////////////////
-
-type stringParameterEvent struct {
-    callbacks map[uintptr]StringParameterConsumer
-}
-
-func (this *stringParameterEvent) Attach(callback StringParameterConsumer) {
-    this.callbacks[reflect.ValueOf(callback).Pointer()] = callback
-}
-
-func (this *stringParameterEvent) Detach(callback StringParameterConsumer) {
-    delete(this.callbacks, reflect.ValueOf(callback).Pointer())
-}
-
-func (this *stringParameterEvent) Trigger(param *StringParameter) {
-    for _, callback := range this.callbacks {
-        callback(param)
-    }
-}
-
-//endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+func intParameterCaller(handler interface{}, params ...interface{})    { handler.(func(*IntParameter))(params[0].(*IntParameter)) }
+func stringParameterCaller(handler interface{}, params ...interface{}) { handler.(func(*StringParameter))(params[0].(*StringParameter)) }

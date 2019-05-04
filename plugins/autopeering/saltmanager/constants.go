@@ -3,8 +3,8 @@ package saltmanager
 import "time"
 
 const (
-    PUBLIC_SALT_LIFETIME  = 50 * time.Second
-    PRIVATE_SALT_LIFETIME = 50 * time.Second
+    PUBLIC_SALT_LIFETIME  = 1800 * time.Second
+    PRIVATE_SALT_LIFETIME = 1800 * time.Second
 )
 
 var (

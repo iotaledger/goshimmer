@@ -5,6 +5,7 @@ import (
     "github.com/iotaledger/goshimmer/packages/network/udp"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/drop"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
@@ -80,6 +81,14 @@ func processReceivedData(addr *net.UDPAddr, data []byte) {
             ping.Issuer.Address = addr.IP
 
             Events.ReceivePing.Trigger(ping)
+        }
+    case drop.MARSHALLED_PACKET_HEADER:
+        if drop, err := drop.Unmarshal(data); err != nil {
+            Events.Error.Trigger(addr.IP, err)
+        } else {
+            drop.Issuer.Address = addr.IP
+
+            Events.ReceiveDrop.Trigger(drop)
         }
     default:
         Events.Error.Trigger(addr.IP, errors.New("invalid UDP peering packet from " + addr.IP.String()))

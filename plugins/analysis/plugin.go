@@ -2,6 +2,7 @@ package analysis
 
 import (
     "github.com/iotaledger/goshimmer/packages/daemon"
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/plugins/analysis/client"
     "github.com/iotaledger/goshimmer/plugins/analysis/server"
@@ -15,13 +16,9 @@ func configure(plugin *node.Plugin) {
         webinterface.Configure(plugin)
         server.Configure(plugin)
 
-        server.Events.AddNode.Attach(func(nodeId string) {
-            
-        })
-
-        daemon.Events.Shutdown.Attach(func() {
+        daemon.Events.Shutdown.Attach(events.NewClosure(func() {
             server.Shutdown(plugin)
-        })
+        }))
     }
 }
 

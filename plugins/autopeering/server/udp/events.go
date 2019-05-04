@@ -1,6 +1,7 @@
 package udp
 
 import (
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/drop"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
@@ -9,6 +10,7 @@ import (
 )
 
 var Events = &pluginEvents{
+    ReceiveDrop:     &dropEvent{make(map[uintptr]DropConsumer)},
     ReceivePing:     &pingEvent{make(map[uintptr]PingConsumer)},
     ReceiveRequest:  &requestEvent{make(map[uintptr]ConnectionPeeringRequestConsumer)},
     ReceiveResponse: &responseEvent{make(map[uintptr]ConnectionPeeringResponseConsumer)},
@@ -16,10 +18,29 @@ var Events = &pluginEvents{
 }
 
 type pluginEvents struct {
+    ReceiveDrop     *dropEvent
     ReceivePing     *pingEvent
     ReceiveRequest  *requestEvent
     ReceiveResponse *responseEvent
     Error           *ipErrorEvent
+}
+
+type dropEvent struct {
+    callbacks map[uintptr]DropConsumer
+}
+
+func (this *dropEvent) Attach(callback DropConsumer) {
+    this.callbacks[reflect.ValueOf(callback).Pointer()] = callback
+}
+
+func (this *dropEvent) Detach(callback DropConsumer) {
+    delete(this.callbacks, reflect.ValueOf(callback).Pointer())
+}
+
+func (this *dropEvent) Trigger(drop *drop.Drop) {
+    for _, callback := range this.callbacks {
+        callback(drop)
+    }
 }
 
 type pingEvent struct {

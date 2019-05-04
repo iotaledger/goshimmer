@@ -2,6 +2,7 @@ package cli
 
 import (
     "flag"
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/packages/parameter"
     "strings"
@@ -28,8 +29,8 @@ func init() {
         onAddStringParameter(param)
     }
 
-    parameter.Events.AddInt.Attach(onAddIntParameter)
-    parameter.Events.AddString.Attach(onAddStringParameter)
+    parameter.Events.AddInt.Attach(events.NewClosure(onAddIntParameter))
+    parameter.Events.AddString.Attach(events.NewClosure(onAddStringParameter))
 
     flag.Usage = printUsage
 

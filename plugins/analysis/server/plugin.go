@@ -63,7 +63,6 @@ func HandleConnection(conn *network.ManagedConnection) {
     }
     onDisconnect = func() {
         Events.NodeOffline.Trigger(connectedNodeId)
-        Events.RemoveNode.Trigger(connectedNodeId)
 
         conn.Events.ReceiveData.Detach(onReceiveData)
         conn.Events.Close.Detach(onDisconnect)
@@ -120,6 +119,9 @@ func processIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *n
             case STATE_CONNECT_NODES:
                 *receiveBuffer = make([]byte, connectnodes.MARSHALLED_TOTAL_SIZE)
 
+            case STATE_DISCONNECT_NODES:
+                *receiveBuffer = make([]byte, disconnectnodes.MARSHALLED_TOTAL_SIZE)
+
             case STATE_REMOVE_NODE:
                 *receiveBuffer = make([]byte, removenode.MARSHALLED_TOTAL_SIZE)
         }
@@ -146,6 +148,9 @@ func processIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *n
         case STATE_CONNECT_NODES:
             processIncomingConnectNodesPacket(connectionState, receiveBuffer, conn, data, offset, connectedNodeId)
 
+        case STATE_DISCONNECT_NODES:
+            processIncomingDisconnectNodesPacket(connectionState, receiveBuffer, conn, data, offset, connectedNodeId)
+
         case STATE_REMOVE_NODE:
             processIncomingAddNodePacket(connectionState, receiveBuffer, conn, data, offset, connectedNodeId)
     }
@@ -170,6 +175,11 @@ func parsePackageHeader(data []byte) (ConnectionState, []byte, error) {
             receiveBuffer = make([]byte, connectnodes.MARSHALLED_TOTAL_SIZE)
 
             connectionState = STATE_CONNECT_NODES
+
+        case disconnectnodes.MARSHALLED_PACKET_HEADER:
+            receiveBuffer = make([]byte, disconnectnodes.MARSHALLED_TOTAL_SIZE)
+
+            connectionState = STATE_DISCONNECT_NODES
 
         case removenode.MARSHALLED_PACKET_HEADER:
             receiveBuffer = make([]byte, removenode.MARSHALLED_TOTAL_SIZE)
@@ -265,6 +275,35 @@ func processIncomingConnectNodesPacket(connectionState *byte, receiveBuffer *[]b
         *connectionState = STATE_CONSECUTIVE
 
         if *offset + len(data) > connectnodes.MARSHALLED_TOTAL_SIZE {
+            processIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset, connectedNodeId)
+        }
+    }
+}
+
+func processIncomingDisconnectNodesPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int, connectedNodeId *string) {
+    remainingCapacity := int(math.Min(float64(disconnectnodes.MARSHALLED_TOTAL_SIZE- *offset), float64(len(data))))
+
+    copy((*receiveBuffer)[*offset:], data[:remainingCapacity])
+
+    if *offset + len(data) < disconnectnodes.MARSHALLED_TOTAL_SIZE {
+        *offset += len(data)
+    } else {
+        if disconnectNodesPacket, err := disconnectnodes.Unmarshal(*receiveBuffer); err != nil {
+            Events.Error.Trigger(err)
+
+            conn.Close()
+
+            return
+        } else {
+            sourceNodeId := hex.EncodeToString(disconnectNodesPacket.SourceId)
+            targetNodeId := hex.EncodeToString(disconnectNodesPacket.TargetId)
+
+            Events.DisconnectNodes.Trigger(sourceNodeId, targetNodeId)
+        }
+
+        *connectionState = STATE_CONSECUTIVE
+
+        if *offset + len(data) > disconnectnodes.MARSHALLED_TOTAL_SIZE {
             processIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset, connectedNodeId)
         }
     }

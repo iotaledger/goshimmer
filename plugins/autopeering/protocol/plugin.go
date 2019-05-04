@@ -10,6 +10,7 @@ import (
 func Configure(plugin *node.Plugin) {
     errorHandler := createErrorHandler(plugin)
 
+    udp.Events.ReceiveDrop.Attach(createIncomingDropProcessor(plugin))
     udp.Events.ReceivePing.Attach(createIncomingPingProcessor(plugin))
     udp.Events.Error.Attach(errorHandler)
 
@@ -19,6 +20,8 @@ func Configure(plugin *node.Plugin) {
 }
 
 func Run(plugin *node.Plugin) {
+    daemon.BackgroundWorker(createChosenNeighborDropper(plugin))
+    daemon.BackgroundWorker(createAcceptedNeighborDropper(plugin))
     daemon.BackgroundWorker(createOutgoingRequestProcessor(plugin))
     daemon.BackgroundWorker(createOutgoingPingProcessor(plugin))
 }

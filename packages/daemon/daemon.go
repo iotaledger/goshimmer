@@ -5,42 +5,12 @@ import (
 )
 
 var (
-    running              bool
-    runOnce              sync.Once
-    shutdownOnce         sync.Once
-    wg                   sync.WaitGroup
-    installWG            sync.WaitGroup
-    ShutdownSignal       = make(chan int, 1)
-    backgroundWorkers    = make([]func(), 0)
-    backgroundWorkerChan = make(chan func(), 10)
+    running           bool
+    wg                sync.WaitGroup
+    ShutdownSignal    = make(chan int, 1)
+    backgroundWorkers = make([]func(), 0)
+    lock              = sync.Mutex{}
 )
-
-var Events = daemonEvents{
-    Run: &callbackEvent{
-        callbacks: map[uintptr]Callback{},
-    },
-    Shutdown: &callbackEvent{
-        callbacks: map[uintptr]Callback{},
-    },
-}
-
-func init() {
-    shutdownOnce.Do(func() {})
-
-    go func() {
-        for {
-            backgroundWorker := <- backgroundWorkerChan
-
-            backgroundWorkers = append(backgroundWorkers, backgroundWorker)
-
-            installWG.Done()
-
-            if IsRunning() {
-                runBackgroundWorker(backgroundWorker)
-            }
-        }
-    }()
-}
 
 func runBackgroundWorker(backgroundWorker func()) {
     wg.Add(1)
@@ -52,45 +22,54 @@ func runBackgroundWorker(backgroundWorker func()) {
     }()
 }
 
-func runBackgroundWorkers() {
-    for _, backgroundWorker := range backgroundWorkers {
-        runBackgroundWorker(backgroundWorker)
-    }
-}
-
 func BackgroundWorker(handler func()) {
-    installWG.Add(1)
+    lock.Lock()
 
-    backgroundWorkerChan <- handler
+    if IsRunning() {
+        runBackgroundWorker(handler)
+    } else {
+        backgroundWorkers = append(backgroundWorkers, handler)
+    }
+
+    lock.Unlock()
 }
 
 func Run() {
-    runOnce.Do(func() {
-        installWG.Wait()
+    if !running {
+        lock.Lock()
 
-        ShutdownSignal = make(chan int, 1)
-        running = true
+        if !running {
+            ShutdownSignal = make(chan int, 1)
 
-        Events.Run.Trigger()
+            running = true
 
-        runBackgroundWorkers()
+            Events.Run.Trigger()
 
-        shutdownOnce = sync.Once{}
-    })
+            for _, backgroundWorker := range backgroundWorkers {
+                runBackgroundWorker(backgroundWorker)
+            }
+        }
+
+        lock.Unlock()
+    }
 
     wg.Wait()
 }
 
 func Shutdown() {
-    shutdownOnce.Do(func() {
-        close(ShutdownSignal)
+    if running {
+        lock.Lock()
 
-        running = false
+        if running {
+            close(ShutdownSignal)
 
-        Events.Shutdown.Trigger()
+            running = false
 
-        runOnce = sync.Once{}
-    })
+            Events.Shutdown.Trigger()
+        }
+
+        lock.Unlock()
+    }
 }
 
 func IsRunning() bool {

@@ -1,6 +1,7 @@
 package node
 
 import (
+    "github.com/iotaledger/goshimmer/packages/events"
     "sync"
 )
 
@@ -8,27 +9,27 @@ type Plugin struct {
     Node   *Node
     Name   string
     Events pluginEvents
-    wg     *sync.WaitGroup
+    wg *sync.WaitGroup
 }
 
 func NewPlugin(name string, callback Callback, callbacks ...Callback) *Plugin {
     plugin := &Plugin{
         Name: name,
         Events: pluginEvents{
-            Configure: &callbackEvent{make(map[uintptr]Callback)},
-            Run:       &callbackEvent{make(map[uintptr]Callback)},
+            Configure: events.NewEvent(pluginCaller),
+            Run:       events.NewEvent(pluginCaller),
         },
     }
 
     if len(callbacks) >= 1 {
-        plugin.Events.Configure.Attach(callback)
+        plugin.Events.Configure.Attach(events.NewClosure(callback))
         for _, callback = range callbacks[:len(callbacks)-1] {
-            plugin.Events.Configure.Attach(callback)
+            plugin.Events.Configure.Attach(events.NewClosure(callback))
         }
 
-        plugin.Events.Run.Attach(callbacks[len(callbacks)-1])
+        plugin.Events.Run.Attach(events.NewClosure(callbacks[len(callbacks)-1]))
     } else {
-        plugin.Events.Run.Attach(callback)
+        plugin.Events.Run.Attach(events.NewClosure(callback))
     }
 
     return plugin

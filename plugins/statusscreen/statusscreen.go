@@ -3,6 +3,7 @@ package statusscreen
 import (
     "github.com/gdamore/tcell"
     "github.com/iotaledger/goshimmer/packages/daemon"
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/rivo/tview"
     "time"
@@ -18,13 +19,13 @@ func configure(plugin *node.Plugin) {
 
     plugin.Node.AddLogger(DEFAULT_LOGGER)
 
-    daemon.Events.Shutdown.Attach(func() {
+    daemon.Events.Shutdown.Attach(events.NewClosure(func() {
         node.DEFAULT_LOGGER.Enabled = true
 
         if app != nil {
             app.Stop()
         }
-    })
+    }))
 }
 
 func run(plugin *node.Plugin) {

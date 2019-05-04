@@ -5,13 +5,12 @@ import (
     "github.com/iotaledger/goshimmer/packages/daemon"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighborcandidates"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/outgoingrequest"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
-    "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
     "github.com/iotaledger/goshimmer/plugins/autopeering/protocol/types"
     "github.com/iotaledger/goshimmer/plugins/autopeering/server/tcp"
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
     "time"
 )
 
@@ -40,24 +39,28 @@ func createOutgoingRequestProcessor(plugin *node.Plugin) func() {
 }
 
 func sendOutgoingRequests(plugin *node.Plugin) {
-    for _, chosenNeighborCandidate := range chosenneighborcandidates.INSTANCE {
-        go func(peer *peer.Peer) {
-            nodeId := peer.Identity.StringIdentifier
+    for _, chosenNeighborCandidate := range chosenneighbors.CANDIDATES.Clone() {
+        time.Sleep(5 * time.Second)
 
-            if !acceptedneighbors.INSTANCE.Contains(nodeId) &&
-                !chosenneighbors.INSTANCE.Contains(nodeId) &&
-                accountability.OWN_ID.StringIdentifier != nodeId {
+        if candidateShouldBeContacted(chosenNeighborCandidate) {
+            if dialed, err := chosenNeighborCandidate.Send(outgoingrequest.INSTANCE.Marshal(), types.PROTOCOL_TYPE_TCP, true); err != nil {
+                plugin.LogDebug(err.Error())
+            } else {
+                plugin.LogDebug("sent peering request to " + chosenNeighborCandidate.String())
 
-                if dialed, err := peer.Send(outgoingrequest.INSTANCE.Marshal(), types.PROTOCOL_TYPE_TCP, true); err != nil {
-                    plugin.LogDebug(err.Error())
-                } else {
-                    plugin.LogDebug("sent peering request to " + peer.String())
-
-                    if dialed {
-                        tcp.HandleConnection(peer.Conn)
-                    }
+                if dialed {
+                    tcp.HandleConnection(chosenNeighborCandidate.Conn)
                 }
             }
-        }(chosenNeighborCandidate)
+        }
     }
+}
+
+func candidateShouldBeContacted(candidate *peer.Peer) bool {
+    nodeId := candidate.Identity.StringIdentifier
+
+    return (!acceptedneighbors.INSTANCE.Contains(nodeId) &&!chosenneighbors.INSTANCE.Contains(nodeId) &&
+        accountability.OWN_ID.StringIdentifier != nodeId) && (
+            len(chosenneighbors.INSTANCE.Peers) < constants.NEIGHBOR_COUNT / 2 ||
+                chosenneighbors.OWN_DISTANCE(candidate) < chosenneighbors.FURTHEST_NEIGHBOR_DISTANCE)
 }

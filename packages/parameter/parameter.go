@@ -2,7 +2,7 @@ package parameter
 
 var intParameters = make(map[string]*IntParameter)
 
-func addInt(name string, defaultValue int, description string) *IntParameter {
+func AddInt(name string, defaultValue int, description string) *IntParameter {
     if intParameters[name] != nil {
         panic("duplicate parameter - \"" + name + "\" was defined already")
     }
@@ -21,17 +21,17 @@ func addInt(name string, defaultValue int, description string) *IntParameter {
     return newParameter
 }
 
-func getInt(name string) *IntParameter {
+func GetInt(name string) *IntParameter {
     return intParameters[name]
 }
 
-func getInts() map[string]*IntParameter {
+func GetInts() map[string]*IntParameter {
     return intParameters
 }
 
 var stringParameters  = make(map[string]*StringParameter)
 
-func addString(name string, defaultValue string, description string) *StringParameter {
+func AddString(name string, defaultValue string, description string) *StringParameter {
     if intParameters[name] != nil {
         panic("duplicate parameter - \"" + name + "\" was defined already")
     }
@@ -50,10 +50,10 @@ func addString(name string, defaultValue string, description string) *StringPara
     return stringParameters[name]
 }
 
-func getString(name string) *StringParameter {
+func GetString(name string) *StringParameter {
     return stringParameters[name]
 }
 
-func getStrings() map[string]*StringParameter {
+func GetStrings() map[string]*StringParameter {
     return stringParameters
 }

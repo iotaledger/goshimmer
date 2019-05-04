@@ -1,11 +1,14 @@
 package udp
 
 import (
+    "github.com/iotaledger/goshimmer/plugins/autopeering/types/drop"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
     "net"
 )
+
+type DropConsumer = func(d *drop.Drop)
 
 type PingConsumer = func(p *ping.Ping)
 

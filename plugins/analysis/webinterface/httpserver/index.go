@@ -20,8 +20,6 @@ func index(w http.ResponseWriter, r *http.Request) {
 	var socket = new WebSocket(((window.location.protocol === "https:") ? "wss://" : "ws://") + window.location.host + "/datastream");
 
 	socket.onopen = function () {
-		console.log("Status: Connected\n");
-
         setInterval(function() {
           socket.send("_");
         }, 1000);
@@ -34,7 +32,7 @@ func index(w http.ResponseWriter, r *http.Request) {
           break;
 
           case "A":
-            //addNode(e.data.substr(1));
+             addNode(e.data.substr(1));
           break;
 
           case "a":
@@ -42,8 +40,6 @@ func index(w http.ResponseWriter, r *http.Request) {
           break;
 
           case "C":
-             addNode(e.data.substr(1, 40));
-             addNode(e.data.substr(41, 40));
              connectNodes(e.data.substr(1, 40), e.data.substr(41, 40));
           break;
 
@@ -74,9 +70,6 @@ func index(w http.ResponseWriter, r *http.Request) {
         .enableNodeDrag(false)
         .onNodeHover(node => elem.style.cursor = node ? 'pointer' : null)
         .onNodeClick(removeNodeX)
-        //.linkDirectionalParticles(3)
-        //.linkDirectionalParticleWidth(0.8)
-        //.linkDirectionalParticleSpeed(0.01)
         .nodeColor(node => node.online ? 'rgba(0,255,0,1)' : 'rgba(255,255,255,1)')
         .graphData(data);
 

@@ -3,15 +3,21 @@ package saltmanager
 import (
     "github.com/dgraph-io/badger"
     "github.com/iotaledger/goshimmer/packages/daemon"
+    "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/packages/settings"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/salt"
     "time"
 )
 
 var (
-    PRIVATE_SALT = createSalt(PRIVATE_SALT_SETTINGS_KEY, PRIVATE_SALT_LIFETIME, Events.UpdatePrivateSalt.Trigger)
-    PUBLIC_SALT  = createSalt(PUBLIC_SALT_SETTINGS_KEY, PUBLIC_SALT_LIFETIME, Events.UpdatePublicSalt.Trigger)
+    PRIVATE_SALT *salt.Salt
+    PUBLIC_SALT  *salt.Salt
 )
+
+func Configure(plugin *node.Plugin) {
+    PRIVATE_SALT = createSalt(PRIVATE_SALT_SETTINGS_KEY, PRIVATE_SALT_LIFETIME, Events.UpdatePrivateSalt.Trigger)
+    PUBLIC_SALT = createSalt(PUBLIC_SALT_SETTINGS_KEY, PUBLIC_SALT_LIFETIME, Events.UpdatePublicSalt.Trigger)
+}
 
 func generateNewSalt(key []byte, lifetime time.Duration) *salt.Salt {
     newSalt := salt.New(lifetime)
@@ -61,14 +67,14 @@ func scheduleUpdateForSalt(saltToUpdate *salt.Salt, settingsKey []byte, lifeSpan
     if saltToUpdate.ExpirationTime.Before(now) {
         updatePublicSalt(saltToUpdate, settingsKey, lifeSpan, callback)
     } else {
-        go func() {
+        daemon.BackgroundWorker(func() {
             select {
-            case <-daemon.ShutdownSignal:
-                return
             case <-time.After(saltToUpdate.ExpirationTime.Sub(now)):
                 updatePublicSalt(saltToUpdate, settingsKey, lifeSpan, callback)
+            case <-daemon.ShutdownSignal:
+                return
             }
-        }()
+        })
     }
 }
 

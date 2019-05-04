@@ -1,28 +1,12 @@
 package node
 
 import (
-    "reflect"
+    "github.com/iotaledger/goshimmer/packages/events"
 )
 
 type pluginEvents struct {
-    Configure *callbackEvent
-    Run       *callbackEvent
+    Configure *events.Event
+    Run       *events.Event
 }
 
-type callbackEvent struct {
-    callbacks map[uintptr]Callback
-}
-
-func (this *callbackEvent) Attach(callback Callback) {
-    this.callbacks[reflect.ValueOf(callback).Pointer()] = callback
-}
-
-func (this *callbackEvent) Detach(callback Callback) {
-    delete(this.callbacks, reflect.ValueOf(callback).Pointer())
-}
-
-func (this *callbackEvent) Trigger(plugin *Plugin) {
-    for _, callback := range this.callbacks {
-        callback(plugin)
-    }
-}
+func pluginCaller(handler interface{}, params ...interface{}) { handler.(func(*Plugin))(params[0].(*Plugin)) }
