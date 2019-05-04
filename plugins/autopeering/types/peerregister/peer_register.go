@@ -3,6 +3,7 @@ package peerregister
 import (
     "bytes"
     "github.com/iotaledger/goshimmer/packages/accountability"
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peerlist"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
@@ -19,9 +20,9 @@ func New() *PeerRegister {
     return &PeerRegister{
         Peers: make(map[string]*peer.Peer),
         Events: peerRegisterEvents{
-            Add:    &peerEvent{make(map[uintptr]PeerConsumer)},
-            Update: &peerEvent{make(map[uintptr]PeerConsumer)},
-            Remove: &peerEvent{make(map[uintptr]PeerConsumer)},
+            Add:    events.NewEvent(peerCaller),
+            Update: events.NewEvent(peerCaller),
+            Remove: events.NewEvent(peerCaller),
         },
     }
 }

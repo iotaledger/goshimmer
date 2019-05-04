@@ -2,6 +2,7 @@ package udp
 
 import (
     "github.com/iotaledger/goshimmer/packages/daemon"
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/network/udp"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
@@ -22,20 +23,20 @@ func ConfigureServer(plugin *node.Plugin) {
         plugin.LogFailure(err.Error())
     })
 
-    udpServer.Events.ReceiveData.Attach(processReceivedData)
-    udpServer.Events.Error.Attach(func(err error) {
+    udpServer.Events.ReceiveData.Attach(events.NewClosure(processReceivedData))
+    udpServer.Events.Error.Attach(events.NewClosure(func(err error) {
         plugin.LogFailure("error in udp server: " + err.Error())
-    })
-    udpServer.Events.Start.Attach(func() {
+    }))
+    udpServer.Events.Start.Attach(events.NewClosure(func() {
         if *parameters.ADDRESS.Value == "0.0.0.0" {
             plugin.LogSuccess("Starting UDP Server (port " + strconv.Itoa(*parameters.PORT.Value) + ") ... done")
         } else {
             plugin.LogSuccess("Starting UDP Server (" + *parameters.ADDRESS.Value + ":" + strconv.Itoa(*parameters.PORT.Value) + ") ... done")
         }
-    })
-    udpServer.Events.Shutdown.Attach(func() {
+    }))
+    udpServer.Events.Shutdown.Attach(events.NewClosure(func() {
         plugin.LogSuccess("Stopping UDP Server ... done")
-    })
+    }))
 }
 
 func RunServer(plugin *node.Plugin) {

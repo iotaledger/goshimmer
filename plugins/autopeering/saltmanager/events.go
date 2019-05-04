@@ -1,34 +1,16 @@
 package saltmanager
 
 import (
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/salt"
-    "reflect"
 )
 
-type packageEvents struct {
-    UpdatePublicSalt  *saltEvent
-    UpdatePrivateSalt *saltEvent
+var Events = struct {
+    UpdatePublicSalt *events.Event
+    UpdatePrivateSalt *events.Event
+}{
+    UpdatePublicSalt:  events.NewEvent(saltCaller),
+    UpdatePrivateSalt: events.NewEvent(saltCaller),
 }
 
-type saltEvent struct {
-    callbacks map[uintptr]SaltConsumer
-}
-
-func (this *saltEvent) Attach(callback SaltConsumer) {
-    this.callbacks[reflect.ValueOf(callback).Pointer()] = callback
-}
-
-func (this *saltEvent) Detach(callback SaltConsumer) {
-    delete(this.callbacks, reflect.ValueOf(callback).Pointer())
-}
-
-func (this *saltEvent) Trigger(salt *salt.Salt) {
-    for _, callback := range this.callbacks {
-        callback(salt)
-    }
-}
-
-var Events = packageEvents{
-    UpdatePublicSalt:  &saltEvent{make(map[uintptr]SaltConsumer)},
-    UpdatePrivateSalt: &saltEvent{make(map[uintptr]SaltConsumer)},
-}
+func saltCaller(handler interface{}, params ...interface{}) { handler.(func(*salt.Salt))(params[0].(*salt.Salt)) }

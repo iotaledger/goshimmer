@@ -3,6 +3,7 @@ package protocol
 import (
     "github.com/iotaledger/goshimmer/packages/accountability"
     "github.com/iotaledger/goshimmer/packages/daemon"
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/ownpeer"
@@ -30,9 +31,9 @@ func createOutgoingPingProcessor(plugin *node.Plugin) func() {
         }
         outgoingPing.Sign()
 
-        saltmanager.Events.UpdatePublicSalt.Attach(func(salt *salt.Salt) {
+        saltmanager.Events.UpdatePublicSalt.Attach(events.NewClosure(func(salt *salt.Salt) {
             outgoingPing.Sign()
-        })
+        }))
 
         pingPeers(plugin, outgoingPing)
 

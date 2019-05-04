@@ -46,7 +46,7 @@ func getSalt(key []byte, lifetime time.Duration) *salt.Salt {
     }
 }
 
-func updatePublicSalt(saltToUpdate *salt.Salt, settingsKey []byte, lifeSpan time.Duration, updateCallback func(salt *salt.Salt)) {
+func updatePublicSalt(saltToUpdate *salt.Salt, settingsKey []byte, lifeSpan time.Duration, updateCallback func(params ...interface{})) {
     newSalt := salt.New(lifeSpan)
 
     saltToUpdate.Bytes = newSalt.Bytes
@@ -61,7 +61,7 @@ func updatePublicSalt(saltToUpdate *salt.Salt, settingsKey []byte, lifeSpan time
     scheduleUpdateForSalt(saltToUpdate, settingsKey, lifeSpan, updateCallback)
 }
 
-func scheduleUpdateForSalt(saltToUpdate *salt.Salt, settingsKey []byte, lifeSpan time.Duration, callback SaltConsumer) {
+func scheduleUpdateForSalt(saltToUpdate *salt.Salt, settingsKey []byte, lifeSpan time.Duration, callback func(params ...interface{})) {
     now := time.Now()
 
     if saltToUpdate.ExpirationTime.Before(now) {
@@ -78,7 +78,7 @@ func scheduleUpdateForSalt(saltToUpdate *salt.Salt, settingsKey []byte, lifeSpan
     }
 }
 
-func createSalt(settingsKey []byte, lifeSpan time.Duration, updateCallback SaltConsumer) *salt.Salt {
+func createSalt(settingsKey []byte, lifeSpan time.Duration, updateCallback func(params ...interface{})) *salt.Salt {
     newSalt := getSalt(settingsKey, lifeSpan)
 
     scheduleUpdateForSalt(newSalt, settingsKey, lifeSpan, updateCallback)

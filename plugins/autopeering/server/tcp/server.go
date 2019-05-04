@@ -2,6 +2,7 @@ package tcp
 
 import (
     "github.com/iotaledger/goshimmer/packages/daemon"
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/network"
     "github.com/iotaledger/goshimmer/packages/network/tcp"
     "github.com/iotaledger/goshimmer/packages/node"
@@ -18,20 +19,20 @@ import (
 var server = tcp.NewServer()
 
 func ConfigureServer(plugin *node.Plugin) {
-    server.Events.Connect.Attach(HandleConnection)
-    server.Events.Error.Attach(func(err error) {
+    server.Events.Connect.Attach(events.NewClosure(HandleConnection))
+    server.Events.Error.Attach(events.NewClosure(func(err error) {
         plugin.LogFailure("error in tcp server: " + err.Error())
-    })
-    server.Events.Start.Attach(func() {
+    }))
+    server.Events.Start.Attach(events.NewClosure(func() {
         if *parameters.ADDRESS.Value == "0.0.0.0" {
             plugin.LogSuccess("Starting TCP Server (port " + strconv.Itoa(*parameters.PORT.Value) + ") ... done")
         } else {
             plugin.LogSuccess("Starting TCP Server (" + *parameters.ADDRESS.Value + ":" + strconv.Itoa(*parameters.PORT.Value) + ") ... done")
         }
-    })
-    server.Events.Shutdown.Attach(func() {
+    }))
+    server.Events.Shutdown.Attach(events.NewClosure(func() {
         plugin.LogSuccess("Stopping TCP Server ... done")
-    })
+    }))
 }
 
 func RunServer(plugin *node.Plugin) {
@@ -59,9 +60,9 @@ func HandleConnection(conn *network.ManagedConnection) {
     var receiveBuffer []byte
     var offset int
 
-    conn.Events.ReceiveData.Attach(func(data []byte) {
+    conn.Events.ReceiveData.Attach(events.NewClosure(func(data []byte) {
         ProcessIncomingPacket(&connectionState, &receiveBuffer, conn, data, &offset)
-    })
+    }))
 
     go conn.Read(make([]byte, int(math.Max(ping.MARSHALLED_TOTAL_SIZE, math.Max(request.MARSHALLED_TOTAL_SIZE, response.MARSHALLED_TOTAL_SIZE)))))
 }
@@ -141,9 +142,9 @@ func processIncomingRequestPacket(connectionState *byte, receiveBuffer *[]byte, 
             req.Issuer.Conn = conn
             req.Issuer.Address = conn.RemoteAddr().(*net.TCPAddr).IP
 
-            req.Issuer.Conn.Events.Close.Attach(func() {
+            req.Issuer.Conn.Events.Close.Attach(events.NewClosure(func() {
                 req.Issuer.Conn = nil
-            })
+            }))
 
             Events.ReceiveRequest.Trigger(req)
         }
@@ -174,9 +175,9 @@ func processIncomingResponsePacket(connectionState *byte, receiveBuffer *[]byte,
             res.Issuer.Conn = conn
             res.Issuer.Address = conn.RemoteAddr().(*net.TCPAddr).IP
 
-            res.Issuer.Conn.Events.Close.Attach(func() {
+            res.Issuer.Conn.Events.Close.Attach(events.NewClosure(func() {
                 res.Issuer.Conn = nil
-            })
+            }))
 
             Events.ReceiveResponse.Trigger(res)
         }
@@ -207,9 +208,9 @@ func processIncomingPingPacket(connectionState *byte, receiveBuffer *[]byte, con
             ping.Issuer.Conn = conn
             ping.Issuer.Address = conn.RemoteAddr().(*net.TCPAddr).IP
 
-            ping.Issuer.Conn.Events.Close.Attach(func() {
+            ping.Issuer.Conn.Events.Close.Attach(events.NewClosure(func() {
                 ping.Issuer.Conn = nil
-            })
+            }))
 
             Events.ReceivePing.Trigger(ping)
         }

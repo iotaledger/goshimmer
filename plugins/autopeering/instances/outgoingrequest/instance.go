@@ -1,6 +1,7 @@
 package outgoingrequest
 
 import (
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/ownpeer"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
@@ -16,7 +17,7 @@ func Configure(plugin *node.Plugin) {
     }
     INSTANCE.Sign()
 
-    saltmanager.Events.UpdatePublicSalt.Attach(func(salt *salt.Salt) {
+    saltmanager.Events.UpdatePublicSalt.Attach(events.NewClosure(func(salt *salt.Salt) {
         INSTANCE.Sign()
-    })
+    }))
 }

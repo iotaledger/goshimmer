@@ -3,6 +3,7 @@ package client
 import (
     "github.com/iotaledger/goshimmer/packages/accountability"
     "github.com/iotaledger/goshimmer/packages/daemon"
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/network"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
@@ -59,25 +60,25 @@ func reportCurrentStatus(eventDispatchers *EventDispatchers) {
 func setupHooks(conn *network.ManagedConnection, eventDispatchers *EventDispatchers) {
     // define hooks ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    onDiscoverPeer := func(p *peer.Peer) {
+    onDiscoverPeer := events.NewClosure(func(p *peer.Peer) {
         eventDispatchers.AddNode(p.Identity.Identifier)
-    }
+    })
 
-    onAddAcceptedNeighbor := func(p *peer.Peer) {
+    onAddAcceptedNeighbor := events.NewClosure(func(p *peer.Peer) {
         eventDispatchers.ConnectNodes(p.Identity.Identifier, accountability.OWN_ID.Identifier)
-    }
+    })
 
-    onRemoveAcceptedNeighbor := func(p *peer.Peer) {
+    onRemoveAcceptedNeighbor := events.NewClosure(func(p *peer.Peer) {
         eventDispatchers.DisconnectNodes(p.Identity.Identifier, accountability.OWN_ID.Identifier)
-    }
+    })
 
-    onAddChosenNeighbor := func(p *peer.Peer) {
+    onAddChosenNeighbor := events.NewClosure(func(p *peer.Peer) {
         eventDispatchers.ConnectNodes(accountability.OWN_ID.Identifier, p.Identity.Identifier)
-    }
+    })
 
-    onRemoveChosenNeighbor := func(p *peer.Peer) {
+    onRemoveChosenNeighbor := events.NewClosure(func(p *peer.Peer) {
         eventDispatchers.DisconnectNodes(accountability.OWN_ID.Identifier, p.Identity.Identifier)
-    }
+    })
 
     // setup hooks /////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -89,8 +90,8 @@ func setupHooks(conn *network.ManagedConnection, eventDispatchers *EventDispatch
 
     // clean up hooks on close /////////////////////////////////////////////////////////////////////////////////////////
 
-    var onClose func()
-    onClose = func() {
+    var onClose *events.Closure
+    onClose = events.NewClosure(func() {
         knownpeers.INSTANCE.Events.Add.Detach(onDiscoverPeer)
         acceptedneighbors.INSTANCE.Events.Add.Detach(onAddAcceptedNeighbor)
         acceptedneighbors.INSTANCE.Events.Remove.Detach(onRemoveAcceptedNeighbor)
@@ -98,7 +99,7 @@ func setupHooks(conn *network.ManagedConnection, eventDispatchers *EventDispatch
         chosenneighbors.INSTANCE.Events.Remove.Detach(onRemoveChosenNeighbor)
 
         conn.Events.Close.Detach(onClose)
-    }
+    })
     conn.Events.Close.Attach(onClose)
 }
 

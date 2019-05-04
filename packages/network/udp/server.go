@@ -1,16 +1,10 @@
 package udp
 
 import (
+    "github.com/iotaledger/goshimmer/packages/events"
     "net"
     "strconv"
 )
-
-type serverEvents struct {
-    Start       *callbackEvent
-    Shutdown    *callbackEvent
-    ReceiveData *dataConsumerEvent
-    Error       *errorConsumerEvent
-}
 
 type Server struct {
     Socket            net.PacketConn
@@ -55,10 +49,10 @@ func NewServer(receiveBufferSize int) *Server {
     return &Server{
         ReceiveBufferSize: receiveBufferSize,
         Events: serverEvents{
-            Start:       &callbackEvent{make(map[uintptr]Callback)},
-            Shutdown:    &callbackEvent{make(map[uintptr]Callback)},
-            ReceiveData: &dataConsumerEvent{make(map[uintptr]AddressDataConsumer)},
-            Error:       &errorConsumerEvent{make(map[uintptr]ErrorConsumer)},
+            Start:       events.NewEvent(events.CallbackCaller),
+            Shutdown:    events.NewEvent(events.CallbackCaller),
+            ReceiveData: events.NewEvent(dataCaller),
+            Error:       events.NewEvent(events.ErrorCaller),
         },
     }
 }

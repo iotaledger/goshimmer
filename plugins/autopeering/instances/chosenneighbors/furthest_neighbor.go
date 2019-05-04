@@ -1,6 +1,7 @@
 package chosenneighbors
 
 import (
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
     "sync"
 )
@@ -12,7 +13,7 @@ var FURTHEST_NEIGHBOR_DISTANCE = uint64(0)
 var FurthestNeighborLock sync.RWMutex
 
 func configureFurthestNeighbor() {
-    INSTANCE.Events.Add.Attach(func(p *peer.Peer) {
+    INSTANCE.Events.Add.Attach(events.NewClosure(func(p *peer.Peer) {
         FurthestNeighborLock.Lock()
         defer FurthestNeighborLock.Unlock()
 
@@ -21,9 +22,9 @@ func configureFurthestNeighbor() {
             FURTHEST_NEIGHBOR = p
             FURTHEST_NEIGHBOR_DISTANCE = distance
         }
-    })
+    }))
 
-    INSTANCE.Events.Remove.Attach(func(p *peer.Peer) {
+    INSTANCE.Events.Remove.Attach(events.NewClosure(func(p *peer.Peer) {
         FurthestNeighborLock.Lock()
         defer FurthestNeighborLock.Unlock()
 
@@ -39,5 +40,5 @@ func configureFurthestNeighbor() {
                 }
             }
         }
-    })
+    }))
 }

@@ -1,6 +1,7 @@
 package tcp
 
 import (
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/network"
     "net"
     "strconv"
@@ -51,10 +52,10 @@ func (this *Server) Listen(port int) *Server {
 func NewServer() *Server {
     return &Server{
         Events: serverEvents{
-            Start:    &callbackEvent{make(map[uintptr]Callback)},
-            Shutdown: &callbackEvent{make(map[uintptr]Callback)},
-            Connect:  &peerConsumerEvent{make(map[uintptr]PeerConsumer)},
-            Error:    &errorConsumerEvent{make(map[uintptr]ErrorConsumer)},
+            Start:    events.NewEvent(events.CallbackCaller),
+            Shutdown: events.NewEvent(events.CallbackCaller),
+            Connect:  events.NewEvent(managedConnectionCaller),
+            Error:    events.NewEvent(events.ErrorCaller),
         },
     }
 }

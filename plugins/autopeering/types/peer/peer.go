@@ -2,6 +2,7 @@ package peer
 
 import (
     "encoding/binary"
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/identity"
     "github.com/iotaledger/goshimmer/packages/network"
     "github.com/iotaledger/goshimmer/plugins/autopeering/types/salt"
@@ -80,9 +81,9 @@ func (peer *Peer) ConnectTCP() (*network.ManagedConnection, bool, error) {
             } else {
                 peer.Conn = network.NewManagedConnection(conn)
 
-                peer.Conn.Events.Close.Attach(func() {
+                peer.Conn.Events.Close.Attach(events.NewClosure(func() {
                     peer.Conn = nil
-                })
+                }))
 
                 return peer.Conn, true, nil
             }

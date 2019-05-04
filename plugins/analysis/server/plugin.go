@@ -3,6 +3,7 @@ package server
 import (
     "encoding/hex"
     "github.com/iotaledger/goshimmer/packages/daemon"
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/network"
     "github.com/iotaledger/goshimmer/packages/network/tcp"
     "github.com/iotaledger/goshimmer/packages/node"
@@ -21,16 +22,16 @@ var server *tcp.Server
 func Configure(plugin *node.Plugin) {
     server = tcp.NewServer()
 
-    server.Events.Connect.Attach(HandleConnection)
-    server.Events.Error.Attach(func(err error) {
+    server.Events.Connect.Attach(events.NewClosure(HandleConnection))
+    server.Events.Error.Attach(events.NewClosure(func(err error) {
         plugin.LogFailure("error in server: " + err.Error())
-    })
-    server.Events.Start.Attach(func() {
+    }))
+    server.Events.Start.Attach(events.NewClosure(func() {
         plugin.LogSuccess("Starting Server (port " + strconv.Itoa(*SERVER_PORT.Value) + ") ... done")
-    })
-    server.Events.Shutdown.Attach(func() {
+    }))
+    server.Events.Shutdown.Attach(events.NewClosure(func() {
         plugin.LogSuccess("Stopping Server ... done")
-    })
+    }))
 }
 
 func Run(plugin *node.Plugin) {
@@ -55,18 +56,17 @@ func HandleConnection(conn *network.ManagedConnection) {
     var offset int
     var connectedNodeId string
 
-    var onReceiveData func(data []byte)
-    var onDisconnect func()
+    var onDisconnect *events.Closure
 
-    onReceiveData = func(data []byte) {
+    onReceiveData := events.NewClosure(func(data []byte) {
         processIncomingPacket(&connectionState, &receiveBuffer, conn, data, &offset, &connectedNodeId)
-    }
-    onDisconnect = func() {
+    })
+    onDisconnect = events.NewClosure(func() {
         Events.NodeOffline.Trigger(connectedNodeId)
 
         conn.Events.ReceiveData.Detach(onReceiveData)
         conn.Events.Close.Detach(onDisconnect)
-    }
+    })
 
     conn.Events.ReceiveData.Attach(onReceiveData)
     conn.Events.Close.Attach(onDisconnect)

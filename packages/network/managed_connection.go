@@ -1,6 +1,7 @@
 package network
 
 import (
+    "github.com/iotaledger/goshimmer/packages/events"
     "io"
     "net"
     "sync"
@@ -19,9 +20,9 @@ func NewManagedConnection(conn net.Conn) *ManagedConnection {
     bufferedConnection := &ManagedConnection{
         Conn: conn,
         Events: BufferedConnectionEvents{
-            ReceiveData: &dataEvent{make(map[uintptr]DataConsumer)},
-            Close:       &callbackEvent{make(map[uintptr]Callback)},
-            Error:       &errorEvent{make(map[uintptr]ErrorConsumer)},
+            ReceiveData: events.NewEvent(dataCaller),
+            Close:       events.NewEvent(events.CallbackCaller),
+            Error:       events.NewEvent(events.ErrorCaller),
         },
     }
 
@@ -68,7 +69,9 @@ func (this *ManagedConnection) Close() error {
         this.Events.Error.Trigger(err)
     }
 
-    this.closeOnce.Do(this.Events.Close.Trigger)
+    this.closeOnce.Do(func() {
+        this.Events.Close.Trigger()
+    })
 
     return err
 }

@@ -36,24 +36,24 @@ func run(plugin *node.Plugin) {
 }
 
 func configureLogging(plugin *node.Plugin) {
-    acceptedneighbors.INSTANCE.Events.Add.Attach(func(p *peer.Peer) {
+    acceptedneighbors.INSTANCE.Events.Add.Attach(events.NewClosure(func(p *peer.Peer) {
         plugin.LogSuccess("neighbor added: " + p.Address.String() + " / " + p.Identity.StringIdentifier)
-    })
-    acceptedneighbors.INSTANCE.Events.Remove.Attach(func(p *peer.Peer) {
+    }))
+    acceptedneighbors.INSTANCE.Events.Remove.Attach(events.NewClosure(func(p *peer.Peer) {
         plugin.LogSuccess("neighbor removed: " + p.Address.String() + " / " + p.Identity.StringIdentifier)
-    })
+    }))
 
-    chosenneighbors.INSTANCE.Events.Add.Attach(func(p *peer.Peer) {
+    chosenneighbors.INSTANCE.Events.Add.Attach(events.NewClosure(func(p *peer.Peer) {
         plugin.LogSuccess("neighbor added: " + p.Address.String() + " / " + p.Identity.StringIdentifier)
-    })
-    chosenneighbors.INSTANCE.Events.Remove.Attach(func(p *peer.Peer) {
+    }))
+    chosenneighbors.INSTANCE.Events.Remove.Attach(events.NewClosure(func(p *peer.Peer) {
         plugin.LogSuccess("neighbor removed: " + p.Address.String() + " / " + p.Identity.StringIdentifier)
-    })
+    }))
 
-    knownpeers.INSTANCE.Events.Add.Attach(func(p *peer.Peer) {
+    knownpeers.INSTANCE.Events.Add.Attach(events.NewClosure(func(p *peer.Peer) {
         plugin.LogInfo("peer discovered: " + p.Address.String() + " / " + p.Identity.StringIdentifier)
-    })
-    knownpeers.INSTANCE.Events.Update.Attach(func(p *peer.Peer) {
+    }))
+    knownpeers.INSTANCE.Events.Update.Attach(events.NewClosure(func(p *peer.Peer) {
         plugin.LogDebug("peer updated: " + p.Address.String() + " / " + p.Identity.StringIdentifier)
-    })
+    }))
 }
