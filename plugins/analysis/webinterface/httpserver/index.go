@@ -64,6 +64,8 @@ func index(w http.ResponseWriter, r *http.Request) {
       links: []
     };
 
+    var existingLinks = {};
+
     const elem = document.getElementById("3d-graph");
 
     const Graph = ForceGraph3D()(elem)
@@ -125,13 +127,18 @@ func index(w http.ResponseWriter, r *http.Request) {
     }
 
     function connectNodes(sourceNodeId, targetNodeId) {
-      data.links = [...data.links, { source: sourceNodeId, target: targetNodeId }];
+      if(existingLinks[sourceNodeId + targetNodeId] == undefined && existingLinks[targetNodeId + sourceNodeId] == undefined) {
+        data.links = [...data.links, { source: sourceNodeId, target: targetNodeId }];
 
-      updateGraph();
+        updateGraph();
+      }
     }
 
     function disconnectNodes(sourceNodeId, targetNodeId) {
       data.links = data.links.filter(l => !(l.source.id == sourceNodeId && l.target.id == targetNodeId) && !(l.source.id == targetNodeId && l.target.id == sourceNodeId));
+
+      delete existingLinks[sourceNodeId + targetNodeId];
+      delete existingLinks[targetNodeId + sourceNodeId];
 
       updateGraph();
     }

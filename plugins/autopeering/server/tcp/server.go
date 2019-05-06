@@ -100,8 +100,8 @@ func ProcessIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *n
     }
 }
 
-func parsePackageHeader(data []byte) (ConnectionState, []byte, error) {
-    var connectionState ConnectionState
+func parsePackageHeader(data []byte) (byte, []byte, error) {
+    var connectionState byte
     var receiveBuffer []byte
 
     switch data[0] {

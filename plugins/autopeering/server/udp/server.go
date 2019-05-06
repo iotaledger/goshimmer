@@ -19,9 +19,9 @@ import (
 var udpServer = udp.NewServer(int(math.Max(float64(request.MARSHALLED_TOTAL_SIZE), float64(response.MARSHALLED_TOTAL_SIZE))))
 
 func ConfigureServer(plugin *node.Plugin) {
-    Events.Error.Attach(func(ip net.IP, err error) {
+    Events.Error.Attach(events.NewClosure(func(ip net.IP, err error) {
         plugin.LogFailure(err.Error())
-    })
+    }))
 
     udpServer.Events.ReceiveData.Attach(events.NewClosure(processReceivedData))
     udpServer.Events.Error.Attach(events.NewClosure(func(err error) {

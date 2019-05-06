@@ -1,6 +1,7 @@
 package protocol
 
 import (
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
     "github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
@@ -12,10 +13,10 @@ import (
     "math/rand"
 )
 
-func createIncomingRequestProcessor(plugin *node.Plugin) func(req *request.Request) {
-    return func(req *request.Request) {
+func createIncomingRequestProcessor(plugin *node.Plugin) *events.Closure {
+    return events.NewClosure(func(req *request.Request) {
         go processIncomingRequest(plugin, req)
-    }
+    })
 }
 
 func processIncomingRequest(plugin *node.Plugin, req *request.Request) {
