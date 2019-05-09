@@ -51,7 +51,7 @@ func FromTrits(trits ternary.Trits, optionalHash ...ternary.Trits) *Transaction 
 }
 
 func FromBytes(bytes []byte) *Transaction {
-    transaction := FromTrits(ternary.BytesToTrits(bytes)[:TRANSACTION_SIZE])
+    transaction := FromTrits(ternary.BytesToTrits(bytes)[:MARSHALLED_TOTAL_SIZE])
     transaction.Bytes = bytes
 
     return transaction
