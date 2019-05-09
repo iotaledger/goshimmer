@@ -14,7 +14,7 @@ var TCPServer = tcp.NewServer()
 
 func configureServer(plugin *node.Plugin) {
     TCPServer.Events.Connect.Attach(events.NewClosure(func(conn *network.ManagedConnection) {
-        neighbor := &Neighbor{
+        neighbor := &Peer{
             Address: conn.RemoteAddr().(*net.TCPAddr).IP,
         }
 

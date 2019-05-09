@@ -26,13 +26,13 @@ func (state *indentificationStateV1) Consume(protocol *protocol, data []byte, of
 
     state.offset += bytesRead
     if state.offset == MARSHALLED_NEIGHBOR_TOTAL_SIZE {
-        if unmarshalledNeighbor, err := UnmarshalNeighbor(state.buffer); err != nil {
+        if unmarshalledNeighbor, err := UnmarshalPeer(state.buffer); err != nil {
             return bytesRead, ErrInvalidAuthenticationMessage.Derive(err, "invalid authentication message")
         } else {
             protocol.neighbor.Identity = unmarshalledNeighbor.Identity
             protocol.neighbor.Port = unmarshalledNeighbor.Port
 
-            Events.ReceiveIdentification.Trigger(protocol.neighbor)
+            protocol.Events.ReceiveIdentification.Trigger(protocol.neighbor)
 
             protocol.currentState = newacceptanceStateV1()
             state.offset = 0
@@ -54,17 +54,17 @@ func newacceptanceStateV1() *acceptanceStateV1 {
 
 func (state *acceptanceStateV1) Consume(protocol *protocol, data []byte, offset int, length int) (int, errors.IdentifiableError) {
     switch data[offset] {
-        case 1:
-            Events.AcceptConnection.Trigger()
-
-            protocol.currentState = newDispatchStateV1()
-        break
-
-        case 2:
-            Events.RejectConnection.Trigger()
+        case 0:
+            protocol.Events.RejectConnection.Trigger()
 
             protocol.neighbor.Conn.Close()
             protocol.currentState = nil
+        break
+
+        case 1:
+            protocol.Events.AcceptConnection.Trigger()
+
+            protocol.currentState = newDispatchStateV1()
         break
 
         default:
@@ -87,7 +87,7 @@ func newDispatchStateV1() *dispatchStateV1 {
 func (state *dispatchStateV1) Consume(protocol *protocol, data []byte, offset int, length int) (int, errors.IdentifiableError) {
     switch data[0] {
         case 0:
-            Events.RejectConnection.Trigger()
+            protocol.Events.RejectConnection.Trigger()
 
             protocol.neighbor.Conn.Close()
             protocol.currentState = nil
@@ -130,7 +130,7 @@ func (state *transactionStateV1) Consume(protocol *protocol, data []byte, offset
         transactionData := make([]byte, transaction.MARSHALLED_TOTAL_SIZE)
         copy(transactionData, state.buffer)
 
-        Events.ReceiveTransactionData.Trigger(transactionData)
+        protocol.Events.ReceiveTransactionData.Trigger(transactionData)
 
         go func() {
             Events.ReceiveTransaction.Trigger(transaction.FromBytes(transactionData))

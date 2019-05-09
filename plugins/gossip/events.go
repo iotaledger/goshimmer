@@ -6,9 +6,10 @@ import (
 )
 
 var Events = pluginEvents{
-    AddNeighbor:        events.NewEvent(errorCaller),
-    RemoveNeighbor:     events.NewEvent(errorCaller),
-    DropNeighbor:       events.NewEvent(errorCaller),
+    AddNeighbor:        events.NewEvent(neighborCaller),
+    UpdateNeighbor:     events.NewEvent(neighborCaller),
+    RemoveNeighbor:     events.NewEvent(neighborCaller),
+    DropNeighbor:       events.NewEvent(neighborCaller),
     IncomingConnection: events.NewEvent(errorCaller),
     ReceiveTransaction: events.NewEvent(transactionCaller),
     Error:              events.NewEvent(errorCaller),
@@ -17,13 +18,14 @@ var Events = pluginEvents{
 type pluginEvents struct {
     // neighbor events
     AddNeighbor    *events.Event
+    UpdateNeighbor *events.Event
     RemoveNeighbor *events.Event
-    DropNeighbor   *events.Event
 
     // low level network events
     IncomingConnection *events.Event
 
     // high level protocol events
+    DropNeighbor              *events.Event
     SendTransaction           *events.Event
     SendTransactionRequest    *events.Event
     ReceiveTransaction        *events.Event
@@ -33,12 +35,6 @@ type pluginEvents struct {
     // generic events
     Error *events.Event
 }
-
-func intCaller(handler interface{}, params ...interface{}) { handler.(func(int))(params[0].(int)) }
-
-func errorCaller(handler interface{}, params ...interface{}) { handler.(func(error))(params[0].(error)) }
-
-func transactionCaller(handler interface{}, params ...interface{}) { handler.(func(*transaction.Transaction))(params[0].(*transaction.Transaction)) }
 
 type protocolEvents struct {
     ReceiveVersion         *events.Event
@@ -50,3 +46,11 @@ type protocolEvents struct {
     ReceiveRequestData     *events.Event
     Error                  *events.Event
 }
+
+func intCaller(handler interface{}, params ...interface{}) { handler.(func(int))(params[0].(int)) }
+
+func neighborCaller(handler interface{}, params ...interface{}) { handler.(func(*Peer))(params[0].(*Peer)) }
+
+func errorCaller(handler interface{}, params ...interface{}) { handler.(func(error))(params[0].(error)) }
+
+func transactionCaller(handler interface{}, params ...interface{}) { handler.(func(*transaction.Transaction))(params[0].(*transaction.Transaction)) }

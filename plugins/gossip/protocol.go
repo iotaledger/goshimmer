@@ -2,26 +2,31 @@ package gossip
 
 import (
     "github.com/iotaledger/goshimmer/packages/errors"
+    "github.com/iotaledger/goshimmer/packages/events"
     "strconv"
 )
 
-//region interfaces ////////////////////////////////////////////////////////////////////////////////////////////////////
+// region interfaces ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 type protocolState interface {
     Consume(protocol *protocol, data []byte, offset int, length int) (int, errors.IdentifiableError)
 }
 
-//endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type protocol struct {
-    neighbor     *Neighbor
+    Events       protocolEvents
+    neighbor     *Peer
     currentState protocolState
 }
 
-func newProtocol(neighbor *Neighbor) *protocol {
+func newProtocol(neighbor *Peer) *protocol {
     protocol := &protocol{
+        Events: protocolEvents{
+            ReceiveVersion: events.NewEvent(intCaller),
+        },
         neighbor:     neighbor,
         currentState: &versionState{},
     }
@@ -47,14 +52,14 @@ func (protocol *protocol) parseData(data []byte) {
 
 // endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region versionState //////////////////////////////////////////////////////////////////////////////////////////////////
+// region versionState /////////////////////////////////////////////////////////////////////////////////////////////////
 
 type versionState struct{}
 
 func (state *versionState) Consume(protocol *protocol, data []byte, offset int, length int) (int, errors.IdentifiableError) {
     switch data[offset] {
     case 1:
-        Events.ReceiveVersion.Trigger(1)
+        protocol.Events.ReceiveVersion.Trigger(1)
 
         protocol.currentState = newIndentificationStateV1()
 
