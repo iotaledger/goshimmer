@@ -1,8 +1,10 @@
 package gossip
 
 import (
+    "bytes"
     "github.com/iotaledger/goshimmer/packages/byteutils"
     "github.com/iotaledger/goshimmer/packages/errors"
+    "github.com/iotaledger/goshimmer/packages/identity"
     "github.com/iotaledger/goshimmer/packages/transaction"
     "strconv"
 )
@@ -16,7 +18,7 @@ type indentificationStateV1 struct {
 
 func newIndentificationStateV1() *indentificationStateV1 {
     return &indentificationStateV1{
-        buffer: make([]byte, MARSHALLED_NEIGHBOR_TOTAL_SIZE),
+        buffer: make([]byte, MARSHALLED_IDENTITY_TOTAL_SIZE),
         offset: 0,
     }
 }
@@ -25,21 +27,44 @@ func (state *indentificationStateV1) Consume(protocol *protocol, data []byte, of
     bytesRead := byteutils.ReadAvailableBytesToBuffer(state.buffer, state.offset, data, offset, length)
 
     state.offset += bytesRead
-    if state.offset == MARSHALLED_NEIGHBOR_TOTAL_SIZE {
-        if unmarshalledNeighbor, err := UnmarshalPeer(state.buffer); err != nil {
+    if state.offset == MARSHALLED_IDENTITY_TOTAL_SIZE {
+        if receivedIdentity, err := unmarshalIdentity(state.buffer); err != nil {
             return bytesRead, ErrInvalidAuthenticationMessage.Derive(err, "invalid authentication message")
         } else {
-            protocol.neighbor.Identity = unmarshalledNeighbor.Identity
-            protocol.neighbor.Port = unmarshalledNeighbor.Port
+            if neighbor, exists := GetNeighbor(receivedIdentity.StringIdentifier); exists {
+                neighbor.initiatedConnMutex.Lock()
+                if neighbor.InitiatedConn == nil {
+                    neighbor.InitiatedConn = protocol.Conn
+                }
+                neighbor.initiatedConnMutex.Unlock()
 
-            protocol.Events.ReceiveIdentification.Trigger(protocol.neighbor)
+                protocol.Neighbor = neighbor
+            } else {
+                protocol.Neighbor = nil
+            }
 
-            protocol.currentState = newacceptanceStateV1()
+            protocol.Events.ReceiveIdentification.Trigger(protocol.Neighbor)
+
+            protocol.CurrentState = newacceptanceStateV1()
             state.offset = 0
         }
     }
 
     return bytesRead, nil
+}
+
+func unmarshalIdentity(data []byte) (*identity.Identity, error) {
+    identifier := data[MARSHALLED_IDENTITY_START:MARSHALLED_IDENTITY_END]
+
+    if restoredIdentity, err := identity.FromSignedData(identifier, data[MARSHALLED_IDENTITY_SIGNATURE_START:MARSHALLED_IDENTITY_SIGNATURE_END]); err != nil {
+        return nil, err
+    } else {
+        if bytes.Equal(identifier, restoredIdentity.Identifier) {
+            return restoredIdentity, nil
+        } else {
+            return nil, errors.New("signature does not match claimed identity")
+        }
+    }
 }
 
 //endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -57,14 +82,16 @@ func (state *acceptanceStateV1) Consume(protocol *protocol, data []byte, offset 
         case 0:
             protocol.Events.RejectConnection.Trigger()
 
-            protocol.neighbor.Conn.Close()
-            protocol.currentState = nil
+            RemoveNeighbor(protocol.Neighbor.Identity.StringIdentifier)
+
+            protocol.Neighbor.InitiatedConn.Close()
+            protocol.CurrentState = nil
         break
 
         case 1:
             protocol.Events.AcceptConnection.Trigger()
 
-            protocol.currentState = newDispatchStateV1()
+            protocol.CurrentState = newDispatchStateV1()
         break
 
         default:
@@ -89,15 +116,15 @@ func (state *dispatchStateV1) Consume(protocol *protocol, data []byte, offset in
         case 0:
             protocol.Events.RejectConnection.Trigger()
 
-            protocol.neighbor.Conn.Close()
-            protocol.currentState = nil
+            protocol.Neighbor.InitiatedConn.Close()
+            protocol.CurrentState = nil
 
         case 1:
-            protocol.currentState = newTransactionStateV1()
+            protocol.CurrentState = newTransactionStateV1()
         break
 
         case 2:
-            protocol.currentState = newRequestStateV1()
+            protocol.CurrentState = newRequestStateV1()
         break
 
         default:
@@ -136,7 +163,7 @@ func (state *transactionStateV1) Consume(protocol *protocol, data []byte, offset
             Events.ReceiveTransaction.Trigger(transaction.FromBytes(transactionData))
         }()
 
-        protocol.currentState = newDispatchStateV1()
+        protocol.CurrentState = newDispatchStateV1()
         state.offset = 0
     }
 
@@ -164,3 +191,16 @@ func (state *requestStateV1) Consume(protocol *protocol, data []byte, offset int
 }
 
 //endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const (
+    MARSHALLED_IDENTITY_START = 0
+    MARSHALLED_IDENTITY_SIGNATURE_START = MARSHALLED_IDENTITY_END
+
+    MARSHALLED_IDENTITY_SIZE = 20
+    MARSHALLED_IDENTITY_SIGNATURE_SIZE = 65
+
+    MARSHALLED_IDENTITY_END = MARSHALLED_IDENTITY_START + MARSHALLED_IDENTITY_SIZE
+    MARSHALLED_IDENTITY_SIGNATURE_END = MARSHALLED_IDENTITY_SIGNATURE_START + MARSHALLED_IDENTITY_SIGNATURE_SIZE
+
+    MARSHALLED_IDENTITY_TOTAL_SIZE = MARSHALLED_IDENTITY_SIGNATURE_END
+)

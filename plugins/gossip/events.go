@@ -2,17 +2,29 @@ package gossip
 
 import (
     "github.com/iotaledger/goshimmer/packages/events"
+    "github.com/iotaledger/goshimmer/packages/network"
     "github.com/iotaledger/goshimmer/packages/transaction"
 )
 
 var Events = pluginEvents{
-    AddNeighbor:        events.NewEvent(neighborCaller),
-    UpdateNeighbor:     events.NewEvent(neighborCaller),
-    RemoveNeighbor:     events.NewEvent(neighborCaller),
-    DropNeighbor:       events.NewEvent(neighborCaller),
-    IncomingConnection: events.NewEvent(errorCaller),
-    ReceiveTransaction: events.NewEvent(transactionCaller),
-    Error:              events.NewEvent(errorCaller),
+    // neighbor events
+    AddNeighbor:    events.NewEvent(peerCaller),
+    UpdateNeighbor: events.NewEvent(peerCaller),
+    RemoveNeighbor: events.NewEvent(peerCaller),
+
+    // low level network events
+    IncomingConnection: events.NewEvent(connectionCaller),
+
+    // high level protocol events
+    DropNeighbor:              events.NewEvent(peerCaller),
+    SendTransaction:           events.NewEvent(transactionCaller),
+    SendTransactionRequest:    events.NewEvent(transactionCaller), // TODO
+    ReceiveTransaction:        events.NewEvent(transactionCaller),
+    ReceiveTransactionRequest: events.NewEvent(transactionCaller), // TODO
+    ProtocolError:             events.NewEvent(transactionCaller), // TODO
+
+    // generic events
+    Error: events.NewEvent(errorCaller),
 }
 
 type pluginEvents struct {
@@ -49,7 +61,9 @@ type protocolEvents struct {
 
 func intCaller(handler interface{}, params ...interface{}) { handler.(func(int))(params[0].(int)) }
 
-func neighborCaller(handler interface{}, params ...interface{}) { handler.(func(*Peer))(params[0].(*Peer)) }
+func connectionCaller(handler interface{}, params ...interface{}) { handler.(func(*network.ManagedConnection))(params[0].(*network.ManagedConnection)) }
+
+func peerCaller(handler interface{}, params ...interface{}) { handler.(func(*Peer))(params[0].(*Peer)) }
 
 func errorCaller(handler interface{}, params ...interface{}) { handler.(func(error))(params[0].(error)) }
 
