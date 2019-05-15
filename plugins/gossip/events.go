@@ -2,6 +2,7 @@ package gossip
 
 import (
     "github.com/iotaledger/goshimmer/packages/events"
+    "github.com/iotaledger/goshimmer/packages/identity"
     "github.com/iotaledger/goshimmer/packages/network"
     "github.com/iotaledger/goshimmer/packages/transaction"
 )
@@ -60,6 +61,8 @@ type protocolEvents struct {
 }
 
 func intCaller(handler interface{}, params ...interface{}) { handler.(func(int))(params[0].(int)) }
+
+func identityCaller(handler interface{}, params ...interface{}) { handler.(func(*identity.Identity))(params[0].(*identity.Identity)) }
 
 func connectionCaller(handler interface{}, params ...interface{}) { handler.(func(*network.ManagedConnection))(params[0].(*network.ManagedConnection)) }
 

@@ -32,18 +32,12 @@ func (state *indentificationStateV1) Consume(protocol *protocol, data []byte, of
             return bytesRead, ErrInvalidAuthenticationMessage.Derive(err, "invalid authentication message")
         } else {
             if neighbor, exists := GetNeighbor(receivedIdentity.StringIdentifier); exists {
-                neighbor.initiatedConnMutex.Lock()
-                if neighbor.InitiatedConn == nil {
-                    neighbor.InitiatedConn = protocol.Conn
-                }
-                neighbor.initiatedConnMutex.Unlock()
-
                 protocol.Neighbor = neighbor
             } else {
                 protocol.Neighbor = nil
             }
 
-            protocol.Events.ReceiveIdentification.Trigger(protocol.Neighbor)
+            protocol.Events.ReceiveIdentification.Trigger(receivedIdentity)
 
             protocol.CurrentState = newacceptanceStateV1()
             state.offset = 0

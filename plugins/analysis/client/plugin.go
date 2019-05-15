@@ -61,7 +61,7 @@ func setupHooks(conn *network.ManagedConnection, eventDispatchers *EventDispatch
     // define hooks ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     onDiscoverPeer := events.NewClosure(func(p *peer.Peer) {
-        eventDispatchers.AddNode(p.Identity.Identifier)
+        go eventDispatchers.AddNode(p.Identity.Identifier)
     })
 
     onAddAcceptedNeighbor := events.NewClosure(func(p *peer.Peer) {

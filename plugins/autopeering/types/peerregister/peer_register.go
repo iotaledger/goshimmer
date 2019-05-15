@@ -62,14 +62,20 @@ func (this *PeerRegister) Lock() func() {
 }
 
 func (this *PeerRegister) Remove(key string, lock... bool) {
-    if len(lock) == 0 || lock[0] {
-        defer this.Lock()()
-    }
-
     if peerEntry, exists := this.Peers[key]; exists {
-        delete(this.Peers, key)
+        if len(lock) == 0 || lock[0] {
+            defer this.Lock()()
 
-        this.Events.Remove.Trigger(peerEntry)
+            if peerEntry, exists := this.Peers[key]; exists {
+                delete(this.Peers, key)
+
+                this.Events.Remove.Trigger(peerEntry)
+            }
+        } else {
+            delete(this.Peers, key)
+
+            this.Events.Remove.Trigger(peerEntry)
+        }
     }
 }
 

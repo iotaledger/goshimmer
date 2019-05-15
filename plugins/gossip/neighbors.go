@@ -7,9 +7,11 @@ import (
     "github.com/iotaledger/goshimmer/packages/identity"
     "github.com/iotaledger/goshimmer/packages/network"
     "github.com/iotaledger/goshimmer/packages/node"
+    "math"
     "net"
     "strconv"
     "sync"
+    "time"
 )
 
 func configureNeighbors(plugin *node.Plugin) {
@@ -30,6 +32,9 @@ func runNeighbors(plugin *node.Plugin) {
     plugin.LogInfo("Starting Neighbor Connection Manager ...")
 
     neighborLock.RLock()
+    for _, neighbor := range GetNeighbors() {
+        manageConnection(plugin, neighbor)
+    }
     neighborLock.RUnlock()
 
     Events.AddNeighbor.Attach(events.NewClosure(func(neighbor *Peer) {
@@ -39,21 +44,46 @@ func runNeighbors(plugin *node.Plugin) {
     plugin.LogSuccess("Starting Neighbor Connection Manager ... done")
 }
 
-func manageConnection(plugin *node.Plugin, neighbor *Peer, initiated bool) {
+func manageConnection(plugin *node.Plugin, neighbor *Peer) {
     daemon.BackgroundWorker(func() {
         failedConnectionAttempts := 0
 
-        for failedConnectionAttempts < MAX_CONNECTION_ATTEMPTS {
+        for failedConnectionAttempts < CONNECTION_MAX_ATTEMPTS {
             if neighbor, exists := GetNeighbor(neighbor.Identity.StringIdentifier); !exists {
                 return
             } else {
                 if conn, newConnection, err := neighbor.Connect(); err != nil {
                     failedConnectionAttempts++
 
-                    plugin.LogFailure("connection attempt [" + strconv.Itoa(int(failedConnectionAttempts)) + "/" + strconv.Itoa(MAX_CONNECTION_ATTEMPTS) + "] " + err.Error())
+                    plugin.LogFailure("connection attempt [" + strconv.Itoa(int(failedConnectionAttempts)) + "/" + strconv.Itoa(CONNECTION_MAX_ATTEMPTS) + "] " + err.Error())
+
+                    if failedConnectionAttempts <= CONNECTION_MAX_ATTEMPTS {
+                        select {
+                        case <-daemon.ShutdownSignal:
+                            return
+
+                        case <-time.After(time.Duration(int(math.Pow(2, float64(failedConnectionAttempts-1)))) * CONNECTION_BASE_TIMEOUT):
+                            // continue
+                        }
+                    }
                 } else {
+                    failedConnectionAttempts = 0
+
+                    disconnectChan := make(chan int, 1)
+                    conn.Events.Close.Attach(events.NewClosure(func() {
+                        close(disconnectChan)
+                    }))
+
                     if newConnection {
-                        newProtocol(conn).init()
+                        go newProtocol(conn).init()
+                    }
+
+                    select {
+                    case <-daemon.ShutdownSignal:
+                        return
+
+                    case <-disconnectChan:
+                        break
                     }
                 }
             }
@@ -69,8 +99,8 @@ type Peer struct {
     Port               uint16
     InitiatedConn      *network.ManagedConnection
     AcceptedConn       *network.ManagedConnection
-    initiatedConnMutex sync.Mutex
-    acceptedConnMutex  sync.Mutex
+    initiatedConnMutex sync.RWMutex
+    acceptedConnMutex  sync.RWMutex
 }
 
 func UnmarshalPeer(data []byte) (*Peer, error) {
@@ -78,41 +108,42 @@ func UnmarshalPeer(data []byte) (*Peer, error) {
 }
 
 func (peer *Peer) Connect() (*network.ManagedConnection, bool, errors.IdentifiableError) {
-    // if we already have an accepted connection -> use it instead
-    if peer.AcceptedConn != nil {
-        peer.acceptedConnMutex.Lock()
-        if peer.AcceptedConn != nil {
-            defer peer.acceptedConnMutex.Unlock()
-
-            return peer.AcceptedConn, false, nil
-        }
-        peer.acceptedConnMutex.Unlock()
-    }
-
-    // otherwise try to dial
     peer.initiatedConnMutex.Lock()
     defer peer.initiatedConnMutex.Unlock()
 
+    // return existing connections first
     if peer.InitiatedConn != nil {
         return peer.InitiatedConn, false, nil
-    } else {
-        conn, err := net.Dial("tcp", peer.Address.String()+":"+strconv.Itoa(int(peer.Port)))
-        if err != nil {
-            return nil, false, ErrConnectionFailed.Derive(err, "error when connecting to neighbor "+
-                peer.Identity.StringIdentifier+"@"+peer.Address.String()+":"+strconv.Itoa(int(peer.Port)))
-        }
-
-        peer.InitiatedConn = network.NewManagedConnection(conn)
-
-        peer.InitiatedConn.Events.Close.Attach(events.NewClosure(func() {
-            peer.initiatedConnMutex.Lock()
-            defer peer.initiatedConnMutex.Unlock()
-
-            peer.InitiatedConn = nil
-        }))
-
-        return peer.InitiatedConn, true, nil
     }
+
+    // if we already have an accepted connection -> use it instead
+    if peer.AcceptedConn != nil {
+        peer.acceptedConnMutex.RLock()
+        if peer.AcceptedConn != nil {
+            defer peer.acceptedConnMutex.RUnlock()
+
+            return peer.AcceptedConn, false, nil
+        }
+        peer.acceptedConnMutex.RUnlock()
+    }
+
+    // otherwise try to dial
+    conn, err := net.Dial("tcp", peer.Address.String()+":"+strconv.Itoa(int(peer.Port)))
+    if err != nil {
+        return nil, false, ErrConnectionFailed.Derive(err, "error when connecting to neighbor "+
+            peer.Identity.StringIdentifier+"@"+peer.Address.String()+":"+strconv.Itoa(int(peer.Port)))
+    }
+
+    peer.InitiatedConn = network.NewManagedConnection(conn)
+
+    peer.InitiatedConn.Events.Close.Attach(events.NewClosure(func() {
+        peer.initiatedConnMutex.Lock()
+        defer peer.initiatedConnMutex.Unlock()
+
+        peer.InitiatedConn = nil
+    }))
+
+    return peer.InitiatedConn, true, nil
 }
 
 func (peer *Peer) Marshal() []byte {
@@ -144,13 +175,15 @@ func AddNeighbor(newNeighbor *Peer) {
 }
 
 func RemoveNeighbor(identifier string) {
-    neighborLock.Lock()
-    defer neighborLock.Lock()
+    if _, exists := neighbors[identifier]; exists {
+        neighborLock.Lock()
+        defer neighborLock.Unlock()
 
-    if neighbor, exists := neighbors[identifier]; exists {
-        delete(neighbors, identifier)
+        if neighbor, exists := neighbors[identifier]; exists {
+            delete(neighbors, identifier)
 
-        Events.RemoveNeighbor.Trigger(neighbor)
+            Events.RemoveNeighbor.Trigger(neighbor)
+        }
     }
 }
 
@@ -176,7 +209,8 @@ func GetNeighbors() map[string]*Peer {
 }
 
 const (
-    MAX_CONNECTION_ATTEMPTS        = 5
+    CONNECTION_MAX_ATTEMPTS        = 5
+    CONNECTION_BASE_TIMEOUT        = 10 * time.Second
     MARSHALLED_NEIGHBOR_TOTAL_SIZE = 1
 )
 

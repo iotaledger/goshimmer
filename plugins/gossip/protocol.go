@@ -1,7 +1,6 @@
 package gossip
 
 import (
-    "fmt"
     "github.com/iotaledger/goshimmer/packages/accountability"
     "github.com/iotaledger/goshimmer/packages/errors"
     "github.com/iotaledger/goshimmer/packages/events"
@@ -33,7 +32,7 @@ func newProtocol(conn *network.ManagedConnection) *protocol {
         CurrentState: &versionState{},
         Events: protocolEvents{
             ReceiveVersion:        events.NewEvent(intCaller),
-            ReceiveIdentification: events.NewEvent(peerCaller),
+            ReceiveIdentification: events.NewEvent(identityCaller),
         },
     }
 
@@ -43,8 +42,6 @@ func newProtocol(conn *network.ManagedConnection) *protocol {
 func (protocol *protocol) init() {
     var onClose, onReceiveData *events.Closure
 
-    fmt.Println("INIT")
-
     onReceiveData = events.NewClosure(protocol.parseData)
     onClose = events.NewClosure(func() {
         protocol.Conn.Events.ReceiveData.Detach(onReceiveData)
@@ -53,26 +50,15 @@ func (protocol *protocol) init() {
 
     protocol.Conn.Events.ReceiveData.Attach(onReceiveData)
     protocol.Conn.Events.Close.Attach(onClose)
-    protocol.Events.ReceiveVersion.Attach(events.NewClosure(func(version int) {
-        fmt.Println(version)
-    }))
-    protocol.Events.ReceiveIdentification.Attach(events.NewClosure(func(neighbor *Peer) {
-        fmt.Println(neighbor)
-    }))
 
     protocol.Conn.Write([]byte{1})
-    fmt.Println("SENT VERSION")
     protocol.Conn.Write(accountability.OWN_ID.Identifier)
-
-    fmt.Println(len(accountability.OWN_ID.Identifier))
 
     if signature, err := accountability.OWN_ID.Sign(accountability.OWN_ID.Identifier); err == nil {
         protocol.Conn.Write(signature)
-        fmt.Println(len(signature))
     }
-    fmt.Println("SENTSIGNATURE")
 
-    go protocol.Conn.Read(make([]byte, 1000))
+    protocol.Conn.Read(make([]byte, 1000))
 }
 
 func (protocol *protocol) parseData(data []byte) {

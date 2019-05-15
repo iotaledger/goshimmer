@@ -37,6 +37,11 @@ func run(plugin *node.Plugin) {
 }
 
 func configureLogging(plugin *node.Plugin) {
+    gossip.Events.RemoveNeighbor.Attach(events.NewClosure(func(peer *gossip.Peer) {
+        chosenneighbors.INSTANCE.Remove(peer.Identity.StringIdentifier)
+        acceptedneighbors.INSTANCE.Remove(peer.Identity.StringIdentifier)
+    }))
+
     acceptedneighbors.INSTANCE.Events.Add.Attach(events.NewClosure(func(p *peer.Peer) {
         plugin.LogDebug("accepted neighbor added: " + p.Address.String() + " / " + p.Identity.StringIdentifier)
 

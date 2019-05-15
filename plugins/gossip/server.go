@@ -3,6 +3,7 @@ package gossip
 import (
     "github.com/iotaledger/goshimmer/packages/daemon"
     "github.com/iotaledger/goshimmer/packages/events"
+    "github.com/iotaledger/goshimmer/packages/identity"
     "github.com/iotaledger/goshimmer/packages/network"
     "github.com/iotaledger/goshimmer/packages/network/tcp"
     "github.com/iotaledger/goshimmer/packages/node"
@@ -13,7 +14,26 @@ var TCPServer = tcp.NewServer()
 
 func configureServer(plugin *node.Plugin) {
     TCPServer.Events.Connect.Attach(events.NewClosure(func(conn *network.ManagedConnection) {
-        newProtocol(conn).init()
+        protocol := newProtocol(conn)
+
+        protocol.Events.ReceiveIdentification.Attach(events.NewClosure(func(identity *identity.Identity) {
+            if protocol.Neighbor != nil {
+                protocol.Neighbor.acceptedConnMutex.Lock()
+                if protocol.Neighbor.AcceptedConn == nil {
+                    protocol.Neighbor.AcceptedConn = protocol.Conn
+
+                    protocol.Neighbor.AcceptedConn.Events.Close.Attach(events.NewClosure(func() {
+                        protocol.Neighbor.acceptedConnMutex.Lock()
+                        defer protocol.Neighbor.acceptedConnMutex.Unlock()
+
+                        protocol.Neighbor.AcceptedConn = nil
+                    }))
+                }
+                protocol.Neighbor.acceptedConnMutex.Unlock()
+            }
+        }))
+
+        go protocol.init()
     }))
 
     daemon.Events.Shutdown.Attach(events.NewClosure(func() {
