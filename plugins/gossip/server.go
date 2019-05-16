@@ -16,6 +16,7 @@ func configureServer(plugin *node.Plugin) {
     TCPServer.Events.Connect.Attach(events.NewClosure(func(conn *network.ManagedConnection) {
         protocol := newProtocol(conn)
 
+        // store connection in neighbor if its a neighbor calling
         protocol.Events.ReceiveIdentification.Attach(events.NewClosure(func(identity *identity.Identity) {
             if protocol.Neighbor != nil {
                 protocol.Neighbor.acceptedConnMutex.Lock()

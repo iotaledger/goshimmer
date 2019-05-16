@@ -76,6 +76,21 @@ func (this *databaseImpl) Set(key []byte, value []byte) error {
     return nil
 }
 
+func (this *databaseImpl) Contains(key []byte) (bool, error) {
+    if err := this.db.View(func(txn *badger.Txn) error {
+        _, err := txn.Get(key)
+        if err != nil {
+            return err
+        }
+
+        return nil
+    }); err == ErrKeyNotFound {
+        return false, nil
+    } else {
+        return err == nil, err
+    }
+}
+
 func (this *databaseImpl) Get(key []byte) ([]byte, error) {
     var result []byte = nil
     var err error = nil

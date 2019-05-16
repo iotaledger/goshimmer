@@ -50,14 +50,14 @@ type pluginEvents struct {
 }
 
 type protocolEvents struct {
-    ReceiveVersion         *events.Event
-    ReceiveIdentification  *events.Event
-    AcceptConnection       *events.Event
-    RejectConnection       *events.Event
-    DropConnection         *events.Event
-    ReceiveTransactionData *events.Event
-    ReceiveRequestData     *events.Event
-    Error                  *events.Event
+    ReceiveVersion            *events.Event
+    ReceiveIdentification     *events.Event
+    ReceiveConnectionAccepted *events.Event
+    ReceiveConnectionRejected *events.Event
+    ReceiveDropConnection     *events.Event
+    ReceiveTransactionData    *events.Event
+    ReceiveRequestData        *events.Event
+    Error                     *events.Event
 }
 
 func intCaller(handler interface{}, params ...interface{}) { handler.(func(int))(params[0].(int)) }

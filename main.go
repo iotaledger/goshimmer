@@ -1,7 +1,10 @@
 package main
 
 import (
+    "github.com/iotaledger/goshimmer/packages/database"
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/node"
+    "github.com/iotaledger/goshimmer/packages/transaction"
     "github.com/iotaledger/goshimmer/plugins/analysis"
     "github.com/iotaledger/goshimmer/plugins/autopeering"
     "github.com/iotaledger/goshimmer/plugins/cli"
@@ -19,4 +22,9 @@ func main() {
         statusscreen.PLUGIN,
         gracefulshutdown.PLUGIN,
     )
+
+    db, _ := database.Get("transactions")
+    gossip.Events.ReceiveTransaction.Attach(events.NewClosure(func(tx *transaction.Transaction) {
+        db.Set(tx.Hash.ToBytes(), tx.Bytes)
+    }))
 }

@@ -74,16 +74,15 @@ func newacceptanceStateV1() *acceptanceStateV1 {
 func (state *acceptanceStateV1) Consume(protocol *protocol, data []byte, offset int, length int) (int, errors.IdentifiableError) {
     switch data[offset] {
         case 0:
-            protocol.Events.RejectConnection.Trigger()
+            protocol.Events.ReceiveConnectionRejected.Trigger()
 
-            RemoveNeighbor(protocol.Neighbor.Identity.StringIdentifier)
+            protocol.Conn.Close()
 
-            protocol.Neighbor.InitiatedConn.Close()
             protocol.CurrentState = nil
         break
 
         case 1:
-            protocol.Events.AcceptConnection.Trigger()
+            protocol.Events.ReceiveConnectionAccepted.Trigger()
 
             protocol.CurrentState = newDispatchStateV1()
         break
@@ -108,7 +107,7 @@ func newDispatchStateV1() *dispatchStateV1 {
 func (state *dispatchStateV1) Consume(protocol *protocol, data []byte, offset int, length int) (int, errors.IdentifiableError) {
     switch data[0] {
         case 0:
-            protocol.Events.RejectConnection.Trigger()
+            protocol.Events.ReceiveConnectionRejected.Trigger()
 
             protocol.Neighbor.InitiatedConn.Close()
             protocol.CurrentState = nil
@@ -153,9 +152,7 @@ func (state *transactionStateV1) Consume(protocol *protocol, data []byte, offset
 
         protocol.Events.ReceiveTransactionData.Trigger(transactionData)
 
-        go func() {
-            Events.ReceiveTransaction.Trigger(transaction.FromBytes(transactionData))
-        }()
+        go processTransactionData(transactionData)
 
         protocol.CurrentState = newDispatchStateV1()
         state.offset = 0

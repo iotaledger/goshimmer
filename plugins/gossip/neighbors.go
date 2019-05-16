@@ -48,44 +48,42 @@ func manageConnection(plugin *node.Plugin, neighbor *Peer) {
     daemon.BackgroundWorker(func() {
         failedConnectionAttempts := 0
 
-        for failedConnectionAttempts < CONNECTION_MAX_ATTEMPTS {
-            if neighbor, exists := GetNeighbor(neighbor.Identity.StringIdentifier); !exists {
-                return
-            } else {
-                if conn, newConnection, err := neighbor.Connect(); err != nil {
-                    failedConnectionAttempts++
+        for _, exists := GetNeighbor(neighbor.Identity.StringIdentifier); exists && failedConnectionAttempts < CONNECTION_MAX_ATTEMPTS; {
+            conn, dialed, err := neighbor.Connect()
+            if err != nil {
+                failedConnectionAttempts++
 
-                    plugin.LogFailure("connection attempt [" + strconv.Itoa(int(failedConnectionAttempts)) + "/" + strconv.Itoa(CONNECTION_MAX_ATTEMPTS) + "] " + err.Error())
+                plugin.LogFailure("connection attempt [" + strconv.Itoa(int(failedConnectionAttempts)) + "/" + strconv.Itoa(CONNECTION_MAX_ATTEMPTS) + "] " + err.Error())
 
-                    if failedConnectionAttempts <= CONNECTION_MAX_ATTEMPTS {
-                        select {
-                        case <-daemon.ShutdownSignal:
-                            return
-
-                        case <-time.After(time.Duration(int(math.Pow(2, float64(failedConnectionAttempts-1)))) * CONNECTION_BASE_TIMEOUT):
-                            // continue
-                        }
-                    }
-                } else {
-                    failedConnectionAttempts = 0
-
-                    disconnectChan := make(chan int, 1)
-                    conn.Events.Close.Attach(events.NewClosure(func() {
-                        close(disconnectChan)
-                    }))
-
-                    if newConnection {
-                        go newProtocol(conn).init()
-                    }
-
+                if failedConnectionAttempts <= CONNECTION_MAX_ATTEMPTS {
                     select {
                     case <-daemon.ShutdownSignal:
                         return
 
-                    case <-disconnectChan:
-                        break
+                    case <-time.After(time.Duration(int(math.Pow(2, float64(failedConnectionAttempts-1)))) * CONNECTION_BASE_TIMEOUT):
+                        continue
                     }
                 }
+            }
+
+            failedConnectionAttempts = 0
+
+            disconnectChan := make(chan int, 1)
+            conn.Events.Close.Attach(events.NewClosure(func() {
+                close(disconnectChan)
+            }))
+
+            if dialed {
+                go newProtocol(conn).init()
+            }
+
+            // wait for shutdown or
+            select {
+            case <-daemon.ShutdownSignal:
+                return
+
+            case <-disconnectChan:
+                break
             }
         }
 
@@ -211,7 +209,6 @@ func GetNeighbors() map[string]*Peer {
 const (
     CONNECTION_MAX_ATTEMPTS        = 5
     CONNECTION_BASE_TIMEOUT        = 10 * time.Second
-    MARSHALLED_NEIGHBOR_TOTAL_SIZE = 1
 )
 
 var neighbors = make(map[string]*Peer)
