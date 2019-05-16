@@ -74,7 +74,7 @@ func manageConnection(plugin *node.Plugin, neighbor *Peer) {
             }))
 
             if dialed {
-                go newProtocol(conn).init()
+                go newProtocol(conn).Init()
             }
 
             // wait for shutdown or

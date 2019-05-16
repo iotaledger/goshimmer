@@ -2,6 +2,7 @@ package gossip
 
 import (
     "github.com/iotaledger/goshimmer/packages/daemon"
+    "github.com/iotaledger/goshimmer/packages/errors"
     "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/identity"
     "github.com/iotaledger/goshimmer/packages/network"
@@ -15,6 +16,11 @@ var TCPServer = tcp.NewServer()
 func configureServer(plugin *node.Plugin) {
     TCPServer.Events.Connect.Attach(events.NewClosure(func(conn *network.ManagedConnection) {
         protocol := newProtocol(conn)
+
+        // print protocol errors
+        protocol.Events.Error.Attach(events.NewClosure(func(err errors.IdentifiableError) {
+            plugin.LogFailure(err.Error())
+        }))
 
         // store connection in neighbor if its a neighbor calling
         protocol.Events.ReceiveIdentification.Attach(events.NewClosure(func(identity *identity.Identity) {
@@ -34,7 +40,7 @@ func configureServer(plugin *node.Plugin) {
             }
         }))
 
-        go protocol.init()
+        go protocol.Init()
     }))
 
     daemon.Events.Shutdown.Attach(events.NewClosure(func() {

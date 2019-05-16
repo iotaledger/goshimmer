@@ -1,110 +1,91 @@
 package gossip
 
 import (
-    "github.com/iotaledger/goshimmer/packages/accountability"
     "github.com/iotaledger/goshimmer/packages/errors"
     "github.com/iotaledger/goshimmer/packages/events"
-    "github.com/iotaledger/goshimmer/packages/identity"
     "github.com/iotaledger/goshimmer/packages/network"
     "strconv"
 )
 
-// region interfaces ///////////////////////////////////////////////////////////////////////////////////////////////////
+// region constants and variables //////////////////////////////////////////////////////////////////////////////////////
 
-type protocolState interface {
-    Consume(protocol *protocol, data []byte, offset int, length int) (int, errors.IdentifiableError)
+var DEFAULT_PROTOCOL = protocolDefinition{
+    version:     1,
+    initializer: protocolV1,
 }
 
-// endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//region protocol //////////////////////////////////////////////////////////////////////////////////////////////////////
+// region protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type protocol struct {
-    Conn         *network.ManagedConnection
-    Neighbor     *Peer
-    Version      int
-    CurrentState protocolState
-    Events       protocolEvents
+    Conn           *network.ManagedConnection
+    Neighbor       *Peer
+    Version        int
+    SendState      protocolState
+    ReceivingState protocolState
+    Events         protocolEvents
 }
 
 func newProtocol(conn *network.ManagedConnection) *protocol {
     protocol := &protocol{
-        Conn:         conn,
-        CurrentState: &versionState{},
+        Conn: conn,
         Events: protocolEvents{
             ReceiveVersion:            events.NewEvent(intCaller),
             ReceiveIdentification:     events.NewEvent(identityCaller),
             ReceiveConnectionAccepted: events.NewEvent(events.CallbackCaller),
             ReceiveConnectionRejected: events.NewEvent(events.CallbackCaller),
+            Error:                     events.NewEvent(errorCaller),
         },
     }
+
+    protocol.SendState = &versionState{protocol: protocol}
+    protocol.ReceivingState = &versionState{protocol: protocol}
 
     return protocol
 }
 
-func (protocol *protocol) sendVersion() {
-    protocol.Conn.Write([]byte{1})
-}
-
-func (protocol *protocol) sendIdentification() {
-    if signature, err := accountability.OWN_ID.Sign(accountability.OWN_ID.Identifier); err == nil {
-        protocol.Conn.Write(accountability.OWN_ID.Identifier)
-        protocol.Conn.Write(signature)
-    }
-}
-
-func (protocol *protocol) rejectConnection() {
-    protocol.Conn.Write([]byte{0})
-
-    protocol.Conn.Close()
-}
-
-func (protocol *protocol) acceptConnection() {
-    protocol.Conn.Write([]byte{1})
-}
-
-func (protocol *protocol) init() {
-    //region setup event handlers
-    onReceiveIdentification := events.NewClosure(func(identity *identity.Identity) {
-        if protocol.Neighbor == nil {
-            protocol.rejectConnection()
-        } else {
-            protocol.acceptConnection()
-        }
-    })
-
-    onReceiveData := events.NewClosure(protocol.parseData)
-
-    var onClose *events.Closure // define var first so we can use it in the closure
+func (protocol *protocol) Init() {
+    // setup event handlers
+    onReceiveData := events.NewClosure(protocol.Receive)
+    var onClose *events.Closure
     onClose = events.NewClosure(func() {
         protocol.Conn.Events.ReceiveData.Detach(onReceiveData)
         protocol.Conn.Events.Close.Detach(onClose)
     })
-    //endregion
 
-    //region register event handlers
-    protocol.Events.ReceiveIdentification.Attach(onReceiveIdentification)
+    // region register event handlers
     protocol.Conn.Events.ReceiveData.Attach(onReceiveData)
     protocol.Conn.Events.Close.Attach(onClose)
-    //endregion
 
-    //region send initial handshake
-    protocol.sendVersion()
-    protocol.sendIdentification()
-    //endregion
+    // send protocol version
+    if err := protocol.Send(DEFAULT_PROTOCOL.version); err != nil {
+        return
+    }
+
+    // initialize default protocol
+    if err := DEFAULT_PROTOCOL.initializer(protocol); err != nil {
+        protocol.SendState = nil
+
+        _ = protocol.Conn.Close()
+
+        protocol.Events.Error.Trigger(err)
+
+        return
+    }
 
     // start reading from the connection
-    protocol.Conn.Read(make([]byte, 1000))
+    _, _ = protocol.Conn.Read(make([]byte, 1000))
 }
 
-func (protocol *protocol) parseData(data []byte) {
+func (protocol *protocol) Receive(data []byte) {
     offset := 0
     length := len(data)
-    for offset < length && protocol.CurrentState != nil {
-        if readBytes, err := protocol.CurrentState.Consume(protocol, data, offset, length); err != nil {
+    for offset < length && protocol.ReceivingState != nil {
+        if readBytes, err := protocol.ReceivingState.Receive(data, offset, length); err != nil {
             Events.Error.Trigger(err)
 
-            protocol.Neighbor.InitiatedConn.Close()
+            _ = protocol.Conn.Close()
 
             return
         } else {
@@ -113,19 +94,39 @@ func (protocol *protocol) parseData(data []byte) {
     }
 }
 
-// endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+func (protocol *protocol) Send(data interface{}) errors.IdentifiableError {
+    if protocol.SendState != nil {
+        if err := protocol.SendState.Send(data); err != nil {
+            protocol.SendState = nil
+
+            _ = protocol.Conn.Close()
+
+            protocol.Events.Error.Trigger(err)
+
+            return err
+        }
+    }
+
+    return nil
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region versionState /////////////////////////////////////////////////////////////////////////////////////////////////
 
-type versionState struct{}
+type versionState struct {
+    protocol *protocol
+}
 
-func (state *versionState) Consume(protocol *protocol, data []byte, offset int, length int) (int, errors.IdentifiableError) {
+func (state *versionState) Receive(data []byte, offset int, length int) (int, errors.IdentifiableError) {
     switch data[offset] {
     case 1:
+        protocol := state.protocol
+
         protocol.Version = 1
         protocol.Events.ReceiveVersion.Trigger(1)
 
-        protocol.CurrentState = newIndentificationStateV1()
+        protocol.ReceivingState = newIndentificationStateV1(protocol)
 
         return 1, nil
 
@@ -134,4 +135,37 @@ func (state *versionState) Consume(protocol *protocol, data []byte, offset int, 
     }
 }
 
-// endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+func (state *versionState) Send(param interface{}) errors.IdentifiableError {
+    if version, ok := param.(byte); ok {
+        switch version {
+        case VERSION_1:
+            protocol := state.protocol
+
+            if _, err := protocol.Conn.Write([]byte{version}); err != nil {
+                return ErrSendFailed.Derive(err, "failed to send version byte")
+            }
+
+            protocol.SendState = newIndentificationStateV1(protocol)
+
+            return nil
+        }
+    }
+
+    return ErrInvalidSendParam.Derive("passed in parameter is not a valid version byte")
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region types and interfaces /////////////////////////////////////////////////////////////////////////////////////////
+
+type protocolState interface {
+    Send(param interface{}) errors.IdentifiableError
+    Receive(data []byte, offset int, length int) (int, errors.IdentifiableError)
+}
+
+type protocolDefinition struct {
+    version     byte
+    initializer func(*protocol) errors.IdentifiableError
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

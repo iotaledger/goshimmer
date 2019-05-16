@@ -1,6 +1,7 @@
 package gossip
 
 import (
+    "github.com/iotaledger/goshimmer/packages/errors"
     "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/identity"
     "github.com/iotaledger/goshimmer/packages/network"
@@ -68,6 +69,6 @@ func connectionCaller(handler interface{}, params ...interface{}) { handler.(fun
 
 func peerCaller(handler interface{}, params ...interface{}) { handler.(func(*Peer))(params[0].(*Peer)) }
 
-func errorCaller(handler interface{}, params ...interface{}) { handler.(func(error))(params[0].(error)) }
+func errorCaller(handler interface{}, params ...interface{}) { handler.(func(errors.IdentifiableError))(params[0].(errors.IdentifiableError)) }
 
 func transactionCaller(handler interface{}, params ...interface{}) { handler.(func(*transaction.Transaction))(params[0].(*transaction.Transaction)) }

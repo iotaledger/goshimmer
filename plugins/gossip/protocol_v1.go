@@ -2,28 +2,58 @@ package gossip
 
 import (
     "bytes"
+    "github.com/iotaledger/goshimmer/packages/accountability"
     "github.com/iotaledger/goshimmer/packages/byteutils"
     "github.com/iotaledger/goshimmer/packages/errors"
+    "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/identity"
     "github.com/iotaledger/goshimmer/packages/transaction"
     "strconv"
 )
 
-//region indentificationStateV1 ////////////////////////////////////////////////////////////////////////////////////////
+// region protocolV1 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-type indentificationStateV1 struct {
-    buffer []byte
-    offset int
+func protocolV1(protocol *protocol) errors.IdentifiableError {
+    if err := protocol.Send(accountability.OWN_ID); err != nil {
+        return err
+    }
+
+    onReceiveIdentification := events.NewClosure(func(identity *identity.Identity) {
+        if protocol.Neighbor == nil {
+            if err := protocol.Send(CONNECTION_REJECT); err != nil {
+                return
+            }
+        } else {
+            if err := protocol.Send(CONNECTION_ACCEPT); err != nil {
+                return
+            }
+        }
+    })
+
+    protocol.Events.ReceiveIdentification.Attach(onReceiveIdentification)
+
+    return nil
 }
 
-func newIndentificationStateV1() *indentificationStateV1 {
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region indentificationStateV1 ///////////////////////////////////////////////////////////////////////////////////////
+
+type indentificationStateV1 struct {
+    protocol *protocol
+    buffer   []byte
+    offset   int
+}
+
+func newIndentificationStateV1(protocol *protocol) *indentificationStateV1 {
     return &indentificationStateV1{
-        buffer: make([]byte, MARSHALLED_IDENTITY_TOTAL_SIZE),
-        offset: 0,
+        protocol: protocol,
+        buffer:   make([]byte, MARSHALLED_IDENTITY_TOTAL_SIZE),
+        offset:   0,
     }
 }
 
-func (state *indentificationStateV1) Consume(protocol *protocol, data []byte, offset int, length int) (int, errors.IdentifiableError) {
+func (state *indentificationStateV1) Receive(data []byte, offset int, length int) (int, errors.IdentifiableError) {
     bytesRead := byteutils.ReadAvailableBytesToBuffer(state.buffer, state.offset, data, offset, length)
 
     state.offset += bytesRead
@@ -31,6 +61,8 @@ func (state *indentificationStateV1) Consume(protocol *protocol, data []byte, of
         if receivedIdentity, err := unmarshalIdentity(state.buffer); err != nil {
             return bytesRead, ErrInvalidAuthenticationMessage.Derive(err, "invalid authentication message")
         } else {
+            protocol := state.protocol
+
             if neighbor, exists := GetNeighbor(receivedIdentity.StringIdentifier); exists {
                 protocol.Neighbor = neighbor
             } else {
@@ -39,12 +71,33 @@ func (state *indentificationStateV1) Consume(protocol *protocol, data []byte, of
 
             protocol.Events.ReceiveIdentification.Trigger(receivedIdentity)
 
-            protocol.CurrentState = newacceptanceStateV1()
+            protocol.ReceivingState = newacceptanceStateV1(protocol)
             state.offset = 0
         }
     }
 
     return bytesRead, nil
+}
+
+func (state *indentificationStateV1) Send(param interface{}) errors.IdentifiableError {
+    if id, ok := param.(*identity.Identity); ok {
+        if signature, err := id.Sign(id.Identifier); err == nil {
+            protocol := state.protocol
+
+            if _, err := protocol.Conn.Write(id.Identifier); err != nil {
+                return ErrSendFailed.Derive(err, "failed to send identifier")
+            }
+            if _, err := protocol.Conn.Write(signature); err != nil {
+                return ErrSendFailed.Derive(err, "failed to send signature")
+            }
+
+            protocol.SendState = newacceptanceStateV1(protocol)
+
+            return nil
+        }
+    }
+
+    return ErrInvalidSendParam.Derive("passed in parameter is not a valid identity")
 }
 
 func unmarshalIdentity(data []byte) (*identity.Identity, error) {
@@ -61,92 +114,170 @@ func unmarshalIdentity(data []byte) (*identity.Identity, error) {
     }
 }
 
-//endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//region acceptanceStateV1 /////////////////////////////////////////////////////////////////////////////////////////////
+// region acceptanceStateV1 ////////////////////////////////////////////////////////////////////////////////////////////
 
-type acceptanceStateV1 struct {}
-
-func newacceptanceStateV1() *acceptanceStateV1 {
-    return &acceptanceStateV1{}
+type acceptanceStateV1 struct {
+    protocol *protocol
 }
 
-func (state *acceptanceStateV1) Consume(protocol *protocol, data []byte, offset int, length int) (int, errors.IdentifiableError) {
+func newacceptanceStateV1(protocol *protocol) *acceptanceStateV1 {
+    return &acceptanceStateV1{protocol: protocol}
+}
+
+func (state *acceptanceStateV1) Receive(data []byte, offset int, length int) (int, errors.IdentifiableError) {
+    protocol := state.protocol
+
     switch data[offset] {
-        case 0:
-            protocol.Events.ReceiveConnectionRejected.Trigger()
+    case 0:
+        protocol.Events.ReceiveConnectionRejected.Trigger()
 
-            protocol.Conn.Close()
+        _ = protocol.Conn.Close()
 
-            protocol.CurrentState = nil
-        break
+        protocol.ReceivingState = nil
 
-        case 1:
-            protocol.Events.ReceiveConnectionAccepted.Trigger()
+    case 1:
+        protocol.Events.ReceiveConnectionAccepted.Trigger()
 
-            protocol.CurrentState = newDispatchStateV1()
-        break
+        protocol.ReceivingState = newDispatchStateV1(protocol)
 
-        default:
-            return 1, ErrInvalidStateTransition.Derive("invalid acceptance state transition (" + strconv.Itoa(int(data[offset])) + ")")
+    default:
+        return 1, ErrInvalidStateTransition.Derive("invalid acceptance state transition (" + strconv.Itoa(int(data[offset])) + ")")
     }
 
     return 1, nil
 }
 
-//endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+func (state *acceptanceStateV1) Send(param interface{}) errors.IdentifiableError {
+    if responseType, ok := param.(byte); ok {
+        switch responseType {
+        case CONNECTION_REJECT:
+            protocol := state.protocol
 
-//region dispatchStateV1 ///////////////////////////////////////////////////////////////////////////////////////////////
+            if _, err := protocol.Conn.Write([]byte{CONNECTION_REJECT}); err != nil {
+                return ErrSendFailed.Derive(err, "failed to send reject message")
+            }
 
-type dispatchStateV1 struct {}
+            _ = protocol.Conn.Close()
 
-func newDispatchStateV1() *dispatchStateV1 {
-    return &dispatchStateV1{}
+            protocol.SendState = nil
+
+            return nil
+
+        case CONNECTION_ACCEPT:
+            protocol := state.protocol
+
+            if _, err := protocol.Conn.Write([]byte{CONNECTION_ACCEPT}); err != nil {
+                return ErrSendFailed.Derive(err, "failed to send accept message")
+            }
+
+            protocol.SendState = newDispatchStateV1(protocol)
+
+            return nil
+        }
+    }
+
+    return ErrInvalidSendParam.Derive("passed in parameter is not a valid acceptance byte")
 }
 
-func (state *dispatchStateV1) Consume(protocol *protocol, data []byte, offset int, length int) (int, errors.IdentifiableError) {
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region dispatchStateV1 //////////////////////////////////////////////////////////////////////////////////////////////
+
+type dispatchStateV1 struct {
+    protocol *protocol
+}
+
+func newDispatchStateV1(protocol *protocol) *dispatchStateV1 {
+    return &dispatchStateV1{
+        protocol: protocol,
+    }
+}
+
+func (state *dispatchStateV1) Receive(data []byte, offset int, length int) (int, errors.IdentifiableError) {
     switch data[0] {
-        case 0:
-            protocol.Events.ReceiveConnectionRejected.Trigger()
+    case 0:
+        protocol := state.protocol
 
-            protocol.Neighbor.InitiatedConn.Close()
-            protocol.CurrentState = nil
+        protocol.Events.ReceiveConnectionRejected.Trigger()
 
-        case 1:
-            protocol.CurrentState = newTransactionStateV1()
-        break
+        _ = protocol.Conn.Close()
 
-        case 2:
-            protocol.CurrentState = newRequestStateV1()
-        break
+        protocol.ReceivingState = nil
 
-        default:
-            return 1, ErrInvalidStateTransition.Derive("invalid dispatch state transition (" + strconv.Itoa(int(data[offset])) + ")")
+    case 1:
+        protocol := state.protocol
+
+        protocol.ReceivingState = newTransactionStateV1(protocol)
+
+    case 2:
+        protocol := state.protocol
+
+        protocol.ReceivingState = newRequestStateV1(protocol)
+
+    default:
+        return 1, ErrInvalidStateTransition.Derive("invalid dispatch state transition (" + strconv.Itoa(int(data[offset])) + ")")
     }
+
     return 1, nil
 }
 
-//endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+func (state *dispatchStateV1) Send(param interface{}) errors.IdentifiableError {
+    if dispatchByte, ok := param.(byte); ok {
+        switch dispatchByte {
+        case DISPATCH_DROP:
+            protocol := state.protocol
 
-//region transactionStateV1 ////////////////////////////////////////////////////////////////////////////////////////////
+            _ = protocol.Conn.Close()
+
+            protocol.SendState = nil
+
+            return nil
+
+        case DISPATCH_TRANSACTION:
+            protocol := state.protocol
+
+            protocol.SendState = newTransactionStateV1(protocol)
+
+            return nil
+
+        case DISPATCH_REQUEST:
+            protocol := state.protocol
+
+            protocol.SendState = newTransactionStateV1(protocol)
+
+            return nil
+        }
+    }
+
+    return ErrInvalidSendParam.Derive("passed in parameter is not a valid dispatch byte")
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region transactionStateV1 ///////////////////////////////////////////////////////////////////////////////////////////
 
 type transactionStateV1 struct {
-    buffer []byte
-    offset int
+    protocol *protocol
+    buffer   []byte
+    offset   int
 }
 
-func newTransactionStateV1() *transactionStateV1 {
+func newTransactionStateV1(protocol *protocol) *transactionStateV1 {
     return &transactionStateV1{
         buffer: make([]byte, transaction.MARSHALLED_TOTAL_SIZE),
         offset: 0,
     }
 }
 
-func (state *transactionStateV1) Consume(protocol *protocol, data []byte, offset int, length int) (int, errors.IdentifiableError) {
+func (state *transactionStateV1) Receive(data []byte, offset int, length int) (int, errors.IdentifiableError) {
     bytesRead := byteutils.ReadAvailableBytesToBuffer(state.buffer, state.offset, data, offset, length)
 
     state.offset += bytesRead
     if state.offset == transaction.MARSHALLED_TOTAL_SIZE {
+        protocol := state.protocol
+
         transactionData := make([]byte, transaction.MARSHALLED_TOTAL_SIZE)
         copy(transactionData, state.buffer)
 
@@ -154,44 +285,65 @@ func (state *transactionStateV1) Consume(protocol *protocol, data []byte, offset
 
         go processTransactionData(transactionData)
 
-        protocol.CurrentState = newDispatchStateV1()
+        protocol.ReceivingState = newDispatchStateV1(protocol)
         state.offset = 0
     }
 
     return bytesRead, nil
 }
 
-//endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+func (state *transactionStateV1) Send(param interface{}) errors.IdentifiableError {
+    return nil
+}
 
-//region requestStateV1 ////////////////////////////////////////////////////////////////////////////////////////////////
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region requestStateV1 ///////////////////////////////////////////////////////////////////////////////////////////////
 
 type requestStateV1 struct {
     buffer []byte
     offset int
 }
 
-func newRequestStateV1() *requestStateV1 {
+func newRequestStateV1(protocol *protocol) *requestStateV1 {
     return &requestStateV1{
         buffer: make([]byte, 1),
         offset: 0,
     }
 }
 
-func (state *requestStateV1) Consume(protocol *protocol, data []byte, offset int, length int) (int, errors.IdentifiableError) {
+func (state *requestStateV1) Receive(data []byte, offset int, length int) (int, errors.IdentifiableError) {
     return 0, nil
 }
 
-//endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+func (state *requestStateV1) Send(param interface{}) errors.IdentifiableError {
+    return nil
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region constants and variables //////////////////////////////////////////////////////////////////////////////////////
 
 const (
-    MARSHALLED_IDENTITY_START = 0
+    VERSION_1 = byte(1)
+
+    CONNECTION_REJECT = byte(0)
+    CONNECTION_ACCEPT = byte(1)
+
+    DISPATCH_DROP        = byte(0)
+    DISPATCH_TRANSACTION = byte(1)
+    DISPATCH_REQUEST     = byte(2)
+
+    MARSHALLED_IDENTITY_START           = 0
     MARSHALLED_IDENTITY_SIGNATURE_START = MARSHALLED_IDENTITY_END
 
-    MARSHALLED_IDENTITY_SIZE = 20
+    MARSHALLED_IDENTITY_SIZE           = 20
     MARSHALLED_IDENTITY_SIGNATURE_SIZE = 65
 
-    MARSHALLED_IDENTITY_END = MARSHALLED_IDENTITY_START + MARSHALLED_IDENTITY_SIZE
+    MARSHALLED_IDENTITY_END           = MARSHALLED_IDENTITY_START + MARSHALLED_IDENTITY_SIZE
     MARSHALLED_IDENTITY_SIGNATURE_END = MARSHALLED_IDENTITY_SIGNATURE_START + MARSHALLED_IDENTITY_SIGNATURE_SIZE
 
     MARSHALLED_IDENTITY_TOTAL_SIZE = MARSHALLED_IDENTITY_SIGNATURE_END
 )
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

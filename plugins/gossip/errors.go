@@ -7,4 +7,6 @@ var (
     ErrInvalidAuthenticationMessage = errors.Wrap(errors.New("protocol error"), "invalid authentication message")
     ErrInvalidIdentity = errors.Wrap(errors.New("protocol error"), "invalid identity message")
     ErrInvalidStateTransition = errors.New("protocol error: invalid state transition message")
+    ErrSendFailed = errors.Wrap(errors.New("protocol error"), "failed to send message")
+    ErrInvalidSendParam = errors.New("invalid parameter passed to send")
 )
