@@ -11,6 +11,7 @@ var PLUGIN = node.NewPlugin("Gossip", configure, run)
 func configure(plugin *node.Plugin) {
     configureNeighbors(plugin)
     configureServer(plugin)
+    configureTransactionProcessor(plugin)
 
     Events.ReceiveTransaction.Attach(events.NewClosure(func(transaction *transaction.Transaction) {
 
@@ -20,4 +21,5 @@ func configure(plugin *node.Plugin) {
 func run(plugin *node.Plugin) {
     runNeighbors(plugin)
     runServer(plugin)
+    runTransactionProcessor(plugin)
 }

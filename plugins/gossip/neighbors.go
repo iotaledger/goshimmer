@@ -49,7 +49,7 @@ func manageConnection(plugin *node.Plugin, neighbor *Peer) {
         failedConnectionAttempts := 0
 
         for _, exists := GetNeighbor(neighbor.Identity.StringIdentifier); exists && failedConnectionAttempts < CONNECTION_MAX_ATTEMPTS; {
-            conn, dialed, err := neighbor.Connect()
+            protocol, dialed, err := neighbor.Connect()
             if err != nil {
                 failedConnectionAttempts++
 
@@ -68,13 +68,13 @@ func manageConnection(plugin *node.Plugin, neighbor *Peer) {
 
             failedConnectionAttempts = 0
 
-            disconnectChan := make(chan int, 1)
-            conn.Events.Close.Attach(events.NewClosure(func() {
-                close(disconnectChan)
+            disconnectSignal := make(chan int, 1)
+            protocol.Conn.Events.Close.Attach(events.NewClosure(func() {
+                close(disconnectSignal)
             }))
 
             if dialed {
-                go newProtocol(conn).Init()
+                go protocol.Init()
             }
 
             // wait for shutdown or
@@ -82,7 +82,7 @@ func manageConnection(plugin *node.Plugin, neighbor *Peer) {
             case <-daemon.ShutdownSignal:
                 return
 
-            case <-disconnectChan:
+            case <-disconnectSignal:
                 break
             }
         }
@@ -92,37 +92,37 @@ func manageConnection(plugin *node.Plugin, neighbor *Peer) {
 }
 
 type Peer struct {
-    Identity           *identity.Identity
-    Address            net.IP
-    Port               uint16
-    InitiatedConn      *network.ManagedConnection
-    AcceptedConn       *network.ManagedConnection
-    initiatedConnMutex sync.RWMutex
-    acceptedConnMutex  sync.RWMutex
+    Identity               *identity.Identity
+    Address                net.IP
+    Port                   uint16
+    InitiatedProtocol      *protocol
+    AcceptedProtocol       *protocol
+    initiatedProtocolMutex sync.RWMutex
+    acceptedProtocolMutex  sync.RWMutex
 }
 
 func UnmarshalPeer(data []byte) (*Peer, error) {
     return &Peer{}, nil
 }
 
-func (peer *Peer) Connect() (*network.ManagedConnection, bool, errors.IdentifiableError) {
-    peer.initiatedConnMutex.Lock()
-    defer peer.initiatedConnMutex.Unlock()
+func (peer *Peer) Connect() (*protocol, bool, errors.IdentifiableError) {
+    peer.initiatedProtocolMutex.Lock()
+    defer peer.initiatedProtocolMutex.Unlock()
 
     // return existing connections first
-    if peer.InitiatedConn != nil {
-        return peer.InitiatedConn, false, nil
+    if peer.InitiatedProtocol != nil {
+        return peer.InitiatedProtocol, false, nil
     }
 
     // if we already have an accepted connection -> use it instead
-    if peer.AcceptedConn != nil {
-        peer.acceptedConnMutex.RLock()
-        if peer.AcceptedConn != nil {
-            defer peer.acceptedConnMutex.RUnlock()
+    if peer.AcceptedProtocol != nil {
+        peer.acceptedProtocolMutex.RLock()
+        if peer.AcceptedProtocol != nil {
+            defer peer.acceptedProtocolMutex.RUnlock()
 
-            return peer.AcceptedConn, false, nil
+            return peer.AcceptedProtocol, false, nil
         }
-        peer.acceptedConnMutex.RUnlock()
+        peer.acceptedProtocolMutex.RUnlock()
     }
 
     // otherwise try to dial
@@ -132,16 +132,16 @@ func (peer *Peer) Connect() (*network.ManagedConnection, bool, errors.Identifiab
             peer.Identity.StringIdentifier+"@"+peer.Address.String()+":"+strconv.Itoa(int(peer.Port)))
     }
 
-    peer.InitiatedConn = network.NewManagedConnection(conn)
+    peer.InitiatedProtocol = newProtocol(network.NewManagedConnection(conn))
 
-    peer.InitiatedConn.Events.Close.Attach(events.NewClosure(func() {
-        peer.initiatedConnMutex.Lock()
-        defer peer.initiatedConnMutex.Unlock()
+    peer.InitiatedProtocol.Conn.Events.Close.Attach(events.NewClosure(func() {
+        peer.initiatedProtocolMutex.Lock()
+        defer peer.initiatedProtocolMutex.Unlock()
 
-        peer.InitiatedConn = nil
+        peer.InitiatedProtocol = nil
     }))
 
-    return peer.InitiatedConn, true, nil
+    return peer.InitiatedProtocol, true, nil
 }
 
 func (peer *Peer) Marshal() []byte {
@@ -212,4 +212,5 @@ const (
 )
 
 var neighbors = make(map[string]*Peer)
+
 var neighborLock sync.RWMutex

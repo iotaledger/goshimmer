@@ -39,6 +39,15 @@ func (this *ManagedConnection) Read(receiveBuffer []byte) (n int, err error) {
         }
 
         byteCount, err := this.Conn.Read(receiveBuffer)
+        if byteCount > 0 {
+            totalReadBytes += byteCount
+
+            receivedData := make([]byte, byteCount)
+            copy(receivedData, receiveBuffer)
+
+            this.Events.ReceiveData.Trigger(receivedData)
+        }
+
         if err != nil {
             if err != io.EOF {
                 this.Events.Error.Trigger(err)
@@ -46,12 +55,6 @@ func (this *ManagedConnection) Read(receiveBuffer []byte) (n int, err error) {
 
             return totalReadBytes, err
         }
-        totalReadBytes += byteCount
-
-        receivedData := make([]byte, byteCount)
-        copy(receivedData, receiveBuffer)
-
-        this.Events.ReceiveData.Trigger(receivedData)
     }
 }
 

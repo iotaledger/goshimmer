@@ -25,18 +25,18 @@ func configureServer(plugin *node.Plugin) {
         // store connection in neighbor if its a neighbor calling
         protocol.Events.ReceiveIdentification.Attach(events.NewClosure(func(identity *identity.Identity) {
             if protocol.Neighbor != nil {
-                protocol.Neighbor.acceptedConnMutex.Lock()
-                if protocol.Neighbor.AcceptedConn == nil {
-                    protocol.Neighbor.AcceptedConn = protocol.Conn
+                protocol.Neighbor.acceptedProtocolMutex.Lock()
+                if protocol.Neighbor.AcceptedProtocol == nil {
+                    protocol.Neighbor.AcceptedProtocol = protocol
 
-                    protocol.Neighbor.AcceptedConn.Events.Close.Attach(events.NewClosure(func() {
-                        protocol.Neighbor.acceptedConnMutex.Lock()
-                        defer protocol.Neighbor.acceptedConnMutex.Unlock()
+                    protocol.Conn.Events.Close.Attach(events.NewClosure(func() {
+                        protocol.Neighbor.acceptedProtocolMutex.Lock()
+                        defer protocol.Neighbor.acceptedProtocolMutex.Unlock()
 
-                        protocol.Neighbor.AcceptedConn = nil
+                        protocol.Neighbor.AcceptedProtocol = nil
                     }))
                 }
-                protocol.Neighbor.acceptedConnMutex.Unlock()
+                protocol.Neighbor.acceptedProtocolMutex.Unlock()
             }
         }))
 

@@ -5,12 +5,13 @@ import (
     "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/network"
     "strconv"
+    "sync"
 )
 
 // region constants and variables //////////////////////////////////////////////////////////////////////////////////////
 
 var DEFAULT_PROTOCOL = protocolDefinition{
-    version:     1,
+    version:     VERSION_1,
     initializer: protocolV1,
 }
 
@@ -21,10 +22,11 @@ var DEFAULT_PROTOCOL = protocolDefinition{
 type protocol struct {
     Conn           *network.ManagedConnection
     Neighbor       *Peer
-    Version        int
+    Version        byte
     SendState      protocolState
     ReceivingState protocolState
     Events         protocolEvents
+    sendMutex      sync.Mutex
 }
 
 func newProtocol(conn *network.ManagedConnection) *protocol {
@@ -95,6 +97,13 @@ func (protocol *protocol) Receive(data []byte) {
 }
 
 func (protocol *protocol) Send(data interface{}) errors.IdentifiableError {
+    protocol.sendMutex.Lock()
+    defer protocol.sendMutex.Unlock()
+
+    return protocol.send(data)
+}
+
+func (protocol *protocol) send(data interface{}) errors.IdentifiableError {
     if protocol.SendState != nil {
         if err := protocol.SendState.Send(data); err != nil {
             protocol.SendState = nil

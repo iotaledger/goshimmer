@@ -35,6 +35,20 @@ func protocolV1(protocol *protocol) errors.IdentifiableError {
     return nil
 }
 
+func sendTransactionV1(protocol *protocol, tx *transaction.Transaction) {
+    if _, ok := protocol.SendState.(*dispatchStateV1); ok {
+        protocol.sendMutex.Lock()
+        defer protocol.sendMutex.Unlock()
+
+        if err := protocol.send(DISPATCH_TRANSACTION); err != nil {
+            return
+        }
+        if err := protocol.send(tx); err != nil {
+            return
+        }
+    }
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region indentificationStateV1 ///////////////////////////////////////////////////////////////////////////////////////
@@ -283,7 +297,7 @@ func (state *transactionStateV1) Receive(data []byte, offset int, length int) (i
 
         protocol.Events.ReceiveTransactionData.Trigger(transactionData)
 
-        go processTransactionData(transactionData)
+        go processIncomingTransactionData(transactionData)
 
         protocol.ReceivingState = newDispatchStateV1(protocol)
         state.offset = 0
