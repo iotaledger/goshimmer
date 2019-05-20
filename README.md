@@ -15,7 +15,7 @@ go get github.com/iotaledger/goshimmer
 
 ## Build
 
-If you need to develop locally and be able to build by using your local code, i.e., without waiting for pushing your commits on the repo, clone the repository directly inside the `src` folder of your `$GOPATH` with the command:
+If you need to develop locally and be able to build by using your local code, i.e., without waiting for pushing your commits on the repo, clone the repository directly inside the `src/github.com/iotaledger/` folder of your `$GOPATH` with the command:
 
 ```
 git clone git@github.com:iotaledger/goshimmer.git
