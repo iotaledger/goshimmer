@@ -1,6 +1,7 @@
 package gossip
 
 import (
+    "github.com/iotaledger/goshimmer/packages/accountability"
     "github.com/iotaledger/goshimmer/packages/daemon"
     "github.com/iotaledger/goshimmer/packages/errors"
     "github.com/iotaledger/goshimmer/packages/events"
@@ -15,15 +16,15 @@ import (
 )
 
 func configureNeighbors(plugin *node.Plugin) {
-    Events.AddNeighbor.Attach(events.NewClosure(func(neighbor *Peer) {
+    Events.AddNeighbor.Attach(events.NewClosure(func(neighbor *Neighbor) {
         plugin.LogSuccess("new neighbor added " + neighbor.Identity.StringIdentifier + "@" + neighbor.Address.String() + ":" + strconv.Itoa(int(neighbor.Port)))
     }))
 
-    Events.UpdateNeighbor.Attach(events.NewClosure(func(neighbor *Peer) {
+    Events.UpdateNeighbor.Attach(events.NewClosure(func(neighbor *Neighbor) {
         plugin.LogSuccess("existing neighbor updated " + neighbor.Identity.StringIdentifier + "@" + neighbor.Address.String() + ":" + strconv.Itoa(int(neighbor.Port)))
     }))
 
-    Events.RemoveNeighbor.Attach(events.NewClosure(func(neighbor *Peer) {
+    Events.RemoveNeighbor.Attach(events.NewClosure(func(neighbor *Neighbor) {
         plugin.LogSuccess("existing neighbor removed " + neighbor.Identity.StringIdentifier + "@" + neighbor.Address.String() + ":" + strconv.Itoa(int(neighbor.Port)))
     }))
 }
@@ -37,14 +38,14 @@ func runNeighbors(plugin *node.Plugin) {
     }
     neighborLock.RUnlock()
 
-    Events.AddNeighbor.Attach(events.NewClosure(func(neighbor *Peer) {
+    Events.AddNeighbor.Attach(events.NewClosure(func(neighbor *Neighbor) {
         manageConnection(plugin, neighbor)
     }))
 
     plugin.LogSuccess("Starting Neighbor Connection Manager ... done")
 }
 
-func manageConnection(plugin *node.Plugin, neighbor *Peer) {
+func manageConnection(plugin *node.Plugin, neighbor *Neighbor) {
     daemon.BackgroundWorker(func() {
         failedConnectionAttempts := 0
 
@@ -91,69 +92,99 @@ func manageConnection(plugin *node.Plugin, neighbor *Peer) {
     })
 }
 
-type Peer struct {
+type Neighbor struct {
     Identity               *identity.Identity
     Address                net.IP
     Port                   uint16
     InitiatedProtocol      *protocol
     AcceptedProtocol       *protocol
+    Events                 neighborEvents
     initiatedProtocolMutex sync.RWMutex
     acceptedProtocolMutex  sync.RWMutex
 }
 
-func UnmarshalPeer(data []byte) (*Peer, error) {
-    return &Peer{}, nil
+func NewNeighbor(identity *identity.Identity, address net.IP, port uint16) *Neighbor {
+    return &Neighbor{
+        Identity: identity,
+        Address:  address,
+        Port:     port,
+        Events: neighborEvents{
+            ProtocolConnectionEstablished: events.NewEvent(protocolCaller),
+        },
+    }
 }
 
-func (peer *Peer) Connect() (*protocol, bool, errors.IdentifiableError) {
-    peer.initiatedProtocolMutex.Lock()
-    defer peer.initiatedProtocolMutex.Unlock()
+func UnmarshalPeer(data []byte) (*Neighbor, error) {
+    return &Neighbor{}, nil
+}
+
+func (neighbor *Neighbor) Connect() (*protocol, bool, errors.IdentifiableError) {
+    neighbor.initiatedProtocolMutex.Lock()
+    defer neighbor.initiatedProtocolMutex.Unlock()
 
     // return existing connections first
-    if peer.InitiatedProtocol != nil {
-        return peer.InitiatedProtocol, false, nil
+    if neighbor.InitiatedProtocol != nil {
+        return neighbor.InitiatedProtocol, false, nil
     }
 
     // if we already have an accepted connection -> use it instead
-    if peer.AcceptedProtocol != nil {
-        peer.acceptedProtocolMutex.RLock()
-        if peer.AcceptedProtocol != nil {
-            defer peer.acceptedProtocolMutex.RUnlock()
+    if neighbor.AcceptedProtocol != nil {
+        neighbor.acceptedProtocolMutex.RLock()
+        if neighbor.AcceptedProtocol != nil {
+            defer neighbor.acceptedProtocolMutex.RUnlock()
 
-            return peer.AcceptedProtocol, false, nil
+            return neighbor.AcceptedProtocol, false, nil
         }
-        peer.acceptedProtocolMutex.RUnlock()
+        neighbor.acceptedProtocolMutex.RUnlock()
     }
 
     // otherwise try to dial
-    conn, err := net.Dial("tcp", peer.Address.String()+":"+strconv.Itoa(int(peer.Port)))
+    conn, err := net.Dial("tcp", neighbor.Address.String()+":"+strconv.Itoa(int(neighbor.Port)))
     if err != nil {
         return nil, false, ErrConnectionFailed.Derive(err, "error when connecting to neighbor "+
-            peer.Identity.StringIdentifier+"@"+peer.Address.String()+":"+strconv.Itoa(int(peer.Port)))
+            neighbor.Identity.StringIdentifier+"@"+neighbor.Address.String()+":"+strconv.Itoa(int(neighbor.Port)))
     }
 
-    peer.InitiatedProtocol = newProtocol(network.NewManagedConnection(conn))
+    neighbor.InitiatedProtocol = newProtocol(network.NewManagedConnection(conn))
 
-    peer.InitiatedProtocol.Conn.Events.Close.Attach(events.NewClosure(func() {
-        peer.initiatedProtocolMutex.Lock()
-        defer peer.initiatedProtocolMutex.Unlock()
+    neighbor.InitiatedProtocol.Conn.Events.Close.Attach(events.NewClosure(func() {
+        neighbor.initiatedProtocolMutex.Lock()
+        defer neighbor.initiatedProtocolMutex.Unlock()
 
-        peer.InitiatedProtocol = nil
+        neighbor.InitiatedProtocol = nil
     }))
 
-    return peer.InitiatedProtocol, true, nil
+    // drop the "secondary" connection upon successful handshake
+    neighbor.InitiatedProtocol.Events.HandshakeCompleted.Attach(events.NewClosure(func() {
+        if accountability.OWN_ID.StringIdentifier <= neighbor.Identity.StringIdentifier {
+            neighbor.acceptedProtocolMutex.Lock()
+            var acceptedProtocolConn *network.ManagedConnection
+            if neighbor.AcceptedProtocol != nil {
+                acceptedProtocolConn = neighbor.AcceptedProtocol.Conn
+            }
+            neighbor.acceptedProtocolMutex.Unlock()
+
+            if acceptedProtocolConn != nil {
+                _ = acceptedProtocolConn.Close()
+            }
+        }
+
+        neighbor.Events.ProtocolConnectionEstablished.Trigger(neighbor.InitiatedProtocol)
+    }))
+
+    return neighbor.InitiatedProtocol, true, nil
 }
 
-func (peer *Peer) Marshal() []byte {
+func (neighbor *Neighbor) Marshal() []byte {
     return nil
 }
 
-func (peer *Peer) Equals(other *Peer) bool {
-    return peer.Identity.StringIdentifier == peer.Identity.StringIdentifier &&
-        peer.Port == other.Port && peer.Address.String() == other.Address.String()
+func (neighbor *Neighbor) Equals(other *Neighbor) bool {
+    return neighbor.Identity.StringIdentifier == neighbor.Identity.StringIdentifier &&
+        neighbor.Port == other.Port && neighbor.Address.String() == other.Address.String()
 }
 
-func AddNeighbor(newNeighbor *Peer) {
+func AddNeighbor(newNeighbor *Neighbor) {
     neighborLock.Lock()
     defer neighborLock.Unlock()
 
@@ -185,7 +216,7 @@ func RemoveNeighbor(identifier string) {
     }
 }
 
-func GetNeighbor(identifier string) (*Peer, bool) {
+func GetNeighbor(identifier string) (*Neighbor, bool) {
     neighborLock.RLock()
     defer neighborLock.RUnlock()
 
@@ -194,11 +225,11 @@ func GetNeighbor(identifier string) (*Peer, bool) {
     return neighbor, exists
 }
 
-func GetNeighbors() map[string]*Peer {
+func GetNeighbors() map[string]*Neighbor {
     neighborLock.RLock()
     defer neighborLock.RUnlock()
 
-    result := make(map[string]*Peer)
+    result := make(map[string]*Neighbor)
     for id, neighbor := range neighbors {
         result[id] = neighbor
     }
@@ -207,10 +238,10 @@ func GetNeighbors() map[string]*Peer {
 }
 
 const (
-    CONNECTION_MAX_ATTEMPTS        = 5
-    CONNECTION_BASE_TIMEOUT        = 10 * time.Second
+    CONNECTION_MAX_ATTEMPTS = 5
+    CONNECTION_BASE_TIMEOUT = 10 * time.Second
 )
 
-var neighbors = make(map[string]*Peer)
+var neighbors = make(map[string]*Neighbor)
 
 var neighborLock sync.RWMutex

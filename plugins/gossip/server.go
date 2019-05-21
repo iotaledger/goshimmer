@@ -1,6 +1,7 @@
 package gossip
 
 import (
+    "github.com/iotaledger/goshimmer/packages/accountability"
     "github.com/iotaledger/goshimmer/packages/daemon"
     "github.com/iotaledger/goshimmer/packages/errors"
     "github.com/iotaledger/goshimmer/packages/events"
@@ -22,7 +23,7 @@ func configureServer(plugin *node.Plugin) {
             plugin.LogFailure(err.Error())
         }))
 
-        // store connection in neighbor if its a neighbor calling
+        // store protocol in neighbor if its a neighbor calling
         protocol.Events.ReceiveIdentification.Attach(events.NewClosure(func(identity *identity.Identity) {
             if protocol.Neighbor != nil {
                 protocol.Neighbor.acceptedProtocolMutex.Lock()
@@ -38,6 +39,24 @@ func configureServer(plugin *node.Plugin) {
                 }
                 protocol.Neighbor.acceptedProtocolMutex.Unlock()
             }
+        }))
+
+        // drop the "secondary" connection upon successful handshake
+        protocol.Events.HandshakeCompleted.Attach(events.NewClosure(func() {
+            if protocol.Neighbor.Identity.StringIdentifier <= accountability.OWN_ID.StringIdentifier {
+                protocol.Neighbor.initiatedProtocolMutex.Lock()
+                var initiatedProtocolConn *network.ManagedConnection
+                if protocol.Neighbor.InitiatedProtocol != nil {
+                    initiatedProtocolConn = protocol.Neighbor.InitiatedProtocol.Conn
+                }
+                protocol.Neighbor.initiatedProtocolMutex.Unlock()
+
+                if initiatedProtocolConn != nil {
+                    _ = initiatedProtocolConn.Close()
+                }
+            }
+
+            protocol.Neighbor.Events.ProtocolConnectionEstablished.Trigger(protocol)
         }))
 
         go protocol.Init()

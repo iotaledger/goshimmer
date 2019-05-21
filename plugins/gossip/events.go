@@ -10,15 +10,15 @@ import (
 
 var Events = pluginEvents{
     // neighbor events
-    AddNeighbor:    events.NewEvent(peerCaller),
-    UpdateNeighbor: events.NewEvent(peerCaller),
-    RemoveNeighbor: events.NewEvent(peerCaller),
+    AddNeighbor:    events.NewEvent(neighborCaller),
+    UpdateNeighbor: events.NewEvent(neighborCaller),
+    RemoveNeighbor: events.NewEvent(neighborCaller),
 
     // low level network events
     IncomingConnection: events.NewEvent(connectionCaller),
 
     // high level protocol events
-    DropNeighbor:              events.NewEvent(peerCaller),
+    DropNeighbor:              events.NewEvent(neighborCaller),
     SendTransaction:           events.NewEvent(transactionCaller),
     SendTransactionRequest:    events.NewEvent(transactionCaller), // TODO
     ReceiveTransaction:        events.NewEvent(transactionCaller),
@@ -58,7 +58,12 @@ type protocolEvents struct {
     ReceiveDropConnection     *events.Event
     ReceiveTransactionData    *events.Event
     ReceiveRequestData        *events.Event
+    HandshakeCompleted        *events.Event
     Error                     *events.Event
+}
+
+type neighborEvents struct {
+    ProtocolConnectionEstablished *events.Event
 }
 
 func intCaller(handler interface{}, params ...interface{}) { handler.(func(int))(params[0].(int)) }
@@ -67,7 +72,9 @@ func identityCaller(handler interface{}, params ...interface{}) { handler.(func(
 
 func connectionCaller(handler interface{}, params ...interface{}) { handler.(func(*network.ManagedConnection))(params[0].(*network.ManagedConnection)) }
 
-func peerCaller(handler interface{}, params ...interface{}) { handler.(func(*Peer))(params[0].(*Peer)) }
+func protocolCaller(handler interface{}, params ...interface{}) { handler.(func(*protocol))(params[0].(*protocol)) }
+
+func neighborCaller(handler interface{}, params ...interface{}) { handler.(func(*Neighbor))(params[0].(*Neighbor)) }
 
 func errorCaller(handler interface{}, params ...interface{}) { handler.(func(errors.IdentifiableError))(params[0].(errors.IdentifiableError)) }
 

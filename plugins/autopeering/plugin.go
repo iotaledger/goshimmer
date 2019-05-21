@@ -37,7 +37,7 @@ func run(plugin *node.Plugin) {
 }
 
 func configureLogging(plugin *node.Plugin) {
-    gossip.Events.RemoveNeighbor.Attach(events.NewClosure(func(peer *gossip.Peer) {
+    gossip.Events.RemoveNeighbor.Attach(events.NewClosure(func(peer *gossip.Neighbor) {
         chosenneighbors.INSTANCE.Remove(peer.Identity.StringIdentifier)
         acceptedneighbors.INSTANCE.Remove(peer.Identity.StringIdentifier)
     }))
@@ -45,11 +45,7 @@ func configureLogging(plugin *node.Plugin) {
     acceptedneighbors.INSTANCE.Events.Add.Attach(events.NewClosure(func(p *peer.Peer) {
         plugin.LogDebug("accepted neighbor added: " + p.Address.String() + " / " + p.Identity.StringIdentifier)
 
-        gossip.AddNeighbor(&gossip.Peer{
-            Identity: p.Identity,
-            Address: p.Address,
-            Port: p.GossipPort,
-        })
+        gossip.AddNeighbor(gossip.NewNeighbor(p.Identity, p.Address, p.GossipPort))
     }))
     acceptedneighbors.INSTANCE.Events.Remove.Attach(events.NewClosure(func(p *peer.Peer) {
         plugin.LogDebug("accepted neighbor removed: " + p.Address.String() + " / " + p.Identity.StringIdentifier)
@@ -60,11 +56,7 @@ func configureLogging(plugin *node.Plugin) {
     chosenneighbors.INSTANCE.Events.Add.Attach(events.NewClosure(func(p *peer.Peer) {
         plugin.LogDebug("chosen neighbor added: " + p.Address.String() + " / " + p.Identity.StringIdentifier)
 
-        gossip.AddNeighbor(&gossip.Peer{
-            Identity: p.Identity,
-            Address: p.Address,
-            Port: p.GossipPort,
-        })
+        gossip.AddNeighbor(gossip.NewNeighbor(p.Identity, p.Address, p.GossipPort))
     }))
     chosenneighbors.INSTANCE.Events.Remove.Attach(events.NewClosure(func(p *peer.Peer) {
         plugin.LogDebug("chosen neighbor removed: " + p.Address.String() + " / " + p.Identity.StringIdentifier)
@@ -76,22 +68,14 @@ func configureLogging(plugin *node.Plugin) {
         plugin.LogInfo("new peer discovered: " + p.Address.String() + " / " + p.Identity.StringIdentifier)
 
         if _, exists := gossip.GetNeighbor(p.Identity.StringIdentifier); exists {
-            gossip.AddNeighbor(&gossip.Peer{
-                Identity: p.Identity,
-                Address: p.Address,
-                Port: p.GossipPort,
-            })
+            gossip.AddNeighbor(gossip.NewNeighbor(p.Identity, p.Address, p.GossipPort))
         }
     }))
     knownpeers.INSTANCE.Events.Update.Attach(events.NewClosure(func(p *peer.Peer) {
         plugin.LogDebug("peer updated: " + p.Address.String() + " / " + p.Identity.StringIdentifier)
 
         if _, exists := gossip.GetNeighbor(p.Identity.StringIdentifier); exists {
-            gossip.AddNeighbor(&gossip.Peer{
-                Identity: p.Identity,
-                Address: p.Address,
-                Port: p.GossipPort,
-            })
+            gossip.AddNeighbor(gossip.NewNeighbor(p.Identity, p.Address, p.GossipPort))
         }
     }))
 }

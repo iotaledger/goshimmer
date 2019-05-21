@@ -27,6 +27,14 @@ func protocolV1(protocol *protocol) errors.IdentifiableError {
             if err := protocol.Send(CONNECTION_ACCEPT); err != nil {
                 return
             }
+
+            protocol.handshakeMutex.Lock()
+            defer protocol.handshakeMutex.Unlock()
+
+            protocol.sendHandshakeCompleted = true
+            if protocol.receiveHandshakeCompleted {
+                protocol.Events.HandshakeCompleted.Trigger()
+            }
         }
     })
 

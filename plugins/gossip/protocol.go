@@ -20,13 +20,16 @@ var DEFAULT_PROTOCOL = protocolDefinition{
 // region protocol /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type protocol struct {
-    Conn           *network.ManagedConnection
-    Neighbor       *Peer
-    Version        byte
-    SendState      protocolState
-    ReceivingState protocolState
-    Events         protocolEvents
-    sendMutex      sync.Mutex
+    Conn                      *network.ManagedConnection
+    Neighbor                  *Neighbor
+    Version                   byte
+    sendHandshakeCompleted    bool
+    receiveHandshakeCompleted bool
+    SendState                 protocolState
+    ReceivingState            protocolState
+    Events                    protocolEvents
+    sendMutex                 sync.Mutex
+    handshakeMutex            sync.Mutex
 }
 
 func newProtocol(conn *network.ManagedConnection) *protocol {
@@ -37,8 +40,11 @@ func newProtocol(conn *network.ManagedConnection) *protocol {
             ReceiveIdentification:     events.NewEvent(identityCaller),
             ReceiveConnectionAccepted: events.NewEvent(events.CallbackCaller),
             ReceiveConnectionRejected: events.NewEvent(events.CallbackCaller),
+            HandshakeCompleted:        events.NewEvent(events.CallbackCaller),
             Error:                     events.NewEvent(errorCaller),
         },
+        sendHandshakeCompleted:    false,
+        receiveHandshakeCompleted: false,
     }
 
     protocol.SendState = &versionState{protocol: protocol}
@@ -50,15 +56,26 @@ func newProtocol(conn *network.ManagedConnection) *protocol {
 func (protocol *protocol) Init() {
     // setup event handlers
     onReceiveData := events.NewClosure(protocol.Receive)
+    onConnectionAccepted := events.NewClosure(func() {
+        protocol.handshakeMutex.Lock()
+        defer protocol.handshakeMutex.Unlock()
+
+        protocol.receiveHandshakeCompleted = true
+        if protocol.sendHandshakeCompleted {
+            protocol.Events.HandshakeCompleted.Trigger()
+        }
+    })
     var onClose *events.Closure
     onClose = events.NewClosure(func() {
         protocol.Conn.Events.ReceiveData.Detach(onReceiveData)
         protocol.Conn.Events.Close.Detach(onClose)
+        protocol.Events.ReceiveConnectionAccepted.Detach(onConnectionAccepted)
     })
 
     // region register event handlers
     protocol.Conn.Events.ReceiveData.Attach(onReceiveData)
     protocol.Conn.Events.Close.Attach(onClose)
+    protocol.Events.ReceiveConnectionAccepted.Attach(onConnectionAccepted)
 
     // send protocol version
     if err := protocol.Send(DEFAULT_PROTOCOL.version); err != nil {
