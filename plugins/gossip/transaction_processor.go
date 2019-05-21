@@ -2,26 +2,25 @@ package gossip
 
 import (
     "github.com/iotaledger/goshimmer/packages/filter"
-    "github.com/iotaledger/goshimmer/packages/node"
     "github.com/iotaledger/goshimmer/packages/transaction"
 )
 
-var transactionFilter = filter.NewByteArrayFilter(TRANSACTION_FILTER_SIZE)
+// region public api ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-func processIncomingTransactionData(transactionData []byte) {
+func ProcessReceivedTransactionData(transactionData []byte) {
     if transactionFilter.Add(transactionData) {
         Events.ReceiveTransaction.Trigger(transaction.FromBytes(transactionData))
     }
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region constants and variables //////////////////////////////////////////////////////////////////////////////////////
 
-func configureTransactionProcessor(plugin *node.Plugin) {
-}
-
-func runTransactionProcessor(plugin *node.Plugin) {
-}
+var transactionFilter = filter.NewByteArrayFilter(TRANSACTION_FILTER_SIZE)
 
 const (
     TRANSACTION_FILTER_SIZE = 5000
 )
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

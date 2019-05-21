@@ -40,10 +40,10 @@ func runSendQueue(plugin *node.Plugin) {
                 for _, neighborQueue := range neighborQueues {
                     select {
                     case neighborQueue.queue <- tx:
-                        return
+                        // log sth
 
                     default:
-                        return
+                        // log sth
                     }
                 }
                 connectedNeighborsMutex.RUnlock()

@@ -107,7 +107,7 @@ func New(message string) *fundamental {
     return &fundamental{
         id:    idCounter,
         msg:   message,
-        stack: callers(),
+        stack: Callers(),
     }
 }
 
@@ -120,7 +120,7 @@ func Errorf(format string, args ...interface{}) IdentifiableError {
     return &fundamental{
         id:    idCounter,
         msg:   fmt.Sprintf(format, args...),
-        stack: callers(),
+        stack: Callers(),
     }
 }
 
@@ -135,7 +135,7 @@ func (f *fundamental) Derive(msg string) *fundamental {
     return &fundamental{
         id:    f.id,
         msg:   msg,
-        stack: callers(),
+        stack: Callers(),
     }
 }
 
@@ -177,7 +177,7 @@ func WithStack(err error) IdentifiableError {
     return &withStack{
         idCounter,
         err,
-        callers(),
+        Callers(),
     }
 }
 
@@ -205,7 +205,7 @@ func (w *withStack) Derive(err error, message string) *withStack {
             cause: err,
             msg:   message,
         },
-        callers(),
+        Callers(),
     }
 }
 
@@ -244,7 +244,7 @@ func Wrap(err error, message string) *withStack {
     return &withStack{
         idCounter,
         err,
-        callers(),
+        Callers(),
     }
 }
 
@@ -265,7 +265,7 @@ func Wrapf(err error, format string, args ...interface{}) IdentifiableError {
     return &withStack{
         idCounter,
         err,
-        callers(),
+        Callers(),
     }
 }
 

@@ -84,7 +84,7 @@ func manageConnection(plugin *node.Plugin, neighbor *Neighbor) {
                 return
 
             case <-disconnectSignal:
-                break
+                continue
             }
         }
 

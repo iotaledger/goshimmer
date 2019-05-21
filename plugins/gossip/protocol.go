@@ -40,6 +40,7 @@ func newProtocol(conn *network.ManagedConnection) *protocol {
             ReceiveIdentification:     events.NewEvent(identityCaller),
             ReceiveConnectionAccepted: events.NewEvent(events.CallbackCaller),
             ReceiveConnectionRejected: events.NewEvent(events.CallbackCaller),
+            ReceiveTransactionData:    events.NewEvent(dataCaller),
             HandshakeCompleted:        events.NewEvent(events.CallbackCaller),
             Error:                     events.NewEvent(errorCaller),
         },

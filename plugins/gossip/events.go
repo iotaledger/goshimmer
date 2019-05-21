@@ -78,4 +78,6 @@ func neighborCaller(handler interface{}, params ...interface{}) { handler.(func(
 
 func errorCaller(handler interface{}, params ...interface{}) { handler.(func(errors.IdentifiableError))(params[0].(errors.IdentifiableError)) }
 
+func dataCaller(handler interface{}, params ...interface{}) { handler.(func([]byte))(params[0].([]byte)) }
+
 func transactionCaller(handler interface{}, params ...interface{}) { handler.(func(*transaction.Transaction))(params[0].(*transaction.Transaction)) }

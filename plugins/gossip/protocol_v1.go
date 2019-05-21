@@ -7,6 +7,7 @@ import (
     "github.com/iotaledger/goshimmer/packages/errors"
     "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/identity"
+    "github.com/iotaledger/goshimmer/packages/ternary"
     "github.com/iotaledger/goshimmer/packages/transaction"
     "strconv"
 )
@@ -219,7 +220,7 @@ func newDispatchStateV1(protocol *protocol) *dispatchStateV1 {
 
 func (state *dispatchStateV1) Receive(data []byte, offset int, length int) (int, errors.IdentifiableError) {
     switch data[0] {
-    case 0:
+    case DISPATCH_DROP:
         protocol := state.protocol
 
         protocol.Events.ReceiveConnectionRejected.Trigger()
@@ -228,12 +229,12 @@ func (state *dispatchStateV1) Receive(data []byte, offset int, length int) (int,
 
         protocol.ReceivingState = nil
 
-    case 1:
+    case DISPATCH_TRANSACTION:
         protocol := state.protocol
 
         protocol.ReceivingState = newTransactionStateV1(protocol)
 
-    case 2:
+    case DISPATCH_REQUEST:
         protocol := state.protocol
 
         protocol.ReceivingState = newRequestStateV1(protocol)
@@ -251,6 +252,10 @@ func (state *dispatchStateV1) Send(param interface{}) errors.IdentifiableError {
         case DISPATCH_DROP:
             protocol := state.protocol
 
+            if _, err := protocol.Conn.Write([]byte{DISPATCH_DROP}); err != nil {
+                return ErrSendFailed.Derive(err, "failed to send drop message")
+            }
+
             _ = protocol.Conn.Close()
 
             protocol.SendState = nil
@@ -260,12 +265,20 @@ func (state *dispatchStateV1) Send(param interface{}) errors.IdentifiableError {
         case DISPATCH_TRANSACTION:
             protocol := state.protocol
 
+            if _, err := protocol.Conn.Write([]byte{DISPATCH_TRANSACTION}); err != nil {
+                return ErrSendFailed.Derive(err, "failed to send transaction dispatch byte")
+            }
+
             protocol.SendState = newTransactionStateV1(protocol)
 
             return nil
 
         case DISPATCH_REQUEST:
             protocol := state.protocol
+
+            if _, err := protocol.Conn.Write([]byte{DISPATCH_REQUEST}); err != nil {
+                return ErrSendFailed.Derive(err, "failed to send request dispatch byte")
+            }
 
             protocol.SendState = newTransactionStateV1(protocol)
 
@@ -288,8 +301,9 @@ type transactionStateV1 struct {
 
 func newTransactionStateV1(protocol *protocol) *transactionStateV1 {
     return &transactionStateV1{
-        buffer: make([]byte, transaction.MARSHALLED_TOTAL_SIZE),
-        offset: 0,
+        protocol: protocol,
+        buffer:   make([]byte, transaction.MARSHALLED_TOTAL_SIZE / ternary.NUMBER_OF_TRITS_IN_A_BYTE),
+        offset:   0,
     }
 }
 
@@ -297,15 +311,15 @@ func (state *transactionStateV1) Receive(data []byte, offset int, length int) (i
     bytesRead := byteutils.ReadAvailableBytesToBuffer(state.buffer, state.offset, data, offset, length)
 
     state.offset += bytesRead
-    if state.offset == transaction.MARSHALLED_TOTAL_SIZE {
+    if state.offset == transaction.MARSHALLED_TOTAL_SIZE / ternary.NUMBER_OF_TRITS_IN_A_BYTE {
         protocol := state.protocol
 
-        transactionData := make([]byte, transaction.MARSHALLED_TOTAL_SIZE)
+        transactionData := make([]byte, transaction.MARSHALLED_TOTAL_SIZE / ternary.NUMBER_OF_TRITS_IN_A_BYTE)
         copy(transactionData, state.buffer)
 
         protocol.Events.ReceiveTransactionData.Trigger(transactionData)
 
-        go processIncomingTransactionData(transactionData)
+        go ProcessReceivedTransactionData(transactionData)
 
         protocol.ReceivingState = newDispatchStateV1(protocol)
         state.offset = 0
@@ -315,7 +329,19 @@ func (state *transactionStateV1) Receive(data []byte, offset int, length int) (i
 }
 
 func (state *transactionStateV1) Send(param interface{}) errors.IdentifiableError {
-    return nil
+    if tx, ok := param.(*transaction.Transaction); ok {
+        protocol := state.protocol
+
+        if _, err := protocol.Conn.Write(tx.Bytes); err != nil {
+            return ErrSendFailed.Derive(err, "failed to send transaction")
+        }
+
+        protocol.SendState = newDispatchStateV1(protocol)
+
+        return nil
+    }
+
+    return ErrInvalidSendParam.Derive("passed in parameter is not a valid transaction")
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

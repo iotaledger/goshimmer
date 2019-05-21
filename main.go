@@ -8,6 +8,7 @@ import (
     "github.com/iotaledger/goshimmer/plugins/gossip"
     "github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
     "github.com/iotaledger/goshimmer/plugins/statusscreen"
+    "github.com/iotaledger/goshimmer/plugins/tangle"
 )
 
 func main() {
@@ -15,6 +16,7 @@ func main() {
         cli.PLUGIN,
         autopeering.PLUGIN,
         gossip.PLUGIN,
+        tangle.PLUGIN,
         analysis.PLUGIN,
         statusscreen.PLUGIN,
         gracefulshutdown.PLUGIN,
