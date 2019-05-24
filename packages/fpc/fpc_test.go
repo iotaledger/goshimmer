@@ -1,0 +1,116 @@
+package fpc
+
+import (
+	"errors"
+	"reflect"
+	"testing"
+	"time"
+)
+
+func TestIsFinal(t *testing.T) {
+	type testInput struct {
+		opinions Opinions
+		m        int
+		l        int
+		want     bool
+	}
+	var tests = []testInput{
+		{Opinions{true, true, true, true}, 2, 2, true},
+		{Opinions{true, true, true, false}, 2, 2, false},
+	}
+
+	for _, test := range tests {
+		result := isFinal(test.opinions, test.m, test.l)
+		if result != test.want {
+			t.Error("Should return", test.want, "got", result, "with input", test)
+		}
+	}
+}
+
+func TestGetLastOpinion(t *testing.T) {
+	type testInput struct {
+		opinions Opinions
+		want     Opinion
+		err      error
+	}
+	var tests = []testInput{
+		{Opinions{true, true, true}, true, nil},
+		{Opinions{true, true, true, false}, false, nil},
+		{Opinions{}, false, errors.New("opinion is empty")},
+	}
+
+	for _, test := range tests {
+		result, err := getLastOpinion(test.opinions)
+		if result != test.want || !reflect.DeepEqual(err, test.err) {
+			t.Error("Should return", test.want, test.err, "got", result, err, "with input", test)
+		}
+	}
+}
+
+func TestUpdateOpinion(t *testing.T) {
+	type testInput struct {
+		newOpinion   Opinion
+		listOpinions Opinions
+		want         Opinions
+	}
+	var tests = []testInput{
+		{true, Opinions{true, true, true}, Opinions{true, true, true, true}},
+		{false, Opinions{true, true}, Opinions{true, true, false}},
+		{true, Opinions{}, Opinions{true}},
+	}
+	for _, test := range tests {
+		result := updateOpinion(test.newOpinion, test.listOpinions)
+		if !reflect.DeepEqual(result, test.want) {
+			t.Error("Should return", test.want, "got", result, "with input", test)
+		}
+	}
+}
+
+func TestFPC(t *testing.T) {
+	N := 10
+	fpcInstance := make([]*FPC, N)
+	getKnownPeers := func() []int {
+		nodesList := make([]int, N)
+		for i := 0; i < N; i++ {
+			nodesList[i] = i
+		}
+		return nodesList
+	}
+	queryNode := func(txs []Hash, node int) []Opinion {
+		return fpcInstance[node].GetInterimOpinion(txs...)
+	}
+	for i := 0; i < N; i++ {
+		fpcInstance[i] = New(getKnownPeers, queryNode, NewParameters())
+		fpcInstance[i].VoteOnTxs(TxOpinion{1, true})
+	}
+
+	ticker := time.NewTicker(300 * time.Millisecond)
+	finished := make(chan []TxOpinion, N)
+	go func() {
+		round := 0
+		for {
+			select {
+			case <-ticker.C:
+				round++
+				for i := 0; i < N; i++ {
+					fpcInstance[i].Tick(uint64(round), 0.7)
+				}
+			}
+			for i := 0; i < N; i++ {
+				select {
+				case finalizedTxs := <-fpcInstance[i].FinalizedTxs:
+					if len(finalizedTxs) > 0 {
+						finished <- finalizedTxs
+					}
+				}
+			}
+		}
+	}()
+	nodesFinalOpinion := [][]TxOpinion{}
+	for i := 0; i < N; i++ {
+		nodesFinalOpinion = append(nodesFinalOpinion, <-finished)
+		t.Log("Node", i+1, fpcInstance[i].Debug_GetOpinionHistory())
+	}
+	//fmt.Println("Safety:", safety(nodesFinalOpinion...))
+	t.Log("All done.", nodesFinalOpinion)
+}
