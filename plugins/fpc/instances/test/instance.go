@@ -27,8 +27,8 @@ func Configure(plugin *node.Plugin) {
 
 	INSTANCE = fpc.New(getKnownPeers, queryNode, fpc.NewParameters())
 
-	INSTANCE.VoteOnTxs()
-	INSTANCE.GetInterimOpinion()
+	// INSTANCE.VoteOnTxs()
+	// INSTANCE.GetInterimOpinion()
 
 }
 
@@ -36,6 +36,7 @@ func Run(plugin *node.Plugin) {
 	daemon.BackgroundWorker(func() {
 		ticker := time.NewTicker(1000 * time.Millisecond)
 		round := 0
+		INSTANCE.VoteOnTxs(fpc.TxOpinion{1, true})
 		for {
 			select {
 			case <-ticker.C:
