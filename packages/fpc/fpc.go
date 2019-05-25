@@ -50,11 +50,11 @@ func (fpc *FPC) Tick(index uint64, random float64) {
 
 // GetInterimOpinion returns the current opinions
 // of the given txs
-func (fpc *FPC) GetInterimOpinion(txs ...Hash) []Opinion {
+func (fpc *FPC) GetInterimOpinion(txs ...Hash) ([]Opinion) {
 	result := make([]Opinion, len(txs))
 	for i, tx := range txs {
 		if history, ok := fpc.state.opinionHistory.Load(tx); ok {
-			lastOpinion,_ := getLastOpinion(history)
+			lastOpinion, _ := getLastOpinion(history)
 			result[i] = lastOpinion
 		}
 	}
@@ -121,7 +121,7 @@ func (fpc *FPC) Round() []TxOpinion{
 	finalized := fpc.updateOpinion()
 	
 	// send the query for all the txs
-	etas := querySample(fpc.state.getTxsToQuery(), fpc.state.parameters.k, fpc.getKnownPeers(), fpc.queryNode)
+	etas := querySample(fpc.state.getActiveTxs(), fpc.state.parameters.k, fpc.getKnownPeers(), fpc.queryNode)
 	for tx, eta := range etas {
 		fpc.state.activeTxs[tx] = eta
 	}
@@ -138,11 +138,11 @@ func getLastOpinion(list Opinions) (Opinion, error) {
 	return false, errors.New("opinion is empty")
 }
 
-// adds a new opinion to a list of opinions
-func updateOpinion(newOpinion Opinion, list Opinions) Opinions {
-	list = append(list, newOpinion)
-	return list
-}
+// // adds a new opinion to a list of opinions
+// func updateOpinion(newOpinion Opinion, list Opinions) Opinions {
+// 	list = append(list, newOpinion)
+// 	return list
+// }
 
 
 // loop over all the txs to vote and update the last opinion
@@ -204,11 +204,11 @@ func querySample(txs []Hash, k int, nodes []int, qn QueryNode) etaMap {
 	// send k queries
 	c := make(chan []Opinion, k) // channel to communicate the reception of all the responses
 	for _, node := range selectedNodes {
-		go func(nodeID int, c chan []Opinion) {
+		go func(nodeID int) {
 			received := qn(txs, nodeID)
 			c <- received
 			//fmt.Println("Asked:", txs, "Received:",  received)
-		}(node, c)
+		}(node)
 	}
 
 	// wait for all the responses and merge them
@@ -240,6 +240,7 @@ func calculateEtas(votes []TxOpinion) etaMap {
 	for tx := range allEtas {
 		allEtas[tx].value /= float64(allEtas[tx].count)
 	}
+	
 
 	return allEtas
 }

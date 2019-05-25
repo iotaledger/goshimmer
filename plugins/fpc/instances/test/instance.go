@@ -34,7 +34,7 @@ func Configure(plugin *node.Plugin) {
 
 func Run(plugin *node.Plugin) {
 	daemon.BackgroundWorker(func() {
-		ticker := time.NewTicker(1000 * time.Millisecond)
+		ticker := time.NewTicker(5000 * time.Millisecond)
 		round := 0
 		INSTANCE.VoteOnTxs(fpc.TxOpinion{1, true})
 		for {
@@ -42,9 +42,10 @@ func Run(plugin *node.Plugin) {
 			case <-ticker.C:
 				round++
 				INSTANCE.Tick(uint64(round), 0.7)
+				plugin.LogInfo(fmt.Sprintf("Round %v %v", round, INSTANCE.Debug_GetOpinionHistory()))
 			case finalizedTxs := <-INSTANCE.FinalizedTxs:
 				if len(finalizedTxs) > 0 {
-					fmt.Println("Finalized txs", finalizedTxs)
+					plugin.LogInfo(fmt.Sprintf("Finalized txs %v %v", finalizedTxs, INSTANCE.Debug_GetOpinionHistory()))
 				}
 			}
 		}

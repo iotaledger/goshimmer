@@ -4,7 +4,6 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-	"time"
 )
 
 func TestIsFinal(t *testing.T) {
@@ -47,25 +46,6 @@ func TestGetLastOpinion(t *testing.T) {
 	}
 }
 
-func TestUpdateOpinion(t *testing.T) {
-	type testInput struct {
-		newOpinion   Opinion
-		listOpinions Opinions
-		want         Opinions
-	}
-	var tests = []testInput{
-		{true, Opinions{true, true, true}, Opinions{true, true, true, true}},
-		{false, Opinions{true, true}, Opinions{true, true, false}},
-		{true, Opinions{}, Opinions{true}},
-	}
-	for _, test := range tests {
-		result := updateOpinion(test.newOpinion, test.listOpinions)
-		if !reflect.DeepEqual(result, test.want) {
-			t.Error("Should return", test.want, "got", result, "with input", test)
-		}
-	}
-}
-
 func TestFPC(t *testing.T) {
 	N := 10
 	fpcInstance := make([]*FPC, N)
@@ -84,32 +64,31 @@ func TestFPC(t *testing.T) {
 		fpcInstance[i].VoteOnTxs(TxOpinion{1, true})
 	}
 
-	ticker := time.NewTicker(300 * time.Millisecond)
+	//ticker := time.NewTicker(300 * time.Millisecond)
 	finished := make(chan []TxOpinion, N)
-	go func() {
-		round := 0
-		for {
-			select {
-			case <-ticker.C:
-				round++
-				for i := 0; i < N; i++ {
-					fpcInstance[i].Tick(uint64(round), 0.7)
-				}
-			}
-			for i := 0; i < N; i++ {
-				select {
-				case finalizedTxs := <-fpcInstance[i].FinalizedTxs:
-					if len(finalizedTxs) > 0 {
-						finished <- finalizedTxs
-					}
-				}
+	done := 0
+	round := 0
+	for done < N {
+		//<-ticker.C:
+		round++
+		// start a new round
+		for i := 0; i < N; i++ {
+			fpcInstance[i].Tick(uint64(round), 0.7)
+		}
+		// check if done
+		for i := 0; i < N; i++ {
+			finalizedTxs := <-fpcInstance[i].FinalizedTxs
+			//t.Log("Node", i+1, fpcInstance[i].Debug_GetOpinionHistory())
+			if len(finalizedTxs) > 0 {
+				done++
+				finished <- finalizedTxs
 			}
 		}
-	}()
+	}
+
 	nodesFinalOpinion := [][]TxOpinion{}
 	for i := 0; i < N; i++ {
 		nodesFinalOpinion = append(nodesFinalOpinion, <-finished)
-		t.Log("Node", i+1, fpcInstance[i].Debug_GetOpinionHistory())
 	}
 	//fmt.Println("Safety:", safety(nodesFinalOpinion...))
 	t.Log("All done.", nodesFinalOpinion)
