@@ -1,8 +1,10 @@
 #!/bin/bash
 
-if [ ! -d entryNode ]; then
-    mkdir entryNode
+if [ -d entryNode ]; then
+    rm -r entryNode
 fi
+mkdir entryNode
+
 echo "Building shimmer..."
 go build -o entryNode/shimmer
 PORT=14000
