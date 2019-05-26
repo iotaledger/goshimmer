@@ -46,6 +46,8 @@ func TestGetLastOpinion(t *testing.T) {
 	}
 }
 
+// TestFPC checks that given to each node 2 txs with all 1s and all 0s respectively,
+// both opinion history and finalized opinions are all 1s or all 0s wrt the given input
 func TestFPC(t *testing.T) {
 	N := 10
 	fpcInstance := make([]*FPC, N)
@@ -61,7 +63,7 @@ func TestFPC(t *testing.T) {
 	}
 	for i := 0; i < N; i++ {
 		fpcInstance[i] = New(getKnownPeers, queryNode, NewParameters())
-		fpcInstance[i].VoteOnTxs(TxOpinion{1, true})
+		fpcInstance[i].VoteOnTxs(TxOpinion{1, true}, TxOpinion{2, false})
 	}
 
 	//ticker := time.NewTicker(300 * time.Millisecond)
@@ -89,7 +91,16 @@ func TestFPC(t *testing.T) {
 	nodesFinalOpinion := [][]TxOpinion{}
 	for i := 0; i < N; i++ {
 		nodesFinalOpinion = append(nodesFinalOpinion, <-finished)
+		// check opinion history
+		//nodeHistory := fpcInstance[i].Debug_GetOpinionHistory()
+		// for txHash := range []Hash{1,2} {
+		// 	for _, v := range nodeHistory {
+		// 		if index == 0 {}
+		// 	}
+		// }
+		t.Log("Node", i+1, fpcInstance[i].Debug_GetOpinionHistory())
 	}
+
 	//fmt.Println("Safety:", safety(nodesFinalOpinion...))
-	t.Log("All done.", nodesFinalOpinion)
+	t.Log("All done.")
 }
