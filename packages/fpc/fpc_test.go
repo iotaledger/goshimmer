@@ -46,61 +46,78 @@ func TestGetLastOpinion(t *testing.T) {
 	}
 }
 
-// TestFPC checks that given to each node 2 txs with all 1s and all 0s respectively,
-// both opinion history and finalized opinions are all 1s or all 0s wrt the given input
+// TestFPC checks that given to each node a tx with all 1s or all 0s,
+// its opinion history and finalized opinions are all 1s or all 0s wrt the given input
 func TestFPC(t *testing.T) {
-	N := 10
-	fpcInstance := make([]*FPC, N)
-	getKnownPeers := func() []int {
-		nodesList := make([]int, N)
-		for i := 0; i < N; i++ {
-			nodesList[i] = i
-		}
-		return nodesList
+	type Want struct {
+		opinionHistory []Opinion
+		finalOpinion   Opinion
 	}
-	queryNode := func(txs []Hash, node int) []Opinion {
-		return fpcInstance[node].GetInterimOpinion(txs...)
+	type testInput struct {
+		input TxOpinion
+		want  Want
 	}
-	for i := 0; i < N; i++ {
-		fpcInstance[i] = New(getKnownPeers, queryNode, NewParameters())
-		fpcInstance[i].VoteOnTxs(TxOpinion{1, true}, TxOpinion{2, false})
+	var tests = []testInput{
+		{TxOpinion{1, true}, Want{[]Opinion{true, true, true, true, true}, true}},
+		{TxOpinion{2, false}, Want{[]Opinion{false, false, false, false, false}, false}},
 	}
 
-	//ticker := time.NewTicker(300 * time.Millisecond)
-	finished := make(chan []TxOpinion, N)
-	done := 0
-	round := 0
-	for done < N {
-		//<-ticker.C:
-		round++
-		// start a new round
-		for i := 0; i < N; i++ {
-			fpcInstance[i].Tick(uint64(round), 0.7)
+	for _, test := range tests {
+		N := 10
+		fpcInstance := make([]*FPC, N)
+		getKnownPeers := func() []int {
+			nodesList := make([]int, N)
+			for i := 0; i < N; i++ {
+				nodesList[i] = i
+			}
+			return nodesList
 		}
-		// check if done
+		queryNode := func(txs []Hash, node int) []Opinion {
+			return fpcInstance[node].GetInterimOpinion(txs...)
+		}
 		for i := 0; i < N; i++ {
-			finalizedTxs := <-fpcInstance[i].FinalizedTxs
-			//t.Log("Node", i+1, fpcInstance[i].Debug_GetOpinionHistory())
-			if len(finalizedTxs) > 0 {
-				done++
-				finished <- finalizedTxs
+			fpcInstance[i] = New(getKnownPeers, queryNode, NewParameters())
+			fpcInstance[i].SubmitTxsForVoting(test.input)
+		}
+
+		//ticker := time.NewTicker(300 * time.Millisecond)
+		finished := make(chan []TxOpinion, N)
+		done := 0
+		round := 0
+		for done < N {
+			//<-ticker.C:
+			round++
+			// start a new round
+			for i := 0; i < N; i++ {
+				fpcInstance[i].Tick(uint64(round), 0.7)
+			}
+			// check if done
+			for i := 0; i < N; i++ {
+				finalizedTxs := <-fpcInstance[i].FinalizedTxsChannel()
+				if len(finalizedTxs) > 0 {
+					done++
+					finished <- finalizedTxs
+				}
+			}
+		}
+
+		nodesFinalOpinion := [][]TxOpinion{}
+		for i := 0; i < N; i++ {
+			nodesFinalOpinion = append(nodesFinalOpinion, <-finished)
+			// check opinion history
+			nodeHistory := fpcInstance[i].debug_GetOpinionHistory()
+			txHistory, _ := nodeHistory.Load(test.input.TxHash)
+			for i, opinionOfRound := range txHistory {
+				if len(test.want.opinionHistory) < i+1 || opinionOfRound != test.want.opinionHistory[i] {
+					t.Error("Should return", test.want.opinionHistory, "got", txHistory, "with input", test.input)
+				}
+			}
+			// check finalized opinion
+			for _, finalOpinion := range nodesFinalOpinion[i] {
+				if finalOpinion.Opinion != test.want.finalOpinion {
+					t.Error("Should return", test.want.finalOpinion, "got", finalOpinion, "with input", test.input)
+				}
 			}
 		}
 	}
-
-	nodesFinalOpinion := [][]TxOpinion{}
-	for i := 0; i < N; i++ {
-		nodesFinalOpinion = append(nodesFinalOpinion, <-finished)
-		// check opinion history
-		//nodeHistory := fpcInstance[i].Debug_GetOpinionHistory()
-		// for txHash := range []Hash{1,2} {
-		// 	for _, v := range nodeHistory {
-		// 		if index == 0 {}
-		// 	}
-		// }
-		t.Log("Node", i+1, fpcInstance[i].Debug_GetOpinionHistory())
-	}
-
-	//fmt.Println("Safety:", safety(nodesFinalOpinion...))
-	t.Log("All done.")
 }

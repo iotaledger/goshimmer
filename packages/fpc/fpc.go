@@ -9,6 +9,14 @@ import (
 )
 
 
+// Fpc defines the FPC interface
+type Fpc interface {
+	SubmitTxsForVoting(txs ...TxOpinion)
+	FinalizedTxsChannel() chan []TxOpinion
+	Tick(index uint64, random float64)
+    GetInterimOpinion(txs ...Hash) []Opinion
+}
+
 // Dependencies
 
 // GetKnownPeers defines the signature function
@@ -18,11 +26,11 @@ type QueryNode func([]Hash, int) []Opinion //TODO: change int to node
 
 // FPC defines an FPC object
 type FPC struct {
-	state *context
+	Fpc
 	getKnownPeers GetKnownPeers
 	queryNode QueryNode
-	FinalizedTxs chan []TxOpinion // TODO: define what should be the representation of outcome
-								  // e.g., finalized txs reaching MaxDuration should return -1 or something
+	state *context
+	finalizedTxs chan []TxOpinion // TODO: define what should be the representation of outcome					  // e.g., finalized txs reaching MaxDuration should return -1 or something
 }
 
 // New returns a new FPC instance
@@ -31,21 +39,26 @@ func New(gkp GetKnownPeers, qn QueryNode, parameters *Parameters) *FPC {
 		state:  newContext(parameters),
 		getKnownPeers: gkp,
 		queryNode: qn,
-		FinalizedTxs: make(chan []TxOpinion),
+		finalizedTxs: make(chan []TxOpinion),
 	}
 }
 
-// VoteOnTxs adds given txs to the FPC internal state
-func (fpc *FPC) VoteOnTxs(txs ...TxOpinion) {
+// SubmitTxsForVoting adds given txs to the FPC internal state
+func (fpc *FPC) SubmitTxsForVoting(txs ...TxOpinion) {
 	// TODO: check that txs are not already in state
 	fpc.state.pushTxs(txs...)
+}
+
+// FinalizedTxsChannel returns the FinalizedTxsChannel
+func (fpc *FPC) FinalizedTxsChannel() chan []TxOpinion {
+	return fpc.finalizedTxs
 }
 
 // Tick updates fpc state with the new random
 // and starts a new round
 func (fpc *FPC) Tick(index uint64, random float64) {
 	fpc.state.tick = newTick(index, random)
-	go func() { fpc.FinalizedTxs <- fpc.Round() }()
+	go func() { fpc.finalizedTxs <- fpc.Round() }()
 } 
 
 // GetInterimOpinion returns the current opinions
@@ -116,9 +129,10 @@ func newTick(index uint64, random float64) *tick {
 func (fpc *FPC) Round() []TxOpinion{
 	// pop new txs from waiting list and put them into the active list
 	fpc.state.popTxs()
-	//fmt.Println("DEBUG:",len(fpc.state.activeTxs), fpc.state.opinionHistory.Len())
-	
-	finalized := fpc.updateOpinion()
+
+	fpc.updateOpinion()
+
+	finalized := fpc.getFinalizedTxs()
 	
 	// send the query for all the txs
 	etas := querySample(fpc.state.getActiveTxs(), fpc.state.parameters.k, fpc.getKnownPeers(), fpc.queryNode)
@@ -148,8 +162,7 @@ func getLastOpinion(list Opinions) (Opinion, error) {
 // loop over all the txs to vote and update the last opinion
 // with the new threshold. If any of them reaches finalization,
 // we add those to the finalized list.
-func (fpc *FPC) updateOpinion() []TxOpinion {
-	finalized := []TxOpinion{}
+func (fpc *FPC) updateOpinion() {
 	for tx, eta := range fpc.state.activeTxs {
 		if history, ok := fpc.state.opinionHistory.Load(tx); ok && eta.value != -1 {
 			threshold := 0.
@@ -163,12 +176,21 @@ func (fpc *FPC) updateOpinion() []TxOpinion {
 			newOpinion := Opinion(eta.value > threshold)
 			fpc.state.opinionHistory.Store(tx, newOpinion)
 			history = append(history, newOpinion) 
-			// note, we check isFinal from [1:] since the first opinion is the initial one
-			if isFinal(history[1:], fpc.state.parameters.m, fpc.state.parameters.l) {
-				finalized = append(finalized, TxOpinion{tx, newOpinion})
-				// TODO: op.Delete(tx) ?
-				delete(fpc.state.activeTxs, tx)
-			}
+			
+		}
+	}
+}
+
+func (fpc *FPC) getFinalizedTxs() []TxOpinion {
+	finalized := []TxOpinion{}
+	for tx := range fpc.state.activeTxs {
+		history, _ := fpc.state.opinionHistory.Load(tx)
+		// note, we check isFinal from [1:] since the first opinion is the initial one
+		if isFinal(history[1:], fpc.state.parameters.m, fpc.state.parameters.l) {
+			lastOpinion, _ := getLastOpinion(history)
+			finalized = append(finalized, TxOpinion{tx,lastOpinion})
+			// TODO: op.Delete(tx) ?
+			delete(fpc.state.activeTxs, tx)
 		}
 	}
 	return finalized
@@ -276,6 +298,6 @@ func (er etaResult) String() string {
 }
 
 // Debug_GetOpinionHistory returns the entire opinion history
-func (fpc *FPC) Debug_GetOpinionHistory() *OpinionMap {
+func (fpc *FPC) debug_GetOpinionHistory() *OpinionMap {
 	return fpc.state.opinionHistory
 }
