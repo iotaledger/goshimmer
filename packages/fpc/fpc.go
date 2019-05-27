@@ -45,7 +45,7 @@ func (fpc *FPC) VoteOnTxs(txs ...TxOpinion) {
 // and starts a new round
 func (fpc *FPC) Tick(index uint64, random float64) {
 	fpc.state.tick = newTick(index, random)
-	go func() { fpc.FinalizedTxs <- fpc.Round() }()
+	go func() { fpc.FinalizedTxs <- fpc.round() }()
 } 
 
 // GetInterimOpinion returns the current opinions
@@ -113,7 +113,7 @@ func newTick(index uint64, random float64) *tick {
 // i: list of tx to vote
 // i: fpc param
 // o: list of finalized txs (if any)
-func (fpc *FPC) Round() []TxOpinion{
+func (fpc *FPC) round() []TxOpinion{
 	// pop new txs from waiting list and put them into the active list
 	fpc.state.popTxs()
 	//fmt.Println("DEBUG:",len(fpc.state.activeTxs), fpc.state.opinionHistory.Len())

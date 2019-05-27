@@ -42,23 +42,23 @@ func (rm *OpinionMap) GetMap() map[Hash][]Opinion {
 // tx Hash into the internal map
 func (rm *OpinionMap) Load(key Hash) (value []Opinion, ok bool) {
 	rm.RLock()
+	defer rm.RUnlock()
 	result, ok := rm.internal[key]
-	rm.RUnlock()
 	return result, ok
 }
 
 // Delete removes the entire entry for a given tx Hash
 func (rm *OpinionMap) Delete(key Hash) {
 	rm.Lock()
+	defer rm.Unlock()
 	delete(rm.internal, key)
-	rm.Unlock()
 }
 
 // Store adds a new opinion to the history of a given tx Hash
 func (rm *OpinionMap) Store(key Hash, value Opinion) {
 	rm.Lock()
+	defer rm.Unlock()
 	rm.internal[key] = append(rm.internal[key], value)
-	rm.Unlock()
 }
 
 // String returns the string rapresentation of OpinionMap

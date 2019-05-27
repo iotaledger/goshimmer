@@ -98,9 +98,16 @@ func TestFPC(t *testing.T) {
 		// 		if index == 0 {}
 		// 	}
 		// }
-		t.Log("Node", i+1, fpcInstance[i].Debug_GetOpinionHistory())
+		//t.Log("Node", i+1, fpcInstance[i].Debug_GetOpinionHistory())
 	}
 
 	//fmt.Println("Safety:", safety(nodesFinalOpinion...))
-	t.Log("All done.")
+	//t.Log("All done.")
 }
+
+// func Benchmark(b *testing.B) {
+//     for i := 0; i < b.N; i++ {
+// 		// perform the operation we're analyzing
+// 		TestFPC(nil)
+//     }
+// }
