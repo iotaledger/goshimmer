@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-var INSTANCE *fpc.FPC
+var INSTANCE *fpc.Instance
 
 func Configure(plugin *node.Plugin) {
 	getKnownPeers := func() []int {
