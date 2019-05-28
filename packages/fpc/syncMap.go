@@ -9,13 +9,13 @@ import (
 // It uses a mutex to handle concurrent access to its internal map
 type OpinionMap struct {
 	sync.RWMutex
-	internal map[Hash]Opinions
+	internal map[HashString]Opinions
 }
 
 // NewOpinionMap returns a new OpinionMap
 func NewOpinionMap() *OpinionMap {
 	return &OpinionMap{
-		internal: make(map[Hash]Opinions),
+		internal: make(map[HashString]Opinions),
 	}
 }
 
@@ -27,8 +27,8 @@ func (rm *OpinionMap) Len() int {
 }
 
 // GetMap returns the content of the entire internal map
-func (rm *OpinionMap) GetMap() map[Hash][]Opinion {
-	newMap := make(map[Hash][]Opinion)
+func (rm *OpinionMap) GetMap() map[HashString][]Opinion {
+	newMap := make(map[HashString][]Opinion)
 	rm.RLock()
 	defer rm.RUnlock()
 	for k, v := range rm.internal {
@@ -40,7 +40,7 @@ func (rm *OpinionMap) GetMap() map[Hash][]Opinion {
 // Load returns the opinion of a given tx Hash.
 // It also return a bool to communicate the presence of the given
 // tx Hash into the internal map
-func (rm *OpinionMap) Load(key Hash) (value []Opinion, ok bool) {
+func (rm *OpinionMap) Load(key HashString) (value []Opinion, ok bool) {
 	rm.RLock()
 	result, ok := rm.internal[key]
 	rm.RUnlock()
@@ -48,14 +48,14 @@ func (rm *OpinionMap) Load(key Hash) (value []Opinion, ok bool) {
 }
 
 // Delete removes the entire entry for a given tx Hash
-func (rm *OpinionMap) Delete(key Hash) {
+func (rm *OpinionMap) Delete(key HashString) {
 	rm.Lock()
 	delete(rm.internal, key)
 	rm.Unlock()
 }
 
 // Store adds a new opinion to the history of a given tx Hash
-func (rm *OpinionMap) Store(key Hash, value Opinion) {
+func (rm *OpinionMap) Store(key HashString, value Opinion) {
 	rm.Lock()
 	rm.internal[key] = append(rm.internal[key], value)
 	rm.Unlock()

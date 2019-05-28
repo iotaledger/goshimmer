@@ -70,7 +70,7 @@ func (tq *txQueue) Pop(n ...uint) (out []TxOpinion) {
 
 func (c *context) pushTxs(txs ...TxOpinion) {
 	for _, tx := range txs {
-		c.opinionHistory.Store(tx.TxHash, tx.Opinion)
+		c.opinionHistory.Store(tx.TxHashString, tx.Opinion)
 		c.waitingTxs.Push(tx)
 	}
 }
@@ -81,16 +81,16 @@ func (c *context) popTxs() {
 	//fmt.Println("DEBUG, Popping from queue:", newTxs)
 	for _, tx := range newTxs {
 		//fmt.Println("DEBUG, updating opinion and targets")
-		//c.opinionHistory.Store(tx.TxHash, tx.Opinion)
-		c.activeTxs[tx.TxHash] = &etaResult{
+		//c.opinionHistory.Store(tx.TxHashString, tx.Opinion)
+		c.activeTxs[tx.TxHashString] = &etaResult{
 			value: -1,
 			count: 0,
 		}
 	}
 }
 
-func (c *context) getActiveTxs() []Hash {
-	txs := []Hash{}
+func (c *context) getActiveTxs() []HashString {
+	txs := []HashString{}
 	for tx := range c.activeTxs {
 		txs = append(txs, tx)
 	}

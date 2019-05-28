@@ -6,7 +6,7 @@ Set PEERING_PORT=14000
 mkdir testNodes
 cd testNodes
 
-FOR /L %%i IN (1,1,5) DO (
+FOR /L %%i IN (1,1,2) DO (
     set /A PEERING_PORT=PEERING_PORT+1
 
     del /Q /S node%%i

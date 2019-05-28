@@ -17,7 +17,7 @@ func Configure(plugin *node.Plugin) {
 		return []int{1, 2, 3, 4, 5}
 	}
 
-	queryNode := func(txs []fpc.Hash, node int) []fpc.Opinion {
+	queryNode := func(txs []fpc.HashString, node int) []fpc.Opinion {
 		output := make([]fpc.Opinion, len(txs))
 		for tx := range txs {
 			output[tx] = true
@@ -36,7 +36,7 @@ func Run(plugin *node.Plugin) {
 	daemon.BackgroundWorker(func() {
 		ticker := time.NewTicker(5000 * time.Millisecond)
 		round := 0
-		INSTANCE.VoteOnTxs(fpc.TxOpinion{1, true})
+		INSTANCE.VoteOnTxs(fpc.TxOpinion{"1", true})
 		for {
 			select {
 			case <-ticker.C:
