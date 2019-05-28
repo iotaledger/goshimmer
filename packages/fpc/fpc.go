@@ -65,9 +65,16 @@ func (fpc *FPC) GetInterimOpinion(txs ...Hash) ([]Opinion) {
 // TODO: change int to real IOTA tx hash
 type Hash int
 
-// Opinion is a bool
-// TODO: check that the opinion can be rapresented as a boolean
-type Opinion bool
+// Opinion is a enum
+type Opinion int
+const (
+	// Dislike defines a negative opinion
+	Dislike = iota  // 0
+	// Like defines a negative opinion
+	Like 			// 1
+	// Undefined defines an undefined opinion
+	Undefined		// 2
+)
 
 // Opinions is a list of Opinion
 type Opinions []Opinion
@@ -135,7 +142,7 @@ func getLastOpinion(list Opinions) (Opinion, error) {
 	if list != nil && len(list) > 0 {
 		return list[len(list)-1], nil
 	}
-	return false, errors.New("opinion is empty")
+	return Undefined, errors.New("opinion is empty")
 }
 
 // // adds a new opinion to a list of opinions
@@ -160,7 +167,7 @@ func (fpc *FPC) updateOpinion() []TxOpinion {
 			}
 			//fmt.Println("Tx:",tx, "Eta:", eta.Value, ">", threshold)
 			
-			newOpinion := Opinion(eta.value > threshold)
+			newOpinion := Opinion(btoi(eta.value > threshold))
 			fpc.state.opinionHistory.Store(tx, newOpinion)
 			history = append(history, newOpinion) 
 			// note, we check isFinal from [1:] since the first opinion is the initial one
@@ -233,8 +240,10 @@ func calculateEtas(votes []TxOpinion) etaMap {
 		if _, ok := allEtas[Hash(vote.TxHash)]; !ok {
 			allEtas[Hash(vote.TxHash)] = &etaResult{}
 		}
-		allEtas[Hash(vote.TxHash)].value += float64(btoi(bool(vote.Opinion))) //TODO: add toFloat64 method
-		allEtas[Hash(vote.TxHash)].count++
+		if vote.Opinion != Undefined {
+			allEtas[Hash(vote.TxHash)].value += float64(vote.Opinion)
+			allEtas[Hash(vote.TxHash)].count++
+		}
 
 	}
 	for tx := range allEtas {

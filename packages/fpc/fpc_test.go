@@ -14,8 +14,8 @@ func TestIsFinal(t *testing.T) {
 		want     bool
 	}
 	var tests = []testInput{
-		{Opinions{true, true, true, true}, 2, 2, true},
-		{Opinions{true, true, true, false}, 2, 2, false},
+		{Opinions{Like, Like, Like, Like}, 2, 2, true},
+		{Opinions{Like, Like, Like, Dislike}, 2, 2, false},
 	}
 
 	for _, test := range tests {
@@ -33,9 +33,9 @@ func TestGetLastOpinion(t *testing.T) {
 		err      error
 	}
 	var tests = []testInput{
-		{Opinions{true, true, true}, true, nil},
-		{Opinions{true, true, true, false}, false, nil},
-		{Opinions{}, false, errors.New("opinion is empty")},
+		{Opinions{Like, Like, Like}, Like, nil},
+		{Opinions{Like, Like, Like, Dislike}, Dislike, nil},
+		{Opinions{}, Undefined, errors.New("opinion is empty")},
 	}
 
 	for _, test := range tests {
@@ -63,7 +63,7 @@ func TestFPC(t *testing.T) {
 	}
 	for i := 0; i < N; i++ {
 		fpcInstance[i] = New(getKnownPeers, queryNode, NewParameters())
-		fpcInstance[i].VoteOnTxs(TxOpinion{1, true}, TxOpinion{2, false})
+		fpcInstance[i].VoteOnTxs(TxOpinion{1, Like}, TxOpinion{2, Dislike})
 	}
 
 	//ticker := time.NewTicker(300 * time.Millisecond)
