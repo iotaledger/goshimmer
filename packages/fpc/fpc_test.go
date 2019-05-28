@@ -66,12 +66,10 @@ func TestFPC(t *testing.T) {
 		fpcInstance[i].VoteOnTxs(TxOpinion{1, true}, TxOpinion{2, false})
 	}
 
-	//ticker := time.NewTicker(300 * time.Millisecond)
 	finished := make(chan []TxOpinion, N)
 	done := 0
 	round := 0
 	for done < N {
-		//<-ticker.C:
 		round++
 		// start a new round
 		for i := 0; i < N; i++ {
@@ -80,7 +78,6 @@ func TestFPC(t *testing.T) {
 		// check if done
 		for i := 0; i < N; i++ {
 			finalizedTxs := <-fpcInstance[i].FinalizedTxs
-			//t.Log("Node", i+1, fpcInstance[i].Debug_GetOpinionHistory())
 			if len(finalizedTxs) > 0 {
 				done++
 				finished <- finalizedTxs
@@ -91,23 +88,5 @@ func TestFPC(t *testing.T) {
 	nodesFinalOpinion := [][]TxOpinion{}
 	for i := 0; i < N; i++ {
 		nodesFinalOpinion = append(nodesFinalOpinion, <-finished)
-		// check opinion history
-		//nodeHistory := fpcInstance[i].Debug_GetOpinionHistory()
-		// for txHash := range []Hash{1,2} {
-		// 	for _, v := range nodeHistory {
-		// 		if index == 0 {}
-		// 	}
-		// }
-		//t.Log("Node", i+1, fpcInstance[i].Debug_GetOpinionHistory())
 	}
-
-	//fmt.Println("Safety:", safety(nodesFinalOpinion...))
-	//t.Log("All done.")
 }
-
-// func Benchmark(b *testing.B) {
-//     for i := 0; i < b.N; i++ {
-// 		// perform the operation we're analyzing
-// 		TestFPC(nil)
-//     }
-// }
