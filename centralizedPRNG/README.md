@@ -13,6 +13,7 @@ At every time interval, the server generates a new random and by looping through
 ```
 go get -u google.golang.org/grpc
 go get -u github.com/golang/protobuf/proto
+go get -u github.com/google/uuid
 ```
 
 ## Usage
