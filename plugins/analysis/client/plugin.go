@@ -6,6 +6,7 @@ import (
     "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/network"
     "github.com/iotaledger/goshimmer/packages/node"
+    "github.com/iotaledger/goshimmer/packages/timeutil"
     "github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
     "github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
     "github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
@@ -21,17 +22,26 @@ import (
 func Run(plugin *node.Plugin) {
     daemon.BackgroundWorker(func() {
         shuttingDown := false
+
         for !shuttingDown {
-            if conn, err := net.Dial("tcp", *SERVER_ADDRESS.Value); err != nil {
-                plugin.LogDebug("Could not connect to reporting server: " + err.Error())
-            } else {
-                managedConn := network.NewManagedConnection(conn)
-                eventDispatchers := getEventDispatchers(managedConn)
+            select {
+            case <-daemon.ShutdownSignal:
+                return
 
-                reportCurrentStatus(eventDispatchers)
-                setupHooks(managedConn, eventDispatchers)
+            default:
+                if conn, err := net.Dial("tcp", *SERVER_ADDRESS.Value); err != nil {
+                    plugin.LogDebug("Could not connect to reporting server: " + err.Error())
 
-                shuttingDown = keepConnectionAlive(managedConn)
+                    timeutil.Sleep(1 * time.Second)
+                } else {
+                    managedConn := network.NewManagedConnection(conn)
+                    eventDispatchers := getEventDispatchers(managedConn)
+
+                    reportCurrentStatus(eventDispatchers)
+                    setupHooks(managedConn, eventDispatchers)
+
+                    shuttingDown = keepConnectionAlive(managedConn)
+                }
             }
         }
     })

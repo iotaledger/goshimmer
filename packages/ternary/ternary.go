@@ -1,10 +1,25 @@
 package ternary
 
+import (
+    "reflect"
+    "unsafe"
+)
+
 // a Trit can have the values 0, 1 and -1
 type Trit = int8
 
-// a Trinary consists out of many Trits
+// Trits consists out of many Trits
 type Trits []Trit
+
+// Trinary is a string representation of the Trits
+type Trinary string
+
+// simply changes the type of this Trinary to a byte array without copying any data
+func (trinary Trinary) CastToBytes() []byte {
+    hdr := (*reflect.StringHeader)(unsafe.Pointer(&trinary))
+
+    return *(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{Data: hdr.Data, Len:  hdr.Len, Cap:  hdr.Len}))
+}
 
 func (this Trits) ToBytes() []byte {
     tritsLength := len(this)
@@ -62,4 +77,8 @@ func (this Trits) ToUint64() uint64 {
 
 func (this Trits) ToString() string {
     return TritsToString(this, 0, len(this))
+}
+
+func (this Trits) ToTrinary() Trinary {
+    return Trinary(TritsToString(this, 0, len(this)))
 }
