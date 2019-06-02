@@ -70,7 +70,7 @@ func (s *prngServer) run() {
 // Subscribe creates a subscription for a new client.
 func (s *prngServer) Subscribe(void *pb.Void, stream pb.RandomGenerator_SubscribeServer) error {
 	c := make(chan *pb.Random)
-	id := genUUID()
+	id := guuid.New().String()
 	fmt.Println("New Connection:", id)
 	s.registerNewChan(id, c)
 	for {
@@ -86,11 +86,6 @@ func (s *prngServer) Subscribe(void *pb.Void, stream pb.RandomGenerator_Subscrib
 			}
 		}
 	}
-}
-
-func genUUID() string {
-	id := guuid.New()
-	return id.String()
 }
 
 func main() {
