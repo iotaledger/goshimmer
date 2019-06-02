@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package random;
+
+service RandomGenerator {
+  rpc Subscribe(Void) returns (stream Random) {}
+}
+
+message Void {}
+
+message Random {
+  int64 index = 1;
+  double value = 2;
+}
+
