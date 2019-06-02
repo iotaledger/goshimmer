@@ -167,7 +167,10 @@ func (fpc *FPC) updateOpinion() []TxOpinion {
 			}
 			//fmt.Println("Tx:",tx, "Eta:", eta.Value, ">", threshold)
 			
-			newOpinion := Opinion(btoi(eta.value > threshold))
+			newOpinion := Opinion(Dislike)
+			if eta.value > threshold {
+				newOpinion = Opinion(Like)
+			}
 			fpc.state.opinionHistory.Store(tx, newOpinion)
 			history = append(history, newOpinion) 
 			// note, we check isFinal from [1:] since the first opinion is the initial one
@@ -264,14 +267,6 @@ func runif(rand, thresholdL, thresholdU float64) float64 {
 
 // ---------------- utility functions -------------------
 
-// btoi converts a bool to an integer
-func btoi(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
-}
-
 func (em etaMap) String() string {
 	result := ""
 	for k, v := range em {
@@ -282,9 +277,4 @@ func (em etaMap) String() string {
 
 func (er etaResult) String() string {
 	return fmt.Sprintf("value: %v count: %v", er.value, er.count)
-}
-
-// Debug_GetOpinionHistory returns the entire opinion history
-func (fpc *FPC) Debug_GetOpinionHistory() *OpinionMap {
-	return fpc.state.opinionHistory
 }

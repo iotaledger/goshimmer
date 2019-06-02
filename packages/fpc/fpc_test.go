@@ -98,7 +98,6 @@ func TestFPC(t *testing.T) {
 		// 		if index == 0 {}
 		// 	}
 		// }
-		t.Log("Node", i+1, fpcInstance[i].Debug_GetOpinionHistory())
 	}
 
 	//fmt.Println("Safety:", safety(nodesFinalOpinion...))
