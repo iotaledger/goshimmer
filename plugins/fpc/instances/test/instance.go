@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-var INSTANCE *fpc.FPC
+var INSTANCE *fpc.Instance
 
 func Configure(plugin *node.Plugin) {
 	getKnownPeers := func() []int {
@@ -26,26 +26,22 @@ func Configure(plugin *node.Plugin) {
 	}
 
 	INSTANCE = fpc.New(getKnownPeers, queryNode, fpc.NewParameters())
-
-	// INSTANCE.VoteOnTxs()
-	// INSTANCE.GetInterimOpinion()
-
 }
 
 func Run(plugin *node.Plugin) {
 	daemon.BackgroundWorker(func() {
 		ticker := time.NewTicker(5000 * time.Millisecond)
 		round := 0
-		INSTANCE.VoteOnTxs(fpc.TxOpinion{1, true})
+		INSTANCE.SubmitTxsForVoting(fpc.TxOpinion{1, true})
 		for {
 			select {
 			case <-ticker.C:
 				round++
 				INSTANCE.Tick(uint64(round), 0.7)
-				plugin.LogInfo(fmt.Sprintf("Round %v %v", round, INSTANCE.Debug_GetOpinionHistory()))
-			case finalizedTxs := <-INSTANCE.FinalizedTxs:
+				plugin.LogInfo(fmt.Sprintf("Round %v %v", round, INSTANCE.GetInterimOpinion(1)))
+			case finalizedTxs := <-INSTANCE.FinalizedTxsChannel():
 				if len(finalizedTxs) > 0 {
-					plugin.LogInfo(fmt.Sprintf("Finalized txs %v %v", finalizedTxs, INSTANCE.Debug_GetOpinionHistory()))
+					plugin.LogInfo(fmt.Sprintf("Finalized txs %v", finalizedTxs))
 				}
 			}
 		}
