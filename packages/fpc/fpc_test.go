@@ -14,8 +14,8 @@ func TestIsFinal(t *testing.T) {
 		want     bool
 	}
 	var tests = []testInput{
-		{Opinions{true, true, true, true}, 2, 2, true},
-		{Opinions{true, true, true, false}, 2, 2, false},
+		{Opinions{Like, Like, Like, Like}, 2, 2, true},
+		{Opinions{Like, Like, Like, Dislike}, 2, 2, false},
 	}
 
 	for _, test := range tests {
@@ -33,9 +33,9 @@ func TestGetLastOpinion(t *testing.T) {
 		err      error
 	}
 	var tests = []testInput{
-		{Opinions{true, true, true}, true, nil},
-		{Opinions{true, true, true, false}, false, nil},
-		{Opinions{}, false, errors.New("opinion is empty")},
+		{Opinions{Like, Like, Like}, Like, nil},
+		{Opinions{Like, Like, Like, Dislike}, Dislike, nil},
+		{Opinions{}, Undefined, errors.New("opinion is empty")},
 	}
 
 	for _, test := range tests {
@@ -58,8 +58,8 @@ func TestVoteIfAllAgrees(t *testing.T) {
 		expected Expected
 	}
 	var tests = []testInput{
-		{TxOpinion{1, true}, Expected{[]Opinion{true, true, true, true, true}, true}},
-		{TxOpinion{2, false}, Expected{[]Opinion{false, false, false, false, false}, false}},
+		{TxOpinion{1, Like}, Expected{[]Opinion{Like, Like, Like, Like, Like}, Like}},
+		{TxOpinion{2, Dislike}, Expected{[]Opinion{Dislike, Dislike, Dislike, Dislike, Dislike}, Dislike}},
 	}
 
 	for _, test := range tests {
