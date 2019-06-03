@@ -89,8 +89,8 @@ func (c *context) popTxs() {
 	}
 }
 
-func (c *context) getActiveTxs() []Hash {
-	txs := []Hash{}
+func (c *context) getActiveTxs() []ID {
+	txs := []ID{}
 	for tx := range c.activeTxs {
 		txs = append(txs, tx)
 	}
