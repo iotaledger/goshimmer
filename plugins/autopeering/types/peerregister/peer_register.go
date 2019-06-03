@@ -33,7 +33,7 @@ func (this *PeerRegister) AddOrUpdate(peer *peer.Peer, lock... bool) bool {
         defer this.Lock()()
     }
 
-    if peer.Identity == nil || bytes.Equal(peer.Identity.Identifier, accountability.OWN_ID.Identifier) {
+    if peer.Identity == nil || bytes.Equal(peer.Identity.Identifier, accountability.GetOwnId().Identifier) {
         return false
     }
 
