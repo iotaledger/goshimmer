@@ -33,6 +33,7 @@ func Run(plugin *node.Plugin) {
 		ticker := client.NewTicker()
 		ticker.Connect(*parameters.PRNG_ADDRESS.Value + ":" + *parameters.PRNG_PORT.Value)
 		INSTANCE.SubmitTxsForVoting(fpc.TxOpinion{1, fpc.Like})
+	ticker:
 		for {
 			select {
 			case newRandom := <-ticker.C:
@@ -42,7 +43,11 @@ func Run(plugin *node.Plugin) {
 				if len(finalizedTxs) > 0 {
 					plugin.LogInfo(fmt.Sprintf("Finalized txs %v", finalizedTxs))
 				}
+			case <-daemon.ShutdownSignal:
+				plugin.LogInfo("Stopping FPC Processor ...")
+				break ticker
 			}
 		}
+		plugin.LogSuccess("Stopping FPC Processor ... done")
 	})
 }
