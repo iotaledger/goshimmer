@@ -65,7 +65,7 @@ func (headerBar *UIHeaderBar) Update() {
     fmt.Fprintln(headerBar.InfoContainer)
     fmt.Fprintln(headerBar.InfoContainer)
     fmt.Fprintln(headerBar.InfoContainer)
-    fmt.Fprintf(headerBar.InfoContainer, "[::b]Node ID: [::d]%40v  ", accountability.OWN_ID.StringIdentifier)
+    fmt.Fprintf(headerBar.InfoContainer, "[::b]Node ID: [::d]%40v  ", accountability.GetOwnId().StringIdentifier)
     fmt.Fprintln(headerBar.InfoContainer)
     fmt.Fprintf(headerBar.InfoContainer, "[::b]Neighbors: [::d]%40v  ", strconv.Itoa(len(chosenneighbors.INSTANCE.Peers)) + " chosen / " + strconv.Itoa(len(acceptedneighbors.INSTANCE.Peers)) + " accepted")
     fmt.Fprintln(headerBar.InfoContainer)

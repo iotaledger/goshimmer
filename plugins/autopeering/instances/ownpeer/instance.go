@@ -14,7 +14,7 @@ var INSTANCE *peer.Peer
 
 func Configure(plugin *node.Plugin) {
     INSTANCE = &peer.Peer{
-        Identity:    accountability.OWN_ID,
+        Identity:    accountability.GetOwnId(),
         PeeringPort: uint16(*parameters.PORT.Value),
         GossipPort:  uint16(*gossip.PORT.Value),
         Address:     net.IPv4(0, 0, 0, 0),
