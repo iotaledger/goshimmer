@@ -15,7 +15,7 @@ import (
 // region protocolV1 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 func protocolV1(protocol *protocol) errors.IdentifiableError {
-    if err := protocol.Send(accountability.GetOwnId()); err != nil {
+    if err := protocol.Send(accountability.OwnId()); err != nil {
         return err
     }
 

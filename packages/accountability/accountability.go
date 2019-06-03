@@ -11,7 +11,7 @@ var ownId *identity.Identity
 
 var lazyInit sync.Once
 
-func GetOwnId() *identity.Identity {
+func OwnId() *identity.Identity {
 	lazyInit.Do(initOwnId)
 
 	return ownId

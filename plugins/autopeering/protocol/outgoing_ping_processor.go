@@ -64,7 +64,7 @@ func pingPeers(plugin *node.Plugin, outgoingPing *ping.Ping) {
             for i := 0; i < constants.PING_CONTACT_COUNT_PER_CYCLE; i++ {
                 randomNeighborHoodPeer := neighborhood.LIST_INSTANCE[rand.Intn(len(neighborhood.LIST_INSTANCE))]
 
-                if randomNeighborHoodPeer.Identity.StringIdentifier != accountability.GetOwnId().StringIdentifier {
+                if randomNeighborHoodPeer.Identity.StringIdentifier != accountability.OwnId().StringIdentifier {
                     chosenPeers[randomNeighborHoodPeer.Identity.StringIdentifier] = randomNeighborHoodPeer
                 }
             }
