@@ -8,6 +8,37 @@ const (
 )
 
 var (
+    TRYTES_TO_TRITS_MAP = map[rune][]int8{
+        '9': Trits{0, 0, 0},
+        'A': Trits{1, 0, 0},
+        'B': Trits{-1, 1, 0},
+        'C': Trits{0, 1, 0},
+        'D': Trits{1, 1, 0},
+        'E': Trits{-1, -1, 1},
+        'F': Trits{0, -1, 1},
+        'G': Trits{1, -1, 1},
+        'H': Trits{-1, 0, 1},
+        'I': Trits{0, 0, 1},
+        'J': Trits{1, 0, 1},
+        'K': Trits{-1, 1, 1},
+        'L': Trits{0, 1, 1},
+        'M': Trits{1, 1, 1},
+        'N': Trits{-1, -1, -1},
+        'O': Trits{0, -1, -1},
+        'P': Trits{1, -1, -1},
+        'Q': Trits{-1, 0, -1},
+        'R': Trits{0, 0, -1},
+        'S': Trits{1, 0, -1},
+        'T': Trits{-1, 1, -1},
+        'U': Trits{0, 1, -1},
+        'V': Trits{1, 1, -1},
+        'W': Trits{-1, -1, 0},
+        'X': Trits{0, -1, 0},
+        'Y': Trits{1, -1, 0},
+        'Z': Trits{-1, 0, 0},
+    }
+
+
     TRYTE_ALPHABET = []string{
         "9", "A", "B","C", "D", "E", "F", "G", "H",
         "I", "J", "K", "L", "M", "N", "O", "P", "Q",

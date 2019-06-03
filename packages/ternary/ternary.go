@@ -21,6 +21,16 @@ func (trinary Trinary) CastToBytes() []byte {
     return *(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{Data: hdr.Data, Len:  hdr.Len, Cap:  hdr.Len}))
 }
 
+func (trinary Trinary) ToTrits() Trits {
+    trits := make(Trits, len(trinary) * 3)
+    for _, char := range trinary {
+        trits = append(trits, TRYTES_TO_TRITS_MAP[char]...)
+    }
+
+    return trits
+}
+
+
 func (this Trits) ToBytes() []byte {
     tritsLength := len(this)
     bytesLength := (tritsLength + NUMBER_OF_TRITS_IN_A_BYTE - 1) / NUMBER_OF_TRITS_IN_A_BYTE
