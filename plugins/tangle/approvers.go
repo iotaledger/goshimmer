@@ -20,7 +20,7 @@ func NewApprovers(hash ternary.Trinary) *Approvers {
 	}
 }
 
-// region public method with locking ///////////////////////////////////////////////////////////////////////////////////
+// region public methods with locking //////////////////////////////////////////////////////////////////////////////////
 
 func (approvers *Approvers) Add(transactionHash ternary.Trinary) {
 	approvers.hashesMutex.Lock()
