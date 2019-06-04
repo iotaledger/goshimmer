@@ -16,10 +16,10 @@ type Fpc interface {
 // Dependencies
 
 // GetKnownPeers defines the signature function
-type GetKnownPeers func() []string
+type GetKnownPeers func() (nodeIDs []string)
 
 // QueryNode defines the signature function
-type QueryNode func([]ID, string) []Opinion
+type QueryNode func(txs []ID, nodeID string) []Opinion
 
 // Instance defines an FPC object
 type Instance struct {
