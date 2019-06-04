@@ -66,7 +66,6 @@ func TestVoteIfAllAgrees(t *testing.T) {
 		getKnownPeers := func() []string {
 			return []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}
 		}
-		
 		queryNode := func(txs []ID, node string) []Opinion {
 			reply := []Opinion{}
 			for _, tx := range txs {
