@@ -16,9 +16,10 @@ type Fpc interface {
 // Dependencies
 
 // GetKnownPeers defines the signature function
-type GetKnownPeers func() []int //TODO: change int to node
+type GetKnownPeers func() (nodeIDs []string)
+
 // QueryNode defines the signature function
-type QueryNode func([]ID, int) []Opinion //TODO: change int to node
+type QueryNode func(txs []ID, nodeID string) []Opinion
 
 // Instance defines an FPC object
 type Instance struct {
@@ -218,9 +219,9 @@ func isFinal(o Opinions, m, l int) bool {
 }
 
 // querySample sends query to randomly selected nodes
-func querySample(txs []ID, k int, nodes []int, qn QueryNode) etaMap {
+func querySample(txs []ID, k int, nodes []string, qn QueryNode) etaMap {
 	// select k random nodes
-	selectedNodes := make([]int, k) // slice containing the list of randomly selected nodes
+	selectedNodes := make([]string, k) // slice containing the list of randomly selected nodes
 	rand := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for i := 0; i < k; i++ {
 		selectedNodes[i] = nodes[rand.Intn(len(nodes))]
@@ -229,7 +230,7 @@ func querySample(txs []ID, k int, nodes []int, qn QueryNode) etaMap {
 	// send k queries
 	c := make(chan []Opinion, k) // channel to communicate the reception of all the responses
 	for _, node := range selectedNodes {
-		go func(nodeID int) {
+		go func(nodeID string) {
 			received := qn(txs, nodeID)
 			c <- received
 			//fmt.Println("Asked:", txs, "Received:",  received)

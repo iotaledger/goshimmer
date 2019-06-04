@@ -63,10 +63,10 @@ func TestVoteIfAllAgrees(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		getKnownPeers := func() []int {
-			return []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		getKnownPeers := func() []string {
+			return []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}
 		}
-		queryNode := func(txs []ID, node int) []Opinion {
+		queryNode := func(txs []ID, node string) []Opinion {
 			reply := []Opinion{}
 			for _, tx := range txs {
 				if tx == test.input.TxHash {
