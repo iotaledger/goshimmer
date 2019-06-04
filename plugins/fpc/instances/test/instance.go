@@ -7,28 +7,20 @@ import (
 	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/FPC/parameters"
+	"github.com/iotaledger/goshimmer/plugins/fpc/network"
+	"github.com/iotaledger/goshimmer/plugins/fpc/network/server"
 	"github.com/iotaledger/goshimmer/plugins/fpc/prng/client"
 )
 
 var INSTANCE *fpc.Instance
 
 func Configure(plugin *node.Plugin) {
-	getKnownPeers := func() []string {
-		return []string{"1", "2", "3", "4", "5"}
-	}
-
-	queryNode := func(txs []fpc.ID, node string) []fpc.Opinion {
-		output := make([]fpc.Opinion, len(txs))
-		for tx := range txs {
-			output[tx] = fpc.Like
-		}
-		return output
-	}
-
-	INSTANCE = fpc.New(getKnownPeers, queryNode, fpc.NewParameters())
+	INSTANCE = fpc.New(network.GetKnownPeers, network.QueryNode, fpc.NewParameters())
 }
 
 func Run(plugin *node.Plugin) {
+	server.RunServer(plugin, INSTANCE)
+
 	daemon.BackgroundWorker(func() {
 		ticker := client.NewTicker()
 		ticker.Connect(*parameters.PRNG_ADDRESS.Value + ":" + *parameters.PRNG_PORT.Value)
