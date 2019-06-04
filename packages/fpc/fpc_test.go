@@ -58,15 +58,15 @@ func TestVoteIfAllAgrees(t *testing.T) {
 		expected Expected
 	}
 	var tests = []testInput{
-		{TxOpinion{1, Like}, Expected{[]Opinion{Like, Like, Like, Like, Like}, Like}},
-		{TxOpinion{2, Dislike}, Expected{[]Opinion{Dislike, Dislike, Dislike, Dislike, Dislike}, Dislike}},
+		{TxOpinion{"1", Like}, Expected{[]Opinion{Like, Like, Like, Like, Like}, Like}},
+		{TxOpinion{"2", Dislike}, Expected{[]Opinion{Dislike, Dislike, Dislike, Dislike, Dislike}, Dislike}},
 	}
 
 	for _, test := range tests {
 		getKnownPeers := func() []int {
 			return []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 		}
-		queryNode := func(txs []Hash, node int) []Opinion {
+		queryNode := func(txs []ID, node int) []Opinion {
 			reply := []Opinion{}
 			for _, tx := range txs {
 				if tx == test.input.TxHash {
