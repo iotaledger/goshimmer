@@ -13,11 +13,11 @@ import (
 var INSTANCE *fpc.Instance
 
 func Configure(plugin *node.Plugin) {
-	getKnownPeers := func() []int {
-		return []int{1, 2, 3, 4, 5}
+	getKnownPeers := func() []string {
+		return []string{"1", "2", "3", "4", "5"}
 	}
 
-	queryNode := func(txs []fpc.ID, node int) []fpc.Opinion {
+	queryNode := func(txs []fpc.ID, node string) []fpc.Opinion {
 		output := make([]fpc.Opinion, len(txs))
 		for tx := range txs {
 			output[tx] = fpc.Like
