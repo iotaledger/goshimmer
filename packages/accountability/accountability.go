@@ -4,9 +4,22 @@ import (
     "github.com/dgraph-io/badger"
     "github.com/iotaledger/goshimmer/packages/settings"
     "github.com/iotaledger/goshimmer/packages/identity"
+	"sync"
 )
 
-var OWN_ID = getIdentity()
+var ownId *identity.Identity
+
+var lazyInit sync.Once
+
+func GetOwnId() *identity.Identity {
+	lazyInit.Do(initOwnId)
+
+	return ownId
+}
+
+func initOwnId() {
+	ownId = getIdentity()
+}
 
 func generateNewIdentity() *identity.Identity {
     newIdentity := identity.GenerateRandomIdentity()

@@ -60,7 +60,7 @@ func candidateShouldBeContacted(candidate *peer.Peer) bool {
     nodeId := candidate.Identity.StringIdentifier
 
     return (!acceptedneighbors.INSTANCE.Contains(nodeId) &&!chosenneighbors.INSTANCE.Contains(nodeId) &&
-        accountability.OWN_ID.StringIdentifier != nodeId) && (
+        accountability.GetOwnId().StringIdentifier != nodeId) && (
             len(chosenneighbors.INSTANCE.Peers) < constants.NEIGHBOR_COUNT / 2 ||
                 chosenneighbors.OWN_DISTANCE(candidate) < chosenneighbors.FURTHEST_NEIGHBOR_DISTANCE)
 }
