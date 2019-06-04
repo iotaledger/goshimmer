@@ -1,10 +1,11 @@
 package accountability
 
 import (
-    "github.com/dgraph-io/badger"
-    "github.com/iotaledger/goshimmer/packages/settings"
-    "github.com/iotaledger/goshimmer/packages/identity"
 	"sync"
+
+	"github.com/dgraph-io/badger"
+	"github.com/iotaledger/goshimmer/packages/identity"
+	"github.com/iotaledger/goshimmer/packages/settings"
 )
 
 var ownId *identity.Identity
@@ -22,37 +23,37 @@ func initOwnId() {
 }
 
 func generateNewIdentity() *identity.Identity {
-    newIdentity := identity.GenerateRandomIdentity()
+	newIdentity := identity.GenerateRandomIdentity()
 
-    if err := settings.Set([]byte("ACCOUNTABILITY_PUBLIC_KEY"), newIdentity.PublicKey); err != nil {
-        panic(err)
-    }
+	if err := settings.Set([]byte("ACCOUNTABILITY_PUBLIC_KEY"), newIdentity.PublicKey); err != nil {
+		panic(err)
+	}
 
-    if err := settings.Set([]byte("ACCOUNTABILITY_PRIVATE_KEY"), newIdentity.PrivateKey); err != nil {
-        panic(err)
-    }
+	if err := settings.Set([]byte("ACCOUNTABILITY_PRIVATE_KEY"), newIdentity.PrivateKey); err != nil {
+		panic(err)
+	}
 
-    return newIdentity
+	return newIdentity
 }
 
 func getIdentity() *identity.Identity {
-    publicKey, err := settings.Get([]byte("ACCOUNTABILITY_PUBLIC_KEY"))
-    if err != nil {
-        if err == badger.ErrKeyNotFound {
-            return generateNewIdentity()
-        } else {
-            panic(err)
-        }
-    }
+	publicKey, err := settings.Get([]byte("ACCOUNTABILITY_PUBLIC_KEY"))
+	if err != nil {
+		if err == badger.ErrKeyNotFound {
+			return generateNewIdentity()
+		} else {
+			panic(err)
+		}
+	}
 
-    privateKey, err := settings.Get([]byte("ACCOUNTABILITY_PRIVATE_KEY"))
-    if err != nil {
-        if err == badger.ErrKeyNotFound {
-            return generateNewIdentity()
-        } else {
-            panic(err)
-        }
-    }
+	privateKey, err := settings.Get([]byte("ACCOUNTABILITY_PRIVATE_KEY"))
+	if err != nil {
+		if err == badger.ErrKeyNotFound {
+			return generateNewIdentity()
+		} else {
+			panic(err)
+		}
+	}
 
-    return identity.NewIdentity(publicKey, privateKey)
+	return identity.NewIdentity(publicKey, privateKey)
 }

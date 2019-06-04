@@ -3,29 +3,29 @@ package neighborhood
 import "reflect"
 
 var Events = moduleEvents{
-    Update: &callbackEvent{make(map[uintptr]Callback)},
+	Update: &callbackEvent{make(map[uintptr]Callback)},
 }
 
 type moduleEvents struct {
-    Update *callbackEvent
+	Update *callbackEvent
 }
 
 type callbackEvent struct {
-    callbacks map[uintptr]Callback
+	callbacks map[uintptr]Callback
 }
 
 func (this *callbackEvent) Attach(callback Callback) {
-    this.callbacks[reflect.ValueOf(callback).Pointer()] = callback
+	this.callbacks[reflect.ValueOf(callback).Pointer()] = callback
 }
 
 func (this *callbackEvent) Detach(callback Callback) {
-    delete(this.callbacks, reflect.ValueOf(callback).Pointer())
+	delete(this.callbacks, reflect.ValueOf(callback).Pointer())
 }
 
 func (this *callbackEvent) Trigger() {
-    for _, callback := range this.callbacks {
-        callback()
-    }
+	for _, callback := range this.callbacks {
+		callback()
+	}
 }
 
 type Callback = func()

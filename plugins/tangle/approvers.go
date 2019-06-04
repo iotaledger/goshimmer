@@ -1,8 +1,9 @@
 package tangle
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ternary"
 	"sync"
+
+	"github.com/iotaledger/goshimmer/packages/ternary"
 )
 
 type Approvers struct {

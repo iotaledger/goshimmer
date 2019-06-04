@@ -1,26 +1,26 @@
 package tangle
 
 import (
-    "github.com/iotaledger/goshimmer/packages/errors"
-    "github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/goshimmer/packages/errors"
+	"github.com/iotaledger/goshimmer/packages/ternary"
 )
 
 // region transaction api //////////////////////////////////////////////////////////////////////////////////////////////
 
 func GetTransaction(transactionHash ternary.Trinary) (*Transaction, errors.IdentifiableError) {
-    if transaction := getTransactionFromMemPool(transactionHash); transaction != nil {
-        return transaction, nil
-    }
+	if transaction := getTransactionFromMemPool(transactionHash); transaction != nil {
+		return transaction, nil
+	}
 
-    return getTransactionFromDatabase(transactionHash)
+	return getTransactionFromDatabase(transactionHash)
 }
 
 func ContainsTransaction(transactionHash ternary.Trinary) (bool, errors.IdentifiableError) {
-    if memPoolContainsTransaction(transactionHash) {
-        return true, nil
-    }
+	if memPoolContainsTransaction(transactionHash) {
+		return true, nil
+	}
 
-    return databaseContainsTransaction(transactionHash)
+	return databaseContainsTransaction(transactionHash)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -28,19 +28,19 @@ func ContainsTransaction(transactionHash ternary.Trinary) (bool, errors.Identifi
 // region transactionmetadata api //////////////////////////////////////////////////////////////////////////////////////
 
 func GetTransactionMetadata(transactionHash ternary.Trinary) (*TransactionMetadata, errors.IdentifiableError) {
-    if transaction := getTransactionFromMemPool(transactionHash); transaction != nil {
-        return transaction.GetMetaData()
-    }
+	if transaction := getTransactionFromMemPool(transactionHash); transaction != nil {
+		return transaction.GetMetaData()
+	}
 
-    return getTransactionMetadataFromDatabase(transactionHash)
+	return getTransactionMetadataFromDatabase(transactionHash)
 }
 
 func ContainsTransactionMetadata(transactionHash ternary.Trinary) (bool, errors.IdentifiableError) {
-    if memPoolContainsTransaction(transactionHash) {
-        return true, nil
-    }
+	if memPoolContainsTransaction(transactionHash) {
+		return true, nil
+	}
 
-    return databaseContainsTransactionMetadata(transactionHash)
+	return databaseContainsTransactionMetadata(transactionHash)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

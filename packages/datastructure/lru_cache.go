@@ -59,7 +59,7 @@ func (cache *LRUCache) Set(key interface{}, value interface{}) {
 	}
 }
 
-func (cache *LRUCache) Contains(key interface{}, optionalCallback ... func(interface{}, bool)) bool {
+func (cache *LRUCache) Contains(key interface{}, optionalCallback ...func(interface{}, bool)) bool {
 	var callback func(interface{}, bool)
 
 	if len(optionalCallback) >= 1 {
