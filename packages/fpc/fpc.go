@@ -269,12 +269,12 @@ func calculateEtas(votes []TxOpinion) etaMap {
 }
 
 func choose(list []string, k int) []string {
-	choosen := make([]string, k) // slice containing the list of randomly selected nodes
+	chosen := make([]string, k) // slice containing the list of randomly selected nodes
 	rand := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for i := 0; i < k; i++ {
-		choosen[i] = list[rand.Intn(len(list))]
+		chosen[i] = list[rand.Intn(len(list))]
 	}
-	return choosen
+	return chosen
 }
 
 // runif returns a random uniform threshold bewteen
