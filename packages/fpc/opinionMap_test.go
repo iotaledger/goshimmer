@@ -117,3 +117,39 @@ func TestOpinionMapStore(t *testing.T) {
 		}
 	}
 }
+
+func TestOpinionMapDelete(t *testing.T) {
+	type testInput struct {
+		opinionMap map[ID]Opinions
+		key        ID
+		expected   map[ID]Opinions
+	}
+	var tests = []testInput{
+		{
+			map[ID]Opinions{"1": Opinions{Like, Dislike}},
+			"1",
+			map[ID]Opinions{},
+		},
+		{
+			map[ID]Opinions{"1": Opinions{Like, Dislike}, "2": Opinions{Like}},
+			"2",
+			map[ID]Opinions{"1": Opinions{Like, Dislike}},
+		},
+		{
+			map[ID]Opinions{"1": Opinions{Like, Dislike}},
+			"2",
+			map[ID]Opinions{"1": Opinions{Like, Dislike}},
+		},
+	}
+
+	for _, test := range tests {
+		opinionMap := NewOpinionMap()
+		opinionMap.internal = test.opinionMap
+
+		opinionMap.Delete(test.key)
+
+		if !reflect.DeepEqual(opinionMap.internal, test.expected) {
+			t.Error("Should return", test.expected, "got", opinionMap.internal, "with input", test)
+		}
+	}
+}
