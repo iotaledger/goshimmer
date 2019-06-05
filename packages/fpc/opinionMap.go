@@ -27,8 +27,8 @@ func (rm *OpinionMap) Len() int {
 }
 
 // GetMap returns the content of the entire internal map
-func (rm *OpinionMap) GetMap() map[ID][]Opinion {
-	newMap := make(map[ID][]Opinion)
+func (rm *OpinionMap) GetMap() map[ID]Opinions {
+	newMap := make(map[ID]Opinions)
 	rm.RLock()
 	defer rm.RUnlock()
 	for k, v := range rm.internal {
@@ -40,7 +40,7 @@ func (rm *OpinionMap) GetMap() map[ID][]Opinion {
 // Load returns the opinion for a given ID.
 // It also return a bool to communicate the presence of the given
 // ID into the internal map
-func (rm *OpinionMap) Load(key ID) (value []Opinion, ok bool) {
+func (rm *OpinionMap) Load(key ID) (value Opinions, ok bool) {
 	rm.RLock()
 	defer rm.RUnlock()
 	result, ok := rm.internal[key]

@@ -62,6 +62,11 @@ func (fpc *Instance) Tick(index uint64, random float64) {
 // of the given txs
 func (fpc *Instance) GetInterimOpinion(txs ...ID) []Opinion {
 	result := make([]Opinion, len(txs))
+	// initialize result with Undefined
+	for tx := range result {
+		result[tx] = Undefined
+	}
+
 	for i, tx := range txs {
 		if history, ok := fpc.state.opinionHistory.Load(tx); ok {
 			lastOpinion, _ := getLastOpinion(history)

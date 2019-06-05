@@ -16,6 +16,7 @@ func TestIsFinal(t *testing.T) {
 	var tests = []testInput{
 		{Opinions{Like, Like, Like, Like}, 2, 2, true},
 		{Opinions{Like, Like, Like, Dislike}, 2, 2, false},
+		{nil, 2, 2, false},
 	}
 
 	for _, test := range tests {
@@ -42,6 +43,32 @@ func TestGetLastOpinion(t *testing.T) {
 		result, err := getLastOpinion(test.opinions)
 		if result != test.want || !reflect.DeepEqual(err, test.err) {
 			t.Error("Should return", test.want, test.err, "got", result, err, "with input", test)
+		}
+	}
+}
+
+func TestGetInterimOpinion(t *testing.T) {
+	type testInput struct {
+		opinionMap map[ID]Opinions
+		txs        []ID
+		expected   []Opinion
+	}
+	var tests = []testInput{
+		{map[ID]Opinions{"1": Opinions{Like, Like, Like}}, []ID{"1"}, []Opinion{Like}},
+		{map[ID]Opinions{"1": Opinions{Like, Like, Like}}, []ID{"2"}, []Opinion{Undefined}},
+		{map[ID]Opinions{"1": Opinions{Like}, "2": Opinions{Dislike}}, []ID{"1", "2", "3"}, []Opinion{Like, Dislike, Undefined}},
+		{map[ID]Opinions{}, []ID{"1"}, []Opinion{Undefined}},
+	}
+	for _, test := range tests {
+		dummyFpc := &Instance{
+			state: newContext(),
+		}
+		// set opinion history
+		dummyFpc.state.opinionHistory.internal = test.opinionMap
+
+		result := dummyFpc.GetInterimOpinion(test.txs...)
+		if !reflect.DeepEqual(result, test.expected) {
+			t.Error("Should return", test.expected, "got", result, "with input", test)
 		}
 	}
 }
