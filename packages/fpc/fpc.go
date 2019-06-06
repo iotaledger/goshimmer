@@ -221,11 +221,7 @@ func isFinal(o Opinions, m, l int) bool {
 // querySample sends query to randomly selected nodes
 func querySample(txs []ID, k int, nodes []string, qn QueryNode) etaMap {
 	// select k random nodes
-	selectedNodes := make([]string, k) // slice containing the list of randomly selected nodes
-	rand := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for i := 0; i < k; i++ {
-		selectedNodes[i] = nodes[rand.Intn(len(nodes))]
-	}
+	selectedNodes := choose(nodes, k)
 
 	// send k queries
 	c := make(chan []Opinion, k) // channel to communicate the reception of all the responses
@@ -270,6 +266,15 @@ func calculateEtas(votes []TxOpinion) etaMap {
 	}
 
 	return allEtas
+}
+
+func choose(list []string, k int) []string {
+	chosen := make([]string, k) // slice containing the list of randomly selected nodes
+	rand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < k; i++ {
+		chosen[i] = list[rand.Intn(len(list))]
+	}
+	return chosen
 }
 
 // runif returns a random uniform threshold bewteen
