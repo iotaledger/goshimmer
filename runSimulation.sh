@@ -23,6 +23,6 @@ for i in `seq 1 $1`; do
     mkdir node_$i
     cp ../entryNode/shimmer node_$i/
     cd node_$i
-    ./shimmer -autopeering-port $PEERING_PORT -autopeering-entry-nodes e83c2e1f0ba552cbb6d08d819b7b2196332f8423@127.0.0.1:14000 -node-log-level 4 -node-disable-plugins statusscreen
+    ./shimmer -autopeering-port $PEERING_PORT -autopeering-entry-nodes e83c2e1f0ba552cbb6d08d819b7b2196332f8423@127.0.0.1:14000 -node-log-level 4 -node-disable-plugins statusscreen &
     cd ..
 done
