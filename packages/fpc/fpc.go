@@ -76,7 +76,7 @@ func (fpc *Instance) GetInterimOpinion(txs ...ID) []Opinion {
 	return result
 }
 
-// Hash is the unique identifier of the querried object (e.g. a transaction Hash)
+// ID is the unique identifier of the querried object (e.g. a transaction Hash)
 type ID string
 
 // Opinion is a enum
@@ -84,7 +84,7 @@ type Opinion int
 
 const (
 	// Dislike defines a negative opinion
-	Dislike = iota // 0
+	Dislike Opinion = iota // 0
 	// Like defines a negative opinion
 	Like // 1
 	// Undefined defines an undefined opinion
