@@ -13,32 +13,49 @@ import (
 )
 
 const (
-	timeout = 500 * time.Millisecond
+	// TIMEOUT is the connection timeout
+	TIMEOUT = 500 * time.Millisecond
 )
 
 // queryNode is the internal
-func queryNode(client pb.FPCQueryClient, req *pb.QueryRequest) []pb.QueryReply_Opinion {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+func queryNode(txHash []fpc.ID, client pb.FPCQueryClient) (output []fpc.Opinion) {
+	ctx, cancel := context.WithTimeout(context.Background(), TIMEOUT)
 	defer cancel()
+
+	// Converting fpc.ID to string
+	input := make([]string, len(txHash))
+	for i := range txHash {
+		input[i] = string(txHash[i])
+	}
+	// Prepare query
+	query := &pb.QueryRequest{
+		TxHash: input,
+	}
 
 	// preparing undefined opinion in case of errors
 	// since we should always return a list of opinions
 	// even in case of errors
-	undefinedOpinions := make([]pb.QueryReply_Opinion, len(req.GetTxHash()))
-	for opinion := range undefinedOpinions {
-		undefinedOpinions[opinion] = pb.QueryReply_UNDEFINED
+	output = make([]fpc.Opinion, len(txHash))
+	for i := range output {
+		output[i] = fpc.Undefined
 	}
 
-	opinions, err := client.GetOpinion(ctx, req)
+	opinions, err := client.GetOpinion(ctx, query)
 	if err != nil {
 		log.Printf("%v.GetOpinion(_) = _, %v: \n", client, err)
-		return undefinedOpinions
+		return output
 	}
-	return opinions.GetOpinion()
+
+	// Converting QueryReply_Opinion to Opinion
+	for i, opinion := range opinions.GetOpinion() {
+		output[i] = fpc.Opinion(opinion)
+	}
+
+	return output
 }
 
 // QueryNode sends a query to a node and returns a list of opinions
-func QueryNode(txHash []fpc.ID, nodeID string) []fpc.Opinion {
+func QueryNode(txHash []fpc.ID, nodeID string) (opinions []fpc.Opinion) {
 	peer, ok := knownpeers.INSTANCE.GetPeer(nodeID)
 	if !ok {
 		// TODO: if !ok decide what to return
@@ -59,23 +76,8 @@ func QueryNode(txHash []fpc.ID, nodeID string) []fpc.Opinion {
 	// Setup a new client over the previous connection
 	client := pb.NewFPCQueryClient(conn)
 
-	// Converting fpc.ID to string
-	input := make([]string, len(txHash))
-	for i := range txHash {
-		input[i] = string(txHash[i])
-	}
-	// Prepare query
-	query := &pb.QueryRequest{
-		TxHash: input,
-	}
 	// Send query
-	opinions := queryNode(client, query)
+	opinions = queryNode(txHash, client)
 
-	// Converting QueryReply_Opinion to Opinion
-	output := make([]fpc.Opinion, len(opinions))
-	for i := range opinions {
-		output[i] = fpc.Opinion(opinions[i])
-	}
-
-	return output
+	return opinions
 }
