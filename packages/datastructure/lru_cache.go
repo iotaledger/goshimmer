@@ -10,48 +10,46 @@ type lruCacheElement struct {
 }
 
 type LRUCache struct {
-	directory          map[interface{}]*DoublyLinkedListEntry
-	doublyLinkedList   *DoublyLinkedList
-	capacity           int
-	size               int
-	processingCallback bool
-	mutex              sync.RWMutex
+	directory        map[interface{}]*DoublyLinkedListEntry
+	doublyLinkedList *DoublyLinkedList
+	capacity         int
+	size             int
+	mutex            sync.RWMutex
 }
 
 func NewLRUCache(capacity int) *LRUCache {
 	return &LRUCache{
-		directory:        make(map[interface{}]*DoublyLinkedListEntry),
+		directory:        make(map[interface{}]*DoublyLinkedListEntry, capacity),
 		doublyLinkedList: &DoublyLinkedList{},
 		capacity:         capacity,
 	}
 }
 
 func (cache *LRUCache) Set(key interface{}, value interface{}) {
-	if !cache.processingCallback {
-		cache.mutex.Lock()
-		defer cache.mutex.Unlock()
-	}
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
 
-	element, exists := cache.directory[key]
-	if exists {
-		if !cache.processingCallback {
-			element.GetValue().(*lruCacheElement).value = value
+	cache.set(key, value)
+}
 
-			cache.doublyLinkedList.mutex.Lock()
-			defer cache.doublyLinkedList.mutex.Unlock()
-		} else {
-			element.value.(*lruCacheElement).value = value
-		}
+func (cache *LRUCache) set(key interface{}, value interface{}) {
+	directory := cache.directory
+
+	if element, exists := directory[key]; exists {
+		element.value.(*lruCacheElement).value = value
 
 		cache.promoteElement(element)
 	} else {
-		cache.directory[key] = cache.doublyLinkedList.AddFirst(&lruCacheElement{key: key, value: value})
+		linkedListEntry := &DoublyLinkedListEntry{value: &lruCacheElement{key: key, value: value}}
+
+		cache.doublyLinkedList.addFirstEntry(linkedListEntry)
+		directory[key] = linkedListEntry
 
 		if cache.size == cache.capacity {
-			if element, err := cache.doublyLinkedList.RemoveLast(); err != nil {
+			if element, err := cache.doublyLinkedList.removeLastEntry(); err != nil {
 				panic(err)
 			} else {
-				delete(cache.directory, element.(*lruCacheElement).key)
+				delete(directory, element.value.(*lruCacheElement).key)
 			}
 		} else {
 			cache.size++
@@ -59,41 +57,83 @@ func (cache *LRUCache) Set(key interface{}, value interface{}) {
 	}
 }
 
-func (cache *LRUCache) Contains(key interface{}, optionalCallback ... func(interface{}, bool)) bool {
-	var callback func(interface{}, bool)
+func (cache *LRUCache) ComputeIfAbsent(key interface{}, callback func() interface{}) (result interface{}) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
 
-	if len(optionalCallback) >= 1 {
-		if !cache.processingCallback {
-			cache.mutex.Lock()
-			defer cache.mutex.Unlock()
-		}
+	if element, exists := cache.directory[key]; exists {
+		cache.promoteElement(element)
 
-		callback = optionalCallback[0]
+		result = element.GetValue().(*lruCacheElement).value
 	} else {
-		if !cache.processingCallback {
-			cache.mutex.RLock()
-			defer cache.mutex.RUnlock()
+		if result = callback(); result != nil {
+			cache.set(key, result)
 		}
 	}
 
-	var elementValue interface{}
-	element, exists := cache.directory[key]
-	if exists {
-		cache.doublyLinkedList.mutex.Lock()
-		defer cache.doublyLinkedList.mutex.Unlock()
+	return
+}
+
+// Calls the callback if an entry with the given key exists.
+// The result of the callback is written back into the cache.
+// If the callback returns nil the entry is removed from the cache.
+// Returns the updated entry.
+func (cache *LRUCache) ComputeIfPresent(key interface{}, callback func(value interface{}) interface{}) (result interface{}) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+
+	if entry, exists := cache.directory[key]; exists {
+		result = entry.GetValue().(*lruCacheElement).value
+
+		if result = callback(result); result != nil {
+			cache.set(key, result)
+		} else {
+			if err := cache.doublyLinkedList.removeEntry(entry); err != nil {
+				panic(err)
+			}
+			delete(cache.directory, key)
+
+			cache.size--
+		}
+	} else {
+		result = nil
+	}
+
+	return
+}
+
+func (cache *LRUCache) Contains(key interface{}) bool {
+	cache.mutex.RLock()
+	if element, exists := cache.directory[key]; exists {
+		cache.mutex.RUnlock()
+		cache.mutex.Lock()
+		defer cache.mutex.Unlock()
 
 		cache.promoteElement(element)
 
-		elementValue = element.GetValue().(*lruCacheElement).value
+		return true
+	} else {
+		cache.mutex.RUnlock()
+
+		return false
+	}
+}
+
+func (cache *LRUCache) Get(key interface{}) (result interface{}) {
+	cache.mutex.RLock()
+	if element, exists := cache.directory[key]; exists {
+		cache.mutex.RUnlock()
+		cache.mutex.Lock()
+		defer cache.mutex.Unlock()
+
+		cache.promoteElement(element)
+
+		result = element.GetValue().(*lruCacheElement).value
+	} else {
+		cache.mutex.RUnlock()
 	}
 
-	if callback != nil {
-		cache.processingCallback = true
-		callback(elementValue, exists)
-		cache.processingCallback = false
-	}
-
-	return exists
+	return
 }
 
 func (cache *LRUCache) GetCapacity() int {
@@ -111,21 +151,13 @@ func (cache *LRUCache) GetSize() int {
 }
 
 func (cache *LRUCache) Delete(key interface{}) bool {
-	if !cache.processingCallback {
-		cache.mutex.RLock()
-	}
+	cache.mutex.RLock()
 
 	entry, exists := cache.directory[key]
 	if exists {
-		if !cache.processingCallback {
-			cache.mutex.RUnlock()
-
-			cache.mutex.Lock()
-			defer cache.mutex.Unlock()
-
-			cache.doublyLinkedList.mutex.Lock()
-			defer cache.doublyLinkedList.mutex.Unlock()
-		}
+		cache.mutex.RUnlock()
+		cache.mutex.Lock()
+		defer cache.mutex.Unlock()
 
 		if err := cache.doublyLinkedList.removeEntry(entry); err != nil {
 			panic(err)
@@ -137,9 +169,7 @@ func (cache *LRUCache) Delete(key interface{}) bool {
 		return true
 	}
 
-	if !cache.processingCallback {
-		cache.mutex.RUnlock()
-	}
+	cache.mutex.RUnlock()
 
 	return false
 }
