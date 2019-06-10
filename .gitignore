@@ -16,3 +16,7 @@
 
 # Database directory
 mainnetdb/
+
+# OSX related files
+.DS_Store
+shimmer
