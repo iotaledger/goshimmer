@@ -11,7 +11,7 @@ func intStringCaller(handler interface{}, params ...interface{}) {
 }
 
 func ExampleHelloWorld() {
-	// create event object (usually made accessible through a public struct that holds all the different event types)
+	// create event object (usually exposed through a public struct that holds all the different event types)
 	event := NewEvent(intStringCaller)
 
 	// we have to wrap a function in a closure to make it identifiable
