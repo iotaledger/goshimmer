@@ -25,6 +25,12 @@ func configureDatabase(plugin *node.Plugin) {
 	} else {
 		transactionMetadataDatabase = db
 	}
+
+	if db, err := database.Get("approvers"); err != nil {
+		panic(err)
+	} else {
+		approversDatabase = db
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -86,5 +92,7 @@ func databaseContainsTransactionMetadata(transactionHash ternary.Trinary) (bool,
 var transactionDatabase database.Database
 
 var transactionMetadataDatabase database.Database
+
+var approversDatabase database.Database
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

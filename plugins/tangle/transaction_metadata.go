@@ -95,7 +95,7 @@ func (metaData *TransactionMetadata) GetSolid() bool {
 	return metaData.solid
 }
 
-func (metaData *TransactionMetadata) SetSolid(solid bool) {
+func (metaData *TransactionMetadata) SetSolid(solid bool) bool {
 	metaData.solidMutex.RLock()
 	if metaData.solid != solid {
 		metaData.solidMutex.RUnlock()
@@ -105,10 +105,14 @@ func (metaData *TransactionMetadata) SetSolid(solid bool) {
 			metaData.solid = solid
 
 			metaData.SetModified(true)
+
+			return true
 		}
 	} else {
 		metaData.solidMutex.RUnlock()
 	}
+
+	return false
 }
 
 func (metaData *TransactionMetadata) GetLiked() bool {

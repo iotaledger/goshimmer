@@ -1,46 +1,82 @@
 package tangle
 
 import (
+	"github.com/iotaledger/goshimmer/packages/datastructure"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/ternary"
 )
 
 // region transaction api //////////////////////////////////////////////////////////////////////////////////////////////
 
-func GetTransaction(transactionHash ternary.Trinary) (*Transaction, errors.IdentifiableError) {
-	if transaction := getTransactionFromMemPool(transactionHash); transaction != nil {
-		return transaction, nil
+var transactionCache = datastructure.NewLRUCache(TRANSACTION_CACHE_SIZE)
+
+func GetTransaction(transactionHash ternary.Trinary, computeIfAbsent ...func(ternary.Trinary) *Transaction) (result *Transaction, err errors.IdentifiableError) {
+	if cacheResult := transactionCache.ComputeIfAbsent(transactionHash, func() interface{} {
+		if transaction, dbErr := getTransactionFromDatabase(transactionHash); dbErr != nil {
+			err = dbErr
+
+			return nil
+		} else if transaction != nil {
+			return transaction
+		} else {
+			if len(computeIfAbsent) >= 1 {
+				return computeIfAbsent[0](transactionHash)
+			}
+
+			return nil
+		}
+	}); cacheResult != nil {
+		result = cacheResult.(*Transaction)
 	}
 
-	return getTransactionFromDatabase(transactionHash)
+	return
 }
 
-func ContainsTransaction(transactionHash ternary.Trinary) (bool, errors.IdentifiableError) {
-	if memPoolContainsTransaction(transactionHash) {
-		return true, nil
+func ContainsTransaction(transactionHash ternary.Trinary) (result bool, err errors.IdentifiableError) {
+	if transactionCache.Get(transactionHash) != nil {
+		result = true
+	} else {
+		result, err = databaseContainsTransaction(transactionHash)
 	}
 
-	return databaseContainsTransaction(transactionHash)
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region transactionmetadata api //////////////////////////////////////////////////////////////////////////////////////
 
-func GetTransactionMetadata(transactionHash ternary.Trinary) (*TransactionMetadata, errors.IdentifiableError) {
-	if transaction := getTransactionFromMemPool(transactionHash); transaction != nil {
-		return transaction.GetMetaData()
-	}
+var metadataCache = datastructure.NewLRUCache(METADATA_CACHE_SIZE)
 
-	return getTransactionMetadataFromDatabase(transactionHash)
+func GetTransactionMetadata(transactionHash ternary.Trinary) (result *TransactionMetadata, err errors.IdentifiableError) {
+	result = metadataCache.ComputeIfAbsent(transactionHash, func() interface{} {
+		if metadata, dbErr := getTransactionMetadataFromDatabase(transactionHash); dbErr != nil {
+			err = dbErr
+
+			return nil
+		} else if metadata != nil {
+			return metadata
+		}
+
+		return nil
+	}).(*TransactionMetadata)
+
+	return
 }
 
-func ContainsTransactionMetadata(transactionHash ternary.Trinary) (bool, errors.IdentifiableError) {
-	if memPoolContainsTransaction(transactionHash) {
-		return true, nil
+func ContainsTransactionMetadata(transactionHash ternary.Trinary) (result bool, err errors.IdentifiableError) {
+	if metadataCache.Get(transactionHash) != nil {
+		result = true
+	} else {
+		result, err = databaseContainsTransactionMetadata(transactionHash)
 	}
 
-	return databaseContainsTransactionMetadata(transactionHash)
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const (
+	TRANSACTION_CACHE_SIZE = 1000
+	METADATA_CACHE_SIZE    = 1000
+)

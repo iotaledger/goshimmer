@@ -7,17 +7,11 @@ import (
 func TestLRUCache(t *testing.T) {
 	cache := NewLRUCache(5)
 
-	cache.Contains("test", func(elem interface{}, contains bool) {
-		if !contains {
-			cache.Set("test", 12)
-		}
+	cache.ComputeIfAbsent("test", func() interface{} {
+		return 12
 	})
 
-	if !cache.Contains("test", func(elem interface{}, contains bool) {
-		if !contains || elem != 12 {
-			t.Error("the cache contains the wrong element")
-		}
-	}) {
+	if cache.Get("test") != 12 {
 		t.Error("the cache does not contain the added elements")
 	}
 
@@ -44,7 +38,7 @@ func TestLRUCache(t *testing.T) {
 		t.Error("the size should be 5")
 	}
 
-	if cache.Contains("test") {
+	if cache.Get("test") != nil {
 		t.Error("'test' should have been dropped")
 	}
 
@@ -55,28 +49,24 @@ func TestLRUCache(t *testing.T) {
 		t.Error("the size should be 5")
 	}
 
-	if !cache.Contains("a") {
+	if cache.Get("a") == nil {
 		t.Error("'a' should not have been dropped")
 	}
-	if cache.Contains("b") {
+	if cache.Get("b") != nil {
 		t.Error("'b' should have been dropped")
 	}
 
-	cache.Contains("tust", func(elem interface{}, contains bool) {
-		if !contains {
-			cache.Set("tust", 1337)
-		}
+	cache.ComputeIfAbsent("tust", func() interface{} {
+		return 1337
 	})
 
 	if cache.GetSize() != 5 {
 		t.Error("the size should be 5")
 	}
 
-	cache.Contains("a", func(value interface{}, exists bool) {
-		if exists {
-			cache.Delete("a")
-		}
-	})
+	if cache.Get("a") != nil {
+		cache.Delete("a")
+	}
 	if cache.GetSize() != 4 {
 		t.Error("the size should be 4")
 	}
@@ -87,16 +77,21 @@ func TestLRUCache(t *testing.T) {
 	}
 }
 
-func BenchmarkLRUCache(b *testing.B) {
-	cache := NewLRUCache(10000)
+func TestLRUCache_ComputeIfPresent(t *testing.T) {
+	cache := NewLRUCache(5)
+	cache.Set(8, 9)
 
-	b.ResetTimer()
+	cache.ComputeIfPresent(8, func(value interface{}) interface{} {
+		return 88
+	})
+	if cache.Get(8) != 88 || cache.GetSize() != 1 {
+		t.Error("cache was not updated correctly")
+	}
 
-	for i := 0; i < b.N; i++ {
-		cache.Contains(i, func(val interface{}, exists bool) {
-			if !exists {
-				cache.Set(i, i)
-			}
-		})
+	cache.ComputeIfPresent(8, func(value interface{}) interface{} {
+		return nil
+	})
+	if cache.Get(8) != nil || cache.GetSize() != 0 {
+		t.Error("cache was not updated correctly")
 	}
 }

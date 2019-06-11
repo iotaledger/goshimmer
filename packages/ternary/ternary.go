@@ -22,7 +22,7 @@ func (trinary Trinary) CastToBytes() []byte {
 }
 
 func (trinary Trinary) ToTrits() Trits {
-	trits := make(Trits, len(trinary)*3)
+	trits := make(Trits, 0, len(trinary)*NUMBER_OF_TRITS_IN_A_TRYTE)
 	for _, char := range trinary {
 		trits = append(trits, TRYTES_TO_TRITS_MAP[char]...)
 	}
@@ -57,7 +57,7 @@ func (this Trits) ToBytes() []byte {
 func (this Trits) TrailingZeroes() int {
 	zeros := 0
 	index := len(this) - 1
-	for this[index] == 0 {
+	for index >= 0 && this[index] == 0 {
 		zeros++
 
 		index--

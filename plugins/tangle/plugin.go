@@ -10,11 +10,11 @@ var PLUGIN = node.NewPlugin("Tangle", configure, run)
 
 func configure(plugin *node.Plugin) {
 	configureDatabase(plugin)
-	configureMemPool(plugin)
+	configureSolidifier(plugin)
 }
 
 func run(plugin *node.Plugin) {
-	runMemPool(plugin)
+	// this plugin has no background workers
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
