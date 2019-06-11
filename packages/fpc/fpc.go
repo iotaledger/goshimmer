@@ -62,6 +62,11 @@ func (fpc *Instance) Tick(index uint64, random float64) {
 // of the given txs
 func (fpc *Instance) GetInterimOpinion(txs ...ID) []Opinion {
 	result := make([]Opinion, len(txs))
+	// initialize result with Undefined
+	for tx := range result {
+		result[tx] = Undefined
+	}
+
 	for i, tx := range txs {
 		if history, ok := fpc.state.opinionHistory.Load(tx); ok {
 			lastOpinion, _ := getLastOpinion(history)
@@ -71,7 +76,7 @@ func (fpc *Instance) GetInterimOpinion(txs ...ID) []Opinion {
 	return result
 }
 
-// Hash is the unique identifier of the querried object (e.g. a transaction Hash)
+// ID is the unique identifier of the querried object (e.g. a transaction Hash)
 type ID string
 
 // Opinion is a enum
@@ -79,7 +84,7 @@ type Opinion int
 
 const (
 	// Dislike defines a negative opinion
-	Dislike = iota // 0
+	Dislike Opinion = iota // 0
 	// Like defines a negative opinion
 	Like // 1
 	// Undefined defines an undefined opinion

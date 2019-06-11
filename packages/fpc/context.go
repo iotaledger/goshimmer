@@ -16,7 +16,7 @@ type context struct {
 // NewContext returns a new FPC context
 func newContext(p ...*Parameters) *context {
 	param := NewParameters()
-	if p != nil {
+	if p != nil && p[0] != nil {
 		param = p[0]
 	}
 	return &context{
@@ -56,7 +56,7 @@ func (tq *txQueue) Pop(n ...uint) (out []TxOpinion) {
 	tq.Lock()
 	defer tq.Unlock()
 
-	if n == nil || n[0] > uint(len(tq.internal)) {
+	if n == nil || len(n) == 0 || n[0] > uint(len(tq.internal)) {
 		out = make([]TxOpinion, len(tq.internal))
 		copy(out, tq.internal)
 		tq.internal = nil
@@ -75,13 +75,10 @@ func (c *context) pushTxs(txs ...TxOpinion) {
 	}
 }
 
-// TODO: set max number of txs to add as target
+// TODO: set max number of txs to add as active
 func (c *context) popTxs() {
 	newTxs := c.waitingTxs.Pop()
-	//fmt.Println("DEBUG, Popping from queue:", newTxs)
 	for _, tx := range newTxs {
-		//fmt.Println("DEBUG, updating opinion and targets")
-		//c.opinionHistory.Store(tx.TxHash, tx.Opinion)
 		c.activeTxs[tx.TxHash] = &etaResult{
 			value: -1,
 			count: 0,
