@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package query;
+
+service FPCQuery {
+  rpc GetOpinion(QueryRequest) returns (QueryReply) {}
+}
+
+message QueryRequest {
+  repeated string txHash = 1;
+}
+
+message QueryReply {
+  enum Opinion {
+    DISLIKE = 0;
+    LIKE = 1;
+    UNDEFINED = 2;
+  }
+  repeated Opinion opinion = 1;
+}
