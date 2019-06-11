@@ -1,8 +1,9 @@
 package datastructure
 
 import (
-	"github.com/iotaledger/goshimmer/packages/errors"
 	"sync"
+
+	"github.com/iotaledger/goshimmer/packages/errors"
 )
 
 type DoublyLinkedList struct {

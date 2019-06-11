@@ -1,11 +1,12 @@
 package recordedevents
 
 import (
-    "github.com/iotaledger/goshimmer/packages/events"
-    "github.com/iotaledger/goshimmer/packages/node"
-    "github.com/iotaledger/goshimmer/plugins/analysis/server"
-    "github.com/iotaledger/goshimmer/plugins/analysis/webinterface/types"
-    "sync"
+	"sync"
+
+	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/plugins/analysis/server"
+	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface/types"
 )
 
 var recordedEvents = make([]types.EventHandlersConsumer, 0)
@@ -16,75 +17,75 @@ var links = make(map[string]map[string]bool)
 var lock sync.Mutex
 
 func Configure(plugin *node.Plugin) {
-    server.Events.AddNode.Attach(events.NewClosure(func(nodeId string) {
-        if _, exists := nodes[nodeId]; !exists {
-            lock.Lock()
-            defer lock.Unlock()
+	server.Events.AddNode.Attach(events.NewClosure(func(nodeId string) {
+		if _, exists := nodes[nodeId]; !exists {
+			lock.Lock()
+			defer lock.Unlock()
 
-            if _, exists := nodes[nodeId]; !exists {
-                nodes[nodeId] = false
-            }
-        }
-    }))
+			if _, exists := nodes[nodeId]; !exists {
+				nodes[nodeId] = false
+			}
+		}
+	}))
 
-    server.Events.RemoveNode.Attach(events.NewClosure(func(nodeId string) {
-        lock.Lock()
-        defer lock.Unlock()
+	server.Events.RemoveNode.Attach(events.NewClosure(func(nodeId string) {
+		lock.Lock()
+		defer lock.Unlock()
 
-        delete(nodes, nodeId)
-    }))
+		delete(nodes, nodeId)
+	}))
 
-    server.Events.NodeOnline.Attach(events.NewClosure(func(nodeId string) {
-        lock.Lock()
-        defer lock.Unlock()
+	server.Events.NodeOnline.Attach(events.NewClosure(func(nodeId string) {
+		lock.Lock()
+		defer lock.Unlock()
 
-        nodes[nodeId] = true
-    }))
+		nodes[nodeId] = true
+	}))
 
-    server.Events.NodeOffline.Attach(events.NewClosure(func(nodeId string) {
-        lock.Lock()
-        defer lock.Unlock()
+	server.Events.NodeOffline.Attach(events.NewClosure(func(nodeId string) {
+		lock.Lock()
+		defer lock.Unlock()
 
-        nodes[nodeId] = false
-    }))
+		nodes[nodeId] = false
+	}))
 
-    server.Events.ConnectNodes.Attach(events.NewClosure(func(sourceId string, targetId string) {
-        lock.Lock()
-        defer lock.Unlock()
+	server.Events.ConnectNodes.Attach(events.NewClosure(func(sourceId string, targetId string) {
+		lock.Lock()
+		defer lock.Unlock()
 
-        connectionMap, connectionMapExists := links[sourceId]
-        if !connectionMapExists {
-            connectionMap = make(map[string]bool)
+		connectionMap, connectionMapExists := links[sourceId]
+		if !connectionMapExists {
+			connectionMap = make(map[string]bool)
 
-            links[sourceId] = connectionMap
-        }
-        connectionMap[targetId] = true
-    }))
+			links[sourceId] = connectionMap
+		}
+		connectionMap[targetId] = true
+	}))
 
-    server.Events.DisconnectNodes.Attach(events.NewClosure(func(sourceId string, targetId string) {
-        lock.Lock()
-        defer lock.Unlock()
+	server.Events.DisconnectNodes.Attach(events.NewClosure(func(sourceId string, targetId string) {
+		lock.Lock()
+		defer lock.Unlock()
 
-        connectionMap, connectionMapExists := links[sourceId]
-        if connectionMapExists {
-            delete(connectionMap, targetId)
-        }
-    }))
+		connectionMap, connectionMapExists := links[sourceId]
+		if connectionMapExists {
+			delete(connectionMap, targetId)
+		}
+	}))
 }
 
 func Replay(handlers *types.EventHandlers) {
-    for nodeId, online := range nodes {
-        handlers.AddNode(nodeId)
-        if online {
-            handlers.NodeOnline(nodeId)
-        } else {
-            handlers.NodeOffline(nodeId)
-        }
-    }
+	for nodeId, online := range nodes {
+		handlers.AddNode(nodeId)
+		if online {
+			handlers.NodeOnline(nodeId)
+		} else {
+			handlers.NodeOffline(nodeId)
+		}
+	}
 
-    for sourceId, targetMap := range links {
-        for targetId, _ := range targetMap {
-            handlers.ConnectNodes(sourceId, targetId)
-        }
-    }
+	for sourceId, targetMap := range links {
+		for targetId, _ := range targetMap {
+			handlers.ConnectNodes(sourceId, targetId)
+		}
+	}
 }

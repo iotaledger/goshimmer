@@ -1,48 +1,49 @@
 package gossip
 
 import (
-    "github.com/iotaledger/goshimmer/packages/ternary"
-    "github.com/iotaledger/goshimmer/packages/transaction"
-    "sync"
-    "testing"
+	"sync"
+	"testing"
+
+	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/goshimmer/packages/transaction"
 )
 
 func BenchmarkProcessSimilarTransactionsFiltered(b *testing.B) {
-    byteArray := setupTransaction(transaction.MARSHALLED_TOTAL_SIZE / ternary.NUMBER_OF_TRITS_IN_A_BYTE)
+	byteArray := setupTransaction(transaction.MARSHALLED_TOTAL_SIZE / ternary.NUMBER_OF_TRITS_IN_A_BYTE)
 
-    b.ResetTimer()
+	b.ResetTimer()
 
-    for i := 0; i < b.N; i++ {
-        ProcessReceivedTransactionData(byteArray)
-    }
+	for i := 0; i < b.N; i++ {
+		ProcessReceivedTransactionData(byteArray)
+	}
 }
 
 func BenchmarkProcessSimilarTransactionsUnfiltered(b *testing.B) {
-    byteArray := setupTransaction(transaction.MARSHALLED_TOTAL_SIZE / ternary.NUMBER_OF_TRITS_IN_A_BYTE)
+	byteArray := setupTransaction(transaction.MARSHALLED_TOTAL_SIZE / ternary.NUMBER_OF_TRITS_IN_A_BYTE)
 
-    b.ResetTimer()
+	b.ResetTimer()
 
-    var wg sync.WaitGroup
+	var wg sync.WaitGroup
 
-    for i := 0; i < b.N; i++ {
-        wg.Add(1)
+	for i := 0; i < b.N; i++ {
+		wg.Add(1)
 
-        go func() {
-            Events.ReceiveTransaction.Trigger(transaction.FromBytes(byteArray))
+		go func() {
+			Events.ReceiveTransaction.Trigger(transaction.FromBytes(byteArray))
 
-            wg.Done()
-        }()
-    }
+			wg.Done()
+		}()
+	}
 
-    wg.Wait()
+	wg.Wait()
 }
 
 func setupTransaction(byteArraySize int) []byte {
-    byteArray := make([]byte, byteArraySize)
+	byteArray := make([]byte, byteArraySize)
 
-    for i := 0; i < len(byteArray); i++ {
-        byteArray[i] = byte(i % 128)
-    }
+	for i := 0; i < len(byteArray); i++ {
+		byteArray[i] = byte(i % 128)
+	}
 
-    return byteArray
+	return byteArray
 }

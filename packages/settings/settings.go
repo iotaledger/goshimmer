@@ -1,8 +1,9 @@
 package settings
 
 import (
-	"github.com/iotaledger/goshimmer/packages/database"
 	"sync"
+
+	"github.com/iotaledger/goshimmer/packages/database"
 )
 
 var settingsDatabase database.Database
