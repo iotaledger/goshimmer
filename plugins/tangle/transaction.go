@@ -1,8 +1,10 @@
 package tangle
 
 import (
+	"math"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/curl"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/ternary"
 	"github.com/iotaledger/goshimmer/packages/transaction"
@@ -48,6 +50,10 @@ type Transaction struct {
 }
 
 func NewTransaction(rawTransaction *transaction.Transaction) *Transaction {
+	if rawTransaction == nil {
+		rawTransaction = transaction.FromBytes(make([]byte, int(math.Ceil(float64(transaction.MARSHALLED_TOTAL_SIZE)/ternary.NUMBER_OF_TRITS_IN_A_BYTE))))
+	}
+
 	return &Transaction{rawTransaction: rawTransaction}
 }
 
@@ -123,6 +129,10 @@ func (transaction *Transaction) ParseHash() ternary.Trinary {
 
 // parses the hash from the underlying raw transaction (without locking - internal usage)
 func (transaction *Transaction) parseHash() (result ternary.Trinary) {
+	if transaction.modified {
+		transaction.Flush()
+	}
+
 	result = transaction.rawTransaction.Hash.ToTrinary()
 
 	transaction.hash = &result
@@ -500,7 +510,7 @@ func (transaction *Transaction) SetBranchTransactionHash(branchTransactionHash t
 		transaction.branchTransactionHashMutex.Lock()
 		defer transaction.branchTransactionHashMutex.Unlock()
 		if transaction.branchTransactionHash == nil || *transaction.branchTransactionHash != branchTransactionHash {
-			*transaction.branchTransactionHash = branchTransactionHash
+			transaction.branchTransactionHash = &branchTransactionHash
 
 			transaction.SetModified(true)
 		}
@@ -600,7 +610,7 @@ func (transaction *Transaction) SetNonce(nonce ternary.Trinary) {
 		transaction.nonceMutex.Lock()
 		defer transaction.nonceMutex.Unlock()
 		if transaction.nonce == nil || *transaction.nonce != nonce {
-			*transaction.nonce = nonce
+			transaction.nonce = &nonce
 
 			transaction.SetModified(true)
 		}
@@ -618,8 +628,10 @@ func (transaction *Transaction) ParseNonce() ternary.Trinary {
 }
 
 // parses the nonce from the underlying raw transaction (without locking - internal usage)
-func (transaction *Transaction) parseNonce() ternary.Trinary {
-	*transaction.nonce = transaction.rawTransaction.Nonce.ToTrinary()
+func (transaction *Transaction) parseNonce() (result ternary.Trinary) {
+	result = transaction.rawTransaction.Nonce.ToTrinary()
+
+	transaction.nonce = &result
 
 	return *transaction.nonce
 }
@@ -643,6 +655,20 @@ func (transaction *Transaction) SetModified(modified bool) {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region database functions ///////////////////////////////////////////////////////////////////////////////////////////
+
+// Applies the current values to the
+func (this *Transaction) Flush() *transaction.Transaction {
+	if this.branchTransactionHash != nil {
+		copy(this.rawTransaction.Trits[transaction.BRANCH_TRANSACTION_HASH_OFFSET:transaction.BRANCH_TRANSACTION_HASH_END], this.branchTransactionHash.ToTrits()[:transaction.BRANCH_TRANSACTION_HASH_SIZE])
+	}
+	if this.nonce != nil {
+		copy(this.rawTransaction.Trits[transaction.NONCE_OFFSET:transaction.NONCE_END], this.nonce.ToTrits()[:transaction.NONCE_SIZE])
+	}
+
+	this.rawTransaction.Hash = <-curl.CURLP81.Hash(this.rawTransaction.Trits)
+
+	return this.rawTransaction
+}
 
 func (transaction *Transaction) Store() errors.IdentifiableError {
 	if err := transactionDatabase.Set(transaction.rawTransaction.Hash.ToBytes(), transaction.rawTransaction.Bytes); err != nil {
