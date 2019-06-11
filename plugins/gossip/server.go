@@ -43,7 +43,7 @@ func configureServer(plugin *node.Plugin) {
 
         // drop the "secondary" connection upon successful handshake
         protocol.Events.HandshakeCompleted.Attach(events.NewClosure(func() {
-            if protocol.Neighbor.Identity.StringIdentifier <= accountability.OWN_ID.StringIdentifier {
+            if protocol.Neighbor.Identity.StringIdentifier <= accountability.GetOwnId().StringIdentifier {
                 protocol.Neighbor.initiatedProtocolMutex.Lock()
                 var initiatedProtocolConn *network.ManagedConnection
                 if protocol.Neighbor.InitiatedProtocol != nil {

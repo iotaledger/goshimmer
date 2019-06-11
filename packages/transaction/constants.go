@@ -12,7 +12,6 @@ const (
     TRUNK_TRANSACTION_HASH_SIZE             = 243
     BRANCH_TRANSACTION_HASH_SIZE            = 243
     TAG_SIZE                                = 81
-    NODE_ID_SIZE                            = 243
     NONCE_SIZE                              = 81
 
     // offsets of the transaction fields
@@ -26,8 +25,7 @@ const (
     TRUNK_TRANSACTION_HASH_OFFSET           = BUNDLE_HASH_END
     BRANCH_TRANSACTION_HASH_OFFSET          = TRUNK_TRANSACTION_HASH_END
     TAG_OFFSET                              = BRANCH_TRANSACTION_HASH_END
-    NODE_ID_OFFSET                          = TAG_END
-    NONCE_OFFSET                            = NODE_ID_END
+    NONCE_OFFSET                            = TAG_END
 
     // ends of the transaction fields
     SIGNATURE_MESSAGE_FRAGMENT_END          = SIGNATURE_MESSAGE_FRAGMENT_OFFSET + SIGNATURE_MESSAGE_FRAGMENT_SIZE
@@ -40,7 +38,6 @@ const (
     TRUNK_TRANSACTION_HASH_END              = TRUNK_TRANSACTION_HASH_OFFSET + TRUNK_TRANSACTION_HASH_SIZE
     BRANCH_TRANSACTION_HASH_END             = BRANCH_TRANSACTION_HASH_OFFSET + BRANCH_TRANSACTION_HASH_SIZE
     TAG_END                                 = TAG_OFFSET + TAG_SIZE
-    NODE_ID_END                             = NODE_ID_OFFSET + NODE_ID_SIZE
     NONCE_END                               = NONCE_OFFSET + NONCE_SIZE
 
     // the full size of a transaction

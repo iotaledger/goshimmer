@@ -6,6 +6,7 @@ import (
     "github.com/iotaledger/goshimmer/packages/events"
     "github.com/iotaledger/goshimmer/packages/network"
     "github.com/iotaledger/goshimmer/packages/node"
+    "github.com/iotaledger/goshimmer/packages/timeutil"
     "github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
     "github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
     "github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
@@ -21,17 +22,26 @@ import (
 func Run(plugin *node.Plugin) {
     daemon.BackgroundWorker(func() {
         shuttingDown := false
+
         for !shuttingDown {
-            if conn, err := net.Dial("tcp", *SERVER_ADDRESS.Value); err != nil {
-                plugin.LogDebug("Could not connect to reporting server: " + err.Error())
-            } else {
-                managedConn := network.NewManagedConnection(conn)
-                eventDispatchers := getEventDispatchers(managedConn)
+            select {
+            case <-daemon.ShutdownSignal:
+                return
 
-                reportCurrentStatus(eventDispatchers)
-                setupHooks(managedConn, eventDispatchers)
+            default:
+                if conn, err := net.Dial("tcp", *SERVER_ADDRESS.Value); err != nil {
+                    plugin.LogDebug("Could not connect to reporting server: " + err.Error())
 
-                shuttingDown = keepConnectionAlive(managedConn)
+                    timeutil.Sleep(1 * time.Second)
+                } else {
+                    managedConn := network.NewManagedConnection(conn)
+                    eventDispatchers := getEventDispatchers(managedConn)
+
+                    reportCurrentStatus(eventDispatchers)
+                    setupHooks(managedConn, eventDispatchers)
+
+                    shuttingDown = keepConnectionAlive(managedConn)
+                }
             }
         }
     })
@@ -52,7 +62,7 @@ func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 }
 
 func reportCurrentStatus(eventDispatchers *EventDispatchers) {
-    eventDispatchers.AddNode(accountability.OWN_ID.Identifier)
+    eventDispatchers.AddNode(accountability.GetOwnId().Identifier)
 
     reportChosenNeighbors(eventDispatchers)
 }
@@ -65,19 +75,19 @@ func setupHooks(conn *network.ManagedConnection, eventDispatchers *EventDispatch
     })
 
     onAddAcceptedNeighbor := events.NewClosure(func(p *peer.Peer) {
-        eventDispatchers.ConnectNodes(p.Identity.Identifier, accountability.OWN_ID.Identifier)
+        eventDispatchers.ConnectNodes(p.Identity.Identifier, accountability.GetOwnId().Identifier)
     })
 
     onRemoveAcceptedNeighbor := events.NewClosure(func(p *peer.Peer) {
-        eventDispatchers.DisconnectNodes(p.Identity.Identifier, accountability.OWN_ID.Identifier)
+        eventDispatchers.DisconnectNodes(p.Identity.Identifier, accountability.GetOwnId().Identifier)
     })
 
     onAddChosenNeighbor := events.NewClosure(func(p *peer.Peer) {
-        eventDispatchers.ConnectNodes(accountability.OWN_ID.Identifier, p.Identity.Identifier)
+        eventDispatchers.ConnectNodes(accountability.GetOwnId().Identifier, p.Identity.Identifier)
     })
 
     onRemoveChosenNeighbor := events.NewClosure(func(p *peer.Peer) {
-        eventDispatchers.DisconnectNodes(accountability.OWN_ID.Identifier, p.Identity.Identifier)
+        eventDispatchers.DisconnectNodes(accountability.GetOwnId().Identifier, p.Identity.Identifier)
     })
 
     // setup hooks /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -108,7 +118,7 @@ func reportChosenNeighbors(dispatchers *EventDispatchers) {
         dispatchers.AddNode(chosenNeighbor.Identity.Identifier)
     }
     for _, chosenNeighbor := range chosenneighbors.INSTANCE.Peers {
-        dispatchers.ConnectNodes(accountability.OWN_ID.Identifier, chosenNeighbor.Identity.Identifier)
+        dispatchers.ConnectNodes(accountability.GetOwnId().Identifier, chosenNeighbor.Identity.Identifier)
     }
 }
 

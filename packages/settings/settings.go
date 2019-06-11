@@ -1,21 +1,30 @@
 package settings
 
-import "github.com/iotaledger/goshimmer/packages/database"
+import (
+	"github.com/iotaledger/goshimmer/packages/database"
+	"sync"
+)
 
 var settingsDatabase database.Database
 
-func init() {
-    if db, err := database.Get("settings"); err != nil {
-        panic(err)
-    } else {
-        settingsDatabase = db
-    }
-}
+var lazyInit sync.Once
 
 func Get(key []byte) ([]byte, error) {
-    return settingsDatabase.Get(key)
+	lazyInit.Do(initDb)
+
+	return settingsDatabase.Get(key)
 }
 
 func Set(key []byte, value []byte) error {
-    return settingsDatabase.Set(key, value)
+	lazyInit.Do(initDb)
+
+	return settingsDatabase.Set(key, value)
+}
+
+func initDb() {
+	if db, err := database.Get("settings"); err != nil {
+		panic(err)
+	} else {
+		settingsDatabase = db
+	}
 }

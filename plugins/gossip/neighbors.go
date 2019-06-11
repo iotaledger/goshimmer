@@ -156,7 +156,7 @@ func (neighbor *Neighbor) Connect() (*protocol, bool, errors.IdentifiableError) 
 
     // drop the "secondary" connection upon successful handshake
     neighbor.InitiatedProtocol.Events.HandshakeCompleted.Attach(events.NewClosure(func() {
-        if accountability.OWN_ID.StringIdentifier <= neighbor.Identity.StringIdentifier {
+        if accountability.GetOwnId().StringIdentifier <= neighbor.Identity.StringIdentifier {
             neighbor.acceptedProtocolMutex.Lock()
             var acceptedProtocolConn *network.ManagedConnection
             if neighbor.AcceptedProtocol != nil {
