@@ -13,7 +13,10 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/fpc/prng/client"
 )
 
+// INSTANCE points to the fpc instance (concrete type)
 var INSTANCE *fpc.Instance
+
+// Events exposes fpc events
 var Events fpcEvents
 
 func configureFPC(plugin *node.Plugin) {
