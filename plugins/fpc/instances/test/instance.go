@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/iotaledger/goshimmer/packages/daemon"
+	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/FPC/parameters"
@@ -16,6 +17,7 @@ var INSTANCE *fpc.Instance
 
 func Configure(plugin *node.Plugin) {
 	INSTANCE = fpc.New(network.GetKnownPeers, network.QueryNode, fpc.NewParameters())
+	FinalizedOpinions = events.NewEvent(finalizedOpinionsCaller)
 }
 
 func Run(plugin *node.Plugin) {
@@ -33,6 +35,7 @@ func Run(plugin *node.Plugin) {
 				plugin.LogInfo(fmt.Sprintf("Round %v %v", newRandom.Index, INSTANCE.GetInterimOpinion("1")))
 			case finalizedTxs := <-INSTANCE.FinalizedTxsChannel():
 				if len(finalizedTxs) > 0 {
+					FinalizedOpinions.Trigger(finalizedTxs)
 					plugin.LogInfo(fmt.Sprintf("Finalized txs %v", finalizedTxs))
 				}
 			case <-daemon.ShutdownSignal:
