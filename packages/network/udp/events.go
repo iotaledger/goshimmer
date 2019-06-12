@@ -1,15 +1,18 @@
 package udp
 
 import (
-    "github.com/iotaledger/goshimmer/packages/events"
-    "net"
+	"net"
+
+	"github.com/iotaledger/goshimmer/packages/events"
 )
 
 type serverEvents struct {
-    Start       *events.Event
-    Shutdown    *events.Event
-    ReceiveData *events.Event
-    Error       *events.Event
+	Start       *events.Event
+	Shutdown    *events.Event
+	ReceiveData *events.Event
+	Error       *events.Event
 }
 
-func dataCaller(handler interface{}, params ...interface{}) { handler.(func(*net.UDPAddr, []byte))(params[0].(*net.UDPAddr), params[1].([]byte)) }
+func dataCaller(handler interface{}, params ...interface{}) {
+	handler.(func(*net.UDPAddr, []byte))(params[0].(*net.UDPAddr), params[1].([]byte))
+}

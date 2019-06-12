@@ -93,8 +93,8 @@
 package errors
 
 import (
-    "fmt"
-    "io"
+	"fmt"
+	"io"
 )
 
 var idCounter = 0
@@ -102,234 +102,234 @@ var idCounter = 0
 // New returns an error with the supplied message.
 // New also records the stack trace at the point it was called.
 func New(message string) *fundamental {
-    idCounter++
+	idCounter++
 
-    return &fundamental{
-        id:    idCounter,
-        msg:   message,
-        stack: Callers(),
-    }
+	return &fundamental{
+		id:    idCounter,
+		msg:   message,
+		stack: Callers(),
+	}
 }
 
 // Errorf formats according to a format specifier and returns the string
 // as a value that satisfies error.
 // Errorf also records the stack trace at the point it was called.
 func Errorf(format string, args ...interface{}) IdentifiableError {
-    idCounter++
+	idCounter++
 
-    return &fundamental{
-        id:    idCounter,
-        msg:   fmt.Sprintf(format, args...),
-        stack: Callers(),
-    }
+	return &fundamental{
+		id:    idCounter,
+		msg:   fmt.Sprintf(format, args...),
+		stack: Callers(),
+	}
 }
 
 // fundamental is an error that has a message and a stack, but no caller.
 type fundamental struct {
-    id int
-    msg string
-    *stack
+	id  int
+	msg string
+	*stack
 }
 
 func (f *fundamental) Derive(msg string) *fundamental {
-    return &fundamental{
-        id:    f.id,
-        msg:   msg,
-        stack: Callers(),
-    }
+	return &fundamental{
+		id:    f.id,
+		msg:   msg,
+		stack: Callers(),
+	}
 }
 
 func (f *fundamental) Error() string { return f.msg }
 
 func (f *fundamental) Equals(err IdentifiableError) bool {
-    return f.id == err.Id()
+	return f.id == err.Id()
 }
 
 func (f *fundamental) Id() int {
-    return f.id
+	return f.id
 }
 
 func (f *fundamental) Format(s fmt.State, verb rune) {
-    switch verb {
-    case 'v':
-        if s.Flag('+') {
-            io.WriteString(s, f.msg)
-            f.stack.Format(s, verb)
-            return
-        }
-        fallthrough
-    case 's':
-        io.WriteString(s, f.msg)
-    case 'q':
-        fmt.Fprintf(s, "%q", f.msg)
-    }
+	switch verb {
+	case 'v':
+		if s.Flag('+') {
+			io.WriteString(s, f.msg)
+			f.stack.Format(s, verb)
+			return
+		}
+		fallthrough
+	case 's':
+		io.WriteString(s, f.msg)
+	case 'q':
+		fmt.Fprintf(s, "%q", f.msg)
+	}
 }
 
 // WithStack annotates err with a stack trace at the point WithStack was called.
 // If err is nil, WithStack returns nil.
 func WithStack(err error) IdentifiableError {
-    if err == nil {
-        return nil
-    }
+	if err == nil {
+		return nil
+	}
 
-    idCounter++
+	idCounter++
 
-    return &withStack{
-        idCounter,
-        err,
-        Callers(),
-    }
+	return &withStack{
+		idCounter,
+		err,
+		Callers(),
+	}
 }
 
 type withStack struct {
-    int
-    error
-    *stack
+	int
+	error
+	*stack
 }
 
 func (w *withStack) Equals(err IdentifiableError) bool {
-    return w.int == err.Id()
+	return w.int == err.Id()
 }
 
 func (w *withStack) Id() int {
-    return w.int
+	return w.int
 }
 
 func (w *withStack) Derive(err error, message string) *withStack {
-    if err == nil {
-        return nil
-    }
-    return &withStack{
-        w.int,
-        &withMessage{
-            cause: err,
-            msg:   message,
-        },
-        Callers(),
-    }
+	if err == nil {
+		return nil
+	}
+	return &withStack{
+		w.int,
+		&withMessage{
+			cause: err,
+			msg:   message,
+		},
+		Callers(),
+	}
 }
 
 func (w *withStack) Cause() error { return w.error }
 
 func (w *withStack) Format(s fmt.State, verb rune) {
-    switch verb {
-    case 'v':
-        if s.Flag('+') {
-            fmt.Fprintf(s, "%+v", w.Cause())
-            w.stack.Format(s, verb)
-            return
-        }
-        fallthrough
-    case 's':
-        io.WriteString(s, w.Error())
-    case 'q':
-        fmt.Fprintf(s, "%q", w.Error())
-    }
+	switch verb {
+	case 'v':
+		if s.Flag('+') {
+			fmt.Fprintf(s, "%+v", w.Cause())
+			w.stack.Format(s, verb)
+			return
+		}
+		fallthrough
+	case 's':
+		io.WriteString(s, w.Error())
+	case 'q':
+		fmt.Fprintf(s, "%q", w.Error())
+	}
 }
 
 // Wrap returns an error annotating err with a stack trace
 // at the point Wrap is called, and the supplied message.
 // If err is nil, Wrap returns nil.
 func Wrap(err error, message string) *withStack {
-    if err == nil {
-        return nil
-    }
-    err = &withMessage{
-        cause: err,
-        msg:   message,
-    }
+	if err == nil {
+		return nil
+	}
+	err = &withMessage{
+		cause: err,
+		msg:   message,
+	}
 
-    idCounter++
+	idCounter++
 
-    return &withStack{
-        idCounter,
-        err,
-        Callers(),
-    }
+	return &withStack{
+		idCounter,
+		err,
+		Callers(),
+	}
 }
 
 // Wrapf returns an error annotating err with a stack trace
 // at the point Wrapf is called, and the format specifier.
 // If err is nil, Wrapf returns nil.
 func Wrapf(err error, format string, args ...interface{}) IdentifiableError {
-    if err == nil {
-        return nil
-    }
-    err = &withMessage{
-        cause: err,
-        msg:   fmt.Sprintf(format, args...),
-    }
+	if err == nil {
+		return nil
+	}
+	err = &withMessage{
+		cause: err,
+		msg:   fmt.Sprintf(format, args...),
+	}
 
-    idCounter++
+	idCounter++
 
-    return &withStack{
-        idCounter,
-        err,
-        Callers(),
-    }
+	return &withStack{
+		idCounter,
+		err,
+		Callers(),
+	}
 }
 
 // WithMessage annotates err with a new message.
 // If err is nil, WithMessage returns nil.
 func WithMessage(err error, message string) IdentifiableError {
-    if err == nil {
-        return nil
-    }
+	if err == nil {
+		return nil
+	}
 
-    idCounter++
+	idCounter++
 
-    return &withMessage{
-        id: idCounter,
-        cause: err,
-        msg:   message,
-    }
+	return &withMessage{
+		id:    idCounter,
+		cause: err,
+		msg:   message,
+	}
 }
 
 // WithMessagef annotates err with the format specifier.
 // If err is nil, WithMessagef returns nil.
 func WithMessagef(err error, format string, args ...interface{}) IdentifiableError {
-    if err == nil {
-        return nil
-    }
+	if err == nil {
+		return nil
+	}
 
-    idCounter++
+	idCounter++
 
-    return &withMessage{
-        id: idCounter,
-        cause: err,
-        msg:   fmt.Sprintf(format, args...),
-    }
+	return &withMessage{
+		id:    idCounter,
+		cause: err,
+		msg:   fmt.Sprintf(format, args...),
+	}
 }
 
 type withMessage struct {
-    id    int
-    cause error
-    msg   string
+	id    int
+	cause error
+	msg   string
 }
 
 func (w *withMessage) Equals(err IdentifiableError) bool {
-    return w.id == err.Id()
+	return w.id == err.Id()
 }
 
 func (w *withMessage) Id() int {
-    return w.id
+	return w.id
 }
 
 func (w *withMessage) Error() string { return w.msg + ": " + w.cause.Error() }
 func (w *withMessage) Cause() error  { return w.cause }
 
 func (w *withMessage) Format(s fmt.State, verb rune) {
-    switch verb {
-    case 'v':
-        if s.Flag('+') {
-            fmt.Fprintf(s, "%+v\n", w.Cause())
-            io.WriteString(s, w.msg)
-            return
-        }
-        fallthrough
-    case 's', 'q':
-        io.WriteString(s, w.Error())
-    }
+	switch verb {
+	case 'v':
+		if s.Flag('+') {
+			fmt.Fprintf(s, "%+v\n", w.Cause())
+			io.WriteString(s, w.msg)
+			return
+		}
+		fallthrough
+	case 's', 'q':
+		io.WriteString(s, w.Error())
+	}
 }
 
 // Cause returns the underlying cause of the error, if possible.
@@ -344,22 +344,22 @@ func (w *withMessage) Format(s fmt.State, verb rune) {
 // be returned. If the error is nil, nil will be returned without further
 // investigation.
 func Cause(err error) error {
-    type causer interface {
-        Cause() error
-    }
+	type causer interface {
+		Cause() error
+	}
 
-    for err != nil {
-        cause, ok := err.(causer)
-        if !ok {
-            break
-        }
-        err = cause.Cause()
-    }
-    return err
+	for err != nil {
+		cause, ok := err.(causer)
+		if !ok {
+			break
+		}
+		err = cause.Cause()
+	}
+	return err
 }
 
 type IdentifiableError interface {
-    Error() string
-    Equals(identifiableError IdentifiableError) bool
-    Id() int
+	Error() string
+	Equals(identifiableError IdentifiableError) bool
+	Id() int
 }
