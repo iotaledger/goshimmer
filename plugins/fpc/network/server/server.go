@@ -61,6 +61,9 @@ func run(address, port string, fpc *fpc.Instance) (*grpc.Server, error) {
 
 	grpcServer := grpc.NewServer(opts...)
 	pb.RegisterFPCQueryServer(grpcServer, server)
+
+	// Starts as a goroutine so that it does not block
+	// and can return the grpcServer pointer to the caller
 	go grpcServer.Serve(lis)
 	return grpcServer, err
 }
@@ -73,6 +76,7 @@ func RunServer(plugin *node.Plugin, fpc *fpc.Instance) {
 
 		server, _ := run("0.0.0.0", strconv.Itoa(*autop.PORT.Value+2000), fpc)
 
+		// Waits until receives a shutdown signal
 		select {
 		case <-daemon.ShutdownSignal:
 			plugin.LogInfo("Stopping TCP Server ...")
