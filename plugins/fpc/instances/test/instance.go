@@ -45,4 +45,12 @@ func Run(plugin *node.Plugin) {
 		}
 		plugin.LogSuccess("Stopping FPC Processor ... done")
 	})
+
+	// TODO: REMOVE THIS
+	// Example of how to use the event
+	daemon.BackgroundWorker(func() {
+		FinalizedOpinions.Attach(events.NewClosure(func(txs []fpc.TxOpinion) {
+			plugin.LogInfo(fmt.Sprintf("EVENT TEST: %v", txs))
+		}))
+	})
 }

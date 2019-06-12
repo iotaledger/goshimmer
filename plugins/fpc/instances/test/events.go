@@ -8,5 +8,5 @@ import (
 var FinalizedOpinions *events.Event
 
 func finalizedOpinionsCaller(handler interface{}, params ...interface{}) {
-	handler.(func([]fpc.Opinion))(params[0].([]fpc.Opinion))
+	handler.(func([]fpc.TxOpinion))(params[0].([]fpc.TxOpinion))
 }
