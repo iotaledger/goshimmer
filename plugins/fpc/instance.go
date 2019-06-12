@@ -1,4 +1,4 @@
-package test
+package fpc
 
 import (
 	"fmt"
@@ -7,21 +7,21 @@ import (
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/plugins/FPC/parameters"
 	"github.com/iotaledger/goshimmer/plugins/fpc/network"
 	"github.com/iotaledger/goshimmer/plugins/fpc/network/server"
+	"github.com/iotaledger/goshimmer/plugins/fpc/parameters"
 	"github.com/iotaledger/goshimmer/plugins/fpc/prng/client"
 )
 
 var INSTANCE *fpc.Instance
 var Events fpcEvents
 
-func Configure(plugin *node.Plugin) {
+func configureFPC(plugin *node.Plugin) {
 	INSTANCE = fpc.New(network.GetKnownPeers, network.QueryNode, fpc.NewParameters())
 	Events.NewFinalizedTxs = events.NewEvent(newFinalizedTxsCaller)
 }
 
-func Run(plugin *node.Plugin) {
+func runFPC(plugin *node.Plugin) {
 	server.RunServer(plugin, INSTANCE)
 
 	daemon.BackgroundWorker(func() {
@@ -47,13 +47,5 @@ func Run(plugin *node.Plugin) {
 			}
 		}
 		plugin.LogSuccess("Stopping FPC Processor ... done")
-	})
-
-	// TODO: REMOVE THIS
-	// Example of how to use the event
-	daemon.BackgroundWorker(func() {
-		Events.NewFinalizedTxs.Attach(events.NewClosure(func(txs []fpc.TxOpinion) {
-			plugin.LogInfo(fmt.Sprintf("EVENT TEST: %v", txs))
-		}))
 	})
 }

@@ -1,4 +1,4 @@
-package test
+package fpc
 
 import (
 	"github.com/iotaledger/goshimmer/packages/events"
