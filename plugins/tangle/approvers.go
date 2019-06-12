@@ -24,7 +24,7 @@ func StoreApprovers(approvers *Approvers) {
 
 func GetApprovers(transactionHash ternary.Trinary, computeIfAbsent ...func(ternary.Trinary) *Approvers) (result *Approvers, err errors.IdentifiableError) {
 	if approvers := approversCache.ComputeIfAbsent(transactionHash, func() (result interface{}) {
-		if result, err = getApproversFromDatabase(transactionHash); err == nil && (result == nil || result.(*Approvers) == nil) && len(computeIfAbsent) >= 1 {
+		if result, err = getApproversFromDatabase(transactionHash); err == nil && (result.(*Approvers) == nil) && len(computeIfAbsent) >= 1 {
 			result = computeIfAbsent[0](transactionHash)
 		}
 
@@ -94,18 +94,18 @@ func (approvers *Approvers) GetHash() (result ternary.Trinary) {
 }
 
 func (approvers *Approvers) Marshal() (result []byte) {
-	result = make([]byte, MARSHALLED_APPROVERS_MIN_SIZE+len(approvers.hashes)*MARSHALLED_APPROVERS_HASH_SIZE)
+	result = make([]byte, MARSHALED_APPROVERS_MIN_SIZE+len(approvers.hashes)*MARSHALED_APPROVERS_HASH_SIZE)
 
 	approvers.hashesMutex.RLock()
 
-	binary.BigEndian.PutUint64(result[MARSHALLED_APPROVERS_HASHES_COUNT_START:MARSHALLED_APPROVERS_HASHES_COUNT_END], uint64(len(approvers.hashes)))
+	binary.BigEndian.PutUint64(result[MARSHALED_APPROVERS_HASHES_COUNT_START:MARSHALED_APPROVERS_HASHES_COUNT_END], uint64(len(approvers.hashes)))
 
-	copy(result[MARSHALLED_APPROVERS_HASH_START:MARSHALLED_APPROVERS_HASH_END], approvers.hash.CastToBytes())
+	copy(result[MARSHALED_APPROVERS_HASH_START:MARSHALED_APPROVERS_HASH_END], approvers.hash.CastToBytes())
 
 	i := 0
-	for hash, _ := range approvers.hashes {
-		var HASH_START = MARSHALLED_APPROVERS_HASHES_START + i*(MARSHALLED_APPROVERS_HASH_SIZE)
-		var HASH_END = HASH_START * MARSHALLED_APPROVERS_HASH_SIZE
+	for hash := range approvers.hashes {
+		var HASH_START = MARSHALED_APPROVERS_HASHES_START + i*(MARSHALED_APPROVERS_HASH_SIZE)
+		var HASH_END = HASH_START * MARSHALED_APPROVERS_HASH_SIZE
 
 		copy(result[HASH_START:HASH_END], hash.CastToBytes())
 
@@ -120,23 +120,23 @@ func (approvers *Approvers) Marshal() (result []byte) {
 func (approvers *Approvers) Unmarshal(data []byte) (err errors.IdentifiableError) {
 	dataLen := len(data)
 
-	if dataLen <= MARSHALLED_APPROVERS_MIN_SIZE {
-		return ErrMarshallFailed.Derive(errors.New("unmarshall failed"), "marshalled approvers are too short")
+	if dataLen <= MARSHALED_APPROVERS_MIN_SIZE {
+		return ErrMarshallFailed.Derive(errors.New("unmarshall failed"), "marshaled approvers are too short")
 	}
 
-	hashesCount := binary.BigEndian.Uint64(data[MARSHALLED_APPROVERS_HASHES_COUNT_START:MARSHALLED_APPROVERS_HASHES_COUNT_END])
+	hashesCount := binary.BigEndian.Uint64(data[MARSHALED_APPROVERS_HASHES_COUNT_START:MARSHALED_APPROVERS_HASHES_COUNT_END])
 
-	if dataLen <= MARSHALLED_APPROVERS_MIN_SIZE+int(hashesCount)*MARSHALLED_APPROVERS_HASH_SIZE {
-		return ErrMarshallFailed.Derive(errors.New("unmarshall failed"), "marshalled approvers are too short for "+strconv.FormatUint(hashesCount, 10)+" approvers")
+	if dataLen <= MARSHALED_APPROVERS_MIN_SIZE+int(hashesCount)*MARSHALED_APPROVERS_HASH_SIZE {
+		return ErrMarshallFailed.Derive(errors.New("unmarshall failed"), "marshaled approvers are too short for "+strconv.FormatUint(hashesCount, 10)+" approvers")
 	}
 
 	approvers.hashesMutex.Lock()
 
-	approvers.hash = ternary.Trinary(typeconversion.BytesToString(data[MARSHALLED_APPROVERS_HASH_START:MARSHALLED_APPROVERS_HASH_END]))
+	approvers.hash = ternary.Trinary(typeconversion.BytesToString(data[MARSHALED_APPROVERS_HASH_START:MARSHALED_APPROVERS_HASH_END]))
 	approvers.hashes = make(map[ternary.Trinary]bool, hashesCount)
 	for i := uint64(0); i < hashesCount; i++ {
-		var HASH_START = MARSHALLED_APPROVERS_HASHES_START + i*(MARSHALLED_APPROVERS_HASH_SIZE)
-		var HASH_END = HASH_START * MARSHALLED_APPROVERS_HASH_SIZE
+		var HASH_START = MARSHALED_APPROVERS_HASHES_START + i*(MARSHALED_APPROVERS_HASH_SIZE)
+		var HASH_END = HASH_START * MARSHALED_APPROVERS_HASH_SIZE
 
 		approvers.hashes[ternary.Trinary(typeconversion.BytesToString(data[HASH_START:HASH_END]))] = true
 	}
@@ -149,16 +149,16 @@ func (approvers *Approvers) Unmarshal(data []byte) (err errors.IdentifiableError
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	MARSHALLED_APPROVERS_HASHES_COUNT_START = 0
-	MARSHALLED_APPROVERS_HASH_START         = MARSHALLED_APPROVERS_HASHES_COUNT_END
-	MARSHALLED_APPROVERS_HASHES_START       = MARSHALLED_APPROVERS_HASH_END
+	MARSHALED_APPROVERS_HASHES_COUNT_START = 0
+	MARSHALED_APPROVERS_HASH_START         = MARSHALED_APPROVERS_HASHES_COUNT_END
+	MARSHALED_APPROVERS_HASHES_START       = MARSHALED_APPROVERS_HASH_END
 
-	MARSHALLED_APPROVERS_HASHES_COUNT_END = MARSHALLED_APPROVERS_HASHES_COUNT_START + MARSHALLED_APPROVERS_HASHES_COUNT_SIZE
-	MARSHALLED_APPROVERS_HASH_END         = MARSHALLED_APPROVERS_HASH_START + MARSHALLED_APPROVERS_HASH_SIZE
+	MARSHALED_APPROVERS_HASHES_COUNT_END = MARSHALED_APPROVERS_HASHES_COUNT_START + MARSHALED_APPROVERS_HASHES_COUNT_SIZE
+	MARSHALED_APPROVERS_HASH_END         = MARSHALED_APPROVERS_HASH_START + MARSHALED_APPROVERS_HASH_SIZE
 
-	MARSHALLED_APPROVERS_HASHES_COUNT_SIZE = 8
-	MARSHALLED_APPROVERS_HASH_SIZE         = 81
-	MARSHALLED_APPROVERS_MIN_SIZE          = MARSHALLED_APPROVERS_HASHES_COUNT_SIZE + MARSHALLED_APPROVERS_HASH_SIZE
+	MARSHALED_APPROVERS_HASHES_COUNT_SIZE = 8
+	MARSHALED_APPROVERS_HASH_SIZE         = 81
+	MARSHALED_APPROVERS_MIN_SIZE          = MARSHALED_APPROVERS_HASHES_COUNT_SIZE + MARSHALED_APPROVERS_HASH_SIZE
 )
 
 // region private methods without locking //////////////////////////////////////////////////////////////////////////////
@@ -181,7 +181,7 @@ func (approvers *Approvers) getHashes() (result []ternary.Trinary) {
 	result = make([]ternary.Trinary, len(approvers.hashes))
 
 	counter := 0
-	for hash, _ := range approvers.hashes {
+	for hash := range approvers.hashes {
 		result[counter] = hash
 
 		counter++
@@ -219,9 +219,10 @@ func getApproversFromDatabase(transactionHash ternary.Trinary) (result *Approver
 }
 
 func databaseContainsApprovers(transactionHash ternary.Trinary) (bool, errors.IdentifiableError) {
-	if result, err := approversDatabase.Contains(transactionHash.CastToBytes()); err != nil {
+	result, err := approversDatabase.Contains(transactionHash.CastToBytes())
+	if err != nil {
 		return false, ErrDatabaseError.Derive(err, "failed to check if the transaction exists")
-	} else {
-		return result, nil
 	}
+
+	return result, nil
 }

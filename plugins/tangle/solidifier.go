@@ -23,7 +23,7 @@ func configureSolidifier(plugin *node.Plugin) {
 func checkSolidity(transaction *Transaction) (result bool, err errors.IdentifiableError) {
 	// abort if transaction is solid already
 	txMetadata, metaDataErr := transaction.GetMetaData()
-	if err != nil {
+	if metaDataErr != nil {
 		err = metaDataErr
 
 		return
@@ -36,7 +36,7 @@ func checkSolidity(transaction *Transaction) (result bool, err errors.Identifiab
 	// check solidity of branch transaction if it is not genesis
 	if branchTransactionHash := transaction.GetBranchTransactionHash(); branchTransactionHash != TRANSACTION_NULL_HASH {
 		// abort if branch transaction is missing
-		if branchTransaction, branchErr := GetTransaction(branchTransactionHash); err != nil {
+		if branchTransaction, branchErr := GetTransaction(branchTransactionHash); branchErr != nil {
 			err = branchErr
 
 			return

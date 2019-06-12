@@ -56,7 +56,7 @@ func NewUIHeaderBar() *UIHeaderBar {
 }
 
 func (headerBar *UIHeaderBar) Update() {
-	duration := time.Now().Sub(start)
+	duration := time.Since(start)
 
 	headerBar.InfoContainer.Clear()
 
@@ -106,7 +106,6 @@ func (headerBar *UIHeaderBar) Update() {
 
 	if !padded {
 		fmt.Fprintf(headerBar.InfoContainer, "%37v", "")
-		padded = true
 	}
 	fmt.Fprintf(headerBar.InfoContainer, "%02ds  ", int(duration.Seconds())%60)
 }

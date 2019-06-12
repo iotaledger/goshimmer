@@ -8,27 +8,27 @@ type Packet struct {
 }
 
 func Unmarshal(data []byte) (*Packet, error) {
-	if len(data) < MARSHALLED_TOTAL_SIZE || data[0] != MARSHALLED_PACKET_HEADER {
+	if len(data) < MARSHALED_TOTAL_SIZE || data[0] != MARSHALED_PACKET_HEADER {
 		return nil, errors.New("malformed disconnect nodes packet")
 	}
 
-	unmarshalledPackage := &Packet{
-		SourceId: make([]byte, MARSHALLED_SOURCE_ID_SIZE),
-		TargetId: make([]byte, MARSHALLED_TARGET_ID_SIZE),
+	unmarshaledPackage := &Packet{
+		SourceId: make([]byte, MARSHALED_SOURCE_ID_SIZE),
+		TargetId: make([]byte, MARSHALED_TARGET_ID_SIZE),
 	}
 
-	copy(unmarshalledPackage.SourceId, data[MARSHALLED_SOURCE_ID_START:MARSHALLED_SOURCE_ID_END])
-	copy(unmarshalledPackage.TargetId, data[MARSHALLED_TARGET_ID_START:MARSHALLED_TARGET_ID_END])
+	copy(unmarshaledPackage.SourceId, data[MARSHALED_SOURCE_ID_START:MARSHALED_SOURCE_ID_END])
+	copy(unmarshaledPackage.TargetId, data[MARSHALED_TARGET_ID_START:MARSHALED_TARGET_ID_END])
 
-	return unmarshalledPackage, nil
+	return unmarshaledPackage, nil
 }
 
 func (packet *Packet) Marshal() []byte {
-	marshalledPackage := make([]byte, MARSHALLED_TOTAL_SIZE)
+	marshaledPackage := make([]byte, MARSHALED_TOTAL_SIZE)
 
-	marshalledPackage[MARSHALLED_PACKET_HEADER_START] = MARSHALLED_PACKET_HEADER
-	copy(marshalledPackage[MARSHALLED_SOURCE_ID_START:MARSHALLED_SOURCE_ID_END], packet.SourceId[:MARSHALLED_SOURCE_ID_SIZE])
-	copy(marshalledPackage[MARSHALLED_TARGET_ID_START:MARSHALLED_TARGET_ID_END], packet.TargetId[:MARSHALLED_TARGET_ID_SIZE])
+	marshaledPackage[MARSHALED_PACKET_HEADER_START] = MARSHALED_PACKET_HEADER
+	copy(marshaledPackage[MARSHALED_SOURCE_ID_START:MARSHALED_SOURCE_ID_END], packet.SourceId[:MARSHALED_SOURCE_ID_SIZE])
+	copy(marshaledPackage[MARSHALED_TARGET_ID_START:MARSHALED_TARGET_ID_END], packet.TargetId[:MARSHALED_TARGET_ID_SIZE])
 
-	return marshalledPackage
+	return marshaledPackage
 }

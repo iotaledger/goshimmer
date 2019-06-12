@@ -5,19 +5,19 @@ import "github.com/pkg/errors"
 type Packet struct{}
 
 func Unmarshal(data []byte) (*Packet, error) {
-	if len(data) < MARSHALLED_TOTAL_SIZE || data[MARSHALLED_PACKET_HEADER_START] != MARSHALLED_PACKET_HEADER {
+	if len(data) < MARSHALED_TOTAL_SIZE || data[MARSHALED_PACKET_HEADER_START] != MARSHALED_PACKET_HEADER {
 		return nil, errors.New("malformed ping packet")
 	}
 
-	unmarshalledPacket := &Packet{}
+	unmarshaledPacket := &Packet{}
 
-	return unmarshalledPacket, nil
+	return unmarshaledPacket, nil
 }
 
 func (packet *Packet) Marshal() []byte {
-	marshalledPackage := make([]byte, MARSHALLED_TOTAL_SIZE)
+	marshaledPackage := make([]byte, MARSHALED_TOTAL_SIZE)
 
-	marshalledPackage[MARSHALLED_PACKET_HEADER_START] = MARSHALLED_PACKET_HEADER
+	marshaledPackage[MARSHALED_PACKET_HEADER_START] = MARSHALED_PACKET_HEADER
 
-	return marshalledPackage
+	return marshaledPackage
 }

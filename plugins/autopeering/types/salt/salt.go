@@ -25,17 +25,17 @@ func New(lifetime time.Duration) *Salt {
 	return salt
 }
 
-func Unmarshal(marshalledSalt []byte) (*Salt, error) {
-	if len(marshalledSalt) < SALT_MARSHALLED_SIZE {
-		return nil, errors.New("marshalled salt bytes not long enough")
+func Unmarshal(marshaledSalt []byte) (*Salt, error) {
+	if len(marshaledSalt) < SALT_MARSHALED_SIZE {
+		return nil, errors.New("marshaled salt bytes not long enough")
 	}
 
 	salt := &Salt{
 		Bytes: make([]byte, SALT_BYTES_SIZE),
 	}
-	copy(salt.Bytes, marshalledSalt[SALT_BYTES_START:SALT_BYTES_END])
+	copy(salt.Bytes, marshaledSalt[SALT_BYTES_START:SALT_BYTES_END])
 
-	if err := salt.ExpirationTime.UnmarshalBinary(marshalledSalt[SALT_TIME_START:SALT_TIME_END]); err != nil {
+	if err := salt.ExpirationTime.UnmarshalBinary(marshaledSalt[SALT_TIME_START:SALT_TIME_END]); err != nil {
 		return nil, err
 	}
 

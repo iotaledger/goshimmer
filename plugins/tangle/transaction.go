@@ -19,30 +19,28 @@ type Transaction struct {
 	rawMetaDataMutex sync.RWMutex
 
 	// mapped raw transaction properties
-	hash                          *ternary.Trinary
-	hashMutex                     sync.RWMutex
-	signatureMessageFragment      *ternary.Trinary
-	signatureMessageFragmentMutex sync.RWMutex
-	address                       *ternary.Trinary
-	addressMutex                  sync.RWMutex
-	value                         *int64
-	valueMutex                    sync.RWMutex
-	timestamp                     *uint64
-	timestampMutex                sync.RWMutex
-	currentIndex                  *uint64
-	currentIndexMutex             sync.RWMutex
-	latestIndex                   *uint64
-	latestIndexMutex              sync.RWMutex
-	bundleHash                    *ternary.Trinary
-	bundleHashMutex               sync.RWMutex
-	trunkTransactionHash          *ternary.Trinary
-	trunkTransactionHashMutex     sync.RWMutex
-	branchTransactionHash         *ternary.Trinary
-	branchTransactionHashMutex    sync.RWMutex
-	tag                           *ternary.Trinary
-	tagMutex                      sync.RWMutex
-	nonce                         *ternary.Trinary
-	nonceMutex                    sync.RWMutex
+	hash                       *ternary.Trinary
+	hashMutex                  sync.RWMutex
+	address                    *ternary.Trinary
+	addressMutex               sync.RWMutex
+	value                      *int64
+	valueMutex                 sync.RWMutex
+	timestamp                  *uint64
+	timestampMutex             sync.RWMutex
+	currentIndex               *uint64
+	currentIndexMutex          sync.RWMutex
+	latestIndex                *uint64
+	latestIndexMutex           sync.RWMutex
+	bundleHash                 *ternary.Trinary
+	bundleHashMutex            sync.RWMutex
+	trunkTransactionHash       *ternary.Trinary
+	trunkTransactionHashMutex  sync.RWMutex
+	branchTransactionHash      *ternary.Trinary
+	branchTransactionHashMutex sync.RWMutex
+	tag                        *ternary.Trinary
+	tagMutex                   sync.RWMutex
+	nonce                      *ternary.Trinary
+	nonceMutex                 sync.RWMutex
 
 	// additional runtime specific metadata
 	modified      bool
@@ -51,7 +49,7 @@ type Transaction struct {
 
 func NewTransaction(rawTransaction *transaction.Transaction) *Transaction {
 	if rawTransaction == nil {
-		rawTransaction = transaction.FromBytes(make([]byte, int(math.Ceil(float64(transaction.MARSHALLED_TOTAL_SIZE)/ternary.NUMBER_OF_TRITS_IN_A_BYTE))))
+		rawTransaction = transaction.FromBytes(make([]byte, int(math.Ceil(float64(transaction.MARSHALED_TOTAL_SIZE)/ternary.NUMBER_OF_TRITS_IN_A_BYTE))))
 	}
 
 	return &Transaction{rawTransaction: rawTransaction}

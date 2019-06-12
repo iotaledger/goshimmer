@@ -41,5 +41,5 @@ const (
 	NONCE_END                      = NONCE_OFFSET + NONCE_SIZE
 
 	// the full size of a transaction
-	MARSHALLED_TOTAL_SIZE = NONCE_END
+	MARSHALED_TOTAL_SIZE = NONCE_END
 )

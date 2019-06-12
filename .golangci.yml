@@ -4,8 +4,6 @@ run:
 linters-settings:
     gofmt:
         simplify: true
-    goimports:
-        local-prefixes: github.com/iotaledger/goshimmer
     golint:
         min-confidence: 0.9
     gocyclo:

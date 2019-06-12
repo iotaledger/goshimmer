@@ -181,7 +181,7 @@ func (neighbor *Neighbor) Marshal() []byte {
 }
 
 func (neighbor *Neighbor) Equals(other *Neighbor) bool {
-	return neighbor.Identity.StringIdentifier == neighbor.Identity.StringIdentifier &&
+	return neighbor.Identity.StringIdentifier == other.Identity.StringIdentifier &&
 		neighbor.Port == other.Port && neighbor.Address.String() == other.Address.String()
 }
 
@@ -194,10 +194,10 @@ func AddNeighbor(newNeighbor *Neighbor) {
 
 		Events.AddNeighbor.Trigger(newNeighbor)
 	} else {
-		if !newNeighbor.Equals(neighbor) {
-			neighbor.Identity = neighbor.Identity
-			neighbor.Port = neighbor.Port
-			neighbor.Address = neighbor.Address
+		if !neighbor.Equals(newNeighbor) {
+			neighbor.Identity = newNeighbor.Identity
+			neighbor.Port = newNeighbor.Port
+			neighbor.Address = newNeighbor.Address
 
 			Events.UpdateNeighbor.Trigger(newNeighbor)
 		}
