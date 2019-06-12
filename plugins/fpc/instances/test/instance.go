@@ -14,10 +14,11 @@ import (
 )
 
 var INSTANCE *fpc.Instance
+var Events fpcEvents
 
 func Configure(plugin *node.Plugin) {
 	INSTANCE = fpc.New(network.GetKnownPeers, network.QueryNode, fpc.NewParameters())
-	FinalizedOpinions = events.NewEvent(finalizedOpinionsCaller)
+	Events.NewFinalizedTxs = events.NewEvent(newFinalizedTxsCaller)
 }
 
 func Run(plugin *node.Plugin) {
@@ -34,8 +35,10 @@ func Run(plugin *node.Plugin) {
 				INSTANCE.Tick(newRandom.Index, newRandom.Value)
 				plugin.LogInfo(fmt.Sprintf("Round %v %v", newRandom.Index, INSTANCE.GetInterimOpinion("1")))
 			case finalizedTxs := <-INSTANCE.FinalizedTxsChannel():
+				// if len(finalizedTxs) == 0, an fpc round
+				// ended with no new finalized transactions
 				if len(finalizedTxs) > 0 {
-					FinalizedOpinions.Trigger(finalizedTxs)
+					Events.NewFinalizedTxs.Trigger(finalizedTxs)
 					plugin.LogInfo(fmt.Sprintf("Finalized txs %v", finalizedTxs))
 				}
 			case <-daemon.ShutdownSignal:
@@ -49,7 +52,7 @@ func Run(plugin *node.Plugin) {
 	// TODO: REMOVE THIS
 	// Example of how to use the event
 	daemon.BackgroundWorker(func() {
-		FinalizedOpinions.Attach(events.NewClosure(func(txs []fpc.TxOpinion) {
+		Events.NewFinalizedTxs.Attach(events.NewClosure(func(txs []fpc.TxOpinion) {
 			plugin.LogInfo(fmt.Sprintf("EVENT TEST: %v", txs))
 		}))
 	})

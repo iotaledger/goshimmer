@@ -5,8 +5,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/fpc"
 )
 
-var FinalizedOpinions *events.Event
+type fpcEvents struct {
+	NewFinalizedTxs *events.Event
+}
 
-func finalizedOpinionsCaller(handler interface{}, params ...interface{}) {
+func newFinalizedTxsCaller(handler interface{}, params ...interface{}) {
 	handler.(func([]fpc.TxOpinion))(params[0].([]fpc.TxOpinion))
 }
