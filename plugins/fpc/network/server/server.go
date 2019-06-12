@@ -50,10 +50,10 @@ func (s *queryServer) GetOpinion(ctx context.Context, req *pb.QueryRequest) (*pb
 }
 
 // run starts a new server for replying to incoming queries
-func run(address, port string, fpc *fpc.Instance) error {
+func run(address, port string, fpc *fpc.Instance) (*grpc.Server, error) {
 	lis, err := net.Listen("tcp", address+":"+port)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var opts []grpc.ServerOption
 
@@ -61,8 +61,8 @@ func run(address, port string, fpc *fpc.Instance) error {
 
 	grpcServer := grpc.NewServer(opts...)
 	pb.RegisterFPCQueryServer(grpcServer, server)
-	grpcServer.Serve(lis)
-	return err
+	go grpcServer.Serve(lis)
+	return grpcServer, err
 }
 
 func RunServer(plugin *node.Plugin, fpc *fpc.Instance) {
@@ -71,7 +71,13 @@ func RunServer(plugin *node.Plugin, fpc *fpc.Instance) {
 	daemon.BackgroundWorker(func() {
 		plugin.LogSuccess("Starting TCP Server (port " + strconv.Itoa(*autop.PORT.Value+2000) + ") ... done")
 
-		run("0.0.0.0", strconv.Itoa(*autop.PORT.Value+2000), fpc)
+		server, _ := run("0.0.0.0", strconv.Itoa(*autop.PORT.Value+2000), fpc)
+
+		select {
+		case <-daemon.ShutdownSignal:
+			plugin.LogInfo("Stopping TCP Server ...")
+			server.GracefulStop()
+		}
 
 		plugin.LogSuccess("Stopping TCP Server ... done")
 	})
