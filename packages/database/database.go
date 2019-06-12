@@ -112,6 +112,37 @@ func (this *databaseImpl) Get(key []byte) ([]byte, error) {
 	return result, err
 }
 
+func (this *databaseImpl) Delete(key []byte) error {
+	err := this.db.Update(func(txn *badger.Txn) error {
+		err := txn.Delete(key)
+		return err
+	})
+	return err
+}
+
+func (this *databaseImpl) ForEach(consumer func(key []byte, value []byte)) error {
+	err := this.db.View(func(txn *badger.Txn) error {
+		// create an iterator the default options
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+
+		// loop through every key-value-pair and call the function
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+
+			key := item.Key()
+			value, err := item.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+
+			consumer(key, value)
+		}
+		return nil
+	})
+	return err
+}
+
 func (this *databaseImpl) Close() error {
 	this.openLock.Lock()
 	defer this.openLock.Unlock()
