@@ -6,9 +6,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/plugins/FPC/parameters"
 	"github.com/iotaledger/goshimmer/plugins/fpc/network"
 	"github.com/iotaledger/goshimmer/plugins/fpc/network/server"
+	"github.com/iotaledger/goshimmer/plugins/fpc/parameters"
 	"github.com/iotaledger/goshimmer/plugins/fpc/prng/client"
 )
 

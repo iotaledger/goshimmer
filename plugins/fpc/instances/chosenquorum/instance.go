@@ -6,12 +6,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/timeutil"
-	"github.com/iotaledger/goshimmer/plugins/FPC/parameters"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/outgoingrequest"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peerlist"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peerregister"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
+	"github.com/iotaledger/goshimmer/plugins/fpc/parameters"
 
 	"math"
 	"math/rand"
