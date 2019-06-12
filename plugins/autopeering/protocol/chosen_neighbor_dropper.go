@@ -16,7 +16,8 @@ func createChosenNeighborDropper(plugin *node.Plugin) func() {
 	return func() {
 		timeutil.Ticker(func() {
 			if len(chosenneighbors.INSTANCE.Peers) > constants.NEIGHBOR_COUNT/2 {
-				defer chosenneighbors.INSTANCE.Lock()()
+				chosenneighbors.INSTANCE.Lock.Lock()
+				defer chosenneighbors.INSTANCE.Lock.Unlock()
 				for len(chosenneighbors.INSTANCE.Peers) > constants.NEIGHBOR_COUNT/2 {
 					chosenneighbors.FurthestNeighborLock.RLock()
 					furthestNeighbor := chosenneighbors.FURTHEST_NEIGHBOR
@@ -38,3 +39,4 @@ func createChosenNeighborDropper(plugin *node.Plugin) func() {
 		}, 1*time.Second)
 	}
 }
+

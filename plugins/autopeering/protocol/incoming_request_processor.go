@@ -26,10 +26,11 @@ func processIncomingRequest(plugin *node.Plugin, req *request.Request) {
 	knownpeers.INSTANCE.AddOrUpdate(req.Issuer)
 
 	if requestShouldBeAccepted(req) {
-		defer acceptedneighbors.INSTANCE.Lock()()
+		acceptedneighbors.INSTANCE.Lock.Lock()
+		defer acceptedneighbors.INSTANCE.Lock.Unlock()
 
 		if requestShouldBeAccepted(req) {
-			acceptedneighbors.INSTANCE.AddOrUpdate(req.Issuer, false)
+			acceptedneighbors.INSTANCE.AddOrUpdate(req.Issuer)
 
 			acceptRequest(plugin, req)
 
@@ -53,7 +54,7 @@ func acceptRequest(plugin *node.Plugin, req *request.Request) {
 
 	plugin.LogDebug("sent positive peering response to " + req.Issuer.String())
 
-	acceptedneighbors.INSTANCE.AddOrUpdate(req.Issuer, false)
+	acceptedneighbors.INSTANCE.AddOrUpdate(req.Issuer)
 }
 
 func rejectRequest(plugin *node.Plugin, req *request.Request) {

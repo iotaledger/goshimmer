@@ -25,9 +25,10 @@ func processIncomingResponse(plugin *node.Plugin, peeringResponse *response.Resp
 	}
 
 	if peeringResponse.Type == response.TYPE_ACCEPT {
-		defer chosenneighbors.INSTANCE.Lock()()
+		chosenneighbors.INSTANCE.Lock.Lock()
+		defer chosenneighbors.INSTANCE.Lock.Unlock()
 
-		chosenneighbors.INSTANCE.AddOrUpdate(peeringResponse.Issuer, false)
+		chosenneighbors.INSTANCE.AddOrUpdate(peeringResponse.Issuer)
 
 		/*
 		   if len(chosenneighbors.INSTANCE.Peers) > constants.NEIGHBOR_COUNT / 2 {

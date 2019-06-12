@@ -14,7 +14,7 @@ import (
 type PeerRegister struct {
 	Peers  map[string]*peer.Peer
 	Events peerRegisterEvents
-	lock   sync.RWMutex
+	Lock   sync.RWMutex
 }
 
 func New() *PeerRegister {
@@ -29,10 +29,9 @@ func New() *PeerRegister {
 }
 
 // returns true if a new entry was added
-func (this *PeerRegister) AddOrUpdate(peer *peer.Peer, lock ...bool) bool {
-	if len(lock) == 0 || lock[0] {
-		defer this.Lock()()
-	}
+func (this *PeerRegister) AddOrUpdate(peer *peer.Peer) bool {
+	this.Lock.Lock()
+	defer this.Lock.Unlock()
 
 	if peer.Identity == nil || bytes.Equal(peer.Identity.Identifier, accountability.OwnId().Identifier) {
 		return false
@@ -56,31 +55,24 @@ func (this *PeerRegister) AddOrUpdate(peer *peer.Peer, lock ...bool) bool {
 }
 
 // by calling defer peerRegister.Lock()() we can auto-lock AND unlock (note: two parentheses)
-func (this *PeerRegister) Lock() func() {
-	this.lock.Lock()
+// func (this *PeerRegister) Lock() func() {
+// 	this.Lock.Lock()
 
-	return this.lock.Unlock
-}
+// 	return this.Lock.Unlock
+// }
 
 func (this *PeerRegister) Remove(key string, lock ...bool) {
+	this.Lock.Lock()
+	defer this.Lock.Unlock()
 	if peerEntry, exists := this.Peers[key]; exists {
-		if len(lock) == 0 || lock[0] {
-			defer this.Lock()()
-
-			if peerEntry, exists := this.Peers[key]; exists {
-				delete(this.Peers, key)
-
-				this.Events.Remove.Trigger(peerEntry)
-			}
-		} else {
-			delete(this.Peers, key)
-
-			this.Events.Remove.Trigger(peerEntry)
-		}
+		delete(this.Peers, key)
+		this.Events.Remove.Trigger(peerEntry)
 	}
 }
 
 func (this *PeerRegister) Contains(key string) bool {
+	this.Lock.Lock()
+	defer this.Lock.Unlock()
 	if _, exists := this.Peers[key]; exists {
 		return true
 	} else {
@@ -89,10 +81,14 @@ func (this *PeerRegister) Contains(key string) bool {
 }
 
 func (this *PeerRegister) Filter(filterFn func(this *PeerRegister, req *request.Request) *PeerRegister, req *request.Request) *PeerRegister {
+	this.Lock.Lock()
+	defer this.Lock.Unlock()
 	return filterFn(this, req)
 }
 
 func (this *PeerRegister) List() peerlist.PeerList {
+	this.Lock.Lock()
+	defer this.Lock.Unlock()
 	peerList := make(peerlist.PeerList, len(this.Peers))
 
 	counter := 0
