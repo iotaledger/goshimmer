@@ -37,6 +37,6 @@ var DEFAULT_LOGGER = &Logger{
 		fmt.Println("[ FAIL ] " + pluginPrefix(pluginName) + message)
 	},
 	LogDebug: func(pluginName string, message string) {
-		// fmt.Println("[ NOTE ] " + pluginPrefix(pluginName) + message)
+		fmt.Println("[ NOTE ] " + pluginPrefix(pluginName) + message)
 	},
 }
