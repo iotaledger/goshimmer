@@ -7,10 +7,18 @@ import (
 	"time"
 )
 
+type VoteSubmitter interface {
+	SubmitTxsForVoting(txs ...TxOpinion)
+}
+
+type VotingDoneNotifier interface {
+	FinalizedTxsChannel() <-chan []TxOpinion // returns a read only channel
+}
+
 // Fpc defines the FPC interface
 type Fpc interface {
-	SubmitTxsForVoting(txs ...TxOpinion)
-	FinalizedTxsChannel() <-chan []TxOpinion // returns a read only channel
+	VoteSubmitter
+	VotingDoneNotifier
 }
 
 // Dependencies
