@@ -120,23 +120,26 @@ func (this *databaseImpl) Delete(key []byte) error {
 	return err
 }
 
-func (this *databaseImpl) ForEach(consumer func(key []byte, value []byte)) error {
+func (this *databaseImpl) ForEach(consumer func([]byte, []byte)) error {
 	err := this.db.View(func(txn *badger.Txn) error {
 		// create an iterator the default options
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
 
+		// avoid allocations by reusing the value buffer
+		var value []byte
+
 		// loop through every key-value-pair and call the function
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 
-			key := item.Key()
-			value, err := item.ValueCopy(nil)
+			var err error
+			value, err = item.ValueCopy(value)
 			if err != nil {
 				return err
 			}
 
-			consumer(key, value)
+			consumer(item.Key(), value)
 		}
 		return nil
 	})
