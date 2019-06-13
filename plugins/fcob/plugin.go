@@ -19,12 +19,16 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
+	// subscribe to a new Tx received event
+	// and start an instance of the FCoB protocol
 	gossip.Events.ReceiveTransaction.Attach(
 		events.NewClosure(func(transaction *transaction.Transaction) {
 			runProtocol(transaction.Hash)
 		}),
 	)
 
+	// subscribe to a new VotingDone event
+	// and update the related txs opinion
 	fpcP.Events.NewFinalizedTxs.Attach(
 		events.NewClosure(func(txs []fpc.TxOpinion) {
 			plugin.LogInfo(fmt.Sprintf("Finalized Txs: %v", txs))

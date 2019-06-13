@@ -3,10 +3,10 @@ package fcob
 import (
 	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/packages/ternary"
-	"github.com/iotaledger/goshimmer/packages/transaction"
 	fpcP "github.com/iotaledger/goshimmer/plugins/fpc"
 )
 
+// dummy FCoB logic core
 func runProtocol(txHash ternary.Trits) {
 	initialOpinion := decisionRule(txHash)
 	updateOpinion(txHash, initialOpinion, false)
@@ -16,10 +16,7 @@ func runProtocol(txHash ternary.Trits) {
 	}
 }
 
-func receiveTransaction(transaction *transaction.Transaction) {
-	fpcP.INSTANCE.SubmitTxsForVoting(fpc.TxOpinion{fpc.ID(transaction.Hash.ToString()), fpc.Like})
-}
-
+// decision rule for setting initial opinion
 func decisionRule(txHash ternary.Trits) fpc.Opinion {
 	if dummyCheckConflict(txHash) {
 		return fpc.Dislike
@@ -27,10 +24,12 @@ func decisionRule(txHash ternary.Trits) fpc.Opinion {
 	return fpc.Like
 }
 
+// udpates the opinion and final flag of a given tx
 func updateOpinion(txHash ternary.Trits, opinion fpc.Opinion, final bool) {
 	// store opinion into cache/db
 }
 
+// dummy conflict checker
 func dummyCheckConflict(txHash ternary.Trits) bool {
 	return true
 }
