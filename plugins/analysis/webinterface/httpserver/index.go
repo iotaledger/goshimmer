@@ -1,12 +1,12 @@
 package httpserver
 
 import (
-    "fmt"
-    "net/http"
+	"fmt"
+	"net/http"
 )
 
 func index(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprintf(w, `<head>
+	fmt.Fprintf(w, `<head>
   <style> body { margin: 0; } </style>
 
   <script src="https://unpkg.com/3d-force-graph"></script>

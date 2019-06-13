@@ -1,77 +1,77 @@
 package daemon
 
 import (
-    "sync"
+	"sync"
 )
 
 var (
-    running           bool
-    wg                sync.WaitGroup
-    ShutdownSignal    = make(chan int, 1)
-    backgroundWorkers = make([]func(), 0)
-    lock              = sync.Mutex{}
+	running           bool
+	wg                sync.WaitGroup
+	ShutdownSignal    = make(chan int, 1)
+	backgroundWorkers = make([]func(), 0)
+	lock              = sync.Mutex{}
 )
 
 func runBackgroundWorker(backgroundWorker func()) {
-    wg.Add(1)
+	wg.Add(1)
 
-    go func() {
-        backgroundWorker()
+	go func() {
+		backgroundWorker()
 
-        wg.Done()
-    }()
+		wg.Done()
+	}()
 }
 
 func BackgroundWorker(handler func()) {
-    lock.Lock()
+	lock.Lock()
 
-    if IsRunning() {
-        runBackgroundWorker(handler)
-    } else {
-        backgroundWorkers = append(backgroundWorkers, handler)
-    }
+	if IsRunning() {
+		runBackgroundWorker(handler)
+	} else {
+		backgroundWorkers = append(backgroundWorkers, handler)
+	}
 
-    lock.Unlock()
+	lock.Unlock()
 }
 
 func Run() {
-    if !running {
-        lock.Lock()
+	if !running {
+		lock.Lock()
 
-        if !running {
-            ShutdownSignal = make(chan int, 1)
+		if !running {
+			ShutdownSignal = make(chan int, 1)
 
-            running = true
+			running = true
 
-            Events.Run.Trigger()
+			Events.Run.Trigger()
 
-            for _, backgroundWorker := range backgroundWorkers {
-                runBackgroundWorker(backgroundWorker)
-            }
-        }
+			for _, backgroundWorker := range backgroundWorkers {
+				runBackgroundWorker(backgroundWorker)
+			}
+		}
 
-        lock.Unlock()
-    }
+		lock.Unlock()
+	}
 
-    wg.Wait()
+	wg.Wait()
 }
 
 func Shutdown() {
-    if running {
-        lock.Lock()
+	if running {
+		lock.Lock()
 
-        if running {
-            close(ShutdownSignal)
+		if running {
+			close(ShutdownSignal)
 
-            running = false
+			running = false
 
-            Events.Shutdown.Trigger()
-        }
+			Events.Shutdown.Trigger()
+		}
 
-        lock.Unlock()
-    }
+		lock.Unlock()
+	}
 }
 
 func IsRunning() bool {
-    return running
+	return running
 }
