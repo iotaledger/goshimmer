@@ -1,26 +1,35 @@
 package fcob
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/packages/ternary"
 	"github.com/iotaledger/goshimmer/packages/transaction"
+	fpcP "github.com/iotaledger/goshimmer/plugins/fpc"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
-	"github.com/iotaledger/goshimmer/plugins/fpc"
 )
 
 var PLUGIN = node.NewPlugin("FCOB", configure, run)
 
-var INSTANCE *Fcob
-
 func configure(plugin *node.Plugin) {
-	fpc.
-	INSTANCE = &Fcob{fpc: fpc}
-	
-	gossip.Events.ReceiveTransaction.Attach(
-		events.NewClosure(func(transaction *transaction.Transaction) {
-			INSTANCE.ReceiveTransaction(transaction)
-		}),
-	)
+
 }
 
-func run(plugin *node.Plugin) {}
+func run(plugin *node.Plugin) {
+	gossip.Events.ReceiveTransaction.Attach(
+		events.NewClosure(func(transaction *transaction.Transaction) {
+			runProtocol(transaction.Hash)
+		}),
+	)
+
+	fpcP.Events.NewFinalizedTxs.Attach(
+		events.NewClosure(func(txs []fpc.TxOpinion) {
+			plugin.LogInfo(fmt.Sprintf("Finalized Txs: %v", txs))
+			for _, tx := range txs {
+				updateOpinion(ternary.Trinary(tx.TxHash).ToTrits(), tx.Opinion, true)
+			}
+		}))
+}
