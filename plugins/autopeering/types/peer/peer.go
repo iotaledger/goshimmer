@@ -30,7 +30,7 @@ func Unmarshal(data []byte) (*Peer, error) {
 	}
 
 	peer := &Peer{
-		Identity: identity.NewIdentity(data[MARSHALLED_PUBLIC_KEY_START:MARSHALLED_PUBLIC_KEY_END]),
+		Identity: identity.NewPublicIdentity(data[MARSHALLED_PUBLIC_KEY_START:MARSHALLED_PUBLIC_KEY_END]),
 	}
 
 	switch data[MARSHALLED_ADDRESS_TYPE_START] {

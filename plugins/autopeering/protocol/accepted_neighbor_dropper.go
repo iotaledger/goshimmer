@@ -24,11 +24,12 @@ func createAcceptedNeighborDropper(plugin *node.Plugin) func() {
 
 					if furthestNeighbor != nil {
 						dropMessage := &drop.Drop{Issuer: ownpeer.INSTANCE}
-						dropMessage.Sign()
 
 						acceptedneighbors.INSTANCE.Remove(furthestNeighbor.Identity.StringIdentifier, false)
 						go func() {
-							if _, err := furthestNeighbor.Send(dropMessage.Marshal(), types.PROTOCOL_TYPE_UDP, false); err != nil {
+							data := dropMessage.Marshal()
+
+							if _, err := furthestNeighbor.Send(data, types.PROTOCOL_TYPE_UDP, false); err != nil {
 								plugin.LogDebug("error when sending drop message to" + acceptedneighbors.FURTHEST_NEIGHBOR.String())
 							}
 						}()

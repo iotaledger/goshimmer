@@ -13,8 +13,7 @@ import (
 )
 
 type Request struct {
-	Issuer    *peer.Peer
-	Signature [SIGNATURE_SIZE]byte
+	Issuer *peer.Peer
 }
 
 func Unmarshal(data []byte) (*Request, error) {
@@ -22,13 +21,28 @@ func Unmarshal(data []byte) (*Request, error) {
 		return nil, ErrMalformedPeeringRequest
 	}
 
+	// check the signature
+	signer, err := identity.FromSignedData(data)
+	if err != nil {
+		return nil, ErrInvalidSignature
+	}
+
 	peeringRequest := &Request{}
 
-	if unmarshalledPeer, err := peer.Unmarshal(data[ISSUER_START:ISSUER_END]); err != nil {
-		return nil, err
+	// start unmarshaling the actual request
+	if unmarshalledPeer, err := peer.Unmarshal(data[MARSHALLED_ISSUER_START:MARSHALLED_ISSUER_END]); err != nil {
+		return nil, ErrMalformedPeeringRequest
 	} else {
 		peeringRequest.Issuer = unmarshalledPeer
 	}
+
+	// the request issuer must match the signer
+	if !bytes.Equal(signer.Identifier, peeringRequest.Issuer.Identity.Identifier) {
+		return nil, ErrInvalidSignature
+	}
+
+	// store the signer as it also contains the public key
+	peeringRequest.Issuer.Identity = signer
 
 	now := time.Now()
 	if peeringRequest.Issuer.Salt.ExpirationTime.Before(now.Add(-1 * time.Minute)) {
@@ -37,15 +51,6 @@ func Unmarshal(data []byte) (*Request, error) {
 	if peeringRequest.Issuer.Salt.ExpirationTime.After(now.Add(saltmanager.PUBLIC_SALT_LIFETIME + 1*time.Minute)) {
 		return nil, ErrPublicSaltInvalidLifetime
 	}
-
-	if issuer, err := identity.FromSignedData(data[:SIGNATURE_START], data[SIGNATURE_START:]); err != nil {
-		return nil, err
-	} else {
-		if !bytes.Equal(issuer.Identifier, peeringRequest.Issuer.Identity.Identifier) {
-			return nil, ErrInvalidSignature
-		}
-	}
-	copy(peeringRequest.Signature[:], data[SIGNATURE_START:SIGNATURE_END])
 
 	return peeringRequest, nil
 }
@@ -56,9 +61,9 @@ func (this *Request) Accept(peers []*peer.Peer) error {
 		Issuer: ownpeer.INSTANCE,
 		Peers:  peers,
 	}
-	peeringResponse.Sign()
 
-	if _, err := this.Issuer.Send(peeringResponse.Marshal(), types.PROTOCOL_TYPE_TCP, false); err != nil {
+	data := peeringResponse.Marshal()
+	if _, err := this.Issuer.Send(data, types.PROTOCOL_TYPE_TCP, false); err != nil {
 		return err
 	}
 
@@ -71,29 +76,21 @@ func (this *Request) Reject(peers []*peer.Peer) error {
 		Issuer: ownpeer.INSTANCE,
 		Peers:  peers,
 	}
-	peeringResponse.Sign()
 
-	if _, err := this.Issuer.Send(peeringResponse.Marshal(), types.PROTOCOL_TYPE_TCP, false); err != nil {
+	data := peeringResponse.Marshal()
+	if _, err := this.Issuer.Send(data, types.PROTOCOL_TYPE_TCP, false); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (this *Request) Sign() {
-	if signature, err := this.Issuer.Identity.Sign(this.Marshal()[:SIGNATURE_START]); err != nil {
-		panic(err)
-	} else {
-		copy(this.Signature[:], signature)
-	}
-}
-
 func (this *Request) Marshal() []byte {
-	result := make([]byte, MARSHALLED_TOTAL_SIZE)
+	msg := make([]byte, MARSHALLED_SIGNATURE_START)
 
-	result[PACKET_HEADER_START] = MARSHALLED_PACKET_HEADER
-	copy(result[ISSUER_START:ISSUER_END], this.Issuer.Marshal())
-	copy(result[SIGNATURE_START:SIGNATURE_END], this.Signature[:SIGNATURE_SIZE])
+	msg[PACKET_HEADER_START] = MARSHALLED_PACKET_HEADER
+	copy(msg[MARSHALLED_ISSUER_START:MARSHALLED_ISSUER_END], this.Issuer.Marshal())
 
-	return result
+	// return the signed message
+	return this.Issuer.Identity.AddSignature(msg)
 }

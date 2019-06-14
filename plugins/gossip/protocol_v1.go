@@ -1,7 +1,6 @@
 package gossip
 
 import (
-	"bytes"
 	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/accountability"
@@ -82,60 +81,46 @@ func (state *indentificationStateV1) Receive(data []byte, offset int, length int
 
 	state.offset += bytesRead
 	if state.offset == MARSHALLED_IDENTITY_TOTAL_SIZE {
-		if receivedIdentity, err := unmarshalIdentity(state.buffer); err != nil {
+		receivedIdentity, err := identity.FromSignedData(state.buffer)
+		if err != nil {
 			return bytesRead, ErrInvalidAuthenticationMessage.Derive(err, "invalid authentication message")
-		} else {
-			protocol := state.protocol
-
-			if neighbor, exists := GetNeighbor(receivedIdentity.StringIdentifier); exists {
-				protocol.Neighbor = neighbor
-			} else {
-				protocol.Neighbor = nil
-			}
-
-			protocol.Events.ReceiveIdentification.Trigger(receivedIdentity)
-
-			protocol.ReceivingState = newacceptanceStateV1(protocol)
-			state.offset = 0
 		}
+		protocol := state.protocol
+
+		if neighbor, exists := GetNeighbor(receivedIdentity.StringIdentifier); exists {
+			protocol.Neighbor = neighbor
+		} else {
+			protocol.Neighbor = nil
+		}
+
+		protocol.Events.ReceiveIdentification.Trigger(receivedIdentity)
+
+		// switch to new state
+		protocol.ReceivingState = newacceptanceStateV1(protocol)
+		state.offset = 0
 	}
 
 	return bytesRead, nil
 }
 
 func (state *indentificationStateV1) Send(param interface{}) errors.IdentifiableError {
-	if id, ok := param.(*identity.Identity); ok {
-		if signature, err := id.Sign(id.Identifier); err == nil {
-			protocol := state.protocol
-
-			if _, err := protocol.Conn.Write(id.Identifier); err != nil {
-				return ErrSendFailed.Derive(err, "failed to send identifier")
-			}
-			if _, err := protocol.Conn.Write(signature); err != nil {
-				return ErrSendFailed.Derive(err, "failed to send signature")
-			}
-
-			protocol.SendState = newacceptanceStateV1(protocol)
-
-			return nil
-		}
+	id, ok := param.(*identity.Identity)
+	if !ok {
+		return ErrInvalidSendParam.Derive("parameter is not a valid identity")
 	}
 
-	return ErrInvalidSendParam.Derive("passed in parameter is not a valid identity")
-}
+	msg := id.Identifier
+	data := id.AddSignature(msg)
 
-func unmarshalIdentity(data []byte) (*identity.Identity, error) {
-	identifier := data[MARSHALLED_IDENTITY_START:MARSHALLED_IDENTITY_END]
-
-	if restoredIdentity, err := identity.FromSignedData(identifier, data[MARSHALLED_IDENTITY_SIGNATURE_START:MARSHALLED_IDENTITY_SIGNATURE_END]); err != nil {
-		return nil, err
-	} else {
-		if bytes.Equal(identifier, restoredIdentity.Identifier) {
-			return restoredIdentity, nil
-		} else {
-			return nil, errors.New("signature does not match claimed identity")
-		}
+	protocol := state.protocol
+	if _, err := protocol.Conn.Write(data); err != nil {
+		return ErrSendFailed.Derive(err, "failed to send identification")
 	}
+
+	// switch to new state
+	protocol.SendState = newacceptanceStateV1(protocol)
+
+	return nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -383,14 +368,14 @@ const (
 	DISPATCH_TRANSACTION = byte(1)
 	DISPATCH_REQUEST     = byte(2)
 
-	MARSHALLED_IDENTITY_START           = 0
-	MARSHALLED_IDENTITY_SIGNATURE_START = MARSHALLED_IDENTITY_END
+	MARSHALLED_IDENTITY_IDENTIFIER_START = 0
+	MARSHALLED_IDENTITY_SIGNATURE_START  = MARSHALLED_IDENTITY_IDENTIFIER_END
 
-	MARSHALLED_IDENTITY_SIZE           = 20
-	MARSHALLED_IDENTITY_SIGNATURE_SIZE = 65
+	MARSHALLED_IDENTITY_IDENTIFIER_SIZE = identity.IDENTIFIER_BYTE_LENGTH
+	MARSHALLED_IDENTITY_SIGNATURE_SIZE  = identity.SIGNATURE_BYTE_LENGTH
 
-	MARSHALLED_IDENTITY_END           = MARSHALLED_IDENTITY_START + MARSHALLED_IDENTITY_SIZE
-	MARSHALLED_IDENTITY_SIGNATURE_END = MARSHALLED_IDENTITY_SIGNATURE_START + MARSHALLED_IDENTITY_SIGNATURE_SIZE
+	MARSHALLED_IDENTITY_IDENTIFIER_END = MARSHALLED_IDENTITY_IDENTIFIER_START + MARSHALLED_IDENTITY_IDENTIFIER_SIZE
+	MARSHALLED_IDENTITY_SIGNATURE_END  = MARSHALLED_IDENTITY_SIGNATURE_START + MARSHALLED_IDENTITY_SIGNATURE_SIZE
 
 	MARSHALLED_IDENTITY_TOTAL_SIZE = MARSHALLED_IDENTITY_SIGNATURE_END
 )

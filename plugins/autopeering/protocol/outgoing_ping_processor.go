@@ -6,16 +6,13 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/accountability"
 	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/ownpeer"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/types"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/saltmanager"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/types/salt"
 )
 
 var lastPing time.Time
@@ -30,11 +27,6 @@ func createOutgoingPingProcessor(plugin *node.Plugin) func() {
 		outgoingPing := &ping.Ping{
 			Issuer: ownpeer.INSTANCE,
 		}
-		outgoingPing.Sign()
-
-		saltmanager.Events.UpdatePublicSalt.Attach(events.NewClosure(func(salt *salt.Salt) {
-			outgoingPing.Sign()
-		}))
 
 		pingPeers(plugin, outgoingPing)
 
@@ -72,7 +64,9 @@ func pingPeers(plugin *node.Plugin, outgoingPing *ping.Ping) {
 
 			for _, chosenPeer := range chosenPeers {
 				go func(chosenPeer *peer.Peer) {
-					if _, err := chosenPeer.Send(outgoingPing.Marshal(), types.PROTOCOL_TYPE_UDP, false); err != nil {
+					data := outgoingPing.Marshal()
+
+					if _, err := chosenPeer.Send(data, types.PROTOCOL_TYPE_UDP, false); err != nil {
 						plugin.LogDebug("error when sending ping to " + chosenPeer.String() + ": " + err.Error())
 					} else {
 						plugin.LogDebug("sent ping to " + chosenPeer.String())

@@ -14,7 +14,7 @@ type Salt struct {
 
 func New(lifetime time.Duration) *Salt {
 	salt := &Salt{
-		Bytes:          make([]byte, SALT_BYTES_SIZE),
+		Bytes:          make([]byte, SALT_BYTES_LEN),
 		ExpirationTime: time.Now().Add(lifetime),
 	}
 
@@ -25,33 +25,33 @@ func New(lifetime time.Duration) *Salt {
 	return salt
 }
 
-func Unmarshal(marshalledSalt []byte) (*Salt, error) {
-	if len(marshalledSalt) < SALT_MARSHALLED_SIZE {
-		return nil, errors.New("marshalled salt bytes not long enough")
+func Unmarshal(data []byte) (*Salt, error) {
+	if len(data) != MARSHALLED_TOTAL_SIZE {
+		return nil, errors.New("salt: bad data length")
 	}
 
 	salt := &Salt{
-		Bytes: make([]byte, SALT_BYTES_SIZE),
+		Bytes: make([]byte, SALT_BYTES_LEN),
 	}
-	copy(salt.Bytes, marshalledSalt[SALT_BYTES_START:SALT_BYTES_END])
+	copy(salt.Bytes, data[MARSHALLED_BYTES_START:MARSHALLED_BYTES_END])
 
-	if err := salt.ExpirationTime.UnmarshalBinary(marshalledSalt[SALT_TIME_START:SALT_TIME_END]); err != nil {
+	if err := salt.ExpirationTime.UnmarshalBinary(data[MARSHALLED_TIME_START:MARSHALLED_TIME_END]); err != nil {
 		return nil, err
 	}
 
 	return salt, nil
 }
 
-func (this *Salt) Marshal() []byte {
-	result := make([]byte, SALT_BYTES_SIZE+SALT_TIME_SIZE)
+func (s *Salt) Marshal() []byte {
+	data := make([]byte, MARSHALLED_TOTAL_SIZE)
 
-	copy(result[SALT_BYTES_START:SALT_BYTES_END], this.Bytes)
+	copy(data[MARSHALLED_BYTES_START:MARSHALLED_BYTES_END], s.Bytes)
 
-	if bytes, err := this.ExpirationTime.MarshalBinary(); err != nil {
+	if bytes, err := s.ExpirationTime.MarshalBinary(); err != nil {
 		panic(err)
 	} else {
-		copy(result[SALT_TIME_START:SALT_TIME_END], bytes)
+		copy(data[MARSHALLED_TIME_START:MARSHALLED_TIME_END], bytes)
 	}
 
-	return result
+	return data
 }

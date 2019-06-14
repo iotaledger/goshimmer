@@ -1,6 +1,7 @@
 package response
 
 import (
+	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 )
@@ -30,6 +31,7 @@ const (
 	MARSHALLED_PEER_FLAG_SIZE     = 1
 	MARSHALLED_PEER_SIZE          = MARSHALLED_PEER_FLAG_SIZE + peer.MARSHALLED_TOTAL_SIZE
 	MARSHALLED_PEERS_SIZE         = MARSHALLED_PEERS_AMOUNT * MARSHALLED_PEER_SIZE
-	MARSHALLED_SIGNATURE_SIZE     = 65
-	MARSHALLED_TOTAL_SIZE         = MARSHALLED_SIGNATURE_END
+	MARSHALLED_SIGNATURE_SIZE     = identity.SIGNATURE_BYTE_LENGTH
+
+	MARSHALLED_TOTAL_SIZE = MARSHALLED_SIGNATURE_END
 )

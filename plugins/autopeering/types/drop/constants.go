@@ -1,6 +1,7 @@
 package drop
 
 import (
+	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 )
 
@@ -17,7 +18,7 @@ const (
 
 	PACKET_HEADER_SIZE        = 1
 	MARSHALLED_ISSUER_SIZE    = peer.MARSHALLED_TOTAL_SIZE
-	MARSHALLED_SIGNATURE_SIZE = 65
+	MARSHALLED_SIGNATURE_SIZE = identity.SIGNATURE_BYTE_LENGTH
 
 	MARSHALLED_TOTAL_SIZE = MARSHALLED_SIGNATURE_END
 )

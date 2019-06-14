@@ -44,8 +44,10 @@ func sendOutgoingRequests(plugin *node.Plugin) {
 		time.Sleep(5 * time.Second)
 
 		if candidateShouldBeContacted(chosenNeighborCandidate) {
-			if dialed, err := chosenNeighborCandidate.Send(outgoingrequest.INSTANCE.Marshal(), types.PROTOCOL_TYPE_TCP, true); err != nil {
-				plugin.LogDebug(err.Error())
+			data := outgoingrequest.INSTANCE.Marshal()
+
+			if dialed, err := chosenNeighborCandidate.Send(data, types.PROTOCOL_TYPE_TCP, true); err != nil {
+				plugin.LogDebug("error when sending peering request to " + chosenNeighborCandidate.String() + ": " + err.Error())
 			} else {
 				plugin.LogDebug("sent peering request to " + chosenNeighborCandidate.String())
 

@@ -125,8 +125,15 @@ func parsePackageHeader(data []byte) (byte, []byte, error) {
 	return connectionState, receiveBuffer, nil
 }
 
+func min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}
+
 func processIncomingRequestPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int) {
-	remainingCapacity := int(math.Min(float64(request.MARSHALLED_TOTAL_SIZE-*offset), float64(len(data))))
+	remainingCapacity := min(request.MARSHALLED_TOTAL_SIZE-*offset, len(data))
 
 	copy((*receiveBuffer)[*offset:], data[:remainingCapacity])
 
@@ -159,7 +166,7 @@ func processIncomingRequestPacket(connectionState *byte, receiveBuffer *[]byte, 
 }
 
 func processIncomingResponsePacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int) {
-	remainingCapacity := int(math.Min(float64(response.MARSHALLED_TOTAL_SIZE-*offset), float64(len(data))))
+	remainingCapacity := min(response.MARSHALLED_TOTAL_SIZE-*offset, len(data))
 
 	copy((*receiveBuffer)[*offset:], data[:remainingCapacity])
 
@@ -192,7 +199,7 @@ func processIncomingResponsePacket(connectionState *byte, receiveBuffer *[]byte,
 }
 
 func processIncomingPingPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int) {
-	remainingCapacity := int(math.Min(float64(ping.MARSHALLED_TOTAL_SIZE-*offset), float64(len(data))))
+	remainingCapacity := min(ping.MARSHALLED_TOTAL_SIZE-*offset, len(data))
 
 	copy((*receiveBuffer)[*offset:], data[:remainingCapacity])
 
