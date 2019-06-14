@@ -23,12 +23,12 @@ func StoreApprovers(approvers *Approvers) {
 }
 
 func GetApprovers(transactionHash ternary.Trinary, computeIfAbsent ...func(ternary.Trinary) *Approvers) (result *Approvers, err errors.IdentifiableError) {
-	if approvers := approversCache.ComputeIfAbsent(transactionHash, func() (result interface{}) {
-		if result, err = getApproversFromDatabase(transactionHash); err == nil && (result == nil || result.(*Approvers) == nil) && len(computeIfAbsent) >= 1 {
+	if approvers := approversCache.ComputeIfAbsent(transactionHash, func() interface{} {
+		if result, err = getApproversFromDatabase(transactionHash); err == nil && result == nil && len(computeIfAbsent) >= 1 {
 			result = computeIfAbsent[0](transactionHash)
 		}
 
-		return
+		return result
 	}); approvers != nil && approvers.(*Approvers) != nil {
 		result = approvers.(*Approvers)
 	}
@@ -103,7 +103,7 @@ func (approvers *Approvers) Marshal() (result []byte) {
 	copy(result[MARSHALLED_APPROVERS_HASH_START:MARSHALLED_APPROVERS_HASH_END], approvers.hash.CastToBytes())
 
 	i := 0
-	for hash, _ := range approvers.hashes {
+	for hash := range approvers.hashes {
 		var HASH_START = MARSHALLED_APPROVERS_HASHES_START + i*(MARSHALLED_APPROVERS_HASH_SIZE)
 		var HASH_END = HASH_START * MARSHALLED_APPROVERS_HASH_SIZE
 
@@ -181,7 +181,7 @@ func (approvers *Approvers) getHashes() (result []ternary.Trinary) {
 	result = make([]ternary.Trinary, len(approvers.hashes))
 
 	counter := 0
-	for hash, _ := range approvers.hashes {
+	for hash := range approvers.hashes {
 		result[counter] = hash
 
 		counter++
@@ -201,9 +201,7 @@ func (approvers *Approvers) Store(approverHash ternary.Trinary) {
 func getApproversFromDatabase(transactionHash ternary.Trinary) (result *Approvers, err errors.IdentifiableError) {
 	approversData, dbErr := approversDatabase.Get(transactionHash.CastToBytes())
 	if dbErr != nil {
-		if dbErr == badger.ErrKeyNotFound {
-			err = nil
-		} else {
+		if dbErr != badger.ErrKeyNotFound {
 			err = ErrDatabaseError.Derive(err, "failed to retrieve transaction")
 		}
 

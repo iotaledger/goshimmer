@@ -66,6 +66,14 @@ func (this Trits) TrailingZeroes() int {
 	return zeros
 }
 
+func (this Trits) ToUint() (result uint) {
+	for i := len(this) - 1; i >= 0; i-- {
+		result = result*3 + uint(this[i])
+	}
+
+	return
+}
+
 func (this Trits) ToInt64() int64 {
 	var val int64
 	for i := len(this) - 1; i >= 0; i-- {

@@ -252,23 +252,6 @@ func (metadata *TransactionMetadata) Unmarshal(data []byte) errors.IdentifiableE
 
 // region database functions ///////////////////////////////////////////////////////////////////////////////////////////
 
-func (metadata *TransactionMetadata) Store() errors.IdentifiableError {
-	if metadata.GetModified() {
-		marshalledMetadata, err := metadata.Marshal()
-		if err != nil {
-			return err
-		}
-
-		if err := transactionMetadataDatabase.Set(metadata.GetHash().CastToBytes(), marshalledMetadata); err != nil {
-			return ErrDatabaseError.Derive(err, "failed to store the transaction")
-		}
-
-		metadata.SetModified(false)
-	}
-
-	return nil
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region constants and variables //////////////////////////////////////////////////////////////////////////////////////

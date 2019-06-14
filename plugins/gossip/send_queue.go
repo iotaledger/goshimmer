@@ -5,8 +5,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/transaction"
 )
 
 // region plugin module setup //////////////////////////////////////////////////////////////////////////////////////////
@@ -63,11 +63,11 @@ func runSendQueue(plugin *node.Plugin) {
 
 // region public api ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-func SendTransaction(transaction *transaction.Transaction) {
+func SendTransaction(transaction *meta_transaction.MetaTransaction) {
 	sendQueue <- transaction
 }
 
-func (neighbor *Neighbor) SendTransaction(transaction *transaction.Transaction) {
+func (neighbor *Neighbor) SendTransaction(transaction *meta_transaction.MetaTransaction) {
 	if queue, exists := neighborQueues[neighbor.Identity.StringIdentifier]; exists {
 		select {
 		case queue.queue <- transaction:
@@ -87,7 +87,7 @@ func setupEventHandlers(neighbor *Neighbor) {
 	neighbor.Events.ProtocolConnectionEstablished.Attach(events.NewClosure(func(protocol *protocol) {
 		queue := &neighborQueue{
 			protocol:       protocol,
-			queue:          make(chan *transaction.Transaction, SEND_QUEUE_SIZE),
+			queue:          make(chan *meta_transaction.MetaTransaction, SEND_QUEUE_SIZE),
 			disconnectChan: make(chan int, 1),
 		}
 
@@ -135,7 +135,7 @@ func startNeighborSendQueue(neighborQueue *neighborQueue) {
 
 type neighborQueue struct {
 	protocol       *protocol
-	queue          chan *transaction.Transaction
+	queue          chan *meta_transaction.MetaTransaction
 	disconnectChan chan int
 }
 
@@ -147,7 +147,7 @@ var neighborQueues = make(map[string]*neighborQueue)
 
 var connectedNeighborsMutex sync.RWMutex
 
-var sendQueue = make(chan *transaction.Transaction, SEND_QUEUE_SIZE)
+var sendQueue = make(chan *meta_transaction.MetaTransaction, SEND_QUEUE_SIZE)
 
 const (
 	SEND_QUEUE_SIZE = 500
