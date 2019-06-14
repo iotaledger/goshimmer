@@ -7,7 +7,6 @@ require (
 	github.com/dgraph-io/badger v2.0.0-rc.2.0.20190610165348-a804ffa35fb9+incompatible
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
-	github.com/ethereum/go-ethereum v1.8.27
 	github.com/gdamore/tcell v1.1.2
 	github.com/golang/protobuf v1.3.1 // indirect
 	github.com/google/open-location-code/go v0.0.0-20190603181809-cf814bded323
