@@ -21,14 +21,14 @@ func Handler(c echo.Context) error {
 	branchTransactionHash := tipselection.GetRandomTip()
 	trunkTransactionHash := tipselection.GetRandomTip()
 
-	return c.JSON(http.StatusOK, response{
+	return c.JSON(http.StatusOK, webResponse{
 		Duration:          time.Since(start).Nanoseconds() / 1e6,
 		BranchTransaction: branchTransactionHash,
 		TrunkTransaction:  trunkTransactionHash,
 	})
 }
 
-type response struct {
+type webResponse struct {
 	Duration          int64           `json:"duration"`
 	BranchTransaction ternary.Trinary `json:"branchTransaction"`
 	TrunkTransaction  ternary.Trinary `json:"trunkTransaction"`
