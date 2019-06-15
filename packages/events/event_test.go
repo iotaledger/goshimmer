@@ -3,7 +3,22 @@ package events
 import (
 	"fmt"
 	"strconv"
+	"testing"
 )
+
+func BenchmarkEvent_Trigger(b *testing.B) {
+	event := NewEvent(intStringCaller)
+
+	event.Attach(NewClosure(func(param1 int, param2 string) {
+		// do nothing just get called
+	}))
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		event.Trigger(4, "test")
+	}
+}
 
 // define how the event converts the generic parameters to the typed params - ugly but go has no generics :(
 func intStringCaller(handler interface{}, params ...interface{}) {
