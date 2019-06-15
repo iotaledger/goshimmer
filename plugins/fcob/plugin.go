@@ -5,9 +5,11 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/fpc"
+	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/ternary"
 	fpcP "github.com/iotaledger/goshimmer/plugins/fpc"
+	"github.com/iotaledger/goshimmer/plugins/tangle"
 )
 
 var PLUGIN = node.NewPlugin("FCOB", configure, run)
@@ -23,11 +25,11 @@ func configure(plugin *node.Plugin) {
 func run(plugin *node.Plugin) {
 	// subscribe to a new Tx received event
 	// and start an instance of the FCoB protocol
-	// gossip.Events.ReceiveTransaction.Attach(
-	// 	events.NewClosure(func(transaction *tangle.Transaction) {
-	// 		runProtocol(transaction.GetHash())
-	// 	}),
-	// )
+	tangle.Events.TransactionSolid.Attach(
+		events.NewClosure(func(transaction *value_transaction.ValueTransaction) {
+			runProtocol(transaction.GetHash())
+		}),
+	)
 
 	// subscribe to a new VotingDone event
 	// and update the related txs opinion
