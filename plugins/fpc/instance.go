@@ -42,7 +42,7 @@ func runFPC(plugin *node.Plugin) {
 				// ended with no new finalized transactions
 				if len(finalizedTxs) > 0 {
 					Events.NewFinalizedTxs.Trigger(finalizedTxs)
-					plugin.LogInfo(fmt.Sprintf("Finalized txs %v", finalizedTxs))
+					//plugin.LogInfo(fmt.Sprintf("Finalized txs %v", finalizedTxs))
 				}
 			case <-daemon.ShutdownSignal:
 				plugin.LogInfo("Stopping FPC Processor ...")

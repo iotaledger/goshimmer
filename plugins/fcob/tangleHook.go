@@ -1,8 +1,6 @@
 package fcob
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/packages/ternary"
@@ -51,7 +49,6 @@ func (tangleHook) Decide(txHash ternary.Trinary) (opinion Opinion, conflictSet m
 			return Opinion{fpc.Dislike, true}, conflictSet
 		}
 	}
-	PLUGIN.LogInfo(fmt.Sprintf("(decide) TxHash: %v", txHash))
 	conflictSet = dummyConflict{}.GetConflictSet(txHash)
 	if len(conflictSet) > 0 {
 		return Opinion{fpc.Dislike, false}, conflictSet

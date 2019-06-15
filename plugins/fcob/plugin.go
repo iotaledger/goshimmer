@@ -27,7 +27,7 @@ func run(plugin *node.Plugin) {
 	// and start an instance of the FCoB protocol
 	tangle.Events.TransactionSolid.Attach(
 		events.NewClosure(func(transaction *value_transaction.ValueTransaction) {
-			runProtocol(transaction.GetHash())
+			go runProtocol(transaction.GetHash())
 		}),
 	)
 
