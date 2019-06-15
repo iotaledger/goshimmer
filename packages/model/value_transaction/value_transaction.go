@@ -37,6 +37,7 @@ func New() (result *ValueTransaction) {
 func FromMetaTransaction(metaTransaction *meta_transaction.MetaTransaction) *ValueTransaction {
 	return &ValueTransaction{
 		MetaTransaction: metaTransaction,
+		trits: metaTransaction.GetData(),
 	}
 }
 
@@ -44,6 +45,8 @@ func FromBytes(bytes []byte) (result *ValueTransaction) {
 	result = &ValueTransaction{
 		MetaTransaction: meta_transaction.FromTrits(ternary.BytesToTrits(bytes)[:meta_transaction.MARSHALLED_TOTAL_SIZE]),
 	}
+
+	result.trits = result.MetaTransaction.GetData()
 
 	return
 }

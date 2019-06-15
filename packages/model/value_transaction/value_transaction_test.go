@@ -14,6 +14,9 @@ func TestValueTransaction_SettersGetters(t *testing.T) {
 	transaction := New()
 	transaction.SetAddress(address)
 
+	transactionCopy := FromMetaTransaction(transaction.MetaTransaction)
+	fmt.Println(transactionCopy.GetAddress())
+
 	assert.Equal(t, transaction.GetAddress(), address)
 	//assert.Equal(t, transaction.GetHash(), FromBytes(transaction.GetBytes()).GetHash())
 
