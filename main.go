@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/analysis"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/cli"
+	"github.com/iotaledger/goshimmer/plugins/fcob"
 	"github.com/iotaledger/goshimmer/plugins/fpc"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
@@ -22,6 +23,7 @@ func main() {
 		cli.PLUGIN,
 		autopeering.PLUGIN,
 		fpc.PLUGIN,
+		fcob.PLUGIN,
 		gossip.PLUGIN,
 		tangle.PLUGIN,
 		analysis.PLUGIN,

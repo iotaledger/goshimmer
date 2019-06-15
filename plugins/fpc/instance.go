@@ -30,13 +30,13 @@ func runFPC(plugin *node.Plugin) {
 	daemon.BackgroundWorker(func() {
 		ticker := client.NewTicker()
 		ticker.Connect(*parameters.PRNG_ADDRESS.Value + ":" + *parameters.PRNG_PORT.Value)
-		INSTANCE.SubmitTxsForVoting(fpc.TxOpinion{"1", fpc.Like})
+		//INSTANCE.SubmitTxsForVoting(fpc.TxOpinion{"1", fpc.Like})
 	ticker:
 		for {
 			select {
 			case newRandom := <-ticker.C:
 				INSTANCE.Tick(newRandom.Index, newRandom.Value)
-				plugin.LogInfo(fmt.Sprintf("Round %v %v", newRandom.Index, INSTANCE.GetInterimOpinion("1")))
+				plugin.LogInfo(fmt.Sprintf("Round %v", newRandom.Index))
 			case finalizedTxs := <-INSTANCE.FinalizedTxsChannel():
 				// if len(finalizedTxs) == 0, an fpc round
 				// ended with no new finalized transactions

@@ -17,7 +17,7 @@ type Fcob struct {
 
 // RunProtocol defines the signature of function
 // implementing the FCoB protocol
-type RunProtocol func(txHash ternary.Trinary)
+type RunProtocol func(txMetadata ternary.Trinary)
 
 // Opinioner is the interface for updating an opinion
 type Opinioner interface {
@@ -43,6 +43,7 @@ func makeRunProtocol(voter fpc.Voter, opinioner Opinioner) RunProtocol {
 		err := opinioner.SetOpinion(txHash, initialOpinion)
 		if err != nil {
 			//TODO: handle error
+			//PLUGIN.LogFailure()
 		}
 		if !initialOpinion.liked() && !initialOpinion.voted() {
 

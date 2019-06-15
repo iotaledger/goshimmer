@@ -1,6 +1,8 @@
 package fcob
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/packages/ternary"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 )
@@ -36,13 +38,19 @@ func (fcobConflict) GetConflictSet(target ternary.Trinary) (conflictSet map[tern
 type dummyConflict struct{}
 
 func (dummyConflict) GetConflictSet(target ternary.Trinary) (conflictSet map[ternary.Trinary]bool) {
+	PLUGIN.LogInfo(fmt.Sprintf("(GetConflictSet) TxHash: %v", target))
+
+	md, _ := tangle.GetTransactionMetadata(target)
+	PLUGIN.LogInfo(fmt.Sprintf("(GetConflictSet) Metadata: %v", md))
+
 	conflictSet = make(map[ternary.Trinary]bool)
 
 	txObject, err := tangle.GetTransaction(target)
 	if err != nil {
 		//TODO: handle error
+		PLUGIN.LogFailure(fmt.Sprintf("txObject: %v", txObject))
 	}
-
+	PLUGIN.LogFailure(fmt.Sprintf("txObject: %v", txObject))
 	conflict := txObject.GetValue()%10 == 0
 	if conflict {
 		conflictSet[target] = true
