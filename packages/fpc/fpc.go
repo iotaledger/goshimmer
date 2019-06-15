@@ -7,8 +7,9 @@ import (
 	"time"
 )
 
-type VoteSubmitter interface {
+type Voter interface {
 	SubmitTxsForVoting(txs ...TxOpinion)
+	CancelTxsFromVoting(txs ...ID)
 }
 
 type VotingDoneNotifier interface {
@@ -17,7 +18,7 @@ type VotingDoneNotifier interface {
 
 // Fpc defines the FPC interface
 type Fpc interface {
-	VoteSubmitter
+	Voter
 	VotingDoneNotifier
 }
 

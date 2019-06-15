@@ -39,6 +39,8 @@ func (s *queryServer) GetOpinion(ctx context.Context, req *pb.QueryRequest) (*pb
 		requestedIDs[i] = fpc.ID(txHash)
 	}
 	myOpinions := s.fpc.GetInterimOpinion(requestedIDs...)
+	// TODO: look for tx opinion into tangle db/cache
+	// also include the check with the solidTimestamp
 	for i := range req.GetTxHash() {
 		opinions[i] = query.QueryReply_Opinion(myOpinions[i])
 	}
