@@ -1,8 +1,6 @@
 package tangle
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
@@ -157,7 +155,6 @@ func processMetaTransaction(plugin *node.Plugin, metaTransaction *meta_transacti
 	var newTransaction bool
 	if tx, err := GetTransaction(metaTransaction.GetHash(), func(transactionHash ternary.Trinary) *value_transaction.ValueTransaction {
 		newTransaction = true
-		fmt.Println("processMetaTransaction - Tx Value:", value_transaction.FromMetaTransaction(metaTransaction))
 		return value_transaction.FromMetaTransaction(metaTransaction)
 	}); err != nil {
 		plugin.LogFailure(err.Error())
