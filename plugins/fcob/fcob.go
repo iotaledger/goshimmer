@@ -28,25 +28,8 @@ type Opinioner interface {
 
 // ConflictChecker is the interface for checking if a given tx has conflicts
 type ConflictChecker interface {
-	Check(tx ternary.Trinary) (fpc.Opinion, []ternary.Trinary)
+	GetConflictSet(target ternary.Trinary) (conflictSet map[ternary.Trinary]bool)
 }
-
-type dummyMetadata struct {
-	like  bool
-	voted bool
-}
-type dummyTransaction struct {
-	txHash         ternary.Trinary
-	branch         ternary.Trinary
-	trunk          ternary.Trinary
-	address        ternary.Trinary
-	metaData       *dummyMetadata
-	solidTimestamp uint64
-}
-
-type dummyConflict struct{}
-
-var dummyTangle map[ternary.Trinary]dummyTransaction
 
 // makeRunProtocol returns a runProtocol function as the
 // FCoB core logic, that uses the given voter and updater interfaces
@@ -84,29 +67,4 @@ func makeRunProtocol(voter fpc.Voter, opinioner Opinioner) RunProtocol {
 			voter.SubmitTxsForVoting(txsToVote...)
 		}
 	}
-}
-
-// TODO: change Check into getConflictSet
-func (dummyConflict) GetConflictSet(target ternary.Trinary) (conflictSet map[ternary.Trinary]bool) {
-	targetAddress := dummyTangle[target].address
-	conflictSet = make(map[ternary.Trinary]bool)
-	conflict := false
-	// In real implementation we don't need to iterate the all tangle
-	// since we can just use the ledger state.
-	for txHash, txObject := range dummyTangle {
-		if targetAddress == txObject.address {
-			if target != txHash { // filter out the same target tx
-				conflictSet[txHash] = true
-				conflict = true
-			}
-		}
-	}
-	if conflict {
-		conflictSet[target] = true
-	}
-	return conflictSet
-}
-
-func dummyCheckConflict(txHash ternary.Trinary) bool {
-	return true
 }

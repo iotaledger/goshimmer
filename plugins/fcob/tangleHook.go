@@ -31,7 +31,6 @@ func (tangleHook) SetOpinion(transactionHash ternary.Trinary, opinion Opinion) (
 func (tangleHook) Decide(txHash ternary.Trinary) (opinion Opinion, conflictSet map[ternary.Trinary]bool) {
 	// Check branch and trunk finalized like status
 	// if at least one is final disliked immidately return dislike FINAL
-	// return fpc.Dislike, true, conflictSet
 	txObject, err := tangle.GetTransaction(txHash)
 	if err != nil {
 		//TODO: handle error

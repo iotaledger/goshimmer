@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/packages/ternary"
 )
@@ -13,46 +14,46 @@ import (
 type mockedVoter struct{}
 
 func (mockedVoter) SubmitTxsForVoting(txs ...fpc.TxOpinion) {}
-
-// mockedMetadata defines the fields updated
-// by an opinion update operation
-type mockedMetadata struct {
-	like  bool
-	final bool
-}
+func (mockedVoter) CancelTxsFromVoting(txs ...fpc.ID)       {}
 
 // mockedUpdater defines the mocked storage
 // to store the txs opinions
-type mockedUpdater struct {
-	storage map[ternary.Trinary]mockedMetadata
+type mockedOpinioner struct {
+	storage map[ternary.Trinary]Opinion
 }
 
-// UpdateOpinion implements a mocked version of the OpinionUpdater interface
-func (m mockedUpdater) UpdateOpinion(txHash ternary.Trinary, opinion fpc.Opinion, final bool) {
-	like := true
-	if opinion == fpc.Dislike {
-		like = false
-	}
-	m.storage[txHash] = mockedMetadata{like, final}
+// implementation of a mocked version of the Opinioner interface
+func (m mockedOpinioner) GetOpinion(transactionHash ternary.Trinary) (opinion Opinion, err errors.IdentifiableError) {
+	return m.storage[transactionHash], nil
+}
+
+func (m mockedOpinioner) SetOpinion(transactionHash ternary.Trinary, opinion Opinion) (err errors.IdentifiableError) {
+	m.storage[transactionHash] = opinion
+	return nil
+}
+
+func (m mockedOpinioner) Decide(txHash ternary.Trinary) (opinion Opinion, conflictSet map[ternary.Trinary]bool) {
+	conflictSet = make(map[ternary.Trinary]bool)
+	return Opinion{fpc.Dislike, false}, conflictSet
 }
 
 // TestRunProtocol tests the FCoB protocol
 func TestRunProtocol(t *testing.T) {
 	type testInput struct {
 		tx       ternary.Trinary
-		expected map[ternary.Trinary]mockedMetadata
+		expected map[ternary.Trinary]Opinion
 	}
 	var tests = []testInput{
 		{
 			tx: ternary.Trinary("1"),
 			// we use the dummyConflictCheck, so it should return false
-			expected: map[ternary.Trinary]mockedMetadata{"1": mockedMetadata{false, false}},
+			expected: map[ternary.Trinary]Opinion{"1": Opinion{fpc.Dislike, false}},
 		},
 	}
 
 	testVoter := mockedVoter{}
-	testUpdater := mockedUpdater{
-		storage: make(map[ternary.Trinary]mockedMetadata),
+	testUpdater := mockedOpinioner{
+		storage: make(map[ternary.Trinary]Opinion),
 	}
 	runProtocol := makeRunProtocol(testVoter, testUpdater)
 
