@@ -38,10 +38,8 @@ func (fcobConflict) GetConflictSet(target ternary.Trinary) (conflictSet map[tern
 type dummyConflict struct{}
 
 func (dummyConflict) GetConflictSet(target ternary.Trinary) (conflictSet map[ternary.Trinary]bool) {
-	PLUGIN.LogInfo(fmt.Sprintf("(GetConflictSet) TxHash: %v", target))
-
 	md, _ := tangle.GetTransactionMetadata(target)
-	PLUGIN.LogInfo(fmt.Sprintf("(GetConflictSet) Metadata: %v", md))
+	PLUGIN.LogInfo(fmt.Sprintf("(GetConflictSet) Metadata: %v", md.GetLiked()))
 
 	conflictSet = make(map[ternary.Trinary]bool)
 
@@ -50,9 +48,9 @@ func (dummyConflict) GetConflictSet(target ternary.Trinary) (conflictSet map[ter
 		//TODO: handle error
 		PLUGIN.LogFailure(fmt.Sprintf("txObject: %v", txObject))
 	}
-	PLUGIN.LogFailure(fmt.Sprintf("txObject: %v", txObject))
 	conflict := txObject.GetValue()%10 == 0
 	if conflict {
+		PLUGIN.LogInfo(fmt.Sprintf("(GetConflictSet) NewConflict: %v", target))
 		conflictSet[target] = true
 	}
 	return conflictSet

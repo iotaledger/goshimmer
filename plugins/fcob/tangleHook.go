@@ -33,25 +33,24 @@ func (tangleHook) SetOpinion(transactionHash ternary.Trinary, opinion Opinion) (
 func (tangleHook) Decide(txHash ternary.Trinary) (opinion Opinion, conflictSet map[ternary.Trinary]bool) {
 	// Check branch and trunk finalized like status
 	// if at least one is final disliked immidately return dislike FINAL
-	// txObject, err := tangle.GetTransaction(txHash)
-	// if err != nil {
-	// 	//TODO: handle error
-	// 	PLUGIN.LogFailure("tangle.GetTransaction(txHash)")
-	// }
-	// branch := txObject.GetBranchTransactionHash()
-	// trunk := txObject.GetBranchTransactionHash()
-	// approvee := []ternary.Trinary{branch, trunk}
-	// for _, child := range approvee {
-	// 	metadata, err := tangle.GetTransactionMetadata(child)
-	// 	if err != nil {
-	// 		//TODO: handle error
-	// 		PLUGIN.LogFailure("tangle.GetTransactionMetadata(child)")
-	// 	}
-	// 	PLUGIN.LogFailure(fmt.Sprintf("metadata: %v, branch: %v, trunk: %v", metadata, branch, trunk))
-	// 	if metadata.GetLiked() == false && metadata.GetFinalized() {
-	// 		return Opinion{fpc.Dislike, true}, conflictSet
-	// 	}
-	// }
+	txObject, err := tangle.GetTransaction(txHash)
+	if err != nil {
+		//TODO: handle error
+		PLUGIN.LogFailure("tangle.GetTransaction(txHash)")
+	}
+	branch := txObject.GetBranchTransactionHash()
+	trunk := txObject.GetBranchTransactionHash()
+	approvee := []ternary.Trinary{branch, trunk}
+	for _, child := range approvee {
+		metadata, err := tangle.GetTransactionMetadata(child)
+		if err != nil {
+			//TODO: handle error
+			PLUGIN.LogFailure("tangle.GetTransactionMetadata(child)")
+		}
+		if metadata != nil && metadata.GetLiked() == false && metadata.GetFinalized() {
+			return Opinion{fpc.Dislike, true}, conflictSet
+		}
+	}
 	PLUGIN.LogInfo(fmt.Sprintf("(decide) TxHash: %v", txHash))
 	conflictSet = dummyConflict{}.GetConflictSet(txHash)
 	if len(conflictSet) > 0 {

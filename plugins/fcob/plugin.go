@@ -27,13 +27,6 @@ func run(plugin *node.Plugin) {
 	// and start an instance of the FCoB protocol
 	tangle.Events.TransactionSolid.Attach(
 		events.NewClosure(func(transaction *value_transaction.ValueTransaction) {
-			//txHash, err := tangle.GetTransactionMetadata(transaction.GetHash())
-			//
-			//plugin.LogInfo(fmt.Sprintf("Tx Value: %v", transaction.GetValue()))
-			tx, _ := tangle.GetTransaction(transaction.GetHash())
-			plugin.LogInfo(fmt.Sprintf("Value tx pointer: %v", transaction))
-			plugin.LogInfo(fmt.Sprintf("Value tx pointer: %v", tx))
-			plugin.LogInfo(fmt.Sprintf("TxHash: %v", transaction.GetHash()))
 			runProtocol(transaction.GetHash())
 		}),
 	)
