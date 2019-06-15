@@ -46,7 +46,7 @@ func TestRunProtocol(t *testing.T) {
 	var tests = []testInput{
 		{
 			tx: ternary.Trinary("1"),
-			// we use the dummyConflictCheck, so it should return false
+			// we use the mockedOpinioner, so it must return false
 			expected: map[ternary.Trinary]Opinion{"1": Opinion{fpc.Dislike, false}},
 		},
 	}

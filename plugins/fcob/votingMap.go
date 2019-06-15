@@ -14,8 +14,8 @@ type VotingnMap struct {
 	internal map[ternary.Trinary]bool
 }
 
-// NewVotingnMap returns a new VotingnMap
-func NewVotingnMap() *VotingnMap {
+// NewVotingMap returns a new VotingnMap
+func NewVotingMap() *VotingnMap {
 	return &VotingnMap{
 		internal: make(map[ternary.Trinary]bool),
 	}

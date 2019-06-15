@@ -35,7 +35,7 @@ type ConflictChecker interface {
 // FCoB core logic, that uses the given voter and updater interfaces
 func makeRunProtocol(voter fpc.Voter, opinioner Opinioner) RunProtocol {
 	// init being voted map
-	beingVoted = NewVotingnMap()
+	beingVoted = NewVotingMap()
 
 	// dummy FCoB logic core
 	return func(txHash ternary.Trinary) {
