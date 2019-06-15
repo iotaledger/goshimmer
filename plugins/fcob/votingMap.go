@@ -21,7 +21,7 @@ func NewVotingMap() *VotingnMap {
 	}
 }
 
-// Len returns the number of txs stored in a new OpinionMap
+// Len returns the number of txs stored in the votingMap
 func (vm *VotingnMap) Len() int {
 	vm.RLock()
 	defer vm.RUnlock()
@@ -39,23 +39,22 @@ func (vm *VotingnMap) GetMap() map[ternary.Trinary]bool {
 	return newMap
 }
 
-// Load returns the opinion for a given ID.
-// It also return a bool to communicate the presence of the given
-// ID into the internal map
+// Load returns the value for a given key.
+// It returns false it the key is not present
 func (vm *VotingnMap) Load(key ternary.Trinary) bool {
 	vm.RLock()
 	defer vm.RUnlock()
 	return vm.internal[key]
 }
 
-// Delete removes the entire entry for a given ID
+// Delete removes the entire entry for a given key
 func (vm *VotingnMap) Delete(key ternary.Trinary) {
 	vm.Lock()
 	defer vm.Unlock()
 	delete(vm.internal, key)
 }
 
-// Store adds a new opinion to the history of a given ID
+// Store adds a new entries to the map
 func (vm *VotingnMap) Store(keys ...ternary.Trinary) {
 	vm.Lock()
 	defer vm.Unlock()
@@ -64,11 +63,11 @@ func (vm *VotingnMap) Store(keys ...ternary.Trinary) {
 	}
 }
 
-// String returns the string rapresentation of OpinionMap
+// String returns the string rapresentation of VotingMap
 func (vm *VotingnMap) String() string {
 	out := ""
-	for k, elem := range vm.GetMap() {
-		out += fmt.Sprintf("tx: %v %v, ", k, elem)
+	for k := range vm.GetMap() {
+		out += fmt.Sprintf("%v\n", k)
 	}
 	return out
 }
