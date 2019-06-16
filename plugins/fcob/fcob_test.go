@@ -2,6 +2,7 @@ package fcob
 
 import (
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/errors"
@@ -32,9 +33,16 @@ func (m mockedOpinioner) SetOpinion(transactionHash ternary.Trinary, opinion Opi
 	return nil
 }
 
-func (m mockedOpinioner) Decide(txHash ternary.Trinary) (opinion Opinion, conflictSet map[ternary.Trinary]bool) {
+func (m mockedOpinioner) Decide(txHash ternary.Trinary) (opinion Opinion, conflictSet map[ternary.Trinary]bool, err errors.IdentifiableError) {
 	conflictSet = make(map[ternary.Trinary]bool)
-	return Opinion{fpc.Dislike, false}, conflictSet
+	txHashInt, _ := strconv.Atoi(string(txHash))
+	switch txHashInt % 2 {
+	case 0:
+		conflictSet[txHash] = true
+		return Opinion{fpc.Dislike, false}, conflictSet, nil
+	default:
+		return Opinion{fpc.Like, false}, conflictSet, nil
+	}
 }
 
 // TestRunProtocol tests the FCoB protocol
@@ -45,20 +53,26 @@ func TestRunProtocol(t *testing.T) {
 	}
 	var tests = []testInput{
 		{
+			tx: ternary.Trinary("2"),
+			// tx is even so it must save dislike
+			expected: map[ternary.Trinary]Opinion{"2": Opinion{fpc.Dislike, false}},
+		},
+		{
 			tx: ternary.Trinary("1"),
-			// we use the mockedOpinioner, so it must return false
-			expected: map[ternary.Trinary]Opinion{"1": Opinion{fpc.Dislike, false}},
+			// tx is odd so it must save like
+			expected: map[ternary.Trinary]Opinion{"1": Opinion{fpc.Like, false}},
 		},
 	}
 
-	testVoter := mockedVoter{}
-	testUpdater := mockedOpinioner{
-		storage: make(map[ternary.Trinary]Opinion),
-	}
-	runProtocol := makeRunProtocol(testVoter, testUpdater)
-
 	for _, test := range tests {
+		testVoter := mockedVoter{}
+		testUpdater := mockedOpinioner{
+			storage: make(map[ternary.Trinary]Opinion),
+		}
+		runProtocol := makeRunProtocol(testVoter, testUpdater)
+
 		runProtocol(test.tx)
+
 		if !reflect.DeepEqual(testUpdater.storage, test.expected) {
 			t.Error("Should return", test.expected, "got", testUpdater.storage, "with input", test)
 		}
