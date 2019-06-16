@@ -17,8 +17,8 @@ type mockedVoter struct{}
 func (mockedVoter) SubmitTxsForVoting(txs ...fpc.TxOpinion) {}
 func (mockedVoter) CancelTxsFromVoting(txs ...fpc.ID)       {}
 
-// mockedUpdater defines the mocked storage
-// to store the txs opinions
+// mockedOpinioner defines the mocked storage to store the txs opinions,
+// and fulfills the Opinioner interface
 type mockedOpinioner struct {
 	storage map[ternary.Trinary]Opinion
 }
