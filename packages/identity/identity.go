@@ -1,7 +1,6 @@
 package identity
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/iotaledger/goshimmer/packages/crypto"
@@ -55,12 +54,11 @@ func (id *Identity) AddSignature(msg []byte) []byte {
 	return data
 }
 
-// Verifies whether the data contains a valid signature of the message. It will
-// panic if len(data) is not long enough to contain data and signature.
-func (id *Identity) VerifySignature(data []byte) bool {
+// Verifies whether the data contains a valid signature of the message.
+func (id *Identity) VerifySignature(data []byte) error {
 	signatureStart := len(data) - SIGNATURE_BYTE_LENGTH
 	if signatureStart <= 0 {
-		panic("identity: bad data length")
+		return ErrInvalidDataLen
 	}
 
 	msg := data[:signatureStart]
@@ -68,22 +66,25 @@ func (id *Identity) VerifySignature(data []byte) bool {
 	// ignore the public key
 	sig := data[signatureStart+ed25519.PublicKeySize:]
 
-	return ed25519.Verify(id.PublicKey, msg, sig)
+	if !ed25519.Verify(id.PublicKey, msg, sig) {
+		return ErrInvalidSignature
+	}
+
+	return nil
 }
 
-// Returns the identitiy derived from the signed message. It will panic if
-// len(data) is not long enough to contain data and signature.
+// Returns the identitiy derived from the signed message.
 func FromSignedData(data []byte) (*Identity, error) {
 	signatureStart := len(data) - SIGNATURE_BYTE_LENGTH
 	if signatureStart <= 0 {
-		panic("identity: bad data length")
+		return nil, ErrInvalidDataLen
 	}
 
 	pubKey := data[signatureStart : signatureStart+ed25519.PublicKeySize]
 
 	identity := NewPublicIdentity(pubKey)
-	if !identity.VerifySignature(data) {
-		return nil, errors.New("identity: invalid signature")
+	if err := identity.VerifySignature(data); err != nil {
+		return nil, err
 	}
 
 	return identity, nil
@@ -100,7 +101,7 @@ func (id *Identity) Marshal() []byte {
 
 func Unmarshal(data []byte) (*Identity, error) {
 	if len(data) != MARSHALLED_IDENTITY_TOTAL_SIZE {
-		return nil, errors.New("identity: bad data length")
+		return nil, ErrInvalidDataLen
 	}
 
 	publicKey := data[MARSHALLED_IDENTITY_PUBLIC_KEY_START:MARSHALLED_IDENTITY_PUBLIC_KEY_END]
