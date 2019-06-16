@@ -21,7 +21,7 @@ type RunProtocol func(txMetadata ternary.Trinary) error
 type Opinioner interface {
 	GetOpinion(transactionHash ternary.Trinary) (opinion Opinion, err errors.IdentifiableError)
 	SetOpinion(transactionHash ternary.Trinary, opinion Opinion) (err errors.IdentifiableError)
-	Decide(txHash ternary.Trinary) (opinion Opinion, conflictSet map[ternary.Trinary]bool)
+	Decide(txHash ternary.Trinary) (opinion Opinion, conflictSet map[ternary.Trinary]bool, err errors.IdentifiableError)
 }
 
 // ConflictChecker is the interface for checking if a given tx has conflicts
@@ -38,7 +38,10 @@ func makeRunProtocol(voter fpc.Voter, opinioner Opinioner) RunProtocol {
 	// dummy FCoB logic core
 	return func(txHash ternary.Trinary) (err error) {
 		// the opinioner decides the initial opinion and the (potential conflict set)
-		initialOpinion, conflictSet := opinioner.Decide(txHash)
+		initialOpinion, conflictSet, err := opinioner.Decide(txHash)
+		if err != nil {
+			return err
+		}
 		err = opinioner.SetOpinion(txHash, initialOpinion)
 		if err != nil {
 			return err

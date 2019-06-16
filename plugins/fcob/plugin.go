@@ -12,9 +12,14 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 )
 
+// PLUGIN is the exposed FCoB plugin
 var PLUGIN = node.NewPlugin("FCOB", configure, run)
 
+// runProtocol is the FCoB core logic function
 var runProtocol RunProtocol
+
+// fcob is an instance of tangleHook, the concrete
+// implementation of the Opinioner interface
 var fcob tangleHook
 
 func configure(plugin *node.Plugin) {
@@ -23,11 +28,17 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-	// subscribe to a new Tx received event
+	// subscribe to a new Tx solid event
 	// and start an instance of the FCoB protocol
 	tangle.Events.TransactionSolid.Attach(
 		events.NewClosure(func(transaction *value_transaction.ValueTransaction) {
-			go runProtocol(transaction.GetHash())
+			// start as a goroutine so that returns immidiately
+			go func() {
+				err := runProtocol(transaction.GetHash())
+				if err != nil {
+					plugin.LogFailure(fmt.Sprint(err))
+				}
+			}()
 		}),
 	)
 
@@ -35,8 +46,9 @@ func run(plugin *node.Plugin) {
 	// and update the related txs opinion
 	fpcP.Events.NewFinalizedTxs.Attach(
 		events.NewClosure(func(txs []fpc.TxOpinion) {
-			plugin.LogInfo(fmt.Sprintf("Finalized Txs: %v", txs))
+			plugin.LogInfo(fmt.Sprintf("Voting Done for txs: %v", txs))
 			for _, tx := range txs {
+				// update "like" and "final" status for all the received txs
 				fcob.SetOpinion(ternary.Trinary(tx.TxHash), Opinion{tx.Opinion, true})
 				//remove finalized txs from beingVoted map
 				beingVoted.Delete(ternary.Trinary(tx.TxHash))
