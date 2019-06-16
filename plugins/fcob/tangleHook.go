@@ -50,7 +50,10 @@ func (tangleHook) Decide(txHash ternary.Trinary) (opinion Opinion, conflictSet m
 		}
 	}
 	// TODO: change dummyConflict with the real conflict checker
-	conflictSet = dummyConflict{}.GetConflictSet(txHash)
+	conflictSet, err = dummyConflict{}.GetConflictSet(txHash)
+	if err != nil {
+		return Opinion{}, conflictSet, err
+	}
 	if len(conflictSet) > 0 {
 		return Opinion{fpc.Dislike, false}, conflictSet, nil
 	}
