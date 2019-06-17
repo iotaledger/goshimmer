@@ -29,11 +29,9 @@ func TestDelete(t *testing.T) {
 		t.Error(err)
 	}
 
-	firstEntry, err := doublyLinkedList.GetFirst()
-	if err != nil {
+	if firstEntry, err := doublyLinkedList.GetFirst(); err != nil {
 		t.Error(err)
-	}
-	if firstEntry != 13 {
+	} else if firstEntry != 13 {
 		t.Error("first entry should be 13 after delete")
 	}
 
@@ -41,11 +39,9 @@ func TestDelete(t *testing.T) {
 		t.Error(err)
 	}
 
-	lastEntry, err := doublyLinkedList.GetLast()
-	if err != nil {
+	if lastEntry, err := doublyLinkedList.GetLast(); err != nil {
 		t.Error(err)
-	}
-	if lastEntry != 15 {
+	} else if lastEntry != 15 {
 		t.Error("last entry should be 15 after delete")
 	}
 

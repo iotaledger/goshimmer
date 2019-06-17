@@ -40,6 +40,4 @@ func init() {
 
 func configure(ctx *node.Plugin) {}
 
-func run(plugin *node.Plugin) {}
-
 var PLUGIN = node.NewPlugin("CLI", configure)

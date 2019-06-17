@@ -8,7 +8,7 @@ import (
 func BytesToString(b []byte) string {
 	bh := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 
-	return *(*string)(unsafe.Pointer(&reflect.StringHeader{bh.Data, bh.Len}))
+	return *(*string)(unsafe.Pointer(&reflect.StringHeader{Data: bh.Data, Len: bh.Len}))
 }
 
 func StringToBytes(str string) []byte {
