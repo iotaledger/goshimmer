@@ -72,7 +72,7 @@ type indentificationStateV1 struct {
 func newIndentificationStateV1(protocol *protocol) *indentificationStateV1 {
 	return &indentificationStateV1{
 		protocol: protocol,
-		buffer:   make([]byte, MARSHALLED_IDENTITY_TOTAL_SIZE),
+		buffer:   make([]byte, MARSHALED_IDENTITY_TOTAL_SIZE),
 		offset:   0,
 	}
 }
@@ -81,7 +81,7 @@ func (state *indentificationStateV1) Receive(data []byte, offset int, length int
 	bytesRead := byteutils.ReadAvailableBytesToBuffer(state.buffer, state.offset, data, offset, length)
 
 	state.offset += bytesRead
-	if state.offset == MARSHALLED_IDENTITY_TOTAL_SIZE {
+	if state.offset == MARSHALED_IDENTITY_TOTAL_SIZE {
 		if receivedIdentity, err := unmarshalIdentity(state.buffer); err != nil {
 			return bytesRead, ErrInvalidAuthenticationMessage.Derive(err, "invalid authentication message")
 		} else {
@@ -125,9 +125,9 @@ func (state *indentificationStateV1) Send(param interface{}) errors.Identifiable
 }
 
 func unmarshalIdentity(data []byte) (*identity.Identity, error) {
-	identifier := data[MARSHALLED_IDENTITY_START:MARSHALLED_IDENTITY_END]
+	identifier := data[MARSHALED_IDENTITY_START:MARSHALED_IDENTITY_END]
 
-	if restoredIdentity, err := identity.FromSignedData(identifier, data[MARSHALLED_IDENTITY_SIGNATURE_START:MARSHALLED_IDENTITY_SIGNATURE_END]); err != nil {
+	if restoredIdentity, err := identity.FromSignedData(identifier, data[MARSHALED_IDENTITY_SIGNATURE_START:MARSHALED_IDENTITY_SIGNATURE_END]); err != nil {
 		return nil, err
 	} else {
 		if bytes.Equal(identifier, restoredIdentity.Identifier) {
@@ -383,16 +383,16 @@ const (
 	DISPATCH_TRANSACTION = byte(1)
 	DISPATCH_REQUEST     = byte(2)
 
-	MARSHALLED_IDENTITY_START           = 0
-	MARSHALLED_IDENTITY_SIGNATURE_START = MARSHALLED_IDENTITY_END
+	MARSHALED_IDENTITY_START           = 0
+	MARSHALED_IDENTITY_SIGNATURE_START = MARSHALED_IDENTITY_END
 
-	MARSHALLED_IDENTITY_SIZE           = 20
-	MARSHALLED_IDENTITY_SIGNATURE_SIZE = 65
+	MARSHALED_IDENTITY_SIZE           = 20
+	MARSHALED_IDENTITY_SIGNATURE_SIZE = 65
 
-	MARSHALLED_IDENTITY_END           = MARSHALLED_IDENTITY_START + MARSHALLED_IDENTITY_SIZE
-	MARSHALLED_IDENTITY_SIGNATURE_END = MARSHALLED_IDENTITY_SIGNATURE_START + MARSHALLED_IDENTITY_SIGNATURE_SIZE
+	MARSHALED_IDENTITY_END           = MARSHALED_IDENTITY_START + MARSHALED_IDENTITY_SIZE
+	MARSHALED_IDENTITY_SIGNATURE_END = MARSHALED_IDENTITY_SIGNATURE_START + MARSHALED_IDENTITY_SIGNATURE_SIZE
 
-	MARSHALLED_IDENTITY_TOTAL_SIZE = MARSHALLED_IDENTITY_SIGNATURE_END
+	MARSHALED_IDENTITY_TOTAL_SIZE = MARSHALED_IDENTITY_SIGNATURE_END
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

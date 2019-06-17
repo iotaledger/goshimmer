@@ -9,7 +9,11 @@ import (
 )
 
 func BenchmarkProcessSimilarTransactionsFiltered(b *testing.B) {
+<<<<<<< HEAD
+	byteArray := setupTransaction(transaction.MARSHALED_TOTAL_SIZE / ternary.NUMBER_OF_TRITS_IN_A_BYTE)
+=======
 	byteArray := setupTransaction(meta_transaction.MARSHALLED_TOTAL_SIZE / ternary.NUMBER_OF_TRITS_IN_A_BYTE)
+>>>>>>> master
 
 	b.ResetTimer()
 
@@ -19,7 +23,11 @@ func BenchmarkProcessSimilarTransactionsFiltered(b *testing.B) {
 }
 
 func BenchmarkProcessSimilarTransactionsUnfiltered(b *testing.B) {
+<<<<<<< HEAD
+	byteArray := setupTransaction(transaction.MARSHALED_TOTAL_SIZE / ternary.NUMBER_OF_TRITS_IN_A_BYTE)
+=======
 	byteArray := setupTransaction(meta_transaction.MARSHALLED_TOTAL_SIZE / ternary.NUMBER_OF_TRITS_IN_A_BYTE)
+>>>>>>> master
 
 	b.ResetTimer()
 

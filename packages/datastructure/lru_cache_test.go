@@ -56,9 +56,16 @@ func TestLRUCache(t *testing.T) {
 		t.Error("'b' should have been dropped")
 	}
 
-	cache.ComputeIfAbsent("tust", func() interface{} {
-		return 1337
-	})
+	{
+		key, value := "test2", 1337
+
+		cache.ComputeIfAbsent(key, func() interface{} {
+			return value
+		})
+		if cache.Get(key) != value {
+			t.Error("'" + key + "' should have been added")
+		}
+	}
 
 	if cache.GetSize() != 5 {
 		t.Error("the size should be 5")

@@ -42,122 +42,122 @@ func NewTransactionMetadata(hash ternary.Trinary) *TransactionMetadata {
 
 // region getters and setters //////////////////////////////////////////////////////////////////////////////////////////
 
-func (metaData *TransactionMetadata) GetHash() ternary.Trinary {
-	metaData.hashMutex.RLock()
-	defer metaData.hashMutex.RUnlock()
+func (metadata *TransactionMetadata) GetHash() ternary.Trinary {
+	metadata.hashMutex.RLock()
+	defer metadata.hashMutex.RUnlock()
 
-	return metaData.hash
+	return metadata.hash
 }
 
-func (metaData *TransactionMetadata) SetHash(hash ternary.Trinary) {
-	metaData.hashMutex.RLock()
-	if metaData.hash != hash {
-		metaData.hashMutex.RUnlock()
-		metaData.hashMutex.Lock()
-		defer metaData.hashMutex.Unlock()
-		if metaData.hash != hash {
-			metaData.hash = hash
+func (metadata *TransactionMetadata) SetHash(hash ternary.Trinary) {
+	metadata.hashMutex.RLock()
+	if metadata.hash != hash {
+		metadata.hashMutex.RUnlock()
+		metadata.hashMutex.Lock()
+		defer metadata.hashMutex.Unlock()
+		if metadata.hash != hash {
+			metadata.hash = hash
 
-			metaData.SetModified(true)
+			metadata.SetModified(true)
 		}
 	} else {
-		metaData.hashMutex.RUnlock()
+		metadata.hashMutex.RUnlock()
 	}
 }
 
-func (metaData *TransactionMetadata) GetReceivedTime() time.Time {
-	metaData.receivedTimeMutex.RLock()
-	defer metaData.receivedTimeMutex.RUnlock()
+func (metadata *TransactionMetadata) GetReceivedTime() time.Time {
+	metadata.receivedTimeMutex.RLock()
+	defer metadata.receivedTimeMutex.RUnlock()
 
-	return metaData.receivedTime
+	return metadata.receivedTime
 }
 
-func (metaData *TransactionMetadata) SetReceivedTime(receivedTime time.Time) {
-	metaData.receivedTimeMutex.RLock()
-	if metaData.receivedTime != receivedTime {
-		metaData.receivedTimeMutex.RUnlock()
-		metaData.receivedTimeMutex.Lock()
-		defer metaData.receivedTimeMutex.Unlock()
-		if metaData.receivedTime != receivedTime {
-			metaData.receivedTime = receivedTime
+func (metadata *TransactionMetadata) SetReceivedTime(receivedTime time.Time) {
+	metadata.receivedTimeMutex.RLock()
+	if metadata.receivedTime != receivedTime {
+		metadata.receivedTimeMutex.RUnlock()
+		metadata.receivedTimeMutex.Lock()
+		defer metadata.receivedTimeMutex.Unlock()
+		if metadata.receivedTime != receivedTime {
+			metadata.receivedTime = receivedTime
 
-			metaData.SetModified(true)
+			metadata.SetModified(true)
 		}
 	} else {
-		metaData.receivedTimeMutex.RUnlock()
+		metadata.receivedTimeMutex.RUnlock()
 	}
 }
 
-func (metaData *TransactionMetadata) GetSolid() bool {
-	metaData.solidMutex.RLock()
-	defer metaData.solidMutex.RUnlock()
+func (metadata *TransactionMetadata) GetSolid() bool {
+	metadata.solidMutex.RLock()
+	defer metadata.solidMutex.RUnlock()
 
-	return metaData.solid
+	return metadata.solid
 }
 
-func (metaData *TransactionMetadata) SetSolid(solid bool) bool {
-	metaData.solidMutex.RLock()
-	if metaData.solid != solid {
-		metaData.solidMutex.RUnlock()
-		metaData.solidMutex.Lock()
-		defer metaData.solidMutex.Unlock()
-		if metaData.solid != solid {
-			metaData.solid = solid
+func (metadata *TransactionMetadata) SetSolid(solid bool) bool {
+	metadata.solidMutex.RLock()
+	if metadata.solid != solid {
+		metadata.solidMutex.RUnlock()
+		metadata.solidMutex.Lock()
+		defer metadata.solidMutex.Unlock()
+		if metadata.solid != solid {
+			metadata.solid = solid
 
-			metaData.SetModified(true)
+			metadata.SetModified(true)
 
 			return true
 		}
 	} else {
-		metaData.solidMutex.RUnlock()
+		metadata.solidMutex.RUnlock()
 	}
 
 	return false
 }
 
-func (metaData *TransactionMetadata) GetLiked() bool {
-	metaData.likedMutex.RLock()
-	defer metaData.likedMutex.RUnlock()
+func (metadata *TransactionMetadata) GetLiked() bool {
+	metadata.likedMutex.RLock()
+	defer metadata.likedMutex.RUnlock()
 
-	return metaData.liked
+	return metadata.liked
 }
 
-func (metaData *TransactionMetadata) SetLiked(liked bool) {
-	metaData.likedMutex.RLock()
-	if metaData.liked != liked {
-		metaData.likedMutex.RUnlock()
-		metaData.likedMutex.Lock()
-		defer metaData.likedMutex.Unlock()
-		if metaData.liked != liked {
-			metaData.liked = liked
+func (metadata *TransactionMetadata) SetLiked(liked bool) {
+	metadata.likedMutex.RLock()
+	if metadata.liked != liked {
+		metadata.likedMutex.RUnlock()
+		metadata.likedMutex.Lock()
+		defer metadata.likedMutex.Unlock()
+		if metadata.liked != liked {
+			metadata.liked = liked
 
-			metaData.SetModified(true)
+			metadata.SetModified(true)
 		}
 	} else {
-		metaData.likedMutex.RUnlock()
+		metadata.likedMutex.RUnlock()
 	}
 }
 
-func (metaData *TransactionMetadata) GetFinalized() bool {
-	metaData.finalizedMutex.RLock()
-	defer metaData.finalizedMutex.RUnlock()
+func (metadata *TransactionMetadata) GetFinalized() bool {
+	metadata.finalizedMutex.RLock()
+	defer metadata.finalizedMutex.RUnlock()
 
-	return metaData.finalized
+	return metadata.finalized
 }
 
-func (metaData *TransactionMetadata) SetFinalized(finalized bool) {
-	metaData.finalizedMutex.RLock()
-	if metaData.finalized != finalized {
-		metaData.finalizedMutex.RUnlock()
-		metaData.finalizedMutex.Lock()
-		defer metaData.finalizedMutex.Unlock()
-		if metaData.finalized != finalized {
-			metaData.finalized = finalized
+func (metadata *TransactionMetadata) SetFinalized(finalized bool) {
+	metadata.finalizedMutex.RLock()
+	if metadata.finalized != finalized {
+		metadata.finalizedMutex.RUnlock()
+		metadata.finalizedMutex.Lock()
+		defer metadata.finalizedMutex.Unlock()
+		if metadata.finalized != finalized {
+			metadata.finalized = finalized
 
-			metaData.SetModified(true)
+			metadata.SetModified(true)
 		}
 	} else {
-		metaData.finalizedMutex.RUnlock()
+		metadata.finalizedMutex.RUnlock()
 	}
 }
 
@@ -179,10 +179,10 @@ func (metadata *TransactionMetadata) SetModified(modified bool) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region marshalling functions ////////////////////////////////////////////////////////////////////////////////////////
+// region marshaling functions ////////////////////////////////////////////////////////////////////////////////////////
 
 func (metadata *TransactionMetadata) Marshal() ([]byte, errors.IdentifiableError) {
-	marshalledMetadata := make([]byte, MARSHALLED_TOTAL_SIZE)
+	marshaledMetadata := make([]byte, MARSHALED_TOTAL_SIZE)
 
 	metadata.receivedTimeMutex.RLock()
 	defer metadata.receivedTimeMutex.RUnlock()
@@ -193,13 +193,13 @@ func (metadata *TransactionMetadata) Marshal() ([]byte, errors.IdentifiableError
 	metadata.finalizedMutex.RLock()
 	defer metadata.finalizedMutex.RUnlock()
 
-	copy(marshalledMetadata[MARSHALLED_HASH_START:MARSHALLED_HASH_END], metadata.hash.CastToBytes())
+	copy(marshaledMetadata[MARSHALED_HASH_START:MARSHALED_HASH_END], metadata.hash.CastToBytes())
 
-	marshalledReceivedTime, err := metadata.receivedTime.MarshalBinary()
+	marshaledReceivedTime, err := metadata.receivedTime.MarshalBinary()
 	if err != nil {
 		return nil, ErrMarshallFailed.Derive(err, "failed to marshal received time")
 	}
-	copy(marshalledMetadata[MARSHALLED_RECEIVED_TIME_START:MARSHALLED_RECEIVED_TIME_END], marshalledReceivedTime)
+	copy(marshaledMetadata[MARSHALED_RECEIVED_TIME_START:MARSHALED_RECEIVED_TIME_END], marshaledReceivedTime)
 
 	var booleanFlags bitutils.BitMask
 	if metadata.solid {
@@ -211,9 +211,9 @@ func (metadata *TransactionMetadata) Marshal() ([]byte, errors.IdentifiableError
 	if metadata.finalized {
 		booleanFlags = booleanFlags.SetFlag(2)
 	}
-	marshalledMetadata[MARSHALLED_FLAGS_START] = byte(booleanFlags)
+	marshaledMetadata[MARSHALED_FLAGS_START] = byte(booleanFlags)
 
-	return marshalledMetadata, nil
+	return marshaledMetadata, nil
 }
 
 func (metadata *TransactionMetadata) Unmarshal(data []byte) errors.IdentifiableError {
@@ -228,13 +228,13 @@ func (metadata *TransactionMetadata) Unmarshal(data []byte) errors.IdentifiableE
 	metadata.finalizedMutex.Lock()
 	defer metadata.finalizedMutex.Unlock()
 
-	metadata.hash = ternary.Trinary(typeutils.BytesToString(data[MARSHALLED_HASH_START:MARSHALLED_HASH_END]))
+	metadata.hash = ternary.Trinary(typeutils.BytesToString(data[MARSHALED_HASH_START:MARSHALED_HASH_END]))
 
-	if err := metadata.receivedTime.UnmarshalBinary(data[MARSHALLED_RECEIVED_TIME_START:MARSHALLED_RECEIVED_TIME_END]); err != nil {
+	if err := metadata.receivedTime.UnmarshalBinary(data[MARSHALED_RECEIVED_TIME_START:MARSHALED_RECEIVED_TIME_END]); err != nil {
 		return ErrUnmarshalFailed.Derive(err, "could not unmarshal the received time")
 	}
 
-	booleanFlags := bitutils.BitMask(data[MARSHALLED_FLAGS_START])
+	booleanFlags := bitutils.BitMask(data[MARSHALED_FLAGS_START])
 	if booleanFlags.HasFlag(0) {
 		metadata.solid = true
 	}
@@ -257,19 +257,19 @@ func (metadata *TransactionMetadata) Unmarshal(data []byte) errors.IdentifiableE
 // region constants and variables //////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	MARSHALLED_HASH_START          = 0
-	MARSHALLED_RECEIVED_TIME_START = MARSHALLED_HASH_END
-	MARSHALLED_FLAGS_START         = MARSHALLED_RECEIVED_TIME_END
+	MARSHALED_HASH_START          = 0
+	MARSHALED_RECEIVED_TIME_START = MARSHALED_HASH_END
+	MARSHALED_FLAGS_START         = MARSHALED_RECEIVED_TIME_END
 
-	MARSHALLED_HASH_END          = MARSHALLED_HASH_START + MARSHALLED_HASH_SIZE
-	MARSHALLED_RECEIVED_TIME_END = MARSHALLED_RECEIVED_TIME_START + MARSHALLED_RECEIVED_TIME_SIZE
-	MARSHALLED_FLAGS_END         = MARSHALLED_FLAGS_START + MARSHALLED_FLAGS_SIZE
+	MARSHALED_HASH_END          = MARSHALED_HASH_START + MARSHALED_HASH_SIZE
+	MARSHALED_RECEIVED_TIME_END = MARSHALED_RECEIVED_TIME_START + MARSHALED_RECEIVED_TIME_SIZE
+	MARSHALED_FLAGS_END         = MARSHALED_FLAGS_START + MARSHALED_FLAGS_SIZE
 
-	MARSHALLED_HASH_SIZE          = 81
-	MARSHALLED_RECEIVED_TIME_SIZE = 15
-	MARSHALLED_FLAGS_SIZE         = 1
+	MARSHALED_HASH_SIZE          = 81
+	MARSHALED_RECEIVED_TIME_SIZE = 15
+	MARSHALED_FLAGS_SIZE         = 1
 
-	MARSHALLED_TOTAL_SIZE = MARSHALLED_FLAGS_END
+	MARSHALED_TOTAL_SIZE = MARSHALED_FLAGS_END
 )
 
 // endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
