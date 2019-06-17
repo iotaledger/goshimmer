@@ -32,7 +32,7 @@ func run(plugin *node.Plugin) {
 	// and start an instance of the FCoB protocol
 	tangle.Events.TransactionSolid.Attach(
 		events.NewClosure(func(transaction *value_transaction.ValueTransaction) {
-			// start as a goroutine so that returns immidiately
+			// start as a goroutine so that immidiately returns
 			go func() {
 				err := runProtocol(transaction.GetHash())
 				if err != nil {
