@@ -91,21 +91,21 @@ func FromSignedData(data []byte) (*Identity, error) {
 }
 
 func (id *Identity) Marshal() []byte {
-	data := make([]byte, MARSHALLED_IDENTITY_TOTAL_SIZE)
+	data := make([]byte, MARSHALED_IDENTITY_TOTAL_SIZE)
 
-	copy(data[MARSHALLED_IDENTITY_PUBLIC_KEY_START:MARSHALLED_IDENTITY_PUBLIC_KEY_END], id.PublicKey)
-	copy(data[MARSHALLED_IDENTITY_PRIVATE_KEY_START:MARSHALLED_IDENTITY_PRIVATE_KEY_END], id.privateKey)
+	copy(data[MARSHALED_IDENTITY_PUBLIC_KEY_START:MARSHALED_IDENTITY_PUBLIC_KEY_END], id.PublicKey)
+	copy(data[MARSHALED_IDENTITY_PRIVATE_KEY_START:MARSHALED_IDENTITY_PRIVATE_KEY_END], id.privateKey)
 
 	return data
 }
 
 func Unmarshal(data []byte) (*Identity, error) {
-	if len(data) != MARSHALLED_IDENTITY_TOTAL_SIZE {
+	if len(data) != MARSHALED_IDENTITY_TOTAL_SIZE {
 		return nil, ErrInvalidDataLen
 	}
 
-	publicKey := data[MARSHALLED_IDENTITY_PUBLIC_KEY_START:MARSHALLED_IDENTITY_PUBLIC_KEY_END]
-	privateKey := data[MARSHALLED_IDENTITY_PRIVATE_KEY_START:MARSHALLED_IDENTITY_PRIVATE_KEY_END]
+	publicKey := data[MARSHALED_IDENTITY_PUBLIC_KEY_START:MARSHALED_IDENTITY_PUBLIC_KEY_END]
+	privateKey := data[MARSHALED_IDENTITY_PRIVATE_KEY_START:MARSHALED_IDENTITY_PRIVATE_KEY_END]
 
 	return newPrivateIdentity(publicKey, privateKey), nil
 }
