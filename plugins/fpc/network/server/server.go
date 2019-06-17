@@ -31,6 +31,7 @@ func newServer(fpc *fpc.Instance) *queryServer {
 }
 
 // GetOpinion returns the opinions of the given txs.
+// Currently, we only look for opinions by calling fpc.GetInterimOpinion
 func (s *queryServer) GetOpinion(ctx context.Context, req *pb.QueryRequest) (*pb.QueryReply, error) {
 	opinions := make([]pb.QueryReply_Opinion, len(req.GetTxHash()))
 	// converting QueryRequest strings to fpc.ID
