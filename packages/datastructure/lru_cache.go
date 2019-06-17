@@ -2,6 +2,8 @@ package datastructure
 
 import (
 	"sync"
+
+	"github.com/iotaledger/goshimmer/packages/typeutils"
 )
 
 type lruCacheElement struct {
@@ -101,7 +103,7 @@ func (cache *LRUCache) ComputeIfPresent(key interface{}, callback func(value int
 	if entry, exists := cache.directory[key]; exists {
 		result = entry.GetValue().(*lruCacheElement).value
 
-		if callbackResult := callback(result); result != nil {
+		if callbackResult := callback(result); !typeutils.IsInterfaceNil(callbackResult) {
 			result = callbackResult
 
 			cache.set(key, callbackResult)

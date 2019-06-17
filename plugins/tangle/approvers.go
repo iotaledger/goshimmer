@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/datastructure"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/ternary"
-	"github.com/iotaledger/goshimmer/packages/typeconversion"
+	"github.com/iotaledger/goshimmer/packages/typeutils"
 )
 
 // region global public api ////////////////////////////////////////////////////////////////////////////////////////////
@@ -132,13 +132,13 @@ func (approvers *Approvers) Unmarshal(data []byte) (err errors.IdentifiableError
 
 	approvers.hashesMutex.Lock()
 
-	approvers.hash = ternary.Trinary(typeconversion.BytesToString(data[MARSHALLED_APPROVERS_HASH_START:MARSHALLED_APPROVERS_HASH_END]))
+	approvers.hash = ternary.Trinary(typeutils.BytesToString(data[MARSHALLED_APPROVERS_HASH_START:MARSHALLED_APPROVERS_HASH_END]))
 	approvers.hashes = make(map[ternary.Trinary]bool, hashesCount)
 	for i := uint64(0); i < hashesCount; i++ {
 		var HASH_START = MARSHALLED_APPROVERS_HASHES_START + i*(MARSHALLED_APPROVERS_HASH_SIZE)
 		var HASH_END = HASH_START * MARSHALLED_APPROVERS_HASH_SIZE
 
-		approvers.hashes[ternary.Trinary(typeconversion.BytesToString(data[HASH_START:HASH_END]))] = true
+		approvers.hashes[ternary.Trinary(typeutils.BytesToString(data[HASH_START:HASH_END]))] = true
 	}
 
 	approvers.hashesMutex.Unlock()

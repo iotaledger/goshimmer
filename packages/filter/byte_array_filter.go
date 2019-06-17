@@ -3,7 +3,7 @@ package filter
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/typeconversion"
+	"github.com/iotaledger/goshimmer/packages/typeutils"
 )
 
 type ByteArrayFilter struct {
@@ -25,20 +25,20 @@ func (filter *ByteArrayFilter) Contains(byteArray []byte) bool {
 	filter.mutex.RLock()
 	defer filter.mutex.RUnlock()
 
-	_, exists := filter.byteArraysByKey[typeconversion.BytesToString(byteArray)]
+	_, exists := filter.byteArraysByKey[typeutils.BytesToString(byteArray)]
 
 	return exists
 }
 
 func (filter *ByteArrayFilter) Add(byteArray []byte) bool {
-	key := typeconversion.BytesToString(byteArray)
+	key := typeutils.BytesToString(byteArray)
 
 	filter.mutex.Lock()
 	defer filter.mutex.Unlock()
 
 	if _, exists := filter.byteArraysByKey[key]; !exists {
 		if len(filter.byteArrays) == filter.size {
-			delete(filter.byteArraysByKey, typeconversion.BytesToString(filter.byteArrays[0]))
+			delete(filter.byteArraysByKey, typeutils.BytesToString(filter.byteArrays[0]))
 
 			filter.byteArrays = append(filter.byteArrays[1:], byteArray)
 		} else {

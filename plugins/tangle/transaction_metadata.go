@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/bitutils"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/ternary"
-	"github.com/iotaledger/goshimmer/packages/typeconversion"
+	"github.com/iotaledger/goshimmer/packages/typeutils"
 )
 
 // region type definition and constructor //////////////////////////////////////////////////////////////////////////////
@@ -228,7 +228,7 @@ func (metadata *TransactionMetadata) Unmarshal(data []byte) errors.IdentifiableE
 	metadata.finalizedMutex.Lock()
 	defer metadata.finalizedMutex.Unlock()
 
-	metadata.hash = ternary.Trinary(typeconversion.BytesToString(data[MARSHALLED_HASH_START:MARSHALLED_HASH_END]))
+	metadata.hash = ternary.Trinary(typeutils.BytesToString(data[MARSHALLED_HASH_START:MARSHALLED_HASH_END]))
 
 	if err := metadata.receivedTime.UnmarshalBinary(data[MARSHALLED_RECEIVED_TIME_START:MARSHALLED_RECEIVED_TIME_END]); err != nil {
 		return ErrUnmarshalFailed.Derive(err, "could not unmarshal the received time")

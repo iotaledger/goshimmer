@@ -150,7 +150,7 @@ var connectedNeighborsMutex sync.RWMutex
 var sendQueue = make(chan *meta_transaction.MetaTransaction, SEND_QUEUE_SIZE)
 
 const (
-	SEND_QUEUE_SIZE = 500
+	SEND_QUEUE_SIZE = 50000
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
