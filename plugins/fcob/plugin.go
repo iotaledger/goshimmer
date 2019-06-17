@@ -44,7 +44,7 @@ func run(plugin *node.Plugin) {
 
 	// subscribe to a new VotingDone event
 	// and update the related txs opinion
-	fpcP.Events.NewFinalizedTxs.Attach(
+	fpcP.Events.VotingDone.Attach(
 		events.NewClosure(func(txs []fpc.TxOpinion) {
 			plugin.LogInfo(fmt.Sprintf("Voting Done for txs: %v", txs))
 			for _, tx := range txs {
