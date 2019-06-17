@@ -3,6 +3,7 @@ package peerstorage
 import (
 	"bytes"
 	"strconv"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/events"
@@ -14,6 +15,7 @@ import (
 const peerDbName string = "peers"
 
 var peerDb database.Database
+var once sync.Once
 
 func initDb() {
 	db, err := database.Get(peerDbName)
@@ -24,15 +26,21 @@ func initDb() {
 	peerDb = db
 }
 
+func getDb() database.Database {
+	once.Do(initDb)
+
+	return peerDb
+}
+
 func storePeer(p *peer.Peer) {
-	err := peerDb.Set(p.Identity.Identifier, p.Marshal())
+	err := getDb().Set(p.Identity.Identifier, p.Marshal())
 	if err != nil {
 		panic(err)
 	}
 }
 
 func removePeer(p *peer.Peer) {
-	err := peerDb.Delete(p.Identity.Identifier)
+	err := getDb().Delete(p.Identity.Identifier)
 	if err != nil {
 		panic(err)
 	}
@@ -41,7 +49,7 @@ func removePeer(p *peer.Peer) {
 func loadPeers(plugin *node.Plugin) {
 	var count int
 
-	err := peerDb.ForEach(func(key []byte, value []byte) {
+	err := getDb().ForEach(func(key []byte, value []byte) {
 		peer, err := peer.Unmarshal(value)
 		if err != nil {
 			panic(err)
@@ -63,8 +71,6 @@ func loadPeers(plugin *node.Plugin) {
 }
 
 func Configure(plugin *node.Plugin) {
-	initDb()
-
 	// do not store the entry nodes by ignoring all peers currently contained in konwnpeers
 	// add peers from db
 	loadPeers(plugin)
