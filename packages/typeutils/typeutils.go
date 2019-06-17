@@ -1,4 +1,4 @@
-package typeconversion
+package typeutils
 
 import (
 	"reflect"
@@ -15,4 +15,8 @@ func StringToBytes(str string) []byte {
 	hdr := (*reflect.StringHeader)(unsafe.Pointer(&str))
 
 	return *(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{Data: hdr.Data, Len: hdr.Len, Cap: hdr.Len}))
+}
+
+func IsInterfaceNil(param interface{}) bool {
+	return param == nil || (*[2]uintptr)(unsafe.Pointer(&param))[1] == 0
 }

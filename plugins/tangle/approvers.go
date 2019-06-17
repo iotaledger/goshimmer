@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/datastructure"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/ternary"
-	"github.com/iotaledger/goshimmer/packages/typeconversion"
+	"github.com/iotaledger/goshimmer/packages/typeutils"
 )
 
 // region global public api ////////////////////////////////////////////////////////////////////////////////////////////
@@ -23,12 +23,12 @@ func StoreApprovers(approvers *Approvers) {
 }
 
 func GetApprovers(transactionHash ternary.Trinary, computeIfAbsent ...func(ternary.Trinary) *Approvers) (result *Approvers, err errors.IdentifiableError) {
-	if approvers := approversCache.ComputeIfAbsent(transactionHash, func() (result interface{}) {
-		if result, err = getApproversFromDatabase(transactionHash); err == nil && (result.(*Approvers) == nil) && len(computeIfAbsent) >= 1 {
+	if approvers := approversCache.ComputeIfAbsent(transactionHash, func() interface{} {
+		if result, err = getApproversFromDatabase(transactionHash); err == nil && result == nil && len(computeIfAbsent) >= 1 {
 			result = computeIfAbsent[0](transactionHash)
 		}
 
-		return
+		return result
 	}); approvers != nil && approvers.(*Approvers) != nil {
 		result = approvers.(*Approvers)
 	}
@@ -132,13 +132,13 @@ func (approvers *Approvers) Unmarshal(data []byte) (err errors.IdentifiableError
 
 	approvers.hashesMutex.Lock()
 
-	approvers.hash = ternary.Trinary(typeconversion.BytesToString(data[MARSHALED_APPROVERS_HASH_START:MARSHALED_APPROVERS_HASH_END]))
+	approvers.hash = ternary.Trinary(typeutils.BytesToString(data[MARSHALED_APPROVERS_HASH_START:MARSHALED_APPROVERS_HASH_END]))
 	approvers.hashes = make(map[ternary.Trinary]bool, hashesCount)
 	for i := uint64(0); i < hashesCount; i++ {
 		var HASH_START = MARSHALED_APPROVERS_HASHES_START + i*(MARSHALED_APPROVERS_HASH_SIZE)
 		var HASH_END = HASH_START * MARSHALED_APPROVERS_HASH_SIZE
 
-		approvers.hashes[ternary.Trinary(typeconversion.BytesToString(data[HASH_START:HASH_END]))] = true
+		approvers.hashes[ternary.Trinary(typeutils.BytesToString(data[HASH_START:HASH_END]))] = true
 	}
 
 	approvers.hashesMutex.Unlock()
@@ -201,9 +201,7 @@ func (approvers *Approvers) Store(approverHash ternary.Trinary) {
 func getApproversFromDatabase(transactionHash ternary.Trinary) (result *Approvers, err errors.IdentifiableError) {
 	approversData, dbErr := approversDatabase.Get(transactionHash.CastToBytes())
 	if dbErr != nil {
-		if dbErr == badger.ErrKeyNotFound {
-			err = nil
-		} else {
+		if dbErr != badger.ErrKeyNotFound {
 			err = ErrDatabaseError.Derive(err, "failed to retrieve transaction")
 		}
 

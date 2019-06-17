@@ -9,8 +9,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/identity"
+	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/ternary"
-	"github.com/iotaledger/goshimmer/packages/transaction"
 )
 
 // region protocolV1 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -45,7 +45,7 @@ func protocolV1(protocol *protocol) errors.IdentifiableError {
 	return nil
 }
 
-func sendTransactionV1(protocol *protocol, tx *transaction.Transaction) {
+func sendTransactionV1(protocol *protocol, tx *meta_transaction.MetaTransaction) {
 	if _, ok := protocol.SendState.(*dispatchStateV1); ok {
 		protocol.sendMutex.Lock()
 		defer protocol.sendMutex.Unlock()
@@ -303,7 +303,7 @@ type transactionStateV1 struct {
 func newTransactionStateV1(protocol *protocol) *transactionStateV1 {
 	return &transactionStateV1{
 		protocol: protocol,
-		buffer:   make([]byte, transaction.MARSHALED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE),
+		buffer:   make([]byte, meta_transaction.MARSHALLED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE),
 		offset:   0,
 	}
 }
@@ -312,10 +312,10 @@ func (state *transactionStateV1) Receive(data []byte, offset int, length int) (i
 	bytesRead := byteutils.ReadAvailableBytesToBuffer(state.buffer, state.offset, data, offset, length)
 
 	state.offset += bytesRead
-	if state.offset == transaction.MARSHALED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE {
+	if state.offset == meta_transaction.MARSHALLED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE {
 		protocol := state.protocol
 
-		transactionData := make([]byte, transaction.MARSHALED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE)
+		transactionData := make([]byte, meta_transaction.MARSHALLED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE)
 		copy(transactionData, state.buffer)
 
 		protocol.Events.ReceiveTransactionData.Trigger(transactionData)
@@ -330,10 +330,10 @@ func (state *transactionStateV1) Receive(data []byte, offset int, length int) (i
 }
 
 func (state *transactionStateV1) Send(param interface{}) errors.IdentifiableError {
-	if tx, ok := param.(*transaction.Transaction); ok {
+	if tx, ok := param.(*meta_transaction.MetaTransaction); ok {
 		protocol := state.protocol
 
-		if _, err := protocol.Conn.Write(tx.Bytes); err != nil {
+		if _, err := protocol.Conn.Write(tx.GetBytes()); err != nil {
 			return ErrSendFailed.Derive(err, "failed to send transaction")
 		}
 

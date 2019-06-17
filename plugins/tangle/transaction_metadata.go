@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/bitutils"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/ternary"
-	"github.com/iotaledger/goshimmer/packages/typeconversion"
+	"github.com/iotaledger/goshimmer/packages/typeutils"
 )
 
 // region type definition and constructor //////////////////////////////////////////////////////////////////////////////
@@ -228,7 +228,7 @@ func (metadata *TransactionMetadata) Unmarshal(data []byte) errors.IdentifiableE
 	metadata.finalizedMutex.Lock()
 	defer metadata.finalizedMutex.Unlock()
 
-	metadata.hash = ternary.Trinary(typeconversion.BytesToString(data[MARSHALED_HASH_START:MARSHALED_HASH_END]))
+	metadata.hash = ternary.Trinary(typeutils.BytesToString(data[MARSHALED_HASH_START:MARSHALED_HASH_END]))
 
 	if err := metadata.receivedTime.UnmarshalBinary(data[MARSHALED_RECEIVED_TIME_START:MARSHALED_RECEIVED_TIME_END]); err != nil {
 		return ErrUnmarshalFailed.Derive(err, "could not unmarshal the received time")
@@ -251,23 +251,6 @@ func (metadata *TransactionMetadata) Unmarshal(data []byte) errors.IdentifiableE
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region database functions ///////////////////////////////////////////////////////////////////////////////////////////
-
-func (metadata *TransactionMetadata) Store() errors.IdentifiableError {
-	if metadata.GetModified() {
-		marshaledMetadata, err := metadata.Marshal()
-		if err != nil {
-			return err
-		}
-
-		if err := transactionMetadataDatabase.Set(metadata.GetHash().CastToBytes(), marshaledMetadata); err != nil {
-			return ErrDatabaseError.Derive(err, "failed to store the transaction")
-		}
-
-		metadata.SetModified(false)
-	}
-
-	return nil
-}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

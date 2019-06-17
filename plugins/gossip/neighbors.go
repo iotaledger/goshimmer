@@ -199,7 +199,7 @@ func AddNeighbor(newNeighbor *Neighbor) {
 			neighbor.Port = newNeighbor.Port
 			neighbor.Address = newNeighbor.Address
 
-			Events.UpdateNeighbor.Trigger(newNeighbor)
+			Events.UpdateNeighbor.Trigger(neighbor)
 		}
 	}
 }

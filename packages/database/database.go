@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/options"
 )
 
 var databasesByName = make(map[string]*databaseImpl)
@@ -58,6 +59,7 @@ func (this *databaseImpl) Open() error {
 		opts.ValueDir = opts.Dir
 		opts.Logger = &logger{}
 		opts.Truncate = true
+		opts.TableLoadingMode = options.MemoryMap
 
 		db, err := badger.Open(opts)
 		if err != nil {
