@@ -17,7 +17,7 @@ type Approvers struct {
 	modified    bool
 }
 
-func NewApprovers(hash ternary.Trinary) *Approvers {
+func New(hash ternary.Trinary) *Approvers {
 	return &Approvers{
 		hash:     hash,
 		hashes:   make(map[ternary.Trinary]bool),

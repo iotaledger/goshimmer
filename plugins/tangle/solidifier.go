@@ -3,6 +3,7 @@ package tangle
 import (
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/goshimmer/packages/model/approvers"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
@@ -130,7 +131,7 @@ func IsSolid(transaction *value_transaction.ValueTransaction) (bool, errors.Iden
 }
 
 func propagateSolidity(transactionHash ternary.Trinary) errors.IdentifiableError {
-	if approvers, err := GetApprovers(transactionHash, NewApprovers); err != nil {
+	if approvers, err := GetApprovers(transactionHash, approvers.New); err != nil {
 		return err
 	} else {
 		for _, approverHash := range approvers.GetHashes() {
@@ -168,7 +169,7 @@ func processTransaction(plugin *node.Plugin, transaction *value_transaction.Valu
 	transactionHash := transaction.GetHash()
 
 	// register tx as approver for trunk
-	if trunkApprovers, err := GetApprovers(transaction.GetTrunkTransactionHash(), NewApprovers); err != nil {
+	if trunkApprovers, err := GetApprovers(transaction.GetTrunkTransactionHash(), approvers.New); err != nil {
 		plugin.LogFailure(err.Error())
 
 		return
@@ -177,7 +178,7 @@ func processTransaction(plugin *node.Plugin, transaction *value_transaction.Valu
 	}
 
 	// register tx as approver for branch
-	if branchApprovers, err := GetApprovers(transaction.GetBranchTransactionHash(), NewApprovers); err != nil {
+	if branchApprovers, err := GetApprovers(transaction.GetBranchTransactionHash(), approvers.New); err != nil {
 		plugin.LogFailure(err.Error())
 
 		return
