@@ -6,9 +6,9 @@ import (
 )
 
 type fpcEvents struct {
-	NewFinalizedTxs *events.Event
+	VotingDone *events.Event
 }
 
-func newFinalizedTxsCaller(handler interface{}, params ...interface{}) {
+func votingDoneCaller(handler interface{}, params ...interface{}) {
 	handler.(func([]fpc.TxOpinion))(params[0].([]fpc.TxOpinion))
 }
