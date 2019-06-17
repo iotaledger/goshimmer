@@ -21,7 +21,7 @@ var Events fpcEvents
 
 func configureFPC(plugin *node.Plugin) {
 	INSTANCE = fpc.New(network.GetKnownPeers, network.QueryNode, fpc.NewParameters())
-	Events.NewFinalizedTxs = events.NewEvent(newFinalizedTxsCaller)
+	Events.VotingDone = events.NewEvent(votingDoneCaller)
 }
 
 func runFPC(plugin *node.Plugin) {
@@ -41,7 +41,7 @@ func runFPC(plugin *node.Plugin) {
 				// if len(finalizedTxs) == 0, an fpc round
 				// ended with no new finalized transactions
 				if len(finalizedTxs) > 0 {
-					Events.NewFinalizedTxs.Trigger(finalizedTxs)
+					Events.VotingDone.Trigger(finalizedTxs)
 					plugin.LogInfo(fmt.Sprintf("Finalized txs %v", finalizedTxs))
 				}
 			case <-daemon.ShutdownSignal:
