@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/ternary"
 	fpcP "github.com/iotaledger/goshimmer/plugins/fpc"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 )
 
@@ -23,9 +22,9 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-	// subscribe to a new Tx received event
+	// subscribe to a new solidified Tx received event
 	// and start an instance of the FCoB protocol
-	gossip.Events.ReceiveTransaction.Attach(
+	tangle.Events.TransactionSolid.Attach(
 		events.NewClosure(func(transaction *tangle.Transaction) {
 			runProtocol(transaction.GetHash())
 		}),
