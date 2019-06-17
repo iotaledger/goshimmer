@@ -4,12 +4,12 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/ternary"
-	"github.com/iotaledger/goshimmer/packages/transaction"
 )
 
 func BenchmarkProcessSimilarTransactionsFiltered(b *testing.B) {
-	byteArray := setupTransaction(transaction.MARSHALLED_TOTAL_SIZE / ternary.NUMBER_OF_TRITS_IN_A_BYTE)
+	byteArray := setupTransaction(meta_transaction.MARSHALLED_TOTAL_SIZE / ternary.NUMBER_OF_TRITS_IN_A_BYTE)
 
 	b.ResetTimer()
 
@@ -19,7 +19,7 @@ func BenchmarkProcessSimilarTransactionsFiltered(b *testing.B) {
 }
 
 func BenchmarkProcessSimilarTransactionsUnfiltered(b *testing.B) {
-	byteArray := setupTransaction(transaction.MARSHALLED_TOTAL_SIZE / ternary.NUMBER_OF_TRITS_IN_A_BYTE)
+	byteArray := setupTransaction(meta_transaction.MARSHALLED_TOTAL_SIZE / ternary.NUMBER_OF_TRITS_IN_A_BYTE)
 
 	b.ResetTimer()
 
@@ -29,7 +29,7 @@ func BenchmarkProcessSimilarTransactionsUnfiltered(b *testing.B) {
 		wg.Add(1)
 
 		go func() {
-			Events.ReceiveTransaction.Trigger(transaction.FromBytes(byteArray))
+			Events.ReceiveTransaction.Trigger(meta_transaction.FromBytes(byteArray))
 
 			wg.Done()
 		}()

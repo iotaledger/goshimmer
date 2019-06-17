@@ -1,6 +1,8 @@
 package ternary
 
-import "bytes"
+import (
+	"bytes"
+)
 
 const (
 	NUMBER_OF_TRITS_IN_A_BYTE  = 5
@@ -109,6 +111,58 @@ func BytesToTrits(bytes []byte) Trits {
 	}
 
 	return trits
+}
+
+func Int64ToTrits(value int64) (result Trits) {
+	negative := value < 0
+	shiftedValue := value >> 63
+	valueAbs := (value ^ shiftedValue) - shiftedValue
+
+	for valueAbs != 0 {
+		trit := Trit((valueAbs+1)%3 - 1)
+		if negative {
+			trit = -trit
+		}
+		result = append(result, trit)
+		valueAbs++
+		valueAbs /= 3
+	}
+
+	for i := len(result); i < 81; i++ {
+		result = append(result, 0)
+	}
+
+	return
+}
+
+func UintToTrits(value uint) (result Trits) {
+	for value != 0 {
+		trit := Trit((value+1)%3 - 1)
+		result = append(result, trit)
+		value++
+		value /= 3
+	}
+
+	for i := len(result); i < 27; i++ {
+		result = append(result, 0)
+	}
+
+	return
+}
+
+func Uint64ToTrits(value uint64) (result Trits) {
+	for value != 0 {
+		trit := Trit((value+1)%3 - 1)
+		result = append(result, trit)
+		value++
+		value /= 3
+	}
+
+	for i := len(result); i < 81; i++ {
+		result = append(result, 0)
+	}
+
+	return
 }
 
 func TritsToString(trits Trits, offset int, size int) string {

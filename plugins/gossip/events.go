@@ -4,8 +4,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/identity"
+	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/transaction"
 )
 
 var Events = pluginEvents{
@@ -93,5 +93,5 @@ func dataCaller(handler interface{}, params ...interface{}) {
 }
 
 func transactionCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*transaction.Transaction))(params[0].(*transaction.Transaction))
+	handler.(func(*meta_transaction.MetaTransaction))(params[0].(*meta_transaction.MetaTransaction))
 }

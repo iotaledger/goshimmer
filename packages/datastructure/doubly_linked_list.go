@@ -238,21 +238,25 @@ func (list *DoublyLinkedList) removeEntry(entry *DoublyLinkedListEntry) errors.I
 		return ErrNoSuchElement.Derive("the entry is not part of the list")
 	}
 
+	prevEntry := entry.GetPrev()
 	nextEntry := entry.GetNext()
+
 	if nextEntry != nil {
-		nextEntry.SetPrev(entry.GetPrev())
+		nextEntry.SetPrev(prevEntry)
 	}
 	if list.head == entry {
 		list.head = nextEntry
 	}
 
-	prevEntry := entry.GetPrev()
 	if prevEntry != nil {
-		prevEntry.SetNext(entry.GetNext())
+		prevEntry.SetNext(nextEntry)
 	}
 	if list.tail == entry {
 		list.tail = prevEntry
 	}
+
+	entry.SetNext(nil)
+	entry.SetPrev(nil)
 
 	list.count--
 

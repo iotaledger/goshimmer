@@ -14,14 +14,23 @@ type LRUCache struct {
 	doublyLinkedList *DoublyLinkedList
 	capacity         int
 	size             int
+	options          *LRUCacheOptions
 	mutex            sync.RWMutex
 }
 
-func NewLRUCache(capacity int) *LRUCache {
+func NewLRUCache(capacity int, options ...*LRUCacheOptions) *LRUCache {
+	var currentOptions *LRUCacheOptions
+	if len(options) < 1 || options[0] == nil {
+		currentOptions = DEFAULT_OPTIONS
+	} else {
+		currentOptions = options[0]
+	}
+
 	return &LRUCache{
 		directory:        make(map[interface{}]*DoublyLinkedListEntry, capacity),
 		doublyLinkedList: &DoublyLinkedList{},
 		capacity:         capacity,
+		options:          currentOptions,
 	}
 }
 
@@ -49,7 +58,14 @@ func (cache *LRUCache) set(key interface{}, value interface{}) {
 			if element, err := cache.doublyLinkedList.removeLastEntry(); err != nil {
 				panic(err)
 			} else {
-				delete(directory, element.value.(*lruCacheElement).key)
+				lruCacheElement := element.value.(*lruCacheElement)
+				removedElementKey := lruCacheElement.key
+
+				delete(directory, removedElementKey)
+
+				if cache.options.EvictionCallback != nil {
+					cache.options.EvictionCallback(removedElementKey, lruCacheElement.value)
+				}
 			}
 		} else {
 			cache.size++
@@ -85,8 +101,10 @@ func (cache *LRUCache) ComputeIfPresent(key interface{}, callback func(value int
 	if entry, exists := cache.directory[key]; exists {
 		result = entry.GetValue().(*lruCacheElement).value
 
-		if result = callback(result); result != nil {
-			cache.set(key, result)
+		if callbackResult := callback(result); result != nil {
+			result = callbackResult
+
+			cache.set(key, callbackResult)
 		} else {
 			if err := cache.doublyLinkedList.removeEntry(entry); err != nil {
 				panic(err)
@@ -94,6 +112,10 @@ func (cache *LRUCache) ComputeIfPresent(key interface{}, callback func(value int
 			delete(cache.directory, key)
 
 			cache.size--
+
+			if cache.options.EvictionCallback != nil {
+				cache.options.EvictionCallback(key, result)
+			}
 		}
 	} else {
 		result = nil
@@ -165,6 +187,10 @@ func (cache *LRUCache) Delete(key interface{}) bool {
 		delete(cache.directory, key)
 
 		cache.size--
+
+		if cache.options.EvictionCallback != nil {
+			cache.options.EvictionCallback(key, entry.GetValue().(*lruCacheElement).key)
+		}
 
 		return true
 	}
