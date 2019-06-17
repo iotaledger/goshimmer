@@ -1,14 +1,12 @@
 package tangle
 
 import (
-	"fmt"
-
 	"github.com/dgraph-io/badger"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/errors"
+	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/ternary"
-	"github.com/iotaledger/goshimmer/packages/transaction"
 )
 
 // region plugin module setup //////////////////////////////////////////////////////////////////////////////////////////
@@ -37,7 +35,19 @@ func configureDatabase(plugin *node.Plugin) {
 
 // region internal utility functions ///////////////////////////////////////////////////////////////////////////////////
 
-func getTransactionFromDatabase(transactionHash ternary.Trinary) (*Transaction, errors.IdentifiableError) {
+func storeTransactionInDatabase(transaction *value_transaction.ValueTransaction) errors.IdentifiableError {
+	if transaction.GetModified() {
+		if err := transactionDatabase.Set(transaction.GetHash().CastToBytes(), transaction.MetaTransaction.GetBytes()); err != nil {
+			return ErrDatabaseError.Derive(err, "failed to store transaction")
+		}
+
+		transaction.SetModified(false)
+	}
+
+	return nil
+}
+
+func getTransactionFromDatabase(transactionHash ternary.Trinary) (*value_transaction.ValueTransaction, errors.IdentifiableError) {
 	txData, err := transactionDatabase.Get(transactionHash.CastToBytes())
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
@@ -47,9 +57,7 @@ func getTransactionFromDatabase(transactionHash ternary.Trinary) (*Transaction, 
 		}
 	}
 
-	return &Transaction{
-		rawTransaction: transaction.FromBytes(txData),
-	}, nil
+	return value_transaction.FromBytes(txData), nil
 }
 
 func databaseContainsTransaction(transactionHash ternary.Trinary) (bool, errors.IdentifiableError) {
@@ -58,6 +66,23 @@ func databaseContainsTransaction(transactionHash ternary.Trinary) (bool, errors.
 	} else {
 		return contains, nil
 	}
+}
+
+func storeTransactionMetadataInDatabase(metadata *TransactionMetadata) errors.IdentifiableError {
+	if metadata.GetModified() {
+		marshalledMetadata, err := metadata.Marshal()
+		if err != nil {
+			return err
+		}
+
+		if err := transactionMetadataDatabase.Set(metadata.GetHash().CastToBytes(), marshalledMetadata); err != nil {
+			return ErrDatabaseError.Derive(err, "failed to store transaction metadata")
+		}
+
+		metadata.SetModified(false)
+	}
+
+	return nil
 }
 
 func getTransactionMetadataFromDatabase(transactionHash ternary.Trinary) (*TransactionMetadata, errors.IdentifiableError) {
@@ -70,11 +95,12 @@ func getTransactionMetadataFromDatabase(transactionHash ternary.Trinary) (*Trans
 		}
 	}
 
-	if false {
-		fmt.Println(txMetadata)
+	var result TransactionMetadata
+	if err := result.Unmarshal(txMetadata); err != nil {
+		panic(err)
 	}
 
-	return &TransactionMetadata{}, nil
+	return &result, nil
 }
 
 func databaseContainsTransactionMetadata(transactionHash ternary.Trinary) (bool, errors.IdentifiableError) {

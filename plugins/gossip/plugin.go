@@ -2,8 +2,8 @@ package gossip
 
 import (
 	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/transaction"
 )
 
 var PLUGIN = node.NewPlugin("Gossip", configure, run)
@@ -13,8 +13,8 @@ func configure(plugin *node.Plugin) {
 	configureServer(plugin)
 	configureSendQueue(plugin)
 
-	Events.ReceiveTransaction.Attach(events.NewClosure(func(transaction *transaction.Transaction) {
-
+	Events.ReceiveTransaction.Attach(events.NewClosure(func(tx *meta_transaction.MetaTransaction) {
+		plugin.LogDebug("Received TX " + string(tx.GetHash()))
 	}))
 }
 

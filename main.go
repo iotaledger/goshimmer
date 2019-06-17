@@ -7,9 +7,15 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/fpc"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	gossip_on_solidification "github.com/iotaledger/goshimmer/plugins/gossip-on-solidification"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/statusscreen"
+	statusscreen_tps "github.com/iotaledger/goshimmer/plugins/statusscreen-tps"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/goshimmer/plugins/tipselection"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
+	webapi_gtta "github.com/iotaledger/goshimmer/plugins/webapi-gtta"
+	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi-spammer"
 )
 
 func main() {
@@ -18,9 +24,17 @@ func main() {
 		autopeering.PLUGIN,
 		fpc.PLUGIN,
 		gossip.PLUGIN,
+		gossip_on_solidification.PLUGIN,
 		tangle.PLUGIN,
 		analysis.PLUGIN,
-		statusscreen.PLUGIN,
 		gracefulshutdown.PLUGIN,
+		tipselection.PLUGIN,
+
+		statusscreen.PLUGIN,
+		statusscreen_tps.PLUGIN,
+
+		webapi.PLUGIN,
+		webapi_gtta.PLUGIN,
+		webapi_spammer.PLUGIN,
 	)
 }

@@ -15,6 +15,7 @@ type HashRequest struct {
 
 type BatchHasher struct {
 	hashRequests chan HashRequest
+	tasks        chan []HashRequest
 	hashLength   int
 	rounds       int
 }
@@ -24,11 +25,23 @@ func NewBatchHasher(hashLength int, rounds int) *BatchHasher {
 		hashLength:   hashLength,
 		rounds:       rounds,
 		hashRequests: make(chan HashRequest),
+		tasks:        make(chan []HashRequest, NUMBER_OF_WORKERS),
 	}
 
 	go this.startDispatcher()
+	this.startWorkers()
 
 	return this
+}
+
+func (this *BatchHasher) startWorkers() {
+	for i := 0; i < NUMBER_OF_WORKERS; i++ {
+		go func() {
+			for {
+				this.processHashes(<-this.tasks)
+			}
+		}()
+	}
 }
 
 func (this *BatchHasher) startDispatcher() {
@@ -53,7 +66,7 @@ func (this *BatchHasher) startDispatcher() {
 			}
 		}
 
-		go this.processHashes(collectedHashRequests)
+		this.tasks <- collectedHashRequests
 	}
 }
 
@@ -102,3 +115,7 @@ func (this *BatchHasher) Hash(trinary ternary.Trits) chan ternary.Trits {
 
 	return hashRequest.output
 }
+
+const (
+	NUMBER_OF_WORKERS = 100
+)

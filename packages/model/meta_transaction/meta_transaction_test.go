@@ -41,9 +41,9 @@ func BenchmarkMetaTransaction_GetHash(b *testing.B) {
 	var waitGroup sync.WaitGroup
 
 	for i := 0; i < b.N; i++ {
-		go func() {
-			waitGroup.Add(1)
+		waitGroup.Add(1)
 
+		go func() {
 			New().GetHash()
 
 			waitGroup.Done()
