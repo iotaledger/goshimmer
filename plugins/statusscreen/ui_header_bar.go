@@ -17,6 +17,12 @@ import (
 
 var start = time.Now()
 
+var headerInfos = make([]func() (string, string), 0)
+
+func AddHeaderInfo(generator func() (string, string)) {
+	headerInfos = append(headerInfos, generator)
+}
+
 type UIHeaderBar struct {
 	Primitive     *tview.Grid
 	LogoContainer *tview.TextView
@@ -56,15 +62,22 @@ func NewUIHeaderBar() *UIHeaderBar {
 }
 
 func (headerBar *UIHeaderBar) Update() {
-	duration := time.Now().Sub(start)
+	duration := time.Since(start)
 
 	headerBar.InfoContainer.Clear()
 
 	fmt.Fprintln(headerBar.InfoContainer)
 	fmt.Fprintln(headerBar.InfoContainer, "[::d]COO-LESS IOTA PROTOTYPE  -  [::b]Status: [green::b]SYNCED  ")
-	fmt.Fprintln(headerBar.InfoContainer)
-	fmt.Fprintln(headerBar.InfoContainer)
-	fmt.Fprintln(headerBar.InfoContainer)
+	for i := 0; i < 3-len(headerInfos); i++ {
+		fmt.Fprintln(headerBar.InfoContainer)
+	}
+
+	for _, infoGenerator := range headerInfos {
+		fieldName, fieldValue := infoGenerator()
+		fmt.Fprintf(headerBar.InfoContainer, "[::b]%v: [::d]%40v  ", fieldName, fieldValue)
+		fmt.Fprintln(headerBar.InfoContainer)
+	}
+
 	fmt.Fprintf(headerBar.InfoContainer, "[::b]Node ID: [::d]%40v  ", accountability.OwnId().StringIdentifier)
 	fmt.Fprintln(headerBar.InfoContainer)
 	fmt.Fprintf(headerBar.InfoContainer, "[::b]Neighbors: [::d]%40v  ", strconv.Itoa(len(chosenneighbors.INSTANCE.Peers))+" chosen / "+strconv.Itoa(len(acceptedneighbors.INSTANCE.Peers))+" accepted")
@@ -106,7 +119,6 @@ func (headerBar *UIHeaderBar) Update() {
 
 	if !padded {
 		fmt.Fprintf(headerBar.InfoContainer, "%37v", "")
-		padded = true
 	}
 	fmt.Fprintf(headerBar.InfoContainer, "%02ds  ", int(duration.Seconds())%60)
 }

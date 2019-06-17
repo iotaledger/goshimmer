@@ -65,7 +65,7 @@ func HandleConnection(conn *network.ManagedConnection) {
 		ProcessIncomingPacket(&connectionState, &receiveBuffer, conn, data, &offset)
 	}))
 
-	go conn.Read(make([]byte, int(math.Max(ping.MARSHALLED_TOTAL_SIZE, math.Max(request.MARSHALLED_TOTAL_SIZE, response.MARSHALLED_TOTAL_SIZE)))))
+	go conn.Read(make([]byte, int(math.Max(ping.MARSHALED_TOTAL_SIZE, math.Max(request.MARSHALED_TOTAL_SIZE, response.MARSHALED_TOTAL_SIZE)))))
 }
 
 func ProcessIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int) {
@@ -83,11 +83,11 @@ func ProcessIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *n
 
 		switch *connectionState {
 		case STATE_REQUEST:
-			*receiveBuffer = make([]byte, request.MARSHALLED_TOTAL_SIZE)
+			*receiveBuffer = make([]byte, request.MARSHALED_TOTAL_SIZE)
 		case STATE_RESPONSE:
-			*receiveBuffer = make([]byte, response.MARSHALLED_TOTAL_SIZE)
+			*receiveBuffer = make([]byte, response.MARSHALED_TOTAL_SIZE)
 		case STATE_PING:
-			*receiveBuffer = make([]byte, ping.MARSHALLED_TOTAL_SIZE)
+			*receiveBuffer = make([]byte, ping.MARSHALED_TOTAL_SIZE)
 		}
 	}
 
@@ -106,16 +106,16 @@ func parsePackageHeader(data []byte) (byte, []byte, error) {
 	var receiveBuffer []byte
 
 	switch data[0] {
-	case request.MARSHALLED_PACKET_HEADER:
-		receiveBuffer = make([]byte, request.MARSHALLED_TOTAL_SIZE)
+	case request.MARSHALED_PACKET_HEADER:
+		receiveBuffer = make([]byte, request.MARSHALED_TOTAL_SIZE)
 
 		connectionState = STATE_REQUEST
-	case response.MARHSALLED_PACKET_HEADER:
-		receiveBuffer = make([]byte, response.MARSHALLED_TOTAL_SIZE)
+	case response.MARSHALED_PACKET_HEADER:
+		receiveBuffer = make([]byte, response.MARSHALED_TOTAL_SIZE)
 
 		connectionState = STATE_RESPONSE
-	case ping.MARSHALLED_PACKET_HEADER:
-		receiveBuffer = make([]byte, ping.MARSHALLED_TOTAL_SIZE)
+	case ping.MARSHALED_PACKET_HEADER:
+		receiveBuffer = make([]byte, ping.MARSHALED_TOTAL_SIZE)
 
 		connectionState = STATE_PING
 	default:
@@ -133,11 +133,11 @@ func min(x, y int) int {
 }
 
 func processIncomingRequestPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int) {
-	remainingCapacity := min(request.MARSHALLED_TOTAL_SIZE-*offset, len(data))
+	remainingCapacity := min(request.MARSHALED_TOTAL_SIZE-*offset, len(data))
 
 	copy((*receiveBuffer)[*offset:], data[:remainingCapacity])
 
-	if *offset+len(data) < request.MARSHALLED_TOTAL_SIZE {
+	if *offset+len(data) < request.MARSHALED_TOTAL_SIZE {
 		*offset += len(data)
 	} else {
 		if req, err := request.Unmarshal(*receiveBuffer); err != nil {
@@ -159,18 +159,18 @@ func processIncomingRequestPacket(connectionState *byte, receiveBuffer *[]byte, 
 
 		*connectionState = STATE_INITIAL
 
-		if *offset+len(data) > request.MARSHALLED_TOTAL_SIZE {
+		if *offset+len(data) > request.MARSHALED_TOTAL_SIZE {
 			ProcessIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset)
 		}
 	}
 }
 
 func processIncomingResponsePacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int) {
-	remainingCapacity := min(response.MARSHALLED_TOTAL_SIZE-*offset, len(data))
+	remainingCapacity := min(response.MARSHALED_TOTAL_SIZE-*offset, len(data))
 
 	copy((*receiveBuffer)[*offset:], data[:remainingCapacity])
 
-	if *offset+len(data) < response.MARSHALLED_TOTAL_SIZE {
+	if *offset+len(data) < response.MARSHALED_TOTAL_SIZE {
 		*offset += len(data)
 	} else {
 		if res, err := response.Unmarshal(*receiveBuffer); err != nil {
@@ -192,18 +192,18 @@ func processIncomingResponsePacket(connectionState *byte, receiveBuffer *[]byte,
 
 		*connectionState = STATE_INITIAL
 
-		if *offset+len(data) > response.MARSHALLED_TOTAL_SIZE {
+		if *offset+len(data) > response.MARSHALED_TOTAL_SIZE {
 			ProcessIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset)
 		}
 	}
 }
 
 func processIncomingPingPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int) {
-	remainingCapacity := min(ping.MARSHALLED_TOTAL_SIZE-*offset, len(data))
+	remainingCapacity := min(ping.MARSHALED_TOTAL_SIZE-*offset, len(data))
 
 	copy((*receiveBuffer)[*offset:], data[:remainingCapacity])
 
-	if *offset+len(data) < ping.MARSHALLED_TOTAL_SIZE {
+	if *offset+len(data) < ping.MARSHALED_TOTAL_SIZE {
 		*offset += len(data)
 	} else {
 		if ping, err := ping.Unmarshal(*receiveBuffer); err != nil {
@@ -225,7 +225,7 @@ func processIncomingPingPacket(connectionState *byte, receiveBuffer *[]byte, con
 
 		*connectionState = STATE_INITIAL
 
-		if *offset+len(data) > ping.MARSHALLED_TOTAL_SIZE {
+		if *offset+len(data) > ping.MARSHALED_TOTAL_SIZE {
 			ProcessIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset)
 		}
 	}

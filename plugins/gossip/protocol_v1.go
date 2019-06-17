@@ -8,8 +8,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/identity"
+	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/ternary"
-	"github.com/iotaledger/goshimmer/packages/transaction"
 )
 
 // region protocolV1 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -44,7 +44,7 @@ func protocolV1(protocol *protocol) errors.IdentifiableError {
 	return nil
 }
 
-func sendTransactionV1(protocol *protocol, tx *transaction.Transaction) {
+func sendTransactionV1(protocol *protocol, tx *meta_transaction.MetaTransaction) {
 	if _, ok := protocol.SendState.(*dispatchStateV1); ok {
 		protocol.sendMutex.Lock()
 		defer protocol.sendMutex.Unlock()
@@ -71,7 +71,7 @@ type indentificationStateV1 struct {
 func newIndentificationStateV1(protocol *protocol) *indentificationStateV1 {
 	return &indentificationStateV1{
 		protocol: protocol,
-		buffer:   make([]byte, MARSHALLED_IDENTITY_TOTAL_SIZE),
+		buffer:   make([]byte, MARSHALED_IDENTITY_TOTAL_SIZE),
 		offset:   0,
 	}
 }
@@ -80,7 +80,7 @@ func (state *indentificationStateV1) Receive(data []byte, offset int, length int
 	bytesRead := byteutils.ReadAvailableBytesToBuffer(state.buffer, state.offset, data, offset, length)
 
 	state.offset += bytesRead
-	if state.offset == MARSHALLED_IDENTITY_TOTAL_SIZE {
+	if state.offset == MARSHALED_IDENTITY_TOTAL_SIZE {
 		receivedIdentity, err := identity.FromSignedData(state.buffer)
 		if err != nil {
 			return bytesRead, ErrInvalidAuthenticationMessage.Derive(err, "invalid authentication message")
@@ -288,7 +288,7 @@ type transactionStateV1 struct {
 func newTransactionStateV1(protocol *protocol) *transactionStateV1 {
 	return &transactionStateV1{
 		protocol: protocol,
-		buffer:   make([]byte, transaction.MARSHALLED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE),
+		buffer:   make([]byte, meta_transaction.MARSHALLED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE),
 		offset:   0,
 	}
 }
@@ -297,10 +297,10 @@ func (state *transactionStateV1) Receive(data []byte, offset int, length int) (i
 	bytesRead := byteutils.ReadAvailableBytesToBuffer(state.buffer, state.offset, data, offset, length)
 
 	state.offset += bytesRead
-	if state.offset == transaction.MARSHALLED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE {
+	if state.offset == meta_transaction.MARSHALLED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE {
 		protocol := state.protocol
 
-		transactionData := make([]byte, transaction.MARSHALLED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE)
+		transactionData := make([]byte, meta_transaction.MARSHALLED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE)
 		copy(transactionData, state.buffer)
 
 		protocol.Events.ReceiveTransactionData.Trigger(transactionData)
@@ -315,10 +315,10 @@ func (state *transactionStateV1) Receive(data []byte, offset int, length int) (i
 }
 
 func (state *transactionStateV1) Send(param interface{}) errors.IdentifiableError {
-	if tx, ok := param.(*transaction.Transaction); ok {
+	if tx, ok := param.(*meta_transaction.MetaTransaction); ok {
 		protocol := state.protocol
 
-		if _, err := protocol.Conn.Write(tx.Bytes); err != nil {
+		if _, err := protocol.Conn.Write(tx.GetBytes()); err != nil {
 			return ErrSendFailed.Derive(err, "failed to send transaction")
 		}
 
@@ -368,16 +368,16 @@ const (
 	DISPATCH_TRANSACTION = byte(1)
 	DISPATCH_REQUEST     = byte(2)
 
-	MARSHALLED_IDENTITY_IDENTIFIER_START = 0
-	MARSHALLED_IDENTITY_SIGNATURE_START  = MARSHALLED_IDENTITY_IDENTIFIER_END
+	MARSHALED_IDENTITY_IDENTIFIER_START = 0
+	MARSHALED_IDENTITY_SIGNATURE_START  = MARSHALED_IDENTITY_IDENTIFIER_END
 
-	MARSHALLED_IDENTITY_IDENTIFIER_SIZE = identity.IDENTIFIER_BYTE_LENGTH
-	MARSHALLED_IDENTITY_SIGNATURE_SIZE  = identity.SIGNATURE_BYTE_LENGTH
+	MARSHALED_IDENTITY_IDENTIFIER_SIZE = identity.IDENTIFIER_BYTE_LENGTH
+	MARSHALED_IDENTITY_SIGNATURE_SIZE  = identity.SIGNATURE_BYTE_LENGTH
 
-	MARSHALLED_IDENTITY_IDENTIFIER_END = MARSHALLED_IDENTITY_IDENTIFIER_START + MARSHALLED_IDENTITY_IDENTIFIER_SIZE
-	MARSHALLED_IDENTITY_SIGNATURE_END  = MARSHALLED_IDENTITY_SIGNATURE_START + MARSHALLED_IDENTITY_SIGNATURE_SIZE
+	MARSHALED_IDENTITY_IDENTIFIER_END = MARSHALED_IDENTITY_IDENTIFIER_START + MARSHALED_IDENTITY_IDENTIFIER_SIZE
+	MARSHALED_IDENTITY_SIGNATURE_END  = MARSHALED_IDENTITY_SIGNATURE_START + MARSHALED_IDENTITY_SIGNATURE_SIZE
 
-	MARSHALLED_IDENTITY_TOTAL_SIZE = MARSHALLED_IDENTITY_SIGNATURE_END
+	MARSHALED_IDENTITY_TOTAL_SIZE = MARSHALED_IDENTITY_SIGNATURE_END
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

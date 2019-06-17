@@ -16,7 +16,7 @@ type Ping struct {
 }
 
 func Unmarshal(data []byte) (*Ping, error) {
-	if data[0] != MARSHALLED_PACKET_HEADER || len(data) != MARSHALLED_TOTAL_SIZE {
+	if data[0] != MARSHALED_PACKET_HEADER || len(data) != MARSHALED_TOTAL_SIZE {
 		return nil, ErrMalformedPing
 	}
 
@@ -31,10 +31,10 @@ func Unmarshal(data []byte) (*Ping, error) {
 		Neighbors: make(peerlist.PeerList, 0),
 	}
 
-	if unmarshalledPeer, err := peer.Unmarshal(data[MARSHALLED_ISSUER_START:MARSHALLED_ISSUER_END]); err != nil {
+	if unmarshaledPeer, err := peer.Unmarshal(data[MARSHALED_ISSUER_START:MARSHALED_ISSUER_END]); err != nil {
 		return nil, ErrMalformedPing
 	} else {
-		ping.Issuer = unmarshalledPeer
+		ping.Issuer = unmarshaledPeer
 	}
 
 	// the ping issuer must match the signer
@@ -49,34 +49,34 @@ func Unmarshal(data []byte) (*Ping, error) {
 		return nil, err
 	}
 
-	offset := MARSHALLED_PEERS_START
+	offset := MARSHALED_PEERS_START
 	for i := 0; i < constants.NEIGHBOR_COUNT; i++ {
 		if data[offset] == 1 {
-			if unmarshalledPing, err := peer.Unmarshal(data[offset+1 : offset+MARSHALLED_PEER_ENTRY_SIZE]); err != nil {
+			if unmarshaledPing, err := peer.Unmarshal(data[offset+1 : offset+MARSHALED_PEER_ENTRY_SIZE]); err != nil {
 				return nil, err
 			} else {
-				ping.Neighbors = append(ping.Neighbors, unmarshalledPing)
+				ping.Neighbors = append(ping.Neighbors, unmarshaledPing)
 			}
 		}
 
-		offset += MARSHALLED_PEER_ENTRY_SIZE
+		offset += MARSHALED_PEER_ENTRY_SIZE
 	}
 
 	return ping, nil
 }
 
 func (ping *Ping) Marshal() []byte {
-	msg := make([]byte, MARSHALLED_SIGNATURE_START)
+	msg := make([]byte, MARSHALED_SIGNATURE_START)
 
-	msg[PACKET_HEADER_START] = MARSHALLED_PACKET_HEADER
-	copy(msg[MARSHALLED_ISSUER_START:MARSHALLED_ISSUER_END], ping.Issuer.Marshal())
+	msg[PACKET_HEADER_START] = MARSHALED_PACKET_HEADER
+	copy(msg[MARSHALED_ISSUER_START:MARSHALED_ISSUER_END], ping.Issuer.Marshal())
 
 	for i, neighbor := range ping.Neighbors {
-		entryStartOffset := MARSHALLED_PEERS_START + i*MARSHALLED_PEER_ENTRY_SIZE
+		entryStartOffset := MARSHALED_PEERS_START + i*MARSHALED_PEER_ENTRY_SIZE
 
 		msg[entryStartOffset] = 1
 
-		copy(msg[entryStartOffset+1:entryStartOffset+MARSHALLED_PEER_ENTRY_SIZE], neighbor.Marshal())
+		copy(msg[entryStartOffset+1:entryStartOffset+MARSHALED_PEER_ENTRY_SIZE], neighbor.Marshal())
 	}
 
 	// return the signed message

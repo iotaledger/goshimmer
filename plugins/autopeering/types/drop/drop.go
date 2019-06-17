@@ -13,7 +13,7 @@ type Drop struct {
 }
 
 func Unmarshal(data []byte) (*Drop, error) {
-	if data[0] != MARSHALLED_PACKET_HEADER || len(data) != MARSHALLED_TOTAL_SIZE {
+	if data[0] != MARSHALED_PACKET_HEADER || len(data) != MARSHALED_TOTAL_SIZE {
 		return nil, ErrMalformedDropMessage
 	}
 
@@ -25,10 +25,10 @@ func Unmarshal(data []byte) (*Drop, error) {
 
 	ping := &Drop{}
 
-	if unmarshalledPeer, err := peer.Unmarshal(data[MARSHALLED_ISSUER_START:MARSHALLED_ISSUER_END]); err != nil {
+	if unmarshaledPeer, err := peer.Unmarshal(data[MARSHALED_ISSUER_START:MARSHALED_ISSUER_END]); err != nil {
 		return nil, err
 	} else {
-		ping.Issuer = unmarshalledPeer
+		ping.Issuer = unmarshaledPeer
 	}
 
 	// the ping issuer must match the signer
@@ -47,10 +47,10 @@ func Unmarshal(data []byte) (*Drop, error) {
 }
 
 func (ping *Drop) Marshal() []byte {
-	msg := make([]byte, MARSHALLED_SIGNATURE_SIZE)
+	msg := make([]byte, MARSHALED_SIGNATURE_SIZE)
 
-	msg[PACKET_HEADER_START] = MARSHALLED_PACKET_HEADER
-	copy(msg[MARSHALLED_ISSUER_START:MARSHALLED_ISSUER_END], ping.Issuer.Marshal())
+	msg[PACKET_HEADER_START] = MARSHALED_PACKET_HEADER
+	copy(msg[MARSHALED_ISSUER_START:MARSHALED_ISSUER_END], ping.Issuer.Marshal())
 
 	return ping.Issuer.Identity.AddSignature(msg)
 }

@@ -26,16 +26,16 @@ func New(lifetime time.Duration) *Salt {
 }
 
 func Unmarshal(data []byte) (*Salt, error) {
-	if len(data) != MARSHALLED_TOTAL_SIZE {
+	if len(data) != MARSHALED_TOTAL_SIZE {
 		return nil, errors.New("salt: bad data length")
 	}
 
 	salt := &Salt{
 		Bytes: make([]byte, SALT_BYTES_LEN),
 	}
-	copy(salt.Bytes, data[MARSHALLED_BYTES_START:MARSHALLED_BYTES_END])
+	copy(salt.Bytes, data[MARSHALED_BYTES_START:MARSHALED_BYTES_END])
 
-	if err := salt.ExpirationTime.UnmarshalBinary(data[MARSHALLED_TIME_START:MARSHALLED_TIME_END]); err != nil {
+	if err := salt.ExpirationTime.UnmarshalBinary(data[MARSHALED_TIME_START:MARSHALED_TIME_END]); err != nil {
 		return nil, err
 	}
 
@@ -43,14 +43,14 @@ func Unmarshal(data []byte) (*Salt, error) {
 }
 
 func (s *Salt) Marshal() []byte {
-	data := make([]byte, MARSHALLED_TOTAL_SIZE)
+	data := make([]byte, MARSHALED_TOTAL_SIZE)
 
-	copy(data[MARSHALLED_BYTES_START:MARSHALLED_BYTES_END], s.Bytes)
+	copy(data[MARSHALED_BYTES_START:MARSHALED_BYTES_END], s.Bytes)
 
 	if bytes, err := s.ExpirationTime.MarshalBinary(); err != nil {
 		panic(err)
 	} else {
-		copy(data[MARSHALLED_TIME_START:MARSHALLED_TIME_END], bytes)
+		copy(data[MARSHALED_TIME_START:MARSHALED_TIME_END], bytes)
 	}
 
 	return data

@@ -17,7 +17,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var udpServer = udp.NewServer(int(math.Max(float64(request.MARSHALLED_TOTAL_SIZE), float64(response.MARSHALLED_TOTAL_SIZE))))
+var udpServer = udp.NewServer(int(math.Max(float64(request.MARSHALED_TOTAL_SIZE), float64(response.MARSHALED_TOTAL_SIZE))))
 
 func ConfigureServer(plugin *node.Plugin) {
 	Events.Error.Attach(events.NewClosure(func(ip net.IP, err error) {
@@ -60,7 +60,7 @@ func ShutdownUDPServer(plugin *node.Plugin) {
 
 func processReceivedData(addr *net.UDPAddr, data []byte) {
 	switch data[0] {
-	case request.MARSHALLED_PACKET_HEADER:
+	case request.MARSHALED_PACKET_HEADER:
 		if peeringRequest, err := request.Unmarshal(data); err != nil {
 			Events.Error.Trigger(addr.IP, err)
 		} else {
@@ -68,7 +68,7 @@ func processReceivedData(addr *net.UDPAddr, data []byte) {
 
 			Events.ReceiveRequest.Trigger(peeringRequest)
 		}
-	case response.MARHSALLED_PACKET_HEADER:
+	case response.MARSHALED_PACKET_HEADER:
 		if peeringResponse, err := response.Unmarshal(data); err != nil {
 			Events.Error.Trigger(addr.IP, err)
 		} else {
@@ -76,7 +76,7 @@ func processReceivedData(addr *net.UDPAddr, data []byte) {
 
 			Events.ReceiveResponse.Trigger(peeringResponse)
 		}
-	case ping.MARSHALLED_PACKET_HEADER:
+	case ping.MARSHALED_PACKET_HEADER:
 		if ping, err := ping.Unmarshal(data); err != nil {
 			Events.Error.Trigger(addr.IP, err)
 		} else {
@@ -84,7 +84,7 @@ func processReceivedData(addr *net.UDPAddr, data []byte) {
 
 			Events.ReceivePing.Trigger(ping)
 		}
-	case drop.MARSHALLED_PACKET_HEADER:
+	case drop.MARSHALED_PACKET_HEADER:
 		if drop, err := drop.Unmarshal(data); err != nil {
 			Events.Error.Trigger(addr.IP, err)
 		} else {

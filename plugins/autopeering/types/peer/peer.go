@@ -25,28 +25,28 @@ type Peer struct {
 }
 
 func Unmarshal(data []byte) (*Peer, error) {
-	if len(data) < MARSHALLED_TOTAL_SIZE {
-		return nil, errors.New("size of marshalled peer is too small")
+	if len(data) < MARSHALED_TOTAL_SIZE {
+		return nil, errors.New("size of marshaled peer is too small")
 	}
 
 	peer := &Peer{
-		Identity: identity.NewPublicIdentity(data[MARSHALLED_PUBLIC_KEY_START:MARSHALLED_PUBLIC_KEY_END]),
+		Identity: identity.NewPublicIdentity(data[MARSHALED_PUBLIC_KEY_START:MARSHALED_PUBLIC_KEY_END]),
 	}
 
-	switch data[MARSHALLED_ADDRESS_TYPE_START] {
+	switch data[MARSHALED_ADDRESS_TYPE_START] {
 	case types.ADDRESS_TYPE_IPV4:
-		peer.Address = net.IP(data[MARSHALLED_ADDRESS_START:MARSHALLED_ADDRESS_END]).To4()
+		peer.Address = net.IP(data[MARSHALED_ADDRESS_START:MARSHALED_ADDRESS_END]).To4()
 	case types.ADDRESS_TYPE_IPV6:
-		peer.Address = net.IP(data[MARSHALLED_ADDRESS_START:MARSHALLED_ADDRESS_END]).To16()
+		peer.Address = net.IP(data[MARSHALED_ADDRESS_START:MARSHALED_ADDRESS_END]).To16()
 	}
 
-	peer.PeeringPort = binary.BigEndian.Uint16(data[MARSHALLED_PEERING_PORT_START:MARSHALLED_PEERING_PORT_END])
-	peer.GossipPort = binary.BigEndian.Uint16(data[MARSHALLED_GOSSIP_PORT_START:MARSHALLED_GOSSIP_PORT_END])
+	peer.PeeringPort = binary.BigEndian.Uint16(data[MARSHALED_PEERING_PORT_START:MARSHALED_PEERING_PORT_END])
+	peer.GossipPort = binary.BigEndian.Uint16(data[MARSHALED_GOSSIP_PORT_START:MARSHALED_GOSSIP_PORT_END])
 
-	if unmarshalledSalt, err := salt.Unmarshal(data[MARSHALLED_SALT_START:MARSHALLED_SALT_END]); err != nil {
+	if unmarshaledSalt, err := salt.Unmarshal(data[MARSHALED_SALT_START:MARSHALED_SALT_END]); err != nil {
 		return nil, err
 	} else {
-		peer.Salt = unmarshalledSalt
+		peer.Salt = unmarshaledSalt
 	}
 
 	return peer, nil
@@ -115,26 +115,26 @@ func (peer *Peer) Connect(protocol types.ProtocolType) (*network.ManagedConnecti
 }
 
 func (peer *Peer) Marshal() []byte {
-	result := make([]byte, MARSHALLED_TOTAL_SIZE)
+	result := make([]byte, MARSHALED_TOTAL_SIZE)
 
-	copy(result[MARSHALLED_PUBLIC_KEY_START:MARSHALLED_PUBLIC_KEY_END],
-		peer.Identity.PublicKey[:MARSHALLED_PUBLIC_KEY_SIZE])
+	copy(result[MARSHALED_PUBLIC_KEY_START:MARSHALED_PUBLIC_KEY_END],
+		peer.Identity.PublicKey[:MARSHALED_PUBLIC_KEY_SIZE])
 
 	switch len(peer.Address) {
 	case net.IPv4len:
-		result[MARSHALLED_ADDRESS_TYPE_START] = types.ADDRESS_TYPE_IPV4
+		result[MARSHALED_ADDRESS_TYPE_START] = types.ADDRESS_TYPE_IPV4
 	case net.IPv6len:
-		result[MARSHALLED_ADDRESS_TYPE_START] = types.ADDRESS_TYPE_IPV6
+		result[MARSHALED_ADDRESS_TYPE_START] = types.ADDRESS_TYPE_IPV6
 	default:
 		panic("invalid address in peer")
 	}
 
-	copy(result[MARSHALLED_ADDRESS_START:MARSHALLED_ADDRESS_END], peer.Address.To16())
+	copy(result[MARSHALED_ADDRESS_START:MARSHALED_ADDRESS_END], peer.Address.To16())
 
-	binary.BigEndian.PutUint16(result[MARSHALLED_PEERING_PORT_START:MARSHALLED_PEERING_PORT_END], peer.PeeringPort)
-	binary.BigEndian.PutUint16(result[MARSHALLED_GOSSIP_PORT_START:MARSHALLED_GOSSIP_PORT_END], peer.GossipPort)
+	binary.BigEndian.PutUint16(result[MARSHALED_PEERING_PORT_START:MARSHALED_PEERING_PORT_END], peer.PeeringPort)
+	binary.BigEndian.PutUint16(result[MARSHALED_GOSSIP_PORT_START:MARSHALED_GOSSIP_PORT_END], peer.GossipPort)
 
-	copy(result[MARSHALLED_SALT_START:MARSHALLED_SALT_END], peer.Salt.Marshal())
+	copy(result[MARSHALED_SALT_START:MARSHALED_SALT_END], peer.Salt.Marshal())
 
 	return result
 }

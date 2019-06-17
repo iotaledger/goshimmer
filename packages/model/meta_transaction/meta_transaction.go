@@ -53,11 +53,11 @@ func FromBytes(bytes []byte) (result *MetaTransaction) {
 	return
 }
 
-func (this *MetaTransaction) LockHasher() {
+func (this *MetaTransaction) BlockHasher() {
 	this.hasherMutex.RLock()
 }
 
-func (this *MetaTransaction) UnlockHasher() {
+func (this *MetaTransaction) UnblockHasher() {
 	this.hasherMutex.RUnlock()
 }
 
@@ -120,8 +120,6 @@ func (this *MetaTransaction) parseHashRelatedDetails() {
 
 	this.hash = &hashTrinary
 	this.weightMagnitude = hashTrits.TrailingZeroes()
-
-	return
 }
 
 // getter for the shard marker (supports concurrency)
@@ -454,7 +452,7 @@ func (this *MetaTransaction) GetBytes() (result []byte) {
 		this.bytes = this.trits.ToBytes()
 		this.hasherMutex.Unlock()
 	} else {
-		this.hasherMutex.RUnlock()
+		this.bytesMutex.RUnlock()
 	}
 
 	result = make([]byte, len(this.bytes))

@@ -7,7 +7,7 @@ import (
 )
 
 func Decode(trinary ternary.Trinary) (result *Area, err errors.IdentifiableError) {
-	if olcCode, conversionErr := OLCCodeFromTrinary(trinary); err != nil {
+	if olcCode, conversionErr := OLCCodeFromTrinary(trinary); conversionErr != nil {
 		err = conversionErr
 	} else {
 		if codeArea, olcErr := olc.Decode(olcCode); olcErr == nil {

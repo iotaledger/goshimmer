@@ -42,6 +42,12 @@ func (this *PeerRegister) AddOrUpdate(peer *peer.Peer, lock ...bool) bool {
 		existingPeer.Address = peer.Address
 		existingPeer.GossipPort = peer.GossipPort
 		existingPeer.PeeringPort = peer.PeeringPort
+		existingPeer.Salt = peer.Salt
+
+		// also update the public key if not yet present
+		if existingPeer.Identity.PublicKey == nil {
+			existingPeer.Identity.PublicKey = peer.Identity.PublicKey
+		}
 
 		this.Events.Update.Trigger(existingPeer)
 

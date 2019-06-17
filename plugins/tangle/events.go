@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 )
 
 var Events = pluginEvents{
@@ -15,5 +16,5 @@ type pluginEvents struct {
 }
 
 func transactionCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*Transaction))(params[0].(*Transaction))
+	handler.(func(*value_transaction.ValueTransaction))(params[0].(*value_transaction.ValueTransaction))
 }

@@ -17,7 +17,7 @@ type Request struct {
 }
 
 func Unmarshal(data []byte) (*Request, error) {
-	if data[0] != MARSHALLED_PACKET_HEADER || len(data) != MARSHALLED_TOTAL_SIZE {
+	if data[0] != MARSHALED_PACKET_HEADER || len(data) != MARSHALED_TOTAL_SIZE {
 		return nil, ErrMalformedPeeringRequest
 	}
 
@@ -30,10 +30,10 @@ func Unmarshal(data []byte) (*Request, error) {
 	peeringRequest := &Request{}
 
 	// start unmarshaling the actual request
-	if unmarshalledPeer, err := peer.Unmarshal(data[MARSHALLED_ISSUER_START:MARSHALLED_ISSUER_END]); err != nil {
+	if unmarshaledPeer, err := peer.Unmarshal(data[MARSHALED_ISSUER_START:MARSHALED_ISSUER_END]); err != nil {
 		return nil, ErrMalformedPeeringRequest
 	} else {
-		peeringRequest.Issuer = unmarshalledPeer
+		peeringRequest.Issuer = unmarshaledPeer
 	}
 
 	// the request issuer must match the signer
@@ -86,10 +86,10 @@ func (this *Request) Reject(peers []*peer.Peer) error {
 }
 
 func (this *Request) Marshal() []byte {
-	msg := make([]byte, MARSHALLED_SIGNATURE_START)
+	msg := make([]byte, MARSHALED_SIGNATURE_START)
 
-	msg[PACKET_HEADER_START] = MARSHALLED_PACKET_HEADER
-	copy(msg[MARSHALLED_ISSUER_START:MARSHALLED_ISSUER_END], this.Issuer.Marshal())
+	msg[PACKET_HEADER_START] = MARSHALED_PACKET_HEADER
+	copy(msg[MARSHALED_ISSUER_START:MARSHALED_ISSUER_END], this.Issuer.Marshal())
 
 	// return the signed message
 	return this.Issuer.Identity.AddSignature(msg)

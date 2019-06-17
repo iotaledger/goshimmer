@@ -1,0 +1,25 @@
+run:
+    tests: true
+
+linters-settings:
+    gofmt:
+        simplify: true
+    golint:
+        min-confidence: 0.9
+    gocyclo:
+        min-complexity: 15
+    govet:
+        check-shadowing: true
+    misspell:
+        locale: US
+
+linters:
+    enable:
+        - misspell
+        - gofmt
+        - goimports
+        - govet
+    disable:
+        - errcheck
+        - gochecknoglobals
+        - golint
