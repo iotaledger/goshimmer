@@ -1,10 +1,12 @@
 package tangle
 
 import (
+	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/model/approvers"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
+	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/ternary"
@@ -23,37 +25,19 @@ func configureSolidifier(plugin *node.Plugin) {
 	for i := 0; i < NUMBER_OF_WORKERS; i++ {
 		go func() {
 			for {
-				rawTransaction := <-tasksChan
-
-				processMetaTransaction(plugin, rawTransaction)
+				select {
+				case <-daemon.ShutdownSignal:
+					return
+				case rawTransaction := <-tasksChan:
+					processMetaTransaction(plugin, rawTransaction)
+				}
 			}
 		}()
 	}
 
 	gossip.Events.ReceiveTransaction.Attach(events.NewClosure(func(rawTransaction *meta_transaction.MetaTransaction) {
 		tasksChan <- rawTransaction
-
-		//go processMetaTransaction(plugin, rawTransaction)
 	}))
-	/*
-		for i := 0; i < NUMBER_OF_WORKERS; i++ {
-			go func() {
-				for transaction := range solidifierChan {
-					select {
-					case <-daemon.ShutdownSignal:
-						return
-
-					default:
-						// update the solidity flags of this transaction and its approvers
-						if _, err := IsSolid(transaction); err != nil {
-							plugin.LogFailure(err.Error())
-
-							return
-						}
-					}
-				}
-			}()
-		}*/
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -61,7 +45,7 @@ func configureSolidifier(plugin *node.Plugin) {
 // Checks and updates the solid flag of a single transaction.
 func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool, err errors.IdentifiableError) {
 	// abort if transaction is solid already
-	txMetadata, metaDataErr := GetTransactionMetadata(transaction.GetHash(), NewTransactionMetadata)
+	txMetadata, metaDataErr := GetTransactionMetadata(transaction.GetHash(), transactionmetadata.New)
 	if metaDataErr != nil {
 		err = metaDataErr
 
@@ -81,7 +65,7 @@ func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool
 			return
 		} else if branchTransaction == nil {
 			return
-		} else if branchTransactionMetadata, branchErr := GetTransactionMetadata(branchTransaction.GetHash(), NewTransactionMetadata); branchErr != nil {
+		} else if branchTransactionMetadata, branchErr := GetTransactionMetadata(branchTransaction.GetHash(), transactionmetadata.New); branchErr != nil {
 			err = branchErr
 
 			return
@@ -98,7 +82,7 @@ func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool
 			return
 		} else if trunkTransaction == nil {
 			return
-		} else if trunkTransactionMetadata, trunkErr := GetTransactionMetadata(trunkTransaction.GetHash(), NewTransactionMetadata); trunkErr != nil {
+		} else if trunkTransactionMetadata, trunkErr := GetTransactionMetadata(trunkTransaction.GetHash(), transactionmetadata.New); trunkErr != nil {
 			err = trunkErr
 
 			return

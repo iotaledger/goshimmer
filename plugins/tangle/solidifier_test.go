@@ -12,7 +12,7 @@ import (
 
 func TestSolidifier(t *testing.T) {
 	// initialize plugin
-	configureDatabase(nil)
+	configureApproversDatabase(nil)
 	configureSolidifier(nil)
 
 	// create transactions and chain them together

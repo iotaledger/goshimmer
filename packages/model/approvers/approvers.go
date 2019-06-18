@@ -55,6 +55,13 @@ func (approvers *Approvers) GetHash() (result ternary.Trinary) {
 	return
 }
 
+func (approvers *Approvers) GetModified() bool {
+	return true
+}
+
+func (approvers *Approvers) SetModified(modified bool) {
+}
+
 func (approvers *Approvers) Marshal() (result []byte) {
 	result = make([]byte, MARSHALED_APPROVERS_MIN_SIZE+len(approvers.hashes)*MARSHALED_APPROVERS_HASH_SIZE)
 

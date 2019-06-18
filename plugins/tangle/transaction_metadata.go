@@ -1,275 +1,130 @@
 package tangle
 
 import (
-	"sync"
-	"time"
-
-	"github.com/iotaledger/goshimmer/packages/bitutils"
+	"github.com/dgraph-io/badger"
+	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/datastructure"
 	"github.com/iotaledger/goshimmer/packages/errors"
+	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/ternary"
 	"github.com/iotaledger/goshimmer/packages/typeutils"
 )
 
-// region type definition and constructor //////////////////////////////////////////////////////////////////////////////
+// region public api ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-type TransactionMetadata struct {
-	hash              ternary.Trinary
-	hashMutex         sync.RWMutex
-	receivedTime      time.Time
-	receivedTimeMutex sync.RWMutex
-	solid             bool
-	solidMutex        sync.RWMutex
-	liked             bool
-	likedMutex        sync.RWMutex
-	finalized         bool
-	finalizedMutex    sync.RWMutex
-	modified          bool
-	modifiedMutex     sync.RWMutex
+func GetTransactionMetadata(transactionHash ternary.Trinary, computeIfAbsent ...func(ternary.Trinary) *transactionmetadata.TransactionMetadata) (result *transactionmetadata.TransactionMetadata, err errors.IdentifiableError) {
+	if cacheResult := transactionMetadataCache.ComputeIfAbsent(transactionHash, func() interface{} {
+		if transactionMetadata, dbErr := getTransactionMetadataFromDatabase(transactionHash); dbErr != nil {
+			err = dbErr
+
+			return nil
+		} else if transactionMetadata != nil {
+			return transactionMetadata
+		} else {
+			if len(computeIfAbsent) >= 1 {
+				return computeIfAbsent[0](transactionHash)
+			}
+
+			return nil
+		}
+	}); !typeutils.IsInterfaceNil(cacheResult) {
+		result = cacheResult.(*transactionmetadata.TransactionMetadata)
+	}
+
+	return
 }
 
-func NewTransactionMetadata(hash ternary.Trinary) *TransactionMetadata {
-	return &TransactionMetadata{
-		hash:         hash,
-		receivedTime: time.Now(),
-		solid:        false,
-		liked:        false,
-		finalized:    false,
-		modified:     true,
+func ContainsTransactionMetadata(transactionHash ternary.Trinary) (result bool, err errors.IdentifiableError) {
+	if transactionMetadataCache.Contains(transactionHash) {
+		result = true
+	} else {
+		result, err = databaseContainsTransactionMetadata(transactionHash)
 	}
+
+	return
+}
+
+func StoreTransactionMetadata(transactionMetadata *transactionmetadata.TransactionMetadata) {
+	transactionMetadataCache.Set(transactionMetadata.GetHash(), transactionMetadata)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region getters and setters //////////////////////////////////////////////////////////////////////////////////////////
+// region lru cache ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func (metadata *TransactionMetadata) GetHash() ternary.Trinary {
-	metadata.hashMutex.RLock()
-	defer metadata.hashMutex.RUnlock()
+var transactionMetadataCache = datastructure.NewLRUCache(TRANSACTION_METADATA_CACHE_SIZE, &datastructure.LRUCacheOptions{
+	EvictionCallback: onEvictTransactionMetadata,
+})
 
-	return metadata.hash
-}
-
-func (metadata *TransactionMetadata) SetHash(hash ternary.Trinary) {
-	metadata.hashMutex.RLock()
-	if metadata.hash != hash {
-		metadata.hashMutex.RUnlock()
-		metadata.hashMutex.Lock()
-		defer metadata.hashMutex.Unlock()
-		if metadata.hash != hash {
-			metadata.hash = hash
-
-			metadata.SetModified(true)
-		}
-	} else {
-		metadata.hashMutex.RUnlock()
+func onEvictTransactionMetadata(_ interface{}, value interface{}) {
+	if evictedTransactionMetadata := value.(*transactionmetadata.TransactionMetadata); evictedTransactionMetadata.GetModified() {
+		go func(evictedTransactionMetadata *transactionmetadata.TransactionMetadata) {
+			if err := storeTransactionMetadataInDatabase(evictedTransactionMetadata); err != nil {
+				panic(err)
+			}
+		}(evictedTransactionMetadata)
 	}
 }
 
-func (metadata *TransactionMetadata) GetReceivedTime() time.Time {
-	metadata.receivedTimeMutex.RLock()
-	defer metadata.receivedTimeMutex.RUnlock()
-
-	return metadata.receivedTime
-}
-
-func (metadata *TransactionMetadata) SetReceivedTime(receivedTime time.Time) {
-	metadata.receivedTimeMutex.RLock()
-	if metadata.receivedTime != receivedTime {
-		metadata.receivedTimeMutex.RUnlock()
-		metadata.receivedTimeMutex.Lock()
-		defer metadata.receivedTimeMutex.Unlock()
-		if metadata.receivedTime != receivedTime {
-			metadata.receivedTime = receivedTime
-
-			metadata.SetModified(true)
-		}
-	} else {
-		metadata.receivedTimeMutex.RUnlock()
-	}
-}
-
-func (metadata *TransactionMetadata) GetSolid() bool {
-	metadata.solidMutex.RLock()
-	defer metadata.solidMutex.RUnlock()
-
-	return metadata.solid
-}
-
-func (metadata *TransactionMetadata) SetSolid(solid bool) bool {
-	metadata.solidMutex.RLock()
-	if metadata.solid != solid {
-		metadata.solidMutex.RUnlock()
-		metadata.solidMutex.Lock()
-		defer metadata.solidMutex.Unlock()
-		if metadata.solid != solid {
-			metadata.solid = solid
-
-			metadata.SetModified(true)
-
-			return true
-		}
-	} else {
-		metadata.solidMutex.RUnlock()
-	}
-
-	return false
-}
-
-func (metadata *TransactionMetadata) GetLiked() bool {
-	metadata.likedMutex.RLock()
-	defer metadata.likedMutex.RUnlock()
-
-	return metadata.liked
-}
-
-func (metadata *TransactionMetadata) SetLiked(liked bool) {
-	metadata.likedMutex.RLock()
-	if metadata.liked != liked {
-		metadata.likedMutex.RUnlock()
-		metadata.likedMutex.Lock()
-		defer metadata.likedMutex.Unlock()
-		if metadata.liked != liked {
-			metadata.liked = liked
-
-			metadata.SetModified(true)
-		}
-	} else {
-		metadata.likedMutex.RUnlock()
-	}
-}
-
-func (metadata *TransactionMetadata) GetFinalized() bool {
-	metadata.finalizedMutex.RLock()
-	defer metadata.finalizedMutex.RUnlock()
-
-	return metadata.finalized
-}
-
-func (metadata *TransactionMetadata) SetFinalized(finalized bool) {
-	metadata.finalizedMutex.RLock()
-	if metadata.finalized != finalized {
-		metadata.finalizedMutex.RUnlock()
-		metadata.finalizedMutex.Lock()
-		defer metadata.finalizedMutex.Unlock()
-		if metadata.finalized != finalized {
-			metadata.finalized = finalized
-
-			metadata.SetModified(true)
-		}
-	} else {
-		metadata.finalizedMutex.RUnlock()
-	}
-}
-
-// returns true if the transaction contains unsaved changes (supports concurrency)
-func (metadata *TransactionMetadata) GetModified() bool {
-	metadata.modifiedMutex.RLock()
-	defer metadata.modifiedMutex.RUnlock()
-
-	return metadata.modified
-}
-
-// sets the modified flag which controls if a transaction is going to be saved (supports concurrency)
-func (metadata *TransactionMetadata) SetModified(modified bool) {
-	metadata.modifiedMutex.Lock()
-	defer metadata.modifiedMutex.Unlock()
-
-	metadata.modified = modified
-}
+const (
+	TRANSACTION_METADATA_CACHE_SIZE = 50000
+)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region marshaling functions ////////////////////////////////////////////////////////////////////////////////////////
+// region database /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func (metadata *TransactionMetadata) Marshal() ([]byte, errors.IdentifiableError) {
-	marshaledMetadata := make([]byte, MARSHALED_TOTAL_SIZE)
+var transactionMetadataDatabase database.Database
 
-	metadata.receivedTimeMutex.RLock()
-	defer metadata.receivedTimeMutex.RUnlock()
-	metadata.solidMutex.RLock()
-	defer metadata.solidMutex.RUnlock()
-	metadata.likedMutex.RLock()
-	defer metadata.likedMutex.RUnlock()
-	metadata.finalizedMutex.RLock()
-	defer metadata.finalizedMutex.RUnlock()
-
-	copy(marshaledMetadata[MARSHALED_HASH_START:MARSHALED_HASH_END], metadata.hash.CastToBytes())
-
-	marshaledReceivedTime, err := metadata.receivedTime.MarshalBinary()
-	if err != nil {
-		return nil, ErrMarshallFailed.Derive(err, "failed to marshal received time")
+func configureTransactionMetaDataDatabase(plugin *node.Plugin) {
+	if db, err := database.Get("transactionMetadata"); err != nil {
+		panic(err)
+	} else {
+		transactionMetadataDatabase = db
 	}
-	copy(marshaledMetadata[MARSHALED_RECEIVED_TIME_START:MARSHALED_RECEIVED_TIME_END], marshaledReceivedTime)
-
-	var booleanFlags bitutils.BitMask
-	if metadata.solid {
-		booleanFlags = booleanFlags.SetFlag(0)
-	}
-	if metadata.liked {
-		booleanFlags = booleanFlags.SetFlag(1)
-	}
-	if metadata.finalized {
-		booleanFlags = booleanFlags.SetFlag(2)
-	}
-	marshaledMetadata[MARSHALED_FLAGS_START] = byte(booleanFlags)
-
-	return marshaledMetadata, nil
 }
 
-func (metadata *TransactionMetadata) Unmarshal(data []byte) errors.IdentifiableError {
-	metadata.hashMutex.Lock()
-	defer metadata.hashMutex.Unlock()
-	metadata.receivedTimeMutex.Lock()
-	defer metadata.receivedTimeMutex.Unlock()
-	metadata.solidMutex.Lock()
-	defer metadata.solidMutex.Unlock()
-	metadata.likedMutex.Lock()
-	defer metadata.likedMutex.Unlock()
-	metadata.finalizedMutex.Lock()
-	defer metadata.finalizedMutex.Unlock()
+func storeTransactionMetadataInDatabase(metadata *transactionmetadata.TransactionMetadata) errors.IdentifiableError {
+	if metadata.GetModified() {
+		if marshaledMetadata, err := metadata.Marshal(); err != nil {
+			return err
+		} else {
+			if err := transactionMetadataDatabase.Set(metadata.GetHash().CastToBytes(), marshaledMetadata); err != nil {
+				return ErrDatabaseError.Derive(err, "failed to store transaction metadata")
+			}
 
-	metadata.hash = ternary.Trinary(typeutils.BytesToString(data[MARSHALED_HASH_START:MARSHALED_HASH_END]))
-
-	if err := metadata.receivedTime.UnmarshalBinary(data[MARSHALED_RECEIVED_TIME_START:MARSHALED_RECEIVED_TIME_END]); err != nil {
-		return ErrUnmarshalFailed.Derive(err, "could not unmarshal the received time")
-	}
-
-	booleanFlags := bitutils.BitMask(data[MARSHALED_FLAGS_START])
-	if booleanFlags.HasFlag(0) {
-		metadata.solid = true
-	}
-	if booleanFlags.HasFlag(1) {
-		metadata.liked = true
-	}
-	if booleanFlags.HasFlag(2) {
-		metadata.finalized = true
+			metadata.SetModified(false)
+		}
 	}
 
 	return nil
 }
 
+func getTransactionMetadataFromDatabase(transactionHash ternary.Trinary) (*transactionmetadata.TransactionMetadata, errors.IdentifiableError) {
+	txMetadata, err := transactionMetadataDatabase.Get(transactionHash.CastToBytes())
+	if err != nil {
+		if err == badger.ErrKeyNotFound {
+			return nil, nil
+		} else {
+			return nil, ErrDatabaseError.Derive(err, "failed to retrieve transaction")
+		}
+	}
+
+	var result transactionmetadata.TransactionMetadata
+	if err := result.Unmarshal(txMetadata); err != nil {
+		panic(err)
+	}
+
+	return &result, nil
+}
+
+func databaseContainsTransactionMetadata(transactionHash ternary.Trinary) (bool, errors.IdentifiableError) {
+	if contains, err := transactionMetadataDatabase.Contains(transactionHash.CastToBytes()); err != nil {
+		return contains, ErrDatabaseError.Derive(err, "failed to check if the transaction metadata exists")
+	} else {
+		return contains, nil
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region database functions ///////////////////////////////////////////////////////////////////////////////////////////
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region constants and variables //////////////////////////////////////////////////////////////////////////////////////
-
-const (
-	MARSHALED_HASH_START          = 0
-	MARSHALED_RECEIVED_TIME_START = MARSHALED_HASH_END
-	MARSHALED_FLAGS_START         = MARSHALED_RECEIVED_TIME_END
-
-	MARSHALED_HASH_END          = MARSHALED_HASH_START + MARSHALED_HASH_SIZE
-	MARSHALED_RECEIVED_TIME_END = MARSHALED_RECEIVED_TIME_START + MARSHALED_RECEIVED_TIME_SIZE
-	MARSHALED_FLAGS_END         = MARSHALED_FLAGS_START + MARSHALED_FLAGS_SIZE
-
-	MARSHALED_HASH_SIZE          = 81
-	MARSHALED_RECEIVED_TIME_SIZE = 15
-	MARSHALED_FLAGS_SIZE         = 1
-
-	MARSHALED_TOTAL_SIZE = MARSHALED_FLAGS_END
-)
-
-// endregion ////////////////////////////////////////////////////////////////////////////////////////////////////////////
