@@ -8,7 +8,7 @@ import (
 
 // beingVoted is the voting map containing all the txs
 // currently being voted
-var beingVoted *VotingnMap
+var beingVoted *VotingMap
 
 // RunProtocol defines the signature of the function
 // implementing the FCoB protocol

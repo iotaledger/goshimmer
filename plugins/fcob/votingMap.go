@@ -9,27 +9,27 @@ import (
 
 // VotingnMap is the mapping of Txs and their being voted status.
 // It uses a mutex to handle concurrent access to its internal map
-type VotingnMap struct {
+type VotingMap struct {
 	sync.RWMutex
 	internal map[ternary.Trinary]bool
 }
 
 // NewVotingMap returns a new VotingnMap
-func NewVotingMap() *VotingnMap {
-	return &VotingnMap{
+func NewVotingMap() *VotingMap {
+	return &VotingMap{
 		internal: make(map[ternary.Trinary]bool),
 	}
 }
 
 // Len returns the number of txs stored in the votingMap
-func (vm *VotingnMap) Len() int {
+func (vm *VotingMap) Len() int {
 	vm.RLock()
 	defer vm.RUnlock()
 	return len(vm.internal)
 }
 
 // GetMap returns the content of the entire internal map
-func (vm *VotingnMap) GetMap() map[ternary.Trinary]bool {
+func (vm *VotingMap) GetMap() map[ternary.Trinary]bool {
 	newMap := make(map[ternary.Trinary]bool)
 	vm.RLock()
 	defer vm.RUnlock()
@@ -41,21 +41,21 @@ func (vm *VotingnMap) GetMap() map[ternary.Trinary]bool {
 
 // Load returns the value for a given key.
 // It returns false it the key is not present
-func (vm *VotingnMap) Load(key ternary.Trinary) bool {
+func (vm *VotingMap) Load(key ternary.Trinary) bool {
 	vm.RLock()
 	defer vm.RUnlock()
 	return vm.internal[key]
 }
 
 // Delete removes the entire entry for a given key
-func (vm *VotingnMap) Delete(key ternary.Trinary) {
+func (vm *VotingMap) Delete(key ternary.Trinary) {
 	vm.Lock()
 	defer vm.Unlock()
 	delete(vm.internal, key)
 }
 
 // Store adds a new entries to the map
-func (vm *VotingnMap) Store(keys ...ternary.Trinary) {
+func (vm *VotingMap) Store(keys ...ternary.Trinary) {
 	vm.Lock()
 	defer vm.Unlock()
 	for _, key := range keys {
@@ -64,7 +64,7 @@ func (vm *VotingnMap) Store(keys ...ternary.Trinary) {
 }
 
 // String returns the string rapresentation of VotingMap
-func (vm *VotingnMap) String() string {
+func (vm *VotingMap) String() string {
 	out := ""
 	for k := range vm.GetMap() {
 		out += fmt.Sprintf("%v\n", k)
