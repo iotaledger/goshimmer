@@ -30,7 +30,6 @@ func runFPC(plugin *node.Plugin) {
 	daemon.BackgroundWorker(func() {
 		ticker := client.NewTicker()
 		ticker.Connect(*parameters.PRNG_ADDRESS.Value + ":" + *parameters.PRNG_PORT.Value)
-		//INSTANCE.SubmitTxsForVoting(fpc.TxOpinion{"1", fpc.Like})
 	ticker:
 		for {
 			select {
@@ -42,7 +41,6 @@ func runFPC(plugin *node.Plugin) {
 				// ended with no new finalized transactions
 				if len(finalizedTxs) > 0 {
 					Events.VotingDone.Trigger(finalizedTxs)
-					//plugin.LogInfo(fmt.Sprintf("Finalized txs %v", finalizedTxs))
 				}
 			case <-daemon.ShutdownSignal:
 				plugin.LogInfo("Stopping FPC Processor ...")
