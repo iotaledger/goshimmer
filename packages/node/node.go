@@ -1,7 +1,6 @@
 package node
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 
@@ -15,21 +14,9 @@ type Node struct {
 	logLevel      int
 }
 
-var disabledPlugins = make(map[string]bool)
+var DisabledPlugins = make(map[string]bool)
 
 func Load(plugins ...*Plugin) *Node {
-	for _, disabledPlugin := range strings.Fields(*DISABLE_PLUGINS.Value) {
-		disabledPlugins[strings.ToLower(disabledPlugin)] = true
-	}
-
-	fmt.Println("  _____ _   _ ________  ______  ___ ___________ ")
-	fmt.Println(" /  ___| | | |_   _|  \\/  ||  \\/  ||  ___| ___ \\")
-	fmt.Println(" \\ `--.| |_| | | | | .  . || .  . || |__ | |_/ /")
-	fmt.Println("  `--. \\  _  | | | | |\\/| || |\\/| ||  __||    / ")
-	fmt.Println(" /\\__/ / | | |_| |_| |  | || |  | || |___| |\\ \\ ")
-	fmt.Println(" \\____/\\_| |_/\\___/\\_|  |_/\\_|  |_/\\____/\\_| \\_| fullnode 1.0")
-	fmt.Println()
-
 	node := &Node{
 		logLevel:      *LOG_LEVEL.Value,
 		loggers:       make([]*Logger, 0),
@@ -105,11 +92,9 @@ func (node *Node) LogFailure(pluginName string, message string) {
 }
 
 func (node *Node) Load(plugins ...*Plugin) {
-	node.LogInfo("Node", "Loading plugins ...")
-
 	if len(plugins) >= 1 {
 		for _, plugin := range plugins {
-			if _, exists := disabledPlugins[strings.ToLower(strings.Replace(plugin.Name, " ", "", -1))]; !exists {
+			if _, exists := DisabledPlugins[strings.ToLower(strings.Replace(plugin.Name, " ", "", -1))]; !exists {
 				plugin.wg = node.wg
 				plugin.Node = node
 

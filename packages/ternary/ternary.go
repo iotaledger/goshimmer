@@ -30,6 +30,10 @@ func (trytes Trytes) ToTrits() Trits {
 	return trits
 }
 
+func (trytes Trytes) ToString() string {
+	return string(trytes)
+}
+
 func (this Trits) ToBytes() []byte {
 	tritsLength := len(this)
 	bytesLength := (tritsLength + NUMBER_OF_TRITS_IN_A_BYTE - 1) / NUMBER_OF_TRITS_IN_A_BYTE
