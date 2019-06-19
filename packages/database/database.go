@@ -129,15 +129,11 @@ func (this *databaseImpl) ForEach(consumer func([]byte, []byte)) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
 
-		// avoid allocations by reusing the value buffer
-		var value []byte
-
 		// loop through every key-value-pair and call the function
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 
-			var err error
-			value, err = item.ValueCopy(value)
+			value, err := item.ValueCopy(nil)
 			if err != nil {
 				return err
 			}
