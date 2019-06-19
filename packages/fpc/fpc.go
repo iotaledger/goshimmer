@@ -8,12 +8,11 @@ import (
 )
 
 type Voter interface {
-	SubmitTxsForVoting(txs ...TxOpinion)
-	CancelTxsFromVoting(txs ...ID)
+	SubmitTxsForVoting(txs ...TxLike)
 }
 
 type VotingDoneNotifier interface {
-	FinalizedTxsChannel() <-chan []TxOpinion // returns a read only channel
+	FinalizedTxsChannel() <-chan []TxLike // returns a read only channel
 }
 
 // Fpc defines the FPC interface
@@ -36,7 +35,7 @@ type Instance struct {
 	getKnownPeers       GetKnownPeers
 	queryNode           QueryNode
 	state               *context
-	finalizedTxsChannel chan []TxOpinion // TODO: define what should be the representation of outcome					  // e.g., finalized txs reaching MaxDuration should return -1 or something
+	finalizedTxsChannel chan []TxLike // TODO: define what should be the representation of outcome					  // e.g., finalized txs reaching MaxDuration should return -1 or something
 }
 
 // New returns a new FPC instance
@@ -45,18 +44,18 @@ func New(gkp GetKnownPeers, qn QueryNode, parameters *Parameters) *Instance {
 		state:               newContext(parameters),
 		getKnownPeers:       gkp,
 		queryNode:           qn,
-		finalizedTxsChannel: make(chan []TxOpinion),
+		finalizedTxsChannel: make(chan []TxLike),
 	}
 }
 
 // SubmitTxsForVoting adds given txs to the FPC internal state
-func (fpc *Instance) SubmitTxsForVoting(txs ...TxOpinion) {
+func (fpc *Instance) SubmitTxsForVoting(txs ...TxLike) {
 	// TODO: check that txs are not already in state
 	fpc.state.pushTxs(txs...)
 }
 
 // FinalizedTxsChannel returns the FinalizedTxsChannel
-func (fpc *Instance) FinalizedTxsChannel() <-chan []TxOpinion {
+func (fpc *Instance) FinalizedTxsChannel() <-chan []TxLike {
 	return fpc.finalizedTxsChannel
 }
 
@@ -103,6 +102,14 @@ const (
 // Opinions is a list of Opinion
 type Opinions []Opinion
 
+// TxLike defines the current like status of a tx
+// TxHash is the transaction hash
+// Like is the like status
+type TxLike struct {
+	TxHash ID
+	Like   bool
+}
+
 // TxOpinion defines the current opinion of a tx
 // TxHash is the transaction hash
 // Opinion is the current opinion
@@ -142,7 +149,7 @@ func newTick(index uint64, random float64) *tick {
 // i: list of tx to vote
 // i: fpc param
 // o: list of finalized txs (if any)
-func (fpc *Instance) round() []TxOpinion {
+func (fpc *Instance) round() []TxLike {
 	// pop new txs from waiting list and put them into the active list
 	fpc.state.popTxs()
 
@@ -199,15 +206,15 @@ func (fpc *Instance) updateOpinion() {
 	}
 }
 
-func (fpc *Instance) getFinalizedTxs() []TxOpinion {
-	finalized := []TxOpinion{}
+func (fpc *Instance) getFinalizedTxs() []TxLike {
+	finalized := []TxLike{}
 	for tx := range fpc.state.activeTxs {
 		history, _ := fpc.state.opinionHistory.Load(tx)
 		// note, we check isFinal from [1:] since the first opinion is the initial one
 		if isFinal(history[1:], fpc.state.parameters.m, fpc.state.parameters.l) {
 			lastOpinion, _ := getLastOpinion(history)
-			finalized = append(finalized, TxOpinion{tx, lastOpinion})
-			// TODO: op.Delete(tx) ?
+			finalized = append(finalized, TxLike{tx, lastOpinion.ToBool()})
+			fpc.state.opinionHistory.Delete(tx)
 			delete(fpc.state.activeTxs, tx)
 		}
 	}
@@ -295,6 +302,24 @@ func choose(list []string, k int) []string {
 // a lower bound and an upper bound
 func runif(rand, thresholdL, thresholdU float64) float64 {
 	return thresholdL + rand*(thresholdU-thresholdL)
+}
+
+func (tx TxLike) ToOpinion() Opinion {
+	if !tx.Like {
+		return Dislike
+	}
+	return Like
+}
+
+func (tx TxLike) ToTxOpinion() TxOpinion {
+	return TxOpinion{
+		TxHash:  tx.TxHash,
+		Opinion: tx.ToOpinion(),
+	}
+}
+
+func (opinion Opinion) ToBool() bool {
+	return opinion == Like
 }
 
 // ---------------- utility functions -------------------

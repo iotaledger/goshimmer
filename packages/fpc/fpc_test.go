@@ -78,15 +78,15 @@ func TestGetInterimOpinion(t *testing.T) {
 func TestVoteIfAllAgrees(t *testing.T) {
 	type Expected struct {
 		opinionHistory []Opinion
-		finalOpinion   Opinion
+		finalOpinion   bool
 	}
 	type testInput struct {
-		input    TxOpinion
+		input    TxLike
 		expected Expected
 	}
 	var tests = []testInput{
-		{TxOpinion{"1", Like}, Expected{[]Opinion{Like, Like, Like, Like, Like}, Like}},
-		{TxOpinion{"2", Dislike}, Expected{[]Opinion{Dislike, Dislike, Dislike, Dislike, Dislike}, Dislike}},
+		{TxLike{"1", true}, Expected{[]Opinion{Like, Like, Like, Like, Like}, true}},
+		{TxLike{"2", false}, Expected{[]Opinion{Dislike, Dislike, Dislike, Dislike, Dislike}, false}},
 	}
 
 	for _, test := range tests {
@@ -97,7 +97,7 @@ func TestVoteIfAllAgrees(t *testing.T) {
 			reply := []Opinion{}
 			for _, tx := range txs {
 				if tx == test.input.TxHash {
-					reply = append(reply, test.input.Opinion)
+					reply = append(reply, test.input.ToOpinion())
 				}
 			}
 			return reply
@@ -106,34 +106,46 @@ func TestVoteIfAllAgrees(t *testing.T) {
 		fpcInstance := New(getKnownPeers, queryNode, NewParameters())
 		Fpc(fpcInstance).SubmitTxsForVoting(test.input)
 
-		finalOpinions := []TxOpinion{}
+		finalOpinions := []TxLike{}
 		round := uint64(0)
 		for len(finalOpinions) == 0 {
 			// start a new round
 			round++
 			fpcInstance.Tick(round, 0.7)
-
 			// check if got a finalized tx:
 			// FinalizedTxsChannel() returns, after the current round is done,
 			// a list of FinalizedTxs, which can be empty
 			finalOpinions = <-Fpc(fpcInstance).FinalizedTxsChannel()
 		}
-		// check opinion history
-		nodeHistory := fpcInstance.state.opinionHistory
-		txHistory, _ := nodeHistory.Load(test.input.TxHash)
-		if len(txHistory) != len(test.expected.opinionHistory) {
-			t.Error("Should return", test.expected.opinionHistory, "got", txHistory, "with input", test.input)
-		}
-		for i, opinionOfRound := range txHistory {
-			if len(test.expected.opinionHistory) < i+1 || opinionOfRound != test.expected.opinionHistory[i] {
-				t.Error("Should return", test.expected.opinionHistory, "got", txHistory, "with input", test.input)
-			}
-		}
 		// check finalized opinion
 		for _, finalOpinion := range finalOpinions {
-			if finalOpinion.Opinion != test.expected.finalOpinion {
+			if finalOpinion.Like != test.expected.finalOpinion {
 				t.Error("Should return", test.expected.finalOpinion, "got", finalOpinion, "with input", test.input)
 			}
+		}
+	}
+}
+
+func TestSubmitTxsForVoting(t *testing.T) {
+	type testInput struct {
+		txs      []TxLike
+		expected []TxOpinion
+	}
+	var tests = []testInput{
+		{
+			[]TxLike{TxLike{"1", true}, TxLike{"2", true}, TxLike{"3", true}},
+			[]TxOpinion{TxOpinion{"1", Like}, TxOpinion{"2", Like}, TxOpinion{"3", Like}},
+		},
+	}
+	for _, test := range tests {
+		dummyFpc := &Instance{
+			state: newContext(),
+		}
+
+		dummyFpc.SubmitTxsForVoting(test.txs...)
+
+		if !reflect.DeepEqual(dummyFpc.state.waitingTxs.internal, test.expected) {
+			t.Error("Should return", test.expected, "got", dummyFpc.state.waitingTxs.internal, "with input", test)
 		}
 	}
 }

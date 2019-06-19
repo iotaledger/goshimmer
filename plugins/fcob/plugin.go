@@ -17,14 +17,11 @@ var PLUGIN = node.NewPlugin("FCOB", configure, run)
 
 // runProtocol is the FCoB core logic function
 var runProtocol RunProtocol
-
-// fcob is an instance of tangleHook, the concrete
-// implementation of the Opinioner interface
-var fcob tangleHook
+var db tangleDB
 
 func configure(plugin *node.Plugin) {
-	fcob = tangleHook{}
-	runProtocol = makeRunProtocol(fpcP.INSTANCE, fcob)
+	db = tangleDB{}
+	runProtocol = makeRunProtocol(plugin, db, fpcP.INSTANCE)
 }
 
 func run(plugin *node.Plugin) {
@@ -45,13 +42,11 @@ func run(plugin *node.Plugin) {
 	// subscribe to a new VotingDone event
 	// and update the related txs opinion
 	fpcP.Events.VotingDone.Attach(
-		events.NewClosure(func(txs []fpc.TxOpinion) {
+		events.NewClosure(func(txs []fpc.TxLike) {
 			plugin.LogInfo(fmt.Sprintf("Voting Done for txs: %v", txs))
 			for _, tx := range txs {
-				// update "like" and "final" status for all the received txs
-				fcob.SetOpinion(ternary.Trinary(tx.TxHash), Opinion{tx.Opinion, true})
-				//remove finalized txs from beingVoted map
-				beingVoted.Delete(ternary.Trinary(tx.TxHash))
+				// update "liked" and "voted" status for all the received txs
+				setOpinion(ternary.Trinary(tx.TxHash), opinionState{tx.Like, VOTED}, db)
 			}
 		}))
 }

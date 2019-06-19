@@ -68,10 +68,10 @@ func (tq *txQueue) Pop(n ...uint) (out []TxOpinion) {
 	return out
 }
 
-func (c *context) pushTxs(txs ...TxOpinion) {
+func (c *context) pushTxs(txs ...TxLike) {
 	for _, tx := range txs {
-		c.opinionHistory.Store(tx.TxHash, tx.Opinion)
-		c.waitingTxs.Push(tx)
+		c.opinionHistory.Store(tx.TxHash, tx.ToOpinion())
+		c.waitingTxs.Push(tx.ToTxOpinion())
 	}
 }
 
