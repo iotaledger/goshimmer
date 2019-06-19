@@ -150,6 +150,8 @@ func processMetaTransaction(plugin *node.Plugin, metaTransaction *meta_transacti
 }
 
 func processTransaction(plugin *node.Plugin, transaction *value_transaction.ValueTransaction) {
+	Events.TransactionStored.Trigger(transaction)
+
 	transactionHash := transaction.GetHash()
 
 	// register tx as approver for trunk
