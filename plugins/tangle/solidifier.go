@@ -155,6 +155,7 @@ func processMetaTransaction(plugin *node.Plugin, metaTransaction *meta_transacti
 	var newTransaction bool
 	if tx, err := GetTransaction(metaTransaction.GetHash(), func(transactionHash ternary.Trinary) *value_transaction.ValueTransaction {
 		newTransaction = true
+
 		return value_transaction.FromMetaTransaction(metaTransaction)
 	}); err != nil {
 		plugin.LogFailure(err.Error())
