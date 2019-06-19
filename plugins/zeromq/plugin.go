@@ -30,8 +30,7 @@ func configure(plugin *node.Plugin) {
 		}
 	}))
 
-	// TODO: should be tangle.Events.TransactionStored
-	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
+	tangle.Events.TransactionStored.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
 		// create goroutine for every event
 		go func() {
 			if err := publishTx(tx); err != nil {
