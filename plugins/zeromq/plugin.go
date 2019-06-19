@@ -15,6 +15,7 @@ import (
 var PLUGIN = node.NewPlugin("ZeroMQ", configure, run)
 
 var publisher *Publisher
+var emptyTag = strings.Repeat("9", 27)
 
 // Configure the zeromq plugin
 func configure(plugin *node.Plugin) {
@@ -31,9 +32,12 @@ func configure(plugin *node.Plugin) {
 
 	// TODO: should be tangle.Events.TransactionStored
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
-		if err := publishTx(tx); err != nil {
-			plugin.LogFailure(err.Error())
-		}
+		// create goroutine for every event
+		go func() {
+			if err := publishTx(tx); err != nil {
+				plugin.LogFailure(err.Error())
+			}
+		}()
 	}))
 }
 
@@ -72,14 +76,13 @@ func publishTx(tx *value_transaction.ValueTransaction) error {
 	trunk := tx.MetaTransaction.GetTrunkTransactionHash()
 	branch := tx.MetaTransaction.GetBranchTransactionHash()
 	stored := time.Now().Unix()
-	tag := strings.Repeat("9", 27) // use empty tag
 
 	messages := []string{
 		"tx",                             // ZMQ event
 		hash.ToString(),                  // Transaction hash
 		address.ToString(),               // Address
 		strconv.FormatInt(value, 10),     // Value
-		tag,                              // Obsolete tag
+		emptyTag,                         // Obsolete tag
 		strconv.FormatInt(timestamp, 10), // Timestamp
 		"0",                              // Index of the transaction in the bundle
 		"0",                              // Last transaction index of the bundle
@@ -87,7 +90,7 @@ func publishTx(tx *value_transaction.ValueTransaction) error {
 		trunk.ToString(),                 // Trunk transaction hash
 		branch.ToString(),                // Branch transaction hash
 		strconv.FormatInt(stored, 10),    // Unix timestamp for when the transaction was received
-		tag,                              // Tag
+		emptyTag,                         // Tag
 	}
 
 	return publisher.Send(messages)
