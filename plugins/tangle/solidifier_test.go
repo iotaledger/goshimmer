@@ -12,6 +12,8 @@ import (
 
 func TestSolidifier(t *testing.T) {
 	// initialize plugin
+	configureTransactionDatabase(nil)
+	configureTransactionMetaDataDatabase(nil)
 	configureApproversDatabase(nil)
 	configureSolidifier(nil)
 
