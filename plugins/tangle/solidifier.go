@@ -114,7 +114,7 @@ func IsSolid(transaction *value_transaction.ValueTransaction) (bool, errors.Iden
 	return false, nil
 }
 
-func propagateSolidity(transactionHash ternary.Trinary) errors.IdentifiableError {
+func propagateSolidity(transactionHash ternary.Trytes) errors.IdentifiableError {
 	if approvers, err := GetApprovers(transactionHash, approvers.New); err != nil {
 		return err
 	} else {
@@ -138,7 +138,7 @@ func propagateSolidity(transactionHash ternary.Trinary) errors.IdentifiableError
 
 func processMetaTransaction(plugin *node.Plugin, metaTransaction *meta_transaction.MetaTransaction) {
 	var newTransaction bool
-	if tx, err := GetTransaction(metaTransaction.GetHash(), func(transactionHash ternary.Trinary) *value_transaction.ValueTransaction {
+	if tx, err := GetTransaction(metaTransaction.GetHash(), func(transactionHash ternary.Trytes) *value_transaction.ValueTransaction {
 		newTransaction = true
 
 		return value_transaction.FromMetaTransaction(metaTransaction)

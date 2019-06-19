@@ -45,10 +45,10 @@ func (curl *Curl) Initialize() {
 	curl.InitializeCurl(nil, 0, curl.rounds)
 }
 
-func (curl *Curl) InitializeCurl(trinary ternary.Trits, length int, rounds int) {
+func (curl *Curl) InitializeCurl(trits ternary.Trits, length int, rounds int) {
 	curl.rounds = rounds
-	if trinary != nil {
-		curl.state = trinary
+	if trits != nil {
+		curl.state = trits
 	} else {
 		curl.state = make(ternary.Trits, STATE_LENGTH)
 	}
@@ -58,10 +58,10 @@ func (curl *Curl) Reset() {
 	curl.InitializeCurl(nil, 0, curl.rounds)
 }
 
-func (curl *Curl) Absorb(trinary ternary.Trits, offset int, length int) {
+func (curl *Curl) Absorb(trits ternary.Trits, offset int, length int) {
 	for {
 		limit := int(math.Min(HASH_LENGTH, float64(length)))
-		copy(curl.state, trinary[offset:offset+limit])
+		copy(curl.state, trits[offset:offset+limit])
 		curl.Transform()
 		offset += HASH_LENGTH
 		length -= HASH_LENGTH

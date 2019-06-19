@@ -13,7 +13,7 @@ import (
 // region type definition and constructor //////////////////////////////////////////////////////////////////////////////
 
 type TransactionMetadata struct {
-	hash              ternary.Trinary
+	hash              ternary.Trytes
 	hashMutex         sync.RWMutex
 	receivedTime      time.Time
 	receivedTimeMutex sync.RWMutex
@@ -27,7 +27,7 @@ type TransactionMetadata struct {
 	modifiedMutex     sync.RWMutex
 }
 
-func New(hash ternary.Trinary) *TransactionMetadata {
+func New(hash ternary.Trytes) *TransactionMetadata {
 	return &TransactionMetadata{
 		hash:         hash,
 		receivedTime: time.Now(),
@@ -42,14 +42,14 @@ func New(hash ternary.Trinary) *TransactionMetadata {
 
 // region getters and setters //////////////////////////////////////////////////////////////////////////////////////////
 
-func (metadata *TransactionMetadata) GetHash() ternary.Trinary {
+func (metadata *TransactionMetadata) GetHash() ternary.Trytes {
 	metadata.hashMutex.RLock()
 	defer metadata.hashMutex.RUnlock()
 
 	return metadata.hash
 }
 
-func (metadata *TransactionMetadata) SetHash(hash ternary.Trinary) {
+func (metadata *TransactionMetadata) SetHash(hash ternary.Trytes) {
 	metadata.hashMutex.RLock()
 	if metadata.hash != hash {
 		metadata.hashMutex.RUnlock()
@@ -228,7 +228,7 @@ func (metadata *TransactionMetadata) Unmarshal(data []byte) errors.IdentifiableE
 	metadata.finalizedMutex.Lock()
 	defer metadata.finalizedMutex.Unlock()
 
-	metadata.hash = ternary.Trinary(typeutils.BytesToString(data[MARSHALED_HASH_START:MARSHALED_HASH_END]))
+	metadata.hash = ternary.Trytes(typeutils.BytesToString(data[MARSHALED_HASH_START:MARSHALED_HASH_END]))
 
 	if err := metadata.receivedTime.UnmarshalBinary(data[MARSHALED_RECEIVED_TIME_START:MARSHALED_RECEIVED_TIME_END]); err != nil {
 		return ErrUnmarshalFailed.Derive(err, "could not unmarshal the received time")

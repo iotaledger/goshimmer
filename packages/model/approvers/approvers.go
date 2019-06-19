@@ -11,35 +11,35 @@ import (
 )
 
 type Approvers struct {
-	hash        ternary.Trinary
-	hashes      map[ternary.Trinary]bool
+	hash        ternary.Trytes
+	hashes      map[ternary.Trytes]bool
 	hashesMutex sync.RWMutex
 	modified    bool
 }
 
-func New(hash ternary.Trinary) *Approvers {
+func New(hash ternary.Trytes) *Approvers {
 	return &Approvers{
 		hash:     hash,
-		hashes:   make(map[ternary.Trinary]bool),
+		hashes:   make(map[ternary.Trytes]bool),
 		modified: false,
 	}
 }
 
 // region public methods with locking //////////////////////////////////////////////////////////////////////////////////
 
-func (approvers *Approvers) Add(transactionHash ternary.Trinary) {
+func (approvers *Approvers) Add(transactionHash ternary.Trytes) {
 	approvers.hashesMutex.Lock()
 	approvers.add(transactionHash)
 	approvers.hashesMutex.Unlock()
 }
 
-func (approvers *Approvers) Remove(approverHash ternary.Trinary) {
+func (approvers *Approvers) Remove(approverHash ternary.Trytes) {
 	approvers.hashesMutex.Lock()
 	approvers.remove(approverHash)
 	approvers.hashesMutex.Unlock()
 }
 
-func (approvers *Approvers) GetHashes() (result []ternary.Trinary) {
+func (approvers *Approvers) GetHashes() (result []ternary.Trytes) {
 	approvers.hashesMutex.RLock()
 	result = approvers.getHashes()
 	approvers.hashesMutex.RUnlock()
@@ -47,7 +47,7 @@ func (approvers *Approvers) GetHashes() (result []ternary.Trinary) {
 	return
 }
 
-func (approvers *Approvers) GetHash() (result ternary.Trinary) {
+func (approvers *Approvers) GetHash() (result ternary.Trytes) {
 	approvers.hashesMutex.RLock()
 	result = approvers.hash
 	approvers.hashesMutex.RUnlock()
@@ -101,13 +101,13 @@ func (approvers *Approvers) Unmarshal(data []byte) (err errors.IdentifiableError
 
 	approvers.hashesMutex.Lock()
 
-	approvers.hash = ternary.Trinary(typeutils.BytesToString(data[MARSHALED_APPROVERS_HASH_START:MARSHALED_APPROVERS_HASH_END]))
-	approvers.hashes = make(map[ternary.Trinary]bool, hashesCount)
+	approvers.hash = ternary.Trytes(typeutils.BytesToString(data[MARSHALED_APPROVERS_HASH_START:MARSHALED_APPROVERS_HASH_END]))
+	approvers.hashes = make(map[ternary.Trytes]bool, hashesCount)
 	for i := uint64(0); i < hashesCount; i++ {
 		var HASH_START = MARSHALED_APPROVERS_HASHES_START + i*(MARSHALED_APPROVERS_HASH_SIZE)
 		var HASH_END = HASH_START * MARSHALED_APPROVERS_HASH_SIZE
 
-		approvers.hashes[ternary.Trinary(typeutils.BytesToString(data[HASH_START:HASH_END]))] = true
+		approvers.hashes[ternary.Trytes(typeutils.BytesToString(data[HASH_START:HASH_END]))] = true
 	}
 
 	approvers.hashesMutex.Unlock()
@@ -119,22 +119,22 @@ func (approvers *Approvers) Unmarshal(data []byte) (err errors.IdentifiableError
 
 // region private methods without locking //////////////////////////////////////////////////////////////////////////////
 
-func (approvers *Approvers) add(transactionHash ternary.Trinary) {
+func (approvers *Approvers) add(transactionHash ternary.Trytes) {
 	if _, exists := approvers.hashes[transactionHash]; !exists {
 		approvers.hashes[transactionHash] = true
 		approvers.modified = true
 	}
 }
 
-func (approvers *Approvers) remove(approverHash ternary.Trinary) {
+func (approvers *Approvers) remove(approverHash ternary.Trytes) {
 	if _, exists := approvers.hashes[approverHash]; exists {
 		delete(approvers.hashes, approverHash)
 		approvers.modified = true
 	}
 }
 
-func (approvers *Approvers) getHashes() (result []ternary.Trinary) {
-	result = make([]ternary.Trinary, len(approvers.hashes))
+func (approvers *Approvers) getHashes() (result []ternary.Trytes) {
+	result = make([]ternary.Trytes, len(approvers.hashes))
 
 	counter := 0
 	for hash := range approvers.hashes {

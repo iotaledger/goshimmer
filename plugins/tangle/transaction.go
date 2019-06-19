@@ -13,7 +13,7 @@ import (
 
 // region public api ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-func GetTransaction(transactionHash ternary.Trinary, computeIfAbsent ...func(ternary.Trinary) *value_transaction.ValueTransaction) (result *value_transaction.ValueTransaction, err errors.IdentifiableError) {
+func GetTransaction(transactionHash ternary.Trytes, computeIfAbsent ...func(ternary.Trytes) *value_transaction.ValueTransaction) (result *value_transaction.ValueTransaction, err errors.IdentifiableError) {
 	if cacheResult := transactionCache.ComputeIfAbsent(transactionHash, func() interface{} {
 		if transaction, dbErr := getTransactionFromDatabase(transactionHash); dbErr != nil {
 			err = dbErr
@@ -35,7 +35,7 @@ func GetTransaction(transactionHash ternary.Trinary, computeIfAbsent ...func(ter
 	return
 }
 
-func ContainsTransaction(transactionHash ternary.Trinary) (result bool, err errors.IdentifiableError) {
+func ContainsTransaction(transactionHash ternary.Trytes) (result bool, err errors.IdentifiableError) {
 	if transactionCache.Contains(transactionHash) {
 		result = true
 	} else {
@@ -97,7 +97,7 @@ func storeTransactionInDatabase(transaction *value_transaction.ValueTransaction)
 	return nil
 }
 
-func getTransactionFromDatabase(transactionHash ternary.Trinary) (*value_transaction.ValueTransaction, errors.IdentifiableError) {
+func getTransactionFromDatabase(transactionHash ternary.Trytes) (*value_transaction.ValueTransaction, errors.IdentifiableError) {
 	txData, err := transactionDatabase.Get(transactionHash.CastToBytes())
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
@@ -110,7 +110,7 @@ func getTransactionFromDatabase(transactionHash ternary.Trinary) (*value_transac
 	return value_transaction.FromBytes(txData), nil
 }
 
-func databaseContainsTransaction(transactionHash ternary.Trinary) (bool, errors.IdentifiableError) {
+func databaseContainsTransaction(transactionHash ternary.Trytes) (bool, errors.IdentifiableError) {
 	if contains, err := transactionDatabase.Contains(transactionHash.CastToBytes()); err != nil {
 		return contains, ErrDatabaseError.Derive(err, "failed to check if the transaction exists")
 	} else {

@@ -6,13 +6,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ternary"
 )
 
-func Decode(trinary ternary.Trinary) (result *Area, err errors.IdentifiableError) {
-	if olcCode, conversionErr := OLCCodeFromTrinary(trinary); conversionErr != nil {
+func Decode(trytes ternary.Trytes) (result *Area, err errors.IdentifiableError) {
+	if olcCode, conversionErr := OLCCodeFromTrytes(trytes); conversionErr != nil {
 		err = conversionErr
 	} else {
 		if codeArea, olcErr := olc.Decode(olcCode); olcErr == nil {
 			result = &Area{
-				IACCode:  trinary,
+				IACCode:  trytes,
 				OLCCode:  olcCode,
 				CodeArea: codeArea,
 			}

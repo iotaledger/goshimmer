@@ -31,10 +31,10 @@ func init() {
 	IAC_TO_OLC_MAP[IAC_PADDING] = OLC_PADDING
 }
 
-func TrinaryFromOLCCode(code string) (result ternary.Trinary, err errors.IdentifiableError) {
+func TrytesFromOLCCode(code string) (result ternary.Trytes, err errors.IdentifiableError) {
 	for _, char := range code {
 		if translatedChar, exists := OLC_TO_IAC_MAP[char]; exists {
-			result += ternary.Trinary(translatedChar)
+			result += ternary.Trytes(translatedChar)
 		} else {
 			err = ErrConversionFailed.Derive("invalid character in input")
 		}
@@ -43,8 +43,8 @@ func TrinaryFromOLCCode(code string) (result ternary.Trinary, err errors.Identif
 	return
 }
 
-func OLCCodeFromTrinary(trinary ternary.Trinary) (result string, err errors.IdentifiableError) {
-	for _, char := range trinary {
+func OLCCodeFromTrytes(trytes ternary.Trytes) (result string, err errors.IdentifiableError) {
+	for _, char := range trytes {
 		if translatedChar, exists := IAC_TO_OLC_MAP[char]; exists {
 			result += string(translatedChar)
 		} else {

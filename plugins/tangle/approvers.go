@@ -12,7 +12,8 @@ import (
 
 // region global public api ////////////////////////////////////////////////////////////////////////////////////////////
 
-func GetApprovers(transactionHash ternary.Trinary, computeIfAbsent ...func(ternary.Trinary) *approvers.Approvers) (result *approvers.Approvers, err errors.IdentifiableError) {
+// GetApprovers retrieves approvers from the database.
+func GetApprovers(transactionHash ternary.Trytes, computeIfAbsent ...func(ternary.Trytes) *approvers.Approvers) (result *approvers.Approvers, err errors.IdentifiableError) {
 	if cacheResult := approversCache.ComputeIfAbsent(transactionHash, func() interface{} {
 		if dbApprovers, dbErr := getApproversFromDatabase(transactionHash); dbErr != nil {
 			err = dbErr
@@ -34,7 +35,7 @@ func GetApprovers(transactionHash ternary.Trinary, computeIfAbsent ...func(terna
 	return
 }
 
-func ContainsApprovers(transactionHash ternary.Trinary) (result bool, err errors.IdentifiableError) {
+func ContainsApprovers(transactionHash ternary.Trytes) (result bool, err errors.IdentifiableError) {
 	if approversCache.Contains(transactionHash) {
 		result = true
 	} else {
@@ -94,14 +95,14 @@ func storeApproversInDatabase(approvers *approvers.Approvers) errors.Identifiabl
 	return nil
 }
 
-func getApproversFromDatabase(transactionHash ternary.Trinary) (*approvers.Approvers, errors.IdentifiableError) {
+func getApproversFromDatabase(transactionHash ternary.Trytes) (*approvers.Approvers, errors.IdentifiableError) {
 	approversData, err := approversDatabase.Get(transactionHash.CastToBytes())
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			return nil, nil
-		} else {
-			return nil, ErrDatabaseError.Derive(err, "failed to retrieve approvers")
 		}
+
+		return nil, ErrDatabaseError.Derive(err, "failed to retrieve approvers")
 	}
 
 	var result approvers.Approvers
@@ -112,7 +113,7 @@ func getApproversFromDatabase(transactionHash ternary.Trinary) (*approvers.Appro
 	return &result, nil
 }
 
-func databaseContainsApprovers(transactionHash ternary.Trinary) (bool, errors.IdentifiableError) {
+func databaseContainsApprovers(transactionHash ternary.Trytes) (bool, errors.IdentifiableError) {
 	if contains, err := approversDatabase.Contains(transactionHash.CastToBytes()); err != nil {
 		return false, ErrDatabaseError.Derive(err, "failed to check if the approvers exists")
 	} else {

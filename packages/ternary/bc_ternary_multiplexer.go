@@ -15,8 +15,8 @@ func NewBCTernaryMultiplexer() *BCTernaryMultiplexer {
 	return this
 }
 
-func (this *BCTernaryMultiplexer) Add(trinary Trits) int {
-	this.trinaries = append(this.trinaries, trinary)
+func (this *BCTernaryMultiplexer) Add(trits Trits) int {
+	this.trinaries = append(this.trinaries, trits)
 
 	return len(this.trinaries) - 1
 }
@@ -25,11 +25,11 @@ func (this *BCTernaryMultiplexer) Get(index int) Trits {
 	return this.trinaries[index]
 }
 
-func (this *BCTernaryMultiplexer) Extract() (BCTrinary, error) {
+func (this *BCTernaryMultiplexer) Extract() (BCTrits, error) {
 	trinariesCount := len(this.trinaries)
 	tritsCount := len(this.trinaries[0])
 
-	result := BCTrinary{
+	result := BCTrits{
 		Lo: make([]uint, tritsCount),
 		Hi: make([]uint, tritsCount),
 	}
@@ -50,7 +50,7 @@ func (this *BCTernaryMultiplexer) Extract() (BCTrinary, error) {
 				bcTrit.Hi |= 1 << uint(j)
 
 			default:
-				return result, errors.New("Invalid trit #" + strconv.Itoa(i) + " in trinary #" + strconv.Itoa(j))
+				return result, errors.New("Invalid trit #" + strconv.Itoa(i) + " in trits #" + strconv.Itoa(j))
 			}
 		}
 

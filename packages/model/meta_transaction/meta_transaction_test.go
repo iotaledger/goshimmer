@@ -10,12 +10,12 @@ import (
 )
 
 func TestMetaTransaction_SettersGetters(t *testing.T) {
-	shardMarker := ternary.Trinary("NPHTQORL9XKA")
-	trunkTransactionHash := ternary.Trinary("99999999999999999999999999999999999999999999999999999999999999999999999999999999A")
-	branchTransactionHash := ternary.Trinary("99999999999999999999999999999999999999999999999999999999999999999999999999999999B")
+	shardMarker := ternary.Trytes("NPHTQORL9XKA")
+	trunkTransactionHash := ternary.Trytes("99999999999999999999999999999999999999999999999999999999999999999999999999999999A")
+	branchTransactionHash := ternary.Trytes("99999999999999999999999999999999999999999999999999999999999999999999999999999999B")
 	head := true
 	tail := true
-	transactionType := ternary.Trinary("9999999999999999999999")
+	transactionType := ternary.Trytes("9999999999999999999999")
 
 	transaction := New()
 	transaction.SetShardMarker(shardMarker)

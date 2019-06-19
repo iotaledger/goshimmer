@@ -13,7 +13,7 @@ import (
 
 // region public api ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-func GetTransactionMetadata(transactionHash ternary.Trinary, computeIfAbsent ...func(ternary.Trinary) *transactionmetadata.TransactionMetadata) (result *transactionmetadata.TransactionMetadata, err errors.IdentifiableError) {
+func GetTransactionMetadata(transactionHash ternary.Trytes, computeIfAbsent ...func(ternary.Trytes) *transactionmetadata.TransactionMetadata) (result *transactionmetadata.TransactionMetadata, err errors.IdentifiableError) {
 	if cacheResult := transactionMetadataCache.ComputeIfAbsent(transactionHash, func() interface{} {
 		if transactionMetadata, dbErr := getTransactionMetadataFromDatabase(transactionHash); dbErr != nil {
 			err = dbErr
@@ -35,7 +35,7 @@ func GetTransactionMetadata(transactionHash ternary.Trinary, computeIfAbsent ...
 	return
 }
 
-func ContainsTransactionMetadata(transactionHash ternary.Trinary) (result bool, err errors.IdentifiableError) {
+func ContainsTransactionMetadata(transactionHash ternary.Trytes) (result bool, err errors.IdentifiableError) {
 	if transactionMetadataCache.Contains(transactionHash) {
 		result = true
 	} else {
@@ -101,7 +101,7 @@ func storeTransactionMetadataInDatabase(metadata *transactionmetadata.Transactio
 	return nil
 }
 
-func getTransactionMetadataFromDatabase(transactionHash ternary.Trinary) (*transactionmetadata.TransactionMetadata, errors.IdentifiableError) {
+func getTransactionMetadataFromDatabase(transactionHash ternary.Trytes) (*transactionmetadata.TransactionMetadata, errors.IdentifiableError) {
 	txMetadata, err := transactionMetadataDatabase.Get(transactionHash.CastToBytes())
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
@@ -119,7 +119,7 @@ func getTransactionMetadataFromDatabase(transactionHash ternary.Trinary) (*trans
 	return &result, nil
 }
 
-func databaseContainsTransactionMetadata(transactionHash ternary.Trinary) (bool, errors.IdentifiableError) {
+func databaseContainsTransactionMetadata(transactionHash ternary.Trytes) (bool, errors.IdentifiableError) {
 	if contains, err := transactionMetadataDatabase.Contains(transactionHash.CastToBytes()); err != nil {
 		return contains, ErrDatabaseError.Derive(err, "failed to check if the transaction metadata exists")
 	} else {

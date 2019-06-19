@@ -9,7 +9,7 @@ import (
 
 type Area struct {
 	olc.CodeArea
-	IACCode ternary.Trinary
+	IACCode ternary.Trytes
 	OLCCode string
 }
 

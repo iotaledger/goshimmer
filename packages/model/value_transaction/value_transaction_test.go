@@ -9,7 +9,7 @@ import (
 )
 
 func TestValueTransaction_SettersGetters(t *testing.T) {
-	address := ternary.Trinary("A9999999999999999999999999999999999999999999999999999999999999999999999999999999F")
+	address := ternary.Trytes("A9999999999999999999999999999999999999999999999999999999999999999999999999999999F")
 
 	transaction := New()
 	transaction.SetAddress(address)
