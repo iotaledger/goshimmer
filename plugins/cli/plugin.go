@@ -40,6 +40,10 @@ func init() {
 func configure(ctx *node.Plugin) {
 	flag.Parse()
 
+	for _, disabledPlugin := range strings.Fields(*node.DISABLE_PLUGINS.Value) {
+		node.DisabledPlugins[strings.ToLower(disabledPlugin)] = true
+	}
+
 	fmt.Println("  _____ _   _ ________  ______  ___ ___________ ")
 	fmt.Println(" /  ___| | | |_   _|  \\/  ||  \\/  ||  ___| ___ \\")
 	fmt.Println(" \\ `--.| |_| | | | | .  . || .  . || |__ | |_/ /")
