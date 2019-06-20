@@ -74,7 +74,7 @@ func (approvers *Approvers) Marshal() (result []byte) {
 	i := 0
 	for hash := range approvers.hashes {
 		var HASH_START = MARSHALED_APPROVERS_HASHES_START + i*(MARSHALED_APPROVERS_HASH_SIZE)
-		var HASH_END = HASH_START * MARSHALED_APPROVERS_HASH_SIZE
+		var HASH_END = HASH_START + MARSHALED_APPROVERS_HASH_SIZE
 
 		copy(result[HASH_START:HASH_END], hash.CastToBytes())
 
@@ -89,13 +89,13 @@ func (approvers *Approvers) Marshal() (result []byte) {
 func (approvers *Approvers) Unmarshal(data []byte) (err errors.IdentifiableError) {
 	dataLen := len(data)
 
-	if dataLen <= MARSHALED_APPROVERS_MIN_SIZE {
+	if dataLen < MARSHALED_APPROVERS_MIN_SIZE {
 		return ErrMarshallFailed.Derive(errors.New("unmarshall failed"), "marshaled approvers are too short")
 	}
 
 	hashesCount := binary.BigEndian.Uint64(data[MARSHALED_APPROVERS_HASHES_COUNT_START:MARSHALED_APPROVERS_HASHES_COUNT_END])
 
-	if dataLen <= MARSHALED_APPROVERS_MIN_SIZE+int(hashesCount)*MARSHALED_APPROVERS_HASH_SIZE {
+	if dataLen < MARSHALED_APPROVERS_MIN_SIZE+int(hashesCount)*MARSHALED_APPROVERS_HASH_SIZE {
 		return ErrMarshallFailed.Derive(errors.New("unmarshall failed"), "marshaled approvers are too short for "+strconv.FormatUint(hashesCount, 10)+" approvers")
 	}
 
@@ -105,7 +105,7 @@ func (approvers *Approvers) Unmarshal(data []byte) (err errors.IdentifiableError
 	approvers.hashes = make(map[ternary.Trytes]bool, hashesCount)
 	for i := uint64(0); i < hashesCount; i++ {
 		var HASH_START = MARSHALED_APPROVERS_HASHES_START + i*(MARSHALED_APPROVERS_HASH_SIZE)
-		var HASH_END = HASH_START * MARSHALED_APPROVERS_HASH_SIZE
+		var HASH_END = HASH_START + MARSHALED_APPROVERS_HASH_SIZE
 
 		approvers.hashes[ternary.Trytes(typeutils.BytesToString(data[HASH_START:HASH_END]))] = true
 	}
