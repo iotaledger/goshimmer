@@ -25,7 +25,7 @@ func TestApprovers_MarshalUnmarshalGetters(t *testing.T) {
 	approversTest.Add(hashB)
 
 	approversTestBytes := approversTest.Marshal()
-	//var approversUnmarshaled *Approvers
+
 	approversUnmarshaled := New(hashA)
 	err := approversUnmarshaled.Unmarshal(approversTestBytes)
 	if err != nil {
