@@ -37,7 +37,7 @@ func New() (result *ValueTransaction) {
 func FromMetaTransaction(metaTransaction *meta_transaction.MetaTransaction) *ValueTransaction {
 	return &ValueTransaction{
 		MetaTransaction: metaTransaction,
-		trits: metaTransaction.GetData(),
+		trits:           metaTransaction.GetData(),
 	}
 }
 
