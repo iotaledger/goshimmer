@@ -37,7 +37,7 @@ type MetaTransaction struct {
 }
 
 func New() *MetaTransaction {
-	return FromTrits(make(ternary.Trits, MARSHALLED_TOTAL_SIZE))
+	return FromTrits(make(ternary.Trits, MARSHALED_TOTAL_SIZE))
 }
 
 func FromTrits(trits ternary.Trits) *MetaTransaction {
@@ -47,7 +47,7 @@ func FromTrits(trits ternary.Trits) *MetaTransaction {
 }
 
 func FromBytes(bytes []byte) (result *MetaTransaction) {
-	result = FromTrits(ternary.BytesToTrits(bytes)[:MARSHALLED_TOTAL_SIZE])
+	result = FromTrits(ternary.BytesToTrits(bytes)[:MARSHALED_TOTAL_SIZE])
 	result.bytes = bytes
 
 	return

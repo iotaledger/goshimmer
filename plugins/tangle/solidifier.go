@@ -17,7 +17,7 @@ import (
 
 //var solidifierChan = make(chan *value_transaction.ValueTransaction, 1000)
 
-const NUMBER_OF_WORKERS = 300
+const NUMBER_OF_WORKERS = 3000
 
 var tasksChan = make(chan *meta_transaction.MetaTransaction, NUMBER_OF_WORKERS)
 

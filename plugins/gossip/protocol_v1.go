@@ -303,7 +303,7 @@ type transactionStateV1 struct {
 func newTransactionStateV1(protocol *protocol) *transactionStateV1 {
 	return &transactionStateV1{
 		protocol: protocol,
-		buffer:   make([]byte, meta_transaction.MARSHALLED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE),
+		buffer:   make([]byte, meta_transaction.MARSHALED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE),
 		offset:   0,
 	}
 }
@@ -312,10 +312,10 @@ func (state *transactionStateV1) Receive(data []byte, offset int, length int) (i
 	bytesRead := byteutils.ReadAvailableBytesToBuffer(state.buffer, state.offset, data, offset, length)
 
 	state.offset += bytesRead
-	if state.offset == meta_transaction.MARSHALLED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE {
+	if state.offset == meta_transaction.MARSHALED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE {
 		protocol := state.protocol
 
-		transactionData := make([]byte, meta_transaction.MARSHALLED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE)
+		transactionData := make([]byte, meta_transaction.MARSHALED_TOTAL_SIZE/ternary.NUMBER_OF_TRITS_IN_A_BYTE)
 		copy(transactionData, state.buffer)
 
 		protocol.Events.ReceiveTransactionData.Trigger(transactionData)

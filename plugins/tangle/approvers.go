@@ -85,8 +85,8 @@ func configureApproversDatabase(plugin *node.Plugin) {
 
 func storeApproversInDatabase(approvers *approvers.Approvers) errors.IdentifiableError {
 	if approvers.GetModified() {
-		if err := transactionMetadataDatabase.Set(approvers.GetHash().CastToBytes(), approvers.Marshal()); err != nil {
-			return ErrDatabaseError.Derive(err, "failed to store transaction metadata")
+		if err := approversDatabase.Set(approvers.GetHash().CastToBytes(), approvers.Marshal()); err != nil {
+			return ErrDatabaseError.Derive(err, "failed to store approvers")
 		}
 
 		approvers.SetModified(false)

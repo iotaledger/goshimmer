@@ -117,5 +117,5 @@ func (this *BatchHasher) Hash(trits ternary.Trits) chan ternary.Trits {
 }
 
 const (
-	NUMBER_OF_WORKERS = 100
+	NUMBER_OF_WORKERS = 1000
 )

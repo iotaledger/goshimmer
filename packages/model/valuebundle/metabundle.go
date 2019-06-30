@@ -27,6 +27,10 @@ func (bundle *MetaBundle) GetHash() ternary.Trytes {
 }
 
 func CalculateBundleHash(transactions []*value_transaction.ValueTransaction) ternary.Trytes {
+	transactions[0].GetAddress()
+	transactions[0].GetSignatureMessageFragment()
+	transactions[0].GetTimestamp()
+	transactions[0].GetValue()
 	//transactions[0].GetData()[value_transaction.SIGNATURE_MESSAGE_FRAGMENT_OFFSET]
 	return ternary.Trytes("A")
 }

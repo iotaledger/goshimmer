@@ -63,9 +63,9 @@ func (approvers *Approvers) SetModified(modified bool) {
 }
 
 func (approvers *Approvers) Marshal() (result []byte) {
-	result = make([]byte, MARSHALED_APPROVERS_MIN_SIZE+len(approvers.hashes)*MARSHALED_APPROVERS_HASH_SIZE)
-
 	approvers.hashesMutex.RLock()
+
+	result = make([]byte, MARSHALED_APPROVERS_MIN_SIZE+len(approvers.hashes)*MARSHALED_APPROVERS_HASH_SIZE)
 
 	binary.BigEndian.PutUint64(result[MARSHALED_APPROVERS_HASHES_COUNT_START:MARSHALED_APPROVERS_HASHES_COUNT_END], uint64(len(approvers.hashes)))
 

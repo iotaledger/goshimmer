@@ -90,6 +90,9 @@ func storeTransactionMetadataInDatabase(metadata *transactionmetadata.Transactio
 		if marshaledMetadata, err := metadata.Marshal(); err != nil {
 			return err
 		} else {
+			if len(marshaledMetadata) != 97 {
+				panic("WATT")
+			}
 			if err := transactionMetadataDatabase.Set(metadata.GetHash().CastToBytes(), marshaledMetadata); err != nil {
 				return ErrDatabaseError.Derive(err, "failed to store transaction metadata")
 			}
