@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/iotaledger/goshimmer/packages/errors"
+	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/ternary"
@@ -20,7 +21,7 @@ const (
 // implementing the FCoB protocol
 type RunProtocol func(txMetadata ternary.Trinary) error
 
-// opinionState defines the opinion state
+// Opinion defines the opinion state
 type Opinion struct {
 	isLiked bool
 	isVoted bool
@@ -35,7 +36,7 @@ type ConflictChecker interface {
 // FCoB core logic, that uses the given voter and updater interfaces
 func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) RunProtocol {
 
-	// dummy FCoB logic core
+	// FCoB logic core
 	return func(txHash ternary.Trinary) (err error) {
 		// the opinioner decides the initial opinion and the (potential conflict set)
 		initialOpinion, conflictSet, err := decideInitialOpinion(txHash, tangle)
@@ -66,7 +67,7 @@ func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) Run
 			}
 			// include only unvoted txs
 			if !txOpinion.isVoted {
-				// converting tx into fpc TxLike
+				// converting tx into fpc TxOpinion
 				cTx := fpc.TxOpinion{fpc.ID(tx), txOpinion.isLiked}
 				txsToSubmit = append(txsToSubmit, cTx)
 			}
@@ -78,6 +79,15 @@ func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) Run
 		}
 		return
 	}
+}
+
+func makeUpdateTxsVoted(plugin *node.Plugin) *events.Closure {
+	return events.NewClosure(func(txs []fpc.TxOpinion) {
+		plugin.LogInfo(fmt.Sprintf("Voting Done for txs: %v", txs))
+		for _, tx := range txs {
+			setOpinion(ternary.Trinary(tx.TxHash), Opinion{tx.Opinion, VOTED}, api)
+		}
+	})
 }
 
 func getOpinion(transactionHash ternary.Trinary, tangle tangleAPI) (opinion Opinion, err errors.IdentifiableError) {

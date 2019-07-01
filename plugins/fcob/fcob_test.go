@@ -44,15 +44,6 @@ func (m mockedTangle) new(value int64, ID, branch, trunk ternary.Trinary, like, 
 	m.metadata[ID].SetFinalized(final)
 }
 
-func (m *mockedTangle) init() {
-	m.tangle = make(map[ternary.Trinary]*value_transaction.ValueTransaction)
-	m.metadata = make(map[ternary.Trinary]*tangle.TransactionMetadata)
-	m.hashToID = make(map[ternary.Trinary]ternary.Trinary)
-	m.new(1, "1", "1", "1", LIKED, VOTED)
-	m.new(2, "2", "1", "1", LIKED, UNVOTED)
-	m.new(3, "3", "1", "1", DISLIKED, VOTED)
-}
-
 // TestRunProtocol tests the FCoB protocol
 func TestRunProtocol(t *testing.T) {
 	mockedDB := mockedTangle{}
@@ -97,7 +88,14 @@ func TestRunProtocol(t *testing.T) {
 
 	for _, test := range tests {
 		testVoter := mockedVoter{}
-		mockedDB.init()
+		// initialize tangle
+		mockedDB.tangle = make(map[ternary.Trinary]*value_transaction.ValueTransaction)
+		mockedDB.metadata = make(map[ternary.Trinary]*tangle.TransactionMetadata)
+		mockedDB.hashToID = make(map[ternary.Trinary]ternary.Trinary)
+		mockedDB.new(1, "1", "1", "1", LIKED, VOTED)
+		mockedDB.new(2, "2", "1", "1", LIKED, UNVOTED)
+		mockedDB.new(3, "3", "1", "1", DISLIKED, VOTED)
+
 		mockedDB.new(test.value, test.tx, test.branch, test.trunk, false, false)
 		runProtocol := makeRunProtocol(nil, mockedDB, testVoter)
 		err := runProtocol(mockedDB.tangle[test.tx].GetHash())

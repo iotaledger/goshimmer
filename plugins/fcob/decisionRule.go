@@ -8,11 +8,11 @@ import (
 // decision rule for setting initial opinion
 func decideInitialOpinion(txHash ternary.Trinary, tangle tangleAPI) (opinion Opinion, conflictSet map[ternary.Trinary]bool, err errors.IdentifiableError) {
 	// dislikes tx if its past is disliked
-	txPast, err := getApproveeLikeStatus(txHash, tangle)
+	txPastLiked, err := getApproveeLikeStatus(txHash, tangle)
 	if err != nil {
 		return Opinion{}, conflictSet, err
 	}
-	if txPast == DISLIKED {
+	if !txPastLiked {
 		return Opinion{DISLIKED, VOTED}, conflictSet, nil
 	}
 
@@ -30,8 +30,8 @@ func decideInitialOpinion(txHash ternary.Trinary, tangle tangleAPI) (opinion Opi
 }
 
 func getApproveeLikeStatus(txHash ternary.Trinary, tangle tangleAPI) (liked bool, err errors.IdentifiableError) {
-	// Check branch and trunk finalized like status
-	// if at least one is final disliked immidately return dislike FINAL
+	// Check branch and trunk voted like status
+	// if at least one is voted disliked, returns disliked voted
 	txObject, err := tangle.GetTransaction(txHash)
 	if err != nil {
 		return false, err
@@ -44,7 +44,7 @@ func getApproveeLikeStatus(txHash ternary.Trinary, tangle tangleAPI) (liked bool
 		if err != nil {
 			return false, err
 		}
-		if metadata != nil && metadata.GetLiked() == false && metadata.GetFinalized() {
+		if metadata != nil && !metadata.GetLiked() && metadata.GetFinalized() {
 			return DISLIKED, nil
 		}
 	}
