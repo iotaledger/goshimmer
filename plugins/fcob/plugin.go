@@ -42,11 +42,11 @@ func run(plugin *node.Plugin) {
 	// subscribe to a new VotingDone event
 	// and update the related txs opinion
 	fpcP.Events.VotingDone.Attach(
-		events.NewClosure(func(txs []fpc.TxLike) {
+		events.NewClosure(func(txs []fpc.TxOpinion) {
 			plugin.LogInfo(fmt.Sprintf("Voting Done for txs: %v", txs))
 			for _, tx := range txs {
 				// update "liked" and "voted" status for all the received txs
-				setOpinion(ternary.Trinary(tx.TxHash), opinionState{tx.Like, VOTED}, db)
+				setOpinion(ternary.Trinary(tx.TxHash), Opinion{tx.Opinion, VOTED}, db)
 			}
 		}))
 }

@@ -11,10 +11,5 @@ message QueryRequest {
 }
 
 message QueryReply {
-  enum Opinion {
-    DISLIKE = 0;
-    LIKE = 1;
-    UNDEFINED = 2;
-  }
-  repeated Opinion opinion = 1;
+  repeated bool opinion = 1;
 }

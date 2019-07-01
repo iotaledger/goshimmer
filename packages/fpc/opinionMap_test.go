@@ -82,7 +82,7 @@ func TestOpinionMapStore(t *testing.T) {
 	type testInput struct {
 		opinionMap map[ID]Opinions
 		key        ID
-		value      Opinion
+		value      bool
 		expected   map[ID]Opinions
 	}
 	var tests = []testInput{

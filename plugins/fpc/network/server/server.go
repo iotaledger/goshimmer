@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/packages/node"
 	autop "github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
-	"github.com/iotaledger/goshimmer/plugins/fpc/network/query"
 	pb "github.com/iotaledger/goshimmer/plugins/fpc/network/query"
 	"google.golang.org/grpc"
 )
@@ -33,16 +32,12 @@ func newServer(fpc *fpc.Instance) *queryServer {
 // GetOpinion returns the opinions of the given txs.
 // Currently, we only look for opinions by calling fpc.GetInterimOpinion
 func (s *queryServer) GetOpinion(ctx context.Context, req *pb.QueryRequest) (*pb.QueryReply, error) {
-	opinions := make([]pb.QueryReply_Opinion, len(req.GetTxHash()))
 	// converting QueryRequest strings to fpc.ID
 	requestedIDs := make([]fpc.ID, len(req.GetTxHash()))
 	for i, txHash := range req.GetTxHash() {
 		requestedIDs[i] = fpc.ID(txHash)
 	}
-	myOpinions := s.fpc.GetInterimOpinion(requestedIDs...)
-	for i := range req.GetTxHash() {
-		opinions[i] = query.QueryReply_Opinion(myOpinions[i])
-	}
+	opinions := s.fpc.GetInterimOpinion(requestedIDs...)
 
 	reply := &pb.QueryReply{
 		Opinion: opinions,

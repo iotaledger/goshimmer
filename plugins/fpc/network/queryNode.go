@@ -18,7 +18,7 @@ const (
 )
 
 // queryNode is the internal
-func queryNode(txHash []fpc.ID, client pb.FPCQueryClient) (output []fpc.Opinion) {
+func queryNode(txHash []fpc.ID, client pb.FPCQueryClient) (output fpc.Opinions) {
 	ctx, cancel := context.WithTimeout(context.Background(), TIMEOUT)
 	defer cancel()
 
@@ -32,13 +32,7 @@ func queryNode(txHash []fpc.ID, client pb.FPCQueryClient) (output []fpc.Opinion)
 		TxHash: input,
 	}
 
-	// preparing undefined opinion in case of errors
-	// since we should always return a list of opinions
-	// even in case of errors
-	output = make([]fpc.Opinion, len(txHash))
-	for i := range output {
-		output[i] = fpc.Undefined
-	}
+	output = make(fpc.Opinions, len(txHash))
 
 	opinions, err := client.GetOpinion(ctx, query)
 	if err != nil {
@@ -48,19 +42,16 @@ func queryNode(txHash []fpc.ID, client pb.FPCQueryClient) (output []fpc.Opinion)
 
 	// Converting QueryReply_Opinion to Opinion
 	for i, opinion := range opinions.GetOpinion() {
-		output[i] = fpc.Opinion(opinion)
+		output[i] = opinion
 	}
 
 	return output
 }
 
 // QueryNode sends a query to a node and returns a list of opinions
-func QueryNode(txHash []fpc.ID, nodeID string) (opinions []fpc.Opinion) {
-	peer, ok := knownpeers.INSTANCE.GetPeer(nodeID)
-	if !ok {
-		// TODO: if !ok decide what to return
-	}
-	// TODO: change peer.PeeringPort+2000 with actual port
+func QueryNode(txHash []fpc.ID, nodeID string) (opinions fpc.Opinions) {
+	peer, _ := knownpeers.INSTANCE.GetPeer(nodeID)
+
 	nodeEndPoint := peer.Address.String() + ":" + strconv.FormatUint(uint64(peer.PeeringPort+2000), 10)
 
 	var opts []grpc.DialOption

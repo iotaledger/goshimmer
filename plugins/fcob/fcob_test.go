@@ -14,7 +14,7 @@ import (
 // the Voter interface
 type mockedVoter struct{}
 
-func (mockedVoter) SubmitTxsForVoting(txs ...fpc.TxLike) {}
+func (mockedVoter) SubmitTxsForVoting(txs ...fpc.TxOpinion) {}
 
 type mockedTangle struct {
 	tangle   map[ternary.Trinary]*value_transaction.ValueTransaction

@@ -8,11 +8,11 @@ import (
 )
 
 type Voter interface {
-	SubmitTxsForVoting(txs ...TxLike)
+	SubmitTxsForVoting(txs ...TxOpinion)
 }
 
 type VotingDoneNotifier interface {
-	FinalizedTxsChannel() <-chan []TxLike // returns a read only channel
+	FinalizedTxsChannel() <-chan []TxOpinion // returns a read only channel
 }
 
 // Fpc defines the FPC interface
@@ -27,7 +27,7 @@ type Fpc interface {
 type GetKnownPeers func() (nodeIDs []string)
 
 // QueryNode defines the signature function
-type QueryNode func(txs []ID, nodeID string) []Opinion
+type QueryNode func(txs []ID, nodeID string) Opinions
 
 // Instance defines an FPC object
 type Instance struct {
@@ -35,7 +35,7 @@ type Instance struct {
 	getKnownPeers       GetKnownPeers
 	queryNode           QueryNode
 	state               *context
-	finalizedTxsChannel chan []TxLike // TODO: define what should be the representation of outcome					  // e.g., finalized txs reaching MaxDuration should return -1 or something
+	finalizedTxsChannel chan []TxOpinion
 }
 
 // New returns a new FPC instance
@@ -44,18 +44,17 @@ func New(gkp GetKnownPeers, qn QueryNode, parameters *Parameters) *Instance {
 		state:               newContext(parameters),
 		getKnownPeers:       gkp,
 		queryNode:           qn,
-		finalizedTxsChannel: make(chan []TxLike),
+		finalizedTxsChannel: make(chan []TxOpinion),
 	}
 }
 
 // SubmitTxsForVoting adds given txs to the FPC internal state
-func (fpc *Instance) SubmitTxsForVoting(txs ...TxLike) {
-	// TODO: check that txs are not already in state
+func (fpc *Instance) SubmitTxsForVoting(txs ...TxOpinion) {
 	fpc.state.pushTxs(txs...)
 }
 
 // FinalizedTxsChannel returns the FinalizedTxsChannel
-func (fpc *Instance) FinalizedTxsChannel() <-chan []TxLike {
+func (fpc *Instance) FinalizedTxsChannel() <-chan []TxOpinion {
 	return fpc.finalizedTxsChannel
 }
 
@@ -68,12 +67,8 @@ func (fpc *Instance) Tick(index uint64, random float64) {
 
 // GetInterimOpinion returns the current opinions
 // of the given txs
-func (fpc *Instance) GetInterimOpinion(txs ...ID) []Opinion {
-	result := make([]Opinion, len(txs))
-	// initialize result with Undefined
-	for tx := range result {
-		result[tx] = Undefined
-	}
+func (fpc *Instance) GetInterimOpinion(txs ...ID) Opinions {
+	result := make(Opinions, len(txs))
 
 	for i, tx := range txs {
 		if history, ok := fpc.state.opinionHistory.Load(tx); ok {
@@ -87,36 +82,21 @@ func (fpc *Instance) GetInterimOpinion(txs ...ID) []Opinion {
 // ID is the unique identifier of the querried object (e.g. a transaction Hash)
 type ID string
 
-// Opinion is a enum
-type Opinion int
-
-const (
-	// Dislike defines a negative opinion
-	Dislike Opinion = iota // 0
-	// Like defines a negative opinion
-	Like // 1
-	// Undefined defines an undefined opinion
-	Undefined // 2
-)
-
 // Opinions is a list of Opinion
-type Opinions []Opinion
-
-// TxLike defines the current like status of a tx
-// TxHash is the transaction hash
-// Like is the like status
-type TxLike struct {
-	TxHash ID
-	Like   bool
-}
+type Opinions []bool
 
 // TxOpinion defines the current opinion of a tx
 // TxHash is the transaction hash
 // Opinion is the current opinion
 type TxOpinion struct {
 	TxHash  ID
-	Opinion Opinion
+	Opinion bool
 }
+
+const (
+	Like    = true
+	Dislike = false
+)
 
 // etaMap is a mapping of the ID to the EtaResult
 type etaMap map[ID]*etaResult
@@ -149,7 +129,7 @@ func newTick(index uint64, random float64) *tick {
 // i: list of tx to vote
 // i: fpc param
 // o: list of finalized txs (if any)
-func (fpc *Instance) round() []TxLike {
+func (fpc *Instance) round() []TxOpinion {
 	// pop new txs from waiting list and put them into the active list
 	fpc.state.popTxs()
 
@@ -168,11 +148,11 @@ func (fpc *Instance) round() []TxLike {
 
 // returns the last opinion
 // i: list of opinions stored during FPC rounds of a particular tx
-func getLastOpinion(list Opinions) (Opinion, error) {
+func getLastOpinion(list Opinions) (bool, error) {
 	if list != nil && len(list) > 0 {
 		return list[len(list)-1], nil
 	}
-	return Undefined, errors.New("opinion is empty")
+	return false, errors.New("opinion is empty")
 }
 
 // // adds a new opinion to a list of opinions
@@ -193,12 +173,8 @@ func (fpc *Instance) updateOpinion() {
 			} else { // successive round, use beta
 				threshold = runif(fpc.state.tick.x, fpc.state.parameters.beta, 1-fpc.state.parameters.beta)
 			}
-			//fmt.Println("Tx:",tx, "Eta:", eta.Value, ">", threshold)
 
-			newOpinion := Opinion(Dislike)
-			if eta.value > threshold {
-				newOpinion = Opinion(Like)
-			}
+			newOpinion := eta.value > threshold
 			fpc.state.opinionHistory.Store(tx, newOpinion)
 			history = append(history, newOpinion)
 
@@ -206,14 +182,14 @@ func (fpc *Instance) updateOpinion() {
 	}
 }
 
-func (fpc *Instance) getFinalizedTxs() []TxLike {
-	finalized := []TxLike{}
+func (fpc *Instance) getFinalizedTxs() []TxOpinion {
+	finalized := []TxOpinion{}
 	for tx := range fpc.state.activeTxs {
 		history, _ := fpc.state.opinionHistory.Load(tx)
 		// note, we check isFinal from [1:] since the first opinion is the initial one
 		if isFinal(history[1:], fpc.state.parameters.m, fpc.state.parameters.l) {
 			lastOpinion, _ := getLastOpinion(history)
-			finalized = append(finalized, TxLike{tx, lastOpinion.ToBool()})
+			finalized = append(finalized, TxOpinion{tx, lastOpinion})
 			fpc.state.opinionHistory.Delete(tx)
 			delete(fpc.state.activeTxs, tx)
 		}
@@ -245,7 +221,7 @@ func querySample(txs []ID, k int, nodes []string, qn QueryNode) etaMap {
 	selectedNodes := choose(nodes, k)
 
 	// send k queries
-	c := make(chan []Opinion, k) // channel to communicate the reception of all the responses
+	c := make(chan Opinions, k) // channel to communicate the reception of all the responses
 	for _, node := range selectedNodes {
 		go func(nodeID string) {
 			received := qn(txs, nodeID)
@@ -276,10 +252,10 @@ func calculateEtas(votes []TxOpinion) etaMap {
 		if _, ok := allEtas[vote.TxHash]; !ok {
 			allEtas[vote.TxHash] = &etaResult{}
 		}
-		if vote.Opinion != Undefined {
-			allEtas[vote.TxHash].value += float64(vote.Opinion)
-			allEtas[vote.TxHash].count++
+		if vote.Opinion {
+			allEtas[vote.TxHash].value++
 		}
+		allEtas[vote.TxHash].count++
 
 	}
 	for tx := range allEtas {
@@ -302,24 +278,6 @@ func choose(list []string, k int) []string {
 // a lower bound and an upper bound
 func runif(rand, thresholdL, thresholdU float64) float64 {
 	return thresholdL + rand*(thresholdU-thresholdL)
-}
-
-func (tx TxLike) ToOpinion() Opinion {
-	if !tx.Like {
-		return Dislike
-	}
-	return Like
-}
-
-func (tx TxLike) ToTxOpinion() TxOpinion {
-	return TxOpinion{
-		TxHash:  tx.TxHash,
-		Opinion: tx.ToOpinion(),
-	}
-}
-
-func (opinion Opinion) ToBool() bool {
-	return opinion == Like
 }
 
 // ---------------- utility functions -------------------

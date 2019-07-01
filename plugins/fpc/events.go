@@ -10,5 +10,5 @@ type fpcEvents struct {
 }
 
 func votingDoneCaller(handler interface{}, params ...interface{}) {
-	handler.(func([]fpc.TxLike))(params[0].([]fpc.TxLike))
+	handler.(func([]fpc.TxOpinion))(params[0].([]fpc.TxOpinion))
 }

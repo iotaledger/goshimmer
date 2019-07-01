@@ -55,7 +55,7 @@ func (rm *OpinionMap) Delete(key ID) {
 }
 
 // Store adds a new opinion to the history of a given ID
-func (rm *OpinionMap) Store(key ID, value Opinion) {
+func (rm *OpinionMap) Store(key ID, value bool) {
 	rm.Lock()
 	defer rm.Unlock()
 	rm.internal[key] = append(rm.internal[key], value)

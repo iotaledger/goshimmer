@@ -21,7 +21,7 @@ const (
 type RunProtocol func(txMetadata ternary.Trinary) error
 
 // opinionState defines the opinion state
-type opinionState struct {
+type Opinion struct {
 	isLiked bool
 	isVoted bool
 }
@@ -57,7 +57,7 @@ func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) Run
 		}
 
 		// submit tx and conflict set for voting
-		txsToSubmit := []fpc.TxLike{} // list of potential txs to submit for voting
+		txsToSubmit := []fpc.TxOpinion{} // list of potential txs to submit for voting
 		// we loop over the conflict set
 		for tx := range conflictSet {
 			txOpinion, err := getOpinion(tx, tangle)
@@ -67,7 +67,7 @@ func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) Run
 			// include only unvoted txs
 			if !txOpinion.isVoted {
 				// converting tx into fpc TxLike
-				cTx := fpc.TxLike{fpc.ID(tx), txOpinion.isLiked}
+				cTx := fpc.TxOpinion{fpc.ID(tx), txOpinion.isLiked}
 				txsToSubmit = append(txsToSubmit, cTx)
 			}
 		}
@@ -80,15 +80,15 @@ func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) Run
 	}
 }
 
-func getOpinion(transactionHash ternary.Trinary, tangle tangleAPI) (opinion opinionState, err errors.IdentifiableError) {
+func getOpinion(transactionHash ternary.Trinary, tangle tangleAPI) (opinion Opinion, err errors.IdentifiableError) {
 	md, err := tangle.GetTransactionMetadata(transactionHash)
 	if err != nil {
-		return opinionState{}, err
+		return Opinion{}, err
 	}
-	return opinionState{md.GetLiked(), md.GetFinalized()}, nil
+	return Opinion{md.GetLiked(), md.GetFinalized()}, nil
 }
 
-func setOpinion(transactionHash ternary.Trinary, opinion opinionState, tangle tangleAPI) (err errors.IdentifiableError) {
+func setOpinion(transactionHash ternary.Trinary, opinion Opinion, tangle tangleAPI) (err errors.IdentifiableError) {
 	md, err := tangle.GetTransactionMetadata(transactionHash)
 	if err != nil {
 		return err

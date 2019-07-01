@@ -6,27 +6,27 @@ import (
 )
 
 // decision rule for setting initial opinion
-func decideInitialOpinion(txHash ternary.Trinary, tangle tangleAPI) (opinion opinionState, conflictSet map[ternary.Trinary]bool, err errors.IdentifiableError) {
+func decideInitialOpinion(txHash ternary.Trinary, tangle tangleAPI) (opinion Opinion, conflictSet map[ternary.Trinary]bool, err errors.IdentifiableError) {
 	// dislikes tx if its past is disliked
 	txPast, err := getApproveeLikeStatus(txHash, tangle)
 	if err != nil {
-		return opinionState{}, conflictSet, err
+		return Opinion{}, conflictSet, err
 	}
 	if txPast == DISLIKED {
-		return opinionState{DISLIKED, VOTED}, conflictSet, nil
+		return Opinion{DISLIKED, VOTED}, conflictSet, nil
 	}
 
 	// dislikes tx if it's conflicting
 	conflictSet, err = getConflictSet(txHash, tangle)
 	if err != nil {
-		return opinionState{}, conflictSet, err
+		return Opinion{}, conflictSet, err
 	}
 	if len(conflictSet) > 0 {
-		return opinionState{DISLIKED, UNVOTED}, conflictSet, nil
+		return Opinion{DISLIKED, UNVOTED}, conflictSet, nil
 	}
 
 	// likes tx
-	return opinionState{LIKED, UNVOTED}, conflictSet, nil
+	return Opinion{LIKED, UNVOTED}, conflictSet, nil
 }
 
 func getApproveeLikeStatus(txHash ternary.Trinary, tangle tangleAPI) (liked bool, err errors.IdentifiableError) {
