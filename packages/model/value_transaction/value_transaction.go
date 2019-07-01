@@ -192,15 +192,17 @@ func (this *ValueTransaction) SetTimestamp(timestamp uint) bool {
 	return false
 }
 
-func (this *ValueTransaction) GetBundleEssence() (result ternary.Trytes) {
+func (this *ValueTransaction) GetBundleEssence() (result ternary.Trits) {
 	this.addressMutex.RLock()
 	this.valueMutex.RLock()
 	this.signatureMessageFragmentMutex.RLock()
 
+	result = make(ternary.Trits, BUNDLE_ESSENCE_SIZE)
+
+	copy(result[0:], this.trits[ADDRESS_OFFSET:VALUE_END])
+
 	if this.GetValue() < 0 {
-		result = this.trits[ADDRESS_OFFSET:VALUE_END].ToTrytes() + this.trits[SIGNATURE_MESSAGE_FRAGMENT_OFFSET:SIGNATURE_MESSAGE_FRAGMENT_END].ToTrytes()
-	} else {
-		result = this.trits[ADDRESS_OFFSET:VALUE_END].ToTrytes()
+		copy(result[:VALUE_END], this.trits[SIGNATURE_MESSAGE_FRAGMENT_OFFSET:SIGNATURE_MESSAGE_FRAGMENT_END])
 	}
 
 	this.signatureMessageFragmentMutex.RUnlock()
