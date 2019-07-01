@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/fpc"
+	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/ternary"
 )
@@ -19,7 +20,7 @@ const (
 
 // RunProtocol defines the signature of the function
 // implementing the FCoB protocol
-type RunProtocol func(txMetadata ternary.Trinary) error
+type RunProtocol func(txMetadata ternary.Trinary)
 
 // Opinion defines the opinion state
 type Opinion struct {
@@ -32,20 +33,31 @@ type ConflictChecker interface {
 	GetConflictSet(target ternary.Trinary) (conflictSet map[ternary.Trinary]bool)
 }
 
+func makeRunFCOB(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) *events.Closure {
+	runFCOB := makeRunProtocol(plugin, tangle, voter)
+	return events.NewClosure(func(transaction *value_transaction.ValueTransaction) {
+		// start as a goroutine so that immediately returns
+		go runFCOB(transaction.GetHash())
+	})
+
+}
+
 // makeRunProtocol returns a runProtocol function as the
 // FCoB core logic, that uses the given voter and updater interfaces
 func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) RunProtocol {
 
 	// FCoB logic core
-	return func(txHash ternary.Trinary) (err error) {
+	return func(txHash ternary.Trinary) {
 		// the opinioner decides the initial opinion and the (potential conflict set)
 		initialOpinion, conflictSet, err := decideInitialOpinion(txHash, tangle)
 		if err != nil {
-			return err
+			plugin.LogFailure(fmt.Sprint(err))
+			return
 		}
 		err = setOpinion(txHash, initialOpinion, tangle)
 		if err != nil {
-			return err
+			plugin.LogFailure(fmt.Sprint(err))
+			return
 		}
 		// don't vote if already voted
 		if initialOpinion.isVoted {
@@ -63,7 +75,8 @@ func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) Run
 		for tx := range conflictSet {
 			txOpinion, err := getOpinion(tx, tangle)
 			if err != nil {
-				return err
+				plugin.LogFailure(fmt.Sprint(err))
+				return
 			}
 			// include only unvoted txs
 			if !txOpinion.isVoted {
@@ -79,6 +92,7 @@ func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) Run
 		}
 		return
 	}
+
 }
 
 func makeUpdateTxsVoted(plugin *node.Plugin) *events.Closure {

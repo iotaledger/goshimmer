@@ -98,11 +98,9 @@ func TestRunProtocol(t *testing.T) {
 
 		mockedDB.new(test.value, test.tx, test.branch, test.trunk, false, false)
 		runProtocol := makeRunProtocol(nil, mockedDB, testVoter)
-		err := runProtocol(mockedDB.tangle[test.tx].GetHash())
 
-		if err != nil {
-			t.Error(err)
-		}
+		runProtocol(mockedDB.tangle[test.tx].GetHash())
+
 		if mockedDB.metadata[test.tx].GetLiked() != test.expectedLiked {
 			t.Error("Liked status - Should return", test.expectedLiked, "got", mockedDB.metadata[test.tx].GetLiked(), "with input", test)
 		}
