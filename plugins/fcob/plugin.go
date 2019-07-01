@@ -10,21 +10,20 @@ import (
 // PLUGIN is the exposed FCoB plugin
 var PLUGIN = node.NewPlugin("FCOB", configure, run)
 
-// runProtocol is the FCoB core logic function
-var runProtocol *events.Closure
-var updateTxsVoted *events.Closure
 var api tangleStore
+var runFCOB *events.Closure
+var updateTxsVoted *events.Closure
 
 func configure(plugin *node.Plugin) {
 	api = tangleStore{}
-	runProtocol = makeRunFCOB(plugin, api, fpc.INSTANCE)
-	updateTxsVoted = makeUpdateTxsVoted(plugin)
+	runFCOB = configureFCOB(plugin, api, fpc.INSTANCE)
+	updateTxsVoted = configureUpdateTxsVoted(plugin, api)
 }
 
 func run(plugin *node.Plugin) {
 	// subscribe to a new Tx solid event
 	// and start an instance of the FCoB protocol
-	tangle.Events.TransactionSolid.Attach(runProtocol)
+	tangle.Events.TransactionSolid.Attach(runFCOB)
 
 	// subscribe to a new VotingDone event
 	// and update the related txs opinion

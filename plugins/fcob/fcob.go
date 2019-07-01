@@ -33,7 +33,7 @@ type ConflictChecker interface {
 	GetConflictSet(target ternary.Trinary) (conflictSet map[ternary.Trinary]bool)
 }
 
-func makeRunFCOB(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) *events.Closure {
+func configureFCOB(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) *events.Closure {
 	runFCOB := makeRunProtocol(plugin, tangle, voter)
 	return events.NewClosure(func(transaction *value_transaction.ValueTransaction) {
 		// start as a goroutine so that immediately returns
@@ -95,11 +95,11 @@ func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) Run
 
 }
 
-func makeUpdateTxsVoted(plugin *node.Plugin) *events.Closure {
+func configureUpdateTxsVoted(plugin *node.Plugin, tangle tangleAPI) *events.Closure {
 	return events.NewClosure(func(txs []fpc.TxOpinion) {
 		plugin.LogInfo(fmt.Sprintf("Voting Done for txs: %v", txs))
 		for _, tx := range txs {
-			setOpinion(ternary.Trinary(tx.TxHash), Opinion{tx.Opinion, VOTED}, api)
+			setOpinion(ternary.Trinary(tx.TxHash), Opinion{tx.Opinion, VOTED}, tangle)
 		}
 	})
 }
