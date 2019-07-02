@@ -6,7 +6,7 @@ import (
 )
 
 // decision rule for setting initial opinion
-func decideInitialOpinion(txHash ternary.Trinary, tangle tangleAPI) (opinion Opinion, conflictSet map[ternary.Trinary]bool, err errors.IdentifiableError) {
+func decideInitialOpinion(txHash ternary.Trytes, tangle tangleAPI) (opinion Opinion, conflictSet map[ternary.Trytes]bool, err errors.IdentifiableError) {
 	// dislikes tx if its past is disliked
 	txPastLiked, err := getApproveeLikeStatus(txHash, tangle)
 	if err != nil {
@@ -29,7 +29,7 @@ func decideInitialOpinion(txHash ternary.Trinary, tangle tangleAPI) (opinion Opi
 	return Opinion{LIKED, UNVOTED}, conflictSet, nil
 }
 
-func getApproveeLikeStatus(txHash ternary.Trinary, tangle tangleAPI) (liked bool, err errors.IdentifiableError) {
+func getApproveeLikeStatus(txHash ternary.Trytes, tangle tangleAPI) (liked bool, err errors.IdentifiableError) {
 	// Check branch and trunk voted like status
 	// if at least one is voted disliked, returns disliked voted
 	txObject, err := tangle.GetTransaction(txHash)
@@ -38,7 +38,7 @@ func getApproveeLikeStatus(txHash ternary.Trinary, tangle tangleAPI) (liked bool
 	}
 	branch := txObject.GetBranchTransactionHash()
 	trunk := txObject.GetTrunkTransactionHash()
-	approvee := []ternary.Trinary{branch, trunk}
+	approvee := []ternary.Trytes{branch, trunk}
 	for _, child := range approvee {
 		metadata, err := tangle.GetTransactionMetadata(child)
 		if err != nil {
