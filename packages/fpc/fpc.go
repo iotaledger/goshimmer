@@ -27,7 +27,7 @@ type Fpc interface {
 type GetKnownPeers func() (nodeIDs []string)
 
 // QueryNode defines the signature function
-type QueryNode func(txs []ID, nodeID string) Opinions
+type QueryNode func(txs []ID, nodeID string) []Opinion
 
 // Instance defines an FPC object
 type Instance struct {
@@ -67,8 +67,8 @@ func (fpc *Instance) Tick(index uint64, random float64) {
 
 // GetInterimOpinion returns the current opinions
 // of the given txs
-func (fpc *Instance) GetInterimOpinion(txs ...ID) Opinions {
-	result := make(Opinions, len(txs))
+func (fpc *Instance) GetInterimOpinion(txs ...ID) []Opinion {
+	result := make([]Opinion, len(txs))
 
 	for i, tx := range txs {
 		if history, ok := fpc.state.opinionHistory.Load(tx); ok {
@@ -82,15 +82,15 @@ func (fpc *Instance) GetInterimOpinion(txs ...ID) Opinions {
 // ID is the unique identifier of the querried object (e.g. a transaction Hash)
 type ID string
 
-// Opinions is a list of Opinion
-type Opinions []bool
+// Opinion is the like/dislike opinion of a given tx
+type Opinion bool
 
 // TxOpinion defines the current opinion of a tx
 // TxHash is the transaction hash
 // Opinion is the current opinion
 type TxOpinion struct {
 	TxHash  ID
-	Opinion bool
+	Opinion Opinion
 }
 
 const (
@@ -148,7 +148,7 @@ func (fpc *Instance) round() []TxOpinion {
 
 // returns the last opinion
 // i: list of opinions stored during FPC rounds of a particular tx
-func getLastOpinion(list Opinions) (bool, error) {
+func getLastOpinion(list []Opinion) (Opinion, error) {
 	if list != nil && len(list) > 0 {
 		return list[len(list)-1], nil
 	}
@@ -156,7 +156,7 @@ func getLastOpinion(list Opinions) (bool, error) {
 }
 
 // // adds a new opinion to a list of opinions
-// func updateOpinion(newOpinion Opinion, list Opinions) Opinions {
+// func updateOpinion(newOpinion Opinion, list []Opinion) []Opinion {
 // 	list = append(list, newOpinion)
 // 	return list
 // }
@@ -174,7 +174,7 @@ func (fpc *Instance) updateOpinion() {
 				threshold = runif(fpc.state.tick.x, fpc.state.parameters.beta, 1-fpc.state.parameters.beta)
 			}
 
-			newOpinion := eta.value > threshold
+			newOpinion := Opinion(eta.value > threshold)
 			fpc.state.opinionHistory.Store(tx, newOpinion)
 			history = append(history, newOpinion)
 
@@ -199,7 +199,7 @@ func (fpc *Instance) getFinalizedTxs() []TxOpinion {
 
 // isFinal returns the finalization status given a list of
 // opinions (that belong to a particular tx)
-func isFinal(o Opinions, m, l int) bool {
+func isFinal(o []Opinion, m, l int) bool {
 	if o == nil {
 		return false
 	}
@@ -221,7 +221,7 @@ func querySample(txs []ID, k int, nodes []string, qn QueryNode) etaMap {
 	selectedNodes := choose(nodes, k)
 
 	// send k queries
-	c := make(chan Opinions, k) // channel to communicate the reception of all the responses
+	c := make(chan []Opinion, k) // channel to communicate the reception of all the responses
 	for _, node := range selectedNodes {
 		go func(nodeID string) {
 			received := qn(txs, nodeID)

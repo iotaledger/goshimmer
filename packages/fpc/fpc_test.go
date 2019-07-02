@@ -8,14 +8,14 @@ import (
 
 func TestIsFinal(t *testing.T) {
 	type testInput struct {
-		opinions Opinions
+		opinions []Opinion
 		m        int
 		l        int
 		want     bool
 	}
 	var tests = []testInput{
-		{Opinions{Like, Like, Like, Like}, 2, 2, true},
-		{Opinions{Like, Like, Like, Dislike}, 2, 2, false},
+		{[]Opinion{Like, Like, Like, Like}, 2, 2, true},
+		{[]Opinion{Like, Like, Like, Dislike}, 2, 2, false},
 		{nil, 2, 2, false},
 	}
 
@@ -29,14 +29,14 @@ func TestIsFinal(t *testing.T) {
 
 func TestGetLastOpinion(t *testing.T) {
 	type testInput struct {
-		opinions Opinions
-		expected bool
+		opinions []Opinion
+		expected Opinion
 		err      error
 	}
 	var tests = []testInput{
-		{Opinions{Like, Like, Like}, Like, nil},
-		{Opinions{Like, Like, Like, Dislike}, Dislike, nil},
-		{Opinions{}, Dislike, errors.New("opinion is empty")},
+		{[]Opinion{Like, Like, Like}, Like, nil},
+		{[]Opinion{Like, Like, Like, Dislike}, Dislike, nil},
+		{[]Opinion{}, Dislike, errors.New("opinion is empty")},
 	}
 
 	for _, test := range tests {
@@ -49,15 +49,15 @@ func TestGetLastOpinion(t *testing.T) {
 
 func TestGetInterimOpinion(t *testing.T) {
 	type testInput struct {
-		opinionMap map[ID]Opinions
+		opinionMap map[ID][]Opinion
 		txs        []ID
-		expected   Opinions
+		expected   []Opinion
 	}
 	var tests = []testInput{
-		{map[ID]Opinions{"1": Opinions{Like, Like, Like}}, []ID{"1"}, Opinions{Like}},
-		{map[ID]Opinions{"1": Opinions{Like, Like, Like}}, []ID{"2"}, Opinions{Dislike}},
-		{map[ID]Opinions{"1": Opinions{Like}, "2": Opinions{Dislike}}, []ID{"1", "2", "3"}, Opinions{Like, Dislike, Dislike}},
-		{map[ID]Opinions{}, []ID{"1"}, Opinions{Dislike}},
+		{map[ID][]Opinion{"1": []Opinion{Like, Like, Like}}, []ID{"1"}, []Opinion{Like}},
+		{map[ID][]Opinion{"1": []Opinion{Like, Like, Like}}, []ID{"2"}, []Opinion{Dislike}},
+		{map[ID][]Opinion{"1": []Opinion{Like}, "2": []Opinion{Dislike}}, []ID{"1", "2", "3"}, []Opinion{Like, Dislike, Dislike}},
+		{map[ID][]Opinion{}, []ID{"1"}, []Opinion{Dislike}},
 	}
 	for _, test := range tests {
 		dummyFpc := &Instance{
@@ -77,24 +77,24 @@ func TestGetInterimOpinion(t *testing.T) {
 // its opinion history and finalized opinions are all 1s or all 0s wrt the given input
 func TestVoteIfAllAgrees(t *testing.T) {
 	type Expected struct {
-		opinionHistory Opinions
-		finalOpinion   bool
+		opinionHistory []Opinion
+		finalOpinion   Opinion
 	}
 	type testInput struct {
 		input    TxOpinion
 		expected Expected
 	}
 	var tests = []testInput{
-		{TxOpinion{"1", true}, Expected{Opinions{Like, Like, Like, Like, Like}, true}},
-		{TxOpinion{"2", false}, Expected{Opinions{Dislike, Dislike, Dislike, Dislike, Dislike}, false}},
+		{TxOpinion{"1", true}, Expected{[]Opinion{Like, Like, Like, Like, Like}, true}},
+		{TxOpinion{"2", false}, Expected{[]Opinion{Dislike, Dislike, Dislike, Dislike, Dislike}, false}},
 	}
 
 	for _, test := range tests {
 		getKnownPeers := func() []string {
 			return []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}
 		}
-		queryNode := func(txs []ID, node string) Opinions {
-			reply := Opinions{}
+		queryNode := func(txs []ID, node string) []Opinion {
+			reply := []Opinion{}
 			for _, tx := range txs {
 				if tx == test.input.TxHash {
 					reply = append(reply, test.input.Opinion)

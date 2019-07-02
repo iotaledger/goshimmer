@@ -9,13 +9,13 @@ import (
 // It uses a mutex to handle concurrent access to its internal map
 type OpinionMap struct {
 	sync.RWMutex
-	internal map[ID]Opinions
+	internal map[ID][]Opinion
 }
 
 // NewOpinionMap returns a new OpinionMap
 func NewOpinionMap() *OpinionMap {
 	return &OpinionMap{
-		internal: make(map[ID]Opinions),
+		internal: make(map[ID][]Opinion),
 	}
 }
 
@@ -27,8 +27,8 @@ func (rm *OpinionMap) Len() int {
 }
 
 // GetMap returns the content of the entire internal map
-func (rm *OpinionMap) GetMap() map[ID]Opinions {
-	newMap := make(map[ID]Opinions)
+func (rm *OpinionMap) GetMap() map[ID][]Opinion {
+	newMap := make(map[ID][]Opinion)
 	rm.RLock()
 	defer rm.RUnlock()
 	for k, v := range rm.internal {
@@ -40,7 +40,7 @@ func (rm *OpinionMap) GetMap() map[ID]Opinions {
 // Load returns the opinion for a given ID.
 // It also return a bool to communicate the presence of the given
 // ID into the internal map
-func (rm *OpinionMap) Load(key ID) (value Opinions, ok bool) {
+func (rm *OpinionMap) Load(key ID) (value []Opinion, ok bool) {
 	rm.RLock()
 	defer rm.RUnlock()
 	result, ok := rm.internal[key]
@@ -55,7 +55,7 @@ func (rm *OpinionMap) Delete(key ID) {
 }
 
 // Store adds a new opinion to the history of a given ID
-func (rm *OpinionMap) Store(key ID, value bool) {
+func (rm *OpinionMap) Store(key ID, value Opinion) {
 	rm.Lock()
 	defer rm.Unlock()
 	rm.internal[key] = append(rm.internal[key], value)

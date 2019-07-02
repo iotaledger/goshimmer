@@ -39,13 +39,11 @@ func configureFCOB(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) *even
 		// start as a goroutine so that immediately returns
 		go runFCOB(transaction.GetHash())
 	})
-
 }
 
 // makeRunProtocol returns a runProtocol function as the
 // FCoB core logic, that uses the given voter and updater interfaces
 func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) RunProtocol {
-
 	// FCoB logic core
 	return func(txHash ternary.Trinary) {
 		// the opinioner decides the initial opinion and the (potential conflict set)
@@ -83,7 +81,7 @@ func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) Run
 				// converting tx into fpc TxOpinion
 				cTx := fpc.TxOpinion{
 					TxHash:  fpc.ID(tx),
-					Opinion: txOpinion.isLiked,
+					Opinion: fpc.Opinion(txOpinion.isLiked),
 				}
 				txsToSubmit = append(txsToSubmit, cTx)
 			}
@@ -101,7 +99,7 @@ func configureUpdateTxsVoted(plugin *node.Plugin, tangle tangleAPI) *events.Clos
 	return events.NewClosure(func(txs []fpc.TxOpinion) {
 		plugin.LogInfo(fmt.Sprintf("Voting Done for txs: %v", txs))
 		for _, tx := range txs {
-			err := setOpinion(ternary.Trinary(tx.TxHash), Opinion{tx.Opinion, VOTED}, tangle)
+			err := setOpinion(ternary.Trinary(tx.TxHash), Opinion{bool(tx.Opinion), VOTED}, tangle)
 			if err != nil {
 				plugin.LogFailure(fmt.Sprint(err))
 			}

@@ -7,13 +7,13 @@ import (
 
 func TestOpinionMapLen(t *testing.T) {
 	type testInput struct {
-		opinionMap map[ID]Opinions
+		opinionMap map[ID][]Opinion
 		expected   int
 	}
 	var tests = []testInput{
-		{map[ID]Opinions{"1": Opinions{Like, Dislike}}, 1},
-		{map[ID]Opinions{"1": Opinions{Like, Dislike}, "2": Opinions{Dislike}}, 2},
-		{map[ID]Opinions{}, 0},
+		{map[ID][]Opinion{"1": []Opinion{Like, Dislike}}, 1},
+		{map[ID][]Opinion{"1": []Opinion{Like, Dislike}, "2": []Opinion{Dislike}}, 2},
+		{map[ID][]Opinion{}, 0},
 	}
 
 	for _, test := range tests {
@@ -30,12 +30,12 @@ func TestOpinionMapLen(t *testing.T) {
 
 func TestOpinionMapGetMap(t *testing.T) {
 	type testInput struct {
-		expected map[ID]Opinions
+		expected map[ID][]Opinion
 	}
 	var tests = []testInput{
-		{map[ID]Opinions{"1": Opinions{Like, Dislike}}},
-		{map[ID]Opinions{"1": Opinions{Like, Dislike}, "2": Opinions{Dislike}}},
-		{map[ID]Opinions{}},
+		{map[ID][]Opinion{"1": []Opinion{Like, Dislike}}},
+		{map[ID][]Opinion{"1": []Opinion{Like, Dislike}, "2": []Opinion{Dislike}}},
+		{map[ID][]Opinion{}},
 	}
 
 	for _, test := range tests {
@@ -52,18 +52,18 @@ func TestOpinionMapGetMap(t *testing.T) {
 
 func TestOpinionMapLoad(t *testing.T) {
 	type expectedResult struct {
-		opinions Opinions
+		opinions []Opinion
 		ok       bool
 	}
 	type testInput struct {
-		opinionMap map[ID]Opinions
+		opinionMap map[ID][]Opinion
 		key        ID
 		expected   expectedResult
 	}
 	var tests = []testInput{
-		{map[ID]Opinions{"1": Opinions{Like, Dislike}}, "1", expectedResult{Opinions{Like, Dislike}, true}},
-		{map[ID]Opinions{"1": Opinions{Like, Dislike}}, "2", expectedResult{nil, false}},
-		{map[ID]Opinions{}, "1", expectedResult{nil, false}},
+		{map[ID][]Opinion{"1": []Opinion{Like, Dislike}}, "1", expectedResult{[]Opinion{Like, Dislike}, true}},
+		{map[ID][]Opinion{"1": []Opinion{Like, Dislike}}, "2", expectedResult{nil, false}},
+		{map[ID][]Opinion{}, "1", expectedResult{nil, false}},
 	}
 
 	for _, test := range tests {
@@ -80,29 +80,29 @@ func TestOpinionMapLoad(t *testing.T) {
 
 func TestOpinionMapStore(t *testing.T) {
 	type testInput struct {
-		opinionMap map[ID]Opinions
+		opinionMap map[ID][]Opinion
 		key        ID
-		value      bool
-		expected   map[ID]Opinions
+		value      Opinion
+		expected   map[ID][]Opinion
 	}
 	var tests = []testInput{
 		{
-			map[ID]Opinions{"1": Opinions{Like, Dislike}},
+			map[ID][]Opinion{"1": []Opinion{Like, Dislike}},
 			"1",
 			Like,
-			map[ID]Opinions{"1": Opinions{Like, Dislike, Like}},
+			map[ID][]Opinion{"1": []Opinion{Like, Dislike, Like}},
 		},
 		{
-			map[ID]Opinions{"1": Opinions{Like, Dislike}},
+			map[ID][]Opinion{"1": []Opinion{Like, Dislike}},
 			"2",
 			Like,
-			map[ID]Opinions{"1": Opinions{Like, Dislike}, "2": Opinions{Like}},
+			map[ID][]Opinion{"1": []Opinion{Like, Dislike}, "2": []Opinion{Like}},
 		},
 		{
-			map[ID]Opinions{},
+			map[ID][]Opinion{},
 			"1",
 			Like,
-			map[ID]Opinions{"1": Opinions{Like}},
+			map[ID][]Opinion{"1": []Opinion{Like}},
 		},
 	}
 
@@ -120,25 +120,25 @@ func TestOpinionMapStore(t *testing.T) {
 
 func TestOpinionMapDelete(t *testing.T) {
 	type testInput struct {
-		opinionMap map[ID]Opinions
+		opinionMap map[ID][]Opinion
 		key        ID
-		expected   map[ID]Opinions
+		expected   map[ID][]Opinion
 	}
 	var tests = []testInput{
 		{
-			map[ID]Opinions{"1": Opinions{Like, Dislike}},
+			map[ID][]Opinion{"1": []Opinion{Like, Dislike}},
 			"1",
-			map[ID]Opinions{},
+			map[ID][]Opinion{},
 		},
 		{
-			map[ID]Opinions{"1": Opinions{Like, Dislike}, "2": Opinions{Like}},
+			map[ID][]Opinion{"1": []Opinion{Like, Dislike}, "2": []Opinion{Like}},
 			"2",
-			map[ID]Opinions{"1": Opinions{Like, Dislike}},
+			map[ID][]Opinion{"1": []Opinion{Like, Dislike}},
 		},
 		{
-			map[ID]Opinions{"1": Opinions{Like, Dislike}},
+			map[ID][]Opinion{"1": []Opinion{Like, Dislike}},
 			"2",
-			map[ID]Opinions{"1": Opinions{Like, Dislike}},
+			map[ID][]Opinion{"1": []Opinion{Like, Dislike}},
 		},
 	}
 
