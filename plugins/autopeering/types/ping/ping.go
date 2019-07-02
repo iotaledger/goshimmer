@@ -13,11 +13,11 @@ import (
 type Ping struct {
 	Issuer    *peer.Peer
 	Neighbors peerlist.PeerList
-	Signature [MARSHALLED_SIGNATURE_SIZE]byte
+	Signature [MARSHALED_SIGNATURE_SIZE]byte
 }
 
 func Unmarshal(data []byte) (*Ping, error) {
-	if data[0] != MARSHALLED_PACKET_HEADER || len(data) != MARSHALLED_TOTAL_SIZE {
+	if data[0] != MARSHALED_PACKET_HEADER || len(data) != MARSHALED_TOTAL_SIZE {
 		return nil, ErrMalformedPing
 	}
 
@@ -25,59 +25,59 @@ func Unmarshal(data []byte) (*Ping, error) {
 		Neighbors: make(peerlist.PeerList, 0),
 	}
 
-	if unmarshalledPeer, err := peer.Unmarshal(data[MARSHALLED_ISSUER_START:MARSHALLED_ISSUER_END]); err != nil {
+	if unmarshaledPeer, err := peer.Unmarshal(data[MARSHALED_ISSUER_START:MARSHALED_ISSUER_END]); err != nil {
 		return nil, err
 	} else {
-		ping.Issuer = unmarshalledPeer
+		ping.Issuer = unmarshaledPeer
 	}
 	if err := saltmanager.CheckSalt(ping.Issuer.Salt); err != nil {
 		return nil, err
 	}
 
-	offset := MARSHALLED_PEERS_START
+	offset := MARSHALED_PEERS_START
 	for i := 0; i < constants.NEIGHBOR_COUNT; i++ {
 		if data[offset] == 1 {
-			if unmarshalledPing, err := peer.Unmarshal(data[offset+1 : offset+MARSHALLED_PEER_ENTRY_SIZE]); err != nil {
+			if unmarshaledPing, err := peer.Unmarshal(data[offset+1 : offset+MARSHALED_PEER_ENTRY_SIZE]); err != nil {
 				return nil, err
 			} else {
-				ping.Neighbors = append(ping.Neighbors, unmarshalledPing)
+				ping.Neighbors = append(ping.Neighbors, unmarshaledPing)
 			}
 		}
 
-		offset += MARSHALLED_PEER_ENTRY_SIZE
+		offset += MARSHALED_PEER_ENTRY_SIZE
 	}
 
-	if issuer, err := identity.FromSignedData(data[:MARSHALLED_SIGNATURE_START], data[MARSHALLED_SIGNATURE_START:]); err != nil {
+	if issuer, err := identity.FromSignedData(data[:MARSHALED_SIGNATURE_START], data[MARSHALED_SIGNATURE_START:]); err != nil {
 		return nil, err
 	} else {
 		if !bytes.Equal(issuer.Identifier, ping.Issuer.Identity.Identifier) {
 			return nil, ErrInvalidSignature
 		}
 	}
-	copy(ping.Signature[:], data[MARSHALLED_SIGNATURE_START:MARSHALLED_SIGNATURE_END])
+	copy(ping.Signature[:], data[MARSHALED_SIGNATURE_START:MARSHALED_SIGNATURE_END])
 
 	return ping, nil
 }
 
 func (ping *Ping) Marshal() []byte {
-	result := make([]byte, MARSHALLED_TOTAL_SIZE)
+	result := make([]byte, MARSHALED_TOTAL_SIZE)
 
-	result[PACKET_HEADER_START] = MARSHALLED_PACKET_HEADER
-	copy(result[MARSHALLED_ISSUER_START:MARSHALLED_ISSUER_END], ping.Issuer.Marshal())
+	result[PACKET_HEADER_START] = MARSHALED_PACKET_HEADER
+	copy(result[MARSHALED_ISSUER_START:MARSHALED_ISSUER_END], ping.Issuer.Marshal())
 	for i, neighbor := range ping.Neighbors {
-		entryStartOffset := MARSHALLED_PEERS_START + i*MARSHALLED_PEER_ENTRY_SIZE
+		entryStartOffset := MARSHALED_PEERS_START + i*MARSHALED_PEER_ENTRY_SIZE
 
 		result[entryStartOffset] = 1
 
-		copy(result[entryStartOffset+1:entryStartOffset+MARSHALLED_PEER_ENTRY_SIZE], neighbor.Marshal())
+		copy(result[entryStartOffset+1:entryStartOffset+MARSHALED_PEER_ENTRY_SIZE], neighbor.Marshal())
 	}
-	copy(result[MARSHALLED_SIGNATURE_START:MARSHALLED_SIGNATURE_END], ping.Signature[:MARSHALLED_SIGNATURE_SIZE])
+	copy(result[MARSHALED_SIGNATURE_START:MARSHALED_SIGNATURE_END], ping.Signature[:MARSHALED_SIGNATURE_SIZE])
 
 	return result
 }
 
 func (this *Ping) Sign() {
-	if signature, err := this.Issuer.Identity.Sign(this.Marshal()[:MARSHALLED_SIGNATURE_START]); err != nil {
+	if signature, err := this.Issuer.Identity.Sign(this.Marshal()[:MARSHALED_SIGNATURE_START]); err != nil {
 		panic(err)
 	} else {
 		copy(this.Signature[:], signature)

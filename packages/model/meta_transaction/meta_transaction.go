@@ -8,15 +8,15 @@ import (
 )
 
 type MetaTransaction struct {
-	hash            *ternary.Trinary
+	hash            *ternary.Trytes
 	weightMagnitude int
 
-	shardMarker           *ternary.Trinary
-	trunkTransactionHash  *ternary.Trinary
-	branchTransactionHash *ternary.Trinary
+	shardMarker           *ternary.Trytes
+	trunkTransactionHash  *ternary.Trytes
+	branchTransactionHash *ternary.Trytes
 	head                  *bool
 	tail                  *bool
-	transactionType       *ternary.Trinary
+	transactionType       *ternary.Trytes
 	data                  ternary.Trits
 	modified              bool
 
@@ -37,7 +37,7 @@ type MetaTransaction struct {
 }
 
 func New() *MetaTransaction {
-	return FromTrits(make(ternary.Trits, MARSHALLED_TOTAL_SIZE))
+	return FromTrits(make(ternary.Trits, MARSHALED_TOTAL_SIZE))
 }
 
 func FromTrits(trits ternary.Trits) *MetaTransaction {
@@ -47,7 +47,7 @@ func FromTrits(trits ternary.Trits) *MetaTransaction {
 }
 
 func FromBytes(bytes []byte) (result *MetaTransaction) {
-	result = FromTrits(ternary.BytesToTrits(bytes)[:MARSHALLED_TOTAL_SIZE])
+	result = FromTrits(ternary.BytesToTrits(bytes)[:MARSHALED_TOTAL_SIZE])
 	result.bytes = bytes
 
 	return
@@ -72,7 +72,7 @@ func (this *MetaTransaction) ReHash() {
 }
 
 // retrieves the hash of the transaction
-func (this *MetaTransaction) GetHash() (result ternary.Trinary) {
+func (this *MetaTransaction) GetHash() (result ternary.Trytes) {
 	this.hashMutex.RLock()
 	if this.hash == nil {
 		this.hashMutex.RUnlock()
@@ -116,21 +116,21 @@ func (this *MetaTransaction) GetWeightMagnitude() (result int) {
 // hashes the transaction using curl (without locking - internal usage)
 func (this *MetaTransaction) parseHashRelatedDetails() {
 	hashTrits := <-curl.CURLP81.Hash(this.trits)
-	hashTrinary := hashTrits.ToTrinary()
+	hashTrytes := hashTrits.ToTrytes()
 
-	this.hash = &hashTrinary
+	this.hash = &hashTrytes
 	this.weightMagnitude = hashTrits.TrailingZeroes()
 }
 
 // getter for the shard marker (supports concurrency)
-func (this *MetaTransaction) GetShardMarker() (result ternary.Trinary) {
+func (this *MetaTransaction) GetShardMarker() (result ternary.Trytes) {
 	this.shardMarkerMutex.RLock()
 	if this.shardMarker == nil {
 		this.shardMarkerMutex.RUnlock()
 		this.shardMarkerMutex.Lock()
 		defer this.shardMarkerMutex.Unlock()
 		if this.shardMarker == nil {
-			shardMarker := this.trits[SHARD_MARKER_OFFSET:SHARD_MARKER_END].ToTrinary()
+			shardMarker := this.trits[SHARD_MARKER_OFFSET:SHARD_MARKER_END].ToTrytes()
 
 			this.shardMarker = &shardMarker
 		}
@@ -144,7 +144,7 @@ func (this *MetaTransaction) GetShardMarker() (result ternary.Trinary) {
 }
 
 // setter for the shard marker (supports concurrency)
-func (this *MetaTransaction) SetShardMarker(shardMarker ternary.Trinary) bool {
+func (this *MetaTransaction) SetShardMarker(shardMarker ternary.Trytes) bool {
 	this.shardMarkerMutex.RLock()
 	if this.shardMarker == nil || *this.shardMarker != shardMarker {
 		this.shardMarkerMutex.RUnlock()
@@ -170,14 +170,14 @@ func (this *MetaTransaction) SetShardMarker(shardMarker ternary.Trinary) bool {
 }
 
 // getter for the bundleHash (supports concurrency)
-func (this *MetaTransaction) GetTrunkTransactionHash() (result ternary.Trinary) {
+func (this *MetaTransaction) GetTrunkTransactionHash() (result ternary.Trytes) {
 	this.trunkTransactionHashMutex.RLock()
 	if this.trunkTransactionHash == nil {
 		this.trunkTransactionHashMutex.RUnlock()
 		this.trunkTransactionHashMutex.Lock()
 		defer this.trunkTransactionHashMutex.Unlock()
 		if this.trunkTransactionHash == nil {
-			trunkTransactionHash := this.trits[TRUNK_TRANSACTION_HASH_OFFSET:TRUNK_TRANSACTION_HASH_END].ToTrinary()
+			trunkTransactionHash := this.trits[TRUNK_TRANSACTION_HASH_OFFSET:TRUNK_TRANSACTION_HASH_END].ToTrytes()
 
 			this.trunkTransactionHash = &trunkTransactionHash
 		}
@@ -191,7 +191,7 @@ func (this *MetaTransaction) GetTrunkTransactionHash() (result ternary.Trinary) 
 }
 
 // setter for the trunkTransactionHash (supports concurrency)
-func (this *MetaTransaction) SetTrunkTransactionHash(trunkTransactionHash ternary.Trinary) bool {
+func (this *MetaTransaction) SetTrunkTransactionHash(trunkTransactionHash ternary.Trytes) bool {
 	this.trunkTransactionHashMutex.RLock()
 	if this.trunkTransactionHash == nil || *this.trunkTransactionHash != trunkTransactionHash {
 		this.trunkTransactionHashMutex.RUnlock()
@@ -217,14 +217,14 @@ func (this *MetaTransaction) SetTrunkTransactionHash(trunkTransactionHash ternar
 }
 
 // getter for the bundleHash (supports concurrency)
-func (this *MetaTransaction) GetBranchTransactionHash() (result ternary.Trinary) {
+func (this *MetaTransaction) GetBranchTransactionHash() (result ternary.Trytes) {
 	this.branchTransactionHashMutex.RLock()
 	if this.branchTransactionHash == nil {
 		this.branchTransactionHashMutex.RUnlock()
 		this.branchTransactionHashMutex.Lock()
 		defer this.branchTransactionHashMutex.Unlock()
 		if this.branchTransactionHash == nil {
-			branchTransactionHash := this.trits[BRANCH_TRANSACTION_HASH_OFFSET:BRANCH_TRANSACTION_HASH_END].ToTrinary()
+			branchTransactionHash := this.trits[BRANCH_TRANSACTION_HASH_OFFSET:BRANCH_TRANSACTION_HASH_END].ToTrytes()
 
 			this.branchTransactionHash = &branchTransactionHash
 		}
@@ -238,7 +238,7 @@ func (this *MetaTransaction) GetBranchTransactionHash() (result ternary.Trinary)
 }
 
 // setter for the trunkTransactionHash (supports concurrency)
-func (this *MetaTransaction) SetBranchTransactionHash(branchTransactionHash ternary.Trinary) bool {
+func (this *MetaTransaction) SetBranchTransactionHash(branchTransactionHash ternary.Trytes) bool {
 	this.branchTransactionHashMutex.RLock()
 	if this.branchTransactionHash == nil || *this.branchTransactionHash != branchTransactionHash {
 		this.branchTransactionHashMutex.RUnlock()
@@ -366,14 +366,14 @@ func (this *MetaTransaction) SetTail(tail bool) bool {
 }
 
 // getter for the transaction type (supports concurrency)
-func (this *MetaTransaction) GetTransactionType() (result ternary.Trinary) {
+func (this *MetaTransaction) GetTransactionType() (result ternary.Trytes) {
 	this.transactionTypeMutex.RLock()
 	if this.transactionType == nil {
 		this.transactionTypeMutex.RUnlock()
 		this.transactionTypeMutex.Lock()
 		defer this.transactionTypeMutex.Unlock()
 		if this.transactionType == nil {
-			transactionType := this.trits[TRANSACTION_TYPE_OFFSET:TRANSACTION_TYPE_END].ToTrinary()
+			transactionType := this.trits[TRANSACTION_TYPE_OFFSET:TRANSACTION_TYPE_END].ToTrytes()
 
 			this.transactionType = &transactionType
 		}
@@ -387,7 +387,7 @@ func (this *MetaTransaction) GetTransactionType() (result ternary.Trinary) {
 }
 
 // setter for the transaction type (supports concurrency)
-func (this *MetaTransaction) SetTransactionType(transactionType ternary.Trinary) bool {
+func (this *MetaTransaction) SetTransactionType(transactionType ternary.Trytes) bool {
 	this.transactionTypeMutex.RLock()
 	if this.transactionType == nil || *this.transactionType != transactionType {
 		this.transactionTypeMutex.RUnlock()

@@ -10,7 +10,7 @@ type BCTCurl struct {
 	hashLength     int
 	numberOfRounds int
 	stateLength    int
-	state          ternary.BCTrinary
+	state          ternary.BCTrits
 	cTransform     func()
 }
 
@@ -19,7 +19,7 @@ func NewBCTCurl(hashLength int, numberOfRounds int) *BCTCurl {
 		hashLength:     hashLength,
 		numberOfRounds: numberOfRounds,
 		stateLength:    ternary.NUMBER_OF_TRITS_IN_A_TRYTE * hashLength,
-		state: ternary.BCTrinary{
+		state: ternary.BCTrits{
 			Lo: make([]uint, ternary.NUMBER_OF_TRITS_IN_A_TRYTE*hashLength),
 			Hi: make([]uint, ternary.NUMBER_OF_TRITS_IN_A_TRYTE*hashLength),
 		},
@@ -64,7 +64,7 @@ func (this *BCTCurl) Transform() {
 	}
 }
 
-func (this *BCTCurl) Absorb(bcTrits ternary.BCTrinary) {
+func (this *BCTCurl) Absorb(bcTrits ternary.BCTrits) {
 	length := len(bcTrits.Lo)
 	offset := 0
 
@@ -89,8 +89,8 @@ func (this *BCTCurl) Absorb(bcTrits ternary.BCTrinary) {
 	}
 }
 
-func (this *BCTCurl) Squeeze(tritCount int) ternary.BCTrinary {
-	result := ternary.BCTrinary{
+func (this *BCTCurl) Squeeze(tritCount int) ternary.BCTrits {
+	result := ternary.BCTrits{
 		Lo: make([]uint, tritCount),
 		Hi: make([]uint, tritCount),
 	}

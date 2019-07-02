@@ -7,9 +7,9 @@ import (
 
 // getConflictSet triggers a (fake) new conflict every 10 received txs
 // including only 1 conflicting tx in the returned conflict set
-func getConflictSet(transaction ternary.Trinary, tangle tangleAPI) (conflictSet map[ternary.Trinary]bool, err errors.IdentifiableError) {
+func getConflictSet(transaction ternary.Trytes, tangle tangleAPI) (conflictSet map[ternary.Trytes]bool, err errors.IdentifiableError) {
 
-	conflictSet = make(map[ternary.Trinary]bool)
+	conflictSet = make(map[ternary.Trytes]bool)
 
 	txObject, err := tangle.GetTransaction(transaction)
 	if err != nil {

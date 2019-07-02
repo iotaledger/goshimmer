@@ -6,8 +6,8 @@ type BCTrit struct {
 	Hi uint
 }
 
-// a Binary Coded Trinary consists out of many Binary Coded Trits
-type BCTrinary struct {
+// a Binary Coded Trytes consists out of many Binary Coded Trits
+type BCTrits struct {
 	Lo []uint
 	Hi []uint
 }

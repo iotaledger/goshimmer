@@ -77,7 +77,7 @@ func (this *BatchHasher) processHashes(collectedHashRequests []HashRequest) {
 		for _, hashRequest := range collectedHashRequests {
 			multiplexer.Add(hashRequest.input)
 		}
-		bcTrinary, err := multiplexer.Extract()
+		bcTrits, err := multiplexer.Extract()
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -85,7 +85,7 @@ func (this *BatchHasher) processHashes(collectedHashRequests []HashRequest) {
 		// calculate the hash
 		bctCurl := NewBCTCurl(this.hashLength, this.rounds)
 		bctCurl.Reset()
-		bctCurl.Absorb(bcTrinary)
+		bctCurl.Absorb(bcTrits)
 
 		// extract the results from the demultiplexer
 		demux := ternary.NewBCTernaryDemultiplexer(bctCurl.Squeeze(243))
@@ -105,9 +105,9 @@ func (this *BatchHasher) processHashes(collectedHashRequests []HashRequest) {
 	}
 }
 
-func (this *BatchHasher) Hash(trinary ternary.Trits) chan ternary.Trits {
+func (this *BatchHasher) Hash(trits ternary.Trits) chan ternary.Trits {
 	hashRequest := HashRequest{
-		input:  trinary,
+		input:  trits,
 		output: make(chan ternary.Trits, 1),
 	}
 
@@ -117,5 +117,5 @@ func (this *BatchHasher) Hash(trinary ternary.Trits) chan ternary.Trits {
 }
 
 const (
-	NUMBER_OF_WORKERS = 100
+	NUMBER_OF_WORKERS = 1000
 )

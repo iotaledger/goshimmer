@@ -194,7 +194,7 @@ func AddNeighbor(newNeighbor *Neighbor) {
 
 		Events.AddNeighbor.Trigger(newNeighbor)
 	} else {
-		if !newNeighbor.Equals(neighbor) {
+		if !neighbor.Equals(newNeighbor) {
 			neighbor.Identity = newNeighbor.Identity
 			neighbor.Port = newNeighbor.Port
 			neighbor.Address = newNeighbor.Address

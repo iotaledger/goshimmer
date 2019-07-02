@@ -73,11 +73,11 @@ func HandleConnection(conn *network.ManagedConnection) {
 	conn.Events.Close.Attach(onDisconnect)
 
 	maxPacketsSize := getMaxPacketSize(
-		ping.MARSHALLED_TOTAL_SIZE,
-		addnode.MARSHALLED_TOTAL_SIZE,
-		removenode.MARSHALLED_TOTAL_SIZE,
-		connectnodes.MARSHALLED_TOTAL_SIZE,
-		disconnectnodes.MARSHALLED_PACKET_HEADER,
+		ping.MARSHALED_TOTAL_SIZE,
+		addnode.MARSHALED_TOTAL_SIZE,
+		removenode.MARSHALED_TOTAL_SIZE,
+		connectnodes.MARSHALED_TOTAL_SIZE,
+		disconnectnodes.MARSHALED_PACKET_HEADER,
 	)
 
 	go conn.Read(make([]byte, maxPacketsSize))
@@ -112,19 +112,19 @@ func processIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *n
 
 		switch *connectionState {
 		case STATE_ADD_NODE:
-			*receiveBuffer = make([]byte, addnode.MARSHALLED_TOTAL_SIZE)
+			*receiveBuffer = make([]byte, addnode.MARSHALED_TOTAL_SIZE)
 
 		case STATE_PING:
-			*receiveBuffer = make([]byte, ping.MARSHALLED_TOTAL_SIZE)
+			*receiveBuffer = make([]byte, ping.MARSHALED_TOTAL_SIZE)
 
 		case STATE_CONNECT_NODES:
-			*receiveBuffer = make([]byte, connectnodes.MARSHALLED_TOTAL_SIZE)
+			*receiveBuffer = make([]byte, connectnodes.MARSHALED_TOTAL_SIZE)
 
 		case STATE_DISCONNECT_NODES:
-			*receiveBuffer = make([]byte, disconnectnodes.MARSHALLED_TOTAL_SIZE)
+			*receiveBuffer = make([]byte, disconnectnodes.MARSHALED_TOTAL_SIZE)
 
 		case STATE_REMOVE_NODE:
-			*receiveBuffer = make([]byte, removenode.MARSHALLED_TOTAL_SIZE)
+			*receiveBuffer = make([]byte, removenode.MARSHALED_TOTAL_SIZE)
 		}
 	}
 
@@ -162,28 +162,28 @@ func parsePackageHeader(data []byte) (ConnectionState, []byte, error) {
 	var receiveBuffer []byte
 
 	switch data[0] {
-	case ping.MARSHALLED_PACKET_HEADER:
-		receiveBuffer = make([]byte, ping.MARSHALLED_TOTAL_SIZE)
+	case ping.MARSHALED_PACKET_HEADER:
+		receiveBuffer = make([]byte, ping.MARSHALED_TOTAL_SIZE)
 
 		connectionState = STATE_PING
 
-	case addnode.MARSHALLED_PACKET_HEADER:
-		receiveBuffer = make([]byte, addnode.MARSHALLED_TOTAL_SIZE)
+	case addnode.MARSHALED_PACKET_HEADER:
+		receiveBuffer = make([]byte, addnode.MARSHALED_TOTAL_SIZE)
 
 		connectionState = STATE_ADD_NODE
 
-	case connectnodes.MARSHALLED_PACKET_HEADER:
-		receiveBuffer = make([]byte, connectnodes.MARSHALLED_TOTAL_SIZE)
+	case connectnodes.MARSHALED_PACKET_HEADER:
+		receiveBuffer = make([]byte, connectnodes.MARSHALED_TOTAL_SIZE)
 
 		connectionState = STATE_CONNECT_NODES
 
-	case disconnectnodes.MARSHALLED_PACKET_HEADER:
-		receiveBuffer = make([]byte, disconnectnodes.MARSHALLED_TOTAL_SIZE)
+	case disconnectnodes.MARSHALED_PACKET_HEADER:
+		receiveBuffer = make([]byte, disconnectnodes.MARSHALED_TOTAL_SIZE)
 
 		connectionState = STATE_DISCONNECT_NODES
 
-	case removenode.MARSHALLED_PACKET_HEADER:
-		receiveBuffer = make([]byte, removenode.MARSHALLED_TOTAL_SIZE)
+	case removenode.MARSHALED_PACKET_HEADER:
+		receiveBuffer = make([]byte, removenode.MARSHALED_TOTAL_SIZE)
 
 		connectionState = STATE_REMOVE_NODE
 
@@ -195,11 +195,11 @@ func parsePackageHeader(data []byte) (ConnectionState, []byte, error) {
 }
 
 func processIncomingAddNodePacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int, connectedNodeId *string) {
-	remainingCapacity := int(math.Min(float64(addnode.MARSHALLED_TOTAL_SIZE-*offset), float64(len(data))))
+	remainingCapacity := int(math.Min(float64(addnode.MARSHALED_TOTAL_SIZE-*offset), float64(len(data))))
 
 	copy((*receiveBuffer)[*offset:], data[:remainingCapacity])
 
-	if *offset+len(data) < addnode.MARSHALLED_TOTAL_SIZE {
+	if *offset+len(data) < addnode.MARSHALED_TOTAL_SIZE {
 		*offset += len(data)
 	} else {
 		if addNodePacket, err := addnode.Unmarshal(*receiveBuffer); err != nil {
@@ -222,18 +222,18 @@ func processIncomingAddNodePacket(connectionState *byte, receiveBuffer *[]byte, 
 
 		*connectionState = STATE_CONSECUTIVE
 
-		if *offset+len(data) > addnode.MARSHALLED_TOTAL_SIZE {
+		if *offset+len(data) > addnode.MARSHALED_TOTAL_SIZE {
 			processIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset, connectedNodeId)
 		}
 	}
 }
 
 func processIncomingPingPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int, connectedNodeId *string) {
-	remainingCapacity := int(math.Min(float64(ping.MARSHALLED_TOTAL_SIZE-*offset), float64(len(data))))
+	remainingCapacity := int(math.Min(float64(ping.MARSHALED_TOTAL_SIZE-*offset), float64(len(data))))
 
 	copy((*receiveBuffer)[*offset:], data[:remainingCapacity])
 
-	if *offset+len(data) < ping.MARSHALLED_TOTAL_SIZE {
+	if *offset+len(data) < ping.MARSHALED_TOTAL_SIZE {
 		*offset += len(data)
 	} else {
 		if _, err := ping.Unmarshal(*receiveBuffer); err != nil {
@@ -246,18 +246,18 @@ func processIncomingPingPacket(connectionState *byte, receiveBuffer *[]byte, con
 
 		*connectionState = STATE_CONSECUTIVE
 
-		if *offset+len(data) > ping.MARSHALLED_TOTAL_SIZE {
+		if *offset+len(data) > ping.MARSHALED_TOTAL_SIZE {
 			processIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset, connectedNodeId)
 		}
 	}
 }
 
 func processIncomingConnectNodesPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int, connectedNodeId *string) {
-	remainingCapacity := int(math.Min(float64(connectnodes.MARSHALLED_TOTAL_SIZE-*offset), float64(len(data))))
+	remainingCapacity := int(math.Min(float64(connectnodes.MARSHALED_TOTAL_SIZE-*offset), float64(len(data))))
 
 	copy((*receiveBuffer)[*offset:], data[:remainingCapacity])
 
-	if *offset+len(data) < connectnodes.MARSHALLED_TOTAL_SIZE {
+	if *offset+len(data) < connectnodes.MARSHALED_TOTAL_SIZE {
 		*offset += len(data)
 	} else {
 		if connectNodesPacket, err := connectnodes.Unmarshal(*receiveBuffer); err != nil {
@@ -275,18 +275,18 @@ func processIncomingConnectNodesPacket(connectionState *byte, receiveBuffer *[]b
 
 		*connectionState = STATE_CONSECUTIVE
 
-		if *offset+len(data) > connectnodes.MARSHALLED_TOTAL_SIZE {
+		if *offset+len(data) > connectnodes.MARSHALED_TOTAL_SIZE {
 			processIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset, connectedNodeId)
 		}
 	}
 }
 
 func processIncomingDisconnectNodesPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int, connectedNodeId *string) {
-	remainingCapacity := int(math.Min(float64(disconnectnodes.MARSHALLED_TOTAL_SIZE-*offset), float64(len(data))))
+	remainingCapacity := int(math.Min(float64(disconnectnodes.MARSHALED_TOTAL_SIZE-*offset), float64(len(data))))
 
 	copy((*receiveBuffer)[*offset:], data[:remainingCapacity])
 
-	if *offset+len(data) < disconnectnodes.MARSHALLED_TOTAL_SIZE {
+	if *offset+len(data) < disconnectnodes.MARSHALED_TOTAL_SIZE {
 		*offset += len(data)
 	} else {
 		if disconnectNodesPacket, err := disconnectnodes.Unmarshal(*receiveBuffer); err != nil {
@@ -304,7 +304,7 @@ func processIncomingDisconnectNodesPacket(connectionState *byte, receiveBuffer *
 
 		*connectionState = STATE_CONSECUTIVE
 
-		if *offset+len(data) > disconnectnodes.MARSHALLED_TOTAL_SIZE {
+		if *offset+len(data) > disconnectnodes.MARSHALED_TOTAL_SIZE {
 			processIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset, connectedNodeId)
 		}
 	}

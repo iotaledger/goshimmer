@@ -8,9 +8,9 @@ import (
 
 var tips = datastructure.NewRandomMap()
 
-func GetRandomTip() (result ternary.Trinary) {
+func GetRandomTip() (result ternary.Trytes) {
 	if randomTipHash := tips.RandomEntry(); randomTipHash != nil {
-		result = randomTipHash.(ternary.Trinary)
+		result = randomTipHash.(ternary.Trytes)
 	} else {
 		result = meta_transaction.BRANCH_NULL_HASH
 	}

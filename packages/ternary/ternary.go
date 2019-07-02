@@ -11,23 +11,27 @@ type Trit = int8
 // Trits consists out of many Trits
 type Trits []Trit
 
-// Trinary is a string representation of the Trits
-type Trinary string
+// Trytes is a string representation of the Trits
+type Trytes string
 
-// simply changes the type of this Trinary to a byte array without copying any data
-func (trinary Trinary) CastToBytes() []byte {
-	hdr := (*reflect.StringHeader)(unsafe.Pointer(&trinary))
+// simply changes the type of this Trytes to a byte array without copying any data
+func (trytes Trytes) CastToBytes() []byte {
+	hdr := (*reflect.StringHeader)(unsafe.Pointer(&trytes))
 
 	return *(*[]byte)(unsafe.Pointer(&reflect.SliceHeader{Data: hdr.Data, Len: hdr.Len, Cap: hdr.Len}))
 }
 
-func (trinary Trinary) ToTrits() Trits {
-	trits := make(Trits, 0, len(trinary)*NUMBER_OF_TRITS_IN_A_TRYTE)
-	for _, char := range trinary {
+func (trytes Trytes) ToTrits() Trits {
+	trits := make(Trits, 0, len(trytes)*NUMBER_OF_TRITS_IN_A_TRYTE)
+	for _, char := range trytes {
 		trits = append(trits, TRYTES_TO_TRITS_MAP[char]...)
 	}
 
 	return trits
+}
+
+func (trytes Trytes) ToString() string {
+	return string(trytes)
 }
 
 func (this Trits) ToBytes() []byte {
@@ -96,6 +100,6 @@ func (this Trits) ToString() string {
 	return TritsToString(this, 0, len(this))
 }
 
-func (this Trits) ToTrinary() Trinary {
-	return Trinary(TritsToString(this, 0, len(this)))
+func (this Trits) ToTrytes() Trytes {
+	return Trytes(TritsToString(this, 0, len(this)))
 }

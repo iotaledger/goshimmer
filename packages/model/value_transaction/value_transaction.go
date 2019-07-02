@@ -10,15 +10,15 @@ import (
 type ValueTransaction struct {
 	*meta_transaction.MetaTransaction
 
-	address                       *ternary.Trinary
+	address                       *ternary.Trytes
 	addressMutex                  sync.RWMutex
 	value                         *int64
 	valueMutex                    sync.RWMutex
 	timestamp                     *uint
 	timestampMutex                sync.RWMutex
-	nonce                         *ternary.Trinary
+	nonce                         *ternary.Trytes
 	nonceMutex                    sync.RWMutex
-	signatureMessageFragment      *ternary.Trinary
+	signatureMessageFragment      *ternary.Trytes
 	signatureMessageFragmentMutex sync.RWMutex
 
 	trits ternary.Trits
@@ -37,13 +37,13 @@ func New() (result *ValueTransaction) {
 func FromMetaTransaction(metaTransaction *meta_transaction.MetaTransaction) *ValueTransaction {
 	return &ValueTransaction{
 		MetaTransaction: metaTransaction,
-		trits: metaTransaction.GetData(),
+		trits:           metaTransaction.GetData(),
 	}
 }
 
 func FromBytes(bytes []byte) (result *ValueTransaction) {
 	result = &ValueTransaction{
-		MetaTransaction: meta_transaction.FromTrits(ternary.BytesToTrits(bytes)[:meta_transaction.MARSHALLED_TOTAL_SIZE]),
+		MetaTransaction: meta_transaction.FromTrits(ternary.BytesToTrits(bytes)[:meta_transaction.MARSHALED_TOTAL_SIZE]),
 	}
 
 	result.trits = result.MetaTransaction.GetData()
@@ -52,14 +52,14 @@ func FromBytes(bytes []byte) (result *ValueTransaction) {
 }
 
 // getter for the address (supports concurrency)
-func (this *ValueTransaction) GetAddress() (result ternary.Trinary) {
+func (this *ValueTransaction) GetAddress() (result ternary.Trytes) {
 	this.addressMutex.RLock()
 	if this.address == nil {
 		this.addressMutex.RUnlock()
 		this.addressMutex.Lock()
 		defer this.addressMutex.Unlock()
 		if this.address == nil {
-			address := this.trits[ADDRESS_OFFSET:ADDRESS_END].ToTrinary()
+			address := this.trits[ADDRESS_OFFSET:ADDRESS_END].ToTrytes()
 
 			this.address = &address
 		}
@@ -73,7 +73,7 @@ func (this *ValueTransaction) GetAddress() (result ternary.Trinary) {
 }
 
 // setter for the address (supports concurrency)
-func (this *ValueTransaction) SetAddress(address ternary.Trinary) bool {
+func (this *ValueTransaction) SetAddress(address ternary.Trytes) bool {
 	this.addressMutex.RLock()
 	if this.address == nil || *this.address != address {
 		this.addressMutex.RUnlock()
@@ -192,15 +192,35 @@ func (this *ValueTransaction) SetTimestamp(timestamp uint) bool {
 	return false
 }
 
+func (this *ValueTransaction) GetBundleEssence() (result ternary.Trits) {
+	this.addressMutex.RLock()
+	this.valueMutex.RLock()
+	this.signatureMessageFragmentMutex.RLock()
+
+	result = make(ternary.Trits, BUNDLE_ESSENCE_SIZE)
+
+	copy(result[0:], this.trits[ADDRESS_OFFSET:VALUE_END])
+
+	if this.GetValue() < 0 {
+		copy(result[:VALUE_END], this.trits[SIGNATURE_MESSAGE_FRAGMENT_OFFSET:SIGNATURE_MESSAGE_FRAGMENT_END])
+	}
+
+	this.signatureMessageFragmentMutex.RUnlock()
+	this.valueMutex.RUnlock()
+	this.addressMutex.RUnlock()
+
+	return
+}
+
 // getter for the nonce (supports concurrency)
-func (this *ValueTransaction) GetNonce() (result ternary.Trinary) {
+func (this *ValueTransaction) GetNonce() (result ternary.Trytes) {
 	this.nonceMutex.RLock()
 	if this.nonce == nil {
 		this.nonceMutex.RUnlock()
 		this.nonceMutex.Lock()
 		defer this.nonceMutex.Unlock()
 		if this.nonce == nil {
-			nonce := this.trits[NONCE_OFFSET:NONCE_END].ToTrinary()
+			nonce := this.trits[NONCE_OFFSET:NONCE_END].ToTrytes()
 
 			this.nonce = &nonce
 		}
@@ -214,7 +234,7 @@ func (this *ValueTransaction) GetNonce() (result ternary.Trinary) {
 }
 
 // setter for the nonce (supports concurrency)
-func (this *ValueTransaction) SetNonce(nonce ternary.Trinary) bool {
+func (this *ValueTransaction) SetNonce(nonce ternary.Trytes) bool {
 	this.nonceMutex.RLock()
 	if this.nonce == nil || *this.nonce != nonce {
 		this.nonceMutex.RUnlock()
@@ -240,14 +260,14 @@ func (this *ValueTransaction) SetNonce(nonce ternary.Trinary) bool {
 }
 
 // getter for the signatureMessageFragmetn (supports concurrency)
-func (this *ValueTransaction) GetSignatureMessageFragment() (result ternary.Trinary) {
+func (this *ValueTransaction) GetSignatureMessageFragment() (result ternary.Trytes) {
 	this.signatureMessageFragmentMutex.RLock()
 	if this.signatureMessageFragment == nil {
 		this.signatureMessageFragmentMutex.RUnlock()
 		this.signatureMessageFragmentMutex.Lock()
 		defer this.signatureMessageFragmentMutex.Unlock()
 		if this.signatureMessageFragment == nil {
-			signatureMessageFragment := this.trits[SIGNATURE_MESSAGE_FRAGMENT_OFFSET:SIGNATURE_MESSAGE_FRAGMENT_END].ToTrinary()
+			signatureMessageFragment := this.trits[SIGNATURE_MESSAGE_FRAGMENT_OFFSET:SIGNATURE_MESSAGE_FRAGMENT_END].ToTrytes()
 
 			this.signatureMessageFragment = &signatureMessageFragment
 		}
@@ -261,7 +281,7 @@ func (this *ValueTransaction) GetSignatureMessageFragment() (result ternary.Trin
 }
 
 // setter for the nonce (supports concurrency)
-func (this *ValueTransaction) SetSignatureMessageFragment(signatureMessageFragment ternary.Trinary) bool {
+func (this *ValueTransaction) SetSignatureMessageFragment(signatureMessageFragment ternary.Trytes) bool {
 	this.signatureMessageFragmentMutex.RLock()
 	if this.signatureMessageFragment == nil || *this.signatureMessageFragment != signatureMessageFragment {
 		this.signatureMessageFragmentMutex.RUnlock()

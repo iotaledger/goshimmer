@@ -9,7 +9,9 @@ import (
 var PLUGIN = node.NewPlugin("Tangle", configure, run)
 
 func configure(plugin *node.Plugin) {
-	configureDatabase(plugin)
+	configureTransactionDatabase(plugin)
+	configureTransactionMetaDataDatabase(plugin)
+	configureApproversDatabase(plugin)
 	configureSolidifier(plugin)
 }
 

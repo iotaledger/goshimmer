@@ -1,42 +1,41 @@
 package tangle
 
 import (
-	"encoding/binary"
-	"strconv"
-	"sync"
-
 	"github.com/dgraph-io/badger"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/datastructure"
 	"github.com/iotaledger/goshimmer/packages/errors"
+	"github.com/iotaledger/goshimmer/packages/model/approvers"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/ternary"
-	"github.com/iotaledger/goshimmer/packages/typeconversion"
 )
 
 // region global public api ////////////////////////////////////////////////////////////////////////////////////////////
 
-var approversCache = datastructure.NewLRUCache(METADATA_CACHE_SIZE)
+// GetApprovers retrieves approvers from the database.
+func GetApprovers(transactionHash ternary.Trytes, computeIfAbsent ...func(ternary.Trytes) *approvers.Approvers) (result *approvers.Approvers, err errors.IdentifiableError) {
+	if cacheResult := approversCache.ComputeIfAbsent(transactionHash, func() interface{} {
+		if dbApprovers, dbErr := getApproversFromDatabase(transactionHash); dbErr != nil {
+			err = dbErr
 
-func StoreApprovers(approvers *Approvers) {
-	hash := approvers.GetHash()
+			return nil
+		} else if dbApprovers != nil {
+			return dbApprovers
+		} else {
+			if len(computeIfAbsent) >= 1 {
+				return computeIfAbsent[0](transactionHash)
+			}
 
-	approversCache.Set(hash, approvers)
-}
-
-func GetApprovers(transactionHash ternary.Trinary, computeIfAbsent ...func(ternary.Trinary) *Approvers) (result *Approvers, err errors.IdentifiableError) {
-	if approvers := approversCache.ComputeIfAbsent(transactionHash, func() interface{} {
-		if result, err = getApproversFromDatabase(transactionHash); err == nil && result == nil && len(computeIfAbsent) >= 1 {
-			result = computeIfAbsent[0](transactionHash)
+			return nil
 		}
-
-		return result
-	}); approvers != nil && approvers.(*Approvers) != nil {
-		result = approvers.(*Approvers)
+	}); cacheResult != nil && cacheResult.(*approvers.Approvers) != nil {
+		result = cacheResult.(*approvers.Approvers)
 	}
 
 	return
 }
 
-func ContainsApprovers(transactionHash ternary.Trinary) (result bool, err errors.IdentifiableError) {
+func ContainsApprovers(transactionHash ternary.Trytes) (result bool, err errors.IdentifiableError) {
 	if approversCache.Contains(transactionHash) {
 		result = true
 	} else {
@@ -46,180 +45,80 @@ func ContainsApprovers(transactionHash ternary.Trinary) (result bool, err errors
 	return
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type Approvers struct {
-	hash        ternary.Trinary
-	hashes      map[ternary.Trinary]bool
-	hashesMutex sync.RWMutex
-	modified    bool
+func StoreApprovers(approvers *approvers.Approvers) {
+	approversCache.Set(approvers.GetHash(), approvers)
 }
 
-func NewApprovers(hash ternary.Trinary) *Approvers {
-	return &Approvers{
-		hash:     hash,
-		hashes:   make(map[ternary.Trinary]bool),
-		modified: false,
+// region lru cache ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var approversCache = datastructure.NewLRUCache(APPROVERS_CACHE_SIZE, &datastructure.LRUCacheOptions{
+	EvictionCallback: onEvictApprovers,
+})
+
+func onEvictApprovers(_ interface{}, value interface{}) {
+	if evictedApprovers := value.(*approvers.Approvers); evictedApprovers.GetModified() {
+		go func(evictedApprovers *approvers.Approvers) {
+			if err := storeApproversInDatabase(evictedApprovers); err != nil {
+				panic(err)
+			}
+		}(evictedApprovers)
 	}
 }
-
-// region public methods with locking //////////////////////////////////////////////////////////////////////////////////
-
-func (approvers *Approvers) Add(transactionHash ternary.Trinary) {
-	approvers.hashesMutex.Lock()
-	approvers.add(transactionHash)
-	approvers.hashesMutex.Unlock()
-}
-
-func (approvers *Approvers) Remove(approverHash ternary.Trinary) {
-	approvers.hashesMutex.Lock()
-	approvers.remove(approverHash)
-	approvers.hashesMutex.Unlock()
-}
-
-func (approvers *Approvers) GetHashes() (result []ternary.Trinary) {
-	approvers.hashesMutex.RLock()
-	result = approvers.getHashes()
-	approvers.hashesMutex.RUnlock()
-
-	return
-}
-
-func (approvers *Approvers) GetHash() (result ternary.Trinary) {
-	approvers.hashesMutex.RLock()
-	result = approvers.hash
-	approvers.hashesMutex.RUnlock()
-
-	return
-}
-
-func (approvers *Approvers) Marshal() (result []byte) {
-	result = make([]byte, MARSHALLED_APPROVERS_MIN_SIZE+len(approvers.hashes)*MARSHALLED_APPROVERS_HASH_SIZE)
-
-	approvers.hashesMutex.RLock()
-
-	binary.BigEndian.PutUint64(result[MARSHALLED_APPROVERS_HASHES_COUNT_START:MARSHALLED_APPROVERS_HASHES_COUNT_END], uint64(len(approvers.hashes)))
-
-	copy(result[MARSHALLED_APPROVERS_HASH_START:MARSHALLED_APPROVERS_HASH_END], approvers.hash.CastToBytes())
-
-	i := 0
-	for hash := range approvers.hashes {
-		var HASH_START = MARSHALLED_APPROVERS_HASHES_START + i*(MARSHALLED_APPROVERS_HASH_SIZE)
-		var HASH_END = HASH_START * MARSHALLED_APPROVERS_HASH_SIZE
-
-		copy(result[HASH_START:HASH_END], hash.CastToBytes())
-
-		i++
-	}
-
-	approvers.hashesMutex.RUnlock()
-
-	return
-}
-
-func (approvers *Approvers) Unmarshal(data []byte) (err errors.IdentifiableError) {
-	dataLen := len(data)
-
-	if dataLen <= MARSHALLED_APPROVERS_MIN_SIZE {
-		return ErrMarshallFailed.Derive(errors.New("unmarshall failed"), "marshalled approvers are too short")
-	}
-
-	hashesCount := binary.BigEndian.Uint64(data[MARSHALLED_APPROVERS_HASHES_COUNT_START:MARSHALLED_APPROVERS_HASHES_COUNT_END])
-
-	if dataLen <= MARSHALLED_APPROVERS_MIN_SIZE+int(hashesCount)*MARSHALLED_APPROVERS_HASH_SIZE {
-		return ErrMarshallFailed.Derive(errors.New("unmarshall failed"), "marshalled approvers are too short for "+strconv.FormatUint(hashesCount, 10)+" approvers")
-	}
-
-	approvers.hashesMutex.Lock()
-
-	approvers.hash = ternary.Trinary(typeconversion.BytesToString(data[MARSHALLED_APPROVERS_HASH_START:MARSHALLED_APPROVERS_HASH_END]))
-	approvers.hashes = make(map[ternary.Trinary]bool, hashesCount)
-	for i := uint64(0); i < hashesCount; i++ {
-		var HASH_START = MARSHALLED_APPROVERS_HASHES_START + i*(MARSHALLED_APPROVERS_HASH_SIZE)
-		var HASH_END = HASH_START * MARSHALLED_APPROVERS_HASH_SIZE
-
-		approvers.hashes[ternary.Trinary(typeconversion.BytesToString(data[HASH_START:HASH_END]))] = true
-	}
-
-	approvers.hashesMutex.Unlock()
-
-	return
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	MARSHALLED_APPROVERS_HASHES_COUNT_START = 0
-	MARSHALLED_APPROVERS_HASH_START         = MARSHALLED_APPROVERS_HASHES_COUNT_END
-	MARSHALLED_APPROVERS_HASHES_START       = MARSHALLED_APPROVERS_HASH_END
-
-	MARSHALLED_APPROVERS_HASHES_COUNT_END = MARSHALLED_APPROVERS_HASHES_COUNT_START + MARSHALLED_APPROVERS_HASHES_COUNT_SIZE
-	MARSHALLED_APPROVERS_HASH_END         = MARSHALLED_APPROVERS_HASH_START + MARSHALLED_APPROVERS_HASH_SIZE
-
-	MARSHALLED_APPROVERS_HASHES_COUNT_SIZE = 8
-	MARSHALLED_APPROVERS_HASH_SIZE         = 81
-	MARSHALLED_APPROVERS_MIN_SIZE          = MARSHALLED_APPROVERS_HASHES_COUNT_SIZE + MARSHALLED_APPROVERS_HASH_SIZE
+	APPROVERS_CACHE_SIZE = 50000
 )
-
-// region private methods without locking //////////////////////////////////////////////////////////////////////////////
-
-func (approvers *Approvers) add(transactionHash ternary.Trinary) {
-	if _, exists := approvers.hashes[transactionHash]; !exists {
-		approvers.hashes[transactionHash] = true
-		approvers.modified = true
-	}
-}
-
-func (approvers *Approvers) remove(approverHash ternary.Trinary) {
-	if _, exists := approvers.hashes[approverHash]; exists {
-		delete(approvers.hashes, approverHash)
-		approvers.modified = true
-	}
-}
-
-func (approvers *Approvers) getHashes() (result []ternary.Trinary) {
-	result = make([]ternary.Trinary, len(approvers.hashes))
-
-	counter := 0
-	for hash := range approvers.hashes {
-		result[counter] = hash
-
-		counter++
-	}
-
-	return
-}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func (approvers *Approvers) Store(approverHash ternary.Trinary) {
-	approvers.hashesMutex.Lock()
-	approvers.modified = false
-	approvers.hashesMutex.Unlock()
+// region database /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var approversDatabase database.Database
+
+func configureApproversDatabase(plugin *node.Plugin) {
+	if db, err := database.Get("approvers"); err != nil {
+		panic(err)
+	} else {
+		approversDatabase = db
+	}
 }
 
-func getApproversFromDatabase(transactionHash ternary.Trinary) (result *Approvers, err errors.IdentifiableError) {
-	approversData, dbErr := approversDatabase.Get(transactionHash.CastToBytes())
-	if dbErr != nil {
-		if dbErr != badger.ErrKeyNotFound {
-			err = ErrDatabaseError.Derive(err, "failed to retrieve transaction")
+func storeApproversInDatabase(approvers *approvers.Approvers) errors.IdentifiableError {
+	if approvers.GetModified() {
+		if err := approversDatabase.Set(approvers.GetHash().CastToBytes(), approvers.Marshal()); err != nil {
+			return ErrDatabaseError.Derive(err, "failed to store approvers")
 		}
 
-		return
+		approvers.SetModified(false)
 	}
 
-	result = NewApprovers(transactionHash)
+	return nil
+}
+
+func getApproversFromDatabase(transactionHash ternary.Trytes) (*approvers.Approvers, errors.IdentifiableError) {
+	approversData, err := approversDatabase.Get(transactionHash.CastToBytes())
+	if err != nil {
+		if err == badger.ErrKeyNotFound {
+			return nil, nil
+		}
+
+		return nil, ErrDatabaseError.Derive(err, "failed to retrieve approvers")
+	}
+
+	var result approvers.Approvers
 	if err = result.Unmarshal(approversData); err != nil {
-		result = nil
+		panic(err)
 	}
 
-	return
+	return &result, nil
 }
 
-func databaseContainsApprovers(transactionHash ternary.Trinary) (bool, errors.IdentifiableError) {
-	if result, err := approversDatabase.Contains(transactionHash.CastToBytes()); err != nil {
-		return false, ErrDatabaseError.Derive(err, "failed to check if the transaction exists")
+func databaseContainsApprovers(transactionHash ternary.Trytes) (bool, errors.IdentifiableError) {
+	if contains, err := approversDatabase.Contains(transactionHash.CastToBytes()); err != nil {
+		return false, ErrDatabaseError.Derive(err, "failed to check if the approvers exists")
 	} else {
-		return result, nil
+		return contains, nil
 	}
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
