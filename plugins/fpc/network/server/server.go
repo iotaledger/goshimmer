@@ -9,8 +9,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/packages/ternary"
 	autop "github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 	pb "github.com/iotaledger/goshimmer/plugins/fpc/network/query"
+	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"google.golang.org/grpc"
 )
 
@@ -32,9 +34,15 @@ func newServer(fpc *fpc.Instance) *queryServer {
 // GetOpinion returns the opinions of the given txs.
 // Currently, we only look for opinions by calling fpc.GetInterimOpinion
 func (s *queryServer) GetOpinion(ctx context.Context, req *pb.QueryRequest) (*pb.QueryReply, error) {
-	opinions := s.fpc.GetInterimOpinion(req.TxHash...)
+	opinions, missingTxs := s.fpc.GetInterimOpinion(req.TxHash...)
 	reply := &pb.QueryReply{
 		Opinion: opinions,
+	}
+	for _, missingTx := range missingTxs {
+		txMetadata, err := tangle.GetTransactionMetadata(ternary.Trytes(req.TxHash[missingTx]))
+		if err == nil {
+			reply.Opinion[missingTx] = txMetadata.GetLiked()
+		}
 	}
 	return reply, nil
 }

@@ -67,16 +67,18 @@ func (fpc *Instance) Tick(index uint64, random float64) {
 
 // GetInterimOpinion returns the current opinions
 // of the given txs
-func (fpc *Instance) GetInterimOpinion(txs ...ID) []Opinion {
-	result := make([]Opinion, len(txs))
+func (fpc *Instance) GetInterimOpinion(txs ...ID) (opinions []Opinion, miss []int) {
+	opinions = make([]Opinion, len(txs))
 
 	for i, tx := range txs {
 		if history, ok := fpc.state.opinionHistory.Load(tx); ok {
 			lastOpinion, _ := getLastOpinion(history)
-			result[i] = lastOpinion
+			opinions[i] = lastOpinion
+		} else {
+			miss = append(miss, i)
 		}
 	}
-	return result
+	return opinions, miss
 }
 
 // ID is the unique identifier of the querried object (e.g. a transaction Hash)

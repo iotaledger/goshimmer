@@ -49,15 +49,16 @@ func TestGetLastOpinion(t *testing.T) {
 
 func TestGetInterimOpinion(t *testing.T) {
 	type testInput struct {
-		opinionMap map[ID][]Opinion
-		txs        []ID
-		expected   []Opinion
+		opinionMap       map[ID][]Opinion
+		txs              []ID
+		expectedOpinions []Opinion
+		expectedMiss     []int
 	}
 	var tests = []testInput{
-		{map[ID][]Opinion{"1": []Opinion{Like, Like, Like}}, []ID{"1"}, []Opinion{Like}},
-		{map[ID][]Opinion{"1": []Opinion{Like, Like, Like}}, []ID{"2"}, []Opinion{Dislike}},
-		{map[ID][]Opinion{"1": []Opinion{Like}, "2": []Opinion{Dislike}}, []ID{"1", "2", "3"}, []Opinion{Like, Dislike, Dislike}},
-		{map[ID][]Opinion{}, []ID{"1"}, []Opinion{Dislike}},
+		{map[ID][]Opinion{"1": []Opinion{Like, Like, Like}}, []ID{"1"}, []Opinion{Like}, nil},
+		{map[ID][]Opinion{"1": []Opinion{Like, Like, Like}}, []ID{"2"}, []Opinion{Dislike}, []int{0}},
+		{map[ID][]Opinion{"1": []Opinion{Like}, "2": []Opinion{Dislike}}, []ID{"1", "2", "3"}, []Opinion{Like, Dislike, Dislike}, []int{2}},
+		{map[ID][]Opinion{}, []ID{"1"}, []Opinion{Dislike}, []int{0}},
 	}
 	for _, test := range tests {
 		dummyFpc := &Instance{
@@ -66,9 +67,12 @@ func TestGetInterimOpinion(t *testing.T) {
 		// set opinion history
 		dummyFpc.state.opinionHistory.internal = test.opinionMap
 
-		result := dummyFpc.GetInterimOpinion(test.txs...)
-		if !reflect.DeepEqual(result, test.expected) {
-			t.Error("Should return", test.expected, "got", result, "with input", test)
+		opinions, missing := dummyFpc.GetInterimOpinion(test.txs...)
+		if !reflect.DeepEqual(opinions, test.expectedOpinions) {
+			t.Error("Should return", test.expectedOpinions, "got", opinions, "with input", test)
+		}
+		if !reflect.DeepEqual(missing, test.expectedMiss) {
+			t.Error("Should return", test.expectedMiss, "got", missing, "with input", test)
 		}
 	}
 }
