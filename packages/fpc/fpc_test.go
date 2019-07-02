@@ -8,14 +8,14 @@ import (
 
 func TestIsFinal(t *testing.T) {
 	type testInput struct {
-		opinions Opinions
+		opinions []Opinion
 		m        int
 		l        int
 		want     bool
 	}
 	var tests = []testInput{
-		{Opinions{Like, Like, Like, Like}, 2, 2, true},
-		{Opinions{Like, Like, Like, Dislike}, 2, 2, false},
+		{[]Opinion{Like, Like, Like, Like}, 2, 2, true},
+		{[]Opinion{Like, Like, Like, Dislike}, 2, 2, false},
 		{nil, 2, 2, false},
 	}
 
@@ -29,35 +29,35 @@ func TestIsFinal(t *testing.T) {
 
 func TestGetLastOpinion(t *testing.T) {
 	type testInput struct {
-		opinions Opinions
-		want     Opinion
+		opinions []Opinion
+		expected Opinion
 		err      error
 	}
 	var tests = []testInput{
-		{Opinions{Like, Like, Like}, Like, nil},
-		{Opinions{Like, Like, Like, Dislike}, Dislike, nil},
-		{Opinions{}, Undefined, errors.New("opinion is empty")},
+		{[]Opinion{Like, Like, Like}, Like, nil},
+		{[]Opinion{Like, Like, Like, Dislike}, Dislike, nil},
+		{[]Opinion{}, Dislike, errors.New("opinion is empty")},
 	}
 
 	for _, test := range tests {
 		result, err := getLastOpinion(test.opinions)
-		if result != test.want || !reflect.DeepEqual(err, test.err) {
-			t.Error("Should return", test.want, test.err, "got", result, err, "with input", test)
+		if result != test.expected || !reflect.DeepEqual(err, test.err) {
+			t.Error("Should return", test.expected, test.err, "got", result, err, "with input", test)
 		}
 	}
 }
 
 func TestGetInterimOpinion(t *testing.T) {
 	type testInput struct {
-		opinionMap map[ID]Opinions
+		opinionMap map[ID][]Opinion
 		txs        []ID
 		expected   []Opinion
 	}
 	var tests = []testInput{
-		{map[ID]Opinions{"1": Opinions{Like, Like, Like}}, []ID{"1"}, []Opinion{Like}},
-		{map[ID]Opinions{"1": Opinions{Like, Like, Like}}, []ID{"2"}, []Opinion{Undefined}},
-		{map[ID]Opinions{"1": Opinions{Like}, "2": Opinions{Dislike}}, []ID{"1", "2", "3"}, []Opinion{Like, Dislike, Undefined}},
-		{map[ID]Opinions{}, []ID{"1"}, []Opinion{Undefined}},
+		{map[ID][]Opinion{"1": []Opinion{Like, Like, Like}}, []ID{"1"}, []Opinion{Like}},
+		{map[ID][]Opinion{"1": []Opinion{Like, Like, Like}}, []ID{"2"}, []Opinion{Dislike}},
+		{map[ID][]Opinion{"1": []Opinion{Like}, "2": []Opinion{Dislike}}, []ID{"1", "2", "3"}, []Opinion{Like, Dislike, Dislike}},
+		{map[ID][]Opinion{}, []ID{"1"}, []Opinion{Dislike}},
 	}
 	for _, test := range tests {
 		dummyFpc := &Instance{
@@ -85,8 +85,8 @@ func TestVoteIfAllAgrees(t *testing.T) {
 		expected Expected
 	}
 	var tests = []testInput{
-		{TxOpinion{"1", Like}, Expected{[]Opinion{Like, Like, Like, Like, Like}, Like}},
-		{TxOpinion{"2", Dislike}, Expected{[]Opinion{Dislike, Dislike, Dislike, Dislike, Dislike}, Dislike}},
+		{TxOpinion{"1", true}, Expected{[]Opinion{Like, Like, Like, Like, Like}, true}},
+		{TxOpinion{"2", false}, Expected{[]Opinion{Dislike, Dislike, Dislike, Dislike, Dislike}, false}},
 	}
 
 	for _, test := range tests {
@@ -112,22 +112,10 @@ func TestVoteIfAllAgrees(t *testing.T) {
 			// start a new round
 			round++
 			fpcInstance.Tick(round, 0.7)
-
 			// check if got a finalized tx:
 			// FinalizedTxsChannel() returns, after the current round is done,
 			// a list of FinalizedTxs, which can be empty
 			finalOpinions = <-Fpc(fpcInstance).FinalizedTxsChannel()
-		}
-		// check opinion history
-		nodeHistory := fpcInstance.state.opinionHistory
-		txHistory, _ := nodeHistory.Load(test.input.TxHash)
-		if len(txHistory) != len(test.expected.opinionHistory) {
-			t.Error("Should return", test.expected.opinionHistory, "got", txHistory, "with input", test.input)
-		}
-		for i, opinionOfRound := range txHistory {
-			if len(test.expected.opinionHistory) < i+1 || opinionOfRound != test.expected.opinionHistory[i] {
-				t.Error("Should return", test.expected.opinionHistory, "got", txHistory, "with input", test.input)
-			}
 		}
 		// check finalized opinion
 		for _, finalOpinion := range finalOpinions {

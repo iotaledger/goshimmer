@@ -5,6 +5,7 @@ import (
 	"log"
 	"strconv"
 	"time"
+	"unsafe"
 
 	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
@@ -22,22 +23,9 @@ func queryNode(txHash []fpc.ID, client pb.FPCQueryClient) (output []fpc.Opinion)
 	ctx, cancel := context.WithTimeout(context.Background(), TIMEOUT)
 	defer cancel()
 
-	// Converting fpc.ID to string
-	input := make([]string, len(txHash))
-	for i := range txHash {
-		input[i] = string(txHash[i])
-	}
 	// Prepare query
 	query := &pb.QueryRequest{
-		TxHash: input,
-	}
-
-	// preparing undefined opinion in case of errors
-	// since we should always return a list of opinions
-	// even in case of errors
-	output = make([]fpc.Opinion, len(txHash))
-	for i := range output {
-		output[i] = fpc.Undefined
+		TxHash: *(*[]string)(unsafe.Pointer(&txHash)),
 	}
 
 	opinions, err := client.GetOpinion(ctx, query)
@@ -47,20 +35,15 @@ func queryNode(txHash []fpc.ID, client pb.FPCQueryClient) (output []fpc.Opinion)
 	}
 
 	// Converting QueryReply_Opinion to Opinion
-	for i, opinion := range opinions.GetOpinion() {
-		output[i] = fpc.Opinion(opinion)
-	}
+	output = *(*[]fpc.Opinion)(unsafe.Pointer(&opinions.Opinion))
 
 	return output
 }
 
 // QueryNode sends a query to a node and returns a list of opinions
 func QueryNode(txHash []fpc.ID, nodeID string) (opinions []fpc.Opinion) {
-	peer, ok := knownpeers.INSTANCE.GetPeer(nodeID)
-	if !ok {
-		// TODO: if !ok decide what to return
-	}
-	// TODO: change peer.PeeringPort+2000 with actual port
+	peer, _ := knownpeers.INSTANCE.GetPeer(nodeID)
+
 	nodeEndPoint := peer.Address.String() + ":" + strconv.FormatUint(uint64(peer.PeeringPort+2000), 10)
 
 	var opts []grpc.DialOption
