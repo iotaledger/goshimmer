@@ -71,12 +71,12 @@ func (fpc *Instance) GetInterimOpinion(txs ...ID) (opinions []Opinion, miss []in
 	opinions = make([]Opinion, len(txs))
 
 	for i, tx := range txs {
-		if history, ok := fpc.state.opinionHistory.Load(tx); ok {
-			lastOpinion, _ := getLastOpinion(history)
-			opinions[i] = lastOpinion
-		} else {
+		history, hit := fpc.state.opinionHistory.Load(tx)
+		if !hit {
 			miss = append(miss, i)
+			opinions[i] = false
 		}
+		opinions[i], _ = getLastOpinion(history)
 	}
 	return opinions, miss
 }
@@ -151,17 +151,11 @@ func (fpc *Instance) round() []TxOpinion {
 // returns the last opinion
 // i: list of opinions stored during FPC rounds of a particular tx
 func getLastOpinion(list []Opinion) (Opinion, error) {
-	if list != nil && len(list) > 0 {
+	if len(list) > 0 {
 		return list[len(list)-1], nil
 	}
 	return false, errors.New("opinion is empty")
 }
-
-// // adds a new opinion to a list of opinions
-// func updateOpinion(newOpinion Opinion, list []Opinion) []Opinion {
-// 	list = append(list, newOpinion)
-// 	return list
-// }
 
 // loop over all the txs to vote and update the last opinion
 // with the new threshold. If any of them reaches finalization,
@@ -200,9 +194,6 @@ func (fpc *Instance) getFinalizedTxs() []TxOpinion {
 // isFinal returns the finalization status given a list of
 // opinions (that belong to a particular tx)
 func isFinal(o []Opinion, m, l int) bool {
-	if o == nil {
-		return false
-	}
 	if len(o) < m+l {
 		return false
 	}
@@ -274,7 +265,7 @@ func choose(list []string, k int) []string {
 	return chosen
 }
 
-// runif returns a random uniform threshold bewteen
+// runif returns a random uniform threshold between
 // a lower bound and an upper bound
 func runif(rand, thresholdL, thresholdU float64) float64 {
 	return thresholdL + rand*(thresholdU-thresholdL)
