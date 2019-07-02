@@ -81,7 +81,7 @@ func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) Run
 				// converting tx into fpc TxOpinion
 				cTx := fpc.TxOpinion{
 					TxHash:  fpc.ID(tx),
-					Opinion: fpc.Opinion(txOpinion.isLiked),
+					Opinion: txOpinion.isLiked,
 				}
 				txsToSubmit = append(txsToSubmit, cTx)
 			}
@@ -99,7 +99,7 @@ func configureUpdateTxsVoted(plugin *node.Plugin, tangle tangleAPI) *events.Clos
 	return events.NewClosure(func(txs []fpc.TxOpinion) {
 		plugin.LogInfo(fmt.Sprintf("Voting Done for txs: %v", txs))
 		for _, tx := range txs {
-			err := setOpinion(ternary.Trytes(tx.TxHash), Opinion{bool(tx.Opinion), VOTED}, tangle)
+			err := setOpinion(ternary.Trytes(tx.TxHash), Opinion{tx.Opinion, VOTED}, tangle)
 			if err != nil {
 				plugin.LogFailure(fmt.Sprint(err))
 			}
