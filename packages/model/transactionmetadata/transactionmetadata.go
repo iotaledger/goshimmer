@@ -13,18 +13,20 @@ import (
 // region type definition and constructor //////////////////////////////////////////////////////////////////////////////
 
 type TransactionMetadata struct {
-	hash              ternary.Trytes
-	hashMutex         sync.RWMutex
-	receivedTime      time.Time
-	receivedTimeMutex sync.RWMutex
-	solid             bool
-	solidMutex        sync.RWMutex
-	liked             bool
-	likedMutex        sync.RWMutex
-	finalized         bool
-	finalizedMutex    sync.RWMutex
-	modified          bool
-	modifiedMutex     sync.RWMutex
+	hash                ternary.Trytes
+	hashMutex           sync.RWMutex
+	bundleTailHash      ternary.Trytes
+	bundleTailHashMutex sync.RWMutex
+	receivedTime        time.Time
+	receivedTimeMutex   sync.RWMutex
+	solid               bool
+	solidMutex          sync.RWMutex
+	liked               bool
+	likedMutex          sync.RWMutex
+	finalized           bool
+	finalizedMutex      sync.RWMutex
+	modified            bool
+	modifiedMutex       sync.RWMutex
 }
 
 func New(hash ternary.Trytes) *TransactionMetadata {
@@ -62,6 +64,29 @@ func (metadata *TransactionMetadata) SetHash(hash ternary.Trytes) {
 		}
 	} else {
 		metadata.hashMutex.RUnlock()
+	}
+}
+
+func (metadata *TransactionMetadata) GetBundleTailHash() ternary.Trytes {
+	metadata.bundleTailHashMutex.RLock()
+	defer metadata.bundleTailHashMutex.RUnlock()
+
+	return metadata.bundleTailHash
+}
+
+func (metadata *TransactionMetadata) SetBundleTailHash(bundleTailHash ternary.Trytes) {
+	metadata.bundleTailHashMutex.RLock()
+	if metadata.bundleTailHash != bundleTailHash {
+		metadata.bundleTailHashMutex.RUnlock()
+		metadata.bundleTailHashMutex.Lock()
+		defer metadata.bundleTailHashMutex.Unlock()
+		if metadata.bundleTailHash != bundleTailHash {
+			metadata.bundleTailHash = bundleTailHash
+
+			metadata.SetModified(true)
+		}
+	} else {
+		metadata.bundleTailHashMutex.RUnlock()
 	}
 }
 
