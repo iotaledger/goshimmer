@@ -5,7 +5,6 @@ import (
 	"flag"
 	"net"
 	"strconv"
-	"unsafe"
 
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/fpc"
@@ -33,12 +32,9 @@ func newServer(fpc *fpc.Instance) *queryServer {
 // GetOpinion returns the opinions of the given txs.
 // Currently, we only look for opinions by calling fpc.GetInterimOpinion
 func (s *queryServer) GetOpinion(ctx context.Context, req *pb.QueryRequest) (*pb.QueryReply, error) {
-	// converting QueryRequest strings to fpc.ID
-	requestedIDs := *(*[]fpc.ID)(unsafe.Pointer(&req.TxHash))
-
-	opinions := s.fpc.GetInterimOpinion(requestedIDs...)
+	opinions := s.fpc.GetInterimOpinion(req.TxHash...)
 	reply := &pb.QueryReply{
-		Opinion: *(*[]bool)(unsafe.Pointer(&opinions)),
+		Opinion: opinions,
 	}
 	return reply, nil
 }

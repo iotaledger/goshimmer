@@ -80,10 +80,10 @@ func (fpc *Instance) GetInterimOpinion(txs ...ID) []Opinion {
 }
 
 // ID is the unique identifier of the querried object (e.g. a transaction Hash)
-type ID string
+type ID = string
 
 // Opinion is the like/dislike opinion of a given tx
-type Opinion bool
+type Opinion = bool
 
 // TxOpinion defines the current opinion of a tx
 // TxHash is the transaction hash
@@ -174,10 +174,8 @@ func (fpc *Instance) updateOpinion() {
 				threshold = runif(fpc.state.tick.x, fpc.state.parameters.beta, 1-fpc.state.parameters.beta)
 			}
 
-			newOpinion := Opinion(eta.value > threshold)
+			newOpinion := eta.value > threshold
 			fpc.state.opinionHistory.Store(tx, newOpinion)
-			history = append(history, newOpinion)
-
 		}
 	}
 }

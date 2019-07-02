@@ -5,7 +5,6 @@ import (
 	"log"
 	"strconv"
 	"time"
-	"unsafe"
 
 	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
@@ -25,7 +24,7 @@ func queryNode(txHash []fpc.ID, client pb.FPCQueryClient) (output []fpc.Opinion)
 
 	// Prepare query
 	query := &pb.QueryRequest{
-		TxHash: *(*[]string)(unsafe.Pointer(&txHash)),
+		TxHash: txHash,
 	}
 
 	opinions, err := client.GetOpinion(ctx, query)
@@ -34,10 +33,7 @@ func queryNode(txHash []fpc.ID, client pb.FPCQueryClient) (output []fpc.Opinion)
 		return output
 	}
 
-	// Converting QueryReply_Opinion to Opinion
-	output = *(*[]fpc.Opinion)(unsafe.Pointer(&opinions.Opinion))
-
-	return output
+	return opinions.GetOpinion()
 }
 
 // QueryNode sends a query to a node and returns a list of opinions
