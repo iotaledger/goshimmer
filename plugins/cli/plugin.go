@@ -2,6 +2,7 @@ package cli
 
 import (
 	"flag"
+	"fmt"
 	"strings"
 
 	"github.com/iotaledger/goshimmer/packages/events"
@@ -34,12 +35,26 @@ func init() {
 	parameter.Events.AddString.Attach(events.NewClosure(onAddStringParameter))
 
 	flag.Usage = printUsage
-
-	flag.Parse()
 }
 
-func configure(ctx *node.Plugin) {}
+func configure(ctx *node.Plugin) {
+	flag.Parse()
 
-func run(plugin *node.Plugin) {}
+	for _, disabledPlugin := range strings.Fields(*node.DISABLE_PLUGINS.Value) {
+		node.DisabledPlugins[strings.ToLower(disabledPlugin)] = true
+	}
 
-var PLUGIN = node.NewPlugin("CLI", configure)
+	fmt.Println("  _____ _   _ ________  ______  ___ ___________ ")
+	fmt.Println(" /  ___| | | |_   _|  \\/  ||  \\/  ||  ___| ___ \\")
+	fmt.Println(" \\ `--.| |_| | | | | .  . || .  . || |__ | |_/ /")
+	fmt.Println("  `--. \\  _  | | | | |\\/| || |\\/| ||  __||    / ")
+	fmt.Println(" /\\__/ / | | |_| |_| |  | || |  | || |___| |\\ \\ ")
+	fmt.Println(" \\____/\\_| |_/\\___/\\_|  |_/\\_|  |_/\\____/\\_| \\_| fullnode 1.0")
+	fmt.Println()
+
+	ctx.Node.LogInfo("Node", "Loading plugins ...")
+}
+
+var PLUGIN = node.NewPlugin("CLI", configure, func(plugin *node.Plugin) {
+	
+})

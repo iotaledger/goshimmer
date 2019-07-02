@@ -9,8 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface/types"
 )
 
-var recordedEvents = make([]types.EventHandlersConsumer, 0)
-
 var nodes = make(map[string]bool)
 var links = make(map[string]map[string]bool)
 
@@ -84,7 +82,7 @@ func Replay(handlers *types.EventHandlers) {
 	}
 
 	for sourceId, targetMap := range links {
-		for targetId, _ := range targetMap {
+		for targetId := range targetMap {
 			handlers.ConnectNodes(sourceId, targetId)
 		}
 	}

@@ -12,12 +12,14 @@ import (
 
 func TestSolidifier(t *testing.T) {
 	// initialize plugin
-	configureDatabase(nil)
+	configureTransactionDatabase(nil)
+	configureTransactionMetaDataDatabase(nil)
+	configureApproversDatabase(nil)
 	configureSolidifier(nil)
 
 	// create transactions and chain them together
 	transaction1 := value_transaction.New()
-	transaction1.SetNonce(ternary.Trinary("99999999999999999999999999A"))
+	transaction1.SetNonce(ternary.Trytes("99999999999999999999999999A"))
 	transaction2 := value_transaction.New()
 	transaction2.SetBranchTransactionHash(transaction1.GetHash())
 	transaction3 := value_transaction.New()

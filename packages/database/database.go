@@ -80,14 +80,16 @@ func (this *databaseImpl) Set(key []byte, value []byte) error {
 }
 
 func (this *databaseImpl) Contains(key []byte) (bool, error) {
-	if err := this.db.View(func(txn *badger.Txn) error {
+	err := this.db.View(func(txn *badger.Txn) error {
 		_, err := txn.Get(key)
 		if err != nil {
 			return err
 		}
 
 		return nil
-	}); err == ErrKeyNotFound {
+	})
+
+	if err == ErrKeyNotFound {
 		return false, nil
 	} else {
 		return err == nil, err
@@ -96,9 +98,8 @@ func (this *databaseImpl) Contains(key []byte) (bool, error) {
 
 func (this *databaseImpl) Get(key []byte) ([]byte, error) {
 	var result []byte = nil
-	var err error = nil
 
-	err = this.db.View(func(txn *badger.Txn) error {
+	err := this.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
 		if err != nil {
 			return err
@@ -112,6 +113,36 @@ func (this *databaseImpl) Get(key []byte) ([]byte, error) {
 	})
 
 	return result, err
+}
+
+func (this *databaseImpl) Delete(key []byte) error {
+	err := this.db.Update(func(txn *badger.Txn) error {
+		err := txn.Delete(key)
+		return err
+	})
+	return err
+}
+
+func (this *databaseImpl) ForEach(consumer func([]byte, []byte)) error {
+	err := this.db.View(func(txn *badger.Txn) error {
+		// create an iterator the default options
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+
+		// loop through every key-value-pair and call the function
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+
+			value, err := item.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+
+			consumer(item.Key(), value)
+		}
+		return nil
+	})
+	return err
 }
 
 func (this *databaseImpl) Close() error {

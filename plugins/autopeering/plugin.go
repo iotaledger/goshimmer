@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/peerstorage"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/saltmanager"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/server"
@@ -22,6 +23,7 @@ func configure(plugin *node.Plugin) {
 	instances.Configure(plugin)
 	server.Configure(plugin)
 	protocol.Configure(plugin)
+	peerstorage.Configure(plugin)
 
 	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
 		server.Shutdown(plugin)

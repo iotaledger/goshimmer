@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	webapi_gtta "github.com/iotaledger/goshimmer/plugins/webapi-gtta"
 	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi-spammer"
+	"github.com/iotaledger/goshimmer/plugins/zeromq"
 )
 
 func main() {
@@ -31,6 +32,7 @@ func main() {
 		analysis.PLUGIN,
 		gracefulshutdown.PLUGIN,
 		tipselection.PLUGIN,
+		zeromq.PLUGIN,
 
 		statusscreen.PLUGIN,
 		statusscreen_tps.PLUGIN,

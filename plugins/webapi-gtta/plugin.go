@@ -29,7 +29,7 @@ func Handler(c echo.Context) error {
 }
 
 type webResponse struct {
-	Duration          int64           `json:"duration"`
-	BranchTransaction ternary.Trinary `json:"branchTransaction"`
-	TrunkTransaction  ternary.Trinary `json:"trunkTransaction"`
+	Duration          int64          `json:"duration"`
+	BranchTransaction ternary.Trytes `json:"branchTransaction"`
+	TrunkTransaction  ternary.Trytes `json:"trunkTransaction"`
 }

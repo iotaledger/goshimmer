@@ -1,9 +1,12 @@
 package tangle
 
 import (
+	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/goshimmer/packages/model/approvers"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
+	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/ternary"
@@ -14,7 +17,7 @@ import (
 
 //var solidifierChan = make(chan *value_transaction.ValueTransaction, 1000)
 
-const NUMBER_OF_WORKERS = 300
+const NUMBER_OF_WORKERS = 3000
 
 var tasksChan = make(chan *meta_transaction.MetaTransaction, NUMBER_OF_WORKERS)
 
@@ -22,37 +25,19 @@ func configureSolidifier(plugin *node.Plugin) {
 	for i := 0; i < NUMBER_OF_WORKERS; i++ {
 		go func() {
 			for {
-				rawTransaction := <-tasksChan
-
-				processMetaTransaction(plugin, rawTransaction)
+				select {
+				case <-daemon.ShutdownSignal:
+					return
+				case rawTransaction := <-tasksChan:
+					processMetaTransaction(plugin, rawTransaction)
+				}
 			}
 		}()
 	}
 
 	gossip.Events.ReceiveTransaction.Attach(events.NewClosure(func(rawTransaction *meta_transaction.MetaTransaction) {
 		tasksChan <- rawTransaction
-
-		//go processMetaTransaction(plugin, rawTransaction)
 	}))
-	/*
-		for i := 0; i < NUMBER_OF_WORKERS; i++ {
-			go func() {
-				for transaction := range solidifierChan {
-					select {
-					case <-daemon.ShutdownSignal:
-						return
-
-					default:
-						// update the solidity flags of this transaction and its approvers
-						if _, err := IsSolid(transaction); err != nil {
-							plugin.LogFailure(err.Error())
-
-							return
-						}
-					}
-				}
-			}()
-		}*/
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -60,7 +45,7 @@ func configureSolidifier(plugin *node.Plugin) {
 // Checks and updates the solid flag of a single transaction.
 func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool, err errors.IdentifiableError) {
 	// abort if transaction is solid already
-	txMetadata, metaDataErr := GetTransactionMetadata(transaction.GetHash(), NewTransactionMetadata)
+	txMetadata, metaDataErr := GetTransactionMetadata(transaction.GetHash(), transactionmetadata.New)
 	if metaDataErr != nil {
 		err = metaDataErr
 
@@ -80,7 +65,7 @@ func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool
 			return
 		} else if branchTransaction == nil {
 			return
-		} else if branchTransactionMetadata, branchErr := GetTransactionMetadata(branchTransaction.GetHash(), NewTransactionMetadata); branchErr != nil {
+		} else if branchTransactionMetadata, branchErr := GetTransactionMetadata(branchTransaction.GetHash(), transactionmetadata.New); branchErr != nil {
 			err = branchErr
 
 			return
@@ -97,7 +82,7 @@ func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool
 			return
 		} else if trunkTransaction == nil {
 			return
-		} else if trunkTransactionMetadata, trunkErr := GetTransactionMetadata(trunkTransaction.GetHash(), NewTransactionMetadata); trunkErr != nil {
+		} else if trunkTransactionMetadata, trunkErr := GetTransactionMetadata(trunkTransaction.GetHash(), transactionmetadata.New); trunkErr != nil {
 			err = trunkErr
 
 			return
@@ -129,8 +114,8 @@ func IsSolid(transaction *value_transaction.ValueTransaction) (bool, errors.Iden
 	return false, nil
 }
 
-func propagateSolidity(transactionHash ternary.Trinary) errors.IdentifiableError {
-	if approvers, err := GetApprovers(transactionHash, NewApprovers); err != nil {
+func propagateSolidity(transactionHash ternary.Trytes) errors.IdentifiableError {
+	if approvers, err := GetApprovers(transactionHash, approvers.New); err != nil {
 		return err
 	} else {
 		for _, approverHash := range approvers.GetHashes() {
@@ -153,7 +138,7 @@ func propagateSolidity(transactionHash ternary.Trinary) errors.IdentifiableError
 
 func processMetaTransaction(plugin *node.Plugin, metaTransaction *meta_transaction.MetaTransaction) {
 	var newTransaction bool
-	if tx, err := GetTransaction(metaTransaction.GetHash(), func(transactionHash ternary.Trinary) *value_transaction.ValueTransaction {
+	if tx, err := GetTransaction(metaTransaction.GetHash(), func(transactionHash ternary.Trytes) *value_transaction.ValueTransaction {
 		newTransaction = true
 
 		return value_transaction.FromMetaTransaction(metaTransaction)
@@ -165,10 +150,12 @@ func processMetaTransaction(plugin *node.Plugin, metaTransaction *meta_transacti
 }
 
 func processTransaction(plugin *node.Plugin, transaction *value_transaction.ValueTransaction) {
+	Events.TransactionStored.Trigger(transaction)
+
 	transactionHash := transaction.GetHash()
 
 	// register tx as approver for trunk
-	if trunkApprovers, err := GetApprovers(transaction.GetTrunkTransactionHash(), NewApprovers); err != nil {
+	if trunkApprovers, err := GetApprovers(transaction.GetTrunkTransactionHash(), approvers.New); err != nil {
 		plugin.LogFailure(err.Error())
 
 		return
@@ -177,7 +164,7 @@ func processTransaction(plugin *node.Plugin, transaction *value_transaction.Valu
 	}
 
 	// register tx as approver for branch
-	if branchApprovers, err := GetApprovers(transaction.GetBranchTransactionHash(), NewApprovers); err != nil {
+	if branchApprovers, err := GetApprovers(transaction.GetBranchTransactionHash(), approvers.New); err != nil {
 		plugin.LogFailure(err.Error())
 
 		return
