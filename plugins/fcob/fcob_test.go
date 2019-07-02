@@ -46,9 +46,18 @@ func (m mockedTangle) new(value int64, ID, branch, trunk ternary.Trinary, like, 
 
 // TestRunProtocol tests the FCoB protocol
 func TestRunProtocol(t *testing.T) {
+	testVoter := mockedVoter{}
+	// initialize tangle
 	mockedDB := mockedTangle{}
+	mockedDB.tangle = make(map[ternary.Trinary]*value_transaction.ValueTransaction)
+	mockedDB.metadata = make(map[ternary.Trinary]*tangle.TransactionMetadata)
+	mockedDB.hashToID = make(map[ternary.Trinary]ternary.Trinary)
+	mockedDB.new(1, "1", "1", "1", LIKED, VOTED)
+	mockedDB.new(2, "2", "1", "1", LIKED, UNVOTED)
+	mockedDB.new(3, "3", "1", "1", DISLIKED, VOTED)
 
 	type testInput struct {
+		db            mockedTangle
 		tx            ternary.Trinary
 		value         int64
 		branch        ternary.Trinary
@@ -59,6 +68,7 @@ func TestRunProtocol(t *testing.T) {
 	var tests = []testInput{
 		// test for conflict
 		{
+			db:            mockedDB,
 			tx:            ternary.Trinary("4"),
 			value:         10, //currently value%10 triggers a new conflict
 			branch:        ternary.Trinary("2"),
@@ -68,6 +78,7 @@ func TestRunProtocol(t *testing.T) {
 		},
 		// test for monotonicity
 		{
+			db:            mockedDB,
 			tx:            ternary.Trinary("5"),
 			value:         11,
 			branch:        ternary.Trinary("2"),
@@ -77,6 +88,7 @@ func TestRunProtocol(t *testing.T) {
 		},
 		// test for no conflict
 		{
+			db:            mockedDB,
 			tx:            ternary.Trinary("6"),
 			value:         12,
 			branch:        ternary.Trinary("2"),
@@ -87,25 +99,16 @@ func TestRunProtocol(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		testVoter := mockedVoter{}
-		// initialize tangle
-		mockedDB.tangle = make(map[ternary.Trinary]*value_transaction.ValueTransaction)
-		mockedDB.metadata = make(map[ternary.Trinary]*tangle.TransactionMetadata)
-		mockedDB.hashToID = make(map[ternary.Trinary]ternary.Trinary)
-		mockedDB.new(1, "1", "1", "1", LIKED, VOTED)
-		mockedDB.new(2, "2", "1", "1", LIKED, UNVOTED)
-		mockedDB.new(3, "3", "1", "1", DISLIKED, VOTED)
+		runProtocol := makeRunProtocol(nil, test.db, testVoter)
+		test.db.new(test.value, test.tx, test.branch, test.trunk, false, false)
 
-		mockedDB.new(test.value, test.tx, test.branch, test.trunk, false, false)
-		runProtocol := makeRunProtocol(nil, mockedDB, testVoter)
+		runProtocol(test.db.tangle[test.tx].GetHash())
 
-		runProtocol(mockedDB.tangle[test.tx].GetHash())
-
-		if mockedDB.metadata[test.tx].GetLiked() != test.expectedLiked {
-			t.Error("Liked status - Should return", test.expectedLiked, "got", mockedDB.metadata[test.tx].GetLiked(), "with input", test)
+		if test.db.metadata[test.tx].GetLiked() != test.expectedLiked {
+			t.Error("Liked status - Should return", test.expectedLiked, "got", test.db.metadata[test.tx].GetLiked(), "with input", test)
 		}
-		if mockedDB.metadata[test.tx].GetFinalized() != test.expectedVoted {
-			t.Error("Voted status - Should return", test.expectedVoted, "got", mockedDB.metadata[test.tx].GetFinalized(), "with input", test)
+		if test.db.metadata[test.tx].GetFinalized() != test.expectedVoted {
+			t.Error("Voted status - Should return", test.expectedVoted, "got", test.db.metadata[test.tx].GetFinalized(), "with input", test)
 		}
 	}
 }

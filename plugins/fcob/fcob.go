@@ -81,7 +81,10 @@ func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) Run
 			// include only unvoted txs
 			if !txOpinion.isVoted {
 				// converting tx into fpc TxOpinion
-				cTx := fpc.TxOpinion{fpc.ID(tx), txOpinion.isLiked}
+				cTx := fpc.TxOpinion{
+					TxHash:  fpc.ID(tx),
+					Opinion: txOpinion.isLiked,
+				}
 				txsToSubmit = append(txsToSubmit, cTx)
 			}
 		}
@@ -90,7 +93,6 @@ func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) Run
 		if plugin != nil {
 			plugin.LogInfo(fmt.Sprintf("NewConflict: %v", txsToSubmit))
 		}
-		return
 	}
 
 }
@@ -99,7 +101,10 @@ func configureUpdateTxsVoted(plugin *node.Plugin, tangle tangleAPI) *events.Clos
 	return events.NewClosure(func(txs []fpc.TxOpinion) {
 		plugin.LogInfo(fmt.Sprintf("Voting Done for txs: %v", txs))
 		for _, tx := range txs {
-			setOpinion(ternary.Trinary(tx.TxHash), Opinion{tx.Opinion, VOTED}, tangle)
+			err := setOpinion(ternary.Trinary(tx.TxHash), Opinion{tx.Opinion, VOTED}, tangle)
+			if err != nil {
+				plugin.LogFailure(fmt.Sprint(err))
+			}
 		}
 	})
 }
