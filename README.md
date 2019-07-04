@@ -37,3 +37,15 @@ You can then run by:
 ```
 ./shimmer
 ```
+
+## Docker
+
+To run Shimmer on docker, you must first build the image with
+```
+docker build -t iotaledger/goshimmer .
+```
+and then run it with
+```
+docker run --rm -it -v target/mainnetdb:/root/mainnetdb iotaledger/goshimmer
+```
+You may replace `target/mainnetdb` with a custom path to the database folder.
