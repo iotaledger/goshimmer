@@ -31,8 +31,8 @@ func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction)
 			return nil, ErrProcessBundleFailed.Derive(errors.New("invalid parameter"), "transaction needs to be head of bundle")
 		}
 
-		// initialize result variables
-		processedBundle := bundle.New(headTransactionHash)
+		// initialize event variables
+		newBundle := bundle.New(headTransactionHash)
 		bundleTransactions := make([]*value_transaction.ValueTransaction, 0)
 
 		// iterate through trunk transactions until we reach the tail
@@ -40,9 +40,9 @@ func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction)
 		for {
 			// abort if we reached a previous head
 			if currentTransaction.IsHead() && currentTransaction != headTransaction {
-				processedBundle.SetTransactionHashes(mapTransactionsToTransactionHashes(bundleTransactions))
+				newBundle.SetTransactionHashes(mapTransactionsToTransactionHashes(bundleTransactions))
 
-				Events.InvalidBundleReceived.Trigger(processedBundle, bundleTransactions)
+				Events.InvalidBundleReceived.Trigger(newBundle, bundleTransactions)
 
 				return nil, ErrProcessBundleFailed.Derive(errors.New("invalid bundle found"), "missing bundle tail")
 			}
@@ -58,21 +58,21 @@ func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction)
 			currentTransactionMetadata.SetBundleHeadHash(headTransactionHash)
 
 			// update value bundle flag
-			if !processedBundle.IsValueBundle() && currentTransaction.GetValue() != 0 {
-				processedBundle.SetValueBundle(true)
+			if !newBundle.IsValueBundle() && currentTransaction.GetValue() != 0 {
+				newBundle.SetValueBundle(true)
 			}
 
 			// if we are done -> trigger events
 			if currentTransaction.IsTail() {
-				processedBundle.SetTransactionHashes(mapTransactionsToTransactionHashes(bundleTransactions))
+				newBundle.SetTransactionHashes(mapTransactionsToTransactionHashes(bundleTransactions))
 
-				if processedBundle.IsValueBundle() {
-					Events.ValueBundleReceived.Trigger(processedBundle, bundleTransactions)
+				if newBundle.IsValueBundle() {
+					Events.ValueBundleReceived.Trigger(newBundle, bundleTransactions)
 				} else {
-					Events.DataBundleReceived.Trigger(processedBundle, bundleTransactions)
+					Events.DataBundleReceived.Trigger(newBundle, bundleTransactions)
 				}
 
-				return processedBundle, nil
+				return newBundle, nil
 			}
 
 			// try to iterate to next turn
@@ -85,12 +85,11 @@ func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction)
 	})
 }
 
-func mapTransactionsToTransactionHashes(transactions []*value_transaction.ValueTransaction) []ternary.Trytes {
-	result := make([]ternary.Trytes, len(transactions))
-
-	for i, v := range transactions {
-		result[i] = v.GetHash()
+func mapTransactionsToTransactionHashes(transactions []*value_transaction.ValueTransaction) (result []ternary.Trytes) {
+	result = make([]ternary.Trytes, len(transactions))
+	for k, v := range transactions {
+		result[k] = v.GetHash()
 	}
 
-	return result
+	return
 }

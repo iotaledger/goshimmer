@@ -18,7 +18,7 @@ func TestApprovers_SettersGetters(t *testing.T) {
 	assert.Equal(t, approversTest.GetHashes()[0], hashB, "hashes")
 }
 
-func TestApprovers_MarshalUnmarshalGetters(t *testing.T) {
+func TestApprovers_MarshalUnmarshal(t *testing.T) {
 	hashA := ternary.Trytes("A9999999999999999999999999999999999999999999999999999999999999999999999999999999F")
 	hashB := ternary.Trytes("B9999999999999999999999999999999999999999999999999999999999999999999999999999999F")
 	approversTest := New(hashA)
