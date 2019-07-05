@@ -11,14 +11,12 @@ type Node struct {
 	wg            *sync.WaitGroup
 	loggers       []*Logger
 	loadedPlugins []*Plugin
-	logLevel      int
 }
 
 var DisabledPlugins = make(map[string]bool)
 
 func Load(plugins ...*Plugin) *Node {
 	node := &Node{
-		logLevel:      *LOG_LEVEL.Value,
 		loggers:       make([]*Logger, 0),
 		wg:            &sync.WaitGroup{},
 		loadedPlugins: make([]*Plugin, 0),
@@ -42,7 +40,7 @@ func (node *Node) AddLogger(logger *Logger) {
 }
 
 func (node *Node) LogSuccess(pluginName string, message string) {
-	if node.logLevel >= LOG_LEVEL_SUCCESS {
+	if *LOG_LEVEL.Value >= LOG_LEVEL_SUCCESS {
 		for _, logger := range node.loggers {
 			if logger.Enabled {
 				logger.LogSuccess(pluginName, message)
@@ -52,7 +50,7 @@ func (node *Node) LogSuccess(pluginName string, message string) {
 }
 
 func (node *Node) LogInfo(pluginName string, message string) {
-	if node.logLevel >= LOG_LEVEL_INFO {
+	if *LOG_LEVEL.Value >= LOG_LEVEL_INFO {
 		for _, logger := range node.loggers {
 			if logger.Enabled {
 				logger.LogInfo(pluginName, message)
@@ -62,7 +60,7 @@ func (node *Node) LogInfo(pluginName string, message string) {
 }
 
 func (node *Node) LogDebug(pluginName string, message string) {
-	if node.logLevel >= LOG_LEVEL_DEBUG {
+	if *LOG_LEVEL.Value >= LOG_LEVEL_DEBUG {
 		for _, logger := range node.loggers {
 			if logger.Enabled {
 				logger.LogDebug(pluginName, message)
@@ -72,7 +70,7 @@ func (node *Node) LogDebug(pluginName string, message string) {
 }
 
 func (node *Node) LogWarning(pluginName string, message string) {
-	if node.logLevel >= LOG_LEVEL_WARNING {
+	if *LOG_LEVEL.Value >= LOG_LEVEL_WARNING {
 		for _, logger := range node.loggers {
 			if logger.Enabled {
 				logger.LogWarning(pluginName, message)
@@ -82,7 +80,7 @@ func (node *Node) LogWarning(pluginName string, message string) {
 }
 
 func (node *Node) LogFailure(pluginName string, message string) {
-	if node.logLevel >= LOG_LEVEL_FAILURE {
+	if *LOG_LEVEL.Value >= LOG_LEVEL_FAILURE {
 		for _, logger := range node.loggers {
 			if logger.Enabled {
 				logger.LogFailure(pluginName, message)
@@ -106,8 +104,6 @@ func (node *Node) Load(plugins ...*Plugin) {
 			}
 		}
 	}
-
-	//node.loadedPlugins = append(node.loadedPlugins, plugins...)
 }
 
 func (node *Node) Run() {
