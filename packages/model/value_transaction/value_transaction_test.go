@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/iota.go/trinary"
 	"github.com/magiconair/properties/assert"
 )
 
 func TestValueTransaction_SettersGetters(t *testing.T) {
-	address := ternary.Trytes("A9999999999999999999999999999999999999999999999999999999999999999999999999999999F")
+	address := trinary.Trytes("A9999999999999999999999999999999999999999999999999999999999999999999999999999999F")
 
 	transaction := New()
 	transaction.SetAddress(address)

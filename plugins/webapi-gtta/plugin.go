@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/ternary"
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/iota.go/trinary"
 	"github.com/labstack/echo"
 )
 
@@ -30,6 +30,6 @@ func Handler(c echo.Context) error {
 
 type webResponse struct {
 	Duration          int64          `json:"duration"`
-	BranchTransaction ternary.Trytes `json:"branchTransaction"`
-	TrunkTransaction  ternary.Trytes `json:"trunkTransaction"`
+	BranchTransaction trinary.Trytes `json:"branchTransaction"`
+	TrunkTransaction  trinary.Trytes `json:"trunkTransaction"`
 }

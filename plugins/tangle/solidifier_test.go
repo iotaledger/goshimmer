@@ -6,8 +6,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/ternary"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 func TestSolidifier(t *testing.T) {
@@ -19,7 +19,7 @@ func TestSolidifier(t *testing.T) {
 
 	// create transactions and chain them together
 	transaction1 := value_transaction.New()
-	transaction1.SetNonce(ternary.Trytes("99999999999999999999999999A"))
+	transaction1.SetNonce(trinary.Trytes("99999999999999999999999999A"))
 	transaction2 := value_transaction.New()
 	transaction2.SetBranchTransactionHash(transaction1.GetHash())
 	transaction3 := value_transaction.New()

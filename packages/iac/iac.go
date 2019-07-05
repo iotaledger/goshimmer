@@ -3,10 +3,10 @@ package iac
 import (
 	olc "github.com/google/open-location-code/go"
 	"github.com/iotaledger/goshimmer/packages/errors"
-	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
-func Decode(trytes ternary.Trytes) (result *Area, err errors.IdentifiableError) {
+func Decode(trytes trinary.Trytes) (result *Area, err errors.IdentifiableError) {
 	if olcCode, conversionErr := OLCCodeFromTrytes(trytes); conversionErr != nil {
 		err = conversionErr
 	} else {

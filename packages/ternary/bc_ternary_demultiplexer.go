@@ -1,5 +1,9 @@
 package ternary
 
+import (
+	. "github.com/iotaledger/iota.go/trinary"
+)
+
 type BCTernaryDemultiplexer struct {
 	bcTrits BCTrits
 }

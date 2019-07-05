@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 type HashRequest struct {
-	input  ternary.Trits
-	output chan ternary.Trits
+	input  trinary.Trits
+	output chan trinary.Trits
 }
 
 type BatchHasher struct {
@@ -94,7 +95,7 @@ func (this *BatchHasher) processHashes(collectedHashRequests []HashRequest) {
 			close(hashRequest.output)
 		}
 	} else {
-		var resp = make(ternary.Trits, this.hashLength)
+		var resp = make(trinary.Trits, this.hashLength)
 
 		curl := NewCurl(this.hashLength, this.rounds)
 		curl.Absorb(collectedHashRequests[0].input, 0, len(collectedHashRequests[0].input))
@@ -105,10 +106,10 @@ func (this *BatchHasher) processHashes(collectedHashRequests []HashRequest) {
 	}
 }
 
-func (this *BatchHasher) Hash(trits ternary.Trits) chan ternary.Trits {
+func (this *BatchHasher) Hash(trits trinary.Trits) chan trinary.Trits {
 	hashRequest := HashRequest{
 		input:  trits,
-		output: make(chan ternary.Trits, 1),
+		output: make(chan trinary.Trits, 1),
 	}
 
 	this.hashRequests <- hashRequest
