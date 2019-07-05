@@ -264,7 +264,7 @@ func (this *MetaTransaction) SetBranchTransactionHash(branchTransactionHash tern
 }
 
 // getter for the head flag (supports concurrency)
-func (this *MetaTransaction) GetHead() (result bool) {
+func (this *MetaTransaction) IsHead() (result bool) {
 	this.headMutex.RLock()
 	if this.head == nil {
 		this.headMutex.RUnlock()
@@ -315,7 +315,7 @@ func (this *MetaTransaction) SetHead(head bool) bool {
 }
 
 // getter for the tail flag (supports concurrency)
-func (this *MetaTransaction) GetTail() (result bool) {
+func (this *MetaTransaction) IsTail() (result bool) {
 	this.tailMutex.RLock()
 	if this.tail == nil {
 		this.tailMutex.RUnlock()

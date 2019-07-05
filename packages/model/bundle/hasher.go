@@ -1,4 +1,4 @@
-package valuebundle
+package bundle
 
 import (
 	"github.com/iotaledger/goshimmer/packages/curl"

@@ -29,8 +29,8 @@ func TestMetaTransaction_SettersGetters(t *testing.T) {
 	assert.Equal(t, transaction.GetShardMarker(), shardMarker)
 	assert.Equal(t, transaction.GetTrunkTransactionHash(), trunkTransactionHash)
 	assert.Equal(t, transaction.GetBranchTransactionHash(), branchTransactionHash)
-	assert.Equal(t, transaction.GetHead(), head)
-	assert.Equal(t, transaction.GetTail(), tail)
+	assert.Equal(t, transaction.IsHead(), head)
+	assert.Equal(t, transaction.IsTail(), tail)
 	assert.Equal(t, transaction.GetTransactionType(), transactionType)
 	assert.Equal(t, transaction.GetHash(), FromBytes(transaction.GetBytes()).GetHash())
 
