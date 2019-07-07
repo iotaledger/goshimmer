@@ -17,7 +17,6 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-	// this plugin has no background workers
 	runSolidifier(plugin)
 }
 
