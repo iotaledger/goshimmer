@@ -115,7 +115,7 @@ func (this *MetaTransaction) GetWeightMagnitude() (result int) {
 
 // hashes the transaction using curl (without locking - internal usage)
 func (this *MetaTransaction) parseHashRelatedDetails() {
-	hashTrits := <-curl.CURLP81.Hash(this.trits)
+	hashTrits := curl.CURLP81.Hash(this.trits)
 	hashTrytes := hashTrits.ToTrytes()
 
 	this.hash = &hashTrytes
