@@ -1,95 +1,49 @@
 package bundleprocessor
 
 import (
-	"github.com/iotaledger/goshimmer/packages/errors"
+	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/events"
-	"github.com/iotaledger/goshimmer/packages/model/bundle"
-	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/packages/workerpool"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
-var PLUGIN = node.NewPlugin("Bundle Processor", configure)
+var PLUGIN = node.NewPlugin("Bundle Processor", configure, run)
 
 func configure(plugin *node.Plugin) {
+	workerPool = workerpool.New(func(task workerpool.Task) {
+		if _, err := ProcessSolidBundleHead(task.Param(0).(*value_transaction.ValueTransaction)); err != nil {
+			plugin.LogFailure(err.Error())
+		}
+	}, workerpool.WorkerCount(WORKER_COUNT), workerpool.QueueSize(2*WORKER_COUNT))
+
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
 		if tx.IsHead() {
-			if _, err := ProcessSolidBundleHead(tx); err != nil {
-				plugin.LogFailure(err.Error())
-			}
+			workerPool.Submit(tx)
 		}
+	}))
+
+	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
+		plugin.LogInfo("Stopping Bundle Processor ...")
+
+		workerPool.Stop()
 	}))
 }
 
-func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction) (*bundle.Bundle, errors.IdentifiableError) {
-	// only process the bundle if we didn't process it, yet
-	return tangle.GetBundle(headTransaction.GetHash(), func(headTransactionHash trinary.Trytes) (*bundle.Bundle, errors.IdentifiableError) {
-		// abort if bundle syntax is wrong
-		if !headTransaction.IsHead() {
-			return nil, ErrProcessBundleFailed.Derive(errors.New("invalid parameter"), "transaction needs to be head of bundle")
-		}
+func run(plugin *node.Plugin) {
+	plugin.LogInfo("Starting Bundle Processor ...")
 
-		// initialize event variables
-		newBundle := bundle.New(headTransactionHash)
-		bundleTransactions := make([]*value_transaction.ValueTransaction, 0)
+	daemon.BackgroundWorker("Bundle Processor", func() {
+		plugin.LogSuccess("Starting Bundle Processor ... done")
 
-		// iterate through trunk transactions until we reach the tail
-		currentTransaction := headTransaction
-		for {
-			// abort if we reached a previous head
-			if currentTransaction.IsHead() && currentTransaction != headTransaction {
-				newBundle.SetTransactionHashes(mapTransactionsToTransactionHashes(bundleTransactions))
+		workerPool.Run()
 
-				Events.InvalidBundleReceived.Trigger(newBundle, bundleTransactions)
-
-				return nil, ErrProcessBundleFailed.Derive(errors.New("invalid bundle found"), "missing bundle tail")
-			}
-
-			// update bundle transactions
-			bundleTransactions = append(bundleTransactions, currentTransaction)
-
-			// retrieve & update metadata
-			currentTransactionMetadata, dbErr := tangle.GetTransactionMetadata(currentTransaction.GetHash(), transactionmetadata.New)
-			if dbErr != nil {
-				return nil, ErrProcessBundleFailed.Derive(dbErr, "failed to retrieve transaction metadata")
-			}
-			currentTransactionMetadata.SetBundleHeadHash(headTransactionHash)
-
-			// update value bundle flag
-			if !newBundle.IsValueBundle() && currentTransaction.GetValue() != 0 {
-				newBundle.SetValueBundle(true)
-			}
-
-			// if we are done -> trigger events
-			if currentTransaction.IsTail() {
-				newBundle.SetTransactionHashes(mapTransactionsToTransactionHashes(bundleTransactions))
-
-				if newBundle.IsValueBundle() {
-					Events.ValueBundleReceived.Trigger(newBundle, bundleTransactions)
-				} else {
-					Events.DataBundleReceived.Trigger(newBundle, bundleTransactions)
-				}
-
-				return newBundle, nil
-			}
-
-			// try to iterate to next turn
-			if nextTransaction, err := tangle.GetTransaction(currentTransaction.GetTrunkTransactionHash()); err != nil {
-				return nil, ErrProcessBundleFailed.Derive(err, "failed to retrieve trunk while processing bundle")
-			} else {
-				currentTransaction = nextTransaction
-			}
-		}
+		plugin.LogSuccess("Stopping Bundle Processor ... done")
 	})
 }
 
-func mapTransactionsToTransactionHashes(transactions []*value_transaction.ValueTransaction) (result []trinary.Trytes) {
-	result = make([]trinary.Trytes, len(transactions))
-	for k, v := range transactions {
-		result[k] = v.GetHash()
-	}
+var workerPool *workerpool.WorkerPool
 
-	return
-}
+const WORKER_COUNT = 10000

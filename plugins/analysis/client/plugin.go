@@ -21,7 +21,7 @@ import (
 )
 
 func Run(plugin *node.Plugin) {
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("Analysis Client", func() {
 		shuttingDown := false
 
 		for !shuttingDown {

@@ -5,29 +5,53 @@ import (
 )
 
 var (
-	running           bool
-	wg                sync.WaitGroup
-	ShutdownSignal    = make(chan int, 1)
-	backgroundWorkers = make([]func(), 0)
-	lock              = sync.Mutex{}
+	running                  bool
+	wg                       sync.WaitGroup
+	ShutdownSignal           = make(chan int, 1)
+	backgroundWorkers        = make([]func(), 0)
+	backgroundWorkerNames    = make([]string, 0)
+	runningBackgroundWorkers = make(map[string]bool)
+	lock                     = sync.Mutex{}
 )
 
-func runBackgroundWorker(backgroundWorker func()) {
+func GetRunningBackgroundWorkers() []string {
+	lock.Lock()
+
+	result := make([]string, 0)
+	for runningBackgroundWorker := range runningBackgroundWorkers {
+		result = append(result, runningBackgroundWorker)
+	}
+
+	lock.Unlock()
+
+	return result
+}
+
+func runBackgroundWorker(name string, backgroundWorker func()) {
 	wg.Add(1)
 
 	go func() {
+		lock.Lock()
+		runningBackgroundWorkers[name] = true
+		lock.Unlock()
+
 		backgroundWorker()
+
+		lock.Lock()
+		delete(runningBackgroundWorkers, name)
+		lock.Unlock()
 
 		wg.Done()
 	}()
 }
 
-func BackgroundWorker(handler func()) {
+func BackgroundWorker(name string, handler func()) {
 	lock.Lock()
 
 	if IsRunning() {
-		runBackgroundWorker(handler)
+		runBackgroundWorker(name, handler)
 	} else {
+		backgroundWorkerNames = append(backgroundWorkerNames, name)
 		backgroundWorkers = append(backgroundWorkers, handler)
 	}
 
@@ -45,8 +69,8 @@ func Run() {
 
 			Events.Run.Trigger()
 
-			for _, backgroundWorker := range backgroundWorkers {
-				runBackgroundWorker(backgroundWorker)
+			for i, backgroundWorker := range backgroundWorkers {
+				runBackgroundWorker(backgroundWorkerNames[i], backgroundWorker)
 			}
 		}
 

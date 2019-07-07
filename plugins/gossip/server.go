@@ -73,7 +73,7 @@ func configureServer(plugin *node.Plugin) {
 func runServer(plugin *node.Plugin) {
 	plugin.LogInfo("Starting TCP Server (port " + strconv.Itoa(*PORT.Value) + ") ...")
 
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("Gossip TCP Server", func() {
 		plugin.LogSuccess("Starting TCP Server (port " + strconv.Itoa(*PORT.Value) + ") ... done")
 
 		TCPServer.Listen(*PORT.Value)

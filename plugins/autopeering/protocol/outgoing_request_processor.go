@@ -41,7 +41,11 @@ func createOutgoingRequestProcessor(plugin *node.Plugin) func() {
 
 func sendOutgoingRequests(plugin *node.Plugin) {
 	for _, chosenNeighborCandidate := range chosenneighbors.CANDIDATES.Clone() {
-		time.Sleep(5 * time.Second)
+		select {
+		case <-daemon.ShutdownSignal:
+			return
+		case <-time.After(5 * time.Second):
+		}
 
 		if candidateShouldBeContacted(chosenNeighborCandidate) {
 			if dialed, err := chosenNeighborCandidate.Send(outgoingrequest.INSTANCE.Marshal(), types.PROTOCOL_TYPE_TCP, true); err != nil {

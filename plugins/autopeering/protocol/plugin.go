@@ -20,8 +20,8 @@ func Configure(plugin *node.Plugin) {
 }
 
 func Run(plugin *node.Plugin) {
-	daemon.BackgroundWorker(createChosenNeighborDropper(plugin))
-	daemon.BackgroundWorker(createAcceptedNeighborDropper(plugin))
-	daemon.BackgroundWorker(createOutgoingRequestProcessor(plugin))
-	daemon.BackgroundWorker(createOutgoingPingProcessor(plugin))
+	daemon.BackgroundWorker("Autopeering Chosen Neighbor Dropper", createChosenNeighborDropper(plugin))
+	daemon.BackgroundWorker("Autopeering Accepted Neighbor Dropper", createAcceptedNeighborDropper(plugin))
+	daemon.BackgroundWorker("Autopeering Outgoing Request Processor", createOutgoingRequestProcessor(plugin))
+	daemon.BackgroundWorker("Autopeering Outgoing Ping Processor", createOutgoingPingProcessor(plugin))
 }
