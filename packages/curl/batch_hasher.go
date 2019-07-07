@@ -27,8 +27,8 @@ func NewBatchHasher(hashLength int, rounds int) (result *BatchHasher) {
 	return
 }
 
-func (this *BatchHasher) Hash(trits ternary.Trits) ternary.Trits {
-	return (<-this.workerPool.Submit(trits)).(ternary.Trits)
+func (this *BatchHasher) Hash(trits trinary.Trits) trinary.Trits {
+	return (<-this.workerPool.Submit(trits)).(trinary.Trits)
 }
 
 func (this *BatchHasher) processHashes(tasks []batchworkerpool.Task) {
@@ -36,7 +36,7 @@ func (this *BatchHasher) processHashes(tasks []batchworkerpool.Task) {
 		// multiplex the requests
 		multiplexer := ternary.NewBCTernaryMultiplexer()
 		for _, hashRequest := range tasks {
-			multiplexer.Add(hashRequest.Param(0).(ternary.Trits))
+			multiplexer.Add(hashRequest.Param(0).(trinary.Trits))
 		}
 		bcTrits, err := multiplexer.Extract()
 		if err != nil {
@@ -56,7 +56,7 @@ func (this *BatchHasher) processHashes(tasks []batchworkerpool.Task) {
 	} else {
 		var resp = make(trinary.Trits, this.hashLength)
 
-		trits := tasks[0].Param(0).(ternary.Trits)
+		trits := tasks[0].Param(0).(trinary.Trits)
 
 		curl := NewCurl(this.hashLength, this.rounds)
 		curl.Absorb(trits, 0, len(trits))

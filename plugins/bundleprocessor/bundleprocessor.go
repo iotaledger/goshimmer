@@ -5,13 +5,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/ternary"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction) (*bundle.Bundle, errors.IdentifiableError) {
 	// only process the bundle if we didn't process it, yet
-	return tangle.GetBundle(headTransaction.GetHash(), func(headTransactionHash ternary.Trytes) (*bundle.Bundle, errors.IdentifiableError) {
+	return tangle.GetBundle(headTransaction.GetHash(), func(headTransactionHash trinary.Trytes) (*bundle.Bundle, errors.IdentifiableError) {
 		// abort if bundle syntax is wrong
 		if !headTransaction.IsHead() {
 			return nil, ErrProcessBundleFailed.Derive(errors.New("invalid parameter"), "transaction needs to be head of bundle")
@@ -67,8 +67,8 @@ func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction)
 	})
 }
 
-func mapTransactionsToTransactionHashes(transactions []*value_transaction.ValueTransaction) (result []ternary.Trytes) {
-	result = make([]ternary.Trytes, len(transactions))
+func mapTransactionsToTransactionHashes(transactions []*value_transaction.ValueTransaction) (result []trinary.Trytes) {
+	result = make([]trinary.Trytes, len(transactions))
 	for k, v := range transactions {
 		result[k] = v.GetHash()
 	}

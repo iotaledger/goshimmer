@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/workerpool"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
-	"github.com/iotaledger/iota.go/trinary"
 )
 
 var PLUGIN = node.NewPlugin("Bundle Processor", configure, run)
