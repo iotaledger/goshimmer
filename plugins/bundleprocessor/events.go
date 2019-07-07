@@ -7,15 +7,13 @@ import (
 )
 
 var Events = pluginEvents{
-	DataBundleReceived:    events.NewEvent(bundleEventCaller),
-	ValueBundleReceived:   events.NewEvent(bundleEventCaller),
-	InvalidBundleReceived: events.NewEvent(bundleEventCaller),
+	BundleSolid:   events.NewEvent(bundleEventCaller),
+	InvalidBundle: events.NewEvent(bundleEventCaller),
 }
 
 type pluginEvents struct {
-	DataBundleReceived    *events.Event
-	ValueBundleReceived   *events.Event
-	InvalidBundleReceived *events.Event
+	BundleSolid   *events.Event
+	InvalidBundle *events.Event
 }
 
 func bundleEventCaller(handler interface{}, params ...interface{}) {

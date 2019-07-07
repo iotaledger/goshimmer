@@ -26,7 +26,7 @@ func configureSendQueue(plugin *node.Plugin) {
 func runSendQueue(plugin *node.Plugin) {
 	plugin.LogInfo("Starting Send Queue Dispatcher ...")
 
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("Gossip Send Queue Dispatcher", func() {
 		plugin.LogSuccess("Starting Send Queue Dispatcher ... done")
 
 		for {
@@ -54,7 +54,7 @@ func runSendQueue(plugin *node.Plugin) {
 
 	connectedNeighborsMutex.Lock()
 	for _, neighborQueue := range neighborQueues {
-		startNeighborSendQueue(neighborQueue)
+		startNeighborSendQueue(neighborQueue.protocol.Neighbor, neighborQueue)
 	}
 	connectedNeighborsMutex.Unlock()
 }
@@ -104,13 +104,13 @@ func setupEventHandlers(neighbor *Neighbor) {
 		}))
 
 		if daemon.IsRunning() {
-			startNeighborSendQueue(queue)
+			startNeighborSendQueue(neighbor, queue)
 		}
 	}))
 }
 
-func startNeighborSendQueue(neighborQueue *neighborQueue) {
-	daemon.BackgroundWorker(func() {
+func startNeighborSendQueue(neighbor *Neighbor, neighborQueue *neighborQueue) {
+	daemon.BackgroundWorker("Gossip Send Queue ("+neighbor.Identity.StringIdentifier+")", func() {
 		for {
 			select {
 			case <-daemon.ShutdownSignal:

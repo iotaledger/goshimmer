@@ -28,7 +28,7 @@ func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction)
 			if currentTransaction.IsHead() && currentTransaction != headTransaction {
 				newBundle.SetTransactionHashes(mapTransactionsToTransactionHashes(bundleTransactions))
 
-				Events.InvalidBundleReceived.Trigger(newBundle, bundleTransactions)
+				Events.InvalidBundle.Trigger(newBundle, bundleTransactions)
 
 				return nil, ErrProcessBundleFailed.Derive(errors.New("invalid bundle found"), "missing bundle tail")
 			}
@@ -52,11 +52,7 @@ func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction)
 			if currentTransaction.IsTail() {
 				newBundle.SetTransactionHashes(mapTransactionsToTransactionHashes(bundleTransactions))
 
-				if newBundle.IsValueBundle() {
-					Events.ValueBundleReceived.Trigger(newBundle, bundleTransactions)
-				} else {
-					Events.DataBundleReceived.Trigger(newBundle, bundleTransactions)
-				}
+				Events.BundleSolid.Trigger(newBundle, bundleTransactions)
 
 				return newBundle, nil
 			}

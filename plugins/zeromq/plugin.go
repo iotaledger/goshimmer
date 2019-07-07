@@ -45,7 +45,7 @@ func run(plugin *node.Plugin) {
 
 	plugin.LogInfo("Starting ZeroMQ Publisher (port " + strconv.Itoa(*PORT.Value) + ") ...")
 
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("ZeroMQ Publisher", func() {
 		if err := startPublisher(plugin); err != nil {
 			plugin.LogFailure("Stopping ZeroMQ Publisher: " + err.Error())
 		} else {

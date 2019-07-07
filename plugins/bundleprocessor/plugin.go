@@ -34,7 +34,7 @@ func configure(plugin *node.Plugin) {
 func run(plugin *node.Plugin) {
 	plugin.LogInfo("Starting Bundle Processor ...")
 
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("Bundle Processor", func() {
 		plugin.LogSuccess("Starting Bundle Processor ... done")
 
 		workerPool.Run()
