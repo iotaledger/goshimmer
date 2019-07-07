@@ -1,51 +1,116 @@
 package workerpool
 
 import (
-	"fmt"
+	"sync"
 )
 
 type WorkerPool struct {
-	maxWorkers   int
-	MaxQueueSize int
-	callsChan    chan Call
+	workerFnc func(Task)
+	options   *Options
+
+	calls     chan Task
+	terminate chan int
+
+	running bool
+	mutex   sync.RWMutex
+	wait    sync.WaitGroup
 }
 
-func New(maxWorkers int) *WorkerPool {
-	return &WorkerPool{
-		maxWorkers: maxWorkers,
+func New(workerFnc func(Task), optionalOptions ...Option) (result *WorkerPool) {
+	options := DEFAULT_OPTIONS.Override(optionalOptions...)
+
+	result = &WorkerPool{
+		workerFnc: workerFnc,
+		options:   options,
 	}
-}
 
-type Call struct {
-	params     []interface{}
-	resultChan chan interface{}
+	result.resetChannels()
+
+	return
 }
 
 func (wp *WorkerPool) Submit(params ...interface{}) (result chan interface{}) {
 	result = make(chan interface{}, 1)
 
-	wp.callsChan <- Call{
-		params:     params,
-		resultChan: result,
+	wp.mutex.RLock()
+
+	if wp.running {
+		wp.calls <- Task{
+			params:     params,
+			resultChan: result,
+		}
+	} else {
+		close(result)
 	}
+
+	wp.mutex.RUnlock()
 
 	return
 }
 
-func (wp *WorkerPool) startWorkers() {
-	for i := 0; i < wp.maxWorkers; i++ {
-		go func() {
-			for {
-				batchTasks := <-wp.callsChan
+func (wp *WorkerPool) Start() {
+	wp.mutex.Lock()
 
-				fmt.Println(batchTasks)
-			}
-		}()
+	if !wp.running {
+		wp.running = true
+
+		wp.startWorkers()
 	}
+
+	wp.mutex.Unlock()
 }
 
-func (wp *WorkerPool) Start() {
-	wp.callsChan = make(chan Call, 2*wp.maxWorkers)
+func (wp *WorkerPool) Run() {
+	wp.Start()
 
-	wp.startWorkers()
+	wp.wait.Wait()
+}
+
+func (wp *WorkerPool) Stop() {
+	go wp.StopAndWait()
+}
+
+func (wp *WorkerPool) StopAndWait() {
+	wp.mutex.Lock()
+
+	if wp.running {
+		wp.running = false
+
+		close(wp.terminate)
+		wp.resetChannels()
+	}
+
+	wp.wait.Wait()
+
+	wp.mutex.Unlock()
+}
+
+func (wp *WorkerPool) resetChannels() {
+	wp.calls = make(chan Task, wp.options.QueueSize)
+	wp.terminate = make(chan int, 1)
+}
+
+func (wp *WorkerPool) startWorkers() {
+	calls := wp.calls
+	terminate := wp.terminate
+
+	for i := 0; i < wp.options.WorkerCount; i++ {
+		wp.wait.Add(1)
+
+		go func() {
+			aborted := false
+
+			for !aborted {
+				select {
+				case <-terminate:
+					aborted = true
+
+				case batchTask := <-calls:
+					wp.workerFnc(batchTask)
+				}
+			}
+
+			wp.wait.Done()
+		}()
+	}
 }
