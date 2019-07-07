@@ -6,40 +6,41 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/errors"
-	"github.com/iotaledger/goshimmer/packages/ternary"
 	"github.com/iotaledger/goshimmer/packages/typeutils"
+	"github.com/iotaledger/goshimmer/packages/unsafeconvert"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 type Approvers struct {
-	hash        ternary.Trytes
-	hashes      map[ternary.Trytes]bool
+	hash        trinary.Trytes
+	hashes      map[trinary.Trytes]bool
 	hashesMutex sync.RWMutex
 	modified    bool
 }
 
-func New(hash ternary.Trytes) *Approvers {
+func New(hash trinary.Trytes) *Approvers {
 	return &Approvers{
 		hash:     hash,
-		hashes:   make(map[ternary.Trytes]bool),
+		hashes:   make(map[trinary.Trytes]bool),
 		modified: false,
 	}
 }
 
 // region public methods with locking //////////////////////////////////////////////////////////////////////////////////
 
-func (approvers *Approvers) Add(transactionHash ternary.Trytes) {
+func (approvers *Approvers) Add(transactionHash trinary.Trytes) {
 	approvers.hashesMutex.Lock()
 	approvers.add(transactionHash)
 	approvers.hashesMutex.Unlock()
 }
 
-func (approvers *Approvers) Remove(approverHash ternary.Trytes) {
+func (approvers *Approvers) Remove(approverHash trinary.Trytes) {
 	approvers.hashesMutex.Lock()
 	approvers.remove(approverHash)
 	approvers.hashesMutex.Unlock()
 }
 
-func (approvers *Approvers) GetHashes() (result []ternary.Trytes) {
+func (approvers *Approvers) GetHashes() (result []trinary.Trytes) {
 	approvers.hashesMutex.RLock()
 	result = approvers.getHashes()
 	approvers.hashesMutex.RUnlock()
@@ -47,7 +48,7 @@ func (approvers *Approvers) GetHashes() (result []ternary.Trytes) {
 	return
 }
 
-func (approvers *Approvers) GetHash() (result ternary.Trytes) {
+func (approvers *Approvers) GetHash() (result trinary.Trytes) {
 	approvers.hashesMutex.RLock()
 	result = approvers.hash
 	approvers.hashesMutex.RUnlock()
@@ -69,14 +70,14 @@ func (approvers *Approvers) Marshal() (result []byte) {
 
 	binary.BigEndian.PutUint64(result[MARSHALED_APPROVERS_HASHES_COUNT_START:MARSHALED_APPROVERS_HASHES_COUNT_END], uint64(len(approvers.hashes)))
 
-	copy(result[MARSHALED_APPROVERS_HASH_START:MARSHALED_APPROVERS_HASH_END], approvers.hash.CastToBytes())
+	copy(result[MARSHALED_APPROVERS_HASH_START:MARSHALED_APPROVERS_HASH_END], unsafeconvert.StringToBytes(approvers.hash))
 
 	i := 0
 	for hash := range approvers.hashes {
 		var HASH_START = MARSHALED_APPROVERS_HASHES_START + i*(MARSHALED_APPROVERS_HASH_SIZE)
 		var HASH_END = HASH_START + MARSHALED_APPROVERS_HASH_SIZE
 
-		copy(result[HASH_START:HASH_END], hash.CastToBytes())
+		copy(result[HASH_START:HASH_END], unsafeconvert.StringToBytes(hash))
 
 		i++
 	}
@@ -101,13 +102,13 @@ func (approvers *Approvers) Unmarshal(data []byte) (err errors.IdentifiableError
 
 	approvers.hashesMutex.Lock()
 
-	approvers.hash = ternary.Trytes(typeutils.BytesToString(data[MARSHALED_APPROVERS_HASH_START:MARSHALED_APPROVERS_HASH_END]))
-	approvers.hashes = make(map[ternary.Trytes]bool, hashesCount)
+	approvers.hash = trinary.Trytes(typeutils.BytesToString(data[MARSHALED_APPROVERS_HASH_START:MARSHALED_APPROVERS_HASH_END]))
+	approvers.hashes = make(map[trinary.Trytes]bool, hashesCount)
 	for i := uint64(0); i < hashesCount; i++ {
 		var HASH_START = MARSHALED_APPROVERS_HASHES_START + i*(MARSHALED_APPROVERS_HASH_SIZE)
 		var HASH_END = HASH_START + MARSHALED_APPROVERS_HASH_SIZE
 
-		approvers.hashes[ternary.Trytes(typeutils.BytesToString(data[HASH_START:HASH_END]))] = true
+		approvers.hashes[trinary.Trytes(typeutils.BytesToString(data[HASH_START:HASH_END]))] = true
 	}
 
 	approvers.hashesMutex.Unlock()
@@ -119,22 +120,22 @@ func (approvers *Approvers) Unmarshal(data []byte) (err errors.IdentifiableError
 
 // region private methods without locking //////////////////////////////////////////////////////////////////////////////
 
-func (approvers *Approvers) add(transactionHash ternary.Trytes) {
+func (approvers *Approvers) add(transactionHash trinary.Trytes) {
 	if _, exists := approvers.hashes[transactionHash]; !exists {
 		approvers.hashes[transactionHash] = true
 		approvers.modified = true
 	}
 }
 
-func (approvers *Approvers) remove(approverHash ternary.Trytes) {
+func (approvers *Approvers) remove(approverHash trinary.Trytes) {
 	if _, exists := approvers.hashes[approverHash]; exists {
 		delete(approvers.hashes, approverHash)
 		approvers.modified = true
 	}
 }
 
-func (approvers *Approvers) getHashes() (result []ternary.Trytes) {
-	result = make([]ternary.Trytes, len(approvers.hashes))
+func (approvers *Approvers) getHashes() (result []trinary.Trytes) {
+	result = make([]trinary.Trytes, len(approvers.hashes))
 
 	counter := 0
 	for hash := range approvers.hashes {

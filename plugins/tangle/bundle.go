@@ -7,13 +7,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/goshimmer/packages/unsafeconvert"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 // region global public api ////////////////////////////////////////////////////////////////////////////////////////////
 
 // GetBundle retrieves bundle from the database.
-func GetBundle(headerTransactionHash ternary.Trytes, computeIfAbsent ...func(ternary.Trytes) (*bundle.Bundle, errors.IdentifiableError)) (result *bundle.Bundle, err errors.IdentifiableError) {
+func GetBundle(headerTransactionHash trinary.Trytes, computeIfAbsent ...func(trinary.Trytes) (*bundle.Bundle, errors.IdentifiableError)) (result *bundle.Bundle, err errors.IdentifiableError) {
 	if cacheResult := bundleCache.ComputeIfAbsent(headerTransactionHash, func() interface{} {
 		if dbBundle, dbErr := getBundleFromDatabase(headerTransactionHash); dbErr != nil {
 			err = dbErr
@@ -39,7 +40,7 @@ func GetBundle(headerTransactionHash ternary.Trytes, computeIfAbsent ...func(ter
 	return
 }
 
-func ContainsBundle(headerTransactionHash ternary.Trytes) (result bool, err errors.IdentifiableError) {
+func ContainsBundle(headerTransactionHash trinary.Trytes) (result bool, err errors.IdentifiableError) {
 	if bundleCache.Contains(headerTransactionHash) {
 		result = true
 	} else {
@@ -89,7 +90,7 @@ func configureBundleDatabase(plugin *node.Plugin) {
 
 func storeBundleInDatabase(bundle *bundle.Bundle) errors.IdentifiableError {
 	if bundle.GetModified() {
-		if err := bundleDatabase.Set(bundle.GetHash().CastToBytes(), bundle.Marshal()); err != nil {
+		if err := bundleDatabase.Set(unsafeconvert.StringToBytes(bundle.GetHash()), bundle.Marshal()); err != nil {
 			return ErrDatabaseError.Derive(err, "failed to store bundle")
 		}
 
@@ -99,8 +100,8 @@ func storeBundleInDatabase(bundle *bundle.Bundle) errors.IdentifiableError {
 	return nil
 }
 
-func getBundleFromDatabase(transactionHash ternary.Trytes) (*bundle.Bundle, errors.IdentifiableError) {
-	bundleData, err := bundleDatabase.Get(transactionHash.CastToBytes())
+func getBundleFromDatabase(transactionHash trinary.Trytes) (*bundle.Bundle, errors.IdentifiableError) {
+	bundleData, err := bundleDatabase.Get(unsafeconvert.StringToBytes(transactionHash))
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			return nil, nil
@@ -117,8 +118,8 @@ func getBundleFromDatabase(transactionHash ternary.Trytes) (*bundle.Bundle, erro
 	return &result, nil
 }
 
-func databaseContainsBundle(transactionHash ternary.Trytes) (bool, errors.IdentifiableError) {
-	if contains, err := bundleDatabase.Contains(transactionHash.CastToBytes()); err != nil {
+func databaseContainsBundle(transactionHash trinary.Trytes) (bool, errors.IdentifiableError) {
+	if contains, err := bundleDatabase.Contains(unsafeconvert.StringToBytes(transactionHash)); err != nil {
 		return false, ErrDatabaseError.Derive(err, "failed to check if the bundle exists")
 	} else {
 		return contains, nil

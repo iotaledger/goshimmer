@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/batchworkerpool"
 	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 type BatchHasher struct {
@@ -53,7 +54,7 @@ func (this *BatchHasher) processHashes(tasks []batchworkerpool.Task) {
 			task.Return(demux.Get(i))
 		}
 	} else {
-		var resp = make(ternary.Trits, this.hashLength)
+		var resp = make(trinary.Trits, this.hashLength)
 
 		trits := tasks[0].Param(0).(ternary.Trits)
 

@@ -2,7 +2,7 @@ package iac
 
 import (
 	"github.com/iotaledger/goshimmer/packages/errors"
-	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 var (
@@ -31,10 +31,10 @@ func init() {
 	IAC_TO_OLC_MAP[IAC_PADDING] = OLC_PADDING
 }
 
-func TrytesFromOLCCode(code string) (result ternary.Trytes, err errors.IdentifiableError) {
+func TrytesFromOLCCode(code string) (result trinary.Trytes, err errors.IdentifiableError) {
 	for _, char := range code {
 		if translatedChar, exists := OLC_TO_IAC_MAP[char]; exists {
-			result += ternary.Trytes(translatedChar)
+			result += trinary.Trytes(translatedChar)
 		} else {
 			err = ErrConversionFailed.Derive("invalid character in input")
 		}
@@ -43,7 +43,7 @@ func TrytesFromOLCCode(code string) (result ternary.Trytes, err errors.Identifia
 	return
 }
 
-func OLCCodeFromTrytes(trytes ternary.Trytes) (result string, err errors.IdentifiableError) {
+func OLCCodeFromTrytes(trytes trinary.Trytes) (result string, err errors.IdentifiableError) {
 	for _, char := range trytes {
 		if translatedChar, exists := IAC_TO_OLC_MAP[char]; exists {
 			result += string(translatedChar)

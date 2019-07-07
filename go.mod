@@ -3,7 +3,6 @@ module github.com/iotaledger/goshimmer
 go 1.12
 
 require (
-	github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9 // indirect
 	github.com/dgraph-io/badger v2.0.0-rc.2.0.20190610165348-a804ffa35fb9+incompatible
 	github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
@@ -12,6 +11,7 @@ require (
 	github.com/go-zeromq/zmq4 v0.4.0
 	github.com/golang/protobuf v1.3.1 // indirect
 	github.com/google/open-location-code/go v0.0.0-20190603181809-cf814bded323
+	github.com/iotaledger/iota.go v1.0.0-beta.6
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.2.9 // indirect
 	github.com/magiconair/properties v1.8.1

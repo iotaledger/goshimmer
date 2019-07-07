@@ -56,5 +56,5 @@ func configure(ctx *node.Plugin) {
 }
 
 var PLUGIN = node.NewPlugin("CLI", configure, func(plugin *node.Plugin) {
-	
+
 })

@@ -4,12 +4,12 @@ import (
 	"math"
 
 	olc "github.com/google/open-location-code/go"
-	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 type Area struct {
 	olc.CodeArea
-	IACCode ternary.Trytes
+	IACCode trinary.Trytes
 	OLCCode string
 }
 

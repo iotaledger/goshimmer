@@ -3,7 +3,7 @@ package value_transaction
 import (
 	"strings"
 
-	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 const (
@@ -30,5 +30,5 @@ const (
 )
 
 var (
-	EMPTY_SIGNATURE = ternary.Trytes(strings.Repeat("9", SIGNATURE_MESSAGE_FRAGMENT_SIZE/ternary.NUMBER_OF_TRITS_IN_A_TRYTE))
+	EMPTY_SIGNATURE = trinary.Trytes(strings.Repeat("9", SIGNATURE_MESSAGE_FRAGMENT_SIZE/3))
 )

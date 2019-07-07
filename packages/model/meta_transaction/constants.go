@@ -1,7 +1,7 @@
 package meta_transaction
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 const (
@@ -31,5 +31,5 @@ const (
 
 	MARSHALED_TOTAL_SIZE = DATA_END
 
-	BRANCH_NULL_HASH = ternary.Trytes("999999999999999999999999999999999999999999999999999999999999999999999999999999999")
+	BRANCH_NULL_HASH = trinary.Trytes("999999999999999999999999999999999999999999999999999999999999999999999999999999999")
 )
