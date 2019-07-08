@@ -206,8 +206,8 @@ func (this *ValueTransaction) GetBundleEssence() (result trinary.Trits) {
 
 	copy(result[0:], this.trits[ADDRESS_OFFSET:VALUE_END])
 
-	if this.GetValue() < 0 {
-		copy(result[:VALUE_END], this.trits[SIGNATURE_MESSAGE_FRAGMENT_OFFSET:SIGNATURE_MESSAGE_FRAGMENT_END])
+	if this.GetValue() >= 0 {
+		copy(result[VALUE_END:], this.trits[SIGNATURE_MESSAGE_FRAGMENT_OFFSET:SIGNATURE_MESSAGE_FRAGMENT_END])
 	}
 
 	this.signatureMessageFragmentMutex.RUnlock()

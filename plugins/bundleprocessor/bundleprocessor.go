@@ -1,6 +1,7 @@
 package bundleprocessor
 
 import (
+	"github.com/iotadevelopment/go/packages/ternary"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
@@ -51,6 +52,15 @@ func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction)
 			// if we are done -> trigger events
 			if currentTransaction.IsTail() {
 				newBundle.SetTransactionHashes(mapTransactionsToTransactionHashes(bundleTransactions))
+
+				if newBundle.IsValueBundle() {
+					var concatenatedBundleEssences = make(ternary.Trits, len(bundleTransactions)*value_transaction.BUNDLE_ESSENCE_SIZE)
+					for i, bundleTransaction := range bundleTransactions {
+						copy(concatenatedBundleEssences[value_transaction.BUNDLE_ESSENCE_SIZE*i:value_transaction.BUNDLE_ESSENCE_SIZE*(i+1)], bundleTransaction.GetBundleEssence())
+					}
+
+					// calc + set bundle hash
+				}
 
 				Events.BundleSolid.Trigger(newBundle, bundleTransactions)
 
