@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/bundleprocessor"
 	"github.com/iotaledger/iota.go/address"
 	. "github.com/iotaledger/iota.go/consts"
+	"github.com/iotaledger/iota.go/kerl"
 	"github.com/iotaledger/iota.go/signing"
 	. "github.com/iotaledger/iota.go/trinary"
 )
@@ -17,7 +18,6 @@ var PLUGIN = node.NewPlugin("Validator", configure, run)
 // Creates bundle signature fragments and the corresponding address to validate against.
 // Each signature fragment after the first must go into its own meta transaction with value = 0.
 func demoSign(seed Trytes, index uint64, sec SecurityLevel, bundleHash Hash) (Hash, []Trytes) {
-
 	addr, _ := address.GenerateAddress(seed, index, sec)
 
 	// compute seed based on address index
@@ -63,7 +63,7 @@ func validateSignatures(bundleHash Hash, txs []*value_transaction.ValueTransacti
 		}
 
 		// validate all the fragments against the address using Kerl
-		valid, err := signing.ValidateSignatures(address, fragments, bundleHash, signing.NewKerl)
+		valid, err := signing.ValidateSignatures(address, fragments, bundleHash, kerl.NewKerl())
 		if err != nil {
 			return false, err
 		}
@@ -77,7 +77,7 @@ func validateSignatures(bundleHash Hash, txs []*value_transaction.ValueTransacti
 
 func configure(plugin *node.Plugin) {
 
-	bundleprocessor.Events.ValueBundleReceived.Attach(events.NewClosure(func(b *bundle.Bundle, txs []*value_transaction.ValueTransaction) {
+	bundleprocessor.Events.BundleSolid.Attach(events.NewClosure(func(b *bundle.Bundle, txs []*value_transaction.ValueTransaction) {
 		// signature are verified against the bundle hash
 		valid, _ := validateSignatures(b.GetBundleEssenceHash(), txs)
 		if !valid {

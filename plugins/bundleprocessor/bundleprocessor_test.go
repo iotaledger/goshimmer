@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/ternary"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/iota.go/trinary"
 	"github.com/magiconair/properties/assert"
 )
 
@@ -35,7 +35,7 @@ func TestProcessSolidBundleHead(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	} else {
-		assert.Equal(t, result.GetHash(), ternary.Trytes("UFWJYEWKMEQDNSQUCUWBGOFRHVBGHVVYEZCLCGRDTRQSMAFALTIPMJEEYFDPMQCNJWLXUWFMBZGHQRO99"), "invalid bundle hash")
+		assert.Equal(t, result.GetHash(), trinary.Trytes("UFWJYEWKMEQDNSQUCUWBGOFRHVBGHVVYEZCLCGRDTRQSMAFALTIPMJEEYFDPMQCNJWLXUWFMBZGHQRO99"), "invalid bundle hash")
 		assert.Equal(t, result.IsValueBundle(), true, "invalid value bundle status")
 	}
 }

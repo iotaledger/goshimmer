@@ -4,12 +4,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 func BenchmarkBatchHasher_Hash(b *testing.B) {
 	batchHasher := NewBatchHasher(243, 81)
-	tritsToHash := ternary.Trytes("A999999FF").ToTrits()
+	tritsToHash := trinary.MustTrytesToTrits(trinary.Trytes("A999999FF"))
 
 	b.ResetTimer()
 
