@@ -29,6 +29,7 @@ func TestProcessSolidBundleHead(t *testing.T) {
 	Events.BundleSolid.Attach(events.NewClosure(func(bundle *bundle.Bundle, transactions []*value_transaction.ValueTransaction) {
 		fmt.Println("IT HAPPENED")
 		fmt.Println(bundle.GetHash())
+		fmt.Println(bundle.GetBundleEssenceHash())
 	}))
 
 	result, err := ProcessSolidBundleHead(tx1)

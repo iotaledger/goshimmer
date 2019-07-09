@@ -1,7 +1,7 @@
 package bundleprocessor
 
 import (
-	"github.com/iotadevelopment/go/packages/ternary"
+	"github.com/iotaledger/goshimmer/packages/curl"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
@@ -54,12 +54,18 @@ func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction)
 				newBundle.SetTransactionHashes(mapTransactionsToTransactionHashes(bundleTransactions))
 
 				if newBundle.IsValueBundle() {
-					var concatenatedBundleEssences = make(ternary.Trits, len(bundleTransactions)*value_transaction.BUNDLE_ESSENCE_SIZE)
+					var concatenatedBundleEssences = make(trinary.Trits, len(bundleTransactions)*value_transaction.BUNDLE_ESSENCE_SIZE)
 					for i, bundleTransaction := range bundleTransactions {
 						copy(concatenatedBundleEssences[value_transaction.BUNDLE_ESSENCE_SIZE*i:value_transaction.BUNDLE_ESSENCE_SIZE*(i+1)], bundleTransaction.GetBundleEssence())
 					}
 
-					// calc + set bundle hash
+					var resp = make(trinary.Trits, 243)
+
+					hasher := curl.NewCurl(243, 81)
+					hasher.Absorb(concatenatedBundleEssences, 0, len(concatenatedBundleEssences))
+					hasher.Squeeze(resp, 0, 243)
+
+					newBundle.SetBundleEssenceHash(trinary.MustTritsToTrytes(resp))
 				}
 
 				Events.BundleSolid.Trigger(newBundle, bundleTransactions)
