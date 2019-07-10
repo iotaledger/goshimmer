@@ -32,27 +32,6 @@ func newServer(fpc *fpc.Instance) *queryServer {
 	}
 }
 
-// // GetOpinion returns the opinions of the given txs
-// func (s *queryServer) GetOpinion(ctx context.Context, req *pb.QueryRequest) (reply *pb.QueryReply, err error) {
-// 	opinions := make([]fpc.Opinion, len(req.TxHash))
-// 	for i, tx := range req.TxHash {
-// 		//FPC lookup
-// 		opinion, ok := s.fpc.GetInterimOpinion(tx)
-// 		if !ok {
-// 			//DB lookup
-// 			txMetadata, err := tangle.GetTransactionMetadata(ternary.Trytes(tx))
-// 			if err == nil { // && txMetadataolder than C
-// 				opinion = txMetadata.GetLiked()
-// 			}
-// 		}
-// 		opinions[i] = opinion
-// 	}
-// 	reply = &pb.QueryReply{
-// 		Opinion: opinions,
-// 	}
-// 	return reply, nil
-// }
-
 // GetOpinion returns the opinions of the given txs
 func (s *queryServer) GetOpinion(ctx context.Context, req *pb.QueryRequest) (reply *pb.QueryReply, err error) {
 	opinions := make([]fpc.Opinion, len(req.TxHash))
