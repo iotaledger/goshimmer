@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"flag"
 	"net"
 	"strconv"
 	"time"
@@ -15,10 +14,6 @@ import (
 	pb "github.com/iotaledger/goshimmer/plugins/fpc/network/query"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"google.golang.org/grpc"
-)
-
-var (
-	port = flag.Int("port", 10000, "The server port")
 )
 
 // queryServer defines the struct of an FPC query server
@@ -55,7 +50,7 @@ func (s *queryServer) retrieveOpinion(tx fpc.ID) (opinion fpc.Opinion) {
 	}
 	//DB lookup
 	txMetadata, err := tangle.GetTransactionMetadata(ternary.Trytes(tx))
-	if err == nil && txMetadata.GetReceivedTime().Add(C).Before(time.Now()) {
+	if err == nil && (txMetadata.GetFinalized() || txMetadata.GetReceivedTime().Add(C).Before(time.Now())) {
 		return txMetadata.GetLiked()
 	}
 
@@ -90,11 +85,10 @@ func RunServer(plugin *node.Plugin, fpc *fpc.Instance) {
 		server, _ := run("0.0.0.0", strconv.Itoa(*autop.PORT.Value+2000), fpc)
 
 		// Waits until receives a shutdown signal
-		select {
-		case <-daemon.ShutdownSignal:
-			plugin.LogInfo("Stopping TCP Server ...")
-			server.GracefulStop()
-		}
+
+		<-daemon.ShutdownSignal
+		plugin.LogInfo("Stopping TCP Server ...")
+		server.GracefulStop()
 
 		plugin.LogSuccess("Stopping TCP Server ... done")
 	})
