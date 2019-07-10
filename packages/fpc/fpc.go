@@ -1,7 +1,6 @@
 package fpc
 
 import (
-	"errors"
 	"fmt"
 	"math/rand"
 	"time"
@@ -65,20 +64,13 @@ func (fpc *Instance) Tick(index uint64, random float64) {
 	go func() { fpc.finalizedTxsChannel <- fpc.round() }()
 }
 
-// GetInterimOpinion returns the current opinions
-// of the given txs
-func (fpc *Instance) GetInterimOpinion(txs ...ID) (opinions []Opinion, miss []int) {
-	opinions = make([]Opinion, len(txs))
-
-	for i, tx := range txs {
-		history, hit := fpc.state.opinionHistory.Load(tx)
-		if !hit {
-			miss = append(miss, i)
-			opinions[i] = false
-		}
-		opinions[i], _ = getLastOpinion(history)
+// GetInterimOpinion returns the current opinion of the given tx
+func (fpc *Instance) GetInterimOpinion(tx ID) (opinion Opinion, ok bool) {
+	history, ok := fpc.state.opinionHistory.Load(tx)
+	if !ok {
+		return false, false
 	}
-	return opinions, miss
+	return getLastOpinion(history)
 }
 
 // ID is the unique identifier of the querried object (e.g. a transaction Hash)
@@ -150,11 +142,11 @@ func (fpc *Instance) round() []TxOpinion {
 
 // returns the last opinion
 // i: list of opinions stored during FPC rounds of a particular tx
-func getLastOpinion(list []Opinion) (Opinion, error) {
+func getLastOpinion(list []Opinion) (Opinion, bool) {
 	if len(list) > 0 {
-		return list[len(list)-1], nil
+		return list[len(list)-1], true
 	}
-	return false, errors.New("opinion is empty")
+	return false, false
 }
 
 // loop over all the txs to vote and update the last opinion
