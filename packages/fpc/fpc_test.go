@@ -1,7 +1,6 @@
 package fpc
 
 import (
-	"errors"
 	"reflect"
 	"testing"
 )
@@ -31,27 +30,27 @@ func TestGetLastOpinion(t *testing.T) {
 	type testInput struct {
 		opinions []Opinion
 		expected Opinion
-		err      error
+		ok       bool
 	}
 	var tests = []testInput{
-		{[]Opinion{Like, Like, Like}, Like, nil},
-		{[]Opinion{Like, Like, Like, Dislike}, Dislike, nil},
-		{[]Opinion{}, Dislike, errors.New("opinion is empty")},
+		{[]Opinion{Like, Like, Like}, Like, true},
+		{[]Opinion{Like, Like, Like, Dislike}, Dislike, true},
+		{[]Opinion{}, Dislike, false},
 	}
 
 	for _, test := range tests {
-		result, err := getLastOpinion(test.opinions)
-		if result != test.expected || !reflect.DeepEqual(err, test.err) {
-			t.Error("Should return", test.expected, test.err, "got", result, err, "with input", test)
+		result, ok := getLastOpinion(test.opinions)
+		if result != test.expected || !reflect.DeepEqual(ok, test.ok) {
+			t.Error("Should return", test.expected, test.ok, "got", result, ok, "with input", test)
 		}
 	}
 }
 
 func TestGetInterimOpinion(t *testing.T) {
 	type testInput struct {
-		opinionMap map[ID][]Opinion
-		txs        []ID
-		expected   []Opinion
+		opinionMap       map[ID][]Opinion
+		txs              []ID
+		expectedOpinions []Opinion
 	}
 	var tests = []testInput{
 		{map[ID][]Opinion{"1": []Opinion{Like, Like, Like}}, []ID{"1"}, []Opinion{Like}},
@@ -65,10 +64,12 @@ func TestGetInterimOpinion(t *testing.T) {
 		}
 		// set opinion history
 		dummyFpc.state.opinionHistory.internal = test.opinionMap
-
-		result := dummyFpc.GetInterimOpinion(test.txs...)
-		if !reflect.DeepEqual(result, test.expected) {
-			t.Error("Should return", test.expected, "got", result, "with input", test)
+		opinions := make([]Opinion, len(test.txs))
+		for i, tx := range test.txs {
+			opinions[i], _ = dummyFpc.GetInterimOpinion(tx)
+		}
+		if !reflect.DeepEqual(opinions, test.expectedOpinions) {
+			t.Error("Should return", test.expectedOpinions, "got", opinions, "with input", test)
 		}
 	}
 }

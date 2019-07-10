@@ -1,7 +1,6 @@
 package fpc
 
 import (
-	"errors"
 	"fmt"
 	"math/rand"
 	"time"
@@ -65,18 +64,13 @@ func (fpc *Instance) Tick(index uint64, random float64) {
 	go func() { fpc.finalizedTxsChannel <- fpc.round() }()
 }
 
-// GetInterimOpinion returns the current opinions
-// of the given txs
-func (fpc *Instance) GetInterimOpinion(txs ...ID) []Opinion {
-	result := make([]Opinion, len(txs))
-
-	for i, tx := range txs {
-		if history, ok := fpc.state.opinionHistory.Load(tx); ok {
-			lastOpinion, _ := getLastOpinion(history)
-			result[i] = lastOpinion
-		}
+// GetInterimOpinion returns the current opinion of the given tx
+func (fpc *Instance) GetInterimOpinion(tx ID) (opinion Opinion, ok bool) {
+	history, ok := fpc.state.opinionHistory.Load(tx)
+	if !ok {
+		return false, false
 	}
-	return result
+	return getLastOpinion(history)
 }
 
 // ID is the unique identifier of the querried object (e.g. a transaction Hash)
@@ -148,18 +142,12 @@ func (fpc *Instance) round() []TxOpinion {
 
 // returns the last opinion
 // i: list of opinions stored during FPC rounds of a particular tx
-func getLastOpinion(list []Opinion) (Opinion, error) {
-	if list != nil && len(list) > 0 {
-		return list[len(list)-1], nil
+func getLastOpinion(list []Opinion) (Opinion, bool) {
+	if len(list) > 0 {
+		return list[len(list)-1], true
 	}
-	return false, errors.New("opinion is empty")
+	return false, false
 }
-
-// // adds a new opinion to a list of opinions
-// func updateOpinion(newOpinion Opinion, list []Opinion) []Opinion {
-// 	list = append(list, newOpinion)
-// 	return list
-// }
 
 // loop over all the txs to vote and update the last opinion
 // with the new threshold. If any of them reaches finalization,
@@ -198,9 +186,6 @@ func (fpc *Instance) getFinalizedTxs() []TxOpinion {
 // isFinal returns the finalization status given a list of
 // opinions (that belong to a particular tx)
 func isFinal(o []Opinion, m, l int) bool {
-	if o == nil {
-		return false
-	}
 	if len(o) < m+l {
 		return false
 	}
@@ -272,7 +257,7 @@ func choose(list []string, k int) []string {
 	return chosen
 }
 
-// runif returns a random uniform threshold bewteen
+// runif returns a random uniform threshold between
 // a lower bound and an upper bound
 func runif(rand, thresholdL, thresholdU float64) float64 {
 	return thresholdL + rand*(thresholdU-thresholdL)

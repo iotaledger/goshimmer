@@ -2,20 +2,18 @@ package server
 
 import (
 	"context"
-	"flag"
 	"net"
 	"strconv"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/packages/ternary"
 	autop "github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 	pb "github.com/iotaledger/goshimmer/plugins/fpc/network/query"
+	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"google.golang.org/grpc"
-)
-
-var (
-	port = flag.Int("port", 10000, "The server port")
 )
 
 // queryServer defines the struct of an FPC query server
@@ -29,14 +27,34 @@ func newServer(fpc *fpc.Instance) *queryServer {
 	}
 }
 
-// GetOpinion returns the opinions of the given txs.
-// Currently, we only look for opinions by calling fpc.GetInterimOpinion
-func (s *queryServer) GetOpinion(ctx context.Context, req *pb.QueryRequest) (*pb.QueryReply, error) {
-	opinions := s.fpc.GetInterimOpinion(req.TxHash...)
-	reply := &pb.QueryReply{
+// GetOpinion returns the opinions of the given txs
+func (s *queryServer) GetOpinion(ctx context.Context, req *pb.QueryRequest) (reply *pb.QueryReply, err error) {
+	opinions := make([]fpc.Opinion, len(req.TxHash))
+	for i, tx := range req.TxHash {
+		opinions[i] = s.retrieveOpinion(tx)
+	}
+	reply = &pb.QueryReply{
 		Opinion: opinions,
 	}
 	return reply, nil
+}
+
+func (s *queryServer) retrieveOpinion(tx fpc.ID) (opinion fpc.Opinion) {
+	// temporary C until we have it properly defined somewhere
+	const C = time.Second * 0
+
+	//FPC lookup
+	opinion, ok := s.fpc.GetInterimOpinion(tx)
+	if ok {
+		return opinion
+	}
+	//DB lookup
+	txMetadata, err := tangle.GetTransactionMetadata(ternary.Trytes(tx))
+	if err == nil && (txMetadata.GetFinalized() || txMetadata.GetReceivedTime().Add(C).Before(time.Now())) {
+		return txMetadata.GetLiked()
+	}
+
+	return fpc.Dislike
 }
 
 // run starts a new server for replying to incoming queries
@@ -67,11 +85,10 @@ func RunServer(plugin *node.Plugin, fpc *fpc.Instance) {
 		server, _ := run("0.0.0.0", strconv.Itoa(*autop.PORT.Value+2000), fpc)
 
 		// Waits until receives a shutdown signal
-		select {
-		case <-daemon.ShutdownSignal:
-			plugin.LogInfo("Stopping TCP Server ...")
-			server.GracefulStop()
-		}
+
+		<-daemon.ShutdownSignal
+		plugin.LogInfo("Stopping TCP Server ...")
+		server.GracefulStop()
 
 		plugin.LogSuccess("Stopping TCP Server ... done")
 	})
