@@ -4,12 +4,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/analysis"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/bundleprocessor"
 	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/fcob"
 	"github.com/iotaledger/goshimmer/plugins/fpc"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	gossip_on_solidification "github.com/iotaledger/goshimmer/plugins/gossip-on-solidification"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
+	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/statusscreen"
 	statusscreen_tps "github.com/iotaledger/goshimmer/plugins/statusscreen-tps"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
@@ -29,10 +31,12 @@ func main() {
 		gossip.PLUGIN,
 		gossip_on_solidification.PLUGIN,
 		tangle.PLUGIN,
+		bundleprocessor.PLUGIN,
 		analysis.PLUGIN,
 		gracefulshutdown.PLUGIN,
 		tipselection.PLUGIN,
 		zeromq.PLUGIN,
+		metrics.PLUGIN,
 
 		statusscreen.PLUGIN,
 		statusscreen_tps.PLUGIN,

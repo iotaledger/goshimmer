@@ -4,24 +4,24 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
-	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 type ValueTransaction struct {
 	*meta_transaction.MetaTransaction
 
-	address                       *ternary.Trytes
+	address                       *trinary.Trytes
 	addressMutex                  sync.RWMutex
 	value                         *int64
 	valueMutex                    sync.RWMutex
 	timestamp                     *uint
 	timestampMutex                sync.RWMutex
-	nonce                         *ternary.Trytes
+	nonce                         *trinary.Trytes
 	nonceMutex                    sync.RWMutex
-	signatureMessageFragment      *ternary.Trytes
+	signatureMessageFragment      *trinary.Trytes
 	signatureMessageFragmentMutex sync.RWMutex
 
-	trits ternary.Trits
+	trits trinary.Trits
 }
 
 func New() (result *ValueTransaction) {
@@ -42,8 +42,13 @@ func FromMetaTransaction(metaTransaction *meta_transaction.MetaTransaction) *Val
 }
 
 func FromBytes(bytes []byte) (result *ValueTransaction) {
+	trits, err := trinary.BytesToTrits(bytes)
+	if err != nil {
+		panic(err)
+	}
+
 	result = &ValueTransaction{
-		MetaTransaction: meta_transaction.FromTrits(ternary.BytesToTrits(bytes)[:meta_transaction.MARSHALED_TOTAL_SIZE]),
+		MetaTransaction: meta_transaction.FromTrits(trits[:meta_transaction.MARSHALED_TOTAL_SIZE]),
 	}
 
 	result.trits = result.MetaTransaction.GetData()
@@ -52,14 +57,14 @@ func FromBytes(bytes []byte) (result *ValueTransaction) {
 }
 
 // getter for the address (supports concurrency)
-func (this *ValueTransaction) GetAddress() (result ternary.Trytes) {
+func (this *ValueTransaction) GetAddress() (result trinary.Trytes) {
 	this.addressMutex.RLock()
 	if this.address == nil {
 		this.addressMutex.RUnlock()
 		this.addressMutex.Lock()
 		defer this.addressMutex.Unlock()
 		if this.address == nil {
-			address := this.trits[ADDRESS_OFFSET:ADDRESS_END].ToTrytes()
+			address := trinary.MustTritsToTrytes(this.trits[ADDRESS_OFFSET:ADDRESS_END])
 
 			this.address = &address
 		}
@@ -73,7 +78,7 @@ func (this *ValueTransaction) GetAddress() (result ternary.Trytes) {
 }
 
 // setter for the address (supports concurrency)
-func (this *ValueTransaction) SetAddress(address ternary.Trytes) bool {
+func (this *ValueTransaction) SetAddress(address trinary.Trytes) bool {
 	this.addressMutex.RLock()
 	if this.address == nil || *this.address != address {
 		this.addressMutex.RUnlock()
@@ -83,7 +88,7 @@ func (this *ValueTransaction) SetAddress(address ternary.Trytes) bool {
 			this.address = &address
 
 			this.BlockHasher()
-			copy(this.trits[ADDRESS_OFFSET:ADDRESS_END], address.ToTrits()[:ADDRESS_SIZE])
+			copy(this.trits[ADDRESS_OFFSET:ADDRESS_END], trinary.MustTrytesToTrits(address)[:ADDRESS_SIZE])
 			this.UnblockHasher()
 
 			this.SetModified(true)
@@ -106,7 +111,7 @@ func (this *ValueTransaction) GetValue() (result int64) {
 		this.valueMutex.Lock()
 		defer this.valueMutex.Unlock()
 		if this.value == nil {
-			value := this.trits[VALUE_OFFSET:VALUE_END].ToInt64()
+			value := trinary.TritsToInt(this.trits[VALUE_OFFSET:VALUE_END])
 
 			this.value = &value
 		}
@@ -130,7 +135,7 @@ func (this *ValueTransaction) SetValue(value int64) bool {
 			this.value = &value
 
 			this.BlockHasher()
-			copy(this.trits[VALUE_OFFSET:VALUE_END], ternary.Int64ToTrits(value)[:VALUE_SIZE])
+			copy(this.trits[VALUE_OFFSET:], trinary.IntToTrits(value))
 			this.UnblockHasher()
 
 			this.SetModified(true)
@@ -153,7 +158,7 @@ func (this *ValueTransaction) GetTimestamp() (result uint) {
 		this.timestampMutex.Lock()
 		defer this.timestampMutex.Unlock()
 		if this.timestamp == nil {
-			timestamp := this.trits[TIMESTAMP_OFFSET:TIMESTAMP_END].ToUint()
+			timestamp := uint(trinary.TritsToInt(this.trits[TIMESTAMP_OFFSET:TIMESTAMP_END]))
 
 			this.timestamp = &timestamp
 		}
@@ -177,7 +182,7 @@ func (this *ValueTransaction) SetTimestamp(timestamp uint) bool {
 			this.timestamp = &timestamp
 
 			this.BlockHasher()
-			copy(this.trits[TIMESTAMP_OFFSET:TIMESTAMP_END], ternary.UintToTrits(timestamp)[:TIMESTAMP_SIZE])
+			copy(this.trits[TIMESTAMP_OFFSET:TIMESTAMP_END], trinary.IntToTrits(int64(timestamp))[:TIMESTAMP_SIZE])
 			this.UnblockHasher()
 
 			this.SetModified(true)
@@ -192,17 +197,17 @@ func (this *ValueTransaction) SetTimestamp(timestamp uint) bool {
 	return false
 }
 
-func (this *ValueTransaction) GetBundleEssence() (result ternary.Trits) {
+func (this *ValueTransaction) GetBundleEssence() (result trinary.Trits) {
 	this.addressMutex.RLock()
 	this.valueMutex.RLock()
 	this.signatureMessageFragmentMutex.RLock()
 
-	result = make(ternary.Trits, BUNDLE_ESSENCE_SIZE)
+	result = make(trinary.Trits, BUNDLE_ESSENCE_SIZE)
 
 	copy(result[0:], this.trits[ADDRESS_OFFSET:VALUE_END])
 
-	if this.GetValue() < 0 {
-		copy(result[:VALUE_END], this.trits[SIGNATURE_MESSAGE_FRAGMENT_OFFSET:SIGNATURE_MESSAGE_FRAGMENT_END])
+	if this.GetValue() >= 0 {
+		copy(result[VALUE_END:], this.trits[SIGNATURE_MESSAGE_FRAGMENT_OFFSET:SIGNATURE_MESSAGE_FRAGMENT_END])
 	}
 
 	this.signatureMessageFragmentMutex.RUnlock()
@@ -213,14 +218,14 @@ func (this *ValueTransaction) GetBundleEssence() (result ternary.Trits) {
 }
 
 // getter for the nonce (supports concurrency)
-func (this *ValueTransaction) GetNonce() (result ternary.Trytes) {
+func (this *ValueTransaction) GetNonce() (result trinary.Trytes) {
 	this.nonceMutex.RLock()
 	if this.nonce == nil {
 		this.nonceMutex.RUnlock()
 		this.nonceMutex.Lock()
 		defer this.nonceMutex.Unlock()
 		if this.nonce == nil {
-			nonce := this.trits[NONCE_OFFSET:NONCE_END].ToTrytes()
+			nonce := trinary.MustTritsToTrytes(this.trits[NONCE_OFFSET:NONCE_END])
 
 			this.nonce = &nonce
 		}
@@ -234,7 +239,7 @@ func (this *ValueTransaction) GetNonce() (result ternary.Trytes) {
 }
 
 // setter for the nonce (supports concurrency)
-func (this *ValueTransaction) SetNonce(nonce ternary.Trytes) bool {
+func (this *ValueTransaction) SetNonce(nonce trinary.Trytes) bool {
 	this.nonceMutex.RLock()
 	if this.nonce == nil || *this.nonce != nonce {
 		this.nonceMutex.RUnlock()
@@ -244,7 +249,7 @@ func (this *ValueTransaction) SetNonce(nonce ternary.Trytes) bool {
 			this.nonce = &nonce
 
 			this.BlockHasher()
-			copy(this.trits[NONCE_OFFSET:NONCE_END], nonce.ToTrits()[:NONCE_SIZE])
+			copy(this.trits[NONCE_OFFSET:NONCE_END], trinary.MustTrytesToTrits(nonce)[:NONCE_SIZE])
 			this.UnblockHasher()
 
 			this.SetModified(true)
@@ -260,14 +265,14 @@ func (this *ValueTransaction) SetNonce(nonce ternary.Trytes) bool {
 }
 
 // getter for the signatureMessageFragmetn (supports concurrency)
-func (this *ValueTransaction) GetSignatureMessageFragment() (result ternary.Trytes) {
+func (this *ValueTransaction) GetSignatureMessageFragment() (result trinary.Trytes) {
 	this.signatureMessageFragmentMutex.RLock()
 	if this.signatureMessageFragment == nil {
 		this.signatureMessageFragmentMutex.RUnlock()
 		this.signatureMessageFragmentMutex.Lock()
 		defer this.signatureMessageFragmentMutex.Unlock()
 		if this.signatureMessageFragment == nil {
-			signatureMessageFragment := this.trits[SIGNATURE_MESSAGE_FRAGMENT_OFFSET:SIGNATURE_MESSAGE_FRAGMENT_END].ToTrytes()
+			signatureMessageFragment := trinary.MustTritsToTrytes(this.trits[SIGNATURE_MESSAGE_FRAGMENT_OFFSET:SIGNATURE_MESSAGE_FRAGMENT_END])
 
 			this.signatureMessageFragment = &signatureMessageFragment
 		}
@@ -281,7 +286,7 @@ func (this *ValueTransaction) GetSignatureMessageFragment() (result ternary.Tryt
 }
 
 // setter for the nonce (supports concurrency)
-func (this *ValueTransaction) SetSignatureMessageFragment(signatureMessageFragment ternary.Trytes) bool {
+func (this *ValueTransaction) SetSignatureMessageFragment(signatureMessageFragment trinary.Trytes) bool {
 	this.signatureMessageFragmentMutex.RLock()
 	if this.signatureMessageFragment == nil || *this.signatureMessageFragment != signatureMessageFragment {
 		this.signatureMessageFragmentMutex.RUnlock()
@@ -291,7 +296,7 @@ func (this *ValueTransaction) SetSignatureMessageFragment(signatureMessageFragme
 			this.signatureMessageFragment = &signatureMessageFragment
 
 			this.BlockHasher()
-			copy(this.trits[SIGNATURE_MESSAGE_FRAGMENT_OFFSET:SIGNATURE_MESSAGE_FRAGMENT_END], signatureMessageFragment.ToTrits()[:SIGNATURE_MESSAGE_FRAGMENT_SIZE])
+			copy(this.trits[SIGNATURE_MESSAGE_FRAGMENT_OFFSET:SIGNATURE_MESSAGE_FRAGMENT_END], trinary.MustTrytesToTrits(signatureMessageFragment)[:SIGNATURE_MESSAGE_FRAGMENT_SIZE])
 			this.UnblockHasher()
 
 			this.SetModified(true)

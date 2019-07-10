@@ -12,11 +12,12 @@ func configure(plugin *node.Plugin) {
 	configureTransactionDatabase(plugin)
 	configureTransactionMetaDataDatabase(plugin)
 	configureApproversDatabase(plugin)
+	configureBundleDatabase(plugin)
 	configureSolidifier(plugin)
 }
 
 func run(plugin *node.Plugin) {
-	// this plugin has no background workers
+	runSolidifier(plugin)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

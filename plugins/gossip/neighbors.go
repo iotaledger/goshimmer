@@ -47,7 +47,7 @@ func runNeighbors(plugin *node.Plugin) {
 }
 
 func manageConnection(plugin *node.Plugin, neighbor *Neighbor) {
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("Connection Manager ("+neighbor.Identity.StringIdentifier+")", func() {
 		failedConnectionAttempts := 0
 
 		for _, exists := GetNeighbor(neighbor.Identity.StringIdentifier); exists && failedConnectionAttempts < CONNECTION_MAX_ATTEMPTS; {

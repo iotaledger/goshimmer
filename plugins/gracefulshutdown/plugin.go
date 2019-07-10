@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -31,7 +32,13 @@ var PLUGIN = node.NewPlugin("Graceful Shutdown", func(plugin *node.Plugin) {
 				secondsSinceStart := x.Sub(start).Seconds()
 
 				if secondsSinceStart <= WAIT_TO_KILL_TIME_IN_SECONDS {
-					plugin.LogWarning("Received shutdown request - waiting (max " + strconv.Itoa(WAIT_TO_KILL_TIME_IN_SECONDS-int(secondsSinceStart)) + " seconds) to finish processing ...")
+					processList := ""
+					runningBackgroundWorkers := daemon.GetRunningBackgroundWorkers()
+					if len(runningBackgroundWorkers) >= 1 {
+						processList = "(" + strings.Join(runningBackgroundWorkers, ", ") + ") "
+					}
+
+					plugin.LogWarning("Received shutdown request - waiting (max " + strconv.Itoa(WAIT_TO_KILL_TIME_IN_SECONDS-int(secondsSinceStart)) + " seconds) to finish processing " + processList + "...")
 				} else {
 					plugin.LogFailure("Background processes did not terminate in time! Forcing shutdown ...")
 

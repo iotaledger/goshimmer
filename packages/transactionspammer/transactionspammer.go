@@ -23,7 +23,7 @@ func Start(tps int64) {
 		shutdownSignal = make(chan int, 1)
 
 		func(shutdownSignal chan int) {
-			daemon.BackgroundWorker(func() {
+			daemon.BackgroundWorker("Transaction Spammer", func() {
 				for {
 					start := time.Now()
 					sentCounter := int64(0)

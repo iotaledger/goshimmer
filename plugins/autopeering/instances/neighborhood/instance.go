@@ -35,7 +35,7 @@ func Configure(plugin *node.Plugin) {
 }
 
 func Run(plugin *node.Plugin) {
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("Neighborhood Updater", func() {
 		timeutil.Ticker(updateNeighborHood, 1*time.Second)
 	})
 }

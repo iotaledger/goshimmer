@@ -9,35 +9,41 @@ import (
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/goshimmer/packages/workerpool"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 // region plugin module setup //////////////////////////////////////////////////////////////////////////////////////////
 
-//var solidifierChan = make(chan *value_transaction.ValueTransaction, 1000)
-
-const NUMBER_OF_WORKERS = 3000
-
-var tasksChan = make(chan *meta_transaction.MetaTransaction, NUMBER_OF_WORKERS)
+var workerPool *workerpool.WorkerPool
 
 func configureSolidifier(plugin *node.Plugin) {
-	for i := 0; i < NUMBER_OF_WORKERS; i++ {
-		go func() {
-			for {
-				select {
-				case <-daemon.ShutdownSignal:
-					return
-				case rawTransaction := <-tasksChan:
-					processMetaTransaction(plugin, rawTransaction)
-				}
-			}
-		}()
-	}
+	workerPool = workerpool.New(func(task workerpool.Task) {
+		processMetaTransaction(plugin, task.Param(0).(*meta_transaction.MetaTransaction))
+	}, workerpool.WorkerCount(WORKER_COUNT), workerpool.QueueSize(2*WORKER_COUNT))
 
 	gossip.Events.ReceiveTransaction.Attach(events.NewClosure(func(rawTransaction *meta_transaction.MetaTransaction) {
-		tasksChan <- rawTransaction
+		workerPool.Submit(rawTransaction)
 	}))
+
+	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
+		plugin.LogInfo("Stopping Solidifier ...")
+
+		workerPool.Stop()
+	}))
+}
+
+func runSolidifier(plugin *node.Plugin) {
+	plugin.LogInfo("Starting Solidifier ...")
+
+	daemon.BackgroundWorker("Tangle Solidifier", func() {
+		plugin.LogSuccess("Starting Solidifier ... done")
+
+		workerPool.Run()
+
+		plugin.LogSuccess("Stopping Solidifier ... done")
+	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -114,11 +120,11 @@ func IsSolid(transaction *value_transaction.ValueTransaction) (bool, errors.Iden
 	return false, nil
 }
 
-func propagateSolidity(transactionHash ternary.Trytes) errors.IdentifiableError {
-	if approvers, err := GetApprovers(transactionHash, approvers.New); err != nil {
+func propagateSolidity(transactionHash trinary.Trytes) errors.IdentifiableError {
+	if transactionApprovers, err := GetApprovers(transactionHash, approvers.New); err != nil {
 		return err
 	} else {
-		for _, approverHash := range approvers.GetHashes() {
+		for _, approverHash := range transactionApprovers.GetHashes() {
 			if approver, err := GetTransaction(approverHash); err != nil {
 				return err
 			} else if approver != nil {
@@ -138,7 +144,7 @@ func propagateSolidity(transactionHash ternary.Trytes) errors.IdentifiableError 
 
 func processMetaTransaction(plugin *node.Plugin, metaTransaction *meta_transaction.MetaTransaction) {
 	var newTransaction bool
-	if tx, err := GetTransaction(metaTransaction.GetHash(), func(transactionHash ternary.Trytes) *value_transaction.ValueTransaction {
+	if tx, err := GetTransaction(metaTransaction.GetHash(), func(transactionHash trinary.Trytes) *value_transaction.ValueTransaction {
 		newTransaction = true
 
 		return value_transaction.FromMetaTransaction(metaTransaction)
@@ -178,5 +184,6 @@ func processTransaction(plugin *node.Plugin, transaction *value_transaction.Valu
 
 		return
 	}
-	//solidifierChan <- transaction
 }
+
+const WORKER_COUNT = 400

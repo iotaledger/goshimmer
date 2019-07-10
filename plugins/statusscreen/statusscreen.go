@@ -100,7 +100,7 @@ func run(plugin *node.Plugin) {
 		return false
 	})
 
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("Statusscreen Refresher", func() {
 		for {
 			select {
 			case <-daemon.ShutdownSignal:
@@ -111,7 +111,7 @@ func run(plugin *node.Plugin) {
 		}
 	})
 
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("Statusscreen App", func() {
 		if err := app.SetRoot(frame, true).SetFocus(frame).Run(); err != nil {
 			panic(err)
 		}

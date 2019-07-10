@@ -5,17 +5,17 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/iota.go/trinary"
 	"github.com/magiconair/properties/assert"
 )
 
 func TestMetaTransaction_SettersGetters(t *testing.T) {
-	shardMarker := ternary.Trytes("NPHTQORL9XKA")
-	trunkTransactionHash := ternary.Trytes("99999999999999999999999999999999999999999999999999999999999999999999999999999999A")
-	branchTransactionHash := ternary.Trytes("99999999999999999999999999999999999999999999999999999999999999999999999999999999B")
+	shardMarker := trinary.Trytes("NPHTQORL9XKA")
+	trunkTransactionHash := trinary.Trytes("99999999999999999999999999999999999999999999999999999999999999999999999999999999A")
+	branchTransactionHash := trinary.Trytes("99999999999999999999999999999999999999999999999999999999999999999999999999999999B")
 	head := true
 	tail := true
-	transactionType := ternary.Trytes("9999999999999999999999")
+	transactionType := trinary.Trytes("9999999999999999999999")
 
 	transaction := New()
 	transaction.SetShardMarker(shardMarker)
@@ -29,8 +29,8 @@ func TestMetaTransaction_SettersGetters(t *testing.T) {
 	assert.Equal(t, transaction.GetShardMarker(), shardMarker)
 	assert.Equal(t, transaction.GetTrunkTransactionHash(), trunkTransactionHash)
 	assert.Equal(t, transaction.GetBranchTransactionHash(), branchTransactionHash)
-	assert.Equal(t, transaction.GetHead(), head)
-	assert.Equal(t, transaction.GetTail(), tail)
+	assert.Equal(t, transaction.IsHead(), head)
+	assert.Equal(t, transaction.IsTail(), tail)
 	assert.Equal(t, transaction.GetTransactionType(), transactionType)
 	assert.Equal(t, transaction.GetHash(), FromBytes(transaction.GetBytes()).GetHash())
 

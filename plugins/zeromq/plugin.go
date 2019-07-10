@@ -45,7 +45,7 @@ func run(plugin *node.Plugin) {
 
 	plugin.LogInfo("Starting ZeroMQ Publisher (port " + strconv.Itoa(*PORT.Value) + ") ...")
 
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("ZeroMQ Publisher", func() {
 		if err := startPublisher(plugin); err != nil {
 			plugin.LogFailure("Stopping ZeroMQ Publisher: " + err.Error())
 		} else {
@@ -78,16 +78,16 @@ func publishTx(tx *value_transaction.ValueTransaction) error {
 
 	messages := []string{
 		"tx",                             // ZMQ event
-		hash.ToString(),                  // Transaction hash
-		address.ToString(),               // Address
+		hash,                             // Transaction hash
+		address,                          // Address
 		strconv.FormatInt(value, 10),     // Value
 		emptyTag,                         // Obsolete tag
 		strconv.FormatInt(timestamp, 10), // Timestamp
 		"0",                              // Index of the transaction in the bundle
 		"0",                              // Last transaction index of the bundle
-		hash.ToString(),                  // Bundle hash
-		trunk.ToString(),                 // Trunk transaction hash
-		branch.ToString(),                // Branch transaction hash
+		hash,                             // Bundle hash
+		trunk,                            // Trunk transaction hash
+		branch,                           // Branch transaction hash
 		strconv.FormatInt(stored, 10),    // Unix timestamp for when the transaction was received
 		emptyTag,                         // Tag
 	}

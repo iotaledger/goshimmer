@@ -3,16 +3,16 @@ package curl
 import (
 	"math"
 
-	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 const (
 	HASH_LENGTH  = 243
-	STATE_LENGTH = ternary.NUMBER_OF_TRITS_IN_A_TRYTE * HASH_LENGTH
+	STATE_LENGTH = 3 * HASH_LENGTH
 )
 
 var (
-	TRUTH_TABLE = ternary.Trits{1, 0, -1, 2, 1, -1, 0, 2, -1, 1, 0}
+	TRUTH_TABLE = trinary.Trits{1, 0, -1, 2, 1, -1, 0, 2, -1, 1, 0}
 )
 
 type Hash interface {
@@ -25,7 +25,7 @@ type Hash interface {
 
 type Curl struct {
 	Hash
-	state      ternary.Trits
+	state      trinary.Trits
 	hashLength int
 	rounds     int
 }
@@ -45,12 +45,12 @@ func (curl *Curl) Initialize() {
 	curl.InitializeCurl(nil, 0, curl.rounds)
 }
 
-func (curl *Curl) InitializeCurl(trits ternary.Trits, length int, rounds int) {
+func (curl *Curl) InitializeCurl(trits trinary.Trits, length int, rounds int) {
 	curl.rounds = rounds
 	if trits != nil {
 		curl.state = trits
 	} else {
-		curl.state = make(ternary.Trits, STATE_LENGTH)
+		curl.state = make(trinary.Trits, STATE_LENGTH)
 	}
 }
 
@@ -58,7 +58,7 @@ func (curl *Curl) Reset() {
 	curl.InitializeCurl(nil, 0, curl.rounds)
 }
 
-func (curl *Curl) Absorb(trits ternary.Trits, offset int, length int) {
+func (curl *Curl) Absorb(trits trinary.Trits, offset int, length int) {
 	for {
 		limit := int(math.Min(HASH_LENGTH, float64(length)))
 		copy(curl.state, trits[offset:offset+limit])
@@ -71,7 +71,7 @@ func (curl *Curl) Absorb(trits ternary.Trits, offset int, length int) {
 	}
 }
 
-func (curl *Curl) Squeeze(resp ternary.Trits, offset int, length int) ternary.Trits {
+func (curl *Curl) Squeeze(resp trinary.Trits, offset int, length int) trinary.Trits {
 	for {
 		limit := int(math.Min(HASH_LENGTH, float64(length)))
 		copy(resp[offset:offset+limit], curl.state)
@@ -88,7 +88,7 @@ func (curl *Curl) Squeeze(resp ternary.Trits, offset int, length int) ternary.Tr
 func (curl *Curl) Transform() {
 	var index = 0
 	for round := 0; round < curl.rounds; round++ {
-		stateCopy := make(ternary.Trits, STATE_LENGTH)
+		stateCopy := make(trinary.Trits, STATE_LENGTH)
 		copy(stateCopy, curl.state)
 		for i := 0; i < STATE_LENGTH; i++ {
 			incr := 364

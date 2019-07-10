@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/iota.go/trinary"
 	"github.com/magiconair/properties/assert"
 )
 
 func TestApprovers_SettersGetters(t *testing.T) {
-	hashA := ternary.Trytes("A9999999999999999999999999999999999999999999999999999999999999999999999999999999F")
-	hashB := ternary.Trytes("B9999999999999999999999999999999999999999999999999999999999999999999999999999999F")
+	hashA := trinary.Trytes("A9999999999999999999999999999999999999999999999999999999999999999999999999999999F")
+	hashB := trinary.Trytes("B9999999999999999999999999999999999999999999999999999999999999999999999999999999F")
 	approversTest := New(hashA)
 	approversTest.Add(hashB)
 
@@ -18,9 +18,9 @@ func TestApprovers_SettersGetters(t *testing.T) {
 	assert.Equal(t, approversTest.GetHashes()[0], hashB, "hashes")
 }
 
-func TestApprovers_MarshalUnmarshalGetters(t *testing.T) {
-	hashA := ternary.Trytes("A9999999999999999999999999999999999999999999999999999999999999999999999999999999F")
-	hashB := ternary.Trytes("B9999999999999999999999999999999999999999999999999999999999999999999999999999999F")
+func TestApprovers_MarshalUnmarshal(t *testing.T) {
+	hashA := trinary.Trytes("A9999999999999999999999999999999999999999999999999999999999999999999999999999999F")
+	hashB := trinary.Trytes("B9999999999999999999999999999999999999999999999999999999999999999999999999999999F")
 	approversTest := New(hashA)
 	approversTest.Add(hashB)
 
