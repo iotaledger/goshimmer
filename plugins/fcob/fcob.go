@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 
 // RunProtocol defines the signature of the function
 // implementing the FCoB protocol
-type RunProtocol func(txMetadata ternary.Trytes)
+type RunProtocol func(txMetadata trinary.Trytes)
 
 // Opinion defines the opinion state
 type Opinion struct {
@@ -30,7 +30,7 @@ type Opinion struct {
 
 // ConflictChecker is the interface for checking if a given tx has conflicts
 type ConflictChecker interface {
-	GetConflictSet(target ternary.Trytes) (conflictSet map[ternary.Trytes]bool)
+	GetConflictSet(target trinary.Trytes) (conflictSet map[trinary.Trytes]bool)
 }
 
 func configureFCOB(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) *events.Closure {
@@ -45,7 +45,7 @@ func configureFCOB(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) *even
 // FCoB core logic, that uses the given voter and updater interfaces
 func makeRunProtocol(plugin *node.Plugin, tangle tangleAPI, voter fpc.Voter) RunProtocol {
 	// FCoB logic core
-	return func(txHash ternary.Trytes) {
+	return func(txHash trinary.Trytes) {
 		// the opinioner decides the initial opinion and the (potential conflict set)
 		initialOpinion, conflictSet, err := decideInitialOpinion(txHash, tangle)
 		if err != nil {
@@ -99,7 +99,7 @@ func configureUpdateTxsVoted(plugin *node.Plugin, tangle tangleAPI) *events.Clos
 	return events.NewClosure(func(txs []fpc.TxOpinion) {
 		plugin.LogInfo(fmt.Sprintf("Voting Done for txs: %v", txs))
 		for _, tx := range txs {
-			err := setOpinion(ternary.Trytes(tx.TxHash), Opinion{tx.Opinion, VOTED}, tangle)
+			err := setOpinion(trinary.Trytes(tx.TxHash), Opinion{tx.Opinion, VOTED}, tangle)
 			if err != nil {
 				plugin.LogFailure(fmt.Sprint(err))
 			}
@@ -107,7 +107,7 @@ func configureUpdateTxsVoted(plugin *node.Plugin, tangle tangleAPI) *events.Clos
 	})
 }
 
-func getOpinion(transactionHash ternary.Trytes, tangle tangleAPI) (opinion Opinion, err errors.IdentifiableError) {
+func getOpinion(transactionHash trinary.Trytes, tangle tangleAPI) (opinion Opinion, err errors.IdentifiableError) {
 	md, err := tangle.GetTransactionMetadata(transactionHash)
 	if err != nil {
 		return Opinion{}, err
@@ -115,7 +115,7 @@ func getOpinion(transactionHash ternary.Trytes, tangle tangleAPI) (opinion Opini
 	return Opinion{md.GetLiked(), md.GetFinalized()}, nil
 }
 
-func setOpinion(transactionHash ternary.Trytes, opinion Opinion, tangle tangleAPI) (err errors.IdentifiableError) {
+func setOpinion(transactionHash trinary.Trytes, opinion Opinion, tangle tangleAPI) (err errors.IdentifiableError) {
 	md, err := tangle.GetTransactionMetadata(transactionHash)
 	if err != nil {
 		return err

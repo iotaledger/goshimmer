@@ -9,10 +9,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/fpc"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/ternary"
 	autop "github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 	pb "github.com/iotaledger/goshimmer/plugins/fpc/network/query"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/iota.go/trinary"
 	"google.golang.org/grpc"
 )
 
@@ -49,7 +49,7 @@ func (s *queryServer) retrieveOpinion(tx fpc.ID) (opinion fpc.Opinion) {
 		return opinion
 	}
 	//DB lookup
-	txMetadata, err := tangle.GetTransactionMetadata(ternary.Trytes(tx))
+	txMetadata, err := tangle.GetTransactionMetadata(trinary.Trytes(tx))
 	if err == nil && (txMetadata.GetFinalized() || txMetadata.GetReceivedTime().Add(C).Before(time.Now())) {
 		return txMetadata.GetLiked()
 	}
@@ -79,7 +79,7 @@ func run(address, port string, fpc *fpc.Instance) (*grpc.Server, error) {
 func RunServer(plugin *node.Plugin, fpc *fpc.Instance) {
 	plugin.LogInfo("Starting TCP Server (port " + strconv.Itoa(*autop.PORT.Value+2000) + ") ...")
 
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("FPC Server", func() {
 		plugin.LogSuccess("Starting TCP Server (port " + strconv.Itoa(*autop.PORT.Value+2000) + ") ... done")
 
 		server, _ := run("0.0.0.0", strconv.Itoa(*autop.PORT.Value+2000), fpc)

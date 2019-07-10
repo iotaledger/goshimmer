@@ -27,7 +27,7 @@ func configureFPC(plugin *node.Plugin) {
 func runFPC(plugin *node.Plugin) {
 	server.RunServer(plugin, INSTANCE)
 
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("FPC Random Number Listener", func() {
 		ticker := client.NewTicker()
 		ticker.Connect(*parameters.PRNG_ADDRESS.Value + ":" + *parameters.PRNG_PORT.Value)
 	ticker:
