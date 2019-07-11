@@ -81,7 +81,7 @@ const (
 var bundleDatabase database.Database
 
 func configureBundleDatabase(plugin *node.Plugin) {
-	if db, err := database.Get("bundles"); err != nil {
+	if db, err := database.Get("bundle"); err != nil {
 		panic(err)
 	} else {
 		bundleDatabase = db
