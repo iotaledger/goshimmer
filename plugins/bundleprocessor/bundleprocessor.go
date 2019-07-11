@@ -1,14 +1,22 @@
 package bundleprocessor
 
 import (
-	"github.com/iotaledger/goshimmer/packages/curl"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/packages/workerpool"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/iota.go/trinary"
 )
+
+var workerPool = workerpool.New(func(task workerpool.Task) {
+	if _, err := ProcessSolidBundleHead(task.Param(0).(*value_transaction.ValueTransaction)); err != nil {
+		Events.Error.Trigger(err)
+	}
+}, workerpool.WorkerCount(WORKER_COUNT), workerpool.QueueSize(2*WORKER_COUNT))
+
+const WORKER_COUNT = 10000
 
 func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction) (*bundle.Bundle, errors.IdentifiableError) {
 	// only process the bundle if we didn't process it, yet
@@ -54,18 +62,9 @@ func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction)
 				newBundle.SetTransactionHashes(mapTransactionsToTransactionHashes(bundleTransactions))
 
 				if newBundle.IsValueBundle() {
-					var concatenatedBundleEssences = make(trinary.Trits, len(bundleTransactions)*value_transaction.BUNDLE_ESSENCE_SIZE)
-					for i, bundleTransaction := range bundleTransactions {
-						copy(concatenatedBundleEssences[value_transaction.BUNDLE_ESSENCE_SIZE*i:value_transaction.BUNDLE_ESSENCE_SIZE*(i+1)], bundleTransaction.GetBundleEssence())
-					}
+					valueBundleProcessorWorkerPool.Submit(newBundle, bundleTransactions)
 
-					var resp = make(trinary.Trits, 243)
-
-					hasher := curl.NewCurl(243, 81)
-					hasher.Absorb(concatenatedBundleEssences, 0, len(concatenatedBundleEssences))
-					hasher.Squeeze(resp, 0, 243)
-
-					newBundle.SetBundleEssenceHash(trinary.MustTritsToTrytes(resp))
+					return newBundle, nil
 				}
 
 				Events.BundleSolid.Trigger(newBundle, bundleTransactions)
