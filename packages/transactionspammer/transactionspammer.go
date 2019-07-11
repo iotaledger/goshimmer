@@ -16,7 +16,9 @@ var startMutex sync.Mutex
 
 var shutdownSignal chan int
 
-func Start(tps int64) {
+var sentCounter = uint(0)
+
+func Start(tps uint) {
 	startMutex.Lock()
 
 	if !spamming {
@@ -26,7 +28,6 @@ func Start(tps int64) {
 			daemon.BackgroundWorker("Transaction Spammer", func() {
 				for {
 					start := time.Now()
-					sentCounter := int64(0)
 					totalSentCounter := int64(0)
 
 					for {
@@ -80,4 +81,26 @@ func Stop() {
 	}
 
 	startMutex.Unlock()
+}
+
+func GenerateBundle(bundleLength int) (result []*value_transaction.ValueTransaction) {
+	result = make([]*value_transaction.ValueTransaction, bundleLength)
+
+	branch := tipselection.GetRandomTip()
+	trunk := tipselection.GetRandomTip()
+
+	for i := 0; i < bundleLength; i++ {
+		tx := value_transaction.New()
+		tx.SetTail(i == 0)
+		tx.SetHead(i == bundleLength - 1)
+		tx.SetTimestamp(sentCounter)
+		tx.SetBranchTransactionHash(branch)
+		tx.SetTrunkTransactionHash(trunk)
+
+		result[i] = tx
+
+		trunk = tx.GetHash()
+	}
+
+	return result
 }

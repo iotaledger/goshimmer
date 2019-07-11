@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/node"
+
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
@@ -13,7 +15,8 @@ import (
 )
 
 func TestProcessSolidBundleHead(t *testing.T) {
-	tangle.PLUGIN.InitTest()
+	// start a test node
+	node.Start(tangle.PLUGIN, PLUGIN)
 
 	tx := value_transaction.New()
 	tx.SetTail(true)
@@ -39,4 +42,7 @@ func TestProcessSolidBundleHead(t *testing.T) {
 		assert.Equal(t, result.GetHash(), trinary.Trytes("UFWJYEWKMEQDNSQUCUWBGOFRHVBGHVVYEZCLCGRDTRQSMAFALTIPMJEEYFDPMQCNJWLXUWFMBZGHQRO99"), "invalid bundle hash")
 		assert.Equal(t, result.IsValueBundle(), true, "invalid value bundle status")
 	}
+
+	// shutdown test node
+	node.Shutdown()
 }

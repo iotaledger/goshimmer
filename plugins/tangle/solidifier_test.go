@@ -6,16 +6,17 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
 func TestSolidifier(t *testing.T) {
-	// initialize plugin
-	configureTransactionDatabase(nil)
-	configureTransactionMetaDataDatabase(nil)
-	configureApproversDatabase(nil)
-	configureSolidifier(nil)
+	// show all error messages for tests
+	*node.LOG_LEVEL.Value = node.LOG_LEVEL_DEBUG
+
+	// start a test node
+	node.Start(PLUGIN)
 
 	// create transactions and chain them together
 	transaction1 := value_transaction.New()
@@ -42,4 +43,7 @@ func TestSolidifier(t *testing.T) {
 
 	// wait until all are solid
 	wg.Wait()
+
+	// shutdown test node
+	node.Shutdown()
 }

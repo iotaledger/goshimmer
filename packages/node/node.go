@@ -28,11 +28,22 @@ func Load(plugins ...*Plugin) *Node {
 	return node
 }
 
+func Start(plugins ...*Plugin) *Node {
+	node := Load(plugins...)
+	node.Start()
+
+	return node
+}
+
 func Run(plugins ...*Plugin) *Node {
 	node := Load(plugins...)
 	node.Run()
 
 	return node
+}
+
+func Shutdown() {
+	daemon.ShutdownAndWait()
 }
 
 func (node *Node) AddLogger(logger *Logger) {
@@ -104,6 +115,22 @@ func (node *Node) Load(plugins ...*Plugin) {
 			}
 		}
 	}
+}
+
+func (node *Node) Start() {
+	node.LogInfo("Node", "Executing plugins ...")
+
+	if len(node.loadedPlugins) >= 1 {
+		for _, plugin := range node.loadedPlugins {
+			plugin.Events.Run.Trigger(plugin)
+
+			node.LogSuccess("Node", "Starting Plugin: "+plugin.Name+" ... done")
+		}
+	}
+
+	node.LogSuccess("Node", "Starting background workers ...")
+
+	daemon.Start()
 }
 
 func (node *Node) Run() {

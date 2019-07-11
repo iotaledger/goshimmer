@@ -55,16 +55,3 @@ func (plugin *Plugin) LogFailure(message string) {
 func (plugin *Plugin) LogDebug(message string) {
 	plugin.Node.LogDebug(plugin.Name, message)
 }
-
-var TestNode = &Node{
-	loggers:       make([]*Logger, 0),
-	wg:            &sync.WaitGroup{},
-	loadedPlugins: make([]*Plugin, 0),
-}
-
-func (plugin *Plugin) InitTest() {
-	plugin.Node = TestNode
-
-	plugin.Events.Configure.Trigger(plugin)
-	plugin.Events.Run.Trigger(plugin)
-}

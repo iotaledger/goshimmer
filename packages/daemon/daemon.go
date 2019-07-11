@@ -58,7 +58,7 @@ func BackgroundWorker(name string, handler func()) {
 	lock.Unlock()
 }
 
-func Run() {
+func Start() {
 	if !running {
 		lock.Lock()
 
@@ -76,6 +76,10 @@ func Run() {
 
 		lock.Unlock()
 	}
+}
+
+func Run() {
+	Start()
 
 	wg.Wait()
 }
@@ -94,6 +98,24 @@ func Shutdown() {
 
 		lock.Unlock()
 	}
+}
+
+func ShutdownAndWait() {
+	if running {
+		lock.Lock()
+
+		if running {
+			close(ShutdownSignal)
+
+			running = false
+
+			Events.Shutdown.Trigger()
+		}
+
+		lock.Unlock()
+	}
+
+	wg.Wait()
 }
 
 func IsRunning() bool {
