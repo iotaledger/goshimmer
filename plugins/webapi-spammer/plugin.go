@@ -69,5 +69,5 @@ type webResponse struct {
 
 type webRequest struct {
 	Cmd string `json:"cmd"`
-	Tps int64  `json:"tps"`
+	Tps uint   `json:"tps"`
 }

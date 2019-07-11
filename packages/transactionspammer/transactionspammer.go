@@ -18,6 +18,8 @@ var shutdownSignal chan int
 
 var sentCounter = uint(0)
 
+var totalSentCounter = uint(0)
+
 func Start(tps uint) {
 	startMutex.Lock()
 
@@ -28,7 +30,6 @@ func Start(tps uint) {
 			daemon.BackgroundWorker("Transaction Spammer", func() {
 				for {
 					start := time.Now()
-					totalSentCounter := int64(0)
 
 					for {
 						select {
@@ -39,15 +40,9 @@ func Start(tps uint) {
 							return
 
 						default:
-							sentCounter++
-							totalSentCounter++
-
-							tx := value_transaction.New()
-							tx.SetValue(totalSentCounter)
-							tx.SetBranchTransactionHash(tipselection.GetRandomTip())
-							tx.SetTrunkTransactionHash(tipselection.GetRandomTip())
-
-							gossip.Events.ReceiveTransaction.Trigger(tx.MetaTransaction)
+							for _, bundleTransaction := range GenerateBundle(3) {
+								gossip.Events.ReceiveTransaction.Trigger(bundleTransaction.MetaTransaction)
+							}
 
 							if sentCounter >= tps {
 								duration := time.Since(start)
@@ -90,10 +85,13 @@ func GenerateBundle(bundleLength int) (result []*value_transaction.ValueTransact
 	trunk := tipselection.GetRandomTip()
 
 	for i := 0; i < bundleLength; i++ {
+		sentCounter++
+		totalSentCounter++
+
 		tx := value_transaction.New()
 		tx.SetTail(i == 0)
-		tx.SetHead(i == bundleLength - 1)
-		tx.SetTimestamp(sentCounter)
+		tx.SetHead(i == bundleLength-1)
+		tx.SetTimestamp(totalSentCounter)
 		tx.SetBranchTransactionHash(branch)
 		tx.SetTrunkTransactionHash(trunk)
 

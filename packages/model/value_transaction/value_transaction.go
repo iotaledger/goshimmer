@@ -182,7 +182,7 @@ func (this *ValueTransaction) SetTimestamp(timestamp uint) bool {
 			this.timestamp = &timestamp
 
 			this.BlockHasher()
-			copy(this.trits[TIMESTAMP_OFFSET:TIMESTAMP_END], trinary.IntToTrits(int64(timestamp))[:TIMESTAMP_SIZE])
+			copy(this.trits[TIMESTAMP_OFFSET:TIMESTAMP_END], trinary.PadTrits(trinary.IntToTrits(int64(timestamp)), TIMESTAMP_SIZE)[:TIMESTAMP_SIZE])
 			this.UnblockHasher()
 
 			this.SetModified(true)

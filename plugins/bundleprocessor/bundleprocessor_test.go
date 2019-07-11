@@ -15,6 +15,9 @@ import (
 )
 
 func TestProcessSolidBundleHead(t *testing.T) {
+	// show all error messages for tests
+	*node.LOG_LEVEL.Value = node.LOG_LEVEL_DEBUG
+
 	// start a test node
 	node.Start(tangle.PLUGIN, PLUGIN)
 

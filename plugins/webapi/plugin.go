@@ -16,6 +16,7 @@ var Server = echo.New()
 
 func configure(plugin *node.Plugin) {
 	Server.HideBanner = true
+	Server.HidePort = true
 	Server.GET("/", IndexRequest)
 
 	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
