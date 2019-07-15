@@ -1,7 +1,6 @@
 package curl
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/batchworkerpool"
@@ -40,7 +39,7 @@ func (this *BatchHasher) processHashes(tasks []batchworkerpool.Task) {
 		}
 		bcTrits, err := multiplexer.Extract()
 		if err != nil {
-			fmt.Println(err)
+			panic(err)
 		}
 
 		// calculate the hash
