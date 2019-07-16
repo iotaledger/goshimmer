@@ -21,7 +21,7 @@ import (
 
 var seed = client.NewSeed("YFHQWAUPCXC9S9DSHP9NDF9RLNPMZVCMSJKUKQP9SWUSUCPRQXCMDVDVZ9SHHESHIQNCXWBJF9UJSWE9Z", consts.SecurityLevelMedium)
 
-func Benchmark(b *testing.B) {
+func BenchmarkValidateSignatures(b *testing.B) {
 	bundleFactory := client.NewBundleFactory()
 	bundleFactory.AddInput(seed.GetAddress(0), -400)
 	bundleFactory.AddOutput(seed.GetAddress(1), 400, "Testmessage")
@@ -54,11 +54,11 @@ func TestValidateSignatures(t *testing.T) {
 
 	generatedBundle := bundleFactory.GenerateBundle(tipselection.GetRandomTip(), tipselection.GetRandomTip())
 
-	successfull, err := ValidateSignatures(generatedBundle.GetEssenceHash(), generatedBundle.GetTransactions())
+	successful, err := ValidateSignatures(generatedBundle.GetEssenceHash(), generatedBundle.GetTransactions())
 	if err != nil {
 		t.Error(err)
 	}
-	assert.Equal(t, successfull, true, "validation failed")
+	assert.Equal(t, successful, true, "validation failed")
 }
 
 func TestProcessSolidBundleHead_Data(t *testing.T) {

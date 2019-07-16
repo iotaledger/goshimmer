@@ -42,15 +42,33 @@ func BenchmarkEd25519(b *testing.B) {
 	wg.Wait()
 }
 
-func BenchmarkBlake2b(b *testing.B) {
-	data := make([]byte, 750)
+var sampleTransactionData = make([]byte, 750)
+
+func BenchmarkBytesToTrits(b *testing.B) {
+	bytes := blake2b.Sum512(sampleTransactionData)
+
+	b.ResetTimer()
 
 	var wg sync.WaitGroup
 	for i := 0; i < b.N; i++ {
 		wg.Add(1)
 
 		go func() {
-			blake2b.Sum256(data)
+			_, _ = trinary.BytesToTrits(bytes[:])
+
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+}
+
+func BenchmarkBlake2b(b *testing.B) {
+	var wg sync.WaitGroup
+	for i := 0; i < b.N; i++ {
+		wg.Add(1)
+
+		go func() {
+			blake2b.Sum256(sampleTransactionData)
 
 			wg.Done()
 		}()

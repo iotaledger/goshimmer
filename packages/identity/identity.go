@@ -22,8 +22,10 @@ type Identity struct {
 func NewIdentity(publicKey []byte, optionalPrivateKey ...[]byte) *Identity {
 	this := &Identity{
 		Identifier: crypto.Hash20(publicKey),
-		PublicKey:  publicKey,
+		PublicKey:  make([]byte, len(publicKey)),
 	}
+
+	copy(this.PublicKey, publicKey)
 
 	this.StringIdentifier = fmt.Sprintf("%x", this.Identifier)
 

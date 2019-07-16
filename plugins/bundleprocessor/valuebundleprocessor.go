@@ -70,7 +70,7 @@ func ValidateSignatures(bundleHash trinary.Hash, txs []*value_transaction.ValueT
 		}
 
 		// validate all the fragments against the address using Kerl
-		valid, err := signing.ValidateSignatures(address, fragments, bundleHash, signing.NewKerl)
+		valid, err := signing.ValidateSignatures(address, fragments, bundleHash)
 		if err != nil {
 			return false, err
 		}
