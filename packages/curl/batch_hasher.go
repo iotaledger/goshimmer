@@ -20,7 +20,7 @@ func NewBatchHasher(hashLength int, rounds int) (result *BatchHasher) {
 		rounds:     rounds,
 	}
 
-	result.workerPool = batchworkerpool.New(result.processHashes, batchworkerpool.BatchSize(strconv.IntSize))
+	result.workerPool = batchworkerpool.New(result.processHashes, batchworkerpool.BatchSize(strconv.IntSize), batchworkerpool.WorkerCount(100), batchworkerpool.QueueSize(500000))
 	result.workerPool.Start()
 
 	return

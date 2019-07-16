@@ -4,9 +4,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/gossip"
+
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
 )
 
@@ -18,8 +19,6 @@ var shutdownSignal chan int
 
 var sentCounter = uint(0)
 
-var totalSentCounter = uint(0)
-
 func Start(tps uint) {
 	startMutex.Lock()
 
@@ -30,6 +29,7 @@ func Start(tps uint) {
 			daemon.BackgroundWorker("Transaction Spammer", func() {
 				for {
 					start := time.Now()
+					totalSentCounter := int64(0)
 
 					for {
 						select {
@@ -40,17 +40,24 @@ func Start(tps uint) {
 							return
 
 						default:
-							for _, bundleTransaction := range GenerateBundle(3) {
-								gossip.Events.ReceiveTransaction.Trigger(bundleTransaction.MetaTransaction)
-							}
+							sentCounter++
+							totalSentCounter++
+
+							tx := value_transaction.New()
+							tx.SetValue(totalSentCounter)
+							tx.SetBranchTransactionHash(tipselection.GetRandomTip())
+							tx.SetTrunkTransactionHash(tipselection.GetRandomTip())
+
+							gossip.Events.ReceiveTransaction.Trigger(tx.MetaTransaction)
 
 							if sentCounter >= tps {
 								duration := time.Since(start)
+
 								if duration < time.Second {
 									time.Sleep(time.Second - duration)
-
-									start = time.Now()
 								}
+
+								start = time.Now()
 
 								sentCounter = 0
 							}
@@ -76,29 +83,4 @@ func Stop() {
 	}
 
 	startMutex.Unlock()
-}
-
-func GenerateBundle(bundleLength int) (result []*value_transaction.ValueTransaction) {
-	result = make([]*value_transaction.ValueTransaction, bundleLength)
-
-	branch := tipselection.GetRandomTip()
-	trunk := tipselection.GetRandomTip()
-
-	for i := 0; i < bundleLength; i++ {
-		sentCounter++
-		totalSentCounter++
-
-		tx := value_transaction.New()
-		tx.SetTail(i == 0)
-		tx.SetHead(i == bundleLength-1)
-		tx.SetTimestamp(totalSentCounter)
-		tx.SetBranchTransactionHash(branch)
-		tx.SetTrunkTransactionHash(trunk)
-
-		result[i] = tx
-
-		trunk = tx.GetHash()
-	}
-
-	return result
 }
