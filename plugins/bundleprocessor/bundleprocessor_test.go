@@ -21,6 +21,31 @@ import (
 
 var seed = client.NewSeed("YFHQWAUPCXC9S9DSHP9NDF9RLNPMZVCMSJKUKQP9SWUSUCPRQXCMDVDVZ9SHHESHIQNCXWBJF9UJSWE9Z", consts.SecurityLevelMedium)
 
+func Benchmark(b *testing.B) {
+	bundleFactory := client.NewBundleFactory()
+	bundleFactory.AddInput(seed.GetAddress(0), -400)
+	bundleFactory.AddOutput(seed.GetAddress(1), 400, "Testmessage")
+	bundleFactory.AddOutput(client.NewAddress("SJKUKQP9SWUSUCPRQXCMDVDVZ9SHHESHIQNCXWBJF9UJSWE9ZYFHQWAUPCXC9S9DSHP9NDF9RLNPMZVCM"), 400, "Testmessage")
+
+	generatedBundle := bundleFactory.GenerateBundle(tipselection.GetRandomTip(), tipselection.GetRandomTip())
+
+	b.ResetTimer()
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < b.N; i++ {
+		wg.Add(1)
+
+		go func() {
+			ValidateSignatures(generatedBundle.GetEssenceHash(), generatedBundle.GetTransactions())
+
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+}
+
 func TestValidateSignatures(t *testing.T) {
 	bundleFactory := client.NewBundleFactory()
 	bundleFactory.AddInput(seed.GetAddress(0), -400)

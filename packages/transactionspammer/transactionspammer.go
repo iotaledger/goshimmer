@@ -44,6 +44,8 @@ func Start(tps uint) {
 							totalSentCounter++
 
 							tx := value_transaction.New()
+							tx.SetHead(true)
+							tx.SetTail(true)
 							tx.SetValue(totalSentCounter)
 							tx.SetBranchTransactionHash(tipselection.GetRandomTip())
 							tx.SetTrunkTransactionHash(tipselection.GetRandomTip())
