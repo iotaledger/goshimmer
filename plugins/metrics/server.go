@@ -11,11 +11,11 @@ import (
 )
 
 var (
-	_, filename, _, _ = runtime.Caller(0)
-	Clients           = make(map[*websocket.Conn]bool)
-	templPath         = filepath.Join(filepath.Dir(filename), "./dashboard.html")
-	homeTempl, _      = template.ParseFiles(templPath)
-	upgrader          = websocket.Upgrader{
+	_, filename, _, runtime_ok = runtime.Caller(0)
+	Clients                    = make(map[*websocket.Conn]bool)
+	templPath                  = filepath.Join(filepath.Dir(filename), "./dashboard.html")
+	homeTempl, _               = template.ParseFiles(templPath)
+	upgrader                   = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 	}
@@ -43,6 +43,9 @@ func ServeHome(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
+	}
+	if !runtime_ok {
+		panic("Server runtime caller error")
 	}
 
 	var v = struct {
