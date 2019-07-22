@@ -125,7 +125,7 @@ func (headerBar *UIHeaderBar) Update() {
 
 func (headerBar *UIHeaderBar) printLogo() {
 	fmt.Fprintln(headerBar.LogoContainer, "")
-	fmt.Fprintln(headerBar.LogoContainer, "   SHIMMER 1.0.0")
+	fmt.Fprintln(headerBar.LogoContainer, "   SHIMMER 0.0.1")
 	fmt.Fprintln(headerBar.LogoContainer, "  ┌──────┬──────┐")
 	fmt.Fprintln(headerBar.LogoContainer, "    ───┐ │ ┌───")
 	fmt.Fprintln(headerBar.LogoContainer, "     ┐ │ │ │ ┌")
