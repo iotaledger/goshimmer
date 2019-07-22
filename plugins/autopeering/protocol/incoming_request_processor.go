@@ -3,6 +3,8 @@ package protocol
 import (
 	"math/rand"
 
+	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
+
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
@@ -25,7 +27,7 @@ func processIncomingRequest(plugin *node.Plugin, req *request.Request) {
 
 	knownpeers.INSTANCE.AddOrUpdate(req.Issuer)
 
-	if requestShouldBeAccepted(req) {
+	if *parameters.ACCEPT_REQUESTS.Value && requestShouldBeAccepted(req) {
 		defer acceptedneighbors.INSTANCE.Lock()()
 
 		if requestShouldBeAccepted(req) {
