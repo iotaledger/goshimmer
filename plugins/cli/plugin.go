@@ -10,6 +10,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/parameter"
 )
 
+func onAddBoolParameter(param *parameter.BoolParameter) {
+	flagName := strings.Replace(strings.Replace(strings.ToLower(param.Name), "/", "-", 1), "_", "-", -1)
+
+	AddBoolParameter(param.Value, flagName, param.Description)
+}
+
 func onAddIntParameter(param *parameter.IntParameter) {
 	flagName := strings.Replace(strings.Replace(strings.ToLower(param.Name), "/", "-", 1), "_", "-", -1)
 
@@ -23,6 +29,10 @@ func onAddStringParameter(param *parameter.StringParameter) {
 }
 
 func init() {
+	for _, param := range parameter.GetBools() {
+		onAddBoolParameter(param)
+	}
+
 	for _, param := range parameter.GetInts() {
 		onAddIntParameter(param)
 	}
@@ -31,6 +41,7 @@ func init() {
 		onAddStringParameter(param)
 	}
 
+	parameter.Events.AddBool.Attach(events.NewClosure(onAddBoolParameter))
 	parameter.Events.AddInt.Attach(events.NewClosure(onAddIntParameter))
 	parameter.Events.AddString.Attach(events.NewClosure(onAddStringParameter))
 
@@ -49,7 +60,7 @@ func configure(ctx *node.Plugin) {
 	fmt.Println(" \\ `--.| |_| | | | | .  . || .  . || |__ | |_/ /")
 	fmt.Println("  `--. \\  _  | | | | |\\/| || |\\/| ||  __||    / ")
 	fmt.Println(" /\\__/ / | | |_| |_| |  | || |  | || |___| |\\ \\ ")
-	fmt.Println(" \\____/\\_| |_/\\___/\\_|  |_/\\_|  |_/\\____/\\_| \\_| fullnode 1.0")
+	fmt.Println(" \\____/\\_| |_/\\___/\\_|  |_/\\_|  |_/\\____/\\_| \\_| fullnode 0.0.1")
 	fmt.Println()
 
 	ctx.Node.LogInfo("Node", "Loading plugins ...")

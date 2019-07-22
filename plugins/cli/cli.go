@@ -7,6 +7,10 @@ import (
 	"path/filepath"
 )
 
+func AddBoolParameter(p *bool, name string, usage string) {
+	flag.BoolVar(p, name, *p, usage)
+}
+
 func AddIntParameter(p *int, name string, usage string) {
 	flag.IntVar(p, name, *p, usage)
 }
