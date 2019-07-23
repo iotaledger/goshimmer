@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/timeutil"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/plugins/dashboard"
 )
 
 // create configure handler (get's called when the PLUGIN is "loaded" by the node)
@@ -22,7 +23,7 @@ func configure(plugin *node.Plugin) {
 
 	// send the sampledTPS to client via websocket, use uint32 to save mem
 	Events.ReceivedTPSUpdated.Attach(events.NewClosure(func(sampledTPS uint64) {
-		for client := range Clients {
+		for client := range dashboard.Clients {
 			p := make([]byte, 4)
 			binary.LittleEndian.PutUint32(p, uint32(sampledTPS))
 			if err := client.WriteMessage(websocket.BinaryMessage, p); err != nil {
@@ -32,6 +33,7 @@ func configure(plugin *node.Plugin) {
 			if len(TPSQ) > MAX_Q_SIZE {
 				TPSQ = TPSQ[1:]
 			}
+			dashboard.TPSQ = TPSQ
 		}
 	}))
 }
@@ -41,8 +43,8 @@ func run(plugin *node.Plugin) {
 	// create a background worker that "measures" the TPS value every second
 	daemon.BackgroundWorker("Metrics TPS Updater", func() { timeutil.Ticker(measureReceivedTPS, 1*time.Second) })
 	daemon.BackgroundWorker("Dashboard Updater", func() {
-		http.HandleFunc("/dashboard", ServeHome)
-		http.HandleFunc("/ws", ServeWs)
+		http.HandleFunc("/dashboard", dashboard.ServeHome)
+		http.HandleFunc("/ws", dashboard.ServeWs)
 		if err := http.ListenAndServe(":8081", nil); err != nil {
 			log.Fatal(err)
 		}
