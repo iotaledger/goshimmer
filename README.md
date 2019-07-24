@@ -6,12 +6,8 @@ First, you need to [install Go](https://golang.org/doc/install) if it is not alr
 
 ### Requirements
 
-- gcc: Some packages in this repo might require to be compile by gcc. Windows users can install [MinGW-gcc](http://tdm-gcc.tdragon.net/download). 
+- gcc: Some packages in this repo might require to be compiled by gcc. Windows users can install [MinGW-gcc](http://tdm-gcc.tdragon.net/download). 
 
-To download and install all the package dependencies just run:
-```
-go get github.com/iotaledger/goshimmer
-```
 
 ## Build
 
