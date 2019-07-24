@@ -82,8 +82,8 @@ func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool
 		}
 	}
 
-	// check solidity of branch transaction if it is not genesis
-	if trunkTransactionHash := transaction.GetBranchTransactionHash(); trunkTransactionHash != meta_transaction.BRANCH_NULL_HASH {
+	// check solidity of trunk transaction if it is not genesis
+	if trunkTransactionHash := transaction.GetTrunkTransactionHash(); trunkTransactionHash != meta_transaction.BRANCH_NULL_HASH {
 		if trunkTransaction, trunkErr := GetTransaction(trunkTransactionHash); trunkErr != nil {
 			err = trunkErr
 
