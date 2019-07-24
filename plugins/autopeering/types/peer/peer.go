@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/identity"
@@ -15,13 +16,17 @@ import (
 )
 
 type Peer struct {
-	Identity     *identity.Identity
-	Address      net.IP
-	PeeringPort  uint16
-	GossipPort   uint16
-	Salt         *salt.Salt
-	Conn         *network.ManagedConnection
-	connectMutex sync.Mutex
+	Identity       *identity.Identity
+	Address        net.IP
+	PeeringPort    uint16
+	GossipPort     uint16
+	Salt           *salt.Salt
+	Conn           *network.ManagedConnection
+	connectMutex   sync.Mutex
+	firstSeen      time.Time
+	firstSeenMutex sync.RWMutex
+	lastSeen       time.Time
+	lastSeenMutex  sync.RWMutex
 }
 
 func Unmarshal(data []byte) (*Peer, error) {
