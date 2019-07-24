@@ -2,8 +2,6 @@ package metrics
 
 import (
 	"encoding/binary"
-	"log"
-	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -12,8 +10,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/timeutil"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/dashboard"
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
 // create configure handler (get's called when the PLUGIN is "loaded" by the node)
@@ -42,13 +40,6 @@ func configure(plugin *node.Plugin) {
 func run(plugin *node.Plugin) {
 	// create a background worker that "measures" the TPS value every second
 	daemon.BackgroundWorker("Metrics TPS Updater", func() { timeutil.Ticker(measureReceivedTPS, 1*time.Second) })
-	daemon.BackgroundWorker("Dashboard Updater", func() {
-		http.HandleFunc("/dashboard", dashboard.ServeHome)
-		http.HandleFunc("/ws", dashboard.ServeWs)
-		if err := http.ListenAndServe(":8081", nil); err != nil {
-			log.Fatal(err)
-		}
-	})
 }
 
 // export plugin

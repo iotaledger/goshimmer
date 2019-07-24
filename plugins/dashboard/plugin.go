@@ -1,3 +1,83 @@
+package dashboard
+
+import (
+	"html/template"
+	"log"
+	"net/http"
+	"runtime"
+
+	"github.com/gorilla/websocket"
+	"github.com/iotaledger/goshimmer/packages/daemon"
+	"github.com/iotaledger/goshimmer/packages/node"
+)
+
+var (
+	_, filename, _, runtime_ok = runtime.Caller(0)
+	Clients                    = make(map[*websocket.Conn]bool)
+	homeTempl, templ_err       = template.New("dashboard").Parse(dashboardHTML)
+	upgrader                   = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+	}
+)
+
+// ServeWs websocket
+func ServeWs(w http.ResponseWriter, r *http.Request) {
+	ws, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		if _, ok := err.(websocket.HandshakeError); !ok {
+			log.Println(err)
+		}
+		return
+	}
+	Clients = make(map[*websocket.Conn]bool)
+	Clients[ws] = true
+}
+
+// ServeHome registration
+func ServeHome(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/dashboard" {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !runtime_ok {
+		panic("Server runtime caller error")
+	}
+	if templ_err != nil {
+		panic("HTML template error")
+	}
+
+	var v = struct {
+		Host string
+		Data []uint32
+	}{
+		r.Host,
+		TPSQ,
+	}
+	homeTempl.Execute(w, &v)
+}
+
+func configure(plugin *node.Plugin) {
+}
+
+func run(plugin *node.Plugin) {
+	plugin.LogInfo("Starting XXXXX ...")
+	daemon.BackgroundWorker("Dashboard Updater", func() {
+		http.HandleFunc("/dashboard", ServeHome)
+		http.HandleFunc("/ws", ServeWs)
+		if err := http.ListenAndServe(":8081", nil); err != nil {
+			log.Fatal(err)
+		}
+	})
+}
+
+var PLUGIN = node.NewPlugin("Dashboard", configure, run)
+var TPSQ []uint32
+var dashboardHTML = `
 <!DOCTYPE html>
 <html>
 
@@ -313,3 +393,4 @@
 </body>
 
 </html>
+`
