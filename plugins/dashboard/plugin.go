@@ -65,7 +65,6 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-	plugin.LogInfo("Starting XXXXX ...")
 	daemon.BackgroundWorker("Dashboard Updater", func() {
 		http.HandleFunc("/dashboard", ServeHome)
 		http.HandleFunc("/ws", ServeWs)
