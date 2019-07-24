@@ -21,9 +21,9 @@ FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+WORKDIR /app
 
-VOLUME /root/mainnetdb
+VOLUME /app/mainnetdb
 
 EXPOSE 14666/tcp
 EXPOSE 14626/udp
