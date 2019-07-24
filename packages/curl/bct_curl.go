@@ -3,22 +3,29 @@ package curl
 import "github.com/iotaledger/goshimmer/packages/ternary"
 
 const (
-	HIGH_LONG_BITS             = 0xFFFFFFFFFFFFFFFF
 	NUMBER_OF_TRITS_IN_A_TRYTE = 3
 )
 
 type BCTCurl struct {
 	hashLength     int
 	numberOfRounds int
+	highLongBits   uint
 	stateLength    int
 	state          ternary.BCTrits
 	cTransform     func()
 }
 
-func NewBCTCurl(hashLength int, numberOfRounds int) *BCTCurl {
+func NewBCTCurl(hashLength int, numberOfRounds int, batchSize int) *BCTCurl {
+
+	var highLongBits uint
+	for i := 0; i < batchSize; i++ {
+		highLongBits += 1 << uint(i)
+	}
+
 	this := &BCTCurl{
 		hashLength:     hashLength,
 		numberOfRounds: numberOfRounds,
+		highLongBits:   highLongBits,
 		stateLength:    NUMBER_OF_TRITS_IN_A_TRYTE * hashLength,
 		state: ternary.BCTrits{
 			Lo: make([]uint, NUMBER_OF_TRITS_IN_A_TRYTE*hashLength),
@@ -34,8 +41,8 @@ func NewBCTCurl(hashLength int, numberOfRounds int) *BCTCurl {
 
 func (this *BCTCurl) Reset() {
 	for i := 0; i < this.stateLength; i++ {
-		this.state.Lo[i] = HIGH_LONG_BITS
-		this.state.Hi[i] = HIGH_LONG_BITS
+		this.state.Lo[i] = this.highLongBits
+		this.state.Hi[i] = this.highLongBits
 	}
 }
 

@@ -43,7 +43,7 @@ func (this *BatchHasher) processHashes(tasks []batchworkerpool.Task) {
 		}
 
 		// calculate the hash
-		bctCurl := NewBCTCurl(this.hashLength, this.rounds)
+		bctCurl := NewBCTCurl(this.hashLength, this.rounds, strconv.IntSize)
 		bctCurl.Reset()
 		bctCurl.Absorb(bcTrits)
 
