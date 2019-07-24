@@ -7,7 +7,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/typeutils"
-	"github.com/iotaledger/goshimmer/packages/unsafeconvert"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
@@ -70,14 +69,14 @@ func (approvers *Approvers) Marshal() (result []byte) {
 
 	binary.BigEndian.PutUint64(result[MARSHALED_APPROVERS_HASHES_COUNT_START:MARSHALED_APPROVERS_HASHES_COUNT_END], uint64(len(approvers.hashes)))
 
-	copy(result[MARSHALED_APPROVERS_HASH_START:MARSHALED_APPROVERS_HASH_END], unsafeconvert.StringToBytes(approvers.hash))
+	copy(result[MARSHALED_APPROVERS_HASH_START:MARSHALED_APPROVERS_HASH_END], typeutils.StringToBytes(approvers.hash))
 
 	i := 0
 	for hash := range approvers.hashes {
 		var HASH_START = MARSHALED_APPROVERS_HASHES_START + i*(MARSHALED_APPROVERS_HASH_SIZE)
 		var HASH_END = HASH_START + MARSHALED_APPROVERS_HASH_SIZE
 
-		copy(result[HASH_START:HASH_END], unsafeconvert.StringToBytes(hash))
+		copy(result[HASH_START:HASH_END], typeutils.StringToBytes(hash))
 
 		i++
 	}

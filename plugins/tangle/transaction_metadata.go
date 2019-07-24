@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/typeutils"
-	"github.com/iotaledger/goshimmer/packages/unsafeconvert"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
@@ -91,7 +90,7 @@ func storeTransactionMetadataInDatabase(metadata *transactionmetadata.Transactio
 		if marshaledMetadata, err := metadata.Marshal(); err != nil {
 			return err
 		} else {
-			if err := transactionMetadataDatabase.Set(unsafeconvert.StringToBytes(metadata.GetHash()), marshaledMetadata); err != nil {
+			if err := transactionMetadataDatabase.Set(typeutils.StringToBytes(metadata.GetHash()), marshaledMetadata); err != nil {
 				return ErrDatabaseError.Derive(err, "failed to store transaction metadata")
 			}
 
@@ -103,7 +102,7 @@ func storeTransactionMetadataInDatabase(metadata *transactionmetadata.Transactio
 }
 
 func getTransactionMetadataFromDatabase(transactionHash trinary.Trytes) (*transactionmetadata.TransactionMetadata, errors.IdentifiableError) {
-	txMetadata, err := transactionMetadataDatabase.Get(unsafeconvert.StringToBytes(transactionHash))
+	txMetadata, err := transactionMetadataDatabase.Get(typeutils.StringToBytes(transactionHash))
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			return nil, nil
@@ -121,7 +120,7 @@ func getTransactionMetadataFromDatabase(transactionHash trinary.Trytes) (*transa
 }
 
 func databaseContainsTransactionMetadata(transactionHash trinary.Trytes) (bool, errors.IdentifiableError) {
-	if contains, err := transactionMetadataDatabase.Contains(unsafeconvert.StringToBytes(transactionHash)); err != nil {
+	if contains, err := transactionMetadataDatabase.Contains(typeutils.StringToBytes(transactionHash)); err != nil {
 		return contains, ErrDatabaseError.Derive(err, "failed to check if the transaction metadata exists")
 	} else {
 		return contains, nil

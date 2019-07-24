@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/bitutils"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/typeutils"
-	"github.com/iotaledger/goshimmer/packages/unsafeconvert"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
@@ -114,8 +113,8 @@ func (bundle *Bundle) Marshal() (result []byte) {
 
 	binary.BigEndian.PutUint64(result[MARSHALED_TRANSACTIONS_COUNT_START:MARSHALED_TRANSACTIONS_COUNT_END], uint64(len(bundle.transactionHashes)))
 
-	copy(result[MARSHALED_HASH_START:MARSHALED_HASH_END], unsafeconvert.StringToBytes(bundle.hash))
-	copy(result[MARSHALED_BUNDLE_ESSENCE_HASH_START:MARSHALED_BUNDLE_ESSENCE_HASH_END], unsafeconvert.StringToBytes(bundle.bundleEssenceHash))
+	copy(result[MARSHALED_HASH_START:MARSHALED_HASH_END], typeutils.StringToBytes(bundle.hash))
+	copy(result[MARSHALED_BUNDLE_ESSENCE_HASH_START:MARSHALED_BUNDLE_ESSENCE_HASH_END], typeutils.StringToBytes(bundle.bundleEssenceHash))
 
 	var flags bitutils.BitMask
 	if bundle.isValueBundle {
@@ -128,7 +127,7 @@ func (bundle *Bundle) Marshal() (result []byte) {
 		var HASH_START = MARSHALED_APPROVERS_HASHES_START + i*(MARSHALED_TRANSACTION_HASH_SIZE)
 		var HASH_END = HASH_START + MARSHALED_TRANSACTION_HASH_SIZE
 
-		copy(result[HASH_START:HASH_END], unsafeconvert.StringToBytes(hash))
+		copy(result[HASH_START:HASH_END], typeutils.StringToBytes(hash))
 
 		i++
 	}

@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/bitutils"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/typeutils"
-	"github.com/iotaledger/goshimmer/packages/unsafeconvert"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
@@ -219,7 +218,7 @@ func (metadata *TransactionMetadata) Marshal() ([]byte, errors.IdentifiableError
 	metadata.finalizedMutex.RLock()
 	defer metadata.finalizedMutex.RUnlock()
 
-	copy(marshaledMetadata[MARSHALED_HASH_START:MARSHALED_HASH_END], unsafeconvert.StringToBytes(metadata.hash))
+	copy(marshaledMetadata[MARSHALED_HASH_START:MARSHALED_HASH_END], typeutils.StringToBytes(metadata.hash))
 
 	marshaledReceivedTime, err := metadata.receivedTime.MarshalBinary()
 	if err != nil {

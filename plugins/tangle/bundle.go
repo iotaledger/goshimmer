@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/unsafeconvert"
+	"github.com/iotaledger/goshimmer/packages/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
@@ -90,7 +90,7 @@ func configureBundleDatabase(plugin *node.Plugin) {
 
 func storeBundleInDatabase(bundle *bundle.Bundle) errors.IdentifiableError {
 	if bundle.GetModified() {
-		if err := bundleDatabase.Set(unsafeconvert.StringToBytes(bundle.GetHash()), bundle.Marshal()); err != nil {
+		if err := bundleDatabase.Set(typeutils.StringToBytes(bundle.GetHash()), bundle.Marshal()); err != nil {
 			return ErrDatabaseError.Derive(err, "failed to store bundle")
 		}
 
@@ -101,7 +101,7 @@ func storeBundleInDatabase(bundle *bundle.Bundle) errors.IdentifiableError {
 }
 
 func getBundleFromDatabase(transactionHash trinary.Trytes) (*bundle.Bundle, errors.IdentifiableError) {
-	bundleData, err := bundleDatabase.Get(unsafeconvert.StringToBytes(transactionHash))
+	bundleData, err := bundleDatabase.Get(typeutils.StringToBytes(transactionHash))
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			return nil, nil
@@ -119,7 +119,7 @@ func getBundleFromDatabase(transactionHash trinary.Trytes) (*bundle.Bundle, erro
 }
 
 func databaseContainsBundle(transactionHash trinary.Trytes) (bool, errors.IdentifiableError) {
-	if contains, err := bundleDatabase.Contains(unsafeconvert.StringToBytes(transactionHash)); err != nil {
+	if contains, err := bundleDatabase.Contains(typeutils.StringToBytes(transactionHash)); err != nil {
 		return false, ErrDatabaseError.Derive(err, "failed to check if the bundle exists")
 	} else {
 		return contains, nil

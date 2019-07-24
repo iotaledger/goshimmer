@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/approvers"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/unsafeconvert"
+	"github.com/iotaledger/goshimmer/packages/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
@@ -86,7 +86,7 @@ func configureApproversDatabase(plugin *node.Plugin) {
 
 func storeApproversInDatabase(approvers *approvers.Approvers) errors.IdentifiableError {
 	if approvers.GetModified() {
-		if err := approversDatabase.Set(unsafeconvert.StringToBytes(approvers.GetHash()), approvers.Marshal()); err != nil {
+		if err := approversDatabase.Set(typeutils.StringToBytes(approvers.GetHash()), approvers.Marshal()); err != nil {
 			return ErrDatabaseError.Derive(err, "failed to store approvers")
 		}
 
@@ -97,7 +97,7 @@ func storeApproversInDatabase(approvers *approvers.Approvers) errors.Identifiabl
 }
 
 func getApproversFromDatabase(transactionHash trinary.Trytes) (*approvers.Approvers, errors.IdentifiableError) {
-	approversData, err := approversDatabase.Get(unsafeconvert.StringToBytes(transactionHash))
+	approversData, err := approversDatabase.Get(typeutils.StringToBytes(transactionHash))
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			return nil, nil
@@ -115,7 +115,7 @@ func getApproversFromDatabase(transactionHash trinary.Trytes) (*approvers.Approv
 }
 
 func databaseContainsApprovers(transactionHash trinary.Trytes) (bool, errors.IdentifiableError) {
-	if contains, err := approversDatabase.Contains(unsafeconvert.StringToBytes(transactionHash)); err != nil {
+	if contains, err := approversDatabase.Contains(typeutils.StringToBytes(transactionHash)); err != nil {
 		return false, ErrDatabaseError.Derive(err, "failed to check if the approvers exists")
 	} else {
 		return contains, nil

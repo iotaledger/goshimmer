@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/typeutils"
-	"github.com/iotaledger/goshimmer/packages/unsafeconvert"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
@@ -88,7 +87,7 @@ func configureTransactionDatabase(plugin *node.Plugin) {
 
 func storeTransactionInDatabase(transaction *value_transaction.ValueTransaction) errors.IdentifiableError {
 	if transaction.GetModified() {
-		if err := transactionDatabase.Set(unsafeconvert.StringToBytes(transaction.GetHash()), transaction.MetaTransaction.GetBytes()); err != nil {
+		if err := transactionDatabase.Set(typeutils.StringToBytes(transaction.GetHash()), transaction.MetaTransaction.GetBytes()); err != nil {
 			return ErrDatabaseError.Derive(err, "failed to store transaction")
 		}
 
@@ -99,7 +98,7 @@ func storeTransactionInDatabase(transaction *value_transaction.ValueTransaction)
 }
 
 func getTransactionFromDatabase(transactionHash trinary.Trytes) (*value_transaction.ValueTransaction, errors.IdentifiableError) {
-	txData, err := transactionDatabase.Get(unsafeconvert.StringToBytes(transactionHash))
+	txData, err := transactionDatabase.Get(typeutils.StringToBytes(transactionHash))
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			return nil, nil
@@ -112,7 +111,7 @@ func getTransactionFromDatabase(transactionHash trinary.Trytes) (*value_transact
 }
 
 func databaseContainsTransaction(transactionHash trinary.Trytes) (bool, errors.IdentifiableError) {
-	if contains, err := transactionDatabase.Contains(unsafeconvert.StringToBytes(transactionHash)); err != nil {
+	if contains, err := transactionDatabase.Contains(typeutils.StringToBytes(transactionHash)); err != nil {
 		return contains, ErrDatabaseError.Derive(err, "failed to check if the transaction exists")
 	} else {
 		return contains, nil
