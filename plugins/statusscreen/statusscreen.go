@@ -49,7 +49,7 @@ func run(plugin *node.Plugin) {
 	content.SetColumns(0)
 
 	footer := newPrimitive("")
-	footer.SetBackgroundColor(tcell.ColorDarkBlue)
+	footer.SetBackgroundColor(tcell.ColorDarkMagenta)
 	footer.SetTextColor(tcell.ColorWhite)
 
 	grid := tview.NewGrid().
