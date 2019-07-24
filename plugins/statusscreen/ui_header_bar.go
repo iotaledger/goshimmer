@@ -40,13 +40,13 @@ func NewUIHeaderBar() *UIHeaderBar {
 		SetTextAlign(tview.AlignLeft).
 		SetTextColor(tcell.ColorWhite).
 		SetDynamicColors(true).
-		SetBackgroundColor(tcell.ColorDarkMagenta)
+		SetBackgroundColor(tcell.ColorDarkBlue)
 
 	headerBar.InfoContainer.
 		SetTextAlign(tview.AlignRight).
 		SetTextColor(tcell.ColorWhite).
 		SetDynamicColors(true).
-		SetBackgroundColor(tcell.ColorDarkMagenta)
+		SetBackgroundColor(tcell.ColorDarkBlue)
 
 	headerBar.Primitive.
 		SetColumns(17, 0).
