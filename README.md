@@ -35,6 +35,7 @@ ren shimmer shimmer.exe
 ```
 
 You can then run by:
+
 Linux
 ```
 ./shimmer
