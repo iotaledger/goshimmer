@@ -28,10 +28,21 @@ You can build your executable (as well as cross compiling for other architecture
 ```
 go build -o shimmer
 ```
-You can then run by:
 
+On Windows:
+```
+ren shimmer shimmer.exe
+```
+
+You can then run by:
+Linux
 ```
 ./shimmer
+```
+
+Windows
+```
+shimmer
 ```
 
 ## Docker
