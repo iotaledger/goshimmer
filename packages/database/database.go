@@ -54,9 +54,8 @@ func (this *databaseImpl) Open() error {
 			}
 		}
 
-		opts := badger.DefaultOptions
-		opts.Dir = directory + string(filepath.Separator) + this.name
-		opts.ValueDir = opts.Dir
+		opts := badger.DefaultOptions(filepath.Join(directory, this.name))
+
 		opts.Logger = &logger{}
 		opts.Truncate = true
 		opts.TableLoadingMode = options.MemoryMap
