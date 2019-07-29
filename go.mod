@@ -9,7 +9,7 @@ require (
 	github.com/ethereum/go-ethereum v1.8.27
 	github.com/gdamore/tcell v1.1.2
 	github.com/go-zeromq/zmq4 v0.4.0
-	github.com/golang/protobuf v1.3.1 // indirect
+	github.com/golang/protobuf v1.3.1
 	github.com/google/open-location-code/go v0.0.0-20190603181809-cf814bded323
 	github.com/iotaledger/iota.go v1.0.0-beta.6
 	github.com/labstack/echo v3.3.10+incompatible
