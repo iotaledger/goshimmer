@@ -11,7 +11,7 @@ require (
 	github.com/go-zeromq/zmq4 v0.4.0
 	github.com/golang/protobuf v1.3.1
 	github.com/google/open-location-code/go v0.0.0-20190603181809-cf814bded323
-	github.com/iotaledger/iota.go v1.0.0-beta.6
+	github.com/iotaledger/iota.go v1.0.0-beta.7
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.2.9 // indirect
 	github.com/magiconair/properties v1.8.1
