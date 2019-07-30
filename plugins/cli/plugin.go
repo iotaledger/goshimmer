@@ -10,40 +10,44 @@ import (
 	"github.com/iotaledger/goshimmer/packages/parameter"
 )
 
-func onAddBoolParameter(param *parameter.BoolParameter) {
-	flagName := strings.Replace(strings.Replace(strings.ToLower(param.Name), "/", "-", 1), "_", "-", -1)
+func getFlagName(paramName string) string {
+	return strings.Replace(strings.Replace(strings.ToLower(paramName), "/", "-", 1), "_", "-", -1)
+}
 
-	AddBoolParameter(param.Value, flagName, param.Description)
+func onAddBoolParameter(param *parameter.BoolParameter) {
+	AddBoolParameter(param.Value, getFlagName(param.Name), param.Description)
 }
 
 func onAddIntParameter(param *parameter.IntParameter) {
-	flagName := strings.Replace(strings.Replace(strings.ToLower(param.Name), "/", "-", 1), "_", "-", -1)
-
-	AddIntParameter(param.Value, flagName, param.Description)
+	AddIntParameter(param.Value, getFlagName(param.Name), param.Description)
 }
 
 func onAddStringParameter(param *parameter.StringParameter) {
-	flagName := strings.Replace(strings.Replace(strings.ToLower(param.Name), "/", "-", 1), "_", "-", -1)
+	AddStringParameter(param.Value, getFlagName(param.Name), param.Description)
+}
 
-	AddStringParameter(param.Value, flagName, param.Description)
+func onAddPlugin(name string, status int) {
+	AddPluginStatus(node.GetPluginIdentifier(name), status)
 }
 
 func init() {
 	for _, param := range parameter.GetBools() {
 		onAddBoolParameter(param)
 	}
-
 	for _, param := range parameter.GetInts() {
 		onAddIntParameter(param)
 	}
-
 	for _, param := range parameter.GetStrings() {
 		onAddStringParameter(param)
+	}
+	for name, status := range parameter.GetPlugins() {
+		onAddPlugin(name, status)
 	}
 
 	parameter.Events.AddBool.Attach(events.NewClosure(onAddBoolParameter))
 	parameter.Events.AddInt.Attach(events.NewClosure(onAddIntParameter))
 	parameter.Events.AddString.Attach(events.NewClosure(onAddStringParameter))
+	parameter.Events.AddPlugin.Attach(events.NewClosure(onAddPlugin))
 
 	flag.Usage = printUsage
 }
@@ -73,6 +77,8 @@ func configure(ctx *node.Plugin) {
 	ctx.Node.LogInfo("Node", "Loading plugins ...")
 }
 
-var PLUGIN = node.NewPlugin("CLI", node.Enabled, configure, func(plugin *node.Plugin) {
+func run(ctx *node.Plugin) {
+	// do nothing; everything is handled in the configure step
+}
 
-})
+var PLUGIN = node.NewPlugin("CLI", node.Enabled, configure, run)

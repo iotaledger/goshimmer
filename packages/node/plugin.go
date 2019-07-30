@@ -1,9 +1,11 @@
 package node
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/goshimmer/packages/parameter"
 )
 
 const (
@@ -20,7 +22,7 @@ type Plugin struct {
 }
 
 // Creates a new plugin with the given name, default status and callbacks.
-// The last specified callback is the run callback, while all other callbacks are configure callbacks.
+// The last specified callback is the mandatory run callback, while all other callbacks are configure callbacks.
 func NewPlugin(name string, status int, callback Callback, callbacks ...Callback) *Plugin {
 	plugin := &Plugin{
 		Name:   name,
@@ -30,6 +32,9 @@ func NewPlugin(name string, status int, callback Callback, callbacks ...Callback
 			Run:       events.NewEvent(pluginCaller),
 		},
 	}
+
+	// make the plugin known to the parameters
+	parameter.AddPlugin(name, status)
 
 	if len(callbacks) >= 1 {
 		plugin.Events.Configure.Attach(events.NewClosure(callback))
@@ -43,6 +48,10 @@ func NewPlugin(name string, status int, callback Callback, callbacks ...Callback
 	}
 
 	return plugin
+}
+
+func GetPluginIdentifier(name string) string {
+	return strings.ToLower(strings.Replace(name, " ", "", -1))
 }
 
 func (plugin *Plugin) LogSuccess(message string) {
