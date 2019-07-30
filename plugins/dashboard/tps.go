@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"encoding/binary"
-	"fmt"
 	"html/template"
 	"net/http"
 
@@ -27,11 +26,13 @@ func ServeWs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	notifyWebsocketClient := events.NewClosure(func(sampledTPS uint64) {
-		p := make([]byte, 4)
-		binary.LittleEndian.PutUint32(p, uint32(sampledTPS))
-		if err := ws.WriteMessage(websocket.BinaryMessage, p); err != nil {
-			return
-		}
+		go func() {
+			p := make([]byte, 4)
+			binary.LittleEndian.PutUint32(p, uint32(sampledTPS))
+			if err := ws.WriteMessage(websocket.BinaryMessage, p); err != nil {
+				return
+			}
+		}()
 	})
 
 	metrics.Events.ReceivedTPSUpdated.Attach(notifyWebsocketClient)
@@ -41,8 +42,6 @@ func ServeWs(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-
-	fmt.Println("DISCONNECTOR")
 
 	metrics.Events.ReceivedTPSUpdated.Detach(notifyWebsocketClient)
 }
