@@ -68,7 +68,7 @@ func scheduleUpdateForSalt(saltToUpdate *salt.Salt, settingsKey []byte, lifeSpan
 	if saltToUpdate.ExpirationTime.Before(now) {
 		updatePublicSalt(saltToUpdate, settingsKey, lifeSpan, callback)
 	} else {
-		daemon.BackgroundWorker(func() {
+		daemon.BackgroundWorker("Salt Updater", func() {
 			select {
 			case <-time.After(saltToUpdate.ExpirationTime.Sub(now)):
 				updatePublicSalt(saltToUpdate, settingsKey, lifeSpan, callback)

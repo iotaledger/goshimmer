@@ -3,6 +3,8 @@ package protocol
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/timeutil"
+
 	"github.com/iotaledger/goshimmer/packages/accountability"
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/node"
@@ -41,7 +43,7 @@ func createOutgoingRequestProcessor(plugin *node.Plugin) func() {
 
 func sendOutgoingRequests(plugin *node.Plugin) {
 	for _, chosenNeighborCandidate := range chosenneighbors.CANDIDATES.Clone() {
-		time.Sleep(5 * time.Second)
+		timeutil.Sleep(5 * time.Second)
 
 		if candidateShouldBeContacted(chosenNeighborCandidate) {
 			data := outgoingrequest.INSTANCE.Marshal()

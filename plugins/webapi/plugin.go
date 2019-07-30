@@ -16,6 +16,7 @@ var Server = echo.New()
 
 func configure(plugin *node.Plugin) {
 	Server.HideBanner = true
+	Server.HidePort = true
 	Server.GET("/", IndexRequest)
 
 	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
@@ -33,7 +34,7 @@ func configure(plugin *node.Plugin) {
 func run(plugin *node.Plugin) {
 	plugin.LogInfo("Starting Web Server ...")
 
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("WebAPI Server", func() {
 		plugin.LogSuccess("Starting Web Server ... done")
 
 		if err := Server.Start(":8080"); err != nil {

@@ -18,6 +18,7 @@ type LRUCache struct {
 	size             int
 	options          *LRUCacheOptions
 	mutex            sync.RWMutex
+	krwMutex         KRWMutex
 }
 
 func NewLRUCache(capacity int, options ...*LRUCacheOptions) *LRUCache {
@@ -33,14 +34,20 @@ func NewLRUCache(capacity int, options ...*LRUCacheOptions) *LRUCache {
 		doublyLinkedList: &DoublyLinkedList{},
 		capacity:         capacity,
 		options:          currentOptions,
+		krwMutex:         KRWMutex{keyMutexConsumers: make(map[interface{}]int), keyMutexes: make(map[interface{}]*sync.RWMutex)},
 	}
 }
 
 func (cache *LRUCache) Set(key interface{}, value interface{}) {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
+	keyMutex := cache.krwMutex.Register(key)
+	keyMutex.Lock()
 
+	cache.mutex.Lock()
 	cache.set(key, value)
+	cache.mutex.Unlock()
+
+	keyMutex.Unlock()
+	cache.krwMutex.Free(key)
 }
 
 func (cache *LRUCache) set(key interface{}, value interface{}) {
@@ -76,18 +83,32 @@ func (cache *LRUCache) set(key interface{}, value interface{}) {
 }
 
 func (cache *LRUCache) ComputeIfAbsent(key interface{}, callback func() interface{}) (result interface{}) {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
+	keyMutex := cache.krwMutex.Register(key)
 
+	keyMutex.RLock()
+	cache.mutex.RLock()
 	if element, exists := cache.directory[key]; exists {
+		cache.mutex.RUnlock()
+		cache.mutex.Lock()
 		cache.promoteElement(element)
+		cache.mutex.Unlock()
 
 		result = element.GetValue().(*lruCacheElement).value
+
+		keyMutex.RUnlock()
 	} else {
-		if result = callback(); result != nil {
+		cache.mutex.RUnlock()
+		keyMutex.RUnlock()
+		keyMutex.Lock()
+		if result = callback(); !typeutils.IsInterfaceNil(result) {
+			cache.mutex.Lock()
 			cache.set(key, result)
+			cache.mutex.Unlock()
 		}
+		keyMutex.Unlock()
 	}
+
+	cache.krwMutex.Free(key)
 
 	return
 }
@@ -97,65 +118,95 @@ func (cache *LRUCache) ComputeIfAbsent(key interface{}, callback func() interfac
 // If the callback returns nil the entry is removed from the cache.
 // Returns the updated entry.
 func (cache *LRUCache) ComputeIfPresent(key interface{}, callback func(value interface{}) interface{}) (result interface{}) {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
+	keyMutex := cache.krwMutex.Register(key)
 
+	keyMutex.RLock()
+	cache.mutex.RLock()
 	if entry, exists := cache.directory[key]; exists {
+		cache.mutex.RUnlock()
+		keyMutex.RUnlock()
+		keyMutex.Lock()
+
 		result = entry.GetValue().(*lruCacheElement).value
 
 		if callbackResult := callback(result); !typeutils.IsInterfaceNil(callbackResult) {
 			result = callbackResult
 
+			cache.mutex.Lock()
 			cache.set(key, callbackResult)
+			cache.mutex.Unlock()
+
+			keyMutex.Unlock()
 		} else {
+			cache.mutex.Lock()
 			if err := cache.doublyLinkedList.removeEntry(entry); err != nil {
 				panic(err)
 			}
 			delete(cache.directory, key)
-
 			cache.size--
+			cache.mutex.Unlock()
+
+			keyMutex.Unlock()
 
 			if cache.options.EvictionCallback != nil {
 				cache.options.EvictionCallback(key, result)
 			}
 		}
 	} else {
-		result = nil
+		cache.mutex.RUnlock()
+		keyMutex.RUnlock()
 	}
+
+	cache.krwMutex.Free(key)
 
 	return
 }
 
-func (cache *LRUCache) Contains(key interface{}) bool {
+func (cache *LRUCache) Contains(key interface{}) (result bool) {
+	keyMutex := cache.krwMutex.Register(key)
+
+	keyMutex.RLock()
 	cache.mutex.RLock()
 	if element, exists := cache.directory[key]; exists {
+		keyMutex.RUnlock()
+
 		cache.mutex.RUnlock()
 		cache.mutex.Lock()
-		defer cache.mutex.Unlock()
-
 		cache.promoteElement(element)
+		cache.mutex.Unlock()
 
-		return true
+		result = true
 	} else {
 		cache.mutex.RUnlock()
+		keyMutex.RUnlock()
 
-		return false
+		result = false
 	}
+
+	cache.krwMutex.Free(key)
+
+	return
 }
 
 func (cache *LRUCache) Get(key interface{}) (result interface{}) {
+	keyMutex := cache.krwMutex.Register(key)
+
+	keyMutex.RLock()
 	cache.mutex.RLock()
 	if element, exists := cache.directory[key]; exists {
 		cache.mutex.RUnlock()
 		cache.mutex.Lock()
-		defer cache.mutex.Unlock()
-
 		cache.promoteElement(element)
+		cache.mutex.Unlock()
 
 		result = element.GetValue().(*lruCacheElement).value
+
+		keyMutex.RUnlock()
 	} else {
 		cache.mutex.RUnlock()
 	}
+
+	cache.krwMutex.Free(key)
 
 	return
 }
@@ -175,6 +226,9 @@ func (cache *LRUCache) GetSize() int {
 }
 
 func (cache *LRUCache) Delete(key interface{}) bool {
+	keyMutex := cache.krwMutex.Register(key)
+	keyMutex.Lock()
+
 	cache.mutex.RLock()
 
 	entry, exists := cache.directory[key]
@@ -198,6 +252,9 @@ func (cache *LRUCache) Delete(key interface{}) bool {
 	}
 
 	cache.mutex.RUnlock()
+
+	keyMutex.Unlock()
+	cache.krwMutex.Free(key)
 
 	return false
 }

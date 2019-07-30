@@ -37,7 +37,7 @@ func ConfigureServer(plugin *node.Plugin) {
 }
 
 func RunServer(plugin *node.Plugin) {
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("Autopeering TCP Server", func() {
 		if *parameters.ADDRESS.Value == "0.0.0.0" {
 			plugin.LogInfo("Starting TCP Server (port " + strconv.Itoa(*parameters.PORT.Value) + ") ...")
 		} else {

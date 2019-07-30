@@ -1,5 +1,12 @@
 package parameter
 
+type BoolParameter struct {
+	Name         string
+	Value        *bool
+	DefaultValue bool
+	Description  string
+}
+
 type IntParameter struct {
 	Name         string
 	Value        *int

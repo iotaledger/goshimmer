@@ -1,0 +1,18 @@
+version: "3"
+
+services:
+
+  goshimmer:
+    image: iotaledger/goshimmer
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: iota_goshimmer
+    restart: unless-stopped
+    volumes:
+      - ./mainnetdb:/app/mainnetdb:rw
+    ports:
+      - "14666:14666/tcp"
+      - "14626:14626/udp"
+      - "14626:14626/tcp"
+    command: "-node-disable-plugins statusscreen"

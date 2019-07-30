@@ -36,7 +36,7 @@ func Configure(plugin *node.Plugin) {
 }
 
 func Run(plugin *node.Plugin) {
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("Analysis Server", func() {
 		plugin.LogInfo("Starting Server (port " + strconv.Itoa(*SERVER_PORT.Value) + ") ...")
 
 		server.Listen(*SERVER_PORT.Value)

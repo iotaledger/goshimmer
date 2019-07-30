@@ -1,59 +1,51 @@
 package tangle
 
 import (
+	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/model/approvers"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
+	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/ternary"
+	"github.com/iotaledger/goshimmer/packages/workerpool"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 // region plugin module setup //////////////////////////////////////////////////////////////////////////////////////////
 
-//var solidifierChan = make(chan *value_transaction.ValueTransaction, 1000)
-
-const NUMBER_OF_WORKERS = 300
-
-var tasksChan = make(chan *meta_transaction.MetaTransaction, NUMBER_OF_WORKERS)
+var workerPool *workerpool.WorkerPool
 
 func configureSolidifier(plugin *node.Plugin) {
-	for i := 0; i < NUMBER_OF_WORKERS; i++ {
-		go func() {
-			for {
-				rawTransaction := <-tasksChan
+	workerPool = workerpool.New(func(task workerpool.Task) {
+		processMetaTransaction(plugin, task.Param(0).(*meta_transaction.MetaTransaction))
 
-				processMetaTransaction(plugin, rawTransaction)
-			}
-		}()
-	}
+		task.Return(nil)
+	}, workerpool.WorkerCount(WORKER_COUNT), workerpool.QueueSize(10000))
 
 	gossip.Events.ReceiveTransaction.Attach(events.NewClosure(func(rawTransaction *meta_transaction.MetaTransaction) {
-		tasksChan <- rawTransaction
-
-		//go processMetaTransaction(plugin, rawTransaction)
+		workerPool.Submit(rawTransaction)
 	}))
-	/*
-		for i := 0; i < NUMBER_OF_WORKERS; i++ {
-			go func() {
-				for transaction := range solidifierChan {
-					select {
-					case <-daemon.ShutdownSignal:
-						return
 
-					default:
-						// update the solidity flags of this transaction and its approvers
-						if _, err := IsSolid(transaction); err != nil {
-							plugin.LogFailure(err.Error())
+	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
+		plugin.LogInfo("Stopping Solidifier ...")
 
-							return
-						}
-					}
-				}
-			}()
-		}*/
+		workerPool.Stop()
+	}))
+}
+
+func runSolidifier(plugin *node.Plugin) {
+	plugin.LogInfo("Starting Solidifier ...")
+
+	daemon.BackgroundWorker("Tangle Solidifier", func() {
+		plugin.LogSuccess("Starting Solidifier ... done")
+
+		workerPool.Run()
+
+		plugin.LogSuccess("Stopping Solidifier ... done")
+	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -61,7 +53,7 @@ func configureSolidifier(plugin *node.Plugin) {
 // Checks and updates the solid flag of a single transaction.
 func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool, err errors.IdentifiableError) {
 	// abort if transaction is solid already
-	txMetadata, metaDataErr := GetTransactionMetadata(transaction.GetHash(), NewTransactionMetadata)
+	txMetadata, metaDataErr := GetTransactionMetadata(transaction.GetHash(), transactionmetadata.New)
 	if metaDataErr != nil {
 		err = metaDataErr
 
@@ -81,7 +73,7 @@ func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool
 			return
 		} else if branchTransaction == nil {
 			return
-		} else if branchTransactionMetadata, branchErr := GetTransactionMetadata(branchTransaction.GetHash(), NewTransactionMetadata); branchErr != nil {
+		} else if branchTransactionMetadata, branchErr := GetTransactionMetadata(branchTransaction.GetHash(), transactionmetadata.New); branchErr != nil {
 			err = branchErr
 
 			return
@@ -90,15 +82,15 @@ func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool
 		}
 	}
 
-	// check solidity of branch transaction if it is not genesis
-	if trunkTransactionHash := transaction.GetBranchTransactionHash(); trunkTransactionHash != meta_transaction.BRANCH_NULL_HASH {
+	// check solidity of trunk transaction if it is not genesis
+	if trunkTransactionHash := transaction.GetTrunkTransactionHash(); trunkTransactionHash != meta_transaction.BRANCH_NULL_HASH {
 		if trunkTransaction, trunkErr := GetTransaction(trunkTransactionHash); trunkErr != nil {
 			err = trunkErr
 
 			return
 		} else if trunkTransaction == nil {
 			return
-		} else if trunkTransactionMetadata, trunkErr := GetTransactionMetadata(trunkTransaction.GetHash(), NewTransactionMetadata); trunkErr != nil {
+		} else if trunkTransactionMetadata, trunkErr := GetTransactionMetadata(trunkTransaction.GetHash(), transactionmetadata.New); trunkErr != nil {
 			err = trunkErr
 
 			return
@@ -130,11 +122,11 @@ func IsSolid(transaction *value_transaction.ValueTransaction) (bool, errors.Iden
 	return false, nil
 }
 
-func propagateSolidity(transactionHash ternary.Trinary) errors.IdentifiableError {
-	if approvers, err := GetApprovers(transactionHash, approvers.New); err != nil {
+func propagateSolidity(transactionHash trinary.Trytes) errors.IdentifiableError {
+	if transactionApprovers, err := GetApprovers(transactionHash, approvers.New); err != nil {
 		return err
 	} else {
-		for _, approverHash := range approvers.GetHashes() {
+		for _, approverHash := range transactionApprovers.GetHashes() {
 			if approver, err := GetTransaction(approverHash); err != nil {
 				return err
 			} else if approver != nil {
@@ -154,7 +146,7 @@ func propagateSolidity(transactionHash ternary.Trinary) errors.IdentifiableError
 
 func processMetaTransaction(plugin *node.Plugin, metaTransaction *meta_transaction.MetaTransaction) {
 	var newTransaction bool
-	if tx, err := GetTransaction(metaTransaction.GetHash(), func(transactionHash ternary.Trinary) *value_transaction.ValueTransaction {
+	if tx, err := GetTransaction(metaTransaction.GetHash(), func(transactionHash trinary.Trytes) *value_transaction.ValueTransaction {
 		newTransaction = true
 
 		return value_transaction.FromMetaTransaction(metaTransaction)
@@ -166,6 +158,8 @@ func processMetaTransaction(plugin *node.Plugin, metaTransaction *meta_transacti
 }
 
 func processTransaction(plugin *node.Plugin, transaction *value_transaction.ValueTransaction) {
+	Events.TransactionStored.Trigger(transaction)
+
 	transactionHash := transaction.GetHash()
 
 	// register tx as approver for trunk
@@ -192,5 +186,6 @@ func processTransaction(plugin *node.Plugin, transaction *value_transaction.Valu
 
 		return
 	}
-	//solidifierChan <- transaction
 }
+
+const WORKER_COUNT = 5000

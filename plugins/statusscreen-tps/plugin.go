@@ -36,7 +36,7 @@ var PLUGIN = node.NewPlugin("Statusscreen TPS", func(plugin *node.Plugin) {
 		return "TPS", strconv.FormatUint(atomic.LoadUint64(&receivedTps), 10) + " received / " + strconv.FormatUint(atomic.LoadUint64(&solidTps), 10) + " new"
 	})
 }, func(plugin *node.Plugin) {
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("Statusscreen TPS Tracker", func() {
 		ticker := time.NewTicker(time.Second)
 
 		for {

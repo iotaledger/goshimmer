@@ -41,7 +41,7 @@ func ConfigureServer(plugin *node.Plugin) {
 }
 
 func RunServer(plugin *node.Plugin) {
-	daemon.BackgroundWorker(func() {
+	daemon.BackgroundWorker("Autopeering UDP Server", func() {
 		if *parameters.ADDRESS.Value == "0.0.0.0" {
 			plugin.LogInfo("Starting UDP Server (port " + strconv.Itoa(*parameters.PORT.Value) + ") ...")
 		} else {

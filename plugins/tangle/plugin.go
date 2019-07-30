@@ -9,12 +9,15 @@ import (
 var PLUGIN = node.NewPlugin("Tangle", configure, run)
 
 func configure(plugin *node.Plugin) {
-	configureDatabase(plugin)
+	configureTransactionDatabase(plugin)
+	configureTransactionMetaDataDatabase(plugin)
+	configureApproversDatabase(plugin)
+	configureBundleDatabase(plugin)
 	configureSolidifier(plugin)
 }
 
 func run(plugin *node.Plugin) {
-	// this plugin has no background workers
+	runSolidifier(plugin)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

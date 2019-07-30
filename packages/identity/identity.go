@@ -21,7 +21,7 @@ func NewPublicIdentity(publicKey []byte) *Identity {
 	return &Identity{
 		Identifier:       identifier,
 		StringIdentifier: fmt.Sprintf("%x", identifier),
-		PublicKey:        publicKey,
+		PublicKey:        append([]byte(nil), publicKey...),
 		privateKey:       nil,
 	}
 }
