@@ -16,7 +16,7 @@ var server *http.Server
 
 var router *http.ServeMux
 
-var PLUGIN = node.NewPlugin("Dashboard", node.Enabled, configure, run)
+var PLUGIN = node.NewPlugin("Dashboard", node.Disabled, configure, run)
 
 func configure(plugin *node.Plugin) {
 	router = http.NewServeMux()
