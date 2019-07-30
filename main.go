@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/bundleprocessor"
 	"github.com/iotaledger/goshimmer/plugins/cli"
+	"github.com/iotaledger/goshimmer/plugins/dashboard"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
@@ -31,6 +32,7 @@ func main() {
 		gracefulshutdown.PLUGIN,
 		tipselection.PLUGIN,
 		zeromq.PLUGIN,
+		dashboard.PLUGIN,
 		metrics.PLUGIN,
 
 		statusscreen.PLUGIN,
