@@ -1,6 +1,9 @@
 package protocol
 
 import (
+	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/outgoingrequest"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/types"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/server/tcp"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/timeutil"
@@ -10,10 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/outgoingrequest"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/types"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/server/tcp"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 )
 
@@ -46,14 +46,27 @@ func sendOutgoingRequests(plugin *node.Plugin) {
 		timeutil.Sleep(5 * time.Second)
 
 		if candidateShouldBeContacted(chosenNeighborCandidate) {
-			if dialed, err := chosenNeighborCandidate.Send(outgoingrequest.INSTANCE.Marshal(), types.PROTOCOL_TYPE_TCP, true); err != nil {
-				plugin.LogDebug(err.Error())
-			} else {
-				plugin.LogDebug("sent peering request to " + chosenNeighborCandidate.String())
+			doneChan := make(chan int, 1)
 
-				if dialed {
-					tcp.HandleConnection(chosenNeighborCandidate.Conn)
+			go func(doneChan chan int) {
+				if dialed, err := chosenNeighborCandidate.Send(outgoingrequest.INSTANCE.Marshal(), types.PROTOCOL_TYPE_TCP, true); err != nil {
+					plugin.LogDebug(err.Error())
+				} else {
+					plugin.LogDebug("sent peering request to " + chosenNeighborCandidate.String())
+
+					if dialed {
+						tcp.HandleConnection(chosenNeighborCandidate.Conn)
+					}
 				}
+
+				close(doneChan)
+			}(doneChan)
+
+			select {
+				case <-daemon.ShutdownSignal:
+					return
+				case <-doneChan:
+					continue
 			}
 		}
 	}

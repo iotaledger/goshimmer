@@ -286,17 +286,20 @@ var tpsTemplate = `
                 }
             }]
         });
+
+        const dataStr = '{{.Data}}'
+        const parsedData = JSON.parse(dataStr.replace(/ /g, ','));
+        time = Date.now() - 1000 * (parsedData.length + 1);
+        for (let i = 0; i < parsedData.length; i++) {
+            chart.series[0].addPoint([time += 1000, parseInt(parsedData[i], 10)], false);
+        }
+		chart.redraw();
+        console.log(parsedData);
+
         const conn = new WebSocket("ws://{{.Host}}/ws");
         conn.binaryType = 'arraybuffer';
         conn.onopen = evt => {
             console.log("WebSocket is open now.");
-            const dataStr = '{{.Data}}'
-            const data = JSON.parse(dataStr.replace(/ /g, ','));
-            time = Date.now() - 1000 * (data.length + 1);
-            for (let i = 0; i < data.length; i++) {
-                chart.series[0].addPoint([time += 1000, parseInt(data[i], 10)], true);
-            }
-            console.log(data);
             console.log("WebSocket done.");
         }
         conn.onclose = () => {
