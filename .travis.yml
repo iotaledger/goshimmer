@@ -1,7 +1,12 @@
+os: linux
 language: go
 
 go:
   - 1.12
+
+cache:
+  directories:
+    - $HOME/gopath/pkg/mod
 
 env:
   - GO111MODULE=on
