@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 )
 
-var PLUGIN = node.NewPlugin("ZeroMQ", configure, run)
+var PLUGIN = node.NewPlugin("ZeroMQ", node.Enabled, configure, run)
 
 var publisher *Publisher
 var emptyTag = strings.Repeat("9", 27)

@@ -6,16 +6,25 @@ import (
 	"github.com/iotaledger/goshimmer/packages/events"
 )
 
+const (
+	Disabled = iota
+	Enabled
+)
+
 type Plugin struct {
 	Node   *Node
 	Name   string
+	Status int
 	Events pluginEvents
 	wg     *sync.WaitGroup
 }
 
-func NewPlugin(name string, callback Callback, callbacks ...Callback) *Plugin {
+// Creates a new plugin with the given name, default status and callbacks.
+// The last specified callback is the run callback, while all other callbacks are configure callbacks.
+func NewPlugin(name string, status int, callback Callback, callbacks ...Callback) *Plugin {
 	plugin := &Plugin{
-		Name: name,
+		Name:   name,
+		Status: status,
 		Events: pluginEvents{
 			Configure: events.NewEvent(pluginCaller),
 			Run:       events.NewEvent(pluginCaller),

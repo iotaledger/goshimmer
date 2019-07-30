@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
-var PLUGIN = node.NewPlugin("Dashboard", configure, run)
+var PLUGIN = node.NewPlugin("Dashboard", node.Enabled, configure, run)
 
 func configure(plugin *node.Plugin) {
 	http.HandleFunc("/dashboard", ServeHome)

@@ -10,7 +10,7 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI", configure, run)
+var PLUGIN = node.NewPlugin("WebAPI", node.Enabled, configure, run)
 
 var Server = echo.New()
 

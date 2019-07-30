@@ -14,6 +14,7 @@ type Node struct {
 }
 
 var DisabledPlugins = make(map[string]bool)
+var EnabledPlugins = make(map[string]bool)
 
 func Load(plugins ...*Plugin) *Node {
 	node := &Node{
@@ -100,18 +101,38 @@ func (node *Node) LogFailure(pluginName string, message string) {
 	}
 }
 
+func getPluginKey(plugin *Plugin) string {
+	return strings.ToLower(strings.Replace(plugin.Name, " ", "", -1))
+}
+
+func isDisabled(plugin *Plugin) bool {
+	_, exists := DisabledPlugins[getPluginKey(plugin)]
+
+	return exists
+}
+
+func isEnabled(plugin *Plugin) bool {
+	_, exists := EnabledPlugins[getPluginKey(plugin)]
+
+	return exists
+}
+
 func (node *Node) Load(plugins ...*Plugin) {
 	if len(plugins) >= 1 {
 		for _, plugin := range plugins {
-			if _, exists := DisabledPlugins[strings.ToLower(strings.Replace(plugin.Name, " ", "", -1))]; !exists {
+			status := plugin.Status
+			if (status == Enabled && !isDisabled(plugin)) ||
+				(status == Disabled && isEnabled(plugin)) {
+
 				plugin.wg = node.wg
 				plugin.Node = node
 
 				plugin.Events.Configure.Trigger(plugin)
+				node.loadedPlugins = append(node.loadedPlugins, plugin)
 
 				node.LogInfo("Node", "Loading Plugin: "+plugin.Name+" ... done")
-
-				node.loadedPlugins = append(node.loadedPlugins, plugin)
+			} else {
+				node.LogInfo("Node", "Skipping Plugin: "+plugin.Name)
 			}
 		}
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface"
 )
 
-var PLUGIN = node.NewPlugin("Analysis", configure, run)
+var PLUGIN = node.NewPlugin("Analysis", node.Enabled, configure, run)
 
 func configure(plugin *node.Plugin) {
 	if *server.SERVER_PORT.Value != 0 {

@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 )
 
-var PLUGIN = node.NewPlugin("Bundle Processor", configure, run)
+var PLUGIN = node.NewPlugin("Bundle Processor", node.Enabled, configure, run)
 
 func configure(plugin *node.Plugin) {
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {

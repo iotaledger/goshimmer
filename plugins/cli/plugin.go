@@ -48,12 +48,19 @@ func init() {
 	flag.Usage = printUsage
 }
 
+func parseParameters() {
+	for _, pluginName := range strings.Fields(*node.DISABLE_PLUGINS.Value) {
+		node.DisabledPlugins[strings.ToLower(pluginName)] = true
+	}
+	for _, pluginName := range strings.Fields(*node.ENABLE_PLUGINS.Value) {
+		node.EnabledPlugins[strings.ToLower(pluginName)] = true
+	}
+}
+
 func configure(ctx *node.Plugin) {
 	flag.Parse()
 
-	for _, disabledPlugin := range strings.Fields(*node.DISABLE_PLUGINS.Value) {
-		node.DisabledPlugins[strings.ToLower(disabledPlugin)] = true
-	}
+	parseParameters()
 
 	fmt.Println("  _____ _   _ ________  ______  ___ ___________ ")
 	fmt.Println(" /  ___| | | |_   _|  \\/  ||  \\/  ||  ___| ___ \\")
@@ -66,6 +73,6 @@ func configure(ctx *node.Plugin) {
 	ctx.Node.LogInfo("Node", "Loading plugins ...")
 }
 
-var PLUGIN = node.NewPlugin("CLI", configure, func(plugin *node.Plugin) {
+var PLUGIN = node.NewPlugin("CLI", node.Enabled, configure, func(plugin *node.Plugin) {
 
 })

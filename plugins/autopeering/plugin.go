@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
-var PLUGIN = node.NewPlugin("Auto Peering", configure, run)
+var PLUGIN = node.NewPlugin("Auto Peering", node.Enabled, configure, run)
 
 func configure(plugin *node.Plugin) {
 	saltmanager.Configure(plugin)

@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node"
 )
 
-var PLUGIN = node.NewPlugin("Gossip", configure, run)
+var PLUGIN = node.NewPlugin("Gossip", node.Enabled, configure, run)
 
 func configure(plugin *node.Plugin) {
 	configureNeighbors(plugin)
