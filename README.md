@@ -25,6 +25,11 @@ or if you prefer https over ssh
 git clone https://github.com/iotaledger/goshimmer.git
 ```
 
+Verify that you have installed the minimal required go version (1.12.7):
+```
+go version
+```
+
 You can build your executable (as well as cross compiling for other architectures) by running the `go build` tool inside the just cloned folder `goshimmer`:
 
 ```

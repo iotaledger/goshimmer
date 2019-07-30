@@ -3,6 +3,10 @@ package protocol
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/outgoingrequest"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/types"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/server/tcp"
+
 	"github.com/iotaledger/goshimmer/packages/timeutil"
 
 	"github.com/iotaledger/goshimmer/packages/accountability"
@@ -10,10 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/outgoingrequest"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/types"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/server/tcp"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 )
 
@@ -46,16 +47,30 @@ func sendOutgoingRequests(plugin *node.Plugin) {
 		timeutil.Sleep(5 * time.Second)
 
 		if candidateShouldBeContacted(chosenNeighborCandidate) {
-			data := outgoingrequest.INSTANCE.Marshal()
+			doneChan := make(chan int, 1)
 
-			if dialed, err := chosenNeighborCandidate.Send(data, types.PROTOCOL_TYPE_TCP, true); err != nil {
-				plugin.LogDebug("error when sending peering request to " + chosenNeighborCandidate.String() + ": " + err.Error())
-			} else {
-				plugin.LogDebug("sent peering request to " + chosenNeighborCandidate.String())
+			go func(doneChan chan int) {
 
-				if dialed {
-					tcp.HandleConnection(chosenNeighborCandidate.Conn)
+				data := outgoingrequest.INSTANCE.Marshal()
+
+				if dialed, err := chosenNeighborCandidate.Send(data, types.PROTOCOL_TYPE_TCP, true); err != nil {
+					plugin.LogDebug("error when sending peering request to " + chosenNeighborCandidate.String() + ": " + err.Error())
+				} else {
+					plugin.LogDebug("sent peering request to " + chosenNeighborCandidate.String())
+
+					if dialed {
+						tcp.HandleConnection(chosenNeighborCandidate.Conn)
+					}
 				}
+
+				close(doneChan)
+			}(doneChan)
+
+			select {
+			case <-daemon.ShutdownSignal:
+				return
+			case <-doneChan:
+				continue
 			}
 		}
 	}
