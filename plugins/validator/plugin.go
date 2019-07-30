@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/bundleprocessor"
 	"github.com/iotaledger/iota.go/address"
 	. "github.com/iotaledger/iota.go/consts"
+	"github.com/iotaledger/iota.go/kerl"
 	"github.com/iotaledger/iota.go/signing"
 	. "github.com/iotaledger/iota.go/trinary"
 )
@@ -62,7 +63,7 @@ func validateSignatures(bundleHash Hash, txs []*value_transaction.ValueTransacti
 		}
 
 		// validate all the fragments against the address using Kerl
-		valid, err := signing.ValidateSignatures(address, fragments, bundleHash, signing.NewKerl)
+		valid, err := signing.ValidateSignatures(address, fragments, bundleHash, kerl.NewKerl())
 		if err != nil {
 			return false, err
 		}
