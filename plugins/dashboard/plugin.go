@@ -1,8 +1,9 @@
 package dashboard
 
 import (
-	"log"
+	"golang.org/x/net/context"
 	"net/http"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/events"
@@ -10,11 +11,18 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
+var server *http.Server
+
+var router 	    *http.ServeMux
+
 var PLUGIN = node.NewPlugin("Dashboard", configure, run)
 
 func configure(plugin *node.Plugin) {
-	http.HandleFunc("/dashboard", ServeHome)
-	http.HandleFunc("/ws", ServeWs)
+	router = http.NewServeMux()
+	server = &http.Server{Addr: ":8081", Handler: router}
+
+	router.HandleFunc("/dashboard", ServeHome)
+	router.HandleFunc("/ws", ServeWs)
 
 	// send the sampledTPS to client via websocket, use uint32 to save mem
 	metrics.Events.ReceivedTPSUpdated.Attach(events.NewClosure(func(sampledTPS uint64) {
@@ -23,12 +31,21 @@ func configure(plugin *node.Plugin) {
 			TPSQ = TPSQ[1:]
 		}
 	}))
+
+	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 0*time.Second)
+		defer cancel()
+
+		_ = server.Shutdown(ctx)
+	}))
 }
 
 func run(plugin *node.Plugin) {
 	daemon.BackgroundWorker("Dashboard Updater", func() {
-		if err := http.ListenAndServe(":8081", nil); err != nil {
-			log.Fatal(err)
-		}
+		go func() {
+			if err := server.ListenAndServe(); err != nil {
+				plugin.LogFailure(err.Error())
+			}
+		}()
 	})
 }
