@@ -1,7 +1,9 @@
 package database
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/dgraph-io/badger"
@@ -16,18 +18,21 @@ func GetBadgerInstance() (result *badger.DB, err error) {
 	openLock.Lock()
 
 	if instance == nil {
-		directory := *DIRECTORY.Value
+		directory := filepath.Dir(*DIRECTORY.Value)
 
-		if _, osErr := os.Stat(directory); osErr != nil {
-			err = osErr
+		fmt.Println(directory)
+		fmt.Println("huhu")
 
-			return
-		} else if os.IsNotExist(err) {
+		if _, osErr := os.Stat(directory); os.IsNotExist(osErr) {
 			if osErr := os.Mkdir(directory, 0700); osErr != nil {
 				err = osErr
 
 				return
 			}
+		} else if osErr != nil {
+			err = osErr
+
+			return
 		}
 
 		opts := badger.DefaultOptions(directory)
