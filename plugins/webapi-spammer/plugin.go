@@ -10,7 +10,7 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("Spammer", node.Enabled, configure)
+var PLUGIN = node.NewPlugin("Spammer", node.Disabled, configure)
 
 func configure(plugin *node.Plugin) {
 	webapi.AddEndpoint("spammer", WebApiHandler)
