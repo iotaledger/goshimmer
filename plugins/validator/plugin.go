@@ -13,7 +13,7 @@ import (
 	. "github.com/iotaledger/iota.go/trinary"
 )
 
-var PLUGIN = node.NewPlugin("Validator", configure, run)
+var PLUGIN = node.NewPlugin("Validator", node.Enabled, configure, run)
 
 // Creates bundle signature fragments and the corresponding address to validate against.
 // Each signature fragment after the first must go into its own meta transaction with value = 0.

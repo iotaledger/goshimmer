@@ -15,7 +15,7 @@ import (
 // maximum amount of time to wait for background processes to terminate. After that the process is killed.
 const WAIT_TO_KILL_TIME_IN_SECONDS = 10
 
-var PLUGIN = node.NewPlugin("Graceful Shutdown", func(plugin *node.Plugin) {
+var PLUGIN = node.NewPlugin("Graceful Shutdown", node.Enabled, func(plugin *node.Plugin) {
 	gracefulStop := make(chan os.Signal)
 
 	signal.Notify(gracefulStop, syscall.SIGTERM)

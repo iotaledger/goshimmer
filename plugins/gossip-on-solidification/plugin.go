@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 )
 
-var PLUGIN = node.NewPlugin("Gossip On Solidification", func(plugin *node.Plugin) {
+var PLUGIN = node.NewPlugin("Gossip On Solidification", node.Enabled, func(plugin *node.Plugin) {
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
 		gossip.SendTransaction(tx.MetaTransaction)
 	}))

@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
-var PLUGIN = node.NewPlugin("Metrics", configure, run)
+var PLUGIN = node.NewPlugin("Metrics", node.Enabled, configure, run)
 
 func configure(plugin *node.Plugin) {
 	// increase received TPS counter whenever we receive a new transaction

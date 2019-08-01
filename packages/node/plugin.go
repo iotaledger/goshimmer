@@ -1,26 +1,40 @@
 package node
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/goshimmer/packages/parameter"
+)
+
+const (
+	Disabled = iota
+	Enabled
 )
 
 type Plugin struct {
 	Node   *Node
 	Name   string
+	Status int
 	Events pluginEvents
 	wg     *sync.WaitGroup
 }
 
-func NewPlugin(name string, callback Callback, callbacks ...Callback) *Plugin {
+// Creates a new plugin with the given name, default status and callbacks.
+// The last specified callback is the mandatory run callback, while all other callbacks are configure callbacks.
+func NewPlugin(name string, status int, callback Callback, callbacks ...Callback) *Plugin {
 	plugin := &Plugin{
-		Name: name,
+		Name:   name,
+		Status: status,
 		Events: pluginEvents{
 			Configure: events.NewEvent(pluginCaller),
 			Run:       events.NewEvent(pluginCaller),
 		},
 	}
+
+	// make the plugin known to the parameters
+	parameter.AddPlugin(name, status)
 
 	if len(callbacks) >= 1 {
 		plugin.Events.Configure.Attach(events.NewClosure(callback))
@@ -34,6 +48,10 @@ func NewPlugin(name string, callback Callback, callbacks ...Callback) *Plugin {
 	}
 
 	return plugin
+}
+
+func GetPluginIdentifier(name string) string {
+	return strings.ToLower(strings.Replace(name, " ", "", -1))
 }
 
 func (plugin *Plugin) LogSuccess(message string) {

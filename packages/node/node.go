@@ -1,7 +1,6 @@
 package node
 
 import (
-	"strings"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/daemon"
@@ -14,8 +13,9 @@ type Node struct {
 }
 
 var DisabledPlugins = make(map[string]bool)
+var EnabledPlugins = make(map[string]bool)
 
-func Load(plugins ...*Plugin) *Node {
+func New(plugins ...*Plugin) *Node {
 	node := &Node{
 		loggers:       make([]*Logger, 0),
 		wg:            &sync.WaitGroup{},
@@ -23,20 +23,22 @@ func Load(plugins ...*Plugin) *Node {
 	}
 
 	node.AddLogger(DEFAULT_LOGGER)
-	node.Load(plugins...)
+
+	// configure the enabled plugins
+	node.configure(plugins...)
 
 	return node
 }
 
 func Start(plugins ...*Plugin) *Node {
-	node := Load(plugins...)
+	node := New(plugins...)
 	node.Start()
 
 	return node
 }
 
 func Run(plugins ...*Plugin) *Node {
-	node := Load(plugins...)
+	node := New(plugins...)
 	node.Run()
 
 	return node
@@ -100,19 +102,33 @@ func (node *Node) LogFailure(pluginName string, message string) {
 	}
 }
 
-func (node *Node) Load(plugins ...*Plugin) {
-	if len(plugins) >= 1 {
-		for _, plugin := range plugins {
-			if _, exists := DisabledPlugins[strings.ToLower(strings.Replace(plugin.Name, " ", "", -1))]; !exists {
-				plugin.wg = node.wg
-				plugin.Node = node
+func isDisabled(plugin *Plugin) bool {
+	_, exists := DisabledPlugins[GetPluginIdentifier(plugin.Name)]
 
-				plugin.Events.Configure.Trigger(plugin)
+	return exists
+}
 
-				node.LogInfo("Node", "Loading Plugin: "+plugin.Name+" ... done")
+func isEnabled(plugin *Plugin) bool {
+	_, exists := EnabledPlugins[GetPluginIdentifier(plugin.Name)]
 
-				node.loadedPlugins = append(node.loadedPlugins, plugin)
-			}
+	return exists
+}
+
+func (node *Node) configure(plugins ...*Plugin) {
+	for _, plugin := range plugins {
+		status := plugin.Status
+		if (status == Enabled && !isDisabled(plugin)) ||
+			(status == Disabled && isEnabled(plugin)) {
+
+			plugin.wg = node.wg
+			plugin.Node = node
+
+			plugin.Events.Configure.Trigger(plugin)
+			node.loadedPlugins = append(node.loadedPlugins, plugin)
+
+			node.LogInfo("Node", "Loading Plugin: "+plugin.Name+" ... done")
+		} else {
+			node.LogInfo("Node", "Skipping Plugin: "+plugin.Name)
 		}
 	}
 }
@@ -120,12 +136,10 @@ func (node *Node) Load(plugins ...*Plugin) {
 func (node *Node) Start() {
 	node.LogInfo("Node", "Executing plugins ...")
 
-	if len(node.loadedPlugins) >= 1 {
-		for _, plugin := range node.loadedPlugins {
-			plugin.Events.Run.Trigger(plugin)
+	for _, plugin := range node.loadedPlugins {
+		plugin.Events.Run.Trigger(plugin)
 
-			node.LogSuccess("Node", "Starting Plugin: "+plugin.Name+" ... done")
-		}
+		node.LogSuccess("Node", "Starting Plugin: "+plugin.Name+" ... done")
 	}
 
 	node.LogSuccess("Node", "Starting background workers ...")
@@ -136,12 +150,10 @@ func (node *Node) Start() {
 func (node *Node) Run() {
 	node.LogInfo("Node", "Executing plugins ...")
 
-	if len(node.loadedPlugins) >= 1 {
-		for _, plugin := range node.loadedPlugins {
-			plugin.Events.Run.Trigger(plugin)
+	for _, plugin := range node.loadedPlugins {
+		plugin.Events.Run.Trigger(plugin)
 
-			node.LogSuccess("Node", "Starting Plugin: "+plugin.Name+" ... done")
-		}
+		node.LogSuccess("Node", "Starting Plugin: "+plugin.Name+" ... done")
 	}
 
 	node.LogSuccess("Node", "Starting background workers ...")

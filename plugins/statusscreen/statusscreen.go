@@ -142,4 +142,4 @@ func run(plugin *node.Plugin) {
 	})
 }
 
-var PLUGIN = node.NewPlugin("Status Screen", configure, run)
+var PLUGIN = node.NewPlugin("Status Screen", node.Enabled, configure, run)

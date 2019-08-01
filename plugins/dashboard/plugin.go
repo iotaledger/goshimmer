@@ -1,9 +1,10 @@
 package dashboard
 
 import (
-	"golang.org/x/net/context"
 	"net/http"
 	"time"
+
+	"golang.org/x/net/context"
 
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/events"
@@ -13,9 +14,9 @@ import (
 
 var server *http.Server
 
-var router 	    *http.ServeMux
+var router *http.ServeMux
 
-var PLUGIN = node.NewPlugin("Dashboard", configure, run)
+var PLUGIN = node.NewPlugin("Dashboard", node.Disabled, configure, run)
 
 func configure(plugin *node.Plugin) {
 	router = http.NewServeMux()

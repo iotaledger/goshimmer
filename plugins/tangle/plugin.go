@@ -6,7 +6,7 @@ import (
 
 // region plugin module setup //////////////////////////////////////////////////////////////////////////////////////////
 
-var PLUGIN = node.NewPlugin("Tangle", configure, run)
+var PLUGIN = node.NewPlugin("Tangle", node.Enabled, configure, run)
 
 func configure(plugin *node.Plugin) {
 	configureTransactionDatabase(plugin)

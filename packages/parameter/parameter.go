@@ -32,7 +32,7 @@ func GetBools() map[string]*BoolParameter {
 var intParameters = make(map[string]*IntParameter)
 
 func AddInt(name string, defaultValue int, description string) *IntParameter {
-	if intParameters[name] != nil {
+	if _, exists := intParameters[name]; exists {
 		panic("duplicate parameter - \"" + name + "\" was defined already")
 	}
 
@@ -61,7 +61,7 @@ func GetInts() map[string]*IntParameter {
 var stringParameters = make(map[string]*StringParameter)
 
 func AddString(name string, defaultValue string, description string) *StringParameter {
-	if stringParameters[name] != nil {
+	if _, exists := stringParameters[name]; exists {
 		panic("duplicate parameter - \"" + name + "\" was defined already")
 	}
 
@@ -85,4 +85,20 @@ func GetString(name string) *StringParameter {
 
 func GetStrings() map[string]*StringParameter {
 	return stringParameters
+}
+
+var plugins = make(map[string]int)
+
+func AddPlugin(name string, status int) {
+	if _, exists := plugins[name]; exists {
+		panic("duplicate plugin - \"" + name + "\" was defined already")
+	}
+
+	plugins[name] = status
+
+	Events.AddPlugin.Trigger(name, status)
+}
+
+func GetPlugins() map[string]int {
+	return plugins
 }
