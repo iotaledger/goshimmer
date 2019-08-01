@@ -140,11 +140,11 @@ func processIncomingRequestPacket(connectionState *byte, receiveBuffer *[]byte, 
 
 			return
 		} else {
-			req.Issuer.Conn = conn
+			req.Issuer.SetConn(conn)
 			req.Issuer.Address = conn.RemoteAddr().(*net.TCPAddr).IP
 
-			req.Issuer.Conn.Events.Close.Attach(events.NewClosure(func() {
-				req.Issuer.Conn = nil
+			conn.Events.Close.Attach(events.NewClosure(func() {
+				req.Issuer.SetConn(nil)
 			}))
 
 			Events.ReceiveRequest.Trigger(req)
@@ -173,11 +173,11 @@ func processIncomingResponsePacket(connectionState *byte, receiveBuffer *[]byte,
 
 			return
 		} else {
-			res.Issuer.Conn = conn
+			res.Issuer.SetConn(conn)
 			res.Issuer.Address = conn.RemoteAddr().(*net.TCPAddr).IP
 
-			res.Issuer.Conn.Events.Close.Attach(events.NewClosure(func() {
-				res.Issuer.Conn = nil
+			conn.Events.Close.Attach(events.NewClosure(func() {
+				res.Issuer.SetConn(nil)
 			}))
 
 			Events.ReceiveResponse.Trigger(res)
@@ -206,11 +206,11 @@ func processIncomingPingPacket(connectionState *byte, receiveBuffer *[]byte, con
 
 			return
 		} else {
-			ping.Issuer.Conn = conn
+			ping.Issuer.SetConn(conn)
 			ping.Issuer.Address = conn.RemoteAddr().(*net.TCPAddr).IP
 
-			ping.Issuer.Conn.Events.Close.Attach(events.NewClosure(func() {
-				ping.Issuer.Conn = nil
+			conn.Events.Close.Attach(events.NewClosure(func() {
+				ping.Issuer.SetConn(nil)
 			}))
 
 			Events.ReceivePing.Trigger(ping)

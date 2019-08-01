@@ -21,12 +21,26 @@ type Peer struct {
 	PeeringPort    uint16
 	GossipPort     uint16
 	Salt           *salt.Salt
-	Conn           *network.ManagedConnection
-	connectMutex   sync.Mutex
+	conn           *network.ManagedConnection
+	connectMutex   sync.RWMutex
 	firstSeen      time.Time
 	firstSeenMutex sync.RWMutex
 	lastSeen       time.Time
 	lastSeenMutex  sync.RWMutex
+}
+
+func (peer *Peer) GetConn() (result *network.ManagedConnection) {
+	peer.connectMutex.RLock()
+	result = peer.conn
+	peer.connectMutex.RUnlock()
+
+	return
+}
+
+func (peer *Peer) SetConn(conn *network.ManagedConnection) {
+	peer.connectMutex.Lock()
+	peer.conn = conn
+	peer.connectMutex.Unlock()
 }
 
 func Unmarshal(data []byte) (*Peer, error) {
@@ -76,27 +90,31 @@ func (peer *Peer) Send(data []byte, protocol types.ProtocolType, responseExpecte
 }
 
 func (peer *Peer) ConnectTCP() (*network.ManagedConnection, bool, error) {
-	if peer.Conn == nil {
+	peer.connectMutex.RLock()
+
+	if peer.conn == nil {
+		peer.connectMutex.RUnlock()
 		peer.connectMutex.Lock()
 		defer peer.connectMutex.Unlock()
 
-		if peer.Conn == nil {
+		if peer.conn == nil {
 			conn, err := net.Dial("tcp", peer.Address.String()+":"+strconv.Itoa(int(peer.PeeringPort)))
 			if err != nil {
 				return nil, false, errors.New("error when connecting to " + peer.String() + ": " + err.Error())
 			} else {
-				peer.Conn = network.NewManagedConnection(conn)
-
-				peer.Conn.Events.Close.Attach(events.NewClosure(func() {
-					peer.Conn = nil
+				peer.conn = network.NewManagedConnection(conn)
+				peer.conn.Events.Close.Attach(events.NewClosure(func() {
+					peer.SetConn(nil)
 				}))
 
-				return peer.Conn, true, nil
+				return peer.conn, true, nil
 			}
 		}
+	} else {
+		peer.connectMutex.RUnlock()
 	}
 
-	return peer.Conn, false, nil
+	return peer.conn, false, nil
 }
 
 func (peer *Peer) ConnectUDP() (*network.ManagedConnection, bool, error) {

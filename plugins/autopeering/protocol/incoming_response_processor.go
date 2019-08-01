@@ -17,7 +17,9 @@ func createIncomingResponseProcessor(plugin *node.Plugin) *events.Closure {
 func processIncomingResponse(plugin *node.Plugin, peeringResponse *response.Response) {
 	plugin.LogDebug("received peering response from " + peeringResponse.Issuer.String())
 
-	_ = peeringResponse.Issuer.Conn.Close()
+	if conn := peeringResponse.Issuer.GetConn(); conn != nil {
+		_ = conn.Close()
+	}
 
 	knownpeers.INSTANCE.AddOrUpdate(peeringResponse.Issuer)
 	for _, peer := range peeringResponse.Peers {

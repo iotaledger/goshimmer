@@ -1,10 +1,11 @@
 package protocol
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/outgoingrequest"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/types"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/server/tcp"
-	"time"
 
 	"github.com/iotaledger/goshimmer/packages/timeutil"
 
@@ -55,7 +56,7 @@ func sendOutgoingRequests(plugin *node.Plugin) {
 					plugin.LogDebug("sent peering request to " + chosenNeighborCandidate.String())
 
 					if dialed {
-						tcp.HandleConnection(chosenNeighborCandidate.Conn)
+						tcp.HandleConnection(chosenNeighborCandidate.GetConn())
 					}
 				}
 
@@ -63,10 +64,10 @@ func sendOutgoingRequests(plugin *node.Plugin) {
 			}(doneChan)
 
 			select {
-				case <-daemon.ShutdownSignal:
-					return
-				case <-doneChan:
-					continue
+			case <-daemon.ShutdownSignal:
+				return
+			case <-doneChan:
+				continue
 			}
 		}
 	}
