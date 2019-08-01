@@ -1,7 +1,10 @@
 package statusscreen
 
 import (
+	"os"
 	"time"
+
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/gdamore/tcell"
 	"github.com/iotaledger/goshimmer/packages/daemon"
@@ -16,6 +19,10 @@ var messageLog = make([]*StatusMessage, 0)
 var app *tview.Application
 
 func configure(plugin *node.Plugin) {
+	if !terminal.IsTerminal(int(os.Stdin.Fd())) {
+		return
+	}
+
 	node.DEFAULT_LOGGER.Enabled = false
 
 	plugin.Node.AddLogger(DEFAULT_LOGGER)
@@ -30,6 +37,10 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
+	if !terminal.IsTerminal(int(os.Stdin.Fd())) {
+		return
+	}
+
 	newPrimitive := func(text string) *tview.TextView {
 		textView := tview.NewTextView()
 
