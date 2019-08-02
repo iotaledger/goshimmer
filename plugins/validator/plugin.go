@@ -6,39 +6,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/bundleprocessor"
-	"github.com/iotaledger/iota.go/address"
-	. "github.com/iotaledger/iota.go/consts"
 	"github.com/iotaledger/iota.go/kerl"
 	"github.com/iotaledger/iota.go/signing"
 	. "github.com/iotaledger/iota.go/trinary"
 )
 
 var PLUGIN = node.NewPlugin("Validator", node.Enabled, configure, run)
-
-// Creates bundle signature fragments and the corresponding address to validate against.
-// Each signature fragment after the first must go into its own meta transaction with value = 0.
-func demoSign(seed Trytes, index uint64, sec SecurityLevel, bundleHash Hash) (Hash, []Trytes) {
-	addr, _ := address.GenerateAddress(seed, index, sec)
-
-	// compute seed based on address index
-	subseed, _ := signing.Subseed(seed, index)
-	// generate the private key
-	prvKey, _ := signing.Key(subseed, sec)
-
-	normalizedBundleHash := signing.NormalizedBundleHash(bundleHash)
-
-	signatureFragments := make([]Trytes, sec)
-	for i := 0; i < int(sec); i++ {
-		// each security level signs one third of the (normalized) bundle hash
-		signedFragTrits, _ := signing.SignatureFragment(
-			normalizedBundleHash[i*HashTrytesSize/3:(i+1)*HashTrytesSize/3],
-			prvKey[i*KeyFragmentLength:(i+1)*KeyFragmentLength],
-		)
-		signatureFragments[i] = MustTritsToTrytes(signedFragTrits)
-	}
-
-	return addr, signatureFragments
-}
 
 func validateSignatures(bundleHash Hash, txs []*value_transaction.ValueTransaction) (bool, error) {
 	for i, tx := range txs {
