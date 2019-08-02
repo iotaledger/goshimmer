@@ -6,12 +6,10 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
-var databasesByName = make(map[string]*databaseImpl)
-var getLock sync.Mutex
+var dbMap = make(map[string]*prefixDb)
+var mu sync.Mutex
 
-var ErrKeyNotFound = badger.ErrKeyNotFound
-
-type databaseImpl struct {
+type prefixDb struct {
 	db       *badger.DB
 	name     string
 	prefix   []byte
@@ -19,30 +17,32 @@ type databaseImpl struct {
 }
 
 func Get(name string) (Database, error) {
-	getLock.Lock()
-	defer getLock.Unlock()
-
-	if database, exists := databasesByName[name]; exists {
-		return database, nil
+	// avoid locking if it's a clean hit
+	if db, exists := dbMap[name]; exists {
+		return db, nil
 	}
 
-	badgerInstance, err := GetBadgerInstance()
-	if err != nil {
-		return nil, err
+	mu.Lock()
+	defer mu.Unlock()
+
+	// needs to be re-checked after locking
+	if db, exists := dbMap[name]; exists {
+		return db, nil
 	}
 
-	database := &databaseImpl{
-		db:     badgerInstance,
+	badger := GetBadgerInstance()
+	db := &prefixDb{
+		db:     badger,
 		name:   name,
 		prefix: []byte(name + "_"),
 	}
 
-	databasesByName[name] = database
+	dbMap[name] = db
 
-	return databasesByName[name], nil
+	return db, nil
 }
 
-func (this *databaseImpl) Set(key []byte, value []byte) error {
+func (this *prefixDb) Set(key []byte, value []byte) error {
 	if err := this.db.Update(func(txn *badger.Txn) error { return txn.Set(append(this.prefix, key...), value) }); err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func (this *databaseImpl) Set(key []byte, value []byte) error {
 	return nil
 }
 
-func (this *databaseImpl) Contains(key []byte) (bool, error) {
+func (this *prefixDb) Contains(key []byte) (bool, error) {
 	err := this.db.View(func(txn *badger.Txn) error {
 		_, err := txn.Get(append(this.prefix, key...))
 		if err != nil {
@@ -60,14 +60,14 @@ func (this *databaseImpl) Contains(key []byte) (bool, error) {
 		return nil
 	})
 
-	if err == ErrKeyNotFound {
+	if err == badger.ErrKeyNotFound {
 		return false, nil
 	} else {
 		return err == nil, err
 	}
 }
 
-func (this *databaseImpl) Get(key []byte) ([]byte, error) {
+func (this *prefixDb) Get(key []byte) ([]byte, error) {
 	var result []byte = nil
 
 	err := this.db.View(func(txn *badger.Txn) error {
@@ -86,7 +86,7 @@ func (this *databaseImpl) Get(key []byte) ([]byte, error) {
 	return result, err
 }
 
-func (this *databaseImpl) Delete(key []byte) error {
+func (this *prefixDb) Delete(key []byte) error {
 	err := this.db.Update(func(txn *badger.Txn) error {
 		err := txn.Delete(append(this.prefix, key...))
 		return err
@@ -94,10 +94,10 @@ func (this *databaseImpl) Delete(key []byte) error {
 	return err
 }
 
-func (this *databaseImpl) ForEach(consumer func([]byte, []byte)) error {
+func (this *prefixDb) ForEach(consumer func([]byte, []byte)) error {
 	err := this.db.View(func(txn *badger.Txn) error {
 		iteratorOptions := badger.DefaultIteratorOptions
-		iteratorOptions.Prefix = this.prefix
+		iteratorOptions.Prefix = this.prefix // filter by prefix
 
 		// create an iterator the default options
 		it := txn.NewIterator(iteratorOptions)
