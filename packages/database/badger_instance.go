@@ -36,7 +36,7 @@ func GetBadgerInstance() (result *badger.DB, err error) {
 		opts.TableLoadingMode = options.MemoryMap
 
 		db, badgerErr := badger.Open(opts)
-		if err != nil {
+		if badgerErr != nil {
 			err = badgerErr
 
 			return
