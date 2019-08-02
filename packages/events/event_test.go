@@ -25,7 +25,7 @@ func intStringCaller(handler interface{}, params ...interface{}) {
 	handler.(func(int, string))(params[0].(int), params[1].(string))
 }
 
-func ExampleHelloWorld() {
+func ExampleEvent() {
 	// create event object (usually exposed through a public struct that holds all the different event types)
 	event := NewEvent(intStringCaller)
 
