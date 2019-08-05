@@ -15,7 +15,6 @@ require (
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.2.9 // indirect
 	github.com/magiconair/properties v1.8.1
-	github.com/panjf2000/ants v1.1.0
 	github.com/pkg/errors v0.8.1
 	github.com/rivo/tview v0.0.0-20190721135419-23dc8a0944e4
 	github.com/rivo/uniseg v0.1.0 // indirect

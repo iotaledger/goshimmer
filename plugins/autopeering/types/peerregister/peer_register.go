@@ -73,7 +73,9 @@ func (this *PeerRegister) Remove(key string, lock ...bool) {
 		if len(lock) == 0 || lock[0] {
 			defer this.Lock()()
 
-			if peerEntry, exists := this.Peers[key]; exists {
+			// needs to be updated after locking
+			peerEntry, exists = this.Peers[key]
+			if exists {
 				delete(this.Peers, key)
 
 				this.Events.Remove.Trigger(peerEntry)

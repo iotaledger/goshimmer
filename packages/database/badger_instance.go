@@ -6,48 +6,63 @@ import (
 
 	"github.com/dgraph-io/badger"
 	"github.com/dgraph-io/badger/options"
+	"github.com/pkg/errors"
 )
 
 var instance *badger.DB
+var once sync.Once
 
-var openLock sync.Mutex
+// Returns whether the given file or directory exists.
+func exists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
 
-func GetBadgerInstance() (result *badger.DB, err error) {
-	openLock.Lock()
-
-	if instance == nil {
-		directory := *DIRECTORY.Value
-
-		if _, osErr := os.Stat(directory); os.IsNotExist(osErr) {
-			if osErr := os.Mkdir(directory, 0700); osErr != nil {
-				err = osErr
-
-				return
-			}
-		} else if osErr != nil {
-			err = osErr
-
-			return
-		}
-
-		opts := badger.DefaultOptions(directory)
-		opts.Logger = &logger{}
-		opts.Truncate = true
-		opts.TableLoadingMode = options.MemoryMap
-
-		db, badgerErr := badger.Open(opts)
-		if badgerErr != nil {
-			err = badgerErr
-
-			return
-		}
-
-		instance = db
+func checkDir(dir string) error {
+	exists, err := exists(dir)
+	if err != nil {
+		return err
 	}
 
-	openLock.Unlock()
+	if !exists {
+		return os.Mkdir(dir, 0700)
+	}
+	return nil
+}
 
-	result = instance
+func createDB() (*badger.DB, error) {
+	directory := *DIRECTORY.Value
+	if err := checkDir(directory); err != nil {
+		return nil, errors.Wrap(err, "Could not check directory")
+	}
 
-	return
+	opts := badger.DefaultOptions(directory)
+	opts.Logger = &logger{}
+	opts.Truncate = true
+	opts.TableLoadingMode = options.MemoryMap
+
+	db, err := badger.Open(opts)
+	if err != nil {
+		return nil, errors.Wrap(err, "Could not open new DB")
+	}
+
+	return db, nil
+}
+
+func GetBadgerInstance() *badger.DB {
+	once.Do(func() {
+		db, err := createDB()
+		if err != nil {
+			// errors should cause a panic to avoid singleton deadlocks
+			panic(err)
+		}
+		instance = db
+	})
+	return instance
 }

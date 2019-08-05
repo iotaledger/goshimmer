@@ -15,11 +15,11 @@ func Benchmark(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		wg.Add(1)
 
-		go func() {
+		go func(i int) {
 			<-pool.Submit(i)
 
 			wg.Done()
-		}()
+		}(i)
 	}
 
 	wg.Wait()
