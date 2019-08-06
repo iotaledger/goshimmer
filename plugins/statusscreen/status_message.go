@@ -1,6 +1,8 @@
 package statusscreen
 
-import "time"
+import (
+	"time"
+)
 
 type StatusMessage struct {
 	Source   string

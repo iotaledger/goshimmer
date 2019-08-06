@@ -27,30 +27,24 @@ func configureServer(plugin *node.Plugin) {
 		// store protocol in neighbor if its a neighbor calling
 		protocol.Events.ReceiveIdentification.Attach(events.NewClosure(func(identity *identity.Identity) {
 			if protocol.Neighbor != nil {
-				protocol.Neighbor.acceptedProtocolMutex.Lock()
-				if protocol.Neighbor.AcceptedProtocol == nil {
-					protocol.Neighbor.AcceptedProtocol = protocol
+
+				if protocol.Neighbor.GetAcceptedProtocol() == nil {
+					protocol.Neighbor.SetAcceptedProtocol(protocol)
 
 					protocol.Conn.Events.Close.Attach(events.NewClosure(func() {
-						protocol.Neighbor.acceptedProtocolMutex.Lock()
-						defer protocol.Neighbor.acceptedProtocolMutex.Unlock()
-
-						protocol.Neighbor.AcceptedProtocol = nil
+						protocol.Neighbor.SetAcceptedProtocol(nil)
 					}))
 				}
-				protocol.Neighbor.acceptedProtocolMutex.Unlock()
 			}
 		}))
 
 		// drop the "secondary" connection upon successful handshake
 		protocol.Events.HandshakeCompleted.Attach(events.NewClosure(func() {
-			if protocol.Neighbor.Identity.StringIdentifier <= accountability.OwnId().StringIdentifier {
-				protocol.Neighbor.initiatedProtocolMutex.Lock()
+			if protocol.Neighbor.GetIdentity().StringIdentifier <= accountability.OwnId().StringIdentifier {
 				var initiatedProtocolConn *network.ManagedConnection
-				if protocol.Neighbor.InitiatedProtocol != nil {
-					initiatedProtocolConn = protocol.Neighbor.InitiatedProtocol.Conn
+				if protocol.Neighbor.GetInitiatedProtocol() != nil {
+					initiatedProtocolConn = protocol.Neighbor.GetInitiatedProtocol().Conn
 				}
-				protocol.Neighbor.initiatedProtocolMutex.Unlock()
 
 				if initiatedProtocolConn != nil {
 					_ = initiatedProtocolConn.Close()

@@ -2,6 +2,7 @@ package statusscreen
 
 import (
 	"os"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/ssh/terminal"
@@ -15,6 +16,7 @@ import (
 
 var statusMessages = make(map[string]*StatusMessage)
 var messageLog = make([]*StatusMessage, 0)
+var mutex sync.RWMutex
 
 var app *tview.Application
 
@@ -23,12 +25,13 @@ func configure(plugin *node.Plugin) {
 		return
 	}
 
-	node.DEFAULT_LOGGER.Enabled = false
+	node.DEFAULT_LOGGER.SetEnabled(false)
 
+	DEFAULT_LOGGER.SetEnabled(true)
 	plugin.Node.AddLogger(DEFAULT_LOGGER)
 
 	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		node.DEFAULT_LOGGER.Enabled = true
+		node.DEFAULT_LOGGER.SetEnabled(true)
 
 		if app != nil {
 			app.Stop()
@@ -88,6 +91,8 @@ func run(plugin *node.Plugin) {
 		return event
 	})
 
+	mutex.RLock()
+	defer mutex.RUnlock()
 	app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
 		headerBar.Update()
 

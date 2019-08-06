@@ -43,7 +43,7 @@ func createOutgoingRequestProcessor(plugin *node.Plugin) func() {
 }
 
 func sendOutgoingRequests(plugin *node.Plugin) {
-	for _, chosenNeighborCandidate := range chosenneighbors.CANDIDATES.Clone() {
+	for _, chosenNeighborCandidate := range chosenneighbors.CANDIDATES.GetPeers() {
 		timeutil.Sleep(5 * time.Second)
 
 		if candidateShouldBeContacted(chosenNeighborCandidate) {
@@ -74,9 +74,12 @@ func sendOutgoingRequests(plugin *node.Plugin) {
 }
 
 func candidateShouldBeContacted(candidate *peer.Peer) bool {
-	nodeId := candidate.Identity.StringIdentifier
+	nodeId := candidate.GetIdentity().StringIdentifier
+
+	chosenneighbors.FurthestNeighborLock.RLock()
+	defer chosenneighbors.FurthestNeighborLock.RUnlock()
 
 	return (!acceptedneighbors.INSTANCE.Contains(nodeId) && !chosenneighbors.INSTANCE.Contains(nodeId) &&
-		accountability.OwnId().StringIdentifier != nodeId) && (len(chosenneighbors.INSTANCE.Peers) < constants.NEIGHBOR_COUNT/2 ||
+		accountability.OwnId().StringIdentifier != nodeId) && (chosenneighbors.INSTANCE.Peers.Len() < constants.NEIGHBOR_COUNT/2 ||
 		chosenneighbors.OWN_DISTANCE(candidate) < chosenneighbors.FURTHEST_NEIGHBOR_DISTANCE)
 }

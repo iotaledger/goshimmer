@@ -14,11 +14,11 @@ import (
 var INSTANCE *peer.Peer
 
 func Configure(plugin *node.Plugin) {
-	INSTANCE = &peer.Peer{
-		Identity:    accountability.OwnId(),
-		PeeringPort: uint16(*parameters.PORT.Value),
-		GossipPort:  uint16(*gossip.PORT.Value),
-		Address:     net.IPv4(0, 0, 0, 0),
-		Salt:        saltmanager.PUBLIC_SALT,
-	}
+	INSTANCE = &peer.Peer{}
+	INSTANCE.SetIdentity(accountability.OwnId())
+	INSTANCE.SetPeeringPort(uint16(*parameters.PORT.Value))
+	INSTANCE.SetGossipPort(uint16(*gossip.PORT.Value))
+	INSTANCE.SetAddress(net.IPv4(0, 0, 0, 0))
+	INSTANCE.SetSalt(saltmanager.PUBLIC_SALT)
+
 }

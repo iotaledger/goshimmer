@@ -7,6 +7,8 @@ import (
 )
 
 func storeStatusMessage(pluginName string, message string, logLevel int) {
+	mutex.Lock()
+	defer mutex.Unlock()
 	messageLog = append(messageLog, &StatusMessage{
 		Source:   pluginName,
 		LogLevel: logLevel,
@@ -29,7 +31,6 @@ func storeStatusMessage(pluginName string, message string, logLevel int) {
 }
 
 var DEFAULT_LOGGER = &node.Logger{
-	Enabled: true,
 	LogInfo: func(pluginName string, message string) {
 		storeStatusMessage(pluginName, message, node.LOG_LEVEL_INFO)
 	},

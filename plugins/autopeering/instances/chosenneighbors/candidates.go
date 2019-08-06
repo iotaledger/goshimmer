@@ -6,14 +6,15 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peerlist"
 )
 
-var CANDIDATES peerlist.PeerList
+var CANDIDATES *peerlist.PeerList
 
 func configureCandidates() {
+	CANDIDATES = peerlist.NewPeerList()
 	updateNeighborCandidates()
 
 	neighborhood.Events.Update.Attach(updateNeighborCandidates)
 }
 
 func updateNeighborCandidates() {
-	CANDIDATES = neighborhood.LIST_INSTANCE.Sort(DISTANCE(ownpeer.INSTANCE))
+	CANDIDATES.Update(neighborhood.LIST_INSTANCE.Sort(DISTANCE(ownpeer.INSTANCE)).GetPeers())
 }

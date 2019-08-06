@@ -25,14 +25,14 @@ func Unmarshal(data []byte) (*Drop, error) {
 	} else {
 		ping.Issuer = unmarshaledPeer
 	}
-	if err := saltmanager.CheckSalt(ping.Issuer.Salt); err != nil {
+	if err := saltmanager.CheckSalt(ping.Issuer.GetSalt()); err != nil {
 		return nil, err
 	}
 
 	if issuer, err := identity.FromSignedData(data[:MARSHALED_SIGNATURE_START], data[MARSHALED_SIGNATURE_START:]); err != nil {
 		return nil, err
 	} else {
-		if !bytes.Equal(issuer.Identifier, ping.Issuer.Identity.Identifier) {
+		if !bytes.Equal(issuer.Identifier, ping.Issuer.GetIdentity().Identifier) {
 			return nil, ErrInvalidSignature
 		}
 	}
@@ -52,7 +52,7 @@ func (ping *Drop) Marshal() []byte {
 }
 
 func (this *Drop) Sign() {
-	if signature, err := this.Issuer.Identity.Sign(this.Marshal()[:MARSHALED_SIGNATURE_START]); err != nil {
+	if signature, err := this.Issuer.GetIdentity().Sign(this.Marshal()[:MARSHALED_SIGNATURE_START]); err != nil {
 		panic(err)
 	} else {
 		copy(this.Signature[:], signature)

@@ -18,15 +18,15 @@ import (
 
 func configureNeighbors(plugin *node.Plugin) {
 	Events.AddNeighbor.Attach(events.NewClosure(func(neighbor *Neighbor) {
-		plugin.LogSuccess("new neighbor added " + neighbor.Identity.StringIdentifier + "@" + neighbor.Address.String() + ":" + strconv.Itoa(int(neighbor.Port)))
+		plugin.LogSuccess("new neighbor added " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + strconv.Itoa(int(neighbor.GetPort())))
 	}))
 
 	Events.UpdateNeighbor.Attach(events.NewClosure(func(neighbor *Neighbor) {
-		plugin.LogSuccess("existing neighbor updated " + neighbor.Identity.StringIdentifier + "@" + neighbor.Address.String() + ":" + strconv.Itoa(int(neighbor.Port)))
+		plugin.LogSuccess("existing neighbor updated " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + strconv.Itoa(int(neighbor.GetPort())))
 	}))
 
 	Events.RemoveNeighbor.Attach(events.NewClosure(func(neighbor *Neighbor) {
-		plugin.LogSuccess("existing neighbor removed " + neighbor.Identity.StringIdentifier + "@" + neighbor.Address.String() + ":" + strconv.Itoa(int(neighbor.Port)))
+		plugin.LogSuccess("existing neighbor removed " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + strconv.Itoa(int(neighbor.GetPort())))
 	}))
 }
 
@@ -34,7 +34,7 @@ func runNeighbors(plugin *node.Plugin) {
 	plugin.LogInfo("Starting Neighbor Connection Manager ...")
 
 	neighborLock.RLock()
-	for _, neighbor := range GetNeighbors() {
+	for _, neighbor := range neighbors.GetMap() {
 		manageConnection(plugin, neighbor)
 	}
 	neighborLock.RUnlock()
@@ -47,10 +47,10 @@ func runNeighbors(plugin *node.Plugin) {
 }
 
 func manageConnection(plugin *node.Plugin, neighbor *Neighbor) {
-	daemon.BackgroundWorker("Connection Manager ("+neighbor.Identity.StringIdentifier+")", func() {
+	daemon.BackgroundWorker("Connection Manager ("+neighbor.GetIdentity().StringIdentifier+")", func() {
 		failedConnectionAttempts := 0
 
-		for _, exists := GetNeighbor(neighbor.Identity.StringIdentifier); exists && failedConnectionAttempts < CONNECTION_MAX_ATTEMPTS; {
+		for _, exists := neighbors.Load(neighbor.GetIdentity().StringIdentifier); exists && failedConnectionAttempts < CONNECTION_MAX_ATTEMPTS; {
 			protocol, dialed, err := neighbor.Connect()
 			if err != nil {
 				failedConnectionAttempts++
@@ -89,30 +89,103 @@ func manageConnection(plugin *node.Plugin, neighbor *Neighbor) {
 			}
 		}
 
-		RemoveNeighbor(neighbor.Identity.StringIdentifier)
+		RemoveNeighbor(neighbor.GetIdentity().StringIdentifier)
 	})
 }
 
 type Neighbor struct {
-	Identity               *identity.Identity
-	Address                net.IP
-	Port                   uint16
-	InitiatedProtocol      *protocol
-	AcceptedProtocol       *protocol
-	Events                 neighborEvents
+	identity               *identity.Identity
+	identityMutex          sync.RWMutex
+	address                net.IP
+	addressMutex           sync.RWMutex
+	port                   uint16
+	portMutex              sync.RWMutex
+	initiatedProtocol      *protocol
 	initiatedProtocolMutex sync.RWMutex
+	acceptedProtocol       *protocol
+	Events                 neighborEvents
 	acceptedProtocolMutex  sync.RWMutex
 }
 
 func NewNeighbor(identity *identity.Identity, address net.IP, port uint16) *Neighbor {
 	return &Neighbor{
-		Identity: identity,
-		Address:  address,
-		Port:     port,
+		identity: identity,
+		address:  address,
+		port:     port,
 		Events: neighborEvents{
 			ProtocolConnectionEstablished: events.NewEvent(protocolCaller),
 		},
 	}
+}
+
+func (neighbor *Neighbor) GetIdentity() (result *identity.Identity) {
+	neighbor.identityMutex.RLock()
+	result = neighbor.identity
+	neighbor.identityMutex.RUnlock()
+
+	return result
+}
+
+func (neighbor *Neighbor) SetIdentity(identity *identity.Identity) {
+	neighbor.identityMutex.Lock()
+	neighbor.identity = identity
+	neighbor.identityMutex.Unlock()
+}
+
+func (neighbor *Neighbor) GetAddress() (result net.IP) {
+	neighbor.addressMutex.RLock()
+	result = neighbor.address
+	neighbor.addressMutex.RUnlock()
+
+	return result
+}
+
+func (neighbor *Neighbor) SetAddress(address net.IP) {
+	neighbor.addressMutex.Lock()
+	neighbor.address = address
+	neighbor.addressMutex.Unlock()
+}
+
+func (neighbor *Neighbor) GetPort() (result uint16) {
+	neighbor.portMutex.RLock()
+	result = neighbor.port
+	neighbor.portMutex.RUnlock()
+
+	return result
+}
+
+func (neighbor *Neighbor) SetPort(port uint16) {
+	neighbor.portMutex.Lock()
+	neighbor.port = port
+	neighbor.portMutex.Unlock()
+}
+
+func (neighbor *Neighbor) GetInitiatedProtocol() (result *protocol) {
+	neighbor.initiatedProtocolMutex.RLock()
+	result = neighbor.initiatedProtocol
+	neighbor.initiatedProtocolMutex.RUnlock()
+
+	return result
+}
+
+func (neighbor *Neighbor) SetInitiatedProtocol(p *protocol) {
+	neighbor.initiatedProtocolMutex.Lock()
+	neighbor.initiatedProtocol = p
+	neighbor.initiatedProtocolMutex.Unlock()
+}
+
+func (neighbor *Neighbor) GetAcceptedProtocol() (result *protocol) {
+	neighbor.acceptedProtocolMutex.RLock()
+	result = neighbor.acceptedProtocol
+	neighbor.acceptedProtocolMutex.RUnlock()
+
+	return result
+}
+
+func (neighbor *Neighbor) SetAcceptedProtocol(p *protocol) {
+	neighbor.acceptedProtocolMutex.Lock()
+	neighbor.acceptedProtocol = p
+	neighbor.acceptedProtocolMutex.Unlock()
 }
 
 func UnmarshalPeer(data []byte) (*Neighbor, error) {
@@ -120,60 +193,46 @@ func UnmarshalPeer(data []byte) (*Neighbor, error) {
 }
 
 func (neighbor *Neighbor) Connect() (*protocol, bool, errors.IdentifiableError) {
-	neighbor.initiatedProtocolMutex.Lock()
-	defer neighbor.initiatedProtocolMutex.Unlock()
-
 	// return existing connections first
-	if neighbor.InitiatedProtocol != nil {
-		return neighbor.InitiatedProtocol, false, nil
+	if neighbor.GetInitiatedProtocol() != nil {
+		return neighbor.GetInitiatedProtocol(), false, nil
 	}
 
 	// if we already have an accepted connection -> use it instead
-	if neighbor.AcceptedProtocol != nil {
-		neighbor.acceptedProtocolMutex.RLock()
-		if neighbor.AcceptedProtocol != nil {
-			defer neighbor.acceptedProtocolMutex.RUnlock()
-
-			return neighbor.AcceptedProtocol, false, nil
-		}
-		neighbor.acceptedProtocolMutex.RUnlock()
+	if neighbor.GetAcceptedProtocol() != nil {
+		return neighbor.GetAcceptedProtocol(), false, nil
 	}
 
 	// otherwise try to dial
-	conn, err := net.Dial("tcp", neighbor.Address.String()+":"+strconv.Itoa(int(neighbor.Port)))
+	conn, err := net.Dial("tcp", neighbor.GetAddress().String()+":"+strconv.Itoa(int(neighbor.GetPort())))
 	if err != nil {
 		return nil, false, ErrConnectionFailed.Derive(err, "error when connecting to neighbor "+
-			neighbor.Identity.StringIdentifier+"@"+neighbor.Address.String()+":"+strconv.Itoa(int(neighbor.Port)))
+			neighbor.GetIdentity().StringIdentifier+"@"+neighbor.GetAddress().String()+":"+strconv.Itoa(int(neighbor.GetPort())))
 	}
 
-	neighbor.InitiatedProtocol = newProtocol(network.NewManagedConnection(conn))
+	neighbor.SetInitiatedProtocol(newProtocol(network.NewManagedConnection(conn)))
 
-	neighbor.InitiatedProtocol.Conn.Events.Close.Attach(events.NewClosure(func() {
-		neighbor.initiatedProtocolMutex.Lock()
-		defer neighbor.initiatedProtocolMutex.Unlock()
-
-		neighbor.InitiatedProtocol = nil
+	neighbor.GetInitiatedProtocol().Conn.Events.Close.Attach(events.NewClosure(func() {
+		neighbor.SetInitiatedProtocol(nil)
 	}))
 
 	// drop the "secondary" connection upon successful handshake
-	neighbor.InitiatedProtocol.Events.HandshakeCompleted.Attach(events.NewClosure(func() {
-		if accountability.OwnId().StringIdentifier <= neighbor.Identity.StringIdentifier {
-			neighbor.acceptedProtocolMutex.Lock()
+	neighbor.GetInitiatedProtocol().Events.HandshakeCompleted.Attach(events.NewClosure(func() {
+		if accountability.OwnId().StringIdentifier <= neighbor.GetIdentity().StringIdentifier {
 			var acceptedProtocolConn *network.ManagedConnection
-			if neighbor.AcceptedProtocol != nil {
-				acceptedProtocolConn = neighbor.AcceptedProtocol.Conn
+			if neighbor.GetAcceptedProtocol() != nil {
+				acceptedProtocolConn = neighbor.GetAcceptedProtocol().Conn
 			}
-			neighbor.acceptedProtocolMutex.Unlock()
 
 			if acceptedProtocolConn != nil {
 				_ = acceptedProtocolConn.Close()
 			}
 		}
 
-		neighbor.Events.ProtocolConnectionEstablished.Trigger(neighbor.InitiatedProtocol)
+		neighbor.Events.ProtocolConnectionEstablished.Trigger(neighbor.GetInitiatedProtocol())
 	}))
 
-	return neighbor.InitiatedProtocol, true, nil
+	return neighbor.GetInitiatedProtocol(), true, nil
 }
 
 func (neighbor *Neighbor) Marshal() []byte {
@@ -181,23 +240,19 @@ func (neighbor *Neighbor) Marshal() []byte {
 }
 
 func (neighbor *Neighbor) Equals(other *Neighbor) bool {
-	return neighbor.Identity.StringIdentifier == other.Identity.StringIdentifier &&
-		neighbor.Port == other.Port && neighbor.Address.String() == other.Address.String()
+	return neighbor.GetIdentity().StringIdentifier == other.GetIdentity().StringIdentifier &&
+		neighbor.GetPort() == other.GetPort() && neighbor.GetAddress().String() == other.GetAddress().String()
 }
 
 func AddNeighbor(newNeighbor *Neighbor) {
-	neighborLock.Lock()
-	defer neighborLock.Unlock()
-
-	if neighbor, exists := neighbors[newNeighbor.Identity.StringIdentifier]; !exists {
-		neighbors[newNeighbor.Identity.StringIdentifier] = newNeighbor
-
+	if neighbor, exists := neighbors.Load(newNeighbor.GetIdentity().StringIdentifier); !exists {
+		neighbors.Store(newNeighbor.GetIdentity().StringIdentifier, newNeighbor)
 		Events.AddNeighbor.Trigger(newNeighbor)
 	} else {
 		if !neighbor.Equals(newNeighbor) {
-			neighbor.Identity = newNeighbor.Identity
-			neighbor.Port = newNeighbor.Port
-			neighbor.Address = newNeighbor.Address
+			neighbor.SetIdentity(newNeighbor.GetIdentity())
+			neighbor.SetPort(newNeighbor.GetPort())
+			neighbor.SetAddress(newNeighbor.GetAddress())
 
 			Events.UpdateNeighbor.Trigger(neighbor)
 		}
@@ -205,37 +260,17 @@ func AddNeighbor(newNeighbor *Neighbor) {
 }
 
 func RemoveNeighbor(identifier string) {
-	if _, exists := neighbors[identifier]; exists {
-		neighborLock.Lock()
-		defer neighborLock.Unlock()
-
-		if neighbor, exists := neighbors[identifier]; exists {
-			delete(neighbors, identifier)
-
-			Events.RemoveNeighbor.Trigger(neighbor)
-		}
+	if neighbor, exists := neighbors.Delete(identifier); exists {
+		Events.RemoveNeighbor.Trigger(neighbor)
 	}
 }
 
 func GetNeighbor(identifier string) (*Neighbor, bool) {
-	neighborLock.RLock()
-	defer neighborLock.RUnlock()
-
-	neighbor, exists := neighbors[identifier]
-
-	return neighbor, exists
+	return neighbors.Load(identifier)
 }
 
 func GetNeighbors() map[string]*Neighbor {
-	neighborLock.RLock()
-	defer neighborLock.RUnlock()
-
-	result := make(map[string]*Neighbor)
-	for id, neighbor := range neighbors {
-		result[id] = neighbor
-	}
-
-	return result
+	return neighbors.GetMap()
 }
 
 const (
@@ -243,6 +278,6 @@ const (
 	CONNECTION_BASE_TIMEOUT = 10 * time.Second
 )
 
-var neighbors = make(map[string]*Neighbor)
+var neighbors = NewNeighborMap()
 
 var neighborLock sync.RWMutex

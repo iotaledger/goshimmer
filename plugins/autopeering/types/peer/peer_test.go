@@ -13,11 +13,11 @@ import (
 
 func TestPeer_MarshalUnmarshal(t *testing.T) {
 	peer := &Peer{
-		Address:     net.IPv4(127, 0, 0, 1),
-		Identity:    identity.GenerateRandomIdentity(),
-		GossipPort:  123,
-		PeeringPort: 456,
-		Salt:        salt.New(30 * time.Second),
+		address:     net.IPv4(127, 0, 0, 1),
+		identity:    identity.GenerateRandomIdentity(),
+		gossipPort:  123,
+		peeringPort: 456,
+		salt:        salt.New(30 * time.Second),
 	}
 
 	restoredPeer, err := Unmarshal(peer.Marshal())
@@ -25,14 +25,14 @@ func TestPeer_MarshalUnmarshal(t *testing.T) {
 		t.Error(err)
 	}
 
-	assert.Equal(t, peer.Address, restoredPeer.Address)
-	assert.Equal(t, peer.Identity.StringIdentifier, restoredPeer.Identity.StringIdentifier)
-	assert.Equal(t, peer.Identity.PublicKey, restoredPeer.Identity.PublicKey)
-	assert.Equal(t, peer.GossipPort, restoredPeer.GossipPort)
-	assert.Equal(t, peer.PeeringPort, restoredPeer.PeeringPort)
-	assert.Equal(t, peer.Salt.Bytes, restoredPeer.Salt.Bytes)
+	assert.Equal(t, peer.GetAddress(), restoredPeer.GetAddress())
+	assert.Equal(t, peer.GetIdentity().StringIdentifier, restoredPeer.GetIdentity().StringIdentifier)
+	assert.Equal(t, peer.GetIdentity().PublicKey, restoredPeer.GetIdentity().PublicKey)
+	assert.Equal(t, peer.GetGossipPort(), restoredPeer.GetGossipPort())
+	assert.Equal(t, peer.GetPeeringPort(), restoredPeer.GetPeeringPort())
+	assert.Equal(t, peer.GetSalt().GetBytes(), restoredPeer.GetSalt().GetBytes())
 	// time.time cannot be compared with reflect.DeepEqual, so we cannot use assert.Equal here
-	if !peer.Salt.ExpirationTime.Equal(restoredPeer.Salt.ExpirationTime) {
-		t.Errorf("got %v want %v", restoredPeer.Salt.ExpirationTime, peer.Salt.ExpirationTime)
+	if !peer.GetSalt().GetExpirationTime().Equal(restoredPeer.GetSalt().GetExpirationTime()) {
+		t.Errorf("got %v want %v", restoredPeer.GetSalt().GetExpirationTime(), peer.GetSalt().GetExpirationTime())
 	}
 }

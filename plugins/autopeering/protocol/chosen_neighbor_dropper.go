@@ -15,9 +15,9 @@ import (
 func createChosenNeighborDropper(plugin *node.Plugin) func() {
 	return func() {
 		timeutil.Ticker(func() {
-			if len(chosenneighbors.INSTANCE.Peers) > constants.NEIGHBOR_COUNT/2 {
+			if chosenneighbors.INSTANCE.Peers.Len() > constants.NEIGHBOR_COUNT/2 {
 				defer chosenneighbors.INSTANCE.Lock()()
-				for len(chosenneighbors.INSTANCE.Peers) > constants.NEIGHBOR_COUNT/2 {
+				for chosenneighbors.INSTANCE.Peers.Len() > constants.NEIGHBOR_COUNT/2 {
 					chosenneighbors.FurthestNeighborLock.RLock()
 					furthestNeighbor := chosenneighbors.FURTHEST_NEIGHBOR
 					chosenneighbors.FurthestNeighborLock.RUnlock()
@@ -26,7 +26,7 @@ func createChosenNeighborDropper(plugin *node.Plugin) func() {
 						dropMessage := &drop.Drop{Issuer: ownpeer.INSTANCE}
 						dropMessage.Sign()
 
-						chosenneighbors.INSTANCE.Remove(furthestNeighbor.Identity.StringIdentifier, false)
+						chosenneighbors.INSTANCE.Remove(furthestNeighbor.GetIdentity().StringIdentifier)
 						go func() {
 							if _, err := furthestNeighbor.Send(dropMessage.Marshal(), types.PROTOCOL_TYPE_UDP, false); err != nil {
 								plugin.LogDebug("error when sending drop message to" + chosenneighbors.FURTHEST_NEIGHBOR.String())

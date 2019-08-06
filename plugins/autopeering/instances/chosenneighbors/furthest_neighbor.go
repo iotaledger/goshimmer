@@ -33,7 +33,7 @@ func configureFurthestNeighbor() {
 			FURTHEST_NEIGHBOR_DISTANCE = uint64(0)
 			FURTHEST_NEIGHBOR = nil
 
-			for _, furthestNeighborCandidate := range INSTANCE.Peers {
+			for _, furthestNeighborCandidate := range INSTANCE.Peers.GetMap() {
 				distance := OWN_DISTANCE(furthestNeighborCandidate)
 				if distance > FURTHEST_NEIGHBOR_DISTANCE {
 					FURTHEST_NEIGHBOR = furthestNeighborCandidate

@@ -80,9 +80,9 @@ func (headerBar *UIHeaderBar) Update() {
 
 	fmt.Fprintf(headerBar.InfoContainer, "[::b]Node ID: [::d]%40v  ", accountability.OwnId().StringIdentifier)
 	fmt.Fprintln(headerBar.InfoContainer)
-	fmt.Fprintf(headerBar.InfoContainer, "[::b]Neighbors: [::d]%40v  ", strconv.Itoa(len(chosenneighbors.INSTANCE.Peers))+" chosen / "+strconv.Itoa(len(acceptedneighbors.INSTANCE.Peers))+" accepted / "+strconv.Itoa(len(chosenneighbors.INSTANCE.Peers)+len(acceptedneighbors.INSTANCE.Peers))+" total")
+	fmt.Fprintf(headerBar.InfoContainer, "[::b]Neighbors: [::d]%40v  ", strconv.Itoa(chosenneighbors.INSTANCE.Peers.Len())+" chosen / "+strconv.Itoa(acceptedneighbors.INSTANCE.Peers.Len())+" accepted / "+strconv.Itoa(chosenneighbors.INSTANCE.Peers.Len()+acceptedneighbors.INSTANCE.Peers.Len())+" total")
 	fmt.Fprintln(headerBar.InfoContainer)
-	fmt.Fprintf(headerBar.InfoContainer, "[::b]Known Peers: [::d]%40v  ", strconv.Itoa(len(knownpeers.INSTANCE.Peers))+" total / "+strconv.Itoa(len(neighborhood.INSTANCE.Peers))+" neighborhood")
+	fmt.Fprintf(headerBar.InfoContainer, "[::b]Known Peers: [::d]%40v  ", strconv.Itoa(knownpeers.INSTANCE.Peers.Len())+" total / "+strconv.Itoa(neighborhood.INSTANCE.Peers.Len())+" neighborhood")
 	fmt.Fprintln(headerBar.InfoContainer)
 	fmt.Fprintf(headerBar.InfoContainer, "[::b]Uptime: [::d]")
 

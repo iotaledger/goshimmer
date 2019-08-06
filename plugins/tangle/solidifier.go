@@ -1,6 +1,8 @@
 package tangle
 
 import (
+	"runtime"
+
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/events"
@@ -188,4 +190,4 @@ func processTransaction(plugin *node.Plugin, transaction *value_transaction.Valu
 	}
 }
 
-const WORKER_COUNT = 5000
+var WORKER_COUNT = runtime.NumCPU()

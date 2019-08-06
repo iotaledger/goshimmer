@@ -33,14 +33,14 @@ func getDb() database.Database {
 }
 
 func storePeer(p *peer.Peer) {
-	err := getDb().Set(p.Identity.Identifier, p.Marshal())
+	err := getDb().Set(p.GetIdentity().Identifier, p.Marshal())
 	if err != nil {
 		panic(err)
 	}
 }
 
 func removePeer(p *peer.Peer) {
-	err := getDb().Delete(p.Identity.Identifier)
+	err := getDb().Delete(p.GetIdentity().Identifier)
 	if err != nil {
 		panic(err)
 	}
@@ -55,13 +55,13 @@ func loadPeers(plugin *node.Plugin) {
 			panic(err)
 		}
 		// the peers are stored by identifier in the db
-		if !bytes.Equal(key, peer.Identity.Identifier) {
+		if !bytes.Equal(key, peer.GetIdentity().Identifier) {
 			panic("Invalid item in '" + peerDbName + "' database")
 		}
 
 		knownpeers.INSTANCE.AddOrUpdate(peer)
 		count++
-		plugin.LogDebug("Added stored peer: " + peer.Address.String() + " / " + peer.Identity.StringIdentifier)
+		plugin.LogDebug("Added stored peer: " + peer.GetAddress().String() + " / " + peer.GetIdentity().StringIdentifier)
 	})
 	if err != nil {
 		panic(err)

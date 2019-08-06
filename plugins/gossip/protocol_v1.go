@@ -87,7 +87,7 @@ func (state *indentificationStateV1) Receive(data []byte, offset int, length int
 		} else {
 			protocol := state.protocol
 
-			if neighbor, exists := GetNeighbor(receivedIdentity.StringIdentifier); exists {
+			if neighbor, exists := neighbors.Load(receivedIdentity.StringIdentifier); exists {
 				protocol.Neighbor = neighbor
 			} else {
 				protocol.Neighbor = nil

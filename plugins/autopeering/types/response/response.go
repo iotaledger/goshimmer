@@ -2,6 +2,7 @@ package response
 
 import (
 	"bytes"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
@@ -10,10 +11,26 @@ import (
 )
 
 type Response struct {
-	Type      Type
-	Issuer    *peer.Peer
-	Peers     []*peer.Peer
-	Signature [MARSHALED_SIGNATURE_SIZE]byte
+	Type           Type
+	Issuer         *peer.Peer
+	Peers          []*peer.Peer
+	signature      [MARSHALED_SIGNATURE_SIZE]byte
+	signatureMutex sync.RWMutex
+}
+
+func (r *Response) GetSignature() (result []byte) {
+	r.signatureMutex.RLock()
+	result = make([]byte, len(r.signature))
+	copy(result[:], r.signature[:])
+	r.signatureMutex.RUnlock()
+
+	return
+}
+
+func (r *Response) SetSignature(signature []byte) {
+	r.signatureMutex.Lock()
+	copy(r.signature[:], signature[:])
+	r.signatureMutex.Unlock()
 }
 
 func Unmarshal(data []byte) (*Response, error) {
@@ -49,21 +66,21 @@ func Unmarshal(data []byte) (*Response, error) {
 	if issuer, err := identity.FromSignedData(data[:MARSHALED_SIGNATURE_START], data[MARSHALED_SIGNATURE_START:]); err != nil {
 		return nil, err
 	} else {
-		if !bytes.Equal(issuer.Identifier, peeringResponse.Issuer.Identity.Identifier) {
+		if !bytes.Equal(issuer.Identifier, peeringResponse.Issuer.GetIdentity().Identifier) {
 			return nil, ErrInvalidSignature
 		}
 	}
-	copy(peeringResponse.Signature[:], data[MARSHALED_SIGNATURE_START:MARSHALED_SIGNATURE_END])
+	peeringResponse.SetSignature(data[MARSHALED_SIGNATURE_START:MARSHALED_SIGNATURE_END])
 
 	return peeringResponse, nil
 }
 
 func (this *Response) Sign() *Response {
 	dataToSign := this.Marshal()[:MARSHALED_SIGNATURE_START]
-	if signature, err := this.Issuer.Identity.Sign(dataToSign); err != nil {
+	if signature, err := this.Issuer.GetIdentity().Sign(dataToSign); err != nil {
 		panic(err)
 	} else {
-		copy(this.Signature[:], signature)
+		this.SetSignature(signature)
 	}
 
 	return this
@@ -87,7 +104,7 @@ func (this *Response) Marshal() []byte {
 		}
 	}
 
-	copy(result[MARSHALED_SIGNATURE_START:MARSHALED_SIGNATURE_END], this.Signature[:MARSHALED_SIGNATURE_SIZE])
+	copy(result[MARSHALED_SIGNATURE_START:MARSHALED_SIGNATURE_END], this.GetSignature()[:MARSHALED_SIGNATURE_SIZE])
 
 	return result
 }

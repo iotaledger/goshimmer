@@ -1,0 +1,91 @@
+  _____ _   _ ________  ______  ___ ___________ 
+ /  ___| | | |_   _|  \/  ||  \/  ||  ___| ___ \
+ \ `--.| |_| | | | | .  . || .  . || |__ | |_/ /
+  `--. \  _  | | | | |\/| || |\/| ||  __||    / 
+ /\__/ / | | |_| |_| |  | || |  | || |___| |\ \ 
+ \____/\_| |_/\___/\_|  |_/\_|  |_/\____/\_| \_| fullnode 0.0.1
+
+[ INFO ] Loading plugins ...
+[ INFO ] Loading Plugin: CLI ... done
+[  OK  ] Auto Peering: Restored 486 peers from database
+[ INFO ] Loading Plugin: Auto Peering ... done
+[ INFO ] Loading Plugin: Gossip ... done
+[ INFO ] Loading Plugin: Gossip On Solidification ... done
+[ INFO ] Loading Plugin: Tangle ... done
+[ INFO ] Loading Plugin: Bundle Processor ... done
+[ INFO ] Loading Plugin: Analysis ... done
+[ INFO ] Loading Plugin: Graceful Shutdown ... done
+[ INFO ] Loading Plugin: Tipselection ... done
+[ INFO ] Skipping Plugin: ZeroMQ
+[ INFO ] Skipping Plugin: Dashboard
+[ INFO ] Loading Plugin: Metrics ... done
+[ INFO ] Skipping Plugin: Status Screen
+[ INFO ] Loading Plugin: Statusscreen TPS ... done
+[ INFO ] Loading Plugin: WebAPI ... done
+[ INFO ] Loading Plugin: WebAPI GTTA Endpoint ... done
+[ INFO ] Skipping Plugin: Spammer
+[ INFO ] Executing plugins ...
+[  OK  ] Starting Plugin: CLI ... done
+[  OK  ] Starting Plugin: Auto Peering ... done
+[ INFO ] Gossip: Starting Neighbor Connection Manager ...
+[  OK  ] Gossip: Starting Neighbor Connection Manager ... done
+[ INFO ] Gossip: Starting TCP Server (port 14666) ...
+[ INFO ] Gossip: Starting Send Queue Dispatcher ...
+[  OK  ] Starting Plugin: Gossip ... done
+[  OK  ] Starting Plugin: Gossip On Solidification ... done
+[ INFO ] Tangle: Starting Solidifier ...
+[  OK  ] Starting Plugin: Tangle ... done
+[ INFO ] Bundle Processor: Starting Bundle Processor ...
+[ INFO ] Bundle Processor: Starting Value Bundle Processor ...
+[  OK  ] Starting Plugin: Bundle Processor ... done
+[  OK  ] Starting Plugin: Analysis ... server is disabled (server-port is 0)
+[  OK  ] Starting Plugin: Analysis ... done
+[  OK  ] Starting Plugin: Graceful Shutdown ... done
+[  OK  ] Starting Plugin: Tipselection ... done
+[  OK  ] Starting Plugin: Metrics ... done
+[  OK  ] Starting Plugin: Statusscreen TPS ... done
+[ INFO ] WebAPI: Starting Web Server ...
+[  OK  ] Starting Plugin: WebAPI ... done
+[  OK  ] Starting Plugin: WebAPI GTTA Endpoint ... done
+[  OK  ] Starting background workers ...
+[  OK  ] WebAPI: Starting Web Server ... done
+[ INFO ] Auto Peering: Starting UDP Server (port 14626) ...
+[ INFO ] Auto Peering: Starting TCP Server (port 14626) ...
+[ INFO ] Auto Peering: Starting Chosen Neighbor Processor ...
+[  OK  ] Auto Peering: Starting Chosen Neighbor Processor ... done
+[  OK  ] Bundle Processor: Starting Bundle Processor ... done
+[ INFO ] Auto Peering: Starting Ping Processor ...
+[  OK  ] Auto Peering: Starting Ping Processor ... done
+[  OK  ] Tangle: Starting Solidifier ... done
+[  OK  ] Bundle Processor: Starting Value Bundle Processor ... done
+[  OK  ] Gossip: Starting Send Queue Dispatcher ... done
+[  OK  ] Gossip: Starting TCP Server (port 14666) ... done
+[  OK  ] Auto Peering: Starting UDP Server (port 14626) ... done
+[  OK  ] Auto Peering: Starting TCP Server (port 14626) ... done
+[  OK  ] Gossip: new neighbor added a53f6bddf41f3339f296f4c5fbf6e280c411a73e@164.68.105.123:14666
+[  OK  ] Gossip: existing neighbor updated a53f6bddf41f3339f296f4c5fbf6e280c411a73e@173.249.10.36:14666
+[  OK  ] Gossip: existing neighbor updated a53f6bddf41f3339f296f4c5fbf6e280c411a73e@164.68.105.123:14666
+[  OK  ] Gossip: existing neighbor updated a53f6bddf41f3339f296f4c5fbf6e280c411a73e@173.249.10.36:14666
+[  OK  ] Gossip: existing neighbor updated a53f6bddf41f3339f296f4c5fbf6e280c411a73e@164.68.105.123:14666
+[ WARN ] Graceful Shutdown: Received shutdown request - waiting (max 10 seconds) to finish processing ...
+[ INFO ] Auto Peering: Stopping UDP Server ...
+[ INFO ] Auto Peering: Stopping Chosen Neighbor Processor ...
+[  OK  ] Auto Peering: Stopping Chosen Neighbor Processor ... done
+[ INFO ] Auto Peering: Stopping Ping Processor ...
+[  OK  ] Auto Peering: Stopping Ping Processor ... done
+[  OK  ] Auto Peering: Stopping UDP Server ... done
+[  OK  ] Gossip: Stopping Send Queue Dispatcher ... done
+[ INFO ] Auto Peering: Stopping TCP Server ...
+[ INFO ] Gossip: Stopping TCP Server ...
+[  OK  ] Auto Peering: Stopping TCP Server ... done
+[ INFO ] Gossip: Stopping Send Queue Dispatcher ...
+[ INFO ] Tangle: Stopping Solidifier ...
+[  OK  ] Gossip: Stopping TCP Server ... done
+[ INFO ] Bundle Processor: Stopping Bundle Processor ...
+[ INFO ] Bundle Processor: Stopping Value Bundle Processor ...
+[ INFO ] WebAPI: Stopping Web Server ...
+[  OK  ] Tangle: Stopping Solidifier ... done
+[  OK  ] Bundle Processor: Stopping Bundle Processor ... done
+[  OK  ] Bundle Processor: Stopping Value Bundle Processor ... done
+[  OK  ] WebAPI: Stopping Web Server ... done
+[  OK  ] Shutdown complete!
