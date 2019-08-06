@@ -91,9 +91,9 @@ func run(plugin *node.Plugin) {
 		return event
 	})
 
-	mutex.RLock()
-	defer mutex.RUnlock()
 	app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
+		mutex.RLock()
+		defer mutex.RUnlock()
 		headerBar.Update()
 
 		rows := make([]int, 2)
