@@ -68,10 +68,11 @@ func Unmarshal(marshaledSalt []byte) (*Salt, error) {
 	}
 	salt.SetBytes(marshaledSalt[SALT_BYTES_START:SALT_BYTES_END])
 
-	expTime := salt.GetExpirationTime()
+	var expTime time.Time
 	if err := expTime.UnmarshalBinary(marshaledSalt[SALT_TIME_START:SALT_TIME_END]); err != nil {
 		return nil, err
 	}
+	salt.SetExpirationTime(expTime)
 
 	return salt, nil
 }
