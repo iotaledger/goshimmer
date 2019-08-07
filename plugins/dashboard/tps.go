@@ -2,22 +2,83 @@ package dashboard
 
 import (
 	"encoding/binary"
+	"fmt"
 	"html/template"
+	"math"
 	"net/http"
 	"sync"
+	"strconv"
+	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/iotaledger/goshimmer/packages/accountability"
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
 )
 
 var (
+	start                = time.Now()
 	homeTempl, templ_err = template.New("dashboard").Parse(tpsTemplate)
 	upgrader             = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 	}
 )
+
+type Status struct {
+	Id        string `json:"Id"`
+	Neighbor  string `json:"Neighbor"`
+	KnownPeer string `json:"KnownPeer"`
+	Uptime    string `json:"Uptime"`
+}
+
+func GetStatus() *Status {
+	// Get Uptime
+	duration := time.Since(start)
+	padded := false
+	uptime := fmt.Sprintf("Uptime: ")
+	if int(duration.Seconds())/(60*60*24) > 0 {
+		days := int(duration.Hours()) / 24
+
+		numberLength := int(math.Log10(float64(days))) + 1
+		padLength := 31 - numberLength
+
+		uptime += fmt.Sprintf("%*v", padLength, "")
+		uptime += fmt.Sprintf("%02dd ", days)
+	}
+
+	if int(duration.Seconds())/(60*60) > 0 {
+		if !padded {
+			uptime += fmt.Sprintf("%29v", "")
+			padded = true
+		}
+		uptime += fmt.Sprintf("%02dh ", int(duration.Hours())%24)
+	}
+
+	if int(duration.Seconds())/60 > 0 {
+		if !padded {
+			uptime += fmt.Sprintf("%33v", "")
+			padded = true
+		}
+		uptime += fmt.Sprintf("%02dm ", int(duration.Minutes())%60)
+	}
+
+	if !padded {
+		uptime += fmt.Sprintf("%37v", "")
+	}
+	uptime += fmt.Sprintf("%02ds  ", int(duration.Seconds())%60)
+
+    return &Status {
+	Id: accountability.OwnId().StringIdentifier,
+	Neighbor: "Neighbors:  " + strconv.Itoa(chosenneighbors.INSTANCE.Peers.Len())+" chosen / "+strconv.Itoa(acceptedneighbors.INSTANCE.Peers.Len())+" accepted / "+strconv.Itoa(chosenneighbors.INSTANCE.Peers.Len()+acceptedneighbors.INSTANCE.Peers.Len())+" total",
+	KnownPeer: "Known Peers: "+ strconv.Itoa(knownpeers.INSTANCE.Peers.Len())+" total / "+strconv.Itoa(neighborhood.INSTANCE.Peers.Len())+" neighborhood",
+	Uptime: uptime,
+    }
+}
 
 // ServeWs websocket
 func ServeWs(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +97,12 @@ func ServeWs(w http.ResponseWriter, r *http.Request) {
 			p := make([]byte, 4)
 			binary.LittleEndian.PutUint32(p, uint32(sampledTPS))
 			if err := ws.WriteMessage(websocket.BinaryMessage, p); err != nil {
+				return
+			}
+
+			// write node status message
+			status := GetStatus()
+			if err := ws.WriteJSON(status); err != nil {
 				return
 			}
 		}()
