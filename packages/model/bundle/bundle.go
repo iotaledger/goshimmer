@@ -48,9 +48,9 @@ func (bundle *Bundle) SetHash(hash trinary.Trytes) {
 }
 
 func (bundle *Bundle) GetTransactionHashes() (result []trinary.Trytes) {
-	bundle.bundleEssenceHashMutex.RLock()
+	bundle.transactionHashesMutex.RLock()
 	result = bundle.transactionHashes
-	bundle.bundleEssenceHashMutex.RUnlock()
+	bundle.transactionHashesMutex.RUnlock()
 
 	return
 }
