@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+option go_package = "github.com/wollac/autopeering/proto";
+
+package proto;
+
+message Packet {
+  bytes public_key = 1;
+  bytes signature = 2;
+  bytes data = 3;
+}
+
+service Peering { rpc Ping(Packet) returns (Packet); }

@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+option go_package = "github.com/wollac/autopeering/proto";
+
+package proto;
+
+message RpcEndpoint {
+  string ip = 1;
+  uint32 port = 2;
+}
+
+message Ping {
+  uint32 version = 1;
+  RpcEndpoint from = 2;
+  RpcEndpoint to = 3;
+}
+
+message Pong {
+  RpcEndpoint to = 1;
+  bytes ping_hash = 2;
+}
+
+message MessageWrapper {
+  oneof message {
+    Ping ping = 1;
+    Pong pong = 2;
+  }
+}
