@@ -1,4 +1,4 @@
-package peer
+package peering
 
 import (
 	"testing"
@@ -29,20 +29,20 @@ func getTestPing() *pb.Ping {
 }
 
 func TestEncodeDecodePing(t *testing.T) {
-	p := NewPacketBuilder(identity.GeneratePrivateIdentity())
+	id := identity.GeneratePrivateIdentity()
 
 	ping := getTestPing()
 	expected := &pb.MessageWrapper{Message: &pb.MessageWrapper_Ping{Ping: ping}}
 
-	packet, err := p.Encode(expected)
+	packet, err := Encode(id, expected)
 	if err != nil {
 		t.Error(err)
 	}
 
-	actual := &pb.MessageWrapper{}
-	if _, err := Decode(packet, actual); err != nil {
+	ingress := &IngressPacket{}
+	if err := Decode(packet, ingress); err != nil {
 		t.Error(err)
 	}
 
-	assertProto(t, actual.GetPing(), expected.GetPing())
+	assertProto(t, ingress.Message.GetPing(), expected.GetPing())
 }

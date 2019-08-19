@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+option go_package = "github.com/wollac/autopeering/grpc";
+
+package grpc;
+
+import "proto/packet.proto";
+
+service Peering { rpc Ping(proto.Packet) returns (proto.Packet); }

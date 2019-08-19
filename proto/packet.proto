@@ -9,5 +9,3 @@ message Packet {
   bytes signature = 2;
   bytes data = 3;
 }
-
-service Peering { rpc Ping(Packet) returns (Packet); }
