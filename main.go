@@ -5,11 +5,8 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
 
 	"github.com/wollac/autopeering/grpc"
-	"github.com/wollac/autopeering/identity"
-	"github.com/wollac/autopeering/peering"
 )
 
 var port = flag.Int("port", 4444, "peering gRPC port")
@@ -18,9 +15,8 @@ var masterNodes = flag.String("master-nodes", "", "comma separated list of maste
 func main() {
 	flag.Parse()
 
-	prot := &grpc.Protocol{}
-	prot.Start(fmt.Sprintf(":%d", *port))
-	defer prot.Stop()
+	trans := grpc.Start(fmt.Sprintf(":%d", *port))
+	defer trans.Close()
 
 	nodes := strings.Split(*masterNodes, ",")
 	addrs := make([]*net.UDPAddr, len(nodes))
@@ -32,13 +28,4 @@ func main() {
 		}
 		addrs = append(addrs, addr)
 	}
-
-	id := identity.GeneratePrivateIdentity()
-	peering := peering.NewPeering(id, prot.SendPing)
-	prot.OnPing(peering.OnPing)
-	prot.OnPong(peering.OnPong)
-
-	// peering.Start(addrs)
-
-	time.Sleep(5 * time.Second)
 }

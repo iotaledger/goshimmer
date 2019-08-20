@@ -1,4 +1,4 @@
-package peering
+package discover
 
 import (
 	"testing"
@@ -32,17 +32,15 @@ func TestEncodeDecodePing(t *testing.T) {
 	id := identity.GeneratePrivateIdentity()
 
 	ping := getTestPing()
-	expected := &pb.MessageWrapper{Message: &pb.MessageWrapper_Ping{Ping: ping}}
-
-	packet, err := Encode(id, expected)
+	packet, err := encode(id, ping)
 	if err != nil {
 		t.Error(err)
 	}
 
-	ingress := &IngressPacket{}
-	if err := Decode(packet, ingress); err != nil {
+	wrapper, _, err := decode(packet)
+	if err != nil {
 		t.Error(err)
 	}
 
-	assertProto(t, ingress.Message.GetPing(), expected.GetPing())
+	assertProto(t, wrapper.GetPing(), ping)
 }

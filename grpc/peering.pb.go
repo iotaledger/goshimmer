@@ -25,18 +25,54 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
+type Empty struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Empty) Reset()         { *m = Empty{} }
+func (m *Empty) String() string { return proto.CompactTextString(m) }
+func (*Empty) ProtoMessage()    {}
+func (*Empty) Descriptor() ([]byte, []int) {
+	return fileDescriptor_55ee00b534dd8755, []int{0}
+}
+
+func (m *Empty) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Empty.Unmarshal(m, b)
+}
+func (m *Empty) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Empty.Marshal(b, m, deterministic)
+}
+func (m *Empty) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Empty.Merge(m, src)
+}
+func (m *Empty) XXX_Size() int {
+	return xxx_messageInfo_Empty.Size(m)
+}
+func (m *Empty) XXX_DiscardUnknown() {
+	xxx_messageInfo_Empty.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Empty proto.InternalMessageInfo
+
+func init() {
+	proto.RegisterType((*Empty)(nil), "grpc.Empty")
+}
+
 func init() { proto.RegisterFile("grpc/peering.proto", fileDescriptor_55ee00b534dd8755) }
 
 var fileDescriptor_55ee00b534dd8755 = []byte{
-	// 120 bytes of a gzipped FileDescriptorProto
+	// 137 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0x12, 0x4a, 0x2f, 0x2a, 0x48,
 	0xd6, 0x2f, 0x48, 0x4d, 0x2d, 0xca, 0xcc, 0x4b, 0xd7, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62,
-	0x01, 0x89, 0x49, 0x09, 0x81, 0x39, 0xfa, 0x05, 0x89, 0xc9, 0xd9, 0xa9, 0x25, 0x10, 0x19, 0x23,
-	0x7d, 0x2e, 0xf6, 0x00, 0x88, 0x52, 0x21, 0x15, 0x2e, 0x96, 0x00, 0x10, 0xcd, 0x0b, 0x91, 0xd2,
-	0x0b, 0x00, 0xab, 0x93, 0x42, 0xe5, 0x3a, 0xa9, 0x44, 0x29, 0xa5, 0x67, 0x96, 0x64, 0x94, 0x26,
-	0xe9, 0x25, 0xe7, 0xe7, 0xea, 0x97, 0xe7, 0xe7, 0xe4, 0x24, 0x26, 0xeb, 0x27, 0x96, 0x96, 0xe4,
-	0x43, 0x6d, 0xd4, 0x07, 0x59, 0x95, 0xc4, 0x06, 0xd6, 0x63, 0x0c, 0x08, 0x00, 0x00, 0xff, 0xff,
-	0xa9, 0x6a, 0x99, 0x1f, 0x8d, 0x00, 0x00, 0x00,
+	0x01, 0x89, 0x49, 0x09, 0x81, 0x39, 0xfa, 0x05, 0x89, 0xc9, 0xd9, 0xa9, 0x25, 0x10, 0x19, 0x25,
+	0x76, 0x2e, 0x56, 0xd7, 0xdc, 0x82, 0x92, 0x4a, 0x23, 0x5d, 0x2e, 0xf6, 0x00, 0x88, 0x1e, 0x21,
+	0x25, 0x2e, 0x96, 0xe0, 0xd4, 0xbc, 0x14, 0x21, 0x5e, 0x88, 0x1a, 0xbd, 0x00, 0xb0, 0x06, 0x29,
+	0x6e, 0x3d, 0x90, 0x29, 0x7a, 0x60, 0xe5, 0x4e, 0x2a, 0x51, 0x4a, 0xe9, 0x99, 0x25, 0x19, 0xa5,
+	0x49, 0x7a, 0xc9, 0xf9, 0xb9, 0xfa, 0xe5, 0xf9, 0x39, 0x39, 0x89, 0xc9, 0xfa, 0x89, 0xa5, 0x25,
+	0xf9, 0x50, 0x8b, 0xf5, 0x41, 0x6a, 0x93, 0xd8, 0xc0, 0x06, 0x18, 0x03, 0x02, 0x00, 0x00, 0xff,
+	0xff, 0x42, 0x77, 0x89, 0x08, 0x94, 0x00, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -51,7 +87,8 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type PeeringClient interface {
-	Ping(ctx context.Context, in *proto1.Packet, opts ...grpc.CallOption) (*proto1.Packet, error)
+	// UDP style send without responds
+	Send(ctx context.Context, in *proto1.Packet, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type peeringClient struct {
@@ -62,9 +99,9 @@ func NewPeeringClient(cc *grpc.ClientConn) PeeringClient {
 	return &peeringClient{cc}
 }
 
-func (c *peeringClient) Ping(ctx context.Context, in *proto1.Packet, opts ...grpc.CallOption) (*proto1.Packet, error) {
-	out := new(proto1.Packet)
-	err := c.cc.Invoke(ctx, "/grpc.Peering/Ping", in, out, opts...)
+func (c *peeringClient) Send(ctx context.Context, in *proto1.Packet, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/grpc.Peering/Send", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -73,35 +110,36 @@ func (c *peeringClient) Ping(ctx context.Context, in *proto1.Packet, opts ...grp
 
 // PeeringServer is the server API for Peering service.
 type PeeringServer interface {
-	Ping(context.Context, *proto1.Packet) (*proto1.Packet, error)
+	// UDP style send without responds
+	Send(context.Context, *proto1.Packet) (*Empty, error)
 }
 
 // UnimplementedPeeringServer can be embedded to have forward compatible implementations.
 type UnimplementedPeeringServer struct {
 }
 
-func (*UnimplementedPeeringServer) Ping(ctx context.Context, req *proto1.Packet) (*proto1.Packet, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
+func (*UnimplementedPeeringServer) Send(ctx context.Context, req *proto1.Packet) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Send not implemented")
 }
 
 func RegisterPeeringServer(s *grpc.Server, srv PeeringServer) {
 	s.RegisterService(&_Peering_serviceDesc, srv)
 }
 
-func _Peering_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Peering_Send_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(proto1.Packet)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PeeringServer).Ping(ctx, in)
+		return srv.(PeeringServer).Send(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/grpc.Peering/Ping",
+		FullMethod: "/grpc.Peering/Send",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PeeringServer).Ping(ctx, req.(*proto1.Packet))
+		return srv.(PeeringServer).Send(ctx, req.(*proto1.Packet))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -111,8 +149,8 @@ var _Peering_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*PeeringServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Ping",
-			Handler:    _Peering_Ping_Handler,
+			MethodName: "Send",
+			Handler:    _Peering_Send_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -6,4 +6,9 @@ package grpc;
 
 import "proto/packet.proto";
 
-service Peering { rpc Ping(proto.Packet) returns (proto.Packet); }
+message Empty {}
+
+service Peering {
+  // UDP style send without responds
+  rpc Send(proto.Packet) returns (Empty);
+}
