@@ -21,6 +21,7 @@ type TransportGRPC struct {
 	options   []grpc.DialOption
 	ch        chan transfer
 
+	wg        sync.WaitGroup
 	closeOnce sync.Once
 	closing   chan struct{}
 }
@@ -40,19 +41,24 @@ func GRPC(lis net.Listener) *TransportGRPC {
 	pb.RegisterPeeringServer(grpcServer, &server{t})
 
 	starting := make(chan bool)
-	go func() {
-		defer lis.Close()
+	t.wg.Add(1)
+	go t.serve(lis, starting)
 
-		starting <- true
-		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatalf("failed to serve: %v", err)
-		}
-	}()
-	// we cannot wait until the server has started, but we should at least wait
-	// until the goroutine is executed
+	// it is not possible to wait until the server is up, but we should at
+	// least wait until the goroutine is executed, to avoid scheduler issues
 	<-starting
 
 	return t
+}
+
+func (t *TransportGRPC) serve(lis net.Listener, starting chan<- bool) {
+	defer t.wg.Done()
+	defer lis.Close()
+
+	starting <- true
+	if err := t.srv.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
 }
 
 // SetDialOptions sets the options used for subsequent dial calls.
@@ -87,6 +93,7 @@ func (t *TransportGRPC) Close() {
 	t.closeOnce.Do(func() {
 		close(t.closing)
 		t.srv.Stop()
+		t.wg.Wait()
 		t.srv = nil
 	})
 }
