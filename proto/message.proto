@@ -4,22 +4,23 @@ option go_package = "github.com/wollac/autopeering/proto";
 
 package proto;
 
-message RpcEndpoint {
-  string ip = 1;
-  uint32 port = 2;
-}
-
 message Ping {
+  // protocol version number
   uint32 version = 1;
-  RpcEndpoint from = 2;
-  RpcEndpoint to = 3;
+  // string form of the return address (e.g. "192.0.2.1:25", "[2001:db8::1]:80")
+  string from = 2;
+  // string form of the recipient address
+  string to = 3;
 }
 
 message Pong {
-  RpcEndpoint to = 1;
+  // string form of the recipient address
+  string to = 1;
+  // hash of the ping packet
   bytes ping_hash = 2;
 }
 
+// wrapper to contain all the different messages
 message MessageWrapper {
   oneof message {
     Ping ping = 1;

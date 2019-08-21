@@ -1,25 +1,25 @@
+// Packe transport provides implementations for simple address-based packet
+// transfers.
 package transport
 
 import (
-	"net"
-
 	pb "github.com/wollac/autopeering/proto"
 )
 
-type Addr struct {
-	IP   net.IP
-	Port uint16
-}
-
-func (e *Addr) Equal(o *Addr) bool {
-	return e.Port == o.Port && e.IP.Equal(o.IP)
-}
-
-// Abstraction of the transport layer for the protocol
+// Transport is generic network connection to transfer protobuf packages.
+// Multiple goroutines may invoke methods on a Conn simultaneously.
 type Transport interface {
-	Read() (*pb.Packet, *Addr, error)
-	Write(*pb.Packet, *Addr) error
+	// ReadFrom reads a packet from the connection. It returns the package and
+	// the return address for that package in string form.
+	ReadFrom() (pkt *pb.Packet, address string, err error)
 
+	// WriteTo writes a packet to the string encoded target address.
+	WriteTo(pkt *pb.Packet, address string) error
+
+	// Close closes the connection.
+	// Any blocked ReadFrom or WriteTo operations will return errors.
 	Close()
-	LocalEndpoint() *Addr
+
+	// LocalAddr returns the local network address in string form.
+	LocalAddr() string
 }

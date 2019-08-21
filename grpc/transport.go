@@ -55,12 +55,12 @@ func (t *Transport) Close() {
 	t.server = nil
 }
 
-func (t *Transport) Read() (*pb.Packet, net.Addr, error) {
+func (t *Transport) ReadFrom() (*pb.Packet, net.Addr, error) {
 	res := <-t.ch
 	return res, t.addr, nil
 }
 
-func (t *Transport) Write(req *pb.Packet, to net.Addr) error {
+func (t *Transport) WriteTo(req *pb.Packet, to net.Addr) error {
 	conn, err := grpc.Dial(to.String(), grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("failed to dial: %v", err)
