@@ -24,7 +24,7 @@ func TestEncodeDecodePing(t *testing.T) {
 	id := identity.GeneratePrivateIdentity()
 
 	ping := testPing
-	packet, _, err := encode(id, ping)
+	packet, err := encode(id, ping)
 	if err != nil {
 		t.Fatal(err)
 	}

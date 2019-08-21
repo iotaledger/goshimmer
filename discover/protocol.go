@@ -116,12 +116,13 @@ func (p *protocol) sendPing(toAddr string, toID nodeID, callback func()) <-chan 
 		From:    p.localAddr(),
 		To:      toAddr,
 	}
-	pkt, hash, err := encode(p.priv, ping)
+	pkt, err := encode(p.priv, ping)
 	if err != nil {
 		errc := make(chan error, 1)
 		errc <- err
 		return errc
 	}
+	hash := packetHash(pkt.GetData())
 
 	// Add a matcher for the reply to the pending reply queue. Pongs are matched if they
 	// reference the ping we're about to send.
@@ -241,7 +242,7 @@ func (p *protocol) handleReply(fromAddr string, fromID nodeID, message pb.Messag
 }
 
 func (p *protocol) send(toAddr string, toID nodeID, msg pb.Message) error {
-	pkt, _, err := encode(p.priv, msg)
+	pkt, err := encode(p.priv, msg)
 	if err != nil {
 		return err
 	}
@@ -253,11 +254,11 @@ func (p *protocol) write(toAddr string, toID nodeID, mName string, pkt *pb.Packe
 	return p.trans.WriteTo(pkt, toAddr)
 }
 
-func encode(priv *identity.PrivateIdentity, message pb.Message) (*pb.Packet, []byte, error) {
+func encode(priv *identity.PrivateIdentity, message pb.Message) (*pb.Packet, error) {
 	// wrap the message before marshaling
 	data, err := proto.Marshal(message.Wrapper())
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "encode")
+		return nil, errors.Wrap(err, "encode")
 	}
 	sig := priv.Sign(data)
 
@@ -266,7 +267,7 @@ func encode(priv *identity.PrivateIdentity, message pb.Message) (*pb.Packet, []b
 		Signature: sig,
 		Data:      data,
 	}
-	return packet, packetHash(data), nil
+	return packet, nil
 }
 
 func (p *protocol) readLoop() {
