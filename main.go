@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"log"
 	"net"
 	"strings"
 )
@@ -21,4 +22,6 @@ func main() {
 		}
 		addrs = append(addrs, addr)
 	}
+
+	log.Println(addrs)
 }

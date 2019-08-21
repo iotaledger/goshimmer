@@ -8,39 +8,39 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-var (
-	ErrInvalidPubKeyLen = errors.New("identity: invalid public key length")
-)
+var errInvalidPubKeyLen = errors.New("identity: invalid public key length")
 
+// Identity offeres IDs in string/byte form and functions to check signatures.
 type Identity struct {
-	Id       []byte
-	StringId string
+	ID       []byte
+	StringID string
 
 	PublicKey []byte
 }
 
+// PrivateIdentity is an Identiy plus a private key for signature generation.
 type PrivateIdentity struct {
 	Identity
 
 	privateKey []byte
 }
 
-// Creates a new identity based on the given public key.
+// NewIdentity creates a new identity based on the given public key.
 func NewIdentity(publicKey []byte) (*Identity, error) {
 	if len(publicKey) != ed25519.PublicKeySize {
-		return nil, ErrInvalidPubKeyLen
+		return nil, errInvalidPubKeyLen
 	}
 	// the identifier is the hash of the public key
 	identifier := sha256.Sum224(publicKey)
 
 	return &Identity{
-		Id:        identifier[:],
-		StringId:  fmt.Sprintf("%x", identifier),
+		ID:        identifier[:],
+		StringID:  fmt.Sprintf("%x", identifier),
 		PublicKey: append([]byte(nil), publicKey...),
 	}, nil
 }
 
-// Verifies whether the data contains a valid signature of the message.
+// VerifySignature checks whether the data contains a valid signature of the message.
 func (id *Identity) VerifySignature(msg, sig []byte) bool {
 	return ed25519.Verify(id.PublicKey, msg, sig)
 }
@@ -57,8 +57,8 @@ func newPrivateIdentity(publicKey, privateKey []byte) *PrivateIdentity {
 	}
 }
 
-// Generates a identity based on a newly generated public/private key pair.
-// It will panic if no such pair could be generated.
+// GeneratePrivateIdentity creates a identity based on a newly generated
+// public/private key pair. It will panic if no such pair could be generated.
 func GeneratePrivateIdentity() *PrivateIdentity {
 	publicKey, privateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {

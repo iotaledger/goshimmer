@@ -68,6 +68,7 @@ type reply struct {
 	matched chan<- bool
 }
 
+// Listen starts a new peer discovery server using the given transport layer for communication.
 func Listen(t trans.Transport, priv *identity.PrivateIdentity) (*protocol, error) {
 	p := &protocol{
 		trans:           t,
@@ -159,8 +160,7 @@ func (p *protocol) replyLoop() {
 		if el := mlist.Front(); el != nil {
 			// the first element always has the closest deadline
 			m := el.Value.(*replyMatcher)
-			dist := m.deadline.Sub(time.Now())
-			timeout.Reset(dist)
+			timeout.Reset(time.Until(m.deadline))
 		} else {
 			timeout.Stop()
 		}
@@ -254,7 +254,7 @@ func (p *protocol) write(toAddr string, toID nodeID, mName string, pkt *pb.Packe
 }
 
 func encode(priv *identity.PrivateIdentity, message pb.Message) (*pb.Packet, []byte, error) {
-	// wrap the message before marshalling
+	// wrap the message before marshaling
 	data, err := proto.Marshal(message.Wrapper())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "encode")
@@ -292,7 +292,7 @@ func (p *protocol) handlePacket(fromAddr string, pkt *pb.Packet) error {
 		log.Println("Bad packet", fromAddr, err)
 		return err
 	}
-	fromID := issuer.StringId
+	fromID := issuer.StringID
 
 	switch m := w.GetMessage().(type) {
 

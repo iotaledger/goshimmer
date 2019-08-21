@@ -1,10 +1,10 @@
 package transport
 
 import (
+	"context"
 	"io"
 	"net"
 	"testing"
-	"time"
 
 	"github.com/magiconair/properties/assert"
 	"google.golang.org/grpc"
@@ -13,16 +13,16 @@ import (
 
 const bufSize = 1024 * 1024
 
-// Creates a TransportGRPC dialling and listing over the same internal buffer.
+// Creates a GRPC dialing and listing over the same internal buffer.
 func bufGRPC() *TransportGRPC {
 	lis := bufconn.Listen(bufSize)
-	dial := func(string, time.Duration) (net.Conn, error) {
+	dial := func(context.Context, string) (net.Conn, error) {
 		// ignore the address and always dial the buffer
 		return lis.Dial()
 	}
 
 	t := GRPC(lis)
-	t.SetDialOptions(grpc.WithInsecure(), grpc.WithDialer(dial))
+	t.SetDialOptions(grpc.WithInsecure(), grpc.WithContextDialer(dial))
 
 	return t
 }

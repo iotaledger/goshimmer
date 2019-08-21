@@ -2,6 +2,7 @@ package proto
 
 import "github.com/golang/protobuf/proto"
 
+// MessageType is the enum type for the different types of messages.
 type MessageType int
 
 const (
@@ -9,13 +10,16 @@ const (
 	PONG
 )
 
+// Message extends the proto.Message interface to provide additional util functions.
 type Message interface {
 	proto.Message
 
+	// Name returns the name of the corresponding message type for debugging.
 	Name() string
+	// Type returns the type of the corresponding message as an enum.
 	Type() MessageType
 
-	// Returns the wrapped message
+	// Wrapper returns the corresponding wrapped message.
 	Wrapper() *MessageWrapper
 }
 

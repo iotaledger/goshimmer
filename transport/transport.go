@@ -1,4 +1,4 @@
-// Packe transport provides implementations for simple address-based packet
+// Package transport provides implementations for simple address-based packet
 // transfers.
 package transport
 

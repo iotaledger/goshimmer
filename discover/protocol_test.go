@@ -46,7 +46,7 @@ func TestPingPong(t *testing.T) {
 	b, _ := Listen(p2p.B, identity.GeneratePrivateIdentity())
 	defer b.Close()
 
-	if err := a.ping(p2p.B.LocalAddr(), b.LocalID().StringId); err != nil {
+	if err := a.ping(p2p.B.LocalAddr(), b.LocalID().StringID); err != nil {
 		t.Fatal(err)
 	}
 }
