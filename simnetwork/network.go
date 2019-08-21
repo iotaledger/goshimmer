@@ -6,6 +6,12 @@ var (
 
 func NewNetwork(peers []*Transport) {
 	for _, peer := range peers {
-		Network[peer.addr] = peer
+		Network[peer.localAddr] = peer
+	}
+}
+
+func Down() {
+	for _, t := range Network {
+		t.Close()
 	}
 }

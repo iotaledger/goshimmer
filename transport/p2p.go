@@ -74,7 +74,7 @@ func (t *transport) WriteTo(pkt *pb.Packet, address string) error {
 	case t.out <- req:
 		return nil
 	case <-t.closing:
-		return errClosed
+		return ErrClosed
 	}
 }
 
