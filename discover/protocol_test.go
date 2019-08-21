@@ -26,12 +26,12 @@ func TestEncodeDecodePing(t *testing.T) {
 	ping := testPing
 	packet, _, err := encode(id, ping)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	wrapper, _, err := decode(packet)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	assertProto(t, wrapper.GetPing(), ping)
@@ -47,6 +47,6 @@ func TestPingPong(t *testing.T) {
 	defer b.Close()
 
 	if err := a.ping(p2p.B.LocalAddr(), b.LocalID().StringId); err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 }
