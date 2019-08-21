@@ -16,10 +16,8 @@ func TestReadClosed(t *testing.T) {
 	p2p := NewP2P(testIp)
 	defer p2p.Close()
 
-	trans := p2p.A
-
-	trans.Close()
-	_, _, err := trans.Read()
+	p2p.A.Close()
+	_, _, err := p2p.A.Read()
 	assert.Equal(t, err, io.EOF)
 }
 

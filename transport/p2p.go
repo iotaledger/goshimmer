@@ -15,9 +15,10 @@ var (
 )
 
 type transport struct {
-	in    <-chan request
-	out   chan<- request
-	local *Addr
+	in     <-chan request
+	out    chan<- request
+	local  *Addr
+	closed bool
 
 	closeOnce sync.Once
 	closing   chan struct{}

@@ -62,7 +62,6 @@ func TestPingPong(t *testing.T) {
 
 	a, _ := Listen(p2p.A, identity.GeneratePrivateIdentity())
 	defer a.Close()
-
 	b, _ := Listen(p2p.B, identity.GeneratePrivateIdentity())
 	defer b.Close()
 

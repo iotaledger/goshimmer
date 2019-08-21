@@ -115,7 +115,7 @@ func (p *protocol) sendPing(to *trans.Addr, toID nodeID, callback func()) <-chan
 		From:    makeEndpoint(p.trans.LocalEndpoint()),
 		To:      makeEndpoint(to),
 	}
-	packet, hash, err := encode(p.priv, ping)
+	pkt, hash, err := encode(p.priv, ping)
 	if err != nil {
 		errc := make(chan error, 1)
 		errc <- err
@@ -132,7 +132,7 @@ func (p *protocol) sendPing(to *trans.Addr, toID nodeID, callback func()) <-chan
 		return matched, matched
 	})
 
-	if err := p.trans.Write(packet, to); err != nil {
+	if err := p.write(to, toID, ping.Name(), pkt); err != nil {
 		errc := make(chan error, 1)
 		errc <- err
 		return errc
@@ -241,11 +241,16 @@ func (p *protocol) handleReply(from *trans.Addr, fromID nodeID, message pb.Messa
 }
 
 func (p *protocol) send(to *trans.Addr, toID nodeID, msg pb.Message) error {
-	packet, _, err := encode(p.priv, msg)
+	pkt, _, err := encode(p.priv, msg)
 	if err != nil {
 		return err
 	}
-	return p.trans.Write(packet, to)
+	return p.write(to, toID, msg.Name(), pkt)
+}
+
+func (p *protocol) write(to *trans.Addr, toID nodeID, mName string, pkt *pb.Packet) error {
+	log.Println("write", mName, toID)
+	return p.trans.Write(pkt, to)
 }
 
 func encode(priv *identity.PrivateIdentity, message pb.Message) (*pb.Packet, []byte, error) {
@@ -271,6 +276,7 @@ func (p *protocol) readLoop() {
 		pkt, from, err := p.trans.Read()
 		// exit when the connection is closed
 		if err == io.EOF {
+			log.Println("Transport closed")
 			return
 		} else if err != nil {
 			log.Println("Read error", err)
@@ -293,7 +299,7 @@ func (p *protocol) handlePacket(from *trans.Addr, pkt *pb.Packet) error {
 	// Ping
 	case *pb.MessageWrapper_Ping:
 		if p.verifyPing(m.Ping, from, fromID) {
-			p.handlePing(m.Ping, from, fromID)
+			p.handlePing(m.Ping, from, fromID, pkt.GetData())
 		}
 
 	// Pong
@@ -336,7 +342,7 @@ func makeEndpoint(addr *trans.Addr) *pb.RpcEndpoint {
 }
 
 func endpointEquals(a *trans.Addr, e *pb.RpcEndpoint) bool {
-	return uint32(a.Port) != e.GetPort() || a.IP.String() != e.GetIp()
+	return uint32(a.Port) == e.GetPort() && a.IP.String() == e.GetIp()
 }
 
 // ------ Packet Handlers ------
@@ -344,22 +350,21 @@ func endpointEquals(a *trans.Addr, e *pb.RpcEndpoint) bool {
 func (p *protocol) verifyPing(ping *pb.Ping, from *trans.Addr, fromID nodeID) bool {
 	// check to
 	if !endpointEquals(p.trans.LocalEndpoint(), ping.GetTo()) {
+		log.Println("verifyPing", ping.GetTo())
 		return false
 	}
 	// check from
 	if !endpointEquals(from, ping.GetFrom()) {
+		log.Println("verifyPing", ping.GetFrom())
 		return false
 	}
 	return true
 }
 
-func (p *protocol) handlePing(ping *pb.Ping, from *trans.Addr, fromID nodeID) {
-	// Reply with pong
-	data, err := proto.Marshal(ping) // TODO: keep the raw data and pass it here
-	if err != nil {
-		panic(err)
-	}
-	pong := &pb.Pong{To: makeEndpoint(from), PingHash: packetHash(data)}
+func (p *protocol) handlePing(ping *pb.Ping, from *trans.Addr, fromID nodeID, rawData []byte) {
+	log.Println("received", ping.Name(), fromID)
+
+	pong := &pb.Pong{To: makeEndpoint(from), PingHash: packetHash(rawData)}
 	p.send(from, fromID, pong)
 }
 
@@ -369,5 +374,7 @@ func (p *protocol) verifyPong(pong *pb.Pong, from *trans.Addr, fromID nodeID) bo
 }
 
 func (p *protocol) handlePong(pong *pb.Pong, from *trans.Addr, fromID nodeID) {
+	log.Println("received", pong.Name(), fromID)
+
 	// TODO: add as peer
 }
