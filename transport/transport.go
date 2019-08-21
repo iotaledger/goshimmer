@@ -6,6 +6,12 @@ import (
 	pb "github.com/wollac/autopeering/proto"
 )
 
+const (
+	// MaxPacketSize specifies the maximum allowed size of packets.
+	// Packets larger than this will be cut and thus treated as invalid.
+	MaxPacketSize = 1280
+)
+
 // Transport is generic network connection to transfer protobuf packages.
 // Multiple goroutines may invoke methods on a Conn simultaneously.
 type Transport interface {
