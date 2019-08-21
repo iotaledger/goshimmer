@@ -1,8 +1,8 @@
 package discover
 
 import (
+	"bytes"
 	"container/list"
-	"crypto/sha256"
 	"io"
 	"log"
 	"sync"
@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/wollac/autopeering/identity"
 	pb "github.com/wollac/autopeering/proto"
+	trans "github.com/wollac/autopeering/transport"
 )
 
 // Errors
@@ -25,7 +26,7 @@ const (
 )
 
 type protocol struct {
-	trans Transport
+	trans trans.Transport
 	priv  *identity.PrivateIdentity
 
 	closeOnce sync.Once
@@ -38,8 +39,8 @@ type protocol struct {
 
 type replyMatcher struct {
 	// these fields must match in the reply
-	from   Addr
-	fromID nodeId
+	from   *trans.Addr
+	fromID nodeID
 	mtype  pb.MessageType
 
 	// time when the request must complete
@@ -61,19 +62,19 @@ type replyMatcher struct {
 
 type replyMatchFunc func(interface{}) (matched bool, requestDone bool)
 
-type nodeId = string
+type nodeID = string
 
 // reply is a reply packet from a certain node.
 type reply struct {
-	from    Addr
-	fromID  nodeId
+	from    *trans.Addr
+	fromID  nodeID
 	message pb.Message
 
 	// a matching request is indicated via this channel
 	matched chan<- bool
 }
 
-func Listen(t Transport, priv *identity.PrivateIdentity) (*protocol, error) {
+func Listen(t trans.Transport, priv *identity.PrivateIdentity) (*protocol, error) {
 	p := &protocol{
 		trans:           t,
 		priv:            priv,
@@ -95,6 +96,49 @@ func (p *protocol) Close() {
 		p.trans.Close()
 		p.wg.Wait()
 	})
+}
+
+func (p *protocol) OwnId() *identity.PrivateIdentity {
+	return p.priv
+}
+
+// ping sends a ping message to the given node and waits for a reply.
+func (p *protocol) ping(to *trans.Addr, toID nodeID) error {
+	return <-p.sendPing(to, toID, nil)
+}
+
+// Sends a ping to the given node and invokes the callback when the reply arrives.
+func (p *protocol) sendPing(to *trans.Addr, toID nodeID, callback func()) <-chan error {
+	// create the ping package
+	ping := &pb.Ping{
+		Version: 0,
+		From:    makeEndpoint(p.trans.LocalEndpoint()),
+		To:      makeEndpoint(to),
+	}
+	packet, hash, err := encode(p.priv, ping)
+	if err != nil {
+		errc := make(chan error, 1)
+		errc <- err
+		return errc
+	}
+
+	// Add a matcher for the reply to the pending reply queue. Pongs are matched if they
+	// reference the ping we're about to send.
+	errc := p.expectReply(to, toID, pb.PONG, func(p interface{}) (matched bool, requestDone bool) {
+		matched = bytes.Equal(p.(*pb.Pong).GetPingHash(), hash)
+		if matched && callback != nil {
+			callback()
+		}
+		return matched, matched
+	})
+
+	if err := p.trans.Write(packet, to); err != nil {
+		errc := make(chan error, 1)
+		errc <- err
+		return errc
+	}
+
+	return errc
 }
 
 // Loop checking for matching replies.
@@ -171,7 +215,9 @@ func (p *protocol) replyLoop() {
 	}
 }
 
-func (p *protocol) expectReply(from Addr, fromID nodeId, mtype pb.MessageType, callback replyMatchFunc) *replyMatcher {
+// Expects a reply message with the given specifications.
+// If eventually nil is returned, a matching message was received.
+func (p *protocol) expectReply(from *trans.Addr, fromID nodeID, mtype pb.MessageType, callback replyMatchFunc) <-chan error {
 	ch := make(chan error, 1)
 	m := &replyMatcher{from: from, fromID: fromID, mtype: mtype, callback: callback, errc: ch}
 	select {
@@ -179,11 +225,11 @@ func (p *protocol) expectReply(from Addr, fromID nodeId, mtype pb.MessageType, c
 	case <-p.closing:
 		ch <- errClosed
 	}
-	return m
+	return ch
 }
 
 // Process a reply message. Returns whether a matching request could be found.
-func (p *protocol) handleReply(from Addr, fromID nodeId, message pb.Message) bool {
+func (p *protocol) handleReply(from *trans.Addr, fromID nodeID, message pb.Message) bool {
 	matched := make(chan bool, 1)
 	select {
 	case p.gotreply <- reply{from, fromID, message, matched}:
@@ -194,19 +240,19 @@ func (p *protocol) handleReply(from Addr, fromID nodeId, message pb.Message) boo
 	}
 }
 
-func (p *protocol) send(to Addr, toid nodeId, msg pb.Message) error {
-	packet, err := encode(p.priv, msg)
+func (p *protocol) send(to *trans.Addr, toID nodeID, msg pb.Message) error {
+	packet, _, err := encode(p.priv, msg)
 	if err != nil {
 		return err
 	}
 	return p.trans.Write(packet, to)
 }
 
-func encode(priv *identity.PrivateIdentity, message pb.Message) (*pb.Packet, error) {
+func encode(priv *identity.PrivateIdentity, message pb.Message) (*pb.Packet, []byte, error) {
 	// wrap the message before marshalling
 	data, err := proto.Marshal(message.Wrapper())
 	if err != nil {
-		return nil, errors.Wrap(err, "encode")
+		return nil, nil, errors.Wrap(err, "encode")
 	}
 	sig := priv.Sign(data)
 
@@ -215,7 +261,7 @@ func encode(priv *identity.PrivateIdentity, message pb.Message) (*pb.Packet, err
 		Signature: sig,
 		Data:      data,
 	}
-	return packet, nil
+	return packet, packetHash(data), nil
 }
 
 func (p *protocol) readLoop() {
@@ -234,7 +280,7 @@ func (p *protocol) readLoop() {
 	}
 }
 
-func (p *protocol) handlePacket(from Addr, pkt *pb.Packet) error {
+func (p *protocol) handlePacket(from *trans.Addr, pkt *pb.Packet) error {
 	w, issuer, err := decode(pkt)
 	if err != nil {
 		log.Println("Bad packet", from, err)
@@ -282,47 +328,46 @@ func decode(packet *pb.Packet) (*pb.MessageWrapper, *identity.Identity, error) {
 	return wrapper, issuer, nil
 }
 
-func makeEndpoint(addr Addr) *pb.RpcEndpoint {
+func makeEndpoint(addr *trans.Addr) *pb.RpcEndpoint {
 	return &pb.RpcEndpoint{
 		Ip:   addr.IP.String(),
 		Port: uint32(addr.Port),
 	}
 }
 
-func (a Addr) equalsEndpoint(e *pb.RpcEndpoint) bool {
+func endpointEquals(a *trans.Addr, e *pb.RpcEndpoint) bool {
 	return uint32(a.Port) != e.GetPort() || a.IP.String() != e.GetIp()
 }
 
 // ------ Packet Handlers ------
 
-func (p *protocol) verifyPing(ping *pb.Ping, from Addr, fromId nodeId) bool {
+func (p *protocol) verifyPing(ping *pb.Ping, from *trans.Addr, fromID nodeID) bool {
 	// check to
-	if !p.trans.LocalEndpoint().equalsEndpoint(ping.GetTo()) {
+	if !endpointEquals(p.trans.LocalEndpoint(), ping.GetTo()) {
 		return false
 	}
 	// check from
-	if !from.equalsEndpoint(ping.GetFrom()) {
+	if !endpointEquals(from, ping.GetFrom()) {
 		return false
 	}
 	return true
 }
 
-func (p *protocol) handlePing(ping *pb.Ping, from Addr, fromId nodeId) {
+func (p *protocol) handlePing(ping *pb.Ping, from *trans.Addr, fromID nodeID) {
 	// Reply with pong
 	data, err := proto.Marshal(ping) // TODO: keep the raw data and pass it here
 	if err != nil {
 		panic(err)
 	}
-	hash := sha256.Sum256(data)
-	pong := &pb.Pong{To: makeEndpoint(from), PingHash: hash[:]}
-	p.send(from, fromId, pong)
+	pong := &pb.Pong{To: makeEndpoint(from), PingHash: packetHash(data)}
+	p.send(from, fromID, pong)
 }
 
-func (p *protocol) verifyPong(pong *pb.Pong, from Addr, fromId nodeId) bool {
+func (p *protocol) verifyPong(pong *pb.Pong, from *trans.Addr, fromID nodeID) bool {
 	// there must be a ping waiting for this pong as a reply
-	return p.handleReply(from, fromId, pong)
+	return p.handleReply(from, fromID, pong)
 }
 
-func (p *protocol) handlePong(pong *pb.Pong, from Addr, fromId nodeId) {
+func (p *protocol) handlePong(pong *pb.Pong, from *trans.Addr, fromID nodeID) {
 	// TODO: add as peer
 }

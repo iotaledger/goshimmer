@@ -1,25 +1,10 @@
 package discover
 
 import (
-	"net"
-
-	pb "github.com/wollac/autopeering/proto"
+	"crypto/sha256"
 )
 
-type Addr struct {
-	IP   net.IP
-	Port uint16
-}
-
-func (e Addr) Equal(o Addr) bool {
-	return e.Port == o.Port && e.IP.Equal(o.IP)
-}
-
-// Abstraction of the transport layer for the protocol
-type Transport interface {
-	Read() (*pb.Packet, Addr, error)
-	Write(*pb.Packet, Addr) error
-
-	Close() error
-	LocalEndpoint() Addr
+func packetHash(data []byte) []byte {
+	sum := sha256.Sum256(data)
+	return sum[:]
 }
