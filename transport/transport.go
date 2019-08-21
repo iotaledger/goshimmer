@@ -23,3 +23,9 @@ type Transport interface {
 	// LocalAddr returns the local network address in string form.
 	LocalAddr() string
 }
+
+// transfer represents a send and contains the package and the return address.
+type transfer struct {
+	pkt  *pb.Packet
+	addr string
+}

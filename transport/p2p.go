@@ -8,21 +8,6 @@ import (
 	pb "github.com/wollac/autopeering/proto"
 )
 
-type transport struct {
-	in        <-chan transfer
-	out       chan<- transfer
-	localAddr string
-
-	closeOnce sync.Once
-	closing   chan struct{}
-}
-
-// transfer represents a send and contains the package and the return address.
-type transfer struct {
-	pkt  *pb.Packet
-	addr string
-}
-
 // TransportP2P offers transfers between exactly two clients.
 type TransportP2P struct {
 	A, B Transport
@@ -36,8 +21,8 @@ func P2P() *TransportP2P {
 	chanB := make(chan transfer, 1)
 
 	return &TransportP2P{
-		A: new(chanA, chanB, "A"),
-		B: new(chanB, chanA, "B"),
+		A: newChanTransport(chanA, chanB, "A"),
+		B: newChanTransport(chanB, chanA, "B"),
 	}
 }
 
@@ -47,8 +32,18 @@ func (t *TransportP2P) Close() {
 	t.B.Close()
 }
 
-func new(in <-chan transfer, out chan<- transfer, address string) *transport {
-	return &transport{
+// chanTransport implements Transport by reading and writing to given channels.
+type chanTransport struct {
+	in        <-chan transfer
+	out       chan<- transfer
+	localAddr string
+
+	closeOnce sync.Once
+	closing   chan struct{}
+}
+
+func newChanTransport(in <-chan transfer, out chan<- transfer, address string) *chanTransport {
+	return &chanTransport{
 		in:        in,
 		out:       out,
 		localAddr: address,
@@ -56,7 +51,7 @@ func new(in <-chan transfer, out chan<- transfer, address string) *transport {
 	}
 }
 
-func (t *transport) ReadFrom() (*pb.Packet, string, error) {
+func (t *chanTransport) ReadFrom() (*pb.Packet, string, error) {
 	select {
 	case res := <-t.in:
 		return res.pkt, res.addr, nil
@@ -65,7 +60,7 @@ func (t *transport) ReadFrom() (*pb.Packet, string, error) {
 	}
 }
 
-func (t *transport) WriteTo(pkt *pb.Packet, address string) error {
+func (t *chanTransport) WriteTo(pkt *pb.Packet, address string) error {
 	// clone the packet before sending, just to make sure...
 	req := transfer{pkt: &pb.Packet{}, addr: t.localAddr}
 	proto.Merge(req.pkt, pkt)
@@ -78,12 +73,12 @@ func (t *transport) WriteTo(pkt *pb.Packet, address string) error {
 	}
 }
 
-func (t *transport) Close() {
+func (t *chanTransport) Close() {
 	t.closeOnce.Do(func() {
 		close(t.closing)
 	})
 }
 
-func (t *transport) LocalAddr() string {
+func (t *chanTransport) LocalAddr() string {
 	return t.localAddr
 }
