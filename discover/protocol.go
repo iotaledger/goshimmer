@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"container/list"
 	"io"
+	"net"
 	"sync"
 	"time"
 
@@ -112,8 +113,8 @@ func (p *protocol) LocalID() *identity.PrivateIdentity {
 	return p.priv
 }
 
-// localAddr returns the address of the local node in string form.
-func (p *protocol) localAddr() string {
+// LocalAddr returns the address of the local node in string form.
+func (p *protocol) LocalAddr() string {
 	return p.address
 }
 
@@ -127,7 +128,7 @@ func (p *protocol) sendPing(toAddr string, toID nodeID, callback func()) <-chan 
 	// create the ping package
 	ping := &pb.Ping{
 		Version: VersionNum,
-		From:    p.localAddr(),
+		From:    p.LocalAddr(),
 		To:      toAddr,
 	}
 	pkt := encode(p.priv, ping)
@@ -278,13 +279,17 @@ func (p *protocol) readLoop() {
 
 	for {
 		pkt, fromAddr, err := p.trans.ReadFrom()
-		// exit when the connection is closed
-		if err == io.EOF {
-			p.log.Debug("connection closed")
-			return
-		} else if err != nil {
-			p.log.Warnw("failed to read", "err", err)
+		if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
+			// ignore temporary read errors.
+			p.log.Debugw("temporary read error", "err", err)
 			continue
+		} else if err != nil {
+			// return from the loop on all other errors
+			if err != io.EOF {
+				p.log.Warnw("read error", "err", err)
+			}
+			p.log.Debug("reading stopped")
+			return
 		}
 
 		if err := p.handlePacket(fromAddr, pkt); err != nil {
@@ -349,7 +354,7 @@ func (p *protocol) verifyPing(ping *pb.Ping, fromAddr string, fromID nodeID) boo
 		return false
 	}
 	// check that To matches the local address
-	if ping.GetTo() != p.localAddr() {
+	if ping.GetTo() != p.LocalAddr() {
 		p.log.Debugw("failed to verify", "type", ping.Name(), "to", ping.GetTo())
 		return false
 	}
@@ -370,7 +375,7 @@ func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID nodeID, raw
 
 func (p *protocol) verifyPong(pong *pb.Pong, fromAddr string, fromID nodeID) bool {
 	// check that To matches the local address
-	if pong.GetTo() != p.localAddr() {
+	if pong.GetTo() != p.LocalAddr() {
 		p.log.Debugw("failed to verify", "type", pong.Name(), "to", pong.GetTo())
 		return false
 	}
