@@ -24,3 +24,7 @@ func New(lifetime time.Duration) (salt *Salt, err error) {
 
 	return salt, err
 }
+
+func (s *Salt) Expired() bool {
+	return time.Now().After(s.ExpirationTime)
+}
