@@ -31,12 +31,12 @@ func NewIdentity(publicKey []byte) (*Identity, error) {
 		return nil, errInvalidPubKeyLen
 	}
 	// the identifier is the hash of the public key
-	identifier := sha256.Sum224(publicKey)
+	id := sha256.Sum256(publicKey)
 
 	return &Identity{
-		ID:        identifier[:],
-		StringID:  fmt.Sprintf("%x", identifier),
-		PublicKey: append([]byte(nil), publicKey...),
+		ID:        id[:],
+		StringID:  fmt.Sprintf("%x", id[:8]),
+		PublicKey: publicKey,
 	}, nil
 }
 
