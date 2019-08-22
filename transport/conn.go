@@ -17,6 +17,7 @@ func Conn(conn net.PacketConn) *TransportConn {
 	return &TransportConn{conn}
 }
 
+// ReadFrom implements the Transport ReadFrom method.
 func (t *TransportConn) ReadFrom() (*pb.Packet, string, error) {
 	b := make([]byte, MaxPacketSize)
 	n, addr, err := t.conn.ReadFrom(b)
@@ -31,6 +32,7 @@ func (t *TransportConn) ReadFrom() (*pb.Packet, string, error) {
 	return pkt, addr.String(), nil
 }
 
+// WriteTo implements the Transport WriteTo method.
 func (t *TransportConn) WriteTo(pkt *pb.Packet, address string) error {
 	b, err := proto.Marshal(pkt)
 	if err != nil {
@@ -42,10 +44,12 @@ func (t *TransportConn) WriteTo(pkt *pb.Packet, address string) error {
 	return err
 }
 
+// Close closes the transport layer.
 func (t *TransportConn) Close() {
 	t.conn.Close()
 }
 
+// LocalAddr returns the local network address.
 func (t *TransportConn) LocalAddr() string {
 	return t.conn.LocalAddr().String()
 }

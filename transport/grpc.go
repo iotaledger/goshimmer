@@ -51,6 +51,7 @@ func GRPC(lis net.Listener) *TransportGRPC {
 	return t
 }
 
+// Runs the gRPC server in background.
 func (t *TransportGRPC) serve(lis net.Listener, starting chan<- bool) {
 	defer t.wg.Done()
 	defer lis.Close()
@@ -67,6 +68,7 @@ func (t *TransportGRPC) SetDialOptions(opts ...grpc.DialOption) {
 	t.options = append([]grpc.DialOption{}, opts...)
 }
 
+// ReadFrom implements the Transport ReadFrom method.
 func (t *TransportGRPC) ReadFrom() (*pb.Packet, string, error) {
 	select {
 	case res := <-t.ch:
@@ -76,6 +78,7 @@ func (t *TransportGRPC) ReadFrom() (*pb.Packet, string, error) {
 	}
 }
 
+// WriteTo implements the Transport WriteTo method.
 func (t *TransportGRPC) WriteTo(pkt *pb.Packet, address string) error {
 	conn, err := grpc.Dial(address, t.options...)
 	if err != nil {
@@ -89,6 +92,7 @@ func (t *TransportGRPC) WriteTo(pkt *pb.Packet, address string) error {
 	return nil
 }
 
+// Close closes the transport layer.
 func (t *TransportGRPC) Close() {
 	t.closeOnce.Do(func() {
 		close(t.closing)
@@ -98,6 +102,7 @@ func (t *TransportGRPC) Close() {
 	})
 }
 
+// LocalAddr returns the local network address.
 func (t *TransportGRPC) LocalAddr() string {
 	return t.localAddr
 }

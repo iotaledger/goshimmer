@@ -43,11 +43,13 @@ func TestPingPong(t *testing.T) {
 	nodeB, _ := Listen(p2p.B, identity.GeneratePrivateIdentity())
 	defer nodeB.Close()
 
+	// send a ping from node A to B
 	if err := nodeA.ping(p2p.B.LocalAddr(), nodeB.LocalID().StringID); err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
+	// send a ping from node B to A
 	if err := nodeB.ping(p2p.A.LocalAddr(), nodeA.LocalID().StringID); err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 }
 
@@ -59,6 +61,7 @@ func TestPingTimeout(t *testing.T) {
 	nodeB, _ := Listen(p2p.B, identity.GeneratePrivateIdentity())
 	nodeB.Close() // close the connection right away to prevent any replies
 
+	// send a ping from node A to B
 	err := nodeA.ping(p2p.B.LocalAddr(), nodeB.LocalID().StringID)
 	assert.Equal(t, err, errTimeout)
 }
@@ -72,6 +75,7 @@ func BenchmarkPingPong(b *testing.B) {
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
+		// send a ping from node A to B
 		_ = nodeA.ping(p2p.B.LocalAddr(), nodeB.LocalID().StringID)
 	}
 

@@ -46,7 +46,7 @@ type replyMatcher struct {
 	// fromID must match the sender ID
 	fromID nodeID
 	// mtype must match the type of the reply
-	mtype pb.MessageType
+	mtype pb.MType
 
 	// deadline when the request must complete
 	deadline time.Time
@@ -129,7 +129,7 @@ func (p *protocol) sendPing(toAddr string, toID nodeID, callback func()) <-chan 
 
 	// Add a matcher for the reply to the pending reply queue. Pongs are matched if they
 	// reference the ping we're about to send.
-	errc := p.expectReply(toAddr, toID, pb.PONG, func(m pb.Message) (matched bool, requestDone bool) {
+	errc := p.expectReply(toAddr, toID, pb.MPong, func(m pb.Message) (matched bool, requestDone bool) {
 		matched = bytes.Equal(m.(*pb.Pong).GetPingHash(), hash)
 		if matched && callback != nil {
 			callback()
@@ -218,7 +218,7 @@ func (p *protocol) replyLoop() {
 
 // Expects a reply message with the given specifications.
 // If eventually nil is returned, a matching message was received.
-func (p *protocol) expectReply(fromAddr string, fromID nodeID, mtype pb.MessageType, callback replyMatchFunc) <-chan error {
+func (p *protocol) expectReply(fromAddr string, fromID nodeID, mtype pb.MType, callback replyMatchFunc) <-chan error {
 	ch := make(chan error, 1)
 	m := &replyMatcher{fromAddr: fromAddr, fromID: fromID, mtype: mtype, callback: callback, errc: ch}
 	select {
