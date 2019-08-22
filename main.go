@@ -1,27 +1,20 @@
 package main
 
 import (
-	"flag"
 	"log"
-	"net"
-	"strings"
+
+	"go.uber.org/zap"
 )
 
-var masterNodes = flag.String("master-nodes", "", "comma separated list of master nodes")
+func initLogger() *zap.Logger {
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		log.Fatalf("cannot initialize logger: %v", err)
+	}
+	return logger
+}
 
 func main() {
-	flag.Parse()
-
-	nodes := strings.Split(*masterNodes, ",")
-	addrs := make([]*net.UDPAddr, len(nodes))
-
-	for _, node := range nodes {
-		addr, err := net.ResolveUDPAddr("udp", node)
-		if err != nil {
-			panic("Invalid endpoint address: " + node)
-		}
-		addrs = append(addrs, addr)
-	}
-
-	log.Println(addrs)
+	logger := initLogger()
+	defer logger.Sync()
 }

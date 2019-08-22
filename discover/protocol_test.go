@@ -1,6 +1,7 @@
 package discover
 
 import (
+	"log"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -9,6 +10,7 @@ import (
 	"github.com/wollac/autopeering/identity"
 	pb "github.com/wollac/autopeering/proto"
 	"github.com/wollac/autopeering/transport"
+	"go.uber.org/zap"
 )
 
 var (
@@ -16,14 +18,28 @@ var (
 	testPing = &pb.Ping{Version: 0, From: testAddr, To: testAddr}
 )
 
+var logger *zap.Logger
+
 func assertProto(t *testing.T, got, want proto.Message) {
 	if !proto.Equal(got, want) {
 		t.Errorf("got %v want %v\n", got, want)
 	}
 }
 
+func init() {
+	l, err := zap.NewDevelopment()
+	if err != nil {
+		log.Fatalf("cannot initialize logger: %v", err)
+	}
+	logger = l
+}
+
+func newID() *identity.PrivateIdentity {
+	return identity.GeneratePrivateIdentity()
+}
+
 func TestEncodeDecodePing(t *testing.T) {
-	priv := identity.GeneratePrivateIdentity()
+	priv := newID()
 
 	ping := testPing
 	packet := encode(priv, ping)
@@ -38,9 +54,9 @@ func TestEncodeDecodePing(t *testing.T) {
 func TestPingPong(t *testing.T) {
 	p2p := transport.P2P()
 
-	nodeA, _ := Listen(p2p.A, identity.GeneratePrivateIdentity())
+	nodeA, _ := Listen(p2p.A, Config{newID(), logger})
 	defer nodeA.Close()
-	nodeB, _ := Listen(p2p.B, identity.GeneratePrivateIdentity())
+	nodeB, _ := Listen(p2p.B, Config{newID(), logger})
 	defer nodeB.Close()
 
 	// send a ping from node A to B
@@ -52,9 +68,9 @@ func TestPingPong(t *testing.T) {
 func TestPingTimeout(t *testing.T) {
 	p2p := transport.P2P()
 
-	nodeA, _ := Listen(p2p.A, identity.GeneratePrivateIdentity())
+	nodeA, _ := Listen(p2p.A, Config{newID(), logger})
 	defer nodeA.Close()
-	nodeB, _ := Listen(p2p.B, identity.GeneratePrivateIdentity())
+	nodeB, _ := Listen(p2p.B, Config{newID(), logger})
 	nodeB.Close() // close the connection right away to prevent any replies
 
 	// send a ping from node A to B
@@ -64,9 +80,10 @@ func TestPingTimeout(t *testing.T) {
 
 func BenchmarkPingPong(b *testing.B) {
 	p2p := transport.P2P()
+	logger, _ := zap.NewProduction() // use production level logging
 
-	nodeA, _ := Listen(p2p.A, identity.GeneratePrivateIdentity())
-	nodeB, _ := Listen(p2p.B, identity.GeneratePrivateIdentity())
+	nodeA, _ := Listen(p2p.A, Config{newID(), logger})
+	nodeB, _ := Listen(p2p.B, Config{newID(), logger})
 
 	b.ResetTimer()
 

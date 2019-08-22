@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"container/list"
 	"io"
-	"log"
 	"sync"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/wollac/autopeering/identity"
 	pb "github.com/wollac/autopeering/proto"
 	"github.com/wollac/autopeering/transport"
+	log "go.uber.org/zap"
 )
 
 const (
@@ -25,6 +25,7 @@ const (
 type protocol struct {
 	trans   transport.Transport
 	priv    *identity.PrivateIdentity
+	log     *log.SugaredLogger
 	address string
 
 	closeOnce sync.Once
@@ -75,14 +76,20 @@ type reply struct {
 }
 
 // Listen starts a new peer discovery server using the given transport layer for communication.
-func Listen(t transport.Transport, priv *identity.PrivateIdentity) (*protocol, error) {
+func Listen(t transport.Transport, cfg Config) (*protocol, error) {
 	p := &protocol{
 		trans:           t,
-		priv:            priv,
+		priv:            cfg.ID,
 		address:         t.LocalAddr(),
 		addReplyMatcher: make(chan *replyMatcher),
 		gotreply:        make(chan reply),
 		closing:         make(chan struct{}),
+	}
+	if cfg.Log != nil {
+		p.log = cfg.Log.Sugar()
+	} else {
+		// default to the global logger
+		p.log = log.S()
 	}
 
 	p.wg.Add(2)
@@ -247,10 +254,8 @@ func (p *protocol) send(toAddr string, toID nodeID, msg pb.Message) {
 }
 
 func (p *protocol) write(toAddr string, toID nodeID, mName string, pkt *pb.Packet) {
-	log.Println("write", mName, toID)
-	if err := p.trans.WriteTo(pkt, toAddr); err != nil {
-		log.Println("write", "error", err)
-	}
+	err := p.trans.WriteTo(pkt, toAddr)
+	p.log.Debugw("write "+mName, "id", toID, "addr", toAddr, "err", err)
 }
 
 func encode(priv *identity.PrivateIdentity, message pb.Message) *pb.Packet {
@@ -275,15 +280,15 @@ func (p *protocol) readLoop() {
 		pkt, fromAddr, err := p.trans.ReadFrom()
 		// exit when the connection is closed
 		if err == io.EOF {
-			log.Println("connection closed")
+			p.log.Debug("connection closed")
 			return
 		} else if err != nil {
-			log.Println("read error", err)
+			p.log.Warnw("failed to read", "err", err)
 			continue
 		}
 
 		if err := p.handlePacket(fromAddr, pkt); err != nil {
-			log.Println("packet error", err)
+			p.log.Warnw("failed to handle packet", "from", fromAddr, "err", err)
 		}
 	}
 }
@@ -340,24 +345,24 @@ func decode(packet *pb.Packet) (*pb.MessageWrapper, *identity.Identity, error) {
 func (p *protocol) verifyPing(ping *pb.Ping, fromAddr string, fromID nodeID) bool {
 	// check version number
 	if ping.GetVersion() != VersionNum {
-		log.Println("Ping", "invalid version:", ping.GetTo())
+		p.log.Debugw("failed to verify", "type", ping.Name(), "version", ping.GetVersion())
 		return false
 	}
 	// check that To matches the local address
 	if ping.GetTo() != p.localAddr() {
-		log.Println("Ping", "invalid to:", ping.GetTo())
+		p.log.Debugw("failed to verify", "type", ping.Name(), "to", ping.GetTo())
 		return false
 	}
 	// check fromAddr
 	if ping.GetFrom() != fromAddr {
-		log.Println("Ping", "invalid from:", ping.GetFrom())
+		p.log.Debugw("failed to verify", "type", ping.Name(), "from", ping.GetFrom())
 		return false
 	}
 	return true
 }
 
 func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID nodeID, rawData []byte) {
-	log.Println("received", ping.Name(), fromID)
+	p.log.Debugw("handle "+ping.Name(), "id", fromID, "addr", fromAddr)
 
 	pong := &pb.Pong{To: fromAddr, PingHash: packetHash(rawData)}
 	p.send(fromAddr, fromID, pong)
@@ -366,19 +371,19 @@ func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID nodeID, raw
 func (p *protocol) verifyPong(pong *pb.Pong, fromAddr string, fromID nodeID) bool {
 	// check that To matches the local address
 	if pong.GetTo() != p.localAddr() {
-		log.Println("Pong", "invalid to:", pong.GetTo())
+		p.log.Debugw("failed to verify", "type", pong.Name(), "to", pong.GetTo())
 		return false
 	}
 	// there must be a ping waiting for this pong as a reply
 	if !p.handleReply(fromAddr, fromID, pong) {
-		log.Println("Pong", "no matching request")
+		p.log.Debugw("no matching request", "type", pong.Name(), "from", fromAddr)
 		return false
 	}
 	return true
 }
 
 func (p *protocol) handlePong(pong *pb.Pong, fromAddr string, fromID nodeID) {
-	log.Println("received", pong.Name(), fromID)
+	p.log.Debugw("handle "+pong.Name(), "id", fromID, "addr", fromAddr)
 
 	// TODO: add as peer
 }
