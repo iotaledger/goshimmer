@@ -10,7 +10,7 @@ import (
 
 var testPacket = &pb.Packet{Data: []byte("TEST")}
 
-func TestReadClosed(t *testing.T) {
+func TestP2PReadClosed(t *testing.T) {
 	p2p := P2P()
 	defer p2p.Close()
 
@@ -19,17 +19,17 @@ func TestReadClosed(t *testing.T) {
 	assert.Equal(t, err, io.EOF)
 }
 
-func TestPacket(t *testing.T) {
+func TestP2PPacket(t *testing.T) {
 	p2p := P2P()
 	defer p2p.Close()
 
 	if err := p2p.A.WriteTo(testPacket, p2p.B.LocalAddr()); err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	pkt, addr, err := p2p.B.ReadFrom()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	assert.Equal(t, pkt.GetData(), testPacket.GetData())

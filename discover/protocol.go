@@ -12,16 +12,20 @@ import (
 	"github.com/pkg/errors"
 	"github.com/wollac/autopeering/identity"
 	pb "github.com/wollac/autopeering/proto"
-	trans "github.com/wollac/autopeering/transport"
+	"github.com/wollac/autopeering/transport"
 )
 
 const (
+	// VersionNum is the expected version number of this protocol.
+	VersionNum = 0
+
 	respTimeout = 500 * time.Millisecond
 )
 
 type protocol struct {
-	trans trans.Transport
-	priv  *identity.PrivateIdentity
+	trans   transport.Transport
+	priv    *identity.PrivateIdentity
+	address string
 
 	closeOnce sync.Once
 	wg        sync.WaitGroup
@@ -31,30 +35,32 @@ type protocol struct {
 	closing         chan struct{}
 }
 
-type replyMatcher struct {
-	// these fields must match in the reply
-	fromAddr string
-	fromID   nodeID
-	mtype    pb.MessageType
+// replyMatchFunc is the type of the matcher callback. If it returns matched, the
+// reply was acceptable. If requestDone is false, the reply is considered
+// incomplete and the callback will be invoked again for the next matching reply.
+type replyMatchFunc func(pb.Message) (matched bool, requestDone bool)
 
-	// time when the request must complete
+type replyMatcher struct {
+	// fromAddr must match the sender of the reply
+	fromAddr string
+	// fromID must match the sender ID
+	fromID nodeID
+	// mtype must match the type of the reply
+	mtype pb.MessageType
+
+	// deadline when the request must complete
 	deadline time.Time
 
-	// callback is called when a matching reply arrives. If it returns matched == true, the
-	// reply was acceptable. The second return value indicates whether the callback should
-	// be removed from the pending reply queue. If it returns false, the reply is considered
-	// incomplete and the callback will be invoked again for the next matching reply.
+	// callback is called when a matching reply arrives
 	callback replyMatchFunc
 
 	// errc receives nil when the callback indicates completion or an
-	// error if no further reply is received within the timeout.
+	// error if no further reply is received within the timeout
 	errc chan error
 
-	// reply contains the most recent reply.
+	// reply contains the most recent reply
 	reply pb.Message
 }
-
-type replyMatchFunc func(interface{}) (matched bool, requestDone bool)
 
 type nodeID = string
 
@@ -68,10 +74,12 @@ type reply struct {
 	matched chan<- bool
 }
 
-func Listen(t trans.Transport, priv *identity.PrivateIdentity) (*protocol, error) {
+// Listen starts a new peer discovery server using the given transport layer for communication.
+func Listen(t transport.Transport, priv *identity.PrivateIdentity) (*protocol, error) {
 	p := &protocol{
 		trans:           t,
 		priv:            priv,
+		address:         t.LocalAddr(),
 		addReplyMatcher: make(chan *replyMatcher),
 		gotreply:        make(chan reply),
 		closing:         make(chan struct{}),
@@ -99,7 +107,7 @@ func (p *protocol) LocalID() *identity.PrivateIdentity {
 
 // localAddr returns the address of the local node in string form.
 func (p *protocol) localAddr() string {
-	return p.trans.LocalAddr()
+	return p.address
 }
 
 // ping sends a ping message to the given node and waits for a reply.
@@ -111,32 +119,26 @@ func (p *protocol) ping(toAddr string, toID nodeID) error {
 func (p *protocol) sendPing(toAddr string, toID nodeID, callback func()) <-chan error {
 	// create the ping package
 	ping := &pb.Ping{
-		Version: 0,
+		Version: VersionNum,
 		From:    p.localAddr(),
 		To:      toAddr,
 	}
-	pkt, hash, err := encode(p.priv, ping)
-	if err != nil {
-		errc := make(chan error, 1)
-		errc <- err
-		return errc
-	}
+	pkt := encode(p.priv, ping)
+	// compute the message hash
+	hash := packetHash(pkt.GetData())
 
 	// Add a matcher for the reply to the pending reply queue. Pongs are matched if they
 	// reference the ping we're about to send.
-	errc := p.expectReply(toAddr, toID, pb.PONG, func(p interface{}) (matched bool, requestDone bool) {
-		matched = bytes.Equal(p.(*pb.Pong).GetPingHash(), hash)
+	errc := p.expectReply(toAddr, toID, pb.PONG, func(m pb.Message) (matched bool, requestDone bool) {
+		matched = bytes.Equal(m.(*pb.Pong).GetPingHash(), hash)
 		if matched && callback != nil {
 			callback()
 		}
 		return matched, matched
 	})
 
-	if err := p.write(toAddr, toID, ping.Name(), pkt); err != nil {
-		errc := make(chan error, 1)
-		errc <- err
-		return errc
-	}
+	// send the ping
+	p.write(toAddr, toID, ping.Name(), pkt)
 
 	return errc
 }
@@ -159,8 +161,7 @@ func (p *protocol) replyLoop() {
 		if el := mlist.Front(); el != nil {
 			// the first element always has the closest deadline
 			m := el.Value.(*replyMatcher)
-			dist := m.deadline.Sub(time.Now())
-			timeout.Reset(dist)
+			timeout.Reset(time.Until(m.deadline))
 		} else {
 			timeout.Stop()
 		}
@@ -228,7 +229,7 @@ func (p *protocol) expectReply(fromAddr string, fromID nodeID, mtype pb.MessageT
 	return ch
 }
 
-// Process a reply message. Returns whether a matching request could be found.
+// Process a reply message and returns whether a matching request could be found.
 func (p *protocol) handleReply(fromAddr string, fromID nodeID, message pb.Message) bool {
 	matched := make(chan bool, 1)
 	select {
@@ -240,33 +241,31 @@ func (p *protocol) handleReply(fromAddr string, fromID nodeID, message pb.Messag
 	}
 }
 
-func (p *protocol) send(toAddr string, toID nodeID, msg pb.Message) error {
-	pkt, _, err := encode(p.priv, msg)
-	if err != nil {
-		return err
-	}
-	return p.write(toAddr, toID, msg.Name(), pkt)
+func (p *protocol) send(toAddr string, toID nodeID, msg pb.Message) {
+	pkt := encode(p.priv, msg)
+	p.write(toAddr, toID, msg.Name(), pkt)
 }
 
-func (p *protocol) write(toAddr string, toID nodeID, mName string, pkt *pb.Packet) error {
+func (p *protocol) write(toAddr string, toID nodeID, mName string, pkt *pb.Packet) {
 	log.Println("write", mName, toID)
-	return p.trans.WriteTo(pkt, toAddr)
+	if err := p.trans.WriteTo(pkt, toAddr); err != nil {
+		log.Println("write", "error", err)
+	}
 }
 
-func encode(priv *identity.PrivateIdentity, message pb.Message) (*pb.Packet, []byte, error) {
-	// wrap the message before marshalling
+func encode(priv *identity.PrivateIdentity, message pb.Message) *pb.Packet {
+	// wrap the message before marshaling
 	data, err := proto.Marshal(message.Wrapper())
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "encode")
+		panic("protobuf error: " + err.Error())
 	}
-	sig := priv.Sign(data)
 
-	packet := &pb.Packet{
+	sig := priv.Sign(data)
+	return &pb.Packet{
 		PublicKey: priv.PublicKey,
 		Signature: sig,
 		Data:      data,
 	}
-	return packet, packetHash(data), nil
 }
 
 func (p *protocol) readLoop() {
@@ -276,23 +275,25 @@ func (p *protocol) readLoop() {
 		pkt, fromAddr, err := p.trans.ReadFrom()
 		// exit when the connection is closed
 		if err == io.EOF {
-			log.Println("Transport closed")
+			log.Println("connection closed")
 			return
 		} else if err != nil {
-			log.Println("Read error", err)
+			log.Println("read error", err)
 			continue
 		}
-		p.handlePacket(fromAddr, pkt)
+
+		if err := p.handlePacket(fromAddr, pkt); err != nil {
+			log.Println("packet error", err)
+		}
 	}
 }
 
 func (p *protocol) handlePacket(fromAddr string, pkt *pb.Packet) error {
 	w, issuer, err := decode(pkt)
 	if err != nil {
-		log.Println("Bad packet", fromAddr, err)
 		return err
 	}
-	fromID := issuer.StringId
+	fromID := issuer.StringID
 
 	switch m := w.GetMessage().(type) {
 
@@ -337,13 +338,18 @@ func decode(packet *pb.Packet) (*pb.MessageWrapper, *identity.Identity, error) {
 // ------ Packet Handlers ------
 
 func (p *protocol) verifyPing(ping *pb.Ping, fromAddr string, fromID nodeID) bool {
+	// check version number
+	if ping.GetVersion() != VersionNum {
+		log.Println("Ping", "invalid version:", ping.GetTo())
+		return false
+	}
 	// check that To matches the local address
-	if p.localAddr() != ping.GetTo() {
+	if ping.GetTo() != p.localAddr() {
 		log.Println("Ping", "invalid to:", ping.GetTo())
 		return false
 	}
 	// check fromAddr
-	if fromAddr != ping.GetFrom() {
+	if ping.GetFrom() != fromAddr {
 		log.Println("Ping", "invalid from:", ping.GetFrom())
 		return false
 	}
@@ -358,8 +364,17 @@ func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID nodeID, raw
 }
 
 func (p *protocol) verifyPong(pong *pb.Pong, fromAddr string, fromID nodeID) bool {
+	// check that To matches the local address
+	if pong.GetTo() != p.localAddr() {
+		log.Println("Pong", "invalid to:", pong.GetTo())
+		return false
+	}
 	// there must be a ping waiting for this pong as a reply
-	return p.handleReply(fromAddr, fromID, pong)
+	if !p.handleReply(fromAddr, fromID, pong) {
+		log.Println("Pong", "no matching request")
+		return false
+	}
+	return true
 }
 
 func (p *protocol) handlePong(pong *pb.Pong, fromAddr string, fromID nodeID) {

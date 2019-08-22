@@ -1,6 +1,7 @@
 package simnetwork
 
 import (
+	"errors"
 	"io"
 	"sync"
 
@@ -50,7 +51,7 @@ func (t *Transport) ReadFrom() (*pb.Packet, string, error) {
 
 func (t *Transport) WriteTo(pkt *pb.Packet, to string) error {
 	if _, online := Network[to]; !online {
-		return transport.ErrClosed
+		return errors.New("could not determine peer")
 	}
 
 	// clone the packet before sending, just to make sure...
@@ -61,7 +62,7 @@ func (t *Transport) WriteTo(pkt *pb.Packet, to string) error {
 	case Network[to].in <- req:
 		return nil
 	case <-t.closing:
-		return transport.ErrClosed
+		return errors.New("could not determine peer")
 	}
 }
 

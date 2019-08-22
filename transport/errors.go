@@ -3,7 +3,6 @@ package transport
 import "errors"
 
 var (
-	ErrClosed         = errors.New("socket closed")
-	ErrUnsupported    = errors.New("operation not supported")
-	ErrInvalidAddress = errors.New("invalid address")
+	errClosed = errors.New("socket closed")
+	errPeer   = errors.New("could not determine peer")
 )

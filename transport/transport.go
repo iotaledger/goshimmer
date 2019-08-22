@@ -1,9 +1,15 @@
-// Packe transport provides implementations for simple address-based packet
+// Package transport provides implementations for simple address-based packet
 // transfers.
 package transport
 
 import (
 	pb "github.com/wollac/autopeering/proto"
+)
+
+const (
+	// MaxPacketSize specifies the maximum allowed size of packets.
+	// Packets larger than this will be cut and thus treated as invalid.
+	MaxPacketSize = 1280
 )
 
 // Transport is generic network connection to transfer protobuf packages.
@@ -22,4 +28,10 @@ type Transport interface {
 
 	// LocalAddr returns the local network address in string form.
 	LocalAddr() string
+}
+
+// transfer represents a send and contains the package and the return address.
+type transfer struct {
+	pkt  *pb.Packet
+	addr string
 }
