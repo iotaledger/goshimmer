@@ -3,7 +3,7 @@ package identity
 import (
 	"testing"
 
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 const TestMessage = "Hello World!"
@@ -15,6 +15,5 @@ func TestVerifySignature(t *testing.T) {
 	sig := private.Sign(msg)
 
 	valid := private.Identity.VerifySignature(msg, sig)
-
-	assert.Equal(t, valid, true)
+	assert.True(t, valid)
 }

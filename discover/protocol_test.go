@@ -4,7 +4,8 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/wollac/autopeering/identity"
 	pb "github.com/wollac/autopeering/proto"
 	"github.com/wollac/autopeering/transport"
@@ -22,16 +23,15 @@ func assertProto(t *testing.T, got, want proto.Message) {
 }
 
 func TestEncodeDecodePing(t *testing.T) {
-	id := identity.GeneratePrivateIdentity()
+	priv := identity.GeneratePrivateIdentity()
 
 	ping := testPing
-	packet := encode(id, ping)
+	packet := encode(priv, ping)
 
-	wrapper, _, err := decode(packet)
-	if err != nil {
-		t.Fatal(err)
-	}
+	wrapper, id, err := decode(packet)
+	require.NoError(t, err)
 
+	assert.Equal(t, id.PublicKey, priv.PublicKey)
 	assertProto(t, wrapper.GetPing(), ping)
 }
 
@@ -44,13 +44,9 @@ func TestPingPong(t *testing.T) {
 	defer nodeB.Close()
 
 	// send a ping from node A to B
-	if err := nodeA.ping(p2p.B.LocalAddr(), nodeB.LocalID().StringID); err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, nodeA.ping(p2p.B.LocalAddr(), nodeB.LocalID().StringID))
 	// send a ping from node B to A
-	if err := nodeB.ping(p2p.A.LocalAddr(), nodeA.LocalID().StringID); err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, nodeB.ping(p2p.A.LocalAddr(), nodeA.LocalID().StringID))
 }
 
 func TestPingTimeout(t *testing.T) {
@@ -63,7 +59,7 @@ func TestPingTimeout(t *testing.T) {
 
 	// send a ping from node A to B
 	err := nodeA.ping(p2p.B.LocalAddr(), nodeB.LocalID().StringID)
-	assert.Equal(t, err, errTimeout)
+	assert.EqualError(t, err, errTimeout.Error())
 }
 
 func BenchmarkPingPong(b *testing.B) {

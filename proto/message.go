@@ -2,13 +2,13 @@ package proto
 
 import "github.com/golang/protobuf/proto"
 
-// Enum for the different message types.
+// An enum for the different message types.
 const (
 	MPing MType = iota
 	MPong
 )
 
-// Mtype is the type of message type enum.
+// MType is the type of message type enum.
 type MType int
 
 // Message extends the proto.Message interface with additional util functions.
