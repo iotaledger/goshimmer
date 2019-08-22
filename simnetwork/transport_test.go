@@ -40,40 +40,53 @@ func TestConcurrentCommunication(t *testing.T) {
 
 	NewNetwork(peers)
 
-	done := make(chan bool)
-	doneSending := make(chan bool, 3)
+	writeDone := make(chan bool)
+	readDone := make(chan bool)
+	writerDone := make(chan bool, 3)
 	counter := 0
 
+	// reader
 	go func() {
 		for {
 			select {
-			case <-done:
-				break
+			case <-writeDone:
+				for {
+					select {
+					case <-peerD.in:
+						counter++
+					default:
+						readDone <- true
+						return
+					}
+				}
+
 			default:
-				_, _, err := peerD.ReadFrom()
-				assert.Equal(t, err, nil)
+				_, _, _ = peerD.ReadFrom()
+				//assert.Equal(t, err, nil)
 				counter++
+
 			}
 		}
 	}()
 
-	sendTestBurst(peerA, 1000, doneSending, t)
-	sendTestBurst(peerB, 1000, doneSending, t)
-	sendTestBurst(peerC, 1000, doneSending, t)
+	peerA.burstSendTo(peerD, 1000, writerDone)
+	peerB.burstSendTo(peerD, 1000, writerDone)
+	peerC.burstSendTo(peerD, 1000, writerDone)
 
 	for i := 0; i < 3; i++ {
-		<-doneSending
+		<-writerDone
 	}
-	done <- true
+	writeDone <- true
+
+	<-readDone
 
 	assert.Equal(t, counter, 3*1000)
 }
 
-func sendTestBurst(peer *Transport, numPkts int, doneSending chan bool, t *testing.T) {
+func (peer *Transport) burstSendTo(dest *Transport, numPkts int, doneSending chan bool) {
 	go func() {
 		for i := 0; i < numPkts; i++ {
-			err := peer.WriteTo(testPacket, "D")
-			assert.Equal(t, err, nil)
+			_ = peer.WriteTo(testPacket, dest.LocalAddr())
 		}
 		doneSending <- true
 	}()
