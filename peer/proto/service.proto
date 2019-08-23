@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+option go_package = "github.com/wollac/autopeering/peer/proto";
+
+package proto;
+
+// ServiceMap defines the mapping between a service ID and its tuple TypePort
+// e.g., map[autopeering:&{TCP, 8000}]
+message ServiceMap {
+    map<string, TypePort> map = 1;
+}
+
+// TypePort defines the service type (e.g., TCP, UDP) and the port number
+message TypePort {
+    enum Type {
+        TCP = 0;
+        UDP = 1;
+    }
+    Type type = 1;
+    int32 port = 2;
+}

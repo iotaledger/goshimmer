@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option go_package = "github.com/wollac/autopeering/peer/proto";
+
+package proto;
+
+import "salt/proto/salt.proto";
+import "peer/proto/service.proto";
+
+// Peer defines the structure of a peer meesage
+message Peer {
+  bytes publicKey = 1;
+  string address = 2;
+  ServiceMap services = 3;
+  proto.Salt salt = 4;
+}
+
