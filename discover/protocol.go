@@ -21,10 +21,13 @@ const (
 	VersionNum = 0
 
 	respTimeout = 500 * time.Millisecond
+
+	pongExpiration = 12 * time.Hour
 )
 
 type protocol struct {
 	trans   transport.Transport
+	store   *store
 	priv    *id.Private
 	log     *log.SugaredLogger
 	address string
@@ -34,7 +37,7 @@ type protocol struct {
 
 	addReplyMatcher chan *replyMatcher
 	gotreply        chan reply
-	closing         chan struct{}
+	closing         chan struct{} // if this channel gets closed all pending waits should terminate
 }
 
 // replyMatchFunc is the type of the matcher callback. If it returns matched, the
@@ -92,6 +95,7 @@ func Listen(t transport.Transport, cfg Config) (*protocol, error) {
 		// default to the global logger
 		p.log = log.S()
 	}
+	p.store = newStore(p, p.log)
 
 	p.wg.Add(2)
 	go p.replyLoop()
@@ -103,6 +107,7 @@ func Listen(t transport.Transport, cfg Config) (*protocol, error) {
 func (p *protocol) Close() {
 	p.closeOnce.Do(func() {
 		close(p.closing)
+		p.store.close()
 		p.trans.Close()
 		p.wg.Wait()
 	})
@@ -159,9 +164,9 @@ func (p *protocol) replyLoop() {
 		mlist   = list.New()
 		timeout = time.NewTimer(0)
 	)
+	defer timeout.Stop()
 
 	<-timeout.C // ignore first timeout
-	defer timeout.Stop()
 
 	for {
 
@@ -369,8 +374,16 @@ func (p *protocol) verifyPing(ping *pb.Ping, fromAddr string, fromID nodeID) boo
 func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID nodeID, rawData []byte) {
 	p.log.Debugw("handle "+ping.Name(), "id", fromID, "addr", fromAddr)
 
+	// first update the ping time
+	p.store.db.UpdateLastPing(fromID, fromAddr, time.Now())
+
 	pong := &pb.Pong{To: fromAddr, PingHash: packetHash(rawData)}
 	p.send(fromAddr, fromID, pong)
+
+	// send a ping if last pong was received to long ago
+	if time.Since(p.store.db.LastPong(fromID)) > pongExpiration {
+		p.sendPing(fromAddr, fromID, nil)
+	}
 }
 
 func (p *protocol) verifyPong(pong *pb.Pong, fromAddr string, fromID nodeID) bool {
@@ -390,5 +403,5 @@ func (p *protocol) verifyPong(pong *pb.Pong, fromAddr string, fromID nodeID) boo
 func (p *protocol) handlePong(pong *pb.Pong, fromAddr string, fromID nodeID) {
 	p.log.Debugw("handle "+pong.Name(), "id", fromID, "addr", fromAddr)
 
-	// TODO: add as peer
+	p.store.db.UpdateLastPong(fromID, fromAddr, time.Now())
 }
