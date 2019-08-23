@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"github.com/wollac/autopeering/identity"
+	"github.com/wollac/autopeering/id"
 	pb "github.com/wollac/autopeering/proto"
 	"github.com/wollac/autopeering/transport"
 	log "go.uber.org/zap"
@@ -25,7 +25,7 @@ const (
 
 type protocol struct {
 	trans   transport.Transport
-	priv    *identity.PrivateIdentity
+	priv    *id.Private
 	log     *log.SugaredLogger
 	address string
 
@@ -109,7 +109,7 @@ func (p *protocol) Close() {
 }
 
 // LocalID returns the private idenity of the local node.
-func (p *protocol) LocalID() *identity.PrivateIdentity {
+func (p *protocol) LocalID() *id.Private {
 	return p.priv
 }
 
@@ -259,7 +259,7 @@ func (p *protocol) write(toAddr string, toID nodeID, mName string, pkt *pb.Packe
 	p.log.Debugw("write "+mName, "id", toID, "addr", toAddr, "err", err)
 }
 
-func encode(priv *identity.PrivateIdentity, message pb.Message) *pb.Packet {
+func encode(priv *id.Private, message pb.Message) *pb.Packet {
 	// wrap the message before marshaling
 	data, err := proto.Marshal(message.Wrapper())
 	if err != nil {
@@ -326,10 +326,10 @@ func (p *protocol) handlePacket(fromAddr string, pkt *pb.Packet) error {
 	return nil
 }
 
-func decode(packet *pb.Packet) (*pb.MessageWrapper, *identity.Identity, error) {
-	issuer, err := identity.NewIdentity(packet.GetPublicKey())
+func decode(packet *pb.Packet) (*pb.MessageWrapper, *id.Identity, error) {
+	issuer, err := id.NewIdentity(packet.GetPublicKey())
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "invalid identity")
+		return nil, nil, errors.Wrap(err, "invalid id")
 	}
 
 	data := packet.GetData()

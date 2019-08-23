@@ -7,7 +7,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wollac/autopeering/identity"
+	"github.com/wollac/autopeering/id"
 	pb "github.com/wollac/autopeering/proto"
 	"github.com/wollac/autopeering/transport"
 	"go.uber.org/zap"
@@ -34,8 +34,8 @@ func init() {
 	logger = l
 }
 
-func newID() *identity.PrivateIdentity {
-	return identity.GeneratePrivateIdentity()
+func newID() *id.Private {
+	return id.GeneratePrivate()
 }
 
 func TestEncodeDecodePing(t *testing.T) {

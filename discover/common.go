@@ -3,14 +3,14 @@ package discover
 import (
 	"crypto/sha256"
 
-	"github.com/wollac/autopeering/identity"
+	"github.com/wollac/autopeering/id"
 	log "go.uber.org/zap"
 )
 
 // Config holds discovery related settings.
 type Config struct {
 	// These settings are required and configure the listener:
-	ID *identity.PrivateIdentity
+	ID *id.Private
 
 	// These settings are optional:
 	Log *log.Logger

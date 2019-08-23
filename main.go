@@ -9,7 +9,7 @@ import (
 	"os/signal"
 
 	"github.com/wollac/autopeering/discover"
-	"github.com/wollac/autopeering/identity"
+	"github.com/wollac/autopeering/id"
 	"github.com/wollac/autopeering/transport"
 	"go.uber.org/zap"
 )
@@ -46,7 +46,7 @@ func main() {
 	defer conn.Close()
 
 	cfg := discover.Config{
-		ID:  identity.GeneratePrivateIdentity(),
+		ID:  id.GeneratePrivate(),
 		Log: logger,
 	}
 
