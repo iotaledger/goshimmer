@@ -20,7 +20,7 @@ func TestNewSalt(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		_, err := New(test.input)
+		_, err := NewSalt(test.input)
 		assert.Equal(t, test.want, err, test)
 	}
 }
@@ -38,7 +38,7 @@ func TestSaltExpired(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		salt, _ := New(test.input)
+		salt, _ := NewSalt(test.input)
 		got := salt.Expired()
 		assert.Equal(t, test.want, got, test)
 	}
