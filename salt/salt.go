@@ -12,7 +12,7 @@ type Salt struct {
 	ExpirationTime time.Time
 }
 
-func New(lifetime time.Duration) (salt *Salt, err error) {
+func NewSalt(lifetime time.Duration) (salt *Salt, err error) {
 	salt = &Salt{
 		Bytes:          make([]byte, SaltByteSize),
 		ExpirationTime: time.Now().Add(lifetime),

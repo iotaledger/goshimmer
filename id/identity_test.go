@@ -1,4 +1,4 @@
-package identity
+package id
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ const TestMessage = "Hello World!"
 func TestVerifySignature(t *testing.T) {
 	msg := []byte(TestMessage)
 
-	private := GeneratePrivateIdentity()
+	private := GeneratePrivate()
 	sig := private.Sign(msg)
 
 	valid := private.Identity.VerifySignature(msg, sig)

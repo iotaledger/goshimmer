@@ -1,4 +1,4 @@
-package identity
+package id
 
 import "golang.org/x/crypto/ed25519"
 

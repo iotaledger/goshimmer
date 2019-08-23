@@ -1,4 +1,4 @@
-package identity
+package id
 
 import (
 	"crypto/sha256"
@@ -8,7 +8,7 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-var errInvalidPubKeyLen = errors.New("identity: invalid public key length")
+var errInvalidPubKeyLen = errors.New("id: invalid public key length")
 
 // Identity offeres IDs in string/byte form and functions to check signatures.
 type Identity struct {
@@ -18,14 +18,14 @@ type Identity struct {
 	PublicKey []byte
 }
 
-// PrivateIdentity is an Identiy plus a private key for signature generation.
-type PrivateIdentity struct {
+// Private is an Identity plus a private key for signature generation.
+type Private struct {
 	Identity
 
 	privateKey []byte
 }
 
-// NewIdentity creates a new identity based on the given public key.
+// NewIdentity creates a new id based on the given public key.
 func NewIdentity(publicKey []byte) (*Identity, error) {
 	if len(publicKey) != ed25519.PublicKeySize {
 		return nil, errInvalidPubKeyLen
@@ -45,30 +45,30 @@ func (id *Identity) VerifySignature(msg, sig []byte) bool {
 	return ed25519.Verify(id.PublicKey, msg, sig)
 }
 
-func newPrivateIdentity(publicKey, privateKey []byte) *PrivateIdentity {
-	identity, err := NewIdentity(publicKey)
+func newPrivate(publicKey, privateKey []byte) *Private {
+	id, err := NewIdentity(publicKey)
 	if err != nil {
-		panic("identity: failed creating identity: " + err.Error())
+		panic("id: failed creating id: " + err.Error())
 	}
 
-	return &PrivateIdentity{
-		Identity:   *identity,
+	return &Private{
+		Identity:   *id,
 		privateKey: privateKey,
 	}
 }
 
-// GeneratePrivateIdentity creates a identity based on a newly generated
+// GeneratePrivate creates a id based on a newly generated
 // public/private key pair. It will panic if no such pair could be generated.
-func GeneratePrivateIdentity() *PrivateIdentity {
+func GeneratePrivate() *Private {
 	publicKey, privateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
-		panic("identity: failed generating key: " + err.Error())
+		panic("id: failed generating key: " + err.Error())
 	}
 
-	return newPrivateIdentity(publicKey, privateKey)
+	return newPrivate(publicKey, privateKey)
 }
 
 // Sign signs the message with privateKey and returns the message plus the signature.
-func (id *PrivateIdentity) Sign(msg []byte) []byte {
+func (id *Private) Sign(msg []byte) []byte {
 	return ed25519.Sign(id.privateKey, msg)
 }
