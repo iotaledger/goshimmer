@@ -12,7 +12,7 @@ import (
 // region plugin module setup //////////////////////////////////////////////////////////////////////////////////////////
 
 func configureSendQueue(plugin *node.Plugin) {
-	for _, neighbor := range GetNeighbors() {
+	for _, neighbor := range neighbors.GetMap() {
 		setupEventHandlers(neighbor)
 	}
 
@@ -68,7 +68,7 @@ func SendTransaction(transaction *meta_transaction.MetaTransaction) {
 }
 
 func (neighbor *Neighbor) SendTransaction(transaction *meta_transaction.MetaTransaction) {
-	if queue, exists := neighborQueues[neighbor.Identity.StringIdentifier]; exists {
+	if queue, exists := neighborQueues[neighbor.GetIdentity().StringIdentifier]; exists {
 		select {
 		case queue.queue <- transaction:
 			return
@@ -92,14 +92,14 @@ func setupEventHandlers(neighbor *Neighbor) {
 		}
 
 		connectedNeighborsMutex.Lock()
-		neighborQueues[neighbor.Identity.StringIdentifier] = queue
+		neighborQueues[neighbor.GetIdentity().StringIdentifier] = queue
 		connectedNeighborsMutex.Unlock()
 
 		protocol.Conn.Events.Close.Attach(events.NewClosure(func() {
 			close(queue.disconnectChan)
 
 			connectedNeighborsMutex.Lock()
-			delete(neighborQueues, neighbor.Identity.StringIdentifier)
+			delete(neighborQueues, neighbor.GetIdentity().StringIdentifier)
 			connectedNeighborsMutex.Unlock()
 		}))
 
@@ -110,7 +110,7 @@ func setupEventHandlers(neighbor *Neighbor) {
 }
 
 func startNeighborSendQueue(neighbor *Neighbor, neighborQueue *neighborQueue) {
-	daemon.BackgroundWorker("Gossip Send Queue ("+neighbor.Identity.StringIdentifier+")", func() {
+	daemon.BackgroundWorker("Gossip Send Queue ("+neighbor.GetIdentity().StringIdentifier+")", func() {
 		for {
 			select {
 			case <-daemon.ShutdownSignal:

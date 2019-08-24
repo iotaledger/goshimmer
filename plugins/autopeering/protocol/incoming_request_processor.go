@@ -31,7 +31,7 @@ func processIncomingRequest(plugin *node.Plugin, req *request.Request) {
 		defer acceptedneighbors.INSTANCE.Lock()()
 
 		if requestShouldBeAccepted(req) {
-			acceptedneighbors.INSTANCE.AddOrUpdate(req.Issuer, false)
+			acceptedneighbors.INSTANCE.AddOrUpdate(req.Issuer)
 
 			acceptRequest(plugin, req)
 
@@ -43,35 +43,35 @@ func processIncomingRequest(plugin *node.Plugin, req *request.Request) {
 }
 
 func requestShouldBeAccepted(req *request.Request) bool {
-	return len(acceptedneighbors.INSTANCE.Peers) < constants.NEIGHBOR_COUNT/2 ||
-		acceptedneighbors.INSTANCE.Contains(req.Issuer.Identity.StringIdentifier) ||
+	return acceptedneighbors.INSTANCE.Peers.Len() < constants.NEIGHBOR_COUNT/2 ||
+		acceptedneighbors.INSTANCE.Contains(req.Issuer.GetIdentity().StringIdentifier) ||
 		acceptedneighbors.OWN_DISTANCE(req.Issuer) < acceptedneighbors.FURTHEST_NEIGHBOR_DISTANCE
 }
 
 func acceptRequest(plugin *node.Plugin, req *request.Request) {
-	if err := req.Accept(generateProposedPeeringCandidates(req)); err != nil {
+	if err := req.Accept(generateProposedPeeringCandidates(req).GetPeers()); err != nil {
 		plugin.LogDebug("error when sending response to" + req.Issuer.String())
 	}
 
 	plugin.LogDebug("sent positive peering response to " + req.Issuer.String())
 
-	acceptedneighbors.INSTANCE.AddOrUpdate(req.Issuer, false)
+	acceptedneighbors.INSTANCE.AddOrUpdate(req.Issuer)
 }
 
 func rejectRequest(plugin *node.Plugin, req *request.Request) {
-	if err := req.Reject(generateProposedPeeringCandidates(req)); err != nil {
+	if err := req.Reject(generateProposedPeeringCandidates(req).GetPeers()); err != nil {
 		plugin.LogDebug("error when sending response to" + req.Issuer.String())
 	}
 
 	plugin.LogDebug("sent negative peering response to " + req.Issuer.String())
 }
 
-func generateProposedPeeringCandidates(req *request.Request) peerlist.PeerList {
+func generateProposedPeeringCandidates(req *request.Request) *peerlist.PeerList {
 	proposedPeers := neighborhood.LIST_INSTANCE.Filter(func(p *peer.Peer) bool {
-		return p.Identity.PublicKey != nil
+		return p.GetIdentity().PublicKey != nil
 	})
-	rand.Shuffle(len(proposedPeers), func(i, j int) {
-		proposedPeers[i], proposedPeers[j] = proposedPeers[j], proposedPeers[i]
+	rand.Shuffle(proposedPeers.Len(), func(i, j int) {
+		proposedPeers.SwapPeers(i, j)
 	})
 
 	return proposedPeers

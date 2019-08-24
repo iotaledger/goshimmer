@@ -3,20 +3,30 @@ package tcp
 import (
 	"net"
 	"strconv"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/network"
 )
 
 type Server struct {
-	Socket net.Listener
-	Events serverEvents
+	socket      net.Listener
+	socketMutex sync.RWMutex
+	Events      serverEvents
+}
+
+func (this *Server) GetSocket() net.Listener {
+	this.socketMutex.RLock()
+	defer this.socketMutex.RUnlock()
+	return this.socket
 }
 
 func (this *Server) Shutdown() {
-	if this.Socket != nil {
-		socket := this.Socket
-		this.Socket = nil
+	this.socketMutex.Lock()
+	defer this.socketMutex.Unlock()
+	if this.socket != nil {
+		socket := this.socket
+		this.socket = nil
 
 		socket.Close()
 	}
@@ -29,15 +39,17 @@ func (this *Server) Listen(port int) *Server {
 
 		return this
 	} else {
-		this.Socket = socket
+		this.socketMutex.Lock()
+		this.socket = socket
+		this.socketMutex.Unlock()
 	}
 
 	this.Events.Start.Trigger()
 	defer this.Events.Shutdown.Trigger()
 
-	for this.Socket != nil {
-		if socket, err := this.Socket.Accept(); err != nil {
-			if this.Socket != nil {
+	for this.GetSocket() != nil {
+		if socket, err := this.GetSocket().Accept(); err != nil {
+			if this.GetSocket() != nil {
 				this.Events.Error.Trigger(err)
 			}
 		} else {

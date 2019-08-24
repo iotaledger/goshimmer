@@ -8,10 +8,10 @@ import (
 
 func CheckSalt(saltToCheck *salt.Salt) error {
 	now := time.Now()
-	if saltToCheck.ExpirationTime.Before(now.Add(-1 * time.Minute)) {
+	if saltToCheck.GetExpirationTime().Before(now.Add(-1 * time.Minute)) {
 		return ErrPublicSaltExpired
 	}
-	if saltToCheck.ExpirationTime.After(now.Add(PUBLIC_SALT_LIFETIME + 1*time.Minute)) {
+	if saltToCheck.GetExpirationTime().After(now.Add(PUBLIC_SALT_LIFETIME + 1*time.Minute)) {
 		return ErrPublicSaltInvalidLifetime
 	}
 

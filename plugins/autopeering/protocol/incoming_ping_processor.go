@@ -12,7 +12,7 @@ func createIncomingPingProcessor(plugin *node.Plugin) *events.Closure {
 		plugin.LogDebug("received ping from " + ping.Issuer.String())
 
 		knownpeers.INSTANCE.AddOrUpdate(ping.Issuer)
-		for _, neighbor := range ping.Neighbors {
+		for _, neighbor := range ping.Neighbors.GetPeers() {
 			knownpeers.INSTANCE.AddOrUpdate(neighbor)
 		}
 	})

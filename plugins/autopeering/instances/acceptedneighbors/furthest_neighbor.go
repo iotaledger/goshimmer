@@ -25,11 +25,11 @@ func configureFurthestNeighbor() {
 		FurthestNeighborLock.Lock()
 		defer FurthestNeighborLock.Unlock()
 
-		if p.Identity.StringIdentifier == FURTHEST_NEIGHBOR.Identity.StringIdentifier {
+		if p.GetIdentity().StringIdentifier == FURTHEST_NEIGHBOR.GetIdentity().StringIdentifier {
 			FURTHEST_NEIGHBOR_DISTANCE = uint64(0)
 			FURTHEST_NEIGHBOR = nil
 
-			for _, furthestNeighborCandidate := range INSTANCE.Peers {
+			for _, furthestNeighborCandidate := range INSTANCE.Peers.GetMap() {
 				updateFurthestNeighbor(furthestNeighborCandidate)
 			}
 		}

@@ -64,7 +64,7 @@ func processReceivedData(addr *net.UDPAddr, data []byte) {
 		if peeringRequest, err := request.Unmarshal(data); err != nil {
 			Events.Error.Trigger(addr.IP, err)
 		} else {
-			peeringRequest.Issuer.Address = addr.IP
+			peeringRequest.Issuer.SetAddress(addr.IP)
 
 			Events.ReceiveRequest.Trigger(peeringRequest)
 		}
@@ -72,7 +72,7 @@ func processReceivedData(addr *net.UDPAddr, data []byte) {
 		if peeringResponse, err := response.Unmarshal(data); err != nil {
 			Events.Error.Trigger(addr.IP, err)
 		} else {
-			peeringResponse.Issuer.Address = addr.IP
+			peeringResponse.Issuer.SetAddress(addr.IP)
 
 			Events.ReceiveResponse.Trigger(peeringResponse)
 		}
@@ -80,7 +80,7 @@ func processReceivedData(addr *net.UDPAddr, data []byte) {
 		if ping, err := ping.Unmarshal(data); err != nil {
 			Events.Error.Trigger(addr.IP, err)
 		} else {
-			ping.Issuer.Address = addr.IP
+			ping.Issuer.SetAddress(addr.IP)
 
 			Events.ReceivePing.Trigger(ping)
 		}
@@ -88,7 +88,7 @@ func processReceivedData(addr *net.UDPAddr, data []byte) {
 		if drop, err := drop.Unmarshal(data); err != nil {
 			Events.Error.Trigger(addr.IP, err)
 		} else {
-			drop.Issuer.Address = addr.IP
+			drop.Issuer.SetAddress(addr.IP)
 
 			Events.ReceiveDrop.Trigger(drop)
 		}

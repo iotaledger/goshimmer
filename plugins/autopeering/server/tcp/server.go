@@ -141,7 +141,7 @@ func processIncomingRequestPacket(connectionState *byte, receiveBuffer *[]byte, 
 			return
 		} else {
 			req.Issuer.SetConn(conn)
-			req.Issuer.Address = conn.RemoteAddr().(*net.TCPAddr).IP
+			req.Issuer.SetAddress(conn.RemoteAddr().(*net.TCPAddr).IP)
 
 			conn.Events.Close.Attach(events.NewClosure(func() {
 				req.Issuer.SetConn(nil)
@@ -174,7 +174,7 @@ func processIncomingResponsePacket(connectionState *byte, receiveBuffer *[]byte,
 			return
 		} else {
 			res.Issuer.SetConn(conn)
-			res.Issuer.Address = conn.RemoteAddr().(*net.TCPAddr).IP
+			res.Issuer.SetAddress(conn.RemoteAddr().(*net.TCPAddr).IP)
 
 			conn.Events.Close.Attach(events.NewClosure(func() {
 				res.Issuer.SetConn(nil)
@@ -207,7 +207,7 @@ func processIncomingPingPacket(connectionState *byte, receiveBuffer *[]byte, con
 			return
 		} else {
 			ping.Issuer.SetConn(conn)
-			ping.Issuer.Address = conn.RemoteAddr().(*net.TCPAddr).IP
+			ping.Issuer.SetAddress(conn.RemoteAddr().(*net.TCPAddr).IP)
 
 			conn.Events.Close.Attach(events.NewClosure(func() {
 				ping.Issuer.SetConn(nil)

@@ -56,17 +56,17 @@ func createOutgoingPingProcessor(plugin *node.Plugin) func() {
 }
 
 func pingPeers(plugin *node.Plugin, outgoingPing *ping.Ping) {
-	if len(neighborhood.LIST_INSTANCE) >= 1 {
-		pingDelay := constants.PING_CYCLE_LENGTH / time.Duration(len(neighborhood.LIST_INSTANCE))
+	if neighborhood.LIST_INSTANCE.Len() >= 1 {
+		pingDelay := constants.PING_CYCLE_LENGTH / time.Duration(neighborhood.LIST_INSTANCE.Len())
 
 		if lastPing.Add(pingDelay).Before(time.Now()) {
 			chosenPeers := make(map[string]*peer.Peer)
 
 			for i := 0; i < constants.PING_CONTACT_COUNT_PER_CYCLE; i++ {
-				randomNeighborHoodPeer := neighborhood.LIST_INSTANCE[rand.Intn(len(neighborhood.LIST_INSTANCE))]
+				randomNeighborHoodPeer := neighborhood.LIST_INSTANCE.GetPeers()[rand.Intn(neighborhood.LIST_INSTANCE.Len())]
 
-				if randomNeighborHoodPeer.Identity.StringIdentifier != accountability.OwnId().StringIdentifier {
-					chosenPeers[randomNeighborHoodPeer.Identity.StringIdentifier] = randomNeighborHoodPeer
+				if randomNeighborHoodPeer.GetIdentity().StringIdentifier != accountability.OwnId().StringIdentifier {
+					chosenPeers[randomNeighborHoodPeer.GetIdentity().StringIdentifier] = randomNeighborHoodPeer
 				}
 			}
 

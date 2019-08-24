@@ -1,14 +1,31 @@
 package node
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 type Logger struct {
-	Enabled    bool
-	LogInfo    func(pluginName string, message string)
-	LogSuccess func(pluginName string, message string)
-	LogWarning func(pluginName string, message string)
-	LogFailure func(pluginName string, message string)
-	LogDebug   func(pluginName string, message string)
+	enabled      bool
+	enabledMutex sync.RWMutex
+	LogInfo      func(pluginName string, message string)
+	LogSuccess   func(pluginName string, message string)
+	LogWarning   func(pluginName string, message string)
+	LogFailure   func(pluginName string, message string)
+	LogDebug     func(pluginName string, message string)
+}
+
+func (logger *Logger) SetEnabled(value bool) {
+	logger.enabledMutex.Lock()
+	logger.enabled = value
+	logger.enabledMutex.Unlock()
+}
+
+func (logger *Logger) GetEnabled() (result bool) {
+	logger.enabledMutex.RLock()
+	result = logger.enabled
+	logger.enabledMutex.RUnlock()
+	return
 }
 
 func pluginPrefix(pluginName string) string {
@@ -23,7 +40,7 @@ func pluginPrefix(pluginName string) string {
 }
 
 var DEFAULT_LOGGER = &Logger{
-	Enabled: true,
+	enabled: true,
 	LogSuccess: func(pluginName string, message string) {
 		fmt.Println("[  OK  ] " + pluginPrefix(pluginName) + message)
 	},

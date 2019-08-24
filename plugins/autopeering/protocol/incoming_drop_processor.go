@@ -12,7 +12,7 @@ func createIncomingDropProcessor(plugin *node.Plugin) *events.Closure {
 	return events.NewClosure(func(drop *drop.Drop) {
 		plugin.LogDebug("received drop message from " + drop.Issuer.String())
 
-		chosenneighbors.INSTANCE.Remove(drop.Issuer.Identity.StringIdentifier)
-		acceptedneighbors.INSTANCE.Remove(drop.Issuer.Identity.StringIdentifier)
+		chosenneighbors.INSTANCE.Remove(drop.Issuer.GetIdentity().StringIdentifier)
+		acceptedneighbors.INSTANCE.Remove(drop.Issuer.GetIdentity().StringIdentifier)
 	})
 }

@@ -50,8 +50,8 @@ func getSalt(key []byte, lifetime time.Duration) *salt.Salt {
 func updatePublicSalt(saltToUpdate *salt.Salt, settingsKey []byte, lifeSpan time.Duration, updateCallback func(params ...interface{})) {
 	newSalt := salt.New(lifeSpan)
 
-	saltToUpdate.Bytes = newSalt.Bytes
-	saltToUpdate.ExpirationTime = newSalt.ExpirationTime
+	saltToUpdate.SetBytes(newSalt.GetBytes())
+	saltToUpdate.SetExpirationTime(newSalt.GetExpirationTime())
 
 	if err := settings.Set(settingsKey, saltToUpdate.Marshal()); err != nil {
 		panic(err)
@@ -65,12 +65,12 @@ func updatePublicSalt(saltToUpdate *salt.Salt, settingsKey []byte, lifeSpan time
 func scheduleUpdateForSalt(saltToUpdate *salt.Salt, settingsKey []byte, lifeSpan time.Duration, callback func(params ...interface{})) {
 	now := time.Now()
 
-	if saltToUpdate.ExpirationTime.Before(now) {
+	if saltToUpdate.GetExpirationTime().Before(now) {
 		updatePublicSalt(saltToUpdate, settingsKey, lifeSpan, callback)
 	} else {
 		daemon.BackgroundWorker("Salt Updater", func() {
 			select {
-			case <-time.After(saltToUpdate.ExpirationTime.Sub(now)):
+			case <-time.After(saltToUpdate.GetExpirationTime().Sub(now)):
 				updatePublicSalt(saltToUpdate, settingsKey, lifeSpan, callback)
 			case <-daemon.ShutdownSignal:
 				return

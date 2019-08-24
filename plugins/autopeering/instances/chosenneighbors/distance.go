@@ -9,11 +9,11 @@ import (
 
 var DISTANCE = func(anchor *peer.Peer) func(p *peer.Peer) uint64 {
 	return func(p *peer.Peer) uint64 {
-		saltedIdentifier := make([]byte, len(anchor.Identity.Identifier)+len(anchor.Salt.Bytes))
-		copy(saltedIdentifier[0:], anchor.Identity.Identifier)
-		copy(saltedIdentifier[len(anchor.Identity.Identifier):], anchor.Salt.Bytes)
+		saltedIdentifier := make([]byte, len(anchor.GetIdentity().Identifier)+len(anchor.GetSalt().GetBytes()))
+		copy(saltedIdentifier[0:], anchor.GetIdentity().Identifier)
+		copy(saltedIdentifier[len(anchor.GetIdentity().Identifier):], anchor.GetSalt().GetBytes())
 
-		return hash(anchor.Identity.Identifier) ^ hash(p.Identity.Identifier)
+		return hash(anchor.GetIdentity().Identifier) ^ hash(p.GetIdentity().Identifier)
 	}
 }
 

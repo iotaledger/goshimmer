@@ -72,23 +72,23 @@ func setupHooks(conn *network.ManagedConnection, eventDispatchers *EventDispatch
 	// define hooks ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	onDiscoverPeer := events.NewClosure(func(p *peer.Peer) {
-		go eventDispatchers.AddNode(p.Identity.Identifier)
+		go eventDispatchers.AddNode(p.GetIdentity().Identifier)
 	})
 
 	onAddAcceptedNeighbor := events.NewClosure(func(p *peer.Peer) {
-		eventDispatchers.ConnectNodes(p.Identity.Identifier, accountability.OwnId().Identifier)
+		eventDispatchers.ConnectNodes(p.GetIdentity().Identifier, accountability.OwnId().Identifier)
 	})
 
 	onRemoveAcceptedNeighbor := events.NewClosure(func(p *peer.Peer) {
-		eventDispatchers.DisconnectNodes(p.Identity.Identifier, accountability.OwnId().Identifier)
+		eventDispatchers.DisconnectNodes(p.GetIdentity().Identifier, accountability.OwnId().Identifier)
 	})
 
 	onAddChosenNeighbor := events.NewClosure(func(p *peer.Peer) {
-		eventDispatchers.ConnectNodes(accountability.OwnId().Identifier, p.Identity.Identifier)
+		eventDispatchers.ConnectNodes(accountability.OwnId().Identifier, p.GetIdentity().Identifier)
 	})
 
 	onRemoveChosenNeighbor := events.NewClosure(func(p *peer.Peer) {
-		eventDispatchers.DisconnectNodes(accountability.OwnId().Identifier, p.Identity.Identifier)
+		eventDispatchers.DisconnectNodes(accountability.OwnId().Identifier, p.GetIdentity().Identifier)
 	})
 
 	// setup hooks /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -115,11 +115,11 @@ func setupHooks(conn *network.ManagedConnection, eventDispatchers *EventDispatch
 }
 
 func reportChosenNeighbors(dispatchers *EventDispatchers) {
-	for _, chosenNeighbor := range chosenneighbors.INSTANCE.Peers {
-		dispatchers.AddNode(chosenNeighbor.Identity.Identifier)
+	for _, chosenNeighbor := range chosenneighbors.INSTANCE.Peers.GetMap() {
+		dispatchers.AddNode(chosenNeighbor.GetIdentity().Identifier)
 	}
-	for _, chosenNeighbor := range chosenneighbors.INSTANCE.Peers {
-		dispatchers.ConnectNodes(accountability.OwnId().Identifier, chosenNeighbor.Identity.Identifier)
+	for _, chosenNeighbor := range chosenneighbors.INSTANCE.Peers.GetMap() {
+		dispatchers.ConnectNodes(accountability.OwnId().Identifier, chosenNeighbor.GetIdentity().Identifier)
 	}
 }
 

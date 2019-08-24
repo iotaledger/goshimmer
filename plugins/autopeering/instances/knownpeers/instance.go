@@ -14,7 +14,7 @@ func Configure(plugin *node.Plugin) {
 
 func initKnownPeers() *peerregister.PeerRegister {
 	knownPeers := peerregister.New()
-	for _, entryNode := range entrynodes.INSTANCE {
+	for _, entryNode := range entrynodes.INSTANCE.GetPeers() {
 		knownPeers.AddOrUpdate(entryNode)
 	}
 

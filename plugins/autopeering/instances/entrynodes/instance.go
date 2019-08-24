@@ -13,23 +13,21 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peerlist"
 )
 
-var INSTANCE peerlist.PeerList
+var INSTANCE *peerlist.PeerList
 
 func Configure(node *node.Plugin) {
 	INSTANCE = parseEntryNodes()
 }
 
-func parseEntryNodes() peerlist.PeerList {
-	result := make(peerlist.PeerList, 0)
+func parseEntryNodes() *peerlist.PeerList {
+	result := peerlist.NewPeerList()
 
 	for _, entryNodeDefinition := range strings.Fields(*parameters.ENTRY_NODES.Value) {
 		if entryNodeDefinition == "" {
 			continue
 		}
 
-		entryNode := &peer.Peer{
-			Identity: nil,
-		}
+		entryNode := &peer.Peer{}
 
 		identityBits := strings.Split(entryNodeDefinition, "@")
 		if len(identityBits) != 2 {
@@ -38,10 +36,10 @@ func parseEntryNodes() peerlist.PeerList {
 		if decodedIdentifier, err := hex.DecodeString(identityBits[0]); err != nil {
 			panic("error while parsing identity of entry node: " + entryNodeDefinition)
 		} else {
-			entryNode.Identity = &identity.Identity{
+			entryNode.SetIdentity(&identity.Identity{
 				Identifier:       decodedIdentifier,
 				StringIdentifier: identityBits[0],
-			}
+			})
 		}
 
 		addressBits := strings.Split(identityBits[1], ":")
@@ -58,8 +56,8 @@ func parseEntryNodes() peerlist.PeerList {
 				panic("error while parsing ip of entry in list of entry nodes")
 			}
 
-			entryNode.Address = ip
-			entryNode.PeeringPort = uint16(port)
+			entryNode.SetAddress(ip)
+			entryNode.SetPeeringPort(uint16(port))
 		case 6:
 			host := strings.Join(addressBits[:5], ":")
 			port, err := strconv.Atoi(addressBits[5])
@@ -72,13 +70,13 @@ func parseEntryNodes() peerlist.PeerList {
 				panic("error while parsing ip of entry in list of entry nodes")
 			}
 
-			entryNode.Address = ip
-			entryNode.PeeringPort = uint16(port)
+			entryNode.SetAddress(ip)
+			entryNode.SetPeeringPort(uint16(port))
 		default:
 			panic("invalid entry in list of trusted entry nodes: " + entryNodeDefinition)
 		}
 
-		result = append(result, entryNode)
+		result.AddPeer(entryNode)
 	}
 
 	return result

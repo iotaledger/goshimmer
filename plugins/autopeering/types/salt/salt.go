@@ -2,23 +2,56 @@ package salt
 
 import (
 	"crypto/rand"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 )
 
 type Salt struct {
-	Bytes          []byte
-	ExpirationTime time.Time
+	bytes               []byte
+	bytesMutex          sync.RWMutex
+	expirationTime      time.Time
+	expirationTimeMutex sync.RWMutex
+}
+
+func (salt *Salt) GetBytes() (result []byte) {
+	salt.bytesMutex.RLock()
+	result = make([]byte, len(salt.bytes))
+	copy(result[:], salt.bytes[:])
+	salt.bytesMutex.RUnlock()
+
+	return
+}
+
+func (salt *Salt) SetBytes(b []byte) {
+	salt.bytesMutex.Lock()
+	salt.bytes = make([]byte, len(b))
+	copy(salt.bytes[:], b[:])
+	salt.bytesMutex.Unlock()
+}
+
+func (salt *Salt) GetExpirationTime() (result time.Time) {
+	salt.expirationTimeMutex.RLock()
+	result = salt.expirationTime
+	salt.expirationTimeMutex.RUnlock()
+
+	return
+}
+
+func (salt *Salt) SetExpirationTime(t time.Time) {
+	salt.expirationTimeMutex.Lock()
+	salt.expirationTime = t
+	salt.expirationTimeMutex.Unlock()
 }
 
 func New(lifetime time.Duration) *Salt {
 	salt := &Salt{
-		Bytes:          make([]byte, SALT_BYTES_SIZE),
-		ExpirationTime: time.Now().Add(lifetime),
+		bytes:          make([]byte, SALT_BYTES_SIZE),
+		expirationTime: time.Now().Add(lifetime),
 	}
 
-	if _, err := rand.Read(salt.Bytes); err != nil {
+	if _, err := rand.Read(salt.bytes); err != nil {
 		panic(err)
 	}
 
@@ -31,13 +64,15 @@ func Unmarshal(marshaledSalt []byte) (*Salt, error) {
 	}
 
 	salt := &Salt{
-		Bytes: make([]byte, SALT_BYTES_SIZE),
+		bytes: make([]byte, SALT_BYTES_SIZE),
 	}
-	copy(salt.Bytes, marshaledSalt[SALT_BYTES_START:SALT_BYTES_END])
+	salt.SetBytes(marshaledSalt[SALT_BYTES_START:SALT_BYTES_END])
 
-	if err := salt.ExpirationTime.UnmarshalBinary(marshaledSalt[SALT_TIME_START:SALT_TIME_END]); err != nil {
+	var expTime time.Time
+	if err := expTime.UnmarshalBinary(marshaledSalt[SALT_TIME_START:SALT_TIME_END]); err != nil {
 		return nil, err
 	}
+	salt.SetExpirationTime(expTime)
 
 	return salt, nil
 }
@@ -45,9 +80,9 @@ func Unmarshal(marshaledSalt []byte) (*Salt, error) {
 func (this *Salt) Marshal() []byte {
 	result := make([]byte, SALT_BYTES_SIZE+SALT_TIME_SIZE)
 
-	copy(result[SALT_BYTES_START:SALT_BYTES_END], this.Bytes)
-
-	if bytes, err := this.ExpirationTime.MarshalBinary(); err != nil {
+	copy(result[SALT_BYTES_START:SALT_BYTES_END], this.GetBytes())
+	expTime := this.GetExpirationTime()
+	if bytes, err := expTime.MarshalBinary(); err != nil {
 		panic(err)
 	} else {
 		copy(result[SALT_TIME_START:SALT_TIME_END], bytes)
