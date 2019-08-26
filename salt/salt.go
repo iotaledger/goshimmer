@@ -11,6 +11,7 @@ import (
 // SaltByteSize specifies the number of bytes used for the salt.
 const SaltByteSize = 20
 
+// Salt encapsulates high level functions around salt management.
 type Salt struct {
 	Bytes          []byte    // value of the salt
 	ExpirationTime time.Time // expiration time of the salt
