@@ -8,6 +8,7 @@ import (
 	pb "github.com/wollac/autopeering/salt/proto"
 )
 
+// SaltByteSize specifies the number of bytes used for the salt.
 const SaltByteSize = 20
 
 type Salt struct {
