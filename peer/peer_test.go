@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/wollac/autopeering/id"
 	pb "github.com/wollac/autopeering/peer/proto"
 	"github.com/wollac/autopeering/salt"
@@ -28,11 +29,11 @@ func newTestPeer() *Peer {
 func TestMarshalUnmarshal(t *testing.T) {
 	p := newTestPeer()
 	data, err := Marshal(p)
-	assert.Equal(t, nil, err, p)
+	require.Equal(t, nil, err, p)
 
 	got := &Peer{}
 	err = Unmarshal(data, got)
-	assert.Equal(t, nil, err, p)
+	require.Equal(t, nil, err, p)
 
 	assert.Equal(t, p.Identity, got.Identity, "Identity")
 
