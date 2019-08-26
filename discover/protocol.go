@@ -40,6 +40,18 @@ type protocol struct {
 	closing         chan struct{} // if this channel gets closed all pending waits should terminate
 }
 
+// nodeID is an alias for the public key of the node.
+// For efficiency reasons, we don't use id.Identity directly.
+type nodeID string
+
+func getNodeID(id *id.Identity) nodeID {
+	return nodeID(id.StringID)
+}
+
+func (id nodeID) equals(x nodeID) bool {
+	return string(id) == string(x)
+}
+
 // replyMatchFunc is the type of the matcher callback. If it returns matched, the
 // reply was acceptable. If requestDone is false, the reply is considered
 // incomplete and the callback will be invoked again for the next matching reply.
@@ -66,8 +78,6 @@ type replyMatcher struct {
 	// reply contains the most recent reply
 	reply pb.Message
 }
-
-type nodeID = string
 
 // reply is a reply packet from a certain node.
 type reply struct {
@@ -124,12 +134,15 @@ func (p *protocol) LocalAddr() string {
 }
 
 // ping sends a ping message to the given node and waits for a reply.
-func (p *protocol) ping(toAddr string, toID nodeID) error {
-	return <-p.sendPing(toAddr, toID, nil)
+func (p *protocol) ping(peer *Peer) error {
+	return <-p.sendPing(peer, nil)
 }
 
 // sendPing pings the given node and invokes the callback when the reply arrives.
-func (p *protocol) sendPing(toAddr string, toID nodeID, callback func()) <-chan error {
+func (p *protocol) sendPing(peer *Peer, callback func()) <-chan error {
+	toAddr := peer.Address
+	toID := getNodeID(peer.Identity)
+
 	// create the ping package
 	ping := &pb.Ping{
 		Version: VersionNum,
@@ -192,7 +205,7 @@ func (p *protocol) replyLoop() {
 			rtype := r.message.Type()
 			for el := mlist.Front(); el != nil; el = el.Next() {
 				m := el.Value.(*replyMatcher)
-				if m.mtype == rtype && m.fromID == r.fromID && m.fromAddr == r.fromAddr {
+				if m.mtype == rtype && m.fromAddr == r.fromAddr && m.fromID.equals(r.fromID) {
 					ok, requestDone := m.callback(r.message)
 					matched = matched || ok
 
@@ -243,10 +256,10 @@ func (p *protocol) expectReply(fromAddr string, fromID nodeID, mtype pb.MType, c
 }
 
 // Process a reply message and returns whether a matching request could be found.
-func (p *protocol) handleReply(fromAddr string, fromID nodeID, message pb.Message) bool {
+func (p *protocol) handleReply(fromAddr string, fromID *id.Identity, message pb.Message) bool {
 	matched := make(chan bool, 1)
 	select {
-	case p.gotreply <- reply{fromAddr, fromID, message, matched}:
+	case p.gotreply <- reply{fromAddr, getNodeID(fromID), message, matched}:
 		// wait for matcher and return whether it could be matched
 		return <-matched
 	case <-p.closing:
@@ -304,11 +317,10 @@ func (p *protocol) readLoop() {
 }
 
 func (p *protocol) handlePacket(fromAddr string, pkt *pb.Packet) error {
-	w, issuer, err := decode(pkt)
+	w, fromID, err := decode(pkt)
 	if err != nil {
 		return err
 	}
-	fromID := issuer.StringID
 
 	switch m := w.GetMessage().(type) {
 
@@ -352,7 +364,7 @@ func decode(packet *pb.Packet) (*pb.MessageWrapper, *id.Identity, error) {
 
 // ------ Packet Handlers ------
 
-func (p *protocol) verifyPing(ping *pb.Ping, fromAddr string, fromID nodeID) bool {
+func (p *protocol) verifyPing(ping *pb.Ping, fromAddr string, fromID *id.Identity) bool {
 	// check version number
 	if ping.GetVersion() != VersionNum {
 		p.log.Debugw("failed to verify", "type", ping.Name(), "version", ping.GetVersion())
@@ -371,22 +383,14 @@ func (p *protocol) verifyPing(ping *pb.Ping, fromAddr string, fromID nodeID) boo
 	return true
 }
 
-func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID nodeID, rawData []byte) {
+func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID *id.Identity, rawData []byte) {
 	p.log.Debugw("handle "+ping.Name(), "id", fromID, "addr", fromAddr)
 
-	// first update the ping time
-	p.store.db.UpdateLastPing(fromID, fromAddr, time.Now())
-
 	pong := &pb.Pong{To: fromAddr, PingHash: packetHash(rawData)}
-	p.send(fromAddr, fromID, pong)
-
-	// send a ping if last pong was received to long ago
-	if time.Since(p.store.db.LastPong(fromID)) > pongExpiration {
-		p.sendPing(fromAddr, fromID, nil)
-	}
+	p.send(fromAddr, getNodeID(fromID), pong)
 }
 
-func (p *protocol) verifyPong(pong *pb.Pong, fromAddr string, fromID nodeID) bool {
+func (p *protocol) verifyPong(pong *pb.Pong, fromAddr string, fromID *id.Identity) bool {
 	// check that To matches the local address
 	if pong.GetTo() != p.LocalAddr() {
 		p.log.Debugw("failed to verify", "type", pong.Name(), "to", pong.GetTo())
@@ -400,8 +404,9 @@ func (p *protocol) verifyPong(pong *pb.Pong, fromAddr string, fromID nodeID) boo
 	return true
 }
 
-func (p *protocol) handlePong(pong *pb.Pong, fromAddr string, fromID nodeID) {
-	p.log.Debugw("handle "+pong.Name(), "id", fromID, "addr", fromAddr)
+func (p *protocol) handlePong(pong *pb.Pong, fromAddr string, fromID *id.Identity) {
+	p.log.Debugw("handle "+pong.Name(), "id", fromID.StringID, "addr", fromAddr)
 
-	p.store.db.UpdateLastPong(fromID, fromAddr, time.Now())
+	peer := NewPeer(fromID, fromAddr)
+	p.store.addNode(peer)
 }

@@ -9,21 +9,29 @@ import (
 
 const (
 	revalidateInterval = 30 * time.Second
+
+	bucketSize = 100
 )
 
+type network interface {
+	ping(*Peer) error
+}
+
 type store struct {
-	p   *protocol
-	db  *DB
-	log *log.SugaredLogger
+	net    network
+	db     *DB
+	bucket []*Peer
+	log    *log.SugaredLogger
 
 	wg      sync.WaitGroup
 	closing chan struct{}
 }
 
-func newStore(p *protocol, log *log.SugaredLogger) *store {
+func newStore(net network, log *log.SugaredLogger) *store {
 	s := &store{
-		p:       p,
+		net:     net,
 		db:      NewMapDB(log),
+		bucket:  make([]*Peer, 0, bucketSize),
 		log:     log,
 		closing: make(chan struct{}),
 	}
@@ -78,12 +86,48 @@ loop:
 func (s *store) doRevalidate(done chan<- struct{}) {
 	defer func() { done <- struct{}{} }() // always signal, when the function returns
 
-	s.log.Debugf("revalidate")
-
-	id := s.db.GetRandomID()
-	if id != "" {
-		addr := s.db.Address(id)
-		s.p.ping(addr, id)
+	// nothing can be revalidated
+	if len(s.bucket) == 0 {
+		return
 	}
 
+	var peer *Peer
+
+	// pop front
+	peer, s.bucket = s.bucket[0], s.bucket[1:]
+
+	err := s.net.ping(peer)
+	if err != nil {
+		s.bucket = append(s.bucket, peer)
+		s.log.Debug("removed dead node", "id", peer.Identity.StringID, "addr", peer.Address, "err", err)
+	} else {
+		s.log.Debug("revalidated node", "id", peer.Identity.StringID)
+	}
+}
+
+func (s *store) bumpNode(peer *Peer) bool {
+	id := peer.Identity
+
+	for i, p := range s.bucket {
+		if p.Identity.StringID == id.StringID {
+			// update and move it to the back
+			copy(s.bucket[i:], s.bucket[i+1:])
+			s.bucket[len(s.bucket)-1] = peer
+			return true
+		}
+	}
+	return false
+}
+
+func (s *store) addNode(peer *Peer) {
+	// TODO: ignore self
+
+	if s.bumpNode(peer) {
+		return
+	}
+	if len(s.bucket) < bucketSize {
+		s.bucket = append(s.bucket, peer)
+	} else {
+		s.bucket[bucketSize-1] = peer
+	}
 }

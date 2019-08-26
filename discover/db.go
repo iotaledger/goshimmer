@@ -1,10 +1,10 @@
 package discover
 
 import (
-	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/wollac/autopeering/id"
 	log "go.uber.org/zap"
 )
 
@@ -16,7 +16,7 @@ const (
 )
 
 type DB struct {
-	m   map[string]*dbEntry
+	m   map[string]*dbPeer
 	mu  sync.RWMutex
 	log *log.SugaredLogger
 
@@ -25,8 +25,8 @@ type DB struct {
 	closing chan struct{}
 }
 
-type dbEntry struct {
-	address string
+type dbPeer struct {
+	Peer
 
 	lastPing time.Time
 	lastPong time.Time
@@ -34,7 +34,7 @@ type dbEntry struct {
 
 func NewMapDB(log *log.SugaredLogger) *DB {
 	db := &DB{
-		m:       make(map[string]*dbEntry),
+		m:       make(map[string]*dbPeer),
 		log:     log,
 		closing: make(chan struct{}),
 	}
@@ -85,83 +85,27 @@ func (db *DB) expirePeers() {
 	db.mu.Unlock()
 }
 
-func (db *DB) getOrSet(id nodeID) *dbEntry {
-	entry := db.m[id]
+func (db *DB) getOrSet(id *id.Identity) *dbPeer {
+	entry := db.m[id.StringID]
 	if entry == nil {
-		entry = &dbEntry{}
-		db.m[id] = entry
+		entry = &dbPeer{}
+		db.m[id.StringID] = entry
 	}
 	return entry
 }
 
-func (db *DB) UpdateAddress(id nodeID, address string) {
-	db.mu.Lock()
-	entry := db.getOrSet(id)
-	entry.address = address
-	db.mu.Unlock()
-}
-
-func (db *DB) UpdateLastPing(id nodeID, address string, t time.Time) {
-	db.mu.Lock()
-	entry := db.getOrSet(id)
-	// update address
-	entry.address = address
-
-	entry.lastPing = t
-	db.mu.Unlock()
-}
-
-func (db *DB) UpdateLastPong(id nodeID, address string, t time.Time) {
+func (db *DB) UpdatePeer(peer *Peer) {
 	db.ensureExpirer()
 
 	db.mu.Lock()
-	entry := db.getOrSet(id)
-	// update address
-	entry.address = address
-
-	entry.lastPong = t
+	entry := db.getOrSet(peer.Identity)
+	entry.Peer = *peer
 	db.mu.Unlock()
 }
 
-func (db *DB) Address(id nodeID) string {
+func (db *DB) Get(id *id.Identity) *Peer {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
-	entry := db.m[id]
-	return entry.address
-}
-
-func (db *DB) LastPing(id nodeID) time.Time {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-
-	entry := db.m[id]
-	return entry.lastPing
-}
-
-func (db *DB) LastPong(id nodeID) time.Time {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-
-	entry := db.m[id]
-	return entry.lastPing
-}
-
-func (db *DB) GetRandomID() nodeID {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-
-	if len(db.m) == 0 {
-		return ""
-	}
-
-	i := rand.Intn(len(db.m))
-	for k := range db.m {
-		if i == 0 {
-			return k
-		}
-		i--
-	}
-
-	panic("never")
+	return &db.m[id.StringID].Peer
 }
