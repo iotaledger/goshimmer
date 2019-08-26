@@ -34,17 +34,17 @@ func (s *Salt) Expired() bool {
 	return time.Now().After(s.ExpirationTime)
 }
 
-// Encode encodes a given Salt (s) into a proto buffer Salt message
-func WriteProto(s *Salt) (result *pb.Salt, err error) {
+// ToProto encodes a given Salt (s) into a proto buffer Salt message
+func ToProto(s *Salt) (result *pb.Salt, err error) {
 	result = &pb.Salt{}
 	result.ExpTime = uint64(s.ExpirationTime.Unix())
 	result.Bytes = s.Bytes
 	return
 }
 
-// Decode decodes a given proto buffer Salt message (in) into a Salt (out)
+// FromProto decodes a given proto buffer Salt message (in) into a Salt (out)
 // out MUST NOT be nil
-func ReadProto(in *pb.Salt, out *Salt) (err error) {
+func FromProto(in *pb.Salt, out *Salt) (err error) {
 	if out == nil {
 		return ErrNilInput
 	}
@@ -55,7 +55,7 @@ func ReadProto(in *pb.Salt, out *Salt) (err error) {
 
 // Marshal serializes a given salt (s) into a slice of bytes (data)
 func Marshal(s *Salt) (data []byte, err error) {
-	pb, err := WriteProto(s)
+	pb, err := ToProto(s)
 	if err != nil {
 		return nil, ErrMarshal
 	}
@@ -73,5 +73,5 @@ func Unmarshal(data []byte, out *Salt) (err error) {
 	if err != nil {
 		return ErrUnmarshal
 	}
-	return ReadProto(s, out)
+	return FromProto(s, out)
 }
