@@ -12,10 +12,11 @@ message ServiceMap {
 
 // TypePort defines the service type (e.g., TCP, UDP) and the port number
 message TypePort {
-    enum Type {
-        TCP = 0;
-        UDP = 1;
-    }
-    Type type = 1;
-    int32 port = 2;
+    Conn_type type = 1;
+    uint32 port = 2;
+}
+
+enum Conn_type {
+    TCP = 0;
+    UDP = 1;
 }

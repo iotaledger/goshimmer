@@ -35,32 +35,29 @@ func (s *Salt) Expired() bool {
 }
 
 // Encode encodes a given Salt (s) into a proto buffer Salt message
-func Encode(s *Salt) (result *pb.Salt, err error) {
+func WriteProto(s *Salt) (result *pb.Salt, err error) {
 	result = &pb.Salt{}
-	result.ExpTime, err = s.ExpirationTime.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	result.Value = s.Bytes
+	result.ExpTime = uint64(s.ExpirationTime.Unix())
+	result.Bytes = s.Bytes
 	return
 }
 
 // Decode decodes a given proto buffer Salt message (in) into a Salt (out)
 // out MUST NOT be nil
-func Decode(in *pb.Salt, out *Salt) (err error) {
-	err = out.ExpirationTime.UnmarshalBinary(in.GetExpTime())
-	if err != nil {
-		return err
+func ReadProto(in *pb.Salt, out *Salt) (err error) {
+	if out == nil {
+		return ErrNilInput
 	}
-	out.Bytes = in.GetValue()
+	out.ExpirationTime = time.Unix(int64(in.GetExpTime()), 0)
+	out.Bytes = in.GetBytes()
 	return
 }
 
 // Marshal serializes a given salt (s) into a slice of bytes (data)
 func Marshal(s *Salt) (data []byte, err error) {
-	pb, err := Encode(s)
+	pb, err := WriteProto(s)
 	if err != nil {
-		return nil, err
+		return nil, ErrMarshal
 	}
 	return proto.Marshal(pb)
 }
@@ -68,10 +65,13 @@ func Marshal(s *Salt) (data []byte, err error) {
 // Unmarshal deserializes a given slice of bytes (data) into a Salt (out)
 // out MUST NOT be nil
 func Unmarshal(data []byte, out *Salt) (err error) {
+	if out == nil {
+		return ErrNilInput
+	}
 	s := &pb.Salt{}
 	err = proto.Unmarshal(data, s)
 	if err != nil {
-		return err
+		return ErrUnmarshal
 	}
-	return Decode(s, out)
+	return ReadProto(s, out)
 }

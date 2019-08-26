@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewSalt(t *testing.T) {
@@ -47,13 +48,12 @@ func TestSaltExpired(t *testing.T) {
 func TestMarshalUnmarshal(t *testing.T) {
 	type testCase struct {
 		input time.Duration
-		want  bool
 	}
 
 	tests := []testCase{
-		{input: 0, want: true},
-		{input: time.Second * 10, want: true},
-		{input: -1, want: true},
+		{input: 0},
+		{input: time.Second * 10},
+		{input: -1},
 	}
 
 	for _, test := range tests {
@@ -61,13 +61,13 @@ func TestMarshalUnmarshal(t *testing.T) {
 		got := &Salt{}
 
 		data, err := Marshal(salt)
-		assert.Equal(t, nil, err, "errorCheck")
+		require.Equal(t, nil, err, "NoErrorCheck")
 
 		err = Unmarshal(data, got)
-		assert.Equal(t, nil, err, "errorCheck")
+		require.Equal(t, nil, err, "NoErrorCheck")
 
 		assert.Equal(t, salt.Bytes, got.Bytes, "Salt")
-		assert.Equal(t, test.want, got.ExpirationTime.Equal(salt.ExpirationTime), "SameSaltExpirationTime")
+		assert.Equal(t, salt.ExpirationTime.Unix(), got.ExpirationTime.Unix(), "SameSaltExpirationTime")
 
 	}
 

@@ -4,17 +4,9 @@ import (
 	pb "github.com/wollac/autopeering/peer/proto"
 )
 
-// ServiceType defines the service type (e.g., TCP, UDP)
-type ServiceType = int32
-
-const (
-	TCP ServiceType = iota
-	UDP
-)
-
 // TypePort defines the tuple <Type, Port>, e.g, <TCP, 8000>
 type TypePort struct {
-	Type ServiceType
+	Type pb.ConnType
 	Port uint16
 }
 
@@ -34,8 +26,8 @@ func encodeService(s ServiceMap) (result *pb.ServiceMap, err error) {
 
 	for k, v := range s {
 		result.Map[k] = &pb.TypePort{
-			Type: pb.TypePort_Type(v.Type),
-			Port: int32(v.Port),
+			Type: v.Type,
+			Port: uint32(v.Port),
 		}
 	}
 
@@ -47,7 +39,7 @@ func encodeService(s ServiceMap) (result *pb.ServiceMap, err error) {
 func decodeService(in *pb.ServiceMap, out ServiceMap) (err error) {
 	for k, v := range in.GetMap() {
 		sp := &TypePort{
-			Type: int32(v.GetType()),
+			Type: v.GetType(),
 			Port: uint16(v.GetPort()),
 		}
 		out[k] = sp
