@@ -19,6 +19,8 @@ type Peer struct {
 	LastSeen time.Time    // timestamp of the last time the peer has benn seen online
 }
 
+type PeerList = []*Peer
+
 // Encode encodes a given peer into a proto buffer Peer message
 func Encode(p *Peer) (result *pb.Peer, err error) {
 	result = &pb.Peer{}
