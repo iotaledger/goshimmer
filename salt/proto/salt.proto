@@ -6,7 +6,7 @@ package proto;
 
 message Salt {
     // value of the salt
-    bytes value = 1;
+    bytes bytes = 1;
     // expiration time of the salt
-    bytes expTime = 2;
+    fixed64 exp_time = 2;
 }
