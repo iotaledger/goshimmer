@@ -13,7 +13,7 @@ var DISTANCE = func(anchor *peer.Peer) func(p *peer.Peer) uint64 {
 		copy(saltedIdentifier[0:], anchor.GetIdentity().Identifier)
 		copy(saltedIdentifier[len(anchor.GetIdentity().Identifier):], anchor.GetSalt().GetBytes())
 
-		return hash(anchor.GetIdentity().Identifier) ^ hash(p.GetIdentity().Identifier)
+		return hash(saltedIdentifier) ^ hash(p.GetIdentity().Identifier)
 	}
 }
 
