@@ -2,7 +2,6 @@ package peer
 
 import (
 	"net"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/wollac/autopeering/id"
@@ -16,13 +15,10 @@ type Peer struct {
 	IP       net.IP       // IP address of the peer (IPv4 or IPv6)
 	Services ServiceMap   // map of services the peer exposes (<"autopeering":{TCP,8000}>, <"gossip":{UDP,9000}>)
 	Salt     *salt.Salt   // current salt of the peer (salt, expiration time)
-	LastSeen time.Time    // timestamp of the last time the peer has benn seen online
 }
 
-type PeerList = []*Peer
-
-// WriteProto encodes a given peer into a proto buffer Peer message
-func WriteProto(p *Peer) (result *pb.Peer, err error) {
+// ToProto encodes a given peer into a proto buffer Peer message
+func ToProto(p *Peer) (result *pb.Peer, err error) {
 	result = &pb.Peer{}
 	result.PublicKey = p.Identity.PublicKey
 	result.Ip = p.IP.String()
@@ -30,14 +26,14 @@ func WriteProto(p *Peer) (result *pb.Peer, err error) {
 	if err != nil {
 		return nil, err
 	}
-	result.Salt, err = salt.WriteProto(p.Salt)
+	result.Salt, err = salt.ToProto(p.Salt)
 
 	return
 }
 
-// ReadProto decodes a given proto buffer Peer message (in) into a Peer (out)
+// FromProto decodes a given proto buffer Peer message (in) into a Peer (out)
 // out MUST NOT be nil
-func ReadProto(in *pb.Peer, out *Peer) (err error) {
+func FromProto(in *pb.Peer, out *Peer) (err error) {
 	if out == nil {
 		return ErrNilInput
 	}
@@ -53,14 +49,14 @@ func ReadProto(in *pb.Peer, out *Peer) (err error) {
 	}
 
 	out.Salt = &salt.Salt{}
-	err = salt.ReadProto(in.Salt, out.Salt)
+	err = salt.FromProto(in.Salt, out.Salt)
 
 	return
 }
 
 // Marshal serializes a given Peer (p) into a slice of bytes (data)
 func Marshal(p *Peer) (data []byte, err error) {
-	pb, err := WriteProto(p)
+	pb, err := ToProto(p)
 	if err != nil {
 		return nil, err
 	}
@@ -78,5 +74,5 @@ func Unmarshal(data []byte, out *Peer) (err error) {
 	if err != nil {
 		return err
 	}
-	return ReadProto(s, out)
+	return FromProto(s, out)
 }
