@@ -1,10 +1,10 @@
 package discover
 
 import (
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/wollac/autopeering/id"
 	log "go.uber.org/zap"
 )
 
@@ -16,8 +16,9 @@ const (
 )
 
 type DB struct {
-	m   map[string]*dbPeer
-	mu  sync.RWMutex
+	mutex sync.RWMutex
+	m     map[string]dbPeer
+
 	log *log.SugaredLogger
 
 	once    sync.Once
@@ -26,15 +27,12 @@ type DB struct {
 }
 
 type dbPeer struct {
-	Peer
-
-	lastPing time.Time
-	lastPong time.Time
+	lastPing, lastPong int64
 }
 
 func NewMapDB(log *log.SugaredLogger) *DB {
 	db := &DB{
-		m:       make(map[string]*dbPeer),
+		m:       make(map[string]dbPeer),
 		log:     log,
 		closing: make(chan struct{}),
 	}
@@ -74,38 +72,59 @@ func (db *DB) expirer() {
 }
 
 func (db *DB) expirePeers() {
-	threshold := time.Now().Add(-peerExpiration)
+	threshold := time.Now().Add(-peerExpiration).Unix()
 
-	db.mu.Lock()
-	for id, entry := range db.m {
-		if entry.lastPong.Before(threshold) {
-			delete(db.m, id)
+	db.mutex.Lock()
+	for key, entry := range db.m {
+		if entry.lastPong <= threshold {
+			delete(db.m, key)
 		}
 	}
-	db.mu.Unlock()
+	db.mutex.Unlock()
 }
 
-func (db *DB) getOrSet(id *id.Identity) *dbPeer {
-	entry := db.m[id.StringID]
-	if entry == nil {
-		entry = &dbPeer{}
-		db.m[id.StringID] = entry
-	}
-	return entry
+func getDBKey(p *Peer) string {
+	return strings.Join([]string{p.Identity.StringID, p.Address}, ":")
 }
 
-func (db *DB) UpdatePeer(peer *Peer) {
+func (db *DB) LastPing(p *Peer) time.Time {
 	db.ensureExpirer()
+	key := getDBKey(p)
 
-	db.mu.Lock()
-	entry := db.getOrSet(peer.Identity)
-	entry.Peer = *peer
-	db.mu.Unlock()
+	db.mutex.RLock()
+	entry := db.m[key]
+	db.mutex.RUnlock()
+
+	return time.Unix(entry.lastPing, 0)
 }
 
-func (db *DB) Get(id *id.Identity) *Peer {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
+func (db *DB) UpdateLastPing(p *Peer, t time.Time) {
+	key := getDBKey(p)
 
-	return &db.m[id.StringID].Peer
+	db.mutex.Lock()
+	entry := db.m[key]
+	entry.lastPing = t.Unix()
+	db.m[key] = entry
+	db.mutex.Unlock()
+}
+
+func (db *DB) LastPong(p *Peer) time.Time {
+	db.ensureExpirer()
+	key := getDBKey(p)
+
+	db.mutex.RLock()
+	entry := db.m[key]
+	db.mutex.RUnlock()
+
+	return time.Unix(entry.lastPong, 0)
+}
+
+func (db *DB) UpdateLastPong(p *Peer, t time.Time) {
+	key := getDBKey(p)
+
+	db.mutex.Lock()
+	entry := db.m[key]
+	entry.lastPong = t.Unix()
+	db.m[key] = entry
+	db.mutex.Unlock()
 }

@@ -384,10 +384,21 @@ func (p *protocol) verifyPing(ping *pb.Ping, fromAddr string, fromID *id.Identit
 }
 
 func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID *id.Identity, rawData []byte) {
-	p.log.Debugw("handle "+ping.Name(), "id", fromID, "addr", fromAddr)
+	p.log.Debugw("handle "+ping.Name(), "id", fromID.StringID, "addr", fromAddr)
 
 	pong := &pb.Pong{To: fromAddr, PingHash: packetHash(rawData)}
 	p.send(fromAddr, getNodeID(fromID), pong)
+
+	peer := NewPeer(fromID, fromAddr)
+	if time.Since(p.store.db.LastPong(peer)) > pongExpiration {
+		p.sendPing(peer, func() {
+			p.store.addVerifiedPeer(peer)
+		})
+	} else {
+		p.store.addVerifiedPeer(peer)
+	}
+
+	p.store.db.UpdateLastPing(peer, time.Now())
 }
 
 func (p *protocol) verifyPong(pong *pb.Pong, fromAddr string, fromID *id.Identity) bool {
@@ -408,5 +419,5 @@ func (p *protocol) handlePong(pong *pb.Pong, fromAddr string, fromID *id.Identit
 	p.log.Debugw("handle "+pong.Name(), "id", fromID.StringID, "addr", fromAddr)
 
 	peer := NewPeer(fromID, fromAddr)
-	p.store.addNode(peer)
+	p.store.db.UpdateLastPong(peer, time.Now())
 }
