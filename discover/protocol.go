@@ -158,8 +158,8 @@ func (p *protocol) sendPing(peer *Peer, callback func()) <-chan error {
 
 	// Add a matcher for the reply to the pending reply queue. Pongs are matched if they
 	// reference the ping we're about to send.
-	errc := p.expectReply(toAddr, toID, pb.MPong, func(m pb.Message) (matched bool, requestDone bool) {
-		matched = bytes.Equal(m.(*pb.Pong).GetPingHash(), hash)
+	errc := p.expectReply(toAddr, toID, pb.MPong, func(m pb.Message) (bool, bool) {
+		matched := bytes.Equal(m.(*pb.Pong).GetPingHash(), hash)
 		if matched && callback != nil {
 			callback()
 		}
@@ -277,7 +277,7 @@ func (p *protocol) send(toAddr string, msg pb.Message) {
 
 func (p *protocol) write(toAddr string, mName string, pkt *pb.Packet) {
 	err := p.trans.WriteTo(pkt, toAddr)
-	p.log.Debugw("write "+mName, "id", toAddr, "err", err)
+	p.log.Debugw("write "+mName, "to", toAddr, "err", err)
 }
 
 func encode(priv *id.Private, message pb.Message) *pb.Packet {
@@ -370,17 +370,26 @@ func decode(packet *pb.Packet) (*pb.MessageWrapper, *id.Identity, error) {
 func (p *protocol) verifyPing(ping *pb.Ping, fromAddr string, fromID *id.Identity) bool {
 	// check version number
 	if ping.GetVersion() != VersionNum {
-		p.log.Debugw("failed to verify", "type", ping.Name(), "version", ping.GetVersion())
+		p.log.Debugw("failed to verify",
+			"type", ping.Name(),
+			"version", ping.GetVersion(),
+		)
 		return false
 	}
 	// check that To matches the local address
 	if ping.GetTo() != p.LocalAddr() {
-		p.log.Debugw("failed to verify", "type", ping.Name(), "to", ping.GetTo())
+		p.log.Debugw("failed to verify",
+			"type", ping.Name(),
+			"to", ping.GetTo(),
+		)
 		return false
 	}
 	// check fromAddr
 	if ping.GetFrom() != fromAddr {
-		p.log.Debugw("failed to verify", "type", ping.Name(), "from", ping.GetFrom())
+		p.log.Debugw("failed to verify",
+			"type", ping.Name(),
+			"from", ping.GetFrom(),
+		)
 		return false
 	}
 	return true

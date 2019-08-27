@@ -118,7 +118,7 @@ func (s *store) doRevalidate(done chan<- struct{}) {
 			s.known[len(s.known)-1] = r
 		}
 
-		s.log.Debug("removed dead node",
+		s.log.Debugw("removed dead node",
 			"id", last.Identity,
 			"addr", last.Address,
 			"err", err,
@@ -126,7 +126,7 @@ func (s *store) doRevalidate(done chan<- struct{}) {
 	} else {
 		s.bumpNode(last)
 
-		s.log.Debug("revalidated node",
+		s.log.Debugw("revalidated node",
 			"id", last.Identity,
 		)
 	}
