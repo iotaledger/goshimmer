@@ -5,14 +5,14 @@ import (
 )
 
 // TypePort defines the tuple <Type, Port>, e.g, <TCP, 8000>
-type TypePort struct {
-	Type pb.ConnType
-	Port uint16
+type NetworkAddress struct {
+	Network string
+	Address string
 }
 
 // ServiceMap defines the mapping between a service ID and its tuple TypePort
 // e.g., map[autopeering:&{TCP, 8000}]
-type ServiceMap = map[string]*TypePort
+type ServiceMap = map[string]*NetworkAddress
 
 // NewServiceMap initializes and returns an empty new ServiceMap
 func NewServiceMap() ServiceMap {
@@ -22,12 +22,12 @@ func NewServiceMap() ServiceMap {
 // encodeService encodes a ServiceMap into a proto bufeer ServiceMap message
 func encodeService(s ServiceMap) (result *pb.ServiceMap, err error) {
 	result = &pb.ServiceMap{}
-	result.Map = make(map[string]*pb.TypePort)
+	result.Map = make(map[string]*pb.NetworkAddress)
 
 	for k, v := range s {
-		result.Map[k] = &pb.TypePort{
-			Type: v.Type,
-			Port: uint32(v.Port),
+		result.Map[k] = &pb.NetworkAddress{
+			Network: v.Network,
+			Address: v.Address,
 		}
 	}
 
@@ -38,9 +38,9 @@ func encodeService(s ServiceMap) (result *pb.ServiceMap, err error) {
 // out MUST NOT be nil
 func decodeService(in *pb.ServiceMap, out ServiceMap) (err error) {
 	for k, v := range in.GetMap() {
-		sp := &TypePort{
-			Type: v.GetType(),
-			Port: uint16(v.GetPort()),
+		sp := &NetworkAddress{
+			Network: v.GetNetwork(),
+			Address: v.GetAddress(),
 		}
 		out[k] = sp
 	}
