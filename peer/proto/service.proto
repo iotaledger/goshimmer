@@ -4,19 +4,14 @@ option go_package = "github.com/wollac/autopeering/peer/proto";
 
 package proto;
 
-// ServiceMap defines the mapping between a service ID and its tuple TypePort
-// e.g., map[autopeering:&{TCP, 8000}]
-message ServiceMap {
-    map<string, TypePort> map = 1;
+// service_map defines the mapping between a service ID and its tuple network_address
+// e.g., map[autopeering:&{tcp, 198.51.100.1:80}]
+message service_map {
+    map<string, network_address> map = 1;
 }
 
-// TypePort defines the service type (e.g., TCP, UDP) and the port number
-message TypePort {
-    Conn_type type = 1;
-    uint32 port = 2;
-}
-
-enum Conn_type {
-    TCP = 0;
-    UDP = 1;
+// network_address defines the service type (e.g., tcp, upd) and the address (e.g., 198.51.100.1:80)
+message network_address {
+    string network = 1;
+    string address = 2;
 }
