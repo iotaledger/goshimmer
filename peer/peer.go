@@ -10,7 +10,7 @@ import (
 // Peer defines the structure of a peer
 type Peer struct {
 	Identity *id.Identity // identity of the peer (ID, StringID, PublicKey)
-	Services ServiceMap   // map of services the peer exposes (<"autopeering":{TCP,8000}>, <"gossip":{UDP,9000}>)
+	Services ServiceMap   // map of services the peer exposes (<"autopeering":{"tcp",":8000"}>, <"gossip":"udp",":9000"}>)
 	Salt     *salt.Salt   // current salt of the peer (salt, expiration time)
 }
 
