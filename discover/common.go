@@ -7,15 +7,13 @@ import (
 	log "go.uber.org/zap"
 )
 
-// Peer is just a dummy until we have a compatible struct
-// TODO: remove
-type Peer struct {
-	Identity *id.Identity // identity of the peer (ID, StringID, PublicKey)
-	Address  string       // IP address of the peer (IPv4 or IPv6)
+type peer struct {
+	Identity *id.Identity // identity of the peer
+	Address  string       // address of the peer
 }
 
-func NewPeer(id *id.Identity, addr string) *Peer {
-	return &Peer{Identity: id, Address: addr}
+func newPeer(id *id.Identity, addr string) *peer {
+	return &peer{Identity: id, Address: addr}
 }
 
 // Config holds discovery related settings.

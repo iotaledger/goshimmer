@@ -83,11 +83,11 @@ func (db *DB) expirePeers() {
 	db.mutex.Unlock()
 }
 
-func getDBKey(p *Peer) string {
+func getDBKey(p *peer) string {
 	return strings.Join([]string{p.Identity.StringID, p.Address}, ":")
 }
 
-func (db *DB) LastPing(p *Peer) time.Time {
+func (db *DB) LastPing(p *peer) time.Time {
 	db.ensureExpirer()
 	key := getDBKey(p)
 
@@ -98,7 +98,7 @@ func (db *DB) LastPing(p *Peer) time.Time {
 	return time.Unix(entry.lastPing, 0)
 }
 
-func (db *DB) UpdateLastPing(p *Peer, t time.Time) {
+func (db *DB) UpdateLastPing(p *peer, t time.Time) {
 	key := getDBKey(p)
 
 	db.mutex.Lock()
@@ -108,7 +108,7 @@ func (db *DB) UpdateLastPing(p *Peer, t time.Time) {
 	db.mutex.Unlock()
 }
 
-func (db *DB) LastPong(p *Peer) time.Time {
+func (db *DB) LastPong(p *peer) time.Time {
 	db.ensureExpirer()
 	key := getDBKey(p)
 
@@ -119,7 +119,7 @@ func (db *DB) LastPong(p *Peer) time.Time {
 	return time.Unix(entry.lastPong, 0)
 }
 
-func (db *DB) UpdateLastPong(p *Peer, t time.Time) {
+func (db *DB) UpdateLastPong(p *peer, t time.Time) {
 	key := getDBKey(p)
 
 	db.mutex.Lock()

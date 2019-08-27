@@ -23,6 +23,9 @@ const (
 	respTimeout = 500 * time.Millisecond
 
 	pongExpiration = 12 * time.Hour
+
+	// maximum amount of peers returned and allowed in one packet.
+	maxNeighbors = 6
 )
 
 type protocol struct {
@@ -134,12 +137,12 @@ func (p *protocol) LocalAddr() string {
 }
 
 // ping sends a ping message to the given node and waits for a reply.
-func (p *protocol) ping(peer *Peer) error {
+func (p *protocol) ping(peer *peer) error {
 	return <-p.sendPing(peer, nil)
 }
 
 // sendPing pings the given node and invokes the callback when the reply arrives.
-func (p *protocol) sendPing(peer *Peer, callback func()) <-chan error {
+func (p *protocol) sendPing(peer *peer, callback func()) <-chan error {
 	toAddr := peer.Address
 	toID := getNodeID(peer.Identity)
 
@@ -387,9 +390,16 @@ func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID *id.Identit
 	p.log.Debugw("handle "+ping.Name(), "id", fromID.StringID, "addr", fromAddr)
 
 	pong := &pb.Pong{To: fromAddr, PingHash: packetHash(rawData)}
+	for _, peer := range p.store.getRandomPeers(maxNeighbors) {
+		pong.Peers = append(pong.Peers, &pb.Peer{
+			PublicKey: peer.Identity.PublicKey,
+			Address:   peer.Address,
+		})
+	}
+
 	p.send(fromAddr, getNodeID(fromID), pong)
 
-	peer := NewPeer(fromID, fromAddr)
+	peer := newPeer(fromID, fromAddr)
 	if time.Since(p.store.db.LastPong(peer)) > pongExpiration {
 		p.sendPing(peer, func() {
 			p.store.addVerifiedPeer(peer)
@@ -412,12 +422,20 @@ func (p *protocol) verifyPong(pong *pb.Pong, fromAddr string, fromID *id.Identit
 		p.log.Debugw("no matching request", "type", pong.Name(), "from", fromAddr)
 		return false
 	}
+	// there must not be too many peers
+	if len(pong.GetPeers()) > maxNeighbors {
+		return false
+	}
 	return true
 }
 
 func (p *protocol) handlePong(pong *pb.Pong, fromAddr string, fromID *id.Identity) {
 	p.log.Debugw("handle "+pong.Name(), "id", fromID.StringID, "addr", fromAddr)
 
-	peer := NewPeer(fromID, fromAddr)
-	p.store.db.UpdateLastPong(peer, time.Now())
+	for _, peer := range pong.GetPeers() {
+		idenity, _ := id.NewIdentity(peer.PublicKey)
+		p.store.addDiscoveredPeer(newPeer(idenity, peer.Address))
+	}
+
+	p.store.db.UpdateLastPong(newPeer(fromID, fromAddr), time.Now())
 }

@@ -4,6 +4,14 @@ option go_package = "github.com/wollac/autopeering/proto";
 
 package proto;
 
+// Minimal encoding of a peer
+message Peer {
+  // public key used for signing
+  bytes public_key = 1;
+  // address of gossip protocol (e.g. "192.0.2.1:25", "[2001:db8::1]:80")
+  string address = 2;
+}
+
 message Ping {
   // protocol version number
   uint32 version = 1;
@@ -18,6 +26,9 @@ message Pong {
   string to = 1;
   // hash of the ping packet
   bytes ping_hash = 2;
+
+  // a list of peers
+  repeated Peer peers = 3;
 }
 
 // wrapper to contain all the different messages

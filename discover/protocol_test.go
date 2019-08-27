@@ -59,8 +59,8 @@ func TestPingPong(t *testing.T) {
 	nodeB, _ := Listen(p2p.B, Config{newID(), logger})
 	defer nodeB.Close()
 
-	peerA := NewPeer(&nodeA.LocalID().Identity, nodeA.LocalAddr())
-	peerB := NewPeer(&nodeB.LocalID().Identity, nodeB.LocalAddr())
+	peerA := newPeer(&nodeA.LocalID().Identity, nodeA.LocalAddr())
+	peerB := newPeer(&nodeB.LocalID().Identity, nodeB.LocalAddr())
 
 	// send a ping from node A to B
 	assert.NoError(t, nodeA.ping(peerB))
@@ -76,7 +76,7 @@ func TestPingTimeout(t *testing.T) {
 	nodeB, _ := Listen(p2p.B, Config{newID(), logger})
 	nodeB.Close() // close the connection right away to prevent any replies
 
-	peerB := NewPeer(&nodeB.LocalID().Identity, nodeB.LocalAddr())
+	peerB := newPeer(&nodeB.LocalID().Identity, nodeB.LocalAddr())
 
 	// send a ping from node A to B
 	err := nodeA.ping(peerB)
@@ -90,7 +90,7 @@ func BenchmarkPingPong(b *testing.B) {
 	nodeA, _ := Listen(p2p.A, Config{newID(), logger})
 	nodeB, _ := Listen(p2p.B, Config{newID(), logger})
 
-	peerB := NewPeer(&nodeB.LocalID().Identity, nodeB.LocalAddr())
+	peerB := newPeer(&nodeB.LocalID().Identity, nodeB.LocalAddr())
 
 	b.ResetTimer()
 
