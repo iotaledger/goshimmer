@@ -119,7 +119,7 @@ func (s *store) doRevalidate(done chan<- struct{}) {
 		}
 
 		s.log.Debug("removed dead node",
-			"id", last.Identity.StringID,
+			"id", last.Identity,
 			"addr", last.Address,
 			"err", err,
 		)
@@ -127,7 +127,7 @@ func (s *store) doRevalidate(done chan<- struct{}) {
 		s.bumpNode(last)
 
 		s.log.Debug("revalidated node",
-			"id", last.Identity.StringID,
+			"id", last.Identity,
 		)
 	}
 }
@@ -148,7 +148,7 @@ func (s *store) bumpNode(peer *Peer) bool {
 	id := peer.Identity
 
 	for i, p := range s.known {
-		if p.Identity.StringID == id.StringID {
+		if p.Identity.Equal(id) {
 			// update and move it to the front
 			copy(s.known[1:], s.known[:i])
 			s.known[0] = peer
@@ -174,7 +174,7 @@ func containsPeer(list []*Peer, p *Peer) bool {
 	id := p.Identity
 
 	for _, p := range list {
-		if p.Identity.StringID == id.StringID {
+		if p.Identity.Equal(id) {
 			return true
 		}
 	}
@@ -218,7 +218,7 @@ func (s *store) addDiscoveredPeer(p *Peer) {
 	}
 
 	s.log.Debugw("addDiscoveredPeer",
-		"id", p.Identity.StringID,
+		"id", p.Identity,
 		"address", p.Address,
 	)
 
@@ -234,7 +234,7 @@ func (s *store) addVerifiedPeer(p *Peer) {
 	// TODO: ignore self
 
 	s.log.Debugw("addVerifiedPeer",
-		"id", p.Identity.StringID,
+		"id", p.Identity,
 		"address", p.Address,
 	)
 

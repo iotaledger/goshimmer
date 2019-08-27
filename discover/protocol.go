@@ -45,14 +45,14 @@ type protocol struct {
 
 // nodeID is an alias for the public key of the node.
 // For efficiency reasons, we don't use id.Identity directly.
-type nodeID string
+type nodeID []byte
 
 func getNodeID(id *id.Identity) nodeID {
-	return nodeID(id.StringID)
+	return nodeID(id.ID())
 }
 
 func (id nodeID) equals(x nodeID) bool {
-	return string(id) == string(x)
+	return bytes.Equal(id, x)
 }
 
 // replyMatchFunc is the type of the matcher callback. If it returns matched, the
@@ -167,7 +167,7 @@ func (p *protocol) sendPing(peer *Peer, callback func()) <-chan error {
 	})
 
 	// send the ping
-	p.write(toAddr, toID, ping.Name(), pkt)
+	p.write(toAddr, ping.Name(), pkt)
 
 	return errc
 }
@@ -270,14 +270,14 @@ func (p *protocol) handleReply(fromAddr string, fromID *id.Identity, message pb.
 	}
 }
 
-func (p *protocol) send(toAddr string, toID nodeID, msg pb.Message) {
+func (p *protocol) send(toAddr string, msg pb.Message) {
 	pkt := encode(p.priv, msg)
-	p.write(toAddr, toID, msg.Name(), pkt)
+	p.write(toAddr, msg.Name(), pkt)
 }
 
-func (p *protocol) write(toAddr string, toID nodeID, mName string, pkt *pb.Packet) {
+func (p *protocol) write(toAddr string, mName string, pkt *pb.Packet) {
 	err := p.trans.WriteTo(pkt, toAddr)
-	p.log.Debugw("write "+mName, "id", toID, "addr", toAddr, "err", err)
+	p.log.Debugw("write "+mName, "id", toAddr, "err", err)
 }
 
 func encode(priv *id.Private, message pb.Message) *pb.Packet {
@@ -387,7 +387,7 @@ func (p *protocol) verifyPing(ping *pb.Ping, fromAddr string, fromID *id.Identit
 }
 
 func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID *id.Identity, rawData []byte) {
-	p.log.Debugw("handle "+ping.Name(), "id", fromID.StringID, "addr", fromAddr)
+	p.log.Debugw("handle "+ping.Name(), "id", fromID, "addr", fromAddr)
 
 	pong := &pb.Pong{To: fromAddr, PingHash: packetHash(rawData)}
 	for _, peer := range p.store.getRandomPeers(maxNeighbors) {
@@ -397,7 +397,7 @@ func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID *id.Identit
 		})
 	}
 
-	p.send(fromAddr, getNodeID(fromID), pong)
+	p.send(fromAddr, pong)
 
 	peer := NewPeer(fromID, fromAddr)
 	if time.Since(p.store.db.LastPong(peer)) > pongExpiration {
@@ -430,7 +430,7 @@ func (p *protocol) verifyPong(pong *pb.Pong, fromAddr string, fromID *id.Identit
 }
 
 func (p *protocol) handlePong(pong *pb.Pong, fromAddr string, fromID *id.Identity) {
-	p.log.Debugw("handle "+pong.Name(), "id", fromID.StringID, "addr", fromAddr)
+	p.log.Debugw("handle "+pong.Name(), "id", fromID, "addr", fromAddr)
 
 	for _, peer := range pong.GetPeers() {
 		idenity, _ := id.NewIdentity(peer.PublicKey)

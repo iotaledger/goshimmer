@@ -14,20 +14,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var port = flag.Int("port", 8080, "port of the server")
-
-func init() {
-	flag.Parse()
-}
-
-func initLogger() *zap.Logger {
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("cannot initialize logger: %v", err)
-	}
-	return logger
-}
-
 func waitInterrupt() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -35,13 +21,26 @@ func waitInterrupt() {
 }
 
 func main() {
-	logger := initLogger()
+	var (
+		listenAddr = flag.String("addr", ":14626", "listen address")
+
+		err error
+	)
+	flag.Parse()
+
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		log.Fatalf("NewLogger: %v", err)
+	}
 	defer logger.Sync()
 
-	// create a UDP connection
-	conn, err := net.ListenPacket("udp", fmt.Sprintf(":%d", *port))
+	addr, err := net.ResolveUDPAddr("udp", *listenAddr)
 	if err != nil {
-		log.Fatalf("listen failed: %v", err)
+		log.Fatalf("ResolveUDPAddr: %v", err)
+	}
+	conn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		log.Fatalf("ListenUDP: %v", err)
 	}
 	defer conn.Close()
 
@@ -53,7 +52,7 @@ func main() {
 	// start the discovery on that connection
 	disc, err := discover.Listen(transport.Conn(conn), cfg)
 	if err != nil {
-		log.Fatalf("listen failed: %v", err)
+		log.Fatalf("%v", err)
 	}
 	defer disc.Close()
 

@@ -88,7 +88,7 @@ func (db *DB) expirePeers() {
 }
 
 func getDBKey(p *Peer) string {
-	return strings.Join([]string{p.Identity.StringID, p.Address}, keySeparator)
+	return strings.Join([]string{p.Identity.IDKey(), p.Address}, keySeparator)
 }
 
 func splitDBKey(key string) (id string, address string) {
