@@ -13,34 +13,40 @@ const (
 
 	bucketSize      = 100
 	maxReplacements = 10
+
+	bootCount  = 30
+	bootMaxAge = 5 * 24 * time.Hour
 )
 
 type network interface {
-	ping(*peer) error
+	ping(*Peer) error
 }
 
 type store struct {
-	net network
-	log *log.SugaredLogger
+	net  network
+	boot []*Peer
+	log  *log.SugaredLogger
 
 	db           *DB
-	known        []*peer
-	replacements []*peer
+	known        []*Peer
+	replacements []*Peer
 	mutex        sync.Mutex
 
 	wg      sync.WaitGroup
 	closing chan struct{}
 }
 
-func newStore(net network, log *log.SugaredLogger) *store {
+func newStore(net network, boot []*Peer, log *log.SugaredLogger) *store {
 	s := &store{
 		net:          net,
+		boot:         boot,
 		db:           NewMapDB(log),
-		known:        make([]*peer, 0, bucketSize),
-		replacements: make([]*peer, 0, maxReplacements),
+		known:        make([]*Peer, 0, bucketSize),
+		replacements: make([]*Peer, 0, maxReplacements),
 		log:          log,
 		closing:      make(chan struct{}),
 	}
+	s.loadInitialPeers()
 
 	s.wg.Add(1)
 	go s.loop()
@@ -107,7 +113,7 @@ func (s *store) doRevalidate(done chan<- struct{}) {
 		if len(s.replacements) == 0 {
 			s.known = s.known[:len(s.known)-1] // pop back
 		} else {
-			var r *peer
+			var r *Peer
 			s.replacements, r = deletePeer(s.replacements, rand.Intn(len(s.replacements)))
 			s.known[len(s.known)-1] = r
 		}
@@ -127,7 +133,7 @@ func (s *store) doRevalidate(done chan<- struct{}) {
 }
 
 // peerToRevalidate returns the oldest peer, or nil if empty.
-func (s *store) peerToRevalidate() *peer {
+func (s *store) peerToRevalidate() *Peer {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -138,7 +144,7 @@ func (s *store) peerToRevalidate() *peer {
 	return nil
 }
 
-func (s *store) bumpNode(peer *peer) bool {
+func (s *store) bumpNode(peer *Peer) bool {
 	id := peer.Identity
 
 	for i, p := range s.known {
@@ -153,7 +159,7 @@ func (s *store) bumpNode(peer *peer) bool {
 }
 
 // pushPeer is a helper function that adds a new peer to the front of the list.
-func pushPeer(list []*peer, p *peer, max int) []*peer {
+func pushPeer(list []*Peer, p *Peer, max int) []*Peer {
 	if len(list) < max {
 		list = append(list, nil)
 	}
@@ -164,7 +170,7 @@ func pushPeer(list []*peer, p *peer, max int) []*peer {
 }
 
 // containsPeer is a helper that returns true if the peer is contained in the list.
-func containsPeer(list []*peer, p *peer) bool {
+func containsPeer(list []*Peer, p *Peer) bool {
 	id := p.Identity
 
 	for _, p := range list {
@@ -176,7 +182,7 @@ func containsPeer(list []*peer, p *peer) bool {
 }
 
 // deletePeer is a helper that deletes the peer with the given index from the list.
-func deletePeer(list []*peer, i int) ([]*peer, *peer) {
+func deletePeer(list []*Peer, i int) ([]*Peer, *Peer) {
 	p := list[i]
 
 	copy(list[i:], list[i+1:])
@@ -185,15 +191,23 @@ func deletePeer(list []*peer, i int) ([]*peer, *peer) {
 	return list[:len(list)-1], p
 }
 
-func (s *store) addReplacement(p *peer) {
+func (s *store) addReplacement(p *Peer) {
 	if containsPeer(s.replacements, p) {
 		return // already in the list
 	}
 	s.replacements = pushPeer(s.replacements, p, maxReplacements)
 }
 
+func (s *store) loadInitialPeers() {
+	peers := s.db.RandomPeers(bootCount, bootMaxAge)
+	peers = append(peers, s.boot...)
+	for _, peer := range peers {
+		s.addDiscoveredPeer(peer)
+	}
+}
+
 // addDiscoveredPeer adds a newly discovered peer that has never been verified or pinged yet.
-func (s *store) addDiscoveredPeer(p *peer) {
+func (s *store) addDiscoveredPeer(p *Peer) {
 	// TODO: ignore self
 
 	s.mutex.Lock()
@@ -216,7 +230,7 @@ func (s *store) addDiscoveredPeer(p *peer) {
 }
 
 // addVerifiedPeer adds a new peer that has just been successfully pinged.
-func (s *store) addVerifiedPeer(p *peer) {
+func (s *store) addVerifiedPeer(p *Peer) {
 	// TODO: ignore self
 
 	s.log.Debugw("addVerifiedPeer",
@@ -235,7 +249,7 @@ func (s *store) addVerifiedPeer(p *peer) {
 	s.known = pushPeer(s.known, p, bucketSize)
 }
 
-func (s *store) getRandomPeers(n int) []*peer {
+func (s *store) getRandomPeers(n int) []*Peer {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -243,7 +257,7 @@ func (s *store) getRandomPeers(n int) []*peer {
 		n = len(s.known)
 	}
 
-	peers := make([]*peer, 0, n)
+	peers := make([]*Peer, 0, n)
 	for _, i := range rand.Perm(len(s.known)) {
 		peers = append(peers, s.known[i])
 	}

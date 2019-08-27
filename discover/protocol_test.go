@@ -54,13 +54,13 @@ func TestEncodeDecodePing(t *testing.T) {
 func TestPingPong(t *testing.T) {
 	p2p := transport.P2P()
 
-	nodeA, _ := Listen(p2p.A, Config{newID(), logger})
+	nodeA, _ := Listen(p2p.A, Config{ID: newID(), Log: logger})
 	defer nodeA.Close()
-	nodeB, _ := Listen(p2p.B, Config{newID(), logger})
+	nodeB, _ := Listen(p2p.B, Config{ID: newID(), Log: logger})
 	defer nodeB.Close()
 
-	peerA := newPeer(&nodeA.LocalID().Identity, nodeA.LocalAddr())
-	peerB := newPeer(&nodeB.LocalID().Identity, nodeB.LocalAddr())
+	peerA := NewPeer(&nodeA.LocalID().Identity, nodeA.LocalAddr())
+	peerB := NewPeer(&nodeB.LocalID().Identity, nodeB.LocalAddr())
 
 	// send a ping from node A to B
 	assert.NoError(t, nodeA.ping(peerB))
@@ -71,12 +71,12 @@ func TestPingPong(t *testing.T) {
 func TestPingTimeout(t *testing.T) {
 	p2p := transport.P2P()
 
-	nodeA, _ := Listen(p2p.A, Config{newID(), logger})
+	nodeA, _ := Listen(p2p.A, Config{ID: newID(), Log: logger})
 	defer nodeA.Close()
-	nodeB, _ := Listen(p2p.B, Config{newID(), logger})
+	nodeB, _ := Listen(p2p.B, Config{ID: newID(), Log: logger})
 	nodeB.Close() // close the connection right away to prevent any replies
 
-	peerB := newPeer(&nodeB.LocalID().Identity, nodeB.LocalAddr())
+	peerB := NewPeer(&nodeB.LocalID().Identity, nodeB.LocalAddr())
 
 	// send a ping from node A to B
 	err := nodeA.ping(peerB)
@@ -87,10 +87,10 @@ func BenchmarkPingPong(b *testing.B) {
 	p2p := transport.P2P()
 	logger, _ := zap.NewProduction() // use production level logging
 
-	nodeA, _ := Listen(p2p.A, Config{newID(), logger})
-	nodeB, _ := Listen(p2p.B, Config{newID(), logger})
+	nodeA, _ := Listen(p2p.A, Config{ID: newID(), Log: logger})
+	nodeB, _ := Listen(p2p.B, Config{ID: newID(), Log: logger})
 
-	peerB := newPeer(&nodeB.LocalID().Identity, nodeB.LocalAddr())
+	peerB := NewPeer(&nodeB.LocalID().Identity, nodeB.LocalAddr())
 
 	b.ResetTimer()
 

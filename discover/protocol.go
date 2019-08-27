@@ -108,7 +108,7 @@ func Listen(t transport.Transport, cfg Config) (*protocol, error) {
 		// default to the global logger
 		p.log = log.S()
 	}
-	p.store = newStore(p, p.log)
+	p.store = newStore(p, cfg.Bootnodes, p.log)
 
 	p.wg.Add(2)
 	go p.replyLoop()
@@ -137,12 +137,12 @@ func (p *protocol) LocalAddr() string {
 }
 
 // ping sends a ping message to the given node and waits for a reply.
-func (p *protocol) ping(peer *peer) error {
+func (p *protocol) ping(peer *Peer) error {
 	return <-p.sendPing(peer, nil)
 }
 
 // sendPing pings the given node and invokes the callback when the reply arrives.
-func (p *protocol) sendPing(peer *peer, callback func()) <-chan error {
+func (p *protocol) sendPing(peer *Peer, callback func()) <-chan error {
 	toAddr := peer.Address
 	toID := getNodeID(peer.Identity)
 
@@ -399,7 +399,7 @@ func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID *id.Identit
 
 	p.send(fromAddr, getNodeID(fromID), pong)
 
-	peer := newPeer(fromID, fromAddr)
+	peer := NewPeer(fromID, fromAddr)
 	if time.Since(p.store.db.LastPong(peer)) > pongExpiration {
 		p.sendPing(peer, func() {
 			p.store.addVerifiedPeer(peer)
@@ -434,8 +434,8 @@ func (p *protocol) handlePong(pong *pb.Pong, fromAddr string, fromID *id.Identit
 
 	for _, peer := range pong.GetPeers() {
 		idenity, _ := id.NewIdentity(peer.PublicKey)
-		p.store.addDiscoveredPeer(newPeer(idenity, peer.Address))
+		p.store.addDiscoveredPeer(NewPeer(idenity, peer.Address))
 	}
 
-	p.store.db.UpdateLastPong(newPeer(fromID, fromAddr), time.Now())
+	p.store.db.UpdateLastPong(NewPeer(fromID, fromAddr), time.Now())
 }

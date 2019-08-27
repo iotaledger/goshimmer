@@ -7,13 +7,13 @@ import (
 	log "go.uber.org/zap"
 )
 
-type peer struct {
+type Peer struct {
 	Identity *id.Identity // identity of the peer
 	Address  string       // address of the peer
 }
 
-func newPeer(id *id.Identity, addr string) *peer {
-	return &peer{Identity: id, Address: addr}
+func NewPeer(id *id.Identity, addr string) *Peer {
+	return &Peer{Identity: id, Address: addr}
 }
 
 // Config holds discovery related settings.
@@ -22,7 +22,8 @@ type Config struct {
 	ID *id.Private
 
 	// These settings are optional:
-	Log *log.Logger
+	Bootnodes []*Peer     // list of bootstrap nodes
+	Log       *log.Logger // if set, log messages go here
 }
 
 // packetHash returns the hash of a packet
