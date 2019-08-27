@@ -22,7 +22,7 @@ func newTestPeer() *Peer {
 		Type: pb.ConnType_TCP,
 		Port: 8000,
 	}
-	p.Salt, _ = salt.NewSalt(time.Second * 10)
+	p.PublicSalt, _ = salt.NewSalt(time.Second * 10)
 	return p
 }
 
@@ -41,6 +41,6 @@ func TestMarshalUnmarshal(t *testing.T) {
 
 	assert.Equal(t, p.Services, got.Services, "Service")
 
-	assert.Equal(t, p.Salt.Bytes, got.Salt.Bytes, "Salt")
-	assert.Equal(t, p.Salt.ExpirationTime.Unix(), got.Salt.ExpirationTime.Unix(), "SameSaltExpirationTime")
+	assert.Equal(t, p.PublicSalt.Bytes, got.PublicSalt.Bytes, "Salt")
+	assert.Equal(t, p.PublicSalt.ExpirationTime.Unix(), got.PublicSalt.ExpirationTime.Unix(), "SameSaltExpirationTime")
 }
