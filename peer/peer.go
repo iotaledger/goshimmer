@@ -14,16 +14,6 @@ type Peer struct {
 	Salt     *salt.Salt   // current salt of the peer (salt, expiration time)
 }
 
-type Private struct {
-	Key  []byte
-	Salt *salt.Salt
-}
-
-type Own struct {
-	Public  Peer
-	Private Private
-}
-
 // ToProto encodes a given peer into a proto buffer Peer message
 func ToProto(p *Peer) (result *pb.Peer, err error) {
 	result = &pb.Peer{}
