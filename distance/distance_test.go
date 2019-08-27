@@ -32,7 +32,7 @@ func TestBySalt(t *testing.T) {
 	for _, test := range tests {
 		d := BySalt(test.x, test.y, test.salt)
 		got := (d == 0)
-		assert.Equal(t, test.zeroDistance, got, "Same Expected Zero")
+		assert.Equal(t, test.zeroDistance, got, "Zero Distance")
 	}
 
 }
