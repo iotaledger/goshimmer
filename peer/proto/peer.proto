@@ -10,8 +10,7 @@ import "peer/proto/service.proto";
 // Peer defines the structure of a peer message
 message Peer {
   bytes public_key = 1;
-  string ip = 2;
-  ServiceMap services = 3;
-  proto.Salt salt = 4;
+  service_map services = 2;
+  proto.Salt salt = 3;
 }
 

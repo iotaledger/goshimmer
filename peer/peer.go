@@ -1,8 +1,6 @@
 package peer
 
 import (
-	"net"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/wollac/autopeering/id"
 	pb "github.com/wollac/autopeering/peer/proto"
@@ -12,7 +10,6 @@ import (
 // Peer defines the structure of a peer
 type Peer struct {
 	Identity *id.Identity // identity of the peer (ID, StringID, PublicKey)
-	IP       net.IP       // IP address of the peer (IPv4 or IPv6)
 	Services ServiceMap   // map of services the peer exposes (<"autopeering":{TCP,8000}>, <"gossip":{UDP,9000}>)
 	Salt     *salt.Salt   // current salt of the peer (salt, expiration time)
 }
@@ -31,7 +28,6 @@ type Own struct {
 func ToProto(p *Peer) (result *pb.Peer, err error) {
 	result = &pb.Peer{}
 	result.PublicKey = p.Identity.PublicKey
-	result.Ip = p.IP.String()
 	result.Services, err = encodeService(p.Services)
 	if err != nil {
 		return nil, err
@@ -51,7 +47,6 @@ func FromProto(in *pb.Peer, out *Peer) (err error) {
 	if err != nil {
 		return err
 	}
-	out.IP = net.ParseIP(in.GetIp())
 	out.Services = NewServiceMap()
 	err = decodeService(in.GetServices(), out.Services)
 	if err != nil {
