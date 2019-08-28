@@ -43,11 +43,11 @@ new Vue({
     },
     footerContainerStyle() {
       const size = Math.max(window.innerHeight-this.headerSize, 300)
-      return `height:calc(${size-1}px - 3.6rem);` 
+      return 'height:calc('+(size-1 )+'px - 3.6rem);'
     },
     startSpam() {
       console.log('start spam', this.tpsToSpam)
-      api.get(`spammer?cmd=start&tps=${this.tpsToSpam}`)
+      api.get('spammer?cmd=start&tps='+this.tpsToSpam+')')
     },
     stopSpam() {
       console.log('stop spam')
@@ -123,10 +123,10 @@ new Vue({
     infoValues() {
       const i = this.info
       return i.id ? [
-        `${i.receivedTps} received / ${i.solidTps} new`,
+        i.receivedTps+' received / '+i.solidTps+ 'new',
         i.id,
-        `${i.chosenNeighbors.length} chosen / ${i.acceptedNeighbors.length} accepted`,
-        `${i.knownPeers} total / ${i.neighborhood} neighborhood`,
+        i.chosenNeighbors.length+' chosen / '+i.acceptedNeighbors.length+' accepted',
+        i.knownPeers+' total / '+i.neighborhood+' neighborhood',
         uptimeConverter(i.uptime)
       ] : Array(5).fill('...')
     },

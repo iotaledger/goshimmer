@@ -2,6 +2,7 @@ package ui
 
 import (
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -18,6 +19,13 @@ import (
 )
 
 func configure(plugin *node.Plugin) {
+
+	//webapi.Server.Static("ui", "plugins/ui/src")
+	webapi.AddEndpoint("ui", func(c echo.Context) error {
+		return c.HTML(http.StatusOK, files["index.html"])
+	})
+	webapi.AddEndpoint("ui/**", staticFileServer)
+
 	webapi.AddEndpoint("ws", upgrader)
 	webapi.AddEndpoint("loghistory", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, logHistory)
@@ -48,9 +56,21 @@ func configure(plugin *node.Plugin) {
 	}))
 }
 
-func run(plugin *node.Plugin) {
+func staticFileServer(c echo.Context) error {
+	url := c.Request().URL.String()
+	path := url[4:] // trim off "/ui/"
+	res := c.Response()
+	header := res.Header()
+	if strings.HasPrefix(path, "css") {
+		header.Set(echo.HeaderContentType, "text/css")
+	}
+	if strings.HasPrefix(path, "js") {
+		header.Set(echo.HeaderContentType, "application/javascript")
+	}
+	return c.String(http.StatusOK, files[path])
+}
 
-	webapi.Server.Static("ui", "plugins/ui")
+func run(plugin *node.Plugin) {
 
 	daemon.BackgroundWorker("UI Refresher", func() {
 		for {

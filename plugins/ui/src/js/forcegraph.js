@@ -48,11 +48,11 @@ Vue.component('force-graph', {
       .graphData(this.makeGraph())
   },
 
-  template: `<div style="height:100%;">
-    <div id="3d-graph"></div>
-    <div v-if="hoveredNode" class="hovered-node">
-      ID: {{hoveredNode.id}} &nbsp;&nbsp; 
-      <span v-if="hoveredNode.address">Address: {{hoveredNode.address}}</span>
-    </div>
-  </div>`
+  template: '<div style="height:100%;">'+
+    '<div id="3d-graph"></div>'+
+    '<div v-if="hoveredNode" class="hovered-node">'+
+      'ID: {{hoveredNode.id}} &nbsp;&nbsp; '+
+      '<span v-if="hoveredNode.address">Address: {{hoveredNode.address}}</span>'+
+    '</div>'+
+  '</div>'
 })
