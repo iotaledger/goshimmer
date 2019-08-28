@@ -13,9 +13,30 @@ import (
 	"github.com/pkg/errors"
 	"github.com/wollac/autopeering/discover"
 	"github.com/wollac/autopeering/id"
+	"github.com/wollac/autopeering/logger"
 	"github.com/wollac/autopeering/transport"
-	"go.uber.org/zap"
 )
+
+const defaultZLC = `{
+	"level": "info",
+	"development": false,
+	"outputPaths": ["stdout"],
+	"errorOutputPaths": ["stderr"],
+	"encoding": "console",
+	"encoderConfig": {
+	  "timeKey": "ts",
+	  "levelKey": "level",
+	  "nameKey": "logger",
+	  "callerKey": "caller",
+	  "messageKey": "msg",
+	  "stacktraceKey": "stacktrace",
+	  "lineEnding": "",
+	  "levelEncoder": "",
+	  "timeEncoder": "iso8601",
+	  "durationEncoder": "",
+	  "callerEncoder": ""
+	}
+  }`
 
 func waitInterrupt() {
 	c := make(chan os.Signal, 1)
@@ -53,11 +74,8 @@ func main() {
 	)
 	flag.Parse()
 
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("NewLogger: %v", err)
-	}
-	defer func() { _ = logger.Sync() }()
+	logger := logger.NewLogger(defaultZLC, "debug")
+	defer logger.Sync()
 
 	addr, err := net.ResolveUDPAddr("udp", *listenAddr)
 	if err != nil {
@@ -71,7 +89,7 @@ func main() {
 
 	cfg := discover.Config{
 		ID:  id.GeneratePrivate(),
-		Log: logger,
+		Log: logger.Named("discover"),
 	}
 
 	master, err := parseMaster(*masterNode)

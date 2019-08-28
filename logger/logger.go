@@ -25,7 +25,7 @@ func NewLogger(configJSON string, levelOverride string, opts ...zap.Option) *zap
 		return newFallbackLogger(err, levelOverride, opts...)
 	}
 
-	logger.Info("Successfully created the logger.", zap.String("jsonconfig", configJSON))
+	logger.Info("Successfully created the logger.")
 	logger.Sugar().Infof("Logging level set to %v", loggingCfg.Level)
 
 	return logger.Sugar()

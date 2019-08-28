@@ -233,11 +233,6 @@ func (s *store) addDiscoveredPeer(p *Peer) {
 func (s *store) addVerifiedPeer(p *Peer) {
 	// TODO: ignore self
 
-	s.log.Debugw("addVerifiedPeer",
-		"id", p.Identity,
-		"address", p.Address,
-	)
-
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -245,6 +240,11 @@ func (s *store) addVerifiedPeer(p *Peer) {
 	if s.bumpNode(p) {
 		return
 	}
+
+	s.log.Debugw("addVerifiedPeer",
+		"id", p.Identity,
+		"address", p.Address,
+	)
 	// new nodes are added to the front
 	s.known = pushPeer(s.known, p, bucketSize)
 }

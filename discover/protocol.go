@@ -97,18 +97,13 @@ func Listen(t transport.Transport, cfg Config) (*protocol, error) {
 	p := &protocol{
 		trans:           t,
 		priv:            cfg.ID,
+		log:             cfg.Log,
 		address:         t.LocalAddr(),
 		addReplyMatcher: make(chan *replyMatcher),
 		gotreply:        make(chan reply),
 		closing:         make(chan struct{}),
 	}
-	if cfg.Log != nil {
-		p.log = cfg.Log.Sugar()
-	} else {
-		// default to the global logger
-		p.log = log.S()
-	}
-	p.store = newStore(p, cfg.Bootnodes, p.log)
+	p.store = newStore(p, cfg.Bootnodes, p.log.Named("store"))
 
 	p.wg.Add(2)
 	go p.replyLoop()
@@ -405,10 +400,11 @@ func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID *id.Identit
 			Address:   peer.Address,
 		})
 	}
-
 	p.send(fromAddr, pong)
 
 	peer := NewPeer(fromID, fromAddr)
+	p.store.db.UpdateLastPing(peer, time.Now())
+
 	if time.Since(p.store.db.LastPong(peer)) > pongExpiration {
 		p.sendPing(peer, func() {
 			p.store.addVerifiedPeer(peer)
@@ -417,7 +413,6 @@ func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID *id.Identit
 		p.store.addVerifiedPeer(peer)
 	}
 
-	p.store.db.UpdateLastPing(peer, time.Now())
 }
 
 func (p *protocol) verifyPong(pong *pb.Pong, fromAddr string, fromID *id.Identity) bool {

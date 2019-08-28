@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 
 	"github.com/wollac/autopeering/id"
-	log "go.uber.org/zap"
+	"go.uber.org/zap"
 )
 
 type Peer struct {
@@ -19,11 +19,11 @@ func NewPeer(id *id.Identity, addr string) *Peer {
 // Config holds discovery related settings.
 type Config struct {
 	// These settings are required and configure the listener:
-	ID *id.Private
+	ID  *id.Private
+	Log *zap.SugaredLogger
 
 	// These settings are optional:
-	Bootnodes []*Peer     // list of bootstrap nodes
-	Log       *log.Logger // if set, log messages go here
+	Bootnodes []*Peer // list of bootstrap nodes
 }
 
 // packetHash returns the hash of a packet
