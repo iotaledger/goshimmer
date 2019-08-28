@@ -8,16 +8,18 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/dashboard"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
-	"github.com/iotaledger/goshimmer/plugins/gossip-on-solidification"
+	gossip_on_solidification "github.com/iotaledger/goshimmer/plugins/gossip-on-solidification"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/statusscreen"
 	statusscreen_tps "github.com/iotaledger/goshimmer/plugins/statusscreen-tps"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
+	"github.com/iotaledger/goshimmer/plugins/ui"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	webapi_gtta "github.com/iotaledger/goshimmer/plugins/webapi-gtta"
 	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi-spammer"
+	"github.com/iotaledger/goshimmer/plugins/webauth"
 	"github.com/iotaledger/goshimmer/plugins/zeromq"
 )
 
@@ -42,5 +44,8 @@ func main() {
 		webapi.PLUGIN,
 		webapi_gtta.PLUGIN,
 		webapi_spammer.PLUGIN,
+
+		ui.PLUGIN,
+		webauth.PLUGIN,
 	)
 }

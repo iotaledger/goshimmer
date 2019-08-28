@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/dgraph-io/badger v1.6.0
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/ethereum/go-ethereum v1.9.1
 	github.com/gdamore/tcell v1.2.0
 	github.com/go-zeromq/zmq4 v0.5.0
