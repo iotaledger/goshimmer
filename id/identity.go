@@ -33,6 +33,11 @@ func NewIdentity(publicKey []byte) (*Identity, error) {
 	}, nil
 }
 
+// FromIDKey creates a new id based on the ID in string form.
+func FromIDKey(id string) (*Identity, error) {
+	return NewIdentity([]byte(id))
+}
+
 // Returns the ID of the identity.
 func (id *Identity) ID() []byte {
 	return id.PublicKey

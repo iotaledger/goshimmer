@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wollac/autopeering/id"
 	log "go.uber.org/zap"
 )
 
@@ -127,16 +128,23 @@ func (db *DB) RandomPeers(n int, maxAge time.Duration) []*Peer {
 	sort.Ints(indices)
 
 	var (
-		peers = make([]*Peer, 0, n)
-		i     int
+		peers   = make([]*Peer, 0, n)
+		i, seek int
 	)
 	for k := range db.m {
 		if len(peers) == n {
 			break
 		}
-		if indices[len(peers)] == i {
-			_, _ = splitDBKey(k)
-			// peers = append(peers, NewPeer(id, address))
+		if indices[seek] == i {
+			seek++
+
+			idKey, address := splitDBKey(k)
+			identity, err := id.FromIDKey(idKey)
+			if err != nil {
+				db.log.Error("invalid DB entry: ", err)
+				continue
+			}
+			peers = append(peers, NewPeer(identity, address))
 		}
 		i++
 	}
