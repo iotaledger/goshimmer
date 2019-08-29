@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/pkg/errors"
 	pb "github.com/wollac/autopeering/proto"
+	proto "github.com/wollac/autopeering/transport/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 )
@@ -38,7 +39,7 @@ func GRPC(lis net.Listener) *TransportGRPC {
 		closing:   make(chan struct{}),
 	}
 
-	pb.RegisterPeeringServer(grpcServer, &server{t})
+	proto.RegisterDiscoverServer(grpcServer, &server{t})
 
 	starting := make(chan bool)
 	t.wg.Add(1)
@@ -86,7 +87,7 @@ func (t *TransportGRPC) WriteTo(pkt *pb.Packet, address string) error {
 	}
 	defer conn.Close()
 
-	if _, err := pb.NewPeeringClient(conn).Send(context.Background(), pkt); err != nil {
+	if _, err := proto.NewDiscoverClient(conn).Send(context.Background(), pkt); err != nil {
 		return errors.Wrap(err, "error encoding packet")
 	}
 	return nil
