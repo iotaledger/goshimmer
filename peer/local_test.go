@@ -10,11 +10,16 @@ import (
 )
 
 func newTestLocal() *Local {
-	prv := id.GeneratePrivate()
 	p := &Local{}
-	p.Identity, _ = id.NewIdentity(prv.PublicKey)
+	p.Private = *id.GeneratePrivate()
 	p.Address = "127.0.0.1:8000"
 	return p
+}
+
+func TestNewLocal(t *testing.T) {
+	got := NewLocal()
+
+	assert.NotEqual(t, nil, got.Identity.PublicKey)
 }
 
 func TestLocalPrivateSalt(t *testing.T) {

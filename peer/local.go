@@ -3,17 +3,26 @@ package peer
 import (
 	"sync"
 
+	"github.com/wollac/autopeering/id"
 	"github.com/wollac/autopeering/salt"
 )
 
 // Local defines the struct of a local peer
 type Local struct {
-	Peer
+	id.Private
+	Address     string
 	Service     ServiceMap
 	publicSalt  *salt.Salt
 	mPubSalt    sync.RWMutex
 	privateSalt *salt.Salt
 	mPrivSalt   sync.RWMutex
+}
+
+// NewLocal returns a new Local peer with a newly generated identity
+func NewLocal() *Local {
+	return &Local{
+		Private: *id.GeneratePrivate(),
+	}
 }
 
 // GetPublicSalt returns the public salt
