@@ -1,6 +1,7 @@
 package discover
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/wollac/autopeering/id"
@@ -9,47 +10,24 @@ import (
 	pb "github.com/wollac/autopeering/proto"
 )
 
-func (s *Server) handlePacket(fromAddr string, pkt *pb.Packet) error {
-	w, fromID, err := decode(pkt)
-	if err != nil {
-		return err
+// isVerified checks if the given node has a recent enough endpoint proof.
+func (s *Server) isVerified(p *peer.Peer) bool {
+	return time.Since(s.mgr.db.LastPong(p)) < pongExpiration
+}
+
+// ensureVerified checks if the given node has recently sent a ping;
+// if not, we send a ping to trigger a verification.
+func (s *Server) ensureVerified(p *peer.Peer) {
+	if time.Since(s.mgr.db.LastPing(p)) >= pongExpiration {
+		<-s.sendPing(p, nil)
+		// Wait for them to ping back and process our pong
+		time.Sleep(responseTimeout)
 	}
+}
 
-	switch m := w.GetMessage().(type) {
-
-	// Ping
-	case *pb.MessageWrapper_Ping:
-		s.log.Debugw("handle "+m.Ping.Name(), "id", fromID, "addr", fromAddr)
-		if s.verifyPing(m.Ping, fromAddr) {
-			s.handlePing(m.Ping, fromID, fromAddr, pkt.GetData())
-		}
-
-	// Pong
-	case *pb.MessageWrapper_Pong:
-		s.log.Debugw("handle "+m.Pong.Name(), "id", fromID, "addr", fromAddr)
-		if s.verifyPong(m.Pong, fromID, fromAddr) {
-			s.handlePong(m.Pong, fromID, fromAddr)
-		}
-
-	// PeersRequest
-	case *pb.MessageWrapper_PeersRequest:
-		s.log.Debugw("handle "+m.PeersRequest.Name(), "id", fromID, "addr", fromAddr)
-		if s.verifyPeersRequest(m.PeersRequest, fromID, fromAddr) {
-			s.handlePeersRequest(m.PeersRequest, fromID, fromAddr, pkt.GetData())
-		}
-
-	// PeersResponse
-	case *pb.MessageWrapper_PeersResponse:
-		s.log.Debugw("handle "+m.PeersResponse.Name(), "id", fromID, "addr", fromAddr)
-		if s.verifyPeersResponse(m.PeersResponse, fromID, fromAddr) {
-			s.handlePeersResponse(m.PeersResponse, fromID, fromAddr)
-		}
-
-	default:
-		panic("invalid pb type")
-	}
-
-	return nil
+// expired checks whether the given UNIX time stamp is too far in the past.
+func expired(ts int64) bool {
+	return time.Since(time.Unix(ts, 0)) >= packetExpiration
 }
 
 // ------ Packet Constructors ------
@@ -93,10 +71,56 @@ func newPeersResponse(reqData []byte, resPeers []*peer.Peer) *pb.PeersResponse {
 
 // ------ Packet Handlers ------
 
-func (s *Server) verifyPing(m *pb.Ping, fromAddr string) bool {
+func (s *Server) handlePacket(fromAddr string, pkt *pb.Packet) error {
+	w, fromID, err := decode(pkt)
+	if err != nil {
+		return err
+	}
+	if w.GetMessage() == nil {
+		return errNoMessage
+	}
+
+	switch m := w.GetMessage().(type) {
+
+	// Ping
+	case *pb.MessageWrapper_Ping:
+		s.log.Debugw("handle "+m.Ping.Name(), "id", fromID, "addr", fromAddr)
+		if s.validatePing(m.Ping, fromAddr) {
+			s.handlePing(m.Ping, fromID, fromAddr, pkt.GetData())
+		}
+
+	// Pong
+	case *pb.MessageWrapper_Pong:
+		s.log.Debugw("handle "+m.Pong.Name(), "id", fromID, "addr", fromAddr)
+		if s.validatePong(m.Pong, fromID, fromAddr) {
+			s.handlePong(m.Pong, fromID, fromAddr)
+		}
+
+	// PeersRequest
+	case *pb.MessageWrapper_PeersRequest:
+		s.log.Debugw("handle "+m.PeersRequest.Name(), "id", fromID, "addr", fromAddr)
+		if s.validatePeersRequest(m.PeersRequest, fromID, fromAddr) {
+			s.handlePeersRequest(m.PeersRequest, fromID, fromAddr, pkt.GetData())
+		}
+
+	// PeersResponse
+	case *pb.MessageWrapper_PeersResponse:
+		s.log.Debugw("handle "+m.PeersResponse.Name(), "id", fromID, "addr", fromAddr)
+		if s.validatePeersResponse(m.PeersResponse, fromID, fromAddr) {
+			s.handlePeersResponse(m.PeersResponse, fromID, fromAddr)
+		}
+
+	default:
+		panic(fmt.Sprintf("invalid message type: %T", w.GetMessage()))
+	}
+
+	return nil
+}
+
+func (s *Server) validatePing(m *pb.Ping, fromAddr string) bool {
 	// check version number
 	if m.GetVersion() != VersionNum {
-		s.log.Debugw("failed to verify",
+		s.log.Debugw("failed to validate",
 			"type", m.Name(),
 			"version", m.GetVersion(),
 		)
@@ -104,7 +128,7 @@ func (s *Server) verifyPing(m *pb.Ping, fromAddr string) bool {
 	}
 	// check that From matches the package sender address
 	if m.GetFrom() != fromAddr {
-		s.log.Debugw("failed to verify",
+		s.log.Debugw("failed to validate",
 			"type", m.Name(),
 			"from", m.GetFrom(),
 		)
@@ -112,7 +136,7 @@ func (s *Server) verifyPing(m *pb.Ping, fromAddr string) bool {
 	}
 	// check that To matches the local address
 	if m.GetTo() != s.LocalAddr() {
-		s.log.Debugw("failed to verify",
+		s.log.Debugw("failed to validate",
 			"type", m.Name(),
 			"to", m.GetTo(),
 		)
@@ -120,7 +144,7 @@ func (s *Server) verifyPing(m *pb.Ping, fromAddr string) bool {
 	}
 	// check Timestamp
 	if expired(m.GetTimestamp()) {
-		s.log.Debugw("failed to verify",
+		s.log.Debugw("failed to validate",
 			"type", m.Name(),
 			"ts", time.Unix(m.GetTimestamp(), 0),
 		)
@@ -130,27 +154,24 @@ func (s *Server) verifyPing(m *pb.Ping, fromAddr string) bool {
 }
 
 func (s *Server) handlePing(m *pb.Ping, fromID *id.Identity, fromAddr string, rawData []byte) {
-	// create the pong package
+	// update the peer
+	p := peer.NewPeer(fromID, fromAddr)
+	s.mgr.db.UpdateLastPing(p, time.Now())
+
+	// create and send the pong response
 	pong := newPong(fromAddr, rawData)
 	s.send(fromAddr, pong)
 
-	peer := peer.NewPeer(fromID, fromAddr)
-	s.mgr.db.UpdateLastPing(peer, time.Now())
-
-	if time.Since(s.mgr.db.LastPong(peer)) > pongExpiration {
-		s.sendPing(peer, func() {
-			s.mgr.addVerifiedPeer(peer)
-		})
-	} else {
-		s.mgr.addVerifiedPeer(peer)
+	// if the peer is new or expired, send a ping to verify
+	if !s.isVerified(p) {
+		s.sendPing(p, nil)
 	}
-
 }
 
-func (s *Server) verifyPong(m *pb.Pong, fromID *id.Identity, fromAddr string) bool {
+func (s *Server) validatePong(m *pb.Pong, fromID *id.Identity, fromAddr string) bool {
 	// check that To matches the local address
 	if m.GetTo() != s.LocalAddr() {
-		s.log.Debugw("failed to verify",
+		s.log.Debugw("failed to validate",
 			"type", m.Name(),
 			"to", m.GetTo(),
 		)
@@ -168,20 +189,23 @@ func (s *Server) verifyPong(m *pb.Pong, fromID *id.Identity, fromAddr string) bo
 }
 
 func (s *Server) handlePong(m *pb.Pong, fromID *id.Identity, fromAddr string) {
-	s.mgr.db.UpdateLastPong(peer.NewPeer(fromID, fromAddr), time.Now())
+	p := peer.NewPeer(fromID, fromAddr)
+	s.mgr.db.UpdateLastPong(p, time.Now())
+	// a valid pong verifies the peer
+	s.mgr.addVerifiedPeer(p)
 }
 
-func (s *Server) verifyPeersRequest(m *pb.PeersRequest, fromID *id.Identity, fromAddr string) bool {
+func (s *Server) validatePeersRequest(m *pb.PeersRequest, fromID *id.Identity, fromAddr string) bool {
 	// check Timestamp
 	if expired(m.GetTimestamp()) {
-		s.log.Debugw("failed to verify",
+		s.log.Debugw("failed to validate",
 			"type", m.Name(),
 			"ts", time.Unix(m.GetTimestamp(), 0),
 		)
 		return false
 	}
-	if !s.checkBond(peer.NewPeer(fromID, fromAddr)) {
-		s.log.Debugw("failed to verify",
+	if !s.isVerified(peer.NewPeer(fromID, fromAddr)) {
+		s.log.Debugw("failed to validate",
 			"type", m.Name(),
 			"id", fromID,
 			"addr", fromAddr,
@@ -196,7 +220,7 @@ func (s *Server) handlePeersRequest(m *pb.PeersRequest, fromID *id.Identity, fro
 	s.send(fromAddr, newPeersResponse(rawData, peers))
 }
 
-func (s *Server) verifyPeersResponse(m *pb.PeersResponse, fromID *id.Identity, fromAddr string) bool {
+func (s *Server) validatePeersResponse(m *pb.PeersResponse, fromID *id.Identity, fromAddr string) bool {
 	// there must not be too many peers
 	if len(m.GetPeers()) > maxPeersInResponse {
 		return false
