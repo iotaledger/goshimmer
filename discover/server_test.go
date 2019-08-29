@@ -38,7 +38,7 @@ func assertProto(t *testing.T, got, want proto.Message) {
 }
 
 // newTestServer creates a new discovery server and also returns the teardown.
-func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*protocol, func()) {
+func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*Server, func()) {
 	cfg := Config{
 		ID:  id.GeneratePrivate(),
 		Log: logger.Named(name),

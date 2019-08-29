@@ -10,8 +10,9 @@ import (
 
 const (
 	revalidateInterval = 10 * time.Second
+	revalidateTries    = 2
 
-	bucketSize      = 100
+	maxKnow         = 100
 	maxReplacements = 10
 
 	bootCount  = 30
@@ -20,9 +21,10 @@ const (
 
 type network interface {
 	ping(*Peer) error
+	requestPeers(*Peer) <-chan error
 }
 
-type store struct {
+type manager struct {
 	net  network
 	boot []*Peer
 	log  *log.SugaredLogger
@@ -36,34 +38,34 @@ type store struct {
 	closing chan struct{}
 }
 
-func newStore(net network, boot []*Peer, log *log.SugaredLogger) *store {
-	s := &store{
+func newManager(net network, boot []*Peer, log *log.SugaredLogger) *manager {
+	m := &manager{
 		net:          net,
 		boot:         boot,
-		db:           NewMapDB(log),
-		known:        make([]*Peer, 0, bucketSize),
+		db:           NewMapDB(log.Named("db")),
+		known:        make([]*Peer, 0, maxKnow),
 		replacements: make([]*Peer, 0, maxReplacements),
 		log:          log,
 		closing:      make(chan struct{}),
 	}
-	s.loadInitialPeers()
+	m.loadInitialPeers()
 
-	s.wg.Add(1)
-	go s.loop()
+	m.wg.Add(1)
+	go m.loop()
 
-	return s
+	return m
 }
 
-func (s *store) close() {
-	s.log.Debugf("closing")
+func (m *manager) close() {
+	m.log.Debugf("closing")
 
-	close(s.closing)
-	s.db.Close()
-	s.wg.Wait()
+	close(m.closing)
+	m.db.Close()
+	m.wg.Wait()
 }
 
-func (s *store) loop() {
-	defer s.wg.Done()
+func (m *manager) loop() {
+	defer m.wg.Done()
 
 	var (
 		revalidate = time.NewTimer(0) // setting this to 0 will cause a trigger right away
@@ -79,12 +81,12 @@ loop:
 			// if there is no revalidateDone, this means doRevalidate is not running
 			if revalidateDone == nil {
 				revalidateDone = make(chan struct{})
-				go s.doRevalidate(revalidateDone)
+				go m.doRevalidate(revalidateDone)
 			}
 		case <-revalidateDone:
 			revalidateDone = nil
 			revalidate.Reset(revalidateInterval) // revalidate again after the given interval
-		case <-s.closing:
+		case <-m.closing:
 			break loop
 		}
 	}
@@ -96,62 +98,69 @@ loop:
 }
 
 // doRevalidate pings the oldest known peer.
-func (s *store) doRevalidate(done chan<- struct{}) {
+func (m *manager) doRevalidate(done chan<- struct{}) {
 	defer func() { done <- struct{}{} }() // always signal, when the function returns
 
-	last := s.peerToRevalidate()
+	last := m.peerToRevalidate()
 	if last == nil {
 		return // nothing can be revalidate
 	}
 
-	err := s.net.ping(last)
+	var err error
+	for i := 0; i < revalidateTries && err != nil; i++ {
+		err = m.net.ping(last)
+	}
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	if err != nil {
-		if len(s.replacements) == 0 {
-			s.known = s.known[:len(s.known)-1] // pop back
+		if len(m.replacements) == 0 {
+			m.known = m.known[:len(m.known)-1] // pop back
 		} else {
 			var r *Peer
-			s.replacements, r = deletePeer(s.replacements, rand.Intn(len(s.replacements)))
-			s.known[len(s.known)-1] = r
+			m.replacements, r = deletePeer(m.replacements, rand.Intn(len(m.replacements)))
+			m.known[len(m.known)-1] = r
 		}
 
-		s.log.Debugw("removed dead node",
+		m.log.Debugw("removed dead node",
 			"id", last.Identity,
 			"addr", last.Address,
 			"err", err,
 		)
 	} else {
-		s.bumpNode(last)
+		m.bumpNode(last)
 
-		s.log.Debugw("revalidated node",
+		// trigger a query
+		// TODO: this should be independent of the revalidation
+		m.net.requestPeers(last)
+
+		m.log.Debugw("revalidated node",
 			"id", last.Identity,
 		)
 	}
 }
 
 // peerToRevalidate returns the oldest peer, or nil if empty.
-func (s *store) peerToRevalidate() *Peer {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+func (m *manager) peerToRevalidate() *Peer {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
-	if len(s.known) > 0 {
+	if len(m.known) > 0 {
 		// the last peer is the oldest
-		return s.known[len(s.known)-1]
+		return m.known[len(m.known)-1]
 	}
 	return nil
 }
 
-func (s *store) bumpNode(peer *Peer) bool {
+func (m *manager) bumpNode(peer *Peer) bool {
 	id := peer.Identity
 
-	for i, p := range s.known {
+	for i, p := range m.known {
 		if p.Identity.Equal(id) {
 			// update and move it to the front
-			copy(s.known[1:], s.known[:i])
-			s.known[0] = peer
+			copy(m.known[1:], m.known[:i])
+			m.known[0] = peer
 			return true
 		}
 	}
@@ -191,75 +200,75 @@ func deletePeer(list []*Peer, i int) ([]*Peer, *Peer) {
 	return list[:len(list)-1], p
 }
 
-func (s *store) addReplacement(p *Peer) {
-	if containsPeer(s.replacements, p) {
+func (m *manager) addReplacement(p *Peer) {
+	if containsPeer(m.replacements, p) {
 		return // already in the list
 	}
-	s.replacements = pushPeer(s.replacements, p, maxReplacements)
+	m.replacements = pushPeer(m.replacements, p, maxReplacements)
 }
 
-func (s *store) loadInitialPeers() {
-	peers := s.db.RandomPeers(bootCount, bootMaxAge)
-	peers = append(peers, s.boot...)
+func (m *manager) loadInitialPeers() {
+	peers := m.db.RandomPeers(bootCount, bootMaxAge)
+	peers = append(peers, m.boot...)
 	for _, peer := range peers {
-		s.addDiscoveredPeer(peer)
+		m.addDiscoveredPeer(peer)
 	}
 }
 
 // addDiscoveredPeer adds a newly discovered peer that has never been verified or pinged yet.
-func (s *store) addDiscoveredPeer(p *Peer) {
+func (m *manager) addDiscoveredPeer(p *Peer) {
 	// TODO: ignore self
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
-	if containsPeer(s.known, p) {
+	if containsPeer(m.known, p) {
 		return
 	}
 
-	s.log.Debugw("addDiscoveredPeer",
+	m.log.Debugw("addDiscoveredPeer",
 		"id", p.Identity,
 		"address", p.Address,
 	)
 
-	if len(s.known) < bucketSize {
-		s.known = append(s.known, p)
+	if len(m.known) < maxKnow {
+		m.known = append(m.known, p)
 	} else {
-		s.addReplacement(p)
+		m.addReplacement(p)
 	}
 }
 
 // addVerifiedPeer adds a new peer that has just been successfully pinged.
-func (s *store) addVerifiedPeer(p *Peer) {
+func (m *manager) addVerifiedPeer(p *Peer) {
 	// TODO: ignore self
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	// if already in the list, move it to the front
-	if s.bumpNode(p) {
+	if m.bumpNode(p) {
 		return
 	}
 
-	s.log.Debugw("addVerifiedPeer",
+	m.log.Debugw("addVerifiedPeer",
 		"id", p.Identity,
 		"address", p.Address,
 	)
 	// new nodes are added to the front
-	s.known = pushPeer(s.known, p, bucketSize)
+	m.known = pushPeer(m.known, p, maxKnow)
 }
 
-func (s *store) getRandomPeers(n int) []*Peer {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+func (m *manager) getRandomPeers(n int) []*Peer {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
-	if n > len(s.known) {
-		n = len(s.known)
+	if n > len(m.known) {
+		n = len(m.known)
 	}
 
 	peers := make([]*Peer, 0, n)
-	for _, i := range rand.Perm(len(s.known)) {
-		peers = append(peers, s.known[i])
+	for _, i := range rand.Perm(len(m.known)) {
+		peers = append(peers, m.known[i])
 	}
 
 	return peers
