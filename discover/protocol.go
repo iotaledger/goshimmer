@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/wollac/autopeering/id"
+	peerpb "github.com/wollac/autopeering/peer/proto"
 	pb "github.com/wollac/autopeering/proto"
 )
 
@@ -44,7 +45,7 @@ func (s *Server) handlePacket(fromAddr string, pkt *pb.Packet) error {
 		}
 
 	default:
-		panic("invalid message type")
+		panic("invalid pb type")
 	}
 
 	return nil
@@ -75,9 +76,12 @@ func newPeersRequest() *pb.PeersRequest {
 }
 
 func newPeersResponse(reqData []byte, resPeers []*Peer) *pb.PeersResponse {
-	peers := make([]*pb.Peer, 0, len(resPeers))
+	peers := make([]*peerpb.Peer, 0, len(resPeers))
 	for _, s := range resPeers {
-		peers = append(peers, &pb.Peer{PublicKey: s.Identity.PublicKey, Address: s.Address})
+		peers = append(peers, &peerpb.Peer{
+			PublicKey: s.Identity.PublicKey,
+			Address:   s.Address,
+		})
 	}
 
 	return &pb.PeersResponse{
