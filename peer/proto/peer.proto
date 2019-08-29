@@ -11,4 +11,3 @@ message peer {
   // address of autopeering protocol (e.g. "192.0.2.1:25", "[2001:db8::1]:80")
   string address = 2;
 }
-  
