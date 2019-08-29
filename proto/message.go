@@ -6,6 +6,8 @@ import "github.com/golang/protobuf/proto"
 const (
 	MPing MType = iota
 	MPong
+	MPeersRequest
+	MPeersResponse
 )
 
 // MType is the type of message type enum.
@@ -34,4 +36,16 @@ func (m *Pong) Name() string { return "PONG" }
 func (m *Pong) Type() MType  { return MPong }
 func (m *Pong) Wrapper() *MessageWrapper {
 	return &MessageWrapper{Message: &MessageWrapper_Pong{Pong: m}}
+}
+
+func (m *PeersRequest) Name() string { return "PEERS_REQUEST" }
+func (m *PeersRequest) Type() MType  { return MPeersRequest }
+func (m *PeersRequest) Wrapper() *MessageWrapper {
+	return &MessageWrapper{Message: &MessageWrapper_PeersRequest{PeersRequest: m}}
+}
+
+func (m *PeersResponse) Name() string { return "PEERS_RESPONSE" }
+func (m *PeersResponse) Type() MType  { return MPeersResponse }
+func (m *PeersResponse) Wrapper() *MessageWrapper {
+	return &MessageWrapper{Message: &MessageWrapper_PeersResponse{PeersResponse: m}}
 }

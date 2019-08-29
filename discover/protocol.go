@@ -13,26 +13,25 @@ import (
 	"github.com/wollac/autopeering/id"
 	pb "github.com/wollac/autopeering/proto"
 	"github.com/wollac/autopeering/transport"
-	log "go.uber.org/zap"
+	"go.uber.org/zap"
 )
 
 const (
-	// VersionNum is the expected version number of this protocol.
+	// VersionNum specifies the expected version number for this protocol.
 	VersionNum = 0
 
-	respTimeout = 500 * time.Millisecond
+	responseTimeout  = 500 * time.Millisecond
+	packetExpiration = 20 * time.Second
+	pongExpiration   = 12 * time.Hour
 
-	pongExpiration = 12 * time.Hour
-
-	// maximum amount of peers returned and allowed in one packet.
-	maxNeighbors = 6
+	maxPeersInResponse = 6 // maximum number of peers returned in PeersResponse
 )
 
 type protocol struct {
 	trans   transport.Transport
 	store   *store
 	priv    *id.Private
-	log     *log.SugaredLogger
+	log     *zap.SugaredLogger
 	address string
 
 	closeOnce sync.Once
@@ -142,11 +141,7 @@ func (p *protocol) sendPing(peer *Peer, callback func()) <-chan error {
 	toID := getNodeID(peer.Identity)
 
 	// create the ping package
-	ping := &pb.Ping{
-		Version: VersionNum,
-		From:    p.LocalAddr(),
-		To:      toAddr,
-	}
+	ping := newPing(p.LocalAddr(), toAddr)
 	pkt := encode(p.priv, ping)
 	// compute the message hash
 	hash := packetHash(pkt.GetData())
@@ -165,6 +160,29 @@ func (p *protocol) sendPing(peer *Peer, callback func()) <-chan error {
 	p.write(toAddr, ping.Name(), pkt)
 
 	return errc
+}
+
+func (p *protocol) requestPeers(to *Peer) ([]*Peer, error) {
+	p.ensureBond(to)
+
+	toID := getNodeID(to.Identity)
+	toAddr := to.Address
+
+	// create the request package
+	req := newPeersRequest()
+	pkt := encode(p.priv, req)
+	// compute the message hash
+	hash := packetHash(pkt.GetData())
+
+	errc := p.expectReply(toAddr, toID, pb.MPeersResponse, func(m pb.Message) (bool, bool) {
+		matched := bytes.Equal(m.(*pb.PeersResponse).GetReqHash(), hash)
+		return matched, matched
+	})
+
+	// send the request
+	p.write(toAddr, req.Name(), pkt)
+
+	return nil, <-errc
 }
 
 // Loop checking for matching replies.
@@ -194,7 +212,7 @@ func (p *protocol) replyLoop() {
 
 		// add a new matcher to the list
 		case p := <-p.addReplyMatcher:
-			p.deadline = time.Now().Add(respTimeout)
+			p.deadline = time.Now().Add(responseTimeout)
 			mlist.PushBack(p)
 
 		// on reply received, check all matchers for fits
@@ -324,14 +342,30 @@ func (p *protocol) handlePacket(fromAddr string, pkt *pb.Packet) error {
 
 	// Ping
 	case *pb.MessageWrapper_Ping:
-		if p.verifyPing(m.Ping, fromAddr, fromID) {
-			p.handlePing(m.Ping, fromAddr, fromID, pkt.GetData())
+		p.log.Debugw("handle "+m.Ping.Name(), "id", fromID, "addr", fromAddr)
+		if p.verifyPing(m.Ping, fromAddr) {
+			p.handlePing(m.Ping, fromID, fromAddr, pkt.GetData())
 		}
 
 	// Pong
 	case *pb.MessageWrapper_Pong:
-		if p.verifyPong(m.Pong, fromAddr, fromID) {
-			p.handlePong(m.Pong, fromAddr, fromID)
+		p.log.Debugw("handle "+m.Pong.Name(), "id", fromID, "addr", fromAddr)
+		if p.verifyPong(m.Pong, fromID, fromAddr) {
+			p.handlePong(m.Pong, fromID, fromAddr)
+		}
+
+	// PeersRequest
+	case *pb.MessageWrapper_PeersRequest:
+		p.log.Debugw("handle "+m.PeersRequest.Name(), "id", fromID, "addr", fromAddr)
+		if p.verifyPeersRequest(m.PeersRequest, fromID, fromAddr) {
+			p.handlePeersRequest(m.PeersRequest, fromID, fromAddr, pkt.GetData())
+		}
+
+	// PeersResponse
+	case *pb.MessageWrapper_PeersResponse:
+		p.log.Debugw("handle "+m.PeersResponse.Name(), "id", fromID, "addr", fromAddr)
+		if p.verifyPeersResponse(m.PeersResponse, fromID, fromAddr) {
+			p.handlePeersResponse(m.PeersResponse, fromID, fromAddr)
 		}
 
 	default:
@@ -360,46 +394,102 @@ func decode(packet *pb.Packet) (*pb.MessageWrapper, *id.Identity, error) {
 	return wrapper, issuer, nil
 }
 
+// checkBond checks if the given node has a recent enough endpoint proof.
+func (p *protocol) checkBond(peer *Peer) bool {
+	return time.Since(p.store.db.LastPong(peer)) < pongExpiration
+}
+
+// ensureBond solicits a ping from a node if we haven't seen a ping from it for a while.
+func (p *protocol) ensureBond(peer *Peer) {
+	if time.Since(p.store.db.LastPing(peer)) >= pongExpiration {
+		<-p.sendPing(peer, nil)
+		// Wait for them to ping back and process our pong.
+		time.Sleep(responseTimeout)
+	}
+}
+
+// expired checks whether the given UNIX time stamp is too far in the past.
+func expired(ts int64) bool {
+	return time.Since(time.Unix(ts, 0)) >= packetExpiration
+}
+
+// ------ Packet Constructors ------
+
+func newPing(fromAddr string, toAddr string) *pb.Ping {
+	return &pb.Ping{
+		Version:   VersionNum,
+		From:      fromAddr,
+		To:        toAddr,
+		Timestamp: time.Now().Unix(),
+	}
+}
+
+func newPong(toAddr string, reqData []byte) *pb.Pong {
+	return &pb.Pong{
+		PingHash: packetHash(reqData),
+		To:       toAddr,
+	}
+}
+
+func newPeersRequest() *pb.PeersRequest {
+	return &pb.PeersRequest{
+		Timestamp: time.Now().Unix(),
+	}
+}
+
+func newPeersResponse(reqData []byte, resPeers []*Peer) *pb.PeersResponse {
+	peers := make([]*pb.Peer, 0, len(resPeers))
+	for _, p := range resPeers {
+		peers = append(peers, &pb.Peer{PublicKey: p.Identity.PublicKey, Address: p.Address})
+	}
+
+	return &pb.PeersResponse{
+		ReqHash: packetHash(reqData),
+		Peers:   peers,
+	}
+}
+
 // ------ Packet Handlers ------
 
-func (p *protocol) verifyPing(ping *pb.Ping, fromAddr string, fromID *id.Identity) bool {
+func (p *protocol) verifyPing(m *pb.Ping, fromAddr string) bool {
 	// check version number
-	if ping.GetVersion() != VersionNum {
+	if m.GetVersion() != VersionNum {
 		p.log.Debugw("failed to verify",
-			"type", ping.Name(),
-			"version", ping.GetVersion(),
+			"type", m.Name(),
+			"version", m.GetVersion(),
+		)
+		return false
+	}
+	// check that From matches the package sender address
+	if m.GetFrom() != fromAddr {
+		p.log.Debugw("failed to verify",
+			"type", m.Name(),
+			"from", m.GetFrom(),
 		)
 		return false
 	}
 	// check that To matches the local address
-	if ping.GetTo() != p.LocalAddr() {
+	if m.GetTo() != p.LocalAddr() {
 		p.log.Debugw("failed to verify",
-			"type", ping.Name(),
-			"to", ping.GetTo(),
+			"type", m.Name(),
+			"to", m.GetTo(),
 		)
 		return false
 	}
-	// check fromAddr
-	if ping.GetFrom() != fromAddr {
+	// check Timestamp
+	if expired(m.GetTimestamp()) {
 		p.log.Debugw("failed to verify",
-			"type", ping.Name(),
-			"from", ping.GetFrom(),
+			"type", m.Name(),
+			"ts", time.Unix(m.GetTimestamp(), 0),
 		)
 		return false
 	}
 	return true
 }
 
-func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID *id.Identity, rawData []byte) {
-	p.log.Debugw("handle "+ping.Name(), "id", fromID, "addr", fromAddr)
-
-	pong := &pb.Pong{To: fromAddr, PingHash: packetHash(rawData)}
-	for _, peer := range p.store.getRandomPeers(maxNeighbors) {
-		pong.Peers = append(pong.Peers, &pb.Peer{
-			PublicKey: peer.Identity.PublicKey,
-			Address:   peer.Address,
-		})
-	}
+func (p *protocol) handlePing(m *pb.Ping, fromID *id.Identity, fromAddr string, rawData []byte) {
+	// create the pong package
+	pong := newPong(fromAddr, rawData)
 	p.send(fromAddr, pong)
 
 	peer := NewPeer(fromID, fromAddr)
@@ -415,31 +505,78 @@ func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID *id.Identit
 
 }
 
-func (p *protocol) verifyPong(pong *pb.Pong, fromAddr string, fromID *id.Identity) bool {
+func (p *protocol) verifyPong(m *pb.Pong, fromID *id.Identity, fromAddr string) bool {
 	// check that To matches the local address
-	if pong.GetTo() != p.LocalAddr() {
-		p.log.Debugw("failed to verify", "type", pong.Name(), "to", pong.GetTo())
+	if m.GetTo() != p.LocalAddr() {
+		p.log.Debugw("failed to verify",
+			"type", m.Name(),
+			"to", m.GetTo(),
+		)
 		return false
 	}
 	// there must be a ping waiting for this pong as a reply
-	if !p.handleReply(fromAddr, fromID, pong) {
-		p.log.Debugw("no matching request", "type", pong.Name(), "from", fromAddr)
-		return false
-	}
-	// there must not be too many peers
-	if len(pong.GetPeers()) > maxNeighbors {
+	if !p.handleReply(fromAddr, fromID, m) {
+		p.log.Debugw("no matching request",
+			"type", m.Name(),
+			"from", fromAddr,
+		)
 		return false
 	}
 	return true
 }
 
-func (p *protocol) handlePong(pong *pb.Pong, fromAddr string, fromID *id.Identity) {
-	p.log.Debugw("handle "+pong.Name(), "id", fromID, "addr", fromAddr)
-
-	for _, peer := range pong.GetPeers() {
-		idenity, _ := id.NewIdentity(peer.PublicKey)
-		p.store.addDiscoveredPeer(NewPeer(idenity, peer.Address))
-	}
-
+func (p *protocol) handlePong(m *pb.Pong, fromID *id.Identity, fromAddr string) {
 	p.store.db.UpdateLastPong(NewPeer(fromID, fromAddr), time.Now())
+}
+
+func (p *protocol) verifyPeersRequest(m *pb.PeersRequest, fromID *id.Identity, fromAddr string) bool {
+	// check Timestamp
+	if expired(m.GetTimestamp()) {
+		p.log.Debugw("failed to verify",
+			"type", m.Name(),
+			"ts", time.Unix(m.GetTimestamp(), 0),
+		)
+		return false
+	}
+	if !p.checkBond(NewPeer(fromID, fromAddr)) {
+		p.log.Debugw("failed to verify",
+			"type", m.Name(),
+			"id", fromID,
+			"addr", fromAddr,
+		)
+		return false
+	}
+	return true
+}
+
+func (p *protocol) handlePeersRequest(m *pb.PeersRequest, fromID *id.Identity, fromAddr string, rawData []byte) {
+	peers := p.store.getRandomPeers(maxPeersInResponse)
+	p.send(fromAddr, newPeersResponse(rawData, peers))
+}
+
+func (p *protocol) verifyPeersResponse(m *pb.PeersResponse, fromID *id.Identity, fromAddr string) bool {
+	// there must not be too many peers
+	if len(m.GetPeers()) > maxPeersInResponse {
+		return false
+	}
+	// there must be a request waiting for this response
+	if !p.handleReply(fromAddr, fromID, m) {
+		p.log.Debugw("no matching request",
+			"type", m.Name(),
+			"from", fromAddr,
+		)
+		return false
+	}
+	return true
+}
+
+func (p *protocol) handlePeersResponse(m *pb.PeersResponse, fromID *id.Identity, fromAddr string) {
+	for _, peer := range m.GetPeers() {
+		identity, err := id.NewIdentity(peer.PublicKey)
+		if err != nil {
+			p.log.Warnw("invalid public key", "err", err)
+			continue
+		}
+		p.store.addDiscoveredPeer(NewPeer(identity, peer.Address))
+	}
 }
