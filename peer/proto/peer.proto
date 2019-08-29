@@ -4,13 +4,11 @@ option go_package = "github.com/wollac/autopeering/peer/proto";
 
 package proto;
 
-import "salt/proto/salt.proto";
-import "peer/proto/service.proto";
-
-// Peer defines the structure of a peer message
-message Peer {
-  bytes public_key = 1;
-  service_map services = 2;
-  proto.Salt salt = 3;
-}
-
+// Minimal encoding of a peer
+message peer {
+    // public key used for signing
+    bytes public_key = 1;
+    // address of autopeering protocol (e.g. "192.0.2.1:25", "[2001:db8::1]:80")
+    string address = 2;
+  }
+  
