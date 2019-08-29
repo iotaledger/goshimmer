@@ -12,6 +12,14 @@ type Peer struct {
 	Address  string       // address of a peer ("127.0.0.1:8000")
 }
 
+// NewPeer creates a new instance of a peer
+func NewPeer(id *id.Identity, addr string) *Peer {
+	return &Peer{
+		Identity: id,
+		Address:  addr,
+	}
+}
+
 // ToProto encodes a given peer into a proto buffer Peer message
 func ToProto(p *Peer) *pb.Peer {
 	return &pb.Peer{

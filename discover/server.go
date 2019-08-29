@@ -11,6 +11,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/wollac/autopeering/id"
+	"github.com/wollac/autopeering/peer"
 	pb "github.com/wollac/autopeering/proto"
 	"github.com/wollac/autopeering/transport"
 	"go.uber.org/zap"
@@ -27,10 +28,11 @@ const (
 	maxPeersInResponse = 6 // maximum number of peers returned in PeersResponse
 )
 
+// Server offers the functionality to start a discovery server.
 type Server struct {
 	trans   transport.Transport
+	local   *peer.Local
 	mgr     *manager
-	priv    *id.Private
 	log     *zap.SugaredLogger
 	address string
 
@@ -92,25 +94,26 @@ type reply struct {
 }
 
 // Listen starts a new peer discovery server using the given transport layer for communication.
-func Listen(t transport.Transport, cfg Config) (*Server, error) {
-	s := &Server{
+func Listen(t transport.Transport, local *peer.Local, cfg Config) *Server {
+	srv := &Server{
 		trans:           t,
-		priv:            cfg.ID,
+		local:           local,
 		log:             cfg.Log,
 		address:         t.LocalAddr(),
 		addReplyMatcher: make(chan *replyMatcher),
 		gotreply:        make(chan reply),
 		closing:         make(chan struct{}),
 	}
-	s.mgr = newManager(s, cfg.Bootnodes, s.log.Named("mgr"))
+	srv.mgr = newManager(srv, cfg.Bootnodes, cfg.Log.Named("mgr"))
 
-	s.wg.Add(2)
-	go s.replyLoop()
-	go s.readLoop()
+	srv.wg.Add(2)
+	go srv.replyLoop()
+	go srv.readLoop()
 
-	return s, nil
+	return srv
 }
 
+// Close shuts down the server.
 func (s *Server) Close() {
 	s.closeOnce.Do(func() {
 		close(s.closing)
@@ -120,9 +123,9 @@ func (s *Server) Close() {
 	})
 }
 
-// LocalID returns the private idenity of the local node.
-func (s *Server) LocalID() *id.Private {
-	return s.priv
+// Local returns the the local peer.
+func (s *Server) Local() *peer.Local {
+	return s.local
 }
 
 // LocalAddr returns the address of the local node in string form.
@@ -130,19 +133,23 @@ func (s *Server) LocalAddr() string {
 	return s.address
 }
 
+func (s *Server) private() *id.Private {
+	return s.local.Private
+}
+
 // ping sends a ping message to the given node and waits for a reply.
-func (s *Server) ping(peer *Peer) error {
+func (s *Server) ping(peer *peer.Peer) error {
 	return <-s.sendPing(peer, nil)
 }
 
 // sendPing pings the given node and invokes the callback when the reply arrives.
-func (s *Server) sendPing(peer *Peer, callback func()) <-chan error {
+func (s *Server) sendPing(peer *peer.Peer, callback func()) <-chan error {
 	toAddr := peer.Address
 	toID := getNodeID(peer.Identity)
 
 	// create the ping package
 	ping := newPing(s.LocalAddr(), toAddr)
-	pkt := encode(s.priv, ping)
+	pkt := encode(s.private(), ping)
 	// compute the message hash
 	hash := packetHash(pkt.GetData())
 
@@ -162,7 +169,7 @@ func (s *Server) sendPing(peer *Peer, callback func()) <-chan error {
 	return errc
 }
 
-func (s *Server) requestPeers(to *Peer) <-chan error {
+func (s *Server) requestPeers(to *peer.Peer) <-chan error {
 	s.ensureBond(to)
 
 	toID := getNodeID(to.Identity)
@@ -170,7 +177,7 @@ func (s *Server) requestPeers(to *Peer) <-chan error {
 
 	// create the request package
 	req := newPeersRequest()
-	pkt := encode(s.priv, req)
+	pkt := encode(s.private(), req)
 	// compute the message hash
 	hash := packetHash(pkt.GetData())
 
@@ -284,7 +291,7 @@ func (s *Server) handleReply(fromAddr string, fromID *id.Identity, message pb.Me
 }
 
 func (s *Server) send(toAddr string, msg pb.Message) {
-	pkt := encode(s.priv, msg)
+	pkt := encode(s.private(), msg)
 	s.write(toAddr, msg.Name(), pkt)
 }
 
@@ -352,12 +359,12 @@ func decode(packet *pb.Packet) (*pb.MessageWrapper, *id.Identity, error) {
 }
 
 // checkBond checks if the given node has a recent enough endpoint proof.
-func (s *Server) checkBond(peer *Peer) bool {
+func (s *Server) checkBond(peer *peer.Peer) bool {
 	return time.Since(s.mgr.db.LastPong(peer)) < pongExpiration
 }
 
 // ensureBond solicits a ping from a node if we haven't seen a ping from it for a while.
-func (s *Server) ensureBond(peer *Peer) {
+func (s *Server) ensureBond(peer *peer.Peer) {
 	if time.Since(s.mgr.db.LastPing(peer)) >= pongExpiration {
 		<-s.sendPing(peer, nil)
 		// Wait for them to ping back and process our pong.

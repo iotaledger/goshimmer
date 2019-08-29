@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/wollac/autopeering/id"
+	"github.com/wollac/autopeering/peer"
 	peerpb "github.com/wollac/autopeering/peer/proto"
 	pb "github.com/wollac/autopeering/proto"
 )
@@ -75,7 +76,7 @@ func newPeersRequest() *pb.PeersRequest {
 	}
 }
 
-func newPeersResponse(reqData []byte, resPeers []*Peer) *pb.PeersResponse {
+func newPeersResponse(reqData []byte, resPeers []*peer.Peer) *pb.PeersResponse {
 	peers := make([]*peerpb.Peer, 0, len(resPeers))
 	for _, s := range resPeers {
 		peers = append(peers, &peerpb.Peer{
@@ -133,7 +134,7 @@ func (s *Server) handlePing(m *pb.Ping, fromID *id.Identity, fromAddr string, ra
 	pong := newPong(fromAddr, rawData)
 	s.send(fromAddr, pong)
 
-	peer := NewPeer(fromID, fromAddr)
+	peer := peer.NewPeer(fromID, fromAddr)
 	s.mgr.db.UpdateLastPing(peer, time.Now())
 
 	if time.Since(s.mgr.db.LastPong(peer)) > pongExpiration {
@@ -167,7 +168,7 @@ func (s *Server) verifyPong(m *pb.Pong, fromID *id.Identity, fromAddr string) bo
 }
 
 func (s *Server) handlePong(m *pb.Pong, fromID *id.Identity, fromAddr string) {
-	s.mgr.db.UpdateLastPong(NewPeer(fromID, fromAddr), time.Now())
+	s.mgr.db.UpdateLastPong(peer.NewPeer(fromID, fromAddr), time.Now())
 }
 
 func (s *Server) verifyPeersRequest(m *pb.PeersRequest, fromID *id.Identity, fromAddr string) bool {
@@ -179,7 +180,7 @@ func (s *Server) verifyPeersRequest(m *pb.PeersRequest, fromID *id.Identity, fro
 		)
 		return false
 	}
-	if !s.checkBond(NewPeer(fromID, fromAddr)) {
+	if !s.checkBond(peer.NewPeer(fromID, fromAddr)) {
 		s.log.Debugw("failed to verify",
 			"type", m.Name(),
 			"id", fromID,
@@ -212,12 +213,12 @@ func (s *Server) verifyPeersResponse(m *pb.PeersResponse, fromID *id.Identity, f
 }
 
 func (s *Server) handlePeersResponse(m *pb.PeersResponse, fromID *id.Identity, fromAddr string) {
-	for _, peer := range m.GetPeers() {
-		identity, err := id.NewIdentity(peer.PublicKey)
+	for _, p := range m.GetPeers() {
+		identity, err := id.NewIdentity(p.PublicKey)
 		if err != nil {
 			s.log.Warnw("invalid public key", "err", err)
 			continue
 		}
-		s.mgr.addDiscoveredPeer(NewPeer(identity, peer.Address))
+		s.mgr.addDiscoveredPeer(peer.NewPeer(identity, p.Address))
 	}
 }

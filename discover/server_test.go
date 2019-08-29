@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wollac/autopeering/id"
+	"github.com/wollac/autopeering/peer"
 	pb "github.com/wollac/autopeering/proto"
 	"github.com/wollac/autopeering/transport"
 	"go.uber.org/zap"
@@ -40,11 +41,9 @@ func assertProto(t *testing.T, got, want proto.Message) {
 // newTestServer creates a new discovery server and also returns the teardown.
 func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*Server, func()) {
 	cfg := Config{
-		ID:  id.GeneratePrivate(),
 		Log: logger.Named(name),
 	}
-	srv, err := Listen(trans, cfg)
-	require.NoError(t, err)
+	srv := Listen(trans, peer.NewLocal(), cfg)
 
 	teardown := func() {
 		time.Sleep(graceTime) // wait a short time for all the packages to propagate
@@ -74,8 +73,8 @@ func TestPingPong(t *testing.T) {
 	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
 	defer closeB()
 
-	peerA := NewPeer(&srvA.LocalID().Identity, srvA.LocalAddr())
-	peerB := NewPeer(&srvB.LocalID().Identity, srvB.LocalAddr())
+	peerA := peer.NewPeer(srvA.Local().Identity(), srvA.LocalAddr())
+	peerB := peer.NewPeer(srvB.Local().Identity(), srvB.LocalAddr())
 
 	// send a ping from node A to B
 	t.Run("A->B", func(t *testing.T) { assert.NoError(t, srvA.ping(peerB)) })
@@ -93,7 +92,7 @@ func TestPingTimeout(t *testing.T) {
 	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
 	closeB() // close the connection right away to prevent any replies
 
-	peerB := NewPeer(&srvB.LocalID().Identity, srvB.LocalAddr())
+	peerB := peer.NewPeer(srvB.Local().Identity(), srvB.LocalAddr())
 
 	// send a ping from node A to B
 	err := srvA.ping(peerB)
@@ -109,7 +108,7 @@ func BenchmarkPingPong(b *testing.B) {
 	srvB, closeB := newTestServer(b, "B", p2p.B, logger)
 	defer closeB()
 
-	peerB := NewPeer(&srvB.LocalID().Identity, srvB.LocalAddr())
+	peerB := peer.NewPeer(srvB.Local().Identity(), srvB.LocalAddr())
 
 	b.ResetTimer()
 

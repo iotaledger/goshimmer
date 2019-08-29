@@ -14,6 +14,7 @@ import (
 	"github.com/wollac/autopeering/discover"
 	"github.com/wollac/autopeering/id"
 	"github.com/wollac/autopeering/logger"
+	"github.com/wollac/autopeering/peer"
 	"github.com/wollac/autopeering/transport"
 )
 
@@ -44,7 +45,7 @@ func waitInterrupt() {
 	<-c
 }
 
-func parseMaster(s string) (*discover.Peer, error) {
+func parseMaster(s string) (*peer.Peer, error) {
 	if len(s) == 0 {
 		return nil, nil
 	}
@@ -62,7 +63,7 @@ func parseMaster(s string) (*discover.Peer, error) {
 		return nil, errors.Wrap(err, "parseMaster")
 	}
 
-	return discover.NewPeer(identity, parts[1]), nil
+	return peer.NewPeer(identity, parts[1]), nil
 }
 
 func main() {
@@ -88,7 +89,6 @@ func main() {
 	defer conn.Close()
 
 	cfg := discover.Config{
-		ID:  id.GeneratePrivate(),
 		Log: logger.Named("discover"),
 	}
 
@@ -96,17 +96,17 @@ func main() {
 	if err != nil {
 		log.Printf("Ignoring master: %v\n", err)
 	} else if master != nil {
-		cfg.Bootnodes = []*discover.Peer{master}
+		cfg.Bootnodes = []*peer.Peer{master}
 	}
+
+	// use the UDP connection for transport
+	trans := transport.Conn(conn, func(network, address string) (net.Addr, error) { return net.ResolveUDPAddr(network, address) })
 
 	// start the discovery on that connection
-	disc, err := discover.Listen(transport.Conn(conn, func(network, address string) (net.Addr, error) { return net.ResolveUDPAddr(network, address) }), cfg)
-	if err != nil {
-		log.Fatalf("%v", err)
-	}
+	disc := discover.Listen(trans, peer.NewLocal(), cfg)
 	defer disc.Close()
 
-	id := base64.StdEncoding.EncodeToString(disc.LocalID().ID())
+	id := base64.StdEncoding.EncodeToString(disc.Local().Private.ID())
 	fmt.Println("Discovery protocol started: ID=" + id + ", address=" + disc.LocalAddr())
 	fmt.Println("Hit Ctrl+C to exit")
 

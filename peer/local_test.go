@@ -5,25 +5,17 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/wollac/autopeering/id"
 	"github.com/wollac/autopeering/salt"
 )
-
-func newTestLocal() *Local {
-	p := &Local{}
-	p.Private = *id.GeneratePrivate()
-	p.Address = "127.0.0.1:8000"
-	return p
-}
 
 func TestNewLocal(t *testing.T) {
 	got := NewLocal()
 
-	assert.NotEqual(t, nil, got.Identity.PublicKey)
+	assert.NotEqual(t, nil, got.Private.PublicKey)
 }
 
 func TestLocalPrivateSalt(t *testing.T) {
-	p := newTestLocal()
+	p := NewLocal()
 
 	salt, _ := salt.NewSalt(time.Second * 10)
 	p.SetPrivateSalt(salt)
@@ -34,7 +26,7 @@ func TestLocalPrivateSalt(t *testing.T) {
 }
 
 func TestLocalPublicSalt(t *testing.T) {
-	p := newTestLocal()
+	p := NewLocal()
 
 	salt, _ := salt.NewSalt(time.Second * 10)
 	p.SetPublicSalt(salt)

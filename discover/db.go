@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"github.com/wollac/autopeering/id"
-	log "go.uber.org/zap"
+	"github.com/wollac/autopeering/peer"
+	"go.uber.org/zap"
 )
 
 const (
@@ -24,7 +25,7 @@ type DB struct {
 	mutex sync.RWMutex
 	m     map[string]dbPeer
 
-	log *log.SugaredLogger
+	log *zap.SugaredLogger
 
 	once    sync.Once
 	wg      sync.WaitGroup
@@ -35,7 +36,7 @@ type dbPeer struct {
 	lastPing, lastPong int64
 }
 
-func NewMapDB(log *log.SugaredLogger) *DB {
+func NewMapDB(log *zap.SugaredLogger) *DB {
 	db := &DB{
 		m:       make(map[string]dbPeer),
 		log:     log,
@@ -88,7 +89,7 @@ func (db *DB) expirePeers() {
 	db.mutex.Unlock()
 }
 
-func getDBKey(p *Peer) string {
+func getDBKey(p *peer.Peer) string {
 	return strings.Join([]string{p.Identity.IDKey(), p.Address}, keySeparator)
 }
 
@@ -113,7 +114,7 @@ func (db *DB) validIndices(maxAge time.Duration) []int {
 	return indices
 }
 
-func (db *DB) RandomPeers(n int, maxAge time.Duration) []*Peer {
+func (db *DB) RandomPeers(n int, maxAge time.Duration) []*peer.Peer {
 	db.mutex.RLock()
 	defer db.mutex.RUnlock()
 
@@ -128,7 +129,7 @@ func (db *DB) RandomPeers(n int, maxAge time.Duration) []*Peer {
 	sort.Ints(indices)
 
 	var (
-		peers   = make([]*Peer, 0, n)
+		peers   = make([]*peer.Peer, 0, n)
 		i, seek int
 	)
 	for k := range db.m {
@@ -144,7 +145,7 @@ func (db *DB) RandomPeers(n int, maxAge time.Duration) []*Peer {
 				db.log.Error("invalid DB entry: ", err)
 				continue
 			}
-			peers = append(peers, NewPeer(identity, address))
+			peers = append(peers, peer.NewPeer(identity, address))
 		}
 		i++
 	}
@@ -152,7 +153,7 @@ func (db *DB) RandomPeers(n int, maxAge time.Duration) []*Peer {
 	return peers
 }
 
-func (db *DB) LastPing(p *Peer) time.Time {
+func (db *DB) LastPing(p *peer.Peer) time.Time {
 	db.ensureExpirer()
 	key := getDBKey(p)
 
@@ -163,7 +164,7 @@ func (db *DB) LastPing(p *Peer) time.Time {
 	return time.Unix(entry.lastPing, 0)
 }
 
-func (db *DB) UpdateLastPing(p *Peer, t time.Time) {
+func (db *DB) UpdateLastPing(p *peer.Peer, t time.Time) {
 	key := getDBKey(p)
 
 	db.mutex.Lock()
@@ -173,7 +174,7 @@ func (db *DB) UpdateLastPing(p *Peer, t time.Time) {
 	db.mutex.Unlock()
 }
 
-func (db *DB) LastPong(p *Peer) time.Time {
+func (db *DB) LastPong(p *peer.Peer) time.Time {
 	db.ensureExpirer()
 	key := getDBKey(p)
 
@@ -184,7 +185,7 @@ func (db *DB) LastPong(p *Peer) time.Time {
 	return time.Unix(entry.lastPong, 0)
 }
 
-func (db *DB) UpdateLastPong(p *Peer, t time.Time) {
+func (db *DB) UpdateLastPong(p *peer.Peer, t time.Time) {
 	key := getDBKey(p)
 
 	db.mutex.Lock()

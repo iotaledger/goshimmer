@@ -9,8 +9,7 @@ import (
 
 // Local defines the struct of a local peer
 type Local struct {
-	id.Private
-	Address     string
+	Private     *id.Private
 	Service     ServiceMap
 	publicSalt  *salt.Salt
 	mPubSalt    sync.RWMutex
@@ -18,11 +17,16 @@ type Local struct {
 	mPrivSalt   sync.RWMutex
 }
 
-// NewLocal returns a new Local peer with a newly generated identity
+// NewLocal returns a new Local peer with a newly generated private identity
 func NewLocal() *Local {
 	return &Local{
-		Private: *id.GeneratePrivate(),
+		Private: id.GeneratePrivate(),
 	}
+}
+
+// Identity returns the public identity
+func (l *Local) Identity() *id.Identity {
+	return &l.Private.Identity
 }
 
 // GetPublicSalt returns the public salt
