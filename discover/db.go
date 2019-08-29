@@ -50,6 +50,8 @@ func (db *DB) Close() {
 	db.log.Debugf("closing")
 
 	close(db.closing)
+	// ensure that the expirer was run at least once
+	db.ensureExpirer()
 	db.wg.Wait()
 }
 
@@ -66,18 +68,19 @@ func (db *DB) expirer() {
 	tick := time.NewTicker(cleanupInterval)
 	defer tick.Stop()
 
-	db.expirePeers()
 	for {
 		select {
-		case <-tick.C:
-			db.expirePeers()
 		case <-db.closing:
 			return
+		case <-tick.C:
+			db.expirePeers()
 		}
 	}
 }
 
 func (db *DB) expirePeers() {
+	db.log.Info("remove expired peers")
+
 	threshold := time.Now().Add(-peerExpiration).Unix()
 
 	db.mutex.Lock()
