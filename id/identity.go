@@ -1,6 +1,7 @@
 package id
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -12,9 +13,6 @@ var errInvalidPubKeyLen = errors.New("id: invalid public key length")
 
 // Identity offeres IDs in string/byte form and functions to check signatures.
 type Identity struct {
-	ID       []byte
-	StringID string
-
 	PublicKey []byte
 }
 
@@ -30,14 +28,36 @@ func NewIdentity(publicKey []byte) (*Identity, error) {
 	if len(publicKey) != ed25519.PublicKeySize {
 		return nil, errInvalidPubKeyLen
 	}
-	// the identifier is the hash of the public key
-	id := sha256.Sum256(publicKey)
-
 	return &Identity{
-		ID:        id[:],
-		StringID:  fmt.Sprintf("%x", id[:8]),
 		PublicKey: publicKey,
 	}, nil
+}
+
+// FromIDKey creates a new id based on the ID in string form.
+func FromIDKey(id string) (*Identity, error) {
+	return NewIdentity([]byte(id))
+}
+
+// Returns the ID of the identity.
+func (id *Identity) ID() []byte {
+	return id.PublicKey
+}
+
+// Returns the ID of the identity as a string.
+func (id *Identity) IDKey() string {
+	return string(id.ID())
+}
+
+// String gives a human-readable version of the ID by hashing and returning
+// the first bytes.
+func (id *Identity) String() string {
+	hash := sha256.Sum256(id.ID())
+	return fmt.Sprintf("%X", hash[:8])
+}
+
+// Equal returns a boolean reporting whether the provided identity correspond to the same public key.
+func (id *Identity) Equal(x *Identity) bool {
+	return id == x || bytes.Equal(id.PublicKey, x.PublicKey)
 }
 
 // VerifySignature checks whether the data contains a valid signature of the message.

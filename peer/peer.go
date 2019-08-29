@@ -4,27 +4,28 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/wollac/autopeering/id"
 	pb "github.com/wollac/autopeering/peer/proto"
-	"github.com/wollac/autopeering/salt"
 )
 
-// Peer defines the structure of a peer
+// Peer defines the immutable data of a peer
 type Peer struct {
 	Identity *id.Identity // identity of the peer (ID, StringID, PublicKey)
-	Services ServiceMap   // map of services the peer exposes (<"autopeering":{"tcp",":8000"}>, <"gossip":"udp",":9000"}>)
-	Salt     *salt.Salt   // current salt of the peer (salt, expiration time)
+	Address  string       // address of a peer ("127.0.0.1:8000")
+}
+
+// NewPeer creates a new instance of a peer
+func NewPeer(id *id.Identity, addr string) *Peer {
+	return &Peer{
+		Identity: id,
+		Address:  addr,
+	}
 }
 
 // ToProto encodes a given peer into a proto buffer Peer message
-func ToProto(p *Peer) (result *pb.Peer, err error) {
-	result = &pb.Peer{}
-	result.PublicKey = p.Identity.PublicKey
-	result.Services, err = encodeService(p.Services)
-	if err != nil {
-		return nil, err
+func ToProto(p *Peer) *pb.Peer {
+	return &pb.Peer{
+		PublicKey: p.Identity.PublicKey,
+		Address:   p.Address,
 	}
-	result.Salt, err = salt.ToProto(p.Salt)
-
-	return
 }
 
 // FromProto decodes a given proto buffer Peer message (in) into a Peer (out)
@@ -37,24 +38,13 @@ func FromProto(in *pb.Peer, out *Peer) (err error) {
 	if err != nil {
 		return err
 	}
-	out.Services = NewServiceMap()
-	err = decodeService(in.GetServices(), out.Services)
-	if err != nil {
-		return err
-	}
-
-	out.Salt = &salt.Salt{}
-	err = salt.FromProto(in.Salt, out.Salt)
-
+	out.Address = in.Address
 	return
 }
 
 // Marshal serializes a given Peer (p) into a slice of bytes (data)
 func Marshal(p *Peer) (data []byte, err error) {
-	pb, err := ToProto(p)
-	if err != nil {
-		return nil, err
-	}
+	pb := ToProto(p)
 	return proto.Marshal(pb)
 }
 

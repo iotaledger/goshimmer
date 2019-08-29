@@ -6,12 +6,12 @@ package proto;
 
 // service_map defines the mapping between a service ID and its tuple network_address
 // e.g., map[autopeering:&{tcp, 198.51.100.1:80}]
-message service_map {
-    map<string, network_address> map = 1;
+message ServiceMap {
+  map<string, NetworkAddress> map = 1;
 }
-
+  
 // network_address defines the service type (e.g., tcp, upd) and the address (e.g., 198.51.100.1:80)
-message network_address {
-    string network = 1;
-    string address = 2;
+message NetworkAddress {
+  string network = 1;
+  string address = 2;
 }

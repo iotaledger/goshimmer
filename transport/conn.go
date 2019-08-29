@@ -7,14 +7,18 @@ import (
 	pb "github.com/wollac/autopeering/proto"
 )
 
+// ResolveFunc resolves a string address to the corresponding net.Addr.
+type ResolveFunc func(network, address string) (net.Addr, error)
+
 // TransportConn wraps a PacketConn my un-/marshaling the packets using protobuf.
 type TransportConn struct {
 	conn net.PacketConn
+	res  ResolveFunc
 }
 
 // Conn creates a new transport layer by using the underlying PacketConn.
-func Conn(conn net.PacketConn) *TransportConn {
-	return &TransportConn{conn}
+func Conn(conn net.PacketConn, res ResolveFunc) *TransportConn {
+	return &TransportConn{conn: conn, res: res}
 }
 
 // ReadFrom implements the Transport ReadFrom method.
@@ -38,9 +42,13 @@ func (t *TransportConn) WriteTo(pkt *pb.Packet, address string) error {
 	if err != nil {
 		return err
 	}
-
 	network := t.conn.LocalAddr().Network()
-	_, err = t.conn.WriteTo(b, &addr{network, address})
+	addr, err := t.res(network, address)
+	if err != nil {
+		return err
+	}
+
+	_, err = t.conn.WriteTo(b, addr)
 	return err
 }
 
@@ -53,10 +61,3 @@ func (t *TransportConn) Close() {
 func (t *TransportConn) LocalAddr() string {
 	return t.conn.LocalAddr().String()
 }
-
-type addr struct {
-	network, address string
-}
-
-func (a *addr) Network() string { return a.network }
-func (a *addr) String() string  { return a.address }

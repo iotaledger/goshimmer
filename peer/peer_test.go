@@ -2,24 +2,17 @@ package peer
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wollac/autopeering/id"
-	"github.com/wollac/autopeering/salt"
 )
 
 func newTestPeer() *Peer {
 	prv := id.GeneratePrivate()
 	p := &Peer{}
 	p.Identity, _ = id.NewIdentity(prv.PublicKey)
-	p.Services = NewServiceMap()
-	p.Services["autopeering"] = &NetworkAddress{
-		Network: "tcp",
-		Address: "127.0.0.1:8000",
-	}
-	p.Salt, _ = salt.NewSalt(time.Second * 10)
+	p.Address = "127.0.0.1:8000"
 	return p
 }
 
@@ -34,8 +27,5 @@ func TestMarshalUnmarshal(t *testing.T) {
 
 	assert.Equal(t, p.Identity, got.Identity, "Identity")
 
-	assert.Equal(t, p.Services, got.Services, "Service")
-
-	assert.Equal(t, p.Salt.Bytes, got.Salt.Bytes, "Salt")
-	assert.Equal(t, p.Salt.ExpirationTime.Unix(), got.Salt.ExpirationTime.Unix(), "SameSaltExpirationTime")
+	assert.Equal(t, p.Address, got.Address, "Address")
 }
