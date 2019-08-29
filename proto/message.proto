@@ -33,7 +33,7 @@ message PeersResponse {
   // hash of the corresponding request
   bytes req_hash = 1;
   // list of peers
-  repeated peer peers = 2;
+  repeated Peer peers = 2;
 }
 
 // wrapper to contain all the different messages

@@ -5,7 +5,7 @@ option go_package = "github.com/wollac/autopeering/peer/proto";
 package proto;
 
 // Minimal encoding of a peer
-message peer {
+message Peer {
   // public key used for signing
   bytes public_key = 1;
   // address of autopeering protocol (e.g. "192.0.2.1:25", "[2001:db8::1]:80")
