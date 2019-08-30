@@ -1,7 +1,6 @@
 package peer
 
 import (
-	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -22,14 +21,13 @@ func TestOrderedDistanceList(t *testing.T) {
 		},
 	}
 
-	remotePeers := make(List, 10)
+	remotePeers := make([]*Peer, 10)
 	for i := range remotePeers {
 		remotePeers[i] = newTestPeer()
 	}
 
 	for _, test := range tests {
-		d := DistanceList(test.anchor, test.salt, remotePeers)
-		sort.Sort(ByDistance(d))
+		d := SortBySalt(test.anchor, test.salt, remotePeers)
 
 		prev := d[0]
 		for _, next := range d[1:] {
