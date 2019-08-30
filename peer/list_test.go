@@ -1,7 +1,6 @@
 package peer
 
 import (
-	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,8 +27,7 @@ func TestOrderedDistanceList(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		d := DistanceList(test.anchor, test.salt, remotePeers)
-		sort.Sort(ByDistance(d))
+		d := GetOrderedList(test.anchor, test.salt, remotePeers)
 
 		prev := d[0]
 		for _, next := range d[1:] {

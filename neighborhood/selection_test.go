@@ -1,4 +1,4 @@
-package selection
+package neighborhood
 
 import (
 	"testing"
@@ -24,37 +24,37 @@ func TestSelection(t *testing.T) {
 	}
 
 	type testCase struct {
-		neigbours    []peer.PeerDistance
+		nh           Neighborhood
 		expCandidate *peer.Peer
 	}
 
 	tests := []testCase{
 		{
-			neigbours:    []peer.PeerDistance{d[0]},
+			nh:           Neighborhood{[]peer.PeerDistance{d[0]}, 4},
 			expCandidate: d[1].Remote,
 		},
 		{
-			neigbours:    []peer.PeerDistance{d[0], d[1], d[3]},
+			nh:           Neighborhood{[]peer.PeerDistance{d[0], d[1], d[3]}, 4},
 			expCandidate: d[2].Remote,
 		},
 		{
-			neigbours:    []peer.PeerDistance{d[0], d[1], d[2], d[4]},
+			nh:           Neighborhood{[]peer.PeerDistance{d[0], d[1], d[4], d[2]}, 4},
 			expCandidate: d[3].Remote,
 		},
 		{
-			neigbours:    []peer.PeerDistance{d[0], d[1], d[2], d[3]},
+			nh:           Neighborhood{[]peer.PeerDistance{d[0], d[1], d[2], d[3]}, 4},
 			expCandidate: nil,
 		},
 	}
 
 	for _, test := range tests {
 		filter := make(Filter)
-		for _, peer := range test.neigbours {
+		for _, peer := range test.nh.Neighbours {
 			filter[peer.Remote] = true
 		}
 		fList := filter.Complement(d)
 
-		got := GetNextCandidate(test.neigbours, fList)
+		got := test.nh.Select(fList)
 
 		assert.Equal(t, test.expCandidate, got, "Next Candidate", test)
 	}
