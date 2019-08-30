@@ -170,7 +170,7 @@ func (s *Server) sendPing(peer *peer.Peer, callback func()) <-chan error {
 }
 
 func (s *Server) requestPeers(to *peer.Peer) <-chan error {
-	s.ensureBond(to)
+	s.ensureVerified(to)
 
 	toID := getNodeID(to.Identity)
 	toAddr := to.Address
@@ -356,23 +356,4 @@ func decode(packet *pb.Packet) (*pb.MessageWrapper, *id.Identity, error) {
 	}
 
 	return wrapper, issuer, nil
-}
-
-// checkBond checks if the given node has a recent enough endpoint proof.
-func (s *Server) checkBond(peer *peer.Peer) bool {
-	return time.Since(s.mgr.db.LastPong(peer)) < pongExpiration
-}
-
-// ensureBond solicits a ping from a node if we haven't seen a ping from it for a while.
-func (s *Server) ensureBond(peer *peer.Peer) {
-	if time.Since(s.mgr.db.LastPing(peer)) >= pongExpiration {
-		<-s.sendPing(peer, nil)
-		// Wait for them to ping back and process our pong.
-		time.Sleep(responseTimeout)
-	}
-}
-
-// expired checks whether the given UNIX time stamp is too far in the past.
-func expired(ts int64) bool {
-	return time.Since(time.Unix(ts, 0)) >= packetExpiration
 }
