@@ -4,7 +4,7 @@ import (
 	pb "github.com/wollac/autopeering/peer/proto"
 )
 
-// TypePort defines the tuple <Type, Port>, e.g, <TCP, 8000>
+// NetworkAddress defines the tuple <Type, Port>, e.g, <TCP, 8000>
 type NetworkAddress struct {
 	Network string
 	Address string

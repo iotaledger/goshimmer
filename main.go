@@ -12,7 +12,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/wollac/autopeering/discover"
-	"github.com/wollac/autopeering/id"
 	"github.com/wollac/autopeering/logger"
 	"github.com/wollac/autopeering/peer"
 	"github.com/wollac/autopeering/transport"
@@ -58,12 +57,8 @@ func parseMaster(s string) (*peer.Peer, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "parseMaster")
 	}
-	identity, err := id.NewIdentity(pubKey)
-	if err != nil {
-		return nil, errors.Wrap(err, "parseMaster")
-	}
 
-	return peer.NewPeer(identity, parts[1]), nil
+	return peer.NewPeer(pubKey, parts[1]), nil
 }
 
 func main() {
@@ -77,6 +72,11 @@ func main() {
 
 	logger := logger.NewLogger(defaultZLC, "debug")
 	defer logger.Sync()
+
+	priv, err := peer.GeneratePrivateKey()
+	if err != nil {
+		log.Fatalf("GeneratePrivateKey: %v", err)
+	}
 
 	addr, err := net.ResolveUDPAddr("udp", *listenAddr)
 	if err != nil {
@@ -101,12 +101,13 @@ func main() {
 
 	// use the UDP connection for transport
 	trans := transport.Conn(conn, func(network, address string) (net.Addr, error) { return net.ResolveUDPAddr(network, address) })
+	defer trans.Close()
 
 	// start the discovery on that connection
-	disc := discover.Listen(trans, peer.NewLocal(), cfg)
+	disc := discover.Listen(trans, peer.NewLocal(priv, peer.NewMapDB(logger.Named("db"))), cfg)
 	defer disc.Close()
 
-	id := base64.StdEncoding.EncodeToString(disc.Local().Private.ID())
+	id := base64.StdEncoding.EncodeToString(disc.Local().PublicKey())
 	fmt.Println("Discovery protocol started: ID=" + id + ", address=" + disc.LocalAddr())
 	fmt.Println("Hit Ctrl+C to exit")
 
