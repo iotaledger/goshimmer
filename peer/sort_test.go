@@ -21,13 +21,13 @@ func TestOrderedDistanceList(t *testing.T) {
 		},
 	}
 
-	remotePeers := make(List, 10)
+	remotePeers := make([]*Peer, 10)
 	for i := range remotePeers {
 		remotePeers[i] = newTestPeer()
 	}
 
 	for _, test := range tests {
-		d := GetOrderedList(test.anchor, test.salt, remotePeers)
+		d := SortBySalt(test.anchor, test.salt, remotePeers)
 
 		prev := d[0]
 		for _, next := range d[1:] {

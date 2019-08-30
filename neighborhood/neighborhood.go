@@ -10,7 +10,7 @@ type Neighborhood struct {
 	Size       int
 }
 
-func GetFurtherestNeighbor(nh Neighborhood) peer.PeerDistance {
+func (nh Neighborhood) getFurtherest() peer.PeerDistance {
 	if len(nh.Neighbours) < nh.Size {
 		return peer.PeerDistance{
 			Remote:   nil,
@@ -27,7 +27,7 @@ func GetFurtherestNeighbor(nh Neighborhood) peer.PeerDistance {
 }
 
 func (nh Neighborhood) Select(candidates []peer.PeerDistance) *peer.Peer {
-	target := GetFurtherestNeighbor(nh)
+	target := nh.getFurtherest()
 	for _, candidate := range candidates {
 		if candidate.Distance < target.Distance {
 			return candidate.Remote

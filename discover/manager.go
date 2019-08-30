@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	revalidateInterval = 10 * time.Second
-	revalidateTries    = 2
+	reverifyInterval = 10 * time.Second
+	reverifyTries    = 2
 
 	maxKnow         = 100
 	maxReplacements = 10
@@ -71,46 +71,46 @@ func (m *manager) loop() {
 	defer m.wg.Done()
 
 	var (
-		revalidate = time.NewTimer(0) // setting this to 0 will cause a trigger right away
+		reverify = time.NewTimer(0) // setting this to 0 will cause a trigger right away
 
-		revalidateDone chan struct{}
+		reverifyDone chan struct{}
 	)
-	defer revalidate.Stop()
+	defer reverify.Stop()
 
 loop:
 	for {
 		select {
-		case <-revalidate.C:
-			// if there is no revalidateDone, this means doRevalidate is not running
-			if revalidateDone == nil {
-				revalidateDone = make(chan struct{})
-				go m.doRevalidate(revalidateDone)
+		case <-reverify.C:
+			// if there is no reverifyDone, this means doReverify is not running
+			if reverifyDone == nil {
+				reverifyDone = make(chan struct{})
+				go m.doReverify(reverifyDone)
 			}
-		case <-revalidateDone:
-			revalidateDone = nil
-			revalidate.Reset(revalidateInterval) // revalidate again after the given interval
+		case <-reverifyDone:
+			reverifyDone = nil
+			reverify.Reset(reverifyInterval) // reverify again after the given interval
 		case <-m.closing:
 			break loop
 		}
 	}
 
-	// wait for the revalidate to finish
-	if revalidateDone != nil {
-		<-revalidateDone
+	// wait for the reverify to finish
+	if reverifyDone != nil {
+		<-reverifyDone
 	}
 }
 
-// doRevalidate pings the oldest known peer.
-func (m *manager) doRevalidate(done chan<- struct{}) {
+// doReverify pings the oldest known peer.
+func (m *manager) doReverify(done chan<- struct{}) {
 	defer func() { done <- struct{}{} }() // always signal, when the function returns
 
-	last := m.peerToRevalidate()
+	last := m.peerToReverify()
 	if last == nil {
-		return // nothing can be revalidate
+		return // nothing can be reverify
 	}
 
 	var err error
-	for i := 0; i < revalidateTries && err != nil; i++ {
+	for i := 0; i < reverifyTries && err != nil; i++ {
 		err = m.net.ping(last)
 	}
 
@@ -138,14 +138,14 @@ func (m *manager) doRevalidate(done chan<- struct{}) {
 		// TODO: this should be independent of the revalidation
 		m.net.requestPeers(last)
 
-		m.log.Debugw("revalidated node",
+		m.log.Debugw("reverified node",
 			"id", last.Identity,
 		)
 	}
 }
 
-// peerToRevalidate returns the oldest peer, or nil if empty.
-func (m *manager) peerToRevalidate() *peer.Peer {
+// peerToReverify returns the oldest peer, or nil if empty.
+func (m *manager) peerToReverify() *peer.Peer {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -234,7 +234,7 @@ func (m *manager) addDiscoveredPeer(p *peer.Peer) {
 
 	m.log.Debugw("addDiscoveredPeer",
 		"id", p.Identity,
-		"address", p.Address,
+		"addr", p.Address,
 	)
 
 	if len(m.known) < maxKnow {
@@ -261,7 +261,7 @@ func (m *manager) addVerifiedPeer(p *peer.Peer) {
 
 	m.log.Debugw("addVerifiedPeer",
 		"id", p.Identity,
-		"address", p.Address,
+		"addr", p.Address,
 	)
 	// new nodes are added to the front
 	m.known = pushPeer(m.known, p, maxKnow)

@@ -6,16 +6,13 @@ import (
 	"github.com/wollac/autopeering/distance"
 )
 
-// List is a slice of peer
-type List = []*Peer
-
 // PeerDistance defines the relative distance wrt a remote peer
 type PeerDistance struct {
 	Remote   *Peer
 	Distance uint32
 }
 
-// ByDistance is a slice of PeerDistance used to sort
+// byDistance is a slice of PeerDistance used to sort
 type byDistance []PeerDistance
 
 func (a byDistance) Len() int           { return len(a) }
@@ -30,8 +27,8 @@ func NewPeerDistance(anchorID, salt []byte, remote *Peer) PeerDistance {
 	}
 }
 
-// GetOrderedList returns a slice of PeerDistance given a list of remote peers
-func GetOrderedList(anchor, salt []byte, remotePeers List) (result []PeerDistance) {
+// SortBySalt returns a slice of PeerDistance given a list of remote peers
+func SortBySalt(anchor, salt []byte, remotePeers []*Peer) (result []PeerDistance) {
 	result = make(byDistance, len(remotePeers))
 	for i, remote := range remotePeers {
 		result[i] = NewPeerDistance(anchor, salt, remote)
