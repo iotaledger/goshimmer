@@ -8,7 +8,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wollac/autopeering/id"
 	"github.com/wollac/autopeering/peer"
 	pb "github.com/wollac/autopeering/proto"
 	"github.com/wollac/autopeering/transport"
@@ -40,28 +39,39 @@ func assertProto(t *testing.T, got, want proto.Message) {
 
 // newTestServer creates a new discovery server and also returns the teardown.
 func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*Server, func()) {
+	priv, err := peer.GeneratePrivateKey()
+	require.NoError(t, err)
+
+	log := logger.Named(name)
+	db := peer.NewMapDB(log.Named("db"))
+	local := peer.NewLocal(priv, db)
+
 	cfg := Config{
 		Log: logger.Named(name),
 	}
-	srv := Listen(trans, peer.NewLocal(), cfg)
+	srv := Listen(trans, local, cfg)
 
 	teardown := func() {
 		time.Sleep(graceTime) // wait a short time for all the packages to propagate
 		srv.Close()
+		db.Close()
 	}
 	return srv, teardown
 }
 
 func TestEncodeDecodePing(t *testing.T) {
-	priv := id.GeneratePrivate()
+	priv, err := peer.GeneratePrivateKey()
+	require.NoError(t, err)
+	// create minimal server just containing the private key
+	s := &Server{local: peer.NewLocal(priv, nil)}
 
 	ping := testPing
-	packet := encode(priv, ping)
+	packet := s.encode(ping)
 
-	wrapper, id, err := decode(packet)
+	wrapper, key, err := decode(packet)
 	require.NoError(t, err)
 
-	assert.Equal(t, id.PublicKey, priv.PublicKey)
+	assert.EqualValues(t, priv.Public(), key)
 	assertProto(t, wrapper.GetPing(), ping)
 }
 
@@ -73,8 +83,8 @@ func TestPingPong(t *testing.T) {
 	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
 	defer closeB()
 
-	peerA := peer.NewPeer(srvA.Local().Identity(), srvA.LocalAddr())
-	peerB := peer.NewPeer(srvB.Local().Identity(), srvB.LocalAddr())
+	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
+	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
 
 	// send a ping from node A to B
 	t.Run("A->B", func(t *testing.T) { assert.NoError(t, srvA.ping(peerB)) })
@@ -92,7 +102,7 @@ func TestPingTimeout(t *testing.T) {
 	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
 	closeB() // close the connection right away to prevent any replies
 
-	peerB := peer.NewPeer(srvB.Local().Identity(), srvB.LocalAddr())
+	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
 
 	// send a ping from node A to B
 	err := srvA.ping(peerB)
@@ -108,7 +118,7 @@ func BenchmarkPingPong(b *testing.B) {
 	srvB, closeB := newTestServer(b, "B", p2p.B, logger)
 	defer closeB()
 
-	peerB := peer.NewPeer(srvB.Local().Identity(), srvB.LocalAddr())
+	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
 
 	b.ResetTimer()
 

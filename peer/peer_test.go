@@ -5,27 +5,50 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wollac/autopeering/id"
+	"golang.org/x/crypto/ed25519"
+)
+
+const (
+	testAddress = "127.0.0.1:8000"
+	testMessage = "Hello World!"
 )
 
 func newTestPeer() *Peer {
-	prv := id.GeneratePrivate()
-	p := &Peer{}
-	p.Identity, _ = id.NewIdentity(prv.PublicKey)
-	p.Address = "127.0.0.1:8000"
-	return p
+	key := make([]byte, ed25519.PublicKeySize)
+	return NewPeer(key, testAddress)
 }
 
 func TestMarshalUnmarshal(t *testing.T) {
 	p := newTestPeer()
-	data, err := Marshal(p)
-	require.Equal(t, nil, err, p)
+	data, err := p.Marshal()
+	require.NoError(t, err)
 
-	got := &Peer{}
-	err = Unmarshal(data, got)
-	require.Equal(t, nil, err, p)
+	got, err := Unmarshal(data)
+	require.NoError(t, err)
 
-	assert.Equal(t, p.Identity, got.Identity, "Identity")
-
-	assert.Equal(t, p.Address, got.Address, "Address")
+	assert.Equal(t, p, got)
 }
+
+func TestRecoverKeyFromSignedData(t *testing.T) {
+	msg := []byte(testMessage)
+
+	pub, priv, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+
+	local := NewLocal(priv, nil)
+	sig := local.Sign(msg)
+
+	d := signedData{pub: pub, msg: msg, sig: sig}
+	key, err := RecoverKeyFromSignedData(d)
+	require.NoError(t, err)
+
+	assert.Equal(t, local.ID(), key.ID())
+}
+
+type signedData struct {
+	pub, msg, sig []byte
+}
+
+func (d signedData) GetPublicKey() []byte { return d.pub }
+func (d signedData) GetData() []byte      { return d.msg }
+func (d signedData) GetSignature() []byte { return d.sig }

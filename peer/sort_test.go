@@ -4,7 +4,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/ed25519"
 )
+
+func newTestPeerWithID(ID byte) *Peer {
+	key := make([]byte, ed25519.PublicKeySize)
+	key[0] = ID
+	return NewPeer(key, testAddress)
+}
 
 func TestOrderedDistanceList(t *testing.T) {
 	type testCase struct {
@@ -23,12 +30,11 @@ func TestOrderedDistanceList(t *testing.T) {
 
 	remotePeers := make([]*Peer, 10)
 	for i := range remotePeers {
-		remotePeers[i] = newTestPeer()
+		remotePeers[i] = newTestPeerWithID(byte(i + 1))
 	}
 
 	for _, test := range tests {
 		d := SortBySalt(test.anchor, test.salt, remotePeers)
-
 		prev := d[0]
 		for _, next := range d[1:] {
 			got := prev.Distance < next.Distance

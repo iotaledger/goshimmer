@@ -15,43 +15,62 @@ const (
 
 	maxKnow         = 100
 	maxReplacements = 10
-
-	bootCount  = 30
-	bootMaxAge = 5 * 24 * time.Hour
 )
 
 type network interface {
-	Local() *peer.Local
+	self() peer.ID
 
 	ping(*peer.Peer) error
-	requestPeers(*peer.Peer) <-chan error
+	requestPeers(*peer.Peer) ([]*peer.Peer, error)
+}
+
+// mpeer represents a discovered peer with additional data.
+// The fields of Peer may not be modified.
+type mpeer struct {
+	peer.Peer
+
+	verifiedCount uint // how often that peer could be verified
+}
+
+func (p *mpeer) ID() peer.ID {
+	return p.Peer.ID()
+}
+
+func (p *mpeer) String() string {
+	return p.Peer.String()
+}
+
+func wrapPeer(p *peer.Peer) *mpeer {
+	return &mpeer{Peer: *p}
+}
+
+func unwrapPeer(p *mpeer) *peer.Peer {
+	return &p.Peer
 }
 
 type manager struct {
-	net  network
-	boot []*peer.Peer
-	log  *zap.SugaredLogger
+	mutex        sync.Mutex // protects  known and replacement
+	known        []*mpeer
+	replacements []*mpeer
 
-	db           *DB
-	known        []*peer.Peer
-	replacements []*peer.Peer
-	mutex        sync.Mutex
+	net network
+	db  *peer.DB // peer database
+	log *zap.SugaredLogger
 
 	wg      sync.WaitGroup
 	closing chan struct{}
 }
 
-func newManager(net network, boot []*peer.Peer, log *zap.SugaredLogger) *manager {
+func newManager(net network, db *peer.DB, boot []*peer.Peer, log *zap.SugaredLogger) *manager {
 	m := &manager{
+		known:        make([]*mpeer, 0, maxKnow),
+		replacements: make([]*mpeer, 0, maxReplacements),
 		net:          net,
-		boot:         boot,
-		db:           NewMapDB(log.Named("db")),
-		known:        make([]*peer.Peer, 0, maxKnow),
-		replacements: make([]*peer.Peer, 0, maxReplacements),
+		db:           db,
 		log:          log,
 		closing:      make(chan struct{}),
 	}
-	m.loadInitialPeers()
+	m.loadInitialPeers(boot)
 
 	m.wg.Add(1)
 	go m.loop()
@@ -59,11 +78,14 @@ func newManager(net network, boot []*peer.Peer, log *zap.SugaredLogger) *manager
 	return m
 }
 
+func (m *manager) self() peer.ID {
+	return m.net.self()
+}
+
 func (m *manager) close() {
 	m.log.Debugf("closing")
 
 	close(m.closing)
-	m.db.Close()
 	m.wg.Wait()
 }
 
@@ -71,13 +93,12 @@ func (m *manager) loop() {
 	defer m.wg.Done()
 
 	var (
-		reverify = time.NewTimer(0) // setting this to 0 will cause a trigger right away
-
+		reverify     = time.NewTimer(0) // setting this to 0 will cause a trigger right away
 		reverifyDone chan struct{}
 	)
 	defer reverify.Stop()
 
-loop:
+Loop:
 	for {
 		select {
 		case <-reverify.C:
@@ -90,7 +111,7 @@ loop:
 			reverifyDone = nil
 			reverify.Reset(reverifyInterval) // reverify again after the given interval
 		case <-m.closing:
-			break loop
+			break Loop
 		}
 	}
 
@@ -111,7 +132,7 @@ func (m *manager) doReverify(done chan<- struct{}) {
 
 	var err error
 	for i := 0; i < reverifyTries && err != nil; i++ {
-		err = m.net.ping(last)
+		err = m.net.ping(unwrapPeer(last))
 	}
 
 	m.mutex.Lock()
@@ -121,57 +142,55 @@ func (m *manager) doReverify(done chan<- struct{}) {
 		if len(m.replacements) == 0 {
 			m.known = m.known[:len(m.known)-1] // pop back
 		} else {
-			var r *peer.Peer
+			var r *mpeer
 			m.replacements, r = deletePeer(m.replacements, rand.Intn(len(m.replacements)))
 			m.known[len(m.known)-1] = r
 		}
 
-		m.log.Debugw("removed dead node",
-			"id", last.Identity,
-			"addr", last.Address,
+		m.log.Debugw("remove dead",
+			"peer", last,
 			"err", err,
 		)
-	} else {
-		m.bumpNode(last)
-
-		// trigger a query
-		// TODO: this should be independent of the revalidation
-		m.net.requestPeers(last)
-
-		m.log.Debugw("reverified node",
-			"id", last.Identity,
-		)
+		return
 	}
+
+	last.verifiedCount++
+	m.bumpPeer(last.ID())
+
+	m.log.Debugw("reverified",
+		"peer", last,
+		"count", last.verifiedCount,
+	)
 }
 
 // peerToReverify returns the oldest peer, or nil if empty.
-func (m *manager) peerToReverify() *peer.Peer {
+func (m *manager) peerToReverify() *mpeer {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if len(m.known) > 0 {
-		// the last peer is the oldest
-		return m.known[len(m.known)-1]
+	if len(m.known) == 0 {
+		return nil
+	}
+	// the last peer is the oldest
+	return m.known[len(m.known)-1]
+}
+
+// bumpPeer moves the peer with the given ID to the front of the list of managed peers.
+// It returns the peer that was bumped, or nil if there was no peer with that id
+func (m *manager) bumpPeer(id peer.ID) *mpeer {
+	for i, p := range m.known {
+		if p.ID() == id {
+			// update and move it to the front
+			copy(m.known[1:], m.known[:i])
+			m.known[0] = p
+			return p
+		}
 	}
 	return nil
 }
 
-func (m *manager) bumpNode(peer *peer.Peer) bool {
-	id := peer.Identity
-
-	for i, p := range m.known {
-		if p.Identity.Equal(id) {
-			// update and move it to the front
-			copy(m.known[1:], m.known[:i])
-			m.known[0] = peer
-			return true
-		}
-	}
-	return false
-}
-
 // pushPeer is a helper function that adds a new peer to the front of the list.
-func pushPeer(list []*peer.Peer, p *peer.Peer, max int) []*peer.Peer {
+func pushPeer(list []*mpeer, p *mpeer, max int) []*mpeer {
 	if len(list) < max {
 		list = append(list, nil)
 	}
@@ -181,12 +200,10 @@ func pushPeer(list []*peer.Peer, p *peer.Peer, max int) []*peer.Peer {
 	return list
 }
 
-// containsPeer is a helper that returns true if the peer is contained in the list.
-func containsPeer(list []*peer.Peer, p *peer.Peer) bool {
-	id := p.Identity
-
+// containsPeer returns true if a peer with the given ID is in the list.
+func containsPeer(list []*mpeer, id peer.ID) bool {
 	for _, p := range list {
-		if p.Identity.Equal(id) {
+		if p.ID() == id {
 			return true
 		}
 	}
@@ -194,7 +211,7 @@ func containsPeer(list []*peer.Peer, p *peer.Peer) bool {
 }
 
 // deletePeer is a helper that deletes the peer with the given index from the list.
-func deletePeer(list []*peer.Peer, i int) ([]*peer.Peer, *peer.Peer) {
+func deletePeer(list []*mpeer, i int) ([]*mpeer, *mpeer) {
 	p := list[i]
 
 	copy(list[i:], list[i+1:])
@@ -203,16 +220,17 @@ func deletePeer(list []*peer.Peer, i int) ([]*peer.Peer, *peer.Peer) {
 	return list[:len(list)-1], p
 }
 
-func (m *manager) addReplacement(p *peer.Peer) {
-	if containsPeer(m.replacements, p) {
+func (m *manager) addReplacement(p *mpeer) {
+	if containsPeer(m.replacements, p.ID()) {
 		return // already in the list
 	}
 	m.replacements = pushPeer(m.replacements, p, maxReplacements)
 }
 
-func (m *manager) loadInitialPeers() {
-	peers := m.db.RandomPeers(bootCount, bootMaxAge)
-	peers = append(peers, m.boot...)
+func (m *manager) loadInitialPeers(boot []*peer.Peer) {
+	var peers []*peer.Peer
+	// TODO: load seed peers from the database
+	peers = append(peers, boot...)
 	for _, peer := range peers {
 		m.addDiscoveredPeer(peer)
 	}
@@ -221,33 +239,32 @@ func (m *manager) loadInitialPeers() {
 // addDiscoveredPeer adds a newly discovered peer that has never been verified or pinged yet.
 func (m *manager) addDiscoveredPeer(p *peer.Peer) {
 	// never add the local peer
-	if m.net.Local().Private.Equal(p.Identity) {
+	if p.ID() == m.self() {
 		return
 	}
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if containsPeer(m.known, p) {
+	if containsPeer(m.known, p.ID()) {
 		return
 	}
-
-	m.log.Debugw("addDiscoveredPeer",
-		"id", p.Identity,
-		"addr", p.Address,
+	m.log.Debugw("add discovered",
+		"peer", p,
 	)
 
+	mp := wrapPeer(p)
 	if len(m.known) < maxKnow {
-		m.known = append(m.known, p)
+		m.known = append(m.known, mp)
 	} else {
-		m.addReplacement(p)
+		m.addReplacement(mp)
 	}
 }
 
 // addVerifiedPeer adds a new peer that has just been successfully pinged.
 func (m *manager) addVerifiedPeer(p *peer.Peer) {
 	// never add the local peer
-	if m.net.Local().Private.Equal(p.Identity) {
+	if p.ID() == m.self() {
 		return
 	}
 
@@ -255,19 +272,23 @@ func (m *manager) addVerifiedPeer(p *peer.Peer) {
 	defer m.mutex.Unlock()
 
 	// if already in the list, move it to the front
-	if m.bumpNode(p) {
+	if mp := m.bumpPeer(p.ID()); mp != nil {
+		mp.verifiedCount++
 		return
 	}
-
-	m.log.Debugw("addVerifiedPeer",
-		"id", p.Identity,
-		"addr", p.Address,
+	m.log.Debugw("add verified",
+		"peer", p,
 	)
+
+	mp := wrapPeer(p)
+	mp.verifiedCount = 1
+
 	// new nodes are added to the front
-	m.known = pushPeer(m.known, p, maxKnow)
+	m.known = pushPeer(m.known, mp, maxKnow)
 }
 
-func (m *manager) getRandomPeers(n int) []*peer.Peer {
+// getRandomPeers returns a list of randomly selected peers.
+func (m *manager) getRandomPeers(n int, minVerified uint) []*peer.Peer {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -277,7 +298,31 @@ func (m *manager) getRandomPeers(n int) []*peer.Peer {
 
 	peers := make([]*peer.Peer, 0, n)
 	for _, i := range rand.Perm(len(m.known)) {
-		peers = append(peers, m.known[i])
+		if len(peers) == n {
+			break
+		}
+
+		mp := m.known[i]
+		if mp.verifiedCount < minVerified {
+			continue
+		}
+		peers = append(peers, unwrapPeer(mp))
+	}
+
+	return peers
+}
+
+// GetVerifiedPeers returns all the currently managed peers that have been verified at least once.
+func (m *manager) GetVerifiedPeers() []*peer.Peer {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	peers := make([]*peer.Peer, 0, len(m.known))
+	for _, mp := range m.known {
+		if mp.verifiedCount == 0 {
+			continue
+		}
+		peers = append(peers, unwrapPeer(mp))
 	}
 
 	return peers
