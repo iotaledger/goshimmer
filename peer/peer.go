@@ -3,6 +3,7 @@ package peer
 import (
 	"errors"
 	"fmt"
+	"net/url"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/wollac/autopeering/peer/proto"
@@ -27,6 +28,16 @@ func (p *Peer) ID() ID {
 // Address returns the address of a peer.
 func (p *Peer) Address() string {
 	return p.address
+}
+
+// String returns a string representation of the peer.
+func (p *Peer) String() string {
+	u := url.URL{
+		Scheme: "peer",
+		User:   url.User(fmt.Sprintf("%x", p.publicKey)),
+		Host:   p.address,
+	}
+	return u.String()
 }
 
 // SignedData is an interface wrapper around data with key and signature.

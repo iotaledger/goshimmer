@@ -15,9 +15,9 @@ func (id ID) Bytes() []byte {
 	return id[:]
 }
 
-// String returns the ID as a hex encoded string.
+// String returns a shortened version of the ID as a hex encoded string.
 func (id ID) String() string {
-	return hex.EncodeToString(id.Bytes())
+	return hex.EncodeToString(id[:8])
 }
 
 // ParseID parses a hex encoded ID.

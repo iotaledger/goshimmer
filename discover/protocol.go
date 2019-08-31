@@ -229,7 +229,8 @@ func (s *Server) validatePeersRequest(m *pb.PeersRequest, fromID peer.ID, fromAd
 }
 
 func (s *Server) handlePeersRequest(m *pb.PeersRequest, fromID peer.ID, fromAddr string, rawData []byte) {
-	peers := s.mgr.getRandomPeers(maxPeersInResponse)
+	// get a random list of verified peers
+	peers := s.mgr.getRandomPeers(maxPeersInResponse, 1)
 	s.send(fromAddr, newPeersResponse(rawData, peers))
 }
 
