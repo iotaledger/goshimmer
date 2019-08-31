@@ -1,8 +1,8 @@
 package discover
 
 import (
-	"bytes"
 	"container/list"
+	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -10,7 +10,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"github.com/wollac/autopeering/id"
 	"github.com/wollac/autopeering/peer"
 	pb "github.com/wollac/autopeering/proto"
 	"github.com/wollac/autopeering/transport"
@@ -44,18 +43,6 @@ type Server struct {
 	closing         chan struct{} // if this channel gets closed all pending waits should terminate
 }
 
-// nodeID is an alias for the public key of the node.
-// For efficiency reasons, we don't use id.Identity directly.
-type nodeID []byte
-
-func getNodeID(id *id.Identity) nodeID {
-	return nodeID(id.ID())
-}
-
-func (id nodeID) equals(x nodeID) bool {
-	return bytes.Equal(id, x)
-}
-
 // replyMatchFunc is the type of the matcher callback. If it returns matched, the
 // reply was acceptable. If requestDone is false, the reply is considered
 // incomplete and the callback will be invoked again for the next matching reply.
@@ -65,7 +52,7 @@ type replyMatcher struct {
 	// fromAddr must match the sender of the reply
 	fromAddr string
 	// fromID must match the sender ID
-	fromID nodeID
+	fromID peer.ID
 	// mtype must match the type of the reply
 	mtype pb.MType
 
@@ -78,15 +65,12 @@ type replyMatcher struct {
 	// errc receives nil when the callback indicates completion or an
 	// error if no further reply is received within the timeout
 	errc chan error
-
-	// reply contains the most recent reply
-	reply pb.Message
 }
 
-// reply is a reply packet from a certain node.
+// reply is a reply packet from a certain peer
 type reply struct {
 	fromAddr string
-	fromID   nodeID
+	fromID   peer.ID
 	message  pb.Message
 
 	// a matching request is indicated via this channel
@@ -104,7 +88,7 @@ func Listen(t transport.Transport, local *peer.Local, cfg Config) *Server {
 		gotreply:        make(chan reply),
 		closing:         make(chan struct{}),
 	}
-	srv.mgr = newManager(srv, cfg.Bootnodes, cfg.Log.Named("mgr"))
+	srv.mgr = newManager(srv, local.Database(), cfg.Bootnodes, cfg.Log.Named("mgr"))
 
 	srv.wg.Add(2)
 	go srv.replyLoop()
@@ -128,68 +112,13 @@ func (s *Server) Local() *peer.Local {
 	return s.local
 }
 
-// LocalAddr returns the address of the local node in string form.
+// LocalAddr returns the address of the local peer in string form.
 func (s *Server) LocalAddr() string {
 	return s.address
 }
 
-func (s *Server) private() *id.Private {
-	return s.local.Private
-}
-
-// ping sends a ping message to the given node and waits for a reply.
-func (s *Server) ping(peer *peer.Peer) error {
-	return <-s.sendPing(peer, nil)
-}
-
-// sendPing pings the given node and invokes the callback when the reply arrives.
-func (s *Server) sendPing(peer *peer.Peer, callback func()) <-chan error {
-	toAddr := peer.Address
-	toID := getNodeID(peer.Identity)
-
-	// create the ping package
-	ping := newPing(s.LocalAddr(), toAddr)
-	pkt := encode(s.private(), ping)
-	// compute the message hash
-	hash := packetHash(pkt.GetData())
-
-	// Add a matcher for the reply to the pending reply queue. Pongs are matched if they
-	// reference the ping we're about to send.
-	errc := s.expectReply(toAddr, toID, pb.MPong, func(m pb.Message) (bool, bool) {
-		matched := bytes.Equal(m.(*pb.Pong).GetPingHash(), hash)
-		if matched && callback != nil {
-			callback()
-		}
-		return matched, matched
-	})
-
-	// send the ping
-	s.write(toAddr, ping.Name(), pkt)
-
-	return errc
-}
-
-func (s *Server) requestPeers(to *peer.Peer) <-chan error {
-	s.ensureVerified(to)
-
-	toID := getNodeID(to.Identity)
-	toAddr := to.Address
-
-	// create the request package
-	req := newPeersRequest()
-	pkt := encode(s.private(), req)
-	// compute the message hash
-	hash := packetHash(pkt.GetData())
-
-	errc := s.expectReply(toAddr, toID, pb.MPeersResponse, func(m pb.Message) (bool, bool) {
-		matched := bytes.Equal(m.(*pb.PeersResponse).GetReqHash(), hash)
-		return matched, matched
-	})
-
-	// send the request
-	s.write(toAddr, req.Name(), pkt)
-
-	return errc
+func (s *Server) self() peer.ID {
+	return s.Local().ID()
 }
 
 // Loop checking for matching replies.
@@ -224,16 +153,15 @@ func (s *Server) replyLoop() {
 
 		// on reply received, check all matchers for fits
 		case r := <-s.gotreply:
-			var matched bool
 			rtype := r.message.Type()
+			matched := false
 			for el := mlist.Front(); el != nil; el = el.Next() {
 				m := el.Value.(*replyMatcher)
-				if m.mtype == rtype && m.fromAddr == r.fromAddr && m.fromID.equals(r.fromID) {
+				if m.mtype == rtype && m.fromID == r.fromID && m.fromAddr == r.fromAddr {
 					ok, requestDone := m.callback(r.message)
 					matched = matched || ok
 
 					if requestDone {
-						m.reply = r.message
 						m.errc <- nil
 						mlist.Remove(el)
 					}
@@ -245,7 +173,7 @@ func (s *Server) replyLoop() {
 		case <-timeout.C:
 			now := time.Now()
 
-			// Notify and remove expired matchers
+			// notify and remove any expired matchers
 			for el := mlist.Front(); el != nil; el = el.Next() {
 				m := el.Value.(*replyMatcher)
 				if now.After(m.deadline) || now.Equal(m.deadline) {
@@ -267,7 +195,7 @@ func (s *Server) replyLoop() {
 
 // Expects a reply message with the given specifications.
 // If eventually nil is returned, a matching message was received.
-func (s *Server) expectReply(fromAddr string, fromID nodeID, mtype pb.MType, callback replyMatchFunc) <-chan error {
+func (s *Server) expectReply(fromAddr string, fromID peer.ID, mtype pb.MType, callback replyMatchFunc) <-chan error {
 	ch := make(chan error, 1)
 	m := &replyMatcher{fromAddr: fromAddr, fromID: fromID, mtype: mtype, callback: callback, errc: ch}
 	select {
@@ -279,10 +207,10 @@ func (s *Server) expectReply(fromAddr string, fromID nodeID, mtype pb.MType, cal
 }
 
 // Process a reply message and returns whether a matching request could be found.
-func (s *Server) handleReply(fromAddr string, fromID *id.Identity, message pb.Message) bool {
+func (s *Server) handleReply(fromAddr string, fromID peer.ID, message pb.Message) bool {
 	matched := make(chan bool, 1)
 	select {
-	case s.gotreply <- reply{fromAddr, getNodeID(fromID), message, matched}:
+	case s.gotreply <- reply{fromAddr, fromID, message, matched}:
 		// wait for matcher and return whether it could be matched
 		return <-matched
 	case <-s.closing:
@@ -290,8 +218,9 @@ func (s *Server) handleReply(fromAddr string, fromID *id.Identity, message pb.Me
 	}
 }
 
+// send a messge to the given address
 func (s *Server) send(toAddr string, msg pb.Message) {
-	pkt := encode(s.private(), msg)
+	pkt := s.encode(msg)
 	s.write(toAddr, msg.Name(), pkt)
 }
 
@@ -300,17 +229,17 @@ func (s *Server) write(toAddr string, mName string, pkt *pb.Packet) {
 	s.log.Debugw("write "+mName, "to", toAddr, "err", err)
 }
 
-func encode(priv *id.Private, message pb.Message) *pb.Packet {
+// encodes a message as a data packet that can be written.
+func (s *Server) encode(message pb.Message) *pb.Packet {
 	// wrap the message before marshaling
 	data, err := proto.Marshal(message.Wrapper())
 	if err != nil {
-		panic("protobuf error: " + err.Error())
+		panic(fmt.Sprintf("protobuf error: %v", err))
 	}
 
-	sig := priv.Sign(data)
 	return &pb.Packet{
-		PublicKey: priv.PublicKey,
-		Signature: sig,
+		PublicKey: s.local.PublicKey(),
+		Signature: s.local.Sign(data),
 		Data:      data,
 	}
 }
@@ -333,27 +262,68 @@ func (s *Server) readLoop() {
 			return
 		}
 
-		if err := s.handlePacket(fromAddr, pkt); err != nil {
+		if err := s.handlePacket(pkt, fromAddr); err != nil {
 			s.log.Warnw("failed to handle packet", "from", fromAddr, "err", err)
 		}
 	}
 }
 
-func decode(packet *pb.Packet) (*pb.MessageWrapper, *id.Identity, error) {
-	issuer, err := id.NewIdentity(packet.GetPublicKey())
+func (s *Server) handlePacket(pkt *pb.Packet, fromAddr string) error {
+	w, fromKey, err := decode(pkt)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "invalid id")
+		return err
+	}
+	if w.GetMessage() == nil {
+		return errNoMessage
+	}
+	fromID := fromKey.ID()
+
+	switch m := w.GetMessage().(type) {
+
+	// Ping
+	case *pb.MessageWrapper_Ping:
+		s.log.Debugw("handle "+m.Ping.Name(), "id", fromID, "addr", fromAddr)
+		if s.validatePing(m.Ping, fromAddr) {
+			s.handlePing(m.Ping, fromID, fromAddr, pkt.GetData())
+		}
+
+	// Pong
+	case *pb.MessageWrapper_Pong:
+		s.log.Debugw("handle "+m.Pong.Name(), "id", fromID, "addr", fromAddr)
+		if s.validatePong(m.Pong, fromID, fromAddr) {
+			s.handlePong(m.Pong, fromID, fromAddr, fromKey)
+		}
+
+	// PeersRequest
+	case *pb.MessageWrapper_PeersRequest:
+		s.log.Debugw("handle "+m.PeersRequest.Name(), "id", fromID, "addr", fromAddr)
+		if s.validatePeersRequest(m.PeersRequest, fromID, fromAddr) {
+			s.handlePeersRequest(m.PeersRequest, fromID, fromAddr, pkt.GetData())
+		}
+
+	// PeersResponse
+	case *pb.MessageWrapper_PeersResponse:
+		s.log.Debugw("handle "+m.PeersResponse.Name(), "id", fromID, "addr", fromAddr)
+		s.validatePeersResponse(m.PeersResponse, fromID, fromAddr)
+		// PeersResponse messages are handled in the handleReply function of the validation
+
+	default:
+		panic(fmt.Sprintf("invalid message type: %T", w.GetMessage()))
 	}
 
-	data := packet.GetData()
-	if !issuer.VerifySignature(data, packet.GetSignature()) {
-		return nil, nil, errors.Wrap(err, "invalid signature")
+	return nil
+}
+
+func decode(pkt *pb.Packet) (*pb.MessageWrapper, peer.PublicKey, error) {
+	key, err := peer.RecoverKeyFromSignedData(pkt)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "invalid packet")
 	}
 
 	wrapper := &pb.MessageWrapper{}
-	if err := proto.Unmarshal(data, wrapper); err != nil {
-		return nil, nil, errors.Wrap(err, "invalid message data")
+	if err := proto.Unmarshal(pkt.GetData(), wrapper); err != nil {
+		return nil, nil, errors.Wrap(err, "invalid message")
 	}
 
-	return wrapper, issuer, nil
+	return wrapper, key, nil
 }
