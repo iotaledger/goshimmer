@@ -21,7 +21,7 @@ type network interface {
 	self() peer.ID
 
 	ping(*peer.Peer) error
-	requestPeers(*peer.Peer) <-chan error
+	requestPeers(*peer.Peer) ([]*peer.Peer, error)
 }
 
 type manager struct {
@@ -71,13 +71,12 @@ func (m *manager) loop() {
 	defer m.wg.Done()
 
 	var (
-		reverify = time.NewTimer(0) // setting this to 0 will cause a trigger right away
-
+		reverify     = time.NewTimer(0) // setting this to 0 will cause a trigger right away
 		reverifyDone chan struct{}
 	)
 	defer reverify.Stop()
 
-loop:
+Loop:
 	for {
 		select {
 		case <-reverify.C:
@@ -90,7 +89,7 @@ loop:
 			reverifyDone = nil
 			reverify.Reset(reverifyInterval) // reverify again after the given interval
 		case <-m.closing:
-			break loop
+			break Loop
 		}
 	}
 
@@ -126,23 +125,19 @@ func (m *manager) doReverify(done chan<- struct{}) {
 			m.known[len(m.known)-1] = r
 		}
 
-		m.log.Debugw("removed dead node",
+		m.log.Debugw("removed dead peer",
 			"id", last.ID(),
 			"addr", last.Address(),
 			"err", err,
 		)
-	} else {
-		m.bumpPeer(last.ID())
-
-		// trigger a query
-		// TODO: this should be independent of the revalidation
-		m.net.requestPeers(last)
-
-		m.log.Debugw("reverified node",
-			"id", last.ID(),
-			"addr", last.Address(),
-		)
+		return
 	}
+
+	m.bumpPeer(last.ID())
+	m.log.Debugw("reverified peer",
+		"id", last.ID(),
+		"addr", last.Address(),
+	)
 }
 
 // peerToReverify returns the oldest peer, or nil if empty.

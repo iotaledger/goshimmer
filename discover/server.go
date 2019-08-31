@@ -65,12 +65,9 @@ type replyMatcher struct {
 	// errc receives nil when the callback indicates completion or an
 	// error if no further reply is received within the timeout
 	errc chan error
-
-	// reply contains the most recent reply
-	reply pb.Message
 }
 
-// reply is a reply packet from a certain node.
+// reply is a reply packet from a certain peer
 type reply struct {
 	fromAddr string
 	fromID   peer.ID
@@ -156,8 +153,8 @@ func (s *Server) replyLoop() {
 
 		// on reply received, check all matchers for fits
 		case r := <-s.gotreply:
-			var matched bool
 			rtype := r.message.Type()
+			matched := false
 			for el := mlist.Front(); el != nil; el = el.Next() {
 				m := el.Value.(*replyMatcher)
 				if m.mtype == rtype && m.fromID == r.fromID && m.fromAddr == r.fromAddr {
@@ -165,7 +162,6 @@ func (s *Server) replyLoop() {
 					matched = matched || ok
 
 					if requestDone {
-						m.reply = r.message
 						m.errc <- nil
 						mlist.Remove(el)
 					}
@@ -177,7 +173,7 @@ func (s *Server) replyLoop() {
 		case <-timeout.C:
 			now := time.Now()
 
-			// Notify and remove expired matchers
+			// notify and remove any expired matchers
 			for el := mlist.Front(); el != nil; el = el.Next() {
 				m := el.Value.(*replyMatcher)
 				if now.After(m.deadline) || now.Equal(m.deadline) {
@@ -222,6 +218,7 @@ func (s *Server) handleReply(fromAddr string, fromID peer.ID, message pb.Message
 	}
 }
 
+// send a messge to the given address
 func (s *Server) send(toAddr string, msg pb.Message) {
 	pkt := s.encode(msg)
 	s.write(toAddr, msg.Name(), pkt)
@@ -232,6 +229,7 @@ func (s *Server) write(toAddr string, mName string, pkt *pb.Packet) {
 	s.log.Debugw("write "+mName, "to", toAddr, "err", err)
 }
 
+// encodes a message as a data packet that can be written.
 func (s *Server) encode(message pb.Message) *pb.Packet {
 	// wrap the message before marshaling
 	data, err := proto.Marshal(message.Wrapper())
@@ -306,9 +304,8 @@ func (s *Server) handlePacket(pkt *pb.Packet, fromAddr string) error {
 	// PeersResponse
 	case *pb.MessageWrapper_PeersResponse:
 		s.log.Debugw("handle "+m.PeersResponse.Name(), "id", fromID, "addr", fromAddr)
-		if s.validatePeersResponse(m.PeersResponse, fromID, fromAddr) {
-			s.handlePeersResponse(m.PeersResponse, fromID, fromAddr)
-		}
+		s.validatePeersResponse(m.PeersResponse, fromID, fromAddr)
+		// PeersResponse messages are handled in the handleReply function of the validation
 
 	default:
 		panic(fmt.Sprintf("invalid message type: %T", w.GetMessage()))

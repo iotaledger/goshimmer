@@ -11,7 +11,8 @@ import (
 
 // ------ message senders ------
 
-// ping sends a ping to the specified peer and waits for a reply.
+// ping sends a ping to the specified peer and blocks until a reply is received
+// or the packe timeout.
 func (s *Server) ping(to *peer.Peer) error {
 	return <-s.sendPing(to.ID(), to.Address())
 }
@@ -36,8 +37,9 @@ func (s *Server) sendPing(toID peer.ID, toAddr string) <-chan error {
 	return errc
 }
 
-// TODO: this should return the received peers.
-func (s *Server) requestPeers(to *peer.Peer) <-chan error {
+// requestPeers request known peers from the given target. This method blocks
+// until a response is received and the provided peers are returned.
+func (s *Server) requestPeers(to *peer.Peer) ([]*peer.Peer, error) {
 	toID := to.ID()
 	toAddr := to.Address()
 	s.ensureVerified(toID, toAddr)
@@ -47,25 +49,39 @@ func (s *Server) requestPeers(to *peer.Peer) <-chan error {
 	pkt := s.encode(req)
 	// compute the message hash
 	hash := packetHash(pkt.GetData())
+	peers := make([]*peer.Peer, 0, maxPeersInResponse)
 
 	errc := s.expectReply(toAddr, to.ID(), pb.MPeersResponse, func(m pb.Message) (bool, bool) {
-		matched := bytes.Equal(m.(*pb.PeersResponse).GetReqHash(), hash)
-		return matched, matched
+		res := m.(*pb.PeersResponse)
+		if !bytes.Equal(res.GetReqHash(), hash) {
+			return false, false
+		}
+
+		for _, rp := range res.GetPeers() {
+			p, err := peer.FromProto(rp)
+			if err != nil {
+				s.log.Warnw("invalid peer received", "err", err)
+				continue
+			}
+			peers = append(peers, p)
+		}
+
+		return true, true
 	})
 
-	// send the request
+	// send the request and wait for the response
 	s.write(toAddr, req.Name(), pkt)
-	return errc
+	return peers, <-errc
 }
 
 // ------ helper functions ------
 
-// isVerified checks if the given node has a recent enough endpoint proof.
+// isVerified checks whether the given peer has recently been verified.a recent enough endpoint proof.
 func (s *Server) isVerified(id peer.ID, address string) bool {
 	return time.Since(s.mgr.db.LastPong(id, address)) < pongExpiration
 }
 
-// ensureVerified checks if the given node has recently sent a ping;
+// ensureVerified checks if the given peer has recently sent a ping;
 // if not, we send a ping to trigger a verification.
 func (s *Server) ensureVerified(id peer.ID, address string) {
 	if time.Since(s.mgr.db.LastPing(id, address)) >= pongExpiration {
@@ -231,15 +247,4 @@ func (s *Server) validatePeersResponse(m *pb.PeersResponse, fromID peer.ID, from
 		return false
 	}
 	return true
-}
-
-func (s *Server) handlePeersResponse(m *pb.PeersResponse, fromID peer.ID, fromAddr string) {
-	for _, rp := range m.GetPeers() {
-		p, err := peer.FromProto(rp)
-		if err != nil {
-			s.log.Warnw("invalid peer received", "from", fromID, "err", err)
-			continue
-		}
-		s.mgr.addDiscoveredPeer(p)
-	}
 }
