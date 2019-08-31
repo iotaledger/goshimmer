@@ -23,7 +23,7 @@ func (a byDistance) Less(i, j int) bool { return a[i].Distance < a[j].Distance }
 func NewPeerDistance(anchorID, salt []byte, remote *Peer) PeerDistance {
 	return PeerDistance{
 		Remote:   remote,
-		Distance: distance.BySalt(anchorID, remote.Identity.ID(), salt),
+		Distance: distance.BySalt(anchorID, remote.ID().Bytes(), salt),
 	}
 }
 
