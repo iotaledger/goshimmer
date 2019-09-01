@@ -36,23 +36,37 @@ const logLevels = [{
 const api = {
   get: async function(u) {
     const url = this.trim('/'+u)
-    const r = await fetch(this.addToken(url))
-    const j = await r.json()
-    if(url.startsWith('login') && j.token) {
-      localStorage.setItem('token', j.token)
-      await sleep(1)
+    try{
+      const r = await fetch(this.addToken(url))
+      const j = await r.json()
+      if (!(r.status >= 200 && r.status < 300)) {
+        throw new Error(j)
+      }
+      if(url.startsWith('login') && j.token) {
+        localStorage.setItem('token', j.token)
+        await sleep(1)
+      }
+      return j
+    } catch(e) {
+      throw e
     }
-    return j
   },
   post: async function(u, data){
     const url = this.trim('/'+u)
-    const r = await fetch(this.addToken(url), {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      data: JSON.stringify(data)
-    })
-    const j = await r.json()
-    return j
+    try{
+      const r = await fetch(this.addToken(url), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        data: JSON.stringify(data)
+      })
+      const j = await r.json()
+      if (!(r.status >= 200 && r.status < 300)) {
+        throw new Error(j)
+      }
+      return j
+    } catch(e) {
+      throw e
+    }
   },
   trim: function(s) {
     return s.replace(/^\//, '');

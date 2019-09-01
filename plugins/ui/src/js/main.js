@@ -13,9 +13,14 @@ new Vue({
       const formData = new FormData(e.target);
       const pass = formData.get('password')
       const user = formData.get('username')
-      const r = await api.get('login?username='+user+'&password='+pass)
-      if(r.token){
-        this.init()
+      try{
+        const r = await api.get('login?username='+user+'&password='+pass)
+        if(r.token){
+          this.init()
+        }
+      }catch(e){
+        this.loginError = 'Not Authorized'
+        setTimeout(()=>this.loginError='',2000)
       }
     },
     async init() {
@@ -43,11 +48,11 @@ new Vue({
     },
     footerContainerStyle() {
       const size = Math.max(window.innerHeight-this.headerSize, 300)
-      return 'height:calc('+(size-1 )+'px - 3.6rem);'
+      return 'height:calc('+(size-1)+'px - 3.6rem);'
     },
     startSpam() {
       console.log('start spam', this.tpsToSpam)
-      api.get('spammer?cmd=start&tps='+this.tpsToSpam+')')
+      api.get('spammer?cmd=start&tps='+this.tpsToSpam)
     },
     stopSpam() {
       console.log('stop spam')
@@ -119,6 +124,9 @@ new Vue({
     synced() { return this.connected ? 'Synced':'......' },
     infoKeys() {
       return ['TPS', 'Node ID', 'Neighbors', 'Peers', 'Uptime']
+    },
+    loginButtonText() {
+      return this.loginError || 'Login'
     },
     infoValues() {
       const i = this.info

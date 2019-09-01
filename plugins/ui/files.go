@@ -241,7 +241,10 @@ body.fade {
                 <span>Password:</span>
                 <input class="input" placeholder="Username" name="password">
               </div>
-              <button type="submit" class="button is-primary">Login</button>
+              <button type="submit" :disabled="loginError?true:false"
+                :class="loginError?'button is-danger':'button is-primary'">
+                {{ loginButtonText }}
+              </button>
             </form>
           </div>
 
@@ -452,6 +455,7 @@ Vue.component('empty-icon', {
   info: {},
   selectedTxHash:null,
   tps:0,
+  loginError:'',
 }
 `,
 	"js/main.js":`new Vue({
@@ -469,9 +473,14 @@ Vue.component('empty-icon', {
       const formData = new FormData(e.target);
       const pass = formData.get('password')
       const user = formData.get('username')
-      const r = await api.get('login?username='+user+'&password='+pass)
-      if(r.token){
-        this.init()
+      try{
+        const r = await api.get('login?username='+user+'&password='+pass)
+        if(r.token){
+          this.init()
+        }
+      }catch(e){
+        this.loginError = 'Not Authorized'
+        setTimeout(()=>this.loginError='',2000)
       }
     },
     async init() {
@@ -499,11 +508,11 @@ Vue.component('empty-icon', {
     },
     footerContainerStyle() {
       const size = Math.max(window.innerHeight-this.headerSize, 300)
-      return 'height:calc('+(size-1 )+'px - 3.6rem);'
+      return 'height:calc('+(size-1)+'px - 3.6rem);'
     },
     startSpam() {
       console.log('start spam', this.tpsToSpam)
-      api.get('spammer?cmd=start&tps='+this.tpsToSpam+')')
+      api.get('spammer?cmd=start&tps='+this.tpsToSpam)
     },
     stopSpam() {
       console.log('stop spam')
@@ -575,6 +584,9 @@ Vue.component('empty-icon', {
     synced() { return this.connected ? 'Synced':'......' },
     infoKeys() {
       return ['TPS', 'Node ID', 'Neighbors', 'Peers', 'Uptime']
+    },
+    loginButtonText() {
+      return this.loginError || 'Login'
     },
     infoValues() {
       const i = this.info
@@ -922,23 +934,37 @@ const logLevels = [{
 const api = {
   get: async function(u) {
     const url = this.trim('/'+u)
-    const r = await fetch(this.addToken(url))
-    const j = await r.json()
-    if(url.startsWith('login') && j.token) {
-      localStorage.setItem('token', j.token)
-      await sleep(1)
+    try{
+      const r = await fetch(this.addToken(url))
+      const j = await r.json()
+      if (!(r.status >= 200 && r.status < 300)) {
+        throw new Error(j)
+      }
+      if(url.startsWith('login') && j.token) {
+        localStorage.setItem('token', j.token)
+        await sleep(1)
+      }
+      return j
+    } catch(e) {
+      throw e
     }
-    return j
   },
   post: async function(u, data){
     const url = this.trim('/'+u)
-    const r = await fetch(this.addToken(url), {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      data: JSON.stringify(data)
-    })
-    const j = await r.json()
-    return j
+    try{
+      const r = await fetch(this.addToken(url), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        data: JSON.stringify(data)
+      })
+      const j = await r.json()
+      if (!(r.status >= 200 && r.status < 300)) {
+        throw new Error(j)
+      }
+      return j
+    } catch(e) {
+      throw e
+    }
   },
   trim: function(s) {
     return s.replace(/^\//, '');

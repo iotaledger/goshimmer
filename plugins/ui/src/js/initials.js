@@ -10,4 +10,5 @@ var initialData = {
   info: {},
   selectedTxHash:null,
   tps:0,
+  loginError:'',
 }

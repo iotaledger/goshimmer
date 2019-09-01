@@ -33,7 +33,10 @@
                 <span>Password:</span>
                 <input class="input" placeholder="Username" name="password">
               </div>
-              <button type="submit" class="button is-primary">Login</button>
+              <button type="submit" :disabled="loginError?true:false"
+                :class="loginError?'button is-danger':'button is-primary'">
+                {{ loginButtonText }}
+              </button>
             </form>
           </div>
 
