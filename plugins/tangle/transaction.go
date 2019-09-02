@@ -1,14 +1,14 @@
 package tangle
 
 import (
-	"github.com/dgraph-io/badger"
+	"github.com/iotaledger/iota.go/trinary"
+
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/datastructure"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/typeutils"
-	"github.com/iotaledger/iota.go/trinary"
 )
 
 // region public api ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -100,7 +100,7 @@ func storeTransactionInDatabase(transaction *value_transaction.ValueTransaction)
 func getTransactionFromDatabase(transactionHash trinary.Trytes) (*value_transaction.ValueTransaction, errors.IdentifiableError) {
 	txData, err := transactionDatabase.Get(typeutils.StringToBytes(transactionHash))
 	if err != nil {
-		if err == badger.ErrKeyNotFound {
+		if err == database.ErrKeyNotFound {
 			return nil, nil
 		} else {
 			return nil, ErrDatabaseError.Derive(err, "failed to retrieve transaction")

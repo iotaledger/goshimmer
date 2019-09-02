@@ -1,14 +1,14 @@
 package tangle
 
 import (
-	"github.com/dgraph-io/badger"
+	"github.com/iotaledger/iota.go/trinary"
+
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/datastructure"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/typeutils"
-	"github.com/iotaledger/iota.go/trinary"
 )
 
 // region global public api ////////////////////////////////////////////////////////////////////////////////////////////
@@ -103,7 +103,7 @@ func storeBundleInDatabase(bundle *bundle.Bundle) errors.IdentifiableError {
 func getBundleFromDatabase(transactionHash trinary.Trytes) (*bundle.Bundle, errors.IdentifiableError) {
 	bundleData, err := bundleDatabase.Get(typeutils.StringToBytes(transactionHash))
 	if err != nil {
-		if err == badger.ErrKeyNotFound {
+		if err == database.ErrKeyNotFound {
 			return nil, nil
 		}
 

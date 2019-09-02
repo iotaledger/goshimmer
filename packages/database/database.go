@@ -6,8 +6,12 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
-var dbMap = make(map[string]*prefixDb)
-var mu sync.Mutex
+var (
+	ErrKeyNotFound = badger.ErrKeyNotFound
+
+	dbMap = make(map[string]*prefixDb)
+	mu    sync.Mutex
+)
 
 type prefixDb struct {
 	db     *badger.DB
@@ -52,7 +56,7 @@ func (this *prefixDb) Contains(key []byte) (bool, error) {
 		return err
 	})
 
-	if err == badger.ErrKeyNotFound {
+	if err == ErrKeyNotFound {
 		return false, nil
 	} else {
 		return err == nil, err

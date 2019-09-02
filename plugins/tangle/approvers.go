@@ -1,14 +1,14 @@
 package tangle
 
 import (
-	"github.com/dgraph-io/badger"
+	"github.com/iotaledger/iota.go/trinary"
+
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/datastructure"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/approvers"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/typeutils"
-	"github.com/iotaledger/iota.go/trinary"
 )
 
 // region global public api ////////////////////////////////////////////////////////////////////////////////////////////
@@ -99,7 +99,7 @@ func storeApproversInDatabase(approvers *approvers.Approvers) errors.Identifiabl
 func getApproversFromDatabase(transactionHash trinary.Trytes) (*approvers.Approvers, errors.IdentifiableError) {
 	approversData, err := approversDatabase.Get(typeutils.StringToBytes(transactionHash))
 	if err != nil {
-		if err == badger.ErrKeyNotFound {
+		if err == database.ErrKeyNotFound {
 			return nil, nil
 		}
 

@@ -3,7 +3,7 @@ package accountability
 import (
 	"sync"
 
-	"github.com/dgraph-io/badger"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/packages/settings"
 )
@@ -39,7 +39,7 @@ func generateNewIdentity() *identity.Identity {
 func getIdentity() *identity.Identity {
 	publicKey, err := settings.Get([]byte("ACCOUNTABILITY_PUBLIC_KEY"))
 	if err != nil {
-		if err == badger.ErrKeyNotFound {
+		if err == database.ErrKeyNotFound {
 			return generateNewIdentity()
 		} else {
 			panic(err)
@@ -48,7 +48,7 @@ func getIdentity() *identity.Identity {
 
 	privateKey, err := settings.Get([]byte("ACCOUNTABILITY_PRIVATE_KEY"))
 	if err != nil {
-		if err == badger.ErrKeyNotFound {
+		if err == database.ErrKeyNotFound {
 			return generateNewIdentity()
 		} else {
 			panic(err)

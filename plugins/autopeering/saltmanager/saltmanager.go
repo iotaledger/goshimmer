@@ -3,8 +3,8 @@ package saltmanager
 import (
 	"time"
 
-	"github.com/dgraph-io/badger"
 	"github.com/iotaledger/goshimmer/packages/daemon"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/settings"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/salt"
@@ -33,7 +33,7 @@ func generateNewSalt(key []byte, lifetime time.Duration) *salt.Salt {
 func getSalt(key []byte, lifetime time.Duration) *salt.Salt {
 	saltBytes, err := settings.Get(key)
 	if err != nil {
-		if err == badger.ErrKeyNotFound {
+		if err == database.ErrKeyNotFound {
 			return generateNewSalt(key, lifetime)
 		} else {
 			panic(err)
