@@ -7,6 +7,7 @@ import (
 	"github.com/wollac/autopeering/peer"
 	peerpb "github.com/wollac/autopeering/peer/proto"
 	pb "github.com/wollac/autopeering/proto"
+	"github.com/wollac/autopeering/salt"
 )
 
 // ------ message senders ------
@@ -74,6 +75,43 @@ func (s *Server) requestPeers(to *peer.Peer) ([]*peer.Peer, error) {
 	return peers, <-errc
 }
 
+// RequestPeering sends a peering request to the given peer. This method blocks
+// until a response is received and the status answer is returned.
+func (s *Server) RequestPeering(to *peer.Peer, salt *salt.Salt) (bool, error) {
+	toID := to.ID()
+	toAddr := to.Address()
+	s.ensureVerified(toID, toAddr)
+
+	// create the request package
+	req := newPeeringRequest(toAddr, salt)
+	pkt := s.encode(req)
+	// compute the message hash
+	hash := packetHash(pkt.GetData())
+
+	var status bool
+	errc := s.expectReply(toAddr, toID, pb.MPeeringResponse, func(m pb.Message) (bool, bool) {
+		res := m.(*pb.PeeringResponse)
+		if !bytes.Equal(res.GetReqHash(), hash) {
+			return false, false
+		}
+		status = res.GetStatus()
+		return true, true
+	})
+
+	// send the request and wait for the response
+	s.write(toAddr, req.Name(), pkt)
+	return status, <-errc
+}
+
+// DropPeer sends a PeeringDrop to the given peer.
+func (s *Server) DropPeer(to *peer.Peer) {
+	toAddr := to.Address()
+
+	drop := newPeeringDrop(toAddr)
+	pkt := s.encode(drop)
+	s.write(toAddr, drop.Name(), pkt)
+}
+
 // ------ helper functions ------
 
 // isVerified checks whether the given peer has recently been verified.a recent enough endpoint proof.
@@ -128,6 +166,28 @@ func newPeersResponse(reqData []byte, list []*peer.Peer) *pb.PeersResponse {
 	return &pb.PeersResponse{
 		ReqHash: packetHash(reqData),
 		Peers:   peers,
+	}
+}
+
+func newPeeringRequest(toAddr string, salt *salt.Salt) *pb.PeeringRequest {
+	return &pb.PeeringRequest{
+		To:        toAddr,
+		Timestamp: time.Now().Unix(),
+		Salt:      salt.ToProto(),
+	}
+}
+
+func newPeeringResponse(reqData []byte, accepted bool) *pb.PeeringResponse {
+	return &pb.PeeringResponse{
+		ReqHash: packetHash(reqData),
+		Status:  accepted,
+	}
+}
+
+func newPeeringDrop(toAddr string) *pb.PeeringDrop {
+	return &pb.PeeringDrop{
+		To:        toAddr,
+		Timestamp: time.Now().Unix(),
 	}
 }
 
@@ -237,6 +297,10 @@ func (s *Server) handlePeersRequest(m *pb.PeersRequest, fromID peer.ID, fromAddr
 func (s *Server) validatePeersResponse(m *pb.PeersResponse, fromID peer.ID, fromAddr string) bool {
 	// there must not be too many peers
 	if len(m.GetPeers()) > maxPeersInResponse {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"#peers", len(m.GetPeers()),
+		)
 		return false
 	}
 	// there must be a request waiting for this response
@@ -248,4 +312,90 @@ func (s *Server) validatePeersResponse(m *pb.PeersResponse, fromID peer.ID, from
 		return false
 	}
 	return true
+}
+
+func (s *Server) validatePeeringRequest(m *pb.PeeringRequest, fromID peer.ID, fromAddr string) bool {
+	// check that To matches the local address
+	if m.GetTo() != s.LocalAddr() {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"to", m.GetTo(),
+		)
+		return false
+	}
+	// check Timestamp
+	if expired(m.GetTimestamp()) {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"ts", time.Unix(m.GetTimestamp(), 0),
+		)
+		return false
+	}
+	// check Salt
+	if _, err := salt.FromProto(m.GetSalt()); err != nil {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"err", err,
+		)
+		return false
+	}
+	return true
+}
+
+func (s *Server) handlePeeringRequest(m *pb.PeeringRequest, fromID peer.ID, fromAddr string, fromKey peer.PublicKey, rawData []byte) {
+	if s.acceptRequest == nil {
+		return
+	}
+
+	salt, err := salt.FromProto(m.GetSalt())
+	if err != nil {
+		s.log.Warnw("invalid salt received", "err", err)
+	}
+
+	accepted := s.acceptRequest(peer.NewPeer(fromKey, fromAddr), salt)
+	res := newPeeringResponse(rawData, accepted)
+	s.send(fromAddr, res)
+}
+
+func (s *Server) validatePeeringResponse(m *pb.PeeringResponse, fromID peer.ID, fromAddr string) bool {
+	// there must be a request waiting for this response
+	if !s.handleReply(fromAddr, fromID, m) {
+		s.log.Debugw("no matching request",
+			"type", m.Name(),
+			"from", fromID,
+		)
+		return false
+	}
+	return true
+}
+
+func (s *Server) validatePeeringDrop(m *pb.PeeringDrop, fromID peer.ID, fromAddr string) bool {
+	// check that To matches the local address
+	if m.GetTo() != s.LocalAddr() {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"to", m.GetTo(),
+		)
+		return false
+	}
+	// check Timestamp
+	if expired(m.GetTimestamp()) {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"ts", time.Unix(m.GetTimestamp(), 0),
+		)
+		return false
+	}
+	return true
+}
+
+func (s *Server) handlePeeringDrop(m *pb.PeeringDrop, fromID peer.ID, fromAddr string) {
+	if s.dropReceived == nil {
+		return
+	}
+
+	select {
+	case s.dropReceived <- fromID:
+	case <-time.After(responseTimeout / 100):
+	}
 }
