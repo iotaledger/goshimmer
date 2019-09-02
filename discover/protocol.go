@@ -78,13 +78,13 @@ func (s *Server) requestPeers(to *peer.Peer) ([]*peer.Peer, error) {
 
 // isVerified checks whether the given peer has recently been verified.a recent enough endpoint proof.
 func (s *Server) isVerified(id peer.ID, address string) bool {
-	return time.Since(s.mgr.db.LastPong(id, address)) < pongExpiration
+	return time.Since(s.local.Database().LastPong(id, address)) < pongExpiration
 }
 
 // ensureVerified checks if the given peer has recently sent a ping;
 // if not, we send a ping to trigger a verification.
 func (s *Server) ensureVerified(id peer.ID, address string) {
-	if time.Since(s.mgr.db.LastPing(id, address)) >= pongExpiration {
+	if time.Since(s.local.Database().LastPing(id, address)) >= pongExpiration {
 		<-s.sendPing(id, address)
 		// Wait for them to ping back and process our pong
 		time.Sleep(responseTimeout)
@@ -170,7 +170,7 @@ func (s *Server) validatePing(m *pb.Ping, fromAddr string) bool {
 }
 
 func (s *Server) handlePing(m *pb.Ping, fromID peer.ID, fromAddr string, rawData []byte) {
-	s.mgr.db.UpdateLastPing(fromID, fromAddr, time.Now())
+	s.local.Database().UpdateLastPing(fromID, fromAddr, time.Now())
 
 	// create and send the pong response
 	pong := newPong(fromAddr, rawData)
@@ -203,7 +203,7 @@ func (s *Server) validatePong(m *pb.Pong, fromID peer.ID, fromAddr string) bool 
 }
 
 func (s *Server) handlePong(m *pb.Pong, fromID peer.ID, fromAddr string, fromKey peer.PublicKey) {
-	s.mgr.db.UpdateLastPong(fromID, fromAddr, time.Now())
+	s.local.Database().UpdateLastPong(fromID, fromAddr, time.Now())
 	// a valid pong verifies the peer
 	s.mgr.addVerifiedPeer(peer.NewPeer(fromKey, fromAddr))
 }

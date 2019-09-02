@@ -111,11 +111,11 @@ func TestPingTimeout(t *testing.T) {
 
 func BenchmarkPingPong(b *testing.B) {
 	p2p := transport.P2P()
-	logger := zap.NewNop().Sugar() // disable logging
+	log := zap.NewNop().Sugar() // disable logging
 
-	srvA, closeA := newTestServer(b, "A", p2p.A, logger)
+	srvA, closeA := newTestServer(b, "A", p2p.A, log)
 	defer closeA()
-	srvB, closeB := newTestServer(b, "B", p2p.B, logger)
+	srvB, closeB := newTestServer(b, "B", p2p.B, log)
 	defer closeB()
 
 	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
