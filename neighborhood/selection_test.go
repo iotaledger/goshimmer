@@ -53,11 +53,11 @@ func TestSelection(t *testing.T) {
 		for _, peer := range test.nh.Neighbors {
 			filter[peer.Remote] = true
 		}
-		fList := filter.Complement(d)
+		fList := filter.Apply(d)
 
 		got := test.nh.Select(fList)
 
-		assert.Equal(t, test.expCandidate, got, "Next Candidate", test)
+		assert.Equal(t, test.expCandidate, got.Remote, "Next Candidate", test)
 	}
 
 }
