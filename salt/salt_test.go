@@ -66,8 +66,8 @@ func TestMarshalUnmarshal(t *testing.T) {
 		err = Unmarshal(data, got)
 		require.Equal(t, nil, err, "NoErrorCheck")
 
-		assert.Equal(t, salt.Bytes, got.Bytes, "Salt")
-		assert.Equal(t, salt.ExpirationTime.Unix(), got.ExpirationTime.Unix(), "SameSaltExpirationTime")
+		assert.Equal(t, salt.GetBytes(), got.GetBytes(), "Salt")
+		assert.Equal(t, salt.GetExpiration().Unix(), got.GetExpiration().Unix(), "SameSaltExpirationTime")
 
 	}
 

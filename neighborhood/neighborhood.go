@@ -6,19 +6,19 @@ import (
 )
 
 type Neighborhood struct {
-	Neighbours []peer.PeerDistance
-	Size       int
+	Neighbors []peer.PeerDistance
+	Size      int
 }
 
 func (nh Neighborhood) getFurtherest() peer.PeerDistance {
-	if len(nh.Neighbours) < nh.Size {
+	if len(nh.Neighbors) < nh.Size {
 		return peer.PeerDistance{
 			Remote:   nil,
 			Distance: distance.Max,
 		}
 	}
-	furtherest := nh.Neighbours[0]
-	for _, neighbor := range nh.Neighbours {
+	furtherest := nh.Neighbors[0]
+	for _, neighbor := range nh.Neighbors {
 		if neighbor.Distance > furtherest.Distance {
 			furtherest = neighbor
 		}

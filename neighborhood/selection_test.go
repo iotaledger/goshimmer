@@ -4,16 +4,17 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/wollac/autopeering/id"
 	"github.com/wollac/autopeering/peer"
+	"golang.org/x/crypto/ed25519"
+)
+
+const (
+	testAddress = "127.0.0.1:8000"
 )
 
 func newTestPeer() *peer.Peer {
-	prv := id.GeneratePrivate()
-	p := &peer.Peer{}
-	p.Identity, _ = id.NewIdentity(prv.PublicKey)
-	p.Address = "127.0.0.1:8000"
-	return p
+	key := make([]byte, ed25519.PublicKeySize)
+	return peer.NewPeer(key, testAddress)
 }
 
 func TestSelection(t *testing.T) {
@@ -49,7 +50,7 @@ func TestSelection(t *testing.T) {
 
 	for _, test := range tests {
 		filter := make(Filter)
-		for _, peer := range test.nh.Neighbours {
+		for _, peer := range test.nh.Neighbors {
 			filter[peer.Remote] = true
 		}
 		fList := filter.Complement(d)
