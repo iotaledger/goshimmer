@@ -58,12 +58,11 @@ func TestMarshalUnmarshal(t *testing.T) {
 
 	for _, test := range tests {
 		salt, _ := NewSalt(test.input)
-		got := &Salt{}
 
-		data, err := Marshal(salt)
+		data, err := salt.Marshal()
 		require.Equal(t, nil, err, "NoErrorCheck")
 
-		err = Unmarshal(data, got)
+		got, err := Unmarshal(data)
 		require.Equal(t, nil, err, "NoErrorCheck")
 
 		assert.Equal(t, salt.Bytes, got.Bytes, "Salt")
