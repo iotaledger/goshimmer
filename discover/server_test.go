@@ -109,13 +109,38 @@ func TestPingTimeout(t *testing.T) {
 	assert.EqualError(t, err, errTimeout.Error())
 }
 
+func TestPeersRequest(t *testing.T) {
+	p2p := transport.P2P()
+
+	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
+	defer closeA()
+	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
+	defer closeB()
+
+	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
+	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+
+	// request peers from node A
+	t.Run("A->B", func(t *testing.T) {
+		if ps, err := srvA.requestPeers(peerB); assert.NoError(t, err) {
+			assert.ElementsMatch(t, []*peer.Peer{peerA}, ps)
+		}
+	})
+	// request peers from node B
+	t.Run("B->A", func(t *testing.T) {
+		if ps, err := srvB.requestPeers(peerA); assert.NoError(t, err) {
+			assert.ElementsMatch(t, []*peer.Peer{peerB}, ps)
+		}
+	})
+}
+
 func BenchmarkPingPong(b *testing.B) {
 	p2p := transport.P2P()
-	logger := zap.NewNop().Sugar() // disable logging
+	log := zap.NewNop().Sugar() // disable logging
 
-	srvA, closeA := newTestServer(b, "A", p2p.A, logger)
+	srvA, closeA := newTestServer(b, "A", p2p.A, log)
 	defer closeA()
-	srvB, closeB := newTestServer(b, "B", p2p.B, logger)
+	srvB, closeB := newTestServer(b, "B", p2p.B, log)
 	defer closeB()
 
 	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
@@ -125,6 +150,30 @@ func BenchmarkPingPong(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		// send a ping from node A to B
 		_ = srvA.ping(peerB)
+	}
+
+	b.StopTimer()
+}
+
+func BenchmarkPeersRequest(b *testing.B) {
+	p2p := transport.P2P()
+	log := zap.NewNop().Sugar() // disable logging
+
+	srvA, closeA := newTestServer(b, "A", p2p.A, log)
+	defer closeA()
+	srvB, closeB := newTestServer(b, "B", p2p.B, log)
+	defer closeB()
+
+	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+
+	// send initial request to ensure that every peer is verified
+	_, err := srvA.requestPeers(peerB)
+	require.NoError(b, err)
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		_, _ = srvA.requestPeers(peerB)
 	}
 
 	b.StopTimer()

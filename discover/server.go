@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/wollac/autopeering/peer"
 	pb "github.com/wollac/autopeering/proto"
+	"github.com/wollac/autopeering/salt"
 	"github.com/wollac/autopeering/transport"
 	"go.uber.org/zap"
 )
@@ -34,6 +35,9 @@ type Server struct {
 	mgr     *manager
 	log     *zap.SugaredLogger
 	address string
+
+	acceptRequest func(*peer.Peer, *salt.Salt) bool
+	dropReceived  chan<- peer.ID
 
 	closeOnce sync.Once
 	wg        sync.WaitGroup
@@ -83,12 +87,14 @@ func Listen(t transport.Transport, local *peer.Local, cfg Config) *Server {
 		trans:           t,
 		local:           local,
 		log:             cfg.Log,
+		acceptRequest:   cfg.AcceptRequest,
+		dropReceived:    cfg.DropReceived,
 		address:         t.LocalAddr(),
 		addReplyMatcher: make(chan *replyMatcher),
 		gotreply:        make(chan reply),
 		closing:         make(chan struct{}),
 	}
-	srv.mgr = newManager(srv, local.Database(), cfg.Bootnodes, cfg.Log.Named("mgr"))
+	srv.mgr = newManager(srv, cfg.Bootnodes, cfg.Log.Named("mgr"))
 
 	srv.wg.Add(2)
 	go srv.replyLoop()
@@ -306,6 +312,26 @@ func (s *Server) handlePacket(pkt *pb.Packet, fromAddr string) error {
 		s.log.Debugw("handle "+m.PeersResponse.Name(), "id", fromID, "addr", fromAddr)
 		s.validatePeersResponse(m.PeersResponse, fromID, fromAddr)
 		// PeersResponse messages are handled in the handleReply function of the validation
+
+	// PeeringRequest
+	case *pb.MessageWrapper_PeeringRequest:
+		s.log.Debugw("handle "+m.PeeringRequest.Name(), "id", fromID, "addr", fromAddr)
+		if s.validatePeeringRequest(m.PeeringRequest, fromID, fromAddr) {
+			s.handlePeeringRequest(m.PeeringRequest, fromID, fromAddr, fromKey, pkt.GetData())
+		}
+
+	// PeeringResponse
+	case *pb.MessageWrapper_PeeringResponse:
+		s.log.Debugw("handle "+m.PeeringResponse.Name(), "id", fromID, "addr", fromAddr)
+		s.validatePeeringResponse(m.PeeringResponse, fromID, fromAddr)
+		// PeeringResponse messages are handled in the handleReply function of the validation
+
+	// PeeringDrop
+	case *pb.MessageWrapper_PeeringDrop:
+		s.log.Debugw("handle "+m.PeeringDrop.Name(), "id", fromID, "addr", fromAddr)
+		if s.validatePeeringDrop(m.PeeringDrop, fromID, fromAddr) {
+			s.handlePeeringDrop(m.PeeringDrop, fromID, fromAddr)
+		}
 
 	default:
 		panic(fmt.Sprintf("invalid message type: %T", w.GetMessage()))

@@ -2,6 +2,7 @@ package salt
 
 import (
 	"crypto/rand"
+	"fmt"
 	"sync"
 	"time"
 
@@ -50,44 +51,36 @@ func (s *Salt) Expired() bool {
 	return time.Now().After(s.GetExpiration())
 }
 
-// ToProto encodes a given Salt (s) into a proto buffer Salt message
-func ToProto(s *Salt) (result *pb.Salt, err error) {
-	result = &pb.Salt{}
-	result.ExpTime = uint64(s.GetExpiration().Unix())
-	result.Bytes = s.bytes
-	return
+// ToProto encodes the Salt into a proto buffer Salt message
+func (s *Salt) ToProto() *pb.Salt {
+	return &pb.Salt{
+		Bytes:   s.Bytes,
+		ExpTime: uint64(s.ExpirationTime.Unix()),
+	}
 }
 
-// FromProto decodes a given proto buffer Salt message (in) into a Salt (out)
-// out MUST NOT be nil
-func FromProto(in *pb.Salt, out *Salt) (err error) {
-	if out == nil {
-		return ErrNilInput
+// FromProto decodes a given proto buffer Salt message (in) and returns the corresponding Salt.
+func FromProto(in *pb.Salt) (*Salt, error) {
+	if l := len(in.GetBytes()); l != SaltByteSize {
+		return nil, fmt.Errorf("invalid salt length: %d, need %d", l, SaltByteSize)
 	}
-	out.expirationTime = time.Unix(int64(in.GetExpTime()), 0)
-	out.bytes = in.GetBytes()
-	return
+	out := &Salt{
+		Bytes:          in.GetBytes(),
+		ExpirationTime: time.Unix(int64(in.GetExpTime()), 0),
+	}
+	return out, nil
 }
 
 // Marshal serializes a given salt (s) into a slice of bytes (data)
-func Marshal(s *Salt) (data []byte, err error) {
-	pb, err := ToProto(s)
-	if err != nil {
-		return nil, ErrMarshal
-	}
-	return proto.Marshal(pb)
+func (s *Salt) Marshal() ([]byte, error) {
+	return proto.Marshal(s.ToProto())
 }
 
-// Unmarshal deserializes a given slice of bytes (data) into a Salt (out)
-// out MUST NOT be nil
-func Unmarshal(data []byte, out *Salt) (err error) {
-	if out == nil {
-		return ErrNilInput
-	}
+// Unmarshal deserializes a given slice of bytes (data) into a Salt.
+func Unmarshal(data []byte) (*Salt, error) {
 	s := &pb.Salt{}
-	err = proto.Unmarshal(data, s)
-	if err != nil {
-		return ErrUnmarshal
+	if err := proto.Unmarshal(data, s); err != nil {
+		return nil, err
 	}
-	return FromProto(s, out)
+	return FromProto(s)
 }

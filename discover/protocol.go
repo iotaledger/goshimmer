@@ -7,6 +7,7 @@ import (
 	"github.com/wollac/autopeering/peer"
 	peerpb "github.com/wollac/autopeering/peer/proto"
 	pb "github.com/wollac/autopeering/proto"
+	"github.com/wollac/autopeering/salt"
 )
 
 // ------ message senders ------
@@ -45,7 +46,7 @@ func (s *Server) requestPeers(to *peer.Peer) ([]*peer.Peer, error) {
 	s.ensureVerified(toID, toAddr)
 
 	// create the request package
-	req := newPeersRequest()
+	req := newPeersRequest(toAddr)
 	pkt := s.encode(req)
 	// compute the message hash
 	hash := packetHash(pkt.GetData())
@@ -74,17 +75,54 @@ func (s *Server) requestPeers(to *peer.Peer) ([]*peer.Peer, error) {
 	return peers, <-errc
 }
 
+// RequestPeering sends a peering request to the given peer. This method blocks
+// until a response is received and the status answer is returned.
+func (s *Server) RequestPeering(to *peer.Peer, salt *salt.Salt) (bool, error) {
+	toID := to.ID()
+	toAddr := to.Address()
+	s.ensureVerified(toID, toAddr)
+
+	// create the request package
+	req := newPeeringRequest(toAddr, salt)
+	pkt := s.encode(req)
+	// compute the message hash
+	hash := packetHash(pkt.GetData())
+
+	var status bool
+	errc := s.expectReply(toAddr, toID, pb.MPeeringResponse, func(m pb.Message) (bool, bool) {
+		res := m.(*pb.PeeringResponse)
+		if !bytes.Equal(res.GetReqHash(), hash) {
+			return false, false
+		}
+		status = res.GetStatus()
+		return true, true
+	})
+
+	// send the request and wait for the response
+	s.write(toAddr, req.Name(), pkt)
+	return status, <-errc
+}
+
+// DropPeer sends a PeeringDrop to the given peer.
+func (s *Server) DropPeer(to *peer.Peer) {
+	toAddr := to.Address()
+
+	drop := newPeeringDrop(toAddr)
+	pkt := s.encode(drop)
+	s.write(toAddr, drop.Name(), pkt)
+}
+
 // ------ helper functions ------
 
 // isVerified checks whether the given peer has recently been verified.a recent enough endpoint proof.
 func (s *Server) isVerified(id peer.ID, address string) bool {
-	return time.Since(s.mgr.db.LastPong(id, address)) < pongExpiration
+	return time.Since(s.local.Database().LastPong(id, address)) < pongExpiration
 }
 
 // ensureVerified checks if the given peer has recently sent a ping;
 // if not, we send a ping to trigger a verification.
 func (s *Server) ensureVerified(id peer.ID, address string) {
-	if time.Since(s.mgr.db.LastPing(id, address)) >= pongExpiration {
+	if time.Since(s.local.Database().LastPing(id, address)) >= pongExpiration {
 		<-s.sendPing(id, address)
 		// Wait for them to ping back and process our pong
 		time.Sleep(responseTimeout)
@@ -114,8 +152,9 @@ func newPong(toAddr string, reqData []byte) *pb.Pong {
 	}
 }
 
-func newPeersRequest() *pb.PeersRequest {
+func newPeersRequest(toAddr string) *pb.PeersRequest {
 	return &pb.PeersRequest{
+		To:        toAddr,
 		Timestamp: time.Now().Unix(),
 	}
 }
@@ -128,6 +167,28 @@ func newPeersResponse(reqData []byte, list []*peer.Peer) *pb.PeersResponse {
 	return &pb.PeersResponse{
 		ReqHash: packetHash(reqData),
 		Peers:   peers,
+	}
+}
+
+func newPeeringRequest(toAddr string, salt *salt.Salt) *pb.PeeringRequest {
+	return &pb.PeeringRequest{
+		To:        toAddr,
+		Timestamp: time.Now().Unix(),
+		Salt:      salt.ToProto(),
+	}
+}
+
+func newPeeringResponse(reqData []byte, accepted bool) *pb.PeeringResponse {
+	return &pb.PeeringResponse{
+		ReqHash: packetHash(reqData),
+		Status:  accepted,
+	}
+}
+
+func newPeeringDrop(toAddr string) *pb.PeeringDrop {
+	return &pb.PeeringDrop{
+		To:        toAddr,
+		Timestamp: time.Now().Unix(),
 	}
 }
 
@@ -170,7 +231,7 @@ func (s *Server) validatePing(m *pb.Ping, fromAddr string) bool {
 }
 
 func (s *Server) handlePing(m *pb.Ping, fromID peer.ID, fromAddr string, rawData []byte) {
-	s.mgr.db.UpdateLastPing(fromID, fromAddr, time.Now())
+	s.local.Database().UpdateLastPing(fromID, fromAddr, time.Now())
 
 	// create and send the pong response
 	pong := newPong(fromAddr, rawData)
@@ -203,12 +264,20 @@ func (s *Server) validatePong(m *pb.Pong, fromID peer.ID, fromAddr string) bool 
 }
 
 func (s *Server) handlePong(m *pb.Pong, fromID peer.ID, fromAddr string, fromKey peer.PublicKey) {
-	s.mgr.db.UpdateLastPong(fromID, fromAddr, time.Now())
+	s.local.Database().UpdateLastPong(fromID, fromAddr, time.Now())
 	// a valid pong verifies the peer
 	s.mgr.addVerifiedPeer(peer.NewPeer(fromKey, fromAddr))
 }
 
 func (s *Server) validatePeersRequest(m *pb.PeersRequest, fromID peer.ID, fromAddr string) bool {
+	// check that To matches the local address
+	if m.GetTo() != s.LocalAddr() {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"to", m.GetTo(),
+		)
+		return false
+	}
 	// check Timestamp
 	if expired(m.GetTimestamp()) {
 		s.log.Debugw("failed to validate",
@@ -237,6 +306,10 @@ func (s *Server) handlePeersRequest(m *pb.PeersRequest, fromID peer.ID, fromAddr
 func (s *Server) validatePeersResponse(m *pb.PeersResponse, fromID peer.ID, fromAddr string) bool {
 	// there must not be too many peers
 	if len(m.GetPeers()) > maxPeersInResponse {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"#peers", len(m.GetPeers()),
+		)
 		return false
 	}
 	// there must be a request waiting for this response
@@ -248,4 +321,90 @@ func (s *Server) validatePeersResponse(m *pb.PeersResponse, fromID peer.ID, from
 		return false
 	}
 	return true
+}
+
+func (s *Server) validatePeeringRequest(m *pb.PeeringRequest, fromID peer.ID, fromAddr string) bool {
+	// check that To matches the local address
+	if m.GetTo() != s.LocalAddr() {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"to", m.GetTo(),
+		)
+		return false
+	}
+	// check Timestamp
+	if expired(m.GetTimestamp()) {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"ts", time.Unix(m.GetTimestamp(), 0),
+		)
+		return false
+	}
+	// check Salt
+	if _, err := salt.FromProto(m.GetSalt()); err != nil {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"err", err,
+		)
+		return false
+	}
+	return true
+}
+
+func (s *Server) handlePeeringRequest(m *pb.PeeringRequest, fromID peer.ID, fromAddr string, fromKey peer.PublicKey, rawData []byte) {
+	if s.acceptRequest == nil {
+		return
+	}
+
+	salt, err := salt.FromProto(m.GetSalt())
+	if err != nil {
+		s.log.Warnw("invalid salt received", "err", err)
+	}
+
+	accepted := s.acceptRequest(peer.NewPeer(fromKey, fromAddr), salt)
+	res := newPeeringResponse(rawData, accepted)
+	s.send(fromAddr, res)
+}
+
+func (s *Server) validatePeeringResponse(m *pb.PeeringResponse, fromID peer.ID, fromAddr string) bool {
+	// there must be a request waiting for this response
+	if !s.handleReply(fromAddr, fromID, m) {
+		s.log.Debugw("no matching request",
+			"type", m.Name(),
+			"from", fromID,
+		)
+		return false
+	}
+	return true
+}
+
+func (s *Server) validatePeeringDrop(m *pb.PeeringDrop, fromID peer.ID, fromAddr string) bool {
+	// check that To matches the local address
+	if m.GetTo() != s.LocalAddr() {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"to", m.GetTo(),
+		)
+		return false
+	}
+	// check Timestamp
+	if expired(m.GetTimestamp()) {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"ts", time.Unix(m.GetTimestamp(), 0),
+		)
+		return false
+	}
+	return true
+}
+
+func (s *Server) handlePeeringDrop(m *pb.PeeringDrop, fromID peer.ID, fromAddr string) {
+	if s.dropReceived == nil {
+		return
+	}
+
+	select {
+	case s.dropReceived <- fromID:
+	case <-time.After(responseTimeout / 100):
+	}
 }

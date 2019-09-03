@@ -26,6 +26,8 @@ message Pong {
 }
 
 message PeersRequest {
+  // string form of the recipient address
+  string to = 3;
   // unix time
   int64 timestamp = 1;
 }
@@ -38,14 +40,12 @@ message PeersResponse {
 }
 
 message PeeringRequest {
-  // protocol version number
-  uint32 version = 1;
   // string form of the recipient address
-  string to = 2;
+  string to = 1;
+  // unix time
+  int64 timestamp = 2;
   // salt of the requester
   Salt salt = 3;
-  // unix time
-  int64 timestamp = 4;
 }
 
 message PeeringResponse {
@@ -69,7 +69,6 @@ message MessageWrapper {
     Pong pong = 2;
     PeersRequest peers_request = 3;
     PeersResponse peers_response = 4;
-    
     PeeringRequest peering_request = 5;
     PeeringResponse peering_response = 6;
     PeeringDrop peering_drop = 7;
