@@ -154,3 +154,27 @@ func BenchmarkPingPong(b *testing.B) {
 
 	b.StopTimer()
 }
+
+func BenchmarkPeersRequest(b *testing.B) {
+	p2p := transport.P2P()
+	log := zap.NewNop().Sugar() // disable logging
+
+	srvA, closeA := newTestServer(b, "A", p2p.A, log)
+	defer closeA()
+	srvB, closeB := newTestServer(b, "B", p2p.B, log)
+	defer closeB()
+
+	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+
+	// send initial request to ensure that every peer is verified
+	_, err := srvA.requestPeers(peerB)
+	require.NoError(b, err)
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		_, _ = srvA.requestPeers(peerB)
+	}
+
+	b.StopTimer()
+}
