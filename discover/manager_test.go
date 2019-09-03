@@ -42,14 +42,14 @@ func newTestManager() (*manager, *NetworkMock, func()) {
 	return mgr, mock, teardown
 }
 
-func TestClose(t *testing.T) {
+func TestMgrClose(t *testing.T) {
 	_, _, close := newTestManager()
 	defer close()
 
 	time.Sleep(graceTime)
 }
 
-func TestVerifyDiscoveredPeer(t *testing.T) {
+func TestMgrVerifyDiscoveredPeer(t *testing.T) {
 	mgr, m, close := newTestManager()
 	defer close()
 
@@ -66,7 +66,7 @@ func TestVerifyDiscoveredPeer(t *testing.T) {
 	m.AssertExpectations(t)
 }
 
-func TestReverifyPeer(t *testing.T) {
+func TestMgrReverifyPeer(t *testing.T) {
 	mgr, m, close := newTestManager()
 	defer close()
 
@@ -83,7 +83,7 @@ func TestReverifyPeer(t *testing.T) {
 	m.AssertExpectations(t)
 }
 
-func TestReverifyDiscoveredPeer(t *testing.T) {
+func TestMgrReverifyDiscoveredPeer(t *testing.T) {
 	mgr, m, close := newTestManager()
 	defer close()
 
@@ -102,7 +102,7 @@ func TestReverifyDiscoveredPeer(t *testing.T) {
 	m.AssertExpectations(t)
 }
 
-func TestRequestDiscoveredPeer(t *testing.T) {
+func TestMgrRequestDiscoveredPeer(t *testing.T) {
 	mgr, m, close := newTestManager()
 	defer close()
 
@@ -121,7 +121,7 @@ func TestRequestDiscoveredPeer(t *testing.T) {
 	m.AssertExpectations(t)
 }
 
-func TestAddManyVerifiedPeers(t *testing.T) {
+func TestMgrAddManyVerifiedPeers(t *testing.T) {
 	mgr, m, close := newTestManager()
 	defer close()
 
@@ -144,7 +144,7 @@ func TestAddManyVerifiedPeers(t *testing.T) {
 	assert.Contains(t, ps, p)
 }
 
-func TestDeleteUnreachablePeer(t *testing.T) {
+func TestMgrDeleteUnreachablePeer(t *testing.T) {
 	mgr, m, close := newTestManager()
 	defer close()
 

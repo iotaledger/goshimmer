@@ -156,11 +156,9 @@ func (m *manager) doReverify(done chan<- struct{}) {
 		return
 	}
 
-	m.bumpPeer(p.ID())
-
+	// no need to do anything here, as the peer is bumped when handling the pong
 	m.log.Debugw("reverified",
 		"peer", p,
-		"count", p.verifiedCount,
 	)
 }
 
@@ -181,6 +179,7 @@ func (m *manager) peerToReverify() *mpeer {
 func (m *manager) bumpPeer(id peer.ID) bool {
 	for i, p := range m.known {
 		if p.ID() == id {
+
 			// update and move it to the front
 			copy(m.known[1:], m.known[:i])
 			m.known[0] = p

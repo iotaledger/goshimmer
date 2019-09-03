@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const graceTime = time.Millisecond
+const graceTime = 5 * time.Millisecond
 
 var (
 	testAddr = "127.0.0.1:8888"
@@ -38,7 +38,7 @@ func assertProto(t *testing.T, got, want proto.Message) {
 }
 
 // newTestServer creates a new discovery server and also returns the teardown.
-func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*Server, func()) {
+func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger, boot ...*peer.Peer) (*Server, func()) {
 	priv, err := peer.GeneratePrivateKey()
 	require.NoError(t, err)
 
@@ -47,7 +47,8 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport, l
 	local := peer.NewLocal(priv, db)
 
 	cfg := Config{
-		Log: logger.Named(name),
+		Log:       logger.Named(name),
+		Bootnodes: boot,
 	}
 	srv := Listen(trans, local, cfg)
 
@@ -59,7 +60,7 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport, l
 	return srv, teardown
 }
 
-func TestEncodeDecodePing(t *testing.T) {
+func TestSrvEncodeDecodePing(t *testing.T) {
 	priv, err := peer.GeneratePrivateKey()
 	require.NoError(t, err)
 	// create minimal server just containing the private key
@@ -75,7 +76,7 @@ func TestEncodeDecodePing(t *testing.T) {
 	assertProto(t, wrapper.GetPing(), ping)
 }
 
-func TestPingPong(t *testing.T) {
+func TestSrvPingPong(t *testing.T) {
 	p2p := transport.P2P()
 
 	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
@@ -94,7 +95,7 @@ func TestPingPong(t *testing.T) {
 	t.Run("B->A", func(t *testing.T) { assert.NoError(t, srvB.ping(peerA)) })
 }
 
-func TestPingTimeout(t *testing.T) {
+func TestSrvPingTimeout(t *testing.T) {
 	p2p := transport.P2P()
 
 	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
@@ -109,7 +110,7 @@ func TestPingTimeout(t *testing.T) {
 	assert.EqualError(t, err, errTimeout.Error())
 }
 
-func TestPeersRequest(t *testing.T) {
+func TestSrvPeersRequest(t *testing.T) {
 	p2p := transport.P2P()
 
 	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
@@ -132,6 +133,23 @@ func TestPeersRequest(t *testing.T) {
 			assert.ElementsMatch(t, []*peer.Peer{peerB}, ps)
 		}
 	})
+}
+
+func TestSrvVerifyBoot(t *testing.T) {
+	p2p := transport.P2P()
+
+	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
+	defer closeA()
+	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
+
+	srvB, closeB := newTestServer(t, "B", p2p.B, logger, peerA)
+	defer closeB()
+
+	time.Sleep(graceTime)
+	if assert.EqualValues(t, 1, len(srvB.mgr.known)) {
+		assert.EqualValues(t, peerA, &srvB.mgr.known[0].Peer)
+		assert.EqualValues(t, 1, srvB.mgr.known[0].verifiedCount)
+	}
 }
 
 func BenchmarkPingPong(b *testing.B) {
