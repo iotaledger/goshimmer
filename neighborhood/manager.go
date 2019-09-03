@@ -48,6 +48,7 @@ type manager struct {
 	outbound Neighborhood
 
 	inboundRequestChan chan PeeringRequest
+	inboundReplyChan   chan bool
 	inboundDropChan    chan *peer.Peer
 	outboundDropChan   chan *peer.Peer
 
@@ -117,7 +118,7 @@ Loop:
 			updateOutbound.Reset(updateOutboundInterval) // updateOutbound again after the given interval
 		case peerToDrop := <-m.outboundDropChan:
 			if containsPeer(m.outbound.GetPeers(), peerToDrop.ID()) {
-				//TODO Remve
+				m.outbound.RemovePeer(peerToDrop)
 				m.rejectionFilter.AddPeer(peerToDrop)
 			}
 		case <-m.closing:
@@ -147,8 +148,7 @@ func (m *manager) loopInbound() {
 			m.updateInbound(req.Requester, req.Salt)
 		case peerToDrop := <-m.inboundDropChan:
 			if containsPeer(m.inbound.GetPeers(), peerToDrop.ID()) {
-				//TODO Remve
-
+				m.inbound.RemovePeer(peerToDrop)
 			}
 		case <-m.closing:
 			return
@@ -205,12 +205,12 @@ func (m *manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
 
 	// reject request
 	if toAccept.Remote == nil {
-		m.net.sendInboundReply(toAccept.Remote, Reject)
+		m.inboundReplyChan <- Reject
 		return
 	}
 
 	// accept request
-	m.net.sendInboundReply(toAccept.Remote, Accept)
+	m.inboundReplyChan <- Accept
 
 	// update inbound neighborhood
 	furtherest := m.inbound.Add(toAccept)
@@ -252,4 +252,10 @@ func containsPeer(list []*peer.Peer, id peer.ID) bool {
 		}
 	}
 	return false
+}
+
+func (m *manager) AcceptRequest(p *peer.Peer, s *salt.Salt) bool {
+	req := PeeringRequest{p, s}
+	m.inboundRequestChan <- req
+	return <-m.inboundReplyChan
 }
