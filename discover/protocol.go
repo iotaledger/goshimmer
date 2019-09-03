@@ -398,13 +398,14 @@ func (s *Server) validatePeeringDrop(m *pb.PeeringDrop, fromID peer.ID, fromAddr
 	return true
 }
 
-func (s *Server) handlePeeringDrop(m *pb.PeeringDrop, fromID peer.ID, fromAddr string) {
+func (s *Server) handlePeeringDrop(m *pb.PeeringDrop, fromID peer.ID, fromAddr string, fromKey peer.PublicKey) {
 	if s.dropReceived == nil {
 		return
 	}
+	s.dropReceived(peer.NewPeer(fromKey, fromAddr))
 
-	select {
-	case s.dropReceived <- fromID:
-	case <-time.After(responseTimeout / 100):
-	}
+	// select {
+	// case s.dropReceived <- fromID:
+	// case <-time.After(responseTimeout / 100):
+	// }
 }

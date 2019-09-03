@@ -1,8 +1,6 @@
 package neighborhood
 
 import (
-	"crypto/sha256"
-
 	"github.com/wollac/autopeering/peer"
 	"go.uber.org/zap"
 )
@@ -15,8 +13,8 @@ type Config struct {
 	GetKnownPeers func() []*peer.Peer
 }
 
-// packetHash returns the hash of a packet
-func packetHash(data []byte) []byte {
-	sum := sha256.Sum256(data)
-	return sum[:]
-}
+// // packetHash returns the hash of a packet
+// func packetHash(data []byte) []byte {
+// 	sum := sha256.Sum256(data)
+// 	return sum[:]
+// }

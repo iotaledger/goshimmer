@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"github.com/wollac/autopeering/neighborhood"
 	"github.com/wollac/autopeering/peer"
 	pb "github.com/wollac/autopeering/proto"
 	"github.com/wollac/autopeering/salt"
@@ -33,11 +34,12 @@ type Server struct {
 	trans   transport.Transport
 	local   *peer.Local
 	mgr     *manager
+	mgrN    *neighborhood.Manager
 	log     *zap.SugaredLogger
 	address string
 
 	acceptRequest func(*peer.Peer, *salt.Salt) bool
-	dropReceived  chan<- peer.ID
+	dropReceived  func(*peer.Peer)
 
 	closeOnce sync.Once
 	wg        sync.WaitGroup
@@ -95,6 +97,8 @@ func Listen(t transport.Transport, local *peer.Local, cfg Config) *Server {
 		closing:         make(chan struct{}),
 	}
 	srv.mgr = newManager(srv, cfg.Bootnodes, cfg.Log.Named("mgr"))
+
+	srv.mgrN = neighborhood.NewManager(srv, srv.mgr.GetVerifiedPeers, cfg.Log.Named("mgrN"))
 
 	srv.wg.Add(2)
 	go srv.replyLoop()
@@ -330,7 +334,7 @@ func (s *Server) handlePacket(pkt *pb.Packet, fromAddr string) error {
 	case *pb.MessageWrapper_PeeringDrop:
 		s.log.Debugw("handle "+m.PeeringDrop.Name(), "id", fromID, "addr", fromAddr)
 		if s.validatePeeringDrop(m.PeeringDrop, fromID, fromAddr) {
-			s.handlePeeringDrop(m.PeeringDrop, fromID, fromAddr)
+			s.handlePeeringDrop(m.PeeringDrop, fromID, fromAddr, fromKey)
 		}
 
 	default:
