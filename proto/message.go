@@ -8,6 +8,9 @@ const (
 	MPong
 	MPeersRequest
 	MPeersResponse
+	MPeeringRequest
+	MPeeringResponse
+	MPeeringDrop
 )
 
 // MType is the type of message type enum.
@@ -48,4 +51,22 @@ func (m *PeersResponse) Name() string { return "PEERS_RESPONSE" }
 func (m *PeersResponse) Type() MType  { return MPeersResponse }
 func (m *PeersResponse) Wrapper() *MessageWrapper {
 	return &MessageWrapper{Message: &MessageWrapper_PeersResponse{PeersResponse: m}}
+}
+
+func (m *PeeringRequest) Name() string { return "PEERING_REQUEST" }
+func (m *PeeringRequest) Type() MType  { return MPeeringRequest }
+func (m *PeeringRequest) Wrapper() *MessageWrapper {
+	return &MessageWrapper{Message: &MessageWrapper_PeeringRequest{PeeringRequest: m}}
+}
+
+func (m *PeeringResponse) Name() string { return "PEERING_RESPONSE" }
+func (m *PeeringResponse) Type() MType  { return MPeeringResponse }
+func (m *PeeringResponse) Wrapper() *MessageWrapper {
+	return &MessageWrapper{Message: &MessageWrapper_PeeringResponse{PeeringResponse: m}}
+}
+
+func (m *PeeringDrop) Name() string { return "PEERING_DROP" }
+func (m *PeeringDrop) Type() MType  { return MPeeringDrop }
+func (m *PeeringDrop) Wrapper() *MessageWrapper {
+	return &MessageWrapper{Message: &MessageWrapper_PeeringDrop{PeeringDrop: m}}
 }
