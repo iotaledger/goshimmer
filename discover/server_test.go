@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wollac/autopeering/peer"
 	pb "github.com/wollac/autopeering/proto"
+	"github.com/wollac/autopeering/salt"
 	"github.com/wollac/autopeering/transport"
 	"go.uber.org/zap"
 )
@@ -75,6 +76,25 @@ func TestSrvEncodeDecodePing(t *testing.T) {
 	assertProto(t, wrapper.GetPing(), ping)
 }
 
+func TestSrvVerifyBoot(t *testing.T) {
+	p2p := transport.P2P()
+
+	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
+	defer closeA()
+	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
+
+	// use peerA as boot peer
+	srvB, closeB := newTestServer(t, "B", p2p.B, logger, peerA)
+
+	time.Sleep(graceTime) // wait for the packages to ripple through the network
+	closeB()              // close srvB to avoid race conditions, when asserting
+
+	if assert.EqualValues(t, 1, len(srvB.mgr.known)) {
+		assert.EqualValues(t, peerA, &srvB.mgr.known[0].Peer)
+		assert.EqualValues(t, 1, srvB.mgr.known[0].verifiedCount)
+	}
+}
+
 func TestSrvPingPong(t *testing.T) {
 	p2p := transport.P2P()
 
@@ -135,22 +155,29 @@ func TestSrvPeersRequest(t *testing.T) {
 	})
 }
 
-func TestSrvVerifyBoot(t *testing.T) {
+func TestSrvPeeringRequest(t *testing.T) {
 	p2p := transport.P2P()
 
 	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
 	defer closeA()
+	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
+	defer closeB()
+
 	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
+	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+	s, err := salt.NewSalt(1 * time.Hour)
+	require.NoError(t, err)
 
-	srvB, closeB := newTestServer(t, "B", p2p.B, logger, peerA)
-
-	time.Sleep(graceTime) // wait for the packages to ripple through the network
-	closeB()              // close servB to avoid race conditions, when asserting
-
-	if assert.EqualValues(t, 1, len(srvB.mgr.known)) {
-		assert.EqualValues(t, peerA, &srvB.mgr.known[0].Peer)
-		assert.EqualValues(t, 1, srvB.mgr.known[0].verifiedCount)
-	}
+	// request peers from node A
+	t.Run("A->B", func(t *testing.T) {
+		_, err := srvA.RequestPeering(peerB, s)
+		assert.NoError(t, err)
+	})
+	// request peers from node B
+	t.Run("B->A", func(t *testing.T) {
+		_, err := srvB.RequestPeering(peerA, s)
+		assert.NoError(t, err)
+	})
 }
 
 func BenchmarkPingPong(b *testing.B) {

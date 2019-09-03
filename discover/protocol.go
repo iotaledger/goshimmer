@@ -353,16 +353,15 @@ func (s *Server) validatePeeringRequest(m *pb.PeeringRequest, fromID peer.ID, fr
 }
 
 func (s *Server) handlePeeringRequest(m *pb.PeeringRequest, fromID peer.ID, fromAddr string, fromKey peer.PublicKey, rawData []byte) {
-	if s.acceptRequest == nil {
-		return
-	}
-
 	salt, err := salt.FromProto(m.GetSalt())
 	if err != nil {
 		s.log.Warnw("invalid salt received", "err", err)
 	}
 
-	accepted := s.acceptRequest(peer.NewPeer(fromKey, fromAddr), salt)
+	var accepted bool
+	if s.acceptRequest != nil {
+		accepted = s.acceptRequest(peer.NewPeer(fromKey, fromAddr), salt)
+	}
 	res := newPeeringResponse(rawData, accepted)
 	s.send(fromAddr, res)
 }
