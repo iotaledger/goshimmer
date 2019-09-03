@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const graceTime = 5 * time.Millisecond
+const graceTime = 20 * time.Millisecond
 
 var (
 	testAddr = "127.0.0.1:8888"
@@ -53,7 +53,6 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport, l
 	srv := Listen(trans, local, cfg)
 
 	teardown := func() {
-		time.Sleep(graceTime) // wait a short time for all the packages to propagate
 		srv.Close()
 		db.Close()
 	}
@@ -93,6 +92,7 @@ func TestSrvPingPong(t *testing.T) {
 
 	// send a ping from node B to A
 	t.Run("B->A", func(t *testing.T) { assert.NoError(t, srvB.ping(peerA)) })
+	time.Sleep(graceTime)
 }
 
 func TestSrvPingTimeout(t *testing.T) {
@@ -143,9 +143,10 @@ func TestSrvVerifyBoot(t *testing.T) {
 	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
 
 	srvB, closeB := newTestServer(t, "B", p2p.B, logger, peerA)
-	defer closeB()
 
-	time.Sleep(graceTime)
+	time.Sleep(graceTime) // wait for the packages to ripple through the network
+	closeB()              // close servB to avoid race conditions, when asserting
+
 	if assert.EqualValues(t, 1, len(srvB.mgr.known)) {
 		assert.EqualValues(t, peerA, &srvB.mgr.known[0].Peer)
 		assert.EqualValues(t, 1, srvB.mgr.known[0].verifiedCount)

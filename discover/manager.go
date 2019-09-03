@@ -57,8 +57,6 @@ func (m *manager) self() peer.ID {
 }
 
 func (m *manager) close() {
-	m.log.Debugf("closing")
-
 	close(m.closing)
 	m.wg.Wait()
 }
@@ -136,11 +134,11 @@ func (m *manager) doReverify(done chan<- struct{}) {
 		}
 	}
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	// could not verify the peer
 	if err != nil {
+		m.mutex.Lock()
+		defer m.mutex.Unlock()
+
 		m.known, _ = deletePeerByID(m.known, p.ID())
 		m.log.Debugw("remove dead",
 			"peer", p,
@@ -179,10 +177,11 @@ func (m *manager) peerToReverify() *mpeer {
 func (m *manager) bumpPeer(id peer.ID) bool {
 	for i, p := range m.known {
 		if p.ID() == id {
-
-			// update and move it to the front
-			copy(m.known[1:], m.known[:i])
-			m.known[0] = p
+			if i > 1 {
+				//  move it to the front
+				copy(m.known[1:], m.known[:i])
+				m.known[0] = p
+			}
 			p.verifiedCount++
 			return true
 		}
