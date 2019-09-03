@@ -39,15 +39,47 @@ func (nh Neighborhood) Select(candidates []peer.PeerDistance) peer.PeerDistance 
 	return peer.PeerDistance{}
 }
 
-func (nh Neighborhood) Add(toAdd peer.PeerDistance) (toDrop *peer.Peer) {
-	_, index := nh.getFurtherest()
-	toDrop = nh.Neighbors[index].Remote
-	nh.Neighbors[index] = toAdd
-	return toDrop
+func (nh *Neighborhood) Add(toAdd peer.PeerDistance) (toDrop *peer.Peer) {
+	p, index := nh.getFurtherest()
+	if p.Remote != nil {
+		toDrop = nh.Neighbors[index].Remote
+		nh.Neighbors[index] = toAdd
+		return toDrop
+	}
+	nh.Neighbors = append(nh.Neighbors, toAdd)
+	return nil
 }
 
-func (nh Neighborhood) UpdateDistance(anchor, salt []byte) {
+func (nh *Neighborhood) RemovePeer(toRemove *peer.Peer) {
+	index := nh.getPeerIndex(toRemove)
+	if index < 0 {
+		return
+	}
+	nh.Neighbors[index] = peer.PeerDistance{}
+	copy(nh.Neighbors[index:], nh.Neighbors[index+1:])
+	nh.Neighbors = nh.Neighbors[:len(nh.Neighbors)-1]
+}
+
+func (nh Neighborhood) getPeerIndex(target *peer.Peer) int {
+	for i, peer := range nh.Neighbors {
+		if peer.Remote == target {
+			return i
+		}
+	}
+	return -1
+
+}
+
+func (nh *Neighborhood) UpdateDistance(anchor, salt []byte) {
 	for i, peer := range nh.Neighbors {
 		nh.Neighbors[i].Distance = distance.BySalt(anchor, peer.Remote.ID().Bytes(), salt)
 	}
+}
+
+func (nh Neighborhood) GetPeers() []*peer.Peer {
+	list := make([]*peer.Peer, len(nh.Neighbors))
+	for i, peer := range nh.Neighbors {
+		list[i] = peer.Remote
+	}
+	return list
 }

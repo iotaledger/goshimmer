@@ -14,6 +14,7 @@ const (
 	repeeringInterval      = 300 * time.Second
 
 	inboundRequestQueue = 100
+	dropQueue           = 100
 
 	Accept = true
 	Reject = false
@@ -24,7 +25,7 @@ const (
 type network interface {
 	Local() *peer.Local
 
-	sendOutboundRequest(*peer.Peer, *salt.Salt, func(bool, error))
+	sendOutboundRequest(*peer.Peer, *salt.Salt) (bool, error)
 
 	sendInboundReply(*peer.Peer, bool)
 
@@ -43,13 +44,12 @@ type manager struct {
 
 	getKnownPeers GetKnownPeers
 
-	inbound       Neighborhood
-	inboundMutex  sync.RWMutex
-	outbound      Neighborhood
-	outboundMutex sync.RWMutex
-	mutex         sync.Mutex
+	inbound  Neighborhood
+	outbound Neighborhood
 
 	inboundRequestChan chan PeeringRequest
+	inboundDropChan    chan *peer.Peer
+	outboundDropChan   chan *peer.Peer
 
 	rejectionFilter Filter
 
@@ -65,6 +65,8 @@ func newManager(net network, getKnownPeers GetKnownPeers, log *zap.SugaredLogger
 		closing:            make(chan struct{}),
 		rejectionFilter:    make(Filter),
 		inboundRequestChan: make(chan PeeringRequest, inboundRequestQueue),
+		inboundDropChan:    make(chan *peer.Peer, dropQueue),
+		outboundDropChan:   make(chan *peer.Peer, dropQueue),
 	}
 
 	m.wg.Add(2)
@@ -94,6 +96,8 @@ func (m *manager) loopOutbound() {
 	)
 	defer updateOutbound.Stop()
 
+	salt := m.net.Local().GetPublicSalt()
+
 Loop:
 	for {
 		select {
@@ -102,11 +106,20 @@ Loop:
 			if updateOutboundDone == nil {
 				updateOutboundDone = make(chan struct{})
 				// check Public Salt (update outbound distances)
+				if salt.Expired() {
+					salt = m.updatePublicSalt()
+				}
+
 				go m.updateOutbound(updateOutboundDone)
 			}
 		case <-updateOutboundDone:
 			updateOutboundDone = nil
 			updateOutbound.Reset(updateOutboundInterval) // updateOutbound again after the given interval
+		case peerToDrop := <-m.outboundDropChan:
+			if containsPeer(m.outbound.GetPeers(), peerToDrop.ID()) {
+				//TODO Remve
+				m.rejectionFilter.AddPeer(peerToDrop)
+			}
 		case <-m.closing:
 			break Loop
 		}
@@ -132,6 +145,11 @@ func (m *manager) loopInbound() {
 			}
 
 			m.updateInbound(req.Requester, req.Salt)
+		case peerToDrop := <-m.inboundDropChan:
+			if containsPeer(m.inbound.GetPeers(), peerToDrop.ID()) {
+				//TODO Remve
+
+			}
 		case <-m.closing:
 			return
 		}
@@ -158,39 +176,32 @@ func (m *manager) updateOutbound(done chan<- struct{}) {
 	candidate := m.inbound.Select(filteredList)
 	if candidate.Remote != nil {
 		// send peering request
-		m.net.sendOutboundRequest(candidate.Remote, m.net.Local().GetPublicSalt(), func(accepted bool, err error) {
-			// add candidate to the outbound neighborhood
-			if accepted {
-				furtherest := m.outbound.Add(candidate)
-				// drop furtherest neighbor
-				if furtherest != nil {
-					m.net.sendDrop(furtherest)
-				}
+		accepted, _ := m.net.sendOutboundRequest(candidate.Remote, m.net.Local().GetPublicSalt())
+		// add candidate to the outbound neighborhood
+		if accepted {
+			furtherest := m.outbound.Add(candidate)
+			// drop furtherest neighbor
+			if furtherest != nil {
+				m.net.sendDrop(furtherest)
 			}
-			// add rejecting peer to the rejection filter
-			if !accepted {
-				m.rejectionFilter.AddPeer(candidate.Remote)
-			}
-			// TODO: handle err
-		})
+		}
+		// add rejecting peer to the rejection filter
+		if !accepted {
+			m.rejectionFilter.AddPeer(candidate.Remote)
+		}
+		// TODO: handle err
 	}
 }
 
 func (m *manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
-	// return if requester is NOT verified
-	if !containsPeer(m.getKnownPeers(), requester.ID()) {
-		return
-	}
-
 	// TODO: check request legitimacy
 
-	// sort verified peers by distance
 	reqDistance := peer.NewPeerDistance(m.net.Local().ID().Bytes(), m.net.Local().GetPrivateSalt().GetBytes(), requester)
 
 	candidateList := []peer.PeerDistance{reqDistance}
 
 	// make decision
-	toAccept := m.outbound.Select(candidateList)
+	toAccept := m.inbound.Select(candidateList)
 
 	// reject request
 	if toAccept.Remote == nil {
@@ -228,31 +239,9 @@ func (m *manager) updatePrivateSalt() *salt.Salt {
 	return salt
 }
 
-func (m *manager) dropNeighbor(peerToDrop *peer.Peer) {
-	checkOutbound := true
-	m.inboundMutex.Lock()
-	neighbors := []peer.PeerDistance{}
-	for _, peer := range m.inbound.Neighbors {
-		if peer.Remote == peerToDrop {
-			checkOutbound = false
-		} else {
-			neighbors = append(neighbors, peer)
-		}
-	}
-	m.inbound.Neighbors = neighbors
-	m.inboundMutex.Unlock()
-
-	if checkOutbound {
-		m.outboundMutex.Lock()
-		neighbors := []peer.PeerDistance{}
-		for _, peer := range m.outbound.Neighbors {
-			if peer.Remote != peerToDrop {
-				neighbors = append(neighbors, peer)
-			}
-		}
-		m.outbound.Neighbors = neighbors
-		m.outboundMutex.Unlock()
-	}
+func (m *manager) DropNeighbor(peerToDrop *peer.Peer) {
+	m.inboundDropChan <- peerToDrop
+	m.outboundDropChan <- peerToDrop
 }
 
 // containsPeer returns true if a peer with the given ID is in the list.

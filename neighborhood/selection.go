@@ -32,3 +32,9 @@ func (f Filter) AddPeer(peer *peer.Peer) {
 func (f Filter) RemovePeer(peer *peer.Peer) {
 	f[peer] = false
 }
+
+func (f Filter) JoinFilter(x Filter) {
+	for k, v := range x {
+		f[k] = v
+	}
+}
