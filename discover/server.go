@@ -94,7 +94,7 @@ func Listen(t transport.Transport, local *peer.Local, cfg Config) *Server {
 		gotreply:        make(chan reply),
 		closing:         make(chan struct{}),
 	}
-	srv.mgr = newManager(srv, local.Database(), cfg.Bootnodes, cfg.Log.Named("mgr"))
+	srv.mgr = newManager(srv, cfg.Bootnodes, cfg.Log.Named("mgr"))
 
 	srv.wg.Add(2)
 	go srv.replyLoop()

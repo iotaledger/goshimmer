@@ -26,6 +26,8 @@ message Pong {
 }
 
 message PeersRequest {
+  // string form of the recipient address
+  string to = 3;
   // unix time
   int64 timestamp = 1;
 }
