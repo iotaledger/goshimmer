@@ -126,6 +126,8 @@ func (m *manager) doReverify(done chan<- struct{}) {
 		return // nothing can be reverified
 	}
 
+	m.log.Debug("doReverify")
+
 	var err error
 	for i := 0; i < reverifyTries; i++ {
 		err = m.net.ping(unwrapPeer(p))

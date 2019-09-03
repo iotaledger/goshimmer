@@ -2,6 +2,7 @@ package discover
 
 import (
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
@@ -19,6 +20,7 @@ func (m *NetworkMock) self() peer.ID {
 }
 
 func (m *NetworkMock) ping(p *peer.Peer) error {
+	log.Println("ping")
 	args := m.Called(p)
 	return args.Error(0)
 }
@@ -60,9 +62,12 @@ func TestMgrVerifyDiscoveredPeer(t *testing.T) {
 	// ignore requestPeers calls
 	m.On("requestPeers", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
 
+	// let the manager initialize
+	time.Sleep(graceTime)
+
 	mgr.addDiscoveredPeer(p)
 
-	time.Sleep(graceTime)
+	mgr.doReverify(make(chan struct{})) // manually trigger a verify
 	m.AssertExpectations(t)
 }
 
@@ -77,28 +82,12 @@ func TestMgrReverifyPeer(t *testing.T) {
 	// ignore requestPeers calls
 	m.On("requestPeers", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
 
+	// let the manager initialize
+	time.Sleep(graceTime)
+
 	mgr.addVerifiedPeer(p)
 
-	time.Sleep(graceTime)
-	m.AssertExpectations(t)
-}
-
-func TestMgrReverifyDiscoveredPeer(t *testing.T) {
-	mgr, m, close := newTestManager()
-	defer close()
-
-	p1 := newDummyPeer("verified")
-	p2 := newDummyPeer("discovered")
-
-	// expect ping of peer p
-	m.On("ping", p2).Return(nil).Once()
-	// ignore requestPeers calls
-	m.On("requestPeers", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
-
-	mgr.addVerifiedPeer(p1)
-	mgr.addDiscoveredPeer(p2)
-
-	time.Sleep(graceTime)
+	mgr.doReverify(make(chan struct{})) // manually trigger a verify
 	m.AssertExpectations(t)
 }
 
@@ -132,12 +121,15 @@ func TestMgrAddManyVerifiedPeers(t *testing.T) {
 	// ignore requestPeers calls
 	m.On("requestPeers", mock.Anything).Return([]*peer.Peer{}, nil)
 
+	// let the manager initialize
+	time.Sleep(graceTime)
+
 	mgr.addVerifiedPeer(p)
 	for i := 0; i < maxKnow+maxReplacements; i++ {
 		mgr.addVerifiedPeer(newDummyPeer(fmt.Sprintf("p%d", i)))
 	}
 
-	time.Sleep(graceTime)
+	mgr.doReverify(make(chan struct{})) // manually trigger a verify
 	ps := mgr.GetVerifiedPeers()
 
 	assert.Equal(t, maxKnow, len(ps))
@@ -155,12 +147,15 @@ func TestMgrDeleteUnreachablePeer(t *testing.T) {
 	// ignore requestPeers calls
 	m.On("requestPeers", mock.Anything).Return([]*peer.Peer{}, nil)
 
+	// let the manager initialize
+	time.Sleep(graceTime)
+
 	mgr.addVerifiedPeer(p)
 	for i := 0; i < maxKnow; i++ {
 		mgr.addVerifiedPeer(newDummyPeer(fmt.Sprintf("p%d", i)))
 	}
 
-	time.Sleep(graceTime)
+	mgr.doReverify(make(chan struct{})) // manually trigger a verify
 	ps := mgr.GetVerifiedPeers()
 
 	assert.Equal(t, maxKnow, len(ps))
