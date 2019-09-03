@@ -17,8 +17,8 @@ type TransportP2P struct {
 // All writes in one client will always be received by the other client, no
 // matter what address was specified.
 func P2P() *TransportP2P {
-	chanA := make(chan transfer, 1)
-	chanB := make(chan transfer, 1)
+	chanA := make(chan transfer, 5)
+	chanB := make(chan transfer, 5)
 
 	return &TransportP2P{
 		A: newChanTransport(chanA, chanB, "A"),
