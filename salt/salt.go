@@ -54,8 +54,8 @@ func (s *Salt) Expired() bool {
 // ToProto encodes the Salt into a proto buffer Salt message
 func (s *Salt) ToProto() *pb.Salt {
 	return &pb.Salt{
-		Bytes:   s.Bytes,
-		ExpTime: uint64(s.ExpirationTime.Unix()),
+		Bytes:   s.bytes,
+		ExpTime: uint64(s.expirationTime.Unix()),
 	}
 }
 
@@ -65,8 +65,8 @@ func FromProto(in *pb.Salt) (*Salt, error) {
 		return nil, fmt.Errorf("invalid salt length: %d, need %d", l, SaltByteSize)
 	}
 	out := &Salt{
-		Bytes:          in.GetBytes(),
-		ExpirationTime: time.Unix(int64(in.GetExpTime()), 0),
+		bytes:          in.GetBytes(),
+		expirationTime: time.Unix(int64(in.GetExpTime()), 0),
 	}
 	return out, nil
 }
