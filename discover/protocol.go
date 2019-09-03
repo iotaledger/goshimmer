@@ -45,7 +45,7 @@ func (s *Server) requestPeers(to *peer.Peer) ([]*peer.Peer, error) {
 	s.ensureVerified(toID, toAddr)
 
 	// create the request package
-	req := newPeersRequest()
+	req := newPeersRequest(toAddr)
 	pkt := s.encode(req)
 	// compute the message hash
 	hash := packetHash(pkt.GetData())
@@ -114,8 +114,9 @@ func newPong(toAddr string, reqData []byte) *pb.Pong {
 	}
 }
 
-func newPeersRequest() *pb.PeersRequest {
+func newPeersRequest(toAddr string) *pb.PeersRequest {
 	return &pb.PeersRequest{
+		To:        toAddr,
 		Timestamp: time.Now().Unix(),
 	}
 }
@@ -209,6 +210,14 @@ func (s *Server) handlePong(m *pb.Pong, fromID peer.ID, fromAddr string, fromKey
 }
 
 func (s *Server) validatePeersRequest(m *pb.PeersRequest, fromID peer.ID, fromAddr string) bool {
+	// check that To matches the local address
+	if m.GetTo() != s.LocalAddr() {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"to", m.GetTo(),
+		)
+		return false
+	}
 	// check Timestamp
 	if expired(m.GetTimestamp()) {
 		s.log.Debugw("failed to validate",
