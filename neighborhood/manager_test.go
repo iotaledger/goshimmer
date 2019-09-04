@@ -1,6 +1,7 @@
 package neighborhood
 
 import (
+	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -48,7 +49,7 @@ type testNet struct {
 }
 
 func (n testNet) DropPeer(p *peer.Peer) {
-	n.mgr[p.ID()].DropNeighbor(n.self)
+	n.mgr[p.ID()].DropNeighbor(n.self.ID())
 }
 
 func (n testNet) Local() *peer.Local {
@@ -70,63 +71,40 @@ func (n testNet) GetKnownPeers() []*peer.Peer {
 	return list
 }
 
-func TestManager(t *testing.T) {
+func TestSimManager(t *testing.T) {
+	N := 3
+	allPeers = make([]*peer.Peer, N)
 	mgrMap := make(map[peer.ID]*Manager)
-
-	A := newPeer("A")
-	B := newPeer("B")
-	C := newPeer("C")
-	netA := testNet{
-		mgr:   mgrMap,
-		local: A.local,
-		self:  A.peer,
-	}
-	netB := testNet{
-		mgr:   mgrMap,
-		local: B.local,
-		self:  B.peer,
-	}
-	netC := testNet{
-		mgr:   mgrMap,
-		local: C.local,
-		self:  C.peer,
-	}
-
-	allPeers = []*peer.Peer{A.peer, B.peer, C.peer}
-
-	mgrMap[A.local.ID()] = NewManager(netA, netA.GetKnownPeers, A.log)
-	mgrMap[B.local.ID()] = NewManager(netB, netB.GetKnownPeers, B.log)
-	mgrMap[C.local.ID()] = NewManager(netC, netC.GetKnownPeers, C.log)
-
-	mgrMap[A.local.ID()].Run()
-	mgrMap[B.local.ID()].Run()
-	mgrMap[C.local.ID()].Run()
-
-	time.Sleep(3 * time.Second)
-
-	neighborhoodA := mgrMap[A.local.ID()].GetNeighbors()
-	neighborhoodB := mgrMap[B.local.ID()].GetNeighbors()
-	neighborhoodC := mgrMap[C.local.ID()].GetNeighbors()
-
-	log.Println("A", neighborhoodA)
-	log.Println("B", neighborhoodB)
-	log.Println("C", neighborhoodC)
-
-	assert.Equal(t, sliceUniqMap(neighborhoodA), neighborhoodA, "A Neighbors")
-	assert.Equal(t, sliceUniqMap(neighborhoodB), neighborhoodB, "B Neighbors")
-	assert.Equal(t, sliceUniqMap(neighborhoodC), neighborhoodC, "A Neighbors")
-}
-
-func sliceUniqMap(s []*peer.Peer) []*peer.Peer {
-	seen := make(map[*peer.Peer]struct{}, len(s))
-	j := 0
-	for _, v := range s {
-		if _, ok := seen[v]; ok {
-			continue
+	neighborhoods := make(map[peer.ID][]*peer.Peer)
+	for i := range allPeers {
+		peer := newPeer(fmt.Sprintf("%d", i))
+		allPeers[i] = peer.peer
+		net := testNet{
+			mgr:   mgrMap,
+			local: peer.local,
+			self:  peer.peer,
 		}
-		seen[v] = struct{}{}
-		s[j] = v
-		j++
+		mgrMap[peer.local.ID()] = NewManager(net, net.GetKnownPeers, peer.log)
 	}
-	return s[:j]
+
+	// for _, p := range allPeers {
+	// 	d := peer.SortBySalt(p.ID().Bytes(), mgrMap[p.ID()].net.Local().GetPublicSalt().GetBytes(), allPeers)
+	// 	log.Println("\n", p.ID())
+	// 	for _, dist := range d {
+	// 		log.Println(dist.Distance)
+	// 	}
+	// }
+
+	for _, peer := range allPeers {
+		mgrMap[peer.ID()].Run()
+	}
+
+	time.Sleep(2 * time.Second)
+
+	for _, peer := range allPeers {
+		neighborhoods[peer.ID()] = mgrMap[peer.ID()].GetNeighbors()
+		log.Println(peer.ID(), neighborhoods[peer.ID()])
+		assert.Equal(t, sliceUniqMap(neighborhoods[peer.ID()]), neighborhoods[peer.ID()], "Neighbors")
+	}
+
 }

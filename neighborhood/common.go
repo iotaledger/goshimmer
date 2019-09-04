@@ -13,8 +13,16 @@ type Config struct {
 	GetKnownPeers func() []*peer.Peer
 }
 
-// // packetHash returns the hash of a packet
-// func packetHash(data []byte) []byte {
-// 	sum := sha256.Sum256(data)
-// 	return sum[:]
-// }
+func sliceUniqMap(s []*peer.Peer) []*peer.Peer {
+	seen := make(map[*peer.Peer]struct{}, len(s))
+	j := 0
+	for _, v := range s {
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		s[j] = v
+		j++
+	}
+	return s[:j]
+}

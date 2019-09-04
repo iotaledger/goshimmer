@@ -89,8 +89,6 @@ func Listen(t transport.Transport, local *peer.Local, cfg Config) *Server {
 		trans:           t,
 		local:           local,
 		log:             cfg.Log,
-		acceptRequest:   cfg.AcceptRequest,
-		dropReceived:    cfg.DropReceived,
 		address:         t.LocalAddr(),
 		addReplyMatcher: make(chan *replyMatcher),
 		gotreply:        make(chan reply),
@@ -99,10 +97,14 @@ func Listen(t transport.Transport, local *peer.Local, cfg Config) *Server {
 	srv.mgr = newManager(srv, cfg.Bootnodes, cfg.Log.Named("mgr"))
 
 	srv.mgrN = neighborhood.NewManager(srv, srv.mgr.GetVerifiedPeers, cfg.Log.Named("mgrN"))
+	srv.acceptRequest = srv.mgrN.AcceptRequest
+	srv.dropReceived = srv.mgrN.DropNeighbor
 
 	srv.wg.Add(2)
 	go srv.replyLoop()
 	go srv.readLoop()
+
+	srv.mgrN.Run()
 
 	return srv
 }
@@ -114,6 +116,7 @@ func (s *Server) Close() {
 		s.mgr.close()
 		s.trans.Close()
 		s.wg.Wait()
+		s.mgrN.Close()
 	})
 }
 

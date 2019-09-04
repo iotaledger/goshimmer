@@ -404,9 +404,4 @@ func (s *Server) handlePeeringDrop(m *pb.PeeringDrop, fromID peer.ID) {
 		return
 	}
 	s.dropReceived(fromID)
-
-	// select {
-	// case s.dropReceived <- fromID:
-	// case <-time.After(responseTimeout / 100):
-	// }
 }

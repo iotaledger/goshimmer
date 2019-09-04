@@ -59,7 +59,7 @@ func (nh *Neighborhood) Add(toAdd peer.PeerDistance) (toDrop *peer.Peer) {
 	return nil
 }
 
-func (nh *Neighborhood) RemovePeer(toRemove *peer.Peer) {
+func (nh *Neighborhood) RemovePeer(toRemove peer.ID) {
 	index := nh.getPeerIndex(toRemove)
 	if index < 0 {
 		return
@@ -71,11 +71,11 @@ func (nh *Neighborhood) RemovePeer(toRemove *peer.Peer) {
 	nh.Neighbors = nh.Neighbors[:len(nh.Neighbors)-1]
 }
 
-func (nh *Neighborhood) getPeerIndex(target *peer.Peer) int {
+func (nh *Neighborhood) getPeerIndex(target peer.ID) int {
 	nh.mutex.RLock()
 	defer nh.mutex.RUnlock()
 	for i, peer := range nh.Neighbors {
-		if peer.Remote == target {
+		if peer.Remote.ID() == target {
 			return i
 		}
 	}

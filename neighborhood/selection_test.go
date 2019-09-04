@@ -13,8 +13,8 @@ const (
 )
 
 func newTestPeer() *peer.Peer {
-	key := make([]byte, ed25519.PublicKeySize)
-	return peer.NewPeer(key, testAddress)
+	key, _, _ := ed25519.GenerateKey(nil)
+	return peer.NewPeer(peer.PublicKey(key), testAddress)
 }
 
 func TestSelection(t *testing.T) {
@@ -57,10 +57,8 @@ func TestSelection(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		filter := make(Filter)
-		for _, peer := range test.nh.Neighbors {
-			filter[peer.Remote] = true
-		}
+		filter := NewFilter()
+		filter.AddPeers(test.nh.GetPeers())
 		fList := filter.Apply(d)
 
 		got := test.nh.Select(fList)

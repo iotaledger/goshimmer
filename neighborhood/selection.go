@@ -1,6 +1,8 @@
 package neighborhood
 
 import (
+	"sync"
+
 	"github.com/wollac/autopeering/peer"
 )
 
@@ -8,33 +10,44 @@ type Selector interface {
 	Select(candidates peer.PeerDistance) *peer.Peer
 }
 
-type Filter map[*peer.Peer]bool
+type Filter struct {
+	internal map[peer.ID]bool
+	lock     sync.RWMutex
+}
 
-func (f Filter) Apply(list []peer.PeerDistance) (filteredList []peer.PeerDistance) {
+func NewFilter() *Filter {
+	return &Filter{
+		internal: make(map[peer.ID]bool),
+	}
+}
+
+func (f *Filter) Apply(list []peer.PeerDistance) (filteredList []peer.PeerDistance) {
+	f.lock.RLock()
+	defer f.lock.RUnlock()
 	for _, peer := range list {
-		if !f[peer.Remote] {
+		if !f.internal[peer.Remote.ID()] {
 			filteredList = append(filteredList, peer)
 		}
 	}
 	return filteredList
 }
 
-func (f Filter) AddPeers(n []*peer.Peer) {
+func (f *Filter) AddPeers(n []*peer.Peer) {
+	f.lock.Lock()
 	for _, peer := range n {
-		f[peer] = true
+		f.internal[peer.ID()] = true
 	}
+	f.lock.Unlock()
 }
 
-func (f Filter) AddPeer(peer *peer.Peer) {
-	f[peer] = true
+func (f *Filter) AddPeer(peer peer.ID) {
+	f.lock.Lock()
+	f.internal[peer] = true
+	f.lock.Unlock()
 }
 
-func (f Filter) RemovePeer(peer *peer.Peer) {
-	f[peer] = false
-}
-
-func (f Filter) JoinFilter(x Filter) {
-	for k, v := range x {
-		f[k] = v
-	}
+func (f *Filter) RemovePeer(peer peer.ID) {
+	f.lock.Lock()
+	f.internal[peer] = false
+	f.lock.Unlock()
 }

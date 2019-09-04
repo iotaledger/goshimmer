@@ -46,6 +46,10 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport, l
 	log := logger.Named(name)
 	db := peer.NewMapDB(log.Named("db"))
 	local := peer.NewLocal(priv, db)
+	s, _ := salt.NewSalt(100 * time.Second)
+	local.SetPrivateSalt(s)
+	s, _ = salt.NewSalt(100 * time.Second)
+	local.SetPublicSalt(s)
 
 	cfg := Config{
 		Log:       logger.Named(name),
