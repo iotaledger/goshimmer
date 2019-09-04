@@ -24,39 +24,6 @@ type network interface {
 	requestPeers(*peer.Peer) ([]*peer.Peer, error)
 }
 
-// mpeer represents a discovered peer with additional data.
-// The fields of Peer may not be modified.
-type mpeer struct {
-	peer.Peer
-
-	verifiedCount uint // how often that peer could be verified
-	lastNewPeers  uint
-}
-
-func (p *mpeer) ID() peer.ID {
-	return p.Peer.ID()
-}
-
-func (p *mpeer) String() string {
-	return p.Peer.String()
-}
-
-func wrapPeer(p *peer.Peer) *mpeer {
-	return &mpeer{Peer: *p}
-}
-
-func unwrapPeer(p *mpeer) *peer.Peer {
-	return &p.Peer
-}
-
-func unwrapPeers(ps []*mpeer) []*peer.Peer {
-	result := make([]*peer.Peer, len(ps))
-	for i, n := range ps {
-		result[i] = unwrapPeer(n)
-	}
-	return result
-}
-
 type manager struct {
 	mutex        sync.Mutex // protects  known and replacement
 	known        []*mpeer
@@ -90,8 +57,6 @@ func (m *manager) self() peer.ID {
 }
 
 func (m *manager) close() {
-	m.log.Debugf("closing")
-
 	close(m.closing)
 	m.wg.Wait()
 }
@@ -156,43 +121,44 @@ Loop:
 func (m *manager) doReverify(done chan<- struct{}) {
 	defer close(done)
 
-	last := m.peerToReverify()
-	if last == nil {
-		return // nothing can be reverify
+	p := m.peerToReverify()
+	if p == nil {
+		return // nothing can be reverified
 	}
+
+	m.log.Debug("doReverify")
 
 	var err error
 	for i := 0; i < reverifyTries; i++ {
-		err = m.net.ping(unwrapPeer(last))
+		err = m.net.ping(unwrapPeer(p))
 		if err == nil {
 			break
 		}
 	}
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
+	// could not verify the peer
 	if err != nil {
-		if len(m.replacements) == 0 {
-			m.known = m.known[:len(m.known)-1] // pop back
-		} else {
-			var r *mpeer
-			m.replacements, r = deletePeer(m.replacements, rand.Intn(len(m.replacements)))
-			m.known[len(m.known)-1] = r
-		}
+		m.mutex.Lock()
+		defer m.mutex.Unlock()
 
+		m.known, _ = deletePeerByID(m.known, p.ID())
 		m.log.Debugw("remove dead",
-			"peer", last,
+			"peer", p,
 			"err", err,
 		)
+
+		// add a random replacement, if available
+		if len(m.replacements) > 0 {
+			var r *mpeer
+			m.replacements, r = deletePeer(m.replacements, rand.Intn(len(m.replacements)))
+			m.known = pushPeer(m.known, r, maxKnow)
+		}
 		return
 	}
 
-	m.bumpPeer(last.ID())
-
+	// no need to do anything here, as the peer is bumped when handling the pong
 	m.log.Debugw("reverified",
-		"peer", last,
-		"count", last.verifiedCount,
+		"peer", p,
 	)
 }
 
@@ -213,9 +179,11 @@ func (m *manager) peerToReverify() *mpeer {
 func (m *manager) bumpPeer(id peer.ID) bool {
 	for i, p := range m.known {
 		if p.ID() == id {
-			// update and move it to the front
-			copy(m.known[1:], m.known[:i])
-			m.known[0] = p
+			if i > 1 {
+				//  move it to the front
+				copy(m.known[1:], m.known[:i])
+				m.known[0] = p
+			}
 			p.verifiedCount++
 			return true
 		}
@@ -223,42 +191,11 @@ func (m *manager) bumpPeer(id peer.ID) bool {
 	return false
 }
 
-// pushPeer is a helper function that adds a new peer to the front of the list.
-func pushPeer(list []*mpeer, p *mpeer, max int) []*mpeer {
-	if len(list) < max {
-		list = append(list, nil)
-	}
-	copy(list[1:], list)
-	list[0] = p
-
-	return list
-}
-
-// containsPeer returns true if a peer with the given ID is in the list.
-func containsPeer(list []*mpeer, id peer.ID) bool {
-	for _, p := range list {
-		if p.ID() == id {
-			return true
-		}
-	}
-	return false
-}
-
-// deletePeer is a helper that deletes the peer with the given index from the list.
-func deletePeer(list []*mpeer, i int) ([]*mpeer, *mpeer) {
-	p := list[i]
-
-	copy(list[i:], list[i+1:])
-	list[len(list)-1] = nil
-
-	return list[:len(list)-1], p
-}
-
 func (m *manager) addReplacement(p *mpeer) bool {
 	if containsPeer(m.replacements, p.ID()) {
 		return false // already in the list
 	}
-	m.replacements = pushPeer(m.replacements, p, maxReplacements)
+	m.replacements = unshiftPeer(m.replacements, p, maxReplacements)
 	return true
 }
 
@@ -294,7 +231,7 @@ func (m *manager) addDiscoveredPeer(p *peer.Peer) bool {
 		return m.addReplacement(mp)
 	}
 
-	m.known = append(m.known, mp)
+	m.known = pushPeer(m.known, mp, maxKnow)
 	return true
 }
 
@@ -325,7 +262,7 @@ func (m *manager) addVerifiedPeer(p *peer.Peer) bool {
 	}
 
 	// new nodes are added to the front
-	m.known = pushPeer(m.known, mp, maxKnow)
+	m.known = unshiftPeer(m.known, mp, maxKnow)
 	return true
 }
 

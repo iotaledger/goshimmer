@@ -10,11 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wollac/autopeering/peer"
 	pb "github.com/wollac/autopeering/proto"
+	"github.com/wollac/autopeering/salt"
 	"github.com/wollac/autopeering/transport"
 	"go.uber.org/zap"
 )
 
-const graceTime = time.Millisecond
+const graceTime = 20 * time.Millisecond
 
 var (
 	testAddr = "127.0.0.1:8888"
@@ -38,7 +39,7 @@ func assertProto(t *testing.T, got, want proto.Message) {
 }
 
 // newTestServer creates a new discovery server and also returns the teardown.
-func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*Server, func()) {
+func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger, boot ...*peer.Peer) (*Server, func()) {
 	priv, err := peer.GeneratePrivateKey()
 	require.NoError(t, err)
 
@@ -47,19 +48,19 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport, l
 	local := peer.NewLocal(priv, db)
 
 	cfg := Config{
-		Log: logger.Named(name),
+		Log:       logger.Named(name),
+		Bootnodes: boot,
 	}
 	srv := Listen(trans, local, cfg)
 
 	teardown := func() {
-		time.Sleep(graceTime) // wait a short time for all the packages to propagate
 		srv.Close()
 		db.Close()
 	}
 	return srv, teardown
 }
 
-func TestEncodeDecodePing(t *testing.T) {
+func TestSrvEncodeDecodePing(t *testing.T) {
 	priv, err := peer.GeneratePrivateKey()
 	require.NoError(t, err)
 	// create minimal server just containing the private key
@@ -75,7 +76,26 @@ func TestEncodeDecodePing(t *testing.T) {
 	assertProto(t, wrapper.GetPing(), ping)
 }
 
-func TestPingPong(t *testing.T) {
+func TestSrvVerifyBoot(t *testing.T) {
+	p2p := transport.P2P()
+
+	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
+	defer closeA()
+	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
+
+	// use peerA as boot peer
+	srvB, closeB := newTestServer(t, "B", p2p.B, logger, peerA)
+
+	time.Sleep(graceTime) // wait for the packages to ripple through the network
+	closeB()              // close srvB to avoid race conditions, when asserting
+
+	if assert.EqualValues(t, 1, len(srvB.mgr.known)) {
+		assert.EqualValues(t, peerA, &srvB.mgr.known[0].Peer)
+		assert.EqualValues(t, 1, srvB.mgr.known[0].verifiedCount)
+	}
+}
+
+func TestSrvPingPong(t *testing.T) {
 	p2p := transport.P2P()
 
 	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
@@ -92,9 +112,10 @@ func TestPingPong(t *testing.T) {
 
 	// send a ping from node B to A
 	t.Run("B->A", func(t *testing.T) { assert.NoError(t, srvB.ping(peerA)) })
+	time.Sleep(graceTime)
 }
 
-func TestPingTimeout(t *testing.T) {
+func TestSrvPingTimeout(t *testing.T) {
 	p2p := transport.P2P()
 
 	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
@@ -109,7 +130,7 @@ func TestPingTimeout(t *testing.T) {
 	assert.EqualError(t, err, errTimeout.Error())
 }
 
-func TestPeersRequest(t *testing.T) {
+func TestSrvPeersRequest(t *testing.T) {
 	p2p := transport.P2P()
 
 	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
@@ -131,6 +152,31 @@ func TestPeersRequest(t *testing.T) {
 		if ps, err := srvB.requestPeers(peerA); assert.NoError(t, err) {
 			assert.ElementsMatch(t, []*peer.Peer{peerB}, ps)
 		}
+	})
+}
+
+func TestSrvPeeringRequest(t *testing.T) {
+	p2p := transport.P2P()
+
+	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
+	defer closeA()
+	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
+	defer closeB()
+
+	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
+	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+	s, err := salt.NewSalt(1 * time.Hour)
+	require.NoError(t, err)
+
+	// request peers from node A
+	t.Run("A->B", func(t *testing.T) {
+		_, err := srvA.RequestPeering(peerB, s)
+		assert.NoError(t, err)
+	})
+	// request peers from node B
+	t.Run("B->A", func(t *testing.T) {
+		_, err := srvB.RequestPeering(peerA, s)
+		assert.NoError(t, err)
 	})
 }
 
