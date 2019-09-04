@@ -17,8 +17,8 @@ type TransportP2P struct {
 // All writes in one client will always be received by the other client, no
 // matter what address was specified.
 func P2P() *TransportP2P {
-	chanA := make(chan transfer, 1)
-	chanB := make(chan transfer, 1)
+	chanA := make(chan transfer, 5)
+	chanB := make(chan transfer, 5)
 
 	return &TransportP2P{
 		A: newChanTransport(chanA, chanB, "A"),
@@ -51,6 +51,7 @@ func newChanTransport(in <-chan transfer, out chan<- transfer, address string) *
 	}
 }
 
+// ReadFrom implements the Transport ReadFrom method.
 func (t *chanTransport) ReadFrom() (*pb.Packet, string, error) {
 	select {
 	case res := <-t.in:
@@ -60,6 +61,7 @@ func (t *chanTransport) ReadFrom() (*pb.Packet, string, error) {
 	}
 }
 
+// WriteTo implements the Transport WriteTo method.
 func (t *chanTransport) WriteTo(pkt *pb.Packet, address string) error {
 	// clone the packet before sending, just to make sure...
 	req := transfer{pkt: &pb.Packet{}, addr: t.localAddr}
@@ -73,12 +75,14 @@ func (t *chanTransport) WriteTo(pkt *pb.Packet, address string) error {
 	}
 }
 
+// Close closes the transport layer.
 func (t *chanTransport) Close() {
 	t.closeOnce.Do(func() {
 		close(t.closing)
 	})
 }
 
+// LocalAddr returns the local network address.
 func (t *chanTransport) LocalAddr() string {
 	return t.localAddr
 }

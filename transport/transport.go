@@ -22,7 +22,7 @@ type Transport interface {
 	// WriteTo writes a packet to the string encoded target address.
 	WriteTo(pkt *pb.Packet, address string) error
 
-	// Close closes the connection.
+	// Close closes the transport layer.
 	// Any blocked ReadFrom or WriteTo operations will return errors.
 	Close()
 

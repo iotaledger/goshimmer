@@ -4,6 +4,9 @@ option go_package = "github.com/wollac/autopeering/proto";
 
 package proto;
 
+import "peer/proto/peer.proto";
+import "salt/proto/salt.proto";
+
 message Ping {
   // protocol version number
   uint32 version = 1;
@@ -11,13 +14,52 @@ message Ping {
   string from = 2;
   // string form of the recipient address
   string to = 3;
+  // unix time
+  int64 timestamp = 4;
 }
 
 message Pong {
+  // hash of the ping packet
+  bytes ping_hash = 1;
+  // string form of the recipient address
+  string to = 2;
+}
+
+message PeersRequest {
+  // string form of the recipient address
+  string to = 3;
+  // unix time
+  int64 timestamp = 1;
+}
+
+message PeersResponse {
+  // hash of the corresponding request
+  bytes req_hash = 1;
+  // list of peers
+  repeated Peer peers = 2;
+}
+
+message PeeringRequest {
   // string form of the recipient address
   string to = 1;
-  // hash of the ping packet
-  bytes ping_hash = 2;
+  // unix time
+  int64 timestamp = 2;
+  // salt of the requester
+  Salt salt = 3;
+}
+
+message PeeringResponse {
+  // hash of the corresponding request
+  bytes req_hash = 1;
+  // response of a peering request
+  bool status = 2;
+}
+
+message PeeringDrop {
+  // string form of the recipient address
+  string to = 1;
+  // unix time
+  int64 timestamp = 2;
 }
 
 // wrapper to contain all the different messages
@@ -25,5 +67,10 @@ message MessageWrapper {
   oneof message {
     Ping ping = 1;
     Pong pong = 2;
+    PeersRequest peers_request = 3;
+    PeersResponse peers_response = 4;
+    PeeringRequest peering_request = 5;
+    PeeringResponse peering_response = 6;
+    PeeringDrop peering_drop = 7;
   }
 }

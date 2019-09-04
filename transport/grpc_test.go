@@ -6,7 +6,8 @@ import (
 	"net"
 	"testing"
 
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
@@ -37,21 +38,18 @@ func TestGRPCReadClosed(t *testing.T) {
 
 	grpc.Close()
 	_, _, err := grpc.ReadFrom()
-	assert.Equal(t, err, io.EOF)
+	assert.EqualError(t, err, io.EOF.Error())
 }
 
 func TestGRPCPacket(t *testing.T) {
 	grpc := bufGRPC()
 	defer grpc.Close()
 
-	if err := grpc.WriteTo(testPacket, grpc.LocalAddr()); err != nil {
-		t.Fatal(err)
-	}
+	err := grpc.WriteTo(testPacket, grpc.LocalAddr())
+	require.NoError(t, err)
 
 	pkt, addr, err := grpc.ReadFrom()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, pkt.GetData(), testPacket.GetData())
 	assert.Equal(t, addr, grpc.LocalAddr())

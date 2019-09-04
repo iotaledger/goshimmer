@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/pkg/errors"
 	pb "github.com/wollac/autopeering/proto"
+	proto "github.com/wollac/autopeering/transport/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 )
@@ -38,7 +39,7 @@ func GRPC(lis net.Listener) *TransportGRPC {
 		closing:   make(chan struct{}),
 	}
 
-	pb.RegisterPeeringServer(grpcServer, &server{t})
+	proto.RegisterDiscoverServer(grpcServer, &server{t})
 
 	starting := make(chan bool)
 	t.wg.Add(1)
@@ -51,6 +52,7 @@ func GRPC(lis net.Listener) *TransportGRPC {
 	return t
 }
 
+// Runs the gRPC server in background.
 func (t *TransportGRPC) serve(lis net.Listener, starting chan<- bool) {
 	defer t.wg.Done()
 	defer lis.Close()
@@ -67,6 +69,7 @@ func (t *TransportGRPC) SetDialOptions(opts ...grpc.DialOption) {
 	t.options = append([]grpc.DialOption{}, opts...)
 }
 
+// ReadFrom implements the Transport ReadFrom method.
 func (t *TransportGRPC) ReadFrom() (*pb.Packet, string, error) {
 	select {
 	case res := <-t.ch:
@@ -76,6 +79,7 @@ func (t *TransportGRPC) ReadFrom() (*pb.Packet, string, error) {
 	}
 }
 
+// WriteTo implements the Transport WriteTo method.
 func (t *TransportGRPC) WriteTo(pkt *pb.Packet, address string) error {
 	conn, err := grpc.Dial(address, t.options...)
 	if err != nil {
@@ -83,12 +87,13 @@ func (t *TransportGRPC) WriteTo(pkt *pb.Packet, address string) error {
 	}
 	defer conn.Close()
 
-	if _, err := pb.NewPeeringClient(conn).Send(context.Background(), pkt); err != nil {
+	if _, err := proto.NewDiscoverClient(conn).Send(context.Background(), pkt); err != nil {
 		return errors.Wrap(err, "error encoding packet")
 	}
 	return nil
 }
 
+// Close closes the transport layer.
 func (t *TransportGRPC) Close() {
 	t.closeOnce.Do(func() {
 		close(t.closing)
@@ -98,6 +103,7 @@ func (t *TransportGRPC) Close() {
 	})
 }
 
+// LocalAddr returns the local network address.
 func (t *TransportGRPC) LocalAddr() string {
 	return t.localAddr
 }

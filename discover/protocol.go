@@ -2,383 +2,406 @@ package discover
 
 import (
 	"bytes"
-	"container/list"
-	"io"
-	"log"
-	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
-	"github.com/wollac/autopeering/identity"
+	"github.com/wollac/autopeering/peer"
+	peerpb "github.com/wollac/autopeering/peer/proto"
 	pb "github.com/wollac/autopeering/proto"
-	"github.com/wollac/autopeering/transport"
+	"github.com/wollac/autopeering/salt"
 )
 
-const (
-	// VersionNum is the expected version number of this protocol.
-	VersionNum = 0
+// ------ message senders ------
 
-	respTimeout = 500 * time.Millisecond
-)
-
-type protocol struct {
-	trans   transport.Transport
-	priv    *identity.PrivateIdentity
-	address string
-
-	closeOnce sync.Once
-	wg        sync.WaitGroup
-
-	addReplyMatcher chan *replyMatcher
-	gotreply        chan reply
-	closing         chan struct{}
+// ping sends a ping to the specified peer and blocks until a reply is received
+// or the packe timeout.
+func (s *Server) ping(to *peer.Peer) error {
+	return <-s.sendPing(to.ID(), to.Address())
 }
 
-// replyMatchFunc is the type of the matcher callback. If it returns matched, the
-// reply was acceptable. If requestDone is false, the reply is considered
-// incomplete and the callback will be invoked again for the next matching reply.
-type replyMatchFunc func(pb.Message) (matched bool, requestDone bool)
-
-type replyMatcher struct {
-	// fromAddr must match the sender of the reply
-	fromAddr string
-	// fromID must match the sender ID
-	fromID nodeID
-	// mtype must match the type of the reply
-	mtype pb.MessageType
-
-	// deadline when the request must complete
-	deadline time.Time
-
-	// callback is called when a matching reply arrives
-	callback replyMatchFunc
-
-	// errc receives nil when the callback indicates completion or an
-	// error if no further reply is received within the timeout
-	errc chan error
-
-	// reply contains the most recent reply
-	reply pb.Message
-}
-
-type nodeID = string
-
-// reply is a reply packet from a certain node.
-type reply struct {
-	fromAddr string
-	fromID   nodeID
-	message  pb.Message
-
-	// a matching request is indicated via this channel
-	matched chan<- bool
-}
-
-// Listen starts a new peer discovery server using the given transport layer for communication.
-func Listen(t transport.Transport, priv *identity.PrivateIdentity) (*protocol, error) {
-	p := &protocol{
-		trans:           t,
-		priv:            priv,
-		address:         t.LocalAddr(),
-		addReplyMatcher: make(chan *replyMatcher),
-		gotreply:        make(chan reply),
-		closing:         make(chan struct{}),
-	}
-
-	p.wg.Add(2)
-	go p.replyLoop()
-	go p.readLoop()
-
-	return p, nil
-}
-
-func (p *protocol) Close() {
-	p.closeOnce.Do(func() {
-		close(p.closing)
-		p.trans.Close()
-		p.wg.Wait()
-	})
-}
-
-// LocalID returns the private idenity of the local node.
-func (p *protocol) LocalID() *identity.PrivateIdentity {
-	return p.priv
-}
-
-// localAddr returns the address of the local node in string form.
-func (p *protocol) localAddr() string {
-	return p.address
-}
-
-// ping sends a ping message to the given node and waits for a reply.
-func (p *protocol) ping(toAddr string, toID nodeID) error {
-	return <-p.sendPing(toAddr, toID, nil)
-}
-
-// sendPing pings the given node and invokes the callback when the reply arrives.
-func (p *protocol) sendPing(toAddr string, toID nodeID, callback func()) <-chan error {
-	// create the ping package
-	ping := &pb.Ping{
-		Version: VersionNum,
-		From:    p.localAddr(),
-		To:      toAddr,
-	}
-	pkt := encode(p.priv, ping)
+// sendPing sends a ping to the specified address and expects a matching reply.
+// This method is non-blocking, but it returns a channel that can be used to query potential errors.
+func (s *Server) sendPing(toID peer.ID, toAddr string) <-chan error {
+	ping := newPing(s.LocalAddr(), toAddr)
+	pkt := s.encode(ping)
 	// compute the message hash
 	hash := packetHash(pkt.GetData())
 
-	// Add a matcher for the reply to the pending reply queue. Pongs are matched if they
-	// reference the ping we're about to send.
-	errc := p.expectReply(toAddr, toID, pb.PONG, func(m pb.Message) (matched bool, requestDone bool) {
-		matched = bytes.Equal(m.(*pb.Pong).GetPingHash(), hash)
-		if matched && callback != nil {
-			callback()
-		}
+	// Add a matcher for the reply to the pending reply queue. Pongs are matched,
+	// if they come from the specified peer and reference the ping we're about to send.
+	errc := s.expectReply(toAddr, toID, pb.MPong, func(m pb.Message) (bool, bool) {
+		matched := bytes.Equal(m.(*pb.Pong).GetPingHash(), hash)
 		return matched, matched
 	})
 
 	// send the ping
-	p.write(toAddr, toID, ping.Name(), pkt)
-
+	s.write(toAddr, ping.Name(), pkt)
 	return errc
 }
 
-// Loop checking for matching replies.
-func (p *protocol) replyLoop() {
-	defer p.wg.Done()
+// requestPeers request known peers from the given target. This method blocks
+// until a response is received and the provided peers are returned.
+func (s *Server) requestPeers(to *peer.Peer) ([]*peer.Peer, error) {
+	toID := to.ID()
+	toAddr := to.Address()
+	s.ensureVerified(toID, toAddr)
 
-	var (
-		mlist   = list.New()
-		timeout = time.NewTimer(0)
-	)
+	// create the request package
+	req := newPeersRequest(toAddr)
+	pkt := s.encode(req)
+	// compute the message hash
+	hash := packetHash(pkt.GetData())
+	peers := make([]*peer.Peer, 0, maxPeersInResponse)
 
-	<-timeout.C // ignore first timeout
-	defer timeout.Stop()
-
-	for {
-
-		// Set the timer so that it fires when the next reply expires
-		if el := mlist.Front(); el != nil {
-			// the first element always has the closest deadline
-			m := el.Value.(*replyMatcher)
-			timeout.Reset(time.Until(m.deadline))
-		} else {
-			timeout.Stop()
+	errc := s.expectReply(toAddr, to.ID(), pb.MPeersResponse, func(m pb.Message) (bool, bool) {
+		res := m.(*pb.PeersResponse)
+		if !bytes.Equal(res.GetReqHash(), hash) {
+			return false, false
 		}
 
-		select {
-
-		// add a new matcher to the list
-		case p := <-p.addReplyMatcher:
-			p.deadline = time.Now().Add(respTimeout)
-			mlist.PushBack(p)
-
-		// on reply received, check all matchers for fits
-		case r := <-p.gotreply:
-			var matched bool
-			rtype := r.message.Type()
-			for el := mlist.Front(); el != nil; el = el.Next() {
-				m := el.Value.(*replyMatcher)
-				if m.mtype == rtype && m.fromID == r.fromID && m.fromAddr == r.fromAddr {
-					ok, requestDone := m.callback(r.message)
-					matched = matched || ok
-
-					if requestDone {
-						m.reply = r.message
-						m.errc <- nil
-						mlist.Remove(el)
-					}
-				}
+		for _, rp := range res.GetPeers() {
+			p, err := peer.FromProto(rp)
+			if err != nil {
+				s.log.Warnw("invalid peer received", "err", err)
+				continue
 			}
-			r.matched <- matched
-
-		// on timeout, check for expired matchers
-		case <-timeout.C:
-			now := time.Now()
-
-			// Notify and remove expired matchers
-			for el := mlist.Front(); el != nil; el = el.Next() {
-				m := el.Value.(*replyMatcher)
-				if now.After(m.deadline) || now.Equal(m.deadline) {
-					m.errc <- errTimeout
-					mlist.Remove(el)
-				}
-			}
-
-		// on close, notice all the matchers
-		case <-p.closing:
-			for el := mlist.Front(); el != nil; el = el.Next() {
-				el.Value.(*replyMatcher).errc <- errClosed
-			}
-			return
-
-		}
-	}
-}
-
-// Expects a reply message with the given specifications.
-// If eventually nil is returned, a matching message was received.
-func (p *protocol) expectReply(fromAddr string, fromID nodeID, mtype pb.MessageType, callback replyMatchFunc) <-chan error {
-	ch := make(chan error, 1)
-	m := &replyMatcher{fromAddr: fromAddr, fromID: fromID, mtype: mtype, callback: callback, errc: ch}
-	select {
-	case p.addReplyMatcher <- m:
-	case <-p.closing:
-		ch <- errClosed
-	}
-	return ch
-}
-
-// Process a reply message and returns whether a matching request could be found.
-func (p *protocol) handleReply(fromAddr string, fromID nodeID, message pb.Message) bool {
-	matched := make(chan bool, 1)
-	select {
-	case p.gotreply <- reply{fromAddr, fromID, message, matched}:
-		// wait for matcher and return whether it could be matched
-		return <-matched
-	case <-p.closing:
-		return false
-	}
-}
-
-func (p *protocol) send(toAddr string, toID nodeID, msg pb.Message) {
-	pkt := encode(p.priv, msg)
-	p.write(toAddr, toID, msg.Name(), pkt)
-}
-
-func (p *protocol) write(toAddr string, toID nodeID, mName string, pkt *pb.Packet) {
-	log.Println("write", mName, toID)
-	if err := p.trans.WriteTo(pkt, toAddr); err != nil {
-		log.Println("write", "error", err)
-	}
-}
-
-func encode(priv *identity.PrivateIdentity, message pb.Message) *pb.Packet {
-	// wrap the message before marshaling
-	data, err := proto.Marshal(message.Wrapper())
-	if err != nil {
-		panic("protobuf error: " + err.Error())
-	}
-
-	sig := priv.Sign(data)
-	return &pb.Packet{
-		PublicKey: priv.PublicKey,
-		Signature: sig,
-		Data:      data,
-	}
-}
-
-func (p *protocol) readLoop() {
-	defer p.wg.Done()
-
-	for {
-		pkt, fromAddr, err := p.trans.ReadFrom()
-		// exit when the connection is closed
-		if err == io.EOF {
-			log.Println("connection closed")
-			return
-		} else if err != nil {
-			log.Println("read error", err)
-			continue
+			peers = append(peers, p)
 		}
 
-		if err := p.handlePacket(fromAddr, pkt); err != nil {
-			log.Println("packet error", err)
+		return true, true
+	})
+
+	// send the request and wait for the response
+	s.write(toAddr, req.Name(), pkt)
+	return peers, <-errc
+}
+
+// RequestPeering sends a peering request to the given peer. This method blocks
+// until a response is received and the status answer is returned.
+func (s *Server) RequestPeering(to *peer.Peer, salt *salt.Salt) (bool, error) {
+	toID := to.ID()
+	toAddr := to.Address()
+	s.ensureVerified(toID, toAddr)
+
+	// create the request package
+	req := newPeeringRequest(toAddr, salt)
+	pkt := s.encode(req)
+	// compute the message hash
+	hash := packetHash(pkt.GetData())
+
+	var status bool
+	errc := s.expectReply(toAddr, toID, pb.MPeeringResponse, func(m pb.Message) (bool, bool) {
+		res := m.(*pb.PeeringResponse)
+		if !bytes.Equal(res.GetReqHash(), hash) {
+			return false, false
 		}
+		status = res.GetStatus()
+		return true, true
+	})
+
+	// send the request and wait for the response
+	s.write(toAddr, req.Name(), pkt)
+	return status, <-errc
+}
+
+// DropPeer sends a PeeringDrop to the given peer.
+func (s *Server) DropPeer(to *peer.Peer) {
+	toAddr := to.Address()
+
+	drop := newPeeringDrop(toAddr)
+	pkt := s.encode(drop)
+	s.write(toAddr, drop.Name(), pkt)
+}
+
+// ------ helper functions ------
+
+// isVerified checks whether the given peer has recently been verified.a recent enough endpoint proof.
+func (s *Server) isVerified(id peer.ID, address string) bool {
+	return time.Since(s.local.Database().LastPong(id, address)) < pongExpiration
+}
+
+// ensureVerified checks if the given peer has recently sent a ping;
+// if not, we send a ping to trigger a verification.
+func (s *Server) ensureVerified(id peer.ID, address string) {
+	if time.Since(s.local.Database().LastPing(id, address)) >= pongExpiration {
+		<-s.sendPing(id, address)
+		// Wait for them to ping back and process our pong
+		time.Sleep(responseTimeout)
 	}
 }
 
-func (p *protocol) handlePacket(fromAddr string, pkt *pb.Packet) error {
-	w, issuer, err := decode(pkt)
-	if err != nil {
-		return err
-	}
-	fromID := issuer.StringID
-
-	switch m := w.GetMessage().(type) {
-
-	// Ping
-	case *pb.MessageWrapper_Ping:
-		if p.verifyPing(m.Ping, fromAddr, fromID) {
-			p.handlePing(m.Ping, fromAddr, fromID, pkt.GetData())
-		}
-
-	// Pong
-	case *pb.MessageWrapper_Pong:
-		if p.verifyPong(m.Pong, fromAddr, fromID) {
-			p.handlePong(m.Pong, fromAddr, fromID)
-		}
-
-	default:
-		panic("invalid message type")
-	}
-
-	return nil
+// expired checks whether the given UNIX time stamp is too far in the past.
+func expired(ts int64) bool {
+	return time.Since(time.Unix(ts, 0)) >= packetExpiration
 }
 
-func decode(packet *pb.Packet) (*pb.MessageWrapper, *identity.Identity, error) {
-	issuer, err := identity.NewIdentity(packet.GetPublicKey())
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "invalid identity")
-	}
+// ------ Packet Constructors ------
 
-	data := packet.GetData()
-	if !issuer.VerifySignature(data, packet.GetSignature()) {
-		return nil, nil, errors.Wrap(err, "invalid signature")
+func newPing(fromAddr string, toAddr string) *pb.Ping {
+	return &pb.Ping{
+		Version:   VersionNum,
+		From:      fromAddr,
+		To:        toAddr,
+		Timestamp: time.Now().Unix(),
 	}
+}
 
-	wrapper := &pb.MessageWrapper{}
-	if err := proto.Unmarshal(data, wrapper); err != nil {
-		return nil, nil, errors.Wrap(err, "invalid message data")
+func newPong(toAddr string, reqData []byte) *pb.Pong {
+	return &pb.Pong{
+		PingHash: packetHash(reqData),
+		To:       toAddr,
 	}
+}
 
-	return wrapper, issuer, nil
+func newPeersRequest(toAddr string) *pb.PeersRequest {
+	return &pb.PeersRequest{
+		To:        toAddr,
+		Timestamp: time.Now().Unix(),
+	}
+}
+
+func newPeersResponse(reqData []byte, list []*peer.Peer) *pb.PeersResponse {
+	peers := make([]*peerpb.Peer, 0, len(list))
+	for _, p := range list {
+		peers = append(peers, p.ToProto())
+	}
+	return &pb.PeersResponse{
+		ReqHash: packetHash(reqData),
+		Peers:   peers,
+	}
+}
+
+func newPeeringRequest(toAddr string, salt *salt.Salt) *pb.PeeringRequest {
+	return &pb.PeeringRequest{
+		To:        toAddr,
+		Timestamp: time.Now().Unix(),
+		Salt:      salt.ToProto(),
+	}
+}
+
+func newPeeringResponse(reqData []byte, accepted bool) *pb.PeeringResponse {
+	return &pb.PeeringResponse{
+		ReqHash: packetHash(reqData),
+		Status:  accepted,
+	}
+}
+
+func newPeeringDrop(toAddr string) *pb.PeeringDrop {
+	return &pb.PeeringDrop{
+		To:        toAddr,
+		Timestamp: time.Now().Unix(),
+	}
 }
 
 // ------ Packet Handlers ------
 
-func (p *protocol) verifyPing(ping *pb.Ping, fromAddr string, fromID nodeID) bool {
+func (s *Server) validatePing(m *pb.Ping, fromAddr string) bool {
 	// check version number
-	if ping.GetVersion() != VersionNum {
-		log.Println("Ping", "invalid version:", ping.GetTo())
+	if m.GetVersion() != VersionNum {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"version", m.GetVersion(),
+		)
+		return false
+	}
+	// check that From matches the package sender address
+	if m.GetFrom() != fromAddr {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"from", m.GetFrom(),
+		)
 		return false
 	}
 	// check that To matches the local address
-	if ping.GetTo() != p.localAddr() {
-		log.Println("Ping", "invalid to:", ping.GetTo())
+	if m.GetTo() != s.LocalAddr() {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"to", m.GetTo(),
+		)
 		return false
 	}
-	// check fromAddr
-	if ping.GetFrom() != fromAddr {
-		log.Println("Ping", "invalid from:", ping.GetFrom())
+	// check Timestamp
+	if expired(m.GetTimestamp()) {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"ts", time.Unix(m.GetTimestamp(), 0),
+		)
 		return false
 	}
 	return true
 }
 
-func (p *protocol) handlePing(ping *pb.Ping, fromAddr string, fromID nodeID, rawData []byte) {
-	log.Println("received", ping.Name(), fromID)
+func (s *Server) handlePing(m *pb.Ping, fromID peer.ID, fromAddr string, rawData []byte) {
+	// create and send the pong response
+	pong := newPong(fromAddr, rawData)
+	s.send(fromAddr, pong)
 
-	pong := &pb.Pong{To: fromAddr, PingHash: packetHash(rawData)}
-	p.send(fromAddr, fromID, pong)
+	// if the peer is new or expired, send a ping to verify
+	if !s.isVerified(fromID, fromAddr) {
+		s.sendPing(fromID, fromAddr)
+	}
+
+	s.local.Database().UpdateLastPing(fromID, fromAddr, time.Now())
 }
 
-func (p *protocol) verifyPong(pong *pb.Pong, fromAddr string, fromID nodeID) bool {
+func (s *Server) validatePong(m *pb.Pong, fromID peer.ID, fromAddr string) bool {
 	// check that To matches the local address
-	if pong.GetTo() != p.localAddr() {
-		log.Println("Pong", "invalid to:", pong.GetTo())
+	if m.GetTo() != s.LocalAddr() {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"to", m.GetTo(),
+		)
 		return false
 	}
 	// there must be a ping waiting for this pong as a reply
-	if !p.handleReply(fromAddr, fromID, pong) {
-		log.Println("Pong", "no matching request")
+	if !s.handleReply(fromAddr, fromID, m) {
+		s.log.Debugw("no matching request",
+			"type", m.Name(),
+			"from", fromAddr,
+		)
 		return false
 	}
 	return true
 }
 
-func (p *protocol) handlePong(pong *pb.Pong, fromAddr string, fromID nodeID) {
-	log.Println("received", pong.Name(), fromID)
+func (s *Server) handlePong(m *pb.Pong, fromID peer.ID, fromAddr string, fromKey peer.PublicKey) {
+	// a valid pong verifies the peer
+	s.mgr.addVerifiedPeer(peer.NewPeer(fromKey, fromAddr))
+	// update peer database
+	s.local.Database().UpdateLastPong(fromID, fromAddr, time.Now())
+}
 
-	// TODO: add as peer
+func (s *Server) validatePeersRequest(m *pb.PeersRequest, fromID peer.ID, fromAddr string) bool {
+	// check that To matches the local address
+	if m.GetTo() != s.LocalAddr() {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"to", m.GetTo(),
+		)
+		return false
+	}
+	// check Timestamp
+	if expired(m.GetTimestamp()) {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"ts", time.Unix(m.GetTimestamp(), 0),
+		)
+		return false
+	}
+	if !s.isVerified(fromID, fromAddr) {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"id", fromID,
+			"addr", fromAddr,
+		)
+		return false
+	}
+	return true
+}
+
+func (s *Server) handlePeersRequest(m *pb.PeersRequest, fromID peer.ID, fromAddr string, rawData []byte) {
+	// get a random list of verified peers
+	peers := s.mgr.getRandomPeers(maxPeersInResponse, 1)
+	s.send(fromAddr, newPeersResponse(rawData, peers))
+}
+
+func (s *Server) validatePeersResponse(m *pb.PeersResponse, fromID peer.ID, fromAddr string) bool {
+	// there must not be too many peers
+	if len(m.GetPeers()) > maxPeersInResponse {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"#peers", len(m.GetPeers()),
+		)
+		return false
+	}
+	// there must be a request waiting for this response
+	if !s.handleReply(fromAddr, fromID, m) {
+		s.log.Debugw("no matching request",
+			"type", m.Name(),
+			"from", fromID,
+		)
+		return false
+	}
+	return true
+}
+
+func (s *Server) validatePeeringRequest(m *pb.PeeringRequest, fromID peer.ID, fromAddr string) bool {
+	// check that To matches the local address
+	if m.GetTo() != s.LocalAddr() {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"to", m.GetTo(),
+		)
+		return false
+	}
+	// check Timestamp
+	if expired(m.GetTimestamp()) {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"ts", time.Unix(m.GetTimestamp(), 0),
+		)
+		return false
+	}
+	// check Salt
+	if _, err := salt.FromProto(m.GetSalt()); err != nil {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"err", err,
+		)
+		return false
+	}
+	return true
+}
+
+func (s *Server) handlePeeringRequest(m *pb.PeeringRequest, fromID peer.ID, fromAddr string, fromKey peer.PublicKey, rawData []byte) {
+	salt, err := salt.FromProto(m.GetSalt())
+	if err != nil {
+		s.log.Warnw("invalid salt received", "err", err)
+		return
+	}
+
+	var accepted bool
+	if s.acceptRequest != nil {
+		accepted = s.acceptRequest(peer.NewPeer(fromKey, fromAddr), salt)
+	}
+	res := newPeeringResponse(rawData, accepted)
+	s.send(fromAddr, res)
+}
+
+func (s *Server) validatePeeringResponse(m *pb.PeeringResponse, fromID peer.ID, fromAddr string) bool {
+	// there must be a request waiting for this response
+	if !s.handleReply(fromAddr, fromID, m) {
+		s.log.Debugw("no matching request",
+			"type", m.Name(),
+			"from", fromID,
+		)
+		return false
+	}
+	return true
+}
+
+func (s *Server) validatePeeringDrop(m *pb.PeeringDrop, fromID peer.ID, fromAddr string) bool {
+	// check that To matches the local address
+	if m.GetTo() != s.LocalAddr() {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"to", m.GetTo(),
+		)
+		return false
+	}
+	// check Timestamp
+	if expired(m.GetTimestamp()) {
+		s.log.Debugw("failed to validate",
+			"type", m.Name(),
+			"ts", time.Unix(m.GetTimestamp(), 0),
+		)
+		return false
+	}
+	return true
+}
+
+func (s *Server) handlePeeringDrop(m *pb.PeeringDrop, fromID peer.ID) {
+	if s.dropReceived == nil {
+		return
+	}
+	s.dropReceived(fromID)
 }

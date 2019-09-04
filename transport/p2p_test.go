@@ -4,7 +4,8 @@ import (
 	"io"
 	"testing"
 
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	pb "github.com/wollac/autopeering/proto"
 )
 
@@ -16,21 +17,18 @@ func TestP2PReadClosed(t *testing.T) {
 
 	p2p.A.Close()
 	_, _, err := p2p.A.ReadFrom()
-	assert.Equal(t, err, io.EOF)
+	assert.EqualError(t, err, io.EOF.Error())
 }
 
 func TestP2PPacket(t *testing.T) {
 	p2p := P2P()
 	defer p2p.Close()
 
-	if err := p2p.A.WriteTo(testPacket, p2p.B.LocalAddr()); err != nil {
-		t.Fatal(err)
-	}
+	err := p2p.A.WriteTo(testPacket, p2p.B.LocalAddr())
+	require.NoError(t, err)
 
 	pkt, addr, err := p2p.B.ReadFrom()
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, pkt.GetData(), testPacket.GetData())
 	assert.Equal(t, addr, p2p.A.LocalAddr())
