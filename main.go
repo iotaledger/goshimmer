@@ -1,116 +1,107 @@
 package main
 
 import (
-	"encoding/base64"
-	"flag"
 	"fmt"
 	"log"
-	"net"
-	"os"
-	"os/signal"
-	"strings"
+	"time"
 
-	"github.com/pkg/errors"
-	"github.com/wollac/autopeering/discover"
-	"github.com/wollac/autopeering/logger"
+	"github.com/wollac/autopeering/neighborhood"
 	"github.com/wollac/autopeering/peer"
-	"github.com/wollac/autopeering/transport"
+	"github.com/wollac/autopeering/salt"
+	"go.uber.org/zap"
 )
 
-const defaultZLC = `{
-	"level": "info",
-	"development": false,
-	"outputPaths": ["stdout"],
-	"errorOutputPaths": ["stderr"],
-	"encoding": "console",
-	"encoderConfig": {
-	  "timeKey": "ts",
-	  "levelKey": "level",
-	  "nameKey": "logger",
-	  "callerKey": "caller",
-	  "messageKey": "msg",
-	  "stacktraceKey": "stacktrace",
-	  "lineEnding": "",
-	  "levelEncoder": "",
-	  "timeEncoder": "iso8601",
-	  "durationEncoder": "",
-	  "callerEncoder": ""
-	}
-  }`
-
-func waitInterrupt() {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	<-c
-}
-
-func parseMaster(s string) (*peer.Peer, error) {
-	if len(s) == 0 {
-		return nil, nil
-	}
-
-	parts := strings.Split(s, "@")
-	if len(parts) != 2 {
-		return nil, errors.New("parseMaster")
-	}
-	pubKey, err := base64.StdEncoding.DecodeString(parts[0])
-	if err != nil {
-		return nil, errors.Wrap(err, "parseMaster")
-	}
-
-	return peer.NewPeer(pubKey, parts[1]), nil
-}
-
 func main() {
-	var (
-		listenAddr = flag.String("addr", "127.0.0.1:14626", "listen address")
-		masterNode = flag.String("master", "", "master node as 'pubKey@address' where pubKey is in Base64")
+	N := 3
+	allPeers = make([]*peer.Peer, N)
+	mgrMap := make(map[peer.ID]*neighborhood.Manager)
+	neighborhoods := make(map[peer.ID][]*peer.Peer)
+	for i := range allPeers {
+		peer := newPeer(fmt.Sprintf("%d", i))
+		allPeers[i] = peer.peer
+		net := testNet{
+			mgr:   mgrMap,
+			local: peer.local,
+			self:  peer.peer,
+		}
+		mgrMap[peer.local.ID()] = neighborhood.NewManager(net, net.GetKnownPeers, peer.log)
+	}
 
-		err error
-	)
-	flag.Parse()
+	// for _, p := range allPeers {
+	// 	d := peer.SortBySalt(p.ID().Bytes(), mgrMap[p.ID()].net.Local().GetPublicSalt().GetBytes(), allPeers)
+	// 	log.Println("\n", p.ID())
+	// 	for _, dist := range d {
+	// 		log.Println(dist.Distance)
+	// 	}
+	// }
 
-	logger := logger.NewLogger(defaultZLC, "debug")
-	defer logger.Sync()
+	for _, peer := range allPeers {
+		mgrMap[peer.ID()].Run()
+	}
 
-	priv, err := peer.GeneratePrivateKey()
+	time.Sleep(2 * time.Second)
+
+	for _, peer := range allPeers {
+		neighborhoods[peer.ID()] = mgrMap[peer.ID()].GetNeighbors()
+		log.Println(peer.ID(), neighborhoods[peer.ID()])
+	}
+}
+
+var (
+	allPeers []*peer.Peer
+)
+
+type testPeer struct {
+	local *peer.Local
+	peer  *peer.Peer
+	db    *peer.DB
+	log   *zap.SugaredLogger
+}
+
+func newPeer(name string) testPeer {
+	l, err := zap.NewDevelopment()
 	if err != nil {
-		log.Fatalf("GeneratePrivateKey: %v", err)
+		log.Fatalf("cannot initialize logger: %v", err)
 	}
+	logger := l.Sugar()
+	log := logger.Named(name)
+	priv, _ := peer.GeneratePrivateKey()
+	db := peer.NewMapDB(log.Named("db"))
+	local := peer.NewLocal(priv, db)
+	s, _ := salt.NewSalt(100 * time.Second)
+	local.SetPrivateSalt(s)
+	s, _ = salt.NewSalt(100 * time.Second)
+	local.SetPublicSalt(s)
+	p := peer.NewPeer(local.PublicKey(), name)
+	return testPeer{local, p, db, log}
+}
 
-	addr, err := net.ResolveUDPAddr("udp", *listenAddr)
-	if err != nil {
-		log.Fatalf("ResolveUDPAddr: %v", err)
+type testNet struct {
+	neighborhood.Network
+	mgr   map[peer.ID]*neighborhood.Manager
+	local *peer.Local
+	self  *peer.Peer
+}
+
+func (n testNet) DropPeer(p *peer.Peer) {
+	n.mgr[p.ID()].DropNeighbor(n.self.ID())
+}
+
+func (n testNet) Local() *peer.Local {
+	return n.local
+}
+func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
+	return n.mgr[p.ID()].AcceptRequest(n.self, s), nil
+}
+
+func (n testNet) GetKnownPeers() []*peer.Peer {
+	list := make([]*peer.Peer, len(allPeers)-1)
+	i := 0
+	for _, peer := range allPeers {
+		if peer != n.self {
+			list[i] = peer
+			i++
+		}
 	}
-	conn, err := net.ListenUDP("udp", addr)
-	if err != nil {
-		log.Fatalf("ListenUDP: %v", err)
-	}
-	defer conn.Close()
-
-	cfg := discover.Config{
-		Log: logger.Named("discover"),
-	}
-
-	master, err := parseMaster(*masterNode)
-	if err != nil {
-		log.Printf("Ignoring master: %v\n", err)
-	} else if master != nil {
-		cfg.Bootnodes = []*peer.Peer{master}
-	}
-
-	// use the UDP connection for transport
-	trans := transport.Conn(conn, func(network, address string) (net.Addr, error) { return net.ResolveUDPAddr(network, address) })
-	defer trans.Close()
-
-	// start the discovery on that connection
-	disc := discover.Listen(trans, peer.NewLocal(priv, peer.NewMapDB(logger.Named("db"))), cfg)
-	defer disc.Close()
-
-	id := base64.StdEncoding.EncodeToString(disc.Local().PublicKey())
-	fmt.Println("Discovery protocol started: ID=" + id + ", address=" + disc.LocalAddr())
-	fmt.Println("Hit Ctrl+C to exit")
-
-	// wait for Ctrl+c
-	waitInterrupt()
+	return list
 }

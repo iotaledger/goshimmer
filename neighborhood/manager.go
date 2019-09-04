@@ -21,7 +21,7 @@ const (
 	lifetime = 300 * time.Second
 )
 
-type network interface {
+type Network interface {
 	Local() *peer.Local
 	RequestPeering(*peer.Peer, *salt.Salt) (bool, error)
 	DropPeer(*peer.Peer)
@@ -34,7 +34,7 @@ type PeeringRequest struct {
 }
 
 type Manager struct {
-	net network
+	net Network
 	log *zap.SugaredLogger
 
 	getKnownPeers GetKnownPeers
@@ -59,7 +59,7 @@ type Manager struct {
 	outboundClosing chan struct{}
 }
 
-func NewManager(net network, getKnownPeers GetKnownPeers, log *zap.SugaredLogger) *Manager {
+func NewManager(net Network, getKnownPeers GetKnownPeers, log *zap.SugaredLogger) *Manager {
 	m := &Manager{
 		net:                  net,
 		getKnownPeers:        getKnownPeers,

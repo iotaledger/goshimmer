@@ -42,7 +42,7 @@ func newPeer(name string) testPeer {
 }
 
 type testNet struct {
-	network
+	Network
 	mgr   map[peer.ID]*Manager
 	local *peer.Local
 	self  *peer.Peer
