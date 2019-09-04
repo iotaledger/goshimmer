@@ -18,7 +18,7 @@ type Config struct {
 
 	AcceptRequest func(*peer.Peer, *salt.Salt) bool
 	//DropReceived  chan<- peer.ID
-	DropReceived func(*peer.Peer)
+	DropReceived func(peer.ID)
 }
 
 // packetHash returns the hash of a packet

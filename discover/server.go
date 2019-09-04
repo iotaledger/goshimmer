@@ -39,7 +39,7 @@ type Server struct {
 	address string
 
 	acceptRequest func(*peer.Peer, *salt.Salt) bool
-	dropReceived  func(*peer.Peer)
+	dropReceived  func(peer.ID)
 
 	closeOnce sync.Once
 	wg        sync.WaitGroup
@@ -334,7 +334,7 @@ func (s *Server) handlePacket(pkt *pb.Packet, fromAddr string) error {
 	case *pb.MessageWrapper_PeeringDrop:
 		s.log.Debugw("handle "+m.PeeringDrop.Name(), "id", fromID, "addr", fromAddr)
 		if s.validatePeeringDrop(m.PeeringDrop, fromID, fromAddr) {
-			s.handlePeeringDrop(m.PeeringDrop, fromID, fromAddr, fromKey)
+			s.handlePeeringDrop(m.PeeringDrop, fromID)
 		}
 
 	default:

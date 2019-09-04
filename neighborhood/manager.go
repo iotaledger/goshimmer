@@ -53,6 +53,7 @@ type Manager struct {
 	outboundNeighbors    chan []*peer.Peer
 
 	rejectionFilter Filter
+	//incomingFilter  chan *peer.Peer
 
 	wg      sync.WaitGroup
 	closing chan struct{}
@@ -60,16 +61,17 @@ type Manager struct {
 
 func NewManager(net network, getKnownPeers GetKnownPeers, log *zap.SugaredLogger) *Manager {
 	m := &Manager{
-		net:                  net,
-		getKnownPeers:        getKnownPeers,
-		log:                  log,
-		closing:              make(chan struct{}),
-		rejectionFilter:      make(Filter),
-		inboundRequestChan:   make(chan PeeringRequest, inboundRequestQueue),
-		inboundReplyChan:     make(chan bool),
-		inboundDropChan:      make(chan *peer.Peer, dropQueue),
-		inboundGetNeighbors:  make(chan struct{}),
-		inboundNeighbors:     make(chan []*peer.Peer),
+		net:                 net,
+		getKnownPeers:       getKnownPeers,
+		log:                 log,
+		closing:             make(chan struct{}),
+		rejectionFilter:     make(Filter),
+		inboundRequestChan:  make(chan PeeringRequest, inboundRequestQueue),
+		inboundReplyChan:    make(chan bool),
+		inboundDropChan:     make(chan *peer.Peer, dropQueue),
+		inboundGetNeighbors: make(chan struct{}),
+		inboundNeighbors:    make(chan []*peer.Peer),
+		//incomingFilter:       make(chan *peer.Peer, 10),
 		outboundGetNeighbors: make(chan struct{}),
 		outboundNeighbors:    make(chan []*peer.Peer),
 		outboundDropChan:     make(chan *peer.Peer, dropQueue),
@@ -185,6 +187,12 @@ func (m *Manager) updateOutbound(done chan<- struct{}) {
 	filter.AddPeers(m.inbound.GetPeers())  // set filter for inbound neighbors
 	filter.AddPeers(m.outbound.GetPeers()) // set filter for outbound neighbors
 
+	// select {
+	// case incomingReq := <-m.incomingFilter:
+	// 	filter.AddPeer(incomingReq)
+	// default:
+	// }
+
 	filteredList := filter.Apply(distList)               // filter out current neighbors
 	filteredList = m.rejectionFilter.Apply(filteredList) // filter out previous rejection
 
@@ -217,7 +225,7 @@ func (m *Manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
 	reqDistance := peer.NewPeerDistance(m.net.Local().ID().Bytes(), m.net.Local().GetPrivateSalt().GetBytes(), requester)
 
 	candidateList := []peer.PeerDistance{reqDistance}
-
+	//m.incomingFilter <- requester
 	filter := make(Filter)
 	filter.AddPeers(m.outbound.GetPeers())      // set filter for outbound neighbors
 	filteredList := filter.Apply(candidateList) // filter out current neighbors

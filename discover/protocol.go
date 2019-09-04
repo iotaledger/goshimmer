@@ -398,11 +398,11 @@ func (s *Server) validatePeeringDrop(m *pb.PeeringDrop, fromID peer.ID, fromAddr
 	return true
 }
 
-func (s *Server) handlePeeringDrop(m *pb.PeeringDrop, fromID peer.ID, fromAddr string, fromKey peer.PublicKey) {
+func (s *Server) handlePeeringDrop(m *pb.PeeringDrop, fromID peer.ID) {
 	if s.dropReceived == nil {
 		return
 	}
-	s.dropReceived(peer.NewPeer(fromKey, fromAddr))
+	s.dropReceived(fromID)
 
 	// select {
 	// case s.dropReceived <- fromID:
