@@ -14,10 +14,6 @@ type Config struct {
 
 	// These settings are optional:
 	Bootnodes []*peer.Peer // list of bootstrap nodes
-
-	// AcceptRequest func(*peer.Peer, *salt.Salt) bool
-	// //DropReceived  chan<- peer.ID
-	// DropReceived func(peer.ID)
 }
 
 // packetHash returns the hash of a packet
