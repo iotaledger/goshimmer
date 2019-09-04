@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/wollac/autopeering/peer"
 	"github.com/wollac/autopeering/salt"
 	"go.uber.org/zap"
@@ -101,18 +102,31 @@ func TestManager(t *testing.T) {
 	mgrMap[B.local.ID()].Run()
 	mgrMap[C.local.ID()].Run()
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 
-	//mgrMap[A.local.ID()].Close()
-	//mgrMap[B.local.ID()].Close()
-	//mgrMap[C.local.ID()].Close()
+	neighborhoodA := mgrMap[A.local.ID()].GetNeighbors()
+	neighborhoodB := mgrMap[B.local.ID()].GetNeighbors()
+	neighborhoodC := mgrMap[C.local.ID()].GetNeighbors()
 
-	// log.Println("A", mgrMap[A.local.ID()].inbound.GetPeers(), mgrMap[A.local.ID()].outbound.GetPeers())
-	// log.Println("B", mgrMap[B.local.ID()].inbound.GetPeers(), mgrMap[B.local.ID()].outbound.GetPeers())
-	// log.Println("C", mgrMap[C.local.ID()].inbound.GetPeers(), mgrMap[C.local.ID()].outbound.GetPeers())
+	log.Println("A", neighborhoodA)
+	log.Println("B", neighborhoodB)
+	log.Println("C", neighborhoodC)
 
-	log.Println("A", mgrMap[A.local.ID()].GetNeighbors())
-	log.Println("B", mgrMap[B.local.ID()].GetNeighbors())
-	log.Println("C", mgrMap[C.local.ID()].GetNeighbors())
+	assert.Equal(t, sliceUniqMap(neighborhoodA), neighborhoodA, "A Neighbors")
+	assert.Equal(t, sliceUniqMap(neighborhoodB), neighborhoodB, "B Neighbors")
+	assert.Equal(t, sliceUniqMap(neighborhoodC), neighborhoodC, "A Neighbors")
+}
 
+func sliceUniqMap(s []*peer.Peer) []*peer.Peer {
+	seen := make(map[*peer.Peer]struct{}, len(s))
+	j := 0
+	for _, v := range s {
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		s[j] = v
+		j++
+	}
+	return s[:j]
 }
