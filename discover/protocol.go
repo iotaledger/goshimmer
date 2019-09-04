@@ -356,6 +356,7 @@ func (s *Server) handlePeeringRequest(m *pb.PeeringRequest, fromID peer.ID, from
 	salt, err := salt.FromProto(m.GetSalt())
 	if err != nil {
 		s.log.Warnw("invalid salt received", "err", err)
+		return
 	}
 
 	var accepted bool
