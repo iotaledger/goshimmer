@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	N := 3
+	N := 9
 	allPeers = make([]*peer.Peer, N)
 	mgrMap := make(map[peer.ID]*neighborhood.Manager)
 	neighborhoods := make(map[peer.ID][]*peer.Peer)
@@ -41,10 +41,14 @@ func main() {
 
 	time.Sleep(2 * time.Second)
 
+	avg := 0.
 	for _, peer := range allPeers {
 		neighborhoods[peer.ID()] = mgrMap[peer.ID()].GetNeighbors()
 		log.Println(peer.ID(), neighborhoods[peer.ID()])
+		avg += float64(len(neighborhoods[peer.ID()]))
 	}
+
+	fmt.Println("Average:", avg/float64(N))
 }
 
 var (

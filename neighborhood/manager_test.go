@@ -72,7 +72,7 @@ func (n testNet) GetKnownPeers() []*peer.Peer {
 }
 
 func TestSimManager(t *testing.T) {
-	N := 3
+	N := 9
 	allPeers = make([]*peer.Peer, N)
 	mgrMap := make(map[peer.ID]*Manager)
 	neighborhoods := make(map[peer.ID][]*peer.Peer)
@@ -105,6 +105,7 @@ func TestSimManager(t *testing.T) {
 		neighborhoods[peer.ID()] = mgrMap[peer.ID()].GetNeighbors()
 		log.Println(peer.ID(), neighborhoods[peer.ID()])
 		assert.Equal(t, sliceUniqMap(neighborhoods[peer.ID()]), neighborhoods[peer.ID()], "Neighbors")
+		assert.Equal(t, N-1, len(neighborhoods[peer.ID()]), "Neighbors number")
 	}
 
 }

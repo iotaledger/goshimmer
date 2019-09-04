@@ -129,11 +129,11 @@ Loop:
 					salt = m.updatePublicSalt()
 				}
 				// remove potential duplicates
-				dup := m.getDuplicates()
-				for _, peerToDrop := range dup {
-					m.outbound.RemovePeer(peerToDrop)
-					//m.net.DropPeer(peerToDrop)
-				}
+				// dup := m.getDuplicates()
+				// for _, peerToDrop := range dup {
+				// 	m.outbound.RemovePeer(peerToDrop)
+				// 	//m.net.DropPeer(peerToDrop)
+				// }
 				go m.updateOutbound(updateOutboundDone)
 			}
 		case <-updateOutboundDone:
@@ -221,6 +221,7 @@ func (m *Manager) updateOutbound(done chan<- struct{}) {
 
 		// add candidate to the outbound neighborhood
 		if accepted {
+			m.rejectionFilter.AddPeer(candidate.Remote.ID())
 			furtherest := m.outbound.Add(candidate)
 			// drop furtherest neighbor
 			if furtherest != nil {
