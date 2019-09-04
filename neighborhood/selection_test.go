@@ -25,25 +25,33 @@ func TestSelection(t *testing.T) {
 	}
 
 	type testCase struct {
-		nh           Neighborhood
+		nh           *Neighborhood
 		expCandidate *peer.Peer
 	}
 
 	tests := []testCase{
 		{
-			nh:           Neighborhood{[]peer.PeerDistance{d[0]}, 4},
+			nh: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0]},
+				Size:      4},
 			expCandidate: d[1].Remote,
 		},
 		{
-			nh:           Neighborhood{[]peer.PeerDistance{d[0], d[1], d[3]}, 4},
+			nh: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0], d[1], d[3]},
+				Size:      4},
 			expCandidate: d[2].Remote,
 		},
 		{
-			nh:           Neighborhood{[]peer.PeerDistance{d[0], d[1], d[4], d[2]}, 4},
+			nh: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0], d[1], d[4], d[2]},
+				Size:      4},
 			expCandidate: d[3].Remote,
 		},
 		{
-			nh:           Neighborhood{[]peer.PeerDistance{d[0], d[1], d[2], d[3]}, 4},
+			nh: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0], d[1], d[2], d[3]},
+				Size:      4},
 			expCandidate: nil,
 		},
 	}

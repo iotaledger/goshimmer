@@ -18,24 +18,30 @@ func TestRemove(t *testing.T) {
 	}
 
 	type testCase struct {
-		input    Neighborhood
+		input    *Neighborhood
 		toRemove *peer.Peer
 		expected []peer.PeerDistance
 	}
 
 	tests := []testCase{
 		{
-			input:    Neighborhood{[]peer.PeerDistance{d[0]}, 4},
+			input: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0]},
+				Size:      4},
 			toRemove: d[0].Remote,
 			expected: []peer.PeerDistance{},
 		},
 		{
-			input:    Neighborhood{[]peer.PeerDistance{d[0], d[1], d[3]}, 4},
+			input: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0], d[1], d[3]},
+				Size:      4},
 			toRemove: d[1].Remote,
 			expected: []peer.PeerDistance{d[0], d[3]},
 		},
 		{
-			input:    Neighborhood{[]peer.PeerDistance{d[0], d[1], d[4], d[2]}, 4},
+			input: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0], d[1], d[4], d[2]},
+				Size:      4},
 			toRemove: d[2].Remote,
 			expected: []peer.PeerDistance{d[0], d[1], d[4]},
 		},
@@ -55,24 +61,30 @@ func TestAdd(t *testing.T) {
 	}
 
 	type testCase struct {
-		input    Neighborhood
+		input    *Neighborhood
 		toAdd    peer.PeerDistance
 		expected []peer.PeerDistance
 	}
 
 	tests := []testCase{
 		{
-			input:    Neighborhood{[]peer.PeerDistance{d[0]}, 4},
+			input: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0]},
+				Size:      4},
 			toAdd:    d[2],
 			expected: []peer.PeerDistance{d[0], d[2]},
 		},
 		{
-			input:    Neighborhood{[]peer.PeerDistance{d[0], d[1], d[3]}, 4},
+			input: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0], d[1], d[3]},
+				Size:      4},
 			toAdd:    d[2],
 			expected: []peer.PeerDistance{d[0], d[1], d[3], d[2]},
 		},
 		{
-			input:    Neighborhood{[]peer.PeerDistance{d[0], d[1], d[4], d[2]}, 4},
+			input: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0], d[1], d[4], d[2]},
+				Size:      4},
 			toAdd:    d[3],
 			expected: []peer.PeerDistance{d[0], d[1], d[3], d[2]},
 		},
@@ -99,7 +111,9 @@ func TestUpdateDistance(t *testing.T) {
 		d2[i].Distance = distance.BySalt(d[0].Remote.ID().Bytes(), d2[i].Remote.ID().Bytes(), s.GetBytes())
 	}
 
-	neighborhood := Neighborhood{d[1:], 4}
+	neighborhood := Neighborhood{
+		Neighbors: d[1:],
+		Size:      4}
 
 	neighborhood.UpdateDistance(d[0].Remote.ID().Bytes(), s.GetBytes())
 
@@ -117,21 +131,27 @@ func TestGetPeers(t *testing.T) {
 	}
 
 	type testCase struct {
-		input    Neighborhood
+		input    *Neighborhood
 		expected []*peer.Peer
 	}
 
 	tests := []testCase{
 		{
-			input:    Neighborhood{[]peer.PeerDistance{}, 4},
+			input: &Neighborhood{
+				Neighbors: []peer.PeerDistance{},
+				Size:      4},
 			expected: []*peer.Peer{},
 		},
 		{
-			input:    Neighborhood{[]peer.PeerDistance{d[0]}, 4},
+			input: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0]},
+				Size:      4},
 			expected: []*peer.Peer{peers[0]},
 		},
 		{
-			input:    Neighborhood{[]peer.PeerDistance{d[0], d[1], d[3], d[2]}, 4},
+			input: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0], d[1], d[3], d[2]},
+				Size:      4},
 			expected: []*peer.Peer{peers[0], peers[1], peers[3], peers[2]},
 		},
 	}

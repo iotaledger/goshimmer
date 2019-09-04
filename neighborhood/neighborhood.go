@@ -1,6 +1,8 @@
 package neighborhood
 
 import (
+	"sync"
+
 	"github.com/wollac/autopeering/distance"
 	"github.com/wollac/autopeering/peer"
 )
@@ -8,9 +10,12 @@ import (
 type Neighborhood struct {
 	Neighbors []peer.PeerDistance
 	Size      int
+	mutex     sync.RWMutex
 }
 
-func (nh Neighborhood) getFurtherest() (peer.PeerDistance, int) {
+func (nh *Neighborhood) getFurtherest() (peer.PeerDistance, int) {
+	nh.mutex.RLock()
+	defer nh.mutex.RUnlock()
 	if len(nh.Neighbors) < nh.Size {
 		return peer.PeerDistance{
 			Remote:   nil,
@@ -29,11 +34,13 @@ func (nh Neighborhood) getFurtherest() (peer.PeerDistance, int) {
 	return furtherest, index
 }
 
-func (nh Neighborhood) Select(candidates []peer.PeerDistance) peer.PeerDistance {
-	target, _ := nh.getFurtherest()
-	for _, candidate := range candidates {
-		if candidate.Distance < target.Distance {
-			return candidate
+func (nh *Neighborhood) Select(candidates []peer.PeerDistance) peer.PeerDistance {
+	if len(candidates) > 0 {
+		target, _ := nh.getFurtherest()
+		for _, candidate := range candidates {
+			if candidate.Distance < target.Distance {
+				return candidate
+			}
 		}
 	}
 	return peer.PeerDistance{}
@@ -41,6 +48,8 @@ func (nh Neighborhood) Select(candidates []peer.PeerDistance) peer.PeerDistance 
 
 func (nh *Neighborhood) Add(toAdd peer.PeerDistance) (toDrop *peer.Peer) {
 	p, index := nh.getFurtherest()
+	nh.mutex.Lock()
+	defer nh.mutex.Unlock()
 	if p.Remote != nil {
 		toDrop = nh.Neighbors[index].Remote
 		nh.Neighbors[index] = toAdd
@@ -55,12 +64,16 @@ func (nh *Neighborhood) RemovePeer(toRemove *peer.Peer) {
 	if index < 0 {
 		return
 	}
+	nh.mutex.Lock()
+	defer nh.mutex.Unlock()
 	nh.Neighbors[index] = peer.PeerDistance{}
 	copy(nh.Neighbors[index:], nh.Neighbors[index+1:])
 	nh.Neighbors = nh.Neighbors[:len(nh.Neighbors)-1]
 }
 
-func (nh Neighborhood) getPeerIndex(target *peer.Peer) int {
+func (nh *Neighborhood) getPeerIndex(target *peer.Peer) int {
+	nh.mutex.RLock()
+	defer nh.mutex.RUnlock()
 	for i, peer := range nh.Neighbors {
 		if peer.Remote == target {
 			return i
@@ -71,12 +84,16 @@ func (nh Neighborhood) getPeerIndex(target *peer.Peer) int {
 }
 
 func (nh *Neighborhood) UpdateDistance(anchor, salt []byte) {
+	nh.mutex.Lock()
+	defer nh.mutex.Unlock()
 	for i, peer := range nh.Neighbors {
 		nh.Neighbors[i].Distance = distance.BySalt(anchor, peer.Remote.ID().Bytes(), salt)
 	}
 }
 
-func (nh Neighborhood) GetPeers() []*peer.Peer {
+func (nh *Neighborhood) GetPeers() []*peer.Peer {
+	nh.mutex.RLock()
+	defer nh.mutex.RUnlock()
 	list := make([]*peer.Peer, len(nh.Neighbors))
 	for i, peer := range nh.Neighbors {
 		list[i] = peer.Remote

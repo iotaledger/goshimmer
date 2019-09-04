@@ -19,9 +19,9 @@ func (f Filter) Apply(list []peer.PeerDistance) (filteredList []peer.PeerDistanc
 	return filteredList
 }
 
-func (f Filter) AddNeighborhood(n Neighborhood) {
-	for _, peer := range n.Neighbors {
-		f[peer.Remote] = true
+func (f Filter) AddPeers(n []*peer.Peer) {
+	for _, peer := range n {
+		f[peer] = true
 	}
 }
 

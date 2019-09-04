@@ -97,9 +97,22 @@ func TestManager(t *testing.T) {
 	mgrMap[B.local.ID()] = NewManager(netB, netB.GetKnownPeers, B.log)
 	mgrMap[C.local.ID()] = NewManager(netC, netC.GetKnownPeers, C.log)
 
-	time.Sleep(10 * time.Second)
+	mgrMap[A.local.ID()].Run()
+	mgrMap[B.local.ID()].Run()
+	mgrMap[C.local.ID()].Run()
 
-	log.Println("A", mgrMap[A.local.ID()].inbound.GetPeers(), mgrMap[A.local.ID()].outbound.GetPeers())
-	log.Println("B", mgrMap[B.local.ID()].inbound.GetPeers(), mgrMap[B.local.ID()].outbound.GetPeers())
-	log.Println("C", mgrMap[C.local.ID()].inbound.GetPeers(), mgrMap[C.local.ID()].outbound.GetPeers())
+	time.Sleep(5 * time.Second)
+
+	//mgrMap[A.local.ID()].Close()
+	//mgrMap[B.local.ID()].Close()
+	//mgrMap[C.local.ID()].Close()
+
+	// log.Println("A", mgrMap[A.local.ID()].inbound.GetPeers(), mgrMap[A.local.ID()].outbound.GetPeers())
+	// log.Println("B", mgrMap[B.local.ID()].inbound.GetPeers(), mgrMap[B.local.ID()].outbound.GetPeers())
+	// log.Println("C", mgrMap[C.local.ID()].inbound.GetPeers(), mgrMap[C.local.ID()].outbound.GetPeers())
+
+	log.Println("A", mgrMap[A.local.ID()].GetNeighbors())
+	log.Println("B", mgrMap[B.local.ID()].GetNeighbors())
+	log.Println("C", mgrMap[C.local.ID()].GetNeighbors())
+
 }
