@@ -1,7 +1,6 @@
 package neighborhood
 
 import (
-	"math/rand"
 	"sync"
 	"time"
 
@@ -58,8 +57,6 @@ type Manager struct {
 	wg              sync.WaitGroup
 	inboundClosing  chan struct{}
 	outboundClosing chan struct{}
-
-	ran *rand.Rand
 }
 
 func NewManager(net Network, getKnownPeers GetKnownPeers, log *zap.SugaredLogger) *Manager {
@@ -84,7 +81,6 @@ func NewManager(net Network, getKnownPeers GetKnownPeers, log *zap.SugaredLogger
 		outbound: &Neighborhood{
 			Neighbors: []peer.PeerDistance{},
 			Size:      4},
-		ran: rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 	return m
 }
@@ -113,7 +109,7 @@ func (m *Manager) loopOutbound() {
 
 	var (
 		updateOutboundDone chan struct{}
-		updateOutbound     = time.NewTimer(time.Duration(m.ran.Intn(max-min+1)+min) * time.Microsecond) // setting this to 0 will cause a trigger right away
+		updateOutbound     = time.NewTimer(0) // setting this to 0 will cause a trigger right away
 	)
 	defer updateOutbound.Stop()
 
@@ -144,7 +140,7 @@ Loop:
 			}
 		case <-updateOutboundDone:
 			updateOutboundDone = nil
-			updateOutbound.Reset(updateOutboundInterval + time.Duration(m.ran.Intn(max-min+1)+min)*time.Microsecond) // updateOutbound again after the given interval
+			updateOutbound.Reset(updateOutboundInterval) // updateOutbound again after the given interval
 		case peerToDrop := <-m.outboundDropChan:
 			if containsPeer(m.outbound.GetPeers(), peerToDrop) {
 				m.outbound.RemovePeer(peerToDrop)
