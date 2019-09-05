@@ -9,10 +9,16 @@ var tpsTemplate = `
     <script src="https://code.highcharts.com/stock/highstock.js"></script>
     <script src="https://code.highcharts.com/stock/modules/exporting.js"></script>
     <script src="https://code.highcharts.com/stock/modules/export-data.js"></script>
-    <div id="container" style="height: 400px; min-width: 310px"></div>
 </head>
 
 <body>
+    <div id="node-status" style="min-width:310px">
+        <h3 id="node-id"></h3>
+        <h3 id="node-neighbor"></h3>
+        <h3 id="node-knownpeer"></h3>
+        <h3 id="node-uptime"></h3>
+    </div>
+    <div id="container" style="height: 400px; min-width: 310px"></div>
     <script>
         Highcharts.createElement('link', {
             href: 'https://fonts.googleapis.com/css?family=Unica+One',
@@ -306,14 +312,32 @@ var tpsTemplate = `
             // console.log('Connection closed');
         }
         conn.onmessage = evt => {
-            console.log('metric updated');
             const data = evt.data;
-            const dv = new DataView(data);
-            // var value = dv.getUint32(4, true) << 32 | dv.getUint32(0, true);
-            const value = dv.getUint32(0, true);
-            chart.series[0].addPoint([time += 1000, value], true); //((counter += 1) % update_rate == 4));
-            console.log(value);
-            console.log(dv);
+            if(isJSON(data)) {
+                console.log('status updated');
+                var res = JSON.parse(data);
+                $("#node-id").html("Node ID: " + res.Id);
+                $("#node-neighbor").html(res.Neighbor);
+                $("#node-knownpeer").html(res.KnownPeer);
+                $("#node-uptime").html(res.Uptime);
+            } else {
+                console.log('metric updated');
+                const dv = new DataView(data);
+                // var value = dv.getUint32(4, true) << 32 | dv.getUint32(0, true);
+                const value = dv.getUint32(0, true);
+                chart.series[0].addPoint([time += 1000, value], true); //((counter += 1) % update_rate == 4));
+                console.log(value);
+                console.log(dv);
+            }
+        }
+
+        function isJSON(str) {
+            try {
+                JSON.parse(str);
+            } catch(e) {
+                return false;
+            }
+            return true;
         }
     </script>
 </body>
