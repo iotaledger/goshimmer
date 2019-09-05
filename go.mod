@@ -3,6 +3,8 @@ module github.com/wollac/autopeering
 go 1.12
 
 require (
+	github.com/awalterschulze/gographviz v0.0.0-20190522210029-fa59802746ab
+	github.com/capossele/GoGraphviz/graphviz v0.0.0-20190313095341-7802999d6878
 	github.com/golang/protobuf v1.3.2
 	github.com/labstack/gommon v0.3.0
 	github.com/magiconair/properties v1.8.1

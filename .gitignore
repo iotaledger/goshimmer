@@ -9,6 +9,8 @@
 *.dylib
 sim
 /autopeering
+/simulation/*.dot
+/simulation/*.txt
 
 # Test binary, built with `go test -c`
 *.test

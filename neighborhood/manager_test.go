@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	//"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/assert"
 	"github.com/wollac/autopeering/peer"
 	"github.com/wollac/autopeering/salt"
@@ -86,7 +87,7 @@ func (n testNet) GetKnownPeers() []*peer.Peer {
 }
 
 func TestSimManager(t *testing.T) {
-	N := 100
+	N := 5
 	allPeers = make([]*peer.Peer, N)
 	mgrMap := make(map[peer.ID]*Manager)
 	neighborhoods := make(map[peer.ID][]*peer.Peer)
@@ -135,17 +136,41 @@ func TestSimManager(t *testing.T) {
 		mgrMap[peer.ID()].Run()
 	}
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 
+	list := []Edge{}
 	for i, peer := range allPeers {
 		neighborhoods[peer.ID()] = mgrMap[peer.ID()].GetNeighbors()
 		log.Println(idMap[peer.ID()], "(", len(mgrMap[peer.ID()].outbound.GetPeers()), ",", len(mgrMap[peer.ID()].inbound.GetPeers()), ")")
 		for _, ng := range neighborhoods[peer.ID()] {
 			log.Printf(" %d ", idMap[ng.ID()])
+			edge := NewEdge(idMap[peer.ID()], idMap[ng.ID()])
+			if !HasEdge(edge, list) {
+				list = append(list, edge)
+			}
 		}
 
 		assert.Equal(t, sliceUniqMap(neighborhoods[peer.ID()]), neighborhoods[peer.ID()], fmt.Sprintln("Peer: ", i))
 		//assert.Equal(t, N-1, len(neighborhoods[peer.ID()]), fmt.Sprintln("Peer: ", i))
 	}
+	log.Println(list)
 
+}
+
+type Edge struct {
+	X, Y int
+}
+
+func NewEdge(x, y int) Edge {
+	return Edge{x, y}
+}
+
+func HasEdge(target Edge, list []Edge) bool {
+	for _, edge := range list {
+		if (edge.X == target.X && edge.Y == target.Y) ||
+			(edge.X == target.Y && edge.Y == target.X) {
+			return true
+		}
+	}
+	return false
 }
