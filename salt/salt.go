@@ -3,6 +3,7 @@ package salt
 import (
 	"crypto/rand"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -14,34 +15,47 @@ const SaltByteSize = 20
 
 // Salt encapsulates high level functions around salt management.
 type Salt struct {
-	Bytes          []byte    // value of the salt
-	ExpirationTime time.Time // expiration time of the salt
+	bytes          []byte    // value of the salt
+	expirationTime time.Time // expiration time of the salt
+	mutex          sync.RWMutex
 }
 
 // NewSalt generates a new salt given a lifetime duration
 func NewSalt(lifetime time.Duration) (salt *Salt, err error) {
 	salt = &Salt{
-		Bytes:          make([]byte, SaltByteSize),
-		ExpirationTime: time.Now().Add(lifetime),
+		bytes:          make([]byte, SaltByteSize),
+		expirationTime: time.Now().Add(lifetime),
 	}
 
-	if _, err = rand.Read(salt.Bytes); err != nil {
+	if _, err = rand.Read(salt.bytes); err != nil {
 		return nil, err
 	}
 
 	return salt, err
 }
 
+func (s *Salt) GetBytes() []byte {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.bytes
+}
+
+func (s *Salt) GetExpiration() time.Time {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.expirationTime
+}
+
 // Expired returns true if the given salt expired
 func (s *Salt) Expired() bool {
-	return time.Now().After(s.ExpirationTime)
+	return time.Now().After(s.GetExpiration())
 }
 
 // ToProto encodes the Salt into a proto buffer Salt message
 func (s *Salt) ToProto() *pb.Salt {
 	return &pb.Salt{
-		Bytes:   s.Bytes,
-		ExpTime: uint64(s.ExpirationTime.Unix()),
+		Bytes:   s.bytes,
+		ExpTime: uint64(s.expirationTime.Unix()),
 	}
 }
 
@@ -51,8 +65,8 @@ func FromProto(in *pb.Salt) (*Salt, error) {
 		return nil, fmt.Errorf("invalid salt length: %d, need %d", l, SaltByteSize)
 	}
 	out := &Salt{
-		Bytes:          in.GetBytes(),
-		ExpirationTime: time.Unix(int64(in.GetExpTime()), 0),
+		bytes:          in.GetBytes(),
+		expirationTime: time.Unix(int64(in.GetExpTime()), 0),
 	}
 	return out, nil
 }

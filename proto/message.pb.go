@@ -5,10 +5,11 @@ package proto
 
 import (
 	fmt "fmt"
+	math "math"
+
 	proto "github.com/golang/protobuf/proto"
 	proto1 "github.com/wollac/autopeering/peer/proto"
 	proto2 "github.com/wollac/autopeering/salt/proto"
-	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

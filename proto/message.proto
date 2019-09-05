@@ -69,7 +69,6 @@ message MessageWrapper {
     Pong pong = 2;
     PeersRequest peers_request = 3;
     PeersResponse peers_response = 4;
-
     PeeringRequest peering_request = 5;
     PeeringResponse peering_response = 6;
     PeeringDrop peering_drop = 7;

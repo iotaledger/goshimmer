@@ -46,6 +46,10 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport, l
 	log := logger.Named(name)
 	db := peer.NewMapDB(log.Named("db"))
 	local := peer.NewLocal(priv, db)
+	s, _ := salt.NewSalt(100 * time.Second)
+	local.SetPrivateSalt(s)
+	s, _ = salt.NewSalt(100 * time.Second)
+	local.SetPublicSalt(s)
 
 	cfg := Config{
 		Log:       logger.Named(name),
@@ -223,4 +227,29 @@ func BenchmarkPeersRequest(b *testing.B) {
 	}
 
 	b.StopTimer()
+}
+
+func TestPeeringRequest(t *testing.T) {
+	p2p := transport.P2P()
+
+	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
+	defer closeA()
+	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
+	defer closeB()
+
+	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
+	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+
+	// request peers from node A
+	t.Run("A->B", func(t *testing.T) {
+		if ps, err := srvA.requestPeers(peerB); assert.NoError(t, err) {
+			assert.ElementsMatch(t, []*peer.Peer{peerA}, ps)
+		}
+	})
+	// request peers from node B
+	t.Run("B->A", func(t *testing.T) {
+		if ps, err := srvB.requestPeers(peerA); assert.NoError(t, err) {
+			assert.ElementsMatch(t, []*peer.Peer{peerB}, ps)
+		}
+	})
 }
