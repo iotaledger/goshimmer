@@ -202,8 +202,8 @@ func (m *Manager) updateOutbound(done chan<- struct{}) {
 	filter.AddPeers(m.inbound.GetPeers())  // set filter for inbound neighbors
 	filter.AddPeers(m.outbound.GetPeers()) // set filter for outbound neighbors
 
-	filteredList := filter.Apply(distList)                  // filter out current neighbors
-	filteredList = m.rejectionFilter.PushBack(filteredList) // filter out previous rejection
+	filteredList := filter.Apply(distList)               // filter out current neighbors
+	filteredList = m.rejectionFilter.Apply(filteredList) // filter out previous rejection
 
 	// select new candidate
 	candidate := m.outbound.Select(filteredList)
