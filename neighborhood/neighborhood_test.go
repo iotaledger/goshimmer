@@ -53,48 +53,48 @@ func TestRemove(t *testing.T) {
 	}
 }
 
-func TestAdd(t *testing.T) {
-	d := make([]peer.PeerDistance, 10)
-	for i := range d {
-		d[i].Remote = newTestPeer()
-		d[i].Distance = uint32(i + 1)
-	}
+// func TestAdd(t *testing.T) {
+// 	d := make([]peer.PeerDistance, 10)
+// 	for i := range d {
+// 		d[i].Remote = newTestPeer()
+// 		d[i].Distance = uint32(i + 1)
+// 	}
 
-	type testCase struct {
-		input    *Neighborhood
-		toAdd    peer.PeerDistance
-		expected []peer.PeerDistance
-	}
+// 	type testCase struct {
+// 		input    *Neighborhood
+// 		toAdd    peer.PeerDistance
+// 		expected []peer.PeerDistance
+// 	}
 
-	tests := []testCase{
-		{
-			input: &Neighborhood{
-				Neighbors: []peer.PeerDistance{d[0]},
-				Size:      4},
-			toAdd:    d[2],
-			expected: []peer.PeerDistance{d[0], d[2]},
-		},
-		{
-			input: &Neighborhood{
-				Neighbors: []peer.PeerDistance{d[0], d[1], d[3]},
-				Size:      4},
-			toAdd:    d[2],
-			expected: []peer.PeerDistance{d[0], d[1], d[3], d[2]},
-		},
-		{
-			input: &Neighborhood{
-				Neighbors: []peer.PeerDistance{d[0], d[1], d[4], d[2]},
-				Size:      4},
-			toAdd:    d[3],
-			expected: []peer.PeerDistance{d[0], d[1], d[3], d[2]},
-		},
-	}
+// 	tests := []testCase{
+// 		{
+// 			input: &Neighborhood{
+// 				Neighbors: []peer.PeerDistance{d[0]},
+// 				Size:      4},
+// 			toAdd:    d[2],
+// 			expected: []peer.PeerDistance{d[0], d[2]},
+// 		},
+// 		{
+// 			input: &Neighborhood{
+// 				Neighbors: []peer.PeerDistance{d[0], d[1], d[3]},
+// 				Size:      4},
+// 			toAdd:    d[2],
+// 			expected: []peer.PeerDistance{d[0], d[1], d[3], d[2]},
+// 		},
+// 		{
+// 			input: &Neighborhood{
+// 				Neighbors: []peer.PeerDistance{d[0], d[1], d[4], d[2]},
+// 				Size:      4},
+// 			toAdd:    d[3],
+// 			expected: []peer.PeerDistance{d[0], d[1], d[3], d[2]},
+// 		},
+// 	}
 
-	for _, test := range tests {
-		test.input.Add(test.toAdd)
-		assert.Equal(t, test.expected, test.input.Neighbors, "Add")
-	}
-}
+// 	for _, test := range tests {
+// 		test.input.Add(test.toAdd)
+// 		assert.Equal(t, test.expected, test.input.Neighbors, "Add")
+// 	}
+// }
 
 func TestUpdateDistance(t *testing.T) {
 	d := make([]peer.PeerDistance, 5)
