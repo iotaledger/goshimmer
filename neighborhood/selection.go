@@ -32,6 +32,20 @@ func (f *Filter) Apply(list []peer.PeerDistance) (filteredList []peer.PeerDistan
 	return filteredList
 }
 
+func (f *Filter) PushBack(list []peer.PeerDistance) (filteredList []peer.PeerDistance) {
+	var head, tail []peer.PeerDistance
+	f.lock.RLock()
+	defer f.lock.RUnlock()
+	for _, peer := range list {
+		if f.internal[peer.Remote.ID()] {
+			tail = append(tail, peer)
+		} else {
+			head = append(head, peer)
+		}
+	}
+	return append(head, tail...)
+}
+
 func (f *Filter) AddPeers(n []*peer.Peer) {
 	f.lock.Lock()
 	for _, peer := range n {

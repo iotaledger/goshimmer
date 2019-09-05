@@ -3,6 +3,7 @@ package neighborhood
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -14,6 +15,9 @@ import (
 
 var (
 	allPeers []*peer.Peer
+	min      = 10
+	max      = 10000
+	idMap    = make(map[peer.ID]int)
 )
 
 type testPeer struct {
@@ -21,10 +25,17 @@ type testPeer struct {
 	peer  *peer.Peer
 	db    *peer.DB
 	log   *zap.SugaredLogger
+	rand  *rand.Rand // random number generator
 }
 
 func newPeer(name string) testPeer {
-	l, err := zap.NewDevelopment()
+	var l *zap.Logger
+	var err error
+	if name == "1" {
+		l, err = zap.NewDevelopment()
+	} else {
+		l, err = zap.NewDevelopment() //zap.NewProduction()
+	}
 	if err != nil {
 		log.Fatalf("cannot initialize logger: %v", err)
 	}
@@ -38,17 +49,19 @@ func newPeer(name string) testPeer {
 	s, _ = salt.NewSalt(100 * time.Second)
 	local.SetPublicSalt(s)
 	p := peer.NewPeer(local.PublicKey(), name)
-	return testPeer{local, p, db, log}
+	return testPeer{local, p, db, log, rand.New(rand.NewSource(time.Now().UnixNano()))}
 }
 
 type testNet struct {
-	network
+	Network
 	mgr   map[peer.ID]*Manager
 	local *peer.Local
 	self  *peer.Peer
+	rand  *rand.Rand
 }
 
 func (n testNet) DropPeer(p *peer.Peer) {
+	//time.Sleep(time.Duration(n.rand.Intn(max-min+1)+min) * time.Microsecond)
 	n.mgr[p.ID()].DropNeighbor(n.self.ID())
 }
 
@@ -56,6 +69,7 @@ func (n testNet) Local() *peer.Local {
 	return n.local
 }
 func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
+	//time.Sleep(time.Duration(n.rand.Intn(max-min+1)+min) * time.Microsecond)
 	return n.mgr[p.ID()].AcceptRequest(n.self, s), nil
 }
 
@@ -72,7 +86,7 @@ func (n testNet) GetKnownPeers() []*peer.Peer {
 }
 
 func TestSimManager(t *testing.T) {
-	N := 3
+	N := 9
 	allPeers = make([]*peer.Peer, N)
 	mgrMap := make(map[peer.ID]*Manager)
 	neighborhoods := make(map[peer.ID][]*peer.Peer)
@@ -83,28 +97,55 @@ func TestSimManager(t *testing.T) {
 			mgr:   mgrMap,
 			local: peer.local,
 			self:  peer.peer,
+			rand:  peer.rand,
 		}
+		idMap[peer.local.ID()] = i
 		mgrMap[peer.local.ID()] = NewManager(net, net.GetKnownPeers, peer.log)
 	}
 
-	// for _, p := range allPeers {
-	// 	d := peer.SortBySalt(p.ID().Bytes(), mgrMap[p.ID()].net.Local().GetPublicSalt().GetBytes(), allPeers)
-	// 	log.Println("\n", p.ID())
-	// 	for _, dist := range d {
-	// 		log.Println(dist.Distance)
-	// 	}
+	for _, p := range allPeers {
+		d := peer.SortBySalt(p.ID().Bytes(), mgrMap[p.ID()].net.Local().GetPublicSalt().GetBytes(), mgrMap[p.ID()].getKnownPeers())
+		log.Println("\n", p.ID())
+		for _, dist := range d {
+			log.Println(dist.Remote.ID())
+		}
+	}
+
+	for _, p := range allPeers {
+		d := peer.SortBySalt(p.ID().Bytes(), mgrMap[p.ID()].net.Local().GetPrivateSalt().GetBytes(), mgrMap[p.ID()].getKnownPeers())
+		log.Println("\n", p.ID())
+		for _, dist := range d {
+			log.Println(dist.Remote.ID())
+		}
+	}
+
+	// d := peer.SortBySalt(allPeers[1].ID().Bytes(), mgrMap[allPeers[1].ID()].net.Local().GetPublicSalt().GetBytes(), mgrMap[allPeers[1].ID()].getKnownPeers())
+	// log.Println("\n", allPeers[1].ID())
+	// for _, dist := range d {
+	// 	log.Println(dist.Remote.ID(), dist.Distance)
+	// }
+
+	// d = peer.SortBySalt(allPeers[1].ID().Bytes(), mgrMap[allPeers[1].ID()].net.Local().GetPrivateSalt().GetBytes(), mgrMap[allPeers[1].ID()].getKnownPeers())
+	// log.Println("\n", allPeers[1].ID())
+	// for _, dist := range d {
+	// 	log.Println(dist.Remote.ID(), dist.Distance)
 	// }
 
 	for _, peer := range allPeers {
 		mgrMap[peer.ID()].Run()
 	}
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 
-	for _, peer := range allPeers {
+	for i, peer := range allPeers {
 		neighborhoods[peer.ID()] = mgrMap[peer.ID()].GetNeighbors()
-		log.Println(peer.ID(), neighborhoods[peer.ID()])
-		assert.Equal(t, sliceUniqMap(neighborhoods[peer.ID()]), neighborhoods[peer.ID()], "Neighbors")
+		log.Println(idMap[peer.ID()], "(", len(mgrMap[peer.ID()].outbound.GetPeers()), ",", len(mgrMap[peer.ID()].inbound.GetPeers()), ")")
+		for _, ng := range neighborhoods[peer.ID()] {
+			log.Printf(" %d ", idMap[ng.ID()])
+		}
+
+		assert.Equal(t, sliceUniqMap(neighborhoods[peer.ID()]), neighborhoods[peer.ID()], fmt.Sprintln("Peer: ", i))
+		assert.Equal(t, N-1, len(neighborhoods[peer.ID()]), fmt.Sprintln("Peer: ", i))
 	}
 
 }
