@@ -95,7 +95,7 @@ func TestSrvVerifyBoot(t *testing.T) {
 
 	if assert.EqualValues(t, 1, len(srvB.mgr.known)) {
 		assert.EqualValues(t, peerA, &srvB.mgr.known[0].Peer)
-		assert.EqualValues(t, 1, srvB.mgr.known[0].verifiedCount)
+		assert.NotZero(t, srvB.mgr.known[0].verifiedCount)
 	}
 }
 

@@ -1,10 +1,10 @@
 package peer
 
 import (
+	"crypto/ed25519"
 	"sync"
 
 	"github.com/wollac/autopeering/salt"
-	"golang.org/x/crypto/ed25519"
 )
 
 // Local defines the struct of a local peer

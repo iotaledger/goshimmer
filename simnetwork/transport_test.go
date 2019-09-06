@@ -3,7 +3,7 @@ package simnetwork
 import (
 	"testing"
 
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 	pb "github.com/wollac/autopeering/proto"
 	"github.com/wollac/autopeering/transport"
 )

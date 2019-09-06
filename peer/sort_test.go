@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/crypto/ed25519"
+	"crypto/ed25519"
 )
 
 func newTestPeerWithID(ID byte) *Peer {

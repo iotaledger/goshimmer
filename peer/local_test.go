@@ -1,13 +1,13 @@
 package peer
 
 import (
+	"crypto/ed25519"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wollac/autopeering/salt"
-	"golang.org/x/crypto/ed25519"
 )
 
 func TestID(t *testing.T) {
