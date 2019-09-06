@@ -1,14 +1,13 @@
 package tangle
 
 import (
-	"github.com/iotaledger/iota.go/trinary"
-
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/datastructure"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/typeutils"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 // region public api ///////////////////////////////////////////////////////////////////////////////////////////////////
