@@ -1,11 +1,11 @@
 package peer
 
 import (
+	"crypto/ed25519"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/ed25519"
 )
 
 const (
