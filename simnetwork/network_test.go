@@ -3,7 +3,7 @@ package simnetwork
 import (
 	"testing"
 
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewNetwork(t *testing.T) {
