@@ -41,7 +41,7 @@ func newPeer(name string, i int) testPeer {
 	if name == "1" {
 		l, err = zap.NewDevelopment()
 	} else {
-		l, err = zap.NewProduction()
+		l, err = zap.NewDevelopment() //zap.NewProduction()
 	}
 	if err != nil {
 		log.Fatalf("cannot initialize logger: %v", err)
@@ -51,9 +51,9 @@ func newPeer(name string, i int) testPeer {
 	priv, _ := peer.GeneratePrivateKey()
 	db := peer.NewMapDB(log.Named("db"))
 	local := peer.NewLocal(priv, db)
-	s, _ := salt.NewSalt(time.Duration(15+i*10) * time.Second)
+	s, _ := salt.NewSalt(time.Duration(25+i) * time.Second)
 	local.SetPrivateSalt(s)
-	s, _ = salt.NewSalt(time.Duration(15+i*10) * time.Second)
+	s, _ = salt.NewSalt(time.Duration(25+i) * time.Second)
 	local.SetPublicSalt(s)
 	p := peer.NewPeer(local.PublicKey(), name)
 	return testPeer{local, p, db, log, rand.New(rand.NewSource(time.Now().UnixNano()))}
@@ -108,7 +108,7 @@ func RunSim() {
 	mgrMap := make(map[peer.ID]*neighborhood.Manager)
 	neighborhoods := make(map[peer.ID][]*peer.Peer)
 	for i := range allPeers {
-		peer := newPeer(fmt.Sprintf("%d", i), 1000)
+		peer := newPeer(fmt.Sprintf("%d", i), i)
 		allPeers[i] = peer.peer
 		net := testNet{
 			mgr:   mgrMap,
@@ -125,6 +125,15 @@ func RunSim() {
 	}
 
 	time.Sleep(20 * time.Second)
+	log.Println("resetting measures")
+	for _, peer := range allPeers {
+		results[idMap[peer.ID()]].request = 0
+		results[idMap[peer.ID()]].accepted = 0
+		results[idMap[peer.ID()]].rejected = 0
+		results[idMap[peer.ID()]].incoming = 0
+		results[idMap[peer.ID()]].dropped = 0
+	}
+	time.Sleep(30 * time.Minute)
 
 	list := []Edge{}
 	g := gographviz.NewGraph()

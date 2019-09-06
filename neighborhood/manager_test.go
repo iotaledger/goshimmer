@@ -16,8 +16,6 @@ import (
 
 var (
 	allPeers []*peer.Peer
-	min      = 10
-	max      = 10000
 	idMap    = make(map[peer.ID]int)
 )
 

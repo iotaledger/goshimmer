@@ -18,7 +18,7 @@ const (
 	Accept = true
 	Reject = false
 
-	lifetime = 300 * time.Second
+	lifetime = 30 * time.Second
 )
 
 type Network interface {
