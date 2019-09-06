@@ -3,9 +3,10 @@ package neighborhood
 import (
 	"testing"
 
+	"crypto/ed25519"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/wollac/autopeering/peer"
-	"crypto/ed25519"
 )
 
 const (
@@ -65,5 +66,4 @@ func TestSelection(t *testing.T) {
 
 		assert.Equal(t, test.expCandidate, got.Remote, "Next Candidate", test)
 	}
-
 }
