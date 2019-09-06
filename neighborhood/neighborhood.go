@@ -50,8 +50,8 @@ func (nh *Neighborhood) Add(toAdd peer.PeerDistance) {
 	nh.mutex.Lock()
 	defer nh.mutex.Unlock()
 	if len(nh.Neighbors) < nh.Size {
-	    nh.Neighbors = append(nh.Neighbors, toAdd)
-    }
+		nh.Neighbors = append(nh.Neighbors, toAdd)
+	}
 }
 
 func (nh *Neighborhood) RemovePeer(toRemove peer.ID) {

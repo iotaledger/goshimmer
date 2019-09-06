@@ -18,7 +18,7 @@ const (
 	Accept = true
 	Reject = false
 
-	lifetime = 300 * time.Second
+	lifetime = 30 * time.Second
 )
 
 type Network interface {
@@ -253,12 +253,13 @@ func (m *Manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
 	toAccept := m.inbound.Select(filteredList)
 
 	// reject request
-	if toAccept.Remote == nil || containsPeer(m.outbound.GetPeers(), toAccept.Remote.ID()) {
+	if toAccept.Remote == nil {
 		m.log.Debug("Peering request FROM ", requester.ID(), " status REJECTED (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
 		m.inboundReplyChan <- Reject
 		return
 	}
-
+	// accept request
+	m.inboundReplyChan <- Accept
 	furtherest, _ := m.inbound.getFurtherest()
 	// drop furtherest neighbor
 	if furtherest.Remote != nil {
@@ -269,9 +270,6 @@ func (m *Manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
 	// update inbound neighborhood
 	m.inbound.Add(toAccept)
 	m.log.Debug("Peering request FROM ", toAccept.Remote.ID(), " status ACCEPTED (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
-
-	// accept request
-	m.inboundReplyChan <- Accept
 }
 
 func (m *Manager) updatePublicSalt() *salt.Salt {
@@ -333,4 +331,12 @@ func (m *Manager) getDuplicates() []peer.ID {
 		}
 	}
 	return d
+}
+
+func (m *Manager) GetInbound() *Neighborhood {
+	return m.inbound
+}
+
+func (m *Manager) GetOutbound() *Neighborhood {
+	return m.outbound
 }

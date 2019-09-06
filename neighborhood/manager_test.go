@@ -15,8 +15,6 @@ import (
 
 var (
 	allPeers []*peer.Peer
-	min      = 10
-	max      = 10000
 	idMap    = make(map[peer.ID]int)
 )
 
@@ -86,7 +84,7 @@ func (n testNet) GetKnownPeers() []*peer.Peer {
 }
 
 func TestSimManager(t *testing.T) {
-	N := 100
+	N := 9
 	allPeers = make([]*peer.Peer, N)
 	mgrMap := make(map[peer.ID]*Manager)
 	neighborhoods := make(map[peer.ID][]*peer.Peer)
@@ -135,7 +133,7 @@ func TestSimManager(t *testing.T) {
 		mgrMap[peer.ID()].Run()
 	}
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	for i, peer := range allPeers {
 		neighborhoods[peer.ID()] = mgrMap[peer.ID()].GetNeighbors()

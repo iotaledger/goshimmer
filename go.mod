@@ -3,6 +3,8 @@ module github.com/wollac/autopeering
 go 1.13
 
 require (
+	github.com/awalterschulze/gographviz v0.0.0-20190522210029-fa59802746ab
+	github.com/capossele/GoGraphviz/graphviz v0.0.0-20190313095341-7802999d6878
 	github.com/golang/protobuf v1.3.2
 	github.com/pkg/errors v0.8.1
 	github.com/stretchr/testify v1.4.0
