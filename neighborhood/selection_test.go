@@ -1,9 +1,8 @@
 package neighborhood
 
 import (
-	"testing"
-
 	"crypto/ed25519"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/wollac/autopeering/peer"
