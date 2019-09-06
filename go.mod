@@ -1,26 +1,28 @@
 module github.com/iotaledger/goshimmer
 
-go 1.12
+go 1.13
 
 require (
+	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
 	github.com/dgraph-io/badger v1.6.0
-	github.com/ethereum/go-ethereum v1.9.1
+	github.com/ethereum/go-ethereum v1.9.3
 	github.com/gdamore/tcell v1.2.0
 	github.com/go-zeromq/zmq4 v0.5.0
 	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/google/open-location-code/go v0.0.0-20190723034300-2c7115db77a3
-	github.com/gorilla/websocket v1.4.0
+	github.com/gorilla/websocket v1.4.1
 	github.com/iotaledger/iota.go v1.0.0-beta.7
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/labstack/echo v3.3.10+incompatible
-	github.com/labstack/gommon v0.2.9 // indirect
+	github.com/labstack/gommon v0.3.0 // indirect
 	github.com/magiconair/properties v1.8.1
 	github.com/pkg/errors v0.8.1
-	github.com/rivo/tview v0.0.0-20190721135419-23dc8a0944e4
+	github.com/rivo/tview v0.0.0-20190829161255-f8bc69b90341
 	github.com/rivo/uniseg v0.1.0 // indirect
-	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
-	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
-	golang.org/x/sys v0.0.0-20190726091711-fc99dfbffb4e // indirect
+	github.com/stretchr/objx v0.2.0 // indirect
+	golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472
+	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
+	golang.org/x/sys v0.0.0-20190904154756-749cb33beabd // indirect
 	golang.org/x/text v0.3.2 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 )
