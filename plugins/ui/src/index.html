@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="shortcut icon" href="ui/favicon.ico">
+  <title>Shimmer UI</title>
+  <link rel="stylesheet" href="https://unpkg.com/bulmaswatch@0.7.5/darkly/bulmaswatch.min.css">
+  <link rel="stylesheet" href="ui/css/styles.css">
+</head>
+
+<body class="fade">
+  <section id="app">
+    <section class="section header" ref="header">
+      <div class="container">
+        <div class="columns">
+          <div class="column">
+            <h1 class="title">
+              <iota-icon size="42"></iota-icon>
+              Shimmer
+            </h1>
+            <span v-if="loggedIn" class="status">Status:<span class="tag is-light">{{synced}}</span>
+          </div>
+
+          <div v-if="!loggedIn" class="column">
+            <form class="login" @submit="login">
+              <div>
+                <span>Username:</span>
+                <input class="input" placeholder="Username" name="username">
+              </div>
+              <div>
+                <span>Password:</span>
+                <input class="input" placeholder="Username" name="password">
+              </div>
+              <button type="submit" :disabled="loginError?true:false"
+                :class="loginError?'button is-danger':'button is-primary'">
+                {{ loginButtonText }}
+              </button>
+            </form>
+          </div>
+
+          <div v-if="loggedIn" class="column">
+            <div class="list info-list">
+              <div v-for="(c, i) in infoKeys" class="list-item">
+                <span>{{ c }}:</span>&nbsp;
+                <span v-if="infoValues[i]">{{ infoValues[i] }}</span>
+              </li>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-if="loggedIn" class="tabs is-boxed">
+        <ul>
+          <li v-for="t in tabs" @click="selectTab(t)"
+            :class="selectedTab===t?'is-active':''">
+            <a>{{t}}</a>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section" v-if="selectedTab==='Logs'">
+      <div class="container logs-container" :style="footerContainerStyle()">
+        <table class="table logs-list">
+          <thead v-if="logs.length>0"><tr>
+            <th style="width:75px;">Time</th>
+            <th>Message</th>
+            <th style="width:75px;">Status</th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="log in logs">
+              <td>{{ log.time }}</td>
+              <td>{{ log.source }}: {{ log.message }}</td>
+              <td>[<span :style="'color:'+log.color+';'">{{ log.label }}</span>]</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section" v-if="selectedTab==='Spammer'">
+      <div class="container" :style="footerContainerStyle()">
+        <div class="tx-toolbar">
+          <div class="field is-grouped">
+            <p class="control">
+              <input ref="tpsinput" class="input tps" type="number" v-model="tpsToSpam" placeholder="TPS">
+            </p>
+            <p class="control">
+              <button class="button is-info" @click="startSpam()" :disabled="tpsToSpam<1">
+                <play-icon size="19"></play-icon>
+              </button>
+            </p>
+            <p class="control">
+              <button class="button is-primary" @click="stopSpam()" :disabled="info.receivedTps<1">
+                <stop-icon size="19"></stop-icon>
+              </button>
+            </p>
+          </div>
+          <!-- <div class="field is-grouped">
+            <button class="button" @click="clearTxs()" :disabled="txs.length<1">
+              Clear
+            </button>
+          </div> -->
+        </div>
+        <div class="chart-container">
+          <tps-chart ref="tpschart"></tps-chart>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" v-if="selectedTab==='Transactions'">
+      <div class="container transactions" :style="footerContainerStyle()">
+        <div class="tx-container">
+          <table v-if="txs.length>0" class="table tx-list">
+            <thead><tr>
+              <th style="width:50px;"><iota-icon size="20"></iota-icon></th>
+              <th style="line-height:21px;">Hash</th>
+            </tr></thead>
+            <tbody>
+              <tr v-for="tx in txs" @click="selectTxHash(tx.hash)" :class="selectedTxHash===tx.hash ? 'full-tx' : ''">
+                <td v-if="selectedTxHash!==tx.hash">{{ tx.value }}</td>
+                <td>
+                  <span v-if="selectedTxHash!==tx.hash">{{ tx.hash }}</span>
+                  <pre v-if="selectedTxHash===tx.hash" :style="'width:calc('+(windowWidth-2)+'px - 3rem);'">{{ JSON.stringify(tx,null,2) }}</pre>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-if="txs.length===0" class="no-txs">No transactions yet</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" v-if="selectedTab==='Neighbors'">
+      <div class="container graph" :style="footerContainerStyle()">
+        <force-graph :neighbors="neighbors" :me="info.id"></force-graph>
+      </div>
+    </section>
+
+  </section>
+
+  <!-- <script src="https://unpkg.com/vue@2.5.9"></script> -->
+  <script src="https://unpkg.com/vue@2.6.10/dist/vue.min.js"></script>
+  <script src="https://unpkg.com/dayjs@1.8.15"></script>
+  <script src="https://unpkg.com/3d-force-graph"></script>
+  <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+  <script src="https://code.highcharts.com/stock/highstock.js"></script>
+  <script src="https://code.highcharts.com/stock/modules/exporting.js"></script>
+  <script src="https://code.highcharts.com/stock/modules/export-data.js"></script>
+  <script src="ui/js/initials.js"></script>
+  <script src="ui/js/utils.js"></script>
+  <script src="ui/js/icons.js"></script>
+  <script src="ui/js/forcegraph.js"></script>
+  <script src="ui/js/tpschart.js"></script>
+  <script src="ui/js/main.js"></script>
+</body>
+
+</html>
