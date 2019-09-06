@@ -1,13 +1,13 @@
 package peer
 
 import (
+	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"net/url"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/wollac/autopeering/peer/proto"
-	"golang.org/x/crypto/ed25519"
 )
 
 // PublicKey is the type of Ed25519 public keys used for peers.

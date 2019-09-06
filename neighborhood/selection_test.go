@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/wollac/autopeering/peer"
-	"golang.org/x/crypto/ed25519"
+	"crypto/ed25519"
 )
 
 const (
