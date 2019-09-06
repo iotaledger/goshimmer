@@ -108,7 +108,7 @@ func RunSim() {
 	mgrMap := make(map[peer.ID]*neighborhood.Manager)
 	neighborhoods := make(map[peer.ID][]*peer.Peer)
 	for i := range allPeers {
-		peer := newPeer(fmt.Sprintf("%d", i), i)
+		peer := newPeer(fmt.Sprintf("%d", i), 1000)
 		allPeers[i] = peer.peer
 		net := testNet{
 			mgr:   mgrMap,
@@ -125,15 +125,15 @@ func RunSim() {
 	}
 
 	time.Sleep(20 * time.Second)
-	log.Println("resetting measures")
-	for _, peer := range allPeers {
-		results[idMap[peer.ID()]].request = 0
-		results[idMap[peer.ID()]].accepted = 0
-		results[idMap[peer.ID()]].rejected = 0
-		results[idMap[peer.ID()]].incoming = 0
-		results[idMap[peer.ID()]].dropped = 0
-	}
-	time.Sleep(30 * time.Minute)
+	// log.Println("resetting measures")
+	// for _, peer := range allPeers {
+	// 	results[idMap[peer.ID()]].request = 0
+	// 	results[idMap[peer.ID()]].accepted = 0
+	// 	results[idMap[peer.ID()]].rejected = 0
+	// 	results[idMap[peer.ID()]].incoming = 0
+	// 	results[idMap[peer.ID()]].dropped = 0
+	// }
+	// time.Sleep(30 * time.Minute)
 
 	list := []Edge{}
 	g := gographviz.NewGraph()
