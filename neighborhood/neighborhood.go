@@ -47,15 +47,11 @@ func (nh *Neighborhood) Select(candidates []peer.PeerDistance) peer.PeerDistance
 }
 
 func (nh *Neighborhood) Add(toAdd peer.PeerDistance) {
-	//p, index := nh.getFurtherest()
 	nh.mutex.Lock()
 	defer nh.mutex.Unlock()
-	// if p.Remote != nil {
-	// 	toDrop = nh.Neighbors[index].Remote
-	// 	nh.Neighbors[index] = toAdd
-	// 	return toDrop
-	// }
-	nh.Neighbors = append(nh.Neighbors, toAdd)
+	if len(nh.Neighbors) < nh.Size {
+	    nh.Neighbors = append(nh.Neighbors, toAdd)
+    }
 }
 
 func (nh *Neighborhood) RemovePeer(toRemove peer.ID) {
