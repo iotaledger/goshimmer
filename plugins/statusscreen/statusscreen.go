@@ -5,13 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/ssh/terminal"
-
 	"github.com/gdamore/tcell"
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/rivo/tview"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 var statusMessages = make(map[string]*StatusMessage)

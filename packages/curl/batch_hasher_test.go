@@ -1,12 +1,12 @@
 package curl
 
 import (
+	"crypto/ed25519"
 	"sync"
 	"testing"
 
 	"github.com/iotaledger/iota.go/trinary"
 	"golang.org/x/crypto/blake2b"
-	"golang.org/x/crypto/ed25519"
 )
 
 type zeroReader struct{}
