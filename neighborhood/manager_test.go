@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	//"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/assert"
 	"github.com/wollac/autopeering/peer"
 	"github.com/wollac/autopeering/salt"
