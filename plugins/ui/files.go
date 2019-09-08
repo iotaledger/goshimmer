@@ -494,8 +494,12 @@ Vue.component('empty-icon', {
       this.show()
       this.loggedIn = true
       this.selectedTab = 'Logs'
+      let wsProtocol = 'wss:'
+      if (location.protocol != 'https:') {
+        wsProtocol = 'ws:'
+      }
       this.ws = new WebSocket(
-        api.addToken('ws://'+window.location.host+'/ws')
+        api.addToken(wsProtocol+'//'+window.location.host+'/ws')
       )
       this.ws.onopen = (e) => { this.connected=true }
       this.ws.onclose = (e) => { this.connected=false }
