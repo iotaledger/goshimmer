@@ -53,23 +53,23 @@ func TestUnshiftPeer(t *testing.T) {
 
 	tests := []testCase{
 		{
-			input: []*mpeer{},
-			toAdd: m[0],
+			input:    []*mpeer{},
+			toAdd:    m[0],
 			expected: []*mpeer{m[0]},
 		},
 		{
-			input: []*mpeer{m[0]},
-			toAdd: m[1],
+			input:    []*mpeer{m[0]},
+			toAdd:    m[1],
 			expected: []*mpeer{m[1], m[0]},
 		},
 		{
-			input: []*mpeer{m[0], m[1]},
-			toAdd: m[2],
+			input:    []*mpeer{m[0], m[1]},
+			toAdd:    m[2],
 			expected: []*mpeer{m[2], m[0], m[1]},
 		},
 		{
-			input: []*mpeer{m[0], m[1], m[2], m[3]},
-			toAdd: m[4],
+			input:    []*mpeer{m[0], m[1], m[2], m[3]},
+			toAdd:    m[4],
 			expected: []*mpeer{m[4], m[0], m[1], m[2]},
 		},
 	}
@@ -95,25 +95,25 @@ func TestDeletePeer(t *testing.T) {
 
 	tests := []testCase{
 		{
-			input: []*mpeer{},
+			input:    []*mpeer{},
 			toRemove: 0,
 			expected: []*mpeer{},
 			deleted:  nil,
 		},
 		{
-			input: []*mpeer{m[0]},
+			input:    []*mpeer{m[0]},
 			toRemove: 0,
 			expected: []*mpeer{},
 			deleted:  m[0],
 		},
 		{
-			input: []*mpeer{m[0], m[1]},
+			input:    []*mpeer{m[0], m[1]},
 			toRemove: 2,
 			expected: []*mpeer{m[0], m[1]},
 			deleted:  nil,
 		},
 		{
-			input: []*mpeer{m[0], m[1], m[2], m[3]},
+			input:    []*mpeer{m[0], m[1], m[2], m[3]},
 			toRemove: 2,
 			expected: []*mpeer{m[0], m[1], m[3]},
 			deleted:  m[2],
@@ -145,13 +145,13 @@ func TestDeletePeerByID(t *testing.T) {
 
 	tests := []testCase{
 		{
-			input: []*mpeer{m[0]},
+			input:    []*mpeer{m[0]},
 			toRemove: p[0].ID(),
 			expected: []*mpeer{},
 			deleted:  m[0],
 		},
 		{
-			input: []*mpeer{m[0], m[1], m[2], m[3]},
+			input:    []*mpeer{m[0], m[1], m[2], m[3]},
 			toRemove: p[2].ID(),
 			expected: []*mpeer{m[0], m[1], m[3]},
 			deleted:  m[2],
@@ -181,18 +181,18 @@ func TestPushPeer(t *testing.T) {
 
 	tests := []testCase{
 		{
-			input: []*mpeer{},
-			toPush: m[0],
+			input:    []*mpeer{},
+			toPush:   m[0],
 			expected: []*mpeer{m[0]},
 		},
 		{
-			input: []*mpeer{m[0], m[1]},
-			toPush: m[2],
+			input:    []*mpeer{m[0], m[1]},
+			toPush:   m[2],
 			expected: []*mpeer{m[0], m[1], m[2]},
 		},
 		{
-			input: []*mpeer{m[0], m[1], m[2], m[3]},
-			toPush: m[4],
+			input:    []*mpeer{m[0], m[1], m[2], m[3]},
+			toPush:   m[4],
 			expected: []*mpeer{m[1], m[2], m[3], m[4]},
 		},
 	}
