@@ -121,7 +121,7 @@ func TestDeletePeer(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		var deleted *mpeer = nil
+		var deleted *mpeer
 		test.input, deleted = deletePeer(test.input, test.toRemove)
 		assert.Equal(t, test.expected, test.input, "deletePeer_list")
 		assert.Equal(t, test.deleted, deleted, "deletePeer_peer")
@@ -159,7 +159,7 @@ func TestDeletePeerByID(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		var deleted *mpeer = nil
+		var deleted *mpeer
 		test.input, deleted = deletePeerByID(test.input, test.toRemove)
 		assert.Equal(t, test.expected, test.input, "deletePeerByID_list")
 		assert.Equal(t, test.deleted, deleted, "deletePeerByID_peer")
