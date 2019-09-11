@@ -95,22 +95,10 @@ func TestDeletePeer(t *testing.T) {
 
 	tests := []testCase{
 		{
-			input:    []*mpeer{},
-			toRemove: 0,
-			expected: []*mpeer{},
-			deleted:  nil,
-		},
-		{
 			input:    []*mpeer{m[0]},
 			toRemove: 0,
 			expected: []*mpeer{},
 			deleted:  m[0],
-		},
-		{
-			input:    []*mpeer{m[0], m[1]},
-			toRemove: 2,
-			expected: []*mpeer{m[0], m[1]},
-			deleted:  nil,
 		},
 		{
 			input:    []*mpeer{m[0], m[1], m[2], m[3]},

@@ -66,11 +66,8 @@ func unshiftPeer(list []*mpeer, p *mpeer, max int) []*mpeer {
 
 // deletePeer is a helper that deletes the peer with the given index from the list.
 func deletePeer(list []*mpeer, i int) ([]*mpeer, *mpeer) {
-	if (list == nil) {
-		return []*mpeer{}, nil
-	}
-	if (i > len(list) - 1) {
-		return list, nil
+	if i >= len(list) {
+		panic("mpeer: invalid index or empty mpeer list")
 	}
 	p := list[i]
 
