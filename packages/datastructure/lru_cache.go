@@ -246,7 +246,7 @@ func (cache *LRUCache) Delete(key interface{}) bool {
 		keyMutex.Unlock()
 
 		if cache.options.EvictionCallback != nil {
-			cache.options.EvictionCallback(key, entry.GetValue().(*lruCacheElement).key)
+			cache.options.EvictionCallback(key, entry.GetValue().(*lruCacheElement).value)
 		}
 
 		return true
