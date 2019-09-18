@@ -65,3 +65,9 @@ func (f *Filter) RemovePeer(peer peer.ID) {
 	f.internal[peer] = false
 	f.lock.Unlock()
 }
+
+func (f *Filter) Clean() {
+	f.lock.Lock()
+	f.internal = make(map[peer.ID]bool)
+	f.lock.Unlock()
+}

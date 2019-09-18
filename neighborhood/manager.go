@@ -278,6 +278,8 @@ func (m *Manager) updatePublicSalt() *salt.Salt {
 
 	m.outbound.UpdateDistance(m.self().ID().Bytes(), salt.GetBytes())
 
+	m.rejectionFilter.Clean()
+
 	return salt
 }
 
