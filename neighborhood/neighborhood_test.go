@@ -10,6 +10,95 @@ import (
 	"github.com/wollac/autopeering/salt"
 )
 
+func TestGetFurtherest(t *testing.T) {
+	d := make([]peer.PeerDistance, 5)
+	for i := range d {
+		d[i].Remote = newTestPeer()
+		d[i].Distance = uint32(i + 1)
+	}
+
+	type testCase struct {
+		input    *Neighborhood
+		expected peer.PeerDistance
+		index    int
+	}
+
+	tests := []testCase{
+		{
+			input: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0]},
+				Size:      4},
+			expected: peer.PeerDistance{
+				Remote:   nil,
+				Distance: distance.Max},
+			index: 1,
+		},
+		{
+			input: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0], d[1], d[2], d[3]},
+				Size:      4},
+			expected: d[3],
+			index:    3,
+		},
+		{
+			input: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0], d[1], d[4], d[2]},
+				Size:      4},
+			expected: d[4],
+			index:    2,
+		},
+	}
+
+	for _, test := range tests {
+		p, l := test.input.getFurtherest()
+		assert.Equal(t, test.expected, p, "Get Furtherest neighbor")
+		assert.Equal(t, test.index, l, "Get Furtherest neighbor")
+	}
+}
+
+func TestGetPeerIndex(t *testing.T) {
+	d := make([]peer.PeerDistance, 5)
+	for i := range d {
+		d[i].Remote = newTestPeer()
+		d[i].Distance = uint32(i + 1)
+	}
+
+	type testCase struct {
+		input  *Neighborhood
+		target *peer.Peer
+		index  int
+	}
+
+	tests := []testCase{
+		{
+			input: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0]},
+				Size:      4},
+			target: d[0].Remote,
+			index:  0,
+		},
+		{
+			input: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0], d[1], d[2], d[3]},
+				Size:      4},
+			target: d[3].Remote,
+			index:  3,
+		},
+		{
+			input: &Neighborhood{
+				Neighbors: []peer.PeerDistance{d[0], d[1], d[4], d[2]},
+				Size:      4},
+			target: d[3].Remote,
+			index:  -1,
+		},
+	}
+
+	for _, test := range tests {
+		i := test.input.getPeerIndex(test.target.ID())
+		assert.Equal(t, test.index, i, "Get Peer Index")
+	}
+}
+
 func TestRemove(t *testing.T) {
 	d := make([]peer.PeerDistance, 10)
 	for i := range d {
