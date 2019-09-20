@@ -122,9 +122,9 @@ Loop:
 			// if there is no updateOutbound, this means doUpdateOutbound is not running
 			if updateOutboundDone == nil {
 				updateOutboundDone = make(chan struct{})
-				// check Public Salt (update outbound distances)
+				// check salt and update if necessary (this will drop the whole neighborhood)
 				if salt.Expired() {
-					salt = m.updatePublicSalt()
+					salt, _ = m.updateSalt()
 				}
 				//remove potential duplicates
 				dup := m.getDuplicates()
@@ -163,18 +163,10 @@ Loop:
 func (m *Manager) loopInbound() {
 	defer m.wg.Done()
 
-	var (
-		salt = m.net.Local().GetPrivateSalt()
-	)
-
 Loop:
 	for {
 		select {
 		case req := <-m.inboundRequestChan:
-			// check Private Salt (update inbound distances)
-			if salt.Expired() {
-				salt = m.updatePrivateSalt()
-			}
 			m.updateInbound(req.Requester, req.Salt)
 		case peerToDrop := <-m.inboundDropChan:
 			if containsPeer(m.inbound.GetPeers(), peerToDrop) {
@@ -272,24 +264,19 @@ func (m *Manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
 	m.log.Debug("Peering request FROM ", toAccept.Remote.ID(), " status ACCEPTED (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
 }
 
-func (m *Manager) updatePublicSalt() *salt.Salt {
-	salt, _ := salt.NewSalt(lifetime)
-	m.net.Local().SetPublicSalt(salt)
+func (m *Manager) updateSalt() (*salt.Salt, *salt.Salt) {
+	pubSalt, _ := salt.NewSalt(lifetime)
+	m.net.Local().SetPublicSalt(pubSalt)
 
-	m.outbound.UpdateDistance(m.self().ID().Bytes(), salt.GetBytes())
+	privSalt, _ := salt.NewSalt(lifetime)
+	m.net.Local().SetPrivateSalt(privSalt)
 
 	m.rejectionFilter.Clean()
 
-	return salt
-}
+	m.dropNeighborhood(m.inbound)
+	m.dropNeighborhood(m.outbound)
 
-func (m *Manager) updatePrivateSalt() *salt.Salt {
-	salt, _ := salt.NewSalt(lifetime)
-	m.net.Local().SetPrivateSalt(salt)
-
-	m.inbound.UpdateDistance(m.self().ID().Bytes(), salt.GetBytes())
-
-	return salt
+	return pubSalt, privSalt
 }
 
 func (m *Manager) DropNeighbor(peerToDrop peer.ID) {
@@ -341,4 +328,11 @@ func (m *Manager) GetInbound() *Neighborhood {
 
 func (m *Manager) GetOutbound() *Neighborhood {
 	return m.outbound
+}
+
+func (m *Manager) dropNeighborhood(nh *Neighborhood) {
+	for _, peer := range nh.GetPeers() {
+		nh.RemovePeer(peer.ID())
+		m.net.DropPeer(peer)
+	}
 }
