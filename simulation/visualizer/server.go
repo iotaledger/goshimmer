@@ -35,7 +35,6 @@ var upgrader = websocket.Upgrader{
 func NewServer() *Server {
 	s := &Server{}
 	s.router = mux.NewRouter()
-	//s.router.HandleFunc("/", rootHandler).Methods("GET")
 	s.router.HandleFunc("/event", eventHandler).Methods("POST")
 	s.router.HandleFunc("/ws", wsHandler)
 	s.router.PathPrefix("/").Handler(http.FileServer(rice.MustFindBox("frontend").HTTPBox()))
@@ -46,15 +45,6 @@ func (s *Server) Run() {
 	go echo()
 
 	log.Fatal(http.ListenAndServe(":8844", s.router))
-}
-
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-
-	// html, err := box.FindString("index.html")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// fmt.Fprintf(w, html)
 }
 
 func Writer(event *Event) {
