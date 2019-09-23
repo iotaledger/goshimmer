@@ -17,16 +17,8 @@ import (
 var (
 	allPeers []*peer.Peer
 	idMap    = make(map[peer.ID]int)
-	results  []result
+	status   = NewStatusMap() // key: timestamp, value: Status
 )
-
-type result struct {
-	request  int
-	accepted int
-	incoming int
-	rejected int
-	dropped  int
-}
 
 type testPeer struct {
 	local *peer.Local
@@ -70,11 +62,9 @@ type testNet struct {
 
 func (n testNet) DropPeer(p *peer.Peer) {
 	//time.Sleep(time.Duration(n.rand.Intn(max-min+1)+min) * time.Microsecond)
-	results[idMap[p.ID()]].dropped++
+	status.Append(idMap[p.ID()], idMap[n.self.ID()], DROPPED)
 	n.mgr[p.ID()].DropNeighbor(n.self.ID())
 
-	// visualizer.RemoveLink(toString(idMap[p.ID()]), toString(idMap[n.self.ID()]))
-	// visualizer.RemoveLink(toString(idMap[n.self.ID()]), toString(idMap[p.ID()]))
 	visualizer.RemoveLink(p.ID().String(), n.self.ID().String())
 	visualizer.RemoveLink(n.self.ID().String(), p.ID().String())
 }
@@ -84,14 +74,16 @@ func (n testNet) Local() *peer.Local {
 }
 func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
 	//time.Sleep(time.Duration(n.rand.Intn(max-min+1)+min) * time.Microsecond)
-	results[idMap[n.self.ID()]].request++
-	results[idMap[p.ID()]].incoming++
+	from := idMap[n.self.ID()]
+	to := idMap[p.ID()]
+	status.Append(from, to, OUTBOUND)
+	status.Append(to, from, INCOMING)
 	response := n.mgr[p.ID()].AcceptRequest(n.self, s)
 	if response {
-		results[idMap[n.self.ID()]].accepted++
+		status.Append(from, to, ACCEPTED)
 		visualizer.AddLink(n.self.ID().String(), p.ID().String())
 	} else {
-		results[idMap[n.self.ID()]].rejected++
+		status.Append(from, to, REJECTED)
 	}
 	return response, nil
 }
@@ -111,7 +103,6 @@ func (n testNet) GetKnownPeers() []*peer.Peer {
 func RunSim() {
 	N := 100
 	allPeers = make([]*peer.Peer, N)
-	results = make([]result, N)
 	mgrMap := make(map[peer.ID]*neighborhood.Manager)
 	neighborhoods := make(map[peer.ID][]*peer.Peer)
 	for i := range allPeers {
@@ -134,15 +125,6 @@ func RunSim() {
 	}
 
 	time.Sleep(2000 * time.Second)
-	// log.Println("resetting measures")
-	// for _, peer := range allPeers {
-	// 	results[idMap[peer.ID()]].request = 0
-	// 	results[idMap[peer.ID()]].accepted = 0
-	// 	results[idMap[peer.ID()]].rejected = 0
-	// 	results[idMap[peer.ID()]].incoming = 0
-	// 	results[idMap[peer.ID()]].dropped = 0
-	// }
-	// time.Sleep(30 * time.Minute)
 
 	list := []Edge{}
 	g := gographviz.NewGraph()
@@ -153,20 +135,21 @@ func RunSim() {
 		panic(err)
 	}
 
-	avgResult := result{}
+	avgResult := StatusSum{}
 
 	l := 0.
 	fmt.Printf("\nID\tOUT\tACC\tREJ\tIN\tDROP\n")
 	for _, peer := range allPeers {
 		neighborhoods[peer.ID()] = mgrMap[peer.ID()].GetNeighbors()
-		//log.Println(idMap[peer.ID()], "(", len(mgrMap[peer.ID()].GetOutbound().GetPeers()), ",", len(mgrMap[peer.ID()].GetInbound().GetPeers()), ")")
 
-		fmt.Printf("%d\t%d\t%d\t%d\t%d\t%d\n", idMap[peer.ID()], results[idMap[peer.ID()]].request, results[idMap[peer.ID()]].accepted, results[idMap[peer.ID()]].rejected, results[idMap[peer.ID()]].incoming, results[idMap[peer.ID()]].dropped)
-		avgResult.request += results[idMap[peer.ID()]].request
-		avgResult.accepted += results[idMap[peer.ID()]].accepted
-		avgResult.rejected += results[idMap[peer.ID()]].rejected
-		avgResult.incoming += results[idMap[peer.ID()]].incoming
-		avgResult.dropped += results[idMap[peer.ID()]].dropped
+		summary := status.GetSummary(idMap[peer.ID()])
+		fmt.Printf("%d\t%d\t%d\t%d\t%d\t%d\n", idMap[peer.ID()], summary.outbound, summary.accepted, summary.rejected, summary.incoming, summary.dropped)
+
+		avgResult.outbound += summary.outbound
+		avgResult.accepted += summary.accepted
+		avgResult.rejected += summary.rejected
+		avgResult.incoming += summary.incoming
+		avgResult.dropped += summary.dropped
 
 		// add a new vertex
 		if err := g.AddNode("G", fmt.Sprintf("%d", idMap[peer.ID()]), nil); err != nil {
@@ -185,7 +168,7 @@ func RunSim() {
 	}
 	fmt.Println("Average")
 	fmt.Printf("\nOUT\t\tACC\t\tREJ\t\tIN\t\tDROP\n")
-	fmt.Printf("%v\t%v\t%v\t%v\t%v\n", float64(avgResult.request)/float64(N), float64(avgResult.accepted)/float64(N), float64(avgResult.rejected)/float64(N), float64(avgResult.incoming)/float64(N), float64(avgResult.dropped)/float64(N))
+	fmt.Printf("%v\t%v\t%v\t%v\t%v\n", float64(avgResult.outbound)/float64(N), float64(avgResult.accepted)/float64(N), float64(avgResult.rejected)/float64(N), float64(avgResult.incoming)/float64(N), float64(avgResult.dropped)/float64(N))
 
 	log.Println("Average len/edges: ", l/float64(N), len(list))
 
@@ -216,10 +199,6 @@ func HasEdge(target Edge, list []Edge) bool {
 		}
 	}
 	return false
-}
-
-func toString(id int) string {
-	return fmt.Sprintf("%d", id)
 }
 
 func main() {
