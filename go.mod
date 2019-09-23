@@ -3,6 +3,7 @@ module github.com/wollac/autopeering
 go 1.13
 
 require (
+	github.com/GeertJohan/go.rice v1.0.0
 	github.com/awalterschulze/gographviz v0.0.0-20190522210029-fa59802746ab
 	github.com/capossele/GoGraphviz/graphviz v0.0.0-20190313095341-7802999d6878
 	github.com/gobuffalo/envy v1.7.1 // indirect

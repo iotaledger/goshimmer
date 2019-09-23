@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gobuffalo/packr"
+	rice "github.com/GeertJohan/go.rice"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 )
@@ -22,7 +22,7 @@ type Event struct {
 	Dest   string `json:"dest"`
 }
 
-var box = packr.NewBox("./templates")
+//var box = packr.NewBox("./templates")
 
 var clients = make(map[*websocket.Conn]bool)
 var Visualizer = make(chan *Event, 100)
@@ -35,9 +35,10 @@ var upgrader = websocket.Upgrader{
 func NewServer() *Server {
 	s := &Server{}
 	s.router = mux.NewRouter()
-	s.router.HandleFunc("/", rootHandler).Methods("GET")
+	//s.router.HandleFunc("/", rootHandler).Methods("GET")
 	s.router.HandleFunc("/event", eventHandler).Methods("POST")
 	s.router.HandleFunc("/ws", wsHandler)
+	s.router.PathPrefix("/").Handler(http.FileServer(rice.MustFindBox("frontend").HTTPBox()))
 	return s
 }
 
@@ -48,11 +49,12 @@ func (s *Server) Run() {
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
-	html, err := box.FindString("index.html")
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Fprintf(w, html)
+
+	// html, err := box.FindString("index.html")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// fmt.Fprintf(w, html)
 }
 
 func Writer(event *Event) {
