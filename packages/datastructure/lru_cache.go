@@ -168,9 +168,9 @@ func (cache *LRUCache) Contains(key interface{}) (result bool) {
 	keyMutex.RLock()
 	cache.mutex.RLock()
 	if element, exists := cache.directory[key]; exists {
+		cache.mutex.RUnlock()
 		keyMutex.RUnlock()
 
-		cache.mutex.RUnlock()
 		cache.mutex.Lock()
 		cache.promoteElement(element)
 		cache.mutex.Unlock()
@@ -201,11 +201,11 @@ func (cache *LRUCache) Get(key interface{}) (result interface{}) {
 
 		result = element.GetValue().(*lruCacheElement).value
 
-		keyMutex.RUnlock()
 	} else {
 		cache.mutex.RUnlock()
 	}
 
+	keyMutex.RUnlock()
 	cache.krwMutex.Free(key)
 
 	return
@@ -243,9 +243,10 @@ func (cache *LRUCache) Delete(key interface{}) bool {
 		delete(cache.directory, key)
 
 		cache.size--
+		keyMutex.Unlock()
 
 		if cache.options.EvictionCallback != nil {
-			cache.options.EvictionCallback(key, entry.GetValue().(*lruCacheElement).key)
+			cache.options.EvictionCallback(key, entry.GetValue().(*lruCacheElement).value)
 		}
 
 		return true
