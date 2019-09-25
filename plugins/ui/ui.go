@@ -46,14 +46,8 @@ func configure(plugin *node.Plugin) {
 		}()
 	}))
 
-	node.DEFAULT_LOGGER.SetEnabled(false)
-
 	uiLogger.SetEnabled(true)
 	plugin.Node.AddLogger(uiLogger)
-
-	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		node.DEFAULT_LOGGER.SetEnabled(true)
-	}))
 }
 
 func staticFileServer(c echo.Context) error {
