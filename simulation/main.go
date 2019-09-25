@@ -16,8 +16,9 @@ import (
 
 var (
 	allPeers []*peer.Peer
-	idMap    = make(map[peer.ID]int)
+	idMap    = make(map[peer.ID]uint16)
 	status   = NewStatusMap() // key: timestamp, value: Status
+	Links    = []Link{}
 )
 
 type testPeer struct {
@@ -28,7 +29,7 @@ type testPeer struct {
 	rand  *rand.Rand // random number generator
 }
 
-func newPeer(name string, i int) testPeer {
+func newPeer(name string, i uint16) testPeer {
 	var l *zap.Logger
 	var err error
 	if name == "1" {
@@ -65,8 +66,8 @@ func (n testNet) DropPeer(p *peer.Peer) {
 	status.Append(idMap[p.ID()], idMap[n.self.ID()], DROPPED)
 	n.mgr[p.ID()].DropNeighbor(n.self.ID())
 
-	visualizer.RemoveLink(p.ID().String(), n.self.ID().String())
-	visualizer.RemoveLink(n.self.ID().String(), p.ID().String())
+	//visualizer.RemoveLink(p.ID().String(), n.self.ID().String())
+	//visualizer.RemoveLink(n.self.ID().String(), p.ID().String())
 }
 
 func (n testNet) Local() *peer.Local {
@@ -81,7 +82,7 @@ func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
 	response := n.mgr[p.ID()].AcceptRequest(n.self, s)
 	if response {
 		status.Append(from, to, ACCEPTED)
-		visualizer.AddLink(n.self.ID().String(), p.ID().String())
+		//visualizer.AddLink(n.self.ID().String(), p.ID().String())
 	} else {
 		status.Append(from, to, REJECTED)
 	}
@@ -114,19 +115,19 @@ func RunSim() {
 			self:  peer.peer,
 			rand:  peer.rand,
 		}
-		idMap[peer.local.ID()] = i
+		idMap[peer.local.ID()] = uint16(i)
 		mgrMap[peer.local.ID()] = neighborhood.NewManager(net, net.GetKnownPeers, peer.log)
 
-		visualizer.AddNode(peer.local.ID().String())
+		//visualizer.AddNode(peer.local.ID().String())
 	}
 
 	for _, peer := range allPeers {
 		mgrMap[peer.ID()].Run()
 	}
 
-	time.Sleep(2000 * time.Second)
+	time.Sleep(35 * time.Second)
 
-	list := []Edge{}
+	list := []Link{}
 	g := gographviz.NewGraph()
 	if err := g.SetName("G"); err != nil {
 		panic(err)
@@ -151,6 +152,7 @@ func RunSim() {
 		avgResult.incoming += summary.incoming
 		avgResult.dropped += summary.dropped
 
+		fmt.Println()
 		// add a new vertex
 		if err := g.AddNode("G", fmt.Sprintf("%d", idMap[peer.ID()]), nil); err != nil {
 			panic(err)
@@ -160,9 +162,9 @@ func RunSim() {
 
 		for _, ng := range neighborhoods[peer.ID()] {
 			//log.Printf(" %d ", idMap[ng.ID()])
-			edge := NewEdge(idMap[peer.ID()], idMap[ng.ID()])
-			if !HasEdge(edge, list) {
-				list = append(list, edge)
+			link := NewLink(idMap[peer.ID()], idMap[ng.ID()], 0)
+			if !HasLink(link, list) {
+				list = append(list, link)
 			}
 		}
 	}
@@ -172,8 +174,8 @@ func RunSim() {
 
 	log.Println("Average len/edges: ", l/float64(N), len(list))
 
-	for _, edge := range list {
-		if err := g.AddEdge(fmt.Sprintf("%d", edge.X), fmt.Sprintf("%d", edge.Y), true, nil); err != nil {
+	for _, link := range list {
+		if err := g.AddEdge(fmt.Sprintf("%d", link.x), fmt.Sprintf("%d", link.y), true, nil); err != nil {
 			panic(err)
 		}
 	}
@@ -183,27 +185,9 @@ func RunSim() {
 
 }
 
-type Edge struct {
-	X, Y int
-}
-
-func NewEdge(x, y int) Edge {
-	return Edge{x, y}
-}
-
-func HasEdge(target Edge, list []Edge) bool {
-	for _, edge := range list {
-		if (edge.X == target.X && edge.Y == target.Y) ||
-			(edge.X == target.Y && edge.Y == target.X) {
-			return true
-		}
-	}
-	return false
-}
-
 func main() {
 	s := visualizer.NewServer()
 	go s.Run()
-	time.Sleep(10 * time.Second)
+	//time.Sleep(10 * time.Second)
 	RunSim()
 }
