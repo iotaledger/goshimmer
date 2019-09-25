@@ -3,7 +3,6 @@ package main
 import (
 	"sync"
 	"time"
-	//"github.com/awalterschulze/gographviz"
 )
 
 const (

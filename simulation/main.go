@@ -10,6 +10,7 @@ import (
 	"github.com/wollac/autopeering/neighborhood"
 	"github.com/wollac/autopeering/peer"
 	"github.com/wollac/autopeering/salt"
+	"github.com/wollac/autopeering/simulation/visualizer"
 	"go.uber.org/zap"
 )
 
@@ -63,6 +64,9 @@ func (n testNet) DropPeer(p *peer.Peer) {
 	//time.Sleep(time.Duration(n.rand.Intn(max-min+1)+min) * time.Microsecond)
 	status.Append(idMap[p.ID()], idMap[n.self.ID()], DROPPED)
 	n.mgr[p.ID()].DropNeighbor(n.self.ID())
+
+	visualizer.RemoveLink(p.ID().String(), n.self.ID().String())
+	visualizer.RemoveLink(n.self.ID().String(), p.ID().String())
 }
 
 func (n testNet) Local() *peer.Local {
@@ -77,6 +81,7 @@ func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
 	response := n.mgr[p.ID()].AcceptRequest(n.self, s)
 	if response {
 		status.Append(from, to, ACCEPTED)
+		visualizer.AddLink(n.self.ID().String(), p.ID().String())
 	} else {
 		status.Append(from, to, REJECTED)
 	}
@@ -111,13 +116,15 @@ func RunSim() {
 		}
 		idMap[peer.local.ID()] = i
 		mgrMap[peer.local.ID()] = neighborhood.NewManager(net, net.GetKnownPeers, peer.log)
+
+		visualizer.AddNode(peer.local.ID().String())
 	}
 
 	for _, peer := range allPeers {
 		mgrMap[peer.ID()].Run()
 	}
 
-	time.Sleep(20 * time.Second)
+	time.Sleep(2000 * time.Second)
 
 	list := []Edge{}
 	g := gographviz.NewGraph()
@@ -195,5 +202,8 @@ func HasEdge(target Edge, list []Edge) bool {
 }
 
 func main() {
+	s := visualizer.NewServer()
+	go s.Run()
+	time.Sleep(10 * time.Second)
 	RunSim()
 }
