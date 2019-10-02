@@ -212,7 +212,12 @@ func main() {
 
 func runLinkAnalysis() {
 	go func() {
+		i := 0
 		for newEvent := range linkChan {
+			i++
+			if i%25 == 0 {
+				visualizer.UpdateDegree(len(Links))
+			}
 			switch newEvent.eType {
 			case ESTABLISHED:
 				Links = append(Links, NewLink(newEvent.x, newEvent.y, newEvent.timestamp))

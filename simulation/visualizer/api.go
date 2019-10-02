@@ -1,10 +1,13 @@
 package visualizer
 
+import "fmt"
+
 const (
 	addNode uint32 = iota + 1
 	removeNode
 	addLink
 	removeLink
+	updateDegree
 )
 
 func AddNode(id string) {
@@ -39,6 +42,14 @@ func RemoveLink(src, dest string) {
 		Type:   removeLink,
 		Source: src,
 		Dest:   dest,
+	}
+	Writer(event)
+}
+
+func UpdateDegree(degree int) {
+	event := &Event{
+		Type:   updateDegree,
+		Source: fmt.Sprintf("%v", degree),
 	}
 	Writer(event)
 }

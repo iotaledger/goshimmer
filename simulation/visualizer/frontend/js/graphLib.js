@@ -194,6 +194,9 @@ function onLoad() {
             case "4":
                 disconnectNodes(eventArr[1], eventArr[2]);
                 break;
+            case "5":
+                document.getElementById("degree").innerHTML = "Degree: " + eventArr[1];
+                break;
         }
     }
 
