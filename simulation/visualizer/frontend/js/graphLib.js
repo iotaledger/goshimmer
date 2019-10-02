@@ -1,7 +1,15 @@
+document.onkeydown = function (e) {
+    var keyCode = e.keyCode;
+    if(keyCode == 13) {
+        startButton.checked = true;
+        animation()
+    }
+};
+ 
  function animation() {
     setTimeout(onStart, 500);
  }
- 
+
  function onStart() {
     wrapper = document.getElementById("wrapperID");
     wrapper.style.display="none";
