@@ -15,26 +15,6 @@ func createDirIfNotExist(dir string) {
 	}
 }
 
-// check if file exists
-func exists(name string) bool {
-	if _, err := os.Stat(name); err != nil {
-		if os.IsNotExist(err) {
-			return false
-		}
-	}
-	return true
-}
-
-// delete file
-func deleteFile(file string) {
-	if exists(file) {
-		var err = os.Remove(file)
-		if err != nil {
-			return
-		}
-	}
-}
-
 func linksToString(links map[int64]int) (output [][]string) {
 	keys := make([]int, len(links))
 	i := 0

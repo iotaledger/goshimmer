@@ -132,13 +132,16 @@ func RunSim() {
 		mgrMap[peer.ID()].Run()
 	}
 
-	time.Sleep(1800 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	log.Println("Len:", len(Links))
 	//log.Println(Links)
 
 	linkAnalysis := linksToString(LinkLife((Links)))
-	writeCSV(linkAnalysis, "linkAnalysis", []string{"X", "Y"})
+	err := writeCSV(linkAnalysis, "linkAnalysis", []string{"X", "Y"})
+	if err != nil {
+		log.Fatalln("error writing csv:", err)
+	}
 	log.Println(linkAnalysis)
 
 	list := []Link{}
@@ -208,17 +211,14 @@ func main() {
 
 func runLinkAnalysis() {
 	go func() {
-		for {
-			select {
-			case newEvent := <-linkChan:
-				switch newEvent.eType {
-				case ESTABLISHED:
-					Links = append(Links, NewLink(newEvent.x, newEvent.y, newEvent.timestamp))
-					//log.Println("New Link", newEvent)
-				case DROPPED:
-					DropLink(newEvent.x, newEvent.y, newEvent.timestamp, Links)
-					//log.Println("Link Dropped", newEvent)
-				}
+		for newEvent := range linkChan {
+			switch newEvent.eType {
+			case ESTABLISHED:
+				Links = append(Links, NewLink(newEvent.x, newEvent.y, newEvent.timestamp))
+				//log.Println("New Link", newEvent)
+			case DROPPED:
+				DropLink(newEvent.x, newEvent.y, newEvent.timestamp, Links)
+				//log.Println("Link Dropped", newEvent)
 			}
 			//TODO: close channel when simulation ends
 		}

@@ -1,13 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-# - - - - most frequently changed output parameters - - -
-# 0:a , 1:b , 2:beta , 3:k , 4:m , 5:l , 6:N , 7:p_0 , 8:q , 9:Adv_strategy
-# 10:rateRandomness , 11:deltaWS , 12:gammaWS , 13:maxTermRound, 14:Type , 15:X , 16:Y
 xcol = 0
 xlabel = "T [seconds]"
 xlim = [0, 100]
-#xlim = [1, 100]
 # xscale = 'log'
 xscale = 'linear'
 

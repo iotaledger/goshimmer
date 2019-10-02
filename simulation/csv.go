@@ -17,19 +17,22 @@ func initCSV(records [][]string, filename string) error {
 	defer f.Close()
 
 	w := csv.NewWriter(f)
-	w.WriteAll(records) // calls Flush internally
-
-	if err = w.Error(); err != nil {
+	if err = w.WriteAll(records); err != nil {
 		log.Fatalln("error writing csv:", err)
 	}
+
 	return err
 }
 
 func writeCSV(records [][]string, filename string, header ...[]string) error {
+	var err error
 	if header != nil {
-		initCSV(header, filename) // requires format into [][]string
+		err = initCSV(header, filename) // requires format into [][]string
 	} else {
-		initCSV([][]string{}, filename) // requires format into [][]string
+		err = initCSV([][]string{}, filename) // requires format into [][]string
+	}
+	if err != nil {
+		log.Fatalln("error initializing csv:", err)
 	}
 	f, err := os.OpenFile("data/result_"+filename+".csv", os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
@@ -39,9 +42,8 @@ func writeCSV(records [][]string, filename string, header ...[]string) error {
 	defer f.Close()
 
 	w := csv.NewWriter(f)
-	w.WriteAll(records) // calls Flush internally
-
-	if err = w.Error(); err != nil {
+	err = w.WriteAll(records) // calls Flush internally
+	if err != nil {
 		log.Fatalln("error writing csv:", err)
 	}
 	return err
