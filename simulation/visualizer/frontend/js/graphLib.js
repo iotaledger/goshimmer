@@ -1,4 +1,8 @@
-function onStart() {
+ function animation() {
+    setTimeout(onStart, 500);
+ }
+ 
+ function onStart() {
     wrapper = document.getElementById("wrapperID");
     wrapper.style.display="none";
     onLoad();
