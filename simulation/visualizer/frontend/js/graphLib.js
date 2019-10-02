@@ -1,3 +1,15 @@
+function onStart() {
+    wrapper = document.getElementById("wrapperID");
+    wrapper.style.display="none";
+    onLoad();
+    sendStart();
+}
+
+function sendStart() {
+    fetch("http://localhost:8844/start")
+    .then(res=>{console.log(res)})
+}
+
 function onLoad() {
     var nodepool = [];
     var nodesonline = [];

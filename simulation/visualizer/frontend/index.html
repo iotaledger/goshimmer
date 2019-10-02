@@ -7,9 +7,18 @@
   <script type="text/javascript" src="./js/v2_min.js"></script>
   <script type="text/javascript" src="./js/graphLib.js"></script>
   <link rel="stylesheet" type="text/css" href="./css/normalize.css">
+  <link rel="stylesheet" type="text/css" href="./css/start.css">
 </head>
 
-<body onload='onLoad()' style="background: rgb(37, 39, 40);">
+<!-- <body onload='onLoad()' style="background: rgb(37, 39, 40);"> -->
+<body style="background: rgb(37, 39, 40);">
+  <div class="wrapper" id="wrapperID">
+    <p style="color:white;" align="center">START</p>
+    <input class="hidden-trigger" type="button" id="startButton" onclick="onStart()" />
+    <label class="circle" for="startButton">
+        <img src="./img/iota_icon_light.png" alt="" />
+     </label>
+  </div>
   <div id="graphc"></div>
   <div id="nfo">
     <p id="stat"></p>

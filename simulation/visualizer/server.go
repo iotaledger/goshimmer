@@ -14,6 +14,7 @@ import (
 
 type Server struct {
 	router *mux.Router
+	Start  chan struct{}
 }
 
 type Event struct {
@@ -34,10 +35,13 @@ var upgrader = websocket.Upgrader{
 
 func NewServer() *Server {
 	s := &Server{}
+	s.Start = make(chan struct{})
 	s.router = mux.NewRouter()
+	s.router.HandleFunc("/start", func(w http.ResponseWriter, r *http.Request) { s.Start <- struct{}{} }).Methods("GET")
 	s.router.HandleFunc("/event", eventHandler).Methods("POST")
 	s.router.HandleFunc("/ws", wsHandler)
 	s.router.PathPrefix("/").Handler(http.FileServer(rice.MustFindBox("frontend").HTTPBox()))
+
 	return s
 }
 

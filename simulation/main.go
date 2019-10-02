@@ -69,8 +69,8 @@ func (n testNet) DropPeer(p *peer.Peer) {
 	timestamp := time.Now().Unix()
 	linkChan <- Event{DROPPED, idMap[p.ID()], idMap[n.self.ID()], timestamp}
 
-	//visualizer.RemoveLink(p.ID().String(), n.self.ID().String())
-	//visualizer.RemoveLink(n.self.ID().String(), p.ID().String())
+	visualizer.RemoveLink(p.ID().String(), n.self.ID().String())
+	visualizer.RemoveLink(n.self.ID().String(), p.ID().String())
 }
 
 func (n testNet) Local() *peer.Local {
@@ -87,7 +87,7 @@ func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
 		status.Append(from, to, ACCEPTED)
 		timestamp := time.Now().Unix()
 		linkChan <- Event{ESTABLISHED, from, to, timestamp}
-		//visualizer.AddLink(n.self.ID().String(), p.ID().String())
+		visualizer.AddLink(n.self.ID().String(), p.ID().String())
 	} else {
 		status.Append(from, to, REJECTED)
 	}
@@ -123,7 +123,7 @@ func RunSim() {
 		idMap[peer.local.ID()] = uint16(i)
 		mgrMap[peer.local.ID()] = neighborhood.NewManager(net, net.GetKnownPeers, peer.log)
 
-		//visualizer.AddNode(peer.local.ID().String())
+		visualizer.AddNode(peer.local.ID().String())
 	}
 
 	runLinkAnalysis()
@@ -205,6 +205,7 @@ func RunSim() {
 func main() {
 	s := visualizer.NewServer()
 	go s.Run()
+	<-s.Start
 	//time.Sleep(10 * time.Second)
 	RunSim()
 }
