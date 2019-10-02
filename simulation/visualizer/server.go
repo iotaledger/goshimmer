@@ -25,7 +25,7 @@ type Event struct {
 //var box = packr.NewBox("./templates")
 
 var clients = make(map[*websocket.Conn]bool)
-var Visualizer = make(chan *Event, 100)
+var Visualizer = make(chan *Event, 1000)
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true

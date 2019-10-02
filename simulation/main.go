@@ -19,6 +19,7 @@ var (
 	idMap    = make(map[peer.ID]uint16)
 	status   = NewStatusMap() // key: timestamp, value: Status
 	Links    = []Link{}
+	linkChan = make(chan Event, 100)
 )
 
 type testPeer struct {
@@ -35,7 +36,7 @@ func newPeer(name string, i uint16) testPeer {
 	if name == "1" {
 		l, err = zap.NewDevelopment()
 	} else {
-		l, err = zap.NewDevelopment() //zap.NewProduction()
+		l, err = zap.NewProduction()
 	}
 	if err != nil {
 		log.Fatalf("cannot initialize logger: %v", err)
@@ -45,9 +46,9 @@ func newPeer(name string, i uint16) testPeer {
 	priv, _ := peer.GeneratePrivateKey()
 	db := peer.NewMapDB(log.Named("db"))
 	local := peer.NewLocal(priv, db)
-	s, _ := salt.NewSalt(time.Duration(25+i) * time.Second)
+	s, _ := salt.NewSalt(time.Duration(i) * time.Second)
 	local.SetPrivateSalt(s)
-	s, _ = salt.NewSalt(time.Duration(25+i) * time.Second)
+	s, _ = salt.NewSalt(time.Duration(i) * time.Second)
 	local.SetPublicSalt(s)
 	p := peer.NewPeer(local.PublicKey(), name)
 	return testPeer{local, p, db, log, rand.New(rand.NewSource(time.Now().UnixNano()))}
@@ -65,6 +66,8 @@ func (n testNet) DropPeer(p *peer.Peer) {
 	//time.Sleep(time.Duration(n.rand.Intn(max-min+1)+min) * time.Microsecond)
 	status.Append(idMap[p.ID()], idMap[n.self.ID()], DROPPED)
 	n.mgr[p.ID()].DropNeighbor(n.self.ID())
+	timestamp := time.Now().Unix()
+	linkChan <- Event{DROPPED, idMap[p.ID()], idMap[n.self.ID()], timestamp}
 
 	//visualizer.RemoveLink(p.ID().String(), n.self.ID().String())
 	//visualizer.RemoveLink(n.self.ID().String(), p.ID().String())
@@ -82,6 +85,8 @@ func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
 	response := n.mgr[p.ID()].AcceptRequest(n.self, s)
 	if response {
 		status.Append(from, to, ACCEPTED)
+		timestamp := time.Now().Unix()
+		linkChan <- Event{ESTABLISHED, from, to, timestamp}
 		//visualizer.AddLink(n.self.ID().String(), p.ID().String())
 	} else {
 		status.Append(from, to, REJECTED)
@@ -107,7 +112,7 @@ func RunSim() {
 	mgrMap := make(map[peer.ID]*neighborhood.Manager)
 	neighborhoods := make(map[peer.ID][]*peer.Peer)
 	for i := range allPeers {
-		peer := newPeer(fmt.Sprintf("%d", i), 1000)
+		peer := newPeer(fmt.Sprintf("%d", i), uint16(i))
 		allPeers[i] = peer.peer
 		net := testNet{
 			mgr:   mgrMap,
@@ -121,11 +126,20 @@ func RunSim() {
 		//visualizer.AddNode(peer.local.ID().String())
 	}
 
+	runLinkAnalysis()
+
 	for _, peer := range allPeers {
 		mgrMap[peer.ID()].Run()
 	}
 
-	time.Sleep(35 * time.Second)
+	time.Sleep(1800 * time.Second)
+
+	log.Println("Len:", len(Links))
+	//log.Println(Links)
+
+	linkAnalysis := linksToString(LinkLife((Links)))
+	writeCSV(linkAnalysis, "linkAnalysis", []string{"X", "Y"})
+	log.Println(linkAnalysis)
 
 	list := []Link{}
 	g := gographviz.NewGraph()
@@ -160,13 +174,13 @@ func RunSim() {
 
 		l += float64(len(neighborhoods[peer.ID()]))
 
-		for _, ng := range neighborhoods[peer.ID()] {
-			//log.Printf(" %d ", idMap[ng.ID()])
-			link := NewLink(idMap[peer.ID()], idMap[ng.ID()], 0)
-			if !HasLink(link, list) {
-				list = append(list, link)
-			}
-		}
+		// for _, ng := range neighborhoods[peer.ID()] {
+		// 	//log.Printf(" %d ", idMap[ng.ID()])
+		// 	link := NewLink(idMap[peer.ID()], idMap[ng.ID()], 0)
+		// 	if !HasLink(link, list) {
+		// 		list = append(list, link)
+		// 	}
+		// }
 	}
 	fmt.Println("Average")
 	fmt.Printf("\nOUT\t\tACC\t\tREJ\t\tIN\t\tDROP\n")
@@ -174,14 +188,14 @@ func RunSim() {
 
 	log.Println("Average len/edges: ", l/float64(N), len(list))
 
-	for _, link := range list {
-		if err := g.AddEdge(fmt.Sprintf("%d", link.x), fmt.Sprintf("%d", link.y), true, nil); err != nil {
-			panic(err)
-		}
-	}
+	// for _, link := range list {
+	// 	if err := g.AddEdge(fmt.Sprintf("%d", link.x), fmt.Sprintf("%d", link.y), true, nil); err != nil {
+	// 		panic(err)
+	// 	}
+	// }
 
-	s := g.String()
-	fmt.Println(s)
+	// s := g.String()
+	// fmt.Println(s)
 
 }
 
@@ -190,4 +204,23 @@ func main() {
 	go s.Run()
 	//time.Sleep(10 * time.Second)
 	RunSim()
+}
+
+func runLinkAnalysis() {
+	go func() {
+		for {
+			select {
+			case newEvent := <-linkChan:
+				switch newEvent.eType {
+				case ESTABLISHED:
+					Links = append(Links, NewLink(newEvent.x, newEvent.y, newEvent.timestamp))
+					//log.Println("New Link", newEvent)
+				case DROPPED:
+					DropLink(newEvent.x, newEvent.y, newEvent.timestamp, Links)
+					//log.Println("Link Dropped", newEvent)
+				}
+			}
+			//TODO: close channel when simulation ends
+		}
+	}()
 }

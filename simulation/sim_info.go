@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
@@ -92,10 +93,15 @@ func NewLink(x, y uint16, timestamp int64) Link {
 }
 
 func DropLink(x, y uint16, timestamp int64, list []Link) {
-	for i := len(list) - 1; i > 0; i-- {
+	for i := len(list) - 1; i >= 0; i-- {
 		if (list[i].x == x && list[i].y == y) ||
 			(list[i].x == y && list[i].y == x) {
-			list[i].tDropped = timestamp
+			if list[i].tDropped == 0 {
+				// fmt.Println("wrong!!")
+				// panic(0)
+				list[i].tDropped = timestamp
+			}
+			return
 		}
 	}
 }
@@ -108,4 +114,24 @@ func HasLink(target Link, list []Link) bool {
 		}
 	}
 	return false
+}
+
+func (l Link) String() string {
+	result := ""
+	result += fmt.Sprintf("\n%d--%d\t", l.x, l.y)
+	if l.tDropped == 0 {
+		return result
+	}
+	result += fmt.Sprintf("%d", l.tDropped-l.tEstablished)
+	return result
+}
+
+func LinkLife(links []Link) map[int64]int {
+	result := make(map[int64]int)
+	for _, l := range links {
+		if l.tDropped != 0 {
+			result[l.tDropped-l.tEstablished]++
+		}
+	}
+	return result
 }
