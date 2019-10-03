@@ -51,13 +51,8 @@ func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
 }
 
 func (n testNet) GetKnownPeers() []*peer.Peer {
-	list := make([]*peer.Peer, len(allPeers)-1)
-	i := 0
-	for _, peer := range allPeers {
-		if peer != n.self {
-			list[i] = peer
-			i++
-		}
-	}
+	var list []*peer.Peer
+	list = append(list, allPeers[:idMap[n.self.ID()]]...)
+	list = append(list, allPeers[idMap[n.self.ID()]+1:]...)
 	return list
 }

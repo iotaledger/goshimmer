@@ -1,7 +1,6 @@
 //colors
 $bg: #EEEEEE;
 $circle: #3F51B5;
-$sub-circle: #F50057;
 
 //reset
 button {
@@ -22,11 +21,12 @@ h2 {
 
 .wrapper {
   position: absolute;
+  z-index: 2;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 60px;
-  height: 60px;
+  width: 80px;
+  height: 80px;
 }
     
   
@@ -34,13 +34,13 @@ h2 {
   display: block;
   position: relative;
   padding: 0;
-  z-index: 98;
+  z-index: 2;
   margin: 0 auto;
   -webkit-box-shadow: 0 6px 10px 0 rgba(0,0,0,0.3);
   box-shadow: 0 6px 10px 0 rgba(0,0,0,0.3);
   border-radius: 50%;
-  height: 60px;
-  width: 60px;
+  height: 80px;
+  width: 80px;
   background-color: $circle;
   transition: 0.2s;
   text-align: center;
