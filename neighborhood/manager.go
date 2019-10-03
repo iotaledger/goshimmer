@@ -1,6 +1,7 @@
 package neighborhood
 
 import (
+	"math/rand"
 	"sync"
 	"time"
 
@@ -110,6 +111,7 @@ func (m *Manager) loopOutbound() {
 	var (
 		updateOutboundDone chan struct{}
 		updateOutbound     = time.NewTimer(0) // setting this to 0 will cause a trigger right away
+		backoff            = 50
 	)
 	defer updateOutbound.Stop()
 
@@ -130,6 +132,7 @@ Loop:
 				dup := m.getDuplicates()
 				for _, peerToDrop := range dup {
 					toDrop := m.inbound.GetPeerFromID(peerToDrop)
+					time.Sleep(time.Duration(rand.Intn(backoff)) * time.Millisecond)
 					m.outbound.RemovePeer(peerToDrop)
 					m.inbound.RemovePeer(peerToDrop)
 					if toDrop != nil {
