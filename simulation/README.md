@@ -73,9 +73,36 @@ Feel free to do your own simulations by following the steps below.
 7. If you have set the visualization as enabled, open your browser and go to `http://localhost:8844`.
 
 ![start simulation](images/start.png)
+![visualize simulation](images/animation.gif)
 
-## Simulation
+## Step 2. Examine the data
 
+To analyse the results of the simulation, read the `.csv` files in the `simulation/data` directory:
+
+- *comvAnalysis*: Proportion of nodes with a complete neighborhood as a function of time
+- *linkAnalysis*: Probability Density Function (PDF) of the time a given link stays active
+- *msgAnalysis*: Number of peering requests sent, accepted, rejected, received and the number of connections dropped of each peer, as well as their average
+
+## Step 3. Visualize the data
+
+To use the Python script, you must have Python and PIP installed. The script output `.eps` files, so to view the graphs, you need an application that can open them.
+
+1. Install the dependencies
+
+    ```bash
+    pip install numpy matplotlib
+    ```
+
+2. Run the script from the `simulation` folder
+
+    ```
+    python plot.py
+    ```
+The script provides two figures:
+- The proportion of nodes with a complete neighborhood as a function of time
+- The Probability Density Function (PDF) of the time a given link stays active
+
+   ![Example graph](images/graph1.png)
 
 ## Parameters
 
