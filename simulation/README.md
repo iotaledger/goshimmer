@@ -10,6 +10,11 @@ process of new nodes, we introduce a mechanism that allows nodes to choose
 their neighbors automatically. The process of nodes choosing their neighbors
 without manual intervention by the node operator is called autopeering.
 
+To find out more details about the autopeering, read the following:
+
+- ["Coordicide White Paper"](https://files.iota.org/papers/Coordicide_WP.pdf) by Coordicide Team, IOTA Foundation
+- ["How do we achieve a verifiably random network topology?"](https://www.youtube.com/watch?v=-NZVwdZdZk4) by Dr. Hans Moog
+
 ## Design
 
 The autopeering module is logically divided into two main submodules: `peer discovery` and `neighbor selection`. The former is responsible for operations such as discovering new peers and verifying their online status while the latter is responsible for finding and managing neighbors for our node. It encapsulates the network and the storage layer through the use of Go interfaces.
