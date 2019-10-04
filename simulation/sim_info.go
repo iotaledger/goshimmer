@@ -112,16 +112,6 @@ func DropLink(x, y uint16, timestamp int64, list []Link) bool {
 	return false
 }
 
-func HasLink(target Link, list []Link) bool {
-	for _, link := range list {
-		if (link.x == target.x && link.y == target.y) ||
-			(link.x == target.y && link.y == target.x) {
-			return true
-		}
-	}
-	return false
-}
-
 func (l Link) String() string {
 	result := ""
 	result += fmt.Sprintf("\n%d--%d\t", l.x, l.y)

@@ -10,7 +10,7 @@ import (
 	"github.com/wollac/autopeering/simulation/visualizer"
 )
 
-type testNet struct {
+type simNet struct {
 	neighborhood.Network
 	mgr   map[peer.ID]*neighborhood.Manager
 	local *peer.Local
@@ -18,7 +18,7 @@ type testNet struct {
 	rand  *rand.Rand
 }
 
-func (n testNet) DropPeer(p *peer.Peer) {
+func (n simNet) DropPeer(p *peer.Peer) {
 	//time.Sleep(time.Duration(n.rand.Intn(max-min+1)+min) * time.Microsecond)
 	status.Append(idMap[p.ID()], idMap[n.self.ID()], DROPPED)
 	n.mgr[p.ID()].DropNeighbor(n.self.ID())
@@ -30,10 +30,10 @@ func (n testNet) DropPeer(p *peer.Peer) {
 	}
 }
 
-func (n testNet) Local() *peer.Local {
+func (n simNet) Local() *peer.Local {
 	return n.local
 }
-func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
+func (n simNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
 	//time.Sleep(time.Duration(n.rand.Intn(max-min+1)+min) * time.Microsecond)
 	from := idMap[n.self.ID()]
 	to := idMap[p.ID()]
@@ -53,7 +53,7 @@ func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
 	return response, nil
 }
 
-func (n testNet) GetKnownPeers() []*peer.Peer {
+func (n simNet) GetKnownPeers() []*peer.Peer {
 	var list []*peer.Peer
 	list = append(list, allPeers[:idMap[n.self.ID()]]...)
 	list = append(list, allPeers[idMap[n.self.ID()]+1:]...)

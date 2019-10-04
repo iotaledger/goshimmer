@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type testPeer struct {
+type simPeer struct {
 	local *peer.Local
 	peer  *peer.Peer
 	db    *peer.DB
@@ -18,7 +18,7 @@ type testPeer struct {
 	rand  *rand.Rand // random number generator
 }
 
-func newPeer(name string, i uint16) testPeer {
+func newPeer(name string, i uint16) simPeer {
 	var l *zap.Logger
 	var err error
 	if name == "1" {
@@ -39,5 +39,5 @@ func newPeer(name string, i uint16) testPeer {
 	s, _ = salt.NewSalt(time.Duration(i) * 10000000 * time.Millisecond)
 	local.SetPublicSalt(s)
 	p := peer.NewPeer(local.PublicKey(), name)
-	return testPeer{local, p, db, log, rand.New(rand.NewSource(time.Now().UnixNano()))}
+	return simPeer{local, p, db, log, rand.New(rand.NewSource(time.Now().UnixNano()))}
 }

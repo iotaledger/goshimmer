@@ -45,3 +45,45 @@ func convergenceToString(c []Convergence) (output [][]string) {
 	}
 	return output
 }
+
+func messagesToString(status *StatusMap) (output [][]string) {
+	avgResult := StatusSum{}
+
+	//fmt.Printf("\nID\tOUT\tACC\tREJ\tIN\tDROP\n")
+	for _, peer := range allPeers {
+		neighborhoods[peer.ID()] = mgrMap[peer.ID()].GetNeighbors()
+
+		summary := status.GetSummary(idMap[peer.ID()])
+
+		record := []string{
+			fmt.Sprintf("%v", idMap[peer.ID()]),
+			fmt.Sprintf("%v", summary.outbound),
+			fmt.Sprintf("%v", summary.accepted),
+			fmt.Sprintf("%v", summary.rejected),
+			fmt.Sprintf("%v", summary.incoming),
+			fmt.Sprintf("%v", summary.dropped),
+		}
+
+		output = append(output, record)
+
+		avgResult.outbound += summary.outbound
+		avgResult.accepted += summary.accepted
+		avgResult.rejected += summary.rejected
+		avgResult.incoming += summary.incoming
+		avgResult.dropped += summary.dropped
+
+	}
+
+	record := []string{
+		fmt.Sprintf("%v", "Avg"),
+		fmt.Sprintf("%v", float64(avgResult.outbound)/float64(N)),
+		fmt.Sprintf("%v", float64(avgResult.accepted)/float64(N)),
+		fmt.Sprintf("%v", float64(avgResult.rejected)/float64(N)),
+		fmt.Sprintf("%v", float64(avgResult.incoming)/float64(N)),
+		fmt.Sprintf("%v", float64(avgResult.dropped)/float64(N)),
+	}
+
+	output = append(output, record)
+
+	return output
+}
