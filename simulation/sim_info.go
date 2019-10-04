@@ -33,13 +33,18 @@ type Event struct {
 	eType     byte
 	x         uint16
 	y         uint16
-	timestamp int64
+	timestamp time.Duration
 }
 type Link struct {
 	x            uint16
 	y            uint16
 	tEstablished int64
 	tDropped     int64
+}
+
+type Convergence struct {
+	timestamp time.Duration
+	counter   float64
 }
 
 type StatusMap struct {
@@ -92,18 +97,18 @@ func NewLink(x, y uint16, timestamp int64) Link {
 	}
 }
 
-func DropLink(x, y uint16, timestamp int64, list []Link) {
+func DropLink(x, y uint16, timestamp int64, list []Link) bool {
 	for i := len(list) - 1; i >= 0; i-- {
 		if (list[i].x == x && list[i].y == y) ||
 			(list[i].x == y && list[i].y == x) {
 			if list[i].tDropped == 0 {
-				// fmt.Println("wrong!!")
-				// panic(0)
 				list[i].tDropped = timestamp
+				return true
 			}
-			return
+			return false
 		}
 	}
+	return false
 }
 
 func HasLink(target Link, list []Link) bool {
@@ -126,11 +131,11 @@ func (l Link) String() string {
 	return result
 }
 
-func LinkLife(links []Link) map[int64]int {
+func LinkSurvival(links []Link) map[int64]int {
 	result := make(map[int64]int)
 	for _, l := range links {
 		if l.tDropped != 0 {
-			result[l.tDropped-l.tEstablished]++
+			result[(l.tDropped-l.tEstablished)/1000]++
 		}
 	}
 	return result

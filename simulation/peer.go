@@ -34,9 +34,9 @@ func newPeer(name string, i uint16) testPeer {
 	priv, _ := peer.GeneratePrivateKey()
 	db := peer.NewMapDB(log.Named("db"))
 	local := peer.NewLocal(priv, db)
-	s, _ := salt.NewSalt(time.Duration(i) * time.Second)
+	s, _ := salt.NewSalt(time.Duration(i) * 10 * time.Millisecond)
 	local.SetPrivateSalt(s)
-	s, _ = salt.NewSalt(time.Duration(i) * time.Second)
+	s, _ = salt.NewSalt(time.Duration(i) * 10 * time.Millisecond)
 	local.SetPublicSalt(s)
 	p := peer.NewPeer(local.PublicKey(), name)
 	return testPeer{local, p, db, log, rand.New(rand.NewSource(time.Now().UnixNano()))}

@@ -1,6 +1,8 @@
 package neighborhood
 
 import (
+	"time"
+
 	"github.com/wollac/autopeering/peer"
 	"go.uber.org/zap"
 )
@@ -11,6 +13,8 @@ type Config struct {
 	Log *zap.SugaredLogger
 
 	GetKnownPeers func() []*peer.Peer
+
+	Lifetime time.Duration
 }
 
 func sliceUniqMap(s []*peer.Peer) []*peer.Peer {

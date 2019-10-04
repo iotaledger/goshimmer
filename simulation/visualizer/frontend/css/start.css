@@ -35,7 +35,7 @@ h2 {
   border-radius: 50%;
   height: 80px;
   width: 80px;
-  background-color: rgb(61, 145, 138);
+  background-color: #31ae97;
   transition: 0.2s;
   text-align: center;
 }
@@ -45,7 +45,7 @@ h2 {
 }
 .circle:hover {
   cursor: pointer;
-  background-color: rgb(73, 179, 170);
+  background-color: #47cbb3;
   box-shadow: 0 8px 15px 0 rgba(0, 0, 0, 0.3);
 }
 
@@ -67,7 +67,7 @@ img {
 .hidden-trigger:checked ~ .circle {
   transform: scale(0.9);
   cursor: pointer;
-  background-color: rgb(73, 179, 170);
+  background-color: #47cbb3;
   box-shadow: 0 8px 15px 0 rgba(0, 0, 0, 0.1);
 }
 .hidden-trigger:checked ~ .circle img {

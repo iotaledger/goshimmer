@@ -12,20 +12,26 @@ import (
 )
 
 var (
-	allPeers []*peer.Peer
-	idMap    = make(map[peer.ID]uint16)
-	status   = NewStatusMap() // key: timestamp, value: Status
-	Links    = []Link{}
-	linkChan = make(chan Event, 100)
+	allPeers   []*peer.Peer
+	mgrMap     = make(map[peer.ID]*neighborhood.Manager)
+	idMap      = make(map[peer.ID]uint16)
+	status     = NewStatusMap() // key: timestamp, value: Status
+	Links      = []Link{}
+	linkChan   = make(chan Event, 100)
+	RecordConv = []Convergence{}
+	StartTime  time.Time
+
+	N            = 100
+	vEnabled     = false
+	SimDuration  = 30
+	SaltLifetime = 30 * time.Second
 )
 
 func RunSim() {
-	N := 100
 	allPeers = make([]*peer.Peer, N)
-	mgrMap := make(map[peer.ID]*neighborhood.Manager)
 	neighborhoods := make(map[peer.ID][]*peer.Peer)
 	for i := range allPeers {
-		peer := newPeer(fmt.Sprintf("%d", i), uint16(1000))
+		peer := newPeer(fmt.Sprintf("%d", i), uint16(i))
 		allPeers[i] = peer.peer
 		net := testNet{
 			mgr:   mgrMap,
@@ -34,28 +40,43 @@ func RunSim() {
 			rand:  peer.rand,
 		}
 		idMap[peer.local.ID()] = uint16(i)
-		mgrMap[peer.local.ID()] = neighborhood.NewManager(net, net.GetKnownPeers, peer.log)
+		conf := neighborhood.Config{
+			Log:           peer.log,
+			GetKnownPeers: net.GetKnownPeers,
+			Lifetime:      SaltLifetime,
+		}
+		mgrMap[peer.local.ID()] = neighborhood.NewManager(net, conf)
 
-		visualizer.AddNode(peer.local.ID().String())
+		if vEnabled {
+			visualizer.AddNode(peer.local.ID().String())
+		}
 	}
 
 	runLinkAnalysis()
 
+	StartTime = time.Now()
 	for _, peer := range allPeers {
 		mgrMap[peer.ID()].Run()
 	}
 
-	time.Sleep(300 * time.Second)
+	time.Sleep(time.Duration(SimDuration) * time.Second)
 
 	log.Println("Len:", len(Links))
 	//log.Println(Links)
 
-	linkAnalysis := linksToString(LinkLife((Links)))
+	linkAnalysis := linksToString(LinkSurvival((Links)))
 	err := writeCSV(linkAnalysis, "linkAnalysis", []string{"X", "Y"})
 	if err != nil {
 		log.Fatalln("error writing csv:", err)
 	}
 	log.Println(linkAnalysis)
+
+	convAnalysis := convergenceToString(RecordConv)
+	err = writeCSV(convAnalysis, "convAnalysis", []string{"X", "Y"})
+	if err != nil {
+		log.Fatalln("error writing csv:", err)
+	}
+	log.Println(RecordConv)
 
 	list := []Link{}
 	g := gographviz.NewGraph()
@@ -116,30 +137,61 @@ func RunSim() {
 }
 
 func main() {
-	s := visualizer.NewServer()
-	go s.Run()
-	<-s.Start
-	//time.Sleep(10 * time.Second)
+	var s *visualizer.Server
+	if vEnabled {
+		s = visualizer.NewServer()
+		go s.Run()
+		<-s.Start
+	}
 	RunSim()
 }
 
 func runLinkAnalysis() {
+	convergence := make([]int, N)
+	vUpdate := 25
 	go func() {
 		i := 0
 		for newEvent := range linkChan {
 			i++
-			if i%25 == 0 {
+			// update visualizer every vUpdate events
+			if vEnabled && i%vUpdate == 0 {
 				visualizer.UpdateDegree(len(Links))
 			}
 			switch newEvent.eType {
 			case ESTABLISHED:
-				Links = append(Links, NewLink(newEvent.x, newEvent.y, newEvent.timestamp))
+				Links = append(Links, NewLink(newEvent.x, newEvent.y, newEvent.timestamp.Milliseconds()))
+				convergence[newEvent.x]++
+				convergence[newEvent.y]++
 				//log.Println("New Link", newEvent)
 			case DROPPED:
-				DropLink(newEvent.x, newEvent.y, newEvent.timestamp, Links)
+				dropped := DropLink(newEvent.x, newEvent.y, newEvent.timestamp.Milliseconds(), Links)
+				if dropped {
+					convergence[newEvent.x]--
+					convergence[newEvent.y]--
+				}
 				//log.Println("Link Dropped", newEvent)
 			}
-			//TODO: close channel when simulation ends
+			updateConvergence2(convergence, newEvent.timestamp)
 		}
 	}()
+}
+
+func updateConvergence(cList []int, time time.Duration) {
+	counter := 0
+	for _, peer := range cList {
+		if peer == 8 {
+			counter++
+		}
+	}
+	RecordConv = append(RecordConv, Convergence{time, (float64(counter) / float64(N)) * 100})
+}
+
+func updateConvergence2(cList []int, time time.Duration) {
+	counter := 0
+	for _, peer := range mgrMap {
+		if len(peer.GetNeighbors()) == 8 {
+			counter++
+		}
+	}
+	RecordConv = append(RecordConv, Convergence{time, (float64(counter) / float64(N)) * 100})
 }

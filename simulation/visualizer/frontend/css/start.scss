@@ -1,6 +1,6 @@
 //colors
 $bg: #EEEEEE;
-$circle: #3F51B5;
+$circle: rgb(49, 174, 151);
 
 //reset
 button {
@@ -59,10 +59,10 @@ h2 {
     position: absolute;
     top: 50%;
     left: 50%;
-    margin-left: -15px;
-    margin-top: -15px;
-    width: 30px;
-    height: 30px;
+    margin-left: -30px;
+    margin-top: -30px;
+    width: 60px;
+    height: 60px;
     transition: 0.5s;
     transform: rotate(180deg);
   }

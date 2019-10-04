@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 xcol = 0
-xlabel = "T [seconds]"
-xlim = [0, 100]
+xlabel = "Time [seconds]"
+#xlim = [0, 100]
 # xscale = 'log'
 xscale = 'linear'
 
@@ -13,19 +13,33 @@ folder = "data/"
 
 
 def main():
-    printPlot()
+    printLinkAnalysis()
+    printConvergenceAnalysis()
 
 
-def printPlot():
+def printLinkAnalysis():
     fig = plt.figure()
     filename = folder+'plot_linkAnalysis'
     partPlot("LinkAnalysis", "linkAnalysis", filename, "blue")
     #plt.ylim([0, 1.05])
     plt.xscale(xscale)
-    plt.xlim(xlim)
+    #plt.xlim(xlim)
     plt.xlabel(xlabel)
     plt.ylabel("Probability")
     plt.yscale('log')
+    plt.legend(loc='best')
+    plt.savefig(filename+'.eps', format='eps')
+    plt.clf()
+
+def printConvergenceAnalysis():
+    fig = plt.figure()
+    filename = folder+'plot_convAnalysis'
+    partPlot("ConvAnalysis", "convAnalysis", filename, "blue")
+    #plt.ylim([0, 1.05])
+    plt.xscale(xscale)
+    #plt.xlim(xlim)
+    plt.xlabel(xlabel)
+    plt.ylabel("Nodes with 8 neighbors [%]")
     plt.legend(loc='best')
     plt.savefig(filename+'.eps', format='eps')
     plt.clf()

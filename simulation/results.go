@@ -34,3 +34,14 @@ func linksToString(links map[int64]int) (output [][]string) {
 	}
 	return output
 }
+
+func convergenceToString(c []Convergence) (output [][]string) {
+	for _, line := range c {
+		record := []string{
+			fmt.Sprintf("%v", line.timestamp.Seconds()),
+			fmt.Sprintf("%v", line.counter),
+		}
+		output = append(output, record)
+	}
+	return output
+}
