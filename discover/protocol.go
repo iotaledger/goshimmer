@@ -18,7 +18,7 @@ const (
 	// VersionNum specifies the expected version number for this Protocol.
 	VersionNum = 0
 
-	maxPeersInResponse = 6 // maximum number of peers returned in PeersResponse
+	maxPeersInResponse = 6 // maximum number of peers returned in DiscoveryResponse
 )
 
 // The Protocol handles the peer discovery.
@@ -91,24 +91,24 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 			p.handlePong(s, from, m)
 		}
 
-	// PeersRequest
-	case pb.MPeersRequest:
-		m := new(pb.PeersRequest)
+	// DiscoveryRequest
+	case pb.MDiscoveryRequest:
+		m := new(pb.DiscoveryRequest)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
 			return true, errors.Wrap(err, "invalid message")
 		}
-		if p.validatePeersRequest(s, from, m) {
-			p.handlePeersRequest(s, from, data, m)
+		if p.validateDiscoveryRequest(s, from, m) {
+			p.handleDiscoveryRequest(s, from, data, m)
 		}
 
-	// PeersResponse
-	case pb.MPeersResponse:
-		m := new(pb.PeersResponse)
+	// DiscoveryResponse
+	case pb.MDiscoveryResponse:
+		m := new(pb.DiscoveryResponse)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
 			return true, errors.Wrap(err, "invalid message")
 		}
-		p.validatePeersResponse(s, from, m)
-		// PeersResponse messages are handled in the handleReply function of the validation
+		p.validateDiscoveryResponse(s, from, m)
+		// DiscoveryResponse messages are handled in the handleReply function of the validation
 
 	default:
 		p.log.Debugw("invalid message", "type", data[0])
@@ -142,20 +142,20 @@ func (p *Protocol) sendPing(to *peer.Peer) <-chan error {
 	return p.Protocol.SendExpectingReply(to, data, pb.MPong, hashEqual)
 }
 
-// requestPeers request known peers from the given target. This method blocks
+// discoveryRequest request known peers from the given target. This method blocks
 // until a response is received and the provided peers are returned.
-func (p *Protocol) requestPeers(to *peer.Peer) ([]*peer.Peer, error) {
+func (p *Protocol) discoveryRequest(to *peer.Peer) ([]*peer.Peer, error) {
 	p.ensureVerified(to)
 
 	// create the request package
-	req := newPeersRequest(to.Address())
+	req := newDiscoveryRequest(to.Address())
 	data := marshal(req)
 
 	// compute the message hash
 	hash := server.PacketHash(data)
 	peers := make([]*peer.Peer, 0, maxPeersInResponse)
-	errc := p.Protocol.SendExpectingReply(to, data, pb.MPeersResponse, func(m interface{}) bool {
-		res := m.(*pb.PeersResponse)
+	errc := p.Protocol.SendExpectingReply(to, data, pb.MDiscoveryResponse, func(m interface{}) bool {
+		res := m.(*pb.DiscoveryResponse)
 		if !bytes.Equal(res.GetReqHash(), hash) {
 			return false
 		}
@@ -219,19 +219,19 @@ func newPong(toAddr string, reqData []byte) *pb.Pong {
 	}
 }
 
-func newPeersRequest(toAddr string) *pb.PeersRequest {
-	return &pb.PeersRequest{
+func newDiscoveryRequest(toAddr string) *pb.DiscoveryRequest {
+	return &pb.DiscoveryRequest{
 		To:        toAddr,
 		Timestamp: time.Now().Unix(),
 	}
 }
 
-func newPeersResponse(reqData []byte, list []*peer.Peer) *pb.PeersResponse {
+func newDiscoveryResponse(reqData []byte, list []*peer.Peer) *pb.DiscoveryResponse {
 	peers := make([]*peerpb.Peer, 0, len(list))
 	for _, p := range list {
 		peers = append(peers, p.ToProto())
 	}
-	return &pb.PeersResponse{
+	return &pb.DiscoveryResponse{
 		ReqHash: server.PacketHash(reqData),
 		Peers:   peers,
 	}
@@ -325,7 +325,7 @@ func (p *Protocol) handlePong(s *server.Server, from *peer.Peer, m *pb.Pong) {
 	p.local().Database().UpdateLastPong(from.ID(), from.Address(), time.Now())
 }
 
-func (p *Protocol) validatePeersRequest(s *server.Server, from *peer.Peer, m *pb.PeersRequest) bool {
+func (p *Protocol) validateDiscoveryRequest(s *server.Server, from *peer.Peer, m *pb.DiscoveryRequest) bool {
 	// check that To matches the local address
 	if m.GetTo() != s.LocalAddr() {
 		p.log.Debugw("invalid message",
@@ -358,14 +358,14 @@ func (p *Protocol) validatePeersRequest(s *server.Server, from *peer.Peer, m *pb
 	return true
 }
 
-func (p *Protocol) handlePeersRequest(s *server.Server, from *peer.Peer, rawData []byte, m *pb.PeersRequest) {
+func (p *Protocol) handleDiscoveryRequest(s *server.Server, from *peer.Peer, rawData []byte, m *pb.DiscoveryRequest) {
 	// get a random list of verified peers
 	peers := p.mgr.getRandomPeers(maxPeersInResponse, 1)
-	res := newPeersResponse(rawData, peers)
+	res := newDiscoveryResponse(rawData, peers)
 	p.Protocol.Send(from, marshal(res))
 }
 
-func (p *Protocol) validatePeersResponse(s *server.Server, from *peer.Peer, m *pb.PeersResponse) bool {
+func (p *Protocol) validateDiscoveryResponse(s *server.Server, from *peer.Peer, m *pb.DiscoveryResponse) bool {
 	// there must not be too many peers
 	if len(m.GetPeers()) > maxPeersInResponse {
 		p.log.Debugw("invalid message",

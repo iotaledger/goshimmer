@@ -36,11 +36,11 @@ func (m *manager) doQuery(next chan<- time.Duration) {
 func (m *manager) requestWorker(p *mpeer, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	r, err := m.net.requestPeers(unwrapPeer(p))
+	r, err := m.net.discoveryRequest(unwrapPeer(p))
 	if err != nil || len(r) == 0 {
 		p.lastNewPeers = 0
 
-		m.log.Debugw("requestPeers failed",
+		m.log.Debugw("discoveryRequest failed",
 			"peer", p,
 			"err", err,
 		)
@@ -55,7 +55,7 @@ func (m *manager) requestWorker(p *mpeer, wg *sync.WaitGroup) {
 	}
 	p.lastNewPeers = added
 
-	m.log.Debugw("requestPeers",
+	m.log.Debugw("discoveryRequest",
 		"peer", p,
 		"new", added,
 	)

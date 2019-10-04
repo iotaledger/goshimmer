@@ -24,14 +24,14 @@ message Pong {
   string to = 2;
 }
 
-message PeersRequest {
+message DiscoveryRequest {
   // string form of the recipient address
   string to = 3;
   // unix time
   int64 timestamp = 1;
 }
 
-message PeersResponse {
+message DiscoveryResponse {
   // hash of the corresponding request
   bytes req_hash = 1;
   // list of peers

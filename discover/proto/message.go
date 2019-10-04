@@ -12,8 +12,8 @@ type MType = server.MType
 const (
 	MPing MType = 10 + iota
 	MPong
-	MPeersRequest
-	MPeersResponse
+	MDiscoveryRequest
+	MDiscoveryResponse
 )
 
 // Message extends the proto.Message interface with additional util functions.
@@ -32,8 +32,8 @@ func (m *Ping) Type() MType  { return MPing }
 func (m *Pong) Name() string { return "PONG" }
 func (m *Pong) Type() MType  { return MPong }
 
-func (m *PeersRequest) Name() string { return "PEERS_REQUEST" }
-func (m *PeersRequest) Type() MType  { return MPeersRequest }
+func (m *DiscoveryRequest) Name() string { return "DISCOVERY_REQUEST" }
+func (m *DiscoveryRequest) Type() MType  { return MDiscoveryRequest }
 
-func (m *PeersResponse) Name() string { return "PEERS_RESPONSE" }
-func (m *PeersResponse) Type() MType  { return MPeersResponse }
+func (m *DiscoveryResponse) Name() string { return "DISCOVERY_RESPONSE" }
+func (m *DiscoveryResponse) Type() MType  { return MDiscoveryResponse }

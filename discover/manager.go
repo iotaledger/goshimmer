@@ -21,7 +21,7 @@ type network interface {
 	local() *peer.Local
 
 	ping(*peer.Peer) error
-	requestPeers(*peer.Peer) ([]*peer.Peer, error)
+	discoveryRequest(*peer.Peer) ([]*peer.Peer, error)
 }
 
 type manager struct {

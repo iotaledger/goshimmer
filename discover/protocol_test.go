@@ -109,7 +109,7 @@ func TestProtPingTimeout(t *testing.T) {
 	assert.EqualError(t, err, server.ErrTimeout.Error())
 }
 
-func TestProtPeersRequest(t *testing.T) {
+func TestProtDiscoveryRequest(t *testing.T) {
 	p2p := transport.P2P()
 
 	srvA, protA, closeA := newTestServer(t, "A", p2p.A, logger)
@@ -122,13 +122,13 @@ func TestProtPeersRequest(t *testing.T) {
 
 	// request peers from node A
 	t.Run("A->B", func(t *testing.T) {
-		if ps, err := protA.requestPeers(peerB); assert.NoError(t, err) {
+		if ps, err := protA.discoveryRequest(peerB); assert.NoError(t, err) {
 			assert.ElementsMatch(t, []*peer.Peer{peerA}, ps)
 		}
 	})
 	// request peers from node B
 	t.Run("B->A", func(t *testing.T) {
-		if ps, err := protB.requestPeers(peerA); assert.NoError(t, err) {
+		if ps, err := protB.discoveryRequest(peerA); assert.NoError(t, err) {
 			assert.ElementsMatch(t, []*peer.Peer{peerB}, ps)
 		}
 	})
@@ -155,7 +155,7 @@ func BenchmarkPingPong(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkPeersRequest(b *testing.B) {
+func BenchmarkDiscoveryRequest(b *testing.B) {
 	p2p := transport.P2P()
 	log := zap.NewNop().Sugar() // disable logging
 
@@ -167,13 +167,13 @@ func BenchmarkPeersRequest(b *testing.B) {
 	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
 
 	// send initial request to ensure that every peer is verified
-	_, err := protA.requestPeers(peerB)
+	_, err := protA.discoveryRequest(peerB)
 	require.NoError(b, err)
 
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		_, _ = protA.requestPeers(peerB)
+		_, _ = protA.discoveryRequest(peerB)
 	}
 
 	b.StopTimer()
