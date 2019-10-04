@@ -147,7 +147,6 @@ func main() {
 }
 
 func runLinkAnalysis() {
-	convergence := make([]int, N)
 	vUpdate := 25
 	go func() {
 		i := 0
@@ -160,33 +159,18 @@ func runLinkAnalysis() {
 			switch newEvent.eType {
 			case ESTABLISHED:
 				Links = append(Links, NewLink(newEvent.x, newEvent.y, newEvent.timestamp.Milliseconds()))
-				convergence[newEvent.x]++
-				convergence[newEvent.y]++
 				//log.Println("New Link", newEvent)
 			case DROPPED:
-				dropped := DropLink(newEvent.x, newEvent.y, newEvent.timestamp.Milliseconds(), Links)
-				if dropped {
-					convergence[newEvent.x]--
-					convergence[newEvent.y]--
-				}
+				DropLink(newEvent.x, newEvent.y, newEvent.timestamp.Milliseconds(), Links)
+
 				//log.Println("Link Dropped", newEvent)
 			}
-			updateConvergence2(convergence, newEvent.timestamp)
+			updateConvergence(newEvent.timestamp)
 		}
 	}()
 }
 
-func updateConvergence(cList []int, time time.Duration) {
-	counter := 0
-	for _, peer := range cList {
-		if peer == 8 {
-			counter++
-		}
-	}
-	RecordConv = append(RecordConv, Convergence{time, (float64(counter) / float64(N)) * 100})
-}
-
-func updateConvergence2(cList []int, time time.Duration) {
+func updateConvergence(time time.Duration) {
 	counter := 0
 	for _, peer := range mgrMap {
 		if len(peer.GetNeighbors()) == 8 {
