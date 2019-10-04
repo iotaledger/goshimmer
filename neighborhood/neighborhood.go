@@ -56,11 +56,11 @@ func (nh *Neighborhood) Add(toAdd peer.PeerDistance) {
 
 func (nh *Neighborhood) RemovePeer(toRemove peer.ID) {
 	index := nh.getPeerIndex(toRemove)
-	if index < 0 {
-		return
-	}
 	nh.mutex.Lock()
 	defer nh.mutex.Unlock()
+	if index < 0 || len(nh.Neighbors) < index {
+		return
+	}
 	nh.Neighbors[index] = peer.PeerDistance{}
 	copy(nh.Neighbors[index:], nh.Neighbors[index+1:])
 	nh.Neighbors = nh.Neighbors[:len(nh.Neighbors)-1]

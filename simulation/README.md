@@ -1,6 +1,7 @@
 # autopeering
 
 ## Simulation
+Enter into the `simulation` directory.
 
 Run `go build -o sim` to create the executable `sim`.
 

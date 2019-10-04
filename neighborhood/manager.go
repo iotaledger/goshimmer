@@ -1,6 +1,7 @@
 package neighborhood
 
 import (
+	"math/rand"
 	"sync"
 	"time"
 
@@ -12,13 +13,13 @@ import (
 const (
 	updateOutboundInterval = 100 * time.Millisecond
 
-	inboundRequestQueue = 100
-	dropQueue           = 100
+	inboundRequestQueue = 1000
+	dropQueue           = 1000
 
 	Accept = true
 	Reject = false
 
-	lifetime = 30 * time.Second
+	//lifetime = 300 * time.Second
 )
 
 type Network interface {
@@ -47,34 +48,28 @@ type Manager struct {
 	inboundDropChan    chan peer.ID
 	outboundDropChan   chan peer.ID
 
-	inboundGetNeighbors  chan struct{}
-	inboundNeighbors     chan []*peer.Peer
-	outboundGetNeighbors chan struct{}
-	outboundNeighbors    chan []*peer.Peer
-
 	rejectionFilter *Filter
 
 	wg              sync.WaitGroup
 	inboundClosing  chan struct{}
 	outboundClosing chan struct{}
+
+	lifetime time.Duration
 }
 
-func NewManager(net Network, getKnownPeers GetKnownPeers, log *zap.SugaredLogger) *Manager {
+func NewManager(net Network, conf Config) *Manager {
 	m := &Manager{
-		net:                  net,
-		getKnownPeers:        getKnownPeers,
-		log:                  log,
-		inboundClosing:       make(chan struct{}),
-		outboundClosing:      make(chan struct{}),
-		rejectionFilter:      NewFilter(),
-		inboundRequestChan:   make(chan PeeringRequest, inboundRequestQueue),
-		inboundReplyChan:     make(chan bool),
-		inboundDropChan:      make(chan peer.ID, dropQueue),
-		inboundGetNeighbors:  make(chan struct{}),
-		inboundNeighbors:     make(chan []*peer.Peer),
-		outboundGetNeighbors: make(chan struct{}),
-		outboundNeighbors:    make(chan []*peer.Peer),
-		outboundDropChan:     make(chan peer.ID, dropQueue),
+		net:                net,
+		getKnownPeers:      conf.GetKnownPeers,
+		log:                conf.Log,
+		lifetime:           conf.Lifetime,
+		inboundClosing:     make(chan struct{}),
+		outboundClosing:    make(chan struct{}),
+		rejectionFilter:    NewFilter(),
+		inboundRequestChan: make(chan PeeringRequest, inboundRequestQueue),
+		inboundReplyChan:   make(chan bool),
+		inboundDropChan:    make(chan peer.ID, dropQueue),
+		outboundDropChan:   make(chan peer.ID, dropQueue),
 		inbound: &Neighborhood{
 			Neighbors: []peer.PeerDistance{},
 			Size:      4},
@@ -110,6 +105,7 @@ func (m *Manager) loopOutbound() {
 	var (
 		updateOutboundDone chan struct{}
 		updateOutbound     = time.NewTimer(0) // setting this to 0 will cause a trigger right away
+		backoff            = 10
 	)
 	defer updateOutbound.Stop()
 
@@ -130,6 +126,7 @@ Loop:
 				dup := m.getDuplicates()
 				for _, peerToDrop := range dup {
 					toDrop := m.inbound.GetPeerFromID(peerToDrop)
+					time.Sleep(time.Duration(rand.Intn(backoff)) * time.Millisecond)
 					m.outbound.RemovePeer(peerToDrop)
 					m.inbound.RemovePeer(peerToDrop)
 					if toDrop != nil {
@@ -147,8 +144,6 @@ Loop:
 				m.rejectionFilter.AddPeer(peerToDrop)
 				m.log.Debug("Outbound Dropped BY ", peerToDrop, " (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
 			}
-		case <-m.outboundGetNeighbors:
-			m.outboundNeighbors <- m.outbound.GetPeers()
 		case <-m.outboundClosing:
 			break Loop
 		}
@@ -173,8 +168,6 @@ Loop:
 				m.inbound.RemovePeer(peerToDrop)
 				m.log.Debug("Inbound Dropped BY ", peerToDrop, " (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
 			}
-		case <-m.inboundGetNeighbors:
-			m.inboundNeighbors <- m.inbound.GetPeers()
 		case <-m.inboundClosing:
 			break Loop
 		}
@@ -265,10 +258,10 @@ func (m *Manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
 }
 
 func (m *Manager) updateSalt() (*salt.Salt, *salt.Salt) {
-	pubSalt, _ := salt.NewSalt(lifetime)
+	pubSalt, _ := salt.NewSalt(m.lifetime)
 	m.net.Local().SetPublicSalt(pubSalt)
 
-	privSalt, _ := salt.NewSalt(lifetime)
+	privSalt, _ := salt.NewSalt(m.lifetime)
 	m.net.Local().SetPrivateSalt(privSalt)
 
 	m.rejectionFilter.Clean()
@@ -305,10 +298,10 @@ func (m *Manager) AcceptRequest(p *peer.Peer, s *salt.Salt) bool {
 
 func (m *Manager) GetNeighbors() []*peer.Peer {
 	neighbors := []*peer.Peer{}
-	m.inboundGetNeighbors <- struct{}{}
-	m.outboundGetNeighbors <- struct{}{}
-	neighbors = append(neighbors, <-m.inboundNeighbors...)
-	neighbors = append(neighbors, <-m.outboundNeighbors...)
+
+	neighbors = append(neighbors, m.inbound.GetPeers()...)
+	neighbors = append(neighbors, m.outbound.GetPeers()...)
+
 	return neighbors
 }
 

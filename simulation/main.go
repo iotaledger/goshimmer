@@ -3,207 +3,158 @@ package main
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"time"
 
-	"github.com/awalterschulze/gographviz"
 	"github.com/wollac/autopeering/neighborhood"
 	"github.com/wollac/autopeering/peer"
-	"github.com/wollac/autopeering/salt"
 	"github.com/wollac/autopeering/simulation/visualizer"
-	"go.uber.org/zap"
 )
 
 var (
-	allPeers []*peer.Peer
-	idMap    = make(map[peer.ID]int)
-	status   = NewStatusMap() // key: timestamp, value: Status
+	allPeers      []*peer.Peer
+	mgrMap        = make(map[peer.ID]*neighborhood.Manager)
+	idMap         = make(map[peer.ID]uint16)
+	status        = NewStatusMap() // key: timestamp, value: Status
+	neighborhoods = make(map[peer.ID][]*peer.Peer)
+	Links         = []Link{}
+	linkChan      = make(chan Event, 100)
+	RecordConv    = []Convergence{}
+	StartTime     time.Time
+
+	N            = 100
+	vEnabled     = false
+	SimDuration  = 300
+	SaltLifetime = 300 * time.Second
 )
 
-type testPeer struct {
-	local *peer.Local
-	peer  *peer.Peer
-	db    *peer.DB
-	log   *zap.SugaredLogger
-	rand  *rand.Rand // random number generator
-}
-
-func newPeer(name string, i int) testPeer {
-	var l *zap.Logger
-	var err error
-	if name == "1" {
-		l, err = zap.NewDevelopment()
-	} else {
-		l, err = zap.NewDevelopment() //zap.NewProduction()
-	}
-	if err != nil {
-		log.Fatalf("cannot initialize logger: %v", err)
-	}
-	logger := l.Sugar()
-	log := logger.Named(name)
-	priv, _ := peer.GeneratePrivateKey()
-	db := peer.NewMapDB(log.Named("db"))
-	local := peer.NewLocal(priv, db)
-	s, _ := salt.NewSalt(time.Duration(25+i) * time.Second)
-	local.SetPrivateSalt(s)
-	s, _ = salt.NewSalt(time.Duration(25+i) * time.Second)
-	local.SetPublicSalt(s)
-	p := peer.NewPeer(local.PublicKey(), name)
-	return testPeer{local, p, db, log, rand.New(rand.NewSource(time.Now().UnixNano()))}
-}
-
-type testNet struct {
-	neighborhood.Network
-	mgr   map[peer.ID]*neighborhood.Manager
-	local *peer.Local
-	self  *peer.Peer
-	rand  *rand.Rand
-}
-
-func (n testNet) DropPeer(p *peer.Peer) {
-	//time.Sleep(time.Duration(n.rand.Intn(max-min+1)+min) * time.Microsecond)
-	status.Append(idMap[p.ID()], idMap[n.self.ID()], DROPPED)
-	n.mgr[p.ID()].DropNeighbor(n.self.ID())
-
-	visualizer.RemoveLink(p.ID().String(), n.self.ID().String())
-	visualizer.RemoveLink(n.self.ID().String(), p.ID().String())
-}
-
-func (n testNet) Local() *peer.Local {
-	return n.local
-}
-func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
-	//time.Sleep(time.Duration(n.rand.Intn(max-min+1)+min) * time.Microsecond)
-	from := idMap[n.self.ID()]
-	to := idMap[p.ID()]
-	status.Append(from, to, OUTBOUND)
-	status.Append(to, from, INCOMING)
-	response := n.mgr[p.ID()].AcceptRequest(n.self, s)
-	if response {
-		status.Append(from, to, ACCEPTED)
-		visualizer.AddLink(n.self.ID().String(), p.ID().String())
-	} else {
-		status.Append(from, to, REJECTED)
-	}
-	return response, nil
-}
-
-func (n testNet) GetKnownPeers() []*peer.Peer {
-	list := make([]*peer.Peer, len(allPeers)-1)
-	i := 0
-	for _, peer := range allPeers {
-		if peer != n.self {
-			list[i] = peer
-			i++
-		}
-	}
-	return list
-}
-
 func RunSim() {
-	N := 100
 	allPeers = make([]*peer.Peer, N)
-	mgrMap := make(map[peer.ID]*neighborhood.Manager)
-	neighborhoods := make(map[peer.ID][]*peer.Peer)
 	for i := range allPeers {
-		peer := newPeer(fmt.Sprintf("%d", i), 1000)
+		peer := newPeer(fmt.Sprintf("%d", i), uint16(i))
 		allPeers[i] = peer.peer
-		net := testNet{
+		net := simNet{
 			mgr:   mgrMap,
 			local: peer.local,
 			self:  peer.peer,
 			rand:  peer.rand,
 		}
-		idMap[peer.local.ID()] = i
-		mgrMap[peer.local.ID()] = neighborhood.NewManager(net, net.GetKnownPeers, peer.log)
+		idMap[peer.local.ID()] = uint16(i)
+		conf := neighborhood.Config{
+			Log:           peer.log,
+			GetKnownPeers: net.GetKnownPeers,
+			Lifetime:      SaltLifetime,
+		}
+		mgrMap[peer.local.ID()] = neighborhood.NewManager(net, conf)
 
-		visualizer.AddNode(peer.local.ID().String())
+		if vEnabled {
+			visualizer.AddNode(peer.local.ID().String())
+		}
 	}
 
+	runLinkAnalysis()
+
+	if vEnabled {
+		statVisualizer()
+	}
+
+	StartTime = time.Now()
 	for _, peer := range allPeers {
 		mgrMap[peer.ID()].Run()
 	}
 
-	time.Sleep(2000 * time.Second)
+	time.Sleep(time.Duration(SimDuration) * time.Second)
 
-	list := []Edge{}
-	g := gographviz.NewGraph()
-	if err := g.SetName("G"); err != nil {
-		panic(err)
+	log.Println("Len:", len(Links))
+	//log.Println(Links)
+
+	linkAnalysis := linksToString(LinkSurvival((Links)))
+	err := writeCSV(linkAnalysis, "linkAnalysis", []string{"X", "Y"})
+	if err != nil {
+		log.Fatalln("error writing csv:", err)
 	}
-	if err := g.SetDir(true); err != nil {
-		panic(err)
+	//log.Println(linkAnalysis)
+
+	convAnalysis := convergenceToString(RecordConv)
+	err = writeCSV(convAnalysis, "convAnalysis", []string{"X", "Y"})
+	if err != nil {
+		log.Fatalln("error writing csv:", err)
 	}
+	//log.Println(RecordConv)
 
-	avgResult := StatusSum{}
-
-	l := 0.
-	fmt.Printf("\nID\tOUT\tACC\tREJ\tIN\tDROP\n")
-	for _, peer := range allPeers {
-		neighborhoods[peer.ID()] = mgrMap[peer.ID()].GetNeighbors()
-
-		summary := status.GetSummary(idMap[peer.ID()])
-		fmt.Printf("%d\t%d\t%d\t%d\t%d\t%d\n", idMap[peer.ID()], summary.outbound, summary.accepted, summary.rejected, summary.incoming, summary.dropped)
-
-		avgResult.outbound += summary.outbound
-		avgResult.accepted += summary.accepted
-		avgResult.rejected += summary.rejected
-		avgResult.incoming += summary.incoming
-		avgResult.dropped += summary.dropped
-
-		// add a new vertex
-		if err := g.AddNode("G", fmt.Sprintf("%d", idMap[peer.ID()]), nil); err != nil {
-			panic(err)
-		}
-
-		l += float64(len(neighborhoods[peer.ID()]))
-
-		for _, ng := range neighborhoods[peer.ID()] {
-			//log.Printf(" %d ", idMap[ng.ID()])
-			edge := NewEdge(idMap[peer.ID()], idMap[ng.ID()])
-			if !HasEdge(edge, list) {
-				list = append(list, edge)
-			}
-		}
-	}
-	fmt.Println("Average")
-	fmt.Printf("\nOUT\t\tACC\t\tREJ\t\tIN\t\tDROP\n")
-	fmt.Printf("%v\t%v\t%v\t%v\t%v\n", float64(avgResult.outbound)/float64(N), float64(avgResult.accepted)/float64(N), float64(avgResult.rejected)/float64(N), float64(avgResult.incoming)/float64(N), float64(avgResult.dropped)/float64(N))
-
-	log.Println("Average len/edges: ", l/float64(N), len(list))
-
-	for _, edge := range list {
-		if err := g.AddEdge(fmt.Sprintf("%d", edge.X), fmt.Sprintf("%d", edge.Y), true, nil); err != nil {
-			panic(err)
-		}
+	msgAnalysis := messagesToString(status)
+	err = writeCSV(msgAnalysis, "msgAnalysis", []string{"ID", "OUT", "ACC", "REJ", "IN", "DROP"})
+	if err != nil {
+		log.Fatalln("error writing csv:", err)
 	}
 
-	s := g.String()
-	fmt.Println(s)
-
-}
-
-type Edge struct {
-	X, Y int
-}
-
-func NewEdge(x, y int) Edge {
-	return Edge{x, y}
-}
-
-func HasEdge(target Edge, list []Edge) bool {
-	for _, edge := range list {
-		if (edge.X == target.X && edge.Y == target.Y) ||
-			(edge.X == target.Y && edge.Y == target.X) {
-			return true
-		}
-	}
-	return false
 }
 
 func main() {
-	s := visualizer.NewServer()
-	go s.Run()
-	time.Sleep(10 * time.Second)
+	p := parseInput("input.txt")
+	setParam(p)
+
+	var s *visualizer.Server
+	if vEnabled {
+		s = visualizer.NewServer()
+		go s.Run()
+		<-s.Start
+	}
 	RunSim()
+}
+
+func runLinkAnalysis() {
+	go func() {
+
+		for newEvent := range linkChan {
+			switch newEvent.eType {
+			case ESTABLISHED:
+				Links = append(Links, NewLink(newEvent.x, newEvent.y, newEvent.timestamp.Milliseconds()))
+				//log.Println("New Link", newEvent)
+			case DROPPED:
+				DropLink(newEvent.x, newEvent.y, newEvent.timestamp.Milliseconds(), Links)
+
+				//log.Println("Link Dropped", newEvent)
+			}
+			updateConvergence(newEvent.timestamp)
+		}
+	}()
+}
+
+func statVisualizer() {
+	go func() {
+		ticker := time.NewTicker(10 * time.Millisecond)
+		for range ticker.C {
+			visualizer.UpdateConvergence(getConvergence())
+			visualizer.UpdateAvgNeighbors(getAvgNeighbors())
+		}
+	}()
+}
+
+func updateConvergence(time time.Duration) {
+	counter := 0
+	avgNeighbors := 0
+	for _, peer := range mgrMap {
+		l := len(peer.GetNeighbors())
+		if l == 8 {
+			counter++
+		}
+		avgNeighbors += l
+	}
+	c := (float64(counter) / float64(N)) * 100
+	avg := float64(avgNeighbors) / float64(N)
+	RecordConv = append(RecordConv, Convergence{time, c, avg})
+}
+
+func getConvergence() float64 {
+	if len(RecordConv) > 0 {
+		return RecordConv[len(RecordConv)-1].counter
+	}
+	return 0
+}
+
+func getAvgNeighbors() float64 {
+	if len(RecordConv) > 0 {
+		return RecordConv[len(RecordConv)-1].avgNeighbors
+	}
+	return 0
 }

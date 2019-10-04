@@ -14,6 +14,7 @@ import (
 
 type Server struct {
 	router *mux.Router
+	Start  chan struct{}
 }
 
 type Event struct {
@@ -22,22 +23,25 @@ type Event struct {
 	Dest   string `json:"dest"`
 }
 
-//var box = packr.NewBox("./templates")
-
-var clients = make(map[*websocket.Conn]bool)
-var Visualizer = make(chan *Event, 100)
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
+var (
+	clients    = make(map[*websocket.Conn]bool)
+	Visualizer = make(chan *Event, 100000)
+	upgrader   = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+)
 
 func NewServer() *Server {
 	s := &Server{}
+	s.Start = make(chan struct{})
 	s.router = mux.NewRouter()
+	s.router.HandleFunc("/start", func(w http.ResponseWriter, r *http.Request) { s.Start <- struct{}{} }).Methods("GET")
 	s.router.HandleFunc("/event", eventHandler).Methods("POST")
 	s.router.HandleFunc("/ws", wsHandler)
 	s.router.PathPrefix("/").Handler(http.FileServer(rice.MustFindBox("frontend").HTTPBox()))
+
 	return s
 }
 
@@ -73,9 +77,10 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func echo() {
-	for {
-		val := <-Visualizer
-		time.Sleep(50 * time.Millisecond)
+	for val := range Visualizer {
+		if val.Type <= removeLink {
+			time.Sleep(50 * time.Millisecond)
+		}
 		event := fmt.Sprintf("%d %s %s", val.Type, val.Source, val.Dest)
 
 		// send to every client that is currently connected
