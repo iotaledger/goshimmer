@@ -1,8 +1,0 @@
-- time (number of messages) to know all the neighbors
-    - from start
-    - from a new join
-- time (number of messages) to complete the neighborhood (8)
-- how does a new join affect the neighborhoods
-- topology type of the network (small-world, islands, etc)
-
-- distribution of the distances (see clustering)
