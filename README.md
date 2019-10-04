@@ -41,41 +41,35 @@ Feel free to do your own simulations by following the steps below.
     git clone https://github.com/iotaledger/autopeering-sim.git
     ```
 
-2. Enter into the `autopeering-sim` directory
+1. Enter into the `autopeering-sim` directory
     
     ```bash
     cd autopeering-sim
     ```
 
-3. Build the Protocol Buffers to create / update the generated protobuf files.
-
-    ```bash
-    make compile
-    ```
-
-2. Enter into the `simulation` directory
+1. Enter into the `simulation` directory
     
     ```bash
     cd simulation
     ```
 
-3. Build the executable file
+1. Build the executable file
 
     ```bash
     go build -o sim
     ```
 
-4. If you want to change how the simulation behaves, edit the [parameters](#parameters) in the `input.txt` file
+1. If you want to change how the simulation behaves, edit the [parameters](#parameters) in the `input.txt` file
 
-5. If you're using Windows, add the `.exe` file extension to the `sim` file
+1. If you're using Windows, add the `.exe` file extension to the `sim` file
 
-6. Run the simulation
+1. Run the simulation
 
     ```
     ./sim
     ```
 
-7. If you have set the visualization as enabled, open your browser and go to `http://localhost:8844`.
+1. If you have set the visualization as enabled, open your browser and go to `http://localhost:8844`.
 
 ![visualize simulation](simulation/images/animation.gif)
 
@@ -97,11 +91,12 @@ To use the Python script, you must have Python and PIP installed. The script out
     pip install numpy matplotlib
     ```
 
-2. Run the script from the `simulation` folder
+1. Run the script from the `simulation` folder
 
     ```
     python plot.py
     ```
+
 The script provides two figures:
 - The proportion of nodes with a complete neighborhood as a function of time
 - The Probability Density Function (PDF) of the time a given link stays active
@@ -122,3 +117,14 @@ To change any of these parameters, edit them in the `input.txt` file.
 |   `T`               |   int         | Salt lifetime, in seconds |
 |   `SimDuration`     |   int         | Duration of the simulation, in seconds |
 |   `VisualEnabled`   |   bool        | Enable/disable the visualization |
+
+## Development
+
+### Protobuf files
+
+The messages exchanged during autopeering are serialized using [Protocol Buffers](https://developers.google.com/protocol-buffers/).
+To generate the coresponding go files after changing the the protobuf files, use the following command:
+
+```bash
+make compile
+```
