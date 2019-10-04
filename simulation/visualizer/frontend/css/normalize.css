@@ -377,7 +377,16 @@
   z-index: -1;
   }
 
-  #degree{
+  #convergence{
+    position:relative;
+    margin:0;
+    font-size:13px;
+    text-align:right;
+    color:grey;
+    z-index: -1;
+  }
+
+  #avgNeighbors{
     position:relative;
     margin:0;
     font-size:13px;

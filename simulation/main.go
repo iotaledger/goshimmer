@@ -22,9 +22,9 @@ var (
 	StartTime  time.Time
 
 	N            = 100
-	vEnabled     = false
-	SimDuration  = 30
-	SaltLifetime = 30 * time.Second
+	vEnabled     = true
+	SimDuration  = 300
+	SaltLifetime = 300 * time.Second
 )
 
 func RunSim() {
@@ -53,6 +53,10 @@ func RunSim() {
 	}
 
 	runLinkAnalysis()
+
+	if vEnabled {
+		statVisualizer()
+	}
 
 	StartTime = time.Now()
 	for _, peer := range allPeers {
@@ -147,15 +151,9 @@ func main() {
 }
 
 func runLinkAnalysis() {
-	vUpdate := 25
 	go func() {
-		i := 0
+
 		for newEvent := range linkChan {
-			i++
-			// update visualizer every vUpdate events
-			if vEnabled && i%vUpdate == 0 {
-				visualizer.UpdateDegree(len(Links))
-			}
 			switch newEvent.eType {
 			case ESTABLISHED:
 				Links = append(Links, NewLink(newEvent.x, newEvent.y, newEvent.timestamp.Milliseconds()))
@@ -170,12 +168,41 @@ func runLinkAnalysis() {
 	}()
 }
 
+func statVisualizer() {
+	go func() {
+		ticker := time.NewTicker(10 * time.Millisecond)
+		for range ticker.C {
+			visualizer.UpdateConvergence(getConvergence())
+			visualizer.UpdateAvgNeighbors(getAvgNeighbors())
+		}
+	}()
+}
+
 func updateConvergence(time time.Duration) {
 	counter := 0
+	avgNeighbors := 0
 	for _, peer := range mgrMap {
-		if len(peer.GetNeighbors()) == 8 {
+		l := len(peer.GetNeighbors())
+		if l == 8 {
 			counter++
 		}
+		avgNeighbors += l
 	}
-	RecordConv = append(RecordConv, Convergence{time, (float64(counter) / float64(N)) * 100})
+	c := (float64(counter) / float64(N)) * 100
+	avg := float64(avgNeighbors) / float64(N)
+	RecordConv = append(RecordConv, Convergence{time, c, avg})
+}
+
+func getConvergence() float64 {
+	if len(RecordConv) > 0 {
+		return RecordConv[len(RecordConv)-1].counter
+	}
+	return 0
+}
+
+func getAvgNeighbors() float64 {
+	if len(RecordConv) > 0 {
+		return RecordConv[len(RecordConv)-1].avgNeighbors
+	}
+	return 0
 }

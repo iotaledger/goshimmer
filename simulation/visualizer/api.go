@@ -7,7 +7,8 @@ const (
 	removeNode
 	addLink
 	removeLink
-	updateDegree
+	updateConvergence
+	updateAvgNeighbors
 )
 
 func AddNode(id string) {
@@ -46,10 +47,18 @@ func RemoveLink(src, dest string) {
 	Writer(event)
 }
 
-func UpdateDegree(degree int) {
+func UpdateConvergence(c float64) {
 	event := &Event{
-		Type:   updateDegree,
-		Source: fmt.Sprintf("%v", degree),
+		Type:   updateConvergence,
+		Source: fmt.Sprintf("%v", c),
+	}
+	Writer(event)
+}
+
+func UpdateAvgNeighbors(avg float64) {
+	event := &Event{
+		Type:   updateAvgNeighbors,
+		Source: fmt.Sprintf("%v", avg),
 	}
 	Writer(event)
 }

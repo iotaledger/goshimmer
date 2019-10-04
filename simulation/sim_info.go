@@ -43,8 +43,9 @@ type Link struct {
 }
 
 type Convergence struct {
-	timestamp time.Duration
-	counter   float64
+	timestamp    time.Duration
+	counter      float64
+	avgNeighbors float64
 }
 
 type StatusMap struct {

@@ -26,7 +26,7 @@ func (n testNet) DropPeer(p *peer.Peer) {
 	linkChan <- Event{DROPPED, idMap[p.ID()], idMap[n.self.ID()], timestamp}
 	if vEnabled {
 		visualizer.RemoveLink(p.ID().String(), n.self.ID().String())
-		visualizer.RemoveLink(n.self.ID().String(), p.ID().String())
+		//visualizer.RemoveLink(n.self.ID().String(), p.ID().String())
 	}
 }
 
