@@ -77,7 +77,6 @@ Feel free to do your own simulations by following the steps below.
 
 7. If you have set the visualization as enabled, open your browser and go to `http://localhost:8844`.
 
-![start simulation](images/start.png)
 ![visualize simulation](images/animation.gif)
 
 ## Step 2. Examine the data
