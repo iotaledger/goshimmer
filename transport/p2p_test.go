@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	pb "github.com/wollac/autopeering/proto"
+	pb "github.com/wollac/autopeering/server/proto"
 )
 
 var testPacket = &pb.Packet{Data: []byte("TEST")}

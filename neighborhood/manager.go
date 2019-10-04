@@ -16,22 +16,26 @@ const (
 	inboundRequestQueue = 1000
 	dropQueue           = 1000
 
-	Accept = true
-	Reject = false
+	accept = true
+	reject = false
 
 	//lifetime = 300 * time.Second
 )
 
+// A Network represents the communication layer for the Manager.
 type Network interface {
 	Local() *peer.Local
+
 	RequestPeering(*peer.Peer, *salt.Salt) (bool, error)
 	DropPeer(*peer.Peer)
 }
 
+// GetKnownPeers defines the type of the function to query the known peers.
 type GetKnownPeers func() []*peer.Peer
-type PeeringRequest struct {
-	Requester *peer.Peer
-	Salt      *salt.Salt
+
+type peeringRequest struct {
+	peer *peer.Peer
+	salt *salt.Salt
 }
 
 type Manager struct {
@@ -43,7 +47,7 @@ type Manager struct {
 	inbound  *Neighborhood
 	outbound *Neighborhood
 
-	inboundRequestChan chan PeeringRequest
+	inboundRequestChan chan peeringRequest
 	inboundReplyChan   chan bool
 	inboundDropChan    chan peer.ID
 	outboundDropChan   chan peer.ID
@@ -66,7 +70,7 @@ func NewManager(net Network, conf Config) *Manager {
 		inboundClosing:     make(chan struct{}),
 		outboundClosing:    make(chan struct{}),
 		rejectionFilter:    NewFilter(),
-		inboundRequestChan: make(chan PeeringRequest, inboundRequestQueue),
+		inboundRequestChan: make(chan peeringRequest, inboundRequestQueue),
 		inboundReplyChan:   make(chan bool),
 		inboundDropChan:    make(chan peer.ID, dropQueue),
 		outboundDropChan:   make(chan peer.ID, dropQueue),
@@ -80,23 +84,16 @@ func NewManager(net Network, conf Config) *Manager {
 	return m
 }
 
-func (m *Manager) Run() {
+func (m *Manager) Start() {
 	m.wg.Add(2)
 	go m.loopOutbound()
 	go m.loopInbound()
 }
 
-func (m *Manager) self() *peer.Local {
-	return m.net.Local()
-}
-
 func (m *Manager) Close() {
-	m.log.Debugf("closing")
-
-	m.inboundClosing <- struct{}{}
-	m.outboundClosing <- struct{}{}
+	close(m.inboundClosing)
+	close(m.outboundClosing)
 	m.wg.Wait()
-	m.log.Debugf("closing Done")
 }
 
 func (m *Manager) loopOutbound() {
@@ -144,6 +141,8 @@ Loop:
 				m.rejectionFilter.AddPeer(peerToDrop)
 				m.log.Debug("Outbound Dropped BY ", peerToDrop, " (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
 			}
+
+		// on close, exit the loop
 		case <-m.outboundClosing:
 			break Loop
 		}
@@ -162,19 +161,21 @@ Loop:
 	for {
 		select {
 		case req := <-m.inboundRequestChan:
-			m.updateInbound(req.Requester, req.Salt)
+			m.updateInbound(req.peer, req.salt)
 		case peerToDrop := <-m.inboundDropChan:
 			if containsPeer(m.inbound.GetPeers(), peerToDrop) {
 				m.inbound.RemovePeer(peerToDrop)
 				m.log.Debug("Inbound Dropped BY ", peerToDrop, " (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
 			}
+
+		// on close, exit the loop
 		case <-m.inboundClosing:
 			break Loop
 		}
 	}
 }
 
-// doUpdateOutbound updates outbound neighbors.
+// updateOutbound updates outbound neighbors.
 func (m *Manager) updateOutbound(done chan<- struct{}) {
 	defer func() {
 		done <- struct{}{}
@@ -197,7 +198,8 @@ func (m *Manager) updateOutbound(done chan<- struct{}) {
 		furtherest, _ := m.outbound.getFurtherest()
 
 		// send peering request
-		accepted, _ := m.net.RequestPeering(candidate.Remote, m.net.Local().GetPublicSalt())
+		salt := m.net.Local().GetPublicSalt()
+		accepted, _ := m.net.RequestPeering(candidate.Remote, salt)
 
 		// add candidate to the outbound neighborhood
 		if accepted {
@@ -222,7 +224,6 @@ func (m *Manager) updateOutbound(done chan<- struct{}) {
 	}
 }
 
-//func (m *Manager) updateInbound(requester *peer.Peer, salt *salt.Salt, done chan<- struct{}) {
 func (m *Manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
 	// TODO: check request legitimacy
 	//m.log.Debug("Evaluating peering request FROM ", requester.ID())
@@ -240,11 +241,11 @@ func (m *Manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
 	// reject request
 	if toAccept.Remote == nil {
 		m.log.Debug("Peering request FROM ", requester.ID(), " status REJECTED (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
-		m.inboundReplyChan <- Reject
+		m.inboundReplyChan <- reject
 		return
 	}
 	// accept request
-	m.inboundReplyChan <- Accept
+	m.inboundReplyChan <- accept
 	furtherest, _ := m.inbound.getFurtherest()
 	// drop furtherest neighbor
 	if furtherest.Remote != nil {
@@ -288,12 +289,8 @@ func containsPeer(list []*peer.Peer, id peer.ID) bool {
 }
 
 func (m *Manager) AcceptRequest(p *peer.Peer, s *salt.Salt) bool {
-	//m.log.Debug("Peering request received from ", p.ID())
-	req := PeeringRequest{p, s}
-	m.inboundRequestChan <- req
-	resp := <-m.inboundReplyChan
-	//m.log.Debug("Peering request from ", p.ID(), " evaluated, status ", resp)
-	return resp
+	m.inboundRequestChan <- peeringRequest{p, s}
+	return <-m.inboundReplyChan
 }
 
 func (m *Manager) GetNeighbors() []*peer.Peer {

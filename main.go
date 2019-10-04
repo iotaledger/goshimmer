@@ -13,7 +13,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/wollac/autopeering/discover"
 	"github.com/wollac/autopeering/logger"
+	"github.com/wollac/autopeering/neighborhood"
 	"github.com/wollac/autopeering/peer"
+	"github.com/wollac/autopeering/server"
 	"github.com/wollac/autopeering/transport"
 )
 
@@ -88,27 +90,44 @@ func main() {
 	}
 	defer conn.Close()
 
-	cfg := discover.Config{
-		Log: logger.Named("discover"),
-	}
-
+	var bootnodes []*peer.Peer
 	master, err := parseMaster(*masterNode)
 	if err != nil {
 		log.Printf("Ignoring master: %v\n", err)
 	} else if master != nil {
-		cfg.Bootnodes = []*peer.Peer{master}
+		bootnodes = []*peer.Peer{master}
 	}
 
 	// use the UDP connection for transport
 	trans := transport.Conn(conn, func(network, address string) (net.Addr, error) { return net.ResolveUDPAddr(network, address) })
 	defer trans.Close()
 
+	// create a new local node
+	local := peer.NewLocal(priv, peer.NewMapDB(logger.Named("db")))
+
+	disc := discover.New(local, discover.Config{
+		Log:       logger.Named("discover"),
+		Bootnodes: bootnodes,
+	})
+	peer := neighborhood.New(local, neighborhood.Config{
+		Log:           logger.Named("peering"),
+		GetKnownPeers: disc.GetVerifiedPeers,
+	})
+
+	// start a server doing discovery and peering
+	srv := server.Listen(local, trans, logger.Named("srv"), disc, peer)
+	defer srv.Close()
+
 	// start the discovery on that connection
-	disc := discover.Listen(trans, peer.NewLocal(priv, peer.NewMapDB(logger.Named("db"))), cfg)
+	disc.Start(srv)
 	defer disc.Close()
 
-	id := base64.StdEncoding.EncodeToString(disc.Local().PublicKey())
-	fmt.Println("Discovery protocol started: ID=" + id + ", address=" + disc.LocalAddr())
+	// start the peering on that connection
+	peer.Start(srv)
+	defer peer.Close()
+
+	id := base64.StdEncoding.EncodeToString(local.PublicKey())
+	fmt.Println("Discovery protocol started: ID=" + id + ", address=" + srv.LocalAddr())
 	fmt.Println("Hit Ctrl+C to exit")
 
 	// wait for Ctrl+c

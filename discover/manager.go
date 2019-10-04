@@ -18,7 +18,7 @@ const (
 )
 
 type network interface {
-	self() peer.ID
+	local() *peer.Local
 
 	ping(*peer.Peer) error
 	requestPeers(*peer.Peer) ([]*peer.Peer, error)
@@ -46,14 +46,16 @@ func newManager(net network, boot []*peer.Peer, log *zap.SugaredLogger) *manager
 	}
 	m.loadInitialPeers(boot)
 
-	m.wg.Add(1)
-	go m.loop()
-
 	return m
 }
 
+func (m *manager) start() {
+	m.wg.Add(1)
+	go m.loop()
+}
+
 func (m *manager) self() peer.ID {
-	return m.net.self()
+	return m.net.local().ID()
 }
 
 func (m *manager) close() {
@@ -102,7 +104,7 @@ Loop:
 			queryNext = nil
 			query.Reset(d)
 
-			// on close, exit the loop
+		// on close, exit the loop
 		case <-m.closing:
 			break Loop
 		}
@@ -291,6 +293,7 @@ func (m *manager) getRandomPeers(n int, minVerified uint) []*peer.Peer {
 	return peers
 }
 
+// getVerifiedPeers returns all the currently managed peers that have been verified at least once.
 func (m *manager) getVerifiedPeers() []*mpeer {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
@@ -304,9 +307,4 @@ func (m *manager) getVerifiedPeers() []*mpeer {
 	}
 
 	return peers
-}
-
-// GetVerifiedPeers returns all the currently managed peers that have been verified at least once.
-func (m *manager) GetVerifiedPeers() []*peer.Peer {
-	return unwrapPeers(m.getVerifiedPeers())
 }

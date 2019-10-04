@@ -7,16 +7,19 @@ import (
 	"go.uber.org/zap"
 )
 
-// Config holds discovery related settings.
+// Config holds settings for the peer selection.
 type Config struct {
-	// These settings are required and configure the listener:
+	// Logger
 	Log *zap.SugaredLogger
 
+	// Function to retrieve all the known peers
 	GetKnownPeers func() []*peer.Peer
 
+	// Salt lifetime
 	Lifetime time.Duration
 }
 
+// sliceUniqMap returns the unique elements from the slice
 func sliceUniqMap(s []*peer.Peer) []*peer.Peer {
 	seen := make(map[*peer.Peer]struct{}, len(s))
 	j := 0

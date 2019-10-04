@@ -9,7 +9,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/pkg/errors"
-	pb "github.com/wollac/autopeering/proto"
+	pb "github.com/wollac/autopeering/server/proto"
 	proto "github.com/wollac/autopeering/transport/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"

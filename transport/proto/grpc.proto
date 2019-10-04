@@ -5,7 +5,7 @@ option go_package = "github.com/wollac/autopeering/transport/proto";
 package proto;
 
 import "google/protobuf/empty.proto";
-import "proto/packet.proto";
+import "server/proto/packet.proto";
 
 service Discover {
   // send a packet without expecting a response

@@ -1,0 +1,180 @@
+package discover
+
+import (
+	"log"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/wollac/autopeering/peer"
+	"github.com/wollac/autopeering/salt"
+	"github.com/wollac/autopeering/server"
+	"github.com/wollac/autopeering/transport"
+	"go.uber.org/zap"
+)
+
+const graceTime = 20 * time.Millisecond
+
+var logger *zap.SugaredLogger
+
+func init() {
+	l, err := zap.NewDevelopment()
+	if err != nil {
+		log.Fatalf("cannot initialize logger: %v", err)
+	}
+	logger = l.Sugar()
+}
+
+// newTestServer creates a new discovery server and also returns the teardown.
+func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger, boot ...*peer.Peer) (*server.Server, *Protocol, func()) {
+	priv, err := peer.GeneratePrivateKey()
+	require.NoError(t, err)
+
+	log := logger.Named(name)
+	db := peer.NewMapDB(log.Named("db"))
+	local := peer.NewLocal(priv, db)
+	s, _ := salt.NewSalt(100 * time.Second)
+	local.SetPrivateSalt(s)
+	s, _ = salt.NewSalt(100 * time.Second)
+	local.SetPublicSalt(s)
+
+	cfg := Config{
+		Log:       log,
+		Bootnodes: boot,
+	}
+	prot := New(local, cfg)
+	srv := server.Listen(local, trans, log.Named("srv"), prot)
+	prot.Start(srv)
+
+	teardown := func() {
+		srv.Close()
+		prot.Close()
+		db.Close()
+	}
+	return srv, prot, teardown
+}
+
+func TestProtVerifyBoot(t *testing.T) {
+	p2p := transport.P2P()
+
+	srvA, _, closeA := newTestServer(t, "A", p2p.A, logger)
+	defer closeA()
+	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
+
+	// use peerA as boot peer
+	_, protB, closeB := newTestServer(t, "B", p2p.B, logger, peerA)
+
+	time.Sleep(graceTime) // wait for the packages to ripple through the network
+	closeB()              // close srvB to avoid race conditions, when asserting
+
+	if assert.EqualValues(t, 1, len(protB.mgr.known)) {
+		assert.EqualValues(t, peerA, &protB.mgr.known[0].Peer)
+		assert.EqualValues(t, 1, protB.mgr.known[0].verifiedCount)
+	}
+}
+
+func TestProtPingPong(t *testing.T) {
+	p2p := transport.P2P()
+
+	srvA, protA, closeA := newTestServer(t, "A", p2p.A, logger)
+	defer closeA()
+	srvB, protB, closeB := newTestServer(t, "B", p2p.B, logger)
+	defer closeB()
+
+	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
+	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+
+	// send a ping from node A to B
+	t.Run("A->B", func(t *testing.T) { assert.NoError(t, protA.ping(peerB)) })
+	time.Sleep(graceTime)
+
+	// send a ping from node B to A
+	t.Run("B->A", func(t *testing.T) { assert.NoError(t, protB.ping(peerA)) })
+	time.Sleep(graceTime)
+}
+
+func TestProtPingTimeout(t *testing.T) {
+	p2p := transport.P2P()
+
+	_, protA, closeA := newTestServer(t, "A", p2p.A, logger)
+	defer closeA()
+	srvB, _, closeB := newTestServer(t, "B", p2p.B, logger)
+	closeB() // close the connection right away to prevent any replies
+
+	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+
+	// send a ping from node A to B
+	err := protA.ping(peerB)
+	assert.EqualError(t, err, server.ErrTimeout.Error())
+}
+
+func TestProtPeersRequest(t *testing.T) {
+	p2p := transport.P2P()
+
+	srvA, protA, closeA := newTestServer(t, "A", p2p.A, logger)
+	defer closeA()
+	srvB, protB, closeB := newTestServer(t, "B", p2p.B, logger)
+	defer closeB()
+
+	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
+	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+
+	// request peers from node A
+	t.Run("A->B", func(t *testing.T) {
+		if ps, err := protA.requestPeers(peerB); assert.NoError(t, err) {
+			assert.ElementsMatch(t, []*peer.Peer{peerA}, ps)
+		}
+	})
+	// request peers from node B
+	t.Run("B->A", func(t *testing.T) {
+		if ps, err := protB.requestPeers(peerA); assert.NoError(t, err) {
+			assert.ElementsMatch(t, []*peer.Peer{peerB}, ps)
+		}
+	})
+}
+
+func BenchmarkPingPong(b *testing.B) {
+	p2p := transport.P2P()
+	log := zap.NewNop().Sugar() // disable logging
+
+	_, protA, closeA := newTestServer(b, "A", p2p.A, log)
+	defer closeA()
+	srvB, _, closeB := newTestServer(b, "B", p2p.B, log)
+	defer closeB()
+
+	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		// send a ping from node A to B
+		_ = protA.ping(peerB)
+	}
+
+	b.StopTimer()
+}
+
+func BenchmarkPeersRequest(b *testing.B) {
+	p2p := transport.P2P()
+	log := zap.NewNop().Sugar() // disable logging
+
+	_, protA, closeA := newTestServer(b, "A", p2p.A, log)
+	defer closeA()
+	srvB, _, closeB := newTestServer(b, "B", p2p.B, log)
+	defer closeB()
+
+	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+
+	// send initial request to ensure that every peer is verified
+	_, err := protA.requestPeers(peerB)
+	require.NoError(b, err)
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		_, _ = protA.requestPeers(peerB)
+	}
+
+	b.StopTimer()
+}

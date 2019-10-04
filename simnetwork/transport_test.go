@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	pb "github.com/wollac/autopeering/proto"
+	pb "github.com/wollac/autopeering/server/proto"
 	"github.com/wollac/autopeering/transport"
 )
 

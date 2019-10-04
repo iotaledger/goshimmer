@@ -33,10 +33,10 @@ func RunSim() {
 		peer := newPeer(fmt.Sprintf("%d", i), uint16(i))
 		allPeers[i] = peer.peer
 		net := simNet{
-			mgr:   mgrMap,
-			local: peer.local,
-			self:  peer.peer,
-			rand:  peer.rand,
+			mgr:  mgrMap,
+			loc:  peer.local,
+			self: peer.peer,
+			rand: peer.rand,
 		}
 		idMap[peer.local.ID()] = uint16(i)
 		conf := neighborhood.Config{
@@ -59,7 +59,7 @@ func RunSim() {
 
 	StartTime = time.Now()
 	for _, peer := range allPeers {
-		mgrMap[peer.ID()].Run()
+		mgrMap[peer.ID()].Start()
 	}
 
 	time.Sleep(time.Duration(SimDuration) * time.Second)

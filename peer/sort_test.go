@@ -1,10 +1,10 @@
 package peer
 
 import (
+	"crypto/ed25519"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"crypto/ed25519"
 )
 
 func newTestPeerWithID(ID byte) *Peer {

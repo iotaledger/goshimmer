@@ -11,11 +11,14 @@ import (
 )
 
 type simNet struct {
-	neighborhood.Network
-	mgr   map[peer.ID]*neighborhood.Manager
-	local *peer.Local
-	self  *peer.Peer
-	rand  *rand.Rand
+	loc  *peer.Local
+	self *peer.Peer
+	mgr  map[peer.ID]*neighborhood.Manager
+	rand *rand.Rand
+}
+
+func (n simNet) Local() *peer.Local {
+	return n.loc
 }
 
 func (n simNet) DropPeer(p *peer.Peer) {
@@ -30,9 +33,6 @@ func (n simNet) DropPeer(p *peer.Peer) {
 	}
 }
 
-func (n simNet) Local() *peer.Local {
-	return n.local
-}
 func (n simNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
 	//time.Sleep(time.Duration(n.rand.Intn(max-min+1)+min) * time.Microsecond)
 	from := idMap[n.self.ID()]
