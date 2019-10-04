@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	pb "github.com/wollac/autopeering/neighborhood/proto"
 	"github.com/wollac/autopeering/peer"
