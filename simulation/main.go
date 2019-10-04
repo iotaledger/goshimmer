@@ -22,7 +22,7 @@ var (
 	StartTime     time.Time
 
 	N            = 100
-	vEnabled     = true
+	vEnabled     = false
 	SimDuration  = 300
 	SaltLifetime = 300 * time.Second
 )
@@ -90,6 +90,9 @@ func RunSim() {
 }
 
 func main() {
+	p := parseInput("input.txt")
+	setParam(p)
+
 	var s *visualizer.Server
 	if vEnabled {
 		s = visualizer.NewServer()
