@@ -55,6 +55,10 @@ func (p *Protocol) local() *peer.Local {
 func (p *Protocol) Start(s server.Sender) {
 	p.Protocol.Sender = s
 	p.mgr.start()
+
+	p.log.Debugw("discover started",
+		"addr", s.LocalAddr(),
+	)
 }
 
 // Close finalizes the protocol.

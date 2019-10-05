@@ -106,11 +106,11 @@ func main() {
 	local := peer.NewLocal(priv, peer.NewMapDB(logger.Named("db")))
 
 	discovery := discover.New(local, discover.Config{
-		Log:         logger.Named("discover"),
+		Log:         logger.Named("disc"),
 		MasterPeers: masterPeers,
 	})
 	selection := neighborhood.New(local, discovery, neighborhood.Config{
-		Log:          logger.Named("peering"),
+		Log:          logger.Named("sel"),
 		SaltLifetime: neighborhood.DefaultSaltLifetime,
 	})
 
