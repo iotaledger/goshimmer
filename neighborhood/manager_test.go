@@ -49,6 +49,20 @@ func newPeer(name string) testPeer {
 	return testPeer{local, p, db, log, rand.New(rand.NewSource(time.Now().UnixNano()))}
 }
 
+func removeDuplicatePeers(peers []*peer.Peer) []*peer.Peer {
+	seen := make(map[peer.ID]bool, len(peers))
+	result := make([]*peer.Peer, 0, len(peers))
+
+	for _, p := range peers {
+		if !seen[p.ID()] {
+			seen[p.ID()] = true
+			result = append(result, p)
+		}
+	}
+
+	return result
+}
+
 type testNet struct {
 	loc  *peer.Local
 	self *peer.Peer
@@ -112,7 +126,7 @@ func TestSimManager(t *testing.T) {
 		neighbors := mgrMap[peer.ID()].GetNeighbors()
 
 		assert.NotEmpty(t, neighbors, "Peer %d has no neighbors", i)
-		assert.Equal(t, sliceUniqMap(neighbors), neighbors, "Peer %d has non unique neighbors", i)
+		assert.Equal(t, removeDuplicatePeers(neighbors), neighbors, "Peer %d has non unique neighbors", i)
 	}
 
 	// close all the managers
