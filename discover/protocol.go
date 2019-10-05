@@ -18,7 +18,8 @@ const (
 	// VersionNum specifies the expected version number for this Protocol.
 	VersionNum = 0
 
-	maxPeersInResponse = 6 // maximum number of peers returned in DiscoveryResponse
+	pingExpiration     = 12 * time.Hour // time until a peer verification expires
+	maxPeersInResponse = 6              // maximum number of peers returned in DiscoveryResponse
 )
 
 // The Protocol handles the peer discovery.
@@ -26,23 +27,28 @@ const (
 type Protocol struct {
 	server.Protocol
 
-	log *zap.SugaredLogger
+	loc *peer.Local        // local peer that runs the protocol
+	log *zap.SugaredLogger // logging
 
-	mgr       *manager
+	mgr       *manager // the manager handles the actual peer discovery and re-verification
 	closeOnce sync.Once
 }
 
 // New creates a new discovery protocol.
 func New(local *peer.Local, cfg Config) *Protocol {
 	p := &Protocol{
-		Protocol: server.Protocol{
-			Local: local,
-		},
-		log: cfg.Log,
+		Protocol: server.Protocol{},
+		loc:      local,
+		log:      cfg.Log,
 	}
 	p.mgr = newManager(p, cfg.MasterPeers, cfg.Log.Named("mgr"))
 
 	return p
+}
+
+// local returns the associated local peer of the neighbor selection.
+func (p *Protocol) local() *peer.Local {
+	return p.loc
 }
 
 // Start starts the actual peer discovery over the provided Sender.
@@ -58,13 +64,24 @@ func (p *Protocol) Close() {
 	})
 }
 
+// IsVerified checks whether the given peer has recently been verified a recent enough endpoint proof.
+func (p *Protocol) IsVerified(peer *peer.Peer) bool {
+	return time.Since(p.loc.Database().LastPong(peer.ID(), peer.Address())) < pingExpiration
+}
+
+// EnsureVerified checks if the given peer has recently sent a ping;
+// if not, we send a ping to trigger a verification.
+func (p *Protocol) EnsureVerified(peer *peer.Peer) {
+	if !p.hasVerified(peer) {
+		<-p.sendPing(peer)
+		// Wait for them to ping back and process our pong
+		time.Sleep(server.ResponseTimeout)
+	}
+}
+
 // GetVerifiedPeers returns all the currently managed peers that have been verified at least once.
 func (p *Protocol) GetVerifiedPeers() []*peer.Peer {
 	return unwrapPeers(p.mgr.getVerifiedPeers())
-}
-
-func (p *Protocol) local() *peer.Local {
-	return p.Protocol.Local
 }
 
 // HandleMessage responds to incoming peer discovery messages.
@@ -128,7 +145,7 @@ func (p *Protocol) ping(to *peer.Peer) error {
 // sendPing sends a ping to the specified address and expects a matching reply.
 // This method is non-blocking, but it returns a channel that can be used to query potential errors.
 func (p *Protocol) sendPing(to *peer.Peer) <-chan error {
-	ping := newPing(p.Protocol.LocalAddr(), to.Address())
+	ping := newPing(p.LocalAddr(), to.Address())
 	data := marshal(ping)
 
 	// compute the message hash
@@ -144,7 +161,7 @@ func (p *Protocol) sendPing(to *peer.Peer) <-chan error {
 // discoveryRequest request known peers from the given target. This method blocks
 // until a response is received and the provided peers are returned.
 func (p *Protocol) discoveryRequest(to *peer.Peer) ([]*peer.Peer, error) {
-	p.ensureVerified(to)
+	p.EnsureVerified(to)
 
 	// create the request package
 	req := newDiscoveryRequest(to.Address())
@@ -177,14 +194,9 @@ func (p *Protocol) discoveryRequest(to *peer.Peer) ([]*peer.Peer, error) {
 
 // ------ helper functions ------
 
-// ensureVerified checks if the given peer has recently sent a ping;
-// if not, we send a ping to trigger a verification.
-func (p *Protocol) ensureVerified(peer *peer.Peer) {
-	if !p.Protocol.HasVerified(peer) {
-		<-p.sendPing(peer)
-		// Wait for them to ping back and process our pong
-		time.Sleep(server.ResponseTimeout)
-	}
+// hasVerified returns whether the given peer has recently verified the local peer.
+func (p *Protocol) hasVerified(peer *peer.Peer) bool {
+	return time.Since(p.loc.Database().LastPing(peer.ID(), peer.Address())) < pingExpiration
 }
 
 func marshal(msg pb.Message) []byte {
@@ -285,7 +297,7 @@ func (p *Protocol) handlePing(s *server.Server, from *peer.Peer, rawData []byte,
 	p.Protocol.Send(from, marshal(pong))
 
 	// if the peer is new or expired, send a ping to verify
-	if !p.Protocol.IsVerified(from) {
+	if !p.IsVerified(from) {
 		p.sendPing(from)
 	}
 
@@ -342,7 +354,7 @@ func (p *Protocol) validateDiscoveryRequest(s *server.Server, from *peer.Peer, m
 		return false
 	}
 	// check whether the sender is verified
-	if !p.Protocol.IsVerified(from) {
+	if !p.IsVerified(from) {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"unverified", from,

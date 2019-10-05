@@ -109,10 +109,9 @@ func main() {
 		Log:         logger.Named("discover"),
 		MasterPeers: masterPeers,
 	})
-	selection := neighborhood.New(local, neighborhood.Config{
+	selection := neighborhood.New(local, discovery, neighborhood.Config{
 		Log:          logger.Named("peering"),
 		SaltLifetime: neighborhood.DefaultSaltLifetime,
-		PeersFunc:    discovery.GetVerifiedPeers,
 	})
 
 	// start a server doing discovery and peering

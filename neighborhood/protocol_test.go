@@ -26,8 +26,32 @@ func init() {
 	logger = l.Sugar()
 }
 
-func getKnowPeers() []*peer.Peer {
-	return []*peer.Peer{}
+// testDiscovery is a simple implementation of DiscoveryProtocol storing a peer as soon as it verification was checked.
+type testDiscovery struct {
+	peers map[peer.ID]*peer.Peer
+}
+
+func (d *testDiscovery) IsVerified(p *peer.Peer) bool {
+	d.EnsureVerified(p)
+	return true
+}
+
+func (d *testDiscovery) EnsureVerified(p *peer.Peer) {
+	d.peers[p.ID()] = p
+}
+
+func (d *testDiscovery) GetVerifiedPeers() []*peer.Peer {
+	peers := make([]*peer.Peer, 0, len(d.peers))
+	for _, p := range d.peers {
+		peers = append(peers, p)
+	}
+	return peers
+}
+
+func newTestDiscovery() *testDiscovery {
+	return &testDiscovery{
+		peers: make(map[peer.ID]*peer.Peer),
+	}
 }
 
 // newTest creates a new neighborhood server and also returns the teardown.
@@ -44,10 +68,10 @@ func newTest(t require.TestingT, name string, trans transport.Transport, logger 
 	local.SetPublicSalt(s)
 
 	cfg := Config{
-		Log:       log,
-		PeersFunc: getKnowPeers,
+		Log:          log,
+		SaltLifetime: DefaultSaltLifetime,
 	}
-	prot := New(local, cfg)
+	prot := New(local, newTestDiscovery(), cfg)
 	srv := server.Listen(local, trans, log.Named("srv"), prot)
 	prot.Start(srv)
 

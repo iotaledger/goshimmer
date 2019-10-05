@@ -15,31 +15,47 @@ import (
 )
 
 const (
+	// DefaultSaltLifetime is a reasonable default for the lifetime of the private and public salt.
 	DefaultSaltLifetime = 30 * time.Minute
 )
+
+// DiscoverProtocol specifies the methods from the peer discovery that are required.
+type DiscoverProtocol interface {
+	IsVerified(*peer.Peer) bool
+	EnsureVerified(*peer.Peer)
+
+	GetVerifiedPeers() []*peer.Peer
+}
 
 // The Protocol handles the neighbor selection.
 // It responds to incoming messages and sends own requests when needed.
 type Protocol struct {
 	server.Protocol
 
-	log *zap.SugaredLogger
+	disc DiscoverProtocol   // reference to the peer discovery to query verified peers
+	loc  *peer.Local        // local peer that runs the protocol
+	log  *zap.SugaredLogger // logging
 
-	mgr       *Manager
+	mgr       *Manager // the manager handles the actual neighbor selection
 	closeOnce sync.Once
 }
 
 // New creates a new neighbor selection protocol.
-func New(local *peer.Local, cfg Config) *Protocol {
+func New(local *peer.Local, disc DiscoverProtocol, cfg Config) *Protocol {
 	p := &Protocol{
-		Protocol: server.Protocol{
-			Local: local,
-		},
-		log: cfg.Log,
+		Protocol: server.Protocol{},
+		loc:      local,
+		disc:     disc,
+		log:      cfg.Log,
 	}
-	p.mgr = NewManager(p, cfg.SaltLifetime, cfg.PeersFunc, cfg.Log.Named("mgr"))
+	p.mgr = NewManager(p, cfg.SaltLifetime, disc.GetVerifiedPeers, cfg.Log.Named("mgr"))
 
 	return p
+}
+
+// Local returns the associated local peer of the neighbor selection.
+func (p *Protocol) Local() *peer.Local {
+	return p.loc
 }
 
 // Start starts the actual neighbor selection over the provided Sender.
@@ -58,11 +74,6 @@ func (p *Protocol) Close() {
 // GetNeighbors returns the current neighbors.
 func (p *Protocol) GetNeighbors() []*peer.Peer {
 	return p.mgr.GetNeighbors()
-}
-
-// Local returns the associated local peer of the neighbor selection.
-func (p *Protocol) Local() *peer.Local {
-	return p.Protocol.Local
 }
 
 // HandleMessage responds to incoming neighbor selection messages.
@@ -111,6 +122,8 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 // RequestPeering sends a peering request to the given peer. This method blocks
 // until a response is received and the status answer is returned.
 func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt) (bool, error) {
+	p.disc.EnsureVerified(to)
+
 	// create the request package
 	req := newPeeringRequest(to.Address(), salt)
 	data := marshal(req)
@@ -195,6 +208,14 @@ func (p *Protocol) validatePeeringRequest(s *server.Server, from *peer.Peer, m *
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"timestamp", time.Unix(m.GetTimestamp(), 0),
+		)
+		return false
+	}
+	// check whether the sender is verified
+	if !p.disc.IsVerified(from) {
+		p.log.Debugw("invalid message",
+			"type", m.Name(),
+			"unverified", from,
 		)
 		return false
 	}

@@ -79,6 +79,9 @@ func NewManager(net Network, lifetime time.Duration, peersFunc func() []*peer.Pe
 }
 
 func (m *Manager) Start() {
+	// create valid salts
+	m.updateSalt()
+
 	m.wg.Add(2)
 	go m.loopOutbound()
 	go m.loopInbound()
@@ -100,8 +103,6 @@ func (m *Manager) loopOutbound() {
 	)
 	defer updateOutbound.Stop()
 
-	mySalt := m.net.Local().GetPublicSalt()
-
 Loop:
 	for {
 		select {
@@ -109,9 +110,10 @@ Loop:
 			// if there is no updateOutbound, this means doUpdateOutbound is not running
 			if updateOutboundDone == nil {
 				updateOutboundDone = make(chan struct{})
+
 				// check salt and update if necessary (this will drop the whole neighborhood)
-				if mySalt.Expired() {
-					mySalt, _ = m.updateSalt()
+				if m.net.Local().GetPublicSalt().Expired() {
+					m.updateSalt()
 				}
 				//remove potential duplicates
 				dup := m.getDuplicates()

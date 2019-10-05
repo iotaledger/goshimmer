@@ -3,7 +3,6 @@ package neighborhood
 import (
 	"time"
 
-	"github.com/wollac/autopeering/peer"
 	"go.uber.org/zap"
 )
 
@@ -12,9 +11,6 @@ type Config struct {
 	// Logger
 	Log *zap.SugaredLogger
 
-	// Function to retrieve all the known peers
-	PeersFunc func() []*peer.Peer
-
-	// Salt lifetime
+	// Lifetime of the local private salt
 	SaltLifetime time.Duration
 }
