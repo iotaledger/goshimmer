@@ -109,7 +109,7 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 			return true, errors.Wrap(err, "invalid message")
 		}
 		if p.validatePong(s, from, m) {
-			p.handlePong(s, from, m)
+			p.handlePong(from)
 		}
 
 	// DiscoveryRequest
@@ -119,7 +119,7 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 			return true, errors.Wrap(err, "invalid message")
 		}
 		if p.validateDiscoveryRequest(s, from, m) {
-			p.handleDiscoveryRequest(s, from, data, m)
+			p.handleDiscoveryRequest(s, from, data)
 		}
 
 	// DiscoveryResponse
@@ -298,7 +298,7 @@ func (p *Protocol) validatePing(s *server.Server, from *peer.Peer, m *pb.Ping) b
 func (p *Protocol) handlePing(s *server.Server, from *peer.Peer, rawData []byte, m *pb.Ping) {
 	// create and send the pong response
 	pong := newPong(from.Address(), rawData)
-	p.Protocol.Send(from, marshal(pong))
+	s.Send(from.Address(), marshal(pong))
 
 	// if the peer is new or expired, send a ping to verify
 	if !p.IsVerified(from) {
@@ -333,7 +333,7 @@ func (p *Protocol) validatePong(s *server.Server, from *peer.Peer, m *pb.Pong) b
 	return true
 }
 
-func (p *Protocol) handlePong(s *server.Server, from *peer.Peer, m *pb.Pong) {
+func (p *Protocol) handlePong(from *peer.Peer) {
 	// a valid pong verifies the peer
 	p.mgr.addVerifiedPeer(from)
 	// update peer database
@@ -373,11 +373,11 @@ func (p *Protocol) validateDiscoveryRequest(s *server.Server, from *peer.Peer, m
 	return true
 }
 
-func (p *Protocol) handleDiscoveryRequest(s *server.Server, from *peer.Peer, rawData []byte, m *pb.DiscoveryRequest) {
+func (p *Protocol) handleDiscoveryRequest(s *server.Server, from *peer.Peer, rawData []byte) {
 	// get a random list of verified peers
 	peers := p.mgr.getRandomPeers(maxPeersInResponse, 1)
 	res := newDiscoveryResponse(rawData, peers)
-	p.Protocol.Send(from, marshal(res))
+	s.Send(from.Address(), marshal(res))
 }
 
 func (p *Protocol) validateDiscoveryResponse(s *server.Server, from *peer.Peer, m *pb.DiscoveryResponse) bool {

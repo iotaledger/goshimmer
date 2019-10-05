@@ -110,7 +110,7 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 			return true, errors.Wrap(err, "invalid message")
 		}
 		if p.validatePeeringDrop(s, from, m) {
-			p.handlePeeringDrop(s, from)
+			p.handlePeeringDrop(from)
 		}
 
 	default:
@@ -259,7 +259,7 @@ func (p *Protocol) handlePeeringRequest(s *server.Server, from *peer.Peer, rawDa
 	accepted := p.mgr.AcceptRequest(from, salt)
 
 	res := newPeeringResponse(rawData, accepted)
-	p.Protocol.Send(from, marshal(res))
+	s.Send(from.Address(), marshal(res))
 }
 
 func (p *Protocol) validatePeeringResponse(s *server.Server, from *peer.Peer, m *pb.PeeringResponse) bool {
@@ -304,6 +304,6 @@ func (p *Protocol) validatePeeringDrop(s *server.Server, from *peer.Peer, m *pb.
 	return true
 }
 
-func (p *Protocol) handlePeeringDrop(s *server.Server, from *peer.Peer) {
+func (p *Protocol) handlePeeringDrop(from *peer.Peer) {
 	p.mgr.DropNeighbor(from.ID())
 }
