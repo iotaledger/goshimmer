@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const graceTime = 20 * time.Millisecond
+const graceTime = 100 * time.Millisecond
 
 var logger *zap.SugaredLogger
 
@@ -26,33 +26,12 @@ func init() {
 	logger = l.Sugar()
 }
 
-// testDiscovery is a simple implementation of DiscoveryProtocol storing a peer as soon as it verification was checked.
-type testDiscovery struct {
-	peers map[peer.ID]*peer.Peer
-}
+// dummyDiscovery is a dummy implementation of DiscoveryProtocol never returning any verified peers.
+type dummyDiscovery struct{}
 
-func (d *testDiscovery) IsVerified(p *peer.Peer) bool {
-	d.EnsureVerified(p)
-	return true
-}
-
-func (d *testDiscovery) EnsureVerified(p *peer.Peer) {
-	d.peers[p.ID()] = p
-}
-
-func (d *testDiscovery) GetVerifiedPeers() []*peer.Peer {
-	peers := make([]*peer.Peer, 0, len(d.peers))
-	for _, p := range d.peers {
-		peers = append(peers, p)
-	}
-	return peers
-}
-
-func newTestDiscovery() *testDiscovery {
-	return &testDiscovery{
-		peers: make(map[peer.ID]*peer.Peer),
-	}
-}
+func (d dummyDiscovery) IsVerified(p *peer.Peer) bool   { return true }
+func (d dummyDiscovery) EnsureVerified(p *peer.Peer)    {}
+func (d dummyDiscovery) GetVerifiedPeers() []*peer.Peer { return []*peer.Peer{} }
 
 // newTest creates a new neighborhood server and also returns the teardown.
 func newTest(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*server.Server, *Protocol, func()) {
@@ -71,7 +50,7 @@ func newTest(t require.TestingT, name string, trans transport.Transport, logger 
 		Log:          log,
 		SaltLifetime: DefaultSaltLifetime,
 	}
-	prot := New(local, newTestDiscovery(), cfg)
+	prot := New(local, dummyDiscovery{}, cfg)
 	srv := server.Listen(local, trans, log.Named("srv"), prot)
 	prot.Start(srv)
 
@@ -129,11 +108,12 @@ func TestProtExpiredSalt(t *testing.T) {
 func TestProtDropPeer(t *testing.T) {
 	p2p := transport.P2P()
 
-	_, protA, closeA := newTest(t, "A", p2p.A, logger)
+	srvA, protA, closeA := newTest(t, "A", p2p.A, logger)
 	defer closeA()
 	srvB, protB, closeB := newTest(t, "B", p2p.B, logger)
 	defer closeB()
 
+	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
 	saltA, _ := salt.NewSalt(100 * time.Second)
 	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
 
@@ -142,10 +122,10 @@ func TestProtDropPeer(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, accept)
 
-	require.NotEmpty(t, protB.GetNeighbors())
+	require.Contains(t, protB.GetNeighbors(), peerA)
 
 	// drop peer A
 	protA.DropPeer(peerB)
 	time.Sleep(graceTime)
-	require.Empty(t, protB.GetNeighbors())
+	require.NotContains(t, protB.GetNeighbors(), peerA)
 }

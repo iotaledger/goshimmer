@@ -194,13 +194,9 @@ func TestSrvPingTimeout(t *testing.T) {
 	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
 	defer closeA()
 	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
-	defer closeB()
+	closeB()
 
-	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
 	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
-
-	pingMock.On("handle", srvB, peerA).Once() // A expects valid ping from B, but sends nothing
-	// there should never be no pong.Handle
 
 	assert.EqualError(t, sendPing(srvA, peerB), ErrTimeout.Error())
 }
