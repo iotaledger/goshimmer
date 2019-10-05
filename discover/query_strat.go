@@ -12,10 +12,10 @@ const (
 	queryInterval = 20 * time.Second
 )
 
-// doQuery is the main method of the query stratety.
-// It writes the next time this function should be called by the mangager to next.
+// doQuery is the main method of the query strategy.
+// It writes the next time this function should be called by the manager to next.
 // The current strategy is to always select the latest verified peer and one of
-// the peers that returned the most number of peers the last time it was querried.
+// the peers that returned the most number of peers the last time it was queried.
 func (m *manager) doQuery(next chan<- time.Duration) {
 	defer func() { next <- queryInterval }()
 

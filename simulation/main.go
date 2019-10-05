@@ -16,9 +16,9 @@ var (
 	idMap         = make(map[peer.ID]uint16)
 	status        = NewStatusMap() // key: timestamp, value: Status
 	neighborhoods = make(map[peer.ID][]*peer.Peer)
-	Links         = []Link{}
+	Links         []Link
 	linkChan      = make(chan Event, 100)
-	RecordConv    = []Convergence{}
+	RecordConv    []Convergence
 	StartTime     time.Time
 
 	N            = 100
@@ -39,12 +39,7 @@ func RunSim() {
 			rand: peer.rand,
 		}
 		idMap[peer.local.ID()] = uint16(i)
-		conf := neighborhood.Config{
-			Log:           peer.log,
-			GetKnownPeers: net.GetKnownPeers,
-			Lifetime:      SaltLifetime,
-		}
-		mgrMap[peer.local.ID()] = neighborhood.NewManager(net, conf)
+		mgrMap[peer.local.ID()] = neighborhood.NewManager(net, SaltLifetime, net.GetKnownPeers, peer.log)
 
 		if vEnabled {
 			visualizer.AddNode(peer.local.ID().String())
@@ -67,7 +62,7 @@ func RunSim() {
 	log.Println("Len:", len(Links))
 	//log.Println(Links)
 
-	linkAnalysis := linksToString(LinkSurvival((Links)))
+	linkAnalysis := linksToString(LinkSurvival(Links))
 	err := writeCSV(linkAnalysis, "linkAnalysis", []string{"X", "Y"})
 	if err != nil {
 		log.Fatalln("error writing csv:", err)

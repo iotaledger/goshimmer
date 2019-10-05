@@ -11,5 +11,5 @@ type Config struct {
 	Log *zap.SugaredLogger
 
 	// These settings are optional:
-	Bootnodes []*peer.Peer // list of bootstrap nodes
+	MasterPeers []*peer.Peer // list of bootstrap nodes
 }

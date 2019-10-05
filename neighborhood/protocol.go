@@ -14,6 +14,10 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	DefaultSaltLifetime = 30 * time.Minute
+)
+
 // The Protocol handles the neighbor selection.
 // It responds to incoming messages and sends own requests when needed.
 type Protocol struct {
@@ -33,7 +37,7 @@ func New(local *peer.Local, cfg Config) *Protocol {
 		},
 		log: cfg.Log,
 	}
-	p.mgr = NewManager(p, cfg)
+	p.mgr = NewManager(p, cfg.SaltLifetime, cfg.PeersFunc, cfg.Log.Named("mgr"))
 
 	return p
 }

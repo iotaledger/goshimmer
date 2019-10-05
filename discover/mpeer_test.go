@@ -9,7 +9,7 @@ import (
 )
 
 func newTestPeer(name string) *peer.Peer {
-	return peer.NewPeer(peer.PublicKey([]byte(name)), name)
+	return peer.NewPeer([]byte(name), name)
 }
 
 func TestUnwrapPeers(t *testing.T) {

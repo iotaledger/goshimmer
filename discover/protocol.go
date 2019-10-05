@@ -40,7 +40,7 @@ func New(local *peer.Local, cfg Config) *Protocol {
 		},
 		log: cfg.Log,
 	}
-	p.mgr = newManager(p, cfg.Bootnodes, cfg.Log.Named("mgr"))
+	p.mgr = newManager(p, cfg.MasterPeers, cfg.Log.Named("mgr"))
 
 	return p
 }
@@ -120,8 +120,7 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 
 // ------ message senders ------
 
-// ping sends a ping to the specified peer and blocks until a reply is received
-// or the packe timeout.
+// ping sends a ping to the specified peer and blocks until a reply is received or timeout.
 func (p *Protocol) ping(to *peer.Peer) error {
 	return <-p.sendPing(to)
 }

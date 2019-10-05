@@ -98,13 +98,12 @@ func TestSimManager(t *testing.T) {
 			self: peer.peer,
 			rand: peer.rand,
 		}
-		mgrMap[peer.local.ID()] = NewManager(net, Config{peer.log, net.GetKnownPeers, 100 * time.Second})
+		mgrMap[peer.local.ID()] = NewManager(net, 100*time.Second, net.GetKnownPeers, peer.log)
 	}
 
 	// start all the managers
 	for _, mgr := range mgrMap {
 		mgr.Start()
-		defer mgr.Close()
 	}
 
 	time.Sleep(5 * time.Second)
@@ -114,5 +113,10 @@ func TestSimManager(t *testing.T) {
 
 		assert.NotEmpty(t, neighbors, "Peer %d has no neighbors", i)
 		assert.Equal(t, sliceUniqMap(neighbors), neighbors, "Peer %d has non unique neighbors", i)
+	}
+
+	// close all the managers
+	for _, mgr := range mgrMap {
+		mgr.Close()
 	}
 }

@@ -83,10 +83,10 @@ func TestConcurrentCommunication(t *testing.T) {
 	assert.Equal(t, counter, 3*1000)
 }
 
-func (peer *Transport) burstSendTo(dest *Transport, numPkts int, doneSending chan bool) {
+func (t *Transport) burstSendTo(dest *Transport, numPackets int, doneSending chan bool) {
 	go func() {
-		for i := 0; i < numPkts; i++ {
-			_ = peer.WriteTo(testPacket, dest.LocalAddr())
+		for i := 0; i < numPackets; i++ {
+			_ = t.WriteTo(testPacket, dest.LocalAddr())
 		}
 		doneSending <- true
 	}()

@@ -42,29 +42,29 @@ func newNetworkMock() *NetworkMock {
 }
 
 func newDummyPeer(name string) *peer.Peer {
-	return peer.NewPeer(peer.PublicKey([]byte(name)), name)
+	return peer.NewPeer([]byte(name), name)
 }
 
 func newTestManager() (*manager, *NetworkMock, func()) {
-	mock := newNetworkMock()
-	mgr := newManager(mock, nil, logger)
+	networkMock := newNetworkMock()
+	mgr := newManager(networkMock, nil, logger)
 	teardown := func() {
 		time.Sleep(graceTime)
 		mgr.close()
 	}
-	return mgr, mock, teardown
+	return mgr, networkMock, teardown
 }
 
 func TestMgrClose(t *testing.T) {
-	_, _, close := newTestManager()
-	defer close()
+	_, _, teardown := newTestManager()
+	defer teardown()
 
 	time.Sleep(graceTime)
 }
 
 func TestMgrVerifyDiscoveredPeer(t *testing.T) {
-	mgr, m, close := newTestManager()
-	defer close()
+	mgr, m, teardown := newTestManager()
+	defer teardown()
 
 	p := newDummyPeer("p")
 
@@ -83,8 +83,8 @@ func TestMgrVerifyDiscoveredPeer(t *testing.T) {
 }
 
 func TestMgrReverifyPeer(t *testing.T) {
-	mgr, m, close := newTestManager()
-	defer close()
+	mgr, m, teardown := newTestManager()
+	defer teardown()
 
 	p := newDummyPeer("p")
 
@@ -103,8 +103,8 @@ func TestMgrReverifyPeer(t *testing.T) {
 }
 
 func TestMgrRequestDiscoveredPeer(t *testing.T) {
-	mgr, m, close := newTestManager()
-	defer close()
+	mgr, m, teardown := newTestManager()
+	defer teardown()
 
 	p1 := newDummyPeer("verified")
 	p2 := newDummyPeer("discovered")
@@ -122,8 +122,8 @@ func TestMgrRequestDiscoveredPeer(t *testing.T) {
 }
 
 func TestMgrAddManyVerifiedPeers(t *testing.T) {
-	mgr, m, close := newTestManager()
-	defer close()
+	mgr, m, teardown := newTestManager()
+	defer teardown()
 
 	p := newDummyPeer("p")
 
@@ -148,8 +148,8 @@ func TestMgrAddManyVerifiedPeers(t *testing.T) {
 }
 
 func TestMgrDeleteUnreachablePeer(t *testing.T) {
-	mgr, m, close := newTestManager()
-	defer close()
+	mgr, m, teardown := newTestManager()
+	defer teardown()
 
 	p := newDummyPeer("p")
 

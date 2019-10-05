@@ -205,8 +205,8 @@ func (m *manager) loadInitialPeers(boot []*peer.Peer) {
 	var peers []*peer.Peer
 	// TODO: load seed peers from the database
 	peers = append(peers, boot...)
-	for _, peer := range peers {
-		m.addDiscoveredPeer(peer)
+	for _, p := range peers {
+		m.addDiscoveredPeer(p)
 	}
 }
 

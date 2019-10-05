@@ -19,7 +19,7 @@ func NewServiceMap() ServiceMap {
 	return make(ServiceMap)
 }
 
-// encodeService encodes a ServiceMap into a proto bufeer ServiceMap message
+// encodeService encodes a ServiceMap into a proto buffer ServiceMap message
 func encodeService(s ServiceMap) (result *pb.ServiceMap, err error) {
 	result = &pb.ServiceMap{}
 	result.Map = make(map[string]*pb.NetworkAddress)
@@ -34,7 +34,7 @@ func encodeService(s ServiceMap) (result *pb.ServiceMap, err error) {
 	return
 }
 
-// decodeService decodes a proto bufeer ServiceMap message (in) into a ServiceMap (out)
+// decodeService decodes a proto buffer ServiceMap message (in) into a ServiceMap (out)
 // out MUST NOT be nil
 func decodeService(in *pb.ServiceMap, out ServiceMap) (err error) {
 	for k, v := range in.GetMap() {

@@ -18,8 +18,6 @@ const (
 
 	accept = true
 	reject = false
-
-	//lifetime = 300 * time.Second
 )
 
 // A Network represents the communication layer for the Manager.
@@ -30,19 +28,17 @@ type Network interface {
 	DropPeer(*peer.Peer)
 }
 
-// GetKnownPeers defines the type of the function to query the known peers.
-type GetKnownPeers func() []*peer.Peer
-
 type peeringRequest struct {
 	peer *peer.Peer
 	salt *salt.Salt
 }
 
 type Manager struct {
-	net Network
-	log *zap.SugaredLogger
+	net       Network
+	lifetime  time.Duration
+	peersFunc func() []*peer.Peer
 
-	getKnownPeers GetKnownPeers
+	log *zap.SugaredLogger
 
 	inbound  *Neighborhood
 	outbound *Neighborhood
@@ -57,16 +53,14 @@ type Manager struct {
 	wg              sync.WaitGroup
 	inboundClosing  chan struct{}
 	outboundClosing chan struct{}
-
-	lifetime time.Duration
 }
 
-func NewManager(net Network, conf Config) *Manager {
+func NewManager(net Network, lifetime time.Duration, peersFunc func() []*peer.Peer, log *zap.SugaredLogger) *Manager {
 	m := &Manager{
 		net:                net,
-		getKnownPeers:      conf.GetKnownPeers,
-		log:                conf.Log,
-		lifetime:           conf.Lifetime,
+		lifetime:           lifetime,
+		peersFunc:          peersFunc,
+		log:                log,
 		inboundClosing:     make(chan struct{}),
 		outboundClosing:    make(chan struct{}),
 		rejectionFilter:    NewFilter(),
@@ -106,7 +100,7 @@ func (m *Manager) loopOutbound() {
 	)
 	defer updateOutbound.Stop()
 
-	salt := m.net.Local().GetPublicSalt()
+	mySalt := m.net.Local().GetPublicSalt()
 
 Loop:
 	for {
@@ -116,8 +110,8 @@ Loop:
 			if updateOutboundDone == nil {
 				updateOutboundDone = make(chan struct{})
 				// check salt and update if necessary (this will drop the whole neighborhood)
-				if salt.Expired() {
-					salt, _ = m.updateSalt()
+				if mySalt.Expired() {
+					mySalt, _ = m.updateSalt()
 				}
 				//remove potential duplicates
 				dup := m.getDuplicates()
@@ -182,7 +176,7 @@ func (m *Manager) updateOutbound(done chan<- struct{}) {
 	}() // always signal, when the function returns
 
 	// sort verified peers by distance
-	distList := peer.SortBySalt(m.net.Local().ID().Bytes(), m.net.Local().GetPublicSalt().GetBytes(), m.getKnownPeers())
+	distList := peer.SortBySalt(m.net.Local().ID().Bytes(), m.net.Local().GetPublicSalt().GetBytes(), m.peersFunc())
 
 	filter := NewFilter()
 	filter.AddPeers(m.inbound.GetPeers())  // set filter for inbound neighbors
@@ -195,23 +189,23 @@ func (m *Manager) updateOutbound(done chan<- struct{}) {
 	candidate := m.outbound.Select(filteredList)
 
 	if candidate.Remote != nil {
-		furtherest, _ := m.outbound.getFurtherest()
+		furthest, _ := m.outbound.getFurthest()
 
 		// send peering request
-		salt := m.net.Local().GetPublicSalt()
-		accepted, _ := m.net.RequestPeering(candidate.Remote, salt)
+		mySalt := m.net.Local().GetPublicSalt()
+		accepted, _ := m.net.RequestPeering(candidate.Remote, mySalt)
 
 		// add candidate to the outbound neighborhood
 		if accepted {
 			//m.acceptedFilter.AddPeer(candidate.Remote.ID())
-			if furtherest.Remote != nil {
-				m.outbound.RemovePeer(furtherest.Remote.ID())
-				m.net.DropPeer(furtherest.Remote)
-				m.log.Debug("Outbound Furtherest removed ", furtherest.Remote.ID())
+			if furthest.Remote != nil {
+				m.outbound.RemovePeer(furthest.Remote.ID())
+				m.net.DropPeer(furthest.Remote)
+				m.log.Debug("Outbound furthest removed ", furthest.Remote.ID())
 			}
 			m.outbound.Add(candidate)
 			m.log.Debug("Peering request TO ", candidate.Remote.ID(), " status ACCEPTED (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
-			// drop furtherest neighbor
+			// drop furthest neighbor
 
 		}
 		// add rejecting peer to the rejection filter
@@ -246,12 +240,12 @@ func (m *Manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
 	}
 	// accept request
 	m.inboundReplyChan <- accept
-	furtherest, _ := m.inbound.getFurtherest()
-	// drop furtherest neighbor
-	if furtherest.Remote != nil {
-		m.inbound.RemovePeer(furtherest.Remote.ID())
-		m.net.DropPeer(furtherest.Remote)
-		m.log.Debug("Inbound Furtherest removed ", furtherest.Remote.ID())
+	furthest, _ := m.inbound.getFurthest()
+	// drop furthest neighbor
+	if furthest.Remote != nil {
+		m.inbound.RemovePeer(furthest.Remote.ID())
+		m.net.DropPeer(furthest.Remote)
+		m.log.Debug("Inbound furthest removed ", furthest.Remote.ID())
 	}
 	// update inbound neighborhood
 	m.inbound.Add(toAccept)
@@ -294,7 +288,7 @@ func (m *Manager) AcceptRequest(p *peer.Peer, s *salt.Salt) bool {
 }
 
 func (m *Manager) GetNeighbors() []*peer.Peer {
-	neighbors := []*peer.Peer{}
+	var neighbors []*peer.Peer
 
 	neighbors = append(neighbors, m.inbound.GetPeers()...)
 	neighbors = append(neighbors, m.outbound.GetPeers()...)
@@ -303,10 +297,11 @@ func (m *Manager) GetNeighbors() []*peer.Peer {
 }
 
 func (m *Manager) getDuplicates() []peer.ID {
-	d := []peer.ID{}
-	for _, peer := range m.inbound.GetPeers() {
-		if containsPeer(m.outbound.GetPeers(), peer.ID()) {
-			d = append(d, peer.ID())
+	var d []peer.ID
+
+	for _, p := range m.inbound.GetPeers() {
+		if containsPeer(m.outbound.GetPeers(), p.ID()) {
+			d = append(d, p.ID())
 		}
 	}
 	return d
@@ -321,8 +316,8 @@ func (m *Manager) GetOutbound() *Neighborhood {
 }
 
 func (m *Manager) dropNeighborhood(nh *Neighborhood) {
-	for _, peer := range nh.GetPeers() {
-		nh.RemovePeer(peer.ID())
-		m.net.DropPeer(peer)
+	for _, p := range nh.GetPeers() {
+		nh.RemovePeer(p.ID())
+		m.net.DropPeer(p)
 	}
 }

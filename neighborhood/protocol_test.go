@@ -31,7 +31,7 @@ func getKnowPeers() []*peer.Peer {
 }
 
 // newTest creates a new neighborhood server and also returns the teardown.
-func newTest(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger, boot ...*peer.Peer) (*server.Server, *Protocol, func()) {
+func newTest(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*server.Server, *Protocol, func()) {
 	priv, err := peer.GeneratePrivateKey()
 	require.NoError(t, err)
 
@@ -44,8 +44,8 @@ func newTest(t require.TestingT, name string, trans transport.Transport, logger 
 	local.SetPublicSalt(s)
 
 	cfg := Config{
-		Log:           log,
-		GetKnownPeers: getKnowPeers,
+		Log:       log,
+		PeersFunc: getKnowPeers,
 	}
 	prot := New(local, cfg)
 	srv := server.Listen(local, trans, log.Named("srv"), prot)

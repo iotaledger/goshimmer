@@ -13,10 +13,10 @@ type Config struct {
 	Log *zap.SugaredLogger
 
 	// Function to retrieve all the known peers
-	GetKnownPeers func() []*peer.Peer
+	PeersFunc func() []*peer.Peer
 
 	// Salt lifetime
-	Lifetime time.Duration
+	SaltLifetime time.Duration
 }
 
 // sliceUniqMap returns the unique elements from the slice

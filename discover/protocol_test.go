@@ -40,8 +40,8 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport, l
 	local.SetPublicSalt(s)
 
 	cfg := Config{
-		Log:       log,
-		Bootnodes: boot,
+		Log:         log,
+		MasterPeers: boot,
 	}
 	prot := New(local, cfg)
 	srv := server.Listen(local, trans, log.Named("srv"), prot)

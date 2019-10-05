@@ -66,7 +66,7 @@ func parseMaster(s string) (*peer.Peer, error) {
 func main() {
 	var (
 		listenAddr = flag.String("addr", "127.0.0.1:14626", "listen address")
-		masterNode = flag.String("master", "", "master node as 'pubKey@address' where pubKey is in Base64")
+		masterPeer = flag.String("master", "", "master node as 'pubKey@address' where pubKey is in Base64")
 
 		err error
 	)
@@ -90,12 +90,12 @@ func main() {
 	}
 	defer conn.Close()
 
-	var bootnodes []*peer.Peer
-	master, err := parseMaster(*masterNode)
+	var masterPeers []*peer.Peer
+	master, err := parseMaster(*masterPeer)
 	if err != nil {
 		log.Printf("Ignoring master: %v\n", err)
 	} else if master != nil {
-		bootnodes = []*peer.Peer{master}
+		masterPeers = []*peer.Peer{master}
 	}
 
 	// use the UDP connection for transport
@@ -105,26 +105,27 @@ func main() {
 	// create a new local node
 	local := peer.NewLocal(priv, peer.NewMapDB(logger.Named("db")))
 
-	disc := discover.New(local, discover.Config{
-		Log:       logger.Named("discover"),
-		Bootnodes: bootnodes,
+	discovery := discover.New(local, discover.Config{
+		Log:         logger.Named("discover"),
+		MasterPeers: masterPeers,
 	})
-	peer := neighborhood.New(local, neighborhood.Config{
-		Log:           logger.Named("peering"),
-		GetKnownPeers: disc.GetVerifiedPeers,
+	selection := neighborhood.New(local, neighborhood.Config{
+		Log:          logger.Named("peering"),
+		SaltLifetime: neighborhood.DefaultSaltLifetime,
+		PeersFunc:    discovery.GetVerifiedPeers,
 	})
 
 	// start a server doing discovery and peering
-	srv := server.Listen(local, trans, logger.Named("srv"), disc, peer)
+	srv := server.Listen(local, trans, logger.Named("srv"), discovery, selection)
 	defer srv.Close()
 
 	// start the discovery on that connection
-	disc.Start(srv)
-	defer disc.Close()
+	discovery.Start(srv)
+	defer discovery.Close()
 
 	// start the peering on that connection
-	peer.Start(srv)
-	defer peer.Close()
+	selection.Start(srv)
+	defer selection.Close()
 
 	id := base64.StdEncoding.EncodeToString(local.PublicKey())
 	fmt.Println("Discovery protocol started: ID=" + id + ", address=" + srv.LocalAddr())

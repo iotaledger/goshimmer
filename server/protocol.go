@@ -27,7 +27,7 @@ func (p *Protocol) Send(to *peer.Peer, data []byte) {
 	p.Sender.Send(to.Address(), data)
 }
 
-// SendExpectingReply sends request data to a peer and expects a respons of the given type.
+// SendExpectingReply sends request data to a peer and expects a response of the given type.
 // On an incoming matching request the callback is executed to perform additional verification steps.
 func (p *Protocol) SendExpectingReply(to *peer.Peer, data []byte, replyType MType, callback func(interface{}) bool) <-chan error {
 	return p.Sender.SendExpectingReply(to.Address(), to.ID(), data, replyType, callback)
