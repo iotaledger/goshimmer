@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/wollac/autopeering/neighborhood"
@@ -11,15 +12,17 @@ import (
 )
 
 var (
-	allPeers      []*peer.Peer
-	mgrMap        = make(map[peer.ID]*neighborhood.Manager)
-	idMap         = make(map[peer.ID]uint16)
-	status        = NewStatusMap() // key: timestamp, value: Status
-	neighborhoods = make(map[peer.ID][]*peer.Peer)
-	Links         []Link
-	linkChan      = make(chan Event, 100)
-	RecordConv    []Convergence
-	StartTime     time.Time
+	allPeers       []*peer.Peer
+	mgrMap         = make(map[peer.ID]*neighborhood.Manager)
+	idMap          = make(map[peer.ID]uint16)
+	status         = NewStatusMap() // key: timestamp, value: Status
+	neighborhoods  = make(map[peer.ID][]*peer.Peer)
+	Links          = []Link{}
+	linkChan       = make(chan Event, 100)
+	termTickerChan = make(chan bool)
+	RecordConv     = NewConvergenceList()
+	StartTime      time.Time
+	wg             sync.WaitGroup
 
 	N            = 100
 	vEnabled     = false
@@ -46,6 +49,7 @@ func RunSim() {
 		}
 	}
 
+	fmt.Println("start link analysis")
 	runLinkAnalysis()
 
 	if vEnabled {
@@ -58,7 +62,19 @@ func RunSim() {
 	}
 
 	time.Sleep(time.Duration(SimDuration) * time.Second)
+	// Stop updating visualizer
+	if vEnabled {
+		termTickerChan <- true
+	}
+	// Stop simulation
+	for _, peer := range allPeers {
+		mgrMap[peer.ID()].Close()
+	}
+	linkChan <- Event{TERMINATE, 0, 0, 0}
+	// Wait until all analysis goroutines stop
+	wg.Wait()
 
+	// Start finalize simulation result
 	log.Println("Len:", len(Links))
 	//log.Println(Links)
 
@@ -67,9 +83,9 @@ func RunSim() {
 	if err != nil {
 		log.Fatalln("error writing csv:", err)
 	}
-	//log.Println(linkAnalysis)
+	//	log.Println(linkAnalysis)
 
-	convAnalysis := convergenceToString(RecordConv)
+	convAnalysis := convergenceToString(RecordConv.convergence)
 	err = writeCSV(convAnalysis, "convAnalysis", []string{"X", "Y"})
 	if err != nil {
 		log.Fatalln("error writing csv:", err)
@@ -94,11 +110,14 @@ func main() {
 		go s.Run()
 		<-s.Start
 	}
+	fmt.Println("start sim")
 	RunSim()
 }
 
 func runLinkAnalysis() {
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 
 		for newEvent := range linkChan {
 			switch newEvent.eType {
@@ -107,8 +126,9 @@ func runLinkAnalysis() {
 				//log.Println("New Link", newEvent)
 			case DROPPED:
 				DropLink(newEvent.x, newEvent.y, newEvent.timestamp.Milliseconds(), Links)
-
 				//log.Println("Link Dropped", newEvent)
+			case TERMINATE:
+				return
 			}
 			updateConvergence(newEvent.timestamp)
 		}
@@ -116,11 +136,19 @@ func runLinkAnalysis() {
 }
 
 func statVisualizer() {
+	wg.Add(1)
 	go func() {
 		ticker := time.NewTicker(10 * time.Millisecond)
-		for range ticker.C {
-			visualizer.UpdateConvergence(getConvergence())
-			visualizer.UpdateAvgNeighbors(getAvgNeighbors())
+		defer ticker.Stop()
+		defer wg.Done()
+		for {
+			select {
+			case <-termTickerChan:
+				return
+			case <-ticker.C:
+				visualizer.UpdateConvergence(RecordConv.GetConvergence())
+				visualizer.UpdateAvgNeighbors(RecordConv.GetAvgNeighbors())
+			}
 		}
 	}()
 }
@@ -137,19 +165,5 @@ func updateConvergence(time time.Duration) {
 	}
 	c := (float64(counter) / float64(N)) * 100
 	avg := float64(avgNeighbors) / float64(N)
-	RecordConv = append(RecordConv, Convergence{time, c, avg})
-}
-
-func getConvergence() float64 {
-	if len(RecordConv) > 0 {
-		return RecordConv[len(RecordConv)-1].counter
-	}
-	return 0
-}
-
-func getAvgNeighbors() float64 {
-	if len(RecordConv) > 0 {
-		return RecordConv[len(RecordConv)-1].avgNeighbors
-	}
-	return 0
+	RecordConv.Append(Convergence{time, c, avg})
 }
