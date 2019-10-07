@@ -13,6 +13,7 @@ const (
 	OUTBOUND    = 'O'
 	INCOMING    = 'I'
 	ESTABLISHED = 'E'
+	TERMINATE   = 'T'
 )
 
 type Status struct {
@@ -48,9 +49,46 @@ type Convergence struct {
 	avgNeighbors float64
 }
 
+type ConvergenceList struct {
+	sync.Mutex
+	convergence []Convergence
+}
+
 type StatusMap struct {
 	sync.Mutex
 	status map[uint16][]Status
+}
+
+func NewConvergenceList() *ConvergenceList {
+	return &ConvergenceList{
+		convergence: []Convergence{},
+	}
+}
+
+func (c *ConvergenceList) Append(t Convergence) {
+	c.Lock()
+	defer c.Unlock()
+	c.convergence = append(c.convergence, t)
+}
+
+func (c *ConvergenceList) GetConvergence() float64 {
+	c.Lock()
+	defer c.Unlock()
+	cLen := len(c.convergence)
+	if cLen > 0 {
+		return c.convergence[cLen-1].counter
+	}
+	return 0
+}
+
+func (c *ConvergenceList) GetAvgNeighbors() float64 {
+	c.Lock()
+	defer c.Unlock()
+	cLen := len(c.convergence)
+	if cLen > 0 {
+		return c.convergence[cLen-1].avgNeighbors
+	}
+	return 0
 }
 
 func NewStatusMap() *StatusMap {
