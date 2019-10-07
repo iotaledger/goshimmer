@@ -3,7 +3,7 @@
 package transport
 
 import (
-	pb "github.com/wollac/autopeering/proto"
+	pb "github.com/wollac/autopeering/server/proto"
 )
 
 const (

@@ -12,10 +12,10 @@ const (
 	queryInterval = 20 * time.Second
 )
 
-// doQuery is the main method of the query stratety.
-// It writes the next time this function should be called by the mangager to next.
+// doQuery is the main method of the query strategy.
+// It writes the next time this function should be called by the manager to next.
 // The current strategy is to always select the latest verified peer and one of
-// the peers that returned the most number of peers the last time it was querried.
+// the peers that returned the most number of peers the last time it was queried.
 func (m *manager) doQuery(next chan<- time.Duration) {
 	defer func() { next <- queryInterval }()
 
@@ -36,11 +36,11 @@ func (m *manager) doQuery(next chan<- time.Duration) {
 func (m *manager) requestWorker(p *mpeer, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	r, err := m.net.requestPeers(unwrapPeer(p))
+	r, err := m.net.discoveryRequest(unwrapPeer(p))
 	if err != nil || len(r) == 0 {
 		p.lastNewPeers = 0
 
-		m.log.Debugw("requestPeers failed",
+		m.log.Debugw("discoveryRequest failed",
 			"peer", p,
 			"err", err,
 		)
@@ -55,7 +55,7 @@ func (m *manager) requestWorker(p *mpeer, wg *sync.WaitGroup) {
 	}
 	p.lastNewPeers = added
 
-	m.log.Debugw("requestPeers",
+	m.log.Debugw("discoveryRequest",
 		"peer", p,
 		"new", added,
 	)

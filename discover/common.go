@@ -1,8 +1,6 @@
 package discover
 
 import (
-	"crypto/sha256"
-
 	"github.com/wollac/autopeering/peer"
 	"go.uber.org/zap"
 )
@@ -13,11 +11,5 @@ type Config struct {
 	Log *zap.SugaredLogger
 
 	// These settings are optional:
-	Bootnodes []*peer.Peer // list of bootstrap nodes
-}
-
-// packetHash returns the hash of a packet
-func packetHash(data []byte) []byte {
-	sum := sha256.Sum256(data)
-	return sum[:]
+	MasterPeers []*peer.Peer // list of bootstrap nodes
 }

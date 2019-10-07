@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/wollac/autopeering/proto"
+	pb "github.com/wollac/autopeering/server/proto"
 )
 
 // TransportP2P offers transfers between exactly two clients.

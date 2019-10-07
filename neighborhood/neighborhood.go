@@ -13,7 +13,7 @@ type Neighborhood struct {
 	mutex     sync.RWMutex
 }
 
-func (nh *Neighborhood) getFurtherest() (peer.PeerDistance, int) {
+func (nh *Neighborhood) getFurthest() (peer.PeerDistance, int) {
 	nh.mutex.RLock()
 	defer nh.mutex.RUnlock()
 	if len(nh.Neighbors) < nh.Size {
@@ -24,19 +24,19 @@ func (nh *Neighborhood) getFurtherest() (peer.PeerDistance, int) {
 	}
 
 	index := 0
-	furtherest := nh.Neighbors[index]
+	furthest := nh.Neighbors[index]
 	for i, neighbor := range nh.Neighbors {
-		if neighbor.Distance > furtherest.Distance {
-			furtherest = neighbor
+		if neighbor.Distance > furthest.Distance {
+			furthest = neighbor
 			index = i
 		}
 	}
-	return furtherest, index
+	return furthest, index
 }
 
 func (nh *Neighborhood) Select(candidates []peer.PeerDistance) peer.PeerDistance {
 	if len(candidates) > 0 {
-		target, _ := nh.getFurtherest()
+		target, _ := nh.getFurthest()
 		for _, candidate := range candidates {
 			if candidate.Distance < target.Distance {
 				return candidate

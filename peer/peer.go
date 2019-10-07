@@ -82,7 +82,7 @@ func (p *Peer) Marshal() ([]byte, error) {
 	return proto.Marshal(p.ToProto())
 }
 
-// Unmarshal deserializes a given slice of bytes (data) into a Peer.
+// Unmarshal de-serializes a given slice of bytes (data) into a Peer.
 func Unmarshal(data []byte) (*Peer, error) {
 	s := &pb.Peer{}
 	if err := proto.Unmarshal(data, s); err != nil {
@@ -104,5 +104,5 @@ func recoverKey(key, data, sig []byte) (PublicKey, error) {
 
 	publicKey := make([]byte, ed25519.PublicKeySize)
 	copy(publicKey, key)
-	return PublicKey(publicKey), nil
+	return publicKey, nil
 }

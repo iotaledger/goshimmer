@@ -15,7 +15,6 @@ import (
 
 var (
 	allPeers []*peer.Peer
-	idMap    = make(map[peer.ID]int)
 )
 
 type testPeer struct {
@@ -50,24 +49,36 @@ func newPeer(name string) testPeer {
 	return testPeer{local, p, db, log, rand.New(rand.NewSource(time.Now().UnixNano()))}
 }
 
-type testNet struct {
-	Network
-	mgr   map[peer.ID]*Manager
-	local *peer.Local
-	self  *peer.Peer
-	rand  *rand.Rand
+func removeDuplicatePeers(peers []*peer.Peer) []*peer.Peer {
+	seen := make(map[peer.ID]bool, len(peers))
+	result := make([]*peer.Peer, 0, len(peers))
+
+	for _, p := range peers {
+		if !seen[p.ID()] {
+			seen[p.ID()] = true
+			result = append(result, p)
+		}
+	}
+
+	return result
 }
 
-func (n testNet) DropPeer(p *peer.Peer) {
-	//time.Sleep(time.Duration(n.rand.Intn(max-min+1)+min) * time.Microsecond)
-	n.mgr[p.ID()].DropNeighbor(n.self.ID())
+type testNet struct {
+	loc  *peer.Local
+	self *peer.Peer
+	mgr  map[peer.ID]*Manager
+	rand *rand.Rand
 }
 
 func (n testNet) Local() *peer.Local {
-	return n.local
+	return n.loc
 }
+
+func (n testNet) DropPeer(p *peer.Peer) {
+	n.mgr[p.ID()].DropNeighbor(n.Local().ID())
+}
+
 func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
-	//time.Sleep(time.Duration(n.rand.Intn(max-min+1)+min) * time.Microsecond)
 	return n.mgr[p.ID()].AcceptRequest(n.self, s), nil
 }
 
@@ -75,75 +86,51 @@ func (n testNet) GetKnownPeers() []*peer.Peer {
 	list := make([]*peer.Peer, len(allPeers)-1)
 	i := 0
 	for _, peer := range allPeers {
-		if peer != n.self {
-			list[i] = peer
-			i++
+		if peer.ID() == n.self.ID() {
+			continue
 		}
+
+		list[i] = peer
+		i++
 	}
 	return list
 }
 
 func TestSimManager(t *testing.T) {
-	N := 9
+	N := 9 // number of peers to generate
+
 	allPeers = make([]*peer.Peer, N)
+
 	mgrMap := make(map[peer.ID]*Manager)
-	neighborhoods := make(map[peer.ID][]*peer.Peer)
 	for i := range allPeers {
 		peer := newPeer(fmt.Sprintf("%d", i))
 		allPeers[i] = peer.peer
+
 		net := testNet{
-			mgr:   mgrMap,
-			local: peer.local,
-			self:  peer.peer,
-			rand:  peer.rand,
+			mgr:  mgrMap,
+			loc:  peer.local,
+			self: peer.peer,
+			rand: peer.rand,
 		}
-		idMap[peer.local.ID()] = i
-		mgrMap[peer.local.ID()] = NewManager(net, net.GetKnownPeers, peer.log)
+		mgrMap[peer.local.ID()] = NewManager(net, 100*time.Second, net.GetKnownPeers, peer.log)
 	}
 
-	for _, p := range allPeers {
-		d := peer.SortBySalt(p.ID().Bytes(), mgrMap[p.ID()].net.Local().GetPublicSalt().GetBytes(), mgrMap[p.ID()].getKnownPeers())
-		log.Println("\n", p.ID())
-		for _, dist := range d {
-			log.Println(dist.Remote.ID())
-		}
-	}
-
-	for _, p := range allPeers {
-		d := peer.SortBySalt(p.ID().Bytes(), mgrMap[p.ID()].net.Local().GetPrivateSalt().GetBytes(), mgrMap[p.ID()].getKnownPeers())
-		log.Println("\n", p.ID())
-		for _, dist := range d {
-			log.Println(dist.Remote.ID())
-		}
-	}
-
-	// d := peer.SortBySalt(allPeers[1].ID().Bytes(), mgrMap[allPeers[1].ID()].net.Local().GetPublicSalt().GetBytes(), mgrMap[allPeers[1].ID()].getKnownPeers())
-	// log.Println("\n", allPeers[1].ID())
-	// for _, dist := range d {
-	// 	log.Println(dist.Remote.ID(), dist.Distance)
-	// }
-
-	// d = peer.SortBySalt(allPeers[1].ID().Bytes(), mgrMap[allPeers[1].ID()].net.Local().GetPrivateSalt().GetBytes(), mgrMap[allPeers[1].ID()].getKnownPeers())
-	// log.Println("\n", allPeers[1].ID())
-	// for _, dist := range d {
-	// 	log.Println(dist.Remote.ID(), dist.Distance)
-	// }
-
-	for _, peer := range allPeers {
-		mgrMap[peer.ID()].Run()
+	// start all the managers
+	for _, mgr := range mgrMap {
+		mgr.Start()
 	}
 
 	time.Sleep(5 * time.Second)
 
 	for i, peer := range allPeers {
-		neighborhoods[peer.ID()] = mgrMap[peer.ID()].GetNeighbors()
-		log.Println(idMap[peer.ID()], "(", len(mgrMap[peer.ID()].outbound.GetPeers()), ",", len(mgrMap[peer.ID()].inbound.GetPeers()), ")")
-		for _, ng := range neighborhoods[peer.ID()] {
-			log.Printf(" %d ", idMap[ng.ID()])
-		}
+		neighbors := mgrMap[peer.ID()].GetNeighbors()
 
-		assert.Equal(t, sliceUniqMap(neighborhoods[peer.ID()]), neighborhoods[peer.ID()], fmt.Sprintln("Peer: ", i))
-		//assert.Equal(t, N-1, len(neighborhoods[peer.ID()]), fmt.Sprintln("Peer: ", i))
+		assert.NotEmpty(t, neighbors, "Peer %d has no neighbors", i)
+		assert.Equal(t, removeDuplicatePeers(neighbors), neighbors, "Peer %d has non unique neighbors", i)
 	}
 
+	// close all the managers
+	for _, mgr := range mgrMap {
+		mgr.Close()
+	}
 }

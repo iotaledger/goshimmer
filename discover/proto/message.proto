@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+option go_package = "github.com/wollac/autopeering/discover/proto";
+
+package proto;
+
+import "peer/proto/peer.proto";
+
+message Ping {
+  // protocol version number
+  uint32 version = 1;
+  // string form of the return address (e.g. "192.0.2.1:25", "[2001:db8::1]:80")
+  string from = 2;
+  // string form of the recipient address
+  string to = 3;
+  // unix time
+  int64 timestamp = 4;
+}
+
+message Pong {
+  // hash of the ping packet
+  bytes ping_hash = 1;
+  // string form of the recipient address
+  string to = 2;
+}
+
+message DiscoveryRequest {
+  // string form of the recipient address
+  string to = 3;
+  // unix time
+  int64 timestamp = 1;
+}
+
+message DiscoveryResponse {
+  // hash of the corresponding request
+  bytes req_hash = 1;
+  // list of peers
+  repeated Peer peers = 2;
+}

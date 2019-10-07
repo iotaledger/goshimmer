@@ -10,7 +10,7 @@ import (
 	"github.com/wollac/autopeering/salt"
 )
 
-func TestGetFurtherest(t *testing.T) {
+func TestGetFurthest(t *testing.T) {
 	d := make([]peer.PeerDistance, 5)
 	for i := range d {
 		d[i].Remote = newTestPeer()
@@ -50,9 +50,9 @@ func TestGetFurtherest(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		p, l := test.input.getFurtherest()
-		assert.Equal(t, test.expected, p, "Get Furtherest neighbor")
-		assert.Equal(t, test.index, l, "Get Furtherest neighbor")
+		p, l := test.input.getFurthest()
+		assert.Equal(t, test.expected, p, "Get furthest neighbor")
+		assert.Equal(t, test.index, l, "Get furthest neighbor")
 	}
 }
 

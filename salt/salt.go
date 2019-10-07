@@ -76,7 +76,7 @@ func (s *Salt) Marshal() ([]byte, error) {
 	return proto.Marshal(s.ToProto())
 }
 
-// Unmarshal deserializes a given slice of bytes (data) into a Salt.
+// Unmarshal de-serializes a given slice of bytes (data) into a Salt.
 func Unmarshal(data []byte) (*Salt, error) {
 	s := &pb.Salt{}
 	if err := proto.Unmarshal(data, s); err != nil {
