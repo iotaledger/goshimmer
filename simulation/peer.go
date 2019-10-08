@@ -34,9 +34,9 @@ func newPeer(name string, i uint16) simPeer {
 	priv, _ := peer.GeneratePrivateKey()
 	db := peer.NewMapDB(log.Named("db"))
 	local := peer.NewLocal(priv, db)
-	s, _ := salt.NewSalt(time.Duration(i) * 10000000 * time.Millisecond)
+	s, _ := salt.NewSalt(time.Duration(i) * 1 * time.Second)
 	local.SetPrivateSalt(s)
-	s, _ = salt.NewSalt(time.Duration(i) * 10000000 * time.Millisecond)
+	s, _ = salt.NewSalt(time.Duration(i) * 1 * time.Second)
 	local.SetPublicSalt(s)
 	p := peer.NewPeer(local.PublicKey(), name)
 	return simPeer{local, p, db, log, rand.New(rand.NewSource(time.Now().UnixNano()))}

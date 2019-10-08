@@ -35,11 +35,20 @@ func (n simNet) DropPeer(p *peer.Peer) {
 
 func (n simNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
 	//time.Sleep(time.Duration(n.rand.Intn(max-min+1)+min) * time.Microsecond)
+	var response bool
+
 	from := idMap[n.self.ID()]
 	to := idMap[p.ID()]
 	status.Append(from, to, OUTBOUND)
 	status.Append(to, from, INCOMING)
-	response := n.mgr[p.ID()].AcceptRequest(n.self, s)
+
+	select {
+	case <-time.After(1 * time.Second): // timeout
+		response = false
+	default:
+		response = n.mgr[p.ID()].AcceptRequest(n.self, s)
+	}
+
 	if response {
 		status.Append(from, to, ACCEPTED)
 		timestamp := time.Since(StartTime)
