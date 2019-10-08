@@ -1,4 +1,4 @@
-package neighborhood
+package selection
 
 import (
 	"bytes"
@@ -7,9 +7,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	pb "github.com/wollac/autopeering/neighborhood/proto"
 	"github.com/wollac/autopeering/peer"
 	"github.com/wollac/autopeering/salt"
+	pb "github.com/wollac/autopeering/selection/proto"
 	"github.com/wollac/autopeering/server"
 	"go.uber.org/zap"
 )

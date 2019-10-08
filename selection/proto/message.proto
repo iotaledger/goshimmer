@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/wollac/autopeering/neighborhood/proto";
+option go_package = "github.com/wollac/autopeering/selection/proto";
 
 package proto;
 

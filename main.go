@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/wollac/autopeering/discover"
 	"github.com/wollac/autopeering/logger"
-	"github.com/wollac/autopeering/neighborhood"
+	"github.com/wollac/autopeering/selection"
 	"github.com/wollac/autopeering/peer"
 	"github.com/wollac/autopeering/server"
 	"github.com/wollac/autopeering/transport"
@@ -109,9 +109,9 @@ func main() {
 		Log:         logger.Named("disc"),
 		MasterPeers: masterPeers,
 	})
-	selection := neighborhood.New(local, discovery, neighborhood.Config{
+	selection := selection.New(local, discovery, selection.Config{
 		Log:          logger.Named("sel"),
-		SaltLifetime: neighborhood.DefaultSaltLifetime,
+		SaltLifetime: selection.DefaultSaltLifetime,
 	})
 
 	// start a server doing discovery and peering

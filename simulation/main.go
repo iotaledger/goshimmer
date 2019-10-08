@@ -6,14 +6,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wollac/autopeering/neighborhood"
 	"github.com/wollac/autopeering/peer"
+	"github.com/wollac/autopeering/selection"
 	"github.com/wollac/autopeering/simulation/visualizer"
 )
 
 var (
 	allPeers       []*peer.Peer
-	mgrMap         = make(map[peer.ID]*neighborhood.Manager)
+	mgrMap         = make(map[peer.ID]*selection.Manager)
 	idMap          = make(map[peer.ID]uint16)
 	status         = NewStatusMap() // key: timestamp, value: Status
 	neighborhoods  = make(map[peer.ID][]*peer.Peer)
@@ -42,7 +42,7 @@ func RunSim() {
 			rand: peer.rand,
 		}
 		idMap[peer.local.ID()] = uint16(i)
-		mgrMap[peer.local.ID()] = neighborhood.NewManager(net, SaltLifetime, net.GetKnownPeers, peer.log)
+		mgrMap[peer.local.ID()] = selection.NewManager(net, SaltLifetime, net.GetKnownPeers, peer.log)
 
 		if vEnabled {
 			visualizer.AddNode(peer.local.ID().String())

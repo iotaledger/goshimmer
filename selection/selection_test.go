@@ -1,4 +1,4 @@
-package neighborhood
+package selection
 
 import (
 	"crypto/ed25519"

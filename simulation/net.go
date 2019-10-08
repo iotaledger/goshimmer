@@ -4,16 +4,16 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/wollac/autopeering/neighborhood"
 	"github.com/wollac/autopeering/peer"
 	"github.com/wollac/autopeering/salt"
+	"github.com/wollac/autopeering/selection"
 	"github.com/wollac/autopeering/simulation/visualizer"
 )
 
 type simNet struct {
 	loc  *peer.Local
 	self *peer.Peer
-	mgr  map[peer.ID]*neighborhood.Manager
+	mgr  map[peer.ID]*selection.Manager
 	rand *rand.Rand
 }
 
