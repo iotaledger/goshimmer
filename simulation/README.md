@@ -98,7 +98,7 @@ To use the Python script, you must have Python and PIP installed. The script out
     ```
 
 The script provides two figures:
-- The proportion of nodes with a complete neighborhood as a function of time
+- The proportion of nodes with a complete neighborhood and the average number of neighbors as a function of time
 - The Probability Density Function (PDF) of the time a given link stays active
 
    ![Example graph](images/graph1.png)
