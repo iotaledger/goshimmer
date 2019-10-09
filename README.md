@@ -77,7 +77,7 @@ Feel free to do your own simulations by following the steps below.
 
 To analyse the results of the simulation, read the `.csv` files in the `simulation/data` directory:
 
-- *comvAnalysis*: Proportion of nodes with a complete neighborhood as a function of time
+- *comvAnalysis*: Proportion of nodes with a complete neighborhood and average number of neighbors as a function of time
 - *linkAnalysis*: Probability Density Function (PDF) of the time a given link stays active
 - *msgAnalysis*: Number of peering requests sent, accepted, rejected, received and the number of connections dropped of each peer, as well as their average
 
@@ -117,6 +117,7 @@ To change any of these parameters, edit them in the `input.txt` file.
 |   `T`               |   int         | Salt lifetime, in seconds |
 |   `SimDuration`     |   int         | Duration of the simulation, in seconds |
 |   `VisualEnabled`   |   bool        | Enable/disable the visualization |
+|   `dropAll`         |   bool        | Flag to drop all neighbors on each salt update |
 
 ## Development
 
