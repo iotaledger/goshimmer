@@ -23,6 +23,7 @@ var (
 	RecordConv     = NewConvergenceList()
 	StartTime      time.Time
 	wg             sync.WaitGroup
+	wgClose        sync.WaitGroup
 
 	N            = 100
 	vEnabled     = false
@@ -32,8 +33,10 @@ var (
 
 func RunSim() {
 	allPeers = make([]*peer.Peer, N)
+	initialSalt := 0.
+	//lambda := (float64(N) / SaltLifetime.Seconds()) * 10
 	for i := range allPeers {
-		peer := newPeer(fmt.Sprintf("%d", i), uint16(i))
+		peer := newPeer(fmt.Sprintf("%d", i), (time.Duration(initialSalt) * time.Second))
 		allPeers[i] = peer.peer
 		net := simNet{
 			mgr:  mgrMap,
@@ -47,6 +50,10 @@ func RunSim() {
 		if vEnabled {
 			visualizer.AddNode(peer.local.ID().String())
 		}
+
+		//initialSalt = initialSalt + (1 / lambda)
+		//initialSalt = initialSalt + rand.ExpFloat64()/lambda
+		//initialSalt = rand.Float64() * SaltLifetime.Seconds()
 	}
 
 	fmt.Println("start link analysis")
@@ -60,6 +67,7 @@ func RunSim() {
 	for _, peer := range allPeers {
 		mgrMap[peer.ID()].Start()
 	}
+	wgClose.Add(len(allPeers))
 
 	time.Sleep(time.Duration(SimDuration) * time.Second)
 	// Stop updating visualizer
@@ -67,17 +75,22 @@ func RunSim() {
 		termTickerChan <- true
 	}
 	// Stop simulation
-	for _, peer := range allPeers {
-		mgrMap[peer.ID()].Close()
+	for _, p := range allPeers {
+		p := p
+		go func(p *peer.Peer) {
+			mgrMap[p.ID()].Close()
+			wgClose.Done()
+		}(p)
 	}
+	log.Println("Closing...")
+	wgClose.Wait()
+	log.Println("Closing Done")
 	linkChan <- Event{TERMINATE, 0, 0, 0}
-	// Wait until all analysis goroutines stop
+
+	// Wait until analysis goroutine stops
 	wg.Wait()
 
 	// Start finalize simulation result
-	log.Println("Len:", len(Links))
-	//log.Println(Links)
-
 	linkAnalysis := linksToString(LinkSurvival(Links))
 	err := writeCSV(linkAnalysis, "linkAnalysis", []string{"X", "Y"})
 	if err != nil {
@@ -98,6 +111,7 @@ func RunSim() {
 		log.Fatalln("error writing csv:", err)
 	}
 
+	log.Println("Simulation Done")
 }
 
 func main() {
@@ -119,18 +133,24 @@ func runLinkAnalysis() {
 	go func() {
 		defer wg.Done()
 
-		for newEvent := range linkChan {
-			switch newEvent.eType {
-			case ESTABLISHED:
-				Links = append(Links, NewLink(newEvent.x, newEvent.y, newEvent.timestamp.Milliseconds()))
-				//log.Println("New Link", newEvent)
-			case DROPPED:
-				DropLink(newEvent.x, newEvent.y, newEvent.timestamp.Milliseconds(), Links)
-				//log.Println("Link Dropped", newEvent)
-			case TERMINATE:
-				return
+		ticker := time.NewTicker(10 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case newEvent := <-linkChan:
+				switch newEvent.eType {
+				case ESTABLISHED:
+					Links = append(Links, NewLink(newEvent.x, newEvent.y, newEvent.timestamp.Milliseconds()))
+					//log.Println("New Link", newEvent)
+				case DROPPED:
+					DropLink(newEvent.x, newEvent.y, newEvent.timestamp.Milliseconds(), Links)
+					//log.Println("Link Dropped", newEvent)
+				case TERMINATE:
+					return
+				}
+			case <-ticker.C:
+				updateConvergence(time.Since(StartTime))
 			}
-			updateConvergence(newEvent.timestamp)
 		}
 	}()
 }

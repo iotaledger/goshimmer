@@ -80,7 +80,7 @@ func NewManager(net Network, lifetime time.Duration, peersFunc func() []*peer.Pe
 
 func (m *Manager) Start() {
 	// create valid salts
-	m.updateSalt()
+	// m.updateSalt()
 
 	m.wg.Add(2)
 	go m.loopOutbound()
@@ -144,10 +144,10 @@ Loop:
 		}
 	}
 
-	// wait for the updateOutbound to finish
-	if updateOutboundDone != nil {
-		<-updateOutboundDone
-	}
+	// // wait for the updateOutbound to finish
+	// if updateOutboundDone != nil {
+	// 	<-updateOutboundDone
+	// }
 }
 
 func (m *Manager) loopInbound() {
@@ -214,7 +214,7 @@ func (m *Manager) updateOutbound(done chan<- struct{}) {
 		if !accepted { //&& !ignored {
 			m.log.Debug("Peering request TO ", candidate.Remote.ID(), " status REJECTED (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
 			m.rejectionFilter.AddPeer(candidate.Remote.ID())
-			m.log.Debug("Rejection Filter ", candidate.Remote.ID())
+			//m.log.Debug("Rejection Filter ", candidate.Remote.ID())
 		}
 		// TODO: handle err
 	}

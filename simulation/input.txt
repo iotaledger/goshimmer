@@ -1,4 +1,4 @@
 N=100
 T=300
-VisualEnabled=true
-SimDuration=100
+VisualEnabled=false
+SimDuration=300

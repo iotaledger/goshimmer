@@ -58,7 +58,7 @@ func (nh *Neighborhood) RemovePeer(toRemove peer.ID) {
 	index := nh.getPeerIndex(toRemove)
 	nh.mutex.Lock()
 	defer nh.mutex.Unlock()
-	if index < 0 || len(nh.Neighbors) < index {
+	if index < 0 || len(nh.Neighbors) == 0 || len(nh.Neighbors) < index+1 {
 		return
 	}
 	nh.Neighbors[index] = peer.PeerDistance{}

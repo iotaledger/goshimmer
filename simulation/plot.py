@@ -26,7 +26,7 @@ def printLinkAnalysis():
     #plt.xlim(xlim)
     plt.xlabel(xlabel)
     plt.ylabel("Probability")
-    plt.yscale('log')
+    #plt.yscale('log')
     plt.legend(loc='best')
     plt.savefig(filename+'.eps', format='eps')
     plt.clf()
