@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ var (
 	vEnabled     = false
 	SimDuration  = 300
 	SaltLifetime = 300 * time.Second
+	DropAllFlag  = false
 )
 
 func RunSim() {
@@ -45,15 +47,15 @@ func RunSim() {
 			rand: peer.rand,
 		}
 		idMap[peer.local.ID()] = uint16(i)
-		mgrMap[peer.local.ID()] = selection.NewManager(net, SaltLifetime, net.GetKnownPeers, peer.log)
+		mgrMap[peer.local.ID()] = selection.NewManager(net, SaltLifetime, net.GetKnownPeers, peer.log, DropAllFlag)
 
 		if vEnabled {
 			visualizer.AddNode(peer.local.ID().String())
 		}
 
-		//initialSalt = initialSalt + (1 / lambda)
-		//initialSalt = initialSalt + rand.ExpFloat64()/lambda
-		//initialSalt = rand.Float64() * SaltLifetime.Seconds()
+		// initialSalt = initialSalt + (1 / lambda)				 // constant rate
+		// initialSalt = initialSalt + rand.ExpFloat64()/lambda  // poisson process
+		initialSalt = rand.Float64() * SaltLifetime.Seconds() // random
 	}
 
 	fmt.Println("start link analysis")

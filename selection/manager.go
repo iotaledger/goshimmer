@@ -48,14 +48,15 @@ type Manager struct {
 	inboundDropChan    chan peer.ID
 	outboundDropChan   chan peer.ID
 
-	rejectionFilter *Filter
+	rejectionFilter  *Filter
+	dropNeighborFlag bool
 
 	wg              sync.WaitGroup
 	inboundClosing  chan struct{}
 	outboundClosing chan struct{}
 }
 
-func NewManager(net Network, lifetime time.Duration, peersFunc func() []*peer.Peer, log *zap.SugaredLogger) *Manager {
+func NewManager(net Network, lifetime time.Duration, peersFunc func() []*peer.Peer, log *zap.SugaredLogger, dropNeighbor ...bool) *Manager {
 	m := &Manager{
 		net:                net,
 		lifetime:           lifetime,
@@ -74,6 +75,9 @@ func NewManager(net Network, lifetime time.Duration, peersFunc func() []*peer.Pe
 		outbound: &Neighborhood{
 			Neighbors: []peer.PeerDistance{},
 			Size:      4},
+	}
+	if dropNeighbor != nil {
+		m.dropNeighborFlag = dropNeighbor[0]
 	}
 	return m
 }
@@ -263,8 +267,13 @@ func (m *Manager) updateSalt() (*salt.Salt, *salt.Salt) {
 
 	m.rejectionFilter.Clean()
 
-	m.dropNeighborhood(m.inbound)
-	m.dropNeighborhood(m.outbound)
+	if !m.dropNeighborFlag { // update distance without dropping neighbors
+		m.outbound.UpdateDistance(m.net.Local().ID().Bytes(), m.net.Local().GetPublicSalt().GetBytes())
+		m.inbound.UpdateDistance(m.net.Local().ID().Bytes(), m.net.Local().GetPrivateSalt().GetBytes())
+	} else { // drop all the neighbors
+		m.dropNeighborhood(m.inbound)
+		m.dropNeighborhood(m.outbound)
+	}
 
 	return pubSalt, privSalt
 }

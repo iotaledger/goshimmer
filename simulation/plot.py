@@ -3,12 +3,11 @@ import matplotlib.pyplot as plt
 
 xcol = 0
 xlabel = "Time [seconds]"
-#xlim = [0, 100]
-# xscale = 'log'
 xscale = 'linear'
 
 # - - - - parameters unlikely to be changed - - -
-ycol = 1  # last column in the csv file
+ycol = 1 
+zcol = 2  # last column in the csv file
 folder = "data/"
 
 
@@ -20,8 +19,7 @@ def main():
 def printLinkAnalysis():
     fig = plt.figure()
     filename = folder+'plot_linkAnalysis'
-    partPlot("LinkAnalysis", "linkAnalysis", filename, "blue")
-    #plt.ylim([0, 1.05])
+    partPlot2("LinkAnalysis", "linkAnalysis", filename, "blue")
     plt.xscale(xscale)
     #plt.xlim(xlim)
     plt.xlabel(xlabel)
@@ -31,32 +29,46 @@ def printLinkAnalysis():
     plt.savefig(filename+'.eps', format='eps')
     plt.clf()
 
-def printConvergenceAnalysis():
-    fig = plt.figure()
+def printConvergenceAnalysis(): 
     filename = folder+'plot_convAnalysis'
-    partPlot("ConvAnalysis", "convAnalysis", filename, "blue")
-    #plt.ylim([0, 1.05])
-    plt.xscale(xscale)
-    #plt.xlim(xlim)
-    plt.xlabel(xlabel)
-    plt.ylabel("Nodes with 8 neighbors [%]")
-    plt.legend(loc='best')
-    plt.savefig(filename+'.eps', format='eps')
-    plt.clf()
+    partPlot3("ConvAnalysis", "convAnalysis", filename, "blue")
 
 
-def partPlot(type, file, filename, color):
+def partPlot2(type, file, filename, color):
+    color = 'tab:blue'
     x = loadDatafromRow(file, xcol)
     y = loadDatafromRow(file, ycol)
     x, y = sort2vecs(x, y)
-    # if style == '':
-    #     plt.plot(x, y, label=type)
-    # else:
-    #     plt.plot(x, y, label=type, marker=style, linestyle='none')
-    #plt.plot(x, y, linestyle='dashed', color=color, linewidth=1)
     plt.plot(x, y, color=color, linewidth=1)
-    #plt.ylim([0,np.max(y)])
     np.savez(filename+"_"+type, x=x, y=y)
+
+def partPlot3(type, file, filename, color):
+    x = loadDatafromRow(file, xcol)
+    y = loadDatafromRow(file, ycol)
+    z = loadDatafromRow(file, zcol)
+    x, y, z = sort3vecs(x, y, z)
+    
+    fig, ax1 = plt.subplots()
+    
+    color = 'tab:blue'
+    ax1.set_xlabel('Time [seconds]')
+    ax1.set_ylabel('Nodes with 8 neighbors [%]', color=color)
+    ax1.set_ylim([0, 100])
+    ax1.plot(x, y, color=color)
+    ax1.tick_params(axis='y', labelcolor=color)
+
+    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+    color = 'tab:red'
+    ax2.set_ylabel('Avg # of neighbors', color=color)  # we already handled the x-label with ax1
+    ax2.plot(x, z, color=color)
+    ax2.tick_params(axis='y', labelcolor=color)
+
+    fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
+    np.savez(filename+"_"+type, x=x, y=y)
+    fig.savefig(filename+'.eps', format='eps')
+    fig.clf()
 
 
 def sort2vecs(x, y):
@@ -65,6 +77,12 @@ def sort2vecs(x, y):
     y = y[i]
     return x, y
 
+def sort3vecs(x, y, z):
+    i = np.argsort(x)
+    x = x[i]
+    y = y[i]
+    z = z[i]
+    return x, y, z
 
 def loadDatafromRow(datatype, row):
     try:
