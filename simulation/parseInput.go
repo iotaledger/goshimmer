@@ -67,6 +67,11 @@ func (p *Param) selectParam(paramtype, value string) error {
 		if err != nil {
 			panic("Unable to parse SimDuration")
 		}
+	case "dropAll":
+		p.dropAll, err = strconv.ParseBool(value)
+		if err != nil {
+			panic("Unable to parse dropAll")
+		}
 	}
 	return err
 }

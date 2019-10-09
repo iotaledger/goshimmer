@@ -7,6 +7,7 @@ type Param struct {
 	vEnabled    bool
 	SimDuration int64
 	T           int64
+	dropAll     bool
 }
 
 func setParam(p *Param) {
@@ -23,4 +24,5 @@ func setParam(p *Param) {
 		SimDuration = int(p.SimDuration)
 	}
 	vEnabled = p.vEnabled
+	DropAllFlag = p.dropAll
 }

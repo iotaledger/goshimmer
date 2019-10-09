@@ -40,6 +40,7 @@ func convergenceToString(c []Convergence) (output [][]string) {
 		record := []string{
 			fmt.Sprintf("%v", line.timestamp.Seconds()),
 			fmt.Sprintf("%v", line.counter),
+			fmt.Sprintf("%v", line.avgNeighbors),
 		}
 		output = append(output, record)
 	}
