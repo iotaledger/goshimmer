@@ -84,7 +84,9 @@ func NewManager(net Network, lifetime time.Duration, peersFunc func() []*peer.Pe
 
 func (m *Manager) Start() {
 	// create valid salts
-	// m.updateSalt()
+	if m.net.Local().GetPublicSalt() == nil || m.net.Local().GetPrivateSalt() == nil {
+		m.updateSalt()
+	}
 
 	m.wg.Add(2)
 	go m.loopOutbound()
