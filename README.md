@@ -13,6 +13,7 @@ without manual intervention by the node operator is called autopeering.
 To find out more details about the autopeering, read the following:
 
 - ["Coordicide White Paper"](https://files.iota.org/papers/Coordicide_WP.pdf) by Coordicide Team, IOTA Foundation
+- ["Coordicide update - Autopeering: Part 1"](https://blog.iota.org/coordicide-update-autopeering-part-1-fc72e21c7e11) by Dr. Angelo Capossele
 - ["How do we achieve a verifiably random network topology?"](https://www.youtube.com/watch?v=-NZVwdZdZk4) by Dr. Hans Moog
 
 ## Design
@@ -107,7 +108,7 @@ The script provides two figures:
 
 These parameters affect how the simulated autopeering behaves. As a result, changing these paramters has an affect on how long the protocol takes to converge.
 
-A description and functionality of some of the parameters is provided in [the blog](need URL) that accompanies the release of this code.
+A description and functionality of some of the parameters is provided in ["Coordicide update - Autopeering: Part 1"](https://blog.iota.org/coordicide-update-autopeering-part-1-fc72e21c7e11) that accompanies the release of this code.
 
 To change any of these parameters, edit them in the `input.txt` file.
 
