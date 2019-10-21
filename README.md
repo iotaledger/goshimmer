@@ -1,7 +1,7 @@
 # Autopeering
 
 [![Build Status](https://travis-ci.org/iotaledger/autopeering-sim.svg?branch=master)](https://travis-ci.org/iotaledger/autopeering-sim)
-![GitHub](https://img.shields.io/github/license/iotaledger/autopeering-sim)
+[![GitHub](https://img.shields.io/github/license/iotaledger/autopeering-sim)](https://raw.githubusercontent.com/iotaledger/autopeering-sim/master/LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/iotaledger/autopeering-sim)](https://goreportcard.com/report/github.com/iotaledger/autopeering-sim)
 
 In IOTA, a node is the machine owning all the information about the Tangle.
