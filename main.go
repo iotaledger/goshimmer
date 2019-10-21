@@ -73,7 +73,7 @@ func main() {
 	flag.Parse()
 
 	logger := logger.NewLogger(defaultZLC, "debug")
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }() // ignore the returned error
 
 	priv, err := peer.GeneratePrivateKey()
 	if err != nil {
