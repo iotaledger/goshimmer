@@ -13,8 +13,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/wollac/autopeering/discover"
 	"github.com/wollac/autopeering/logger"
-	"github.com/wollac/autopeering/selection"
 	"github.com/wollac/autopeering/peer"
+	"github.com/wollac/autopeering/selection"
 	"github.com/wollac/autopeering/server"
 	"github.com/wollac/autopeering/transport"
 )
