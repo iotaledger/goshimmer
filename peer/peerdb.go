@@ -1,11 +1,11 @@
 package peer
 
 import (
-	"strings"
-	"sync"
+	"bytes"
+	"encoding/binary"
 	"time"
 
-	"go.uber.org/zap"
+	"github.com/iotaledger/goshimmer/packages/database"
 )
 
 const (
@@ -15,128 +15,88 @@ const (
 	cleanupInterval = time.Hour
 
 	keySeparator = ":"
+
+	// These fields are stored per ID and address. Use nodeItemKey to create those keys.
+	dbNodePing = "lastping"
+	dbNodePong = "lastpong"
 )
 
 // DB is the peer database, storing previously seen peers and any collected
 // properties of them.
-type DB struct {
-	mutex sync.RWMutex
-	m     map[string]peerPropEntry
+type DB interface {
+	// LastPing returns that property for the given peer ID and address.
+	LastPing(id ID, address string) time.Time
+	// UpdateLastPing updates that property for the given peer ID and address.
+	UpdateLastPing(id ID, address string, t time.Time) error
 
-	log *zap.SugaredLogger
+	// LastPong returns that property for the given peer ID and address.
+	LastPong(id ID, address string) time.Time
+	// UpdateLastPong updates that property for the given peer ID and address.
+	UpdateLastPong(id ID, address string, t time.Time) error
 
-	wg      sync.WaitGroup
-	closing chan struct{}
+	// Close closes the DB.
+	Close()
 }
 
-// peerPropEntry wraps additional peer properties that are stored.
-type peerPropEntry struct {
-	lastPing, lastPong int64
+type persistentDB struct {
+	db database.Database
 }
 
-// NewMapDB creates a new DB that uses a GO map.
-func NewMapDB(log *zap.SugaredLogger) *DB {
-	db := &DB{
-		m:       make(map[string]peerPropEntry),
-		log:     log,
-		closing: make(chan struct{}),
+func NewPersistentDB() DB {
+	db, err := database.Get("peer")
+	if err != nil {
+		panic(err)
 	}
 
-	// start the expirer routine
-	db.wg.Add(1)
-	go db.expirer()
-
-	return db
+	return &persistentDB{
+		db: db,
+	}
 }
 
 // Close closes the DB.
-func (db *DB) Close() {
-	db.log.Debugf("closing")
+func (db *persistentDB) Close() {}
 
-	close(db.closing)
-	db.wg.Wait()
+// nodeItemKey returns the database key for a node metadata field.
+func nodeItemKey(id ID, address string, field string) []byte {
+	return bytes.Join([][]byte{id.Bytes(), []byte(address), []byte(field)}, []byte(keySeparator))
 }
 
-// peerPropKey returns the DB key to store additional peer properties.
-func peerPropKey(id ID, address string) string {
-	return strings.Join([]string{string(id.Bytes()), address}, keySeparator)
+// getInt64 retrieves an integer associated with a particular key.
+func (db *persistentDB) getInt64(key []byte) int64 {
+	blob, err := db.db.Get(key)
+	if err != nil {
+		return 0
+	}
+	val, read := binary.Varint(blob)
+	if read <= 0 {
+		return 0
+	}
+	return val
+}
+
+// setInt64 stores an integer in the given key.
+func (db *persistentDB) setInt64(key []byte, n int64) error {
+	blob := make([]byte, binary.MaxVarintLen64)
+	blob = blob[:binary.PutVarint(blob, n)]
+	return db.db.Set(key, blob)
 }
 
 // LastPing returns that property for the given peer ID and address.
-func (db *DB) LastPing(id ID, address string) time.Time {
-	key := peerPropKey(id, address)
-
-	db.mutex.RLock()
-	peerPropEntry := db.m[key]
-	db.mutex.RUnlock()
-
-	return time.Unix(peerPropEntry.lastPing, 0)
+func (db *persistentDB) LastPing(id ID, address string) time.Time {
+	return time.Unix(db.getInt64(nodeItemKey(id, address, dbNodePing)), 0)
 }
 
 // UpdateLastPing updates that property for the given peer ID and address.
-func (db *DB) UpdateLastPing(id ID, address string, t time.Time) {
-	key := peerPropKey(id, address)
-
-	db.mutex.Lock()
-	peerPropEntry := db.m[key]
-	peerPropEntry.lastPing = t.Unix()
-	db.m[key] = peerPropEntry
-	db.mutex.Unlock()
+func (db *persistentDB) UpdateLastPing(id ID, address string, t time.Time) error {
+	return db.setInt64(nodeItemKey(id, address, dbNodePing), t.Unix())
 }
 
-// LastPong returns that property for the given peer ID and address.
-func (db *DB) LastPong(id ID, address string) time.Time {
-	key := peerPropKey(id, address)
-
-	db.mutex.RLock()
-	peerPropEntry := db.m[key]
-	db.mutex.RUnlock()
-
-	return time.Unix(peerPropEntry.lastPong, 0)
+// LastPing returns that property for the given peer ID and address.
+func (db *persistentDB) LastPong(id ID, address string) time.Time {
+	return time.Unix(db.getInt64(nodeItemKey(id, address, dbNodePong)), 0)
 }
 
-// UpdateLastPong updates that property for the given peer ID and address.
-func (db *DB) UpdateLastPong(id ID, address string, t time.Time) {
-	key := peerPropKey(id, address)
-
-	db.mutex.Lock()
-	peerPropEntry := db.m[key]
-	peerPropEntry.lastPong = t.Unix()
-	db.m[key] = peerPropEntry
-	db.mutex.Unlock()
-}
-
-func (db *DB) expirer() {
-	defer db.wg.Done()
-
-	// the expiring isn't triggert right away, to give the bootstrapping the chance to use older nodes
-	tick := time.NewTicker(cleanupInterval)
-	defer tick.Stop()
-
-	for {
-		select {
-		case <-tick.C:
-			db.expirePeers()
-		case <-db.closing:
-			return
-		}
-	}
-}
-
-func (db *DB) expirePeers() {
-	var (
-		threshold = time.Now().Add(-peerExpiration).Unix()
-		count     int
-	)
-
-	db.mutex.Lock()
-	for key, peerPropEntry := range db.m {
-		if peerPropEntry.lastPong <= threshold {
-			delete(db.m, key)
-			count++
-		}
-	}
-	db.mutex.Unlock()
-
-	db.log.Info("expired peers", "count", count)
+// UpdateLastPing updates that property for the given peer ID and address.
+func (db *persistentDB) UpdateLastPong(id ID, address string, t time.Time) error {
+	return db.setInt64(nodeItemKey(id, address, dbNodePong), t.Unix())
 }

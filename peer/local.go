@@ -11,7 +11,7 @@ import (
 type Local struct {
 	id  ID
 	key ed25519.PrivateKey
-	db  *DB
+	db  DB
 
 	// everything below is protected by a lock
 	mu          sync.RWMutex
@@ -20,7 +20,7 @@ type Local struct {
 }
 
 // NewLocal returns a new Local peer with a newly generated private identity
-func NewLocal(key ed25519.PrivateKey, db *DB) *Local {
+func NewLocal(key ed25519.PrivateKey, db DB) *Local {
 	publicKey := PublicKey(key.Public().(ed25519.PublicKey))
 	return &Local{
 		id:  publicKey.ID(),
@@ -40,7 +40,7 @@ func (l *Local) PublicKey() []byte {
 }
 
 // Database returns the node database associated with the local node.
-func (l *Local) Database() *DB {
+func (l *Local) Database() DB {
 	return l.db
 }
 

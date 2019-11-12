@@ -20,7 +20,7 @@ var (
 type testPeer struct {
 	local *peer.Local
 	peer  *peer.Peer
-	db    *peer.DB
+	db    peer.DB
 	log   *zap.SugaredLogger
 	rand  *rand.Rand // random number generator
 }
@@ -39,7 +39,7 @@ func newPeer(name string) testPeer {
 	logger := l.Sugar()
 	log := logger.Named(name)
 	priv, _ := peer.GeneratePrivateKey()
-	db := peer.NewMapDB(log.Named("db"))
+	db := peer.NewMemoryDB(log.Named("db"))
 	local := peer.NewLocal(priv, db)
 	s, _ := salt.NewSalt(100 * time.Second)
 	local.SetPrivateSalt(s)

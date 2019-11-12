@@ -13,7 +13,7 @@ import (
 type simPeer struct {
 	local *peer.Local
 	peer  *peer.Peer
-	db    *peer.DB
+	db    peer.DB
 	log   *zap.SugaredLogger
 	rand  *rand.Rand // random number generator
 }
@@ -32,7 +32,7 @@ func newPeer(name string, saltLifetime time.Duration) simPeer {
 	logger := l.Sugar()
 	log := logger.Named(name)
 	priv, _ := peer.GeneratePrivateKey()
-	db := peer.NewMapDB(log.Named("db"))
+	db := peer.NewMemoryDB(log.Named("db"))
 	local := peer.NewLocal(priv, db)
 	//t.time + 1/sim.param.Lambda
 	//s, _ := salt.NewSalt(time.Duration(i) * time.Duration(int(SaltLifetime)*1000/N) * time.Millisecond)

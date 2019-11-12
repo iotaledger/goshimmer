@@ -103,7 +103,7 @@ func main() {
 	defer trans.Close()
 
 	// create a new local node
-	local := peer.NewLocal(priv, peer.NewMapDB(logger.Named("db")))
+	local := peer.NewLocal(priv, peer.NewMemoryDB(logger.Named("db")))
 
 	discovery := discover.New(local, discover.Config{
 		Log:         logger.Named("disc"),

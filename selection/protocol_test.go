@@ -39,7 +39,7 @@ func newTest(t require.TestingT, name string, trans transport.Transport, logger 
 	require.NoError(t, err)
 
 	log := logger.Named(name)
-	db := peer.NewMapDB(log.Named("db"))
+	db := peer.NewMemoryDB(log.Named("db"))
 	local := peer.NewLocal(priv, db)
 	s, _ := salt.NewSalt(100 * time.Second)
 	local.SetPrivateSalt(s)
