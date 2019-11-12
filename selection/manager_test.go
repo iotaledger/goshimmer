@@ -66,7 +66,7 @@ func removeDuplicatePeers(peers []*peer.Peer) []*peer.Peer {
 type testNet struct {
 	loc  *peer.Local
 	self *peer.Peer
-	mgr  map[peer.ID]*Manager
+	mgr  map[peer.ID]*manager
 	rand *rand.Rand
 }
 
@@ -75,11 +75,11 @@ func (n testNet) Local() *peer.Local {
 }
 
 func (n testNet) DropPeer(p *peer.Peer) {
-	n.mgr[p.ID()].DropNeighbor(n.Local().ID())
+	n.mgr[p.ID()].dropNeighbor(n.Local().ID())
 }
 
 func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
-	return n.mgr[p.ID()].AcceptRequest(n.self, s), nil
+	return n.mgr[p.ID()].acceptRequest(n.self, s), nil
 }
 
 func (n testNet) GetKnownPeers() []*peer.Peer {
@@ -101,7 +101,7 @@ func TestSimManager(t *testing.T) {
 
 	allPeers = make([]*peer.Peer, N)
 
-	mgrMap := make(map[peer.ID]*Manager)
+	mgrMap := make(map[peer.ID]*manager)
 	for i := range allPeers {
 		peer := newPeer(fmt.Sprintf("%d", i))
 		allPeers[i] = peer.peer
@@ -112,18 +112,18 @@ func TestSimManager(t *testing.T) {
 			self: peer.peer,
 			rand: peer.rand,
 		}
-		mgrMap[peer.local.ID()] = NewManager(net, 100*time.Second, net.GetKnownPeers, peer.log)
+		mgrMap[peer.local.ID()] = newManager(net, 100*time.Second, net.GetKnownPeers, false, peer.log)
 	}
 
 	// start all the managers
 	for _, mgr := range mgrMap {
-		mgr.Start()
+		mgr.start()
 	}
 
 	time.Sleep(5 * time.Second)
 
 	for i, peer := range allPeers {
-		neighbors := mgrMap[peer.ID()].GetNeighbors()
+		neighbors := mgrMap[peer.ID()].getNeighbors()
 
 		assert.NotEmpty(t, neighbors, "Peer %d has no neighbors", i)
 		assert.Equal(t, removeDuplicatePeers(neighbors), neighbors, "Peer %d has non unique neighbors", i)
@@ -131,6 +131,6 @@ func TestSimManager(t *testing.T) {
 
 	// close all the managers
 	for _, mgr := range mgrMap {
-		mgr.Close()
+		mgr.close()
 	}
 }
