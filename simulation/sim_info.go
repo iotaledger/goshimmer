@@ -7,13 +7,11 @@ import (
 )
 
 const (
-	ACCEPTED    = 'A'
-	REJECTED    = 'R'
-	DROPPED     = 'D'
-	OUTBOUND    = 'O'
-	INCOMING    = 'I'
-	ESTABLISHED = 'E'
-	TERMINATE   = 'T'
+	ACCEPTED = 'A'
+	REJECTED = 'R'
+	DROPPED  = 'D'
+	OUTBOUND = 'O'
+	INCOMING = 'I'
 )
 
 type Status struct {
@@ -30,12 +28,6 @@ type StatusSum struct {
 	dropped  int
 }
 
-type Event struct {
-	eType     byte
-	x         uint16
-	y         uint16
-	timestamp time.Duration
-}
 type Link struct {
 	x            uint16
 	y            uint16

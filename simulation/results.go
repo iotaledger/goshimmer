@@ -52,7 +52,7 @@ func messagesToString(status *StatusMap) (output [][]string) {
 
 	//fmt.Printf("\nID\tOUT\tACC\tREJ\tIN\tDROP\n")
 	for _, peer := range allPeers {
-		neighborhoods[peer.ID()] = mgrMap[peer.ID()].GetNeighbors()
+		neighborhoods[peer.ID()] = protocolMap[peer.ID()].GetNeighbors()
 
 		summary := status.GetSummary(idMap[peer.ID()])
 
