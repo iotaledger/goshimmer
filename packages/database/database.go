@@ -100,10 +100,10 @@ func (this *prefixDb) Delete(key []byte) error {
 	return err
 }
 
-func (this *prefixDb) ForEach(consumer func([]byte, []byte)) error {
+func (this *prefixDb) forEach(prefix []byte, consumer func([]byte, []byte)) error {
 	err := this.db.View(func(txn *badger.Txn) error {
 		iteratorOptions := badger.DefaultIteratorOptions
-		iteratorOptions.Prefix = this.prefix // filter by prefix
+		iteratorOptions.Prefix = prefix // filter by prefix
 
 		// create an iterator the default options
 		it := txn.NewIterator(iteratorOptions)
@@ -123,4 +123,12 @@ func (this *prefixDb) ForEach(consumer func([]byte, []byte)) error {
 		return nil
 	})
 	return err
+}
+
+func (this *prefixDb) ForEachWithPrefix(prefix []byte, consumer func([]byte, []byte)) error {
+	return this.forEach(append(this.prefix, prefix...), consumer)
+}
+
+func (this *prefixDb) ForEach(consumer func([]byte, []byte)) error {
+	return this.forEach(this.prefix, consumer)
 }
