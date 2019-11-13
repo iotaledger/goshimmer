@@ -20,8 +20,8 @@ const (
 	reject = false
 )
 
-// A Network represents the communication layer for the Manager.
-type Network interface {
+// A network represents the communication layer for the manager.
+type network interface {
 	Local() *peer.Local
 
 	RequestPeering(*peer.Peer, *salt.Salt) (bool, error)
@@ -33,12 +33,13 @@ type peeringRequest struct {
 	salt *salt.Salt
 }
 
-type Manager struct {
-	net       Network
+type manager struct {
+	net       network
 	lifetime  time.Duration
 	peersFunc func() []*peer.Peer
 
-	log *zap.SugaredLogger
+	log           *zap.SugaredLogger
+	dropNeighbors bool
 
 	inbound  *Neighborhood
 	outbound *Neighborhood
@@ -48,20 +49,20 @@ type Manager struct {
 	inboundDropChan    chan peer.ID
 	outboundDropChan   chan peer.ID
 
-	rejectionFilter  *Filter
-	dropNeighborFlag bool
+	rejectionFilter *Filter
 
 	wg              sync.WaitGroup
 	inboundClosing  chan struct{}
 	outboundClosing chan struct{}
 }
 
-func NewManager(net Network, lifetime time.Duration, peersFunc func() []*peer.Peer, log *zap.SugaredLogger, dropNeighbor ...bool) *Manager {
-	m := &Manager{
+func newManager(net network, lifetime time.Duration, peersFunc func() []*peer.Peer, dropNeighbors bool, log *zap.SugaredLogger) *manager {
+	m := &manager{
 		net:                net,
 		lifetime:           lifetime,
 		peersFunc:          peersFunc,
 		log:                log,
+		dropNeighbors:      dropNeighbors,
 		inboundClosing:     make(chan struct{}),
 		outboundClosing:    make(chan struct{}),
 		rejectionFilter:    NewFilter(),
@@ -76,13 +77,11 @@ func NewManager(net Network, lifetime time.Duration, peersFunc func() []*peer.Pe
 			Neighbors: []peer.PeerDistance{},
 			Size:      4},
 	}
-	if dropNeighbor != nil {
-		m.dropNeighborFlag = dropNeighbor[0]
-	}
+
 	return m
 }
 
-func (m *Manager) Start() {
+func (m *manager) start() {
 	// create valid salts
 	if m.net.Local().GetPublicSalt() == nil || m.net.Local().GetPrivateSalt() == nil {
 		m.updateSalt()
@@ -93,13 +92,13 @@ func (m *Manager) Start() {
 	go m.loopInbound()
 }
 
-func (m *Manager) Close() {
+func (m *manager) close() {
 	close(m.inboundClosing)
 	close(m.outboundClosing)
 	m.wg.Wait()
 }
 
-func (m *Manager) loopOutbound() {
+func (m *manager) loopOutbound() {
 	defer m.wg.Done()
 
 	var (
@@ -156,7 +155,7 @@ Loop:
 	// }
 }
 
-func (m *Manager) loopInbound() {
+func (m *manager) loopInbound() {
 	defer m.wg.Done()
 
 Loop:
@@ -178,7 +177,7 @@ Loop:
 }
 
 // updateOutbound updates outbound neighbors.
-func (m *Manager) updateOutbound(done chan<- struct{}) {
+func (m *manager) updateOutbound(done chan<- struct{}) {
 	defer func() {
 		done <- struct{}{}
 	}() // always signal, when the function returns
@@ -226,7 +225,7 @@ func (m *Manager) updateOutbound(done chan<- struct{}) {
 	}
 }
 
-func (m *Manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
+func (m *manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
 	// TODO: check request legitimacy
 	//m.log.Debug("Evaluating peering request FROM ", requester.ID())
 	reqDistance := peer.NewPeerDistance(m.net.Local().ID().Bytes(), m.net.Local().GetPrivateSalt().GetBytes(), requester)
@@ -260,7 +259,7 @@ func (m *Manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
 	m.log.Debug("Peering request FROM ", toAccept.Remote.ID(), " status ACCEPTED (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
 }
 
-func (m *Manager) updateSalt() (*salt.Salt, *salt.Salt) {
+func (m *manager) updateSalt() (*salt.Salt, *salt.Salt) {
 	pubSalt, _ := salt.NewSalt(m.lifetime)
 	m.net.Local().SetPublicSalt(pubSalt)
 
@@ -269,7 +268,7 @@ func (m *Manager) updateSalt() (*salt.Salt, *salt.Salt) {
 
 	m.rejectionFilter.Clean()
 
-	if !m.dropNeighborFlag { // update distance without dropping neighbors
+	if !m.dropNeighbors { // update distance without dropping neighbors
 		m.outbound.UpdateDistance(m.net.Local().ID().Bytes(), m.net.Local().GetPublicSalt().GetBytes())
 		m.inbound.UpdateDistance(m.net.Local().ID().Bytes(), m.net.Local().GetPrivateSalt().GetBytes())
 	} else { // drop all the neighbors
@@ -280,7 +279,7 @@ func (m *Manager) updateSalt() (*salt.Salt, *salt.Salt) {
 	return pubSalt, privSalt
 }
 
-func (m *Manager) DropNeighbor(peerToDrop peer.ID) {
+func (m *manager) dropNeighbor(peerToDrop peer.ID) {
 	m.inboundDropChan <- peerToDrop
 	m.outboundDropChan <- peerToDrop
 }
@@ -295,12 +294,12 @@ func containsPeer(list []*peer.Peer, id peer.ID) bool {
 	return false
 }
 
-func (m *Manager) AcceptRequest(p *peer.Peer, s *salt.Salt) bool {
+func (m *manager) acceptRequest(p *peer.Peer, s *salt.Salt) bool {
 	m.inboundRequestChan <- peeringRequest{p, s}
 	return <-m.inboundReplyChan
 }
 
-func (m *Manager) GetNeighbors() []*peer.Peer {
+func (m *manager) getNeighbors() []*peer.Peer {
 	var neighbors []*peer.Peer
 
 	neighbors = append(neighbors, m.inbound.GetPeers()...)
@@ -309,7 +308,7 @@ func (m *Manager) GetNeighbors() []*peer.Peer {
 	return neighbors
 }
 
-func (m *Manager) getDuplicates() []peer.ID {
+func (m *manager) getDuplicates() []peer.ID {
 	var d []peer.ID
 
 	for _, p := range m.inbound.GetPeers() {
@@ -320,15 +319,7 @@ func (m *Manager) getDuplicates() []peer.ID {
 	return d
 }
 
-func (m *Manager) GetInbound() *Neighborhood {
-	return m.inbound
-}
-
-func (m *Manager) GetOutbound() *Neighborhood {
-	return m.outbound
-}
-
-func (m *Manager) dropNeighborhood(nh *Neighborhood) {
+func (m *manager) dropNeighborhood(nh *Neighborhood) {
 	for _, p := range nh.GetPeers() {
 		nh.RemovePeer(p.ID())
 		m.net.DropPeer(p)

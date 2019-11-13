@@ -9,22 +9,25 @@ import (
 
 	"github.com/wollac/autopeering/peer"
 	"github.com/wollac/autopeering/selection"
+	"github.com/wollac/autopeering/server"
 	"github.com/wollac/autopeering/simulation/visualizer"
+	"github.com/wollac/autopeering/transport"
 )
 
 var (
 	allPeers       []*peer.Peer
-	mgrMap         = make(map[peer.ID]*selection.Manager)
+	protocolMap    = make(map[peer.ID]*selection.Protocol)
 	idMap          = make(map[peer.ID]uint16)
 	status         = NewStatusMap() // key: timestamp, value: Status
 	neighborhoods  = make(map[peer.ID][]*peer.Peer)
 	Links          = []Link{}
-	linkChan       = make(chan Event, 100)
 	termTickerChan = make(chan bool)
+	peeringChan    = make(chan selection.PeeringRequest, 10)
+	dropChan       = make(chan selection.DropRequest, 10)
+	closing        = make(chan struct{})
 	RecordConv     = NewConvergenceList()
 	StartTime      time.Time
 	wg             sync.WaitGroup
-	wgClose        sync.WaitGroup
 
 	N            = 100
 	vEnabled     = false
@@ -33,24 +36,47 @@ var (
 	DropAllFlag  = false
 )
 
+// dummyDiscovery is a dummy implementation of DiscoveryProtocol never returning any verified peers.
+type dummyDiscovery struct{}
+
+func (d dummyDiscovery) IsVerified(p *peer.Peer) bool   { return true }
+func (d dummyDiscovery) EnsureVerified(p *peer.Peer)    {}
+func (d dummyDiscovery) GetVerifiedPeers() []*peer.Peer { return allPeers }
+
 func RunSim() {
 	allPeers = make([]*peer.Peer, N)
-	initialSalt := 0.
+
+	network := transport.NewNetwork()
+	serverMap := make(map[peer.ID]*server.Server, N)
+	disc := dummyDiscovery{}
+
 	//lambda := (float64(N) / SaltLifetime.Seconds()) * 10
+	initialSalt := 0.
+
+	log.Println("Creating peers...")
 	for i := range allPeers {
-		peer := newPeer(fmt.Sprintf("%d", i), (time.Duration(initialSalt) * time.Second))
+		name := fmt.Sprintf("%d", i)
+		network.AddTransport(name)
+
+		peer := newPeer(name, (time.Duration(initialSalt) * time.Second))
 		allPeers[i] = peer.peer
-		net := simNet{
-			mgr:  mgrMap,
-			loc:  peer.local,
-			self: peer.peer,
-			rand: peer.rand,
+
+		id := peer.local.ID()
+		idMap[id] = uint16(i)
+
+		cfg := selection.Config{Log: peer.log,
+			SaltLifetime:   SaltLifetime,
+			DropNeighbors:  DropAllFlag,
+			PeeringRequest: peeringChan,
+			DropRequest:    dropChan,
 		}
-		idMap[peer.local.ID()] = uint16(i)
-		mgrMap[peer.local.ID()] = selection.NewManager(net, SaltLifetime, net.GetKnownPeers, peer.log, DropAllFlag)
+		protocol := selection.New(peer.local, disc, cfg)
+		serverMap[id] = server.Listen(peer.local, network.GetTransport(name), peer.log, protocol)
+
+		protocolMap[id] = protocol
 
 		if vEnabled {
-			visualizer.AddNode(peer.local.ID().String())
+			visualizer.AddNode(id.String())
 		}
 
 		// initialSalt = initialSalt + (1 / lambda)				 // constant rate
@@ -67,27 +93,23 @@ func RunSim() {
 
 	StartTime = time.Now()
 	for _, peer := range allPeers {
-		mgrMap[peer.ID()].Start()
+		srv := serverMap[peer.ID()]
+		protocolMap[peer.ID()].Start(srv)
 	}
-	wgClose.Add(len(allPeers))
 
 	time.Sleep(time.Duration(SimDuration) * time.Second)
 	// Stop updating visualizer
 	if vEnabled {
 		termTickerChan <- true
 	}
+
 	// Stop simulation
-	for _, p := range allPeers {
-		p := p
-		go func(p *peer.Peer) {
-			mgrMap[p.ID()].Close()
-			wgClose.Done()
-		}(p)
-	}
 	log.Println("Closing...")
-	wgClose.Wait()
+	for _, peer := range allPeers {
+		protocolMap[peer.ID()].Close()
+	}
 	log.Println("Closing Done")
-	linkChan <- Event{TERMINATE, 0, 0, 0}
+	close(closing)
 
 	// Wait until analysis goroutine stops
 	wg.Wait()
@@ -137,21 +159,39 @@ func runLinkAnalysis() {
 
 		ticker := time.NewTicker(10 * time.Millisecond)
 		defer ticker.Stop()
+
 		for {
 			select {
-			case newEvent := <-linkChan:
-				switch newEvent.eType {
-				case ESTABLISHED:
-					Links = append(Links, NewLink(newEvent.x, newEvent.y, newEvent.timestamp.Milliseconds()))
-					//log.Println("New Link", newEvent)
-				case DROPPED:
-					DropLink(newEvent.x, newEvent.y, newEvent.timestamp.Milliseconds(), Links)
-					//log.Println("Link Dropped", newEvent)
-				case TERMINATE:
-					return
+
+			case req := <-peeringChan:
+				from := idMap[req.Self]
+				to := idMap[req.ID]
+				status.Append(from, to, OUTBOUND)
+				status.Append(to, from, INCOMING)
+				if req.Status {
+					status.Append(from, to, ACCEPTED)
+					Links = append(Links, NewLink(from, to, time.Since(StartTime).Milliseconds()))
+					if vEnabled {
+						visualizer.AddLink(req.Self.String(), req.ID.String())
+					}
+				} else {
+					status.Append(from, to, REJECTED)
 				}
+
+			case req := <-dropChan:
+				from := idMap[req.Self]
+				to := idMap[req.ID]
+				status.Append(from, to, DROPPED)
+				DropLink(from, to, time.Since(StartTime).Milliseconds(), Links)
+				if vEnabled {
+					visualizer.RemoveLink(req.Self.String(), req.ID.String())
+				}
+
 			case <-ticker.C:
 				updateConvergence(time.Since(StartTime))
+
+			case <-closing:
+				return
 			}
 		}
 	}()
@@ -178,8 +218,8 @@ func statVisualizer() {
 func updateConvergence(time time.Duration) {
 	counter := 0
 	avgNeighbors := 0
-	for _, peer := range mgrMap {
-		l := len(peer.GetNeighbors())
+	for _, prot := range protocolMap {
+		l := len(prot.GetNeighbors())
 		if l == 8 {
 			counter++
 		}

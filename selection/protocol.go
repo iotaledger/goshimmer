@@ -36,19 +36,24 @@ type Protocol struct {
 	loc  *peer.Local        // local peer that runs the protocol
 	log  *zap.SugaredLogger // logging
 
-	mgr       *Manager // the manager handles the actual neighbor selection
+	peeringRequest chan<- PeeringRequest
+	dropRequest    chan<- DropRequest
+
+	mgr       *manager // the manager handles the actual neighbor selection
 	closeOnce sync.Once
 }
 
 // New creates a new neighbor selection protocol.
 func New(local *peer.Local, disc DiscoverProtocol, cfg Config) *Protocol {
 	p := &Protocol{
-		Protocol: server.Protocol{},
-		loc:      local,
-		disc:     disc,
-		log:      cfg.Log,
+		Protocol:       server.Protocol{},
+		loc:            local,
+		disc:           disc,
+		log:            cfg.Log,
+		peeringRequest: cfg.PeeringRequest,
+		dropRequest:    cfg.DropRequest,
 	}
-	p.mgr = NewManager(p, cfg.SaltLifetime, disc.GetVerifiedPeers, cfg.Log.Named("mgr"))
+	p.mgr = newManager(p, cfg.SaltLifetime, disc.GetVerifiedPeers, cfg.DropNeighbors, cfg.Log.Named("mgr"))
 
 	return p
 }
@@ -61,7 +66,7 @@ func (p *Protocol) Local() *peer.Local {
 // Start starts the actual neighbor selection over the provided Sender.
 func (p *Protocol) Start(s server.Sender) {
 	p.Protocol.Sender = s
-	p.mgr.Start()
+	p.mgr.start()
 
 	p.log.Debugw("neighborhood started",
 		"addr", s.LocalAddr(),
@@ -71,13 +76,13 @@ func (p *Protocol) Start(s server.Sender) {
 // Close finalizes the protocol.
 func (p *Protocol) Close() {
 	p.closeOnce.Do(func() {
-		p.mgr.Close()
+		p.mgr.close()
 	})
 }
 
 // GetNeighbors returns the current neighbors.
 func (p *Protocol) GetNeighbors() []*peer.Peer {
-	return p.mgr.GetNeighbors()
+	return p.mgr.getNeighbors()
 }
 
 // HandleMessage responds to incoming neighbor selection messages.
@@ -145,8 +150,18 @@ func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt) (bool, error) 
 		return true
 	}
 
-	errc := p.Protocol.SendExpectingReply(to, data, pb.MPeeringResponse, callback)
-	return status, <-errc
+	err := <-p.Protocol.SendExpectingReply(to, data, pb.MPeeringResponse, callback)
+
+	// signal the status of this peering request, if necessary
+	if p.peeringRequest != nil {
+		accept := status
+		if err != nil {
+			accept = false
+		}
+		p.peeringRequest <- PeeringRequest{Self: p.loc.ID(), ID: to.ID(), Status: accept}
+	}
+
+	return status, err
 }
 
 // DropPeer sends a PeeringDrop to the given peer.
@@ -155,6 +170,11 @@ func (p *Protocol) DropPeer(to *peer.Peer) {
 
 	drop := newPeeringDrop(toAddr)
 	p.Protocol.Send(to, marshal(drop))
+
+	// signal the status of this received drop, if necessary
+	if p.dropRequest != nil {
+		p.dropRequest <- DropRequest{Self: p.loc.ID(), ID: to.ID()}
+	}
 }
 
 // ------ helper functions ------
@@ -256,7 +276,7 @@ func (p *Protocol) handlePeeringRequest(s *server.Server, from *peer.Peer, rawDa
 		return
 	}
 
-	accepted := p.mgr.AcceptRequest(from, salt)
+	accepted := p.mgr.acceptRequest(from, salt)
 
 	res := newPeeringResponse(rawData, accepted)
 	s.Send(from.Address(), marshal(res))
@@ -305,5 +325,5 @@ func (p *Protocol) validatePeeringDrop(s *server.Server, from *peer.Peer, m *pb.
 }
 
 func (p *Protocol) handlePeeringDrop(from *peer.Peer) {
-	p.mgr.DropNeighbor(from.ID())
+	p.mgr.dropNeighbor(from.ID())
 }
