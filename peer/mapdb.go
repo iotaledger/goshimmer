@@ -146,8 +146,8 @@ func (db *mapDB) Peer(id ID) *Peer {
 	return parsePeer(peerEntry.data)
 }
 
-// GetRandomPeers returns a random subset of n peers whose last ping is not too old.
-func (db *mapDB) GetRandomPeers(n int, maxAge time.Duration) []*Peer {
+// SeedPeers retrieves random nodes to be used as potential bootstrap peers.
+func (db *mapDB) SeedPeers() []*Peer {
 	peers := make([]*Peer, 0)
 	now := time.Now()
 
@@ -157,7 +157,7 @@ func (db *mapDB) GetRandomPeers(n int, maxAge time.Duration) []*Peer {
 		if p == nil || id != string(p.ID().Bytes()) {
 			continue
 		}
-		if now.Sub(db.LastPong(p.ID(), p.Address())) > maxAge {
+		if now.Sub(db.LastPong(p.ID(), p.Address())) > seedExpiration {
 			continue
 		}
 
@@ -165,7 +165,7 @@ func (db *mapDB) GetRandomPeers(n int, maxAge time.Duration) []*Peer {
 	}
 	db.mutex.RUnlock()
 
-	return randomSubset(peers, n)
+	return randomSubset(peers, seedCount)
 }
 
 func (db *mapDB) expirer() {
@@ -205,5 +205,5 @@ func (db *mapDB) expirePeers() {
 	}
 	db.mutex.Unlock()
 
-	db.log.Info("expired peers", "count", count)
+	db.log.Debugw("expired peers", "count", count)
 }

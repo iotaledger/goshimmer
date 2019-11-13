@@ -27,7 +27,7 @@ func init() {
 }
 
 // newTestServer creates a new discovery server and also returns the teardown.
-func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger, boot ...*peer.Peer) (*server.Server, *Protocol, func()) {
+func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger, masters ...*peer.Peer) (*server.Server, *Protocol, func()) {
 	log := logger.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
 	local, err := peer.NewLocal(db)
@@ -40,7 +40,7 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport, l
 
 	cfg := Config{
 		Log:         log,
-		MasterPeers: boot,
+		MasterPeers: masters,
 	}
 	prot := New(local, cfg)
 	srv := server.Listen(local, trans, log.Named("srv"), prot)
@@ -54,14 +54,14 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport, l
 	return srv, prot, teardown
 }
 
-func TestProtVerifyBoot(t *testing.T) {
+func TestProtVerifyMaster(t *testing.T) {
 	p2p := transport.P2P()
 
 	srvA, _, closeA := newTestServer(t, "A", p2p.A, logger)
 	defer closeA()
 	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
 
-	// use peerA as boot peer
+	// use peerA as masters peer
 	_, protB, closeB := newTestServer(t, "B", p2p.B, logger, peerA)
 
 	time.Sleep(graceTime) // wait for the packages to ripple through the network

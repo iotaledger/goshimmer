@@ -53,14 +53,14 @@ func TestMapDBPeer(t *testing.T) {
 	assert.Equal(t, p, db.Peer(p.ID()))
 }
 
-func TestMapDBRandomPeer(t *testing.T) {
+func TestMapDBSeedPeers(t *testing.T) {
 	p := newTestPeer()
 	db := NewMemoryDB(logger)
 
 	require.NoError(t, db.UpdatePeer(p))
 	require.NoError(t, db.UpdateLastPong(p.ID(), p.Address(), time.Now()))
 
-	peers := db.GetRandomPeers(2, time.Second)
+	peers := db.SeedPeers()
 	assert.ElementsMatch(t, []*Peer{p}, peers)
 }
 
