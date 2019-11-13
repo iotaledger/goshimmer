@@ -31,9 +31,8 @@ func newPeer(name string, saltLifetime time.Duration) simPeer {
 	}
 	logger := l.Sugar()
 	log := logger.Named(name)
-	priv, _ := peer.GeneratePrivateKey()
 	db := peer.NewMemoryDB(log.Named("db"))
-	local := peer.NewLocal(priv, db)
+	local, _ := peer.NewLocal(db)
 	//t.time + 1/sim.param.Lambda
 	//s, _ := salt.NewSalt(time.Duration(i) * time.Duration(int(SaltLifetime)*1000/N) * time.Millisecond)
 	s, _ := salt.NewSalt(saltLifetime)

@@ -105,10 +105,10 @@ func unmarshal(data []byte) (Message, error) {
 }
 
 func TestSrvEncodeDecodePing(t *testing.T) {
-	priv, err := peer.GeneratePrivateKey()
+	// create minimal server just containing the local peer
+	local, err := peer.NewLocal(peer.NewMemoryDB(logger))
 	require.NoError(t, err)
-	// create minimal server just containing the private key
-	s := &Server{local: peer.NewLocal(priv, nil)}
+	s := &Server{local: local}
 
 	ping := new(Ping)
 	packet := s.encode(ping.Marshal())
@@ -117,17 +117,16 @@ func TestSrvEncodeDecodePing(t *testing.T) {
 	require.NoError(t, err)
 
 	msg, _ := unmarshal(data)
-	assert.EqualValues(t, priv.Public(), key)
+	assert.Equal(t, local.ID(), key.ID())
 	assert.Equal(t, msg, ping)
 }
 
 func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*Server, func()) {
-	priv, err := peer.GeneratePrivateKey()
-	require.NoError(t, err)
-
 	log := logger.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
-	local := peer.NewLocal(priv, db)
+	local, err := peer.NewLocal(db)
+	require.NoError(t, err)
+
 	s, _ := salt.NewSalt(100 * time.Second)
 	local.SetPrivateSalt(s)
 	s, _ = salt.NewSalt(100 * time.Second)

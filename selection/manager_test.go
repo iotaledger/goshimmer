@@ -38,9 +38,8 @@ func newPeer(name string) testPeer {
 	}
 	logger := l.Sugar()
 	log := logger.Named(name)
-	priv, _ := peer.GeneratePrivateKey()
 	db := peer.NewMemoryDB(log.Named("db"))
-	local := peer.NewLocal(priv, db)
+	local, _ := peer.NewLocal(db)
 	s, _ := salt.NewSalt(100 * time.Second)
 	local.SetPrivateSalt(s)
 	s, _ = salt.NewSalt(100 * time.Second)

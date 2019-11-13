@@ -1,6 +1,7 @@
 package peer
 
 import (
+	"crypto/ed25519"
 	"log"
 	"testing"
 	"time"
@@ -61,4 +62,17 @@ func TestMapDBRandomPeer(t *testing.T) {
 
 	peers := db.GetRandomPeers(2, time.Second)
 	assert.ElementsMatch(t, []*Peer{p}, peers)
+}
+
+func TestMapDBLocal(t *testing.T) {
+	db := NewMemoryDB(logger)
+
+	l1, err := NewLocal(db)
+	require.NoError(t, err)
+	assert.Equal(t, len(l1.PublicKey()), ed25519.PublicKeySize)
+
+	l2, err := NewLocal(db)
+	require.NoError(t, err)
+
+	assert.Equal(t, l1, l2)
 }

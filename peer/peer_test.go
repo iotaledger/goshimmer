@@ -35,7 +35,7 @@ func TestRecoverKeyFromSignedData(t *testing.T) {
 	pub, priv, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
-	local := NewLocal(priv, nil)
+	local := newLocal(PrivateKey(priv), nil)
 	sig := local.Sign(msg)
 
 	d := signedData{pub: pub, msg: msg, sig: sig}

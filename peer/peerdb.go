@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/database"
+	"go.uber.org/zap"
 )
 
 const (
@@ -19,6 +21,9 @@ const (
 // DB is the peer database, storing previously seen peers and any collected
 // properties of them.
 type DB interface {
+	// LocalPrivateKey returns the private key stored in the database or creates a new one.
+	LocalPrivateKey() (PrivateKey, error)
+
 	// Peer retrieves a peer from the database.
 	Peer(id ID) *Peer
 	// UpdatePeer updates a peer in the database.
@@ -41,7 +46,10 @@ type DB interface {
 }
 
 type persistentDB struct {
-	db database.Database
+	db  database.Database
+	log *zap.SugaredLogger
+
+	closeOnce sync.Once
 }
 
 // Keys in the node database.
@@ -54,33 +62,49 @@ const (
 	dbNodePong = "lastpong"
 
 	// Local information is keyed by ID only. Use localItemKey to create those keys.
-	dbLocalSeq = "seq"
+	dbLocalKey = "key"
 )
 
-func NewPersistentDB() DB {
+// NewPersistentDB creates a new persistent DB.
+func NewPersistentDB(log *zap.SugaredLogger) DB {
 	db, err := database.Get("peer")
 	if err != nil {
 		panic(err)
 	}
 
 	return &persistentDB{
-		db: db,
+		db:  db,
+		log: log,
 	}
 }
 
 // Close closes the DB.
 func (db *persistentDB) Close() {
+	db.closeOnce.Do(func() {
+		db.log.Debugf("closing")
+
+		db.removeTTL()
+	})
+}
+
+func (db *persistentDB) removeTTL() {
 	threshold := time.Now().Add(-peerExpiration).Unix()
 
 	// remove TTL from all valid pong fields
-	db.db.ForEachWithPrefix([]byte(dbNodePrefix), func(key []byte, value []byte) {
+	err := db.db.ForEachWithPrefix([]byte(dbNodePrefix), func(key []byte, value []byte) {
 		if bytes.HasSuffix(key, []byte(dbNodePong)) {
 			t := parseInt64(value)
 			if t >= threshold {
-				db.db.Set(key, value)
+				err := db.db.Set(key, value)
+				if err != nil {
+					db.log.Warnw("database error", "err", err)
+				}
 			}
 		}
 	})
+	if err != nil {
+		db.log.Warnw("database error", "err", err)
+	}
 }
 
 // nodeKey returns the database key for a node record.
@@ -100,6 +124,10 @@ func splitNodeKey(key []byte) (id ID, rest []byte) {
 // nodeItemKey returns the database key for a node metadata field.
 func nodeItemKey(id ID, address string, field string) []byte {
 	return bytes.Join([][]byte{nodeKey(id), []byte(address), []byte(field)}, []byte{':'})
+}
+
+func localItemKey(field string) []byte {
+	return append([]byte(dbLocalPrefix), []byte(field)...)
 }
 
 func parseInt64(blob []byte) int64 {
@@ -124,6 +152,22 @@ func (db *persistentDB) setInt64(key []byte, n int64) error {
 	blob := make([]byte, binary.MaxVarintLen64)
 	blob = blob[:binary.PutVarint(blob, n)]
 	return db.db.SetWithTTL(key, blob, peerExpiration)
+}
+
+func (db *persistentDB) LocalPrivateKey() (PrivateKey, error) {
+	key, err := db.db.Get(localItemKey(dbLocalKey))
+	if err == database.ErrKeyNotFound {
+		key, err = generatePrivateKey()
+		if err == nil {
+			err = db.db.Set(localItemKey(dbLocalKey), key)
+		}
+		return key, err
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return key, nil
 }
 
 // LastPing returns that property for the given peer ID and address.

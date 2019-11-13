@@ -28,12 +28,11 @@ func init() {
 
 // newTestServer creates a new discovery server and also returns the teardown.
 func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger, boot ...*peer.Peer) (*server.Server, *Protocol, func()) {
-	priv, err := peer.GeneratePrivateKey()
-	require.NoError(t, err)
-
 	log := logger.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
-	local := peer.NewLocal(priv, db)
+	local, err := peer.NewLocal(db)
+	require.NoError(t, err)
+
 	s, _ := salt.NewSalt(100 * time.Second)
 	local.SetPrivateSalt(s)
 	s, _ = salt.NewSalt(100 * time.Second)

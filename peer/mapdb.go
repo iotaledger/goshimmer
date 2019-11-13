@@ -11,11 +11,13 @@ import (
 type mapDB struct {
 	mutex sync.RWMutex
 	m     map[string]peerEntry
+	key   PrivateKey
 
 	log *zap.SugaredLogger
 
-	wg      sync.WaitGroup
-	closing chan struct{}
+	wg        sync.WaitGroup
+	closeOnce sync.Once
+	closing   chan struct{}
 }
 
 type peerEntry struct {
@@ -44,10 +46,24 @@ func NewMemoryDB(log *zap.SugaredLogger) DB {
 
 // Close closes the DB.
 func (db *mapDB) Close() {
-	db.log.Debugf("closing")
+	db.closeOnce.Do(func() {
+		db.log.Debugf("closing")
+		close(db.closing)
+		db.wg.Wait()
+	})
+}
 
-	close(db.closing)
-	db.wg.Wait()
+func (db *mapDB) LocalPrivateKey() (PrivateKey, error) {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
+	if db.key == nil {
+		key, err := generatePrivateKey()
+		db.key = key
+		return key, err
+	}
+
+	return db.key, nil
 }
 
 // LastPing returns that property for the given peer ID and address.

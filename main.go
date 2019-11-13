@@ -75,11 +75,6 @@ func main() {
 	logger := logger.NewLogger(defaultZLC, "debug")
 	defer func() { _ = logger.Sync() }() // ignore the returned error
 
-	priv, err := peer.GeneratePrivateKey()
-	if err != nil {
-		log.Fatalf("GeneratePrivateKey: %v", err)
-	}
-
 	addr, err := net.ResolveUDPAddr("udp", *listenAddr)
 	if err != nil {
 		log.Fatalf("ResolveUDPAddr: %v", err)
@@ -103,7 +98,12 @@ func main() {
 	defer trans.Close()
 
 	// create a new local node
-	local := peer.NewLocal(priv, peer.NewMemoryDB(logger.Named("db")))
+	db := peer.NewPersistentDB(logger.Named("db"))
+	defer db.Close()
+	local, err := peer.NewLocal(db)
+	if err != nil {
+		log.Fatalf("ListenUDP: %v", err)
+	}
 
 	discovery := discover.New(local, discover.Config{
 		Log:         logger.Named("disc"),

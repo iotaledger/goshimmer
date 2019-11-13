@@ -34,10 +34,10 @@ func (m *NetworkMock) discoveryRequest(p *peer.Peer) ([]*peer.Peer, error) {
 }
 
 func newNetworkMock() *NetworkMock {
-	priv, _ := peer.GeneratePrivateKey()
+	local, _ := peer.NewLocal(peer.NewMemoryDB(logger))
 	return &NetworkMock{
 		// no database needed
-		loc: peer.NewLocal(priv, nil),
+		loc: local,
 	}
 }
 
