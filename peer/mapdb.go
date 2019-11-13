@@ -1,7 +1,6 @@
 package peer
 
 import (
-	"strings"
 	"sync"
 	"time"
 
@@ -11,7 +10,7 @@ import (
 // mapDB is a simple implementation of DB using a map.
 type mapDB struct {
 	mutex sync.RWMutex
-	m     map[string]peerPropEntry
+	m     map[string]peerEntry
 
 	log *zap.SugaredLogger
 
@@ -19,7 +18,11 @@ type mapDB struct {
 	closing chan struct{}
 }
 
-// peerPropEntry wraps additional peer properties that are stored.
+type peerEntry struct {
+	data       []byte
+	properties map[string]peerPropEntry
+}
+
 type peerPropEntry struct {
 	lastPing, lastPong int64
 }
@@ -27,7 +30,7 @@ type peerPropEntry struct {
 // NewMemoryDB creates a new DB that uses a GO map.
 func NewMemoryDB(log *zap.SugaredLogger) DB {
 	db := &mapDB{
-		m:       make(map[string]peerPropEntry),
+		m:       make(map[string]peerEntry),
 		log:     log,
 		closing: make(chan struct{}),
 	}
@@ -47,30 +50,28 @@ func (db *mapDB) Close() {
 	db.wg.Wait()
 }
 
-// peerPropKey returns the DB key to store additional peer properties.
-func peerPropKey(id ID, address string) string {
-	return strings.Join([]string{string(id.Bytes()), address}, keySeparator)
-}
-
 // LastPing returns that property for the given peer ID and address.
 func (db *mapDB) LastPing(id ID, address string) time.Time {
-	key := peerPropKey(id, address)
-
 	db.mutex.RLock()
-	peerPropEntry := db.m[key]
+	peerEntry := db.m[string(id.Bytes())]
 	db.mutex.RUnlock()
 
-	return time.Unix(peerPropEntry.lastPing, 0)
+	return time.Unix(peerEntry.properties[address].lastPing, 0)
 }
 
 // UpdateLastPing updates that property for the given peer ID and address.
 func (db *mapDB) UpdateLastPing(id ID, address string, t time.Time) error {
-	key := peerPropKey(id, address)
+	key := string(id.Bytes())
 
 	db.mutex.Lock()
-	peerPropEntry := db.m[key]
-	peerPropEntry.lastPing = t.Unix()
-	db.m[key] = peerPropEntry
+	peerEntry := db.m[key]
+	if peerEntry.properties == nil {
+		peerEntry.properties = make(map[string]peerPropEntry)
+	}
+	entry := peerEntry.properties[address]
+	entry.lastPing = t.Unix()
+	peerEntry.properties[address] = entry
+	db.m[key] = peerEntry
 	db.mutex.Unlock()
 
 	return nil
@@ -78,26 +79,77 @@ func (db *mapDB) UpdateLastPing(id ID, address string, t time.Time) error {
 
 // LastPong returns that property for the given peer ID and address.
 func (db *mapDB) LastPong(id ID, address string) time.Time {
-	key := peerPropKey(id, address)
-
 	db.mutex.RLock()
-	peerPropEntry := db.m[key]
+	peerEntry := db.m[string(id.Bytes())]
 	db.mutex.RUnlock()
 
-	return time.Unix(peerPropEntry.lastPong, 0)
+	return time.Unix(peerEntry.properties[address].lastPong, 0)
 }
 
 // UpdateLastPong updates that property for the given peer ID and address.
 func (db *mapDB) UpdateLastPong(id ID, address string, t time.Time) error {
-	key := peerPropKey(id, address)
+	key := string(id.Bytes())
 
 	db.mutex.Lock()
-	peerPropEntry := db.m[key]
-	peerPropEntry.lastPong = t.Unix()
-	db.m[key] = peerPropEntry
+	peerEntry := db.m[key]
+	if peerEntry.properties == nil {
+		peerEntry.properties = make(map[string]peerPropEntry)
+	}
+	entry := peerEntry.properties[address]
+	entry.lastPong = t.Unix()
+	peerEntry.properties[address] = entry
+	db.m[key] = peerEntry
 	db.mutex.Unlock()
 
 	return nil
+}
+
+// UpdatePeer updates a peer in the database.
+func (db *mapDB) UpdatePeer(p *Peer) error {
+	data, err := p.Marshal()
+	if err != nil {
+		return err
+	}
+	key := string(p.ID().Bytes())
+
+	db.mutex.Lock()
+	peerEntry := db.m[key]
+	peerEntry.data = data
+	db.m[key] = peerEntry
+	db.mutex.Unlock()
+
+	return nil
+}
+
+// Peer retrieves a peer from the database.
+func (db *mapDB) Peer(id ID) *Peer {
+	db.mutex.RLock()
+	peerEntry := db.m[string(id.Bytes())]
+	db.mutex.RUnlock()
+
+	return parsePeer(peerEntry.data)
+}
+
+// GetRandomPeers returns a random subset of n peers whose last ping is not too old.
+func (db *mapDB) GetRandomPeers(n int, maxAge time.Duration) []*Peer {
+	peers := make([]*Peer, 0)
+	now := time.Now()
+
+	db.mutex.RLock()
+	for id, peerEntry := range db.m {
+		p := parsePeer(peerEntry.data)
+		if p == nil || id != string(p.ID().Bytes()) {
+			continue
+		}
+		if now.Sub(db.LastPong(p.ID(), p.Address())) > maxAge {
+			continue
+		}
+
+		peers = append(peers, p)
+	}
+	db.mutex.RUnlock()
+
+	return randomSubset(peers, n)
 }
 
 func (db *mapDB) expirer() {
@@ -124,9 +176,14 @@ func (db *mapDB) expirePeers() {
 	)
 
 	db.mutex.Lock()
-	for key, peerPropEntry := range db.m {
-		if peerPropEntry.lastPong <= threshold {
-			delete(db.m, key)
+	for id, peerEntry := range db.m {
+		for address, peerPropEntry := range peerEntry.properties {
+			if peerPropEntry.lastPong <= threshold {
+				delete(peerEntry.properties, address)
+			}
+		}
+		if len(peerEntry.properties) == 0 {
+			delete(db.m, id)
 			count++
 		}
 	}

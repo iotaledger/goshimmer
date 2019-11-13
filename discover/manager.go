@@ -15,6 +15,9 @@ const (
 
 	maxKnow         = 100
 	maxReplacements = 10
+
+	seedCount  = 30
+	seedMaxAge = 5 * 24 * time.Hour
 )
 
 type network interface {
@@ -203,7 +206,11 @@ func (m *manager) addReplacement(p *mpeer) bool {
 
 func (m *manager) loadInitialPeers(boot []*peer.Peer) {
 	var peers []*peer.Peer
-	// TODO: load seed peers from the database
+
+	db := m.net.local().Database()
+	if db != nil {
+		peers = db.GetRandomPeers(seedCount, seedMaxAge)
+	}
 	peers = append(peers, boot...)
 	for _, p := range peers {
 		m.addDiscoveredPeer(p)
