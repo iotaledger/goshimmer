@@ -20,10 +20,10 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/rivo/tview v0.0.0-20190829161255-f8bc69b90341
 	github.com/rivo/uniseg v0.1.0 // indirect
-	github.com/stretchr/objx v0.2.0 // indirect
 	golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
 	golang.org/x/sys v0.0.0-20190904154756-749cb33beabd // indirect
 	golang.org/x/text v0.3.2 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
+	gopkg.in/zeromq/goczmq.v4 v4.1.0 // indirect
 )

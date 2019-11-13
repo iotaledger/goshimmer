@@ -2,6 +2,7 @@ package database
 
 import (
 	"sync"
+	"time"
 
 	"github.com/dgraph-io/badger"
 )
@@ -43,11 +44,21 @@ func Get(name string) (Database, error) {
 	return db, nil
 }
 
-func (this *prefixDb) Set(key []byte, value []byte) error {
+func (this *prefixDb) setEntry(e *badger.Entry) error {
 	err := this.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(append(this.prefix, key...), value)
+		return txn.SetEntry(e)
 	})
 	return err
+}
+
+func (this *prefixDb) Set(key []byte, value []byte) error {
+	e := badger.NewEntry(append(this.prefix, key...), value)
+	return this.setEntry(e)
+}
+
+func (this *prefixDb) SetWithTTL(key []byte, value []byte, ttl time.Duration) error {
+	e := badger.NewEntry(append(this.prefix, key...), value).WithTTL(ttl)
+	return this.setEntry(e)
 }
 
 func (this *prefixDb) Contains(key []byte) (bool, error) {
