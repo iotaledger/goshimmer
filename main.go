@@ -104,6 +104,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("ListenUDP: %v", err)
 	}
+	// add a service for the peering
+	local.Services()["peering"] = peer.NetworkAddress{Network: "udp", Address: *listenAddr}
 
 	discovery := discover.New(local, discover.Config{
 		Log:         logger.Named("disc"),

@@ -308,10 +308,7 @@ func (m *manager) acceptRequest(p *peer.Peer, s *salt.Salt) peer.ServiceMap {
 
 	var services peer.ServiceMap
 	if status {
-		services = peer.NewServiceMap()
-		// TODO: provide the actual service
-		services["dummy"] = peer.NetworkAddress{}
-
+		services = m.net.local().Services()
 		// signal the received request
 		Events.IncomingPeering.Trigger(&PeeringEvent{Self: m.self(), Peer: p, Services: services})
 	}

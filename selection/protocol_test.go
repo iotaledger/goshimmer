@@ -40,6 +40,9 @@ func newTest(t require.TestingT, name string, trans transport.Transport, logger 
 	local, err := peer.NewLocal(db)
 	require.NoError(t, err)
 
+	// add a dummy service
+	local.Services()["dummy"] = peer.NetworkAddress{}
+
 	s, _ := salt.NewSalt(100 * time.Second)
 	local.SetPrivateSalt(s)
 	s, _ = salt.NewSalt(100 * time.Second)

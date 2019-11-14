@@ -10,9 +10,10 @@ import (
 
 // Local defines the struct of a local peer
 type Local struct {
-	id  ID
-	key PrivateKey
-	db  DB
+	id       ID
+	key      PrivateKey
+	services ServiceMap
+	db       DB
 
 	// everything below is protected by a lock
 	mu          sync.RWMutex
@@ -33,9 +34,10 @@ func (priv PrivateKey) Public() PublicKey {
 func newLocal(key PrivateKey, db DB) *Local {
 	publicKey := key.Public()
 	return &Local{
-		id:  publicKey.ID(),
-		key: key,
-		db:  db,
+		id:       publicKey.ID(),
+		key:      key,
+		services: NewServiceMap(),
+		db:       db,
 	}
 }
 
@@ -64,6 +66,11 @@ func (l *Local) PublicKey() PublicKey {
 // Database returns the node database associated with the local node.
 func (l *Local) Database() DB {
 	return l.db
+}
+
+// Services returns the services supported by the local node.
+func (l *Local) Services() ServiceMap {
+	return l.services
 }
 
 // Sign signs the message with the local node's private key and returns a signature.
