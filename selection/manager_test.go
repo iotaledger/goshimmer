@@ -69,15 +69,15 @@ type testNet struct {
 	rand *rand.Rand
 }
 
-func (n testNet) Local() *peer.Local {
+func (n testNet) local() *peer.Local {
 	return n.loc
 }
 
 func (n testNet) DropPeer(p *peer.Peer) {
-	n.mgr[p.ID()].dropNeighbor(n.Local().ID())
+	n.mgr[p.ID()].dropNeighbor(n.local().ID())
 }
 
-func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
+func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (peer.ServiceMap, error) {
 	return n.mgr[p.ID()].acceptRequest(n.self, s), nil
 }
 

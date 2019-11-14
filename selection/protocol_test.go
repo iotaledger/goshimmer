@@ -76,14 +76,14 @@ func TestProtPeeringRequest(t *testing.T) {
 
 	// request peering to peer A
 	t.Run("A->B", func(t *testing.T) {
-		if accept, err := protA.RequestPeering(peerB, saltA); assert.NoError(t, err) {
-			assert.True(t, accept)
+		if services, err := protA.RequestPeering(peerB, saltA); assert.NoError(t, err) {
+			assert.NotEmpty(t, services)
 		}
 	})
 	// request peering to peer B
 	t.Run("B->A", func(t *testing.T) {
-		if accept, err := protB.RequestPeering(peerA, saltB); assert.NoError(t, err) {
-			assert.True(t, accept)
+		if services, err := protB.RequestPeering(peerA, saltB); assert.NoError(t, err) {
+			assert.NotEmpty(t, services)
 		}
 	})
 }
@@ -117,9 +117,9 @@ func TestProtDropPeer(t *testing.T) {
 	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
 
 	// request peering to peer A
-	accept, err := protA.RequestPeering(peerB, saltA)
+	services, err := protA.RequestPeering(peerB, saltA)
 	require.NoError(t, err)
-	assert.True(t, accept)
+	assert.NotEmpty(t, services)
 
 	require.Contains(t, protB.GetNeighbors(), peerA)
 
