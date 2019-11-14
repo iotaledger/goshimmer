@@ -1,6 +1,8 @@
 package bundleprocessor
 
 import (
+	"github.com/iotaledger/hive.go/parameter"
+	"os"
 	"sync"
 	"testing"
 
@@ -44,6 +46,11 @@ func BenchmarkValidateSignatures(b *testing.B) {
 	}
 
 	wg.Wait()
+}
+
+func TestMain(m *testing.M) {
+	parameter.FetchConfig()
+	os.Exit(m.Run())
 }
 
 func TestValidateSignatures(t *testing.T) {

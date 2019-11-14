@@ -1,6 +1,8 @@
 package tangle
 
 import (
+	"github.com/iotaledger/hive.go/parameter"
+	"os"
 	"sync"
 	"testing"
 
@@ -10,6 +12,11 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/iota.go/trinary"
 )
+
+func TestMain(m *testing.M) {
+	parameter.FetchConfig()
+	os.Exit(m.Run())
+}
 
 func TestSolidifier(t *testing.T) {
 	// show all error messages for tests
