@@ -1,0 +1,29 @@
+{
+  "node": {
+    "logLevel": 3,
+    "disablePlugins": [],
+    "enablePlugins": []
+  },
+  "database": {
+    "directory": "mainnetdb"
+  },
+  "analysis": {
+    "serverPort": 0,
+    "serverAddress": "159.69.158.51:188"
+  },
+  "gossip": {
+    "port": 14666
+  },
+  "zeromq": {
+    "port": 5556
+  },
+  "autopeering": {
+    "address": "0.0.0.0",
+    "port": 14626,
+    "entryNodes": [
+      "7f7a876a4236091257e650da8dcf195fbe3cb625@159.69.158.51:14626"
+    ],
+    "acceptRequests": true,
+    "sendRequests": true
+  }
+}

@@ -6,10 +6,10 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
+	"github.com/iotaledger/hive.go/events"
 )
 
 const peerDbName string = "peers"

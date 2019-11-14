@@ -5,9 +5,9 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/accountability"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
+	"github.com/iotaledger/hive.go/events"
 )
 
 type PeerRegister struct {

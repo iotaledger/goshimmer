@@ -6,18 +6,18 @@ import (
 	"html/template"
 	"math"
 	"net/http"
-	"sync"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/iotaledger/goshimmer/packages/accountability"
-	"github.com/iotaledger/goshimmer/packages/events"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
+	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/hive.go/events"
 )
 
 var (

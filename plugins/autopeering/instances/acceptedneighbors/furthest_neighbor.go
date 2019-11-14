@@ -3,8 +3,8 @@ package acceptedneighbors
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
+	"github.com/iotaledger/hive.go/events"
 )
 
 var FURTHEST_NEIGHBOR *peer.Peer

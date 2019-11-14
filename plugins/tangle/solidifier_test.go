@@ -4,16 +4,16 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
 func TestSolidifier(t *testing.T) {
 	// show all error messages for tests
-	*node.LOG_LEVEL.Value = node.LOG_LEVEL_DEBUG
+	// TODO: adjust logger package
 
 	// start a test node
 	node.Start(PLUGIN)

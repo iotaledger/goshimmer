@@ -1,7 +1,7 @@
 package metrics
 
-import (
-	"github.com/iotaledger/goshimmer/packages/events"
+import(
+	"github.com/iotaledger/hive.go/events"
 )
 
 var Events = pluginEvents{

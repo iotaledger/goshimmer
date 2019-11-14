@@ -6,7 +6,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/accountability"
 	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/ownpeer"
@@ -16,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/salt"
+	"github.com/iotaledger/hive.go/events"
 )
 
 var lastPing time.Time

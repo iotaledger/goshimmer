@@ -7,9 +7,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/accountability"
 	"github.com/iotaledger/goshimmer/packages/byteutils"
 	"github.com/iotaledger/goshimmer/packages/errors"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/iota.go/consts"
 )
 

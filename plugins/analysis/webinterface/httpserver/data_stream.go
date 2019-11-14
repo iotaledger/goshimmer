@@ -3,10 +3,10 @@ package httpserver
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface/recordedevents"
 	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface/types"
+	"github.com/iotaledger/hive.go/events"
 	"golang.org/x/net/websocket"
 )
 

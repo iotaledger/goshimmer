@@ -2,13 +2,14 @@ package entrynodes
 
 import (
 	"encoding/hex"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
+	"github.com/iotaledger/hive.go/parameter"
 	"net"
 	"strconv"
 	"strings"
 
 	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peerlist"
 )
@@ -22,7 +23,7 @@ func Configure(node *node.Plugin) {
 func parseEntryNodes() *peerlist.PeerList {
 	result := peerlist.NewPeerList()
 
-	for _, entryNodeDefinition := range strings.Fields(*parameters.ENTRY_NODES.Value) {
+	for _, entryNodeDefinition := range parameter.NodeConfig.GetStringSlice(parameters.CFG_ENTRY_NODES) {
 		if entryNodeDefinition == "" {
 			continue
 		}

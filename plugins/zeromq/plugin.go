@@ -1,15 +1,16 @@
 package zeromq
 
 import (
+	"github.com/iotaledger/hive.go/parameter"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/hive.go/events"
 )
 
 // zeromq logging is disabled by default
@@ -43,14 +44,14 @@ func configure(plugin *node.Plugin) {
 
 // Start the zeromq plugin
 func run(plugin *node.Plugin) {
-
-	plugin.LogInfo("Starting ZeroMQ Publisher (port " + strconv.Itoa(*PORT.Value) + ") ...")
+	zeromqPort := parameter.NodeConfig.GetString(ZEROMQ_PORT)
+	plugin.LogInfo("Starting ZeroMQ Publisher (port " + zeromqPort + ") ...")
 
 	daemon.BackgroundWorker("ZeroMQ Publisher", func() {
 		if err := startPublisher(plugin); err != nil {
 			plugin.LogFailure("Stopping ZeroMQ Publisher: " + err.Error())
 		} else {
-			plugin.LogSuccess("Starting ZeroMQ Publisher (port " + strconv.Itoa(*PORT.Value) + ") ... done")
+			plugin.LogSuccess("Starting ZeroMQ Publisher (port " + zeromqPort + ") ... done")
 		}
 	})
 }
@@ -63,7 +64,7 @@ func startPublisher(plugin *node.Plugin) error {
 	}
 	publisher = pub
 
-	return publisher.Start(*PORT.Value)
+	return publisher.Start(parameter.NodeConfig.GetInt(ZEROMQ_PORT))
 }
 
 // Publish a transaction that has recently been added to the ledger

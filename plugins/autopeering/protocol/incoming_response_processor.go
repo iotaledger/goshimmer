@@ -1,11 +1,11 @@
 package protocol
 
 import (
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
+	"github.com/iotaledger/hive.go/events"
 )
 
 func createIncomingResponseProcessor(plugin *node.Plugin) *events.Closure {

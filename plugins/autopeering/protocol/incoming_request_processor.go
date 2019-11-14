@@ -1,11 +1,11 @@
 package protocol
 
 import (
+	"github.com/iotaledger/hive.go/parameter"
 	"math/rand"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peerlist"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
+	"github.com/iotaledger/hive.go/events"
 )
 
 func createIncomingRequestProcessor(plugin *node.Plugin) *events.Closure {
@@ -27,7 +28,7 @@ func processIncomingRequest(plugin *node.Plugin, req *request.Request) {
 
 	knownpeers.INSTANCE.AddOrUpdate(req.Issuer)
 
-	if *parameters.ACCEPT_REQUESTS.Value && requestShouldBeAccepted(req) {
+	if parameter.NodeConfig.GetBool(parameters.CFG_ACCEPT_REQUESTS) && requestShouldBeAccepted(req) {
 		defer acceptedneighbors.INSTANCE.Lock()()
 
 		if requestShouldBeAccepted(req) {

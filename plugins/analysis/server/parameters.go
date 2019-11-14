@@ -1,7 +1,13 @@
 package server
 
-import "github.com/iotaledger/goshimmer/packages/parameter"
-
-var (
-	SERVER_PORT = parameter.AddInt("ANALYSIS/SERVER-PORT", 0, "tcp port for incoming analysis packets")
+import (
+	flag "github.com/spf13/pflag"
 )
+
+const (
+	CFG_SERVER_PORT = "analysis.serverPort"
+)
+
+func init() {
+	flag.Int(CFG_SERVER_PORT, 0, "tcp port for incoming analysis packets")
+}

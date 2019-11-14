@@ -4,9 +4,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
 
@@ -63,7 +63,7 @@ func TestValidateSignatures(t *testing.T) {
 
 func TestProcessSolidBundleHead_Data(t *testing.T) {
 	// show all error messages for tests
-	*node.LOG_LEVEL.Value = node.LOG_LEVEL_FAILURE
+	// TODO: adjust logger package
 
 	// start a test node
 	node.Start(tangle.PLUGIN, PLUGIN)
@@ -104,7 +104,7 @@ func TestProcessSolidBundleHead_Data(t *testing.T) {
 
 func TestProcessSolidBundleHead_Value(t *testing.T) {
 	// show all error messages for tests
-	*node.LOG_LEVEL.Value = node.LOG_LEVEL_FAILURE
+	// TODO: adjust logger package
 
 	// start a test node
 	node.Start(tangle.PLUGIN, PLUGIN)

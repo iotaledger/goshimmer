@@ -1,16 +1,15 @@
 package gossip
 
 import (
-	"strconv"
-
 	"github.com/iotaledger/goshimmer/packages/accountability"
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/errors"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/tcp"
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/parameter"
 )
 
 var TCPServer = tcp.NewServer()
@@ -65,12 +64,13 @@ func configureServer(plugin *node.Plugin) {
 }
 
 func runServer(plugin *node.Plugin) {
-	plugin.LogInfo("Starting TCP Server (port " + strconv.Itoa(*PORT.Value) + ") ...")
+	gossipPort := parameter.NodeConfig.GetString(GOSSIP_PORT)
+	plugin.LogInfo("Starting TCP Server (port " + gossipPort + ") ...")
 
 	daemon.BackgroundWorker("Gossip TCP Server", func() {
-		plugin.LogSuccess("Starting TCP Server (port " + strconv.Itoa(*PORT.Value) + ") ... done")
+		plugin.LogSuccess("Starting TCP Server (port " + gossipPort + ") ... done")
 
-		TCPServer.Listen(*PORT.Value)
+		TCPServer.Listen(parameter.NodeConfig.GetInt(GOSSIP_PORT))
 
 		plugin.LogSuccess("Stopping TCP Server ... done")
 	})

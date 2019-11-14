@@ -1,7 +1,7 @@
 package network
 
 import (
-	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/hive.go/events"
 )
 
 type BufferedConnectionEvents struct {
