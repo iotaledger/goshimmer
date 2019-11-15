@@ -7,7 +7,7 @@ import (
 	"net/url"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/wollac/autopeering/peer/proto"
+	pb "github.com/iotaledger/autopeering-sim/peer/proto"
 )
 
 // PublicKey is the type of Ed25519 public keys used for peers.

@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/autopeering-sim/salt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wollac/autopeering/salt"
 )
 
 func TestID(t *testing.T) {

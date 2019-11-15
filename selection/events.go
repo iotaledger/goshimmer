@@ -1,8 +1,8 @@
 package selection
 
 import (
+	"github.com/iotaledger/autopeering-sim/peer"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/wollac/autopeering/peer"
 )
 
 // Events contains all the events that are triggered during the neighbor selection.

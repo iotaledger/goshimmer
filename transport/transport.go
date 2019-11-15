@@ -3,7 +3,7 @@
 package transport
 
 import (
-	pb "github.com/wollac/autopeering/server/proto"
+	pb "github.com/iotaledger/autopeering-sim/server/proto"
 )
 
 const (

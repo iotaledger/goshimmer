@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/wollac/autopeering/peer"
-	"github.com/wollac/autopeering/server"
 )
 
 type NetworkMock struct {

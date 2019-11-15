@@ -8,7 +8,9 @@
 *.so
 *.dylib
 sim
-/autopeering
+simulation
+autopeering
+autopeering-sim
 /simulation/*.dot
 /simulation/l*.txt
 /simulation/data/*

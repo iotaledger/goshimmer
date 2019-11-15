@@ -1,7 +1,7 @@
 package peer
 
 import (
-	pb "github.com/wollac/autopeering/peer/proto"
+	pb "github.com/iotaledger/autopeering-sim/peer/proto"
 )
 
 // NetworkAddress defines the tuple <Type, Port>, e.g, <TCP, 8000>

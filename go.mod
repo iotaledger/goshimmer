@@ -1,4 +1,4 @@
-module github.com/wollac/autopeering
+module github.com/iotaledger/autopeering-sim
 
 go 1.13
 

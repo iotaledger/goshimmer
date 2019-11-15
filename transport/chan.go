@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/wollac/autopeering/server/proto"
+	pb "github.com/iotaledger/autopeering-sim/server/proto"
 )
 
 // ChanNetwork offers in-memory transfers between an arbirtrary number of clients.

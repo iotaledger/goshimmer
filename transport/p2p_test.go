@@ -4,9 +4,9 @@ import (
 	"io"
 	"testing"
 
+	pb "github.com/iotaledger/autopeering-sim/server/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	pb "github.com/wollac/autopeering/server/proto"
 )
 
 var testPacket = &pb.Packet{Data: []byte("TEST")}

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/salt"
 	"github.com/stretchr/testify/assert"
-	"github.com/wollac/autopeering/peer"
-	"github.com/wollac/autopeering/salt"
 	"go.uber.org/zap"
 )
 

@@ -3,8 +3,8 @@ package selection
 import (
 	"sync"
 
-	"github.com/wollac/autopeering/distance"
-	"github.com/wollac/autopeering/peer"
+	"github.com/iotaledger/autopeering-sim/distance"
+	"github.com/iotaledger/autopeering-sim/peer"
 )
 
 type Neighborhood struct {

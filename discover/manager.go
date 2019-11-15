@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wollac/autopeering/peer"
+	"github.com/iotaledger/autopeering-sim/peer"
 	"go.uber.org/zap"
 )
 

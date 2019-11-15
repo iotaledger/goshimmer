@@ -1,7 +1,7 @@
 package discover
 
 import (
-	"github.com/wollac/autopeering/peer"
+	"github.com/iotaledger/autopeering-sim/peer"
 	"go.uber.org/zap"
 )
 

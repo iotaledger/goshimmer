@@ -3,7 +3,7 @@ package discover
 import (
 	"fmt"
 
-	"github.com/wollac/autopeering/peer"
+	"github.com/iotaledger/autopeering-sim/peer"
 )
 
 // mpeer represents a discovered peer with additional data.

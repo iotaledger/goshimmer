@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/salt"
+	"github.com/iotaledger/autopeering-sim/server"
+	"github.com/iotaledger/autopeering-sim/transport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wollac/autopeering/peer"
-	"github.com/wollac/autopeering/salt"
-	"github.com/wollac/autopeering/server"
-	"github.com/wollac/autopeering/transport"
 	"go.uber.org/zap"
 )
 

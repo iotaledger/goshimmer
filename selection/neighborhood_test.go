@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/autopeering-sim/distance"
+	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/salt"
 	"github.com/stretchr/testify/assert"
-	"github.com/wollac/autopeering/distance"
-	"github.com/wollac/autopeering/peer"
-	"github.com/wollac/autopeering/salt"
 )
 
 func TestGetFurthest(t *testing.T) {

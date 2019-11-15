@@ -3,7 +3,7 @@ package peer
 import (
 	"sort"
 
-	"github.com/wollac/autopeering/distance"
+	"github.com/iotaledger/autopeering-sim/distance"
 )
 
 // PeerDistance defines the relative distance wrt a remote peer
