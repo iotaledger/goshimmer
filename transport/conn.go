@@ -4,7 +4,7 @@ import (
 	"net"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/wollac/autopeering/server/proto"
+	pb "github.com/iotaledger/autopeering-sim/server/proto"
 )
 
 // ResolveFunc resolves a string address to the corresponding net.Addr.

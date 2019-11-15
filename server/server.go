@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/autopeering-sim/peer"
+	pb "github.com/iotaledger/autopeering-sim/server/proto"
+	"github.com/iotaledger/autopeering-sim/transport"
 	"github.com/pkg/errors"
-	"github.com/wollac/autopeering/peer"
-	pb "github.com/wollac/autopeering/server/proto"
-	"github.com/wollac/autopeering/transport"
 	"go.uber.org/zap"
 )
 

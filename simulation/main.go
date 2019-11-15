@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wollac/autopeering/peer"
-	"github.com/wollac/autopeering/selection"
-	"github.com/wollac/autopeering/server"
-	"github.com/wollac/autopeering/simulation/visualizer"
-	"github.com/wollac/autopeering/transport"
+	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/selection"
+	"github.com/iotaledger/autopeering-sim/server"
+	"github.com/iotaledger/autopeering-sim/simulation/visualizer"
+	"github.com/iotaledger/autopeering-sim/transport"
 )
 
 var (

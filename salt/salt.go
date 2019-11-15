@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/wollac/autopeering/salt/proto"
+	pb "github.com/iotaledger/autopeering-sim/salt/proto"
 )
 
 // SaltByteSize specifies the number of bytes used for the salt.

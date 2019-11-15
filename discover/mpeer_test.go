@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/iotaledger/autopeering-sim/peer"
 	"github.com/stretchr/testify/assert"
-	"github.com/wollac/autopeering/peer"
 )
 
 func newTestPeer(name string) *peer.Peer {

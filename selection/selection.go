@@ -3,7 +3,7 @@ package selection
 import (
 	"sync"
 
-	"github.com/wollac/autopeering/peer"
+	"github.com/iotaledger/autopeering-sim/peer"
 )
 
 type Selector interface {

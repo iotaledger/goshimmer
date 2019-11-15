@@ -10,13 +10,13 @@ import (
 	"os/signal"
 	"strings"
 
+	"github.com/iotaledger/autopeering-sim/discover"
+	"github.com/iotaledger/autopeering-sim/logger"
+	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/selection"
+	"github.com/iotaledger/autopeering-sim/server"
+	"github.com/iotaledger/autopeering-sim/transport"
 	"github.com/pkg/errors"
-	"github.com/wollac/autopeering/discover"
-	"github.com/wollac/autopeering/logger"
-	"github.com/wollac/autopeering/peer"
-	"github.com/wollac/autopeering/selection"
-	"github.com/wollac/autopeering/server"
-	"github.com/wollac/autopeering/transport"
 )
 
 const defaultZLC = `{

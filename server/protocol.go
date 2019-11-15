@@ -3,7 +3,7 @@ package server
 import (
 	"time"
 
-	"github.com/wollac/autopeering/peer"
+	"github.com/iotaledger/autopeering-sim/peer"
 )
 
 const (

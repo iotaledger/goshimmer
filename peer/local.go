@@ -4,7 +4,7 @@ import (
 	"crypto/ed25519"
 	"sync"
 
-	"github.com/wollac/autopeering/salt"
+	"github.com/iotaledger/autopeering-sim/salt"
 )
 
 // Local defines the struct of a local peer
