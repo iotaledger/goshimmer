@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/wollac/autopeering/peer"
 	"github.com/wollac/autopeering/selection"
 	"github.com/wollac/autopeering/server"
