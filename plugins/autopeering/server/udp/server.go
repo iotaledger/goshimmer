@@ -1,15 +1,16 @@
 package udp
 
 import (
-	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/network/udp"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/drop"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/parameter"
 	"github.com/pkg/errors"
 	"math"
@@ -17,40 +18,41 @@ import (
 )
 
 var udpServer = udp.NewServer(int(math.Max(float64(request.MARSHALED_TOTAL_SIZE), float64(response.MARSHALED_TOTAL_SIZE))))
+var log = logger.NewLogger("Autopeering-UDPServer")
 
 func ConfigureServer(plugin *node.Plugin) {
 	serverAddress := parameter.NodeConfig.GetString(parameters.CFG_ADDRESS)
-	serverPortStr := parameter.NodeConfig.GetString(parameters.CFG_PORT)
+	serverPort := parameter.NodeConfig.GetInt(parameters.CFG_PORT)
 
 	Events.Error.Attach(events.NewClosure(func(ip net.IP, err error) {
-		plugin.LogFailure(err.Error())
+		log.Error(err.Error())
 	}))
 
 	udpServer.Events.ReceiveData.Attach(events.NewClosure(processReceivedData))
 	udpServer.Events.Error.Attach(events.NewClosure(func(err error) {
-		plugin.LogFailure("error in udp server: " + err.Error())
+		log.Errorf("error in udp server: %s", err.Error())
 	}))
 	udpServer.Events.Start.Attach(events.NewClosure(func() {
 		if serverAddress == "0.0.0.0" {
-			plugin.LogSuccess("Starting UDP Server (port " + serverPortStr + ") ... done")
+			log.Infof("Starting UDP Server (port %d) ... done", serverPort)
 		} else {
-			plugin.LogSuccess("Starting UDP Server (" + serverAddress + ":" + serverPortStr + ") ... done")
+			log.Infof("Starting UDP Server (%s:%d) ... done", serverAddress, serverPort)
 		}
 	}))
 	udpServer.Events.Shutdown.Attach(events.NewClosure(func() {
-		plugin.LogSuccess("Stopping UDP Server ... done")
+		log.Info("Stopping UDP Server ... done")
 	}))
 }
 
 func RunServer(plugin *node.Plugin) {
 	serverAddress := parameter.NodeConfig.GetString(parameters.CFG_ADDRESS)
-	serverPortStr := parameter.NodeConfig.GetString(parameters.CFG_PORT)
+	serverPort := parameter.NodeConfig.GetInt(parameters.CFG_PORT)
 
 	daemon.BackgroundWorker("Autopeering UDP Server", func() {
 		if serverAddress == "0.0.0.0" {
-			plugin.LogInfo("Starting UDP Server (port " + serverPortStr + ") ...")
+			log.Infof("Starting UDP Server (port %d) ...", serverPort)
 		} else {
-			plugin.LogInfo("Starting UDP Server (" + serverAddress + ":" + serverPortStr + ") ...")
+			log.Infof("Starting UDP Server (%s:%d) ...", serverAddress, serverPort)
 		}
 
 		udpServer.Listen(serverAddress, parameter.NodeConfig.GetInt(parameters.CFG_PORT))
@@ -58,7 +60,7 @@ func RunServer(plugin *node.Plugin) {
 }
 
 func ShutdownUDPServer(plugin *node.Plugin) {
-	plugin.LogInfo("Stopping UDP Server ...")
+	log.Info("Stopping UDP Server ...")
 
 	udpServer.Shutdown()
 }

@@ -3,16 +3,16 @@ package tangle
 import (
 	"runtime"
 
-	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/approvers"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/workerpool"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
@@ -32,21 +32,18 @@ func configureSolidifier(plugin *node.Plugin) {
 	}))
 
 	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		plugin.LogInfo("Stopping Solidifier ...")
-
+		log.Info("Stopping Solidifier ...")
 		workerPool.Stop()
 	}))
 }
 
 func runSolidifier(plugin *node.Plugin) {
-	plugin.LogInfo("Starting Solidifier ...")
+	log.Info("Starting Solidifier ...")
 
 	daemon.BackgroundWorker("Tangle Solidifier", func() {
-		plugin.LogSuccess("Starting Solidifier ... done")
-
+		log.Info("Starting Solidifier ... done")
 		workerPool.Run()
-
-		plugin.LogSuccess("Stopping Solidifier ... done")
+		log.Info("Stopping Solidifier ... done")
 	})
 }
 
@@ -153,7 +150,7 @@ func processMetaTransaction(plugin *node.Plugin, metaTransaction *meta_transacti
 
 		return value_transaction.FromMetaTransaction(metaTransaction)
 	}); err != nil {
-		plugin.LogFailure(err.Error())
+		log.Errorf("Unable to load transaction %s: %s", metaTransaction.GetHash(), err.Error())
 	} else if newTransaction {
 		processTransaction(plugin, tx)
 	}
@@ -166,8 +163,7 @@ func processTransaction(plugin *node.Plugin, transaction *value_transaction.Valu
 
 	// register tx as approver for trunk
 	if trunkApprovers, err := GetApprovers(transaction.GetTrunkTransactionHash(), approvers.New); err != nil {
-		plugin.LogFailure(err.Error())
-
+		log.Errorf("Unable to get approvers of transaction %s: %s", transaction.GetTrunkTransactionHash(), err.Error())
 		return
 	} else {
 		trunkApprovers.Add(transactionHash)
@@ -175,8 +171,7 @@ func processTransaction(plugin *node.Plugin, transaction *value_transaction.Valu
 
 	// register tx as approver for branch
 	if branchApprovers, err := GetApprovers(transaction.GetBranchTransactionHash(), approvers.New); err != nil {
-		plugin.LogFailure(err.Error())
-
+		log.Errorf("Unable to get approvers of transaction %s: %s", transaction.GetBranchTransactionHash(), err.Error())
 		return
 	} else {
 		branchApprovers.Add(transactionHash)
@@ -184,8 +179,7 @@ func processTransaction(plugin *node.Plugin, transaction *value_transaction.Valu
 
 	// update the solidity flags of this transaction and its approvers
 	if _, err := IsSolid(transaction); err != nil {
-		plugin.LogFailure(err.Error())
-
+		log.Errorf("Unable to check solidity: %s", err.Error())
 		return
 	}
 }

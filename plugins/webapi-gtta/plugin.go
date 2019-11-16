@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/iota.go/trinary"
 	"github.com/labstack/echo"
 )

@@ -1,7 +1,7 @@
 package chosenneighbors
 
 import (
-	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/node"
 )
 
 func Configure(plugin *node.Plugin) {

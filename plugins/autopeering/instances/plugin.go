@@ -1,7 +1,6 @@
 package instances
 
 import (
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/entrynodes"
@@ -9,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/outgoingrequest"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/ownpeer"
+	"github.com/iotaledger/hive.go/node"
 )
 
 func Configure(plugin *node.Plugin) {

@@ -1,14 +1,13 @@
 package client
 
 import (
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/parameter"
 	"net"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/accountability"
-	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/timeutil"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
@@ -18,8 +17,12 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 )
+
+var log = logger.NewLogger("Analysis-Client")
 
 func Run(plugin *node.Plugin) {
 	daemon.BackgroundWorker("Analysis Client", func() {
@@ -32,7 +35,7 @@ func Run(plugin *node.Plugin) {
 
 			default:
 				if conn, err := net.Dial("tcp", parameter.NodeConfig.GetString(CFG_SERVER_ADDRESS)); err != nil {
-					plugin.LogDebug("Could not connect to reporting server: " + err.Error())
+					log.Debugf("Could not connect to reporting server: %s", err.Error())
 
 					timeutil.Sleep(1 * time.Second)
 				} else {

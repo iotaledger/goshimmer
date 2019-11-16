@@ -1,14 +1,16 @@
 package statusscreen
 
 import (
+	"github.com/iotaledger/hive.go/logger"
+	"io/ioutil"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/gdamore/tcell"
-	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/rivo/tview"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -24,13 +26,19 @@ func configure(plugin *node.Plugin) {
 		return
 	}
 
-	node.DEFAULT_LOGGER.SetEnabled(false)
+	// don't write anything to stdout anymore
+	// as log messages are now stored and displayed via this plugin
+	logger.InjectWriters(ioutil.Discard)
 
-	DEFAULT_LOGGER.SetEnabled(true)
-	plugin.Node.AddLogger(DEFAULT_LOGGER)
+	// store any log message for display
+	anyLogMsgClosure := events.NewClosure(func(logLevel logger.LogLevel, prefix string, msg string) {
+		storeStatusMessage(logLevel, prefix, msg)
+	})
+	logger.Events.AnyMsg.Attach(anyLogMsgClosure)
 
 	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		node.DEFAULT_LOGGER.SetEnabled(true)
+		logger.InjectWriters(os.Stdout)
+		logger.Events.AnyMsg.Detach(anyLogMsgClosure)
 
 		if app != nil {
 			app.Stop()

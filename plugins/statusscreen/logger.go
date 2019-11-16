@@ -1,24 +1,23 @@
 package statusscreen
 
 import (
+	"github.com/iotaledger/hive.go/logger"
 	"time"
-
-	"github.com/iotaledger/goshimmer/packages/node"
 )
 
-func storeStatusMessage(pluginName string, message string, logLevel int) {
+func storeStatusMessage(logLevel logger.LogLevel, prefix string, message string, ) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	messageLog = append(messageLog, &StatusMessage{
-		Source:   pluginName,
+		Source:   prefix,
 		LogLevel: logLevel,
 		Message:  message,
 		Time:     time.Now(),
 	})
 
-	if statusMessage, exists := statusMessages[pluginName]; !exists {
-		statusMessages[pluginName] = &StatusMessage{
-			Source:   pluginName,
+	if statusMessage, exists := statusMessages[prefix]; !exists {
+		statusMessages[prefix] = &StatusMessage{
+			Source:   prefix,
 			LogLevel: logLevel,
 			Message:  message,
 			Time:     time.Now(),
@@ -28,22 +27,4 @@ func storeStatusMessage(pluginName string, message string, logLevel int) {
 		statusMessage.Message = message
 		statusMessage.Time = time.Now()
 	}
-}
-
-var DEFAULT_LOGGER = &node.Logger{
-	LogInfo: func(pluginName string, message string) {
-		storeStatusMessage(pluginName, message, node.LOG_LEVEL_INFO)
-	},
-	LogSuccess: func(pluginName string, message string) {
-		storeStatusMessage(pluginName, message, node.LOG_LEVEL_SUCCESS)
-	},
-	LogWarning: func(pluginName string, message string) {
-		storeStatusMessage(pluginName, message, node.LOG_LEVEL_WARNING)
-	},
-	LogFailure: func(pluginName string, message string) {
-		storeStatusMessage(pluginName, message, node.LOG_LEVEL_FAILURE)
-	},
-	LogDebug: func(pluginName string, message string) {
-		storeStatusMessage(pluginName, message, node.LOG_LEVEL_DEBUG)
-	},
 }

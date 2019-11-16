@@ -1,15 +1,17 @@
 package bundleprocessor
 
 import (
-	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 )
 
 var PLUGIN = node.NewPlugin("Bundle Processor", node.Enabled, configure, run)
+var log = logger.NewLogger("Bundle Processor")
 
 func configure(plugin *node.Plugin) {
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
@@ -19,38 +21,34 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	Events.Error.Attach(events.NewClosure(func(err errors.IdentifiableError) {
-		plugin.LogFailure(err.Error())
+		log.Error(err.Error())
 	}))
 
 	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		plugin.LogInfo("Stopping Bundle Processor ...")
+		log.Info("Stopping Bundle Processor ...")
 
 		workerPool.Stop()
 
-		plugin.LogInfo("Stopping Value Bundle Processor ...")
+		log.Info("Stopping Value Bundle Processor ...")
 
 		valueBundleProcessorWorkerPool.Stop()
 	}))
 }
 
 func run(plugin *node.Plugin) {
-	plugin.LogInfo("Starting Bundle Processor ...")
+	log.Info("Starting Bundle Processor ...")
 
 	daemon.BackgroundWorker("Bundle Processor", func() {
-		plugin.LogSuccess("Starting Bundle Processor ... done")
-
+		log.Info("Starting Bundle Processor ... done")
 		workerPool.Run()
-
-		plugin.LogSuccess("Stopping Bundle Processor ... done")
+		log.Info("Stopping Bundle Processor ... done")
 	})
 
-	plugin.LogInfo("Starting Value Bundle Processor ...")
+	log.Info("Starting Value Bundle Processor ...")
 
 	daemon.BackgroundWorker("Value Bundle Processor", func() {
-		plugin.LogSuccess("Starting Value Bundle Processor ... done")
-
+		log.Info("Starting Value Bundle Processor ... done")
 		valueBundleProcessorWorkerPool.Run()
-
-		plugin.LogSuccess("Stopping Value Bundle Processor ... done")
+		log.Info("Stopping Value Bundle Processor ... done")
 	})
 }

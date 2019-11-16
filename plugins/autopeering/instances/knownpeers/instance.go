@@ -1,9 +1,9 @@
 package knownpeers
 
 import (
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/entrynodes"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peerregister"
+	"github.com/iotaledger/hive.go/node"
 )
 
 var INSTANCE *peerregister.PeerRegister

@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/iota.go/trinary"
 )
 

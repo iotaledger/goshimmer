@@ -2,13 +2,13 @@ package gossip
 
 import (
 	"github.com/iotaledger/goshimmer/packages/accountability"
-	"github.com/iotaledger/goshimmer/packages/daemon"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/tcp"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/parameter"
 )
 
@@ -20,7 +20,7 @@ func configureServer(plugin *node.Plugin) {
 
 		// print protocol errors
 		protocol.Events.Error.Attach(events.NewClosure(func(err errors.IdentifiableError) {
-			plugin.LogFailure(err.Error())
+			log.Error(err.Error())
 		}))
 
 		// store protocol in neighbor if its a neighbor calling
@@ -57,21 +57,21 @@ func configureServer(plugin *node.Plugin) {
 	}))
 
 	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		plugin.LogInfo("Stopping TCP Server ...")
+		log.Info("Stopping TCP Server ...")
 
 		TCPServer.Shutdown()
 	}))
 }
 
 func runServer(plugin *node.Plugin) {
-	gossipPort := parameter.NodeConfig.GetString(GOSSIP_PORT)
-	plugin.LogInfo("Starting TCP Server (port " + gossipPort + ") ...")
+	gossipPort := parameter.NodeConfig.GetInt(GOSSIP_PORT)
+	log.Infof("Starting TCP Server (port %d) ...", gossipPort)
 
 	daemon.BackgroundWorker("Gossip TCP Server", func() {
-		plugin.LogSuccess("Starting TCP Server (port " + gossipPort + ") ... done")
+		log.Infof("Starting TCP Server (port %d) ... done", gossipPort)
 
-		TCPServer.Listen(parameter.NodeConfig.GetInt(GOSSIP_PORT))
+		TCPServer.Listen(gossipPort)
 
-		plugin.LogSuccess("Stopping TCP Server ... done")
+		log.Info("Stopping TCP Server ... done")
 	})
 }

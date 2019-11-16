@@ -1,11 +1,11 @@
 package protocol
 
 import (
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 )
 
 func createIncomingResponseProcessor(plugin *node.Plugin) *events.Closure {
@@ -15,7 +15,7 @@ func createIncomingResponseProcessor(plugin *node.Plugin) *events.Closure {
 }
 
 func processIncomingResponse(plugin *node.Plugin, peeringResponse *response.Response) {
-	plugin.LogDebug("received peering response from " + peeringResponse.Issuer.String())
+	log.Debugf("received peering response from %s", peeringResponse.Issuer.String())
 
 	if conn := peeringResponse.Issuer.GetConn(); conn != nil {
 		_ = conn.Close()

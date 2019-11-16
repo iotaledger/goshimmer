@@ -80,6 +80,16 @@ github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpO
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/iotaledger/hive.go v0.0.0-20191113184748-b545de9170d9 h1:zlolyGALm324vLK6zJuw9cNp/XoNqsxqqx4jzHgoaFU=
 github.com/iotaledger/hive.go v0.0.0-20191113184748-b545de9170d9/go.mod h1:Ks2y/bEyfvb7nUA7l69a+8Epsv16UlGev0BvxggHius=
+github.com/iotaledger/hive.go v0.0.0-20191115085829-f860e155ac2a h1:TNEDXmA66NE+0DdAtErNuOu/aep6YlYTqbDACiM4aQc=
+github.com/iotaledger/hive.go v0.0.0-20191115085829-f860e155ac2a/go.mod h1:Ks2y/bEyfvb7nUA7l69a+8Epsv16UlGev0BvxggHius=
+github.com/iotaledger/hive.go v0.0.0-20191115132232-9512db691c82 h1:J954SXMQS7Z6gnd/z/AFckKEZ+yLscsvMIbwsm9fnjQ=
+github.com/iotaledger/hive.go v0.0.0-20191115132232-9512db691c82/go.mod h1:Ks2y/bEyfvb7nUA7l69a+8Epsv16UlGev0BvxggHius=
+github.com/iotaledger/hive.go v0.0.0-20191115132634-8a8861c2801f h1:QPkMzHt4TBzZH7piaVz+eEFyV7CBXL/oSBc5lC0ijAE=
+github.com/iotaledger/hive.go v0.0.0-20191115132634-8a8861c2801f/go.mod h1:Ks2y/bEyfvb7nUA7l69a+8Epsv16UlGev0BvxggHius=
+github.com/iotaledger/hive.go v0.0.0-20191115134440-92f05839b6e0 h1:rHv9I8UNWO3u5QHY+IpxGLIoGKTChZAMSR/GwL3vWKo=
+github.com/iotaledger/hive.go v0.0.0-20191115134440-92f05839b6e0/go.mod h1:Ks2y/bEyfvb7nUA7l69a+8Epsv16UlGev0BvxggHius=
+github.com/iotaledger/hive.go v0.0.0-20191116130349-b8be71b827be h1:8aE2Pv9Z2db42CscDf78Yt/uHzHnkAOLmaXvzFqlX7o=
+github.com/iotaledger/hive.go v0.0.0-20191116130349-b8be71b827be/go.mod h1:Ks2y/bEyfvb7nUA7l69a+8Epsv16UlGev0BvxggHius=
 github.com/iotaledger/iota.go v1.0.0-beta.9 h1:c654s9pkdhMBkABUvWg+6k91MEBbdtmZXP1xDfQpajg=
 github.com/iotaledger/iota.go v1.0.0-beta.9/go.mod h1:F6WBmYd98mVjAmmPVYhnxg8NNIWCjjH8VWT9qvv3Rc8=
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=

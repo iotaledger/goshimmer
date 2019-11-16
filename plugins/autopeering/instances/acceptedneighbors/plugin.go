@@ -1,6 +1,6 @@
 package acceptedneighbors
 
-import "github.com/iotaledger/goshimmer/packages/node"
+import "github.com/iotaledger/hive.go/node"
 
 func Configure(plugin *node.Plugin) {
 	configureOwnDistance()

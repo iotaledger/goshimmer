@@ -3,13 +3,13 @@ package protocol
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/timeutil"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/ownpeer"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/types"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/drop"
+	"github.com/iotaledger/hive.go/node"
 )
 
 func createAcceptedNeighborDropper(plugin *node.Plugin) func() {
@@ -29,7 +29,7 @@ func createAcceptedNeighborDropper(plugin *node.Plugin) func() {
 						acceptedneighbors.INSTANCE.Remove(furthestNeighbor.GetIdentity().StringIdentifier)
 						go func() {
 							if _, err := furthestNeighbor.Send(dropMessage.Marshal(), types.PROTOCOL_TYPE_UDP, false); err != nil {
-								plugin.LogDebug("error when sending drop message to" + acceptedneighbors.FURTHEST_NEIGHBOR.String())
+								log.Debugf("error when sending drop message to %s", acceptedneighbors.FURTHEST_NEIGHBOR.String())
 							}
 						}()
 					}

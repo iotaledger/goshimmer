@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/iotaledger/goshimmer/packages/identity"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peerlist"
+	"github.com/iotaledger/hive.go/node"
 )
 
 var INSTANCE *peerlist.PeerList

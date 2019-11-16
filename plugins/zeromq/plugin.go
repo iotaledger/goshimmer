@@ -1,21 +1,22 @@
 package zeromq
 
 import (
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/parameter"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 )
 
 // zeromq logging is disabled by default
 var PLUGIN = node.NewPlugin("ZeroMQ", node.Disabled, configure, run)
-
+var log = logger.NewLogger("ZeroMQ")
 var publisher *Publisher
 var emptyTag = strings.Repeat("9", 27)
 
@@ -23,12 +24,12 @@ var emptyTag = strings.Repeat("9", 27)
 func configure(plugin *node.Plugin) {
 
 	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		plugin.LogInfo("Stopping ZeroMQ Publisher ...")
+		log.Info("Stopping ZeroMQ Publisher ...")
 
 		if err := publisher.Shutdown(); err != nil {
-			plugin.LogFailure("Stopping ZeroMQ Publisher: " + err.Error())
+			log.Errorf("Stopping ZeroMQ Publisher: %s", err.Error())
 		} else {
-			plugin.LogSuccess("Stopping ZeroMQ Publisher ... done")
+			log.Info("Stopping ZeroMQ Publisher ... done")
 		}
 	}))
 
@@ -36,7 +37,7 @@ func configure(plugin *node.Plugin) {
 		// create goroutine for every event
 		go func() {
 			if err := publishTx(tx); err != nil {
-				plugin.LogFailure(err.Error())
+				log.Errorf("error publishing tx: %s", err.Error())
 			}
 		}()
 	}))
@@ -44,14 +45,14 @@ func configure(plugin *node.Plugin) {
 
 // Start the zeromq plugin
 func run(plugin *node.Plugin) {
-	zeromqPort := parameter.NodeConfig.GetString(ZEROMQ_PORT)
-	plugin.LogInfo("Starting ZeroMQ Publisher (port " + zeromqPort + ") ...")
+	zeromqPort := parameter.NodeConfig.GetInt(ZEROMQ_PORT)
+	log.Infof("Starting ZeroMQ Publisher (port %d) ...", zeromqPort)
 
 	daemon.BackgroundWorker("ZeroMQ Publisher", func() {
 		if err := startPublisher(plugin); err != nil {
-			plugin.LogFailure("Stopping ZeroMQ Publisher: " + err.Error())
+			log.Errorf("Stopping ZeroMQ Publisher: %s", err.Error())
 		} else {
-			plugin.LogSuccess("Starting ZeroMQ Publisher (port " + zeromqPort + ") ... done")
+			log.Infof("Starting ZeroMQ Publisher (port %d) ... done", zeromqPort)
 		}
 	})
 }
