@@ -2,17 +2,19 @@ package peerstorage
 
 import (
 	"bytes"
-	"strconv"
+	"github.com/iotaledger/hive.go/logger"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 )
 
 const peerDbName string = "peers"
+
+var log = logger.NewLogger("Autopeering-Peerstorage")
 
 var peerDb database.Database
 var once sync.Once
@@ -61,13 +63,13 @@ func loadPeers(plugin *node.Plugin) {
 
 		knownpeers.INSTANCE.AddOrUpdate(peer)
 		count++
-		plugin.LogDebug("Added stored peer: " + peer.GetAddress().String() + " / " + peer.GetIdentity().StringIdentifier)
+		log.Debugf("Added stored peer: %s / %s", peer.GetAddress().String(), peer.GetIdentity().StringIdentifier)
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	plugin.LogSuccess("Restored " + strconv.Itoa(count) + " peers from database")
+	log.Infof("Restored %d peers from database", count)
 }
 
 func Configure(plugin *node.Plugin) {

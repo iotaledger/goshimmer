@@ -1,9 +1,9 @@
 package server
 
 import (
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/server/tcp"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/server/udp"
+	"github.com/iotaledger/hive.go/node"
 )
 
 func Configure(plugin *node.Plugin) {

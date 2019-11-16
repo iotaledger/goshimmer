@@ -3,7 +3,6 @@ package protocol
 import (
 	"math/rand"
 
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
@@ -13,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peerlist"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/parameter"
 )
 
@@ -23,7 +23,7 @@ func createIncomingRequestProcessor(plugin *node.Plugin) *events.Closure {
 }
 
 func processIncomingRequest(plugin *node.Plugin, req *request.Request) {
-	plugin.LogDebug("received peering request from " + req.Issuer.String())
+	log.Debugf("received peering request from %s", req.Issuer.String())
 
 	knownpeers.INSTANCE.AddOrUpdate(req.Issuer)
 
@@ -50,20 +50,20 @@ func requestShouldBeAccepted(req *request.Request) bool {
 
 func acceptRequest(plugin *node.Plugin, req *request.Request) {
 	if err := req.Accept(generateProposedPeeringCandidates(req).GetPeers()); err != nil {
-		plugin.LogDebug("error when sending response to" + req.Issuer.String())
+		log.Debugf("error when sending response to %s", req.Issuer.String())
 	}
 
-	plugin.LogDebug("sent positive peering response to " + req.Issuer.String())
+	log.Debugf("sent positive peering response to %s", req.Issuer.String())
 
 	acceptedneighbors.INSTANCE.AddOrUpdate(req.Issuer)
 }
 
 func rejectRequest(plugin *node.Plugin, req *request.Request) {
 	if err := req.Reject(generateProposedPeeringCandidates(req).GetPeers()); err != nil {
-		plugin.LogDebug("error when sending response to" + req.Issuer.String())
+		log.Debugf("error when sending response to %s", req.Issuer.String())
 	}
 
-	plugin.LogDebug("sent negative peering response to " + req.Issuer.String())
+	log.Debugf("sent negative peering response to %s", req.Issuer.String())
 }
 
 func generateProposedPeeringCandidates(req *request.Request) *peerlist.PeerList {

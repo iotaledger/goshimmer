@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/accountability"
-	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/ownpeer"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
@@ -15,15 +13,17 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/salt"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 )
 
 var lastPing time.Time
 
 func createOutgoingPingProcessor(plugin *node.Plugin) func() {
 	return func() {
-		plugin.LogInfo("Starting Ping Processor ...")
-		plugin.LogSuccess("Starting Ping Processor ... done")
+		log.Info("Starting Ping Processor ...")
+		log.Info("Starting Ping Processor ... done")
 
 		lastPing = time.Now().Add(-constants.PING_CYCLE_LENGTH)
 
@@ -43,7 +43,7 @@ func createOutgoingPingProcessor(plugin *node.Plugin) func() {
 		for {
 			select {
 			case <-daemon.ShutdownSignal:
-				plugin.LogInfo("Stopping Ping Processor ...")
+				log.Info("Stopping Ping Processor ...")
 
 				break ticker
 			case <-ticker.C:
@@ -51,7 +51,7 @@ func createOutgoingPingProcessor(plugin *node.Plugin) func() {
 			}
 		}
 
-		plugin.LogSuccess("Stopping Ping Processor ... done")
+		log.Info("Stopping Ping Processor ... done")
 	}
 }
 
@@ -73,9 +73,9 @@ func pingPeers(plugin *node.Plugin, outgoingPing *ping.Ping) {
 			for _, chosenPeer := range chosenPeers {
 				go func(chosenPeer *peer.Peer) {
 					if _, err := chosenPeer.Send(outgoingPing.Marshal(), types.PROTOCOL_TYPE_UDP, false); err != nil {
-						plugin.LogDebug("error when sending ping to " + chosenPeer.String() + ": " + err.Error())
+						log.Debugf("error when sending ping to %s: %s", chosenPeer.String(), err.Error())
 					} else {
-						plugin.LogDebug("sent ping to " + chosenPeer.String())
+						log.Debugf("sent ping to %s", chosenPeer.String())
 					}
 				}(chosenPeer)
 			}

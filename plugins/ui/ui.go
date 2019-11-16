@@ -1,19 +1,20 @@
 package ui
 
 import (
+	"github.com/iotaledger/hive.go/logger"
 	"net/http"
 	"strings"
 	"sync/atomic"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 
 	"github.com/labstack/echo"
 )
@@ -46,8 +47,11 @@ func configure(plugin *node.Plugin) {
 		}()
 	}))
 
-	uiLogger.SetEnabled(true)
-	plugin.Node.AddLogger(uiLogger)
+	// store log messages to send them down via the websocket
+	anyMsgClosure := events.NewClosure(func(logLvl logger.LogLevel, prefix string, msg string) {
+		storeAndSendStatusMessage(logLvl, prefix, msg)
+	})
+	logger.Events.AnyMsg.Attach(anyMsgClosure)
 }
 
 func staticFileServer(c echo.Context) error {

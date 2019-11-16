@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/analysis"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/bundleprocessor"
@@ -21,6 +20,7 @@ import (
 	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi-spammer"
 	"github.com/iotaledger/goshimmer/plugins/webauth"
 	"github.com/iotaledger/goshimmer/plugins/zeromq"
+	"github.com/iotaledger/hive.go/node"
 )
 
 func main() {

@@ -4,51 +4,53 @@ import (
 	"math"
 	"net"
 
-	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/tcp"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/parameter"
 	"github.com/pkg/errors"
 )
 
 var server = tcp.NewServer()
+var log = logger.NewLogger("Autopeering-TCPServer")
 
 func ConfigureServer(plugin *node.Plugin) {
 	serverAddress := parameter.NodeConfig.GetString(parameters.CFG_ADDRESS)
-	serverPortStr := parameter.NodeConfig.GetString(parameters.CFG_PORT)
+	serverPort := parameter.NodeConfig.GetInt(parameters.CFG_PORT)
 
 	server.Events.Connect.Attach(events.NewClosure(HandleConnection))
 	server.Events.Error.Attach(events.NewClosure(func(err error) {
-		plugin.LogFailure("error in tcp server: " + err.Error())
+		log.Errorf("error in tcp server: %s", err.Error())
 	}))
 
 	server.Events.Start.Attach(events.NewClosure(func() {
 		if serverAddress == "0.0.0.0" {
-			plugin.LogSuccess("Starting TCP Server (port " + serverPortStr + ") ... done")
+			log.Infof("Starting TCP Server (port %d) ... done", serverPort)
 		} else {
-			plugin.LogSuccess("Starting TCP Server (" + serverAddress + ":" + serverPortStr + ") ... done")
+			log.Infof("Starting TCP Server (%s:%d) ... done", serverAddress, serverPort)
 		}
 	}))
 	server.Events.Shutdown.Attach(events.NewClosure(func() {
-		plugin.LogSuccess("Stopping TCP Server ... done")
+		log.Info("Stopping TCP Server ... done")
 	}))
 }
 
 func RunServer(plugin *node.Plugin) {
 	serverAddress := parameter.NodeConfig.GetString(parameters.CFG_ADDRESS)
-	serverPortStr := parameter.NodeConfig.GetString(parameters.CFG_PORT)
+	serverPort := parameter.NodeConfig.GetInt(parameters.CFG_PORT)
 
 	daemon.BackgroundWorker("Autopeering TCP Server", func() {
 		if serverAddress == "0.0.0.0" {
-			plugin.LogInfo("Starting TCP Server (port " + serverPortStr + ") ...")
+			log.Infof("Starting TCP Server (port %d) ...", serverPort)
 		} else {
-			plugin.LogInfo("Starting TCP Server (" + serverAddress + ":" + serverPortStr + ") ...")
+			log.Infof("Starting TCP Server (%s:%d) ...", serverAddress, serverPort)
 		}
 
 		server.Listen(parameter.NodeConfig.GetInt(parameters.CFG_PORT))
@@ -56,7 +58,7 @@ func RunServer(plugin *node.Plugin) {
 }
 
 func ShutdownServer(plugin *node.Plugin) {
-	plugin.LogInfo("Stopping TCP Server ...")
+	log.Info("Stopping TCP Server ...")
 
 	server.Shutdown()
 }
