@@ -27,7 +27,7 @@ func Configure(plugin *node.Plugin) {
 
 	server.Events.Connect.Attach(events.NewClosure(HandleConnection))
 	server.Events.Error.Attach(events.NewClosure(func(err error) {
-		log.Error("error in server: %s", err.Error())
+		log.Errorf("error in server: %s", err.Error())
 	}))
 	server.Events.Start.Attach(events.NewClosure(func() {
 		log.Infof("Starting Server (port %d) ... done", parameter.NodeConfig.GetInt(CFG_SERVER_PORT))

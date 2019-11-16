@@ -1,7 +1,6 @@
 package gracefulshutdown
 
 import (
-	"github.com/iotaledger/hive.go/logger"
 	"os"
 	"os/signal"
 	"strings"
@@ -9,6 +8,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -38,7 +38,7 @@ var PLUGIN = node.NewPlugin("Graceful Shutdown", node.Enabled, func(plugin *node
 					if len(runningBackgroundWorkers) >= 1 {
 						processList = "(" + strings.Join(runningBackgroundWorkers, ", ") + ") "
 					}
-					log.Warningf("Received shutdown request - waiting (max %d seconds) to finish processing ...", WAIT_TO_KILL_TIME_IN_SECONDS-int(secondsSinceStart), processList)
+					log.Warningf("Received shutdown request - waiting (max %d seconds) to finish processing %s...", WAIT_TO_KILL_TIME_IN_SECONDS-int(secondsSinceStart), processList)
 				} else {
 					log.Error("Background processes did not terminate in time! Forcing shutdown ...")
 					os.Exit(1)
