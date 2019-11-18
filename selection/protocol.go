@@ -36,9 +36,6 @@ type Protocol struct {
 	loc  *peer.Local        // local peer that runs the protocol
 	log  *zap.SugaredLogger // logging
 
-	peeringRequest chan<- PeeringRequest
-	dropRequest    chan<- DropRequest
-
 	mgr       *manager // the manager handles the actual neighbor selection
 	closeOnce sync.Once
 }
@@ -46,12 +43,10 @@ type Protocol struct {
 // New creates a new neighbor selection protocol.
 func New(local *peer.Local, disc DiscoverProtocol, cfg Config) *Protocol {
 	p := &Protocol{
-		Protocol:       server.Protocol{},
-		loc:            local,
-		disc:           disc,
-		log:            cfg.Log,
-		peeringRequest: cfg.PeeringRequest,
-		dropRequest:    cfg.DropRequest,
+		Protocol: server.Protocol{},
+		loc:      local,
+		disc:     disc,
+		log:      cfg.Log,
 	}
 	p.mgr = newManager(p, cfg.SaltLifetime, disc.GetVerifiedPeers, cfg.DropNeighbors, cfg.Log.Named("mgr"))
 
@@ -59,7 +54,7 @@ func New(local *peer.Local, disc DiscoverProtocol, cfg Config) *Protocol {
 }
 
 // Local returns the associated local peer of the neighbor selection.
-func (p *Protocol) Local() *peer.Local {
+func (p *Protocol) local() *peer.Local {
 	return p.loc
 }
 
@@ -130,7 +125,7 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 
 // RequestPeering sends a peering request to the given peer. This method blocks
 // until a response is received and the status answer is returned.
-func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt) (bool, error) {
+func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt) (peer.ServiceMap, error) {
 	p.disc.EnsureVerified(to)
 
 	// create the request package
@@ -140,28 +135,20 @@ func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt) (bool, error) 
 	// compute the message hash
 	hash := server.PacketHash(data)
 
-	var status bool
+	var services peer.ServiceMap
 	callback := func(m interface{}) bool {
 		res := m.(*pb.PeeringResponse)
 		if !bytes.Equal(res.GetReqHash(), hash) {
 			return false
 		}
-		status = res.GetStatus()
+		if res.GetStatus() {
+			services = peer.NewServiceMapFromProto(res.GetServices())
+		}
 		return true
 	}
 
 	err := <-p.Protocol.SendExpectingReply(to, data, pb.MPeeringResponse, callback)
-
-	// signal the status of this peering request, if necessary
-	if p.peeringRequest != nil {
-		accept := status
-		if err != nil {
-			accept = false
-		}
-		p.peeringRequest <- PeeringRequest{Self: p.loc.ID(), ID: to.ID(), Status: accept}
-	}
-
-	return status, err
+	return services, err
 }
 
 // DropPeer sends a PeeringDrop to the given peer.
@@ -170,11 +157,6 @@ func (p *Protocol) DropPeer(to *peer.Peer) {
 
 	drop := newPeeringDrop(toAddr)
 	p.Protocol.Send(to, marshal(drop))
-
-	// signal the status of this received drop, if necessary
-	if p.dropRequest != nil {
-		p.dropRequest <- DropRequest{Self: p.loc.ID(), ID: to.ID()}
-	}
 }
 
 // ------ helper functions ------
@@ -202,10 +184,11 @@ func newPeeringRequest(toAddr string, salt *salt.Salt) *pb.PeeringRequest {
 	}
 }
 
-func newPeeringResponse(reqData []byte, accepted bool) *pb.PeeringResponse {
+func newPeeringResponse(reqData []byte, services peer.ServiceMap) *pb.PeeringResponse {
 	return &pb.PeeringResponse{
-		ReqHash: server.PacketHash(reqData),
-		Status:  accepted,
+		ReqHash:  server.PacketHash(reqData),
+		Status:   len(services) > 0,
+		Services: peer.ServiceMapToProto(services),
 	}
 }
 
@@ -276,9 +259,7 @@ func (p *Protocol) handlePeeringRequest(s *server.Server, from *peer.Peer, rawDa
 		return
 	}
 
-	accepted := p.mgr.acceptRequest(from, salt)
-
-	res := newPeeringResponse(rawData, accepted)
+	res := newPeeringResponse(rawData, p.mgr.acceptRequest(from, salt))
 	s.Send(from.Address(), marshal(res))
 }
 

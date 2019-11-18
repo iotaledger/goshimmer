@@ -20,7 +20,7 @@ var (
 type testPeer struct {
 	local *peer.Local
 	peer  *peer.Peer
-	db    *peer.DB
+	db    peer.DB
 	log   *zap.SugaredLogger
 	rand  *rand.Rand // random number generator
 }
@@ -38,9 +38,8 @@ func newPeer(name string) testPeer {
 	}
 	logger := l.Sugar()
 	log := logger.Named(name)
-	priv, _ := peer.GeneratePrivateKey()
-	db := peer.NewMapDB(log.Named("db"))
-	local := peer.NewLocal(priv, db)
+	db := peer.NewMemoryDB(log.Named("db"))
+	local, _ := peer.NewLocal(db)
 	s, _ := salt.NewSalt(100 * time.Second)
 	local.SetPrivateSalt(s)
 	s, _ = salt.NewSalt(100 * time.Second)
@@ -70,15 +69,15 @@ type testNet struct {
 	rand *rand.Rand
 }
 
-func (n testNet) Local() *peer.Local {
+func (n testNet) local() *peer.Local {
 	return n.loc
 }
 
 func (n testNet) DropPeer(p *peer.Peer) {
-	n.mgr[p.ID()].dropNeighbor(n.Local().ID())
+	n.mgr[p.ID()].dropNeighbor(n.local().ID())
 }
 
-func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
+func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (peer.ServiceMap, error) {
 	return n.mgr[p.ID()].acceptRequest(n.self, s), nil
 }
 

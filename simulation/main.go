@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/autopeering-sim/server"
 	"github.com/iotaledger/autopeering-sim/simulation/visualizer"
 	"github.com/iotaledger/autopeering-sim/transport"
+	"github.com/iotaledger/hive.go/events"
 )
 
 var (
@@ -22,8 +23,9 @@ var (
 	neighborhoods  = make(map[peer.ID][]*peer.Peer)
 	Links          = []Link{}
 	termTickerChan = make(chan bool)
-	peeringChan    = make(chan selection.PeeringRequest, 10)
-	dropChan       = make(chan selection.DropRequest, 10)
+	incomingChan   = make(chan *selection.PeeringEvent, 10)
+	outgoingChan   = make(chan *selection.PeeringEvent, 10)
+	dropChan       = make(chan *selection.DroppedEvent, 10)
 	closing        = make(chan struct{})
 	RecordConv     = NewConvergenceList()
 	StartTime      time.Time
@@ -50,6 +52,11 @@ func RunSim() {
 	serverMap := make(map[peer.ID]*server.Server, N)
 	disc := dummyDiscovery{}
 
+	// subscribe to the events
+	selection.Events.IncomingPeering.Attach(events.NewClosure(func(e *selection.PeeringEvent) { incomingChan <- e }))
+	selection.Events.OutgoingPeering.Attach(events.NewClosure(func(e *selection.PeeringEvent) { outgoingChan <- e }))
+	selection.Events.Dropped.Attach(events.NewClosure(func(e *selection.DroppedEvent) { dropChan <- e }))
+
 	//lambda := (float64(N) / SaltLifetime.Seconds()) * 10
 	initialSalt := 0.
 
@@ -65,10 +72,8 @@ func RunSim() {
 		idMap[id] = uint16(i)
 
 		cfg := selection.Config{Log: peer.log,
-			SaltLifetime:   SaltLifetime,
-			DropNeighbors:  DropAllFlag,
-			PeeringRequest: peeringChan,
-			DropRequest:    dropChan,
+			SaltLifetime:  SaltLifetime,
+			DropNeighbors: DropAllFlag,
 		}
 		protocol := selection.New(peer.local, disc, cfg)
 		serverMap[id] = server.Listen(peer.local, network.GetTransport(name), peer.log, protocol)
@@ -163,28 +168,37 @@ func runLinkAnalysis() {
 		for {
 			select {
 
-			case req := <-peeringChan:
+			// handle incoming peering requests
+			case req := <-incomingChan:
+				from := idMap[req.Peer.ID()]
+				to := idMap[req.Self]
+				status.Append(from, to, INCOMING)
+
+			// handle outgoing peering requests
+			case req := <-outgoingChan:
 				from := idMap[req.Self]
-				to := idMap[req.ID]
+				to := idMap[req.Peer.ID()]
 				status.Append(from, to, OUTBOUND)
-				status.Append(to, from, INCOMING)
-				if req.Status {
+
+				// accepted/rejected is only recorded for outgoing requests
+				if len(req.Services) > 0 {
 					status.Append(from, to, ACCEPTED)
 					Links = append(Links, NewLink(from, to, time.Since(StartTime).Milliseconds()))
 					if vEnabled {
-						visualizer.AddLink(req.Self.String(), req.ID.String())
+						visualizer.AddLink(req.Self.String(), req.Peer.ID().String())
 					}
 				} else {
 					status.Append(from, to, REJECTED)
 				}
 
+			// handle dropped peers incoming and outgoing
 			case req := <-dropChan:
 				from := idMap[req.Self]
-				to := idMap[req.ID]
+				to := idMap[req.DroppedID]
 				status.Append(from, to, DROPPED)
 				DropLink(from, to, time.Since(StartTime).Milliseconds(), Links)
 				if vEnabled {
-					visualizer.RemoveLink(req.Self.String(), req.ID.String())
+					visualizer.RemoveLink(req.Self.String(), req.DroppedID.String())
 				}
 
 			case <-ticker.C:

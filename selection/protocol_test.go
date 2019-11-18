@@ -35,12 +35,14 @@ func (d dummyDiscovery) GetVerifiedPeers() []*peer.Peer { return []*peer.Peer{} 
 
 // newTest creates a new neighborhood server and also returns the teardown.
 func newTest(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*server.Server, *Protocol, func()) {
-	priv, err := peer.GeneratePrivateKey()
+	log := logger.Named(name)
+	db := peer.NewMemoryDB(log.Named("db"))
+	local, err := peer.NewLocal(db)
 	require.NoError(t, err)
 
-	log := logger.Named(name)
-	db := peer.NewMapDB(log.Named("db"))
-	local := peer.NewLocal(priv, db)
+	// add a dummy service
+	local.Services()["dummy"] = peer.NetworkAddress{}
+
 	s, _ := salt.NewSalt(100 * time.Second)
 	local.SetPrivateSalt(s)
 	s, _ = salt.NewSalt(100 * time.Second)
@@ -77,14 +79,14 @@ func TestProtPeeringRequest(t *testing.T) {
 
 	// request peering to peer A
 	t.Run("A->B", func(t *testing.T) {
-		if accept, err := protA.RequestPeering(peerB, saltA); assert.NoError(t, err) {
-			assert.True(t, accept)
+		if services, err := protA.RequestPeering(peerB, saltA); assert.NoError(t, err) {
+			assert.NotEmpty(t, services)
 		}
 	})
 	// request peering to peer B
 	t.Run("B->A", func(t *testing.T) {
-		if accept, err := protB.RequestPeering(peerA, saltB); assert.NoError(t, err) {
-			assert.True(t, accept)
+		if services, err := protB.RequestPeering(peerA, saltB); assert.NoError(t, err) {
+			assert.NotEmpty(t, services)
 		}
 	})
 }
@@ -118,9 +120,9 @@ func TestProtDropPeer(t *testing.T) {
 	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
 
 	// request peering to peer A
-	accept, err := protA.RequestPeering(peerB, saltA)
+	services, err := protA.RequestPeering(peerB, saltA)
 	require.NoError(t, err)
-	assert.True(t, accept)
+	assert.NotEmpty(t, services)
 
 	require.Contains(t, protB.GetNeighbors(), peerA)
 

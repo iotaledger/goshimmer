@@ -14,7 +14,7 @@ func TestID(t *testing.T) {
 	pub, priv, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
-	local := NewLocal(priv, nil)
+	local := newLocal(PrivateKey(priv), nil)
 	id := PublicKey(pub).ID()
 	assert.Equal(t, id, local.ID())
 }
@@ -23,14 +23,14 @@ func TestPublicKey(t *testing.T) {
 	pub, priv, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
-	local := NewLocal(priv, nil)
+	local := newLocal(PrivateKey(priv), nil)
 	assert.EqualValues(t, pub, local.PublicKey())
 }
 
 func newTestLocal(t require.TestingT) *Local {
-	priv, err := GeneratePrivateKey()
+	priv, err := generatePrivateKey()
 	require.NoError(t, err)
-	return NewLocal(priv, nil)
+	return newLocal(priv, nil)
 }
 
 func TestPrivateSalt(t *testing.T) {

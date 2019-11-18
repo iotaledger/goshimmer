@@ -36,7 +36,7 @@ type manager struct {
 	closing chan struct{}
 }
 
-func newManager(net network, boot []*peer.Peer, log *zap.SugaredLogger) *manager {
+func newManager(net network, masters []*peer.Peer, log *zap.SugaredLogger) *manager {
 	m := &manager{
 		known:        make([]*mpeer, 0, maxKnow),
 		replacements: make([]*mpeer, 0, maxReplacements),
@@ -44,7 +44,7 @@ func newManager(net network, boot []*peer.Peer, log *zap.SugaredLogger) *manager
 		log:          log,
 		closing:      make(chan struct{}),
 	}
-	m.loadInitialPeers(boot)
+	m.loadInitialPeers(masters)
 
 	return m
 }
@@ -201,10 +201,14 @@ func (m *manager) addReplacement(p *mpeer) bool {
 	return true
 }
 
-func (m *manager) loadInitialPeers(boot []*peer.Peer) {
+func (m *manager) loadInitialPeers(masters []*peer.Peer) {
 	var peers []*peer.Peer
-	// TODO: load seed peers from the database
-	peers = append(peers, boot...)
+
+	db := m.net.local().Database()
+	if db != nil {
+		peers = db.SeedPeers()
+	}
+	peers = append(peers, masters...)
 	for _, p := range peers {
 		m.addDiscoveredPeer(p)
 	}

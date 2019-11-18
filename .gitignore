@@ -27,3 +27,6 @@ autopeering-sim
 # Project files
 .idea
 .vscode/
+
+# Database
+mainnetdb/

@@ -305,7 +305,7 @@ func (p *Protocol) handlePing(s *server.Server, from *peer.Peer, rawData []byte,
 		p.sendPing(from)
 	}
 
-	p.local().Database().UpdateLastPing(from.ID(), from.Address(), time.Now())
+	_ = p.local().Database().UpdateLastPing(from.ID(), from.Address(), time.Now())
 }
 
 func (p *Protocol) validatePong(s *server.Server, from *peer.Peer, m *pb.Pong) bool {
@@ -336,8 +336,11 @@ func (p *Protocol) validatePong(s *server.Server, from *peer.Peer, m *pb.Pong) b
 func (p *Protocol) handlePong(from *peer.Peer) {
 	// a valid pong verifies the peer
 	p.mgr.addVerifiedPeer(from)
+
 	// update peer database
-	p.local().Database().UpdateLastPong(from.ID(), from.Address(), time.Now())
+	db := p.local().Database()
+	_ = db.UpdateLastPong(from.ID(), from.Address(), time.Now())
+	_ = db.UpdatePeer(from)
 }
 
 func (p *Protocol) validateDiscoveryRequest(s *server.Server, from *peer.Peer, m *pb.DiscoveryRequest) bool {
