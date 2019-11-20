@@ -80,6 +80,16 @@ func (p *Protocol) GetNeighbors() []*peer.Peer {
 	return p.mgr.getNeighbors()
 }
 
+// GetNeighbors returns the current incoming neighbors.
+func (p *Protocol) GetIncomingNeighbors() []*peer.Peer {
+	return p.mgr.getIncomingNeighbors()
+}
+
+// GetNeighbors returns the current outgoing neighbors.
+func (p *Protocol) GetOutgoingNeighbors() []*peer.Peer {
+	return p.mgr.getOutgoingNeighbors()
+}
+
 // HandleMessage responds to incoming neighbor selection messages.
 func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte) (bool, error) {
 	switch pb.MType(data[0]) {
