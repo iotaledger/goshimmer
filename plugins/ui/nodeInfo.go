@@ -5,10 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/accountability"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
 )
 
 var start = time.Now()
@@ -42,10 +39,10 @@ func gatherInfo() nodeInfo {
 	// update neighbors
 	chosenNeighbors := []string{}
 	acceptedNeighbors := []string{}
-	for _, peer := range chosenneighbors.INSTANCE.Peers.GetMap() {
+	for _, peer := range autopeering.Selection.GetOutgoingNeighbors() {
 		chosenNeighbors = append(chosenNeighbors, peer.String())
 	}
-	for _, peer := range acceptedneighbors.INSTANCE.Peers.GetMap() {
+	for _, peer := range autopeering.Selection.GetIncomingNeighbors() {
 		acceptedNeighbors = append(acceptedNeighbors, peer.String())
 	}
 
@@ -55,8 +52,8 @@ func gatherInfo() nodeInfo {
 		ID:                accountability.OwnId().StringIdentifier,
 		ChosenNeighbors:   chosenNeighbors,
 		AcceptedNeighbors: acceptedNeighbors,
-		KnownPeersSize:    knownpeers.INSTANCE.Peers.Len(),
-		NeighborhoodSize:  neighborhood.INSTANCE.Peers.Len(),
+		KnownPeersSize:    len(autopeering.Discovery.GetVerifiedPeers()), //knownpeers.INSTANCE.Peers.Len(),
+		NeighborhoodSize:  len(autopeering.Selection.GetNeighbors()),     //neighborhood.INSTANCE.Peers.Len(),
 		Uptime:            uint64(duration),
 		ReceivedTps:       receivedTps,
 		SolidTps:          solidTps,

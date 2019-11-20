@@ -3,7 +3,7 @@ package httpserver
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface/recordedevents"
 	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface/types"

@@ -3,13 +3,15 @@ package accountability
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/dgraph-io/badger"
 	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/packages/settings"
 )
 
-var ownId *identity.Identity
+// Name of the key under which the node identity is stored.
+const identityKey = "IDENTITY"
 
+var ownId *identity.Identity
 var lazyInit sync.Once
 
 func OwnId() *identity.Identity {
@@ -23,13 +25,13 @@ func initOwnId() {
 }
 
 func generateNewIdentity() *identity.Identity {
-	newIdentity := identity.GenerateRandomIdentity()
 
-	if err := settings.Set([]byte("ACCOUNTABILITY_PUBLIC_KEY"), newIdentity.PublicKey); err != nil {
-		panic(err)
-	}
+	newIdentity := identity.GeneratePrivateIdentity()
 
-	if err := settings.Set([]byte("ACCOUNTABILITY_PRIVATE_KEY"), newIdentity.PrivateKey); err != nil {
+	key := []byte(identityKey)
+	value := newIdentity.Marshal()
+
+	if err := settings.Set(key, value); err != nil {
 		panic(err)
 	}
 
@@ -37,23 +39,21 @@ func generateNewIdentity() *identity.Identity {
 }
 
 func getIdentity() *identity.Identity {
-	publicKey, err := settings.Get([]byte("ACCOUNTABILITY_PUBLIC_KEY"))
+	key := []byte(identityKey)
+
+	value, err := settings.Get(key)
 	if err != nil {
-		if err == database.ErrKeyNotFound {
+		if err == badger.ErrKeyNotFound {
 			return generateNewIdentity()
 		} else {
 			panic(err)
 		}
 	}
 
-	privateKey, err := settings.Get([]byte("ACCOUNTABILITY_PRIVATE_KEY"))
+	result, err := identity.Unmarshal(value)
 	if err != nil {
-		if err == database.ErrKeyNotFound {
-			return generateNewIdentity()
-		} else {
-			panic(err)
-		}
+		panic(err)
 	}
 
-	return identity.NewIdentity(publicKey, privateKey)
+	return result
 }

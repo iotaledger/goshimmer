@@ -2,7 +2,7 @@ package analysis
 
 import (
 	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/analysis/client"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"

@@ -7,9 +7,9 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/hive.go/events"
 )
 
 var server *http.Server

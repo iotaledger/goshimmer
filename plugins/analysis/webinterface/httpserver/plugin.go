@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"golang.org/x/net/context"
 	"golang.org/x/net/websocket"

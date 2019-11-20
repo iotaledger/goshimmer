@@ -1,83 +1,53 @@
 package autopeering
 
 import (
+	"net"
+
+	"github.com/iotaledger/autopeering-sim/discover"
+	"github.com/iotaledger/autopeering-sim/selection"
 	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/peerstorage"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/saltmanager"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/server"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/hive.go/events"
 )
 
-var PLUGIN = node.NewPlugin("Auto Peering", node.Enabled, configure, run)
-
 func configure(plugin *node.Plugin) {
-	saltmanager.Configure(plugin)
-	instances.Configure(plugin)
-	server.Configure(plugin)
-	protocol.Configure(plugin)
-	peerstorage.Configure(plugin)
-
 	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		server.Shutdown(plugin)
+		close <- struct{}{}
 	}))
 
 	configureLogging(plugin)
 }
 
 func run(plugin *node.Plugin) {
-	instances.Run(plugin)
-	server.Run(plugin)
-	protocol.Run(plugin)
+	go start()
 }
 
 func configureLogging(plugin *node.Plugin) {
 	gossip.Events.RemoveNeighbor.Attach(events.NewClosure(func(peer *gossip.Neighbor) {
-		chosenneighbors.INSTANCE.Remove(peer.GetIdentity().StringIdentifier)
-		acceptedneighbors.INSTANCE.Remove(peer.GetIdentity().StringIdentifier)
+		Selection.DropPeer(peer.Peer)
 	}))
 
-	acceptedneighbors.INSTANCE.Events.Add.Attach(events.NewClosure(func(p *peer.Peer) {
-		plugin.LogDebug("accepted neighbor added: " + p.GetAddress().String() + " / " + p.GetIdentity().StringIdentifier)
-
-		gossip.AddNeighbor(gossip.NewNeighbor(p.GetIdentity(), p.GetAddress(), p.GetGossipPort()))
-	}))
-	acceptedneighbors.INSTANCE.Events.Remove.Attach(events.NewClosure(func(p *peer.Peer) {
-		plugin.LogDebug("accepted neighbor removed: " + p.GetAddress().String() + " / " + p.GetIdentity().StringIdentifier)
-
-		gossip.RemoveNeighbor(p.GetIdentity().StringIdentifier)
+	selection.Events.Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
+		plugin.LogDebug("neighbor removed: " + ev.DroppedID.String())
+		gossip.RemoveNeighbor(ev.DroppedID.String())
 	}))
 
-	chosenneighbors.INSTANCE.Events.Add.Attach(events.NewClosure(func(p *peer.Peer) {
-		plugin.LogDebug("chosen neighbor added: " + p.GetAddress().String() + " / " + p.GetIdentity().StringIdentifier)
-
-		gossip.AddNeighbor(gossip.NewNeighbor(p.GetIdentity(), p.GetAddress(), p.GetGossipPort()))
-	}))
-	chosenneighbors.INSTANCE.Events.Remove.Attach(events.NewClosure(func(p *peer.Peer) {
-		plugin.LogDebug("chosen neighbor removed: " + p.GetAddress().String() + " / " + p.GetIdentity().StringIdentifier)
-
-		gossip.RemoveNeighbor(p.GetIdentity().StringIdentifier)
+	selection.Events.IncomingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
+		plugin.LogDebug("accepted neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
+		address, _, _ := net.SplitHostPort(ev.Peer.Address())
+		port := ev.Services["gossip"].Address
+		gossip.AddNeighbor(gossip.NewNeighbor(ev.Peer, address, port))
 	}))
 
-	knownpeers.INSTANCE.Events.Add.Attach(events.NewClosure(func(p *peer.Peer) {
-		plugin.LogInfo("new peer discovered: " + p.GetAddress().String() + " / " + p.GetIdentity().StringIdentifier)
-
-		if _, exists := gossip.GetNeighbor(p.GetIdentity().StringIdentifier); exists {
-			gossip.AddNeighbor(gossip.NewNeighbor(p.GetIdentity(), p.GetAddress(), p.GetGossipPort()))
-		}
+	selection.Events.OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
+		plugin.LogDebug("chosen neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
+		address, _, _ := net.SplitHostPort(ev.Peer.Address())
+		port := ev.Services["gossip"].Address
+		gossip.AddNeighbor(gossip.NewNeighbor(ev.Peer, address, port))
 	}))
-	knownpeers.INSTANCE.Events.Update.Attach(events.NewClosure(func(p *peer.Peer) {
-		plugin.LogDebug("peer updated: " + p.GetAddress().String() + " / " + p.GetIdentity().StringIdentifier)
 
-		if _, exists := gossip.GetNeighbor(p.GetIdentity().StringIdentifier); exists {
-			gossip.AddNeighbor(gossip.NewNeighbor(p.GetIdentity(), p.GetAddress(), p.GetGossipPort()))
-		}
+	discover.Events.PeerDiscovered.Attach(events.NewClosure(func(ev *discover.DiscoveredEvent) {
+		plugin.LogInfo("new peer discovered: " + ev.Peer.Address() + " / " + ev.Peer.ID().String())
 	}))
 }

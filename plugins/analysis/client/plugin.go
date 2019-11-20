@@ -4,9 +4,10 @@ import (
 	"net"
 	"time"
 
+	"github.com/iotaledger/autopeering-sim/discover"
+	"github.com/iotaledger/autopeering-sim/selection"
 	"github.com/iotaledger/goshimmer/packages/accountability"
 	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/timeutil"
@@ -14,10 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/ping"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
+	"github.com/iotaledger/hive.go/events"
 )
 
 func Run(plugin *node.Plugin) {
@@ -63,7 +61,7 @@ func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 }
 
 func reportCurrentStatus(eventDispatchers *EventDispatchers) {
-	eventDispatchers.AddNode(accountability.OwnId().Identifier)
+	eventDispatchers.AddNode(accountability.OwnId().Identifier.Bytes())
 
 	reportChosenNeighbors(eventDispatchers)
 }
@@ -71,43 +69,38 @@ func reportCurrentStatus(eventDispatchers *EventDispatchers) {
 func setupHooks(conn *network.ManagedConnection, eventDispatchers *EventDispatchers) {
 	// define hooks ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	onDiscoverPeer := events.NewClosure(func(p *peer.Peer) {
-		go eventDispatchers.AddNode(p.GetIdentity().Identifier)
+	onDiscoverPeer := events.NewClosure(func(ev *discover.DiscoveredEvent) {
+		go eventDispatchers.AddNode(ev.Peer.ID().Bytes())
 	})
 
-	onAddAcceptedNeighbor := events.NewClosure(func(p *peer.Peer) {
-		eventDispatchers.ConnectNodes(p.GetIdentity().Identifier, accountability.OwnId().Identifier)
+	onAddAcceptedNeighbor := events.NewClosure(func(ev *selection.PeeringEvent) {
+		eventDispatchers.ConnectNodes(ev.Peer.ID().Bytes(), accountability.OwnId().Identifier.Bytes())
 	})
 
-	onRemoveAcceptedNeighbor := events.NewClosure(func(p *peer.Peer) {
-		eventDispatchers.DisconnectNodes(p.GetIdentity().Identifier, accountability.OwnId().Identifier)
+	onRemoveNeighbor := events.NewClosure(func(ev *selection.DroppedEvent) {
+		eventDispatchers.DisconnectNodes(ev.DroppedID.Bytes(), accountability.OwnId().Identifier.Bytes())
+		eventDispatchers.DisconnectNodes(accountability.OwnId().Identifier.Bytes(), ev.DroppedID.Bytes())
 	})
 
-	onAddChosenNeighbor := events.NewClosure(func(p *peer.Peer) {
-		eventDispatchers.ConnectNodes(accountability.OwnId().Identifier, p.GetIdentity().Identifier)
-	})
-
-	onRemoveChosenNeighbor := events.NewClosure(func(p *peer.Peer) {
-		eventDispatchers.DisconnectNodes(accountability.OwnId().Identifier, p.GetIdentity().Identifier)
+	onAddChosenNeighbor := events.NewClosure(func(ev *selection.PeeringEvent) {
+		eventDispatchers.ConnectNodes(accountability.OwnId().Identifier.Bytes(), ev.Peer.ID().Bytes())
 	})
 
 	// setup hooks /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	knownpeers.INSTANCE.Events.Add.Attach(onDiscoverPeer)
-	acceptedneighbors.INSTANCE.Events.Add.Attach(onAddAcceptedNeighbor)
-	acceptedneighbors.INSTANCE.Events.Remove.Attach(onRemoveAcceptedNeighbor)
-	chosenneighbors.INSTANCE.Events.Add.Attach(onAddChosenNeighbor)
-	chosenneighbors.INSTANCE.Events.Remove.Attach(onRemoveChosenNeighbor)
+	discover.Events.PeerDiscovered.Attach(onDiscoverPeer)
+	selection.Events.IncomingPeering.Attach(onAddAcceptedNeighbor)
+	selection.Events.OutgoingPeering.Attach(onAddChosenNeighbor)
+	selection.Events.Dropped.Attach(onRemoveNeighbor)
 
 	// clean up hooks on close /////////////////////////////////////////////////////////////////////////////////////////
 
 	var onClose *events.Closure
 	onClose = events.NewClosure(func() {
-		knownpeers.INSTANCE.Events.Add.Detach(onDiscoverPeer)
-		acceptedneighbors.INSTANCE.Events.Add.Detach(onAddAcceptedNeighbor)
-		acceptedneighbors.INSTANCE.Events.Remove.Detach(onRemoveAcceptedNeighbor)
-		chosenneighbors.INSTANCE.Events.Add.Detach(onAddChosenNeighbor)
-		chosenneighbors.INSTANCE.Events.Remove.Detach(onRemoveChosenNeighbor)
+		discover.Events.PeerDiscovered.Detach(onDiscoverPeer)
+		selection.Events.IncomingPeering.Detach(onAddAcceptedNeighbor)
+		selection.Events.OutgoingPeering.Detach(onAddChosenNeighbor)
+		selection.Events.Dropped.Detach(onRemoveNeighbor)
 
 		conn.Events.Close.Detach(onClose)
 	})
@@ -115,12 +108,12 @@ func setupHooks(conn *network.ManagedConnection, eventDispatchers *EventDispatch
 }
 
 func reportChosenNeighbors(dispatchers *EventDispatchers) {
-	for _, chosenNeighbor := range chosenneighbors.INSTANCE.Peers.GetMap() {
-		dispatchers.AddNode(chosenNeighbor.GetIdentity().Identifier)
-	}
-	for _, chosenNeighbor := range chosenneighbors.INSTANCE.Peers.GetMap() {
-		dispatchers.ConnectNodes(accountability.OwnId().Identifier, chosenNeighbor.GetIdentity().Identifier)
-	}
+	// for _, chosenNeighbor := range chosenneighbors.INSTANCE.Peers.GetMap() {
+	// 	dispatchers.AddNode(chosenNeighbor.GetIdentity().Identifier)
+	// }
+	// for _, chosenNeighbor := range chosenneighbors.INSTANCE.Peers.GetMap() {
+	// 	dispatchers.ConnectNodes(accountability.OwnId().Identifier, chosenNeighbor.GetIdentity().Identifier)
+	// }
 }
 
 func keepConnectionAlive(conn *network.ManagedConnection) bool {

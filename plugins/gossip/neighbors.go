@@ -7,26 +7,27 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/autopeering-sim/peer"
 	"github.com/iotaledger/goshimmer/packages/accountability"
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/errors"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/events"
 )
 
 func configureNeighbors(plugin *node.Plugin) {
 	Events.AddNeighbor.Attach(events.NewClosure(func(neighbor *Neighbor) {
-		plugin.LogSuccess("new neighbor added " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + strconv.Itoa(int(neighbor.GetPort())))
+		plugin.LogSuccess("new neighbor added " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + neighbor.GetPort())
 	}))
 
 	Events.UpdateNeighbor.Attach(events.NewClosure(func(neighbor *Neighbor) {
-		plugin.LogSuccess("existing neighbor updated " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + strconv.Itoa(int(neighbor.GetPort())))
+		plugin.LogSuccess("existing neighbor updated " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + neighbor.GetPort())
 	}))
 
 	Events.RemoveNeighbor.Attach(events.NewClosure(func(neighbor *Neighbor) {
-		plugin.LogSuccess("existing neighbor removed " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + strconv.Itoa(int(neighbor.GetPort())))
+		plugin.LogSuccess("existing neighbor removed " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + neighbor.GetPort())
 	}))
 }
 
@@ -98,20 +99,22 @@ type Neighbor struct {
 	identityMutex          sync.RWMutex
 	address                net.IP
 	addressMutex           sync.RWMutex
-	port                   uint16
+	port                   string
 	portMutex              sync.RWMutex
 	initiatedProtocol      *protocol
 	initiatedProtocolMutex sync.RWMutex
 	acceptedProtocol       *protocol
 	Events                 neighborEvents
 	acceptedProtocolMutex  sync.RWMutex
+	Peer                   *peer.Peer
 }
 
-func NewNeighbor(identity *identity.Identity, address net.IP, port uint16) *Neighbor {
+func NewNeighbor(peer *peer.Peer, address, port string) *Neighbor {
 	return &Neighbor{
-		identity: identity,
-		address:  address,
+		identity: identity.NewPublicIdentity(peer.ToProto().GetPublicKey()),
+		address:  net.ParseIP(address),
 		port:     port,
+		Peer:     peer,
 		Events: neighborEvents{
 			ProtocolConnectionEstablished: events.NewEvent(protocolCaller),
 		},
@@ -146,7 +149,7 @@ func (neighbor *Neighbor) SetAddress(address net.IP) {
 	neighbor.addressMutex.Unlock()
 }
 
-func (neighbor *Neighbor) GetPort() (result uint16) {
+func (neighbor *Neighbor) GetPort() (result string) {
 	neighbor.portMutex.RLock()
 	result = neighbor.port
 	neighbor.portMutex.RUnlock()
@@ -154,7 +157,7 @@ func (neighbor *Neighbor) GetPort() (result uint16) {
 	return result
 }
 
-func (neighbor *Neighbor) SetPort(port uint16) {
+func (neighbor *Neighbor) SetPort(port string) {
 	neighbor.portMutex.Lock()
 	neighbor.port = port
 	neighbor.portMutex.Unlock()
@@ -204,10 +207,10 @@ func (neighbor *Neighbor) Connect() (*protocol, bool, errors.IdentifiableError) 
 	}
 
 	// otherwise try to dial
-	conn, err := net.Dial("tcp", neighbor.GetAddress().String()+":"+strconv.Itoa(int(neighbor.GetPort())))
+	conn, err := net.Dial("tcp", neighbor.GetAddress().String()+":"+neighbor.GetPort())
 	if err != nil {
 		return nil, false, ErrConnectionFailed.Derive(err, "error when connecting to neighbor "+
-			neighbor.GetIdentity().StringIdentifier+"@"+neighbor.GetAddress().String()+":"+strconv.Itoa(int(neighbor.GetPort())))
+			neighbor.GetIdentity().StringIdentifier+"@"+neighbor.GetAddress().String()+":"+neighbor.GetPort())
 	}
 
 	neighbor.SetInitiatedProtocol(newProtocol(network.NewManagedConnection(conn)))
