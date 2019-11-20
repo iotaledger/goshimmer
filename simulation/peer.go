@@ -33,7 +33,7 @@ func newPeer(name string, saltLifetime time.Duration) simPeer {
 	log := logger.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
 	local, _ := peer.NewLocal(db)
-	local.Services()["dummy"] = peer.NetworkAddress{}
+	local.Services()[name] = peer.NetworkAddress{}
 
 	//t.time + 1/sim.param.Lambda
 	//s, _ := salt.NewSalt(time.Duration(i) * time.Duration(int(SaltLifetime)*1000/N) * time.Millisecond)

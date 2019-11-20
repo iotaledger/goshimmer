@@ -44,6 +44,8 @@ func newPeer(name string) testPeer {
 	local.SetPrivateSalt(s)
 	s, _ = salt.NewSalt(100 * time.Second)
 	local.SetPublicSalt(s)
+	// add a dummy service
+	local.Services()[name] = peer.NetworkAddress{}
 	p := peer.NewPeer(local.PublicKey(), name)
 	return testPeer{local, p, db, log, rand.New(rand.NewSource(time.Now().UnixNano()))}
 }
@@ -77,8 +79,8 @@ func (n testNet) DropPeer(p *peer.Peer) {
 	n.mgr[p.ID()].dropNeighbor(n.local().ID())
 }
 
-func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (peer.ServiceMap, error) {
-	return n.mgr[p.ID()].acceptRequest(n.self, s), nil
+func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt, services peer.ServiceMap) (peer.ServiceMap, error) {
+	return n.mgr[p.ID()].acceptRequest(n.self, s, services), nil
 }
 
 func (n testNet) GetKnownPeers() []*peer.Peer {
