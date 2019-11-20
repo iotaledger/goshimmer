@@ -125,11 +125,11 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 
 // RequestPeering sends a peering request to the given peer. This method blocks
 // until a response is received and the status answer is returned.
-func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt) (peer.ServiceMap, error) {
+func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt, myServices peer.ServiceMap) (peer.ServiceMap, error) {
 	p.disc.EnsureVerified(to)
 
 	// create the request package
-	req := newPeeringRequest(to.Address(), salt)
+	req := newPeeringRequest(to.Address(), salt, myServices)
 	data := marshal(req)
 
 	// compute the message hash
@@ -176,11 +176,12 @@ func marshal(msg pb.Message) []byte {
 
 // ------ Packet Constructors ------
 
-func newPeeringRequest(toAddr string, salt *salt.Salt) *pb.PeeringRequest {
+func newPeeringRequest(toAddr string, salt *salt.Salt, services peer.ServiceMap) *pb.PeeringRequest {
 	return &pb.PeeringRequest{
 		To:        toAddr,
 		Timestamp: time.Now().Unix(),
 		Salt:      salt.ToProto(),
+		Services:  peer.ServiceMapToProto(services),
 	}
 }
 
@@ -247,6 +248,7 @@ func (p *Protocol) validatePeeringRequest(s *server.Server, from *peer.Peer, m *
 	p.log.Debugw("valid message",
 		"type", m.Name(),
 		"from", from,
+		"services", peer.NewServiceMapFromProto(m.GetServices()),
 	)
 	return true
 }
@@ -259,7 +261,9 @@ func (p *Protocol) handlePeeringRequest(s *server.Server, from *peer.Peer, rawDa
 		return
 	}
 
-	res := newPeeringResponse(rawData, p.mgr.acceptRequest(from, salt))
+	services := peer.NewServiceMapFromProto(m.GetServices())
+
+	res := newPeeringResponse(rawData, p.mgr.acceptRequest(from, salt, services))
 	s.Send(from.Address(), marshal(res))
 }
 
@@ -276,6 +280,7 @@ func (p *Protocol) validatePeeringResponse(s *server.Server, from *peer.Peer, m 
 	p.log.Debugw("valid message",
 		"type", m.Name(),
 		"from", from,
+		"services", peer.NewServiceMapFromProto(m.GetServices()),
 	)
 	return true
 }

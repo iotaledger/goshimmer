@@ -77,15 +77,15 @@ func TestProtPeeringRequest(t *testing.T) {
 	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
 	saltB, _ := salt.NewSalt(100 * time.Second)
 
-	// request peering to peer A
+	// request peering to peer B
 	t.Run("A->B", func(t *testing.T) {
-		if services, err := protA.RequestPeering(peerB, saltA); assert.NoError(t, err) {
+		if services, err := protA.RequestPeering(peerB, saltA, srvA.Local().Services()); assert.NoError(t, err) {
 			assert.NotEmpty(t, services)
 		}
 	})
-	// request peering to peer B
+	// request peering to peer A
 	t.Run("B->A", func(t *testing.T) {
-		if services, err := protB.RequestPeering(peerA, saltB); assert.NoError(t, err) {
+		if services, err := protB.RequestPeering(peerA, saltB, srvB.Local().Services()); assert.NoError(t, err) {
 			assert.NotEmpty(t, services)
 		}
 	})
@@ -94,7 +94,7 @@ func TestProtPeeringRequest(t *testing.T) {
 func TestProtExpiredSalt(t *testing.T) {
 	p2p := transport.P2P()
 
-	_, protA, closeA := newTest(t, "A", p2p.A, logger)
+	srvA, protA, closeA := newTest(t, "A", p2p.A, logger)
 	defer closeA()
 	srvB, _, closeB := newTest(t, "B", p2p.B, logger)
 	defer closeB()
@@ -102,8 +102,8 @@ func TestProtExpiredSalt(t *testing.T) {
 	saltA, _ := salt.NewSalt(-1 * time.Second)
 	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
 
-	// request peering to peer A
-	_, err := protA.RequestPeering(peerB, saltA)
+	// request peering to peer B
+	_, err := protA.RequestPeering(peerB, saltA, srvA.Local().Services())
 	assert.EqualError(t, err, server.ErrTimeout.Error())
 }
 
@@ -119,8 +119,8 @@ func TestProtDropPeer(t *testing.T) {
 	saltA, _ := salt.NewSalt(100 * time.Second)
 	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
 
-	// request peering to peer A
-	services, err := protA.RequestPeering(peerB, saltA)
+	// request peering to peer B
+	services, err := protA.RequestPeering(peerB, saltA, srvA.Local().Services())
 	require.NoError(t, err)
 	assert.NotEmpty(t, services)
 
