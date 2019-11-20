@@ -6,7 +6,6 @@ require (
 	github.com/dgraph-io/badger v1.6.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dgryski/go-farm v0.0.0-20191112170834-c2139c5d712b // indirect
-	github.com/ethereum/go-ethereum v1.9.3
 	github.com/gdamore/tcell v1.2.0
 	github.com/go-zeromq/zmq4 v0.5.0
 	github.com/google/open-location-code/go v0.0.0-20190903173953-119bc96a3a51
@@ -25,5 +24,4 @@ require (
 	golang.org/x/net v0.0.0-20191119073136-fc4aabc6c914
 	golang.org/x/sys v0.0.0-20191119195528-f068ffe820e4 // indirect
 	golang.org/x/tools v0.0.0-20191120001058-ad01d5993d97 // indirect
-	google.golang.org/grpc v1.21.0
 )

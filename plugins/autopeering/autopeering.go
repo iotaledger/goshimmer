@@ -3,8 +3,11 @@ package autopeering
 import (
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/iotaledger/autopeering-sim/discover"
@@ -15,6 +18,8 @@ import (
 	"github.com/iotaledger/autopeering-sim/transport"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
 var (
@@ -48,16 +53,23 @@ const defaultZLC = `{
 
 func start() {
 	var (
-		listenAddr = "127.0.0.1:14626" //flag.String("addr", "127.0.0.1:14626", "listen address")
-		gossipAddr = "127.0.0.1:14666"
+		//listenAddr = "0.0.0.0:14626" //flag.String("addr", "127.0.0.1:14626", "listen address")
+		//gossipAddr = "127.0.0.1:14666"
 		masterPeer = "" //flag.String("master", "", "master node as 'pubKey@address' where pubKey is in Base64")
 
 		err error
 	)
-	// flag.Parse()
+
+	host := getMyIP()
+	apPort := strconv.Itoa(*parameters.PORT.Value)
+	gossipPort := strconv.Itoa(*gossip.PORT.Value)
+	listenAddr := host + ":" + apPort
+	gossipAddr := host + ":" + gossipPort
 
 	logger := logger.NewLogger(defaultZLC, "debug")
 	defer func() { _ = logger.Sync() }() // ignore the returned error
+
+	logger.Debug(host)
 
 	addr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
@@ -135,4 +147,18 @@ func parseMaster(s string) (*peer.Peer, error) {
 	}
 
 	return peer.NewPeer(pubKey, parts[1]), nil
+}
+
+func getMyIP() string {
+	url := "https://api.ipify.org?format=text"
+	resp, err := http.Get(url)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	ip, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%s", ip)
 }
