@@ -324,6 +324,22 @@ func (m *manager) getNeighbors() []*peer.Peer {
 	return neighbors
 }
 
+func (m *manager) getIncomingNeighbors() []*peer.Peer {
+	var neighbors []*peer.Peer
+
+	neighbors = append(neighbors, m.inbound.GetPeers()...)
+
+	return neighbors
+}
+
+func (m *manager) getOutgoingNeighbors() []*peer.Peer {
+	var neighbors []*peer.Peer
+
+	neighbors = append(neighbors, m.outbound.GetPeers()...)
+
+	return neighbors
+}
+
 func (m *manager) getDuplicates() []peer.ID {
 	var d []peer.ID
 
