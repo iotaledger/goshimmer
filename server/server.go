@@ -83,7 +83,7 @@ func Listen(local *peer.Local, t transport.Transport, log *zap.SugaredLogger, h 
 	}
 
 	host, port, _ := net.SplitHostPort(srv.address)
-	if host == "0.0.0.0" {
+	if host == "0.0.0.0" || host == "[::]" {
 		srv.address = getMyIP() + ":" + port
 	}
 
