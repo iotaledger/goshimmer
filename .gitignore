@@ -14,6 +14,7 @@ autopeering-sim
 /simulation/*.dot
 /simulation/l*.txt
 /simulation/data/*
+/test_node/*
 
 # Test binary, built with `go test -c`
 *.test

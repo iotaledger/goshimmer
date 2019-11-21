@@ -137,7 +137,7 @@ func splitNodeKey(key []byte) (id ID, rest []byte) {
 	}
 	item := key[len(dbNodePrefix):]
 	copy(id[:], item[:len(id)])
-	return id, item[len(id)+1:]
+	return id, item[len(id):]
 }
 
 // nodeFieldKey returns the database key for a node metadata field.
