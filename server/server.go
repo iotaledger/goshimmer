@@ -2,8 +2,11 @@ package server
 
 import (
 	"container/list"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
+	"net/http"
 	"sync"
 	"time"
 
@@ -77,6 +80,11 @@ func Listen(local *peer.Local, t transport.Transport, log *zap.SugaredLogger, h 
 		addReplyMatcher: make(chan *replyMatcher),
 		gotreply:        make(chan reply),
 		closing:         make(chan struct{}),
+	}
+
+	host, port, _ := net.SplitHostPort(srv.address)
+	if host == "0.0.0.0" {
+		srv.address = getMyIP() + ":" + port
 	}
 
 	srv.wg.Add(2)
@@ -286,4 +294,18 @@ func decode(pkt *pb.Packet) ([]byte, peer.PublicKey, error) {
 		return nil, nil, err
 	}
 	return pkt.GetData(), key, nil
+}
+
+func getMyIP() string {
+	url := "https://api.ipify.org?format=text"
+	resp, err := http.Get(url)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	ip, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%s", ip)
 }
