@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	updateOutboundInterval = 100 * time.Millisecond
+	updateOutboundInterval = 1000 * time.Millisecond
 
 	inboundRequestQueue = 1000
 	dropQueue           = 1000
