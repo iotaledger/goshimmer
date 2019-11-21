@@ -35,15 +35,13 @@ func configureLogging(plugin *node.Plugin) {
 
 	selection.Events.IncomingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
 		plugin.LogDebug("accepted neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
-		address, _, _ := net.SplitHostPort(ev.Peer.Address())
-		port := ev.Services["gossip"].Address
+		address, port, _ := net.SplitHostPort(ev.Services["gossip"].Address)
 		gossip.AddNeighbor(gossip.NewNeighbor(ev.Peer, address, port))
 	}))
 
 	selection.Events.OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
 		plugin.LogDebug("chosen neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
-		address, _, _ := net.SplitHostPort(ev.Peer.Address())
-		port := ev.Services["gossip"].Address
+		address, port, _ := net.SplitHostPort(ev.Services["gossip"].Address)
 		gossip.AddNeighbor(gossip.NewNeighbor(ev.Peer, address, port))
 	}))
 

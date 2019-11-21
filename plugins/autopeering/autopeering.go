@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/iotaledger/autopeering-sim/discover"
 	"github.com/iotaledger/autopeering-sim/logger"
@@ -16,24 +15,24 @@ import (
 	"github.com/iotaledger/autopeering-sim/selection"
 	"github.com/iotaledger/autopeering-sim/server"
 	"github.com/iotaledger/autopeering-sim/transport"
-	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
 var (
-	PLUGIN    = node.NewPlugin("Auto Peering", node.Enabled, configure, run)
-	close     = make(chan struct{}, 1)
-	srv       *server.Server
-	Discovery *discover.Protocol
-	Selection *selection.Protocol
+	PLUGIN     = node.NewPlugin("Auto Peering", node.Enabled, configure, run)
+	debugLevel = "debug"
+	close      = make(chan struct{}, 1)
+	srv        *server.Server
+	Discovery  *discover.Protocol
+	Selection  *selection.Protocol
 )
 
 const defaultZLC = `{
 	"level": "info",
 	"development": false,
-	"outputPaths": ["stdout"],
+	"outputPaths": ["./logs/autopeering.log"],
 	"errorOutputPaths": ["stderr"],
 	"encoding": "console",
 	"encoderConfig": {
@@ -53,25 +52,24 @@ const defaultZLC = `{
 
 func start() {
 	var (
-		//listenAddr = "0.0.0.0:14626" //flag.String("addr", "127.0.0.1:14626", "listen address")
-		//gossipAddr = "127.0.0.1:14666"
-		masterPeer = "" //flag.String("master", "", "master node as 'pubKey@address' where pubKey is in Base64")
-
 		err error
 	)
 
-	host := getMyIP()
+	host := *parameters.ADDRESS.Value
+	localhost := host
 	apPort := strconv.Itoa(*parameters.PORT.Value)
 	gossipPort := strconv.Itoa(*gossip.PORT.Value)
+	if host == "0.0.0.0" {
+		host = getMyIP()
+	}
 	listenAddr := host + ":" + apPort
 	gossipAddr := host + ":" + gossipPort
 
-	logger := logger.NewLogger(defaultZLC, "debug")
+	logger := logger.NewLogger(defaultZLC, debugLevel)
+
 	defer func() { _ = logger.Sync() }() // ignore the returned error
 
-	logger.Debug(host)
-
-	addr, err := net.ResolveUDPAddr("udp", listenAddr)
+	addr, err := net.ResolveUDPAddr("udp", localhost+":"+apPort)
 	if err != nil {
 		log.Fatalf("ResolveUDPAddr: %v", err)
 	}
@@ -81,12 +79,12 @@ func start() {
 	}
 	defer conn.Close()
 
-	var masterPeers []*peer.Peer
-	master, err := parseMaster(masterPeer)
+	masterPeers := []*peer.Peer{}
+	master, err := parseEntryNodes()
 	if err != nil {
-		log.Printf("Ignoring master: %v\n", err)
+		log.Printf("Ignoring entry nodes: %v\n", err)
 	} else if master != nil {
-		masterPeers = []*peer.Peer{master}
+		masterPeers = master
 	}
 
 	// use the UDP connection for transport
@@ -127,27 +125,28 @@ func start() {
 	defer Selection.Close()
 
 	id := base64.StdEncoding.EncodeToString(local.PublicKey())
-	fmt.Println("Discovery protocol started: ID=" + id + ", address=" + srv.LocalAddr())
+	a, b, _ := net.SplitHostPort(srv.LocalAddr())
+	logger.Info("Discovery protocol started: ID="+id+", address="+srv.LocalAddr(), a, b)
 
 	<-close
 }
 
-func parseMaster(s string) (*peer.Peer, error) {
-	if len(s) == 0 {
-		return nil, nil
-	}
+// func parseMaster(s string) (*peer.Peer, error) {
+// 	if len(s) == 0 {
+// 		return nil, nil
+// 	}
 
-	parts := strings.Split(s, "@")
-	if len(parts) != 2 {
-		return nil, errors.New("parseMaster")
-	}
-	pubKey, err := base64.StdEncoding.DecodeString(parts[0])
-	if err != nil {
-		return nil, errors.Wrap(err, "parseMaster")
-	}
+// 	parts := strings.Split(s, "@")
+// 	if len(parts) != 2 {
+// 		return nil, errors.New("parseMaster")
+// 	}
+// 	pubKey, err := base64.StdEncoding.DecodeString(parts[0])
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, "parseMaster")
+// 	}
 
-	return peer.NewPeer(pubKey, parts[1]), nil
-}
+// 	return peer.NewPeer(pubKey, parts[1]), nil
+// }
 
 func getMyIP() string {
 	url := "https://api.ipify.org?format=text"
