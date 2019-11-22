@@ -335,11 +335,7 @@ func (p *Protocol) validatePong(s *server.Server, from *peer.Peer, m *pb.Pong) b
 
 func (p *Protocol) handlePong(from *peer.Peer) {
 	// a valid pong verifies the peer
-	new := p.mgr.addVerifiedPeer(from)
-	if new {
-		// signal a new peer discovered
-		Events.PeerDiscovered.Trigger(&DiscoveredEvent{Peer: from})
-	}
+	p.mgr.addVerifiedPeer(from)
 
 	// update peer database
 	db := p.local().Database()

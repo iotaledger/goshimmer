@@ -13,7 +13,7 @@ const (
 	reverifyInterval = 10 * time.Second
 	reverifyTries    = 2
 
-	maxKnow         = 100
+	maxKnow         = 1000
 	maxReplacements = 10
 )
 
@@ -259,6 +259,7 @@ func (m *manager) addVerifiedPeer(p *peer.Peer) bool {
 	m.log.Debugw("add verified",
 		"peer", p,
 	)
+	Events.PeerDiscovered.Trigger(&DiscoveredEvent{Peer: p})
 
 	mp := wrapPeer(p)
 	mp.verifiedCount = 1
