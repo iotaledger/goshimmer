@@ -90,7 +90,7 @@ func (m *manager) peersToQuery() []*mpeer {
 	// select a random peer from the heaviest ones
 	r.Move(rand.Intn(r.Len()))
 
-	fmt.Println(latest, r.Value.(*mpeer))
+	m.log.Debugw(fmt.Sprintln(latest, r.Value.(*mpeer)))
 
 	return []*mpeer{latest, r.Value.(*mpeer)}
 }
