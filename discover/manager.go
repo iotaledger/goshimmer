@@ -149,6 +149,8 @@ func (m *manager) doReverify(done chan<- struct{}) {
 			"err", err,
 		)
 
+		Events.PeerDeleted.Trigger(&DeletedEvent{Peer: unwrapPeer(p)})
+
 		// add a random replacement, if available
 		if len(m.replacements) > 0 {
 			var r *mpeer

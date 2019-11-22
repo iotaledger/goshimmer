@@ -9,8 +9,11 @@ import (
 var Events = struct {
 	// A PeerDiscovered event is triggered, when a new peer has been discovered and verified.
 	PeerDiscovered *events.Event
+	// A PeerDeleted event is triggered, when a peer cannot be verified.
+	PeerDeleted *events.Event
 }{
 	PeerDiscovered: events.NewEvent(peerDiscovered),
+	PeerDeleted:    events.NewEvent(peerDeleted),
 }
 
 // DiscoveredEvent bundles the information of the discovered peer.
@@ -19,6 +22,15 @@ type DiscoveredEvent struct {
 	//Services peer.ServiceMap // services supported by that peer
 }
 
+// DeletedEvent bundles the information of the deleted peer.
+type DeletedEvent struct {
+	Peer *peer.Peer // deleted peer
+}
+
 func peerDiscovered(handler interface{}, params ...interface{}) {
 	handler.(func(*DiscoveredEvent))(params[0].(*DiscoveredEvent))
+}
+
+func peerDeleted(handler interface{}, params ...interface{}) {
+	handler.(func(*DeletedEvent))(params[0].(*DeletedEvent))
 }
