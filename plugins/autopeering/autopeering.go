@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -16,7 +15,6 @@ import (
 	"github.com/iotaledger/autopeering-sim/selection"
 	"github.com/iotaledger/autopeering-sim/server"
 	"github.com/iotaledger/autopeering-sim/transport"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/parameter"
@@ -24,7 +22,6 @@ import (
 )
 
 var (
-	PLUGIN     = node.NewPlugin("Auto Peering", node.Enabled, configure, run)
 	debugLevel = "info"
 	close      = make(chan struct{}, 1)
 	srv        *server.Server
@@ -85,7 +82,7 @@ func start() {
 	masterPeers := []*peer.Peer{}
 	master, err := parseEntryNodes()
 	if err != nil {
-		log.Printf("Ignoring entry nodes: %v\n", err)
+		log.Fatalf("Ignoring entry nodes: %v\n", err)
 	} else if master != nil {
 		masterPeers = master
 	}
