@@ -14,11 +14,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	// DefaultSaltLifetime is a reasonable default for the lifetime of the private and public salt.
-	DefaultSaltLifetime = 30 * time.Minute
-)
-
 // DiscoverProtocol specifies the methods from the peer discovery that are required.
 type DiscoverProtocol interface {
 	IsVerified(*peer.Peer) bool
@@ -48,7 +43,7 @@ func New(local *peer.Local, disc DiscoverProtocol, cfg Config) *Protocol {
 		disc:     disc,
 		log:      cfg.Log,
 	}
-	p.mgr = newManager(p, cfg.SaltLifetime, disc.GetVerifiedPeers, cfg.DropNeighbors, cfg.Log.Named("mgr"))
+	p.mgr = newManager(p, disc.GetVerifiedPeers, cfg.Log.Named("mgr"), cfg.Param)
 
 	return p
 }

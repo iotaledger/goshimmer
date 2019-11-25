@@ -49,8 +49,7 @@ func newTest(t require.TestingT, name string, trans transport.Transport, logger 
 	local.SetPublicSalt(s)
 
 	cfg := Config{
-		Log:          log,
-		SaltLifetime: DefaultSaltLifetime,
+		Log: log,
 	}
 	prot := New(local, dummyDiscovery{}, cfg)
 	srv := server.Listen(local, trans, log.Named("srv"), prot)

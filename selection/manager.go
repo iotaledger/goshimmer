@@ -11,13 +11,23 @@ import (
 )
 
 const (
-	updateOutboundInterval = 1000 * time.Millisecond
-
-	inboundRequestQueue = 1000
-	dropQueue           = 1000
-
 	accept = true
 	reject = false
+)
+
+var (
+	updateOutboundInterval = UpdateOutboundInterval
+
+	inboundRequestQueue = InboundRequestQueue
+	dropQueue           = DropQueue
+
+	inboundNeighborSize  = 4
+	outboundNeighborSize = 4
+
+	inboundSelectionDisabled  = InboundSelectionDisabled
+	outboundSelectionDisabled = OutboundSelectionDisabled
+
+	dropNeighborsOnUpdate = DropNeighborsOnUpdate
 )
 
 // A network represents the communication layer for the manager.
@@ -56,13 +66,13 @@ type manager struct {
 	outboundClosing chan struct{}
 }
 
-func newManager(net network, lifetime time.Duration, peersFunc func() []*peer.Peer, dropNeighbors bool, log *zap.SugaredLogger) *manager {
+func newManager(net network, peersFunc func() []*peer.Peer, log *zap.SugaredLogger, param *Parameters) *manager {
 	m := &manager{
 		net:                net,
-		lifetime:           lifetime,
+		lifetime:           SaltLifetime,
 		peersFunc:          peersFunc,
 		log:                log,
-		dropNeighbors:      dropNeighbors,
+		dropNeighbors:      dropNeighborsOnUpdate,
 		inboundClosing:     make(chan struct{}),
 		outboundClosing:    make(chan struct{}),
 		rejectionFilter:    NewFilter(),
@@ -72,10 +82,34 @@ func newManager(net network, lifetime time.Duration, peersFunc func() []*peer.Pe
 		outboundDropChan:   make(chan peer.ID, dropQueue),
 		inbound: &Neighborhood{
 			Neighbors: []peer.PeerDistance{},
-			Size:      4},
+			Size:      inboundNeighborSize},
 		outbound: &Neighborhood{
 			Neighbors: []peer.PeerDistance{},
-			Size:      4},
+			Size:      outboundNeighborSize},
+	}
+
+	if param != nil {
+		if param.SaltLifetime > 0 {
+			m.lifetime = param.SaltLifetime
+		}
+		if param.UpdateOutboundInterval > 0 {
+			updateOutboundInterval = param.UpdateOutboundInterval
+		}
+		if param.InboundRequestQueue > 0 {
+			inboundRequestQueue = param.InboundRequestQueue
+		}
+		if param.DropQueue > 0 {
+			dropQueue = param.DropQueue
+		}
+		if param.InboundNeighborSize > 0 {
+			inboundNeighborSize = param.InboundNeighborSize
+		}
+		if param.OutboundNeighborSize > 0 {
+			outboundNeighborSize = param.OutboundNeighborSize
+		}
+		inboundSelectionDisabled = param.InboundSelectionDisabled
+		outboundSelectionDisabled = param.OutboundSelectionDisabled
+		m.dropNeighbors = param.DropNeighborsOnUpdate
 	}
 
 	return m

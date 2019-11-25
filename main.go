@@ -112,8 +112,7 @@ func main() {
 		MasterPeers: masterPeers,
 	})
 	selection := selection.New(local, discovery, selection.Config{
-		Log:          logger.Named("sel"),
-		SaltLifetime: selection.DefaultSaltLifetime,
+		Log: logger.Named("sel"),
 	})
 
 	// start a server doing discovery and peering

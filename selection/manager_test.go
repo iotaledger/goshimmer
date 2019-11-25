@@ -113,7 +113,7 @@ func TestSimManager(t *testing.T) {
 			self: peer.peer,
 			rand: peer.rand,
 		}
-		mgrMap[peer.local.ID()] = newManager(net, 100*time.Second, net.GetKnownPeers, false, peer.log)
+		mgrMap[peer.local.ID()] = newManager(net, net.GetKnownPeers, peer.log, &Parameters{SaltLifetime: 100 * time.Second})
 	}
 
 	// start all the managers
