@@ -1,13 +1,14 @@
 package cli
 
 import (
-	"flag"
 	"fmt"
-	"github.com/iotaledger/hive.go/parameter"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/iotaledger/hive.go/parameter"
+	flag "github.com/spf13/pflag"
 
 	"github.com/iotaledger/goshimmer/packages/node"
 )

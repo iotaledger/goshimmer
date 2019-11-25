@@ -1,7 +1,7 @@
 package parameters
 
 import (
-	"flag"
+	flag "github.com/spf13/pflag"
 )
 
 const (

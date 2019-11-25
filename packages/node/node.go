@@ -1,8 +1,9 @@
 package node
 
 import (
-	"github.com/iotaledger/hive.go/parameter"
 	"sync"
+
+	"github.com/iotaledger/hive.go/parameter"
 
 	"github.com/iotaledger/goshimmer/packages/daemon"
 )

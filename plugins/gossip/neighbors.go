@@ -1,6 +1,6 @@
 package gossip
 
-import(
+import (
 	"math"
 	"net"
 	"strconv"

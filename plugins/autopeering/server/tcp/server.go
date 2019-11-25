@@ -1,6 +1,9 @@
 package tcp
 
 import (
+	"math"
+	"net"
+
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/tcp"
@@ -12,8 +15,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/parameter"
 	"github.com/pkg/errors"
-	"math"
-	"net"
 )
 
 var server = tcp.NewServer()

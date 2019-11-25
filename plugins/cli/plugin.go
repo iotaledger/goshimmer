@@ -1,10 +1,11 @@
 package cli
 
 import (
-	"flag"
 	"fmt"
-	"github.com/iotaledger/hive.go/events"
 	"strings"
+
+	"github.com/iotaledger/hive.go/events"
+	flag "github.com/spf13/pflag"
 
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/hive.go/parameter"
