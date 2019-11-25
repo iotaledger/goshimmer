@@ -1,7 +1,6 @@
 package client
 
 import (
-	"github.com/iotaledger/hive.go/parameter"
 	"net"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/parameter"
 )
 
 func Run(plugin *node.Plugin) {

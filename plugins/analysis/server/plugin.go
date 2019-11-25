@@ -2,6 +2,8 @@ package server
 
 import (
 	"encoding/hex"
+	"math"
+
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/tcp"
@@ -14,7 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/parameter"
 	"github.com/pkg/errors"
-	"math"
 )
 
 var server *tcp.Server

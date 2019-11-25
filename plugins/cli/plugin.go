@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iotaledger/hive.go/events"
-	flag "github.com/spf13/pflag"
-
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/parameter"
+	flag "github.com/spf13/pflag"
 )
 
 const (

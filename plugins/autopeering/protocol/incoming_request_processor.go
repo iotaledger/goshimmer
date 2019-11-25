@@ -1,20 +1,19 @@
 package protocol
 
 import (
-	"github.com/iotaledger/hive.go/parameter"
 	"math/rand"
-
-	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peerlist"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/parameter"
 )
 
 func createIncomingRequestProcessor(plugin *node.Plugin) *events.Closure {

@@ -2,16 +2,16 @@ package entrynodes
 
 import (
 	"encoding/hex"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
-	"github.com/iotaledger/hive.go/parameter"
 	"net"
 	"strconv"
 	"strings"
 
 	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peerlist"
+	"github.com/iotaledger/hive.go/parameter"
 )
 
 var INSTANCE *peerlist.PeerList

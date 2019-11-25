@@ -1,6 +1,6 @@
 package metrics
 
-import(
+import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/daemon"

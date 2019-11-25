@@ -1,6 +1,9 @@
 package udp
 
 import (
+	"math"
+	"net"
+
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/network/udp"
 	"github.com/iotaledger/goshimmer/packages/node"
@@ -12,8 +15,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/parameter"
 	"github.com/pkg/errors"
-	"math"
-	"net"
 )
 
 var udpServer = udp.NewServer(int(math.Max(float64(request.MARSHALED_TOTAL_SIZE), float64(response.MARSHALED_TOTAL_SIZE))))

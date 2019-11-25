@@ -1,7 +1,6 @@
 package ownpeer
 
 import (
-	"github.com/iotaledger/hive.go/parameter"
 	"net"
 
 	"github.com/iotaledger/goshimmer/packages/accountability"
@@ -10,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/saltmanager"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/hive.go/parameter"
 )
 
 var INSTANCE *peer.Peer

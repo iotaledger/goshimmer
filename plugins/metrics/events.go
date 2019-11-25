@@ -1,6 +1,6 @@
 package metrics
 
-import(
+import (
 	"github.com/iotaledger/hive.go/events"
 )
 

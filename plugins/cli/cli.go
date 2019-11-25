@@ -7,9 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	flag "github.com/spf13/pflag"
-
 	"github.com/iotaledger/goshimmer/packages/node"
+	flag "github.com/spf13/pflag"
 )
 
 var enabledPlugins []string
@@ -44,5 +43,5 @@ func printUsage() {
 
 	fmt.Fprintf(os.Stderr, "\nThe following plugins are enabled by default and can be disabled with -%s:\n  %s\n", node.CFG_DISABLE_PLUGINS, getList(enabledPlugins))
 	fmt.Fprintf(os.Stderr, "The following plugins are disabled by default and can be enabled with -%s:\n  %s\n", node.CFG_ENABLE_PLGUINS, getList(disabledPlugins))
-	fmt.Fprintf(os.Stderr, "The enabled/disabled plugins can be overriden by altering %s/%s inside config.json\n\n", node.CFG_ENABLE_PLGUINS, node.CFG_DISABLE_PLUGINS)
+	fmt.Fprintf(os.Stderr, "The enabled/disabled plugins can be overridden by altering %s/%s inside config.json\n\n", node.CFG_ENABLE_PLGUINS, node.CFG_DISABLE_PLUGINS)
 }
