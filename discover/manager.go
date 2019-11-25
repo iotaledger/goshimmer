@@ -9,12 +9,12 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	reverifyInterval = 10 * time.Second
-	reverifyTries    = 2
+var (
+	reverifyInterval = ReverifyInterval
+	reverifyTries    = ReverifyTries
 
-	maxKnow         = 1000
-	maxReplacements = 10
+	maxKnow         = MaxKnow
+	maxReplacements = MaxReplacements
 )
 
 type network interface {
@@ -36,7 +36,7 @@ type manager struct {
 	closing chan struct{}
 }
 
-func newManager(net network, masters []*peer.Peer, log *zap.SugaredLogger) *manager {
+func newManager(net network, masters []*peer.Peer, log *zap.SugaredLogger, param *Parameters) *manager {
 	m := &manager{
 		known:        make([]*mpeer, 0, maxKnow),
 		replacements: make([]*mpeer, 0, maxReplacements),
@@ -44,6 +44,22 @@ func newManager(net network, masters []*peer.Peer, log *zap.SugaredLogger) *mana
 		log:          log,
 		closing:      make(chan struct{}),
 	}
+
+	if param != nil {
+		if param.ReverifyInterval > 0 {
+			reverifyInterval = param.ReverifyInterval
+		}
+		if param.ReverifyTries > 0 {
+			reverifyTries = param.ReverifyTries
+		}
+		if param.MaxKnow > 0 {
+			maxKnow = param.MaxKnow
+		}
+		if param.MaxReplacements > 0 {
+			maxReplacements = param.MaxReplacements
+		}
+	}
+
 	m.loadInitialPeers(masters)
 
 	return m
