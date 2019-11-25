@@ -152,6 +152,7 @@ func getMyIP() string {
 	return fmt.Sprintf("%s", ip)
 }
 
+// used only for debugging puropose
 func printReport(log *zap.SugaredLogger) {
 	if Discovery == nil || Selection == nil {
 		return
