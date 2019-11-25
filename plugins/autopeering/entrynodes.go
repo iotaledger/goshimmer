@@ -6,11 +6,11 @@ import (
 
 	"github.com/iotaledger/autopeering-sim/peer"
 	"github.com/iotaledger/goshimmer/packages/errors"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
+	"github.com/iotaledger/hive.go/parameter"
 )
 
 func parseEntryNodes() (result []*peer.Peer, err error) {
-	for _, entryNodeDefinition := range strings.Fields(*parameters.ENTRY_NODES.Value) {
+	for _, entryNodeDefinition := range strings.Fields(parameter.NodeConfig.GetString(CFG_ENTRY_NODES)) {
 		if entryNodeDefinition == "" {
 			continue
 		}

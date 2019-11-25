@@ -1,4 +1,4 @@
-package parameters
+package autopeering
 
 import (
 	flag "github.com/spf13/pflag"

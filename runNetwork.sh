@@ -27,6 +27,6 @@ for i in `seq 1 $1`; do
     mkdir node_$i/logs
     cp ../shimmer node_$i/
     cd node_$i
-    ./shimmer -autopeering-port $PEERING_PORT -gossip-port $GOSSIP_PORT -autopeering-address 127.0.0.1 -autopeering-entry-nodes 6rtO4nW2nzbSqZ8nrf0VFOn+fuyluf6ltJTkKpUc3LM=@127.0.0.1:14626 -node-log-level 4 -node-disable-plugins statusscreen -analysis-server-address 127.0.0.1:188 &
+    ./shimmer --autopeering.port $PEERING_PORT --gossip.port $GOSSIP_PORT --autopeering.address 127.0.0.1 --autopeering.entryNodes 6rtO4nW2nzbSqZ8nrf0VFOn+fuyluf6ltJTkKpUc3LM=@127.0.0.1:14626 --node.logLevel 4 --node.disablePlugins statusscreen --analysis.serverAddress 127.0.0.1:188 &
     cd ..
 done

@@ -18,8 +18,8 @@ import (
 	"github.com/iotaledger/autopeering-sim/transport"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/hive.go/parameter"
 	"go.uber.org/zap"
 )
 
@@ -58,10 +58,10 @@ func start() {
 		err error
 	)
 
-	host := *parameters.ADDRESS.Value
+	host := parameter.NodeConfig.GetString(CFG_ADDRESS)
 	localhost := host
-	apPort := strconv.Itoa(*parameters.PORT.Value)
-	gossipPort := strconv.Itoa(*gossip.PORT.Value)
+	apPort := strconv.Itoa(parameter.NodeConfig.GetInt(CFG_PORT))
+	gossipPort := strconv.Itoa(parameter.NodeConfig.GetInt(gossip.GOSSIP_PORT))
 	if host == "0.0.0.0" {
 		host = getMyIP()
 	}

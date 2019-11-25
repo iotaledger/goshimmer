@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iotaledger/hive.go/events"
-	flag "github.com/spf13/pflag"
-
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/parameter"
+	flag "github.com/spf13/pflag"
 )
 
 const (
@@ -54,7 +53,7 @@ func configure(ctx *node.Plugin) {
 	fmt.Printf(" \\____/\\_| |_/\\___/\\_|  |_/\\_|  |_/\\____/\\_| \\_| fullnode %s", AppVersion)
 	fmt.Println()
 
-	parameter.FetchConfig()
+	parameter.FetchConfig(false)
 	parseParameters()
 
 	ctx.Node.LogInfo("Node", "Loading plugins ...")
