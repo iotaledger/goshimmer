@@ -22,7 +22,7 @@ const (
 	ResponseTimeout = 500 * time.Millisecond
 )
 
-// Server offers the functionality to start a discovery server.
+// Server offers the functionality to start a server that handles requests and responses from peers.
 type Server struct {
 	local    *peer.Local
 	trans    transport.Transport
@@ -38,6 +38,7 @@ type Server struct {
 	closing         chan struct{} // if this channel gets closed all pending waits should terminate
 }
 
+// a replyMatcher stores the information required to identify and react to an expected replay.
 type replyMatcher struct {
 	// fromAddr must match the sender of the reply
 	fromAddr string
@@ -69,7 +70,9 @@ type reply struct {
 	matched chan<- bool
 }
 
-// Listen starts a new peer discovery server using the given transport layer for communication.
+// Listen starts a new peer server using the given transport layer for communication.
+// Sent data is signed using the identity of the local peer,
+// received data with a valid peer signature is handled according to the provided Handler.
 func Listen(local *peer.Local, t transport.Transport, log *zap.SugaredLogger, h ...Handler) *Server {
 	srv := &Server{
 		local:           local,
