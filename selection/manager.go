@@ -121,9 +121,12 @@ func (m *manager) start() {
 		m.updateSalt()
 	}
 
-	m.wg.Add(2)
+	m.wg.Add(1)
 	go m.loopOutbound()
-	go m.loopInbound()
+	if !InboundSelectionDisabled {
+		m.wg.Add(1)
+		go m.loopInbound()
+	}
 }
 
 func (m *manager) close() {
@@ -169,7 +172,11 @@ Loop:
 						m.dropPeer(toDrop)
 					}
 				}
-				go m.updateOutbound(updateOutboundDone)
+				if !OutboundSelectionDisabled {
+					go m.updateOutbound(updateOutboundDone)
+				} else {
+					updateOutboundDone <- struct{}{}
+				}
 			}
 		case <-updateOutboundDone:
 			updateOutboundDone = nil
