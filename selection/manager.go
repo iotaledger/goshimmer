@@ -161,18 +161,18 @@ Loop:
 				if m.net.local().GetPublicSalt().Expired() {
 					m.updateSalt()
 				}
-				//remove potential duplicates
-				dup := m.getDuplicates()
-				for _, peerToDrop := range dup {
-					toDrop := m.inbound.GetPeerFromID(peerToDrop)
-					time.Sleep(time.Duration(rand.Intn(backoff)) * time.Millisecond)
-					m.outbound.RemovePeer(peerToDrop)
-					m.inbound.RemovePeer(peerToDrop)
-					if toDrop != nil {
-						m.dropPeer(toDrop)
-					}
-				}
 				if !OutboundSelectionDisabled {
+					//remove potential duplicates
+					dup := m.getDuplicates()
+					for _, peerToDrop := range dup {
+						toDrop := m.inbound.GetPeerFromID(peerToDrop)
+						time.Sleep(time.Duration(rand.Intn(backoff)) * time.Millisecond)
+						m.outbound.RemovePeer(peerToDrop)
+						m.inbound.RemovePeer(peerToDrop)
+						if toDrop != nil {
+							m.dropPeer(toDrop)
+						}
+					}
 					go m.updateOutbound(updateOutboundDone)
 				} else {
 					updateOutboundDone <- struct{}{}
