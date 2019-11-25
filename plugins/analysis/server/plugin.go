@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/tcp"
 	"github.com/iotaledger/goshimmer/packages/node"
@@ -15,12 +14,16 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/ping"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/removenode"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/pkg/errors"
 )
 
 var server *tcp.Server
 
+var debug *node.Plugin
+
 func Configure(plugin *node.Plugin) {
+	debug = plugin
 	server = tcp.NewServer()
 
 	server.Events.Connect.Attach(events.NewClosure(HandleConnection))
@@ -153,7 +156,7 @@ func processIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *n
 		processIncomingDisconnectNodesPacket(connectionState, receiveBuffer, conn, data, offset, connectedNodeId)
 
 	case STATE_REMOVE_NODE:
-		processIncomingAddNodePacket(connectionState, receiveBuffer, conn, data, offset, connectedNodeId)
+		processIncomingRemoveNodePacket(connectionState, receiveBuffer, conn, data, offset, connectedNodeId)
 	}
 }
 
@@ -305,6 +308,35 @@ func processIncomingDisconnectNodesPacket(connectionState *byte, receiveBuffer *
 		*connectionState = STATE_CONSECUTIVE
 
 		if *offset+len(data) > disconnectnodes.MARSHALED_TOTAL_SIZE {
+			processIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset, connectedNodeId)
+		}
+	}
+}
+
+func processIncomingRemoveNodePacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int, connectedNodeId *string) {
+	remainingCapacity := int(math.Min(float64(removenode.MARSHALED_TOTAL_SIZE-*offset), float64(len(data))))
+
+	copy((*receiveBuffer)[*offset:], data[:remainingCapacity])
+
+	if *offset+len(data) < removenode.MARSHALED_TOTAL_SIZE {
+		*offset += len(data)
+	} else {
+		if removeNodePacket, err := removenode.Unmarshal(*receiveBuffer); err != nil {
+			Events.Error.Trigger(err)
+
+			conn.Close()
+
+			return
+		} else {
+			nodeId := hex.EncodeToString(removeNodePacket.NodeId)
+
+			Events.RemoveNode.Trigger(nodeId)
+
+		}
+
+		*connectionState = STATE_CONSECUTIVE
+
+		if *offset+len(data) > addnode.MARSHALED_TOTAL_SIZE {
 			processIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset, connectedNodeId)
 		}
 	}

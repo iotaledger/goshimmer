@@ -5,8 +5,8 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/errors"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/hive.go/events"
 )
 
 // region constants and variables //////////////////////////////////////////////////////////////////////////////////////

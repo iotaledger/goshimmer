@@ -26,6 +26,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 	};
 
 	socket.onmessage = function (e) {
+        console.log("Len: ", data.nodes.length);
         switch (e.data[0]) {
           case "_":
             // do nothing - its just a ping
@@ -33,26 +34,32 @@ func index(w http.ResponseWriter, r *http.Request) {
 
           case "A":
              addNode(e.data.substr(1));
+             console.log("Add node:",e.data.substr(1));
           break;
 
           case "a":
              removeNode(e.data.substr(1));
+             console.log("Remove node:", e.data.substr(1));
           break;
 
           case "C":
-             connectNodes(e.data.substr(1, 40), e.data.substr(41, 40));
+             connectNodes(e.data.substr(1, 64), e.data.substr(65, 128));
+             console.log("Connect nodes:",e.data.substr(1, 64), " - ", e.data.substr(65, 128));
           break;
 
           case "c":
-             disconnectNodes(e.data.substr(1, 40), e.data.substr(41, 40));
+             disconnectNodes(e.data.substr(1, 64), e.data.substr(65, 128));
+             console.log("Disconnect nodes:",e.data.substr(1, 64), " - ", e.data.substr(65, 128));
           break;
 
           case "O":
              setNodeOnline(e.data.substr(1));
+             console.log("setNodeOnline:",e.data.substr(1));
           break;
 
           case "o":
              setNodeOffline(e.data.substr(1));
+             console.log("setNodeOffline:",e.data.substr(1));
           break;
         }
 	};
@@ -96,6 +103,7 @@ func index(w http.ResponseWriter, r *http.Request) {
         data.nodes = [...data.nodes, node];
 
         nodesById[node.id] = node;
+        nodesById[nodeId].online = true;
 
         updateGraph();
       }
@@ -128,6 +136,14 @@ func index(w http.ResponseWriter, r *http.Request) {
 
     function connectNodes(sourceNodeId, targetNodeId) {
       if(existingLinks[sourceNodeId + targetNodeId] == undefined && existingLinks[targetNodeId + sourceNodeId] == undefined) {
+        if (!(sourceNodeId in nodesById)) {
+          addNode(sourceNodeId);
+        }
+        if (!(targetNodeId in nodesById)) {
+          addNode(targetNodeId);
+        }
+        nodesById[sourceNodeId].online = true;
+        nodesById[targetNodeId].online = true;
         data.links = [...data.links, { source: sourceNodeId, target: targetNodeId }];
 
         updateGraph();
@@ -136,7 +152,6 @@ func index(w http.ResponseWriter, r *http.Request) {
 
     function disconnectNodes(sourceNodeId, targetNodeId) {
       data.links = data.links.filter(l => !(l.source.id == sourceNodeId && l.target.id == targetNodeId) && !(l.source.id == targetNodeId && l.target.id == sourceNodeId));
-
       delete existingLinks[sourceNodeId + targetNodeId];
       delete existingLinks[targetNodeId + sourceNodeId];
 
@@ -144,6 +159,9 @@ func index(w http.ResponseWriter, r *http.Request) {
     }
 
     function removeNodeX(node) {
+      if (!(node.id in nodesById)) {
+        addNode(sourceNodeId);
+      }
       removeNode(node.id)
     }
   </script>

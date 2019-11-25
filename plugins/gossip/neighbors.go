@@ -8,18 +8,19 @@ import (
 	"time"
 
 	"github.com/iotaledger/autopeering-sim/peer"
-	"github.com/iotaledger/goshimmer/packages/accountability"
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/hive.go/events"
 )
 
 func configureNeighbors(plugin *node.Plugin) {
 	Events.AddNeighbor.Attach(events.NewClosure(func(neighbor *Neighbor) {
 		plugin.LogSuccess("new neighbor added " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + neighbor.GetPort())
+		//plugin.LogSuccess("new neighbor added " + hex.EncodeToString(neighbor.Peer.ID().Bytes()) + "@" + neighbor.GetAddress().String() + ":" + neighbor.GetPort())
 	}))
 
 	Events.UpdateNeighbor.Attach(events.NewClosure(func(neighbor *Neighbor) {
@@ -221,7 +222,7 @@ func (neighbor *Neighbor) Connect() (*protocol, bool, errors.IdentifiableError) 
 
 	// drop the "secondary" connection upon successful handshake
 	neighbor.GetInitiatedProtocol().Events.HandshakeCompleted.Attach(events.NewClosure(func() {
-		if accountability.OwnId().StringIdentifier <= neighbor.GetIdentity().StringIdentifier {
+		if local.INSTANCE.ID().String() <= neighbor.Peer.ID().String() {
 			var acceptedProtocolConn *network.ManagedConnection
 			if neighbor.GetAcceptedProtocol() != nil {
 				acceptedProtocolConn = neighbor.GetAcceptedProtocol().Conn

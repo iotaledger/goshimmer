@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/iotaledger/goshimmer/packages/accountability"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/hive.go/events"
 )
@@ -70,7 +70,7 @@ func GetStatus() *Status {
 	uptime += fmt.Sprintf("%02ds  ", int(duration.Seconds())%60)
 
 	return &Status{
-		Id:        accountability.OwnId().StringIdentifier,
+		Id:        local.INSTANCE.ID().String(),
 		Neighbor:  "Neighbors:  " + strconv.Itoa(len(autopeering.Selection.GetOutgoingNeighbors())) + " chosen / " + strconv.Itoa(len(autopeering.Selection.GetIncomingNeighbors())) + " accepted / " + strconv.Itoa(len(autopeering.Selection.GetNeighbors())) + " total",
 		KnownPeer: "Known Peers: " + strconv.Itoa(len(autopeering.Discovery.GetVerifiedPeers())) + " total",
 		Uptime:    uptime,

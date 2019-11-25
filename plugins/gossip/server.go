@@ -3,14 +3,14 @@ package gossip
 import (
 	"strconv"
 
-	"github.com/iotaledger/goshimmer/packages/accountability"
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/errors"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/tcp"
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/hive.go/events"
 )
 
 var TCPServer = tcp.NewServer()
@@ -40,7 +40,7 @@ func configureServer(plugin *node.Plugin) {
 
 		// drop the "secondary" connection upon successful handshake
 		protocol.Events.HandshakeCompleted.Attach(events.NewClosure(func() {
-			if protocol.Neighbor.GetIdentity().StringIdentifier <= accountability.OwnId().StringIdentifier {
+			if protocol.Neighbor.Peer.ID().String() <= local.INSTANCE.ID().String() {
 				var initiatedProtocolConn *network.ManagedConnection
 				if protocol.Neighbor.GetInitiatedProtocol() != nil {
 					initiatedProtocolConn = protocol.Neighbor.GetInitiatedProtocol().Conn

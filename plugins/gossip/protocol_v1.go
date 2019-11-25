@@ -3,19 +3,19 @@ package gossip
 import (
 	"strconv"
 
-	"github.com/iotaledger/goshimmer/packages/accountability"
 	"github.com/iotaledger/goshimmer/packages/byteutils"
 	"github.com/iotaledger/goshimmer/packages/errors"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/iota.go/consts"
 )
 
 // region protocolV1 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 func protocolV1(protocol *protocol) errors.IdentifiableError {
-	if err := protocol.Send(accountability.OwnId()); err != nil {
+	if err := protocol.Send(local.INSTANCE.ID().Bytes()); err != nil {
 		return err
 	}
 

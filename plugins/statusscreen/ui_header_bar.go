@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell"
-	"github.com/iotaledger/goshimmer/packages/accountability"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/rivo/tview"
 )
 
@@ -81,6 +81,7 @@ func (headerBar *UIHeaderBar) Update() {
 	incoming := "0"
 	neighbors := "0"
 	total := "0"
+	myID := "-"
 	if autopeering.Selection != nil {
 		outgoing = strconv.Itoa(len(autopeering.Selection.GetOutgoingNeighbors()))
 		incoming = strconv.Itoa(len(autopeering.Selection.GetIncomingNeighbors()))
@@ -89,8 +90,11 @@ func (headerBar *UIHeaderBar) Update() {
 	if autopeering.Discovery != nil {
 		total = strconv.Itoa(len(autopeering.Discovery.GetVerifiedPeers()))
 	}
+	if local.INSTANCE != nil {
+		myID = local.INSTANCE.ID().String()
+	}
 
-	fmt.Fprintf(headerBar.InfoContainer, "[::b]Node ID: [::d]%40v  ", accountability.OwnId().StringIdentifier)
+	fmt.Fprintf(headerBar.InfoContainer, "[::b]Node ID: [::d]%40v  ", myID)
 	fmt.Fprintln(headerBar.InfoContainer)
 	fmt.Fprintf(headerBar.InfoContainer, "[::b]Neighbors: [::d]%40v  ", outgoing+" chosen / "+incoming+" accepted / "+neighbors+" total")
 	fmt.Fprintln(headerBar.InfoContainer)

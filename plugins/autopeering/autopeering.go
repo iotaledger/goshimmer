@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/iotaledger/autopeering-sim/discover"
 	"github.com/iotaledger/autopeering-sim/logger"
@@ -16,13 +17,15 @@ import (
 	"github.com/iotaledger/autopeering-sim/server"
 	"github.com/iotaledger/autopeering-sim/transport"
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"go.uber.org/zap"
 )
 
 var (
 	PLUGIN     = node.NewPlugin("Auto Peering", node.Enabled, configure, run)
-	debugLevel = "debug"
+	debugLevel = "info"
 	close      = make(chan struct{}, 1)
 	srv        *server.Server
 	Discovery  *discover.Protocol
@@ -32,7 +35,7 @@ var (
 const defaultZLC = `{
 	"level": "info",
 	"development": false,
-	"outputPaths": ["./logs/autopeering.log"],
+	"outputPaths": ["stdout"],
 	"errorOutputPaths": ["stderr"],
 	"encoding": "console",
 	"encoderConfig": {
@@ -94,26 +97,26 @@ func start() {
 	// create a new local node
 	db := peer.NewPersistentDB(logger.Named("db"))
 	defer db.Close()
-	local, err := peer.NewLocal(db)
+	local.INSTANCE, err = peer.NewLocal(db)
 	if err != nil {
 		log.Fatalf("ListenUDP: %v", err)
 	}
 	// add a service for the peering
-	local.Services()["peering"] = peer.NetworkAddress{Network: "udp", Address: listenAddr}
+	local.INSTANCE.Services()["peering"] = peer.NetworkAddress{Network: "udp", Address: listenAddr}
 	// add a service for the gossip
-	local.Services()["gossip"] = peer.NetworkAddress{Network: "tcp", Address: gossipAddr}
+	local.INSTANCE.Services()["gossip"] = peer.NetworkAddress{Network: "tcp", Address: gossipAddr}
 
-	Discovery = discover.New(local, discover.Config{
+	Discovery = discover.New(local.INSTANCE, discover.Config{
 		Log:         logger.Named("disc"),
 		MasterPeers: masterPeers,
 	})
-	Selection = selection.New(local, Discovery, selection.Config{
+	Selection = selection.New(local.INSTANCE, Discovery, selection.Config{
 		Log:          logger.Named("sel"),
 		SaltLifetime: selection.DefaultSaltLifetime,
 	})
 
 	// start a server doing discovery and peering
-	srv = server.Listen(local, trans, logger.Named("srv"), Discovery, Selection)
+	srv = server.Listen(local.INSTANCE, trans, logger.Named("srv"), Discovery, Selection)
 	defer srv.Close()
 
 	// start the discovery on that connection
@@ -124,29 +127,19 @@ func start() {
 	Selection.Start(srv)
 	defer Selection.Close()
 
-	id := base64.StdEncoding.EncodeToString(local.PublicKey())
+	id := base64.StdEncoding.EncodeToString(local.INSTANCE.PublicKey())
 	a, b, _ := net.SplitHostPort(srv.LocalAddr())
 	logger.Info("Discovery protocol started: ID="+id+", address="+srv.LocalAddr(), a, b)
 
+	go func() {
+		for t := range time.NewTicker(2 * time.Second).C {
+			_ = t
+			printReport(logger)
+		}
+	}()
+
 	<-close
 }
-
-// func parseMaster(s string) (*peer.Peer, error) {
-// 	if len(s) == 0 {
-// 		return nil, nil
-// 	}
-
-// 	parts := strings.Split(s, "@")
-// 	if len(parts) != 2 {
-// 		return nil, errors.New("parseMaster")
-// 	}
-// 	pubKey, err := base64.StdEncoding.DecodeString(parts[0])
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "parseMaster")
-// 	}
-
-// 	return peer.NewPeer(pubKey, parts[1]), nil
-// }
 
 func getMyIP() string {
 	url := "https://api.ipify.org?format=text"
@@ -160,4 +153,16 @@ func getMyIP() string {
 		return ""
 	}
 	return fmt.Sprintf("%s", ip)
+}
+
+func printReport(log *zap.SugaredLogger) {
+	if Discovery == nil || Selection == nil {
+		return
+	}
+	knownPeers := Discovery.GetVerifiedPeers()
+	incoming := Selection.GetIncomingNeighbors()
+	outgoing := Selection.GetOutgoingNeighbors()
+	log.Info("Known peers:", len(knownPeers))
+	log.Info("Chosen:", len(outgoing), outgoing)
+	log.Info("Accepted:", len(incoming), incoming)
 }
