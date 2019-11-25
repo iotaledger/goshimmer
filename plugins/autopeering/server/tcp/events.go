@@ -3,10 +3,10 @@ package tcp
 import (
 	"net"
 
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
+	"github.com/iotaledger/hive.go/events"
 )
 
 var Events = struct {

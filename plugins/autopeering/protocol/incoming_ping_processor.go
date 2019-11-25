@@ -1,10 +1,10 @@
 package protocol
 
 import (
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
+	"github.com/iotaledger/hive.go/events"
 )
 
 func createIncomingPingProcessor(plugin *node.Plugin) *events.Closure {

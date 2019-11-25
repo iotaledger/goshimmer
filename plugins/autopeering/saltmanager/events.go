@@ -1,8 +1,8 @@
 package saltmanager
 
 import (
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/salt"
+	"github.com/iotaledger/hive.go/events"
 )
 
 var Events = struct {

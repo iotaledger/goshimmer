@@ -6,6 +6,7 @@ import (
 
 	"github.com/dgraph-io/badger"
 	"github.com/dgraph-io/badger/options"
+	"github.com/iotaledger/hive.go/parameter"
 	"github.com/pkg/errors"
 )
 
@@ -37,7 +38,7 @@ func checkDir(dir string) error {
 }
 
 func createDB() (*badger.DB, error) {
-	directory := *DIRECTORY.Value
+	directory := parameter.NodeConfig.GetString(CFG_DIRECTORY)
 	if err := checkDir(directory); err != nil {
 		return nil, errors.Wrap(err, "Could not check directory")
 	}

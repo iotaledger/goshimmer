@@ -3,10 +3,8 @@ package server
 import (
 	"encoding/hex"
 	"math"
-	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/tcp"
 	"github.com/iotaledger/goshimmer/packages/node"
@@ -15,6 +13,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/ping"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/removenode"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/parameter"
 	"github.com/pkg/errors"
 )
 
@@ -28,7 +28,7 @@ func Configure(plugin *node.Plugin) {
 		plugin.LogFailure("error in server: " + err.Error())
 	}))
 	server.Events.Start.Attach(events.NewClosure(func() {
-		plugin.LogSuccess("Starting Server (port " + strconv.Itoa(*SERVER_PORT.Value) + ") ... done")
+		plugin.LogSuccess("Starting Server (port " + string(parameter.NodeConfig.GetInt(CFG_SERVER_PORT)) + ") ... done")
 	}))
 	server.Events.Shutdown.Attach(events.NewClosure(func() {
 		plugin.LogSuccess("Stopping Server ... done")
@@ -37,9 +37,9 @@ func Configure(plugin *node.Plugin) {
 
 func Run(plugin *node.Plugin) {
 	daemon.BackgroundWorker("Analysis Server", func() {
-		plugin.LogInfo("Starting Server (port " + strconv.Itoa(*SERVER_PORT.Value) + ") ...")
+		plugin.LogInfo("Starting Server (port " + string(parameter.NodeConfig.GetInt(CFG_SERVER_PORT)) + ") ...")
 
-		server.Listen(*SERVER_PORT.Value)
+		server.Listen(parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
 	})
 }
 

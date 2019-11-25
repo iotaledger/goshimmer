@@ -15,4 +15,4 @@ services:
       - "14666:14666/tcp"
       - "14626:14626/udp"
       - "14626:14626/tcp"
-    command: "-node-disable-plugins statusscreen"
+    command: "--node.disablePlugins statusscreen"

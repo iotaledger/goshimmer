@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/hive.go/events"
 )
 
 type Server struct {

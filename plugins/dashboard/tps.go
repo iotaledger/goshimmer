@@ -6,18 +6,18 @@ import (
 	"html/template"
 	"math"
 	"net/http"
-	"sync"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/iotaledger/goshimmer/packages/accountability"
-	"github.com/iotaledger/goshimmer/packages/events"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
+	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/hive.go/events"
 )
 
 var (
@@ -72,12 +72,12 @@ func GetStatus() *Status {
 	}
 	uptime += fmt.Sprintf("%02ds  ", int(duration.Seconds())%60)
 
-    return &Status {
-	Id: accountability.OwnId().StringIdentifier,
-	Neighbor: "Neighbors:  " + strconv.Itoa(chosenneighbors.INSTANCE.Peers.Len())+" chosen / "+strconv.Itoa(acceptedneighbors.INSTANCE.Peers.Len())+" accepted / "+strconv.Itoa(chosenneighbors.INSTANCE.Peers.Len()+acceptedneighbors.INSTANCE.Peers.Len())+" total",
-	KnownPeer: "Known Peers: "+ strconv.Itoa(knownpeers.INSTANCE.Peers.Len())+" total / "+strconv.Itoa(neighborhood.INSTANCE.Peers.Len())+" neighborhood",
-	Uptime: uptime,
-    }
+	return &Status{
+		Id:        accountability.OwnId().StringIdentifier,
+		Neighbor:  "Neighbors:  " + strconv.Itoa(chosenneighbors.INSTANCE.Peers.Len()) + " chosen / " + strconv.Itoa(acceptedneighbors.INSTANCE.Peers.Len()) + " accepted / " + strconv.Itoa(chosenneighbors.INSTANCE.Peers.Len()+acceptedneighbors.INSTANCE.Peers.Len()) + " total",
+		KnownPeer: "Known Peers: " + strconv.Itoa(knownpeers.INSTANCE.Peers.Len()) + " total / " + strconv.Itoa(neighborhood.INSTANCE.Peers.Len()) + " neighborhood",
+		Uptime:    uptime,
+	}
 }
 
 // ServeWs websocket

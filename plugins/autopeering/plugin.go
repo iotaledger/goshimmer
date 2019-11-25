@@ -2,7 +2,6 @@ package autopeering
 
 import (
 	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
@@ -14,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/server"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/hive.go/events"
 )
 
 var PLUGIN = node.NewPlugin("Auto Peering", node.Enabled, configure, run)

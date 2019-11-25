@@ -7,8 +7,8 @@ import (
 
 	"github.com/gdamore/tcell"
 	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/rivo/tview"
 	"golang.org/x/crypto/ssh/terminal"
 )

@@ -1,8 +1,8 @@
 package peerregister
 
 import (
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
+	"github.com/iotaledger/hive.go/events"
 )
 
 type peerRegisterEvents struct {

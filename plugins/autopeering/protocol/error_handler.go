@@ -3,8 +3,8 @@ package protocol
 import (
 	"net"
 
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/events"
 )
 
 func createErrorHandler(plugin *node.Plugin) *events.Closure {

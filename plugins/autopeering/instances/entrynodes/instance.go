@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peerlist"
+	"github.com/iotaledger/hive.go/parameter"
 )
 
 var INSTANCE *peerlist.PeerList
@@ -22,7 +23,7 @@ func Configure(node *node.Plugin) {
 func parseEntryNodes() *peerlist.PeerList {
 	result := peerlist.NewPeerList()
 
-	for _, entryNodeDefinition := range strings.Fields(*parameters.ENTRY_NODES.Value) {
+	for _, entryNodeDefinition := range parameter.NodeConfig.GetStringSlice(parameters.CFG_ENTRY_NODES) {
 		if entryNodeDefinition == "" {
 			continue
 		}

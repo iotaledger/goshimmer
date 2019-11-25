@@ -6,7 +6,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/accountability"
 	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/timeutil"
@@ -18,6 +17,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/parameter"
 )
 
 func Run(plugin *node.Plugin) {
@@ -30,7 +31,7 @@ func Run(plugin *node.Plugin) {
 				return
 
 			default:
-				if conn, err := net.Dial("tcp", *SERVER_ADDRESS.Value); err != nil {
+				if conn, err := net.Dial("tcp", parameter.NodeConfig.GetString(CFG_SERVER_ADDRESS)); err != nil {
 					plugin.LogDebug("Could not connect to reporting server: " + err.Error())
 
 					timeutil.Sleep(1 * time.Second)

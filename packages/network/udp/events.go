@@ -3,7 +3,7 @@ package udp
 import (
 	"net"
 
-	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/hive.go/events"
 )
 
 type serverEvents struct {

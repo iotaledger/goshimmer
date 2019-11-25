@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/server/tcp"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/server/udp"
+	"github.com/iotaledger/hive.go/parameter"
 )
 
 func Configure(plugin *node.Plugin) {
@@ -24,7 +25,7 @@ func Run(plugin *node.Plugin) {
 	daemon.BackgroundWorker("Autopeering Chosen Neighbor Dropper", createChosenNeighborDropper(plugin))
 	daemon.BackgroundWorker("Autopeering Accepted Neighbor Dropper", createAcceptedNeighborDropper(plugin))
 
-	if *parameters.SEND_REQUESTS.Value {
+	if parameter.NodeConfig.GetBool(parameters.CFG_SEND_REQUESTS) {
 		daemon.BackgroundWorker("Autopeering Outgoing Request Processor", createOutgoingRequestProcessor(plugin))
 	}
 

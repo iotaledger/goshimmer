@@ -3,10 +3,8 @@ package tcp
 import (
 	"math"
 	"net"
-	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/tcp"
 	"github.com/iotaledger/goshimmer/packages/node"
@@ -14,21 +12,27 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/ping"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/request"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/response"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/parameter"
 	"github.com/pkg/errors"
 )
 
 var server = tcp.NewServer()
 
 func ConfigureServer(plugin *node.Plugin) {
+	serverAddress := parameter.NodeConfig.GetString(parameters.CFG_ADDRESS)
+	serverPortStr := parameter.NodeConfig.GetString(parameters.CFG_PORT)
+
 	server.Events.Connect.Attach(events.NewClosure(HandleConnection))
 	server.Events.Error.Attach(events.NewClosure(func(err error) {
 		plugin.LogFailure("error in tcp server: " + err.Error())
 	}))
+
 	server.Events.Start.Attach(events.NewClosure(func() {
-		if *parameters.ADDRESS.Value == "0.0.0.0" {
-			plugin.LogSuccess("Starting TCP Server (port " + strconv.Itoa(*parameters.PORT.Value) + ") ... done")
+		if serverAddress == "0.0.0.0" {
+			plugin.LogSuccess("Starting TCP Server (port " + serverPortStr + ") ... done")
 		} else {
-			plugin.LogSuccess("Starting TCP Server (" + *parameters.ADDRESS.Value + ":" + strconv.Itoa(*parameters.PORT.Value) + ") ... done")
+			plugin.LogSuccess("Starting TCP Server (" + serverAddress + ":" + serverPortStr + ") ... done")
 		}
 	}))
 	server.Events.Shutdown.Attach(events.NewClosure(func() {
@@ -37,14 +41,17 @@ func ConfigureServer(plugin *node.Plugin) {
 }
 
 func RunServer(plugin *node.Plugin) {
+	serverAddress := parameter.NodeConfig.GetString(parameters.CFG_ADDRESS)
+	serverPortStr := parameter.NodeConfig.GetString(parameters.CFG_PORT)
+
 	daemon.BackgroundWorker("Autopeering TCP Server", func() {
-		if *parameters.ADDRESS.Value == "0.0.0.0" {
-			plugin.LogInfo("Starting TCP Server (port " + strconv.Itoa(*parameters.PORT.Value) + ") ...")
+		if serverAddress == "0.0.0.0" {
+			plugin.LogInfo("Starting TCP Server (port " + serverPortStr + ") ...")
 		} else {
-			plugin.LogInfo("Starting TCP Server (" + *parameters.ADDRESS.Value + ":" + strconv.Itoa(*parameters.PORT.Value) + ") ...")
+			plugin.LogInfo("Starting TCP Server (" + serverAddress + ":" + serverPortStr + ") ...")
 		}
 
-		server.Listen(*parameters.PORT.Value)
+		server.Listen(parameter.NodeConfig.GetInt(parameters.CFG_PORT))
 	})
 }
 
