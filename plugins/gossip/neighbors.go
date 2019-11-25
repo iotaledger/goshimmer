@@ -3,37 +3,36 @@ package gossip
 import (
 	"math"
 	"net"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/autopeering-sim/peer"
-	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 )
 
 func configureNeighbors(plugin *node.Plugin) {
 	Events.AddNeighbor.Attach(events.NewClosure(func(neighbor *Neighbor) {
-		plugin.LogSuccess("new neighbor added " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + neighbor.GetPort())
+		log.Info("new neighbor added " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + neighbor.GetPort())
 		//plugin.LogSuccess("new neighbor added " + hex.EncodeToString(neighbor.Peer.ID().Bytes()) + "@" + neighbor.GetAddress().String() + ":" + neighbor.GetPort())
 	}))
 
 	Events.UpdateNeighbor.Attach(events.NewClosure(func(neighbor *Neighbor) {
-		plugin.LogSuccess("existing neighbor updated " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + neighbor.GetPort())
+		log.Info("existing neighbor updated " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + neighbor.GetPort())
 	}))
 
 	Events.RemoveNeighbor.Attach(events.NewClosure(func(neighbor *Neighbor) {
-		plugin.LogSuccess("existing neighbor removed " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + neighbor.GetPort())
+		log.Info("existing neighbor removed " + neighbor.GetIdentity().StringIdentifier + "@" + neighbor.GetAddress().String() + ":" + neighbor.GetPort())
 	}))
 }
 
 func runNeighbors(plugin *node.Plugin) {
-	plugin.LogInfo("Starting Neighbor Connection Manager ...")
+	log.Info("Starting Neighbor Connection Manager ...")
 
 	neighborLock.RLock()
 	for _, neighbor := range neighbors.GetMap() {
@@ -45,7 +44,7 @@ func runNeighbors(plugin *node.Plugin) {
 		manageConnection(plugin, neighbor)
 	}))
 
-	plugin.LogSuccess("Starting Neighbor Connection Manager ... done")
+	log.Info("Starting Neighbor Connection Manager ... done")
 }
 
 func manageConnection(plugin *node.Plugin, neighbor *Neighbor) {
@@ -57,7 +56,7 @@ func manageConnection(plugin *node.Plugin, neighbor *Neighbor) {
 			if err != nil {
 				failedConnectionAttempts++
 
-				plugin.LogFailure("connection attempt [" + strconv.Itoa(int(failedConnectionAttempts)) + "/" + strconv.Itoa(CONNECTION_MAX_ATTEMPTS) + "] " + err.Error())
+				log.Errorf("connection attempt [%d / %d] %s", failedConnectionAttempts, CONNECTION_MAX_ATTEMPTS, err.Error())
 
 				if failedConnectionAttempts <= CONNECTION_MAX_ATTEMPTS {
 					select {

@@ -2,15 +2,16 @@ package client
 
 import (
 	"encoding/hex"
-	"github.com/iotaledger/hive.go/parameter"
 	"net"
 	"time"
 
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/parameter"
+
 	"github.com/iotaledger/autopeering-sim/discover"
 	"github.com/iotaledger/autopeering-sim/selection"
-	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/timeutil"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
@@ -20,12 +21,12 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 )
 
-var debug *node.Plugin
+var log = logger.NewLogger("Analysis-Client")
 
 func Run(plugin *node.Plugin) {
-	debug = plugin
 	daemon.BackgroundWorker("Analysis Client", func() {
 		shuttingDown := false
 
@@ -36,7 +37,7 @@ func Run(plugin *node.Plugin) {
 
 			default:
 				if conn, err := net.Dial("tcp", parameter.NodeConfig.GetString(CFG_SERVER_ADDRESS)); err != nil {
-					plugin.LogDebug("Could not connect to reporting server: " + err.Error())
+					log.Debugf("Could not connect to reporting server: %s", err.Error())
 
 					timeutil.Sleep(1 * time.Second)
 				} else {
@@ -56,28 +57,16 @@ func Run(plugin *node.Plugin) {
 func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 	return &EventDispatchers{
 		AddNode: func(nodeId []byte) {
-			_, err := conn.Write((&addnode.Packet{NodeId: nodeId}).Marshal())
-			if err != nil {
-				debug.LogFailure(err.Error())
-			}
+			_, _ = conn.Write((&addnode.Packet{NodeId: nodeId}).Marshal())
 		},
 		RemoveNode: func(nodeId []byte) {
-			_, err := conn.Write((&removenode.Packet{NodeId: nodeId}).Marshal())
-			if err != nil {
-				debug.LogFailure(err.Error())
-			}
+			_, _ = conn.Write((&removenode.Packet{NodeId: nodeId}).Marshal())
 		},
 		ConnectNodes: func(sourceId []byte, targetId []byte) {
-			_, err := conn.Write((&connectnodes.Packet{SourceId: sourceId, TargetId: targetId}).Marshal())
-			if err != nil {
-				debug.LogFailure(err.Error())
-			}
+			_, _ = conn.Write((&connectnodes.Packet{SourceId: sourceId, TargetId: targetId}).Marshal())
 		},
 		DisconnectNodes: func(sourceId []byte, targetId []byte) {
-			_, err := conn.Write((&disconnectnodes.Packet{SourceId: sourceId, TargetId: targetId}).Marshal())
-			if err != nil {
-				debug.LogFailure(err.Error())
-			}
+			_, _ = conn.Write((&disconnectnodes.Packet{SourceId: sourceId, TargetId: targetId}).Marshal())
 		},
 	}
 }
@@ -94,27 +83,27 @@ func setupHooks(plugin *node.Plugin, conn *network.ManagedConnection, eventDispa
 	// define hooks ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	onDiscoverPeer := events.NewClosure(func(ev *discover.DiscoveredEvent) {
-		plugin.LogInfo("onDiscoverPeer: " + hex.EncodeToString(ev.Peer.ID().Bytes()))
+		log.Info("onDiscoverPeer: " + hex.EncodeToString(ev.Peer.ID().Bytes()))
 		eventDispatchers.AddNode(ev.Peer.ID().Bytes())
 	})
 
 	onDeletePeer := events.NewClosure(func(ev *discover.DeletedEvent) {
-		plugin.LogInfo("onDeletePeer: " + hex.EncodeToString(ev.Peer.ID().Bytes()))
+		log.Info("onDeletePeer: " + hex.EncodeToString(ev.Peer.ID().Bytes()))
 		eventDispatchers.RemoveNode(ev.Peer.ID().Bytes())
 	})
 
 	onAddAcceptedNeighbor := events.NewClosure(func(ev *selection.PeeringEvent) {
-		plugin.LogInfo("onAddAcceptedNeighbor: " + hex.EncodeToString(ev.Peer.ID().Bytes()) + " - " + hex.EncodeToString(local.INSTANCE.ID().Bytes()))
+		log.Info("onAddAcceptedNeighbor: " + hex.EncodeToString(ev.Peer.ID().Bytes()) + " - " + hex.EncodeToString(local.INSTANCE.ID().Bytes()))
 		eventDispatchers.ConnectNodes(ev.Peer.ID().Bytes(), local.INSTANCE.ID().Bytes())
 	})
 
 	onRemoveNeighbor := events.NewClosure(func(ev *selection.DroppedEvent) {
-		plugin.LogInfo("onRemoveNeighbor: " + hex.EncodeToString(ev.DroppedID.Bytes()) + " - " + hex.EncodeToString(local.INSTANCE.ID().Bytes()))
+		log.Info("onRemoveNeighbor: " + hex.EncodeToString(ev.DroppedID.Bytes()) + " - " + hex.EncodeToString(local.INSTANCE.ID().Bytes()))
 		eventDispatchers.DisconnectNodes(ev.DroppedID.Bytes(), local.INSTANCE.ID().Bytes())
 	})
 
 	onAddChosenNeighbor := events.NewClosure(func(ev *selection.PeeringEvent) {
-		plugin.LogInfo("onAddChosenNeighbor: " + hex.EncodeToString(local.INSTANCE.ID().Bytes()) + " - " + hex.EncodeToString(ev.Peer.ID().Bytes()))
+		log.Info("onAddChosenNeighbor: " + hex.EncodeToString(local.INSTANCE.ID().Bytes()) + " - " + hex.EncodeToString(ev.Peer.ID().Bytes()))
 		eventDispatchers.ConnectNodes(local.INSTANCE.ID().Bytes(), ev.Peer.ID().Bytes())
 	})
 

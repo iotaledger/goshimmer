@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 

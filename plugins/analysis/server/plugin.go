@@ -2,51 +2,51 @@ package server
 
 import (
 	"encoding/hex"
-	"github.com/iotaledger/goshimmer/packages/daemon"
+	"math"
+
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/tcp"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/ping"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/removenode"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/parameter"
 	"github.com/pkg/errors"
-	"math"
 )
 
 var server *tcp.Server
 
-var debug *node.Plugin
+var log = logger.NewLogger("Analysis-Server")
 
 func Configure(plugin *node.Plugin) {
-	debug = plugin
 	server = tcp.NewServer()
 
 	server.Events.Connect.Attach(events.NewClosure(HandleConnection))
 	server.Events.Error.Attach(events.NewClosure(func(err error) {
-		plugin.LogFailure("error in server: " + err.Error())
+		log.Errorf("error in server: %s", err.Error())
 	}))
 	server.Events.Start.Attach(events.NewClosure(func() {
-		plugin.LogSuccess("Starting Server (port " + string(parameter.NodeConfig.GetInt(CFG_SERVER_PORT)) + ") ... done")
+		log.Infof("Starting Server (port %d) ... done", parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
 	}))
 	server.Events.Shutdown.Attach(events.NewClosure(func() {
-		plugin.LogSuccess("Stopping Server ... done")
+		log.Info("Stopping Server ... done")
 	}))
 }
 
 func Run(plugin *node.Plugin) {
 	daemon.BackgroundWorker("Analysis Server", func() {
-		plugin.LogInfo("Starting Server (port " + string(parameter.NodeConfig.GetInt(CFG_SERVER_PORT)) + ") ...")
-
+		log.Infof("Starting Server (port %d) ... done", parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
 		server.Listen(parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
 	})
 }
 
 func Shutdown(plugin *node.Plugin) {
-	plugin.LogInfo("Stopping Server ...")
+	log.Info("Stopping Server ...")
 
 	server.Shutdown()
 }

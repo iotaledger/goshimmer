@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/client"
 
-	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/iota.go/consts"

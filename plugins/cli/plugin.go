@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/parameter"
 	flag "github.com/spf13/pflag"
 )
@@ -38,7 +38,7 @@ func parseParameters() {
 	for _, pluginName := range parameter.NodeConfig.GetStringSlice(node.CFG_DISABLE_PLUGINS) {
 		node.DisabledPlugins[strings.ToLower(pluginName)] = true
 	}
-	for _, pluginName := range parameter.NodeConfig.GetStringSlice(node.CFG_ENABLE_PLGUINS) {
+	for _, pluginName := range parameter.NodeConfig.GetStringSlice(node.CFG_ENABLE_PLUGINS) {
 		node.EnabledPlugins[strings.ToLower(pluginName)] = true
 	}
 }
@@ -56,7 +56,7 @@ func configure(ctx *node.Plugin) {
 	parameter.FetchConfig(false)
 	parseParameters()
 
-	ctx.Node.LogInfo("Node", "Loading plugins ...")
+	ctx.Node.Logger.Info("Loading plugins ...")
 }
 
 func run(ctx *node.Plugin) {
