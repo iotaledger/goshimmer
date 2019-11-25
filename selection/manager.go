@@ -123,7 +123,7 @@ func (m *manager) start() {
 
 	m.wg.Add(1)
 	go m.loopOutbound()
-	if !InboundSelectionDisabled {
+	if !inboundSelectionDisabled {
 		m.wg.Add(1)
 		go m.loopInbound()
 	}
@@ -161,7 +161,7 @@ Loop:
 				if m.net.local().GetPublicSalt().Expired() {
 					m.updateSalt()
 				}
-				if !OutboundSelectionDisabled {
+				if !outboundSelectionDisabled {
 					//remove potential duplicates
 					dup := m.getDuplicates()
 					for _, peerToDrop := range dup {
