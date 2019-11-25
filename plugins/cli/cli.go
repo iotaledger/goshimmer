@@ -1,27 +1,16 @@
 package cli
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	flag "github.com/spf13/pflag"
+
 	"github.com/iotaledger/goshimmer/packages/node"
 )
-
-func AddBoolParameter(p *bool, name string, usage string) {
-	flag.BoolVar(p, name, *p, usage)
-}
-
-func AddIntParameter(p *int, name string, usage string) {
-	flag.IntVar(p, name, *p, usage)
-}
-
-func AddStringParameter(p *string, name string, usage string) {
-	flag.StringVar(p, name, *p, usage)
-}
 
 var enabledPlugins []string
 var disabledPlugins []string
@@ -53,6 +42,7 @@ func printUsage() {
 	)
 	flag.PrintDefaults()
 
-	fmt.Fprintf(os.Stderr, "\nThe following plugins are enabled by default and can be disabled with -%s:\n  %s\n", getFlagName(node.DISABLE_PLUGINS.Name), getList(enabledPlugins))
-	fmt.Fprintf(os.Stderr, "The following plugins are disabled by default and can be enabled with -%s:\n  %s\n\n", getFlagName(node.ENABLE_PLUGINS.Name), getList(disabledPlugins))
+	fmt.Fprintf(os.Stderr, "\nThe following plugins are enabled by default and can be disabled with -%s:\n  %s\n", node.CFG_DISABLE_PLUGINS, getList(enabledPlugins))
+	fmt.Fprintf(os.Stderr, "The following plugins are disabled by default and can be enabled with -%s:\n  %s\n", node.CFG_ENABLE_PLGUINS, getList(disabledPlugins))
+	fmt.Fprintf(os.Stderr, "The enabled/disabled plugins can be overriden by altering %s/%s inside config.json\n\n", node.CFG_ENABLE_PLGUINS, node.CFG_DISABLE_PLUGINS)
 }

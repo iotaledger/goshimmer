@@ -1,10 +1,10 @@
 package tipselection
 
 import (
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/hive.go/events"
 )
 
 var PLUGIN = node.NewPlugin("Tipselection", node.Enabled, configure, run)

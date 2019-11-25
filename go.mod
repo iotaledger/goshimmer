@@ -15,16 +15,10 @@ require (
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/lucasb-eyer/go-colorful v1.0.3 // indirect
 	github.com/magiconair/properties v1.8.1
-	github.com/mattn/go-colorable v0.1.4 // indirect
-	github.com/mattn/go-isatty v0.0.10 // indirect
-	github.com/mattn/go-runewidth v0.0.6 // indirect
 	github.com/pkg/errors v0.8.1
-	github.com/rivo/tview v0.0.0-20191121195645-2d957c4be01d
-	github.com/valyala/fasttemplate v1.1.0 // indirect
+	github.com/rivo/tview v0.0.0-20190829161255-f8bc69b90341
+	github.com/spf13/pflag v1.0.5
 	go.uber.org/zap v1.13.0
-	golang.org/x/crypto v0.0.0-20191119213627-4f8c1d86b1ba
-	golang.org/x/net v0.0.0-20191124235446-72fef5d5e266
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
-	golang.org/x/tools v0.0.0-20191125011157-cc15fab314e3 // indirect
-	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898 // indirect
+	golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472
+	golang.org/x/net v0.0.0-20191119073136-fc4aabc6c914
 )

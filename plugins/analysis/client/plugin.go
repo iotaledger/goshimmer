@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/hex"
+	"github.com/iotaledger/hive.go/parameter"
 	"net"
 	"time"
 
@@ -34,7 +35,7 @@ func Run(plugin *node.Plugin) {
 				return
 
 			default:
-				if conn, err := net.Dial("tcp", *SERVER_ADDRESS.Value); err != nil {
+				if conn, err := net.Dial("tcp", parameter.NodeConfig.GetString(CFG_SERVER_ADDRESS)); err != nil {
 					plugin.LogDebug("Could not connect to reporting server: " + err.Error())
 
 					timeutil.Sleep(1 * time.Second)

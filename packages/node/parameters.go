@@ -1,10 +1,17 @@
 package node
 
-import "github.com/iotaledger/goshimmer/packages/parameter"
-
-var (
-	LOG_LEVEL = parameter.AddInt("NODE/LOG_LEVEL", LOG_LEVEL_INFO, "controls the log types that are shown")
-
-	DISABLE_PLUGINS = parameter.AddString("NODE/DISABLE_PLUGINS", "", "a list of plugins that shall be disabled")
-	ENABLE_PLUGINS  = parameter.AddString("NODE/ENABLE_PLUGINS", "", "a list of plugins that shall be enabled")
+import (
+	flag "github.com/spf13/pflag"
 )
+
+const (
+	CFG_LOG_LEVEL       = "node.logLevel"
+	CFG_DISABLE_PLUGINS = "node.disablePlugins"
+	CFG_ENABLE_PLGUINS  = "node.enablePlugins"
+)
+
+func init() {
+	flag.Int(CFG_LOG_LEVEL, LOG_LEVEL_INFO, "controls the log types that are shown")
+	flag.String(CFG_DISABLE_PLUGINS, "", "a list of plugins that shall be disabled")
+	flag.String(CFG_ENABLE_PLGUINS, "", "a list of plugins that shall be enabled")
+}

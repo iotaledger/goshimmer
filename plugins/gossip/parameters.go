@@ -1,7 +1,13 @@
 package gossip
 
-import "github.com/iotaledger/goshimmer/packages/parameter"
-
-var (
-	PORT = parameter.AddInt("GOSSIP/PORT", 14666, "tcp port for gossip connection")
+import (
+	flag "github.com/spf13/pflag"
 )
+
+const (
+	GOSSIP_PORT = "gossip.port"
+)
+
+func init() {
+	flag.Int(GOSSIP_PORT, 14666, "tcp port for gossip connection")
+}

@@ -3,10 +3,10 @@ package bundleprocessor
 import (
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/errors"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/hive.go/events"
 )
 
 var PLUGIN = node.NewPlugin("Bundle Processor", node.Enabled, configure, run)

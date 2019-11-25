@@ -1,6 +1,7 @@
 package database
 
 import (
+	"github.com/iotaledger/hive.go/parameter"
 	"os"
 	"sync"
 
@@ -37,7 +38,7 @@ func checkDir(dir string) error {
 }
 
 func createDB() (*badger.DB, error) {
-	directory := *DIRECTORY.Value
+	directory := parameter.NodeConfig.GetString(CFG_DIRECTORY)
 	if err := checkDir(directory); err != nil {
 		return nil, errors.Wrap(err, "Could not check directory")
 	}
