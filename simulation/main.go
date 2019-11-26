@@ -76,7 +76,7 @@ func RunSim() {
 			DropNeighbors: DropAllFlag,
 		}
 		protocol := selection.New(peer.local, disc, cfg)
-		serverMap[id] = server.Listen(peer.local, network.GetTransport(name), peer.log, protocol)
+		serverMap[id] = server.Listen(peer.local, network.GetTransport(name), nil, peer.log, protocol)
 
 		protocolMap[id] = protocol
 

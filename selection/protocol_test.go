@@ -53,7 +53,7 @@ func newTest(t require.TestingT, name string, trans transport.Transport, logger 
 		SaltLifetime: DefaultSaltLifetime,
 	}
 	prot := New(local, dummyDiscovery{}, cfg)
-	srv := server.Listen(local, trans, log.Named("srv"), prot)
+	srv := server.Listen(local, trans, nil, log.Named("srv"), prot)
 	prot.Start(srv)
 
 	teardown := func() {
