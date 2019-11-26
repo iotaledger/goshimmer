@@ -2,11 +2,8 @@ package server
 
 import (
 	"container/list"
-	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
-	"net/http"
 	"sync"
 	"time"
 
@@ -73,7 +70,7 @@ type reply struct {
 // Listen starts a new peer server using the given transport layer for communication.
 // Sent data is signed using the identity of the local peer,
 // received data with a valid peer signature is handled according to the provided Handler.
-func Listen(local *peer.Local, t transport.Transport, log *zap.SugaredLogger, h ...Handler) *Server {
+func Listen(local *peer.Local, t transport.Transport, external *string, log *zap.SugaredLogger, h ...Handler) *Server {
 	srv := &Server{
 		local:           local,
 		trans:           t,
@@ -85,9 +82,8 @@ func Listen(local *peer.Local, t transport.Transport, log *zap.SugaredLogger, h 
 		closing:         make(chan struct{}),
 	}
 
-	host, port, _ := net.SplitHostPort(srv.address)
-	if host == "0.0.0.0" || host == "::" {
-		srv.address = getMyIP() + ":" + port
+	if external != nil {
+		srv.address = *external
 	}
 
 	srv.wg.Add(2)
@@ -297,18 +293,4 @@ func decode(pkt *pb.Packet) ([]byte, peer.PublicKey, error) {
 		return nil, nil, err
 	}
 	return pkt.GetData(), key, nil
-}
-
-func getMyIP() string {
-	url := "https://api.ipify.org?format=text"
-	resp, err := http.Get(url)
-	if err != nil {
-		return ""
-	}
-	defer resp.Body.Close()
-	ip, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return ""
-	}
-	return fmt.Sprintf("%s", ip)
 }

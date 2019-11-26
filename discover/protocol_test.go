@@ -43,7 +43,7 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport, l
 		MasterPeers: masters,
 	}
 	prot := New(local, cfg)
-	srv := server.Listen(local, trans, log.Named("srv"), prot)
+	srv := server.Listen(local, trans, nil, log.Named("srv"), prot)
 	prot.Start(srv)
 
 	teardown := func() {

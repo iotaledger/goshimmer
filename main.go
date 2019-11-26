@@ -4,8 +4,10 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -72,6 +74,13 @@ func main() {
 	)
 	flag.Parse()
 
+	var externalAddr *string
+	host, port, _ := net.SplitHostPort(*listenAddr)
+	if host == "0.0.0.0" {
+		host = getMyIP() + ":" + port
+		externalAddr = &host
+	}
+
 	logger := logger.NewLogger(defaultZLC, "debug")
 	defer func() { _ = logger.Sync() }() // ignore the returned error
 
@@ -117,7 +126,7 @@ func main() {
 	})
 
 	// start a server doing discovery and peering
-	srv := server.Listen(local, trans, logger.Named("srv"), discovery, selection)
+	srv := server.Listen(local, trans, externalAddr, logger.Named("srv"), discovery, selection)
 	defer srv.Close()
 
 	// start the discovery on that connection
@@ -134,4 +143,18 @@ func main() {
 
 	// wait for Ctrl+c
 	waitInterrupt()
+}
+
+func getMyIP() string {
+	url := "https://api.ipify.org?format=text"
+	resp, err := http.Get(url)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	ip, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%s", ip)
 }

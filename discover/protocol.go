@@ -268,6 +268,7 @@ func (p *Protocol) validatePing(s *server.Server, from *peer.Peer, m *pb.Ping) b
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"from", m.GetFrom(),
+			"excpected-from", from.Address(),
 		)
 		return false
 	}

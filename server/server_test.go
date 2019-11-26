@@ -121,7 +121,7 @@ func TestSrvEncodeDecodePing(t *testing.T) {
 	assert.Equal(t, msg, ping)
 }
 
-func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*Server, func()) {
+func newTestServer(t require.TestingT, name string, trans transport.Transport, external *string, logger *zap.SugaredLogger) (*Server, func()) {
 	log := logger.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
 	local, err := peer.NewLocal(db)
@@ -132,7 +132,7 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport, l
 	s, _ = salt.NewSalt(100 * time.Second)
 	local.SetPublicSalt(s)
 
-	srv := Listen(local, trans, logger.Named(name), HandlerFunc(handle))
+	srv := Listen(local, trans, nil, logger.Named(name), HandlerFunc(handle))
 
 	teardown := func() {
 		srv.Close()
@@ -155,9 +155,9 @@ func sendPing(s *Server, p *peer.Peer) error {
 func TestPingPong(t *testing.T) {
 	p2p := transport.P2P()
 
-	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
+	srvA, closeA := newTestServer(t, "A", p2p.A, nil, logger)
 	defer closeA()
-	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
+	srvB, closeB := newTestServer(t, "B", p2p.B, nil, logger)
 	defer closeB()
 
 	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
@@ -190,9 +190,9 @@ func TestSrvPingTimeout(t *testing.T) {
 
 	p2p := transport.P2P()
 
-	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
+	srvA, closeA := newTestServer(t, "A", p2p.A, nil, logger)
 	defer closeA()
-	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
+	srvB, closeB := newTestServer(t, "B", p2p.B, nil, logger)
 	closeB()
 
 	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
@@ -205,9 +205,9 @@ func TestUnexpectedPong(t *testing.T) {
 
 	p2p := transport.P2P()
 
-	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
+	srvA, closeA := newTestServer(t, "A", p2p.A, nil, logger)
 	defer closeA()
-	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
+	srvB, closeB := newTestServer(t, "B", p2p.B, nil, logger)
 	defer closeB()
 
 	// there should never be a Ping.Handle
