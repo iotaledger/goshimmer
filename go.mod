@@ -9,7 +9,7 @@ require (
 	github.com/go-zeromq/zmq4 v0.6.2
 	github.com/google/open-location-code/go v0.0.0-20190903173953-119bc96a3a51
 	github.com/gorilla/websocket v1.4.1
-	github.com/iotaledger/autopeering-sim v0.0.0-20191125082010-418faee91e5a
+	github.com/iotaledger/autopeering-sim v0.0.0-20191127100001-7ff75c77f051
 	github.com/iotaledger/hive.go v0.0.0-20191125115115-f88d4ecab6dd
 	github.com/iotaledger/iota.go v1.0.0-beta.10
 	github.com/labstack/echo v3.3.10+incompatible
@@ -27,9 +27,11 @@ require (
 	github.com/valyala/fasttemplate v1.1.0 // indirect
 	go.uber.org/zap v1.13.0
 	golang.org/x/crypto v0.0.0-20191122220453-ac88ee75c92c
-	golang.org/x/net v0.0.0-20191125084936-ffdde1057850
+	golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f // indirect
+	golang.org/x/net v0.0.0-20191126235420-ef20fe5d7933
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
-	golang.org/x/tools v0.0.0-20191125011157-cc15fab314e3 // indirect
+	golang.org/x/sys v0.0.0-20191127021746-63cb32ae39b2 // indirect
+	golang.org/x/tools v0.0.0-20191127064951-724660f1afeb // indirect
 	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898 // indirect
 	gopkg.in/yaml.v2 v2.2.7 // indirect
 )

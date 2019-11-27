@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	debugLevel = "info"
+	debugLevel = "debug"
 	close      = make(chan struct{}, 1)
 	srv        *server.Server
 	Discovery  *discover.Protocol
@@ -59,11 +59,18 @@ func start() {
 	localhost := host
 	apPort := strconv.Itoa(parameter.NodeConfig.GetInt(CFG_PORT))
 	gossipPort := strconv.Itoa(parameter.NodeConfig.GetInt(gossip.GOSSIP_PORT))
+
+	var externalAddr *string
 	if host == "0.0.0.0" {
 		host = getMyIP()
+		hostPort := host + ":" + apPort
+		externalAddr = &hostPort
 	}
 	listenAddr := host + ":" + apPort
 	gossipAddr := host + ":" + gossipPort
+
+	outboundSelectionDisabled := !parameter.NodeConfig.GetBool(CFG_SEND_REQUESTS)
+	inboundSelectionDisabled := !parameter.NodeConfig.GetBool(CFG_ACCEPT_REQUESTS)
 
 	logger := logger.NewLogger(defaultZLC, debugLevel)
 
@@ -108,12 +115,16 @@ func start() {
 		MasterPeers: masterPeers,
 	})
 	Selection = selection.New(local.INSTANCE, Discovery, selection.Config{
-		Log:          logger.Named("sel"),
-		SaltLifetime: selection.DefaultSaltLifetime,
+		Log: logger.Named("sel"),
+		Param: &selection.Parameters{
+			OutboundSelectionDisabled: outboundSelectionDisabled,
+			InboundSelectionDisabled:  inboundSelectionDisabled,
+			RequiredService:           []string{"gossip"},
+		},
 	})
 
 	// start a server doing discovery and peering
-	srv = server.Listen(local.INSTANCE, trans, logger.Named("srv"), Discovery, Selection)
+	srv = server.Listen(local.INSTANCE, trans, externalAddr, logger.Named("srv"), Discovery, Selection)
 	defer srv.Close()
 
 	// start the discovery on that connection
