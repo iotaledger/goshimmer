@@ -148,6 +148,7 @@ func (m *manager) doReverify(done chan<- struct{}) {
 			"peer", p,
 			"err", err,
 		)
+		Events.PeerDeleted.Trigger(&DeletedEvent{Peer: unwrapPeer(p)})
 
 		// add a random replacement, if available
 		if len(m.replacements) > 0 {
@@ -176,9 +177,10 @@ func (m *manager) peerToReverify() *mpeer {
 	return m.known[len(m.known)-1]
 }
 
-// bumpPeer moves the peer with the given ID to the front of the list of managed peers.
+// updatePeer moves the peer with the given ID to the front of the list of managed peers.
 // It returns true if a peer was bumped or false if there was no peer with that id
-func (m *manager) bumpPeer(id peer.ID) bool {
+func (m *manager) updatePeer(update *peer.Peer) bool {
+	id := update.ID()
 	for i, p := range m.known {
 		if p.ID() == id {
 			if i > 1 {
@@ -186,6 +188,7 @@ func (m *manager) bumpPeer(id peer.ID) bool {
 				copy(m.known[1:], m.known[:i])
 				m.known[0] = p
 			}
+			p.updatePeer(update)
 			p.verifiedCount++
 			return true
 		}
@@ -253,7 +256,7 @@ func (m *manager) addVerifiedPeer(p *peer.Peer) bool {
 	defer m.mutex.Unlock()
 
 	// if already in the list, move it to the front
-	if m.bumpPeer(p.ID()) {
+	if m.updatePeer(p) {
 		return false
 	}
 	m.log.Debugw("add verified",

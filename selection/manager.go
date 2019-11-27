@@ -24,7 +24,7 @@ const (
 type network interface {
 	local() *peer.Local
 
-	RequestPeering(*peer.Peer, *salt.Salt, peer.ServiceMap) (peer.ServiceMap, error)
+	RequestPeering(*peer.Peer, *salt.Salt) (bool, error)
 	DropPeer(*peer.Peer)
 }
 
@@ -205,14 +205,13 @@ func (m *manager) updateOutbound(done chan<- struct{}) {
 
 		// send peering request
 		mySalt := m.net.local().GetPublicSalt()
-		myServices := m.net.local().Services()
-		services, err := m.net.RequestPeering(candidate.Remote, mySalt, myServices)
+		status, err := m.net.RequestPeering(candidate.Remote, mySalt)
 		if err != nil {
 			return
 		}
 
 		// add candidate to the outbound neighborhood
-		if len(services) > 0 {
+		if status {
 			//m.acceptedFilter.AddPeer(candidate.Remote.ID())
 			if furthest.Remote != nil {
 				m.outbound.RemovePeer(furthest.Remote.ID())
@@ -228,7 +227,7 @@ func (m *manager) updateOutbound(done chan<- struct{}) {
 		}
 
 		// signal the result of the outgoing peering request
-		Events.OutgoingPeering.Trigger(&PeeringEvent{Self: m.self(), Peer: candidate.Remote, Services: services})
+		Events.OutgoingPeering.Trigger(&PeeringEvent{Self: m.self(), Peer: candidate.Remote, Status: status})
 	}
 }
 
@@ -304,15 +303,14 @@ func containsPeer(list []*peer.Peer, id peer.ID) bool {
 	return false
 }
 
-func (m *manager) acceptRequest(p *peer.Peer, s *salt.Salt, services peer.ServiceMap) peer.ServiceMap {
+func (m *manager) acceptRequest(p *peer.Peer, s *salt.Salt) bool {
 	m.inboundRequestChan <- peeringRequest{p, s}
 	status := <-m.inboundReplyChan
-	if status {
-		// signal the received request
-		Events.IncomingPeering.Trigger(&PeeringEvent{Self: m.self(), Peer: p, Services: services})
-	}
 
-	return m.net.local().Services()
+	// signal the received request
+	Events.IncomingPeering.Trigger(&PeeringEvent{Self: m.self(), Peer: p, Status: status})
+
+	return status
 }
 
 func (m *manager) getNeighbors() []*peer.Peer {

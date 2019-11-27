@@ -10,7 +10,7 @@ import (
 func newTestPeerWithID(ID byte) *Peer {
 	key := make([]byte, ed25519.PublicKeySize)
 	key[0] = ID
-	return NewPeer(key, testAddress)
+	return NewPeer(key, newTestServiceRecord())
 }
 
 func TestOrderedDistanceList(t *testing.T) {

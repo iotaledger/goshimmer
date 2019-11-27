@@ -4,14 +4,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"go.uber.org/zap"
 )
 
 // mapDB is a simple implementation of DB using a map.
 type mapDB struct {
-	mutex sync.RWMutex
-	m     map[string]peerEntry
-	key   PrivateKey
+	mutex    sync.RWMutex
+	m        map[string]peerEntry
+	key      PrivateKey
+	services *service.Record
 
 	log *zap.SugaredLogger
 
@@ -32,9 +34,10 @@ type peerPropEntry struct {
 // NewMemoryDB creates a new DB that uses a GO map.
 func NewMemoryDB(log *zap.SugaredLogger) DB {
 	db := &mapDB{
-		m:       make(map[string]peerEntry),
-		log:     log,
-		closing: make(chan struct{}),
+		m:        make(map[string]peerEntry),
+		services: service.New(),
+		log:      log,
+		closing:  make(chan struct{}),
 	}
 
 	// start the expirer routine
@@ -53,6 +56,7 @@ func (db *mapDB) Close() {
 	})
 }
 
+// LocalPrivateKey returns the private key stored in the database or creates a new one.
 func (db *mapDB) LocalPrivateKey() (PrivateKey, error) {
 	db.mutex.Lock()
 	defer db.mutex.Unlock()
@@ -64,6 +68,23 @@ func (db *mapDB) LocalPrivateKey() (PrivateKey, error) {
 	}
 
 	return db.key, nil
+}
+
+// LocalServices returns the services stored in the database or creates an empty map.
+func (db *mapDB) LocalServices() (service.Service, error) {
+	db.mutex.RLock()
+	defer db.mutex.RUnlock()
+
+	return db.services, nil
+}
+
+// UpdateLocalServices updates the services stored in the database.
+func (db *mapDB) UpdateLocalServices(services service.Service) error {
+	db.mutex.Lock()
+	db.services = services.CreateRecord()
+	db.mutex.Unlock()
+
+	return nil
 }
 
 // LastPing returns that property for the given peer ID and address.
@@ -143,6 +164,9 @@ func (db *mapDB) Peer(id ID) *Peer {
 	peerEntry := db.m[string(id.Bytes())]
 	db.mutex.RUnlock()
 
+	if peerEntry.data == nil {
+		return nil
+	}
 	return parsePeer(peerEntry.data)
 }
 

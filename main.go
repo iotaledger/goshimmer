@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/autopeering-sim/discover"
 	"github.com/iotaledger/autopeering-sim/logger"
 	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/autopeering-sim/selection"
 	"github.com/iotaledger/autopeering-sim/server"
 	"github.com/iotaledger/autopeering-sim/transport"
@@ -48,7 +49,7 @@ func waitInterrupt() {
 	<-c
 }
 
-func parseMaster(s string) (*peer.Peer, error) {
+func parseMaster(network string, s string) (*peer.Peer, error) {
 	if len(s) == 0 {
 		return nil, nil
 	}
@@ -62,7 +63,10 @@ func parseMaster(s string) (*peer.Peer, error) {
 		return nil, errors.Wrap(err, "parseMaster")
 	}
 
-	return peer.NewPeer(pubKey, parts[1]), nil
+	services := service.New()
+	services.Update(service.PeeringKey, network, parts[1])
+
+	return peer.NewPeer(pubKey, services), nil
 }
 
 func main() {
@@ -95,7 +99,7 @@ func main() {
 	defer conn.Close()
 
 	var masterPeers []*peer.Peer
-	master, err := parseMaster(*masterPeer)
+	master, err := parseMaster("udp", *masterPeer)
 	if err != nil {
 		log.Printf("Ignoring master: %v\n", err)
 	} else if master != nil {
@@ -109,12 +113,10 @@ func main() {
 	// create a new local node
 	db := peer.NewPersistentDB(logger.Named("db"))
 	defer db.Close()
-	local, err := peer.NewLocal(db)
+	local, err := peer.NewLocal("udp", *externalAddr, db)
 	if err != nil {
 		log.Fatalf("ListenUDP: %v", err)
 	}
-	// add a service for the peering
-	local.Services()["peering"] = peer.NetworkAddress{Network: "udp", Address: *listenAddr}
 
 	discovery := discover.New(local, discover.Config{
 		Log:         logger.Named("disc"),
@@ -126,7 +128,7 @@ func main() {
 	})
 
 	// start a server doing discovery and peering
-	srv := server.Listen(local, trans, externalAddr, logger.Named("srv"), discovery, selection)
+	srv := server.Listen(local, trans, logger.Named("srv"), discovery, selection)
 	defer srv.Close()
 
 	// start the discovery on that connection

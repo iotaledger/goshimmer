@@ -21,9 +21,10 @@ const (
 
 // DiscoverProtocol specifies the methods from the peer discovery that are required.
 type DiscoverProtocol interface {
-	IsVerified(*peer.Peer) bool
+	IsVerified(id peer.ID, addr string) bool
 	EnsureVerified(*peer.Peer)
 
+	GetVerifiedPeer(id peer.ID, addr string) *peer.Peer
 	GetVerifiedPeers() []*peer.Peer
 }
 
@@ -80,18 +81,18 @@ func (p *Protocol) GetNeighbors() []*peer.Peer {
 	return p.mgr.getNeighbors()
 }
 
-// GetNeighbors returns the current incoming neighbors.
+// GetIncomingNeighbors returns the current incoming neighbors.
 func (p *Protocol) GetIncomingNeighbors() []*peer.Peer {
 	return p.mgr.getIncomingNeighbors()
 }
 
-// GetNeighbors returns the current outgoing neighbors.
+// GetOutgoingNeighbors returns the current outgoing neighbors.
 func (p *Protocol) GetOutgoingNeighbors() []*peer.Peer {
 	return p.mgr.getOutgoingNeighbors()
 }
 
 // HandleMessage responds to incoming neighbor selection messages.
-func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte) (bool, error) {
+func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.ID, fromKey peer.PublicKey, data []byte) (bool, error) {
 	switch pb.MType(data[0]) {
 
 	// PeeringRequest
@@ -100,8 +101,8 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
 			return true, errors.Wrap(err, "invalid message")
 		}
-		if p.validatePeeringRequest(s, from, m) {
-			p.handlePeeringRequest(s, from, data, m)
+		if p.validatePeeringRequest(s, fromAddr, fromID, m) {
+			p.handlePeeringRequest(s, fromAddr, fromID, data, m)
 		}
 
 	// PeeringResponse
@@ -110,7 +111,7 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
 			return true, errors.Wrap(err, "invalid message")
 		}
-		p.validatePeeringResponse(s, from, m)
+		p.validatePeeringResponse(s, fromAddr, fromID, m)
 		// PeeringResponse messages are handled in the handleReply function of the validation
 
 	// PeeringDrop
@@ -119,8 +120,8 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
 			return true, errors.Wrap(err, "invalid message")
 		}
-		if p.validatePeeringDrop(s, from, m) {
-			p.handlePeeringDrop(from)
+		if p.validatePeeringDrop(s, fromAddr, fromID, m) {
+			p.handlePeeringDrop(fromID)
 		}
 
 	default:
@@ -135,30 +136,28 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 
 // RequestPeering sends a peering request to the given peer. This method blocks
 // until a response is received and the status answer is returned.
-func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt, myServices peer.ServiceMap) (peer.ServiceMap, error) {
+func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt) (bool, error) {
 	p.disc.EnsureVerified(to)
 
 	// create the request package
-	req := newPeeringRequest(to.Address(), salt, myServices)
+	req := newPeeringRequest(to.Address(), salt)
 	data := marshal(req)
 
 	// compute the message hash
 	hash := server.PacketHash(data)
 
-	var services peer.ServiceMap
+	var status bool
 	callback := func(m interface{}) bool {
 		res := m.(*pb.PeeringResponse)
 		if !bytes.Equal(res.GetReqHash(), hash) {
 			return false
 		}
-		if res.GetStatus() {
-			services = peer.NewServiceMapFromProto(res.GetServices())
-		}
+		status = res.GetStatus()
 		return true
 	}
 
-	err := <-p.Protocol.SendExpectingReply(to, data, pb.MPeeringResponse, callback)
-	return services, err
+	err := <-p.Protocol.SendExpectingReply(to.Address(), to.ID(), data, pb.MPeeringResponse, callback)
+	return status, err
 }
 
 // DropPeer sends a PeeringDrop to the given peer.
@@ -186,20 +185,18 @@ func marshal(msg pb.Message) []byte {
 
 // ------ Packet Constructors ------
 
-func newPeeringRequest(toAddr string, salt *salt.Salt, services peer.ServiceMap) *pb.PeeringRequest {
+func newPeeringRequest(toAddr string, salt *salt.Salt) *pb.PeeringRequest {
 	return &pb.PeeringRequest{
 		To:        toAddr,
 		Timestamp: time.Now().Unix(),
 		Salt:      salt.ToProto(),
-		Services:  peer.ServiceMapToProto(services),
 	}
 }
 
-func newPeeringResponse(reqData []byte, services peer.ServiceMap) *pb.PeeringResponse {
+func newPeeringResponse(reqData []byte, status bool) *pb.PeeringResponse {
 	return &pb.PeeringResponse{
-		ReqHash:  server.PacketHash(reqData),
-		Status:   len(services) > 0,
-		Services: peer.ServiceMapToProto(services),
+		ReqHash: server.PacketHash(reqData),
+		Status:  status,
 	}
 }
 
@@ -212,7 +209,7 @@ func newPeeringDrop(toAddr string) *pb.PeeringDrop {
 
 // ------ Packet Handlers ------
 
-func (p *Protocol) validatePeeringRequest(s *server.Server, from *peer.Peer, m *pb.PeeringRequest) bool {
+func (p *Protocol) validatePeeringRequest(s *server.Server, fromAddr string, fromID peer.ID, m *pb.PeeringRequest) bool {
 	// check that To matches the local address
 	if m.GetTo() != s.LocalAddr() {
 		p.log.Debugw("invalid message",
@@ -230,10 +227,10 @@ func (p *Protocol) validatePeeringRequest(s *server.Server, from *peer.Peer, m *
 		return false
 	}
 	// check whether the sender is verified
-	if !p.disc.IsVerified(from) {
+	if !p.disc.IsVerified(fromID, fromAddr) {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
-			"unverified", from,
+			"unverified", fromAddr,
 		)
 		return false
 	}
@@ -257,13 +254,13 @@ func (p *Protocol) validatePeeringRequest(s *server.Server, from *peer.Peer, m *
 
 	p.log.Debugw("valid message",
 		"type", m.Name(),
-		"from", from,
-		"services", peer.NewServiceMapFromProto(m.GetServices()),
+		"fromAddr", fromAddr,
+		"fromID", fromID,
 	)
 	return true
 }
 
-func (p *Protocol) handlePeeringRequest(s *server.Server, from *peer.Peer, rawData []byte, m *pb.PeeringRequest) {
+func (p *Protocol) handlePeeringRequest(s *server.Server, fromAddr string, fromID peer.ID, rawData []byte, m *pb.PeeringRequest) {
 	salt, err := salt.FromProto(m.GetSalt())
 	if err != nil {
 		// this should not happen as it is checked in validation
@@ -271,31 +268,38 @@ func (p *Protocol) handlePeeringRequest(s *server.Server, from *peer.Peer, rawDa
 		return
 	}
 
-	services := peer.NewServiceMapFromProto(m.GetServices())
+	from := p.disc.GetVerifiedPeer(fromID, fromAddr)
+	if from == nil {
+		// this should not happen as it is checked in validation
+		p.log.Warnw("invalid stored peer",
+			"id", fromID,
+		)
+		return
+	}
 
-	res := newPeeringResponse(rawData, p.mgr.acceptRequest(from, salt, services))
-	s.Send(from.Address(), marshal(res))
+	res := newPeeringResponse(rawData, p.mgr.acceptRequest(from, salt))
+	s.Send(fromAddr, marshal(res))
 }
 
-func (p *Protocol) validatePeeringResponse(s *server.Server, from *peer.Peer, m *pb.PeeringResponse) bool {
+func (p *Protocol) validatePeeringResponse(s *server.Server, fromAddr string, fromID peer.ID, m *pb.PeeringResponse) bool {
 	// there must be a request waiting for this response
-	if !s.IsExpectedReply(from, m.Type(), m) {
+	if !s.IsExpectedReply(fromAddr, fromID, m.Type(), m) {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
-			"unexpected", from,
+			"unexpected", fromAddr,
 		)
 		return false
 	}
 
 	p.log.Debugw("valid message",
 		"type", m.Name(),
-		"from", from,
-		"services", peer.NewServiceMapFromProto(m.GetServices()),
+		"fromAddr", fromAddr,
+		"fromID", fromID,
 	)
 	return true
 }
 
-func (p *Protocol) validatePeeringDrop(s *server.Server, from *peer.Peer, m *pb.PeeringDrop) bool {
+func (p *Protocol) validatePeeringDrop(s *server.Server, fromAddr string, fromID peer.ID, m *pb.PeeringDrop) bool {
 	// check that To matches the local address
 	if m.GetTo() != s.LocalAddr() {
 		p.log.Debugw("invalid message",
@@ -315,11 +319,12 @@ func (p *Protocol) validatePeeringDrop(s *server.Server, from *peer.Peer, m *pb.
 
 	p.log.Debugw("valid message",
 		"type", m.Name(),
-		"from", from,
+		"fromAddr", fromAddr,
+		"fromID", fromID,
 	)
 	return true
 }
 
-func (p *Protocol) handlePeeringDrop(from *peer.Peer) {
-	p.mgr.dropNeighbor(from.ID())
+func (p *Protocol) handlePeeringDrop(fromID peer.ID) {
+	p.mgr.dropNeighbor(fromID)
 }

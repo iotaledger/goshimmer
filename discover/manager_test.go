@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/autopeering-sim/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -34,7 +35,7 @@ func (m *NetworkMock) discoveryRequest(p *peer.Peer) ([]*peer.Peer, error) {
 }
 
 func newNetworkMock() *NetworkMock {
-	local, _ := peer.NewLocal(peer.NewMemoryDB(logger))
+	local, _ := peer.NewLocal("mock", "0", peer.NewMemoryDB(logger))
 	return &NetworkMock{
 		// no database needed
 		loc: local,
@@ -42,7 +43,10 @@ func newNetworkMock() *NetworkMock {
 }
 
 func newDummyPeer(name string) *peer.Peer {
-	return peer.NewPeer([]byte(name), name)
+	services := service.New()
+	services.Update(service.PeeringKey, "dummy", name)
+
+	return peer.NewPeer([]byte(name), services)
 }
 
 func newTestManager() (*manager, *NetworkMock, func()) {

@@ -9,6 +9,7 @@ import (
 	pb "github.com/iotaledger/autopeering-sim/discover/proto"
 	"github.com/iotaledger/autopeering-sim/peer"
 	peerpb "github.com/iotaledger/autopeering-sim/peer/proto"
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/autopeering-sim/server"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -20,6 +21,7 @@ const (
 
 	pingExpiration     = 12 * time.Hour // time until a peer verification expires
 	maxPeersInResponse = 6              // maximum number of peers returned in DiscoveryResponse
+	maxNumServices     = 5
 )
 
 // The Protocol handles the peer discovery.
@@ -69,18 +71,33 @@ func (p *Protocol) Close() {
 }
 
 // IsVerified checks whether the given peer has recently been verified a recent enough endpoint proof.
-func (p *Protocol) IsVerified(peer *peer.Peer) bool {
-	return time.Since(p.loc.Database().LastPong(peer.ID(), peer.Address())) < pingExpiration
+func (p *Protocol) IsVerified(id peer.ID, addr string) bool {
+	return time.Since(p.loc.Database().LastPong(id, addr)) < pingExpiration
 }
 
 // EnsureVerified checks if the given peer has recently sent a ping;
 // if not, we send a ping to trigger a verification.
 func (p *Protocol) EnsureVerified(peer *peer.Peer) {
-	if !p.hasVerified(peer) {
-		<-p.sendPing(peer)
+	if !p.hasVerified(peer.ID(), peer.Address()) {
+		<-p.sendPing(peer.Address(), peer.ID())
 		// Wait for them to ping back and process our pong
 		time.Sleep(server.ResponseTimeout)
 	}
+}
+
+// GetVerifiedPeer returns the verified peer with the given ID, or nil if no such peer exists.
+func (p *Protocol) GetVerifiedPeer(id peer.ID, addr string) *peer.Peer {
+	if !p.IsVerified(id, addr) {
+		return nil
+	}
+	peer := p.loc.Database().Peer(id)
+	if peer == nil {
+		return nil
+	}
+	if peer.Address() != addr {
+		return nil
+	}
+	return nil
 }
 
 // GetVerifiedPeers returns all the currently managed peers that have been verified at least once.
@@ -89,7 +106,7 @@ func (p *Protocol) GetVerifiedPeers() []*peer.Peer {
 }
 
 // HandleMessage responds to incoming peer discovery messages.
-func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte) (bool, error) {
+func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.ID, fromKey peer.PublicKey, data []byte) (bool, error) {
 	switch pb.MType(data[0]) {
 
 	// Ping
@@ -98,8 +115,8 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
 			return true, errors.Wrap(err, "invalid message")
 		}
-		if p.validatePing(s, from, m) {
-			p.handlePing(s, from, data, m)
+		if p.validatePing(s, fromAddr, fromID, m) {
+			p.handlePing(s, fromAddr, fromID, data, m)
 		}
 
 	// Pong
@@ -108,8 +125,8 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
 			return true, errors.Wrap(err, "invalid message")
 		}
-		if p.validatePong(s, from, m) {
-			p.handlePong(from)
+		if p.validatePong(s, fromAddr, fromID, m) {
+			p.handlePong(fromAddr, fromID, fromKey, m)
 		}
 
 	// DiscoveryRequest
@@ -118,8 +135,8 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
 			return true, errors.Wrap(err, "invalid message")
 		}
-		if p.validateDiscoveryRequest(s, from, m) {
-			p.handleDiscoveryRequest(s, from, data)
+		if p.validateDiscoveryRequest(s, fromAddr, fromID, m) {
+			p.handleDiscoveryRequest(s, fromAddr, data)
 		}
 
 	// DiscoveryResponse
@@ -128,7 +145,7 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
 			return true, errors.Wrap(err, "invalid message")
 		}
-		p.validateDiscoveryResponse(s, from, m)
+		p.validateDiscoveryResponse(s, fromAddr, fromID, m)
 		// DiscoveryResponse messages are handled in the handleReply function of the validation
 
 	default:
@@ -143,13 +160,13 @@ func (p *Protocol) HandleMessage(s *server.Server, from *peer.Peer, data []byte)
 
 // ping sends a ping to the specified peer and blocks until a reply is received or timeout.
 func (p *Protocol) ping(to *peer.Peer) error {
-	return <-p.sendPing(to)
+	return <-p.sendPing(to.Address(), to.ID())
 }
 
 // sendPing sends a ping to the specified address and expects a matching reply.
 // This method is non-blocking, but it returns a channel that can be used to query potential errors.
-func (p *Protocol) sendPing(to *peer.Peer) <-chan error {
-	ping := newPing(p.LocalAddr(), to.Address())
+func (p *Protocol) sendPing(toAddr string, toID peer.ID) <-chan error {
+	ping := newPing(p.LocalAddr(), toAddr)
 	data := marshal(ping)
 
 	// compute the message hash
@@ -159,7 +176,7 @@ func (p *Protocol) sendPing(to *peer.Peer) <-chan error {
 	}
 
 	// expect a pong referencing the ping we are about to send
-	return p.Protocol.SendExpectingReply(to, data, pb.MPong, hashEqual)
+	return p.Protocol.SendExpectingReply(toAddr, toID, data, pb.MPong, hashEqual)
 }
 
 // discoveryRequest request known peers from the given target. This method blocks
@@ -174,7 +191,7 @@ func (p *Protocol) discoveryRequest(to *peer.Peer) ([]*peer.Peer, error) {
 	// compute the message hash
 	hash := server.PacketHash(data)
 	peers := make([]*peer.Peer, 0, maxPeersInResponse)
-	errc := p.Protocol.SendExpectingReply(to, data, pb.MDiscoveryResponse, func(m interface{}) bool {
+	errc := p.Protocol.SendExpectingReply(to.Address(), to.ID(), data, pb.MDiscoveryResponse, func(m interface{}) bool {
 		res := m.(*pb.DiscoveryResponse)
 		if !bytes.Equal(res.GetReqHash(), hash) {
 			return false
@@ -199,8 +216,8 @@ func (p *Protocol) discoveryRequest(to *peer.Peer) ([]*peer.Peer, error) {
 // ------ helper functions ------
 
 // hasVerified returns whether the given peer has recently verified the local peer.
-func (p *Protocol) hasVerified(peer *peer.Peer) bool {
-	return time.Since(p.loc.Database().LastPing(peer.ID(), peer.Address())) < pingExpiration
+func (p *Protocol) hasVerified(id peer.ID, addr string) bool {
+	return time.Since(p.loc.Database().LastPing(id, addr)) < pingExpiration
 }
 
 func marshal(msg pb.Message) []byte {
@@ -227,10 +244,11 @@ func newPing(fromAddr string, toAddr string) *pb.Ping {
 	}
 }
 
-func newPong(toAddr string, reqData []byte) *pb.Pong {
+func newPong(toAddr string, reqData []byte, services *service.Record) *pb.Pong {
 	return &pb.Pong{
 		PingHash: server.PacketHash(reqData),
 		To:       toAddr,
+		Services: services.ToProto(),
 	}
 }
 
@@ -254,7 +272,7 @@ func newDiscoveryResponse(reqData []byte, list []*peer.Peer) *pb.DiscoveryRespon
 
 // ------ Packet Handlers ------
 
-func (p *Protocol) validatePing(s *server.Server, from *peer.Peer, m *pb.Ping) bool {
+func (p *Protocol) validatePing(s *server.Server, fromAddr string, fromID peer.ID, m *pb.Ping) bool {
 	// check version number
 	if m.GetVersion() != VersionNum {
 		p.log.Debugw("invalid message",
@@ -264,7 +282,7 @@ func (p *Protocol) validatePing(s *server.Server, from *peer.Peer, m *pb.Ping) b
 		return false
 	}
 	// check that From matches the package sender address
-	if m.GetFrom() != from.Address() {
+	if m.GetFrom() != fromAddr {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"from", m.GetFrom(),
@@ -290,25 +308,28 @@ func (p *Protocol) validatePing(s *server.Server, from *peer.Peer, m *pb.Ping) b
 
 	p.log.Debugw("valid message",
 		"type", m.Name(),
-		"from", from,
+		"fromAddr", fromAddr,
+		"fromID", fromID,
 	)
 	return true
 }
 
-func (p *Protocol) handlePing(s *server.Server, from *peer.Peer, rawData []byte, m *pb.Ping) {
+func (p *Protocol) handlePing(s *server.Server, fromAddr string, fromID peer.ID, rawData []byte, m *pb.Ping) {
+	services := s.Local().Services()
+
 	// create and send the pong response
-	pong := newPong(from.Address(), rawData)
-	s.Send(from.Address(), marshal(pong))
+	pong := newPong(fromAddr, rawData, services.CreateRecord())
+	s.Send(fromAddr, marshal(pong))
 
 	// if the peer is new or expired, send a ping to verify
-	if !p.IsVerified(from) {
-		p.sendPing(from)
+	if !p.IsVerified(fromID, fromAddr) {
+		p.sendPing(fromAddr, fromID)
 	}
 
-	_ = p.local().Database().UpdateLastPing(from.ID(), from.Address(), time.Now())
+	_ = p.local().Database().UpdateLastPing(fromID, fromAddr, time.Now())
 }
 
-func (p *Protocol) validatePong(s *server.Server, from *peer.Peer, m *pb.Pong) bool {
+func (p *Protocol) validatePong(s *server.Server, fromAddr string, fromID peer.ID, m *pb.Pong) bool {
 	// check that To matches the local address
 	if m.GetTo() != s.LocalAddr() {
 		p.log.Debugw("invalid message",
@@ -318,32 +339,52 @@ func (p *Protocol) validatePong(s *server.Server, from *peer.Peer, m *pb.Pong) b
 		return false
 	}
 	// there must be a ping waiting for this pong as a reply
-	if !s.IsExpectedReply(from, m.Type(), m) {
+	if !s.IsExpectedReply(fromAddr, fromID, m.Type(), m) {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
-			"unexpected", from,
+			"unexpected", fromAddr,
+		)
+		return false
+	}
+	// there must a valid number of services
+	numServices := len(m.GetServices().GetMap())
+	if numServices <= 0 || numServices > maxNumServices {
+		p.log.Debugw("invalid message",
+			"type", m.Name(),
+			"#peers", numServices,
 		)
 		return false
 	}
 
 	p.log.Debugw("valid message",
 		"type", m.Name(),
-		"from", from,
+		"fromAddr", fromAddr,
+		"fromID", fromID,
 	)
 	return true
 }
 
-func (p *Protocol) handlePong(from *peer.Peer) {
+func (p *Protocol) handlePong(fromAddr string, fromID peer.ID, fromKey peer.PublicKey, m *pb.Pong) {
+	services, _ := service.FromProto(m.GetServices())
+	peering := services.Get(service.PeeringKey)
+	if peering == nil || peering.String() != fromAddr {
+		p.log.Warn("invalid services")
+		return
+	}
+
+	// create a proper key with these services
+	from := peer.NewPeer(fromKey, services)
+
 	// a valid pong verifies the peer
 	p.mgr.addVerifiedPeer(from)
 
 	// update peer database
 	db := p.local().Database()
-	_ = db.UpdateLastPong(from.ID(), from.Address(), time.Now())
+	_ = db.UpdateLastPong(fromID, fromAddr, time.Now())
 	_ = db.UpdatePeer(from)
 }
 
-func (p *Protocol) validateDiscoveryRequest(s *server.Server, from *peer.Peer, m *pb.DiscoveryRequest) bool {
+func (p *Protocol) validateDiscoveryRequest(s *server.Server, fromAddr string, fromID peer.ID, m *pb.DiscoveryRequest) bool {
 	// check that To matches the local address
 	if m.GetTo() != s.LocalAddr() {
 		p.log.Debugw("invalid message",
@@ -361,29 +402,30 @@ func (p *Protocol) validateDiscoveryRequest(s *server.Server, from *peer.Peer, m
 		return false
 	}
 	// check whether the sender is verified
-	if !p.IsVerified(from) {
+	if !p.IsVerified(fromID, fromAddr) {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
-			"unverified", from,
+			"unverified", fromAddr,
 		)
 		return false
 	}
 
 	p.log.Debugw("valid message",
 		"type", m.Name(),
-		"from", from,
+		"fromAddr", fromAddr,
+		"fromID", fromID,
 	)
 	return true
 }
 
-func (p *Protocol) handleDiscoveryRequest(s *server.Server, from *peer.Peer, rawData []byte) {
+func (p *Protocol) handleDiscoveryRequest(s *server.Server, fromAddr string, rawData []byte) {
 	// get a random list of verified peers
 	peers := p.mgr.getRandomPeers(maxPeersInResponse, 1)
 	res := newDiscoveryResponse(rawData, peers)
-	s.Send(from.Address(), marshal(res))
+	s.Send(fromAddr, marshal(res))
 }
 
-func (p *Protocol) validateDiscoveryResponse(s *server.Server, from *peer.Peer, m *pb.DiscoveryResponse) bool {
+func (p *Protocol) validateDiscoveryResponse(s *server.Server, fromAddr string, fromID peer.ID, m *pb.DiscoveryResponse) bool {
 	// there must not be too many peers
 	if len(m.GetPeers()) > maxPeersInResponse {
 		p.log.Debugw("invalid message",
@@ -393,17 +435,18 @@ func (p *Protocol) validateDiscoveryResponse(s *server.Server, from *peer.Peer, 
 		return false
 	}
 	// there must be a request waiting for this response
-	if !s.IsExpectedReply(from, m.Type(), m) {
+	if !s.IsExpectedReply(fromAddr, fromID, m.Type(), m) {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
-			"unexpected", from,
+			"unexpected", fromAddr,
 		)
 		return false
 	}
 
 	p.log.Debugw("valid message",
 		"type", m.Name(),
-		"from", from,
+		"fromAddr", fromAddr,
+		"fromID", fromID,
 	)
 	return true
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/autopeering-sim/salt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,7 +15,7 @@ func TestID(t *testing.T) {
 	pub, priv, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
-	local := newLocal(PrivateKey(priv), nil)
+	local := newLocal(PrivateKey(priv), newTestServiceRecord(), nil)
 	id := PublicKey(pub).ID()
 	assert.Equal(t, id, local.ID())
 }
@@ -23,14 +24,21 @@ func TestPublicKey(t *testing.T) {
 	pub, priv, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
-	local := newLocal(PrivateKey(priv), nil)
+	local := newLocal(PrivateKey(priv), newTestServiceRecord(), nil)
 	assert.EqualValues(t, pub, local.PublicKey())
 }
 
 func newTestLocal(t require.TestingT) *Local {
 	priv, err := generatePrivateKey()
 	require.NoError(t, err)
-	return newLocal(priv, nil)
+	return newLocal(priv, newTestServiceRecord(), nil)
+}
+
+func TestAddress(t *testing.T) {
+	local := newTestLocal(t)
+
+	address := local.Services().Get(service.PeeringKey).String()
+	assert.EqualValues(t, address, local.Address())
 }
 
 func TestPrivateSalt(t *testing.T) {

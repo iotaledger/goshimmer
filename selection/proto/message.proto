@@ -5,7 +5,6 @@ option go_package = "github.com/iotaledger/autopeering-sim/selection/proto";
 package proto;
 
 import "salt/proto/salt.proto";
-import "peer/proto/service.proto";
 
 message PeeringRequest {
   // string form of the recipient address
@@ -14,8 +13,6 @@ message PeeringRequest {
   int64 timestamp = 2;
   // salt of the requester
   Salt salt = 3;
-  // services supported by the requester
-  ServiceMap services = 4;
 }
 
 message PeeringResponse {
@@ -23,8 +20,6 @@ message PeeringResponse {
   bytes req_hash = 1;
   // response of a peering request
   bool status = 2;
-  // services supported by the responding peer
-  ServiceMap services = 3;
 }
 
 message PeeringDrop {
