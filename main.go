@@ -78,11 +78,9 @@ func main() {
 	)
 	flag.Parse()
 
-	var externalAddr *string
-	host, port, _ := net.SplitHostPort(*listenAddr)
-	if host == "0.0.0.0" {
-		host = getMyIP() + ":" + port
-		externalAddr = &host
+	externalAddr := *listenAddr
+	if host, port, _ := net.SplitHostPort(*listenAddr); host == "0.0.0.0" {
+		externalAddr = getMyIP() + ":" + port
 	}
 
 	logger := logger.NewLogger(defaultZLC, "debug")
@@ -113,7 +111,7 @@ func main() {
 	// create a new local node
 	db := peer.NewPersistentDB(logger.Named("db"))
 	defer db.Close()
-	local, err := peer.NewLocal("udp", *externalAddr, db)
+	local, err := peer.NewLocal("udp", externalAddr, db)
 	if err != nil {
 		log.Fatalf("ListenUDP: %v", err)
 	}
@@ -139,8 +137,8 @@ func main() {
 	selection.Start(srv)
 	defer selection.Close()
 
-	id := base64.StdEncoding.EncodeToString(local.PublicKey())
-	fmt.Println("Discovery protocol started: ID=" + id + ", address=" + srv.LocalAddr())
+	pubKey := base64.StdEncoding.EncodeToString(local.PublicKey())
+	fmt.Println("Discovery protocol started: pubKey=" + pubKey + ", address=" + srv.LocalAddr())
 	fmt.Println("Hit Ctrl+C to exit")
 
 	// wait for Ctrl+c
