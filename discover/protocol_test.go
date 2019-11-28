@@ -108,6 +108,50 @@ func TestProtPingTimeout(t *testing.T) {
 	assert.EqualError(t, err, server.ErrTimeout.Error())
 }
 
+func TestProtVerifiedPeers(t *testing.T) {
+	p2p := transport.P2P()
+
+	_, protA, closeA := newTestServer(t, "A", p2p.A, logger)
+	defer closeA()
+	srvB, _, closeB := newTestServer(t, "B", p2p.B, logger)
+	defer closeB()
+
+	peerB := &srvB.Local().Peer
+
+	// send a ping from node A to B
+	assert.NoError(t, protA.ping(peerB))
+	time.Sleep(graceTime)
+
+	// protA should have peerB as the single verified peer
+	assert.ElementsMatch(t, []*peer.Peer{peerB}, protA.GetVerifiedPeers())
+	for _, p := range protA.GetVerifiedPeers() {
+		assert.Equal(t, p, protA.GetVerifiedPeer(p.ID(), p.Address()))
+	}
+}
+
+func TestProtVerifiedPeer(t *testing.T) {
+	p2p := transport.P2P()
+
+	srvA, protA, closeA := newTestServer(t, "A", p2p.A, logger)
+	defer closeA()
+	srvB, _, closeB := newTestServer(t, "B", p2p.B, logger)
+	defer closeB()
+
+	peerA := &srvA.Local().Peer
+	peerB := &srvB.Local().Peer
+
+	// send a ping from node A to B
+	assert.NoError(t, protA.ping(peerB))
+	time.Sleep(graceTime)
+
+	// we should have peerB as a verified peer
+	assert.Equal(t, peerB, protA.GetVerifiedPeer(peerB.ID(), peerB.Address()))
+	// we should not have ourself as a verified peer
+	assert.Nil(t, protA.GetVerifiedPeer(peerA.ID(), peerA.Address()))
+	// the address of peerB should match
+	assert.Nil(t, protA.GetVerifiedPeer(peerB.ID(), ""))
+}
+
 func TestProtDiscoveryRequest(t *testing.T) {
 	p2p := transport.P2P()
 
