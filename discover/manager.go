@@ -316,3 +316,15 @@ func (m *manager) getVerifiedPeers() []*mpeer {
 
 	return peers
 }
+
+// isKnown returns true if the manager is keeping track of that peer.
+func (m *manager) isKnown(id peer.ID) bool {
+	if id == m.self() {
+		return true
+	}
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	return containsPeer(m.known, id) || containsPeer(m.replacements, id)
+}

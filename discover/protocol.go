@@ -116,7 +116,7 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 			return true, errors.Wrap(err, "invalid message")
 		}
 		if p.validatePing(s, fromAddr, fromID, m) {
-			p.handlePing(s, fromAddr, fromID, data, m)
+			p.handlePing(s, fromAddr, fromID, fromKey, data, m)
 		}
 
 	// Pong
@@ -233,6 +233,14 @@ func marshal(msg pb.Message) []byte {
 	return append([]byte{byte(mType)}, data...)
 }
 
+// createDiscoverPeer creates a new peer that only has a peering service at the given address.
+func createDiscoverPeer(key peer.PublicKey, network string, address string) *peer.Peer {
+	services := service.New()
+	services.Update(service.PeeringKey, network, address)
+
+	return peer.NewPeer(key, services)
+}
+
 // ------ Packet Constructors ------
 
 func newPing(fromAddr string, toAddr string) *pb.Ping {
@@ -314,16 +322,17 @@ func (p *Protocol) validatePing(s *server.Server, fromAddr string, fromID peer.I
 	return true
 }
 
-func (p *Protocol) handlePing(s *server.Server, fromAddr string, fromID peer.ID, rawData []byte, m *pb.Ping) {
-	services := s.Local().Services()
-
+func (p *Protocol) handlePing(s *server.Server, fromAddr string, fromID peer.ID, fromKey peer.PublicKey, rawData []byte, m *pb.Ping) {
 	// create and send the pong response
-	pong := newPong(fromAddr, rawData, services.CreateRecord())
+	pong := newPong(fromAddr, rawData, s.Local().Services().CreateRecord())
 	s.Send(fromAddr, marshal(pong))
 
 	// if the peer is new or expired, send a ping to verify
 	if !p.IsVerified(fromID, fromAddr) {
 		p.sendPing(fromAddr, fromID)
+	} else if !p.mgr.isKnown(fromID) { // add a discovered peer to the manager if it is new
+		peer := createDiscoverPeer(fromKey, p.LocalNetwork(), fromAddr)
+		p.mgr.addDiscoveredPeer(peer)
 	}
 
 	_ = p.local().Database().UpdateLastPing(fromID, fromAddr, time.Now())
