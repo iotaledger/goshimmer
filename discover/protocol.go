@@ -97,7 +97,7 @@ func (p *Protocol) GetVerifiedPeer(id peer.ID, addr string) *peer.Peer {
 	if peer.Address() != addr {
 		return nil
 	}
-	return nil
+	return peer
 }
 
 // GetVerifiedPeers returns all the currently managed peers that have been verified at least once.

@@ -21,4 +21,6 @@ const (
 	PeeringKey Key = "peering"
 	// FPCKey is the key for the FPC service.
 	FPCKey Key = "fpc"
+	// GossipKey is the key for the gossip service.
+	GossipKey Key = "gossip"
 )
