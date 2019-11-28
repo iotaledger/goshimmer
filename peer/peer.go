@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/iotaledger/autopeering-sim/peer/proto"
+	"github.com/iotaledger/autopeering-sim/peer/service"
 )
 
 // PublicKey is the type of Ed25519 public keys used for peers.
@@ -15,19 +16,34 @@ type PublicKey ed25519.PublicKey
 
 // Peer defines the immutable data of a peer.
 type Peer struct {
-	id        ID        // comparable node identifier
-	publicKey PublicKey // public key used to verify signatures
-	address   string    // address of a peer ("127.0.0.1:8000")
+	id        ID              // comparable node identifier
+	publicKey PublicKey       // public key used to verify signatures
+	services  *service.Record // unmodifyable services supported by the peer
 }
 
-// ID returns the node identifier.
+// ID returns the identifier of the peer.
 func (p *Peer) ID() ID {
 	return p.id
 }
 
-// Address returns the address of a peer.
+// PublicKey returns the public key of the peer.
+func (p *Peer) PublicKey() PublicKey {
+	return p.publicKey
+}
+
+// Network returns the autopeering network of the peer.
+func (p *Peer) Network() string {
+	return p.services.Get(service.PeeringKey).Network()
+}
+
+// Address returns the autopeering address of a peer.
 func (p *Peer) Address() string {
-	return p.address
+	return p.services.Get(service.PeeringKey).String()
+}
+
+// Services returns the supported services of the peer.
+func (p *Peer) Services() service.Service {
+	return p.services
 }
 
 // String returns a string representation of the peer.
@@ -35,7 +51,7 @@ func (p *Peer) String() string {
 	u := url.URL{
 		Scheme: "peer",
 		User:   url.User(fmt.Sprintf("%x", p.publicKey)),
-		Host:   p.address,
+		Host:   p.Address(),
 	}
 	return u.String()
 }
@@ -52,12 +68,16 @@ func RecoverKeyFromSignedData(m SignedData) (PublicKey, error) {
 	return recoverKey(m.GetPublicKey(), m.GetData(), m.GetSignature())
 }
 
-// NewPeer creates a new minimal peer.
-func NewPeer(publicKey PublicKey, address string) *Peer {
+// NewPeer creates a new unmodifyable peer.
+func NewPeer(publicKey PublicKey, services service.Service) *Peer {
+	if services.Get(service.PeeringKey) == nil {
+		panic("need peering service")
+	}
+
 	return &Peer{
 		id:        publicKey.ID(),
 		publicKey: publicKey,
-		address:   address,
+		services:  services.CreateRecord(),
 	}
 }
 
@@ -65,7 +85,7 @@ func NewPeer(publicKey PublicKey, address string) *Peer {
 func (p *Peer) ToProto() *pb.Peer {
 	return &pb.Peer{
 		PublicKey: p.publicKey,
-		Address:   p.address,
+		Services:  p.services.ToProto(),
 	}
 }
 
@@ -74,7 +94,15 @@ func FromProto(in *pb.Peer) (*Peer, error) {
 	if l := len(in.GetPublicKey()); l != ed25519.PublicKeySize {
 		return nil, fmt.Errorf("invalid key length: %d, need %d", l, ed25519.PublicKeySize)
 	}
-	return NewPeer(in.GetPublicKey(), in.GetAddress()), nil
+	services, err := service.FromProto(in.GetServices())
+	if err != nil {
+		return nil, err
+	}
+	if services.Get(service.PeeringKey) == nil {
+		return nil, errors.New("need peering service")
+	}
+
+	return NewPeer(in.GetPublicKey(), services), nil
 }
 
 // Marshal serializes a given Peer (p) into a slice of bytes.

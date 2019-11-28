@@ -46,9 +46,9 @@ func (m *Pong) Type() MType     { return MPong }
 func (m *Pong) Marshal() []byte { return append([]byte{}, byte(MPong)) }
 
 func sendPong(args mock.Arguments) {
-	s := args.Get(0).(*Server)
-	p := args.Get(1).(*peer.Peer)
-	s.Send(p.Address(), new(Pong).Marshal())
+	srv := args.Get(0).(*Server)
+	addr := args.Get(1).(string)
+	srv.Send(addr, new(Pong).Marshal())
 }
 
 var (
@@ -68,7 +68,7 @@ func setupTest() func(t *testing.T) {
 	}
 }
 
-func handle(s *Server, from *peer.Peer, data []byte) (bool, error) {
+func handle(s *Server, fromAddr string, fromID peer.ID, fromKey peer.PublicKey, data []byte) (bool, error) {
 	msg, err := unmarshal(data)
 	if err != nil {
 		return false, err
@@ -76,11 +76,11 @@ func handle(s *Server, from *peer.Peer, data []byte) (bool, error) {
 
 	switch msg.Type() {
 	case MPing:
-		pingMock.Called(s, from)
+		pingMock.Called(s, fromAddr, fromID, fromKey, data)
 
 	case MPong:
-		if s.IsExpectedReply(from, MPong, msg) {
-			pongMock.Called(s, from)
+		if s.IsExpectedReply(fromAddr, fromID, MPong, msg) {
+			pongMock.Called(s, fromAddr, fromID, fromKey, data)
 		}
 
 	default:
@@ -106,7 +106,7 @@ func unmarshal(data []byte) (Message, error) {
 
 func TestSrvEncodeDecodePing(t *testing.T) {
 	// create minimal server just containing the local peer
-	local, err := peer.NewLocal(peer.NewMemoryDB(logger))
+	local, err := peer.NewLocal("dummy", "local", peer.NewMemoryDB(logger))
 	require.NoError(t, err)
 	s := &Server{local: local}
 
@@ -124,7 +124,7 @@ func TestSrvEncodeDecodePing(t *testing.T) {
 func newTestServer(t require.TestingT, name string, trans transport.Transport, external *string, logger *zap.SugaredLogger) (*Server, func()) {
 	log := logger.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
-	local, err := peer.NewLocal(db)
+	local, err := peer.NewLocal("dummy", trans.LocalAddr(), db)
 	require.NoError(t, err)
 
 	s, _ := salt.NewSalt(100 * time.Second)
@@ -132,7 +132,7 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport, e
 	s, _ = salt.NewSalt(100 * time.Second)
 	local.SetPublicSalt(s)
 
-	srv := Listen(local, trans, nil, logger.Named(name), HandlerFunc(handle))
+	srv := Listen(local, trans, logger.Named(name), HandlerFunc(handle))
 
 	teardown := func() {
 		srv.Close()
@@ -160,14 +160,16 @@ func TestPingPong(t *testing.T) {
 	srvB, closeB := newTestServer(t, "B", p2p.B, nil, logger)
 	defer closeB()
 
-	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
-	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+	peerA := &srvA.Local().Peer
+	peerB := &srvB.Local().Peer
 
 	t.Run("A->B", func(t *testing.T) {
 		defer setupTest()(t)
 
-		pingMock.On("handle", srvB, peerA).Run(sendPong).Once() // B expects valid ping from A and sends pong back
-		pongMock.On("handle", srvA, peerB).Once()               // A expects valid pong from B
+		// B expects valid ping from A and sends pong back
+		pingMock.On("handle", srvB, peerA.Address(), peerA.ID(), peerA.PublicKey(), mock.Anything).Run(sendPong).Once()
+		// A expects valid pong from B
+		pongMock.On("handle", srvA, peerB.Address(), peerB.ID(), peerB.PublicKey(), mock.Anything).Once()
 
 		assert.NoError(t, sendPing(srvA, peerB))
 		time.Sleep(graceTime)
@@ -177,8 +179,8 @@ func TestPingPong(t *testing.T) {
 	t.Run("B->A", func(t *testing.T) {
 		defer setupTest()(t)
 
-		pingMock.On("handle", srvA, peerB).Run(sendPong).Once() // A expects valid ping from B and sends pong back
-		pongMock.On("handle", srvB, peerA).Once()               // B expects valid pong from A
+		pingMock.On("handle", srvA, peerB.Address(), peerB.ID(), peerB.PublicKey(), mock.Anything).Run(sendPong).Once() // A expects valid ping from B and sends pong back
+		pongMock.On("handle", srvB, peerA.Address(), peerA.ID(), peerA.PublicKey(), mock.Anything).Once()               // B expects valid pong from A
 
 		assert.NoError(t, sendPing(srvB, peerA))
 		time.Sleep(graceTime)
@@ -195,8 +197,7 @@ func TestSrvPingTimeout(t *testing.T) {
 	srvB, closeB := newTestServer(t, "B", p2p.B, nil, logger)
 	closeB()
 
-	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
-
+	peerB := &srvB.Local().Peer
 	assert.EqualError(t, sendPing(srvA, peerB), ErrTimeout.Error())
 }
 

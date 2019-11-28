@@ -19,7 +19,6 @@ var Events = struct {
 // DiscoveredEvent bundles the information of the discovered peer.
 type DiscoveredEvent struct {
 	Peer *peer.Peer // discovered peer
-	//Services peer.ServiceMap // services supported by that peer
 }
 
 // DeletedEvent bundles the information of the deleted peer.

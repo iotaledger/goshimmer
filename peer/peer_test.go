@@ -4,18 +4,46 @@ import (
 	"crypto/ed25519"
 	"testing"
 
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const (
+	testNetwork = "udp"
 	testAddress = "127.0.0.1:8000"
 	testMessage = "Hello World!"
 )
 
+func newTestServiceRecord() *service.Record {
+	services := service.New()
+	services.Update(service.PeeringKey, testNetwork, testAddress)
+
+	return services
+}
+
 func newTestPeer() *Peer {
 	key := make([]byte, ed25519.PublicKeySize)
-	return NewPeer(key, testAddress)
+	return NewPeer(key, newTestServiceRecord())
+}
+
+func TestNoServicePeer(t *testing.T) {
+	key := make([]byte, ed25519.PublicKeySize)
+	services := service.New()
+
+	assert.Panics(t, func() {
+		_ = NewPeer(key, services)
+	})
+}
+
+func TestInvalidServicePeer(t *testing.T) {
+	key := make([]byte, ed25519.PublicKeySize)
+	services := service.New()
+	services.Update(service.FPCKey, "network", "address")
+
+	assert.Panics(t, func() {
+		_ = NewPeer(key, services)
+	})
 }
 
 func TestMarshalUnmarshal(t *testing.T) {
@@ -35,14 +63,13 @@ func TestRecoverKeyFromSignedData(t *testing.T) {
 	pub, priv, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
-	local := newLocal(PrivateKey(priv), nil)
-	sig := local.Sign(msg)
+	sig := ed25519.Sign(priv, msg)
 
 	d := signedData{pub: pub, msg: msg, sig: sig}
 	key, err := RecoverKeyFromSignedData(d)
 	require.NoError(t, err)
 
-	assert.Equal(t, local.ID(), key.ID())
+	assert.Equal(t, PublicKey(pub).ID(), key.ID())
 }
 
 type signedData struct {

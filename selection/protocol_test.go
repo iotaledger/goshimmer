@@ -26,22 +26,23 @@ func init() {
 	logger = l.Sugar()
 }
 
+var peerMap = make(map[peer.ID]*peer.Peer)
+
 // dummyDiscovery is a dummy implementation of DiscoveryProtocol never returning any verified peers.
 type dummyDiscovery struct{}
 
-func (d dummyDiscovery) IsVerified(p *peer.Peer) bool   { return true }
-func (d dummyDiscovery) EnsureVerified(p *peer.Peer)    {}
-func (d dummyDiscovery) GetVerifiedPeers() []*peer.Peer { return []*peer.Peer{} }
+func (d dummyDiscovery) IsVerified(peer.ID, string) bool                    { return true }
+func (d dummyDiscovery) EnsureVerified(p *peer.Peer)                        {}
+func (d dummyDiscovery) GetVerifiedPeer(id peer.ID, addr string) *peer.Peer { return peerMap[id] }
+func (d dummyDiscovery) GetVerifiedPeers() []*peer.Peer                     { return []*peer.Peer{} }
 
 // newTest creates a new neighborhood server and also returns the teardown.
 func newTest(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*server.Server, *Protocol, func()) {
 	log := logger.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
-	local, err := peer.NewLocal(db)
+	local, err := peer.NewLocal("", trans.LocalAddr(), db)
 	require.NoError(t, err)
-
-	// add a dummy service
-	local.Services()["dummy"] = peer.NetworkAddress{}
+	peerMap[local.ID()] = &local.Peer
 
 	s, _ := salt.NewSalt(100 * time.Second)
 	local.SetPrivateSalt(s)
@@ -53,7 +54,7 @@ func newTest(t require.TestingT, name string, trans transport.Transport, logger 
 		SaltLifetime: DefaultSaltLifetime,
 	}
 	prot := New(local, dummyDiscovery{}, cfg)
-	srv := server.Listen(local, trans, nil, log.Named("srv"), prot)
+	srv := server.Listen(local, trans, log.Named("srv"), prot)
 	prot.Start(srv)
 
 	teardown := func() {
@@ -72,20 +73,20 @@ func TestProtPeeringRequest(t *testing.T) {
 	srvB, protB, closeB := newTest(t, "B", p2p.B, logger)
 	defer closeB()
 
-	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
+	peerA := &srvA.Local().Peer
 	saltA, _ := salt.NewSalt(100 * time.Second)
-	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+	peerB := &srvB.Local().Peer
 	saltB, _ := salt.NewSalt(100 * time.Second)
 
 	// request peering to peer B
 	t.Run("A->B", func(t *testing.T) {
-		if services, err := protA.RequestPeering(peerB, saltA, srvA.Local().Services()); assert.NoError(t, err) {
+		if services, err := protA.RequestPeering(peerB, saltA); assert.NoError(t, err) {
 			assert.NotEmpty(t, services)
 		}
 	})
 	// request peering to peer A
 	t.Run("B->A", func(t *testing.T) {
-		if services, err := protB.RequestPeering(peerA, saltB, srvB.Local().Services()); assert.NoError(t, err) {
+		if services, err := protB.RequestPeering(peerA, saltB); assert.NoError(t, err) {
 			assert.NotEmpty(t, services)
 		}
 	})
@@ -94,16 +95,16 @@ func TestProtPeeringRequest(t *testing.T) {
 func TestProtExpiredSalt(t *testing.T) {
 	p2p := transport.P2P()
 
-	srvA, protA, closeA := newTest(t, "A", p2p.A, logger)
+	_, protA, closeA := newTest(t, "A", p2p.A, logger)
 	defer closeA()
 	srvB, _, closeB := newTest(t, "B", p2p.B, logger)
 	defer closeB()
 
 	saltA, _ := salt.NewSalt(-1 * time.Second)
-	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+	peerB := &srvB.Local().Peer
 
 	// request peering to peer B
-	_, err := protA.RequestPeering(peerB, saltA, srvA.Local().Services())
+	_, err := protA.RequestPeering(peerB, saltA)
 	assert.EqualError(t, err, server.ErrTimeout.Error())
 }
 
@@ -115,12 +116,12 @@ func TestProtDropPeer(t *testing.T) {
 	srvB, protB, closeB := newTest(t, "B", p2p.B, logger)
 	defer closeB()
 
-	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
+	peerA := &srvA.Local().Peer
 	saltA, _ := salt.NewSalt(100 * time.Second)
-	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+	peerB := &srvB.Local().Peer
 
 	// request peering to peer B
-	services, err := protA.RequestPeering(peerB, saltA, srvA.Local().Services())
+	services, err := protA.RequestPeering(peerB, saltA)
 	require.NoError(t, err)
 	assert.NotEmpty(t, services)
 

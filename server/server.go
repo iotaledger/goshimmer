@@ -25,6 +25,7 @@ type Server struct {
 	trans    transport.Transport
 	handlers []Handler
 	log      *zap.SugaredLogger
+	network  string
 	address  string
 
 	closeOnce sync.Once
@@ -70,20 +71,17 @@ type reply struct {
 // Listen starts a new peer server using the given transport layer for communication.
 // Sent data is signed using the identity of the local peer,
 // received data with a valid peer signature is handled according to the provided Handler.
-func Listen(local *peer.Local, t transport.Transport, external *string, log *zap.SugaredLogger, h ...Handler) *Server {
+func Listen(local *peer.Local, t transport.Transport, log *zap.SugaredLogger, h ...Handler) *Server {
 	srv := &Server{
 		local:           local,
 		trans:           t,
 		handlers:        h,
 		log:             log,
-		address:         t.LocalAddr(),
+		network:         local.Network(),
+		address:         local.Address(),
 		addReplyMatcher: make(chan *replyMatcher),
 		gotreply:        make(chan reply),
 		closing:         make(chan struct{}),
-	}
-
-	if external != nil {
-		srv.address = *external
 	}
 
 	srv.wg.Add(2)
@@ -105,6 +103,11 @@ func (s *Server) Close() {
 // Local returns the the local peer.
 func (s *Server) Local() *peer.Local {
 	return s.local
+}
+
+// LocalNetwork returns the network of the local peer.
+func (s *Server) LocalNetwork() string {
+	return s.network
 }
 
 // LocalAddr returns the address of the local peer in string form.
@@ -142,10 +145,10 @@ func (s *Server) expectReply(fromAddr string, fromID peer.ID, mtype MType, callb
 }
 
 // IsExpectedReply checks whether the given Message matches an expected reply added with SendExpectingReply.
-func (s *Server) IsExpectedReply(from *peer.Peer, mtype MType, msg interface{}) bool {
+func (s *Server) IsExpectedReply(fromAddr string, fromID peer.ID, mtype MType, msg interface{}) bool {
 	matched := make(chan bool, 1)
 	select {
-	case s.gotreply <- reply{from.Address(), from.ID(), mtype, msg, matched}:
+	case s.gotreply <- reply{fromAddr, fromID, mtype, msg, matched}:
 		// wait for matcher and return whether it could be matched
 		return <-matched
 	case <-s.closing:
@@ -272,10 +275,10 @@ func (s *Server) handlePacket(pkt *pb.Packet, fromAddr string) error {
 		return errors.Wrap(err, "invalid packet")
 	}
 
-	from := peer.NewPeer(key, fromAddr)
-	s.log.Debugw("handlePacket", "id", from.ID(), "addr", fromAddr)
+	fromID := key.ID()
+	s.log.Debugw("handlePacket", "id", fromID, "addr", fromAddr)
 	for _, handler := range s.handlers {
-		ok, err := handler.HandleMessage(s, from, data)
+		ok, err := handler.HandleMessage(s, fromAddr, fromID, key, data)
 		if ok {
 			return err
 		}
