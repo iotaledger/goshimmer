@@ -1,27 +1,28 @@
 package webauth
 
 import (
+	"math/rand"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/hive.go/parameter"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 
 	"github.com/dgrijalva/jwt-go"
 )
 
-var secret = "secret"
+var secret string
 
 func configure(plugin *node.Plugin) {
 
-	jwtKey := os.Getenv("JWT_KEY")
-	if jwtKey != "" {
-		secret = jwtKey
+	secret = parameter.NodeConfig.GetString(UI_JWTKEY)
+	if secret == "" {
+		secret = randString(16)
 	}
 
 	webapi.Server.Use(middleware.JWTWithConfig(middleware.JWTConfig{
@@ -44,8 +45,8 @@ func run(plugin *node.Plugin) {
 		webapi.AddEndpoint("login", func(c echo.Context) error {
 			username := c.FormValue("username")
 			password := c.FormValue("password")
-			uiUser := os.Getenv("UI_USER")
-			uiPass := os.Getenv("UI_PASS")
+			uiUser := parameter.NodeConfig.GetString(UI_USER)
+			uiPass := parameter.NodeConfig.GetString(UI_PASS)
 
 			// Throws unauthorized error
 			if username != uiUser || password != uiPass {
@@ -71,3 +72,14 @@ func run(plugin *node.Plugin) {
 
 // PLUGIN plugs the UI into the main program
 var PLUGIN = node.NewPlugin("webauth", node.Disabled, configure, run)
+
+const letterBytes = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+func randString(n int) string {
+	rand.Seed(time.Now().UnixNano())
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
+}
