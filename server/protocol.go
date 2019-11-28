@@ -20,6 +20,11 @@ func (p *Protocol) LocalAddr() string {
 	return p.Sender.LocalAddr()
 }
 
+// LocalAddr returns the local network address in string form.
+func (p *Protocol) LocalNetwork() string {
+	return p.Sender.LocalNetwork()
+}
+
 // Send sends the data to the given peer.
 func (p *Protocol) Send(to *peer.Peer, data []byte) {
 	p.Sender.Send(to.Address(), data)
