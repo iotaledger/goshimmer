@@ -6,37 +6,36 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	UpdateOutboundInterval = 200 * time.Millisecond
-
-	InboundRequestQueue = 1000
-	DropQueue           = 1000
-
-	InboundNeighborSize  = 4
-	OutboundNeighborSize = 4
-
-	InboundSelectionDisabled  = false
-	OutboundSelectionDisabled = false
-
-	DropNeighborsOnUpdate = false
-
-	SaltLifetime = 30 * time.Minute
-)
-
 // Config holds settings for the peer selection.
 type Config struct {
 	// Logger
 	Log *zap.SugaredLogger
 
-	Param *Parameters
+	// These settings are optional:
+	Param *Parameters // parameters
 }
 
+// default parameter values
+const (
+	// DefaultInboundNeighborSize is the default number of inbound neighbors.
+	DefaultInboundNeighborSize = 4
+	// DefaultOutboundNeighborSize is the default number of outbound neighbors.
+	DefaultOutboundNeighborSize = 4
+
+	// DefaultSaltLifetime is the default lifetime of the private and public local salt.
+	DefaultSaltLifetime = 30 * time.Minute
+
+	// DefaultUpdateOutboundInterval is the default time interval after which the outbound neighbors are checked.
+	DefaultUpdateOutboundInterval = 200 * time.Millisecond
+)
+
+// Parameters holds the parameters that can be configured.
 type Parameters struct {
-	SaltLifetime              time.Duration // Lifetime of the local public and private salts
-	UpdateOutboundInterval    time.Duration
-	InboundNeighborSize       int
-	OutboundNeighborSize      int
-	InboundSelectionDisabled  bool
-	OutboundSelectionDisabled bool
-	DropNeighborsOnUpdate     bool // Whether all the neighbors are dropped when the distance is updated
+	InboundNeighborSize       int           // number of inbound neighbors
+	OutboundNeighborSize      int           // number of outbound neighbors
+	SaltLifetime              time.Duration // lifetime of the private and public local salt
+	UpdateOutboundInterval    time.Duration // time interval after which the outbound neighbors are checked
+	InboundSelectionDisabled  bool          // set true to disable accepting inbound neighbors
+	OutboundSelectionDisabled bool          // set true to disable selecting outbound neighbors
+	DropNeighborsOnUpdate     bool          // set true to drop all neighbors when the distance is updated
 }

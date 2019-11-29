@@ -13,21 +13,24 @@ import (
 const (
 	accept = true
 	reject = false
+
+	// buffer size of the channels handling inbound requests and drops.
+	queueSize = 100
 )
 
 var (
-	updateOutboundInterval = UpdateOutboundInterval
+	// number of neighbors
+	inboundNeighborSize  = DefaultInboundNeighborSize
+	outboundNeighborSize = DefaultOutboundNeighborSize
 
-	inboundRequestQueue = InboundRequestQueue
-	dropQueue           = DropQueue
+	// lifetime of the private and public local salt
+	saltLifetime = DefaultSaltLifetime
+	// time interval after which the outbound neighbors are checked
+	updateOutboundInterval = DefaultUpdateOutboundInterval
 
-	inboundNeighborSize  = 4
-	outboundNeighborSize = 4
-
-	inboundSelectionDisabled  = InboundSelectionDisabled
-	outboundSelectionDisabled = OutboundSelectionDisabled
-
-	dropNeighborsOnUpdate = DropNeighborsOnUpdate
+	inboundSelection      bool // whether inbound neighbors are accepted
+	outboundSelection     bool // whether outbound neighbors are selected
+	dropNeighborsOnUpdate bool // whether all neighbors are dropped on distance update
 )
 
 // A network represents the communication layer for the manager.
@@ -45,7 +48,6 @@ type peeringRequest struct {
 
 type manager struct {
 	net       network
-	lifetime  time.Duration
 	peersFunc func() []*peer.Peer
 
 	log           *zap.SugaredLogger
@@ -67,19 +69,36 @@ type manager struct {
 }
 
 func newManager(net network, peersFunc func() []*peer.Peer, log *zap.SugaredLogger, param *Parameters) *manager {
-	m := &manager{
+	if param != nil {
+		if param.InboundNeighborSize > 0 {
+			inboundNeighborSize = param.InboundNeighborSize
+		}
+		if param.OutboundNeighborSize > 0 {
+			outboundNeighborSize = param.OutboundNeighborSize
+		}
+		if param.SaltLifetime > 0 {
+			saltLifetime = param.SaltLifetime
+		}
+		if param.UpdateOutboundInterval > 0 {
+			updateOutboundInterval = param.UpdateOutboundInterval
+		}
+		inboundSelection = !param.InboundSelectionDisabled
+		outboundSelection = !param.OutboundSelectionDisabled
+		dropNeighborsOnUpdate = param.DropNeighborsOnUpdate
+	}
+
+	return &manager{
 		net:                net,
-		lifetime:           SaltLifetime,
 		peersFunc:          peersFunc,
 		log:                log,
 		dropNeighbors:      dropNeighborsOnUpdate,
 		inboundClosing:     make(chan struct{}),
 		outboundClosing:    make(chan struct{}),
 		rejectionFilter:    NewFilter(),
-		inboundRequestChan: make(chan peeringRequest, inboundRequestQueue),
+		inboundRequestChan: make(chan peeringRequest, queueSize),
 		inboundReplyChan:   make(chan bool),
-		inboundDropChan:    make(chan peer.ID, dropQueue),
-		outboundDropChan:   make(chan peer.ID, dropQueue),
+		inboundDropChan:    make(chan peer.ID, queueSize),
+		outboundDropChan:   make(chan peer.ID, queueSize),
 		inbound: &Neighborhood{
 			Neighbors: []peer.PeerDistance{},
 			Size:      inboundNeighborSize},
@@ -87,26 +106,6 @@ func newManager(net network, peersFunc func() []*peer.Peer, log *zap.SugaredLogg
 			Neighbors: []peer.PeerDistance{},
 			Size:      outboundNeighborSize},
 	}
-
-	if param != nil {
-		if param.SaltLifetime > 0 {
-			m.lifetime = param.SaltLifetime
-		}
-		if param.UpdateOutboundInterval > 0 {
-			updateOutboundInterval = param.UpdateOutboundInterval
-		}
-		if param.InboundNeighborSize > 0 {
-			inboundNeighborSize = param.InboundNeighborSize
-		}
-		if param.OutboundNeighborSize > 0 {
-			outboundNeighborSize = param.OutboundNeighborSize
-		}
-		inboundSelectionDisabled = param.InboundSelectionDisabled
-		outboundSelectionDisabled = param.OutboundSelectionDisabled
-		m.dropNeighbors = param.DropNeighborsOnUpdate
-	}
-
-	return m
 }
 
 func (m *manager) start() {
@@ -117,7 +116,7 @@ func (m *manager) start() {
 
 	m.wg.Add(1)
 	go m.loopOutbound()
-	if !inboundSelectionDisabled {
+	if inboundSelection {
 		m.wg.Add(1)
 		go m.loopInbound()
 	}
@@ -155,7 +154,7 @@ Loop:
 				if m.net.local().GetPublicSalt().Expired() {
 					m.updateSalt()
 				}
-				if !outboundSelectionDisabled {
+				if outboundSelection {
 					//remove potential duplicates
 					dup := m.getDuplicates()
 					for _, peerToDrop := range dup {
@@ -301,15 +300,15 @@ func (m *manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
 }
 
 func (m *manager) updateSalt() (*salt.Salt, *salt.Salt) {
-	pubSalt, _ := salt.NewSalt(m.lifetime)
+	pubSalt, _ := salt.NewSalt(saltLifetime)
 	m.net.local().SetPublicSalt(pubSalt)
 
-	privSalt, _ := salt.NewSalt(m.lifetime)
+	privSalt, _ := salt.NewSalt(saltLifetime)
 	m.net.local().SetPrivateSalt(privSalt)
 
 	m.rejectionFilter.Clean()
 
-	if !m.dropNeighbors { // update distance without dropping neighbors
+	if !dropNeighborsOnUpdate { // update distance without dropping neighbors
 		m.outbound.UpdateDistance(m.self().Bytes(), m.net.local().GetPublicSalt().GetBytes())
 		m.inbound.UpdateDistance(m.self().Bytes(), m.net.local().GetPrivateSalt().GetBytes())
 	} else { // drop all the neighbors

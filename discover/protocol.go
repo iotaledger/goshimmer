@@ -15,17 +15,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	// VersionNum specifies the expected version number for this Protocol.
-	VersionNum = 0
-)
-
-var (
-	pingExpiration     = PingExpiration     // time until a peer verification expires
-	maxPeersInResponse = MaxPeersInResponse // maximum number of peers returned in DiscoveryResponse
-	maxNumServices     = MaxNumServices
-)
-
 // The Protocol handles the peer discovery.
 // It responds to incoming messages and sends own requests when needed.
 type Protocol struct {
@@ -44,11 +33,6 @@ func New(local *peer.Local, cfg Config) *Protocol {
 		Protocol: server.Protocol{},
 		loc:      local,
 		log:      cfg.Log,
-	}
-	if cfg.Param != nil {
-		if cfg.Param.PingExpiration > 0 {
-			pingExpiration = cfg.Param.PingExpiration
-		}
 	}
 	p.mgr = newManager(p, cfg.MasterPeers, cfg.Log.Named("mgr"), cfg.Param)
 
@@ -79,7 +63,7 @@ func (p *Protocol) Close() {
 
 // IsVerified checks whether the given peer has recently been verified a recent enough endpoint proof.
 func (p *Protocol) IsVerified(id peer.ID, addr string) bool {
-	return time.Since(p.loc.Database().LastPong(id, addr)) < pingExpiration
+	return time.Since(p.loc.Database().LastPong(id, addr)) < PingExpiration
 }
 
 // EnsureVerified checks if the given peer has recently sent a ping;
@@ -197,7 +181,7 @@ func (p *Protocol) discoveryRequest(to *peer.Peer) ([]*peer.Peer, error) {
 
 	// compute the message hash
 	hash := server.PacketHash(data)
-	peers := make([]*peer.Peer, 0, maxPeersInResponse)
+	peers := make([]*peer.Peer, 0, MaxPeersInResponse)
 	errc := p.Protocol.SendExpectingReply(to.Address(), to.ID(), data, pb.MDiscoveryResponse, func(m interface{}) bool {
 		res := m.(*pb.DiscoveryResponse)
 		if !bytes.Equal(res.GetReqHash(), hash) {
@@ -224,7 +208,7 @@ func (p *Protocol) discoveryRequest(to *peer.Peer) ([]*peer.Peer, error) {
 
 // hasVerified returns whether the given peer has recently verified the local peer.
 func (p *Protocol) hasVerified(id peer.ID, addr string) bool {
-	return time.Since(p.loc.Database().LastPing(id, addr)) < pingExpiration
+	return time.Since(p.loc.Database().LastPing(id, addr)) < PingExpiration
 }
 
 func marshal(msg pb.Message) []byte {
@@ -364,7 +348,7 @@ func (p *Protocol) validatePong(s *server.Server, fromAddr string, fromID peer.I
 	}
 	// there must a valid number of services
 	numServices := len(m.GetServices().GetMap())
-	if numServices <= 0 || numServices > maxNumServices {
+	if numServices <= 0 || numServices > MaxServices {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"#peers", numServices,
@@ -436,14 +420,14 @@ func (p *Protocol) validateDiscoveryRequest(s *server.Server, fromAddr string, f
 
 func (p *Protocol) handleDiscoveryRequest(s *server.Server, fromAddr string, rawData []byte) {
 	// get a random list of verified peers
-	peers := p.mgr.getRandomPeers(maxPeersInResponse, 1)
+	peers := p.mgr.getRandomPeers(MaxPeersInResponse, 1)
 	res := newDiscoveryResponse(rawData, peers)
 	s.Send(fromAddr, marshal(res))
 }
 
 func (p *Protocol) validateDiscoveryResponse(s *server.Server, fromAddr string, fromID peer.ID, m *pb.DiscoveryResponse) bool {
 	// there must not be too many peers
-	if len(m.GetPeers()) > maxPeersInResponse {
+	if len(m.GetPeers()) > MaxPeersInResponse {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"#peers", len(m.GetPeers()),

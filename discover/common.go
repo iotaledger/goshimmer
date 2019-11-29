@@ -8,15 +8,15 @@ import (
 )
 
 const (
-	ReverifyInterval = 10 * time.Second
-	ReverifyTries    = 2
+	// PingExpiration is the time until a peer verification expires.
+	PingExpiration = 12 * time.Hour
+	// MaxPeersInResponse is the maximum number of peers returned in DiscoveryResponse.
+	MaxPeersInResponse = 6
+	// MaxServices is the maximum number of services a peer can support.
+	MaxServices = 5
 
-	MaxKnow         = 1000
-	MaxReplacements = 10
-
-	PingExpiration     = 12 * time.Hour // time until a peer verification expires
-	MaxPeersInResponse = 6              // maximum number of peers returned in DiscoveryResponse
-	MaxNumServices     = 5
+	// VersionNum specifies the expected version number for this Protocol.
+	VersionNum = 0
 )
 
 // Config holds discovery related settings.
@@ -26,14 +26,26 @@ type Config struct {
 
 	// These settings are optional:
 	MasterPeers []*peer.Peer // list of master peers used for bootstrapping
-
-	Param *Parameters
+	Param       *Parameters  // parameters
 }
 
+// default parameter values
+const (
+	// DefaultReverifyInterval is the default time interval after which a new peer is reverified.
+	DefaultReverifyInterval = 10 * time.Second
+	// DefaultReverifyTries is the default number of times a peer is pinged before it is removed.
+	DefaultReverifyTries = 2
+
+	// DefaultMaxVerified is the default maximum number of peers that are kept verified.
+	DefaultMaxVerified = 1000
+	// DefaultMaxReplacements is the default maximum number of peers kept in the replacement list.
+	DefaultMaxReplacements = 10
+)
+
+// Parameters holds the parameters that can be configured.
 type Parameters struct {
-	ReverifyInterval time.Duration
-	ReverifyTries    int
-	MaxKnow          int
-	MaxReplacements  int
-	PingExpiration   time.Duration
+	ReverifyInterval time.Duration // time interval after which the next peer is reverified
+	ReverifyTries    int           // number of times a peer is pinged before it is removed
+	MaxVerified      int           // maximum number of peers that are kept verified
+	MaxReplacements  int           // maximum number of peers kept in the replacement list
 }
