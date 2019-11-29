@@ -168,6 +168,8 @@ func TestProtFull(t *testing.T) {
 	defer closeA()
 	peerA := &srvA.Local().Peer
 
+	time.Sleep(graceTime)
+
 	srvB, protB, closeB := newFullTestServer(t, "B", p2p.B, peerA)
 	defer closeB()
 	peerB := &srvB.Local().Peer
