@@ -140,7 +140,6 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 		// DiscoveryResponse messages are handled in the handleReply function of the validation
 
 	default:
-		p.log.Debugw("invalid message", "type", data[0])
 		return false, nil
 	}
 

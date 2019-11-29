@@ -120,7 +120,6 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 		}
 
 	default:
-		p.log.Debugw("invalid message", "type", data[0])
 		return false, nil
 	}
 
