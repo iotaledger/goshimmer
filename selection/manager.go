@@ -28,8 +28,6 @@ var (
 	// time interval after which the outbound neighbors are checked
 	updateOutboundInterval = DefaultUpdateOutboundInterval
 
-	inboundSelection      bool // whether inbound neighbors are accepted
-	outboundSelection     bool // whether outbound neighbors are selected
 	dropNeighborsOnUpdate bool // whether all neighbors are dropped on distance update
 )
 
@@ -82,8 +80,6 @@ func newManager(net network, peersFunc func() []*peer.Peer, log *zap.SugaredLogg
 		if param.UpdateOutboundInterval > 0 {
 			updateOutboundInterval = param.UpdateOutboundInterval
 		}
-		inboundSelection = !param.InboundSelectionDisabled
-		outboundSelection = !param.OutboundSelectionDisabled
 		dropNeighborsOnUpdate = param.DropNeighborsOnUpdate
 	}
 
@@ -114,12 +110,9 @@ func (m *manager) start() {
 		m.updateSalt()
 	}
 
-	m.wg.Add(1)
+	m.wg.Add(2)
 	go m.loopOutbound()
-	if inboundSelection {
-		m.wg.Add(1)
-		go m.loopInbound()
-	}
+	go m.loopInbound()
 }
 
 func (m *manager) close() {
@@ -148,32 +141,31 @@ Loop:
 		case <-updateOutbound.C:
 			// if there is no updateOutbound, this means doUpdateOutbound is not running
 			if updateOutboundDone == nil {
-				updateOutboundDone = make(chan struct{})
-
 				// check salt and update if necessary (this will drop the whole neighborhood)
 				if m.net.local().GetPublicSalt().Expired() {
 					m.updateSalt()
 				}
-				if outboundSelection {
-					//remove potential duplicates
-					dup := m.getDuplicates()
-					for _, peerToDrop := range dup {
-						toDrop := m.inbound.GetPeerFromID(peerToDrop)
-						time.Sleep(time.Duration(rand.Intn(backoff)) * time.Millisecond)
-						m.outbound.RemovePeer(peerToDrop)
-						m.inbound.RemovePeer(peerToDrop)
-						if toDrop != nil {
-							m.dropPeer(toDrop)
-						}
+
+				//remove potential duplicates
+				dup := m.getDuplicates()
+				for _, peerToDrop := range dup {
+					toDrop := m.inbound.GetPeerFromID(peerToDrop)
+					time.Sleep(time.Duration(rand.Intn(backoff)) * time.Millisecond)
+					m.outbound.RemovePeer(peerToDrop)
+					m.inbound.RemovePeer(peerToDrop)
+					if toDrop != nil {
+						m.dropPeer(toDrop)
 					}
-					go m.updateOutbound(updateOutboundDone)
-				} else {
-					updateOutboundDone <- struct{}{}
 				}
+
+				updateOutboundDone = make(chan struct{})
+				go m.updateOutbound(updateOutboundDone)
 			}
+
 		case <-updateOutboundDone:
 			updateOutboundDone = nil
 			updateOutbound.Reset(updateOutboundInterval) // updateOutbound again after the given interval
+
 		case peerToDrop := <-m.outboundDropChan:
 			if containsPeer(m.outbound.GetPeers(), peerToDrop) {
 				m.outbound.RemovePeer(peerToDrop)
@@ -187,10 +179,10 @@ Loop:
 		}
 	}
 
-	// // wait for the updateOutbound to finish
-	// if updateOutboundDone != nil {
-	// 	<-updateOutboundDone
-	// }
+	// wait for the updateOutbound to finish
+	if updateOutboundDone != nil {
+		<-updateOutboundDone
+	}
 }
 
 func (m *manager) loopInbound() {
@@ -201,6 +193,7 @@ Loop:
 		select {
 		case req := <-m.inboundRequestChan:
 			m.updateInbound(req.peer, req.salt)
+
 		case peerToDrop := <-m.inboundDropChan:
 			if containsPeer(m.inbound.GetPeers(), peerToDrop) {
 				m.inbound.RemovePeer(peerToDrop)

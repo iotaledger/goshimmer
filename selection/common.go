@@ -31,11 +31,9 @@ const (
 
 // Parameters holds the parameters that can be configured.
 type Parameters struct {
-	InboundNeighborSize       int           // number of inbound neighbors
-	OutboundNeighborSize      int           // number of outbound neighbors
-	SaltLifetime              time.Duration // lifetime of the private and public local salt
-	UpdateOutboundInterval    time.Duration // time interval after which the outbound neighbors are checked
-	InboundSelectionDisabled  bool          // set true to disable accepting inbound neighbors
-	OutboundSelectionDisabled bool          // set true to disable selecting outbound neighbors
-	DropNeighborsOnUpdate     bool          // set true to drop all neighbors when the distance is updated
+	InboundNeighborSize    int           // number of inbound neighbors
+	OutboundNeighborSize   int           // number of outbound neighbors
+	SaltLifetime           time.Duration // lifetime of the private and public local salt
+	UpdateOutboundInterval time.Duration // time interval after which the outbound neighbors are checked
+	DropNeighborsOnUpdate  bool          // set true to drop all neighbors when the distance is updated
 }
