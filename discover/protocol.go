@@ -23,7 +23,7 @@ const (
 var (
 	pingExpiration     = PingExpiration     // time until a peer verification expires
 	maxPeersInResponse = MaxPeersInResponse // maximum number of peers returned in DiscoveryResponse
-	maxNumServices     = 5
+	maxNumServices     = MaxNumServices
 )
 
 // The Protocol handles the peer discovery.
@@ -48,9 +48,6 @@ func New(local *peer.Local, cfg Config) *Protocol {
 	if cfg.Param != nil {
 		if cfg.Param.PingExpiration > 0 {
 			pingExpiration = cfg.Param.PingExpiration
-		}
-		if cfg.Param.MaxPeersInResponse > 0 {
-			maxPeersInResponse = cfg.Param.MaxPeersInResponse
 		}
 	}
 	p.mgr = newManager(p, cfg.MasterPeers, cfg.Log.Named("mgr"), cfg.Param)

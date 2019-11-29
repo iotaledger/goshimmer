@@ -95,12 +95,6 @@ func newManager(net network, peersFunc func() []*peer.Peer, log *zap.SugaredLogg
 		if param.UpdateOutboundInterval > 0 {
 			updateOutboundInterval = param.UpdateOutboundInterval
 		}
-		if param.InboundRequestQueue > 0 {
-			inboundRequestQueue = param.InboundRequestQueue
-		}
-		if param.DropQueue > 0 {
-			dropQueue = param.DropQueue
-		}
 		if param.InboundNeighborSize > 0 {
 			inboundNeighborSize = param.InboundNeighborSize
 		}

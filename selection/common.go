@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	UpdateOutboundInterval = 1000 * time.Millisecond
+	UpdateOutboundInterval = 200 * time.Millisecond
 
 	InboundRequestQueue = 1000
 	DropQueue           = 1000
@@ -34,8 +34,6 @@ type Config struct {
 type Parameters struct {
 	SaltLifetime              time.Duration // Lifetime of the local public and private salts
 	UpdateOutboundInterval    time.Duration
-	InboundRequestQueue       int
-	DropQueue                 int
 	InboundNeighborSize       int
 	OutboundNeighborSize      int
 	InboundSelectionDisabled  bool

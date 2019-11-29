@@ -16,6 +16,7 @@ const (
 
 	PingExpiration     = 12 * time.Hour // time until a peer verification expires
 	MaxPeersInResponse = 6              // maximum number of peers returned in DiscoveryResponse
+	MaxNumServices     = 5
 )
 
 // Config holds discovery related settings.
@@ -30,10 +31,9 @@ type Config struct {
 }
 
 type Parameters struct {
-	ReverifyInterval   time.Duration
-	ReverifyTries      int
-	MaxKnow            int
-	MaxReplacements    int
-	PingExpiration     time.Duration
-	MaxPeersInResponse int
+	ReverifyInterval time.Duration
+	ReverifyTries    int
+	MaxKnow          int
+	MaxReplacements  int
+	PingExpiration   time.Duration
 }
