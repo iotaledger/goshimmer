@@ -95,7 +95,6 @@ func NewPersistentDB(log *zap.SugaredLogger) DB {
 // Close closes the DB.
 func (db *persistentDB) Close() {
 	db.closeOnce.Do(func() {
-		db.log.Debugf("closing")
 		db.persistSeeds()
 	})
 }
@@ -103,19 +102,16 @@ func (db *persistentDB) Close() {
 func (db *persistentDB) start() {
 	// get all peers in the DB
 	peers := db.getPeers(0)
-	count := 0
 
 	for _, p := range peers {
 		// if they dont have an associated pong, give them a grace period
 		if db.LastPong(p.ID(), p.Address()).Unix() == 0 {
-			count++
 			err := db.setPeerWithTTL(p, cleanupInterval)
 			if err != nil {
 				db.log.Warnw("database error", "err", err)
 			}
 		}
 	}
-	db.log.Infof("%d potential bootstrap peers restored form DB", count)
 }
 
 // persistSeeds assures that potential bootstrap peers are not garbage collected.
@@ -315,5 +311,9 @@ func (db *persistentDB) getPeers(maxAge time.Duration) []*Peer {
 func (db *persistentDB) SeedPeers() []*Peer {
 	// get all stored peers and select subset
 	peers := db.getPeers(0)
-	return randomSubset(peers, seedCount)
+
+	seeds := randomSubset(peers, seedCount)
+	db.log.Infof("%d potential bootstrap peers restored form DB", len(seeds))
+
+	return seeds
 }
