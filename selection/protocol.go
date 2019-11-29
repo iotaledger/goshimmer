@@ -134,7 +134,8 @@ func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt) (bool, error) 
 	p.disc.EnsureVerified(to)
 
 	// create the request package
-	req := newPeeringRequest(to.Address(), salt)
+	toAddr := to.Address()
+	req := newPeeringRequest(toAddr, salt)
 	data := marshal(req)
 
 	// compute the message hash
@@ -150,15 +151,24 @@ func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt) (bool, error) 
 		return true
 	}
 
-	err := <-p.Protocol.SendExpectingReply(to.Address(), to.ID(), data, pb.MPeeringResponse, callback)
+	p.log.Debugw("send message",
+		"type", req.Name(),
+		"addr", toAddr,
+	)
+	err := <-p.Protocol.SendExpectingReply(toAddr, to.ID(), data, pb.MPeeringResponse, callback)
+
 	return status, err
 }
 
 // DropPeer sends a PeeringDrop to the given peer.
 func (p *Protocol) DropPeer(to *peer.Peer) {
 	toAddr := to.Address()
-
 	drop := newPeeringDrop(toAddr)
+
+	p.log.Debugw("send message",
+		"type", drop.Name(),
+		"addr", toAddr,
+	)
 	p.Protocol.Send(to, marshal(drop))
 }
 
@@ -248,8 +258,7 @@ func (p *Protocol) validatePeeringRequest(s *server.Server, fromAddr string, fro
 
 	p.log.Debugw("valid message",
 		"type", m.Name(),
-		"fromAddr", fromAddr,
-		"fromID", fromID,
+		"addr", fromAddr,
 	)
 	return true
 }
@@ -272,6 +281,11 @@ func (p *Protocol) handlePeeringRequest(s *server.Server, fromAddr string, fromI
 	}
 
 	res := newPeeringResponse(rawData, p.mgr.acceptRequest(from, salt))
+
+	p.log.Debugw("send message",
+		"type", res.Name(),
+		"addr", fromAddr,
+	)
 	s.Send(fromAddr, marshal(res))
 }
 
@@ -287,8 +301,7 @@ func (p *Protocol) validatePeeringResponse(s *server.Server, fromAddr string, fr
 
 	p.log.Debugw("valid message",
 		"type", m.Name(),
-		"fromAddr", fromAddr,
-		"fromID", fromID,
+		"addr", fromAddr,
 	)
 	return true
 }
@@ -313,8 +326,7 @@ func (p *Protocol) validatePeeringDrop(s *server.Server, fromAddr string, fromID
 
 	p.log.Debugw("valid message",
 		"type", m.Name(),
-		"fromAddr", fromAddr,
-		"fromID", fromID,
+		"addr", fromAddr,
 	)
 	return true
 }

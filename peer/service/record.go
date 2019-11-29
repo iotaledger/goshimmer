@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/golang/protobuf/proto"
@@ -59,6 +60,11 @@ func (s *Record) Update(key Key, network string, address string) {
 	s.m[string(key)] = &networkAddress{
 		network: network, address: address,
 	}
+}
+
+// String returns a string representation of the service record.
+func (s *Record) String() string {
+	return fmt.Sprintf("%v", s.m)
 }
 
 // FromProto creates a Record from the provided protobuf struct.

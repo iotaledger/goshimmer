@@ -229,7 +229,7 @@ func (s *Server) replyLoop() {
 
 func (s *Server) write(toAddr string, pkt *pb.Packet) {
 	err := s.trans.WriteTo(pkt, toAddr)
-	s.log.Debugw("write packet", "to", toAddr, "err", err)
+	s.log.Debugw("write packet", "addr", toAddr, "err", err)
 }
 
 // encodes a message as a data packet that can be written.
@@ -276,7 +276,7 @@ func (s *Server) handlePacket(pkt *pb.Packet, fromAddr string) error {
 	}
 
 	fromID := key.ID()
-	s.log.Debugw("handlePacket", "id", fromID, "addr", fromAddr)
+	s.log.Debugw("handlePacket", "addr", fromAddr, "id", fromID)
 	for _, handler := range s.handlers {
 		ok, err := handler.HandleMessage(s, fromAddr, fromID, key, data)
 		if ok {

@@ -149,6 +149,8 @@ func (m *manager) doReverify(done chan<- struct{}) {
 		err = m.net.ping(unwrapPeer(p))
 		if err == nil {
 			break
+		} else {
+			time.Sleep(1 * time.Second)
 		}
 	}
 
@@ -174,9 +176,6 @@ func (m *manager) doReverify(done chan<- struct{}) {
 	}
 
 	// no need to do anything here, as the peer is bumped when handling the pong
-	m.log.Debugw("reverified",
-		"peer", p,
-	)
 }
 
 // peerToReverify returns the oldest peer, or nil if empty.
@@ -267,6 +266,11 @@ func (m *manager) addVerifiedPeer(p *peer.Peer) bool {
 		return false
 	}
 
+	m.log.Debugw("verified",
+		"peer", p,
+		"services", p.Services(),
+	)
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -274,9 +278,6 @@ func (m *manager) addVerifiedPeer(p *peer.Peer) bool {
 	if m.updatePeer(p) {
 		return false
 	}
-	m.log.Debugw("add verified",
-		"peer", p,
-	)
 	Events.PeerDiscovered.Trigger(&DiscoveredEvent{Peer: p})
 
 	mp := wrapPeer(p)

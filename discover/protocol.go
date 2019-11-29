@@ -166,7 +166,10 @@ func (p *Protocol) sendPing(toAddr string, toID peer.ID) <-chan error {
 	}
 
 	// expect a pong referencing the ping we are about to send
-	return p.Protocol.SendExpectingReply(toAddr, toID, data, pb.MPong, hashEqual)
+	p.log.Debugw("send message", "type", ping.Name(), "addr", toAddr)
+	errc := p.Protocol.SendExpectingReply(toAddr, toID, data, pb.MPong, hashEqual)
+
+	return errc
 }
 
 // discoveryRequest request known peers from the given target. This method blocks
@@ -175,13 +178,16 @@ func (p *Protocol) discoveryRequest(to *peer.Peer) ([]*peer.Peer, error) {
 	p.EnsureVerified(to)
 
 	// create the request package
-	req := newDiscoveryRequest(to.Address())
+	toAddr := to.Address()
+	req := newDiscoveryRequest(toAddr)
 	data := marshal(req)
 
 	// compute the message hash
 	hash := server.PacketHash(data)
 	peers := make([]*peer.Peer, 0, MaxPeersInResponse)
-	errc := p.Protocol.SendExpectingReply(to.Address(), to.ID(), data, pb.MDiscoveryResponse, func(m interface{}) bool {
+
+	p.log.Debugw("send message", "type", req.Name(), "addr", toAddr)
+	errc := p.Protocol.SendExpectingReply(toAddr, to.ID(), data, pb.MDiscoveryResponse, func(m interface{}) bool {
 		res := m.(*pb.DiscoveryResponse)
 		if !bytes.Equal(res.GetReqHash(), hash) {
 			return false
@@ -306,8 +312,7 @@ func (p *Protocol) validatePing(s *server.Server, fromAddr string, fromID peer.I
 
 	p.log.Debugw("valid message",
 		"type", m.Name(),
-		"fromAddr", fromAddr,
-		"fromID", fromID,
+		"addr", fromAddr,
 	)
 	return true
 }
@@ -315,6 +320,11 @@ func (p *Protocol) validatePing(s *server.Server, fromAddr string, fromID peer.I
 func (p *Protocol) handlePing(s *server.Server, fromAddr string, fromID peer.ID, fromKey peer.PublicKey, rawData []byte, m *pb.Ping) {
 	// create and send the pong response
 	pong := newPong(fromAddr, rawData, s.Local().Services().CreateRecord())
+
+	p.log.Debugw("send message",
+		"type", pong.Name(),
+		"addr", fromAddr,
+	)
 	s.Send(fromAddr, marshal(pong))
 
 	// if the peer is new or expired, send a ping to verify
@@ -357,8 +367,7 @@ func (p *Protocol) validatePong(s *server.Server, fromAddr string, fromID peer.I
 
 	p.log.Debugw("valid message",
 		"type", m.Name(),
-		"fromAddr", fromAddr,
-		"fromID", fromID,
+		"addr", fromAddr,
 	)
 	return true
 }
@@ -411,8 +420,7 @@ func (p *Protocol) validateDiscoveryRequest(s *server.Server, fromAddr string, f
 
 	p.log.Debugw("valid message",
 		"type", m.Name(),
-		"fromAddr", fromAddr,
-		"fromID", fromID,
+		"addr", fromAddr,
 	)
 	return true
 }
@@ -421,6 +429,11 @@ func (p *Protocol) handleDiscoveryRequest(s *server.Server, fromAddr string, raw
 	// get a random list of verified peers
 	peers := p.mgr.getRandomPeers(MaxPeersInResponse, 1)
 	res := newDiscoveryResponse(rawData, peers)
+
+	p.log.Debugw("send message",
+		"type", res.Name(),
+		"addr", fromAddr,
+	)
 	s.Send(fromAddr, marshal(res))
 }
 
@@ -444,8 +457,7 @@ func (p *Protocol) validateDiscoveryResponse(s *server.Server, fromAddr string, 
 
 	p.log.Debugw("valid message",
 		"type", m.Name(),
-		"fromAddr", fromAddr,
-		"fromID", fromID,
+		"addr", fromAddr,
 	)
 	return true
 }
