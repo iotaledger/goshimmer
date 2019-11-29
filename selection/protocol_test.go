@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/autopeering-sim/discover"
 	"github.com/iotaledger/autopeering-sim/peer"
 	"github.com/iotaledger/autopeering-sim/salt"
 	"github.com/iotaledger/autopeering-sim/server"
@@ -130,4 +131,49 @@ func TestProtDropPeer(t *testing.T) {
 	protA.DropPeer(peerB)
 	time.Sleep(graceTime)
 	require.NotContains(t, protB.GetNeighbors(), peerA)
+}
+
+func newFullTestServer(t require.TestingT, trans transport.Transport, masterPeers ...*peer.Peer) (*server.Server, *Protocol, func()) {
+	log := logger.Named(trans.LocalAddr())
+	db := peer.NewMemoryDB(log.Named("db"))
+	local, err := peer.NewLocal("", trans.LocalAddr(), db)
+	require.NoError(t, err)
+
+	discovery := discover.New(local, discover.Config{
+		Log:         log.Named("disc"),
+		MasterPeers: masterPeers,
+	})
+	selection := New(local, discovery, Config{
+		Log: log.Named("sel"),
+	})
+
+	srv := server.Listen(local, trans, log.Named("srv"), discovery, selection)
+
+	discovery.Start(srv)
+	selection.Start(srv)
+
+	teardown := func() {
+		srv.Close()
+		selection.Close()
+		discovery.Close()
+		db.Close()
+	}
+	return srv, selection, teardown
+}
+
+func TestProtFull(t *testing.T) {
+	p2p := transport.P2P()
+
+	srvA, protA, closeA := newFullTestServer(t, p2p.A)
+	defer closeA()
+	peerA := &srvA.Local().Peer
+
+	srvB, protB, closeB := newFullTestServer(t, p2p.B, peerA)
+	defer closeB()
+	peerB := &srvB.Local().Peer
+
+	time.Sleep(1 * time.Second)
+
+	assert.ElementsMatch(t, []*peer.Peer{peerB}, protA.GetNeighbors())
+	assert.ElementsMatch(t, []*peer.Peer{peerA}, protB.GetNeighbors())
 }
