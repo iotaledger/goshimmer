@@ -141,8 +141,10 @@ func (m *manager) doReverify(done chan<- struct{}) {
 	if p == nil {
 		return // nothing can be reverified
 	}
-
-	m.log.Debug("doReverify")
+	m.log.Debugw("referifying",
+		"id", p.ID(),
+		"addr", p.Address(),
+	)
 
 	var err error
 	for i := 0; i < reverifyTries; i++ {
@@ -196,13 +198,16 @@ func (m *manager) updatePeer(update *peer.Peer) bool {
 	id := update.ID()
 	for i, p := range m.known {
 		if p.ID() == id {
-			if i > 1 {
-				//  move it to the front
+			if i > 0 {
+				//  move i-th peer to the front
 				copy(m.known[1:], m.known[:i])
 			}
-			m.known[0] = wrapPeer(update)
-			m.known[0].verifiedCount = p.verifiedCount + 1
-			m.known[0].lastNewPeers = p.lastNewPeers
+			// replace first mpeer with a wrap of the updated peer
+			m.known[0] = &mpeer{
+				Peer:          *update,
+				verifiedCount: p.verifiedCount + 1,
+				lastNewPeers:  p.lastNewPeers,
+			}
 
 			return true
 		}
@@ -245,7 +250,7 @@ func (m *manager) addDiscoveredPeer(p *peer.Peer) bool {
 	if containsPeer(m.known, p.ID()) {
 		return false
 	}
-	m.log.Debugw("add discovered",
+	m.log.Debugw("discovered",
 		"peer", p,
 	)
 
