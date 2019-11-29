@@ -24,14 +24,14 @@ func TestConnUdpPacket(t *testing.T) {
 	b := openUDP(t)
 	defer b.Close()
 
-	err := a.WriteTo(testPacket, b.LocalAddr())
+	err := a.WriteTo(testPacket, b.LocalAddr().String())
 	require.NoError(t, err)
 
 	pkt, addr, err := b.ReadFrom()
 	require.NoError(t, err)
 
 	assert.Equal(t, pkt.GetData(), testPacket.GetData())
-	assert.Equal(t, addr, a.LocalAddr())
+	assert.Equal(t, addr, a.LocalAddr().String())
 }
 
 func openUDP(t *testing.T) *TransportConn {
