@@ -2,6 +2,7 @@ package transport
 
 import (
 	"io"
+	"net"
 	"sync"
 
 	"github.com/golang/protobuf/proto"
@@ -32,11 +33,19 @@ func (t *TransportP2P) Close() {
 	t.B.Close()
 }
 
+// p2pAddr represents the address of an p2p end point.
+type p2pAddr struct {
+	address string
+}
+
+func (a p2pAddr) Network() string { return "p2p" }
+func (a p2pAddr) String() string  { return a.address }
+
 // chanTransport implements Transport by reading and writing to given channels.
 type chanTransport struct {
-	in        <-chan transfer
-	out       chan<- transfer
-	localAddr string
+	in   <-chan transfer
+	out  chan<- transfer
+	addr p2pAddr
 
 	closeOnce sync.Once
 	closing   chan struct{}
@@ -44,10 +53,10 @@ type chanTransport struct {
 
 func newChanTransport(in <-chan transfer, out chan<- transfer, address string) *chanTransport {
 	return &chanTransport{
-		in:        in,
-		out:       out,
-		localAddr: address,
-		closing:   make(chan struct{}),
+		in:      in,
+		out:     out,
+		addr:    p2pAddr{address: address},
+		closing: make(chan struct{}),
 	}
 }
 
@@ -64,7 +73,7 @@ func (t *chanTransport) ReadFrom() (*pb.Packet, string, error) {
 // WriteTo implements the Transport WriteTo method.
 func (t *chanTransport) WriteTo(pkt *pb.Packet, address string) error {
 	// clone the packet before sending, just to make sure...
-	req := transfer{pkt: &pb.Packet{}, addr: t.localAddr}
+	req := transfer{pkt: &pb.Packet{}, addr: t.addr.address}
 	proto.Merge(req.pkt, pkt)
 
 	select {
@@ -83,6 +92,6 @@ func (t *chanTransport) Close() {
 }
 
 // LocalAddr returns the local network address.
-func (t *chanTransport) LocalAddr() string {
-	return t.localAddr
+func (t *chanTransport) LocalAddr() net.Addr {
+	return t.addr
 }

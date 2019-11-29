@@ -58,6 +58,6 @@ func (t *TransportConn) Close() {
 }
 
 // LocalAddr returns the local network address.
-func (t *TransportConn) LocalAddr() string {
-	return t.conn.LocalAddr().String()
+func (t *TransportConn) LocalAddr() net.Addr {
+	return t.conn.LocalAddr()
 }

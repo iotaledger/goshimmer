@@ -27,14 +27,14 @@ func TestChanPacket(t *testing.T) {
 	a := network.GetTransport("A")
 	b := network.GetTransport("B")
 
-	err := a.WriteTo(testPacket, b.LocalAddr())
+	err := a.WriteTo(testPacket, b.LocalAddr().String())
 	require.NoError(t, err)
 
 	pkt, addr, err := b.ReadFrom()
 	require.NoError(t, err)
 
 	assert.Equal(t, pkt.GetData(), testPacket.GetData())
-	assert.Equal(t, addr, a.LocalAddr())
+	assert.Equal(t, addr, a.LocalAddr().String())
 }
 
 func TestChanConcurrentWrite(t *testing.T) {
@@ -60,9 +60,9 @@ func TestChanConcurrentWrite(t *testing.T) {
 	}()
 
 	wg.Add(numSender)
-	burstWriteTo(a, d.LocalAddr(), 1000, &wg)
-	burstWriteTo(b, d.LocalAddr(), 1000, &wg)
-	burstWriteTo(c, d.LocalAddr(), 1000, &wg)
+	burstWriteTo(a, d.LocalAddr().String(), 1000, &wg)
+	burstWriteTo(b, d.LocalAddr().String(), 1000, &wg)
+	burstWriteTo(c, d.LocalAddr().String(), 1000, &wg)
 
 	// wait for everything to finish
 	assert.Eventually(t, func() bool { wg.Wait(); return true }, time.Second, 10*time.Millisecond)

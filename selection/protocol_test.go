@@ -41,7 +41,7 @@ func (d dummyDiscovery) GetVerifiedPeers() []*peer.Peer                     { re
 func newTest(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*server.Server, *Protocol, func()) {
 	log := logger.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
-	local, err := peer.NewLocal("", trans.LocalAddr(), db)
+	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	require.NoError(t, err)
 	peerMap[local.ID()] = &local.Peer
 
@@ -133,10 +133,10 @@ func TestProtDropPeer(t *testing.T) {
 	require.NotContains(t, protB.GetNeighbors(), peerA)
 }
 
-func newFullTestServer(t require.TestingT, trans transport.Transport, masterPeers ...*peer.Peer) (*server.Server, *Protocol, func()) {
-	log := logger.Named(trans.LocalAddr())
+func newFullTestServer(t require.TestingT, name string, trans transport.Transport, masterPeers ...*peer.Peer) (*server.Server, *Protocol, func()) {
+	log := logger.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
-	local, err := peer.NewLocal("", trans.LocalAddr(), db)
+	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	require.NoError(t, err)
 
 	discovery := discover.New(local, discover.Config{
@@ -164,15 +164,15 @@ func newFullTestServer(t require.TestingT, trans transport.Transport, masterPeer
 func TestProtFull(t *testing.T) {
 	p2p := transport.P2P()
 
-	srvA, protA, closeA := newFullTestServer(t, p2p.A)
+	srvA, protA, closeA := newFullTestServer(t, "A", p2p.A)
 	defer closeA()
 	peerA := &srvA.Local().Peer
 
-	srvB, protB, closeB := newFullTestServer(t, p2p.B, peerA)
+	srvB, protB, closeB := newFullTestServer(t, "B", p2p.B, peerA)
 	defer closeB()
 	peerB := &srvB.Local().Peer
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	assert.ElementsMatch(t, []*peer.Peer{peerB}, protA.GetNeighbors())
 	assert.ElementsMatch(t, []*peer.Peer{peerA}, protB.GetNeighbors())

@@ -2,6 +2,7 @@ package transport
 
 import (
 	"io"
+	"net"
 	"sync"
 
 	"github.com/golang/protobuf/proto"
@@ -14,13 +15,21 @@ type ChanNetwork struct {
 }
 
 type chanPeer struct {
-	network   *ChanNetwork
-	localAddr string
+	network *ChanNetwork
+	addr    chanAddr
 
 	c         chan transfer
 	closeOnce sync.Once
 	closing   chan struct{}
 }
+
+// chanAddr represents the address of an end point in the in-memory transport network.
+type chanAddr struct {
+	address string
+}
+
+func (a chanAddr) Network() string { return "chan-network" }
+func (a chanAddr) String() string  { return a.address }
 
 // NewNetwork creates a new in-memory transport network.
 // For each provided address a coresponding client is created.
@@ -59,12 +68,12 @@ func (n *ChanNetwork) Close() {
 	}
 }
 
-func newChanPeer(addr string, network *ChanNetwork) *chanPeer {
+func newChanPeer(address string, network *ChanNetwork) *chanPeer {
 	return &chanPeer{
-		localAddr: addr,
-		network:   network,
-		c:         make(chan transfer, queueSize),
-		closing:   make(chan struct{}),
+		addr:    chanAddr{address: address},
+		network: network,
+		c:       make(chan transfer, queueSize),
+		closing: make(chan struct{}),
 	}
 }
 
@@ -87,7 +96,7 @@ func (p *chanPeer) WriteTo(pkt *pb.Packet, address string) error {
 	}
 
 	// clone the packet before sending, just to make sure...
-	req := transfer{pkt: &pb.Packet{}, addr: p.localAddr}
+	req := transfer{pkt: &pb.Packet{}, addr: p.addr.address}
 	proto.Merge(req.pkt, pkt)
 
 	select {
@@ -106,6 +115,6 @@ func (p *chanPeer) Close() {
 }
 
 // LocalAddr returns the local network address.
-func (p *chanPeer) LocalAddr() string {
-	return p.localAddr
+func (p *chanPeer) LocalAddr() net.Addr {
+	return p.addr
 }

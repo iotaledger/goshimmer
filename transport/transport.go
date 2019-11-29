@@ -3,6 +3,8 @@
 package transport
 
 import (
+	"net"
+
 	pb "github.com/iotaledger/autopeering-sim/server/proto"
 )
 
@@ -26,8 +28,8 @@ type Transport interface {
 	// Any blocked ReadFrom or WriteTo operations will return errors.
 	Close()
 
-	// LocalAddr returns the local network address in string form.
-	LocalAddr() string
+	// LocalAddr returns the local network address.
+	LocalAddr() net.Addr
 }
 
 // transfer represents a send and contains the package and the return address.

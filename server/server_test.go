@@ -124,7 +124,7 @@ func TestSrvEncodeDecodePing(t *testing.T) {
 func newTestServer(t require.TestingT, name string, trans transport.Transport, external *string, logger *zap.SugaredLogger) (*Server, func()) {
 	log := logger.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
-	local, err := peer.NewLocal("dummy", trans.LocalAddr(), db)
+	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	require.NoError(t, err)
 
 	s, _ := salt.NewSalt(100 * time.Second)

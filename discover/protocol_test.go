@@ -30,7 +30,7 @@ func init() {
 func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger, masters ...*peer.Peer) (*server.Server, *Protocol, func()) {
 	log := logger.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
-	local, err := peer.NewLocal("", trans.LocalAddr(), db)
+	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	require.NoError(t, err)
 
 	s, _ := salt.NewSalt(100 * time.Second)

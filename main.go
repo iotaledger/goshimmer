@@ -111,7 +111,7 @@ func main() {
 	// create a new local node
 	db := peer.NewPersistentDB(logger.Named("db"))
 	defer db.Close()
-	local, err := peer.NewLocal("udp", externalAddr, db)
+	local, err := peer.NewLocal(trans.LocalAddr().Network(), externalAddr, db)
 	if err != nil {
 		log.Fatalf("ListenUDP: %v", err)
 	}
