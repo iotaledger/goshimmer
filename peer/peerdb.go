@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"go.uber.org/zap"
 )
@@ -28,6 +29,10 @@ const (
 type DB interface {
 	// LocalPrivateKey returns the private key stored in the database or creates a new one.
 	LocalPrivateKey() (PrivateKey, error)
+	// LocalServices returns the services stored in the database or creates an empty services.
+	LocalServices() (service.Service, error)
+	// UpdateLocalServices updates the services stored in the database.
+	UpdateLocalServices(services service.Service) error
 
 	// Peer retrieves a peer from the database.
 	Peer(id ID) *Peer
@@ -67,7 +72,8 @@ const (
 	dbNodePong = "lastpong"
 
 	// Local information is keyed by ID only. Use localFieldKey to create those keys.
-	dbLocalKey = "key"
+	dbLocalKey      = "key"
+	dbLocalServices = "services"
 )
 
 // NewPersistentDB creates a new persistent DB.
@@ -173,6 +179,7 @@ func (db *persistentDB) setInt64(key []byte, n int64) error {
 	return db.db.SetWithTTL(key, blob, peerExpiration)
 }
 
+// LocalPrivateKey returns the private key stored in the database or creates a new one.
 func (db *persistentDB) LocalPrivateKey() (PrivateKey, error) {
 	key, err := db.db.Get(localFieldKey(dbLocalKey))
 	if err == database.ErrKeyNotFound {
@@ -187,6 +194,33 @@ func (db *persistentDB) LocalPrivateKey() (PrivateKey, error) {
 	}
 
 	return key, nil
+}
+
+// LocalServices returns the services stored in the database or creates an empty services.
+func (db *persistentDB) LocalServices() (service.Service, error) {
+	key, err := db.db.Get(localFieldKey(dbLocalServices))
+	if err == database.ErrKeyNotFound {
+		return service.New(), nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	services, err := service.Unmarshal(key)
+	if err != nil {
+		return nil, err
+	}
+
+	return services, nil
+}
+
+// UpdateLocalServices updates the services stored in the database.
+func (db *persistentDB) UpdateLocalServices(services service.Service) error {
+	value, err := services.CreateRecord().CreateRecord().Marshal()
+	if err != nil {
+		return err
+	}
+	return db.db.Set(localFieldKey(dbLocalServices), value)
 }
 
 // LastPing returns that property for the given peer ID and address.

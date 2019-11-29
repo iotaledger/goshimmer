@@ -4,8 +4,10 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -13,6 +15,7 @@ import (
 	"github.com/iotaledger/autopeering-sim/discover"
 	"github.com/iotaledger/autopeering-sim/logger"
 	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/autopeering-sim/selection"
 	"github.com/iotaledger/autopeering-sim/server"
 	"github.com/iotaledger/autopeering-sim/transport"
@@ -46,7 +49,7 @@ func waitInterrupt() {
 	<-c
 }
 
-func parseMaster(s string) (*peer.Peer, error) {
+func parseMaster(network string, s string) (*peer.Peer, error) {
 	if len(s) == 0 {
 		return nil, nil
 	}
@@ -60,7 +63,10 @@ func parseMaster(s string) (*peer.Peer, error) {
 		return nil, errors.Wrap(err, "parseMaster")
 	}
 
-	return peer.NewPeer(pubKey, parts[1]), nil
+	services := service.New()
+	services.Update(service.PeeringKey, network, parts[1])
+
+	return peer.NewPeer(pubKey, services), nil
 }
 
 func main() {
@@ -71,6 +77,11 @@ func main() {
 		err error
 	)
 	flag.Parse()
+
+	externalAddr := *listenAddr
+	if host, port, _ := net.SplitHostPort(*listenAddr); host == "0.0.0.0" {
+		externalAddr = getMyIP() + ":" + port
+	}
 
 	logger := logger.NewLogger(defaultZLC, "debug")
 	defer func() { _ = logger.Sync() }() // ignore the returned error
@@ -86,7 +97,7 @@ func main() {
 	defer conn.Close()
 
 	var masterPeers []*peer.Peer
-	master, err := parseMaster(*masterPeer)
+	master, err := parseMaster("udp", *masterPeer)
 	if err != nil {
 		log.Printf("Ignoring master: %v\n", err)
 	} else if master != nil {
@@ -100,12 +111,10 @@ func main() {
 	// create a new local node
 	db := peer.NewPersistentDB(logger.Named("db"))
 	defer db.Close()
-	local, err := peer.NewLocal(db)
+	local, err := peer.NewLocal("udp", externalAddr, db)
 	if err != nil {
 		log.Fatalf("ListenUDP: %v", err)
 	}
-	// add a service for the peering
-	local.Services()["peering"] = peer.NetworkAddress{Network: "udp", Address: *listenAddr}
 
 	discovery := discover.New(local, discover.Config{
 		Log:         logger.Named("disc"),
@@ -127,10 +136,24 @@ func main() {
 	selection.Start(srv)
 	defer selection.Close()
 
-	id := base64.StdEncoding.EncodeToString(local.PublicKey())
-	fmt.Println("Discovery protocol started: ID=" + id + ", address=" + srv.LocalAddr())
+	pubKey := base64.StdEncoding.EncodeToString(local.PublicKey())
+	fmt.Println("Discovery protocol started: pubKey=" + pubKey + ", address=" + srv.LocalAddr())
 	fmt.Println("Hit Ctrl+C to exit")
 
 	// wait for Ctrl+c
 	waitInterrupt()
+}
+
+func getMyIP() string {
+	url := "https://api.ipify.org?format=text"
+	resp, err := http.Get(url)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	ip, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%s", ip)
 }

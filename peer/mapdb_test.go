@@ -67,11 +67,11 @@ func TestMapDBSeedPeers(t *testing.T) {
 func TestMapDBLocal(t *testing.T) {
 	db := NewMemoryDB(logger)
 
-	l1, err := NewLocal(db)
+	l1, err := NewLocal(testNetwork, testAddress, db)
 	require.NoError(t, err)
 	assert.Equal(t, len(l1.PublicKey()), ed25519.PublicKeySize)
 
-	l2, err := NewLocal(db)
+	l2, err := NewLocal(testNetwork, testAddress, db)
 	require.NoError(t, err)
 
 	assert.Equal(t, l1, l2)

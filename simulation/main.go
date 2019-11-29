@@ -17,6 +17,7 @@ import (
 
 var (
 	allPeers       []*peer.Peer
+	peerMap        = make(map[peer.ID]*peer.Peer)
 	protocolMap    = make(map[peer.ID]*selection.Protocol)
 	idMap          = make(map[peer.ID]uint16)
 	status         = NewStatusMap() // key: timestamp, value: Status
@@ -41,9 +42,10 @@ var (
 // dummyDiscovery is a dummy implementation of DiscoveryProtocol never returning any verified peers.
 type dummyDiscovery struct{}
 
-func (d dummyDiscovery) IsVerified(p *peer.Peer) bool   { return true }
-func (d dummyDiscovery) EnsureVerified(p *peer.Peer)    {}
-func (d dummyDiscovery) GetVerifiedPeers() []*peer.Peer { return allPeers }
+func (d dummyDiscovery) IsVerified(peer.ID, string) bool                    { return true }
+func (d dummyDiscovery) EnsureVerified(p *peer.Peer)                        {}
+func (d dummyDiscovery) GetVerifiedPeer(id peer.ID, addr string) *peer.Peer { return peerMap[id] }
+func (d dummyDiscovery) GetVerifiedPeers() []*peer.Peer                     { return allPeers }
 
 func RunSim() {
 	allPeers = make([]*peer.Peer, N)
@@ -70,6 +72,7 @@ func RunSim() {
 
 		id := peer.local.ID()
 		idMap[id] = uint16(i)
+		peerMap[id] = peer.peer
 
 		cfg := selection.Config{Log: peer.log,
 			Param: &selection.Parameters{
@@ -183,7 +186,7 @@ func runLinkAnalysis() {
 				status.Append(from, to, OUTBOUND)
 
 				// accepted/rejected is only recorded for outgoing requests
-				if len(req.Services) > 0 {
+				if req.Status {
 					status.Append(from, to, ACCEPTED)
 					Links = append(Links, NewLink(from, to, time.Since(StartTime).Milliseconds()))
 					if vEnabled {

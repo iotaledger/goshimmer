@@ -3,22 +3,24 @@ package peer
 import (
 	"crypto/ed25519"
 	"fmt"
+	"net"
 	"sync"
 
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/autopeering-sim/salt"
 )
 
 // Local defines the struct of a local peer
 type Local struct {
-	id       ID
-	key      PrivateKey
-	services ServiceMap
-	db       DB
+	Peer
+	key PrivateKey
+	db  DB
 
 	// everything below is protected by a lock
-	mu          sync.RWMutex
-	publicSalt  *salt.Salt
-	privateSalt *salt.Salt
+	mu            sync.RWMutex
+	serviceRecord *service.Record
+	publicSalt    *salt.Salt
+	privateSalt   *salt.Salt
 }
 
 // PrivateKey is the type of Ed25519 private keys used for the local peer.
@@ -31,18 +33,17 @@ func (priv PrivateKey) Public() PublicKey {
 }
 
 // newLocal creates a new local peer.
-func newLocal(key PrivateKey, db DB) *Local {
-	publicKey := key.Public()
+func newLocal(key PrivateKey, serviceRecord *service.Record, db DB) *Local {
 	return &Local{
-		id:       publicKey.ID(),
-		key:      key,
-		services: NewServiceMap(),
-		db:       db,
+		Peer:          *NewPeer(key.Public(), serviceRecord),
+		key:           key,
+		db:            db,
+		serviceRecord: serviceRecord,
 	}
 }
 
 // NewLocal creates a new local peer linked to the provided db.
-func NewLocal(db DB) (*Local, error) {
+func NewLocal(network string, address string, db DB) (*Local, error) {
 	key, err := db.LocalPrivateKey()
 	if err != nil {
 		return nil, err
@@ -50,32 +51,48 @@ func NewLocal(db DB) (*Local, error) {
 	if l := len(key); l != ed25519.PrivateKeySize {
 		return nil, fmt.Errorf("invalid key length: %d, need %d", l, ed25519.PublicKeySize)
 	}
-	return newLocal(key, db), nil
+	services, err := db.LocalServices()
+	if err != nil {
+		return nil, err
+	}
+	serviceRecord := services.CreateRecord()
+
+	// update the external address used for the peering and store back in DB
+	serviceRecord.Update(service.PeeringKey, network, address)
+	err = db.UpdateLocalServices(serviceRecord)
+	if err != nil {
+		return nil, err
+	}
+
+	return newLocal(key, serviceRecord, db), nil
 }
 
-// ID returns the local node ID.
-func (l *Local) ID() ID {
-	return l.id
-}
-
-// PublicKey returns the public key of the local node.
-func (l *Local) PublicKey() PublicKey {
-	return l.key.Public()
-}
-
-// Database returns the node database associated with the local node.
+// Database returns the node database associated with the local peer.
 func (l *Local) Database() DB {
 	return l.db
 }
 
-// Services returns the services supported by the local node.
-func (l *Local) Services() ServiceMap {
-	return l.services
-}
-
-// Sign signs the message with the local node's private key and returns a signature.
+// Sign signs the message with the local peer's private key and returns a signature.
 func (l *Local) Sign(message []byte) []byte {
 	return ed25519.Sign(ed25519.PrivateKey(l.key), message)
+}
+
+// UpdateService updates the endpoint address of the given local service.
+func (l *Local) UpdateService(key service.Key, addr net.Addr) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	// update the service in the read protected map and store back in DB
+	l.serviceRecord.Update(key, addr.Network(), addr.String())
+	err := l.db.UpdateLocalServices(l.serviceRecord)
+	if err != nil {
+		return err
+	}
+
+	// create a new peer with the corresponding services
+	l.Peer = *NewPeer(l.key.Public(), l.serviceRecord)
+
+	return nil
 }
 
 // GetPublicSalt returns the public salt

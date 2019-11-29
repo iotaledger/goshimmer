@@ -30,7 +30,7 @@ func init() {
 func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger, masters ...*peer.Peer) (*server.Server, *Protocol, func()) {
 	log := logger.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
-	local, err := peer.NewLocal(db)
+	local, err := peer.NewLocal("", trans.LocalAddr(), db)
 	require.NoError(t, err)
 
 	s, _ := salt.NewSalt(100 * time.Second)
@@ -59,7 +59,7 @@ func TestProtVerifyMaster(t *testing.T) {
 
 	srvA, _, closeA := newTestServer(t, "A", p2p.A, logger)
 	defer closeA()
-	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
+	peerA := &srvA.Local().Peer
 
 	// use peerA as masters peer
 	_, protB, closeB := newTestServer(t, "B", p2p.B, logger, peerA)
@@ -81,8 +81,8 @@ func TestProtPingPong(t *testing.T) {
 	srvB, protB, closeB := newTestServer(t, "B", p2p.B, logger)
 	defer closeB()
 
-	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
-	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+	peerA := &srvA.Local().Peer
+	peerB := &srvB.Local().Peer
 
 	// send a ping from node A to B
 	t.Run("A->B", func(t *testing.T) { assert.NoError(t, protA.ping(peerB)) })
@@ -101,11 +101,55 @@ func TestProtPingTimeout(t *testing.T) {
 	srvB, _, closeB := newTestServer(t, "B", p2p.B, logger)
 	closeB() // close the connection right away to prevent any replies
 
-	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+	peerB := &srvB.Local().Peer
 
 	// send a ping from node A to B
 	err := protA.ping(peerB)
 	assert.EqualError(t, err, server.ErrTimeout.Error())
+}
+
+func TestProtVerifiedPeers(t *testing.T) {
+	p2p := transport.P2P()
+
+	_, protA, closeA := newTestServer(t, "A", p2p.A, logger)
+	defer closeA()
+	srvB, _, closeB := newTestServer(t, "B", p2p.B, logger)
+	defer closeB()
+
+	peerB := &srvB.Local().Peer
+
+	// send a ping from node A to B
+	assert.NoError(t, protA.ping(peerB))
+	time.Sleep(graceTime)
+
+	// protA should have peerB as the single verified peer
+	assert.ElementsMatch(t, []*peer.Peer{peerB}, protA.GetVerifiedPeers())
+	for _, p := range protA.GetVerifiedPeers() {
+		assert.Equal(t, p, protA.GetVerifiedPeer(p.ID(), p.Address()))
+	}
+}
+
+func TestProtVerifiedPeer(t *testing.T) {
+	p2p := transport.P2P()
+
+	srvA, protA, closeA := newTestServer(t, "A", p2p.A, logger)
+	defer closeA()
+	srvB, _, closeB := newTestServer(t, "B", p2p.B, logger)
+	defer closeB()
+
+	peerA := &srvA.Local().Peer
+	peerB := &srvB.Local().Peer
+
+	// send a ping from node A to B
+	assert.NoError(t, protA.ping(peerB))
+	time.Sleep(graceTime)
+
+	// we should have peerB as a verified peer
+	assert.Equal(t, peerB, protA.GetVerifiedPeer(peerB.ID(), peerB.Address()))
+	// we should not have ourself as a verified peer
+	assert.Nil(t, protA.GetVerifiedPeer(peerA.ID(), peerA.Address()))
+	// the address of peerB should match
+	assert.Nil(t, protA.GetVerifiedPeer(peerB.ID(), ""))
 }
 
 func TestProtDiscoveryRequest(t *testing.T) {
@@ -116,8 +160,8 @@ func TestProtDiscoveryRequest(t *testing.T) {
 	srvB, protB, closeB := newTestServer(t, "B", p2p.B, logger)
 	defer closeB()
 
-	peerA := peer.NewPeer(srvA.Local().PublicKey(), srvA.LocalAddr())
-	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+	peerA := &srvA.Local().Peer
+	peerB := &srvB.Local().Peer
 
 	// request peers from node A
 	t.Run("A->B", func(t *testing.T) {
@@ -142,7 +186,7 @@ func BenchmarkPingPong(b *testing.B) {
 	srvB, _, closeB := newTestServer(b, "B", p2p.B, log)
 	defer closeB()
 
-	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+	peerB := &srvB.Local().Peer
 
 	b.ResetTimer()
 
@@ -163,7 +207,7 @@ func BenchmarkDiscoveryRequest(b *testing.B) {
 	srvB, _, closeB := newTestServer(b, "B", p2p.B, log)
 	defer closeB()
 
-	peerB := peer.NewPeer(srvB.Local().PublicKey(), srvB.LocalAddr())
+	peerB := &srvB.Local().Peer
 
 	// send initial request to ensure that every peer is verified
 	_, err := protA.discoveryRequest(peerB)

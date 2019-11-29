@@ -5,16 +5,25 @@ import (
 	"testing"
 
 	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
+	testNetwork = "udp"
 	testAddress = "127.0.0.1:8000"
 )
 
+func newTestServiceRecord() *service.Record {
+	services := service.New()
+	services.Update(service.PeeringKey, testNetwork, testAddress)
+
+	return services
+}
+
 func newTestPeer() *peer.Peer {
 	key, _, _ := ed25519.GenerateKey(nil)
-	return peer.NewPeer(peer.PublicKey(key), testAddress)
+	return peer.NewPeer(peer.PublicKey(key), newTestServiceRecord())
 }
 
 func TestFilterAddPeers(t *testing.T) {

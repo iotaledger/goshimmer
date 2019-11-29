@@ -22,9 +22,9 @@ var Events = struct {
 
 // PeeringEvent bundles the information sent in a peering event.
 type PeeringEvent struct {
-	Self     peer.ID         // ID of the peer triggering the event.
-	Peer     *peer.Peer      // peering partner
-	Services peer.ServiceMap // services supported by that peer
+	Self   peer.ID    // ID of the peer triggering the event.
+	Peer   *peer.Peer // peering partner
+	Status bool       // true, when the peering partner has accepted the request
 }
 
 // DroppedEvent bundles the information sent in Dropped events.

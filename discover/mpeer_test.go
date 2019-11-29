@@ -5,11 +5,15 @@ import (
 	"testing"
 
 	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/stretchr/testify/assert"
 )
 
 func newTestPeer(name string) *peer.Peer {
-	return peer.NewPeer([]byte(name), name)
+	services := service.New()
+	services.Update(service.PeeringKey, "test", name)
+
+	return peer.NewPeer([]byte(name), services)
 }
 
 func TestUnwrapPeers(t *testing.T) {

@@ -23,6 +23,10 @@ func (p *mpeer) String() string {
 	return p.Peer.String()
 }
 
+func (p *mpeer) updatePeer(update *peer.Peer) {
+	p.Peer = *update
+}
+
 func wrapPeer(p *peer.Peer) *mpeer {
 	return &mpeer{Peer: *p}
 }
@@ -73,8 +77,6 @@ func deletePeer(list []*mpeer, i int) ([]*mpeer, *mpeer) {
 
 	copy(list[i:], list[i+1:])
 	list[len(list)-1] = nil
-
-	Events.PeerDeleted.Trigger(&DeletedEvent{Peer: unwrapPeer(p)})
 
 	return list[:len(list)-1], p
 }
