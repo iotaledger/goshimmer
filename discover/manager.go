@@ -200,10 +200,11 @@ func (m *manager) updatePeer(update *peer.Peer) bool {
 			if i > 1 {
 				//  move it to the front
 				copy(m.known[1:], m.known[:i])
-				m.known[0] = p
 			}
-			p.updatePeer(update)
-			p.verifiedCount++
+			m.known[0] = wrapPeer(update)
+			m.known[0].verifiedCount = p.verifiedCount + 1
+			m.known[0].lastNewPeers = p.lastNewPeers
+
 			return true
 		}
 	}

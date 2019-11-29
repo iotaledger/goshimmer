@@ -23,10 +23,6 @@ func (p *mpeer) String() string {
 	return p.Peer.String()
 }
 
-func (p *mpeer) updatePeer(update *peer.Peer) {
-	p.Peer = *update
-}
-
 func wrapPeer(p *peer.Peer) *mpeer {
 	return &mpeer{Peer: *p}
 }
