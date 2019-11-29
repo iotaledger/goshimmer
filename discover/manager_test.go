@@ -51,7 +51,7 @@ func newDummyPeer(name string) *peer.Peer {
 
 func newTestManager() (*manager, *NetworkMock, func()) {
 	networkMock := newNetworkMock()
-	mgr := newManager(networkMock, nil, logger)
+	mgr := newManager(networkMock, nil, logger, nil)
 	teardown := func() {
 		time.Sleep(graceTime)
 		mgr.close()
@@ -140,14 +140,14 @@ func TestMgrAddManyVerifiedPeers(t *testing.T) {
 	time.Sleep(graceTime)
 
 	mgr.addVerifiedPeer(p)
-	for i := 0; i < maxKnow+maxReplacements; i++ {
+	for i := 0; i < maxVerified+maxReplacements; i++ {
 		mgr.addVerifiedPeer(newDummyPeer(fmt.Sprintf("p%d", i)))
 	}
 
 	mgr.doReverify(make(chan struct{})) // manually trigger a verify
 	ps := unwrapPeers(mgr.getVerifiedPeers())
 
-	assert.Equal(t, maxKnow, len(ps))
+	assert.Equal(t, maxVerified, len(ps))
 	assert.Contains(t, ps, p)
 }
 
@@ -166,13 +166,13 @@ func TestMgrDeleteUnreachablePeer(t *testing.T) {
 	time.Sleep(graceTime)
 
 	mgr.addVerifiedPeer(p)
-	for i := 0; i < maxKnow; i++ {
+	for i := 0; i < maxVerified; i++ {
 		mgr.addVerifiedPeer(newDummyPeer(fmt.Sprintf("p%d", i)))
 	}
 
 	mgr.doReverify(make(chan struct{})) // manually trigger a verify
 	ps := unwrapPeers(mgr.getVerifiedPeers())
 
-	assert.Equal(t, maxKnow, len(ps))
+	assert.Equal(t, maxVerified, len(ps))
 	assert.NotContains(t, ps, p)
 }

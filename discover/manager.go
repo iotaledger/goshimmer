@@ -9,12 +9,11 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	reverifyInterval = 10 * time.Second
-	reverifyTries    = 2
-
-	maxKnow         = 1000
-	maxReplacements = 10
+var (
+	reverifyInterval = DefaultReverifyInterval // time interval after which the next peer is reverified
+	reverifyTries    = DefaultReverifyTries    // number of times a peer is pinged before it is removed
+	maxVerified      = DefaultMaxVerified      // maximum number of peers that are kept verified
+	maxReplacements  = DefaultMaxReplacements  // maximum number of peers kept in the replacement list
 )
 
 type network interface {
@@ -36,9 +35,24 @@ type manager struct {
 	closing chan struct{}
 }
 
-func newManager(net network, masters []*peer.Peer, log *zap.SugaredLogger) *manager {
+func newManager(net network, masters []*peer.Peer, log *zap.SugaredLogger, param *Parameters) *manager {
+	if param != nil {
+		if param.ReverifyInterval > 0 {
+			reverifyInterval = param.ReverifyInterval
+		}
+		if param.ReverifyTries > 0 {
+			reverifyTries = param.ReverifyTries
+		}
+		if param.MaxVerified > 0 {
+			maxVerified = param.MaxVerified
+		}
+		if param.MaxReplacements > 0 {
+			maxReplacements = param.MaxReplacements
+		}
+	}
+
 	m := &manager{
-		known:        make([]*mpeer, 0, maxKnow),
+		known:        make([]*mpeer, 0, maxVerified),
 		replacements: make([]*mpeer, 0, maxReplacements),
 		net:          net,
 		log:          log,
@@ -154,7 +168,7 @@ func (m *manager) doReverify(done chan<- struct{}) {
 		if len(m.replacements) > 0 {
 			var r *mpeer
 			m.replacements, r = deletePeer(m.replacements, rand.Intn(len(m.replacements)))
-			m.known = pushPeer(m.known, r, maxKnow)
+			m.known = pushPeer(m.known, r, maxVerified)
 		}
 		return
 	}
@@ -236,11 +250,11 @@ func (m *manager) addDiscoveredPeer(p *peer.Peer) bool {
 	)
 
 	mp := wrapPeer(p)
-	if len(m.known) >= maxKnow {
+	if len(m.known) >= maxVerified {
 		return m.addReplacement(mp)
 	}
 
-	m.known = pushPeer(m.known, mp, maxKnow)
+	m.known = pushPeer(m.known, mp, maxVerified)
 	return true
 }
 
@@ -267,12 +281,12 @@ func (m *manager) addVerifiedPeer(p *peer.Peer) bool {
 	mp := wrapPeer(p)
 	mp.verifiedCount = 1
 
-	if len(m.known) >= maxKnow {
+	if len(m.known) >= maxVerified {
 		return m.addReplacement(mp)
 	}
 
 	// new nodes are added to the front
-	m.known = unshiftPeer(m.known, mp, maxKnow)
+	m.known = unshiftPeer(m.known, mp, maxVerified)
 	return true
 }
 

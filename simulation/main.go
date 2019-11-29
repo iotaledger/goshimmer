@@ -75,8 +75,10 @@ func RunSim() {
 		peerMap[id] = peer.peer
 
 		cfg := selection.Config{Log: peer.log,
-			SaltLifetime:  SaltLifetime,
-			DropNeighbors: DropAllFlag,
+			Param: &selection.Parameters{
+				SaltLifetime:          SaltLifetime,
+				DropNeighborsOnUpdate: DropAllFlag,
+			},
 		}
 		protocol := selection.New(peer.local, disc, cfg)
 		serverMap[id] = server.Listen(peer.local, network.GetTransport(name), peer.log, protocol)
