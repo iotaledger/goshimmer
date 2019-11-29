@@ -29,9 +29,9 @@ message Pong {
 
 message DiscoveryRequest {
   // string form of the recipient address
-  string to = 3;
+  string to = 1;
   // unix time
-  int64 timestamp = 1;
+  int64 timestamp = 2;
 }
 
 message DiscoveryResponse {
