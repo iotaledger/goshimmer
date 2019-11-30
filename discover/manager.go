@@ -13,7 +13,7 @@ var (
 	reverifyInterval = DefaultReverifyInterval // time interval after which the next peer is reverified
 	reverifyTries    = DefaultReverifyTries    // number of times a peer is pinged before it is removed
 	queryInterval    = DefaultQueryInterval    // time interval after which peers are queried for new peers
-	maxVerified      = DefaultMaxVerified      // maximum number of peers that are kept verified
+	maxManaged       = DefaultMaxManaged       // maximum number of peers that can be managed
 	maxReplacements  = DefaultMaxReplacements  // maximum number of peers kept in the replacement list
 )
 
@@ -25,8 +25,8 @@ type network interface {
 }
 
 type manager struct {
-	mutex        sync.Mutex // protects  known and replacement
-	known        []*mpeer
+	mutex        sync.Mutex // protects active and replacement
+	active       []*mpeer
 	replacements []*mpeer
 
 	net network
@@ -47,8 +47,8 @@ func newManager(net network, masters []*peer.Peer, log *zap.SugaredLogger, param
 		if param.QueryInterval > 0 {
 			queryInterval = param.QueryInterval
 		}
-		if param.MaxVerified > 0 {
-			maxVerified = param.MaxVerified
+		if param.MaxManaged > 0 {
+			maxManaged = param.MaxManaged
 		}
 		if param.MaxReplacements > 0 {
 			maxReplacements = param.MaxReplacements
@@ -56,7 +56,7 @@ func newManager(net network, masters []*peer.Peer, log *zap.SugaredLogger, param
 	}
 
 	m := &manager{
-		known:        make([]*mpeer, 0, maxVerified),
+		active:       make([]*mpeer, 0, maxManaged),
 		replacements: make([]*mpeer, 0, maxReplacements),
 		net:          net,
 		log:          log,
@@ -137,7 +137,7 @@ Loop:
 	}
 }
 
-// doReverify pings the oldest known peer.
+// doReverify pings the oldest active peer.
 func (m *manager) doReverify(done chan<- struct{}) {
 	defer close(done)
 
@@ -165,7 +165,7 @@ func (m *manager) doReverify(done chan<- struct{}) {
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
 
-		m.known, _ = deletePeerByID(m.known, p.ID())
+		m.active, _ = deletePeerByID(m.active, p.ID())
 		m.log.Debugw("remove dead",
 			"peer", p,
 			"err", err,
@@ -176,7 +176,7 @@ func (m *manager) doReverify(done chan<- struct{}) {
 		if len(m.replacements) > 0 {
 			var r *mpeer
 			m.replacements, r = deletePeer(m.replacements, rand.Intn(len(m.replacements)))
-			m.known = pushPeer(m.known, r, maxVerified)
+			m.active = pushPeer(m.active, r, maxManaged)
 		}
 		return
 	}
@@ -189,25 +189,25 @@ func (m *manager) peerToReverify() *mpeer {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if len(m.known) == 0 {
+	if len(m.active) == 0 {
 		return nil
 	}
 	// the last peer is the oldest
-	return m.known[len(m.known)-1]
+	return m.active[len(m.active)-1]
 }
 
 // updatePeer moves the peer with the given ID to the front of the list of managed peers.
 // It returns true if a peer was bumped or false if there was no peer with that id
 func (m *manager) updatePeer(update *peer.Peer) bool {
 	id := update.ID()
-	for i, p := range m.known {
+	for i, p := range m.active {
 		if p.ID() == id {
 			if i > 0 {
 				//  move i-th peer to the front
-				copy(m.known[1:], m.known[:i])
+				copy(m.active[1:], m.active[:i])
 			}
 			// replace first mpeer with a wrap of the updated peer
-			m.known[0] = &mpeer{
+			m.active[0] = &mpeer{
 				Peer:          *update,
 				verifiedCount: p.verifiedCount + 1,
 				lastNewPeers:  p.lastNewPeers,
@@ -251,7 +251,7 @@ func (m *manager) addDiscoveredPeer(p *peer.Peer) bool {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if containsPeer(m.known, p.ID()) {
+	if containsPeer(m.active, p.ID()) {
 		return false
 	}
 	m.log.Debugw("discovered",
@@ -259,11 +259,11 @@ func (m *manager) addDiscoveredPeer(p *peer.Peer) bool {
 	)
 
 	mp := wrapPeer(p)
-	if len(m.known) >= maxVerified {
+	if len(m.active) >= maxManaged {
 		return m.addReplacement(mp)
 	}
 
-	m.known = pushPeer(m.known, mp, maxVerified)
+	m.active = pushPeer(m.active, mp, maxManaged)
 	return true
 }
 
@@ -291,14 +291,14 @@ func (m *manager) addVerifiedPeer(p *peer.Peer) bool {
 	mp := wrapPeer(p)
 	mp.verifiedCount = 1
 
-	if len(m.known) >= maxVerified {
+	if len(m.active) >= maxManaged {
 		return m.addReplacement(mp)
 	}
-	// trigger the event only when the peer is added to known
+	// trigger the event only when the peer is added to active
 	Events.PeerDiscovered.Trigger(&DiscoveredEvent{Peer: p})
 
 	// new nodes are added to the front
-	m.known = unshiftPeer(m.known, mp, maxVerified)
+	m.active = unshiftPeer(m.active, mp, maxManaged)
 	return true
 }
 
@@ -307,17 +307,17 @@ func (m *manager) getRandomPeers(n int, minVerified uint) []*peer.Peer {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if n > len(m.known) {
-		n = len(m.known)
+	if n > len(m.active) {
+		n = len(m.active)
 	}
 
 	peers := make([]*peer.Peer, 0, n)
-	for _, i := range rand.Perm(len(m.known)) {
+	for _, i := range rand.Perm(len(m.active)) {
 		if len(peers) == n {
 			break
 		}
 
-		mp := m.known[i]
+		mp := m.active[i]
 		if mp.verifiedCount < minVerified {
 			continue
 		}
@@ -332,8 +332,8 @@ func (m *manager) getVerifiedPeers() []*mpeer {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	peers := make([]*mpeer, 0, len(m.known))
-	for _, mp := range m.known {
+	peers := make([]*mpeer, 0, len(m.active))
+	for _, mp := range m.active {
 		if mp.verifiedCount == 0 {
 			continue
 		}
@@ -352,5 +352,5 @@ func (m *manager) isKnown(id peer.ID) bool {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	return containsPeer(m.known, id) || containsPeer(m.replacements, id)
+	return containsPeer(m.active, id) || containsPeer(m.replacements, id)
 }

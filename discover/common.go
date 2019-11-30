@@ -39,8 +39,8 @@ const (
 	// DefaultQueryInterval is the default time interval after which known peers are queried for new peers.
 	DefaultQueryInterval = 20 * time.Second
 
-	// DefaultMaxVerified is the default maximum number of peers that are kept verified.
-	DefaultMaxVerified = 1000
+	// DefaultMaxManaged is the default maximum number of peers that can be managed.
+	DefaultMaxManaged = 1000
 	// DefaultMaxReplacements is the default maximum number of peers kept in the replacement list.
 	DefaultMaxReplacements = 10
 )
@@ -50,6 +50,6 @@ type Parameters struct {
 	ReverifyInterval time.Duration // time interval after which the next peer is reverified
 	ReverifyTries    int           // number of times a peer is pinged before it is removed
 	QueryInterval    time.Duration // time interval after which peers are queried for new peers
-	MaxVerified      int           // maximum number of peers that are kept verified
+	MaxManaged       int           // maximum number of peers that can be managed
 	MaxReplacements  int           // maximum number of peers kept in the replacement list
 }

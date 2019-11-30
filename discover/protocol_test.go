@@ -70,9 +70,9 @@ func TestProtVerifyMaster(t *testing.T) {
 	time.Sleep(graceTime) // wait for the packages to ripple through the network
 	closeB()              // close srvB to avoid race conditions, when asserting
 
-	if assert.EqualValues(t, 1, len(protB.mgr.known)) {
-		assert.EqualValues(t, peerA, &protB.mgr.known[0].Peer)
-		assert.EqualValues(t, 1, protB.mgr.known[0].verifiedCount)
+	if assert.EqualValues(t, 1, len(protB.mgr.active)) {
+		assert.EqualValues(t, peerA, &protB.mgr.active[0].Peer)
+		assert.EqualValues(t, 1, protB.mgr.active[0].verifiedCount)
 	}
 }
 

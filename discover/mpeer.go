@@ -11,16 +11,8 @@ import (
 type mpeer struct {
 	peer.Peer
 
-	verifiedCount uint // how often that peer could be verified
-	lastNewPeers  uint
-}
-
-func (p *mpeer) ID() peer.ID {
-	return p.Peer.ID()
-}
-
-func (p *mpeer) String() string {
-	return p.Peer.String()
+	verifiedCount uint // how often that peer has been reverified
+	lastNewPeers  uint // number of returned new peers when queried the last time
 }
 
 func wrapPeer(p *peer.Peer) *mpeer {
