@@ -37,7 +37,7 @@ const (
 	DefaultReverifyTries = 2
 
 	// DefaultQueryInterval is the default time interval after which known peers are queried for new peers.
-	DefaultQueryInterval = 20 * time.Second
+	DefaultQueryInterval = 60 * time.Second
 
 	// DefaultMaxManaged is the default maximum number of peers that can be managed.
 	DefaultMaxManaged = 1000

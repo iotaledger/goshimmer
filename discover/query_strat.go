@@ -12,10 +12,9 @@ import (
 // The current strategy is to always select the latest verified peer and one of
 // the peers that returned the most number of peers the last time it was queried.
 func (m *manager) doQuery(next chan<- time.Duration) {
-	defer func() { next <- queryInterval }()
-
 	ps := m.peersToQuery()
 	if len(ps) == 0 {
+		next <- reverifyInterval
 		return
 	}
 	m.log.Debugw("querying",
@@ -29,6 +28,8 @@ func (m *manager) doQuery(next chan<- time.Duration) {
 		go m.requestWorker(p, &wg)
 	}
 	wg.Wait()
+
+	next <- queryInterval
 }
 
 func (m *manager) requestWorker(p *mpeer, wg *sync.WaitGroup) {
