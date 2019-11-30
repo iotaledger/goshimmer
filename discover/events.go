@@ -9,7 +9,7 @@ import (
 var Events = struct {
 	// A PeerDiscovered event is triggered, when a new peer has been discovered and verified.
 	PeerDiscovered *events.Event
-	// A PeerDeleted event is triggered, when a peer cannot be verified.
+	// A PeerDeleted event is triggered, when a discovered and verified peer could not be reverified.
 	PeerDeleted *events.Event
 }{
 	PeerDiscovered: events.NewEvent(peerDiscovered),

@@ -287,7 +287,6 @@ func (m *manager) addVerifiedPeer(p *peer.Peer) bool {
 	if m.updatePeer(p) {
 		return false
 	}
-	Events.PeerDiscovered.Trigger(&DiscoveredEvent{Peer: p})
 
 	mp := wrapPeer(p)
 	mp.verifiedCount = 1
@@ -295,6 +294,8 @@ func (m *manager) addVerifiedPeer(p *peer.Peer) bool {
 	if len(m.known) >= maxVerified {
 		return m.addReplacement(mp)
 	}
+	// trigger the event only when the peer is added to known
+	Events.PeerDiscovered.Trigger(&DiscoveredEvent{Peer: p})
 
 	// new nodes are added to the front
 	m.known = unshiftPeer(m.known, mp, maxVerified)
