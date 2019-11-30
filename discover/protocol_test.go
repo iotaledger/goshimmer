@@ -185,6 +185,31 @@ func TestProtDiscoveryRequest(t *testing.T) {
 	})
 }
 
+func TestProtDiscovery(t *testing.T) {
+	net := transport.NewNetwork("M", "A", "B", "C")
+	defer net.Close()
+
+	srvM, protM, closeM := newTest(t, net.GetTransport("M"), logger)
+	defer closeM()
+	time.Sleep(graceTime) // wait for the master to initialize
+
+	srvA, protA, closeA := newTest(t, net.GetTransport("A"), logger, getPeer(srvM))
+	defer closeA()
+	srvB, protB, closeB := newTest(t, net.GetTransport("B"), logger, getPeer(srvM))
+	defer closeB()
+	srvC, protC, closeC := newTest(t, net.GetTransport("C"), logger, getPeer(srvM))
+	defer closeC()
+
+	time.Sleep(queryInterval + graceTime)    // wait for the next discovery cycle
+	time.Sleep(reverifyInterval + graceTime) // wait for the next verification cycle
+
+	// now the full network should be discovered
+	assert.ElementsMatch(t, []*peer.Peer{getPeer(srvA), getPeer(srvB), getPeer(srvC)}, protM.GetVerifiedPeers())
+	assert.ElementsMatch(t, []*peer.Peer{getPeer(srvM), getPeer(srvB), getPeer(srvC)}, protA.GetVerifiedPeers())
+	assert.ElementsMatch(t, []*peer.Peer{getPeer(srvM), getPeer(srvA), getPeer(srvC)}, protB.GetVerifiedPeers())
+	assert.ElementsMatch(t, []*peer.Peer{getPeer(srvM), getPeer(srvA), getPeer(srvB)}, protC.GetVerifiedPeers())
+}
+
 func BenchmarkPingPong(b *testing.B) {
 	p2p := transport.P2P()
 	defer p2p.Close()
