@@ -4,7 +4,6 @@ import (
 	"io"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -65,7 +64,7 @@ func TestChanConcurrentWrite(t *testing.T) {
 	burstWriteTo(c, d.LocalAddr().String(), 1000, &wg)
 
 	// wait for everything to finish
-	assert.Eventually(t, func() bool { wg.Wait(); return true }, time.Second, 10*time.Millisecond)
+	wg.Wait()
 }
 
 func burstWriteTo(t Transport, addr string, numPackets int, wg *sync.WaitGroup) {
