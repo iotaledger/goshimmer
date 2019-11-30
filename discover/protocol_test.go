@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/autopeering-sim/peer"
-	"github.com/iotaledger/autopeering-sim/salt"
 	"github.com/iotaledger/autopeering-sim/server"
 	"github.com/iotaledger/autopeering-sim/transport"
 	"github.com/stretchr/testify/assert"
@@ -24,19 +23,18 @@ func init() {
 		log.Fatalf("cannot initialize logger: %v", err)
 	}
 	logger = l.Sugar()
+
+	// use much shorter intervals to speed up the tests
+	reverifyInterval = 500 * time.Millisecond
+	queryInterval = 1000 * time.Millisecond
 }
 
-// newTestServer creates a new discovery server and also returns the teardown.
-func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger, masters ...*peer.Peer) (*server.Server, *Protocol, func()) {
-	log := logger.Named(name)
+// newTest creates a new discovery server and also returns the teardown.
+func newTest(t require.TestingT, trans transport.Transport, logger *zap.SugaredLogger, masters ...*peer.Peer) (*server.Server, *Protocol, func()) {
+	log := logger.Named(trans.LocalAddr().String())
 	db := peer.NewMemoryDB(log.Named("db"))
 	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	require.NoError(t, err)
-
-	s, _ := salt.NewSalt(100 * time.Second)
-	local.SetPrivateSalt(s)
-	s, _ = salt.NewSalt(100 * time.Second)
-	local.SetPublicSalt(s)
 
 	cfg := Config{
 		Log:         log,
@@ -54,15 +52,20 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport, l
 	return srv, prot, teardown
 }
 
+func getPeer(s *server.Server) *peer.Peer {
+	return &s.Local().Peer
+}
+
 func TestProtVerifyMaster(t *testing.T) {
 	p2p := transport.P2P()
+	defer p2p.Close()
 
-	srvA, _, closeA := newTestServer(t, "A", p2p.A, logger)
+	srvA, _, closeA := newTest(t, p2p.A, logger)
 	defer closeA()
-	peerA := &srvA.Local().Peer
+	peerA := getPeer(srvA)
 
 	// use peerA as masters peer
-	_, protB, closeB := newTestServer(t, "B", p2p.B, logger, peerA)
+	_, protB, closeB := newTest(t, p2p.B, logger, peerA)
 
 	time.Sleep(graceTime) // wait for the packages to ripple through the network
 	closeB()              // close srvB to avoid race conditions, when asserting
@@ -75,14 +78,15 @@ func TestProtVerifyMaster(t *testing.T) {
 
 func TestProtPingPong(t *testing.T) {
 	p2p := transport.P2P()
+	defer p2p.Close()
 
-	srvA, protA, closeA := newTestServer(t, "A", p2p.A, logger)
+	srvA, protA, closeA := newTest(t, p2p.A, logger)
 	defer closeA()
-	srvB, protB, closeB := newTestServer(t, "B", p2p.B, logger)
+	srvB, protB, closeB := newTest(t, p2p.B, logger)
 	defer closeB()
 
-	peerA := &srvA.Local().Peer
-	peerB := &srvB.Local().Peer
+	peerA := getPeer(srvA)
+	peerB := getPeer(srvB)
 
 	// send a ping from node A to B
 	t.Run("A->B", func(t *testing.T) { assert.NoError(t, protA.ping(peerB)) })
@@ -95,13 +99,14 @@ func TestProtPingPong(t *testing.T) {
 
 func TestProtPingTimeout(t *testing.T) {
 	p2p := transport.P2P()
+	defer p2p.Close()
 
-	_, protA, closeA := newTestServer(t, "A", p2p.A, logger)
+	_, protA, closeA := newTest(t, p2p.A, logger)
 	defer closeA()
-	srvB, _, closeB := newTestServer(t, "B", p2p.B, logger)
+	srvB, _, closeB := newTest(t, p2p.B, logger)
 	closeB() // close the connection right away to prevent any replies
 
-	peerB := &srvB.Local().Peer
+	peerB := getPeer(srvB)
 
 	// send a ping from node A to B
 	err := protA.ping(peerB)
@@ -110,13 +115,14 @@ func TestProtPingTimeout(t *testing.T) {
 
 func TestProtVerifiedPeers(t *testing.T) {
 	p2p := transport.P2P()
+	defer p2p.Close()
 
-	_, protA, closeA := newTestServer(t, "A", p2p.A, logger)
+	_, protA, closeA := newTest(t, p2p.A, logger)
 	defer closeA()
-	srvB, _, closeB := newTestServer(t, "B", p2p.B, logger)
+	srvB, _, closeB := newTest(t, p2p.B, logger)
 	defer closeB()
 
-	peerB := &srvB.Local().Peer
+	peerB := getPeer(srvB)
 
 	// send a ping from node A to B
 	assert.NoError(t, protA.ping(peerB))
@@ -131,14 +137,15 @@ func TestProtVerifiedPeers(t *testing.T) {
 
 func TestProtVerifiedPeer(t *testing.T) {
 	p2p := transport.P2P()
+	defer p2p.Close()
 
-	srvA, protA, closeA := newTestServer(t, "A", p2p.A, logger)
+	srvA, protA, closeA := newTest(t, p2p.A, logger)
 	defer closeA()
-	srvB, _, closeB := newTestServer(t, "B", p2p.B, logger)
+	srvB, _, closeB := newTest(t, p2p.B, logger)
 	defer closeB()
 
-	peerA := &srvA.Local().Peer
-	peerB := &srvB.Local().Peer
+	peerA := getPeer(srvA)
+	peerB := getPeer(srvB)
 
 	// send a ping from node A to B
 	assert.NoError(t, protA.ping(peerB))
@@ -154,14 +161,15 @@ func TestProtVerifiedPeer(t *testing.T) {
 
 func TestProtDiscoveryRequest(t *testing.T) {
 	p2p := transport.P2P()
+	defer p2p.Close()
 
-	srvA, protA, closeA := newTestServer(t, "A", p2p.A, logger)
+	srvA, protA, closeA := newTest(t, p2p.A, logger)
 	defer closeA()
-	srvB, protB, closeB := newTestServer(t, "B", p2p.B, logger)
+	srvB, protB, closeB := newTest(t, p2p.B, logger)
 	defer closeB()
 
-	peerA := &srvA.Local().Peer
-	peerB := &srvB.Local().Peer
+	peerA := getPeer(srvA)
+	peerB := getPeer(srvB)
 
 	// request peers from node A
 	t.Run("A->B", func(t *testing.T) {
@@ -179,14 +187,15 @@ func TestProtDiscoveryRequest(t *testing.T) {
 
 func BenchmarkPingPong(b *testing.B) {
 	p2p := transport.P2P()
+	defer p2p.Close()
 	log := zap.NewNop().Sugar() // disable logging
 
-	_, protA, closeA := newTestServer(b, "A", p2p.A, log)
+	_, protA, closeA := newTest(b, p2p.A, log)
 	defer closeA()
-	srvB, _, closeB := newTestServer(b, "B", p2p.B, log)
+	srvB, _, closeB := newTest(b, p2p.B, log)
 	defer closeB()
 
-	peerB := &srvB.Local().Peer
+	peerB := getPeer(srvB)
 
 	b.ResetTimer()
 
@@ -200,14 +209,15 @@ func BenchmarkPingPong(b *testing.B) {
 
 func BenchmarkDiscoveryRequest(b *testing.B) {
 	p2p := transport.P2P()
+	defer p2p.Close()
 	log := zap.NewNop().Sugar() // disable logging
 
-	_, protA, closeA := newTestServer(b, "A", p2p.A, log)
+	_, protA, closeA := newTest(b, p2p.A, log)
 	defer closeA()
-	srvB, _, closeB := newTestServer(b, "B", p2p.B, log)
+	srvB, _, closeB := newTest(b, p2p.B, log)
 	defer closeB()
 
-	peerB := &srvB.Local().Peer
+	peerB := getPeer(srvB)
 
 	// send initial request to ensure that every peer is verified
 	_, err := protA.discoveryRequest(peerB)

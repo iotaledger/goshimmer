@@ -38,17 +38,14 @@ func (d dummyDiscovery) GetVerifiedPeer(id peer.ID, addr string) *peer.Peer { re
 func (d dummyDiscovery) GetVerifiedPeers() []*peer.Peer                     { return []*peer.Peer{} }
 
 // newTest creates a new neighborhood server and also returns the teardown.
-func newTest(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*server.Server, *Protocol, func()) {
-	log := logger.Named(name)
+func newTest(t require.TestingT, trans transport.Transport, logger *zap.SugaredLogger) (*server.Server, *Protocol, func()) {
+	log := logger.Named(trans.LocalAddr().String())
 	db := peer.NewMemoryDB(log.Named("db"))
 	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	require.NoError(t, err)
-	peerMap[local.ID()] = &local.Peer
 
-	s, _ := salt.NewSalt(100 * time.Second)
-	local.SetPrivateSalt(s)
-	s, _ = salt.NewSalt(100 * time.Second)
-	local.SetPublicSalt(s)
+	// add the new peer to the global map for dummyDiscovery
+	peerMap[local.ID()] = &local.Peer
 
 	cfg := Config{
 		Log: log,
@@ -65,17 +62,22 @@ func newTest(t require.TestingT, name string, trans transport.Transport, logger 
 	return srv, prot, teardown
 }
 
+func getPeer(s *server.Server) *peer.Peer {
+	return &s.Local().Peer
+}
+
 func TestProtPeeringRequest(t *testing.T) {
 	p2p := transport.P2P()
+	defer p2p.Close()
 
-	srvA, protA, closeA := newTest(t, "A", p2p.A, logger)
+	srvA, protA, closeA := newTest(t, p2p.A, logger)
 	defer closeA()
-	srvB, protB, closeB := newTest(t, "B", p2p.B, logger)
+	srvB, protB, closeB := newTest(t, p2p.B, logger)
 	defer closeB()
 
-	peerA := &srvA.Local().Peer
+	peerA := getPeer(srvA)
 	saltA, _ := salt.NewSalt(100 * time.Second)
-	peerB := &srvB.Local().Peer
+	peerB := getPeer(srvB)
 	saltB, _ := salt.NewSalt(100 * time.Second)
 
 	// request peering to peer B
@@ -94,14 +96,15 @@ func TestProtPeeringRequest(t *testing.T) {
 
 func TestProtExpiredSalt(t *testing.T) {
 	p2p := transport.P2P()
+	defer p2p.Close()
 
-	_, protA, closeA := newTest(t, "A", p2p.A, logger)
+	_, protA, closeA := newTest(t, p2p.A, logger)
 	defer closeA()
-	srvB, _, closeB := newTest(t, "B", p2p.B, logger)
+	srvB, _, closeB := newTest(t, p2p.B, logger)
 	defer closeB()
 
 	saltA, _ := salt.NewSalt(-1 * time.Second)
-	peerB := &srvB.Local().Peer
+	peerB := getPeer(srvB)
 
 	// request peering to peer B
 	_, err := protA.RequestPeering(peerB, saltA)
@@ -110,15 +113,16 @@ func TestProtExpiredSalt(t *testing.T) {
 
 func TestProtDropPeer(t *testing.T) {
 	p2p := transport.P2P()
+	defer p2p.Close()
 
-	srvA, protA, closeA := newTest(t, "A", p2p.A, logger)
+	srvA, protA, closeA := newTest(t, p2p.A, logger)
 	defer closeA()
-	srvB, protB, closeB := newTest(t, "B", p2p.B, logger)
+	srvB, protB, closeB := newTest(t, p2p.B, logger)
 	defer closeB()
 
-	peerA := &srvA.Local().Peer
+	peerA := getPeer(srvA)
 	saltA, _ := salt.NewSalt(100 * time.Second)
-	peerB := &srvB.Local().Peer
+	peerB := getPeer(srvB)
 
 	// request peering to peer B
 	services, err := protA.RequestPeering(peerB, saltA)
@@ -133,8 +137,9 @@ func TestProtDropPeer(t *testing.T) {
 	require.NotContains(t, protB.GetNeighbors(), peerA)
 }
 
-func newFullTestServer(t require.TestingT, name string, trans transport.Transport, masterPeers ...*peer.Peer) (*server.Server, *Protocol, func()) {
-	log := logger.Named(name)
+// newTest creates a new server handling discover as well as neighborhood and also returns the teardown.
+func newFullTest(t require.TestingT, trans transport.Transport, masterPeers ...*peer.Peer) (*server.Server, *Protocol, func()) {
+	log := logger.Named(trans.LocalAddr().String())
 	db := peer.NewMemoryDB(log.Named("db"))
 	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	require.NoError(t, err)
@@ -163,19 +168,19 @@ func newFullTestServer(t require.TestingT, name string, trans transport.Transpor
 
 func TestProtFull(t *testing.T) {
 	p2p := transport.P2P()
+	defer p2p.Close()
 
-	srvA, protA, closeA := newFullTestServer(t, "A", p2p.A)
+	srvA, protA, closeA := newFullTest(t, p2p.A)
 	defer closeA()
-	peerA := &srvA.Local().Peer
 
-	time.Sleep(graceTime)
+	time.Sleep(graceTime) // wait for the master to initialize
 
-	srvB, protB, closeB := newFullTestServer(t, "B", p2p.B, peerA)
+	srvB, protB, closeB := newFullTest(t, p2p.B, getPeer(srvA))
 	defer closeB()
-	peerB := &srvB.Local().Peer
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(updateOutboundInterval + graceTime) // wait for the next outbound cycle
 
-	assert.ElementsMatch(t, []*peer.Peer{peerB}, protA.GetNeighbors())
-	assert.ElementsMatch(t, []*peer.Peer{peerA}, protB.GetNeighbors())
+	// the two peers should be peered
+	assert.ElementsMatch(t, []*peer.Peer{getPeer(srvB)}, protA.GetNeighbors())
+	assert.ElementsMatch(t, []*peer.Peer{getPeer(srvA)}, protB.GetNeighbors())
 }
