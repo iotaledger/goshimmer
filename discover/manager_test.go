@@ -2,7 +2,6 @@ package discover
 
 import (
 	"fmt"
-	"log"
 	"testing"
 	"time"
 
@@ -24,7 +23,6 @@ func (m *NetworkMock) local() *peer.Local {
 }
 
 func (m *NetworkMock) ping(p *peer.Peer) error {
-	log.Println("ping")
 	args := m.Called(p)
 	return args.Error(0)
 }
@@ -53,7 +51,6 @@ func newTestManager() (*manager, *NetworkMock, func()) {
 	networkMock := newNetworkMock()
 	mgr := newManager(networkMock, nil, logger, nil)
 	teardown := func() {
-		time.Sleep(graceTime)
 		mgr.close()
 	}
 	return mgr, networkMock, teardown
@@ -114,14 +111,14 @@ func TestMgrRequestDiscoveredPeer(t *testing.T) {
 	p2 := newDummyPeer("discovered")
 
 	// expect discoveryRequest on the discovered peer
-	m.On("discoveryRequest", p1).Return([]*peer.Peer{p2}, nil).Maybe()
+	m.On("discoveryRequest", p1).Return([]*peer.Peer{p2}, nil).Once()
 	// ignore any ping
 	m.On("ping", mock.Anything).Return(nil).Maybe()
 
 	mgr.addVerifiedPeer(p1)
 	mgr.addDiscoveredPeer(p2)
 
-	time.Sleep(graceTime)
+	mgr.doQuery(make(chan time.Duration, 1)) // manually trigger a query
 	m.AssertExpectations(t)
 }
 
@@ -134,7 +131,7 @@ func TestMgrAddManyVerifiedPeers(t *testing.T) {
 	// expect ping of peer p
 	m.On("ping", p).Return(nil).Once()
 	// ignore discoveryRequest calls
-	m.On("discoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil)
+	m.On("discoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
 
 	// let the manager initialize
 	time.Sleep(graceTime)
@@ -149,6 +146,8 @@ func TestMgrAddManyVerifiedPeers(t *testing.T) {
 
 	assert.Equal(t, maxManaged, len(ps))
 	assert.Contains(t, ps, p)
+
+	m.AssertExpectations(t)
 }
 
 func TestMgrDeleteUnreachablePeer(t *testing.T) {
@@ -160,7 +159,7 @@ func TestMgrDeleteUnreachablePeer(t *testing.T) {
 	// expect ping of peer p, but return error
 	m.On("ping", p).Return(server.ErrTimeout).Times(reverifyTries)
 	// ignore discoveryRequest calls
-	m.On("discoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil)
+	m.On("discoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
 
 	// let the manager initialize
 	time.Sleep(graceTime)
@@ -175,4 +174,6 @@ func TestMgrDeleteUnreachablePeer(t *testing.T) {
 
 	assert.Equal(t, maxManaged, len(ps))
 	assert.NotContains(t, ps, p)
+
+	m.AssertExpectations(t)
 }

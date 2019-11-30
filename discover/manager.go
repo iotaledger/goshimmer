@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/server"
 	"go.uber.org/zap"
 )
 
@@ -88,7 +89,7 @@ func (m *manager) loop() {
 		reverify     = time.NewTimer(0) // setting this to 0 will cause a trigger right away
 		reverifyDone chan struct{}
 
-		query     = time.NewTimer(0)
+		query     = time.NewTimer(server.ResponseTimeout) // trigger the first query after the reverify
 		queryNext chan time.Duration
 	)
 	defer reverify.Stop()

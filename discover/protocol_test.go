@@ -24,9 +24,11 @@ func init() {
 	}
 	logger = l.Sugar()
 
-	// use much shorter intervals to speed up the tests
+	// decrease parameters to simplify and speed up tests
 	reverifyInterval = 500 * time.Millisecond
 	queryInterval = 1000 * time.Millisecond
+	maxManaged = 10
+	maxReplacements = 2
 }
 
 // newTest creates a new discovery server and also returns the teardown.
