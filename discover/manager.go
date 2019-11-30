@@ -12,6 +12,7 @@ import (
 var (
 	reverifyInterval = DefaultReverifyInterval // time interval after which the next peer is reverified
 	reverifyTries    = DefaultReverifyTries    // number of times a peer is pinged before it is removed
+	queryInterval    = DefaultQueryInterval    // time interval after which peers are queried for new peers
 	maxVerified      = DefaultMaxVerified      // maximum number of peers that are kept verified
 	maxReplacements  = DefaultMaxReplacements  // maximum number of peers kept in the replacement list
 )
@@ -42,6 +43,9 @@ func newManager(net network, masters []*peer.Peer, log *zap.SugaredLogger, param
 		}
 		if param.ReverifyTries > 0 {
 			reverifyTries = param.ReverifyTries
+		}
+		if param.QueryInterval > 0 {
+			queryInterval = param.QueryInterval
 		}
 		if param.MaxVerified > 0 {
 			maxVerified = param.MaxVerified

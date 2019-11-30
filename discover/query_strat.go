@@ -8,10 +8,6 @@ import (
 	"time"
 )
 
-const (
-	queryInterval = 20 * time.Second
-)
-
 // doQuery is the main method of the query strategy.
 // It writes the next time this function should be called by the manager to next.
 // The current strategy is to always select the latest verified peer and one of
