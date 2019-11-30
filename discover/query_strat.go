@@ -2,7 +2,6 @@ package discover
 
 import (
 	"container/ring"
-	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -19,6 +18,9 @@ func (m *manager) doQuery(next chan<- time.Duration) {
 	if len(ps) == 0 {
 		return
 	}
+	m.log.Debugw("querying",
+		"#peers", len(ps),
+	)
 
 	// request from peers in parallel
 	var wg sync.WaitGroup
@@ -36,8 +38,9 @@ func (m *manager) requestWorker(p *mpeer, wg *sync.WaitGroup) {
 	if err != nil || len(r) == 0 {
 		p.lastNewPeers = 0
 
-		m.log.Debugw("discoveryRequest failed",
-			"peer", p,
+		m.log.Debugw("query failed",
+			"id", p.ID(),
+			"addr", p.Address(),
 			"err", err,
 		)
 		return
@@ -51,9 +54,10 @@ func (m *manager) requestWorker(p *mpeer, wg *sync.WaitGroup) {
 	}
 	p.lastNewPeers = added
 
-	m.log.Debugw("discoveryRequest",
-		"peer", p,
-		"new", added,
+	m.log.Debugw("queried",
+		"id", p.ID(),
+		"addr", p.Address(),
+		"#added", added,
 	)
 }
 
@@ -85,8 +89,6 @@ func (m *manager) peersToQuery() []*mpeer {
 
 	// select a random peer from the heaviest ones
 	r.Move(rand.Intn(r.Len()))
-
-	m.log.Debugw(fmt.Sprintln(latest, r.Value.(*mpeer)))
 
 	return []*mpeer{latest, r.Value.(*mpeer)}
 }
