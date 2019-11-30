@@ -215,6 +215,10 @@ func BenchmarkPingPong(b *testing.B) {
 	defer p2p.Close()
 	log := zap.NewNop().Sugar() // disable logging
 
+	// disable query/reverify
+	reverifyInterval = time.Hour
+	queryInterval = time.Hour
+
 	_, protA, closeA := newTest(b, p2p.A, log)
 	defer closeA()
 	srvB, _, closeB := newTest(b, p2p.B, log)
@@ -222,8 +226,12 @@ func BenchmarkPingPong(b *testing.B) {
 
 	peerB := getPeer(srvB)
 
-	b.ResetTimer()
+	// send initial ping to ensure that every peer is verified
+	err := protA.ping(peerB)
+	require.NoError(b, err)
+	time.Sleep(graceTime)
 
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		// send a ping from node A to B
 		_ = protA.ping(peerB)
@@ -237,6 +245,10 @@ func BenchmarkDiscoveryRequest(b *testing.B) {
 	defer p2p.Close()
 	log := zap.NewNop().Sugar() // disable logging
 
+	// disable query/reverify
+	reverifyInterval = time.Hour
+	queryInterval = time.Hour
+
 	_, protA, closeA := newTest(b, p2p.A, log)
 	defer closeA()
 	srvB, _, closeB := newTest(b, p2p.B, log)
@@ -247,9 +259,9 @@ func BenchmarkDiscoveryRequest(b *testing.B) {
 	// send initial request to ensure that every peer is verified
 	_, err := protA.discoveryRequest(peerB)
 	require.NoError(b, err)
+	time.Sleep(graceTime)
 
 	b.ResetTimer()
-
 	for n := 0; n < b.N; n++ {
 		_, _ = protA.discoveryRequest(peerB)
 	}
