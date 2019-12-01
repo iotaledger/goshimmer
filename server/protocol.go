@@ -20,7 +20,7 @@ func (p *Protocol) LocalAddr() string {
 	return p.Sender.LocalAddr()
 }
 
-// LocalAddr returns the local network address in string form.
+// LocalNetwork returns the name of the local network (for example, "tcp", "udp").
 func (p *Protocol) LocalNetwork() string {
 	return p.Sender.LocalNetwork()
 }
