@@ -3,6 +3,7 @@ package selection
 import (
 	"time"
 
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"go.uber.org/zap"
 )
 
@@ -36,4 +37,5 @@ type Parameters struct {
 	SaltLifetime           time.Duration // lifetime of the private and public local salt
 	UpdateOutboundInterval time.Duration // time interval after which the outbound neighbors are checked
 	DropNeighborsOnUpdate  bool          // set true to drop all neighbors when the distance is updated
+	RequiredService        []service.Key // services required in order to select/be selected during autopeering
 }

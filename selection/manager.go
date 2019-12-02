@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/autopeering-sim/salt"
 	"go.uber.org/zap"
 )
@@ -64,9 +65,13 @@ type manager struct {
 	wg              sync.WaitGroup
 	inboundClosing  chan struct{}
 	outboundClosing chan struct{}
+
+	requiredService []service.Key
 }
 
 func newManager(net network, peersFunc func() []*peer.Peer, log *zap.SugaredLogger, param *Parameters) *manager {
+	var requiredService []service.Key
+
 	if param != nil {
 		if param.InboundNeighborSize > 0 {
 			inboundNeighborSize = param.InboundNeighborSize
@@ -80,6 +85,7 @@ func newManager(net network, peersFunc func() []*peer.Peer, log *zap.SugaredLogg
 		if param.UpdateOutboundInterval > 0 {
 			updateOutboundInterval = param.UpdateOutboundInterval
 		}
+		requiredService = param.RequiredService
 		dropNeighborsOnUpdate = param.DropNeighborsOnUpdate
 	}
 
@@ -101,6 +107,7 @@ func newManager(net network, peersFunc func() []*peer.Peer, log *zap.SugaredLogg
 		outbound: &Neighborhood{
 			Neighbors: []peer.PeerDistance{},
 			Size:      outboundNeighborSize},
+		requiredService: requiredService,
 	}
 }
 
@@ -228,12 +235,21 @@ func (m *manager) updateOutbound(done chan<- struct{}) {
 	candidate := m.outbound.Select(filteredList)
 
 	if candidate.Remote != nil {
+		// reject if required services are missing
+		for _, reqService := range m.requiredService {
+			if candidate.Remote.Services().Get(reqService) == nil {
+				m.rejectionFilter.AddPeer(candidate.Remote.ID())
+				return
+			}
+		}
+
 		furthest, _ := m.outbound.getFurthest()
 
 		// send peering request
 		mySalt := m.net.local().GetPublicSalt()
 		status, err := m.net.RequestPeering(candidate.Remote, mySalt)
 		if err != nil {
+			m.rejectionFilter.AddPeer(candidate.Remote.ID()) // TODO: add retries
 			return
 		}
 
@@ -271,7 +287,12 @@ func (m *manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
 
 	// make decision
 	toAccept := m.inbound.Select(filteredList)
-
+	for _, reqService := range m.requiredService {
+		if requester.Services().Get(reqService) == nil {
+			toAccept.Remote = nil // reject if required services are missing
+			break
+		}
+	}
 	// reject request
 	if toAccept.Remote == nil {
 		m.log.Debug("Peering request FROM ", requester.ID(), " status REJECTED (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
