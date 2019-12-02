@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/autopeering-sim/server"
 	"github.com/iotaledger/autopeering-sim/transport"
 	"github.com/stretchr/testify/assert"
@@ -185,6 +186,27 @@ func TestProtDiscoveryRequest(t *testing.T) {
 			assert.ElementsMatch(t, []*peer.Peer{peerB}, ps)
 		}
 	})
+}
+
+func TestProtServices(t *testing.T) {
+	p2p := transport.P2P()
+	defer p2p.Close()
+
+	srvA, _, closeA := newTest(t, p2p.A, logger)
+	defer closeA()
+	err := srvA.Local().UpdateService(service.FPCKey, "fpc", p2p.A.LocalAddr().String())
+	require.NoError(t, err)
+
+	// use peerA as masters peer
+	_, protB, closeB := newTest(t, p2p.B, logger, getPeer(srvA))
+	defer closeB()
+
+	time.Sleep(graceTime) // wait for the packages to ripple through the network
+	ps := protB.GetVerifiedPeers()
+
+	if assert.ElementsMatch(t, []*peer.Peer{getPeer(srvA)}, ps) {
+		assert.Equal(t, srvA.Local().Services(), ps[0].Services())
+	}
 }
 
 func TestProtDiscovery(t *testing.T) {
