@@ -32,7 +32,7 @@ func TestChanPacket(t *testing.T) {
 	pkt, addr, err := b.ReadFrom()
 	require.NoError(t, err)
 
-	assert.Equal(t, pkt.GetData(), testPacket.GetData())
+	assert.Equal(t, pkt, testPacket)
 	assert.Equal(t, addr, a.LocalAddr().String())
 }
 

@@ -4,8 +4,6 @@ package transport
 
 import (
 	"net"
-
-	pb "github.com/iotaledger/autopeering-sim/server/proto"
 )
 
 const (
@@ -19,10 +17,10 @@ const (
 type Transport interface {
 	// ReadFrom reads a packet from the connection. It returns the package and
 	// the return address for that package in string form.
-	ReadFrom() (pkt *pb.Packet, address string, err error)
+	ReadFrom() (pkt []byte, address string, err error)
 
 	// WriteTo writes a packet to the string encoded target address.
-	WriteTo(pkt *pb.Packet, address string) error
+	WriteTo(pkt []byte, address string) error
 
 	// Close closes the transport layer.
 	// Any blocked ReadFrom or WriteTo operations will return errors.
@@ -34,6 +32,6 @@ type Transport interface {
 
 // transfer represents a send and contains the package and the return address.
 type transfer struct {
-	pkt  *pb.Packet
+	pkt []byte
 	addr string
 }

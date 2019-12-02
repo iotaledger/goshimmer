@@ -4,12 +4,11 @@ import (
 	"io"
 	"testing"
 
-	pb "github.com/iotaledger/autopeering-sim/server/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-var testPacket = &pb.Packet{Data: []byte("TEST")}
+var testPacket = []byte("TEST")
 
 func TestP2PReadClosed(t *testing.T) {
 	p2p := P2P()
@@ -30,6 +29,6 @@ func TestP2PPacket(t *testing.T) {
 	pkt, addr, err := p2p.B.ReadFrom()
 	require.NoError(t, err)
 
-	assert.Equal(t, pkt.GetData(), testPacket.GetData())
+	assert.Equal(t, pkt, testPacket)
 	assert.Equal(t, addr, p2p.A.LocalAddr().String())
 }
