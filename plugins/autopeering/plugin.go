@@ -4,6 +4,7 @@ import (
 	"net"
 
 	"github.com/iotaledger/autopeering-sim/discover"
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/autopeering-sim/selection"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/daemon"
@@ -29,24 +30,34 @@ func run(plugin *node.Plugin) {
 
 func configureLogging(plugin *node.Plugin) {
 	gossip.Events.RemoveNeighbor.Attach(events.NewClosure(func(peer *gossip.Neighbor) {
-		Selection.DropPeer(peer.Peer)
+		if Selection != nil {
+			Selection.DropPeer(peer.Peer)
+		}
 	}))
 
 	selection.Events.Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
-		log.Debug("neighbor removed: " + ev.DroppedID.String())
+		log.Info("neighbor removed: " + ev.DroppedID.String())
 		gossip.RemoveNeighbor(ev.DroppedID.String())
 	}))
 
 	selection.Events.IncomingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
-		log.Debug("accepted neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
-		address, port, _ := net.SplitHostPort(ev.Services["gossip"].Address)
-		gossip.AddNeighbor(gossip.NewNeighbor(ev.Peer, address, port))
+		log.Info("accepted neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
+		log.Info("services: " + ev.Peer.Services().CreateRecord().String())
+		gossipService := ev.Peer.Services().Get(service.GossipKey)
+		if gossipService != nil {
+			address, port, _ := net.SplitHostPort(ev.Peer.Services().Get(service.GossipKey).String())
+			gossip.AddNeighbor(gossip.NewNeighbor(ev.Peer, address, port))
+		}
 	}))
 
 	selection.Events.OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
-		log.Debug("chosen neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
-		address, port, _ := net.SplitHostPort(ev.Services["gossip"].Address)
-		gossip.AddNeighbor(gossip.NewNeighbor(ev.Peer, address, port))
+		log.Info("chosen neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
+		log.Info("services: " + ev.Peer.Services().CreateRecord().String())
+		gossipService := ev.Peer.Services().Get(service.GossipKey)
+		if gossipService != nil {
+			address, port, _ := net.SplitHostPort(ev.Peer.Services().Get(service.GossipKey).String())
+			gossip.AddNeighbor(gossip.NewNeighbor(ev.Peer, address, port))
+		}
 	}))
 
 	discover.Events.PeerDiscovered.Attach(events.NewClosure(func(ev *discover.DiscoveredEvent) {

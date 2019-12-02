@@ -39,11 +39,19 @@ func gatherInfo() nodeInfo {
 	// update neighbors
 	chosenNeighbors := []string{}
 	acceptedNeighbors := []string{}
-	for _, peer := range autopeering.Selection.GetOutgoingNeighbors() {
-		chosenNeighbors = append(chosenNeighbors, peer.String())
+	neighbors := 0
+	knownPeers := 0
+	if autopeering.Selection != nil {
+		for _, peer := range autopeering.Selection.GetOutgoingNeighbors() {
+			chosenNeighbors = append(chosenNeighbors, peer.String())
+		}
+		for _, peer := range autopeering.Selection.GetIncomingNeighbors() {
+			acceptedNeighbors = append(acceptedNeighbors, peer.String())
+		}
+		neighbors = len(chosenNeighbors) + len(acceptedNeighbors)
 	}
-	for _, peer := range autopeering.Selection.GetIncomingNeighbors() {
-		acceptedNeighbors = append(acceptedNeighbors, peer.String())
+	if autopeering.Discovery != nil {
+		knownPeers = len(autopeering.Discovery.GetVerifiedPeers())
 	}
 
 	receivedTps, solidTps := updateTpsCounters()
@@ -52,8 +60,8 @@ func gatherInfo() nodeInfo {
 		ID:                local.INSTANCE.ID().String(),
 		ChosenNeighbors:   chosenNeighbors,
 		AcceptedNeighbors: acceptedNeighbors,
-		KnownPeersSize:    len(autopeering.Discovery.GetVerifiedPeers()), //knownpeers.INSTANCE.Peers.Len(),
-		NeighborhoodSize:  len(autopeering.Selection.GetNeighbors()),     //neighborhood.INSTANCE.Peers.Len(),
+		KnownPeersSize:    knownPeers,
+		NeighborhoodSize:  neighbors,
 		Uptime:            uint64(duration),
 		ReceivedTps:       receivedTps,
 		SolidTps:          solidTps,

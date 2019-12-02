@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/autopeering-sim/discover"
 	"github.com/iotaledger/autopeering-sim/logger"
 	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/autopeering-sim/selection"
 	"github.com/iotaledger/autopeering-sim/server"
 	"github.com/iotaledger/autopeering-sim/transport"
@@ -56,27 +57,22 @@ func start() {
 	)
 
 	host := parameter.NodeConfig.GetString(CFG_ADDRESS)
-	localhost := host
+	//localhost := host
 	apPort := strconv.Itoa(parameter.NodeConfig.GetInt(CFG_PORT))
 	gossipPort := strconv.Itoa(parameter.NodeConfig.GetInt(gossip.GOSSIP_PORT))
 
-	var externalAddr *string
 	if host == "0.0.0.0" {
 		host = getMyIP()
-		hostPort := host + ":" + apPort
-		externalAddr = &hostPort
 	}
+
 	listenAddr := host + ":" + apPort
 	gossipAddr := host + ":" + gossipPort
-
-	outboundSelectionDisabled := !parameter.NodeConfig.GetBool(CFG_SEND_REQUESTS)
-	inboundSelectionDisabled := !parameter.NodeConfig.GetBool(CFG_ACCEPT_REQUESTS)
 
 	logger := logger.NewLogger(defaultZLC, debugLevel)
 
 	defer func() { _ = logger.Sync() }() // ignore the returned error
 
-	addr, err := net.ResolveUDPAddr("udp", localhost+":"+apPort)
+	addr, err := net.ResolveUDPAddr("udp", host+":"+apPort)
 	if err != nil {
 		log.Fatalf("ResolveUDPAddr: %v", err)
 	}
@@ -101,30 +97,30 @@ func start() {
 	// create a new local node
 	db := peer.NewPersistentDB(logger.Named("db"))
 	defer db.Close()
-	local.INSTANCE, err = peer.NewLocal(db)
+	local.INSTANCE, err = peer.NewLocal("udp", listenAddr, db)
 	if err != nil {
 		log.Fatalf("ListenUDP: %v", err)
 	}
-	// add a service for the peering
-	local.INSTANCE.Services()["peering"] = peer.NetworkAddress{Network: "udp", Address: listenAddr}
+
 	// add a service for the gossip
-	local.INSTANCE.Services()["gossip"] = peer.NetworkAddress{Network: "tcp", Address: gossipAddr}
+	local.INSTANCE.UpdateService(service.GossipKey, &networkAddress{"tcp", gossipAddr})
+	log.Debug("Local Services:", local.INSTANCE.Services().CreateRecord().String())
 
 	Discovery = discover.New(local.INSTANCE, discover.Config{
 		Log:         logger.Named("disc"),
 		MasterPeers: masterPeers,
 	})
+	//if parameter.NodeConfig.GetBool(CFG_SELECTION) {
 	Selection = selection.New(local.INSTANCE, Discovery, selection.Config{
 		Log: logger.Named("sel"),
 		Param: &selection.Parameters{
-			OutboundSelectionDisabled: outboundSelectionDisabled,
-			InboundSelectionDisabled:  inboundSelectionDisabled,
-			RequiredService:           []string{"gossip"},
+			SaltLifetime: selection.DefaultSaltLifetime,
+			// RequiredService: []string{"gossip"},
 		},
 	})
 
 	// start a server doing discovery and peering
-	srv = server.Listen(local.INSTANCE, trans, externalAddr, logger.Named("srv"), Discovery, Selection)
+	srv = server.Listen(local.INSTANCE, trans, logger.Named("srv"), Discovery, Selection)
 	defer srv.Close()
 
 	// start the discovery on that connection
@@ -132,12 +128,13 @@ func start() {
 	defer Discovery.Close()
 
 	// start the peering on that connection
-	Selection.Start(srv)
-	defer Selection.Close()
+	if parameter.NodeConfig.GetBool(CFG_SELECTION) {
+		Selection.Start(srv)
+		defer Selection.Close()
+	}
 
 	id := base64.StdEncoding.EncodeToString(local.INSTANCE.PublicKey())
-	a, b, _ := net.SplitHostPort(srv.LocalAddr())
-	logger.Info("Discovery protocol started: ID="+id+", address="+srv.LocalAddr(), a, b)
+	logger.Info("Discovery protocol started: ID=" + id + ", address=" + srv.LocalAddr())
 
 	go func() {
 		for t := range time.NewTicker(2 * time.Second).C {
@@ -169,9 +166,28 @@ func printReport(log *zap.SugaredLogger) {
 		return
 	}
 	knownPeers := Discovery.GetVerifiedPeers()
-	incoming := Selection.GetIncomingNeighbors()
-	outgoing := Selection.GetOutgoingNeighbors()
+	incoming := []*peer.Peer{}
+	outgoing := []*peer.Peer{}
+	if Selection != nil {
+		incoming = Selection.GetIncomingNeighbors()
+		outgoing = Selection.GetOutgoingNeighbors()
+	}
 	log.Info("Known peers:", len(knownPeers))
-	log.Info("Chosen:", len(outgoing), outgoing)
-	log.Info("Accepted:", len(incoming), incoming)
+	log.Info("Chosen:", len(outgoing))
+	log.Info("Accepted:", len(incoming))
+}
+
+type networkAddress struct {
+	network string
+	address string
+}
+
+// Network returns the service's network name.
+func (a *networkAddress) Network() string {
+	return a.network
+}
+
+// String returns the service's address in string form.
+func (a *networkAddress) String() string {
+	return a.address
 }

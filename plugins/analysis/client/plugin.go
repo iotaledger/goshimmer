@@ -5,10 +5,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/parameter"
-
 	"github.com/iotaledger/autopeering-sim/discover"
 	"github.com/iotaledger/autopeering-sim/selection"
 	"github.com/iotaledger/goshimmer/packages/network"
@@ -20,8 +16,11 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/removenode"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/parameter"
 )
 
 var log = logger.NewLogger("Analysis-Client")

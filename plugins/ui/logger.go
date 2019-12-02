@@ -1,9 +1,10 @@
 package ui
 
 import (
-	"github.com/iotaledger/hive.go/logger"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/hive.go/logger"
 )
 
 var logMutex = sync.Mutex{}

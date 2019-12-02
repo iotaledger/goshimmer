@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/hive.go/parameter"
 )
@@ -24,7 +25,10 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 			return nil, errors.Wrap(err, "parseMaster")
 		}
 
-		result = append(result, peer.NewPeer(pubKey, parts[1]))
+		services := service.New()
+		services.Update(service.PeeringKey, "udp", parts[1])
+
+		result = append(result, peer.NewPeer(pubKey, services))
 	}
 
 	return result, nil

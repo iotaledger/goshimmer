@@ -69,10 +69,23 @@ func GetStatus() *Status {
 	}
 	uptime += fmt.Sprintf("%02ds  ", int(duration.Seconds())%60)
 
+	outgoing := "0"
+	incoming := "0"
+	neighbors := "0"
+	if autopeering.Selection != nil {
+		outgoing = strconv.Itoa(len(autopeering.Selection.GetOutgoingNeighbors()))
+		incoming = strconv.Itoa(len(autopeering.Selection.GetIncomingNeighbors()))
+		neighbors = strconv.Itoa(len(autopeering.Selection.GetNeighbors()))
+	}
+	knownPeers := "0"
+	if autopeering.Discovery != nil {
+		knownPeers = strconv.Itoa(len(autopeering.Discovery.GetVerifiedPeers()))
+	}
+
 	return &Status{
 		Id:        local.INSTANCE.ID().String(),
-		Neighbor:  "Neighbors:  " + strconv.Itoa(len(autopeering.Selection.GetOutgoingNeighbors())) + " chosen / " + strconv.Itoa(len(autopeering.Selection.GetIncomingNeighbors())) + " accepted / " + strconv.Itoa(len(autopeering.Selection.GetNeighbors())) + " total",
-		KnownPeer: "Known Peers: " + strconv.Itoa(len(autopeering.Discovery.GetVerifiedPeers())) + " total",
+		Neighbor:  "Neighbors:  " + outgoing + " chosen / " + incoming + " accepted / " + neighbors + " total",
+		KnownPeer: "Known Peers: " + knownPeers + " total",
 		Uptime:    uptime,
 	}
 }
