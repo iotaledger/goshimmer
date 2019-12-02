@@ -103,24 +103,29 @@ func start() {
 	}
 
 	// add a service for the gossip
-	local.INSTANCE.UpdateService(service.GossipKey, &networkAddress{"tcp", gossipAddr})
-	log.Debug("Local Services:", local.INSTANCE.Services().CreateRecord().String())
+	if parameter.NodeConfig.GetBool(CFG_SELECTION) {
+		local.INSTANCE.UpdateService(service.GossipKey, "tcp", gossipAddr)
+	}
 
 	Discovery = discover.New(local.INSTANCE, discover.Config{
 		Log:         logger.Named("disc"),
 		MasterPeers: masterPeers,
 	})
-	//if parameter.NodeConfig.GetBool(CFG_SELECTION) {
-	Selection = selection.New(local.INSTANCE, Discovery, selection.Config{
-		Log: logger.Named("sel"),
-		Param: &selection.Parameters{
-			SaltLifetime: selection.DefaultSaltLifetime,
-			// RequiredService: []string{"gossip"},
-		},
-	})
+	handlers := append([]server.Handler{}, Discovery)
+
+	if parameter.NodeConfig.GetBool(CFG_SELECTION) {
+		Selection = selection.New(local.INSTANCE, Discovery, selection.Config{
+			Log: logger.Named("sel"),
+			Param: &selection.Parameters{
+				SaltLifetime: selection.DefaultSaltLifetime,
+				// RequiredService: []string{"gossip"},
+			},
+		})
+		handlers = append(handlers, Selection)
+	}
 
 	// start a server doing discovery and peering
-	srv = server.Listen(local.INSTANCE, trans, logger.Named("srv"), Discovery, Selection)
+	srv = server.Listen(local.INSTANCE, trans, logger.Named("srv"), handlers...)
 	defer srv.Close()
 
 	// start the discovery on that connection
@@ -175,19 +180,4 @@ func printReport(log *zap.SugaredLogger) {
 	log.Info("Known peers:", len(knownPeers))
 	log.Info("Chosen:", len(outgoing))
 	log.Info("Accepted:", len(incoming))
-}
-
-type networkAddress struct {
-	network string
-	address string
-}
-
-// Network returns the service's network name.
-func (a *networkAddress) Network() string {
-	return a.network
-}
-
-// String returns the service's address in string form.
-func (a *networkAddress) String() string {
-	return a.address
 }
