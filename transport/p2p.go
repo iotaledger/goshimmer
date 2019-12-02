@@ -4,9 +4,6 @@ import (
 	"io"
 	"net"
 	"sync"
-
-	"github.com/golang/protobuf/proto"
-	pb "github.com/iotaledger/autopeering-sim/server/proto"
 )
 
 // TransportP2P offers transfers between exactly two clients.
@@ -61,7 +58,7 @@ func newChanTransport(in <-chan transfer, out chan<- transfer, address string) *
 }
 
 // ReadFrom implements the Transport ReadFrom method.
-func (t *chanTransport) ReadFrom() (*pb.Packet, string, error) {
+func (t *chanTransport) ReadFrom() ([]byte, string, error) {
 	select {
 	case res := <-t.in:
 		return res.pkt, res.addr, nil
@@ -71,10 +68,9 @@ func (t *chanTransport) ReadFrom() (*pb.Packet, string, error) {
 }
 
 // WriteTo implements the Transport WriteTo method.
-func (t *chanTransport) WriteTo(pkt *pb.Packet, address string) error {
+func (t *chanTransport) WriteTo(pkt []byte, _ string) error {
 	// clone the packet before sending, just to make sure...
-	req := transfer{pkt: &pb.Packet{}, addr: t.addr.address}
-	proto.Merge(req.pkt, pkt)
+	req := transfer{pkt: append([]byte{}, pkt...), addr: t.addr.address}
 
 	select {
 	case t.out <- req:

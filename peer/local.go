@@ -3,7 +3,6 @@ package peer
 import (
 	"crypto/ed25519"
 	"fmt"
-	"net"
 	"sync"
 
 	"github.com/iotaledger/autopeering-sim/peer/service"
@@ -78,12 +77,12 @@ func (l *Local) Sign(message []byte) []byte {
 }
 
 // UpdateService updates the endpoint address of the given local service.
-func (l *Local) UpdateService(key service.Key, addr net.Addr) error {
+func (l *Local) UpdateService(key service.Key, network string, address string) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	// update the service in the read protected map and store back in DB
-	l.serviceRecord.Update(key, addr.Network(), addr.String())
+	l.serviceRecord.Update(key, network, address)
 	err := l.db.UpdateLocalServices(l.serviceRecord)
 	if err != nil {
 		return err

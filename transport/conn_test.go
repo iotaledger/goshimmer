@@ -13,6 +13,7 @@ func TestConnUdpClosed(t *testing.T) {
 
 	conn.Close()
 	_, _, err := conn.ReadFrom()
+	require.NotNil(t, err)
 
 	want := "use of closed network connection"
 	assert.Contains(t, err.Error(), want)
@@ -30,7 +31,7 @@ func TestConnUdpPacket(t *testing.T) {
 	pkt, addr, err := b.ReadFrom()
 	require.NoError(t, err)
 
-	assert.Equal(t, pkt.GetData(), testPacket.GetData())
+	assert.Equal(t, pkt, testPacket)
 	assert.Equal(t, addr, a.LocalAddr().String())
 }
 

@@ -4,12 +4,9 @@ import (
 	"io"
 	"net"
 	"sync"
-
-	"github.com/golang/protobuf/proto"
-	pb "github.com/iotaledger/autopeering-sim/server/proto"
 )
 
-// ChanNetwork offers in-memory transfers between an arbirtrary number of clients.
+// ChanNetwork offers in-memory transfers between an arbitrary number of clients.
 type ChanNetwork struct {
 	peers map[string]*chanPeer
 }
@@ -32,13 +29,13 @@ func (a chanAddr) Network() string { return "chan-network" }
 func (a chanAddr) String() string  { return a.address }
 
 // NewNetwork creates a new in-memory transport network.
-// For each provided address a coresponding client is created.
-func NewNetwork(addrs ...string) *ChanNetwork {
+// For each provided address a corresponding client is created.
+func NewNetwork(addresses ...string) *ChanNetwork {
 	network := &ChanNetwork{
-		peers: make(map[string]*chanPeer, len(addrs)),
+		peers: make(map[string]*chanPeer, len(addresses)),
 	}
 
-	for _, addr := range addrs {
+	for _, addr := range addresses {
 		network.AddTransport(addr)
 	}
 
@@ -78,7 +75,7 @@ func newChanPeer(address string, network *ChanNetwork) *chanPeer {
 }
 
 // ReadFrom implements the Transport ReadFrom method.
-func (p *chanPeer) ReadFrom() (*pb.Packet, string, error) {
+func (p *chanPeer) ReadFrom() ([]byte, string, error) {
 	select {
 	case res := <-p.c:
 		return res.pkt, res.addr, nil
@@ -88,7 +85,7 @@ func (p *chanPeer) ReadFrom() (*pb.Packet, string, error) {
 }
 
 // WriteTo implements the Transport WriteTo method.
-func (p *chanPeer) WriteTo(pkt *pb.Packet, address string) error {
+func (p *chanPeer) WriteTo(pkt []byte, address string) error {
 	// determine the receiving peer
 	peer, ok := p.network.peers[address]
 	if !ok {
@@ -96,8 +93,7 @@ func (p *chanPeer) WriteTo(pkt *pb.Packet, address string) error {
 	}
 
 	// clone the packet before sending, just to make sure...
-	req := transfer{pkt: &pb.Packet{}, addr: p.addr.address}
-	proto.Merge(req.pkt, pkt)
+	req := transfer{pkt: append([]byte{}, pkt...), addr: p.addr.address}
 
 	select {
 	case peer.c <- req:

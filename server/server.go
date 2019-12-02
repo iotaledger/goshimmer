@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/autopeering-sim/peer"
 	pb "github.com/iotaledger/autopeering-sim/server/proto"
 	"github.com/iotaledger/autopeering-sim/transport"
@@ -32,7 +33,7 @@ type Server struct {
 	wg        sync.WaitGroup
 
 	addReplyMatcher chan *replyMatcher
-	gotreply        chan reply
+	replyReceived   chan reply
 	closing         chan struct{} // if this channel gets closed all pending waits should terminate
 }
 
@@ -80,7 +81,7 @@ func Listen(local *peer.Local, t transport.Transport, log *zap.SugaredLogger, h 
 		network:         local.Network(),
 		address:         local.Address(),
 		addReplyMatcher: make(chan *replyMatcher),
-		gotreply:        make(chan reply),
+		replyReceived:   make(chan reply),
 		closing:         make(chan struct{}),
 	}
 
@@ -148,7 +149,7 @@ func (s *Server) expectReply(fromAddr string, fromID peer.ID, mtype MType, callb
 func (s *Server) IsExpectedReply(fromAddr string, fromID peer.ID, mtype MType, msg interface{}) bool {
 	matched := make(chan bool, 1)
 	select {
-	case s.gotreply <- reply{fromAddr, fromID, mtype, msg, matched}:
+	case s.replyReceived <- reply{fromAddr, fromID, mtype, msg, matched}:
 		// wait for matcher and return whether it could be matched
 		return <-matched
 	case <-s.closing:
@@ -187,7 +188,7 @@ func (s *Server) replyLoop() {
 			mlist.PushBack(s)
 
 		// on reply received, check all matchers for fits
-		case r := <-s.gotreply:
+		case r := <-s.replyReceived:
 			matched := false
 			for el := mlist.Front(); el != nil; el = el.Next() {
 				m := el.Value.(*replyMatcher)
@@ -228,7 +229,10 @@ func (s *Server) replyLoop() {
 }
 
 func (s *Server) write(toAddr string, pkt *pb.Packet) {
-	err := s.trans.WriteTo(pkt, toAddr)
+	b, err := proto.Marshal(pkt)
+	if err == nil {
+		err = s.trans.WriteTo(b, toAddr)
+	}
 	s.log.Debugw("write packet", "addr", toAddr, "err", err)
 }
 
@@ -249,7 +253,7 @@ func (s *Server) readLoop() {
 	defer s.wg.Done()
 
 	for {
-		pkt, fromAddr, err := s.trans.ReadFrom()
+		b, fromAddr, err := s.trans.ReadFrom()
 		if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
 			// ignore temporary read errors.
 			s.log.Debugw("temporary read error", "err", err)
@@ -260,6 +264,11 @@ func (s *Server) readLoop() {
 				s.log.Warnw("read error", "err", err)
 			}
 			s.log.Debug("reading stopped")
+			return
+		}
+		pkt := new(pb.Packet)
+		if err := proto.Unmarshal(b, pkt); err != nil {
+			s.log.Warnw("packet error", "err", err)
 			return
 		}
 
