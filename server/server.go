@@ -2,12 +2,12 @@ package server
 
 import (
 	"container/list"
-	"github.com/golang/protobuf/proto"
 	"io"
 	"net"
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/autopeering-sim/peer"
 	pb "github.com/iotaledger/autopeering-sim/server/proto"
 	"github.com/iotaledger/autopeering-sim/transport"

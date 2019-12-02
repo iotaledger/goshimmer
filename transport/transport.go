@@ -32,6 +32,6 @@ type Transport interface {
 
 // transfer represents a send and contains the package and the return address.
 type transfer struct {
-	pkt []byte
+	pkt  []byte
 	addr string
 }

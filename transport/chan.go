@@ -93,7 +93,7 @@ func (p *chanPeer) WriteTo(pkt []byte, address string) error {
 	}
 
 	// clone the packet before sending, just to make sure...
-	req := transfer{pkt: append([]byte{},pkt...), addr: p.addr.address}
+	req := transfer{pkt: append([]byte{}, pkt...), addr: p.addr.address}
 
 	select {
 	case peer.c <- req:
