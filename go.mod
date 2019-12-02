@@ -3,13 +3,15 @@ module github.com/iotaledger/goshimmer
 go 1.13
 
 require (
+	github.com/StabbyCutyou/buffstreams v2.0.0+incompatible
 	github.com/dgraph-io/badger v1.6.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gdamore/tcell v1.3.0
 	github.com/go-zeromq/zmq4 v0.6.2
+	github.com/golang/protobuf v1.3.2
 	github.com/google/open-location-code/go v0.0.0-20190903173953-119bc96a3a51
 	github.com/gorilla/websocket v1.4.1
-	github.com/iotaledger/autopeering-sim v0.0.0-20191127100001-7ff75c77f051
+	github.com/iotaledger/autopeering-sim v0.0.0-20191201144404-58a6f3b1a56d
 	github.com/iotaledger/hive.go v0.0.0-20191125115115-f88d4ecab6dd
 	github.com/iotaledger/iota.go v1.0.0-beta.10
 	github.com/labstack/echo v3.3.10+incompatible
@@ -24,6 +26,7 @@ require (
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5
+	github.com/stretchr/testify v1.4.0
 	github.com/valyala/fasttemplate v1.1.0 // indirect
 	go.uber.org/zap v1.13.0
 	golang.org/x/crypto v0.0.0-20191122220453-ac88ee75c92c

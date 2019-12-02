@@ -8,6 +8,8 @@ github.com/DATA-DOG/go-sqlmock v1.3.3/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q
 github.com/GeertJohan/go.incremental v1.0.0/go.mod h1:6fAjUhbVuX1KcMD3c8TEgVUqmo4seqhv0i0kdATSkM0=
 github.com/GeertJohan/go.rice v1.0.0/go.mod h1:eH6gbSOAUv07dQuZVnBmoDP8mgsM1rtixis4Tib9if0=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
+github.com/StabbyCutyou/buffstreams v2.0.0+incompatible h1:7bDqOlL2Ipve3YjZVVrWz/TOVOa+IEHj6XagpAtLn2I=
+github.com/StabbyCutyou/buffstreams v2.0.0+incompatible/go.mod h1:gP6wgxHoC0NrobhUBwx+Y6hx2QyKFOT+ho8619aJCDk=
 github.com/akavel/rsrc v0.8.0/go.mod h1:uLoCtb9J+EyAqh+26kdrTgmzRBFPGOolLWKpdxkKq+c=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
@@ -109,6 +111,8 @@ github.com/iotaledger/autopeering-sim v0.0.0-20191126125252-956917114dee h1:Lslh
 github.com/iotaledger/autopeering-sim v0.0.0-20191126125252-956917114dee/go.mod h1:JiaqaxLkQVnd8e/sya9y/LlRW56WlRKRl2TQXQCVssI=
 github.com/iotaledger/autopeering-sim v0.0.0-20191127100001-7ff75c77f051 h1:6JWvB/U6C2b92A5Bupnjj6J9KiO0i0AQHQ8RVmMagQo=
 github.com/iotaledger/autopeering-sim v0.0.0-20191127100001-7ff75c77f051/go.mod h1:JiaqaxLkQVnd8e/sya9y/LlRW56WlRKRl2TQXQCVssI=
+github.com/iotaledger/autopeering-sim v0.0.0-20191201144404-58a6f3b1a56d h1:wZoNQRwLj4PqhKfruVQ1Yeci6kaSXnE9nSNCFtJWZ9s=
+github.com/iotaledger/autopeering-sim v0.0.0-20191201144404-58a6f3b1a56d/go.mod h1:JiaqaxLkQVnd8e/sya9y/LlRW56WlRKRl2TQXQCVssI=
 github.com/iotaledger/goshimmer v0.0.0-20191113134331-c2d1b2f9d533/go.mod h1:7vYiofXphp9+PkgVAEM0pvw3aoi4ksrZ7lrEgX50XHs=
 github.com/iotaledger/hive.go v0.0.0-20191118130432-89eebe8fe8eb h1:nuS/LETRJ8obUyBIZeyxeei0ZPlyOMj8YPziOgSM4Og=
 github.com/iotaledger/hive.go v0.0.0-20191118130432-89eebe8fe8eb/go.mod h1:1Thhlil4lHzuy53EVvmEbEvWBFY0Tasp4kCBfxBCPIk=
