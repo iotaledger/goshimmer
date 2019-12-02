@@ -18,7 +18,7 @@ type PublicKey ed25519.PublicKey
 type Peer struct {
 	id        ID              // comparable node identifier
 	publicKey PublicKey       // public key used to verify signatures
-	services  *service.Record // unmodifyable services supported by the peer
+	services  *service.Record // unmodifiable services supported by the peer
 }
 
 // ID returns the identifier of the peer.
@@ -68,7 +68,7 @@ func RecoverKeyFromSignedData(m SignedData) (PublicKey, error) {
 	return recoverKey(m.GetPublicKey(), m.GetData(), m.GetSignature())
 }
 
-// NewPeer creates a new unmodifyable peer.
+// NewPeer creates a new unmodifiable peer.
 func NewPeer(publicKey PublicKey, services service.Service) *Peer {
 	if services.Get(service.PeeringKey) == nil {
 		panic("need peering service")
