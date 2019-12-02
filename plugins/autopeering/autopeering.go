@@ -57,7 +57,7 @@ func start() {
 	)
 
 	host := parameter.NodeConfig.GetString(CFG_ADDRESS)
-	//localhost := host
+	localhost := host
 	apPort := strconv.Itoa(parameter.NodeConfig.GetInt(CFG_PORT))
 	gossipPort := strconv.Itoa(parameter.NodeConfig.GetInt(gossip.GOSSIP_PORT))
 
@@ -72,7 +72,7 @@ func start() {
 
 	defer func() { _ = logger.Sync() }() // ignore the returned error
 
-	addr, err := net.ResolveUDPAddr("udp", host+":"+apPort)
+	addr, err := net.ResolveUDPAddr("udp", localhost+":"+apPort)
 	if err != nil {
 		log.Fatalf("ResolveUDPAddr: %v", err)
 	}
@@ -117,8 +117,8 @@ func start() {
 		Selection = selection.New(local.INSTANCE, Discovery, selection.Config{
 			Log: logger.Named("sel"),
 			Param: &selection.Parameters{
-				SaltLifetime: selection.DefaultSaltLifetime,
-				// RequiredService: []string{"gossip"},
+				SaltLifetime:    selection.DefaultSaltLifetime,
+				RequiredService: []service.Key{service.GossipKey},
 			},
 		})
 		handlers = append(handlers, Selection)
