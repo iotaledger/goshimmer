@@ -121,7 +121,7 @@ func TestSrvEncodeDecodePing(t *testing.T) {
 	assert.Equal(t, msg, ping)
 }
 
-func newTestServer(t require.TestingT, name string, trans transport.Transport, external *string, logger *zap.SugaredLogger) (*Server, func()) {
+func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*Server, func()) {
 	log := logger.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
 	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
@@ -155,9 +155,9 @@ func sendPing(s *Server, p *peer.Peer) error {
 func TestPingPong(t *testing.T) {
 	p2p := transport.P2P()
 
-	srvA, closeA := newTestServer(t, "A", p2p.A, nil, logger)
+	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
 	defer closeA()
-	srvB, closeB := newTestServer(t, "B", p2p.B, nil, logger)
+	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
 	defer closeB()
 
 	peerA := &srvA.Local().Peer
@@ -192,9 +192,9 @@ func TestSrvPingTimeout(t *testing.T) {
 
 	p2p := transport.P2P()
 
-	srvA, closeA := newTestServer(t, "A", p2p.A, nil, logger)
+	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
 	defer closeA()
-	srvB, closeB := newTestServer(t, "B", p2p.B, nil, logger)
+	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
 	closeB()
 
 	peerB := &srvB.Local().Peer
@@ -206,9 +206,9 @@ func TestUnexpectedPong(t *testing.T) {
 
 	p2p := transport.P2P()
 
-	srvA, closeA := newTestServer(t, "A", p2p.A, nil, logger)
+	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
 	defer closeA()
-	srvB, closeB := newTestServer(t, "B", p2p.B, nil, logger)
+	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
 	defer closeB()
 
 	// there should never be a Ping.Handle

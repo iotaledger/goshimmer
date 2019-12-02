@@ -106,8 +106,8 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 		if err := proto.Unmarshal(data[1:], m); err != nil {
 			return true, errors.Wrap(err, "invalid message")
 		}
-		if p.validatePing(s, fromAddr, fromID, m) {
-			p.handlePing(s, fromAddr, fromID, fromKey, data, m)
+		if p.validatePing(s, fromAddr, m) {
+			p.handlePing(s, fromAddr, fromID, fromKey, data)
 		}
 
 	// Pong
@@ -276,7 +276,7 @@ func newDiscoveryResponse(reqData []byte, list []*peer.Peer) *pb.DiscoveryRespon
 
 // ------ Packet Handlers ------
 
-func (p *Protocol) validatePing(s *server.Server, fromAddr string, fromID peer.ID, m *pb.Ping) bool {
+func (p *Protocol) validatePing(s *server.Server, fromAddr string, m *pb.Ping) bool {
 	// check version number
 	if m.GetVersion() != VersionNum {
 		p.log.Debugw("invalid message",
@@ -317,7 +317,7 @@ func (p *Protocol) validatePing(s *server.Server, fromAddr string, fromID peer.I
 	return true
 }
 
-func (p *Protocol) handlePing(s *server.Server, fromAddr string, fromID peer.ID, fromKey peer.PublicKey, rawData []byte, m *pb.Ping) {
+func (p *Protocol) handlePing(s *server.Server, fromAddr string, fromID peer.ID, fromKey peer.PublicKey, rawData []byte) {
 	// create and send the pong response
 	pong := newPong(fromAddr, rawData, s.Local().Services().CreateRecord())
 

@@ -115,7 +115,7 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 		if err := proto.Unmarshal(data[1:], m); err != nil {
 			return true, errors.Wrap(err, "invalid message")
 		}
-		if p.validatePeeringDrop(s, fromAddr, fromID, m) {
+		if p.validatePeeringDrop(s, fromAddr, m) {
 			p.handlePeeringDrop(fromID)
 		}
 
@@ -306,7 +306,7 @@ func (p *Protocol) validatePeeringResponse(s *server.Server, fromAddr string, fr
 	return true
 }
 
-func (p *Protocol) validatePeeringDrop(s *server.Server, fromAddr string, fromID peer.ID, m *pb.PeeringDrop) bool {
+func (p *Protocol) validatePeeringDrop(s *server.Server, fromAddr string, m *pb.PeeringDrop) bool {
 	// check that To matches the local address
 	if m.GetTo() != s.LocalAddr() {
 		p.log.Debugw("invalid message",
