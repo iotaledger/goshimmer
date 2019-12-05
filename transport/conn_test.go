@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"io"
 	"net"
 	"testing"
 
@@ -13,10 +14,7 @@ func TestConnUdpClosed(t *testing.T) {
 
 	conn.Close()
 	_, _, err := conn.ReadFrom()
-	require.NotNil(t, err)
-
-	want := "use of closed network connection"
-	assert.Contains(t, err.Error(), want)
+	assert.EqualError(t, err, io.EOF.Error())
 }
 
 func TestConnUdpPacket(t *testing.T) {

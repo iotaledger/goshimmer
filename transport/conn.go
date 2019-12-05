@@ -1,7 +1,9 @@
 package transport
 
 import (
+	"io"
 	"net"
+	"strings"
 )
 
 // ResolveFunc resolves a string address to the corresponding net.Addr.
@@ -23,6 +25,10 @@ func (t *TransportConn) ReadFrom() ([]byte, string, error) {
 	b := make([]byte, MaxPacketSize)
 	n, addr, err := t.conn.ReadFrom(b)
 	if err != nil {
+		// make ErrNetClosing handled consistently
+		if strings.Contains(err.Error(), "use of closed network connection") {
+			err = io.EOF
+		}
 		return nil, "", err
 	}
 

@@ -146,7 +146,7 @@ func (m *manager) doReverify(done chan<- struct{}) {
 	if p == nil {
 		return // nothing can be reverified
 	}
-	m.log.Debugw("referifying",
+	m.log.Debugw("reverifying",
 		"id", p.ID(),
 		"addr", p.Address(),
 	)
