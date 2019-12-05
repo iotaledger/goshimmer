@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option go_package = "github.com/capossele/gossip/proto";
+
+package proto;
+
+message Transaction {
+  // body of the tx
+  bytes body = 1;
+}
+
+message TransactionRequest {
+  // transaction hash
+  bytes hash = 1;
+}

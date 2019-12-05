@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/StabbyCutyou/buffstreams v2.0.0+incompatible
+	github.com/capossele/gossip v0.0.0-20191205112840-0e578079b414
 	github.com/dgraph-io/badger v1.6.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gdamore/tcell v1.3.0
@@ -11,7 +12,7 @@ require (
 	github.com/golang/protobuf v1.3.2
 	github.com/google/open-location-code/go v0.0.0-20190903173953-119bc96a3a51
 	github.com/gorilla/websocket v1.4.1
-	github.com/iotaledger/autopeering-sim v0.0.0-20191201144404-58a6f3b1a56d
+	github.com/iotaledger/autopeering-sim v0.0.0-20191202192349-f8e7a238c2bb
 	github.com/iotaledger/hive.go v0.0.0-20191125115115-f88d4ecab6dd
 	github.com/iotaledger/iota.go v1.0.0-beta.10
 	github.com/labstack/echo v3.3.10+incompatible

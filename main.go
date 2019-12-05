@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/dashboard"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
-	gossip_on_solidification "github.com/iotaledger/goshimmer/plugins/gossip-on-solidification"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/statusscreen"
@@ -28,7 +27,7 @@ func main() {
 		cli.PLUGIN,
 		autopeering.PLUGIN,
 		gossip.PLUGIN,
-		gossip_on_solidification.PLUGIN,
+		//gossip_on_solidification.PLUGIN,
 		tangle.PLUGIN,
 		bundleprocessor.PLUGIN,
 		analysis.PLUGIN,
