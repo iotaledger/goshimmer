@@ -1,20 +1,23 @@
 package tangle
 
 import (
-	"github.com/iotaledger/hive.go/parameter"
 	"os"
 	"sync"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/iotaledger/hive.go/parameter"
+
+	"github.com/iotaledger/goshimmer/packages/gossip"
+	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
 func TestMain(m *testing.M) {
-	parameter.FetchConfig()
+	parameter.FetchConfig(false)
 	os.Exit(m.Run())
 }
 
@@ -43,10 +46,21 @@ func TestSolidifier(t *testing.T) {
 
 	// issue transactions
 	wg.Add(4)
-	gossip.Events.ReceiveTransaction.Trigger(transaction1.MetaTransaction)
-	gossip.Events.ReceiveTransaction.Trigger(transaction2.MetaTransaction)
-	gossip.Events.ReceiveTransaction.Trigger(transaction3.MetaTransaction)
-	gossip.Events.ReceiveTransaction.Trigger(transaction4.MetaTransaction)
+	tx := &pb.Transaction{Body: transaction1.MetaTransaction.GetBytes()}
+	b, _ := proto.Marshal(tx)
+	gossip.Event.NewTransaction.Trigger(b)
+
+	tx = &pb.Transaction{Body: transaction2.MetaTransaction.GetBytes()}
+	b, _ = proto.Marshal(tx)
+	gossip.Event.NewTransaction.Trigger(b)
+
+	tx = &pb.Transaction{Body: transaction3.MetaTransaction.GetBytes()}
+	b, _ = proto.Marshal(tx)
+	gossip.Event.NewTransaction.Trigger(b)
+
+	tx = &pb.Transaction{Body: transaction4.MetaTransaction.GetBytes()}
+	b, _ = proto.Marshal(tx)
+	gossip.Event.NewTransaction.Trigger(b)
 
 	// wait until all are solid
 	wg.Wait()

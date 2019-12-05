@@ -4,12 +4,12 @@ import (
 	"runtime"
 
 	"github.com/iotaledger/goshimmer/packages/errors"
+	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/model/approvers"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/workerpool"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
@@ -27,8 +27,10 @@ func configureSolidifier(plugin *node.Plugin) {
 		task.Return(nil)
 	}, workerpool.WorkerCount(WORKER_COUNT), workerpool.QueueSize(10000))
 
-	gossip.Events.ReceiveTransaction.Attach(events.NewClosure(func(rawTransaction *meta_transaction.MetaTransaction) {
-		workerPool.Submit(rawTransaction)
+	gossip.Event.NewTransaction.Attach(events.NewClosure(func(ev *gossip.NewTransactionEvent) {
+		tx := ev.Body
+		metaTx := meta_transaction.FromBytes(tx)
+		workerPool.Submit(metaTx)
 	}))
 
 	daemon.Events.Shutdown.Attach(events.NewClosure(func() {

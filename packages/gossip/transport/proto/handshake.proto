@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/capossele/gossip/transport/proto";
+option go_package = "github.com/iotaledger/goshimmer/packages/gossip/transport/proto";
 
 package proto;
 

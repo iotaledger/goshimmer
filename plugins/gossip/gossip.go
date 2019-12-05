@@ -1,11 +1,13 @@
 package gossip
 
 import (
+
 	"github.com/iotaledger/goshimmer/packages/gossip/transport"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/autopeering-sim/selection"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"go.uber.org/zap"
@@ -58,13 +60,21 @@ func configureEvents() {
 	}))
 
 	selection.Events.IncomingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
-		log.Debug("accepted neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
-		AddInbound(ev.Peer)
+		gossipService := ev.Peer.Services().Get(service.GossipKey)
+		if gossipService != nil {
+			log.Debug("accepted neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
+			//address, port, _ := net.SplitHostPort(ev.Peer.Services().Get(service.GossipKey).String())
+			AddInbound(ev.Peer)
+		}
 	}))
 
 	selection.Events.OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
-		log.Debug("chosen neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
-		AddOutbound(ev.Peer)
+		gossipService := ev.Peer.Services().Get(service.GossipKey)
+		if gossipService != nil {
+			log.Debug("chosen neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
+			//address, port, _ := net.SplitHostPort(ev.Peer.Services().Get(service.GossipKey).String())
+			AddOutbound(ev.Peer)
+		}
 	}))
 
 	// mgr.Events.NewTransaction.Attach(events.NewClosure(func(ev *gp.NewTransactionEvent) {

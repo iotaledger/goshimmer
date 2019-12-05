@@ -3,11 +3,11 @@ package gossip
 import (
 	"net"
 
-	"github.com/capossele/gossip/neighbor"
-	pb "github.com/capossele/gossip/proto"
-	"github.com/capossele/gossip/transport"
 	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/goshimmer/packages/gossip/neighbor"
+	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
+	"github.com/iotaledger/goshimmer/packages/gossip/transport"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"

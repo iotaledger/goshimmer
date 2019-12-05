@@ -4,8 +4,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/plugins/gossip"
-
+	"github.com/golang/protobuf/proto"
+	"github.com/iotaledger/goshimmer/packages/gossip"
+	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
 	"github.com/iotaledger/hive.go/daemon"
@@ -50,7 +51,9 @@ func Start(tps uint) {
 							tx.SetBranchTransactionHash(tipselection.GetRandomTip())
 							tx.SetTrunkTransactionHash(tipselection.GetRandomTip())
 
-							gossip.Events.ReceiveTransaction.Trigger(tx.MetaTransaction)
+							mtx := &pb.Transaction{Body: tx.MetaTransaction.GetBytes()}
+							b, _ := proto.Marshal(mtx)
+							gossip.Event.NewTransaction.Trigger(b)
 
 							if sentCounter >= tps {
 								duration := time.Since(start)

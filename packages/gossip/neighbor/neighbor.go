@@ -3,8 +3,8 @@ package neighbor
 import (
 	"sync"
 
-	"github.com/capossele/gossip/transport"
 	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/goshimmer/packages/gossip/transport"
 )
 
 // Neighbor defines a neighbor
