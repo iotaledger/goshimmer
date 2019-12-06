@@ -60,13 +60,11 @@ type replyMatcher struct {
 
 // reply is a reply packet from a certain peer
 type reply struct {
-	fromAddr string
-	fromID   peer.ID
-	mtype    MType
-	msg      interface{}
-
-	// a matching request is indicated via this channel
-	matched chan<- bool
+	fromAddr       string
+	fromID         peer.ID
+	mtype          MType
+	msg            interface{} // the actual reply message
+	matchedRequest chan<- bool // a matching request is indicated via this channel
 }
 
 // Listen starts a new peer server using the given transport layer for communication.
@@ -150,7 +148,7 @@ func (s *Server) IsExpectedReply(fromAddr string, fromID peer.ID, mtype MType, m
 	matched := make(chan bool, 1)
 	select {
 	case s.replyReceived <- reply{fromAddr, fromID, mtype, msg, matched}:
-		// wait for matcher and return whether it could be matched
+		// wait for matcher and return whether a matching request was found
 		return <-matched
 	case <-s.closing:
 		return false
@@ -162,8 +160,8 @@ func (s *Server) replyLoop() {
 	defer s.wg.Done()
 
 	var (
-		mlist   = list.New()
-		timeout = time.NewTimer(0)
+		matcherList = list.New()
+		timeout     = time.NewTimer(0)
 	)
 	defer timeout.Stop()
 
@@ -172,9 +170,9 @@ func (s *Server) replyLoop() {
 	for {
 
 		// Set the timer so that it fires when the next reply expires
-		if el := mlist.Front(); el != nil {
+		if e := matcherList.Front(); e != nil {
 			// the first element always has the closest deadline
-			m := el.Value.(*replyMatcher)
+			m := e.Value.(*replyMatcher)
 			timeout.Reset(time.Until(m.deadline))
 		} else {
 			timeout.Stop()
@@ -185,42 +183,41 @@ func (s *Server) replyLoop() {
 		// add a new matcher to the list
 		case s := <-s.addReplyMatcher:
 			s.deadline = time.Now().Add(ResponseTimeout)
-			mlist.PushBack(s)
+			matcherList.PushBack(s)
 
 		// on reply received, check all matchers for fits
 		case r := <-s.replyReceived:
 			matched := false
-			for el := mlist.Front(); el != nil; el = el.Next() {
-				m := el.Value.(*replyMatcher)
+			for e := matcherList.Front(); e != nil; e = e.Next() {
+				m := e.Value.(*replyMatcher)
 				if m.mtype == r.mtype && m.fromID == r.fromID && m.fromAddr == r.fromAddr {
 					if m.callback(r.msg) {
+						// request has been matched
 						matched = true
-
-						// request is done
 						m.errc <- nil
-						mlist.Remove(el)
+						matcherList.Remove(e)
 					}
 				}
 			}
-			r.matched <- matched
+			r.matchedRequest <- matched
 
 		// on timeout, check for expired matchers
 		case <-timeout.C:
 			now := time.Now()
 
 			// notify and remove any expired matchers
-			for el := mlist.Front(); el != nil; el = el.Next() {
-				m := el.Value.(*replyMatcher)
+			for e := matcherList.Front(); e != nil; e = e.Next() {
+				m := e.Value.(*replyMatcher)
 				if now.After(m.deadline) || now.Equal(m.deadline) {
 					m.errc <- ErrTimeout
-					mlist.Remove(el)
+					matcherList.Remove(e)
 				}
 			}
 
 		// on close, notice all the matchers
 		case <-s.closing:
-			for el := mlist.Front(); el != nil; el = el.Next() {
-				el.Value.(*replyMatcher).errc <- ErrClosed
+			for e := matcherList.Front(); e != nil; e = e.Next() {
+				e.Value.(*replyMatcher).errc <- ErrClosed
 			}
 			return
 
@@ -230,9 +227,16 @@ func (s *Server) replyLoop() {
 
 func (s *Server) write(toAddr string, pkt *pb.Packet) {
 	b, err := proto.Marshal(pkt)
-	if err == nil {
-		err = s.trans.WriteTo(b, toAddr)
+	if err != nil {
+		s.log.Error("marshal error", "err", err)
+		return
 	}
+	if l := len(b); l > transport.MaxPacketSize {
+		s.log.Error("packet too large", "size", l, "max", transport.MaxPacketSize)
+		return
+	}
+
+	err = s.trans.WriteTo(b, toAddr)
 	s.log.Debugw("write packet", "addr", toAddr, "err", err)
 }
 
@@ -258,7 +262,8 @@ func (s *Server) readLoop() {
 			// ignore temporary read errors.
 			s.log.Debugw("temporary read error", "err", err)
 			continue
-		} else if err != nil {
+		}
+		if err != nil {
 			// return from the loop on all other errors
 			if err != io.EOF {
 				s.log.Warnw("read error", "err", err)
@@ -266,14 +271,14 @@ func (s *Server) readLoop() {
 			s.log.Debug("reading stopped")
 			return
 		}
+
 		pkt := new(pb.Packet)
 		if err := proto.Unmarshal(b, pkt); err != nil {
-			s.log.Warnw("packet error", "err", err)
+			s.log.Debugw("packet error", "err", err)
 			return
 		}
-
 		if err := s.handlePacket(pkt, fromAddr); err != nil {
-			s.log.Warnw("failed to handle packet", "from", fromAddr, "err", err)
+			s.log.Debugw("failed to handle packet", "from", fromAddr, "err", err)
 		}
 	}
 }
