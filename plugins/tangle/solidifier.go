@@ -27,7 +27,7 @@ func configureSolidifier(plugin *node.Plugin) {
 		task.Return(nil)
 	}, workerpool.WorkerCount(WORKER_COUNT), workerpool.QueueSize(10000))
 
-	gossip.Event.NewTransaction.Attach(events.NewClosure(func(ev *gossip.NewTransactionEvent) {
+	gossip.Events.NewTransaction.Attach(events.NewClosure(func(ev *gossip.NewTransactionEvent) {
 		tx := ev.Body
 		metaTx := meta_transaction.FromBytes(tx)
 		workerPool.Submit(metaTx)

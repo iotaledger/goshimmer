@@ -3,8 +3,6 @@ module github.com/iotaledger/goshimmer
 go 1.13
 
 require (
-	github.com/StabbyCutyou/buffstreams v2.0.0+incompatible
-	github.com/capossele/gossip v0.0.0-20191205112840-0e578079b414
 	github.com/dgraph-io/badger v1.6.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gdamore/tcell v1.3.0
@@ -12,8 +10,8 @@ require (
 	github.com/golang/protobuf v1.3.2
 	github.com/google/open-location-code/go v0.0.0-20190903173953-119bc96a3a51
 	github.com/gorilla/websocket v1.4.1
-	github.com/iotaledger/autopeering-sim v0.0.0-20191203092805-a1dd5954f3f6
-	github.com/iotaledger/hive.go v0.0.0-20191202111738-357cee7a1c37
+	github.com/iotaledger/autopeering-sim v0.0.0-20191206120939-725ee12834dd
+	github.com/iotaledger/hive.go v0.0.0-20191206003239-3231c4584e5c
 	github.com/iotaledger/iota.go v1.0.0-beta.10
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/lucasb-eyer/go-colorful v1.0.3 // indirect
@@ -32,10 +30,10 @@ require (
 	go.uber.org/zap v1.13.0
 	golang.org/x/crypto v0.0.0-20191122220453-ac88ee75c92c
 	golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f // indirect
-	golang.org/x/net v0.0.0-20191126235420-ef20fe5d7933
+	golang.org/x/net v0.0.0-20191206103017-1ddd1de85cb0
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
-	golang.org/x/sys v0.0.0-20191128015809-6d18c012aee9 // indirect
-	golang.org/x/tools v0.0.0-20191203134012-c197fd4bf371 // indirect
+	golang.org/x/sys v0.0.0-20191204072324-ce4227a45e2e // indirect
+	golang.org/x/tools v0.0.0-20191205225056-3393d29bb9fe // indirect
 	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898 // indirect
 	gopkg.in/yaml.v2 v2.2.7 // indirect
 )

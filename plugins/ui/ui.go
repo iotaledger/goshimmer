@@ -34,7 +34,7 @@ func configure(plugin *node.Plugin) {
 		return c.JSON(http.StatusOK, tpsQueue)
 	})
 
-	gossip.Event.NewTransaction.Attach(events.NewClosure(func(_ *gossip.NewTransactionEvent) {
+	gossip.Events.NewTransaction.Attach(events.NewClosure(func(_ *gossip.NewTransactionEvent) {
 		atomic.AddUint64(&receivedTpsCounter, 1)
 	}))
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(_ *value_transaction.ValueTransaction) {

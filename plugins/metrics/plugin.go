@@ -14,7 +14,7 @@ var PLUGIN = node.NewPlugin("Metrics", node.Enabled, configure, run)
 
 func configure(plugin *node.Plugin) {
 	// increase received TPS counter whenever we receive a new transaction
-	gossip.Event.NewTransaction.Attach(events.NewClosure(func(_ *gossip.NewTransactionEvent) { increaseReceivedTPSCounter() }))
+	gossip.Events.NewTransaction.Attach(events.NewClosure(func(_ *gossip.NewTransactionEvent) { increaseReceivedTPSCounter() }))
 }
 
 func run(plugin *node.Plugin) {

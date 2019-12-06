@@ -2,43 +2,28 @@ package transport
 
 import (
 	"net"
+	"time"
 
 	"github.com/iotaledger/autopeering-sim/peer"
 )
 
-const (
-	// MaxPacketSize specifies the maximum allowed size of packets.
-	// Packets larger than this will be cut and thus treated as invalid.
-	MaxPacketSize = 1280
-)
-
+// Connection represents a network connection to a neighbor peer.
 type Connection struct {
+	net.Conn
 	peer *peer.Peer
-	conn net.Conn
 }
 
-func newConnection(p *peer.Peer, c net.Conn) *Connection {
+func newConnection(c net.Conn, p *peer.Peer) *Connection {
+	// make sure the connection has no timeouts
+	_ = c.SetDeadline(time.Time{})
+
 	return &Connection{
+		Conn: c,
 		peer: p,
-		conn: c,
 	}
 }
 
-func (c *Connection) Close() {
-	c.conn.Close()
-}
-
-func (c *Connection) Read() ([]byte, error) {
-	b := make([]byte, MaxPacketSize)
-	n, err := c.conn.Read(b)
-	if err != nil {
-		return nil, err
-	}
-
-	return b[:n], nil
-}
-
-func (c *Connection) Write(b []byte) error {
-	_, err := c.conn.Write(b)
-	return err
+// Peer returns the peer associated with that connection.
+func (c *Connection) Peer() *peer.Peer {
+	return c.peer
 }

@@ -1,10 +1,10 @@
 package gossip
 
 import (
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 )
 
 var PLUGIN = node.NewPlugin("Gossip", node.Enabled, configure, run)

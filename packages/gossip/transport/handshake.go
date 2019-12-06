@@ -10,18 +10,18 @@ import (
 )
 
 const (
-	HandshakeExpiration = 20 * time.Second
-	VersionNum          = 0
+	versionNum          = 0
+	handshakeExpiration = 20 * time.Second
 )
 
 // isExpired checks whether the given UNIX time stamp is too far in the past.
 func isExpired(ts int64) bool {
-	return time.Since(time.Unix(ts, 0)) >= HandshakeExpiration
+	return time.Since(time.Unix(ts, 0)) >= handshakeExpiration
 }
 
 func newHandshakeRequest(fromAddr string, toAddr string) ([]byte, error) {
 	m := &pb.HandshakeRequest{
-		Version:   VersionNum,
+		Version:   versionNum,
 		From:      fromAddr,
 		To:        toAddr,
 		Timestamp: time.Now().Unix(),
@@ -36,7 +36,7 @@ func newHandshakeResponse(reqData []byte) ([]byte, error) {
 	return proto.Marshal(m)
 }
 
-func (t *TransportTCP) validateHandshakeRequest(reqData []byte, fromAddr string) bool {
+func (t *TCP) validateHandshakeRequest(reqData []byte, fromAddr string) bool {
 	m := new(pb.HandshakeRequest)
 	if err := proto.Unmarshal(reqData, m); err != nil {
 		t.log.Debugw("invalid handshake",
@@ -44,7 +44,7 @@ func (t *TransportTCP) validateHandshakeRequest(reqData []byte, fromAddr string)
 		)
 		return false
 	}
-	if m.GetVersion() != VersionNum {
+	if m.GetVersion() != versionNum {
 		t.log.Debugw("invalid handshake",
 			"version", m.GetVersion(),
 		)
@@ -71,7 +71,7 @@ func (t *TransportTCP) validateHandshakeRequest(reqData []byte, fromAddr string)
 	return true
 }
 
-func (t *TransportTCP) validateHandshakeResponse(resData []byte, reqData []byte) bool {
+func (t *TCP) validateHandshakeResponse(resData []byte, reqData []byte) bool {
 	m := new(pb.HandshakeResponse)
 	if err := proto.Unmarshal(resData, m); err != nil {
 		t.log.Debugw("invalid handshake",

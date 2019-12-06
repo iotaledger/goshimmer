@@ -1,28 +1,27 @@
 package gossip
 
 import (
-
-	"github.com/iotaledger/goshimmer/packages/gossip/transport"
-	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
-	gp "github.com/iotaledger/goshimmer/packages/gossip"
-	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/autopeering-sim/selection"
+	gp "github.com/iotaledger/goshimmer/packages/gossip"
+	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
+	"github.com/iotaledger/goshimmer/packages/gossip/transport"
+	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
-	"go.uber.org/zap"
-	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/hive.go/events"
+	"go.uber.org/zap"
 )
 
 var (
-	zLogger *zap.SugaredLogger
-	mgr        *gp.Manager
-	SendTransaction = mgr.Send
+	zLogger            *zap.SugaredLogger
+	mgr                *gp.Manager
+	SendTransaction    = mgr.SendTransaction
 	RequestTransaction = mgr.RequestTransaction
-	AddInbound = mgr.AddInbound
-	AddOutbound = mgr.AddOutbound
-	DropNeighbor = mgr.DropNeighbor
+	AddInbound         = mgr.AddInbound
+	AddOutbound        = mgr.AddOutbound
+	DropNeighbor       = mgr.DropNeighbor
 )
 
 func init() {
@@ -46,42 +45,37 @@ func configureGossip() {
 
 	trans, err := transport.Listen(local.INSTANCE, zLogger)
 	if err != nil {
-		// TODO: handle error
+		log.Fatal(err)
 	}
 
 	mgr = gp.NewManager(trans, zLogger, getTransaction)
+	log.Info("Gossip started @", trans.LocalAddr().String())
 }
 
 func configureEvents() {
-	
+
 	selection.Events.Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
-		log.Debug("neighbor removed: " + ev.DroppedID.String())
-		DropNeighbor(ev.DroppedID)
+		log.Info("neighbor removed: " + ev.DroppedID.String())
+		mgr.DropNeighbor(ev.DroppedID)
 	}))
 
 	selection.Events.IncomingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
 		gossipService := ev.Peer.Services().Get(service.GossipKey)
 		if gossipService != nil {
-			log.Debug("accepted neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
+			log.Info("accepted neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
 			//address, port, _ := net.SplitHostPort(ev.Peer.Services().Get(service.GossipKey).String())
-			AddInbound(ev.Peer)
+			go mgr.AddInbound(ev.Peer)
 		}
 	}))
 
 	selection.Events.OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
 		gossipService := ev.Peer.Services().Get(service.GossipKey)
 		if gossipService != nil {
-			log.Debug("chosen neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
+			log.Info("chosen neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
 			//address, port, _ := net.SplitHostPort(ev.Peer.Services().Get(service.GossipKey).String())
-			AddOutbound(ev.Peer)
+			go mgr.AddOutbound(ev.Peer)
 		}
 	}))
-
-	// mgr.Events.NewTransaction.Attach(events.NewClosure(func(ev *gp.NewTransactionEvent) {
-	// 	tx := ev.Body
-	// 	metaTx := meta_transaction.FromBytes(tx)
-	// 	Events.NewTransaction.Trigger(metaTx)
-	// }))
 
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *meta_transaction.MetaTransaction) {
 		t := &pb.Transaction{
@@ -91,6 +85,6 @@ func configureEvents() {
 		if err != nil {
 			return
 		}
-		SendTransaction(b)
+		go SendTransaction(b)
 	}))
 }

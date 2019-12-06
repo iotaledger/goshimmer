@@ -23,7 +23,7 @@ var receivedTps uint64
 var solidTps uint64
 
 var PLUGIN = node.NewPlugin("Statusscreen TPS", node.Enabled, func(plugin *node.Plugin) {
-	gossip.Event.NewTransaction.Attach(events.NewClosure(func(_ *gossip.NewTransactionEvent) {
+	gossip.Events.NewTransaction.Attach(events.NewClosure(func(_ *gossip.NewTransactionEvent) {
 		atomic.AddUint64(&receivedTpsCounter, 1)
 	}))
 

@@ -51,11 +51,15 @@ const defaultZLC = `{
 	}
   }`
 
-func start() {
-	var (
-		err error
-	)
+var (
+	db       peer.DB
+	trans    *transport.TransportConn
+	zLogger  *zap.SugaredLogger
+	handlers []server.Handler
+	conn     *net.UDPConn
+)
 
+func configureAP() {
 	host := parameter.NodeConfig.GetString(CFG_ADDRESS)
 	localhost := host
 	apPort := strconv.Itoa(parameter.NodeConfig.GetInt(CFG_PORT))
@@ -68,19 +72,16 @@ func start() {
 	listenAddr := host + ":" + apPort
 	gossipAddr := host + ":" + gossipPort
 
-	logger := logger.NewLogger(defaultZLC, debugLevel)
-
-	defer func() { _ = logger.Sync() }() // ignore the returned error
+	zLogger = logger.NewLogger(defaultZLC, debugLevel)
 
 	addr, err := net.ResolveUDPAddr("udp", localhost+":"+apPort)
 	if err != nil {
 		log.Fatalf("ResolveUDPAddr: %v", err)
 	}
-	conn, err := net.ListenUDP("udp", addr)
+	conn, err = net.ListenUDP("udp", addr)
 	if err != nil {
 		log.Fatalf("ListenUDP: %v", err)
 	}
-	defer conn.Close()
 
 	masterPeers := []*peer.Peer{}
 	master, err := parseEntryNodes()
@@ -91,12 +92,11 @@ func start() {
 	}
 
 	// use the UDP connection for transport
-	trans := transport.Conn(conn, func(network, address string) (net.Addr, error) { return net.ResolveUDPAddr(network, address) })
-	defer trans.Close()
+	trans = transport.Conn(conn, func(network, address string) (net.Addr, error) { return net.ResolveUDPAddr(network, address) })
 
 	// create a new local node
-	db := peer.NewPersistentDB(logger.Named("db"))
-	defer db.Close()
+	db = peer.NewPersistentDB(zLogger.Named("db"))
+
 	local.INSTANCE, err = peer.NewLocal("udp", listenAddr, db)
 	if err != nil {
 		log.Fatalf("ListenUDP: %v", err)
@@ -108,14 +108,14 @@ func start() {
 	}
 
 	Discovery = discover.New(local.INSTANCE, discover.Config{
-		Log:         logger.Named("disc"),
+		Log:         zLogger.Named("disc"),
 		MasterPeers: masterPeers,
 	})
-	handlers := append([]server.Handler{}, Discovery)
+	handlers = append([]server.Handler{}, Discovery)
 
 	if parameter.NodeConfig.GetBool(CFG_SELECTION) {
 		Selection = selection.New(local.INSTANCE, Discovery, selection.Config{
-			Log: logger.Named("sel"),
+			Log: zLogger.Named("sel"),
 			Param: &selection.Parameters{
 				SaltLifetime:    selection.DefaultSaltLifetime,
 				RequiredService: []service.Key{service.GossipKey},
@@ -123,14 +123,14 @@ func start() {
 		})
 		handlers = append(handlers, Selection)
 	}
+}
 
+func start() {
 	// start a server doing discovery and peering
-	srv = server.Listen(local.INSTANCE, trans, logger.Named("srv"), handlers...)
-	defer srv.Close()
+	srv = server.Listen(local.INSTANCE, trans, zLogger.Named("srv"), handlers...)
 
 	// start the discovery on that connection
 	Discovery.Start(srv)
-	defer Discovery.Close()
 
 	// start the peering on that connection
 	if parameter.NodeConfig.GetBool(CFG_SELECTION) {
@@ -139,12 +139,22 @@ func start() {
 	}
 
 	id := base64.StdEncoding.EncodeToString(local.INSTANCE.PublicKey())
-	logger.Info("Discovery protocol started: ID=" + id + ", address=" + srv.LocalAddr())
+	zLogger.Info("Discovery protocol started: ID=" + id + ", address=" + srv.LocalAddr())
 
+	defer func() {
+		_ = zLogger.Sync() // ignore the returned error
+		trans.Close()
+		db.Close()
+		conn.Close()
+		srv.Close()
+		Discovery.Close()
+	}()
+
+	// Only for debug
 	go func() {
 		for t := range time.NewTicker(2 * time.Second).C {
 			_ = t
-			printReport(logger)
+			printReport(zLogger)
 		}
 	}()
 

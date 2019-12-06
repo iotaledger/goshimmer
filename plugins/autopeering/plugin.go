@@ -3,7 +3,6 @@ package autopeering
 import (
 	"github.com/iotaledger/autopeering-sim/discover"
 	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/gossip/neighbor"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -18,6 +17,7 @@ func configure(plugin *node.Plugin) {
 		close <- struct{}{}
 	}))
 
+	configureAP()
 	configureLogging(plugin)
 }
 
@@ -26,9 +26,10 @@ func run(plugin *node.Plugin) {
 }
 
 func configureLogging(plugin *node.Plugin) {
-	gossip.Event.DropNeighbor.Attach(events.NewClosure(func(peer *neighbor.Neighbor) {
+	gossip.Events.DropNeighbor.Attach(events.NewClosure(func(ev *gossip.DropNeighborEvent) {
+		log.Info("neighbor dropped: " + ev.Peer.Address() + " / " + ev.Peer.ID().String())
 		if Selection != nil {
-			Selection.DropPeer(peer.Peer)
+			Selection.DropPeer(ev.Peer)
 		}
 	}))
 
