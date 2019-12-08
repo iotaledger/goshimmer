@@ -1,7 +1,7 @@
 package tangle
 
 import (
-	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
+	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -16,5 +16,5 @@ type pluginEvents struct {
 }
 
 func transactionCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*meta_transaction.MetaTransaction))(params[0].(*meta_transaction.MetaTransaction))
+	handler.(func(*value_transaction.ValueTransaction))(params[0].(*value_transaction.ValueTransaction))
 }

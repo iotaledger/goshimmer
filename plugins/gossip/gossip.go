@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"github.com/golang/protobuf/proto"
+	zL "github.com/iotaledger/autopeering-sim/logger"
 	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/autopeering-sim/selection"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
@@ -14,7 +15,29 @@ import (
 	"go.uber.org/zap"
 )
 
+const defaultZLC = `{
+	"level": "info",
+	"development": false,
+	"outputPaths": ["stdout"],
+	"errorOutputPaths": ["stderr"],
+	"encoding": "console",
+	"encoderConfig": {
+	  "timeKey": "ts",
+	  "levelKey": "level",
+	  "nameKey": "logger",
+	  "callerKey": "caller",
+	  "messageKey": "msg",
+	  "stacktraceKey": "stacktrace",
+	  "lineEnding": "",
+	  "levelEncoder": "",
+	  "timeEncoder": "iso8601",
+	  "durationEncoder": "",
+	  "callerEncoder": ""
+	}
+  }`
+
 var (
+	debugLevel         = "debug"
 	zLogger            *zap.SugaredLogger
 	mgr                *gp.Manager
 	SendTransaction    = mgr.SendTransaction
@@ -23,14 +46,6 @@ var (
 	AddOutbound        = mgr.AddOutbound
 	DropNeighbor       = mgr.DropNeighbor
 )
-
-func init() {
-	l, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("cannot initialize logger: %v", err)
-	}
-	zLogger = l.Sugar()
-}
 
 func getTransaction(h []byte) ([]byte, error) {
 	tx := &pb.TransactionRequest{
@@ -41,7 +56,7 @@ func getTransaction(h []byte) ([]byte, error) {
 }
 
 func configureGossip() {
-	defer func() { _ = zLogger.Sync() }() // ignore the returned error
+	zLogger = zL.NewLogger(defaultZLC, debugLevel)
 
 	trans, err := transport.Listen(local.INSTANCE, zLogger)
 	if err != nil {
@@ -56,7 +71,7 @@ func configureEvents() {
 
 	selection.Events.Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
 		log.Info("neighbor removed: " + ev.DroppedID.String())
-		mgr.DropNeighbor(ev.DroppedID)
+		go mgr.DropNeighbor(ev.DroppedID)
 	}))
 
 	selection.Events.IncomingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
@@ -78,6 +93,7 @@ func configureEvents() {
 	}))
 
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *meta_transaction.MetaTransaction) {
+		log.Info("Tx solidified")
 		t := &pb.Transaction{
 			Body: tx.GetBytes(),
 		}

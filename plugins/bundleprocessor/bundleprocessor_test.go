@@ -1,22 +1,18 @@
 package bundleprocessor
 
 import (
-	"github.com/iotaledger/hive.go/parameter"
 	"os"
 	"sync"
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/client"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/hive.go/events"
-
-	"github.com/iotaledger/goshimmer/plugins/tipselection"
-
-	"github.com/iotaledger/goshimmer/packages/client"
-
-	"github.com/iotaledger/hive.go/node"
-
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/goshimmer/plugins/tipselection"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/parameter"
 	"github.com/iotaledger/iota.go/consts"
 	"github.com/magiconair/properties/assert"
 )
@@ -49,7 +45,7 @@ func BenchmarkValidateSignatures(b *testing.B) {
 }
 
 func TestMain(m *testing.M) {
-	parameter.FetchConfig()
+	parameter.FetchConfig(false)
 	os.Exit(m.Run())
 }
 

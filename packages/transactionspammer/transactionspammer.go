@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
 	"github.com/iotaledger/hive.go/daemon"
 )
@@ -53,7 +54,7 @@ func Start(tps uint) {
 
 							mtx := &pb.Transaction{Body: tx.MetaTransaction.GetBytes()}
 							b, _ := proto.Marshal(mtx)
-							gossip.Events.NewTransaction.Trigger(b)
+							gossip.Events.NewTransaction.Trigger(&gossip.NewTransactionEvent{Body: b, Peer: &local.INSTANCE.Peer})
 
 							if sentCounter >= tps {
 								duration := time.Since(start)

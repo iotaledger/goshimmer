@@ -11,8 +11,7 @@ var PLUGIN = node.NewPlugin("Gossip", node.Enabled, configure, run)
 var log = logger.NewLogger("Gossip")
 
 var (
-	debugLevel = "debug"
-	close      = make(chan struct{}, 1)
+	close = make(chan struct{}, 1)
 )
 
 func configure(plugin *node.Plugin) {

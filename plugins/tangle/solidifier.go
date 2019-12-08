@@ -3,8 +3,10 @@ package tangle
 import (
 	"runtime"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/gossip"
+	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/model/approvers"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
@@ -28,8 +30,10 @@ func configureSolidifier(plugin *node.Plugin) {
 	}, workerpool.WorkerCount(WORKER_COUNT), workerpool.QueueSize(10000))
 
 	gossip.Events.NewTransaction.Attach(events.NewClosure(func(ev *gossip.NewTransactionEvent) {
-		tx := ev.Body
-		metaTx := meta_transaction.FromBytes(tx)
+		//log.Info("New Transaction", ev.Body)
+		pTx := &pb.Transaction{}
+		proto.Unmarshal(ev.Body, pTx)
+		metaTx := meta_transaction.FromBytes(pTx.GetBody())
 		workerPool.Submit(metaTx)
 	}))
 
