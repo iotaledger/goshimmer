@@ -8,7 +8,7 @@ import (
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/transport"
-	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
+	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/events"
@@ -37,14 +37,9 @@ const defaultZLC = `{
   }`
 
 var (
-	debugLevel         = "debug"
-	zLogger            *zap.SugaredLogger
-	mgr                *gp.Manager
-	SendTransaction    = mgr.SendTransaction
-	RequestTransaction = mgr.RequestTransaction
-	AddInbound         = mgr.AddInbound
-	AddOutbound        = mgr.AddOutbound
-	DropNeighbor       = mgr.DropNeighbor
+	debugLevel = "debug"
+	zLogger    *zap.SugaredLogger
+	mgr        *gp.Manager
 )
 
 func getTransaction(h []byte) ([]byte, error) {
@@ -64,6 +59,7 @@ func configureGossip() {
 	}
 
 	mgr = gp.NewManager(trans, zLogger, getTransaction)
+
 	log.Info("Gossip started @", trans.LocalAddr().String())
 }
 
@@ -78,7 +74,6 @@ func configureEvents() {
 		gossipService := ev.Peer.Services().Get(service.GossipKey)
 		if gossipService != nil {
 			log.Info("accepted neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
-			//address, port, _ := net.SplitHostPort(ev.Peer.Services().Get(service.GossipKey).String())
 			go mgr.AddInbound(ev.Peer)
 		}
 	}))
@@ -87,20 +82,19 @@ func configureEvents() {
 		gossipService := ev.Peer.Services().Get(service.GossipKey)
 		if gossipService != nil {
 			log.Info("chosen neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
-			//address, port, _ := net.SplitHostPort(ev.Peer.Services().Get(service.GossipKey).String())
 			go mgr.AddOutbound(ev.Peer)
 		}
 	}))
 
-	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *meta_transaction.MetaTransaction) {
+	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
 		log.Info("Tx solidified")
 		t := &pb.Transaction{
-			Body: tx.GetBytes(),
+			Body: tx.MetaTransaction.GetBytes(),
 		}
 		b, err := proto.Marshal(t)
 		if err != nil {
 			return
 		}
-		go SendTransaction(b)
+		go mgr.SendTransaction(b)
 	}))
 }

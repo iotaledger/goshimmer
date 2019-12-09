@@ -81,12 +81,12 @@ func (m *Manager) getNeighbors(ids ...peer.ID) []*neighbor {
 }
 
 func (m *Manager) getAllNeighbors() []*neighbor {
-	m.mu.Lock()
+	m.mu.RLock()
 	result := make([]*neighbor, 0, len(m.neighbors))
 	for _, n := range m.neighbors {
 		result = append(result, n)
 	}
-	m.mu.Unlock()
+	m.mu.RUnlock()
 
 	return result
 }
