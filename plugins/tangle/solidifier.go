@@ -29,7 +29,7 @@ func configureSolidifier(plugin *node.Plugin) {
 		task.Return(nil)
 	}, workerpool.WorkerCount(WORKER_COUNT), workerpool.QueueSize(10000))
 
-	gossip.Events.NewTransaction.Attach(events.NewClosure(func(ev *gossip.NewTransactionEvent) {
+	gossip.Events.TransactionReceived.Attach(events.NewClosure(func(ev *gossip.TransactionReceivedEvent) {
 		//log.Info("New Transaction", ev.Body)
 		pTx := &pb.Transaction{}
 		proto.Unmarshal(ev.Body, pTx)

@@ -49,18 +49,7 @@ func NewManager(t *transport.TCP, log *zap.SugaredLogger, f GetTransaction) *Man
 	return m
 }
 
-func (m *Manager) AddOutbound(p *peer.Peer) error {
-	return m.addNeighbor(p, m.trans.DialPeer)
-}
-
-func (m *Manager) AddInbound(p *peer.Peer) error {
-	return m.addNeighbor(p, m.trans.AcceptPeer)
-}
-
-func (m *Manager) DropNeighbor(p peer.ID) {
-	m.deleteNeighbor(p)
-}
-
+// Close stops the manager and closes all established connections.
 func (m *Manager) Close() {
 	m.mu.Lock()
 	m.running = false
@@ -71,6 +60,48 @@ func (m *Manager) Close() {
 	m.mu.Unlock()
 
 	m.wg.Wait()
+}
+
+// AddOutbound tries to add a neighbor by connecting to that peer.
+func (m *Manager) AddOutbound(p *peer.Peer) error {
+	return m.addNeighbor(p, m.trans.DialPeer)
+}
+
+// AddInbound tries to add a neighbor by accepting an incoming connection from that peer.
+func (m *Manager) AddInbound(p *peer.Peer) error {
+	return m.addNeighbor(p, m.trans.AcceptPeer)
+}
+
+// NeighborDropped disconnects the neighbor with the given ID.
+func (m *Manager) DropNeighbor(id peer.ID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.neighbors[id]; !ok {
+		return ErrNotANeighbor
+	}
+	n := m.neighbors[id]
+	delete(m.neighbors, id)
+	disconnect(n.conn)
+
+	return nil
+}
+
+// RequestTransaction requests the transaction with the given hash from the neighbors.
+// If no peer is provided, all neighbors are queried.
+func (m *Manager) RequestTransaction(txHash []byte, to ...peer.ID) {
+	req := &pb.TransactionRequest{
+		Hash: txHash,
+	}
+	m.send(marshal(req), to...)
+}
+
+// SendTransaction sends the given transaction data to the neighbors.
+// If no peer is provided, it is send to all neighbors.
+func (m *Manager) SendTransaction(txData []byte, to ...peer.ID) {
+	tx := &pb.Transaction{
+		Body: txData,
+	}
+	m.send(marshal(tx), to...)
 }
 
 func (m *Manager) getNeighbors(ids ...peer.ID) []*neighbor {
@@ -105,21 +136,6 @@ func (m *Manager) getNeighborsById(ids []peer.ID) []*neighbor {
 	return result
 }
 
-func (m *Manager) RequestTransaction(txHash []byte, to ...peer.ID) {
-	req := &pb.TransactionRequest{
-		Hash: txHash,
-	}
-	m.send(marshal(req), to...)
-}
-
-// SendTransaction sends the transaction data to the given neighbors.
-func (m *Manager) SendTransaction(txData []byte, to ...peer.ID) {
-	tx := &pb.Transaction{
-		Body: txData,
-	}
-	m.send(marshal(tx), to...)
-}
-
 func (m *Manager) send(msg []byte, to ...peer.ID) {
 	if l := len(msg); l > maxPacketSize {
 		m.log.Errorw("message too large", "len", l, "max", maxPacketSize)
@@ -150,7 +166,7 @@ func (m *Manager) addNeighbor(peer *peer.Peer, handshake func(*peer.Peer) (*tran
 	// could not add neighbor
 	if err != nil {
 		m.log.Debugw("addNeighbor failed", "peer", peer.ID(), "err", err)
-		Events.DropNeighbor.Trigger(&DropNeighborEvent{Peer: peer})
+		Events.NeighborDropped.Trigger(&NeighborDroppedEvent{Peer: peer})
 		return err
 	}
 
@@ -176,18 +192,6 @@ func (m *Manager) addNeighbor(peer *peer.Peer, handshake func(*peer.Peer) (*tran
 	return nil
 }
 
-func (m *Manager) deleteNeighbor(peer peer.ID) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if _, ok := m.neighbors[peer]; !ok {
-		return
-	}
-
-	n := m.neighbors[peer]
-	delete(m.neighbors, peer)
-	disconnect(n.conn)
-}
-
 func (m *Manager) readLoop(nbr *neighbor) {
 	m.wg.Add(1)
 	defer m.wg.Done()
@@ -207,7 +211,7 @@ func (m *Manager) readLoop(nbr *neighbor) {
 				m.log.Warnw("read error", "err", err)
 			}
 			_ = nbr.conn.Close() // just make sure that the connection is closed as fast as possible
-			m.deleteNeighbor(nbr.peer.ID())
+			_ = m.DropNeighbor(nbr.peer.ID())
 			m.log.Debug("reading stopped")
 			return
 		}
@@ -228,7 +232,7 @@ func (m *Manager) handlePacket(data []byte, n *neighbor) error {
 			return errors.Wrap(err, "invalid message")
 		}
 		m.log.Debugw("Received Transaction", "data", msg.GetBody())
-		Events.NewTransaction.Trigger(&NewTransactionEvent{Body: msg.GetBody(), Peer: n.peer})
+		Events.TransactionReceived.Trigger(&TransactionReceivedEvent{Body: msg.GetBody(), Peer: n.peer})
 
 	// Incoming Transaction request
 	case pb.MTransactionRequest:
@@ -267,5 +271,5 @@ func marshal(msg pb.Message) []byte {
 
 func disconnect(conn *transport.Connection) {
 	_ = conn.Close()
-	Events.DropNeighbor.Trigger(&DropNeighborEvent{Peer: conn.Peer()})
+	Events.NeighborDropped.Trigger(&NeighborDroppedEvent{Peer: conn.Peer()})
 }

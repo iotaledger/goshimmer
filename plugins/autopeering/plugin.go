@@ -26,7 +26,7 @@ func run(plugin *node.Plugin) {
 }
 
 func configureLogging(plugin *node.Plugin) {
-	gossip.Events.DropNeighbor.Attach(events.NewClosure(func(ev *gossip.DropNeighborEvent) {
+	gossip.Events.NeighborDropped.Attach(events.NewClosure(func(ev *gossip.NeighborDroppedEvent) {
 		log.Info("neighbor dropped: " + ev.Peer.Address() + " / " + ev.Peer.ID().String())
 		if Selection != nil {
 			Selection.DropPeer(ev.Peer)

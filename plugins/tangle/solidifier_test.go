@@ -47,19 +47,19 @@ func TestSolidifier(t *testing.T) {
 	wg.Add(4)
 	tx := &pb.Transaction{Body: transaction1.MetaTransaction.GetBytes()}
 	b, _ := proto.Marshal(tx)
-	gossip.Events.NewTransaction.Trigger(&gossip.NewTransactionEvent{Body: b})
+	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b})
 
 	tx = &pb.Transaction{Body: transaction2.MetaTransaction.GetBytes()}
 	b, _ = proto.Marshal(tx)
-	gossip.Events.NewTransaction.Trigger(&gossip.NewTransactionEvent{Body: b})
+	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b})
 
 	tx = &pb.Transaction{Body: transaction3.MetaTransaction.GetBytes()}
 	b, _ = proto.Marshal(tx)
-	gossip.Events.NewTransaction.Trigger(&gossip.NewTransactionEvent{Body: b})
+	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b})
 
 	tx = &pb.Transaction{Body: transaction4.MetaTransaction.GetBytes()}
 	b, _ = proto.Marshal(tx)
-	gossip.Events.NewTransaction.Trigger(&gossip.NewTransactionEvent{Body: b})
+	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b})
 
 	// wait until all are solid
 	wg.Wait()

@@ -5,28 +5,40 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
-// Events contains all the events that are triggered during the gossip protocol.
+// Events contains all the events related to the gossip protocol.
 var Events = struct {
-	// A NewTransaction event is triggered when a new transaction is received by the gossip protocol.
-	NewTransaction *events.Event
-	DropNeighbor   *events.Event
+	// A TransactionReceived event is triggered when a new transaction is received by the gossip protocol.
+	TransactionReceived *events.Event
+	// A NeighborDropped event is triggered when a neighbor has been dropped.
+	NeighborDropped *events.Event
+	// A RequestTransaction should be triggered for a transaction to be requested through the gossip protocol.
+	RequestTransaction *events.Event
 }{
-	NewTransaction: events.NewEvent(newTransaction),
-	DropNeighbor:   events.NewEvent(dropNeighbor),
+	TransactionReceived: events.NewEvent(transactionReceived),
+	NeighborDropped:     events.NewEvent(neighborDropped),
+	RequestTransaction:  events.NewEvent(requestTransaction),
 }
 
-type NewTransactionEvent struct {
+type TransactionReceivedEvent struct {
 	Body []byte
 	Peer *peer.Peer
 }
-type DropNeighborEvent struct {
+
+type RequestTransactionEvent struct {
+	Hash []byte // hash of the transaction to request
+}
+type NeighborDroppedEvent struct {
 	Peer *peer.Peer
 }
 
-func newTransaction(handler interface{}, params ...interface{}) {
-	handler.(func(*NewTransactionEvent))(params[0].(*NewTransactionEvent))
+func transactionReceived(handler interface{}, params ...interface{}) {
+	handler.(func(*TransactionReceivedEvent))(params[0].(*TransactionReceivedEvent))
 }
 
-func dropNeighbor(handler interface{}, params ...interface{}) {
-	handler.(func(*DropNeighborEvent))(params[0].(*DropNeighborEvent))
+func requestTransaction(handler interface{}, params ...interface{}) {
+	handler.(func(*RequestTransactionEvent))(params[0].(*RequestTransactionEvent))
+}
+
+func neighborDropped(handler interface{}, params ...interface{}) {
+	handler.(func(*NeighborDroppedEvent))(params[0].(*NeighborDroppedEvent))
 }

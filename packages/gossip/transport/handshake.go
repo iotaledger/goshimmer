@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"time"
 
+	pb "github.com/iotaledger/goshimmer/packages/gossip/transport/proto"
 	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/autopeering-sim/server"
-	pb "github.com/iotaledger/goshimmer/packages/gossip/transport/proto"
 )
 
 const (

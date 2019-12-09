@@ -54,7 +54,7 @@ func Start(tps uint) {
 
 							mtx := &pb.Transaction{Body: tx.MetaTransaction.GetBytes()}
 							b, _ := proto.Marshal(mtx)
-							gossip.Events.NewTransaction.Trigger(&gossip.NewTransactionEvent{Body: b, Peer: &local.INSTANCE.Peer})
+							gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b, Peer: &local.INSTANCE.Peer})
 
 							if sentCounter >= tps {
 								duration := time.Since(start)
