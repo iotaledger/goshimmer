@@ -67,7 +67,7 @@ func onEvictTransactionMetadata(_ interface{}, value interface{}) {
 }
 
 const (
-	TRANSACTION_METADATA_CACHE_SIZE = 50000
+	TRANSACTION_METADATA_CACHE_SIZE = 500
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
