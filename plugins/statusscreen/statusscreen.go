@@ -1,7 +1,6 @@
 package statusscreen
 
 import (
-	"github.com/iotaledger/hive.go/logger"
 	"io/ioutil"
 	"os"
 	"sync"
@@ -10,6 +9,7 @@ import (
 	"github.com/gdamore/tcell"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/rivo/tview"
 	"golang.org/x/crypto/ssh/terminal"

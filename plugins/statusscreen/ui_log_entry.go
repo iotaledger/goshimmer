@@ -2,9 +2,9 @@ package statusscreen
 
 import (
 	"fmt"
-	"github.com/iotaledger/hive.go/logger"
 
 	"github.com/gdamore/tcell"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/rivo/tview"
 )
 

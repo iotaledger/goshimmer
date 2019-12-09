@@ -23,20 +23,10 @@ import (
 )
 
 func main() {
-	// go func() {
-	// 	if err := profiler.Start(profiler.Config{
-	// 		Service:        "race-service",
-	// 		ServiceVersion: "1.0",
-	// 		ProjectID:      "premium-canyon-232915", // optional on GCP
-	// 	}); err != nil {
-	// 		log.Fatalf("Cannot start the profiler: %v", err)
-	// 	}
-	// }()
 	node.Run(
 		cli.PLUGIN,
 		autopeering.PLUGIN,
 		gossip.PLUGIN,
-		//gossip_on_solidification.PLUGIN,
 		tangle.PLUGIN,
 		bundleprocessor.PLUGIN,
 		analysis.PLUGIN,

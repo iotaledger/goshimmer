@@ -1,8 +1,9 @@
 package statusscreen
 
 import (
-	"github.com/iotaledger/hive.go/logger"
 	"time"
+
+	"github.com/iotaledger/hive.go/logger"
 )
 
 type StatusMessage struct {
