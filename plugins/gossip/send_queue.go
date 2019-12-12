@@ -3,10 +3,10 @@ package gossip
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
-	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 )
 
 // region plugin module setup //////////////////////////////////////////////////////////////////////////////////////////
@@ -19,20 +19,20 @@ func configureSendQueue(plugin *node.Plugin) {
 	Events.AddNeighbor.Attach(events.NewClosure(setupEventHandlers))
 
 	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		plugin.LogInfo("Stopping Send Queue Dispatcher ...")
+		log.Info("Stopping Send Queue Dispatcher ...")
 	}))
 }
 
 func runSendQueue(plugin *node.Plugin) {
-	plugin.LogInfo("Starting Send Queue Dispatcher ...")
+	log.Info("Starting Send Queue Dispatcher ...")
 
 	daemon.BackgroundWorker("Gossip Send Queue Dispatcher", func() {
-		plugin.LogSuccess("Starting Send Queue Dispatcher ... done")
+		log.Info("Starting Send Queue Dispatcher ... done")
 
 		for {
 			select {
 			case <-daemon.ShutdownSignal:
-				plugin.LogSuccess("Stopping Send Queue Dispatcher ... done")
+				log.Info("Stopping Send Queue Dispatcher ... done")
 
 				return
 

@@ -3,7 +3,7 @@ package timeutil
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/daemon"
+	"github.com/iotaledger/hive.go/daemon"
 )
 
 func Ticker(handler func(), interval time.Duration) {

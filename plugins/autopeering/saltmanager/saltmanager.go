@@ -3,11 +3,11 @@ package saltmanager
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/settings"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/salt"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/node"
 )
 
 var (

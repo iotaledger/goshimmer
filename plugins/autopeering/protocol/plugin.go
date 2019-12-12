@@ -1,13 +1,16 @@
 package protocol
 
 import (
-	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/parameters"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/server/tcp"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/server/udp"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/parameter"
 )
+
+var log = logger.NewLogger("Autopeering-Protocol")
 
 func Configure(plugin *node.Plugin) {
 	errorHandler := createErrorHandler(plugin)

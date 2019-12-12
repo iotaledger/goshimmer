@@ -6,9 +6,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 
-	"github.com/iotaledger/goshimmer/packages/daemon"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
+	"github.com/iotaledger/hive.go/daemon"
 )
 
 var spamming = false

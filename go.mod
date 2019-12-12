@@ -12,7 +12,7 @@ require (
 	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/google/open-location-code/go v0.0.0-20190903173953-119bc96a3a51
 	github.com/gorilla/websocket v1.4.1
-	github.com/iotaledger/hive.go v0.0.0-20191113184748-b545de9170d9
+	github.com/iotaledger/hive.go v0.0.0-20191208004610-567900b261bd
 	github.com/iotaledger/iota.go v1.0.0-beta.9
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0 // indirect

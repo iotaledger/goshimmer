@@ -2,9 +2,9 @@ package statusscreen
 
 import (
 	"fmt"
+	"github.com/iotaledger/hive.go/logger"
 
 	"github.com/gdamore/tcell"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/rivo/tview"
 )
 
@@ -37,19 +37,25 @@ func NewUILogEntry(message StatusMessage) *UILogEntry {
 
 	textColor := "black::d"
 	switch message.LogLevel {
-	case node.LOG_LEVEL_INFO:
+	case logger.LevelInfo:
 		fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [blue::d]INFO [black::d]]")
-	case node.LOG_LEVEL_SUCCESS:
-		fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][  [green::d]OK  [black::d]]")
-	case node.LOG_LEVEL_WARNING:
+	case logger.LevelNotice:
+		fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [blue::d]NOTICE [black::d]]")
+	case logger.LevelWarning:
 		fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [yellow::d]WARN [black::d]]")
 
 		textColor = "yellow::d"
-	case node.LOG_LEVEL_FAILURE:
+	case logger.LevelError:
+		fallthrough
+	case logger.LevelCritical:
+		fallthrough
+	case logger.LevelPanic:
+		fallthrough
+	case logger.LevelFatal:
 		fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [red::d]FAIL [black::d]]")
 
 		textColor = "red::d"
-	case node.LOG_LEVEL_DEBUG:
+	case logger.LevelDebug:
 		fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [black::b]NOTE [black::d]]")
 
 		textColor = "black::b"

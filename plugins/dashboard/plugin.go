@@ -4,12 +4,12 @@ import (
 	"net/http"
 	"time"
 
-	"golang.org/x/net/context"
-
-	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
+	"golang.org/x/net/context"
 )
 
 var server *http.Server
@@ -17,6 +17,7 @@ var server *http.Server
 var router *http.ServeMux
 
 var PLUGIN = node.NewPlugin("Dashboard", node.Disabled, configure, run)
+var log = logger.NewLogger("Dashboard")
 
 func configure(plugin *node.Plugin) {
 	router = http.NewServeMux()
@@ -45,7 +46,7 @@ func run(plugin *node.Plugin) {
 	daemon.BackgroundWorker("Dashboard Updater", func() {
 		go func() {
 			if err := server.ListenAndServe(); err != nil {
-				plugin.LogFailure(err.Error())
+				log.Error(err.Error())
 			}
 		}()
 	})

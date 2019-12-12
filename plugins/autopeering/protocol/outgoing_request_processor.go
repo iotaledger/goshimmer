@@ -10,18 +10,18 @@ import (
 	"github.com/iotaledger/goshimmer/packages/timeutil"
 
 	"github.com/iotaledger/goshimmer/packages/accountability"
-	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/protocol/constants"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/node"
 )
 
 func createOutgoingRequestProcessor(plugin *node.Plugin) func() {
 	return func() {
-		plugin.LogInfo("Starting Chosen Neighbor Processor ...")
-		plugin.LogSuccess("Starting Chosen Neighbor Processor ... done")
+		log.Info("Starting Chosen Neighbor Processor ...")
+		log.Info("Starting Chosen Neighbor Processor ... done")
 
 		sendOutgoingRequests(plugin)
 
@@ -30,7 +30,7 @@ func createOutgoingRequestProcessor(plugin *node.Plugin) func() {
 		for {
 			select {
 			case <-daemon.ShutdownSignal:
-				plugin.LogInfo("Stopping Chosen Neighbor Processor ...")
+				log.Info("Stopping Chosen Neighbor Processor ...")
 
 				break ticker
 			case <-ticker.C:
@@ -38,7 +38,7 @@ func createOutgoingRequestProcessor(plugin *node.Plugin) func() {
 			}
 		}
 
-		plugin.LogSuccess("Stopping Chosen Neighbor Processor ... done")
+		log.Info("Stopping Chosen Neighbor Processor ... done")
 	}
 }
 
@@ -51,9 +51,9 @@ func sendOutgoingRequests(plugin *node.Plugin) {
 
 			go func(doneChan chan int) {
 				if dialed, err := chosenNeighborCandidate.Send(outgoingrequest.INSTANCE.Marshal(), types.PROTOCOL_TYPE_TCP, true); err != nil {
-					plugin.LogDebug(err.Error())
+					log.Debug(err.Error())
 				} else {
-					plugin.LogDebug("sent peering request to " + chosenNeighborCandidate.String())
+					log.Debugf("sent peering request to %s", chosenNeighborCandidate.String())
 
 					if dialed {
 						tcp.HandleConnection(chosenNeighborCandidate.GetConn())

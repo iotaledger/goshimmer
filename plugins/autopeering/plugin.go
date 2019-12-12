@@ -1,8 +1,6 @@
 package autopeering
 
 import (
-	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
@@ -13,10 +11,14 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/server"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/types/peer"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 )
 
 var PLUGIN = node.NewPlugin("Auto Peering", node.Enabled, configure, run)
+var log = logger.NewLogger("Autopeering")
 
 func configure(plugin *node.Plugin) {
 	saltmanager.Configure(plugin)
@@ -45,36 +47,32 @@ func configureLogging(plugin *node.Plugin) {
 	}))
 
 	acceptedneighbors.INSTANCE.Events.Add.Attach(events.NewClosure(func(p *peer.Peer) {
-		plugin.LogDebug("accepted neighbor added: " + p.GetAddress().String() + " / " + p.GetIdentity().StringIdentifier)
-
+		log.Debugf("accepted neighbor added: %s / %s", p.GetAddress().String(), p.GetIdentity().StringIdentifier)
 		gossip.AddNeighbor(gossip.NewNeighbor(p.GetIdentity(), p.GetAddress(), p.GetGossipPort()))
 	}))
 	acceptedneighbors.INSTANCE.Events.Remove.Attach(events.NewClosure(func(p *peer.Peer) {
-		plugin.LogDebug("accepted neighbor removed: " + p.GetAddress().String() + " / " + p.GetIdentity().StringIdentifier)
-
+		log.Debugf("accepted neighbor removed: %s / %s", p.GetAddress().String(), p.GetIdentity().StringIdentifier)
 		gossip.RemoveNeighbor(p.GetIdentity().StringIdentifier)
 	}))
 
 	chosenneighbors.INSTANCE.Events.Add.Attach(events.NewClosure(func(p *peer.Peer) {
-		plugin.LogDebug("chosen neighbor added: " + p.GetAddress().String() + " / " + p.GetIdentity().StringIdentifier)
-
+		log.Debugf("chosen neighbor added: %s / %s", p.GetAddress().String(), p.GetIdentity().StringIdentifier)
 		gossip.AddNeighbor(gossip.NewNeighbor(p.GetIdentity(), p.GetAddress(), p.GetGossipPort()))
 	}))
 	chosenneighbors.INSTANCE.Events.Remove.Attach(events.NewClosure(func(p *peer.Peer) {
-		plugin.LogDebug("chosen neighbor removed: " + p.GetAddress().String() + " / " + p.GetIdentity().StringIdentifier)
-
+		log.Debugf("chosen neighbor removed: %s / %s", p.GetAddress().String(), p.GetIdentity().StringIdentifier)
 		gossip.RemoveNeighbor(p.GetIdentity().StringIdentifier)
 	}))
 
 	knownpeers.INSTANCE.Events.Add.Attach(events.NewClosure(func(p *peer.Peer) {
-		plugin.LogInfo("new peer discovered: " + p.GetAddress().String() + " / " + p.GetIdentity().StringIdentifier)
+		log.Infof("new peer discovered: %s / %s", p.GetAddress().String(), p.GetIdentity().StringIdentifier)
 
 		if _, exists := gossip.GetNeighbor(p.GetIdentity().StringIdentifier); exists {
 			gossip.AddNeighbor(gossip.NewNeighbor(p.GetIdentity(), p.GetAddress(), p.GetGossipPort()))
 		}
 	}))
 	knownpeers.INSTANCE.Events.Update.Attach(events.NewClosure(func(p *peer.Peer) {
-		plugin.LogDebug("peer updated: " + p.GetAddress().String() + " / " + p.GetIdentity().StringIdentifier)
+		log.Infof("peer updated: %s / %s", p.GetAddress().String(), p.GetIdentity().StringIdentifier)
 
 		if _, exists := gossip.GetNeighbor(p.GetIdentity().StringIdentifier); exists {
 			gossip.AddNeighbor(gossip.NewNeighbor(p.GetIdentity(), p.GetAddress(), p.GetGossipPort()))
