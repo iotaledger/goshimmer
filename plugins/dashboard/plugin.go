@@ -1,16 +1,15 @@
 package dashboard
 
 import (
-	"github.com/iotaledger/hive.go/logger"
 	"net/http"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"golang.org/x/net/context"
 )
 
 var server *http.Server

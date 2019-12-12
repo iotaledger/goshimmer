@@ -3,8 +3,8 @@ package gossip
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 )

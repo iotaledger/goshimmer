@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"github.com/iotaledger/hive.go/logger"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -14,8 +13,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-
 	"github.com/labstack/echo"
 )
 

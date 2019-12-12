@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/accountability"
-	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/identity"
 	"github.com/iotaledger/goshimmer/packages/network"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 )
