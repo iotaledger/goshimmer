@@ -14,6 +14,7 @@
 # Logs
 logs/*
 testNodes/*
+*.log
 
 # Project files
 .idea

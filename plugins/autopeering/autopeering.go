@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/iotaledger/autopeering-sim/discover"
 	"github.com/iotaledger/autopeering-sim/logger"
@@ -23,7 +22,7 @@ import (
 )
 
 var (
-	debugLevel = "debug"
+	debugLevel = "info"
 	close      = make(chan struct{}, 1)
 	srv        *server.Server
 	Discovery  *discover.Protocol
@@ -33,7 +32,7 @@ var (
 const defaultZLC = `{
 	"level": "info",
 	"development": false,
-	"outputPaths": ["stdout"],
+	"outputPaths": ["./autopeering.log"],
 	"errorOutputPaths": ["stderr"],
 	"encoding": "console",
 	"encoderConfig": {
@@ -151,12 +150,12 @@ func start() {
 	}()
 
 	// Only for debug
-	go func() {
-		for t := range time.NewTicker(2 * time.Second).C {
-			_ = t
-			printReport(zLogger)
-		}
-	}()
+	// go func() {
+	// 	for t := range time.NewTicker(2 * time.Second).C {
+	// 		_ = t
+	// 		printReport(zLogger)
+	// 	}
+	// }()
 
 	<-close
 }
@@ -176,18 +175,18 @@ func getMyIP() string {
 }
 
 // used only for debugging puropose
-func printReport(log *zap.SugaredLogger) {
-	if Discovery == nil || Selection == nil {
-		return
-	}
-	knownPeers := Discovery.GetVerifiedPeers()
-	incoming := []*peer.Peer{}
-	outgoing := []*peer.Peer{}
-	if Selection != nil {
-		incoming = Selection.GetIncomingNeighbors()
-		outgoing = Selection.GetOutgoingNeighbors()
-	}
-	log.Info("Known peers:", len(knownPeers))
-	log.Info("Chosen:", len(outgoing))
-	log.Info("Accepted:", len(incoming))
-}
+// func printReport(log *zap.SugaredLogger) {
+// 	if Discovery == nil || Selection == nil {
+// 		return
+// 	}
+// 	knownPeers := Discovery.GetVerifiedPeers()
+// 	incoming := []*peer.Peer{}
+// 	outgoing := []*peer.Peer{}
+// 	if Selection != nil {
+// 		incoming = Selection.GetIncomingNeighbors()
+// 		outgoing = Selection.GetOutgoingNeighbors()
+// 	}
+// 	log.Info("Known peers:", len(knownPeers))
+// 	log.Info("Chosen:", len(outgoing))
+// 	log.Info("Accepted:", len(incoming))
+// }

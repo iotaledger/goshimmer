@@ -18,7 +18,7 @@ import (
 const defaultZLC = `{
 	"level": "info",
 	"development": false,
-	"outputPaths": ["stdout"],
+	"outputPaths": ["./gossip.log"],
 	"errorOutputPaths": ["stderr"],
 	"encoding": "console",
 	"encoderConfig": {
@@ -37,7 +37,7 @@ const defaultZLC = `{
   }`
 
 var (
-	debugLevel = "debug"
+	debugLevel = "info"
 	zLogger    *zap.SugaredLogger
 	mgr        *gp.Manager
 )
