@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
-	"github.com/iotaledger/goshimmer/packages/gossip/transport"
 	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/autopeering-sim/peer"
 	"github.com/iotaledger/autopeering-sim/peer/service"
+	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
+	"github.com/iotaledger/goshimmer/packages/gossip/transport"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -118,7 +118,7 @@ func TestClosedConnection(t *testing.T) {
 	eventMock.On("neighborDroppedEvent", &NeighborDroppedEvent{Peer: peerB}).Once()
 
 	// A drops B
-	err := mgrA.NeighborDropped(peerB.ID())
+	err := mgrA.DropNeighbor(peerB.ID())
 	require.NoError(t, err)
 	time.Sleep(graceTime)
 
