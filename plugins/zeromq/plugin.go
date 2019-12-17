@@ -1,8 +1,6 @@
 package zeromq
 
 import (
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/parameter"
 	"strconv"
 	"strings"
 	"time"
@@ -11,7 +9,9 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/parameter"
 )
 
 // zeromq logging is disabled by default

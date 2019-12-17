@@ -2,11 +2,11 @@ package webapi
 
 import (
 	"context"
-	"github.com/iotaledger/hive.go/logger"
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 )
