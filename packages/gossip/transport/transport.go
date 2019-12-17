@@ -84,7 +84,13 @@ func Listen(local *peer.Local, log *zap.SugaredLogger) (*TCP, error) {
 	if gossipAddr == nil {
 		return nil, ErrNoGossip
 	}
-	tcpAddr, err := net.ResolveTCPAddr(gossipAddr.Network(), gossipAddr.String())
+
+	host, port, _ := net.SplitHostPort(gossipAddr.String())
+	if host != "127.0.0.1" {
+		host = "0.0.0.0"
+	}
+
+	tcpAddr, err := net.ResolveTCPAddr(gossipAddr.Network(), host+":"+port)
 	if err != nil {
 		return nil, err
 	}
