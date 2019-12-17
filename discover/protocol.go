@@ -282,6 +282,7 @@ func (p *Protocol) validatePing(s *server.Server, fromAddr string, m *pb.Ping) b
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"version", m.GetVersion(),
+			"want", VersionNum,
 		)
 		return false
 	}
@@ -290,6 +291,7 @@ func (p *Protocol) validatePing(s *server.Server, fromAddr string, m *pb.Ping) b
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"from", m.GetFrom(),
+			"want", fromAddr,
 		)
 		return false
 	}
@@ -298,6 +300,7 @@ func (p *Protocol) validatePing(s *server.Server, fromAddr string, m *pb.Ping) b
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"to", m.GetTo(),
+			"want", s.LocalAddr(),
 		)
 		return false
 	}
@@ -344,6 +347,7 @@ func (p *Protocol) validatePong(s *server.Server, fromAddr string, fromID peer.I
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"to", m.GetTo(),
+			"want", s.LocalAddr(),
 		)
 		return false
 	}
@@ -398,6 +402,7 @@ func (p *Protocol) validateDiscoveryRequest(s *server.Server, fromAddr string, f
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"to", m.GetTo(),
+			"want", s.LocalAddr(),
 		)
 		return false
 	}
