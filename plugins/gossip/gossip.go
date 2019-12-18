@@ -48,7 +48,10 @@ var (
 func getTransaction(h []byte) ([]byte, error) {
 	log.Info("Retrieving tx:", string(h))
 	tx, err := tangle.GetTransaction(string(h))
-	if err != nil || tx == nil {
+	if err != nil {
+		return []byte{}, err
+	}
+	if tx == nil {
 		return []byte{}, errors.New("Not found")
 	}
 	pTx := &pb.TransactionRequest{
