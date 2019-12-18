@@ -26,6 +26,18 @@ func init() {
 	logger = l.Sugar()
 }
 
+func getTCPAddress(t require.TestingT) string {
+	laddr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	require.NoError(t, err)
+	lis, err := net.ListenTCP("tcp", laddr)
+	require.NoError(t, err)
+
+	addr := lis.Addr().String()
+	require.NoError(t, lis.Close())
+
+	return addr
+}
+
 func newTest(t require.TestingT, name string) (*TCP, func()) {
 	l := logger.Named(name)
 	db := peer.NewMemoryDB(l.Named("db"))
@@ -33,13 +45,10 @@ func newTest(t require.TestingT, name string) (*TCP, func()) {
 	require.NoError(t, err)
 
 	// enable TCP gossipping
-	require.NoError(t, local.UpdateService(service.GossipKey, "tcp", "localhost:0"))
+	require.NoError(t, local.UpdateService(service.GossipKey, "tcp", getTCPAddress(t)))
 
 	trans, err := Listen(local, l)
 	require.NoError(t, err)
-
-	// update the service with the actual address
-	require.NoError(t, local.UpdateService(service.GossipKey, trans.LocalAddr().Network(), trans.LocalAddr().String()))
 
 	teardown := func() {
 		trans.Close()

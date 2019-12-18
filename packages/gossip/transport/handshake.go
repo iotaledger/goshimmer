@@ -19,10 +19,9 @@ func isExpired(ts int64) bool {
 	return time.Since(time.Unix(ts, 0)) >= handshakeExpiration
 }
 
-func newHandshakeRequest(fromAddr string, toAddr string) ([]byte, error) {
+func newHandshakeRequest(toAddr string) ([]byte, error) {
 	m := &pb.HandshakeRequest{
 		Version:   versionNum,
-		From:      fromAddr,
 		To:        toAddr,
 		Timestamp: time.Now().Unix(),
 	}
@@ -36,7 +35,7 @@ func newHandshakeResponse(reqData []byte) ([]byte, error) {
 	return proto.Marshal(m)
 }
 
-func (t *TCP) validateHandshakeRequest(reqData []byte, fromAddr string) bool {
+func (t *TCP) validateHandshakeRequest(reqData []byte) bool {
 	m := new(pb.HandshakeRequest)
 	if err := proto.Unmarshal(reqData, m); err != nil {
 		t.log.Debugw("invalid handshake",
@@ -47,18 +46,14 @@ func (t *TCP) validateHandshakeRequest(reqData []byte, fromAddr string) bool {
 	if m.GetVersion() != versionNum {
 		t.log.Debugw("invalid handshake",
 			"version", m.GetVersion(),
+			"want", versionNum,
 		)
 		return false
 	}
-	if m.GetFrom() != fromAddr {
-		t.log.Debugw("invalid handshake",
-			"from", m.GetFrom(),
-		)
-		return false
-	}
-	if m.GetTo() != t.pubAddr {
+	if m.GetTo() != t.publicAddr.String() {
 		t.log.Debugw("invalid handshake",
 			"to", m.GetTo(),
+			"want", t.publicAddr.String(),
 		)
 		return false
 	}

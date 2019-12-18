@@ -40,10 +40,10 @@ const (
 
 // TCP establishes verified incoming and outgoing TCP connections to other peers.
 type TCP struct {
-	local    *peer.Local
-	pubAddr  string
-	listener *net.TCPListener
-	log      *zap.SugaredLogger
+	local      *peer.Local
+	publicAddr net.Addr
+	listener   *net.TCPListener
+	log        *zap.SugaredLogger
 
 	addAcceptMatcher chan *acceptMatcher
 	acceptReceived   chan accept
@@ -81,27 +81,32 @@ func Listen(local *peer.Local, log *zap.SugaredLogger) (*TCP, error) {
 		closing:          make(chan struct{}),
 	}
 
-	gossipAddr := local.Services().Get(service.GossipKey)
-	if gossipAddr == nil {
+	t.publicAddr = local.Services().Get(service.GossipKey)
+	if t.publicAddr == nil {
 		return nil, ErrNoGossip
 	}
-
-	t.pubAddr = gossipAddr.String()
-
-	host, port, _ := net.SplitHostPort(gossipAddr.String())
-	if host != "127.0.0.1" {
-		host = "0.0.0.0"
-	}
-
-	tcpAddr, err := net.ResolveTCPAddr(gossipAddr.Network(), host+":"+port)
+	tcpAddr, err := net.ResolveTCPAddr(t.publicAddr.Network(), t.publicAddr.String())
 	if err != nil {
 		return nil, err
 	}
-	listener, err := net.ListenTCP(gossipAddr.Network(), tcpAddr)
+	// if the ip is an external ip, set it to zero
+	if tcpAddr.IP.IsGlobalUnicast() {
+		if len(tcpAddr.IP) == net.IPv4len {
+			tcpAddr.IP = net.IPv4zero
+		} else if len(tcpAddr.IP) == net.IPv6len {
+			tcpAddr.IP = net.IPv6zero
+		}
+	}
+
+	listener, err := net.ListenTCP(t.publicAddr.Network(), tcpAddr)
 	if err != nil {
 		return nil, err
 	}
 	t.listener = listener
+	t.log.Debugw("listening started",
+		"network", listener.Addr().Network(),
+		"address", listener.Addr().String(),
+	)
 
 	t.wg.Add(2)
 	go t.run()
@@ -303,10 +308,7 @@ func (t *TCP) listenLoop() {
 }
 
 func (t *TCP) doHandshake(key peer.PublicKey, remoteAddr string, conn net.Conn) error {
-	_, connPort, _ := net.SplitHostPort(conn.LocalAddr().String())
-	from, _, _ := net.SplitHostPort(t.pubAddr)
-
-	reqData, err := newHandshakeRequest(from+":"+connPort, remoteAddr)
+	reqData, err := newHandshakeRequest(remoteAddr)
 	if err != nil {
 		return err
 	}
@@ -377,7 +379,7 @@ func (t *TCP) readHandshakeRequest(conn net.Conn) (peer.PublicKey, []byte, error
 		return nil, nil, err
 	}
 
-	if !t.validateHandshakeRequest(pkt.GetData(), conn.RemoteAddr().String()) {
+	if !t.validateHandshakeRequest(pkt.GetData()) {
 		return nil, nil, ErrInvalidHandshake
 	}
 

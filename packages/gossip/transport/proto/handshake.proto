@@ -7,12 +7,10 @@ package proto;
 message HandshakeRequest {
   // protocol version number
   uint32 version = 1;
-  // string form of the sender address (e.g. "192.0.2.1:25", "[2001:db8::1]:80")
-  string from = 2;
   // string form of the recipient address
-  string to = 3;
+  string to = 2;
   // unix time
-  int64 timestamp = 4;
+  int64 timestamp = 3;
 }
 
 message HandshakeResponse {

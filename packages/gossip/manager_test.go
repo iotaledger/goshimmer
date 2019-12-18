@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"log"
+	"net"
 	"sync"
 	"testing"
 	"time"
@@ -56,12 +57,26 @@ func getTestTransaction([]byte) ([]byte, error) {
 	return testTxData, nil
 }
 
+func getTCPAddress(t require.TestingT) string {
+	laddr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	require.NoError(t, err)
+	lis, err := net.ListenTCP("tcp", laddr)
+	require.NoError(t, err)
+
+	addr := lis.Addr().String()
+	require.NoError(t, lis.Close())
+
+	return addr
+}
+
 func newTest(t require.TestingT, name string) (*Manager, func(), *peer.Peer) {
 	l := logger.Named(name)
 	db := peer.NewMemoryDB(l.Named("db"))
 	local, err := peer.NewLocal("peering", name, db)
 	require.NoError(t, err)
-	require.NoError(t, local.UpdateService(service.GossipKey, "tcp", "localhost:0"))
+
+	// enable TCP gossipping
+	require.NoError(t, local.UpdateService(service.GossipKey, "tcp", getTCPAddress(t)))
 
 	trans, err := transport.Listen(local, l)
 	require.NoError(t, err)
