@@ -56,7 +56,7 @@ func (t *TCP) validateHandshakeRequest(reqData []byte, fromAddr string) bool {
 		)
 		return false
 	}
-	if m.GetTo() != t.pubIP {
+	if m.GetTo() != t.pubAddr {
 		t.log.Debugw("invalid handshake",
 			"to", m.GetTo(),
 		)

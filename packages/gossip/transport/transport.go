@@ -41,7 +41,7 @@ const (
 // TCP establishes verified incoming and outgoing TCP connections to other peers.
 type TCP struct {
 	local    *peer.Local
-	pubIP    string
+	pubAddr  string
 	listener *net.TCPListener
 	log      *zap.SugaredLogger
 
@@ -86,7 +86,7 @@ func Listen(local *peer.Local, log *zap.SugaredLogger) (*TCP, error) {
 		return nil, ErrNoGossip
 	}
 
-	t.pubIP = gossipAddr.String()
+	t.pubAddr = gossipAddr.String()
 
 	host, port, _ := net.SplitHostPort(gossipAddr.String())
 	if host != "127.0.0.1" {
@@ -304,7 +304,7 @@ func (t *TCP) listenLoop() {
 
 func (t *TCP) doHandshake(key peer.PublicKey, remoteAddr string, conn net.Conn) error {
 	_, connPort, _ := net.SplitHostPort(conn.LocalAddr().String())
-	from, _, _ := net.SplitHostPort(t.pubIP)
+	from, _, _ := net.SplitHostPort(t.pubAddr)
 
 	reqData, err := newHandshakeRequest(from+":"+connPort, remoteAddr)
 	if err != nil {
