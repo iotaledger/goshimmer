@@ -1,6 +1,8 @@
 package gossip
 
 import (
+	"errors"
+
 	"github.com/golang/protobuf/proto"
 	zL "github.com/iotaledger/autopeering-sim/logger"
 	"github.com/iotaledger/autopeering-sim/peer/service"
@@ -44,9 +46,10 @@ var (
 )
 
 func getTransaction(h []byte) ([]byte, error) {
+	log.Info("Retrieving tx:", string(h))
 	tx, err := tangle.GetTransaction(string(h))
-	if err != nil {
-		return []byte{}, err
+	if err != nil || tx == nil {
+		return []byte{}, errors.New("Not found")
 	}
 	pTx := &pb.TransactionRequest{
 		Hash: tx.GetBytes(),
@@ -92,7 +95,7 @@ func configureEvents() {
 	}))
 
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
-		log.Info("Tx solidified:", tx.MetaTransaction.GetBytes())
+		log.Info("Tx solidified:", tx.MetaTransaction.GetHash())
 		t := &pb.Transaction{
 			Body: tx.MetaTransaction.GetBytes(),
 		}
@@ -104,7 +107,9 @@ func configureEvents() {
 	}))
 
 	gossip.Events.RequestTransaction.Attach(events.NewClosure(func(ev *gossip.RequestTransactionEvent) {
-		log.Info("Tx Requested:", ev.Hash)
-		go mgr.RequestTransaction(ev.Hash)
+		pTx := &pb.TransactionRequest{}
+		proto.Unmarshal(ev.Hash, pTx)
+		log.Info("Tx Requested:", string(pTx.Hash))
+		go mgr.RequestTransaction(pTx.Hash)
 	}))
 }
