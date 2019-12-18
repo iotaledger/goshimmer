@@ -31,16 +31,26 @@ func TestSolidifier(t *testing.T) {
 	transaction1 := value_transaction.New()
 	transaction1.SetNonce(trinary.Trytes("99999999999999999999999999A"))
 	transaction2 := value_transaction.New()
+	transaction2.SetValue(2)
 	transaction2.SetBranchTransactionHash(transaction1.GetHash())
 	transaction3 := value_transaction.New()
+	transaction3.SetValue(3)
 	transaction3.SetBranchTransactionHash(transaction2.GetHash())
 	transaction4 := value_transaction.New()
+	transaction4.SetValue(4)
 	transaction4.SetBranchTransactionHash(transaction3.GetHash())
 
 	// setup event handlers
 	var wg sync.WaitGroup
 	Events.TransactionSolid.Attach(events.NewClosure(func(transaction *value_transaction.ValueTransaction) {
+		t.Log("Tx solidified", transaction.GetValue())
 		wg.Done()
+	}))
+
+	gossip.Events.RequestTransaction.Attach(events.NewClosure(func(ev *gossip.RequestTransactionEvent) {
+		tx := &pb.Transaction{Body: transaction3.MetaTransaction.GetBytes()}
+		b, _ := proto.Marshal(tx)
+		gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b})
 	}))
 
 	// issue transactions
@@ -53,9 +63,9 @@ func TestSolidifier(t *testing.T) {
 	b, _ = proto.Marshal(tx)
 	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b})
 
-	tx = &pb.Transaction{Body: transaction3.MetaTransaction.GetBytes()}
-	b, _ = proto.Marshal(tx)
-	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b})
+	// tx = &pb.Transaction{Body: transaction3.MetaTransaction.GetBytes()}
+	// b, _ = proto.Marshal(tx)
+	// gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b})
 
 	tx = &pb.Transaction{Body: transaction4.MetaTransaction.GetBytes()}
 	b, _ = proto.Marshal(tx)
@@ -66,4 +76,5 @@ func TestSolidifier(t *testing.T) {
 
 	// shutdown test node
 	node.Shutdown()
+
 }

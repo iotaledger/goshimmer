@@ -5,6 +5,7 @@ import (
 	zL "github.com/iotaledger/autopeering-sim/logger"
 	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/autopeering-sim/selection"
+	"github.com/iotaledger/goshimmer/packages/gossip"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/transport"
@@ -43,10 +44,14 @@ var (
 )
 
 func getTransaction(h []byte) ([]byte, error) {
-	tx := &pb.TransactionRequest{
-		Hash: []byte("testTx"),
+	tx, err := tangle.GetTransaction(string(h))
+	if err != nil {
+		return []byte{}, err
 	}
-	b, _ := proto.Marshal(tx)
+	pTx := &pb.TransactionRequest{
+		Hash: tx.GetBytes(),
+	}
+	b, _ := proto.Marshal(pTx)
 	return b, nil
 }
 
@@ -87,7 +92,7 @@ func configureEvents() {
 	}))
 
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
-		log.Info("Tx solidified")
+		log.Info("Tx solidified:", tx.MetaTransaction.GetBytes())
 		t := &pb.Transaction{
 			Body: tx.MetaTransaction.GetBytes(),
 		}
@@ -96,5 +101,10 @@ func configureEvents() {
 			return
 		}
 		go mgr.SendTransaction(b)
+	}))
+
+	gossip.Events.RequestTransaction.Attach(events.NewClosure(func(ev *gossip.RequestTransactionEvent) {
+		log.Info("Tx Requested:", ev.Hash)
+		go mgr.RequestTransaction(ev.Hash)
 	}))
 }

@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"runtime"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/errors"
@@ -20,7 +21,12 @@ import (
 
 // region plugin module setup //////////////////////////////////////////////////////////////////////////////////////////
 
-var workerPool *workerpool.WorkerPool
+const UnsolidInterval = 30
+
+var (
+	workerPool *workerpool.WorkerPool
+	unsolidTxs *UnsolidTxs
+)
 
 func configureSolidifier(plugin *node.Plugin) {
 	workerPool = workerpool.New(func(task workerpool.Task) {
@@ -28,6 +34,8 @@ func configureSolidifier(plugin *node.Plugin) {
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(WORKER_COUNT), workerpool.QueueSize(10000))
+
+	unsolidTxs = NewUnsolidTxs()
 
 	gossip.Events.TransactionReceived.Attach(events.NewClosure(func(ev *gossip.TransactionReceivedEvent) {
 		//log.Info("New Transaction", ev.Body)
@@ -77,10 +85,16 @@ func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool
 
 			return
 		} else if branchTransaction == nil {
+			//log.Info("Missing Branch (nil)", transaction.GetValue(), "Missing ", transaction.GetBranchTransactionHash())
+
+			// add BranchTransactionHash to the unsolid txs and send a transaction request
+			unsolidTxs.Add(transaction.GetBranchTransactionHash())
+			requestTransaction(transaction.GetBranchTransactionHash())
+
 			return
 		} else if branchTransactionMetadata, branchErr := GetTransactionMetadata(branchTransaction.GetHash(), transactionmetadata.New); branchErr != nil {
 			err = branchErr
-
+			//log.Info("Missing Branch", transaction.GetValue())
 			return
 		} else if !branchTransactionMetadata.GetSolid() {
 			return
@@ -94,10 +108,16 @@ func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool
 
 			return
 		} else if trunkTransaction == nil {
+			//log.Info("Missing Trunk (nil)", transaction.GetValue())
+
+			// add TrunkTransactionHash to the unsolid txs and send a transaction request
+			unsolidTxs.Add(transaction.GetTrunkTransactionHash())
+			requestTransaction(transaction.GetTrunkTransactionHash())
+
 			return
 		} else if trunkTransactionMetadata, trunkErr := GetTransactionMetadata(trunkTransaction.GetHash(), transactionmetadata.New); trunkErr != nil {
 			err = trunkErr
-
+			//log.Info("Missing Trunk", transaction.GetValue())
 			return
 		} else if !trunkTransactionMetadata.GetSolid() {
 			return
@@ -119,11 +139,13 @@ func IsSolid(transaction *value_transaction.ValueTransaction) (bool, errors.Iden
 	if isSolid, err := checkSolidity(transaction); err != nil {
 		return false, err
 	} else if isSolid {
+		//log.Info("Solid ", transaction.GetValue())
 		if err := propagateSolidity(transaction.GetHash()); err != nil {
-			return false, err
+			return false, err //should we return true?
 		}
+		return true, nil
 	}
-
+	//log.Info("Not solid ", transaction.GetValue())
 	return false, nil
 }
 
@@ -158,6 +180,7 @@ func processMetaTransaction(plugin *node.Plugin, metaTransaction *meta_transacti
 	}); err != nil {
 		log.Errorf("Unable to load transaction %s: %s", metaTransaction.GetHash(), err.Error())
 	} else if newTransaction {
+		updateUnsolidTxs(tx)
 		processTransaction(plugin, tx)
 	}
 }
@@ -184,10 +207,27 @@ func processTransaction(plugin *node.Plugin, transaction *value_transaction.Valu
 	}
 
 	// update the solidity flags of this transaction and its approvers
-	if _, err := IsSolid(transaction); err != nil {
+	_, err := IsSolid(transaction)
+	if err != nil {
 		log.Errorf("Unable to check solidity: %s", err.Error())
 		return
 	}
+}
+
+func updateUnsolidTxs(tx *value_transaction.ValueTransaction) {
+	unsolidTxs.Remove(tx.GetHash())
+	targetTime := time.Now().Add(time.Duration(-UnsolidInterval) * time.Second)
+	txs := unsolidTxs.Update(targetTime)
+	for _, tx := range txs {
+		requestTransaction(tx)
+	}
+}
+
+func requestTransaction(tx string) {
+	log.Info("Requesting tx: ", tx)
+	req := &pb.TransactionRequest{Hash: []byte(tx)}
+	b, _ := proto.Marshal(req)
+	gossip.Events.RequestTransaction.Trigger(&gossip.RequestTransactionEvent{Hash: b})
 }
 
 var WORKER_COUNT = runtime.NumCPU()
