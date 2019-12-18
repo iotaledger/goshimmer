@@ -91,9 +91,9 @@ func Listen(local *peer.Local, log *zap.SugaredLogger) (*TCP, error) {
 	}
 	// if the ip is an external ip, set it to zero
 	if tcpAddr.IP.IsGlobalUnicast() {
-		if len(tcpAddr.IP) == net.IPv4len {
+		if tcpAddr.IP.To4() != nil {
 			tcpAddr.IP = net.IPv4zero
-		} else if len(tcpAddr.IP) == net.IPv6len {
+		} else {
 			tcpAddr.IP = net.IPv6zero
 		}
 	}
