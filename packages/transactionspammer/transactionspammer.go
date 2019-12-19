@@ -14,79 +14,74 @@ import (
 )
 
 var spamming = false
+var spammingMutex sync.Mutex
 
-var startMutex sync.Mutex
-
-var shutdownSignal chan int
+var shutdownSignal chan struct{}
+var done chan struct{}
 
 var sentCounter = uint(0)
 
+func init() {
+	shutdownSignal = make(chan struct{})
+	done = make(chan struct{})
+}
+
 func Start(tps uint) {
-	startMutex.Lock()
+	spammingMutex.Lock()
+	spamming = true
+	spammingMutex.Unlock()
 
-	if !spamming {
-		shutdownSignal = make(chan int, 1)
+	daemon.BackgroundWorker("Transaction Spammer", func() {
+		start := time.Now()
+		totalSentCounter := int64(0)
 
-		func(shutdownSignal chan int) {
-			daemon.BackgroundWorker("Transaction Spammer", func() {
-				for {
-					start := time.Now()
-					totalSentCounter := int64(0)
+		for {
+			select {
+			case <-daemon.ShutdownSignal:
+				return
 
-					for {
-						select {
-						case <-daemon.ShutdownSignal:
-							return
+			case <-shutdownSignal:
+				done <- struct{}{}
+				return
 
-						case <-shutdownSignal:
-							return
+			default:
+				sentCounter++
+				totalSentCounter++
 
-						default:
-							sentCounter++
-							totalSentCounter++
+				tx := value_transaction.New()
+				tx.SetHead(true)
+				tx.SetTail(true)
+				tx.SetValue(totalSentCounter)
+				tx.SetBranchTransactionHash(tipselection.GetRandomTip())
+				tx.SetTrunkTransactionHash(tipselection.GetRandomTip())
 
-							tx := value_transaction.New()
-							tx.SetHead(true)
-							tx.SetTail(true)
-							tx.SetValue(totalSentCounter)
-							tx.SetBranchTransactionHash(tipselection.GetRandomTip())
-							tx.SetTrunkTransactionHash(tipselection.GetRandomTip())
+				mtx := &pb.Transaction{Body: tx.MetaTransaction.GetBytes()}
+				b, _ := proto.Marshal(mtx)
+				gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b, Peer: &local.INSTANCE.Peer})
 
-							mtx := &pb.Transaction{Body: tx.MetaTransaction.GetBytes()}
-							b, _ := proto.Marshal(mtx)
-							gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b, Peer: &local.INSTANCE.Peer})
+				if sentCounter >= tps {
+					duration := time.Since(start)
 
-							if sentCounter >= tps {
-								duration := time.Since(start)
-
-								if duration < time.Second {
-									time.Sleep(time.Second - duration)
-								}
-
-								start = time.Now()
-
-								sentCounter = 0
-							}
-						}
+					if duration < time.Second {
+						time.Sleep(time.Second - duration)
 					}
+
+					start = time.Now()
+
+					sentCounter = 0
 				}
-			})
-		}(shutdownSignal)
-
-		spamming = true
-	}
-
-	startMutex.Unlock()
+			}
+		}
+	})
 }
 
 func Stop() {
-	startMutex.Lock()
-
+	spammingMutex.Lock()
 	if spamming {
-		close(shutdownSignal)
-
+		shutdownSignal <- struct{}{}
+		// wait for spammer to be done
+		<-done
 		spamming = false
 	}
-
-	startMutex.Unlock()
+	spammingMutex.Unlock()
 }
