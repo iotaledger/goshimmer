@@ -27,9 +27,13 @@ func configure(plugin *node.Plugin) {
 
 	webapi.AddEndpoint("ws", upgrader)
 	webapi.AddEndpoint("loghistory", func(c echo.Context) error {
+		logMutex.RLock()
+		defer logMutex.RUnlock()
 		return c.JSON(http.StatusOK, logHistory)
 	})
 	webapi.AddEndpoint("tpsqueue", func(c echo.Context) error {
+		tpsQueueMutex.RLock()
+		defer tpsQueueMutex.RUnlock()
 		return c.JSON(http.StatusOK, tpsQueue)
 	})
 
@@ -74,10 +78,12 @@ func run(plugin *node.Plugin) {
 			case <-daemon.ShutdownSignal:
 				return
 			case <-time.After(1 * time.Second):
+				wsMutex.Lock()
 				ws.send(resp{
 					"info": gatherInfo(),
 					"txs":  logTransactions(),
 				})
+				wsMutex.Unlock()
 			}
 		}
 	})

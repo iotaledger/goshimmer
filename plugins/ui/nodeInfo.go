@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -14,6 +15,7 @@ var receivedTpsCounter uint64
 var solidTpsCounter uint64
 
 var tpsQueue []uint32
+var tpsQueueMutex sync.RWMutex
 
 const maxQueueSize int = 3600
 
@@ -31,10 +33,12 @@ type nodeInfo struct {
 func gatherInfo() nodeInfo {
 
 	// update tps queue
-	tpsQueue = append(tpsQueue, uint32(receivedTpsCounter))
+	tpsQueueMutex.Lock()
+	tpsQueue = append(tpsQueue, uint32(atomic.LoadUint64(&receivedTpsCounter)))
 	if len(tpsQueue) > maxQueueSize {
 		tpsQueue = tpsQueue[1:]
 	}
+	tpsQueueMutex.Unlock()
 
 	// update neighbors
 	chosenNeighbors := []string{}

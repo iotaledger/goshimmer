@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/labstack/echo"
 	"golang.org/x/net/websocket"
@@ -13,6 +14,7 @@ type socket struct {
 }
 
 var ws socket
+var wsMutex sync.Mutex
 
 func (sock socket) send(msg interface{}) {
 	payload, err := json.Marshal(msg)
@@ -24,7 +26,9 @@ func (sock socket) send(msg interface{}) {
 func upgrader(c echo.Context) error {
 
 	websocket.Handler(func(conn *websocket.Conn) {
+		wsMutex.Lock()
 		ws.conn = conn
+		wsMutex.Unlock()
 		defer conn.Close()
 		for {
 			msg := ""

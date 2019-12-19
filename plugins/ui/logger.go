@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 )
 
-var logMutex = sync.Mutex{}
+var logMutex = sync.RWMutex{}
 var logHistory = make([]*statusMessage, 0)
 
 type statusMessage struct {
