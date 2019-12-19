@@ -16,13 +16,11 @@ var lock sync.Mutex
 
 func Configure(plugin *node.Plugin) {
 	server.Events.AddNode.Attach(events.NewClosure(func(nodeId string) {
-		if _, exists := nodes[nodeId]; !exists {
-			lock.Lock()
-			defer lock.Unlock()
+		lock.Lock()
+		defer lock.Unlock()
 
-			if _, exists := nodes[nodeId]; !exists {
-				nodes[nodeId] = false
-			}
+		if _, exists := nodes[nodeId]; !exists {
+			nodes[nodeId] = false
 		}
 	}))
 
