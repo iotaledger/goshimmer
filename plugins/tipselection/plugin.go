@@ -11,11 +11,9 @@ var PLUGIN = node.NewPlugin("Tipselection", node.Enabled, configure, run)
 
 func configure(node *node.Plugin) {
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(transaction *value_transaction.ValueTransaction) {
-		go func() {
-			tips.Delete(transaction.GetBranchTransactionHash())
-			tips.Delete(transaction.GetTrunkTransactionHash())
-			tips.Set(transaction.GetHash(), transaction.GetHash())
-		}()
+		tips.Delete(transaction.GetBranchTransactionHash())
+		tips.Delete(transaction.GetTrunkTransactionHash())
+		tips.Set(transaction.GetHash(), transaction.GetHash())
 	}))
 }
 
