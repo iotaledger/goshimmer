@@ -1,6 +1,7 @@
 package meta_transaction
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/iota.go/consts"
@@ -558,6 +559,16 @@ func (this *MetaTransaction) DoProofOfWork(mwm int) error {
 		return errors.Wrap(err, "PoW failed")
 	}
 	this.SetNonce(nonce)
+
+	return nil
+}
+
+func (this *MetaTransaction) Validate() error {
+	// check that the weight magnitude is valid
+	weightMagnitude := this.GetWeightMagnitude()
+	if weightMagnitude < MIN_WEIGHT_MAGNITUDE {
+		return fmt.Errorf("insufficient weight magnitude: got=%d, want=%d", weightMagnitude, MIN_WEIGHT_MAGNITUDE)
+	}
 
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
+	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
@@ -53,6 +54,10 @@ func SendDataHandler(c echo.Context) error {
 	tx.SetSignatureMessageFragment(trytes)
 	tx.SetBranchTransactionHash(tipselection.GetRandomTip())
 	tx.SetTrunkTransactionHash(tipselection.GetRandomTip())
+	tx.SetTimestamp(uint(time.Now().Unix()))
+	if err := tx.DoProofOfWork(meta_transaction.MIN_WEIGHT_MAGNITUDE); err != nil {
+		log.Warning("PoW failed", err)
+	}
 
 	transactionHash := tx.GetHash()
 

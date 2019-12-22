@@ -8,11 +8,12 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
+	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/parameter"
-	"github.com/iotaledger/iota.go/trinary"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {
@@ -29,16 +30,23 @@ func TestSolidifier(t *testing.T) {
 
 	// create transactions and chain them together
 	transaction1 := value_transaction.New()
-	transaction1.SetNonce(trinary.Trytes("99999999999999999999999999A"))
+	transaction1.SetValue(1)
+	require.NoError(t, transaction1.DoProofOfWork(meta_transaction.MIN_WEIGHT_MAGNITUDE))
+
 	transaction2 := value_transaction.New()
 	transaction2.SetValue(2)
 	transaction2.SetBranchTransactionHash(transaction1.GetHash())
+	require.NoError(t, transaction2.DoProofOfWork(meta_transaction.MIN_WEIGHT_MAGNITUDE))
+
 	transaction3 := value_transaction.New()
 	transaction3.SetValue(3)
 	transaction3.SetBranchTransactionHash(transaction2.GetHash())
+	require.NoError(t, transaction3.DoProofOfWork(meta_transaction.MIN_WEIGHT_MAGNITUDE))
+
 	transaction4 := value_transaction.New()
 	transaction4.SetValue(4)
 	transaction4.SetBranchTransactionHash(transaction3.GetHash())
+	require.NoError(t, transaction4.DoProofOfWork(meta_transaction.MIN_WEIGHT_MAGNITUDE))
 
 	// setup event handlers
 	var wg sync.WaitGroup
