@@ -151,13 +151,13 @@ func (m *Manager) send(msg []byte, to ...peer.ID) {
 	}
 }
 
-func (m *Manager) addNeighbor(peer *peer.Peer, handshake func(*peer.Peer) (*transport.Connection, error)) error {
+func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (*transport.Connection, error)) error {
 	var (
 		err  error
 		conn *transport.Connection
 	)
 	for i := 0; i < maxConnectionAttempts; i++ {
-		conn, err = handshake(peer)
+		conn, err = connectorFunc(peer)
 		if err == nil {
 			break
 		}
@@ -210,9 +210,10 @@ func (m *Manager) readLoop(nbr *neighbor) {
 			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
 				m.log.Warnw("read error", "err", err)
 			}
+
+			m.log.Debug("connection closed", "id", nbr.peer.ID(), "addr", nbr.conn.RemoteAddr().String())
 			_ = nbr.conn.Close() // just make sure that the connection is closed as fast as possible
 			_ = m.DropNeighbor(nbr.peer.ID())
-			m.log.Debug("reading stopped")
 			return
 		}
 

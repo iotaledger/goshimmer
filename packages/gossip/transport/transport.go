@@ -141,15 +141,18 @@ func (t *TCP) DialPeer(p *peer.Peer) (*Connection, error) {
 
 	conn, err := net.DialTimeout(gossipAddr.Network(), gossipAddr.String(), acceptTimeout)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "dial peer failed")
 	}
 
 	err = t.doHandshake(p.PublicKey(), gossipAddr.String(), conn)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "outgoing handshake failed")
 	}
 
-	t.log.Debugw("connected", "id", p.ID(), "addr", conn.RemoteAddr(), "direction", "out")
+	t.log.Debugw("outgoing connection established",
+		"id", p.ID(),
+		"addr", conn.RemoteAddr(),
+	)
 	return newConnection(conn, p), nil
 }
 
@@ -159,13 +162,17 @@ func (t *TCP) AcceptPeer(p *peer.Peer) (*Connection, error) {
 	if p.Services().Get(service.GossipKey) == nil {
 		return nil, ErrNoGossip
 	}
+
 	// wait for the connection
 	connected := <-t.acceptPeer(p)
 	if connected.err != nil {
-		return nil, connected.err
+		return nil, errors.Wrap(connected.err, "accept peer failed")
 	}
 
-	t.log.Debugw("connected", "id", p.ID(), "addr", connected.c.RemoteAddr(), "direction", "in")
+	t.log.Debugw("incoming connection established",
+		"id", p.ID(),
+		"addr", connected.c.RemoteAddr(),
+	)
 	return connected.c, nil
 }
 
@@ -262,8 +269,7 @@ func (t *TCP) matchAccept(m *acceptMatcher, req []byte, conn net.Conn) {
 	defer t.wg.Done()
 
 	if err := t.writeHandshakeResponse(req, conn); err != nil {
-		t.log.Warnw("failed handshake", "addr", conn.RemoteAddr(), "err", err)
-		m.connected <- connect{nil, err}
+		m.connected <- connect{nil, errors.Wrap(err, "incoming handshake failed")}
 		t.closeConnection(conn)
 		return
 	}
@@ -320,7 +326,7 @@ func (t *TCP) doHandshake(key peer.PublicKey, remoteAddr string, conn net.Conn) 
 	}
 	b, err := proto.Marshal(pkt)
 	if err != nil {
-		return errors.Wrap(err, ErrInvalidHandshake.Error())
+		return err
 	}
 	if l := len(b); l > maxHandshakePacketSize {
 		return fmt.Errorf("handshake size too large: %d, max %d", l, maxHandshakePacketSize)
@@ -345,7 +351,7 @@ func (t *TCP) doHandshake(key peer.PublicKey, remoteAddr string, conn net.Conn) 
 
 	pkt = new(pb.Packet)
 	if err := proto.Unmarshal(b[:n], pkt); err != nil {
-		return errors.Wrap(err, ErrInvalidHandshake.Error())
+		return err
 	}
 
 	signer, err := peer.RecoverKeyFromSignedData(pkt)
