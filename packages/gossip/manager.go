@@ -211,7 +211,10 @@ func (m *Manager) readLoop(nbr *neighbor) {
 				m.log.Warnw("read error", "err", err)
 			}
 
-			m.log.Debug("connection closed", "id", nbr.peer.ID(), "addr", nbr.conn.RemoteAddr().String())
+			m.log.Debugw("connection closed",
+				"id", nbr.peer.ID(),
+				"addr", nbr.conn.RemoteAddr().String(),
+			)
 			_ = nbr.conn.Close() // just make sure that the connection is closed as fast as possible
 			_ = m.DropNeighbor(nbr.peer.ID())
 			return
