@@ -157,6 +157,11 @@ func (m *manager) doReverify(done chan<- struct{}) {
 		if err == nil {
 			break
 		} else {
+			m.log.Debugw("ping failed",
+				"id", p.ID(),
+				"addr", p.Address(),
+				"err", err,
+			)
 			time.Sleep(1 * time.Second)
 		}
 	}
@@ -169,7 +174,6 @@ func (m *manager) doReverify(done chan<- struct{}) {
 		m.active, _ = deletePeerByID(m.active, p.ID())
 		m.log.Debugw("remove dead",
 			"peer", p,
-			"err", err,
 		)
 		Events.PeerDeleted.Trigger(&DeletedEvent{Peer: unwrapPeer(p)})
 
