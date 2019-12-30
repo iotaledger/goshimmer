@@ -9,7 +9,7 @@
   },
   "analysis": {
     "serverPort": 0,
-    "serverAddress": "159.69.158.51:188"
+    "serverAddress": "ressims.iota.cafe:188"
   },
   "gossip": {
     "port": 14666
@@ -21,9 +21,8 @@
     "address": "0.0.0.0",
     "port": 14626,
     "entryNodes": [
-      "7f7a876a4236091257e650da8dcf195fbe3cb625@159.69.158.51:14626"
+      "V8LYtWWcPYYDTTXLeIEFjJEuWlsjDiI0+Pq/Cx9ai6g=@116.202.49.178:14626"
     ],
-    "acceptRequests": true,
-    "sendRequests": true
+    "selection": true
   }
 }
