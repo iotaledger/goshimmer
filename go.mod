@@ -10,7 +10,7 @@ require (
 	github.com/golang/protobuf v1.3.2
 	github.com/google/open-location-code/go v0.0.0-20190903173953-119bc96a3a51
 	github.com/gorilla/websocket v1.4.1
-	github.com/iotaledger/autopeering-sim v0.0.0-20191206234543-6bc473d306a9
+	github.com/iotaledger/autopeering-sim v0.0.0-20191230110650-35e88c0f9fe6
 	github.com/iotaledger/hive.go v0.0.0-20191229233341-c3732738ee20
 	github.com/iotaledger/iota.go v1.0.0-beta.10
 	github.com/labstack/echo v3.3.10+incompatible
@@ -23,6 +23,7 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/rivo/tview v0.0.0-20191121195645-2d957c4be01d
 	github.com/spf13/afero v1.2.2 // indirect
+	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.1 // indirect
@@ -33,7 +34,8 @@ require (
 	golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f // indirect
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
-	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449 // indirect
-	golang.org/x/tools v0.0.0-20191217033636-bbbf87ae2631 // indirect
+	golang.org/x/sys v0.0.0-20191228213918-04cbcbbfeed8 // indirect
+	golang.org/x/tools v0.0.0-20191227053925-7b8e75db28f4 // indirect
+	gopkg.in/ini.v1 v1.51.1 // indirect
 	gopkg.in/yaml.v2 v2.2.7 // indirect
 )
