@@ -82,12 +82,12 @@ func configureAP() {
 		log.Fatalf("ListenUDP: %v", err)
 	}
 
-	masterPeers := []*peer.Peer{}
-	master, err := parseEntryNodes()
+	var masterPeers []*peer.Peer
+	peers, err := parseEntryNodes()
 	if err != nil {
 		log.Fatalf("Ignoring entry nodes: %v\n", err)
-	} else if master != nil {
-		masterPeers = master
+	} else if peers != nil {
+		masterPeers = peers
 	}
 
 	// use the UDP connection for transport

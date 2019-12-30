@@ -11,7 +11,7 @@ import (
 )
 
 func parseEntryNodes() (result []*peer.Peer, err error) {
-	for _, entryNodeDefinition := range strings.Fields(parameter.NodeConfig.GetString(CFG_ENTRY_NODES)) {
+	for _, entryNodeDefinition := range parameter.NodeConfig.GetStringSlice(CFG_ENTRY_NODES) {
 		if entryNodeDefinition == "" {
 			continue
 		}
