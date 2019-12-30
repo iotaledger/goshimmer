@@ -237,7 +237,7 @@ func (s *Server) write(toAddr string, pkt *pb.Packet) {
 	}
 
 	err = s.trans.WriteTo(b, toAddr)
-	s.log.Debugw("write packet", "addr", toAddr, "err", err)
+	s.log.Debugw("write packet", "addr", toAddr, "size", len(b), "err", err)
 }
 
 // encodes a message as a data packet that can be written.
