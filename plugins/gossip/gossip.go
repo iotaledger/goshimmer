@@ -98,7 +98,7 @@ func configureEvents() {
 	}))
 
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
-		log.Info("Tx solidified:", tx.MetaTransaction.GetHash())
+		log.Info("gossip solid tx", tx.MetaTransaction.GetHash())
 		t := &pb.Transaction{
 			Body: tx.MetaTransaction.GetBytes(),
 		}

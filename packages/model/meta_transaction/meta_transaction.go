@@ -1,10 +1,14 @@
 package meta_transaction
 
 import (
+	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/curl"
+	"github.com/iotaledger/iota.go/consts"
+	"github.com/iotaledger/iota.go/curl"
+	"github.com/iotaledger/iota.go/pow"
 	"github.com/iotaledger/iota.go/trinary"
+	"github.com/pkg/errors"
 )
 
 type MetaTransaction struct {
@@ -19,6 +23,7 @@ type MetaTransaction struct {
 	transactionType       *trinary.Trytes
 	data                  trinary.Trits
 	modified              bool
+	nonce                 *trinary.Trytes
 
 	hasherMutex                sync.RWMutex
 	hashMutex                  sync.RWMutex
@@ -31,6 +36,7 @@ type MetaTransaction struct {
 	dataMutex                  sync.RWMutex
 	bytesMutex                 sync.RWMutex
 	modifiedMutex              sync.RWMutex
+	nonceMutex                 sync.RWMutex
 
 	trits trinary.Trits
 	bytes []byte
@@ -85,7 +91,7 @@ func (this *MetaTransaction) GetHash() (result trinary.Trytes) {
 		defer this.hashMutex.Unlock()
 		if this.hash == nil {
 			this.hasherMutex.Lock()
-			this.parseHashRelatedDetails()
+			this.computeHashDetails()
 			this.hasherMutex.Unlock()
 		}
 	} else {
@@ -106,7 +112,7 @@ func (this *MetaTransaction) GetWeightMagnitude() (result int) {
 		defer this.hashMutex.Unlock()
 		if this.hash == nil {
 			this.hasherMutex.Lock()
-			this.parseHashRelatedDetails()
+			this.computeHashDetails()
 			this.hasherMutex.Unlock()
 		}
 	} else {
@@ -118,9 +124,26 @@ func (this *MetaTransaction) GetWeightMagnitude() (result int) {
 	return
 }
 
+// returns the trytes that are relevant for the transaction hash
+func (this *MetaTransaction) getHashEssence() trinary.Trits {
+	txTrits := this.trits
+
+	// very dirty hack, to get an iota.go compatible size
+	if len(txTrits) > consts.TransactionTrinarySize {
+		panic("transaction too large")
+	}
+	essenceTrits := make([]int8, consts.TransactionTrinarySize)
+	copy(essenceTrits[consts.TransactionTrinarySize-len(txTrits):], txTrits)
+
+	return essenceTrits
+}
+
 // hashes the transaction using curl (without locking - internal usage)
-func (this *MetaTransaction) parseHashRelatedDetails() {
-	hashTrits := curl.CURLP81.Hash(this.trits)
+func (this *MetaTransaction) computeHashDetails() {
+	hashTrits, err := curl.HashTrits(this.getHashEssence())
+	if err != nil {
+		panic(err)
+	}
 	hashTrytes := trinary.MustTritsToTrytes(hashTrits)
 
 	this.hash = &hashTrytes
@@ -466,6 +489,49 @@ func (this *MetaTransaction) GetBytes() (result []byte) {
 	return
 }
 
+func (this *MetaTransaction) GetNonce() trinary.Trytes {
+	this.nonceMutex.RLock()
+	if this.nonce == nil {
+		this.nonceMutex.RUnlock()
+		this.nonceMutex.Lock()
+		defer this.nonceMutex.Unlock()
+		if this.nonce == nil {
+			nonce := trinary.MustTritsToTrytes(this.trits[NONCE_OFFSET:NONCE_END])
+
+			this.nonce = &nonce
+		}
+	} else {
+		defer this.nonceMutex.RUnlock()
+	}
+
+	return *this.nonce
+}
+
+func (this *MetaTransaction) SetNonce(nonce trinary.Trytes) bool {
+	this.nonceMutex.RLock()
+	if this.nonce == nil || *this.nonce != nonce {
+		this.nonceMutex.RUnlock()
+		this.nonceMutex.Lock()
+		defer this.nonceMutex.Unlock()
+		if this.nonce == nil || *this.nonce != nonce {
+			this.nonce = &nonce
+
+			this.hasherMutex.RLock()
+			copy(this.trits[NONCE_OFFSET:NONCE_END], trinary.MustTrytesToTrits(nonce)[:NONCE_SIZE])
+			this.hasherMutex.RUnlock()
+
+			this.SetModified(true)
+			this.ReHash()
+
+			return true
+		}
+	} else {
+		this.nonceMutex.RUnlock()
+	}
+
+	return false
+}
+
 // returns true if the transaction contains unsaved changes (supports concurrency)
 func (this *MetaTransaction) GetModified() bool {
 	this.modifiedMutex.RLock()
@@ -480,4 +546,29 @@ func (this *MetaTransaction) SetModified(modified bool) {
 	defer this.modifiedMutex.Unlock()
 
 	this.modified = modified
+}
+
+func (this *MetaTransaction) DoProofOfWork(mwm int) error {
+	this.hasherMutex.Lock()
+	powTrytes := trinary.MustTritsToTrytes(this.getHashEssence())
+	_, pow := pow.GetFastestProofOfWorkImpl()
+	nonce, err := pow(powTrytes, mwm)
+	this.hasherMutex.Unlock()
+
+	if err != nil {
+		return errors.Wrap(err, "PoW failed")
+	}
+	this.SetNonce(nonce)
+
+	return nil
+}
+
+func (this *MetaTransaction) Validate() error {
+	// check that the weight magnitude is valid
+	weightMagnitude := this.GetWeightMagnitude()
+	if weightMagnitude < MIN_WEIGHT_MAGNITUDE {
+		return fmt.Errorf("insufficient weight magnitude: got=%d, want=%d", weightMagnitude, MIN_WEIGHT_MAGNITUDE)
+	}
+
+	return nil
 }

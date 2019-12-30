@@ -38,10 +38,18 @@ func configureSolidifier(plugin *node.Plugin) {
 	unsolidTxs = NewUnsolidTxs()
 
 	gossip.Events.TransactionReceived.Attach(events.NewClosure(func(ev *gossip.TransactionReceivedEvent) {
-		//log.Info("New Transaction", ev.Body)
 		pTx := &pb.Transaction{}
-		proto.Unmarshal(ev.Body, pTx)
+		if err := proto.Unmarshal(ev.Body, pTx); err != nil {
+			log.Warningf("invalid transaction: %s", err)
+			return
+		}
+
 		metaTx := meta_transaction.FromBytes(pTx.GetBody())
+		if err := metaTx.Validate(); err != nil {
+			log.Warningf("invalid transaction: %s", err)
+			return
+		}
+
 		workerPool.Submit(metaTx)
 	}))
 

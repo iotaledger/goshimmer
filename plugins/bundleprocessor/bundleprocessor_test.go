@@ -127,7 +127,6 @@ func TestProcessSolidBundleHead_Value(t *testing.T) {
 
 	testResults := events.NewClosure(func(bundle *bundle.Bundle, transactions []*value_transaction.ValueTransaction) {
 		assert.Equal(t, bundle.GetHash(), generatedBundle.GetTransactions()[0].GetHash(), "invalid bundle hash")
-		assert.Equal(t, bundle.GetBundleEssenceHash(), generatedBundle.GetEssenceHash(), "invalid bundle essence hash")
 		assert.Equal(t, bundle.IsValueBundle(), true, "invalid value bundle status")
 
 		wg.Done()
