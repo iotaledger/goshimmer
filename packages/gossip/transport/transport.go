@@ -31,8 +31,8 @@ var (
 
 // connection timeouts
 const (
-	acceptTimeout     = 500 * time.Millisecond
-	handshakeTimeout  = 100 * time.Millisecond
+	acceptTimeout     = 250 * time.Millisecond
+	handshakeTimeout  = 500 * time.Millisecond
 	connectionTimeout = acceptTimeout + handshakeTimeout
 
 	maxHandshakePacketSize = 256
