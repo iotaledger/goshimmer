@@ -25,11 +25,11 @@ func onAddPlugin(name string, status int) {
 
 func init() {
 
-	for name, status := range parameter.GetPlugins() {
+	for name, status := range node.GetPlugins() {
 		onAddPlugin(name, status)
 	}
 
-	parameter.Events.AddPlugin.Attach(events.NewClosure(onAddPlugin))
+	node.Events.AddPlugin.Attach(events.NewClosure(onAddPlugin))
 
 	flag.Usage = printUsage
 }

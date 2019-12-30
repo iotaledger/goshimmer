@@ -95,8 +95,8 @@ github.com/iotaledger/autopeering-sim v0.0.0-20191206234543-6bc473d306a9 h1:JHAe
 github.com/iotaledger/autopeering-sim v0.0.0-20191206234543-6bc473d306a9/go.mod h1:JiaqaxLkQVnd8e/sya9y/LlRW56WlRKRl2TQXQCVssI=
 github.com/iotaledger/goshimmer v0.0.0-20191113134331-c2d1b2f9d533/go.mod h1:7vYiofXphp9+PkgVAEM0pvw3aoi4ksrZ7lrEgX50XHs=
 github.com/iotaledger/hive.go v0.0.0-20191118130432-89eebe8fe8eb/go.mod h1:1Thhlil4lHzuy53EVvmEbEvWBFY0Tasp4kCBfxBCPIk=
-github.com/iotaledger/hive.go v0.0.0-20191219085244-317ae9a463c7 h1:2NG/9r2K4c6o+yTuqCNg+HhGb8FJ79YFm5hqInlB0Hc=
-github.com/iotaledger/hive.go v0.0.0-20191219085244-317ae9a463c7/go.mod h1:7iqun29a1x0lymTrn0UJ3Z/yy0sUzUpoOZ1OYMrYN20=
+github.com/iotaledger/hive.go v0.0.0-20191229233341-c3732738ee20 h1:ZIJAeQSEdmVbmZNIW2198IwD23+wBteb4WE4pyjxk+c=
+github.com/iotaledger/hive.go v0.0.0-20191229233341-c3732738ee20/go.mod h1:7iqun29a1x0lymTrn0UJ3Z/yy0sUzUpoOZ1OYMrYN20=
 github.com/iotaledger/iota.go v1.0.0-beta.7/go.mod h1:dMps6iMVU1pf5NDYNKIw4tRsPeC8W3ZWjOvYHOO1PMg=
 github.com/iotaledger/iota.go v1.0.0-beta.9/go.mod h1:F6WBmYd98mVjAmmPVYhnxg8NNIWCjjH8VWT9qvv3Rc8=
 github.com/iotaledger/iota.go v1.0.0-beta.10 h1:PBRWEcBSw0UO7zqEHJLrHOUbjJj1eldlERzOyka/GJo=

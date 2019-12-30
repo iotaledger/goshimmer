@@ -11,7 +11,7 @@ require (
 	github.com/google/open-location-code/go v0.0.0-20190903173953-119bc96a3a51
 	github.com/gorilla/websocket v1.4.1
 	github.com/iotaledger/autopeering-sim v0.0.0-20191206234543-6bc473d306a9
-	github.com/iotaledger/hive.go v0.0.0-20191219085244-317ae9a463c7
+	github.com/iotaledger/hive.go v0.0.0-20191229233341-c3732738ee20
 	github.com/iotaledger/iota.go v1.0.0-beta.10
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/lucasb-eyer/go-colorful v1.0.3 // indirect
