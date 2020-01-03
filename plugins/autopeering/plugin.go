@@ -9,23 +9,24 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-var PLUGIN = node.NewPlugin("Auto Peering", node.Enabled, configure, run)
+// NETWORK defines the network type used for the autopeering.
+const NETWORK = "udp"
+
+var PLUGIN = node.NewPlugin("Autopeering", node.Enabled, configure, run)
+
 var log = logger.NewLogger("Autopeering")
 
-func configure(plugin *node.Plugin) {
-	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		close <- struct{}{}
-	}))
-
+func configure(*node.Plugin) {
+	configureEvents()
+	configureLocal()
 	configureAP()
-	configureLogging(plugin)
 }
 
-func run(plugin *node.Plugin) {
-	go start()
+func run(*node.Plugin) {
+	daemon.BackgroundWorker("Autopeering", start)
 }
 
-func configureLogging(plugin *node.Plugin) {
+func configureEvents() {
 	gossip.Events.NeighborDropped.Attach(events.NewClosure(func(ev *gossip.NeighborDroppedEvent) {
 		log.Info("neighbor dropped: " + ev.Peer.Address() + " / " + ev.Peer.ID().String())
 		if Selection != nil {
