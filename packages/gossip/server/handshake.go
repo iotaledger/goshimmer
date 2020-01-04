@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotaledger/autopeering-sim/server"
+	"github.com/iotaledger/goshimmer/packages/autopeering/server"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/server/proto"
 )
 

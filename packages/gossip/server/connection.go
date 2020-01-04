@@ -4,7 +4,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 )
 
 // Connection represents a network connection to a neighbor peer.

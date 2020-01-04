@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+option go_package = "github.com/iotaledger/goshimmer/packages/autopeering/selection/proto";
+
+package proto;
+
+import "salt/proto/salt.proto";
+
+message PeeringRequest {
+  // string form of the recipient address
+  string to = 1;
+  // unix time
+  int64 timestamp = 2;
+  // salt of the requester
+  Salt salt = 3;
+}
+
+message PeeringResponse {
+  // hash of the corresponding request
+  bytes req_hash = 1;
+  // response of a peering request
+  bool status = 2;
+}
+
+message PeeringDrop {
+  // string form of the recipient address
+  string to = 1;
+  // unix time
+  int64 timestamp = 2;
+}

@@ -5,8 +5,8 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/iotaledger/autopeering-sim/logger"
-	"github.com/iotaledger/autopeering-sim/peer/service"
+	"github.com/iotaledger/goshimmer/packages/autopeering/logger"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"

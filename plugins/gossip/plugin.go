@@ -1,8 +1,8 @@
 package gossip
 
 import (
-	"github.com/iotaledger/autopeering-sim/peer/service"
-	"github.com/iotaledger/autopeering-sim/selection"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/autopeering/selection"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/typeutils"

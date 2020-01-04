@@ -7,8 +7,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 
-	"github.com/iotaledger/autopeering-sim/discover"
-	"github.com/iotaledger/autopeering-sim/selection"
+	"github.com/iotaledger/goshimmer/packages/autopeering/discover"
+	"github.com/iotaledger/goshimmer/packages/autopeering/selection"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/timeutil"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
