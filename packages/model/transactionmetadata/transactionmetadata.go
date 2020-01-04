@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/errors"
-	"github.com/iotaledger/goshimmer/packages/typeutils"
 	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
 )
 

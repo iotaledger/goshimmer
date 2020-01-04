@@ -3,7 +3,7 @@ package datastructure
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/typeutils"
+	"github.com/iotaledger/hive.go/typeutils"
 )
 
 type lruCacheElement struct {
