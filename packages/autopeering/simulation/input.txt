@@ -1,0 +1,5 @@
+N=100
+T=100
+VisualEnabled=true
+SimDuration=100
+dropAll=false

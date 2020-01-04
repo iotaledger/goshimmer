@@ -1,0 +1,86 @@
+//colors
+$bg: #EEEEEE;
+$circle: rgb(49, 174, 151);
+
+//reset
+button {
+  border: none;
+  outline: none;
+}
+
+//demo  
+body {
+  font-family: 'PT Sans', sans-serif;
+  background-color: $bg;
+}
+h2 {
+  margin: 100px auto;
+  font-weight: 400;
+  text-align: center;
+}
+
+.wrapper {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+}
+    
+  
+.circle{
+  display: block;
+  position: relative;
+  padding: 0;
+  z-index: 2;
+  margin: 0 auto;
+  -webkit-box-shadow: 0 6px 10px 0 rgba(0,0,0,0.3);
+  box-shadow: 0 6px 10px 0 rgba(0,0,0,0.3);
+  border-radius: 50%;
+  height: 80px;
+  width: 80px;
+  background-color: $circle;
+  transition: 0.2s;
+  text-align: center;
+  &:active {
+    transform: scale(0.90);
+    box-shadow: 0 2px 15px 0 rgba(0,0,0,0.3);
+  }
+  &:hover {
+    cursor: pointer;
+    background-color: lighten($circle, 10%);
+    box-shadow: 0 8px 15px 0 rgba(0,0,0,0.3);
+  }
+}
+
+  img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin-left: -30px;
+    margin-top: -30px;
+    width: 60px;
+    height: 60px;
+    transition: 0.5s;
+    transform: rotate(180deg);
+  }
+  
+$transition: 0.1;
+$transalteValue: 100;
+$translate75: $transalteValue*0.75 ;
+  
+    
+.hidden-trigger {
+  display: none;
+  &:checked ~ .circle {
+    transform: scale(0.90);
+    cursor: pointer;
+    background-color: lighten($circle, 10%);
+    box-shadow: 0 8px 15px 0 rgba(0,0,0,0.1);
+  }
+  &:checked ~ .circle img {
+    transform: rotate(45deg);
+  }
+}
