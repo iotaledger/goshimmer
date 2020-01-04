@@ -4,9 +4,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/bitutils"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/typeutils"
+	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
@@ -226,7 +226,7 @@ func (metadata *TransactionMetadata) Marshal() ([]byte, errors.IdentifiableError
 	}
 	copy(marshaledMetadata[MARSHALED_RECEIVED_TIME_START:MARSHALED_RECEIVED_TIME_END], marshaledReceivedTime)
 
-	var booleanFlags bitutils.BitMask
+	var booleanFlags bitmask.BitMask
 	if metadata.solid {
 		booleanFlags = booleanFlags.SetFlag(0)
 	}
@@ -259,7 +259,7 @@ func (metadata *TransactionMetadata) Unmarshal(data []byte) errors.IdentifiableE
 		return ErrUnmarshalFailed.Derive(err, "could not unmarshal the received time")
 	}
 
-	booleanFlags := bitutils.BitMask(data[MARSHALED_FLAGS_START])
+	booleanFlags := bitmask.BitMask(data[MARSHALED_FLAGS_START])
 	if booleanFlags.HasFlag(0) {
 		metadata.solid = true
 	}
