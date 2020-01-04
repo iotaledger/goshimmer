@@ -4,10 +4,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
@@ -62,7 +63,7 @@ func Start(tps uint) {
 					continue
 				}
 
-				gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: tx.GetBytes(), Peer: &local.INSTANCE.Peer})
+				gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: tx.GetBytes(), Peer: &local.GetInstance().Peer})
 
 				if sentCounter >= tps {
 					duration := time.Since(start)

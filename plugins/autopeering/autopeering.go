@@ -3,11 +3,10 @@ package autopeering
 import (
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net"
-	"net/http"
-	"strconv"
 	"strings"
+
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 
 	"github.com/iotaledger/autopeering-sim/discover"
 	"github.com/iotaledger/autopeering-sim/logger"
@@ -16,8 +15,6 @@ import (
 	"github.com/iotaledger/autopeering-sim/selection"
 	"github.com/iotaledger/autopeering-sim/server"
 	"github.com/iotaledger/autopeering-sim/transport"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/parameter"
 	"github.com/pkg/errors"
@@ -53,40 +50,6 @@ const defaultZLC = `{
 
 var zLogger = logger.NewLogger(defaultZLC, logLevel)
 
-func configureLocal() {
-	ip := net.ParseIP(parameter.NodeConfig.GetString(CFG_ADDRESS))
-	if ip == nil {
-		log.Fatalf("Invalid IP address: %s", parameter.NodeConfig.GetString(CFG_ADDRESS))
-	}
-	if ip.IsUnspecified() {
-		myIp, err := getMyIP()
-		if err != nil {
-			log.Fatalf("Could not query public IP: %v", err)
-		}
-		ip = myIp
-	}
-
-	apPort := strconv.Itoa(parameter.NodeConfig.GetInt(CFG_PORT))
-	gossipPort := strconv.Itoa(parameter.NodeConfig.GetInt(gossip.GOSSIP_PORT))
-
-	// create a new local node
-	db := peer.NewPersistentDB(zLogger.Named("db"))
-
-	var err error
-	local.INSTANCE, err = peer.NewLocal(NETWORK, net.JoinHostPort(ip.String(), apPort), db)
-	if err != nil {
-		log.Fatalf("NewLocal: %v", err)
-	}
-
-	// add a service for the gossip
-	if parameter.NodeConfig.GetBool(CFG_SELECTION) {
-		err = local.INSTANCE.UpdateService(service.GossipKey, "tcp", net.JoinHostPort(ip.String(), gossipPort))
-		if err != nil {
-			log.Fatalf("UpdateService: %v", err)
-		}
-	}
-}
-
 func configureAP() {
 	masterPeers, err := parseEntryNodes()
 	if err != nil {
@@ -94,13 +57,13 @@ func configureAP() {
 	}
 	log.Debugf("Master peers: %v", masterPeers)
 
-	Discovery = discover.New(local.INSTANCE, discover.Config{
+	Discovery = discover.New(local.GetInstance(), discover.Config{
 		Log:         zLogger.Named("disc"),
 		MasterPeers: masterPeers,
 	})
 
 	if parameter.NodeConfig.GetBool(CFG_SELECTION) {
-		Selection = selection.New(local.INSTANCE, Discovery, selection.Config{
+		Selection = selection.New(local.GetInstance(), Discovery, selection.Config{
 			Log: zLogger.Named("sel"),
 			Param: &selection.Parameters{
 				SaltLifetime:    selection.DefaultSaltLifetime,
@@ -113,7 +76,7 @@ func configureAP() {
 func start() {
 	defer log.Info("Stopping Auto Peering server ... done")
 
-	addr := local.INSTANCE.Services().Get(service.PeeringKey)
+	addr := local.GetInstance().Services().Get(service.PeeringKey)
 	udpAddr, err := net.ResolveUDPAddr(addr.Network(), addr.String())
 	if err != nil {
 		log.Fatalf("ResolveUDPAddr: %v", err)
@@ -143,7 +106,7 @@ func start() {
 	}
 
 	// start a server doing discovery and peering
-	srv := server.Listen(local.INSTANCE, trans, zLogger.Named("srv"), handlers...)
+	srv := server.Listen(local.GetInstance(), trans, zLogger.Named("srv"), handlers...)
 	defer srv.Close()
 
 	// start the discovery on that connection
@@ -156,7 +119,7 @@ func start() {
 		defer Selection.Close()
 	}
 
-	log.Infof("Auto Peering server started: ID=%x, address=%s", local.INSTANCE.ID(), srv.LocalAddr())
+	log.Infof("Auto Peering server started: ID=%x, address=%s", local.GetInstance().ID(), srv.LocalAddr())
 
 	<-daemon.ShutdownSignal
 	log.Info("Stopping Auto Peering server ...")
@@ -184,26 +147,4 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 	}
 
 	return result, nil
-}
-
-func getMyIP() (net.IP, error) {
-	url := "https://api.ipify.org?format=text"
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	// the body only consists of the ip address
-	ip := net.ParseIP(string(body))
-	if ip == nil {
-		return nil, fmt.Errorf("not an IP: %s", body)
-	}
-
-	return ip, nil
 }

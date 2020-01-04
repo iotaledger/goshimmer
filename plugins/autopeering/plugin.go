@@ -10,9 +10,6 @@ import (
 )
 
 const (
-	// NETWORK defines the network type used for the autopeering.
-	NETWORK = "udp"
-
 	name     = "Autopeering" // name of the plugin
 	logLevel = "info"
 )
@@ -23,7 +20,6 @@ var log = logger.NewLogger(name)
 
 func configure(*node.Plugin) {
 	configureEvents()
-	configureLocal()
 	configureAP()
 }
 

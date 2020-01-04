@@ -5,6 +5,8 @@ import (
 	"net"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+
 	"github.com/iotaledger/autopeering-sim/discover"
 	"github.com/iotaledger/autopeering-sim/selection"
 	"github.com/iotaledger/goshimmer/packages/network"
@@ -15,7 +17,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/ping"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/removenode"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -71,8 +72,8 @@ func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 }
 
 func reportCurrentStatus(eventDispatchers *EventDispatchers) {
-	if local.INSTANCE != nil {
-		eventDispatchers.AddNode(local.INSTANCE.ID().Bytes())
+	if local.GetInstance() != nil {
+		eventDispatchers.AddNode(local.GetInstance().ID().Bytes())
 	}
 
 	reportChosenNeighbors(eventDispatchers)
@@ -92,18 +93,18 @@ func setupHooks(plugin *node.Plugin, conn *network.ManagedConnection, eventDispa
 	})
 
 	onAddAcceptedNeighbor := events.NewClosure(func(ev *selection.PeeringEvent) {
-		log.Info("onAddAcceptedNeighbor: " + hex.EncodeToString(ev.Peer.ID().Bytes()) + " - " + hex.EncodeToString(local.INSTANCE.ID().Bytes()))
-		eventDispatchers.ConnectNodes(ev.Peer.ID().Bytes(), local.INSTANCE.ID().Bytes())
+		log.Info("onAddAcceptedNeighbor: " + hex.EncodeToString(ev.Peer.ID().Bytes()) + " - " + hex.EncodeToString(local.GetInstance().ID().Bytes()))
+		eventDispatchers.ConnectNodes(ev.Peer.ID().Bytes(), local.GetInstance().ID().Bytes())
 	})
 
 	onRemoveNeighbor := events.NewClosure(func(ev *selection.DroppedEvent) {
-		log.Info("onRemoveNeighbor: " + hex.EncodeToString(ev.DroppedID.Bytes()) + " - " + hex.EncodeToString(local.INSTANCE.ID().Bytes()))
-		eventDispatchers.DisconnectNodes(ev.DroppedID.Bytes(), local.INSTANCE.ID().Bytes())
+		log.Info("onRemoveNeighbor: " + hex.EncodeToString(ev.DroppedID.Bytes()) + " - " + hex.EncodeToString(local.GetInstance().ID().Bytes()))
+		eventDispatchers.DisconnectNodes(ev.DroppedID.Bytes(), local.GetInstance().ID().Bytes())
 	})
 
 	onAddChosenNeighbor := events.NewClosure(func(ev *selection.PeeringEvent) {
-		log.Info("onAddChosenNeighbor: " + hex.EncodeToString(local.INSTANCE.ID().Bytes()) + " - " + hex.EncodeToString(ev.Peer.ID().Bytes()))
-		eventDispatchers.ConnectNodes(local.INSTANCE.ID().Bytes(), ev.Peer.ID().Bytes())
+		log.Info("onAddChosenNeighbor: " + hex.EncodeToString(local.GetInstance().ID().Bytes()) + " - " + hex.EncodeToString(ev.Peer.ID().Bytes()))
+		eventDispatchers.ConnectNodes(local.GetInstance().ID().Bytes(), ev.Peer.ID().Bytes())
 	})
 
 	// setup hooks /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -132,7 +133,7 @@ func reportChosenNeighbors(dispatchers *EventDispatchers) {
 	if autopeering.Selection != nil {
 		for _, chosenNeighbor := range autopeering.Selection.GetOutgoingNeighbors() {
 			dispatchers.AddNode(chosenNeighbor.ID().Bytes())
-			dispatchers.ConnectNodes(local.INSTANCE.ID().Bytes(), chosenNeighbor.ID().Bytes())
+			dispatchers.ConnectNodes(local.GetInstance().ID().Bytes(), chosenNeighbor.ID().Bytes())
 		}
 	}
 }

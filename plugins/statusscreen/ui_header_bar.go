@@ -5,12 +5,13 @@ import (
 	"math"
 	"strconv"
 
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+
 	//"strconv"
 	"time"
 
 	"github.com/gdamore/tcell"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/rivo/tview"
 )
 
@@ -90,8 +91,8 @@ func (headerBar *UIHeaderBar) Update() {
 	if autopeering.Discovery != nil {
 		total = strconv.Itoa(len(autopeering.Discovery.GetVerifiedPeers()))
 	}
-	if local.INSTANCE != nil {
-		myID = local.INSTANCE.ID().String()
+	if local.GetInstance() != nil {
+		myID = local.GetInstance().ID().String()
 	}
 
 	fmt.Fprintf(headerBar.InfoContainer, "[::b]Node ID: [::d]%40v  ", myID)

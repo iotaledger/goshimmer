@@ -5,8 +5,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
 )
 
 var start = time.Now()
@@ -61,7 +62,7 @@ func gatherInfo() nodeInfo {
 	receivedTps, solidTps := updateTpsCounters()
 	duration := time.Since(start) / time.Second
 	info := nodeInfo{
-		ID:                local.INSTANCE.ID().String(),
+		ID:                local.GetInstance().ID().String(),
 		ChosenNeighbors:   chosenNeighbors,
 		AcceptedNeighbors: acceptedNeighbors,
 		KnownPeersSize:    knownPeers,

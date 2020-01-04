@@ -10,9 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+
 	"github.com/gorilla/websocket"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/hive.go/events"
 )
@@ -83,7 +84,7 @@ func GetStatus() *Status {
 	}
 
 	return &Status{
-		Id:        local.INSTANCE.ID().String(),
+		Id:        local.GetInstance().ID().String(),
 		Neighbor:  "Neighbors:  " + outgoing + " chosen / " + incoming + " accepted / " + neighbors + " total",
 		KnownPeer: "Known Peers: " + knownPeers + " total",
 		Uptime:    uptime,

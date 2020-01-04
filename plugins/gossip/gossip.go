@@ -2,8 +2,11 @@ package gossip
 
 import (
 	"fmt"
+	"net"
+	"strconv"
 
 	"github.com/iotaledger/autopeering-sim/logger"
+	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
@@ -11,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/parameter"
 )
 
 var (
@@ -41,13 +45,26 @@ const defaultZLC = `{
 var zLogger = logger.NewLogger(defaultZLC, logLevel)
 
 func configureGossip() {
-	mgr = gp.NewManager(local.INSTANCE, getTransaction, zLogger)
+	lPeer := local.GetInstance()
+
+	port := strconv.Itoa(parameter.NodeConfig.GetInt(GOSSIP_PORT))
+
+	host, _, err := net.SplitHostPort(lPeer.Address())
+	if err != nil {
+		log.Fatalf("invalid peering address: %v", err)
+	}
+	err = lPeer.UpdateService(service.GossipKey, "tcp", net.JoinHostPort(host, port))
+	if err != nil {
+		log.Fatalf("could not update services: %v", err)
+	}
+
+	mgr = gp.NewManager(lPeer, getTransaction, zLogger)
 }
 
 func start() {
 	defer log.Info("Stopping Gossip ... done")
 
-	srv, err := server.ListenTCP(local.INSTANCE, zLogger)
+	srv, err := server.ListenTCP(local.GetInstance(), zLogger)
 	if err != nil {
 		log.Fatalf("ListenTCP: %v", err)
 	}
