@@ -3,7 +3,7 @@ package server
 import (
 	"crypto/sha256"
 
-	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 )
 
 // MType is the type of message type enum.

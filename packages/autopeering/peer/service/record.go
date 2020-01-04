@@ -5,7 +5,7 @@ import (
 	"net"
 
 	"github.com/golang/protobuf/proto"
-	pb "github.com/iotaledger/autopeering-sim/peer/service/proto"
+	pb "github.com/iotaledger/goshimmer/packages/autopeering/peer/service/proto"
 )
 
 // Record defines the mapping between a service ID and its tuple TypePort

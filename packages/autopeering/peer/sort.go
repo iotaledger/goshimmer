@@ -3,7 +3,7 @@ package peer
 import (
 	"sort"
 
-	"github.com/iotaledger/autopeering-sim/distance"
+	"github.com/iotaledger/goshimmer/packages/autopeering/distance"
 )
 
 // PeerDistance defines the relative distance wrt a remote peer

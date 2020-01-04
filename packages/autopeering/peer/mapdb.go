@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/autopeering-sim/peer/service"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"go.uber.org/zap"
 )
 

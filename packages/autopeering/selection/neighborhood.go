@@ -3,8 +3,8 @@ package selection
 import (
 	"sync"
 
-	"github.com/iotaledger/autopeering-sim/distance"
-	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/distance"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 )
 
 type Neighborhood struct {

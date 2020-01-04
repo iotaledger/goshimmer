@@ -6,10 +6,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/autopeering-sim/peer/service"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/pkg/errors"

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/autopeering-sim/peer/service"
-	"github.com/iotaledger/autopeering-sim/salt"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 )
 
 // Local defines the struct of a local peer

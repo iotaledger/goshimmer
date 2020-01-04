@@ -1,7 +1,7 @@
 package autopeering
 
 import (
-	"github.com/iotaledger/autopeering-sim/discover"
+	"github.com/iotaledger/goshimmer/packages/autopeering/discover"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"

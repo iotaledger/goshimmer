@@ -5,9 +5,10 @@ package proto
 
 import (
 	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
-	proto1 "github.com/iotaledger/autopeering-sim/salt/proto"
 	math "math"
+
+	proto "github.com/golang/protobuf/proto"
+	proto1 "github.com/iotaledger/goshimmer/packages/autopeering/salt/proto"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

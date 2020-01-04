@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/iotaledger/autopeering-sim/peer"
-	"github.com/iotaledger/autopeering-sim/peer/service"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/stretchr/testify/assert"
 )
 

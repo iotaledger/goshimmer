@@ -3,7 +3,7 @@ package discover
 import (
 	"fmt"
 
-	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 )
 
 // mpeer represents a discovered peer with additional data.

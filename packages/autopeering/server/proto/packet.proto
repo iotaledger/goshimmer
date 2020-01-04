@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/iotaledger/autopeering-sim/server/proto";
+option go_package = "github.com/iotaledger/goshimmer/packages/autopeering/server/proto";
 
 package proto;
 

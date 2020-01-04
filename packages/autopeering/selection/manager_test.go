@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/autopeering-sim/peer"
-	"github.com/iotaledger/autopeering-sim/salt"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )

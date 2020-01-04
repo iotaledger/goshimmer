@@ -3,7 +3,7 @@ package server
 import (
 	"time"
 
-	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 )
 
 const (

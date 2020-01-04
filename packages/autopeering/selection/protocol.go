@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotaledger/autopeering-sim/peer"
-	"github.com/iotaledger/autopeering-sim/salt"
-	pb "github.com/iotaledger/autopeering-sim/selection/proto"
-	"github.com/iotaledger/autopeering-sim/server"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
+	pb "github.com/iotaledger/goshimmer/packages/autopeering/selection/proto"
+	"github.com/iotaledger/goshimmer/packages/autopeering/server"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )

@@ -3,7 +3,7 @@ package selection
 import (
 	"sync"
 
-	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 )
 
 type Selector interface {

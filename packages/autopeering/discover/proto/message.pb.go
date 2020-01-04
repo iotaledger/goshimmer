@@ -5,10 +5,11 @@ package proto
 
 import (
 	fmt "fmt"
-	proto "github.com/golang/protobuf/proto"
-	proto2 "github.com/iotaledger/autopeering-sim/peer/proto"
-	proto1 "github.com/iotaledger/autopeering-sim/peer/service/proto"
 	math "math"
+
+	proto "github.com/golang/protobuf/proto"
+	proto2 "github.com/iotaledger/goshimmer/packages/autopeering/peer/proto"
+	proto1 "github.com/iotaledger/goshimmer/packages/autopeering/peer/service/proto"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.

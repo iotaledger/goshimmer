@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/autopeering-sim/peer/service"
-	"github.com/iotaledger/autopeering-sim/salt"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotaledger/autopeering-sim/peer"
-	pb "github.com/iotaledger/autopeering-sim/server/proto"
-	"github.com/iotaledger/autopeering-sim/transport"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	pb "github.com/iotaledger/goshimmer/packages/autopeering/server/proto"
+	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )

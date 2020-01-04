@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/iotaledger/autopeering-sim/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/hive.go/parameter"
 	"go.uber.org/zap"
 )
