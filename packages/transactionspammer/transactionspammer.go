@@ -4,9 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip"
-	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -64,9 +62,7 @@ func Start(tps uint) {
 					continue
 				}
 
-				mtx := &pb.Transaction{Body: tx.MetaTransaction.GetBytes()}
-				b, _ := proto.Marshal(mtx)
-				gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b, Peer: &local.INSTANCE.Peer})
+				gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: tx.GetBytes(), Peer: &local.INSTANCE.Peer})
 
 				if sentCounter >= tps {
 					duration := time.Since(start)

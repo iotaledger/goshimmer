@@ -173,7 +173,7 @@ func TestP2PSend(t *testing.T) {
 	wg.Wait()
 
 	eventMock.On("transactionReceivedEvent", &TransactionReceivedEvent{
-		Body: testTxData,
+		Data: testTxData,
 		Peer: peerA,
 	}).Once()
 	eventMock.On("neighborDroppedEvent", &NeighborDroppedEvent{Peer: peerA}).Once()
@@ -212,7 +212,7 @@ func TestP2PSendTwice(t *testing.T) {
 	wg.Wait()
 
 	eventMock.On("transactionReceivedEvent", &TransactionReceivedEvent{
-		Body: testTxData,
+		Data: testTxData,
 		Peer: peerA,
 	}).Twice()
 	eventMock.On("neighborDroppedEvent", &NeighborDroppedEvent{Peer: peerA}).Once()
@@ -265,7 +265,7 @@ func TestBroadcast(t *testing.T) {
 	wg.Wait()
 
 	eventMock.On("transactionReceivedEvent", &TransactionReceivedEvent{
-		Body: testTxData,
+		Data: testTxData,
 		Peer: peerA,
 	}).Twice()
 	eventMock.On("neighborDroppedEvent", &NeighborDroppedEvent{Peer: peerA}).Twice()
@@ -317,7 +317,7 @@ func TestSingleSend(t *testing.T) {
 	wg.Wait()
 
 	eventMock.On("transactionReceivedEvent", &TransactionReceivedEvent{
-		Body: testTxData,
+		Data: testTxData,
 		Peer: peerA,
 	}).Once()
 	eventMock.On("neighborDroppedEvent", &NeighborDroppedEvent{Peer: peerA}).Twice()
@@ -376,7 +376,7 @@ func TestTxRequest(t *testing.T) {
 	txHash := []byte("Hello!")
 
 	eventMock.On("transactionReceivedEvent", &TransactionReceivedEvent{
-		Body: testTxData,
+		Data: testTxData,
 		Peer: peerB,
 	}).Once()
 	eventMock.On("neighborDroppedEvent", &NeighborDroppedEvent{Peer: peerA}).Once()

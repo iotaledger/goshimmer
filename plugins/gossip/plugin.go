@@ -1,12 +1,11 @@
 package gossip
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/autopeering-sim/peer/service"
 	"github.com/iotaledger/autopeering-sim/selection"
 	"github.com/iotaledger/goshimmer/packages/gossip"
-	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/packages/typeutils"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -55,21 +54,12 @@ func configureEvents() {
 	}))
 
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
-		log.Info("gossip solid tx", tx.MetaTransaction.GetHash())
-		t := &pb.Transaction{
-			Body: tx.MetaTransaction.GetBytes(),
-		}
-		b, err := proto.Marshal(t)
-		if err != nil {
-			return
-		}
-		go mgr.SendTransaction(b)
+		log.Debugf("gossip solid tx: hash=%s", tx.GetHash())
+		go mgr.SendTransaction(tx.GetBytes())
 	}))
 
 	gossip.Events.RequestTransaction.Attach(events.NewClosure(func(ev *gossip.RequestTransactionEvent) {
-		pTx := &pb.TransactionRequest{}
-		proto.Unmarshal(ev.Hash, pTx)
-		log.Info("Tx Requested:", string(pTx.Hash))
-		go mgr.RequestTransaction(pTx.Hash)
+		log.Debugf("gossip tx request: hash=%s", ev.Hash)
+		go mgr.RequestTransaction(typeutils.StringToBytes(ev.Hash))
 	}))
 }

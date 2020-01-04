@@ -3,11 +3,9 @@ package gossip
 import (
 	"fmt"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/autopeering-sim/logger"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
-	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/packages/typeutils"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -74,11 +72,5 @@ func getTransaction(hash []byte) ([]byte, error) {
 	if tx == nil {
 		return nil, fmt.Errorf("transaction not found: hash=%s", hash)
 	}
-
-	pTx := &pb.TransactionRequest{
-		Hash: tx.GetBytes(),
-	}
-	b, _ := proto.Marshal(pTx)
-
-	return b, nil
+	return tx.GetBytes(), nil
 }

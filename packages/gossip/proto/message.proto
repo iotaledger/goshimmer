@@ -5,8 +5,8 @@ option go_package = "github.com/iotaledger/goshimmer/packages/gossip/proto";
 package proto;
 
 message Transaction {
-  // body of the tx
-  bytes body = 1;
+  // transaction data
+  bytes data = 1;
 }
 
 message TransactionRequest {

@@ -20,6 +20,7 @@ const (
 	maxPacketSize = 2048
 )
 
+// GetTransaction defines a function that returns the transaction data with the given hash.
 type GetTransaction func(txHash []byte) ([]byte, error)
 
 type Manager struct {
@@ -130,7 +131,7 @@ func (m *Manager) RequestTransaction(txHash []byte, to ...peer.ID) {
 // If no peer is provided, it is send to all neighbors.
 func (m *Manager) SendTransaction(txData []byte, to ...peer.ID) {
 	tx := &pb.Transaction{
-		Body: txData,
+		Data: txData,
 	}
 	m.send(marshal(tx), to...)
 }
@@ -255,8 +256,8 @@ func (m *Manager) handlePacket(data []byte, n *neighbor) error {
 		if err := proto.Unmarshal(data[1:], msg); err != nil {
 			return errors.Wrap(err, "invalid message")
 		}
-		m.log.Debugw("Received Transaction", "data", msg.GetBody())
-		Events.TransactionReceived.Trigger(&TransactionReceivedEvent{Body: msg.GetBody(), Peer: n.peer})
+		m.log.Debugw("Received Transaction", "data", msg.GetData())
+		Events.TransactionReceived.Trigger(&TransactionReceivedEvent{Data: msg.GetData(), Peer: n.peer})
 
 	// Incoming Transaction request
 	case pb.MTransactionRequest:

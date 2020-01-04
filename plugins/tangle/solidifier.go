@@ -4,10 +4,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/gossip"
-	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/model/approvers"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
@@ -38,13 +36,7 @@ func configureSolidifier(plugin *node.Plugin) {
 	unsolidTxs = NewUnsolidTxs()
 
 	gossip.Events.TransactionReceived.Attach(events.NewClosure(func(ev *gossip.TransactionReceivedEvent) {
-		pTx := &pb.Transaction{}
-		if err := proto.Unmarshal(ev.Body, pTx); err != nil {
-			log.Warningf("invalid transaction: %s", err)
-			return
-		}
-
-		metaTx := meta_transaction.FromBytes(pTx.GetBody())
+		metaTx := meta_transaction.FromBytes(ev.Data)
 		if err := metaTx.Validate(); err != nil {
 			log.Warningf("invalid transaction: %s", err)
 			return
@@ -231,11 +223,9 @@ func updateUnsolidTxs(tx *value_transaction.ValueTransaction) {
 	}
 }
 
-func requestTransaction(tx string) {
-	log.Info("Requesting tx: ", tx)
-	req := &pb.TransactionRequest{Hash: []byte(tx)}
-	b, _ := proto.Marshal(req)
-	gossip.Events.RequestTransaction.Trigger(&gossip.RequestTransactionEvent{Hash: b})
+func requestTransaction(hash trinary.Trytes) {
+	log.Infof("Requesting hash: hash=%s", hash)
+	gossip.Events.RequestTransaction.Trigger(&gossip.RequestTransactionEvent{Hash: hash})
 }
 
 var WORKER_COUNT = runtime.NumCPU()

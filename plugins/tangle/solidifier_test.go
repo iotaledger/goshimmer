@@ -5,9 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip"
-	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/hive.go/events"
@@ -56,28 +54,18 @@ func TestSolidifier(t *testing.T) {
 	}))
 
 	gossip.Events.RequestTransaction.Attach(events.NewClosure(func(ev *gossip.RequestTransactionEvent) {
-		tx := &pb.Transaction{Body: transaction3.MetaTransaction.GetBytes()}
-		b, _ := proto.Marshal(tx)
-		gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b})
+		require.Equal(t, transaction3.GetHash(), ev.Hash)
+		// return the transaction data
+		gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: transaction3.GetBytes()})
 	}))
 
 	// issue transactions
 	wg.Add(4)
-	tx := &pb.Transaction{Body: transaction1.MetaTransaction.GetBytes()}
-	b, _ := proto.Marshal(tx)
-	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b})
 
-	tx = &pb.Transaction{Body: transaction2.MetaTransaction.GetBytes()}
-	b, _ = proto.Marshal(tx)
-	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b})
-
-	// tx = &pb.Transaction{Body: transaction3.MetaTransaction.GetBytes()}
-	// b, _ = proto.Marshal(tx)
-	// gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b})
-
-	tx = &pb.Transaction{Body: transaction4.MetaTransaction.GetBytes()}
-	b, _ = proto.Marshal(tx)
-	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Body: b})
+	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: transaction1.GetBytes()})
+	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: transaction2.GetBytes()})
+	// gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: transaction3.GetBytes()})
+	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: transaction4.GetBytes()})
 
 	// wait until all are solid
 	wg.Wait()
