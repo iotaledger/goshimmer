@@ -10,10 +10,9 @@ require (
 	github.com/gdamore/tcell v1.3.0
 	github.com/go-zeromq/zmq4 v0.7.0
 	github.com/golang/protobuf v1.3.2
-	github.com/google/open-location-code/go v0.0.0-20190903173953-119bc96a3a51
 	github.com/gorilla/websocket v1.4.1
 	github.com/iotaledger/hive.go v0.0.0-20191229233341-c3732738ee20
-	github.com/iotaledger/iota.go v1.0.0-beta.12
+	github.com/iotaledger/iota.go v1.0.0-beta.13
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.0.3 // indirect

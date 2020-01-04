@@ -76,8 +76,8 @@ github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANyt
 github.com/iotaledger/hive.go v0.0.0-20191229233341-c3732738ee20 h1:ZIJAeQSEdmVbmZNIW2198IwD23+wBteb4WE4pyjxk+c=
 github.com/iotaledger/hive.go v0.0.0-20191229233341-c3732738ee20/go.mod h1:7iqun29a1x0lymTrn0UJ3Z/yy0sUzUpoOZ1OYMrYN20=
 github.com/iotaledger/iota.go v1.0.0-beta.9/go.mod h1:F6WBmYd98mVjAmmPVYhnxg8NNIWCjjH8VWT9qvv3Rc8=
-github.com/iotaledger/iota.go v1.0.0-beta.12 h1:p6Pk3N8tmb6Kaj8F45O5XVJQfH5qQYqpvUnXiSMrtiE=
-github.com/iotaledger/iota.go v1.0.0-beta.12/go.mod h1:F6WBmYd98mVjAmmPVYhnxg8NNIWCjjH8VWT9qvv3Rc8=
+github.com/iotaledger/iota.go v1.0.0-beta.13 h1:6m6JRcKtjTflU2PbjvDA9Tv6NTEJX1PijBDOkH9weQc=
+github.com/iotaledger/iota.go v1.0.0-beta.13/go.mod h1:F6WBmYd98mVjAmmPVYhnxg8NNIWCjjH8VWT9qvv3Rc8=
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
 github.com/jtolds/gls v4.20.0+incompatible h1:xdiiI2gbIgH/gLH7ADydsJ1uDOEzR8yvV7C0MuV77Wo=
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
