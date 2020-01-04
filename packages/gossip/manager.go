@@ -6,47 +6,57 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/iotaledger/autopeering-sim/peer/service"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/autopeering-sim/peer"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
-	"github.com/iotaledger/goshimmer/packages/gossip/transport"
+	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
 const (
-	maxConnectionAttempts = 3
-	maxPacketSize         = 2048
+	maxPacketSize = 2048
 )
 
 type GetTransaction func(txHash []byte) ([]byte, error)
 
 type Manager struct {
-	trans          *transport.TCP
-	log            *zap.SugaredLogger
+	local          *peer.Local
 	getTransaction GetTransaction
+	log            *zap.SugaredLogger
 
 	wg sync.WaitGroup
 
 	mu        sync.RWMutex
+	srv       *server.TCP
 	neighbors map[peer.ID]*neighbor
 	running   bool
 }
 
 type neighbor struct {
 	peer *peer.Peer
-	conn *transport.Connection
+	conn *server.Connection
 }
 
-func NewManager(t *transport.TCP, log *zap.SugaredLogger, f GetTransaction) *Manager {
-	m := &Manager{
-		trans:          t,
-		log:            log,
+func NewManager(local *peer.Local, f GetTransaction, log *zap.SugaredLogger) *Manager {
+	return &Manager{
+		local:          local,
 		getTransaction: f,
+		log:            log,
+		srv:            nil,
 		neighbors:      make(map[peer.ID]*neighbor),
+		running:        false,
 	}
+}
+
+func (m *Manager) Start(srv *server.TCP) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.srv = srv
 	m.running = true
-	return m
 }
 
 // Close stops the manager and closes all established connections.
@@ -62,14 +72,35 @@ func (m *Manager) Close() {
 	m.wg.Wait()
 }
 
+// LocalAddr returns the public address of the gossip service.
+func (m *Manager) LocalAddr() net.Addr {
+	return m.local.Services().Get(service.GossipKey)
+}
+
 // AddOutbound tries to add a neighbor by connecting to that peer.
 func (m *Manager) AddOutbound(p *peer.Peer) error {
-	return m.addNeighbor(p, m.trans.DialPeer)
+	var srv *server.TCP
+	m.mu.RLock()
+	if m.srv == nil {
+		return ErrNotStarted
+	}
+	srv = m.srv
+	m.mu.RUnlock()
+
+	return m.addNeighbor(p, srv.DialPeer)
 }
 
 // AddInbound tries to add a neighbor by accepting an incoming connection from that peer.
 func (m *Manager) AddInbound(p *peer.Peer) error {
-	return m.addNeighbor(p, m.trans.AcceptPeer)
+	var srv *server.TCP
+	m.mu.RLock()
+	if m.srv == nil {
+		return ErrNotStarted
+	}
+	srv = m.srv
+	m.mu.RUnlock()
+
+	return m.addNeighbor(p, srv.AcceptPeer)
 }
 
 // NeighborDropped disconnects the neighbor with the given ID.
@@ -151,19 +182,8 @@ func (m *Manager) send(msg []byte, to ...peer.ID) {
 	}
 }
 
-func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (*transport.Connection, error)) error {
-	var (
-		err  error
-		conn *transport.Connection
-	)
-	for i := 0; i < maxConnectionAttempts; i++ {
-		conn, err = connectorFunc(peer)
-		if err == nil {
-			break
-		}
-	}
-
-	// could not add neighbor
+func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (*server.Connection, error)) error {
+	conn, err := connectorFunc(peer)
 	if err != nil {
 		m.log.Debugw("addNeighbor failed", "peer", peer.ID(), "err", err)
 		Events.NeighborDropped.Trigger(&NeighborDroppedEvent{Peer: peer})
@@ -273,7 +293,7 @@ func marshal(msg pb.Message) []byte {
 	return append([]byte{byte(mType)}, data...)
 }
 
-func disconnect(conn *transport.Connection) {
+func disconnect(conn *server.Connection) {
 	_ = conn.Close()
 	Events.NeighborDropped.Trigger(&NeighborDroppedEvent{Peer: conn.Peer()})
 }

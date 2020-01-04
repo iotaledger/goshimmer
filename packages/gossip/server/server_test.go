@@ -1,4 +1,4 @@
-package transport
+package server
 
 import (
 	"log"
@@ -47,7 +47,7 @@ func newTest(t require.TestingT, name string) (*TCP, func()) {
 	// enable TCP gossipping
 	require.NoError(t, local.UpdateService(service.GossipKey, "tcp", getTCPAddress(t)))
 
-	trans, err := Listen(local, l)
+	trans, err := ListenTCP(local, l)
 	require.NoError(t, err)
 
 	teardown := func() {

@@ -1,21 +1,22 @@
 package gossip
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/golang/protobuf/proto"
-	zL "github.com/iotaledger/autopeering-sim/logger"
-	"github.com/iotaledger/autopeering-sim/peer/service"
-	"github.com/iotaledger/autopeering-sim/selection"
-	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/autopeering-sim/logger"
+	"github.com/iotaledger/goshimmer/packages/errors"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
-	"github.com/iotaledger/goshimmer/packages/gossip/transport"
-	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/goshimmer/packages/typeutils"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
-	"github.com/iotaledger/hive.go/events"
-	"go.uber.org/zap"
+	"github.com/iotaledger/hive.go/daemon"
+)
+
+var (
+	mgr *gp.Manager
 )
 
 const defaultZLC = `{
@@ -39,80 +40,45 @@ const defaultZLC = `{
 	}
   }`
 
-var (
-	debugLevel = "info"
-	zLogger    *zap.SugaredLogger
-	mgr        *gp.Manager
-)
+var zLogger = logger.NewLogger(defaultZLC, logLevel)
 
-func getTransaction(h []byte) ([]byte, error) {
-	log.Info("Retrieving tx:", string(h))
-	tx, err := tangle.GetTransaction(string(h))
+func configureGossip() {
+	mgr = gp.NewManager(local.INSTANCE, getTransaction, zLogger)
+}
+
+func start() {
+	defer log.Info("Stopping Gossip ... done")
+
+	srv, err := server.ListenTCP(local.INSTANCE, zLogger)
 	if err != nil {
-		return []byte{}, err
+		log.Fatalf("ListenTCP: %v", err)
+	}
+	defer srv.Close()
+
+	mgr.Start(srv)
+	defer mgr.Close()
+
+	log.Infof("Gossip started: address=%v", mgr.LocalAddr())
+
+	<-daemon.ShutdownSignal
+	log.Info("Stopping Gossip ...")
+}
+
+func getTransaction(hash []byte) ([]byte, error) {
+	log.Infof("Retrieving tx: hash=%s", hash)
+
+	tx, err := tangle.GetTransaction(typeutils.BytesToString(hash))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get transaction")
 	}
 	if tx == nil {
-		return []byte{}, errors.New("Not found")
+		return nil, fmt.Errorf("transaction not found: hash=%s", hash)
 	}
+
 	pTx := &pb.TransactionRequest{
 		Hash: tx.GetBytes(),
 	}
 	b, _ := proto.Marshal(pTx)
+
 	return b, nil
-}
-
-func configureGossip() {
-	zLogger = zL.NewLogger(defaultZLC, debugLevel)
-
-	trans, err := transport.Listen(local.INSTANCE, zLogger)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	mgr = gp.NewManager(trans, zLogger, getTransaction)
-
-	log.Info("Gossip started @", trans.LocalAddr().String())
-}
-
-func configureEvents() {
-
-	selection.Events.Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
-		log.Info("neighbor removed: " + ev.DroppedID.String())
-		go mgr.DropNeighbor(ev.DroppedID)
-	}))
-
-	selection.Events.IncomingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
-		gossipService := ev.Peer.Services().Get(service.GossipKey)
-		if gossipService != nil {
-			log.Info("accepted neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
-			go mgr.AddInbound(ev.Peer)
-		}
-	}))
-
-	selection.Events.OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
-		gossipService := ev.Peer.Services().Get(service.GossipKey)
-		if gossipService != nil {
-			log.Info("chosen neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
-			go mgr.AddOutbound(ev.Peer)
-		}
-	}))
-
-	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
-		log.Info("gossip solid tx", tx.MetaTransaction.GetHash())
-		t := &pb.Transaction{
-			Body: tx.MetaTransaction.GetBytes(),
-		}
-		b, err := proto.Marshal(t)
-		if err != nil {
-			return
-		}
-		go mgr.SendTransaction(b)
-	}))
-
-	gossip.Events.RequestTransaction.Attach(events.NewClosure(func(ev *gossip.RequestTransactionEvent) {
-		pTx := &pb.TransactionRequest{}
-		proto.Unmarshal(ev.Hash, pTx)
-		log.Info("Tx Requested:", string(pTx.Hash))
-		go mgr.RequestTransaction(pTx.Hash)
-	}))
 }

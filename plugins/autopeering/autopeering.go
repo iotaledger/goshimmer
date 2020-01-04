@@ -51,7 +51,7 @@ const defaultZLC = `{
 	}
   }`
 
-var zLogger = logger.NewLogger(defaultZLC, "info")
+var zLogger = logger.NewLogger(defaultZLC, logLevel)
 
 func configureLocal() {
 	ip := net.ParseIP(parameter.NodeConfig.GetString(CFG_ADDRESS))

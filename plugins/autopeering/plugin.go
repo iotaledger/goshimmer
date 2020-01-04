@@ -9,12 +9,17 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-// NETWORK defines the network type used for the autopeering.
-const NETWORK = "udp"
+const (
+	// NETWORK defines the network type used for the autopeering.
+	NETWORK = "udp"
 
-var PLUGIN = node.NewPlugin("Autopeering", node.Enabled, configure, run)
+	name     = "Autopeering" // name of the plugin
+	logLevel = "info"
+)
 
-var log = logger.NewLogger("Autopeering")
+var PLUGIN = node.NewPlugin(name, node.Enabled, configure, run)
+
+var log = logger.NewLogger(name)
 
 func configure(*node.Plugin) {
 	configureEvents()
@@ -23,7 +28,7 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	daemon.BackgroundWorker("Autopeering", start)
+	daemon.BackgroundWorker(name, start)
 }
 
 func configureEvents() {

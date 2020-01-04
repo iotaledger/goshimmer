@@ -1,4 +1,4 @@
-package transport
+package server
 
 import (
 	"bytes"
@@ -21,8 +21,8 @@ import (
 var (
 	// ErrTimeout is returned when an expected incoming connection was not received in time.
 	ErrTimeout = errors.New("accept timeout")
-	// ErrClosed means that the transport was shut down before a response could be received.
-	ErrClosed = errors.New("transport closed")
+	// ErrClosed means that the server was shut down before a response could be received.
+	ErrClosed = errors.New("server closed")
 	// ErrInvalidHandshake is returned when no correct handshake could be established.
 	ErrInvalidHandshake = errors.New("invalid handshake")
 	// ErrNoGossip means that the given peer does not support the gossip service.
@@ -71,8 +71,8 @@ type accept struct {
 	conn   net.Conn // the actual network connection
 }
 
-// Listen creates the object and starts listening for incoming connections.
-func Listen(local *peer.Local, log *zap.SugaredLogger) (*TCP, error) {
+// ListenTCP creates the object and starts listening for incoming connections.
+func ListenTCP(local *peer.Local, log *zap.SugaredLogger) (*TCP, error) {
 	t := &TCP{
 		local:            local,
 		log:              log,

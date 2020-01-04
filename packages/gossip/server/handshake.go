@@ -1,4 +1,4 @@
-package transport
+package server
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/autopeering-sim/server"
-	pb "github.com/iotaledger/goshimmer/packages/gossip/transport/proto"
+	pb "github.com/iotaledger/goshimmer/packages/gossip/server/proto"
 )
 
 const (

@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/autopeering-sim/peer"
 	"github.com/iotaledger/autopeering-sim/peer/service"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
-	"github.com/iotaledger/goshimmer/packages/gossip/transport"
+	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -78,17 +78,20 @@ func newTest(t require.TestingT, name string) (*Manager, func(), *peer.Peer) {
 	// enable TCP gossipping
 	require.NoError(t, local.UpdateService(service.GossipKey, "tcp", getTCPAddress(t)))
 
-	trans, err := transport.Listen(local, l)
+	mgr := NewManager(local, getTestTransaction, l)
+
+	srv, err := server.ListenTCP(local, l)
 	require.NoError(t, err)
 
-	mgr := NewManager(trans, l, getTestTransaction)
-
 	// update the service with the actual address
-	require.NoError(t, local.UpdateService(service.GossipKey, trans.LocalAddr().Network(), trans.LocalAddr().String()))
+	require.NoError(t, local.UpdateService(service.GossipKey, srv.LocalAddr().Network(), srv.LocalAddr().String()))
+
+	// start the actual gossipping
+	mgr.Start(srv)
 
 	teardown := func() {
 		mgr.Close()
-		trans.Close()
+		srv.Close()
 		db.Close()
 	}
 	return mgr, teardown, &local.Peer
