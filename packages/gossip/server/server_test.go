@@ -111,8 +111,7 @@ func TestNoHandshakeResponse(t *testing.T) {
 	lis, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
 	go func() {
-		conn, err := lis.Accept()
-		require.NoError(t, err)
+		conn, _ := lis.Accept()
 		n, _ := conn.Read(make([]byte, maxHandshakePacketSize))
 		assert.NotZero(t, n)
 		_ = conn.Close()

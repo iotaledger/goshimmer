@@ -332,7 +332,8 @@ func (t *TCP) doHandshake(key peer.PublicKey, remoteAddr string, conn net.Conn) 
 		return fmt.Errorf("handshake size too large: %d, max %d", l, maxHandshakePacketSize)
 	}
 
-	if err := conn.SetWriteDeadline(time.Now().Add(handshakeTimeout)); err != nil {
+	err = conn.SetWriteDeadline(time.Now().Add(handshakeTimeout))
+	if err != nil {
 		return err
 	}
 	_, err = conn.Write(b)
@@ -340,7 +341,8 @@ func (t *TCP) doHandshake(key peer.PublicKey, remoteAddr string, conn net.Conn) 
 		return err
 	}
 
-	if err := conn.SetReadDeadline(time.Now().Add(handshakeTimeout)); err != nil {
+	err = conn.SetReadDeadline(time.Now().Add(handshakeTimeout))
+	if err != nil {
 		return err
 	}
 	b = make([]byte, maxHandshakePacketSize)
@@ -349,8 +351,9 @@ func (t *TCP) doHandshake(key peer.PublicKey, remoteAddr string, conn net.Conn) 
 		return err
 	}
 
-	pkt = new(pb.Packet)
-	if err := proto.Unmarshal(b[:n], pkt); err != nil {
+	pkt = &pb.Packet{}
+	err = proto.Unmarshal(b[:n], pkt)
+	if err != nil {
 		return err
 	}
 
@@ -375,8 +378,9 @@ func (t *TCP) readHandshakeRequest(conn net.Conn) (peer.PublicKey, []byte, error
 		return nil, nil, errors.Wrap(err, ErrInvalidHandshake.Error())
 	}
 
-	pkt := new(pb.Packet)
-	if err := proto.Unmarshal(b[:n], pkt); err != nil {
+	pkt := &pb.Packet{}
+	err = proto.Unmarshal(b[:n], pkt)
+	if err != nil {
 		return nil, nil, err
 	}
 
@@ -411,7 +415,8 @@ func (t *TCP) writeHandshakeResponse(reqData []byte, conn net.Conn) error {
 		return fmt.Errorf("handshake size too large: %d, max %d", l, maxHandshakePacketSize)
 	}
 
-	if err := conn.SetWriteDeadline(time.Now().Add(handshakeTimeout)); err != nil {
+	err = conn.SetWriteDeadline(time.Now().Add(handshakeTimeout))
+	if err != nil {
 		return err
 	}
 	_, err = conn.Write(b)
