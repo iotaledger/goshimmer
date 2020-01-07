@@ -237,7 +237,9 @@ func (s *Server) write(toAddr string, pkt *pb.Packet) {
 	}
 
 	err = s.trans.WriteTo(b, toAddr)
-	s.log.Debugw("write packet", "addr", toAddr, "size", len(b), "err", err)
+	if err != nil {
+		s.log.Debugw("failed to write packet", "addr", toAddr, "err", err)
+	}
 }
 
 // encodes a message as a data packet that can be written.
@@ -290,7 +292,6 @@ func (s *Server) handlePacket(pkt *pb.Packet, fromAddr string) error {
 	}
 
 	fromID := key.ID()
-	s.log.Debugw("handlePacket", "addr", fromAddr, "id", fromID)
 	for _, handler := range s.handlers {
 		ok, err := handler.HandleMessage(s, fromAddr, fromID, key, data)
 		if ok {
