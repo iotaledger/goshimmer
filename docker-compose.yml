@@ -3,7 +3,6 @@ version: "3"
 services:
 
   goshimmer:
-    network_mode: host
     image: iotaledger/goshimmer
     build:
       context: ./
