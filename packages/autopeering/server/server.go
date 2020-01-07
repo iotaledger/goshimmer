@@ -274,8 +274,8 @@ func (s *Server) readLoop() {
 
 		pkt := new(pb.Packet)
 		if err := proto.Unmarshal(b, pkt); err != nil {
-			s.log.Debugw("packet error", "err", err)
-			return
+			s.log.Debugw("bad packet", "from", fromAddr, "err", err)
+			continue
 		}
 		if err := s.handlePacket(pkt, fromAddr); err != nil {
 			s.log.Debugw("failed to handle packet", "from", fromAddr, "err", err)
