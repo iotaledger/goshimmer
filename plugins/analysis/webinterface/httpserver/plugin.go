@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	"golang.org/x/net/context"
 	"golang.org/x/net/websocket"
@@ -22,17 +21,14 @@ func Configure(plugin *node.Plugin) {
 
 	router.Handle("/datastream", websocket.Handler(dataStream))
 	router.HandleFunc("/", index)
-
-	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 0*time.Second)
-		defer cancel()
-
-		httpServer.Shutdown(ctx)
-	}))
 }
 
 func Run(plugin *node.Plugin) {
 	daemon.BackgroundWorker("Analysis HTTP Server", func(shutdownSignal <-chan struct{}) {
-		httpServer.ListenAndServe()
+		go httpServer.ListenAndServe()
+		<-shutdownSignal
+		ctx, cancel := context.WithTimeout(context.Background(), 0*time.Second)
+		defer cancel()
+		httpServer.Shutdown(ctx)
 	})
 }

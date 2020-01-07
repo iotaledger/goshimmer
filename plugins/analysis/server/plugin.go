@@ -41,14 +41,16 @@ func Configure(plugin *node.Plugin) {
 func Run(plugin *node.Plugin) {
 	daemon.BackgroundWorker("Analysis Server", func(shutdownSignal <-chan struct{}) {
 		log.Infof("Starting Server (port %d) ... done", parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
-		server.Listen(parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
+		go server.Listen(parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
+		<-shutdownSignal
+		Shutdown()
 	})
 }
 
-func Shutdown(plugin *node.Plugin) {
+func Shutdown() {
 	log.Info("Stopping Server ...")
-
 	server.Shutdown()
+	log.Info("Stopping Server ... done")
 }
 
 func HandleConnection(conn *network.ManagedConnection) {

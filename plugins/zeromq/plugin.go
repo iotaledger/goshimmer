@@ -22,17 +22,6 @@ var emptyTag = strings.Repeat("9", 27)
 
 // Configure the zeromq plugin
 func configure(plugin *node.Plugin) {
-
-	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		log.Info("Stopping ZeroMQ Publisher ...")
-
-		if err := publisher.Shutdown(); err != nil {
-			log.Errorf("Stopping ZeroMQ Publisher: %s", err.Error())
-		} else {
-			log.Info("Stopping ZeroMQ Publisher ... done")
-		}
-	}))
-
 	tangle.Events.TransactionStored.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
 		// create goroutine for every event
 		go func() {
@@ -53,6 +42,15 @@ func run(plugin *node.Plugin) {
 			log.Errorf("Stopping ZeroMQ Publisher: %s", err.Error())
 		} else {
 			log.Infof("Starting ZeroMQ Publisher (port %d) ... done", zeromqPort)
+		}
+
+		<-shutdownSignal
+
+		log.Info("Stopping ZeroMQ Publisher ...")
+		if err := publisher.Shutdown(); err != nil {
+			log.Errorf("Stopping ZeroMQ Publisher: %s", err.Error())
+		} else {
+			log.Info("Stopping ZeroMQ Publisher ... done")
 		}
 	})
 }

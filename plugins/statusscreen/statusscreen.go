@@ -36,14 +36,14 @@ func configure(plugin *node.Plugin) {
 	})
 	logger.Events.AnyMsg.Attach(anyLogMsgClosure)
 
-	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
+	daemon.BackgroundWorker("UI-Detach", func(shutdownSignal <-chan struct{}) {
+		<-shutdownSignal
 		logger.InjectWriters(os.Stdout)
 		logger.Events.AnyMsg.Detach(anyLogMsgClosure)
-
 		if app != nil {
 			app.Stop()
 		}
-	}))
+	}, 1)
 }
 
 func run(plugin *node.Plugin) {
