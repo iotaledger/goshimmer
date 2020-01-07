@@ -6,7 +6,7 @@ import (
 
 	"github.com/dgraph-io/badger"
 	"github.com/dgraph-io/badger/options"
-	"github.com/iotaledger/hive.go/parameter"
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/pkg/errors"
 )
 

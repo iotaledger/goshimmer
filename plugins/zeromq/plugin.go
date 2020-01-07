@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/parameter"
 )
 
 // zeromq logging is disabled by default
@@ -48,7 +48,7 @@ func run(plugin *node.Plugin) {
 	zeromqPort := parameter.NodeConfig.GetInt(ZEROMQ_PORT)
 	log.Infof("Starting ZeroMQ Publisher (port %d) ...", zeromqPort)
 
-	daemon.BackgroundWorker("ZeroMQ Publisher", func() {
+	daemon.BackgroundWorker("ZeroMQ Publisher", func(shutdownSignal <-chan struct{}) {
 		if err := startPublisher(plugin); err != nil {
 			log.Errorf("Stopping ZeroMQ Publisher: %s", err.Error())
 		} else {

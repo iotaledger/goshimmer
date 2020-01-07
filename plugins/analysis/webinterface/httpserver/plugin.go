@@ -32,7 +32,7 @@ func Configure(plugin *node.Plugin) {
 }
 
 func Run(plugin *node.Plugin) {
-	daemon.BackgroundWorker("Analysis HTTP Server", func() {
+	daemon.BackgroundWorker("Analysis HTTP Server", func(shutdownSignal <-chan struct{}) {
 		httpServer.ListenAndServe()
 	})
 }

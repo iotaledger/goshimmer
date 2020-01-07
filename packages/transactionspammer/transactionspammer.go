@@ -34,13 +34,13 @@ func Start(tps uint) {
 	spamming = true
 	spammingMutex.Unlock()
 
-	daemon.BackgroundWorker("Transaction Spammer", func() {
+	daemon.BackgroundWorker("Transaction Spammer", func(daemonShutdownSignal <-chan struct{}) {
 		start := time.Now()
 		totalSentCounter := int64(0)
 
 		for {
 			select {
-			case <-daemon.ShutdownSignal:
+			case <-daemonShutdownSignal:
 				return
 
 			case <-shutdownSignal:

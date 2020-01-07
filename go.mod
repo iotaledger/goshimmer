@@ -11,7 +11,7 @@ require (
 	github.com/go-zeromq/zmq4 v0.7.0
 	github.com/golang/protobuf v1.3.2
 	github.com/gorilla/websocket v1.4.1
-	github.com/iotaledger/hive.go v0.0.0-20191229233341-c3732738ee20
+	github.com/iotaledger/hive.go v0.0.0-20200107010340-3674684388b3
 	github.com/iotaledger/iota.go v1.0.0-beta.13
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0 // indirect
@@ -21,15 +21,13 @@ require (
 	github.com/mattn/go-isatty v0.0.11 // indirect
 	github.com/mattn/go-runewidth v0.0.7 // indirect
 	github.com/pelletier/go-toml v1.6.0 // indirect
-	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/rivo/tview v0.0.0-20191229165609-1ee8d9874dcf
-	github.com/sasha-s/go-deadlock v0.2.0 // indirect
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.6.1 // indirect
+	github.com/spf13/viper v1.6.1
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/valyala/fasttemplate v1.1.0 // indirect

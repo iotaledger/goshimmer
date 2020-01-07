@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/analysis/client"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface"
@@ -8,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/parameter"
 )
 
 var PLUGIN = node.NewPlugin("Analysis", node.Enabled, configure, run)
@@ -35,6 +35,7 @@ func run(plugin *node.Plugin) {
 
 	if parameter.NodeConfig.GetString(client.CFG_SERVER_ADDRESS) != "" {
 		client.Run(plugin)
+		log.Info("Stopping Analysis-Client ... done")
 	} else {
 		log.Info("Starting Plugin: Analysis ... client is disabled (server-address is empty)")
 	}

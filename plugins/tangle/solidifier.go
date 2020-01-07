@@ -54,7 +54,7 @@ func configureSolidifier(plugin *node.Plugin) {
 func runSolidifier(plugin *node.Plugin) {
 	log.Info("Starting Solidifier ...")
 
-	daemon.BackgroundWorker("Tangle Solidifier", func() {
+	daemon.BackgroundWorker("Tangle Solidifier", func(shutdownSignal <-chan struct{}) {
 		log.Info("Starting Solidifier ... done")
 		workerPool.Run()
 		log.Info("Stopping Solidifier ... done")

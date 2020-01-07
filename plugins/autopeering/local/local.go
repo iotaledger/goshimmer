@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
-	"github.com/iotaledger/hive.go/parameter"
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"go.uber.org/zap"
 )
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/network/tcp"
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
@@ -15,7 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/parameter"
 	"github.com/pkg/errors"
 )
 
@@ -39,7 +39,7 @@ func Configure(plugin *node.Plugin) {
 }
 
 func Run(plugin *node.Plugin) {
-	daemon.BackgroundWorker("Analysis Server", func() {
+	daemon.BackgroundWorker("Analysis Server", func(shutdownSignal <-chan struct{}) {
 		log.Infof("Starting Server (port %d) ... done", parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
 		server.Listen(parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
 	})

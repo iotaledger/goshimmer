@@ -36,7 +36,7 @@ func configure(plugin *node.Plugin) {
 func run(plugin *node.Plugin) {
 	log.Info("Starting Web Server ...")
 
-	daemon.BackgroundWorker("WebAPI Server", func() {
+	daemon.BackgroundWorker("WebAPI Server", func(shutdownSignal <-chan struct{}) {
 		log.Info("Starting Web Server ... done")
 
 		if err := Server.Start(":8080"); err != nil {

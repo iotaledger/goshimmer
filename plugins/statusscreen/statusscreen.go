@@ -136,10 +136,10 @@ func run(plugin *node.Plugin) {
 		return false
 	})
 
-	daemon.BackgroundWorker("Statusscreen Refresher", func() {
+	daemon.BackgroundWorker("Statusscreen Refresher", func(shutdownSignal <-chan struct{}) {
 		for {
 			select {
-			case <-daemon.ShutdownSignal:
+			case <-shutdownSignal:
 				return
 			case <-time.After(1 * time.Second):
 				app.QueueUpdateDraw(func() {})
@@ -147,7 +147,7 @@ func run(plugin *node.Plugin) {
 		}
 	})
 
-	daemon.BackgroundWorker("Statusscreen App", func() {
+	daemon.BackgroundWorker("Statusscreen App", func(shutdownSignal <-chan struct{}) {
 		if err := app.SetRoot(frame, true).SetFocus(frame).Run(); err != nil {
 			panic(err)
 		}

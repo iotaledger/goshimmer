@@ -43,7 +43,7 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-	daemon.BackgroundWorker("Dashboard Updater", func() {
+	daemon.BackgroundWorker("Dashboard Updater", func(shutdownSignal <-chan struct{}) {
 		go func() {
 			if err := server.ListenAndServe(); err != nil {
 				log.Error(err.Error())

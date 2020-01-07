@@ -38,7 +38,7 @@ func configure(plugin *node.Plugin) {
 func run(plugin *node.Plugin) {
 	log.Info("Starting Bundle Processor ...")
 
-	daemon.BackgroundWorker("Bundle Processor", func() {
+	daemon.BackgroundWorker("Bundle Processor", func(shutdownSignal <-chan struct{}) {
 		log.Info("Starting Bundle Processor ... done")
 		workerPool.Run()
 		log.Info("Stopping Bundle Processor ... done")
@@ -46,7 +46,7 @@ func run(plugin *node.Plugin) {
 
 	log.Info("Starting Value Bundle Processor ...")
 
-	daemon.BackgroundWorker("Value Bundle Processor", func() {
+	daemon.BackgroundWorker("Value Bundle Processor", func(shutdownSignal <-chan struct{}) {
 		log.Info("Starting Value Bundle Processor ... done")
 		valueBundleProcessorWorkerPool.Run()
 		log.Info("Stopping Value Bundle Processor ... done")
