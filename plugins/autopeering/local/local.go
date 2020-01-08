@@ -11,7 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/parameter"
-	"go.uber.org/zap"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 var (
@@ -35,11 +35,7 @@ func configureLocal() *peer.Local {
 	port := strconv.Itoa(parameter.NodeConfig.GetInt(CFG_PORT))
 
 	// create a new local node
-	logger, err := zap.NewProduction()
-	if err != nil {
-		log.Fatalf("Could not create logger: %v", err)
-	}
-	db := peer.NewPersistentDB(logger.Named("db").Sugar())
+	db := peer.NewPersistentDB(logger.NewLogger("local"))
 
 	local, err := peer.NewLocal("udp", net.JoinHostPort(ip.String(), port), db)
 	if err != nil {
