@@ -23,9 +23,8 @@
     "DisableStacktrace":false,
     "Encoding":"console",
     "OutputPaths":[
-      "stdout"
-    ],
-    "DisableEvents":false
+      "shimmer.log"
+    ]
   },
   "node":{
     "disableplugins":"",

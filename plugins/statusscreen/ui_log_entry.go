@@ -15,7 +15,7 @@ type UILogEntry struct {
 	LogLevelContainer *tview.TextView
 }
 
-func NewUILogEntry(message StatusMessage) *UILogEntry {
+func NewUILogEntry(message logMessage) *UILogEntry {
 	logEntry := &UILogEntry{
 		Primitive:         tview.NewGrid(),
 		TimeContainer:     tview.NewTextView(),
@@ -36,7 +36,7 @@ func NewUILogEntry(message StatusMessage) *UILogEntry {
 	logEntry.LogLevelContainer.SetDynamicColors(true)
 
 	textColor := "black::d"
-	switch message.LogLevel {
+	switch message.level {
 	case logger.LevelInfo:
 		fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [blue::d]INFO [black::d]]")
 	case logger.LevelWarn:
@@ -57,11 +57,11 @@ func NewUILogEntry(message StatusMessage) *UILogEntry {
 		textColor = "black::b"
 	}
 
-	fmt.Fprintf(logEntry.TimeContainer, "  [black::b]"+message.Time.Format("15:04:05"))
-	if message.Source == "Node" {
-		fmt.Fprintf(logEntry.MessageContainer, "["+textColor+"]"+message.Message)
+	fmt.Fprintf(logEntry.TimeContainer, "  [black::b]"+message.time.Format("15:04:05"))
+	if message.name == "Node" {
+		fmt.Fprintf(logEntry.MessageContainer, "["+textColor+"]"+message.msg)
 	} else {
-		fmt.Fprintf(logEntry.MessageContainer, "["+textColor+"]"+message.Source+": "+message.Message)
+		fmt.Fprintf(logEntry.MessageContainer, "["+textColor+"]"+message.name+": "+message.msg)
 	}
 
 	logEntry.Primitive.
