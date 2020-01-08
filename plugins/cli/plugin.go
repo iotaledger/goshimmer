@@ -44,7 +44,7 @@ func parseParameters() {
 	}
 }
 
-func LoadConfig(){
+func LoadConfig() {
 	if err := parameter.FetchConfig(true); err != nil {
 		panic(err)
 	}

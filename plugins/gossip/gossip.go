@@ -5,7 +5,6 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/iotaledger/goshimmer/packages/autopeering/logger"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
@@ -13,35 +12,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/typeutils"
 )
 
 var (
+	log *logger.Logger
 	mgr *gp.Manager
 )
-
-const defaultZLC = `{
-	"level": "info",
-	"development": false,
-	"outputPaths": ["./gossip.log"],
-	"errorOutputPaths": ["stderr"],
-	"encoding": "console",
-	"encoderConfig": {
-	  "timeKey": "ts",
-	  "levelKey": "level",
-	  "nameKey": "logger",
-	  "callerKey": "caller",
-	  "messageKey": "msg",
-	  "stacktraceKey": "stacktrace",
-	  "lineEnding": "",
-	  "levelEncoder": "",
-	  "timeEncoder": "iso8601",
-	  "durationEncoder": "",
-	  "callerEncoder": ""
-	}
-  }`
-
-var zLogger = logger.NewLogger(defaultZLC, logLevel)
 
 func configureGossip() {
 	lPeer := local.GetInstance()
@@ -57,13 +35,13 @@ func configureGossip() {
 		log.Fatalf("could not update services: %v", err)
 	}
 
-	mgr = gp.NewManager(lPeer, getTransaction, zLogger)
+	mgr = gp.NewManager(lPeer, getTransaction, log)
 }
 
 func start(shutdownSignal <-chan struct{}) {
 	defer log.Info("Stopping Gossip ... done")
 
-	srv, err := server.ListenTCP(local.GetInstance(), zLogger)
+	srv, err := server.ListenTCP(local.GetInstance(), log)
 	if err != nil {
 		log.Fatalf("ListenTCP: %v", err)
 	}
