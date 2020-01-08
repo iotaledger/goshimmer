@@ -23,9 +23,10 @@ import (
 	"github.com/iotaledger/hive.go/timeutil"
 )
 
-var log = logger.NewLogger("Analysis-Client")
+var log *logger.Logger
 
 func Run(plugin *node.Plugin) {
+	log = logger.NewLogger("Analysis-Client")
 	daemon.BackgroundWorker("Analysis Client", func(shutdownSignal <-chan struct{}) {
 		shuttingDown := false
 

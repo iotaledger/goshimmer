@@ -9,22 +9,21 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-const (
-	name     = "Autopeering" // name of the plugin
-	logLevel = "info"
-)
+const name = "Autopeering" // name of the plugin
 
 var PLUGIN = node.NewPlugin(name, node.Enabled, configure, run)
 
-var log = logger.NewLogger(name)
-
 func configure(*node.Plugin) {
+	log = logger.NewLogger(name)
+
 	configureEvents()
 	configureAP()
 }
 
 func run(*node.Plugin) {
-	daemon.BackgroundWorker(name, start)
+	if err := daemon.BackgroundWorker(name, start); err != nil {
+		log.Errorf("Failed to start as daemon: %s", err)
+	}
 }
 
 func configureEvents() {

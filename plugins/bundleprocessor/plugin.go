@@ -11,9 +11,11 @@ import (
 )
 
 var PLUGIN = node.NewPlugin("Bundle Processor", node.Enabled, configure, run)
-var log = logger.NewLogger("Bundle Processor")
+var log *logger.Logger
 
 func configure(*node.Plugin) {
+	log = logger.NewLogger("Bundle Processor")
+
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
 		if tx.IsHead() {
 			workerPool.Submit(tx)

@@ -8,9 +8,11 @@ import (
 // region plugin module setup //////////////////////////////////////////////////////////////////////////////////////////
 
 var PLUGIN = node.NewPlugin("Tangle", node.Enabled, configure, run)
-var log = logger.NewLogger("Tangle")
+var log *logger.Logger
 
 func configure(*node.Plugin) {
+	log = logger.NewLogger("Tangle")
+
 	configureTransactionDatabase()
 	configureTransactionMetaDataDatabase()
 	configureApproversDatabase()
