@@ -11,9 +11,11 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/iota.go/consts"
 	"github.com/magiconair/properties/assert"
+	"github.com/spf13/viper"
 )
 
 var seed = client.NewSeed("YFHQWAUPCXC9S9DSHP9NDF9RLNPMZVCMSJKUKQP9SWUSUCPRQXCMDVDVZ9SHHESHIQNCXWBJF9UJSWE9Z", consts.SecurityLevelMedium)
@@ -23,6 +25,7 @@ func init() {
 	if err != nil {
 		log.Fatalf("Failed to initialize config: %s", err)
 	}
+	logger.InitGlobalLogger(&viper.Viper{})
 }
 
 func BenchmarkValidateSignatures(b *testing.B) {

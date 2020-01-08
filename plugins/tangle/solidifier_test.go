@@ -9,7 +9,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,6 +20,8 @@ func init() {
 	if err != nil {
 		log.Fatalf("Failed to initialize config: %s", err)
 	}
+
+	logger.InitGlobalLogger(&viper.Viper{})
 }
 
 func TestSolidifier(t *testing.T) {
