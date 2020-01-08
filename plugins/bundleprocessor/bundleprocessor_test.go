@@ -1,23 +1,29 @@
 package bundleprocessor
 
 import (
-	"os"
 	"sync"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/client"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/parameter"
 	"github.com/iotaledger/iota.go/consts"
 	"github.com/magiconair/properties/assert"
 )
 
 var seed = client.NewSeed("YFHQWAUPCXC9S9DSHP9NDF9RLNPMZVCMSJKUKQP9SWUSUCPRQXCMDVDVZ9SHHESHIQNCXWBJF9UJSWE9Z", consts.SecurityLevelMedium)
+
+func init() {
+	err := parameter.LoadDefaultConfig(false)
+	if err != nil {
+		log.Fatalf("Failed to initialize config: %s", err)
+	}
+}
 
 func BenchmarkValidateSignatures(b *testing.B) {
 	bundleFactory := client.NewBundleFactory()
@@ -44,11 +50,6 @@ func BenchmarkValidateSignatures(b *testing.B) {
 	wg.Wait()
 }
 
-func TestMain(m *testing.M) {
-	parameter.FetchConfig(false)
-	os.Exit(m.Run())
-}
-
 func TestValidateSignatures(t *testing.T) {
 	bundleFactory := client.NewBundleFactory()
 	bundleFactory.AddInput(seed.GetAddress(0), -400)
@@ -65,11 +66,9 @@ func TestValidateSignatures(t *testing.T) {
 }
 
 func TestProcessSolidBundleHead_Data(t *testing.T) {
-	// show all error messages for tests
-	// TODO: adjust logger package
-
 	// start a test node
-	node.Start(tangle.PLUGIN, PLUGIN)
+	node.Start(node.Plugins(tangle.PLUGIN, PLUGIN))
+	defer node.Shutdown()
 
 	bundleFactory := client.NewBundleFactory()
 	bundleFactory.AddOutput(seed.GetAddress(1), 400, "Testmessage")
@@ -90,6 +89,7 @@ func TestProcessSolidBundleHead_Data(t *testing.T) {
 		wg.Done()
 	})
 	Events.BundleSolid.Attach(testResults)
+	defer Events.BundleSolid.Detach(testResults)
 
 	wg.Add(1)
 
@@ -98,19 +98,12 @@ func TestProcessSolidBundleHead_Data(t *testing.T) {
 	}
 
 	wg.Wait()
-
-	Events.BundleSolid.Detach(testResults)
-
-	// shutdown test node
-	node.Shutdown()
 }
 
 func TestProcessSolidBundleHead_Value(t *testing.T) {
-	// show all error messages for tests
-	// TODO: adjust logger package
-
 	// start a test node
-	node.Start(tangle.PLUGIN, PLUGIN)
+	node.Start(node.Plugins(tangle.PLUGIN, PLUGIN))
+	defer node.Shutdown()
 
 	bundleFactory := client.NewBundleFactory()
 	bundleFactory.AddInput(seed.GetAddress(0), -400)
@@ -133,6 +126,7 @@ func TestProcessSolidBundleHead_Value(t *testing.T) {
 	})
 
 	Events.BundleSolid.Attach(testResults)
+	defer Events.BundleSolid.Detach(testResults)
 
 	wg.Add(1)
 
@@ -141,9 +135,4 @@ func TestProcessSolidBundleHead_Value(t *testing.T) {
 	}
 
 	wg.Wait()
-
-	Events.BundleSolid.Detach(testResults)
-
-	// shutdown test node
-	node.Shutdown()
 }

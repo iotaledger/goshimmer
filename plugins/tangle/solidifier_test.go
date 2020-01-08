@@ -1,22 +1,23 @@
 package tangle
 
 import (
-	"os"
 	"sync"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/parameter"
 	"github.com/stretchr/testify/require"
 )
 
-func TestMain(m *testing.M) {
-	parameter.FetchConfig(false)
-	os.Exit(m.Run())
+func init() {
+	err := parameter.LoadDefaultConfig(false)
+	if err != nil {
+		log.Fatalf("Failed to initialize config: %s", err)
+	}
 }
 
 func TestSolidifier(t *testing.T) {
@@ -24,7 +25,7 @@ func TestSolidifier(t *testing.T) {
 	// TODO: adjust logger package
 
 	// start a test node
-	node.Start(PLUGIN)
+	node.Start(node.Plugins(PLUGIN))
 
 	// create transactions and chain them together
 	transaction1 := value_transaction.New()

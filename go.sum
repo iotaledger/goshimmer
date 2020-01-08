@@ -82,10 +82,6 @@ github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T
 github.com/hpcloud/tail v1.0.0 h1:nfCOvKYfkgYP8hkirhJocXT2+zOD8yUNjXaWfTlyFKI=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
-github.com/iotaledger/hive.go v0.0.0-20191229233341-c3732738ee20 h1:ZIJAeQSEdmVbmZNIW2198IwD23+wBteb4WE4pyjxk+c=
-github.com/iotaledger/hive.go v0.0.0-20191229233341-c3732738ee20/go.mod h1:7iqun29a1x0lymTrn0UJ3Z/yy0sUzUpoOZ1OYMrYN20=
-github.com/iotaledger/hive.go v0.0.0-20200107010340-3674684388b3 h1:Ognd+3Z0qhQz9LAAwKA6ma8nDiDfClEIsxrUfZnvmmU=
-github.com/iotaledger/hive.go v0.0.0-20200107010340-3674684388b3/go.mod h1:vrZrvGaWT1o5kz3Jj2B/PcUtqsFzZnLWrO3zEsGSuwk=
 github.com/iotaledger/hive.go v0.0.0-20200107124343-d0fddfc88dea h1:kLGh9F6KOOygmJPynFSgy7DSlFOg4/x5jmOMOF8vFaA=
 github.com/iotaledger/hive.go v0.0.0-20200107124343-d0fddfc88dea/go.mod h1:vrZrvGaWT1o5kz3Jj2B/PcUtqsFzZnLWrO3zEsGSuwk=
 github.com/iotaledger/iota.go v1.0.0-beta.9/go.mod h1:F6WBmYd98mVjAmmPVYhnxg8NNIWCjjH8VWT9qvv3Rc8=
@@ -303,6 +299,7 @@ gopkg.in/alecthomas/kingpin.v2 v2.2.6/go.mod h1:FMv+mEhP44yOT+4EoQTLFTRgOQ1FBLks
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 h1:qIbj1fsPNlZgppZ+VLlY7N33q108Sa+fhmuc+sWQYwY=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 h1:YR8cESwS4TdDjEe65xsg0ogRM/Nc3DYOhEAlW+xobZo=
 gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/errgo.v2 v2.1.0/go.mod h1:hNsd1EY+bozCKY1Ytp96fpM3vjJbqLJn88ws8XvfDNI=
 gopkg.in/fsnotify.v1 v1.4.7 h1:xOHLXZwVvI9hhs+cLKq5+I5onOuwQLhQwiu63xxlHs4=
