@@ -5,7 +5,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/datastructure"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
-	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
 )
@@ -79,7 +78,7 @@ const (
 
 var bundleDatabase database.Database
 
-func configureBundleDatabase(plugin *node.Plugin) {
+func configureBundleDatabase() {
 	if db, err := database.Get("bundle"); err != nil {
 		panic(err)
 	} else {
