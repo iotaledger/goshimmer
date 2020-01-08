@@ -5,41 +5,40 @@ import (
 	"net"
 	"time"
 
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-
 	"github.com/iotaledger/goshimmer/packages/autopeering/discover"
 	"github.com/iotaledger/goshimmer/packages/autopeering/selection"
 	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/timeutil"
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/ping"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/removenode"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/parameter"
+	"github.com/iotaledger/hive.go/timeutil"
 )
 
 var log = logger.NewLogger("Analysis-Client")
 
 func Run(plugin *node.Plugin) {
-	daemon.BackgroundWorker("Analysis Client", func() {
+	daemon.BackgroundWorker("Analysis Client", func(shutdownSignal <-chan struct{}) {
 		shuttingDown := false
 
 		for !shuttingDown {
 			select {
-			case <-daemon.ShutdownSignal:
+			case <-shutdownSignal:
 				return
 
 			default:
 				if conn, err := net.Dial("tcp", parameter.NodeConfig.GetString(CFG_SERVER_ADDRESS)); err != nil {
 					log.Debugf("Could not connect to reporting server: %s", err.Error())
 
-					timeutil.Sleep(1 * time.Second)
+					timeutil.Sleep(1*time.Second, shutdownSignal)
 				} else {
 					managedConn := network.NewManagedConnection(conn)
 					eventDispatchers := getEventDispatchers(managedConn)
@@ -47,7 +46,7 @@ func Run(plugin *node.Plugin) {
 					reportCurrentStatus(eventDispatchers)
 					setupHooks(plugin, managedConn, eventDispatchers)
 
-					shuttingDown = keepConnectionAlive(managedConn)
+					shuttingDown = keepConnectionAlive(managedConn, shutdownSignal)
 				}
 			}
 		}
@@ -138,13 +137,13 @@ func reportChosenNeighbors(dispatchers *EventDispatchers) {
 	}
 }
 
-func keepConnectionAlive(conn *network.ManagedConnection) bool {
+func keepConnectionAlive(conn *network.ManagedConnection, shutdownSignal <-chan struct{}) bool {
 	go conn.Read(make([]byte, 1))
 
 	ticker := time.NewTicker(1 * time.Second)
 	for {
 		select {
-		case <-daemon.ShutdownSignal:
+		case <-shutdownSignal:
 			return true
 
 		case <-ticker.C:

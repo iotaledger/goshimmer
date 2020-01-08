@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/parameter"
 )
 
 // zeromq logging is disabled by default
@@ -22,17 +22,6 @@ var emptyTag = strings.Repeat("9", 27)
 
 // Configure the zeromq plugin
 func configure(plugin *node.Plugin) {
-
-	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		log.Info("Stopping ZeroMQ Publisher ...")
-
-		if err := publisher.Shutdown(); err != nil {
-			log.Errorf("Stopping ZeroMQ Publisher: %s", err.Error())
-		} else {
-			log.Info("Stopping ZeroMQ Publisher ... done")
-		}
-	}))
-
 	tangle.Events.TransactionStored.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
 		// create goroutine for every event
 		go func() {
@@ -48,11 +37,20 @@ func run(plugin *node.Plugin) {
 	zeromqPort := parameter.NodeConfig.GetInt(ZEROMQ_PORT)
 	log.Infof("Starting ZeroMQ Publisher (port %d) ...", zeromqPort)
 
-	daemon.BackgroundWorker("ZeroMQ Publisher", func() {
+	daemon.BackgroundWorker("ZeroMQ Publisher", func(shutdownSignal <-chan struct{}) {
 		if err := startPublisher(plugin); err != nil {
 			log.Errorf("Stopping ZeroMQ Publisher: %s", err.Error())
 		} else {
 			log.Infof("Starting ZeroMQ Publisher (port %d) ... done", zeromqPort)
+		}
+
+		<-shutdownSignal
+
+		log.Info("Stopping ZeroMQ Publisher ...")
+		if err := publisher.Shutdown(); err != nil {
+			log.Errorf("Stopping ZeroMQ Publisher: %s", err.Error())
+		} else {
+			log.Info("Stopping ZeroMQ Publisher ... done")
 		}
 	})
 }

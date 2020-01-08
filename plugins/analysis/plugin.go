@@ -1,14 +1,12 @@
 package analysis
 
 import (
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/analysis/client"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/parameter"
 )
 
 var PLUGIN = node.NewPlugin("Analysis", node.Enabled, configure, run)
@@ -18,10 +16,6 @@ func configure(plugin *node.Plugin) {
 	if parameter.NodeConfig.GetInt(server.CFG_SERVER_PORT) != 0 {
 		webinterface.Configure(plugin)
 		server.Configure(plugin)
-
-		daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-			server.Shutdown(plugin)
-		}))
 	}
 }
 

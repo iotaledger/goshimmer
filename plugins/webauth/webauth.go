@@ -40,7 +40,7 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-	daemon.BackgroundWorker("webauth", func() {
+	daemon.BackgroundWorker("webauth", func(shutdownSignal <-chan struct{}) {
 		webapi.AddEndpoint("login", func(c echo.Context) error {
 			username := c.FormValue("username")
 			password := c.FormValue("password")

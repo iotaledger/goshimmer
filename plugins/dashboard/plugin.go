@@ -33,21 +33,19 @@ func configure(plugin *node.Plugin) {
 			TPSQ = TPSQ[1:]
 		}
 	}))
-
-	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 0*time.Second)
-		defer cancel()
-
-		_ = server.Shutdown(ctx)
-	}))
 }
 
 func run(plugin *node.Plugin) {
-	daemon.BackgroundWorker("Dashboard Updater", func() {
+	daemon.BackgroundWorker("Dashboard Updater", func(shutdownSignal <-chan struct{}) {
 		go func() {
 			if err := server.ListenAndServe(); err != nil {
 				log.Error(err.Error())
 			}
 		}()
+
+		<-shutdownSignal
+		ctx, cancel := context.WithTimeout(context.Background(), 0*time.Second)
+		defer cancel()
+		_ = server.Shutdown(ctx)
 	})
 }

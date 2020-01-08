@@ -72,10 +72,10 @@ func staticFileServer(c echo.Context) error {
 
 func run(plugin *node.Plugin) {
 
-	daemon.BackgroundWorker("UI Refresher", func() {
+	daemon.BackgroundWorker("UI Refresher", func(shutdownSignal <-chan struct{}) {
 		for {
 			select {
-			case <-daemon.ShutdownSignal:
+			case <-shutdownSignal:
 				return
 			case <-time.After(1 * time.Second):
 				wsMutex.Lock()

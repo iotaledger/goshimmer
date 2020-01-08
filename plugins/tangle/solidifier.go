@@ -44,19 +44,17 @@ func configureSolidifier(plugin *node.Plugin) {
 
 		workerPool.Submit(metaTx)
 	}))
-
-	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		log.Info("Stopping Solidifier ...")
-		workerPool.Stop()
-	}))
 }
 
 func runSolidifier(plugin *node.Plugin) {
 	log.Info("Starting Solidifier ...")
 
-	daemon.BackgroundWorker("Tangle Solidifier", func() {
+	daemon.BackgroundWorker("Tangle Solidifier", func(shutdownSignal <-chan struct{}) {
 		log.Info("Starting Solidifier ... done")
-		workerPool.Run()
+		workerPool.Start()
+		<-shutdownSignal
+		log.Info("Stopping Solidifier ...")
+		workerPool.Stop()
 		log.Info("Stopping Solidifier ... done")
 	})
 }

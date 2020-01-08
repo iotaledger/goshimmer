@@ -1,6 +1,9 @@
 package main
 
 import (
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/iotaledger/goshimmer/plugins/analysis"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/bundleprocessor"
@@ -25,29 +28,34 @@ import (
 )
 
 func main() {
+	
+	go http.ListenAndServe("localhost:6060", nil) // pprof Server for Debbuging Mutexes
+
 	node.Run(
-		cli.PLUGIN,
-		autopeering.PLUGIN,
-		gossip.PLUGIN,
-		tangle.PLUGIN,
-		bundleprocessor.PLUGIN,
-		analysis.PLUGIN,
-		gracefulshutdown.PLUGIN,
-		tipselection.PLUGIN,
-		zeromq.PLUGIN,
-		dashboard.PLUGIN,
-		metrics.PLUGIN,
+		node.Plugins(
+			cli.PLUGIN,
+			autopeering.PLUGIN,
+			gossip.PLUGIN,
+			tangle.PLUGIN,
+			bundleprocessor.PLUGIN,
+			analysis.PLUGIN,
+			gracefulshutdown.PLUGIN,
+			tipselection.PLUGIN,
+			zeromq.PLUGIN,
+			dashboard.PLUGIN,
+			metrics.PLUGIN,
 
-		statusscreen.PLUGIN,
-		statusscreen_tps.PLUGIN,
+			statusscreen.PLUGIN,
+			statusscreen_tps.PLUGIN,
 
-		webapi.PLUGIN,
-		webapi_gtta.PLUGIN,
-		webapi_spammer.PLUGIN,
-		webapi_send_data.PLUGIN,
-		webapi_tx_request.PLUGIN,
+			webapi.PLUGIN,
+			webapi_gtta.PLUGIN,
+			webapi_spammer.PLUGIN,
+			webapi_send_data.PLUGIN,
+			webapi_tx_request.PLUGIN,
 
-		ui.PLUGIN,
-		webauth.PLUGIN,
+			ui.PLUGIN,
+			webauth.PLUGIN,
+		),
 	)
 }

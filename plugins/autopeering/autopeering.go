@@ -13,9 +13,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/selection"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/parameter"
 	"github.com/pkg/errors"
 )
 
@@ -72,7 +71,7 @@ func configureAP() {
 	}
 }
 
-func start() {
+func start(shutdownSignal <-chan struct{}) {
 	defer log.Info("Stopping Auto Peering server ... done")
 
 	addr := local.GetInstance().Services().Get(service.PeeringKey)
@@ -120,7 +119,7 @@ func start() {
 
 	log.Infof("Auto Peering server started: ID=%x, address=%s", local.GetInstance().ID(), srv.LocalAddr())
 
-	<-daemon.ShutdownSignal
+	<-shutdownSignal
 	log.Info("Stopping Auto Peering server ...")
 }
 
