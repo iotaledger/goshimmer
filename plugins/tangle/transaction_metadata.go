@@ -5,7 +5,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/datastructure"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
-	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
 )
@@ -76,7 +75,7 @@ const (
 
 var transactionMetadataDatabase database.Database
 
-func configureTransactionMetaDataDatabase(plugin *node.Plugin) {
+func configureTransactionMetaDataDatabase() {
 	if db, err := database.Get("transactionMetadata"); err != nil {
 		panic(err)
 	} else {

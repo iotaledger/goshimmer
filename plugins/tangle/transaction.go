@@ -5,7 +5,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/datastructure"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
 )
@@ -76,7 +75,7 @@ const (
 
 var transactionDatabase database.Database
 
-func configureTransactionDatabase(plugin *node.Plugin) {
+func configureTransactionDatabase() {
 	if db, err := database.Get("transaction"); err != nil {
 		panic(err)
 	} else {
