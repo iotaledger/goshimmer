@@ -13,7 +13,7 @@ import (
 var PLUGIN = node.NewPlugin("Bundle Processor", node.Enabled, configure, run)
 var log = logger.NewLogger("Bundle Processor")
 
-func configure(plugin *node.Plugin) {
+func configure(*node.Plugin) {
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
 		if tx.IsHead() {
 			workerPool.Submit(tx)
@@ -25,7 +25,7 @@ func configure(plugin *node.Plugin) {
 	}))
 }
 
-func run(plugin *node.Plugin) {
+func run(*node.Plugin) {
 	log.Info("Starting Bundle Processor ...")
 
 	daemon.BackgroundWorker("Bundle Processor", func(shutdownSignal <-chan struct{}) {
@@ -33,7 +33,7 @@ func run(plugin *node.Plugin) {
 		workerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping Bundle Processor ...")
-		workerPool.Stop()
+		workerPool.StopAndWait()
 		log.Info("Stopping Bundle Processor ... done")
 	})
 
@@ -44,7 +44,7 @@ func run(plugin *node.Plugin) {
 		valueBundleProcessorWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping Value Bundle Processor ...")
-		valueBundleProcessorWorkerPool.Stop()
+		valueBundleProcessorWorkerPool.StopAndWait()
 		log.Info("Stopping Value Bundle Processor ... done")
 	})
 }
