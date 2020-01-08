@@ -17,9 +17,10 @@ var server *http.Server
 var router *http.ServeMux
 
 var PLUGIN = node.NewPlugin("Dashboard", node.Disabled, configure, run)
-var log = logger.NewLogger("Dashboard")
+var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
+	log = logger.NewLogger("Dashboard")
 	router = http.NewServeMux()
 	server = &http.Server{Addr: ":8081", Handler: router}
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
 )
@@ -43,6 +44,17 @@ func parseParameters() {
 	}
 }
 
+func LoadConfig(){
+	if err := parameter.FetchConfig(true); err != nil {
+		panic(err)
+	}
+	parseParameters()
+
+	if err := logger.InitGlobalLogger(parameter.NodeConfig); err != nil {
+		panic(err)
+	}
+}
+
 func configure(ctx *node.Plugin) {
 
 	fmt.Println("  _____ _   _ ________  ______  ___ ___________ ")
@@ -52,11 +64,6 @@ func configure(ctx *node.Plugin) {
 	fmt.Println(" /\\__/ / | | |_| |_| |  | || |  | || |___| |\\ \\ ")
 	fmt.Printf(" \\____/\\_| |_/\\___/\\_|  |_/\\_|  |_/\\____/\\_| \\_| fullnode %s", AppVersion)
 	fmt.Println()
-
-	if err := parameter.FetchConfig(true); err != nil {
-		panic(err)
-	}
-	parseParameters()
 
 	ctx.Node.Logger.Info("Loading plugins ...")
 }

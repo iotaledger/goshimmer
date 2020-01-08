@@ -12,9 +12,10 @@ import (
 )
 
 var PLUGIN = node.NewPlugin("WebAPI Transaction Request Endpoint", node.Enabled, configure)
-var log = logger.NewLogger("API-TxRequest")
+var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
+	log = logger.NewLogger("API-TxRequest")
 	webapi.AddEndpoint("txRequest", Handler)
 }
 

@@ -39,15 +39,11 @@ func NewUILogEntry(message StatusMessage) *UILogEntry {
 	switch message.LogLevel {
 	case logger.LevelInfo:
 		fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [blue::d]INFO [black::d]]")
-	case logger.LevelNotice:
-		fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [blue::d]NOTICE [black::d]]")
-	case logger.LevelWarning:
+	case logger.LevelWarn:
 		fmt.Fprintf(logEntry.LogLevelContainer, " [black::d][ [yellow::d]WARN [black::d]]")
 
 		textColor = "yellow::d"
 	case logger.LevelError:
-		fallthrough
-	case logger.LevelCritical:
 		fallthrough
 	case logger.LevelPanic:
 		fallthrough

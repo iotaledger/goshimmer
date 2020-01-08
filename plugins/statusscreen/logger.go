@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 )
 
-func storeStatusMessage(logLevel logger.LogLevel, prefix string, message string) {
+func storeStatusMessage(logLevel logger.Level, prefix string, message string) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	messageLog = append(messageLog, &StatusMessage{

@@ -8,7 +8,7 @@ import (
 
 type StatusMessage struct {
 	Source   string
-	LogLevel logger.LogLevel
+	LogLevel logger.Level
 	Message  string
 	Time     time.Time
 }

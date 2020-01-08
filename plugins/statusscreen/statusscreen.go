@@ -1,7 +1,6 @@
 package statusscreen
 
 import (
-	"io/ioutil"
 	"os"
 	"sync"
 	"time"
@@ -26,19 +25,14 @@ func configure(plugin *node.Plugin) {
 		return
 	}
 
-	// don't write anything to stdout anymore
-	// as log messages are now stored and displayed via this plugin
-	logger.InjectWriters(ioutil.Discard)
-
 	// store any log message for display
-	anyLogMsgClosure := events.NewClosure(func(logLevel logger.LogLevel, prefix string, msg string) {
+	anyLogMsgClosure := events.NewClosure(func(logLevel logger.Level, prefix string, msg string) {
 		storeStatusMessage(logLevel, prefix, msg)
 	})
 	logger.Events.AnyMsg.Attach(anyLogMsgClosure)
 
 	daemon.BackgroundWorker("UI-Detach", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
-		logger.InjectWriters(os.Stdout)
 		logger.Events.AnyMsg.Detach(anyLogMsgClosure)
 		if app != nil {
 			app.Stop()

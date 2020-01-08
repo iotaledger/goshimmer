@@ -16,9 +16,11 @@ const (
 
 var PLUGIN = node.NewPlugin(name, node.Enabled, configure, run)
 
-var log = logger.NewLogger(name)
+var log *logger.Logger
 
 func configure(*node.Plugin) {
+	log = logger.NewLogger(name)
+
 	configureEvents()
 	configureAP()
 }

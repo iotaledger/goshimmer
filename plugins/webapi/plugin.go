@@ -11,11 +11,12 @@ import (
 )
 
 var PLUGIN = node.NewPlugin("WebAPI", node.Enabled, configure, run)
-var log = logger.NewLogger("WebAPI")
+var log *logger.Logger
 
 var Server = echo.New()
 
 func configure(plugin *node.Plugin) {
+	log = logger.NewLogger("WebAPI")
 	Server.HideBanner = true
 	Server.HidePort = true
 	Server.GET("/", IndexRequest)
