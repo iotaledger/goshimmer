@@ -7,4 +7,5 @@ var (
 	ErrClosed            = errors.New("manager closed")
 	ErrNotANeighbor      = errors.New("peer is not a neighbor")
 	ErrDuplicateNeighbor = errors.New("peer already connected")
+	ErrInvalidPacket     = errors.New("invalid packet")
 )

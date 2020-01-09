@@ -12,12 +12,9 @@ var Events = struct {
 	NeighborDropped *events.Event
 	// A TransactionReceived event is triggered when a new transaction is received by the gossip protocol.
 	TransactionReceived *events.Event
-	// A RequestTransaction should be triggered for a transaction to be requested through the gossip protocol.
-	RequestTransaction *events.Event
 }{
 	NeighborDropped:     events.NewEvent(neighborDropped),
 	TransactionReceived: events.NewEvent(transactionReceived),
-	RequestTransaction:  events.NewEvent(requestTransaction),
 }
 
 type NeighborDroppedEvent struct {
@@ -39,8 +36,4 @@ func neighborDropped(handler interface{}, params ...interface{}) {
 
 func transactionReceived(handler interface{}, params ...interface{}) {
 	handler.(func(*TransactionReceivedEvent))(params[0].(*TransactionReceivedEvent))
-}
-
-func requestTransaction(handler interface{}, params ...interface{}) {
-	handler.(func(*RequestTransactionEvent))(params[0].(*RequestTransactionEvent))
 }
