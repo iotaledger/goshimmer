@@ -1,7 +1,6 @@
 package selection
 
 import (
-	"log"
 	"testing"
 	"time"
 
@@ -10,36 +9,28 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 const graceTime = 100 * time.Millisecond
 
-var logger *zap.SugaredLogger
-
-func init() {
-	l, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("cannot initialize logger: %v", err)
-	}
-	logger = l.Sugar()
-}
+var log = logger.NewExampleLogger("selection")
 
 var peerMap = make(map[peer.ID]*peer.Peer)
 
 // dummyDiscovery is a dummy implementation of DiscoveryProtocol never returning any verified peers.
 type dummyDiscovery struct{}
 
-func (d dummyDiscovery) IsVerified(peer.ID, string) bool                    { return true }
-func (d dummyDiscovery) EnsureVerified(*peer.Peer)                          {}
-func (d dummyDiscovery) GetVerifiedPeer(id peer.ID, addr string) *peer.Peer { return peerMap[id] }
-func (d dummyDiscovery) GetVerifiedPeers() []*peer.Peer                     { return []*peer.Peer{} }
+func (d dummyDiscovery) IsVerified(peer.ID, string) bool                 { return true }
+func (d dummyDiscovery) EnsureVerified(*peer.Peer)                       {}
+func (d dummyDiscovery) GetVerifiedPeer(id peer.ID, _ string) *peer.Peer { return peerMap[id] }
+func (d dummyDiscovery) GetVerifiedPeers() []*peer.Peer                  { return []*peer.Peer{} }
 
 // newTest creates a new neighborhood server and also returns the teardown.
-func newTest(t require.TestingT, trans transport.Transport, logger *zap.SugaredLogger) (*server.Server, *Protocol, func()) {
-	log := logger.Named(trans.LocalAddr().String())
+func newTest(t require.TestingT, trans transport.Transport) (*server.Server, *Protocol, func()) {
+	log := log.Named(trans.LocalAddr().String())
 	db := peer.NewMemoryDB(log.Named("db"))
 	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	require.NoError(t, err)
@@ -70,9 +61,9 @@ func TestProtPeeringRequest(t *testing.T) {
 	p2p := transport.P2P()
 	defer p2p.Close()
 
-	srvA, protA, closeA := newTest(t, p2p.A, logger)
+	srvA, protA, closeA := newTest(t, p2p.A)
 	defer closeA()
-	srvB, protB, closeB := newTest(t, p2p.B, logger)
+	srvB, protB, closeB := newTest(t, p2p.B)
 	defer closeB()
 
 	peerA := getPeer(srvA)
@@ -98,9 +89,9 @@ func TestProtExpiredSalt(t *testing.T) {
 	p2p := transport.P2P()
 	defer p2p.Close()
 
-	_, protA, closeA := newTest(t, p2p.A, logger)
+	_, protA, closeA := newTest(t, p2p.A)
 	defer closeA()
-	srvB, _, closeB := newTest(t, p2p.B, logger)
+	srvB, _, closeB := newTest(t, p2p.B)
 	defer closeB()
 
 	saltA, _ := salt.NewSalt(-1 * time.Second)
@@ -115,9 +106,9 @@ func TestProtDropPeer(t *testing.T) {
 	p2p := transport.P2P()
 	defer p2p.Close()
 
-	srvA, protA, closeA := newTest(t, p2p.A, logger)
+	srvA, protA, closeA := newTest(t, p2p.A)
 	defer closeA()
-	srvB, protB, closeB := newTest(t, p2p.B, logger)
+	srvB, protB, closeB := newTest(t, p2p.B)
 	defer closeB()
 
 	peerA := getPeer(srvA)
@@ -139,7 +130,7 @@ func TestProtDropPeer(t *testing.T) {
 
 // newTest creates a new server handling discover as well as neighborhood and also returns the teardown.
 func newFullTest(t require.TestingT, trans transport.Transport, masterPeers ...*peer.Peer) (*server.Server, *Protocol, func()) {
-	log := logger.Named(trans.LocalAddr().String())
+	log := log.Named(trans.LocalAddr().String())
 	db := peer.NewMemoryDB(log.Named("db"))
 	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	require.NoError(t, err)

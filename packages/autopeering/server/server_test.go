@@ -1,30 +1,21 @@
 package server
 
 import (
-	"log"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 const graceTime = 5 * time.Millisecond
 
-var logger *zap.SugaredLogger
-
-func init() {
-	l, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("cannot initialize logger: %v", err)
-	}
-	logger = l.Sugar()
-}
+var log = logger.NewExampleLogger("server")
 
 const (
 	MPing MType = iota
@@ -106,7 +97,7 @@ func unmarshal(data []byte) (Message, error) {
 
 func TestSrvEncodeDecodePing(t *testing.T) {
 	// create minimal server just containing the local peer
-	local, err := peer.NewLocal("dummy", "local", peer.NewMemoryDB(logger))
+	local, err := peer.NewLocal("dummy", "local", peer.NewMemoryDB(log))
 	require.NoError(t, err)
 	s := &Server{local: local}
 
@@ -121,8 +112,8 @@ func TestSrvEncodeDecodePing(t *testing.T) {
 	assert.Equal(t, msg, ping)
 }
 
-func newTestServer(t require.TestingT, name string, trans transport.Transport, logger *zap.SugaredLogger) (*Server, func()) {
-	log := logger.Named(name)
+func newTestServer(t require.TestingT, name string, trans transport.Transport) (*Server, func()) {
+	log := log.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
 	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	require.NoError(t, err)
@@ -132,7 +123,7 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport, l
 	s, _ = salt.NewSalt(100 * time.Second)
 	local.SetPublicSalt(s)
 
-	srv := Listen(local, trans, logger.Named(name), HandlerFunc(handle))
+	srv := Listen(local, trans, log, HandlerFunc(handle))
 
 	teardown := func() {
 		srv.Close()
@@ -155,9 +146,9 @@ func sendPing(s *Server, p *peer.Peer) error {
 func TestPingPong(t *testing.T) {
 	p2p := transport.P2P()
 
-	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
+	srvA, closeA := newTestServer(t, "A", p2p.A)
 	defer closeA()
-	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
+	srvB, closeB := newTestServer(t, "B", p2p.B)
 	defer closeB()
 
 	peerA := &srvA.Local().Peer
@@ -192,9 +183,9 @@ func TestSrvPingTimeout(t *testing.T) {
 
 	p2p := transport.P2P()
 
-	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
+	srvA, closeA := newTestServer(t, "A", p2p.A)
 	defer closeA()
-	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
+	srvB, closeB := newTestServer(t, "B", p2p.B)
 	closeB()
 
 	peerB := &srvB.Local().Peer
@@ -206,9 +197,9 @@ func TestUnexpectedPong(t *testing.T) {
 
 	p2p := transport.P2P()
 
-	srvA, closeA := newTestServer(t, "A", p2p.A, logger)
+	srvA, closeA := newTestServer(t, "A", p2p.A)
 	defer closeA()
-	srvB, closeB := newTestServer(t, "B", p2p.B, logger)
+	srvB, closeB := newTestServer(t, "B", p2p.B)
 	defer closeB()
 
 	// there should never be a Ping.Handle
