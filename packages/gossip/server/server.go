@@ -55,7 +55,7 @@ type TCP struct {
 
 // connect contains the result of an incoming connection.
 type connect struct {
-	c   *Connection
+	c   net.Conn
 	err error
 }
 
@@ -133,7 +133,7 @@ func (t *TCP) LocalAddr() net.Addr {
 
 // DialPeer establishes a gossip connection to the given peer.
 // If the peer does not accept the connection or the handshake fails, an error is returned.
-func (t *TCP) DialPeer(p *peer.Peer) (*Connection, error) {
+func (t *TCP) DialPeer(p *peer.Peer) (net.Conn, error) {
 	gossipAddr := p.Services().Get(service.GossipKey)
 	if gossipAddr == nil {
 		return nil, ErrNoGossip
@@ -153,12 +153,12 @@ func (t *TCP) DialPeer(p *peer.Peer) (*Connection, error) {
 		"id", p.ID(),
 		"addr", conn.RemoteAddr(),
 	)
-	return newConnection(conn, p), nil
+	return conn, nil
 }
 
 // AcceptPeer awaits an incoming connection from the given peer.
 // If the peer does not establish the connection or the handshake fails, an error is returned.
-func (t *TCP) AcceptPeer(p *peer.Peer) (*Connection, error) {
+func (t *TCP) AcceptPeer(p *peer.Peer) (net.Conn, error) {
 	if p.Services().Get(service.GossipKey) == nil {
 		return nil, ErrNoGossip
 	}
@@ -273,7 +273,7 @@ func (t *TCP) matchAccept(m *acceptMatcher, req []byte, conn net.Conn) {
 		t.closeConnection(conn)
 		return
 	}
-	m.connected <- connect{newConnection(conn, m.peer), nil}
+	m.connected <- connect{conn, nil}
 }
 
 func (t *TCP) listenLoop() {

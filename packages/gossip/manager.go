@@ -178,7 +178,7 @@ func (m *Manager) send(b []byte, to ...peer.ID) {
 	}
 }
 
-func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (*server.Connection, error)) error {
+func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (net.Conn, error)) error {
 	conn, err := connectorFunc(peer)
 	if err != nil {
 		m.log.Debugw("addNeighbor failed", "peer", peer.ID(), "err", err)
@@ -189,11 +189,11 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (*
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if !m.running {
-		disconnect(conn)
+		m.disconnect(conn, peer)
 		return ErrClosed
 	}
 	if _, ok := m.neighbors[peer.ID()]; ok {
-		disconnect(conn)
+		m.disconnect(conn, peer)
 		return ErrDuplicateNeighbor
 	}
 
@@ -210,6 +210,13 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (*
 	n.Listen()
 
 	return nil
+}
+
+func (m *Manager) disconnect(conn net.Conn, peer *peer.Peer) {
+	if err := conn.Close(); err != nil {
+		m.log.Warnf("error closing connection: %s", err)
+	}
+	Events.NeighborDropped.Trigger(&NeighborDroppedEvent{Peer: peer})
 }
 
 func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
@@ -263,9 +270,4 @@ func marshal(msg pb.Message) []byte {
 		panic("invalid message")
 	}
 	return append([]byte{byte(mType)}, data...)
-}
-
-func disconnect(conn *server.Connection) {
-	_ = conn.Close()
-	Events.NeighborDropped.Trigger(&NeighborDroppedEvent{Peer: conn.Peer()})
 }
