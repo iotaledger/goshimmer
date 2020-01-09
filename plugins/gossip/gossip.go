@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/typeutils"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 var (
@@ -35,7 +36,7 @@ func configureGossip() {
 		log.Fatalf("could not update services: %v", err)
 	}
 
-	mgr = gp.NewManager(lPeer, getTransaction, log)
+	mgr = gp.NewManager(lPeer, loadTransaction, log)
 }
 
 func start(shutdownSignal <-chan struct{}) {
@@ -56,7 +57,7 @@ func start(shutdownSignal <-chan struct{}) {
 	log.Info("Stopping Gossip ...")
 }
 
-func getTransaction(hash []byte) ([]byte, error) {
+func loadTransaction(hash []byte) ([]byte, error) {
 	log.Infof("Retrieving tx: hash=%s", hash)
 
 	tx, err := tangle.GetTransaction(typeutils.BytesToString(hash))
@@ -67,4 +68,12 @@ func getTransaction(hash []byte) ([]byte, error) {
 		return nil, fmt.Errorf("transaction not found: hash=%s", hash)
 	}
 	return tx.GetBytes(), nil
+}
+
+func requestTransaction(hash trinary.Hash) {
+	if contains, _ := tangle.ContainsTransaction(hash); contains {
+		// Do not request tx that we already know
+		return
+	}
+	mgr.RequestTransaction(typeutils.StringToBytes(hash))
 }
