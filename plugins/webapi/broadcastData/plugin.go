@@ -1,4 +1,4 @@
-package webapi_send_data
+package broadcastData
 
 import (
 	"net/http"
@@ -18,10 +18,10 @@ import (
 )
 
 var PLUGIN = node.NewPlugin("WebAPI SendData Endpoint", node.Enabled, configure)
-var log = logger.NewLogger("API-sendData")
+var log = logger.NewLogger("API-broadcastData")
 
 func configure(plugin *node.Plugin) {
-	webapi.AddEndpoint("sendData", SendDataHandler)
+	webapi.AddEndpoint("broadcastData", SendDataHandler)
 }
 
 func SendDataHandler(c echo.Context) error {

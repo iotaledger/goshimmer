@@ -1,4 +1,4 @@
-package webapi_gtta
+package gtta
 
 import (
 	"net/http"

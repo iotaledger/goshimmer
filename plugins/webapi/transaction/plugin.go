@@ -1,4 +1,4 @@
-package webapi_tx_request
+package transaction
 
 import (
 	"net/http"
@@ -12,38 +12,42 @@ import (
 )
 
 var PLUGIN = node.NewPlugin("WebAPI Transaction Request Endpoint", node.Enabled, configure)
-var log = logger.NewLogger("API-TxRequest")
+var log = logger.NewLogger("API-Transaction")
 
 func configure(plugin *node.Plugin) {
-	webapi.AddEndpoint("txRequest", Handler)
+	webapi.AddEndpoint("getTrytes", getTrytesHandler)
 }
 
-func Handler(c echo.Context) error {
+func getTrytesHandler(c echo.Context) error {
 	c.Set("requestStartTime", time.Now())
 
 	var request webRequest
+	result := [][]byte{}
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
 		return requestFailed(c, err.Error())
 	}
-	log.Info("Received:", request.TransactionHash)
+	log.Info("Received:", request.Hashes)
 
-	tx, err := tangle.GetTransaction(request.TransactionHash)
-	if err != nil {
-		return requestFailed(c, err.Error())
-	}
-	if tx == nil {
-		return requestFailed(c, "Tx not found")
+	for _, hash := range request.Hashes {
+		tx, err := tangle.GetTransaction(hash)
+		if err != nil {
+			return requestFailed(c, err.Error())
+		}
+		if tx != nil {
+			//return requestFailed(c, "Tx not found")
+			result = append(result, tx.GetBytes())
+		}
 	}
 
-	return requestSuccessful(c, tx.GetBytes())
+	return requestSuccessful(c, result)
 }
 
-func requestSuccessful(c echo.Context, tx []byte) error {
+func requestSuccessful(c echo.Context, txs [][]byte) error {
 	return c.JSON(http.StatusOK, webResponse{
-		Duration:    time.Since(c.Get("requestStartTime").(time.Time)).Nanoseconds() / 1e6,
-		Transaction: tx,
-		Status:      "OK",
+		Duration:     time.Since(c.Get("requestStartTime").(time.Time)).Nanoseconds() / 1e6,
+		Transactions: txs,
+		Status:       "OK",
 	})
 }
 
@@ -55,11 +59,11 @@ func requestFailed(c echo.Context, message string) error {
 }
 
 type webResponse struct {
-	Duration    int64  `json:"duration"`
-	Transaction []byte `json:"transaction"`
-	Status      string `json:"status"`
+	Duration     int64    `json:"duration"`
+	Transactions [][]byte `json:"transaction"`
+	Status       string   `json:"status"`
 }
 
 type webRequest struct {
-	TransactionHash string `json:"transactionHash"`
+	Hashes []string `json:"Hashes"`
 }

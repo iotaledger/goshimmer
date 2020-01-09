@@ -18,10 +18,10 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
 	"github.com/iotaledger/goshimmer/plugins/ui"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	webapi_gtta "github.com/iotaledger/goshimmer/plugins/webapi-gtta"
-	webapi_send_data "github.com/iotaledger/goshimmer/plugins/webapi-send-data"
-	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi-spammer"
-	webapi_tx_request "github.com/iotaledger/goshimmer/plugins/webapi-tx-request"
+	webapi_broadcastData "github.com/iotaledger/goshimmer/plugins/webapi/broadcastData"
+	webapi_gtta "github.com/iotaledger/goshimmer/plugins/webapi/gtta"
+	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi/spammer"
+	webapi_transaction "github.com/iotaledger/goshimmer/plugins/webapi/transaction"
 	"github.com/iotaledger/goshimmer/plugins/webauth"
 	"github.com/iotaledger/goshimmer/plugins/zeromq"
 	"github.com/iotaledger/hive.go/node"
@@ -50,8 +50,8 @@ func main() {
 			webapi.PLUGIN,
 			webapi_gtta.PLUGIN,
 			webapi_spammer.PLUGIN,
-			webapi_send_data.PLUGIN,
-			webapi_tx_request.PLUGIN,
+			webapi_broadcastData.PLUGIN,
+			webapi_transaction.PLUGIN,
 
 			ui.PLUGIN,
 			webauth.PLUGIN,

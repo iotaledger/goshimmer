@@ -1,4 +1,4 @@
-package webapi_spammer
+package spammer
 
 import (
 	"net/http"
