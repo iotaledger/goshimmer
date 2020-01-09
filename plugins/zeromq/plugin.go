@@ -16,12 +16,13 @@ import (
 
 // zeromq logging is disabled by default
 var PLUGIN = node.NewPlugin("ZeroMQ", node.Disabled, configure, run)
-var log = logger.NewLogger("ZeroMQ")
+var log *logger.Logger
 var publisher *Publisher
 var emptyTag = strings.Repeat("9", 27)
 
 // Configure the zeromq plugin
 func configure(plugin *node.Plugin) {
+	log = logger.NewLogger("ZeroMQ")
 	tangle.Events.TransactionStored.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
 		// create goroutine for every event
 		go func() {

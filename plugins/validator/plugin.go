@@ -13,7 +13,7 @@ import (
 )
 
 var PLUGIN = node.NewPlugin("Validator", node.Enabled, configure, run)
-var log = logger.NewLogger("Validator")
+var log *logger.Logger
 
 func validateSignatures(bundleHash Hash, txs []*value_transaction.ValueTransaction) (bool, error) {
 	for i, tx := range txs {
@@ -51,7 +51,7 @@ func validateSignatures(bundleHash Hash, txs []*value_transaction.ValueTransacti
 }
 
 func configure(plugin *node.Plugin) {
-
+	log = logger.NewLogger("Validator")
 	bundleprocessor.Events.BundleSolid.Attach(events.NewClosure(func(b *bundle.Bundle, txs []*value_transaction.ValueTransaction) {
 		// signature are verified against the bundle hash
 		valid, err := validateSignatures(b.GetBundleEssenceHash(), txs)

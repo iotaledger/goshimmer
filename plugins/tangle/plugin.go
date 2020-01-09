@@ -8,18 +8,20 @@ import (
 // region plugin module setup //////////////////////////////////////////////////////////////////////////////////////////
 
 var PLUGIN = node.NewPlugin("Tangle", node.Enabled, configure, run)
-var log = logger.NewLogger("Tangle")
+var log *logger.Logger
 
-func configure(plugin *node.Plugin) {
-	configureTransactionDatabase(plugin)
-	configureTransactionMetaDataDatabase(plugin)
-	configureApproversDatabase(plugin)
-	configureBundleDatabase(plugin)
-	configureSolidifier(plugin)
+func configure(*node.Plugin) {
+	log = logger.NewLogger("Tangle")
+
+	configureTransactionDatabase()
+	configureTransactionMetaDataDatabase()
+	configureApproversDatabase()
+	configureBundleDatabase()
+	configureSolidifier()
 }
 
-func run(plugin *node.Plugin) {
-	runSolidifier(plugin)
+func run(*node.Plugin) {
+	runSolidifier()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

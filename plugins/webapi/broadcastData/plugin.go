@@ -18,9 +18,10 @@ import (
 )
 
 var PLUGIN = node.NewPlugin("WebAPI SendData Endpoint", node.Enabled, configure)
-var log = logger.NewLogger("API-broadcastData")
+var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
+	log = logger.NewLogger("API-broadcastData")
 	webapi.AddEndpoint("broadcastData", SendDataHandler)
 }
 
@@ -55,7 +56,7 @@ func SendDataHandler(c echo.Context) error {
 	tx.SetTrunkTransactionHash(tipselection.GetRandomTip())
 	tx.SetTimestamp(uint(time.Now().Unix()))
 	if err := tx.DoProofOfWork(meta_transaction.MIN_WEIGHT_MAGNITUDE); err != nil {
-		log.Warning("PoW failed", err)
+		log.Warn("PoW failed", err)
 	}
 
 	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: tx.GetBytes(), Peer: &local.GetInstance().Peer})

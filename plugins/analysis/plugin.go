@@ -10,9 +10,10 @@ import (
 )
 
 var PLUGIN = node.NewPlugin("Analysis", node.Enabled, configure, run)
-var log = logger.NewLogger("Analysis")
+var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
+	log = logger.NewLogger("Analysis")
 	if parameter.NodeConfig.GetInt(server.CFG_SERVER_PORT) != 0 {
 		webinterface.Configure(plugin)
 		server.Configure(plugin)

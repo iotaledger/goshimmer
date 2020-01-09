@@ -50,7 +50,7 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	// store log messages to send them down via the websocket
-	anyMsgClosure := events.NewClosure(func(logLvl logger.LogLevel, prefix string, msg string) {
+	anyMsgClosure := events.NewClosure(func(logLvl logger.Level, prefix string, msg string) {
 		storeAndSendStatusMessage(logLvl, prefix, msg)
 	})
 	logger.Events.AnyMsg.Attach(anyMsgClosure)

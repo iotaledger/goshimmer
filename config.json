@@ -1,28 +1,34 @@
 {
-  "node": {
-    "logLevel": 3,
-    "disablePlugins": [],
-    "enablePlugins": []
+  "analysis":{
+    "serveraddress":"ressims.iota.cafe:188",
+    "serverport":0
   },
-  "database": {
-    "directory": "mainnetdb"
-  },
-  "analysis": {
-    "serverPort": 0,
-    "serverAddress": "ressims.iota.cafe:188"
-  },
-  "gossip": {
-    "port": 14666
-  },
-  "zeromq": {
-    "port": 5556
-  },
-  "autopeering": {
-    "address": "0.0.0.0",
-    "port": 14626,
-    "entryNodes": [
+  "autopeering":{
+    "address":"0.0.0.0",
+    "entrynodes":[
       "V8LYtWWcPYYDTTXLeIEFjJEuWlsjDiI0+Pq/Cx9ai6g=@116.202.49.178:14626"
     ],
-    "selection": true
+    "port":14626,
+    "selection":true
+  },
+  "database":{
+    "directory":"mainnetdb"
+  },
+  "gossip":{
+    "port":14666
+  },
+  "logger":{
+    "Level":"info",
+    "DisableCaller":false,
+    "DisableStacktrace":false,
+    "Encoding":"console",
+    "OutputPaths":[
+      "shimmer.log"
+    ]
+  },
+  "node":{
+    "disableplugins":"",
+    "enableplugins":"",
+    "loglevel":0
   }
 }

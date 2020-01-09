@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 )
 
-var log = logger.NewLogger("Transaction Spammer")
+var log *logger.Logger
 
 var spamming = false
 var spammingMutex sync.Mutex
@@ -30,6 +30,7 @@ func init() {
 }
 
 func Start(tps uint) {
+	log = logger.NewLogger("Transaction Spammer")
 	spammingMutex.Lock()
 	spamming = true
 	spammingMutex.Unlock()
@@ -59,7 +60,7 @@ func Start(tps uint) {
 				tx.SetTrunkTransactionHash(tipselection.GetRandomTip())
 				tx.SetTimestamp(uint(time.Now().Unix()))
 				if err := tx.DoProofOfWork(meta_transaction.MIN_WEIGHT_MAGNITUDE); err != nil {
-					log.Warning("PoW failed", err)
+					log.Warn("PoW failed", err)
 					continue
 				}
 

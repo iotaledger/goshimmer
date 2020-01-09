@@ -21,9 +21,10 @@ import (
 
 var server *tcp.Server
 
-var log = logger.NewLogger("Analysis-Server")
+var log *logger.Logger
 
 func Configure(plugin *node.Plugin) {
+	log = logger.NewLogger("Analysis-Server")
 	server = tcp.NewServer()
 
 	server.Events.Connect.Attach(events.NewClosure(HandleConnection))

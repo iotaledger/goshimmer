@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/workerpool"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
@@ -26,9 +25,9 @@ var (
 	unsolidTxs *UnsolidTxs
 )
 
-func configureSolidifier(plugin *node.Plugin) {
+func configureSolidifier() {
 	workerPool = workerpool.New(func(task workerpool.Task) {
-		processMetaTransaction(plugin, task.Param(0).(*meta_transaction.MetaTransaction))
+		processMetaTransaction(task.Param(0).(*meta_transaction.MetaTransaction))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(WORKER_COUNT), workerpool.QueueSize(10000))
@@ -38,7 +37,7 @@ func configureSolidifier(plugin *node.Plugin) {
 	gossip.Events.TransactionReceived.Attach(events.NewClosure(func(ev *gossip.TransactionReceivedEvent) {
 		metaTx := meta_transaction.FromBytes(ev.Data)
 		if err := metaTx.Validate(); err != nil {
-			log.Warningf("invalid transaction: %s", err)
+			log.Warnf("invalid transaction: %s", err)
 			return
 		}
 
@@ -46,7 +45,7 @@ func configureSolidifier(plugin *node.Plugin) {
 	}))
 }
 
-func runSolidifier(plugin *node.Plugin) {
+func runSolidifier() {
 	log.Info("Starting Solidifier ...")
 
 	daemon.BackgroundWorker("Tangle Solidifier", func(shutdownSignal <-chan struct{}) {
@@ -54,7 +53,7 @@ func runSolidifier(plugin *node.Plugin) {
 		workerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping Solidifier ...")
-		workerPool.Stop()
+		workerPool.StopAndWait()
 		log.Info("Stopping Solidifier ... done")
 	})
 }
@@ -169,7 +168,7 @@ func propagateSolidity(transactionHash trinary.Trytes) errors.IdentifiableError 
 	return nil
 }
 
-func processMetaTransaction(plugin *node.Plugin, metaTransaction *meta_transaction.MetaTransaction) {
+func processMetaTransaction(metaTransaction *meta_transaction.MetaTransaction) {
 	var newTransaction bool
 	if tx, err := GetTransaction(metaTransaction.GetHash(), func(transactionHash trinary.Trytes) *value_transaction.ValueTransaction {
 		newTransaction = true
@@ -179,11 +178,11 @@ func processMetaTransaction(plugin *node.Plugin, metaTransaction *meta_transacti
 		log.Errorf("Unable to load transaction %s: %s", metaTransaction.GetHash(), err.Error())
 	} else if newTransaction {
 		updateUnsolidTxs(tx)
-		processTransaction(plugin, tx)
+		processTransaction(tx)
 	}
 }
 
-func processTransaction(plugin *node.Plugin, transaction *value_transaction.ValueTransaction) {
+func processTransaction(transaction *value_transaction.ValueTransaction) {
 	Events.TransactionStored.Trigger(transaction)
 
 	transactionHash := transaction.GetHash()

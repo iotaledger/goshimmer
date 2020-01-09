@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/discover"
-	"github.com/iotaledger/goshimmer/packages/autopeering/logger"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/autopeering/selection"
@@ -15,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/pkg/errors"
 )
 
@@ -23,30 +23,9 @@ var (
 	Discovery *discover.Protocol
 	// Selection is the peer selection protocol.
 	Selection *selection.Protocol
+
+	log *logger.Logger
 )
-
-const defaultZLC = `{
-	"level": "info",
-	"development": false,
-	"outputPaths": ["./autopeering.log"],
-	"errorOutputPaths": ["stderr"],
-	"encoding": "console",
-	"encoderConfig": {
-	  "timeKey": "ts",
-	  "levelKey": "level",
-	  "nameKey": "logger",
-	  "callerKey": "caller",
-	  "messageKey": "msg",
-	  "stacktraceKey": "stacktrace",
-	  "lineEnding": "",
-	  "levelEncoder": "",
-	  "timeEncoder": "iso8601",
-	  "durationEncoder": "",
-	  "callerEncoder": ""
-	}
-  }`
-
-var zLogger = logger.NewLogger(defaultZLC, logLevel)
 
 func configureAP() {
 	masterPeers, err := parseEntryNodes()
@@ -56,13 +35,13 @@ func configureAP() {
 	log.Debugf("Master peers: %v", masterPeers)
 
 	Discovery = discover.New(local.GetInstance(), discover.Config{
-		Log:         zLogger.Named("disc"),
+		Log:         log.Named("disc"),
 		MasterPeers: masterPeers,
 	})
 
 	if parameter.NodeConfig.GetBool(CFG_SELECTION) {
 		Selection = selection.New(local.GetInstance(), Discovery, selection.Config{
-			Log: zLogger.Named("sel"),
+			Log: log.Named("sel"),
 			Param: &selection.Parameters{
 				SaltLifetime:    selection.DefaultSaltLifetime,
 				RequiredService: []service.Key{service.GossipKey},
@@ -104,7 +83,7 @@ func start(shutdownSignal <-chan struct{}) {
 	}
 
 	// start a server doing discovery and peering
-	srv := server.Listen(local.GetInstance(), trans, zLogger.Named("srv"), handlers...)
+	srv := server.Listen(local.GetInstance(), trans, log.Named("srv"), handlers...)
 	defer srv.Close()
 
 	// start the discovery on that connection
