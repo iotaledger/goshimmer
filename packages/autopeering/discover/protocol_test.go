@@ -28,17 +28,17 @@ func init() {
 
 // newTest creates a new discovery server and also returns the teardown.
 func newTest(t require.TestingT, trans transport.Transport, logger *logger.Logger, masters ...*peer.Peer) (*server.Server, *Protocol, func()) {
-	log := logger.Named(trans.LocalAddr().String())
-	db := peer.NewMemoryDB(log.Named("db"))
+	l := logger.Named(trans.LocalAddr().String())
+	db := peer.NewMemoryDB(l.Named("db"))
 	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	require.NoError(t, err)
 
 	cfg := Config{
-		Log:         log,
+		Log:         l,
 		MasterPeers: masters,
 	}
 	prot := New(local, cfg)
-	srv := server.Listen(local, trans, log.Named("srv"), prot)
+	srv := server.Listen(local, trans, l.Named("srv"), prot)
 	prot.Start(srv)
 
 	teardown := func() {
