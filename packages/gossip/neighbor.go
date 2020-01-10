@@ -30,9 +30,18 @@ type Neighbor struct {
 	disconnectOnce sync.Once
 }
 
+// NewNeighbor creates a new neighbor from the provided peer and connection.
 func NewNeighbor(peer *peer.Peer, conn net.Conn, log *logger.Logger) *Neighbor {
+	if !IsSupported(peer) {
+		panic("peer does not support gossip")
+	}
+
 	// always include ID and address with every log message
-	log = log.With("id", peer.ID(), "addr", conn.RemoteAddr().String())
+	log = log.With(
+		"id", peer.ID(),
+		"network", conn.LocalAddr().Network(),
+		"addr", conn.RemoteAddr().String(),
+	)
 
 	return &Neighbor{
 		Peer:              peer,
@@ -43,12 +52,16 @@ func NewNeighbor(peer *peer.Peer, conn net.Conn, log *logger.Logger) *Neighbor {
 	}
 }
 
+// Listen starts the communication to the neighbor.
 func (n *Neighbor) Listen() {
 	n.wg.Add(2)
 	go n.readLoop()
 	go n.writeLoop()
+
+	n.log.Info("Connection established")
 }
 
+// Close closes the connection to the neighbor and stops all communication.
 func (n *Neighbor) Close() error {
 	err := n.disconnect()
 	// wait for everything to finish
@@ -57,11 +70,20 @@ func (n *Neighbor) Close() error {
 	return err
 }
 
+// IsOutbound returns true if the neighbor is an outbound neighbor.
+func (n *Neighbor) IsOutbound() bool {
+	return GetAddress(n.Peer) == n.Conn.RemoteAddr().String()
+}
+
 func (n *Neighbor) disconnect() (err error) {
 	n.disconnectOnce.Do(func() {
 		close(n.closing)
 		close(n.queue)
 		err = n.ManagedConnection.Close()
+		n.log.Infow("Connection closed",
+			"read", n.BytesRead,
+			"written", n.BytesWritten,
+		)
 	})
 	return
 }
@@ -101,8 +123,6 @@ func (n *Neighbor) readLoop() {
 			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
 				n.log.Warnw("read error", "err", err)
 			}
-
-			n.log.Debugw("connection closed")
 			_ = n.ManagedConnection.Close()
 			return
 		}

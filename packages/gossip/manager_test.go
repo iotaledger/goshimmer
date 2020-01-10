@@ -84,8 +84,11 @@ func TestClosedConnection(t *testing.T) {
 	mgrB, closeB, peerB := newTestManager(t, "B")
 	defer closeB()
 
+	connections := 2
+	e.On("neighborAdded", mock.Anything).Times(connections)
+
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(connections)
 
 	// connect in the following way
 	// B -> A
@@ -104,8 +107,8 @@ func TestClosedConnection(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	e.On("neighborDropped", &NeighborDroppedEvent{Peer: peerA}).Once()
-	e.On("neighborDropped", &NeighborDroppedEvent{Peer: peerB}).Once()
+	e.On("neighborRemoved", peerA).Once()
+	e.On("neighborRemoved", peerB).Once()
 
 	// A drops B
 	err := mgrA.DropNeighbor(peerB.ID())
@@ -123,8 +126,11 @@ func TestP2PSend(t *testing.T) {
 	mgrA, closeA, peerA := newTestManager(t, "A")
 	mgrB, closeB, peerB := newTestManager(t, "B")
 
+	connections := 2
+	e.On("neighborAdded", mock.Anything).Times(connections)
+
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(connections)
 
 	// connect in the following way
 	// B -> A
@@ -151,8 +157,8 @@ func TestP2PSend(t *testing.T) {
 	mgrA.SendTransaction(testTxData)
 	time.Sleep(graceTime)
 
-	e.On("neighborDropped", &NeighborDroppedEvent{Peer: peerA}).Once()
-	e.On("neighborDropped", &NeighborDroppedEvent{Peer: peerB}).Once()
+	e.On("neighborRemoved", peerA).Once()
+	e.On("neighborRemoved", peerB).Once()
 
 	closeA()
 	closeB()
@@ -168,8 +174,11 @@ func TestP2PSendTwice(t *testing.T) {
 	mgrA, closeA, peerA := newTestManager(t, "A")
 	mgrB, closeB, peerB := newTestManager(t, "B")
 
+	connections := 2
+	e.On("neighborAdded", mock.Anything).Times(connections)
+
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(connections)
 
 	// connect in the following way
 	// B -> A
@@ -198,8 +207,8 @@ func TestP2PSendTwice(t *testing.T) {
 	mgrA.SendTransaction(testTxData)
 	time.Sleep(graceTime)
 
-	e.On("neighborDropped", &NeighborDroppedEvent{Peer: peerA}).Once()
-	e.On("neighborDropped", &NeighborDroppedEvent{Peer: peerB}).Once()
+	e.On("neighborRemoved", peerA).Once()
+	e.On("neighborRemoved", peerB).Once()
 
 	closeA()
 	closeB()
@@ -216,8 +225,11 @@ func TestBroadcast(t *testing.T) {
 	mgrB, closeB, peerB := newTestManager(t, "B")
 	mgrC, closeC, peerC := newTestManager(t, "C")
 
+	connections := 4
+	e.On("neighborAdded", mock.Anything).Times(connections)
+
 	var wg sync.WaitGroup
-	wg.Add(4)
+	wg.Add(connections)
 
 	// connect in the following way
 	// B -> A <- C
@@ -254,9 +266,9 @@ func TestBroadcast(t *testing.T) {
 	mgrA.SendTransaction(testTxData)
 	time.Sleep(graceTime)
 
-	e.On("neighborDropped", &NeighborDroppedEvent{Peer: peerA}).Twice()
-	e.On("neighborDropped", &NeighborDroppedEvent{Peer: peerB}).Once()
-	e.On("neighborDropped", &NeighborDroppedEvent{Peer: peerC}).Once()
+	e.On("neighborRemoved", peerA).Twice()
+	e.On("neighborRemoved", peerB).Once()
+	e.On("neighborRemoved", peerC).Once()
 
 	closeA()
 	closeB()
@@ -274,8 +286,11 @@ func TestSingleSend(t *testing.T) {
 	mgrB, closeB, peerB := newTestManager(t, "B")
 	mgrC, closeC, peerC := newTestManager(t, "C")
 
+	connections := 4
+	e.On("neighborAdded", mock.Anything).Times(connections)
+
 	var wg sync.WaitGroup
-	wg.Add(4)
+	wg.Add(connections)
 
 	// connect in the following way
 	// B -> A <- C
@@ -313,9 +328,9 @@ func TestSingleSend(t *testing.T) {
 	mgrA.SendTransaction(testTxData, peerB.ID())
 	time.Sleep(graceTime)
 
-	e.On("neighborDropped", &NeighborDroppedEvent{Peer: peerA}).Twice()
-	e.On("neighborDropped", &NeighborDroppedEvent{Peer: peerB}).Once()
-	e.On("neighborDropped", &NeighborDroppedEvent{Peer: peerC}).Once()
+	e.On("neighborRemoved", peerA).Twice()
+	e.On("neighborRemoved", peerB).Once()
+	e.On("neighborRemoved", peerC).Once()
 
 	closeA()
 	closeB()
@@ -334,9 +349,7 @@ func TestDropUnsuccessfulAccept(t *testing.T) {
 	_, closeB, peerB := newTestManager(t, "B")
 	defer closeB()
 
-	e.On("neighborDropped", &NeighborDroppedEvent{
-		Peer: peerB,
-	}).Once()
+	e.On("connectionFailed", peerB).Once()
 
 	err := mgrA.AddInbound(peerB)
 	assert.Error(t, err)
@@ -351,8 +364,11 @@ func TestTxRequest(t *testing.T) {
 	mgrA, closeA, peerA := newTestManager(t, "A")
 	mgrB, closeB, peerB := newTestManager(t, "B")
 
+	connections := 2
+	e.On("neighborAdded", mock.Anything).Times(connections)
+
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(connections)
 
 	// connect in the following way
 	// B -> A
@@ -383,8 +399,8 @@ func TestTxRequest(t *testing.T) {
 	mgrA.RequestTransaction(b)
 	time.Sleep(graceTime)
 
-	e.On("neighborDropped", &NeighborDroppedEvent{Peer: peerA}).Once()
-	e.On("neighborDropped", &NeighborDroppedEvent{Peer: peerB}).Once()
+	e.On("neighborRemoved", peerA).Once()
+	e.On("neighborRemoved", peerB).Once()
 
 	closeA()
 	closeB()
@@ -397,14 +413,20 @@ func newEventMock(t mock.TestingT) (*eventMock, func()) {
 	e := &eventMock{}
 	e.Test(t)
 
+	connectionFailedC := events.NewClosure(e.connectionFailed)
+	neighborAddedC := events.NewClosure(e.neighborAdded)
+	neighborRemoved := events.NewClosure(e.neighborRemoved)
 	transactionReceivedC := events.NewClosure(e.transactionReceived)
-	neighborDropped := events.NewClosure(e.neighborDropped)
 
+	Events.ConnectionFailed.Attach(connectionFailedC)
+	Events.NeighborAdded.Attach(neighborAddedC)
+	Events.NeighborRemoved.Attach(neighborRemoved)
 	Events.TransactionReceived.Attach(transactionReceivedC)
-	Events.NeighborDropped.Attach(neighborDropped)
 
 	return e, func() {
-		Events.NeighborDropped.Detach(neighborDropped)
+		Events.ConnectionFailed.Detach(connectionFailedC)
+		Events.NeighborAdded.Detach(neighborAddedC)
+		Events.NeighborRemoved.Detach(neighborRemoved)
 		Events.TransactionReceived.Detach(transactionReceivedC)
 	}
 }
@@ -413,5 +435,7 @@ type eventMock struct {
 	mock.Mock
 }
 
+func (e *eventMock) connectionFailed(p *peer.Peer)                    { e.Called(p) }
+func (e *eventMock) neighborAdded(n *Neighbor)                        { e.Called(n) }
+func (e *eventMock) neighborRemoved(p *peer.Peer)                     { e.Called(p) }
 func (e *eventMock) transactionReceived(ev *TransactionReceivedEvent) { e.Called(ev) }
-func (e *eventMock) neighborDropped(ev *NeighborDroppedEvent)         { e.Called(ev) }

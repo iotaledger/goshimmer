@@ -4,14 +4,12 @@ import (
 	"net"
 	"sync"
 
-	"github.com/iotaledger/hive.go/events"
-
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
@@ -104,7 +102,7 @@ func (m *Manager) AddInbound(p *peer.Peer) error {
 	return m.addNeighbor(p, srv.AcceptPeer)
 }
 
-// NeighborDropped disconnects the neighbor with the given ID.
+// NeighborRemoved disconnects the neighbor with the given ID.
 func (m *Manager) DropNeighbor(id peer.ID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -113,9 +111,10 @@ func (m *Manager) DropNeighbor(id peer.ID) error {
 	}
 	n := m.neighbors[id]
 	delete(m.neighbors, id)
-	Events.NeighborDropped.Trigger(&NeighborDroppedEvent{Peer: n.Peer})
 
-	return n.Close()
+	err := n.Close()
+	Events.NeighborRemoved.Trigger(n.Peer)
+	return err
 }
 
 // RequestTransaction requests the transaction with the given hash from the neighbors.
@@ -127,8 +126,8 @@ func (m *Manager) RequestTransaction(txHash []byte, to ...peer.ID) {
 	m.send(marshal(req), to...)
 }
 
-// SendTransaction sends the given transaction data to the neighbors.
-// If no peer is provided, it is send to all neighbors.
+// SendTransaction adds the given transaction data to the send queue of the neighbors.
+// The actual send then happens asynchronously. If no peer is provided, it is send to all neighbors.
 func (m *Manager) SendTransaction(txData []byte, to ...peer.ID) {
 	tx := &pb.Transaction{
 		Data: txData,
@@ -181,19 +180,20 @@ func (m *Manager) send(b []byte, to ...peer.ID) {
 func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (net.Conn, error)) error {
 	conn, err := connectorFunc(peer)
 	if err != nil {
-		m.log.Debugw("addNeighbor failed", "peer", peer.ID(), "err", err)
-		Events.NeighborDropped.Trigger(&NeighborDroppedEvent{Peer: peer})
+		Events.ConnectionFailed.Trigger(peer)
 		return err
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if !m.running {
-		m.disconnect(conn, peer)
+		_ = conn.Close()
+		Events.ConnectionFailed.Trigger(peer)
 		return ErrClosed
 	}
 	if _, ok := m.neighbors[peer.ID()]; ok {
-		m.disconnect(conn, peer)
+		_ = conn.Close()
+		Events.ConnectionFailed.Trigger(peer)
 		return ErrDuplicateNeighbor
 	}
 
@@ -208,15 +208,9 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 
 	m.neighbors[peer.ID()] = n
 	n.Listen()
+	Events.NeighborAdded.Trigger(n)
 
 	return nil
-}
-
-func (m *Manager) disconnect(conn net.Conn, peer *peer.Peer) {
-	if err := conn.Close(); err != nil {
-		m.log.Warnf("error closing connection: %s", err)
-	}
-	Events.NeighborDropped.Trigger(&NeighborDroppedEvent{Peer: peer})
 }
 
 func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {

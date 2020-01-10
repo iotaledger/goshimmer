@@ -2,6 +2,7 @@ package autopeering
 
 import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/discover"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -27,11 +28,12 @@ func run(*node.Plugin) {
 }
 
 func configureEvents() {
-	gossip.Events.NeighborDropped.Attach(events.NewClosure(func(ev *gossip.NeighborDroppedEvent) {
-		log.Info("neighbor dropped: " + ev.Peer.Address() + " / " + ev.Peer.ID().String())
-		if Selection != nil {
-			Selection.DropPeer(ev.Peer)
-		}
+	// notify the selection when a connection is closed or failed.
+	gossip.Events.ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer) {
+		Selection.DropPeer(p)
+	}))
+	gossip.Events.NeighborRemoved.Attach(events.NewClosure(func(p *peer.Peer) {
+		Selection.DropPeer(p)
 	}))
 
 	discover.Events.PeerDiscovered.Attach(events.NewClosure(func(ev *discover.DiscoveredEvent) {

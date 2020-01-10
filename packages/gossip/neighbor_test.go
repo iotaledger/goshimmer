@@ -131,12 +131,13 @@ func TestNeighborParallelWrite(t *testing.T) {
 }
 
 func newTestNeighbor(name string, conn net.Conn) *Neighbor {
-	return NewNeighbor(newDummyPeer(name), conn, log.Named(name))
+	return NewNeighbor(newTestPeer(name, conn.LocalAddr()), conn, log.Named(name))
 }
 
-func newDummyPeer(name string) *peer.Peer {
+func newTestPeer(name string, addr net.Addr) *peer.Peer {
 	services := service.New()
-	services.Update(service.PeeringKey, "dummy", name)
+	services.Update(service.PeeringKey, addr.Network(), addr.String())
+	services.Update(service.GossipKey, addr.Network(), addr.String())
 
 	return peer.NewPeer([]byte(name), services)
 }
