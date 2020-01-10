@@ -30,8 +30,8 @@ func (d dummyDiscovery) GetVerifiedPeers() []*peer.Peer                  { retur
 
 // newTest creates a new neighborhood server and also returns the teardown.
 func newTest(t require.TestingT, trans transport.Transport) (*server.Server, *Protocol, func()) {
-	log := log.Named(trans.LocalAddr().String())
-	db := peer.NewMemoryDB(log.Named("db"))
+	l := log.Named(trans.LocalAddr().String())
+	db := peer.NewMemoryDB(l.Named("db"))
 	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	require.NoError(t, err)
 
@@ -39,10 +39,10 @@ func newTest(t require.TestingT, trans transport.Transport) (*server.Server, *Pr
 	peerMap[local.ID()] = &local.Peer
 
 	cfg := Config{
-		Log: log,
+		Log: l,
 	}
 	prot := New(local, dummyDiscovery{}, cfg)
-	srv := server.Listen(local, trans, log.Named("srv"), prot)
+	srv := server.Listen(local, trans, l.Named("srv"), prot)
 	prot.Start(srv)
 
 	teardown := func() {
@@ -130,20 +130,20 @@ func TestProtDropPeer(t *testing.T) {
 
 // newTest creates a new server handling discover as well as neighborhood and also returns the teardown.
 func newFullTest(t require.TestingT, trans transport.Transport, masterPeers ...*peer.Peer) (*server.Server, *Protocol, func()) {
-	log := log.Named(trans.LocalAddr().String())
-	db := peer.NewMemoryDB(log.Named("db"))
+	l := log.Named(trans.LocalAddr().String())
+	db := peer.NewMemoryDB(l.Named("db"))
 	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	require.NoError(t, err)
 
 	discovery := discover.New(local, discover.Config{
-		Log:         log.Named("disc"),
+		Log:         l.Named("disc"),
 		MasterPeers: masterPeers,
 	})
 	selection := New(local, discovery, Config{
-		Log: log.Named("sel"),
+		Log: l.Named("sel"),
 	})
 
-	srv := server.Listen(local, trans, log.Named("srv"), discovery, selection)
+	srv := server.Listen(local, trans, l.Named("srv"), discovery, selection)
 
 	discovery.Start(srv)
 	selection.Start(srv)

@@ -11,23 +11,20 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/spf13/viper"
+	"github.com/iotaledger/iota.go/trinary"
 	"github.com/stretchr/testify/require"
 )
 
 func init() {
-	err := parameter.LoadDefaultConfig(false)
-	if err != nil {
+	if err := parameter.LoadDefaultConfig(false); err != nil {
 		log.Fatalf("Failed to initialize config: %s", err)
 	}
-
-	logger.InitGlobalLogger(&viper.Viper{})
+	if err := logger.InitGlobalLogger(parameter.NodeConfig); err != nil {
+		log.Fatalf("Failed to initialize config: %s", err)
+	}
 }
 
 func TestSolidifier(t *testing.T) {
-	// show all error messages for tests
-	// TODO: adjust logger package
-
 	// start a test node
 	node.Start(node.Plugins(PLUGIN))
 
@@ -54,12 +51,12 @@ func TestSolidifier(t *testing.T) {
 	// setup event handlers
 	var wg sync.WaitGroup
 	Events.TransactionSolid.Attach(events.NewClosure(func(transaction *value_transaction.ValueTransaction) {
-		t.Log("Tx solidified", transaction.GetValue())
 		wg.Done()
 	}))
 
-	gossip.Events.RequestTransaction.Attach(events.NewClosure(func(ev *gossip.RequestTransactionEvent) {
-		require.Equal(t, transaction3.GetHash(), ev.Hash)
+	// only transaction3 should be requested
+	SetRequester(RequesterFunc(func(hash trinary.Hash) {
+		require.Equal(t, transaction3.GetHash(), hash)
 		// return the transaction data
 		gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: transaction3.GetBytes()})
 	}))
@@ -77,5 +74,4 @@ func TestSolidifier(t *testing.T) {
 
 	// shutdown test node
 	node.Shutdown()
-
 }
