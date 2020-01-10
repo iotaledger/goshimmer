@@ -21,16 +21,23 @@ import (
 const UnsolidInterval = 30
 
 var (
-	workerPool *workerpool.WorkerPool
-	unsolidTxs *UnsolidTxs
+	workerCount = runtime.NumCPU()
+	workerPool  *workerpool.WorkerPool
+	unsolidTxs  *UnsolidTxs
+
+	requester Requester
 )
+
+func SetRequester(req Requester) {
+	requester = req
+}
 
 func configureSolidifier() {
 	workerPool = workerpool.New(func(task workerpool.Task) {
 		processMetaTransaction(task.Param(0).(*meta_transaction.MetaTransaction))
 
 		task.Return(nil)
-	}, workerpool.WorkerCount(WORKER_COUNT), workerpool.QueueSize(10000))
+	}, workerpool.WorkerCount(workerCount), workerpool.QueueSize(10000))
 
 	unsolidTxs = NewUnsolidTxs()
 
@@ -221,8 +228,10 @@ func updateUnsolidTxs(tx *value_transaction.ValueTransaction) {
 }
 
 func requestTransaction(hash trinary.Trytes) {
-	log.Infof("Requesting hash: hash=%s", hash)
-	gossip.Events.RequestTransaction.Trigger(&gossip.RequestTransactionEvent{Hash: hash})
-}
+	if requester == nil {
+		return
+	}
 
-var WORKER_COUNT = runtime.NumCPU()
+	log.Infow("Requesting tx", "hash", hash)
+	requester.RequestTransaction(hash)
+}

@@ -44,7 +44,7 @@ func run(*node.Plugin) {
 	}
 
 	stopped := make(chan struct{})
-	err := daemon.BackgroundWorker(name+" Refresher", func(shutdown <-chan struct{}) {
+	if err := daemon.BackgroundWorker(name+" Refresher", func(shutdown <-chan struct{}) {
 		for {
 			select {
 			case <-time.After(repaintInterval):
@@ -57,13 +57,12 @@ func run(*node.Plugin) {
 				return
 			}
 		}
-	})
-	if err != nil {
+	}); err != nil {
 		log.Errorf("Failed to start as daemon: %s", err)
 		return
 	}
 
-	err = daemon.BackgroundWorker(name+" App", func(<-chan struct{}) {
+	if err := daemon.BackgroundWorker(name+" App", func(<-chan struct{}) {
 		defer close(stopped)
 
 		// switch logging to status screen
@@ -73,8 +72,7 @@ func run(*node.Plugin) {
 		if err := app.SetRoot(frame, true).SetFocus(frame).Run(); err != nil {
 			log.Errorf("Error running application: %s", err)
 		}
-	})
-	if err != nil {
+	}); err != nil {
 		log.Errorf("Failed to start as daemon: %s", err)
 		close(stopped)
 	}

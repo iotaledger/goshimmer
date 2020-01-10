@@ -1,7 +1,7 @@
 package gossip
 
 import (
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/selection"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/typeutils"
 )
 
 const name = "Gossip" // name of the plugin
@@ -32,33 +31,37 @@ func run(*node.Plugin) {
 
 func configureEvents() {
 	selection.Events.Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
-		log.Info("neighbor removed: " + ev.DroppedID.String())
-		go mgr.DropNeighbor(ev.DroppedID)
+		go func() {
+			if err := mgr.DropNeighbor(ev.DroppedID); err != nil {
+				log.Debugw("error dropping neighbor", "id", ev.DroppedID, "err", err)
+			}
+		}()
 	}))
-
 	selection.Events.IncomingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
-		gossipService := ev.Peer.Services().Get(service.GossipKey)
-		if gossipService != nil {
-			log.Info("accepted neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
-			go mgr.AddInbound(ev.Peer)
-		}
+		go func() {
+			if err := mgr.AddInbound(ev.Peer); err != nil {
+				log.Debugw("error adding inbound", "id", ev.Peer.ID(), "err", err)
+			}
+		}()
 	}))
-
 	selection.Events.OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
-		gossipService := ev.Peer.Services().Get(service.GossipKey)
-		if gossipService != nil {
-			log.Info("chosen neighbor added: " + ev.Peer.Address() + " / " + ev.Peer.String())
-			go mgr.AddOutbound(ev.Peer)
-		}
+		go func() {
+			if err := mgr.AddOutbound(ev.Peer); err != nil {
+				log.Debugw("error adding outbound", "id", ev.Peer.ID(), "err", err)
+			}
+		}()
 	}))
 
+	gossip.Events.NeighborAdded.Attach(events.NewClosure(func(n *gossip.Neighbor) {
+		log.Infof("Neighbor added: %s / %s", gossip.GetAddress(n.Peer), n.ID())
+	}))
+	gossip.Events.NeighborRemoved.Attach(events.NewClosure(func(p *peer.Peer) {
+		log.Infof("Neighbor removed: %s / %s", gossip.GetAddress(p), p.ID())
+	}))
+
+	// gossip transactions on solidification
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
-		log.Debugf("gossip solid tx: hash=%s", tx.GetHash())
-		go mgr.SendTransaction(tx.GetBytes())
+		mgr.SendTransaction(tx.GetBytes())
 	}))
-
-	gossip.Events.RequestTransaction.Attach(events.NewClosure(func(ev *gossip.RequestTransactionEvent) {
-		log.Debugf("gossip tx request: hash=%s", ev.Hash)
-		go mgr.RequestTransaction(typeutils.StringToBytes(ev.Hash))
-	}))
+	tangle.SetRequester(tangle.RequesterFunc(requestTransaction))
 }

@@ -113,8 +113,8 @@ func TestSrvEncodeDecodePing(t *testing.T) {
 }
 
 func newTestServer(t require.TestingT, name string, trans transport.Transport) (*Server, func()) {
-	log := log.Named(name)
-	db := peer.NewMemoryDB(log.Named("db"))
+	l := log.Named(name)
+	db := peer.NewMemoryDB(l.Named("db"))
 	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	require.NoError(t, err)
 
@@ -123,7 +123,7 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport) (
 	s, _ = salt.NewSalt(100 * time.Second)
 	local.SetPublicSalt(s)
 
-	srv := Listen(local, trans, log, HandlerFunc(handle))
+	srv := Listen(local, trans, l, HandlerFunc(handle))
 
 	teardown := func() {
 		srv.Close()

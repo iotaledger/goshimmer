@@ -1,7 +1,6 @@
 package server
 
 import (
-	"log"
 	"net"
 	"sync"
 	"testing"
@@ -9,22 +8,14 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 const graceTime = 5 * time.Millisecond
 
-var logger *zap.SugaredLogger
-
-func init() {
-	l, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("cannot initialize logger: %v", err)
-	}
-	logger = l.Sugar()
-}
+var log = logger.NewExampleLogger("server")
 
 func getTCPAddress(t require.TestingT) string {
 	laddr, err := net.ResolveTCPAddr("tcp", "localhost:0")
@@ -39,7 +30,7 @@ func getTCPAddress(t require.TestingT) string {
 }
 
 func newTest(t require.TestingT, name string) (*TCP, func()) {
-	l := logger.Named(name)
+	l := log.Named(name)
 	db := peer.NewMemoryDB(l.Named("db"))
 	local, err := peer.NewLocal("peering", name, db)
 	require.NoError(t, err)
