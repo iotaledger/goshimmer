@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/dashboard"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
+	"github.com/iotaledger/goshimmer/plugins/graph"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/statusscreen"
 	statusscreen_tps "github.com/iotaledger/goshimmer/plugins/statusscreen-tps"
@@ -54,9 +55,12 @@ func main() {
 			webapi_spammer.PLUGIN,
 			webapi_send_data.PLUGIN,
 			webapi_tx_request.PLUGIN,
+			webapi_spammer.PLUGIN,
 
 			ui.PLUGIN,
 			webauth.PLUGIN,
+
+			graph.PLUGIN,
 		),
 	)
 }
