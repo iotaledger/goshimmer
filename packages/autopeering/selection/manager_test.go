@@ -2,15 +2,14 @@ package selection
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 )
 
 var (
@@ -21,23 +20,12 @@ type testPeer struct {
 	local *peer.Local
 	peer  *peer.Peer
 	db    peer.DB
-	log   *zap.SugaredLogger
+	log   *logger.Logger
 	rand  *rand.Rand // random number generator
 }
 
 func newPeer(name string) testPeer {
-	var l *zap.Logger
-	var err error
-	if name == "1" {
-		l, err = zap.NewDevelopment()
-	} else {
-		l, err = zap.NewDevelopment() //zap.NewProduction()
-	}
-	if err != nil {
-		log.Fatalf("cannot initialize logger: %v", err)
-	}
-	logger := l.Sugar()
-	log := logger.Named(name)
+	log := log.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
 	local, _ := peer.NewLocal("", name, db)
 	s, _ := salt.NewSalt(100 * time.Second)
@@ -84,12 +72,12 @@ func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
 func (n testNet) GetKnownPeers() []*peer.Peer {
 	list := make([]*peer.Peer, len(allPeers)-1)
 	i := 0
-	for _, peer := range allPeers {
-		if peer.ID() == n.self.ID() {
+	for _, p := range allPeers {
+		if p.ID() == n.self.ID() {
 			continue
 		}
 
-		list[i] = peer
+		list[i] = p
 		i++
 	}
 	return list
@@ -102,16 +90,16 @@ func TestSimManager(t *testing.T) {
 
 	mgrMap := make(map[peer.ID]*manager)
 	for i := range allPeers {
-		peer := newPeer(fmt.Sprintf("%d", i))
-		allPeers[i] = peer.peer
+		p := newPeer(fmt.Sprintf("%d", i))
+		allPeers[i] = p.peer
 
 		net := testNet{
 			mgr:  mgrMap,
-			loc:  peer.local,
-			self: peer.peer,
-			rand: peer.rand,
+			loc:  p.local,
+			self: p.peer,
+			rand: p.rand,
 		}
-		mgrMap[peer.local.ID()] = newManager(net, net.GetKnownPeers, peer.log, &Parameters{SaltLifetime: 100 * time.Second})
+		mgrMap[p.local.ID()] = newManager(net, net.GetKnownPeers, p.log, &Parameters{SaltLifetime: 100 * time.Second})
 	}
 
 	// start all the managers
@@ -121,8 +109,8 @@ func TestSimManager(t *testing.T) {
 
 	time.Sleep(6 * time.Second)
 
-	for i, peer := range allPeers {
-		neighbors := mgrMap[peer.ID()].getNeighbors()
+	for i, p := range allPeers {
+		neighbors := mgrMap[p.ID()].getNeighbors()
 
 		assert.NotEmpty(t, neighbors, "Peer %d has no neighbors", i)
 		assert.Equal(t, removeDuplicatePeers(neighbors), neighbors, "Peer %d has non unique neighbors", i)

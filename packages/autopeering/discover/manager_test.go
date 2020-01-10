@@ -33,7 +33,7 @@ func (m *NetworkMock) discoveryRequest(p *peer.Peer) ([]*peer.Peer, error) {
 }
 
 func newNetworkMock() *NetworkMock {
-	local, _ := peer.NewLocal("mock", "0", peer.NewMemoryDB(logger))
+	local, _ := peer.NewLocal("mock", "0", peer.NewMemoryDB(log))
 	return &NetworkMock{
 		// no database needed
 		loc: local,
@@ -49,7 +49,7 @@ func newDummyPeer(name string) *peer.Peer {
 
 func newTestManager() (*manager, *NetworkMock, func()) {
 	networkMock := newNetworkMock()
-	mgr := newManager(networkMock, nil, logger, nil)
+	mgr := newManager(networkMock, nil, log, nil)
 	teardown := func() {
 		mgr.close()
 	}

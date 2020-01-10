@@ -1,7 +1,6 @@
 package discover
 
 import (
-	"log"
 	"testing"
 	"time"
 
@@ -9,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -16,15 +16,9 @@ import (
 
 const graceTime = 100 * time.Millisecond
 
-var logger *zap.SugaredLogger
+var log = logger.NewExampleLogger("discover")
 
 func init() {
-	l, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("cannot initialize logger: %v", err)
-	}
-	logger = l.Sugar()
-
 	// decrease parameters to simplify and speed up tests
 	reverifyInterval = 500 * time.Millisecond
 	queryInterval = 1000 * time.Millisecond
@@ -33,7 +27,7 @@ func init() {
 }
 
 // newTest creates a new discovery server and also returns the teardown.
-func newTest(t require.TestingT, trans transport.Transport, logger *zap.SugaredLogger, masters ...*peer.Peer) (*server.Server, *Protocol, func()) {
+func newTest(t require.TestingT, trans transport.Transport, logger *logger.Logger, masters ...*peer.Peer) (*server.Server, *Protocol, func()) {
 	log := logger.Named(trans.LocalAddr().String())
 	db := peer.NewMemoryDB(log.Named("db"))
 	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
@@ -63,12 +57,12 @@ func TestProtVerifyMaster(t *testing.T) {
 	p2p := transport.P2P()
 	defer p2p.Close()
 
-	srvA, _, closeA := newTest(t, p2p.A, logger)
+	srvA, _, closeA := newTest(t, p2p.A, log)
 	defer closeA()
 	peerA := getPeer(srvA)
 
 	// use peerA as masters peer
-	_, protB, closeB := newTest(t, p2p.B, logger, peerA)
+	_, protB, closeB := newTest(t, p2p.B, log, peerA)
 
 	time.Sleep(graceTime) // wait for the packages to ripple through the network
 	closeB()              // close srvB to avoid race conditions, when asserting
@@ -83,9 +77,9 @@ func TestProtPingPong(t *testing.T) {
 	p2p := transport.P2P()
 	defer p2p.Close()
 
-	srvA, protA, closeA := newTest(t, p2p.A, logger)
+	srvA, protA, closeA := newTest(t, p2p.A, log)
 	defer closeA()
-	srvB, protB, closeB := newTest(t, p2p.B, logger)
+	srvB, protB, closeB := newTest(t, p2p.B, log)
 	defer closeB()
 
 	peerA := getPeer(srvA)
@@ -104,9 +98,9 @@ func TestProtPingTimeout(t *testing.T) {
 	p2p := transport.P2P()
 	defer p2p.Close()
 
-	_, protA, closeA := newTest(t, p2p.A, logger)
+	_, protA, closeA := newTest(t, p2p.A, log)
 	defer closeA()
-	srvB, _, closeB := newTest(t, p2p.B, logger)
+	srvB, _, closeB := newTest(t, p2p.B, log)
 	closeB() // close the connection right away to prevent any replies
 
 	peerB := getPeer(srvB)
@@ -120,9 +114,9 @@ func TestProtVerifiedPeers(t *testing.T) {
 	p2p := transport.P2P()
 	defer p2p.Close()
 
-	_, protA, closeA := newTest(t, p2p.A, logger)
+	_, protA, closeA := newTest(t, p2p.A, log)
 	defer closeA()
-	srvB, _, closeB := newTest(t, p2p.B, logger)
+	srvB, _, closeB := newTest(t, p2p.B, log)
 	defer closeB()
 
 	peerB := getPeer(srvB)
@@ -142,9 +136,9 @@ func TestProtVerifiedPeer(t *testing.T) {
 	p2p := transport.P2P()
 	defer p2p.Close()
 
-	srvA, protA, closeA := newTest(t, p2p.A, logger)
+	srvA, protA, closeA := newTest(t, p2p.A, log)
 	defer closeA()
-	srvB, _, closeB := newTest(t, p2p.B, logger)
+	srvB, _, closeB := newTest(t, p2p.B, log)
 	defer closeB()
 
 	peerA := getPeer(srvA)
@@ -166,9 +160,9 @@ func TestProtDiscoveryRequest(t *testing.T) {
 	p2p := transport.P2P()
 	defer p2p.Close()
 
-	srvA, protA, closeA := newTest(t, p2p.A, logger)
+	srvA, protA, closeA := newTest(t, p2p.A, log)
 	defer closeA()
-	srvB, protB, closeB := newTest(t, p2p.B, logger)
+	srvB, protB, closeB := newTest(t, p2p.B, log)
 	defer closeB()
 
 	peerA := getPeer(srvA)
@@ -192,13 +186,13 @@ func TestProtServices(t *testing.T) {
 	p2p := transport.P2P()
 	defer p2p.Close()
 
-	srvA, _, closeA := newTest(t, p2p.A, logger)
+	srvA, _, closeA := newTest(t, p2p.A, log)
 	defer closeA()
 	err := srvA.Local().UpdateService(service.FPCKey, "fpc", p2p.A.LocalAddr().String())
 	require.NoError(t, err)
 
 	// use peerA as masters peer
-	_, protB, closeB := newTest(t, p2p.B, logger, getPeer(srvA))
+	_, protB, closeB := newTest(t, p2p.B, log, getPeer(srvA))
 	defer closeB()
 
 	time.Sleep(graceTime) // wait for the packages to ripple through the network
@@ -213,15 +207,15 @@ func TestProtDiscovery(t *testing.T) {
 	net := transport.NewNetwork("M", "A", "B", "C")
 	defer net.Close()
 
-	srvM, protM, closeM := newTest(t, net.GetTransport("M"), logger)
+	srvM, protM, closeM := newTest(t, net.GetTransport("M"), log)
 	defer closeM()
 	time.Sleep(graceTime) // wait for the master to initialize
 
-	srvA, protA, closeA := newTest(t, net.GetTransport("A"), logger, getPeer(srvM))
+	srvA, protA, closeA := newTest(t, net.GetTransport("A"), log, getPeer(srvM))
 	defer closeA()
-	srvB, protB, closeB := newTest(t, net.GetTransport("B"), logger, getPeer(srvM))
+	srvB, protB, closeB := newTest(t, net.GetTransport("B"), log, getPeer(srvM))
 	defer closeB()
-	srvC, protC, closeC := newTest(t, net.GetTransport("C"), logger, getPeer(srvM))
+	srvC, protC, closeC := newTest(t, net.GetTransport("C"), log, getPeer(srvM))
 	defer closeC()
 
 	time.Sleep(queryInterval + graceTime)    // wait for the next discovery cycle
