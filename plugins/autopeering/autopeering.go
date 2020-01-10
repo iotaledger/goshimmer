@@ -14,7 +14,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/pkg/errors"
 )
 
@@ -39,7 +41,8 @@ func configureAP() {
 		MasterPeers: masterPeers,
 	})
 
-	if parameter.NodeConfig.GetBool(CFG_SELECTION) {
+	// enable peer selection only when gossip is enabled
+	if !node.IsSkipped(gossip.PLUGIN) {
 		Selection = selection.New(local.GetInstance(), Discovery, selection.Config{
 			Log: log.Named("sel"),
 			Param: &selection.Parameters{
