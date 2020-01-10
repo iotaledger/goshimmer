@@ -1,4 +1,4 @@
-package transaction
+package getTrytes
 
 import (
 	"net/http"
@@ -11,11 +11,11 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI Transaction Request Endpoint", node.Enabled, configure)
+var PLUGIN = node.NewPlugin("WebAPI getTrytes Endpoint", node.Enabled, configure)
 var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("API-Transaction")
+	log = logger.NewLogger("API-getTrytes")
 	webapi.AddEndpoint("getTrytes", getTrytes)
 }
 

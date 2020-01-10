@@ -17,15 +17,15 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI SendData Endpoint", node.Enabled, configure)
+var PLUGIN = node.NewPlugin("WebAPI broadcastData Endpoint", node.Enabled, configure)
 var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger("API-broadcastData")
-	webapi.AddEndpoint("broadcastData", SendDataHandler)
+	webapi.AddEndpoint("broadcastData", broadcastData)
 }
 
-func SendDataHandler(c echo.Context) error {
+func broadcastData(c echo.Context) error {
 	c.Set("requestStartTime", time.Now())
 
 	var request webRequest

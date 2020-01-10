@@ -19,9 +19,9 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/ui"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	webapi_broadcastData "github.com/iotaledger/goshimmer/plugins/webapi/broadcastData"
+	webapi_getTrytes "github.com/iotaledger/goshimmer/plugins/webapi/getTrytes"
 	webapi_gtta "github.com/iotaledger/goshimmer/plugins/webapi/gtta"
 	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi/spammer"
-	webapi_transaction "github.com/iotaledger/goshimmer/plugins/webapi/transaction"
 	"github.com/iotaledger/goshimmer/plugins/webauth"
 	"github.com/iotaledger/goshimmer/plugins/zeromq"
 	"github.com/iotaledger/hive.go/node"
@@ -53,7 +53,7 @@ func main() {
 			webapi_gtta.PLUGIN,
 			webapi_spammer.PLUGIN,
 			webapi_broadcastData.PLUGIN,
-			webapi_transaction.PLUGIN,
+			webapi_getTrytes.PLUGIN,
 
 			ui.PLUGIN,
 			webauth.PLUGIN,
