@@ -62,6 +62,7 @@ func main() {
 			webapi_findTransactions.PLUGIN,
 
 			webapi_getNeighbors.PLUGIN,
+			webapi_spammer.PLUGIN,
 
 			ui.PLUGIN,
 			webauth.PLUGIN,
