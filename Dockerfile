@@ -31,5 +31,7 @@ EXPOSE 14626/tcp
 
 # Copy the Pre-built binary file from the previous stage
 COPY --from=build /go/bin/goshimmer .
+# Copy the docker config
+COPY docker.config.json config.json
 
 ENTRYPOINT ["./goshimmer"] 
