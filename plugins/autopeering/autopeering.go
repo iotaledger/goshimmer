@@ -99,7 +99,7 @@ func start(shutdownSignal <-chan struct{}) {
 		defer Selection.Close()
 	}
 
-	log.Infof("Auto Peering server started: ID=%x, address=%s", local.GetInstance().ID(), srv.LocalAddr())
+	log.Infof("Auto Peering started: address=%s", srv.LocalAddr())
 
 	<-shutdownSignal
 	log.Info("Stopping Auto Peering server ...")
