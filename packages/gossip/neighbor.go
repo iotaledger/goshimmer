@@ -67,6 +67,10 @@ func (n *Neighbor) Close() error {
 	// wait for everything to finish
 	n.wg.Wait()
 
+	n.log.Infow("Connection closed",
+		"read", n.BytesRead,
+		"written", n.BytesWritten,
+	)
 	return err
 }
 
@@ -80,10 +84,6 @@ func (n *Neighbor) disconnect() (err error) {
 		close(n.closing)
 		close(n.queue)
 		err = n.ManagedConnection.Close()
-		n.log.Infow("Connection closed",
-			"read", n.BytesRead,
-			"written", n.BytesWritten,
-		)
 	})
 	return
 }
