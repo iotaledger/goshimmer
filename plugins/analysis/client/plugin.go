@@ -1,7 +1,6 @@
 package client
 
 import (
-	"encoding/hex"
 	"net"
 	"time"
 
@@ -57,15 +56,19 @@ func Run(plugin *node.Plugin) {
 func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 	return &EventDispatchers{
 		AddNode: func(nodeId []byte) {
+			log.Debugw("AddNode", "nodeId", nodeId)
 			_, _ = conn.Write((&addnode.Packet{NodeId: nodeId}).Marshal())
 		},
 		RemoveNode: func(nodeId []byte) {
+			log.Debugw("RemoveNode", "nodeId", nodeId)
 			_, _ = conn.Write((&removenode.Packet{NodeId: nodeId}).Marshal())
 		},
 		ConnectNodes: func(sourceId []byte, targetId []byte) {
+			log.Debugw("ConnectNodes", "sourceId", sourceId, "targetId", targetId)
 			_, _ = conn.Write((&connectnodes.Packet{SourceId: sourceId, TargetId: targetId}).Marshal())
 		},
 		DisconnectNodes: func(sourceId []byte, targetId []byte) {
+			log.Debugw("DisconnectNodes", "sourceId", sourceId, "targetId", targetId)
 			_, _ = conn.Write((&disconnectnodes.Packet{SourceId: sourceId, TargetId: targetId}).Marshal())
 		},
 	}
@@ -83,27 +86,22 @@ func setupHooks(plugin *node.Plugin, conn *network.ManagedConnection, eventDispa
 	// define hooks ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	onDiscoverPeer := events.NewClosure(func(ev *discover.DiscoveredEvent) {
-		log.Info("onDiscoverPeer: " + hex.EncodeToString(ev.Peer.ID().Bytes()))
 		eventDispatchers.AddNode(ev.Peer.ID().Bytes())
 	})
 
 	onDeletePeer := events.NewClosure(func(ev *discover.DeletedEvent) {
-		log.Info("onDeletePeer: " + hex.EncodeToString(ev.Peer.ID().Bytes()))
 		eventDispatchers.RemoveNode(ev.Peer.ID().Bytes())
 	})
 
 	onAddAcceptedNeighbor := events.NewClosure(func(ev *selection.PeeringEvent) {
-		log.Info("onAddAcceptedNeighbor: " + hex.EncodeToString(ev.Peer.ID().Bytes()) + " - " + hex.EncodeToString(local.GetInstance().ID().Bytes()))
 		eventDispatchers.ConnectNodes(ev.Peer.ID().Bytes(), local.GetInstance().ID().Bytes())
 	})
 
 	onRemoveNeighbor := events.NewClosure(func(ev *selection.DroppedEvent) {
-		log.Info("onRemoveNeighbor: " + hex.EncodeToString(ev.DroppedID.Bytes()) + " - " + hex.EncodeToString(local.GetInstance().ID().Bytes()))
 		eventDispatchers.DisconnectNodes(ev.DroppedID.Bytes(), local.GetInstance().ID().Bytes())
 	})
 
 	onAddChosenNeighbor := events.NewClosure(func(ev *selection.PeeringEvent) {
-		log.Info("onAddChosenNeighbor: " + hex.EncodeToString(local.GetInstance().ID().Bytes()) + " - " + hex.EncodeToString(ev.Peer.ID().Bytes()))
 		eventDispatchers.ConnectNodes(local.GetInstance().ID().Bytes(), ev.Peer.ID().Bytes())
 	})
 

@@ -2,6 +2,7 @@ package peer
 
 import (
 	"crypto/ed25519"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
@@ -50,7 +51,7 @@ func (p *Peer) Services() service.Service {
 func (p *Peer) String() string {
 	u := url.URL{
 		Scheme: "peer",
-		User:   url.User(fmt.Sprintf("%x", p.publicKey)),
+		User:   url.User(base64.StdEncoding.EncodeToString(p.PublicKey())),
 		Host:   p.Address(),
 	}
 	return u.String()

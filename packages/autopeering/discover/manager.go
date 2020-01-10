@@ -202,8 +202,8 @@ func (m *manager) peerToReverify() *mpeer {
 }
 
 // updatePeer moves the peer with the given ID to the front of the list of managed peers.
-// It returns true if a peer was bumped or false if there was no peer with that id
-func (m *manager) updatePeer(update *peer.Peer) bool {
+// It returns 0 if there was no peer with that id, otherwise the verifiedCount of the updated peer is returned.
+func (m *manager) updatePeer(update *peer.Peer) uint {
 	id := update.ID()
 	for i, p := range m.active {
 		if p.ID() == id {
@@ -217,11 +217,10 @@ func (m *manager) updatePeer(update *peer.Peer) bool {
 				verifiedCount: p.verifiedCount + 1,
 				lastNewPeers:  p.lastNewPeers,
 			}
-
-			return true
+			return p.verifiedCount + 1
 		}
 	}
-	return false
+	return 0
 }
 
 func (m *manager) addReplacement(p *mpeer) bool {
@@ -289,7 +288,11 @@ func (m *manager) addVerifiedPeer(p *peer.Peer) bool {
 	defer m.mutex.Unlock()
 
 	// if already in the list, move it to the front
-	if m.updatePeer(p) {
+	if v := m.updatePeer(p); v > 0 {
+		// trigger the event only for the first time the peer is updated
+		if v == 1 {
+			Events.PeerDiscovered.Trigger(&DiscoveredEvent{Peer: p})
+		}
 		return false
 	}
 
