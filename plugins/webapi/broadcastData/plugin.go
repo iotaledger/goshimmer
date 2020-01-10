@@ -25,6 +25,8 @@ func configure(plugin *node.Plugin) {
 	webapi.AddEndpoint("broadcastData", broadcastData)
 }
 
+// broadcastData creates a data (0-value) transaction given an input of bytes and
+// broadcasts it to the node's neighbors. It returns the transaction hash if successful.
 func broadcastData(c echo.Context) error {
 	c.Set("requestStartTime", time.Now())
 
@@ -65,9 +67,9 @@ func broadcastData(c echo.Context) error {
 
 func requestSuccessful(c echo.Context, txHash string) error {
 	return c.JSON(http.StatusCreated, webResponse{
-		Duration:        time.Since(c.Get("requestStartTime").(time.Time)).Nanoseconds() / 1e6,
-		TransactionHash: txHash,
-		Status:          "OK",
+		Duration: time.Since(c.Get("requestStartTime").(time.Time)).Nanoseconds() / 1e6,
+		Hash:     txHash,
+		Status:   "OK",
 	})
 }
 
@@ -79,9 +81,9 @@ func requestFailed(c echo.Context, message string) error {
 }
 
 type webResponse struct {
-	Duration        int64  `json:"duration"`
-	TransactionHash string `json:"transactionHash"`
-	Status          string `json:"status"`
+	Duration int64  `json:"duration"`
+	Hash     string `json:"hash"`
+	Status   string `json:"status"`
 }
 
 type webRequest struct {
