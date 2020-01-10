@@ -16,10 +16,14 @@ var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger("API-Transaction")
-	webapi.AddEndpoint("getTrytes", getTrytesHandler)
+	webapi.AddEndpoint("getTrytes", getTrytes)
 }
 
-func getTrytesHandler(c echo.Context) error {
+// getTrytes returns the array of transaction trytes for the
+// given transaction hashes (in the same order as the parameters).
+// If a node doesn't have the trytes for a given transaction hash in its ledger,
+// the value at the index of that transaction hash is nil.
+func getTrytes(c echo.Context) error {
 	c.Set("requestStartTime", time.Now())
 
 	var request webRequest
@@ -36,9 +40,12 @@ func getTrytesHandler(c echo.Context) error {
 			return requestFailed(c, err.Error())
 		}
 		if tx != nil {
-			//return requestFailed(c, "Tx not found")
 			result = append(result, tx.GetBytes())
+		} else {
+			//tx not found
+			result = append(result, nil)
 		}
+
 	}
 
 	return requestSuccessful(c, result)
@@ -46,25 +53,24 @@ func getTrytesHandler(c echo.Context) error {
 
 func requestSuccessful(c echo.Context, txs [][]byte) error {
 	return c.JSON(http.StatusOK, webResponse{
-		Duration:     time.Since(c.Get("requestStartTime").(time.Time)).Nanoseconds() / 1e6,
-		Transactions: txs,
-		Status:       "OK",
+		Duration: time.Since(c.Get("requestStartTime").(time.Time)).Nanoseconds() / 1e6,
+		Trytes:   txs,
 	})
 }
 
 func requestFailed(c echo.Context, message string) error {
 	return c.JSON(http.StatusNotFound, webResponse{
 		Duration: time.Since(c.Get("requestStartTime").(time.Time)).Nanoseconds() / 1e6,
-		Status:   message,
+		Error:    message,
 	})
 }
 
 type webResponse struct {
-	Duration     int64    `json:"duration"`
-	Transactions [][]byte `json:"transaction"`
-	Status       string   `json:"status"`
+	Duration int64    `json:"duration"`
+	Trytes   [][]byte `json:"trytes"`
+	Error    string   `json:"error"`
 }
 
 type webRequest struct {
-	Hashes []string `json:"Hashes"`
+	Hashes []string `json:"hashes"`
 }
