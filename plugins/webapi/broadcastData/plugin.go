@@ -82,6 +82,7 @@ func requestSuccessful(c echo.Context, txHash string) error {
 }
 
 func requestFailed(c echo.Context, message string) error {
+
 	return c.JSON(http.StatusBadRequest, webResponse{
 		Error: message,
 	})
