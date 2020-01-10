@@ -69,21 +69,20 @@ func requestSuccessful(c echo.Context, txHash string) error {
 	return c.JSON(http.StatusCreated, webResponse{
 		Duration: time.Since(c.Get("requestStartTime").(time.Time)).Nanoseconds() / 1e6,
 		Hash:     txHash,
-		Status:   "OK",
 	})
 }
 
 func requestFailed(c echo.Context, message string) error {
 	return c.JSON(http.StatusNotModified, webResponse{
 		Duration: time.Since(c.Get("requestStartTime").(time.Time)).Nanoseconds() / 1e6,
-		Status:   message,
+		Error:    message,
 	})
 }
 
 type webResponse struct {
 	Duration int64  `json:"duration"`
 	Hash     string `json:"hash"`
-	Status   string `json:"status"`
+	Error    string `json:"error"`
 }
 
 type webRequest struct {
