@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
-	"go.uber.org/zap"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 const (
@@ -49,7 +49,7 @@ type manager struct {
 	net       network
 	peersFunc func() []*peer.Peer
 
-	log           *zap.SugaredLogger
+	log           *logger.Logger
 	dropNeighbors bool
 
 	inbound  *Neighborhood
@@ -62,14 +62,13 @@ type manager struct {
 
 	rejectionFilter *Filter
 
-	wg              sync.WaitGroup
-	inboundClosing  chan struct{}
-	outboundClosing chan struct{}
+	wg      sync.WaitGroup
+	closing chan struct{}
 
 	requiredService []service.Key
 }
 
-func newManager(net network, peersFunc func() []*peer.Peer, log *zap.SugaredLogger, param *Parameters) *manager {
+func newManager(net network, peersFunc func() []*peer.Peer, log *logger.Logger, param *Parameters) *manager {
 	var requiredService []service.Key
 
 	if param != nil {
@@ -94,8 +93,7 @@ func newManager(net network, peersFunc func() []*peer.Peer, log *zap.SugaredLogg
 		peersFunc:          peersFunc,
 		log:                log,
 		dropNeighbors:      dropNeighborsOnUpdate,
-		inboundClosing:     make(chan struct{}),
-		outboundClosing:    make(chan struct{}),
+		closing:            make(chan struct{}),
 		rejectionFilter:    NewFilter(),
 		inboundRequestChan: make(chan peeringRequest, queueSize),
 		inboundReplyChan:   make(chan bool),
@@ -123,8 +121,7 @@ func (m *manager) start() {
 }
 
 func (m *manager) close() {
-	close(m.inboundClosing)
-	close(m.outboundClosing)
+	close(m.closing)
 	m.wg.Wait()
 }
 
@@ -138,7 +135,6 @@ func (m *manager) loopOutbound() {
 	var (
 		updateOutboundDone chan struct{}
 		updateOutbound     = time.NewTimer(0) // setting this to 0 will cause a trigger right away
-		backoff            = 10
 	)
 	defer updateOutbound.Stop()
 
@@ -156,12 +152,10 @@ Loop:
 				//remove potential duplicates
 				dup := m.getDuplicates()
 				for _, peerToDrop := range dup {
-					toDrop := m.inbound.GetPeerFromID(peerToDrop)
-					time.Sleep(time.Duration(rand.Intn(backoff)) * time.Millisecond)
-					m.outbound.RemovePeer(peerToDrop)
-					m.inbound.RemovePeer(peerToDrop)
-					if toDrop != nil {
-						m.dropPeer(toDrop)
+					time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
+					_ = m.inbound.RemovePeer(peerToDrop)
+					if p := m.outbound.RemovePeer(peerToDrop); p != nil {
+						m.sendDropPeer(p)
 					}
 				}
 
@@ -173,15 +167,15 @@ Loop:
 			updateOutboundDone = nil
 			updateOutbound.Reset(updateOutboundInterval) // updateOutbound again after the given interval
 
-		case peerToDrop := <-m.outboundDropChan:
-			if containsPeer(m.outbound.GetPeers(), peerToDrop) {
-				m.outbound.RemovePeer(peerToDrop)
-				m.rejectionFilter.AddPeer(peerToDrop)
-				m.log.Debug("Outbound Dropped BY ", peerToDrop, " (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
+		case id := <-m.outboundDropChan:
+			if p := m.outbound.RemovePeer(id); p != nil {
+				m.rejectionFilter.AddPeer(id)
+				m.sendDropPeer(p)
+				m.log.Debug("Outbound Dropped BY ", id, " (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
 			}
 
 		// on close, exit the loop
-		case <-m.outboundClosing:
+		case <-m.closing:
 			break Loop
 		}
 	}
@@ -195,21 +189,19 @@ Loop:
 func (m *manager) loopInbound() {
 	defer m.wg.Done()
 
-Loop:
 	for {
 		select {
 		case req := <-m.inboundRequestChan:
 			m.updateInbound(req.peer, req.salt)
 
-		case peerToDrop := <-m.inboundDropChan:
-			if containsPeer(m.inbound.GetPeers(), peerToDrop) {
-				m.inbound.RemovePeer(peerToDrop)
-				m.log.Debug("Inbound Dropped BY ", peerToDrop, " (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
+		case id := <-m.inboundDropChan:
+			if p := m.inbound.RemovePeer(id); p != nil {
+				m.sendDropPeer(p)
+				m.log.Debug("Inbound Dropped BY ", id, " (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
 			}
 
-		// on close, exit the loop
-		case <-m.inboundClosing:
-			break Loop
+		case <-m.closing:
+			return
 		}
 	}
 }
@@ -224,7 +216,7 @@ func (m *manager) updateOutbound(done chan<- struct{}) {
 	distList := peer.SortBySalt(m.self().Bytes(), m.net.local().GetPublicSalt().GetBytes(), m.peersFunc())
 
 	filter := NewFilter()
-	filter.AddPeer(m.self())               //set filter for ourself
+	filter.AddPeer(m.self())               //set filter for oneself
 	filter.AddPeers(m.inbound.GetPeers())  // set filter for inbound neighbors
 	filter.AddPeers(m.outbound.GetPeers()) // set filter for outbound neighbors
 
@@ -258,7 +250,7 @@ func (m *manager) updateOutbound(done chan<- struct{}) {
 			//m.acceptedFilter.AddPeer(candidate.Remote.ID())
 			if furthest.Remote != nil {
 				m.outbound.RemovePeer(furthest.Remote.ID())
-				m.dropPeer(furthest.Remote)
+				m.sendDropPeer(furthest.Remote)
 				m.log.Debug("Outbound furthest removed ", furthest.Remote.ID())
 			}
 			m.outbound.Add(candidate)
@@ -305,7 +297,7 @@ func (m *manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
 	// drop furthest neighbor
 	if furthest.Remote != nil {
 		m.inbound.RemovePeer(furthest.Remote.ID())
-		m.dropPeer(furthest.Remote)
+		m.sendDropPeer(furthest.Remote)
 		m.log.Debug("Inbound furthest removed ", furthest.Remote.ID())
 	}
 	// update inbound neighborhood
@@ -336,9 +328,6 @@ func (m *manager) updateSalt() (*salt.Salt, *salt.Salt) {
 func (m *manager) dropNeighbor(peerToDrop peer.ID) {
 	m.inboundDropChan <- peerToDrop
 	m.outboundDropChan <- peerToDrop
-
-	// signal the dropped peer
-	Events.Dropped.Trigger(&DroppedEvent{Self: m.self(), DroppedID: peerToDrop})
 }
 
 // containsPeer returns true if a peer with the given ID is in the list.
@@ -400,12 +389,12 @@ func (m *manager) getDuplicates() []peer.ID {
 func (m *manager) dropNeighborhood(nh *Neighborhood) {
 	for _, p := range nh.GetPeers() {
 		nh.RemovePeer(p.ID())
-		m.dropPeer(p)
+		m.sendDropPeer(p)
 	}
 }
 
-func (m *manager) dropPeer(p *peer.Peer) {
-	// send the drop request over the network
+// sendDropPeer sends the drop request over the network.
+func (m *manager) sendDropPeer(p *peer.Peer) {
 	m.net.DropPeer(p)
 	// signal the drop
 	Events.Dropped.Trigger(&DroppedEvent{Self: m.self(), DroppedID: p.ID()})
