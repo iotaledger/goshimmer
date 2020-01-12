@@ -52,6 +52,9 @@ func configureEvents() {
 		}()
 	}))
 
+	gossip.Events.ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer) {
+		log.Infof("Connection to neighbor failed: %s / %s", gossip.GetAddress(p), p.ID())
+	}))
 	gossip.Events.NeighborAdded.Attach(events.NewClosure(func(n *gossip.Neighbor) {
 		log.Infof("Neighbor added: %s / %s", gossip.GetAddress(n.Peer), n.ID())
 	}))
