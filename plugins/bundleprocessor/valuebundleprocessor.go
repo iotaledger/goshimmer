@@ -1,11 +1,11 @@
 package bundleprocessor
 
 import (
-	"github.com/iotaledger/goshimmer/packages/curl"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/workerpool"
+	"github.com/iotaledger/iota.go/curl"
 	"github.com/iotaledger/iota.go/signing"
 	"github.com/iotaledger/iota.go/trinary"
 )
@@ -38,12 +38,10 @@ func CalculateBundleHash(transactions []*value_transaction.ValueTransaction) tri
 		copy(concatenatedBundleEssences[value_transaction.BUNDLE_ESSENCE_SIZE*i:value_transaction.BUNDLE_ESSENCE_SIZE*(i+1)], bundleTransaction.GetBundleEssence(lastInputAddress != bundleTransaction.GetAddress()))
 	}
 
-	var bundleHash = make(trinary.Trits, 243)
-
-	hasher := curl.NewCurl(243, 81)
-	hasher.Absorb(concatenatedBundleEssences, 0, len(concatenatedBundleEssences))
-	hasher.Squeeze(bundleHash, 0, 243)
-
+	bundleHash, err := curl.HashTrits(concatenatedBundleEssences)
+	if err != nil {
+		panic(err)
+	}
 	return trinary.MustTritsToTrytes(bundleHash)
 }
 

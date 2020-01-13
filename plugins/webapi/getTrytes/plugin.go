@@ -2,12 +2,12 @@ package getTrytes
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/iota.go/trinary"
 	"github.com/labstack/echo"
 )
 
@@ -16,18 +16,17 @@ var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger("API-getTrytes")
-	webapi.AddEndpoint("getTrytes", getTrytes)
+	webapi.Server.GET("getTrytes", getTrytes)
 }
 
 // getTrytes returns the array of transaction trytes for the
 // given transaction hashes (in the same order as the parameters).
 // If a node doesn't have the trytes for a given transaction hash in its ledger,
-// the value at the index of that transaction hash is nil.
+// the value at the index of that transaction hash is empty.
 func getTrytes(c echo.Context) error {
-	c.Set("requestStartTime", time.Now())
 
 	var request webRequest
-	result := [][]byte{}
+	result := []trinary.Trytes{}
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
 		return requestFailed(c, err.Error())
@@ -40,10 +39,15 @@ func getTrytes(c echo.Context) error {
 			return requestFailed(c, err.Error())
 		}
 		if tx != nil {
-			result = append(result, tx.GetBytes())
+			trytes, err := trinary.TritsToTrytes(tx.GetTrits())
+			// Returns an error if len(tx.GetTrits())%3!=0
+			if err != nil {
+				return requestFailed(c, err.Error())
+			}
+			result = append(result, trytes)
 		} else {
 			//tx not found
-			result = append(result, nil)
+			result = append(result, "")
 		}
 
 	}
@@ -51,24 +55,21 @@ func getTrytes(c echo.Context) error {
 	return requestSuccessful(c, result)
 }
 
-func requestSuccessful(c echo.Context, txs [][]byte) error {
+func requestSuccessful(c echo.Context, txTrytes []trinary.Trytes) error {
 	return c.JSON(http.StatusOK, webResponse{
-		Duration: time.Since(c.Get("requestStartTime").(time.Time)).Nanoseconds() / 1e6,
-		Trytes:   txs,
+		Trytes: txTrytes,
 	})
 }
 
 func requestFailed(c echo.Context, message string) error {
 	return c.JSON(http.StatusNotFound, webResponse{
-		Duration: time.Since(c.Get("requestStartTime").(time.Time)).Nanoseconds() / 1e6,
-		Error:    message,
+		Error: message,
 	})
 }
 
 type webResponse struct {
-	Duration int64    `json:"duration"`
-	Trytes   [][]byte `json:"trytes"`
-	Error    string   `json:"error"`
+	Trytes []trinary.Trytes `json:"trytes,omitempty"` //string
+	Error  string           `json:"error,omitempty"`
 }
 
 type webRequest struct {

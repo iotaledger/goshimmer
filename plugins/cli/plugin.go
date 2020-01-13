@@ -45,7 +45,7 @@ func parseParameters() {
 }
 
 func LoadConfig() {
-	if err := parameter.FetchConfig(true); err != nil {
+	if err := parameter.FetchConfig(false); err != nil {
 		panic(err)
 	}
 	parseParameters()
@@ -56,13 +56,13 @@ func LoadConfig() {
 }
 
 func configure(ctx *node.Plugin) {
-
 	fmt.Println("  _____ _   _ ________  ______  ___ ___________ ")
 	fmt.Println(" /  ___| | | |_   _|  \\/  ||  \\/  ||  ___| ___ \\")
 	fmt.Println(" \\ `--.| |_| | | | | .  . || .  . || |__ | |_/ /")
 	fmt.Println("  `--. \\  _  | | | | |\\/| || |\\/| ||  __||    / ")
 	fmt.Println(" /\\__/ / | | |_| |_| |  | || |  | || |___| |\\ \\ ")
 	fmt.Printf(" \\____/\\_| |_/\\___/\\_|  |_/\\_|  |_/\\____/\\_| \\_| fullnode %s", AppVersion)
+	fmt.Println()
 	fmt.Println()
 
 	ctx.Node.Logger.Info("Loading plugins ...")

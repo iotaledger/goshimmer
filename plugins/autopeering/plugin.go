@@ -3,6 +3,7 @@ package autopeering
 import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/discover"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/selection"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -37,6 +38,19 @@ func configureEvents() {
 	}))
 
 	discover.Events.PeerDiscovered.Attach(events.NewClosure(func(ev *discover.DiscoveredEvent) {
-		log.Info("new peer discovered: " + ev.Peer.Address() + " / " + ev.Peer.ID().String())
+		log.Infof("Discovered: %s / %s", ev.Peer.Address(), ev.Peer.ID())
+	}))
+	discover.Events.PeerDeleted.Attach(events.NewClosure(func(ev *discover.DeletedEvent) {
+		log.Infof("Removed offline: %s / %s", ev.Peer.Address(), ev.Peer.ID())
+	}))
+
+	selection.Events.OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
+		log.Infof("Peering chosen: %s / %s", ev.Peer.Address(), ev.Peer.ID())
+	}))
+	selection.Events.IncomingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
+		log.Infof("Peering accepted: %s / %s", ev.Peer.Address(), ev.Peer.ID())
+	}))
+	selection.Events.Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
+		log.Infof("Peering dropped: %s", ev.DroppedID)
 	}))
 }

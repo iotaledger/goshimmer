@@ -25,12 +25,12 @@ func run(plugin *node.Plugin) {
 		webinterface.Run(plugin)
 		server.Run(plugin)
 	} else {
-		log.Info("Starting Plugin: Analysis ... server is disabled (server-port is 0)")
+		log.Info("Server is disabled (server-port is 0)")
 	}
 
 	if parameter.NodeConfig.GetString(client.CFG_SERVER_ADDRESS) != "" {
 		client.Run(plugin)
 	} else {
-		log.Info("Starting Plugin: Analysis ... client is disabled (server-address is empty)")
+		log.Info("Client is disabled (server-address is empty)")
 	}
 }

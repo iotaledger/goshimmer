@@ -2,7 +2,6 @@ package spammer
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/iotaledger/goshimmer/packages/transactionspammer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -13,11 +12,10 @@ import (
 var PLUGIN = node.NewPlugin("Spammer", node.Disabled, configure)
 
 func configure(plugin *node.Plugin) {
-	webapi.AddEndpoint("spammer", WebApiHandler)
+	webapi.Server.GET("spammer", WebApiHandler)
 }
 
 func WebApiHandler(c echo.Context) error {
-	c.Set("requestStartTime", time.Now())
 
 	var request webRequest
 	if err := c.Bind(&request); err != nil {
@@ -27,7 +25,7 @@ func WebApiHandler(c echo.Context) error {
 	switch request.Cmd {
 	case "start":
 		if request.Tps == 0 {
-			request.Tps = 1000
+			request.Tps = 1
 		}
 
 		transactionspammer.Stop()
@@ -47,24 +45,18 @@ func WebApiHandler(c echo.Context) error {
 
 func requestSuccessful(c echo.Context, message string) error {
 	return c.JSON(http.StatusOK, webResponse{
-		Duration: time.Since(c.Get("requestStartTime").(time.Time)).Nanoseconds() / 1e6,
-		Status:   "success",
-		Message:  message,
+		Message: message,
 	})
 }
 
 func requestFailed(c echo.Context, message string) error {
-	return c.JSON(http.StatusOK, webResponse{
-		Duration: time.Since(c.Get("requestStartTime").(time.Time)).Nanoseconds() / 1e6,
-		Status:   "failed",
-		Message:  message,
+	return c.JSON(http.StatusNotFound, webResponse{
+		Message: message,
 	})
 }
 
 type webResponse struct {
-	Duration int64  `json:"duration"`
-	Status   string `json:"status"`
-	Message  string `json:"message"`
+	Message string `json:"message"`
 }
 
 type webRequest struct {

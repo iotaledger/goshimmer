@@ -19,6 +19,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/ui"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	webapi_broadcastData "github.com/iotaledger/goshimmer/plugins/webapi/broadcastData"
+	webapi_getNeighbors "github.com/iotaledger/goshimmer/plugins/webapi/getNeighbors"
+	webapi_getTransactions "github.com/iotaledger/goshimmer/plugins/webapi/getTransactions"
 	webapi_getTrytes "github.com/iotaledger/goshimmer/plugins/webapi/getTrytes"
 	webapi_gtta "github.com/iotaledger/goshimmer/plugins/webapi/gtta"
 	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi/spammer"
@@ -54,6 +56,8 @@ func main() {
 			webapi_spammer.PLUGIN,
 			webapi_broadcastData.PLUGIN,
 			webapi_getTrytes.PLUGIN,
+			webapi_getTransactions.PLUGIN,
+			webapi_getNeighbors.PLUGIN,
 
 			ui.PLUGIN,
 			webauth.PLUGIN,
