@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/iota.go/address"
 	"github.com/iotaledger/iota.go/trinary"
 	"github.com/labstack/echo"
 )
@@ -33,15 +34,15 @@ func broadcastData(c echo.Context) error {
 		log.Info(err.Error())
 		return requestFailed(c, err.Error())
 	}
-	log.Info("Received:", request.Data)
+	log.Info("Received - address:", request.Address, " data:", request.Data)
 	tx := value_transaction.New()
 	tx.SetHead(true)
 	tx.SetTail(true)
 
-	buffer := make([]byte, 6561)
-	if len(request.Data) > 6561 {
-		log.Warn("data exceding 6561 byte limit -", len(request.Data))
-		return requestFailed(c, "data exceding 6561 byte limit")
+	buffer := make([]byte, 2187)
+	if len(request.Data) > 2187 {
+		log.Warn("Data exceeding 2187 byte limit -", len(request.Data))
+		return requestFailed(c, "Data exceeding 2187 byte limit")
 	}
 
 	copy(buffer, []byte(request.Data))
@@ -52,7 +53,16 @@ func broadcastData(c echo.Context) error {
 		return requestFailed(c, err.Error())
 	}
 
+	err = address.ValidAddress(request.Address)
+	if err != nil {
+		log.Warn("Invalid Address:", request.Address)
+		return requestFailed(c, err.Error())
+	}
+
+	tx.SetAddress(request.Address)
 	tx.SetSignatureMessageFragment(trytes)
+
+	tx.SetValue(0)
 	tx.SetBranchTransactionHash(tipselection.GetRandomTip())
 	tx.SetTrunkTransactionHash(tipselection.GetRandomTip())
 	tx.SetTimestamp(uint(time.Now().Unix()))
@@ -72,7 +82,7 @@ func requestSuccessful(c echo.Context, txHash string) error {
 }
 
 func requestFailed(c echo.Context, message string) error {
-	return c.JSON(http.StatusNotModified, webResponse{
+	return c.JSON(http.StatusBadRequest, webResponse{
 		Error: message,
 	})
 }
@@ -83,5 +93,6 @@ type webResponse struct {
 }
 
 type webRequest struct {
-	Data string `json:"data"`
+	Address string `json:"address"`
+	Data    string `json:"data"`
 }
