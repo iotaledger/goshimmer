@@ -35,7 +35,9 @@ func broadcastData(c echo.Context) error {
 		log.Info(err.Error())
 		return requestFailed(c, err.Error())
 	}
+
 	log.Debug("Received - address:", request.Address, " data:", request.Data)
+
 	tx := value_transaction.New()
 	tx.SetHead(true)
 	tx.SetTail(true)
