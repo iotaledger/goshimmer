@@ -49,8 +49,7 @@ type manager struct {
 	net       network
 	peersFunc func() []*peer.Peer
 
-	log           *logger.Logger
-	dropNeighbors bool
+	log *logger.Logger
 
 	inbound  *Neighborhood
 	outbound *Neighborhood
@@ -92,7 +91,6 @@ func newManager(net network, peersFunc func() []*peer.Peer, log *logger.Logger, 
 		net:                net,
 		peersFunc:          peersFunc,
 		log:                log,
-		dropNeighbors:      dropNeighborsOnUpdate,
 		closing:            make(chan struct{}),
 		rejectionFilter:    NewFilter(),
 		inboundRequestChan: make(chan peeringRequest, queueSize),
