@@ -1,6 +1,7 @@
 package selection
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/distance"
@@ -8,24 +9,35 @@ import (
 )
 
 type Neighborhood struct {
-	Neighbors []peer.PeerDistance
-	Size      int
-	mutex     sync.RWMutex
+	neighbors []peer.PeerDistance
+	size      int
+	mu        sync.RWMutex
+}
+
+func NewNeighborhood(size int) *Neighborhood {
+	return &Neighborhood{
+		neighbors: []peer.PeerDistance{},
+		size:      size,
+	}
+}
+
+func (nh *Neighborhood) String() string {
+	return fmt.Sprintf("%d/%d", nh.GetNumPeers(), nh.size)
 }
 
 func (nh *Neighborhood) getFurthest() (peer.PeerDistance, int) {
-	nh.mutex.RLock()
-	defer nh.mutex.RUnlock()
-	if len(nh.Neighbors) < nh.Size {
+	nh.mu.RLock()
+	defer nh.mu.RUnlock()
+	if len(nh.neighbors) < nh.size {
 		return peer.PeerDistance{
 			Remote:   nil,
 			Distance: distance.Max,
-		}, len(nh.Neighbors)
+		}, len(nh.neighbors)
 	}
 
 	index := 0
-	furthest := nh.Neighbors[index]
-	for i, n := range nh.Neighbors {
+	furthest := nh.neighbors[index]
+	for i, n := range nh.neighbors {
 		if n.Distance > furthest.Distance {
 			furthest = n
 			index = i
@@ -47,37 +59,37 @@ func (nh *Neighborhood) Select(candidates []peer.PeerDistance) peer.PeerDistance
 }
 
 func (nh *Neighborhood) Add(toAdd peer.PeerDistance) {
-	nh.mutex.Lock()
-	defer nh.mutex.Unlock()
-	if len(nh.Neighbors) < nh.Size {
-		nh.Neighbors = append(nh.Neighbors, toAdd)
+	nh.mu.Lock()
+	defer nh.mu.Unlock()
+	if len(nh.neighbors) < nh.size {
+		nh.neighbors = append(nh.neighbors, toAdd)
 	}
 }
 
 // RemovePeer removes the peer with the given ID from the neighborhood.
 // It returns the peer that was removed or nil of no such peer exists.
 func (nh *Neighborhood) RemovePeer(id peer.ID) *peer.Peer {
-	nh.mutex.Lock()
-	defer nh.mutex.Unlock()
+	nh.mu.Lock()
+	defer nh.mu.Unlock()
 
 	index := nh.getPeerIndex(id)
 	if index < 0 {
 		return nil
 	}
-	n := nh.Neighbors[index]
+	n := nh.neighbors[index]
 
 	// remove index from slice
-	if index < len(nh.Neighbors)-1 {
-		copy(nh.Neighbors[index:], nh.Neighbors[index+1:])
+	if index < len(nh.neighbors)-1 {
+		copy(nh.neighbors[index:], nh.neighbors[index+1:])
 	}
-	nh.Neighbors[len(nh.Neighbors)-1] = peer.PeerDistance{}
-	nh.Neighbors = nh.Neighbors[:len(nh.Neighbors)-1]
+	nh.neighbors[len(nh.neighbors)-1] = peer.PeerDistance{}
+	nh.neighbors = nh.neighbors[:len(nh.neighbors)-1]
 
 	return n.Remote
 }
 
 func (nh *Neighborhood) getPeerIndex(id peer.ID) int {
-	for i, p := range nh.Neighbors {
+	for i, p := range nh.neighbors {
 		if p.Remote.ID() == id {
 			return i
 		}
@@ -86,19 +98,25 @@ func (nh *Neighborhood) getPeerIndex(id peer.ID) int {
 }
 
 func (nh *Neighborhood) UpdateDistance(anchor, salt []byte) {
-	nh.mutex.Lock()
-	defer nh.mutex.Unlock()
-	for i, n := range nh.Neighbors {
-		nh.Neighbors[i].Distance = distance.BySalt(anchor, n.Remote.ID().Bytes(), salt)
+	nh.mu.Lock()
+	defer nh.mu.Unlock()
+	for i, n := range nh.neighbors {
+		nh.neighbors[i].Distance = distance.BySalt(anchor, n.Remote.ID().Bytes(), salt)
 	}
 }
 
 func (nh *Neighborhood) GetPeers() []*peer.Peer {
-	nh.mutex.RLock()
-	defer nh.mutex.RUnlock()
-	list := make([]*peer.Peer, len(nh.Neighbors))
-	for i, n := range nh.Neighbors {
+	nh.mu.RLock()
+	defer nh.mu.RUnlock()
+	list := make([]*peer.Peer, len(nh.neighbors))
+	for i, n := range nh.neighbors {
 		list[i] = n.Remote
 	}
 	return list
+}
+
+func (nh *Neighborhood) GetNumPeers() int {
+	nh.mu.RLock()
+	defer nh.mu.RUnlock()
+	return len(nh.neighbors)
 }

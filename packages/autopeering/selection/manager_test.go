@@ -57,28 +57,25 @@ type testNet struct {
 	rand *rand.Rand
 }
 
-func (n testNet) local() *peer.Local {
+func (n *testNet) local() *peer.Local {
 	return n.loc
 }
 
-func (n testNet) DropPeer(p *peer.Peer) {
-	n.mgr[p.ID()].dropNeighbor(n.local().ID())
+func (n *testNet) DropPeer(p *peer.Peer) {
+	n.mgr[p.ID()].dropPeering(n.local().ID())
 }
 
-func (n testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
-	return n.mgr[p.ID()].acceptRequest(n.self, s), nil
+func (n *testNet) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
+	return n.mgr[p.ID()].requestPeering(n.self, s), nil
 }
 
-func (n testNet) GetKnownPeers() []*peer.Peer {
-	list := make([]*peer.Peer, len(allPeers)-1)
-	i := 0
+func (n *testNet) GetKnownPeers() []*peer.Peer {
+	list := make([]*peer.Peer, 0, len(allPeers)-1)
 	for _, p := range allPeers {
 		if p.ID() == n.self.ID() {
 			continue
 		}
-
-		list[i] = p
-		i++
+		list = append(list, p)
 	}
 	return list
 }
@@ -93,7 +90,7 @@ func TestSimManager(t *testing.T) {
 		p := newPeer(fmt.Sprintf("%d", i))
 		allPeers[i] = p.peer
 
-		net := testNet{
+		net := &testNet{
 			mgr:  mgrMap,
 			loc:  p.local,
 			self: p.peer,
@@ -107,17 +104,19 @@ func TestSimManager(t *testing.T) {
 		mgr.start()
 	}
 
-	time.Sleep(6 * time.Second)
-
-	for i, p := range allPeers {
-		neighbors := mgrMap[p.ID()].getNeighbors()
-
-		assert.NotEmpty(t, neighbors, "Peer %d has no neighbors", i)
-		assert.Equal(t, removeDuplicatePeers(neighbors), neighbors, "Peer %d has non unique neighbors", i)
-	}
+	time.Sleep(5 * time.Second)
 
 	// close all the managers
 	for _, mgr := range mgrMap {
 		mgr.close()
+	}
+
+	for i, p := range allPeers {
+		mgr := mgrMap[p.ID()]
+
+		assert.NotEmpty(t, mgr.getOutgoingNeighbors(), "Peer %d has no out neighbors", i)
+		assert.NotEmpty(t, mgr.getIncomingNeighbors(), "Peer %d has no in neighbors", i)
+		neighbors := mgr.getNeighbors()
+		assert.Equal(t, removeDuplicatePeers(neighbors), neighbors, "Peer %d has non unique neighbors", i)
 	}
 }

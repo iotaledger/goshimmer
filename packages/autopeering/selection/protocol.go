@@ -162,7 +162,7 @@ func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt) (bool, error) 
 
 // DropPeer sends a PeeringDrop to the given peer.
 func (p *Protocol) DropPeer(to *peer.Peer) {
-	p.mgr.dropNeighbor(to.ID())
+	p.mgr.dropPeering(to.ID())
 
 	toAddr := to.Address()
 	drop := newPeeringDrop(toAddr)
@@ -282,7 +282,7 @@ func (p *Protocol) handlePeeringRequest(s *server.Server, fromAddr string, fromI
 		return
 	}
 
-	res := newPeeringResponse(rawData, p.mgr.acceptRequest(from, salt))
+	res := newPeeringResponse(rawData, p.mgr.requestPeering(from, salt))
 
 	p.log.Debugw("send message",
 		"type", res.Name(),
@@ -334,5 +334,5 @@ func (p *Protocol) validatePeeringDrop(s *server.Server, fromAddr string, m *pb.
 }
 
 func (p *Protocol) handlePeeringDrop(fromID peer.ID) {
-	p.mgr.dropNeighbor(fromID)
+	p.mgr.dropPeering(fromID)
 }

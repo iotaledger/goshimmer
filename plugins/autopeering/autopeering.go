@@ -46,8 +46,8 @@ func configureAP() {
 		Selection = selection.New(local.GetInstance(), Discovery, selection.Config{
 			Log: log.Named("sel"),
 			Param: &selection.Parameters{
-				SaltLifetime:    selection.DefaultSaltLifetime,
-				RequiredService: []service.Key{service.GossipKey},
+				SaltLifetime:     selection.DefaultSaltLifetime,
+				RequiredServices: []service.Key{service.GossipKey},
 			},
 		})
 	}
