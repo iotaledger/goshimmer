@@ -32,6 +32,7 @@ func getTransactions(c echo.Context) error {
 		log.Info(err.Error())
 		return requestFailed(c, err.Error())
 	}
+
 	log.Debug("Received:", request.Hashes)
 
 	for _, hash := range request.Hashes {
