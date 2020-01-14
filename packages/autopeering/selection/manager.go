@@ -16,7 +16,7 @@ const (
 	reject = false
 
 	// buffer size of the channels handling inbound requests and drops.
-	queueSize = 100
+	queueSize = 10
 )
 
 // A network represents the communication layer for the manager.
@@ -80,10 +80,6 @@ func (m *manager) start() {
 func (m *manager) close() {
 	close(m.closing)
 	m.wg.Wait()
-
-	// close the channels, so that successive sends panic
-	close(m.requestChan)
-	close(m.dropChan)
 }
 
 func (m *manager) getID() peer.ID {
