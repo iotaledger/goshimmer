@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 )
 
@@ -119,7 +118,6 @@ func (m *manager) requestPeering(p *peer.Peer, s *salt.Salt) bool {
 		// a full queue should count as a failed request
 		status = false
 	}
-	m.triggerPeeringEvent(false, p, status)
 	return status
 }
 
@@ -181,7 +179,9 @@ Loop:
 
 		// handle an inbound request
 		case req := <-m.requestChan:
-			m.handleInRequest(req)
+			status := m.handleInRequest(req)
+			// trigger in the main loop to guarantee order of events
+			m.triggerPeeringEvent(false, req.peer, status)
 
 		// on close, exit the loop
 		case <-m.closing:
@@ -211,8 +211,6 @@ func (m *manager) getUpdateTimeout() time.Duration {
 func (m *manager) updateOutbound(resultChan chan<- peer.PeerDistance) {
 	var result peer.PeerDistance
 	defer func() { resultChan <- result }() // assure that a result is always sent to the channel
-
-	m.log.Debug("update outbound")
 
 	// sort verified peers by distance
 	distList := peer.SortBySalt(m.getID().Bytes(), m.getPublicSalt().GetBytes(), m.getPeersToConnect())
@@ -251,8 +249,8 @@ func (m *manager) updateOutbound(resultChan chan<- peer.PeerDistance) {
 	result = candidate
 }
 
-func (m *manager) handleInRequest(req peeringRequest) {
-	resp := reject
+func (m *manager) handleInRequest(req peeringRequest) (resp bool) {
+	resp = reject
 	defer func() { m.replyChan <- resp }() // assure that a response is always issued
 
 	if !m.isValidNeighbor(req.peer) {
@@ -273,12 +271,13 @@ func (m *manager) handleInRequest(req peeringRequest) {
 
 	m.addNeighbor(m.inbound, toAccept)
 	resp = accept
+	return
 }
 
 func (m *manager) addNeighbor(nh *Neighborhood, toAdd peer.PeerDistance) {
 	// drop furthest neighbor if necessary
 	if furthest, _ := nh.getFurthest(); furthest.Remote != nil {
-		if p := m.inbound.RemovePeer(furthest.Remote.ID()); p != nil {
+		if p := nh.RemovePeer(furthest.Remote.ID()); p != nil {
 			m.sendDropPeer(p)
 		}
 	}
@@ -302,6 +301,10 @@ func (m *manager) updateSalt() {
 		m.dropNeighborhood(m.outbound)
 	}
 
+	m.log.Debugw("salt updated",
+		"public", saltLifetime,
+		"private", saltLifetime,
+	)
 	Events.SaltUpdated.Trigger(&SaltUpdatedEvent{Self: m.getID(), Public: public, Private: private})
 }
 
@@ -348,23 +351,23 @@ func (m *manager) isValidNeighbor(p *peer.Peer) bool {
 }
 
 func (m *manager) triggerPeeringEvent(isOut bool, p *peer.Peer, status bool) {
-	var (
-		direction string
-		event     *events.Event
-	)
 	if isOut {
-		direction = "out"
-		event = Events.OutgoingPeering
+		m.log.Debugw("peering requested",
+			"direction", "out",
+			"status", status,
+			"to", p.ID(),
+			"#out", m.outbound,
+			"#in", m.inbound,
+		)
+		Events.OutgoingPeering.Trigger(&PeeringEvent{Self: m.getID(), Peer: p, Status: status})
 	} else {
-		direction = "in"
-		event = Events.IncomingPeering
+		m.log.Debugw("peering requested",
+			"direction", "in",
+			"status", status,
+			"from", p.ID(),
+			"#out", m.outbound,
+			"#in", m.inbound,
+		)
+		Events.IncomingPeering.Trigger(&PeeringEvent{Self: m.getID(), Peer: p, Status: status})
 	}
-	m.log.Debugw("peering requested",
-		"direction", direction,
-		"status", status,
-		"to", p.ID(),
-		"#out", m.outbound,
-		"#in", m.inbound,
-	)
-	event.Trigger(&PeeringEvent{Self: m.getID(), Peer: p, Status: status})
 }

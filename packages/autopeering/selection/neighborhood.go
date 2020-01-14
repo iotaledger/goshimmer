@@ -58,12 +58,16 @@ func (nh *Neighborhood) Select(candidates []peer.PeerDistance) peer.PeerDistance
 	return peer.PeerDistance{}
 }
 
-func (nh *Neighborhood) Add(toAdd peer.PeerDistance) {
+// Add tries to add a new peer with distance to the neighborhood.
+// It returns true, if the peer was added, or false if the neighborhood was full.
+func (nh *Neighborhood) Add(toAdd peer.PeerDistance) bool {
 	nh.mu.Lock()
 	defer nh.mu.Unlock()
-	if len(nh.neighbors) < nh.size {
-		nh.neighbors = append(nh.neighbors, toAdd)
+	if len(nh.neighbors) >= nh.size {
+		return false
 	}
+	nh.neighbors = append(nh.neighbors, toAdd)
+	return true
 }
 
 // RemovePeer removes the peer with the given ID from the neighborhood.

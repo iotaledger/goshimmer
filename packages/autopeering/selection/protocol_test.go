@@ -38,10 +38,7 @@ func newTest(t require.TestingT, trans transport.Transport) (*server.Server, *Pr
 	// add the new peer to the global map for dummyDiscovery
 	peerMap[local.ID()] = &local.Peer
 
-	cfg := Config{
-		Log: l,
-	}
-	prot := New(local, dummyDiscovery{}, cfg)
+	prot := New(local, dummyDiscovery{}, Config{Log: l})
 	srv := server.Listen(local, trans, l.Named("srv"), prot)
 	prot.Start(srv)
 
@@ -58,6 +55,11 @@ func getPeer(s *server.Server) *peer.Peer {
 }
 
 func TestProtPeeringRequest(t *testing.T) {
+	// set test parameters
+	SetParameters(Parameters{
+		SaltLifetime:           testSaltLifetime,
+		UpdateOutboundInterval: testUpdateInterval,
+	})
 	p2p := transport.P2P()
 	defer p2p.Close()
 
@@ -86,6 +88,11 @@ func TestProtPeeringRequest(t *testing.T) {
 }
 
 func TestProtExpiredSalt(t *testing.T) {
+	// set test parameters
+	SetParameters(Parameters{
+		SaltLifetime:           testSaltLifetime,
+		UpdateOutboundInterval: testUpdateInterval,
+	})
 	p2p := transport.P2P()
 	defer p2p.Close()
 
@@ -103,6 +110,11 @@ func TestProtExpiredSalt(t *testing.T) {
 }
 
 func TestProtDropPeer(t *testing.T) {
+	// set test parameters
+	SetParameters(Parameters{
+		SaltLifetime:           testSaltLifetime,
+		UpdateOutboundInterval: testUpdateInterval,
+	})
 	p2p := transport.P2P()
 	defer p2p.Close()
 
@@ -158,6 +170,11 @@ func newFullTest(t require.TestingT, trans transport.Transport, masterPeers ...*
 }
 
 func TestProtFull(t *testing.T) {
+	// set test parameters
+	SetParameters(Parameters{
+		SaltLifetime:           testSaltLifetime,
+		UpdateOutboundInterval: testUpdateInterval,
+	})
 	p2p := transport.P2P()
 	defer p2p.Close()
 

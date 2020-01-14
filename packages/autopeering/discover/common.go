@@ -42,20 +42,32 @@ type Parameters struct {
 	MaxReplacements  int           // maximum number of peers kept in the replacement list
 }
 
+// SetParameters sets the global parameters for this package.
+// This function cannot be used concurrently.
 func SetParameter(param Parameters) {
 	if param.ReverifyInterval > 0 {
 		reverifyInterval = param.ReverifyInterval
+	} else {
+		reverifyInterval = DefaultReverifyInterval
 	}
 	if param.ReverifyTries > 0 {
 		reverifyTries = param.ReverifyTries
+	} else {
+		reverifyTries = DefaultReverifyTries
 	}
 	if param.QueryInterval > 0 {
 		queryInterval = param.QueryInterval
+	} else {
+		queryInterval = DefaultQueryInterval
 	}
 	if param.MaxManaged > 0 {
 		maxManaged = param.MaxManaged
+	} else {
+		maxManaged = DefaultMaxManaged
 	}
 	if param.MaxReplacements > 0 {
 		maxReplacements = param.MaxReplacements
+	} else {
+		maxReplacements = DefaultMaxReplacements
 	}
 }

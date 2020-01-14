@@ -45,14 +45,22 @@ type Parameters struct {
 func SetParameters(param Parameters) {
 	if param.InboundNeighborSize > 0 {
 		inboundNeighborSize = param.InboundNeighborSize
+	} else {
+		inboundNeighborSize = DefaultInboundNeighborSize
 	}
 	if param.OutboundNeighborSize > 0 {
 		outboundNeighborSize = param.OutboundNeighborSize
+	} else {
+		outboundNeighborSize = DefaultOutboundNeighborSize
 	}
 	if param.SaltLifetime > 0 {
 		saltLifetime = param.SaltLifetime
+	} else {
+		saltLifetime = DefaultSaltLifetime
 	}
 	if param.UpdateOutboundInterval > 0 {
 		updateOutboundInterval = param.UpdateOutboundInterval
+	} else {
+		updateOutboundInterval = DefaultUpdateOutboundInterval
 	}
 }
