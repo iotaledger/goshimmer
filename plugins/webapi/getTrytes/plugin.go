@@ -25,7 +25,7 @@ func configure(plugin *node.Plugin) {
 // the value at the index of that transaction hash is empty.
 func getTrytes(c echo.Context) error {
 
-	var request webRequest
+	var request Request
 	result := []trinary.Trytes{}
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
@@ -56,22 +56,22 @@ func getTrytes(c echo.Context) error {
 }
 
 func requestSuccessful(c echo.Context, txTrytes []trinary.Trytes) error {
-	return c.JSON(http.StatusOK, webResponse{
+	return c.JSON(http.StatusOK, Response{
 		Trytes: txTrytes,
 	})
 }
 
 func requestFailed(c echo.Context, message string) error {
-	return c.JSON(http.StatusNotFound, webResponse{
+	return c.JSON(http.StatusNotFound, Response{
 		Error: message,
 	})
 }
 
-type webResponse struct {
+type Response struct {
 	Trytes []trinary.Trytes `json:"trytes,omitempty"` //string
 	Error  string           `json:"error,omitempty"`
 }
 
-type webRequest struct {
+type Request struct {
 	Hashes []string `json:"hashes"`
 }

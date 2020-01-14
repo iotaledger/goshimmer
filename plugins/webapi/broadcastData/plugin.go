@@ -30,7 +30,7 @@ func configure(plugin *node.Plugin) {
 // broadcasts it to the node's neighbors. It returns the transaction hash if successful.
 func broadcastData(c echo.Context) error {
 
-	var request webRequest
+	var request Request
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
 		return requestFailed(c, err.Error())
@@ -78,23 +78,23 @@ func broadcastData(c echo.Context) error {
 }
 
 func requestSuccessful(c echo.Context, txHash string) error {
-	return c.JSON(http.StatusCreated, webResponse{
+	return c.JSON(http.StatusCreated, Response{
 		Hash: txHash,
 	})
 }
 
 func requestFailed(c echo.Context, message string) error {
-	return c.JSON(http.StatusBadRequest, webResponse{
+	return c.JSON(http.StatusBadRequest, Response{
 		Error: message,
 	})
 }
 
-type webResponse struct {
+type Response struct {
 	Hash  string `json:"hash,omitempty"`
 	Error string `json:"error,omitempty"`
 }
 
-type webRequest struct {
+type Request struct {
 	Address string `json:"address"`
 	Data    string `json:"data"`
 }

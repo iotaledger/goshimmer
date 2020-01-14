@@ -19,13 +19,13 @@ func Handler(c echo.Context) error {
 	branchTransactionHash := tipselection.GetRandomTip()
 	trunkTransactionHash := tipselection.GetRandomTip()
 
-	return c.JSON(http.StatusOK, webResponse{
+	return c.JSON(http.StatusOK, Response{
 		BranchTransaction: branchTransactionHash,
 		TrunkTransaction:  trunkTransactionHash,
 	})
 }
 
-type webResponse struct {
+type Response struct {
 	BranchTransaction trinary.Trytes `json:"branchTransaction"`
 	TrunkTransaction  trinary.Trytes `json:"trunkTransaction"`
 }
