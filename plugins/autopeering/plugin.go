@@ -1,6 +1,8 @@
 package autopeering
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/autopeering/discover"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/selection"
@@ -45,7 +47,7 @@ func configureEvents() {
 	}))
 
 	selection.Events.SaltUpdated.Attach(events.NewClosure(func(ev *selection.SaltUpdatedEvent) {
-		log.Infof("Salt updated: %v", ev.Public.GetExpiration())
+		log.Infof("Salt updated; expires=%s", ev.Public.GetExpiration().Format(time.RFC822))
 	}))
 	selection.Events.OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
 		log.Infof("Peering chosen: %s / %s", ev.Peer.Address(), ev.Peer.ID())
