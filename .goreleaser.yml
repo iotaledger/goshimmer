@@ -98,5 +98,5 @@ release:
   prerelease: auto
   name_template: "{{.ProjectName}}-{{.Version}}"
   github:
-    owner: gohornet
-    name: hornet
+    owner: iotaledger
+    name: goshimmer
