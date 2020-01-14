@@ -10,6 +10,8 @@ require (
 	github.com/gdamore/tcell v1.3.0
 	github.com/go-zeromq/zmq4 v0.7.0
 	github.com/golang/protobuf v1.3.2
+	github.com/googollee/go-engine.io v1.4.3-0.20190924125625-798118fc0dd2
+	github.com/googollee/go-socket.io v1.4.3-0.20191204093753-683f8725b6d0
 	github.com/gorilla/websocket v1.4.1
 	github.com/iotaledger/hive.go v0.0.0-20200110132858-ea86cdb9d91e
 	github.com/iotaledger/iota.go v1.0.0-beta.13

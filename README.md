@@ -69,3 +69,14 @@ To start Shimmer in the background, you can also simply use [Docker Compose](htt
 ```
 docker-compose up -d
 ```
+
+### Install Glumb visualizer
+
+Install both the Glumb visualizer and socket.io client lib within the root folder/where the binary is located:
+```bash
+git clone https://github.com/glumb/IOTAtangle.git
+// only this version seems to be stable
+cd IOTAtangle && git reset --hard 07bba77a296a2d06277cdae56aa963abeeb5f66e 
+cd ../
+git clone https://github.com/socketio/socket.io-client.git
+```
