@@ -9,17 +9,19 @@ import (
 
 // Default values for the global parameters
 const (
-	DefaultInboundNeighborSize    = 4
-	DefaultOutboundNeighborSize   = 4
-	DefaultSaltLifetime           = 30 * time.Minute
-	DefaultUpdateOutboundInterval = 10 * time.Second
+	DefaultInboundNeighborSize        = 4
+	DefaultOutboundNeighborSize       = 4
+	DefaultSaltLifetime               = 30 * time.Minute
+	DefaultOutboundUpdateInterval     = 1 * time.Second
+	DefaultFullOutboundUpdateInterval = 1 * time.Minute
 )
 
 var (
-	inboundNeighborSize    = DefaultInboundNeighborSize    // number of inbound neighbors
-	outboundNeighborSize   = DefaultOutboundNeighborSize   // number of outbound neighbors
-	saltLifetime           = DefaultSaltLifetime           // lifetime of the private and public local salt
-	updateOutboundInterval = DefaultUpdateOutboundInterval // time after which the outbound neighbors are updated
+	inboundNeighborSize        = DefaultInboundNeighborSize        // number of inbound neighbors
+	outboundNeighborSize       = DefaultOutboundNeighborSize       // number of outbound neighbors
+	saltLifetime               = DefaultSaltLifetime               // lifetime of the private and public local salt
+	outboundUpdateInterval     = DefaultOutboundUpdateInterval     // time after which out neighbors are updated
+	fullOutboundUpdateInterval = DefaultFullOutboundUpdateInterval // time after which full out neighbors are updated
 )
 
 // Config holds settings for the peer selection.
@@ -34,10 +36,11 @@ type Config struct {
 
 // Parameters holds the parameters that can be configured.
 type Parameters struct {
-	InboundNeighborSize    int           // number of inbound neighbors
-	OutboundNeighborSize   int           // number of outbound neighbors
-	SaltLifetime           time.Duration // lifetime of the private and public local salt
-	UpdateOutboundInterval time.Duration // time interval after which the outbound neighbors are checked
+	InboundNeighborSize        int           // number of inbound neighbors
+	OutboundNeighborSize       int           // number of outbound neighbors
+	SaltLifetime               time.Duration // lifetime of the private and public local salt
+	OutboundUpdateInterval     time.Duration // time interval after which the outbound neighbors are checked
+	FullOutboundUpdateInterval time.Duration // time after which the full outbound neighbors are updated
 }
 
 // SetParameters sets the global parameters for this package.
@@ -58,9 +61,14 @@ func SetParameters(param Parameters) {
 	} else {
 		saltLifetime = DefaultSaltLifetime
 	}
-	if param.UpdateOutboundInterval > 0 {
-		updateOutboundInterval = param.UpdateOutboundInterval
+	if param.OutboundUpdateInterval > 0 {
+		outboundUpdateInterval = param.OutboundUpdateInterval
 	} else {
-		updateOutboundInterval = DefaultUpdateOutboundInterval
+		outboundUpdateInterval = DefaultOutboundUpdateInterval
+	}
+	if param.FullOutboundUpdateInterval > 0 {
+		fullOutboundUpdateInterval = param.FullOutboundUpdateInterval
+	} else {
+		fullOutboundUpdateInterval = DefaultFullOutboundUpdateInterval
 	}
 }

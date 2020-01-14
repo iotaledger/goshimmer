@@ -196,9 +196,9 @@ Loop:
 }
 
 func (m *manager) getUpdateTimeout() time.Duration {
-	result := updateOutboundInterval
+	result := outboundUpdateInterval
 	if m.outbound.IsFull() {
-		result = time.Minute
+		result = fullOutboundUpdateInterval
 	}
 	saltExpiration := time.Until(m.getPublicSalt().GetExpiration())
 	if saltExpiration < result {

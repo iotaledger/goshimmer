@@ -58,7 +58,7 @@ func TestProtPeeringRequest(t *testing.T) {
 	// set test parameters
 	SetParameters(Parameters{
 		SaltLifetime:           testSaltLifetime,
-		UpdateOutboundInterval: testUpdateInterval,
+		OutboundUpdateInterval: testUpdateInterval,
 	})
 	p2p := transport.P2P()
 	defer p2p.Close()
@@ -91,7 +91,7 @@ func TestProtExpiredSalt(t *testing.T) {
 	// set test parameters
 	SetParameters(Parameters{
 		SaltLifetime:           testSaltLifetime,
-		UpdateOutboundInterval: testUpdateInterval,
+		OutboundUpdateInterval: testUpdateInterval,
 	})
 	p2p := transport.P2P()
 	defer p2p.Close()
@@ -113,7 +113,7 @@ func TestProtDropPeer(t *testing.T) {
 	// set test parameters
 	SetParameters(Parameters{
 		SaltLifetime:           testSaltLifetime,
-		UpdateOutboundInterval: testUpdateInterval,
+		OutboundUpdateInterval: testUpdateInterval,
 	})
 	p2p := transport.P2P()
 	defer p2p.Close()
@@ -173,7 +173,7 @@ func TestProtFull(t *testing.T) {
 	// set test parameters
 	SetParameters(Parameters{
 		SaltLifetime:           testSaltLifetime,
-		UpdateOutboundInterval: testUpdateInterval,
+		OutboundUpdateInterval: testUpdateInterval,
 	})
 	p2p := transport.P2P()
 	defer p2p.Close()
@@ -186,7 +186,7 @@ func TestProtFull(t *testing.T) {
 	srvB, protB, closeB := newFullTest(t, p2p.B, getPeer(srvA))
 	defer closeB()
 
-	time.Sleep(updateOutboundInterval + graceTime) // wait for the next outbound cycle
+	time.Sleep(outboundUpdateInterval + graceTime) // wait for the next outbound cycle
 
 	// the two peers should be peered
 	assert.ElementsMatch(t, []*peer.Peer{getPeer(srvB)}, protA.GetNeighbors())

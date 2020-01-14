@@ -27,7 +27,7 @@ func TestMgrNoDuplicates(t *testing.T) {
 		OutboundNeighborSize:   nNeighbors,
 		InboundNeighborSize:    nNeighbors,
 		SaltLifetime:           testSaltLifetime,
-		UpdateOutboundInterval: testUpdateInterval,
+		OutboundUpdateInterval: testUpdateInterval,
 	})
 
 	mgrMap := make(map[peer.ID]*manager)
@@ -50,7 +50,7 @@ func TestEvents(t *testing.T) {
 		OutboundNeighborSize:   nNeighbors,
 		InboundNeighborSize:    nNeighbors,
 		SaltLifetime:           3 * testUpdateInterval,
-		UpdateOutboundInterval: testUpdateInterval,
+		OutboundUpdateInterval: testUpdateInterval,
 	})
 
 	e, teardown := newEventMock(t)
@@ -85,7 +85,7 @@ func runTestNetwork(n int, mgrMap map[peer.ID]*manager) {
 	}
 
 	// give the managers time to potentially connect all other peers
-	time.Sleep((time.Duration(n) - 1) * (updateOutboundInterval + graceTime))
+	time.Sleep((time.Duration(n) - 1) * (outboundUpdateInterval + graceTime))
 
 	// close all the managers
 	for _, mgr := range mgrMap {
