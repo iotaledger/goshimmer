@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/daemon"
@@ -86,7 +87,7 @@ func run(plugin *node.Plugin) {
 				wsMutex.Unlock()
 			}
 		}
-	})
+	}, shutdown.ShutdownPriorityUI)
 }
 
 // PLUGIN plugs the UI into the main program

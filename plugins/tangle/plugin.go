@@ -1,6 +1,9 @@
 package tangle
 
 import (
+	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/iota.go/trinary"
@@ -19,6 +22,22 @@ func configure(*node.Plugin) {
 	configureApproversDatabase()
 	configureBundleDatabase()
 	configureSolidifier()
+
+	daemon.BackgroundWorker("Cache Flush", func(shutdownSignal <-chan struct{}) {
+		<-shutdownSignal
+
+		log.Info("Flushing caches to database...")
+		FlushTransactionCache()
+		FlushTransactionMetadata()
+		FlushApproversCache()
+		FlushBundleCache()
+		log.Info("Flushing caches to database... done")
+
+		log.Info("Syncing database to disk...")
+		database.GetBadgerInstance().Close()
+		log.Info("Syncing database to disk... done")
+	}, shutdown.ShutdownPriorityTangle)
+
 }
 
 func run(*node.Plugin) {

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
@@ -21,5 +22,5 @@ func run(plugin *node.Plugin) {
 	// create a background worker that "measures" the TPS value every second
 	daemon.BackgroundWorker("Metrics TPS Updater", func(shutdownSignal <-chan struct{}) {
 		timeutil.Ticker(measureReceivedTPS, 1*time.Second, shutdownSignal)
-	})
+	}, shutdown.ShutdownPriorityMetrics)
 }

@@ -2,9 +2,9 @@ package tangle
 
 import (
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/datastructure"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/hive.go/lru_cache"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
 )
@@ -51,18 +51,24 @@ func StoreTransaction(transaction *value_transaction.ValueTransaction) {
 
 // region lru cache ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var transactionCache = datastructure.NewLRUCache(TRANSACTION_CACHE_SIZE, &datastructure.LRUCacheOptions{
-	EvictionCallback: onEvictTransaction,
+var transactionCache = lru_cache.NewLRUCache(TRANSACTION_CACHE_SIZE, &lru_cache.LRUCacheOptions{
+	EvictionCallback:  onEvictTransactions,
+	EvictionBatchSize: 200,
 })
 
-func onEvictTransaction(_ interface{}, value interface{}) {
-	if evictedTransaction := value.(*value_transaction.ValueTransaction); evictedTransaction.GetModified() {
-		go func(evictedTransaction *value_transaction.ValueTransaction) {
-			if err := storeTransactionInDatabase(evictedTransaction); err != nil {
+func onEvictTransactions(_ interface{}, values interface{}) {
+	// TODO: replace with apply
+	for _, obj := range values.([]interface{}) {
+		if tx := obj.(*value_transaction.ValueTransaction); tx.GetModified() {
+			if err := storeTransactionInDatabase(tx); err != nil {
 				panic(err)
 			}
-		}(evictedTransaction)
+		}
 	}
+}
+
+func FlushTransactionCache() {
+	transactionCache.DeleteAll()
 }
 
 const (

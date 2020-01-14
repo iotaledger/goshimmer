@@ -3,6 +3,7 @@ package bundleprocessor
 import (
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -37,7 +38,7 @@ func run(*node.Plugin) {
 		log.Info("Stopping Bundle Processor ...")
 		workerPool.StopAndWait()
 		log.Info("Stopping Bundle Processor ... done")
-	})
+	}, shutdown.ShutdownPriorityBundleProcessor)
 
 	log.Info("Starting Value Bundle Processor ...")
 
@@ -48,5 +49,5 @@ func run(*node.Plugin) {
 		log.Info("Stopping Value Bundle Processor ...")
 		valueBundleProcessorWorkerPool.StopAndWait()
 		log.Info("Stopping Value Bundle Processor ... done")
-	})
+	}, shutdown.ShutdownPriorityBundleProcessor)
 }

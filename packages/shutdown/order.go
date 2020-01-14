@@ -1,0 +1,18 @@
+package shutdown
+
+const (
+	ShutdownPriorityTangle = iota
+	ShutdownPrioritySolidifier
+	ShutdownPriorityBundleProcessor
+	ShutdownPriorityAnalysis
+	ShutdownPriorityMetrics
+	ShutdownPriorityWebAPI
+	ShutdownPriorityGossip
+	ShutdownPriorityZMQ
+	ShutdownPriorityAutopeering
+	ShutdownPriorityGraph
+	ShutdownPriorityUI
+	ShutdownPriorityDashboard
+	ShutdownPriorityTangleSpammer
+	ShutdownPriorityStatusScreen
+)

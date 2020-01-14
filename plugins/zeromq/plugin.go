@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/parameter"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -53,7 +54,7 @@ func run(plugin *node.Plugin) {
 		} else {
 			log.Info("Stopping ZeroMQ Publisher ... done")
 		}
-	})
+	}, shutdown.ShutdownPriorityZMQ)
 }
 
 // Start the zmq publisher.

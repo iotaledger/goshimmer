@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/node"
@@ -66,7 +67,7 @@ func run(plugin *node.Plugin) {
 				"token": t,
 			})
 		})
-	})
+	}, shutdown.ShutdownPriorityWebAPI)
 }
 
 // PLUGIN plugs the UI into the main program

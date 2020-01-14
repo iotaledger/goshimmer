@@ -3,6 +3,7 @@ package statusscreen
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -57,7 +58,7 @@ func run(*node.Plugin) {
 				return
 			}
 		}
-	}); err != nil {
+	}, shutdown.ShutdownPriorityStatusScreen); err != nil {
 		log.Errorf("Failed to start as daemon: %s", err)
 		return
 	}
@@ -72,7 +73,7 @@ func run(*node.Plugin) {
 		if err := app.SetRoot(frame, true).SetFocus(frame).Run(); err != nil {
 			log.Errorf("Error running application: %s", err)
 		}
-	}); err != nil {
+	}, shutdown.ShutdownPriorityStatusScreen); err != nil {
 		log.Errorf("Failed to start as daemon: %s", err)
 		close(stopped)
 	}
