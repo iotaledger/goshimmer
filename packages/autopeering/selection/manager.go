@@ -19,21 +19,6 @@ const (
 	queueSize = 100
 )
 
-var (
-	// number of inbound neighbors
-	inboundNeighborSize = DefaultInboundNeighborSize
-	// number of outbound neighbors
-	outboundNeighborSize = DefaultOutboundNeighborSize
-	// lifetime of the private and public local salt
-	saltLifetime = DefaultSaltLifetime
-	// time interval after which the outbound neighbors are updated
-	updateOutboundInterval = DefaultUpdateOutboundInterval
-	// whether all neighbors are dropped on distance update
-	dropNeighborsOnUpdate bool
-	// services that need to be support by a peer
-	requiredServices []service.Key
-)
-
 // A network represents the communication layer for the manager.
 type network interface {
 	local() *peer.Local
@@ -51,6 +36,8 @@ type manager struct {
 	net               network
 	getPeersToConnect func() []*peer.Peer
 	log               *logger.Logger
+	dropOnUpdate      bool          // set true to drop all neighbors when the salt is updated
+	requiredServices  []service.Key // services required in order to select/be selected during autopeering
 
 	inbound  *Neighborhood
 	outbound *Neighborhood
@@ -65,28 +52,13 @@ type manager struct {
 	closing chan struct{}
 }
 
-func newManager(net network, peersFunc func() []*peer.Peer, log *logger.Logger, param *Parameters) *manager {
-	if param != nil {
-		if param.InboundNeighborSize > 0 {
-			inboundNeighborSize = param.InboundNeighborSize
-		}
-		if param.OutboundNeighborSize > 0 {
-			outboundNeighborSize = param.OutboundNeighborSize
-		}
-		if param.SaltLifetime > 0 {
-			saltLifetime = param.SaltLifetime
-		}
-		if param.UpdateOutboundInterval > 0 {
-			updateOutboundInterval = param.UpdateOutboundInterval
-		}
-		requiredServices = param.RequiredServices
-		dropNeighborsOnUpdate = param.DropNeighborsOnUpdate
-	}
-
+func newManager(net network, peersFunc func() []*peer.Peer, log *logger.Logger, config Config) *manager {
 	return &manager{
 		net:               net,
 		getPeersToConnect: peersFunc,
 		log:               log,
+		dropOnUpdate:      config.DropOnUpdate,
+		requiredServices:  config.RequiredServices,
 		inbound:           NewNeighborhood(inboundNeighborSize),
 		outbound:          NewNeighborhood(outboundNeighborSize),
 		rejectionFilter:   NewFilter(),
@@ -326,7 +298,7 @@ func (m *manager) updateSalt() {
 	// clean the rejection filter
 	m.rejectionFilter.Clean()
 
-	if !dropNeighborsOnUpdate { // update distance without dropping neighbors
+	if !m.dropOnUpdate { // update distance without dropping neighbors
 		m.outbound.UpdateDistance(m.getID().Bytes(), m.getPublicSalt().GetBytes())
 		m.inbound.UpdateDistance(m.getID().Bytes(), m.getPrivateSalt().GetBytes())
 	} else { // drop all the neighbors
@@ -371,7 +343,7 @@ func (m *manager) isValidNeighbor(p *peer.Peer) bool {
 		return false
 	}
 	// reject if required services are missing
-	for _, reqService := range requiredServices {
+	for _, reqService := range m.requiredServices {
 		if p.Services().Get(reqService) == nil {
 			return false
 		}

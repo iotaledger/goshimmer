@@ -24,6 +24,14 @@ type testPeer struct {
 	rand  *rand.Rand // random number generator
 }
 
+func init() {
+	// set global parameters for tests
+	SetParameters(Parameters{
+		SaltLifetime:           time.Hour,
+		UpdateOutboundInterval: 500 * time.Millisecond,
+	})
+}
+
 func newPeer(name string) testPeer {
 	log := log.Named(name)
 	db := peer.NewMemoryDB(log.Named("db"))
@@ -97,7 +105,7 @@ func TestSimManager(t *testing.T) {
 			self: p.peer,
 			rand: p.rand,
 		}
-		mgrMap[p.local.ID()] = newManager(net, net.GetKnownPeers, p.log, &Parameters{SaltLifetime: 100 * time.Second})
+		mgrMap[p.local.ID()] = newManager(net, net.GetKnownPeers, log, Config{})
 	}
 
 	// start all the managers

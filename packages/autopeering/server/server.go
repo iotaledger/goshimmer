@@ -11,8 +11,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	pb "github.com/iotaledger/goshimmer/packages/autopeering/server/proto"
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 const (
@@ -25,7 +25,7 @@ type Server struct {
 	local    *peer.Local
 	trans    transport.Transport
 	handlers []Handler
-	log      *zap.SugaredLogger
+	log      *logger.Logger
 	network  string
 	address  string
 
@@ -70,7 +70,7 @@ type reply struct {
 // Listen starts a new peer server using the given transport layer for communication.
 // Sent data is signed using the identity of the local peer,
 // received data with a valid peer signature is handled according to the provided Handler.
-func Listen(local *peer.Local, t transport.Transport, log *zap.SugaredLogger, h ...Handler) *Server {
+func Listen(local *peer.Local, t transport.Transport, log *logger.Logger, h ...Handler) *Server {
 	srv := &Server{
 		local:           local,
 		trans:           t,

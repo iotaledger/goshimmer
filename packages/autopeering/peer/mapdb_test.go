@@ -2,50 +2,41 @@ package peer
 
 import (
 	"crypto/ed25519"
-	"log"
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
-var logger *zap.SugaredLogger
-
-func init() {
-	l, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("cannot initialize logger: %v", err)
-	}
-	logger = l.Sugar()
-}
+var log = logger.NewExampleLogger("peer")
 
 func TestMapDBPing(t *testing.T) {
 	p := newTestPeer()
-	db := NewMemoryDB(logger)
+	db := NewMemoryDB(log)
 
-	time := time.Now()
-	err := db.UpdateLastPing(p.ID(), p.Address(), time)
+	now := time.Now()
+	err := db.UpdateLastPing(p.ID(), p.Address(), now)
 	require.NoError(t, err)
 
-	assert.Equal(t, time.Unix(), db.LastPing(p.ID(), p.Address()).Unix())
+	assert.Equal(t, now.Unix(), db.LastPing(p.ID(), p.Address()).Unix())
 }
 
 func TestMapDBPong(t *testing.T) {
 	p := newTestPeer()
-	db := NewMemoryDB(logger)
+	db := NewMemoryDB(log)
 
-	time := time.Now()
-	err := db.UpdateLastPong(p.ID(), p.Address(), time)
+	now := time.Now()
+	err := db.UpdateLastPong(p.ID(), p.Address(), now)
 	require.NoError(t, err)
 
-	assert.Equal(t, time.Unix(), db.LastPong(p.ID(), p.Address()).Unix())
+	assert.Equal(t, now.Unix(), db.LastPong(p.ID(), p.Address()).Unix())
 }
 
 func TestMapDBPeer(t *testing.T) {
 	p := newTestPeer()
-	db := NewMemoryDB(logger)
+	db := NewMemoryDB(log)
 
 	err := db.UpdatePeer(p)
 	require.NoError(t, err)
@@ -55,7 +46,7 @@ func TestMapDBPeer(t *testing.T) {
 
 func TestMapDBSeedPeers(t *testing.T) {
 	p := newTestPeer()
-	db := NewMemoryDB(logger)
+	db := NewMemoryDB(log)
 
 	require.NoError(t, db.UpdatePeer(p))
 	require.NoError(t, db.UpdateLastPong(p.ID(), p.Address(), time.Now()))
@@ -65,7 +56,7 @@ func TestMapDBSeedPeers(t *testing.T) {
 }
 
 func TestMapDBLocal(t *testing.T) {
-	db := NewMemoryDB(logger)
+	db := NewMemoryDB(log)
 
 	l1, err := NewLocal(testNetwork, testAddress, db)
 	require.NoError(t, err)

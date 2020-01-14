@@ -11,8 +11,8 @@ import (
 	peerpb "github.com/iotaledger/goshimmer/packages/autopeering/peer/proto"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 // The Protocol handles the peer discovery.
@@ -20,8 +20,8 @@ import (
 type Protocol struct {
 	server.Protocol
 
-	loc *peer.Local        // local peer that runs the protocol
-	log *zap.SugaredLogger // logging
+	loc *peer.Local    // local peer that runs the protocol
+	log *logger.Logger // logging
 
 	mgr       *manager // the manager handles the actual peer discovery and re-verification
 	closeOnce sync.Once
@@ -34,7 +34,7 @@ func New(local *peer.Local, cfg Config) *Protocol {
 		loc:      local,
 		log:      cfg.Log,
 	}
-	p.mgr = newManager(p, cfg.MasterPeers, cfg.Log.Named("mgr"), cfg.Param)
+	p.mgr = newManager(p, cfg.MasterPeers, cfg.Log.Named("mgr"))
 
 	return p
 }

@@ -10,8 +10,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	pb "github.com/iotaledger/goshimmer/packages/autopeering/selection/proto"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 // DiscoverProtocol specifies the methods from the peer discovery that are required.
@@ -28,9 +28,9 @@ type DiscoverProtocol interface {
 type Protocol struct {
 	server.Protocol
 
-	disc DiscoverProtocol   // reference to the peer discovery to query verified peers
-	loc  *peer.Local        // local peer that runs the protocol
-	log  *zap.SugaredLogger // logging
+	disc DiscoverProtocol // reference to the peer discovery to query verified peers
+	loc  *peer.Local      // local peer that runs the protocol
+	log  *logger.Logger   // logging
 
 	mgr       *manager // the manager handles the actual neighbor selection
 	closeOnce sync.Once
@@ -44,7 +44,7 @@ func New(local *peer.Local, disc DiscoverProtocol, cfg Config) *Protocol {
 		disc:     disc,
 		log:      cfg.Log,
 	}
-	p.mgr = newManager(p, disc.GetVerifiedPeers, cfg.Log.Named("mgr"), cfg.Param)
+	p.mgr = newManager(p, disc.GetVerifiedPeers, cfg.Log.Named("mgr"), cfg)
 
 	return p
 }

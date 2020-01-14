@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
-	"go.uber.org/zap"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 // mapDB is a simple implementation of DB using a map.
@@ -15,7 +15,7 @@ type mapDB struct {
 	key      PrivateKey
 	services *service.Record
 
-	log *zap.SugaredLogger
+	log *logger.Logger
 
 	wg        sync.WaitGroup
 	closeOnce sync.Once
@@ -32,7 +32,7 @@ type peerPropEntry struct {
 }
 
 // NewMemoryDB creates a new DB that uses a GO map.
-func NewMemoryDB(log *zap.SugaredLogger) DB {
+func NewMemoryDB(log *logger.Logger) DB {
 	db := &mapDB{
 		m:        make(map[string]peerEntry),
 		services: service.New(),
