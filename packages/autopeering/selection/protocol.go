@@ -78,12 +78,12 @@ func (p *Protocol) GetNeighbors() []*peer.Peer {
 
 // GetIncomingNeighbors returns the current incoming neighbors.
 func (p *Protocol) GetIncomingNeighbors() []*peer.Peer {
-	return p.mgr.getIncomingNeighbors()
+	return p.mgr.getInNeighbors()
 }
 
 // GetOutgoingNeighbors returns the current outgoing neighbors.
 func (p *Protocol) GetOutgoingNeighbors() []*peer.Peer {
-	return p.mgr.getOutgoingNeighbors()
+	return p.mgr.getOutNeighbors()
 }
 
 // HandleMessage responds to incoming neighbor selection messages.

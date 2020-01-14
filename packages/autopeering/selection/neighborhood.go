@@ -105,14 +105,20 @@ func (nh *Neighborhood) UpdateDistance(anchor, salt []byte) {
 	}
 }
 
+func (nh *Neighborhood) IsFull() bool {
+	nh.mu.RLock()
+	defer nh.mu.RUnlock()
+	return len(nh.neighbors) >= nh.size
+}
+
 func (nh *Neighborhood) GetPeers() []*peer.Peer {
 	nh.mu.RLock()
 	defer nh.mu.RUnlock()
-	list := make([]*peer.Peer, len(nh.neighbors))
+	result := make([]*peer.Peer, len(nh.neighbors))
 	for i, n := range nh.neighbors {
-		list[i] = n.Remote
+		result[i] = n.Remote
 	}
-	return list
+	return result
 }
 
 func (nh *Neighborhood) GetNumPeers() int {

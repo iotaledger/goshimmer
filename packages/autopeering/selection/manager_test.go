@@ -36,13 +36,14 @@ func newPeer(name string) testPeer {
 	return testPeer{local, p, db, log, rand.New(rand.NewSource(time.Now().UnixNano()))}
 }
 
-func removeDuplicatePeers(peers []*peer.Peer) []*peer.Peer {
+func getDuplicates(peers []*peer.Peer) []*peer.Peer {
 	seen := make(map[peer.ID]bool, len(peers))
 	result := make([]*peer.Peer, 0, len(peers))
 
 	for _, p := range peers {
 		if !seen[p.ID()] {
 			seen[p.ID()] = true
+		} else {
 			result = append(result, p)
 		}
 	}
@@ -81,7 +82,7 @@ func (n *testNet) GetKnownPeers() []*peer.Peer {
 }
 
 func TestSimManager(t *testing.T) {
-	N := 9 // number of peers to generate
+	const N = 9 // number of peers to generate
 
 	allPeers = make([]*peer.Peer, N)
 
@@ -104,7 +105,8 @@ func TestSimManager(t *testing.T) {
 		mgr.start()
 	}
 
-	time.Sleep(5 * time.Second)
+	// give the managers time to potentially connect all other peers
+	time.Sleep((N - 1) * (updateOutboundInterval + graceTime))
 
 	// close all the managers
 	for _, mgr := range mgrMap {
@@ -113,10 +115,10 @@ func TestSimManager(t *testing.T) {
 
 	for i, p := range allPeers {
 		mgr := mgrMap[p.ID()]
+		log.Debugw("done", "peer", i, "#out", mgr.outbound, "#in", mgr.inbound)
 
-		assert.NotEmpty(t, mgr.getOutgoingNeighbors(), "Peer %d has no out neighbors", i)
-		assert.NotEmpty(t, mgr.getIncomingNeighbors(), "Peer %d has no in neighbors", i)
-		neighbors := mgr.getNeighbors()
-		assert.Equal(t, removeDuplicatePeers(neighbors), neighbors, "Peer %d has non unique neighbors", i)
+		assert.NotEmpty(t, mgr.getOutNeighbors(), "Peer %d has no out neighbors", i)
+		assert.NotEmpty(t, mgr.getInNeighbors(), "Peer %d has no in neighbors", i)
+		assert.Empty(t, getDuplicates(mgr.getNeighbors()), "Peer %d has non unique neighbors", i)
 	}
 }

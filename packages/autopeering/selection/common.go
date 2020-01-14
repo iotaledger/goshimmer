@@ -27,7 +27,7 @@ const (
 	DefaultSaltLifetime = 30 * time.Minute
 
 	// DefaultUpdateOutboundInterval is the default time interval after which the outbound neighbors are checked.
-	DefaultUpdateOutboundInterval = 200 * time.Millisecond
+	DefaultUpdateOutboundInterval = 1 * time.Second
 )
 
 // Parameters holds the parameters that can be configured.
