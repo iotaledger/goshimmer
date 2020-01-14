@@ -44,6 +44,9 @@ func configureEvents() {
 		log.Infof("Removed offline: %s / %s", ev.Peer.Address(), ev.Peer.ID())
 	}))
 
+	selection.Events.SaltUpdated.Attach(events.NewClosure(func(ev *selection.SaltUpdatedEvent) {
+		log.Infof("Salt updated: %v", ev.Public.GetExpiration())
+	}))
 	selection.Events.OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
 		log.Infof("Peering chosen: %s / %s", ev.Peer.Address(), ev.Peer.ID())
 	}))

@@ -202,8 +202,8 @@ Loop:
 			if p := m.outbound.RemovePeer(id); p != nil {
 				droppedPeer = p
 				m.rejectionFilter.AddPeer(id)
-				// trigger an immediate update
-				if updateTimer.Stop() {
+				// if not yet updating, trigger an immediate update
+				if updateOutResultChan == nil && updateTimer.Stop() {
 					updateTimer.Reset(0)
 				}
 			}
@@ -317,7 +317,7 @@ func (m *manager) addNeighbor(nh *Neighborhood, toAdd peer.PeerDistance) {
 	nh.Add(toAdd)
 }
 
-func (m *manager) updateSalt() (*salt.Salt, *salt.Salt) {
+func (m *manager) updateSalt() {
 	public, _ := salt.NewSalt(saltLifetime)
 	m.net.local().SetPublicSalt(public)
 	private, _ := salt.NewSalt(saltLifetime)
@@ -334,8 +334,7 @@ func (m *manager) updateSalt() (*salt.Salt, *salt.Salt) {
 		m.dropNeighborhood(m.outbound)
 	}
 
-	m.log.Info("Salt updated: expiration=%v", public.GetExpiration())
-	return public, private
+	Events.SaltUpdated.Trigger(&SaltUpdatedEvent{Self: m.getID(), Public: public, Private: private})
 }
 
 func (m *manager) dropNeighborhood(nh *Neighborhood) {
