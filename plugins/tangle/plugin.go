@@ -18,6 +18,7 @@ func configure(*node.Plugin) {
 	configureTransactionMetaDataDatabase()
 	configureApproversDatabase()
 	configureBundleDatabase()
+	configureTransactionHashesForAddressDatabase()
 	configureSolidifier()
 }
 

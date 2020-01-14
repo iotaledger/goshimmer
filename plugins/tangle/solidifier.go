@@ -192,6 +192,17 @@ func processMetaTransaction(metaTransaction *meta_transaction.MetaTransaction) {
 func processTransaction(transaction *value_transaction.ValueTransaction) {
 	Events.TransactionStored.Trigger(transaction)
 
+	// store transaction hash for address in DB
+	err := StoreTransactionHashForAddressInDatabase(
+		&TxHashForAddress{
+			Address: transaction.GetAddress(),
+			TxHash:  transaction.GetHash(),
+		},
+	)
+	if err != nil {
+		log.Errorw(err.Error())
+	}
+
 	transactionHash := transaction.GetHash()
 
 	// register tx as approver for trunk
@@ -211,7 +222,7 @@ func processTransaction(transaction *value_transaction.ValueTransaction) {
 	}
 
 	// update the solidity flags of this transaction and its approvers
-	_, err := IsSolid(transaction)
+	_, err = IsSolid(transaction)
 	if err != nil {
 		log.Errorf("Unable to check solidity: %s", err.Error())
 		return
@@ -232,6 +243,6 @@ func requestTransaction(hash trinary.Trytes) {
 		return
 	}
 
-	log.Infow("Requesting tx", "hash", hash)
+	log.Debugw("Requesting tx", "hash", hash)
 	requester.RequestTransaction(hash)
 }
