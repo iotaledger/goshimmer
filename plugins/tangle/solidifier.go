@@ -181,7 +181,9 @@ func processMetaTransaction(metaTransaction *meta_transaction.MetaTransaction) {
 	if tx, err := GetTransaction(metaTransaction.GetHash(), func(transactionHash trinary.Trytes) *value_transaction.ValueTransaction {
 		newTransaction = true
 
-		return value_transaction.FromMetaTransaction(metaTransaction)
+		tx := value_transaction.FromMetaTransaction(metaTransaction)
+		tx.SetModified(true)
+		return tx
 	}); err != nil {
 		log.Errorf("Unable to load transaction %s: %s", metaTransaction.GetHash(), err.Error())
 	} else if newTransaction {
