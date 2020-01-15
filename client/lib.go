@@ -1,5 +1,5 @@
 // Implements a very simple wrapper for GoShimmer's HTTP API .
-package shimmer
+package goshimmer
 
 import (
 	"bytes"
@@ -40,11 +40,11 @@ const (
 	contentTypeJSON = "application/json"
 )
 
-func NewShimmerAPI(node string) *ShimmerAPI {
-	return &ShimmerAPI{node: node}
+func NewGoShimmerAPI(node string) *GoShimmerAPI {
+	return &GoShimmerAPI{node: node}
 }
 
-type ShimmerAPI struct {
+type GoShimmerAPI struct {
 	http.Client
 	node string
 }
@@ -80,7 +80,7 @@ func interpretBody(res *http.Response, decodeTo interface{}) error {
 	return errors.Wrap(ErrUnknownError, errRes.Error)
 }
 
-func (api *ShimmerAPI) BroadcastData(targetAddress trinary.Trytes, data trinary.Trytes) (trinary.Hash, error) {
+func (api *GoShimmerAPI) BroadcastData(targetAddress trinary.Trytes, data trinary.Trytes) (trinary.Hash, error) {
 	if !guards.IsHash(targetAddress) {
 		return "", errors.Wrapf(consts.ErrInvalidHash, "invalid address: %s", targetAddress)
 	}
@@ -106,7 +106,7 @@ func (api *ShimmerAPI) BroadcastData(targetAddress trinary.Trytes, data trinary.
 	return resObj.Hash, nil
 }
 
-func (api *ShimmerAPI) GetTrytes(txHashes trinary.Hashes) ([]trinary.Trytes, error) {
+func (api *GoShimmerAPI) GetTrytes(txHashes trinary.Hashes) ([]trinary.Trytes, error) {
 	for _, hash := range txHashes {
 		if !guards.IsTrytes(hash) {
 			return nil, errors.Wrapf(consts.ErrInvalidHash, "invalid hash: %s", hash)
@@ -131,7 +131,7 @@ func (api *ShimmerAPI) GetTrytes(txHashes trinary.Hashes) ([]trinary.Trytes, err
 	return resObj.Trytes, nil
 }
 
-func (api *ShimmerAPI) GetTransactions(txHashes trinary.Hashes) ([]webapi_getTransactions.Transaction, error) {
+func (api *GoShimmerAPI) GetTransactions(txHashes trinary.Hashes) ([]webapi_getTransactions.Transaction, error) {
 	for _, hash := range txHashes {
 		if !guards.IsTrytes(hash) {
 			return nil, errors.Wrapf(consts.ErrInvalidHash, "invalid hash: %s", hash)
@@ -156,7 +156,7 @@ func (api *ShimmerAPI) GetTransactions(txHashes trinary.Hashes) ([]webapi_getTra
 	return resObj.Transactions, nil
 }
 
-func (api *ShimmerAPI) FindTransactions(query *webapi_findTransactions.Request) ([]trinary.Hashes, error) {
+func (api *GoShimmerAPI) FindTransactions(query *webapi_findTransactions.Request) ([]trinary.Hashes, error) {
 	for _, hash := range query.Addresses {
 		if !guards.IsTrytes(hash) {
 			return nil, errors.Wrapf(consts.ErrInvalidHash, "invalid hash: %s", hash)
@@ -181,7 +181,7 @@ func (api *ShimmerAPI) FindTransactions(query *webapi_findTransactions.Request) 
 	return resObj.Transactions, nil
 }
 
-func (api *ShimmerAPI) GetNeighbors() (*webapi_getNeighbors.Response, error) {
+func (api *GoShimmerAPI) GetNeighbors() (*webapi_getNeighbors.Response, error) {
 	res, err := api.Get(fmt.Sprintf("%s/%s", api.node, routeGetNeighbors))
 	if err != nil {
 		return nil, err
@@ -195,7 +195,7 @@ func (api *ShimmerAPI) GetNeighbors() (*webapi_getNeighbors.Response, error) {
 	return resObj, nil
 }
 
-func (api *ShimmerAPI) GetTips() (*webapi_gtta.Response, error) {
+func (api *GoShimmerAPI) GetTips() (*webapi_gtta.Response, error) {
 	res, err := api.Get(fmt.Sprintf("%s/%s", api.node, routeGetTransactionsToApprove))
 	if err != nil {
 		return nil, err
@@ -209,7 +209,7 @@ func (api *ShimmerAPI) GetTips() (*webapi_gtta.Response, error) {
 	return resObj, nil
 }
 
-func (api *ShimmerAPI) ToggleSpammer(enable bool) (*webapi_spammer.Response, error) {
+func (api *GoShimmerAPI) ToggleSpammer(enable bool) (*webapi_spammer.Response, error) {
 	res, err := api.Get(fmt.Sprintf("%s/%s?cmd=%s", api.node, routeSpammer, func() string {
 		if enable {
 			return "start"
