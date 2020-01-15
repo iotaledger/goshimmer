@@ -46,6 +46,7 @@ func TestSolidifier(t *testing.T) {
 	transaction4 := value_transaction.New()
 	transaction4.SetValue(4)
 	transaction4.SetBranchTransactionHash(transaction3.GetHash())
+	transaction4.SetAddress("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
 	require.NoError(t, transaction4.DoProofOfWork(meta_transaction.MIN_WEIGHT_MAGNITUDE))
 
 	// setup event handlers
@@ -71,6 +72,10 @@ func TestSolidifier(t *testing.T) {
 
 	// wait until all are solid
 	wg.Wait()
+
+	txAddr, err := ReadTransactionHashesForAddressFromDatabase(transaction4.GetAddress())
+	require.NoError(t, err)
+	require.Equal(t, transaction4.GetHash(), txAddr[0])
 
 	// shutdown test node
 	node.Shutdown()
