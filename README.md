@@ -15,6 +15,8 @@ GoShimmer is  designed  in  a  modular  fashion,  where  each  module  represent
 
 
 This approach enables to convert the concepts piece-by-piece and more importantly, simultaneous but independent of each other, into a prototype.
+At its core, GoShimmer is based on a `event-driven` approach. We typically define the logic of each module within the folder `packages` and we use the `plugins` to enable the node to use a given module, thus, accordingly changing its behavior.
+You can have a look at the `main.go` to see what are the plugins currently supported. 
 
 ## Modules overview
 
@@ -22,7 +24,9 @@ The `master` branch allows to run a GoShimmer node with a preliminary set of com
 
 When all the modules become available, the GoShimmer nodes will become the `Coordicide-testnet`, which is a release candidate for the next IOTA protocol. You can find more details about our `roadmap` [here](https://roadmap.iota.org/).
 
-In the following, we describe some of the modules currently implemented. If you would like to know more about the other modules, just have a look at the code.
+In the following, we describe some of the modules currently implemented. 
+You can also find some libraries that are shared with [Hornet](https://github.com/gohornet/hornet) by checking out the [hive.go](https://github.com/iotaledger/hive.go) repository.
+If you would like to know more about the other modules, just have a look at the code.
 
 ### Nodes identity
 Each node creates a unique public/private key pair. The public key is used to identify nodes during auto-peering. In the future, these identities will allow nodes to receive mana.
