@@ -16,7 +16,7 @@ var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger("API-getTransactions")
-	webapi.Server.GET("getTransactions", getTransactions)
+	webapi.Server.POST("getTransactions", getTransactions)
 }
 
 // getTransactions returns the array of transactions for the

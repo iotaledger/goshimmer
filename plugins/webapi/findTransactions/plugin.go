@@ -16,7 +16,7 @@ var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger("API-findTransactions")
-	webapi.Server.GET("findTransactions", findTransactions)
+	webapi.Server.POST("findTransactions", findTransactions)
 }
 
 // findTransactions returns the array of transaction hashes for the
@@ -24,7 +24,6 @@ func configure(plugin *node.Plugin) {
 // If a node doesn't have any transaction hash for a given address in its ledger,
 // the value at the index of that address is empty.
 func findTransactions(c echo.Context) error {
-
 	var request Request
 
 	if err := c.Bind(&request); err != nil {

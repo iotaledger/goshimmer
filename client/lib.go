@@ -40,13 +40,16 @@ const (
 	contentTypeJSON = "application/json"
 )
 
-func NewGoShimmerAPI(node string) *GoShimmerAPI {
+func NewGoShimmerAPI(node string, httpClient ...http.Client) *GoShimmerAPI {
+	if len(httpClient) > 0 {
+		return &GoShimmerAPI{node: node, httpClient: httpClient[0]}
+	}
 	return &GoShimmerAPI{node: node}
 }
 
 type GoShimmerAPI struct {
-	http.Client
-	node string
+	httpClient http.Client
+	node       string
 }
 
 type errorresponse struct {
@@ -60,7 +63,7 @@ func interpretBody(res *http.Response, decodeTo interface{}) error {
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode == http.StatusOK {
+	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusCreated {
 		return json.Unmarshal(resBody, decodeTo)
 	}
 
@@ -80,12 +83,9 @@ func interpretBody(res *http.Response, decodeTo interface{}) error {
 	return errors.Wrap(ErrUnknownError, errRes.Error)
 }
 
-func (api *GoShimmerAPI) BroadcastData(targetAddress trinary.Trytes, data trinary.Trytes) (trinary.Hash, error) {
+func (api *GoShimmerAPI) BroadcastData(targetAddress trinary.Trytes, data string) (trinary.Hash, error) {
 	if !guards.IsHash(targetAddress) {
 		return "", errors.Wrapf(consts.ErrInvalidHash, "invalid address: %s", targetAddress)
-	}
-	if !guards.IsTrytes(data) {
-		return "", errors.Wrapf(consts.ErrInvalidTrytes, "invalid trytes: %s", data)
 	}
 
 	reqBytes, err := json.Marshal(&webapi_broadcastData.Request{Address: targetAddress, Data: data})
@@ -93,7 +93,7 @@ func (api *GoShimmerAPI) BroadcastData(targetAddress trinary.Trytes, data trinar
 		return "", err
 	}
 
-	res, err := api.Post(fmt.Sprintf("%s/%s", api.node, routeBroadcastData), contentTypeJSON, bytes.NewReader(reqBytes))
+	res, err := api.httpClient.Post(fmt.Sprintf("%s/%s", api.node, routeBroadcastData), contentTypeJSON, bytes.NewReader(reqBytes))
 	if err != nil {
 		return "", err
 	}
@@ -118,7 +118,7 @@ func (api *GoShimmerAPI) GetTrytes(txHashes trinary.Hashes) ([]trinary.Trytes, e
 		return nil, err
 	}
 
-	res, err := api.Post(fmt.Sprintf("%s/%s", api.node, routeGetTrytes), contentTypeJSON, bytes.NewReader(reqBytes))
+	res, err := api.httpClient.Post(fmt.Sprintf("%s/%s", api.node, routeGetTrytes), contentTypeJSON, bytes.NewReader(reqBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func (api *GoShimmerAPI) GetTransactions(txHashes trinary.Hashes) ([]webapi_getT
 		return nil, err
 	}
 
-	res, err := api.Post(fmt.Sprintf("%s/%s", api.node, routeGetTransactions), contentTypeJSON, bytes.NewReader(reqBytes))
+	res, err := api.httpClient.Post(fmt.Sprintf("%s/%s", api.node, routeGetTransactions), contentTypeJSON, bytes.NewReader(reqBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +168,7 @@ func (api *GoShimmerAPI) FindTransactions(query *webapi_findTransactions.Request
 		return nil, err
 	}
 
-	res, err := api.Post(fmt.Sprintf("%s/%s", api.node, routeFindTransactions), contentTypeJSON, bytes.NewReader(reqBytes))
+	res, err := api.httpClient.Post(fmt.Sprintf("%s/%s", api.node, routeFindTransactions), contentTypeJSON, bytes.NewReader(reqBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -181,8 +181,9 @@ func (api *GoShimmerAPI) FindTransactions(query *webapi_findTransactions.Request
 	return resObj.Transactions, nil
 }
 
+
 func (api *GoShimmerAPI) GetNeighbors() (*webapi_getNeighbors.Response, error) {
-	res, err := api.Get(fmt.Sprintf("%s/%s", api.node, routeGetNeighbors))
+	res, err := api.httpClient.Get(fmt.Sprintf("%s/%s", api.node, routeGetNeighbors))
 	if err != nil {
 		return nil, err
 	}
@@ -195,8 +196,9 @@ func (api *GoShimmerAPI) GetNeighbors() (*webapi_getNeighbors.Response, error) {
 	return resObj, nil
 }
 
+
 func (api *GoShimmerAPI) GetTips() (*webapi_gtta.Response, error) {
-	res, err := api.Get(fmt.Sprintf("%s/%s", api.node, routeGetTransactionsToApprove))
+	res, err := api.httpClient.Get(fmt.Sprintf("%s/%s", api.node, routeGetTransactionsToApprove))
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +212,7 @@ func (api *GoShimmerAPI) GetTips() (*webapi_gtta.Response, error) {
 }
 
 func (api *GoShimmerAPI) ToggleSpammer(enable bool) (*webapi_spammer.Response, error) {
-	res, err := api.Get(fmt.Sprintf("%s/%s?cmd=%s", api.node, routeSpammer, func() string {
+	res, err := api.httpClient.Get(fmt.Sprintf("%s/%s?cmd=%s", api.node, routeSpammer, func() string {
 		if enable {
 			return "start"
 		}
