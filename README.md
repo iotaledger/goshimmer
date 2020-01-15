@@ -72,8 +72,15 @@ docker-compose up -d
 
 ### Install Glumb visualizer
 
-Install both the Glumb visualizer and socket.io client lib within the root folder/where the binary is located:
+You're developing on GoShimmer and have checked out the repository:
+```
+git submodule init
+git submodule update
+```
+
+You've downloaded a binary only:
 ```bash
+(in the root folder)
 git clone https://github.com/glumb/IOTAtangle.git
 // only this version seems to be stable
 cd IOTAtangle && git reset --hard 07bba77a296a2d06277cdae56aa963abeeb5f66e 
