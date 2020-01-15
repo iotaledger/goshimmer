@@ -1,62 +1,74 @@
-package webapi_send_data
+package broadcastData
 
 import (
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/typeutils"
+	"github.com/iotaledger/iota.go/address"
 	"github.com/iotaledger/iota.go/trinary"
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI SendData Endpoint", node.Enabled, configure)
+var PLUGIN = node.NewPlugin("WebAPI broadcastData Endpoint", node.Enabled, configure)
 var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("API-sendData")
-	webapi.AddEndpoint("sendData", SendDataHandler)
+	log = logger.NewLogger("API-broadcastData")
+	webapi.Server.POST("broadcastData", broadcastData)
 }
 
-func SendDataHandler(c echo.Context) error {
-	c.Set("requestStartTime", time.Now())
+// broadcastData creates a data (0-value) transaction given an input of bytes and
+// broadcasts it to the node's neighbors. It returns the transaction hash if successful.
+func broadcastData(c echo.Context) error {
 
 	var request webRequest
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
 		return requestFailed(c, err.Error())
 	}
-	log.Info("Received:", request.Data)
+	log.Debug("Received - address:", request.Address, " data:", request.Data)
 	tx := value_transaction.New()
 	tx.SetHead(true)
 	tx.SetTail(true)
 
-	buffer := make([]byte, 6561)
-	if len(request.Data) > 6561 {
-		return requestFailed(c, "data exceding 6561 byte limit")
+	buffer := make([]byte, 2187)
+	if len(request.Data) > 2187 {
+		log.Warn("Data exceeding 2187 byte limit -", len(request.Data))
+		return requestFailed(c, "Data exceeding 2187 byte limit")
 	}
 
-	copy(buffer, []byte(request.Data))
+	copy(buffer, typeutils.StringToBytes(request.Data))
 
 	trytes, err := trinary.BytesToTrytes(buffer)
 	if err != nil {
-		log.Info("Trytes conversion", err.Error())
+		log.Warn("Trytes conversion failed", err.Error())
 		return requestFailed(c, err.Error())
 	}
 
+	err = address.ValidAddress(request.Address)
+	if err != nil {
+		log.Warn("Invalid Address:", request.Address)
+		return requestFailed(c, err.Error())
+	}
+
+	tx.SetAddress(request.Address)
 	tx.SetSignatureMessageFragment(trytes)
+	tx.SetValue(0)
 	tx.SetBranchTransactionHash(tipselection.GetRandomTip())
 	tx.SetTrunkTransactionHash(tipselection.GetRandomTip())
 	tx.SetTimestamp(uint(time.Now().Unix()))
 	if err := tx.DoProofOfWork(meta_transaction.MIN_WEIGHT_MAGNITUDE); err != nil {
 		log.Warn("PoW failed", err)
+		return requestFailed(c, err.Error())
 	}
 
 	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: tx.GetBytes(), Peer: &local.GetInstance().Peer})
@@ -65,25 +77,22 @@ func SendDataHandler(c echo.Context) error {
 
 func requestSuccessful(c echo.Context, txHash string) error {
 	return c.JSON(http.StatusCreated, webResponse{
-		Duration:        time.Since(c.Get("requestStartTime").(time.Time)).Nanoseconds() / 1e6,
-		TransactionHash: txHash,
-		Status:          "OK",
+		Hash: txHash,
 	})
 }
 
 func requestFailed(c echo.Context, message string) error {
-	return c.JSON(http.StatusNotModified, webResponse{
-		Duration: time.Since(c.Get("requestStartTime").(time.Time)).Nanoseconds() / 1e6,
-		Status:   message,
+	return c.JSON(http.StatusBadRequest, webResponse{
+		Error: message,
 	})
 }
 
 type webResponse struct {
-	Duration        int64  `json:"duration"`
-	TransactionHash string `json:"transactionHash"`
-	Status          string `json:"status"`
+	Hash  string `json:"hash,omitempty"`
+	Error string `json:"error,omitempty"`
 }
 
 type webRequest struct {
-	Data string `json:"data"`
+	Address string `json:"address"`
+	Data    string `json:"data"`
 }

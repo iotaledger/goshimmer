@@ -100,6 +100,7 @@ func start(shutdownSignal <-chan struct{}) {
 	}
 
 	log.Infof("Auto Peering started: address=%s", srv.LocalAddr())
+	log.Debugf("Auto Peering server started: PubKey=%s", base64.StdEncoding.EncodeToString(local.GetInstance().PublicKey()))
 
 	<-shutdownSignal
 	log.Info("Stopping Auto Peering server ...")

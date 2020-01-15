@@ -1,8 +1,7 @@
-package webapi_gtta
+package gtta
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -11,25 +10,22 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI GTTA Endpoint", node.Enabled, func(plugin *node.Plugin) {
-	webapi.AddEndpoint("getTransactionsToApprove", Handler)
+var PLUGIN = node.NewPlugin("WebAPI GTTA Endpoint", node.Disabled, func(plugin *node.Plugin) {
+	webapi.Server.GET("getTransactionsToApprove", Handler)
 })
 
 func Handler(c echo.Context) error {
-	start := time.Now()
 
 	branchTransactionHash := tipselection.GetRandomTip()
 	trunkTransactionHash := tipselection.GetRandomTip()
 
 	return c.JSON(http.StatusOK, webResponse{
-		Duration:          time.Since(start).Nanoseconds() / 1e6,
 		BranchTransaction: branchTransactionHash,
 		TrunkTransaction:  trunkTransactionHash,
 	})
 }
 
 type webResponse struct {
-	Duration          int64          `json:"duration"`
 	BranchTransaction trinary.Trytes `json:"branchTransaction"`
 	TrunkTransaction  trinary.Trytes `json:"trunkTransaction"`
 }

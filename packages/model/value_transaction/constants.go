@@ -10,7 +10,7 @@ const (
 	ADDRESS_OFFSET                    = 0
 	VALUE_OFFSET                      = ADDRESS_END
 	TIMESTAMP_OFFSET                  = VALUE_END
-	SIGNATURE_MESSAGE_FRAGMENT_OFFSET = TIMESTAMP_SIZE
+	SIGNATURE_MESSAGE_FRAGMENT_OFFSET = TIMESTAMP_END
 
 	ADDRESS_SIZE                    = 243
 	VALUE_SIZE                      = 81

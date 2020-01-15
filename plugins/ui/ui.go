@@ -20,18 +20,18 @@ import (
 func configure(plugin *node.Plugin) {
 
 	//webapi.Server.Static("ui", "plugins/ui/src")
-	webapi.AddEndpoint("ui", func(c echo.Context) error {
+	webapi.Server.GET("ui", func(c echo.Context) error {
 		return c.HTML(http.StatusOK, files["index.html"])
 	})
-	webapi.AddEndpoint("ui/**", staticFileServer)
+	webapi.Server.GET("ui/**", staticFileServer)
 
-	webapi.AddEndpoint("ws", upgrader)
-	webapi.AddEndpoint("loghistory", func(c echo.Context) error {
+	webapi.Server.GET("ws", upgrader)
+	webapi.Server.GET("loghistory", func(c echo.Context) error {
 		logMutex.RLock()
 		defer logMutex.RUnlock()
 		return c.JSON(http.StatusOK, logHistory)
 	})
-	webapi.AddEndpoint("tpsqueue", func(c echo.Context) error {
+	webapi.Server.GET("tpsqueue", func(c echo.Context) error {
 		tpsQueueMutex.RLock()
 		defer tpsQueueMutex.RUnlock()
 		return c.JSON(http.StatusOK, tpsQueue)
