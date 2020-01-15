@@ -106,7 +106,7 @@ func TestProtocol(t *testing.T) {
 		assert.EqualError(t, err, server.ErrTimeout.Error())
 	})
 
-	t.Run("DropPeer", func(t *testing.T) {
+	t.Run("PeeringDrop", func(t *testing.T) {
 		p2p := transport.P2P()
 		defer p2p.Close()
 
@@ -127,7 +127,7 @@ func TestProtocol(t *testing.T) {
 		require.Contains(t, protB.GetNeighbors(), peerA)
 
 		// drop peer A
-		protA.DropPeer(peerB)
+		protA.SendPeeringDrop(peerB)
 		time.Sleep(graceTime)
 		require.NotContains(t, protB.GetNeighbors(), peerA)
 	})

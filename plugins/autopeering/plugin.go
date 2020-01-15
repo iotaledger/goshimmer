@@ -33,10 +33,10 @@ func run(*node.Plugin) {
 func configureEvents() {
 	// notify the selection when a connection is closed or failed.
 	gossip.Events.ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer) {
-		Selection.DropPeer(p)
+		Selection.RemoveNeighbor(p.ID())
 	}))
 	gossip.Events.NeighborRemoved.Attach(events.NewClosure(func(p *peer.Peer) {
-		Selection.DropPeer(p)
+		Selection.RemoveNeighbor(p.ID())
 	}))
 
 	discover.Events.PeerDiscovered.Attach(events.NewClosure(func(ev *discover.DiscoveredEvent) {

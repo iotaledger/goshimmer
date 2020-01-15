@@ -86,6 +86,13 @@ func (p *Protocol) GetOutgoingNeighbors() []*peer.Peer {
 	return p.mgr.getOutNeighbors()
 }
 
+// RemoveNeighbor removes the peer with the given id from the incoming and outgoing neighbors.
+// If such a peer was actually contained in anyone of the neighbor sets, the corresponding event is triggered
+// and the corresponding peering drop is sent. Otherwise the call is ignored.
+func (p *Protocol) RemoveNeighbor(id peer.ID) {
+	p.mgr.removeNeighbor(id)
+}
+
 // HandleMessage responds to incoming neighbor selection messages.
 func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.ID, fromKey peer.PublicKey, data []byte) (bool, error) {
 	switch pb.MType(data[0]) {
@@ -160,10 +167,8 @@ func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt) (bool, error) 
 	return status, err
 }
 
-// DropPeer sends a PeeringDrop to the given peer.
-func (p *Protocol) DropPeer(to *peer.Peer) {
-	p.mgr.dropPeering(to.ID())
-
+// SendPeeringDrop sends a peering drop to the given peer and does not wait for any responses.
+func (p *Protocol) SendPeeringDrop(to *peer.Peer) {
 	toAddr := to.Address()
 	drop := newPeeringDrop(toAddr)
 
@@ -334,5 +339,5 @@ func (p *Protocol) validatePeeringDrop(s *server.Server, fromAddr string, m *pb.
 }
 
 func (p *Protocol) handlePeeringDrop(fromID peer.ID) {
-	p.mgr.dropPeering(fromID)
+	p.mgr.removeNeighbor(fromID)
 }

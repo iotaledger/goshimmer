@@ -23,7 +23,7 @@ type network interface {
 	local() *peer.Local
 
 	RequestPeering(*peer.Peer, *salt.Salt) (bool, error)
-	DropPeer(*peer.Peer)
+	SendPeeringDrop(*peer.Peer)
 }
 
 type peeringRequest struct {
@@ -121,7 +121,7 @@ func (m *manager) requestPeering(p *peer.Peer, s *salt.Salt) bool {
 	return status
 }
 
-func (m *manager) dropPeering(id peer.ID) {
+func (m *manager) removeNeighbor(id peer.ID) {
 	m.dropChan <- id
 }
 
@@ -152,7 +152,7 @@ Loop:
 				// if the peer is already in inbound, do not add it and remove it from inbound
 				if p := m.inbound.RemovePeer(req.Remote.ID()); p != nil {
 					m.triggerPeeringEvent(true, req.Remote, false)
-					m.sendDropPeer(p)
+					m.dropPeering(p)
 				} else {
 					m.addNeighbor(m.outbound, req)
 					m.triggerPeeringEvent(true, req.Remote, true)
@@ -174,7 +174,7 @@ Loop:
 				}
 			}
 			if droppedPeer != nil {
-				m.sendDropPeer(droppedPeer)
+				m.dropPeering(droppedPeer)
 			}
 
 		// handle an inbound request
@@ -278,7 +278,7 @@ func (m *manager) addNeighbor(nh *Neighborhood, toAdd peer.PeerDistance) {
 	// drop furthest neighbor if necessary
 	if furthest, _ := nh.getFurthest(); furthest.Remote != nil {
 		if p := nh.RemovePeer(furthest.Remote.ID()); p != nil {
-			m.sendDropPeer(p)
+			m.dropPeering(p)
 		}
 	}
 	nh.Add(toAdd)
@@ -311,13 +311,13 @@ func (m *manager) updateSalt() {
 func (m *manager) dropNeighborhood(nh *Neighborhood) {
 	for _, p := range nh.GetPeers() {
 		nh.RemovePeer(p.ID())
-		m.sendDropPeer(p)
+		m.dropPeering(p)
 	}
 }
 
-// sendDropPeer sends the drop request over the network.
-func (m *manager) sendDropPeer(p *peer.Peer) {
-	m.net.DropPeer(p)
+// dropPeering sends the peering drop over the network and triggers the corresponding event.
+func (m *manager) dropPeering(p *peer.Peer) {
+	m.net.SendPeeringDrop(p)
 
 	m.log.Debugw("peering dropped",
 		"id", p.ID(),
