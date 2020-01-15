@@ -1,0 +1,22 @@
+name: Test GoShimmer
+on:
+  push:
+  pull_request:
+    types: [opened, reopened]
+jobs:
+
+  build:
+    name: Test GoShimmer
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go 1.13
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.13.x
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Run Tests
+      run: make test
