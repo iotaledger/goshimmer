@@ -33,11 +33,10 @@ When all the modules become available, the GoShimmer nodes will become the `Coor
 
 In the following, we describe some of the modules currently implemented. 
 
-```
-Please note that not all the modules are currently integrated. When they are not, they are typically kept on a different branch. 
+**Note:** Please note that not all the modules are currently integrated. 
+When they are not, they are typically kept on a different branch. 
 These branches are not compatible with the `master` one (i.e., nodes running code of these branches will not be able to be part of the current network).
 This is beacuse either the code is still on a highly experimental state or different breaking changes are required to be addressed before merging (e.g, atomic transactions, UTXO, binary support). 
-```
 
 You can also find some libraries that are shared with [Hornet](https://github.com/gohornet/hornet) by checking out the [hive.go](https://github.com/iotaledger/hive.go) repository.
 If you would like to know more about the other modules, just have a look at the code.
