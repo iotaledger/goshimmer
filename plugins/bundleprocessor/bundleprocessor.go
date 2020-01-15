@@ -8,8 +8,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/workerpool"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
