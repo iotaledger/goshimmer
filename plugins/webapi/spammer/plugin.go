@@ -17,7 +17,7 @@ func configure(plugin *node.Plugin) {
 
 func WebApiHandler(c echo.Context) error {
 
-	var request webRequest
+	var request Request
 	if err := c.Bind(&request); err != nil {
 		return requestFailed(c, err.Error())
 	}
@@ -44,22 +44,22 @@ func WebApiHandler(c echo.Context) error {
 }
 
 func requestSuccessful(c echo.Context, message string) error {
-	return c.JSON(http.StatusOK, webResponse{
+	return c.JSON(http.StatusOK, Response{
 		Message: message,
 	})
 }
 
 func requestFailed(c echo.Context, message string) error {
-	return c.JSON(http.StatusNotFound, webResponse{
+	return c.JSON(http.StatusNotFound, Response{
 		Message: message,
 	})
 }
 
-type webResponse struct {
+type Response struct {
 	Message string `json:"message"`
 }
 
-type webRequest struct {
+type Request struct {
 	Cmd string `json:"cmd"`
 	Tps uint   `json:"tps"`
 }

@@ -25,13 +25,14 @@ func configure(plugin *node.Plugin) {
 // the value at the index of that transaction hash is empty.
 func getTransactions(c echo.Context) error {
 
-	var request webRequest
-	result := []transaction{}
+	var request Request
+	result := []Transaction{}
 
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
 		return requestFailed(c, err.Error())
 	}
+
 	log.Debug("Received:", request.Hashes)
 
 	for _, hash := range request.Hashes {
@@ -40,7 +41,7 @@ func getTransactions(c echo.Context) error {
 			return requestFailed(c, err.Error())
 		}
 		if tx != nil {
-			t := transaction{
+			t := Transaction{
 				Hash:                     tx.GetHash(),
 				WeightMagnitude:          tx.GetWeightMagnitude(),
 				TrunkTransactionHash:     tx.GetTrunkTransactionHash(),
@@ -56,7 +57,7 @@ func getTransactions(c echo.Context) error {
 			result = append(result, t)
 		} else {
 			//tx not found
-			result = append(result, transaction{})
+			result = append(result, Transaction{})
 		}
 
 	}
@@ -64,28 +65,28 @@ func getTransactions(c echo.Context) error {
 	return requestSuccessful(c, result)
 }
 
-func requestSuccessful(c echo.Context, txs []transaction) error {
-	return c.JSON(http.StatusOK, webResponse{
+func requestSuccessful(c echo.Context, txs []Transaction) error {
+	return c.JSON(http.StatusOK, Response{
 		Transactions: txs,
 	})
 }
 
 func requestFailed(c echo.Context, message string) error {
-	return c.JSON(http.StatusNotFound, webResponse{
+	return c.JSON(http.StatusNotFound, Response{
 		Error: message,
 	})
 }
 
-type webResponse struct {
-	Transactions []transaction `json:"transaction,omitempty"`
+type Response struct {
+	Transactions []Transaction `json:"transaction,omitempty"`
 	Error        string        `json:"error,omitempty"`
 }
 
-type webRequest struct {
+type Request struct {
 	Hashes []string `json:"hashes"`
 }
 
-type transaction struct {
+type Transaction struct {
 	Hash                     trinary.Trytes `json:"hash,omitempty"`
 	WeightMagnitude          int            `json:"weightMagnitude,omitempty"`
 	TrunkTransactionHash     trinary.Trytes `json:"trunkTransactionHash,omitempty"`

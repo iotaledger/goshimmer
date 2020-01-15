@@ -24,8 +24,8 @@ func configure(plugin *node.Plugin) {
 // getNeighbors returns the chosen and accepted neighbors of the node
 func getNeighbors(c echo.Context) error {
 
-	chosen := []neighbor{}
-	accepted := []neighbor{}
+	chosen := []Neighbor{}
+	accepted := []Neighbor{}
 
 	if autopeering.Selection == nil {
 		return requestFailed(c, "Neighbor Selection is not enabled")
@@ -33,7 +33,7 @@ func getNeighbors(c echo.Context) error {
 
 	for _, peer := range autopeering.Selection.GetOutgoingNeighbors() {
 
-		n := neighbor{
+		n := Neighbor{
 			ID:        peer.ID().String(),
 			PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey()),
 		}
@@ -41,7 +41,7 @@ func getNeighbors(c echo.Context) error {
 		chosen = append(chosen, n)
 	}
 	for _, peer := range autopeering.Selection.GetIncomingNeighbors() {
-		n := neighbor{
+		n := Neighbor{
 			ID:        peer.ID().String(),
 			PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey()),
 		}
@@ -52,26 +52,26 @@ func getNeighbors(c echo.Context) error {
 
 }
 
-func requestSuccessful(c echo.Context, chosen, accepted []neighbor) error {
-	return c.JSON(http.StatusOK, webResponse{
+func requestSuccessful(c echo.Context, chosen, accepted []Neighbor) error {
+	return c.JSON(http.StatusOK, Response{
 		Chosen:   chosen,
 		Accepted: accepted,
 	})
 }
 
 func requestFailed(c echo.Context, message string) error {
-	return c.JSON(http.StatusNotFound, webResponse{
+	return c.JSON(http.StatusNotFound, Response{
 		Error: message,
 	})
 }
 
-type webResponse struct {
-	Chosen   []neighbor `json:"chosen"`
-	Accepted []neighbor `json:"accepted"`
+type Response struct {
+	Chosen   []Neighbor `json:"chosen"`
+	Accepted []Neighbor `json:"accepted"`
 	Error    string     `json:"error,omitempty"`
 }
 
-type neighbor struct {
+type Neighbor struct {
 	ID        string `json:"id"`        // comparable node identifier
 	PublicKey string `json:"publicKey"` // public key used to verify signatures
 	Services  []peerService
