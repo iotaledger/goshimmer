@@ -2,9 +2,9 @@ package tangle
 
 import (
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/datastructure"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/approvers"
+	"github.com/iotaledger/hive.go/lru_cache"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
 )
@@ -50,18 +50,24 @@ func StoreApprovers(approvers *approvers.Approvers) {
 
 // region lru cache ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var approversCache = datastructure.NewLRUCache(APPROVERS_CACHE_SIZE, &datastructure.LRUCacheOptions{
-	EvictionCallback: onEvictApprovers,
+var approversCache = lru_cache.NewLRUCache(APPROVERS_CACHE_SIZE, &lru_cache.LRUCacheOptions{
+	EvictionCallback:  onEvictApprovers,
+	EvictionBatchSize: 100,
 })
 
-func onEvictApprovers(_ interface{}, value interface{}) {
-	if evictedApprovers := value.(*approvers.Approvers); evictedApprovers.GetModified() {
-		go func(evictedApprovers *approvers.Approvers) {
-			if err := storeApproversInDatabase(evictedApprovers); err != nil {
+func onEvictApprovers(_ interface{}, values interface{}) {
+	// TODO: replace with apply
+	for _, obj := range values.([]interface{}) {
+		if approvers := obj.(*approvers.Approvers); approvers.GetModified() {
+			if err := storeApproversInDatabase(approvers); err != nil {
 				panic(err)
 			}
-		}(evictedApprovers)
+		}
 	}
+}
+
+func FlushApproversCache() {
+	approversCache.DeleteAll()
 }
 
 const (

@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/selection"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -24,7 +25,7 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker(name, start); err != nil {
+	if err := daemon.BackgroundWorker(name, start, shutdown.ShutdownPriorityGossip); err != nil {
 		log.Errorf("Failed to start as daemon: %s", err)
 	}
 }

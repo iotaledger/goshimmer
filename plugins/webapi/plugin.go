@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -43,5 +44,5 @@ func run(plugin *node.Plugin) {
 		if err := Server.Shutdown(ctx); err != nil {
 			log.Errorf("Couldn't stop server cleanly: %s", err.Error())
 		}
-	})
+	}, shutdown.ShutdownPriorityWebAPI)
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/statusscreen"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/daemon"
@@ -51,5 +52,5 @@ var PLUGIN = node.NewPlugin("Statusscreen TPS", node.Enabled, func(plugin *node.
 				atomic.StoreUint64(&solidTpsCounter, 0)
 			}
 		}
-	})
+	}, shutdown.ShutdownPriorityStatusScreen)
 })

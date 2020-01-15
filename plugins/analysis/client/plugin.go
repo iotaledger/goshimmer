@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/selection"
 	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/parameter"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
@@ -50,7 +51,7 @@ func Run(plugin *node.Plugin) {
 				}
 			}
 		}
-	})
+	}, shutdown.ShutdownPriorityAnalysis)
 }
 
 func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {

@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
@@ -79,7 +80,7 @@ func Start(tps uint) {
 				}
 			}
 		}
-	})
+	}, shutdown.ShutdownPriorityTangleSpammer)
 }
 
 func Stop() {

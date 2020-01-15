@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/node"
 	"golang.org/x/net/context"
@@ -30,5 +31,5 @@ func Run(plugin *node.Plugin) {
 		ctx, cancel := context.WithTimeout(context.Background(), 0*time.Second)
 		defer cancel()
 		httpServer.Shutdown(ctx)
-	})
+	}, shutdown.ShutdownPriorityAnalysis)
 }

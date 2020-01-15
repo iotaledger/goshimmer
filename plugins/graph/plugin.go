@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/parameter"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"golang.org/x/net/context"
 
@@ -105,7 +106,7 @@ func run(plugin *node.Plugin) {
 		tangle.Events.TransactionStored.Detach(notifyNewTx)
 		newTxWorkerPool.Stop()
 		log.Info("Stopping Graph[NewTxWorker] ... done")
-	})
+	}, shutdown.ShutdownPriorityGraph)
 
 	daemon.BackgroundWorker("Graph Webserver", func(shutdownSignal <-chan struct{}) {
 		go socketioServer.Serve()
@@ -128,5 +129,5 @@ func run(plugin *node.Plugin) {
 
 		_ = server.Shutdown(ctx)
 		log.Info("Stopping Graph ... done")
-	})
+	}, shutdown.ShutdownPriorityGraph)
 }
