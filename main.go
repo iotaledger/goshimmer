@@ -60,7 +60,6 @@ func main() {
 			webapi_getTrytes.PLUGIN,
 			webapi_getTransactions.PLUGIN,
 			webapi_findTransactions.PLUGIN,
-
 			webapi_getNeighbors.PLUGIN,
 			webapi_spammer.PLUGIN,
 
