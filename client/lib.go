@@ -9,12 +9,13 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/packages/errors"
-	"github.com/iotaledger/goshimmer/plugins/webapi/broadcastData"
+	webapi_broadcastData "github.com/iotaledger/goshimmer/plugins/webapi/broadcastData"
 	webapi_findTransactions "github.com/iotaledger/goshimmer/plugins/webapi/findTransactions"
-	"github.com/iotaledger/goshimmer/plugins/webapi/getNeighbors"
+	webapi_getNeighbors "github.com/iotaledger/goshimmer/plugins/webapi/getNeighbors"
 	webapi_getTransactions "github.com/iotaledger/goshimmer/plugins/webapi/getTransactions"
-	"github.com/iotaledger/goshimmer/plugins/webapi/getTrytes"
+	webapi_getTrytes "github.com/iotaledger/goshimmer/plugins/webapi/getTrytes"
 	webapi_gtta "github.com/iotaledger/goshimmer/plugins/webapi/gtta"
+	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi/spammer"
 	"github.com/iotaledger/iota.go/consts"
 	"github.com/iotaledger/iota.go/guards"
 	"github.com/iotaledger/iota.go/trinary"
@@ -87,7 +88,7 @@ func (api *ShimmerAPI) BroadcastData(targetAddress trinary.Trytes, data trinary.
 		return "", errors.Wrapf(consts.ErrInvalidTrytes, "invalid trytes: %s", data)
 	}
 
-	reqBytes, err := json.Marshal(&broadcastData.Request{Address: targetAddress, Data: data})
+	reqBytes, err := json.Marshal(&webapi_broadcastData.Request{Address: targetAddress, Data: data})
 	if err != nil {
 		return "", err
 	}
@@ -97,7 +98,7 @@ func (api *ShimmerAPI) BroadcastData(targetAddress trinary.Trytes, data trinary.
 		return "", err
 	}
 
-	resObj := &broadcastData.Response{}
+	resObj := &webapi_broadcastData.Response{}
 	if err := interpretBody(res, resObj); err != nil {
 		return "", err
 	}
@@ -112,7 +113,7 @@ func (api *ShimmerAPI) GetTrytes(txHashes trinary.Hashes) ([]trinary.Trytes, err
 		}
 	}
 
-	reqBytes, err := json.Marshal(&getTrytes.Request{Hashes: txHashes})
+	reqBytes, err := json.Marshal(&webapi_getTrytes.Request{Hashes: txHashes})
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +123,7 @@ func (api *ShimmerAPI) GetTrytes(txHashes trinary.Hashes) ([]trinary.Trytes, err
 		return nil, err
 	}
 
-	resObj := &getTrytes.Response{}
+	resObj := &webapi_getTrytes.Response{}
 	if err := interpretBody(res, resObj); err != nil {
 		return nil, err
 	}
@@ -180,13 +181,13 @@ func (api *ShimmerAPI) FindTransactions(query *webapi_findTransactions.Request) 
 	return resObj.Transactions, nil
 }
 
-func (api *ShimmerAPI) GetNeighbors() (*getNeighbors.Response, error) {
+func (api *ShimmerAPI) GetNeighbors() (*webapi_getNeighbors.Response, error) {
 	res, err := api.Get(fmt.Sprintf("%s/%s", api.node, routeGetNeighbors))
 	if err != nil {
 		return nil, err
 	}
 
-	resObj := &getNeighbors.Response{}
+	resObj := &webapi_getNeighbors.Response{}
 	if err := interpretBody(res, resObj); err != nil {
 		return nil, err
 	}
@@ -208,7 +209,7 @@ func (api *ShimmerAPI) GetTips() (*webapi_gtta.Response, error) {
 	return resObj, nil
 }
 
-func (api *ShimmerAPI) ToggleSpammer(enable bool) (*webapi_gtta.Response, error) {
+func (api *ShimmerAPI) ToggleSpammer(enable bool) (*webapi_spammer.Response, error) {
 	res, err := api.Get(fmt.Sprintf("%s/%s?cmd=%s", api.node, routeSpammer, func() string {
 		if enable {
 			return "start"
@@ -219,7 +220,7 @@ func (api *ShimmerAPI) ToggleSpammer(enable bool) (*webapi_gtta.Response, error)
 		return nil, err
 	}
 
-	resObj := &webapi_gtta.Response{}
+	resObj := &webapi_spammer.Response{}
 	if err := interpretBody(res, resObj); err != nil {
 		return nil, err
 	}
