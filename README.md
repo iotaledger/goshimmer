@@ -2,35 +2,71 @@
 
 [![Build Status](https://travis-ci.org/iotaledger/goshimmer.svg?branch=master)](https://travis-ci.org/iotaledger/goshimmer)
 
-## Design
-
-GoShimmer is  designed  in  a  modular  fashion,  where  each  module  represents one of the essential [Coordicide’s components](https://coordicide.iota.org/) as well as core components necessary  to  work  as  a  full-node  (e.g.,  gossip  layer,  ledger  state,  API).  This approach enables to convert the concepts piece-by-piece and more importantly, simultaneous but independent of each other, into a prototype.
-
-
 ## Motivation
 
-This repository is where the IOTA Foundation's Research Team experiments and run simulation of the Coordicide modules to study and evaluate their performance.
+This repository is where the IOTA Foundation's Research Team experiments and run simulations of the Coordicide modules to study and evaluate their performance.
+Even though the development of this code is ongoing and hence not finished, we want to give the community the opportunity to follow the development process closely, take part in the testing of the individual modules and learn more about how it works.
 
-By making this repository open source, the goal is to allow you to keep up with the development status and learn more about how it works.
+## Design
+
+GoShimmer is  designed  in  a  modular  fashion,  where  each  module  represents one of the essential [Coordicide’s components](https://coordicide.iota.org/) as well as core components necessary  to  work  as  a  full-node  (e.g.,  gossip  layer,  ledger  state,  API).  
+
+![alt text](images/building-blocks.png "Coordicide blueprint")
+
+
+This approach enables to convert the concepts piece-by-piece and more importantly, simultaneous but independent of each other, into a prototype.
 
 ## Modules overview
 
-### Autopeering 
-a mechanism that allows nodes to choose their neighbors automatically. [Link](https://github.com/iotaledger/autopeering-sim) to the simulation code.
+The `master` branch allows to run a GoShimmer node with a preliminary set of components for enabling `data-transactions`.
 
-### Gossip layer
+When all the modules become available, the GoShimmer nodes will become the `Coordicide-testnet`, which is a release candidate for the next IOTA protocol. You can find more details about our `roadmap` [here](https://roadmap.iota.org/).
+
+In the following, we describe some of the modules currently implemented. If you would like to know more about the other modules, just have a look at the code.
+
+### Nodes identity
+Each node creates a unique public/private key pair. The public key is used to identify nodes during auto-peering. In the future, these identities will allow nodes to receive mana.
+
+### Autopeering 
+The autopeering is a mechanism that allows nodes to choose their neighbors automatically. More specifically, each new node on the network tries to connect to four neighbors (chosen neighbors) and accepts connections from other four neighbors (accepted neighbors). We describe how it works in our Autopeering blogposts [part-1](https://blog.iota.org/coordicide-update-autopeering-part-1-fc72e21c7e11) and [part-2](https://blog.iota.org/coordicide-update-autopeering-part-2-4e462ba68bd). 
+We also provide a standalone autopeering simulator at this [repository](https://github.com/iotaledger/autopeering-sim), that uses the exactly same code we run on GoShimmer.
 
 ### Web-API
+GoShimmer currently provides the following web-API:
+
+* `broadcastData`: allows to broadcat `data-transactions`
+
+* `getTrytes`: returns the raw trytes of transactions
+
+* `getTransactions`: returns the json objects of transactions
+
+* `findTransactions`: returns all the transaction hashes for the given addresses
+
+* `getNeighbors`: returns a json object arrays of the connected neighbors, split into two arrays named chosen and accepted
+
+For more information about these API, you can refer to [swagger-link]()
 
 ### Ledger State
 
+The branch `ledger state` implements a first version of the[Parallel-reality](https://iota.cafe/t/parallel-reality-based-ledger-state-using-utxo/261)-based ledger state (using the UTXO model). 
+
 ### Rate control
+
+Currently, PoW is used to prevent spam. We are working on a `Adaptive-PoW` mechanism described in the [Coordicide-WP](https://coordicide.iota.org/) that we will integrate in a future release. Moreover, we are experimenting via simulations an `Additive Increase Multilpicative Decrease (AIMD)`-based approach for the rate control. You can find the initial source code at this [repository](https://github.com/andypandypi/IOTARateControl). 
+
+### Mana
+
+The branch `mana` contains a first implementation of `mana` as described in in the [Coordicide-WP](https://coordicide.iota.org/). Currently, only the package is provided
 
 ### Cellular Consensus 
 
+The branch `ca` contains a first implementation of the `Cellular Consensus` as described in the [Coordicide-WP](https://coordicide.iota.org/).
+
 ### Fast Probabilistic Consensus
 
-Feel free to do your own experiments by following the steps below.
+The branch `fpc` contains a first implementation of the `Fast Probabilistic Consensus` as described in Popov et al. [paper](https://arxiv.org/pdf/1905.10895.pdf). 
+You can also find a standalone FPC simulator at this [repository](https://github.com/iotaledger/fpc-sim).
+
 
 ## Run GoShimmer
 
