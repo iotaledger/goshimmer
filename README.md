@@ -1,4 +1,4 @@
-# goshimmer
+# GoShimmer
 
 [![Build Status](https://travis-ci.org/iotaledger/goshimmer.svg?branch=master)](https://travis-ci.org/iotaledger/goshimmer)
 
@@ -60,7 +60,7 @@ For more information about these API, you can refer to [swagger-link]()
 
 ### Ledger State
 
-The branch `ledger state` implements a first version of the[Parallel-reality](https://iota.cafe/t/parallel-reality-based-ledger-state-using-utxo/261)-based ledger state (using the UTXO model). 
+The branch `ledger state` implements a first version of the [Parallel-reality](https://iota.cafe/t/parallel-reality-based-ledger-state-using-utxo/261)-based ledger state (using the UTXO model). 
 
 ![alt text](images/outputs.png "Ledger State")
 
@@ -129,6 +129,17 @@ go version
 Some packages in this repo might require to be compiled by gcc. Windows users can install [MinGW-gcc](http://tdm-gcc.tdragon.net/download). 
 
 
+##### Install Glumb visualizer
+
+Install both the Glumb visualizer and socket.io client lib within the root folder/where the binary is located:
+```bash
+git clone https://github.com/glumb/IOTAtangle.git
+// only this version seems to be stable
+cd IOTAtangle && git reset --hard 07bba77a296a2d06277cdae56aa963abeeb5f66e 
+cd ../
+git clone https://github.com/socketio/socket.io-client.git
+```
+
 #### Build
 
 1. Clone the repository
@@ -164,17 +175,6 @@ Linux/MacOSX
 Windows
 ```
 goshimmer
-```
-
-### Install Glumb visualizer
-
-Install both the Glumb visualizer and socket.io client lib within the root folder/where the binary is located:
-```bash
-git clone https://github.com/glumb/IOTAtangle.git
-// only this version seems to be stable
-cd IOTAtangle && git reset --hard 07bba77a296a2d06277cdae56aa963abeeb5f66e 
-cd ../
-git clone https://github.com/socketio/socket.io-client.git
 ```
 
 ## Configure GoShimmer
