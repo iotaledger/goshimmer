@@ -80,19 +80,20 @@ func (db *mapDB) LocalServices() (service.Service, error) {
 
 // UpdateLocalServices updates the services stored in the database.
 func (db *mapDB) UpdateLocalServices(services service.Service) error {
-	db.mutex.Lock()
-	db.services = services.CreateRecord()
-	db.mutex.Unlock()
+	record := services.CreateRecord()
 
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+	db.services = record
 	return nil
 }
 
 // LastPing returns that property for the given peer ID and address.
 func (db *mapDB) LastPing(id ID, address string) time.Time {
 	db.mutex.RLock()
-	peerEntry := db.m[string(id.Bytes())]
-	db.mutex.RUnlock()
+	defer db.mutex.RUnlock()
 
+	peerEntry := db.m[string(id.Bytes())]
 	return time.Unix(peerEntry.properties[address].lastPing, 0)
 }
 
@@ -101,6 +102,8 @@ func (db *mapDB) UpdateLastPing(id ID, address string, t time.Time) error {
 	key := string(id.Bytes())
 
 	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
 	peerEntry := db.m[key]
 	if peerEntry.properties == nil {
 		peerEntry.properties = make(map[string]peerPropEntry)
@@ -109,7 +112,6 @@ func (db *mapDB) UpdateLastPing(id ID, address string, t time.Time) error {
 	entry.lastPing = t.Unix()
 	peerEntry.properties[address] = entry
 	db.m[key] = peerEntry
-	db.mutex.Unlock()
 
 	return nil
 }
@@ -117,9 +119,9 @@ func (db *mapDB) UpdateLastPing(id ID, address string, t time.Time) error {
 // LastPong returns that property for the given peer ID and address.
 func (db *mapDB) LastPong(id ID, address string) time.Time {
 	db.mutex.RLock()
-	peerEntry := db.m[string(id.Bytes())]
-	db.mutex.RUnlock()
+	defer db.mutex.RUnlock()
 
+	peerEntry := db.m[string(id.Bytes())]
 	return time.Unix(peerEntry.properties[address].lastPong, 0)
 }
 
@@ -128,6 +130,8 @@ func (db *mapDB) UpdateLastPong(id ID, address string, t time.Time) error {
 	key := string(id.Bytes())
 
 	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
 	peerEntry := db.m[key]
 	if peerEntry.properties == nil {
 		peerEntry.properties = make(map[string]peerPropEntry)
@@ -136,7 +140,6 @@ func (db *mapDB) UpdateLastPong(id ID, address string, t time.Time) error {
 	entry.lastPong = t.Unix()
 	peerEntry.properties[address] = entry
 	db.m[key] = peerEntry
-	db.mutex.Unlock()
 
 	return nil
 }
@@ -150,10 +153,11 @@ func (db *mapDB) UpdatePeer(p *Peer) error {
 	key := string(p.ID().Bytes())
 
 	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
 	peerEntry := db.m[key]
 	peerEntry.data = data
 	db.m[key] = peerEntry
-	db.mutex.Unlock()
 
 	return nil
 }
