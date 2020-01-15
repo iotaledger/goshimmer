@@ -1,4 +1,4 @@
-name: Build GoShimmer
+name: Test GoShimmer
 on: [push, pull_request]
 jobs:
 
@@ -18,6 +18,3 @@ jobs:
 
     - name: Run Tests
       run: make test
-
-    - name: Compile
-      run: go build -v .
