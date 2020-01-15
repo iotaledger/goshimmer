@@ -192,7 +192,7 @@ To change the default configuration, you can edit the `config.json` file (or the
 
 ### Command line
 
-To list all the available configration parameter you can run:
+For a list of all the available configration parameters you can run:
 
 ```
 ./goshimmer --help
