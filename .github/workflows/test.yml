@@ -6,7 +6,7 @@ on:
 jobs:
 
   build:
-    name: Build GoShimmer
+    name: Test GoShimmer
     runs-on: ubuntu-latest
     steps:
 
