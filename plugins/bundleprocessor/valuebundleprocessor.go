@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/workerpool"
+	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/iotaledger/iota.go/curl"
 	"github.com/iotaledger/iota.go/signing"
 	"github.com/iotaledger/iota.go/trinary"
