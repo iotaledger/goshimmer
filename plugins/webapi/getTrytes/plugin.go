@@ -31,7 +31,7 @@ func getTrytes(c echo.Context) error {
 		log.Info(err.Error())
 		return requestFailed(c, err.Error())
 	}
-	log.Info("Received:", request.Hashes)
+	log.Debug("Received:", request.Hashes)
 
 	for _, hash := range request.Hashes {
 		tx, err := tangle.GetTransaction(hash)

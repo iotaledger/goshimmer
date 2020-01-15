@@ -10,7 +10,7 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI GTTA Endpoint", node.Enabled, func(plugin *node.Plugin) {
+var PLUGIN = node.NewPlugin("WebAPI GTTA Endpoint", node.Disabled, func(plugin *node.Plugin) {
 	webapi.Server.GET("getTransactionsToApprove", Handler)
 })
 

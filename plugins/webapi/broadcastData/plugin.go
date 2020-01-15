@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/address"
 	"github.com/iotaledger/iota.go/trinary"
 	"github.com/labstack/echo"
@@ -34,7 +35,7 @@ func broadcastData(c echo.Context) error {
 		log.Info(err.Error())
 		return requestFailed(c, err.Error())
 	}
-	log.Info("Received - address:", request.Address, " data:", request.Data)
+	log.Debug("Received - address:", request.Address, " data:", request.Data)
 	tx := value_transaction.New()
 	tx.SetHead(true)
 	tx.SetTail(true)
@@ -45,7 +46,7 @@ func broadcastData(c echo.Context) error {
 		return requestFailed(c, "Data exceeding 2187 byte limit")
 	}
 
-	copy(buffer, []byte(request.Data))
+	copy(buffer, typeutils.StringToBytes(request.Data))
 
 	trytes, err := trinary.BytesToTrytes(buffer)
 	if err != nil {
@@ -61,7 +62,6 @@ func broadcastData(c echo.Context) error {
 
 	tx.SetAddress(request.Address)
 	tx.SetSignatureMessageFragment(trytes)
-
 	tx.SetValue(0)
 	tx.SetBranchTransactionHash(tipselection.GetRandomTip())
 	tx.SetTrunkTransactionHash(tipselection.GetRandomTip())

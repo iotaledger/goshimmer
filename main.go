@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/ui"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	webapi_broadcastData "github.com/iotaledger/goshimmer/plugins/webapi/broadcastData"
+	webapi_findTransactions "github.com/iotaledger/goshimmer/plugins/webapi/findTransactions"
 	webapi_getNeighbors "github.com/iotaledger/goshimmer/plugins/webapi/getNeighbors"
 	webapi_getTransactions "github.com/iotaledger/goshimmer/plugins/webapi/getTransactions"
 	webapi_getTrytes "github.com/iotaledger/goshimmer/plugins/webapi/getTrytes"
@@ -58,6 +59,7 @@ func main() {
 			webapi_broadcastData.PLUGIN,
 			webapi_getTrytes.PLUGIN,
 			webapi_getTransactions.PLUGIN,
+			webapi_findTransactions.PLUGIN,
 			webapi_getNeighbors.PLUGIN,
 
 			ui.PLUGIN,

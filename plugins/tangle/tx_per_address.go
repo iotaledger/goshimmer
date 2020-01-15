@@ -30,7 +30,6 @@ func StoreTransactionHashForAddressInDatabase(address *TxHashForAddress) error {
 	); err != nil {
 		return ErrDatabaseError.Derive(err, "failed to store tx for address in database")
 	}
-
 	return nil
 }
 
