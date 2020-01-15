@@ -3,12 +3,12 @@
 [![Build Status](https://travis-ci.org/iotaledger/goshimmer.svg?branch=master)](https://travis-ci.org/iotaledger/goshimmer)
 
 ## Table of Content
-1. [Motivation](##Motivation)
-2. [Design](##Design)
-3. [Modules overview](##Modules-overview)
-4. [Run GoShimmer](##Run-GoShimmer)
-5. [Configure GoShimmer](##Configure-GoShimmer)
-6. [How to contribute](##How-to-contribute)
+1. [Motivation](#Motivation)
+2. [Design](#Design)
+3. [Modules overview](#Modules-overview)
+4. [Run GoShimmer](#Run-GoShimmer)
+5. [Configure GoShimmer](#Configure-GoShimmer)
+6. [How to contribute](#How-to-contribute)
 
 ## Motivation
 
