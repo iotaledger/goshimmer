@@ -99,7 +99,6 @@ func start(shutdownSignal <-chan struct{}) {
 		defer Selection.Close()
 	}
 
-
 	log.Infof("Auto Peering started: address=%s", srv.LocalAddr())
 	log.Debugf("Auto Peering server started: PubKey=%s", base64.StdEncoding.EncodeToString(local.GetInstance().PublicKey()))
 
