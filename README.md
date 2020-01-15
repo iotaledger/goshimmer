@@ -2,6 +2,14 @@
 
 [![Build Status](https://travis-ci.org/iotaledger/goshimmer.svg?branch=master)](https://travis-ci.org/iotaledger/goshimmer)
 
+## Table of Content
+1. [Motivation](##Motivation)
+2. [Design](##Design)
+3. [Modules overview](##Modules-overview)
+4. [Run GoShimmer](##Run-GoShimmer)
+5. [Configure GoShimmer](##Configure-GoShimmer)
+6. [How to contribute](##How-to-contribute)
+
 ## Motivation
 
 This repository is where the IOTA Foundation's Research Team experiments and run simulations of the Coordicide modules to study and evaluate their performance.
@@ -54,6 +62,8 @@ For more information about these API, you can refer to [swagger-link]()
 
 The branch `ledger state` implements a first version of the[Parallel-reality](https://iota.cafe/t/parallel-reality-based-ledger-state-using-utxo/261)-based ledger state (using the UTXO model). 
 
+![alt text](images/outputs.png "Ledger State")
+
 ### Rate control
 
 Currently, PoW is used to prevent spam. We are working on a `Adaptive-PoW` mechanism described in the [Coordicide-WP](https://coordicide.iota.org/) that we will integrate in a future release. Moreover, we are experimenting via simulations an `Additive Increase Multilpicative Decrease (AIMD)`-based approach for the rate control. You can find the initial source code at this [repository](https://github.com/andypandypi/IOTARateControl). 
@@ -71,19 +81,57 @@ The branch `ca` contains a first implementation of the `Cellular Consensus` as d
 The branch `fpc` contains a first implementation of the `Fast Probabilistic Consensus` as described in Popov et al. [paper](https://arxiv.org/pdf/1905.10895.pdf). 
 You can also find a standalone FPC simulator at this [repository](https://github.com/iotaledger/fpc-sim).
 
-
 ## Run GoShimmer
+
+You have three options to run GoShimmer:
+
+* via Docker
+* via the binary
+* compiling from the source code
+
+### Docker
+
+To run GoShimmer on docker, you must first build the image with
+```
+docker build -t iotaledger/goshimmer .
+```
+
+To start GoShimmer in the background, you can simply use [Docker Compose](https://docs.docker.com/compose/) by running
+```
+docker-compose up -d
+```
+
+### Run the binary
+From the `bin` directory you can run:
+
+Linux/MacOSX
+```
+./goshimmer
+```
+
+Windows
+```
+goshimmer
+```
+
+### Compile from source code
+
+#### Prerequisites
 
 First, you need to [install Go](https://golang.org/doc/install) if it is not already installed on your machine. It is recommended that you use the most recent version of Go.
 
-### Requirements
+To verify that you have installed the minimal required go version (1.13) run:
 
-- gcc: Some packages in this repo might require to be compiled by gcc. Windows users can install [MinGW-gcc](http://tdm-gcc.tdragon.net/download). 
+```
+go version
+```
+
+Some packages in this repo might require to be compiled by gcc. Windows users can install [MinGW-gcc](http://tdm-gcc.tdragon.net/download). 
 
 
-## Build
+#### Build
 
-If you need to develop locally and be able to build by using your local code, i.e., without waiting for pushing your commits on the repo, clone the repository directly inside the `src/github.com/iotaledger/` folder of your `$GOPATH` with the command:
+1. Clone the repository
 
 ```
 git clone git@github.com:iotaledger/goshimmer.git
@@ -95,49 +143,27 @@ or if you prefer https over ssh
 git clone https://github.com/iotaledger/goshimmer.git
 ```
 
-Verify that you have installed the minimal required go version (1.13):
-```
-go version
-```
-
-You can build your executable (as well as cross compiling for other architectures) by running the `go build` tool inside the just cloned folder `goshimmer`:
+2. You can build your executable (as well as cross compiling for other architectures) by running the `go build` tool inside the just cloned folder `goshimmer`:
 
 ```
-go build -o shimmer
+go build -o goshimmer
 ```
 
 On Windows:
 ```
-ren shimmer shimmer.exe
+ren goshimmer goshimmer.exe
 ```
 
-You can then run by:
+3. You can then run by:
 
-Linux
+Linux/MacOSX
 ```
-./shimmer
+./goshimmer
 ```
 
 Windows
 ```
-shimmer
-```
-
-## Docker
-
-To run Shimmer on docker, you must first build the image with
-```
-docker build -t iotaledger/goshimmer .
-```
-and then run it with
-```
-docker run --rm -it -v "$(pwd)/mainnetdb:/app/mainnetdb" iotaledger/goshimmer
-```
-You may replace `$(pwd)/mainnetdb` with a custom path to the database folder.
-
-To start Shimmer in the background, you can also simply use [Docker Compose](https://docs.docker.com/compose/) by running
-```
-docker-compose up -d
+goshimmer
 ```
 
 ### Install Glumb visualizer
@@ -150,3 +176,32 @@ cd IOTAtangle && git reset --hard 07bba77a296a2d06277cdae56aa963abeeb5f66e
 cd ../
 git clone https://github.com/socketio/socket.io-client.git
 ```
+
+## Configure GoShimmer
+
+GoShimmer supports the configuration of the exposed services (e.g., changing address and ports) as well as the enabled/disabled plugins. 
+
+There are two ways you can configure GoShimmer:
+
+* via a configuration file
+* via command line
+
+### Configuration file
+
+To change the default configuration, you can edit the `config.json` file (or the `docker.config.json` one if you want to use docker). 
+
+### Command line
+
+To list all the available configration parameter you can run:
+
+```
+./goshimmer --help
+```
+
+This command should result in something like this:
+
+![alt text](/images/command-line.png "command line configuration")
+
+You can then override the parameters of the `config.json` by using these options.
+
+## How to contribute
