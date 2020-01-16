@@ -11,7 +11,7 @@ PROTO_GO_FILES_REAL = $(shell find . -path ./vendor -prune -o -type f -name '*.p
 
 .PHONY: build
 build: proto
-	go build -o shimmer
+	go build -o goshimmer
 
 # Protobuffing
 .PHONY: proto

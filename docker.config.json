@@ -23,7 +23,7 @@
     "Encoding": "console",
     "OutputPaths": [
       "stdout",
-      "shimmer.log"
+      "goshimmer.log"
     ],
     "DisableEvents": true
   },

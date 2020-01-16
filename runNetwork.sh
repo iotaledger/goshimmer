@@ -25,8 +25,8 @@ for i in `seq 1 $1`; do
     GOSSIP_PORT=$((GOSSIP_PORT+1))
     mkdir node_$i
     mkdir node_$i/logs
-    cp ../shimmer node_$i/
+    cp ../goshimmer node_$i/
     cd node_$i
-    ./shimmer --autopeering.port $PEERING_PORT --gossip.port $GOSSIP_PORT --autopeering.address 127.0.0.1 --autopeering.entryNodes 2TwlC5mtYVrCHNKG8zkFWmEUlL0pJPS1DOOC2U4yjwo=@127.0.0.1:14626 --node.LogLevel 4 --node.disablePlugins statusscreen --analysis.serverAddress 127.0.0.1:188 &
+    ./goshimmer --autopeering.port $PEERING_PORT --gossip.port $GOSSIP_PORT --autopeering.address 127.0.0.1 --autopeering.entryNodes 2TwlC5mtYVrCHNKG8zkFWmEUlL0pJPS1DOOC2U4yjwo=@127.0.0.1:14626 --node.LogLevel 4 --node.disablePlugins statusscreen --analysis.serverAddress 127.0.0.1:188 &
     cd ..
 done
