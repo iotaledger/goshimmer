@@ -39,11 +39,7 @@ func getTrytes(c echo.Context) error {
 			return requestFailed(c, err.Error())
 		}
 		if tx != nil {
-			trytes, err := trinary.TritsToTrytes(tx.GetTrits())
-			// Returns an error if len(tx.GetTrits())%3!=0
-			if err != nil {
-				return requestFailed(c, err.Error())
-			}
+			trytes := trinary.MustTritsToTrytes(tx.GetTrits())
 			result = append(result, trytes)
 		} else {
 			//tx not found

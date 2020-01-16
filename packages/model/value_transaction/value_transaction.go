@@ -40,11 +40,7 @@ func FromMetaTransaction(metaTransaction *meta_transaction.MetaTransaction) *Val
 }
 
 func FromBytes(bytes []byte) (result *ValueTransaction) {
-	trits, err := trinary.BytesToTrits(bytes)
-	if err != nil {
-		panic(err)
-	}
-
+	trits := trinary.MustBytesToTrits(bytes)
 	result = &ValueTransaction{
 		MetaTransaction: meta_transaction.FromTrits(trits[:meta_transaction.MARSHALED_TOTAL_SIZE]),
 	}

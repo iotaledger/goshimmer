@@ -53,11 +53,7 @@ func FromTrits(trits trinary.Trits) *MetaTransaction {
 }
 
 func FromBytes(bytes []byte) (result *MetaTransaction) {
-	trits, err := trinary.BytesToTrits(bytes)
-	if err != nil {
-		panic(err)
-	}
-
+	trits := trinary.MustBytesToTrits(bytes)
 	result = FromTrits(trits[:MARSHALED_TOTAL_SIZE])
 	result.bytes = bytes
 
