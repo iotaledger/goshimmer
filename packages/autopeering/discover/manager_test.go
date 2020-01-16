@@ -49,7 +49,7 @@ func newDummyPeer(name string) *peer.Peer {
 
 func newTestManager() (*manager, *NetworkMock, func()) {
 	networkMock := newNetworkMock()
-	mgr := newManager(networkMock, nil, log, nil)
+	mgr := newManager(networkMock, nil, log)
 	teardown := func() {
 		mgr.close()
 	}

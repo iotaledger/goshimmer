@@ -20,10 +20,13 @@ var log = logger.NewExampleLogger("discover")
 
 func init() {
 	// decrease parameters to simplify and speed up tests
-	reverifyInterval = 500 * time.Millisecond
-	queryInterval = 1000 * time.Millisecond
-	maxManaged = 10
-	maxReplacements = 2
+	SetParameter(Parameters{
+		ReverifyInterval: 500 * time.Millisecond,
+		ReverifyTries:    1,
+		QueryInterval:    1000 * time.Millisecond,
+		MaxManaged:       10,
+		MaxReplacements:  2,
+	})
 }
 
 // newTest creates a new discovery server and also returns the teardown.

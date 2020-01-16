@@ -37,7 +37,7 @@ func NewSalt(lifetime time.Duration) (salt *Salt, err error) {
 func (s *Salt) GetBytes() []byte {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return s.bytes
+	return append([]byte{}, s.bytes...)
 }
 
 func (s *Salt) GetExpiration() time.Time {

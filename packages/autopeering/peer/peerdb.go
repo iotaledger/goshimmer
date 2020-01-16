@@ -9,7 +9,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/database"
-	"go.uber.org/zap"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 const (
@@ -57,7 +57,7 @@ type DB interface {
 
 type persistentDB struct {
 	db  database.Database
-	log *zap.SugaredLogger
+	log *logger.Logger
 
 	closeOnce sync.Once
 }
@@ -77,7 +77,7 @@ const (
 )
 
 // NewPersistentDB creates a new persistent DB.
-func NewPersistentDB(log *zap.SugaredLogger) DB {
+func NewPersistentDB(log *logger.Logger) DB {
 	db, err := database.Get("peer")
 	if err != nil {
 		panic(err)

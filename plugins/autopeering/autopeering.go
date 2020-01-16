@@ -44,11 +44,8 @@ func configureAP() {
 	// enable peer selection only when gossip is enabled
 	if !node.IsSkipped(gossip.PLUGIN) {
 		Selection = selection.New(local.GetInstance(), Discovery, selection.Config{
-			Log: log.Named("sel"),
-			Param: &selection.Parameters{
-				SaltLifetime:    selection.DefaultSaltLifetime,
-				RequiredService: []service.Key{service.GossipKey},
-			},
+			Log:              log.Named("sel"),
+			RequiredServices: []service.Key{service.GossipKey},
 		})
 	}
 }

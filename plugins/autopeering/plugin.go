@@ -1,6 +1,8 @@
 package autopeering
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/autopeering/discover"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/selection"
@@ -32,10 +34,10 @@ func run(*node.Plugin) {
 func configureEvents() {
 	// notify the selection when a connection is closed or failed.
 	gossip.Events.ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer) {
-		Selection.DropPeer(p)
+		Selection.RemoveNeighbor(p.ID())
 	}))
 	gossip.Events.NeighborRemoved.Attach(events.NewClosure(func(p *peer.Peer) {
-		Selection.DropPeer(p)
+		Selection.RemoveNeighbor(p.ID())
 	}))
 
 	discover.Events.PeerDiscovered.Attach(events.NewClosure(func(ev *discover.DiscoveredEvent) {
@@ -45,6 +47,9 @@ func configureEvents() {
 		log.Infof("Removed offline: %s / %s", ev.Peer.Address(), ev.Peer.ID())
 	}))
 
+	selection.Events.SaltUpdated.Attach(events.NewClosure(func(ev *selection.SaltUpdatedEvent) {
+		log.Infof("Salt updated; expires=%s", ev.Public.GetExpiration().Format(time.RFC822))
+	}))
 	selection.Events.OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
 		log.Infof("Peering chosen: %s / %s", ev.Peer.Address(), ev.Peer.ID())
 	}))

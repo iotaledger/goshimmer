@@ -10,8 +10,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	pb "github.com/iotaledger/goshimmer/packages/autopeering/selection/proto"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 // DiscoverProtocol specifies the methods from the peer discovery that are required.
@@ -28,9 +28,9 @@ type DiscoverProtocol interface {
 type Protocol struct {
 	server.Protocol
 
-	disc DiscoverProtocol   // reference to the peer discovery to query verified peers
-	loc  *peer.Local        // local peer that runs the protocol
-	log  *zap.SugaredLogger // logging
+	disc DiscoverProtocol // reference to the peer discovery to query verified peers
+	loc  *peer.Local      // local peer that runs the protocol
+	log  *logger.Logger   // logging
 
 	mgr       *manager // the manager handles the actual neighbor selection
 	closeOnce sync.Once
@@ -44,7 +44,7 @@ func New(local *peer.Local, disc DiscoverProtocol, cfg Config) *Protocol {
 		disc:     disc,
 		log:      cfg.Log,
 	}
-	p.mgr = newManager(p, disc.GetVerifiedPeers, cfg.Log.Named("mgr"), cfg.Param)
+	p.mgr = newManager(p, disc.GetVerifiedPeers, cfg.Log.Named("mgr"), cfg)
 
 	return p
 }
@@ -78,12 +78,19 @@ func (p *Protocol) GetNeighbors() []*peer.Peer {
 
 // GetIncomingNeighbors returns the current incoming neighbors.
 func (p *Protocol) GetIncomingNeighbors() []*peer.Peer {
-	return p.mgr.getIncomingNeighbors()
+	return p.mgr.getInNeighbors()
 }
 
 // GetOutgoingNeighbors returns the current outgoing neighbors.
 func (p *Protocol) GetOutgoingNeighbors() []*peer.Peer {
-	return p.mgr.getOutgoingNeighbors()
+	return p.mgr.getOutNeighbors()
+}
+
+// RemoveNeighbor removes the peer with the given id from the incoming and outgoing neighbors.
+// If such a peer was actually contained in anyone of the neighbor sets, the corresponding event is triggered
+// and the corresponding peering drop is sent. Otherwise the call is ignored.
+func (p *Protocol) RemoveNeighbor(id peer.ID) {
+	p.mgr.removeNeighbor(id)
 }
 
 // HandleMessage responds to incoming neighbor selection messages.
@@ -160,10 +167,8 @@ func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt) (bool, error) 
 	return status, err
 }
 
-// DropPeer sends a PeeringDrop to the given peer.
-func (p *Protocol) DropPeer(to *peer.Peer) {
-	p.mgr.dropNeighbor(to.ID())
-
+// SendPeeringDrop sends a peering drop to the given peer and does not wait for any responses.
+func (p *Protocol) SendPeeringDrop(to *peer.Peer) {
 	toAddr := to.Address()
 	drop := newPeeringDrop(toAddr)
 
@@ -282,7 +287,7 @@ func (p *Protocol) handlePeeringRequest(s *server.Server, fromAddr string, fromI
 		return
 	}
 
-	res := newPeeringResponse(rawData, p.mgr.acceptRequest(from, salt))
+	res := newPeeringResponse(rawData, p.mgr.requestPeering(from, salt))
 
 	p.log.Debugw("send message",
 		"type", res.Name(),
@@ -334,5 +339,5 @@ func (p *Protocol) validatePeeringDrop(s *server.Server, fromAddr string, m *pb.
 }
 
 func (p *Protocol) handlePeeringDrop(fromID peer.ID) {
-	p.mgr.dropNeighbor(fromID)
+	p.mgr.removeNeighbor(fromID)
 }

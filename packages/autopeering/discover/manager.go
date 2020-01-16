@@ -7,15 +7,19 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
-	"go.uber.org/zap"
+	"github.com/iotaledger/hive.go/logger"
 )
 
-var (
-	reverifyInterval = DefaultReverifyInterval // time interval after which the next peer is reverified
-	reverifyTries    = DefaultReverifyTries    // number of times a peer is pinged before it is removed
-	queryInterval    = DefaultQueryInterval    // time interval after which peers are queried for new peers
-	maxManaged       = DefaultMaxManaged       // maximum number of peers that can be managed
-	maxReplacements  = DefaultMaxReplacements  // maximum number of peers kept in the replacement list
+const (
+	// PingExpiration is the time until a peer verification expires.
+	PingExpiration = 12 * time.Hour
+	// MaxPeersInResponse is the maximum number of peers returned in DiscoveryResponse.
+	MaxPeersInResponse = 6
+	// MaxServices is the maximum number of services a peer can support.
+	MaxServices = 5
+
+	// VersionNum specifies the expected version number for this Protocol.
+	VersionNum = 0
 )
 
 type network interface {
@@ -31,31 +35,13 @@ type manager struct {
 	replacements []*mpeer
 
 	net network
-	log *zap.SugaredLogger
+	log *logger.Logger
 
 	wg      sync.WaitGroup
 	closing chan struct{}
 }
 
-func newManager(net network, masters []*peer.Peer, log *zap.SugaredLogger, param *Parameters) *manager {
-	if param != nil {
-		if param.ReverifyInterval > 0 {
-			reverifyInterval = param.ReverifyInterval
-		}
-		if param.ReverifyTries > 0 {
-			reverifyTries = param.ReverifyTries
-		}
-		if param.QueryInterval > 0 {
-			queryInterval = param.QueryInterval
-		}
-		if param.MaxManaged > 0 {
-			maxManaged = param.MaxManaged
-		}
-		if param.MaxReplacements > 0 {
-			maxReplacements = param.MaxReplacements
-		}
-	}
-
+func newManager(net network, masters []*peer.Peer, log *logger.Logger) *manager {
 	m := &manager{
 		active:       make([]*mpeer, 0, maxManaged),
 		replacements: make([]*mpeer, 0, maxReplacements),

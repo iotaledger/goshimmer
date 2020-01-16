@@ -1,14 +1,13 @@
 package selection
 
 import (
-	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
-	"go.uber.org/zap"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 const (
@@ -16,20 +15,7 @@ const (
 	reject = false
 
 	// buffer size of the channels handling inbound requests and drops.
-	queueSize = 100
-)
-
-var (
-	// number of neighbors
-	inboundNeighborSize  = DefaultInboundNeighborSize
-	outboundNeighborSize = DefaultOutboundNeighborSize
-
-	// lifetime of the private and public local salt
-	saltLifetime = DefaultSaltLifetime
-	// time interval after which the outbound neighbors are checked
-	updateOutboundInterval = DefaultUpdateOutboundInterval
-
-	dropNeighborsOnUpdate bool // whether all neighbors are dropped on distance update
+	queueSize = 10
 )
 
 // A network represents the communication layer for the manager.
@@ -37,7 +23,7 @@ type network interface {
 	local() *peer.Local
 
 	RequestPeering(*peer.Peer, *salt.Salt) (bool, error)
-	DropPeer(*peer.Peer)
+	SendPeeringDrop(*peer.Peer)
 }
 
 type peeringRequest struct {
@@ -46,367 +32,342 @@ type peeringRequest struct {
 }
 
 type manager struct {
-	net       network
-	peersFunc func() []*peer.Peer
-
-	log           *zap.SugaredLogger
-	dropNeighbors bool
+	net               network
+	getPeersToConnect func() []*peer.Peer
+	log               *logger.Logger
+	dropOnUpdate      bool          // set true to drop all neighbors when the salt is updated
+	requiredServices  []service.Key // services required in order to select/be selected during autopeering
 
 	inbound  *Neighborhood
 	outbound *Neighborhood
 
-	inboundRequestChan chan peeringRequest
-	inboundReplyChan   chan bool
-	inboundDropChan    chan peer.ID
-	outboundDropChan   chan peer.ID
-
 	rejectionFilter *Filter
 
-	wg              sync.WaitGroup
-	inboundClosing  chan struct{}
-	outboundClosing chan struct{}
+	dropChan    chan peer.ID
+	requestChan chan peeringRequest
+	replyChan   chan bool
 
-	requiredService []service.Key
+	wg      sync.WaitGroup
+	closing chan struct{}
 }
 
-func newManager(net network, peersFunc func() []*peer.Peer, log *zap.SugaredLogger, param *Parameters) *manager {
-	var requiredService []service.Key
-
-	if param != nil {
-		if param.InboundNeighborSize > 0 {
-			inboundNeighborSize = param.InboundNeighborSize
-		}
-		if param.OutboundNeighborSize > 0 {
-			outboundNeighborSize = param.OutboundNeighborSize
-		}
-		if param.SaltLifetime > 0 {
-			saltLifetime = param.SaltLifetime
-		}
-		if param.UpdateOutboundInterval > 0 {
-			updateOutboundInterval = param.UpdateOutboundInterval
-		}
-		requiredService = param.RequiredService
-		dropNeighborsOnUpdate = param.DropNeighborsOnUpdate
-	}
-
+func newManager(net network, peersFunc func() []*peer.Peer, log *logger.Logger, config Config) *manager {
 	return &manager{
-		net:                net,
-		peersFunc:          peersFunc,
-		log:                log,
-		dropNeighbors:      dropNeighborsOnUpdate,
-		inboundClosing:     make(chan struct{}),
-		outboundClosing:    make(chan struct{}),
-		rejectionFilter:    NewFilter(),
-		inboundRequestChan: make(chan peeringRequest, queueSize),
-		inboundReplyChan:   make(chan bool),
-		inboundDropChan:    make(chan peer.ID, queueSize),
-		outboundDropChan:   make(chan peer.ID, queueSize),
-		inbound: &Neighborhood{
-			Neighbors: []peer.PeerDistance{},
-			Size:      inboundNeighborSize},
-		outbound: &Neighborhood{
-			Neighbors: []peer.PeerDistance{},
-			Size:      outboundNeighborSize},
-		requiredService: requiredService,
+		net:               net,
+		getPeersToConnect: peersFunc,
+		log:               log,
+		dropOnUpdate:      config.DropOnUpdate,
+		requiredServices:  config.RequiredServices,
+		inbound:           NewNeighborhood(inboundNeighborSize),
+		outbound:          NewNeighborhood(outboundNeighborSize),
+		rejectionFilter:   NewFilter(),
+		dropChan:          make(chan peer.ID, queueSize),
+		requestChan:       make(chan peeringRequest, queueSize),
+		replyChan:         make(chan bool, 1),
+		closing:           make(chan struct{}),
 	}
 }
 
 func (m *manager) start() {
-	// create valid salts
-	if m.net.local().GetPublicSalt() == nil || m.net.local().GetPrivateSalt() == nil {
+	if m.getPublicSalt() == nil || m.getPrivateSalt() == nil {
 		m.updateSalt()
 	}
-
-	m.wg.Add(2)
-	go m.loopOutbound()
-	go m.loopInbound()
+	m.wg.Add(1)
+	go m.loop()
 }
 
 func (m *manager) close() {
-	close(m.inboundClosing)
-	close(m.outboundClosing)
+	close(m.closing)
 	m.wg.Wait()
 }
 
-func (m *manager) self() peer.ID {
+func (m *manager) getID() peer.ID {
 	return m.net.local().ID()
 }
 
-func (m *manager) loopOutbound() {
+func (m *manager) getPublicSalt() *salt.Salt {
+	return m.net.local().GetPublicSalt()
+}
+
+func (m *manager) getPrivateSalt() *salt.Salt {
+	return m.net.local().GetPrivateSalt()
+}
+
+func (m *manager) getNeighbors() []*peer.Peer {
+	var neighbors []*peer.Peer
+	neighbors = append(neighbors, m.inbound.GetPeers()...)
+	neighbors = append(neighbors, m.outbound.GetPeers()...)
+
+	return neighbors
+}
+
+func (m *manager) getInNeighbors() []*peer.Peer {
+	return m.inbound.GetPeers()
+}
+
+func (m *manager) getOutNeighbors() []*peer.Peer {
+	return m.outbound.GetPeers()
+}
+
+func (m *manager) requestPeering(p *peer.Peer, s *salt.Salt) bool {
+	var status bool
+	select {
+	case m.requestChan <- peeringRequest{p, s}:
+		status = <-m.replyChan
+	default:
+		// a full queue should count as a failed request
+		status = false
+	}
+	return status
+}
+
+func (m *manager) removeNeighbor(id peer.ID) {
+	m.dropChan <- id
+}
+
+func (m *manager) loop() {
 	defer m.wg.Done()
 
-	var (
-		updateOutboundDone chan struct{}
-		updateOutbound     = time.NewTimer(0) // setting this to 0 will cause a trigger right away
-		backoff            = 10
-	)
-	defer updateOutbound.Stop()
+	var updateOutResultChan chan peer.PeerDistance
+	updateTimer := time.NewTimer(0) // setting this to 0 will cause a trigger right away
+	defer updateTimer.Stop()
 
 Loop:
 	for {
 		select {
-		case <-updateOutbound.C:
-			// if there is no updateOutbound, this means doUpdateOutbound is not running
-			if updateOutboundDone == nil {
-				// check salt and update if necessary (this will drop the whole neighborhood)
-				if m.net.local().GetPublicSalt().Expired() {
-					m.updateSalt()
-				}
 
-				//remove potential duplicates
-				dup := m.getDuplicates()
-				for _, peerToDrop := range dup {
-					toDrop := m.inbound.GetPeerFromID(peerToDrop)
-					time.Sleep(time.Duration(rand.Intn(backoff)) * time.Millisecond)
-					m.outbound.RemovePeer(peerToDrop)
-					m.inbound.RemovePeer(peerToDrop)
-					if toDrop != nil {
-						m.dropPeer(toDrop)
-					}
-				}
+		// update the outbound neighbors
+		case <-updateTimer.C:
+			updateOutResultChan = make(chan peer.PeerDistance)
+			// check salt and update if necessary
+			if m.getPublicSalt().Expired() {
+				m.updateSalt()
+			}
+			// check for new peers to connect to in a separate go routine
+			go m.updateOutbound(updateOutResultChan)
 
-				updateOutboundDone = make(chan struct{})
-				go m.updateOutbound(updateOutboundDone)
+		// handle the result of updateOutbound
+		case req := <-updateOutResultChan:
+			if req.Remote != nil {
+				// if the peer is already in inbound, do not add it and remove it from inbound
+				if p := m.inbound.RemovePeer(req.Remote.ID()); p != nil {
+					m.triggerPeeringEvent(true, req.Remote, false)
+					m.dropPeering(p)
+				} else {
+					m.addNeighbor(m.outbound, req)
+					m.triggerPeeringEvent(true, req.Remote, true)
+				}
+			}
+			// call updateOutbound again after the given interval
+			updateOutResultChan = nil
+			updateTimer.Reset(m.getUpdateTimeout())
+
+		// handle a drop request
+		case id := <-m.dropChan:
+			droppedPeer := m.inbound.RemovePeer(id)
+			if p := m.outbound.RemovePeer(id); p != nil {
+				droppedPeer = p
+				m.rejectionFilter.AddPeer(id)
+				// if not yet updating, trigger an immediate update
+				if updateOutResultChan == nil && updateTimer.Stop() {
+					updateTimer.Reset(0)
+				}
+			}
+			if droppedPeer != nil {
+				m.dropPeering(droppedPeer)
 			}
 
-		case <-updateOutboundDone:
-			updateOutboundDone = nil
-			updateOutbound.Reset(updateOutboundInterval) // updateOutbound again after the given interval
-
-		case peerToDrop := <-m.outboundDropChan:
-			if containsPeer(m.outbound.GetPeers(), peerToDrop) {
-				m.outbound.RemovePeer(peerToDrop)
-				m.rejectionFilter.AddPeer(peerToDrop)
-				m.log.Debug("Outbound Dropped BY ", peerToDrop, " (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
-			}
+		// handle an inbound request
+		case req := <-m.requestChan:
+			status := m.handleInRequest(req)
+			// trigger in the main loop to guarantee order of events
+			m.triggerPeeringEvent(false, req.peer, status)
 
 		// on close, exit the loop
-		case <-m.outboundClosing:
+		case <-m.closing:
 			break Loop
 		}
 	}
 
 	// wait for the updateOutbound to finish
-	if updateOutboundDone != nil {
-		<-updateOutboundDone
+	if updateOutResultChan != nil {
+		<-updateOutResultChan
 	}
 }
 
-func (m *manager) loopInbound() {
-	defer m.wg.Done()
-
-Loop:
-	for {
-		select {
-		case req := <-m.inboundRequestChan:
-			m.updateInbound(req.peer, req.salt)
-
-		case peerToDrop := <-m.inboundDropChan:
-			if containsPeer(m.inbound.GetPeers(), peerToDrop) {
-				m.inbound.RemovePeer(peerToDrop)
-				m.log.Debug("Inbound Dropped BY ", peerToDrop, " (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
-			}
-
-		// on close, exit the loop
-		case <-m.inboundClosing:
-			break Loop
-		}
+func (m *manager) getUpdateTimeout() time.Duration {
+	result := outboundUpdateInterval
+	if m.outbound.IsFull() {
+		result = fullOutboundUpdateInterval
 	}
+	saltExpiration := time.Until(m.getPublicSalt().GetExpiration())
+	if saltExpiration < result {
+		result = saltExpiration
+	}
+	return result
 }
 
 // updateOutbound updates outbound neighbors.
-func (m *manager) updateOutbound(done chan<- struct{}) {
-	defer func() {
-		done <- struct{}{}
-	}() // always signal, when the function returns
+func (m *manager) updateOutbound(resultChan chan<- peer.PeerDistance) {
+	var result peer.PeerDistance
+	defer func() { resultChan <- result }() // assure that a result is always sent to the channel
 
 	// sort verified peers by distance
-	distList := peer.SortBySalt(m.self().Bytes(), m.net.local().GetPublicSalt().GetBytes(), m.peersFunc())
+	distList := peer.SortBySalt(m.getID().Bytes(), m.getPublicSalt().GetBytes(), m.getPeersToConnect())
 
-	filter := NewFilter()
-	filter.AddPeer(m.self())               //set filter for ourself
-	filter.AddPeers(m.inbound.GetPeers())  // set filter for inbound neighbors
-	filter.AddPeers(m.outbound.GetPeers()) // set filter for outbound neighbors
-
-	filteredList := filter.Apply(distList)               // filter out current neighbors
-	filteredList = m.rejectionFilter.Apply(filteredList) // filter out previous rejection
+	// filter out current neighbors
+	filter := m.getConnectedFilter()
+	filteredList := filter.Apply(distList)
+	// filter out previous rejections
+	filteredList = m.rejectionFilter.Apply(filteredList)
+	if len(filteredList) == 0 {
+		return
+	}
 
 	// select new candidate
 	candidate := m.outbound.Select(filteredList)
-
-	if candidate.Remote != nil {
-		// reject if required services are missing
-		for _, reqService := range m.requiredService {
-			if candidate.Remote.Services().Get(reqService) == nil {
-				m.rejectionFilter.AddPeer(candidate.Remote.ID())
-				return
-			}
-		}
-
-		furthest, _ := m.outbound.getFurthest()
-
-		// send peering request
-		mySalt := m.net.local().GetPublicSalt()
-		status, err := m.net.RequestPeering(candidate.Remote, mySalt)
-		if err != nil {
-			m.rejectionFilter.AddPeer(candidate.Remote.ID()) // TODO: add retries
-			return
-		}
-
-		// add candidate to the outbound neighborhood
-		if status {
-			//m.acceptedFilter.AddPeer(candidate.Remote.ID())
-			if furthest.Remote != nil {
-				m.outbound.RemovePeer(furthest.Remote.ID())
-				m.dropPeer(furthest.Remote)
-				m.log.Debug("Outbound furthest removed ", furthest.Remote.ID())
-			}
-			m.outbound.Add(candidate)
-			m.log.Debug("Peering request TO ", candidate.Remote.ID(), " status ACCEPTED (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
-		} else {
-			m.log.Debug("Peering request TO ", candidate.Remote.ID(), " status REJECTED (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
-			m.rejectionFilter.AddPeer(candidate.Remote.ID())
-			//m.log.Debug("Rejection Filter ", candidate.Remote.ID())
-		}
-
-		// signal the result of the outgoing peering request
-		Events.OutgoingPeering.Trigger(&PeeringEvent{Self: m.self(), Peer: candidate.Remote, Status: status})
-	}
-}
-
-func (m *manager) updateInbound(requester *peer.Peer, salt *salt.Salt) {
-	// TODO: check request legitimacy
-	//m.log.Debug("Evaluating peering request FROM ", requester.ID())
-	reqDistance := peer.NewPeerDistance(m.self().Bytes(), m.net.local().GetPrivateSalt().GetBytes(), requester)
-
-	candidateList := []peer.PeerDistance{reqDistance}
-
-	filter := NewFilter()
-	filter.AddPeers(m.outbound.GetPeers())      // set filter for outbound neighbors
-	filteredList := filter.Apply(candidateList) // filter out current neighbors
-
-	// make decision
-	toAccept := m.inbound.Select(filteredList)
-	for _, reqService := range m.requiredService {
-		if requester.Services().Get(reqService) == nil {
-			toAccept.Remote = nil // reject if required services are missing
-			break
-		}
-	}
-	// reject request
-	if toAccept.Remote == nil {
-		m.log.Debug("Peering request FROM ", requester.ID(), " status REJECTED (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
-		m.inboundReplyChan <- reject
+	if candidate.Remote == nil {
 		return
 	}
-	// accept request
-	m.inboundReplyChan <- accept
-	furthest, _ := m.inbound.getFurthest()
-	// drop furthest neighbor
-	if furthest.Remote != nil {
-		m.inbound.RemovePeer(furthest.Remote.ID())
-		m.dropPeer(furthest.Remote)
-		m.log.Debug("Inbound furthest removed ", furthest.Remote.ID())
+
+	// send peering request
+	status, err := m.net.RequestPeering(candidate.Remote, m.getPublicSalt())
+	if err != nil {
+		m.rejectionFilter.AddPeer(candidate.Remote.ID())
+		m.log.Debugw("error requesting peering",
+			"id", candidate.Remote.ID(),
+			"addr", candidate.Remote.Address(), "err", err,
+		)
+		return
 	}
-	// update inbound neighborhood
-	m.inbound.Add(toAccept)
-	m.log.Debug("Peering request FROM ", toAccept.Remote.ID(), " status ACCEPTED (", len(m.outbound.GetPeers()), ",", len(m.inbound.GetPeers()), ")")
+	if !status {
+		m.rejectionFilter.AddPeer(candidate.Remote.ID())
+		m.triggerPeeringEvent(true, candidate.Remote, false)
+		return
+	}
+
+	result = candidate
 }
 
-func (m *manager) updateSalt() (*salt.Salt, *salt.Salt) {
-	pubSalt, _ := salt.NewSalt(saltLifetime)
-	m.net.local().SetPublicSalt(pubSalt)
+func (m *manager) handleInRequest(req peeringRequest) (resp bool) {
+	resp = reject
+	defer func() { m.replyChan <- resp }() // assure that a response is always issued
 
-	privSalt, _ := salt.NewSalt(saltLifetime)
-	m.net.local().SetPrivateSalt(privSalt)
+	if !m.isValidNeighbor(req.peer) {
+		return
+	}
 
+	reqDistance := peer.NewPeerDistance(m.getID().Bytes(), m.getPrivateSalt().GetBytes(), req.peer)
+	filter := m.getConnectedFilter()
+	filteredList := filter.Apply([]peer.PeerDistance{reqDistance})
+	if len(filteredList) == 0 {
+		return
+	}
+
+	toAccept := m.inbound.Select(filteredList)
+	if toAccept.Remote == nil {
+		return
+	}
+
+	m.addNeighbor(m.inbound, toAccept)
+	resp = accept
+	return
+}
+
+func (m *manager) addNeighbor(nh *Neighborhood, toAdd peer.PeerDistance) {
+	// drop furthest neighbor if necessary
+	if furthest, _ := nh.getFurthest(); furthest.Remote != nil {
+		if p := nh.RemovePeer(furthest.Remote.ID()); p != nil {
+			m.dropPeering(p)
+		}
+	}
+	nh.Add(toAdd)
+}
+
+func (m *manager) updateSalt() {
+	public, _ := salt.NewSalt(saltLifetime)
+	m.net.local().SetPublicSalt(public)
+	private, _ := salt.NewSalt(saltLifetime)
+	m.net.local().SetPrivateSalt(private)
+
+	// clean the rejection filter
 	m.rejectionFilter.Clean()
 
-	if !dropNeighborsOnUpdate { // update distance without dropping neighbors
-		m.outbound.UpdateDistance(m.self().Bytes(), m.net.local().GetPublicSalt().GetBytes())
-		m.inbound.UpdateDistance(m.self().Bytes(), m.net.local().GetPrivateSalt().GetBytes())
+	if !m.dropOnUpdate { // update distance without dropping neighbors
+		m.outbound.UpdateDistance(m.getID().Bytes(), m.getPublicSalt().GetBytes())
+		m.inbound.UpdateDistance(m.getID().Bytes(), m.getPrivateSalt().GetBytes())
 	} else { // drop all the neighbors
 		m.dropNeighborhood(m.inbound)
 		m.dropNeighborhood(m.outbound)
 	}
 
-	return pubSalt, privSalt
-}
-
-func (m *manager) dropNeighbor(peerToDrop peer.ID) {
-	m.inboundDropChan <- peerToDrop
-	m.outboundDropChan <- peerToDrop
-
-	// signal the dropped peer
-	Events.Dropped.Trigger(&DroppedEvent{Self: m.self(), DroppedID: peerToDrop})
-}
-
-// containsPeer returns true if a peer with the given ID is in the list.
-func containsPeer(list []*peer.Peer, id peer.ID) bool {
-	for _, p := range list {
-		if p.ID() == id {
-			return true
-		}
-	}
-	return false
-}
-
-func (m *manager) acceptRequest(p *peer.Peer, s *salt.Salt) bool {
-	m.inboundRequestChan <- peeringRequest{p, s}
-	status := <-m.inboundReplyChan
-
-	// signal the received request
-	Events.IncomingPeering.Trigger(&PeeringEvent{Self: m.self(), Peer: p, Status: status})
-
-	return status
-}
-
-func (m *manager) getNeighbors() []*peer.Peer {
-	var neighbors []*peer.Peer
-
-	neighbors = append(neighbors, m.inbound.GetPeers()...)
-	neighbors = append(neighbors, m.outbound.GetPeers()...)
-
-	return neighbors
-}
-
-func (m *manager) getIncomingNeighbors() []*peer.Peer {
-	var neighbors []*peer.Peer
-
-	neighbors = append(neighbors, m.inbound.GetPeers()...)
-
-	return neighbors
-}
-
-func (m *manager) getOutgoingNeighbors() []*peer.Peer {
-	var neighbors []*peer.Peer
-
-	neighbors = append(neighbors, m.outbound.GetPeers()...)
-
-	return neighbors
-}
-
-func (m *manager) getDuplicates() []peer.ID {
-	var d []peer.ID
-
-	for _, p := range m.inbound.GetPeers() {
-		if containsPeer(m.outbound.GetPeers(), p.ID()) {
-			d = append(d, p.ID())
-		}
-	}
-	return d
+	m.log.Debugw("salt updated",
+		"public", saltLifetime,
+		"private", saltLifetime,
+	)
+	Events.SaltUpdated.Trigger(&SaltUpdatedEvent{Self: m.getID(), Public: public, Private: private})
 }
 
 func (m *manager) dropNeighborhood(nh *Neighborhood) {
 	for _, p := range nh.GetPeers() {
 		nh.RemovePeer(p.ID())
-		m.dropPeer(p)
+		m.dropPeering(p)
 	}
 }
 
-func (m *manager) dropPeer(p *peer.Peer) {
-	// send the drop request over the network
-	m.net.DropPeer(p)
-	// signal the drop
-	Events.Dropped.Trigger(&DroppedEvent{Self: m.self(), DroppedID: p.ID()})
+// dropPeering sends the peering drop over the network and triggers the corresponding event.
+func (m *manager) dropPeering(p *peer.Peer) {
+	m.net.SendPeeringDrop(p)
+
+	m.log.Debugw("peering dropped",
+		"id", p.ID(),
+		"#out", m.outbound,
+		"#in", m.inbound,
+	)
+	Events.Dropped.Trigger(&DroppedEvent{Self: m.getID(), DroppedID: p.ID()})
+}
+
+func (m *manager) getConnectedFilter() *Filter {
+	filter := NewFilter()
+	filter.AddPeer(m.getID())              //set filter for oneself
+	filter.AddPeers(m.inbound.GetPeers())  // set filter for inbound neighbors
+	filter.AddPeers(m.outbound.GetPeers()) // set filter for outbound neighbors
+	return filter
+}
+
+// isValidNeighbor returns whether the given peer is a valid neighbor candidate.
+func (m *manager) isValidNeighbor(p *peer.Peer) bool {
+	// do not connect to oneself
+	if m.getID() == p.ID() {
+		return false
+	}
+	// reject if required services are missing
+	for _, reqService := range m.requiredServices {
+		if p.Services().Get(reqService) == nil {
+			return false
+		}
+	}
+	return true
+}
+
+func (m *manager) triggerPeeringEvent(isOut bool, p *peer.Peer, status bool) {
+	if isOut {
+		m.log.Debugw("peering requested",
+			"direction", "out",
+			"status", status,
+			"to", p.ID(),
+			"#out", m.outbound,
+			"#in", m.inbound,
+		)
+		Events.OutgoingPeering.Trigger(&PeeringEvent{Self: m.getID(), Peer: p, Status: status})
+	} else {
+		m.log.Debugw("peering requested",
+			"direction", "in",
+			"status", status,
+			"from", p.ID(),
+			"#out", m.outbound,
+			"#in", m.inbound,
+		)
+		Events.IncomingPeering.Trigger(&PeeringEvent{Self: m.getID(), Peer: p, Status: status})
+	}
 }
