@@ -51,10 +51,14 @@ func configureEvents() {
 		log.Infof("Salt updated; expires=%s", ev.Public.GetExpiration().Format(time.RFC822))
 	}))
 	selection.Events.OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
-		log.Infof("Peering chosen: %s / %s", ev.Peer.Address(), ev.Peer.ID())
+		if ev.Status {
+			log.Infof("Peering chosen: %s / %s", ev.Peer.Address(), ev.Peer.ID())
+		}
 	}))
 	selection.Events.IncomingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
-		log.Infof("Peering accepted: %s / %s", ev.Peer.Address(), ev.Peer.ID())
+		if ev.Status {
+			log.Infof("Peering accepted: %s / %s", ev.Peer.Address(), ev.Peer.ID())
+		}
 	}))
 	selection.Events.Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
 		log.Infof("Peering dropped: %s", ev.DroppedID)
