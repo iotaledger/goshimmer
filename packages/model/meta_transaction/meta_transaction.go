@@ -477,7 +477,7 @@ func (this *MetaTransaction) GetBytes() (result []byte) {
 		defer this.bytesMutex.Unlock()
 
 		this.hasherMutex.Lock()
-		this.bytes = trinary.TritsToBytes(this.trits)
+		this.bytes = trinary.MustTritsToBytes(this.trits)
 		this.hasherMutex.Unlock()
 	} else {
 		this.bytesMutex.RUnlock()
