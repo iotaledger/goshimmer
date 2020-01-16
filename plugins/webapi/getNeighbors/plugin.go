@@ -8,16 +8,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 )
 
 var PLUGIN = node.NewPlugin("WebAPI getNeighbors Endpoint", node.Enabled, configure)
-var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("API-getNeighbors")
 	webapi.Server.GET("getNeighbors", getNeighbors)
 }
 
