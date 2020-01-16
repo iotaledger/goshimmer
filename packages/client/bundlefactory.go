@@ -37,7 +37,7 @@ func (bundleFactory *BundleFactory) AddOutput(address *Address, value int64, mes
 		bundleFactory.outputs = append(bundleFactory.outputs, bundleFactoryOutputEntry{
 			address: address,
 			value:   value,
-			message: trinary.Pad(messageTrytes, value_transaction.SIGNATURE_MESSAGE_FRAGMENT_SIZE),
+			message: trinary.MustPad(messageTrytes, value_transaction.SIGNATURE_MESSAGE_FRAGMENT_SIZE),
 		})
 	} else {
 		bundleFactory.outputs = append(bundleFactory.outputs, bundleFactoryOutputEntry{

@@ -40,11 +40,7 @@ func FromMetaTransaction(metaTransaction *meta_transaction.MetaTransaction) *Val
 }
 
 func FromBytes(bytes []byte) (result *ValueTransaction) {
-	trits, err := trinary.BytesToTrits(bytes)
-	if err != nil {
-		panic(err)
-	}
-
+	trits := trinary.MustBytesToTrits(bytes)
 	result = &ValueTransaction{
 		MetaTransaction: meta_transaction.FromTrits(trits[:meta_transaction.MARSHALED_TOTAL_SIZE]),
 	}
@@ -180,7 +176,7 @@ func (this *ValueTransaction) SetTimestamp(timestamp uint) bool {
 			this.timestamp = &timestamp
 
 			this.BlockHasher()
-			copy(this.trits[TIMESTAMP_OFFSET:TIMESTAMP_END], trinary.PadTrits(trinary.IntToTrits(int64(timestamp)), TIMESTAMP_SIZE)[:TIMESTAMP_SIZE])
+			copy(this.trits[TIMESTAMP_OFFSET:TIMESTAMP_END], trinary.MustPadTrits(trinary.IntToTrits(int64(timestamp)), TIMESTAMP_SIZE)[:TIMESTAMP_SIZE])
 			this.UnblockHasher()
 
 			this.SetModified(true)

@@ -53,11 +53,7 @@ func FromTrits(trits trinary.Trits) *MetaTransaction {
 }
 
 func FromBytes(bytes []byte) (result *MetaTransaction) {
-	trits, err := trinary.BytesToTrits(bytes)
-	if err != nil {
-		panic(err)
-	}
-
+	trits := trinary.MustBytesToTrits(bytes)
 	result = FromTrits(trits[:MARSHALED_TOTAL_SIZE])
 	result.bytes = bytes
 
@@ -477,7 +473,7 @@ func (this *MetaTransaction) GetBytes() (result []byte) {
 		defer this.bytesMutex.Unlock()
 
 		this.hasherMutex.Lock()
-		this.bytes = trinary.TritsToBytes(this.trits)
+		this.bytes = trinary.MustTritsToBytes(this.trits)
 		this.hasherMutex.Unlock()
 	} else {
 		this.bytesMutex.RUnlock()
