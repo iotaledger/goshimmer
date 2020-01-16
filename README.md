@@ -32,8 +32,8 @@ You can find more details about our roadmap [here](https://roadmap.iota.org/).
 
 In the following, we describe some of the modules currently implemented. 
 
-> Please note that not all the modules are currently integrated. 
-When they are not, they are typically kept on a different branch. 
+> Please note that not all the modules are currently fully integrated. 
+When they are not, they are typically kept on a different branch (and described here as *work in progress*). 
 These branches are not compatible with the `master` one (i.e., nodes running code of these branches will not be able to be part of the current network).
 This is beacuse either the code is still on a highly experimental state or different breaking changes are required to be addressed before merging (e.g, atomic transactions, UTXO, binary support). 
 
@@ -47,6 +47,12 @@ Each node creates a unique public/private key pair. The public key is used to id
 Autopeering is a mechanism that allows nodes to choose their neighbors automatically. More specifically, each new node on the network tries to connect to four neighbors (chosen neighbors) and 
 accepts connections from other four neighbors (accepted neighbors). We describe how it works in our Autopeering blogposts [part-1](https://blog.iota.org/coordicide-update-autopeering-part-1-fc72e21c7e11) and [part-2](https://blog.iota.org/coordicide-update-autopeering-part-2-4e462ba68bd). 
 We also provide a standalone autopeering simulator [here](https://github.com/iotaledger/autopeering-sim), that uses the exact same code we run on GoShimmer.
+
+![autopeering](images/autopeering.png "Autopeering design")
+
+We have logically divided the autopeering module into two main submodules: peer discovery and neighbor selection. 
+The former is responsible for operations, such as discovering new peers and verifying their online status. 
+The latter is responsible for finding and managing neighbors for IOTA’s nodes.
 
 ### Web-API
 
