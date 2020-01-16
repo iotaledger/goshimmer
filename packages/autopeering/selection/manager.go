@@ -140,7 +140,7 @@ Loop:
 		case <-updateTimer.C:
 			updateOutResultChan = make(chan peer.PeerDistance)
 			// check salt and update if necessary
-			if m.net.local().GetPublicSalt().Expired() {
+			if m.getPublicSalt().Expired() {
 				m.updateSalt()
 			}
 			// check for new peers to connect to in a separate go routine
