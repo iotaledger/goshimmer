@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -27,18 +28,21 @@ var (
 )
 
 func checkDatabaseVersion() {
-	var dbDirDoesntExist bool
-	// only check the version if there's actually a database folder.
+	var dbDirClear bool
+	// only check the version if there's actually a database folder (and it contains files).
 	// note that this check only works, if the tangle plugin is the first
 	// plugin which initializes a database, as otherwise any other call would automatically
 	// create the database folder.
 	directory := parameter.NodeConfig.GetString(database.CFG_DIRECTORY)
-	_, err := os.Stat(directory)
+	fileInfos, err := ioutil.ReadDir(directory)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			panic(err)
 		}
-		dbDirDoesntExist = true
+		dbDirClear = true
+	}
+	if len(fileInfos) == 0 {
+		dbDirClear = true
 	}
 
 	db, err := database.Get(dbVersionDBName)
@@ -46,7 +50,7 @@ func checkDatabaseVersion() {
 		panic(err)
 	}
 
-	if dbDirDoesntExist {
+	if dbDirClear {
 		// store db version for the first time in the new database
 		if err := db.Set(dbVersionKey, []byte{DBVersion}); err != nil {
 			panic(fmt.Sprintf("unable to persist db version number: %s", err.Error()))
