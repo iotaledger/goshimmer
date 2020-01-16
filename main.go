@@ -39,9 +39,9 @@ func main() {
 	node.Run(
 		node.Plugins(
 			cli.PLUGIN,
+			tangle.PLUGIN,
 			autopeering.PLUGIN,
 			gossip.PLUGIN,
-			tangle.PLUGIN,
 			bundleprocessor.PLUGIN,
 			analysis.PLUGIN,
 			gracefulshutdown.PLUGIN,

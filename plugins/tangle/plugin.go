@@ -17,6 +17,8 @@ var log *logger.Logger
 func configure(*node.Plugin) {
 	log = logger.NewLogger("Tangle")
 
+	checkDatabaseVersion()
+
 	configureTransactionDatabase()
 	configureTransactionMetaDataDatabase()
 	configureApproversDatabase()
