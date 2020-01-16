@@ -181,7 +181,6 @@ func (api *GoShimmerAPI) FindTransactions(query *webapi_findTransactions.Request
 	return resObj.Transactions, nil
 }
 
-
 func (api *GoShimmerAPI) GetNeighbors() (*webapi_getNeighbors.Response, error) {
 	res, err := api.httpClient.Get(fmt.Sprintf("%s/%s", api.node, routeGetNeighbors))
 	if err != nil {
@@ -195,7 +194,6 @@ func (api *GoShimmerAPI) GetNeighbors() (*webapi_getNeighbors.Response, error) {
 
 	return resObj, nil
 }
-
 
 func (api *GoShimmerAPI) GetTips() (*webapi_gtta.Response, error) {
 	res, err := api.httpClient.Get(fmt.Sprintf("%s/%s", api.node, routeGetTransactionsToApprove))
