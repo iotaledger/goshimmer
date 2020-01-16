@@ -1,6 +1,6 @@
 # GoShimmer
 
-[![Build Status](https://travis-ci.org/iotaledger/goshimmer.svg?branch=master)](https://travis-ci.org/iotaledger/goshimmer)
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/iotaledger/goshimmer/Build?style=for-the-badge) ![GitHub release (latest by date)](https://img.shields.io/github/v/release/iotaledger/goshimmer?style=for-the-badge) ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/iotaledger/goshimmer?style=for-the-badge)
 
 ## Table of Content
 1. [Motivation](#Motivation)
@@ -33,7 +33,7 @@ When all the modules become available, the GoShimmer nodes will become the `Coor
 
 In the following, we describe some of the modules currently implemented. 
 
-**Note:** Please note that not all the modules are currently integrated. 
+> Please note that not all the modules are currently integrated. 
 When they are not, they are typically kept on a different branch. 
 These branches are not compatible with the `master` one (i.e., nodes running code of these branches will not be able to be part of the current network).
 This is beacuse either the code is still on a highly experimental state or different breaking changes are required to be addressed before merging (e.g, atomic transactions, UTXO, binary support). 
@@ -55,24 +55,26 @@ For more information about these API, you can refer to [swagger-link]()
 
 ### Ledger State
 
-The branch `ledger state` implements a first version of the [Parallel-reality](https://iota.cafe/t/parallel-reality-based-ledger-state-using-utxo/261)-based ledger state (using the UTXO model). 
+The branch `ledger state` implements a first version of the [Parallel-reality](https://iota.cafe/t/parallel-reality-based-ledger-state-using-utxo/261) -based ledger state (using the UTXO model). 
 
 ![parallel_reality](images/outputs.png "Ledger State")
 
-### Rate control
+### Work in progress research topics
+
+#### Rate control
 
 Currently, PoW is used to prevent spam. We are working on an `Adaptive-PoW` mechanism described in the [Coordicide-WP](https://coordicide.iota.org/) that we will integrate in a future release.
 Moreover, we are experimenting via simulations on an `Additive Increase Multilpicative Decrease (AIMD)`-based approach for the rate control. You can find the initial source code at this [repository](https://github.com/andypandypi/IOTARateControl). 
 
-### Mana
+#### Mana
 
 The branch `mana` contains a first implementation of `mana` as described in the [Coordicide-WP](https://coordicide.iota.org/). Currently, only the package is provided.
 
-### Cellular Consensus 
+#### Cellular Consensus 
 
 The branch `ca` contains a first implementation of the `Cellular Consensus` as described in the [Coordicide-WP](https://coordicide.iota.org/).
 
-### Fast Probabilistic Consensus
+#### Fast Probabilistic Consensus
 
 The branch `fpc` contains a first implementation of the `Fast Probabilistic Consensus` as described in Popov et al. [paper](https://arxiv.org/pdf/1905.10895.pdf). 
 You can also find a standalone FPC simulator [here](https://github.com/iotaledger/fpc-sim).
@@ -80,22 +82,8 @@ You can also find a standalone FPC simulator [here](https://github.com/iotaledge
 ## Run GoShimmer
 
 You have three options to run GoShimmer:
-
-* via Docker
 * via the binary
 * compiling from the source code
-
-### Docker
-
-To run GoShimmer on docker, you must first build the image with
-```
-docker build -t iotaledger/goshimmer .
-```
-
-To start GoShimmer in the background, you can simply use [Docker Compose](https://docs.docker.com/compose/) by running
-```
-docker-compose up -d
-```
 
 ### Run the binary
 
@@ -119,30 +107,7 @@ To verify that you have installed the minimal required Go version (1.13) run:
 
 ```
 go version
-```
-
-Some packages in this repo might require to be compiled by gcc. Windows users can install [MinGW-gcc](http://tdm-gcc.tdragon.net/download). 
-
-#### Install Glumb visualizer
-
-You're developing on GoShimmer and have checked out the repository:
-```
-(in the root folder)
-git submodule init
-git submodule update
-```
-
-You've downloaded a binary only:
-```bash
-(in the root folder)
-git clone https://github.com/glumb/IOTAtangle.git
-// only this version seems to be stable
-cd IOTAtangle && git reset --hard 07bba77a296a2d06277cdae56aa963abeeb5f66e 
-cd ../
-git clone https://github.com/socketio/socket.io-client.git
-```
-
-In both cases make sure to either define the `Graph` plugin as enabled in `config.json` or via CLI (`--node.enablePlugins="Graph"`)
+``` 
 
 #### Build
 
@@ -182,12 +147,8 @@ GoShimmer supports configuring the exposed services (e.g., changing address and 
 
 There are two ways you can configure GoShimmer:
 
-* via a configuration file
+* via a configuration file (`config.json`)
 * via command line
-
-### Configuration file
-
-To change the default configuration, you can edit the `config.json` file (or the `docker.config.json` one if you want to use docker). 
 
 ### Command line
 
@@ -199,4 +160,30 @@ For a list of all the available configuration parameters you can run:
 
 You can then override the parameters of the `config.json` by using these options.
 
+#### (Optional) Install Glumb visualizer
+
+You're developing on GoShimmer and have checked out the repository:
+```
+(in the root folder)
+git submodule init
+git submodule update
+```
+
+You've downloaded a binary only:
+```bash
+(in the root folder)
+git clone https://github.com/glumb/IOTAtangle.git
+// only this version seems to be stable
+cd IOTAtangle && git reset --hard 07bba77a296a2d06277cdae56aa963abeeb5f66e 
+cd ../
+git clone https://github.com/socketio/socket.io-client.git
+```
+
+In both cases make sure to either define the `Graph` plugin as enabled in `config.json` or via CLI (`--node.enablePlugins="Graph"`)
+
 ## How to contribute
+
+1. Clone the repository.
+2. Create a new branch for your fix or feature `git checkout -b fix/my-fix or feat/my-feat`.
+3. Make sure that your code is properly formatted with `go fmt` and documentation is written for exported members of packages.
+4. Target your PR for to be merged with `dev`.
