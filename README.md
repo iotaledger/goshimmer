@@ -28,8 +28,7 @@ You can have a look at the `main.go` file to see which plugins are currently sup
 ## Modules overview
 
 The `master` branch allows to run a GoShimmer node with a preliminary set of components for enabling `data-transactions`.
-
-When all the modules become available, the GoShimmer nodes will become the `Coordicide-testnet`, which is a release candidate for the next IOTA protocol. You can find more details about our roadmap [here](https://roadmap.iota.org/).
+You can find more details about our roadmap [here](https://roadmap.iota.org/).
 
 In the following, we describe some of the modules currently implemented. 
 
