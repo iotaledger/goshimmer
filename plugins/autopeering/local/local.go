@@ -25,7 +25,7 @@ func configureLocal() *peer.Local {
 
 	ip := net.ParseIP(parameter.NodeConfig.GetString(CFG_ADDRESS))
 	if ip == nil {
-		log.Fatalf("Invalid IP address: %s", parameter.NodeConfig.GetString(CFG_ADDRESS))
+		log.Fatalf("Invalid %s address: %s", CFG_ADDRESS, parameter.NodeConfig.GetString(CFG_ADDRESS))
 	}
 	if ip.IsUnspecified() {
 		log.Info("Querying public IP ...")
@@ -52,10 +52,10 @@ func configureLocal() *peer.Local {
 		str := parameter.NodeConfig.GetString(CFG_SEED)
 		bytes, err := base64.StdEncoding.DecodeString(str)
 		if err != nil {
-			log.Fatalf("Invalid seed: %s", err)
+			log.Fatalf("Invalid %s: %s", CFG_SEED, err)
 		}
 		if l := len(bytes); l != ed25519.SeedSize {
-			log.Fatalf("Invalid seed length: %d, need %d", l, ed25519.SeedSize)
+			log.Fatalf("Invalid %s length: %d, need %d", CFG_SEED, l, ed25519.SeedSize)
 		}
 		seed = append(seed, bytes)
 	}
