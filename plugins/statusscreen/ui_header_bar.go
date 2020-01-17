@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/cli"
 
 	//"strconv"
 	"time"
@@ -49,7 +50,7 @@ func NewUIHeaderBar() *UIHeaderBar {
 		SetBackgroundColor(tcell.ColorDarkMagenta)
 
 	headerBar.Primitive.
-		SetColumns(17, 0).
+		SetColumns(20, 0).
 		SetRows(0).
 		SetBorders(false).
 		AddItem(headerBar.LogoContainer, 0, 0, 1, 1, 0, 0, false).
@@ -142,7 +143,7 @@ func (headerBar *UIHeaderBar) Update() {
 
 func (headerBar *UIHeaderBar) printLogo() {
 	fmt.Fprintln(headerBar.LogoContainer, "")
-	fmt.Fprintln(headerBar.LogoContainer, "   SHIMMER 0.0.1")
+	fmt.Fprintln(headerBar.LogoContainer, "  GOSHIMMER", cli.AppVersion)
 	fmt.Fprintln(headerBar.LogoContainer, "  ┌──────┬──────┐")
 	fmt.Fprintln(headerBar.LogoContainer, "    ───┐ │ ┌───")
 	fmt.Fprintln(headerBar.LogoContainer, "     ┐ │ │ │ ┌")

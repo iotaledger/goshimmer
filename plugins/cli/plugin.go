@@ -13,7 +13,7 @@ import (
 
 const (
 	// AppVersion version number
-	AppVersion = "v0.0.1"
+	AppVersion = "v0.1.0"
 	// AppName app code name
 	AppName = "GoShimmer"
 )
@@ -56,15 +56,18 @@ func LoadConfig() {
 }
 
 func configure(ctx *node.Plugin) {
-	fmt.Println("  _____ _   _ ________  ______  ___ ___________ ")
-	fmt.Println(" /  ___| | | |_   _|  \\/  ||  \\/  ||  ___| ___ \\")
-	fmt.Println(" \\ `--.| |_| | | | | .  . || .  . || |__ | |_/ /")
-	fmt.Println("  `--. \\  _  | | | | |\\/| || |\\/| ||  __||    / ")
-	fmt.Println(" /\\__/ / | | |_| |_| |  | || |  | || |___| |\\ \\ ")
-	fmt.Printf(" \\____/\\_| |_/\\___/\\_|  |_/\\_|  |_/\\____/\\_| \\_| fullnode %s", AppVersion)
-	fmt.Println()
+	fmt.Printf(`
+   _____  ____   _____ _    _ _____ __  __ __  __ ______ _____  
+  / ____|/ __ \ / ____| |  | |_   _|  \/  |  \/  |  ____|  __ \ 
+ | |  __| |  | | (___ | |__| | | | | \  / | \  / | |__  | |__) |
+ | | |_ | |  | |\___ \|  __  | | | | |\/| | |\/| |  __| |  _  / 
+ | |__| | |__| |____) | |  | |_| |_| |  | | |  | | |____| | \ \ 
+  \_____|\____/|_____/|_|  |_|_____|_|  |_|_|  |_|______|_|  \_\
+                             %s                                     
+`, AppVersion)
 	fmt.Println()
 
+	ctx.Node.Logger.Infof("GoShimmer version %s ...", AppVersion)
 	ctx.Node.Logger.Info("Loading plugins ...")
 }
 

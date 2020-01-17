@@ -32,7 +32,7 @@ func printUsage() {
 	fmt.Fprintf(
 		os.Stderr,
 		"\n"+
-			"SHIMMER\n\n"+
+			"GoShimmer\n\n"+
 			"  A lightweight modular IOTA node.\n\n"+
 			"Usage:\n\n"+
 			"  %s [OPTIONS]\n\n"+

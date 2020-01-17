@@ -30,7 +30,7 @@
     "DisableStacktrace": false,
     "Encoding": "console",
     "OutputPaths": [
-      "shimmer.log"
+      "goshimmer.log"
     ]
   },
   "node": {
