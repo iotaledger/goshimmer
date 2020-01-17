@@ -4,15 +4,12 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/cli"
-
-	//"strconv"
 	"time"
 
 	"github.com/gdamore/tcell"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/rivo/tview"
 )
 
