@@ -90,6 +90,14 @@ func start(shutdownSignal <-chan struct{}) {
 	Discovery.Start(srv)
 	defer Discovery.Close()
 
+	//check that discovery is working and the port is open
+	if err := Discovery.Ping(&srv.Local().Peer); err != nil {
+		if err == server.ErrTimeout {
+			log.Fatalf("Please check that your node is publicly reachable @" + srv.LocalAddr() + " [UDP]")
+		}
+		log.Fatalf("Error", err)
+	}
+
 	if Selection != nil {
 		// start the peering on that connection
 		Selection.Start(srv)

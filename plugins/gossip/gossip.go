@@ -10,6 +10,7 @@ import (
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/packages/parameter"
+	"github.com/iotaledger/goshimmer/packages/portchecker"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/logger"
@@ -41,6 +42,11 @@ func configureGossip() {
 
 func start(shutdownSignal <-chan struct{}) {
 	defer log.Info("Stopping Gossip ... done")
+
+	//check that the gossip port is open
+	if portchecker.OpenTCP(mgr.LocalAddr().String()) != nil {
+		log.Fatalf("Please check that your node is publicly reachable @" + mgr.LocalAddr().String() + " [TCP]")
+	}
 
 	srv, err := server.ListenTCP(local.GetInstance(), log)
 	if err != nil {
