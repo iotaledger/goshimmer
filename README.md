@@ -1,132 +1,143 @@
-# GoShimmer
+<h1 align="center">
+  <br>
+  <a href="https://docs.iota.org/docs/node-software/0.1/goshimmer/introduction/overview.md"><img src="images/GoShimmer.png"></a>
+</h1>
 
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/iotaledger/goshimmer/Build?style=for-the-badge) ![GitHub release (latest by date)](https://img.shields.io/github/v/release/iotaledger/goshimmer?style=for-the-badge) ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/iotaledger/goshimmer?style=for-the-badge)
+<h2 align="center">Prototype node software for an IOTA network without the Coordinator</h2>
 
-## Table of Content
-1. [Motivation](#Motivation)
-2. [Design](#Design)
-3. [Modules overview](#Modules-overview)
-4. [Run GoShimmer](#Run-GoShimmer)
-5. [Configure GoShimmer](#Configure-GoShimmer)
-6. [How to contribute](#How-to-contribute)
+<p align="center">
+    <a href="https://docs.iota.org/docs/node-software/0.1/goshimmer/introduction/overview.md" style="text-decoration:none;">
+    <img src="https://img.shields.io/badge/Documentation%20portal-blue.svg?style=for-the-badge" alt="Developer documentation portal">
+</p>
+<p align="center">
+  <a href="https://discord.iota.org/" style="text-decoration:none;"><img src="https://img.shields.io/badge/Discord-9cf.svg?logo=discord" alt="Discord"></a>
+    <a href="https://iota.stackexchange.com/" style="text-decoration:none;"><img src="https://img.shields.io/badge/StackExchange-9cf.svg?logo=stackexchange" alt="StackExchange"></a>
+    <a href="https://github.com/iotaledger/goshimmer/blob/master/LICENSE" style="text-decoration:none;"><img src="https://img.shields.io/github/license/iotaledger/goshimmer.svg" alt="Apache 2.0 license"></a>
+    <a href="https://golang.org/doc/install" style="text-decoration:none;"><img src="https://img.shields.io/github/go-mod/go-version/iotaledger/goshimmer" alt="Go version"></a>
+    <a href="" style="text-decoration:none;"><img src="https://img.shields.io/github/workflow/status/iotaledger/goshimmer/Build" alt="Build status"></a>
+    <a href="" style="text-decoration:none;"><img src="https://img.shields.io/github/v/release/iotaledger/goshimmer" alt="Latest release"></a>
+</p>
+      
+<p align="center">
+  <a href="#about">About</a> ◈
+  <a href="#design">Design</a> ◈
+  <a href="#implemented-coordicide-modules">Implemented Coordicide modules</a> ◈
+  <a href="#work-in-progress-modules">Work-in-progress modules</a> ◈
+  <a href="#installation">Installation</a> ◈
+  <a href="#getting-started">Getting started</a> ◈
+  <a href="#api-reference">API reference</a> ◈
+  <a href="#supporting-the-project">Supporting the project</a> ◈
+  <a href="#joining-the-discussion">Joining the discussion</a> 
+</p>
 
-## Motivation
+---
 
-This repository is where the IOTA Foundation's Research Team experiments and runs simulations of the Coordicide modules to study and evaluate their performance.
-Even though the development of this code is ongoing and hence not finished, we want to give the community the opportunity to follow the development process closely, take part in the testing of the individual modules and learn more about how it works.
+## About
+
+This repository is where the IOTA Foundation's Research Department runs simulations of the Coordicide modules to study and evaluate their performance.
+
+The aim of this open repository is  to give the community the opportunity to follow developments, take part in testing, and learn  more about [Coordicide](https://coordicide.iota.org/).
+
+**Note:** You can find details about future development plans in our [roadmap](https://roadmap.iota.org).
 
 ## Design
 
-GoShimmer is designed in a modular fashion, where each module represents one of the essential [Coordicide components](https://coordicide.iota.org/) as well as core components necessary to work as a fullnode (e.g. gossip layer, ledger state, API).  
+The code in GoShimmer is modular, where each module represents either one of the [Coordicide components](https://coordicide.iota.org/) or a basic node function such as the gossip layer, ledger state, and API.  
 
-![alt text](images/building-blocks.png "Coordicide blueprint")
+![Coordicide blueprint](images/building-blocks.png)
 
-This approach enables to convert the concepts piece-by-piece and more importantly, simultaneous but independent of each other, into a prototype.
-At its core, GoShimmer is based on a `event-driven` approach. We typically define the logic of each module within the folder `packages` and we use the `plugins` folder to enable the node to use a given module, thus, accordingly changing its behavior.
-You can have a look at the `main.go` file to see which plugins are currently supported. 
+This approach allows us to develop each module in parallel and to test GoShimmer with one or more different versions.
 
-## Modules overview
+Each module is defined in the `packages` directory and can be enabled, using the `plugins` directory.
 
-The `master` branch allows to run a GoShimmer node with a preliminary set of components for enabling `data-transactions`.
-You can find more details about our roadmap [here](https://roadmap.iota.org/).
+**Note:** See the `main.go` file to see which plugins are currently supported.
 
-In the following, we describe some of the modules currently implemented. 
+## Implemented Coordicide modules
 
-> Please note that not all the modules are currently fully integrated. 
-When they are not, they are typically kept on a different branch (and described here as *work in progress*). 
-These branches are not compatible with the `master` one (i.e., nodes running code of these branches will not be able to be part of the current network).
-This is beacuse either the code is still on a highly experimental state or different breaking changes are required to be addressed before merging (e.g, atomic transactions, UTXO, binary support). 
+The `master` branch is the stable version of the GoShimmer software, which includes a minimal set of modules to allow you to send and gossip zero-value transactions.
 
-You can also find some libraries that are shared with [Hornet](https://github.com/gohornet/hornet) by checking out the [hive.go](https://github.com/iotaledger/hive.go) repository.
-If you would like to know more about the other modules, just have a look at the code.
+The `master` branch includes the following Coordicide modules: 
 
-### Nodes identity
-Each node creates a unique public/private key pair. The public key is used to identify nodes during autopeering. In the future, these identities will allow nodes to receive mana.
+- [Node identities](https://coordicide.iota.org/module1)
 
-### Autopeering 
-Autopeering is a mechanism that allows nodes to choose their neighbors automatically. More specifically, each new node on the network tries to connect to four neighbors (chosen neighbors) and 
-accepts connections from other four neighbors (accepted neighbors). We describe how it works in our Autopeering blogposts [part-1](https://blog.iota.org/coordicide-update-autopeering-part-1-fc72e21c7e11) and [part-2](https://blog.iota.org/coordicide-update-autopeering-part-2-4e462ba68bd). 
-We also provide a standalone autopeering simulator [here](https://github.com/iotaledger/autopeering-sim), that uses the exact same code we run on GoShimmer.
+- [Autopeering](https://coordicide.iota.org/module2)
+
+
+The autopeering module is divided into two submodules:
+
+- **Peer discovery:** Responsible for operations such as discovering new peers and verifying their online status
+
+- **Neighbor selection:** Responsible for finding and managing neighbors
 
 ![autopeering](images/autopeering.png "Autopeering design")
 
-We have logically divided the autopeering module into two main submodules: peer discovery and neighbor selection. 
-The former is responsible for operations, such as discovering new peers and verifying their online status. 
-The latter is responsible for finding and managing neighbors for IOTA’s nodes.
+## Work-in-progress modules
 
-### Web-API
+Work-in-progress modules are typically kept on a different branch such as `mana`, and are not compatible with the `master` branch. Therefore, nodes that run these branches cannot join the current network because the code either is still too experimental or it includes breaking changes.
 
-For more information about these API, you can refer to [swagger-link]()
+The following Coordicide modules are a work in progress: 
 
-### Ledger State
+- [Mana](https://coordicide.iota.org/module1): The `mana` branch contains a first implementation of the mana module in the `packages` directory.
 
-The branch `ledger state` implements a first version of the [Parallel-reality](https://iota.cafe/t/parallel-reality-based-ledger-state-using-utxo/261) -based ledger state (using the UTXO model). 
+- [Cellular Consensus](https://coordicide.iota.org/module5.1.1): The `ca` branch contains a first implementation of the Cellular Consensus module in the `packages` directory.
 
-![parallel_reality](images/outputs.png "Ledger State")
+- [Fast Probabilistic Consensus](https://coordicide.iota.org/module5.1.2): The `fpc` branch contains a first implementation of the Fast Probabilistic Consensus  module in the `packages` directory. You can also find a standalone FPC simulator [here](https://github.com/iotaledger/fpc-sim).
 
-### Work in progress research topics
+- [Spam Protection](https://coordicide.iota.org/module3): You can find the initial source code in this [repository](https://github.com/andypandypi/IOTARateControl).
 
-#### Rate control
+As well as these modules, we are working on the following node functions:
 
-Currently, PoW is used to prevent spam. We are working on an `Adaptive-PoW` mechanism described in the [Coordicide-WP](https://coordicide.iota.org/) that we will integrate in a future release.
-Moreover, we are experimenting via simulations on an `Additive Increase Multilpicative Decrease (AIMD)`-based approach for the rate control. You can find the initial source code at this [repository](https://github.com/andypandypi/IOTARateControl). 
+- Ledger State: The `ledger_state` branch implements a version of the [parallel-reality-based ledger state](https://iota.cafe/t/parallel-reality-based-ledger-state-using-utxo/261) (using the UTXO model). 
 
-#### Mana
+    ![parallel_reality](images/outputs.png "Ledger State")
 
-The branch `mana` contains a first implementation of `mana` as described in the [Coordicide-WP](https://coordicide.iota.org/). Currently, only the package is provided.
+## API reference
 
-#### Cellular Consensus 
+For a full list of API commands for GoShimmer, go to the [our Swagger page]().
 
-The branch `ca` contains a first implementation of the `Cellular Consensus` as described in the [Coordicide-WP](https://coordicide.iota.org/).
+## Installation
 
-#### Fast Probabilistic Consensus
+You have two options to install and run GoShimmer:
 
-The branch `fpc` contains a first implementation of the `Fast Probabilistic Consensus` as described in Popov et al. [paper](https://arxiv.org/pdf/1905.10895.pdf). 
-You can also find a standalone FPC simulator [here](https://github.com/iotaledger/fpc-sim).
+- Use the precompiled executable file
+- Compile the code from source
 
-## Run GoShimmer
+### Execute the precompiled executable file
 
-You have three options to run GoShimmer:
-* via the binary
-* compiling from the source code
+This repository includes a `goshimmer` file (for Linux and macOS) and a `goshimmer.exe` file (for Windows), which are precompiled executables.
 
-### Run the binary
+To run the node, all you need to do is execute one of these files, depending on your operating system.
 
-Linux/MacOSX
-```
+```bash
+# Linux and macOS
 ./goshimmer
-```
-
-Windows
-```
+# Windows
 goshimmer.exe
 ```
 
-### Compile from source code
+### Compile the code from source
+
+If you want to build your own executable file, you need to follow these steps.
 
 #### Prerequisites
 
-First, you need to [install Go](https://golang.org/doc/install) if it is not already installed on your machine. It is recommended that you use the most recent version of Go.
+To complete this guide, you need to [have at least version 1.13 of Go](https://golang.org/doc/install)installed on your device.
 
-To verify that you have installed the minimal required Go version (1.13) run:
+To check if you have Go installed, run the following command:
 
-```
+```bash
 go version
-``` 
+```
 
-#### Build
+If Go is installed, you should see the version that's installed.
+
+---
 
 1. Clone the repository
 
-```
-git clone git@github.com:iotaledger/goshimmer.git
-```
-
-or if you prefer https over ssh
-
-```
-git clone https://github.com/iotaledger/goshimmer.git
-```
+    ```bash
+    git clone https://github.com/iotaledger/goshimmer.git
+    ```
 
 2. Change into the `goshimmer` directory
 
@@ -141,68 +152,75 @@ git clone https://github.com/iotaledger/goshimmer.git
 
     **Note:** If you're using Windows PowerShell, enclose `goshimmer.exe` in single quotation marks. For example: go build -o 'goshimmer.exe'.
 
-4. Use one of the following commands to run the executable, depending on your operating system
+## Getting started
+
+When you first run GoShimmer, the node starts running and tries to connects to neighbors, using the autopeering module.
+
+To run other modules such as `spammer` or `zeromq`, you can configure GoShimmer to enable them through plugins.
+
+**Note:** For a list of all the available configuration parameters, you can run the following command:
+
+```bash
+# Linux and macOS
+./goshimmer -help
+# Windows
+goshimmer.exe -help
+```
+
+You can configure GoShimmer in the following ways:
+
+* Use a configuration file called `config.json`
+* Use command-line options
+
+The repository includes a `config.json` file, which the executable file will find and use when you execute it.
+
+To use the command line, execute the file with one of the following commands, depending on your operating system
+
+```bash
+# Linux and macOS
+./goshimmer --node.enablePlugins "spammer zeromq dashboard"
+# Windows
+goshimmer.exe --node.enablePlugins "spammer zeromq dashboard"
+```
+
+Here, we use the command-line flags to enable the spammer, ZMQ, and dashboard plugins. These plugins allow you to send spam transactions to your node, monitor it for incoming transactions, and view the total number of transactions that it's processing in a web dashboard.
+
+### Installing the Glumb visualizer
+
+The Glumb visualiser allows you to view the transactions in the network, using a web browser.
+
+1. Enable the `Graph` plugin either in your `config.json` file or in the command line (`--node.enablePlugins="Graph"`)
+
+2. If you're running GoShimmer with the precompiled executable file, do the following:
 
     ```bash
-    # Linux and macOS
-    ./goshimmer
-    # Windows
-    goshimmer.exe
+    (in the root folder)
+    git clone https://github.com/glumb/IOTAtangle.git
+    // only this version seems to be stable
+    cd IOTAtangle && git reset --hard 07bba77a296a2d06277cdae56aa963abeeb5f66e 
+    cd ../
+    git clone https://github.com/socketio/socket.io-client.git
     ```
 
-Linux/MacOSX
-```
+3. If you built the code from source, do the following in the `goshimmer` directory:
 
-```
+    ```bash
+    git submodule init
+    git submodule update
+    ```
 
-Windows
-```
+## Supporting the project
 
-```
+If you want to contribute to the code, consider posting a [bug report](https://github.com/iotaledger/goshimmer/issues/new-issue), feature request or a [pull request](https://github.com/iotaledger/goshimmer/pulls/).
 
-## Configure GoShimmer
+When creating a pull request, we recommend that you do the following:
 
-GoShimmer supports configuring the exposed services (e.g., changing address and ports) as well as the enabled/disabled plugins. 
+1. Clone the repository
+2. Create a new branch for your fix or feature. For example, `git checkout -b fix/my-fix` or ` git checkout -b feat/my-feature`.
+3. Run the `go fmt` command to make sure your code is well formatted
+4. Document any exported packages
+5. Target your pull request to be merged with `dev`
 
-There are two ways you can configure GoShimmer:
+## Joining the discussion
 
-* via a configuration file (`config.json`)
-* via command line
-
-### Command line
-
-For a list of all the available configuration parameters you can run:
-
-```
-./goshimmer --help
-```
-
-You can then override the parameters of the `config.json` by using these options.
-
-#### (Optional) Install Glumb visualizer
-
-You're developing on GoShimmer and have checked out the repository:
-```
-(in the root folder)
-git submodule init
-git submodule update
-```
-
-You've downloaded a binary only:
-```bash
-(in the root folder)
-git clone https://github.com/glumb/IOTAtangle.git
-// only this version seems to be stable
-cd IOTAtangle && git reset --hard 07bba77a296a2d06277cdae56aa963abeeb5f66e 
-cd ../
-git clone https://github.com/socketio/socket.io-client.git
-```
-
-In both cases make sure to either define the `Graph` plugin as enabled in `config.json` or via CLI (`--node.enablePlugins="Graph"`)
-
-## How to contribute
-
-1. Clone the repository.
-2. Create a new branch for your fix or feature `git checkout -b fix/my-fix or feat/my-feat`.
-3. Make sure that your code is properly formatted with `go fmt` and documentation is written for exported members of packages.
-4. Target your PR for to be merged with `dev`.
+If you want to get involved in the community, need help getting started, have any issues related to the repository or just want to discuss blockchain, distributed ledgers, and IoT with other people, feel free to join our [Discord](https://discord.iota.org/).
