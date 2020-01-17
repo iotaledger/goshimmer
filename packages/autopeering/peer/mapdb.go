@@ -67,6 +67,15 @@ func (db *mapDB) LocalPrivateKey() (PrivateKey, error) {
 	return db.key, nil
 }
 
+// UpdateLocalPrivateKey stores the provided key in the database.
+func (db *mapDB) UpdateLocalPrivateKey(key PrivateKey) error {
+	db.mutex.Lock()
+	defer db.mutex.Unlock()
+
+	db.key = key
+	return nil
+}
+
 // LastPing returns that property for the given peer ID and address.
 func (db *mapDB) LastPing(id ID, address string) time.Time {
 	db.mutex.RLock()

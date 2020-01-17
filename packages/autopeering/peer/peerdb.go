@@ -28,6 +28,8 @@ const (
 type DB interface {
 	// LocalPrivateKey returns the private key stored in the database or creates a new one.
 	LocalPrivateKey() (PrivateKey, error)
+	// UpdateLocalPrivateKey stores the provided key in the database.
+	UpdateLocalPrivateKey(key PrivateKey) error
 
 	// Peer retrieves a peer from the database.
 	Peer(id ID) *Peer
@@ -175,7 +177,7 @@ func (db *persistentDB) LocalPrivateKey() (PrivateKey, error) {
 	if err == database.ErrKeyNotFound {
 		key, err = generatePrivateKey()
 		if err == nil {
-			err = db.db.Set(localFieldKey(dbLocalKey), key)
+			err = db.UpdateLocalPrivateKey(key)
 		}
 		return key, err
 	}
@@ -184,6 +186,11 @@ func (db *persistentDB) LocalPrivateKey() (PrivateKey, error) {
 	}
 
 	return key, nil
+}
+
+// UpdateLocalPrivateKey stores the provided key in the database.
+func (db *persistentDB) UpdateLocalPrivateKey(key PrivateKey) error {
+	return db.db.Set(localFieldKey(dbLocalKey), key)
 }
 
 // LastPing returns that property for the given peer ID and address.

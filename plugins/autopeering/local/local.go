@@ -1,6 +1,8 @@
 package local
 
 import (
+	"crypto/ed25519"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -40,7 +42,25 @@ func configureLocal() *peer.Local {
 	// create a new local node
 	db := peer.NewPersistentDB(log)
 
-	local, err := peer.NewLocal("udp", net.JoinHostPort(ip.String(), port), db)
+	// the private key seed of the current local can be returned the following way:
+	// key, _ := db.LocalPrivateKey()
+	// fmt.Println(base64.StdEncoding.EncodeToString(ed25519.PrivateKey(key).Seed()))
+
+	// set the private key from the seed provided in the config
+	var seed [][]byte
+	if parameter.NodeConfig.IsSet(CFG_SEED) {
+		str := parameter.NodeConfig.GetString(CFG_SEED)
+		bytes, err := base64.StdEncoding.DecodeString(str)
+		if err != nil {
+			log.Fatalf("Invalid seed: %s", err)
+		}
+		if l := len(bytes); l != ed25519.SeedSize {
+			log.Fatalf("Invalid seed length: %d, need %d", l, ed25519.SeedSize)
+		}
+		seed = append(seed, bytes)
+	}
+
+	local, err := peer.NewLocal("udp", net.JoinHostPort(ip.String(), port), db, seed...)
 	if err != nil {
 		log.Fatalf("Error creating local: %s", err)
 	}
