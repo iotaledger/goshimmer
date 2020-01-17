@@ -50,18 +50,9 @@ func NewLocal(network string, address string, db DB) (*Local, error) {
 	if l := len(key); l != ed25519.PrivateKeySize {
 		return nil, fmt.Errorf("invalid key length: %d, need %d", l, ed25519.PublicKeySize)
 	}
-	services, err := db.LocalServices()
-	if err != nil {
-		return nil, err
-	}
-	serviceRecord := services.CreateRecord()
-
-	// update the external address used for the peering and store back in DB
+	// update the external address used for the peering
+	serviceRecord := service.New()
 	serviceRecord.Update(service.PeeringKey, network, address)
-	err = db.UpdateLocalServices(serviceRecord)
-	if err != nil {
-		return nil, err
-	}
 
 	return newLocal(key, serviceRecord, db), nil
 }
@@ -81,12 +72,8 @@ func (l *Local) UpdateService(key service.Key, network string, address string) e
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// update the service in the read protected map and store back in DB
+	// update the service in the read protected map
 	l.serviceRecord.Update(key, network, address)
-	err := l.db.UpdateLocalServices(l.serviceRecord)
-	if err != nil {
-		return err
-	}
 
 	// create a new peer with the corresponding services
 	l.Peer = *NewPeer(l.key.Public(), l.serviceRecord)

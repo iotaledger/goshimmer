@@ -94,16 +94,20 @@ func setupHooks(plugin *node.Plugin, conn *network.ManagedConnection, eventDispa
 		eventDispatchers.RemoveNode(ev.Peer.ID().Bytes())
 	})
 
+	onAddChosenNeighbor := events.NewClosure(func(ev *selection.PeeringEvent) {
+		if ev.Status {
+			eventDispatchers.ConnectNodes(local.GetInstance().ID().Bytes(), ev.Peer.ID().Bytes())
+		}
+	})
+
 	onAddAcceptedNeighbor := events.NewClosure(func(ev *selection.PeeringEvent) {
-		eventDispatchers.ConnectNodes(ev.Peer.ID().Bytes(), local.GetInstance().ID().Bytes())
+		if ev.Status {
+			eventDispatchers.ConnectNodes(ev.Peer.ID().Bytes(), local.GetInstance().ID().Bytes())
+		}
 	})
 
 	onRemoveNeighbor := events.NewClosure(func(ev *selection.DroppedEvent) {
 		eventDispatchers.DisconnectNodes(ev.DroppedID.Bytes(), local.GetInstance().ID().Bytes())
-	})
-
-	onAddChosenNeighbor := events.NewClosure(func(ev *selection.PeeringEvent) {
-		eventDispatchers.ConnectNodes(local.GetInstance().ID().Bytes(), ev.Peer.ID().Bytes())
 	})
 
 	// setup hooks /////////////////////////////////////////////////////////////////////////////////////////////////////

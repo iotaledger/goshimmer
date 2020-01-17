@@ -39,6 +39,9 @@ func configureEvents() {
 		}()
 	}))
 	selection.Events.IncomingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
+		if !ev.Status {
+			return // ignore rejected peering
+		}
 		go func() {
 			if err := mgr.AddInbound(ev.Peer); err != nil {
 				log.Debugw("error adding inbound", "id", ev.Peer.ID(), "err", err)
@@ -46,6 +49,9 @@ func configureEvents() {
 		}()
 	}))
 	selection.Events.OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
+		if !ev.Status {
+			return // ignore rejected peering
+		}
 		go func() {
 			if err := mgr.AddOutbound(ev.Peer); err != nil {
 				log.Debugw("error adding outbound", "id", ev.Peer.ID(), "err", err)
