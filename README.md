@@ -128,22 +128,36 @@ or if you prefer https over ssh
 git clone https://github.com/iotaledger/goshimmer.git
 ```
 
-2. You can build your executable (as well as cross compiling for other architectures) by running the `go build` tool inside the just cloned folder `goshimmer`:
+2. Change into the `goshimmer` directory
 
-```
-go build -o goshimmer (or goshimmer.exe)
-```
+3. Use one of the following commands to build your executable file, depending on your operating system
 
-3. You can then run by:
+    ```bash
+    # Linux and macOS
+    go build -o goshimmer
+    # Windows
+    go build -o  goshimmer.exe
+    ```
+
+    **Note:** If you're using Windows PowerShell, enclose `goshimmer.exe` in single quotation marks. For example: go build -o 'goshimmer.exe'.
+
+4. Use one of the following commands to run the executable, depending on your operating system
+
+    ```bash
+    # Linux and macOS
+    ./goshimmer
+    # Windows
+    goshimmer.exe
+    ```
 
 Linux/MacOSX
 ```
-./goshimmer
+
 ```
 
 Windows
 ```
-goshimmer.exe
+
 ```
 
 ## Configure GoShimmer
