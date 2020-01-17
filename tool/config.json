@@ -1,0 +1,10 @@
+{
+  "relaycheck": {
+    "targetnode": "http://127.0.0.1:8080",
+    "neighbor": "http://127.0.0.1:8080",
+    "txnaddress": "SHIMMER99TEST99999999999999999999999999999999999999999999999999999999999999999999", 
+    "data": "TEST99BROADCAST99DATA",
+    "cooldowntime": 10,
+    "maxquery": 2 
+  }
+}
