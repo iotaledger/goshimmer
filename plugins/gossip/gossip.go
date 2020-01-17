@@ -3,15 +3,18 @@ package gossip
 import (
 	"fmt"
 	"net"
+	"runtime"
 	"strconv"
+	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/errors"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/packages/parameter"
-	"github.com/iotaledger/goshimmer/packages/portchecker"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -43,24 +46,48 @@ func configureGossip() {
 func start(shutdownSignal <-chan struct{}) {
 	defer log.Info("Stopping Gossip ... done")
 
-	//check that the gossip port is open
-	if portchecker.OpenTCP(mgr.LocalAddr().String()) != nil {
-		log.Fatalf("Please check that your node is publicly reachable @" + mgr.LocalAddr().String() + " [TCP]")
-	}
-
 	srv, err := server.ListenTCP(local.GetInstance(), log)
 	if err != nil {
 		log.Fatalf("ListenTCP: %v", err)
 	}
 	defer srv.Close()
 
+	//check that the server is working and the port is open
+	log.Info("Testing server ...")
+	checkConnection(srv, &local.GetInstance().Peer)
+	log.Info("Testing server ... done")
+
 	mgr.Start(srv)
 	defer mgr.Close()
 
-	log.Infof("Gossip started: address=%v", mgr.LocalAddr())
+	log.Infof("Gossip started: address=%s/%s", mgr.LocalAddr().String(), mgr.LocalAddr().Network())
 
 	<-shutdownSignal
 	log.Info("Stopping Gossip ...")
+}
+
+func checkConnection(srv *server.TCP, self *peer.Peer) {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		conn, err := srv.AcceptPeer(self)
+		if err != nil {
+			return
+		}
+		_ = conn.Close()
+	}()
+	runtime.Gosched()
+	conn, err := srv.DialPeer(self)
+	if err != nil {
+		if err == server.ErrTimeout {
+			log.Panicf("Please check that %s is publicly reachable at %s/%s",
+				cli.AppName, srv.LocalAddr().String(), srv.LocalAddr().Network())
+		}
+		log.Panicf("Error: %s", err)
+	}
+	_ = conn.Close()
+	wg.Wait()
 }
 
 func loadTransaction(hash []byte) ([]byte, error) {
