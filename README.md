@@ -69,7 +69,9 @@ The autopeering module is divided into two submodules:
 
 - **Neighbor selection:** Responsible for finding and managing neighbors
 
-![autopeering](images/autopeering.png "Autopeering design")
+![Autopeering design](images/autopeering.png)
+
+We also have a standalone autopeering simulator in this [repository](https://github.com/iotaledger/autopeering-sim).
 
 ## Work-in-progress modules
 
@@ -81,7 +83,7 @@ The following Coordicide modules are a work in progress:
 
 - [Cellular Consensus](https://coordicide.iota.org/module5.1.1): The `ca` branch contains a first implementation of the Cellular Consensus module in the `packages` directory.
 
-- [Fast Probabilistic Consensus](https://coordicide.iota.org/module5.1.2): The `fpc` branch contains a first implementation of the Fast Probabilistic Consensus  module in the `packages` directory. You can also find a standalone FPC simulator [here](https://github.com/iotaledger/fpc-sim).
+- [Fast Probabilistic Consensus](https://coordicide.iota.org/module5.1.2): The `fpc` branch contains a first implementation of the Fast Probabilistic Consensus  module in the `packages` directory. We also have a standalone FPC simulator in this [repository](https://github.com/iotaledger/fpc-sim).
 
 - [Spam Protection](https://coordicide.iota.org/module3): You can find the initial source code in this [repository](https://github.com/andypandypi/IOTARateControl).
 
