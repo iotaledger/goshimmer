@@ -4,16 +4,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
 )
 
 // mapDB is a simple implementation of DB using a map.
 type mapDB struct {
-	mutex    sync.RWMutex
-	m        map[string]peerEntry
-	key      PrivateKey
-	services *service.Record
+	mutex sync.RWMutex
+	m     map[string]peerEntry
+	key   PrivateKey
 
 	log *logger.Logger
 
@@ -34,10 +32,9 @@ type peerPropEntry struct {
 // NewMemoryDB creates a new DB that uses a GO map.
 func NewMemoryDB(log *logger.Logger) DB {
 	db := &mapDB{
-		m:        make(map[string]peerEntry),
-		services: service.New(),
-		log:      log,
-		closing:  make(chan struct{}),
+		m:       make(map[string]peerEntry),
+		log:     log,
+		closing: make(chan struct{}),
 	}
 
 	// start the expirer routine
@@ -68,24 +65,6 @@ func (db *mapDB) LocalPrivateKey() (PrivateKey, error) {
 	}
 
 	return db.key, nil
-}
-
-// LocalServices returns the services stored in the database or creates an empty map.
-func (db *mapDB) LocalServices() (service.Service, error) {
-	db.mutex.RLock()
-	defer db.mutex.RUnlock()
-
-	return db.services, nil
-}
-
-// UpdateLocalServices updates the services stored in the database.
-func (db *mapDB) UpdateLocalServices(services service.Service) error {
-	record := services.CreateRecord()
-
-	db.mutex.Lock()
-	defer db.mutex.Unlock()
-	db.services = record
-	return nil
 }
 
 // LastPing returns that property for the given peer ID and address.
