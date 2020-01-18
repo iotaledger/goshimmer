@@ -14,7 +14,6 @@ func testBroadcastData(api *client.GoShimmerAPI) (trinary.Hash, error) {
 	if err != nil {
 		return "", errors.Wrapf(err, "Broadcast failed")
 	}
-	fmt.Printf("txnHash: %s\n", txnHash)
 	return txnHash, nil
 }
 
@@ -51,6 +50,7 @@ func main() {
 			fmt.Printf("%s\n", err)
 			break
 		}
+		fmt.Printf("txnHash: %s\n", txnHash)
 
 		// cooldown time
 		time.Sleep(time.Duration(cooldown) * time.Second)
