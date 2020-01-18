@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -91,12 +92,15 @@ func start(shutdownSignal <-chan struct{}) {
 	defer Discovery.Close()
 
 	//check that discovery is working and the port is open
+	log.Info("Testing server ...")
 	if err := Discovery.Ping(&srv.Local().Peer); err != nil {
 		if err == server.ErrTimeout {
-			log.Fatalf("Please check that your node is publicly reachable @" + srv.LocalAddr() + " [UDP]")
+			log.Panicf("Please check that %s is publicly reachable at %s/udp",
+				cli.AppName, srv.LocalAddr())
 		}
-		log.Fatalf("Error", err)
+		log.Panicf("Error: %s", err)
 	}
+	log.Info("Testing server ... done")
 
 	if Selection != nil {
 		// start the peering on that connection
@@ -104,7 +108,7 @@ func start(shutdownSignal <-chan struct{}) {
 		defer Selection.Close()
 	}
 
-	log.Infof("Auto Peering started: address=%s", srv.LocalAddr())
+	log.Infof("Auto Peering started: address=%s/udp", srv.LocalAddr())
 	log.Debugf("Auto Peering server started: PubKey=%s", base64.StdEncoding.EncodeToString(local.GetInstance().PublicKey()))
 
 	<-shutdownSignal
