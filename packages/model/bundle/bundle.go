@@ -2,11 +2,11 @@ package bundle
 
 import (
 	"encoding/binary"
-	"strconv"
+	"fmt"
 	"sync"
 	"unsafe"
 
-	"github.com/iotaledger/goshimmer/packages/errors"
+	"github.com/iotaledger/goshimmer/packages/model"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
@@ -140,17 +140,17 @@ func (bundle *Bundle) Marshal() (result []byte) {
 	return
 }
 
-func (bundle *Bundle) Unmarshal(data []byte) (err errors.IdentifiableError) {
+func (bundle *Bundle) Unmarshal(data []byte) error {
 	dataLen := len(data)
 
 	if dataLen < MARSHALED_MIN_SIZE {
-		return ErrMarshallFailed.Derive(errors.New("unmarshall failed"), "marshaled bundle is too short")
+		return fmt.Errorf("%w: marshaled bundle is too short", model.ErrMarshalFailed)
 	}
 
 	hashesCount := binary.BigEndian.Uint64(data[MARSHALED_TRANSACTIONS_COUNT_START:MARSHALED_TRANSACTIONS_COUNT_END])
 
 	if dataLen < MARSHALED_MIN_SIZE+int(hashesCount)*MARSHALED_TRANSACTION_HASH_SIZE {
-		return ErrMarshallFailed.Derive(errors.New("unmarshall failed"), "marshaled bundle is too short for "+strconv.FormatUint(hashesCount, 10)+" transactions")
+		return fmt.Errorf("%w: marshaled bundle is too short for %d transactions", model.ErrMarshalFailed, hashesCount)
 	}
 
 	bundle.hashMutex.Lock()
@@ -179,5 +179,5 @@ func (bundle *Bundle) Unmarshal(data []byte) (err errors.IdentifiableError) {
 	bundle.bundleEssenceHashMutex.Unlock()
 	bundle.hashMutex.Unlock()
 
-	return
+	return nil
 }

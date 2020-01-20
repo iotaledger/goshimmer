@@ -1,6 +1,6 @@
 package gossip
 
-import "github.com/pkg/errors"
+import "errors"
 
 var (
 	ErrNotStarted        = errors.New("manager not started")

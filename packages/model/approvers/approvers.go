@@ -2,10 +2,10 @@ package approvers
 
 import (
 	"encoding/binary"
-	"strconv"
+	"fmt"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/errors"
+	"github.com/iotaledger/goshimmer/packages/model"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
 )
@@ -86,17 +86,17 @@ func (approvers *Approvers) Marshal() (result []byte) {
 	return
 }
 
-func (approvers *Approvers) Unmarshal(data []byte) (err errors.IdentifiableError) {
+func (approvers *Approvers) Unmarshal(data []byte) error {
 	dataLen := len(data)
 
 	if dataLen < MARSHALED_APPROVERS_MIN_SIZE {
-		return ErrMarshallFailed.Derive(errors.New("unmarshall failed"), "marshaled approvers are too short")
+		return fmt.Errorf("%w: marshaled approvers are too short", model.ErrMarshalFailed)
 	}
 
 	hashesCount := binary.BigEndian.Uint64(data[MARSHALED_APPROVERS_HASHES_COUNT_START:MARSHALED_APPROVERS_HASHES_COUNT_END])
 
 	if dataLen < MARSHALED_APPROVERS_MIN_SIZE+int(hashesCount)*MARSHALED_APPROVERS_HASH_SIZE {
-		return ErrMarshallFailed.Derive(errors.New("unmarshall failed"), "marshaled approvers are too short for "+strconv.FormatUint(hashesCount, 10)+" approvers")
+		return fmt.Errorf("%w: marshaled approvers are too short for %d approvers", model.ErrMarshalFailed, hashesCount)
 	}
 
 	approvers.hashesMutex.Lock()
@@ -112,7 +112,7 @@ func (approvers *Approvers) Unmarshal(data []byte) (err errors.IdentifiableError
 
 	approvers.hashesMutex.Unlock()
 
-	return
+	return nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

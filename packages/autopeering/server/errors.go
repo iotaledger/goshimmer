@@ -1,6 +1,6 @@
 package server
 
-import "github.com/pkg/errors"
+import "errors"
 
 var (
 	// ErrTimeout is returned when an expected response was not received in time.

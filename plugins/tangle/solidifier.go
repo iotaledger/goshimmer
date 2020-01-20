@@ -4,7 +4,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/model/approvers"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
@@ -69,7 +68,7 @@ func runSolidifier() {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Checks and updates the solid flag of a single transaction.
-func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool, err errors.IdentifiableError) {
+func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool, err error) {
 	// abort if transaction is solid already
 	txMetadata, metaDataErr := GetTransactionMetadata(transaction.GetHash(), transactionmetadata.New)
 	if metaDataErr != nil {
@@ -140,7 +139,7 @@ func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool
 }
 
 // Checks and updates the solid flag of a transaction and its approvers (future cone).
-func IsSolid(transaction *value_transaction.ValueTransaction) (bool, errors.IdentifiableError) {
+func IsSolid(transaction *value_transaction.ValueTransaction) (bool, error) {
 	if isSolid, err := checkSolidity(transaction); err != nil {
 		return false, err
 	} else if isSolid {
@@ -154,7 +153,7 @@ func IsSolid(transaction *value_transaction.ValueTransaction) (bool, errors.Iden
 	return false, nil
 }
 
-func propagateSolidity(transactionHash trinary.Trytes) errors.IdentifiableError {
+func propagateSolidity(transactionHash trinary.Trytes) error {
 	if transactionApprovers, err := GetApprovers(transactionHash, approvers.New); err != nil {
 		return err
 	} else {

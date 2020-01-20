@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
-	"github.com/iotaledger/goshimmer/packages/errors"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/packages/parameter"
@@ -62,7 +61,7 @@ func loadTransaction(hash []byte) ([]byte, error) {
 
 	tx, err := tangle.GetTransaction(typeutils.BytesToString(hash))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get transaction")
+		return nil, fmt.Errorf("could not get transaction: %w", err)
 	}
 	if tx == nil {
 		return nil, fmt.Errorf("transaction not found: hash=%s", hash)

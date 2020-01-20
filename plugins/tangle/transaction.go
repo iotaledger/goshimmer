@@ -1,8 +1,9 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/hive.go/lru_cache"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -11,7 +12,7 @@ import (
 
 // region public api ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-func GetTransaction(transactionHash trinary.Trytes, computeIfAbsent ...func(trinary.Trytes) *value_transaction.ValueTransaction) (result *value_transaction.ValueTransaction, err errors.IdentifiableError) {
+func GetTransaction(transactionHash trinary.Trytes, computeIfAbsent ...func(trinary.Trytes) *value_transaction.ValueTransaction) (result *value_transaction.ValueTransaction, err error) {
 	if cacheResult := transactionCache.ComputeIfAbsent(transactionHash, func() interface{} {
 		if transaction, dbErr := getTransactionFromDatabase(transactionHash); dbErr != nil {
 			err = dbErr
@@ -33,7 +34,7 @@ func GetTransaction(transactionHash trinary.Trytes, computeIfAbsent ...func(trin
 	return
 }
 
-func ContainsTransaction(transactionHash trinary.Trytes) (result bool, err errors.IdentifiableError) {
+func ContainsTransaction(transactionHash trinary.Trytes) (result bool, err error) {
 	if transactionCache.Contains(transactionHash) {
 		result = true
 	} else {
@@ -89,10 +90,10 @@ func configureTransactionDatabase() {
 	}
 }
 
-func storeTransactionInDatabase(transaction *value_transaction.ValueTransaction) errors.IdentifiableError {
+func storeTransactionInDatabase(transaction *value_transaction.ValueTransaction) error {
 	if transaction.GetModified() {
 		if err := transactionDatabase.Set(typeutils.StringToBytes(transaction.GetHash()), transaction.MetaTransaction.GetBytes()); err != nil {
-			return ErrDatabaseError.Derive(err, "failed to store transaction")
+			return fmt.Errorf("%w: failed to store transaction: %s", ErrDatabaseError, err.Error())
 		}
 
 		transaction.SetModified(false)
@@ -101,22 +102,21 @@ func storeTransactionInDatabase(transaction *value_transaction.ValueTransaction)
 	return nil
 }
 
-func getTransactionFromDatabase(transactionHash trinary.Trytes) (*value_transaction.ValueTransaction, errors.IdentifiableError) {
+func getTransactionFromDatabase(transactionHash trinary.Trytes) (*value_transaction.ValueTransaction, error) {
 	txData, err := transactionDatabase.Get(typeutils.StringToBytes(transactionHash))
 	if err != nil {
 		if err == database.ErrKeyNotFound {
 			return nil, nil
-		} else {
-			return nil, ErrDatabaseError.Derive(err, "failed to retrieve transaction")
 		}
+		return nil, fmt.Errorf("%w: failed to retrieve transaction: %s", ErrDatabaseError, err)
 	}
 
 	return value_transaction.FromBytes(txData), nil
 }
 
-func databaseContainsTransaction(transactionHash trinary.Trytes) (bool, errors.IdentifiableError) {
+func databaseContainsTransaction(transactionHash trinary.Trytes) (bool, error) {
 	if contains, err := transactionDatabase.Contains(typeutils.StringToBytes(transactionHash)); err != nil {
-		return contains, ErrDatabaseError.Derive(err, "failed to check if the transaction exists")
+		return contains, fmt.Errorf("%w: failed to check if the transaction exists: %s", ErrDatabaseError, err)
 	} else {
 		return contains, nil
 	}

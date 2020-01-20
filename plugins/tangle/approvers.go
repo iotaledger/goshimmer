@@ -1,8 +1,9 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/approvers"
 	"github.com/iotaledger/hive.go/lru_cache"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -12,7 +13,7 @@ import (
 // region global public api ////////////////////////////////////////////////////////////////////////////////////////////
 
 // GetApprovers retrieves approvers from the database.
-func GetApprovers(transactionHash trinary.Trytes, computeIfAbsent ...func(trinary.Trytes) *approvers.Approvers) (result *approvers.Approvers, err errors.IdentifiableError) {
+func GetApprovers(transactionHash trinary.Trytes, computeIfAbsent ...func(trinary.Trytes) *approvers.Approvers) (result *approvers.Approvers, err error) {
 	if cacheResult := approversCache.ComputeIfAbsent(transactionHash, func() interface{} {
 		if dbApprovers, dbErr := getApproversFromDatabase(transactionHash); dbErr != nil {
 			err = dbErr
@@ -34,7 +35,7 @@ func GetApprovers(transactionHash trinary.Trytes, computeIfAbsent ...func(trinar
 	return
 }
 
-func ContainsApprovers(transactionHash trinary.Trytes) (result bool, err errors.IdentifiableError) {
+func ContainsApprovers(transactionHash trinary.Trytes) (result bool, err error) {
 	if approversCache.Contains(transactionHash) {
 		result = true
 	} else {
@@ -88,10 +89,10 @@ func configureApproversDatabase() {
 	}
 }
 
-func storeApproversInDatabase(approvers *approvers.Approvers) errors.IdentifiableError {
+func storeApproversInDatabase(approvers *approvers.Approvers) error {
 	if approvers.GetModified() {
 		if err := approversDatabase.Set(typeutils.StringToBytes(approvers.GetHash()), approvers.Marshal()); err != nil {
-			return ErrDatabaseError.Derive(err, "failed to store approvers")
+			return fmt.Errorf("%w: failed to store approvers: %s", ErrDatabaseError, err)
 		}
 
 		approvers.SetModified(false)
@@ -100,14 +101,13 @@ func storeApproversInDatabase(approvers *approvers.Approvers) errors.Identifiabl
 	return nil
 }
 
-func getApproversFromDatabase(transactionHash trinary.Trytes) (*approvers.Approvers, errors.IdentifiableError) {
+func getApproversFromDatabase(transactionHash trinary.Trytes) (*approvers.Approvers, error) {
 	approversData, err := approversDatabase.Get(typeutils.StringToBytes(transactionHash))
 	if err != nil {
 		if err == database.ErrKeyNotFound {
 			return nil, nil
 		}
-
-		return nil, ErrDatabaseError.Derive(err, "failed to retrieve approvers")
+		return nil, fmt.Errorf("%w: failed to retrieve approvers: %s", ErrDatabaseError, err)
 	}
 
 	var result approvers.Approvers
@@ -118,9 +118,9 @@ func getApproversFromDatabase(transactionHash trinary.Trytes) (*approvers.Approv
 	return &result, nil
 }
 
-func databaseContainsApprovers(transactionHash trinary.Trytes) (bool, errors.IdentifiableError) {
+func databaseContainsApprovers(transactionHash trinary.Trytes) (bool, error) {
 	if contains, err := approversDatabase.Contains(typeutils.StringToBytes(transactionHash)); err != nil {
-		return false, ErrDatabaseError.Derive(err, "failed to check if the approvers exists")
+		return false, fmt.Errorf("%w: failed to check if the approvers exist: %s", ErrDatabaseError, err)
 	} else {
 		return contains, nil
 	}

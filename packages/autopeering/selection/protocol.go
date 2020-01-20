@@ -2,6 +2,7 @@ package selection
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	pb "github.com/iotaledger/goshimmer/packages/autopeering/selection/proto"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/pkg/errors"
 )
 
 // DiscoverProtocol specifies the methods from the peer discovery that are required.
@@ -101,7 +101,7 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 	case pb.MPeeringRequest:
 		m := new(pb.PeeringRequest)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
-			return true, errors.Wrap(err, "invalid message")
+			return true, fmt.Errorf("invalid message: %w", err)
 		}
 		if p.validatePeeringRequest(s, fromAddr, fromID, m) {
 			p.handlePeeringRequest(s, fromAddr, fromID, data, m)
@@ -111,7 +111,7 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 	case pb.MPeeringResponse:
 		m := new(pb.PeeringResponse)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
-			return true, errors.Wrap(err, "invalid message")
+			return true, fmt.Errorf("invalid message: %w", err)
 		}
 		p.validatePeeringResponse(s, fromAddr, fromID, m)
 		// PeeringResponse messages are handled in the handleReply function of the validation
@@ -120,7 +120,7 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 	case pb.MPeeringDrop:
 		m := new(pb.PeeringDrop)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
-			return true, errors.Wrap(err, "invalid message")
+			return true, fmt.Errorf("invalid message: %w", err)
 		}
 		if p.validatePeeringDrop(s, fromAddr, m) {
 			p.handlePeeringDrop(fromID)

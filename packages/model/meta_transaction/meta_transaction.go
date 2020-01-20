@@ -1,6 +1,7 @@
 package meta_transaction
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -8,7 +9,10 @@ import (
 	"github.com/iotaledger/iota.go/curl"
 	"github.com/iotaledger/iota.go/pow"
 	"github.com/iotaledger/iota.go/trinary"
-	"github.com/pkg/errors"
+)
+
+var (
+	ErrInvalidWeightMagnitude = errors.New("insufficient weight magnitude")
 )
 
 type MetaTransaction struct {
@@ -552,7 +556,7 @@ func (this *MetaTransaction) DoProofOfWork(mwm int) error {
 	this.hasherMutex.Unlock()
 
 	if err != nil {
-		return errors.Wrap(err, "PoW failed")
+		return fmt.Errorf("PoW failed: %w", err)
 	}
 	this.SetNonce(nonce)
 
@@ -563,7 +567,7 @@ func (this *MetaTransaction) Validate() error {
 	// check that the weight magnitude is valid
 	weightMagnitude := this.GetWeightMagnitude()
 	if weightMagnitude < MIN_WEIGHT_MAGNITUDE {
-		return fmt.Errorf("insufficient weight magnitude: got=%d, want=%d", weightMagnitude, MIN_WEIGHT_MAGNITUDE)
+		return fmt.Errorf("%w: got=%d, want=%d", ErrInvalidWeightMagnitude, weightMagnitude, MIN_WEIGHT_MAGNITUDE)
 	}
 
 	return nil

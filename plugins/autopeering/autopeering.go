@@ -2,6 +2,7 @@ package autopeering
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -17,7 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -25,6 +25,8 @@ var (
 	Discovery *discover.Protocol
 	// Selection is the peer selection protocol.
 	Selection *selection.Protocol
+
+	ErrParsingMasterNode = errors.New("can't parse master node")
 
 	log *logger.Logger
 )
@@ -111,11 +113,11 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 
 		parts := strings.Split(entryNodeDefinition, "@")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("parseMaster")
+			return nil, fmt.Errorf("%w: master node parts must be 2, is %d", ErrParsingMasterNode, len(parts))
 		}
 		pubKey, err := base64.StdEncoding.DecodeString(parts[0])
 		if err != nil {
-			return nil, errors.Wrap(err, "parseMaster")
+			return nil, fmt.Errorf("%w: can't decode public key: %s", ErrParsingMasterNode, err)
 		}
 
 		services := service.New()

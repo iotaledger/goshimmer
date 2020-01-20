@@ -1,7 +1,7 @@
 package datastructure
 
 import (
-	"github.com/iotaledger/goshimmer/packages/errors"
+	"errors"
 )
 
 var (
