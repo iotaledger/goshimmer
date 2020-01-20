@@ -3,7 +3,9 @@ package tangle
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/database"
+	goshimmerDB "github.com/iotaledger/goshimmer/packages/database"
+
+	"github.com/iotaledger/hive.go/database"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
 )
@@ -13,7 +15,7 @@ var (
 )
 
 func configureTransactionHashesForAddressDatabase() {
-	if db, err := database.Get("transactionsHashesForAddress"); err != nil {
+	if db, err := database.Get(goshimmerDB.DBPrefixAddressTransactions, goshimmerDB.GetGoShimmerBadgerInstance()); err != nil {
 		panic(err)
 	} else {
 		transactionsHashesForAddressDatabase = db
@@ -26,10 +28,10 @@ type TxHashForAddress struct {
 }
 
 func StoreTransactionHashForAddressInDatabase(address *TxHashForAddress) error {
-	if err := transactionsHashesForAddressDatabase.Set(
-		databaseKeyForHashPrefixedHash(address.Address, address.TxHash),
-		[]byte{},
-	); err != nil {
+	if err := transactionsHashesForAddressDatabase.Set(database.Entry{
+		Key:   databaseKeyForHashPrefixedHash(address.Address, address.TxHash),
+		Value: []byte{},
+	}); err != nil {
 		return fmt.Errorf("%w: failed to store tx for address in database: %s", ErrDatabaseError, err)
 	}
 	return nil
@@ -47,11 +49,9 @@ func DeleteTransactionHashForAddressInDatabase(address *TxHashForAddress) error 
 
 func ReadTransactionHashesForAddressFromDatabase(address trinary.Hash) ([]trinary.Hash, error) {
 	var transactionHashes []trinary.Hash
-	err := transactionsHashesForAddressDatabase.ForEachWithPrefix(databaseKeyForHashPrefix(address), func(key []byte, value []byte) {
-		k := typeutils.BytesToString(key)
-		if len(k) > 81 {
-			transactionHashes = append(transactionHashes, k[81:])
-		}
+	err := transactionsHashesForAddressDatabase.StreamForEachPrefixKeyOnly(databaseKeyForHashPrefix(address), func(key database.KeyOnlyEntry) error {
+		transactionHashes = append(transactionHashes, typeutils.BytesToString(key.Key))
+		return nil
 	})
 
 	if err != nil {

@@ -7,7 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/database"
+	goshimmerDB "github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/hive.go/database"
 	"github.com/iotaledger/hive.go/logger"
 )
 
@@ -74,7 +75,7 @@ const (
 
 // NewPersistentDB creates a new persistent DB.
 func NewPersistentDB(log *logger.Logger) DB {
-	db, err := database.Get("peer")
+	db, err := database.Get(goshimmerDB.DBPrefixAutoPeering, goshimmerDB.GetGoShimmerBadgerInstance())
 	if err != nil {
 		panic(err)
 	}
@@ -157,26 +158,26 @@ func parseInt64(blob []byte) int64 {
 
 // getInt64 retrieves an integer associated with a particular key.
 func (db *persistentDB) getInt64(key []byte) int64 {
-	blob, err := db.db.Get(key)
+	entry, err := db.db.Get(key)
 	if err != nil {
 		return 0
 	}
-	return parseInt64(blob)
+	return parseInt64(entry.Value)
 }
 
 // setInt64 stores an integer in the given key.
 func (db *persistentDB) setInt64(key []byte, n int64) error {
 	blob := make([]byte, binary.MaxVarintLen64)
 	blob = blob[:binary.PutVarint(blob, n)]
-	return db.db.SetWithTTL(key, blob, peerExpiration)
+	return db.db.Set(database.Entry{Key: key, Value: blob, TTL: peerExpiration})
 }
 
 // LocalPrivateKey returns the private key stored in the database or creates a new one.
 func (db *persistentDB) LocalPrivateKey() (PrivateKey, error) {
-	key, err := db.db.Get(localFieldKey(dbLocalKey))
+	entry, err := db.db.Get(localFieldKey(dbLocalKey))
 	if err == database.ErrKeyNotFound {
-		key, err = generatePrivateKey()
-		if err == nil {
+		key, genErr := generatePrivateKey()
+		if genErr == nil {
 			err = db.UpdateLocalPrivateKey(key)
 		}
 		return key, err
@@ -184,13 +185,12 @@ func (db *persistentDB) LocalPrivateKey() (PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return key, nil
+	return []byte(entry.Value), nil
 }
 
 // UpdateLocalPrivateKey stores the provided key in the database.
 func (db *persistentDB) UpdateLocalPrivateKey(key PrivateKey) error {
-	return db.db.Set(localFieldKey(dbLocalKey), key)
+	return db.db.Set(database.Entry{Key: localFieldKey(dbLocalKey), Value: []byte(key)})
 }
 
 // LastPing returns that property for the given peer ID and address.
@@ -218,7 +218,7 @@ func (db *persistentDB) setPeerWithTTL(p *Peer, ttl time.Duration) error {
 	if err != nil {
 		return err
 	}
-	return db.db.SetWithTTL(nodeKey(p.ID()), data, ttl)
+	return db.db.Set(database.Entry{Key: nodeKey(p.ID()), Value: data, TTL: ttl})
 }
 
 func (db *persistentDB) UpdatePeer(p *Peer) error {
@@ -238,7 +238,7 @@ func (db *persistentDB) Peer(id ID) *Peer {
 	if err != nil {
 		return nil
 	}
-	return parsePeer(data)
+	return parsePeer(data.Value)
 }
 
 func randomSubset(peers []*Peer, m int) []*Peer {
@@ -259,21 +259,22 @@ func (db *persistentDB) getPeers(maxAge time.Duration) []*Peer {
 	peers := make([]*Peer, 0)
 	now := time.Now()
 
-	err := db.db.ForEachWithPrefix([]byte(dbNodePrefix), func(key []byte, value []byte) {
-		id, rest := splitNodeKey(key)
+	err := db.db.StreamForEachPrefix([]byte(dbNodePrefix), func(entry database.Entry) error {
+		id, rest := splitNodeKey(entry.Key)
 		if len(rest) > 0 {
-			return
+			return nil
 		}
 
-		p := parsePeer(value)
+		p := parsePeer(entry.Value)
 		if p == nil || p.ID() != id {
-			return
+			return nil
 		}
 		if maxAge > 0 && now.Sub(db.LastPong(p.ID(), p.Address())) > maxAge {
-			return
+			return nil
 		}
 
 		peers = append(peers, p)
+		return nil
 	})
 	if err != nil {
 		return []*Peer{}

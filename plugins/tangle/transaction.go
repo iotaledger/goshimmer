@@ -3,8 +3,10 @@ package tangle
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/database"
+	goshimmerDB "github.com/iotaledger/goshimmer/packages/database"
+
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/hive.go/database"
 	"github.com/iotaledger/hive.go/lru_cache"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
@@ -83,7 +85,7 @@ const (
 var transactionDatabase database.Database
 
 func configureTransactionDatabase() {
-	if db, err := database.Get("transaction"); err != nil {
+	if db, err := database.Get(goshimmerDB.DBPrefixTransaction, goshimmerDB.GetGoShimmerBadgerInstance()); err != nil {
 		panic(err)
 	} else {
 		transactionDatabase = db
@@ -92,10 +94,9 @@ func configureTransactionDatabase() {
 
 func storeTransactionInDatabase(transaction *value_transaction.ValueTransaction) error {
 	if transaction.GetModified() {
-		if err := transactionDatabase.Set(typeutils.StringToBytes(transaction.GetHash()), transaction.MetaTransaction.GetBytes()); err != nil {
+		if err := transactionDatabase.Set(database.Entry{Key: typeutils.StringToBytes(transaction.GetHash()), Value: transaction.MetaTransaction.GetBytes()}); err != nil {
 			return fmt.Errorf("%w: failed to store transaction: %s", ErrDatabaseError, err.Error())
 		}
-
 		transaction.SetModified(false)
 	}
 
@@ -111,7 +112,7 @@ func getTransactionFromDatabase(transactionHash trinary.Trytes) (*value_transact
 		return nil, fmt.Errorf("%w: failed to retrieve transaction: %s", ErrDatabaseError, err)
 	}
 
-	return value_transaction.FromBytes(txData), nil
+	return value_transaction.FromBytes(txData.Value), nil
 }
 
 func databaseContainsTransaction(transactionHash trinary.Trytes) (bool, error) {

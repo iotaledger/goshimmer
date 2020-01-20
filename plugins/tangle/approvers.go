@@ -3,8 +3,9 @@ package tangle
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/database"
+	goshimmerDB "github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/model/approvers"
+	"github.com/iotaledger/hive.go/database"
 	"github.com/iotaledger/hive.go/lru_cache"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
@@ -82,7 +83,7 @@ const (
 var approversDatabase database.Database
 
 func configureApproversDatabase() {
-	if db, err := database.Get("approvers"); err != nil {
+	if db, err := database.Get(goshimmerDB.DBPrefixApprovers, goshimmerDB.GetGoShimmerBadgerInstance()); err != nil {
 		panic(err)
 	} else {
 		approversDatabase = db
@@ -91,10 +92,9 @@ func configureApproversDatabase() {
 
 func storeApproversInDatabase(approvers *approvers.Approvers) error {
 	if approvers.GetModified() {
-		if err := approversDatabase.Set(typeutils.StringToBytes(approvers.GetHash()), approvers.Marshal()); err != nil {
+		if err := approversDatabase.Set(database.Entry{Key: typeutils.StringToBytes(approvers.GetHash()), Value: approvers.Marshal()}); err != nil {
 			return fmt.Errorf("%w: failed to store approvers: %s", ErrDatabaseError, err)
 		}
-
 		approvers.SetModified(false)
 	}
 
@@ -111,7 +111,7 @@ func getApproversFromDatabase(transactionHash trinary.Trytes) (*approvers.Approv
 	}
 
 	var result approvers.Approvers
-	if err = result.Unmarshal(approversData); err != nil {
+	if err = result.Unmarshal(approversData.Value); err != nil {
 		panic(err)
 	}
 

@@ -35,7 +35,7 @@ func configure(*node.Plugin) {
 		log.Info("Flushing caches to database... done")
 
 		log.Info("Syncing database to disk...")
-		database.GetBadgerInstance().Close()
+		database.GetGoShimmerBadgerInstance().Close()
 		log.Info("Syncing database to disk... done")
 	}, shutdown.ShutdownPriorityTangle)
 

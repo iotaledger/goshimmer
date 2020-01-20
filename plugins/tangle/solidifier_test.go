@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/database"
+	goshimmerDB "github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
@@ -37,7 +37,7 @@ func TestTangle(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(dir)
 	// use the tempdir for the database
-	parameter.NodeConfig.Set(database.CFG_DIRECTORY, dir)
+	parameter.NodeConfig.Set(goshimmerDB.CFG_DIRECTORY, dir)
 
 	// start a test node
 	node.Start(node.Plugins(PLUGIN))

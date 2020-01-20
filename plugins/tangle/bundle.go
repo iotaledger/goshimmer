@@ -3,8 +3,9 @@ package tangle
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/database"
+	goshimmerDB "github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
+	"github.com/iotaledger/hive.go/database"
 	"github.com/iotaledger/hive.go/lru_cache"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
@@ -86,7 +87,7 @@ const (
 var bundleDatabase database.Database
 
 func configureBundleDatabase() {
-	if db, err := database.Get("bundle"); err != nil {
+	if db, err := database.Get(goshimmerDB.DBPrefixBundle, goshimmerDB.GetGoShimmerBadgerInstance()); err != nil {
 		panic(err)
 	} else {
 		bundleDatabase = db
@@ -95,10 +96,9 @@ func configureBundleDatabase() {
 
 func storeBundleInDatabase(bundle *bundle.Bundle) error {
 	if bundle.GetModified() {
-		if err := bundleDatabase.Set(typeutils.StringToBytes(bundle.GetHash()), bundle.Marshal()); err != nil {
+		if err := bundleDatabase.Set(database.Entry{Key: typeutils.StringToBytes(bundle.GetHash()), Value: bundle.Marshal()}); err != nil {
 			return fmt.Errorf("%w: failed to store bundle: %s", ErrDatabaseError, err)
 		}
-
 		bundle.SetModified(false)
 	}
 
@@ -116,7 +116,7 @@ func getBundleFromDatabase(transactionHash trinary.Trytes) (*bundle.Bundle, erro
 	}
 
 	var result bundle.Bundle
-	if err = result.Unmarshal(bundleData); err != nil {
+	if err = result.Unmarshal(bundleData.Value); err != nil {
 		panic(err)
 	}
 

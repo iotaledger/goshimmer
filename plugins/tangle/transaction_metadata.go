@@ -3,8 +3,10 @@ package tangle
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/database"
+	goshimmerDB "github.com/iotaledger/goshimmer/packages/database"
+
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
+	"github.com/iotaledger/hive.go/database"
 	"github.com/iotaledger/hive.go/lru_cache"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
@@ -83,7 +85,7 @@ const (
 var transactionMetadataDatabase database.Database
 
 func configureTransactionMetaDataDatabase() {
-	if db, err := database.Get("transactionMetadata"); err != nil {
+	if db, err := database.Get(goshimmerDB.DBPrefixTransactionMetadata, goshimmerDB.GetGoShimmerBadgerInstance()); err != nil {
 		panic(err)
 	} else {
 		transactionMetadataDatabase = db
@@ -95,7 +97,7 @@ func storeTransactionMetadataInDatabase(metadata *transactionmetadata.Transactio
 		if marshaledMetadata, err := metadata.Marshal(); err != nil {
 			return err
 		} else {
-			if err := transactionMetadataDatabase.Set(typeutils.StringToBytes(metadata.GetHash()), marshaledMetadata); err != nil {
+			if err := transactionMetadataDatabase.Set(database.Entry{Key: typeutils.StringToBytes(metadata.GetHash()), Value: marshaledMetadata}); err != nil {
 				return fmt.Errorf("%w: failed to store transaction metadata: %s", ErrDatabaseError, err)
 			}
 
@@ -116,7 +118,7 @@ func getTransactionMetadataFromDatabase(transactionHash trinary.Trytes) (*transa
 	}
 
 	var result transactionmetadata.TransactionMetadata
-	if err := result.Unmarshal(txMetadata); err != nil {
+	if err := result.Unmarshal(txMetadata.Value); err != nil {
 		panic(err)
 	}
 
