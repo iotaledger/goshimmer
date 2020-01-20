@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -39,7 +42,7 @@ func configureGossip() {
 }
 
 func start(shutdownSignal <-chan struct{}) {
-	defer log.Info("Stopping Gossip ... done")
+	defer log.Info("Stopping " + name + " ... done")
 
 	srv, err := server.ListenTCP(local.GetInstance(), log)
 	if err != nil {
@@ -47,13 +50,40 @@ func start(shutdownSignal <-chan struct{}) {
 	}
 	defer srv.Close()
 
+	//check that the server is working and the port is open
+	log.Info("Testing service ...")
+	checkConnection(srv, &local.GetInstance().Peer)
+	log.Info("Testing service ... done")
+
 	mgr.Start(srv)
 	defer mgr.Close()
 
-	log.Infof("Gossip started: address=%v", mgr.LocalAddr())
+	log.Infof(name+" started: address=%s/%s", mgr.LocalAddr().String(), mgr.LocalAddr().Network())
 
 	<-shutdownSignal
-	log.Info("Stopping Gossip ...")
+	log.Info("Stopping " + name + " ...")
+}
+
+func checkConnection(srv *server.TCP, self *peer.Peer) {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		conn, err := srv.AcceptPeer(self)
+		if err != nil {
+			return
+		}
+		_ = conn.Close()
+	}()
+	conn, err := srv.DialPeer(self)
+	if err != nil {
+		log.Errorf("Error testing: %s", err)
+		addr := self.Services().Get(service.GossipKey)
+		log.Panicf("Please check that %s is publicly reachable at %s/%s",
+			cli.AppName, addr.String(), addr.Network())
+	}
+	_ = conn.Close()
+	wg.Wait()
 }
 
 func loadTransaction(hash []byte) ([]byte, error) {

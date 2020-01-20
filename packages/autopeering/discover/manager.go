@@ -25,7 +25,7 @@ const (
 type network interface {
 	local() *peer.Local
 
-	ping(*peer.Peer) error
+	Ping(*peer.Peer) error
 	discoveryRequest(*peer.Peer) ([]*peer.Peer, error)
 }
 
@@ -139,7 +139,7 @@ func (m *manager) doReverify(done chan<- struct{}) {
 
 	var err error
 	for i := 0; i < reverifyTries; i++ {
-		err = m.net.ping(unwrapPeer(p))
+		err = m.net.Ping(unwrapPeer(p))
 		if err == nil {
 			break
 		} else {
