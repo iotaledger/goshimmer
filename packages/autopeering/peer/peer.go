@@ -12,6 +12,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 )
 
+var (
+	ErrNeedsPeeringService = errors.New("needs peering service")
+	ErrInvalidSignature    = errors.New("invalid signature")
+)
+
 // PublicKey is the type of Ed25519 public keys used for peers.
 type PublicKey ed25519.PublicKey
 
@@ -100,7 +105,7 @@ func FromProto(in *pb.Peer) (*Peer, error) {
 		return nil, err
 	}
 	if services.Get(service.PeeringKey) == nil {
-		return nil, errors.New("need peering service")
+		return nil, ErrNeedsPeeringService
 	}
 
 	return NewPeer(in.GetPublicKey(), services), nil
@@ -122,13 +127,13 @@ func Unmarshal(data []byte) (*Peer, error) {
 
 func recoverKey(key, data, sig []byte) (PublicKey, error) {
 	if l := len(key); l != ed25519.PublicKeySize {
-		return nil, fmt.Errorf("invalid key length: %d, need %d", l, ed25519.PublicKeySize)
+		return nil, fmt.Errorf("%w: invalid key length: %d, need %d", ErrInvalidSignature, l, ed25519.PublicKeySize)
 	}
 	if l := len(sig); l != ed25519.SignatureSize {
-		return nil, fmt.Errorf("invalid signature length: %d, need %d", l, ed25519.SignatureSize)
+		return nil, fmt.Errorf("%w: invalid signature length: %d, need %d", ErrInvalidSignature, l, ed25519.SignatureSize)
 	}
 	if !ed25519.Verify(key, data, sig) {
-		return nil, errors.New("invalid signature")
+		return nil, ErrInvalidSignature
 	}
 
 	publicKey := make([]byte, ed25519.PublicKeySize)

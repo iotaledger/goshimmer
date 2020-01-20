@@ -2,6 +2,7 @@ package server
 
 import (
 	"container/list"
+	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -12,7 +13,6 @@ import (
 	pb "github.com/iotaledger/goshimmer/packages/autopeering/server/proto"
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -288,7 +288,7 @@ func (s *Server) readLoop() {
 func (s *Server) handlePacket(pkt *pb.Packet, fromAddr string) error {
 	data, key, err := decode(pkt)
 	if err != nil {
-		return errors.Wrap(err, "invalid packet")
+		return fmt.Errorf("invalid packet: %w", err)
 	}
 
 	fromID := key.ID()

@@ -1,10 +1,11 @@
 package transactionmetadata
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/errors"
+	"github.com/iotaledger/goshimmer/packages/model"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
@@ -206,7 +207,7 @@ func (metadata *TransactionMetadata) SetModified(modified bool) {
 
 // region marshaling functions /////////////////////////////////////////////////////////////////////////////////////////
 
-func (metadata *TransactionMetadata) Marshal() ([]byte, errors.IdentifiableError) {
+func (metadata *TransactionMetadata) Marshal() ([]byte, error) {
 	marshaledMetadata := make([]byte, MARSHALED_TOTAL_SIZE)
 
 	metadata.receivedTimeMutex.RLock()
@@ -222,7 +223,7 @@ func (metadata *TransactionMetadata) Marshal() ([]byte, errors.IdentifiableError
 
 	marshaledReceivedTime, err := metadata.receivedTime.MarshalBinary()
 	if err != nil {
-		return nil, ErrMarshallFailed.Derive(err, "failed to marshal received time")
+		return nil, fmt.Errorf("%w: failed to marshal received time: %s", model.ErrMarshalFailed, err.Error())
 	}
 	copy(marshaledMetadata[MARSHALED_RECEIVED_TIME_START:MARSHALED_RECEIVED_TIME_END], marshaledReceivedTime)
 
@@ -241,7 +242,7 @@ func (metadata *TransactionMetadata) Marshal() ([]byte, errors.IdentifiableError
 	return marshaledMetadata, nil
 }
 
-func (metadata *TransactionMetadata) Unmarshal(data []byte) errors.IdentifiableError {
+func (metadata *TransactionMetadata) Unmarshal(data []byte) error {
 	metadata.hashMutex.Lock()
 	defer metadata.hashMutex.Unlock()
 	metadata.receivedTimeMutex.Lock()
@@ -253,10 +254,10 @@ func (metadata *TransactionMetadata) Unmarshal(data []byte) errors.IdentifiableE
 	metadata.finalizedMutex.Lock()
 	defer metadata.finalizedMutex.Unlock()
 
-	metadata.hash = trinary.Trytes(typeutils.BytesToString(data[MARSHALED_HASH_START:MARSHALED_HASH_END]))
+	metadata.hash = typeutils.BytesToString(data[MARSHALED_HASH_START:MARSHALED_HASH_END])
 
 	if err := metadata.receivedTime.UnmarshalBinary(data[MARSHALED_RECEIVED_TIME_START:MARSHALED_RECEIVED_TIME_END]); err != nil {
-		return ErrUnmarshalFailed.Derive(err, "could not unmarshal the received time")
+		return fmt.Errorf("%w: could not unmarshal the received time: %s", model.ErrUnmarshalFailed, err.Error())
 	}
 
 	booleanFlags := bitmask.BitMask(data[MARSHALED_FLAGS_START])

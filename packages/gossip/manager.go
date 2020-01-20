@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"fmt"
 	"net"
 	"sync"
 
@@ -10,7 +11,6 @@ import (
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -225,7 +225,7 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 	case pb.MTransaction:
 		msg := new(pb.Transaction)
 		if err := proto.Unmarshal(data[1:], msg); err != nil {
-			return errors.Wrap(err, "invalid packet")
+			return fmt.Errorf("invalid packet: %w", err)
 		}
 		m.log.Debugw("Received Transaction", "data", msg.GetData())
 		Events.TransactionReceived.Trigger(&TransactionReceivedEvent{Data: msg.GetData(), Peer: p})
@@ -234,7 +234,7 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 	case pb.MTransactionRequest:
 		msg := new(pb.TransactionRequest)
 		if err := proto.Unmarshal(data[1:], msg); err != nil {
-			return errors.Wrap(err, "invalid packet")
+			return fmt.Errorf("invalid packet: %w", err)
 		}
 		m.log.Debugw("Received Tx Req", "data", msg.GetHash())
 		// do something

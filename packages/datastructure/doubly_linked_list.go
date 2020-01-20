@@ -1,9 +1,8 @@
 package datastructure
 
 import (
+	"fmt"
 	"sync"
-
-	"github.com/iotaledger/goshimmer/packages/errors"
 )
 
 type DoublyLinkedList struct {
@@ -66,7 +65,7 @@ func (list *DoublyLinkedList) Clear() {
 	list.clear()
 }
 
-func (list *DoublyLinkedList) GetFirst() (interface{}, errors.IdentifiableError) {
+func (list *DoublyLinkedList) GetFirst() (interface{}, error) {
 	if firstEntry, err := list.GetFirstEntry(); err != nil {
 		return nil, err
 	} else {
@@ -74,14 +73,14 @@ func (list *DoublyLinkedList) GetFirst() (interface{}, errors.IdentifiableError)
 	}
 }
 
-func (list *DoublyLinkedList) GetFirstEntry() (*DoublyLinkedListEntry, errors.IdentifiableError) {
+func (list *DoublyLinkedList) GetFirstEntry() (*DoublyLinkedListEntry, error) {
 	list.mutex.RLock()
 	defer list.mutex.RUnlock()
 
 	return list.getFirstEntry()
 }
 
-func (list *DoublyLinkedList) GetLast() (interface{}, errors.IdentifiableError) {
+func (list *DoublyLinkedList) GetLast() (interface{}, error) {
 	if lastEntry, err := list.GetLastEntry(); err != nil {
 		return nil, err
 	} else {
@@ -89,14 +88,14 @@ func (list *DoublyLinkedList) GetLast() (interface{}, errors.IdentifiableError) 
 	}
 }
 
-func (list *DoublyLinkedList) GetLastEntry() (*DoublyLinkedListEntry, errors.IdentifiableError) {
+func (list *DoublyLinkedList) GetLastEntry() (*DoublyLinkedListEntry, error) {
 	list.mutex.RLock()
 	defer list.mutex.RUnlock()
 
 	return list.getLastEntry()
 }
 
-func (list *DoublyLinkedList) RemoveFirst() (interface{}, errors.IdentifiableError) {
+func (list *DoublyLinkedList) RemoveFirst() (interface{}, error) {
 	if firstEntry, err := list.RemoveFirstEntry(); err != nil {
 		return nil, err
 	} else {
@@ -104,14 +103,14 @@ func (list *DoublyLinkedList) RemoveFirst() (interface{}, errors.IdentifiableErr
 	}
 }
 
-func (list *DoublyLinkedList) RemoveFirstEntry() (*DoublyLinkedListEntry, errors.IdentifiableError) {
+func (list *DoublyLinkedList) RemoveFirstEntry() (*DoublyLinkedListEntry, error) {
 	list.mutex.Lock()
 	defer list.mutex.Unlock()
 
 	return list.removeFirstEntry()
 }
 
-func (list *DoublyLinkedList) RemoveLast() (interface{}, errors.IdentifiableError) {
+func (list *DoublyLinkedList) RemoveLast() (interface{}, error) {
 	if lastEntry, err := list.RemoveLastEntry(); err != nil {
 		return nil, err
 	} else {
@@ -119,14 +118,14 @@ func (list *DoublyLinkedList) RemoveLast() (interface{}, errors.IdentifiableErro
 	}
 }
 
-func (list *DoublyLinkedList) RemoveLastEntry() (*DoublyLinkedListEntry, errors.IdentifiableError) {
+func (list *DoublyLinkedList) RemoveLastEntry() (*DoublyLinkedListEntry, error) {
 	list.mutex.Lock()
 	defer list.mutex.Unlock()
 
 	return list.removeLastEntry()
 }
 
-func (list *DoublyLinkedList) Remove(value interface{}) errors.IdentifiableError {
+func (list *DoublyLinkedList) Remove(value interface{}) error {
 	list.mutex.RLock()
 	currentEntry := list.head
 	for currentEntry != nil {
@@ -144,10 +143,10 @@ func (list *DoublyLinkedList) Remove(value interface{}) errors.IdentifiableError
 	}
 	list.mutex.RUnlock()
 
-	return ErrNoSuchElement.Derive("the entry is not part of the list")
+	return fmt.Errorf("%w: the entry is not part of the list", ErrNoSuchElement)
 }
 
-func (list *DoublyLinkedList) RemoveEntry(entry *DoublyLinkedListEntry) errors.IdentifiableError {
+func (list *DoublyLinkedList) RemoveEntry(entry *DoublyLinkedListEntry) error {
 	list.mutex.Lock()
 	defer list.mutex.Unlock()
 
@@ -195,23 +194,23 @@ func (list *DoublyLinkedList) clear() {
 	list.count = 0
 }
 
-func (list *DoublyLinkedList) getFirstEntry() (*DoublyLinkedListEntry, errors.IdentifiableError) {
+func (list *DoublyLinkedList) getFirstEntry() (*DoublyLinkedListEntry, error) {
 	if list.head == nil {
-		return nil, ErrNoSuchElement.Derive("the list is empty")
+		return nil, fmt.Errorf("%w: the list is empty", ErrNoSuchElement)
 	}
 
 	return list.head, nil
 }
 
-func (list *DoublyLinkedList) getLastEntry() (*DoublyLinkedListEntry, errors.IdentifiableError) {
+func (list *DoublyLinkedList) getLastEntry() (*DoublyLinkedListEntry, error) {
 	if list.tail == nil {
-		return nil, ErrNoSuchElement.Derive("the list is empty")
+		return nil, fmt.Errorf("%w: the list is empty", ErrNoSuchElement)
 	}
 
 	return list.tail, nil
 }
 
-func (list *DoublyLinkedList) removeFirstEntry() (*DoublyLinkedListEntry, errors.IdentifiableError) {
+func (list *DoublyLinkedList) removeFirstEntry() (*DoublyLinkedListEntry, error) {
 	entryToRemove := list.head
 	if err := list.removeEntry(entryToRemove); err != nil {
 		return nil, err
@@ -220,7 +219,7 @@ func (list *DoublyLinkedList) removeFirstEntry() (*DoublyLinkedListEntry, errors
 	return entryToRemove, nil
 }
 
-func (list *DoublyLinkedList) removeLastEntry() (*DoublyLinkedListEntry, errors.IdentifiableError) {
+func (list *DoublyLinkedList) removeLastEntry() (*DoublyLinkedListEntry, error) {
 	entryToRemove := list.tail
 	if err := list.removeEntry(entryToRemove); err != nil {
 		return nil, err
@@ -229,13 +228,13 @@ func (list *DoublyLinkedList) removeLastEntry() (*DoublyLinkedListEntry, errors.
 	return entryToRemove, nil
 }
 
-func (list *DoublyLinkedList) removeEntry(entry *DoublyLinkedListEntry) errors.IdentifiableError {
+func (list *DoublyLinkedList) removeEntry(entry *DoublyLinkedListEntry) error {
 	if entry == nil {
-		return ErrInvalidArgument.Derive("the entry must not be nil")
+		return fmt.Errorf("%w: the entry must not be nil", ErrInvalidArgument)
 	}
 
 	if list.head == nil {
-		return ErrNoSuchElement.Derive("the entry is not part of the list")
+		return fmt.Errorf("%w: the entry is not part of the list", ErrNoSuchElement)
 	}
 
 	prevEntry := entry.GetPrev()

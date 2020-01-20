@@ -1,13 +1,13 @@
 package database
 
 import (
+	"fmt"
 	"os"
 	"sync"
 
 	"github.com/dgraph-io/badger"
 	"github.com/dgraph-io/badger/options"
 	"github.com/iotaledger/goshimmer/packages/parameter"
-	"github.com/pkg/errors"
 )
 
 var instance *badger.DB
@@ -40,7 +40,7 @@ func checkDir(dir string) error {
 func createDB() (*badger.DB, error) {
 	directory := parameter.NodeConfig.GetString(CFG_DIRECTORY)
 	if err := checkDir(directory); err != nil {
-		return nil, errors.Wrap(err, "Could not check directory")
+		return nil, fmt.Errorf("could not check directory: %w", err)
 	}
 
 	opts := badger.DefaultOptions(directory)
@@ -50,7 +50,7 @@ func createDB() (*badger.DB, error) {
 
 	db, err := badger.Open(opts)
 	if err != nil {
-		return nil, errors.Wrap(err, "Could not open new DB")
+		return nil, fmt.Errorf("could not open new DB: %w", err)
 	}
 
 	return db, nil

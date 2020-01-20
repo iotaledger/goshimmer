@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"container/list"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -14,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	pb "github.com/iotaledger/goshimmer/packages/autopeering/server/proto"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -141,12 +141,12 @@ func (t *TCP) DialPeer(p *peer.Peer) (net.Conn, error) {
 
 	conn, err := net.DialTimeout(gossipAddr.Network(), gossipAddr.String(), acceptTimeout)
 	if err != nil {
-		return nil, errors.Wrap(err, "dial peer failed")
+		return nil, fmt.Errorf("dial peer failed: %w", err)
 	}
 
 	err = t.doHandshake(p.PublicKey(), gossipAddr.String(), conn)
 	if err != nil {
-		return nil, errors.Wrap(err, "outgoing handshake failed")
+		return nil, fmt.Errorf("outgoing handshake failed: %w", err)
 	}
 
 	t.log.Debugw("outgoing connection established",
@@ -166,7 +166,7 @@ func (t *TCP) AcceptPeer(p *peer.Peer) (net.Conn, error) {
 	// wait for the connection
 	connected := <-t.acceptPeer(p)
 	if connected.err != nil {
-		return nil, errors.Wrap(connected.err, "accept peer failed")
+		return nil, fmt.Errorf("accept peer failed: %w", connected.err)
 	}
 
 	t.log.Debugw("incoming connection established",
@@ -269,7 +269,7 @@ func (t *TCP) matchAccept(m *acceptMatcher, req []byte, conn net.Conn) {
 	defer t.wg.Done()
 
 	if err := t.writeHandshakeResponse(req, conn); err != nil {
-		m.connected <- connect{nil, errors.Wrap(err, "incoming handshake failed")}
+		m.connected <- connect{nil, fmt.Errorf("incoming handshake failed: %w", err)}
 		t.closeConnection(conn)
 		return
 	}
@@ -375,7 +375,7 @@ func (t *TCP) readHandshakeRequest(conn net.Conn) (peer.PublicKey, []byte, error
 	b := make([]byte, maxHandshakePacketSize)
 	n, err := conn.Read(b)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, ErrInvalidHandshake.Error())
+		return nil, nil, fmt.Errorf("%w: %s", ErrInvalidHandshake, err.Error())
 	}
 
 	pkt := &pb.Packet{}

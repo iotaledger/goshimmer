@@ -1,8 +1,9 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
 	"github.com/iotaledger/hive.go/lru_cache"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -11,7 +12,7 @@ import (
 
 // region public api ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-func GetTransactionMetadata(transactionHash trinary.Trytes, computeIfAbsent ...func(trinary.Trytes) *transactionmetadata.TransactionMetadata) (result *transactionmetadata.TransactionMetadata, err errors.IdentifiableError) {
+func GetTransactionMetadata(transactionHash trinary.Trytes, computeIfAbsent ...func(trinary.Trytes) *transactionmetadata.TransactionMetadata) (result *transactionmetadata.TransactionMetadata, err error) {
 	if cacheResult := transactionMetadataCache.ComputeIfAbsent(transactionHash, func() interface{} {
 		if transactionMetadata, dbErr := getTransactionMetadataFromDatabase(transactionHash); dbErr != nil {
 			err = dbErr
@@ -33,7 +34,7 @@ func GetTransactionMetadata(transactionHash trinary.Trytes, computeIfAbsent ...f
 	return
 }
 
-func ContainsTransactionMetadata(transactionHash trinary.Trytes) (result bool, err errors.IdentifiableError) {
+func ContainsTransactionMetadata(transactionHash trinary.Trytes) (result bool, err error) {
 	if transactionMetadataCache.Contains(transactionHash) {
 		result = true
 	} else {
@@ -89,13 +90,13 @@ func configureTransactionMetaDataDatabase() {
 	}
 }
 
-func storeTransactionMetadataInDatabase(metadata *transactionmetadata.TransactionMetadata) errors.IdentifiableError {
+func storeTransactionMetadataInDatabase(metadata *transactionmetadata.TransactionMetadata) error {
 	if metadata.GetModified() {
 		if marshaledMetadata, err := metadata.Marshal(); err != nil {
 			return err
 		} else {
 			if err := transactionMetadataDatabase.Set(typeutils.StringToBytes(metadata.GetHash()), marshaledMetadata); err != nil {
-				return ErrDatabaseError.Derive(err, "failed to store transaction metadata")
+				return fmt.Errorf("%w: failed to store transaction metadata: %s", ErrDatabaseError, err)
 			}
 
 			metadata.SetModified(false)
@@ -105,14 +106,13 @@ func storeTransactionMetadataInDatabase(metadata *transactionmetadata.Transactio
 	return nil
 }
 
-func getTransactionMetadataFromDatabase(transactionHash trinary.Trytes) (*transactionmetadata.TransactionMetadata, errors.IdentifiableError) {
+func getTransactionMetadataFromDatabase(transactionHash trinary.Trytes) (*transactionmetadata.TransactionMetadata, error) {
 	txMetadata, err := transactionMetadataDatabase.Get(typeutils.StringToBytes(transactionHash))
 	if err != nil {
 		if err == database.ErrKeyNotFound {
 			return nil, nil
-		} else {
-			return nil, ErrDatabaseError.Derive(err, "failed to retrieve transaction")
 		}
+		return nil, fmt.Errorf("%w: failed to retrieve transaction: %s", ErrDatabaseError, err)
 	}
 
 	var result transactionmetadata.TransactionMetadata
@@ -123,9 +123,9 @@ func getTransactionMetadataFromDatabase(transactionHash trinary.Trytes) (*transa
 	return &result, nil
 }
 
-func databaseContainsTransactionMetadata(transactionHash trinary.Trytes) (bool, errors.IdentifiableError) {
+func databaseContainsTransactionMetadata(transactionHash trinary.Trytes) (bool, error) {
 	if contains, err := transactionMetadataDatabase.Contains(typeutils.StringToBytes(transactionHash)); err != nil {
-		return contains, ErrDatabaseError.Derive(err, "failed to check if the transaction metadata exists")
+		return contains, fmt.Errorf("%w: failed to check if the transaction metadata exists: %s", ErrDatabaseError, err)
 	} else {
 		return contains, nil
 	}

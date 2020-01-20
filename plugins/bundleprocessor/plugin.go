@@ -1,7 +1,6 @@
 package bundleprocessor
 
 import (
-	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
@@ -23,8 +22,8 @@ func configure(*node.Plugin) {
 		}
 	}))
 
-	Events.Error.Attach(events.NewClosure(func(err errors.IdentifiableError) {
-		log.Error(err.Error())
+	Events.Error.Attach(events.NewClosure(func(err error) {
+		log.Error(err)
 	}))
 }
 

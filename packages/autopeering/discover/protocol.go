@@ -2,6 +2,7 @@ package discover
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/pkg/errors"
 )
 
 // The Protocol handles the peer discovery.
@@ -104,7 +104,7 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 	case pb.MPing:
 		m := new(pb.Ping)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
-			return true, errors.Wrap(err, "invalid message")
+			return true, fmt.Errorf("invalid message: %w", err)
 		}
 		if p.validatePing(s, fromAddr, m) {
 			p.handlePing(s, fromAddr, fromID, fromKey, data)
@@ -114,7 +114,7 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 	case pb.MPong:
 		m := new(pb.Pong)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
-			return true, errors.Wrap(err, "invalid message")
+			return true, fmt.Errorf("invalid message: %w", err)
 		}
 		if p.validatePong(s, fromAddr, fromID, m) {
 			p.handlePong(fromAddr, fromID, fromKey, m)
@@ -124,7 +124,7 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 	case pb.MDiscoveryRequest:
 		m := new(pb.DiscoveryRequest)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
-			return true, errors.Wrap(err, "invalid message")
+			return true, fmt.Errorf("invalid message: %w", err)
 		}
 		if p.validateDiscoveryRequest(s, fromAddr, fromID, m) {
 			p.handleDiscoveryRequest(s, fromAddr, data)
@@ -134,7 +134,7 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 	case pb.MDiscoveryResponse:
 		m := new(pb.DiscoveryResponse)
 		if err := proto.Unmarshal(data[1:], m); err != nil {
-			return true, errors.Wrap(err, "invalid message")
+			return true, fmt.Errorf("invalid message: %w", err)
 		}
 		p.validateDiscoveryResponse(s, fromAddr, fromID, m)
 		// DiscoveryResponse messages are handled in the handleReply function of the validation

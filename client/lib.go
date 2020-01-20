@@ -4,11 +4,11 @@ package goshimmer
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/errors"
 	webapi_broadcastData "github.com/iotaledger/goshimmer/plugins/webapi/broadcastData"
 	webapi_findTransactions "github.com/iotaledger/goshimmer/plugins/webapi/findTransactions"
 	webapi_getNeighbors "github.com/iotaledger/goshimmer/plugins/webapi/getNeighbors"
@@ -59,7 +59,7 @@ type errorresponse struct {
 func interpretBody(res *http.Response, decodeTo interface{}) error {
 	resBody, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return errors.Wrap(err, "unable to read response body")
+		return fmt.Errorf("unable to read response body: %w", err)
 	}
 	defer res.Body.Close()
 
@@ -69,23 +69,24 @@ func interpretBody(res *http.Response, decodeTo interface{}) error {
 
 	errRes := &errorresponse{}
 	if err := json.Unmarshal(resBody, errRes); err != nil {
-		return errors.Wrap(err, "unable to read error from response body")
+		return fmt.Errorf("unable to read error from response body: %w", err)
 	}
 
 	switch res.StatusCode {
 	case http.StatusInternalServerError:
-		return errors.Wrap(ErrInternalServerError, errRes.Error)
+		return fmt.Errorf("%w: %s", ErrInternalServerError, errRes.Error)
 	case http.StatusNotFound:
-		return errors.Wrap(ErrNotFound, errRes.Error)
+		return fmt.Errorf("%w: %s", ErrNotFound, errRes.Error)
 	case http.StatusBadRequest:
-		return errors.Wrap(ErrBadRequest, errRes.Error)
+		return fmt.Errorf("%w: %s", ErrBadRequest, errRes.Error)
 	}
-	return errors.Wrap(ErrUnknownError, errRes.Error)
+
+	return fmt.Errorf("%w: %s", ErrUnknownError, errRes.Error)
 }
 
 func (api *GoShimmerAPI) BroadcastData(targetAddress trinary.Trytes, data string) (trinary.Hash, error) {
 	if !guards.IsHash(targetAddress) {
-		return "", errors.Wrapf(consts.ErrInvalidHash, "invalid address: %s", targetAddress)
+		return "", fmt.Errorf("%w: invalid address: %s", consts.ErrInvalidHash, targetAddress)
 	}
 
 	reqBytes, err := json.Marshal(&webapi_broadcastData.Request{Address: targetAddress, Data: data})
@@ -109,7 +110,7 @@ func (api *GoShimmerAPI) BroadcastData(targetAddress trinary.Trytes, data string
 func (api *GoShimmerAPI) GetTrytes(txHashes trinary.Hashes) ([]trinary.Trytes, error) {
 	for _, hash := range txHashes {
 		if !guards.IsTrytes(hash) {
-			return nil, errors.Wrapf(consts.ErrInvalidHash, "invalid hash: %s", hash)
+			return nil, fmt.Errorf("%w: invalid hash: %s", consts.ErrInvalidHash, hash)
 		}
 	}
 
@@ -134,7 +135,7 @@ func (api *GoShimmerAPI) GetTrytes(txHashes trinary.Hashes) ([]trinary.Trytes, e
 func (api *GoShimmerAPI) GetTransactions(txHashes trinary.Hashes) ([]webapi_getTransactions.Transaction, error) {
 	for _, hash := range txHashes {
 		if !guards.IsTrytes(hash) {
-			return nil, errors.Wrapf(consts.ErrInvalidHash, "invalid hash: %s", hash)
+			return nil, fmt.Errorf("%w: invalid hash: %s", consts.ErrInvalidHash, hash)
 		}
 	}
 
@@ -159,7 +160,7 @@ func (api *GoShimmerAPI) GetTransactions(txHashes trinary.Hashes) ([]webapi_getT
 func (api *GoShimmerAPI) FindTransactions(query *webapi_findTransactions.Request) ([]trinary.Hashes, error) {
 	for _, hash := range query.Addresses {
 		if !guards.IsTrytes(hash) {
-			return nil, errors.Wrapf(consts.ErrInvalidHash, "invalid hash: %s", hash)
+			return nil, fmt.Errorf("%w: invalid hash: %s", consts.ErrInvalidHash, hash)
 		}
 	}
 

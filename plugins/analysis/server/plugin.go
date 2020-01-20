@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/hex"
+	"errors"
 	"math"
 
 	"github.com/iotaledger/goshimmer/packages/network"
@@ -17,12 +18,14 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/pkg/errors"
 )
 
-var server *tcp.Server
-
-var log *logger.Logger
+var (
+	ErrInvalidPackageHeader          = errors.New("invalid package header")
+	ErrExpectedInitialAddNodePackage = errors.New("expected initial add node package")
+	server                           *tcp.Server
+	log                              *logger.Logger
+)
 
 func Configure(plugin *node.Plugin) {
 	log = logger.NewLogger("Analysis-Server")
@@ -136,7 +139,7 @@ func processIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *n
 
 	if firstPackage {
 		if *connectionState != STATE_ADD_NODE {
-			Events.Error.Trigger(errors.New("expected initial add node package"))
+			Events.Error.Trigger(ErrExpectedInitialAddNodePackage)
 		} else {
 			*connectionState = STATE_INITIAL_ADDNODE
 		}
@@ -194,7 +197,7 @@ func parsePackageHeader(data []byte) (ConnectionState, []byte, error) {
 		connectionState = STATE_REMOVE_NODE
 
 	default:
-		return 0, nil, errors.New("invalid package header")
+		return 0, nil, ErrInvalidPackageHeader
 	}
 
 	return connectionState, receiveBuffer, nil

@@ -1,7 +1,6 @@
 package bundleprocessor
 
 import (
-	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/hive.go/workerpool"
@@ -18,7 +17,7 @@ var valueBundleProcessorWorkerPool = workerpool.New(func(task workerpool.Task) {
 	task.Return(nil)
 }, workerpool.WorkerCount(WORKER_COUNT), workerpool.QueueSize(2*WORKER_COUNT))
 
-func ProcessSolidValueBundle(bundle *bundle.Bundle, bundleTransactions []*value_transaction.ValueTransaction) errors.IdentifiableError {
+func ProcessSolidValueBundle(bundle *bundle.Bundle, bundleTransactions []*value_transaction.ValueTransaction) error {
 	bundle.SetBundleEssenceHash(CalculateBundleHash(bundleTransactions))
 
 	Events.BundleSolid.Trigger(bundle, bundleTransactions)
