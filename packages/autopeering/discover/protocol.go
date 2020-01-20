@@ -165,11 +165,9 @@ func (p *Protocol) sendPing(toAddr string, toID peer.ID) <-chan error {
 		return bytes.Equal(m.(*pb.Pong).GetPingHash(), hash)
 	}
 
-	// expect a pong referencing the ping we are about to send
+	// expect a pong referencing the ping we are about to send from the receiving addr and ID
 	p.log.Debugw("send message", "type", ping.Name(), "addr", toAddr)
-	errc := p.Protocol.SendExpectingReply(toAddr, toID, data, pb.MPong, hashEqual)
-
-	return errc
+	return p.Protocol.SendExpectingReply(toAddr, toID, data, pb.MPong, hashEqual)
 }
 
 // discoveryRequest request known peers from the given target. This method blocks
@@ -229,8 +227,8 @@ func marshal(msg pb.Message) []byte {
 	return append([]byte{byte(mType)}, data...)
 }
 
-// createDiscoverPeer creates a new peer that only has a peering service at the given address.
-func createDiscoverPeer(key peer.PublicKey, network string, address string) *peer.Peer {
+// newPeer creates a new peer that only has a peering service at the given address.
+func newPeer(key peer.PublicKey, network string, address string) *peer.Peer {
 	services := service.New()
 	services.Update(service.PeeringKey, network, address)
 
@@ -286,15 +284,6 @@ func (p *Protocol) validatePing(s *server.Server, fromAddr string, m *pb.Ping) b
 		)
 		return false
 	}
-	// check that From matches the package sender address
-	if m.GetFrom() != fromAddr {
-		p.log.Debugw("invalid message",
-			"type", m.Name(),
-			"from", m.GetFrom(),
-			"want", fromAddr,
-		)
-		return false
-	}
 	// check that To matches the local address
 	if m.GetTo() != s.LocalAddr() {
 		p.log.Debugw("invalid message",
@@ -334,8 +323,7 @@ func (p *Protocol) handlePing(s *server.Server, fromAddr string, fromID peer.ID,
 	if !p.IsVerified(fromID, fromAddr) {
 		p.sendPing(fromAddr, fromID)
 	} else if !p.mgr.isKnown(fromID) { // add a discovered peer to the manager if it is new
-		peer := createDiscoverPeer(fromKey, p.LocalNetwork(), fromAddr)
-		p.mgr.addDiscoveredPeer(peer)
+		p.mgr.addDiscoveredPeer(newPeer(fromKey, p.LocalNetwork(), fromAddr))
 	}
 
 	_ = p.local().Database().UpdateLastPing(fromID, fromAddr, time.Now())
@@ -377,17 +365,18 @@ func (p *Protocol) validatePong(s *server.Server, fromAddr string, fromID peer.I
 }
 
 func (p *Protocol) handlePong(fromAddr string, fromID peer.ID, fromKey peer.PublicKey, m *pb.Pong) {
-	services, _ := service.FromProto(m.GetServices())
-	peering := services.Get(service.PeeringKey)
-	if peering == nil || peering.String() != fromAddr {
-		p.log.Warn("invalid services")
-		return
+	services, err := service.FromProto(m.GetServices())
+	if err != nil {
+		panic(err)
 	}
+	// override the peering service to match the fromAddr
+	services = services.CreateRecord()
+	services.Update(service.PeeringKey, p.LocalNetwork(), fromAddr)
 
-	// create a proper key with these services
+	// create a peer with these services
 	from := peer.NewPeer(fromKey, services)
 
-	// a valid pong verifies the peer
+	// a valid pong verifies the peer directly
 	p.mgr.addVerifiedPeer(from)
 
 	// update peer database
