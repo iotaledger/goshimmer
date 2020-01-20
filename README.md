@@ -85,7 +85,7 @@ The following Coordicide modules are a work in progress:
 
 - [Fast Probabilistic Consensus](https://coordicide.iota.org/module5.1.2): The `fpc` branch contains a first implementation of the Fast Probabilistic Consensus  module in the `packages` directory. We also have a standalone FPC simulator in this [repository](https://github.com/iotaledger/fpc-sim).
 
-- [Spam Protection](https://coordicide.iota.org/module3): You can find the initial source code in this [repository](https://github.com/andypandypi/IOTARateControl).
+- [Spam Protection](https://coordicide.iota.org/module3): You can find the initial simulation source code of the rate control in this [repository](https://github.com/andypandypi/IOTARateControl) and the source code of the Adaptive Proof of Work simulator [here](https://github.com/iotaledger/adaptive-pow-sim).
 
 As well as these modules, we are working on the following node functions:
 
