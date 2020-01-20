@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
+	"github.com/iotaledger/hive.go/backoff"
 	"github.com/iotaledger/hive.go/logger"
 )
 
@@ -17,10 +18,16 @@ const (
 	MaxPeersInResponse = 6
 	// MaxServices is the maximum number of services a peer can support.
 	MaxServices = 5
+	// NetworkMaxRetries is the maximum number of times a failing network send is retried.
+	NetworkMaxRetries = 2
 
 	// VersionNum specifies the expected version number for this Protocol.
 	VersionNum = 0
 )
+
+//  policy for retrying failed network calls
+var networkRetryPolicy = backoff.ExponentialBackOff(500*time.Millisecond, 1.5).With(
+	backoff.Jitter(0.5), backoff.MaxRetries(NetworkMaxRetries))
 
 type network interface {
 	local() *peer.Local
@@ -137,20 +144,13 @@ func (m *manager) doReverify(done chan<- struct{}) {
 		"addr", p.Address(),
 	)
 
-	var err error
-	for i := 0; i < reverifyTries; i++ {
-		err = m.net.Ping(unwrapPeer(p))
-		if err == nil {
-			break
-		} else {
-			m.log.Debugw("ping failed",
-				"id", p.ID(),
-				"addr", p.Address(),
-				"err", err,
-			)
-			time.Sleep(1 * time.Second)
+	err := backoff.Retry(networkRetryPolicy, func() error {
+		err := m.net.Ping(unwrapPeer(p))
+		if err != nil && err != server.ErrTimeout {
+			return backoff.Permanent(err)
 		}
-	}
+		return err
+	})
 
 	// could not verify the peer
 	if err != nil {

@@ -157,7 +157,7 @@ func TestMgrDeleteUnreachablePeer(t *testing.T) {
 	p := newDummyPeer("p")
 
 	// expect ping of peer p, but return error
-	m.On("Ping", p).Return(server.ErrTimeout).Times(reverifyTries)
+	m.On("Ping", p).Return(server.ErrTimeout).Times(NetworkMaxRetries + 1)
 	// ignore discoveryRequest calls
 	m.On("discoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
 

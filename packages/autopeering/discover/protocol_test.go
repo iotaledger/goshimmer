@@ -22,7 +22,6 @@ func init() {
 	// decrease parameters to simplify and speed up tests
 	SetParameter(Parameters{
 		ReverifyInterval: 500 * time.Millisecond,
-		ReverifyTries:    1,
 		QueryInterval:    1000 * time.Millisecond,
 		MaxManaged:       10,
 		MaxReplacements:  2,
