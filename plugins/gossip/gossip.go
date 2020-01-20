@@ -3,7 +3,6 @@ package gossip
 import (
 	"fmt"
 	"net"
-	"runtime"
 	"strconv"
 	"sync"
 
@@ -44,7 +43,7 @@ func configureGossip() {
 }
 
 func start(shutdownSignal <-chan struct{}) {
-	defer log.Info("Stopping Gossip ... done")
+	defer log.Info("Stopping " + name + " ... done")
 
 	srv, err := server.ListenTCP(local.GetInstance(), log)
 	if err != nil {
@@ -53,17 +52,17 @@ func start(shutdownSignal <-chan struct{}) {
 	defer srv.Close()
 
 	//check that the server is working and the port is open
-	log.Info("Testing server ...")
+	log.Info("Testing service ...")
 	checkConnection(srv, &local.GetInstance().Peer)
-	log.Info("Testing server ... done")
+	log.Info("Testing service ... done")
 
 	mgr.Start(srv)
 	defer mgr.Close()
 
-	log.Infof("Gossip started: address=%s/%s", mgr.LocalAddr().String(), mgr.LocalAddr().Network())
+	log.Infof(name+" started: address=%s/%s", mgr.LocalAddr().String(), mgr.LocalAddr().Network())
 
 	<-shutdownSignal
-	log.Info("Stopping Gossip ...")
+	log.Info("Stopping " + name + " ...")
 }
 
 func checkConnection(srv *server.TCP, self *peer.Peer) {
@@ -77,14 +76,12 @@ func checkConnection(srv *server.TCP, self *peer.Peer) {
 		}
 		_ = conn.Close()
 	}()
-	runtime.Gosched()
 	conn, err := srv.DialPeer(self)
 	if err != nil {
-		if err == server.ErrTimeout {
-			log.Panicf("Please check that %s is publicly reachable at %s/%s",
-				cli.AppName, srv.LocalAddr().String(), srv.LocalAddr().Network())
-		}
-		log.Panicf("Error: %s", err)
+		log.Errorf("Error testing: %s", err)
+		addr := self.Services().Get(service.GossipKey)
+		log.Panicf("Please check that %s is publicly reachable at %s/%s",
+			cli.AppName, addr.String(), addr.Network())
 	}
 	_ = conn.Close()
 	wg.Wait()

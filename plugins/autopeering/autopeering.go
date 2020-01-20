@@ -52,7 +52,7 @@ func configureAP() {
 }
 
 func start(shutdownSignal <-chan struct{}) {
-	defer log.Info("Stopping Auto Peering server ... done")
+	defer log.Info("Stopping " + name + " ... done")
 
 	addr := local.GetInstance().Services().Get(service.PeeringKey)
 	udpAddr, err := net.ResolveUDPAddr(addr.Network(), addr.String())
@@ -92,15 +92,9 @@ func start(shutdownSignal <-chan struct{}) {
 	defer Discovery.Close()
 
 	//check that discovery is working and the port is open
-	log.Info("Testing server ...")
-	if err := Discovery.Ping(&srv.Local().Peer); err != nil {
-		if err == server.ErrTimeout {
-			log.Panicf("Please check that %s is publicly reachable at %s/udp",
-				cli.AppName, srv.LocalAddr())
-		}
-		log.Panicf("Error: %s", err)
-	}
-	log.Info("Testing server ... done")
+	log.Info("Testing service ...")
+	checkConnection(srv, &local.GetInstance().Peer)
+	log.Info("Testing service ... done")
 
 	if Selection != nil {
 		// start the peering on that connection
@@ -108,11 +102,11 @@ func start(shutdownSignal <-chan struct{}) {
 		defer Selection.Close()
 	}
 
-	log.Infof("Auto Peering started: address=%s/udp", srv.LocalAddr())
-	log.Debugf("Auto Peering server started: PubKey=%s", base64.StdEncoding.EncodeToString(local.GetInstance().PublicKey()))
+	log.Infof(name+" started: address=%s/udp", srv.LocalAddr())
+	log.Debugf(name+" server started: PubKey=%s", base64.StdEncoding.EncodeToString(local.GetInstance().PublicKey()))
 
 	<-shutdownSignal
-	log.Info("Stopping Auto Peering server ...")
+	log.Info("Stopping " + name + " ...")
 }
 
 func parseEntryNodes() (result []*peer.Peer, err error) {
@@ -137,4 +131,16 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 	}
 
 	return result, nil
+}
+
+func checkConnection(srv *server.Server, self *peer.Peer) {
+	if err := Discovery.Ping(self); err != nil {
+		if err == server.ErrTimeout {
+			log.Errorf("Error testing service: %s", err)
+			addr := self.Services().Get(service.PeeringKey)
+			log.Panicf("Please check that %s is publicly reachable at %s/%s",
+				cli.AppName, addr.String(), addr.Network())
+		}
+		log.Panicf("Error: %s", err)
+	}
 }
