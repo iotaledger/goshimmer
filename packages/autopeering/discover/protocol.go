@@ -49,9 +49,7 @@ func (p *Protocol) Start(s server.Sender) {
 	p.Protocol.Sender = s
 	p.mgr.start()
 
-	p.log.Debugw("discover started",
-		"addr", s.LocalAddr(),
-	)
+	p.log.Debug("discover started")
 }
 
 // Close finalizes the protocol.
@@ -106,7 +104,7 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 		if err := proto.Unmarshal(data[1:], m); err != nil {
 			return true, fmt.Errorf("invalid message: %w", err)
 		}
-		if p.validatePing(s, fromAddr, m) {
+		if p.validatePing(fromAddr, m) {
 			p.handlePing(s, fromAddr, fromID, fromKey, data)
 		}
 
@@ -126,7 +124,7 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 		if err := proto.Unmarshal(data[1:], m); err != nil {
 			return true, fmt.Errorf("invalid message: %w", err)
 		}
-		if p.validateDiscoveryRequest(s, fromAddr, fromID, m) {
+		if p.validateDiscoveryRequest(fromAddr, fromID, m) {
 			p.handleDiscoveryRequest(s, fromAddr, data)
 		}
 
@@ -156,7 +154,7 @@ func (p *Protocol) Ping(to *peer.Peer) error {
 // sendPing sends a ping to the specified address and expects a matching reply.
 // This method is non-blocking, but it returns a channel that can be used to query potential errors.
 func (p *Protocol) sendPing(toAddr string, toID peer.ID) <-chan error {
-	ping := newPing(p.LocalAddr(), toAddr)
+	ping := newPing(p.local().Address(), toAddr)
 	data := marshal(ping)
 
 	// compute the message hash
@@ -276,7 +274,7 @@ func newDiscoveryResponse(reqData []byte, list []*peer.Peer) *pb.DiscoveryRespon
 
 // ------ Packet Handlers ------
 
-func (p *Protocol) validatePing(s *server.Server, fromAddr string, m *pb.Ping) bool {
+func (p *Protocol) validatePing(fromAddr string, m *pb.Ping) bool {
 	// check version number
 	if m.GetVersion() != VersionNum {
 		p.log.Debugw("invalid message",
@@ -296,11 +294,11 @@ func (p *Protocol) validatePing(s *server.Server, fromAddr string, m *pb.Ping) b
 		return false
 	}
 	// check that To matches the local address
-	if m.GetTo() != s.LocalAddr() {
+	if m.GetTo() != p.local().Address() {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"to", m.GetTo(),
-			"want", s.LocalAddr(),
+			"want", p.local().Address(),
 		)
 		return false
 	}
@@ -334,7 +332,7 @@ func (p *Protocol) handlePing(s *server.Server, fromAddr string, fromID peer.ID,
 	if !p.IsVerified(fromID, fromAddr) {
 		p.sendPing(fromAddr, fromID)
 	} else if !p.mgr.isKnown(fromID) { // add a discovered peer to the manager if it is new
-		peer := createDiscoverPeer(fromKey, p.LocalNetwork(), fromAddr)
+		peer := createDiscoverPeer(fromKey, s.LocalAddr().Network(), fromAddr)
 		p.mgr.addDiscoveredPeer(peer)
 	}
 
@@ -343,11 +341,11 @@ func (p *Protocol) handlePing(s *server.Server, fromAddr string, fromID peer.ID,
 
 func (p *Protocol) validatePong(s *server.Server, fromAddr string, fromID peer.ID, m *pb.Pong) bool {
 	// check that To matches the local address
-	if m.GetTo() != s.LocalAddr() {
+	if m.GetTo() != p.local().Address() {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"to", m.GetTo(),
-			"want", s.LocalAddr(),
+			"want", p.local().Address(),
 		)
 		return false
 	}
@@ -396,13 +394,13 @@ func (p *Protocol) handlePong(fromAddr string, fromID peer.ID, fromKey peer.Publ
 	_ = db.UpdatePeer(from)
 }
 
-func (p *Protocol) validateDiscoveryRequest(s *server.Server, fromAddr string, fromID peer.ID, m *pb.DiscoveryRequest) bool {
+func (p *Protocol) validateDiscoveryRequest(fromAddr string, fromID peer.ID, m *pb.DiscoveryRequest) bool {
 	// check that To matches the local address
-	if m.GetTo() != s.LocalAddr() {
+	if m.GetTo() != p.local().Address() {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"to", m.GetTo(),
-			"want", s.LocalAddr(),
+			"want", p.local().Address(),
 		)
 		return false
 	}

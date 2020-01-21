@@ -59,9 +59,7 @@ func (p *Protocol) Start(s server.Sender) {
 	p.Protocol.Sender = s
 	p.mgr.start()
 
-	p.log.Debugw("neighborhood started",
-		"addr", s.LocalAddr(),
-	)
+	p.log.Debug("neighborhood started")
 }
 
 // Close finalizes the protocol.
@@ -103,7 +101,7 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 		if err := proto.Unmarshal(data[1:], m); err != nil {
 			return true, fmt.Errorf("invalid message: %w", err)
 		}
-		if p.validatePeeringRequest(s, fromAddr, fromID, m) {
+		if p.validatePeeringRequest(fromAddr, fromID, m) {
 			p.handlePeeringRequest(s, fromAddr, fromID, data, m)
 		}
 
@@ -122,7 +120,7 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 		if err := proto.Unmarshal(data[1:], m); err != nil {
 			return true, fmt.Errorf("invalid message: %w", err)
 		}
-		if p.validatePeeringDrop(s, fromAddr, m) {
+		if p.validatePeeringDrop(fromAddr, m) {
 			p.handlePeeringDrop(fromID)
 		}
 
@@ -220,12 +218,13 @@ func newPeeringDrop(toAddr string) *pb.PeeringDrop {
 
 // ------ Packet Handlers ------
 
-func (p *Protocol) validatePeeringRequest(s *server.Server, fromAddr string, fromID peer.ID, m *pb.PeeringRequest) bool {
+func (p *Protocol) validatePeeringRequest(fromAddr string, fromID peer.ID, m *pb.PeeringRequest) bool {
 	// check that To matches the local address
-	if m.GetTo() != s.LocalAddr() {
+	if m.GetTo() != p.local().Address() {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"to", m.GetTo(),
+			"want", p.local().Address(),
 		)
 		return false
 	}
@@ -313,9 +312,9 @@ func (p *Protocol) validatePeeringResponse(s *server.Server, fromAddr string, fr
 	return true
 }
 
-func (p *Protocol) validatePeeringDrop(s *server.Server, fromAddr string, m *pb.PeeringDrop) bool {
+func (p *Protocol) validatePeeringDrop(fromAddr string, m *pb.PeeringDrop) bool {
 	// check that To matches the local address
-	if m.GetTo() != s.LocalAddr() {
+	if m.GetTo() != p.local().Address() {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"to", m.GetTo(),
