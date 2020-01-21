@@ -1,0 +1,260 @@
+openapi: 3.0.0
+info:
+  title: GoShimmer API
+  description: Optional multiline or single-line description in [CommonMark](http://commonmark.org/help/) or HTML.
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: "transactions"
+  - name: "neighbors"
+  - name: "misc"
+
+paths:
+  /broadcastData:
+    post:
+      tags:
+        - transactions
+      summary: creates a data (0-value) transaction
+      description: broadcastData creates a data (0-value) transaction given an input of bytes and broadcasts it to the node's neighbors. It returns the transaction hash if successful.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                address:
+                  type: string
+                data:
+                  type: string
+      responses:
+        200:
+          description: transaction successfully created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hash:
+                    type: string
+        400:
+          description: invalid address, data too long or invalid trinary
+  /findTransactions:
+    post:
+      tags:
+        - transactions
+      summary: returns array of transaction hashes for given addresses
+      description: returns the array of transaction hashes for the given addresses (in the same order as the parameters). If a node doesn't have any transaction hash for a given address in its ledger, the value at the index of that address is empty.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                addresses:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      type: array
+                      items:
+                        type: string
+  /getNeighbors:
+    get:
+      tags:
+        - neighbors
+      summary: returns the chosen and accepted neighbors of the node
+      description: Returns the chosen and accepted neighbors of the node. Optionally, a parameter `known=1` can be provided so that all known hosts are returned as well.
+      parameters:
+        - in: query
+          name: known
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 1
+            default: 0
+          required: false
+          description: Return all known hosts
+
+      responses:
+        '200':
+          description: sucessful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chosen:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Peer'
+                  accepted:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Peer'
+                  known:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Peer'
+  /getTransactions:
+    post:
+      tags:
+        - transactions
+      summary: returns array of transactions for the given transaction hashes
+      description: returns the array of transactions for the given transaction hashes (in the same order as the parameters). If a node doesn't have the transaction for a given transaction hash in its ledger, the value at the index of that transaction hash is empty.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hashes:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Transaction'
+  /getTrytes:
+    post:
+      tags:
+        - transactions
+      summary: returns array of transaction trytes
+      description: returns the array of transaction trytes for the given transaction hashes (in the same order as the parameters). If a node doesn't have the trytes for a given transaction hash in its ledger, the value at the index of that transaction hash is empty.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hashes:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trytes:
+                    type: array
+                    items:
+                      type: string
+
+  /getTransactionsToApprove:
+    get:
+      tags:
+        - misc
+      summary: returns transactions to approve
+      description: Utilizes the tipselection to get 2 transactions that can be approved.
+      responses:
+        '200':
+          description: sucessful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  branchTransaction:
+                    type: string
+                  trunkTransaction:
+                    type: string
+  /spammer:
+    post:
+      tags:
+        - misc
+      summary: spams transactions
+      description: Spams transactions. Can be started with `cmd=start` and stopped with `cmd=stop`
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cmd:
+                  type: string
+                tps:
+                  type: integer
+
+      responses:
+        '200':
+          description: command executed
+        '404':
+          description: invalid command in request
+
+
+
+# Descriptions of common components
+components:
+  schemas:
+    Peer:
+      type: object
+      properties:
+        id:
+          type: string
+        publicKey:
+          type: string
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/PeerService'
+
+    PeerService:
+      type: object
+      properties:
+        id:
+          type: string
+        address:
+          type: string
+
+    Transaction:
+      type: object
+      properties:
+        hash:
+          type: string
+        weightMagnitude:
+          type: integer
+        trunkTransactionHash:
+          type: string
+        branchTransactionHash:
+          type: string
+        head:
+          type: boolean
+        tail:
+          type: boolean
+        nonce:
+          type: string
+        address:
+          type: string
+        timestamp:
+          type: integer
+        signatureMessageFragment:
+          type: string

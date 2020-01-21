@@ -16,7 +16,7 @@ var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger("API-getTrytes")
-	webapi.Server.GET("getTrytes", getTrytes)
+	webapi.Server.POST("getTrytes", getTrytes)
 }
 
 // getTrytes returns the array of transaction trytes for the
