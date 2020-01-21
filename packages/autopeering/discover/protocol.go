@@ -330,15 +330,6 @@ func (p *Protocol) handlePing(s *server.Server, fromAddr string, fromID peer.ID,
 }
 
 func (p *Protocol) validatePong(s *server.Server, fromAddr string, fromID peer.ID, m *pb.Pong) bool {
-	// check that To matches the local address
-	if m.GetTo() != s.LocalAddr() {
-		p.log.Debugw("invalid message",
-			"type", m.Name(),
-			"to", m.GetTo(),
-			"want", s.LocalAddr(),
-		)
-		return false
-	}
 	// there must be a ping waiting for this pong as a reply
 	if !s.IsExpectedReply(fromAddr, fromID, m.Type(), m) {
 		p.log.Debugw("invalid message",
