@@ -57,8 +57,9 @@ func configureAP() {
 func start(shutdownSignal <-chan struct{}) {
 	defer log.Info("Stopping " + name + " ... done")
 
-	addr := local.GetInstance().Services().Get(service.PeeringKey)
-	udpAddr, err := net.ResolveUDPAddr(addr.Network(), addr.String())
+	loc := local.GetInstance()
+	peeringAddr := loc.Services().Get(service.PeeringKey)
+	udpAddr, err := net.ResolveUDPAddr(peeringAddr.Network(), peeringAddr.String())
 	if err != nil {
 		log.Fatalf("ResolveUDPAddr: %v", err)
 	}
@@ -74,10 +75,10 @@ func start(shutdownSignal <-chan struct{}) {
 
 	//check that discovery is working and the port is open
 	log.Info("Testing service ...")
-	checkConnection(udpAddr, &local.GetInstance().Peer)
+	checkConnection(udpAddr, &loc.Peer)
 	log.Info("Testing service ... done")
 
-	conn, err := net.ListenUDP(addr.Network(), udpAddr)
+	conn, err := net.ListenUDP(peeringAddr.Network(), udpAddr)
 	if err != nil {
 		log.Fatalf("ListenUDP: %v", err)
 	}
@@ -92,7 +93,7 @@ func start(shutdownSignal <-chan struct{}) {
 	}
 
 	// start a server doing discovery and peering
-	srv := server.Listen(local.GetInstance(), trans, log.Named("srv"), handlers...)
+	srv := server.Listen(loc, trans, log.Named("srv"), handlers...)
 	defer srv.Close()
 
 	// start the discovery on that connection
@@ -105,8 +106,8 @@ func start(shutdownSignal <-chan struct{}) {
 		defer Selection.Close()
 	}
 
-	log.Infof(name+" started: address=%s/udp", srv.LocalAddr())
-	log.Debugf(name+" server started: PubKey=%s", base64.StdEncoding.EncodeToString(local.GetInstance().PublicKey()))
+	log.Infof(name+" started: address=%s/%s", peeringAddr.String(), peeringAddr.Network())
+	log.Debugf(name+" server started: PubKey=%s", base64.StdEncoding.EncodeToString(loc.PublicKey()))
 
 	<-shutdownSignal
 	log.Info("Stopping " + name + " ...")

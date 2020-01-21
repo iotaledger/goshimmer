@@ -39,11 +39,6 @@ func New(local *peer.Local, cfg Config) *Protocol {
 	return p
 }
 
-// local returns the associated local peer of the neighbor selection.
-func (p *Protocol) local() *peer.Local {
-	return p.loc
-}
-
 // Start starts the actual peer discovery over the provided Sender.
 func (p *Protocol) Start(s server.Sender) {
 	p.Protocol.Sender = s
@@ -144,6 +139,16 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 	return true, nil
 }
 
+// local returns the associated local peer of the neighbor selection.
+func (p *Protocol) local() *peer.Local {
+	return p.loc
+}
+
+// publicAddr returns the public address of the peering service in string representation.
+func (p *Protocol) publicAddr() string {
+	return p.loc.Services().Get(service.PeeringKey).String()
+}
+
 // ------ message senders ------
 
 // ping sends a ping to the specified peer and blocks until a reply is received or timeout.
@@ -154,7 +159,7 @@ func (p *Protocol) ping(to *peer.Peer) error {
 // sendPing sends a ping to the specified address and expects a matching reply.
 // This method is non-blocking, but it returns a channel that can be used to query potential errors.
 func (p *Protocol) sendPing(toAddr string, toID peer.ID) <-chan error {
-	ping := newPing(p.local().Address(), toAddr)
+	ping := newPing(p.publicAddr(), toAddr)
 	data := marshal(ping)
 
 	// compute the message hash
@@ -227,8 +232,8 @@ func marshal(msg pb.Message) []byte {
 	return append([]byte{byte(mType)}, data...)
 }
 
-// createDiscoverPeer creates a new peer that only has a peering service at the given address.
-func createDiscoverPeer(key peer.PublicKey, network string, address string) *peer.Peer {
+// newPeer creates a new peer that only has a peering service at the given address.
+func newPeer(key peer.PublicKey, network string, address string) *peer.Peer {
 	services := service.New()
 	services.Update(service.PeeringKey, network, address)
 
@@ -294,11 +299,11 @@ func (p *Protocol) validatePing(fromAddr string, m *pb.Ping) bool {
 		return false
 	}
 	// check that To matches the local address
-	if m.GetTo() != p.local().Address() {
+	if m.GetTo() != p.publicAddr() {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"to", m.GetTo(),
-			"want", p.local().Address(),
+			"want", p.publicAddr(),
 		)
 		return false
 	}
@@ -320,7 +325,7 @@ func (p *Protocol) validatePing(fromAddr string, m *pb.Ping) bool {
 
 func (p *Protocol) handlePing(s *server.Server, fromAddr string, fromID peer.ID, fromKey peer.PublicKey, rawData []byte) {
 	// create and send the pong response
-	pong := newPong(fromAddr, rawData, s.Local().Services().CreateRecord())
+	pong := newPong(fromAddr, rawData, p.loc.Services().CreateRecord())
 
 	p.log.Debugw("send message",
 		"type", pong.Name(),
@@ -332,20 +337,19 @@ func (p *Protocol) handlePing(s *server.Server, fromAddr string, fromID peer.ID,
 	if !p.IsVerified(fromID, fromAddr) {
 		p.sendPing(fromAddr, fromID)
 	} else if !p.mgr.isKnown(fromID) { // add a discovered peer to the manager if it is new
-		peer := createDiscoverPeer(fromKey, s.LocalAddr().Network(), fromAddr)
-		p.mgr.addDiscoveredPeer(peer)
+		p.mgr.addDiscoveredPeer(newPeer(fromKey, s.LocalAddr().Network(), fromAddr))
 	}
 
-	_ = p.local().Database().UpdateLastPing(fromID, fromAddr, time.Now())
+	_ = p.loc.Database().UpdateLastPing(fromID, fromAddr, time.Now())
 }
 
 func (p *Protocol) validatePong(s *server.Server, fromAddr string, fromID peer.ID, m *pb.Pong) bool {
 	// check that To matches the local address
-	if m.GetTo() != p.local().Address() {
+	if m.GetTo() != p.publicAddr() {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"to", m.GetTo(),
-			"want", p.local().Address(),
+			"want", p.publicAddr(),
 		)
 		return false
 	}
@@ -389,18 +393,18 @@ func (p *Protocol) handlePong(fromAddr string, fromID peer.ID, fromKey peer.Publ
 	p.mgr.addVerifiedPeer(from)
 
 	// update peer database
-	db := p.local().Database()
+	db := p.loc.Database()
 	_ = db.UpdateLastPong(fromID, fromAddr, time.Now())
 	_ = db.UpdatePeer(from)
 }
 
 func (p *Protocol) validateDiscoveryRequest(fromAddr string, fromID peer.ID, m *pb.DiscoveryRequest) bool {
 	// check that To matches the local address
-	if m.GetTo() != p.local().Address() {
+	if m.GetTo() != p.publicAddr() {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"to", m.GetTo(),
-			"want", p.local().Address(),
+			"want", p.publicAddr(),
 		)
 		return false
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	pb "github.com/iotaledger/goshimmer/packages/autopeering/selection/proto"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
@@ -47,11 +48,6 @@ func New(local *peer.Local, disc DiscoverProtocol, cfg Config) *Protocol {
 	p.mgr = newManager(p, disc.GetVerifiedPeers, cfg.Log.Named("mgr"), cfg)
 
 	return p
-}
-
-// Local returns the associated local peer of the neighbor selection.
-func (p *Protocol) local() *peer.Local {
-	return p.loc
 }
 
 // Start starts the actual neighbor selection over the provided Sender.
@@ -129,6 +125,16 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 	}
 
 	return true, nil
+}
+
+// Local returns the associated local peer of the neighbor selection.
+func (p *Protocol) local() *peer.Local {
+	return p.loc
+}
+
+// publicAddr returns the public address of the peering service in string representation.
+func (p *Protocol) publicAddr() string {
+	return p.loc.Services().Get(service.PeeringKey).String()
 }
 
 // ------ message senders ------
@@ -220,11 +226,11 @@ func newPeeringDrop(toAddr string) *pb.PeeringDrop {
 
 func (p *Protocol) validatePeeringRequest(fromAddr string, fromID peer.ID, m *pb.PeeringRequest) bool {
 	// check that To matches the local address
-	if m.GetTo() != p.local().Address() {
+	if m.GetTo() != p.publicAddr() {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"to", m.GetTo(),
-			"want", p.local().Address(),
+			"want", p.publicAddr(),
 		)
 		return false
 	}
@@ -314,10 +320,11 @@ func (p *Protocol) validatePeeringResponse(s *server.Server, fromAddr string, fr
 
 func (p *Protocol) validatePeeringDrop(fromAddr string, m *pb.PeeringDrop) bool {
 	// check that To matches the local address
-	if m.GetTo() != p.local().Address() {
+	if m.GetTo() != p.publicAddr() {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
 			"to", m.GetTo(),
+			"want", p.publicAddr(),
 		)
 		return false
 	}
