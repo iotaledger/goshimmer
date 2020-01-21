@@ -29,6 +29,10 @@ func getNeighbors(c echo.Context) error {
 		return requestFailed(c, "Neighbor Selection is not enabled")
 	}
 
+	if autopeering.Discovery == nil {
+		return requestFailed(c, "Neighbor Discovery is not enabled")
+	}
+
 	if c.QueryParam("known") == "1" {
 		for _, peer := range autopeering.Discovery.GetVerifiedPeers() {
 			n := Neighbor{
