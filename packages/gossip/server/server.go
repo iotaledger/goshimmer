@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	pb "github.com/iotaledger/goshimmer/packages/autopeering/server/proto"
+	"github.com/iotaledger/hive.go/backoff"
 	"go.uber.org/zap"
 )
 
@@ -31,12 +32,16 @@ var (
 
 // connection timeouts
 const (
-	acceptTimeout     = 1000 * time.Millisecond
-	handshakeTimeout  = 500 * time.Millisecond
-	connectionTimeout = acceptTimeout + handshakeTimeout
+	dialTimeout       = 1 * time.Second                    // timeout for net.Dial
+	handshakeTimeout  = 500 * time.Millisecond             // read/write timeout of the handshake packages
+	acceptTimeout     = 3 * time.Second                    // timeout to accept incoming connections
+	connectionTimeout = acceptTimeout + 2*handshakeTimeout // timeout after which the connection must be established
 
 	maxHandshakePacketSize = 256
 )
+
+// retry net.Dial once, on fail after 0.5s
+var dialRetryPolicy = backoff.ConstantBackOff(500 * time.Millisecond).With(backoff.MaxRetries(1))
 
 // TCP establishes verified incoming and outgoing TCP connections to other peers.
 type TCP struct {
@@ -139,14 +144,20 @@ func (t *TCP) DialPeer(p *peer.Peer) (net.Conn, error) {
 		return nil, ErrNoGossip
 	}
 
-	conn, err := net.DialTimeout(gossipAddr.Network(), gossipAddr.String(), acceptTimeout)
-	if err != nil {
-		return nil, fmt.Errorf("dial peer failed: %w", err)
-	}
+	var conn net.Conn
+	if err := backoff.Retry(dialRetryPolicy, func() error {
+		var err error
+		conn, err = net.DialTimeout(gossipAddr.Network(), gossipAddr.String(), dialTimeout)
+		if err != nil {
+			return fmt.Errorf("dial %s / %s failed: %w", gossipAddr.String(), p.ID(), err)
+		}
 
-	err = t.doHandshake(p.PublicKey(), gossipAddr.String(), conn)
-	if err != nil {
-		return nil, fmt.Errorf("outgoing handshake failed: %w", err)
+		if err = t.doHandshake(p.PublicKey(), gossipAddr.String(), conn); err != nil {
+			return fmt.Errorf("handshake %s / %s failed: %w", gossipAddr.String(), p.ID(), err)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
 	t.log.Debugw("outgoing connection established",
@@ -159,14 +170,15 @@ func (t *TCP) DialPeer(p *peer.Peer) (net.Conn, error) {
 // AcceptPeer awaits an incoming connection from the given peer.
 // If the peer does not establish the connection or the handshake fails, an error is returned.
 func (t *TCP) AcceptPeer(p *peer.Peer) (net.Conn, error) {
-	if p.Services().Get(service.GossipKey) == nil {
+	gossipAddr := p.Services().Get(service.GossipKey)
+	if gossipAddr == nil {
 		return nil, ErrNoGossip
 	}
 
 	// wait for the connection
 	connected := <-t.acceptPeer(p)
 	if connected.err != nil {
-		return nil, fmt.Errorf("accept peer failed: %w", connected.err)
+		return nil, fmt.Errorf("accept %s / %s failed: %w", gossipAddr.String(), p.ID(), connected.err)
 	}
 
 	t.log.Debugw("incoming connection established",
@@ -248,6 +260,7 @@ func (t *TCP) run() {
 			for e := matcherList.Front(); e != nil; e = e.Next() {
 				m := e.Value.(*acceptMatcher)
 				if now.After(m.deadline) || now.Equal(m.deadline) {
+					t.log.Debugw("accept timeout", "id", m.peer.ID())
 					m.connected <- connect{nil, ErrTimeout}
 					matcherList.Remove(e)
 				}

@@ -10,7 +10,6 @@ import (
 // Default values for the global parameters
 const (
 	DefaultReverifyInterval = 10 * time.Second
-	DefaultReverifyTries    = 2
 	DefaultQueryInterval    = 60 * time.Second
 	DefaultMaxManaged       = 1000
 	DefaultMaxReplacements  = 10
@@ -18,7 +17,6 @@ const (
 
 var (
 	reverifyInterval = DefaultReverifyInterval // time interval after which the next peer is reverified
-	reverifyTries    = DefaultReverifyTries    // number of times a peer is pinged before it is removed
 	queryInterval    = DefaultQueryInterval    // time interval after which peers are queried for new peers
 	maxManaged       = DefaultMaxManaged       // maximum number of peers that can be managed
 	maxReplacements  = DefaultMaxReplacements  // maximum number of peers kept in the replacement list
@@ -36,7 +34,6 @@ type Config struct {
 // Parameters holds the parameters that can be configured.
 type Parameters struct {
 	ReverifyInterval time.Duration // time interval after which the next peer is reverified
-	ReverifyTries    int           // number of times a peer is pinged before it is removed
 	QueryInterval    time.Duration // time interval after which peers are queried for new peers
 	MaxManaged       int           // maximum number of peers that can be managed
 	MaxReplacements  int           // maximum number of peers kept in the replacement list
@@ -49,11 +46,6 @@ func SetParameter(param Parameters) {
 		reverifyInterval = param.ReverifyInterval
 	} else {
 		reverifyInterval = DefaultReverifyInterval
-	}
-	if param.ReverifyTries > 0 {
-		reverifyTries = param.ReverifyTries
-	} else {
-		reverifyTries = DefaultReverifyTries
 	}
 	if param.QueryInterval > 0 {
 		queryInterval = param.QueryInterval
