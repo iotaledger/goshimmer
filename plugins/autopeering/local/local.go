@@ -3,14 +3,12 @@ package local
 import (
 	"crypto/ed25519"
 	"encoding/base64"
-	"fmt"
-	"io/ioutil"
 	"net"
-	"net/http"
 	"strconv"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	"github.com/iotaledger/goshimmer/packages/netutil"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/hive.go/logger"
 )
@@ -29,7 +27,7 @@ func configureLocal() *peer.Local {
 	}
 	if ip.IsUnspecified() {
 		log.Info("Querying public IP ...")
-		myIp, err := getPublicIP(isIPv4(ip))
+		myIp, err := netutil.GetPublicIP(!netutil.IsIPv4(ip))
 		if err != nil {
 			log.Fatalf("Error querying public IP: %s", err)
 		}
@@ -67,37 +65,6 @@ func configureLocal() *peer.Local {
 	log.Infof("Initialized local: %v", local)
 
 	return local
-}
-
-func isIPv4(ip net.IP) bool {
-	return ip.To4() != nil
-}
-
-func getPublicIP(ipv4 bool) (net.IP, error) {
-	var url string
-	if ipv4 {
-		url = "https://api.ipify.org"
-	} else {
-		url = "https://api6.ipify.org"
-	}
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	// the body only consists of the ip address
-	ip := net.ParseIP(string(body))
-	if ip == nil {
-		return nil, fmt.Errorf("not an IP: %s", body)
-	}
-
-	return ip, nil
 }
 
 func GetInstance() *peer.Local {
