@@ -147,7 +147,7 @@ func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.
 // ------ message senders ------
 
 // ping sends a ping to the specified peer and blocks until a reply is received or timeout.
-func (p *Protocol) Ping(to *peer.Peer) error {
+func (p *Protocol) ping(to *peer.Peer) error {
 	return <-p.sendPing(to.Address(), to.ID())
 }
 

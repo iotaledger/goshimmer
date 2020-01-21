@@ -32,7 +32,7 @@ var networkRetryPolicy = backoff.ExponentialBackOff(500*time.Millisecond, 1.5).W
 type network interface {
 	local() *peer.Local
 
-	Ping(*peer.Peer) error
+	ping(*peer.Peer) error
 	discoveryRequest(*peer.Peer) ([]*peer.Peer, error)
 }
 
@@ -145,7 +145,7 @@ func (m *manager) doReverify(done chan<- struct{}) {
 	)
 
 	err := backoff.Retry(networkRetryPolicy, func() error {
-		err := m.net.Ping(unwrapPeer(p))
+		err := m.net.ping(unwrapPeer(p))
 		if err != nil && err != server.ErrTimeout {
 			return backoff.Permanent(err)
 		}
