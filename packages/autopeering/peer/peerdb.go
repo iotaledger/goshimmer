@@ -7,8 +7,7 @@ import (
 	"sync"
 	"time"
 
-	goshimmerDB "github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/hive.go/database"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/logger"
 )
 
@@ -75,7 +74,7 @@ const (
 
 // NewPersistentDB creates a new persistent DB.
 func NewPersistentDB(log *logger.Logger) DB {
-	db, err := database.Get(goshimmerDB.DBPrefixAutoPeering, goshimmerDB.GetGoShimmerBadgerInstance())
+	db, err := database.Get(database.DBPrefixAutoPeering, database.GetBadgerInstance())
 	if err != nil {
 		panic(err)
 	}

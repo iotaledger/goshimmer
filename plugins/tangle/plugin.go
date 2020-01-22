@@ -38,7 +38,7 @@ func configure(*node.Plugin) {
 		log.Info("Flushing caches to database... done")
 
 		log.Info("Syncing database to disk...")
-		database.GetGoShimmerBadgerInstance().Close()
+		database.GetBadgerInstance().Close()
 		log.Info("Syncing database to disk... done")
 	}, shutdown.ShutdownPriorityTangle)
 
@@ -48,7 +48,7 @@ func run(*node.Plugin) {
 
 	daemon.BackgroundWorker("Badger garbage collection", func(shutdownSignal <-chan struct{}) {
 		timeutil.Ticker(func() {
-			database.CleanupGoShimmerBadgerInstance(log)
+			database.CleanupBadgerInstance(log)
 		}, 5*time.Minute, shutdownSignal)
 	}, shutdown.ShutdownPriorityBadgerGarbageCollection)
 

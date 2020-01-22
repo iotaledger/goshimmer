@@ -3,9 +3,7 @@ package tangle
 import (
 	"fmt"
 
-	goshimmerDB "github.com/iotaledger/goshimmer/packages/database"
-
-	"github.com/iotaledger/hive.go/database"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
 )
@@ -15,7 +13,7 @@ var (
 )
 
 func configureTransactionHashesForAddressDatabase() {
-	if db, err := database.Get(goshimmerDB.DBPrefixAddressTransactions, goshimmerDB.GetGoShimmerBadgerInstance()); err != nil {
+	if db, err := database.Get(database.DBPrefixAddressTransactions, database.GetBadgerInstance()); err != nil {
 		panic(err)
 	} else {
 		transactionsHashesForAddressDatabase = db

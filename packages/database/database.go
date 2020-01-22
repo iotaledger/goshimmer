@@ -13,11 +13,24 @@ import (
 )
 
 var (
-	instance *badger.DB
-	once     sync.Once
+	instance       *badger.DB
+	once           sync.Once
+	ErrKeyNotFound = database.ErrKeyNotFound
 )
 
-func GetGoShimmerBadgerInstance() *badger.DB {
+type (
+	Database     = database.Database
+	Entry        = database.Entry
+	KeyOnlyEntry = database.KeyOnlyEntry
+	KeyPrefix    = database.KeyPrefix
+	Value        = database.Value
+)
+
+func Get(dbPrefix byte, optionalBadger ...*badger.DB) (Database, error) {
+	return database.Get(dbPrefix, optionalBadger...)
+}
+
+func GetBadgerInstance() *badger.DB {
 	once.Do(func() {
 		dbDir := parameter.NodeConfig.GetString(CFG_DIRECTORY)
 
@@ -55,8 +68,8 @@ func GetGoShimmerBadgerInstance() *badger.DB {
 	return instance
 }
 
-func CleanupGoShimmerBadgerInstance(log *logger.Logger) {
-	db := GetGoShimmerBadgerInstance()
+func CleanupBadgerInstance(log *logger.Logger) {
+	db := GetBadgerInstance()
 	log.Info("Running Badger database garbage collection")
 	var err error
 	for err == nil {

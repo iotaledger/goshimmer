@@ -3,10 +3,8 @@ package tangle
 import (
 	"fmt"
 
-	goshimmerDB "github.com/iotaledger/goshimmer/packages/database"
-
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/hive.go/database"
 	"github.com/iotaledger/hive.go/lru_cache"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
@@ -85,7 +83,7 @@ const (
 var transactionDatabase database.Database
 
 func configureTransactionDatabase() {
-	if db, err := database.Get(goshimmerDB.DBPrefixTransaction, goshimmerDB.GetGoShimmerBadgerInstance()); err != nil {
+	if db, err := database.Get(database.DBPrefixTransaction, database.GetBadgerInstance()); err != nil {
 		panic(err)
 	} else {
 		transactionDatabase = db

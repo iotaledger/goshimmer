@@ -3,9 +3,8 @@ package tangle
 import (
 	"fmt"
 
-	goshimmerDB "github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/model/approvers"
-	"github.com/iotaledger/hive.go/database"
 	"github.com/iotaledger/hive.go/lru_cache"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
@@ -83,7 +82,7 @@ const (
 var approversDatabase database.Database
 
 func configureApproversDatabase() {
-	if db, err := database.Get(goshimmerDB.DBPrefixApprovers, goshimmerDB.GetGoShimmerBadgerInstance()); err != nil {
+	if db, err := database.Get(database.DBPrefixApprovers, database.GetBadgerInstance()); err != nil {
 		panic(err)
 	} else {
 		approversDatabase = db

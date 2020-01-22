@@ -3,8 +3,6 @@ package database
 import (
 	"errors"
 	"fmt"
-
-	"github.com/iotaledger/hive.go/database"
 )
 
 const (
@@ -22,14 +20,14 @@ var (
 // checks whether the database is compatible with the current schema version.
 // also automatically sets the version if the database is new.
 func checkDatabaseVersion(dbIsNew bool) {
-	dbInstance, err := database.Get(DBPrefixDatabaseVersion, instance)
+	dbInstance, err := Get(DBPrefixDatabaseVersion, instance)
 	if err != nil {
 		panic(err)
 	}
 
 	if dbIsNew {
 		// store db version for the first time in the new database
-		if err = dbInstance.Set(database.Entry{Key: dbVersionKey, Value: []byte{DBVersion}}); err != nil {
+		if err = dbInstance.Set(Entry{Key: dbVersionKey, Value: []byte{DBVersion}}); err != nil {
 			panic(fmt.Sprintf("unable to persist db version number: %s", err.Error()))
 		}
 		return
@@ -38,7 +36,7 @@ func checkDatabaseVersion(dbIsNew bool) {
 	// db version must be available
 	entry, err := dbInstance.Get(dbVersionKey)
 	if err != nil {
-		if err == database.ErrKeyNotFound {
+		if err == ErrKeyNotFound {
 			panic(err)
 		}
 		panic(fmt.Errorf("%w: no database version was persisted", ErrDBVersionIncompatible))
