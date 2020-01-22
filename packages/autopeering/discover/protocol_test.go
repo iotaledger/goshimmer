@@ -87,12 +87,12 @@ func TestProtPingPong(t *testing.T) {
 	peerA := getPeer(srvA)
 	peerB := getPeer(srvB)
 
-	// send a ping from node A to B
-	t.Run("A->B", func(t *testing.T) { assert.NoError(t, protA.ping(peerB)) })
+	// send a Ping from node A to B
+	t.Run("A->B", func(t *testing.T) { assert.NoError(t, protA.Ping(peerB)) })
 	time.Sleep(graceTime)
 
-	// send a ping from node B to A
-	t.Run("B->A", func(t *testing.T) { assert.NoError(t, protB.ping(peerA)) })
+	// send a Ping from node B to A
+	t.Run("B->A", func(t *testing.T) { assert.NoError(t, protB.Ping(peerA)) })
 	time.Sleep(graceTime)
 }
 
@@ -107,8 +107,8 @@ func TestProtPingTimeout(t *testing.T) {
 
 	peerB := getPeer(srvB)
 
-	// send a ping from node A to B
-	err := protA.ping(peerB)
+	// send a Ping from node A to B
+	err := protA.Ping(peerB)
 	assert.EqualError(t, err, server.ErrTimeout.Error())
 }
 
@@ -123,8 +123,8 @@ func TestProtVerifiedPeers(t *testing.T) {
 
 	peerB := getPeer(srvB)
 
-	// send a ping from node A to B
-	assert.NoError(t, protA.ping(peerB))
+	// send a Ping from node A to B
+	assert.NoError(t, protA.Ping(peerB))
 	time.Sleep(graceTime)
 
 	// protA should have peerB as the single verified peer
@@ -146,8 +146,8 @@ func TestProtVerifiedPeer(t *testing.T) {
 	peerA := getPeer(srvA)
 	peerB := getPeer(srvB)
 
-	// send a ping from node A to B
-	assert.NoError(t, protA.ping(peerB))
+	// send a Ping from node A to B
+	assert.NoError(t, protA.Ping(peerB))
 	time.Sleep(graceTime)
 
 	// we should have peerB as a verified peer
@@ -172,13 +172,13 @@ func TestProtDiscoveryRequest(t *testing.T) {
 
 	// request peers from node A
 	t.Run("A->B", func(t *testing.T) {
-		if ps, err := protA.discoveryRequest(peerB); assert.NoError(t, err) {
+		if ps, err := protA.DiscoveryRequest(peerB); assert.NoError(t, err) {
 			assert.ElementsMatch(t, []*peer.Peer{peerA}, ps)
 		}
 	})
 	// request peers from node B
 	t.Run("B->A", func(t *testing.T) {
-		if ps, err := protB.discoveryRequest(peerA); assert.NoError(t, err) {
+		if ps, err := protB.DiscoveryRequest(peerA); assert.NoError(t, err) {
 			assert.ElementsMatch(t, []*peer.Peer{peerB}, ps)
 		}
 	})
@@ -246,15 +246,15 @@ func BenchmarkPingPong(b *testing.B) {
 
 	peerB := getPeer(srvB)
 
-	// send initial ping to ensure that every peer is verified
-	err := protA.ping(peerB)
+	// send initial Ping to ensure that every peer is verified
+	err := protA.Ping(peerB)
 	require.NoError(b, err)
 	time.Sleep(graceTime)
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		// send a ping from node A to B
-		_ = protA.ping(peerB)
+		// send a Ping from node A to B
+		_ = protA.Ping(peerB)
 	}
 
 	b.StopTimer()
@@ -276,14 +276,14 @@ func BenchmarkDiscoveryRequest(b *testing.B) {
 
 	peerB := getPeer(srvB)
 
-	// send initial request to ensure that every peer is verified
-	_, err := protA.discoveryRequest(peerB)
+	// send initial DiscoveryRequest to ensure that every peer is verified
+	_, err := protA.DiscoveryRequest(peerB)
 	require.NoError(b, err)
 	time.Sleep(graceTime)
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		_, _ = protA.discoveryRequest(peerB)
+		_, _ = protA.DiscoveryRequest(peerB)
 	}
 
 	b.StopTimer()

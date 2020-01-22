@@ -77,13 +77,13 @@ func TestProtocol(t *testing.T) {
 
 		// request peering to peer B
 		t.Run("A->B", func(t *testing.T) {
-			if services, err := protA.RequestPeering(peerB, saltA); assert.NoError(t, err) {
+			if services, err := protA.PeeringRequest(peerB, saltA); assert.NoError(t, err) {
 				assert.NotEmpty(t, services)
 			}
 		})
 		// request peering to peer A
 		t.Run("B->A", func(t *testing.T) {
-			if services, err := protB.RequestPeering(peerA, saltB); assert.NoError(t, err) {
+			if services, err := protB.PeeringRequest(peerA, saltB); assert.NoError(t, err) {
 				assert.NotEmpty(t, services)
 			}
 		})
@@ -102,7 +102,7 @@ func TestProtocol(t *testing.T) {
 		peerB := getPeer(srvB)
 
 		// request peering to peer B
-		_, err := protA.RequestPeering(peerB, saltA)
+		_, err := protA.PeeringRequest(peerB, saltA)
 		assert.EqualError(t, err, server.ErrTimeout.Error())
 	})
 
@@ -120,14 +120,14 @@ func TestProtocol(t *testing.T) {
 		peerB := getPeer(srvB)
 
 		// request peering to peer B
-		services, err := protA.RequestPeering(peerB, saltA)
+		services, err := protA.PeeringRequest(peerB, saltA)
 		require.NoError(t, err)
 		assert.NotEmpty(t, services)
 
 		require.Contains(t, protB.GetNeighbors(), peerA)
 
 		// drop peer A
-		protA.SendPeeringDrop(peerB)
+		protA.PeeringDrop(peerB)
 		time.Sleep(graceTime)
 		require.NotContains(t, protB.GetNeighbors(), peerA)
 	})

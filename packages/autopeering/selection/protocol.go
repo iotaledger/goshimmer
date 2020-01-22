@@ -2,6 +2,7 @@ package selection
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -12,8 +13,18 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	pb "github.com/iotaledger/goshimmer/packages/autopeering/selection/proto"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
+	"github.com/iotaledger/hive.go/backoff"
 	"github.com/iotaledger/hive.go/logger"
 )
+
+const (
+	maxRetries = 2
+	logSends   = true
+)
+
+//  policy for retrying failed network calls
+var retryPolicy = backoff.ExponentialBackOff(500*time.Millisecond, 1.5).With(
+	backoff.Jitter(0.5), backoff.MaxRetries(maxRetries))
 
 // DiscoverProtocol specifies the methods from the peer discovery that are required.
 type DiscoverProtocol interface {
@@ -88,7 +99,7 @@ func (p *Protocol) RemoveNeighbor(id peer.ID) {
 }
 
 // HandleMessage responds to incoming neighbor selection messages.
-func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.ID, fromKey peer.PublicKey, data []byte) (bool, error) {
+func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.ID, _ peer.PublicKey, data []byte) (bool, error) {
 	switch pb.MType(data[0]) {
 
 	// PeeringRequest
@@ -139,9 +150,9 @@ func (p *Protocol) publicAddr() string {
 
 // ------ message senders ------
 
-// RequestPeering sends a peering request to the given peer. This method blocks
+// PeeringRequest sends a PeeringRequest to the given peer. This method blocks
 // until a response is received and the status answer is returned.
-func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt) (bool, error) {
+func (p *Protocol) PeeringRequest(to *peer.Peer, salt *salt.Salt) (bool, error) {
 	p.disc.EnsureVerified(to)
 
 	// create the request package
@@ -162,28 +173,32 @@ func (p *Protocol) RequestPeering(to *peer.Peer, salt *salt.Salt) (bool, error) 
 		return true
 	}
 
-	p.log.Debugw("send message",
-		"type", req.Name(),
-		"addr", toAddr,
-	)
-	err := <-p.Protocol.SendExpectingReply(toAddr, to.ID(), data, pb.MPeeringResponse, callback)
-
+	err := backoff.Retry(retryPolicy, func() error {
+		p.logSend(toAddr, req)
+		err := <-p.Protocol.SendExpectingReply(toAddr, to.ID(), data, pb.MPeeringResponse, callback)
+		if err != nil && !errors.Is(err, server.ErrTimeout) {
+			return backoff.Permanent(err)
+		}
+		return err
+	})
 	return status, err
 }
 
-// SendPeeringDrop sends a peering drop to the given peer and does not wait for any responses.
-func (p *Protocol) SendPeeringDrop(to *peer.Peer) {
-	toAddr := to.Address()
-	drop := newPeeringDrop(toAddr)
+// PeeringDrop PeeringDrop drop to the given peer, non-blocking and does not wait for any responses.
+func (p *Protocol) PeeringDrop(to *peer.Peer) {
+	drop := newPeeringDrop(to.Address())
 
-	p.log.Debugw("send message",
-		"type", drop.Name(),
-		"addr", toAddr,
-	)
+	p.logSend(to.Address(), drop)
 	p.Protocol.Send(to, marshal(drop))
 }
 
 // ------ helper functions ------
+
+func (p *Protocol) logSend(toAddr string, msg pb.Message) {
+	if logSends {
+		p.log.Debugw("send message", "type", msg.Name(), "addr", toAddr)
+	}
+}
 
 func marshal(msg pb.Message) []byte {
 	mType := msg.Type()
@@ -198,7 +213,7 @@ func marshal(msg pb.Message) []byte {
 	return append([]byte{byte(mType)}, data...)
 }
 
-// ------ Packet Constructors ------
+// ------ Message Constructors ------
 
 func newPeeringRequest(toAddr string, salt *salt.Salt) *pb.PeeringRequest {
 	return &pb.PeeringRequest{
@@ -251,7 +266,7 @@ func (p *Protocol) validatePeeringRequest(fromAddr string, fromID peer.ID, m *pb
 		return false
 	}
 	// check Salt
-	salt, err := salt.FromProto(m.GetSalt())
+	s, err := salt.FromProto(m.GetSalt())
 	if err != nil {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
@@ -260,10 +275,10 @@ func (p *Protocol) validatePeeringRequest(fromAddr string, fromID peer.ID, m *pb
 		return false
 	}
 	// check salt expiration
-	if salt.Expired() {
+	if s.Expired() {
 		p.log.Debugw("invalid message",
 			"type", m.Name(),
-			"salt.expiration", salt.GetExpiration(),
+			"salt.expiration", s.GetExpiration(),
 		)
 		return false
 	}
@@ -294,10 +309,7 @@ func (p *Protocol) handlePeeringRequest(s *server.Server, fromAddr string, fromI
 
 	res := newPeeringResponse(rawData, p.mgr.requestPeering(from, salt))
 
-	p.log.Debugw("send message",
-		"type", res.Name(),
-		"addr", fromAddr,
-	)
+	p.logSend(fromAddr, res)
 	s.Send(fromAddr, marshal(res))
 }
 

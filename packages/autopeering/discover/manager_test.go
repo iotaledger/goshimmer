@@ -22,12 +22,12 @@ func (m *NetworkMock) local() *peer.Local {
 	return m.loc
 }
 
-func (m *NetworkMock) ping(p *peer.Peer) error {
+func (m *NetworkMock) Ping(p *peer.Peer) error {
 	args := m.Called(p)
 	return args.Error(0)
 }
 
-func (m *NetworkMock) discoveryRequest(p *peer.Peer) ([]*peer.Peer, error) {
+func (m *NetworkMock) DiscoveryRequest(p *peer.Peer) ([]*peer.Peer, error) {
 	args := m.Called(p)
 	return args.Get(0).([]*peer.Peer), args.Error(1)
 }
@@ -69,10 +69,10 @@ func TestMgrVerifyDiscoveredPeer(t *testing.T) {
 
 	p := newDummyPeer("p")
 
-	// expect ping of peer p
-	m.On("ping", p).Return(nil).Once()
-	// ignore discoveryRequest calls
-	m.On("discoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
+	// expect Ping of peer p
+	m.On("Ping", p).Return(nil).Once()
+	// ignore DiscoveryRequest calls
+	m.On("DiscoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
 
 	// let the manager initialize
 	time.Sleep(graceTime)
@@ -89,10 +89,10 @@ func TestMgrReverifyPeer(t *testing.T) {
 
 	p := newDummyPeer("p")
 
-	// expect ping of peer p
-	m.On("ping", p).Return(nil).Once()
-	// ignore discoveryRequest calls
-	m.On("discoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
+	// expect Ping of peer p
+	m.On("Ping", p).Return(nil).Once()
+	// ignore DiscoveryRequest calls
+	m.On("DiscoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
 
 	// let the manager initialize
 	time.Sleep(graceTime)
@@ -110,10 +110,10 @@ func TestMgrRequestDiscoveredPeer(t *testing.T) {
 	p1 := newDummyPeer("verified")
 	p2 := newDummyPeer("discovered")
 
-	// expect discoveryRequest on the discovered peer
-	m.On("discoveryRequest", p1).Return([]*peer.Peer{p2}, nil).Once()
-	// ignore any ping
-	m.On("ping", mock.Anything).Return(nil).Maybe()
+	// expect DiscoveryRequest on the discovered peer
+	m.On("DiscoveryRequest", p1).Return([]*peer.Peer{p2}, nil).Once()
+	// ignore any Ping
+	m.On("Ping", mock.Anything).Return(nil).Maybe()
 
 	mgr.addVerifiedPeer(p1)
 	mgr.addDiscoveredPeer(p2)
@@ -128,10 +128,10 @@ func TestMgrAddManyVerifiedPeers(t *testing.T) {
 
 	p := newDummyPeer("p")
 
-	// expect ping of peer p
-	m.On("ping", p).Return(nil).Once()
-	// ignore discoveryRequest calls
-	m.On("discoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
+	// expect Ping of peer p
+	m.On("Ping", p).Return(nil).Once()
+	// ignore DiscoveryRequest calls
+	m.On("DiscoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
 
 	// let the manager initialize
 	time.Sleep(graceTime)
@@ -156,10 +156,10 @@ func TestMgrDeleteUnreachablePeer(t *testing.T) {
 
 	p := newDummyPeer("p")
 
-	// expect ping of peer p, but return error
-	m.On("ping", p).Return(server.ErrTimeout).Times(NetworkMaxRetries + 1)
-	// ignore discoveryRequest calls
-	m.On("discoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
+	// expect Ping of peer p, but return error
+	m.On("Ping", p).Return(server.ErrTimeout).Times(1)
+	// ignore DiscoveryRequest calls
+	m.On("DiscoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
 
 	// let the manager initialize
 	time.Sleep(graceTime)

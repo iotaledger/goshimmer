@@ -197,11 +197,11 @@ func (n *networkMock) local() *peer.Local {
 	return n.loc
 }
 
-func (n *networkMock) SendPeeringDrop(p *peer.Peer) {
+func (n *networkMock) PeeringDrop(p *peer.Peer) {
 	n.mgr[p.ID()].removeNeighbor(n.local().ID())
 }
 
-func (n *networkMock) RequestPeering(p *peer.Peer, s *salt.Salt) (bool, error) {
+func (n *networkMock) PeeringRequest(p *peer.Peer, s *salt.Salt) (bool, error) {
 	return n.mgr[p.ID()].requestPeering(&n.local().Peer, s), nil
 }
 
