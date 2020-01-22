@@ -159,10 +159,9 @@ func index(w http.ResponseWriter, r *http.Request) {
     }
 
     function removeNodeX(node) {
-      if (!(node.id in nodesById)) {
-        addNode(sourceNodeId);
+      if (node.id in nodesById) {
+        removeNode(node.id);
       }
-      removeNode(node.id)
     }
   </script>
 </body>`)
