@@ -49,6 +49,14 @@ func GetPublicIP(preferIPv6 bool) (net.IP, error) {
 	return ip, nil
 }
 
+// IsTemporaryError checks whether the given error should be considered temporary.
+func IsTemporaryError(err error) bool {
+	tempErr, ok := err.(interface {
+		Temporary() bool
+	})
+	return ok && tempErr.Temporary()
+}
+
 // CheckUDP checks whether data send to remote is received at local, otherwise an error is returned.
 // If checkAddress is set, it checks whether the IP address that was on the packet matches remote.
 // If checkPort is set, it checks whether the port that was on the packet matches remote.

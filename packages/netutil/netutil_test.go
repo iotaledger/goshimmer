@@ -1,6 +1,8 @@
 package netutil
 
 import (
+	"errors"
+	"fmt"
 	"net"
 	"testing"
 
@@ -13,6 +15,7 @@ func TestIsIPv4(t *testing.T) {
 		in  net.IP
 		out bool
 	}{
+		{nil, false},
 		{net.IPv4zero, true},
 		{net.IPv6zero, false},
 		{net.ParseIP("127.0.0.1"), true},
@@ -21,8 +24,23 @@ func TestIsIPv4(t *testing.T) {
 		{net.ParseIP("2001:4860:4860::8888"), false},
 	}
 	for _, tt := range tests {
-		t.Run(tt.in.String(), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%v", tt.in), func(t *testing.T) {
 			assert.Equal(t, IsIPv4(tt.in), tt.out)
+		})
+	}
+}
+
+func TestIsTemporaryError(t *testing.T) {
+	tests := []struct {
+		in  error
+		out bool
+	}{
+		{nil, false},
+		{errors.New("errorString"), false},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v", tt.in), func(t *testing.T) {
+			assert.Equal(t, IsTemporaryError(tt.in), tt.out)
 		})
 	}
 }

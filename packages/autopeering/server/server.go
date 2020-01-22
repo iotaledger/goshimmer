@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	pb "github.com/iotaledger/goshimmer/packages/autopeering/server/proto"
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
+	"github.com/iotaledger/goshimmer/packages/netutil"
 	"github.com/iotaledger/hive.go/logger"
 )
 
@@ -260,7 +261,7 @@ func (s *Server) readLoop() {
 
 	for {
 		b, fromAddr, err := s.trans.ReadFrom()
-		if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
+		if netutil.IsTemporaryError(err) {
 			// ignore temporary read errors.
 			s.log.Debugw("temporary read error", "err", err)
 			continue

@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	pb "github.com/iotaledger/goshimmer/packages/autopeering/server/proto"
+	"github.com/iotaledger/goshimmer/packages/netutil"
 	"github.com/iotaledger/hive.go/backoff"
 	"go.uber.org/zap"
 )
@@ -294,10 +295,11 @@ func (t *TCP) listenLoop() {
 
 	for {
 		conn, err := t.listener.AcceptTCP()
-		if err, ok := err.(net.Error); ok && err.Temporary() {
+		if netutil.IsTemporaryError(err) {
 			t.log.Debugw("temporary read error", "err", err)
 			continue
-		} else if err != nil {
+		}
+		if err != nil {
 			// return from the loop on all other errors
 			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
 				t.log.Warnw("listen error", "err", err)
