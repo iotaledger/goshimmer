@@ -195,13 +195,12 @@ func processTransaction(transaction *value_transaction.ValueTransaction) {
 	Events.TransactionStored.Trigger(transaction)
 
 	// store transaction hash for address in DB
-	err := StoreTransactionHashForAddressInDatabase(
+	if err := StoreTransactionHashForAddressInDatabase(
 		&TxHashForAddress{
 			Address: transaction.GetAddress(),
 			TxHash:  transaction.GetHash(),
 		},
-	)
-	if err != nil {
+	); err != nil {
 		log.Errorw(err.Error())
 	}
 
@@ -224,8 +223,7 @@ func processTransaction(transaction *value_transaction.ValueTransaction) {
 	}
 
 	// update the solidity flags of this transaction and its approvers
-	_, err = IsSolid(transaction)
-	if err != nil {
+	if _, err := IsSolid(transaction); err != nil {
 		log.Errorf("Unable to check solidity: %s", err.Error())
 		return
 	}
