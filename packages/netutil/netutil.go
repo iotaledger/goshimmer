@@ -87,7 +87,7 @@ func CheckUDP(local, remote *net.UDPAddr, checkAddress bool, checkPort bool) err
 		return errInvalidData
 	}
 	udpAddr := from.(*net.UDPAddr)
-	if checkAddress && udpAddr.IP.Equal(remote.IP) {
+	if checkAddress && !udpAddr.IP.Equal(remote.IP) {
 		return fmt.Errorf("IP changed: %s", udpAddr.IP)
 	}
 	if checkPort && udpAddr.Port != remote.Port {
