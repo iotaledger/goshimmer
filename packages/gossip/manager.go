@@ -78,6 +78,9 @@ func (m *Manager) LocalAddr() net.Addr {
 
 // AddOutbound tries to add a neighbor by connecting to that peer.
 func (m *Manager) AddOutbound(p *peer.Peer) error {
+	if p.ID() == m.local.ID() {
+		return ErrLoopback
+	}
 	var srv *server.TCP
 	m.mu.RLock()
 	if m.srv == nil {
@@ -91,6 +94,9 @@ func (m *Manager) AddOutbound(p *peer.Peer) error {
 
 // AddInbound tries to add a neighbor by accepting an incoming connection from that peer.
 func (m *Manager) AddInbound(p *peer.Peer) error {
+	if p.ID() == m.local.ID() {
+		return ErrLoopback
+	}
 	var srv *server.TCP
 	m.mu.RLock()
 	if m.srv == nil {

@@ -23,9 +23,25 @@ func getNeighbors(c echo.Context) error {
 
 	chosen := []Neighbor{}
 	accepted := []Neighbor{}
+	knownPeers := []Neighbor{}
 
 	if autopeering.Selection == nil {
 		return requestFailed(c, "Neighbor Selection is not enabled")
+	}
+
+	if autopeering.Discovery == nil {
+		return requestFailed(c, "Neighbor Discovery is not enabled")
+	}
+
+	if c.QueryParam("known") == "1" {
+		for _, peer := range autopeering.Discovery.GetVerifiedPeers() {
+			n := Neighbor{
+				ID:        peer.ID().String(),
+				PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey()),
+			}
+			n.Services = getServices(peer)
+			knownPeers = append(knownPeers, n)
+		}
 	}
 
 	for _, peer := range autopeering.Selection.GetOutgoingNeighbors() {
@@ -45,14 +61,15 @@ func getNeighbors(c echo.Context) error {
 		n.Services = getServices(peer)
 		accepted = append(accepted, n)
 	}
-	return requestSuccessful(c, chosen, accepted)
 
+	return requestSuccessful(c, knownPeers, chosen, accepted)
 }
 
-func requestSuccessful(c echo.Context, chosen, accepted []Neighbor) error {
+func requestSuccessful(c echo.Context, knownPeers, chosen, accepted []Neighbor) error {
 	return c.JSON(http.StatusOK, Response{
-		Chosen:   chosen,
-		Accepted: accepted,
+		KnownPeers: knownPeers,
+		Chosen:     chosen,
+		Accepted:   accepted,
 	})
 }
 
@@ -63,15 +80,16 @@ func requestFailed(c echo.Context, message string) error {
 }
 
 type Response struct {
-	Chosen   []Neighbor `json:"chosen"`
-	Accepted []Neighbor `json:"accepted"`
-	Error    string     `json:"error,omitempty"`
+	KnownPeers []Neighbor `json:"known,omitempty"`
+	Chosen     []Neighbor `json:"chosen"`
+	Accepted   []Neighbor `json:"accepted"`
+	Error      string     `json:"error,omitempty"`
 }
 
 type Neighbor struct {
-	ID        string `json:"id"`        // comparable node identifier
-	PublicKey string `json:"publicKey"` // public key used to verify signatures
-	Services  []peerService
+	ID        string        `json:"id"`        // comparable node identifier
+	PublicKey string        `json:"publicKey"` // public key used to verify signatures
+	Services  []peerService `json:"services,omitempty"`
 }
 
 type peerService struct {

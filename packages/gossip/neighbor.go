@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	"github.com/iotaledger/goshimmer/packages/netutil"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/network"
 )
@@ -114,11 +115,12 @@ func (n *Neighbor) readLoop() {
 
 	for {
 		_, err := n.ManagedConnection.Read(b)
-		if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
+		if netutil.IsTemporaryError(err) {
 			// ignore temporary read errors.
 			n.log.Debugw("temporary read error", "err", err)
 			continue
-		} else if err != nil {
+		}
+		if err != nil {
 			// return from the loop on all other errors
 			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
 				n.log.Warnw("read error", "err", err)
