@@ -72,12 +72,15 @@ func (p *Protocol) IsVerified(id peer.ID, addr string) bool {
 
 // EnsureVerified checks if the given peer has recently sent a Ping;
 // if not, we send a Ping to trigger a verification.
-func (p *Protocol) EnsureVerified(peer *peer.Peer) {
+func (p *Protocol) EnsureVerified(peer *peer.Peer) error {
 	if !p.hasVerified(peer.ID(), peer.Address()) {
-		<-p.sendPing(peer.Address(), peer.ID())
+		if err := p.Ping(peer); err != nil {
+			return err
+		}
 		// Wait for them to Ping back and process our pong
 		time.Sleep(server.ResponseTimeout)
 	}
+	return nil
 }
 
 // GetVerifiedPeer returns the verified peer with the given ID, or nil if no such peer exists.
@@ -192,7 +195,9 @@ func (p *Protocol) sendPing(toAddr string, toID peer.ID) <-chan error {
 // DiscoveryRequest request known peers from the given target. This method blocks
 // until a response is received and the provided peers are returned.
 func (p *Protocol) DiscoveryRequest(to *peer.Peer) ([]*peer.Peer, error) {
-	p.EnsureVerified(to)
+	if err := p.EnsureVerified(to); err != nil {
+		return nil, err
+	}
 
 	req := newDiscoveryRequest(to.Address())
 	data := marshal(req)

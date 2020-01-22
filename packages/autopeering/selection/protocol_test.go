@@ -24,7 +24,7 @@ var peerMap = make(map[peer.ID]*peer.Peer)
 type dummyDiscovery struct{}
 
 func (d dummyDiscovery) IsVerified(peer.ID, string) bool                 { return true }
-func (d dummyDiscovery) EnsureVerified(*peer.Peer)                       {}
+func (d dummyDiscovery) EnsureVerified(*peer.Peer) error                 { return nil }
 func (d dummyDiscovery) GetVerifiedPeer(id peer.ID, _ string) *peer.Peer { return peerMap[id] }
 func (d dummyDiscovery) GetVerifiedPeers() []*peer.Peer                  { return []*peer.Peer{} }
 

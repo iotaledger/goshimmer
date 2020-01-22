@@ -29,7 +29,7 @@ var retryPolicy = backoff.ExponentialBackOff(500*time.Millisecond, 1.5).With(
 // DiscoverProtocol specifies the methods from the peer discovery that are required.
 type DiscoverProtocol interface {
 	IsVerified(id peer.ID, addr string) bool
-	EnsureVerified(*peer.Peer)
+	EnsureVerified(*peer.Peer) error
 
 	GetVerifiedPeer(id peer.ID, addr string) *peer.Peer
 	GetVerifiedPeers() []*peer.Peer
@@ -153,7 +153,9 @@ func (p *Protocol) publicAddr() string {
 // PeeringRequest sends a PeeringRequest to the given peer. This method blocks
 // until a response is received and the status answer is returned.
 func (p *Protocol) PeeringRequest(to *peer.Peer, salt *salt.Salt) (bool, error) {
-	p.disc.EnsureVerified(to)
+	if err := p.disc.EnsureVerified(to); err != nil {
+		return false, err
+	}
 
 	// create the request package
 	toAddr := to.Address()
