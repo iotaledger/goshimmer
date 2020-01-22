@@ -59,7 +59,7 @@ func TestCheckUDP(t *testing.T) {
 }
 
 func getLocalUDPAddr() (*net.UDPAddr, error) {
-	addr, err := net.ResolveUDPAddr("udp", ":0")
+	addr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
 	if err != nil {
 		return nil, err
 	}
