@@ -14,5 +14,6 @@ const (
 	ShutdownPriorityUI
 	ShutdownPriorityDashboard
 	ShutdownPriorityTangleSpammer
+	ShutdownPriorityBadgerGarbageCollection
 	ShutdownPriorityStatusScreen
 )

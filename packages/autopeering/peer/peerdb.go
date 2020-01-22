@@ -185,7 +185,7 @@ func (db *persistentDB) LocalPrivateKey() (PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []byte(entry.Value), nil
+	return PrivateKey(entry.Value), nil
 }
 
 // UpdateLocalPrivateKey stores the provided key in the database.

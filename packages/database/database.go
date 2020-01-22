@@ -1,7 +1,6 @@
 package database
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"runtime"
@@ -10,6 +9,7 @@ import (
 	"github.com/dgraph-io/badger/v2"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/hive.go/database"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 var (
@@ -55,9 +55,9 @@ func GetGoShimmerBadgerInstance() *badger.DB {
 	return instance
 }
 
-func CleanupGoShimmerBadgerInstance() {
+func CleanupGoShimmerBadgerInstance(log *logger.Logger) {
 	db := GetGoShimmerBadgerInstance()
-	fmt.Println("Run Badger GC")
+	log.Info("Running Badger database garbage collection")
 	var err error
 	for err == nil {
 		err = db.RunValueLogGC(0.7)
