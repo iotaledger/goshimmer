@@ -4,7 +4,6 @@ import (
 	"container/list"
 	"fmt"
 	"io"
-	"net"
 	"sync"
 	"time"
 
