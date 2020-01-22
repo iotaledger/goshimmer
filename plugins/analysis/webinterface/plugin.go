@@ -7,10 +7,10 @@ import (
 )
 
 func Configure(plugin *node.Plugin) {
-	httpserver.Configure(plugin)
+	httpserver.Configure()
 	recordedevents.Configure(plugin)
 }
 
 func Run(plugin *node.Plugin) {
-	httpserver.Run(plugin)
+	httpserver.Run()
 }
