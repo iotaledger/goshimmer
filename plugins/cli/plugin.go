@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/hive.go/events"
@@ -37,10 +36,10 @@ func init() {
 
 func parseParameters() {
 	for _, pluginName := range parameter.NodeConfig.GetStringSlice(node.CFG_DISABLE_PLUGINS) {
-		node.DisabledPlugins[strings.ToLower(pluginName)] = true
+		node.DisabledPlugins[node.GetPluginIdentifier(pluginName)] = true
 	}
 	for _, pluginName := range parameter.NodeConfig.GetStringSlice(node.CFG_ENABLE_PLUGINS) {
-		node.EnabledPlugins[strings.ToLower(pluginName)] = true
+		node.EnabledPlugins[node.GetPluginIdentifier(pluginName)] = true
 	}
 }
 
