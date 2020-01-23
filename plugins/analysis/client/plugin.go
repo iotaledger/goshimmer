@@ -7,7 +7,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/discover"
 	"github.com/iotaledger/goshimmer/packages/autopeering/selection"
-	"github.com/iotaledger/goshimmer/packages/network"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
@@ -20,6 +19,7 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/network"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 )
