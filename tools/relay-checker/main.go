@@ -11,16 +11,15 @@ import (
 func testBroadcastData(api *client.GoShimmerAPI) (trinary.Hash, error) {
 	txnHash, err := api.BroadcastData(txnAddr, txnData)
 	if err != nil {
-		return "", fmt.Errorf("%w: broadcast failed", err)
+		return "", fmt.Errorf("broadcast failed: %w", err)
 	}
 	return txnHash, nil
 }
 
 func testTargetGetTransactions(api *client.GoShimmerAPI, txnHash trinary.Hash) error {
 	// query target node for broadcasted data
-	_, err := api.GetTransactions([]trinary.Hash{txnHash})
-	if err != nil {
-		return fmt.Errorf("%w: query target failed", err)
+	if _, err := api.GetTransactionObjectsByHash([]trinary.Hash{txnHash}); err != nil {
+		return fmt.Errorf("querying the target node failed: %w", err)
 	}
 	return nil
 }
@@ -29,11 +28,10 @@ func testNodesGetTransactions(txnHash trinary.Hash) error {
 	// query nodes node for broadcasted data
 	for _, n := range nodes {
 		nodesApi := client.NewGoShimmerAPI(n)
-		_, err := nodesApi.GetTransactions([]trinary.Hash{txnHash})
-		if err != nil {
-			return fmt.Errorf("%w: query %s failed", err, n)
+		if _, err := nodesApi.GetTransactionObjectsByHash([]trinary.Hash{txnHash}); err != nil {
+			return fmt.Errorf("querying node %s failed: %w", n, err)
 		}
-		fmt.Printf("txn found in %s\n", n)
+		fmt.Printf("txn found in node %s\n", n)
 	}
 	return nil
 }

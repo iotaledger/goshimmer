@@ -20,13 +20,13 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/ui"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	webapi_broadcastData "github.com/iotaledger/goshimmer/plugins/webapi/broadcastData"
-	webapi_findTransactions "github.com/iotaledger/goshimmer/plugins/webapi/findTransactions"
+	webapi_findTransactionHashes "github.com/iotaledger/goshimmer/plugins/webapi/findTransactionHashes"
 	webapi_getNeighbors "github.com/iotaledger/goshimmer/plugins/webapi/getNeighbors"
-	webapi_getTransactions "github.com/iotaledger/goshimmer/plugins/webapi/getTransactions"
-	webapi_getTrytes "github.com/iotaledger/goshimmer/plugins/webapi/getTrytes"
+	webapi_getTransactionObjectsByHash "github.com/iotaledger/goshimmer/plugins/webapi/getTransactionObjectsByHash"
+	webapi_getTransactionTrytesByHash "github.com/iotaledger/goshimmer/plugins/webapi/getTransactionTrytesByHash"
 	webapi_gtta "github.com/iotaledger/goshimmer/plugins/webapi/gtta"
 	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi/spammer"
-	"github.com/iotaledger/goshimmer/plugins/webauth"
+	webapi_auth "github.com/iotaledger/goshimmer/plugins/webauth"
 	"github.com/iotaledger/goshimmer/plugins/zeromq"
 	"github.com/iotaledger/hive.go/node"
 )
@@ -54,17 +54,17 @@ func main() {
 			statusscreen_tps.PLUGIN,
 
 			webapi.PLUGIN,
+			webapi_auth.PLUGIN,
 			webapi_gtta.PLUGIN,
 			webapi_spammer.PLUGIN,
 			webapi_broadcastData.PLUGIN,
-			webapi_getTrytes.PLUGIN,
-			webapi_getTransactions.PLUGIN,
-			webapi_findTransactions.PLUGIN,
+			webapi_getTransactionTrytesByHash.PLUGIN,
+			webapi_getTransactionObjectsByHash.PLUGIN,
+			webapi_findTransactionHashes.PLUGIN,
 			webapi_getNeighbors.PLUGIN,
 			webapi_spammer.PLUGIN,
 
 			ui.PLUGIN,
-			webauth.PLUGIN,
 
 			graph.PLUGIN,
 		),

@@ -8,13 +8,21 @@
     "entrynodes": [
       "V8LYtWWcPYYDTTXLeIEFjJEuWlsjDiI0+Pq/Cx9ai6g=@116.202.49.178:14626"
     ],
-    "port":14626
+    "port": 14626
   },
   "database": {
     "directory": "mainnetdb"
   },
   "gossip": {
     "port": 14666
+  },
+  "webapi": {
+    "bindAddress": "0.0.0.0:8080",
+    "auth": {
+      "username": "goshimmer",
+      "password": "goshimmer",
+      "privateKey": "uUUavNbdr32jE9CqnSMCKt4HMu9AZ2K4rKekUSPx9jk83eyeM7xewv5CqUKYMC9"
+    }
   },
   "graph": {
     "webrootPath": "./IOTAtangle/webroot",

@@ -1,4 +1,4 @@
-package getTrytes
+package getTransactionTrytesByHash
 
 import (
 	"net/http"
@@ -11,19 +11,19 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI getTrytes Endpoint", node.Enabled, configure)
+var PLUGIN = node.NewPlugin("WebAPI getTransactionTrytesByHash Endpoint", node.Enabled, configure)
 var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("API-getTrytes")
-	webapi.Server.GET("getTrytes", getTrytes)
+	log = logger.NewLogger("API-getTransactionTrytesByHash")
+	webapi.Server.GET("getTransactionTrytesByHash", getTransactionTrytesByHash)
 }
 
-// getTrytes returns the array of transaction trytes for the
+// getTransactionTrytesByHash returns the array of transaction trytes for the
 // given transaction hashes (in the same order as the parameters).
 // If a node doesn't have the trytes for a given transaction hash in its ledger,
 // the value at the index of that transaction hash is empty.
-func getTrytes(c echo.Context) error {
+func getTransactionTrytesByHash(c echo.Context) error {
 
 	var request Request
 	result := []trinary.Trytes{}
