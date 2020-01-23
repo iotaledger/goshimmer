@@ -33,7 +33,7 @@ func init() {
 }
 
 func TestTangle(t *testing.T) {
-	dir, err := ioutil.TempDir("", "example")
+	dir, err := ioutil.TempDir("", t.Name())
 	require.NoError(t, err)
 	defer os.Remove(dir)
 	// use the tempdir for the database
