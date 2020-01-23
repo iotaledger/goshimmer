@@ -3,9 +3,9 @@ package httpserver
 import (
 	"errors"
 	"net/http"
-	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
@@ -25,36 +25,46 @@ func Configure() {
 	log = logger.NewLogger(name)
 
 	router = http.NewServeMux()
-	httpServer = &http.Server{Addr: ":80", Handler: router}
+
+	httpServer = &http.Server{
+		Addr:    parameter.NodeConfig.GetString(CFG_BIND_ADDRESS),
+		Handler: router,
+	}
 
 	router.Handle("/datastream", websocket.Handler(dataStream))
 	router.HandleFunc("/", index)
 }
 
 func Run() {
+	log.Info("Starting " + name + " ...")
 	if err := daemon.BackgroundWorker(name, start, shutdown.ShutdownPriorityAnalysis); err != nil {
 		log.Errorf("Error starting as daemon: %s", err)
 	}
 }
 
 func start(shutdownSignal <-chan struct{}) {
-	var wg sync.WaitGroup
-	wg.Add(1)
+	stopped := make(chan struct{})
 	go func() {
-		defer wg.Done()
-		log.Infof(name+" started: address=%s", httpServer.Addr)
-		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Warnf("Error listening: %s", err)
+		log.Infof("Started "+name+": http://%s", httpServer.Addr)
+		if err := httpServer.ListenAndServe(); err != nil {
+			if !errors.Is(err, http.ErrServerClosed) {
+				log.Errorf("Error serving: %s", err)
+			}
+			close(stopped)
 		}
 	}()
-	<-shutdownSignal
+
+	select {
+	case <-shutdownSignal:
+	case <-stopped:
+	}
+
 	log.Info("Stopping " + name + " ...")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	if err := httpServer.Shutdown(ctx); err != nil {
-		log.Errorf("Error closing: %s", err)
+		log.Errorf("Error stopping: %s", err)
 	}
-	wg.Wait()
 	log.Info("Stopping " + name + " ... done")
 }

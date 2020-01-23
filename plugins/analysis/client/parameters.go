@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	CFG_SERVER_ADDRESS = "analysis.serverAddress"
+	CFG_SERVER_ADDRESS = "analysis.client.serverAddress"
 )
 
 func init() {

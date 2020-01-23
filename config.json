@@ -1,7 +1,14 @@
 {
   "analysis": {
-    "serverAddress": "ressims.iota.cafe:188",
-    "serverPort": 0
+    "client": {
+      "serverAddress": "ressims.iota.cafe:188"
+    },
+    "server": {
+      "port": 0
+    },
+    "httpServer": {
+      "bindAddress": "0.0.0.0:80"
+    }
   },
   "autopeering": {
     "entryNodes": [
