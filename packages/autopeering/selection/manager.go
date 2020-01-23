@@ -22,8 +22,8 @@ const (
 type network interface {
 	local() *peer.Local
 
-	RequestPeering(*peer.Peer, *salt.Salt) (bool, error)
-	SendPeeringDrop(*peer.Peer)
+	PeeringRequest(*peer.Peer, *salt.Salt) (bool, error)
+	PeeringDrop(*peer.Peer)
 }
 
 type peeringRequest struct {
@@ -230,8 +230,7 @@ func (m *manager) updateOutbound(resultChan chan<- peer.PeerDistance) {
 		return
 	}
 
-	// send peering request
-	status, err := m.net.RequestPeering(candidate.Remote, m.getPublicSalt())
+	status, err := m.net.PeeringRequest(candidate.Remote, m.getPublicSalt())
 	if err != nil {
 		m.rejectionFilter.AddPeer(candidate.Remote.ID())
 		m.log.Debugw("error requesting peering",
@@ -317,7 +316,7 @@ func (m *manager) dropNeighborhood(nh *Neighborhood) {
 
 // dropPeering sends the peering drop over the network and triggers the corresponding event.
 func (m *manager) dropPeering(p *peer.Peer) {
-	m.net.SendPeeringDrop(p)
+	m.net.PeeringDrop(p)
 
 	m.log.Debugw("peering dropped",
 		"id", p.ID(),

@@ -205,5 +205,5 @@ func TestUnexpectedPong(t *testing.T) {
 	// there should never be a Ping.Handle
 	// there should never be a Pong.Handle
 
-	srvA.Send(srvB.LocalAddr(), new(Pong).Marshal())
+	srvA.Send(srvB.LocalAddr().String(), new(Pong).Marshal())
 }

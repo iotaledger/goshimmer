@@ -15,16 +15,6 @@ type Protocol struct {
 	Sender Sender // interface to send own requests
 }
 
-// LocalAddr returns the local network address in string form.
-func (p *Protocol) LocalAddr() string {
-	return p.Sender.LocalAddr()
-}
-
-// LocalNetwork returns the name of the local network (for example, "tcp", "udp").
-func (p *Protocol) LocalNetwork() string {
-	return p.Sender.LocalNetwork()
-}
-
 // Send sends the data to the given peer.
 func (p *Protocol) Send(to *peer.Peer, data []byte) {
 	p.Sender.Send(to.Address(), data)

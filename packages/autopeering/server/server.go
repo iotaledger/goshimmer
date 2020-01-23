@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"fmt"
 	"io"
+	"net"
 	"sync"
 	"time"
 
@@ -87,6 +88,8 @@ func Listen(local *peer.Local, t transport.Transport, log *logger.Logger, h ...H
 	go srv.replyLoop()
 	go srv.readLoop()
 
+	log.Debugw("server started", "addr", srv.LocalAddr(), "#handlers", len(h))
+
 	return srv
 }
 
@@ -104,14 +107,9 @@ func (s *Server) Local() *peer.Local {
 	return s.local
 }
 
-// LocalNetwork returns the network of the local peer.
-func (s *Server) LocalNetwork() string {
-	return s.network
-}
-
 // LocalAddr returns the address of the local peer in string form.
-func (s *Server) LocalAddr() string {
-	return s.address
+func (s *Server) LocalAddr() net.Addr {
+	return s.trans.LocalAddr()
 }
 
 // Send sends a message to the given address

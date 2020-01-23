@@ -44,7 +44,8 @@ func configureGossip() {
 func start(shutdownSignal <-chan struct{}) {
 	defer log.Info("Stopping " + name + " ... done")
 
-	srv, err := server.ListenTCP(local.GetInstance(), log)
+	loc := local.GetInstance()
+	srv, err := server.ListenTCP(loc, log)
 	if err != nil {
 		log.Fatalf("ListenTCP: %v", err)
 	}
@@ -52,13 +53,14 @@ func start(shutdownSignal <-chan struct{}) {
 
 	//check that the server is working and the port is open
 	log.Info("Testing service ...")
-	checkConnection(srv, &local.GetInstance().Peer)
+	checkConnection(srv, &loc.Peer)
 	log.Info("Testing service ... done")
 
 	mgr.Start(srv)
 	defer mgr.Close()
 
-	log.Infof(name+" started: address=%s/%s", mgr.LocalAddr().String(), mgr.LocalAddr().Network())
+	gossipAddr := loc.Services().Get(service.GossipKey)
+	log.Infof(name+" started: address=%s/%s", gossipAddr.String(), gossipAddr.Network())
 
 	<-shutdownSignal
 	log.Info("Stopping " + name + " ...")
