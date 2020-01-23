@@ -2,6 +2,7 @@ package graph
 
 import (
 	"github.com/iotaledger/goshimmer/packages/parameter"
+	"github.com/iotaledger/goshimmer/plugins/cli"
 )
 
 func init() {
@@ -16,11 +17,11 @@ func init() {
 	parameter.NodeConfig.SetDefault("graph.domain", "")
 
 	// "Set the host to which the IOTA Tangle Visualiser listens"
-	parameter.NodeConfig.SetDefault("graph.host", "127.0.0.1")
+	parameter.NodeConfig.SetDefault("graph.bindAddress", "127.0.0.1")
 
 	// "IOTA Tangle Visualiser webserver port"
 	parameter.NodeConfig.SetDefault("graph.port", 8083)
 
 	// "Name of the network shown in IOTA Tangle Visualiser"
-	parameter.NodeConfig.SetDefault("graph.networkName", "meets HORNET")
+	parameter.NodeConfig.SetDefault("graph.networkName", cli.AppName)
 }
