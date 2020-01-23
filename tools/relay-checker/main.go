@@ -5,14 +5,13 @@ import (
 	"time"
 
 	client "github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
 func testBroadcastData(api *client.GoShimmerAPI) (trinary.Hash, error) {
 	txnHash, err := api.BroadcastData(txnAddr, txnData)
 	if err != nil {
-		return "", errors.Wrapf(err, "Broadcast failed")
+		return "", fmt.Errorf("%w: broadcast failed", err)
 	}
 	return txnHash, nil
 }
@@ -21,7 +20,7 @@ func testTargetGetTransactions(api *client.GoShimmerAPI, txnHash trinary.Hash) e
 	// query target node for broadcasted data
 	_, err := api.GetTransactions([]trinary.Hash{txnHash})
 	if err != nil {
-		return errors.Wrapf(err, "Query target failed")
+		return fmt.Errorf("%w: query target failed", err)
 	}
 	return nil
 }
@@ -32,7 +31,7 @@ func testNodesGetTransactions(txnHash trinary.Hash) error {
 		nodesApi := client.NewGoShimmerAPI(n)
 		_, err := nodesApi.GetTransactions([]trinary.Hash{txnHash})
 		if err != nil {
-			return errors.Wrapf(err, "Query %s failed", n)
+			return fmt.Errorf("%w: query %s failed", err, n)
 		}
 		fmt.Printf("txn found in %s\n", n)
 	}
