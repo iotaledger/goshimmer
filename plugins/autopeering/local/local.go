@@ -54,8 +54,7 @@ func configureLocal() *peer.Local {
 
 	// set the private key from the seed provided in the config
 	var seed [][]byte
-	if parameter.NodeConfig.IsSet(CFG_SEED) {
-		str := parameter.NodeConfig.GetString(CFG_SEED)
+	if str := parameter.NodeConfig.GetString(CFG_SEED); str != "" {
 		bytes, err := base64.StdEncoding.DecodeString(str)
 		if err != nil {
 			log.Fatalf("Invalid %s: %s", CFG_SEED, err)
