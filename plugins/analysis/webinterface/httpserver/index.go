@@ -113,13 +113,13 @@ func index(w http.ResponseWriter, r *http.Request) {
           break;
 
           case "C":
-             connectNodes(e.data.substr(1, 64), e.data.substr(65, 128));
-             console.log("Connect nodes:",e.data.substr(1, 64), " - ", e.data.substr(65, 128));
+             connectNodes(e.data.substr(1, 64), e.data.substr(65, 64));
+             console.log("Connect nodes:",e.data.substr(1, 64), " - ", e.data.substr(65, 64));
           break;
 
           case "c":
-             disconnectNodes(e.data.substr(1, 64), e.data.substr(65, 128));
-             console.log("Disconnect nodes:",e.data.substr(1, 64), " - ", e.data.substr(65, 128));
+             disconnectNodes(e.data.substr(1, 64), e.data.substr(65, 64));
+             console.log("Disconnect nodes:",e.data.substr(1, 64), " - ", e.data.substr(65, 64));
           break;
 
           case "O":
@@ -230,18 +230,18 @@ func index(w http.ResponseWriter, r *http.Request) {
     }
 
     function showNodeID(node) {
-      document.getElementById("nodeId").innerHTML = "ID: " + node.id;
+      document.getElementById("nodeId").innerHTML = "ID: " + node.id.substr(0, 16);
 
       var incoming = data.links.filter(l => (l.target.id == node.id));
       document.getElementById("in").innerHTML = "IN: " + incoming.length + "<br>";
       incoming.forEach(function(link){
-        document.getElementById("in").innerHTML += link.source.id + " &rarr; NODE <br>";
+        document.getElementById("in").innerHTML += link.source.id.substr(0, 16) + " &rarr; NODE <br>";
       });
 
       var outgoing = data.links.filter(l => (l.source.id == node.id));
       document.getElementById("out").innerHTML = "OUT: " + outgoing.length + "<br>";
       outgoing.forEach(function(link){
-        document.getElementById("out").innerHTML += "NODE &rarr; " + link.target.id + "<br>";
+        document.getElementById("out").innerHTML += "NODE &rarr; " + link.target.id.substr(0, 16) + "<br>";
       });
     }
   </script>
