@@ -80,7 +80,9 @@ func reportCurrentStatus(eventDispatchers *EventDispatchers) {
 		eventDispatchers.AddNode(local.GetInstance().ID().Bytes())
 	}
 
+	reportKnownPeers(eventDispatchers)
 	reportChosenNeighbors(eventDispatchers)
+	reportAcceptedNeighbors(eventDispatchers)
 }
 
 func setupHooks(plugin *node.Plugin, conn *network.ManagedConnection, eventDispatchers *EventDispatchers) {
@@ -123,6 +125,7 @@ func setupHooks(plugin *node.Plugin, conn *network.ManagedConnection, eventDispa
 	var onClose *events.Closure
 	onClose = events.NewClosure(func() {
 		discover.Events.PeerDiscovered.Detach(onDiscoverPeer)
+		discover.Events.PeerDeleted.Detach(onDeletePeer)
 		selection.Events.IncomingPeering.Detach(onAddAcceptedNeighbor)
 		selection.Events.OutgoingPeering.Detach(onAddChosenNeighbor)
 		selection.Events.Dropped.Detach(onRemoveNeighbor)
@@ -132,11 +135,28 @@ func setupHooks(plugin *node.Plugin, conn *network.ManagedConnection, eventDispa
 	conn.Events.Close.Attach(onClose)
 }
 
+func reportKnownPeers(dispatchers *EventDispatchers) {
+	if autopeering.Discovery != nil {
+		for _, peer := range autopeering.Discovery.GetVerifiedPeers() {
+			dispatchers.AddNode(peer.ID().Bytes())
+		}
+	}
+}
+
 func reportChosenNeighbors(dispatchers *EventDispatchers) {
 	if autopeering.Selection != nil {
 		for _, chosenNeighbor := range autopeering.Selection.GetOutgoingNeighbors() {
-			dispatchers.AddNode(chosenNeighbor.ID().Bytes())
+			//dispatchers.AddNode(chosenNeighbor.ID().Bytes())
 			dispatchers.ConnectNodes(local.GetInstance().ID().Bytes(), chosenNeighbor.ID().Bytes())
+		}
+	}
+}
+
+func reportAcceptedNeighbors(dispatchers *EventDispatchers) {
+	if autopeering.Selection != nil {
+		for _, acceptedNeighbor := range autopeering.Selection.GetIncomingNeighbors() {
+			//dispatchers.AddNode(acceptedNeighbor.ID().Bytes())
+			dispatchers.ConnectNodes(local.GetInstance().ID().Bytes(), acceptedNeighbor.ID().Bytes())
 		}
 	}
 }
