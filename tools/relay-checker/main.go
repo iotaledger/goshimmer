@@ -41,7 +41,7 @@ func main() {
 	SetConfig()
 
 	api := client.NewGoShimmerAPI(target)
-	for i := 0; i < maxQuery; i++ {
+	for i := 0; i < repeat; i++ {
 		txnHash, err := testBroadcastData(api)
 		if err != nil {
 			fmt.Printf("%s\n", err)
@@ -50,7 +50,7 @@ func main() {
 		fmt.Printf("txnHash: %s\n", txnHash)
 
 		// cooldown time
-		time.Sleep(time.Duration(cooldown) * time.Second)
+		time.Sleep(time.Duration(cooldownTime) * time.Second)
 
 		// query target node
 		err = testTargetGetTransactions(api, txnHash)
@@ -59,7 +59,7 @@ func main() {
 			break
 		}
 
-		// query nodes node
+		// query test nodes
 		err = testNodesGetTransactions(txnHash)
 		if err != nil {
 			fmt.Printf("%s\n", err)

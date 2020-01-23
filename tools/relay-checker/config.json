@@ -1,12 +1,12 @@
 {
-  "relaycheck": {
-    "targetnode": "http://127.0.0.1:8080",
-    "nodes": [
+  "relayChecker": {
+    "targetNode": "http://127.0.0.1:8080",
+    "testNodes": [
         "http://127.0.0.1:8080"
     ],
-    "txnaddress": "SHIMMER99TEST99999999999999999999999999999999999999999999999999999999999999999999", 
+    "txAddress": "SHIMMER99TEST99999999999999999999999999999999999999999999999999999999999999999999",
     "data": "TEST99BROADCAST99DATA",
-    "cooldowntime": 10,
-    "maxquery": 2 
+    "cooldownTime": 10,
+    "repeat": 2
   }
 }

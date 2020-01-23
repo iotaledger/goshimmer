@@ -5,12 +5,12 @@ import (
 )
 
 var (
-	nodes    []string
-	target   = ""
-	txnAddr  = "GOSHIMMER99TEST999999999999999999999999999999999999999999999999999999999999999999"
-	txnData  = "TEST99BROADCAST99DATA"
-	cooldown = 2
-	maxQuery = 1
+	nodes        []string
+	target       = ""
+	txnAddr      = "GOSHIMMER99TEST999999999999999999999999999999999999999999999999999999999999999999"
+	txnData      = "TEST99BROADCAST99DATA"
+	cooldownTime = 2
+	repeat       = 1
 )
 
 func LoadConfig() {
@@ -31,16 +31,16 @@ func SetConfig() {
 	nodes = append(nodes, parameter.NodeConfig.GetStringSlice(CFG_TEST_NODES)...)
 
 	// optional settings
-	if parameter.NodeConfig.GetString(CFG_TXN_ADDRESS) != "" {
-		txnAddr = parameter.NodeConfig.GetString(CFG_TXN_ADDRESS)
+	if parameter.NodeConfig.GetString(CFG_TX_ADDRESS) != "" {
+		txnAddr = parameter.NodeConfig.GetString(CFG_TX_ADDRESS)
 	}
 	if parameter.NodeConfig.GetString(CFG_DATA) != "" {
 		txnData = parameter.NodeConfig.GetString(CFG_DATA)
 	}
-	if parameter.NodeConfig.GetInt(CFG_COOL_DOWN_TIME) > 0 {
-		cooldown = parameter.NodeConfig.GetInt(CFG_COOL_DOWN_TIME)
+	if parameter.NodeConfig.GetInt(CFG_COOLDOWN_TIME) > 0 {
+		cooldownTime = parameter.NodeConfig.GetInt(CFG_COOLDOWN_TIME)
 	}
-	if parameter.NodeConfig.GetInt(CFG_MAX_QUERY) > 0 {
-		maxQuery = parameter.NodeConfig.GetInt(CFG_MAX_QUERY)
+	if parameter.NodeConfig.GetInt(CFG_REPEAT) > 0 {
+		repeat = parameter.NodeConfig.GetInt(CFG_REPEAT)
 	}
 }
