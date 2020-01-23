@@ -1,6 +1,7 @@
 package client
 
 import (
+	"encoding/hex"
 	"net"
 	"time"
 
@@ -57,19 +58,19 @@ func Run(plugin *node.Plugin) {
 func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 	return &EventDispatchers{
 		AddNode: func(nodeId []byte) {
-			log.Debugw("AddNode", "nodeId", nodeId)
+			log.Debugw("AddNode", "nodeId", hex.EncodeToString(nodeId))
 			_, _ = conn.Write((&addnode.Packet{NodeId: nodeId}).Marshal())
 		},
 		RemoveNode: func(nodeId []byte) {
-			log.Debugw("RemoveNode", "nodeId", nodeId)
+			log.Debugw("RemoveNode", "nodeId", hex.EncodeToString(nodeId))
 			_, _ = conn.Write((&removenode.Packet{NodeId: nodeId}).Marshal())
 		},
 		ConnectNodes: func(sourceId []byte, targetId []byte) {
-			log.Debugw("ConnectNodes", "sourceId", sourceId, "targetId", targetId)
+			log.Debugw("ConnectNodes", "sourceId", hex.EncodeToString(sourceId), "targetId", hex.EncodeToString(targetId))
 			_, _ = conn.Write((&connectnodes.Packet{SourceId: sourceId, TargetId: targetId}).Marshal())
 		},
 		DisconnectNodes: func(sourceId []byte, targetId []byte) {
-			log.Debugw("DisconnectNodes", "sourceId", sourceId, "targetId", targetId)
+			log.Debugw("DisconnectNodes", "sourceId", hex.EncodeToString(sourceId), "targetId", hex.EncodeToString(targetId))
 			_, _ = conn.Write((&disconnectnodes.Packet{SourceId: sourceId, TargetId: targetId}).Marshal())
 		},
 	}
