@@ -73,7 +73,7 @@ func start(shutdownSignal <-chan struct{}) {
 		}
 	}
 
-	//check that discovery is working and the port is open
+	// check that discovery is working and the port is open
 	log.Info("Testing service ...")
 	checkConnection(udpAddr, &loc.Peer)
 	log.Info("Testing service ... done")

@@ -186,7 +186,7 @@ func (p *Protocol) PeeringRequest(to *peer.Peer, salt *salt.Salt) (bool, error) 
 	return status, err
 }
 
-// PeeringDrop PeeringDrop drop to the given peer, non-blocking and does not wait for any responses.
+// PeeringDrop sends a peering drop message to the given peer, non-blocking and does not wait for any responses.
 func (p *Protocol) PeeringDrop(to *peer.Peer) {
 	drop := newPeeringDrop(to.Address())
 
