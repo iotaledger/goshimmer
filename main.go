@@ -26,7 +26,7 @@ import (
 	webapi_getTransactionTrytesByHash "github.com/iotaledger/goshimmer/plugins/webapi/getTransactionTrytesByHash"
 	webapi_gtta "github.com/iotaledger/goshimmer/plugins/webapi/gtta"
 	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi/spammer"
-	"github.com/iotaledger/goshimmer/plugins/webauth"
+	webapi_auth "github.com/iotaledger/goshimmer/plugins/webauth"
 	"github.com/iotaledger/goshimmer/plugins/zeromq"
 	"github.com/iotaledger/hive.go/node"
 )
@@ -54,6 +54,7 @@ func main() {
 			statusscreen_tps.PLUGIN,
 
 			webapi.PLUGIN,
+			webapi_auth.PLUGIN,
 			webapi_gtta.PLUGIN,
 			webapi_spammer.PLUGIN,
 			webapi_broadcastData.PLUGIN,
@@ -64,7 +65,6 @@ func main() {
 			webapi_spammer.PLUGIN,
 
 			ui.PLUGIN,
-			webauth.PLUGIN,
 
 			graph.PLUGIN,
 		),
