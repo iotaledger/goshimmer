@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	CFG_BIND     = "node.bindAddress"
-	CFG_EXTERNAL = "node.externalAddress"
+	CFG_BIND     = "network.bindAddress"
+	CFG_EXTERNAL = "network.externalAddress"
 	CFG_PORT     = "autopeering.port"
 	CFG_SEED     = "autopeering.seed"
 )
