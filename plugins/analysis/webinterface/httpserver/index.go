@@ -78,7 +78,7 @@ func index(w http.ResponseWriter, r *http.Request) {
     const Graph = ForceGraph3D()(elem)
         .enableNodeDrag(false)
         .onNodeHover(node => elem.style.cursor = node ? 'pointer' : null)
-        .onNodeClick(removeNodeX)
+        .onNodeClick()
         .nodeColor(node => node.online ? 'rgba(0,255,0,1)' : 'rgba(255,255,255,1)')
         .graphData(data);
 
