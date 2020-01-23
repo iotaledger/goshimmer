@@ -7,7 +7,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/hive.go/events"
@@ -69,11 +68,6 @@ func (m *Manager) stop() {
 	for _, nbr := range m.neighbors {
 		_ = nbr.Close()
 	}
-}
-
-// LocalAddr returns the public address of the gossip service.
-func (m *Manager) LocalAddr() net.Addr {
-	return m.local.Services().Get(service.GossipKey)
 }
 
 // AddOutbound tries to add a neighbor by connecting to that peer.

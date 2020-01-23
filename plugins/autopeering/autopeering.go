@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/selection"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
+	"github.com/iotaledger/goshimmer/packages/netutil"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/cli"
@@ -56,8 +57,9 @@ func configureAP() {
 func start(shutdownSignal <-chan struct{}) {
 	defer log.Info("Stopping " + name + " ... done")
 
-	addr := local.GetInstance().Services().Get(service.PeeringKey)
-	udpAddr, err := net.ResolveUDPAddr(addr.Network(), addr.String())
+	loc := local.GetInstance()
+	peeringAddr := loc.Services().Get(service.PeeringKey)
+	udpAddr, err := net.ResolveUDPAddr(peeringAddr.Network(), peeringAddr.String())
 	if err != nil {
 		log.Fatalf("ResolveUDPAddr: %v", err)
 	}
@@ -71,7 +73,12 @@ func start(shutdownSignal <-chan struct{}) {
 		}
 	}
 
-	conn, err := net.ListenUDP(addr.Network(), udpAddr)
+	// check that discovery is working and the port is open
+	log.Info("Testing service ...")
+	checkConnection(udpAddr, &loc.Peer)
+	log.Info("Testing service ... done")
+
+	conn, err := net.ListenUDP(peeringAddr.Network(), udpAddr)
 	if err != nil {
 		log.Fatalf("ListenUDP: %v", err)
 	}
@@ -86,17 +93,12 @@ func start(shutdownSignal <-chan struct{}) {
 	}
 
 	// start a server doing discovery and peering
-	srv := server.Listen(local.GetInstance(), trans, log.Named("srv"), handlers...)
+	srv := server.Listen(loc, trans, log.Named("srv"), handlers...)
 	defer srv.Close()
 
 	// start the discovery on that connection
 	Discovery.Start(srv)
 	defer Discovery.Close()
-
-	//check that discovery is working and the port is open
-	log.Info("Testing service ...")
-	checkConnection(srv, &local.GetInstance().Peer)
-	log.Info("Testing service ... done")
 
 	if Selection != nil {
 		// start the peering on that connection
@@ -104,8 +106,8 @@ func start(shutdownSignal <-chan struct{}) {
 		defer Selection.Close()
 	}
 
-	log.Infof(name+" started: address=%s/udp", srv.LocalAddr())
-	log.Debugf(name+" server started: PubKey=%s", base64.StdEncoding.EncodeToString(local.GetInstance().PublicKey()))
+	log.Infof(name+" started: address=%s/%s", peeringAddr.String(), peeringAddr.Network())
+	log.Debugf(name+" server started: PubKey=%s", base64.StdEncoding.EncodeToString(loc.PublicKey()))
 
 	<-shutdownSignal
 	log.Info("Stopping " + name + " ...")
@@ -135,14 +137,18 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 	return result, nil
 }
 
-func checkConnection(srv *server.Server, self *peer.Peer) {
-	if err := Discovery.Ping(self); err != nil {
-		if err == server.ErrTimeout {
-			log.Errorf("Error testing service: %s", err)
-			addr := self.Services().Get(service.PeeringKey)
-			log.Panicf("Please check that %s is publicly reachable at %s/%s",
-				cli.AppName, addr.String(), addr.Network())
-		}
-		log.Panicf("Error: %s", err)
+func checkConnection(localAddr *net.UDPAddr, self *peer.Peer) {
+	peering := self.Services().Get(service.PeeringKey)
+	remoteAddr, err := net.ResolveUDPAddr(peering.Network(), peering.String())
+	if err != nil {
+		panic(err)
+	}
+
+	// do not check the address as a NAT may change them for local connections
+	err = netutil.CheckUDP(localAddr, remoteAddr, false, true)
+	if err != nil {
+		log.Errorf("Error testing service: %s", err)
+		log.Panicf("Please check that %s is publicly reachable at %s/%s",
+			cli.AppName, peering.String(), peering.Network())
 	}
 }

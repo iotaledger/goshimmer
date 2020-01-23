@@ -5,10 +5,6 @@ import (
 	"math/rand"
 	"sync"
 	"time"
-
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
-	"github.com/iotaledger/goshimmer/packages/autopeering/server"
-	"github.com/iotaledger/hive.go/backoff"
 )
 
 // doQuery is the main method of the query strategy.
@@ -38,16 +34,7 @@ func (m *manager) doQuery(next chan<- time.Duration) {
 func (m *manager) requestWorker(p *mpeer, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	var peers []*peer.Peer
-	err := backoff.Retry(networkRetryPolicy, func() error {
-		var err error
-		peers, err = m.net.discoveryRequest(unwrapPeer(p))
-		if err != nil && err != server.ErrTimeout {
-			return backoff.Permanent(err)
-		}
-		return err
-	})
-
+	peers, err := m.net.DiscoveryRequest(unwrapPeer(p))
 	if err != nil || len(peers) == 0 {
 		p.lastNewPeers = 0
 
