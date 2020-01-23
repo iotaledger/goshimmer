@@ -33,7 +33,9 @@ func (m *NetworkMock) DiscoveryRequest(p *peer.Peer) ([]*peer.Peer, error) {
 }
 
 func newNetworkMock() *NetworkMock {
-	local, _ := peer.NewLocal("mock", "0", peer.NewMemoryDB(log))
+	services := service.New()
+	services.Update(service.PeeringKey, "mock", "local")
+	local, _ := peer.NewLocal(services, peer.NewMemoryDB(log))
 	return &NetworkMock{
 		// no database needed
 		loc: local,

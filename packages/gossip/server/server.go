@@ -77,39 +77,22 @@ type accept struct {
 	conn   net.Conn // the actual network connection
 }
 
-// ListenTCP creates the object and starts listening for incoming connections.
-func ListenTCP(local *peer.Local, log *zap.SugaredLogger) (*TCP, error) {
+// ServeTCP creates the object and starts listening for incoming connections.
+func ServeTCP(local *peer.Local, listener *net.TCPListener, log *zap.SugaredLogger) *TCP {
 	t := &TCP{
 		local:            local,
+		publicAddr:       local.Services().Get(service.GossipKey),
+		listener:         listener,
 		log:              log,
 		addAcceptMatcher: make(chan *acceptMatcher),
 		acceptReceived:   make(chan accept),
 		closing:          make(chan struct{}),
 	}
-
-	t.publicAddr = local.Services().Get(service.GossipKey)
 	if t.publicAddr == nil {
-		return nil, ErrNoGossip
-	}
-	tcpAddr, err := net.ResolveTCPAddr(t.publicAddr.Network(), t.publicAddr.String())
-	if err != nil {
-		return nil, err
-	}
-	// if the ip is an external ip, set it to unspecified
-	if tcpAddr.IP.IsGlobalUnicast() {
-		if tcpAddr.IP.To4() != nil {
-			tcpAddr.IP = net.IPv4zero
-		} else {
-			tcpAddr.IP = net.IPv6unspecified
-		}
+		panic(ErrNoGossip)
 	}
 
-	listener, err := net.ListenTCP(t.publicAddr.Network(), tcpAddr)
-	if err != nil {
-		return nil, err
-	}
-	t.listener = listener
-	t.log.Debugw("listening started",
+	t.log.Debugw("server started",
 		"network", listener.Addr().Network(),
 		"address", listener.Addr().String(),
 	)
@@ -118,7 +101,7 @@ func ListenTCP(local *peer.Local, log *zap.SugaredLogger) (*TCP, error) {
 	go t.run()
 	go t.listenLoop()
 
-	return t, nil
+	return t
 }
 
 // Close stops listening on the gossip address.

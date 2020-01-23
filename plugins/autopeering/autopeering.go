@@ -57,31 +57,30 @@ func configureAP() {
 func start(shutdownSignal <-chan struct{}) {
 	defer log.Info("Stopping " + name + " ... done")
 
-	loc := local.GetInstance()
-	peeringAddr := loc.Services().Get(service.PeeringKey)
-	udpAddr, err := net.ResolveUDPAddr(peeringAddr.Network(), peeringAddr.String())
+	lPeer := local.GetInstance()
+	// use the port of the peering service
+	peeringAddr := lPeer.Services().Get(service.PeeringKey)
+	_, peeringPort, err := net.SplitHostPort(peeringAddr.String())
 	if err != nil {
-		log.Fatalf("ResolveUDPAddr: %v", err)
+		panic(err)
 	}
-
-	// if the ip is an external ip, set it to unspecified
-	if udpAddr.IP.IsGlobalUnicast() {
-		if udpAddr.IP.To4() != nil {
-			udpAddr.IP = net.IPv4zero
-		} else {
-			udpAddr.IP = net.IPv6unspecified
-		}
+	// resolve the bind address
+	address := net.JoinHostPort(parameter.NodeConfig.GetString(local.CFG_BIND), peeringPort)
+	localAddr, err := net.ResolveUDPAddr(peeringAddr.Network(), address)
+	if err != nil {
+		log.Fatalf("Error resolving "+local.CFG_BIND+": %v", err)
 	}
 
 	// check that discovery is working and the port is open
 	log.Info("Testing service ...")
-	checkConnection(udpAddr, &loc.Peer)
+	checkConnection(localAddr, &lPeer.Peer)
 	log.Info("Testing service ... done")
 
-	conn, err := net.ListenUDP(peeringAddr.Network(), udpAddr)
+	conn, err := net.ListenUDP(peeringAddr.Network(), localAddr)
 	if err != nil {
-		log.Fatalf("ListenUDP: %v", err)
+		log.Fatalf("Error listening: %v", err)
 	}
+	defer conn.Close()
 
 	// use the UDP connection for transport
 	trans := transport.Conn(conn, func(network, address string) (net.Addr, error) { return net.ResolveUDPAddr(network, address) })
@@ -93,7 +92,7 @@ func start(shutdownSignal <-chan struct{}) {
 	}
 
 	// start a server doing discovery and peering
-	srv := server.Listen(loc, trans, log.Named("srv"), handlers...)
+	srv := server.Serve(lPeer, trans, log.Named("srv"), handlers...)
 	defer srv.Close()
 
 	// start the discovery on that connection
@@ -106,8 +105,8 @@ func start(shutdownSignal <-chan struct{}) {
 		defer Selection.Close()
 	}
 
-	log.Infof(name+" started: address=%s/%s", peeringAddr.String(), peeringAddr.Network())
-	log.Debugf(name+" server started: PubKey=%s", base64.StdEncoding.EncodeToString(loc.PublicKey()))
+	log.Infof(name+" started: Address=%s/%s", peeringAddr.String(), peeringAddr.Network())
+	log.Infof(name+" started: PubKey=%s", base64.StdEncoding.EncodeToString(lPeer.PublicKey()))
 
 	<-shutdownSignal
 	log.Info("Stopping " + name + " ...")

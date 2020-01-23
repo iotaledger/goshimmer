@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -186,7 +187,9 @@ type networkMock struct {
 }
 
 func newNetworkMock(name string, mgrMap map[peer.ID]*manager, log *logger.Logger) *networkMock {
-	local, _ := peer.NewLocal("mock", name, peer.NewMemoryDB(log))
+	services := service.New()
+	services.Update(service.PeeringKey, "mock", name)
+	local, _ := peer.NewLocal(services, peer.NewMemoryDB(log))
 	return &networkMock{
 		loc: local,
 		mgr: mgrMap,
