@@ -1,4 +1,4 @@
-package getTransactions
+package getTransactionObjectsByHash
 
 import (
 	"net/http"
@@ -11,19 +11,19 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI getTransaction Endpoint", node.Enabled, configure)
+var PLUGIN = node.NewPlugin("WebAPI getTransactionObjectsByHash Endpoint", node.Enabled, configure)
 var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("API-getTransactions")
-	webapi.Server.POST("getTransactions", getTransactions)
+	log = logger.NewLogger("API-getTransactionObjectsByHash")
+	webapi.Server.POST("getTransactionObjectsByHash", getTransactionObjectsByHash)
 }
 
-// getTransactions returns the array of transactions for the
+// getTransactionObjectsByHash returns the array of transactions for the
 // given transaction hashes (in the same order as the parameters).
 // If a node doesn't have the transaction for a given transaction hash in its ledger,
 // the value at the index of that transaction hash is empty.
-func getTransactions(c echo.Context) error {
+func getTransactionObjectsByHash(c echo.Context) error {
 
 	var request Request
 	result := []Transaction{}
