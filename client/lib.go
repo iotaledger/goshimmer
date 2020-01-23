@@ -116,7 +116,7 @@ func (api *GoShimmerAPI) do(method string, route string, reqObj interface{}, res
 
 	// add authorization header with JWT
 	if len(api.jwt) > 0 {
-		req.Header.Set("Authorization", fmt.Sprintf("bearer %s", api.jwt))
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", api.jwt))
 	}
 
 	// make the request

@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
@@ -14,12 +15,12 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI JWT Auth", node.Disabled, configure)
-
+var PLUGIN = node.NewPlugin("WebAPI Auth", node.Disabled, configure)
+var log *logger.Logger
 var privateKey string
 
 func configure(plugin *node.Plugin) {
-
+	log = logger.NewLogger("WebAPI Auth")
 	privateKey = parameter.NodeConfig.GetString(WEBAPI_AUTH_PRIVATE_KEY)
 	if len(privateKey) == 0 {
 		panic("")
@@ -36,6 +37,7 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	webapi.Server.POST("/login", Handler)
+	log.Info("WebAPI is now secured through JWT authentication")
 }
 
 type Request struct {
