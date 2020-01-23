@@ -61,5 +61,5 @@ type Response struct {
 
 type Request struct {
 	Cmd string `json:"cmd"`
-	Tps uint   `json:"tps"`
+	Tps uint64 `json:"tps"`
 }
