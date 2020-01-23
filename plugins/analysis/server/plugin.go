@@ -5,8 +5,6 @@ import (
 	"errors"
 	"math"
 
-	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/network/tcp"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
@@ -17,13 +15,15 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/network"
+	"github.com/iotaledger/hive.go/network/tcp"
 	"github.com/iotaledger/hive.go/node"
 )
 
 var (
 	ErrInvalidPackageHeader          = errors.New("invalid package header")
 	ErrExpectedInitialAddNodePackage = errors.New("expected initial add node package")
-	server                           *tcp.Server
+	server                           *tcp.TCPServer
 	log                              *logger.Logger
 )
 
@@ -46,7 +46,7 @@ func Configure(plugin *node.Plugin) {
 func Run(plugin *node.Plugin) {
 	daemon.BackgroundWorker("Analysis Server", func(shutdownSignal <-chan struct{}) {
 		log.Infof("Starting Server (port %d) ... done", parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
-		go server.Listen(parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
+		go server.Listen("0.0.0.0", parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
 		<-shutdownSignal
 		Shutdown()
 	}, shutdown.ShutdownPriorityAnalysis)
