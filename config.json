@@ -16,6 +16,9 @@
     ],
     "port": 14626
   },
+  "dashboard": {
+    "bindAddress": "0.0.0.0:8081"
+  },
   "database": {
     "directory": "mainnetdb"
   },
