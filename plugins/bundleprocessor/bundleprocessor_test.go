@@ -1,10 +1,13 @@
 package bundleprocessor
 
 import (
+	"io/ioutil"
+	"os"
 	"sync"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/client"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/parameter"
@@ -16,6 +19,7 @@ import (
 	"github.com/iotaledger/iota.go/consts"
 	"github.com/magiconair/properties/assert"
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/require"
 )
 
 var seed = client.NewSeed("YFHQWAUPCXC9S9DSHP9NDF9RLNPMZVCMSJKUKQP9SWUSUCPRQXCMDVDVZ9SHHESHIQNCXWBJF9UJSWE9Z", consts.SecurityLevelMedium)
@@ -69,6 +73,12 @@ func TestValidateSignatures(t *testing.T) {
 }
 
 func TestProcessSolidBundleHead(t *testing.T) {
+	dir, err := ioutil.TempDir("", t.Name())
+	require.NoError(t, err)
+	defer os.Remove(dir)
+	// use the tempdir for the database
+	parameter.NodeConfig.Set(database.CFG_DIRECTORY, dir)
+
 	// start a test node
 	node.Start(node.Plugins(tangle.PLUGIN, PLUGIN))
 	defer node.Shutdown()
