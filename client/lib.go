@@ -10,10 +10,10 @@ import (
 	"net/http"
 
 	webapi_broadcastData "github.com/iotaledger/goshimmer/plugins/webapi/broadcastData"
-	webapi_findTransactions "github.com/iotaledger/goshimmer/plugins/webapi/findTransactions"
+	webapi_findTransactions "github.com/iotaledger/goshimmer/plugins/webapi/findTransactionHashes"
 	webapi_getNeighbors "github.com/iotaledger/goshimmer/plugins/webapi/getNeighbors"
-	webapi_getTransactions "github.com/iotaledger/goshimmer/plugins/webapi/getTransactions"
-	webapi_getTrytes "github.com/iotaledger/goshimmer/plugins/webapi/getTrytes"
+	webapi_getTransactions "github.com/iotaledger/goshimmer/plugins/webapi/getTransactionObjectsByHash"
+	webapi_getTrytes "github.com/iotaledger/goshimmer/plugins/webapi/getTransactionTrytesByHash"
 	webapi_gtta "github.com/iotaledger/goshimmer/plugins/webapi/gtta"
 	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi/spammer"
 	"github.com/iotaledger/iota.go/consts"
@@ -30,9 +30,9 @@ var (
 
 const (
 	routeBroadcastData            = "broadcastData"
-	routeGetTrytes                = "getTrytes"
-	routeGetTransactions          = "getTransactions"
-	routeFindTransactions         = "findTransactions"
+	routeGetTrytes                = "getTransactionTrytesByHash"
+	routeGetTransactions          = "getTransactionObjectsByHash"
+	routeFindTransactions         = "findTransactionHashes"
 	routeGetNeighbors             = "getNeighbors"
 	routeGetTransactionsToApprove = "getTransactionsToApprove"
 	routeSpammer                  = "spammer"
@@ -107,7 +107,7 @@ func (api *GoShimmerAPI) BroadcastData(targetAddress trinary.Trytes, data string
 	return resObj.Hash, nil
 }
 
-func (api *GoShimmerAPI) GetTrytes(txHashes trinary.Hashes) ([]trinary.Trytes, error) {
+func (api *GoShimmerAPI) GetTransactionTrytesByHash(txHashes trinary.Hashes) ([]trinary.Trytes, error) {
 	for _, hash := range txHashes {
 		if !guards.IsTrytes(hash) {
 			return nil, fmt.Errorf("%w: invalid hash: %s", consts.ErrInvalidHash, hash)
@@ -132,7 +132,7 @@ func (api *GoShimmerAPI) GetTrytes(txHashes trinary.Hashes) ([]trinary.Trytes, e
 	return resObj.Trytes, nil
 }
 
-func (api *GoShimmerAPI) GetTransactions(txHashes trinary.Hashes) ([]webapi_getTransactions.Transaction, error) {
+func (api *GoShimmerAPI) GetTransactionObjectsByHash(txHashes trinary.Hashes) ([]webapi_getTransactions.Transaction, error) {
 	for _, hash := range txHashes {
 		if !guards.IsTrytes(hash) {
 			return nil, fmt.Errorf("%w: invalid hash: %s", consts.ErrInvalidHash, hash)
@@ -157,7 +157,7 @@ func (api *GoShimmerAPI) GetTransactions(txHashes trinary.Hashes) ([]webapi_getT
 	return resObj.Transactions, nil
 }
 
-func (api *GoShimmerAPI) FindTransactions(query *webapi_findTransactions.Request) ([]trinary.Hashes, error) {
+func (api *GoShimmerAPI) FindTransactionHashes(query *webapi_findTransactions.Request) ([]trinary.Hashes, error) {
 	for _, hash := range query.Addresses {
 		if !guards.IsTrytes(hash) {
 			return nil, fmt.Errorf("%w: invalid hash: %s", consts.ErrInvalidHash, hash)

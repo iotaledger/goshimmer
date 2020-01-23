@@ -1,4 +1,4 @@
-package findTransactions
+package findTransactionHashes
 
 import (
 	"net/http"
@@ -11,19 +11,19 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI findTransactions Endpoint", node.Enabled, configure)
+var PLUGIN = node.NewPlugin("WebAPI findTransactionHashes Endpoint", node.Enabled, configure)
 var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("API-findTransactions")
-	webapi.Server.POST("findTransactions", findTransactions)
+	log = logger.NewLogger("API-findTransactionHashes")
+	webapi.Server.POST("findTransactionHashes", findTransactionHashes)
 }
 
-// findTransactions returns the array of transaction hashes for the
+// findTransactionHashes returns the array of transaction hashes for the
 // given addresses (in the same order as the parameters).
 // If a node doesn't have any transaction hash for a given address in its ledger,
 // the value at the index of that address is empty.
-func findTransactions(c echo.Context) error {
+func findTransactionHashes(c echo.Context) error {
 	var request Request
 
 	if err := c.Bind(&request); err != nil {

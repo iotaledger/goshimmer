@@ -19,7 +19,7 @@ func testBroadcastData(api *client.GoShimmerAPI) (trinary.Hash, error) {
 
 func testTargetGetTransactions(api *client.GoShimmerAPI, txnHash trinary.Hash) error {
 	// query target node for broadcasted data
-	_, err := api.GetTransactions([]trinary.Hash{txnHash})
+	_, err := api.GetTransactionObjectsByHash([]trinary.Hash{txnHash})
 	if err != nil {
 		return errors.Wrapf(err, "Query target failed")
 	}
@@ -30,7 +30,7 @@ func testNodesGetTransactions(txnHash trinary.Hash) error {
 	// query nodes node for broadcasted data
 	for _, n := range nodes {
 		nodesApi := client.NewGoShimmerAPI(n)
-		_, err := nodesApi.GetTransactions([]trinary.Hash{txnHash})
+		_, err := nodesApi.GetTransactionObjectsByHash([]trinary.Hash{txnHash})
 		if err != nil {
 			return errors.Wrapf(err, "Query %s failed", n)
 		}
