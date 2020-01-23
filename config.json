@@ -23,10 +23,9 @@
     "port": 14666
   },
   "graph": {
+    "bindAddress": "127.0.0.1:8083",
     "domain": "",
-    "bindAddress": "127.0.0.1",
     "networkName": "GoShimmer",
-    "port": 8083,
     "socketIOPath": "socket.io-client/dist/socket.io.js",
     "webrootPath": "IOTAtangle/webroot"
   },

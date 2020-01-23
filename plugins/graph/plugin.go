@@ -1,7 +1,7 @@
 package graph
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 	"time"
 
@@ -39,7 +39,7 @@ var (
 )
 
 func downloadSocketIOHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, parameter.NodeConfig.GetString("graph.socketioPath"))
+	http.ServeFile(w, r, parameter.NodeConfig.GetString(CFG_SOCKET_IO))
 }
 
 func configureSocketIOServer() error {
@@ -72,11 +72,11 @@ func configure(plugin *node.Plugin) {
 
 	// socket.io and web server
 	server = &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", parameter.NodeConfig.GetString("graph.host"), parameter.NodeConfig.GetInt("graph.port")),
+		Addr:    parameter.NodeConfig.GetString(CFG_BIND_ADDRESS),
 		Handler: router,
 	}
 
-	fs := http.FileServer(http.Dir(parameter.NodeConfig.GetString("graph.webrootPath")))
+	fs := http.FileServer(http.Dir(parameter.NodeConfig.GetString(CFG_WEBROOT)))
 
 	if err := configureSocketIOServer(); err != nil {
 		log.Panicf("Graph: %v", err.Error())
@@ -92,7 +92,7 @@ func configure(plugin *node.Plugin) {
 	}, workerpool.WorkerCount(newTxWorkerCount), workerpool.QueueSize(newTxWorkerQueueSize))
 }
 
-func run(plugin *node.Plugin) {
+func run(*node.Plugin) {
 
 	notifyNewTx := events.NewClosure(func(transaction *value_transaction.ValueTransaction) {
 		newTxWorkerPool.TrySubmit(transaction)
@@ -111,23 +111,33 @@ func run(plugin *node.Plugin) {
 	daemon.BackgroundWorker("Graph Webserver", func(shutdownSignal <-chan struct{}) {
 		go socketioServer.Serve()
 
+		stopped := make(chan struct{})
 		go func() {
+			log.Infof("You can now access IOTA Tangle Visualiser using: http://%s", parameter.NodeConfig.GetString(CFG_BIND_ADDRESS))
 			if err := server.ListenAndServe(); err != nil {
-				log.Error(err.Error())
+				if !errors.Is(err, http.ErrServerClosed) {
+					log.Errorf("Error serving: %s", err)
+				}
 			}
+			close(stopped)
 		}()
 
-		log.Infof("You can now access IOTA Tangle Visualiser using: http://%s:%d", parameter.NodeConfig.GetString("graph.host"), parameter.NodeConfig.GetInt("graph.port"))
+		select {
+		case <-shutdownSignal:
+		case <-stopped:
+		}
 
-		<-shutdownSignal
-		log.Info("Stopping Graph ...")
-
-		socketioServer.Close()
-
-		ctx, cancel := context.WithTimeout(context.Background(), 0*time.Second)
+		log.Info("Stopping Graph Webserver ...")
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
-		_ = server.Shutdown(ctx)
-		log.Info("Stopping Graph ... done")
+		if err := server.Shutdown(ctx); err != nil {
+			log.Errorf("Error stopping: %s", err)
+		}
+
+		if err := socketioServer.Close(); err != nil {
+			log.Errorf("Error closing Socket.IO server: %s", err)
+		}
+		log.Info("Stopping Graph Webserver ... done")
 	}, shutdown.ShutdownPriorityGraph)
 }
