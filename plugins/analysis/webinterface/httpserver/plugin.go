@@ -59,12 +59,12 @@ func start(shutdownSignal <-chan struct{}) {
 	case <-stopped:
 	}
 
-	log.Info("Stopping " + name + " ...")
+	log.Infof("Stopping %s ...", name)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	if err := httpServer.Shutdown(ctx); err != nil {
 		log.Errorf("Error stopping: %s", err)
 	}
-	log.Info("Stopping " + name + " ... done")
+	log.Info("Stopping %s ... done", name)
 }
