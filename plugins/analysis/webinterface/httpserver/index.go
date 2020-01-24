@@ -277,16 +277,12 @@ func index(w http.ResponseWriter, r *http.Request) {
 
     function connectNodes(sourceNodeId, targetNodeId) {
       if(existingLinks[sourceNodeId + targetNodeId] == undefined) {
-        if (!(sourceNodeId in nodesById)) {
-          addNode(sourceNodeId);
+        if ((sourceNodeId in nodesById) && (targetNodeId in nodesById)) {
+          //nodesById[sourceNodeId].online = true;
+          //nodesById[targetNodeId].online = true;
+          existingLinks[sourceNodeId + targetNodeId] = true
+          data.links = [...data.links, { source: sourceNodeId, target: targetNodeId }];
         }
-        if (!(targetNodeId in nodesById)) {
-          addNode(targetNodeId);
-        }
-        nodesById[sourceNodeId].online = true;
-        nodesById[targetNodeId].online = true;
-        existingLinks[sourceNodeId + targetNodeId] = true
-        data.links = [...data.links, { source: sourceNodeId, target: targetNodeId }];
 
         updateGraph();
       }
