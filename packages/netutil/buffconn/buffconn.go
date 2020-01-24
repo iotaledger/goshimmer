@@ -15,7 +15,13 @@ const (
 	// MaxMessageSize is the maximum message size in bytes.
 	MaxMessageSize = 4096
 	// IOTimeout specifies the timeout for sending and receiving multi packet messages.
-	IOTimeout = 5 * time.Second
+	IOTimeout = 4 * time.Second
+)
+
+// Errors returned by the BufferedConnection.
+var (
+	ErrInvalidHeader      = errors.New("invalid message header")
+	ErrInsufficientBuffer = errors.New("insufficient buffer")
 )
 
 // BufferedConnectionEvents contains all the events that are triggered during the peer discovery.
@@ -101,10 +107,6 @@ func (c *BufferedConnection) Write(data []byte) (int, error) {
 }
 
 func (c *BufferedConnection) read(buffer []byte) (int, error) {
-	if err := c.conn.SetReadDeadline(time.Now().Add(IOTimeout)); err != nil {
-		return 0, fmt.Errorf("error while setting timeout: %w", err)
-	}
-
 	toRead := len(buffer)
 	for bytesRead := 0; bytesRead < toRead; {
 		n, err := c.conn.Read(buffer[bytesRead:])
@@ -127,12 +129,15 @@ func (c *BufferedConnection) readMessage(buffer []byte) (int, error) {
 
 	msgLength, bytesRead := binary.Varint(c.incomingHeaderBuffer)
 	if bytesRead <= 0 || msgLength > MaxMessageSize {
-		return 0, errors.New("invalid header")
+		return 0, ErrInvalidHeader
 	}
 	if msgLength > int64(len(buffer)) {
-		return 0, errors.New("insufficient buffer")
+		return 0, ErrInsufficientBuffer
 	}
 
+	if err := c.conn.SetReadDeadline(time.Now().Add(IOTimeout)); err != nil {
+		return 0, fmt.Errorf("error while setting timeout: %w", err)
+	}
 	return c.read(buffer[:msgLength])
 }
 
