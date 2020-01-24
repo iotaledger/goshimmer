@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
 	"github.com/iotaledger/hive.go/backoff"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/typeutils"
 )
 
 const (
@@ -45,6 +46,7 @@ type Protocol struct {
 	log  *logger.Logger   // logging
 
 	mgr       *manager // the manager handles the actual neighbor selection
+	running   *typeutils.AtomicBool
 	closeOnce sync.Once
 }
 
@@ -55,6 +57,7 @@ func New(local *peer.Local, disc DiscoverProtocol, cfg Config) *Protocol {
 		loc:      local,
 		disc:     disc,
 		log:      cfg.Log,
+		running:  typeutils.NewAtomicBool(),
 	}
 	p.mgr = newManager(p, disc.GetVerifiedPeers, cfg.Log.Named("mgr"), cfg)
 
@@ -65,13 +68,14 @@ func New(local *peer.Local, disc DiscoverProtocol, cfg Config) *Protocol {
 func (p *Protocol) Start(s server.Sender) {
 	p.Protocol.Sender = s
 	p.mgr.start()
-
 	p.log.Debug("neighborhood started")
+	p.running.Set()
 }
 
 // Close finalizes the protocol.
 func (p *Protocol) Close() {
 	p.closeOnce.Do(func() {
+		p.running.UnSet()
 		p.mgr.close()
 	})
 }
@@ -100,8 +104,11 @@ func (p *Protocol) RemoveNeighbor(id peer.ID) {
 
 // HandleMessage responds to incoming neighbor selection messages.
 func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.ID, _ peer.PublicKey, data []byte) (bool, error) {
-	switch pb.MType(data[0]) {
+	if !p.running.IsSet() {
+		return false, nil
+	}
 
+	switch pb.MType(data[0]) {
 	// PeeringRequest
 	case pb.MPeeringRequest:
 		m := new(pb.PeeringRequest)
