@@ -200,7 +200,7 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 	// create and add the neighbor
 	n := NewNeighbor(peer, conn, m.log)
 	n.Events.Close.Attach(events.NewClosure(func() { _ = m.DropNeighbor(peer.ID()) }))
-	n.Events.ReceiveData.Attach(events.NewClosure(func(data []byte) {
+	n.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
 		if err := m.handlePacket(data, peer); err != nil {
 			m.log.Debugw("error handling packet", "err", err)
 		}
@@ -219,6 +219,8 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 		return nil
 	}
 
+	m.log.Debugw("handle packet", "id", p.ID(), "len", len(data))
+
 	switch pb.MType(data[0]) {
 
 	// Incoming Transaction
@@ -227,22 +229,23 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 		if err := proto.Unmarshal(data[1:], msg); err != nil {
 			return fmt.Errorf("invalid packet: %w", err)
 		}
-		m.log.Debugw("Received Transaction", "data", msg.GetData())
+		m.log.Debugw("received tx", "id", p.ID(), "len", len(data))
 		Events.TransactionReceived.Trigger(&TransactionReceivedEvent{Data: msg.GetData(), Peer: p})
 
 	// Incoming Transaction request
 	case pb.MTransactionRequest:
+
 		msg := new(pb.TransactionRequest)
 		if err := proto.Unmarshal(data[1:], msg); err != nil {
 			return fmt.Errorf("invalid packet: %w", err)
 		}
-		m.log.Debugw("Received Tx Req", "data", msg.GetHash())
+		m.log.Debugw("received tx req", "id", p.ID(), "len", len(data))
 		// do something
 		tx, err := m.getTransaction(msg.GetHash())
 		if err != nil {
-			m.log.Debugw("Tx not available", "tx", msg.GetHash())
+			m.log.Debugw("tx not available", "hash", msg.GetHash())
 		} else {
-			m.log.Debugw("Tx found", "tx", tx)
+			m.log.Debugw("tx found", "hash", msg.GetHash())
 			m.SendTransaction(tx, p.ID())
 		}
 

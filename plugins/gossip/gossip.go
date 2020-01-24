@@ -40,7 +40,7 @@ func configureGossip() {
 		log.Fatalf("could not update services: %s", err)
 	}
 
-	mgr = gp.NewManager(lPeer, loadTransaction, log)
+	mgr = gp.NewManager(lPeer, getTransaction, log)
 }
 
 func start(shutdownSignal <-chan struct{}) {
@@ -105,10 +105,13 @@ func checkConnection(srv *server.TCP, self *peer.Peer) {
 	wg.Wait()
 }
 
-func loadTransaction(hash []byte) ([]byte, error) {
-	log.Infof("Retrieving tx: hash=%s", hash)
-
+func getTransaction(hash []byte) ([]byte, error) {
 	tx, err := tangle.GetTransaction(typeutils.BytesToString(hash))
+	log.Debugw("get tx from db",
+		"hash", hash,
+		"tx", tx,
+		"err", err,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("could not get transaction: %w", err)
 	}
