@@ -9,5 +9,5 @@ const (
 )
 
 func init() {
-	flag.String(BIND_ADDRESS, "0.0.0.0:8080", "the bind address for the web API")
+	flag.String(BIND_ADDRESS, "127.0.0.1:8080", "the bind address for the web API")
 }
