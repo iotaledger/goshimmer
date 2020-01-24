@@ -143,14 +143,45 @@ func index(w http.ResponseWriter, r *http.Request) {
 
     var existingLinks = {};
 
+    let highlightNodes = [];
+    let highlightLinks = [];
+    let highlightLink = null;
+
     const elem = document.getElementById("graphc");
 
+      //.onNodeHover(node => elem.style.cursor = node ? 'pointer' : null)
+
     const Graph = ForceGraph3D()(elem)
+        .graphData(data)
         .enableNodeDrag(false)
-        .onNodeHover(node => elem.style.cursor = node ? 'pointer' : null)
-        .onNodeClick(showNodeID)
-        .nodeColor(node => node.online ? 'rgba(0,255,0,1)' : 'rgba(255,255,255,1)')
-        .graphData(data);
+        .onNodeClick(showNodeStat)
+        .nodeColor(node => highlightNodes.indexOf(node) === -1 ? 'rgba(0,255,255,0.6)' : 'rgb(255,0,0,1)')
+        .linkWidth(link => highlightLinks.indexOf(link) === -1 ? 1 : 4)
+        .linkDirectionalParticles(link => highlightLinks.indexOf(link) === -1 ? 0 : 4)
+        .linkDirectionalParticleWidth(4)
+        .onNodeHover(node => {
+          // no state change
+          if ((!node && !highlightNodes.length) || (highlightNodes.length === 1 && highlightNodes[0] === node)) return;
+
+          highlightNodes = node ? [node] : [];
+
+          highlightLinks = [];
+          clearNodeStat();
+          if (node != null) {
+            highlightLinks = data.links.filter(l => (l.target.id == node.id) || (l.source.id == node.id));
+            showNodeStat(node);
+          }
+          updateHighlight();
+        })
+        .onLinkHover(link => {
+          // no state change
+          if ((!link && !highlightLinks.length) || (highlightLinks.length === 1 && highlightLinks[0] === link)) return;
+
+          highlightLinks = [link];
+          highlightNodes = link ? [link.source, link.target] : [];
+
+          updateHighlight();
+        });
 
     var updateRequired = true;
 
@@ -161,6 +192,14 @@ func index(w http.ResponseWriter, r *http.Request) {
         updateRequired = false;
       }
     }, 500)
+
+    function updateHighlight() {
+      // trigger update of highlighted objects in scene
+      Graph
+        .nodeColor(Graph.nodeColor())
+        .linkWidth(Graph.linkWidth())
+        .linkDirectionalParticles(Graph.linkDirectionalParticles());
+    }
 
     updateGraph = function() {
       updateRequired = true;
@@ -229,7 +268,13 @@ func index(w http.ResponseWriter, r *http.Request) {
       updateGraph();
     }
 
-    function showNodeID(node) {
+    function clearNodeStat() {
+      document.getElementById("nodeId").innerHTML = ""
+      document.getElementById("in").innerHTML = ""
+      document.getElementById("out").innerHTML = ""
+    }
+
+    function showNodeStat(node) {
       document.getElementById("nodeId").innerHTML = "ID: " + node.id.substr(0, 16);
 
       var incoming = data.links.filter(l => (l.target.id == node.id));
@@ -243,6 +288,8 @@ func index(w http.ResponseWriter, r *http.Request) {
       outgoing.forEach(function(link){
         document.getElementById("out").innerHTML += "NODE &rarr; " + link.target.id.substr(0, 16) + "<br>";
       });
+
+      nodesById[node.id].color = 'rgba(0,255,255,1)'
     }
   </script>
 </body>`)
