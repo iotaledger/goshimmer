@@ -144,6 +144,8 @@ func index(w http.ResponseWriter, r *http.Request) {
     var existingLinks = {};
 
     let highlightNodes = [];
+    let highlightInbound = [];
+    let highlightOutbound = [];
     let highlightLinks = [];
     let highlightLink = null;
 
@@ -244,7 +246,7 @@ func index(w http.ResponseWriter, r *http.Request) {
     }
 
     function connectNodes(sourceNodeId, targetNodeId) {
-      if(existingLinks[sourceNodeId + targetNodeId] == undefined && existingLinks[targetNodeId + sourceNodeId] == undefined) {
+      if(existingLinks[sourceNodeId + targetNodeId] == undefined) {
         if (!(sourceNodeId in nodesById)) {
           addNode(sourceNodeId);
         }
@@ -261,9 +263,8 @@ func index(w http.ResponseWriter, r *http.Request) {
     }
 
     function disconnectNodes(sourceNodeId, targetNodeId) {
-      data.links = data.links.filter(l => !(l.source.id == sourceNodeId && l.target.id == targetNodeId) && !(l.source.id == targetNodeId && l.target.id == sourceNodeId));
+      data.links = data.links.filter(l => !(l.source.id == sourceNodeId && l.target.id == targetNodeId));
       delete existingLinks[sourceNodeId + targetNodeId];
-      delete existingLinks[targetNodeId + sourceNodeId];
 
       updateGraph();
     }
