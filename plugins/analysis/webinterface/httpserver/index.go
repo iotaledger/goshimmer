@@ -8,6 +8,11 @@ import (
 func index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `<head>
   <style> 
+  html {
+    font-family: monospace, monospace;
+    line-height: 1.15;
+    -webkit-text-size-adjust: 100%%;
+  }
   body {
     text-align: center;
     margin: 0;
@@ -83,8 +88,8 @@ func index(w http.ResponseWriter, r *http.Request) {
     <div id="nodestat">
       <p id="in"></p>
       <p id="out"></p>
+    </div>
   </div>
-  
   <script>
 	var socket = new WebSocket(((window.location.protocol === "https:") ? "wss://" : "ws://") + window.location.host + "/datastream");
 
@@ -195,7 +200,6 @@ func index(w http.ResponseWriter, r *http.Request) {
                 highlightOutbound.push(link.target)
               }
             });
-
 
             showNodeStat(node);
           }
@@ -315,8 +319,6 @@ func index(w http.ResponseWriter, r *http.Request) {
       outgoing.forEach(function(link){
         document.getElementById("out").innerHTML += "NODE &rarr; " + link.target.id.substr(0, 16) + "<br>";
       });
-
-      nodesById[node.id].color = 'rgba(0,255,255,1)'
     }
   </script>
 </body>`)
