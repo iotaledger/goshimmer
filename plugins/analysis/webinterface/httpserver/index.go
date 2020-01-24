@@ -156,9 +156,9 @@ func index(w http.ResponseWriter, r *http.Request) {
         .enableNodeDrag(false)
         .onNodeClick(showNodeStat)
         .nodeColor(node => highlightNodes.indexOf(node) === -1 ? 'rgba(0,255,255,0.6)' : 'rgb(255,0,0,1)')
-        .linkWidth(link => highlightLinks.indexOf(link) === -1 ? 1 : 4)
-        .linkDirectionalParticles(link => highlightLinks.indexOf(link) === -1 ? 0 : 4)
-        .linkDirectionalParticleWidth(4)
+        .linkWidth(link => highlightLinks.indexOf(link) === -1 ? 1 : 3)
+        .linkDirectionalParticles(link => highlightLinks.indexOf(link) === -1 ? 0 : 3)
+        .linkDirectionalParticleWidth(3)
         .onNodeHover(node => {
           // no state change
           if ((!node && !highlightNodes.length) || (highlightNodes.length === 1 && highlightNodes[0] === node)) return;
@@ -278,13 +278,13 @@ func index(w http.ResponseWriter, r *http.Request) {
       document.getElementById("nodeId").innerHTML = "ID: " + node.id.substr(0, 16);
 
       var incoming = data.links.filter(l => (l.target.id == node.id));
-      document.getElementById("in").innerHTML = "IN: " + incoming.length + "<br>";
+      document.getElementById("in").innerHTML = "INBOUND (accepted): " + incoming.length + "<br>";
       incoming.forEach(function(link){
         document.getElementById("in").innerHTML += link.source.id.substr(0, 16) + " &rarr; NODE <br>";
       });
 
       var outgoing = data.links.filter(l => (l.source.id == node.id));
-      document.getElementById("out").innerHTML = "OUT: " + outgoing.length + "<br>";
+      document.getElementById("out").innerHTML = "OUTBOUND (chosen): " + outgoing.length + "<br>";
       outgoing.forEach(function(link){
         document.getElementById("out").innerHTML += "NODE &rarr; " + link.target.id.substr(0, 16) + "<br>";
       });
