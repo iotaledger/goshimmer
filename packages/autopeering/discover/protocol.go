@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
 	"github.com/iotaledger/hive.go/backoff"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/typeutils"
 )
 
 const (
@@ -35,6 +36,7 @@ type Protocol struct {
 	log *logger.Logger // logging
 
 	mgr       *manager // the manager handles the actual peer discovery and re-verification
+	running   *typeutils.AtomicBool
 	closeOnce sync.Once
 }
 
@@ -44,6 +46,7 @@ func New(local *peer.Local, cfg Config) *Protocol {
 		Protocol: server.Protocol{},
 		loc:      local,
 		log:      cfg.Log,
+		running:  typeutils.NewAtomicBool(),
 	}
 	p.mgr = newManager(p, cfg.MasterPeers, cfg.Log.Named("mgr"))
 
@@ -54,13 +57,14 @@ func New(local *peer.Local, cfg Config) *Protocol {
 func (p *Protocol) Start(s server.Sender) {
 	p.Protocol.Sender = s
 	p.mgr.start()
-
 	p.log.Debug("discover started")
+	p.running.Set()
 }
 
 // Close finalizes the protocol.
 func (p *Protocol) Close() {
 	p.closeOnce.Do(func() {
+		p.running.UnSet()
 		p.mgr.close()
 	})
 }
@@ -105,8 +109,11 @@ func (p *Protocol) GetVerifiedPeers() []*peer.Peer {
 
 // HandleMessage responds to incoming peer discovery messages.
 func (p *Protocol) HandleMessage(s *server.Server, fromAddr string, fromID peer.ID, fromKey peer.PublicKey, data []byte) (bool, error) {
-	switch pb.MType(data[0]) {
+	if !p.running.IsSet() {
+		return false, nil
+	}
 
+	switch pb.MType(data[0]) {
 	// Ping
 	case pb.MPing:
 		m := new(pb.Ping)
