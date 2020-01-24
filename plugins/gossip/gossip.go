@@ -57,7 +57,7 @@ func start(shutdownSignal <-chan struct{}) {
 	address := net.JoinHostPort(parameter.NodeConfig.GetString(local.CFG_BIND), gossipPort)
 	localAddr, err := net.ResolveTCPAddr(gossipAddr.Network(), address)
 	if err != nil {
-		log.Fatalf("Error resolving "+local.CFG_BIND+": %v", err)
+		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
 	}
 
 	listener, err := net.ListenTCP(gossipAddr.Network(), localAddr)
@@ -77,7 +77,7 @@ func start(shutdownSignal <-chan struct{}) {
 	mgr.Start(srv)
 	defer mgr.Close()
 
-	log.Infof(name+" started: Address=%s/%s", gossipAddr.String(), gossipAddr.Network())
+	log.Infof("%s started: Address=%s/%s", name, gossipAddr.String(), gossipAddr.Network())
 
 	<-shutdownSignal
 	log.Info("Stopping " + name + " ...")

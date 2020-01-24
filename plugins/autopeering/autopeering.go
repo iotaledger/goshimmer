@@ -68,7 +68,7 @@ func start(shutdownSignal <-chan struct{}) {
 	address := net.JoinHostPort(parameter.NodeConfig.GetString(local.CFG_BIND), peeringPort)
 	localAddr, err := net.ResolveUDPAddr(peeringAddr.Network(), address)
 	if err != nil {
-		log.Fatalf("Error resolving "+local.CFG_BIND+": %v", err)
+		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
 	}
 
 	// check that discovery is working and the port is open

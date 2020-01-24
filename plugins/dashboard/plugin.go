@@ -47,7 +47,7 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	log.Info("Starting " + name + " ...")
+	log.Infof("Starting %s ...", name)
 	if err := daemon.BackgroundWorker(name, workerFunc, shutdown.ShutdownPriorityDashboard); err != nil {
 		log.Errorf("Error starting as daemon: %s", err)
 	}
@@ -56,7 +56,7 @@ func run(*node.Plugin) {
 func workerFunc(shutdownSignal <-chan struct{}) {
 	stopped := make(chan struct{})
 	go func() {
-		log.Infof("Started "+name+": http://%s/dashboard", httpServer.Addr)
+		log.Infof("Started %s: http://%s/dashboard", name, httpServer.Addr)
 		if err := httpServer.ListenAndServe(); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Error serving: %s", err)
@@ -70,12 +70,12 @@ func workerFunc(shutdownSignal <-chan struct{}) {
 	case <-stopped:
 	}
 
-	log.Info("Stopping " + name + " ...")
+	log.Infof("Stopping %s ...", name)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	if err := httpServer.Shutdown(ctx); err != nil {
 		log.Errorf("Error stopping: %s", err)
 	}
-	log.Info("Stopping " + name + " ... done")
+	log.Infof("Stopping %s ... done", name)
 }

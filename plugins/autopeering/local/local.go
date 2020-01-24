@@ -35,7 +35,7 @@ func configureLocal() *peer.Local {
 	} else {
 		externalIP = net.ParseIP(str)
 		if externalIP == nil {
-			log.Fatalf("Invalid IP address "+CFG_EXTERNAL+":%s", str)
+			log.Fatalf("Invalid IP address (%s): %s", CFG_EXTERNAL, str)
 		}
 	}
 	if !externalIP.IsGlobalUnicast() {

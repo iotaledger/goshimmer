@@ -36,7 +36,7 @@ func Configure() {
 }
 
 func Run() {
-	log.Info("Starting " + name + " ...")
+	log.Infof("Starting %s ...", name)
 	if err := daemon.BackgroundWorker(name, start, shutdown.ShutdownPriorityAnalysis); err != nil {
 		log.Errorf("Error starting as daemon: %s", err)
 	}
@@ -45,7 +45,7 @@ func Run() {
 func start(shutdownSignal <-chan struct{}) {
 	stopped := make(chan struct{})
 	go func() {
-		log.Infof("Started "+name+": http://%s", httpServer.Addr)
+		log.Infof("Started %s: http://%s", name, httpServer.Addr)
 		if err := httpServer.ListenAndServe(); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Error serving: %s", err)
