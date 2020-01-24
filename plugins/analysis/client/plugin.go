@@ -1,6 +1,7 @@
 package client
 
 import (
+	"encoding/hex"
 	"net"
 	"time"
 
@@ -57,19 +58,19 @@ func Run(plugin *node.Plugin) {
 func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 	return &EventDispatchers{
 		AddNode: func(nodeId []byte) {
-			log.Debugw("AddNode", "nodeId", nodeId)
+			log.Debugw("AddNode", "nodeId", hex.EncodeToString(nodeId))
 			_, _ = conn.Write((&addnode.Packet{NodeId: nodeId}).Marshal())
 		},
 		RemoveNode: func(nodeId []byte) {
-			log.Debugw("RemoveNode", "nodeId", nodeId)
+			log.Debugw("RemoveNode", "nodeId", hex.EncodeToString(nodeId))
 			_, _ = conn.Write((&removenode.Packet{NodeId: nodeId}).Marshal())
 		},
 		ConnectNodes: func(sourceId []byte, targetId []byte) {
-			log.Debugw("ConnectNodes", "sourceId", sourceId, "targetId", targetId)
+			log.Debugw("ConnectNodes", "sourceId", hex.EncodeToString(sourceId), "targetId", hex.EncodeToString(targetId))
 			_, _ = conn.Write((&connectnodes.Packet{SourceId: sourceId, TargetId: targetId}).Marshal())
 		},
 		DisconnectNodes: func(sourceId []byte, targetId []byte) {
-			log.Debugw("DisconnectNodes", "sourceId", sourceId, "targetId", targetId)
+			log.Debugw("DisconnectNodes", "sourceId", hex.EncodeToString(sourceId), "targetId", hex.EncodeToString(targetId))
 			_, _ = conn.Write((&disconnectnodes.Packet{SourceId: sourceId, TargetId: targetId}).Marshal())
 		},
 	}
@@ -80,7 +81,9 @@ func reportCurrentStatus(eventDispatchers *EventDispatchers) {
 		eventDispatchers.AddNode(local.GetInstance().ID().Bytes())
 	}
 
+	reportKnownPeers(eventDispatchers)
 	reportChosenNeighbors(eventDispatchers)
+	reportAcceptedNeighbors(eventDispatchers)
 }
 
 func setupHooks(plugin *node.Plugin, conn *network.ManagedConnection, eventDispatchers *EventDispatchers) {
@@ -123,6 +126,7 @@ func setupHooks(plugin *node.Plugin, conn *network.ManagedConnection, eventDispa
 	var onClose *events.Closure
 	onClose = events.NewClosure(func() {
 		discover.Events.PeerDiscovered.Detach(onDiscoverPeer)
+		discover.Events.PeerDeleted.Detach(onDeletePeer)
 		selection.Events.IncomingPeering.Detach(onAddAcceptedNeighbor)
 		selection.Events.OutgoingPeering.Detach(onAddChosenNeighbor)
 		selection.Events.Dropped.Detach(onRemoveNeighbor)
@@ -132,11 +136,28 @@ func setupHooks(plugin *node.Plugin, conn *network.ManagedConnection, eventDispa
 	conn.Events.Close.Attach(onClose)
 }
 
+func reportKnownPeers(dispatchers *EventDispatchers) {
+	if autopeering.Discovery != nil {
+		for _, peer := range autopeering.Discovery.GetVerifiedPeers() {
+			dispatchers.AddNode(peer.ID().Bytes())
+		}
+	}
+}
+
 func reportChosenNeighbors(dispatchers *EventDispatchers) {
 	if autopeering.Selection != nil {
 		for _, chosenNeighbor := range autopeering.Selection.GetOutgoingNeighbors() {
-			dispatchers.AddNode(chosenNeighbor.ID().Bytes())
+			//dispatchers.AddNode(chosenNeighbor.ID().Bytes())
 			dispatchers.ConnectNodes(local.GetInstance().ID().Bytes(), chosenNeighbor.ID().Bytes())
+		}
+	}
+}
+
+func reportAcceptedNeighbors(dispatchers *EventDispatchers) {
+	if autopeering.Selection != nil {
+		for _, acceptedNeighbor := range autopeering.Selection.GetIncomingNeighbors() {
+			//dispatchers.AddNode(acceptedNeighbor.ID().Bytes())
+			dispatchers.ConnectNodes(local.GetInstance().ID().Bytes(), acceptedNeighbor.ID().Bytes())
 		}
 	}
 }

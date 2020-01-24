@@ -7,15 +7,84 @@ import (
 
 func index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `<head>
-  <style> body { margin: 0; } </style>
+  <style> 
+  body {
+    text-align: center;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  #nfo{
+    position:absolute;
+    right: 0;
+    padding:10px;	
+  }
+
+  #knownPeers{
+    position:relative;
+    margin:0;
+    font-size:14px;
+    font-weight: bold;
+    text-align:right;
+    color:#aaa;
+  }
+
+  #avgNeighbors{
+    position:relative;
+    margin:0;
+    font-size:13px;
+    text-align:right;
+    color:grey;
+  }
+
+  #graphc {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    margin:0;
+    right: 0px;
+  }
+
+  #nodeId{
+    position:relative;
+    margin:0;
+    padding:5px 0;
+    font-size:13px;
+    font-weight: bold;
+    text-align:right;
+    color:#aaa; 
+  }
+  
+  #nodestat{
+    position:relative;
+    margin:0;
+    font-size:12px;
+    text-align:right;
+    color:grey; 
+  }
+  
+  #in, #out{
+    margin:0;
+    padding: 3px 0;
+  }
+
+  </style>
 
   <script src="https://unpkg.com/3d-force-graph"></script>
   <!--<script src="../../dist/3d-force-graph.js"></script>-->
 </head>
 
 <body>
-  <div id="3d-graph"></div>
-
+  <div id="graphc"></div>
+  <div id="nfo">
+    <p id="knownPeers"></p>
+    <p id="avgNeighbors"></p>
+    <div id="nodeId"></div>
+    <div id="nodestat">
+      <p id="in"></p>
+      <p id="out"></p>
+  </div>
+  
   <script>
 	var socket = new WebSocket(((window.location.protocol === "https:") ? "wss://" : "ws://") + window.location.host + "/datastream");
 
@@ -26,7 +95,8 @@ func index(w http.ResponseWriter, r *http.Request) {
 	};
 
 	socket.onmessage = function (e) {
-        console.log("Len: ", data.nodes.length);
+        document.getElementById("knownPeers").innerHTML = "Known peers: " + data.nodes.length;
+        document.getElementById("avgNeighbors").innerHTML = "Average neighbors: " + parseFloat(((data.links.length * 2) / data.nodes.length).toFixed(2));
         switch (e.data[0]) {
           case "_":
             // do nothing - its just a ping
@@ -43,13 +113,13 @@ func index(w http.ResponseWriter, r *http.Request) {
           break;
 
           case "C":
-             connectNodes(e.data.substr(1, 64), e.data.substr(65, 128));
-             console.log("Connect nodes:",e.data.substr(1, 64), " - ", e.data.substr(65, 128));
+             connectNodes(e.data.substr(1, 64), e.data.substr(65, 64));
+             console.log("Connect nodes:",e.data.substr(1, 64), " - ", e.data.substr(65, 64));
           break;
 
           case "c":
-             disconnectNodes(e.data.substr(1, 64), e.data.substr(65, 128));
-             console.log("Disconnect nodes:",e.data.substr(1, 64), " - ", e.data.substr(65, 128));
+             disconnectNodes(e.data.substr(1, 64), e.data.substr(65, 64));
+             console.log("Disconnect nodes:",e.data.substr(1, 64), " - ", e.data.substr(65, 64));
           break;
 
           case "O":
@@ -73,14 +143,45 @@ func index(w http.ResponseWriter, r *http.Request) {
 
     var existingLinks = {};
 
-    const elem = document.getElementById("3d-graph");
+    let highlightNodes = [];
+    let highlightLinks = [];
+    let highlightLink = null;
+
+    const elem = document.getElementById("graphc");
+
+      //.onNodeHover(node => elem.style.cursor = node ? 'pointer' : null)
 
     const Graph = ForceGraph3D()(elem)
+        .graphData(data)
         .enableNodeDrag(false)
-        .onNodeHover(node => elem.style.cursor = node ? 'pointer' : null)
-        .onNodeClick(removeNodeX)
-        .nodeColor(node => node.online ? 'rgba(0,255,0,1)' : 'rgba(255,255,255,1)')
-        .graphData(data);
+        .onNodeClick(showNodeStat)
+        .nodeColor(node => highlightNodes.indexOf(node) === -1 ? 'rgba(0,255,255,0.6)' : 'rgb(255,0,0,1)')
+        .linkWidth(link => highlightLinks.indexOf(link) === -1 ? 1 : 4)
+        .linkDirectionalParticles(link => highlightLinks.indexOf(link) === -1 ? 0 : 4)
+        .linkDirectionalParticleWidth(4)
+        .onNodeHover(node => {
+          // no state change
+          if ((!node && !highlightNodes.length) || (highlightNodes.length === 1 && highlightNodes[0] === node)) return;
+
+          highlightNodes = node ? [node] : [];
+
+          highlightLinks = [];
+          clearNodeStat();
+          if (node != null) {
+            highlightLinks = data.links.filter(l => (l.target.id == node.id) || (l.source.id == node.id));
+            showNodeStat(node);
+          }
+          updateHighlight();
+        })
+        .onLinkHover(link => {
+          // no state change
+          if ((!link && !highlightLinks.length) || (highlightLinks.length === 1 && highlightLinks[0] === link)) return;
+
+          highlightLinks = [link];
+          highlightNodes = link ? [link.source, link.target] : [];
+
+          updateHighlight();
+        });
 
     var updateRequired = true;
 
@@ -91,6 +192,14 @@ func index(w http.ResponseWriter, r *http.Request) {
         updateRequired = false;
       }
     }, 500)
+
+    function updateHighlight() {
+      // trigger update of highlighted objects in scene
+      Graph
+        .nodeColor(Graph.nodeColor())
+        .linkWidth(Graph.linkWidth())
+        .linkDirectionalParticles(Graph.linkDirectionalParticles());
+    }
 
     updateGraph = function() {
       updateRequired = true;
@@ -144,6 +253,7 @@ func index(w http.ResponseWriter, r *http.Request) {
         }
         nodesById[sourceNodeId].online = true;
         nodesById[targetNodeId].online = true;
+        existingLinks[sourceNodeId + targetNodeId] = true
         data.links = [...data.links, { source: sourceNodeId, target: targetNodeId }];
 
         updateGraph();
@@ -158,10 +268,28 @@ func index(w http.ResponseWriter, r *http.Request) {
       updateGraph();
     }
 
-    function removeNodeX(node) {
-      if (node.id in nodesById) {
-        removeNode(node.id);
-      }
+    function clearNodeStat() {
+      document.getElementById("nodeId").innerHTML = ""
+      document.getElementById("in").innerHTML = ""
+      document.getElementById("out").innerHTML = ""
+    }
+
+    function showNodeStat(node) {
+      document.getElementById("nodeId").innerHTML = "ID: " + node.id.substr(0, 16);
+
+      var incoming = data.links.filter(l => (l.target.id == node.id));
+      document.getElementById("in").innerHTML = "IN: " + incoming.length + "<br>";
+      incoming.forEach(function(link){
+        document.getElementById("in").innerHTML += link.source.id.substr(0, 16) + " &rarr; NODE <br>";
+      });
+
+      var outgoing = data.links.filter(l => (l.source.id == node.id));
+      document.getElementById("out").innerHTML = "OUT: " + outgoing.length + "<br>";
+      outgoing.forEach(function(link){
+        document.getElementById("out").innerHTML += "NODE &rarr; " + link.target.id.substr(0, 16) + "<br>";
+      });
+
+      nodesById[node.id].color = 'rgba(0,255,255,1)'
     }
   </script>
 </body>`)
