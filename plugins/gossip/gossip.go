@@ -27,15 +27,17 @@ var (
 func configureGossip() {
 	lPeer := local.GetInstance()
 
-	port := strconv.Itoa(parameter.NodeConfig.GetInt(GOSSIP_PORT))
-
-	host, _, err := net.SplitHostPort(lPeer.Address())
+	peeringAddr := lPeer.Services().Get(service.PeeringKey)
+	external, _, err := net.SplitHostPort(peeringAddr.String())
 	if err != nil {
-		log.Fatalf("invalid peering address: %v", err)
+		panic(err)
 	}
-	err = lPeer.UpdateService(service.GossipKey, "tcp", net.JoinHostPort(host, port))
+
+	// announce the gossip service
+	gossipPort := strconv.Itoa(parameter.NodeConfig.GetInt(GOSSIP_PORT))
+	err = lPeer.UpdateService(service.GossipKey, "tcp", net.JoinHostPort(external, gossipPort))
 	if err != nil {
-		log.Fatalf("could not update services: %v", err)
+		log.Fatalf("could not update services: %s", err)
 	}
 
 	mgr = gp.NewManager(lPeer, loadTransaction, log)
@@ -44,23 +46,38 @@ func configureGossip() {
 func start(shutdownSignal <-chan struct{}) {
 	defer log.Info("Stopping " + name + " ... done")
 
-	loc := local.GetInstance()
-	srv, err := server.ListenTCP(loc, log)
+	lPeer := local.GetInstance()
+	// use the port of the gossip service
+	gossipAddr := lPeer.Services().Get(service.GossipKey)
+	_, gossipPort, err := net.SplitHostPort(gossipAddr.String())
 	if err != nil {
-		log.Fatalf("ListenTCP: %v", err)
+		panic(err)
 	}
+	// resolve the bind address
+	address := net.JoinHostPort(parameter.NodeConfig.GetString(local.CFG_BIND), gossipPort)
+	localAddr, err := net.ResolveTCPAddr(gossipAddr.Network(), address)
+	if err != nil {
+		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
+	}
+
+	listener, err := net.ListenTCP(gossipAddr.Network(), localAddr)
+	if err != nil {
+		log.Fatalf("Error listening: %v", err)
+	}
+	defer listener.Close()
+
+	srv := server.ServeTCP(lPeer, listener, log)
 	defer srv.Close()
 
 	//check that the server is working and the port is open
 	log.Info("Testing service ...")
-	checkConnection(srv, &loc.Peer)
+	checkConnection(srv, &lPeer.Peer)
 	log.Info("Testing service ... done")
 
 	mgr.Start(srv)
 	defer mgr.Close()
 
-	gossipAddr := loc.Services().Get(service.GossipKey)
-	log.Infof(name+" started: address=%s/%s", gossipAddr.String(), gossipAddr.Network())
+	log.Infof("%s started: Address=%s/%s", name, gossipAddr.String(), gossipAddr.Network())
 
 	<-shutdownSignal
 	log.Info("Stopping " + name + " ...")

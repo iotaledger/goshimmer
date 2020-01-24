@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
 	"github.com/iotaledger/hive.go/logger"
@@ -96,8 +97,9 @@ func unmarshal(data []byte) (Message, error) {
 }
 
 func TestSrvEncodeDecodePing(t *testing.T) {
-	// create minimal server just containing the local peer
-	local, err := peer.NewLocal("dummy", "local", peer.NewMemoryDB(log))
+	services := service.New()
+	services.Update(service.PeeringKey, "dummy", "local")
+	local, err := peer.NewLocal(services, peer.NewMemoryDB(log))
 	require.NoError(t, err)
 	s := &Server{local: local}
 
@@ -114,8 +116,11 @@ func TestSrvEncodeDecodePing(t *testing.T) {
 
 func newTestServer(t require.TestingT, name string, trans transport.Transport) (*Server, func()) {
 	l := log.Named(name)
+
+	services := service.New()
+	services.Update(service.PeeringKey, trans.LocalAddr().Network(), trans.LocalAddr().String())
 	db := peer.NewMemoryDB(l.Named("db"))
-	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
+	local, err := peer.NewLocal(services, db)
 	require.NoError(t, err)
 
 	s, _ := salt.NewSalt(100 * time.Second)
@@ -123,7 +128,7 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport) (
 	s, _ = salt.NewSalt(100 * time.Second)
 	local.SetPublicSalt(s)
 
-	srv := Listen(local, trans, l, HandlerFunc(handle))
+	srv := Serve(local, trans, l, HandlerFunc(handle))
 
 	teardown := func() {
 		srv.Close()

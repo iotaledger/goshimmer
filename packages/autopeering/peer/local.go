@@ -44,7 +44,7 @@ func newLocal(key PrivateKey, serviceRecord *service.Record, db DB) *Local {
 // NewLocal creates a new local peer linked to the provided db.
 // If an optional seed is provided, the seed is used to generate the private key. Without a seed,
 // the provided key is loaded from the provided database and generated if not stored there.
-func NewLocal(network string, address string, db DB, seed ...[]byte) (*Local, error) {
+func NewLocal(serviceRecord *service.Record, db DB, seed ...[]byte) (*Local, error) {
 	var key PrivateKey
 	if len(seed) > 0 {
 		key = PrivateKey(ed25519.NewKeyFromSeed(seed[0]))
@@ -62,10 +62,6 @@ func NewLocal(network string, address string, db DB, seed ...[]byte) (*Local, er
 	if l := len(key); l != ed25519.PrivateKeySize {
 		return nil, fmt.Errorf("invalid key length: %d, need %d", l, ed25519.PrivateKeySize)
 	}
-	// update the external address used for the peering
-	serviceRecord := service.New()
-	serviceRecord.Update(service.PeeringKey, network, address)
-
 	return newLocal(key, serviceRecord, db), nil
 }
 

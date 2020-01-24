@@ -27,46 +27,6 @@ var (
 
 func getTestTransaction([]byte) ([]byte, error) { return testTxData, nil }
 
-func getTCPAddress(t require.TestingT) string {
-	tcpAddr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	require.NoError(t, err)
-	lis, err := net.ListenTCP("tcp", tcpAddr)
-	require.NoError(t, err)
-
-	addr := lis.Addr().String()
-	require.NoError(t, lis.Close())
-
-	return addr
-}
-
-func newTestManager(t require.TestingT, name string) (*Manager, func(), *peer.Peer) {
-	l := log.Named(name)
-	db := peer.NewMemoryDB(l.Named("db"))
-	local, err := peer.NewLocal("peering", name, db)
-	require.NoError(t, err)
-
-	// enable TCP gossipping
-	require.NoError(t, local.UpdateService(service.GossipKey, "tcp", getTCPAddress(t)))
-
-	mgr := NewManager(local, getTestTransaction, l)
-
-	srv, err := server.ListenTCP(local, l)
-	require.NoError(t, err)
-
-	// update the service with the actual address
-	require.NoError(t, local.UpdateService(service.GossipKey, srv.LocalAddr().Network(), srv.LocalAddr().String()))
-
-	// start the actual gossipping
-	mgr.Start(srv)
-
-	detach := func() {
-		mgr.Close()
-		srv.Close()
-		db.Close()
-	}
-	return mgr, detach, &local.Peer
-}
-
 func TestClose(t *testing.T) {
 	_, detach := newEventMock(t)
 	defer detach()
@@ -407,6 +367,38 @@ func TestTxRequest(t *testing.T) {
 	time.Sleep(graceTime)
 
 	e.AssertExpectations(t)
+}
+
+func newTestManager(t require.TestingT, name string) (*Manager, func(), *peer.Peer) {
+	l := log.Named(name)
+
+	services := service.New()
+	services.Update(service.PeeringKey, "peering", name)
+	db := peer.NewMemoryDB(l.Named("db"))
+	local, err := peer.NewLocal(services, db)
+	require.NoError(t, err)
+
+	laddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	lis, err := net.ListenTCP("tcp", laddr)
+	require.NoError(t, err)
+
+	// enable TCP gossipping
+	require.NoError(t, local.UpdateService(service.GossipKey, lis.Addr().Network(), lis.Addr().String()))
+
+	srv := server.ServeTCP(local, lis, l)
+
+	// start the actual gossipping
+	mgr := NewManager(local, getTestTransaction, l)
+	mgr.Start(srv)
+
+	detach := func() {
+		mgr.Close()
+		srv.Close()
+		_ = lis.Close()
+		db.Close()
+	}
+	return mgr, detach, &local.Peer
 }
 
 func newEventMock(t mock.TestingT) (*eventMock, func()) {

@@ -66,7 +66,7 @@ func onConnectHandler(s socketio.Conn) error {
 	log.Info(infoMsg)
 	socketioServer.JoinRoom("broadcast", s)
 
-	config := &wsConfig{NetworkName: parameter.NodeConfig.GetString("graph.networkName")}
+	config := &wsConfig{NetworkName: parameter.NodeConfig.GetString(CFG_NETWORK)}
 
 	var initTxs []*wsTransaction
 	txRingBuffer.Do(func(tx interface{}) {

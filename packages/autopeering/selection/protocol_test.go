@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/discover"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
@@ -31,15 +32,18 @@ func (d dummyDiscovery) GetVerifiedPeers() []*peer.Peer                  { retur
 // newTest creates a new neighborhood server and also returns the teardown.
 func newTest(t require.TestingT, trans transport.Transport) (*server.Server, *Protocol, func()) {
 	l := log.Named(trans.LocalAddr().String())
+
+	services := service.New()
+	services.Update(service.PeeringKey, trans.LocalAddr().Network(), trans.LocalAddr().String())
 	db := peer.NewMemoryDB(l.Named("db"))
-	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
+	local, err := peer.NewLocal(services, db)
 	require.NoError(t, err)
 
 	// add the new peer to the global map for dummyDiscovery
 	peerMap[local.ID()] = &local.Peer
 
 	prot := New(local, dummyDiscovery{}, Config{Log: l})
-	srv := server.Listen(local, trans, l.Named("srv"), prot)
+	srv := server.Serve(local, trans, l.Named("srv"), prot)
 	prot.Start(srv)
 
 	teardown := func() {
@@ -155,8 +159,11 @@ func TestProtocol(t *testing.T) {
 // newTest creates a new server handling discover as well as neighborhood and also returns the teardown.
 func newFullTest(t require.TestingT, trans transport.Transport, masterPeers ...*peer.Peer) (*server.Server, *Protocol, func()) {
 	l := log.Named(trans.LocalAddr().String())
+
+	services := service.New()
+	services.Update(service.PeeringKey, trans.LocalAddr().Network(), trans.LocalAddr().String())
 	db := peer.NewMemoryDB(l.Named("db"))
-	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
+	local, err := peer.NewLocal(services, db)
 	require.NoError(t, err)
 
 	discovery := discover.New(local, discover.Config{
@@ -167,7 +174,7 @@ func newFullTest(t require.TestingT, trans transport.Transport, masterPeers ...*
 		Log: l.Named("sel"),
 	})
 
-	srv := server.Listen(local, trans, l.Named("srv"), discovery, selection)
+	srv := server.Serve(local, trans, l.Named("srv"), discovery, selection)
 
 	discovery.Start(srv)
 	selection.Start(srv)

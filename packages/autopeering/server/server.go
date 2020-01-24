@@ -68,10 +68,10 @@ type reply struct {
 	matchedRequest chan<- bool // a matching request is indicated via this channel
 }
 
-// Listen starts a new peer server using the given transport layer for communication.
+// Serve starts a new peer server using the given transport layer for communication.
 // Sent data is signed using the identity of the local peer,
 // received data with a valid peer signature is handled according to the provided Handler.
-func Listen(local *peer.Local, t transport.Transport, log *logger.Logger, h ...Handler) *Server {
+func Serve(local *peer.Local, t transport.Transport, log *logger.Logger, h ...Handler) *Server {
 	srv := &Server{
 		local:           local,
 		trans:           t,
@@ -88,7 +88,10 @@ func Listen(local *peer.Local, t transport.Transport, log *logger.Logger, h ...H
 	go srv.replyLoop()
 	go srv.readLoop()
 
-	log.Debugw("server started", "addr", srv.LocalAddr(), "#handlers", len(h))
+	log.Debugw("server started",
+		"network", srv.LocalAddr().Network(),
+		"address", srv.LocalAddr().String(),
+		"#handlers", len(h))
 
 	return srv
 }

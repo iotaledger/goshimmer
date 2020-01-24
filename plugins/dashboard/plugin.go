@@ -1,9 +1,11 @@
 package dashboard
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/hive.go/daemon"
@@ -13,17 +15,24 @@ import (
 	"golang.org/x/net/context"
 )
 
-var server *http.Server
+var (
+	log        *logger.Logger
+	httpServer *http.Server
+)
 
-var router *http.ServeMux
+const name = "Dashboard"
 
-var PLUGIN = node.NewPlugin("Dashboard", node.Disabled, configure, run)
-var log *logger.Logger
+var PLUGIN = node.NewPlugin(name, node.Disabled, configure, run)
 
-func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("Dashboard")
-	router = http.NewServeMux()
-	server = &http.Server{Addr: ":8081", Handler: router}
+func configure(*node.Plugin) {
+	log = logger.NewLogger(name)
+
+	router := http.NewServeMux()
+
+	httpServer = &http.Server{
+		Addr:    parameter.NodeConfig.GetString(CFG_BIND_ADDRESS),
+		Handler: router,
+	}
 
 	router.HandleFunc("/dashboard", ServeHome)
 	router.HandleFunc("/ws", ServeWs)
@@ -37,17 +46,36 @@ func configure(plugin *node.Plugin) {
 	}))
 }
 
-func run(plugin *node.Plugin) {
-	daemon.BackgroundWorker("Dashboard Updater", func(shutdownSignal <-chan struct{}) {
-		go func() {
-			if err := server.ListenAndServe(); err != nil {
-				log.Error(err.Error())
-			}
-		}()
+func run(*node.Plugin) {
+	log.Infof("Starting %s ...", name)
+	if err := daemon.BackgroundWorker(name, workerFunc, shutdown.ShutdownPriorityDashboard); err != nil {
+		log.Errorf("Error starting as daemon: %s", err)
+	}
+}
 
-		<-shutdownSignal
-		ctx, cancel := context.WithTimeout(context.Background(), 0*time.Second)
-		defer cancel()
-		_ = server.Shutdown(ctx)
-	}, shutdown.ShutdownPriorityDashboard)
+func workerFunc(shutdownSignal <-chan struct{}) {
+	stopped := make(chan struct{})
+	go func() {
+		log.Infof("Started %s: http://%s/dashboard", name, httpServer.Addr)
+		if err := httpServer.ListenAndServe(); err != nil {
+			if !errors.Is(err, http.ErrServerClosed) {
+				log.Errorf("Error serving: %s", err)
+			}
+			close(stopped)
+		}
+	}()
+
+	select {
+	case <-shutdownSignal:
+	case <-stopped:
+	}
+
+	log.Infof("Stopping %s ...", name)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	if err := httpServer.Shutdown(ctx); err != nil {
+		log.Errorf("Error stopping: %s", err)
+	}
+	log.Infof("Stopping %s ... done", name)
 }
