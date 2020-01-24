@@ -17,7 +17,7 @@
     "port": 14626
   },
   "dashboard": {
-    "bindAddress": "0.0.0.0:8081"
+    "bindAddress": "127.0.0.1:8081"
   },
   "database": {
     "directory": "mainnetdb"
@@ -26,7 +26,7 @@
     "port": 14666
   },
   "graph": {
-    "bindAddress": "127.0.0.1:8083",
+    "bindAddress": "127.0.0.1:8082",
     "domain": "",
     "networkName": "GoShimmer",
     "socketIOPath": "socket.io-client/dist/socket.io.js",
@@ -56,7 +56,7 @@
       "privateKey": "",
       "username": "goshimmer"
     },
-    "bindAddress": "0.0.0.0:8080"
+    "bindAddress": "127.0.0.1:8080"
   },
   "zeromq": {
     "port": 5556

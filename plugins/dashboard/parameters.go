@@ -9,5 +9,5 @@ const (
 )
 
 func init() {
-	flag.String(CFG_BIND_ADDRESS, "0.0.0.0:8081", "the bind address for the dashboard")
+	flag.String(CFG_BIND_ADDRESS, "127.0.0.1:8081", "the bind address for the dashboard")
 }
