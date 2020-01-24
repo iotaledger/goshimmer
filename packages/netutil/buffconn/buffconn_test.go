@@ -129,7 +129,7 @@ func TestBufferedConnection(t *testing.T) {
 			wg.Done()
 		}()
 
-		_, err := conn2.Write([]byte{0xff, 0xff})
+		_, err := conn2.Write([]byte{0xff, 0xff, 0xff, 0xff})
 		require.NoError(t, err)
 		wg.Wait()
 	})
