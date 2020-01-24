@@ -8,6 +8,11 @@ import (
 func index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `<head>
   <style> 
+  html {
+    font-family: monospace, monospace;
+    line-height: 1.15;
+    -webkit-text-size-adjust: 100%%;
+  }
   body {
     text-align: center;
     margin: 0;
@@ -83,8 +88,8 @@ func index(w http.ResponseWriter, r *http.Request) {
     <div id="nodestat">
       <p id="in"></p>
       <p id="out"></p>
+    </div>
   </div>
-  
   <script>
 	var socket = new WebSocket(((window.location.protocol === "https:") ? "wss://" : "ws://") + window.location.host + "/datastream");
 
@@ -144,6 +149,8 @@ func index(w http.ResponseWriter, r *http.Request) {
     var existingLinks = {};
 
     let highlightNodes = [];
+    let highlightInbound = [];
+    let highlightOutbound = [];
     let highlightLinks = [];
     let highlightLink = null;
 
@@ -155,10 +162,23 @@ func index(w http.ResponseWriter, r *http.Request) {
         .graphData(data)
         .enableNodeDrag(false)
         .onNodeClick(showNodeStat)
-        .nodeColor(node => highlightNodes.indexOf(node) === -1 ? 'rgba(0,255,255,0.6)' : 'rgb(255,0,0,1)')
-        .linkWidth(link => highlightLinks.indexOf(link) === -1 ? 1 : 4)
-        .linkDirectionalParticles(link => highlightLinks.indexOf(link) === -1 ? 0 : 4)
-        .linkDirectionalParticleWidth(4)
+        .nodeColor(node =>  {
+          if (highlightNodes.indexOf(node) != -1) {
+            return 'rgb(255,0,0,1)'
+          }
+          if (highlightInbound.indexOf(node) != -1) {
+            return 'rgba(0,255,100,0.6)'
+          }
+          if (highlightOutbound.indexOf(node) != -1)  {
+            return 'rgba(0,100,255,0.6)'
+          }
+          else {
+            return 'rgba(0,255,255,0.6)'
+          }
+        })
+        .linkWidth(link => highlightLinks.indexOf(link) === -1 ? 1 : 3)
+        .linkDirectionalParticles(link => highlightLinks.indexOf(link) === -1 ? 0 : 3)
+        .linkDirectionalParticleWidth(3)
         .onNodeHover(node => {
           // no state change
           if ((!node && !highlightNodes.length) || (highlightNodes.length === 1 && highlightNodes[0] === node)) return;
@@ -166,9 +186,21 @@ func index(w http.ResponseWriter, r *http.Request) {
           highlightNodes = node ? [node] : [];
 
           highlightLinks = [];
+          highlightInbound = [];
+          highlightOutbound = [];
           clearNodeStat();
           if (node != null) {
             highlightLinks = data.links.filter(l => (l.target.id == node.id) || (l.source.id == node.id));
+
+            highlightLinks.forEach(function(link){
+              if (link.target.id == node.id) {
+                highlightInbound.push(link.source)
+              }
+              else {
+                highlightOutbound.push(link.target)
+              }
+            });
+
             showNodeStat(node);
           }
           updateHighlight();
@@ -244,7 +276,7 @@ func index(w http.ResponseWriter, r *http.Request) {
     }
 
     function connectNodes(sourceNodeId, targetNodeId) {
-      if(existingLinks[sourceNodeId + targetNodeId] == undefined && existingLinks[targetNodeId + sourceNodeId] == undefined) {
+      if(existingLinks[sourceNodeId + targetNodeId] == undefined) {
         if (!(sourceNodeId in nodesById)) {
           addNode(sourceNodeId);
         }
@@ -261,9 +293,8 @@ func index(w http.ResponseWriter, r *http.Request) {
     }
 
     function disconnectNodes(sourceNodeId, targetNodeId) {
-      data.links = data.links.filter(l => !(l.source.id == sourceNodeId && l.target.id == targetNodeId) && !(l.source.id == targetNodeId && l.target.id == sourceNodeId));
+      data.links = data.links.filter(l => !(l.source.id == sourceNodeId && l.target.id == targetNodeId));
       delete existingLinks[sourceNodeId + targetNodeId];
-      delete existingLinks[targetNodeId + sourceNodeId];
 
       updateGraph();
     }
@@ -278,18 +309,16 @@ func index(w http.ResponseWriter, r *http.Request) {
       document.getElementById("nodeId").innerHTML = "ID: " + node.id.substr(0, 16);
 
       var incoming = data.links.filter(l => (l.target.id == node.id));
-      document.getElementById("in").innerHTML = "IN: " + incoming.length + "<br>";
+      document.getElementById("in").innerHTML = "INBOUND (accepted): " + incoming.length + "<br>";
       incoming.forEach(function(link){
         document.getElementById("in").innerHTML += link.source.id.substr(0, 16) + " &rarr; NODE <br>";
       });
 
       var outgoing = data.links.filter(l => (l.source.id == node.id));
-      document.getElementById("out").innerHTML = "OUT: " + outgoing.length + "<br>";
+      document.getElementById("out").innerHTML = "OUTBOUND (chosen): " + outgoing.length + "<br>";
       outgoing.forEach(function(link){
         document.getElementById("out").innerHTML += "NODE &rarr; " + link.target.id.substr(0, 16) + "<br>";
       });
-
-      nodesById[node.id].color = 'rgba(0,255,255,1)'
     }
   </script>
 </body>`)

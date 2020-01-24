@@ -157,7 +157,7 @@ func reportAcceptedNeighbors(dispatchers *EventDispatchers) {
 	if autopeering.Selection != nil {
 		for _, acceptedNeighbor := range autopeering.Selection.GetIncomingNeighbors() {
 			//dispatchers.AddNode(acceptedNeighbor.ID().Bytes())
-			dispatchers.ConnectNodes(local.GetInstance().ID().Bytes(), acceptedNeighbor.ID().Bytes())
+			dispatchers.ConnectNodes(acceptedNeighbor.ID().Bytes(), local.GetInstance().ID().Bytes())
 		}
 	}
 }
