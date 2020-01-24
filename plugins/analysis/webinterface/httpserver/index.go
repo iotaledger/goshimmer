@@ -157,7 +157,20 @@ func index(w http.ResponseWriter, r *http.Request) {
         .graphData(data)
         .enableNodeDrag(false)
         .onNodeClick(showNodeStat)
-        .nodeColor(node => highlightNodes.indexOf(node) === -1 ? 'rgba(0,255,255,0.6)' : 'rgb(255,0,0,1)')
+        .nodeColor(node =>  {
+          if (highlightNodes.indexOf(node) != -1) {
+            return 'rgb(255,0,0,1)'
+          }
+          if (highlightInbound.indexOf(node) != -1) {
+            return 'rgba(0,255,100,0.6)'
+          }
+          if (highlightOutbound.indexOf(node) != -1)  {
+            return 'rgba(0,100,255,0.6)'
+          }
+          else {
+            return 'rgba(0,255,255,0.6)'
+          }
+        })
         .linkWidth(link => highlightLinks.indexOf(link) === -1 ? 1 : 3)
         .linkDirectionalParticles(link => highlightLinks.indexOf(link) === -1 ? 0 : 3)
         .linkDirectionalParticleWidth(3)
@@ -168,9 +181,22 @@ func index(w http.ResponseWriter, r *http.Request) {
           highlightNodes = node ? [node] : [];
 
           highlightLinks = [];
+          highlightInbound = [];
+          highlightOutbound = [];
           clearNodeStat();
           if (node != null) {
             highlightLinks = data.links.filter(l => (l.target.id == node.id) || (l.source.id == node.id));
+
+            highlightLinks.forEach(function(link){
+              if (link.target.id == node.id) {
+                highlightInbound.push(link.source)
+              }
+              else {
+                highlightOutbound.push(link.target)
+              }
+            });
+
+
             showNodeStat(node);
           }
           updateHighlight();
