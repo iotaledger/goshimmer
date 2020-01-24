@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/hex"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/discover"
@@ -25,6 +26,7 @@ import (
 )
 
 var log *logger.Logger
+var connLock sync.Mutex
 
 func Run(plugin *node.Plugin) {
 	log = logger.NewLogger("Analysis-Client")
@@ -59,19 +61,27 @@ func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 	return &EventDispatchers{
 		AddNode: func(nodeId []byte) {
 			log.Debugw("AddNode", "nodeId", hex.EncodeToString(nodeId))
+			connLock.Lock()
 			_, _ = conn.Write((&addnode.Packet{NodeId: nodeId}).Marshal())
+			connLock.Unlock()
 		},
 		RemoveNode: func(nodeId []byte) {
 			log.Debugw("RemoveNode", "nodeId", hex.EncodeToString(nodeId))
+			connLock.Lock()
 			_, _ = conn.Write((&removenode.Packet{NodeId: nodeId}).Marshal())
+			connLock.Unlock()
 		},
 		ConnectNodes: func(sourceId []byte, targetId []byte) {
 			log.Debugw("ConnectNodes", "sourceId", hex.EncodeToString(sourceId), "targetId", hex.EncodeToString(targetId))
+			connLock.Lock()
 			_, _ = conn.Write((&connectnodes.Packet{SourceId: sourceId, TargetId: targetId}).Marshal())
+			connLock.Unlock()
 		},
 		DisconnectNodes: func(sourceId []byte, targetId []byte) {
 			log.Debugw("DisconnectNodes", "sourceId", hex.EncodeToString(sourceId), "targetId", hex.EncodeToString(targetId))
+			connLock.Lock()
 			_, _ = conn.Write((&disconnectnodes.Packet{SourceId: sourceId, TargetId: targetId}).Marshal())
+			connLock.Unlock()
 		},
 	}
 }
@@ -172,9 +182,12 @@ func keepConnectionAlive(conn *network.ManagedConnection, shutdownSignal <-chan 
 			return true
 
 		case <-ticker.C:
+			connLock.Lock()
 			if _, err := conn.Write((&ping.Packet{}).Marshal()); err != nil {
+				connLock.Unlock()
 				return false
 			}
+			connLock.Unlock()
 		}
 	}
 }

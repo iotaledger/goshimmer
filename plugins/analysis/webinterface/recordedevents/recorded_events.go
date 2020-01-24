@@ -84,7 +84,8 @@ func Replay(handlers *types.EventHandlers) {
 			handlers.NodeOffline(nodeId)
 		}
 	}
-
+	lock.Lock()
+	defer lock.Unlock()
 	for sourceId, targetMap := range links {
 		for targetId := range targetMap {
 			handlers.ConnectNodes(sourceId, targetId)
