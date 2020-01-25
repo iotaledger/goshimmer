@@ -1,35 +1,18 @@
 package selection
 
 import (
-	"crypto/ed25519"
+	"fmt"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/peertest"
 	"github.com/stretchr/testify/assert"
 )
-
-const (
-	testNetwork = "udp"
-	testAddress = "127.0.0.1:8000"
-)
-
-func newTestServiceRecord() *service.Record {
-	services := service.New()
-	services.Update(service.PeeringKey, testNetwork, testAddress)
-
-	return services
-}
-
-func newTestPeer() *peer.Peer {
-	key, _, _ := ed25519.GenerateKey(nil)
-	return peer.NewPeer(peer.PublicKey(key), newTestServiceRecord())
-}
 
 func TestFilterAddPeers(t *testing.T) {
 	p := make([]*peer.Peer, 5)
 	for i := range p {
-		p[i] = newTestPeer()
+		p[i] = peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))
 	}
 
 	type testCase struct {
@@ -64,7 +47,7 @@ func TestFilterAddPeers(t *testing.T) {
 func TestFilterRemovePeers(t *testing.T) {
 	p := make([]*peer.Peer, 5)
 	for i := range p {
-		p[i] = newTestPeer()
+		p[i] = peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))
 	}
 
 	type testCase struct {
@@ -100,7 +83,7 @@ func TestFilterRemovePeers(t *testing.T) {
 func TestFilterApply(t *testing.T) {
 	d := make([]peer.PeerDistance, 5)
 	for i := range d {
-		d[i].Remote = newTestPeer()
+		d[i].Remote = peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))
 		d[i].Distance = uint32(i + 1)
 	}
 
@@ -134,7 +117,7 @@ func TestFilterApply(t *testing.T) {
 func TestSelection(t *testing.T) {
 	d := make([]peer.PeerDistance, 10)
 	for i := range d {
-		d[i].Remote = newTestPeer()
+		d[i].Remote = peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))
 		d[i].Distance = uint32(i + 1)
 	}
 

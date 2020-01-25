@@ -5,22 +5,15 @@ import (
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/peertest"
 	"github.com/stretchr/testify/assert"
 )
-
-func newTestPeer(name string) *peer.Peer {
-	services := service.New()
-	services.Update(service.PeeringKey, "test", name)
-
-	return peer.NewPeer([]byte(name), services)
-}
 
 func TestUnwrapPeers(t *testing.T) {
 	m := make([]*mpeer, 5)
 	p := make([]*peer.Peer, 5)
 	for i := range m {
-		p[i] = newTestPeer(fmt.Sprintf("%d", i))
+		p[i] = peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))
 		m[i] = &mpeer{Peer: *p[i]}
 	}
 
@@ -31,9 +24,9 @@ func TestUnwrapPeers(t *testing.T) {
 func TestContainsPeer(t *testing.T) {
 	m := make([]*mpeer, 5)
 	p := make([]*peer.Peer, 5)
-	k := newTestPeer("k")
+	k := peertest.NewPeer(testNetwork, "k")
 	for i := range m {
-		p[i] = newTestPeer(fmt.Sprintf("%d", i))
+		p[i] = peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))
 		m[i] = &mpeer{Peer: *p[i]}
 	}
 
@@ -46,7 +39,7 @@ func TestContainsPeer(t *testing.T) {
 func TestUnshiftPeer(t *testing.T) {
 	m := make([]*mpeer, 5)
 	for i := range m {
-		m[i] = &mpeer{Peer: *newTestPeer(fmt.Sprintf("%d", i))}
+		m[i] = &mpeer{Peer: *peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))}
 	}
 
 	type testCase struct {
@@ -87,7 +80,7 @@ func TestUnshiftPeer(t *testing.T) {
 func TestDeletePeer(t *testing.T) {
 	m := make([]*mpeer, 5)
 	for i := range m {
-		m[i] = &mpeer{Peer: *newTestPeer(fmt.Sprintf("%d", i))}
+		m[i] = &mpeer{Peer: *peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))}
 	}
 
 	type testCase struct {
@@ -124,7 +117,7 @@ func TestDeletePeerByID(t *testing.T) {
 	m := make([]*mpeer, 5)
 	p := make([]*peer.Peer, 5)
 	for i := range m {
-		p[i] = newTestPeer(fmt.Sprintf("%d", i))
+		p[i] = peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))
 		m[i] = &mpeer{Peer: *p[i]}
 	}
 
@@ -162,7 +155,7 @@ func TestPushPeer(t *testing.T) {
 	m := make([]*mpeer, 5)
 	max := len(m) - 1
 	for i := range m {
-		m[i] = &mpeer{Peer: *newTestPeer(fmt.Sprintf("%d", i))}
+		m[i] = &mpeer{Peer: *peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))}
 	}
 
 	type testCase struct {

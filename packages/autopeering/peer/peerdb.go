@@ -4,11 +4,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math/rand"
-	"sync"
 	"time"
 
+	"github.com/dgraph-io/badger/v2"
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/hive.go/logger"
 )
 
 const (
@@ -23,40 +22,9 @@ const (
 	seedExpiration = 5 * 24 * time.Hour
 )
 
-// DB is the peer database, storing previously seen peers and any collected
-// properties of them.
-type DB interface {
-	// LocalPrivateKey returns the private key stored in the database or creates a new one.
-	LocalPrivateKey() (PrivateKey, error)
-	// UpdateLocalPrivateKey stores the provided key in the database.
-	UpdateLocalPrivateKey(key PrivateKey) error
-
-	// Peer retrieves a peer from the database.
-	Peer(id ID) *Peer
-	// UpdatePeer updates a peer in the database.
-	UpdatePeer(p *Peer) error
-	// SeedPeers retrieves random nodes to be used as potential bootstrap peers.
-	SeedPeers() []*Peer
-
-	// LastPing returns that property for the given peer ID and address.
-	LastPing(id ID, address string) time.Time
-	// UpdateLastPing updates that property for the given peer ID and address.
-	UpdateLastPing(id ID, address string, t time.Time) error
-
-	// LastPong returns that property for the given peer ID and address.
-	LastPong(id ID, address string) time.Time
-	// UpdateLastPong updates that property for the given peer ID and address.
-	UpdateLastPong(id ID, address string, t time.Time) error
-
-	// Close closes the DB.
-	Close()
-}
-
-type persistentDB struct {
-	db  database.Database
-	log *logger.Logger
-
-	closeOnce sync.Once
+// DB is the peer database, storing previously seen peers and any collected properties of them.
+type DB struct {
+	db database.Database
 }
 
 // Keys in the node database.
@@ -73,69 +41,68 @@ const (
 )
 
 // NewPersistentDB creates a new persistent DB.
-func NewPersistentDB(log *logger.Logger) DB {
+func NewPersistentDB() (*DB, error) {
 	db, err := database.Get(database.DBPrefixAutoPeering, database.GetBadgerInstance())
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-
-	pDB := &persistentDB{
-		db:  db,
-		log: log,
-	}
-	pDB.start()
-
-	return pDB
+	return newDB(db)
 }
 
-// Close closes the DB.
-func (db *persistentDB) Close() {
-	db.closeOnce.Do(func() {
-		db.persistSeeds()
-	})
+// NewMemoryDB creates a new in-memory DB.
+func NewMemoryDB() (*DB, error) {
+	// create a default badger in memory instance
+	badgerDB, err := badger.Open(badger.DefaultOptions("").WithInMemory(true))
+	if err != nil {
+		return nil, err
+	}
+	db, err := database.Get(database.DBPrefixAutoPeering, badgerDB)
+	if err != nil {
+		return nil, err
+	}
+	return newDB(db)
 }
 
-func (db *persistentDB) start() {
+func newDB(db database.Database) (*DB, error) {
+	pDB := &DB{
+		db: db,
+	}
+	err := pDB.init()
+	if err != nil {
+		return nil, err
+	}
+	return pDB, nil
+}
+
+// Clear clears the entire DB.
+func (db *DB) Clear() error {
+	if err := db.db.DeletePrefix([]byte(dbNodePrefix)); err != nil {
+		return err
+	}
+	if err := db.db.DeletePrefix([]byte(dbLocalPrefix)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (db *DB) init() error {
 	// get all peers in the DB
 	peers := db.getPeers(0)
 
 	for _, p := range peers {
 		// if they dont have an associated pong, give them a grace period
 		if db.LastPong(p.ID(), p.Address()).Unix() == 0 {
-			err := db.setPeerWithTTL(p, cleanupInterval)
-			if err != nil {
-				db.log.Warnw("database error", "err", err)
+			if err := db.setPeerWithTTL(p, cleanupInterval); err != nil {
+				return err
 			}
 		}
 	}
-}
-
-// persistSeeds assures that potential bootstrap peers are not garbage collected.
-func (db *persistentDB) persistSeeds() {
-	// randomly select potential bootstrap peers
-	peers := randomSubset(db.getPeers(peerExpiration), seedCount)
-
-	for _, p := range peers {
-		err := db.setPeerWithTTL(p, seedExpiration)
-		if err != nil {
-			db.log.Warnw("database error", "err", err)
-		}
-	}
-	db.log.Infof("%d bootstrap peers remain in DB", len(peers))
+	return nil
 }
 
 // nodeKey returns the database key for a node record.
 func nodeKey(id ID) []byte {
 	return append([]byte(dbNodePrefix), id.Bytes()...)
-}
-
-func splitNodeKey(key []byte) (id ID, rest []byte) {
-	if !bytes.HasPrefix(key, []byte(dbNodePrefix)) {
-		return ID{}, nil
-	}
-	item := key[len(dbNodePrefix):]
-	copy(id[:], item[:len(id)])
-	return id, item[len(id):]
 }
 
 // nodeFieldKey returns the database key for a node metadata field.
@@ -156,7 +123,7 @@ func parseInt64(blob []byte) int64 {
 }
 
 // getInt64 retrieves an integer associated with a particular key.
-func (db *persistentDB) getInt64(key []byte) int64 {
+func (db *DB) getInt64(key []byte) int64 {
 	entry, err := db.db.Get(key)
 	if err != nil {
 		return 0
@@ -165,14 +132,14 @@ func (db *persistentDB) getInt64(key []byte) int64 {
 }
 
 // setInt64 stores an integer in the given key.
-func (db *persistentDB) setInt64(key []byte, n int64) error {
+func (db *DB) setInt64(key []byte, n int64) error {
 	blob := make([]byte, binary.MaxVarintLen64)
 	blob = blob[:binary.PutVarint(blob, n)]
 	return db.db.Set(database.Entry{Key: key, Value: blob, TTL: peerExpiration})
 }
 
 // LocalPrivateKey returns the private key stored in the database or creates a new one.
-func (db *persistentDB) LocalPrivateKey() (PrivateKey, error) {
+func (db *DB) LocalPrivateKey() (PrivateKey, error) {
 	entry, err := db.db.Get(localFieldKey(dbLocalKey))
 	if err == database.ErrKeyNotFound {
 		key, genErr := generatePrivateKey()
@@ -188,31 +155,31 @@ func (db *persistentDB) LocalPrivateKey() (PrivateKey, error) {
 }
 
 // UpdateLocalPrivateKey stores the provided key in the database.
-func (db *persistentDB) UpdateLocalPrivateKey(key PrivateKey) error {
+func (db *DB) UpdateLocalPrivateKey(key PrivateKey) error {
 	return db.db.Set(database.Entry{Key: localFieldKey(dbLocalKey), Value: []byte(key)})
 }
 
 // LastPing returns that property for the given peer ID and address.
-func (db *persistentDB) LastPing(id ID, address string) time.Time {
+func (db *DB) LastPing(id ID, address string) time.Time {
 	return time.Unix(db.getInt64(nodeFieldKey(id, address, dbNodePing)), 0)
 }
 
 // UpdateLastPing updates that property for the given peer ID and address.
-func (db *persistentDB) UpdateLastPing(id ID, address string, t time.Time) error {
+func (db *DB) UpdateLastPing(id ID, address string, t time.Time) error {
 	return db.setInt64(nodeFieldKey(id, address, dbNodePing), t.Unix())
 }
 
 // LastPing returns that property for the given peer ID and address.
-func (db *persistentDB) LastPong(id ID, address string) time.Time {
+func (db *DB) LastPong(id ID, address string) time.Time {
 	return time.Unix(db.getInt64(nodeFieldKey(id, address, dbNodePong)), 0)
 }
 
 // UpdateLastPing updates that property for the given peer ID and address.
-func (db *persistentDB) UpdateLastPong(id ID, address string, t time.Time) error {
+func (db *DB) UpdateLastPong(id ID, address string, t time.Time) error {
 	return db.setInt64(nodeFieldKey(id, address, dbNodePong), t.Unix())
 }
 
-func (db *persistentDB) setPeerWithTTL(p *Peer, ttl time.Duration) error {
+func (db *DB) setPeerWithTTL(p *Peer, ttl time.Duration) error {
 	data, err := p.Marshal()
 	if err != nil {
 		return err
@@ -220,7 +187,8 @@ func (db *persistentDB) setPeerWithTTL(p *Peer, ttl time.Duration) error {
 	return db.db.Set(database.Entry{Key: nodeKey(p.ID()), Value: data, TTL: ttl})
 }
 
-func (db *persistentDB) UpdatePeer(p *Peer) error {
+// UpdatePeer updates a peer in the database.
+func (db *DB) UpdatePeer(p *Peer) error {
 	return db.setPeerWithTTL(p, peerExpiration)
 }
 
@@ -232,7 +200,8 @@ func parsePeer(data []byte) *Peer {
 	return p
 }
 
-func (db *persistentDB) Peer(id ID) *Peer {
+// Peer retrieves a peer from the database.
+func (db *DB) Peer(id ID) *Peer {
 	data, err := db.db.Get(nodeKey(id))
 	if err != nil {
 		return nil
@@ -254,40 +223,51 @@ func randomSubset(peers []*Peer, m int) []*Peer {
 	return result
 }
 
-func (db *persistentDB) getPeers(maxAge time.Duration) []*Peer {
-	peers := make([]*Peer, 0)
+func (db *DB) getPeers(maxAge time.Duration) (peers []*Peer) {
 	now := time.Now()
-
-	err := db.db.StreamForEachPrefix([]byte(dbNodePrefix), func(entry database.Entry) error {
-		id, rest := splitNodeKey(entry.Key)
-		if len(rest) > 0 {
-			return nil
+	err := db.db.ForEachPrefix([]byte(dbNodePrefix), func(entry database.Entry) bool {
+		var id ID
+		if len(entry.Key) != len(id) {
+			return false
 		}
+		copy(id[:], entry.Key)
 
 		p := parsePeer(entry.Value)
 		if p == nil || p.ID() != id {
-			return nil
+			return false
 		}
 		if maxAge > 0 && now.Sub(db.LastPong(p.ID(), p.Address())) > maxAge {
-			return nil
+			return false
 		}
 
 		peers = append(peers, p)
-		return nil
+		return false
 	})
 	if err != nil {
-		return []*Peer{}
+		return nil
 	}
 	return peers
 }
 
 // SeedPeers retrieves random nodes to be used as potential bootstrap peers.
-func (db *persistentDB) SeedPeers() []*Peer {
+func (db *DB) SeedPeers() []*Peer {
 	// get all stored peers and select subset
 	peers := db.getPeers(0)
 
-	seeds := randomSubset(peers, seedCount)
-	db.log.Infof("%d potential bootstrap peers restored form DB", len(seeds))
+	return randomSubset(peers, seedCount)
+}
 
-	return seeds
+// PersistSeeds assures that potential bootstrap peers are not garbage collected.
+// It returns the number of peers that have been persisted.
+func (db *DB) PersistSeeds() int {
+	// randomly select potential bootstrap peers
+	peers := randomSubset(db.getPeers(peerExpiration), seedCount)
+
+	for i, p := range peers {
+		err := db.setPeerWithTTL(p, seedExpiration)
+		if err != nil {
+			return i
+		}
+	}
+	return len(peers)
 }

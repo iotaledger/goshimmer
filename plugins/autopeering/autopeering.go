@@ -55,7 +55,7 @@ func configureAP() {
 }
 
 func start(shutdownSignal <-chan struct{}) {
-	defer log.Info("Stopping " + name + " ... done")
+	defer log.Infof("Stopping %s ... done", name)
 
 	lPeer := local.GetInstance()
 	// use the port of the peering service
@@ -105,11 +105,14 @@ func start(shutdownSignal <-chan struct{}) {
 		defer Selection.Close()
 	}
 
-	log.Infof(name+" started: Address=%s/%s", peeringAddr.String(), peeringAddr.Network())
-	log.Infof(name+" started: PubKey=%s", base64.StdEncoding.EncodeToString(lPeer.PublicKey()))
+	log.Infof("%s started: ID=%s Address=%s/%s", name, lPeer.ID(), peeringAddr.String(), peeringAddr.Network())
 
 	<-shutdownSignal
-	log.Info("Stopping " + name + " ...")
+
+	log.Infof("Stopping %s ...", name)
+
+	count := lPeer.Database().PersistSeeds()
+	log.Infof("%d peers persisted as seeds", count)
 }
 
 func parseEntryNodes() (result []*peer.Peer, err error) {

@@ -6,10 +6,10 @@ const (
 	ShutdownPriorityBundleProcessor
 	ShutdownPriorityAnalysis
 	ShutdownPriorityMetrics
-	ShutdownPriorityWebAPI
-	ShutdownPriorityGossip
-	ShutdownPriorityZMQ
 	ShutdownPriorityAutopeering
+	ShutdownPriorityGossip
+	ShutdownPriorityWebAPI
+	ShutdownPriorityZMQ
 	ShutdownPriorityGraph
 	ShutdownPriorityUI
 	ShutdownPriorityDashboard

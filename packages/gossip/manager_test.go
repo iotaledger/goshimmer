@@ -369,13 +369,19 @@ func TestTxRequest(t *testing.T) {
 	e.AssertExpectations(t)
 }
 
+func newTestDB(t require.TestingT) *peer.DB {
+	db, err := peer.NewMemoryDB()
+	require.NoError(t, err)
+	require.NoError(t, db.Clear())
+	return db
+}
+
 func newTestManager(t require.TestingT, name string) (*Manager, func(), *peer.Peer) {
 	l := log.Named(name)
 
 	services := service.New()
 	services.Update(service.PeeringKey, "peering", name)
-	db := peer.NewMemoryDB(l.Named("db"))
-	local, err := peer.NewLocal(services, db)
+	local, err := peer.NewLocal(services, newTestDB(t))
 	require.NoError(t, err)
 
 	laddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
@@ -396,7 +402,6 @@ func newTestManager(t require.TestingT, name string) (*Manager, func(), *peer.Pe
 		mgr.Close()
 		srv.Close()
 		_ = lis.Close()
-		db.Close()
 	}
 	return mgr, detach, &local.Peer
 }

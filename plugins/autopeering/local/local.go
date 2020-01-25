@@ -64,8 +64,12 @@ func configureLocal() *peer.Local {
 		}
 		seed = append(seed, bytes)
 	}
+	db, err := peer.NewPersistentDB()
+	if err != nil {
+		log.Fatalf("Error loading DB: %s", err)
+	}
 
-	local, err := peer.NewLocal(services, peer.NewPersistentDB(log), seed...)
+	local, err := peer.NewLocal(services, db, seed...)
 	if err != nil {
 		log.Fatalf("Error creating local: %s", err)
 	}

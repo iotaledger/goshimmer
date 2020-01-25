@@ -96,10 +96,17 @@ func unmarshal(data []byte) (Message, error) {
 	return nil, ErrInvalidMessage
 }
 
+func newTestDB(t require.TestingT) *peer.DB {
+	db, err := peer.NewMemoryDB()
+	require.NoError(t, err)
+	require.NoError(t, db.Clear())
+	return db
+}
+
 func TestSrvEncodeDecodePing(t *testing.T) {
 	services := service.New()
 	services.Update(service.PeeringKey, "dummy", "local")
-	local, err := peer.NewLocal(services, peer.NewMemoryDB(log))
+	local, err := peer.NewLocal(services, newTestDB(t))
 	require.NoError(t, err)
 	s := &Server{local: local}
 
@@ -119,8 +126,7 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport) (
 
 	services := service.New()
 	services.Update(service.PeeringKey, trans.LocalAddr().Network(), trans.LocalAddr().String())
-	db := peer.NewMemoryDB(l.Named("db"))
-	local, err := peer.NewLocal(services, db)
+	local, err := peer.NewLocal(services, newTestDB(t))
 	require.NoError(t, err)
 
 	s, _ := salt.NewSalt(100 * time.Second)
@@ -130,11 +136,7 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport) (
 
 	srv := Serve(local, trans, l, HandlerFunc(handle))
 
-	teardown := func() {
-		srv.Close()
-		db.Close()
-	}
-	return srv, teardown
+	return srv, srv.Close
 }
 
 func sendPing(s *Server, p *peer.Peer) error {

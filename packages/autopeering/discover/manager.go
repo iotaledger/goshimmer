@@ -209,6 +209,7 @@ func (m *manager) loadInitialPeers(masters []*peer.Peer) {
 	if db != nil {
 		peers = db.SeedPeers()
 	}
+
 	peers = append(peers, masters...)
 	for _, p := range peers {
 		m.addDiscoveredPeer(p)

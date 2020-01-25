@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/peertest"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -32,7 +32,7 @@ func TestMgrNoDuplicates(t *testing.T) {
 	})
 
 	mgrMap := make(map[peer.ID]*manager)
-	runTestNetwork(nNodes, mgrMap)
+	runTestNetwork(t, nNodes, mgrMap)
 
 	for _, mgr := range mgrMap {
 		assert.NotEmpty(t, mgr.getOutNeighbors())
@@ -57,7 +57,7 @@ func TestEvents(t *testing.T) {
 	e, teardown := newEventMock(t)
 	defer teardown()
 	mgrMap := make(map[peer.ID]*manager)
-	runTestNetwork(nNodes, mgrMap)
+	runTestNetwork(t, nNodes, mgrMap)
 
 	// the events should lead to exactly the same neighbors
 	for _, mgr := range mgrMap {
@@ -77,7 +77,9 @@ func getValues(m map[peer.ID]*peer.Peer) []*peer.Peer {
 	return result
 }
 
-func runTestNetwork(n int, mgrMap map[peer.ID]*manager) {
+func runTestNetwork(t require.TestingT, n int, mgrMap map[peer.ID]*manager) {
+	require.NoError(t, peerDB.Clear()) // clear the DB first
+
 	for i := 0; i < n; i++ {
 		_ = newTestManager(fmt.Sprintf("%d", i), mgrMap)
 	}
@@ -186,16 +188,6 @@ type networkMock struct {
 	mgr map[peer.ID]*manager
 }
 
-func newNetworkMock(name string, mgrMap map[peer.ID]*manager, log *logger.Logger) *networkMock {
-	services := service.New()
-	services.Update(service.PeeringKey, "mock", name)
-	local, _ := peer.NewLocal(services, peer.NewMemoryDB(log))
-	return &networkMock{
-		loc: local,
-		mgr: mgrMap,
-	}
-}
-
 func (n *networkMock) local() *peer.Local {
 	return n.loc
 }
@@ -217,9 +209,9 @@ func (n *networkMock) GetKnownPeers() []*peer.Peer {
 }
 
 func newTestManager(name string, mgrMap map[peer.ID]*manager) *manager {
-	l := log.Named(name)
-	net := newNetworkMock(name, mgrMap, l)
-	m := newManager(net, net.GetKnownPeers, l, Config{})
+	local := peertest.NewLocal("mock", name, peerDB)
+	networkMock := &networkMock{loc: local, mgr: mgrMap}
+	m := newManager(networkMock, networkMock.GetKnownPeers, log.Named(name), Config{})
 	mgrMap[m.getID()] = m
 	return m
 }
