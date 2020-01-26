@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
+	"github.com/iotaledger/goshimmer/packages/database/mapdb"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,20 +22,9 @@ const (
 )
 
 var (
-	log    *logger.Logger
-	peerDB *peer.DB
-
+	log     = logger.NewExampleLogger("discover")
 	peerMap = make(map[peer.ID]*peer.Peer)
 )
-
-func init() {
-	log = logger.NewExampleLogger("discover")
-	db, err := peer.NewMemoryDB()
-	if err != nil {
-		panic(err)
-	}
-	peerDB = db
-}
 
 func TestProtocol(t *testing.T) {
 	// assure that the default test parameters are used for all protocol tests
@@ -44,7 +34,6 @@ func TestProtocol(t *testing.T) {
 	})
 
 	t.Run("PeeringRequest", func(t *testing.T) {
-		clearPeerDB(t)
 		p2p := transport.P2P()
 		defer p2p.Close()
 
@@ -73,7 +62,6 @@ func TestProtocol(t *testing.T) {
 	})
 
 	t.Run("ExpiredSalt", func(t *testing.T) {
-		clearPeerDB(t)
 		p2p := transport.P2P()
 		defer p2p.Close()
 
@@ -91,7 +79,6 @@ func TestProtocol(t *testing.T) {
 	})
 
 	t.Run("PeeringDrop", func(t *testing.T) {
-		clearPeerDB(t)
 		p2p := transport.P2P()
 		defer p2p.Close()
 
@@ -118,7 +105,6 @@ func TestProtocol(t *testing.T) {
 	})
 
 	t.Run("FullTest", func(t *testing.T) {
-		clearPeerDB(t)
 		p2p := transport.P2P()
 		defer p2p.Close()
 
@@ -146,13 +132,10 @@ func (d dummyDiscovery) EnsureVerified(*peer.Peer) error                 { retur
 func (d dummyDiscovery) GetVerifiedPeer(id peer.ID, _ string) *peer.Peer { return peerMap[id] }
 func (d dummyDiscovery) GetVerifiedPeers() []*peer.Peer                  { return []*peer.Peer{} }
 
-func clearPeerDB(t require.TestingT) {
-	require.NoError(t, peerDB.Clear())
-}
-
 // newTestProtocol creates a new neighborhood server and also returns the teardown.
 func newTestProtocol(trans transport.Transport) (*Protocol, func()) {
-	local := peertest.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), peerDB)
+	db, _ := peer.NewDB(mapdb.NewMapDB())
+	local := peertest.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	// add the new peer to the global map for dummyDiscovery
 	peerMap[local.ID()] = &local.Peer
 	l := log.Named(trans.LocalAddr().String())
@@ -170,7 +153,8 @@ func newTestProtocol(trans transport.Transport) (*Protocol, func()) {
 
 // newTestProtocol creates a new server handling discover as well as neighborhood and also returns the teardown.
 func newFullTestProtocol(trans transport.Transport, masterPeers ...*peer.Peer) (*Protocol, func()) {
-	local := peertest.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), peerDB)
+	db, _ := peer.NewDB(mapdb.NewMapDB())
+	local := peertest.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	// add the new peer to the global map for dummyDiscovery
 	peerMap[local.ID()] = &local.Peer
 	l := log.Named(trans.LocalAddr().String())

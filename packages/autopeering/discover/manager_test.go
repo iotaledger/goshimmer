@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/peertest"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
+	"github.com/iotaledger/goshimmer/packages/database/mapdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -142,9 +143,9 @@ type NetworkMock struct {
 }
 
 func newManagerTest(t require.TestingT) (*manager, *NetworkMock, func()) {
-	require.NoError(t, peerDB.Clear()) // clear the DB first
-
-	local := peertest.NewLocal(testNetwork, "", peerDB)
+	db, err := peer.NewDB(mapdb.NewMapDB())
+	require.NoError(t, err)
+	local := peertest.NewLocal(testNetwork, testAddress, db)
 	networkMock := &NetworkMock{
 		loc: local,
 	}

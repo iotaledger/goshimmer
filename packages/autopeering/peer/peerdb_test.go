@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/database/mapdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPeerDB(t *testing.T) {
-	db, err := NewMemoryDB()
+	db, err := NewDB(mapdb.NewMapDB())
 	require.NoError(t, err)
 	p := newTestPeer("test")
 

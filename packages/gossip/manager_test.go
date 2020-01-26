@@ -9,6 +9,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/database/mapdb"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/hive.go/events"
@@ -370,9 +371,8 @@ func TestTxRequest(t *testing.T) {
 }
 
 func newTestDB(t require.TestingT) *peer.DB {
-	db, err := peer.NewMemoryDB()
+	db, err := peer.NewDB(mapdb.NewMapDB())
 	require.NoError(t, err)
-	require.NoError(t, db.Clear())
 	return db
 }
 

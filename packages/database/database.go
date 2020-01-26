@@ -23,6 +23,7 @@ type (
 	Entry        = database.Entry
 	KeyOnlyEntry = database.KeyOnlyEntry
 	KeyPrefix    = database.KeyPrefix
+	Key          = database.Key
 	Value        = database.Value
 )
 

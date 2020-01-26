@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/database/mapdb"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -165,9 +166,8 @@ func TestWrongConnect(t *testing.T) {
 }
 
 func newTestDB(t require.TestingT) *peer.DB {
-	db, err := peer.NewMemoryDB()
+	db, err := peer.NewDB(mapdb.NewMapDB())
 	require.NoError(t, err)
-	require.NoError(t, db.Clear())
 	return db
 }
 

@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/dgraph-io/badger/v2"
 	"github.com/iotaledger/goshimmer/packages/database"
 )
 
@@ -22,9 +21,16 @@ const (
 	seedExpiration = 5 * 24 * time.Hour
 )
 
+// Database defines the database functionality required by DB.
+type Database interface {
+	Get(database.Key) (database.Entry, error)
+	Set(database.Entry) error
+	ForEachPrefix(database.KeyPrefix, func(database.Entry) bool) error
+}
+
 // DB is the peer database, storing previously seen peers and any collected properties of them.
 type DB struct {
-	db database.Database
+	db Database
 }
 
 // Keys in the node database.
@@ -40,30 +46,8 @@ const (
 	dbLocalKey = "key"
 )
 
-// NewPersistentDB creates a new persistent DB.
-func NewPersistentDB() (*DB, error) {
-	db, err := database.Get(database.DBPrefixAutoPeering, database.GetBadgerInstance())
-	if err != nil {
-		return nil, err
-	}
-	return newDB(db)
-}
-
-// NewMemoryDB creates a new in-memory DB.
-func NewMemoryDB() (*DB, error) {
-	// create a default badger in memory instance
-	badgerDB, err := badger.Open(badger.DefaultOptions("").WithInMemory(true))
-	if err != nil {
-		return nil, err
-	}
-	db, err := database.Get(database.DBPrefixAutoPeering, badgerDB)
-	if err != nil {
-		return nil, err
-	}
-	return newDB(db)
-}
-
-func newDB(db database.Database) (*DB, error) {
+// NewDB creates a new peer database.
+func NewDB(db Database) (*DB, error) {
 	pDB := &DB{
 		db: db,
 	}
@@ -72,17 +56,6 @@ func newDB(db database.Database) (*DB, error) {
 		return nil, err
 	}
 	return pDB, nil
-}
-
-// Clear clears the entire DB.
-func (db *DB) Clear() error {
-	if err := db.db.DeletePrefix([]byte(dbNodePrefix)); err != nil {
-		return err
-	}
-	if err := db.db.DeletePrefix([]byte(dbLocalPrefix)); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (db *DB) init() error {
@@ -169,12 +142,12 @@ func (db *DB) UpdateLastPing(id ID, address string, t time.Time) error {
 	return db.setInt64(nodeFieldKey(id, address, dbNodePing), t.Unix())
 }
 
-// LastPing returns that property for the given peer ID and address.
+// LastPong returns that property for the given peer ID and address.
 func (db *DB) LastPong(id ID, address string) time.Time {
 	return time.Unix(db.getInt64(nodeFieldKey(id, address, dbNodePong)), 0)
 }
 
-// UpdateLastPing updates that property for the given peer ID and address.
+// UpdateLastPong updates that property for the given peer ID and address.
 func (db *DB) UpdateLastPong(id ID, address string, t time.Time) error {
 	return db.setInt64(nodeFieldKey(id, address, dbNodePong), t.Unix())
 }

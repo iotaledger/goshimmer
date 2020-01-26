@@ -9,9 +9,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/peertest"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
+	"github.com/iotaledger/goshimmer/packages/database/mapdb"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -32,7 +32,7 @@ func TestMgrNoDuplicates(t *testing.T) {
 	})
 
 	mgrMap := make(map[peer.ID]*manager)
-	runTestNetwork(t, nNodes, mgrMap)
+	runTestNetwork(nNodes, mgrMap)
 
 	for _, mgr := range mgrMap {
 		assert.NotEmpty(t, mgr.getOutNeighbors())
@@ -57,7 +57,7 @@ func TestEvents(t *testing.T) {
 	e, teardown := newEventMock(t)
 	defer teardown()
 	mgrMap := make(map[peer.ID]*manager)
-	runTestNetwork(t, nNodes, mgrMap)
+	runTestNetwork(nNodes, mgrMap)
 
 	// the events should lead to exactly the same neighbors
 	for _, mgr := range mgrMap {
@@ -77,9 +77,7 @@ func getValues(m map[peer.ID]*peer.Peer) []*peer.Peer {
 	return result
 }
 
-func runTestNetwork(t require.TestingT, n int, mgrMap map[peer.ID]*manager) {
-	require.NoError(t, peerDB.Clear()) // clear the DB first
-
+func runTestNetwork(n int, mgrMap map[peer.ID]*manager) {
 	for i := 0; i < n; i++ {
 		_ = newTestManager(fmt.Sprintf("%d", i), mgrMap)
 	}
@@ -209,7 +207,8 @@ func (n *networkMock) GetKnownPeers() []*peer.Peer {
 }
 
 func newTestManager(name string, mgrMap map[peer.ID]*manager) *manager {
-	local := peertest.NewLocal("mock", name, peerDB)
+	db, _ := peer.NewDB(mapdb.NewMapDB())
+	local := peertest.NewLocal("mock", name, db)
 	networkMock := &networkMock{loc: local, mgr: mgrMap}
 	m := newManager(networkMock, networkMock.GetKnownPeers, log.Named(name), Config{})
 	mgrMap[m.getID()] = m

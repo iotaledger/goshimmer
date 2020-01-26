@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
+	"github.com/iotaledger/goshimmer/packages/database/mapdb"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,22 +18,13 @@ import (
 
 const (
 	testNetwork = "test"
+	testAddress = "test"
 	graceTime   = 100 * time.Millisecond
 )
 
-var (
-	log    *logger.Logger
-	peerDB *peer.DB
-)
+var log = logger.NewExampleLogger("discover")
 
 func init() {
-	log = logger.NewExampleLogger("discover")
-	db, err := peer.NewMemoryDB()
-	if err != nil {
-		panic(err)
-	}
-	peerDB = db
-
 	// decrease parameters to simplify and speed up tests
 	SetParameter(Parameters{
 		ReverifyInterval: 500 * time.Millisecond,
@@ -43,7 +35,6 @@ func init() {
 }
 
 func TestProtVerifyMaster(t *testing.T) {
-	clearPeerDB(t)
 	p2p := transport.P2P()
 	defer p2p.Close()
 
@@ -65,7 +56,6 @@ func TestProtVerifyMaster(t *testing.T) {
 }
 
 func TestProtPingPong(t *testing.T) {
-	clearPeerDB(t)
 	p2p := transport.P2P()
 	defer p2p.Close()
 
@@ -87,7 +77,6 @@ func TestProtPingPong(t *testing.T) {
 }
 
 func TestProtPingTimeout(t *testing.T) {
-	clearPeerDB(t)
 	p2p := transport.P2P()
 	defer p2p.Close()
 
@@ -102,7 +91,6 @@ func TestProtPingTimeout(t *testing.T) {
 }
 
 func TestProtVerifiedPeers(t *testing.T) {
-	clearPeerDB(t)
 	p2p := transport.P2P()
 	defer p2p.Close()
 
@@ -125,7 +113,6 @@ func TestProtVerifiedPeers(t *testing.T) {
 }
 
 func TestProtVerifiedPeer(t *testing.T) {
-	clearPeerDB(t)
 	p2p := transport.P2P()
 	defer p2p.Close()
 
@@ -150,7 +137,6 @@ func TestProtVerifiedPeer(t *testing.T) {
 }
 
 func TestProtDiscoveryRequest(t *testing.T) {
-	clearPeerDB(t)
 	p2p := transport.P2P()
 	defer p2p.Close()
 
@@ -177,7 +163,6 @@ func TestProtDiscoveryRequest(t *testing.T) {
 }
 
 func TestProtServices(t *testing.T) {
-	clearPeerDB(t)
 	p2p := transport.P2P()
 	defer p2p.Close()
 
@@ -202,7 +187,6 @@ func TestProtServices(t *testing.T) {
 }
 
 func TestProtDiscovery(t *testing.T) {
-	clearPeerDB(t)
 	net := transport.NewNetwork("M", "A", "B", "C")
 	defer net.Close()
 
@@ -228,7 +212,6 @@ func TestProtDiscovery(t *testing.T) {
 }
 
 func BenchmarkPingPong(b *testing.B) {
-	clearPeerDB(b)
 	p2p := transport.P2P()
 	defer p2p.Close()
 	log := zap.NewNop().Sugar() // disable logging
@@ -259,7 +242,6 @@ func BenchmarkPingPong(b *testing.B) {
 }
 
 func BenchmarkDiscoveryRequest(b *testing.B) {
-	clearPeerDB(b)
 	p2p := transport.P2P()
 	defer p2p.Close()
 	log := zap.NewNop().Sugar() // disable logging
@@ -288,13 +270,10 @@ func BenchmarkDiscoveryRequest(b *testing.B) {
 	b.StopTimer()
 }
 
-func clearPeerDB(t require.TestingT) {
-	require.NoError(t, peerDB.Clear())
-}
-
 // newTestProtocol creates a new discovery server and also returns the teardown.
 func newTestProtocol(trans transport.Transport, logger *logger.Logger, masters ...*peer.Peer) (*Protocol, func()) {
-	local := peertest.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), peerDB)
+	db, _ := peer.NewDB(mapdb.NewMapDB())
+	local := peertest.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
 	log := logger.Named(trans.LocalAddr().String())
 
 	prot := New(local, Config{Log: log, MasterPeers: masters})
