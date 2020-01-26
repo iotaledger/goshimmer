@@ -17,7 +17,6 @@ import (
 
 const (
 	testNetwork = "udp"
-	testAddress = "127.0.0.1:8000"
 	graceTime   = 100 * time.Millisecond
 )
 
@@ -156,13 +155,10 @@ func newTestProtocol(trans transport.Transport) (*Protocol, func()) {
 	local := peertest.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), peerDB)
 	// add the new peer to the global map for dummyDiscovery
 	peerMap[local.ID()] = &local.Peer
-	log := log.Named(trans.LocalAddr().String())
+	l := log.Named(trans.LocalAddr().String())
 
-	prot := New(local, dummyDiscovery{}, Config{
-		Log: log,
-	})
-
-	srv := server.Serve(local, trans, log.Named("srv"), prot)
+	prot := New(local, dummyDiscovery{}, Config{Log: l.Named("disc")})
+	srv := server.Serve(local, trans, l.Named("srv"), prot)
 	prot.Start(srv)
 
 	teardown := func() {
@@ -177,17 +173,17 @@ func newFullTestProtocol(trans transport.Transport, masterPeers ...*peer.Peer) (
 	local := peertest.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), peerDB)
 	// add the new peer to the global map for dummyDiscovery
 	peerMap[local.ID()] = &local.Peer
-	log := log.Named(trans.LocalAddr().String())
+	l := log.Named(trans.LocalAddr().String())
 
 	discovery := discover.New(local, discover.Config{
-		Log:         log.Named("disc"),
+		Log:         l.Named("disc"),
 		MasterPeers: masterPeers,
 	})
 	selection := New(local, discovery, Config{
-		Log: log.Named("sel"),
+		Log: l.Named("sel"),
 	})
 
-	srv := server.Serve(local, trans, log.Named("srv"), discovery, selection)
+	srv := server.Serve(local, trans, l.Named("srv"), discovery, selection)
 
 	discovery.Start(srv)
 	selection.Start(srv)
