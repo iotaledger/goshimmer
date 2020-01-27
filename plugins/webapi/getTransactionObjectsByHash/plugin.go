@@ -1,6 +1,7 @@
 package getTransactionObjectsByHash
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/plugins/tangle"
@@ -30,7 +31,7 @@ func getTransactionObjectsByHash(c echo.Context) error {
 
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
-		return requestFailed(c, err.Error())
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
 	log.Debug("Received:", request.Hashes)
@@ -38,43 +39,28 @@ func getTransactionObjectsByHash(c echo.Context) error {
 	for _, hash := range request.Hashes {
 		tx, err := tangle.GetTransaction(hash)
 		if err != nil {
-			return requestFailed(c, err.Error())
+			return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
 		}
-		if tx != nil {
-			t := Transaction{
-				Hash:                     tx.GetHash(),
-				WeightMagnitude:          tx.GetWeightMagnitude(),
-				TrunkTransactionHash:     tx.GetTrunkTransactionHash(),
-				BranchTransactionHash:    tx.GetBranchTransactionHash(),
-				Head:                     tx.IsHead(),
-				Tail:                     tx.IsTail(),
-				Nonce:                    tx.GetNonce(),
-				Address:                  tx.GetAddress(),
-				Value:                    tx.GetValue(),
-				Timestamp:                tx.GetTimestamp(),
-				SignatureMessageFragment: tx.GetSignatureMessageFragment(),
-			}
-			result = append(result, t)
-		} else {
-			//tx not found
-			result = append(result, Transaction{})
+		if tx == nil {
+			return c.JSON(http.StatusNotFound, Response{Error: fmt.Sprintf("transaction not found: %s", hash)})
 		}
-
+		t := Transaction{
+			Hash:                     tx.GetHash(),
+			WeightMagnitude:          tx.GetWeightMagnitude(),
+			TrunkTransactionHash:     tx.GetTrunkTransactionHash(),
+			BranchTransactionHash:    tx.GetBranchTransactionHash(),
+			Head:                     tx.IsHead(),
+			Tail:                     tx.IsTail(),
+			Nonce:                    tx.GetNonce(),
+			Address:                  tx.GetAddress(),
+			Value:                    tx.GetValue(),
+			Timestamp:                tx.GetTimestamp(),
+			SignatureMessageFragment: tx.GetSignatureMessageFragment(),
+		}
+		result = append(result, t)
 	}
 
-	return requestSuccessful(c, result)
-}
-
-func requestSuccessful(c echo.Context, txs []Transaction) error {
-	return c.JSON(http.StatusOK, Response{
-		Transactions: txs,
-	})
-}
-
-func requestFailed(c echo.Context, message string) error {
-	return c.JSON(http.StatusNotFound, Response{
-		Error: message,
-	})
+	return c.JSON(http.StatusOK, Response{Transactions: result})
 }
 
 type Response struct {

@@ -19,7 +19,7 @@ func WebApiHandler(c echo.Context) error {
 
 	var request Request
 	if err := c.Bind(&request); err != nil {
-		return requestFailed(c, err.Error())
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
 	switch request.Cmd {
@@ -30,33 +30,18 @@ func WebApiHandler(c echo.Context) error {
 
 		transactionspammer.Stop()
 		transactionspammer.Start(request.Tps)
-
-		return requestSuccessful(c, "started spamming transactions")
-
+		return c.JSON(http.StatusOK, Response{Message: "started spamming transactions"})
 	case "stop":
 		transactionspammer.Stop()
-
-		return requestSuccessful(c, "stopped spamming transactions")
-
+		return c.JSON(http.StatusOK, Response{Message: "stopped spamming transactions"})
 	default:
-		return requestFailed(c, "invalid cmd in request")
+		return c.JSON(http.StatusBadRequest, Response{Error: "invalid cmd in request"})
 	}
-}
-
-func requestSuccessful(c echo.Context, message string) error {
-	return c.JSON(http.StatusOK, Response{
-		Message: message,
-	})
-}
-
-func requestFailed(c echo.Context, message string) error {
-	return c.JSON(http.StatusNotFound, Response{
-		Message: message,
-	})
 }
 
 type Response struct {
 	Message string `json:"message"`
+	Error   string `json:"error"`
 }
 
 type Request struct {

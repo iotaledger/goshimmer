@@ -1,6 +1,7 @@
 package getTransactionTrytesByHash
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/plugins/tangle"
@@ -29,38 +30,23 @@ func getTransactionTrytesByHash(c echo.Context) error {
 	result := []trinary.Trytes{}
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
-		return requestFailed(c, err.Error())
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 	log.Debug("Received:", request.Hashes)
 
 	for _, hash := range request.Hashes {
 		tx, err := tangle.GetTransaction(hash)
 		if err != nil {
-			return requestFailed(c, err.Error())
+			return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
 		}
-		if tx != nil {
-			trytes := trinary.MustTritsToTrytes(tx.GetTrits())
-			result = append(result, trytes)
-		} else {
-			//tx not found
-			result = append(result, "")
+		if tx == nil {
+			return c.JSON(http.StatusNotFound, Response{Error: fmt.Sprintf("transaction not found: %s", hash)})
 		}
-
+		trytes := trinary.MustTritsToTrytes(tx.GetTrits())
+		result = append(result, trytes)
 	}
 
-	return requestSuccessful(c, result)
-}
-
-func requestSuccessful(c echo.Context, txTrytes []trinary.Trytes) error {
-	return c.JSON(http.StatusOK, Response{
-		Trytes: txTrytes,
-	})
-}
-
-func requestFailed(c echo.Context, message string) error {
-	return c.JSON(http.StatusNotFound, Response{
-		Error: message,
-	})
+	return c.JSON(http.StatusOK, Response{Trytes: result})
 }
 
 type Response struct {
