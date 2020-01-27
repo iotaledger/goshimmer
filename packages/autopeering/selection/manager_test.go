@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/peertest"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
+	"github.com/iotaledger/goshimmer/packages/database/mapdb"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -186,16 +186,6 @@ type networkMock struct {
 	mgr map[peer.ID]*manager
 }
 
-func newNetworkMock(name string, mgrMap map[peer.ID]*manager, log *logger.Logger) *networkMock {
-	services := service.New()
-	services.Update(service.PeeringKey, "mock", name)
-	local, _ := peer.NewLocal(services, peer.NewMemoryDB(log))
-	return &networkMock{
-		loc: local,
-		mgr: mgrMap,
-	}
-}
-
 func (n *networkMock) local() *peer.Local {
 	return n.loc
 }
@@ -217,9 +207,10 @@ func (n *networkMock) GetKnownPeers() []*peer.Peer {
 }
 
 func newTestManager(name string, mgrMap map[peer.ID]*manager) *manager {
-	l := log.Named(name)
-	net := newNetworkMock(name, mgrMap, l)
-	m := newManager(net, net.GetKnownPeers, l, Config{})
+	db, _ := peer.NewDB(mapdb.NewMapDB())
+	local := peertest.NewLocal("mock", name, db)
+	networkMock := &networkMock{loc: local, mgr: mgrMap}
+	m := newManager(networkMock, networkMock.GetKnownPeers, log.Named(name), Config{})
 	mgrMap[m.getID()] = m
 	return m
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/netutil"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/hive.go/logger"
@@ -64,8 +65,16 @@ func configureLocal() *peer.Local {
 		}
 		seed = append(seed, bytes)
 	}
+	badgerDB, err := database.Get(database.DBPrefixAutoPeering, database.GetBadgerInstance())
+	if err != nil {
+		log.Fatalf("Error loading DB: %s", err)
+	}
+	peerDB, err := peer.NewDB(badgerDB)
+	if err != nil {
+		log.Fatalf("Error creating peer DB: %s", err)
+	}
 
-	local, err := peer.NewLocal(services, peer.NewPersistentDB(log), seed...)
+	local, err := peer.NewLocal(services, peerDB, seed...)
 	if err != nil {
 		log.Fatalf("Error creating local: %s", err)
 	}

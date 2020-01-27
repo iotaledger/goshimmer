@@ -89,17 +89,12 @@ func (p *Protocol) EnsureVerified(peer *peer.Peer) error {
 
 // GetVerifiedPeer returns the verified peer with the given ID, or nil if no such peer exists.
 func (p *Protocol) GetVerifiedPeer(id peer.ID, addr string) *peer.Peer {
-	if !p.IsVerified(id, addr) {
-		return nil
+	for _, verified := range p.mgr.getVerifiedPeers() {
+		if verified.ID() == id && verified.Address() == addr {
+			return unwrapPeer(verified)
+		}
 	}
-	peer := p.loc.Database().Peer(id)
-	if peer == nil {
-		return nil
-	}
-	if peer.Address() != addr {
-		return nil
-	}
-	return peer
+	return nil
 }
 
 // GetVerifiedPeers returns all the currently managed peers that have been verified at least once.

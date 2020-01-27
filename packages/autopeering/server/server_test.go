@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
+	"github.com/iotaledger/goshimmer/packages/database/mapdb"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -96,10 +97,16 @@ func unmarshal(data []byte) (Message, error) {
 	return nil, ErrInvalidMessage
 }
 
+func newTestDB(t require.TestingT) *peer.DB {
+	db, err := peer.NewDB(mapdb.NewMapDB())
+	require.NoError(t, err)
+	return db
+}
+
 func TestSrvEncodeDecodePing(t *testing.T) {
 	services := service.New()
 	services.Update(service.PeeringKey, "dummy", "local")
-	local, err := peer.NewLocal(services, peer.NewMemoryDB(log))
+	local, err := peer.NewLocal(services, newTestDB(t))
 	require.NoError(t, err)
 	s := &Server{local: local}
 
@@ -119,8 +126,7 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport) (
 
 	services := service.New()
 	services.Update(service.PeeringKey, trans.LocalAddr().Network(), trans.LocalAddr().String())
-	db := peer.NewMemoryDB(l.Named("db"))
-	local, err := peer.NewLocal(services, db)
+	local, err := peer.NewLocal(services, newTestDB(t))
 	require.NoError(t, err)
 
 	s, _ := salt.NewSalt(100 * time.Second)
@@ -130,11 +136,7 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport) (
 
 	srv := Serve(local, trans, l, HandlerFunc(handle))
 
-	teardown := func() {
-		srv.Close()
-		db.Close()
-	}
-	return srv, teardown
+	return srv, srv.Close
 }
 
 func sendPing(s *Server, p *peer.Peer) error {

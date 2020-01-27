@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 )
 
+// Errors in the peer package.
 var (
 	ErrNeedsPeeringService = errors.New("needs peering service")
 	ErrInvalidSignature    = errors.New("invalid signature")

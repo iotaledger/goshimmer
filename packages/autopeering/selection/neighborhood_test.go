@@ -1,11 +1,13 @@
 package selection
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/distance"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/peertest"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	"github.com/stretchr/testify/assert"
 )
@@ -13,7 +15,7 @@ import (
 func TestGetFurthest(t *testing.T) {
 	d := make([]peer.PeerDistance, 5)
 	for i := range d {
-		d[i].Remote = newTestPeer()
+		d[i].Remote = peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))
 		d[i].Distance = uint32(i + 1)
 	}
 
@@ -59,7 +61,7 @@ func TestGetFurthest(t *testing.T) {
 func TestGetPeerIndex(t *testing.T) {
 	d := make([]peer.PeerDistance, 5)
 	for i := range d {
-		d[i].Remote = newTestPeer()
+		d[i].Remote = peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))
 		d[i].Distance = uint32(i + 1)
 	}
 
@@ -102,7 +104,7 @@ func TestGetPeerIndex(t *testing.T) {
 func TestRemove(t *testing.T) {
 	d := make([]peer.PeerDistance, 10)
 	for i := range d {
-		d[i].Remote = newTestPeer()
+		d[i].Remote = peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))
 		d[i].Distance = uint32(i + 1)
 	}
 
@@ -145,7 +147,7 @@ func TestRemove(t *testing.T) {
 func TestAdd(t *testing.T) {
 	d := make([]peer.PeerDistance, 10)
 	for i := range d {
-		d[i].Remote = newTestPeer()
+		d[i].Remote = peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))
 		d[i].Distance = uint32(i + 1)
 	}
 
@@ -188,7 +190,7 @@ func TestAdd(t *testing.T) {
 func TestUpdateDistance(t *testing.T) {
 	d := make([]peer.PeerDistance, 5)
 	for i := range d {
-		d[i].Remote = newTestPeer()
+		d[i].Remote = peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))
 		d[i].Distance = uint32(i + 1)
 	}
 
@@ -214,7 +216,7 @@ func TestGetPeers(t *testing.T) {
 	peers := make([]*peer.Peer, 4)
 
 	for i := range d {
-		d[i].Remote = newTestPeer()
+		d[i].Remote = peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))
 		d[i].Distance = uint32(i + 1)
 		peers[i] = d[i].Remote
 	}

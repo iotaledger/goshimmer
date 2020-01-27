@@ -56,7 +56,7 @@ func TestPublicSalt(t *testing.T) {
 	assert.Equal(t, s, got, "Public salt")
 }
 
-func newTestLocal(t require.TestingT, db DB) *Local {
+func newTestLocal(t require.TestingT, db *DB) *Local {
 	var priv PrivateKey
 	var err error
 	if db == nil {

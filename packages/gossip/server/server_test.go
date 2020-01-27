@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/database/mapdb"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -164,13 +165,18 @@ func TestWrongConnect(t *testing.T) {
 	wg.Wait()
 }
 
+func newTestDB(t require.TestingT) *peer.DB {
+	db, err := peer.NewDB(mapdb.NewMapDB())
+	require.NoError(t, err)
+	return db
+}
+
 func newTestServer(t require.TestingT, name string) (*TCP, func()) {
 	l := log.Named(name)
 
 	services := service.New()
 	services.Update(service.PeeringKey, "peering", name)
-	db := peer.NewMemoryDB(l.Named("db"))
-	local, err := peer.NewLocal(services, db)
+	local, err := peer.NewLocal(services, newTestDB(t))
 	require.NoError(t, err)
 
 	laddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
@@ -186,7 +192,6 @@ func newTestServer(t require.TestingT, name string) (*TCP, func()) {
 	teardown := func() {
 		srv.Close()
 		_ = lis.Close()
-		db.Close()
 	}
 	return srv, teardown
 }
