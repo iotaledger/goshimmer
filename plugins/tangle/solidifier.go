@@ -67,8 +67,9 @@ func runSolidifier() {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Checks and updates the solid flag of a single transaction.
-func checkSolidity(transaction *value_transaction.ValueTransaction) (bool, error) {
+// updateSolidity checks the solid flag of a single transaction; if it is not marked as solid,
+// recursively request all non solid parent transactions.
+func updateSolidity(transaction *value_transaction.ValueTransaction) (bool, error) {
 	// abort if transaction is solid already
 	txMetadata, metaDataErr := GetTransactionMetadata(transaction.GetHash(), transactionmetadata.New)
 	if metaDataErr != nil {
@@ -79,11 +80,11 @@ func checkSolidity(transaction *value_transaction.ValueTransaction) (bool, error
 		return true, nil
 	}
 
-	branchSolid, err := isMarkedSolid(transaction.GetBranchTransactionHash())
+	branchSolid, err := isSolid(transaction.GetBranchTransactionHash())
 	if err != nil {
 		return false, err
 	}
-	trunkSolid, err := isMarkedSolid(transaction.GetTrunkTransactionHash())
+	trunkSolid, err := isSolid(transaction.GetTrunkTransactionHash())
 	if err != nil {
 		return false, err
 	}
@@ -97,15 +98,15 @@ func checkSolidity(transaction *value_transaction.ValueTransaction) (bool, error
 		return false, nil
 	}
 
-	log.Debugw("transaction solidified", "hash", transaction.GetHash())
-	txMetadata.SetSolid(true)
-	unsolidTxs.Remove(transaction.GetHash())
-	Events.TransactionSolid.Trigger(transaction)
-
+	if txMetadata.SetSolid(true) {
+		log.Debugw("transaction solidified", "hash", transaction.GetHash())
+		unsolidTxs.Remove(transaction.GetHash())
+		Events.TransactionSolid.Trigger(transaction)
+	}
 	return true, nil
 }
 
-func isMarkedSolid(hash trinary.Hash) (bool, error) {
+func isSolid(hash trinary.Hash) (bool, error) {
 	if hash == meta_transaction.BRANCH_NULL_HASH {
 		return true, nil
 	}
@@ -124,13 +125,20 @@ func isMarkedSolid(hash trinary.Hash) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	// if we know it but it is not yet solid, there is no need to request it again
-	return metadata.GetSolid(), nil
+	// if it is marked solid, we are done
+	if metadata.GetSolid() {
+		return true, nil
+	}
+	// if we are not requesting that transaction already
+	if !unsolidTxs.Contains(transaction.GetHash()) {
+		return updateSolidity(transaction)
+	}
+	return false, nil
 }
 
 // Checks and updates the solid flag of a transaction and its approvers (future cone).
 func IsSolid(transaction *value_transaction.ValueTransaction) (bool, error) {
-	if isSolid, err := checkSolidity(transaction); err != nil {
+	if isSolid, err := updateSolidity(transaction); err != nil {
 		return false, err
 	} else if isSolid {
 		if err := propagateSolidity(transaction.GetHash()); err != nil {
@@ -149,7 +157,7 @@ func propagateSolidity(transactionHash trinary.Trytes) error {
 			if approver, err := GetTransaction(approverHash); err != nil {
 				return err
 			} else if approver != nil {
-				if isSolid, err := checkSolidity(approver); err != nil {
+				if isSolid, err := updateSolidity(approver); err != nil {
 					return err
 				} else if isSolid {
 					if err := propagateSolidity(approver.GetHash()); err != nil {

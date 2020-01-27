@@ -21,6 +21,13 @@ func NewUnsolidTxs() *UnsolidTxs {
 	}
 }
 
+func (u *UnsolidTxs) Contains(hash string) bool {
+	u.RLock()
+	defer u.RUnlock()
+	_, contains := u.internal[hash]
+	return contains
+}
+
 func (u *UnsolidTxs) Add(hash string) bool {
 	u.Lock()
 	defer u.Unlock()
