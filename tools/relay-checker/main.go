@@ -18,8 +18,12 @@ func testBroadcastData(api *client.GoShimmerAPI) (trinary.Hash, error) {
 
 func testTargetGetTransactions(api *client.GoShimmerAPI, txnHash trinary.Hash) error {
 	// query target node for broadcasted data
-	if _, err := api.GetTransactionObjectsByHash([]trinary.Hash{txnHash}); err != nil {
+	res, err := api.GetTransactionObjectsByHash([]trinary.Hash{txnHash})
+	if err != nil {
 		return fmt.Errorf("querying the target node failed: %w", err)
+	}
+	if len(res) == 0 || res[0].Hash != txnHash {
+		return fmt.Errorf("txn %s not found on target", txnHash)
 	}
 	return nil
 }
@@ -28,10 +32,15 @@ func testNodesGetTransactions(txnHash trinary.Hash) error {
 	// query nodes node for broadcasted data
 	for _, n := range nodes {
 		nodesApi := client.NewGoShimmerAPI(n)
-		if _, err := nodesApi.GetTransactionObjectsByHash([]trinary.Hash{txnHash}); err != nil {
+		res, err := nodesApi.GetTransactionObjectsByHash([]trinary.Hash{txnHash})
+		if err != nil {
 			return fmt.Errorf("querying node %s failed: %w", n, err)
 		}
-		fmt.Printf("txn found in node %s\n", n)
+		if len(res) == 0 || res[0].Hash != txnHash {
+			fmt.Printf("WARNING: txn not found on node %s\n", n)
+		} else {
+			fmt.Printf("txn found on node %s\n", n)
+		}
 	}
 	return nil
 }
