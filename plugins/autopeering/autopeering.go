@@ -106,7 +106,7 @@ func start(shutdownSignal <-chan struct{}) {
 	}
 
 	log.Infof(name+" started: Address=%s/%s", peeringAddr.String(), peeringAddr.Network())
-	log.Infof(name+" started: PubKey=%s", base64.StdEncoding.EncodeToString(lPeer.PublicKey()))
+	log.Infof(name+" started: ID=%s PublicKey=%s", lPeer.ID(), base64.StdEncoding.EncodeToString(lPeer.PublicKey()))
 
 	<-shutdownSignal
 	log.Info("Stopping " + name + " ...")
