@@ -9,19 +9,23 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/netutil"
+	"github.com/iotaledger/goshimmer/packages/netutil/buffconn"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/network"
 )
 
 var (
+	// ErrNeighborQueueFull is returned when the send queue is already full.
 	ErrNeighborQueueFull = errors.New("send queue is full")
 )
 
-const neighborQueueSize = 1000
+const (
+	neighborQueueSize = 1000
+	maxNumReadErrors  = 10
+)
 
 type Neighbor struct {
 	*peer.Peer
-	*network.ManagedConnection
+	*buffconn.BufferedConnection
 
 	log   *logger.Logger
 	queue chan []byte
@@ -45,11 +49,11 @@ func NewNeighbor(peer *peer.Peer, conn net.Conn, log *logger.Logger) *Neighbor {
 	)
 
 	return &Neighbor{
-		Peer:              peer,
-		ManagedConnection: network.NewManagedConnection(conn),
-		log:               log,
-		queue:             make(chan []byte, neighborQueueSize),
-		closing:           make(chan struct{}),
+		Peer:               peer,
+		BufferedConnection: buffconn.NewBufferedConnection(conn),
+		log:                log,
+		queue:              make(chan []byte, neighborQueueSize),
+		closing:            make(chan struct{}),
 	}
 }
 
@@ -68,23 +72,20 @@ func (n *Neighbor) Close() error {
 	// wait for everything to finish
 	n.wg.Wait()
 
-	n.log.Infow("Connection closed",
-		"read", n.BytesRead,
-		"written", n.BytesWritten,
-	)
+	n.log.Info("Connection closed")
 	return err
 }
 
 // IsOutbound returns true if the neighbor is an outbound neighbor.
 func (n *Neighbor) IsOutbound() bool {
-	return GetAddress(n.Peer) == n.Conn.RemoteAddr().String()
+	return GetAddress(n.Peer) == n.RemoteAddr().String()
 }
 
 func (n *Neighbor) disconnect() (err error) {
 	n.disconnectOnce.Do(func() {
 		close(n.closing)
 		close(n.queue)
-		err = n.ManagedConnection.Close()
+		err = n.BufferedConnection.Close()
 	})
 	return
 }
@@ -98,8 +99,9 @@ func (n *Neighbor) writeLoop() {
 			if len(msg) == 0 {
 				continue
 			}
-			if _, err := n.ManagedConnection.Write(msg); err != nil {
-				n.log.Warn("write error", "err", err)
+			if _, err := n.BufferedConnection.Write(msg); err != nil {
+				// ignore write errors
+				n.log.Warn("Write error", "err", err)
 			}
 		case <-n.closing:
 			return
@@ -110,22 +112,26 @@ func (n *Neighbor) writeLoop() {
 func (n *Neighbor) readLoop() {
 	defer n.wg.Done()
 
-	// create a buffer for the packages
-	b := make([]byte, maxPacketSize)
-
+	var numReadErrors uint
 	for {
-		_, err := n.ManagedConnection.Read(b)
+		err := n.Read()
 		if netutil.IsTemporaryError(err) {
 			// ignore temporary read errors.
 			n.log.Debugw("temporary read error", "err", err)
+			numReadErrors++
+			if numReadErrors > maxNumReadErrors {
+				n.log.Warnw("Too many read errors", "err", err)
+				_ = n.BufferedConnection.Close()
+				return
+			}
 			continue
 		}
 		if err != nil {
 			// return from the loop on all other errors
 			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
-				n.log.Warnw("read error", "err", err)
+				n.log.Warnw("Permanent error", "err", err)
 			}
-			_ = n.ManagedConnection.Close()
+			_ = n.BufferedConnection.Close()
 			return
 		}
 	}

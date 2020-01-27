@@ -11,8 +11,9 @@ type Selector interface {
 }
 
 type Filter struct {
-	internal map[peer.ID]bool
-	lock     sync.RWMutex
+	internal   map[peer.ID]bool
+	conditions []func(*peer.Peer) bool
+	lock       sync.RWMutex
 }
 
 func NewFilter() *Filter {
@@ -21,29 +22,23 @@ func NewFilter() *Filter {
 	}
 }
 
-func (f *Filter) Apply(list []peer.PeerDistance) (filteredList []peer.PeerDistance) {
+func (f *Filter) Apply(list []peer.PeerDistance) (filtered []peer.PeerDistance) {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
-	for _, p := range list {
-		if !f.internal[p.Remote.ID()] {
-			filteredList = append(filteredList, p)
-		}
-	}
-	return filteredList
-}
 
-func (f *Filter) PushBack(list []peer.PeerDistance) (filteredList []peer.PeerDistance) {
-	var head, tail []peer.PeerDistance
-	f.lock.RLock()
-	defer f.lock.RUnlock()
+list:
 	for _, p := range list {
-		if f.internal[p.Remote.ID()] {
-			tail = append(tail, p)
-		} else {
-			head = append(head, p)
+		if _, contains := f.internal[p.Remote.ID()]; contains {
+			continue
 		}
+		for _, c := range f.conditions {
+			if !c(p.Remote) {
+				continue list
+			}
+		}
+		filtered = append(filtered, p)
 	}
-	return append(head, tail...)
+	return
 }
 
 func (f *Filter) AddPeers(n []*peer.Peer) {
@@ -64,6 +59,10 @@ func (f *Filter) RemovePeer(peer peer.ID) {
 	f.lock.Lock()
 	f.internal[peer] = false
 	f.lock.Unlock()
+}
+
+func (f *Filter) AddCondition(c func(p *peer.Peer) bool) {
+	f.conditions = append(f.conditions, c)
 }
 
 func (f *Filter) Clean() {

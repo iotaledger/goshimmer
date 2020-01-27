@@ -60,7 +60,7 @@ func TestNeighborWrite(t *testing.T) {
 	defer neighborB.Close()
 
 	var count uint32
-	neighborB.Events.ReceiveData.Attach(events.NewClosure(func(data []byte) {
+	neighborB.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
 		assert.Equal(t, testData, data)
 		atomic.AddUint32(&count, 1)
 	}))
@@ -84,7 +84,7 @@ func TestNeighborParallelWrite(t *testing.T) {
 	defer neighborB.Close()
 
 	var count uint32
-	neighborB.Events.ReceiveData.Attach(events.NewClosure(func(data []byte) {
+	neighborB.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
 		assert.Equal(t, testData, data)
 		atomic.AddUint32(&count, 1)
 	}))

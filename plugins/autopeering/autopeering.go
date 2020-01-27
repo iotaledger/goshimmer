@@ -48,14 +48,34 @@ func configureAP() {
 	// enable peer selection only when gossip is enabled
 	if !node.IsSkipped(gossip.PLUGIN) {
 		Selection = selection.New(local.GetInstance(), Discovery, selection.Config{
-			Log:              log.Named("sel"),
-			RequiredServices: []service.Key{service.GossipKey},
+			Log:               log.Named("sel"),
+			NeighborValidator: selection.ValidatorFunc(isValidNeighbor),
 		})
 	}
 }
 
+// isValidNeighbor checks whether a peer is a valid neighbor.
+func isValidNeighbor(p *peer.Peer) bool {
+	// gossip must be supported
+	gossipAddr := p.Services().Get(service.GossipKey)
+	if gossipAddr == nil {
+		return false
+	}
+	// the host for the gossip and peering service must be identical
+	gossipHost, _, err := net.SplitHostPort(gossipAddr.String())
+	if err != nil {
+		return false
+	}
+	peeringAddr := p.Services().Get(service.PeeringKey)
+	peeringHost, _, err := net.SplitHostPort(peeringAddr.String())
+	if err != nil {
+		return false
+	}
+	return gossipHost == peeringHost
+}
+
 func start(shutdownSignal <-chan struct{}) {
-	defer log.Infof("Stopping %s ... done", name)
+	defer log.Info("Stopping " + name + " ... done")
 
 	lPeer := local.GetInstance()
 	// use the port of the peering service
