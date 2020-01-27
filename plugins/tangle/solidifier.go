@@ -177,15 +177,19 @@ func propagateSolidity(transactionHash trinary.Trytes) error {
 
 func processMetaTransaction(metaTransaction *meta_transaction.MetaTransaction) {
 	var newTransaction bool
-	if tx, err := GetTransaction(metaTransaction.GetHash(), func(transactionHash trinary.Trytes) *value_transaction.ValueTransaction {
+	tx, err := GetTransaction(metaTransaction.GetHash(), func(transactionHash trinary.Trytes) *value_transaction.ValueTransaction {
 		newTransaction = true
 
 		tx := value_transaction.FromMetaTransaction(metaTransaction)
 		tx.SetModified(true)
 		return tx
-	}); err != nil {
-		log.Errorf("Unable to load transaction %s: %s", metaTransaction.GetHash(), err.Error())
-	} else if newTransaction {
+	})
+	if err != nil {
+		log.Errorf("Unable to process transaction %s: %s", metaTransaction.GetHash(), err.Error())
+		return
+	}
+	if newTransaction {
+		log.Debugw("process new transaction", "hash", tx.GetHash())
 		updateUnsolidTxs(tx)
 		processTransaction(tx)
 	}

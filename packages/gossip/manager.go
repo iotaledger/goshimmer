@@ -123,6 +123,7 @@ func (m *Manager) RequestTransaction(txHash []byte, to ...peer.ID) {
 	req := &pb.TransactionRequest{
 		Hash: txHash,
 	}
+	m.log.Debugw("send message", "type", "TRANSACTION_REQUEST", "to", to)
 	m.send(marshal(req), to...)
 }
 
@@ -132,6 +133,7 @@ func (m *Manager) SendTransaction(txData []byte, to ...peer.ID) {
 	tx := &pb.Transaction{
 		Data: txData,
 	}
+	m.log.Debugw("send message", "type", "TRANSACTION", "to", to)
 	m.send(marshal(tx), to...)
 }
 
@@ -219,8 +221,6 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 		return nil
 	}
 
-	m.log.Debugw("handle packet", "id", p.ID(), "len", len(data))
-
 	switch pb.MType(data[0]) {
 
 	// Incoming Transaction
@@ -229,7 +229,7 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 		if err := proto.Unmarshal(data[1:], msg); err != nil {
 			return fmt.Errorf("invalid packet: %w", err)
 		}
-		m.log.Debugw("received tx", "id", p.ID(), "len", len(data))
+		m.log.Debugw("received message", "type", "TRANSACTION", "id", p.ID())
 		Events.TransactionReceived.Trigger(&TransactionReceivedEvent{Data: msg.GetData(), Peer: p})
 
 	// Incoming Transaction request
@@ -239,13 +239,12 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 		if err := proto.Unmarshal(data[1:], msg); err != nil {
 			return fmt.Errorf("invalid packet: %w", err)
 		}
-		m.log.Debugw("received tx req", "id", p.ID(), "len", len(data))
+		m.log.Debugw("received message", "type", "TRANSACTION_REQUEST", "id", p.ID())
 		// do something
 		tx, err := m.getTransaction(msg.GetHash())
 		if err != nil {
-			m.log.Debugw("tx not available", "hash", msg.GetHash())
+			m.log.Debugw("error getting transaction", "hash", msg.GetHash(), "err", err)
 		} else {
-			m.log.Debugw("tx found", "hash", msg.GetHash())
 			m.SendTransaction(tx, p.ID())
 		}
 
