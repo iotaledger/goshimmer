@@ -51,7 +51,7 @@ paths:
                     type: string
                     example: "invalid address"
                 description: The error message.
-  /findTransactions:
+  /findTransactionHashes:
     post:
       tags:
         - transactions
@@ -120,7 +120,7 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Peer'
-  /getTransactions:
+  /getTransactionObjectsByHash:
     post:
       tags:
         - transactions
@@ -149,7 +149,7 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Transaction'
-  /getTrytes:
+  /getTransactionTrytesByHash:
     post:
       tags:
         - transactions
@@ -199,22 +199,29 @@ paths:
                   trunkTransaction:
                     type: string
   /spammer:
-    post:
+    get:
       tags:
         - transactions
       summary: Sends spam transactions.
-      description: Sends zero-value transactions at the given rate per second.<br></br>You can start the spammer, using the `cmd=start` command and stop it, using the `cmd=stop` command.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                cmd:
-                  type: string
-                tps:
-                  type: integer
+      description: Sends zero-value transactions at the given rate per second.<br></br>You can start the spammer, using the `cmd=start` command and stop it, using the `cmd=stop` command. Optionally, a parameter `tps` can be provided (i.e., `tps=10`) to change the default rate (`tps=1`).
+      parameters:
+        - in: query
+          name: cmd
+          schema:
+            type: string
+            enum:
+              - start
+              - stop
+          required: true
+          description: Command to either `start` or `stop` spamming.
+        - in: query
+          name: tps
+          schema:
+            type: integer
+            minimum: 0
+            default: 1
+          required: false
+          description: Change the sending rate.
 
       responses:
         '200':

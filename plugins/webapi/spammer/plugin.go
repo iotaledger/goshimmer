@@ -12,7 +12,7 @@ import (
 var PLUGIN = node.NewPlugin("Spammer", node.Disabled, configure)
 
 func configure(plugin *node.Plugin) {
-	webapi.Server.POST("spammer", WebApiHandler)
+	webapi.Server.GET("spammer", WebApiHandler)
 }
 
 func WebApiHandler(c echo.Context) error {
