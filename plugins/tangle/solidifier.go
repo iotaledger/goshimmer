@@ -68,74 +68,64 @@ func runSolidifier() {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Checks and updates the solid flag of a single transaction.
-func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool, err error) {
+func checkSolidity(transaction *value_transaction.ValueTransaction) (bool, error) {
 	// abort if transaction is solid already
 	txMetadata, metaDataErr := GetTransactionMetadata(transaction.GetHash(), transactionmetadata.New)
 	if metaDataErr != nil {
-		err = metaDataErr
-
-		return
-	} else if txMetadata.GetSolid() {
-		result = true
-
-		return
+		return false, metaDataErr
+	}
+	if txMetadata.GetSolid() {
+		log.Debugw("transaction is solid", "hash", transaction.GetHash())
+		return true, nil
 	}
 
-	// check solidity of branch transaction if it is not genesis
-	if branchTransactionHash := transaction.GetBranchTransactionHash(); branchTransactionHash != meta_transaction.BRANCH_NULL_HASH {
-		// abort if branch transaction is missing
-		if branchTransaction, branchErr := GetTransaction(branchTransactionHash); branchErr != nil {
-			err = branchErr
+	branchSolid, err := isMarkedSolid(transaction.GetBranchTransactionHash())
+	if err != nil {
+		return false, err
+	}
+	trunkSolid, err := isMarkedSolid(transaction.GetTrunkTransactionHash())
+	if err != nil {
+		return false, err
+	}
 
-			return
-		} else if branchTransaction == nil {
-			//log.Info("Missing Branch (nil)", transaction.GetValue(), "Missing ", transaction.GetBranchTransactionHash())
+	if !branchSolid || !trunkSolid {
+		log.Debugw("transaction not solid",
+			"hash", transaction.GetHash(),
+			"branchSolid", branchSolid,
+			"trunkSolid", trunkSolid,
+		)
+		return false, nil
+	}
 
-			// add BranchTransactionHash to the unsolid txs and send a transaction request
-			unsolidTxs.Add(transaction.GetBranchTransactionHash())
-			requestTransaction(transaction.GetBranchTransactionHash())
+	log.Debugw("transaction solidified", "hash", transaction.GetHash())
+	txMetadata.SetSolid(true)
+	unsolidTxs.Remove(transaction.GetHash())
+	Events.TransactionSolid.Trigger(transaction)
 
-			return
-		} else if branchTransactionMetadata, branchErr := GetTransactionMetadata(branchTransaction.GetHash(), transactionmetadata.New); branchErr != nil {
-			err = branchErr
-			//log.Info("Missing Branch", transaction.GetValue())
-			return
-		} else if !branchTransactionMetadata.GetSolid() {
-			return
+	return true, nil
+}
+
+func isMarkedSolid(hash trinary.Hash) (bool, error) {
+	if hash == meta_transaction.BRANCH_NULL_HASH {
+		return true, nil
+	}
+	transaction, err := GetTransaction(hash)
+	if err != nil {
+		return false, err
+	}
+	// if we don't know the transaction, request it
+	if transaction == nil {
+		if unsolidTxs.Add(hash) {
+			requestTransaction(hash)
 		}
+		return false, nil
 	}
-
-	// check solidity of trunk transaction if it is not genesis
-	if trunkTransactionHash := transaction.GetTrunkTransactionHash(); trunkTransactionHash != meta_transaction.BRANCH_NULL_HASH {
-		if trunkTransaction, trunkErr := GetTransaction(trunkTransactionHash); trunkErr != nil {
-			err = trunkErr
-
-			return
-		} else if trunkTransaction == nil {
-			//log.Info("Missing Trunk (nil)", transaction.GetValue())
-
-			// add TrunkTransactionHash to the unsolid txs and send a transaction request
-			unsolidTxs.Add(transaction.GetTrunkTransactionHash())
-			requestTransaction(transaction.GetTrunkTransactionHash())
-
-			return
-		} else if trunkTransactionMetadata, trunkErr := GetTransactionMetadata(trunkTransaction.GetHash(), transactionmetadata.New); trunkErr != nil {
-			err = trunkErr
-			//log.Info("Missing Trunk", transaction.GetValue())
-			return
-		} else if !trunkTransactionMetadata.GetSolid() {
-			return
-		}
+	metadata, err := GetTransactionMetadata(transaction.GetHash(), transactionmetadata.New)
+	if err != nil {
+		return false, err
 	}
-
-	// mark transaction as solid and trigger event
-	if txMetadata.SetSolid(true) {
-		Events.TransactionSolid.Trigger(transaction)
-	}
-
-	result = true
-
-	return
+	// if we know it but it is not yet solid, there is no need to request it again
+	return metadata.GetSolid(), nil
 }
 
 // Checks and updates the solid flag of a transaction and its approvers (future cone).
@@ -143,13 +133,11 @@ func IsSolid(transaction *value_transaction.ValueTransaction) (bool, error) {
 	if isSolid, err := checkSolidity(transaction); err != nil {
 		return false, err
 	} else if isSolid {
-		//log.Info("Solid ", transaction.GetValue())
 		if err := propagateSolidity(transaction.GetHash()); err != nil {
 			return false, err //should we return true?
 		}
 		return true, nil
 	}
-	//log.Info("Not solid ", transaction.GetValue())
 	return false, nil
 }
 

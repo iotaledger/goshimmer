@@ -21,14 +21,20 @@ func NewUnsolidTxs() *UnsolidTxs {
 	}
 }
 
-func (u *UnsolidTxs) Add(hash string) {
+func (u *UnsolidTxs) Add(hash string) bool {
 	u.Lock()
+	defer u.Unlock()
+
+	_, contains := u.internal[hash]
+	if contains {
+		return false
+	}
 	info := Info{
 		lastRequest: time.Now(),
 		counter:     1,
 	}
 	u.internal[hash] = info
-	u.Unlock()
+	return true
 }
 
 func (u *UnsolidTxs) Remove(hash string) {
