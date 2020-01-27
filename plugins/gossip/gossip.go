@@ -122,9 +122,5 @@ func getTransaction(hash []byte) ([]byte, error) {
 }
 
 func requestTransaction(hash trinary.Hash) {
-	if contains, _ := tangle.ContainsTransaction(hash); contains {
-		// Do not request tx that we already know
-		return
-	}
 	mgr.RequestTransaction(typeutils.StringToBytes(hash))
 }

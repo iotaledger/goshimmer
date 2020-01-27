@@ -137,7 +137,7 @@ func isSolid(hash trinary.Hash) (bool, error) {
 }
 
 // Checks and updates the solid flag of a transaction and its approvers (future cone).
-func IsSolid(transaction *value_transaction.ValueTransaction) (bool, error) {
+func checkSolidity(transaction *value_transaction.ValueTransaction) (bool, error) {
 	if isSolid, err := updateSolidity(transaction); err != nil {
 		return false, err
 	} else if isSolid {
@@ -223,7 +223,7 @@ func processTransaction(transaction *value_transaction.ValueTransaction) {
 	}
 
 	// update the solidity flags of this transaction and its approvers
-	if _, err := IsSolid(transaction); err != nil {
+	if _, err := checkSolidity(transaction); err != nil {
 		log.Errorf("Unable to check solidity: %s", err.Error())
 		return
 	}
@@ -233,8 +233,12 @@ func updateUnsolidTxs(tx *value_transaction.ValueTransaction) {
 	unsolidTxs.Remove(tx.GetHash())
 	targetTime := time.Now().Add(time.Duration(-UnsolidInterval) * time.Second)
 	txs := unsolidTxs.Update(targetTime)
-	for _, tx := range txs {
-		requestTransaction(tx)
+	for _, txHash := range txs {
+		if contains, _ := ContainsTransaction(txHash); contains {
+			unsolidTxs.Remove(txHash)
+			continue
+		}
+		requestTransaction(txHash)
 	}
 }
 
