@@ -29,6 +29,7 @@ var (
 	ErrNotFound            = errors.New("not found")
 	ErrUnauthorized        = errors.New("unauthorized")
 	ErrUnknownError        = errors.New("unknown error")
+	ErrNotImplemented      = errors.New("operation not implemented/supported/available")
 )
 
 const (
@@ -87,6 +88,8 @@ func interpretBody(res *http.Response, decodeTo interface{}) error {
 		return fmt.Errorf("%w: %s", ErrBadRequest, errRes.Error)
 	case http.StatusUnauthorized:
 		return fmt.Errorf("%w: %s", ErrUnauthorized, errRes.Error)
+	case http.StatusNotImplemented:
+		return fmt.Errorf("%w: %s", ErrNotImplemented, errRes.Error)
 	}
 
 	return fmt.Errorf("%w: %s", ErrUnknownError, errRes.Error)

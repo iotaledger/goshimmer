@@ -28,7 +28,7 @@ func findTransactionHashes(c echo.Context) error {
 
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
-		return requestFailed(c, err.Error())
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 	log.Debug("Received:", request.Addresses)
 	result := make([][]trinary.Trytes, len(request.Addresses))
@@ -36,24 +36,12 @@ func findTransactionHashes(c echo.Context) error {
 	for i, address := range request.Addresses {
 		txs, err := tangle.ReadTransactionHashesForAddressFromDatabase(address)
 		if err != nil {
-			return requestFailed(c, err.Error())
+			return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
 		}
 		result[i] = append(result[i], txs...)
 	}
 
-	return requestSuccessful(c, result)
-}
-
-func requestSuccessful(c echo.Context, txHashes [][]trinary.Trytes) error {
-	return c.JSON(http.StatusOK, Response{
-		Transactions: txHashes,
-	})
-}
-
-func requestFailed(c echo.Context, message string) error {
-	return c.JSON(http.StatusNotFound, Response{
-		Error: message,
-	})
+	return c.JSON(http.StatusOK, Response{Transactions: result})
 }
 
 type Response struct {
