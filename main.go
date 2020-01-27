@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/bundleprocessor"
 	"github.com/iotaledger/goshimmer/plugins/cli"
-	"github.com/iotaledger/goshimmer/plugins/dashboard"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/graph"
@@ -17,7 +16,6 @@ import (
 	statusscreen_tps "github.com/iotaledger/goshimmer/plugins/statusscreen-tps"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
-	"github.com/iotaledger/goshimmer/plugins/ui"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	webapi_broadcastData "github.com/iotaledger/goshimmer/plugins/webapi/broadcastData"
 	webapi_findTransactionHashes "github.com/iotaledger/goshimmer/plugins/webapi/findTransactionHashes"
@@ -27,7 +25,6 @@ import (
 	webapi_gtta "github.com/iotaledger/goshimmer/plugins/webapi/gtta"
 	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi/spammer"
 	webapi_auth "github.com/iotaledger/goshimmer/plugins/webauth"
-	"github.com/iotaledger/goshimmer/plugins/zeromq"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -46,8 +43,6 @@ func main() {
 			analysis.PLUGIN,
 			gracefulshutdown.PLUGIN,
 			tipselection.PLUGIN,
-			zeromq.PLUGIN,
-			dashboard.PLUGIN,
 			metrics.PLUGIN,
 
 			statusscreen.PLUGIN,
@@ -63,8 +58,6 @@ func main() {
 			webapi_findTransactionHashes.PLUGIN,
 			webapi_getNeighbors.PLUGIN,
 			webapi_spammer.PLUGIN,
-
-			ui.PLUGIN,
 
 			graph.PLUGIN,
 		),
