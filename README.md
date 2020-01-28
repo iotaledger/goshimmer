@@ -25,7 +25,7 @@
   <a href="#work-in-progress-modules">Work-in-progress modules</a> ◈
   <a href="#installation">Installation</a> ◈
   <a href="#getting-started">Getting started</a> ◈
-  <a href="#client-lib-and-http-api-reference">Client-Library and HTTP API reference</a> ◈
+  <a href="#client-library-and-http-api-reference">Client-Library and HTTP API reference</a> ◈
   <a href="#supporting-the-project">Supporting the project</a> ◈
   <a href="#joining-the-discussion">Joining the discussion</a> 
 </p>
