@@ -120,12 +120,15 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Peer'
+        '501':
+          description: Neighbor Selection/Discovery is not enabled
+
   /getTransactionObjectsByHash:
     post:
       tags:
         - transactions
       summary: Gets transactions objects for the given transaction hashes
-      description: Searches the Tangle for transactions with the given hashes and returns their contents as objects. The transaction objects are returned in the same order as the given hashes. For example, if the node doesn't have any transactions with a given hash, the value at that index in the returned array is empty.
+      description: Searches the Tangle for transactions with the given hashes and returns their contents as objects. The transaction objects are returned in the same order as the given hashes. If any of the given hashes is not found, an error is returned.
       requestBody:
         required: true
         content:
@@ -149,12 +152,15 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Transaction'
+        '404':
+          description: Transaction(s) not found
+
   /getTransactionTrytesByHash:
     post:
       tags:
         - transactions
       summary: Gets the transaction trytes of given transaction hashes.
-      description: Searches the Tangle for transactions with the given hashes and returns their contents in trytes. The transaction trytes are returned in the same order as the given hashes. For example, if the node doesn't have any transactions with a given hash, the value at that index in the returned array is empty.
+      description: Searches the Tangle for transactions with the given hashes and returns their contents in trytes. The transaction trytes are returned in the same order as the given hashes. If any of the given hashes is not found, an error is returned.
       requestBody:
         description: Transaction hashes to search for in the Tangle. <br></br> Transaction hashes must contain only 81 trytes.
         required: true
@@ -179,6 +185,8 @@ paths:
                     type: array
                     items:
                       type: string
+        '404':
+          description: Transaction(s) not found
 
   /getTransactionsToApprove:
     get:
@@ -198,6 +206,7 @@ paths:
                     type: string
                   trunkTransaction:
                     type: string
+
   /spammer:
     get:
       tags:
