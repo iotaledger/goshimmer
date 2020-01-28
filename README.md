@@ -158,7 +158,7 @@ If Go is installed, you should see the version that's installed.
 
 When you first run GoShimmer, the node starts running and tries to connects to neighbors, using the autopeering module.
 
-To run other modules such as `spammer` or `zeromq`, you can configure GoShimmer to enable them through plugins.
+To run other modules such as the `spammer` or the Glumb visualizer `graph`, you can configure GoShimmer to enable them through plugins.
 
 **Note:** For a list of all the available configuration parameters, you can run the following command:
 
@@ -180,18 +180,18 @@ To use the command line, execute the file with one of the following commands, de
 
 ```bash
 # Linux and macOS
-./goshimmer --node.enablePlugins "spammer zeromq dashboard"
+./goshimmer --node.enablePlugins "spammer"
 # Windows
-goshimmer.exe --node.enablePlugins "spammer zeromq dashboard"
+goshimmer.exe --node.enablePlugins "spammer"
 ```
 
-Here, we use the command-line flags to enable the spammer, ZMQ, and dashboard plugins. These plugins allow you to send spam transactions to your node, monitor it for incoming transactions, and view the total number of transactions that it's processing in a web dashboard.
+Here, we use the command-line flags to enable the spammer plugin. This plugin allows you to send spam transactions to your node.
 
 ### Installing the Glumb visualizer
 
 The Glumb visualiser allows you to view the transactions in the network, using a web browser.
 
-1. Enable the `Graph` plugin either in your `config.json` file or in the command line (`--node.enablePlugins="Graph"`)
+1. Enable the `graph` plugin either in your `config.json` file or in the command line (`--node.enablePlugins="graph"`)
 
 2. If you're running GoShimmer with the precompiled executable file, do the following:
 
