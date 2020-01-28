@@ -25,7 +25,7 @@
   <a href="#work-in-progress-modules">Work-in-progress modules</a> ◈
   <a href="#installation">Installation</a> ◈
   <a href="#getting-started">Getting started</a> ◈
-  <a href="#api-reference">API reference</a> ◈
+  <a href="#client-lib-and-http-api-reference">Client Lib and HTTP API reference</a> ◈
   <a href="#supporting-the-project">Supporting the project</a> ◈
   <a href="#joining-the-discussion">Joining the discussion</a> 
 </p>
@@ -93,9 +93,14 @@ As well as these modules, we are working on the following node functions:
 
     ![parallel_reality](images/outputs.png "Ledger State")
 
-## API reference
+## Client Lib and HTTP API reference
 
-For a full list of API commands for GoShimmer, go to the [our Swagger page]().
+You can use the Go client library to interact with GoShimmer (located under `github.com/iotaledger/goshimmer/client`).
+
+Alternatively, you can check out the [API docs](https://docs.iota.org/docs/node-software/0.1/goshimmer/references/api-reference) 
+to implement your own client or inspect the available HTTP API endpoints.
+
+For code generation, you might want to use the [OAS/Swagger specification file](https://github.com/iotaledger/goshimmer/blob/master/plugins/webapi/api.yaml) directly.
 
 ## Installation
 
