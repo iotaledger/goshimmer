@@ -3,7 +3,7 @@ package selection
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/hive.go/logger"
 )
 
@@ -30,9 +30,21 @@ type Config struct {
 	Log *logger.Logger
 
 	// These settings are optional:
-	DropOnUpdate     bool          // set true to drop all neighbors when the salt is updated
-	RequiredServices []service.Key // services required in order to select/be selected during autopeering
+	DropOnUpdate      bool      // set true to drop all neighbors when the salt is updated
+	NeighborValidator Validator // potential neighbor validator
 }
+
+// A Validator checks whether a peer is a valid neighbor
+type Validator interface {
+	IsValid(*peer.Peer) bool
+}
+
+// The ValidatorFunc type is an adapter to allow the use of ordinary functions as neighbor validators.
+// If f is a function with the appropriate signature, ValidatorFunc(f) is a Validator that calls f.
+type ValidatorFunc func(p *peer.Peer) bool
+
+// IsValid calls f(p).
+func (f ValidatorFunc) IsValid(p *peer.Peer) bool { return f(p) }
 
 // Parameters holds the parameters that can be configured.
 type Parameters struct {

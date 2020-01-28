@@ -11,9 +11,6 @@ type MType uint
 
 // The Sender interface specifies common method required to send requests.
 type Sender interface {
-	LocalAddr() string
-	LocalNetwork() string
-
 	Send(toAddr string, data []byte)
 	SendExpectingReply(toAddr string, toID peer.ID, data []byte, replyType MType, callback func(interface{}) bool) <-chan error
 }

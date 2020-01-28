@@ -28,36 +28,45 @@ func TestPublicKey(t *testing.T) {
 	assert.EqualValues(t, pub, local.PublicKey())
 }
 
-func newTestLocal(t require.TestingT) *Local {
-	priv, err := generatePrivateKey()
-	require.NoError(t, err)
-	return newLocal(priv, newTestServiceRecord(), nil)
-}
-
 func TestAddress(t *testing.T) {
-	local := newTestLocal(t)
+	local := newTestLocal(t, nil)
 
 	address := local.Services().Get(service.PeeringKey).String()
 	assert.EqualValues(t, address, local.Address())
 }
 
 func TestPrivateSalt(t *testing.T) {
-	p := newTestLocal(t)
+	p := newTestLocal(t, nil)
 
-	salt, _ := salt.NewSalt(time.Second * 10)
-	p.SetPrivateSalt(salt)
+	s, _ := salt.NewSalt(time.Second * 10)
+	p.SetPrivateSalt(s)
 
 	got := p.GetPrivateSalt()
-	assert.Equal(t, salt, got, "Private salt")
+	assert.Equal(t, s, got, "Private salt")
 }
 
 func TestPublicSalt(t *testing.T) {
-	p := newTestLocal(t)
+	p := newTestLocal(t, nil)
 
-	salt, _ := salt.NewSalt(time.Second * 10)
-	p.SetPublicSalt(salt)
+	s, _ := salt.NewSalt(time.Second * 10)
+	p.SetPublicSalt(s)
 
 	got := p.GetPublicSalt()
 
-	assert.Equal(t, salt, got, "Public salt")
+	assert.Equal(t, s, got, "Public salt")
+}
+
+func newTestLocal(t require.TestingT, db *DB) *Local {
+	var priv PrivateKey
+	var err error
+	if db == nil {
+		priv, err = generatePrivateKey()
+		require.NoError(t, err)
+	} else {
+		priv, err = db.LocalPrivateKey()
+		require.NoError(t, err)
+	}
+	services := service.New()
+	services.Update(service.PeeringKey, testNetwork, testAddress)
+	return newLocal(priv, services, db)
 }

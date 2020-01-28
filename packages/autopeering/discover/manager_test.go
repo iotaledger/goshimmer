@@ -6,73 +6,31 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/peertest"
 	"github.com/iotaledger/goshimmer/packages/autopeering/server"
+	"github.com/iotaledger/goshimmer/packages/database/mapdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-type NetworkMock struct {
-	mock.Mock
-
-	loc *peer.Local
-}
-
-func (m *NetworkMock) local() *peer.Local {
-	return m.loc
-}
-
-func (m *NetworkMock) Ping(p *peer.Peer) error {
-	args := m.Called(p)
-	return args.Error(0)
-}
-
-func (m *NetworkMock) discoveryRequest(p *peer.Peer) ([]*peer.Peer, error) {
-	args := m.Called(p)
-	return args.Get(0).([]*peer.Peer), args.Error(1)
-}
-
-func newNetworkMock() *NetworkMock {
-	local, _ := peer.NewLocal("mock", "0", peer.NewMemoryDB(log))
-	return &NetworkMock{
-		// no database needed
-		loc: local,
-	}
-}
-
-func newDummyPeer(name string) *peer.Peer {
-	services := service.New()
-	services.Update(service.PeeringKey, "dummy", name)
-
-	return peer.NewPeer([]byte(name), services)
-}
-
-func newTestManager() (*manager, *NetworkMock, func()) {
-	networkMock := newNetworkMock()
-	mgr := newManager(networkMock, nil, log)
-	teardown := func() {
-		mgr.close()
-	}
-	return mgr, networkMock, teardown
-}
-
 func TestMgrClose(t *testing.T) {
-	_, _, teardown := newTestManager()
+	_, _, teardown := newManagerTest(t)
 	defer teardown()
 
 	time.Sleep(graceTime)
 }
 
 func TestMgrVerifyDiscoveredPeer(t *testing.T) {
-	mgr, m, teardown := newTestManager()
+	mgr, m, teardown := newManagerTest(t)
 	defer teardown()
 
-	p := newDummyPeer("p")
+	p := peertest.NewPeer(testNetwork, "p")
 
-	// expect ping of peer p
+	// expect Ping of peer p
 	m.On("Ping", p).Return(nil).Once()
-	// ignore discoveryRequest calls
-	m.On("discoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
+	// ignore DiscoveryRequest calls
+	m.On("DiscoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
 
 	// let the manager initialize
 	time.Sleep(graceTime)
@@ -84,15 +42,15 @@ func TestMgrVerifyDiscoveredPeer(t *testing.T) {
 }
 
 func TestMgrReverifyPeer(t *testing.T) {
-	mgr, m, teardown := newTestManager()
+	mgr, m, teardown := newManagerTest(t)
 	defer teardown()
 
-	p := newDummyPeer("p")
+	p := peertest.NewPeer(testNetwork, "p")
 
-	// expect ping of peer p
+	// expect Ping of peer p
 	m.On("Ping", p).Return(nil).Once()
-	// ignore discoveryRequest calls
-	m.On("discoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
+	// ignore DiscoveryRequest calls
+	m.On("DiscoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
 
 	// let the manager initialize
 	time.Sleep(graceTime)
@@ -104,15 +62,15 @@ func TestMgrReverifyPeer(t *testing.T) {
 }
 
 func TestMgrRequestDiscoveredPeer(t *testing.T) {
-	mgr, m, teardown := newTestManager()
+	mgr, m, teardown := newManagerTest(t)
 	defer teardown()
 
-	p1 := newDummyPeer("verified")
-	p2 := newDummyPeer("discovered")
+	p1 := peertest.NewPeer(testNetwork, "verified")
+	p2 := peertest.NewPeer(testNetwork, "discovered")
 
-	// expect discoveryRequest on the discovered peer
-	m.On("discoveryRequest", p1).Return([]*peer.Peer{p2}, nil).Once()
-	// ignore any ping
+	// expect DiscoveryRequest on the discovered peer
+	m.On("DiscoveryRequest", p1).Return([]*peer.Peer{p2}, nil).Once()
+	// ignore any Ping
 	m.On("Ping", mock.Anything).Return(nil).Maybe()
 
 	mgr.addVerifiedPeer(p1)
@@ -123,22 +81,22 @@ func TestMgrRequestDiscoveredPeer(t *testing.T) {
 }
 
 func TestMgrAddManyVerifiedPeers(t *testing.T) {
-	mgr, m, teardown := newTestManager()
+	mgr, m, teardown := newManagerTest(t)
 	defer teardown()
 
-	p := newDummyPeer("p")
+	p := peertest.NewPeer(testNetwork, "p")
 
-	// expect ping of peer p
+	// expect Ping of peer p
 	m.On("Ping", p).Return(nil).Once()
-	// ignore discoveryRequest calls
-	m.On("discoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
+	// ignore DiscoveryRequest calls
+	m.On("DiscoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
 
 	// let the manager initialize
 	time.Sleep(graceTime)
 
 	mgr.addVerifiedPeer(p)
 	for i := 0; i < maxManaged+maxReplacements; i++ {
-		mgr.addVerifiedPeer(newDummyPeer(fmt.Sprintf("p%d", i)))
+		mgr.addVerifiedPeer(peertest.NewPeer(testNetwork, fmt.Sprintf("p%d", i)))
 	}
 
 	mgr.doReverify(make(chan struct{})) // manually trigger a verify
@@ -151,22 +109,22 @@ func TestMgrAddManyVerifiedPeers(t *testing.T) {
 }
 
 func TestMgrDeleteUnreachablePeer(t *testing.T) {
-	mgr, m, teardown := newTestManager()
+	mgr, m, teardown := newManagerTest(t)
 	defer teardown()
 
-	p := newDummyPeer("p")
+	p := peertest.NewPeer(testNetwork, "p")
 
-	// expect ping of peer p, but return error
-	m.On("Ping", p).Return(server.ErrTimeout).Times(NetworkMaxRetries + 1)
-	// ignore discoveryRequest calls
-	m.On("discoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
+	// expect Ping of peer p, but return error
+	m.On("Ping", p).Return(server.ErrTimeout).Times(1)
+	// ignore DiscoveryRequest calls
+	m.On("DiscoveryRequest", mock.Anything).Return([]*peer.Peer{}, nil).Maybe()
 
 	// let the manager initialize
 	time.Sleep(graceTime)
 
 	mgr.addVerifiedPeer(p)
 	for i := 0; i < maxManaged; i++ {
-		mgr.addVerifiedPeer(newDummyPeer(fmt.Sprintf("p%d", i)))
+		mgr.addVerifiedPeer(peertest.NewPeer(testNetwork, fmt.Sprintf("p%d", i)))
 	}
 
 	mgr.doReverify(make(chan struct{})) // manually trigger a verify
@@ -176,4 +134,35 @@ func TestMgrDeleteUnreachablePeer(t *testing.T) {
 	assert.NotContains(t, ps, p)
 
 	m.AssertExpectations(t)
+}
+
+type NetworkMock struct {
+	mock.Mock
+
+	loc *peer.Local
+}
+
+func newManagerTest(t require.TestingT) (*manager, *NetworkMock, func()) {
+	db, err := peer.NewDB(mapdb.NewMapDB())
+	require.NoError(t, err)
+	local := peertest.NewLocal(testNetwork, testAddress, db)
+	networkMock := &NetworkMock{
+		loc: local,
+	}
+	mgr := newManager(networkMock, nil, log)
+	return mgr, networkMock, mgr.close
+}
+
+func (m *NetworkMock) local() *peer.Local {
+	return m.loc
+}
+
+func (m *NetworkMock) Ping(p *peer.Peer) error {
+	args := m.Called(p)
+	return args.Error(0)
+}
+
+func (m *NetworkMock) DiscoveryRequest(p *peer.Peer) ([]*peer.Peer, error) {
+	args := m.Called(p)
+	return args.Get(0).([]*peer.Peer), args.Error(1)
 }

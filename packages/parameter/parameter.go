@@ -1,6 +1,7 @@
 package parameter
 
 import (
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/parameter"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -11,9 +12,25 @@ var (
 	configName    = flag.StringP("config", "c", "config", "Filename of the config file without the file extension")
 	configDirPath = flag.StringP("config-dir", "d", ".", "Path to the directory containing the config file")
 
-	// Viper
-	NodeConfig = viper.New()
+	// viper
+	NodeConfig *viper.Viper
+
+	// logger
+	defaultLoggerConfig = logger.Config{
+		Level:             "info",
+		DisableCaller:     false,
+		DisableStacktrace: false,
+		Encoding:          "console",
+		OutputPaths:       []string{"goshimmer.log"},
+		DisableEvents:     false,
+	}
 )
+
+func init() {
+	// set the default logger config
+	NodeConfig = viper.New()
+	NodeConfig.SetDefault(logger.ViperKey, defaultLoggerConfig)
+}
 
 // FetchConfig fetches config values from a dir defined via CLI flag --config-dir (or the current working dir if not set).
 //

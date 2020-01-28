@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"fmt"
 	"io"
+	"net"
 	"sync"
 	"time"
 
@@ -67,10 +68,10 @@ type reply struct {
 	matchedRequest chan<- bool // a matching request is indicated via this channel
 }
 
-// Listen starts a new peer server using the given transport layer for communication.
+// Serve starts a new peer server using the given transport layer for communication.
 // Sent data is signed using the identity of the local peer,
 // received data with a valid peer signature is handled according to the provided Handler.
-func Listen(local *peer.Local, t transport.Transport, log *logger.Logger, h ...Handler) *Server {
+func Serve(local *peer.Local, t transport.Transport, log *logger.Logger, h ...Handler) *Server {
 	srv := &Server{
 		local:           local,
 		trans:           t,
@@ -86,6 +87,11 @@ func Listen(local *peer.Local, t transport.Transport, log *logger.Logger, h ...H
 	srv.wg.Add(2)
 	go srv.replyLoop()
 	go srv.readLoop()
+
+	log.Debugw("server started",
+		"network", srv.LocalAddr().Network(),
+		"address", srv.LocalAddr().String(),
+		"#handlers", len(h))
 
 	return srv
 }
@@ -104,14 +110,9 @@ func (s *Server) Local() *peer.Local {
 	return s.local
 }
 
-// LocalNetwork returns the network of the local peer.
-func (s *Server) LocalNetwork() string {
-	return s.network
-}
-
 // LocalAddr returns the address of the local peer in string form.
-func (s *Server) LocalAddr() string {
-	return s.address
+func (s *Server) LocalAddr() net.Addr {
+	return s.trans.LocalAddr()
 }
 
 // Send sends a message to the given address

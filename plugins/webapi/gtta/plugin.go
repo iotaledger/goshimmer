@@ -17,7 +17,7 @@ var PLUGIN = node.NewPlugin("WebAPI GTTA Endpoint", node.Disabled, func(plugin *
 func Handler(c echo.Context) error {
 
 	branchTransactionHash := tipselection.GetRandomTip()
-	trunkTransactionHash := tipselection.GetRandomTip()
+	trunkTransactionHash := tipselection.GetRandomTip(branchTransactionHash)
 
 	return c.JSON(http.StatusOK, Response{
 		BranchTransaction: branchTransactionHash,

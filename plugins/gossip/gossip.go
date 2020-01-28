@@ -27,38 +27,57 @@ var (
 func configureGossip() {
 	lPeer := local.GetInstance()
 
-	port := strconv.Itoa(parameter.NodeConfig.GetInt(GOSSIP_PORT))
-
-	host, _, err := net.SplitHostPort(lPeer.Address())
+	peeringAddr := lPeer.Services().Get(service.PeeringKey)
+	external, _, err := net.SplitHostPort(peeringAddr.String())
 	if err != nil {
-		log.Fatalf("invalid peering address: %v", err)
-	}
-	err = lPeer.UpdateService(service.GossipKey, "tcp", net.JoinHostPort(host, port))
-	if err != nil {
-		log.Fatalf("could not update services: %v", err)
+		panic(err)
 	}
 
-	mgr = gp.NewManager(lPeer, loadTransaction, log)
+	// announce the gossip service
+	gossipPort := strconv.Itoa(parameter.NodeConfig.GetInt(GOSSIP_PORT))
+	err = lPeer.UpdateService(service.GossipKey, "tcp", net.JoinHostPort(external, gossipPort))
+	if err != nil {
+		log.Fatalf("could not update services: %s", err)
+	}
+
+	mgr = gp.NewManager(lPeer, getTransaction, log)
 }
 
 func start(shutdownSignal <-chan struct{}) {
 	defer log.Info("Stopping " + name + " ... done")
 
-	srv, err := server.ListenTCP(local.GetInstance(), log)
+	lPeer := local.GetInstance()
+	// use the port of the gossip service
+	gossipAddr := lPeer.Services().Get(service.GossipKey)
+	_, gossipPort, err := net.SplitHostPort(gossipAddr.String())
 	if err != nil {
-		log.Fatalf("ListenTCP: %v", err)
+		panic(err)
 	}
+	// resolve the bind address
+	address := net.JoinHostPort(parameter.NodeConfig.GetString(local.CFG_BIND), gossipPort)
+	localAddr, err := net.ResolveTCPAddr(gossipAddr.Network(), address)
+	if err != nil {
+		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
+	}
+
+	listener, err := net.ListenTCP(gossipAddr.Network(), localAddr)
+	if err != nil {
+		log.Fatalf("Error listening: %v", err)
+	}
+	defer listener.Close()
+
+	srv := server.ServeTCP(lPeer, listener, log)
 	defer srv.Close()
 
 	//check that the server is working and the port is open
 	log.Info("Testing service ...")
-	checkConnection(srv, &local.GetInstance().Peer)
+	checkConnection(srv, &lPeer.Peer)
 	log.Info("Testing service ... done")
 
 	mgr.Start(srv)
 	defer mgr.Close()
 
-	log.Infof(name+" started: address=%s/%s", mgr.LocalAddr().String(), mgr.LocalAddr().Network())
+	log.Infof("%s started: Address=%s/%s", name, gossipAddr.String(), gossipAddr.Network())
 
 	<-shutdownSignal
 	log.Info("Stopping " + name + " ...")
@@ -86,10 +105,13 @@ func checkConnection(srv *server.TCP, self *peer.Peer) {
 	wg.Wait()
 }
 
-func loadTransaction(hash []byte) ([]byte, error) {
-	log.Infof("Retrieving tx: hash=%s", hash)
-
+func getTransaction(hash []byte) ([]byte, error) {
 	tx, err := tangle.GetTransaction(typeutils.BytesToString(hash))
+	log.Debugw("get tx from db",
+		"hash", hash,
+		"tx", tx,
+		"err", err,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("could not get transaction: %w", err)
 	}
@@ -100,9 +122,5 @@ func loadTransaction(hash []byte) ([]byte, error) {
 }
 
 func requestTransaction(hash trinary.Hash) {
-	if contains, _ := tangle.ContainsTransaction(hash); contains {
-		// Do not request tx that we already know
-		return
-	}
 	mgr.RequestTransaction(typeutils.StringToBytes(hash))
 }

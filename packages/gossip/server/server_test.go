@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/database/mapdb"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,48 +18,17 @@ const graceTime = 5 * time.Millisecond
 
 var log = logger.NewExampleLogger("server")
 
-func getTCPAddress(t require.TestingT) string {
-	laddr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	require.NoError(t, err)
-	lis, err := net.ListenTCP("tcp", laddr)
-	require.NoError(t, err)
-
-	addr := lis.Addr().String()
-	require.NoError(t, lis.Close())
-
-	return addr
-}
-
-func newTest(t require.TestingT, name string) (*TCP, func()) {
-	l := log.Named(name)
-	db := peer.NewMemoryDB(l.Named("db"))
-	local, err := peer.NewLocal("peering", name, db)
-	require.NoError(t, err)
-
-	// enable TCP gossipping
-	require.NoError(t, local.UpdateService(service.GossipKey, "tcp", getTCPAddress(t)))
-
-	trans, err := ListenTCP(local, l)
-	require.NoError(t, err)
-
-	teardown := func() {
-		trans.Close()
-		db.Close()
-	}
-	return trans, teardown
-}
-
 func getPeer(t *TCP) *peer.Peer {
 	return &t.local.Peer
 }
 
 func TestClose(t *testing.T) {
-	_, teardown := newTest(t, "A")
+	_, teardown := newTestServer(t, "A")
 	teardown()
 }
 
 func TestUnansweredAccept(t *testing.T) {
-	transA, closeA := newTest(t, "A")
+	transA, closeA := newTestServer(t, "A")
 	defer closeA()
 
 	_, err := transA.AcceptPeer(getPeer(transA))
@@ -66,7 +36,7 @@ func TestUnansweredAccept(t *testing.T) {
 }
 
 func TestCloseWhileAccepting(t *testing.T) {
-	transA, closeA := newTest(t, "A")
+	transA, closeA := newTestServer(t, "A")
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -82,7 +52,7 @@ func TestCloseWhileAccepting(t *testing.T) {
 }
 
 func TestUnansweredDial(t *testing.T) {
-	transA, closeA := newTest(t, "A")
+	transA, closeA := newTestServer(t, "A")
 	defer closeA()
 
 	// create peer with invalid gossip address
@@ -95,7 +65,7 @@ func TestUnansweredDial(t *testing.T) {
 }
 
 func TestNoHandshakeResponse(t *testing.T) {
-	transA, closeA := newTest(t, "A")
+	transA, closeA := newTestServer(t, "A")
 	defer closeA()
 
 	// accept and read incoming connections
@@ -119,7 +89,7 @@ func TestNoHandshakeResponse(t *testing.T) {
 }
 
 func TestNoHandshakeRequest(t *testing.T) {
-	transA, closeA := newTest(t, "A")
+	transA, closeA := newTestServer(t, "A")
 	defer closeA()
 
 	var wg sync.WaitGroup
@@ -140,9 +110,9 @@ func TestNoHandshakeRequest(t *testing.T) {
 }
 
 func TestConnect(t *testing.T) {
-	transA, closeA := newTest(t, "A")
+	transA, closeA := newTestServer(t, "A")
 	defer closeA()
-	transB, closeB := newTest(t, "B")
+	transB, closeB := newTestServer(t, "B")
 	defer closeB()
 
 	var wg sync.WaitGroup
@@ -153,7 +123,7 @@ func TestConnect(t *testing.T) {
 		c, err := transA.AcceptPeer(getPeer(transB))
 		assert.NoError(t, err)
 		if assert.NotNil(t, c) {
-			c.Close()
+			_ = c.Close()
 		}
 	}()
 	time.Sleep(graceTime)
@@ -162,7 +132,7 @@ func TestConnect(t *testing.T) {
 		c, err := transB.DialPeer(getPeer(transA))
 		assert.NoError(t, err)
 		if assert.NotNil(t, c) {
-			c.Close()
+			_ = c.Close()
 		}
 	}()
 
@@ -170,11 +140,11 @@ func TestConnect(t *testing.T) {
 }
 
 func TestWrongConnect(t *testing.T) {
-	transA, closeA := newTest(t, "A")
+	transA, closeA := newTestServer(t, "A")
 	defer closeA()
-	transB, closeB := newTest(t, "B")
+	transB, closeB := newTestServer(t, "B")
 	defer closeB()
-	transC, closeC := newTest(t, "C")
+	transC, closeC := newTestServer(t, "C")
 	defer closeC()
 
 	var wg sync.WaitGroup
@@ -193,4 +163,35 @@ func TestWrongConnect(t *testing.T) {
 	}()
 
 	wg.Wait()
+}
+
+func newTestDB(t require.TestingT) *peer.DB {
+	db, err := peer.NewDB(mapdb.NewMapDB())
+	require.NoError(t, err)
+	return db
+}
+
+func newTestServer(t require.TestingT, name string) (*TCP, func()) {
+	l := log.Named(name)
+
+	services := service.New()
+	services.Update(service.PeeringKey, "peering", name)
+	local, err := peer.NewLocal(services, newTestDB(t))
+	require.NoError(t, err)
+
+	laddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	lis, err := net.ListenTCP("tcp", laddr)
+	require.NoError(t, err)
+
+	// enable TCP gossipping
+	require.NoError(t, local.UpdateService(service.GossipKey, lis.Addr().Network(), lis.Addr().String()))
+
+	srv := ServeTCP(local, lis, l)
+
+	teardown := func() {
+		srv.Close()
+		_ = lis.Close()
+	}
+	return srv, teardown
 }

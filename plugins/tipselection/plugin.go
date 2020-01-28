@@ -5,17 +5,23 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/iota.go/trinary"
 )
 
 var PLUGIN = node.NewPlugin("Tipselection", node.Enabled, configure, run)
 
-func configure(node *node.Plugin) {
+func configure(*node.Plugin) {
+	tipSet = make(map[trinary.Hash]struct{})
+
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(transaction *value_transaction.ValueTransaction) {
-		tips.Delete(transaction.GetBranchTransactionHash())
-		tips.Delete(transaction.GetTrunkTransactionHash())
-		tips.Set(transaction.GetHash(), transaction.GetHash())
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		delete(tipSet, transaction.GetBranchTransactionHash())
+		delete(tipSet, transaction.GetTrunkTransactionHash())
+		tipSet[transaction.GetHash()] = struct{}{}
 	}))
 }
 
-func run(run *node.Plugin) {
+func run(*node.Plugin) {
 }

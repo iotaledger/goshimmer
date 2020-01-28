@@ -1,11 +1,14 @@
 package tangle
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/timeutil"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
@@ -42,6 +45,13 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
+
+	daemon.BackgroundWorker("Badger garbage collection", func(shutdownSignal <-chan struct{}) {
+		timeutil.Ticker(func() {
+			database.CleanupBadgerInstance(log)
+		}, 5*time.Minute, shutdownSignal)
+	}, shutdown.ShutdownPriorityBadgerGarbageCollection)
+
 	runSolidifier()
 }
 

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	"github.com/iotaledger/hive.go/logger"
 )
@@ -22,8 +21,8 @@ const (
 type network interface {
 	local() *peer.Local
 
-	RequestPeering(*peer.Peer, *salt.Salt) (bool, error)
-	SendPeeringDrop(*peer.Peer)
+	PeeringRequest(*peer.Peer, *salt.Salt) (bool, error)
+	PeeringDrop(*peer.Peer)
 }
 
 type peeringRequest struct {
@@ -35,8 +34,8 @@ type manager struct {
 	net               network
 	getPeersToConnect func() []*peer.Peer
 	log               *logger.Logger
-	dropOnUpdate      bool          // set true to drop all neighbors when the salt is updated
-	requiredServices  []service.Key // services required in order to select/be selected during autopeering
+	dropOnUpdate      bool      // set true to drop all neighbors when the salt is updated
+	neighborValidator Validator // potential neighbor validator
 
 	inbound  *Neighborhood
 	outbound *Neighborhood
@@ -57,7 +56,7 @@ func newManager(net network, peersFunc func() []*peer.Peer, log *logger.Logger, 
 		getPeersToConnect: peersFunc,
 		log:               log,
 		dropOnUpdate:      config.DropOnUpdate,
-		requiredServices:  config.RequiredServices,
+		neighborValidator: config.NeighborValidator,
 		inbound:           NewNeighborhood(inboundNeighborSize),
 		outbound:          NewNeighborhood(outboundNeighborSize),
 		rejectionFilter:   NewFilter(),
@@ -217,9 +216,12 @@ func (m *manager) updateOutbound(resultChan chan<- peer.PeerDistance) {
 
 	// filter out current neighbors
 	filter := m.getConnectedFilter()
-	filteredList := filter.Apply(distList)
+	if m.neighborValidator != nil {
+		filter.AddCondition(m.neighborValidator.IsValid)
+	}
+
 	// filter out previous rejections
-	filteredList = m.rejectionFilter.Apply(filteredList)
+	filteredList := m.rejectionFilter.Apply(filter.Apply(distList))
 	if len(filteredList) == 0 {
 		return
 	}
@@ -230,8 +232,7 @@ func (m *manager) updateOutbound(resultChan chan<- peer.PeerDistance) {
 		return
 	}
 
-	// send peering request
-	status, err := m.net.RequestPeering(candidate.Remote, m.getPublicSalt())
+	status, err := m.net.PeeringRequest(candidate.Remote, m.getPublicSalt())
 	if err != nil {
 		m.rejectionFilter.AddPeer(candidate.Remote.ID())
 		m.log.Debugw("error requesting peering",
@@ -317,7 +318,7 @@ func (m *manager) dropNeighborhood(nh *Neighborhood) {
 
 // dropPeering sends the peering drop over the network and triggers the corresponding event.
 func (m *manager) dropPeering(p *peer.Peer) {
-	m.net.SendPeeringDrop(p)
+	m.net.PeeringDrop(p)
 
 	m.log.Debugw("peering dropped",
 		"id", p.ID(),
@@ -341,13 +342,10 @@ func (m *manager) isValidNeighbor(p *peer.Peer) bool {
 	if m.getID() == p.ID() {
 		return false
 	}
-	// reject if required services are missing
-	for _, reqService := range m.requiredServices {
-		if p.Services().Get(reqService) == nil {
-			return false
-		}
+	if m.neighborValidator == nil {
+		return true
 	}
-	return true
+	return m.neighborValidator.IsValid(p)
 }
 
 func (m *manager) triggerPeeringEvent(isOut bool, p *peer.Peer, status bool) {

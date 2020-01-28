@@ -26,11 +26,11 @@ func getNeighbors(c echo.Context) error {
 	knownPeers := []Neighbor{}
 
 	if autopeering.Selection == nil {
-		return requestFailed(c, "Neighbor Selection is not enabled")
+		return c.JSON(http.StatusNotImplemented, Response{Error: "Neighbor Selection is not enabled"})
 	}
 
 	if autopeering.Discovery == nil {
-		return requestFailed(c, "Neighbor Discovery is not enabled")
+		return c.JSON(http.StatusNotImplemented, Response{Error: "Neighbor Discovery is not enabled"})
 	}
 
 	if c.QueryParam("known") == "1" {
@@ -45,7 +45,6 @@ func getNeighbors(c echo.Context) error {
 	}
 
 	for _, peer := range autopeering.Selection.GetOutgoingNeighbors() {
-
 		n := Neighbor{
 			ID:        peer.ID().String(),
 			PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey()),
@@ -62,21 +61,7 @@ func getNeighbors(c echo.Context) error {
 		accepted = append(accepted, n)
 	}
 
-	return requestSuccessful(c, knownPeers, chosen, accepted)
-}
-
-func requestSuccessful(c echo.Context, knownPeers, chosen, accepted []Neighbor) error {
-	return c.JSON(http.StatusOK, Response{
-		KnownPeers: knownPeers,
-		Chosen:     chosen,
-		Accepted:   accepted,
-	})
-}
-
-func requestFailed(c echo.Context, message string) error {
-	return c.JSON(http.StatusNotFound, Response{
-		Error: message,
-	})
+	return c.JSON(http.StatusOK, Response{KnownPeers: knownPeers, Chosen: chosen, Accepted: accepted})
 }
 
 type Response struct {

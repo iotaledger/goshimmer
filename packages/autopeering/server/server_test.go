@@ -5,8 +5,10 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/autopeering/salt"
 	"github.com/iotaledger/goshimmer/packages/autopeering/transport"
+	"github.com/iotaledger/goshimmer/packages/database/mapdb"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -95,9 +97,16 @@ func unmarshal(data []byte) (Message, error) {
 	return nil, ErrInvalidMessage
 }
 
+func newTestDB(t require.TestingT) *peer.DB {
+	db, err := peer.NewDB(mapdb.NewMapDB())
+	require.NoError(t, err)
+	return db
+}
+
 func TestSrvEncodeDecodePing(t *testing.T) {
-	// create minimal server just containing the local peer
-	local, err := peer.NewLocal("dummy", "local", peer.NewMemoryDB(log))
+	services := service.New()
+	services.Update(service.PeeringKey, "dummy", "local")
+	local, err := peer.NewLocal(services, newTestDB(t))
 	require.NoError(t, err)
 	s := &Server{local: local}
 
@@ -114,8 +123,10 @@ func TestSrvEncodeDecodePing(t *testing.T) {
 
 func newTestServer(t require.TestingT, name string, trans transport.Transport) (*Server, func()) {
 	l := log.Named(name)
-	db := peer.NewMemoryDB(l.Named("db"))
-	local, err := peer.NewLocal(trans.LocalAddr().Network(), trans.LocalAddr().String(), db)
+
+	services := service.New()
+	services.Update(service.PeeringKey, trans.LocalAddr().Network(), trans.LocalAddr().String())
+	local, err := peer.NewLocal(services, newTestDB(t))
 	require.NoError(t, err)
 
 	s, _ := salt.NewSalt(100 * time.Second)
@@ -123,13 +134,9 @@ func newTestServer(t require.TestingT, name string, trans transport.Transport) (
 	s, _ = salt.NewSalt(100 * time.Second)
 	local.SetPublicSalt(s)
 
-	srv := Listen(local, trans, l, HandlerFunc(handle))
+	srv := Serve(local, trans, l, HandlerFunc(handle))
 
-	teardown := func() {
-		srv.Close()
-		db.Close()
-	}
-	return srv, teardown
+	return srv, srv.Close
 }
 
 func sendPing(s *Server, p *peer.Peer) error {
@@ -205,5 +212,5 @@ func TestUnexpectedPong(t *testing.T) {
 	// there should never be a Ping.Handle
 	// there should never be a Pong.Handle
 
-	srvA.Send(srvB.LocalAddr(), new(Pong).Marshal())
+	srvA.Send(srvB.LocalAddr().String(), new(Pong).Marshal())
 }

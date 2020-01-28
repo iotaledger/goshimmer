@@ -13,7 +13,7 @@ import (
 type Local struct {
 	Peer
 	key PrivateKey
-	db  DB
+	db  *DB
 
 	// everything below is protected by a lock
 	mu            sync.RWMutex
@@ -32,7 +32,7 @@ func (priv PrivateKey) Public() PublicKey {
 }
 
 // newLocal creates a new local peer.
-func newLocal(key PrivateKey, serviceRecord *service.Record, db DB) *Local {
+func newLocal(key PrivateKey, serviceRecord *service.Record, db *DB) *Local {
 	return &Local{
 		Peer:          *NewPeer(key.Public(), serviceRecord),
 		key:           key,
@@ -44,12 +44,14 @@ func newLocal(key PrivateKey, serviceRecord *service.Record, db DB) *Local {
 // NewLocal creates a new local peer linked to the provided db.
 // If an optional seed is provided, the seed is used to generate the private key. Without a seed,
 // the provided key is loaded from the provided database and generated if not stored there.
-func NewLocal(network string, address string, db DB, seed ...[]byte) (*Local, error) {
+func NewLocal(serviceRecord *service.Record, db *DB, seed ...[]byte) (*Local, error) {
 	var key PrivateKey
 	if len(seed) > 0 {
 		key = PrivateKey(ed25519.NewKeyFromSeed(seed[0]))
-		if err := db.UpdateLocalPrivateKey(key); err != nil {
-			return nil, err
+		if db != nil {
+			if err := db.UpdateLocalPrivateKey(key); err != nil {
+				return nil, err
+			}
 		}
 	} else {
 		var err error
@@ -62,15 +64,11 @@ func NewLocal(network string, address string, db DB, seed ...[]byte) (*Local, er
 	if l := len(key); l != ed25519.PrivateKeySize {
 		return nil, fmt.Errorf("invalid key length: %d, need %d", l, ed25519.PrivateKeySize)
 	}
-	// update the external address used for the peering
-	serviceRecord := service.New()
-	serviceRecord.Update(service.PeeringKey, network, address)
-
 	return newLocal(key, serviceRecord, db), nil
 }
 
 // Database returns the node database associated with the local peer.
-func (l *Local) Database() DB {
+func (l *Local) Database() *DB {
 	return l.db
 }
 

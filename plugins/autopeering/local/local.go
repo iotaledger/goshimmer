@@ -5,9 +5,12 @@ import (
 	"encoding/base64"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/netutil"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/hive.go/logger"
@@ -21,24 +24,30 @@ var (
 func configureLocal() *peer.Local {
 	log := logger.NewLogger("Local")
 
-	ip := net.ParseIP(parameter.NodeConfig.GetString(CFG_ADDRESS))
-	if ip == nil {
-		log.Fatalf("Invalid %s address: %s", CFG_ADDRESS, parameter.NodeConfig.GetString(CFG_ADDRESS))
-	}
-	if ip.IsUnspecified() {
-		log.Info("Querying public IP ...")
-		myIp, err := netutil.GetPublicIP(!netutil.IsIPv4(ip))
+	var externalIP net.IP
+	if str := parameter.NodeConfig.GetString(CFG_EXTERNAL); strings.ToLower(str) == "auto" {
+		log.Info("Querying external IP ...")
+		ip, err := netutil.GetPublicIP(false)
 		if err != nil {
-			log.Fatalf("Error querying public IP: %s", err)
+			log.Fatalf("Error querying external IP: %s", err)
 		}
-		ip = myIp
-		log.Infof("Public IP queried: address=%s", ip.String())
+		log.Infof("External IP queried: address=%s", ip.String())
+		externalIP = ip
+	} else {
+		externalIP = net.ParseIP(str)
+		if externalIP == nil {
+			log.Fatalf("Invalid IP address (%s): %s", CFG_EXTERNAL, str)
+		}
+	}
+	if !externalIP.IsGlobalUnicast() {
+		log.Fatalf("IP is not a global unicast address: %s", externalIP.String())
 	}
 
-	port := strconv.Itoa(parameter.NodeConfig.GetInt(CFG_PORT))
+	peeringPort := strconv.Itoa(parameter.NodeConfig.GetInt(CFG_PORT))
 
-	// create a new local node
-	db := peer.NewPersistentDB(log)
+	// announce the peering service
+	services := service.New()
+	services.Update(service.PeeringKey, "udp", net.JoinHostPort(externalIP.String(), peeringPort))
 
 	// the private key seed of the current local can be returned the following way:
 	// key, _ := db.LocalPrivateKey()
@@ -46,8 +55,7 @@ func configureLocal() *peer.Local {
 
 	// set the private key from the seed provided in the config
 	var seed [][]byte
-	if parameter.NodeConfig.IsSet(CFG_SEED) {
-		str := parameter.NodeConfig.GetString(CFG_SEED)
+	if str := parameter.NodeConfig.GetString(CFG_SEED); str != "" {
 		bytes, err := base64.StdEncoding.DecodeString(str)
 		if err != nil {
 			log.Fatalf("Invalid %s: %s", CFG_SEED, err)
@@ -57,8 +65,16 @@ func configureLocal() *peer.Local {
 		}
 		seed = append(seed, bytes)
 	}
+	badgerDB, err := database.Get(database.DBPrefixAutoPeering, database.GetBadgerInstance())
+	if err != nil {
+		log.Fatalf("Error loading DB: %s", err)
+	}
+	peerDB, err := peer.NewDB(badgerDB)
+	if err != nil {
+		log.Fatalf("Error creating peer DB: %s", err)
+	}
 
-	local, err := peer.NewLocal("udp", net.JoinHostPort(ip.String(), port), db, seed...)
+	local, err := peer.NewLocal(services, peerDB, seed...)
 	if err != nil {
 		log.Fatalf("Error creating local: %s", err)
 	}

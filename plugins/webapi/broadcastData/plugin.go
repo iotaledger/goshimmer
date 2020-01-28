@@ -33,7 +33,7 @@ func broadcastData(c echo.Context) error {
 	var request Request
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
-		return requestFailed(c, err.Error())
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
 	log.Debug("Received - address:", request.Address, " data:", request.Data)
@@ -44,49 +44,37 @@ func broadcastData(c echo.Context) error {
 
 	buffer := make([]byte, 2187)
 	if len(request.Data) > 2187 {
-		log.Warn("Data exceeding 2187 byte limit -", len(request.Data))
-		return requestFailed(c, "Data exceeding 2187 byte limit")
+		log.Warnf("data exceeds 2187 byte limit - (payload data size: %d)", len(request.Data))
+		return c.JSON(http.StatusBadRequest, Response{Error: "data exceeds 2187 byte limit"})
 	}
 
 	copy(buffer, typeutils.StringToBytes(request.Data))
 
 	trytes, err := trinary.BytesToTrytes(buffer)
 	if err != nil {
-		log.Warn("Trytes conversion failed", err.Error())
-		return requestFailed(c, err.Error())
+		log.Warnf("trytes conversion failed: %s", err.Error())
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
 	err = address.ValidAddress(request.Address)
 	if err != nil {
-		log.Warn("Invalid Address:", request.Address)
-		return requestFailed(c, err.Error())
+		log.Warnf("invalid Address: %s", request.Address)
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
 	tx.SetAddress(request.Address)
 	tx.SetSignatureMessageFragment(trytes)
 	tx.SetValue(0)
 	tx.SetBranchTransactionHash(tipselection.GetRandomTip())
-	tx.SetTrunkTransactionHash(tipselection.GetRandomTip())
+	tx.SetTrunkTransactionHash(tipselection.GetRandomTip(tx.GetBranchTransactionHash()))
 	tx.SetTimestamp(uint(time.Now().Unix()))
 	if err := tx.DoProofOfWork(meta_transaction.MIN_WEIGHT_MAGNITUDE); err != nil {
-		log.Warn("PoW failed", err)
-		return requestFailed(c, err.Error())
+		log.Warnf("PoW failed: %s", err)
+		return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
 	}
 
 	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: tx.GetBytes(), Peer: &local.GetInstance().Peer})
-	return requestSuccessful(c, tx.GetHash())
-}
-
-func requestSuccessful(c echo.Context, txHash string) error {
-	return c.JSON(http.StatusCreated, Response{
-		Hash: txHash,
-	})
-}
-
-func requestFailed(c echo.Context, message string) error {
-	return c.JSON(http.StatusBadRequest, Response{
-		Error: message,
-	})
+	return c.JSON(http.StatusOK, Response{Hash: tx.GetHash()})
 }
 
 type Response struct {

@@ -1,14 +1,23 @@
 {
   "analysis": {
-    "serveraddress": "ressims.iota.cafe:188",
-    "serverport": 0
+    "client": {
+      "serverAddress": "ressims.iota.cafe:188"
+    },
+    "server": {
+      "port": 0
+    },
+    "httpServer": {
+      "bindAddress": "0.0.0.0:80"
+    }
   },
   "autopeering": {
-    "address": "0.0.0.0",
-    "entrynodes": [
+    "entryNodes": [
       "V8LYtWWcPYYDTTXLeIEFjJEuWlsjDiI0+Pq/Cx9ai6g=@116.202.49.178:14626"
     ],
-    "port":14626
+    "port": 14626
+  },
+  "dashboard": {
+    "bindAddress": "127.0.0.1:8081"
   },
   "database": {
     "directory": "mainnetdb"
@@ -17,25 +26,39 @@
     "port": 14666
   },
   "graph": {
-    "webrootPath": "./IOTAtangle/webroot",
-    "socketioPath": "./socket.io-client/dist/socket.io.js",
+    "bindAddress": "127.0.0.1:8082",
     "domain": "",
-    "host": "127.0.0.1",
-    "port": 8083,
-    "networkName": "GoShimmer"
+    "networkName": "GoShimmer",
+    "socketIOPath": "socket.io-client/dist/socket.io.js",
+    "webrootPath": "IOTAtangle/webroot"
   },
   "logger": {
-    "Level": "info",
-    "DisableCaller": false,
-    "DisableStacktrace": false,
-    "Encoding": "console",
-    "OutputPaths": [
+    "level": "info",
+    "disableCaller": false,
+    "disableStacktrace": false,
+    "encoding": "console",
+    "outputPaths": [
       "goshimmer.log"
-    ]
+    ],
+    "disableEvents": false
+  },
+  "network": {
+    "bindAddress": "0.0.0.0",
+    "externalAddress": "auto"
   },
   "node": {
-    "disableplugins": "",
-    "enableplugins": [],
-    "loglevel": 0
+    "disablePlugins": [],
+    "enablePlugins": []
+  },
+  "webapi": {
+    "auth": {
+      "password": "goshimmer",
+      "privateKey": "",
+      "username": "goshimmer"
+    },
+    "bindAddress": "127.0.0.1:8080"
+  },
+  "zeromq": {
+    "port": 5556
   }
 }

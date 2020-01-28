@@ -22,8 +22,9 @@ func newTestServiceRecord() *service.Record {
 	return services
 }
 
-func newTestPeer() *Peer {
+func newTestPeer(name string) *Peer {
 	key := make([]byte, ed25519.PublicKeySize)
+	copy(key, name)
 	return NewPeer(key, newTestServiceRecord())
 }
 
@@ -47,7 +48,7 @@ func TestInvalidServicePeer(t *testing.T) {
 }
 
 func TestMarshalUnmarshal(t *testing.T) {
-	p := newTestPeer()
+	p := newTestPeer("test")
 	data, err := p.Marshal()
 	require.NoError(t, err)
 

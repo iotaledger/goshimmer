@@ -82,7 +82,7 @@ const (
 var approversDatabase database.Database
 
 func configureApproversDatabase() {
-	if db, err := database.Get("approvers"); err != nil {
+	if db, err := database.Get(database.DBPrefixApprovers, database.GetBadgerInstance()); err != nil {
 		panic(err)
 	} else {
 		approversDatabase = db
@@ -91,10 +91,9 @@ func configureApproversDatabase() {
 
 func storeApproversInDatabase(approvers *approvers.Approvers) error {
 	if approvers.GetModified() {
-		if err := approversDatabase.Set(typeutils.StringToBytes(approvers.GetHash()), approvers.Marshal()); err != nil {
+		if err := approversDatabase.Set(database.Entry{Key: typeutils.StringToBytes(approvers.GetHash()), Value: approvers.Marshal()}); err != nil {
 			return fmt.Errorf("%w: failed to store approvers: %s", ErrDatabaseError, err)
 		}
-
 		approvers.SetModified(false)
 	}
 
@@ -111,7 +110,7 @@ func getApproversFromDatabase(transactionHash trinary.Trytes) (*approvers.Approv
 	}
 
 	var result approvers.Approvers
-	if err = result.Unmarshal(approversData); err != nil {
+	if err = result.Unmarshal(approversData.Value); err != nil {
 		panic(err)
 	}
 

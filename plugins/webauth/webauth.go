@@ -2,13 +2,12 @@ package webauth
 
 import (
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
@@ -16,59 +15,60 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
-var secret = "secret"
+var PLUGIN = node.NewPlugin("WebAPI Auth", node.Disabled, configure)
+var log *logger.Logger
+var privateKey string
 
 func configure(plugin *node.Plugin) {
-
-	jwtKey := os.Getenv("JWT_KEY")
-	if jwtKey != "" {
-		secret = jwtKey
+	log = logger.NewLogger("WebAPI Auth")
+	privateKey = parameter.NodeConfig.GetString(WEBAPI_AUTH_PRIVATE_KEY)
+	if len(privateKey) == 0 {
+		panic("")
 	}
 
 	webapi.Server.Use(middleware.JWTWithConfig(middleware.JWTConfig{
-		SigningKey:  []byte(secret),
-		TokenLookup: "query:token",
+		SigningKey: []byte(privateKey),
 		Skipper: func(c echo.Context) bool {
-			// if strings.HasPrefix(c.Request().Host, "localhost") {
-			// 	return true
-			// }
 			if strings.HasPrefix(c.Path(), "/ui") || c.Path() == "/login" {
 				return true
 			}
 			return false
 		},
 	}))
+
+	webapi.Server.POST("/login", Handler)
+	log.Info("WebAPI is now secured through JWT authentication")
 }
 
-func run(plugin *node.Plugin) {
-	daemon.BackgroundWorker("webauth", func(shutdownSignal <-chan struct{}) {
-		webapi.Server.GET("login", func(c echo.Context) error {
-			username := c.FormValue("username")
-			password := c.FormValue("password")
-			uiUser := os.Getenv("UI_USER")
-			uiPass := os.Getenv("UI_PASS")
-
-			// Throws unauthorized error
-			if username != uiUser || password != uiPass {
-				return echo.ErrUnauthorized
-			}
-
-			token := jwt.New(jwt.SigningMethodHS256)
-			claims := token.Claims.(jwt.MapClaims)
-			claims["name"] = username
-			claims["exp"] = time.Now().Add(time.Hour * 24 * 7).Unix()
-
-			t, err := token.SignedString([]byte(secret))
-			if err != nil {
-				return err
-			}
-
-			return c.JSON(http.StatusOK, map[string]string{
-				"token": t,
-			})
-		})
-	}, shutdown.ShutdownPriorityWebAPI)
+type Request struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
-// PLUGIN plugs the UI into the main program
-var PLUGIN = node.NewPlugin("webauth", node.Disabled, configure, run)
+type Response struct {
+	Token string `json:"token"`
+}
+
+func Handler(c echo.Context) error {
+	login := &Request{}
+	if err := c.Bind(login); err != nil {
+		return echo.ErrBadRequest
+	}
+
+	if login.Username != parameter.NodeConfig.GetString(WEBAPI_AUTH_USERNAME) ||
+		login.Password != parameter.NodeConfig.GetString(WEBAPI_AUTH_PASSWORD) {
+		return echo.ErrUnauthorized
+	}
+
+	token := jwt.New(jwt.SigningMethodHS256)
+	claims := token.Claims.(jwt.MapClaims)
+	claims["name"] = login.Username
+	claims["exp"] = time.Now().Add(time.Hour * 24 * 7).Unix()
+
+	t, err := token.SignedString([]byte(privateKey))
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, &Response{Token: t})
+}
