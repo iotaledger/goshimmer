@@ -17,7 +17,7 @@ var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger("API-getTransactionTrytesByHash")
-	webapi.Server.GET("getTransactionTrytesByHash", getTransactionTrytesByHash)
+	webapi.Server.POST("getTransactionTrytesByHash", getTransactionTrytesByHash)
 }
 
 // getTransactionTrytesByHash returns the array of transaction trytes for the
