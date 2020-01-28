@@ -30,7 +30,8 @@ func Configure(plugin *node.Plugin) {
 		lock.Lock()
 		defer lock.Unlock()
 
-		delete(nodes, nodeId)
+		//delete(nodes, nodeId)
+		nodes[nodeId] = false
 	}))
 
 	server.Events.NodeOnline.Attach(events.NewClosure(func(nodeId string) {
