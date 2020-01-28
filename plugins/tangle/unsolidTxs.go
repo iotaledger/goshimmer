@@ -21,17 +21,9 @@ func NewUnsolidTxs() *UnsolidTxs {
 	}
 }
 
-func (u *UnsolidTxs) Contains(hash string) bool {
-	u.RLock()
-	defer u.RUnlock()
-	_, contains := u.internal[hash]
-	return contains
-}
-
 func (u *UnsolidTxs) Add(hash string) bool {
 	u.Lock()
 	defer u.Unlock()
-
 	_, contains := u.internal[hash]
 	if contains {
 		return false
@@ -46,9 +38,7 @@ func (u *UnsolidTxs) Add(hash string) bool {
 
 func (u *UnsolidTxs) Remove(hash string) {
 	u.Lock()
-	if _, exists := u.internal[hash]; !exists {
-		delete(u.internal, hash)
-	}
+	delete(u.internal, hash)
 	u.Unlock()
 }
 
