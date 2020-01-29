@@ -57,8 +57,5 @@
       "username": "goshimmer"
     },
     "bindAddress": "127.0.0.1:8080"
-  },
-  "zeromq": {
-    "port": 5556
   }
 }
