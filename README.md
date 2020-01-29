@@ -194,14 +194,13 @@ Here, we use the command-line flags to enable the spammer plugin. This plugin al
 
 ### Installing the Glumb visualizer
 
-The Glumb visualiser allows you to view the transactions in the network, using a web browser.
+The Glumb visualizer allows you to view the transactions in the network, using a web browser.
 
-1. Enable the `graph` plugin either in your `config.json` file or in the command line (`--node.enablePlugins="graph"`)
+1. Enable the `graph` plugin either in your `config.json` file or in the command line (`--node.enablePlugins=["graph"]`)
 
-2. If you're running GoShimmer with the precompiled executable file, do the following:
+2. If you're running GoShimmer with the precompiled executable file, do the following in the `goshimmer` directory:
 
     ```bash
-    (in the root folder)
     git clone https://github.com/glumb/IOTAtangle.git
     // only this version seems to be stable
     cd IOTAtangle && git reset --hard 07bba77a296a2d06277cdae56aa963abeeb5f66e 
@@ -215,6 +214,8 @@ The Glumb visualiser allows you to view the transactions in the network, using a
     git submodule init
     git submodule update
     ```
+    
+To open the visualizer, run GoShimmer, and go to `127.0.0.1:8083` in a web browser.
 
 ## Supporting the project
 
