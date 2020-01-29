@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: GoShimmer API
-  description: "Get transactions from the Tangle, get a node's neighbors, or send new transactions."
+  description: "The GoShimmer API provides a simple and consistent way to get transactions from the Tangle, get a node's neighbors, or send new transactions.<br></br>This API accepts HTTP requests and responds with JSON data."
   version: 0.1.0
 servers:
   - url: http://localhost:8080
@@ -17,17 +17,21 @@ paths:
       summary: Creates a zero-value transaction and attaches it to the Tangle.
       description: Creates a zero-value transaction that includes the given data in the `signatureMessageFragment` field and the given address in the `address` field.<br></br>This endpoint also does tip selection and proof of work before attaching the transaction to the Tangle.
       requestBody:
-        description: Data and address to add to the transaction.<br></br>The data must be no larger than 2187 bytes, and the address must contain only trytes and be either 81 trytes long or 90 trytes long, including a checksum.
         required: true
+        description: Request object
         content:
           application/json:
             schema:
+              required:
+               - address
               type: object
               properties:
                 address:
                   type: string
+                  description: Address to add to the transaction's `address` field.
                 data:
                   type: string
+                  description: Data to add to the transaction's `signatureMessageFragment` field.<br></br>The data must be no larger than 2187 bytes, and the address must contain only trytes and be either 81 trytes long or 90 trytes long, including a checksum.
       responses:
         200:
           description: Successful response
@@ -58,17 +62,20 @@ paths:
       summary: Gets any transaction hashes that were sent to the given addresses.
       description: Searches the Tangle for transactions that contain the given addresses and returns an array of the transactions hashes that were found. The transaction hashes are returned in the same order as the given addresses. For example, if the node doesn't have any transaction hashes for a given address, the value at that index in the returned array is empty.
       requestBody:
-        description: Addresses to search for in transactions.<br></br>Addresses must contain only trytes and be either 81 trytes long or 90 trytes long, including a checksum.
+        description: Request object
         required: true
         content:
           application/json:
             schema:
+              required:
+               - addresses
               type: object
               properties:
                 addresses:
                   type: array
                   items:
                     type: string
+                  description: Addresses to search for in transactions.<br></br>Addresses must contain only trytes and be either 81 trytes long or 90 trytes long, including a checksum.
       responses:
         '200':
           description: Successful response
@@ -130,16 +137,21 @@ paths:
       summary: Gets transactions objects for the given transaction hashes
       description: Searches the Tangle for transactions with the given hashes and returns their contents as objects. The transaction objects are returned in the same order as the given hashes. If any of the given hashes is not found, an error is returned.
       requestBody:
+        description: Request object
         required: true
         content:
           application/json:
             schema:
+              required:
+               - hashes
               type: object
               properties:
                 hashes:
                   type: array
                   items:
                     type: string
+                  description: Transaction hashes to search for in the Tangle. <br></br> Transaction hashes must contain only 81 trytes.
+
       responses:
         '200':
           description: Successful response
@@ -162,17 +174,20 @@ paths:
       summary: Gets the transaction trytes of given transaction hashes.
       description: Searches the Tangle for transactions with the given hashes and returns their contents in trytes. The transaction trytes are returned in the same order as the given hashes. If any of the given hashes is not found, an error is returned.
       requestBody:
-        description: Transaction hashes to search for in the Tangle. <br></br> Transaction hashes must contain only 81 trytes.
+        description: Request object
         required: true
         content:
           application/json:
             schema:
+              required:
+               - hashes
               type: object
               properties:
                 hashes:
                   type: array
                   items:
                     type: string
+                  description: Transaction hashes to search for in the Tangle. <br></br> Transaction hashes must contain only 81 trytes.
       responses:
         '200':
           description: Successful response
@@ -186,7 +201,7 @@ paths:
                     items:
                       type: string
         '404':
-          description: Transaction(s) not found
+          description: Transactions not found
 
   /getTransactionsToApprove:
     get:
