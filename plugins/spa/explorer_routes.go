@@ -23,8 +23,6 @@ type ExplorerTx struct {
 	Timestamp                uint   `json:"timestamp"`
 	Trunk                    Hash   `json:"trunk"`
 	Branch                   Hash   `json:"branch"`
-	Tag                      Trytes `json:"tag"`
-	Nonce                    Trytes `json:"nonce"`
 	Solid                    bool   `json:"solid"`
 	MWM                      int    `json:"mwm"`
 }

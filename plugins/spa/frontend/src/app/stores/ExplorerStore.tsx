@@ -12,9 +12,7 @@ export class Transaction {
     timestamp: number;
     trunk: string;
     branch: string;
-    tag: string;
     solid: boolean;
-    mwm: number;
 }
 
 class AddressResult {
