@@ -155,7 +155,6 @@ func (m *Manager) getNeighbors(ids ...peer.ID) []*Neighbor {
 	return m.GetAllNeighbors()
 }
 
-
 func (m *Manager) getNeighborsById(ids []peer.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
 
