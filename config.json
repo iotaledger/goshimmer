@@ -17,7 +17,13 @@
     "port": 14626
   },
   "dashboard": {
-    "bindAddress": "127.0.0.1:8081"
+    "bindAddress": "127.0.0.1:8081",
+    "dev": true,
+    "basic_auth": {
+      "enabled": false,
+      "username": "goshimmer",
+      "password": "goshimmer"
+    }
   },
   "database": {
     "directory": "mainnetdb"

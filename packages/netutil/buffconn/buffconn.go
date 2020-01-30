@@ -39,6 +39,9 @@ type BufferedConnection struct {
 	conn                 net.Conn
 	incomingHeaderBuffer []byte
 	closeOnce            sync.Once
+
+	BytesRead    int
+	BytesWritten int
 }
 
 // NewBufferedConnection creates a new BufferedConnection from a net.Conn.
@@ -111,6 +114,7 @@ func (c *BufferedConnection) Write(msg []byte) (int, error) {
 	for bytesWritten := 0; bytesWritten < toWrite; {
 		n, err := c.conn.Write(buffer[bytesWritten:])
 		bytesWritten += n
+		c.BytesWritten += n
 		if err != nil {
 			return bytesWritten, err
 		}
@@ -123,6 +127,7 @@ func (c *BufferedConnection) read(buffer []byte) (int, error) {
 	for bytesRead := 0; bytesRead < toRead; {
 		n, err := c.conn.Read(buffer[bytesRead:])
 		bytesRead += n
+		c.BytesRead += n
 		if err != nil {
 			return bytesRead, err
 		}

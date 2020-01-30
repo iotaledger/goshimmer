@@ -137,14 +137,7 @@ func (m *Manager) SendTransaction(txData []byte, to ...peer.ID) {
 	m.send(marshal(tx), to...)
 }
 
-func (m *Manager) getNeighbors(ids ...peer.ID) []*Neighbor {
-	if len(ids) > 0 {
-		return m.getNeighborsById(ids)
-	}
-	return m.getAllNeighbors()
-}
-
-func (m *Manager) getAllNeighbors() []*Neighbor {
+func (m *Manager) GetAllNeighbors() []*Neighbor {
 	m.mu.RLock()
 	result := make([]*Neighbor, 0, len(m.neighbors))
 	for _, n := range m.neighbors {
@@ -154,6 +147,14 @@ func (m *Manager) getAllNeighbors() []*Neighbor {
 
 	return result
 }
+
+func (m *Manager) getNeighbors(ids ...peer.ID) []*Neighbor {
+	if len(ids) > 0 {
+		return m.getNeighborsById(ids)
+	}
+	return m.GetAllNeighbors()
+}
+
 
 func (m *Manager) getNeighborsById(ids []peer.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
