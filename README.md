@@ -192,6 +192,16 @@ goshimmer.exe --node.enablePlugins "spammer"
 
 Here, we use the command-line flags to enable the spammer plugin. This plugin allows you to send spam transactions to your node.
 
+### Dashboard
+
+GoShimmer provides access to a SPA dashboard showing TPS, memory chart, neighbors and a Tangle explorer.
+
+You can change its configuration (e.g, bind address, port) under the section `dashboard` of the `config.json` file, for example by changing the bind address to `0.0.0.0:8081` to enable the access from remote and/or by enabling the authentication.
+
+To access the dashboard, you can use your browser (the default address is `http://127.0.0.1:8081`).
+
+ ![dashboard](images/dashboard.png "Dashboard")
+
 ### Installing the Glumb visualizer
 
 The Glumb visualizer allows you to view the transactions in the network, using a web browser.
