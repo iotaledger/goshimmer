@@ -156,7 +156,7 @@ print r.json()
 Status Code **200**
 
 |**Field**|**Type**|**Description**|
-|---|---|---|---|---|
+|---|---|---|
 |» hash|string|The transaction's hash on the Tangle.|
 
 Status Code **400**
@@ -956,7 +956,7 @@ print r.json()
 Status Code **200**
 
 |**Field**|**Type**|**Description**|
-|---|---|---|---|---|
+|---|---|---|
 |» chosen|[[Peer](#schemapeer)]|
 |»» id|string|
 |»» publicKey|string|
