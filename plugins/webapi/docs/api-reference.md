@@ -45,7 +45,7 @@ Creates a zero-value transaction that includes the given data in the `signatureM
 <h3 id="post__broadcastdata-parameters">Body parameters</h3>
 
 |**Name**|**Type**|**Required**|**Description**|
-|---|---|---|---|---|
+|---|---|---|---|
 |body|object|true|Request object|
 |» address|string|true|Address to add to the transaction's `address` field.|
 |» data|string|false|Data to add to the transaction's `signatureMessageFragment` field.<br></br>The data must be no larger than 2187 bytes, and the address must contain only trytes and be either 81 trytes long or 90 trytes long, including a checksum.|
@@ -162,7 +162,7 @@ Status Code **200**
 Status Code **400**
 
 |**Field**|**Type**|**Description**|
-|---|---|---|---|---|
+|---|---|---|
 |» message|string|The error message.|
 
 <aside class="success">
@@ -187,7 +187,7 @@ Searches the Tangle for transactions that contain the given addresses and return
 <h3 id="post__findtransactionhashes-parameters">Body parameters</h3>
 
 |**Name**|**Type**|**Required**|**Description**|
-|---|---|---|---|---|
+|---|---|---|---|
 |body|object|true|Request object|
 |» addresses|[string]|true|Addresses to search for in transactions.<br></br>Addresses must contain only trytes and be either 81 trytes long or 90 trytes long, including a checksum.|
 
@@ -301,7 +301,7 @@ print r.json()
 Status Code **200**
 
 |**Field**|**Type**|**Description**|
-|---|---|---|---|---|
+|---|---|---|
 |» transactions|[array]|
 
 <aside class="success">
@@ -326,7 +326,7 @@ Searches the Tangle for transactions with the given hashes and returns their con
 <h3 id="post__gettransactionobjectsbyhash-parameters">Body parameters</h3>
 
 |**Name**|**Type**|**Required**|**Description**|
-|---|---|---|---|---|
+|---|---|---|---|
 |body|object|true|Request object|
 |» hashes|[string]|true|Transaction hashes to search for in the Tangle. <br></br> Transaction hashes must contain only 81 trytes.|
 
@@ -450,7 +450,7 @@ print r.json()
 Status Code **200**
 
 |**Field**|**Type**|**Description**|
-|---|---|---|---|---|
+|---|---|---|
 |» transaction|[[Transaction](#schematransaction)]|
 |»» hash|string|
 |»» weightMagnitude|integer|
@@ -485,7 +485,7 @@ Searches the Tangle for transactions with the given hashes and returns their con
 <h3 id="post__gettransactiontrytesbyhash-parameters">Body parameters</h3>
 
 |**Name**|**Type**|**Required**|**Description**|
-|---|---|---|---|---|
+|---|---|---|---|
 |body|object|true|Request object|
 |» hashes|[string]|true|Transaction hashes to search for in the Tangle. <br></br> Transaction hashes must contain only 81 trytes.|
 
@@ -598,7 +598,7 @@ print r.json()
 Status Code **200**
 
 |**Field**|**Type**|**Description**|
-|---|---|---|---|---|
+|---|---|---|
 |» trytes|[string]|
 
 <aside class="success">
@@ -709,7 +709,7 @@ print r.json()
 Status Code **200**
 
 |**Field**|**Type**|**Description**|
-|---|---|---|---|---|
+|---|---|---|
 |» branchTransaction|string|
 |» trunkTransaction|string|
 
@@ -725,7 +725,7 @@ Sends zero-value transactions at the given rate per second.<br></br>You can star
 <h3 id="get__spammer-parameters">Body parameters</h3>
 
 |**Name**|**Type**|**Required**|**Description**|
-|---|---|---|---|---|
+|---|---|---|---|
 |cmd|string|true|Command to either `start` or `stop` spamming.|
 |tps|integer|false|Change the sending rate.|
 
@@ -819,7 +819,7 @@ Returns the node's chosen and accepted neighbors. Optionally, you can pass the `
 <h3 id="get__getneighbors-parameters">Body parameters</h3>
 
 |**Name**|**Type**|**Required**|**Description**|
-|---|---|---|---|---|
+|---|---|---|---|
 |known|integer|false|Returns all known peers when set to 1.|
 
 ### Examples
@@ -992,7 +992,7 @@ Status Code **200**
 ### Properties
 
 |**Name**|**Type**|**Required**|**Description**|
-|---|---|---|---|---|
+|---|---|---|---|
 |id|string|false|ID of the peer node.|
 |publicKey|string|false|Public key of the peer node.|
 |services|[[PeerService](#schemapeerservice)]|false|Services that the peer node is running.|
@@ -1012,7 +1012,7 @@ Status Code **200**
 ### Properties
 
 |**Name**|**Type**|**Required**|**Description**|
-|---|---|---|---|---|
+|---|---|---|---|
 |id|string|false|ID of the service. Can be "peering", "gossip", or "fpc".|
 |address|string|false|The IP address and port that the service is using.|
 
@@ -1039,7 +1039,7 @@ Status Code **200**
 ### Properties
 
 |**Name**|**Type**|**Required**|**Description**|
-|---|---|---|---|---|
+|---|---|---|---|
 |hash|string|false|Transaction hash.|
 |weightMagnitude|integer|false|The weight magnitude of the transaction hash.|
 |trunkTransactionHash|string|false|The transaction's trunk transaction hash.|
