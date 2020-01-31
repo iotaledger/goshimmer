@@ -9,11 +9,9 @@ const (
 	ShutdownPriorityAutopeering
 	ShutdownPriorityGossip
 	ShutdownPriorityWebAPI
-	ShutdownPriorityZMQ
 	ShutdownPriorityGraph
-	ShutdownPriorityUI
-	ShutdownPriorityDashboard
 	ShutdownPriorityTangleSpammer
+	ShutdownPrioritySPA
 	ShutdownPriorityBadgerGarbageCollection
 	ShutdownPriorityStatusScreen
 )
