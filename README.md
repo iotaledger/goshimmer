@@ -200,7 +200,7 @@ You can change its configuration (e.g, bind address, port) under the section `da
 
 To access the dashboard, you can use your browser (the default address is `http://127.0.0.1:8081`).
 
- ![dashboard](images/dashboard.png "Dashboard")
+ ![dashboard](images/goshimmer_dashboard_v0.1.0.jpg "Dashboard")
 
 ### Installing the Glumb visualizer
 
