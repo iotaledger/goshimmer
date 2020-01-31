@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/graph"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/goshimmer/plugins/spa"
 	"github.com/iotaledger/goshimmer/plugins/statusscreen"
 	statusscreen_tps "github.com/iotaledger/goshimmer/plugins/statusscreen-tps"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
@@ -59,6 +60,7 @@ func main() {
 			webapi_getNeighbors.PLUGIN,
 			webapi_spammer.PLUGIN,
 
+			spa.PLUGIN,
 			graph.PLUGIN,
 		),
 	)

@@ -124,3 +124,10 @@ func getTransaction(hash []byte) ([]byte, error) {
 func requestTransaction(hash trinary.Hash) {
 	mgr.RequestTransaction(typeutils.StringToBytes(hash))
 }
+
+func GetAllNeighbors() []*gp.Neighbor {
+	if mgr == nil {
+		return nil
+	}
+	return mgr.GetAllNeighbors()
+}
