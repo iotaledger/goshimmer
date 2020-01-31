@@ -5,34 +5,41 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gobuffalo/packr/v2"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/labstack/echo"
 	"golang.org/x/net/context"
 	"golang.org/x/net/websocket"
 )
 
 var (
-	log        *logger.Logger
-	httpServer *http.Server
-	router     *http.ServeMux
+	log    *logger.Logger
+	engine *echo.Echo
 )
 
 const name = "Analysis HTTP Server"
 
+var assetsBox = packr.New("Assets", "./static")
+
 func Configure() {
 	log = logger.NewLogger(name)
 
-	router = http.NewServeMux()
+	engine = echo.New()
+	engine.HideBanner = true
 
-	httpServer = &http.Server{
-		Addr:    parameter.NodeConfig.GetString(CFG_BIND_ADDRESS),
-		Handler: router,
+	// we only need this special flag, because we always keep a packed box in the same directory
+	if parameter.NodeConfig.GetBool(CFG_DEV) {
+		engine.Static("/static", "./plugins/analysis/webinterface/httpserver/static")
+		engine.File("/", "./plugins/analysis/webinterface/httpserver/static/index.html")
+	} else {
+		engine.GET("/static/*", echo.WrapHandler(http.StripPrefix("/static", http.FileServer(assetsBox))))
+		engine.GET("/", index)
 	}
 
-	router.Handle("/datastream", websocket.Handler(dataStream))
-	router.HandleFunc("/", index)
+	engine.GET("/datastream", echo.WrapHandler(websocket.Handler(dataStream)))
 }
 
 func Run() {
@@ -44,9 +51,10 @@ func Run() {
 
 func start(shutdownSignal <-chan struct{}) {
 	stopped := make(chan struct{})
+	bindAddr := parameter.NodeConfig.GetString(CFG_BIND_ADDRESS)
 	go func() {
-		log.Infof("Started %s: http://%s", name, httpServer.Addr)
-		if err := httpServer.ListenAndServe(); err != nil {
+		log.Infof("Started %s: http://%s", name, bindAddr)
+		if err := engine.Start(bindAddr); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Error serving: %s", err)
 			}
@@ -63,8 +71,16 @@ func start(shutdownSignal <-chan struct{}) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	if err := httpServer.Shutdown(ctx); err != nil {
+	if err := engine.Shutdown(ctx); err != nil {
 		log.Errorf("Error stopping: %s", err)
 	}
 	log.Info("Stopping %s ... done", name)
+}
+
+func index(e echo.Context) error {
+	indexHTML, err := assetsBox.Find("index.html")
+	if err != nil {
+		return err
+	}
+	return e.HTMLBlob(http.StatusOK, indexHTML)
 }
