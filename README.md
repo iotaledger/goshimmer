@@ -111,9 +111,9 @@ You have two options to install and run GoShimmer:
 
 ### Execute the precompiled executable file
 
-This repository includes a `goshimmer` file (for Linux and macOS) and a `goshimmer.exe` file (for Windows), which are precompiled executables.
+The [release page](https://github.com/iotaledger/goshimmer/releases) includes downloadable files for Linux, macOS, and Windows.
 
-To run the node, all you need to do is execute one of these files, depending on your operating system.
+To run the node, all you need to do is download and execute one of these files, depending on your operating system.
 
 ```bash
 # Linux and macOS
