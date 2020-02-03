@@ -1,0 +1,12 @@
+{
+  "relayChecker": {
+    "targetNode": "http://127.0.0.1:8080",
+    "testNodes": [
+        "http://127.0.0.1:8080"
+    ],
+    "txAddress": "SHIMMER99TEST99999999999999999999999999999999999999999999999999999999999999999999",
+    "data": "TEST99BROADCAST99DATA",
+    "cooldownTime": 10,
+    "repeat": 2
+  }
+}

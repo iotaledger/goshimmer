@@ -1,40 +1,55 @@
 package meta_transaction
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 
 	"github.com/iotaledger/iota.go/trinary"
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
+const (
+	shardMarker           = trinary.Trytes("NPHTQORL9XKA")
+	trunkTransactionHash  = trinary.Trytes("99999999999999999999999999999999999999999999999999999999999999999999999999999999A")
+	branchTransactionHash = trinary.Trytes("99999999999999999999999999999999999999999999999999999999999999999999999999999999B")
+	head                  = true
+	tail                  = true
+	transactionType       = trinary.Trytes("9999999999999999999999")
+)
+
+func newTestTransaction() *MetaTransaction {
+	tx := New()
+	tx.SetShardMarker(shardMarker)
+	tx.SetTrunkTransactionHash(trunkTransactionHash)
+	tx.SetBranchTransactionHash(branchTransactionHash)
+	tx.SetHead(head)
+	tx.SetTail(tail)
+	tx.SetTransactionType(transactionType)
+
+	return tx
+}
+
+func TestDoPow(t *testing.T) {
+	tx := newTestTransaction()
+	require.NoError(t, tx.DoProofOfWork(10))
+
+	assert.GreaterOrEqual(t, tx.GetWeightMagnitude(), 10)
+}
+
 func TestMetaTransaction_SettersGetters(t *testing.T) {
-	shardMarker := trinary.Trytes("NPHTQORL9XKA")
-	trunkTransactionHash := trinary.Trytes("99999999999999999999999999999999999999999999999999999999999999999999999999999999A")
-	branchTransactionHash := trinary.Trytes("99999999999999999999999999999999999999999999999999999999999999999999999999999999B")
-	head := true
-	tail := true
-	transactionType := trinary.Trytes("9999999999999999999999")
+	tx := newTestTransaction()
 
-	transaction := New()
-	transaction.SetShardMarker(shardMarker)
-	transaction.SetTrunkTransactionHash(trunkTransactionHash)
-	transaction.SetBranchTransactionHash(branchTransactionHash)
-	transaction.SetHead(head)
-	transaction.SetTail(tail)
-	transaction.SetTransactionType(transactionType)
+	assert.Equal(t, tx.GetWeightMagnitude(), 0)
+	assert.Equal(t, tx.GetShardMarker(), shardMarker)
+	assert.Equal(t, tx.GetTrunkTransactionHash(), trunkTransactionHash)
+	assert.Equal(t, tx.GetBranchTransactionHash(), branchTransactionHash)
+	assert.Equal(t, tx.IsHead(), head)
+	assert.Equal(t, tx.IsTail(), tail)
+	assert.Equal(t, tx.GetTransactionType(), transactionType)
+	assert.Equal(t, tx.GetHash(), FromBytes(tx.GetBytes()).GetHash())
 
-	assert.Equal(t, transaction.GetWeightMagnitude(), 0)
-	assert.Equal(t, transaction.GetShardMarker(), shardMarker)
-	assert.Equal(t, transaction.GetTrunkTransactionHash(), trunkTransactionHash)
-	assert.Equal(t, transaction.GetBranchTransactionHash(), branchTransactionHash)
-	assert.Equal(t, transaction.IsHead(), head)
-	assert.Equal(t, transaction.IsTail(), tail)
-	assert.Equal(t, transaction.GetTransactionType(), transactionType)
-	assert.Equal(t, transaction.GetHash(), FromBytes(transaction.GetBytes()).GetHash())
-
-	fmt.Println(transaction.GetHash())
+	assert.EqualValues(t, "KKDVHBENVLQUNO9WOWWEJPBBHUSYRSRKIMZWCFCDB9RYZKYWLAYWRIBRQETBFKE9TIVWQPCKFWAMCLCAV", tx.GetHash())
 }
 
 func BenchmarkMetaTransaction_GetHash(b *testing.B) {

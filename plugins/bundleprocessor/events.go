@@ -1,7 +1,6 @@
 package bundleprocessor
 
 import (
-	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/hive.go/events"
@@ -20,7 +19,7 @@ type pluginEvents struct {
 }
 
 func errorCaller(handler interface{}, params ...interface{}) {
-	handler.(func(errors.IdentifiableError))(params[0].(errors.IdentifiableError))
+	handler.(func(error))(params[0].(error))
 }
 
 func bundleEventCaller(handler interface{}, params ...interface{}) {

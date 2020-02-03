@@ -7,11 +7,9 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell"
-	"github.com/iotaledger/goshimmer/packages/accountability"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/acceptedneighbors"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/chosenneighbors"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/knownpeers"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/instances/neighborhood"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/rivo/tview"
 )
 
@@ -49,7 +47,7 @@ func NewUIHeaderBar() *UIHeaderBar {
 		SetBackgroundColor(tcell.ColorDarkMagenta)
 
 	headerBar.Primitive.
-		SetColumns(17, 0).
+		SetColumns(20, 0).
 		SetRows(0).
 		SetBorders(false).
 		AddItem(headerBar.LogoContainer, 0, 0, 1, 1, 0, 0, false).
@@ -78,11 +76,28 @@ func (headerBar *UIHeaderBar) Update() {
 		fmt.Fprintln(headerBar.InfoContainer)
 	}
 
-	fmt.Fprintf(headerBar.InfoContainer, "[::b]Node ID: [::d]%40v  ", accountability.OwnId().StringIdentifier)
+	outgoing := "0"
+	incoming := "0"
+	neighbors := "0"
+	total := "0"
+	myID := "-"
+	if autopeering.Selection != nil {
+		outgoing = strconv.Itoa(len(autopeering.Selection.GetOutgoingNeighbors()))
+		incoming = strconv.Itoa(len(autopeering.Selection.GetIncomingNeighbors()))
+		neighbors = strconv.Itoa(len(autopeering.Selection.GetNeighbors()))
+	}
+	if autopeering.Discovery != nil {
+		total = strconv.Itoa(len(autopeering.Discovery.GetVerifiedPeers()))
+	}
+	if local.GetInstance() != nil {
+		myID = local.GetInstance().ID().String()
+	}
+
+	fmt.Fprintf(headerBar.InfoContainer, "[::b]Node ID: [::d]%40v  ", myID)
 	fmt.Fprintln(headerBar.InfoContainer)
-	fmt.Fprintf(headerBar.InfoContainer, "[::b]Neighbors: [::d]%40v  ", strconv.Itoa(chosenneighbors.INSTANCE.Peers.Len())+" chosen / "+strconv.Itoa(acceptedneighbors.INSTANCE.Peers.Len())+" accepted / "+strconv.Itoa(chosenneighbors.INSTANCE.Peers.Len()+acceptedneighbors.INSTANCE.Peers.Len())+" total")
+	fmt.Fprintf(headerBar.InfoContainer, "[::b]Neighbors: [::d]%40v  ", outgoing+" chosen / "+incoming+" accepted / "+neighbors+" total")
 	fmt.Fprintln(headerBar.InfoContainer)
-	fmt.Fprintf(headerBar.InfoContainer, "[::b]Known Peers: [::d]%40v  ", strconv.Itoa(knownpeers.INSTANCE.Peers.Len())+" total / "+strconv.Itoa(neighborhood.INSTANCE.Peers.Len())+" neighborhood")
+	fmt.Fprintf(headerBar.InfoContainer, "[::b]Known Peers: [::d]%40v  ", total+" total")
 	fmt.Fprintln(headerBar.InfoContainer)
 	fmt.Fprintf(headerBar.InfoContainer, "[::b]Uptime: [::d]")
 
@@ -125,7 +140,7 @@ func (headerBar *UIHeaderBar) Update() {
 
 func (headerBar *UIHeaderBar) printLogo() {
 	fmt.Fprintln(headerBar.LogoContainer, "")
-	fmt.Fprintln(headerBar.LogoContainer, "   SHIMMER 0.0.1")
+	fmt.Fprintln(headerBar.LogoContainer, "  GOSHIMMER", cli.AppVersion)
 	fmt.Fprintln(headerBar.LogoContainer, "  ┌──────┬──────┐")
 	fmt.Fprintln(headerBar.LogoContainer, "    ───┐ │ ┌───")
 	fmt.Fprintln(headerBar.LogoContainer, "     ┐ │ │ │ ┌")

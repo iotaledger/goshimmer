@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option go_package = "github.com/iotaledger/goshimmer/packages/gossip/proto";
+
+package proto;
+
+message Transaction {
+  // transaction data
+  bytes data = 1;
+}
+
+message TransactionRequest {
+  // transaction hash
+  bytes hash = 1;
+}

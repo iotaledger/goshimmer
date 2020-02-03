@@ -1,68 +1,22 @@
 package statusscreen
 
 import (
-	"io/ioutil"
 	"os"
-	"sync"
-	"time"
 
 	"github.com/gdamore/tcell"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
 	"github.com/rivo/tview"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-var statusMessages = make(map[string]*StatusMessage)
-var messageLog = make([]*StatusMessage, 0)
-var mutex sync.RWMutex
+var (
+	log   *logger.Logger
+	app   *tview.Application
+	frame *tview.Frame
+)
 
-var app *tview.Application
-
-func configure(plugin *node.Plugin) {
-	if !terminal.IsTerminal(int(os.Stdin.Fd())) {
-		return
-	}
-
-	// don't write anything to stdout anymore
-	// as log messages are now stored and displayed via this plugin
-	logger.InjectWriters(ioutil.Discard)
-
-	// store any log message for display
-	anyLogMsgClosure := events.NewClosure(func(logLevel logger.LogLevel, prefix string, msg string) {
-		storeStatusMessage(logLevel, prefix, msg)
-	})
-	logger.Events.AnyMsg.Attach(anyLogMsgClosure)
-
-	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		logger.InjectWriters(os.Stdout)
-		logger.Events.AnyMsg.Detach(anyLogMsgClosure)
-
-		if app != nil {
-			app.Stop()
-		}
-	}))
-}
-
-func run(plugin *node.Plugin) {
-	if !terminal.IsTerminal(int(os.Stdin.Fd())) {
-		return
-	}
-
-	newPrimitive := func(text string) *tview.TextView {
-		textView := tview.NewTextView()
-
-		textView.
-			SetTextAlign(tview.AlignLeft).
-			SetText(" " + text)
-
-		return textView
-	}
-
-	app = tview.NewApplication()
-
+func configureTview() {
 	headerBar := NewUIHeaderBar()
 
 	content := tview.NewGrid()
@@ -84,30 +38,28 @@ func run(plugin *node.Plugin) {
 		AddItem(content, 1, 0, 1, 1, 0, 0, false).
 		AddItem(footer, 2, 0, 1, 1, 0, 0, false)
 
-	frame := tview.NewFrame(grid).
+	frame = tview.NewFrame(grid).
 		SetBorders(1, 1, 0, 0, 2, 2)
 	frame.SetBackgroundColor(tcell.ColorDarkGray)
 
+	app = tview.NewApplication()
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// end the daemon on ctrl+c
 		if event.Key() == tcell.KeyCtrlC || event.Key() == tcell.KeyESC {
 			daemon.Shutdown()
-
 			return nil
 		}
-
 		return event
 	})
 
 	app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
-		mutex.RLock()
-		defer mutex.RUnlock()
 		headerBar.Update()
 
 		rows := make([]int, 2)
 		rows[0] = 1
 		rows[1] = 1
 		_, _, _, height := content.GetRect()
-		for i := 0; i < len(messageLog) && i < height-2; i++ {
+		for i := 0; i < len(logMessages) && i < height-2; i++ {
 			rows = append(rows, 1)
 		}
 
@@ -118,12 +70,12 @@ func run(plugin *node.Plugin) {
 		blankLine.SetBackgroundColor(tcell.ColorWhite)
 		content.AddItem(blankLine, 0, 0, 1, 1, 0, 0, false)
 
-		logStart := len(messageLog) - (len(rows) - 2)
+		logStart := len(logMessages) - (len(rows) - 2)
 		if logStart < 0 {
 			logStart = 0
 		}
 
-		for i, message := range messageLog[logStart:] {
+		for i, message := range logMessages[logStart:] {
 			if i < height-2 {
 				content.AddItem(NewUILogEntry(*message).Primitive, i+1, 0, 1, 1, 0, 0, false)
 			}
@@ -135,23 +87,15 @@ func run(plugin *node.Plugin) {
 
 		return false
 	})
-
-	daemon.BackgroundWorker("Statusscreen Refresher", func() {
-		for {
-			select {
-			case <-daemon.ShutdownSignal:
-				return
-			case <-time.After(1 * time.Second):
-				app.QueueUpdateDraw(func() {})
-			}
-		}
-	})
-
-	daemon.BackgroundWorker("Statusscreen App", func() {
-		if err := app.SetRoot(frame, true).SetFocus(frame).Run(); err != nil {
-			panic(err)
-		}
-	})
 }
 
-var PLUGIN = node.NewPlugin("Status Screen", node.Enabled, configure, run)
+func newPrimitive(text string) *tview.TextView {
+	textView := tview.NewTextView()
+	textView.SetTextAlign(tview.AlignLeft).SetText(" " + text)
+
+	return textView
+}
+
+func isTerminal() bool {
+	return terminal.IsTerminal(int(os.Stdin.Fd()))
+}

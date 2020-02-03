@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	CFG_SERVER_PORT = "analysis.serverPort"
+	CFG_SERVER_PORT = "analysis.server.port"
 )
 
 func init() {

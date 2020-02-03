@@ -1,0 +1,102 @@
+# Documentation at http://goreleaser.com
+
+# Project name
+project_name: GoShimmer
+
+# Environment variables
+env:
+  - GO111MODULE=on
+
+# Builds
+builds:
+  # macOS AMD64
+  - id: goshimmer-darwin-amd64
+    binary: goshimmer
+    env:
+      - CGO_ENABLED=1
+      - CC=o64-clang
+      - CXX=o64-clang++
+    ldflags:
+      - -s -w -X github.com/iotaledger/goshimmer/plugins/cli.AppVersion={{.Version}}
+    flags:
+      - -tags=pow_avx
+    main: main.go
+    goos:
+      - darwin
+    goarch:
+      - amd64
+  # Linux AMD64
+  - id: goshimmer-linux-amd64
+    binary: goshimmer
+    env:
+      - CGO_ENABLED=1
+    ldflags:
+      - -s -w -X github.com/iotaledger/goshimmer/plugins/cli.AppVersion={{.Version}}
+    flags:
+      - -tags=pow_avx
+    main: main.go
+    goos:
+      - linux
+    goarch:
+      - amd64
+  # Windows AMD64
+  - id: goshimmer-windows-amd64
+    binary: goshimmer
+    env:
+      - CGO_ENABLED=1
+      - CC=x86_64-w64-mingw32-gcc
+      - CXX=x86_64-w64-mingw32-g++
+    ldflags:
+      - -s -w -X github.com/iotaledger/goshimmer/plugins/cli.AppVersion={{.Version}}
+    flags:
+      - -tags=pow_avx
+    main: main.go
+    goos:
+      - windows
+    goarch:
+      - amd64
+
+# Archives
+archives:
+  - format: tar.gz
+    wrap_in_directory: true
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: "{{.ProjectName}}-{{.Version}}_{{.Os}}_{{.Arch}}"
+    replacements:
+      amd64: x86_64
+      386: 32bit
+      arm: ARM
+      arm64: ARM64
+      darwin: macOS
+      linux: Linux
+      windows: Windows
+      openbsd: OpenBSD
+      netbsd: NetBSD
+      freebsd: FreeBSD
+      dragonfly: DragonFlyBSD
+    files:
+      - README.md
+      - LICENSE
+      - config.json
+
+# Checksum
+checksum:
+  name_template: "checksums.txt"
+
+# Snapshot
+snapshot:
+  name_template: "{{ .Tag }}"
+
+# Changelog
+changelog:
+  skip: true
+
+# Release
+release:
+  prerelease: auto
+  name_template: "{{.ProjectName}}-{{.Version}}"
+  github:
+    owner: iotaledger
+    name: goshimmer

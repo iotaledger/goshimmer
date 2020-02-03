@@ -2,17 +2,17 @@ package cli
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/parameter"
 	flag "github.com/spf13/pflag"
 )
 
 const (
 	// AppVersion version number
-	AppVersion = "v0.0.1"
+	AppVersion = "v0.1.0"
 	// AppName app code name
 	AppName = "GoShimmer"
 )
@@ -36,26 +36,37 @@ func init() {
 
 func parseParameters() {
 	for _, pluginName := range parameter.NodeConfig.GetStringSlice(node.CFG_DISABLE_PLUGINS) {
-		node.DisabledPlugins[strings.ToLower(pluginName)] = true
+		node.DisabledPlugins[node.GetPluginIdentifier(pluginName)] = true
 	}
 	for _, pluginName := range parameter.NodeConfig.GetStringSlice(node.CFG_ENABLE_PLUGINS) {
-		node.EnabledPlugins[strings.ToLower(pluginName)] = true
+		node.EnabledPlugins[node.GetPluginIdentifier(pluginName)] = true
+	}
+}
+
+func LoadConfig() {
+	if err := parameter.FetchConfig(false); err != nil {
+		panic(err)
+	}
+	parseParameters()
+
+	if err := logger.InitGlobalLogger(parameter.NodeConfig); err != nil {
+		panic(err)
 	}
 }
 
 func configure(ctx *node.Plugin) {
-
-	fmt.Println("  _____ _   _ ________  ______  ___ ___________ ")
-	fmt.Println(" /  ___| | | |_   _|  \\/  ||  \\/  ||  ___| ___ \\")
-	fmt.Println(" \\ `--.| |_| | | | | .  . || .  . || |__ | |_/ /")
-	fmt.Println("  `--. \\  _  | | | | |\\/| || |\\/| ||  __||    / ")
-	fmt.Println(" /\\__/ / | | |_| |_| |  | || |  | || |___| |\\ \\ ")
-	fmt.Printf(" \\____/\\_| |_/\\___/\\_|  |_/\\_|  |_/\\____/\\_| \\_| fullnode %s", AppVersion)
+	fmt.Printf(`
+   _____  ____   _____ _    _ _____ __  __ __  __ ______ _____  
+  / ____|/ __ \ / ____| |  | |_   _|  \/  |  \/  |  ____|  __ \ 
+ | |  __| |  | | (___ | |__| | | | | \  / | \  / | |__  | |__) |
+ | | |_ | |  | |\___ \|  __  | | | | |\/| | |\/| |  __| |  _  / 
+ | |__| | |__| |____) | |  | |_| |_| |  | | |  | | |____| | \ \ 
+  \_____|\____/|_____/|_|  |_|_____|_|  |_|_|  |_|______|_|  \_\
+                             %s                                     
+`, AppVersion)
 	fmt.Println()
 
-	parameter.FetchConfig(false)
-	parseParameters()
-
+	ctx.Node.Logger.Infof("GoShimmer version %s ...", AppVersion)
 	ctx.Node.Logger.Info("Loading plugins ...")
 }
 

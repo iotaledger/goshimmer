@@ -2,10 +2,11 @@ package server
 
 import (
 	"encoding/hex"
+	"errors"
 	"math"
 
-	"github.com/iotaledger/goshimmer/packages/network"
-	"github.com/iotaledger/goshimmer/packages/network/tcp"
+	"github.com/iotaledger/goshimmer/packages/parameter"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
@@ -14,16 +15,20 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/network"
+	"github.com/iotaledger/hive.go/network/tcp"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/parameter"
-	"github.com/pkg/errors"
 )
 
-var server *tcp.Server
-
-var log = logger.NewLogger("Analysis-Server")
+var (
+	ErrInvalidPackageHeader          = errors.New("invalid package header")
+	ErrExpectedInitialAddNodePackage = errors.New("expected initial add node package")
+	server                           *tcp.TCPServer
+	log                              *logger.Logger
+)
 
 func Configure(plugin *node.Plugin) {
+	log = logger.NewLogger("Analysis-Server")
 	server = tcp.NewServer()
 
 	server.Events.Connect.Attach(events.NewClosure(HandleConnection))
@@ -39,16 +44,18 @@ func Configure(plugin *node.Plugin) {
 }
 
 func Run(plugin *node.Plugin) {
-	daemon.BackgroundWorker("Analysis Server", func() {
+	daemon.BackgroundWorker("Analysis Server", func(shutdownSignal <-chan struct{}) {
 		log.Infof("Starting Server (port %d) ... done", parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
-		server.Listen(parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
-	})
+		go server.Listen("0.0.0.0", parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
+		<-shutdownSignal
+		Shutdown()
+	}, shutdown.ShutdownPriorityAnalysis)
 }
 
-func Shutdown(plugin *node.Plugin) {
+func Shutdown() {
 	log.Info("Stopping Server ...")
-
 	server.Shutdown()
+	log.Info("Stopping Server ... done")
 }
 
 func HandleConnection(conn *network.ManagedConnection) {
@@ -132,7 +139,7 @@ func processIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *n
 
 	if firstPackage {
 		if *connectionState != STATE_ADD_NODE {
-			Events.Error.Trigger(errors.New("expected initial add node package"))
+			Events.Error.Trigger(ErrExpectedInitialAddNodePackage)
 		} else {
 			*connectionState = STATE_INITIAL_ADDNODE
 		}
@@ -155,7 +162,7 @@ func processIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *n
 		processIncomingDisconnectNodesPacket(connectionState, receiveBuffer, conn, data, offset, connectedNodeId)
 
 	case STATE_REMOVE_NODE:
-		processIncomingAddNodePacket(connectionState, receiveBuffer, conn, data, offset, connectedNodeId)
+		processIncomingRemoveNodePacket(connectionState, receiveBuffer, conn, data, offset, connectedNodeId)
 	}
 }
 
@@ -190,7 +197,7 @@ func parsePackageHeader(data []byte) (ConnectionState, []byte, error) {
 		connectionState = STATE_REMOVE_NODE
 
 	default:
-		return 0, nil, errors.New("invalid package header")
+		return 0, nil, ErrInvalidPackageHeader
 	}
 
 	return connectionState, receiveBuffer, nil
@@ -307,6 +314,35 @@ func processIncomingDisconnectNodesPacket(connectionState *byte, receiveBuffer *
 		*connectionState = STATE_CONSECUTIVE
 
 		if *offset+len(data) > disconnectnodes.MARSHALED_TOTAL_SIZE {
+			processIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset, connectedNodeId)
+		}
+	}
+}
+
+func processIncomingRemoveNodePacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte, offset *int, connectedNodeId *string) {
+	remainingCapacity := int(math.Min(float64(removenode.MARSHALED_TOTAL_SIZE-*offset), float64(len(data))))
+
+	copy((*receiveBuffer)[*offset:], data[:remainingCapacity])
+
+	if *offset+len(data) < removenode.MARSHALED_TOTAL_SIZE {
+		*offset += len(data)
+	} else {
+		if removeNodePacket, err := removenode.Unmarshal(*receiveBuffer); err != nil {
+			Events.Error.Trigger(err)
+
+			conn.Close()
+
+			return
+		} else {
+			nodeId := hex.EncodeToString(removeNodePacket.NodeId)
+
+			Events.RemoveNode.Trigger(nodeId)
+
+		}
+
+		*connectionState = STATE_CONSECUTIVE
+
+		if *offset+len(data) > addnode.MARSHALED_TOTAL_SIZE {
 			processIncomingPacket(connectionState, receiveBuffer, conn, data[remainingCapacity:], offset, connectedNodeId)
 		}
 	}

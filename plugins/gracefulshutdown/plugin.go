@@ -15,8 +15,10 @@ import (
 // maximum amount of time to wait for background processes to terminate. After that the process is killed.
 const WAIT_TO_KILL_TIME_IN_SECONDS = 10
 
-var log = logger.NewLogger("Graceful Shutdown")
+var log *logger.Logger
+
 var PLUGIN = node.NewPlugin("Graceful Shutdown", node.Enabled, func(plugin *node.Plugin) {
+	log = logger.NewLogger("Graceful Shutdown")
 	gracefulStop := make(chan os.Signal)
 
 	signal.Notify(gracefulStop, syscall.SIGTERM)
@@ -25,7 +27,7 @@ var PLUGIN = node.NewPlugin("Graceful Shutdown", node.Enabled, func(plugin *node
 	go func() {
 		<-gracefulStop
 
-		log.Warningf("Received shutdown request - waiting (max %d) to finish processing ...", WAIT_TO_KILL_TIME_IN_SECONDS)
+		log.Warnf("Received shutdown request - waiting (max %d) to finish processing ...", WAIT_TO_KILL_TIME_IN_SECONDS)
 
 		go func() {
 			start := time.Now()
@@ -38,7 +40,7 @@ var PLUGIN = node.NewPlugin("Graceful Shutdown", node.Enabled, func(plugin *node
 					if len(runningBackgroundWorkers) >= 1 {
 						processList = "(" + strings.Join(runningBackgroundWorkers, ", ") + ") "
 					}
-					log.Warningf("Received shutdown request - waiting (max %d seconds) to finish processing %s...", WAIT_TO_KILL_TIME_IN_SECONDS-int(secondsSinceStart), processList)
+					log.Warnf("Received shutdown request - waiting (max %d seconds) to finish processing %s...", WAIT_TO_KILL_TIME_IN_SECONDS-int(secondsSinceStart), processList)
 				} else {
 					log.Error("Background processes did not terminate in time! Forcing shutdown ...")
 					os.Exit(1)

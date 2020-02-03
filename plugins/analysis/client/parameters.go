@@ -5,9 +5,9 @@ import (
 )
 
 const (
-	CFG_SERVER_ADDRESS = "analysis.serverAddress"
+	CFG_SERVER_ADDRESS = "analysis.client.serverAddress"
 )
 
 func init() {
-	flag.String(CFG_SERVER_ADDRESS, "159.69.158.51:188", "tcp server for collecting analysis information")
+	flag.String(CFG_SERVER_ADDRESS, "ressims.iota.cafe:188", "tcp server for collecting analysis information")
 }

@@ -1,0 +1,13 @@
+
+.prevNextButton {
+    text-decoration: none !important;
+    color: black;
+    padding-left: 5px;
+    padding-right: 5px;
+    vertical-align: center;
+    text-align: center;
+}
+
+.hidden {
+  visibility: hidden !important;
+}

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>GoShimmer - Network Visualizer</title>
+    <link rel="stylesheet" type="text/css" href="/static/css/normalize.css">
+    <script type="text/javascript" src="/static/js/vivagraph-0.12.0.min.js"></script>
+    <script type="text/javascript" src="/static/js/main.js"></script>
+</head>
+
+<body style="background: #202126;">
+    <div id="logo">
+        <p id="title">GOSHIMMER<br>NETWORK</p>
+        <img class="logo" src="/static/img/gos.png" alt="GoShimmer">
+    </div>
+
+    <div id="graphc"></div>
+
+    <div id="info">
+        <p id="status"></p>
+        <p id="streamstatus"></p>
+
+        <div id="searchWrapper">
+            <input id="search" type="text" placeholder="search for node..." autocomplete="off">
+            <input type="button" id="clear" value="clear"> 
+        </div>
+        <div id="nodesOnlineWrapper"><div id="nodesOnline"></div></div>
+
+        <div id="nodestats">
+            <p id="nodeId"></p>
+            <p id="in"></p>
+            <p id="out"></p>
+        </div>
+    </div>
+</body>
+
+</html>
