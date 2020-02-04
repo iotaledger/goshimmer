@@ -1,7 +1,6 @@
 package gossip
 
 import (
-	"errors"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -34,18 +33,6 @@ func TestNeighborCloseTwice(t *testing.T) {
 	n.Listen()
 	require.NoError(t, n.Close())
 	require.NoError(t, n.Close())
-}
-
-func TestNeighborWriteToClosed(t *testing.T) {
-	a, _, teardown := newPipe()
-	defer teardown()
-
-	n := newTestNeighbor("A", a)
-	n.Listen()
-	require.NoError(t, n.Close())
-
-	_, err := n.Write(testData)
-	assert.True(t, errors.Is(err, ErrNeighborClosed), "unexpected error: %s", err)
 }
 
 func TestNeighborWrite(t *testing.T) {

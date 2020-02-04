@@ -16,8 +16,6 @@ import (
 var (
 	// ErrNeighborQueueFull is returned when the send queue is already full.
 	ErrNeighborQueueFull = errors.New("send queue is full")
-	// ErrNeighborClosed is returned when data was written to an already closed neighbor.
-	ErrNeighborClosed = errors.New("neighbor connection closed")
 )
 
 const (
@@ -87,7 +85,6 @@ func (n *Neighbor) disconnect() (err error) {
 	n.disconnectOnce.Do(func() {
 		close(n.closing)
 		err = n.BufferedConnection.Close()
-		close(n.queue)
 	})
 	return
 }
@@ -142,15 +139,13 @@ func (n *Neighbor) readLoop() {
 func (n *Neighbor) Write(b []byte) (int, error) {
 	l := len(b)
 	if l > maxPacketSize {
-		n.log.Errorw("message too large", "len", l, "max", maxPacketSize)
+		n.log.Panicw("message too large", "len", l, "max", maxPacketSize)
 	}
 
 	// add to queue
 	select {
 	case n.queue <- b:
 		return l, nil
-	case <-n.closing:
-		return 0, ErrNeighborClosed
 	default:
 		return 0, ErrNeighborQueueFull
 	}
