@@ -31,7 +31,6 @@ func Configure(plugin *node.Plugin) {
 		defer lock.Unlock()
 
 		delete(nodes, nodeId)
-		//nodes[nodeId] = false
 	}))
 
 	server.Events.NodeOnline.Attach(events.NewClosure(func(nodeId string) {
@@ -76,11 +75,30 @@ func Configure(plugin *node.Plugin) {
 	}))
 }
 
-func Replay(handlers *types.EventHandlers) {
+func getEventsToReplay() (map[string]bool, map[string]map[string]bool) {
 	lock.Lock()
 	defer lock.Unlock()
 
+	copiedNodes := make(map[string]bool)
 	for nodeId, online := range nodes {
+		copiedNodes[nodeId] = online
+	}
+
+	copiedLinks := make(map[string]map[string]bool)
+	for sourceId, targetMap := range links {
+		copiedLinks[sourceId] = make(map[string]bool)
+		for targetId := range targetMap {
+			copiedLinks[sourceId][targetId] = true
+		}
+	}
+
+	return copiedNodes, copiedLinks
+}
+
+func Replay(handlers *types.EventHandlers) {
+	copiedNodes, copiedLinks := getEventsToReplay()
+
+	for nodeId, online := range copiedNodes {
 		handlers.AddNode(nodeId)
 		if online {
 			handlers.NodeOnline(nodeId)
@@ -89,7 +107,7 @@ func Replay(handlers *types.EventHandlers) {
 		}
 	}
 
-	for sourceId, targetMap := range links {
+	for sourceId, targetMap := range copiedLinks {
 		for targetId := range targetMap {
 			handlers.ConnectNodes(sourceId, targetId)
 		}

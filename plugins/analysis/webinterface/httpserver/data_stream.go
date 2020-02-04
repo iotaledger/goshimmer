@@ -1,7 +1,7 @@
 package httpserver
 
 import (
-	"fmt"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface/recordedevents"
@@ -11,47 +11,87 @@ import (
 )
 
 func dataStream(ws *websocket.Conn) {
-	func() {
-		eventHandlers := &types.EventHandlers{
-			AddNode:         func(nodeId string) { fmt.Fprint(ws, "A"+nodeId) },
-			RemoveNode:      func(nodeId string) { fmt.Fprint(ws, "a"+nodeId) },
-			ConnectNodes:    func(sourceId string, targetId string) { fmt.Fprint(ws, "C"+sourceId+targetId) },
-			DisconnectNodes: func(sourceId string, targetId string) { fmt.Fprint(ws, "c"+sourceId+targetId) },
-			NodeOnline:      func(nodeId string) { fmt.Fprint(ws, "O"+nodeId) },
-			NodeOffline:     func(nodeId string) { fmt.Fprint(ws, "o"+nodeId) },
+	// create a wrapper for the websocket
+	wsChan := NewWebSocketChannel(ws)
+	defer wsChan.Close()
+
+	// variables and factory methods for the async calls after the initial replay
+	var replayMutex sync.RWMutex
+	createAsyncNodeCallback := func(wsChan *WebSocketChannel, messagePrefix string) func(string) {
+		return func(nodeId string) {
+			go func() {
+				replayMutex.RLock()
+				defer replayMutex.RUnlock()
+
+				wsChan.TryWrite(messagePrefix + nodeId)
+			}()
 		}
+	}
+	createAsyncLinkCallback := func(wsChan *WebSocketChannel, messagePrefix string) func(string, string) {
+		return func(sourceId string, targetId string) {
+			go func() {
+				replayMutex.RLock()
+				defer replayMutex.RUnlock()
 
-		addNodeClosure := events.NewClosure(eventHandlers.AddNode)
-		removeNodeClosure := events.NewClosure(eventHandlers.RemoveNode)
-		connectNodesClosure := events.NewClosure(eventHandlers.ConnectNodes)
-		disconnectNodesClosure := events.NewClosure(eventHandlers.DisconnectNodes)
-		nodeOnlineClosure := events.NewClosure(eventHandlers.NodeOnline)
-		nodeOfflineClosure := events.NewClosure(eventHandlers.NodeOffline)
-
-		server.Events.AddNode.Attach(addNodeClosure)
-		server.Events.RemoveNode.Attach(removeNodeClosure)
-		server.Events.ConnectNodes.Attach(connectNodesClosure)
-		server.Events.DisconnectNodes.Attach(disconnectNodesClosure)
-		server.Events.NodeOnline.Attach(nodeOnlineClosure)
-		server.Events.NodeOffline.Attach(nodeOfflineClosure)
-
-		go recordedevents.Replay(eventHandlers)
-
-		buf := make([]byte, 1)
-	readFromWebsocket:
-		for {
-			if _, err := ws.Read(buf); err != nil {
-				break readFromWebsocket
-			}
-
-			fmt.Fprint(ws, "_")
+				wsChan.TryWrite(messagePrefix + sourceId + targetId)
+			}()
 		}
+	}
 
-		server.Events.AddNode.Detach(addNodeClosure)
-		server.Events.RemoveNode.Detach(removeNodeClosure)
-		server.Events.ConnectNodes.Detach(connectNodesClosure)
-		server.Events.DisconnectNodes.Detach(disconnectNodesClosure)
-		server.Events.NodeOnline.Detach(nodeOnlineClosure)
-		server.Events.NodeOffline.Detach(nodeOfflineClosure)
-	}()
+	// wait with firing the callbacks until the replay is complete
+	replayMutex.Lock()
+
+	// create and register the dynamic callbacks
+	addNodeClosure := events.NewClosure(createAsyncNodeCallback(wsChan, "A"))
+	removeNodeClosure := events.NewClosure(createAsyncNodeCallback(wsChan, "a"))
+	connectNodesClosure := events.NewClosure(createAsyncLinkCallback(wsChan, "C"))
+	disconnectNodesClosure := events.NewClosure(createAsyncLinkCallback(wsChan, "c"))
+	nodeOnlineClosure := events.NewClosure(createAsyncNodeCallback(wsChan, "O"))
+	nodeOfflineClosure := events.NewClosure(createAsyncNodeCallback(wsChan, "o"))
+	server.Events.AddNode.Attach(addNodeClosure)
+	server.Events.RemoveNode.Attach(removeNodeClosure)
+	server.Events.ConnectNodes.Attach(connectNodesClosure)
+	server.Events.DisconnectNodes.Attach(disconnectNodesClosure)
+	server.Events.NodeOnline.Attach(nodeOnlineClosure)
+	server.Events.NodeOffline.Attach(nodeOfflineClosure)
+
+	// replay old events
+	recordedevents.Replay(createEventHandlers(wsChan, createSyncNodeCallback, createSyncLinkCallback))
+
+	// mark replay as complete
+	replayMutex.Unlock()
+
+	// wait until the connection breaks and keep it alive
+	wsChan.KeepAlive()
+
+	// unregister the callbacks
+	server.Events.AddNode.Detach(addNodeClosure)
+	server.Events.RemoveNode.Detach(removeNodeClosure)
+	server.Events.ConnectNodes.Detach(connectNodesClosure)
+	server.Events.DisconnectNodes.Detach(disconnectNodesClosure)
+	server.Events.NodeOnline.Detach(nodeOnlineClosure)
+	server.Events.NodeOffline.Detach(nodeOfflineClosure)
+}
+
+func createEventHandlers(wsChan *WebSocketChannel, nodeCallbackFactory func(*WebSocketChannel, string) func(string), linkCallbackFactory func(*WebSocketChannel, string) func(string, string)) *types.EventHandlers {
+	return &types.EventHandlers{
+		AddNode:         nodeCallbackFactory(wsChan, "A"),
+		RemoveNode:      nodeCallbackFactory(wsChan, "a"),
+		ConnectNodes:    linkCallbackFactory(wsChan, "C"),
+		DisconnectNodes: linkCallbackFactory(wsChan, "c"),
+		NodeOnline:      nodeCallbackFactory(wsChan, "O"),
+		NodeOffline:     nodeCallbackFactory(wsChan, "o"),
+	}
+}
+
+func createSyncNodeCallback(wsChan *WebSocketChannel, messagePrefix string) func(nodeId string) {
+	return func(nodeId string) {
+		wsChan.Write(messagePrefix + nodeId)
+	}
+}
+
+func createSyncLinkCallback(wsChan *WebSocketChannel, messagePrefix string) func(sourceId string, targetId string) {
+	return func(sourceId string, targetId string) {
+		wsChan.Write(messagePrefix + sourceId + targetId)
+	}
 }
