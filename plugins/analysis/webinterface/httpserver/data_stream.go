@@ -11,10 +11,9 @@ import (
 )
 
 func dataStream(ws *websocket.Conn) {
-	defer ws.Close()
-
 	// create a wrapper for the websocket
 	wsChan := NewWebSocketChannel(ws)
+	defer wsChan.Close()
 
 	// variables and factory methods for the async calls after the initial replay
 	var replayMutex sync.RWMutex

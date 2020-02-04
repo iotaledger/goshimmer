@@ -44,6 +44,11 @@ func (c *WebSocketChannel) KeepAlive() {
 	}
 }
 
+func (c *WebSocketChannel) Close() {
+	close(c.send)
+	_ = c.ws.Close()
+}
+
 func (c *WebSocketChannel) writer() {
 	for pkt := range c.send {
 		if _, err := fmt.Fprint(c.ws, pkt); err != nil {
