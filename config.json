@@ -47,7 +47,7 @@
       "stdout",
       "goshimmer.log"
     ],
-    "disableEvents": false
+    "disableEvents": true
   },
   "network": {
     "bindAddress": "0.0.0.0",
