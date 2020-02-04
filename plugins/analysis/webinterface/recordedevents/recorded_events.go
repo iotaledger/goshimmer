@@ -75,7 +75,7 @@ func Configure(plugin *node.Plugin) {
 	}))
 }
 
-func getEventsToReplay() (nodes map[string]bool, links map[string]map[string]bool) {
+func getEventsToReplay() (map[string]bool, map[string]map[string]bool) {
 	lock.Lock()
 	defer lock.Unlock()
 
