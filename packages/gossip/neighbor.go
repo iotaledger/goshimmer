@@ -150,7 +150,7 @@ func (n *Neighbor) Write(b []byte) (int, error) {
 	case n.queue <- b:
 		return l, nil
 	case <-n.closing:
-		return 0, ErrNeighborQueueFull
+		return 0, ErrNeighborClosed
 	default:
 		return 0, ErrNeighborQueueFull
 	}
