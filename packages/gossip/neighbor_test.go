@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"errors"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -43,9 +44,8 @@ func TestNeighborWriteToClosed(t *testing.T) {
 	n.Listen()
 	require.NoError(t, n.Close())
 
-	assert.Panics(t, func() {
-		_, _ = n.Write(testData)
-	})
+	_, err := n.Write(testData)
+	assert.True(t, errors.Is(err, ErrNeighborClosed), "unexpected error: %s", err)
 }
 
 func TestNeighborWrite(t *testing.T) {
