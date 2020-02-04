@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/events"
+	"go.uber.org/atomic"
 )
 
 const (
@@ -40,8 +41,8 @@ type BufferedConnection struct {
 	incomingHeaderBuffer []byte
 	closeOnce            sync.Once
 
-	BytesRead    int
-	BytesWritten int
+	bytesRead    *atomic.Uint32
+	bytesWritten *atomic.Uint32
 }
 
 // NewBufferedConnection creates a new BufferedConnection from a net.Conn.
@@ -53,6 +54,8 @@ func NewBufferedConnection(conn net.Conn) *BufferedConnection {
 		},
 		conn:                 conn,
 		incomingHeaderBuffer: make([]byte, headerSize),
+		bytesRead:            atomic.NewUint32(0),
+		bytesWritten:         atomic.NewUint32(0),
 	}
 }
 
@@ -75,6 +78,16 @@ func (c *BufferedConnection) LocalAddr() net.Addr {
 // RemoteAddr returns the remote network address.
 func (c *BufferedConnection) RemoteAddr() net.Addr {
 	return c.conn.RemoteAddr()
+}
+
+// BytesRead returns the total number of bytes read.
+func (c *BufferedConnection) BytesRead() uint32 {
+	return c.bytesRead.Load()
+}
+
+// BytesWritten returns the total number of bytes written.
+func (c *BufferedConnection) BytesWritten() uint32 {
+	return c.bytesWritten.Load()
 }
 
 // Read starts reading on the connection, it only returns when an error occurred or when Close has been called.
@@ -114,7 +127,7 @@ func (c *BufferedConnection) Write(msg []byte) (int, error) {
 	for bytesWritten := 0; bytesWritten < toWrite; {
 		n, err := c.conn.Write(buffer[bytesWritten:])
 		bytesWritten += n
-		c.BytesWritten += n
+		c.bytesWritten.Add(uint32(n))
 		if err != nil {
 			return bytesWritten, err
 		}
@@ -127,7 +140,7 @@ func (c *BufferedConnection) read(buffer []byte) (int, error) {
 	for bytesRead := 0; bytesRead < toRead; {
 		n, err := c.conn.Read(buffer[bytesRead:])
 		bytesRead += n
-		c.BytesRead += n
+		c.bytesRead.Add(uint32(n))
 		if err != nil {
 			return bytesRead, err
 		}

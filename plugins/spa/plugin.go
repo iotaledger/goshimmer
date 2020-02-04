@@ -161,8 +161,8 @@ type neighbormetric struct {
 	ID               string `json:"id"`
 	Address          string `json:"address"`
 	ConnectionOrigin string `json:"connection_origin"`
-	BytesRead        int    `json:"bytes_read"`
-	BytesWritten     int    `json:"bytes_written"`
+	BytesRead        uint32 `json:"bytes_read"`
+	BytesWritten     uint32 `json:"bytes_written"`
 }
 
 func neighborMetrics() []neighbormetric {
@@ -186,8 +186,8 @@ func neighborMetrics() []neighbormetric {
 		stats = append(stats, neighbormetric{
 			ID:               neighbor.Peer.ID().String(),
 			Address:          neighbor.Peer.Services().Get(service.GossipKey).String(),
-			BytesRead:        neighbor.BytesRead,
-			BytesWritten:     neighbor.BytesWritten,
+			BytesRead:        neighbor.BytesRead(),
+			BytesWritten:     neighbor.BytesWritten(),
 			ConnectionOrigin: origin,
 		})
 	}
