@@ -15,7 +15,7 @@ const (
 	repaintInterval = 1 * time.Second
 )
 
-var PLUGIN = node.NewPlugin(name, node.Enabled, configure, run)
+var PLUGIN = node.NewPlugin(name, node.Disabled, configure, run)
 
 var (
 	stdLogMsgClosure   = events.NewClosure(stdLogMsg)
