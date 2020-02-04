@@ -84,7 +84,6 @@ func (n *Neighbor) IsOutbound() bool {
 func (n *Neighbor) disconnect() (err error) {
 	n.disconnectOnce.Do(func() {
 		close(n.closing)
-		close(n.queue)
 		err = n.BufferedConnection.Close()
 	})
 	return
@@ -140,7 +139,7 @@ func (n *Neighbor) readLoop() {
 func (n *Neighbor) Write(b []byte) (int, error) {
 	l := len(b)
 	if l > maxPacketSize {
-		n.log.Errorw("message too large", "len", l, "max", maxPacketSize)
+		n.log.Panicw("message too large", "len", l, "max", maxPacketSize)
 	}
 
 	// add to queue
