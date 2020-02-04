@@ -40,7 +40,7 @@ func TestBufferedConnection(t *testing.T) {
 		wg.Wait()
 	})
 
-	t.Run("Write", func(t *testing.T) {
+	t.Run("TryWrite", func(t *testing.T) {
 		conn1, conn2 := net.Pipe()
 		buffConn1 := NewBufferedConnection(conn1)
 		defer buffConn1.Close()
