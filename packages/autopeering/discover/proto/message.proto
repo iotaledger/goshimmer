@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+option go_package = "github.com/iotaledger/goshimmer/packages/autopeering/discover/proto";
+
+package proto;
+
+import "peer/proto/peer.proto";
+import "peer/service/proto/service.proto";
+
+message Ping {
+  // protocol version number
+  uint32 version = 1;
+  // string form of the return address (e.g. "192.0.2.1:25", "[2001:db8::1]:80")
+  string from = 2;
+  // string form of the recipient address
+  string to = 3;
+  // unix time
+  int64 timestamp = 4;
+}
+
+message Pong {
+  // hash of the ping packet
+  bytes ping_hash = 1;
+  // string form of the recipient address
+  string to = 2;
+  // services supported by the sender
+  ServiceMap services = 3;
+}
+
+message DiscoveryRequest {
+  // string form of the recipient address
+  string to = 1;
+  // unix time
+  int64 timestamp = 2;
+}
+
+message DiscoveryResponse {
+  // hash of the corresponding request
+  bytes req_hash = 1;
+  // list of peers
+  repeated Peer peers = 2;
+}

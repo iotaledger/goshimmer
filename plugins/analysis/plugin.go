@@ -1,38 +1,36 @@
 package analysis
 
 import (
-	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
-	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/analysis/client"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 )
 
 var PLUGIN = node.NewPlugin("Analysis", node.Enabled, configure, run)
+var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
-	if *server.SERVER_PORT.Value != 0 {
+	log = logger.NewLogger("Analysis")
+	if parameter.NodeConfig.GetInt(server.CFG_SERVER_PORT) != 0 {
 		webinterface.Configure(plugin)
 		server.Configure(plugin)
-
-		daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-			server.Shutdown(plugin)
-		}))
 	}
 }
 
 func run(plugin *node.Plugin) {
-	if *server.SERVER_PORT.Value != 0 {
+	if parameter.NodeConfig.GetInt(server.CFG_SERVER_PORT) != 0 {
 		webinterface.Run(plugin)
 		server.Run(plugin)
 	} else {
-		plugin.Node.LogSuccess("Node", "Starting Plugin: Analysis ... server is disabled (server-port is 0)")
+		log.Info("Server is disabled (server-port is 0)")
 	}
 
-	if *client.SERVER_ADDRESS.Value != "" {
+	if parameter.NodeConfig.GetString(client.CFG_SERVER_ADDRESS) != "" {
 		client.Run(plugin)
 	} else {
-		plugin.Node.LogSuccess("Node", "Starting Plugin: Analysis ... client is disabled (server-address is empty)")
+		log.Info("Client is disabled (server-address is empty)")
 	}
 }

@@ -1,104 +1,64 @@
 package parameter
 
-var boolParameters = make(map[string]*BoolParameter)
+import (
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/parameter"
+	flag "github.com/spf13/pflag"
+	"github.com/spf13/viper"
+)
 
-func AddBool(name string, defaultValue bool, description string) *BoolParameter {
-	if boolParameters[name] != nil {
-		panic("duplicate parameter - \"" + name + "\" was defined already")
+var (
+	// flags
+	configName    = flag.StringP("config", "c", "config", "Filename of the config file without the file extension")
+	configDirPath = flag.StringP("config-dir", "d", ".", "Path to the directory containing the config file")
+
+	// viper
+	NodeConfig *viper.Viper
+
+	// logger
+	defaultLoggerConfig = logger.Config{
+		Level:             "info",
+		DisableCaller:     false,
+		DisableStacktrace: false,
+		Encoding:          "console",
+		OutputPaths:       []string{"goshimmer.log"},
+		DisableEvents:     false,
+	}
+)
+
+func init() {
+	// set the default logger config
+	NodeConfig = viper.New()
+	NodeConfig.SetDefault(logger.ViperKey, defaultLoggerConfig)
+}
+
+// FetchConfig fetches config values from a dir defined via CLI flag --config-dir (or the current working dir if not set).
+//
+// It automatically reads in a single config file starting with "config" (can be changed via the --config CLI flag)
+// and ending with: .json, .toml, .yaml or .yml (in this sequence).
+func FetchConfig(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
+	err := parameter.LoadConfigFile(NodeConfig, *configDirPath, *configName, true, false)
+	if err != nil {
+		return err
 	}
 
-	newParameter := &BoolParameter{
-		Name:         name,
-		DefaultValue: defaultValue,
-		Value:        &defaultValue,
-		Description:  description,
+	if printConfig {
+		parameter.PrintConfig(NodeConfig, ignoreSettingsAtPrint...)
+	}
+	return nil
+}
+
+// LoadDefaultConfig only binds the flags, but does not load any config file.
+func LoadDefaultConfig(printConfig bool) error {
+	// only bind the flags
+	flag.Parse()
+	err := NodeConfig.BindPFlags(flag.CommandLine)
+	if err != nil {
+		return err
 	}
 
-	boolParameters[name] = newParameter
-
-	Events.AddBool.Trigger(newParameter)
-
-	return newParameter
-}
-
-func GetBool(name string) *BoolParameter {
-	return boolParameters[name]
-}
-
-func GetBools() map[string]*BoolParameter {
-	return boolParameters
-}
-
-var intParameters = make(map[string]*IntParameter)
-
-func AddInt(name string, defaultValue int, description string) *IntParameter {
-	if _, exists := intParameters[name]; exists {
-		panic("duplicate parameter - \"" + name + "\" was defined already")
+	if printConfig {
+		parameter.PrintConfig(NodeConfig)
 	}
-
-	newParameter := &IntParameter{
-		Name:         name,
-		DefaultValue: defaultValue,
-		Value:        &defaultValue,
-		Description:  description,
-	}
-
-	intParameters[name] = newParameter
-
-	Events.AddInt.Trigger(newParameter)
-
-	return newParameter
-}
-
-func GetInt(name string) *IntParameter {
-	return intParameters[name]
-}
-
-func GetInts() map[string]*IntParameter {
-	return intParameters
-}
-
-var stringParameters = make(map[string]*StringParameter)
-
-func AddString(name string, defaultValue string, description string) *StringParameter {
-	if _, exists := stringParameters[name]; exists {
-		panic("duplicate parameter - \"" + name + "\" was defined already")
-	}
-
-	newParameter := &StringParameter{
-		Name:         name,
-		DefaultValue: defaultValue,
-		Value:        &defaultValue,
-		Description:  description,
-	}
-
-	stringParameters[name] = newParameter
-
-	Events.AddString.Trigger(newParameter)
-
-	return stringParameters[name]
-}
-
-func GetString(name string) *StringParameter {
-	return stringParameters[name]
-}
-
-func GetStrings() map[string]*StringParameter {
-	return stringParameters
-}
-
-var plugins = make(map[string]int)
-
-func AddPlugin(name string, status int) {
-	if _, exists := plugins[name]; exists {
-		panic("duplicate plugin - \"" + name + "\" was defined already")
-	}
-
-	plugins[name] = status
-
-	Events.AddPlugin.Trigger(name, status)
-}
-
-func GetPlugins() map[string]int {
-	return plugins
+	return nil
 }

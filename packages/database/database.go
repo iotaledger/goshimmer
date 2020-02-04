@@ -1,111 +1,79 @@
 package database
 
 import (
+	"io/ioutil"
+	"os"
+	"runtime"
 	"sync"
 
-	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/v2"
+	"github.com/iotaledger/goshimmer/packages/parameter"
+	"github.com/iotaledger/hive.go/database"
+	"github.com/iotaledger/hive.go/logger"
 )
 
-var dbMap = make(map[string]*prefixDb)
-var mu sync.Mutex
+var (
+	instance       *badger.DB
+	once           sync.Once
+	ErrKeyNotFound = database.ErrKeyNotFound
+)
 
-type prefixDb struct {
-	db     *badger.DB
-	name   string
-	prefix []byte
+type (
+	Database     = database.Database
+	Entry        = database.Entry
+	KeyOnlyEntry = database.KeyOnlyEntry
+	KeyPrefix    = database.KeyPrefix
+	Key          = database.Key
+	Value        = database.Value
+)
+
+func Get(dbPrefix byte, optionalBadger ...*badger.DB) (Database, error) {
+	return database.Get(dbPrefix, optionalBadger...)
 }
 
-func getPrefix(name string) []byte {
-	return []byte(name + "_")
-}
+func GetBadgerInstance() *badger.DB {
+	once.Do(func() {
+		dbDir := parameter.NodeConfig.GetString(CFG_DIRECTORY)
 
-func Get(name string) (Database, error) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	if db, exists := dbMap[name]; exists {
-		return db, nil
-	}
-
-	badger := GetBadgerInstance()
-	db := &prefixDb{
-		db:     badger,
-		name:   name,
-		prefix: getPrefix(name),
-	}
-
-	dbMap[name] = db
-
-	return db, nil
-}
-
-func (this *prefixDb) Set(key []byte, value []byte) error {
-	err := this.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(append(this.prefix, key...), value)
-	})
-	return err
-}
-
-func (this *prefixDb) Contains(key []byte) (bool, error) {
-	err := this.db.View(func(txn *badger.Txn) error {
-		_, err := txn.Get(append(this.prefix, key...))
-		return err
-	})
-
-	if err == badger.ErrKeyNotFound {
-		return false, nil
-	} else {
-		return err == nil, err
-	}
-}
-
-func (this *prefixDb) Get(key []byte) ([]byte, error) {
-	var result []byte = nil
-
-	err := this.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(append(this.prefix, key...))
+		var dbDirClear bool
+		// check whether the database is new, by checking whether any file exists within
+		// the database directory
+		fileInfos, err := ioutil.ReadDir(dbDir)
 		if err != nil {
-			return err
-		}
-
-		return item.Value(func(val []byte) error {
-			result = append([]byte{}, val...)
-
-			return nil
-		})
-	})
-
-	return result, err
-}
-
-func (this *prefixDb) Delete(key []byte) error {
-	err := this.db.Update(func(txn *badger.Txn) error {
-		return txn.Delete(append(this.prefix, key...))
-	})
-	return err
-}
-
-func (this *prefixDb) ForEach(consumer func([]byte, []byte)) error {
-	err := this.db.View(func(txn *badger.Txn) error {
-		iteratorOptions := badger.DefaultIteratorOptions
-		iteratorOptions.Prefix = this.prefix // filter by prefix
-
-		// create an iterator the default options
-		it := txn.NewIterator(iteratorOptions)
-		defer it.Close()
-
-		// loop through every key-value-pair and call the function
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-
-			value, err := item.ValueCopy(nil)
-			if err != nil {
-				return err
+			// panic on other errors, for example permission related
+			if !os.IsNotExist(err) {
+				panic(err)
 			}
-
-			consumer(item.Key()[len(this.prefix):], value)
+			dbDirClear = true
 		}
-		return nil
+		if len(fileInfos) == 0 {
+			dbDirClear = true
+		}
+
+		opts := badger.DefaultOptions(dbDir)
+		opts.Logger = nil
+		if runtime.GOOS == "windows" {
+			opts = opts.WithTruncate(true)
+		}
+
+		db, err := database.CreateDB(dbDir, opts)
+		if err != nil {
+			// errors should cause a panic to avoid singleton deadlocks
+			panic(err)
+		}
+		instance = db
+
+		// up on the first caller, check whether the version of the database is compatible
+		checkDatabaseVersion(dbDirClear)
 	})
-	return err
+	return instance
+}
+
+func CleanupBadgerInstance(log *logger.Logger) {
+	db := GetBadgerInstance()
+	log.Info("Running Badger database garbage collection")
+	var err error
+	for err == nil {
+		err = db.RunValueLogGC(0.7)
+	}
 }

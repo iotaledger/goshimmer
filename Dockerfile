@@ -1,5 +1,5 @@
 # we need to use alpine to build since cgo is required
-FROM golang:1.12-alpine AS build
+FROM golang:1.13-alpine AS build
 RUN apk add --no-cache git gcc g++
 
 # Set the current Working Directory inside the container
@@ -31,5 +31,7 @@ EXPOSE 14626/tcp
 
 # Copy the Pre-built binary file from the previous stage
 COPY --from=build /go/bin/goshimmer .
+# Copy the docker config
+COPY docker.config.json config.json
 
 ENTRYPOINT ["./goshimmer"] 

@@ -1,7 +1,13 @@
 package database
 
 import (
-	"github.com/iotaledger/goshimmer/packages/parameter"
+	flag "github.com/spf13/pflag"
 )
 
-var DIRECTORY = parameter.AddString("DATABASE/DIRECTORY", "mainnetdb", "path to the database folder")
+const (
+	CFG_DIRECTORY = "database.directory"
+)
+
+func init() {
+	flag.String(CFG_DIRECTORY, "mainnetdb", "path to the database folder")
+}

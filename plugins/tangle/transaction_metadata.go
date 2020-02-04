@@ -1,19 +1,18 @@
 package tangle
 
 import (
-	"github.com/dgraph-io/badger"
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/datastructure"
-	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
-	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/typeutils"
+	"github.com/iotaledger/hive.go/lru_cache"
+	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
 // region public api ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-func GetTransactionMetadata(transactionHash trinary.Trytes, computeIfAbsent ...func(trinary.Trytes) *transactionmetadata.TransactionMetadata) (result *transactionmetadata.TransactionMetadata, err errors.IdentifiableError) {
+func GetTransactionMetadata(transactionHash trinary.Trytes, computeIfAbsent ...func(trinary.Trytes) *transactionmetadata.TransactionMetadata) (result *transactionmetadata.TransactionMetadata, err error) {
 	if cacheResult := transactionMetadataCache.ComputeIfAbsent(transactionHash, func() interface{} {
 		if transactionMetadata, dbErr := getTransactionMetadataFromDatabase(transactionHash); dbErr != nil {
 			err = dbErr
@@ -35,7 +34,7 @@ func GetTransactionMetadata(transactionHash trinary.Trytes, computeIfAbsent ...f
 	return
 }
 
-func ContainsTransactionMetadata(transactionHash trinary.Trytes) (result bool, err errors.IdentifiableError) {
+func ContainsTransactionMetadata(transactionHash trinary.Trytes) (result bool, err error) {
 	if transactionMetadataCache.Contains(transactionHash) {
 		result = true
 	} else {
@@ -53,22 +52,28 @@ func StoreTransactionMetadata(transactionMetadata *transactionmetadata.Transacti
 
 // region lru cache ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var transactionMetadataCache = datastructure.NewLRUCache(TRANSACTION_METADATA_CACHE_SIZE, &datastructure.LRUCacheOptions{
-	EvictionCallback: onEvictTransactionMetadata,
+var transactionMetadataCache = lru_cache.NewLRUCache(TRANSACTION_METADATA_CACHE_SIZE, &lru_cache.LRUCacheOptions{
+	EvictionCallback:  onEvictTransactionMetadatas,
+	EvictionBatchSize: 200,
 })
 
-func onEvictTransactionMetadata(_ interface{}, value interface{}) {
-	if evictedTransactionMetadata := value.(*transactionmetadata.TransactionMetadata); evictedTransactionMetadata.GetModified() {
-		go func(evictedTransactionMetadata *transactionmetadata.TransactionMetadata) {
-			if err := storeTransactionMetadataInDatabase(evictedTransactionMetadata); err != nil {
+func onEvictTransactionMetadatas(_ interface{}, values interface{}) {
+	// TODO: replace with apply
+	for _, obj := range values.([]interface{}) {
+		if txMetadata := obj.(*transactionmetadata.TransactionMetadata); txMetadata.GetModified() {
+			if err := storeTransactionMetadataInDatabase(txMetadata); err != nil {
 				panic(err)
 			}
-		}(evictedTransactionMetadata)
+		}
 	}
 }
 
+func FlushTransactionMetadata() {
+	transactionCache.DeleteAll()
+}
+
 const (
-	TRANSACTION_METADATA_CACHE_SIZE = 50000
+	TRANSACTION_METADATA_CACHE_SIZE = 500
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -77,21 +82,21 @@ const (
 
 var transactionMetadataDatabase database.Database
 
-func configureTransactionMetaDataDatabase(plugin *node.Plugin) {
-	if db, err := database.Get("transactionMetadata"); err != nil {
+func configureTransactionMetaDataDatabase() {
+	if db, err := database.Get(database.DBPrefixTransactionMetadata, database.GetBadgerInstance()); err != nil {
 		panic(err)
 	} else {
 		transactionMetadataDatabase = db
 	}
 }
 
-func storeTransactionMetadataInDatabase(metadata *transactionmetadata.TransactionMetadata) errors.IdentifiableError {
+func storeTransactionMetadataInDatabase(metadata *transactionmetadata.TransactionMetadata) error {
 	if metadata.GetModified() {
 		if marshaledMetadata, err := metadata.Marshal(); err != nil {
 			return err
 		} else {
-			if err := transactionMetadataDatabase.Set(typeutils.StringToBytes(metadata.GetHash()), marshaledMetadata); err != nil {
-				return ErrDatabaseError.Derive(err, "failed to store transaction metadata")
+			if err := transactionMetadataDatabase.Set(database.Entry{Key: typeutils.StringToBytes(metadata.GetHash()), Value: marshaledMetadata}); err != nil {
+				return fmt.Errorf("%w: failed to store transaction metadata: %s", ErrDatabaseError, err)
 			}
 
 			metadata.SetModified(false)
@@ -101,27 +106,26 @@ func storeTransactionMetadataInDatabase(metadata *transactionmetadata.Transactio
 	return nil
 }
 
-func getTransactionMetadataFromDatabase(transactionHash trinary.Trytes) (*transactionmetadata.TransactionMetadata, errors.IdentifiableError) {
+func getTransactionMetadataFromDatabase(transactionHash trinary.Trytes) (*transactionmetadata.TransactionMetadata, error) {
 	txMetadata, err := transactionMetadataDatabase.Get(typeutils.StringToBytes(transactionHash))
 	if err != nil {
-		if err == badger.ErrKeyNotFound {
+		if err == database.ErrKeyNotFound {
 			return nil, nil
-		} else {
-			return nil, ErrDatabaseError.Derive(err, "failed to retrieve transaction")
 		}
+		return nil, fmt.Errorf("%w: failed to retrieve transaction: %s", ErrDatabaseError, err)
 	}
 
 	var result transactionmetadata.TransactionMetadata
-	if err := result.Unmarshal(txMetadata); err != nil {
+	if err := result.Unmarshal(txMetadata.Value); err != nil {
 		panic(err)
 	}
 
 	return &result, nil
 }
 
-func databaseContainsTransactionMetadata(transactionHash trinary.Trytes) (bool, errors.IdentifiableError) {
+func databaseContainsTransactionMetadata(transactionHash trinary.Trytes) (bool, error) {
 	if contains, err := transactionMetadataDatabase.Contains(typeutils.StringToBytes(transactionHash)); err != nil {
-		return contains, ErrDatabaseError.Derive(err, "failed to check if the transaction metadata exists")
+		return contains, fmt.Errorf("%w: failed to check if the transaction metadata exists: %s", ErrDatabaseError, err)
 	} else {
 		return contains, nil
 	}

@@ -1,20 +1,19 @@
 package tangle
 
 import (
-	"github.com/dgraph-io/badger"
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/datastructure"
-	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
-	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/typeutils"
+	"github.com/iotaledger/hive.go/lru_cache"
+	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
 // region global public api ////////////////////////////////////////////////////////////////////////////////////////////
 
 // GetBundle retrieves bundle from the database.
-func GetBundle(headerTransactionHash trinary.Trytes, computeIfAbsent ...func(trinary.Trytes) (*bundle.Bundle, errors.IdentifiableError)) (result *bundle.Bundle, err errors.IdentifiableError) {
+func GetBundle(headerTransactionHash trinary.Trytes, computeIfAbsent ...func(trinary.Trytes) (*bundle.Bundle, error)) (result *bundle.Bundle, err error) {
 	if cacheResult := bundleCache.ComputeIfAbsent(headerTransactionHash, func() interface{} {
 		if dbBundle, dbErr := getBundleFromDatabase(headerTransactionHash); dbErr != nil {
 			err = dbErr
@@ -40,7 +39,7 @@ func GetBundle(headerTransactionHash trinary.Trytes, computeIfAbsent ...func(tri
 	return
 }
 
-func ContainsBundle(headerTransactionHash trinary.Trytes) (result bool, err errors.IdentifiableError) {
+func ContainsBundle(headerTransactionHash trinary.Trytes) (result bool, err error) {
 	if bundleCache.Contains(headerTransactionHash) {
 		result = true
 	} else {
@@ -56,22 +55,28 @@ func StoreBundle(bundle *bundle.Bundle) {
 
 // region lru cache ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var bundleCache = datastructure.NewLRUCache(BUNDLE_CACHE_SIZE, &datastructure.LRUCacheOptions{
-	EvictionCallback: onEvictBundle,
+var bundleCache = lru_cache.NewLRUCache(BUNDLE_CACHE_SIZE, &lru_cache.LRUCacheOptions{
+	EvictionCallback:  onEvictBundles,
+	EvictionBatchSize: 100,
 })
 
-func onEvictBundle(_ interface{}, value interface{}) {
-	if evictedBundle := value.(*bundle.Bundle); evictedBundle.GetModified() {
-		go func(evictedBundle *bundle.Bundle) {
-			if err := storeBundleInDatabase(evictedBundle); err != nil {
+func onEvictBundles(_ interface{}, values interface{}) {
+	// TODO: replace with apply
+	for _, obj := range values.([]interface{}) {
+		if bndl := obj.(*bundle.Bundle); bndl.GetModified() {
+			if err := storeBundleInDatabase(bndl); err != nil {
 				panic(err)
 			}
-		}(evictedBundle)
+		}
 	}
 }
 
+func FlushBundleCache() {
+	bundleCache.DeleteAll()
+}
+
 const (
-	BUNDLE_CACHE_SIZE = 50000
+	BUNDLE_CACHE_SIZE = 500
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -80,47 +85,46 @@ const (
 
 var bundleDatabase database.Database
 
-func configureBundleDatabase(plugin *node.Plugin) {
-	if db, err := database.Get("bundle"); err != nil {
+func configureBundleDatabase() {
+	if db, err := database.Get(database.DBPrefixBundle, database.GetBadgerInstance()); err != nil {
 		panic(err)
 	} else {
 		bundleDatabase = db
 	}
 }
 
-func storeBundleInDatabase(bundle *bundle.Bundle) errors.IdentifiableError {
+func storeBundleInDatabase(bundle *bundle.Bundle) error {
 	if bundle.GetModified() {
-		if err := bundleDatabase.Set(typeutils.StringToBytes(bundle.GetHash()), bundle.Marshal()); err != nil {
-			return ErrDatabaseError.Derive(err, "failed to store bundle")
+		if err := bundleDatabase.Set(database.Entry{Key: typeutils.StringToBytes(bundle.GetHash()), Value: bundle.Marshal()}); err != nil {
+			return fmt.Errorf("%w: failed to store bundle: %s", ErrDatabaseError, err)
 		}
-
 		bundle.SetModified(false)
 	}
 
 	return nil
 }
 
-func getBundleFromDatabase(transactionHash trinary.Trytes) (*bundle.Bundle, errors.IdentifiableError) {
+func getBundleFromDatabase(transactionHash trinary.Trytes) (*bundle.Bundle, error) {
 	bundleData, err := bundleDatabase.Get(typeutils.StringToBytes(transactionHash))
 	if err != nil {
-		if err == badger.ErrKeyNotFound {
+		if err == database.ErrKeyNotFound {
 			return nil, nil
 		}
 
-		return nil, ErrDatabaseError.Derive(err, "failed to retrieve bundle")
+		return nil, fmt.Errorf("%w: failed to retrieve bundle: %s", ErrDatabaseError, err)
 	}
 
 	var result bundle.Bundle
-	if err = result.Unmarshal(bundleData); err != nil {
+	if err = result.Unmarshal(bundleData.Value); err != nil {
 		panic(err)
 	}
 
 	return &result, nil
 }
 
-func databaseContainsBundle(transactionHash trinary.Trytes) (bool, errors.IdentifiableError) {
+func databaseContainsBundle(transactionHash trinary.Trytes) (bool, error) {
 	if contains, err := bundleDatabase.Contains(typeutils.StringToBytes(transactionHash)); err != nil {
-		return false, ErrDatabaseError.Derive(err, "failed to check if the bundle exists")
+		return false, fmt.Errorf("%w: failed to check if the bundle exists: %s", ErrDatabaseError, err)
 	} else {
 		return contains, nil
 	}

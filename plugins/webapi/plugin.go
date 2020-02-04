@@ -4,41 +4,46 @@ import (
 	"context"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
-	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/packages/parameter"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 )
 
 var PLUGIN = node.NewPlugin("WebAPI", node.Enabled, configure, run)
+var log *logger.Logger
 
 var Server = echo.New()
 
 func configure(plugin *node.Plugin) {
+	log = logger.NewLogger("WebAPI")
 	Server.HideBanner = true
 	Server.HidePort = true
 	Server.GET("/", IndexRequest)
+}
 
-	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		plugin.LogInfo("Stopping Web Server ...")
+func run(plugin *node.Plugin) {
+	log.Info("Starting Web Server ...")
 
+	daemon.BackgroundWorker("WebAPI Server", func(shutdownSignal <-chan struct{}) {
+		log.Info("Starting Web Server ... done")
+
+		go func() {
+			if err := Server.Start(parameter.NodeConfig.GetString(BIND_ADDRESS)); err != nil {
+				log.Info("Stopping Web Server ... done")
+			}
+		}()
+
+		<-shutdownSignal
+
+		log.Info("Stopping Web Server ...")
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
 		if err := Server.Shutdown(ctx); err != nil {
-			plugin.LogFailure(err.Error())
+			log.Errorf("Couldn't stop server cleanly: %s", err.Error())
 		}
-	}))
-}
-
-func run(plugin *node.Plugin) {
-	plugin.LogInfo("Starting Web Server ...")
-
-	daemon.BackgroundWorker("WebAPI Server", func() {
-		plugin.LogSuccess("Starting Web Server ... done")
-
-		if err := Server.Start(":8080"); err != nil {
-			plugin.LogSuccess("Stopping Web Server ... done")
-		}
-	})
+	}, shutdown.ShutdownPriorityWebAPI)
 }

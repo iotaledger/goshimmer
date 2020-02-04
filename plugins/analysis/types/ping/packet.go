@@ -1,12 +1,16 @@
 package ping
 
-import "github.com/pkg/errors"
+import "errors"
+
+var (
+	ErrMalformedPingPacket = errors.New("malformed ping packet")
+)
 
 type Packet struct{}
 
 func Unmarshal(data []byte) (*Packet, error) {
 	if len(data) < MARSHALED_TOTAL_SIZE || data[MARSHALED_PACKET_HEADER_START] != MARSHALED_PACKET_HEADER {
-		return nil, errors.New("malformed ping packet")
+		return nil, ErrMalformedPingPacket
 	}
 
 	unmarshaledPacket := &Packet{}

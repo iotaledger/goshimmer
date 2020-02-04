@@ -1,171 +1,114 @@
 package tangle
 
 import (
-	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/errors"
-	"github.com/iotaledger/goshimmer/packages/events"
+	"runtime"
+	"time"
+
+	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/model/approvers"
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/workerpool"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
 // region plugin module setup //////////////////////////////////////////////////////////////////////////////////////////
 
-var workerPool *workerpool.WorkerPool
+const UnsolidInterval = time.Minute
 
-func configureSolidifier(plugin *node.Plugin) {
+var (
+	workerCount  = runtime.NumCPU()
+	workerPool   *workerpool.WorkerPool
+	requestedTxs *UnsolidTxs
+
+	requester Requester
+)
+
+func SetRequester(req Requester) {
+	requester = req
+}
+
+func configureSolidifier() {
 	workerPool = workerpool.New(func(task workerpool.Task) {
-		processMetaTransaction(plugin, task.Param(0).(*meta_transaction.MetaTransaction))
+		processMetaTransaction(task.Param(0).(*meta_transaction.MetaTransaction))
 
 		task.Return(nil)
-	}, workerpool.WorkerCount(WORKER_COUNT), workerpool.QueueSize(10000))
+	}, workerpool.WorkerCount(workerCount), workerpool.QueueSize(10000))
 
-	gossip.Events.ReceiveTransaction.Attach(events.NewClosure(func(rawTransaction *meta_transaction.MetaTransaction) {
-		workerPool.Submit(rawTransaction)
-	}))
+	requestedTxs = NewUnsolidTxs()
 
-	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		plugin.LogInfo("Stopping Solidifier ...")
-
-		workerPool.Stop()
+	gossip.Events.TransactionReceived.Attach(events.NewClosure(func(ev *gossip.TransactionReceivedEvent) {
+		metaTx := meta_transaction.FromBytes(ev.Data)
+		if err := metaTx.Validate(); err != nil {
+			log.Warnf("invalid transaction: %s", err)
+			return
+		}
+		workerPool.Submit(metaTx)
 	}))
 }
 
-func runSolidifier(plugin *node.Plugin) {
-	plugin.LogInfo("Starting Solidifier ...")
+func runSolidifier() {
+	daemon.BackgroundWorker("Tangle Solidifier", func(shutdownSignal <-chan struct{}) {
+		log.Info("Starting Solidifier ...")
+		workerPool.Start()
+		log.Info("Starting Solidifier ... done")
 
-	daemon.BackgroundWorker("Tangle Solidifier", func() {
-		plugin.LogSuccess("Starting Solidifier ... done")
+		<-shutdownSignal
 
-		workerPool.Run()
+		log.Info("Stopping Solidifier ...")
+		workerPool.StopAndWait()
+		log.Info("Stopping Solidifier ... done")
+	}, shutdown.ShutdownPrioritySolidifier)
 
-		plugin.LogSuccess("Stopping Solidifier ... done")
-	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Checks and updates the solid flag of a single transaction.
-func checkSolidity(transaction *value_transaction.ValueTransaction) (result bool, err errors.IdentifiableError) {
-	// abort if transaction is solid already
-	txMetadata, metaDataErr := GetTransactionMetadata(transaction.GetHash(), transactionmetadata.New)
-	if metaDataErr != nil {
-		err = metaDataErr
+func processMetaTransaction(metaTransaction *meta_transaction.MetaTransaction) {
+	metaTransactionHash := metaTransaction.GetHash()
 
-		return
-	} else if txMetadata.GetSolid() {
-		result = true
-
-		return
-	}
-
-	// check solidity of branch transaction if it is not genesis
-	if branchTransactionHash := transaction.GetBranchTransactionHash(); branchTransactionHash != meta_transaction.BRANCH_NULL_HASH {
-		// abort if branch transaction is missing
-		if branchTransaction, branchErr := GetTransaction(branchTransactionHash); branchErr != nil {
-			err = branchErr
-
-			return
-		} else if branchTransaction == nil {
-			return
-		} else if branchTransactionMetadata, branchErr := GetTransactionMetadata(branchTransaction.GetHash(), transactionmetadata.New); branchErr != nil {
-			err = branchErr
-
-			return
-		} else if !branchTransactionMetadata.GetSolid() {
-			return
-		}
-	}
-
-	// check solidity of trunk transaction if it is not genesis
-	if trunkTransactionHash := transaction.GetTrunkTransactionHash(); trunkTransactionHash != meta_transaction.BRANCH_NULL_HASH {
-		if trunkTransaction, trunkErr := GetTransaction(trunkTransactionHash); trunkErr != nil {
-			err = trunkErr
-
-			return
-		} else if trunkTransaction == nil {
-			return
-		} else if trunkTransactionMetadata, trunkErr := GetTransactionMetadata(trunkTransaction.GetHash(), transactionmetadata.New); trunkErr != nil {
-			err = trunkErr
-
-			return
-		} else if !trunkTransactionMetadata.GetSolid() {
-			return
-		}
-	}
-
-	// mark transaction as solid and trigger event
-	if txMetadata.SetSolid(true) {
-		Events.TransactionSolid.Trigger(transaction)
-	}
-
-	result = true
-
-	return
-}
-
-// Checks and updates the solid flag of a transaction and its approvers (future cone).
-func IsSolid(transaction *value_transaction.ValueTransaction) (bool, errors.IdentifiableError) {
-	if isSolid, err := checkSolidity(transaction); err != nil {
-		return false, err
-	} else if isSolid {
-		if err := propagateSolidity(transaction.GetHash()); err != nil {
-			return false, err
-		}
-	}
-
-	return false, nil
-}
-
-func propagateSolidity(transactionHash trinary.Trytes) errors.IdentifiableError {
-	if transactionApprovers, err := GetApprovers(transactionHash, approvers.New); err != nil {
-		return err
-	} else {
-		for _, approverHash := range transactionApprovers.GetHashes() {
-			if approver, err := GetTransaction(approverHash); err != nil {
-				return err
-			} else if approver != nil {
-				if isSolid, err := checkSolidity(approver); err != nil {
-					return err
-				} else if isSolid {
-					if err := propagateSolidity(approver.GetHash()); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-func processMetaTransaction(plugin *node.Plugin, metaTransaction *meta_transaction.MetaTransaction) {
 	var newTransaction bool
-	if tx, err := GetTransaction(metaTransaction.GetHash(), func(transactionHash trinary.Trytes) *value_transaction.ValueTransaction {
+	tx, err := GetTransaction(metaTransactionHash, func(transactionHash trinary.Trytes) *value_transaction.ValueTransaction {
 		newTransaction = true
 
-		return value_transaction.FromMetaTransaction(metaTransaction)
-	}); err != nil {
-		plugin.LogFailure(err.Error())
-	} else if newTransaction {
-		processTransaction(plugin, tx)
+		tx := value_transaction.FromMetaTransaction(metaTransaction)
+		tx.SetModified(true)
+		return tx
+	})
+	if err != nil {
+		log.Errorf("Unable to process transaction %s: %s", metaTransactionHash, err.Error())
+		return
+	}
+	if newTransaction {
+		log.Debugw("process new transaction", "hash", tx.GetHash())
+		processNewTransaction(tx)
+		requestedTxs.Remove(tx.GetHash())
+		updateRequestedTxs()
 	}
 }
 
-func processTransaction(plugin *node.Plugin, transaction *value_transaction.ValueTransaction) {
+func processNewTransaction(transaction *value_transaction.ValueTransaction) {
 	Events.TransactionStored.Trigger(transaction)
+
+	// store transaction hash for address in DB
+	if err := StoreTransactionHashForAddressInDatabase(
+		&TxHashForAddress{
+			Address: transaction.GetAddress(),
+			TxHash:  transaction.GetHash(),
+		},
+	); err != nil {
+		log.Errorw(err.Error())
+	}
 
 	transactionHash := transaction.GetHash()
 
 	// register tx as approver for trunk
 	if trunkApprovers, err := GetApprovers(transaction.GetTrunkTransactionHash(), approvers.New); err != nil {
-		plugin.LogFailure(err.Error())
-
+		log.Errorf("Unable to get approvers of transaction %s: %s", transaction.GetTrunkTransactionHash(), err.Error())
 		return
 	} else {
 		trunkApprovers.Add(transactionHash)
@@ -173,19 +116,150 @@ func processTransaction(plugin *node.Plugin, transaction *value_transaction.Valu
 
 	// register tx as approver for branch
 	if branchApprovers, err := GetApprovers(transaction.GetBranchTransactionHash(), approvers.New); err != nil {
-		plugin.LogFailure(err.Error())
-
+		log.Errorf("Unable to get approvers of transaction %s: %s", transaction.GetBranchTransactionHash(), err.Error())
 		return
 	} else {
 		branchApprovers.Add(transactionHash)
 	}
 
-	// update the solidity flags of this transaction and its approvers
-	if _, err := IsSolid(transaction); err != nil {
-		plugin.LogFailure(err.Error())
-
-		return
+	isSolid, err := isSolid(transactionHash)
+	if err != nil {
+		log.Errorf("Unable to check solidity: %s", err.Error())
+	}
+	// if the transaction was solidified propagate this information
+	if isSolid {
+		if err := propagateSolidity(transaction.GetHash()); err != nil {
+			log.Errorf("Unable to propagate solidity: %s", err.Error())
+		}
 	}
 }
 
-const WORKER_COUNT = 5000
+// isSolid checks whether the transaction with the given hash is solid. A transaction is solid, if it is
+// either marked as solid or all its referenced transactions are in the database.
+func isSolid(hash trinary.Hash) (bool, error) {
+	// the genesis is always solid
+	if hash == meta_transaction.BRANCH_NULL_HASH {
+		return true, nil
+	}
+	// if the transaction is not in the DB, request it
+	transaction, err := GetTransaction(hash)
+	if err != nil {
+		return false, err
+	}
+	if transaction == nil {
+		if requestedTxs.Add(hash) {
+			requestTransaction(hash)
+		}
+		return false, nil
+	}
+
+	// check whether the transaction is marked solid
+	metadata, err := GetTransactionMetadata(hash, transactionmetadata.New)
+	if err != nil {
+		return false, err
+	}
+	if metadata.GetSolid() {
+		return true, nil
+	}
+
+	branch := contains(transaction.GetBranchTransactionHash())
+	trunk := contains(transaction.GetTrunkTransactionHash())
+
+	if !branch || !trunk {
+		return false, nil
+	}
+	// everything is good, mark the transaction as solid
+	return true, markSolid(transaction)
+}
+
+func contains(hash trinary.Hash) bool {
+	if hash == meta_transaction.BRANCH_NULL_HASH {
+		return true
+	}
+	if contains, _ := ContainsTransaction(hash); !contains {
+		if requestedTxs.Add(hash) {
+			requestTransaction(hash)
+		}
+		return false
+	}
+	return true
+}
+
+func isMarkedSolid(hash trinary.Hash) (bool, error) {
+	if hash == meta_transaction.BRANCH_NULL_HASH {
+		return true, nil
+	}
+	metadata, err := GetTransactionMetadata(hash, transactionmetadata.New)
+	if err != nil {
+		return false, err
+	}
+	return metadata.GetSolid(), nil
+}
+
+func markSolid(transaction *value_transaction.ValueTransaction) error {
+	txMetadata, err := GetTransactionMetadata(transaction.GetHash(), transactionmetadata.New)
+	if err != nil {
+		return err
+	}
+	if txMetadata.SetSolid(true) {
+		log.Debugw("transaction solidified", "hash", transaction.GetHash())
+		Events.TransactionSolid.Trigger(transaction)
+		return propagateSolidity(transaction.GetHash())
+	}
+	return nil
+}
+
+func propagateSolidity(transactionHash trinary.Trytes) error {
+	approvingTransactions, err := GetApprovers(transactionHash, approvers.New)
+	if err != nil {
+		return err
+	}
+	for _, hash := range approvingTransactions.GetHashes() {
+		approver, err := GetTransaction(hash)
+		if err != nil {
+			return err
+		}
+		if approver != nil {
+			branchSolid, err := isMarkedSolid(approver.GetBranchTransactionHash())
+			if err != nil {
+				return err
+			}
+			if !branchSolid {
+				continue
+			}
+			trunkSolid, err := isMarkedSolid(approver.GetTrunkTransactionHash())
+			if err != nil {
+				return err
+			}
+			if !trunkSolid {
+				continue
+			}
+
+			if err := markSolid(approver); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func updateRequestedTxs() {
+	targetTime := time.Now().Add(-UnsolidInterval)
+	txs := requestedTxs.Update(targetTime)
+	for _, txHash := range txs {
+		if contains, _ := ContainsTransaction(txHash); contains {
+			requestedTxs.Remove(txHash)
+			continue
+		}
+		requestTransaction(txHash)
+	}
+}
+
+func requestTransaction(hash trinary.Trytes) {
+	if requester == nil {
+		return
+	}
+
+	log.Debugw("Requesting tx", "hash", hash)
+	requester.RequestTransaction(hash)
+}

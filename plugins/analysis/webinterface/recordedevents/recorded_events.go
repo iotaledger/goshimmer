@@ -3,10 +3,10 @@ package recordedevents
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/events"
-	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface/types"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
 )
 
 var nodes = make(map[string]bool)
@@ -16,24 +16,26 @@ var lock sync.Mutex
 
 func Configure(plugin *node.Plugin) {
 	server.Events.AddNode.Attach(events.NewClosure(func(nodeId string) {
-		if _, exists := nodes[nodeId]; !exists {
-			lock.Lock()
-			defer lock.Unlock()
+		plugin.Node.Logger.Debugw("AddNode", "nodeID", nodeId)
+		lock.Lock()
+		defer lock.Unlock()
 
-			if _, exists := nodes[nodeId]; !exists {
-				nodes[nodeId] = false
-			}
+		if _, exists := nodes[nodeId]; !exists {
+			nodes[nodeId] = false
 		}
 	}))
 
 	server.Events.RemoveNode.Attach(events.NewClosure(func(nodeId string) {
+		plugin.Node.Logger.Debugw("RemoveNode", "nodeID", nodeId)
 		lock.Lock()
 		defer lock.Unlock()
 
 		delete(nodes, nodeId)
+		//nodes[nodeId] = false
 	}))
 
 	server.Events.NodeOnline.Attach(events.NewClosure(func(nodeId string) {
+		plugin.Node.Logger.Debugw("NodeOnline", "nodeID", nodeId)
 		lock.Lock()
 		defer lock.Unlock()
 
@@ -41,6 +43,7 @@ func Configure(plugin *node.Plugin) {
 	}))
 
 	server.Events.NodeOffline.Attach(events.NewClosure(func(nodeId string) {
+		plugin.Node.Logger.Debugw("NodeOffline", "nodeID", nodeId)
 		lock.Lock()
 		defer lock.Unlock()
 
@@ -48,6 +51,7 @@ func Configure(plugin *node.Plugin) {
 	}))
 
 	server.Events.ConnectNodes.Attach(events.NewClosure(func(sourceId string, targetId string) {
+		plugin.Node.Logger.Debugw("ConnectNodes", "sourceID", sourceId, "targetId", targetId)
 		lock.Lock()
 		defer lock.Unlock()
 
@@ -61,6 +65,7 @@ func Configure(plugin *node.Plugin) {
 	}))
 
 	server.Events.DisconnectNodes.Attach(events.NewClosure(func(sourceId string, targetId string) {
+		plugin.Node.Logger.Debugw("DisconnectNodes", "sourceID", sourceId, "targetId", targetId)
 		lock.Lock()
 		defer lock.Unlock()
 
@@ -72,6 +77,9 @@ func Configure(plugin *node.Plugin) {
 }
 
 func Replay(handlers *types.EventHandlers) {
+	lock.Lock()
+	defer lock.Unlock()
+
 	for nodeId, online := range nodes {
 		handlers.AddNode(nodeId)
 		if online {

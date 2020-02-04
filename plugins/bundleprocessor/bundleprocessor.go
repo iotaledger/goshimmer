@@ -2,13 +2,13 @@ package bundleprocessor
 
 import (
 	"fmt"
+	"runtime"
 
-	"github.com/iotaledger/goshimmer/packages/errors"
 	"github.com/iotaledger/goshimmer/packages/model/bundle"
 	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/workerpool"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
@@ -20,14 +20,14 @@ var workerPool = workerpool.New(func(task workerpool.Task) {
 	task.Return(nil)
 }, workerpool.WorkerCount(WORKER_COUNT), workerpool.QueueSize(2*WORKER_COUNT))
 
-const WORKER_COUNT = 10000
+var WORKER_COUNT = runtime.NumCPU()
 
-func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction) errors.IdentifiableError {
+func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction) error {
 	// only process the bundle if we didn't process it, yet
-	_, err := tangle.GetBundle(headTransaction.GetHash(), func(headTransactionHash trinary.Trytes) (*bundle.Bundle, errors.IdentifiableError) {
+	_, err := tangle.GetBundle(headTransaction.GetHash(), func(headTransactionHash trinary.Trytes) (*bundle.Bundle, error) {
 		// abort if bundle syntax is wrong
 		if !headTransaction.IsHead() {
-			return nil, ErrProcessBundleFailed.Derive(errors.New("invalid parameter"), "transaction needs to be head of bundle")
+			return nil, fmt.Errorf("%w: transaction needs to be the head of the bundle", ErrProcessBundleFailed)
 		}
 
 		// initialize event variables
@@ -42,17 +42,16 @@ func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction)
 				newBundle.SetTransactionHashes(mapTransactionsToTransactionHashes(bundleTransactions))
 
 				Events.InvalidBundle.Trigger(newBundle, bundleTransactions)
-
-				return nil, ErrProcessBundleFailed.Derive(errors.New("invalid bundle found"), "missing bundle tail")
+				return nil, fmt.Errorf("%w: missing bundle tail", ErrProcessBundleFailed)
 			}
 
 			// update bundle transactions
 			bundleTransactions = append(bundleTransactions, currentTransaction)
 
 			// retrieve & update metadata
-			currentTransactionMetadata, dbErr := tangle.GetTransactionMetadata(currentTransaction.GetHash(), transactionmetadata.New)
-			if dbErr != nil {
-				return nil, ErrProcessBundleFailed.Derive(dbErr, "failed to retrieve transaction metadata")
+			currentTransactionMetadata, err := tangle.GetTransactionMetadata(currentTransaction.GetHash(), transactionmetadata.New)
+			if err != nil {
+				return nil, fmt.Errorf("%w: failed to retrieve transaction metadata: %s", ErrProcessBundleFailed, err)
 			}
 			currentTransactionMetadata.SetBundleHeadHash(headTransactionHash)
 
@@ -78,10 +77,11 @@ func ProcessSolidBundleHead(headTransaction *value_transaction.ValueTransaction)
 
 			// try to iterate to next turn
 			if nextTransaction, err := tangle.GetTransaction(currentTransaction.GetTrunkTransactionHash()); err != nil {
-				return nil, ErrProcessBundleFailed.Derive(err, "failed to retrieve trunk while processing bundle")
+				return nil, fmt.Errorf("%w: failed to retrieve trunk while processing bundle: %s", ErrProcessBundleFailed, err)
 			} else if nextTransaction == nil {
-				fmt.Println(ErrProcessBundleFailed.Derive(errors.New("missing transaction "+currentTransaction.GetTrunkTransactionHash()), "failed to retrieve trunk while processing bundle"))
-				return nil, ErrProcessBundleFailed.Derive(err, "failed to retrieve trunk while processing bundle")
+				err := fmt.Errorf("%w: failed to retrieve trunk while processing bundle: missing trunk transaction %s\n", ErrProcessBundleFailed, currentTransaction.GetTrunkTransactionHash())
+				fmt.Println(err)
+				return nil, err
 			} else {
 				currentTransaction = nextTransaction
 			}

@@ -1,6 +1,10 @@
 package removenode
 
-import "github.com/pkg/errors"
+import "errors"
+
+var (
+	ErrMalformedRemovePacket = errors.New("malformed remove node packet")
+)
 
 type Packet struct {
 	NodeId []byte
@@ -8,7 +12,7 @@ type Packet struct {
 
 func Unmarshal(data []byte) (*Packet, error) {
 	if len(data) < MARSHALED_TOTAL_SIZE || data[0] != MARSHALED_PACKET_HEADER {
-		return nil, errors.New("malformed remove node packet")
+		return nil, ErrMalformedRemovePacket
 	}
 
 	unmarshaledPackage := &Packet{

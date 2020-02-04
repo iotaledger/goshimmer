@@ -1,6 +1,7 @@
 package meta_transaction
 
 import (
+	"github.com/iotaledger/iota.go/consts"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
@@ -12,6 +13,7 @@ const (
 	TAIL_OFFSET                    = HEAD_END
 	TRANSACTION_TYPE_OFFSET        = TAIL_END
 	DATA_OFFSET                    = TRANSACTION_TYPE_END
+	NONCE_OFFSET                   = DATA_END
 
 	SHARD_MARKER_SIZE            = 11
 	TRUNK_TRANSACTION_HASH_SIZE  = 243
@@ -20,6 +22,7 @@ const (
 	TAIL_SIZE                    = 1
 	TRANSACTION_TYPE_SIZE        = 8
 	DATA_SIZE                    = 6993
+	NONCE_SIZE                   = consts.NonceTrinarySize
 
 	SHARD_MARKER_END            = SHARD_MARKER_OFFSET + SHARD_MARKER_SIZE
 	TRUNK_TRANSACTION_HASH_END  = TRUNK_TRANSACTION_HASH_OFFSET + TRUNK_TRANSACTION_HASH_SIZE
@@ -28,8 +31,11 @@ const (
 	TAIL_END                    = TAIL_OFFSET + TAIL_SIZE
 	TRANSACTION_TYPE_END        = TRANSACTION_TYPE_OFFSET + TRANSACTION_TYPE_SIZE
 	DATA_END                    = DATA_OFFSET + DATA_SIZE
+	NONCE_END                   = NONCE_OFFSET + NONCE_SIZE
 
-	MARSHALED_TOTAL_SIZE = DATA_END
+	MARSHALED_TOTAL_SIZE = NONCE_END
 
 	BRANCH_NULL_HASH = trinary.Trytes("999999999999999999999999999999999999999999999999999999999999999999999999999999999")
+
+	MIN_WEIGHT_MAGNITUDE = 12
 )

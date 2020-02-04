@@ -16,8 +16,6 @@ type ValueTransaction struct {
 	valueMutex                    sync.RWMutex
 	timestamp                     *uint
 	timestampMutex                sync.RWMutex
-	nonce                         *trinary.Trytes
-	nonceMutex                    sync.RWMutex
 	signatureMessageFragment      *trinary.Trytes
 	signatureMessageFragmentMutex sync.RWMutex
 
@@ -42,11 +40,7 @@ func FromMetaTransaction(metaTransaction *meta_transaction.MetaTransaction) *Val
 }
 
 func FromBytes(bytes []byte) (result *ValueTransaction) {
-	trits, err := trinary.BytesToTrits(bytes)
-	if err != nil {
-		panic(err)
-	}
-
+	trits := trinary.MustBytesToTrits(bytes)
 	result = &ValueTransaction{
 		MetaTransaction: meta_transaction.FromTrits(trits[:meta_transaction.MARSHALED_TOTAL_SIZE]),
 	}
@@ -182,7 +176,7 @@ func (this *ValueTransaction) SetTimestamp(timestamp uint) bool {
 			this.timestamp = &timestamp
 
 			this.BlockHasher()
-			copy(this.trits[TIMESTAMP_OFFSET:TIMESTAMP_END], trinary.PadTrits(trinary.IntToTrits(int64(timestamp)), TIMESTAMP_SIZE)[:TIMESTAMP_SIZE])
+			copy(this.trits[TIMESTAMP_OFFSET:TIMESTAMP_END], trinary.MustPadTrits(trinary.IntToTrits(int64(timestamp)), TIMESTAMP_SIZE)[:TIMESTAMP_SIZE])
 			this.UnblockHasher()
 
 			this.SetModified(true)
@@ -213,53 +207,6 @@ func (this *ValueTransaction) GetBundleEssence(includeSignatureMessageFragment b
 	this.signatureMessageFragmentMutex.RUnlock()
 
 	return
-}
-
-// getter for the nonce (supports concurrency)
-func (this *ValueTransaction) GetNonce() (result trinary.Trytes) {
-	this.nonceMutex.RLock()
-	if this.nonce == nil {
-		this.nonceMutex.RUnlock()
-		this.nonceMutex.Lock()
-		defer this.nonceMutex.Unlock()
-		if this.nonce == nil {
-			nonce := trinary.MustTritsToTrytes(this.trits[NONCE_OFFSET:NONCE_END])
-
-			this.nonce = &nonce
-		}
-	} else {
-		defer this.nonceMutex.RUnlock()
-	}
-
-	result = *this.nonce
-
-	return
-}
-
-// setter for the nonce (supports concurrency)
-func (this *ValueTransaction) SetNonce(nonce trinary.Trytes) bool {
-	this.nonceMutex.RLock()
-	if this.nonce == nil || *this.nonce != nonce {
-		this.nonceMutex.RUnlock()
-		this.nonceMutex.Lock()
-		defer this.nonceMutex.Unlock()
-		if this.nonce == nil || *this.nonce != nonce {
-			this.nonce = &nonce
-
-			this.BlockHasher()
-			copy(this.trits[NONCE_OFFSET:NONCE_END], trinary.MustTrytesToTrits(nonce)[:NONCE_SIZE])
-			this.UnblockHasher()
-
-			this.SetModified(true)
-			this.ReHash()
-
-			return true
-		}
-	} else {
-		this.nonceMutex.RUnlock()
-	}
-
-	return false
 }
 
 // getter for the signatureMessageFragmetn (supports concurrency)

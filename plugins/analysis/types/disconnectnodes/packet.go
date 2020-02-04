@@ -1,6 +1,10 @@
 package disconnectnodes
 
-import "github.com/pkg/errors"
+import "errors"
+
+var (
+	ErrMalformedDisconnectNodesPacket = errors.New("malformed disconnect nodes packet")
+)
 
 type Packet struct {
 	SourceId []byte
@@ -9,7 +13,7 @@ type Packet struct {
 
 func Unmarshal(data []byte) (*Packet, error) {
 	if len(data) < MARSHALED_TOTAL_SIZE || data[0] != MARSHALED_PACKET_HEADER {
-		return nil, errors.New("malformed disconnect nodes packet")
+		return nil, ErrMalformedDisconnectNodesPacket
 	}
 
 	unmarshaledPackage := &Packet{

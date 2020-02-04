@@ -1,18 +1,16 @@
 package tangle
 
 import (
-	"github.com/iotaledger/goshimmer/packages/events"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/hive.go/events"
 )
 
-var Events = pluginEvents{
-	TransactionStored: events.NewEvent(transactionCaller),
-	TransactionSolid:  events.NewEvent(transactionCaller),
-}
-
-type pluginEvents struct {
+var Events = struct {
 	TransactionStored *events.Event
 	TransactionSolid  *events.Event
+}{
+	TransactionStored: events.NewEvent(transactionCaller),
+	TransactionSolid:  events.NewEvent(transactionCaller),
 }
 
 func transactionCaller(handler interface{}, params ...interface{}) {

@@ -3,19 +3,22 @@ package gracefulshutdown
 import (
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 )
 
 // maximum amount of time to wait for background processes to terminate. After that the process is killed.
 const WAIT_TO_KILL_TIME_IN_SECONDS = 10
 
+var log *logger.Logger
+
 var PLUGIN = node.NewPlugin("Graceful Shutdown", node.Enabled, func(plugin *node.Plugin) {
+	log = logger.NewLogger("Graceful Shutdown")
 	gracefulStop := make(chan os.Signal)
 
 	signal.Notify(gracefulStop, syscall.SIGTERM)
@@ -24,7 +27,7 @@ var PLUGIN = node.NewPlugin("Graceful Shutdown", node.Enabled, func(plugin *node
 	go func() {
 		<-gracefulStop
 
-		plugin.LogWarning("Received shutdown request - waiting (max " + strconv.Itoa(WAIT_TO_KILL_TIME_IN_SECONDS) + " seconds) to finish processing ...")
+		log.Warnf("Received shutdown request - waiting (max %d) to finish processing ...", WAIT_TO_KILL_TIME_IN_SECONDS)
 
 		go func() {
 			start := time.Now()
@@ -37,11 +40,9 @@ var PLUGIN = node.NewPlugin("Graceful Shutdown", node.Enabled, func(plugin *node
 					if len(runningBackgroundWorkers) >= 1 {
 						processList = "(" + strings.Join(runningBackgroundWorkers, ", ") + ") "
 					}
-
-					plugin.LogWarning("Received shutdown request - waiting (max " + strconv.Itoa(WAIT_TO_KILL_TIME_IN_SECONDS-int(secondsSinceStart)) + " seconds) to finish processing " + processList + "...")
+					log.Warnf("Received shutdown request - waiting (max %d seconds) to finish processing %s...", WAIT_TO_KILL_TIME_IN_SECONDS-int(secondsSinceStart), processList)
 				} else {
-					plugin.LogFailure("Background processes did not terminate in time! Forcing shutdown ...")
-
+					log.Error("Background processes did not terminate in time! Forcing shutdown ...")
 					os.Exit(1)
 				}
 			}

@@ -1,6 +1,10 @@
 package connectnodes
 
-import "github.com/pkg/errors"
+import "errors"
+
+var (
+	ErrMalformedConnectNodesPacket = errors.New("malformed connect nodes packet")
+)
 
 type Packet struct {
 	SourceId []byte
@@ -9,7 +13,7 @@ type Packet struct {
 
 func Unmarshal(data []byte) (*Packet, error) {
 	if len(data) < MARSHALED_TOTAL_SIZE || data[0] != MARSHALED_PACKET_HEADER {
-		return nil, errors.New("malformed connect nodes packet")
+		return nil, ErrMalformedConnectNodesPacket
 	}
 
 	unmarshaledPackage := &Packet{

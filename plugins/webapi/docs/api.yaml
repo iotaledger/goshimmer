@@ -1,0 +1,321 @@
+openapi: 3.0.0
+info:
+  title: GoShimmer API
+  description: "The GoShimmer API provides a simple and consistent way to get transactions from the Tangle, get a node's neighbors, or send new transactions.<br></br>This API accepts HTTP requests and responds with JSON data."
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: "transactions"
+  - name: "neighbors"
+
+paths:
+  /broadcastData:
+    post:
+      tags:
+        - transactions
+      summary: Creates a zero-value transaction and attaches it to the Tangle.
+      description: Creates a zero-value transaction that includes the given data in the `signatureMessageFragment` field and the given address in the `address` field.<br></br>This endpoint also does tip selection and proof of work before attaching the transaction to the Tangle.
+      requestBody:
+        required: true
+        description: Request object
+        content:
+          application/json:
+            schema:
+              required:
+               - address
+              type: object
+              properties:
+                address:
+                  type: string
+                  description: Address to add to the transaction's `address` field.
+                data:
+                  type: string
+                  description: Data to add to the transaction's `signatureMessageFragment` field.<br></br>The data must be no larger than 2187 bytes, and the address must contain only trytes and be either 81 trytes long or 90 trytes long, including a checksum.
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hash:
+                    type: string
+                    example: "99IJMBGYVUAYAFAZFGAIVCFWMXP9WTDPX9JDFJLFKNUBLGRRHBERVTTJUZPRRTKKKNMMVX9PYGBKA9999"
+                description: The transaction's hash on the Tangle.
+        400:
+          description: Error response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "invalid address"
+                description: The error message.
+  /findTransactionHashes:
+    post:
+      tags:
+        - transactions
+      summary: Gets any transaction hashes that were sent to the given addresses.
+      description: Searches the Tangle for transactions that contain the given addresses and returns an array of the transactions hashes that were found. The transaction hashes are returned in the same order as the given addresses. For example, if the node doesn't have any transaction hashes for a given address, the value at that index in the returned array is empty.
+      requestBody:
+        description: Request object
+        required: true
+        content:
+          application/json:
+            schema:
+              required:
+               - addresses
+              type: object
+              properties:
+                addresses:
+                  type: array
+                  items:
+                    type: string
+                  description: Addresses to search for in transactions.<br></br>Addresses must contain only trytes and be either 81 trytes long or 90 trytes long, including a checksum.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transactions:
+                    type: array
+                    items:
+                      type: array
+                      items:
+                        type: string
+  /getNeighbors:
+    get:
+      tags:
+        - neighbors
+      summary: Gets the node's chosen and accepted neighbors.
+      description: Returns the node's chosen and accepted neighbors. Optionally, you can pass the `known=1` query parameter to return all known peers.
+      parameters:
+        - in: query
+          name: known
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 1
+            default: 0
+          required: false
+          description: Returns all known peers when set to 1.
+
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chosen:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Peer'
+                  accepted:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Peer'
+                  known:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Peer'
+        '501':
+          description: Neighbor Selection/Discovery is not enabled
+
+  /getTransactionObjectsByHash:
+    post:
+      tags:
+        - transactions
+      summary: Gets transactions objects for the given transaction hashes
+      description: Searches the Tangle for transactions with the given hashes and returns their contents as objects. The transaction objects are returned in the same order as the given hashes. If any of the given hashes is not found, an error is returned.
+      requestBody:
+        description: Request object
+        required: true
+        content:
+          application/json:
+            schema:
+              required:
+               - hashes
+              type: object
+              properties:
+                hashes:
+                  type: array
+                  items:
+                    type: string
+                  description: Transaction hashes to search for in the Tangle. <br></br> Transaction hashes must contain only 81 trytes.
+
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Transaction'
+        '404':
+          description: Transaction(s) not found
+
+  /getTransactionTrytesByHash:
+    post:
+      tags:
+        - transactions
+      summary: Gets the transaction trytes of given transaction hashes.
+      description: Searches the Tangle for transactions with the given hashes and returns their contents in trytes. The transaction trytes are returned in the same order as the given hashes. If any of the given hashes is not found, an error is returned.
+      requestBody:
+        description: Request object
+        required: true
+        content:
+          application/json:
+            schema:
+              required:
+               - hashes
+              type: object
+              properties:
+                hashes:
+                  type: array
+                  items:
+                    type: string
+                  description: Transaction hashes to search for in the Tangle. <br></br> Transaction hashes must contain only 81 trytes.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trytes:
+                    type: array
+                    items:
+                      type: string
+        '404':
+          description: Transactions not found
+
+  /getTransactionsToApprove:
+    get:
+      tags:
+        - transactions
+      summary: Gets two tip transactions from the Tangle.
+      description: Runs the tip selection algorithm and returns two tip transactions hashes. <br></br>You can use these hashes in the branch and trunk transaction fields of a new transaction.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  branchTransaction:
+                    type: string
+                  trunkTransaction:
+                    type: string
+
+  /spammer:
+    get:
+      tags:
+        - transactions
+      summary: Sends spam transactions.
+      description: Sends zero-value transactions at the given rate per second.<br></br>You can start the spammer, using the `cmd=start` command and stop it, using the `cmd=stop` command. Optionally, a parameter `tps` can be provided (i.e., `tps=10`) to change the default rate (`tps=1`).
+      parameters:
+        - in: query
+          name: cmd
+          schema:
+            type: string
+            enum:
+              - start
+              - stop
+          required: true
+          description: Command to either `start` or `stop` spamming.
+        - in: query
+          name: tps
+          schema:
+            type: integer
+            minimum: 0
+            default: 1
+          required: false
+          description: Change the sending rate.
+
+      responses:
+        '200':
+          description: Successful Response
+        '404':
+          description: invalid command in request
+
+
+
+# Descriptions of common components
+components:
+  schemas:
+    Peer:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID of the peer node.
+          example: "V8LYtWWcPYYDTTXLeIEFjJEuWlsjDiI0+Pq"
+        publicKey:
+          type: string
+          description: Public key of the peer node.
+          example: "V8LYtWWcPYYDTTXLeIEFjJEuWlsjDiI0+Pq"
+        services:
+          type: array
+          description: Services that the peer node is running.
+          items:
+            $ref: '#/components/schemas/PeerService'
+
+    PeerService:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID of the service. Can be "peering", "gossip", or "fpc".
+          example: "peering"
+        address:
+          type: string
+          description: The IP address and port that the service is using.
+          example: "198.51.100.1:80"
+    Transaction:
+      type: object
+      properties:
+        hash:
+          type: string
+          description: Transaction hash.
+        weightMagnitude:
+          type: integer
+          description: The weight magnitude of the transaction hash.
+        trunkTransactionHash:
+          type: string
+          description: The transaction's trunk transaction hash.
+        branchTransactionHash:
+          type: string
+          description: The transaction's branch transaction hash.
+        head:
+          type: boolean
+          description: Whether this transaction is the head transaction in its bundle.
+        tail:
+          type: boolean
+          description: Whether this transaction is the tail transaction in its bundle.
+        nonce:
+          type: string
+          description: The transaction's nonce, which is used to validate the proof of work.
+        address:
+          type: string
+          description: The address of the transaction.
+        timestamp:
+          type: integer
+          description: The Unix epoch at which the transaction was created.
+        signatureMessageFragment:
+          type: string
+          description: The transaction's signature or message.

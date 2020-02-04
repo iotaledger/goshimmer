@@ -1,0 +1,67 @@
+{
+  "analysis": {
+    "client": {
+      "serverAddress": "ressims.iota.cafe:188"
+    },
+    "server": {
+      "port": 0
+    },
+    "httpServer": {
+      "bindAddress": "0.0.0.0:80"
+    }
+  },
+  "autopeering": {
+    "entryNodes": [
+      "V8LYtWWcPYYDTTXLeIEFjJEuWlsjDiI0+Pq/Cx9ai6g=@116.202.49.178:14626"
+    ],
+    "port": 14626
+  },
+  "dashboard": {
+    "bindAddress": "127.0.0.1:8081",
+    "dev": false,
+    "basic_auth": {
+      "enabled": false,
+      "username": "goshimmer",
+      "password": "goshimmer"
+    }
+  },
+  "database": {
+    "directory": "mainnetdb"
+  },
+  "gossip": {
+    "port": 14666
+  },
+  "graph": {
+    "bindAddress": "127.0.0.1:8082",
+    "domain": "",
+    "networkName": "GoShimmer",
+    "socketIOPath": "socket.io-client/dist/socket.io.js",
+    "webrootPath": "IOTAtangle/webroot"
+  },
+  "logger": {
+    "level": "info",
+    "disableCaller": false,
+    "disableStacktrace": false,
+    "encoding": "console",
+    "outputPaths": [
+      "goshimmer.log"
+    ],
+    "disableEvents": false
+  },
+  "network": {
+    "bindAddress": "0.0.0.0",
+    "externalAddress": "auto"
+  },
+  "node": {
+    "disablePlugins": [],
+    "enablePlugins": []
+  },
+  "webapi": {
+    "auth": {
+      "password": "goshimmer",
+      "privateKey": "",
+      "username": "goshimmer"
+    },
+    "bindAddress": "127.0.0.1:8080"
+  }
+}

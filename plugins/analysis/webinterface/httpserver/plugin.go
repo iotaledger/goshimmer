@@ -1,38 +1,86 @@
 package httpserver
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/daemon"
-	"github.com/iotaledger/goshimmer/packages/events"
-	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/gobuffalo/packr/v2"
+	"github.com/iotaledger/goshimmer/packages/parameter"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/labstack/echo"
 	"golang.org/x/net/context"
 	"golang.org/x/net/websocket"
 )
 
 var (
-	httpServer *http.Server
-	router     *http.ServeMux
+	log    *logger.Logger
+	engine *echo.Echo
 )
 
-func Configure(plugin *node.Plugin) {
-	router = http.NewServeMux()
-	httpServer = &http.Server{Addr: ":80", Handler: router}
+const name = "Analysis HTTP Server"
 
-	router.Handle("/datastream", websocket.Handler(dataStream))
-	router.HandleFunc("/", index)
+var assetsBox = packr.New("Assets", "./static")
 
-	daemon.Events.Shutdown.Attach(events.NewClosure(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 0*time.Second)
-		defer cancel()
+func Configure() {
+	log = logger.NewLogger(name)
 
-		httpServer.Shutdown(ctx)
-	}))
+	engine = echo.New()
+	engine.HideBanner = true
+
+	// we only need this special flag, because we always keep a packed box in the same directory
+	if parameter.NodeConfig.GetBool(CFG_DEV) {
+		engine.Static("/static", "./plugins/analysis/webinterface/httpserver/static")
+		engine.File("/", "./plugins/analysis/webinterface/httpserver/static/index.html")
+	} else {
+		engine.GET("/static/*", echo.WrapHandler(http.StripPrefix("/static", http.FileServer(assetsBox))))
+		engine.GET("/", index)
+	}
+
+	engine.GET("/datastream", echo.WrapHandler(websocket.Handler(dataStream)))
 }
 
-func Run(plugin *node.Plugin) {
-	daemon.BackgroundWorker("Analysis HTTP Server", func() {
-		httpServer.ListenAndServe()
-	})
+func Run() {
+	log.Infof("Starting %s ...", name)
+	if err := daemon.BackgroundWorker(name, start, shutdown.ShutdownPriorityAnalysis); err != nil {
+		log.Errorf("Error starting as daemon: %s", err)
+	}
+}
+
+func start(shutdownSignal <-chan struct{}) {
+	stopped := make(chan struct{})
+	bindAddr := parameter.NodeConfig.GetString(CFG_BIND_ADDRESS)
+	go func() {
+		log.Infof("Started %s: http://%s", name, bindAddr)
+		if err := engine.Start(bindAddr); err != nil {
+			if !errors.Is(err, http.ErrServerClosed) {
+				log.Errorf("Error serving: %s", err)
+			}
+			close(stopped)
+		}
+	}()
+
+	select {
+	case <-shutdownSignal:
+	case <-stopped:
+	}
+
+	log.Infof("Stopping %s ...", name)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	if err := engine.Shutdown(ctx); err != nil {
+		log.Errorf("Error stopping: %s", err)
+	}
+	log.Info("Stopping %s ... done", name)
+}
+
+func index(e echo.Context) error {
+	indexHTML, err := assetsBox.Find("index.html")
+	if err != nil {
+		return err
+	}
+	return e.HTMLBlob(http.StatusOK, indexHTML)
 }

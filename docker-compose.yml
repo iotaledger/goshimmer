@@ -3,6 +3,7 @@ version: "3"
 services:
 
   goshimmer:
+    network_mode: host
     image: iotaledger/goshimmer
     build:
       context: ./
@@ -15,4 +16,3 @@ services:
       - "14666:14666/tcp"
       - "14626:14626/udp"
       - "14626:14626/tcp"
-    command: "-node-disable-plugins statusscreen"

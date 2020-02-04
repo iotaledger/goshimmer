@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/iotaledger/goshimmer/packages/events"
+	"github.com/iotaledger/hive.go/events"
 )
 
 var Events = struct {

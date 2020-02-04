@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option go_package = "github.com/iotaledger/goshimmer/packages/gossip/transport/proto";
+
+package proto;
+
+message HandshakeRequest {
+  // protocol version number
+  uint32 version = 1;
+  // string form of the recipient address
+  string to = 2;
+  // unix time
+  int64 timestamp = 3;
+}
+
+message HandshakeResponse {
+  // hash of the ping packet
+  bytes req_hash = 1;
+}
