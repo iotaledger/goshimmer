@@ -44,6 +44,7 @@
     "disableStacktrace": false,
     "encoding": "console",
     "outputPaths": [
+      "stdout",
       "goshimmer.log"
     ],
     "disableEvents": false
