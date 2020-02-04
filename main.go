@@ -13,8 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/graph"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/spa"
-	"github.com/iotaledger/goshimmer/plugins/statusscreen"
-	statusscreen_tps "github.com/iotaledger/goshimmer/plugins/statusscreen-tps"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -45,9 +43,6 @@ func main() {
 			gracefulshutdown.PLUGIN,
 			tipselection.PLUGIN,
 			metrics.PLUGIN,
-
-			statusscreen.PLUGIN,
-			statusscreen_tps.PLUGIN,
 
 			webapi.PLUGIN,
 			webapi_auth.PLUGIN,
