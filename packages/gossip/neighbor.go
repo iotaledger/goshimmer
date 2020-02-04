@@ -19,7 +19,7 @@ var (
 )
 
 const (
-	neighborQueueSize = 1000
+	neighborQueueSize = 5000
 	maxNumReadErrors  = 10
 )
 
@@ -99,8 +99,9 @@ func (n *Neighbor) writeLoop() {
 				continue
 			}
 			if _, err := n.BufferedConnection.Write(msg); err != nil {
-				// ignore write errors
 				n.log.Warn("Write error", "err", err)
+				_ = n.BufferedConnection.Close()
+				return
 			}
 		case <-n.closing:
 			return
@@ -146,6 +147,8 @@ func (n *Neighbor) Write(b []byte) (int, error) {
 	select {
 	case n.queue <- b:
 		return l, nil
+	case <-n.closing:
+		return 0, nil
 	default:
 		return 0, ErrNeighborQueueFull
 	}
