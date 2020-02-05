@@ -47,7 +47,10 @@
       "stdout",
       "goshimmer.log"
     ],
-    "disableEvents": true
+    "disableEvents": true,
+    "remotelog": {
+      "serverAddress": "127.0.0.1:5213"
+    }
   },
   "network": {
     "bindAddress": "0.0.0.0",

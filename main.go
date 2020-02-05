@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/graph"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/goshimmer/plugins/remotelog"
 	"github.com/iotaledger/goshimmer/plugins/spa"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/goshimmer/plugins/tipselection"
@@ -35,6 +36,8 @@ func main() {
 	node.Run(
 		node.Plugins(
 			cli.PLUGIN,
+			remotelog.PLUGIN,
+
 			autopeering.PLUGIN,
 			gossip.PLUGIN,
 			tangle.PLUGIN,
