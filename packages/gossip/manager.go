@@ -106,15 +106,11 @@ func (m *Manager) AddInbound(p *peer.Peer) error {
 
 // NeighborRemoved disconnects the neighbor with the given ID.
 func (m *Manager) DropNeighbor(id peer.ID) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if _, ok := m.neighbors[id]; !ok {
-		return ErrNotANeighbor
+	n, err := m.removeNeighbor(id)
+	if err != nil {
+		return err
 	}
-	n := m.neighbors[id]
-	delete(m.neighbors, id)
-
-	err := n.Close()
+	err = n.Close()
 	Events.NeighborRemoved.Trigger(n.Peer)
 	return err
 }
@@ -213,6 +209,17 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 	Events.NeighborAdded.Trigger(n)
 
 	return nil
+}
+
+func (m *Manager) removeNeighbor(id peer.ID) (*Neighbor, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.neighbors[id]; !ok {
+		return nil, ErrNotANeighbor
+	}
+	n := m.neighbors[id]
+	delete(m.neighbors, id)
+	return n, nil
 }
 
 func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
