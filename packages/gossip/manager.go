@@ -78,6 +78,7 @@ func (m *Manager) AddOutbound(p *peer.Peer) error {
 	var srv *server.TCP
 	m.mu.RLock()
 	if m.srv == nil {
+		m.mu.RUnlock()
 		return ErrNotStarted
 	}
 	srv = m.srv
@@ -94,6 +95,7 @@ func (m *Manager) AddInbound(p *peer.Peer) error {
 	var srv *server.TCP
 	m.mu.RLock()
 	if m.srv == nil {
+		m.mu.RUnlock()
 		return ErrNotStarted
 	}
 	srv = m.srv
@@ -139,12 +141,11 @@ func (m *Manager) SendTransaction(txData []byte, to ...peer.ID) {
 
 func (m *Manager) GetAllNeighbors() []*Neighbor {
 	m.mu.RLock()
+	defer m.mu.RUnlock()
 	result := make([]*Neighbor, 0, len(m.neighbors))
 	for _, n := range m.neighbors {
 		result = append(result, n)
 	}
-	m.mu.RUnlock()
-
 	return result
 }
 
@@ -159,13 +160,12 @@ func (m *Manager) getNeighborsById(ids []peer.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
 
 	m.mu.RLock()
+	defer m.mu.RUnlock()
 	for _, id := range ids {
 		if n, ok := m.neighbors[id]; ok {
 			result = append(result, n)
 		}
 	}
-	m.mu.RUnlock()
-
 	return result
 }
 
