@@ -8,13 +8,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"net"
-	"time"
 )
 
 type LogMessage struct {
@@ -40,7 +41,7 @@ var (
 func configure(plugin *node.Plugin) {
 	log := logger.NewLogger(PLUGIN_NAME)
 
-	if parameter.NodeConfig.GetBool(CFG_DISABLE_EVENTS) != false {
+	if parameter.NodeConfig.GetBool(CFG_DISABLE_EVENTS) {
 		log.Warnf("%s in config.json needs to be false so that events can be captured!", CFG_DISABLE_EVENTS)
 		return
 	}
