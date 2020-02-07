@@ -17,7 +17,8 @@ type TransactionMetadata struct {
 	solid              bool
 	solidificationTime time.Time
 
-	solidMutex sync.RWMutex
+	solidMutex              sync.RWMutex
+	solidificationTimeMutex sync.RWMutex
 }
 
 func New(transactionId transaction.Id) *TransactionMetadata {
@@ -50,6 +51,11 @@ func (transactionMetadata *TransactionMetadata) SetSolid(solid bool) (modified b
 		transactionMetadata.solidMutex.Lock()
 		if transactionMetadata.solid != solid {
 			transactionMetadata.solid = solid
+			if solid {
+				transactionMetadata.solidificationTimeMutex.Lock()
+				transactionMetadata.solidificationTime = time.Now()
+				transactionMetadata.solidificationTimeMutex.Unlock()
+			}
 
 			transactionMetadata.SetModified()
 
@@ -62,6 +68,13 @@ func (transactionMetadata *TransactionMetadata) SetSolid(solid bool) (modified b
 	}
 
 	return
+}
+
+func (transactionMetadata *TransactionMetadata) GetSoldificationTime() time.Time {
+	transactionMetadata.solidificationTimeMutex.RLock()
+	defer transactionMetadata.solidificationTimeMutex.RUnlock()
+
+	return transactionMetadata.solidificationTime
 }
 
 func (transactionMetadata *TransactionMetadata) GetStorageKey() []byte {
