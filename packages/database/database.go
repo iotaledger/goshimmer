@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/dgraph-io/badger/v2"
+	"github.com/dgraph-io/badger/v2/options"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/hive.go/database"
 	"github.com/iotaledger/hive.go/logger"
@@ -55,6 +56,13 @@ func GetBadgerInstance() *badger.DB {
 		if runtime.GOOS == "windows" {
 			opts = opts.WithTruncate(true)
 		}
+
+		opts.CompactL0OnClose = false
+		opts.KeepL0InMemory = false
+		opts.VerifyValueChecksum = false
+		opts.ZSTDCompressionLevel = 1
+		opts.Compression = options.None
+		opts.MaxCacheSize = 50000000
 
 		db, err := database.CreateDB(dbDir, opts)
 		if err != nil {
