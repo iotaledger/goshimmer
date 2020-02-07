@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"runtime"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/parameter"
@@ -16,9 +17,10 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/workerpool"
 )
 
-type LogMessage struct {
+type logMessage struct {
 	NodeId    string    `json:"nodeId"`
 	Level     string    `json:"level"`
 	Name      string    `json:"name"`
@@ -29,7 +31,7 @@ type LogMessage struct {
 const (
 	CFG_SERVER_ADDRESS = "logger.remotelog.serverAddress"
 	CFG_DISABLE_EVENTS = "logger.disableEvents"
-	PLUGIN_NAME        = "remotelog"
+	PLUGIN_NAME        = "RemoteLog"
 )
 
 var (
@@ -42,13 +44,13 @@ func configure(plugin *node.Plugin) {
 	log := logger.NewLogger(PLUGIN_NAME)
 
 	if parameter.NodeConfig.GetBool(CFG_DISABLE_EVENTS) {
-		log.Warnf("%s in config.json needs to be false so that events can be captured!", CFG_DISABLE_EVENTS)
+		log.Fatalf("%s in config.json needs to be false so that events can be captured!", CFG_DISABLE_EVENTS)
 		return
 	}
 
 	c, err := net.Dial("udp", parameter.NodeConfig.GetString(CFG_SERVER_ADDRESS))
 	if err != nil {
-		log.Warnf("Could not create UDP socket to '%s'. %v", parameter.NodeConfig.GetString(CFG_SERVER_ADDRESS), err)
+		log.Fatalf("Could not create UDP socket to '%s'. %v", parameter.NodeConfig.GetString(CFG_SERVER_ADDRESS), err)
 		return
 	}
 	conn = c
@@ -57,13 +59,20 @@ func configure(plugin *node.Plugin) {
 		myID = hex.EncodeToString(local.GetInstance().ID().Bytes())
 	}
 
-	logger.Events.AnyMsg.Attach(events.NewClosure(sendLogMsg))
+	workerPool := workerpool.New(func(task workerpool.Task) {
+		sendLogMsg(task.Param(0).(logger.Level), task.Param(1).(string), task.Param(2).(string))
+
+		task.Return(nil)
+	}, workerpool.WorkerCount(runtime.NumCPU()), workerpool.QueueSize(1000))
+	workerPool.Start()
+
+	logger.Events.AnyMsg.Attach(events.NewClosure(func(level logger.Level, name string, msg string) {
+		workerPool.TrySubmit(level, name, msg)
+	}))
 }
 
 func sendLogMsg(level logger.Level, name string, msg string) {
-	go func() {
-		m := LogMessage{myID, level.CapitalString(), name, msg, time.Now()}
-		b, _ := json.Marshal(m)
-		fmt.Fprint(conn, string(b))
-	}()
+	m := logMessage{myID, level.CapitalString(), name, msg, time.Now()}
+	b, _ := json.Marshal(m)
+	fmt.Fprint(conn, string(b))
 }
