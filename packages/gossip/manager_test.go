@@ -310,7 +310,7 @@ func TestDropUnsuccessfulAccept(t *testing.T) {
 	_, closeB, peerB := newTestManager(t, "B")
 	defer closeB()
 
-	e.On("connectionFailed", peerB).Once()
+	e.On("connectionFailed", peerB, mock.Anything).Once()
 
 	err := mgrA.AddInbound(peerB)
 	assert.Error(t, err)
