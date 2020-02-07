@@ -21,6 +21,7 @@ testNodes/*
 
 # Database directory
 mainnetdb/
+objectsdb/
 
 # OSX related files
 .DS_Store
