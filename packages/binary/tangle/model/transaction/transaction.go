@@ -4,9 +4,10 @@ import (
 	"encoding/binary"
 	"sync"
 
+	"github.com/iotaledger/hive.go/stringify"
+
 	"github.com/iotaledger/goshimmer/packages/binary/identity"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
-	"github.com/iotaledger/goshimmer/packages/stringify"
 
 	"github.com/iotaledger/hive.go/objectstorage"
 
