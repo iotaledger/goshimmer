@@ -2,6 +2,7 @@ package shutdown
 
 const (
 	ShutdownPriorityTangle = iota
+	ShutdownPriorityRemoteLog
 	ShutdownPrioritySolidifier
 	ShutdownPriorityBundleProcessor
 	ShutdownPriorityAnalysis
@@ -13,5 +14,4 @@ const (
 	ShutdownPriorityTangleSpammer
 	ShutdownPrioritySPA
 	ShutdownPriorityBadgerGarbageCollection
-	ShutdownPriorityRemoteLog
 )
