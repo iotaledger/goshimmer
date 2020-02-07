@@ -44,9 +44,13 @@
     "disableStacktrace": false,
     "encoding": "console",
     "outputPaths": [
+      "stdout",
       "goshimmer.log"
     ],
-    "disableEvents": false
+    "disableEvents": true,
+    "remotelog": {
+      "serverAddress": "remotelog.goshimmer.iota.cafe:5213"
+    }
   },
   "network": {
     "bindAddress": "0.0.0.0",

@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -15,6 +16,11 @@ import (
 
 const (
 	maxPacketSize = 2048
+)
+
+var (
+	ErrNeighborManagerNotRunning = errors.New("neighbor manager is not running")
+	ErrNeighborAlreadyConnected  = errors.New("neighbor is already connected")
 )
 
 // GetTransaction defines a function that returns the transaction data with the given hash.
@@ -78,6 +84,7 @@ func (m *Manager) AddOutbound(p *peer.Peer) error {
 	var srv *server.TCP
 	m.mu.RLock()
 	if m.srv == nil {
+		m.mu.RUnlock()
 		return ErrNotStarted
 	}
 	srv = m.srv
@@ -94,6 +101,7 @@ func (m *Manager) AddInbound(p *peer.Peer) error {
 	var srv *server.TCP
 	m.mu.RLock()
 	if m.srv == nil {
+		m.mu.RUnlock()
 		return ErrNotStarted
 	}
 	srv = m.srv
@@ -104,15 +112,11 @@ func (m *Manager) AddInbound(p *peer.Peer) error {
 
 // NeighborRemoved disconnects the neighbor with the given ID.
 func (m *Manager) DropNeighbor(id peer.ID) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if _, ok := m.neighbors[id]; !ok {
-		return ErrNotANeighbor
+	n, err := m.removeNeighbor(id)
+	if err != nil {
+		return err
 	}
-	n := m.neighbors[id]
-	delete(m.neighbors, id)
-
-	err := n.Close()
+	err = n.Close()
 	Events.NeighborRemoved.Trigger(n.Peer)
 	return err
 }
@@ -139,12 +143,11 @@ func (m *Manager) SendTransaction(txData []byte, to ...peer.ID) {
 
 func (m *Manager) GetAllNeighbors() []*Neighbor {
 	m.mu.RLock()
+	defer m.mu.RUnlock()
 	result := make([]*Neighbor, 0, len(m.neighbors))
 	for _, n := range m.neighbors {
 		result = append(result, n)
 	}
-	m.mu.RUnlock()
-
 	return result
 }
 
@@ -159,13 +162,12 @@ func (m *Manager) getNeighborsById(ids []peer.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
 
 	m.mu.RLock()
+	defer m.mu.RUnlock()
 	for _, id := range ids {
 		if n, ok := m.neighbors[id]; ok {
 			result = append(result, n)
 		}
 	}
-	m.mu.RUnlock()
-
 	return result
 }
 
@@ -174,7 +176,7 @@ func (m *Manager) send(b []byte, to ...peer.ID) {
 
 	for _, nbr := range neighbors {
 		if _, err := nbr.Write(b); err != nil {
-			m.log.Warnw("send error", "err", err)
+			m.log.Warnw("send error", "err", err, "neighbor", nbr.Peer.Address())
 		}
 	}
 }
@@ -182,7 +184,7 @@ func (m *Manager) send(b []byte, to ...peer.ID) {
 func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (net.Conn, error)) error {
 	conn, err := connectorFunc(peer)
 	if err != nil {
-		Events.ConnectionFailed.Trigger(peer)
+		Events.ConnectionFailed.Trigger(peer, err)
 		return err
 	}
 
@@ -190,12 +192,12 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 	defer m.mu.Unlock()
 	if !m.running {
 		_ = conn.Close()
-		Events.ConnectionFailed.Trigger(peer)
+		Events.ConnectionFailed.Trigger(peer, ErrNeighborManagerNotRunning)
 		return ErrClosed
 	}
 	if _, ok := m.neighbors[peer.ID()]; ok {
 		_ = conn.Close()
-		Events.ConnectionFailed.Trigger(peer)
+		Events.ConnectionFailed.Trigger(peer, ErrNeighborAlreadyConnected)
 		return ErrDuplicateNeighbor
 	}
 
@@ -213,6 +215,17 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 	Events.NeighborAdded.Trigger(n)
 
 	return nil
+}
+
+func (m *Manager) removeNeighbor(id peer.ID) (*Neighbor, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.neighbors[id]; !ok {
+		return nil, ErrNotANeighbor
+	}
+	n := m.neighbors[id]
+	delete(m.neighbors, id)
+	return n, nil
 }
 
 func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {

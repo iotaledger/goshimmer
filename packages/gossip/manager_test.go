@@ -310,7 +310,7 @@ func TestDropUnsuccessfulAccept(t *testing.T) {
 	_, closeB, peerB := newTestManager(t, "B")
 	defer closeB()
 
-	e.On("connectionFailed", peerB).Once()
+	e.On("connectionFailed", peerB, mock.Anything).Once()
 
 	err := mgrA.AddInbound(peerB)
 	assert.Error(t, err)
@@ -432,7 +432,7 @@ type eventMock struct {
 	mock.Mock
 }
 
-func (e *eventMock) connectionFailed(p *peer.Peer)                    { e.Called(p) }
+func (e *eventMock) connectionFailed(p *peer.Peer, err error)         { e.Called(p, err) }
 func (e *eventMock) neighborAdded(n *Neighbor)                        { e.Called(n) }
 func (e *eventMock) neighborRemoved(p *peer.Peer)                     { e.Called(p) }
 func (e *eventMock) transactionReceived(ev *TransactionReceivedEvent) { e.Called(ev) }

@@ -1,3 +1,17 @@
+# v0.1.1 - 2020-02-07
+
+This release contains a series of fixes:
+* Adds logging of the underlying error when a neighbor connection couldn't be established
+* Adds the `RemoteLog` plugin (disabled per default) which sends log messages to a centralized logging service
+* Removes the status screen plugin in favor of the SPA/dashboard
+* Fixes the neighbor send queue being too small causing spam in the log
+* Fixes a deadlock which occurred when a neighbor disconnected while at the same time a `request transaction` 
+packet was getting processed which was received by the disconnected neighbor
+* Fixes memory consumption by disabling BadgerDB's compression
+* Fixes analysis server WebSocket replays freezing the backend code
+* Fixes sending on the neighbor send queue if the neighbor is disconnected
+* Fixes `BufferedConnection`'s read and written bytes to be atomic
+
 # v0.1.0 - 2020-01-31
 
 > Note that this release is a complete breaking change, therefore node operators are instructed to upgrade.

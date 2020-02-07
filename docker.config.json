@@ -28,9 +28,7 @@
     "DisableEvents": true
   },
   "node": {
-    "disablePlugins": [
-      "statusscreen"
-    ],
+    "disablePlugins": [],
     "enablePlugins": []
   }
 }

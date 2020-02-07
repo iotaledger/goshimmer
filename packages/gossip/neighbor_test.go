@@ -35,19 +35,6 @@ func TestNeighborCloseTwice(t *testing.T) {
 	require.NoError(t, n.Close())
 }
 
-func TestNeighborWriteToClosed(t *testing.T) {
-	a, _, teardown := newPipe()
-	defer teardown()
-
-	n := newTestNeighbor("A", a)
-	n.Listen()
-	require.NoError(t, n.Close())
-
-	assert.Panics(t, func() {
-		_, _ = n.Write(testData)
-	})
-}
-
 func TestNeighborWrite(t *testing.T) {
 	a, b, teardown := newPipe()
 	defer teardown()

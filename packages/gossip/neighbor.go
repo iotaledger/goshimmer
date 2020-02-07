@@ -19,7 +19,7 @@ var (
 )
 
 const (
-	neighborQueueSize = 1000
+	neighborQueueSize = 5000
 	maxNumReadErrors  = 10
 )
 
@@ -84,7 +84,6 @@ func (n *Neighbor) IsOutbound() bool {
 func (n *Neighbor) disconnect() (err error) {
 	n.disconnectOnce.Do(func() {
 		close(n.closing)
-		close(n.queue)
 		err = n.BufferedConnection.Close()
 	})
 	return
@@ -100,8 +99,9 @@ func (n *Neighbor) writeLoop() {
 				continue
 			}
 			if _, err := n.BufferedConnection.Write(msg); err != nil {
-				// ignore write errors
-				n.log.Warn("Write error", "err", err)
+				n.log.Warnw("Write error", "err", err)
+				_ = n.BufferedConnection.Close()
+				return
 			}
 		case <-n.closing:
 			return
@@ -140,13 +140,15 @@ func (n *Neighbor) readLoop() {
 func (n *Neighbor) Write(b []byte) (int, error) {
 	l := len(b)
 	if l > maxPacketSize {
-		n.log.Errorw("message too large", "len", l, "max", maxPacketSize)
+		n.log.Panicw("message too large", "len", l, "max", maxPacketSize)
 	}
 
 	// add to queue
 	select {
 	case n.queue <- b:
 		return l, nil
+	case <-n.closing:
+		return 0, nil
 	default:
 		return 0, ErrNeighborQueueFull
 	}
