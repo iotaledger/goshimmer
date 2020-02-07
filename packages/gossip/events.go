@@ -16,7 +16,7 @@ var Events = struct {
 	// A TransactionReceived event is triggered when a new transaction is received by the gossip protocol.
 	TransactionReceived *events.Event
 }{
-	ConnectionFailed:    events.NewEvent(peerCaller),
+	ConnectionFailed:    events.NewEvent(peerAndErrorCaller),
 	NeighborAdded:       events.NewEvent(neighborCaller),
 	NeighborRemoved:     events.NewEvent(peerCaller),
 	TransactionReceived: events.NewEvent(transactionReceived),
@@ -25,6 +25,10 @@ var Events = struct {
 type TransactionReceivedEvent struct {
 	Data []byte     // transaction data
 	Peer *peer.Peer // peer that send the transaction
+}
+
+func peerAndErrorCaller(handler interface{}, params ...interface{}) {
+	handler.(func(*peer.Peer, error))(params[0].(*peer.Peer), params[1].(error))
 }
 
 func peerCaller(handler interface{}, params ...interface{}) {

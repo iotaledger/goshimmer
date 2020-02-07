@@ -432,7 +432,7 @@ type eventMock struct {
 	mock.Mock
 }
 
-func (e *eventMock) connectionFailed(p *peer.Peer)                    { e.Called(p) }
+func (e *eventMock) connectionFailed(p *peer.Peer, err error)         { e.Called(p, err) }
 func (e *eventMock) neighborAdded(n *Neighbor)                        { e.Called(n) }
 func (e *eventMock) neighborRemoved(p *peer.Peer)                     { e.Called(p) }
 func (e *eventMock) transactionReceived(ev *TransactionReceivedEvent) { e.Called(ev) }

@@ -99,7 +99,7 @@ func (n *Neighbor) writeLoop() {
 				continue
 			}
 			if _, err := n.BufferedConnection.Write(msg); err != nil {
-				n.log.Warn("Write error", "err", err)
+				n.log.Warnw("Write error", "err", err)
 				_ = n.BufferedConnection.Close()
 				return
 			}
