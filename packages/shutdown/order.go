@@ -13,5 +13,5 @@ const (
 	ShutdownPriorityTangleSpammer
 	ShutdownPrioritySPA
 	ShutdownPriorityBadgerGarbageCollection
-	ShutdownPriorityStatusScreen
+	ShutdownPriorityRemoteLog
 )

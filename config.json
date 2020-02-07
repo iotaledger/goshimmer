@@ -49,7 +49,7 @@
     ],
     "disableEvents": true,
     "remotelog": {
-      "serverAddress": "35.246.104.243:5213"
+      "serverAddress": "remotelog.goshimmer.iota.cafe:5213"
     }
   },
   "network": {

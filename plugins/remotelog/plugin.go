@@ -13,7 +13,9 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/parameter"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -35,13 +37,15 @@ const (
 )
 
 var (
-	PLUGIN = node.NewPlugin(PLUGIN_NAME, node.Disabled, configure)
-	conn   net.Conn
-	myID   string
+	PLUGIN     = node.NewPlugin(PLUGIN_NAME, node.Disabled, configure, run)
+	log        *logger.Logger
+	conn       net.Conn
+	myID       string
+	workerPool *workerpool.WorkerPool
 )
 
 func configure(plugin *node.Plugin) {
-	log := logger.NewLogger(PLUGIN_NAME)
+	log = logger.NewLogger(PLUGIN_NAME)
 
 	if parameter.NodeConfig.GetBool(CFG_DISABLE_EVENTS) {
 		log.Fatalf("%s in config.json needs to be false so that events can be captured!", CFG_DISABLE_EVENTS)
@@ -59,16 +63,27 @@ func configure(plugin *node.Plugin) {
 		myID = hex.EncodeToString(local.GetInstance().ID().Bytes())
 	}
 
-	workerPool := workerpool.New(func(task workerpool.Task) {
+	workerPool = workerpool.New(func(task workerpool.Task) {
 		sendLogMsg(task.Param(0).(logger.Level), task.Param(1).(string), task.Param(2).(string))
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(runtime.NumCPU()), workerpool.QueueSize(1000))
-	workerPool.Start()
+}
 
-	logger.Events.AnyMsg.Attach(events.NewClosure(func(level logger.Level, name string, msg string) {
+func run(plugin *node.Plugin) {
+	logEvent := events.NewClosure(func(level logger.Level, name string, msg string) {
 		workerPool.TrySubmit(level, name, msg)
-	}))
+	})
+
+	daemon.BackgroundWorker(PLUGIN_NAME, func(shutdownSignal <-chan struct{}) {
+		logger.Events.AnyMsg.Attach(logEvent)
+		workerPool.Start()
+		<-shutdownSignal
+		log.Infof("Stopping %s ...", PLUGIN_NAME)
+		logger.Events.AnyMsg.Detach(logEvent)
+		workerPool.Stop()
+		log.Infof("Stopping %s ... done", PLUGIN_NAME)
+	}, shutdown.ShutdownPriorityRemoteLog)
 }
 
 func sendLogMsg(level logger.Level, name string, msg string) {
