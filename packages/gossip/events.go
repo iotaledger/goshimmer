@@ -1,7 +1,7 @@
 package gossip
 
 import (
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 )
 
