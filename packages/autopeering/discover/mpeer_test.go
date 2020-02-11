@@ -9,6 +9,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestWrapPeers(t *testing.T) {
+	m := make([]*mpeer, 5)
+	p := make([]*peer.Peer, 5)
+	for i := range m {
+		p[i] = peertest.NewPeer(testNetwork, fmt.Sprintf("%d", i))
+		m[i] = &mpeer{Peer: *p[i]}
+	}
+
+	wrapP := wrapPeers(p)
+	assert.Equal(t, m, wrapP, "wrapPeers")
+}
+
 func TestUnwrapPeers(t *testing.T) {
 	m := make([]*mpeer, 5)
 	p := make([]*peer.Peer, 5)

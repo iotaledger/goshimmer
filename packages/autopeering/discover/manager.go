@@ -33,6 +33,7 @@ type manager struct {
 	mutex        sync.Mutex // protects active and replacement
 	active       []*mpeer
 	replacements []*mpeer
+	masters      []*mpeer
 
 	net network
 	log *logger.Logger
@@ -45,6 +46,7 @@ func newManager(net network, masters []*peer.Peer, log *logger.Logger) *manager 
 	m := &manager{
 		active:       make([]*mpeer, 0, maxManaged),
 		replacements: make([]*mpeer, 0, maxReplacements),
+		masters:      wrapPeers(masters),
 		net:          net,
 		log:          log,
 		closing:      make(chan struct{}),
@@ -141,6 +143,15 @@ func (m *manager) doReverify(done chan<- struct{}) {
 	if m.net.Ping(unwrapPeer(p)) != nil {
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
+
+		// do not remove master peers
+		if containsPeer(m.masters, p.ID()) {
+			p.verifiedCount = 0
+			// move the master peer to the front of the peer list
+			copy(m.active[1:], m.active[:len(m.active)-1])
+			m.active[0] = p
+			return
+		}
 
 		m.active, _ = deletePeerByID(m.active, p.ID())
 		m.log.Debugw("remove dead",

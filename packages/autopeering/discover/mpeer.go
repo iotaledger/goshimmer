@@ -19,6 +19,14 @@ func wrapPeer(p *peer.Peer) *mpeer {
 	return &mpeer{Peer: *p}
 }
 
+func wrapPeers(ps []*peer.Peer) []*mpeer {
+	result := make([]*mpeer, len(ps))
+	for i, n := range ps {
+		result[i] = wrapPeer(n)
+	}
+	return result
+}
+
 func unwrapPeer(p *mpeer) *peer.Peer {
 	return &p.Peer
 }
