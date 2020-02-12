@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotaledger/goshimmer/packages/autopeering/server"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/server/proto"
+	"github.com/iotaledger/hive.go/autopeering/server"
 )
 
 const (
