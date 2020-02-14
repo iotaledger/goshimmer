@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/netutil/buffconn"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/logger"
+	"go.uber.org/atomic"
 )
 
 var (
@@ -19,18 +20,18 @@ var (
 )
 
 const (
-	neighborQueueSize     = 5000
-	maxNumReadErrors      = 10
-	maxNumSendQueueErrors = 1000
+	neighborQueueSize        = 5000
+	maxNumReadErrors         = 10
+	droppedMessagesThreshold = 1000
 )
 
 type Neighbor struct {
 	*peer.Peer
 	*buffconn.BufferedConnection
 
-	log               *logger.Logger
-	queue             chan []byte
-	numSendQueueError int
+	log             *logger.Logger
+	queue           chan []byte
+	messagesDropped atomic.Int32
 
 	wg             sync.WaitGroup
 	closing        chan struct{}
@@ -52,7 +53,7 @@ func NewNeighbor(peer *peer.Peer, conn net.Conn, log *logger.Logger) *Neighbor {
 
 	return &Neighbor{
 		Peer:               peer,
-		numSendQueueError:  0,
+		messagesDropped:    0,
 		BufferedConnection: buffconn.NewBufferedConnection(conn),
 		log:                log,
 		queue:              make(chan []byte, neighborQueueSize),
@@ -153,10 +154,10 @@ func (n *Neighbor) Write(b []byte) (int, error) {
 	case <-n.closing:
 		return 0, nil
 	default:
-		if n.numSendQueueError++; n.numSendQueueError >= maxNumSendQueueErrors {
-			n.numSendQueueError = 0
-			return -1, ErrNeighborQueueFull
+		if n.messagesDropped.Inc() >= droppedMessagesThreshold {
+			n.messagesDropped.Store(0)
+			return 0, ErrNeighborQueueFull
 		}
-		return 0, ErrNeighborQueueFull
+		return 0, nil
 	}
 }
