@@ -13,7 +13,7 @@ services:
         source: elasticsearch
         target: /usr/share/elasticsearch/data
     environment:
-      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+      ES_JAVA_OPTS: "-Xmx2g -Xms2g"
       # Use single node discovery in order to disable production mode and avoid bootstrap checks
       # see https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
       discovery.type: single-node
@@ -35,7 +35,7 @@ services:
     ports:
       - "5213:5213/udp"
     environment:
-      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+      LS_JAVA_OPTS: "-Xmx1g -Xms1g"
     networks:
       - elk
     depends_on:
