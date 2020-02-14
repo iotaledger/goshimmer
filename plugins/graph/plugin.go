@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/goshimmer/plugins/tangle_old"
 	"golang.org/x/net/context"
 
 	engineio "github.com/googollee/go-engine.io"
@@ -100,10 +100,10 @@ func run(*node.Plugin) {
 
 	daemon.BackgroundWorker("Graph[NewTxWorker]", func(shutdownSignal <-chan struct{}) {
 		log.Info("Starting Graph[NewTxWorker] ... done")
-		tangle.Events.TransactionStored.Attach(notifyNewTx)
+		tangle_old.Events.TransactionStored.Attach(notifyNewTx)
 		newTxWorkerPool.Start()
 		<-shutdownSignal
-		tangle.Events.TransactionStored.Detach(notifyNewTx)
+		tangle_old.Events.TransactionStored.Detach(notifyNewTx)
 		newTxWorkerPool.Stop()
 		log.Info("Stopping Graph[NewTxWorker] ... done")
 	}, shutdown.ShutdownPriorityGraph)

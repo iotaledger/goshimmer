@@ -3,7 +3,6 @@ package findTransactionHashes
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -24,24 +23,29 @@ func configure(plugin *node.Plugin) {
 // If a node doesn't have any transaction hash for a given address in its ledger,
 // the value at the index of that address is empty.
 func findTransactionHashes(c echo.Context) error {
-	var request Request
+	return c.JSON(http.StatusInternalServerError, Response{Error: "TODO: ADD LOGIC ACCORDING TO VALUE TANGLE"})
 
-	if err := c.Bind(&request); err != nil {
-		log.Info(err.Error())
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
-	}
-	log.Debug("Received:", request.Addresses)
-	result := make([][]trinary.Trytes, len(request.Addresses))
+	// TODO: ADD LOGIC ACCORDING TO VALUE TANGLE
+	/*
+		var request Request
 
-	for i, address := range request.Addresses {
-		txs, err := tangle.ReadTransactionHashesForAddressFromDatabase(address)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
+		if err := c.Bind(&request); err != nil {
+			log.Info(err.Error())
+			return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 		}
-		result[i] = append(result[i], txs...)
-	}
+		log.Debug("Received:", request.Addresses)
+		result := make([][]trinary.Trytes, len(request.Addresses))
 
-	return c.JSON(http.StatusOK, Response{Transactions: result})
+		for i, address := range request.Addresses {
+			txs, err := tangle_old.ReadTransactionHashesForAddressFromDatabase(address)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
+			}
+			result[i] = append(result[i], txs...)
+		}
+
+		return c.JSON(http.StatusOK, Response{Transactions: result})
+	*/
 }
 
 type Response struct {

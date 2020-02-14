@@ -6,17 +6,17 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/plugins/tangle"
+
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/cli"
-	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/typeutils"
-	"github.com/iotaledger/iota.go/trinary"
 )
 
 var (
@@ -105,24 +105,16 @@ func checkConnection(srv *server.TCP, self *peer.Peer) {
 	wg.Wait()
 }
 
-func getTransaction(hash []byte) ([]byte, error) {
-	tx, err := tangle.GetTransaction(typeutils.BytesToString(hash))
-	log.Debugw("get tx from db",
-		"hash", hash,
-		"tx", tx,
-		"err", err,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not get transaction: %w", err)
-	}
-	if tx == nil {
-		return nil, fmt.Errorf("transaction not found: hash=%s", hash)
-	}
-	return tx.GetBytes(), nil
-}
+func getTransaction(transactionId transaction.Id) (bytes []byte, err error) {
+	log.Debugw("get tx from db", "id", transactionId.String())
 
-func requestTransaction(hash trinary.Hash) {
-	mgr.RequestTransaction(typeutils.StringToBytes(hash))
+	if !tangle.Instance.GetTransaction(transactionId).Consume(func(transaction *transaction.Transaction) {
+		bytes = transaction.GetBytes()
+	}) {
+		err = fmt.Errorf("transaction not found: hash=%s", transactionId)
+	}
+
+	return
 }
 
 func GetAllNeighbors() []*gp.Neighbor {

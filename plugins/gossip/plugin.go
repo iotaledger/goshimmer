@@ -1,8 +1,9 @@
 package gossip
 
 import (
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -69,9 +70,22 @@ func configureEvents() {
 		log.Infof("Neighbor removed: %s / %s", gossip.GetAddress(p), p.ID())
 	}))
 
-	// gossip transactions on solidification
-	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
-		mgr.SendTransaction(tx.GetBytes())
+	// configure flow of incoming transactions
+	gossip.Events.TransactionReceived.Attach(events.NewClosure(func(event *gossip.TransactionReceivedEvent) {
+		tangle.TransactionParser.Parse(event.Data)
 	}))
-	tangle.SetRequester(tangle.RequesterFunc(requestTransaction))
+
+	// configure flow of outgoing transactions (gossip on solidification)
+	tangle.Instance.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, transactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+		transactionMetadata.Release()
+
+		cachedTransaction.Consume(func(transaction *transaction.Transaction) {
+			mgr.SendTransaction(transaction.GetBytes())
+		})
+	}))
+
+	// request missing transactions
+	tangle.TransactionRequester.Events.SendRequest.Attach(events.NewClosure(func(transactionId transaction.Id) {
+		mgr.RequestTransaction(transactionId[:])
+	}))
 }

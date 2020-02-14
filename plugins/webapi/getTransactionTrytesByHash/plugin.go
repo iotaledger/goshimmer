@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/goshimmer/plugins/tangle_old"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -35,7 +35,7 @@ func getTransactionTrytesByHash(c echo.Context) error {
 	log.Debug("Received:", request.Hashes)
 
 	for _, hash := range request.Hashes {
-		tx, err := tangle.GetTransaction(hash)
+		tx, err := tangle_old.GetTransaction(hash)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
 		}

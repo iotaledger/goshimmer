@@ -3,12 +3,11 @@ module github.com/iotaledger/goshimmer
 go 1.13
 
 require (
-	cloud.google.com/go v0.36.0 // indirect
 	github.com/dgraph-io/badger/v2 v2.0.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dgryski/go-farm v0.0.0-20191112170834-c2139c5d712b // indirect
 	github.com/gobuffalo/envy v1.8.1 // indirect
-	github.com/gobuffalo/logger v1.0.3 // indirect
+	github.com/gobuffalo/logger v1.0.3
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/golang/protobuf v1.3.2
 	github.com/googollee/go-engine.io v1.4.3-0.20190924125625-798118fc0dd2
@@ -37,12 +36,12 @@ require (
 	github.com/valyala/fasttemplate v1.1.0 // indirect
 	go.uber.org/atomic v1.5.1
 	go.uber.org/zap v1.13.0
+	golang.org/dl v0.0.0-20200212233958-09d79dcf4807 // indirect
 	golang.org/x/crypto v0.0.0-20200128174031-69ecbb4d6d5d
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
 	golang.org/x/sys v0.0.0-20200124204421-9fbb57f87de9 // indirect
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/tools v0.0.0-20200130002326-2f3ba24bd6e7 // indirect
-	google.golang.org/appengine v1.4.0 // indirect
 	gopkg.in/ini.v1 v1.51.1 // indirect
 	gopkg.in/yaml.v2 v2.2.7 // indirect
 )
