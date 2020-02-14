@@ -19,16 +19,18 @@ var (
 )
 
 const (
-	neighborQueueSize = 5000
-	maxNumReadErrors  = 10
+	neighborQueueSize     = 5000
+	maxNumReadErrors      = 10
+	maxNumSendQueueErrors = 1000
 )
 
 type Neighbor struct {
 	*peer.Peer
 	*buffconn.BufferedConnection
 
-	log   *logger.Logger
-	queue chan []byte
+	log               *logger.Logger
+	queue             chan []byte
+	numSendQueueError int
 
 	wg             sync.WaitGroup
 	closing        chan struct{}
@@ -50,6 +52,7 @@ func NewNeighbor(peer *peer.Peer, conn net.Conn, log *logger.Logger) *Neighbor {
 
 	return &Neighbor{
 		Peer:               peer,
+		numSendQueueError:  0,
 		BufferedConnection: buffconn.NewBufferedConnection(conn),
 		log:                log,
 		queue:              make(chan []byte, neighborQueueSize),
@@ -150,6 +153,10 @@ func (n *Neighbor) Write(b []byte) (int, error) {
 	case <-n.closing:
 		return 0, nil
 	default:
+		if n.numSendQueueError++; n.numSendQueueError >= maxNumSendQueueErrors {
+			n.numSendQueueError = 0
+			return -1, ErrNeighborQueueFull
+		}
 		return 0, ErrNeighborQueueFull
 	}
 }

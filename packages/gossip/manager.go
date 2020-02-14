@@ -175,8 +175,10 @@ func (m *Manager) send(b []byte, to ...peer.ID) {
 	neighbors := m.getNeighbors(to...)
 
 	for _, nbr := range neighbors {
-		if _, err := nbr.Write(b); err != nil {
-			m.log.Warnw("send error", "err", err, "neighbor", nbr.Peer.Address())
+		if l, err := nbr.Write(b); err != nil {
+			if l < 0 {
+				m.log.Warnw("send error", "err", err, "neighbor", nbr.Peer.Address())
+			}
 		}
 	}
 }
