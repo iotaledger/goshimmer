@@ -6,17 +6,17 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
-	"github.com/iotaledger/goshimmer/plugins/tangle"
-
-	gp "github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/gossip/server"
-	"github.com/iotaledger/goshimmer/packages/parameter"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
+
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	gp "github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/cli"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/tangle"
 )
 
 var (
@@ -34,7 +34,7 @@ func configureGossip() {
 	}
 
 	// announce the gossip service
-	gossipPort := strconv.Itoa(parameter.NodeConfig.GetInt(GOSSIP_PORT))
+	gossipPort := strconv.Itoa(config.NodeConfig.GetInt(GOSSIP_PORT))
 	err = lPeer.UpdateService(service.GossipKey, "tcp", net.JoinHostPort(external, gossipPort))
 	if err != nil {
 		log.Fatalf("could not update services: %s", err)
@@ -54,7 +54,7 @@ func start(shutdownSignal <-chan struct{}) {
 		panic(err)
 	}
 	// resolve the bind address
-	address := net.JoinHostPort(parameter.NodeConfig.GetString(local.CFG_BIND), gossipPort)
+	address := net.JoinHostPort(config.NodeConfig.GetString(local.CFG_BIND), gossipPort)
 	localAddr, err := net.ResolveTCPAddr(gossipAddr.Network(), address)
 	if err != nil {
 		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)

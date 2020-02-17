@@ -6,15 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/parameter"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/ping"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/removenode"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
@@ -23,6 +14,16 @@ import (
 	"github.com/iotaledger/hive.go/network"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
+	"github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
+	"github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
+	"github.com/iotaledger/goshimmer/plugins/analysis/types/ping"
+	"github.com/iotaledger/goshimmer/plugins/analysis/types/removenode"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 var log *logger.Logger
@@ -39,7 +40,7 @@ func Run(plugin *node.Plugin) {
 				return
 
 			default:
-				if conn, err := net.Dial("tcp", parameter.NodeConfig.GetString(CFG_SERVER_ADDRESS)); err != nil {
+				if conn, err := net.Dial("tcp", config.NodeConfig.GetString(CFG_SERVER_ADDRESS)); err != nil {
 					log.Debugf("Could not connect to reporting server: %s", err.Error())
 
 					timeutil.Sleep(1*time.Second, shutdownSignal)

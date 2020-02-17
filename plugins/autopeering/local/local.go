@@ -8,12 +8,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/netutil"
-	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
+
+	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/netutil"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 var (
@@ -25,7 +26,7 @@ func configureLocal() *peer.Local {
 	log := logger.NewLogger("Local")
 
 	var externalIP net.IP
-	if str := parameter.NodeConfig.GetString(CFG_EXTERNAL); strings.ToLower(str) == "auto" {
+	if str := config.NodeConfig.GetString(CFG_EXTERNAL); strings.ToLower(str) == "auto" {
 		log.Info("Querying external IP ...")
 		ip, err := netutil.GetPublicIP(false)
 		if err != nil {
@@ -43,7 +44,7 @@ func configureLocal() *peer.Local {
 		log.Fatalf("IP is not a global unicast address: %s", externalIP.String())
 	}
 
-	peeringPort := strconv.Itoa(parameter.NodeConfig.GetInt(CFG_PORT))
+	peeringPort := strconv.Itoa(config.NodeConfig.GetInt(CFG_PORT))
 
 	// announce the peering service
 	services := service.New()
@@ -55,7 +56,7 @@ func configureLocal() *peer.Local {
 
 	// set the private key from the seed provided in the config
 	var seed [][]byte
-	if str := parameter.NodeConfig.GetString(CFG_SEED); str != "" {
+	if str := config.NodeConfig.GetString(CFG_SEED); str != "" {
 		bytes, err := base64.StdEncoding.DecodeString(str)
 		if err != nil {
 			log.Fatalf("Invalid %s: %s", CFG_SEED, err)

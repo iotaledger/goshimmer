@@ -4,7 +4,9 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
+	"github.com/iotaledger/goshimmer/plugins/logger"
 
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 
@@ -16,12 +18,12 @@ import (
 )
 
 func main() {
-	cli.LoadConfig()
-
 	go http.ListenAndServe("localhost:6060", nil) // pprof Server for Debbuging Mutexes
 
 	node.Run(
 		node.Plugins(
+			config.PLUGIN,
+			logger.PLUGIN,
 			cli.PLUGIN,
 			remotelog.PLUGIN,
 

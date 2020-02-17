@@ -3,9 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
 )
@@ -24,7 +22,6 @@ func onAddPlugin(name string, status int) {
 }
 
 func init() {
-
 	for name, status := range node.GetPlugins() {
 		onAddPlugin(name, status)
 	}
@@ -32,26 +29,6 @@ func init() {
 	node.Events.AddPlugin.Attach(events.NewClosure(onAddPlugin))
 
 	flag.Usage = printUsage
-}
-
-func parseParameters() {
-	for _, pluginName := range parameter.NodeConfig.GetStringSlice(node.CFG_DISABLE_PLUGINS) {
-		node.DisabledPlugins[node.GetPluginIdentifier(pluginName)] = true
-	}
-	for _, pluginName := range parameter.NodeConfig.GetStringSlice(node.CFG_ENABLE_PLUGINS) {
-		node.EnabledPlugins[node.GetPluginIdentifier(pluginName)] = true
-	}
-}
-
-func LoadConfig() {
-	if err := parameter.FetchConfig(false); err != nil {
-		panic(err)
-	}
-	parseParameters()
-
-	if err := logger.InitGlobalLogger(parameter.NodeConfig); err != nil {
-		panic(err)
-	}
 }
 
 func configure(ctx *node.Plugin) {

@@ -12,14 +12,15 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/parameter"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 type logMessage struct {
@@ -47,14 +48,14 @@ var (
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PLUGIN_NAME)
 
-	if parameter.NodeConfig.GetBool(CFG_DISABLE_EVENTS) {
+	if config.NodeConfig.GetBool(CFG_DISABLE_EVENTS) {
 		log.Fatalf("%s in config.json needs to be false so that events can be captured!", CFG_DISABLE_EVENTS)
 		return
 	}
 
-	c, err := net.Dial("udp", parameter.NodeConfig.GetString(CFG_SERVER_ADDRESS))
+	c, err := net.Dial("udp", config.NodeConfig.GetString(CFG_SERVER_ADDRESS))
 	if err != nil {
-		log.Fatalf("Could not create UDP socket to '%s'. %v", parameter.NodeConfig.GetString(CFG_SERVER_ADDRESS), err)
+		log.Fatalf("Could not create UDP socket to '%s'. %v", config.NodeConfig.GetString(CFG_SERVER_ADDRESS), err)
 		return
 	}
 	conn = c

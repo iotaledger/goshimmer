@@ -8,7 +8,7 @@ import (
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/options"
-	"github.com/iotaledger/goshimmer/packages/parameter"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/database"
 	"github.com/iotaledger/hive.go/logger"
 )
@@ -34,7 +34,7 @@ func Get(dbPrefix byte, optionalBadger ...*badger.DB) (Database, error) {
 
 func GetBadgerInstance() *badger.DB {
 	once.Do(func() {
-		dbDir := parameter.NodeConfig.GetString(CFG_DIRECTORY)
+		dbDir := config.NodeConfig.GetString(CFG_DIRECTORY)
 
 		var dbDirClear bool
 		// check whether the database is new, by checking whether any file exists within

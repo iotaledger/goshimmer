@@ -7,16 +7,17 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/iotaledger/goshimmer/packages/parameter"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
+
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/cli"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
-	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/labstack/echo"
-	"github.com/labstack/echo/middleware"
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -80,10 +81,10 @@ func run(plugin *node.Plugin) {
 	e.HideBanner = true
 	e.Use(middleware.Recover())
 
-	if parameter.NodeConfig.GetBool(CFG_BASIC_AUTH_ENABLED) {
+	if config.NodeConfig.GetBool(CFG_BASIC_AUTH_ENABLED) {
 		e.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-			if username == parameter.NodeConfig.GetString(CFG_BASIC_AUTH_USERNAME) &&
-				password == parameter.NodeConfig.GetString(CFG_BASIC_AUTH_PASSWORD) {
+			if username == config.NodeConfig.GetString(CFG_BASIC_AUTH_USERNAME) &&
+				password == config.NodeConfig.GetString(CFG_BASIC_AUTH_PASSWORD) {
 				return true, nil
 			}
 			return false, nil
@@ -91,7 +92,7 @@ func run(plugin *node.Plugin) {
 	}
 
 	setupRoutes(e)
-	addr := parameter.NodeConfig.GetString(CFG_BIND_ADDRESS)
+	addr := config.NodeConfig.GetString(CFG_BIND_ADDRESS)
 
 	log.Infof("You can now access the dashboard using: http://%s", addr)
 	go e.Start(addr)

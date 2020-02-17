@@ -4,12 +4,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/parameter"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 var PLUGIN = node.NewPlugin("WebAPI", node.Enabled, configure, run)
@@ -31,7 +32,7 @@ func run(plugin *node.Plugin) {
 		log.Info("Starting Web Server ... done")
 
 		go func() {
-			if err := Server.Start(parameter.NodeConfig.GetString(BIND_ADDRESS)); err != nil {
+			if err := Server.Start(config.NodeConfig.GetString(BIND_ADDRESS)); err != nil {
 				log.Info("Stopping Web Server ... done")
 			}
 		}()
