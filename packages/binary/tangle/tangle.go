@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"time"
 
+	"github.com/dgraph-io/badger/v2"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
@@ -37,13 +38,13 @@ type Tangle struct {
 }
 
 // Constructor for the tangle.
-func New(storageId []byte) (result *Tangle) {
+func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 	result = &Tangle{
 		storageId:                  storageId,
-		transactionStorage:         objectstorage.New(append(storageId, storageprefix.TangleTransaction...), transaction.FromStorage),
-		transactionMetadataStorage: objectstorage.New(append(storageId, storageprefix.TangleTransactionMetadata...), transactionmetadata.FromStorage),
-		approverStorage:            objectstorage.New(append(storageId, storageprefix.TangleApprovers...), approver.FromStorage, objectstorage.PartitionKey(transaction.IdLength, transaction.IdLength)),
-		missingTransactionsStorage: objectstorage.New(append(storageId, storageprefix.TangleMissingTransaction...), missingtransaction.FromStorage),
+		transactionStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleTransaction...), transaction.FromStorage),
+		transactionMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleTransactionMetadata...), transactionmetadata.FromStorage),
+		approverStorage:            objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleApprovers...), approver.FromStorage, objectstorage.PartitionKey(transaction.IdLength, transaction.IdLength)),
+		missingTransactionsStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleMissingTransaction...), missingtransaction.FromStorage),
 
 		Events: *newEvents(),
 	}

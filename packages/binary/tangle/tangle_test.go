@@ -5,16 +5,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dgraph-io/badger/v2"
 	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/goshimmer/packages/binary/identity"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
+	"github.com/iotaledger/goshimmer/packages/database"
 )
 
+var testDatabase *badger.DB
+
+func init() {
+	testDatabase = database.GetBadgerInstance()
+}
+
 func BenchmarkTangle_AttachTransaction(b *testing.B) {
-	tangle := New([]byte("TEST_BINARY_TANGLE"))
+	tangle := New(testDatabase, []byte("TEST_BINARY_TANGLE"))
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
 
@@ -39,7 +47,7 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 }
 
 func TestTangle_AttachTransaction(t *testing.T) {
-	tangle := New([]byte("TEST_BINARY_TANGLE"))
+	tangle := New(testDatabase, []byte("TEST_BINARY_TANGLE"))
 	if err := tangle.Prune(); err != nil {
 		t.Error(err)
 

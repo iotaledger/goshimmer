@@ -125,6 +125,8 @@ github.com/inconshreveable/mousetrap v1.0.0 h1:Z8tu5sraLXCXIcARxBp/8cbvlwVa7Z1NH
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/iotaledger/hive.go v0.0.0-20200212114128-1460dba4a6b0 h1:AXUiVkx3QWQPzEIpmHJEAjMmZCzx8VKF342+vouRbic=
 github.com/iotaledger/hive.go v0.0.0-20200212114128-1460dba4a6b0/go.mod h1:wj3bFHlcX0NiEOWu5+WOg/MI/5N7PKCFnyaziaylB64=
+github.com/iotaledger/hive.go v0.0.0-20200217140357-8f1ea1f52085 h1:gkxkCRUlAszGx1qgN+QxnVI5VvX7bxH0/2hqz8l8lSo=
+github.com/iotaledger/hive.go v0.0.0-20200217140357-8f1ea1f52085/go.mod h1:wj3bFHlcX0NiEOWu5+WOg/MI/5N7PKCFnyaziaylB64=
 github.com/iotaledger/iota.go v1.0.0-beta.9/go.mod h1:F6WBmYd98mVjAmmPVYhnxg8NNIWCjjH8VWT9qvv3Rc8=
 github.com/iotaledger/iota.go v1.0.0-beta.14 h1:Oeb28MfBuJEeXcGrLhTCJFtbsnc8y1u7xidsAmiOD5A=
 github.com/iotaledger/iota.go v1.0.0-beta.14/go.mod h1:F6WBmYd98mVjAmmPVYhnxg8NNIWCjjH8VWT9qvv3Rc8=

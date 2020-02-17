@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/tipselector"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/transactionparser"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/transactionrequester"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -36,7 +37,7 @@ func configure(*node.Plugin) {
 	TransactionParser = transactionparser.New()
 	TransactionRequester = transactionrequester.New()
 	TipSelector = tipselector.New()
-	Instance = tangle.New(storageprefix.Mainnet)
+	Instance = tangle.New(database.GetBadgerInstance(), storageprefix.Mainnet)
 
 	// setup TransactionParser
 	TransactionParser.Events.TransactionParsed.Attach(events.NewClosure(func(transaction *transaction.Transaction) {
