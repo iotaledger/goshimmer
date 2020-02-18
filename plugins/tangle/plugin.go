@@ -1,7 +1,10 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/tipselector"
@@ -9,11 +12,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/transactionrequester"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-
-	"github.com/iotaledger/goshimmer/packages/binary/tangle"
-
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 )
@@ -56,6 +57,8 @@ func configure(*node.Plugin) {
 
 	// setup TipSelector
 	Instance.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+		fmt.Println(cachedTransaction.Unwrap())
+
 		cachedTransactionMetadata.Release()
 
 		cachedTransaction.Consume(TipSelector.AddTip)

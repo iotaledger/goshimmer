@@ -1,7 +1,7 @@
 package storageprefix
 
 var (
-	Mainnet = []byte{0}
+	Mainnet = []byte{88}
 
 	TangleTransaction         = []byte{1}
 	TangleTransactionMetadata = []byte{2}

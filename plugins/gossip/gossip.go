@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"sync"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
@@ -14,7 +13,6 @@ import (
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 )
@@ -84,25 +82,27 @@ func start(shutdownSignal <-chan struct{}) {
 }
 
 func checkConnection(srv *server.TCP, self *peer.Peer) {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		conn, err := srv.AcceptPeer(self)
+	/*
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			conn, err := srv.AcceptPeer(self)
+			if err != nil {
+				return
+			}
+			_ = conn.Close()
+		}()
+		conn, err := srv.DialPeer(self)
 		if err != nil {
-			return
+			log.Errorf("Error testing: %s", err)
+			addr := self.Services().Get(service.GossipKey)
+			log.Panicf("Please check that %s is publicly reachable at %s/%s",
+				cli.AppName, addr.String(), addr.Network())
 		}
 		_ = conn.Close()
-	}()
-	conn, err := srv.DialPeer(self)
-	if err != nil {
-		log.Errorf("Error testing: %s", err)
-		addr := self.Services().Get(service.GossipKey)
-		log.Panicf("Please check that %s is publicly reachable at %s/%s",
-			cli.AppName, addr.String(), addr.Network())
-	}
-	_ = conn.Close()
-	wg.Wait()
+		wg.Wait()
+	*/
 }
 
 func getTransaction(transactionId transaction.Id) (bytes []byte, err error) {

@@ -8,8 +8,8 @@ type CachedTransactionMetadata struct {
 	objectstorage.CachedObject
 }
 
-func (cachedObject *CachedTransactionMetadata) Retain() objectstorage.CachedObject {
-	return &CachedTransactionMetadata{cachedObject}
+func (cachedObject *CachedTransactionMetadata) Retain() *CachedTransactionMetadata {
+	return &CachedTransactionMetadata{cachedObject.CachedObject.Retain()}
 }
 
 func (cachedObject *CachedTransactionMetadata) Unwrap() *TransactionMetadata {

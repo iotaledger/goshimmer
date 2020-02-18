@@ -52,7 +52,7 @@ func parseParameters() {
 // It automatically reads in a single config file starting with "config" (can be changed via the --config CLI flag)
 // and ending with: .json, .toml, .yaml or .yml (in this sequence).
 func Fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
-	err := parameter.LoadConfigFile(NodeConfig, *configDirPath, *configName, true, false)
+	err := parameter.LoadConfigFile(NodeConfig, *configDirPath, *configName, true, true)
 	if err != nil {
 		return err
 	}

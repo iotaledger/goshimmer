@@ -24,8 +24,9 @@ type Spammer struct {
 
 func New(tangle *tangle.Tangle, tipSelector *tipselector.TipSelector) *Spammer {
 	return &Spammer{
-		tangle:      tangle,
-		tipSelector: tipSelector,
+		shutdownSignal: make(chan types.Empty),
+		tangle:         tangle,
+		tipSelector:    tipSelector,
 	}
 }
 
@@ -44,7 +45,7 @@ func (spammer *Spammer) Shutdown() {
 	spammer.startStopMutex.Lock()
 	defer spammer.startStopMutex.Unlock()
 
-	if !spammer.running {
+	if spammer.running {
 		spammer.running = false
 
 		spammer.shutdownSignal <- types.Void
