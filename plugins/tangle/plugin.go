@@ -63,7 +63,7 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
+	_ = daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 
 		TransactionParser.Shutdown()
