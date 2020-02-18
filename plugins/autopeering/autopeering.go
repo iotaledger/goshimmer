@@ -16,7 +16,9 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
+	"github.com/iotaledger/goshimmer/packages/netutil"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
@@ -159,19 +161,17 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 }
 
 func checkConnection(localAddr *net.UDPAddr, self *peer.Peer) {
-	/*
-		peering := self.Services().Get(service.PeeringKey)
-		remoteAddr, err := net.ResolveUDPAddr(peering.Network(), peering.String())
-		if err != nil {
-			panic(err)
-		}
+	peering := self.Services().Get(service.PeeringKey)
+	remoteAddr, err := net.ResolveUDPAddr(peering.Network(), peering.String())
+	if err != nil {
+		panic(err)
+	}
 
-		// do not check the address as a NAT may change them for local connections
-		err = netutil.CheckUDP(localAddr, remoteAddr, false, true)
-		if err != nil {
-			log.Errorf("Error testing service: %s", err)
-			log.Panicf("Please check that %s is publicly reachable at %s/%s",
-				cli.AppName, peering.String(), peering.Network())
-		}
-	*/
+	// do not check the address as a NAT may change them for local connections
+	err = netutil.CheckUDP(localAddr, remoteAddr, false, true)
+	if err != nil {
+		log.Errorf("Error testing service: %s", err)
+		log.Panicf("Please check that %s is publicly reachable at %s/%s",
+			cli.AppName, peering.String(), peering.Network())
+	}
 }

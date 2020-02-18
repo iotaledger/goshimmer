@@ -10,7 +10,7 @@ import (
 
 var transactionSpammer *spammer.Spammer
 
-var PLUGIN = node.NewPlugin("Spammer", node.Enabled, configure)
+var PLUGIN = node.NewPlugin("Spammer", node.Disabled, configure)
 
 func configure(plugin *node.Plugin) {
 	transactionSpammer = spammer.New(tangle.Instance, tangle.TipSelector)

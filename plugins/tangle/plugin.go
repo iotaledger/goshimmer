@@ -38,7 +38,7 @@ func configure(*node.Plugin) {
 	TransactionParser = transactionparser.New()
 	TransactionRequester = transactionrequester.New()
 	TipSelector = tipselector.New()
-	Instance = tangle.New(database.GetBadgerInstance(), storageprefix.Mainnet)
+	Instance = tangle.New(database.GetBadgerInstance(), storageprefix.MainNet)
 
 	// setup TransactionParser
 	TransactionParser.Events.TransactionParsed.Attach(events.NewClosure(func(transaction *transaction.Transaction) {
