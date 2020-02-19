@@ -18,7 +18,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/netutil"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/cli"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
@@ -172,6 +172,6 @@ func checkConnection(localAddr *net.UDPAddr, self *peer.Peer) {
 	if err != nil {
 		log.Errorf("Error testing service: %s", err)
 		log.Panicf("Please check that %s is publicly reachable at %s/%s",
-			cli.AppName, peering.String(), peering.Network())
+			banner.AppName, peering.String(), peering.Network())
 	}
 }

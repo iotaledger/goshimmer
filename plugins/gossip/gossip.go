@@ -14,7 +14,7 @@ import (
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/cli"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 )
@@ -99,7 +99,7 @@ func checkConnection(srv *server.TCP, self *peer.Peer) {
 		log.Errorf("Error testing: %s", err)
 		addr := self.Services().Get(service.GossipKey)
 		log.Panicf("Please check that %s is publicly reachable at %s/%s",
-			cli.AppName, addr.String(), addr.Network())
+			banner.AppName, addr.String(), addr.Network())
 	}
 	_ = conn.Close()
 	wg.Wait()

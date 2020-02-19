@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/plugins/analysis"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
@@ -27,6 +28,7 @@ func main() {
 
 	node.Run(
 		node.Plugins(
+			banner.PLUGIN,
 			config.PLUGIN,
 			logger.PLUGIN,
 			cli.PLUGIN,
