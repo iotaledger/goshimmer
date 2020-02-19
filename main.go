@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/logger"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/goshimmer/plugins/portcheck"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -37,6 +38,7 @@ func main() {
 			autopeering.PLUGIN,
 			tangle.PLUGIN,
 			gossip.PLUGIN,
+			portcheck.PLUGIN,
 			gracefulshutdown.PLUGIN,
 
 			analysis.PLUGIN,
