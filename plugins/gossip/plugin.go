@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
@@ -76,14 +77,13 @@ func configureEvents() {
 	}))
 
 	// configure flow of outgoing transactions (gossip on solidification)
-	/*
-		tangle.Instance.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, transactionMetadata *transactionmetadata.CachedTransactionMetadata) {
-			transactionMetadata.Release()
+	tangle.Instance.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, transactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+		transactionMetadata.Release()
 
-			cachedTransaction.Consume(func(transaction *transaction.Transaction) {
-				mgr.SendTransaction(transaction.GetBytes())
-			})
-		}))*/
+		cachedTransaction.Consume(func(transaction *transaction.Transaction) {
+			mgr.SendTransaction(transaction.GetBytes())
+		})
+	}))
 
 	// request missing transactions
 	tangle.TransactionRequester.Events.SendRequest.Attach(events.NewClosure(func(transactionId transaction.Id) {
