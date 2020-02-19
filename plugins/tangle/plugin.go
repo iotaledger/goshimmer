@@ -1,8 +1,6 @@
 package tangle
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
@@ -57,8 +55,6 @@ func configure(*node.Plugin) {
 
 	// setup TipSelector
 	Instance.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
-		fmt.Println(cachedTransaction.Unwrap())
-
 		cachedTransactionMetadata.Release()
 
 		cachedTransaction.Consume(TipSelector.AddTip)

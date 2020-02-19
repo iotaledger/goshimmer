@@ -1,9 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	_ "net/http/pprof"
 
+	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/plugins/analysis"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -15,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
+	"github.com/iotaledger/goshimmer/plugins/spa"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	webapi_gtta "github.com/iotaledger/goshimmer/plugins/webapi/gtta"
@@ -26,6 +31,13 @@ import (
 
 func main() {
 	go http.ListenAndServe("localhost:6060", nil) // pprof Server for Debbuging Mutexes
+
+	testTxId := transaction.NewId([]byte("Test"))
+
+	fmt.Println(len(base58.Encode(transaction.EmptyId[:])))
+	fmt.Println(base58.Encode(transaction.EmptyId[:]))
+	fmt.Println(len(base58.Encode(testTxId[:])))
+	fmt.Println(base58.Encode(testTxId[:]))
 
 	node.Run(
 		node.Plugins(
@@ -49,6 +61,8 @@ func main() {
 			webapi_gtta.PLUGIN,
 			webapi_spammer.PLUGIN,
 
+			spa.PLUGIN,
+
 			/*
 				webapi_broadcastData.PLUGIN,
 				webapi_getTransactionTrytesByHash.PLUGIN,
@@ -56,7 +70,6 @@ func main() {
 				webapi_findTransactionHashes.PLUGIN,
 				webapi_getNeighbors.PLUGIN,
 
-				//spa.PLUGIN,
 				//graph.PLUGIN,
 			*/
 		),

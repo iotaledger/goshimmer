@@ -57,12 +57,16 @@ func GetBadgerInstance() *badger.DB {
 			opts = opts.WithTruncate(true)
 		}
 
+		opts.SyncWrites = false
+		opts.TableLoadingMode = options.MemoryMap
+		opts.ValueLogLoadingMode = options.MemoryMap
 		opts.CompactL0OnClose = false
 		opts.KeepL0InMemory = false
 		opts.VerifyValueChecksum = false
 		opts.ZSTDCompressionLevel = 1
 		opts.Compression = options.None
 		opts.MaxCacheSize = 50000000
+		opts.EventLogging = false
 
 		db, err := database.CreateDB(dbDir, opts)
 		if err != nil {

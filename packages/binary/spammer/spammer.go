@@ -1,33 +1,65 @@
 package spammer
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/binary/identity"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/tipselector"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/transactionparser"
 )
 
 type Spammer struct {
-	tangle      *tangle.Tangle
-	tipSelector *tipselector.TipSelector
+	transactionParser *transactionparser.TransactionParser
+	tipSelector       *tipselector.TipSelector
 
 	running        bool
 	startStopMutex sync.Mutex
 	shutdownSignal chan types.Empty
 }
 
-func New(tangle *tangle.Tangle, tipSelector *tipselector.TipSelector) *Spammer {
+func New(transactionParser *transactionparser.TransactionParser, tipSelector *tipselector.TipSelector) *Spammer {
 	return &Spammer{
-		shutdownSignal: make(chan types.Empty),
-		tangle:         tangle,
-		tipSelector:    tipSelector,
+		shutdownSignal:    make(chan types.Empty),
+		transactionParser: transactionParser,
+		tipSelector:       tipSelector,
 	}
+}
+
+func (spammer *Spammer) Burst(transactions int) {
+	spammingIdentity := identity.Generate()
+
+	previousTransactionId := transaction.EmptyId
+
+	fmt.Println("STARTING TO GENERATE")
+
+	burstBuffer := make([][]byte, transactions)
+	for i := 0; i < transactions; i++ {
+		spamTransaction := transaction.New(previousTransactionId, previousTransactionId, spammingIdentity, data.New([]byte("SPAM")))
+		previousTransactionId = spamTransaction.GetId()
+		burstBuffer[i] = spamTransaction.GetBytes()
+
+		if i%1000 == 0 {
+			fmt.Println("GENERATED", i)
+		}
+	}
+
+	fmt.Println("STARTING TO SPAM")
+
+	for i := 0; i < transactions; i++ {
+		spammer.transactionParser.Parse(burstBuffer[i])
+
+		if i%1000 == 0 {
+			fmt.Println("SENT", i)
+		}
+	}
+
+	fmt.Println("SPAMMING DONE")
 }
 
 func (spammer *Spammer) Start(tps int) {
@@ -63,8 +95,8 @@ func (spammer *Spammer) run(tps int) {
 
 		default:
 			trunkTransactionId, branchTransactionId := spammer.tipSelector.GetTips()
-			spammer.tangle.AttachTransaction(
-				transaction.New(trunkTransactionId, branchTransactionId, identity.Generate(), data.New([]byte("SPAM"))),
+			spammer.transactionParser.Parse(
+				transaction.New(trunkTransactionId, branchTransactionId, identity.Generate(), data.New([]byte("SPAM"))).GetBytes(),
 			)
 
 			currentSentCounter++

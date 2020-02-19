@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/cli"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
@@ -33,7 +33,7 @@ var (
 	nodeStartAt = time.Now()
 
 	clientsMu    sync.Mutex
-	clients             = make(map[uint64]chan interface{}, 0)
+	clients             = make(map[uint64]chan interface{})
 	nextClientID uint64 = 0
 
 	wsSendWorkerCount     = 1
@@ -202,7 +202,7 @@ func currentNodeStatus() *nodestatus {
 	status.ID = local.GetInstance().ID().String()
 
 	// node status
-	status.Version = cli.AppVersion
+	status.Version = banner.AppVersion
 	status.Uptime = time.Since(nodeStartAt).Milliseconds()
 
 	// memory metrics
