@@ -37,6 +37,7 @@ func init() {
 // It automatically reads in a single config file starting with "config" (can be changed via the --config CLI flag)
 // and ending with: .json, .toml, .yaml or .yml (in this sequence).
 func FetchConfig(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
+	flag.Parse()
 	err := parameter.LoadConfigFile(NodeConfig, *configDirPath, *configName, true, false)
 	if err != nil {
 		return err
