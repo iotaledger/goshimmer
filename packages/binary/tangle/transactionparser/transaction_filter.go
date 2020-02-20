@@ -7,6 +7,6 @@ import (
 type TransactionFilter interface {
 	Filter(tx *transaction.Transaction)
 	OnAccept(callback func(tx *transaction.Transaction))
-	OnReject(callback func(tx *transaction.Transaction))
+	OnReject(callback func(tx *transaction.Transaction, err error))
 	Shutdown()
 }

@@ -28,13 +28,13 @@ func New() (result *TransactionParser) {
 
 		Events: transactionParserEvents{
 			BytesRejected: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func([]byte))(params[0].([]byte))
+				handler.(func([]byte, error))(params[0].([]byte), params[1].(error))
 			}),
 			TransactionParsed: events.NewEvent(func(handler interface{}, params ...interface{}) {
 				handler.(func(*transaction.Transaction))(params[0].(*transaction.Transaction))
 			}),
 			TransactionRejected: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func(*transaction.Transaction))(params[0].(*transaction.Transaction))
+				handler.(func(*transaction.Transaction, error))(params[0].(*transaction.Transaction), params[1].(error))
 			}),
 		},
 	}
@@ -99,7 +99,9 @@ func (transactionParser *TransactionParser) setupBytesFilterDataFlow() {
 			} else {
 				transactionParser.bytesFilters[i].OnAccept(transactionParser.bytesFilters[i+1].Filter)
 			}
-			transactionParser.bytesFilters[i].OnReject(func(bytes []byte) { transactionParser.Events.BytesRejected.Trigger(bytes) })
+			transactionParser.bytesFilters[i].OnReject(func(bytes []byte, err error) {
+				transactionParser.Events.BytesRejected.Trigger(bytes, err)
+			})
 		}
 	}
 	transactionParser.bytesFiltersMutex.Unlock()
@@ -117,11 +119,15 @@ func (transactionParser *TransactionParser) setupTransactionsFilterDataFlow() {
 		numberOfTransactionFilters := len(transactionParser.transactionFilters)
 		for i := 0; i < numberOfTransactionFilters; i++ {
 			if i == numberOfTransactionFilters-1 {
-				transactionParser.transactionFilters[i].OnAccept(func(tx *transaction.Transaction) { transactionParser.Events.TransactionParsed.Trigger(tx) })
+				transactionParser.transactionFilters[i].OnAccept(func(tx *transaction.Transaction) {
+					transactionParser.Events.TransactionParsed.Trigger(tx)
+				})
 			} else {
 				transactionParser.transactionFilters[i].OnAccept(transactionParser.transactionFilters[i+1].Filter)
 			}
-			transactionParser.transactionFilters[i].OnReject(func(tx *transaction.Transaction) { transactionParser.Events.TransactionRejected.Trigger(tx) })
+			transactionParser.transactionFilters[i].OnReject(func(tx *transaction.Transaction, err error) {
+				transactionParser.Events.TransactionRejected.Trigger(tx, err)
+			})
 		}
 	}
 	transactionParser.transactionFiltersMutex.Unlock()
@@ -129,8 +135,7 @@ func (transactionParser *TransactionParser) setupTransactionsFilterDataFlow() {
 
 func (transactionParser *TransactionParser) parseTransaction(bytes []byte) {
 	if parsedTransaction, err := transaction.FromBytes(bytes); err != nil {
-		// trigger parsingError
-		panic(err)
+		transactionParser.Events.BytesRejected.Trigger(bytes, err)
 	} else {
 		transactionParser.transactionFilters[0].Filter(parsedTransaction)
 	}

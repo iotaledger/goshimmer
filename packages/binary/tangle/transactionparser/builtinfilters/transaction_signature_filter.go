@@ -1,6 +1,7 @@
 package builtinfilters
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/async"
@@ -8,9 +9,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 )
 
+var ErrInvalidSignature = fmt.Errorf("invalid signature")
+
 type TransactionSignatureFilter struct {
 	onAcceptCallback func(tx *transaction.Transaction)
-	onRejectCallback func(tx *transaction.Transaction)
+	onRejectCallback func(tx *transaction.Transaction, err error)
 	workerPool       async.WorkerPool
 
 	onAcceptCallbackMutex sync.RWMutex
@@ -28,7 +31,7 @@ func (filter *TransactionSignatureFilter) Filter(tx *transaction.Transaction) {
 		if tx.VerifySignature() {
 			filter.getAcceptCallback()(tx)
 		} else {
-			filter.getRejectCallback()(tx)
+			filter.getRejectCallback()(tx, ErrInvalidSignature)
 		}
 	})
 }
@@ -39,7 +42,7 @@ func (filter *TransactionSignatureFilter) OnAccept(callback func(tx *transaction
 	filter.onAcceptCallbackMutex.Unlock()
 }
 
-func (filter *TransactionSignatureFilter) OnReject(callback func(tx *transaction.Transaction)) {
+func (filter *TransactionSignatureFilter) OnReject(callback func(tx *transaction.Transaction, err error)) {
 	filter.onRejectCallbackMutex.Lock()
 	filter.onRejectCallback = callback
 	filter.onRejectCallbackMutex.Unlock()
@@ -57,7 +60,7 @@ func (filter *TransactionSignatureFilter) getAcceptCallback() (result func(tx *t
 	return
 }
 
-func (filter *TransactionSignatureFilter) getRejectCallback() (result func(tx *transaction.Transaction)) {
+func (filter *TransactionSignatureFilter) getRejectCallback() (result func(tx *transaction.Transaction, err error)) {
 	filter.onRejectCallbackMutex.RLock()
 	result = filter.onRejectCallback
 	filter.onRejectCallbackMutex.RUnlock()

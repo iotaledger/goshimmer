@@ -1,7 +1,6 @@
 package spammer
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -31,37 +30,6 @@ func New(transactionParser *transactionparser.TransactionParser, tipSelector *ti
 	}
 }
 
-func (spammer *Spammer) Burst(transactions int) {
-	spammingIdentity := identity.Generate()
-
-	previousTransactionId := transaction.EmptyId
-
-	fmt.Println("STARTING TO GENERATE")
-
-	burstBuffer := make([][]byte, transactions)
-	for i := 0; i < transactions; i++ {
-		spamTransaction := transaction.New(previousTransactionId, previousTransactionId, spammingIdentity, data.New([]byte("SPAM")))
-		previousTransactionId = spamTransaction.GetId()
-		burstBuffer[i] = spamTransaction.GetBytes()
-
-		if i%1000 == 0 {
-			fmt.Println("GENERATED", i)
-		}
-	}
-
-	fmt.Println("STARTING TO SPAM")
-
-	for i := 0; i < transactions; i++ {
-		spammer.transactionParser.Parse(burstBuffer[i])
-
-		if i%1000 == 0 {
-			fmt.Println("SENT", i)
-		}
-	}
-
-	fmt.Println("SPAMMING DONE")
-}
-
 func (spammer *Spammer) Start(tps int) {
 	spammer.startStopMutex.Lock()
 	defer spammer.startStopMutex.Unlock()
@@ -70,6 +38,17 @@ func (spammer *Spammer) Start(tps int) {
 		spammer.running = true
 
 		go spammer.run(tps)
+	}
+}
+
+func (spammer *Spammer) Burst(transactions int) {
+	spammer.startStopMutex.Lock()
+	defer spammer.startStopMutex.Unlock()
+
+	if !spammer.running {
+		spammer.running = true
+
+		go spammer.sendBurst(transactions)
 	}
 }
 
@@ -89,6 +68,7 @@ func (spammer *Spammer) run(tps int) {
 	start := time.Now()
 
 	for {
+
 		select {
 		case <-spammer.shutdownSignal:
 			return
@@ -111,6 +91,35 @@ func (spammer *Spammer) run(tps int) {
 				start = time.Now()
 				currentSentCounter = 0
 			}
+		}
+	}
+}
+
+func (spammer *Spammer) sendBurst(transactions int) {
+	spammingIdentity := identity.Generate()
+
+	previousTransactionId := transaction.EmptyId
+
+	burstBuffer := make([][]byte, transactions)
+	for i := 0; i < transactions; i++ {
+		select {
+		case <-spammer.shutdownSignal:
+			return
+
+		default:
+			spamTransaction := transaction.New(previousTransactionId, previousTransactionId, spammingIdentity, data.New([]byte("SPAM")))
+			previousTransactionId = spamTransaction.GetId()
+			burstBuffer[i] = spamTransaction.GetBytes()
+		}
+	}
+
+	for i := 0; i < transactions; i++ {
+		select {
+		case <-spammer.shutdownSignal:
+			return
+
+		default:
+			spammer.transactionParser.Parse(burstBuffer[i])
 		}
 	}
 }

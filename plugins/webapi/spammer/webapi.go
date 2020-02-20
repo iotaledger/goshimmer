@@ -27,6 +27,7 @@ func handleRequest(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, Response{Error: "burst requires the tps to be set"})
 		}
 
+		transactionSpammer.Shutdown()
 		transactionSpammer.Burst(request.Tps)
 
 		return c.JSON(http.StatusOK, Response{Message: "sent a burst of " + strconv.Itoa(request.Tps) + " transactions"})
