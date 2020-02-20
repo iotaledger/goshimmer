@@ -55,7 +55,6 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-
 	notifyStatus := events.NewClosure(func(tps uint64) {
 		wsSendWorkerPool.TrySubmit(tps)
 	})

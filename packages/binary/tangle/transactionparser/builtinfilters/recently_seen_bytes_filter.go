@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/async"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/bytesfilter"
 )
 
@@ -12,7 +13,7 @@ var ErrReceivedDuplicateBytes = fmt.Errorf("received duplicate bytes")
 
 type RecentlySeenBytesFilter struct {
 	bytesFilter      *bytesfilter.BytesFilter
-	onAcceptCallback func(bytes []byte)
+	onAcceptCallback func(bytes []byte, peer *peer.Peer)
 	onRejectCallback func(bytes []byte, err error)
 	workerPool       async.WorkerPool
 
@@ -28,17 +29,17 @@ func NewRecentlySeenBytesFilter() (result *RecentlySeenBytesFilter) {
 	return
 }
 
-func (filter *RecentlySeenBytesFilter) Filter(bytes []byte) {
+func (filter *RecentlySeenBytesFilter) Filter(bytes []byte, peer *peer.Peer) {
 	filter.workerPool.Submit(func() {
 		if filter.bytesFilter.Add(bytes) {
-			filter.getAcceptCallback()(bytes)
+			filter.getAcceptCallback()(bytes, peer)
 		} else {
 			filter.getRejectCallback()(bytes, ErrReceivedDuplicateBytes)
 		}
 	})
 }
 
-func (filter *RecentlySeenBytesFilter) OnAccept(callback func(bytes []byte)) {
+func (filter *RecentlySeenBytesFilter) OnAccept(callback func(bytes []byte, peer *peer.Peer)) {
 	filter.onAcceptCallbackMutex.Lock()
 	filter.onAcceptCallback = callback
 	filter.onAcceptCallbackMutex.Unlock()
@@ -50,7 +51,7 @@ func (filter *RecentlySeenBytesFilter) OnReject(callback func(bytes []byte, err 
 	filter.onRejectCallbackMutex.Unlock()
 }
 
-func (filter *RecentlySeenBytesFilter) getAcceptCallback() (result func(bytes []byte)) {
+func (filter *RecentlySeenBytesFilter) getAcceptCallback() (result func(bytes []byte, peer *peer.Peer)) {
 	filter.onAcceptCallbackMutex.Lock()
 	result = filter.onAcceptCallback
 	filter.onAcceptCallbackMutex.Unlock()

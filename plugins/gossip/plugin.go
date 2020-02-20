@@ -73,7 +73,7 @@ func configureEvents() {
 
 	// configure flow of incoming transactions
 	gossip.Events.TransactionReceived.Attach(events.NewClosure(func(event *gossip.TransactionReceivedEvent) {
-		tangle.TransactionParser.Parse(event.Data)
+		tangle.TransactionParser.Parse(event.Data, event.Peer)
 	}))
 
 	// configure flow of outgoing transactions (gossip on solidification)

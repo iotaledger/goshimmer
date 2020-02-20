@@ -77,6 +77,7 @@ func (spammer *Spammer) run(tps int) {
 			trunkTransactionId, branchTransactionId := spammer.tipSelector.GetTips()
 			spammer.transactionParser.Parse(
 				transaction.New(trunkTransactionId, branchTransactionId, identity.Generate(), data.New([]byte("SPAM"))).GetBytes(),
+				nil,
 			)
 
 			currentSentCounter++
@@ -119,7 +120,7 @@ func (spammer *Spammer) sendBurst(transactions int) {
 			return
 
 		default:
-			spammer.transactionParser.Parse(burstBuffer[i])
+			spammer.transactionParser.Parse(burstBuffer[i], nil)
 		}
 	}
 }

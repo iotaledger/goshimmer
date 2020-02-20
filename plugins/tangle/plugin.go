@@ -1,6 +1,8 @@
 package tangle
 
 import (
+	"github.com/iotaledger/hive.go/autopeering/peer"
+
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
@@ -39,7 +41,9 @@ func configure(*node.Plugin) {
 	Instance = tangle.New(database.GetBadgerInstance(), storageprefix.MainNet)
 
 	// setup TransactionParser
-	TransactionParser.Events.TransactionParsed.Attach(events.NewClosure(func(transaction *transaction.Transaction) {
+	TransactionParser.Events.TransactionParsed.Attach(events.NewClosure(func(transaction *transaction.Transaction, peer *peer.Peer) {
+		// TODO: ADD PEER
+
 		Instance.AttachTransaction(transaction)
 	}))
 
