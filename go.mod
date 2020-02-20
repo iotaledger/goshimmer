@@ -3,7 +3,6 @@ module github.com/iotaledger/goshimmer
 go 1.13
 
 require (
-	cloud.google.com/go v0.36.0 // indirect
 	github.com/dgraph-io/badger/v2 v2.0.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dgryski/go-farm v0.0.0-20191112170834-c2139c5d712b // indirect
@@ -42,7 +41,6 @@ require (
 	golang.org/x/sys v0.0.0-20200124204421-9fbb57f87de9 // indirect
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/tools v0.0.0-20200130002326-2f3ba24bd6e7 // indirect
-	google.golang.org/appengine v1.4.0 // indirect
 	gopkg.in/ini.v1 v1.51.1 // indirect
 	gopkg.in/yaml.v2 v2.2.7 // indirect
 )
