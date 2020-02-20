@@ -42,8 +42,12 @@ func configureSolidifier() {
 	requestedTxs = NewUnsolidTxs()
 
 	gossip.Events.TransactionReceived.Attach(events.NewClosure(func(ev *gossip.TransactionReceivedEvent) {
-		metaTx := meta_transaction.FromBytes(ev.Data)
-		if err := metaTx.Validate(); err != nil {
+		metaTx, err := meta_transaction.FromBytes(ev.Data)
+		if err != nil {
+			log.Warnf("invalid transaction: %s", err)
+			return
+		}
+		if err = metaTx.Validate(); err != nil {
 			log.Warnf("invalid transaction: %s", err)
 			return
 		}
