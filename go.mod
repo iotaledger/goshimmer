@@ -3,7 +3,6 @@ module github.com/iotaledger/goshimmer
 go 1.13
 
 require (
-	cloud.google.com/go v0.36.0 // indirect
 	github.com/dgraph-io/badger/v2 v2.0.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dgryski/go-farm v0.0.0-20191112170834-c2139c5d712b // indirect
@@ -14,7 +13,7 @@ require (
 	github.com/googollee/go-engine.io v1.4.3-0.20190924125625-798118fc0dd2
 	github.com/googollee/go-socket.io v1.4.3-0.20191204093753-683f8725b6d0
 	github.com/gorilla/websocket v1.4.1
-	github.com/iotaledger/hive.go v0.0.0-20200212114128-1460dba4a6b0
+	github.com/iotaledger/hive.go v0.0.0-20200219224037-2d5f5238c0de
 	github.com/iotaledger/iota.go v1.0.0-beta.14
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0 // indirect
@@ -42,7 +41,6 @@ require (
 	golang.org/x/sys v0.0.0-20200124204421-9fbb57f87de9 // indirect
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/tools v0.0.0-20200130002326-2f3ba24bd6e7 // indirect
-	google.golang.org/appengine v1.4.0 // indirect
 	gopkg.in/ini.v1 v1.51.1 // indirect
 	gopkg.in/yaml.v2 v2.2.7 // indirect
 )
