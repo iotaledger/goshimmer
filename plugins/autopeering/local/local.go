@@ -40,7 +40,7 @@ func configureLocal() *peer.Local {
 		}
 	}
 	if !externalIP.IsGlobalUnicast() {
-		log.Fatalf("IP is not a global unicast address: %s", externalIP.String())
+		log.Warnf("IP is not a global unicast address: %s", externalIP.String())
 	}
 
 	peeringPort := strconv.Itoa(parameter.NodeConfig.GetInt(CFG_PORT))
