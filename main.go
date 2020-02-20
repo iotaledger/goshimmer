@@ -30,7 +30,7 @@ import (
 )
 
 func main() {
-	go http.ListenAndServe("localhost:6060", nil) // pprof Server for Debbuging Mutexes
+	go http.ListenAndServe("localhost:6061", nil) // pprof Server for Debbuging Mutexes
 
 	testTxId := transaction.NewId([]byte("Test"))
 
