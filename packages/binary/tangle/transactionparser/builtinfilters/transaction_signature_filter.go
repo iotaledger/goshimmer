@@ -14,7 +14,7 @@ var ErrInvalidSignature = fmt.Errorf("invalid signature")
 
 type TransactionSignatureFilter struct {
 	onAcceptCallback func(tx *transaction.Transaction, peer *peer.Peer)
-	onRejectCallback func(tx *transaction.Transaction, err error)
+	onRejectCallback func(tx *transaction.Transaction, err error, peer *peer.Peer)
 	workerPool       async.WorkerPool
 
 	onAcceptCallbackMutex sync.RWMutex
@@ -32,7 +32,7 @@ func (filter *TransactionSignatureFilter) Filter(tx *transaction.Transaction, pe
 		if tx.VerifySignature() {
 			filter.getAcceptCallback()(tx, peer)
 		} else {
-			filter.getRejectCallback()(tx, ErrInvalidSignature)
+			filter.getRejectCallback()(tx, ErrInvalidSignature, peer)
 		}
 	})
 }
@@ -43,7 +43,7 @@ func (filter *TransactionSignatureFilter) OnAccept(callback func(tx *transaction
 	filter.onAcceptCallbackMutex.Unlock()
 }
 
-func (filter *TransactionSignatureFilter) OnReject(callback func(tx *transaction.Transaction, err error)) {
+func (filter *TransactionSignatureFilter) OnReject(callback func(tx *transaction.Transaction, err error, peer *peer.Peer)) {
 	filter.onRejectCallbackMutex.Lock()
 	filter.onRejectCallback = callback
 	filter.onRejectCallbackMutex.Unlock()
@@ -61,7 +61,7 @@ func (filter *TransactionSignatureFilter) getAcceptCallback() (result func(tx *t
 	return
 }
 
-func (filter *TransactionSignatureFilter) getRejectCallback() (result func(tx *transaction.Transaction, err error)) {
+func (filter *TransactionSignatureFilter) getRejectCallback() (result func(tx *transaction.Transaction, err error, peer *peer.Peer)) {
 	filter.onRejectCallbackMutex.RLock()
 	result = filter.onRejectCallback
 	filter.onRejectCallbackMutex.RUnlock()

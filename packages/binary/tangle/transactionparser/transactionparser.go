@@ -30,13 +30,13 @@ func New() (result *TransactionParser) {
 
 		Events: transactionParserEvents{
 			BytesRejected: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func([]byte, error))(params[0].([]byte), params[1].(error))
+				handler.(func([]byte, error, *peer.Peer))(params[0].([]byte), params[1].(error), params[2].(*peer.Peer))
 			}),
 			TransactionParsed: events.NewEvent(func(handler interface{}, params ...interface{}) {
 				handler.(func(*transaction.Transaction, *peer.Peer))(params[0].(*transaction.Transaction), params[1].(*peer.Peer))
 			}),
 			TransactionRejected: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func(*transaction.Transaction, error))(params[0].(*transaction.Transaction), params[1].(error))
+				handler.(func(*transaction.Transaction, error, *peer.Peer))(params[0].(*transaction.Transaction), params[1].(error), params[2].(*peer.Peer))
 			}),
 		},
 	}
@@ -101,8 +101,8 @@ func (transactionParser *TransactionParser) setupBytesFilterDataFlow() {
 			} else {
 				transactionParser.bytesFilters[i].OnAccept(transactionParser.bytesFilters[i+1].Filter)
 			}
-			transactionParser.bytesFilters[i].OnReject(func(bytes []byte, err error) {
-				transactionParser.Events.BytesRejected.Trigger(bytes, err)
+			transactionParser.bytesFilters[i].OnReject(func(bytes []byte, err error, peer *peer.Peer) {
+				transactionParser.Events.BytesRejected.Trigger(bytes, err, peer)
 			})
 		}
 	}
@@ -127,8 +127,8 @@ func (transactionParser *TransactionParser) setupTransactionsFilterDataFlow() {
 			} else {
 				transactionParser.transactionFilters[i].OnAccept(transactionParser.transactionFilters[i+1].Filter)
 			}
-			transactionParser.transactionFilters[i].OnReject(func(tx *transaction.Transaction, err error) {
-				transactionParser.Events.TransactionRejected.Trigger(tx, err)
+			transactionParser.transactionFilters[i].OnReject(func(tx *transaction.Transaction, err error, peer *peer.Peer) {
+				transactionParser.Events.TransactionRejected.Trigger(tx, err, peer)
 			})
 		}
 	}
@@ -137,7 +137,7 @@ func (transactionParser *TransactionParser) setupTransactionsFilterDataFlow() {
 
 func (transactionParser *TransactionParser) parseTransaction(bytes []byte, peer *peer.Peer) {
 	if parsedTransaction, err := transaction.FromBytes(bytes); err != nil {
-		transactionParser.Events.BytesRejected.Trigger(bytes, err)
+		transactionParser.Events.BytesRejected.Trigger(bytes, err, peer)
 	} else {
 		transactionParser.transactionFilters[0].Filter(parsedTransaction, peer)
 	}

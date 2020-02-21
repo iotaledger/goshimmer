@@ -22,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/spa"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	webapi_broadcastData "github.com/iotaledger/goshimmer/plugins/webapi/broadcastData"
 	webapi_gtta "github.com/iotaledger/goshimmer/plugins/webapi/gtta"
 	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi/spammer"
 	webapi_auth "github.com/iotaledger/goshimmer/plugins/webauth"
@@ -60,11 +61,11 @@ func main() {
 			webapi_auth.PLUGIN,
 			webapi_gtta.PLUGIN,
 			webapi_spammer.PLUGIN,
+			webapi_broadcastData.PLUGIN,
 
 			spa.PLUGIN,
 
 			/*
-				webapi_broadcastData.PLUGIN,
 				webapi_getTransactionTrytesByHash.PLUGIN,
 				webapi_getTransactionObjectsByHash.PLUGIN,
 				webapi_findTransactionHashes.PLUGIN,

@@ -14,7 +14,7 @@ var ErrReceivedDuplicateBytes = fmt.Errorf("received duplicate bytes")
 type RecentlySeenBytesFilter struct {
 	bytesFilter      *bytesfilter.BytesFilter
 	onAcceptCallback func(bytes []byte, peer *peer.Peer)
-	onRejectCallback func(bytes []byte, err error)
+	onRejectCallback func(bytes []byte, err error, peer *peer.Peer)
 	workerPool       async.WorkerPool
 
 	onAcceptCallbackMutex sync.RWMutex
@@ -34,7 +34,7 @@ func (filter *RecentlySeenBytesFilter) Filter(bytes []byte, peer *peer.Peer) {
 		if filter.bytesFilter.Add(bytes) {
 			filter.getAcceptCallback()(bytes, peer)
 		} else {
-			filter.getRejectCallback()(bytes, ErrReceivedDuplicateBytes)
+			filter.getRejectCallback()(bytes, ErrReceivedDuplicateBytes, peer)
 		}
 	})
 }
@@ -45,7 +45,7 @@ func (filter *RecentlySeenBytesFilter) OnAccept(callback func(bytes []byte, peer
 	filter.onAcceptCallbackMutex.Unlock()
 }
 
-func (filter *RecentlySeenBytesFilter) OnReject(callback func(bytes []byte, err error)) {
+func (filter *RecentlySeenBytesFilter) OnReject(callback func(bytes []byte, err error, peer *peer.Peer)) {
 	filter.onRejectCallbackMutex.Lock()
 	filter.onRejectCallback = callback
 	filter.onRejectCallbackMutex.Unlock()
@@ -59,7 +59,7 @@ func (filter *RecentlySeenBytesFilter) getAcceptCallback() (result func(bytes []
 	return
 }
 
-func (filter *RecentlySeenBytesFilter) getRejectCallback() (result func(bytes []byte, err error)) {
+func (filter *RecentlySeenBytesFilter) getRejectCallback() (result func(bytes []byte, err error, peer *peer.Peer)) {
 	filter.onRejectCallbackMutex.Lock()
 	result = filter.onRejectCallback
 	filter.onRejectCallbackMutex.Unlock()

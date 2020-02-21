@@ -9,6 +9,6 @@ import (
 type TransactionFilter interface {
 	Filter(tx *transaction.Transaction, peer *peer.Peer)
 	OnAccept(callback func(tx *transaction.Transaction, peer *peer.Peer))
-	OnReject(callback func(tx *transaction.Transaction, err error))
+	OnReject(callback func(tx *transaction.Transaction, err error, peer *peer.Peer))
 	Shutdown()
 }

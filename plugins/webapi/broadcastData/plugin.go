@@ -29,7 +29,6 @@ func configure(plugin *node.Plugin) {
 // broadcastData creates a data (0-value) transaction given an input of bytes and
 // broadcasts it to the node's neighbors. It returns the transaction hash if successful.
 func broadcastData(c echo.Context) error {
-
 	var request Request
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
