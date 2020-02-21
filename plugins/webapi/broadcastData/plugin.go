@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/tipselection"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -64,8 +63,8 @@ func broadcastData(c echo.Context) error {
 	tx.SetAddress(request.Address)
 	tx.SetSignatureMessageFragment(trytes)
 	tx.SetValue(0)
-	tx.SetBranchTransactionHash(tipselection.GetRandomTip())
-	tx.SetTrunkTransactionHash(tipselection.GetRandomTip(tx.GetBranchTransactionHash()))
+	tx.SetBranchTransactionHash(tipselectionn.GetRandomTip())
+	tx.SetTrunkTransactionHash(tipselectionn.GetRandomTip(tx.GetBranchTransactionHash()))
 	tx.SetTimestamp(uint(time.Now().Unix()))
 	if err := tx.DoProofOfWork(meta_transaction.MIN_WEIGHT_MAGNITUDE); err != nil {
 		log.Warnf("PoW failed: %s", err)

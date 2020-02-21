@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/tangle_old"
 	"golang.org/x/net/context"
 
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"

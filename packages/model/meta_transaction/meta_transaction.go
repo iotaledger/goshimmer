@@ -56,8 +56,11 @@ func FromTrits(trits trinary.Trits) *MetaTransaction {
 	}
 }
 
-func FromBytes(bytes []byte) (result *MetaTransaction) {
+func FromBytes(bytes []byte) (result *MetaTransaction, err error) {
 	trits := trinary.MustBytesToTrits(bytes)
+	if len(trits) < MARSHALED_TOTAL_SIZE {
+		return nil, fmt.Errorf("invalid size %v", len(trits))
+	}
 	result = FromTrits(trits[:MARSHALED_TOTAL_SIZE])
 	result.bytes = bytes
 
