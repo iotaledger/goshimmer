@@ -1,14 +1,14 @@
 package getTransactionTrytesByHash
 
 import (
-	"fmt"
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/iota.go/trinary"
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 var PLUGIN = node.NewPlugin("WebAPI getTransactionTrytesByHash Endpoint", node.Enabled, configure)
@@ -33,17 +33,19 @@ func getTransactionTrytesByHash(c echo.Context) error {
 	}
 	log.Debug("Received:", request.Hashes)
 
-	for _, hash := range request.Hashes {
-		tx, err := tangle_old.GetTransaction(hash)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
+	/*
+		for _, hash := range request.Hashes {
+			tx, err := tangle_old.GetTransaction(hash)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
+			}
+			if tx == nil {
+				return c.JSON(http.StatusNotFound, Response{Error: fmt.Sprintf("transaction not found: %s", hash)})
+			}
+			trytes := trinary.MustTritsToTrytes(tx.GetTrits())
+			result = append(result, trytes)
 		}
-		if tx == nil {
-			return c.JSON(http.StatusNotFound, Response{Error: fmt.Sprintf("transaction not found: %s", hash)})
-		}
-		trytes := trinary.MustTritsToTrytes(tx.GetTrits())
-		result = append(result, trytes)
-	}
+	*/
 
 	return c.JSON(http.StatusOK, Response{Trytes: result})
 }

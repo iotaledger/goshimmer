@@ -1,14 +1,14 @@
 package getTransactionObjectsByHash
 
 import (
-	"fmt"
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/iota.go/trinary"
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 var PLUGIN = node.NewPlugin("WebAPI getTransactionObjectsByHash Endpoint", node.Enabled, configure)
@@ -34,30 +34,31 @@ func getTransactionObjectsByHash(c echo.Context) error {
 	}
 
 	log.Debug("Received:", request.Hashes)
-
-	for _, hash := range request.Hashes {
-		tx, err := tangle_old.GetTransaction(hash)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
+	/*
+		for _, hash := range request.Hashes {
+			tx, err := tangle_old.GetTransaction(hash)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
+			}
+			if tx == nil {
+				return c.JSON(http.StatusNotFound, Response{Error: fmt.Sprintf("transaction not found: %s", hash)})
+			}
+			t := Transaction{
+				Hash:                     tx.GetHash(),
+				WeightMagnitude:          tx.GetWeightMagnitude(),
+				TrunkTransactionHash:     tx.GetTrunkTransactionHash(),
+				BranchTransactionHash:    tx.GetBranchTransactionHash(),
+				Head:                     tx.IsHead(),
+				Tail:                     tx.IsTail(),
+				Nonce:                    tx.GetNonce(),
+				Address:                  tx.GetAddress(),
+				Value:                    tx.GetValue(),
+				Timestamp:                tx.GetTimestamp(),
+				SignatureMessageFragment: tx.GetSignatureMessageFragment(),
+			}
+			result = append(result, t)
 		}
-		if tx == nil {
-			return c.JSON(http.StatusNotFound, Response{Error: fmt.Sprintf("transaction not found: %s", hash)})
-		}
-		t := Transaction{
-			Hash:                     tx.GetHash(),
-			WeightMagnitude:          tx.GetWeightMagnitude(),
-			TrunkTransactionHash:     tx.GetTrunkTransactionHash(),
-			BranchTransactionHash:    tx.GetBranchTransactionHash(),
-			Head:                     tx.IsHead(),
-			Tail:                     tx.IsTail(),
-			Nonce:                    tx.GetNonce(),
-			Address:                  tx.GetAddress(),
-			Value:                    tx.GetValue(),
-			Timestamp:                tx.GetTimestamp(),
-			SignatureMessageFragment: tx.GetSignatureMessageFragment(),
-		}
-		result = append(result, t)
-	}
+	*/
 
 	return c.JSON(http.StatusOK, Response{Transactions: result})
 }
