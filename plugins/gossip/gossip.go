@@ -32,7 +32,7 @@ func configureGossip() {
 	}
 
 	// announce the gossip service
-	gossipPort := strconv.Itoa(config.NodeConfig.GetInt(GOSSIP_PORT))
+	gossipPort := strconv.Itoa(config.Node.GetInt(GOSSIP_PORT))
 	err = lPeer.UpdateService(service.GossipKey, "tcp", net.JoinHostPort(external, gossipPort))
 	if err != nil {
 		log.Fatalf("could not update services: %s", err)
@@ -52,7 +52,7 @@ func start(shutdownSignal <-chan struct{}) {
 		panic(err)
 	}
 	// resolve the bind address
-	address := net.JoinHostPort(config.NodeConfig.GetString(local.CFG_BIND), gossipPort)
+	address := net.JoinHostPort(config.Node.GetString(local.CFG_BIND), gossipPort)
 	localAddr, err := net.ResolveTCPAddr(gossipAddr.Network(), address)
 	if err != nil {
 		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)

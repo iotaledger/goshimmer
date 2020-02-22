@@ -80,10 +80,10 @@ func run(plugin *node.Plugin) {
 	e.HideBanner = true
 	e.Use(middleware.Recover())
 
-	if config.NodeConfig.GetBool(CFG_BASIC_AUTH_ENABLED) {
+	if config.Node.GetBool(CFG_BASIC_AUTH_ENABLED) {
 		e.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-			if username == config.NodeConfig.GetString(CFG_BASIC_AUTH_USERNAME) &&
-				password == config.NodeConfig.GetString(CFG_BASIC_AUTH_PASSWORD) {
+			if username == config.Node.GetString(CFG_BASIC_AUTH_USERNAME) &&
+				password == config.Node.GetString(CFG_BASIC_AUTH_PASSWORD) {
 				return true, nil
 			}
 			return false, nil
@@ -91,7 +91,7 @@ func run(plugin *node.Plugin) {
 	}
 
 	setupRoutes(e)
-	addr := config.NodeConfig.GetString(CFG_BIND_ADDRESS)
+	addr := config.Node.GetString(CFG_BIND_ADDRESS)
 
 	log.Infof("You can now access the dashboard using: http://%s", addr)
 	go e.Start(addr)

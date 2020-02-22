@@ -40,7 +40,7 @@ func Run(plugin *node.Plugin) {
 				return
 
 			default:
-				if conn, err := net.Dial("tcp", config.NodeConfig.GetString(CFG_SERVER_ADDRESS)); err != nil {
+				if conn, err := net.Dial("tcp", config.Node.GetString(CFG_SERVER_ADDRESS)); err != nil {
 					log.Debugf("Could not connect to reporting server: %s", err.Error())
 
 					timeutil.Sleep(1*time.Second, shutdownSignal)

@@ -5,6 +5,9 @@ import (
 	"time"
 
 	client "github.com/iotaledger/goshimmer/client"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/logger"
+
 	"github.com/iotaledger/iota.go/trinary"
 )
 
@@ -37,8 +40,10 @@ func testNodesGetTransactions(txnHash trinary.Hash) error {
 }
 
 func main() {
-	LoadConfig()
-	SetConfig()
+	config.Load()
+	logger.Load()
+
+	InitConfig()
 
 	api := client.NewGoShimmerAPI(target)
 	for i := 0; i < repeat; i++ {

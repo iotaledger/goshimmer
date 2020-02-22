@@ -22,7 +22,7 @@ var appBox = packr.New("SPA_App", "./frontend/build")
 var assetsBox = packr.New("SPA_Assets", "./frontend/src/assets")
 
 func indexRoute(e echo.Context) error {
-	if config.NodeConfig.GetBool(CFG_DEV) {
+	if config.Node.GetBool(CFG_DEV) {
 		res, err := http.Get("http://127.0.0.1:9090/")
 		if err != nil {
 			return err
@@ -42,7 +42,7 @@ func indexRoute(e echo.Context) error {
 
 func setupRoutes(e *echo.Echo) {
 
-	if config.NodeConfig.GetBool("dashboard.dev") {
+	if config.Node.GetBool("dashboard.dev") {
 		e.Static("/assets", "./plugins/spa/frontend/src/assets")
 	} else {
 

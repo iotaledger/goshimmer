@@ -32,7 +32,7 @@ func Configure() {
 	engine.HideBanner = true
 
 	// we only need this special flag, because we always keep a packed box in the same directory
-	if config.NodeConfig.GetBool(CFG_DEV) {
+	if config.Node.GetBool(CFG_DEV) {
 		engine.Static("/static", "./plugins/analysis/webinterface/httpserver/static")
 		engine.File("/", "./plugins/analysis/webinterface/httpserver/static/index.html")
 	} else {
@@ -52,7 +52,7 @@ func Run() {
 
 func start(shutdownSignal <-chan struct{}) {
 	stopped := make(chan struct{})
-	bindAddr := config.NodeConfig.GetString(CFG_BIND_ADDRESS)
+	bindAddr := config.Node.GetString(CFG_BIND_ADDRESS)
 	go func() {
 		log.Infof("Started %s: http://%s", name, bindAddr)
 		if err := engine.Start(bindAddr); err != nil {

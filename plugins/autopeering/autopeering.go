@@ -84,7 +84,7 @@ func start(shutdownSignal <-chan struct{}) {
 		panic(err)
 	}
 	// resolve the bind address
-	address := net.JoinHostPort(config.NodeConfig.GetString(local.CFG_BIND), peeringPort)
+	address := net.JoinHostPort(config.Node.GetString(local.CFG_BIND), peeringPort)
 	localAddr, err := net.ResolveUDPAddr(peeringAddr.Network(), address)
 	if err != nil {
 		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
@@ -130,7 +130,7 @@ func start(shutdownSignal <-chan struct{}) {
 }
 
 func parseEntryNodes() (result []*peer.Peer, err error) {
-	for _, entryNodeDefinition := range config.NodeConfig.GetStringSlice(CFG_ENTRY_NODES) {
+	for _, entryNodeDefinition := range config.Node.GetStringSlice(CFG_ENTRY_NODES) {
 		if entryNodeDefinition == "" {
 			continue
 		}

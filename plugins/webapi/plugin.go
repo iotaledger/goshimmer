@@ -32,7 +32,7 @@ func run(plugin *node.Plugin) {
 		log.Info("Starting Web Server ... done")
 
 		go func() {
-			if err := Server.Start(config.NodeConfig.GetString(BIND_ADDRESS)); err != nil {
+			if err := Server.Start(config.Node.GetString(BIND_ADDRESS)); err != nil {
 				log.Info("Stopping Web Server ... done")
 			}
 		}()

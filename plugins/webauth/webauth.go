@@ -22,7 +22,7 @@ var privateKey string
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger("WebAPI Auth")
-	privateKey = config.NodeConfig.GetString(WEBAPI_AUTH_PRIVATE_KEY)
+	privateKey = config.Node.GetString(WEBAPI_AUTH_PRIVATE_KEY)
 	if len(privateKey) == 0 {
 		panic("")
 	}
@@ -56,8 +56,8 @@ func Handler(c echo.Context) error {
 		return echo.ErrBadRequest
 	}
 
-	if login.Username != config.NodeConfig.GetString(WEBAPI_AUTH_USERNAME) ||
-		login.Password != config.NodeConfig.GetString(WEBAPI_AUTH_PASSWORD) {
+	if login.Username != config.Node.GetString(WEBAPI_AUTH_USERNAME) ||
+		login.Password != config.Node.GetString(WEBAPI_AUTH_PASSWORD) {
 		return echo.ErrUnauthorized
 	}
 

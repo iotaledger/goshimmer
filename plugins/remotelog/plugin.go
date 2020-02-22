@@ -16,7 +16,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/cli"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/config"
 
 	"github.com/iotaledger/hive.go/daemon"
@@ -58,14 +58,14 @@ var (
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PLUGIN_NAME)
 
-	if config.NodeConfig.GetBool(CFG_DISABLE_EVENTS) {
+	if config.Node.GetBool(CFG_DISABLE_EVENTS) {
 		log.Fatalf("%s in config.json needs to be false so that events can be captured!", CFG_DISABLE_EVENTS)
 		return
 	}
 
-	c, err := net.Dial("udp", config.NodeConfig.GetString(CFG_SERVER_ADDRESS))
+	c, err := net.Dial("udp", config.Node.GetString(CFG_SERVER_ADDRESS))
 	if err != nil {
-		log.Fatalf("Could not create UDP socket to '%s'. %v", config.NodeConfig.GetString(CFG_SERVER_ADDRESS), err)
+		log.Fatalf("Could not create UDP socket to '%s'. %v", config.Node.GetString(CFG_SERVER_ADDRESS), err)
 		return
 	}
 	conn = c
@@ -101,7 +101,7 @@ func run(plugin *node.Plugin) {
 
 func sendLogMsg(level logger.Level, name string, msg string) {
 	m := logMessage{
-		cli.AppVersion,
+		banner.AppVersion,
 		myGitHead,
 		myGitBranch,
 		myID,

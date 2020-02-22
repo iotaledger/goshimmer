@@ -11,34 +11,28 @@ var (
 	repeat       = 1
 )
 
-func LoadConfig() {
-	if err := config.Fetch(false); err != nil {
-		panic(err)
-	}
-}
-
-func SetConfig() {
-	if config.NodeConfig.GetString(CFG_TARGET_NODE) == "" {
+func InitConfig() {
+	if config.Node.GetString(CFG_TARGET_NODE) == "" {
 		panic("Set the target node address\n")
 	}
-	target = config.NodeConfig.GetString(CFG_TARGET_NODE)
+	target = config.Node.GetString(CFG_TARGET_NODE)
 
-	if len(config.NodeConfig.GetStringSlice(CFG_TEST_NODES)) == 0 {
+	if len(config.Node.GetStringSlice(CFG_TEST_NODES)) == 0 {
 		panic("Set node addresses\n")
 	}
-	nodes = append(nodes, config.NodeConfig.GetStringSlice(CFG_TEST_NODES)...)
+	nodes = append(nodes, config.Node.GetStringSlice(CFG_TEST_NODES)...)
 
 	// optional settings
-	if config.NodeConfig.GetString(CFG_TX_ADDRESS) != "" {
-		txnAddr = config.NodeConfig.GetString(CFG_TX_ADDRESS)
+	if config.Node.GetString(CFG_TX_ADDRESS) != "" {
+		txnAddr = config.Node.GetString(CFG_TX_ADDRESS)
 	}
-	if config.NodeConfig.GetString(CFG_DATA) != "" {
-		txnData = config.NodeConfig.GetString(CFG_DATA)
+	if config.Node.GetString(CFG_DATA) != "" {
+		txnData = config.Node.GetString(CFG_DATA)
 	}
-	if config.NodeConfig.GetInt(CFG_COOLDOWN_TIME) > 0 {
-		cooldownTime = config.NodeConfig.GetInt(CFG_COOLDOWN_TIME)
+	if config.Node.GetInt(CFG_COOLDOWN_TIME) > 0 {
+		cooldownTime = config.Node.GetInt(CFG_COOLDOWN_TIME)
 	}
-	if config.NodeConfig.GetInt(CFG_REPEAT) > 0 {
-		repeat = config.NodeConfig.GetInt(CFG_REPEAT)
+	if config.Node.GetInt(CFG_REPEAT) > 0 {
+		repeat = config.Node.GetInt(CFG_REPEAT)
 	}
 }

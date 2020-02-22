@@ -2,18 +2,12 @@ package broadcastData
 
 import (
 	"net/http"
-	"time"
 
-	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/model/meta_transaction"
 	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/typeutils"
-	"github.com/iotaledger/iota.go/address"
-	"github.com/iotaledger/iota.go/trinary"
 	"github.com/labstack/echo"
 )
 
@@ -48,30 +42,34 @@ func broadcastData(c echo.Context) error {
 
 	copy(buffer, typeutils.StringToBytes(request.Data))
 
-	trytes, err := trinary.BytesToTrytes(buffer)
-	if err != nil {
-		log.Warnf("trytes conversion failed: %s", err.Error())
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
-	}
+	// TODO: FIX FOR NEW TX LAYOUT
 
-	err = address.ValidAddress(request.Address)
-	if err != nil {
-		log.Warnf("invalid Address: %s", request.Address)
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
-	}
+	/*
+		trytes, err := trinary.BytesToTrytes(buffer)
+		if err != nil {
+			log.Warnf("trytes conversion failed: %s", err.Error())
+			return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		}
 
-	tx.SetAddress(request.Address)
-	tx.SetSignatureMessageFragment(trytes)
-	tx.SetValue(0)
-	tx.SetBranchTransactionHash(tipselectionn.GetRandomTip())
-	tx.SetTrunkTransactionHash(tipselectionn.GetRandomTip(tx.GetBranchTransactionHash()))
-	tx.SetTimestamp(uint(time.Now().Unix()))
-	if err := tx.DoProofOfWork(meta_transaction.MIN_WEIGHT_MAGNITUDE); err != nil {
-		log.Warnf("PoW failed: %s", err)
-		return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
-	}
+		err = address.ValidAddress(request.Address)
+		if err != nil {
+			log.Warnf("invalid Address: %s", request.Address)
+			return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		}
 
-	gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: tx.GetBytes(), Peer: &local.GetInstance().Peer})
+		tx.SetAddress(request.Address)
+		tx.SetSignatureMessageFragment(trytes)
+		tx.SetValue(0)
+		tx.SetBranchTransactionHash(tipselectionn.GetRandomTip())
+		tx.SetTrunkTransactionHash(tipselectionn.GetRandomTip(tx.GetBranchTransactionHash()))
+		tx.SetTimestamp(uint(time.Now().Unix()))
+		if err := tx.DoProofOfWork(meta_transaction.MIN_WEIGHT_MAGNITUDE); err != nil {
+			log.Warnf("PoW failed: %s", err)
+			return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
+		}
+
+		gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: tx.GetBytes(), Peer: &local.GetInstance().Peer})
+	*/
 	return c.JSON(http.StatusOK, Response{Hash: tx.GetHash()})
 }
 

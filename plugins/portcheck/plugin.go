@@ -34,7 +34,7 @@ func run(ctx *node.Plugin) {
 	}
 
 	// resolve the bind address
-	address := net.JoinHostPort(config.NodeConfig.GetString(local.CFG_BIND), peeringPort)
+	address := net.JoinHostPort(config.Node.GetString(local.CFG_BIND), peeringPort)
 	localAddr, err := net.ResolveUDPAddr(peeringAddr.Network(), address)
 	if err != nil {
 		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)

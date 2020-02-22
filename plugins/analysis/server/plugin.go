@@ -37,7 +37,7 @@ func Configure(plugin *node.Plugin) {
 		log.Errorf("error in server: %s", err.Error())
 	}))
 	server.Events.Start.Attach(events.NewClosure(func() {
-		log.Infof("Starting Server (port %d) ... done", config.NodeConfig.GetInt(CFG_SERVER_PORT))
+		log.Infof("Starting Server (port %d) ... done", config.Node.GetInt(CFG_SERVER_PORT))
 	}))
 	server.Events.Shutdown.Attach(events.NewClosure(func() {
 		log.Info("Stopping Server ... done")
@@ -46,8 +46,8 @@ func Configure(plugin *node.Plugin) {
 
 func Run(plugin *node.Plugin) {
 	daemon.BackgroundWorker("Analysis Server", func(shutdownSignal <-chan struct{}) {
-		log.Infof("Starting Server (port %d) ... done", config.NodeConfig.GetInt(CFG_SERVER_PORT))
-		go server.Listen("0.0.0.0", config.NodeConfig.GetInt(CFG_SERVER_PORT))
+		log.Infof("Starting Server (port %d) ... done", config.Node.GetInt(CFG_SERVER_PORT))
+		go server.Listen("0.0.0.0", config.Node.GetInt(CFG_SERVER_PORT))
 		<-shutdownSignal
 		Shutdown()
 	}, shutdown.ShutdownPriorityAnalysis)
