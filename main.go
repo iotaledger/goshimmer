@@ -47,11 +47,11 @@ func main() {
 			logger.PLUGIN,
 			cli.PLUGIN,
 			remotelog.PLUGIN,
+			portcheck.PLUGIN,
 
 			autopeering.PLUGIN,
 			tangle.PLUGIN,
 			gossip.PLUGIN,
-			portcheck.PLUGIN,
 			gracefulshutdown.PLUGIN,
 
 			analysis.PLUGIN,
