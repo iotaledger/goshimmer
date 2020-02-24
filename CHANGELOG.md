@@ -1,3 +1,16 @@
+# v0.1.2 - 2020-02-24
+
+* Adds `--version` flag to retrieve the GoShimmer version
+* Adds the version and commit hash to the remote log logging
+* Replaces the autopeering module with the one from hive.go 
+* Changed the pprof listen port to `6061` to avoid conflict with Hornet
+* Fixes `invalid stored peer` messages
+* Fixes masternodes getting removed if they were offline
+* Fixes `-c` and `-d` to define config file/dir
+* Fixes drop messages about full queues appearing too many times
+* Fixes crash due to incopatible transaction size
+* Changed the salt lifetime to 2 hours from 30 minutes
+
 # v0.1.1 - 2020-02-07
 
 This release contains a series of fixes:
