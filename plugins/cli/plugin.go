@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/hive.go/events"
@@ -12,7 +13,7 @@ import (
 
 const (
 	// AppVersion version number
-	AppVersion = "v0.1.1"
+	AppVersion = "v0.1.2"
 	// AppName app code name
 	AppName = "GoShimmer"
 )
@@ -43,10 +44,20 @@ func parseParameters() {
 	}
 }
 
+func PrintVersion() {
+	version := flag.BoolP("version", "v", false, "Prints the GoShimmer version")
+	flag.Parse()
+	if *version {
+		fmt.Println(AppName + " " + AppVersion)
+		os.Exit(0)
+	}
+}
+
 func LoadConfig() {
 	if err := parameter.FetchConfig(false); err != nil {
 		panic(err)
 	}
+
 	parseParameters()
 
 	if err := logger.InitGlobalLogger(parameter.NodeConfig); err != nil {

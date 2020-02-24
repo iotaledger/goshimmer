@@ -131,7 +131,11 @@ func TestTangle(t *testing.T) {
 
 // transactionReceived mocks the TransactionReceived event by allowing lower mwm
 func transactionReceived(ev *gossip.TransactionReceivedEvent) {
-	metaTx := meta_transaction.FromBytes(ev.Data)
+	metaTx, err := meta_transaction.FromBytes(ev.Data)
+	if err != nil {
+		log.Warnf("invalid transaction: %s", err)
+		return
+	}
 	if metaTx.GetWeightMagnitude() < testMWM {
 		log.Warnf("invalid weight magnitude: %d / %d", metaTx.GetWeightMagnitude(), testMWM)
 		return

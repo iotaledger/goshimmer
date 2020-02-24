@@ -7,10 +7,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
 	"github.com/iotaledger/goshimmer/packages/netutil"
 	"github.com/iotaledger/goshimmer/packages/netutil/buffconn"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/logger"
+	"go.uber.org/atomic"
 )
 
 var (
@@ -19,16 +20,18 @@ var (
 )
 
 const (
-	neighborQueueSize = 5000
-	maxNumReadErrors  = 10
+	neighborQueueSize        = 5000
+	maxNumReadErrors         = 10
+	droppedMessagesThreshold = 1000
 )
 
 type Neighbor struct {
 	*peer.Peer
 	*buffconn.BufferedConnection
 
-	log   *logger.Logger
-	queue chan []byte
+	log             *logger.Logger
+	queue           chan []byte
+	messagesDropped atomic.Int32
 
 	wg             sync.WaitGroup
 	closing        chan struct{}
@@ -150,6 +153,10 @@ func (n *Neighbor) Write(b []byte) (int, error) {
 	case <-n.closing:
 		return 0, nil
 	default:
-		return 0, ErrNeighborQueueFull
+		if n.messagesDropped.Inc() >= droppedMessagesThreshold {
+			n.messagesDropped.Store(0)
+			return 0, ErrNeighborQueueFull
+		}
+		return 0, nil
 	}
 }

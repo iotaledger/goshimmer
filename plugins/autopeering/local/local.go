@@ -8,11 +8,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/netutil"
 	"github.com/iotaledger/goshimmer/packages/parameter"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
 )
 
@@ -40,7 +40,7 @@ func configureLocal() *peer.Local {
 		}
 	}
 	if !externalIP.IsGlobalUnicast() {
-		log.Fatalf("IP is not a global unicast address: %s", externalIP.String())
+		log.Warnf("IP is not a global unicast address: %s", externalIP.String())
 	}
 
 	peeringPort := strconv.Itoa(parameter.NodeConfig.GetInt(CFG_PORT))

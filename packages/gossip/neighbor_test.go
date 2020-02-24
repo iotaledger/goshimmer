@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer"
-	"github.com/iotaledger/goshimmer/packages/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -87,8 +87,8 @@ func TestNeighborParallelWrite(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < neighborQueueSize; i++ {
-			_, err := neighborA.Write(testData)
-			if err == ErrNeighborQueueFull {
+			l, err := neighborA.Write(testData)
+			if err == ErrNeighborQueueFull || l == 0 {
 				continue
 			}
 			assert.NoError(t, err)
@@ -99,8 +99,8 @@ func TestNeighborParallelWrite(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < neighborQueueSize; i++ {
-			_, err := neighborA.Write(testData)
-			if err == ErrNeighborQueueFull {
+			l, err := neighborA.Write(testData)
+			if err == ErrNeighborQueueFull || l == 0 {
 				continue
 			}
 			assert.NoError(t, err)
