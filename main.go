@@ -1,13 +1,8 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/mr-tron/base58"
-
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/plugins/analysis"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -31,14 +26,7 @@ import (
 )
 
 func main() {
-	go http.ListenAndServe("localhost:6061", nil) // pprof Server for Debbuging Mutexes
-
-	testTxId := transaction.NewId([]byte("Test"))
-
-	fmt.Println(len(base58.Encode(transaction.EmptyId[:])))
-	fmt.Println(base58.Encode(transaction.EmptyId[:]))
-	fmt.Println(len(base58.Encode(testTxId[:])))
-	fmt.Println(base58.Encode(testTxId[:]))
+	//go http.ListenAndServe("localhost:6061", nil) // pprof Server for Debbuging Mutexes
 
 	node.Run(
 		node.Plugins(
@@ -47,12 +35,12 @@ func main() {
 			logger.PLUGIN,
 			cli.PLUGIN,
 			remotelog.PLUGIN,
+			gracefulshutdown.PLUGIN,
 
 			autopeering.PLUGIN,
 			tangle.PLUGIN,
 			gossip.PLUGIN,
 			portcheck.PLUGIN,
-			gracefulshutdown.PLUGIN,
 
 			analysis.PLUGIN,
 			metrics.PLUGIN,
