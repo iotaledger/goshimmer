@@ -17,7 +17,6 @@ var PLUGIN = node.NewPlugin("Spammer", node.Disabled, configure, run)
 
 func configure(plugin *node.Plugin) {
 	transactionSpammer = spammer.New(tangle.TransactionParser, tangle.TipSelector)
-
 	webapi.Server.GET("spammer", handleRequest)
 }
 

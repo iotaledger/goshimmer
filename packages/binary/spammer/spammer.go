@@ -1,7 +1,8 @@
 package spammer
 
 import (
-	"sync"
+	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/iotaledger/hive.go/types"
@@ -17,8 +18,7 @@ type Spammer struct {
 	transactionParser *transactionparser.TransactionParser
 	tipSelector       *tipselector.TipSelector
 
-	running        bool
-	startStopMutex sync.Mutex
+	processId      int64
 	shutdownSignal chan types.Empty
 }
 
@@ -31,96 +31,69 @@ func New(transactionParser *transactionparser.TransactionParser, tipSelector *ti
 }
 
 func (spammer *Spammer) Start(tps int) {
-	spammer.startStopMutex.Lock()
-	defer spammer.startStopMutex.Unlock()
-
-	if !spammer.running {
-		spammer.running = true
-
-		go spammer.run(tps)
-	}
+	go spammer.run(tps, atomic.AddInt64(&spammer.processId, 1))
 }
 
 func (spammer *Spammer) Burst(transactions int) {
-	spammer.startStopMutex.Lock()
-	defer spammer.startStopMutex.Unlock()
-
-	if !spammer.running {
-		spammer.running = true
-
-		go spammer.sendBurst(transactions)
-	}
+	go spammer.sendBurst(transactions, atomic.AddInt64(&spammer.processId, 1))
 }
 
 func (spammer *Spammer) Shutdown() {
-	spammer.startStopMutex.Lock()
-	defer spammer.startStopMutex.Unlock()
-
-	if spammer.running {
-		spammer.running = false
-
-		spammer.shutdownSignal <- types.Void
-	}
+	atomic.AddInt64(&spammer.processId, 1)
 }
 
-func (spammer *Spammer) run(tps int) {
+func (spammer *Spammer) run(tps int, processId int64) {
+	fmt.Println(processId)
 	currentSentCounter := 0
 	start := time.Now()
 
 	for {
-
-		select {
-		case <-spammer.shutdownSignal:
+		if atomic.LoadInt64(&spammer.processId) != processId {
 			return
+		}
 
-		default:
-			trunkTransactionId, branchTransactionId := spammer.tipSelector.GetTips()
-			spammer.transactionParser.Parse(
-				transaction.New(trunkTransactionId, branchTransactionId, identity.Generate(), data.New([]byte("SPAM"))).GetBytes(),
-				nil,
-			)
+		trunkTransactionId, branchTransactionId := spammer.tipSelector.GetTips()
+		spammer.transactionParser.Parse(
+			transaction.New(trunkTransactionId, branchTransactionId, identity.Generate(), data.New([]byte("SPAM"))).GetBytes(),
+			nil,
+		)
 
-			currentSentCounter++
+		currentSentCounter++
 
-			// rate limit to the specified TPS
-			if currentSentCounter >= tps {
-				duration := time.Since(start)
-				if duration < time.Second {
-					time.Sleep(time.Second - duration)
-				}
-
-				start = time.Now()
-				currentSentCounter = 0
+		// rate limit to the specified TPS
+		if currentSentCounter >= tps {
+			duration := time.Since(start)
+			if duration < time.Second {
+				time.Sleep(time.Second - duration)
 			}
+
+			start = time.Now()
+			currentSentCounter = 0
 		}
 	}
 }
 
-func (spammer *Spammer) sendBurst(transactions int) {
+func (spammer *Spammer) sendBurst(transactions int, processId int64) {
 	spammingIdentity := identity.Generate()
 
 	previousTransactionId := transaction.EmptyId
 
 	burstBuffer := make([][]byte, transactions)
 	for i := 0; i < transactions; i++ {
-		select {
-		case <-spammer.shutdownSignal:
+		if atomic.LoadInt64(&spammer.processId) != processId {
 			return
-
-		default:
-			spamTransaction := transaction.New(previousTransactionId, previousTransactionId, spammingIdentity, data.New([]byte("SPAM")))
-			previousTransactionId = spamTransaction.GetId()
-			burstBuffer[i] = spamTransaction.GetBytes()
 		}
+
+		spamTransaction := transaction.New(previousTransactionId, previousTransactionId, spammingIdentity, data.New([]byte("SPAM")))
+		previousTransactionId = spamTransaction.GetId()
+		burstBuffer[i] = spamTransaction.GetBytes()
 	}
 
 	for i := 0; i < transactions; i++ {
-		select {
-		case <-spammer.shutdownSignal:
+		if atomic.LoadInt64(&spammer.processId) != processId {
 			return
-
-		default:
-			spammer.transactionParser.Parse(burstBuffer[i], nil)
 		}
+
+		spammer.transactionParser.Parse(burstBuffer[i], nil)
 	}
 }

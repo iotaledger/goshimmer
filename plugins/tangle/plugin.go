@@ -42,7 +42,6 @@ func configure(*node.Plugin) {
 
 	// setup TransactionParser
 	TransactionParser.Events.TransactionParsed.Attach(events.NewClosure(func(transaction *transaction.Transaction, peer *peer.Peer) {
-		peer.PublicKey()
 		// TODO: ADD PEER
 
 		Instance.AttachTransaction(transaction)
