@@ -19,7 +19,7 @@ import (
 var (
 	log *logger.Logger
 	mgr *gp.Manager
-	Srv *server.TCP
+	srv *server.TCP
 )
 
 func configureGossip() {
@@ -64,10 +64,10 @@ func start(shutdownSignal <-chan struct{}) {
 	}
 	defer listener.Close()
 
-	Srv = server.ServeTCP(lPeer, listener, log)
-	defer Srv.Close()
+	srv = server.ServeTCP(lPeer, listener, log)
+	defer srv.Close()
 
-	mgr.Start(Srv)
+	mgr.Start(srv)
 	defer mgr.Close()
 
 	log.Infof("%s started: Address=%s/%s", name, gossipAddr.String(), gossipAddr.Network())

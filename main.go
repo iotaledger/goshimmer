@@ -38,12 +38,12 @@ func main() {
 			logger.PLUGIN,
 			cli.PLUGIN,
 			remotelog.PLUGIN,
-			gracefulshutdown.PLUGIN,
+			portcheck.PLUGIN,
 
 			autopeering.PLUGIN,
 			tangle.PLUGIN,
 			gossip.PLUGIN,
-			portcheck.PLUGIN,
+			gracefulshutdown.PLUGIN,
 
 			analysis.PLUGIN,
 			metrics.PLUGIN,
