@@ -6,6 +6,8 @@ import (
 	"net"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+
 	"github.com/golang/protobuf/proto"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
@@ -24,7 +26,7 @@ var (
 )
 
 // GetTransaction defines a function that returns the transaction data with the given hash.
-type GetTransaction func(txHash []byte) ([]byte, error)
+type GetTransaction func(transactionId transaction.Id) ([]byte, error)
 
 type Manager struct {
 	local          *peer.Local
@@ -254,7 +256,7 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 		}
 		m.log.Debugw("received message", "type", "TRANSACTION_REQUEST", "id", p.ID())
 		// do something
-		tx, err := m.getTransaction(msg.GetHash())
+		tx, err := m.getTransaction(transaction.NewId(msg.GetHash()))
 		if err != nil {
 			m.log.Debugw("error getting transaction", "hash", msg.GetHash(), "err", err)
 		} else {

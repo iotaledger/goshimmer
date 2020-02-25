@@ -19,7 +19,7 @@ func BenchmarkTransactionParser_ParseBytesSame(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		txParser.Parse(txBytes)
+		txParser.Parse(txBytes, nil)
 	}
 
 	txParser.Shutdown()
@@ -36,7 +36,7 @@ func BenchmarkTransactionParser_ParseBytesDifferent(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		txParser.Parse(transactionBytes[i])
+		txParser.Parse(transactionBytes[i], nil)
 	}
 
 	txParser.Shutdown()
@@ -46,7 +46,7 @@ func TestTransactionParser_ParseTransaction(t *testing.T) {
 	tx := transaction.New(transaction.EmptyId, transaction.EmptyId, identity.Generate(), data.New([]byte("Test")))
 
 	txParser := New()
-	txParser.Parse(tx.GetBytes())
+	txParser.Parse(tx.GetBytes(), nil)
 
 	txParser.Events.TransactionParsed.Attach(events.NewClosure(func(tx *transaction.Transaction) {
 		fmt.Println("PARSED!!!")

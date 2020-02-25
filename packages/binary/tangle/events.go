@@ -34,6 +34,6 @@ func transactionIdEvent(handler interface{}, params ...interface{}) {
 func cachedTransactionEvent(handler interface{}, params ...interface{}) {
 	handler.(func(*transaction.CachedTransaction, *transactionmetadata.CachedTransactionMetadata))(
 		params[0].(*transaction.CachedTransaction).Retain(),
-		params[1].(*transactionmetadata.CachedTransactionMetadata).Retain().(*transactionmetadata.CachedTransactionMetadata),
+		params[1].(*transactionmetadata.CachedTransactionMetadata).Retain(),
 	)
 }

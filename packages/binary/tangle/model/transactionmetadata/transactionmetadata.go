@@ -86,9 +86,22 @@ func (transactionMetadata *TransactionMetadata) Update(other objectstorage.Stora
 }
 
 func (transactionMetadata *TransactionMetadata) MarshalBinary() ([]byte, error) {
-	return nil, nil
+	return (&Proto{
+		receivedTime:       transactionMetadata.receivedTime,
+		solidificationTime: transactionMetadata.solidificationTime,
+		solid:              transactionMetadata.solid,
+	}).ToBytes(), nil
 }
 
-func (transactionMetadata *TransactionMetadata) UnmarshalBinary([]byte) error {
-	return nil
+func (transactionMetadata *TransactionMetadata) UnmarshalBinary(data []byte) (err error) {
+	proto, err := ProtoFromBytes(data)
+	if err != nil {
+		return
+	}
+
+	transactionMetadata.receivedTime = proto.receivedTime
+	transactionMetadata.solidificationTime = proto.solidificationTime
+	transactionMetadata.solid = proto.solid
+
+	return
 }

@@ -1,67 +1,75 @@
 package tangle
 
 import (
-	"time"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 
+	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/tipselector"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/transactionparser"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/transactionrequester"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+
 	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/timeutil"
-	"github.com/iotaledger/iota.go/trinary"
 )
 
-// region plugin module setup //////////////////////////////////////////////////////////////////////////////////////////
-
 var PLUGIN = node.NewPlugin("Tangle", node.Enabled, configure, run)
+
+var TransactionParser *transactionparser.TransactionParser
+
+var TransactionRequester *transactionrequester.TransactionRequester
+
+var TipSelector *tipselector.TipSelector
+
+var Instance *tangle.Tangle
+
 var log *logger.Logger
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger("Tangle")
 
-	configureTransactionDatabase()
-	configureTransactionMetaDataDatabase()
-	configureApproversDatabase()
-	configureBundleDatabase()
-	configureTransactionHashesForAddressDatabase()
-	configureSolidifier()
+	// create instances
+	TransactionParser = transactionparser.New()
+	TransactionRequester = transactionrequester.New()
+	TipSelector = tipselector.New()
+	Instance = tangle.New(database.GetBadgerInstance(), storageprefix.MainNet)
 
-	daemon.BackgroundWorker("Cache Flush", func(shutdownSignal <-chan struct{}) {
-		<-shutdownSignal
+	// setup TransactionParser
+	TransactionParser.Events.TransactionParsed.Attach(events.NewClosure(func(transaction *transaction.Transaction, peer *peer.Peer) {
+		// TODO: ADD PEER
 
-		log.Info("Flushing caches to database...")
-		FlushTransactionCache()
-		FlushTransactionMetadata()
-		FlushApproversCache()
-		FlushBundleCache()
-		log.Info("Flushing caches to database... done")
+		Instance.AttachTransaction(transaction)
+	}))
 
-		log.Info("Syncing database to disk...")
-		database.GetBadgerInstance().Close()
-		log.Info("Syncing database to disk... done")
-	}, shutdown.ShutdownPriorityTangle)
+	// setup TransactionRequester
+	Instance.Events.TransactionMissing.Attach(events.NewClosure(TransactionRequester.ScheduleRequest))
+	Instance.Events.MissingTransactionReceived.Attach(events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+		cachedTransactionMetadata.Release()
 
+		cachedTransaction.Consume(func(transaction *transaction.Transaction) {
+			TransactionRequester.StopRequest(transaction.GetId())
+		})
+	}))
+
+	// setup TipSelector
+	Instance.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+		cachedTransactionMetadata.Release()
+
+		cachedTransaction.Consume(TipSelector.AddTip)
+	}))
 }
 
 func run(*node.Plugin) {
+	_ = daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
+		<-shutdownSignal
 
-	daemon.BackgroundWorker("Badger garbage collection", func(shutdownSignal <-chan struct{}) {
-		timeutil.Ticker(func() {
-			database.CleanupBadgerInstance(log)
-		}, 5*time.Minute, shutdownSignal)
-	}, shutdown.ShutdownPriorityBadgerGarbageCollection)
-
-	runSolidifier()
+		TransactionParser.Shutdown()
+		Instance.Shutdown()
+	}, shutdown.ShutdownPriorityTangle)
 }
-
-// Requester provides the functionality to request a transaction from the network.
-type Requester interface {
-	RequestTransaction(hash trinary.Hash)
-}
-
-type RequesterFunc func(hash trinary.Hash)
-
-func (f RequesterFunc) RequestTransaction(hash trinary.Hash) { f(hash) }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

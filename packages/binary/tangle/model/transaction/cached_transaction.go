@@ -12,7 +12,7 @@ func (cachedTransaction *CachedTransaction) Retain() *CachedTransaction {
 	return &CachedTransaction{cachedTransaction.CachedObject.Retain()}
 }
 
-func (cachedTransaction *CachedTransaction) Consume(consumer func(object *Transaction)) bool {
+func (cachedTransaction *CachedTransaction) Consume(consumer func(transaction *Transaction)) bool {
 	return cachedTransaction.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Transaction))
 	})

@@ -59,12 +59,16 @@ func TestTangle_AttachTransaction(t *testing.T) {
 	}
 
 	tangle.Events.TransactionAttached.Attach(events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+		cachedTransactionMetadata.Release()
+
 		cachedTransaction.Consume(func(transaction *transaction.Transaction) {
 			fmt.Println("ATTACHED:", transaction.GetId())
 		})
 	}))
 
 	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+		cachedTransactionMetadata.Release()
+
 		cachedTransaction.Consume(func(transaction *transaction.Transaction) {
 			fmt.Println("SOLID:", transaction.GetId())
 		})

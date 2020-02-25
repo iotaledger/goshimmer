@@ -8,9 +8,10 @@ import (
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/options"
-	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/hive.go/database"
 	"github.com/iotaledger/hive.go/logger"
+
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 var (
@@ -34,7 +35,7 @@ func Get(dbPrefix byte, optionalBadger ...*badger.DB) (Database, error) {
 
 func GetBadgerInstance() *badger.DB {
 	once.Do(func() {
-		dbDir := parameter.NodeConfig.GetString(CFG_DIRECTORY)
+		dbDir := config.Node.GetString(CFG_DIRECTORY)
 
 		var dbDirClear bool
 		// check whether the database is new, by checking whether any file exists within
@@ -57,12 +58,16 @@ func GetBadgerInstance() *badger.DB {
 			opts = opts.WithTruncate(true)
 		}
 
+		opts.SyncWrites = false
+		opts.TableLoadingMode = options.MemoryMap
+		opts.ValueLogLoadingMode = options.MemoryMap
 		opts.CompactL0OnClose = false
 		opts.KeepL0InMemory = false
 		opts.VerifyValueChecksum = false
 		opts.ZSTDCompressionLevel = 1
 		opts.Compression = options.None
 		opts.MaxCacheSize = 50000000
+		opts.EventLogging = false
 
 		db, err := database.CreateDB(dbDir, opts)
 		if err != nil {

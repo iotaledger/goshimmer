@@ -7,11 +7,6 @@ import (
 	"net"
 	"strings"
 
-	"github.com/iotaledger/goshimmer/packages/netutil"
-	"github.com/iotaledger/goshimmer/packages/parameter"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/cli"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
@@ -20,6 +15,10 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/transport"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
 var (
@@ -85,16 +84,11 @@ func start(shutdownSignal <-chan struct{}) {
 		panic(err)
 	}
 	// resolve the bind address
-	address := net.JoinHostPort(parameter.NodeConfig.GetString(local.CFG_BIND), peeringPort)
+	address := net.JoinHostPort(config.Node.GetString(local.CFG_BIND), peeringPort)
 	localAddr, err := net.ResolveUDPAddr(peeringAddr.Network(), address)
 	if err != nil {
 		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
 	}
-
-	// check that discovery is working and the port is open
-	log.Info("Testing service ...")
-	checkConnection(localAddr, &lPeer.Peer)
-	log.Info("Testing service ... done")
 
 	conn, err := net.ListenUDP(peeringAddr.Network(), localAddr)
 	if err != nil {
@@ -136,7 +130,7 @@ func start(shutdownSignal <-chan struct{}) {
 }
 
 func parseEntryNodes() (result []*peer.Peer, err error) {
-	for _, entryNodeDefinition := range parameter.NodeConfig.GetStringSlice(CFG_ENTRY_NODES) {
+	for _, entryNodeDefinition := range config.Node.GetStringSlice(CFG_ENTRY_NODES) {
 		if entryNodeDefinition == "" {
 			continue
 		}
@@ -157,20 +151,4 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 	}
 
 	return result, nil
-}
-
-func checkConnection(localAddr *net.UDPAddr, self *peer.Peer) {
-	peering := self.Services().Get(service.PeeringKey)
-	remoteAddr, err := net.ResolveUDPAddr(peering.Network(), peering.String())
-	if err != nil {
-		panic(err)
-	}
-
-	// do not check the address as a NAT may change them for local connections
-	err = netutil.CheckUDP(localAddr, remoteAddr, false, true)
-	if err != nil {
-		log.Errorf("Error testing service: %s", err)
-		log.Panicf("Please check that %s is publicly reachable at %s/%s",
-			cli.AppName, peering.String(), peering.Network())
-	}
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/database/mapdb"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
@@ -26,7 +27,7 @@ var (
 	testTxData = []byte("testTx")
 )
 
-func getTestTransaction([]byte) ([]byte, error) { return testTxData, nil }
+func getTestTransaction(transaction.Id) ([]byte, error) { return testTxData, nil }
 
 func TestClose(t *testing.T) {
 	_, detach := newEventMock(t)

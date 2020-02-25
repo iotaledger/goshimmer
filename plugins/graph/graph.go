@@ -7,9 +7,10 @@ import (
 	"strings"
 
 	socketio "github.com/googollee/go-socket.io"
-	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/iota.go/consts"
+
+	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/plugins/config"
 
 	"github.com/iotaledger/hive.go/syncutils"
 )
@@ -66,7 +67,7 @@ func onConnectHandler(s socketio.Conn) error {
 	log.Info(infoMsg)
 	socketioServer.JoinRoom("broadcast", s)
 
-	config := &wsConfig{NetworkName: parameter.NodeConfig.GetString(CFG_NETWORK)}
+	config := &wsConfig{NetworkName: config.Node.GetString(CFG_NETWORK)}
 
 	var initTxs []*wsTransaction
 	txRingBuffer.Do(func(tx interface{}) {

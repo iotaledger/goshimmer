@@ -5,12 +5,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/parameter"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 
 	"github.com/dgrijalva/jwt-go"
 )
@@ -21,7 +22,7 @@ var privateKey string
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger("WebAPI Auth")
-	privateKey = parameter.NodeConfig.GetString(WEBAPI_AUTH_PRIVATE_KEY)
+	privateKey = config.Node.GetString(WEBAPI_AUTH_PRIVATE_KEY)
 	if len(privateKey) == 0 {
 		panic("")
 	}
@@ -55,8 +56,8 @@ func Handler(c echo.Context) error {
 		return echo.ErrBadRequest
 	}
 
-	if login.Username != parameter.NodeConfig.GetString(WEBAPI_AUTH_USERNAME) ||
-		login.Password != parameter.NodeConfig.GetString(WEBAPI_AUTH_PASSWORD) {
+	if login.Username != config.Node.GetString(WEBAPI_AUTH_USERNAME) ||
+		login.Password != config.Node.GetString(WEBAPI_AUTH_PASSWORD) {
 		return echo.ErrUnauthorized
 	}
 
