@@ -10,7 +10,7 @@ var PLUGIN = node.NewPlugin("Banner", node.Enabled, configure, run)
 
 const (
 	// AppVersion version number
-	AppVersion = "v0.1.1"
+	AppVersion = "v0.2.0"
 
 	// AppName app code name
 	AppName = "GoShimmer"

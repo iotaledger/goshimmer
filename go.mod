@@ -13,7 +13,7 @@ require (
 	github.com/googollee/go-engine.io v1.4.3-0.20190924125625-798118fc0dd2
 	github.com/googollee/go-socket.io v1.4.3-0.20191204093753-683f8725b6d0
 	github.com/gorilla/websocket v1.4.1
-	github.com/iotaledger/hive.go v0.0.0-20200222013046-8268a12f52cb
+	github.com/iotaledger/hive.go v0.0.0-20200225022819-32427644698a
 	github.com/iotaledger/iota.go v1.0.0-beta.14
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/kr/text v0.2.0 // indirect

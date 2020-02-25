@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/parameter"
@@ -31,8 +32,8 @@ var (
 	}
 )
 
-func Load() {
-	// do nothing - the config get's initialized during init()
+func Init() {
+	PLUGIN.Events.Init.Trigger(PLUGIN)
 }
 
 func init() {
@@ -40,9 +41,11 @@ func init() {
 	Node = viper.New()
 	Node.SetDefault(logger.ViperKey, defaultLoggerConfig)
 
-	if err := fetch(false); err != nil {
-		panic(err)
-	}
+	PLUGIN.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
+		if err := fetch(false); err != nil {
+			panic(err)
+		}
+	}))
 }
 
 // fetch fetches config values from a dir defined via CLI flag --config-dir (or the current working dir if not set).
@@ -50,6 +53,7 @@ func init() {
 // It automatically reads in a single config file starting with "config" (can be changed via the --config CLI flag)
 // and ending with: .json, .toml, .yaml or .yml (in this sequence).
 func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
+	flag.Parse()
 	err := parameter.LoadConfigFile(Node, *configDirPath, *configName, true, true)
 	if err != nil {
 		return err

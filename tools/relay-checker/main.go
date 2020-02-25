@@ -40,8 +40,8 @@ func testNodesGetTransactions(txnHash trinary.Hash) error {
 }
 
 func main() {
-	config.Load()
-	logger.Load()
+	config.Init()
+	logger.Init()
 
 	InitConfig()
 
