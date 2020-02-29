@@ -79,24 +79,51 @@ func (transfer *Transfer) GetStorageKey() []byte {
 	return id[:]
 }
 
+// MarshalBinary returns a bytes representation of the transfer by implementing the encoding.BinaryMarshaler interface.
 func (transfer *Transfer) MarshalBinary() ([]byte, error) {
+	// acquired read lock on bytes
+	transfer.bytesMutex.RLock()
+
+	// return bytes if the object has been marshaled already
+	if transfer.bytes != nil {
+		defer transfer.bytesMutex.RUnlock()
+
+		return transfer.bytes, nil
+	}
+
+	// switch to write lock
+	transfer.bytesMutex.RUnlock()
+	transfer.bytesMutex.Lock()
+	defer transfer.bytesMutex.Unlock()
+
+	// return bytes if the object has been marshaled in the mean time
+	if bytes := transfer.bytes; bytes != nil {
+		return bytes, nil
+	}
+
+	// create marshal helper
 	marshalUtil := marshalutil.New()
 
+	// marshal inputs
 	marshalUtil.WriteBytes(transfer.inputs.ToBytes())
 
-	return marshalUtil.Bytes(), nil
+	// store marshaled result
+	transfer.bytes = marshalUtil.Bytes()
+
+	return transfer.bytes, nil
 }
 
 func (transfer *Transfer) UnmarshalBinary(data []byte) error {
 	marshalUtil := marshalutil.New(data)
 
-	parseResult, err := marshalUtil.Parse(func(data []byte) (result interface{}, err error, consumedBytes int) {
+	// unmarshal inputs
+	if parseResult, err := marshalUtil.Parse(func(data []byte) (result interface{}, err error, consumedBytes int) {
 		return TransferInputsFromBytes(data)
-	})
-	if err != nil {
+	}); err != nil {
 		return err
+	} else {
+		transfer.inputs = parseResult.(*TransferInputs)
 	}
-	transfer.inputs = parseResult.(*TransferInputs)
 
 	return nil
 
