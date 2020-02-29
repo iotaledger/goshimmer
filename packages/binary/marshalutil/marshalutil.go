@@ -38,6 +38,22 @@ func New(args ...interface{}) *MarshalUtil {
 	}
 }
 
+func (util *MarshalUtil) Parse(parser GenericParser) (result interface{}, err error) {
+	result, err, readBytes := parser(util.bytes[util.readOffset:])
+
+	util.ReadSeek(util.readOffset + readBytes)
+
+	return
+}
+
+func (util *MarshalUtil) ReadOffset() int {
+	return util.readOffset
+}
+
+func (util *MarshalUtil) WriteOffset() int {
+	return util.writeOffset
+}
+
 func (util *MarshalUtil) WriteSeek(offset int) {
 	util.writeOffset = offset
 }

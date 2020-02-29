@@ -8,9 +8,22 @@ import (
 )
 
 func TestPayload(t *testing.T) {
-	transfer := valuetangle.NewTransfer()
-	fmt.Println(transfer.GetId())
+	inputs := valuetangle.NewTransferInputs().Add(
+		valuetangle.NewTransferOutputId(valuetangle.NewAddress([]byte("test")), valuetangle.NewTransferId([]byte("test"))),
+	).Add(
+		valuetangle.NewTransferOutputId(valuetangle.NewAddress([]byte("test")), valuetangle.NewTransferId([]byte("test1"))),
+	)
 
-	payload := valuetangle.NewPayload(valuetangle.EmptyPayloadId, valuetangle.EmptyPayloadId, transfer)
-	fmt.Println(payload.GetId())
+	transfer := valuetangle.NewTransfer(inputs)
+	bytes, err := transfer.MarshalBinary()
+	if err != nil {
+		t.Error(err)
+
+		return
+	}
+
+	var restoredTransfer valuetangle.Transfer
+	fmt.Println(restoredTransfer.UnmarshalBinary(bytes))
+	fmt.Println(bytes, nil)
+	fmt.Println(restoredTransfer.MarshalBinary())
 }

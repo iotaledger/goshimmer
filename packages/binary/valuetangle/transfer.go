@@ -5,20 +5,25 @@ import (
 
 	"github.com/iotaledger/hive.go/objectstorage"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 )
 
 type Transfer struct {
 	objectstorage.StorableObjectFlags
 
-	id    *TransferId
-	bytes []byte
+	id     *TransferId
+	inputs *TransferInputs
+	bytes  []byte
 
 	idMutex    sync.RWMutex
 	bytesMutex sync.RWMutex
 }
 
-func NewTransfer() *Transfer {
-	return &Transfer{}
+func NewTransfer(inputs *TransferInputs) *Transfer {
+	return &Transfer{
+		inputs: inputs,
+	}
 }
 
 func FromStorage(key []byte) *Transfer {
@@ -50,36 +55,51 @@ func (transfer *Transfer) GetId() TransferId {
 		return *transfer.id
 	}
 
-	// otherwise calculate the PayloadId
-	transfer.id = transfer.calculateId()
+	// otherwise calculate the id
+	bytes, err := transfer.MarshalBinary()
+	if err != nil {
+		panic(err)
+	}
+	idBytes := blake2b.Sum256(bytes)
+	transferId := NewTransferId(idBytes[:])
 
-	return *transfer.id
-}
+	// cache result for later calls
+	transfer.id = &transferId
 
-func (transfer *Transfer) calculateId() *TransferId {
-	bytes, _ := transfer.MarshalBinary()
-
-	id := blake2b.Sum256(bytes)
-
-	result := NewTransferId(id[:])
-
-	return &result
+	return transferId
 }
 
 func (transfer *Transfer) Update(other objectstorage.StorableObject) {
-	panic("implement me")
+	panic("update forbidden")
 }
 
 func (transfer *Transfer) GetStorageKey() []byte {
-	panic("implement me")
+	id := transfer.GetId()
+
+	return id[:]
 }
 
 func (transfer *Transfer) MarshalBinary() ([]byte, error) {
-	return nil, nil
+	marshalUtil := marshalutil.New()
+
+	marshalUtil.WriteBytes(transfer.inputs.ToBytes())
+
+	return marshalUtil.Bytes(), nil
 }
 
 func (transfer *Transfer) UnmarshalBinary(data []byte) error {
-	panic("implement me")
+	marshalUtil := marshalutil.New(data)
+
+	parseResult, err := marshalUtil.Parse(func(data []byte) (result interface{}, err error, consumedBytes int) {
+		return TransferInputsFromBytes(data)
+	})
+	if err != nil {
+		return err
+	}
+	transfer.inputs = parseResult.(*TransferInputs)
+
+	return nil
+
 }
 
 // define contracts (ensure that the struct fulfills the corresponding interfaces
