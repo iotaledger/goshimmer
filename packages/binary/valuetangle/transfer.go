@@ -99,7 +99,6 @@ func (transfer *Transfer) UnmarshalBinary(data []byte) error {
 	transfer.inputs = parseResult.(*TransferInputs)
 
 	return nil
-
 }
 
 // define contracts (ensure that the struct fulfills the corresponding interfaces
