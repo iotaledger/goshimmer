@@ -126,7 +126,6 @@ func (transfer *Transfer) UnmarshalBinary(data []byte) error {
 	}
 
 	return nil
-
 }
 
 // define contracts (ensure that the struct fulfills the corresponding interfaces
