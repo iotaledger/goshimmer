@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload"
 	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/id"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer"
@@ -18,7 +17,7 @@ import (
 )
 
 func TestPayload(t *testing.T) {
-	createdPayload := payload.NewPayload(
+	originalPayload := payload.New(
 		payloadid.Empty,
 		payloadid.Empty,
 		transfer.New(
@@ -35,18 +34,14 @@ func TestPayload(t *testing.T) {
 		),
 	)
 
-	fmt.Println(createdPayload.Bytes())
-
-	restoredTransfer, err, _ := valuetransfers.TransferFromBytes(sourceTransfer.Bytes())
+	clonedPayload, err, _ := payload.FromBytes(originalPayload.Bytes())
 	if err != nil {
-		t.Error(err)
-
-		return
+		panic(err)
 	}
 
-	fmt.Println(sourceTransfer)
-	fmt.Println(restoredTransfer)
+	fmt.Println(originalPayload)
+	fmt.Println(clonedPayload)
 
-	fmt.Println(restoredTransfer.GetId())
-	fmt.Println(sourceTransfer.GetId())
+	fmt.Println(originalPayload.GetId())
+	fmt.Println(clonedPayload.GetId())
 }

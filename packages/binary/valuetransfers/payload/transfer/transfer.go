@@ -36,7 +36,7 @@ func New(inputs *inputs.Inputs, outputs *outputs.Outputs) *Transfer {
 	}
 }
 
-func TransferFromBytes(bytes []byte, optionalTargetObject ...*Transfer) (result *Transfer, err error, consumedBytes int) {
+func FromBytes(bytes []byte, optionalTargetObject ...*Transfer) (result *Transfer, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -51,26 +51,18 @@ func TransferFromBytes(bytes []byte, optionalTargetObject ...*Transfer) (result 
 	marshalUtil := marshalutil.New(bytes)
 
 	// unmarshal inputs
-	if parseResult, inputsErr := marshalUtil.Parse(func(data []byte) (result interface{}, err error, consumedBytes int) {
-		return inputs.FromBytes(data)
-	}); inputsErr != nil {
-		err = inputsErr
-
+	parsedInputs, err := marshalUtil.Parse(func(data []byte) (result interface{}, err error, consumedBytes int) { return inputs.FromBytes(data) })
+	if err != nil {
 		return
-	} else {
-		result.inputs = parseResult.(*inputs.Inputs)
 	}
+	result.inputs = parsedInputs.(*inputs.Inputs)
 
 	// unmarshal outputs
-	if parseResult, outputsErr := marshalUtil.Parse(func(data []byte) (result interface{}, err error, consumedBytes int) {
-		return outputs.FromBytes(data)
-	}); outputsErr != nil {
-		err = outputsErr
-
+	parsedOutputs, err := marshalUtil.Parse(func(data []byte) (result interface{}, err error, consumedBytes int) { return outputs.FromBytes(data) })
+	if err != nil {
 		return
-	} else {
-		result.outputs = parseResult.(*outputs.Outputs)
 	}
+	result.outputs = parsedOutputs.(*outputs.Outputs)
 
 	// return the number of bytes we processed
 	consumedBytes = marshalUtil.ReadOffset()
@@ -189,7 +181,7 @@ func (transfer *Transfer) MarshalBinary() ([]byte, error) {
 }
 
 func (transfer *Transfer) UnmarshalBinary(bytes []byte) (err error) {
-	_, err, _ = TransferFromBytes(bytes, transfer)
+	_, err, _ = FromBytes(bytes, transfer)
 
 	return
 }

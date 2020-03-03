@@ -17,22 +17,67 @@ import (
 type Payload struct {
 	objectstorage.StorableObjectFlags
 
-	id              *payloadid.Id
 	trunkPayloadId  payloadid.Id
 	branchPayloadId payloadid.Id
 	transfer        *transfer.Transfer
-	bytes           []byte
 
-	idMutex    sync.RWMutex
+	id      *payloadid.Id
+	idMutex sync.RWMutex
+
+	bytes      []byte
 	bytesMutex sync.RWMutex
 }
 
-func NewPayload(trunkPayloadId, branchPayloadId payloadid.Id, valueTransfer *transfer.Transfer) *Payload {
+func New(trunkPayloadId, branchPayloadId payloadid.Id, valueTransfer *transfer.Transfer) *Payload {
 	return &Payload{
 		trunkPayloadId:  trunkPayloadId,
 		branchPayloadId: branchPayloadId,
 		transfer:        valueTransfer,
 	}
+}
+
+func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, err error, consumedBytes int) {
+	// determine the target object that will hold the unmarshaled information
+	switch len(optionalTargetObject) {
+	case 0:
+		result = &Payload{}
+	case 1:
+		result = optionalTargetObject[0]
+	default:
+		panic("too many arguments in call to OutputFromBytes")
+	}
+
+	// initialize helper
+	marshalUtil := marshalutil.New(bytes)
+
+	// parse trunk payload id
+	parsedTrunkPayloadId, err := marshalUtil.ReadBytes(payloadid.Length)
+	if err != nil {
+		return
+	}
+	result.trunkPayloadId = payloadid.New(parsedTrunkPayloadId)
+
+	// parse branch payload id
+	parsedBranchPayloadId, err := marshalUtil.ReadBytes(payloadid.Length)
+	if err != nil {
+		return
+	}
+	result.branchPayloadId = payloadid.New(parsedBranchPayloadId)
+
+	// parse transfer
+	parsedTransfer, err := marshalUtil.Parse(func(data []byte) (result interface{}, err error, consumedBytes int) { return transfer.FromBytes(data) })
+	if err != nil {
+		return
+	}
+	result.transfer = parsedTransfer.(*transfer.Transfer)
+
+	// return the number of bytes we processed
+	consumedBytes = marshalUtil.ReadOffset()
+
+	// store bytes, so we don't have to marshal manually
+	result.bytes = bytes[:consumedBytes]
+
+	return
 }
 
 func (payload *Payload) GetId() payloadid.Id {
@@ -142,27 +187,7 @@ func (payload *Payload) MarshalBinary() (bytes []byte, err error) {
 }
 
 func (payload *Payload) UnmarshalBinary(data []byte) (err error) {
-	marshalUtil := marshalutil.New(data)
-
-	trunkTransactionIdBytes, err := marshalUtil.ReadBytes(payloadid.Length)
-	if err != nil {
-		return
-	}
-
-	branchTransactionIdBytes, err := marshalUtil.ReadBytes(payloadid.Length)
-	if err != nil {
-		return
-	}
-
-	valueTransfer := &transfer.Transfer{}
-	if err = valueTransfer.UnmarshalBinary(marshalUtil.ReadRemainingBytes()); err != nil {
-		return
-	}
-
-	payload.trunkPayloadId = payloadid.New(trunkTransactionIdBytes)
-	payload.branchPayloadId = payloadid.New(branchTransactionIdBytes)
-	payload.transfer = valueTransfer
-	payload.bytes = data
+	_, err, _ = FromBytes(data, payload)
 
 	return
 }
