@@ -1,29 +1,33 @@
-package valuetangle
+package payload
 
 import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
+	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer"
+	transferid "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/id"
 )
 
 type Payload struct {
 	objectstorage.StorableObjectFlags
 
-	id              *PayloadId
-	trunkPayloadId  PayloadId
-	branchPayloadId PayloadId
-	transfer        *Transfer
+	id              *payloadid.Id
+	trunkPayloadId  payloadid.Id
+	branchPayloadId payloadid.Id
+	transfer        *transfer.Transfer
 	bytes           []byte
 
 	idMutex    sync.RWMutex
 	bytesMutex sync.RWMutex
 }
 
-func NewPayload(trunkPayloadId, branchPayloadId PayloadId, valueTransfer *Transfer) *Payload {
+func NewPayload(trunkPayloadId, branchPayloadId payloadid.Id, valueTransfer *transfer.Transfer) *Payload {
 	return &Payload{
 		trunkPayloadId:  trunkPayloadId,
 		branchPayloadId: branchPayloadId,
@@ -31,7 +35,7 @@ func NewPayload(trunkPayloadId, branchPayloadId PayloadId, valueTransfer *Transf
 	}
 }
 
-func (payload *Payload) GetId() PayloadId {
+func (payload *Payload) GetId() payloadid.Id {
 	// acquire lock for reading id
 	payload.idMutex.RLock()
 
@@ -54,37 +58,29 @@ func (payload *Payload) GetId() PayloadId {
 
 	// otherwise calculate the id
 	transferId := payload.GetTransfer().GetId()
-	marshalUtil := marshalutil.New(PayloadIdLength + PayloadIdLength + TransferIdLength)
+	marshalUtil := marshalutil.New(payloadid.Length + payloadid.Length + transferid.Length)
 	marshalUtil.WriteBytes(payload.trunkPayloadId[:])
 	marshalUtil.WriteBytes(payload.branchPayloadId[:])
 	marshalUtil.WriteBytes(transferId[:])
-	var id PayloadId = blake2b.Sum256(marshalUtil.Bytes())
+	var id payloadid.Id = blake2b.Sum256(marshalUtil.Bytes())
 	payload.id = &id
 
 	return id
 }
 
-func (payload *Payload) GetTrunkPayloadId() PayloadId {
+func (payload *Payload) GetTrunkPayloadId() payloadid.Id {
 	return payload.trunkPayloadId
 }
 
-func (payload *Payload) GetBranchPayloadId() PayloadId {
+func (payload *Payload) GetBranchPayloadId() payloadid.Id {
 	return payload.branchPayloadId
 }
 
-func (payload *Payload) GetTransfer() *Transfer {
+func (payload *Payload) GetTransfer() *transfer.Transfer {
 	return payload.transfer
 }
 
-// region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
-
-var Type = payload.Type(1)
-
-func (payload *Payload) GetType() payload.Type {
-	return Type
-}
-
-func (payload *Payload) MarshalBinary() (bytes []byte, err error) {
+func (payload *Payload) Bytes() (bytes []byte) {
 	// acquire lock for reading bytes
 	payload.bytesMutex.RLock()
 
@@ -112,7 +108,7 @@ func (payload *Payload) MarshalBinary() (bytes []byte, err error) {
 	}
 
 	// marshal fields
-	marshalUtil := marshalutil.New(PayloadIdLength + PayloadIdLength + TransferIdLength)
+	marshalUtil := marshalutil.New(payloadid.Length + payloadid.Length + transferid.Length)
 	marshalUtil.WriteBytes(payload.trunkPayloadId[:])
 	marshalUtil.WriteBytes(payload.branchPayloadId[:])
 	marshalUtil.WriteBytes(transferBytes)
@@ -124,26 +120,47 @@ func (payload *Payload) MarshalBinary() (bytes []byte, err error) {
 	return
 }
 
+func (payload *Payload) String() string {
+	return stringify.Struct("Payload",
+		stringify.StructField("id", payload.GetId()),
+		stringify.StructField("trunk", payload.GetTrunkPayloadId()),
+		stringify.StructField("branch", payload.GetBranchPayloadId()),
+		stringify.StructField("transfer", payload.GetTransfer()),
+	)
+}
+
+// region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
+
+var Type = payload.Type(1)
+
+func (payload *Payload) GetType() payload.Type {
+	return Type
+}
+
+func (payload *Payload) MarshalBinary() (bytes []byte, err error) {
+	return payload.Bytes(), nil
+}
+
 func (payload *Payload) UnmarshalBinary(data []byte) (err error) {
 	marshalUtil := marshalutil.New(data)
 
-	trunkTransactionIdBytes, err := marshalUtil.ReadBytes(PayloadIdLength)
+	trunkTransactionIdBytes, err := marshalUtil.ReadBytes(payloadid.Length)
 	if err != nil {
 		return
 	}
 
-	branchTransactionIdBytes, err := marshalUtil.ReadBytes(PayloadIdLength)
+	branchTransactionIdBytes, err := marshalUtil.ReadBytes(payloadid.Length)
 	if err != nil {
 		return
 	}
 
-	valueTransfer := &Transfer{}
+	valueTransfer := &transfer.Transfer{}
 	if err = valueTransfer.UnmarshalBinary(marshalUtil.ReadRemainingBytes()); err != nil {
 		return
 	}
 
-	payload.trunkPayloadId = NewPayloadId(trunkTransactionIdBytes)
-	payload.branchPayloadId = NewPayloadId(branchTransactionIdBytes)
+	payload.trunkPayloadId = payloadid.New(trunkTransactionIdBytes)
+	payload.branchPayloadId = payloadid.New(branchTransactionIdBytes)
 	payload.transfer = valueTransfer
 	payload.bytes = data
 

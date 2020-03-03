@@ -1,4 +1,4 @@
-package valuetangle
+package valuetransfers
 
 import (
 	"github.com/mr-tron/base58"
@@ -7,7 +7,7 @@ import (
 type TransferOutputId [TransferOutputIdLength]byte
 
 func NewTransferOutputId(address Address, transferId TransferId) (transferOutputId TransferOutputId) {
-	copy(transferOutputId[:AddressLength], address[:])
+	copy(transferOutputId[:AddressLength], address.ToBytes())
 	copy(transferOutputId[AddressLength:], transferId[:])
 
 	return
@@ -32,7 +32,7 @@ func (transferOutputId TransferOutputId) ToBytes() []byte {
 }
 
 func (transferOutputId TransferOutputId) String() string {
-	return base58.Encode(transferOutputId[:])
+	return "TransferOutputId(" + base58.Encode(transferOutputId[:]) + ")"
 }
 
 const TransferOutputIdLength = AddressLength + TransferIdLength

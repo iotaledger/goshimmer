@@ -1,4 +1,4 @@
-package valuetangle
+package valuetransfers
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
@@ -11,7 +11,6 @@ type TransferInputs struct {
 
 func NewTransferInputs(transferOutputIds ...TransferOutputId) (inputs *TransferInputs) {
 	inputs = &TransferInputs{orderedmap.New()}
-
 	for _, transferOutputId := range transferOutputIds {
 		inputs.Add(transferOutputId)
 	}
@@ -109,4 +108,25 @@ func (inputs *TransferInputs) ForEachAddress(consumer func(address Address)) {
 
 		return true
 	})
+}
+
+func (inputs *TransferInputs) String() string {
+	if inputs == nil {
+		return "<nil>"
+	}
+
+	result := "[\n"
+
+	empty := true
+	inputs.ForEach(func(transferOutputId TransferOutputId) {
+		empty = false
+
+		result += "    " + transferOutputId.String() + ",\n"
+	})
+
+	if empty {
+		result += "    <empty>\n"
+	}
+
+	return result + "]"
 }
