@@ -25,7 +25,7 @@
   <a href="#work-in-progress-modules">Work-in-progress modules</a> ◈
   <a href="#installation">Installation</a> ◈
   <a href="#getting-started">Getting started</a> ◈
-  <a href="#client-library-and-http-api-reference">Client-Library and HTTP API reference</a> ◈
+  <a href="#client-library-and-http-api-reference">Client library and HTTP API reference</a> ◈
   <a href="#supporting-the-project">Supporting the project</a> ◈
   <a href="#joining-the-discussion">Joining the discussion</a> 
 </p>
@@ -61,7 +61,6 @@ The `master` branch includes the following Coordicide modules:
 - [Node identities](https://coordicide.iota.org/module1)
 
 - [Autopeering](https://coordicide.iota.org/module2)
-
 
 The autopeering module is divided into two submodules:
 
