@@ -38,7 +38,7 @@ func New(args ...interface{}) *MarshalUtil {
 	}
 }
 
-func (util *MarshalUtil) Parse(parser func(data []byte) (result interface{}, err error, consumedBytes int)) (result interface{}, err error) {
+func (util *MarshalUtil) Parse(parser func(data []byte) (interface{}, error, int)) (result interface{}, err error) {
 	result, err, readBytes := parser(util.bytes[util.readOffset:])
 	if err != nil {
 		util.ReadSeek(util.readOffset + readBytes)
