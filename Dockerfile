@@ -1,5 +1,5 @@
 # we need to use alpine to build since cgo is required
-FROM golang:1.13-alpine AS build
+FROM golang:1.14-alpine AS build
 RUN apk add --no-cache git gcc g++
 
 # Set the current Working Directory inside the container

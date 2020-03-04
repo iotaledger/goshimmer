@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/pluginmgr/research"
 	"github.com/iotaledger/goshimmer/pluginmgr/ui"
 	"github.com/iotaledger/goshimmer/pluginmgr/webapi"
+
 	"github.com/iotaledger/hive.go/node"
 )
 
