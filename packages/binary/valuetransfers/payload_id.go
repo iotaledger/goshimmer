@@ -1,4 +1,4 @@
-package valuetangle
+package valuetransfers
 
 import (
 	"github.com/mr-tron/base58"
