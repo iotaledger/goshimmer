@@ -7,8 +7,8 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/golang/protobuf v1.3.4
-	github.com/googollee/go-engine.io v1.4.3-0.20200220091802-9b2ab104b298
-	github.com/googollee/go-socket.io v1.4.3
+	github.com/googollee/go-engine.io v1.4.3-0.20190924125625-798118fc0dd2
+	github.com/googollee/go-socket.io v1.4.3-0.20191204093753-683f8725b6d0
 	github.com/gorilla/websocket v1.4.1
 	github.com/iotaledger/hive.go v0.0.0-20200304073310-d71239623d46
 	github.com/iotaledger/iota.go v1.0.0-beta.14
