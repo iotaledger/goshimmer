@@ -4,12 +4,12 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
+	"github.com/iotaledger/hive.go/node"
+
 	"github.com/iotaledger/goshimmer/pluginmgr/core"
 	"github.com/iotaledger/goshimmer/pluginmgr/research"
 	"github.com/iotaledger/goshimmer/pluginmgr/ui"
 	"github.com/iotaledger/goshimmer/pluginmgr/webapi"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/hive.go/node"
 )
 
 func main() {
