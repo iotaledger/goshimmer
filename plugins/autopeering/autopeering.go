@@ -39,17 +39,19 @@ func configureAP() {
 	}
 	log.Debugf("Master peers: %v", masterPeers)
 
-	Discovery = discover.New(local.GetInstance(), discover.Config{
-		Log:         log.Named("disc"),
-		MasterPeers: masterPeers,
-	})
+	Discovery = discover.New(local.GetInstance(),
+		discover.Logger(log.Named("disc")),
+		discover.Version(config.Node.GetUint32(CFG_VERSION)),
+		discover.MasterPeers(masterPeers),
+	)
 
+	log.Infof("Protocol Version: %v", discover.VersionNum)
 	// enable peer selection only when gossip is enabled
 	if !node.IsSkipped(gossip.PLUGIN) {
-		Selection = selection.New(local.GetInstance(), Discovery, selection.Config{
-			Log:               log.Named("sel"),
-			NeighborValidator: selection.ValidatorFunc(isValidNeighbor),
-		})
+		Selection = selection.New(local.GetInstance(), Discovery,
+			selection.Logger(log.Named("sel")),
+			selection.NeighborValidator(selection.ValidatorFunc(isValidNeighbor)),
+		)
 	}
 }
 

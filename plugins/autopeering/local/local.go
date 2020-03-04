@@ -50,10 +50,6 @@ func configureLocal() *peer.Local {
 	services := service.New()
 	services.Update(service.PeeringKey, "udp", net.JoinHostPort(externalIP.String(), peeringPort))
 
-	// the private key seed of the current local can be returned the following way:
-	// key, _ := db.LocalPrivateKey()
-	// fmt.Println(base64.StdEncoding.EncodeToString(ed25519.PrivateKey(key).Seed()))
-
 	// set the private key from the seed provided in the config
 	var seed [][]byte
 	if str := config.Node.GetString(CFG_SEED); str != "" {
@@ -74,6 +70,10 @@ func configureLocal() *peer.Local {
 	if err != nil {
 		log.Fatalf("Error creating peer DB: %s", err)
 	}
+
+	// the private key seed of the current local can be returned the following way:
+	// key, _ := peerDB.LocalPrivateKey()
+	// fmt.Println(base64.StdEncoding.EncodeToString(ed25519.PrivateKey(key).Seed()))
 
 	local, err := peer.NewLocal(services, peerDB, seed...)
 	if err != nil {
