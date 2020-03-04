@@ -22,8 +22,8 @@ func TestPayload(t *testing.T) {
 		payloadid.Empty,
 		transfer.New(
 			inputs.New(
-				transferoutputid.New(address.New([]byte("test")), transferid.New([]byte("test"))),
-				transferoutputid.New(address.New([]byte("test")), transferid.New([]byte("test1"))),
+				transferoutputid.New(address.New([]byte("input_address1")), transferid.New([]byte("transfer1"))),
+				transferoutputid.New(address.New([]byte("input_address2")), transferid.New([]byte("transfer2"))),
 			),
 
 			outputs.New(map[address.Address][]*coloredbalance.ColoredBalance{

@@ -48,9 +48,7 @@ func TransferFromBytes(bytes []byte, optionalTargetObject ...*Transfer) (result 
 	marshalUtil := marshalutil.New(bytes)
 
 	// unmarshal inputs
-	if parseResult, inputsErr := marshalUtil.Parse(func(data []byte) (result interface{}, err error, consumedBytes int) {
-		return TransferInputsFromBytes(data)
-	}); inputsErr != nil {
+	if parseResult, inputsErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return TransferInputsFromBytes(data) }); inputsErr != nil {
 		err = inputsErr
 
 		return
@@ -59,9 +57,7 @@ func TransferFromBytes(bytes []byte, optionalTargetObject ...*Transfer) (result 
 	}
 
 	// unmarshal outputs
-	if parseResult, outputsErr := marshalUtil.Parse(func(data []byte) (result interface{}, err error, consumedBytes int) {
-		return OutputsFromBytes(data)
-	}); outputsErr != nil {
+	if parseResult, outputsErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return OutputsFromBytes(data) }); outputsErr != nil {
 		err = outputsErr
 
 		return

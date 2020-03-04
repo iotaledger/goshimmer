@@ -65,7 +65,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	result.branchPayloadId = payloadid.New(parsedBranchPayloadId)
 
 	// parse transfer
-	parsedTransfer, err := marshalUtil.Parse(func(data []byte) (result interface{}, err error, consumedBytes int) { return transfer.FromBytes(data) })
+	parsedTransfer, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return transfer.FromBytes(data) })
 	if err != nil {
 		return
 	}

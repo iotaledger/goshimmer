@@ -51,14 +51,14 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Transfer) (result *Transfe
 	marshalUtil := marshalutil.New(bytes)
 
 	// unmarshal inputs
-	parsedInputs, err := marshalUtil.Parse(func(data []byte) (result interface{}, err error, consumedBytes int) { return inputs.FromBytes(data) })
+	parsedInputs, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return inputs.FromBytes(data) })
 	if err != nil {
 		return
 	}
 	result.inputs = parsedInputs.(*inputs.Inputs)
 
 	// unmarshal outputs
-	parsedOutputs, err := marshalUtil.Parse(func(data []byte) (result interface{}, err error, consumedBytes int) { return outputs.FromBytes(data) })
+	parsedOutputs, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return outputs.FromBytes(data) })
 	if err != nil {
 		return
 	}

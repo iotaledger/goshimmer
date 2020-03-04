@@ -40,7 +40,7 @@ func New(args ...interface{}) *MarshalUtil {
 
 func (util *MarshalUtil) Parse(parser func(data []byte) (interface{}, error, int)) (result interface{}, err error) {
 	result, err, readBytes := parser(util.bytes[util.readOffset:])
-	if err != nil {
+	if err == nil {
 		util.ReadSeek(util.readOffset + readBytes)
 	}
 
