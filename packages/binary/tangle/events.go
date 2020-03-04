@@ -8,6 +8,7 @@ import (
 )
 
 type Events struct {
+	// Get's called whenever a transaction
 	TransactionAttached        *events.Event
 	TransactionSolid           *events.Event
 	MissingTransactionReceived *events.Event

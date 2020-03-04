@@ -27,8 +27,6 @@ import (
 )
 
 func main() {
-	config.Init()
-
 	go http.ListenAndServe("localhost:6061", nil) // pprof Server for Debbuging Mutexes
 
 	node.Run(

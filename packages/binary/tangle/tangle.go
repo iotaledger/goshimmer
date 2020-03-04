@@ -74,7 +74,7 @@ func (tangle *Tangle) GetTransactionMetadata(transactionId transaction.Id) *tran
 	return &transactionmetadata.CachedTransactionMetadata{CachedObject: tangle.transactionMetadataStorage.Load(transactionId[:])}
 }
 
-// Retrieves the approvers of a transaction from the tangle.
+// GetApprovers retrieves the approvers of a transaction from the tangle.
 func (tangle *Tangle) GetApprovers(transactionId transaction.Id) approver.CachedApprovers {
 	approvers := make(approver.CachedApprovers, 0)
 	tangle.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
