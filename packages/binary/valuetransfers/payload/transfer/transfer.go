@@ -73,7 +73,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Transfer) (result *Transfe
 	return
 }
 
-func TransferFromStorage(key []byte) *Transfer {
+func FromStorage(key []byte) *Transfer {
 	id := id.New(key)
 
 	return &Transfer{
