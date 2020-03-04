@@ -128,7 +128,7 @@ If you want to build your own executable file, you need to follow these steps.
 
 #### Prerequisites
 
-To complete this guide, you need to have at least [version 1.13 of Go installed](https://golang.org/doc/install) on your device.
+To complete this guide, you need to have at least [version 1.14 of Go installed](https://golang.org/doc/install) on your device.
 
 To check if you have Go installed, run the following command:
 
