@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/database"
 
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle"
@@ -10,7 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/tipselector"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/transactionparser"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/transactionrequester"
-	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 
 	"github.com/iotaledger/hive.go/daemon"
