@@ -3,7 +3,7 @@ package id
 import (
 	"github.com/mr-tron/base58"
 
-	address2 "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/address"
+	address2 "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/address"
 	id2 "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/id"
 )
 

@@ -10,9 +10,11 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
+	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/id"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/inputs"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/outputs"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/signatures"
 )
 
 // region IMPLEMENT Transfer ///////////////////////////////////////////////////////////////////////////////////////////
@@ -20,12 +22,20 @@ import (
 type Transfer struct {
 	objectstorage.StorableObjectFlags
 
-	id      *id.Id
-	inputs  *inputs.Inputs
-	outputs *outputs.Outputs
-	bytes   []byte
+	inputs     *inputs.Inputs
+	outputs    *outputs.Outputs
+	signatures *signatures.Signatures
 
-	idMutex    sync.RWMutex
+	id      *id.Id
+	idMutex sync.RWMutex
+
+	essenceBytes      []byte
+	essenceBytesMutex sync.RWMutex
+
+	signatureBytes      []byte
+	signatureBytesMutex sync.RWMutex
+
+	bytes      []byte
 	bytesMutex sync.RWMutex
 }
 
@@ -146,6 +156,10 @@ func (transfer *Transfer) Bytes() []byte {
 	transfer.bytes = marshalUtil.Bytes()
 
 	return transfer.bytes
+}
+
+func (transfer *Transfer) Sign(pair ed25119.KeyPair) {
+	//transfer.signatures[pair.PublicKey] = pair.PrivateKey.Sign(transfer.Bytes())
 }
 
 func (transfer *Transfer) String() string {

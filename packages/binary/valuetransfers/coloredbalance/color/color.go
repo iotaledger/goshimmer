@@ -27,11 +27,11 @@ func (color Color) Bytes() []byte {
 }
 
 func (color Color) String() string {
-	if color == COLOR_IOTA {
+	if color == IOTA {
 		return "IOTA"
 	}
 
 	return base58.Encode(color[:])
 }
 
-var COLOR_IOTA Color = [32]byte{}
+var IOTA Color = [32]byte{}
