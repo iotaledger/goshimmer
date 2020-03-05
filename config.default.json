@@ -1,7 +1,7 @@
 {
   "analysis": {
     "client": {
-      "serverAddress": "ressims.iota.cafe:188"
+      "serverAddress": "node1.goshimmer.dev:188"
     },
     "server": {
       "port": 0
@@ -12,9 +12,10 @@
   },
   "autopeering": {
     "entryNodes": [
-      "V8LYtWWcPYYDTTXLeIEFjJEuWlsjDiI0+Pq/Cx9ai6g=@116.202.49.178:14626"
+      "MRCJTGX9x+PPiT3um1DQSHXvALaUg/tCH/oQr6mliGo=@35.246.104.243:14626"
     ],
-    "port": 14626
+    "port": 14626,
+    "version": 1
   },
   "dashboard": {
     "bindAddress": "127.0.0.1:8081",
