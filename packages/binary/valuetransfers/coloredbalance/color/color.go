@@ -1,4 +1,4 @@
-package valuetransfers
+package color
 
 import (
 	"github.com/mr-tron/base58"
@@ -6,32 +6,32 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 )
 
-type Color [ColorLength]byte
+type Color [Length]byte
 
-func ColorFromBytes(bytes []byte) (result Color, err error, consumedBytes int) {
-	colorBytes, err := marshalutil.New(bytes).ReadBytes(ColorLength)
+func FromBytes(bytes []byte) (result Color, err error, consumedBytes int) {
+	colorBytes, err := marshalutil.New(bytes).ReadBytes(Length)
 	if err != nil {
 		return
 	}
 	copy(result[:], colorBytes)
 
-	consumedBytes = ColorLength
+	consumedBytes = Length
 
 	return
 }
 
-const ColorLength = 32
+const Length = 32
 
 func (color Color) Bytes() []byte {
 	return color[:]
 }
 
 func (color Color) String() string {
-	if color == COLOR_IOTA {
+	if color == IOTA {
 		return "IOTA"
 	}
 
 	return base58.Encode(color[:])
 }
 
-var COLOR_IOTA Color = [32]byte{}
+var IOTA Color = [32]byte{}

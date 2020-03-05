@@ -36,6 +36,8 @@ func New(trunkPayloadId, branchPayloadId payloadid.Id, valueTransfer *transfer.T
 	}
 }
 
+// FromBytes parses the marshaled version of a Payload into an object.
+// It either returns a new Payload or fills an optionally provided Payload with the parsed information.
 func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {

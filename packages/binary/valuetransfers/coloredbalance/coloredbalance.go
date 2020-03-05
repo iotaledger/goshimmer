@@ -4,15 +4,15 @@ import (
 	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
-	color2 "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/coloredbalance/color"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/coloredbalance/color"
 )
 
 type ColoredBalance struct {
-	color   color2.Color
+	color   color.Color
 	balance int64
 }
 
-func New(color color2.Color, balance int64) (result *ColoredBalance) {
+func New(color color.Color, balance int64) (result *ColoredBalance) {
 	result = &ColoredBalance{
 		color:   color,
 		balance: balance,
@@ -27,11 +27,11 @@ func FromBytes(bytes []byte) (result *ColoredBalance, err error, consumedBytes i
 	marshalUtil := marshalutil.New(bytes)
 
 	if coinColor, colorErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
-		return color2.FromBytes(data)
+		return color.FromBytes(data)
 	}); colorErr != nil {
 		return nil, colorErr, marshalUtil.ReadOffset()
 	} else {
-		result.color = coinColor.(color2.Color)
+		result.color = coinColor.(color.Color)
 	}
 
 	result.balance, err = marshalUtil.ReadInt64()
@@ -45,7 +45,7 @@ func FromBytes(bytes []byte) (result *ColoredBalance, err error, consumedBytes i
 }
 
 func (balance *ColoredBalance) ToBytes() []byte {
-	marshalUtil := marshalutil.New(color2.Length + marshalutil.UINT32_SIZE)
+	marshalUtil := marshalutil.New(color.Length + marshalutil.UINT32_SIZE)
 
 	marshalUtil.WriteBytes(balance.color.Bytes())
 	marshalUtil.WriteInt64(balance.balance)

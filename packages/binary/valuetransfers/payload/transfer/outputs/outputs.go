@@ -3,8 +3,8 @@ package outputs
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
-	address2 "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/address"
-	coloredbalance2 "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/coloredbalance"
+	address2 "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/address"
+	coloredbalance2 "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/coloredbalance"
 )
 
 type Outputs struct {

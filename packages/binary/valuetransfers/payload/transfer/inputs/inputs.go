@@ -3,10 +3,10 @@ package inputs
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/address"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/id"
 	transferid "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/id"
-	transferoutputid "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/output/id"
+	transferoutputid "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/transferoutput/id"
 )
 
 type Inputs struct {
