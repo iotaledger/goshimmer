@@ -8,12 +8,11 @@ import (
 	"github.com/dgraph-io/badger/v2"
 	"github.com/iotaledger/hive.go/events"
 
-	"github.com/iotaledger/hive.go/database"
-
 	"github.com/iotaledger/goshimmer/packages/binary/identity"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
