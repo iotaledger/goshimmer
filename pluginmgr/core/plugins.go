@@ -11,6 +11,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/goshimmer/plugins/transactionfactory"
+
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -23,6 +25,7 @@ var PLUGINS = node.Plugins(
 	autopeering.PLUGIN,
 	tangle.PLUGIN,
 	gossip.PLUGIN,
+	transactionfactory.PLUGIN,
 	gracefulshutdown.PLUGIN,
 	metrics.PLUGIN,
 )

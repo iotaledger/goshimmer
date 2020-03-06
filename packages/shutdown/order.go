@@ -5,6 +5,7 @@ const (
 	ShutdownPriorityRemoteLog
 	ShutdownPriorityAnalysis
 	ShutdownPriorityMetrics
+	ShutdownPriorityTransactionFactory
 	ShutdownPriorityAutopeering
 	ShutdownPriorityGossip
 	ShutdownPriorityWebAPI
