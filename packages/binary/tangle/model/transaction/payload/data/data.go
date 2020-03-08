@@ -2,6 +2,7 @@ package data
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 type Data struct {
@@ -38,6 +39,12 @@ func (dataPayload *Data) MarshalBinary() (data []byte, err error) {
 	copy(data, dataPayload.data)
 
 	return
+}
+
+func (dataPayload *Data) String() string {
+	return stringify.Struct("Payload",
+		stringify.StructField("data", string(dataPayload.GetData())),
+	)
 }
 
 func GenericPayloadUnmarshalerFactory(payloadType payload.Type) payload.Unmarshaler {

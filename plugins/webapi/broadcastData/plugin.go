@@ -3,11 +3,13 @@ package broadcastData
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/packages/transactionfactory/baseontology"
+
+	"github.com/iotaledger/goshimmer/packages/transactionfactory"
+
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/labstack/echo"
 )
 
@@ -28,49 +30,58 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	log.Debug("Received - address:", request.Address, " data:", request.Data)
+	builder := baseontology.Builder{}
+	payload := builder.BuildPayload([]byte(request.Data))
+	tx := transactionfactory.GetInstance().BuildTransaction(payload)
 
-	tx := value_transaction.New()
-	tx.SetHead(true)
-	tx.SetTail(true)
-
-	buffer := make([]byte, 2187)
-	if len(request.Data) > 2187 {
-		log.Warnf("data exceeds 2187 byte limit - (payload data size: %d)", len(request.Data))
-		return c.JSON(http.StatusBadRequest, Response{Error: "data exceeds 2187 byte limit"})
-	}
-
-	copy(buffer, typeutils.StringToBytes(request.Data))
-
-	// TODO: FIX FOR NEW TX LAYOUT
+	// create dummy value transaction
+	//builder := valueontology.Builder{}
+	//payload := builder.BuildPayload(builder.BuildValueTransfer())
+	//tx := transactionfactory.GetInstance().BuildTransaction(payload)
 
 	/*
-		trytes, err := trinary.BytesToTrytes(buffer)
-		if err != nil {
-			log.Warnf("trytes conversion failed: %s", err.Error())
-			return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		// TODO: FIX FOR NEW TX LAYOUT
+		log.Debug("Received - address:", request.Address, " data:", request.Data)
+
+		tx := value_transaction.New()
+		tx.SetHead(true)
+		tx.SetTail(true)
+
+		buffer := make([]byte, 2187)
+		if len(request.Data) > 2187 {
+			log.Warnf("data exceeds 2187 byte limit - (payload data size: %d)", len(request.Data))
+			return c.JSON(http.StatusBadRequest, Response{Error: "data exceeds 2187 byte limit"})
 		}
 
-		err = address.ValidAddress(request.Address)
-		if err != nil {
-			log.Warnf("invalid Address: %s", request.Address)
-			return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
-		}
+		copy(buffer, typeutils.StringToBytes(request.Data))
 
-		tx.SetAddress(request.Address)
-		tx.SetSignatureMessageFragment(trytes)
-		tx.SetValue(0)
-		tx.SetBranchTransactionHash(tipselectionn.GetRandomTip())
-		tx.SetTrunkTransactionHash(tipselectionn.GetRandomTip(tx.GetBranchTransactionHash()))
-		tx.SetTimestamp(uint(time.Now().Unix()))
-		if err := tx.DoProofOfWork(meta_transaction.MIN_WEIGHT_MAGNITUDE); err != nil {
-			log.Warnf("PoW failed: %s", err)
-			return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
-		}
 
-		gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: tx.GetBytes(), Peer: &local.GetInstance().Peer})
+			trytes, err := trinary.BytesToTrytes(buffer)
+			if err != nil {
+				log.Warnf("trytes conversion failed: %s", err.Error())
+				return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+			}
+
+			err = address.ValidAddress(request.Address)
+			if err != nil {
+				log.Warnf("invalid Address: %s", request.Address)
+				return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+			}
+
+			tx.SetAddress(request.Address)
+			tx.SetSignatureMessageFragment(trytes)
+			tx.SetValue(0)
+			tx.SetBranchTransactionHash(tipselectionn.GetRandomTip())
+			tx.SetTrunkTransactionHash(tipselectionn.GetRandomTip(tx.GetBranchTransactionHash()))
+			tx.SetTimestamp(uint(time.Now().Unix()))
+			if err := tx.DoProofOfWork(meta_transaction.MIN_WEIGHT_MAGNITUDE); err != nil {
+				log.Warnf("PoW failed: %s", err)
+				return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
+			}
+
+			gossip.Events.TransactionReceived.Trigger(&gossip.TransactionReceivedEvent{Data: tx.GetBytes(), Peer: &local.GetInstance().Peer})
 	*/
-	return c.JSON(http.StatusOK, Response{Hash: tx.GetHash()})
+	return c.JSON(http.StatusOK, Response{Hash: tx.GetId().String()})
 }
 
 type Response struct {

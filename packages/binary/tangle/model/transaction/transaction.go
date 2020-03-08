@@ -272,7 +272,7 @@ func (transaction *Transaction) String() string {
 	return stringify.Struct("Transaction",
 		stringify.StructField("id", base58.Encode(transactionId[:])),
 		stringify.StructField("trunkTransactionId", base58.Encode(transaction.trunkTransactionId[:])),
-		stringify.StructField("trunkTransactionId", base58.Encode(transaction.branchTransactionId[:])),
+		stringify.StructField("branchTransactionId", base58.Encode(transaction.branchTransactionId[:])),
 		stringify.StructField("payload", transaction.payload),
 	)
 }

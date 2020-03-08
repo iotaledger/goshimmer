@@ -13,7 +13,7 @@ require (
 	github.com/iotaledger/hive.go v0.0.0-20200305153009-d3408b2be05b
 	github.com/iotaledger/iota.go v1.0.0-beta.14
 	github.com/labstack/echo v3.3.10+incompatible
-	github.com/labstack/gommon v0.3.0 // indirect
+	github.com/labstack/gommon v0.3.0
 	github.com/magiconair/properties v1.8.1
 	github.com/mr-tron/base58 v1.1.3
 	github.com/oasislabs/ed25519 v0.0.0-20200302143042-29f6767a7c3e
