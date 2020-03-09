@@ -44,7 +44,7 @@ func FromBytes(bytes []byte) (result *ColoredBalance, err error, consumedBytes i
 	return
 }
 
-func (balance *ColoredBalance) ToBytes() []byte {
+func (balance *ColoredBalance) Bytes() []byte {
 	marshalUtil := marshalutil.New(color.Length + marshalutil.UINT32_SIZE)
 
 	marshalUtil.WriteBytes(balance.color.Bytes())

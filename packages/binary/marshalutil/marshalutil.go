@@ -56,11 +56,19 @@ func (util *MarshalUtil) WriteOffset() int {
 }
 
 func (util *MarshalUtil) WriteSeek(offset int) {
-	util.writeOffset = offset
+	if offset < 0 {
+		util.writeOffset += offset
+	} else {
+		util.writeOffset = offset
+	}
 }
 
 func (util *MarshalUtil) ReadSeek(offset int) {
-	util.readOffset = offset
+	if offset < 0 {
+		util.readOffset += offset
+	} else {
+		util.readOffset = offset
+	}
 }
 
 func (util *MarshalUtil) Bytes() []byte {

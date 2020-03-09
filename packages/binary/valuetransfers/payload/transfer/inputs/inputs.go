@@ -106,11 +106,9 @@ func (inputs *Inputs) ForEach(consumer func(transferOutputId transferoutputid.Id
 	})
 }
 
-func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Address)) {
+func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Address) bool) {
 	inputs.OrderedMap.ForEach(func(key, value interface{}) bool {
-		consumer(key.(address.Address))
-
-		return true
+		return consumer(key.(address.Address))
 	})
 }
 
