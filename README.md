@@ -25,7 +25,7 @@
   <a href="#work-in-progress-modules">Work-in-progress modules</a> ◈
   <a href="#installation">Installation</a> ◈
   <a href="#getting-started">Getting started</a> ◈
-  <a href="#client-library-and-http-api-reference">Client-Library and HTTP API reference</a> ◈
+  <a href="#client-library-and-http-api-reference">Client library and HTTP API reference</a> ◈
   <a href="#supporting-the-project">Supporting the project</a> ◈
   <a href="#joining-the-discussion">Joining the discussion</a> 
 </p>
@@ -62,7 +62,6 @@ The `master` branch includes the following Coordicide modules:
 
 - [Autopeering](https://coordicide.iota.org/module2)
 
-
 The autopeering module is divided into two submodules:
 
 - **Peer discovery:** Responsible for operations such as discovering new peers and verifying their online status
@@ -93,14 +92,11 @@ As well as these modules, we are working on the following node functions:
 
     ![parallel_reality](images/outputs.png "Ledger State")
 
-## Client-Library and HTTP API reference
+## Client library and HTTP API reference
 
-You can use the Go client-library to interact with GoShimmer (located under `github.com/iotaledger/goshimmer/client`).
+You can use the Go client library to interact with GoShimmer (located under `github.com/iotaledger/goshimmer/client`).
 
-Alternatively, you can check out the [API docs](https://docs.iota.org/docs/node-software/0.1/goshimmer/references/api-reference) 
-to implement your own client or inspect the available HTTP API endpoints.
-
-For code generation, you might want to use the [OAS/Swagger specification file](https://github.com/iotaledger/goshimmer/blob/master/plugins/webapi/api.yaml) directly.
+Alternatively, you can see the [API docs](https://docs.iota.org/docs/node-software/0.1/goshimmer/references/api-reference) for the available HTTP API endpoints. Or, to generate code samples, you can use the [OAS/Swagger specification file](https://github.com/iotaledger/goshimmer/blob/master/plugins/webapi/api.yaml).
 
 ## Installation
 
@@ -109,7 +105,7 @@ You have two options to install and run GoShimmer:
 - Use the precompiled executable file
 - Compile the code from source
 
-### Execute the precompiled executable file
+### Executing the precompiled executable file
 
 The [release page](https://github.com/iotaledger/goshimmer/releases) includes downloadable files for Linux, macOS, and Windows.
 
@@ -122,7 +118,7 @@ To run the node, all you need to do is download and execute one of these files, 
 goshimmer.exe
 ```
 
-### Compile the code from source
+### Compiling the code from source
 
 If you want to build your own executable file, you need to follow these steps.
 
@@ -192,11 +188,11 @@ goshimmer.exe --node.enablePlugins "spammer"
 
 Here, we use the command-line flags to enable the spammer plugin. This plugin allows you to send spam transactions to your node.
 
-### Dashboard
+### Configuring the dashboard
 
-GoShimmer provides access to a SPA dashboard showing TPS, memory chart, neighbors and a Tangle explorer.
+GoShimmer has a dashboard that displays the current TPS, memory usage, neighbors and a Tangle explorer.
 
-You can change its configuration (e.g, bind address, port) under the section `dashboard` of the `config.json` file, for example by changing the bind address to `0.0.0.0:8081` to enable the access from remote and/or by enabling the authentication.
+You can change the dashboard configuration (e.g, bind address, port) under the `dashboard` section of the `config.json` file. For example, by changing the bind address to `0.0.0.0:8081`, you can enable remote access to the dashboard.
 
 To access the dashboard, you can use your browser (the default address is `http://127.0.0.1:8081`).
 
@@ -231,13 +227,7 @@ To open the visualizer, run GoShimmer, and go to `127.0.0.1:8083` in a web brows
 
 If you want to contribute to the code, consider posting a [bug report](https://github.com/iotaledger/goshimmer/issues/new-issue), feature request or a [pull request](https://github.com/iotaledger/goshimmer/pulls/).
 
-When creating a pull request, we recommend that you do the following:
-
-1. Clone the repository
-2. Create a new branch for your fix or feature. For example, `git checkout -b fix/my-fix` or ` git checkout -b feat/my-feature`.
-3. Run the `go fmt` command to make sure your code is well formatted
-4. Document any exported packages
-5. Target your pull request to be merged with `dev`
+See the [contributing guidelines](CONTRIBUTING.md) for more information.
 
 ## Joining the discussion
 
