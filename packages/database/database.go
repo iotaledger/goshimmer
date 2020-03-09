@@ -1,3 +1,4 @@
+// Wrapper for hive.go/database package. Only use this instead of the hive.go package.
 package database
 
 import (

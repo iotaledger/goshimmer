@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
-	"github.com/iotaledger/goshimmer/packages/netutil"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/netutil"
 	"github.com/iotaledger/hive.go/node"
 )
 

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/netutil"
-	"github.com/iotaledger/goshimmer/packages/netutil/buffconn"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/netutil"
+	"github.com/iotaledger/hive.go/netutil/buffconn"
 	"go.uber.org/atomic"
 )
 

@@ -19,6 +19,53 @@ import (
 	transferoutputid "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/transferoutput/id"
 )
 
+func ExamplePayload() {
+	// 1. create value transfer (user provides this)
+	valueTransfer := transfer.New(
+		// inputs
+		inputs.New(
+			transferoutputid.New(address.New([]byte("input_address1")), transferid.New([]byte("transfer1"))),
+			transferoutputid.New(address.New([]byte("input_address2")), transferid.New([]byte("transfer2"))),
+		),
+
+		// outputs
+		outputs.New(map[address.Address][]*coloredbalance.ColoredBalance{
+			address.New([]byte("output_address")): {
+				coloredbalance.New(color.IOTA, 1337),
+			},
+		}),
+	)
+
+	// 2. create value payload (the ontology creates this and wraps the user provided transfer accordingly)
+	valuePayload := valuepayload.New(
+		// trunk in "value transfer ontology" (filled by ontology tipSelector)
+		payloadid.Empty,
+
+		// branch in "value transfer ontology"  (filled by ontology tipSelector)
+		payloadid.Empty,
+
+		// value transfer
+		valueTransfer,
+	)
+
+	// 3. build actual transaction (the base layer creates this and wraps the ontology provided payload)
+	tx := transaction.New(
+		// trunk in "network tangle" ontology (filled by tipSelector)
+		transaction.EmptyId,
+
+		// branch in "network tangle" ontology (filled by tipSelector)
+		transaction.EmptyId,
+
+		// issuer of the transaction (signs automatically)
+		identity.Generate(),
+
+		// payload
+		valuePayload,
+	)
+
+	fmt.Println(tx)
+}
+
 func TestPayload(t *testing.T) {
 	addressKeyPair1 := ed25119.GenerateKeyPair()
 	addressKeyPair2 := ed25119.GenerateKeyPair()

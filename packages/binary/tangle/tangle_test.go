@@ -2,18 +2,20 @@ package tangle
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/iotaledger/hive.go/events"
-
-	"github.com/iotaledger/hive.go/database"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/binary/identity"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
@@ -21,11 +23,13 @@ var testDatabase *badger.DB
 
 var _ = config.PLUGIN
 
-func init() {
-	testDatabase = database.GetBadgerInstance()
-}
-
 func BenchmarkTangle_AttachTransaction(b *testing.B) {
+	dir, err := ioutil.TempDir("", b.Name())
+	require.NoError(b, err)
+	defer os.Remove(dir)
+	// use the tempdir for the database
+	config.Node.Set(database.CFG_DIRECTORY, dir)
+
 	tangle := New(testDatabase, []byte("TEST_BINARY_TANGLE"))
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
@@ -51,7 +55,13 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 }
 
 func TestTangle_AttachTransaction(t *testing.T) {
-	tangle := New(testDatabase, []byte("TEST_BINARY_TANGLE"))
+	dir, err := ioutil.TempDir("", t.Name())
+	require.NoError(t, err)
+	defer os.Remove(dir)
+	// use the tempdir for the database
+	config.Node.Set(database.CFG_DIRECTORY, dir)
+
+	tangle := New(database.GetBadgerInstance(), []byte("TEST_BINARY_TANGLE"))
 	if err := tangle.Prune(); err != nil {
 		t.Error(err)
 
