@@ -78,7 +78,7 @@ func (inputs *Inputs) Add(input transferoutputid.Id) *Inputs {
 	return inputs
 }
 
-func (inputs *Inputs) ToBytes() (bytes []byte) {
+func (inputs *Inputs) Bytes() (bytes []byte) {
 	marshalUtil := marshalutil.New()
 
 	marshalUtil.WriteSeek(4)

@@ -4,8 +4,6 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/mr-tron/base58"
-
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 
@@ -57,22 +55,9 @@ type SearchResult struct {
 	Milestone *ExplorerTx     `json:"milestone"`
 }
 
-func transactionIdFromString(transactionId string) (transaction.Id, error) {
-	// TODO: CHECK LENGTH
-
-	transactionIdBytes, err := base58.Decode(transactionId)
-	if err != nil {
-		return transaction.EmptyId, err
-	}
-
-	// TODO: REMOVE CHECKSUM FROM STRING
-
-	return transaction.NewId(transactionIdBytes), nil
-}
-
 func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/tx/:hash", func(c echo.Context) (err error) {
-		transactionId, err := transactionIdFromString(c.Param("hash"))
+		transactionId, err := transaction.NewId(c.Param("hash"))
 		if err != nil {
 			return
 		}
@@ -106,7 +91,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		go func() {
 			defer wg.Done()
 
-			transactionId, err := transactionIdFromString(search)
+			transactionId, err := transaction.NewId(search)
 			if err != nil {
 				return
 			}

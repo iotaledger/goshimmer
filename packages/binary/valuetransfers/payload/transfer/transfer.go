@@ -180,7 +180,7 @@ func (transfer *Transfer) EssenceBytes() []byte {
 	marshalUtil := marshalutil.New()
 
 	// marshal inputs
-	marshalUtil.WriteBytes(transfer.inputs.ToBytes())
+	marshalUtil.WriteBytes(transfer.inputs.Bytes())
 
 	// marshal outputs
 	marshalUtil.WriteBytes(transfer.outputs.Bytes())
