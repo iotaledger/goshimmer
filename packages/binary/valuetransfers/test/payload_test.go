@@ -1,11 +1,14 @@
 package test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/goshimmer/packages/binary/identity"
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/coloredbalance"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/coloredbalance/color"
