@@ -25,9 +25,17 @@ func NewId(base58EncodedString string) (result Id, err error) {
 	return
 }
 
+// IdFromBytes unmarshals a transaction id from a sequence of bytes.
 func IdFromBytes(bytes []byte) (result Id, err error, consumedBytes int) {
+	// check arguments
+	if len(bytes) < IdLength {
+		err = fmt.Errorf("bytes not long enough to encode a valid transaction id")
+	}
+
+	// calculate result
 	copy(result[:], bytes)
 
+	// return the number of bytes we processed
 	consumedBytes = IdLength
 
 	return
