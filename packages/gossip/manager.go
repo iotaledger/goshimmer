@@ -257,6 +257,9 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 		m.log.Debugw("received message", "type", "TRANSACTION_REQUEST", "id", p.ID())
 		// do something
 		txId, err, _ := transaction.IdFromBytes(msg.GetHash())
+		if err != nil {
+			m.log.Debugw("error getting transaction", "hash", msg.GetHash(), "err", err)
+		}
 		tx, err := m.getTransaction(txId)
 		if err != nil {
 			m.log.Debugw("error getting transaction", "hash", msg.GetHash(), "err", err)
