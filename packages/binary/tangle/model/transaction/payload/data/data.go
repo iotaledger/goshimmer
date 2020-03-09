@@ -1,6 +1,8 @@
 package data
 
 import (
+	"github.com/iotaledger/hive.go/stringify"
+
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
 )
@@ -70,6 +72,12 @@ func (dataPayload *Data) UnmarshalBinary(data []byte) (err error) {
 
 func (dataPayload *Data) MarshalBinary() (data []byte, err error) {
 	return dataPayload.Bytes(), nil
+}
+
+func (dataPayload *Data) String() string {
+	return stringify.Struct("Data",
+		stringify.StructField("data", string(dataPayload.GetData())),
+	)
 }
 
 func GenericPayloadUnmarshalerFactory(payloadType payload.Type) payload.Unmarshaler {

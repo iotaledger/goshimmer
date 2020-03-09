@@ -10,4 +10,5 @@ type Payload interface {
 
 	Bytes() []byte
 	GetType() Type
+	String() string
 }
