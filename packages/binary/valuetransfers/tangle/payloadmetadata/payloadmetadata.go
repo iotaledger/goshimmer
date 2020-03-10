@@ -96,6 +96,8 @@ func (payloadMetadata *PayloadMetadata) IsSolid() (result bool) {
 	return
 }
 
+// SetSolid marks a payload as either solid or not solid.
+// It returns true if the solid flag was changes and automatically updates the solidificationTime as well.
 func (payloadMetadata *PayloadMetadata) SetSolid(solid bool) (modified bool) {
 	payloadMetadata.solidMutex.RLock()
 	if payloadMetadata.solid != solid {
@@ -123,6 +125,7 @@ func (payloadMetadata *PayloadMetadata) SetSolid(solid bool) (modified bool) {
 	return
 }
 
+// GetSoldificationTime returns the time when the payload was marked to be solid.
 func (payloadMetadata *PayloadMetadata) GetSoldificationTime() time.Time {
 	payloadMetadata.solidificationTimeMutex.RLock()
 	defer payloadMetadata.solidificationTimeMutex.RUnlock()
@@ -130,6 +133,7 @@ func (payloadMetadata *PayloadMetadata) GetSoldificationTime() time.Time {
 	return payloadMetadata.solidificationTime
 }
 
+// Bytes marshals the metadata into a sequence of bytes.
 func (payloadMetadata *PayloadMetadata) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 
@@ -140,6 +144,7 @@ func (payloadMetadata *PayloadMetadata) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
+// String creates a human readable version of the metadata (for debug purposes).
 func (payloadMetadata *PayloadMetadata) String() string {
 	return stringify.Struct("PayloadMetadata",
 		stringify.StructField("payloadId", payloadMetadata.GetPayloadId()),
@@ -148,18 +153,24 @@ func (payloadMetadata *PayloadMetadata) String() string {
 	)
 }
 
+// GetStorageKey returns the key that is used to store the object in the database.
+// It is required to match StorableObject interface.
 func (payloadMetadata *PayloadMetadata) GetStorageKey() []byte {
 	return payloadMetadata.payloadId.Bytes()
 }
 
+// Update is disabled and panics of it ever gets called - updates are supposed to happen through the setters.
+// It is required to match StorableObject interface.
 func (payloadMetadata *PayloadMetadata) Update(other objectstorage.StorableObject) {
 	panic("update forbidden")
 }
 
+// MarshalBinary is required to match the encoding.BinaryMarshaler interface.
 func (payloadMetadata *PayloadMetadata) MarshalBinary() ([]byte, error) {
 	return payloadMetadata.Bytes(), nil
 }
 
+// MarshalBinary is required to match the encoding.BinaryUnmarshaler interface.
 func (payloadMetadata *PayloadMetadata) UnmarshalBinary(data []byte) (err error) {
 	_, err, _ = FromBytes(data, payloadMetadata)
 
