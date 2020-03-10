@@ -8,12 +8,13 @@ var (
 	TangleApprovers           = []byte{3}
 	TangleMissingTransaction  = []byte{4}
 
-	ValueTangleTransferMetadata = []byte{5}
-	ValueTangleConsumers        = []byte{6}
-	ValueTangleMissingTransfers = []byte{7}
+	ValuetransfersPayload       = []byte{5}
+	ValueTangleTransferMetadata = []byte{6}
+	ValueTangleConsumers        = []byte{7}
+	ValueTangleMissingTransfers = []byte{8}
 
-	LedgerStateTransferOutput        = []byte{8}
-	LedgerStateTransferOutputBooking = []byte{9}
-	LedgerStateReality               = []byte{10}
-	LedgerStateConflictSet           = []byte{11}
+	LedgerStateTransferOutput        = []byte{9}
+	LedgerStateTransferOutputBooking = []byte{10}
+	LedgerStateReality               = []byte{11}
+	LedgerStateConflictSet           = []byte{12}
 )

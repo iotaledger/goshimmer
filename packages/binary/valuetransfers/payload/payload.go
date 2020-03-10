@@ -36,6 +36,17 @@ func New(trunkPayloadId, branchPayloadId payloadid.Id, valueTransfer *transfer.T
 	}
 }
 
+func FromStorage(key []byte) objectstorage.StorableObject {
+	id, err, _ := payloadid.FromBytes(key)
+	if err != nil {
+		panic(err)
+	}
+
+	return &Payload{
+		id: &id,
+	}
+}
+
 // FromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
 func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, err error, consumedBytes int) {
@@ -53,18 +64,18 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	marshalUtil := marshalutil.New(bytes)
 
 	// parse trunk payload id
-	parsedTrunkPayloadId, err := marshalUtil.ReadBytes(payloadid.Length)
+	parsedTrunkPayloadId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return payloadid.FromBytes(data) })
 	if err != nil {
 		return
 	}
-	result.trunkPayloadId = payloadid.New(parsedTrunkPayloadId)
+	result.trunkPayloadId = parsedTrunkPayloadId.(payloadid.Id)
 
 	// parse branch payload id
-	parsedBranchPayloadId, err := marshalUtil.ReadBytes(payloadid.Length)
+	parsedBranchPayloadId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return payloadid.FromBytes(data) })
 	if err != nil {
 		return
 	}
-	result.branchPayloadId = payloadid.New(parsedBranchPayloadId)
+	result.branchPayloadId = parsedBranchPayloadId.(payloadid.Id)
 
 	// parse transfer
 	parsedTransfer, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return transfer.FromBytes(data) })

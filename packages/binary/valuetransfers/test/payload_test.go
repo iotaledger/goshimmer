@@ -42,10 +42,10 @@ func ExamplePayload() {
 	// 2. create value payload (the ontology creates this and wraps the user provided transfer accordingly)
 	valuePayload := valuepayload.New(
 		// trunk in "value transfer ontology" (filled by ontology tipSelector)
-		payloadid.Empty,
+		payloadid.Genesis,
 
 		// branch in "value transfer ontology"  (filled by ontology tipSelector)
-		payloadid.Empty,
+		payloadid.Genesis,
 
 		// value transfer
 		valueTransfer,
@@ -74,8 +74,8 @@ func TestPayload(t *testing.T) {
 	addressKeyPair2 := ed25119.GenerateKeyPair()
 
 	originalPayload := valuepayload.New(
-		payloadid.Empty,
-		payloadid.Empty,
+		payloadid.Genesis,
+		payloadid.Genesis,
 		transfer.New(
 			inputs.New(
 				transferoutputid.New(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferid.New([]byte("transfer1"))),
