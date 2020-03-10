@@ -29,6 +29,15 @@ func New(base58EncodedString string) (result Id, err error) {
 	return
 }
 
+// Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func Parse(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
+	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) }); err != nil {
+		return Id{}, err
+	} else {
+		return id.(Id), nil
+	}
+}
+
 // FromBytes unmarshals a payload id from a sequence of bytes.
 // It either creates a new payload id or fills the optionally provided object with the parsed information.
 func FromBytes(bytes []byte, optionalTargetObject ...*Id) (result Id, err error, consumedBytes int) {

@@ -10,7 +10,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	valuetransferpayload "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/tangle/cachedpayload"
 )
 
 type Tangle struct {
@@ -37,11 +36,11 @@ func (tangle *Tangle) AttachPayload(payload *valuetransferpayload.Payload) {
 
 func (tangle *Tangle) storePayloadWorker(payload *valuetransferpayload.Payload) {
 	// store payload
-	var cachedPayload *cachedpayload.CachedPayload
+	var cachedPayload *valuetransferpayload.Cached
 	if _tmp, transactionIsNew := tangle.payloadStorage.StoreIfAbsent(payload); !transactionIsNew {
 		return
 	} else {
-		cachedPayload = &cachedpayload.CachedPayload{CachedObject: _tmp}
+		cachedPayload = &valuetransferpayload.Cached{CachedObject: _tmp}
 	}
 
 	fmt.Println(cachedPayload)
