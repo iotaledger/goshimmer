@@ -9,6 +9,10 @@ func (util *MarshalUtil) WriteBytes(bytes []byte) {
 }
 
 func (util *MarshalUtil) ReadBytes(length int) ([]byte, error) {
+	if length < 0 {
+		length = len(util.bytes) - util.readOffset + length
+	}
+
 	readEndOffset, err := util.checkReadCapacity(length)
 	if err != nil {
 		return nil, err

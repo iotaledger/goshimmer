@@ -136,7 +136,7 @@ func (transactionParser *TransactionParser) setupTransactionsFilterDataFlow() {
 }
 
 func (transactionParser *TransactionParser) parseTransaction(bytes []byte, peer *peer.Peer) {
-	if parsedTransaction, err := transaction.FromBytes(bytes); err != nil {
+	if parsedTransaction, err, _ := transaction.FromBytes(bytes); err != nil {
 		transactionParser.Events.BytesRejected.Trigger(bytes, err, peer)
 	} else {
 		transactionParser.transactionFilters[0].Filter(parsedTransaction, peer)

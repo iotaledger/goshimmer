@@ -34,7 +34,7 @@ func BenchmarkVerifyDataTransactions(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		currentIndex := i
 		pool.Submit(func() {
-			if tx, err := transaction.FromBytes(transactions[currentIndex]); err != nil {
+			if tx, err, _ := transaction.FromBytes(transactions[currentIndex]); err != nil {
 				b.Error(err)
 			} else {
 				tx.VerifySignature()

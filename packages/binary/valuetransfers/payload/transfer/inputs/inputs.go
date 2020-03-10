@@ -78,7 +78,7 @@ func (inputs *Inputs) Add(input transferoutputid.Id) *Inputs {
 	return inputs
 }
 
-func (inputs *Inputs) ToBytes() (bytes []byte) {
+func (inputs *Inputs) Bytes() (bytes []byte) {
 	marshalUtil := marshalutil.New()
 
 	marshalUtil.WriteSeek(4)
@@ -106,11 +106,9 @@ func (inputs *Inputs) ForEach(consumer func(transferOutputId transferoutputid.Id
 	})
 }
 
-func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Address)) {
+func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Address) bool) {
 	inputs.OrderedMap.ForEach(func(key, value interface{}) bool {
-		consumer(key.(address.Address))
-
-		return true
+		return consumer(key.(address.Address))
 	})
 }
 

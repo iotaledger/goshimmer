@@ -1,12 +1,12 @@
 package transaction
 
 import (
-	"encoding/binary"
 	"sync"
 
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/binary/identity"
+	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
 
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -60,9 +60,66 @@ func FromStorage(id []byte) (result objectstorage.StorableObject) {
 	return
 }
 
-func FromBytes(bytes []byte) (result *Transaction, err error) {
-	result = &Transaction{}
-	err = result.UnmarshalBinary(bytes)
+func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Transaction, err error, consumedBytes int) {
+	// determine the target object that will hold the unmarshaled information
+	switch len(optionalTargetObject) {
+	case 0:
+		result = &Transaction{}
+	case 1:
+		result = optionalTargetObject[0]
+	default:
+		panic("too many arguments in call to FromBytes")
+	}
+
+	// initialize helper
+	marshalUtil := marshalutil.New(bytes)
+
+	// read trunk transaction id
+	trunkTransactionId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) })
+	if err != nil {
+		return
+	}
+	result.trunkTransactionId = trunkTransactionId.(Id)
+
+	// read branch transaction id
+	branchTransactionId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) })
+	if err != nil {
+		return
+	}
+	result.branchTransactionId = branchTransactionId.(Id)
+
+	// read issuer
+	publicKeyBytes, err := marshalUtil.ReadBytes(identity.PublicKeySize)
+	if err != nil {
+		return
+	}
+	result.issuer = identity.New(publicKeyBytes)
+
+	// read payload type
+	payloadType, err := marshalUtil.ReadUint32()
+	if err != nil {
+		return
+	}
+
+	// read payload
+	payloadBytes, err := marshalUtil.ReadBytes(-identity.SignatureSize)
+	if err != nil {
+		return
+	}
+	result.payload, err = payload.GetUnmarshaler(payloadType)(payloadBytes)
+	if err != nil {
+		return
+	}
+
+	// read signature
+	copy(result.signature[:], marshalUtil.ReadRemainingBytes())
+
+	// store marshaled version
+	result.bytes = make([]byte, len(bytes))
+	copy(result.bytes, bytes)
+
+	// return the number of bytes we processed
+	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
@@ -167,91 +224,41 @@ func (transaction *Transaction) calculatePayloadId() payload.Id {
 	return blake2b.Sum512(bytes[2*IdLength:])
 }
 
-// Since transactions are immutable and do not get changed after being created, we cache the result of the marshaling.
-func (transaction *Transaction) MarshalBinary() (result []byte, err error) {
+func (transaction *Transaction) Bytes() []byte {
 	transaction.bytesMutex.RLock()
-	if transaction.bytes == nil {
-		transaction.bytesMutex.RUnlock()
+	if transaction.bytes != nil {
+		defer transaction.bytesMutex.RUnlock()
 
-		transaction.bytesMutex.Lock()
-		if transaction.bytes == nil {
-			var serializedPayload []byte
-			if transaction.payload != nil {
-				if serializedPayload, err = transaction.payload.MarshalBinary(); err != nil {
-					return
-				}
-			}
-			serializedPayloadLength := len(serializedPayload)
-
-			result = make([]byte, IdLength+IdLength+identity.PublicKeySize+4+serializedPayloadLength+identity.SignatureSize)
-			offset := 0
-
-			copy(result[offset:], transaction.trunkTransactionId[:])
-			offset += IdLength
-
-			copy(result[offset:], transaction.branchTransactionId[:])
-			offset += IdLength
-
-			if transaction.issuer != nil {
-				copy(result[offset:], transaction.issuer.PublicKey)
-			}
-			offset += identity.PublicKeySize
-
-			binary.LittleEndian.PutUint32(result[offset:], transaction.payload.GetType())
-			offset += 4
-
-			if serializedPayloadLength != 0 {
-				copy(result[offset:], serializedPayload)
-				offset += serializedPayloadLength
-			}
-
-			if transaction.issuer != nil {
-				transaction.signatureMutex.Lock()
-				copy(transaction.signature[:], transaction.issuer.Sign(result[:offset]))
-				transaction.signatureMutex.Unlock()
-				copy(result[offset:], transaction.signature[:])
-			}
-			// offset += identity.SignatureSize
-
-			transaction.bytes = result
-		} else {
-			result = transaction.bytes
-		}
-		transaction.bytesMutex.Unlock()
-	} else {
-		result = transaction.bytes
-
-		transaction.bytesMutex.RUnlock()
+		return transaction.bytes
 	}
 
-	return
+	transaction.bytesMutex.RUnlock()
+	transaction.bytesMutex.RLock()
+	defer transaction.bytesMutex.RUnlock()
+
+	if transaction.bytes != nil {
+		return transaction.bytes
+	}
+
+	marshalUtil := marshalutil.New()
+
+	marshalUtil.WriteBytes(transaction.trunkTransactionId.Bytes())
+	marshalUtil.WriteBytes(transaction.branchTransactionId.Bytes())
+	marshalUtil.WriteBytes(transaction.issuer.PublicKey)
+	marshalUtil.WriteUint32(transaction.payload.GetType())
+	marshalUtil.WriteBytes(transaction.payload.Bytes())
+	marshalUtil.WriteBytes(transaction.issuer.Sign(marshalUtil.Bytes()))
+
+	return marshalUtil.Bytes()
+}
+
+// Since transactions are immutable and do not get changed after being created, we cache the result of the marshaling.
+func (transaction *Transaction) MarshalBinary() (result []byte, err error) {
+	return transaction.Bytes(), nil
 }
 
 func (transaction *Transaction) UnmarshalBinary(data []byte) (err error) {
-	offset := 0
-
-	copy(transaction.trunkTransactionId[:], data[offset:])
-	offset += IdLength
-
-	copy(transaction.branchTransactionId[:], data[offset:])
-	offset += IdLength
-
-	transaction.issuer = identity.New(data[offset : offset+identity.PublicKeySize])
-	offset += identity.PublicKeySize
-
-	payloadType := binary.LittleEndian.Uint32(data[offset:])
-	offset += 4
-
-	if transaction.payload, err = payload.GetUnmarshaler(payloadType)(data[offset : len(data)-identity.SignatureSize]); err != nil {
-		return
-	}
-	offset += len(data) - identity.SignatureSize - offset
-
-	copy(transaction.signature[:], data[offset:])
-	// offset += identity.SignatureSize
-
-	transaction.bytes = make([]byte, len(data))
-	copy(transaction.bytes, data)
+	_, err, _ = FromBytes(data, transaction)
 
 	return
 }

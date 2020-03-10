@@ -67,14 +67,18 @@ func (orderedMap *OrderedMap) Set(key interface{}, newValue interface{}) bool {
 }
 
 func (orderedMap *OrderedMap) ForEach(consumer func(key, value interface{}) bool) {
+	orderedMap.mutex.RLock()
 	currentEntry := orderedMap.head
+	orderedMap.mutex.RUnlock()
 
 	for currentEntry != nil {
 		if !consumer(currentEntry.key, currentEntry.value) {
 			return
 		}
 
+		orderedMap.mutex.RLock()
 		currentEntry = currentEntry.next
+		orderedMap.mutex.RUnlock()
 	}
 }
 
