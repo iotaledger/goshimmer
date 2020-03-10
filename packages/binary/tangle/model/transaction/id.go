@@ -42,16 +42,17 @@ func IdFromBytes(bytes []byte) (result Id, err error, consumedBytes int) {
 }
 
 func (id *Id) MarshalBinary() (result []byte, err error) {
-	result = make([]byte, IdLength)
-	copy(result, id[:])
-
-	return
+	return id.Bytes(), nil
 }
 
 func (id *Id) UnmarshalBinary(data []byte) (err error) {
 	copy(id[:], data)
 
 	return
+}
+
+func (id Id) Bytes() []byte {
+	return id[:]
 }
 
 func (id Id) String() string {

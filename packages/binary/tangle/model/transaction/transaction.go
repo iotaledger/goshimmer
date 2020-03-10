@@ -242,9 +242,9 @@ func (transaction *Transaction) Bytes() []byte {
 
 	marshalUtil := marshalutil.New()
 
-	marshalUtil.WriteBytes(transaction.trunkTransactionId[:])
-	marshalUtil.WriteBytes(transaction.branchTransactionId[:])
-	marshalUtil.WriteBytes(transaction.issuer.PublicKey[:])
+	marshalUtil.WriteBytes(transaction.trunkTransactionId.Bytes())
+	marshalUtil.WriteBytes(transaction.branchTransactionId.Bytes())
+	marshalUtil.WriteBytes(transaction.issuer.PublicKey)
 	marshalUtil.WriteUint32(transaction.payload.GetType())
 	marshalUtil.WriteBytes(transaction.payload.Bytes())
 	marshalUtil.WriteBytes(transaction.issuer.Sign(marshalUtil.Bytes()))
