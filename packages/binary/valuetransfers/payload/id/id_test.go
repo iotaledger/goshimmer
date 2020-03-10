@@ -1,21 +1,26 @@
 package id
 
 import (
-	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test(t *testing.T) {
-	var id Id
-
-	idBytes := make([]byte, Length)
-	idBytes[0] = 1
-
-	restoredId, err, _ := FromBytes(idBytes, &id)
+	// create variable for id
+	sourceId, err := New("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(id)
-	fmt.Println(restoredId)
+	// read serialized id into both variables
+	var restoredIdPointer Id
+	restoredIdValue, err, _ := FromBytes(sourceId.Bytes(), &restoredIdPointer)
+	if err != nil {
+		panic(err)
+	}
+
+	// check if both variables give the same result
+	assert.Equal(t, sourceId, restoredIdValue)
+	assert.Equal(t, sourceId, restoredIdPointer)
 }

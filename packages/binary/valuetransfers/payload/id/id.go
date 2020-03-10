@@ -67,6 +67,10 @@ func (id Id) String() string {
 	return base58.Encode(id[:])
 }
 
+func (id Id) Bytes() []byte {
+	return id[:]
+}
+
 // Empty represents the id encoding the genesis.
 var Genesis Id
 
