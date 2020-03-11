@@ -36,11 +36,11 @@ func (tangle *Tangle) AttachPayload(payload *valuetransferpayload.Payload) {
 
 func (tangle *Tangle) storePayloadWorker(payload *valuetransferpayload.Payload) {
 	// store payload
-	var cachedPayload *valuetransferpayload.Cached
+	var cachedPayload *valuetransferpayload.CachedObject
 	if _tmp, transactionIsNew := tangle.payloadStorage.StoreIfAbsent(payload); !transactionIsNew {
 		return
 	} else {
-		cachedPayload = &valuetransferpayload.Cached{CachedObject: _tmp}
+		cachedPayload = &valuetransferpayload.CachedObject{CachedObject: _tmp}
 	}
 
 	fmt.Println(cachedPayload)
