@@ -4,7 +4,7 @@ import (
 	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/coloredbalance/color"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance/color"
 )
 
 type ColoredBalance struct {

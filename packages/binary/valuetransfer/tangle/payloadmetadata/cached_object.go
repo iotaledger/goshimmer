@@ -6,9 +6,9 @@ import (
 
 // CachedObject is a wrapper for the object storage, that takes care of type casting the managed objects.
 // Since go does not have generics (yet), the object storage works based on the generic "interface{}" type, which means
-// that we have to regularly type cast the returned objects, to match the expected type. To reduce the burden of manually
-// managing these type, we create a wrapper that does this for us. This way, we can consistently handle the specialized
-// types of CachedObjects, without having to manually type cast over and over again.
+// that we have to regularly type cast the returned objects, to match the expected type. To reduce the burden of
+// manually managing these type, we create a wrapper that does this for us. This way, we can consistently handle the
+// specialized types of CachedObjects, without having to manually type cast over and over again.
 type CachedObject struct {
 	objectstorage.CachedObject
 }

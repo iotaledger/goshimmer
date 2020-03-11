@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/address"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 )
 
 func TestSignatures(t *testing.T) {

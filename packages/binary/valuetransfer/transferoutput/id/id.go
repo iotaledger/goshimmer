@@ -3,8 +3,8 @@ package id
 import (
 	"github.com/mr-tron/base58"
 
-	address2 "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/address"
-	id2 "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/id"
+	address2 "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
+	id2 "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
 )
 
 type Id [Length]byte

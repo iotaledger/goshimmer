@@ -10,11 +10,11 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/id"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/inputs"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/outputs"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/signatures"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/inputs"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/outputs"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/signatures"
 )
 
 // region IMPLEMENT Transfer ///////////////////////////////////////////////////////////////////////////////////////////

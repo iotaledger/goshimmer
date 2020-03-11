@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
-	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/id"
+	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
 )
 
 // PayloadMetadata is a container for the metadata of a value transfer payload.

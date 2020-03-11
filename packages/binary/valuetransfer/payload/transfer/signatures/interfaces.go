@@ -1,6 +1,6 @@
 package signatures
 
-import "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/address"
+import "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 
 // SignatureScheme defines an interface for different signature generation methods (i.e. ED25519, WOTS, and so on ...).
 type SignatureScheme interface {

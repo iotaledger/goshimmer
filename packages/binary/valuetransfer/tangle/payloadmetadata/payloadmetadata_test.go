@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
 )
 
 func TestMarshalUnmarshal(t *testing.T) {

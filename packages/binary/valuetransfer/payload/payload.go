@@ -9,9 +9,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
-	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/id"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer"
-	transferid "github.com/iotaledger/goshimmer/packages/binary/valuetransfers/payload/transfer/id"
+	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer"
+	transferid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
 )
 
 type Payload struct {
