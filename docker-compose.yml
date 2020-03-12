@@ -11,7 +11,7 @@ services:
     container_name: iota_goshimmer
     restart: unless-stopped
     volumes:
-      - ./mainnetdb:/app/mainnetdb:rw
+      - ./mainnetdb/:/mainnetdb/:rw
     ports:
       - "14666:14666/tcp"
       - "14626:14626/udp"
