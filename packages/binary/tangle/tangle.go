@@ -134,7 +134,7 @@ func (tangle *Tangle) Prune() error {
 	return nil
 }
 
-// Worker that stores the transactions and calls the corresponding "Storage events"
+// Worker that stores the transactions and calls the corresponding storage events"
 func (tangle *Tangle) storeTransactionWorker(tx *transaction.Transaction) {
 	// store transaction
 	var cachedTransaction *transaction.CachedTransaction

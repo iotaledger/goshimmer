@@ -159,7 +159,7 @@ func (payloadMetadata *PayloadMetadata) GetStorageKey() []byte {
 	return payloadMetadata.payloadId.Bytes()
 }
 
-// Update is disabled and panics of it ever gets called - updates are supposed to happen through the setters.
+// Update is disabled and panics if it ever gets called - updates are supposed to happen through the setters.
 // It is required to match StorableObject interface.
 func (payloadMetadata *PayloadMetadata) Update(other objectstorage.StorableObject) {
 	panic("update forbidden")

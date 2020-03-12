@@ -11,7 +11,7 @@ var (
 	ValueTransferPayload         = []byte{5}
 	ValueTransferPayloadMetadata = []byte{6}
 	ValueTransferApprover        = []byte{7}
-	ValueTangleMissingTransfers  = []byte{8}
+	ValueTransferMissingPayload  = []byte{8}
 
 	LedgerStateTransferOutput        = []byte{9}
 	LedgerStateTransferOutputBooking = []byte{10}

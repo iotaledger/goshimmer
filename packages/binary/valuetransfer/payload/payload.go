@@ -126,11 +126,11 @@ func (payload *Payload) GetId() payloadid.Id {
 	return id
 }
 
-func (payload *Payload) GetTrunkPayloadId() payloadid.Id {
+func (payload *Payload) GetTrunkId() payloadid.Id {
 	return payload.trunkPayloadId
 }
 
-func (payload *Payload) GetBranchPayloadId() payloadid.Id {
+func (payload *Payload) GetBranchId() payloadid.Id {
 	return payload.branchPayloadId
 }
 
@@ -181,8 +181,8 @@ func (payload *Payload) Bytes() (bytes []byte) {
 func (payload *Payload) String() string {
 	return stringify.Struct("Payload",
 		stringify.StructField("id", payload.GetId()),
-		stringify.StructField("trunk", payload.GetTrunkPayloadId()),
-		stringify.StructField("branch", payload.GetBranchPayloadId()),
+		stringify.StructField("trunk", payload.GetTrunkId()),
+		stringify.StructField("branch", payload.GetBranchId()),
 		stringify.StructField("transfer", payload.GetTransfer()),
 	)
 }
