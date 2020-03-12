@@ -60,7 +60,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*PayloadMetadata) (result *
 	return
 }
 
-// FromStorage get's called when we restore transaction metadata from the storage. The bytes and the content will be
+// FromStorage gets called when we restore transaction metadata from the storage. The bytes and the content will be
 // unmarshaled by an external caller using the binary.MarshalBinary interface.
 func FromStorage(id []byte) objectstorage.StorableObject {
 	result := &PayloadMetadata{}
@@ -170,7 +170,7 @@ func (payloadMetadata *PayloadMetadata) MarshalBinary() ([]byte, error) {
 	return payloadMetadata.Bytes(), nil
 }
 
-// MarshalBinary is required to match the encoding.BinaryUnmarshaler interface.
+// UnmarshalBinary is required to match the encoding.BinaryUnmarshaler interface.
 func (payloadMetadata *PayloadMetadata) UnmarshalBinary(data []byte) (err error) {
 	_, err, _ = FromBytes(data, payloadMetadata)
 

@@ -8,8 +8,9 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/missingtransaction"
-	valuetransferpayload "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
+	valuepayload "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
+	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/missingpayload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadapprover"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadmetadata"
 )
@@ -26,16 +27,17 @@ type Tangle struct {
 
 	storePayloadWorkerPool async.WorkerPool
 	solidifierWorkerPool   async.WorkerPool
+	cleanupWorkerPool      async.WorkerPool
 }
 
 func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 	result = &Tangle{
 		storageId: storageId,
 
-		payloadStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayload...), valuetransferpayload.FromStorage, objectstorage.CacheTime(time.Second)),
+		payloadStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayload...), valuepayload.FromStorage, objectstorage.CacheTime(time.Second)),
 		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), payloadmetadata.FromStorage, objectstorage.CacheTime(time.Second)),
 		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), payloadapprover.FromStorage, objectstorage.CacheTime(time.Second), objectstorage.KeysOnly(true)),
-		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), missingtransaction.FromStorage, objectstorage.CacheTime(10*time.Second)),
+		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), missingpayload.FromStorage, objectstorage.CacheTime(time.Second)),
 
 		Events: *newEvents(),
 	}
@@ -43,18 +45,43 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 	return
 }
 
-func (tangle *Tangle) AttachPayload(payload *valuetransferpayload.Payload) {
+// AttachPayload adds a new payload to the value tangle.
+func (tangle *Tangle) AttachPayload(payload *valuepayload.Payload) {
 	tangle.storePayloadWorkerPool.Submit(func() { tangle.storePayloadWorker(payload) })
 }
 
+// GetPayload retrieves a payload from the object storage.
+func (tangle *Tangle) GetPayload(payloadId payloadid.Id) *valuepayload.CachedObject {
+	return &valuepayload.CachedObject{CachedObject: tangle.payloadStorage.Load(payloadId.Bytes())}
+}
+
+// GetPayloadMetadata retrieves the metadata of a value payload from the object storage.
+func (tangle *Tangle) GetPayloadMetadata(payloadId payloadid.Id) *payloadmetadata.CachedObject {
+	return &payloadmetadata.CachedObject{CachedObject: tangle.payloadMetadataStorage.Load(payloadId.Bytes())}
+}
+
+// Shutdown stops the worker pools and shuts down the object storage instances.
+func (tangle *Tangle) Shutdown() *Tangle {
+	tangle.storePayloadWorkerPool.ShutdownGracefully()
+	tangle.solidifierWorkerPool.ShutdownGracefully()
+	tangle.cleanupWorkerPool.ShutdownGracefully()
+
+	tangle.payloadStorage.Shutdown()
+	tangle.payloadMetadataStorage.Shutdown()
+	tangle.approverStorage.Shutdown()
+	tangle.missingPayloadStorage.Shutdown()
+
+	return tangle
+}
+
 // storePayloadWorker is the worker function that stores the payload and calls the corresponding storage events.
-func (tangle *Tangle) storePayloadWorker(payload *valuetransferpayload.Payload) {
+func (tangle *Tangle) storePayloadWorker(payload *valuepayload.Payload) {
 	// store payload
-	var cachedPayload *valuetransferpayload.CachedObject
+	var cachedPayload *valuepayload.CachedObject
 	if _tmp, transactionIsNew := tangle.payloadStorage.StoreIfAbsent(payload); !transactionIsNew {
 		return
 	} else {
-		cachedPayload = &valuetransferpayload.CachedObject{CachedObject: _tmp}
+		cachedPayload = &valuepayload.CachedObject{CachedObject: _tmp}
 	}
 
 	// store payload metadata
@@ -80,4 +107,39 @@ func (tangle *Tangle) storePayloadWorker(payload *valuetransferpayload.Payload) 
 	tangle.solidifierWorkerPool.Submit(func() {
 		tangle.solidifyTransactionWorker(cachedPayload, cachedMetadata)
 	})
+}
+
+func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *valuepayload.CachedObject, cachedMetadata *payloadmetadata.CachedObject) {
+
+}
+
+func (tangle *Tangle) isTransactionMarkedAsSolid(payloadId payloadid.Id) bool {
+	if payloadId == payloadid.Genesis {
+		return true
+	}
+
+	transactionMetadataCached := tangle.GetPayloadMetadata(payloadId)
+	if transactionMetadata := transactionMetadataCached.Unwrap(); transactionMetadata == nil {
+		transactionMetadataCached.Release()
+
+		// if transaction is missing and was not reported as missing, yet
+		if cachedMissingPayload, missingPayloadStored := tangle.missingPayloadStorage.StoreIfAbsent(missingpayload.New(payloadId)); missingPayloadStored {
+			cachedMissingPayload.Consume(func(object objectstorage.StorableObject) {
+				tangle.monitorMissingTransactionWorker(object.(*missingpayload.MissingPayload).GetId())
+			})
+		}
+
+		return false
+	} else if !transactionMetadata.IsSolid() {
+		transactionMetadataCached.Release()
+
+		return false
+	}
+	transactionMetadataCached.Release()
+
+	return true
+}
+
+func (tangle *Tangle) monitorMissingTransactionWorker(id payloadid.Id) {
+	// DO SOMETHING
 }
