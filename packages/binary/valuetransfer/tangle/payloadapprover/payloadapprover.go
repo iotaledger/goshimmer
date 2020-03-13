@@ -13,9 +13,9 @@ import (
 type PayloadApprover struct {
 	objectstorage.StorableObjectFlags
 
-	storageKey        []byte
-	referencedPayload payloadid.Id
-	approvingPayload  payloadid.Id
+	storageKey          []byte
+	referencedPayloadId payloadid.Id
+	approvingPayloadId  payloadid.Id
 }
 
 // New creates an approver object that encodes a single relation between an approved and an approving payload.
@@ -25,9 +25,9 @@ func New(referencedPayload payloadid.Id, approvingPayload payloadid.Id) *Payload
 	marshalUtil.WriteBytes(approvingPayload.Bytes())
 
 	return &PayloadApprover{
-		referencedPayload: referencedPayload,
-		approvingPayload:  approvingPayload,
-		storageKey:        marshalUtil.Bytes(),
+		referencedPayloadId: referencedPayload,
+		approvingPayloadId:  approvingPayload,
+		storageKey:          marshalUtil.Bytes(),
 	}
 }
 
@@ -47,12 +47,17 @@ func FromStorage(idBytes []byte) objectstorage.StorableObject {
 	}
 
 	result := &PayloadApprover{
-		referencedPayload: referencedPayloadId,
-		approvingPayload:  approvingPayloadId,
-		storageKey:        marshalUtil.Bytes(true),
+		referencedPayloadId: referencedPayloadId,
+		approvingPayloadId:  approvingPayloadId,
+		storageKey:          marshalUtil.Bytes(true),
 	}
 
 	return result
+}
+
+// GetApprovingPayloadId returns the id of the approving payload.
+func (approver *PayloadApprover) GetApprovingPayloadId() payloadid.Id {
+	return approver.approvingPayloadId
 }
 
 // GetStorageKey returns the key that is used to store the object in the database.

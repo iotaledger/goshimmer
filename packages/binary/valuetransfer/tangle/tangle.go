@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"container/list"
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
@@ -15,6 +16,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadmetadata"
 )
 
+// Tangle represents the value tangle that consists out of value payloads.
+// It is an independent ontology, that lives inside the tangle.
 type Tangle struct {
 	storageId []byte
 
@@ -58,6 +61,18 @@ func (tangle *Tangle) GetPayload(payloadId payloadid.Id) *valuepayload.CachedObj
 // GetPayloadMetadata retrieves the metadata of a value payload from the object storage.
 func (tangle *Tangle) GetPayloadMetadata(payloadId payloadid.Id) *payloadmetadata.CachedObject {
 	return &payloadmetadata.CachedObject{CachedObject: tangle.payloadMetadataStorage.Load(payloadId.Bytes())}
+}
+
+// GetApprovers retrieves the approvers of a payload from the object storage.
+func (tangle *Tangle) GetApprovers(transactionId payloadid.Id) payloadapprover.CachedObjects {
+	approvers := make(payloadapprover.CachedObjects, 0)
+	tangle.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		approvers = append(approvers, &payloadapprover.CachedObject{CachedObject: cachedObject})
+
+		return true
+	}, transactionId[:])
+
+	return approvers
 }
 
 // Shutdown stops the worker pools and shuts down the object storage instances.
@@ -109,11 +124,75 @@ func (tangle *Tangle) storePayloadWorker(payload *valuepayload.Payload) {
 	})
 }
 
+// solidifyTransactionWorker is the worker function that solidifies the payloads (recursively from past to present).
 func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *valuepayload.CachedObject, cachedMetadata *payloadmetadata.CachedObject) {
+	popElementsFromStack := func(stack *list.List) (*valuepayload.CachedObject, *payloadmetadata.CachedObject) {
+		currentSolidificationEntry := stack.Front()
+		currentCachedPayload := currentSolidificationEntry.Value.([2]interface{})[0]
+		currentCachedMetadata := currentSolidificationEntry.Value.([2]interface{})[1]
+		stack.Remove(currentSolidificationEntry)
 
+		return currentCachedPayload.(*valuepayload.CachedObject), currentCachedMetadata.(*payloadmetadata.CachedObject)
+	}
+
+	// initialize the stack
+	solidificationStack := list.New()
+	solidificationStack.PushBack([2]interface{}{cachedPayload, cachedMetadata})
+
+	// process payloads that are supposed to be checked for solidity recursively
+	for solidificationStack.Len() > 0 {
+		currentCachedPayload, currentCachedMetadata := popElementsFromStack(solidificationStack)
+
+		currentPayload := currentCachedPayload.Unwrap()
+		currentMetadata := currentCachedMetadata.Unwrap()
+		if currentPayload == nil || currentMetadata == nil {
+			currentCachedPayload.Release()
+			currentCachedMetadata.Release()
+
+			continue
+		}
+
+		// if current transaction is solid and was not marked as solid before: mark as solid and propagate
+		if tangle.isPayloadSolid(currentPayload, currentMetadata) && currentMetadata.SetSolid(true) {
+			tangle.Events.PayloadSolid.Trigger(currentCachedPayload, currentCachedMetadata)
+
+			tangle.GetApprovers(currentPayload.GetId()).Consume(func(approver *payloadapprover.PayloadApprover) {
+				approverTransactionId := approver.GetApprovingPayloadId()
+
+				solidificationStack.PushBack([2]interface{}{
+					tangle.GetPayload(approverTransactionId),
+					tangle.GetPayloadMetadata(approverTransactionId),
+				})
+			})
+		}
+
+		// release cached results
+		currentCachedPayload.Release()
+		currentCachedMetadata.Release()
+	}
 }
 
-func (tangle *Tangle) isTransactionMarkedAsSolid(payloadId payloadid.Id) bool {
+// isPayloadSolid returns true if the given payload is solid. A payload is considered to be solid solid, if it is either
+// already marked as solid or if its referenced payloads are marked as solid.
+func (tangle *Tangle) isPayloadSolid(payload *valuepayload.Payload, metadata *payloadmetadata.PayloadMetadata) bool {
+	if payload == nil || payload.IsDeleted() {
+		return false
+	}
+
+	if metadata == nil || metadata.IsDeleted() {
+		return false
+	}
+
+	if metadata.IsSolid() {
+		return true
+	}
+
+	return tangle.isPayloadMarkedAsSolid(payload.GetTrunkId()) && tangle.isPayloadMarkedAsSolid(payload.GetBranchId())
+}
+
+// isPayloadMarkedAsSolid returns true if the payload was marked as solid already (by setting the corresponding flags
+// in its metadata.
+func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payloadid.Id) bool {
 	if payloadId == payloadid.Genesis {
 		return true
 	}
