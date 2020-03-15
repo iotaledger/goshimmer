@@ -39,7 +39,7 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 
 		payloadStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayload...), valuepayload.FromStorage, objectstorage.CacheTime(time.Second)),
 		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), payloadmetadata.FromStorage, objectstorage.CacheTime(time.Second)),
-		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), payloadapprover.FromStorage, objectstorage.CacheTime(time.Second), objectstorage.KeysOnly(true)),
+		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), payloadapprover.FromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payloadid.Length, payloadid.Length), objectstorage.KeysOnly(true)),
 		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), missingpayload.FromStorage, objectstorage.CacheTime(time.Second)),
 
 		Events: *newEvents(),
@@ -87,6 +87,22 @@ func (tangle *Tangle) Shutdown() *Tangle {
 	tangle.missingPayloadStorage.Shutdown()
 
 	return tangle
+}
+
+// Prune resets the database and deletes all objects (for testing or "node resets").
+func (tangle *Tangle) Prune() error {
+	for _, storage := range []*objectstorage.ObjectStorage{
+		tangle.payloadStorage,
+		tangle.payloadMetadataStorage,
+		tangle.approverStorage,
+		tangle.missingPayloadStorage,
+	} {
+		if err := storage.Prune(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // storePayloadWorker is the worker function that stores the payload and calls the corresponding storage events.
@@ -204,7 +220,7 @@ func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payloadid.Id) bool {
 		// if transaction is missing and was not reported as missing, yet
 		if cachedMissingPayload, missingPayloadStored := tangle.missingPayloadStorage.StoreIfAbsent(missingpayload.New(payloadId)); missingPayloadStored {
 			cachedMissingPayload.Consume(func(object objectstorage.StorableObject) {
-				tangle.monitorMissingTransactionWorker(object.(*missingpayload.MissingPayload).GetId())
+				tangle.Events.PayloadMissing.Trigger(object.(*missingpayload.MissingPayload).GetId())
 			})
 		}
 
@@ -217,8 +233,4 @@ func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payloadid.Id) bool {
 	transactionMetadataCached.Release()
 
 	return true
-}
-
-func (tangle *Tangle) monitorMissingTransactionWorker(id payloadid.Id) {
-	// DO SOMETHING
 }

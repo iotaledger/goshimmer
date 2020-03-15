@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dgraph-io/badger/v2"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/require"
 
@@ -19,10 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
-var testDatabase *badger.DB
-
-var _ = config.PLUGIN
-
 func BenchmarkTangle_AttachTransaction(b *testing.B) {
 	dir, err := ioutil.TempDir("", b.Name())
 	require.NoError(b, err)
@@ -30,7 +25,7 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 	// use the tempdir for the database
 	config.Node.Set(database.CFG_DIRECTORY, dir)
 
-	tangle := New(testDatabase, []byte("TEST_BINARY_TANGLE"))
+	tangle := New(database.GetBadgerInstance(), []byte("TEST_BINARY_TANGLE"))
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
 

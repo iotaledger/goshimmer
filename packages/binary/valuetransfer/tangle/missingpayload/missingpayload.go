@@ -63,6 +63,11 @@ func (missingPayload *MissingPayload) GetId() payloadid.Id {
 	return missingPayload.payloadId
 }
 
+// GetMissingSince returns the time.Time since the transaction was first reported as being missing.
+func (missingPayload *MissingPayload) GetMissingSince() time.Time {
+	return missingPayload.missingSince
+}
+
 // Bytes marshals the missing payload into a sequence of bytes.
 func (missingPayload *MissingPayload) Bytes() []byte {
 	marshalUtil := marshalutil.New()

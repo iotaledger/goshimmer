@@ -10,22 +10,22 @@ import (
 
 type Events struct {
 	// Get's called whenever a transaction
-	PayloadAttached           *events.Event
-	PayloadSolid              *events.Event
-	MissingPayloadReceived    *events.Event
-	TransactionMissing        *events.Event
-	TransactionUnsolidifiable *events.Event
-	TransactionRemoved        *events.Event
+	PayloadAttached        *events.Event
+	PayloadSolid           *events.Event
+	MissingPayloadReceived *events.Event
+	PayloadMissing         *events.Event
+	PayloadUnsolidifiable  *events.Event
+	TransactionRemoved     *events.Event
 }
 
 func newEvents() *Events {
 	return &Events{
-		PayloadAttached:           events.NewEvent(cachedPayloadEvent),
-		PayloadSolid:              events.NewEvent(cachedPayloadEvent),
-		MissingPayloadReceived:    events.NewEvent(cachedPayloadEvent),
-		TransactionMissing:        events.NewEvent(payloadIdEvent),
-		TransactionUnsolidifiable: events.NewEvent(payloadIdEvent),
-		TransactionRemoved:        events.NewEvent(payloadIdEvent),
+		PayloadAttached:        events.NewEvent(cachedPayloadEvent),
+		PayloadSolid:           events.NewEvent(cachedPayloadEvent),
+		MissingPayloadReceived: events.NewEvent(cachedPayloadEvent),
+		PayloadMissing:         events.NewEvent(payloadIdEvent),
+		PayloadUnsolidifiable:  events.NewEvent(payloadIdEvent),
+		TransactionRemoved:     events.NewEvent(payloadIdEvent),
 	}
 }
 
