@@ -13,16 +13,16 @@ Briefly describe the bug.
 
 Which version of GoShimmer are you running?
 
-- GoShimmer version [e.g. 0.2.1]
+- GoShimmer version:
 
-## Hardware Specification
+## Hardware specification
 
 What hardware are you using?
 
-- OS: [e.g. Ubuntu 18.04]
-- RAM: [e.g. 4 GB]
-- Cores: [e.g. 4 Cores]
-- Type: [e.g. Raspberry Pi 3B+, VPS, ...]
+- Operating system:
+- RAM:
+- Number of cores:
+- Device type:
 
 ## Steps To reproduce the bug
 
