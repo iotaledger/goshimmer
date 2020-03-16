@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/oasislabs/ed25519"
+
+	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 )
 
 type PublicKey [PublicKeySize]byte
@@ -21,6 +23,14 @@ func PublicKeyFromBytes(bytes []byte) (result PublicKey, err error, consumedByte
 	consumedBytes = PublicKeySize
 
 	return
+}
+
+func ParsePublicKey(marshalUtil *marshalutil.MarshalUtil) (PublicKey, error) {
+	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return PublicKeyFromBytes(data) }); err != nil {
+		return PublicKey{}, err
+	} else {
+		return id.(PublicKey), nil
+	}
 }
 
 func (publicKey PublicKey) VerifySignature(data []byte, signature Signature) bool {

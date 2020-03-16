@@ -6,29 +6,34 @@ import (
 	"github.com/oasislabs/ed25519"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
+	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 )
 
 type Identity struct {
 	Type       Type
-	PublicKey  []byte
-	PrivateKey []byte
+	PublicKey  ed25119.PublicKey
+	PrivateKey ed25119.PrivateKey
 }
 
-func New(publicKey []byte, optionalPrivateKey ...[]byte) *Identity {
-	this := &Identity{
-		PublicKey: make([]byte, len(publicKey)),
-	}
+func New(publicKey []byte, optionalPrivateKey ...[]byte) (result *Identity, err error) {
+	result = &Identity{}
 
-	copy(this.PublicKey, publicKey)
+	result.PublicKey, err, _ = ed25119.PublicKeyFromBytes(publicKey)
+	if err != nil {
+		return
+	}
 
 	if len(optionalPrivateKey) == 0 {
-		this.Type = Public
+		result.Type = Public
 	} else {
-		this.Type = Private
-		this.PrivateKey = optionalPrivateKey[0]
+		result.Type = Private
+		result.PrivateKey, err, _ = ed25119.PrivateKeyFromBytes(optionalPrivateKey[0])
+		if err != nil {
+			return
+		}
 	}
 
-	return this
+	return
 }
 
 // ParsePublicIdentity is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
@@ -58,12 +63,10 @@ func PublicIdentityFromBytes(bytes []byte, optionalTargetObject ...*Identity) (r
 	marshalUtil := marshalutil.New(bytes)
 
 	// read public key from bytes
-	publicKeyBytes, err := marshalUtil.ReadBytes(PublicKeySize)
+	result.PublicKey, err = ed25119.ParsePublicKey(marshalUtil)
 	if err != nil {
 		return
 	}
-	result.PublicKey = make([]byte, PublicKeySize)
-	copy(result.PublicKey, publicKeyBytes)
 
 	// return the number of bytes we processed
 	consumedBytes = marshalUtil.ReadOffset()
@@ -79,10 +82,8 @@ func Generate() *Identity {
 	}
 }
 
-func (identity *Identity) Sign(data []byte) (sig []byte) {
-	sig = ed25519.Sign(identity.PrivateKey, data)
-
-	return
+func (identity *Identity) Sign(data []byte) ed25119.Signature {
+	return identity.PrivateKey.Sign(data)
 }
 
 func (identity *Identity) VerifySignature(data []byte, signature []byte) bool {
