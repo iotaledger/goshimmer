@@ -12,6 +12,10 @@ func New(idBytes []byte) (result Id) {
 	return
 }
 
+func (id Id) Bytes() []byte {
+	return id[:]
+}
+
 func (id Id) String() string {
 	return base58.Encode(id[:])
 }

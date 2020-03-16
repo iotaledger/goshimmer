@@ -125,11 +125,11 @@ func (payload *Payload) GetId() payloadid.Id {
 	}
 
 	// otherwise calculate the id
-	transferId := payload.GetTransfer().GetId()
 	marshalUtil := marshalutil.New(payloadid.Length + payloadid.Length + transferid.Length)
-	marshalUtil.WriteBytes(payload.trunkPayloadId[:])
-	marshalUtil.WriteBytes(payload.branchPayloadId[:])
-	marshalUtil.WriteBytes(transferId[:])
+	marshalUtil.WriteBytes(payload.trunkPayloadId.Bytes())
+	marshalUtil.WriteBytes(payload.branchPayloadId.Bytes())
+	marshalUtil.WriteBytes(payload.GetTransfer().GetId().Bytes())
+
 	var id payloadid.Id = blake2b.Sum256(marshalUtil.Bytes())
 	payload.id = &id
 
@@ -176,9 +176,12 @@ func (payload *Payload) Bytes() (bytes []byte) {
 	}
 
 	// marshal fields
-	marshalUtil := marshalutil.New(payloadid.Length + payloadid.Length + transferid.Length)
-	marshalUtil.WriteBytes(payload.trunkPayloadId[:])
-	marshalUtil.WriteBytes(payload.branchPayloadId[:])
+	payloadLength := payloadid.Length + payloadid.Length + len(transferBytes)
+	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
+	marshalUtil.WriteUint32(Type)
+	marshalUtil.WriteUint32(uint32(payloadLength))
+	marshalUtil.WriteBytes(payload.trunkPayloadId.Bytes())
+	marshalUtil.WriteBytes(payload.branchPayloadId.Bytes())
 	marshalUtil.WriteBytes(transferBytes)
 	bytes = marshalUtil.Bytes()
 
