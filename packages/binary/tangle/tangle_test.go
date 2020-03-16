@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/binary/identity"
+	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
@@ -32,7 +32,7 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 		return
 	}
 
-	testIdentity := identity.Generate()
+	testIdentity := ed25119.GenerateKeyPair()
 
 	transactionBytes := make([]*transaction.Transaction, b.N)
 	for i := 0; i < b.N; i++ {
@@ -91,8 +91,8 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		fmt.Println("REMOVED:", transactionId)
 	}))
 
-	newTransaction1 := transaction.New(transaction.EmptyId, transaction.EmptyId, identity.Generate(), data.New([]byte("some data")))
-	newTransaction2 := transaction.New(newTransaction1.GetId(), newTransaction1.GetId(), identity.Generate(), data.New([]byte("some other data")))
+	newTransaction1 := transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), data.New([]byte("some data")))
+	newTransaction2 := transaction.New(newTransaction1.GetId(), newTransaction1.GetId(), ed25119.GenerateKeyPair(), data.New([]byte("some other data")))
 
 	tangle.AttachTransaction(newTransaction2)
 
