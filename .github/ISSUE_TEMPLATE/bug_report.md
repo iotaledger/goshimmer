@@ -1,33 +1,45 @@
 ---
-name: Bug report
+name: Report a bug in GoShimmer
 about: Create a report to help us improve
 title: ""
 labels: bug
-assignees: ''
-
 ---
 
-<!--- Remove text and sections that do not apply -->
-<!--- Please anonymize personal data such as IP addresses --> 
+## Bug description
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+Briefly describe the bug.
 
-**To Reproduce**
-Steps to reproduce the behavior:
-- Go to ...
-- Edit config to ...
-- See error
+## GoShimmer version
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+Which version of GoShimmer are you running?
 
-**Environment information:**
- - OS: [e.g. Ubuntu 18.04]
- - RAM: [e.g. 4 GB]
- - Cores: [e.g. 4 Cores]
- - Type: [e.g. Raspberry Pi 3B+, VPS, ...]
- - GoShimmer version [e.g. 0.2.1]
+- GoShimmer version:
 
-**Additional context**
-Add any other context about the problem here [e.g. GoShimmer logs, errors, screenshots]
+## Hardware specification
+
+What hardware are you using?
+
+- Operating system:
+- RAM:
+- Number of cores:
+- Device type:
+
+## Steps To reproduce the bug
+
+Explain how the maintainer can reproduce the bug.
+
+1. 
+2. 
+3. 
+
+## Expected behaviour
+
+Describe what you expect to happen.
+
+## Actual behaviour
+
+Describe what actually happens.
+
+## Errors
+
+Paste any errors that you see, including logs, errors, or screenshots.
