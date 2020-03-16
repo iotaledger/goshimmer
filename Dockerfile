@@ -42,6 +42,6 @@ EXPOSE 14626/udp
 # Copy the Pre-built binary file from the previous stage
 COPY --from=build /go/bin/goshimmer /run/goshimmer
 # Copy the default config
-COPY config.default.json /config.json
+COPY config.json /config.json
 
 ENTRYPOINT ["/run/goshimmer", "--config-dir=/", "--database.directory=/mainnetdb"]
