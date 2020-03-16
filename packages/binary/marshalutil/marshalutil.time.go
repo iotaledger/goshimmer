@@ -6,7 +6,12 @@ import (
 
 // WriteTime marshals the given time into a sequence of bytes, that get appended to the internal buffer.
 func (util *MarshalUtil) WriteTime(timeToWrite time.Time) {
-	util.WriteInt64(timeToWrite.UnixNano())
+	nanoSeconds := timeToWrite.UnixNano()
+	if nanoSeconds == -6795364578871345152 {
+		util.WriteInt64(0)
+	} else {
+		util.WriteInt64(timeToWrite.UnixNano())
+	}
 }
 
 // ReadTime unmarshals a time object from the internal read buffer.
@@ -16,7 +21,11 @@ func (util *MarshalUtil) ReadTime() (result time.Time, err error) {
 		return
 	}
 
-	result = time.Unix(0, nanoSeconds)
+	if nanoSeconds == 0 {
+		result = time.Time{}
+	} else {
+		result = time.Unix(0, nanoSeconds)
+	}
 
 	return
 }
