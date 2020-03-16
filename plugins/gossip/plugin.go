@@ -81,7 +81,7 @@ func configureEvents() {
 		transactionMetadata.Release()
 
 		cachedTransaction.Consume(func(transaction *transaction.Transaction) {
-			mgr.SendTransaction(transaction.GetBytes())
+			mgr.SendTransaction(transaction.Bytes())
 		})
 	}))
 

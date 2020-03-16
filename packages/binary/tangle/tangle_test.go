@@ -37,7 +37,7 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 	transactionBytes := make([]*transaction.Transaction, b.N)
 	for i := 0; i < b.N; i++ {
 		transactionBytes[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, testIdentity, data.New([]byte("some data")))
-		transactionBytes[i].GetBytes()
+		transactionBytes[i].Bytes()
 	}
 
 	b.ResetTimer()

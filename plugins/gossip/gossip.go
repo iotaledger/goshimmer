@@ -80,7 +80,7 @@ func getTransaction(transactionId transaction.Id) (bytes []byte, err error) {
 	log.Debugw("get tx from db", "id", transactionId.String())
 
 	if !tangle.Instance.GetTransaction(transactionId).Consume(func(transaction *transaction.Transaction) {
-		bytes = transaction.GetBytes()
+		bytes = transaction.Bytes()
 	}) {
 		err = fmt.Errorf("transaction not found: hash=%s", transactionId)
 	}

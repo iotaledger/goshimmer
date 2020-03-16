@@ -74,40 +74,17 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Tran
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 
-	// read trunk transaction id
-	trunkTransactionId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) })
-	if err != nil {
+	// parse information
+	if result.trunkTransactionId, err = ParseId(marshalUtil); err != nil {
 		return
 	}
-	result.trunkTransactionId = trunkTransactionId.(Id)
-
-	// read branch transaction id
-	branchTransactionId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) })
-	if err != nil {
+	if result.branchTransactionId, err = ParseId(marshalUtil); err != nil {
 		return
 	}
-	result.branchTransactionId = branchTransactionId.(Id)
-
-	// read issuer
-	publicKeyBytes, err := marshalUtil.ReadBytes(identity.PublicKeySize)
-	if err != nil {
+	if result.issuer, err = identity.ParsePublicIdentity(marshalUtil); err != nil {
 		return
 	}
-	result.issuer = identity.New(publicKeyBytes)
-
-	// read payload type
-	payloadType, err := marshalUtil.ReadUint32()
-	if err != nil {
-		return
-	}
-
-	// read payload
-	payloadBytes, err := marshalUtil.ReadBytes(-identity.SignatureSize)
-	if err != nil {
-		return
-	}
-	result.payload, err = payload.GetUnmarshaler(payloadType)(payloadBytes)
-	if err != nil {
+	if result.payload, err = payload.Parse(marshalUtil); err != nil {
 		return
 	}
 
@@ -125,7 +102,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Tran
 }
 
 func (transaction *Transaction) VerifySignature() (result bool) {
-	transactionBytes := transaction.GetBytes()
+	transactionBytes := transaction.Bytes()
 
 	transaction.signatureMutex.RLock()
 	result = transaction.issuer.VerifySignature(transactionBytes[:len(transactionBytes)-identity.SignatureSize], transaction.signature[:])
@@ -192,14 +169,6 @@ func (transaction *Transaction) GetPayloadId() (result payload.Id) {
 	return
 }
 
-func (transaction *Transaction) GetBytes() []byte {
-	if result, err := transaction.MarshalBinary(); err != nil {
-		panic(err)
-	} else {
-		return result
-	}
-}
-
 func (transaction *Transaction) calculateTransactionId() Id {
 	payloadId := transaction.GetPayloadId()
 
@@ -219,7 +188,7 @@ func (transaction *Transaction) calculateTransactionId() Id {
 }
 
 func (transaction *Transaction) calculatePayloadId() payload.Id {
-	bytes := transaction.GetBytes()
+	bytes := transaction.Bytes()
 
 	return blake2b.Sum512(bytes[2*IdLength:])
 }
@@ -240,12 +209,11 @@ func (transaction *Transaction) Bytes() []byte {
 		return transaction.bytes
 	}
 
+	// marshal result
 	marshalUtil := marshalutil.New()
-
 	marshalUtil.WriteBytes(transaction.trunkTransactionId.Bytes())
 	marshalUtil.WriteBytes(transaction.branchTransactionId.Bytes())
 	marshalUtil.WriteBytes(transaction.issuer.PublicKey)
-	marshalUtil.WriteUint32(transaction.payload.GetType())
 	marshalUtil.WriteBytes(transaction.payload.Bytes())
 	marshalUtil.WriteBytes(transaction.issuer.Sign(marshalUtil.Bytes()))
 

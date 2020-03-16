@@ -54,7 +54,7 @@ func (spammer *Spammer) run(tps int, processId int64) {
 
 		trunkTransactionId, branchTransactionId := spammer.tipSelector.GetTips()
 		spammer.transactionParser.Parse(
-			transaction.New(trunkTransactionId, branchTransactionId, identity.Generate(), data.New([]byte("SPAM"))).GetBytes(),
+			transaction.New(trunkTransactionId, branchTransactionId, identity.Generate(), data.New([]byte("SPAM"))).Bytes(),
 			nil,
 		)
 
@@ -86,7 +86,7 @@ func (spammer *Spammer) sendBurst(transactions int, processId int64) {
 
 		spamTransaction := transaction.New(previousTransactionId, previousTransactionId, spammingIdentity, data.New([]byte("SPAM")))
 		previousTransactionId = spamTransaction.GetId()
-		burstBuffer[i] = spamTransaction.GetBytes()
+		burstBuffer[i] = spamTransaction.Bytes()
 	}
 
 	for i := 0; i < transactions; i++ {

@@ -63,6 +63,16 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 
+	// read information that are required to identify the payload from the outside
+	_, err = marshalUtil.ReadUint32()
+	if err != nil {
+		return
+	}
+	_, err = marshalUtil.ReadUint32()
+	if err != nil {
+		return
+	}
+
 	// parse trunk payload id
 	parsedTrunkPayloadId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return payloadid.FromBytes(data) })
 	if err != nil {
