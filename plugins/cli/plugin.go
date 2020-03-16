@@ -13,7 +13,7 @@ import (
 
 const (
 	// AppVersion version number
-	AppVersion = "v0.1.2"
+	AppVersion = "v0.1.3"
 	// AppName app code name
 	AppName = "GoShimmer"
 )
