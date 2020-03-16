@@ -27,3 +27,6 @@ objectsdb/
 .DS_Store
 shimmer
 goshimmer
+
+# Config
+config.json
