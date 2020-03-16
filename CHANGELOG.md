@@ -1,3 +1,10 @@
+# v0.1.3 - 2020-03-16
+
+* Update SPA plugin's JS dependencies
+* Upgrad `github.com/gobuffalo/packr` to v2.8.0
+* Resolves a security issue in the packr dependency, which would allow an unauthenticated attacker to read any
+ file from the application's filesystem 
+
 # v0.1.2 - 2020-02-24
 
 * Adds `--version` flag to retrieve the GoShimmer version
