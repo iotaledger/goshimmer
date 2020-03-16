@@ -7,6 +7,8 @@ import (
 // WriteTime marshals the given time into a sequence of bytes, that get appended to the internal buffer.
 func (util *MarshalUtil) WriteTime(timeToWrite time.Time) {
 	nanoSeconds := timeToWrite.UnixNano()
+
+	// the zero value of time translates to -6795364578871345152
 	if nanoSeconds == -6795364578871345152 {
 		util.WriteInt64(0)
 	} else {
