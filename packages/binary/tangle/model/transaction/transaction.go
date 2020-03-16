@@ -5,8 +5,8 @@ import (
 
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/binary/identity"
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
+	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
 
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -23,11 +23,12 @@ type Transaction struct {
 	// core properties (they are part of the transaction when being sent)
 	trunkTransactionId  Id
 	branchTransactionId Id
-	issuer              *identity.Identity
+	issuerPublicKey     ed25119.PublicKey
+	issuerPrivateKey    ed25119.PrivateKey
 	payload             payload.Payload
 	bytes               []byte
 	bytesMutex          sync.RWMutex
-	signature           [identity.SignatureSize]byte
+	signature           ed25119.Signature
 	signatureMutex      sync.RWMutex
 
 	// derived properties
@@ -38,11 +39,12 @@ type Transaction struct {
 }
 
 // Allows us to "issue" a transaction.
-func New(trunkTransactionId Id, branchTransactionId Id, issuer *identity.Identity, payload payload.Payload) (result *Transaction) {
+func New(trunkTransactionId Id, branchTransactionId Id, issuerKeyPair ed25119.KeyPair, payload payload.Payload) (result *Transaction) {
 	return &Transaction{
 		trunkTransactionId:  trunkTransactionId,
 		branchTransactionId: branchTransactionId,
-		issuer:              issuer,
+		issuerPublicKey:     issuerKeyPair.PublicKey,
+		issuerPrivateKey:    issuerKeyPair.PrivateKey,
 		payload:             payload,
 	}
 }
@@ -81,7 +83,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Tran
 	if result.branchTransactionId, err = ParseId(marshalUtil); err != nil {
 		return
 	}
-	if result.issuer, err = identity.ParsePublicIdentity(marshalUtil); err != nil {
+	if result.issuerPublicKey, err = ed25119.ParsePublicKey(marshalUtil); err != nil {
 		return
 	}
 	if result.payload, err = payload.Parse(marshalUtil); err != nil {
@@ -105,7 +107,7 @@ func (transaction *Transaction) VerifySignature() (result bool) {
 	transactionBytes := transaction.Bytes()
 
 	transaction.signatureMutex.RLock()
-	result = transaction.issuer.VerifySignature(transactionBytes[:len(transactionBytes)-identity.SignatureSize], transaction.signature[:])
+	result = transaction.issuerPublicKey.VerifySignature(transactionBytes[:len(transactionBytes)-ed25119.SignatureSize], transaction.signature)
 	transaction.signatureMutex.RUnlock()
 
 	return
@@ -213,9 +215,9 @@ func (transaction *Transaction) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteBytes(transaction.trunkTransactionId.Bytes())
 	marshalUtil.WriteBytes(transaction.branchTransactionId.Bytes())
-	marshalUtil.WriteBytes(transaction.issuer.PublicKey)
+	marshalUtil.WriteBytes(transaction.issuerPublicKey.Bytes())
 	marshalUtil.WriteBytes(transaction.payload.Bytes())
-	marshalUtil.WriteBytes(transaction.issuer.Sign(marshalUtil.Bytes()))
+	marshalUtil.WriteBytes(transaction.issuerPrivateKey.Sign(marshalUtil.Bytes()).Bytes())
 
 	return marshalUtil.Bytes()
 }

@@ -37,6 +37,10 @@ func (publicKey PublicKey) VerifySignature(data []byte, signature Signature) boo
 	return ed25519.Verify(publicKey[:], data, signature[:])
 }
 
+func (publicKey PublicKey) Bytes() []byte {
+	return publicKey[:]
+}
+
 func (publicKey *PublicKey) UnmarshalBinary(bytes []byte) (err error) {
 	if len(bytes) < PublicKeySize {
 		return errors.New("not enough bytes")

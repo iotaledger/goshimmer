@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/binary/identity"
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
@@ -60,7 +59,7 @@ func ExamplePayload() {
 		transaction.EmptyId,
 
 		// issuer of the transaction (signs automatically)
-		identity.Generate(),
+		ed25119.GenerateKeyPair(),
 
 		// payload
 		valuePayload,

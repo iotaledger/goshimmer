@@ -21,6 +21,10 @@ func SignatureFromBytes(bytes []byte) (result Signature, err error, consumedByte
 	return
 }
 
+func (signature Signature) Bytes() []byte {
+	return signature[:]
+}
+
 func (signature *Signature) UnmarshalBinary(bytes []byte) (err error) {
 	if len(bytes) < SignatureSize {
 		return errors.New("not enough bytes")
