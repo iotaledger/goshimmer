@@ -91,16 +91,16 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Tran
 	if result.payload, err = payload.Parse(marshalUtil); err != nil {
 		return
 	}
-
-	// read signature
-	copy(result.signature[:], marshalUtil.ReadRemainingBytes())
-
-	// store marshaled version
-	result.bytes = make([]byte, len(bytes))
-	copy(result.bytes, bytes)
+	if result.signature, err = ed25119.ParseSignature(marshalUtil); err != nil {
+		return
+	}
 
 	// return the number of bytes we processed
 	consumedBytes = marshalUtil.ReadOffset()
+
+	// store marshaled version
+	result.bytes = make([]byte, consumedBytes)
+	copy(result.bytes, bytes)
 
 	return
 }
