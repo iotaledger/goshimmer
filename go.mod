@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/dgraph-io/badger/v2 v2.0.2
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/gobuffalo/envy v1.9.0 // indirect
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/golang/protobuf v1.3.4
 	github.com/googollee/go-engine.io v1.4.3-0.20190924125625-798118fc0dd2
@@ -25,7 +26,9 @@ require (
 	go.dedis.ch/kyber/v3 v3.0.12
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.0
-	golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073
+	golang.org/x/crypto v0.0.0-20200311171314-f7b00557c8c4
 	golang.org/x/net v0.0.0-20200301022130-244492dfa37a
+	golang.org/x/sys v0.0.0-20200302150141-5c8b2ff67527 // indirect
+	golang.org/x/tools v0.0.0-20200312045724-11d5b4c81c7d // indirect
 	gopkg.in/src-d/go-git.v4 v4.13.1
 )
