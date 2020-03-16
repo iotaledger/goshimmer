@@ -13,6 +13,7 @@ import {LinkContainer} from 'react-router-bootstrap';
 import {ExplorerTransactionQueryResult} from "app/components/ExplorerTransactionQueryResult";
 import {ExplorerAddressQueryResult} from "app/components/ExplorerAddressResult";
 import {Explorer404} from "app/components/Explorer404";
+import {Faucet} from "app/components/Faucet";
 import {Neighbors} from "app/components/Neighbors";
 
 interface Props {
@@ -53,6 +54,11 @@ export class Root extends React.Component<Props, any> {
                                 Tangle Explorer
                             </Nav.Link>
                         </LinkContainer>
+                        <LinkContainer to="/faucet">
+                            <Nav.Link>
+                                Faucet 
+                            </Nav.Link>
+                        </LinkContainer>
                     </Nav>
                     <Navbar.Collapse className="justify-content-end">
                         <NavExplorerSearchbar/>
@@ -70,6 +76,7 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/explorer/addr/:hash" component={ExplorerAddressQueryResult}/>
                     <Route exact path="/explorer/404/:search" component={Explorer404}/>
                     <Route exact path="/explorer" component={Explorer}/>
+                    <Route exact path="/faucet" component={Faucet}/>
                     <Redirect to="/dashboard"/>
                 </Switch>
                 {this.props.children}
