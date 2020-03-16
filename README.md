@@ -227,7 +227,7 @@ To open the visualizer, run GoShimmer, and go to `127.0.0.1:8083` in a web brows
 
 If you want to contribute to the code, consider posting a [bug report](https://github.com/iotaledger/goshimmer/issues/new-issue), feature request or a [pull request](https://github.com/iotaledger/goshimmer/pulls/).
 
-See the [contributing guidelines](CONTRIBUTING.md) for more information.
+See the [contributing guidelines](.github/CONTRIBUTING.md) for more information.
 
 ## Joining the discussion
 
