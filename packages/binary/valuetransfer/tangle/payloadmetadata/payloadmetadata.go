@@ -27,7 +27,8 @@ type PayloadMetadata struct {
 // New creates an empty container for the metadata of a value transfer payload.
 func New(payloadId payloadid.Id) *PayloadMetadata {
 	return &PayloadMetadata{
-		payloadId: payloadId,
+		payloadId:          payloadId,
+		solidificationTime: time.Now(),
 	}
 }
 

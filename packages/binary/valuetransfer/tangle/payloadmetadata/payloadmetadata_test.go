@@ -1,6 +1,7 @@
 package payloadmetadata
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -20,6 +21,8 @@ func TestMarshalUnmarshal(t *testing.T) {
 	assert.Equal(t, originalMetadata.GetPayloadId(), clonedMetadata.GetPayloadId())
 	assert.Equal(t, originalMetadata.IsSolid(), clonedMetadata.IsSolid())
 	assert.Equal(t, originalMetadata.GetSoldificationTime().Round(time.Second), clonedMetadata.GetSoldificationTime().Round(time.Second))
+
+	fmt.Println(clonedMetadata.GetSoldificationTime())
 
 	originalMetadata.SetSolid(true)
 
