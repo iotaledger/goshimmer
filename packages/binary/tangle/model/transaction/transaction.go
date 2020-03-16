@@ -24,7 +24,6 @@ type Transaction struct {
 	trunkTransactionId  Id
 	branchTransactionId Id
 	issuerPublicKey     ed25119.PublicKey
-	issuerPrivateKey    ed25119.PrivateKey
 	payload             payload.Payload
 	bytes               []byte
 	bytesMutex          sync.RWMutex
@@ -36,6 +35,9 @@ type Transaction struct {
 	idMutex        sync.RWMutex
 	payloadId      *payload.Id
 	payloadIdMutex sync.RWMutex
+
+	// only stored on the machine of the signer
+	issuerPrivateKey ed25119.PrivateKey
 }
 
 // Allows us to "issue" a transaction.
