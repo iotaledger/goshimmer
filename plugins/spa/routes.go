@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/labstack/echo"
 	"github.com/pkg/errors"
-
 )
 
 var ErrInvalidParameter = errors.New("invalid parameter")
@@ -48,8 +47,13 @@ func setupRoutes(e *echo.Echo) {
 	} else {
 
 		// load assets from packr: either from within the binary or actual disk
-		e.GET("/app/*", echo.WrapHandler(http.StripPrefix("/app", http.FileServer(appBox))))
-		e.GET("/assets/*", echo.WrapHandler(http.StripPrefix("/assets", http.FileServer(assetsBox))))
+		for _, res := range appBox.List() {
+			e.GET("/app/"+res, echo.WrapHandler(http.StripPrefix("/app", http.FileServer(appBox))))
+		}
+
+		for _, res := range assetsBox.List() {
+			e.GET("/assets/"+res, echo.WrapHandler(http.StripPrefix("/assets", http.FileServer(assetsBox))))
+		}
 	}
 
 	e.GET("/ws", websocketRoute)
