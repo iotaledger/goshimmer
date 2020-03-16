@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/binary/identity"
+	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
 )
@@ -20,7 +20,7 @@ func Test(t *testing.T) {
 	assert.Equal(t, transaction.EmptyId, branch1)
 
 	// create a transaction and attach it
-	transaction1 := transaction.New(trunk1, branch1, identity.Generate(), data.New([]byte("testtransaction")))
+	transaction1 := transaction.New(trunk1, branch1, ed25119.GenerateKeyPair(), data.New([]byte("testtransaction")))
 	tipSelector.AddTip(transaction1)
 
 	// check if the tip shows up in the tip count
@@ -32,7 +32,7 @@ func Test(t *testing.T) {
 	assert.Equal(t, transaction1.GetId(), branch2)
 
 	// create a 2nd transaction and attach it
-	transaction2 := transaction.New(transaction.EmptyId, transaction.EmptyId, identity.Generate(), data.New([]byte("testtransaction")))
+	transaction2 := transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), data.New([]byte("testtransaction")))
 	tipSelector.AddTip(transaction2)
 
 	// check if the tip shows up in the tip count
@@ -40,7 +40,7 @@ func Test(t *testing.T) {
 
 	// attach a transaction to our two tips
 	trunk3, branch3 := tipSelector.GetTips()
-	transaction3 := transaction.New(trunk3, branch3, identity.Generate(), data.New([]byte("testtransaction")))
+	transaction3 := transaction.New(trunk3, branch3, ed25119.GenerateKeyPair(), data.New([]byte("testtransaction")))
 	tipSelector.AddTip(transaction3)
 
 	// check if the tip shows replaces the current tips

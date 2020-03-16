@@ -7,21 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dgraph-io/badger/v2"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/binary/identity"
+	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
 )
-
-var testDatabase *badger.DB
-
-var _ = config.PLUGIN
 
 func BenchmarkTangle_AttachTransaction(b *testing.B) {
 	dir, err := ioutil.TempDir("", b.Name())
@@ -30,19 +25,19 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 	// use the tempdir for the database
 	config.Node.Set(database.CFG_DIRECTORY, dir)
 
-	tangle := New(testDatabase, []byte("TEST_BINARY_TANGLE"))
+	tangle := New(database.GetBadgerInstance(), []byte("TEST_BINARY_TANGLE"))
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
 
 		return
 	}
 
-	testIdentity := identity.Generate()
+	testIdentity := ed25119.GenerateKeyPair()
 
 	transactionBytes := make([]*transaction.Transaction, b.N)
 	for i := 0; i < b.N; i++ {
 		transactionBytes[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, testIdentity, data.New([]byte("some data")))
-		transactionBytes[i].GetBytes()
+		transactionBytes[i].Bytes()
 	}
 
 	b.ResetTimer()
@@ -96,8 +91,8 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		fmt.Println("REMOVED:", transactionId)
 	}))
 
-	newTransaction1 := transaction.New(transaction.EmptyId, transaction.EmptyId, identity.Generate(), data.New([]byte("some data")))
-	newTransaction2 := transaction.New(newTransaction1.GetId(), newTransaction1.GetId(), identity.Generate(), data.New([]byte("some other data")))
+	newTransaction1 := transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), data.New([]byte("some data")))
+	newTransaction2 := transaction.New(newTransaction1.GetId(), newTransaction1.GetId(), ed25119.GenerateKeyPair(), data.New([]byte("some other data")))
 
 	tangle.AttachTransaction(newTransaction2)
 

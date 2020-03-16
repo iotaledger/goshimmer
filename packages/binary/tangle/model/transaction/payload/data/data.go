@@ -36,7 +36,18 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Data) (result *Data, err e
 	marshalUtil := marshalutil.New(bytes)
 
 	// read data
-	result.data = marshalUtil.ReadRemainingBytes()
+	result.payloadType, err = marshalUtil.ReadUint32()
+	if err != nil {
+		return
+	}
+	payloadBytes, err := marshalUtil.ReadUint32()
+	if err != nil {
+		return
+	}
+	result.data, err = marshalUtil.ReadBytes(int(payloadBytes))
+	if err != nil {
+		return
+	}
 
 	// return the number of bytes we processed
 	consumedBytes = marshalUtil.ReadOffset()
@@ -57,7 +68,9 @@ func (dataPayload *Data) Bytes() []byte {
 	// initialize helper
 	marshalUtil := marshalutil.New()
 
-	// write the data as raw bytes
+	// marshal the payload specific information
+	marshalUtil.WriteUint32(dataPayload.GetType())
+	marshalUtil.WriteUint32(uint32(len(dataPayload.data)))
 	marshalUtil.WriteBytes(dataPayload.data[:])
 
 	// return result

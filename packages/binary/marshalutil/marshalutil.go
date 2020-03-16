@@ -71,7 +71,14 @@ func (util *MarshalUtil) ReadSeek(offset int) {
 	}
 }
 
-func (util *MarshalUtil) Bytes() []byte {
+func (util *MarshalUtil) Bytes(clone ...bool) []byte {
+	if len(clone) >= 1 && clone[0] {
+		clone := make([]byte, util.size)
+		copy(clone, util.bytes)
+
+		return clone
+	}
+
 	return util.bytes[:util.size]
 }
 

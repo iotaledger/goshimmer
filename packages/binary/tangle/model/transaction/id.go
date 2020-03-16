@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 )
 
 type Id [IdLength]byte
@@ -39,6 +41,15 @@ func IdFromBytes(bytes []byte) (result Id, err error, consumedBytes int) {
 	consumedBytes = IdLength
 
 	return
+}
+
+// ParseId is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func ParseId(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
+	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) }); err != nil {
+		return Id{}, err
+	} else {
+		return id.(Id), nil
+	}
 }
 
 func (id *Id) MarshalBinary() (result []byte, err error) {

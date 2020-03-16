@@ -9,7 +9,7 @@ import (
 
 	"github.com/panjf2000/ants/v2"
 
-	"github.com/iotaledger/goshimmer/packages/binary/identity"
+	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
 )
@@ -20,7 +20,7 @@ func BenchmarkVerifyDataTransactions(b *testing.B) {
 
 	transactions := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
-		tx := transaction.New(transaction.EmptyId, transaction.EmptyId, identity.Generate(), data.New([]byte("some data")))
+		tx := transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), data.New([]byte("some data")))
 
 		if marshaledTransaction, err := tx.MarshalBinary(); err != nil {
 			b.Error(err)
@@ -50,8 +50,8 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	transactions := make([]*transaction.Transaction, b.N)
 	for i := 0; i < b.N; i++ {
-		transactions[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, identity.Generate(), data.New([]byte("test")))
-		transactions[i].GetBytes()
+		transactions[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), data.New([]byte("test")))
+		transactions[i].Bytes()
 	}
 
 	var wg sync.WaitGroup

@@ -1,13 +1,12 @@
 package spammer
 
 import (
-	"fmt"
 	"sync/atomic"
 	"time"
 
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/binary/identity"
+	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/tipselector"
@@ -43,7 +42,7 @@ func (spammer *Spammer) Shutdown() {
 }
 
 func (spammer *Spammer) run(tps int, processId int64) {
-	fmt.Println(processId)
+	spammingIdentity := ed25119.GenerateKeyPair()
 	currentSentCounter := 0
 	start := time.Now()
 
@@ -54,7 +53,7 @@ func (spammer *Spammer) run(tps int, processId int64) {
 
 		trunkTransactionId, branchTransactionId := spammer.tipSelector.GetTips()
 		spammer.transactionParser.Parse(
-			transaction.New(trunkTransactionId, branchTransactionId, identity.Generate(), data.New([]byte("SPAM"))).GetBytes(),
+			transaction.New(trunkTransactionId, branchTransactionId, spammingIdentity, data.New([]byte("SPAM"))).Bytes(),
 			nil,
 		)
 
@@ -74,7 +73,7 @@ func (spammer *Spammer) run(tps int, processId int64) {
 }
 
 func (spammer *Spammer) sendBurst(transactions int, processId int64) {
-	spammingIdentity := identity.Generate()
+	spammingIdentity := ed25119.GenerateKeyPair()
 
 	previousTransactionId := transaction.EmptyId
 
@@ -86,7 +85,7 @@ func (spammer *Spammer) sendBurst(transactions int, processId int64) {
 
 		spamTransaction := transaction.New(previousTransactionId, previousTransactionId, spammingIdentity, data.New([]byte("SPAM")))
 		previousTransactionId = spamTransaction.GetId()
-		burstBuffer[i] = spamTransaction.GetBytes()
+		burstBuffer[i] = spamTransaction.Bytes()
 	}
 
 	for i := 0; i < transactions; i++ {
