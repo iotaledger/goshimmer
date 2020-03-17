@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/events"
 
@@ -13,7 +14,7 @@ import (
 )
 
 func BenchmarkTransactionParser_ParseBytesSame(b *testing.B) {
-	txBytes := transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), data.New([]byte("Test"))).Bytes()
+	txBytes := transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("Test"))).Bytes()
 	txParser := New()
 
 	b.ResetTimer()
@@ -28,7 +29,7 @@ func BenchmarkTransactionParser_ParseBytesSame(b *testing.B) {
 func BenchmarkTransactionParser_ParseBytesDifferent(b *testing.B) {
 	transactionBytes := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
-		transactionBytes[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), data.New([]byte("Test"+strconv.Itoa(i)))).Bytes()
+		transactionBytes[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("Test"+strconv.Itoa(i)))).Bytes()
 	}
 
 	txParser := New()
@@ -43,7 +44,7 @@ func BenchmarkTransactionParser_ParseBytesDifferent(b *testing.B) {
 }
 
 func TestTransactionParser_ParseTransaction(t *testing.T) {
-	tx := transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), data.New([]byte("Test")))
+	tx := transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("Test")))
 
 	txParser := New()
 	txParser.Parse(tx.Bytes(), nil)

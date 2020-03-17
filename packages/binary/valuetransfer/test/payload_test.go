@@ -3,6 +3,7 @@ package test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -60,6 +61,12 @@ func ExamplePayload() {
 
 		// issuer of the transaction (signs automatically)
 		ed25119.GenerateKeyPair(),
+
+		// the time when the transaction was created
+		time.Now(),
+
+		// the ever increasing sequence number of this transaction
+		0,
 
 		// payload
 		valuePayload,

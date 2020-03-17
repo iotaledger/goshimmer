@@ -44,12 +44,12 @@ type Transaction struct {
 }
 
 // New creates a new transaction with the details provided by the issuer.
-func New(trunkTransactionId Id, branchTransactionId Id, issuerKeyPair ed25119.KeyPair, sequenceNumber uint64, payload payload.Payload) (result *Transaction) {
+func New(trunkTransactionId Id, branchTransactionId Id, issuerKeyPair ed25119.KeyPair, issuingTime time.Time, sequenceNumber uint64, payload payload.Payload) (result *Transaction) {
 	return &Transaction{
 		trunkTransactionId:  trunkTransactionId,
 		branchTransactionId: branchTransactionId,
 		issuerPublicKey:     issuerKeyPair.PublicKey,
-		issuingTime:         time.Now(),
+		issuingTime:         issuingTime,
 		sequenceNumber:      sequenceNumber,
 		payload:             payload,
 
@@ -156,6 +156,16 @@ func (transaction *Transaction) GetTrunkTransactionId() Id {
 
 func (transaction *Transaction) GetBranchTransactionId() Id {
 	return transaction.branchTransactionId
+}
+
+// IssuingTime returns the time when the transaction was created.
+func (transaction *Transaction) IssuingTime() time.Time {
+	return transaction.issuingTime
+}
+
+// SequenceNumber returns the sequence number of this transaction.
+func (transaction *Transaction) SequenceNumber() uint64 {
+	return transaction.sequenceNumber
 }
 
 func (transaction *Transaction) GetPayload() payload.Payload {
