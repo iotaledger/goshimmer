@@ -36,7 +36,7 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 
 	transactionBytes := make([]*transaction.Transaction, b.N)
 	for i := 0; i < b.N; i++ {
-		transactionBytes[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, testIdentity, data.New([]byte("some data")))
+		transactionBytes[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, testIdentity, time.Now(), 0, data.New([]byte("some data")))
 		transactionBytes[i].Bytes()
 	}
 
@@ -91,8 +91,8 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		fmt.Println("REMOVED:", transactionId)
 	}))
 
-	newTransaction1 := transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), data.New([]byte("some data")))
-	newTransaction2 := transaction.New(newTransaction1.GetId(), newTransaction1.GetId(), ed25119.GenerateKeyPair(), data.New([]byte("some other data")))
+	newTransaction1 := transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("some data")))
+	newTransaction2 := transaction.New(newTransaction1.GetId(), newTransaction1.GetId(), ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("some other data")))
 
 	tangle.AttachTransaction(newTransaction2)
 

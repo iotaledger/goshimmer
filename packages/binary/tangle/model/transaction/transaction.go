@@ -2,6 +2,7 @@ package transaction
 
 import (
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/stringify"
 
@@ -24,6 +25,8 @@ type Transaction struct {
 	trunkTransactionId  Id
 	branchTransactionId Id
 	issuerPublicKey     ed25119.PublicKey
+	issuingTime         time.Time
+	sequenceNumber      uint64
 	payload             payload.Payload
 	bytes               []byte
 	bytesMutex          sync.RWMutex
@@ -40,14 +43,17 @@ type Transaction struct {
 	issuerPrivateKey ed25119.PrivateKey
 }
 
-// Allows us to "issue" a transaction.
-func New(trunkTransactionId Id, branchTransactionId Id, issuerKeyPair ed25119.KeyPair, payload payload.Payload) (result *Transaction) {
+// New creates a new transaction with the details provided by the issuer.
+func New(trunkTransactionId Id, branchTransactionId Id, issuerKeyPair ed25119.KeyPair, issuingTime time.Time, sequenceNumber uint64, payload payload.Payload) (result *Transaction) {
 	return &Transaction{
 		trunkTransactionId:  trunkTransactionId,
 		branchTransactionId: branchTransactionId,
 		issuerPublicKey:     issuerKeyPair.PublicKey,
-		issuerPrivateKey:    issuerKeyPair.PrivateKey,
+		issuingTime:         issuingTime,
+		sequenceNumber:      sequenceNumber,
 		payload:             payload,
+
+		issuerPrivateKey: issuerKeyPair.PrivateKey,
 	}
 }
 
@@ -86,6 +92,12 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Tran
 		return
 	}
 	if result.issuerPublicKey, err = ed25119.ParsePublicKey(marshalUtil); err != nil {
+		return
+	}
+	if result.issuingTime, err = marshalUtil.ReadTime(); err != nil {
+		return
+	}
+	if result.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
 		return
 	}
 	if result.payload, err = payload.Parse(marshalUtil); err != nil {
@@ -144,6 +156,16 @@ func (transaction *Transaction) GetTrunkTransactionId() Id {
 
 func (transaction *Transaction) GetBranchTransactionId() Id {
 	return transaction.branchTransactionId
+}
+
+// IssuingTime returns the time when the transaction was created.
+func (transaction *Transaction) IssuingTime() time.Time {
+	return transaction.issuingTime
+}
+
+// SequenceNumber returns the sequence number of this transaction.
+func (transaction *Transaction) SequenceNumber() uint64 {
+	return transaction.sequenceNumber
 }
 
 func (transaction *Transaction) GetPayload() payload.Payload {
@@ -218,6 +240,8 @@ func (transaction *Transaction) Bytes() []byte {
 	marshalUtil.WriteBytes(transaction.trunkTransactionId.Bytes())
 	marshalUtil.WriteBytes(transaction.branchTransactionId.Bytes())
 	marshalUtil.WriteBytes(transaction.issuerPublicKey.Bytes())
+	marshalUtil.WriteTime(transaction.issuingTime)
+	marshalUtil.WriteUint64(transaction.sequenceNumber)
 	marshalUtil.WriteBytes(transaction.payload.Bytes())
 	marshalUtil.WriteBytes(transaction.issuerPrivateKey.Sign(marshalUtil.Bytes()).Bytes())
 
