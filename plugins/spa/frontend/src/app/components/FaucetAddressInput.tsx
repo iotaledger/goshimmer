@@ -1,13 +1,14 @@
 import * as React from 'react';
 import {KeyboardEvent} from 'react';
 import NodeStore from "app/stores/NodeStore";
+import FaucetStore from "app/stores/FaucetStore";
 import {inject, observer} from "mobx-react";
 import FormControl from "react-bootstrap/FormControl";
-import {FaucetStore} from "app/stores/FaucetStore";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Button from 'react-bootstrap/Button'
 import InputGroup from "react-bootstrap/InputGroup";
+import {Link} from 'react-router-dom';
 
 interface Props {
     nodeStore?: NodeStore;
@@ -25,12 +26,10 @@ export class FaucetAddressInput extends React.Component<Props, any> {
 
     executeSend = (e: KeyboardEvent) => {
         if (e.key !== 'Enter') return;
-        console.log(this.props.faucetStore.send_addr)
         this.props.faucetStore.sendReq();
     };
 
     btnExecuteSend = () => {
-        console.log(this.props.faucetStore.send_addr)
         this.props.faucetStore.sendReq();
     };
 
@@ -63,6 +62,13 @@ export class FaucetAddressInput extends React.Component<Props, any> {
                             disabled={sending}>
                            Send 
                         </Button>
+                    </Col>
+                </Row>
+                <Row className={"mb-3"}>
+                    <Col>
+                        <small>
+                            Check your funds on explorer: <Link to={`/explorer/addr/${send_addr}`}>{send_addr}</Link>
+                        </small>
                     </Col>
                 </Row>
             </React.Fragment>
