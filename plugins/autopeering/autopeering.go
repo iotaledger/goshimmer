@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/iotaledger/hive.go/autopeering/discover"
@@ -12,7 +13,6 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/autopeering/server"
-	"github.com/iotaledger/hive.go/autopeering/transport"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
@@ -45,7 +45,6 @@ func configureAP() {
 		discover.MasterPeers(masterPeers),
 	)
 
-	log.Infof("Protocol Version: %v", discover.VersionNum)
 	// enable peer selection only when gossip is enabled
 	if !node.IsSkipped(gossip.PLUGIN) {
 		Selection = selection.New(local.GetInstance(), Discovery,
@@ -58,49 +57,29 @@ func configureAP() {
 // isValidNeighbor checks whether a peer is a valid neighbor.
 func isValidNeighbor(p *peer.Peer) bool {
 	// gossip must be supported
-	gossipAddr := p.Services().Get(service.GossipKey)
-	if gossipAddr == nil {
-		return false
-	}
-	// the host for the gossip and peering service must be identical
-	gossipHost, _, err := net.SplitHostPort(gossipAddr.String())
-	if err != nil {
-		return false
-	}
-	peeringAddr := p.Services().Get(service.PeeringKey)
-	peeringHost, _, err := net.SplitHostPort(peeringAddr.String())
-	if err != nil {
-		return false
-	}
-	return gossipHost == peeringHost
+	return p.Services().Get(service.GossipKey) != nil
 }
 
 func start(shutdownSignal <-chan struct{}) {
 	defer log.Info("Stopping " + name + " ... done")
 
 	lPeer := local.GetInstance()
+
 	// use the port of the peering service
-	peeringAddr := lPeer.Services().Get(service.PeeringKey)
-	_, peeringPort, err := net.SplitHostPort(peeringAddr.String())
-	if err != nil {
-		panic(err)
-	}
+	peeringEndpoint := lPeer.Services().Get(service.PeeringKey)
+
 	// resolve the bind address
-	address := net.JoinHostPort(config.Node.GetString(local.CFG_BIND), peeringPort)
-	localAddr, err := net.ResolveUDPAddr(peeringAddr.Network(), address)
+	address := net.JoinHostPort(config.Node.GetString(local.CFG_BIND), strconv.Itoa(peeringEndpoint.Port()))
+	localAddr, err := net.ResolveUDPAddr(peeringEndpoint.Network(), address)
 	if err != nil {
 		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
 	}
 
-	conn, err := net.ListenUDP(peeringAddr.Network(), localAddr)
+	conn, err := net.ListenUDP(peeringEndpoint.Network(), localAddr)
 	if err != nil {
 		log.Fatalf("Error listening: %v", err)
 	}
 	defer conn.Close()
-
-	// use the UDP connection for transport
-	trans := transport.Conn(conn, func(network, address string) (net.Addr, error) { return net.ResolveUDPAddr(network, address) })
-	defer trans.Close()
 
 	handlers := []server.Handler{Discovery}
 	if Selection != nil {
@@ -108,7 +87,7 @@ func start(shutdownSignal <-chan struct{}) {
 	}
 
 	// start a server doing discovery and peering
-	srv := server.Serve(lPeer, trans, log.Named("srv"), handlers...)
+	srv := server.Serve(lPeer, conn, log.Named("srv"), handlers...)
 	defer srv.Close()
 
 	// start the discovery on that connection
@@ -121,7 +100,7 @@ func start(shutdownSignal <-chan struct{}) {
 		defer Selection.Close()
 	}
 
-	log.Infof("%s started: ID=%s Address=%s/%s", name, lPeer.ID(), peeringAddr.String(), peeringAddr.Network())
+	log.Infof("%s started: ID=%s Address=%s/%s", name, lPeer.ID(), localAddr.String(), localAddr.Network())
 
 	<-shutdownSignal
 
@@ -143,13 +122,17 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 		}
 		pubKey, err := base64.StdEncoding.DecodeString(parts[0])
 		if err != nil {
-			return nil, fmt.Errorf("%w: can't decode public key: %s", ErrParsingMasterNode, err)
+			return nil, fmt.Errorf("%w: invalid public key: %s", ErrParsingMasterNode, err)
+		}
+		addr, err := net.ResolveUDPAddr("udp", parts[1])
+		if err != nil {
+			return nil, fmt.Errorf("%w: host cannot be resolved: %s", ErrParsingMasterNode, err)
 		}
 
 		services := service.New()
-		services.Update(service.PeeringKey, "udp", parts[1])
+		services.Update(service.PeeringKey, addr.Network(), addr.Port)
 
-		result = append(result, peer.NewPeer(pubKey, services))
+		result = append(result, peer.NewPeer(pubKey, addr.IP, services))
 	}
 
 	return result, nil
