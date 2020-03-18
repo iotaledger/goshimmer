@@ -60,12 +60,14 @@ func (address *Address) GetDigest() AddressDigest {
 	return address[1:]
 }
 
+// Bytes returns a marshaled version of this address.
 func (address Address) Bytes() []byte {
 	return address[:]
 }
 
+// String returns a human readable (base58 encoded) version of the address.
 func (address Address) String() string {
-	return "Address(" + base58.Encode(address.Bytes()) + ")"
+	return base58.Encode(address.Bytes())
 }
 
 const Length = 33

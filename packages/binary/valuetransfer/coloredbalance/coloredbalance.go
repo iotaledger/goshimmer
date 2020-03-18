@@ -66,5 +66,5 @@ func (balance *ColoredBalance) String() string {
 	return strconv.FormatInt(balance.balance, 10) + " " + balance.color.String()
 }
 
-// Length encodes the length of a marshaled ColoredBalance (8 bytes for the balance + the length of the color).
-const Length = 8 + color.Length + 8
+// Length encodes the length of a marshaled ColoredBalance (the length of the color + 8 bytes for the balance).
+const Length = color.Length + 8
