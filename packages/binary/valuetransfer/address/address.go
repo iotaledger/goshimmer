@@ -4,6 +4,7 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 )
 
@@ -28,6 +29,28 @@ func FromED25519PubKey(key ed25119.PublicKey) (address Address) {
 	return
 }
 
+func FromBytes(bytes []byte) (result Address, err error, consumedBytes int) {
+	// parse the bytes
+	marshalUtil := marshalutil.New(bytes)
+	addressBytes, err := marshalUtil.ReadBytes(Length)
+	if err != nil {
+		return
+	}
+	copy(result[:], addressBytes)
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// Parse
+func Parse(marshalUtil *marshalutil.MarshalUtil) (Address, error) {
+	if address, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) }); err != nil {
+		return Address{}, err
+	} else {
+		return address.(Address), nil
+	}
+}
+
 func (address *Address) GetVersion() AddressVersion {
 	return address[0]
 }
@@ -36,12 +59,12 @@ func (address *Address) GetDigest() AddressDigest {
 	return address[1:]
 }
 
-func (address Address) ToBytes() []byte {
+func (address Address) Bytes() []byte {
 	return address[:]
 }
 
 func (address Address) String() string {
-	return "Address(" + base58.Encode(address.ToBytes()) + ")"
+	return "Address(" + base58.Encode(address.Bytes()) + ")"
 }
 
 const Length = 33

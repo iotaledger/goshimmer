@@ -10,7 +10,7 @@ import (
 type Id [Length]byte
 
 func New(outputAddress address2.Address, transferId id2.Id) (transferOutputId Id) {
-	copy(transferOutputId[:address2.Length], outputAddress.ToBytes())
+	copy(transferOutputId[:address2.Length], outputAddress.Bytes())
 	copy(transferOutputId[address2.Length:], transferId[:])
 
 	return

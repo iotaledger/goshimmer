@@ -109,7 +109,7 @@ func (outputs *Outputs) Bytes() []byte {
 
 	marshalUtil.WriteUint32(uint32(outputs.Size()))
 	outputs.ForEach(func(address address.Address, balances []*coloredbalance.ColoredBalance) {
-		marshalUtil.WriteBytes(address.ToBytes())
+		marshalUtil.WriteBytes(address.Bytes())
 		marshalUtil.WriteUint32(uint32(len(balances)))
 
 		for _, balance := range balances {

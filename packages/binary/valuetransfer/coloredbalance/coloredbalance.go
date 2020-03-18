@@ -44,6 +44,14 @@ func FromBytes(bytes []byte) (result *ColoredBalance, err error, consumedBytes i
 	return
 }
 
+func Parse(marshalUtil *marshalutil.MarshalUtil) (*ColoredBalance, error) {
+	if address, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) }); err != nil {
+		return nil, err
+	} else {
+		return address.(*ColoredBalance), nil
+	}
+}
+
 func (balance *ColoredBalance) Bytes() []byte {
 	marshalUtil := marshalutil.New(color.Length + marshalutil.UINT32_SIZE)
 
@@ -56,3 +64,5 @@ func (balance *ColoredBalance) Bytes() []byte {
 func (balance *ColoredBalance) String() string {
 	return strconv.FormatInt(balance.balance, 10) + " " + balance.color.String()
 }
+
+const Length = 8 + color.Length + 8

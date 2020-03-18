@@ -1,11 +1,13 @@
 package marshalutil
 
-func (util *MarshalUtil) WriteBytes(bytes []byte) {
+func (util *MarshalUtil) WriteBytes(bytes []byte) *MarshalUtil {
 	writeEndOffset := util.expandWriteCapacity(len(bytes))
 
 	copy(util.bytes[util.writeOffset:writeEndOffset], bytes)
 
 	util.WriteSeek(writeEndOffset)
+
+	return util
 }
 
 func (util *MarshalUtil) ReadBytes(length int) ([]byte, error) {
