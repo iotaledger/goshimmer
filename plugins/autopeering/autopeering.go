@@ -59,7 +59,15 @@ func configureAP() {
 // isValidNeighbor checks whether a peer is a valid neighbor.
 func isValidNeighbor(p *peer.Peer) bool {
 	// gossip must be supported
-	return p.Services().Get(service.GossipKey) != nil
+	gossipService := p.Services().Get(service.GossipKey)
+	if gossipService == nil {
+		return false
+	}
+	// gossip service must be valid
+	if gossipService.Network() != "tcp" || gossipService.Port() < 0 || gossipService.Port() > 65535 {
+		return false
+	}
+	return true
 }
 
 func start(shutdownSignal <-chan struct{}) {
