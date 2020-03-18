@@ -36,6 +36,15 @@ func (payload *Payload) Data() []byte {
 	return payload.data
 }
 
+// Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
+	if payload, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) }); err != nil {
+		return &Payload{}, err
+	} else {
+		return payload.(*Payload), nil
+	}
+}
+
 // FromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
 func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, err error, consumedBytes int) {

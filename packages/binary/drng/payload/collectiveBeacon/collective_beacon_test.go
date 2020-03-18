@@ -18,15 +18,13 @@ func TestParse(t *testing.T) {
 	bytes := payload.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)
-	parsedpayload, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) })
+	parsedPayload, err := Parse(marshalUtil)
 	require.NoError(t, err)
 
-	cb := parsedpayload.(*Payload)
-
-	require.Equal(t, payload.SubType(), cb.SubType())
-	require.Equal(t, payload.Instance(), cb.Instance())
-	require.Equal(t, payload.Round(), cb.Round())
-	require.Equal(t, payload.PrevSignature(), cb.PrevSignature())
-	require.Equal(t, payload.Signature(), cb.Signature())
-	require.Equal(t, payload.DistributedPK(), cb.DistributedPK())
+	require.Equal(t, payload.SubType(), parsedPayload.SubType())
+	require.Equal(t, payload.Instance(), parsedPayload.Instance())
+	require.Equal(t, payload.Round(), parsedPayload.Round())
+	require.Equal(t, payload.PrevSignature(), parsedPayload.PrevSignature())
+	require.Equal(t, payload.Signature(), parsedPayload.Signature())
+	require.Equal(t, payload.DistributedPK(), parsedPayload.DistributedPK())
 }

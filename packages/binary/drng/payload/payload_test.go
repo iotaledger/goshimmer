@@ -15,12 +15,10 @@ func TestParse(t *testing.T) {
 	bytes := payload.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)
-	parsedpayload, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) })
+	parsedPayload, err := Parse(marshalUtil)
 	require.NoError(t, err)
 
-	cb := parsedpayload.(*Payload)
-
-	require.Equal(t, payload.SubType(), cb.SubType())
-	require.Equal(t, payload.Instance(), cb.Instance())
-	require.Equal(t, payload.Data(), cb.Data())
+	require.Equal(t, payload.SubType(), parsedPayload.SubType())
+	require.Equal(t, payload.Instance(), parsedPayload.Instance())
+	require.Equal(t, payload.Data(), parsedPayload.Data())
 }
