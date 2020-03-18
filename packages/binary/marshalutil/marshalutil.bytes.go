@@ -1,5 +1,6 @@
 package marshalutil
 
+// WriteBytes appends the given bytes to the internal buffer.
 func (util *MarshalUtil) WriteBytes(bytes []byte) *MarshalUtil {
 	writeEndOffset := util.expandWriteCapacity(len(bytes))
 
@@ -10,6 +11,7 @@ func (util *MarshalUtil) WriteBytes(bytes []byte) *MarshalUtil {
 	return util
 }
 
+// ReadBytes unmarshals the given amount of bytes from the internal read buffer.
 func (util *MarshalUtil) ReadBytes(length int) ([]byte, error) {
 	if length < 0 {
 		length = len(util.bytes) - util.readOffset + length
