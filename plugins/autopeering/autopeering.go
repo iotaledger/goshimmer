@@ -21,6 +21,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
+const VersionNum = 2
+
 var (
 	// Discovery is the peer discovery protocol.
 	Discovery *discover.Protocol
@@ -41,7 +43,7 @@ func configureAP() {
 
 	Discovery = discover.New(local.GetInstance(),
 		discover.Logger(log.Named("disc")),
-		discover.Version(config.Node.GetUint32(CFG_VERSION)),
+		discover.Version(VersionNum),
 		discover.MasterPeers(masterPeers),
 	)
 
