@@ -44,6 +44,7 @@ func FromBytes(bytes []byte) (result *ColoredBalance, err error, consumedBytes i
 	return
 }
 
+// Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func Parse(marshalUtil *marshalutil.MarshalUtil) (*ColoredBalance, error) {
 	if address, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) }); err != nil {
 		return nil, err
@@ -65,4 +66,5 @@ func (balance *ColoredBalance) String() string {
 	return strconv.FormatInt(balance.balance, 10) + " " + balance.color.String()
 }
 
+// Length encodes the length of a marshaled ColoredBalance (8 bytes for the balance + the length of the color).
 const Length = 8 + color.Length + 8

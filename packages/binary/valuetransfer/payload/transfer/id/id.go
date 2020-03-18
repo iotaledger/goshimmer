@@ -14,6 +14,7 @@ func New(idBytes []byte) (result Id) {
 	return
 }
 
+// FromBytes unmarshals a transfer id from a sequence of bytes.
 func FromBytes(bytes []byte) (result Id, err error, consumedBytes int) {
 	// parse the bytes
 	marshalUtil := marshalutil.New(bytes)
@@ -27,7 +28,7 @@ func FromBytes(bytes []byte) (result Id, err error, consumedBytes int) {
 	return
 }
 
-// Parse
+// Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func Parse(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
 	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) }); err != nil {
 		return Id{}, err

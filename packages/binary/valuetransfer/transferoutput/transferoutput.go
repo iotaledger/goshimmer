@@ -21,7 +21,7 @@ type TransferOutput struct {
 	storageKey []byte
 }
 
-// New creates a new transfer output, that contains the balances of a successful transfer.
+// New creates a transfer output that contains the balances and identifiers of a successful transfer.
 func New(address address.Address, transferId transferId.Id, balances []*coloredbalance.ColoredBalance) *TransferOutput {
 	return &TransferOutput{
 		address:    address,
@@ -112,8 +112,7 @@ func (transferOutput *TransferOutput) UnmarshalBinary(data []byte) (err error) {
 	return
 }
 
-// Update is disabled and panics if it ever gets called - updates are supposed to happen through the setters.
-// It is required to match StorableObject interface.
+// Update is disabled and panics if it ever gets called - it is required to match StorableObject interface.
 func (transferOutput *TransferOutput) Update(other objectstorage.StorableObject) {
 	panic("this object should never be updated")
 }
