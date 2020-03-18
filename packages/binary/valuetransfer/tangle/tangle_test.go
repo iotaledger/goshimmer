@@ -56,7 +56,7 @@ func TestTangle_AttachPayload(t *testing.T) {
 		),
 
 		outputs.New(map[address.Address][]*coloredbalance.ColoredBalance{
-			address.New([]byte("output_address")): {
+			address.Random(): {
 				coloredbalance.New(color.IOTA, 1337),
 			},
 		}),

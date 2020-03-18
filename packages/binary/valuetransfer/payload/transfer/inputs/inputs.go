@@ -32,13 +32,12 @@ func FromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int) {
 	}
 
 	for i := uint32(0); i < inputCount; i++ {
-		addressBytes, readErr := marshalUtil.ReadBytes(address.Length)
-		if readErr != nil {
-			err = readErr
+		readAddress, addressErr := address.Parse(marshalUtil)
+		if addressErr != nil {
+			err = addressErr
 
 			return
 		}
-		readAddress := address.New(addressBytes)
 
 		transferIdBytes, readErr := marshalUtil.ReadBytes(transferid.Length)
 		if readErr != nil {

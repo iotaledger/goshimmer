@@ -45,13 +45,12 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Outputs) (result *Outputs,
 	// iterate the corresponding times and collect addresses + their details
 	for i := uint32(0); i < addressCount; i++ {
 		// read address
-		addressBytes, addressErr := marshalUtil.ReadBytes(address.Length)
+		address, addressErr := address.Parse(marshalUtil)
 		if addressErr != nil {
 			err = addressErr
 
 			return
 		}
-		address := address.New(addressBytes)
 
 		// read number of balances in the outputs
 		balanceCount, balanceCountErr := marshalUtil.ReadUint32()
