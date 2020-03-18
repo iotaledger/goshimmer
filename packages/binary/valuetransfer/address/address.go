@@ -29,6 +29,7 @@ func FromED25519PubKey(key ed25119.PublicKey) (address Address) {
 	return
 }
 
+// FromBytes unmarshals an address from a sequence of bytes.
 func FromBytes(bytes []byte) (result Address, err error, consumedBytes int) {
 	// parse the bytes
 	marshalUtil := marshalutil.New(bytes)
@@ -42,7 +43,7 @@ func FromBytes(bytes []byte) (result Address, err error, consumedBytes int) {
 	return
 }
 
-// Parse
+// Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func Parse(marshalUtil *marshalutil.MarshalUtil) (Address, error) {
 	if address, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) }); err != nil {
 		return Address{}, err
