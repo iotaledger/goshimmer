@@ -27,13 +27,13 @@ func ExamplePayload() {
 	valueTransfer := transfer.New(
 		// inputs
 		inputs.New(
-			transferoutputid.New(address.New([]byte("input_address1")), transferid.New([]byte("transfer1"))),
-			transferoutputid.New(address.New([]byte("input_address2")), transferid.New([]byte("transfer2"))),
+			transferoutputid.New(address.Random(), transferid.New([]byte("transfer1"))),
+			transferoutputid.New(address.Random(), transferid.New([]byte("transfer2"))),
 		),
 
 		// outputs
 		outputs.New(map[address.Address][]*coloredbalance.ColoredBalance{
-			address.New([]byte("output_address")): {
+			address.Random(): {
 				coloredbalance.New(color.IOTA, 1337),
 			},
 		}),
@@ -89,7 +89,7 @@ func TestPayload(t *testing.T) {
 			),
 
 			outputs.New(map[address.Address][]*coloredbalance.ColoredBalance{
-				address.New([]byte("output_address")): {
+				address.Random(): {
 					coloredbalance.New(color.IOTA, 1337),
 				},
 			}),

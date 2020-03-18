@@ -45,13 +45,12 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Outputs) (result *Outputs,
 	// iterate the corresponding times and collect addresses + their details
 	for i := uint32(0); i < addressCount; i++ {
 		// read address
-		addressBytes, addressErr := marshalUtil.ReadBytes(address.Length)
+		address, addressErr := address.Parse(marshalUtil)
 		if addressErr != nil {
 			err = addressErr
 
 			return
 		}
-		address := address.New(addressBytes)
 
 		// read number of balances in the outputs
 		balanceCount, balanceCountErr := marshalUtil.ReadUint32()
@@ -109,7 +108,7 @@ func (outputs *Outputs) Bytes() []byte {
 
 	marshalUtil.WriteUint32(uint32(outputs.Size()))
 	outputs.ForEach(func(address address.Address, balances []*coloredbalance.ColoredBalance) {
-		marshalUtil.WriteBytes(address.ToBytes())
+		marshalUtil.WriteBytes(address.Bytes())
 		marshalUtil.WriteUint32(uint32(len(balances)))
 
 		for _, balance := range balances {
