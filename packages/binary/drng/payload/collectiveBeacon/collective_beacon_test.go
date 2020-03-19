@@ -12,9 +12,9 @@ func TestParse(t *testing.T) {
 	header := header.New(header.CollectiveBeaconType(), 0)
 	payload := New(header.Instance(),
 		0,
-		[]byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), // prevSignature
-		[]byte("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"), // signature
-		[]byte("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC")) // distributed PK
+		[]byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), // prevSignature
+		[]byte("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"), // signature
+		[]byte("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"))                                                 // distributed PK
 	bytes := payload.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)
