@@ -166,8 +166,8 @@ func (payload *Payload) Bytes() (bytes []byte) {
 
 func (payload *Payload) String() string {
 	return stringify.Struct("Payload",
-		stringify.StructField("type", payload.SubType()),
-		stringify.StructField("instance", payload.Instance()),
+		stringify.StructField("type", uint64(payload.SubType())),
+		stringify.StructField("instance", uint64(payload.Instance())),
 		stringify.StructField("round", payload.Round()),
 		stringify.StructField("prevSignature", payload.PrevSignature()),
 		stringify.StructField("signature", payload.Signature()),

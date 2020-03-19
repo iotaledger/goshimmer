@@ -8,13 +8,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParse(t *testing.T) {
+func dummyPayload() *Payload {
 	header := header.New(header.CollectiveBeaconType(), 0)
-	payload := New(header.Instance(),
+	return New(header.Instance(),
 		0,
 		[]byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), // prevSignature
 		[]byte("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"), // signature
 		[]byte("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"))                                                 // distributed PK
+}
+
+func TestParse(t *testing.T) {
+	payload := dummyPayload()
 	bytes := payload.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)
@@ -27,4 +31,9 @@ func TestParse(t *testing.T) {
 	require.Equal(t, payload.PrevSignature(), parsedPayload.PrevSignature())
 	require.Equal(t, payload.Signature(), parsedPayload.Signature())
 	require.Equal(t, payload.DistributedPK(), parsedPayload.DistributedPK())
+}
+
+func TestString(t *testing.T) {
+	payload := dummyPayload()
+	_ = payload.String()
 }
