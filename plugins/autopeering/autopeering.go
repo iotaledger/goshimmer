@@ -49,9 +49,8 @@ func configureAP() {
 	}
 	log.Debugf("Master peers: %v", masterPeers)
 
-	Discovery = discover.New(local.GetInstance(),
+	Discovery = discover.New(local.GetInstance(), VersionNum,
 		discover.Logger(log.Named("disc")),
-		discover.Version(VersionNum),
 		discover.MasterPeers(masterPeers),
 	)
 
