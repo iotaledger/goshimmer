@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/netutil"
 
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
@@ -27,7 +28,7 @@ func configureGossip() {
 
 	// announce the gossip service
 	gossipPort := config.Node.GetInt(GOSSIP_PORT)
-	if 0 > gossipPort || gossipPort > 65535 {
+	if !netutil.IsValidPort(gossipPort) {
 		log.Fatalf("Invalid port number (%s): %d", GOSSIP_PORT, gossipPort)
 	}
 
