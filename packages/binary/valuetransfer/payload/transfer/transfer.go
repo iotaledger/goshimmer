@@ -109,7 +109,7 @@ func FromStorage(key []byte) *Transfer {
 	}
 }
 
-func (transfer *Transfer) GetId() id.Id {
+func (transfer *Transfer) Id() id.Id {
 	// acquire lock for reading id
 	transfer.idMutex.RLock()
 
@@ -138,6 +138,10 @@ func (transfer *Transfer) GetId() id.Id {
 	transfer.id = &transferId
 
 	return transferId
+}
+
+func (transfer *Transfer) Inputs() *inputs.Inputs {
+	return transfer.inputs
 }
 
 func (transfer *Transfer) SignaturesValid() bool {
@@ -256,7 +260,7 @@ func (transfer *Transfer) Sign(signature signatures.SignatureScheme) *Transfer {
 }
 
 func (transfer *Transfer) String() string {
-	id := transfer.GetId()
+	id := transfer.Id()
 
 	return stringify.Struct("Transfer"+fmt.Sprintf("(%p)", transfer),
 		stringify.StructField("id", base58.Encode(id[:])),
@@ -273,7 +277,7 @@ func (transfer *Transfer) String() string {
 var _ objectstorage.StorableObject = &Transfer{}
 
 func (transfer *Transfer) GetStorageKey() []byte {
-	id := transfer.GetId()
+	id := transfer.Id()
 
 	return id[:]
 }

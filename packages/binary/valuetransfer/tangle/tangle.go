@@ -11,9 +11,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	valuepayload "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer"
+	transferId "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/missingpayload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadapprover"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadmetadata"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfermetadata"
 )
 
 // Tangle represents the value tangle that consists out of value payloads.
@@ -120,11 +123,11 @@ func (tangle *Tangle) storePayloadWorker(payload *valuepayload.Payload) {
 	cachedMetadata := &payloadmetadata.CachedObject{CachedObject: tangle.payloadMetadataStorage.Store(payloadmetadata.New(payloadId))}
 
 	// store trunk approver
-	trunkId := payload.GetTrunkId()
+	trunkId := payload.TrunkId()
 	tangle.approverStorage.Store(payloadapprover.New(trunkId, payloadId)).Release()
 
 	// store branch approver
-	if branchId := payload.GetBranchId(); branchId != trunkId {
+	if branchId := payload.BranchId(); branchId != trunkId {
 		tangle.approverStorage.Store(payloadapprover.New(branchId, trunkId)).Release()
 	}
 
@@ -188,6 +191,33 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *valuepayload.Cach
 	}
 }
 
+func (tangle *Tangle) isTransferSolid(transfer *transfer.Transfer, metadata *transfermetadata.TransferMetadata) bool {
+	if transfer == nil || transfer.IsDeleted() {
+		return false
+	}
+
+	if metadata == nil || metadata.IsDeleted() {
+		return false
+	}
+
+	if metadata.IsSolid() {
+		return true
+	}
+
+	referencedTransfersSolid := true
+	transfer.Inputs().ForEachTransfer(func(transferId transferId.Id) bool {
+		referencedTransfersSolid = tangle.isTransferMarkedAsSolid(transferId)
+
+		return referencedTransfersSolid
+	})
+
+	return referencedTransfersSolid
+}
+
+func (tangle *Tangle) isTransferMarkedAsSolid(id transferId.Id) bool {
+	return true
+}
+
 // isPayloadSolid returns true if the given payload is solid. A payload is considered to be solid solid, if it is either
 // already marked as solid or if its referenced payloads are marked as solid.
 func (tangle *Tangle) isPayloadSolid(payload *valuepayload.Payload, metadata *payloadmetadata.PayloadMetadata) bool {
@@ -203,7 +233,7 @@ func (tangle *Tangle) isPayloadSolid(payload *valuepayload.Payload, metadata *pa
 		return true
 	}
 
-	return tangle.isPayloadMarkedAsSolid(payload.GetTrunkId()) && tangle.isPayloadMarkedAsSolid(payload.GetBranchId())
+	return tangle.isPayloadMarkedAsSolid(payload.TrunkId()) && tangle.isPayloadMarkedAsSolid(payload.BranchId())
 }
 
 // isPayloadMarkedAsSolid returns true if the payload was marked as solid already (by setting the corresponding flags

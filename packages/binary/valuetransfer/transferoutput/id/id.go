@@ -28,7 +28,7 @@ func (transferOutputId Id) GetAddress() (address address.Address) {
 	return
 }
 
-func (transferOutputId Id) GetTransferId() id.Id {
+func (transferOutputId Id) TransferId() id.Id {
 	return id.New(transferOutputId[address.Length:])
 }
 

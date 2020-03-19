@@ -128,7 +128,7 @@ func (payload *Payload) GetId() payloadid.Id {
 	marshalUtil := marshalutil.New(payloadid.Length + payloadid.Length + transferid.Length)
 	marshalUtil.WriteBytes(payload.trunkPayloadId.Bytes())
 	marshalUtil.WriteBytes(payload.branchPayloadId.Bytes())
-	marshalUtil.WriteBytes(payload.GetTransfer().GetId().Bytes())
+	marshalUtil.WriteBytes(payload.GetTransfer().Id().Bytes())
 
 	var id payloadid.Id = blake2b.Sum256(marshalUtil.Bytes())
 	payload.id = &id
@@ -136,11 +136,11 @@ func (payload *Payload) GetId() payloadid.Id {
 	return id
 }
 
-func (payload *Payload) GetTrunkId() payloadid.Id {
+func (payload *Payload) TrunkId() payloadid.Id {
 	return payload.trunkPayloadId
 }
 
-func (payload *Payload) GetBranchId() payloadid.Id {
+func (payload *Payload) BranchId() payloadid.Id {
 	return payload.branchPayloadId
 }
 
@@ -194,8 +194,8 @@ func (payload *Payload) Bytes() (bytes []byte) {
 func (payload *Payload) String() string {
 	return stringify.Struct("Payload",
 		stringify.StructField("id", payload.GetId()),
-		stringify.StructField("trunk", payload.GetTrunkId()),
-		stringify.StructField("branch", payload.GetBranchId()),
+		stringify.StructField("trunk", payload.TrunkId()),
+		stringify.StructField("branch", payload.BranchId()),
 		stringify.StructField("transfer", payload.GetTransfer()),
 	)
 }

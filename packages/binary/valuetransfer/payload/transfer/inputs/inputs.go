@@ -63,7 +63,7 @@ func FromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int) {
 
 func (inputs *Inputs) Add(input transferoutputid.Id) *Inputs {
 	inputAddress := input.GetAddress()
-	transferId := input.GetTransferId()
+	transferId := input.TransferId()
 
 	addressMap, addressExists := inputs.Get(inputAddress)
 	if !addressExists {
@@ -82,10 +82,12 @@ func (inputs *Inputs) Bytes() (bytes []byte) {
 
 	marshalUtil.WriteSeek(4)
 	var inputCounter uint32
-	inputs.ForEach(func(transferOutputId transferoutputid.Id) {
+	inputs.ForEach(func(transferOutputId transferoutputid.Id) bool {
 		marshalUtil.WriteBytes(transferOutputId.ToBytes())
 
 		inputCounter++
+
+		return true
 	})
 	marshalUtil.WriteSeek(0)
 	marshalUtil.WriteUint32(inputCounter)
@@ -93,21 +95,30 @@ func (inputs *Inputs) Bytes() (bytes []byte) {
 	return marshalUtil.Bytes()
 }
 
-func (inputs *Inputs) ForEach(consumer func(transferOutputId transferoutputid.Id)) {
+func (inputs *Inputs) ForEach(consumer func(transferOutputId transferoutputid.Id) bool) {
 	inputs.OrderedMap.ForEach(func(key, value interface{}) bool {
-		value.(*orderedmap.OrderedMap).ForEach(func(key, value interface{}) bool {
-			consumer(value.(transferoutputid.Id))
-
-			return true
+		return value.(*orderedmap.OrderedMap).ForEach(func(key, value interface{}) bool {
+			return consumer(value.(transferoutputid.Id))
 		})
-
-		return true
 	})
 }
 
 func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Address) bool) {
 	inputs.OrderedMap.ForEach(func(key, value interface{}) bool {
 		return consumer(key.(address.Address))
+	})
+}
+
+func (inputs *Inputs) ForEachTransfer(consumer func(currentTransfer transferid.Id) bool) {
+	seenTransfers := make(map[transferid.Id]bool)
+	inputs.ForEach(func(transferOutputId transferoutputid.Id) bool {
+		if currentTransferId := transferOutputId.TransferId(); !seenTransfers[currentTransferId] {
+			seenTransfers[currentTransferId] = true
+
+			return consumer(currentTransferId)
+		}
+
+		return true
 	})
 }
 
@@ -119,10 +130,12 @@ func (inputs *Inputs) String() string {
 	result := "[\n"
 
 	empty := true
-	inputs.ForEach(func(transferOutputId transferoutputid.Id) {
+	inputs.ForEach(func(transferOutputId transferoutputid.Id) bool {
 		empty = false
 
 		result += "    " + transferOutputId.String() + ",\n"
+
+		return true
 	})
 
 	if empty {
