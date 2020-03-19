@@ -204,14 +204,8 @@ func (tangle *Tangle) isTransferSolid(transfer *transfer.Transfer, metadata *tra
 		return true
 	}
 
-	referencedTransfersSolid := true
-	transfer.Inputs().ForEachTransfer(func(transferId transferId.Id) bool {
-		referencedTransfersSolid = tangle.isTransferMarkedAsSolid(transferId)
-
-		return referencedTransfersSolid
-	})
-
-	return referencedTransfersSolid
+	// iterate through all transfers and check if they are solid
+	return transfer.Inputs().ForEachTransfer(tangle.isTransferMarkedAsSolid)
 }
 
 func (tangle *Tangle) isTransferMarkedAsSolid(id transferId.Id) bool {

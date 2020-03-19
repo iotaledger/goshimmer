@@ -95,23 +95,24 @@ func (inputs *Inputs) Bytes() (bytes []byte) {
 	return marshalUtil.Bytes()
 }
 
-func (inputs *Inputs) ForEach(consumer func(transferOutputId transferoutputid.Id) bool) {
-	inputs.OrderedMap.ForEach(func(key, value interface{}) bool {
+func (inputs *Inputs) ForEach(consumer func(transferOutputId transferoutputid.Id) bool) bool {
+	return inputs.OrderedMap.ForEach(func(key, value interface{}) bool {
 		return value.(*orderedmap.OrderedMap).ForEach(func(key, value interface{}) bool {
 			return consumer(value.(transferoutputid.Id))
 		})
 	})
 }
 
-func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Address) bool) {
-	inputs.OrderedMap.ForEach(func(key, value interface{}) bool {
+func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Address) bool) bool {
+	return inputs.OrderedMap.ForEach(func(key, value interface{}) bool {
 		return consumer(key.(address.Address))
 	})
 }
 
-func (inputs *Inputs) ForEachTransfer(consumer func(currentTransfer transferid.Id) bool) {
+func (inputs *Inputs) ForEachTransfer(consumer func(currentTransfer transferid.Id) bool) bool {
 	seenTransfers := make(map[transferid.Id]bool)
-	inputs.ForEach(func(transferOutputId transferoutputid.Id) bool {
+
+	return inputs.ForEach(func(transferOutputId transferoutputid.Id) bool {
 		if currentTransferId := transferOutputId.TransferId(); !seenTransfers[currentTransferId] {
 			seenTransfers[currentTransferId] = true
 
