@@ -1,4 +1,4 @@
-package collectiveBeacon
+package payload
 
 import (
 	"sync"

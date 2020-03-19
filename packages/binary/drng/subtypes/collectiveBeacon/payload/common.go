@@ -1,4 +1,4 @@
-package collectiveBeacon
+package payload
 
 const (
 	// BLS Signature size in bytes
