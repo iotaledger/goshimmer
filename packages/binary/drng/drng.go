@@ -36,6 +36,5 @@ func GetRandomness(signature []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	//return hash, nil
 	return hash.Sum(nil), nil
 }
