@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/autopeering/server"
 	"github.com/iotaledger/hive.go/logger"
@@ -40,23 +41,23 @@ func checkAutopeeringConnection() {
 	if err != nil {
 		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
 	}
-
 	// open a connection
 	conn, err := net.ListenUDP(peering.Network(), localAddr)
 	if err != nil {
 		log.Fatalf("Error listening: %v", err)
 	}
 	defer conn.Close()
-	// start a server
-	srv := server.Serve(local.GetInstance(), conn, log, autopeering.Discovery)
+
+	// create a new discovery server for the port check
+	disc := discover.New(local.GetInstance(), autopeering.VersionNum, discover.Logger(log))
+	srv := server.Serve(local.GetInstance(), conn, log, disc)
 	defer srv.Close()
 
-	// set a temporary sender without starting the actual discovery
-	autopeering.Discovery.Sender = srv
-	defer func() { autopeering.Discovery.Sender = nil }()
+	disc.Start(srv)
+	defer disc.Close()
 
 	for _, master := range autopeering.Discovery.GetMasterPeers() {
-		err = autopeering.Discovery.Ping(master)
+		err = disc.Ping(master)
 		if err == nil {
 			log.Infof("Pong received from %s", master.IP())
 			break
