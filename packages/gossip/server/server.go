@@ -48,7 +48,6 @@ var dialRetryPolicy = backoff.ConstantBackOff(500 * time.Millisecond).With(backo
 // TCP establishes verified incoming and outgoing TCP connections to other peers.
 type TCP struct {
 	local    *peer.Local
-	port     int
 	listener *net.TCPListener
 	log      *zap.SugaredLogger
 
