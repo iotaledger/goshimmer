@@ -34,6 +34,14 @@ var (
 	log *logger.Logger
 )
 
+// GetBindAddress returns the string form of the autopeering bind address.
+func GetBindAddress() string {
+	peering := local.GetInstance().Services().Get(service.PeeringKey)
+	host := config.Node.GetString(local.CFG_BIND)
+	port := strconv.Itoa(peering.Port())
+	return net.JoinHostPort(host, port)
+}
+
 func configureAP() {
 	masterPeers, err := parseEntryNodes()
 	if err != nil {
@@ -74,18 +82,15 @@ func start(shutdownSignal <-chan struct{}) {
 	defer log.Info("Stopping " + name + " ... done")
 
 	lPeer := local.GetInstance()
-
-	// use the port of the peering service
-	peeringEndpoint := lPeer.Services().Get(service.PeeringKey)
+	peering := lPeer.Services().Get(service.PeeringKey)
 
 	// resolve the bind address
-	address := net.JoinHostPort(config.Node.GetString(local.CFG_BIND), strconv.Itoa(peeringEndpoint.Port()))
-	localAddr, err := net.ResolveUDPAddr(peeringEndpoint.Network(), address)
+	localAddr, err := net.ResolveUDPAddr(peering.Network(), GetBindAddress())
 	if err != nil {
 		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
 	}
 
-	conn, err := net.ListenUDP(peeringEndpoint.Network(), localAddr)
+	conn, err := net.ListenUDP(peering.Network(), localAddr)
 	if err != nil {
 		log.Fatalf("Error listening: %v", err)
 	}
