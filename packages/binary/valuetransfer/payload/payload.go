@@ -10,8 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
 	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer"
-	transferid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfer"
 )
 
 type Payload struct {
@@ -125,7 +124,7 @@ func (payload *Payload) GetId() payloadid.Id {
 	}
 
 	// otherwise calculate the id
-	marshalUtil := marshalutil.New(payloadid.Length + payloadid.Length + transferid.Length)
+	marshalUtil := marshalutil.New(payloadid.Length + payloadid.Length + transfer.IdLength)
 	marshalUtil.WriteBytes(payload.trunkPayloadId.Bytes())
 	marshalUtil.WriteBytes(payload.branchPayloadId.Bytes())
 	marshalUtil.WriteBytes(payload.GetTransfer().Id().Bytes())
