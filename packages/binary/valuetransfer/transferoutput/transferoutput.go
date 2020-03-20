@@ -11,7 +11,7 @@ import (
 	transferId "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
 )
 
-// TransferOutput represents the output of a transfer and it contains the balances and the identifiers for this output.
+// TransferOutput represents the output of a transfer and contains the balances and the identifiers for this output.
 type TransferOutput struct {
 	address    address.Address
 	transferId transferId.Id

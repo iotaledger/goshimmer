@@ -192,7 +192,7 @@ func (cachedMetadata *CachedMetadata) Retain() *CachedMetadata {
 
 // Consume  overrides the underlying method to use a CachedMetadata object instead of a generic CachedObject in the
 // consumer).
-func (cachedMetadata *CachedMetadata) Consume(consumer func(transferOutputMetadata *Metadata)) bool {
+func (cachedMetadata *CachedMetadata) Consume(consumer func(metadata *Metadata)) bool {
 	return cachedMetadata.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Metadata))
 	})

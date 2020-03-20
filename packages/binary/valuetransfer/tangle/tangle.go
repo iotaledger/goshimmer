@@ -15,7 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/missingpayload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadapprover"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadmetadata"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfermetadata"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfer"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput"
 )
 
@@ -191,7 +191,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *valuepayload.Cach
 	}
 }
 
-func (tangle *Tangle) isTransferSolid(transfer *transfer.Transfer, metadata *transfermetadata.TransferMetadata) bool {
+func (tangle *Tangle) isTransferSolid(transfer *transfer.Transfer, metadata *transfer.TransferMetadata) bool {
 	if transfer == nil || transfer.IsDeleted() {
 		return false
 	}

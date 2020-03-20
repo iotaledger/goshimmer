@@ -1,4 +1,4 @@
-package transfermetadata
+package transfer
 
 import (
 	"sync"
@@ -13,7 +13,7 @@ import (
 
 // TransferMetadata is a container for the metadata of a transfer.
 // It is used to store the information in the database.
-type TransferMetadata struct {
+type Metadata struct {
 	objectstorage.StorableObjectFlags
 
 	transferId         id.Id
@@ -25,19 +25,19 @@ type TransferMetadata struct {
 }
 
 // New creates an empty container for the metadata of a value transfer.
-func New(transferId id.Id) *TransferMetadata {
-	return &TransferMetadata{
+func New(transferId id.Id) *Metadata {
+	return &Metadata{
 		transferId: transferId,
 	}
 }
 
 // FromBytes unmarshals a container with the metadata of a transfer from a sequence of bytes.
 // It either creates a new container or fills the optionally provided container with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*TransferMetadata) (result *TransferMetadata, err error, consumedBytes int) {
+func FromBytes(bytes []byte, optionalTargetObject ...*Metadata) (result *Metadata, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
-		result = &TransferMetadata{}
+		result = &Metadata{}
 	case 1:
 		result = optionalTargetObject[0]
 	default:
@@ -63,7 +63,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*TransferMetadata) (result 
 // FromStorage gets called when we restore transfer metadata from the storage. The bytes and the content will be
 // unmarshaled by an external caller using the binary.MarshalBinary interface.
 func FromStorage(idBytes []byte) objectstorage.StorableObject {
-	result := &TransferMetadata{}
+	result := &Metadata{}
 
 	var err error
 	if result.transferId, err = id.Parse(marshalutil.New(idBytes)); err != nil {
@@ -74,21 +74,21 @@ func FromStorage(idBytes []byte) objectstorage.StorableObject {
 }
 
 // Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func Parse(marshalUtil *marshalutil.MarshalUtil) (*TransferMetadata, error) {
+func Parse(marshalUtil *marshalutil.MarshalUtil) (*Metadata, error) {
 	if transferMetadata, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) }); err != nil {
 		return nil, err
 	} else {
-		return transferMetadata.(*TransferMetadata), nil
+		return transferMetadata.(*Metadata), nil
 	}
 }
 
 // TransferId return the id of the transfer that this metadata is associated to.
-func (transferMetadata *TransferMetadata) TransferId() id.Id {
+func (transferMetadata *Metadata) TransferId() id.Id {
 	return transferMetadata.transferId
 }
 
 // IsSolid returns true if the transfer has been marked as solid.
-func (transferMetadata *TransferMetadata) IsSolid() (result bool) {
+func (transferMetadata *Metadata) IsSolid() (result bool) {
 	transferMetadata.solidMutex.RLock()
 	result = transferMetadata.solid
 	transferMetadata.solidMutex.RUnlock()
@@ -98,7 +98,7 @@ func (transferMetadata *TransferMetadata) IsSolid() (result bool) {
 
 // SetSolid marks a transfer as either solid or not solid.
 // It returns true if the solid flag was changes and automatically updates the solidificationTime as well.
-func (transferMetadata *TransferMetadata) SetSolid(solid bool) (modified bool) {
+func (transferMetadata *Metadata) SetSolid(solid bool) (modified bool) {
 	transferMetadata.solidMutex.RLock()
 	if transferMetadata.solid != solid {
 		transferMetadata.solidMutex.RUnlock()
@@ -126,7 +126,7 @@ func (transferMetadata *TransferMetadata) SetSolid(solid bool) (modified bool) {
 }
 
 // SoldificationTime returns the time when the transfer was marked to be solid.
-func (transferMetadata *TransferMetadata) SoldificationTime() time.Time {
+func (transferMetadata *Metadata) SoldificationTime() time.Time {
 	transferMetadata.solidificationTimeMutex.RLock()
 	defer transferMetadata.solidificationTimeMutex.RUnlock()
 
@@ -134,7 +134,7 @@ func (transferMetadata *TransferMetadata) SoldificationTime() time.Time {
 }
 
 // Bytes marshals the metadata into a sequence of bytes.
-func (transferMetadata *TransferMetadata) Bytes() []byte {
+func (transferMetadata *Metadata) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 
 	marshalUtil.WriteBytes(transferMetadata.transferId.Bytes())
@@ -145,7 +145,7 @@ func (transferMetadata *TransferMetadata) Bytes() []byte {
 }
 
 // String creates a human readable version of the metadata (for debug purposes).
-func (transferMetadata *TransferMetadata) String() string {
+func (transferMetadata *Metadata) String() string {
 	return stringify.Struct("TransferMetadata",
 		stringify.StructField("payloadId", transferMetadata.TransferId()),
 		stringify.StructField("solid", transferMetadata.IsSolid()),
@@ -155,23 +155,23 @@ func (transferMetadata *TransferMetadata) String() string {
 
 // GetStorageKey returns the key that is used to store the object in the database.
 // It is required to match StorableObject interface.
-func (transferMetadata *TransferMetadata) GetStorageKey() []byte {
+func (transferMetadata *Metadata) GetStorageKey() []byte {
 	return transferMetadata.transferId.Bytes()
 }
 
 // Update is disabled and panics if it ever gets called - updates are supposed to happen through the setters.
 // It is required to match StorableObject interface.
-func (transferMetadata *TransferMetadata) Update(other objectstorage.StorableObject) {
+func (transferMetadata *Metadata) Update(other objectstorage.StorableObject) {
 	panic("update forbidden")
 }
 
 // MarshalBinary is required to match the encoding.BinaryMarshaler interface.
-func (transferMetadata *TransferMetadata) MarshalBinary() ([]byte, error) {
+func (transferMetadata *Metadata) MarshalBinary() ([]byte, error) {
 	return transferMetadata.Bytes(), nil
 }
 
 // UnmarshalBinary is required to match the encoding.BinaryUnmarshaler interface.
-func (transferMetadata *TransferMetadata) UnmarshalBinary(data []byte) (err error) {
+func (transferMetadata *Metadata) UnmarshalBinary(data []byte) (err error) {
 	_, err, _ = FromBytes(data, transferMetadata)
 
 	return
