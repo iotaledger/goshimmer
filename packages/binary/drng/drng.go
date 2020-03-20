@@ -2,16 +2,16 @@ package drng
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
-	"github.com/iotaledger/hive.go/events"
 )
 
 type Instance struct {
 	State  *state.State
-	Events *events.Event
+	Events *Event
 }
 
-func New() *Instance {
+func New(setters ...state.Option) *Instance {
 	return &Instance{
-		State: state.New(),
+		State:  state.New(setters...),
+		Events: NewEvent(),
 	}
 }

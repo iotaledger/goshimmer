@@ -1,15 +1,23 @@
 package drng
 
 import (
+	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
+	cbEvents "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/events"
 	"github.com/iotaledger/hive.go/events"
 )
 
-var Events = struct {
-	NewRandomness *events.Event
-}{
-	NewRandomness: events.NewEvent(transactionCaller),
+type Event struct {
+	CollectiveBeacon cbEvents.CollectiveBeacon
+	Randomness       *events.Event
 }
 
-func transactionCaller(handler interface{}, params ...interface{}) {
-	//handler.(func(*value_transaction.ValueTransaction))(params[0].(*value_transaction.ValueTransaction))
+func NewEvent() *Event {
+	return &Event{
+		CollectiveBeacon: cbEvents.NewCollectiveBeaconEvent(),
+		Randomness:       events.NewEvent(randomnessReceived),
+	}
+}
+
+func randomnessReceived(handler interface{}, params ...interface{}) {
+	handler.(func(*state.Randomness))(params[0].(*state.Randomness))
 }

@@ -27,7 +27,7 @@ type State struct {
 	mutex sync.RWMutex
 }
 
-func New(setters ...option) *State {
+func New(setters ...Option) *State {
 	args := &Options{}
 
 	for _, setter := range setters {

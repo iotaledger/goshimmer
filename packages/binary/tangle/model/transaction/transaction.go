@@ -163,6 +163,11 @@ func (transaction *Transaction) IssuingTime() time.Time {
 	return transaction.issuingTime
 }
 
+// IssuerPublicKey returns the issuer PublicKey of the transaction.
+func (transaction *Transaction) IssuerPublicKey() ed25119.PublicKey {
+	return transaction.issuerPublicKey
+}
+
 // SequenceNumber returns the sequence number of this transaction.
 func (transaction *Transaction) SequenceNumber() uint64 {
 	return transaction.sequenceNumber
