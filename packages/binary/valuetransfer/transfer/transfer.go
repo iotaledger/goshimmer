@@ -11,8 +11,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/inputs"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/outputs"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/signatures"
 )
 
@@ -21,8 +19,8 @@ import (
 type Transfer struct {
 	objectstorage.StorableObjectFlags
 
-	inputs     *inputs.Inputs
-	outputs    *outputs.Outputs
+	inputs     *Inputs
+	outputs    *Outputs
 	signatures *signatures.Signatures
 
 	id      *Id
@@ -38,7 +36,7 @@ type Transfer struct {
 	bytesMutex sync.RWMutex
 }
 
-func New(inputs *inputs.Inputs, outputs *outputs.Outputs) *Transfer {
+func New(inputs *Inputs, outputs *Outputs) *Transfer {
 	return &Transfer{
 		inputs:     inputs,
 		outputs:    outputs,
@@ -61,18 +59,18 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Transfer) (result *Transfe
 	marshalUtil := marshalutil.New(bytes)
 
 	// unmarshal inputs
-	parsedInputs, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return inputs.FromBytes(data) })
+	parsedInputs, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return InputsFromBytes(data) })
 	if err != nil {
 		return
 	}
-	result.inputs = parsedInputs.(*inputs.Inputs)
+	result.inputs = parsedInputs.(*Inputs)
 
 	// unmarshal outputs
-	parsedOutputs, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return outputs.FromBytes(data) })
+	parsedOutputs, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return OutputsFromBytes(data) })
 	if err != nil {
 		return
 	}
-	result.outputs = parsedOutputs.(*outputs.Outputs)
+	result.outputs = parsedOutputs.(*Outputs)
 
 	// store essence bytes
 	essenceBytesCount := marshalUtil.ReadOffset()
@@ -145,7 +143,7 @@ func (transfer *Transfer) Id() Id {
 	return transferId
 }
 
-func (transfer *Transfer) Inputs() *inputs.Inputs {
+func (transfer *Transfer) Inputs() *Inputs {
 	return transfer.inputs
 }
 

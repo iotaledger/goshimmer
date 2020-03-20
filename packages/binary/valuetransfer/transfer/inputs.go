@@ -1,10 +1,9 @@
-package inputs
+package transfer
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfer"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput"
 )
 
@@ -12,7 +11,7 @@ type Inputs struct {
 	*orderedmap.OrderedMap
 }
 
-func New(transferOutputIds ...transferoutput.Id) (inputs *Inputs) {
+func NewInputs(transferOutputIds ...transferoutput.Id) (inputs *Inputs) {
 	inputs = &Inputs{orderedmap.New()}
 	for _, transferOutputId := range transferOutputIds {
 		inputs.Add(transferOutputId)
@@ -21,8 +20,8 @@ func New(transferOutputIds ...transferoutput.Id) (inputs *Inputs) {
 	return
 }
 
-func FromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int) {
-	inputs = New()
+func InputsFromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int) {
+	inputs = NewInputs()
 
 	marshalUtil := marshalutil.New(bytes)
 	inputCount, err := marshalUtil.ReadUint32()
@@ -38,13 +37,13 @@ func FromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int) {
 			return
 		}
 
-		transferIdBytes, readErr := marshalUtil.ReadBytes(transfer.IdLength)
+		transferIdBytes, readErr := marshalUtil.ReadBytes(IdLength)
 		if readErr != nil {
 			err = readErr
 
 			return
 		}
-		transferId, transferIdErr, _ := transfer.IdFromBytes(transferIdBytes)
+		transferId, transferIdErr, _ := IdFromBytes(transferIdBytes)
 		if transferIdErr != nil {
 			err = transferIdErr
 
@@ -113,8 +112,8 @@ func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Addres
 	})
 }
 
-func (inputs *Inputs) ForEachTransfer(consumer func(currentTransfer transfer.Id) bool) bool {
-	seenTransfers := make(map[transfer.Id]bool)
+func (inputs *Inputs) ForEachTransfer(consumer func(currentTransfer Id) bool) bool {
+	seenTransfers := make(map[Id]bool)
 
 	return inputs.ForEach(func(transferOutputId transferoutput.Id) bool {
 		if currentTransferId := transferOutputId.TransferId(); !seenTransfers[currentTransferId] {

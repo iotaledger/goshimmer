@@ -1,4 +1,4 @@
-package outputs
+package transfer
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
@@ -11,7 +11,7 @@ type Outputs struct {
 	*orderedmap.OrderedMap
 }
 
-func New(outputs map[address.Address][]*coloredbalance.ColoredBalance) (result *Outputs) {
+func NewOutputs(outputs map[address.Address][]*coloredbalance.ColoredBalance) (result *Outputs) {
 	result = &Outputs{orderedmap.New()}
 	for address, balances := range outputs {
 		result.Add(address, balances)
@@ -22,7 +22,7 @@ func New(outputs map[address.Address][]*coloredbalance.ColoredBalance) (result *
 
 // FromBytes reads the bytes and unmarshals the given information into an *Outputs object. It either creates a
 // new object, or uses the optional object provided in the arguments.
-func FromBytes(bytes []byte, optionalTargetObject ...*Outputs) (result *Outputs, err error, consumedBytes int) {
+func OutputsFromBytes(bytes []byte, optionalTargetObject ...*Outputs) (result *Outputs, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
