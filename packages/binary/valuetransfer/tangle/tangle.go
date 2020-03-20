@@ -16,8 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadapprover"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadmetadata"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfermetadata"
-	transferoutputid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput/id"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutputmetadata"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput"
 )
 
 // Tangle represents the value tangle that consists out of value payloads.
@@ -209,13 +208,13 @@ func (tangle *Tangle) isTransferSolid(transfer *transfer.Transfer, metadata *tra
 	return transfer.Inputs().ForEach(tangle.isTransferOutputMarkedAsSolid)
 }
 
-func (tangle *Tangle) GetTransferOutputMetadata(transferOutputId transferoutputid.Id) *transferoutputmetadata.CachedObject {
+func (tangle *Tangle) GetTransferOutputMetadata(transferOutputId transferoutput.Id) *transferoutput.CachedMetadata {
 	return nil
 }
 
-func (tangle *Tangle) isTransferOutputMarkedAsSolid(transferOutputId transferoutputid.Id) (result bool) {
-	objectConsumed := tangle.GetTransferOutputMetadata(transferOutputId).Consume(func(transferOutputMetadata *transferoutputmetadata.TransferOutputMetadata) {
-		result = transferOutputMetadata.IsSolid()
+func (tangle *Tangle) isTransferOutputMarkedAsSolid(transferOutputId transferoutput.Id) (result bool) {
+	objectConsumed := tangle.GetTransferOutputMetadata(transferOutputId).Consume(func(transferOutputMetadata *transferoutput.Metadata) {
+		result = transferOutputMetadata.Solid()
 	})
 
 	if !objectConsumed {
