@@ -6,14 +6,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
 	transferid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
-	transferoutputid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput"
 )
 
 type Inputs struct {
 	*orderedmap.OrderedMap
 }
 
-func New(transferOutputIds ...transferoutputid.Id) (inputs *Inputs) {
+func New(transferOutputIds ...transferoutput.Id) (inputs *Inputs) {
 	inputs = &Inputs{orderedmap.New()}
 	for _, transferOutputId := range transferOutputIds {
 		inputs.Add(transferOutputId)
@@ -53,7 +53,7 @@ func FromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int) {
 
 			inputs.Set(readAddress, addressMap)
 		}
-		addressMap.(*orderedmap.OrderedMap).Set(transferId, transferoutputid.New(readAddress, transferId))
+		addressMap.(*orderedmap.OrderedMap).Set(transferId, transferoutput.NewId(readAddress, transferId))
 	}
 
 	consumedBytes = marshalUtil.ReadOffset()
@@ -61,8 +61,8 @@ func FromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int) {
 	return
 }
 
-func (inputs *Inputs) Add(input transferoutputid.Id) *Inputs {
-	inputAddress := input.GetAddress()
+func (inputs *Inputs) Add(input transferoutput.Id) *Inputs {
+	inputAddress := input.Address()
 	transferId := input.TransferId()
 
 	addressMap, addressExists := inputs.Get(inputAddress)
@@ -82,8 +82,8 @@ func (inputs *Inputs) Bytes() (bytes []byte) {
 
 	marshalUtil.WriteSeek(4)
 	var inputCounter uint32
-	inputs.ForEach(func(transferOutputId transferoutputid.Id) bool {
-		marshalUtil.WriteBytes(transferOutputId.ToBytes())
+	inputs.ForEach(func(transferOutputId transferoutput.Id) bool {
+		marshalUtil.WriteBytes(transferOutputId.Bytes())
 
 		inputCounter++
 
@@ -95,10 +95,10 @@ func (inputs *Inputs) Bytes() (bytes []byte) {
 	return marshalUtil.Bytes()
 }
 
-func (inputs *Inputs) ForEach(consumer func(transferOutputId transferoutputid.Id) bool) bool {
+func (inputs *Inputs) ForEach(consumer func(transferOutputId transferoutput.Id) bool) bool {
 	return inputs.OrderedMap.ForEach(func(key, value interface{}) bool {
 		return value.(*orderedmap.OrderedMap).ForEach(func(key, value interface{}) bool {
-			return consumer(value.(transferoutputid.Id))
+			return consumer(value.(transferoutput.Id))
 		})
 	})
 }
@@ -112,7 +112,7 @@ func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Addres
 func (inputs *Inputs) ForEachTransfer(consumer func(currentTransfer transferid.Id) bool) bool {
 	seenTransfers := make(map[transferid.Id]bool)
 
-	return inputs.ForEach(func(transferOutputId transferoutputid.Id) bool {
+	return inputs.ForEach(func(transferOutputId transferoutput.Id) bool {
 		if currentTransferId := transferOutputId.TransferId(); !seenTransfers[currentTransferId] {
 			seenTransfers[currentTransferId] = true
 
@@ -131,7 +131,7 @@ func (inputs *Inputs) String() string {
 	result := "[\n"
 
 	empty := true
-	inputs.ForEach(func(transferOutputId transferoutputid.Id) bool {
+	inputs.ForEach(func(transferOutputId transferoutput.Id) bool {
 		empty = false
 
 		result += "    " + transferOutputId.String() + ",\n"
