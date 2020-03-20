@@ -52,6 +52,14 @@ func VerifyCollectiveBeacon(state *state.State, data *events.CollectiveBeaconEve
 		return errors.New("Distributed Public Key does not match")
 	}
 
+	if data.Round <= state.Randomness().Round {
+		return errors.New("invalid Round")
+	}
+
+	if data.InstanceID != state.Committee().InstanceID {
+		return errors.New("invalid instanceID")
+	}
+
 	if err := verifySignature(data); err != nil {
 		return err
 	}
