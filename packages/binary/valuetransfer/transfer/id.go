@@ -1,20 +1,33 @@
 package transfer
 
 import (
+	"fmt"
+
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
 )
 
-// Id is the data type that represents the identifier for a TransferOutput.
+// Id is the data type that represents the identifier for a Transfer.
 type Id [IdLength]byte
 
-// NewId is the constructor for the Id type.
-func NewId(outputAddress address.Address, transferId id.Id) (transferOutputId Id) {
-	copy(transferOutputId[:address.Length], outputAddress.Bytes())
-	copy(transferOutputId[address.Length:], transferId[:])
+// FromBase58 creates an id from a base58 encoded string.
+func FromBase58(base58String string) (id Id, err error) {
+	// decode string
+	bytes, err := base58.Decode(base58String)
+	if err != nil {
+		return
+	}
+
+	// sanitize input
+	if len(bytes) != IdLength {
+		err = fmt.Errorf("base58 encoded string does not match the length of a transfer id")
+
+		return
+	}
+
+	// copy bytes to result
+	copy(id[:], bytes)
 
 	return
 }
