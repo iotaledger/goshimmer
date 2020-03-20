@@ -34,7 +34,7 @@ func configureEvents() {
 			if err != nil {
 				return
 			}
-			Instance.Dispatch(parsedPayload.SubType(), transaction)
+			Instance.Dispatch(transaction.IssuerPublicKey(), transaction.IssuingTime(), parsedPayload)
 		})
 	}))
 
