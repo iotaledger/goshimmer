@@ -32,9 +32,12 @@ func configureEvents() {
 			marshalUtil := marshalutil.New(transaction.GetPayload().Bytes())
 			parsedPayload, err := payload.Parse(marshalUtil)
 			if err != nil {
+				//TODO: handle error
 				return
 			}
-			Instance.Dispatch(transaction.IssuerPublicKey(), transaction.IssuingTime(), parsedPayload)
+			if err := Instance.Dispatch(transaction.IssuerPublicKey(), transaction.IssuingTime(), parsedPayload); err != nil {
+				//TODO: handle error
+			}
 		})
 	}))
 

@@ -19,7 +19,6 @@ type Committee struct {
 	Identities    []ed25119.PublicKey
 	DistributedPK []byte
 }
-
 type State struct {
 	randomness *Randomness
 	committe   *Committee
@@ -48,6 +47,9 @@ func (s *State) SetRandomness(r *Randomness) {
 func (s *State) Randomness() Randomness {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
+	if s.randomness == nil {
+		return Randomness{}
+	}
 	return *s.randomness
 }
 
@@ -60,5 +62,8 @@ func (s *State) SetCommittee(c *Committee) {
 func (s *State) Committee() Committee {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
+	if s.committe == nil {
+		return Committee{}
+	}
 	return *s.committe
 }

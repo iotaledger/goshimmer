@@ -33,7 +33,9 @@ func ProcessBeacon(drng *state.State, cb *events.CollectiveBeaconEvent) error {
 		Randomness: randomness,
 		Timestamp:  cb.Timestamp,
 	}
+
 	drng.SetRandomness(newRandomness)
+
 	return nil
 }
 

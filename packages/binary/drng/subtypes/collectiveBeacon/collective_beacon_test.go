@@ -56,7 +56,7 @@ func TestGetRandomness(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestProcessTransaction(t *testing.T) {
+func TestProcessBeacon(t *testing.T) {
 	err := ProcessBeacon(stateTest, eventTest)
 	require.NoError(t, err)
 }

@@ -81,6 +81,9 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 		return
 	}
 
+	// return the number of bytes we processed
+	consumedBytes = marshalUtil.ReadOffset()
+
 	// store bytes, so we don't have to marshal manually
 	result.bytes = bytes[:consumedBytes]
 

@@ -1,6 +1,7 @@
 package drng
 
 import (
+	"errors"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload"
@@ -12,14 +13,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 )
 
-func (drng *Instance) Dispatch(issuer ed25119.PublicKey, timestamp time.Time, payload *payload.Payload) {
+func (drng *Instance) Dispatch(issuer ed25119.PublicKey, timestamp time.Time, payload *payload.Payload) error {
 	switch payload.SubType() {
 	case header.CollectiveBeaconType():
 		// parse as CollectiveBeaconType
 		marshalUtil := marshalutil.New(payload.Bytes())
 		parsedPayload, err := cb.Parse(marshalUtil)
 		if err != nil {
-			return
+			return err
 		}
 		// trigger CollectiveBeaconEvent
 		cbEvent := &events.CollectiveBeaconEvent{
@@ -35,12 +36,16 @@ func (drng *Instance) Dispatch(issuer ed25119.PublicKey, timestamp time.Time, pa
 
 		// process collectiveBeacon
 		if err := collectiveBeacon.ProcessBeacon(drng.State, cbEvent); err != nil {
-			return
+			return err
 		}
+
 		// trigger RandomnessEvent
 		drng.Events.Randomness.Trigger(drng.State.Randomness())
 
+		return nil
+
 	default:
 		//do other stuff
+		return errors.New("subtype not implemented")
 	}
 }
