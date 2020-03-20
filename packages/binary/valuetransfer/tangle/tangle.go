@@ -12,11 +12,12 @@ import (
 	valuepayload "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer"
-	transferId "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/missingpayload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadapprover"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadmetadata"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfermetadata"
+	transferoutputid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutputmetadata"
 )
 
 // Tangle represents the value tangle that consists out of value payloads.
@@ -205,11 +206,27 @@ func (tangle *Tangle) isTransferSolid(transfer *transfer.Transfer, metadata *tra
 	}
 
 	// iterate through all transfers and check if they are solid
-	return transfer.Inputs().ForEachTransfer(tangle.isTransferMarkedAsSolid)
+	return transfer.Inputs().ForEach(tangle.isTransferOutputMarkedAsSolid)
 }
 
-func (tangle *Tangle) isTransferMarkedAsSolid(id transferId.Id) bool {
-	return true
+func (tangle *Tangle) GetTransferOutputMetadata(transferOutputId transferoutputid.Id) *transferoutputmetadata.CachedObject {
+	return nil
+}
+
+func (tangle *Tangle) isTransferOutputMarkedAsSolid(transferOutputId transferoutputid.Id) (result bool) {
+	objectConsumed := tangle.GetTransferOutputMetadata(transferOutputId).Consume(func(transferOutputMetadata *transferoutputmetadata.TransferOutputMetadata) {
+		result = transferOutputMetadata.IsSolid()
+	})
+
+	if !objectConsumed {
+		if cachedMissingPayload, missingPayloadStored := tangle.missingPayloadStorage.StoreIfAbsent(missingpayload.New(transferOutputId)); missingPayloadStored {
+			cachedMissingPayload.Consume(func(object objectstorage.StorableObject) {
+				tangle.Events.PayloadMissing.Trigger(object.(*missingpayload.MissingPayload).GetId())
+			})
+		}
+	}
+
+	return
 }
 
 // isPayloadSolid returns true if the given payload is solid. A payload is considered to be solid solid, if it is either

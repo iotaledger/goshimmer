@@ -87,7 +87,7 @@ func (payloadMetadata *PayloadMetadata) GetPayloadId() payloadid.Id {
 	return payloadMetadata.payloadId
 }
 
-// IsSolid returns true of the payload has been marked as solid.
+// IsSolid returns true if the payload has been marked as solid.
 func (payloadMetadata *PayloadMetadata) IsSolid() (result bool) {
 	payloadMetadata.solidMutex.RLock()
 	result = payloadMetadata.solid
