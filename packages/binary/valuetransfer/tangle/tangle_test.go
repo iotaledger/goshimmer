@@ -15,12 +15,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance/color"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer"
-	transferid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/inputs"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/outputs"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadmetadata"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfer"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
 )
@@ -50,12 +46,12 @@ func TestTangle_AttachPayload(t *testing.T) {
 	addressKeyPair2 := ed25119.GenerateKeyPair()
 
 	tangle.AttachPayload(payload.New(id.Genesis, id.Genesis, transfer.New(
-		inputs.New(
-			transferoutput.NewOutputId(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferid.New([]byte("transfer1"))),
-			transferoutput.NewOutputId(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferid.New([]byte("transfer2"))),
+		transfer.NewInputs(
+			transfer.NewOutputId(address.FromED25519PubKey(addressKeyPair1.PublicKey), transfer.NewId([]byte("transfer1"))),
+			transfer.NewOutputId(address.FromED25519PubKey(addressKeyPair2.PublicKey), transfer.NewId([]byte("transfer2"))),
 		),
 
-		outputs.New(map[address.Address][]*coloredbalance.ColoredBalance{
+		transfer.NewOutputs(map[address.Address][]*coloredbalance.ColoredBalance{
 			address.Random(): {
 				coloredbalance.New(color.IOTA, 1337),
 			},

@@ -11,11 +11,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	valuepayload "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/missingpayload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadapprover"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadmetadata"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfer"
 )
 
 // Tangle represents the value tangle that consists out of value payloads.
@@ -190,7 +189,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *valuepayload.Cach
 	}
 }
 
-func (tangle *Tangle) isTransferSolid(transfer *transfer.Transfer, metadata *transfer.TransferMetadata) bool {
+func (tangle *Tangle) isTransferSolid(transfer *transfer.Transfer, metadata *transfer.Metadata) bool {
 	if transfer == nil || transfer.IsDeleted() {
 		return false
 	}
@@ -199,7 +198,7 @@ func (tangle *Tangle) isTransferSolid(transfer *transfer.Transfer, metadata *tra
 		return false
 	}
 
-	if metadata.IsSolid() {
+	if metadata.Solid() {
 		return true
 	}
 
@@ -207,12 +206,12 @@ func (tangle *Tangle) isTransferSolid(transfer *transfer.Transfer, metadata *tra
 	return transfer.Inputs().ForEach(tangle.isTransferOutputMarkedAsSolid)
 }
 
-func (tangle *Tangle) GetTransferOutputMetadata(transferOutputId transferoutput.OutputId) *transferoutput.CachedOutputMetadata {
+func (tangle *Tangle) GetTransferOutputMetadata(transferOutputId transfer.OutputId) *transfer.CachedOutputMetadata {
 	return nil
 }
 
-func (tangle *Tangle) isTransferOutputMarkedAsSolid(transferOutputId transferoutput.OutputId) (result bool) {
-	objectConsumed := tangle.GetTransferOutputMetadata(transferOutputId).Consume(func(transferOutputMetadata *transferoutput.OutputMetadata) {
+func (tangle *Tangle) isTransferOutputMarkedAsSolid(transferOutputId transfer.OutputId) (result bool) {
+	objectConsumed := tangle.GetTransferOutputMetadata(transferOutputId).Consume(func(transferOutputMetadata *transfer.OutputMetadata) {
 		result = transferOutputMetadata.Solid()
 	})
 
