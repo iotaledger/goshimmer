@@ -1,18 +1,17 @@
-package transferoutput
+package transfer
 
 import (
-	"github.com/mr-tron/base58"
-
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfer"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
+	"github.com/mr-tron/base58"
 )
 
 // Id is the data type that represents the identifier for a TransferOutput.
 type Id [IdLength]byte
 
 // NewId is the constructor for the Id type.
-func NewId(outputAddress address.Address, transferId transfer.Id) (transferOutputId Id) {
+func NewId(outputAddress address.Address, transferId id.Id) (transferOutputId Id) {
 	copy(transferOutputId[:address.Length], outputAddress.Bytes())
 	copy(transferOutputId[address.Length:], transferId[:])
 
@@ -44,20 +43,6 @@ func ParseId(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
 	}
 }
 
-// Address returns the address part of an Id.
-func (transferOutputId Id) Address() (address address.Address) {
-	copy(address[:], transferOutputId[:])
-
-	return
-}
-
-// TransferId returns the transfer id part of an Id.
-func (transferOutputId Id) TransferId() (transferId transfer.Id) {
-	copy(transferId[:], transferOutputId[address.Length:])
-
-	return
-}
-
 // Bytes marshals the Id into a sequence of bytes.
 func (transferOutputId Id) Bytes() []byte {
 	return transferOutputId[:]
@@ -69,4 +54,4 @@ func (transferOutputId Id) String() string {
 }
 
 // IdLength contains the amount of bytes that a marshaled version of the Id contains.
-const IdLength = address.Length + transfer.IdLength
+const IdLength = 32

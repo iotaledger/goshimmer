@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/missingpayload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadapprover"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadmetadata"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfer"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput"
 )
 

@@ -20,7 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/inputs"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/outputs"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadmetadata"
-	transferoutputid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
 )
@@ -51,8 +51,8 @@ func TestTangle_AttachPayload(t *testing.T) {
 
 	tangle.AttachPayload(payload.New(id.Genesis, id.Genesis, transfer.New(
 		inputs.New(
-			transferoutputid.New(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferid.New([]byte("transfer1"))),
-			transferoutputid.New(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferid.New([]byte("transfer2"))),
+			transferoutput.NewId(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferid.New([]byte("transfer1"))),
+			transferoutput.NewId(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferid.New([]byte("transfer2"))),
 		),
 
 		outputs.New(map[address.Address][]*coloredbalance.ColoredBalance{
