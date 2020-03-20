@@ -51,8 +51,8 @@ func TestTangle_AttachPayload(t *testing.T) {
 
 	tangle.AttachPayload(payload.New(id.Genesis, id.Genesis, transfer.New(
 		inputs.New(
-			transferoutput.NewId(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferid.New([]byte("transfer1"))),
-			transferoutput.NewId(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferid.New([]byte("transfer2"))),
+			transferoutput.NewOutputId(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferid.New([]byte("transfer1"))),
+			transferoutput.NewOutputId(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferid.New([]byte("transfer2"))),
 		),
 
 		outputs.New(map[address.Address][]*coloredbalance.ColoredBalance{

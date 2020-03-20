@@ -1,10 +1,11 @@
 package transfer
 
 import (
+	"github.com/mr-tron/base58"
+
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
-	"github.com/mr-tron/base58"
 )
 
 // Id is the data type that represents the identifier for a TransferOutput.

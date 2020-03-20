@@ -207,12 +207,12 @@ func (tangle *Tangle) isTransferSolid(transfer *transfer.Transfer, metadata *tra
 	return transfer.Inputs().ForEach(tangle.isTransferOutputMarkedAsSolid)
 }
 
-func (tangle *Tangle) GetTransferOutputMetadata(transferOutputId transferoutput.Id) *transferoutput.CachedMetadata {
+func (tangle *Tangle) GetTransferOutputMetadata(transferOutputId transferoutput.OutputId) *transferoutput.CachedMetadata {
 	return nil
 }
 
-func (tangle *Tangle) isTransferOutputMarkedAsSolid(transferOutputId transferoutput.Id) (result bool) {
-	objectConsumed := tangle.GetTransferOutputMetadata(transferOutputId).Consume(func(transferOutputMetadata *transferoutput.Metadata) {
+func (tangle *Tangle) isTransferOutputMarkedAsSolid(transferOutputId transferoutput.OutputId) (result bool) {
+	objectConsumed := tangle.GetTransferOutputMetadata(transferOutputId).Consume(func(transferOutputMetadata *transferoutput.OutputMetadata) {
 		result = transferOutputMetadata.Solid()
 	})
 

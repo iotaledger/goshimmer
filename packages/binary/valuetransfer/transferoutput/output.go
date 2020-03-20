@@ -11,8 +11,8 @@ import (
 	transferId "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
 )
 
-// TransferOutput represents the output of a transfer and contains the balances and the identifiers for this output.
-type TransferOutput struct {
+// Output represents the output of a transfer and contains the balances and the identifiers for this output.
+type Output struct {
 	address    address.Address
 	transferId transferId.Id
 	balances   []*coloredbalance.ColoredBalance
@@ -22,8 +22,8 @@ type TransferOutput struct {
 }
 
 // New creates a transfer output that contains the balances and identifiers of a successful transfer.
-func New(address address.Address, transferId transferId.Id, balances []*coloredbalance.ColoredBalance) *TransferOutput {
-	return &TransferOutput{
+func New(address address.Address, transferId transferId.Id, balances []*coloredbalance.ColoredBalance) *Output {
+	return &Output{
 		address:    address,
 		transferId: transferId,
 		balances:   balances,
@@ -32,33 +32,33 @@ func New(address address.Address, transferId transferId.Id, balances []*coloredb
 	}
 }
 
-// FromStorage get's called when we restore a TransferOutput from the storage.
+// FromStorage get's called when we restore a Output from the storage.
 // In contrast to other database models, it unmarshals some information from the key so we simply store the key before
 // it gets handed over to UnmarshalBinary (by the ObjectStorage).
 func FromStorage(keyBytes []byte) objectstorage.StorableObject {
-	return &TransferOutput{
+	return &Output{
 		storageKey: marshalutil.New(keyBytes).Bytes(true),
 	}
 }
 
 // Address returns the address that this output belongs to.
-func (transferOutput *TransferOutput) Address() address.Address {
+func (transferOutput *Output) Address() address.Address {
 	return transferOutput.address
 }
 
 // TransferId returns the transfer id, that created this output.
-func (transferOutput *TransferOutput) TransferId() transferId.Id {
+func (transferOutput *Output) TransferId() transferId.Id {
 	return transferOutput.transferId
 }
 
 // Balances returns the colored balances (color + balance) that this output contains.
-func (transferOutput *TransferOutput) Balances() []*coloredbalance.ColoredBalance {
+func (transferOutput *Output) Balances() []*coloredbalance.ColoredBalance {
 	return transferOutput.balances
 }
 
 // MarshalBinary marshals the balances into a sequence of bytes - the address and transferId are stored inside the key
 // and are ignored here.
-func (transferOutput *TransferOutput) MarshalBinary() (data []byte, err error) {
+func (transferOutput *Output) MarshalBinary() (data []byte, err error) {
 	// determine amount of balances in the output
 	balanceCount := len(transferOutput.balances)
 
@@ -76,12 +76,12 @@ func (transferOutput *TransferOutput) MarshalBinary() (data []byte, err error) {
 	return
 }
 
-// UnmarshalBinary restores a TransferOutput from a serialized version in the ObjectStorage with parts of the object
+// UnmarshalBinary restores a Output from a serialized version in the ObjectStorage with parts of the object
 // being stored in its key rather than the content of the database to reduce storage requirements.
-func (transferOutput *TransferOutput) UnmarshalBinary(data []byte) (err error) {
+func (transferOutput *Output) UnmarshalBinary(data []byte) (err error) {
 	// check if the storageKey has been set
 	if transferOutput.storageKey == nil {
-		return fmt.Errorf("missing storageKey when trying to unmarshal TransferOutput (it contains part of the information)")
+		return fmt.Errorf("missing storageKey when trying to unmarshal Output (it contains part of the information)")
 	}
 
 	// parse information from storageKey
@@ -113,15 +113,15 @@ func (transferOutput *TransferOutput) UnmarshalBinary(data []byte) (err error) {
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match StorableObject interface.
-func (transferOutput *TransferOutput) Update(other objectstorage.StorableObject) {
+func (transferOutput *Output) Update(other objectstorage.StorableObject) {
 	panic("this object should never be updated")
 }
 
 // GetStorageKey returns the key that is used to store the object in the database.
 // It is required to match StorableObject interface.
-func (transferOutput *TransferOutput) GetStorageKey() []byte {
+func (transferOutput *Output) GetStorageKey() []byte {
 	return transferOutput.storageKey
 }
 
 // define contract (ensure that the struct fulfills the given interface)
-var _ objectstorage.StorableObject = &TransferOutput{}
+var _ objectstorage.StorableObject = &Output{}

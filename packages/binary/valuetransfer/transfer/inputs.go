@@ -11,7 +11,7 @@ type Inputs struct {
 	*orderedmap.OrderedMap
 }
 
-func NewInputs(transferOutputIds ...transferoutput.Id) (inputs *Inputs) {
+func NewInputs(transferOutputIds ...transferoutput.OutputId) (inputs *Inputs) {
 	inputs = &Inputs{orderedmap.New()}
 	for _, transferOutputId := range transferOutputIds {
 		inputs.Add(transferOutputId)
@@ -56,7 +56,7 @@ func InputsFromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int
 
 			inputs.Set(readAddress, addressMap)
 		}
-		addressMap.(*orderedmap.OrderedMap).Set(transferId, transferoutput.NewId(readAddress, transferId))
+		addressMap.(*orderedmap.OrderedMap).Set(transferId, transferoutput.NewOutputId(readAddress, transferId))
 	}
 
 	consumedBytes = marshalUtil.ReadOffset()
@@ -64,7 +64,7 @@ func InputsFromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int
 	return
 }
 
-func (inputs *Inputs) Add(input transferoutput.Id) *Inputs {
+func (inputs *Inputs) Add(input transferoutput.OutputId) *Inputs {
 	inputAddress := input.Address()
 	transferId := input.TransferId()
 
@@ -85,7 +85,7 @@ func (inputs *Inputs) Bytes() (bytes []byte) {
 
 	marshalUtil.WriteSeek(4)
 	var inputCounter uint32
-	inputs.ForEach(func(transferOutputId transferoutput.Id) bool {
+	inputs.ForEach(func(transferOutputId transferoutput.OutputId) bool {
 		marshalUtil.WriteBytes(transferOutputId.Bytes())
 
 		inputCounter++
@@ -98,10 +98,10 @@ func (inputs *Inputs) Bytes() (bytes []byte) {
 	return marshalUtil.Bytes()
 }
 
-func (inputs *Inputs) ForEach(consumer func(transferOutputId transferoutput.Id) bool) bool {
+func (inputs *Inputs) ForEach(consumer func(transferOutputId transferoutput.OutputId) bool) bool {
 	return inputs.OrderedMap.ForEach(func(key, value interface{}) bool {
 		return value.(*orderedmap.OrderedMap).ForEach(func(key, value interface{}) bool {
-			return consumer(value.(transferoutput.Id))
+			return consumer(value.(transferoutput.OutputId))
 		})
 	})
 }
@@ -115,7 +115,7 @@ func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Addres
 func (inputs *Inputs) ForEachTransfer(consumer func(currentTransfer Id) bool) bool {
 	seenTransfers := make(map[Id]bool)
 
-	return inputs.ForEach(func(transferOutputId transferoutput.Id) bool {
+	return inputs.ForEach(func(transferOutputId transferoutput.OutputId) bool {
 		if currentTransferId := transferOutputId.TransferId(); !seenTransfers[currentTransferId] {
 			seenTransfers[currentTransferId] = true
 
@@ -134,7 +134,7 @@ func (inputs *Inputs) String() string {
 	result := "[\n"
 
 	empty := true
-	inputs.ForEach(func(transferOutputId transferoutput.Id) bool {
+	inputs.ForEach(func(transferOutputId transferoutput.OutputId) bool {
 		empty = false
 
 		result += "    " + transferOutputId.String() + ",\n"
