@@ -1,6 +1,7 @@
 package collectiveBeacon
 
 import (
+	"bytes"
 	"crypto/sha512"
 	"errors"
 
@@ -45,6 +46,10 @@ func VerifyCollectiveBeacon(state *state.State, data *events.CollectiveBeaconEve
 
 	if err := verifyIssuer(state, data.IssuerPublicKey); err != nil {
 		return err
+	}
+
+	if !bytes.Equal(data.Dpk, state.Committee().DistributedPK) {
+		return errors.New("Distributed Public Key does not match")
 	}
 
 	if err := verifySignature(data); err != nil {
