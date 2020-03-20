@@ -52,7 +52,7 @@ func init() {
 }
 
 func dummyPayload() *cbPayload.Payload {
-	header := header.New(header.CollectiveBeaconType(), 0)
+	header := header.New(header.CollectiveBeaconType(), 1)
 	return cbPayload.New(header.Instance(),
 		1,
 		prevSignatureTest,
