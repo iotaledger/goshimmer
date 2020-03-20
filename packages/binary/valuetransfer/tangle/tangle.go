@@ -211,17 +211,19 @@ func (tangle *Tangle) GetTransferOutputMetadata(transferOutputId transfer.Output
 }
 
 func (tangle *Tangle) isTransferOutputMarkedAsSolid(transferOutputId transfer.OutputId) (result bool) {
-	objectConsumed := tangle.GetTransferOutputMetadata(transferOutputId).Consume(func(transferOutputMetadata *transfer.OutputMetadata) {
-		result = transferOutputMetadata.Solid()
-	})
+	/*
+		objectConsumed := tangle.GetTransferOutputMetadata(transferOutputId).Consume(func(transferOutputMetadata *transfer.OutputMetadata) {
+			result = transferOutputMetadata.Solid()
+		})
 
-	if !objectConsumed {
-		if cachedMissingPayload, missingPayloadStored := tangle.missingPayloadStorage.StoreIfAbsent(missingpayload.New(transferOutputId)); missingPayloadStored {
-			cachedMissingPayload.Consume(func(object objectstorage.StorableObject) {
-				tangle.Events.PayloadMissing.Trigger(object.(*missingpayload.MissingPayload).GetId())
-			})
+		if !objectConsumed {
+			if cachedMissingPayload, missingPayloadStored := tangle.missingPayloadStorage.StoreIfAbsent(missingpayload.New(transferOutputId)); missingPayloadStored {
+				cachedMissingPayload.Consume(func(object objectstorage.StorableObject) {
+					tangle.Events.PayloadMissing.Trigger(object.(*missingpayload.MissingPayload).GetId())
+				})
+			}
 		}
-	}
+	*/
 
 	return
 }
