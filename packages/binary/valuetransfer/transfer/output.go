@@ -1,4 +1,4 @@
-package transferoutput
+package transfer
 
 import (
 	"fmt"
@@ -8,13 +8,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance"
-	transferId "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
 )
 
 // Output represents the output of a transfer and contains the balances and the identifiers for this output.
 type Output struct {
 	address    address.Address
-	transferId transferId.Id
+	transferId Id
 	balances   []*coloredbalance.ColoredBalance
 
 	objectstorage.StorableObjectFlags
@@ -22,7 +21,7 @@ type Output struct {
 }
 
 // NewOutput creates a transfer output that contains the balances and identifiers of a successful transfer.
-func NewOutput(address address.Address, transferId transferId.Id, balances []*coloredbalance.ColoredBalance) *Output {
+func NewOutput(address address.Address, transferId Id, balances []*coloredbalance.ColoredBalance) *Output {
 	return &Output{
 		address:    address,
 		transferId: transferId,
@@ -47,7 +46,7 @@ func (output *Output) Address() address.Address {
 }
 
 // TransferId returns the transfer id, that created this output.
-func (output *Output) TransferId() transferId.Id {
+func (output *Output) TransferId() Id {
 	return output.transferId
 }
 
@@ -90,7 +89,7 @@ func (output *Output) UnmarshalBinary(data []byte) (err error) {
 	if err != nil {
 		return
 	}
-	output.transferId, err = transferId.Parse(storageKeyUnmarshaler)
+	output.transferId, err = ParseId(storageKeyUnmarshaler)
 	if err != nil {
 		return
 	}

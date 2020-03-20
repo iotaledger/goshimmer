@@ -1,4 +1,4 @@
-package transferoutput
+package transfer
 
 import (
 	"testing"

@@ -1,18 +1,17 @@
-package transferoutput
+package transfer
 
 import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfer"
 )
 
 // OutputId is the data type that represents the identifier for a Output.
 type OutputId [OutputIdLength]byte
 
 // NewOutputId is the constructor for the OutputId type.
-func NewOutputId(outputAddress address.Address, transferId transfer.Id) (transferOutputId OutputId) {
+func NewOutputId(outputAddress address.Address, transferId Id) (transferOutputId OutputId) {
 	copy(transferOutputId[:address.Length], outputAddress.Bytes())
 	copy(transferOutputId[address.Length:], transferId[:])
 
@@ -52,7 +51,7 @@ func (outputId OutputId) Address() (address address.Address) {
 }
 
 // TransferId returns the transfer id part of an OutputId.
-func (outputId OutputId) TransferId() (transferId transfer.Id) {
+func (outputId OutputId) TransferId() (transferId Id) {
 	copy(transferId[:], outputId[address.Length:])
 
 	return
@@ -69,4 +68,4 @@ func (outputId OutputId) String() string {
 }
 
 // IdLength contains the amount of bytes that a marshaled version of the OutputId contains.
-const OutputIdLength = address.Length + transfer.IdLength
+const OutputIdLength = address.Length + IdLength

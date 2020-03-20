@@ -4,14 +4,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput"
 )
 
 type Inputs struct {
 	*orderedmap.OrderedMap
 }
 
-func NewInputs(transferOutputIds ...transferoutput.OutputId) (inputs *Inputs) {
+func NewInputs(transferOutputIds ...OutputId) (inputs *Inputs) {
 	inputs = &Inputs{orderedmap.New()}
 	for _, transferOutputId := range transferOutputIds {
 		inputs.Add(transferOutputId)
@@ -56,7 +55,7 @@ func InputsFromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int
 
 			inputs.Set(readAddress, addressMap)
 		}
-		addressMap.(*orderedmap.OrderedMap).Set(transferId, transferoutput.NewOutputId(readAddress, transferId))
+		addressMap.(*orderedmap.OrderedMap).Set(transferId, NewOutputId(readAddress, transferId))
 	}
 
 	consumedBytes = marshalUtil.ReadOffset()
@@ -64,7 +63,7 @@ func InputsFromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int
 	return
 }
 
-func (inputs *Inputs) Add(input transferoutput.OutputId) *Inputs {
+func (inputs *Inputs) Add(input OutputId) *Inputs {
 	inputAddress := input.Address()
 	transferId := input.TransferId()
 
@@ -85,7 +84,7 @@ func (inputs *Inputs) Bytes() (bytes []byte) {
 
 	marshalUtil.WriteSeek(4)
 	var inputCounter uint32
-	inputs.ForEach(func(transferOutputId transferoutput.OutputId) bool {
+	inputs.ForEach(func(transferOutputId OutputId) bool {
 		marshalUtil.WriteBytes(transferOutputId.Bytes())
 
 		inputCounter++
@@ -98,10 +97,10 @@ func (inputs *Inputs) Bytes() (bytes []byte) {
 	return marshalUtil.Bytes()
 }
 
-func (inputs *Inputs) ForEach(consumer func(transferOutputId transferoutput.OutputId) bool) bool {
+func (inputs *Inputs) ForEach(consumer func(transferOutputId OutputId) bool) bool {
 	return inputs.OrderedMap.ForEach(func(key, value interface{}) bool {
 		return value.(*orderedmap.OrderedMap).ForEach(func(key, value interface{}) bool {
-			return consumer(value.(transferoutput.OutputId))
+			return consumer(value.(OutputId))
 		})
 	})
 }
@@ -115,7 +114,7 @@ func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Addres
 func (inputs *Inputs) ForEachTransfer(consumer func(currentTransfer Id) bool) bool {
 	seenTransfers := make(map[Id]bool)
 
-	return inputs.ForEach(func(transferOutputId transferoutput.OutputId) bool {
+	return inputs.ForEach(func(transferOutputId OutputId) bool {
 		if currentTransferId := transferOutputId.TransferId(); !seenTransfers[currentTransferId] {
 			seenTransfers[currentTransferId] = true
 
@@ -134,7 +133,7 @@ func (inputs *Inputs) String() string {
 	result := "[\n"
 
 	empty := true
-	inputs.ForEach(func(transferOutputId transferoutput.OutputId) bool {
+	inputs.ForEach(func(transferOutputId OutputId) bool {
 		empty = false
 
 		result += "    " + transferOutputId.String() + ",\n"
