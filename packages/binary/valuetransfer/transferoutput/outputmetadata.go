@@ -23,16 +23,16 @@ type OutputMetadata struct {
 	solidificationTimeMutex sync.RWMutex
 }
 
-// NewMetadata is the constructor for the OutputMetadata type.
-func NewMetadata(transferOutputId OutputId) *OutputMetadata {
+// NewOutputMetadata is the constructor for the OutputMetadata type.
+func NewOutputMetadata(transferOutputId OutputId) *OutputMetadata {
 	return &OutputMetadata{
 		id: transferOutputId,
 	}
 }
 
-// MetadataFromBytes unmarshals a OutputMetadata object from a sequence of bytes.
+// OutputMetadataFromBytes unmarshals a OutputMetadata object from a sequence of bytes.
 // It either creates a new object or fills the optionally provided object with the parsed information.
-func MetadataFromBytes(bytes []byte, optionalTargetObject ...*OutputMetadata) (result *OutputMetadata, err error, consumedBytes int) {
+func OutputMetadataFromBytes(bytes []byte, optionalTargetObject ...*OutputMetadata) (result *OutputMetadata, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -40,7 +40,7 @@ func MetadataFromBytes(bytes []byte, optionalTargetObject ...*OutputMetadata) (r
 	case 1:
 		result = optionalTargetObject[0]
 	default:
-		panic("too many arguments in call to MetadataFromBytes")
+		panic("too many arguments in call to OutputMetadataFromBytes")
 	}
 
 	// parse the bytes
@@ -59,9 +59,9 @@ func MetadataFromBytes(bytes []byte, optionalTargetObject ...*OutputMetadata) (r
 	return
 }
 
-// MetadataFromStorage is the factory method for OutputMetadata objects stored in the objectstorage. The bytes and the content
+// OutputMetadataFromStorage is the factory method for OutputMetadata objects stored in the objectstorage. The bytes and the content
 // will be filled by the objectstorage, by subsequently calling MarshalBinary.
-func MetadataFromStorage(storageKey []byte) objectstorage.StorableObject {
+func OutputMetadataFromStorage(storageKey []byte) objectstorage.StorableObject {
 	result := &OutputMetadata{}
 
 	var err error
@@ -73,8 +73,8 @@ func MetadataFromStorage(storageKey []byte) objectstorage.StorableObject {
 }
 
 // Parse is a wrapper for simplified unmarshaling of OutputMetadata objects from a byte stream using the marshalUtil package.
-func ParseMetadata(marshalUtil *marshalutil.MarshalUtil) (*OutputMetadata, error) {
-	if transferMetadata, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return MetadataFromBytes(data) }); err != nil {
+func ParseOutputMetadata(marshalUtil *marshalutil.MarshalUtil) (*OutputMetadata, error) {
+	if transferMetadata, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return OutputMetadataFromBytes(data) }); err != nil {
 		return nil, err
 	} else {
 		return transferMetadata.(*OutputMetadata), nil
@@ -171,36 +171,36 @@ func (outputMetadata *OutputMetadata) MarshalBinary() ([]byte, error) {
 // UnmarshalBinary restores the values of a OutputMetadata object from a sequence of bytes and matches the
 // encoding.BinaryUnmarshaler interface.
 func (outputMetadata *OutputMetadata) UnmarshalBinary(data []byte) (err error) {
-	_, err, _ = MetadataFromBytes(data, outputMetadata)
+	_, err, _ = OutputMetadataFromBytes(data, outputMetadata)
 
 	return
 }
 
-// CachedMetadata is a wrapper for the object storage, that takes care of type casting the OutputMetadata objects.
+// CachedOutputMetadata is a wrapper for the object storage, that takes care of type casting the OutputMetadata objects.
 // Since go does not have generics (yet), the object storage works based on the generic "interface{}" type, which means
 // that we have to regularly type cast the returned objects, to match the expected type. To reduce the burden of
 // manually managing these type, we create a wrapper that does this for us. This way, we can consistently handle the
 // specialized types of OutputMetadata, without having to manually type cast over and over again.
-type CachedMetadata struct {
+type CachedOutputMetadata struct {
 	objectstorage.CachedObject
 }
 
-// Retain overrides the underlying method to return a new CachedMetadata instead of a generic CachedObject.
-func (cachedMetadata *CachedMetadata) Retain() *CachedMetadata {
-	return &CachedMetadata{cachedMetadata.CachedObject.Retain()}
+// Retain overrides the underlying method to return a new CachedOutputMetadata instead of a generic CachedObject.
+func (cachedOutputMetadata *CachedOutputMetadata) Retain() *CachedOutputMetadata {
+	return &CachedOutputMetadata{cachedOutputMetadata.CachedObject.Retain()}
 }
 
-// Consume  overrides the underlying method to use a CachedMetadata object instead of a generic CachedObject in the
+// Consume  overrides the underlying method to use a CachedOutputMetadata object instead of a generic CachedObject in the
 // consumer).
-func (cachedMetadata *CachedMetadata) Consume(consumer func(metadata *OutputMetadata)) bool {
-	return cachedMetadata.CachedObject.Consume(func(object objectstorage.StorableObject) {
+func (cachedOutputMetadata *CachedOutputMetadata) Consume(consumer func(outputMetadata *OutputMetadata)) bool {
+	return cachedOutputMetadata.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*OutputMetadata))
 	})
 }
 
 // Unwrap provides a way to retrieve a type casted version of the underlying object.
-func (cachedMetadata *CachedMetadata) Unwrap() *OutputMetadata {
-	if untypedTransaction := cachedMetadata.Get(); untypedTransaction == nil {
+func (cachedOutputMetadata *CachedOutputMetadata) Unwrap() *OutputMetadata {
+	if untypedTransaction := cachedOutputMetadata.Get(); untypedTransaction == nil {
 		return nil
 	} else {
 		if typeCastedTransaction := untypedTransaction.(*OutputMetadata); typeCastedTransaction == nil || typeCastedTransaction.IsDeleted() {

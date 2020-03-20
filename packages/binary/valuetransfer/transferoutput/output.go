@@ -21,8 +21,8 @@ type Output struct {
 	storageKey []byte
 }
 
-// New creates a transfer output that contains the balances and identifiers of a successful transfer.
-func New(address address.Address, transferId transferId.Id, balances []*coloredbalance.ColoredBalance) *Output {
+// NewOutput creates a transfer output that contains the balances and identifiers of a successful transfer.
+func NewOutput(address address.Address, transferId transferId.Id, balances []*coloredbalance.ColoredBalance) *Output {
 	return &Output{
 		address:    address,
 		transferId: transferId,
@@ -32,35 +32,35 @@ func New(address address.Address, transferId transferId.Id, balances []*coloredb
 	}
 }
 
-// FromStorage get's called when we restore a Output from the storage.
+// OutputFromStorage get's called when we restore a Output from the storage.
 // In contrast to other database models, it unmarshals some information from the key so we simply store the key before
 // it gets handed over to UnmarshalBinary (by the ObjectStorage).
-func FromStorage(keyBytes []byte) objectstorage.StorableObject {
+func OutputFromStorage(keyBytes []byte) objectstorage.StorableObject {
 	return &Output{
 		storageKey: marshalutil.New(keyBytes).Bytes(true),
 	}
 }
 
 // Address returns the address that this output belongs to.
-func (transferOutput *Output) Address() address.Address {
-	return transferOutput.address
+func (output *Output) Address() address.Address {
+	return output.address
 }
 
 // TransferId returns the transfer id, that created this output.
-func (transferOutput *Output) TransferId() transferId.Id {
-	return transferOutput.transferId
+func (output *Output) TransferId() transferId.Id {
+	return output.transferId
 }
 
 // Balances returns the colored balances (color + balance) that this output contains.
-func (transferOutput *Output) Balances() []*coloredbalance.ColoredBalance {
-	return transferOutput.balances
+func (output *Output) Balances() []*coloredbalance.ColoredBalance {
+	return output.balances
 }
 
 // MarshalBinary marshals the balances into a sequence of bytes - the address and transferId are stored inside the key
 // and are ignored here.
-func (transferOutput *Output) MarshalBinary() (data []byte, err error) {
+func (output *Output) MarshalBinary() (data []byte, err error) {
 	// determine amount of balances in the output
-	balanceCount := len(transferOutput.balances)
+	balanceCount := len(output.balances)
 
 	// initialize helper
 	marshalUtil := marshalutil.New(4 + balanceCount*coloredbalance.Length)
@@ -69,7 +69,7 @@ func (transferOutput *Output) MarshalBinary() (data []byte, err error) {
 	marshalUtil.WriteUint32(uint32(balanceCount))
 
 	// marshal balances
-	for _, balance := range transferOutput.balances {
+	for _, balance := range output.balances {
 		marshalUtil.WriteBytes(balance.Bytes())
 	}
 
@@ -78,19 +78,19 @@ func (transferOutput *Output) MarshalBinary() (data []byte, err error) {
 
 // UnmarshalBinary restores a Output from a serialized version in the ObjectStorage with parts of the object
 // being stored in its key rather than the content of the database to reduce storage requirements.
-func (transferOutput *Output) UnmarshalBinary(data []byte) (err error) {
+func (output *Output) UnmarshalBinary(data []byte) (err error) {
 	// check if the storageKey has been set
-	if transferOutput.storageKey == nil {
+	if output.storageKey == nil {
 		return fmt.Errorf("missing storageKey when trying to unmarshal Output (it contains part of the information)")
 	}
 
 	// parse information from storageKey
-	storageKeyUnmarshaler := marshalutil.New(transferOutput.storageKey)
-	transferOutput.address, err = address.Parse(storageKeyUnmarshaler)
+	storageKeyUnmarshaler := marshalutil.New(output.storageKey)
+	output.address, err = address.Parse(storageKeyUnmarshaler)
 	if err != nil {
 		return
 	}
-	transferOutput.transferId, err = transferId.Parse(storageKeyUnmarshaler)
+	output.transferId, err = transferId.Parse(storageKeyUnmarshaler)
 	if err != nil {
 		return
 	}
@@ -101,9 +101,9 @@ func (transferOutput *Output) UnmarshalBinary(data []byte) (err error) {
 	if err != nil {
 		return
 	}
-	transferOutput.balances = make([]*coloredbalance.ColoredBalance, balanceCount)
+	output.balances = make([]*coloredbalance.ColoredBalance, balanceCount)
 	for i := uint32(0); i < balanceCount; i++ {
-		transferOutput.balances[i], err = coloredbalance.Parse(contentUnmarshaler)
+		output.balances[i], err = coloredbalance.Parse(contentUnmarshaler)
 		if err != nil {
 			return
 		}
@@ -113,14 +113,14 @@ func (transferOutput *Output) UnmarshalBinary(data []byte) (err error) {
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match StorableObject interface.
-func (transferOutput *Output) Update(other objectstorage.StorableObject) {
+func (output *Output) Update(other objectstorage.StorableObject) {
 	panic("this object should never be updated")
 }
 
 // GetStorageKey returns the key that is used to store the object in the database.
 // It is required to match StorableObject interface.
-func (transferOutput *Output) GetStorageKey() []byte {
-	return transferOutput.storageKey
+func (output *Output) GetStorageKey() []byte {
+	return output.storageKey
 }
 
 // define contract (ensure that the struct fulfills the given interface)

@@ -207,7 +207,7 @@ func (tangle *Tangle) isTransferSolid(transfer *transfer.Transfer, metadata *tra
 	return transfer.Inputs().ForEach(tangle.isTransferOutputMarkedAsSolid)
 }
 
-func (tangle *Tangle) GetTransferOutputMetadata(transferOutputId transferoutput.OutputId) *transferoutput.CachedMetadata {
+func (tangle *Tangle) GetTransferOutputMetadata(transferOutputId transferoutput.OutputId) *transferoutput.CachedOutputMetadata {
 	return nil
 }
 
