@@ -2,9 +2,10 @@ package outputs
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance"
+
+	"github.com/iotaledger/hive.go/marshalutil"
 )
 
 type Outputs struct {

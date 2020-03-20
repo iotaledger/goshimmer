@@ -3,7 +3,8 @@ package signatures
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
+	"github.com/iotaledger/hive.go/marshalutil"
+
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 )

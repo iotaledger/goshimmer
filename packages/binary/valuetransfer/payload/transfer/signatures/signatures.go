@@ -2,8 +2,9 @@ package signatures
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
+
+	"github.com/iotaledger/hive.go/marshalutil"
 )
 
 // Signatures represents a container for the address signatures of a value transfer.

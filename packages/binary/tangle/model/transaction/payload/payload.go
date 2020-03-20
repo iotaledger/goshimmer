@@ -3,7 +3,7 @@ package payload
 import (
 	"encoding"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
+	"github.com/iotaledger/hive.go/marshalutil"
 )
 
 type Payload interface {

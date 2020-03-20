@@ -3,9 +3,9 @@ package transferoutput
 import (
 	"fmt"
 
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance"
 	transferId "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"

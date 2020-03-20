@@ -1,9 +1,8 @@
 package id
 
 import (
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/mr-tron/base58"
-
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 )
 
 type Id [Length]byte

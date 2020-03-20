@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/inputs"
