@@ -4,8 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
-	transferid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfer"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput"
 )
 
@@ -39,13 +38,18 @@ func FromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int) {
 			return
 		}
 
-		transferIdBytes, readErr := marshalUtil.ReadBytes(transferid.Length)
+		transferIdBytes, readErr := marshalUtil.ReadBytes(transfer.IdLength)
 		if readErr != nil {
 			err = readErr
 
 			return
 		}
-		transferId := id.New(transferIdBytes)
+		transferId, transferIdErr, _ := transfer.IdFromBytes(transferIdBytes)
+		if transferIdErr != nil {
+			err = transferIdErr
+
+			return
+		}
 
 		addressMap, addressExists := inputs.Get(readAddress)
 		if !addressExists {
@@ -109,8 +113,8 @@ func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Addres
 	})
 }
 
-func (inputs *Inputs) ForEachTransfer(consumer func(currentTransfer transferid.Id) bool) bool {
-	seenTransfers := make(map[transferid.Id]bool)
+func (inputs *Inputs) ForEachTransfer(consumer func(currentTransfer transfer.Id) bool) bool {
+	seenTransfers := make(map[transfer.Id]bool)
 
 	return inputs.ForEach(func(transferOutputId transferoutput.Id) bool {
 		if currentTransferId := transferOutputId.TransferId(); !seenTransfers[currentTransferId] {
