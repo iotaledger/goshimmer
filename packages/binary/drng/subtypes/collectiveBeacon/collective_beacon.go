@@ -8,53 +8,30 @@ import (
 	"github.com/drand/drand/key"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/events"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 )
 
 // ProcessTransaction performs the following tasks:
-// 1 - parse as CollectiveBeaconType
-// 2 - trigger CollectiveBeaconEvent
-// 3 - verify that we have a valid random
-// 4 - update drng state
-func ProcessTransaction(drng *state.State, event events.CollectiveBeacon, tx *transaction.Transaction) error {
-	// 1 - parse as CollectiveBeaconType
-	marshalUtil := marshalutil.New(tx.GetPayload().Bytes())
-	parsedPayload, err := payload.Parse(marshalUtil)
-	if err != nil {
-		return err
-	}
+// - verify that we have a valid random
+// - update drng state
+func ProcessBeacon(drng *state.State, cb *events.CollectiveBeaconEvent) error {
 
-	// 2 - trigger CollectiveBeaconEvent
-	cbEvent := &events.CollectiveBeaconEvent{
-		IssuerPublicKey: tx.IssuerPublicKey(),
-		Timestamp:       tx.IssuingTime(),
-		InstanceID:      parsedPayload.Instance(),
-		Round:           parsedPayload.Round(),
-		PrevSignature:   parsedPayload.PrevSignature(),
-		Signature:       parsedPayload.Signature(),
-		Dpk:             parsedPayload.DistributedPK(),
-	}
-	event.Trigger(cbEvent)
-
-	// 3 - verify that we have a valid random
-	if err := VerifyCollectiveBeacon(drng, cbEvent); err != nil {
+	// verify that we have a valid random
+	if err := VerifyCollectiveBeacon(drng, cb); err != nil {
 		//TODO: handle error
 		return err
 	}
 
-	// 4 - update drng state
-	randomness, err := GetRandomness(cbEvent.Signature)
+	// update drng state
+	randomness, err := GetRandomness(cb.Signature)
 	if err != nil {
 		//TODO: handle error
 		return err
 	}
 	newRandomness := &state.Randomness{
-		Round:      cbEvent.Round,
+		Round:      cb.Round,
 		Randomness: randomness,
-		Timestamp:  cbEvent.Timestamp,
+		Timestamp:  cb.Timestamp,
 	}
 	drng.SetRandomness(newRandomness)
 	return nil

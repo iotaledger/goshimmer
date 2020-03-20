@@ -1,16 +1,40 @@
 package drng
 
 import (
+	"time"
+
+	"github.com/iotaledger/goshimmer/packages/binary/drng/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/events"
+	cb "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
+	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 )
 
-func (drng *Instance) Dispatch(subtype header.Type, tx *transaction.Transaction) {
-	switch subtype {
+func (drng *Instance) Dispatch(issuer ed25119.PublicKey, timestamp time.Time, payload *payload.Payload) {
+	switch payload.SubType() {
 	case header.CollectiveBeaconType():
+		// parse as CollectiveBeaconType
+		marshalUtil := marshalutil.New(payload.Bytes())
+		parsedPayload, err := cb.Parse(marshalUtil)
+		if err != nil {
+			return
+		}
+		// trigger CollectiveBeaconEvent
+		cbEvent := &events.CollectiveBeaconEvent{
+			IssuerPublicKey: issuer,
+			Timestamp:       timestamp,
+			InstanceID:      parsedPayload.Instance(),
+			Round:           parsedPayload.Round(),
+			PrevSignature:   parsedPayload.PrevSignature(),
+			Signature:       parsedPayload.Signature(),
+			Dpk:             parsedPayload.DistributedPK(),
+		}
+		drng.Events.CollectiveBeacon.Trigger(cbEvent)
+
 		// process collectiveBeacon
-		if err := collectiveBeacon.ProcessTransaction(drng.State, drng.Events.CollectiveBeacon, tx); err != nil {
+		if err := collectiveBeacon.ProcessBeacon(drng.State, cbEvent); err != nil {
 			return
 		}
 		// trigger RandomnessEvent
