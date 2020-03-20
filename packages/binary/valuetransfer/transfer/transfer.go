@@ -11,7 +11,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/inputs"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/outputs"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/signatures"
@@ -26,7 +25,7 @@ type Transfer struct {
 	outputs    *outputs.Outputs
 	signatures *signatures.Signatures
 
-	id      *id.Id
+	id      *Id
 	idMutex sync.RWMutex
 
 	essenceBytes      []byte
@@ -102,14 +101,17 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Transfer) (result *Transfe
 }
 
 func FromStorage(key []byte) *Transfer {
-	transferId := id.New(key)
+	transferId, err, _ := IdFromBytes(key)
+	if err != nil {
+		panic(err)
+	}
 
 	return &Transfer{
 		id: &transferId,
 	}
 }
 
-func (transfer *Transfer) Id() id.Id {
+func (transfer *Transfer) Id() Id {
 	// acquire lock for reading id
 	transfer.idMutex.RLock()
 
@@ -132,7 +134,10 @@ func (transfer *Transfer) Id() id.Id {
 
 	// otherwise calculate the id
 	idBytes := blake2b.Sum256(transfer.Bytes())
-	transferId := id.New(idBytes[:])
+	transferId, err, _ := IdFromBytes(idBytes[:])
+	if err != nil {
+		panic(err)
+	}
 
 	// cache result for later calls
 	transfer.id = &transferId
