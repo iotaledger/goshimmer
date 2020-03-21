@@ -1,4 +1,4 @@
-package signatures
+package signaturescheme
 
 import (
 	"fmt"
@@ -64,7 +64,7 @@ type ed25519Signature struct {
 
 // ed25519SignatureFromBytes unmarshals an ed25519 signatures from a sequence of bytes.
 // It either creates a new signature or fills the optionally provided object with the parsed information.
-func ed25519SignatureFromBytes(bytes []byte, optionalTargetObject ...*ed25519Signature) (result *ed25519Signature, err error, consumedBytes int) {
+func Ed25519SignatureFromBytes(bytes []byte, optionalTargetObject ...*ed25519Signature) (result *ed25519Signature, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -127,8 +127,5 @@ func (signature *ed25519Signature) Bytes() []byte {
 func (signature *ed25519Signature) Address() address.Address {
 	return address.FromED25519PubKey(signature.publicKey)
 }
-
-// interface contract (allow the compiler to check if the implementation has all of the required methods).
-var _ Signature = &ed25519Signature{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

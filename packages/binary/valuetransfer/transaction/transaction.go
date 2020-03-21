@@ -11,7 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/signatures"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction/signaturescheme"
 )
 
 // region IMPLEMENT Transaction ///////////////////////////////////////////////////////////////////////////////////////////
@@ -21,7 +21,7 @@ type Transaction struct {
 
 	inputs     *Inputs
 	outputs    *Outputs
-	signatures *signatures.Signatures
+	signatures *Signatures
 
 	id      *Id
 	idMutex sync.RWMutex
@@ -40,7 +40,7 @@ func New(inputs *Inputs, outputs *Outputs) *Transaction {
 	return &Transaction{
 		inputs:     inputs,
 		outputs:    outputs,
-		signatures: signatures.New(),
+		signatures: NewSignatures(),
 	}
 }
 
@@ -78,11 +78,11 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Tran
 	copy(result.essenceBytes, bytes[:essenceBytesCount])
 
 	// unmarshal outputs
-	parsedSignatures, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return signatures.FromBytes(data) })
+	parsedSignatures, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return SignaturesFromBytes(data) })
 	if err != nil {
 		return
 	}
-	result.signatures = parsedSignatures.(*signatures.Signatures)
+	result.signatures = parsedSignatures.(*Signatures)
 
 	// store signature bytes
 	signatureBytesCount := marshalUtil.ReadOffset() - essenceBytesCount
@@ -256,7 +256,7 @@ func (transaction *Transaction) Bytes() []byte {
 	return transaction.bytes
 }
 
-func (transaction *Transaction) Sign(signature signatures.SignatureScheme) *Transaction {
+func (transaction *Transaction) Sign(signature signaturescheme.SignatureScheme) *Transaction {
 	transaction.signatures.Add(signature.Address(), signature.Sign(transaction.EssenceBytes()))
 
 	return transaction

@@ -1,4 +1,4 @@
-package signatures
+package transaction
 
 import (
 	"testing"
@@ -7,15 +7,16 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction/signaturescheme"
 )
 
 func TestSignatures(t *testing.T) {
 	dataToSign := []byte("test")
 
-	address1SigScheme := ED25519(ed25119.GenerateKeyPair())
-	address2SigScheme := ED25519(ed25119.GenerateKeyPair())
+	address1SigScheme := signaturescheme.ED25519(ed25119.GenerateKeyPair())
+	address2SigScheme := signaturescheme.ED25519(ed25119.GenerateKeyPair())
 
-	signatures := New()
+	signatures := NewSignatures()
 	signatures.Add(address1SigScheme.Address(), address1SigScheme.Sign(dataToSign))
 	signatures.Add(address2SigScheme.Address(), address2SigScheme.Sign(dataToSign))
 
@@ -25,13 +26,13 @@ func TestSignatures(t *testing.T) {
 
 	assert.Equal(t, 2, signatures.Size())
 
-	signatures.ForEach(func(address address.Address, signature Signature) bool {
+	signatures.ForEach(func(address address.Address, signature signaturescheme.Signature) bool {
 		assert.Equal(t, true, signature.IsValid(dataToSign))
 
 		return true
 	})
 
-	clonedSignatures, err, _ := FromBytes(signatures.Bytes())
+	clonedSignatures, err, _ := SignaturesFromBytes(signatures.Bytes())
 	if err != nil {
 		t.Error(err)
 
@@ -40,7 +41,7 @@ func TestSignatures(t *testing.T) {
 
 	assert.Equal(t, 2, clonedSignatures.Size())
 
-	clonedSignatures.ForEach(func(address address.Address, signature Signature) bool {
+	clonedSignatures.ForEach(func(address address.Address, signature signaturescheme.Signature) bool {
 		assert.Equal(t, true, signature.IsValid(dataToSign))
 
 		return true

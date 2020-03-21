@@ -1,9 +1,10 @@
-package signatures
+package transaction
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction/signaturescheme"
 )
 
 // Signatures represents a container for the address signatures of a value transfer.
@@ -14,7 +15,7 @@ type Signatures struct {
 }
 
 // New creates an empty container for the address signatures of a value transfer.
-func New() *Signatures {
+func NewSignatures() *Signatures {
 	return &Signatures{
 		orderedMap: orderedmap.New(),
 	}
@@ -22,7 +23,7 @@ func New() *Signatures {
 
 // FromBytes unmarshals a container with signatures from a sequence of bytes.
 // It either creates a new container or fills the optionally provided container with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Signatures) (result *Signatures, err error, consumedBytes int) {
+func SignaturesFromBytes(bytes []byte, optionalTargetObject ...*Signatures) (result *Signatures, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -46,15 +47,15 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Signatures) (result *Signa
 	for versionByte != 0 {
 		// perform signature scheme specific decoding
 		switch versionByte {
-		case VERSION_ED25519:
+		case signaturescheme.VERSION_ED25519:
 			marshalUtil.ReadSeek(-1)
-			signature, signatureErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return ed25519SignatureFromBytes(data) })
+			signature, signatureErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return signaturescheme.Ed25519SignatureFromBytes(data) })
 			if signatureErr != nil {
 				err = signatureErr
 
 				return
 			}
-			typeCastedSignature := signature.(Signature)
+			typeCastedSignature := signature.(signaturescheme.Signature)
 
 			result.orderedMap.Set(typeCastedSignature.Address(), typeCastedSignature)
 		}
@@ -71,17 +72,17 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Signatures) (result *Signa
 	return
 }
 
-func (signatures *Signatures) Add(address address.Address, signature Signature) {
+func (signatures *Signatures) Add(address address.Address, signature signaturescheme.Signature) {
 	signatures.orderedMap.Set(address, signature)
 }
 
-func (signatures *Signatures) Get(address address.Address) (Signature, bool) {
+func (signatures *Signatures) Get(address address.Address) (signaturescheme.Signature, bool) {
 	signature, exists := signatures.orderedMap.Get(address)
 	if !exists {
 		return nil, false
 	}
 
-	return signature.(Signature), exists
+	return signature.(signaturescheme.Signature), exists
 }
 
 // Size returns the amount of signatures in this container.
@@ -91,9 +92,9 @@ func (signatures *Signatures) Size() int {
 
 // ForEach iterates through all signatures, calling the consumer for every found entry.
 // The iteration can be aborted by the consumer returning false
-func (signatures *Signatures) ForEach(consumer func(address address.Address, signature Signature) bool) {
+func (signatures *Signatures) ForEach(consumer func(address address.Address, signature signaturescheme.Signature) bool) {
 	signatures.orderedMap.ForEach(func(key, value interface{}) bool {
-		return consumer(key.(address.Address), value.(Signature))
+		return consumer(key.(address.Address), value.(signaturescheme.Signature))
 	})
 }
 
@@ -103,7 +104,7 @@ func (signatures *Signatures) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 
 	// iterate through signatures and dump them
-	signatures.ForEach(func(address address.Address, signature Signature) bool {
+	signatures.ForEach(func(address address.Address, signature signaturescheme.Signature) bool {
 		marshalUtil.WriteBytes(signature.Bytes())
 
 		return true
