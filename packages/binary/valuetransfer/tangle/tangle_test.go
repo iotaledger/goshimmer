@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance/color"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadmetadata"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -34,7 +33,7 @@ func TestTangle_AttachPayload(t *testing.T) {
 		return
 	}
 
-	tangle.Events.PayloadSolid.Attach(events.NewClosure(func(payload *payload.CachedPayload, metadata *payloadmetadata.CachedMetadata) {
+	tangle.Events.PayloadSolid.Attach(events.NewClosure(func(payload *payload.CachedPayload, metadata *payload.CachedMetadata) {
 		fmt.Println(payload.Unwrap())
 
 		payload.Release()
