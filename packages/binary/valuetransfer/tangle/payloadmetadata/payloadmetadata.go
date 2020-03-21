@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
-	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 )
 
 // PayloadMetadata is a container for the metadata of a value transfer payload.
@@ -16,7 +16,7 @@ import (
 type PayloadMetadata struct {
 	objectstorage.StorableObjectFlags
 
-	payloadId          payloadid.Id
+	payloadId          payload.Id
 	solid              bool
 	solidificationTime time.Time
 
@@ -25,7 +25,7 @@ type PayloadMetadata struct {
 }
 
 // New creates an empty container for the metadata of a value transfer payload.
-func New(payloadId payloadid.Id) *PayloadMetadata {
+func New(payloadId payload.Id) *PayloadMetadata {
 	return &PayloadMetadata{
 		payloadId: payloadId,
 	}
@@ -46,7 +46,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*PayloadMetadata) (result *
 
 	// parse the bytes
 	marshalUtil := marshalutil.New(bytes)
-	if result.payloadId, err = payloadid.ParseId(marshalUtil); err != nil {
+	if result.payloadId, err = payload.ParseId(marshalUtil); err != nil {
 		return
 	}
 	if result.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
@@ -66,7 +66,7 @@ func FromStorage(id []byte) objectstorage.StorableObject {
 	result := &PayloadMetadata{}
 
 	var err error
-	if result.payloadId, err = payloadid.ParseId(marshalutil.New(id)); err != nil {
+	if result.payloadId, err = payload.ParseId(marshalutil.New(id)); err != nil {
 		panic(err)
 	}
 
@@ -83,7 +83,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (*PayloadMetadata, error) {
 }
 
 // GetPayloadId return the id of the payload that this metadata is associated to.
-func (payloadMetadata *PayloadMetadata) GetPayloadId() payloadid.Id {
+func (payloadMetadata *PayloadMetadata) GetPayloadId() payload.Id {
 	return payloadMetadata.payloadId
 }
 
