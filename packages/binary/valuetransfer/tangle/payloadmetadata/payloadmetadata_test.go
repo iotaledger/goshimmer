@@ -6,11 +6,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 )
 
 func TestMarshalUnmarshal(t *testing.T) {
-	originalMetadata := New(id.GenesisId)
+	originalMetadata := New(payload.GenesisId)
 
 	clonedMetadata, err, _ := FromBytes(originalMetadata.Bytes())
 	if err != nil {
@@ -34,7 +34,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 }
 
 func TestPayloadMetadata_SetSolid(t *testing.T) {
-	originalMetadata := New(id.GenesisId)
+	originalMetadata := New(payload.GenesisId)
 
 	assert.Equal(t, false, originalMetadata.IsSolid())
 	assert.Equal(t, time.Time{}, originalMetadata.GetSoldificationTime())
