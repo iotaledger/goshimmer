@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 )
 
-// OutputMetadata contains the information of a transfer output, that are based on our local perception of things (i.e. if it
+// OutputMetadata contains the information of a transaction output, that are based on our local perception of things (i.e. if it
 // is solid, or when we it became solid).
 type OutputMetadata struct {
 	objectstorage.StorableObjectFlags

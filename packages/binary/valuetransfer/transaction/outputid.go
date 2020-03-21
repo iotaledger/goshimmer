@@ -11,9 +11,9 @@ import (
 type OutputId [OutputIdLength]byte
 
 // NewOutputId is the constructor for the OutputId type.
-func NewOutputId(outputAddress address.Address, transactionId Id) (transferOutputId OutputId) {
-	copy(transferOutputId[:address.Length], outputAddress.Bytes())
-	copy(transferOutputId[address.Length:], transactionId[:])
+func NewOutputId(outputAddress address.Address, transactionId Id) (outputId OutputId) {
+	copy(outputId[:address.Length], outputAddress.Bytes())
+	copy(outputId[address.Length:], transactionId[:])
 
 	return
 }
@@ -36,10 +36,10 @@ func OutputIdFromBytes(bytes []byte) (result OutputId, err error, consumedBytes 
 
 // Parse is a wrapper for simplified unmarshaling of Ids from a byte stream using the marshalUtil package.
 func ParseOutputId(marshalUtil *marshalutil.MarshalUtil) (OutputId, error) {
-	if transferMetadata, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return OutputIdFromBytes(data) }); err != nil {
+	if outputId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return OutputIdFromBytes(data) }); err != nil {
 		return OutputId{}, err
 	} else {
-		return transferMetadata.(OutputId), nil
+		return outputId.(OutputId), nil
 	}
 }
 
@@ -50,9 +50,9 @@ func (outputId OutputId) Address() (address address.Address) {
 	return
 }
 
-// TransactionId returns the transfer id part of an OutputId.
-func (outputId OutputId) TransactionId() (transferId Id) {
-	copy(transferId[:], outputId[address.Length:])
+// TransactionId returns the transaction id part of an OutputId.
+func (outputId OutputId) TransactionId() (transactionId Id) {
+	copy(transactionId[:], outputId[address.Length:])
 
 	return
 }

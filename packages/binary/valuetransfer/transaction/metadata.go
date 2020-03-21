@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 )
 
-// Metadata contains the information of a transfer, that are based on our local perception of things (i.e. if it is
+// Metadata contains the information of a Transaction, that are based on our local perception of things (i.e. if it is
 // solid, or when we it became solid).
 type Metadata struct {
 	objectstorage.StorableObjectFlags
@@ -24,9 +24,9 @@ type Metadata struct {
 }
 
 // NewMetadata is the constructor for the Metadata type.
-func NewMetadata(transferOutputId Id) *Metadata {
+func NewMetadata(id Id) *Metadata {
 	return &Metadata{
-		id: transferOutputId,
+		id: id,
 	}
 }
 
@@ -74,10 +74,10 @@ func MetadataFromStorage(storageKey []byte) objectstorage.StorableObject {
 
 // Parse is a wrapper for simplified unmarshaling of Metadata objects from a byte stream using the marshalUtil package.
 func ParseMetadata(marshalUtil *marshalutil.MarshalUtil) (*Metadata, error) {
-	if transferMetadata, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return MetadataFromBytes(data) }); err != nil {
+	if metadata, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return MetadataFromBytes(data) }); err != nil {
 		return nil, err
 	} else {
-		return transferMetadata.(*Metadata), nil
+		return metadata.(*Metadata), nil
 	}
 }
 
@@ -145,7 +145,7 @@ func (metadata *Metadata) Bytes() []byte {
 
 // String creates a human readable version of the metadata (for debug purposes).
 func (metadata *Metadata) String() string {
-	return stringify.Struct("transfer.Metadata",
+	return stringify.Struct("transaction.Metadata",
 		stringify.StructField("payloadId", metadata.Id()),
 		stringify.StructField("solid", metadata.Solid()),
 		stringify.StructField("solidificationTime", metadata.SoldificationTime()),

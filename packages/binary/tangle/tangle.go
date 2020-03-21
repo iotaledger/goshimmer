@@ -9,8 +9,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/approver"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/missingtransaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/missingtransaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
 
 	"github.com/iotaledger/hive.go/async"

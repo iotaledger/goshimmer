@@ -22,7 +22,7 @@ func IdFromBase58(base58String string) (id Id, err error) {
 
 	// sanitize input
 	if len(bytes) != IdLength {
-		err = fmt.Errorf("base58 encoded string does not match the length of a transfer id")
+		err = fmt.Errorf("base58 encoded string does not match the length of a transaction id")
 
 		return
 	}
@@ -51,10 +51,10 @@ func IdFromBytes(bytes []byte) (result Id, err error, consumedBytes int) {
 
 // Parse is a wrapper for simplified unmarshaling of Ids from a byte stream using the marshalUtil package.
 func ParseId(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
-	if transferMetadata, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) }); err != nil {
+	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) }); err != nil {
 		return Id{}, err
 	} else {
-		return transferMetadata.(Id), nil
+		return id.(Id), nil
 	}
 }
 
@@ -73,13 +73,13 @@ func RandomId() (id Id) {
 }
 
 // Bytes marshals the Id into a sequence of bytes.
-func (transferOutputId Id) Bytes() []byte {
-	return transferOutputId[:]
+func (id Id) Bytes() []byte {
+	return id[:]
 }
 
 // String creates a human readable version of the Id (for debug purposes).
-func (transferOutputId Id) String() string {
-	return base58.Encode(transferOutputId[:])
+func (id Id) String() string {
+	return base58.Encode(id[:])
 }
 
 // IdLength contains the amount of bytes that a marshaled version of the Id contains.

@@ -10,24 +10,24 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance"
 )
 
-// Output represents the output of a transfer and contains the balances and the identifiers for this output.
+// Output represents the output of a Transaction and contains the balances and the identifiers for this output.
 type Output struct {
-	address    address.Address
-	transferId Id
-	balances   []*coloredbalance.ColoredBalance
+	address       address.Address
+	transactionId Id
+	balances      []*coloredbalance.ColoredBalance
 
 	objectstorage.StorableObjectFlags
 	storageKey []byte
 }
 
-// NewOutput creates a transfer output that contains the balances and identifiers of a successful transfer.
-func NewOutput(address address.Address, transferId Id, balances []*coloredbalance.ColoredBalance) *Output {
+// NewOutput creates an Output that contains the balances and identifiers of a Transaction.
+func NewOutput(address address.Address, transactionId Id, balances []*coloredbalance.ColoredBalance) *Output {
 	return &Output{
-		address:    address,
-		transferId: transferId,
-		balances:   balances,
+		address:       address,
+		transactionId: transactionId,
+		balances:      balances,
 
-		storageKey: marshalutil.New().WriteBytes(address.Bytes()).WriteBytes(transferId.Bytes()).Bytes(),
+		storageKey: marshalutil.New().WriteBytes(address.Bytes()).WriteBytes(transactionId.Bytes()).Bytes(),
 	}
 }
 
@@ -45,9 +45,9 @@ func (output *Output) Address() address.Address {
 	return output.address
 }
 
-// TransactionId returns the transfer id, that created this output.
-func (output *Output) TransferId() Id {
-	return output.transferId
+// TransactionId returns the id of the Transaction, that created this output.
+func (output *Output) TransactionId() Id {
+	return output.transactionId
 }
 
 // Balances returns the colored balances (color + balance) that this output contains.
@@ -55,7 +55,7 @@ func (output *Output) Balances() []*coloredbalance.ColoredBalance {
 	return output.balances
 }
 
-// MarshalBinary marshals the balances into a sequence of bytes - the address and transferId are stored inside the key
+// MarshalBinary marshals the balances into a sequence of bytes - the address and transaction id are stored inside the key
 // and are ignored here.
 func (output *Output) MarshalBinary() (data []byte, err error) {
 	// determine amount of balances in the output
@@ -89,7 +89,7 @@ func (output *Output) UnmarshalBinary(data []byte) (err error) {
 	if err != nil {
 		return
 	}
-	output.transferId, err = ParseId(storageKeyUnmarshaler)
+	output.transactionId, err = ParseId(storageKeyUnmarshaler)
 	if err != nil {
 		return
 	}

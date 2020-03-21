@@ -111,14 +111,14 @@ func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Addres
 	})
 }
 
-func (inputs *Inputs) ForEachTransfer(consumer func(currentTransfer Id) bool) bool {
-	seenTransfers := make(map[Id]bool)
+func (inputs *Inputs) ForEachTransaction(consumer func(transactionId Id) bool) bool {
+	seenTransactions := make(map[Id]bool)
 
 	return inputs.ForEach(func(outputId OutputId) bool {
-		if currentTransferId := outputId.TransactionId(); !seenTransfers[currentTransferId] {
-			seenTransfers[currentTransferId] = true
+		if currentTransactionId := outputId.TransactionId(); !seenTransactions[currentTransactionId] {
+			seenTransactions[currentTransactionId] = true
 
-			return consumer(currentTransferId)
+			return consumer(currentTransactionId)
 		}
 
 		return true
