@@ -6,10 +6,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance/color"
@@ -46,8 +46,8 @@ func TestTangle_AttachPayload(t *testing.T) {
 		metadata.Release()
 	}))
 
-	addressKeyPair1 := ed25119.GenerateKeyPair()
-	addressKeyPair2 := ed25119.GenerateKeyPair()
+	addressKeyPair1 := ed25519.GenerateKeyPair()
+	addressKeyPair2 := ed25519.GenerateKeyPair()
 
 	tangle.AttachPayload(payload.New(id.Genesis, id.Genesis, transfer.New(
 		inputs.New(

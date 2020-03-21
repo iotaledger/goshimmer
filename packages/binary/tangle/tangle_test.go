@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
@@ -32,11 +32,11 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 		return
 	}
 
-	testIdentity := ed25119.GenerateKeyPair()
+	testIdentity := identity.GenerateLocalIdentity()
 
 	transactionBytes := make([]*transaction.Transaction, b.N)
 	for i := 0; i < b.N; i++ {
-		transactionBytes[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, testIdentity, time.Now(), 0, data.New([]byte("some data")))
+		transactionBytes[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, testIdentity.PublicKey(), time.Now(), 0, data.New([]byte("some data")), testIdentity)
 		transactionBytes[i].Bytes()
 	}
 
@@ -91,8 +91,10 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		fmt.Println("REMOVED:", transactionId)
 	}))
 
-	newTransaction1 := transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("some data")))
-	newTransaction2 := transaction.New(newTransaction1.GetId(), newTransaction1.GetId(), ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("some other data")))
+	localIdentity1 := identity.GenerateLocalIdentity()
+	localIdentity2 := identity.GenerateLocalIdentity()
+	newTransaction1 := transaction.New(transaction.EmptyId, transaction.EmptyId, localIdentity1.PublicKey(), time.Now(), 0, data.New([]byte("some data")), localIdentity1)
+	newTransaction2 := transaction.New(newTransaction1.GetId(), newTransaction1.GetId(), localIdentity2.PublicKey(), time.Now(), 0, data.New([]byte("some other data")), localIdentity2)
 
 	tangle.AttachTransaction(newTransaction2)
 

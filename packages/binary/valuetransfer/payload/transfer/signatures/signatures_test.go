@@ -3,17 +3,17 @@ package signatures
 import (
 	"testing"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 )
 
 func TestSignatures(t *testing.T) {
 	dataToSign := []byte("test")
 
-	address1SigScheme := ED25519(ed25119.GenerateKeyPair())
-	address2SigScheme := ED25519(ed25119.GenerateKeyPair())
+	address1SigScheme := ED25519(ed25519.GenerateKeyPair())
+	address2SigScheme := ED25519(ed25519.GenerateKeyPair())
 
 	signatures := New()
 	signatures.Add(address1SigScheme.Address(), address1SigScheme.Sign(dataToSign))

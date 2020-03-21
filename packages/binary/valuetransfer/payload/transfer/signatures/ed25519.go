@@ -3,9 +3,9 @@ package signatures
 import (
 	"fmt"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 )
 
@@ -17,7 +17,7 @@ const (
 )
 
 // ED25519 creates an instance of a signature scheme, that is used to sign the corresponding address.
-func ED25519(keyPair ed25119.KeyPair) SignatureScheme {
+func ED25519(keyPair ed25519.KeyPair) SignatureScheme {
 	return &ed25519SignatureScheme{
 		keyPair: keyPair,
 	}
@@ -29,7 +29,7 @@ func ED25519(keyPair ed25119.KeyPair) SignatureScheme {
 
 // ed25519SignatureScheme defines an interface for ED25519 elliptic curve signatures.
 type ed25519SignatureScheme struct {
-	keyPair ed25119.KeyPair
+	keyPair ed25519.KeyPair
 }
 
 // Version returns the version byte that is associated to this signature scheme.
@@ -59,8 +59,8 @@ var _ SignatureScheme = &ed25519SignatureScheme{}
 
 // ed25519Signature represents a signature for an addresses that uses elliptic curve cryptography.
 type ed25519Signature struct {
-	publicKey ed25119.PublicKey
-	signature ed25119.Signature
+	publicKey ed25519.PublicKey
+	signature ed25519.Signature
 }
 
 // ed25519SignatureFromBytes unmarshals an ed25519 signatures from a sequence of bytes.
@@ -90,18 +90,18 @@ func ed25519SignatureFromBytes(bytes []byte, optionalTargetObject ...*ed25519Sig
 	}
 
 	// read public key
-	publicKey, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return ed25119.PublicKeyFromBytes(data) })
+	publicKey, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return ed25519.PublicKeyFromBytes(data) })
 	if err != nil {
 		return
 	}
-	result.publicKey = publicKey.(ed25119.PublicKey)
+	result.publicKey = publicKey.(ed25519.PublicKey)
 
 	// read signature
-	signature, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return ed25119.SignatureFromBytes(data) })
+	signature, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return ed25519.SignatureFromBytes(data) })
 	if err != nil {
 		return
 	}
-	result.signature = signature.(ed25119.Signature)
+	result.signature = signature.(ed25519.Signature)
 
 	// return the number of bytes we processed
 	consumedBytes = marshalUtil.ReadOffset()
@@ -116,7 +116,7 @@ func (signature *ed25519Signature) IsValid(signedData []byte) bool {
 
 // Bytes returns a marshaled version of the signature.
 func (signature *ed25519Signature) Bytes() []byte {
-	marshalUtil := marshalutil.New(1 + ed25119.PublicKeySize + ed25119.SignatureSize)
+	marshalUtil := marshalutil.New(1 + ed25519.PublicKeySize + ed25519.SignatureSize)
 	marshalUtil.WriteByte(VERSION_ED25519)
 	marshalUtil.WriteBytes(signature.publicKey[:])
 	marshalUtil.WriteBytes(signature.signature[:])

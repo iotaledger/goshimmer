@@ -7,14 +7,15 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
 )
 
 func BenchmarkTransactionParser_ParseBytesSame(b *testing.B) {
-	txBytes := transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("Test"))).Bytes()
+	localIdentity := identity.GenerateLocalIdentity()
+	txBytes := transaction.New(transaction.EmptyId, transaction.EmptyId, localIdentity.PublicKey(), time.Now(), 0, data.New([]byte("Test")), localIdentity).Bytes()
 	txParser := New()
 
 	b.ResetTimer()
@@ -28,8 +29,9 @@ func BenchmarkTransactionParser_ParseBytesSame(b *testing.B) {
 
 func BenchmarkTransactionParser_ParseBytesDifferent(b *testing.B) {
 	transactionBytes := make([][]byte, b.N)
+	localIdentity := identity.GenerateLocalIdentity()
 	for i := 0; i < b.N; i++ {
-		transactionBytes[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("Test"+strconv.Itoa(i)))).Bytes()
+		transactionBytes[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, localIdentity.PublicKey(), time.Now(), 0, data.New([]byte("Test"+strconv.Itoa(i))), localIdentity).Bytes()
 	}
 
 	txParser := New()
@@ -44,7 +46,8 @@ func BenchmarkTransactionParser_ParseBytesDifferent(b *testing.B) {
 }
 
 func TestTransactionParser_ParseTransaction(t *testing.T) {
-	tx := transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("Test")))
+	localIdentity := identity.GenerateLocalIdentity()
+	tx := transaction.New(transaction.EmptyId, transaction.EmptyId, localIdentity.PublicKey(), time.Now(), 0, data.New([]byte("Test")), localIdentity)
 
 	txParser := New()
 	txParser.Parse(tx.Bytes(), nil)

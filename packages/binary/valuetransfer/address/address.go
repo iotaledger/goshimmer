@@ -4,10 +4,10 @@ import (
 	"crypto/rand"
 	"fmt"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
@@ -52,7 +52,7 @@ func FromBase58(base58String string) (address Address, err error) {
 	return
 }
 
-func FromED25519PubKey(key ed25119.PublicKey) (address Address) {
+func FromED25519PubKey(key ed25519.PublicKey) (address Address) {
 	digest := blake2b.Sum256(key[:])
 
 	address[0] = 0

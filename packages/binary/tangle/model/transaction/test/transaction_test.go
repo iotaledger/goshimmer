@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/async"
+	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/panjf2000/ants/v2"
 
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
 )
@@ -19,9 +19,11 @@ func BenchmarkVerifyDataTransactions(b *testing.B) {
 	var pool async.WorkerPool
 	pool.Tune(runtime.NumCPU() * 2)
 
+	localIdentity := identity.GenerateLocalIdentity()
+
 	transactions := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
-		tx := transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("some data")))
+		tx := transaction.New(transaction.EmptyId, transaction.EmptyId, localIdentity.PublicKey(), time.Now(), 0, data.New([]byte("some data")), localIdentity)
 
 		if marshaledTransaction, err := tx.MarshalBinary(); err != nil {
 			b.Error(err)
@@ -49,9 +51,11 @@ func BenchmarkVerifyDataTransactions(b *testing.B) {
 func BenchmarkVerifySignature(b *testing.B) {
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
+	localIdentity := identity.GenerateLocalIdentity()
+
 	transactions := make([]*transaction.Transaction, b.N)
 	for i := 0; i < b.N; i++ {
-		transactions[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("test")))
+		transactions[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, localIdentity.PublicKey(), time.Now(), 0, data.New([]byte("test")), localIdentity)
 		transactions[i].Bytes()
 	}
 
