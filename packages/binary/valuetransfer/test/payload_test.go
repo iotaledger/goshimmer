@@ -12,10 +12,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance/color"
-	valuepayload "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
-	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/signatures"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction/signaturescheme"
 )
 
 func ExamplePayload() {
@@ -36,12 +35,12 @@ func ExamplePayload() {
 	)
 
 	// 2. create value payload (the ontology creates this and wraps the user provided transfer accordingly)
-	valuePayload := valuepayload.New(
+	valuePayload := payload.New(
 		// trunk in "value transfer ontology" (filled by ontology tipSelector)
-		payloadid.GenesisId,
+		payload.GenesisId,
 
 		// branch in "value transfer ontology"  (filled by ontology tipSelector)
-		payloadid.GenesisId,
+		payload.GenesisId,
 
 		// value transfer
 		valueTransfer,
@@ -75,9 +74,9 @@ func TestPayload(t *testing.T) {
 	addressKeyPair1 := ed25119.GenerateKeyPair()
 	addressKeyPair2 := ed25119.GenerateKeyPair()
 
-	originalPayload := valuepayload.New(
-		payloadid.GenesisId,
-		payloadid.GenesisId,
+	originalPayload := payload.New(
+		payload.GenesisId,
+		payload.GenesisId,
 		transaction.New(
 			transaction.NewInputs(
 				transaction.NewOutputId(address.FromED25519PubKey(addressKeyPair1.PublicKey), transaction.RandomId()),
@@ -90,19 +89,19 @@ func TestPayload(t *testing.T) {
 				},
 			}),
 		).Sign(
-			signatures.ED25519(addressKeyPair1),
+			signaturescheme.ED25519(addressKeyPair1),
 		),
 	)
 
 	assert.Equal(t, false, originalPayload.GetTransfer().SignaturesValid())
 
 	originalPayload.GetTransfer().Sign(
-		signatures.ED25519(addressKeyPair2),
+		signaturescheme.ED25519(addressKeyPair2),
 	)
 
 	assert.Equal(t, true, originalPayload.GetTransfer().SignaturesValid())
 
-	clonedPayload1, err, _ := valuepayload.FromBytes(originalPayload.Bytes())
+	clonedPayload1, err, _ := payload.FromBytes(originalPayload.Bytes())
 	if err != nil {
 		panic(err)
 	}
@@ -110,7 +109,7 @@ func TestPayload(t *testing.T) {
 	assert.Equal(t, originalPayload.GetId(), clonedPayload1.GetId())
 	assert.Equal(t, true, clonedPayload1.GetTransfer().SignaturesValid())
 
-	clonedPayload2, err, _ := valuepayload.FromBytes(clonedPayload1.Bytes())
+	clonedPayload2, err, _ := payload.FromBytes(clonedPayload1.Bytes())
 	if err != nil {
 		panic(err)
 	}
