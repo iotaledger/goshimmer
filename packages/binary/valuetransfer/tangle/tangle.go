@@ -39,7 +39,7 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		storageId: storageId,
 
 		payloadStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayload...), valuepayload.FromStorage, objectstorage.CacheTime(time.Second)),
-		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), payloadmetadata.FromStorage, objectstorage.CacheTime(time.Second)),
+		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), payloadmetadata.MetadataFromStorage, objectstorage.CacheTime(time.Second)),
 		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), payloadapprover.FromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), missingpayload.FromStorage, objectstorage.CacheTime(time.Second)),
 
@@ -60,8 +60,8 @@ func (tangle *Tangle) GetPayload(payloadId payload.Id) *valuepayload.CachedObjec
 }
 
 // GetPayloadMetadata retrieves the metadata of a value payload from the object storage.
-func (tangle *Tangle) GetPayloadMetadata(payloadId payload.Id) *payloadmetadata.CachedObject {
-	return &payloadmetadata.CachedObject{CachedObject: tangle.payloadMetadataStorage.Load(payloadId.Bytes())}
+func (tangle *Tangle) GetPayloadMetadata(payloadId payload.Id) *payloadmetadata.CachedMetadata {
+	return &payloadmetadata.CachedMetadata{CachedObject: tangle.payloadMetadataStorage.Load(payloadId.Bytes())}
 }
 
 // GetApprovers retrieves the approvers of a payload from the object storage.
@@ -118,7 +118,7 @@ func (tangle *Tangle) storePayloadWorker(payload *valuepayload.Payload) {
 
 	// store payload metadata
 	payloadId := payload.GetId()
-	cachedMetadata := &payloadmetadata.CachedObject{CachedObject: tangle.payloadMetadataStorage.Store(payloadmetadata.New(payloadId))}
+	cachedMetadata := &payloadmetadata.CachedMetadata{CachedObject: tangle.payloadMetadataStorage.Store(payloadmetadata.NewMetadata(payloadId))}
 
 	// store trunk approver
 	trunkId := payload.TrunkId()
@@ -142,14 +142,14 @@ func (tangle *Tangle) storePayloadWorker(payload *valuepayload.Payload) {
 }
 
 // solidifyTransactionWorker is the worker function that solidifies the payloads (recursively from past to present).
-func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *valuepayload.CachedObject, cachedMetadata *payloadmetadata.CachedObject) {
-	popElementsFromStack := func(stack *list.List) (*valuepayload.CachedObject, *payloadmetadata.CachedObject) {
+func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *valuepayload.CachedObject, cachedMetadata *payloadmetadata.CachedMetadata) {
+	popElementsFromStack := func(stack *list.List) (*valuepayload.CachedObject, *payloadmetadata.CachedMetadata) {
 		currentSolidificationEntry := stack.Front()
 		currentCachedPayload := currentSolidificationEntry.Value.([2]interface{})[0]
 		currentCachedMetadata := currentSolidificationEntry.Value.([2]interface{})[1]
 		stack.Remove(currentSolidificationEntry)
 
-		return currentCachedPayload.(*valuepayload.CachedObject), currentCachedMetadata.(*payloadmetadata.CachedObject)
+		return currentCachedPayload.(*valuepayload.CachedObject), currentCachedMetadata.(*payloadmetadata.CachedMetadata)
 	}
 
 	// initialize the stack
@@ -217,7 +217,7 @@ func (tangle *Tangle) isTransferOutputMarkedAsSolid(transferOutputId transaction
 		})
 
 		if !objectConsumed {
-			if cachedMissingPayload, missingPayloadStored := tangle.missingPayloadStorage.StoreIfAbsent(missingpayload.New(transferOutputId)); missingPayloadStored {
+			if cachedMissingPayload, missingPayloadStored := tangle.missingPayloadStorage.StoreIfAbsent(missingpayload.NewMetadata(transferOutputId)); missingPayloadStored {
 				cachedMissingPayload.Consume(func(object objectstorage.StorableObject) {
 					tangle.Events.PayloadMissing.Trigger(object.(*missingpayload.MissingPayload).GetId())
 				})
@@ -230,7 +230,7 @@ func (tangle *Tangle) isTransferOutputMarkedAsSolid(transferOutputId transaction
 
 // isPayloadSolid returns true if the given payload is solid. A payload is considered to be solid solid, if it is either
 // already marked as solid or if its referenced payloads are marked as solid.
-func (tangle *Tangle) isPayloadSolid(payload *valuepayload.Payload, metadata *payloadmetadata.PayloadMetadata) bool {
+func (tangle *Tangle) isPayloadSolid(payload *valuepayload.Payload, metadata *payloadmetadata.Metadata) bool {
 	if payload == nil || payload.IsDeleted() {
 		return false
 	}
