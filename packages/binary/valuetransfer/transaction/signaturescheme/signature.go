@@ -1,4 +1,4 @@
-package transaction
+package signaturescheme
 
 import "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 
