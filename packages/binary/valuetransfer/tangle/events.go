@@ -4,7 +4,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadmetadata"
 )
 
 type Events struct {
@@ -33,8 +32,8 @@ func payloadIdEvent(handler interface{}, params ...interface{}) {
 }
 
 func cachedPayloadEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*payload.CachedObject, *payloadmetadata.CachedMetadata))(
-		params[0].(*payload.CachedObject).Retain(),
-		params[1].(*payloadmetadata.CachedMetadata).Retain(),
+	handler.(func(*payload.CachedPayload, *payload.CachedMetadata))(
+		params[0].(*payload.CachedPayload).Retain(),
+		params[1].(*payload.CachedMetadata).Retain(),
 	)
 }

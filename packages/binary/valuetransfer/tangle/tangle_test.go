@@ -34,7 +34,7 @@ func TestTangle_AttachPayload(t *testing.T) {
 		return
 	}
 
-	tangle.Events.PayloadSolid.Attach(events.NewClosure(func(payload *payload.CachedObject, metadata *payloadmetadata.CachedMetadata) {
+	tangle.Events.PayloadSolid.Attach(events.NewClosure(func(payload *payload.CachedPayload, metadata *payloadmetadata.CachedMetadata) {
 		fmt.Println(payload.Unwrap())
 
 		payload.Release()

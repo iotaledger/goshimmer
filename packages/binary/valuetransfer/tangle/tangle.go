@@ -55,8 +55,8 @@ func (tangle *Tangle) AttachPayload(payload *valuepayload.Payload) {
 }
 
 // GetPayload retrieves a payload from the object storage.
-func (tangle *Tangle) GetPayload(payloadId payload.Id) *valuepayload.CachedObject {
-	return &valuepayload.CachedObject{CachedObject: tangle.payloadStorage.Load(payloadId.Bytes())}
+func (tangle *Tangle) GetPayload(payloadId payload.Id) *valuepayload.CachedPayload {
+	return &valuepayload.CachedPayload{CachedObject: tangle.payloadStorage.Load(payloadId.Bytes())}
 }
 
 // GetPayloadMetadata retrieves the metadata of a value payload from the object storage.
@@ -109,11 +109,11 @@ func (tangle *Tangle) Prune() error {
 // storePayloadWorker is the worker function that stores the payload and calls the corresponding storage events.
 func (tangle *Tangle) storePayloadWorker(payload *valuepayload.Payload) {
 	// store payload
-	var cachedPayload *valuepayload.CachedObject
+	var cachedPayload *valuepayload.CachedPayload
 	if _tmp, transactionIsNew := tangle.payloadStorage.StoreIfAbsent(payload); !transactionIsNew {
 		return
 	} else {
-		cachedPayload = &valuepayload.CachedObject{CachedObject: _tmp}
+		cachedPayload = &valuepayload.CachedPayload{CachedObject: _tmp}
 	}
 
 	// store payload metadata
@@ -142,14 +142,14 @@ func (tangle *Tangle) storePayloadWorker(payload *valuepayload.Payload) {
 }
 
 // solidifyTransactionWorker is the worker function that solidifies the payloads (recursively from past to present).
-func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *valuepayload.CachedObject, cachedMetadata *payloadmetadata.CachedMetadata) {
-	popElementsFromStack := func(stack *list.List) (*valuepayload.CachedObject, *payloadmetadata.CachedMetadata) {
+func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *valuepayload.CachedPayload, cachedMetadata *payloadmetadata.CachedMetadata) {
+	popElementsFromStack := func(stack *list.List) (*valuepayload.CachedPayload, *payloadmetadata.CachedMetadata) {
 		currentSolidificationEntry := stack.Front()
 		currentCachedPayload := currentSolidificationEntry.Value.([2]interface{})[0]
 		currentCachedMetadata := currentSolidificationEntry.Value.([2]interface{})[1]
 		stack.Remove(currentSolidificationEntry)
 
-		return currentCachedPayload.(*valuepayload.CachedObject), currentCachedMetadata.(*payloadmetadata.CachedMetadata)
+		return currentCachedPayload.(*valuepayload.CachedPayload), currentCachedMetadata.(*payloadmetadata.CachedMetadata)
 	}
 
 	// initialize the stack
