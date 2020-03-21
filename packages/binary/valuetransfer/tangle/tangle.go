@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	valuepayload "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/missingpayload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadapprover"
@@ -60,12 +60,12 @@ func (tangle *Tangle) GetPayload(payloadId payload.Id) *valuepayload.CachedObjec
 }
 
 // GetPayloadMetadata retrieves the metadata of a value payload from the object storage.
-func (tangle *Tangle) GetPayloadMetadata(payloadId payloadid.Id) *payloadmetadata.CachedObject {
+func (tangle *Tangle) GetPayloadMetadata(payloadId payload.Id) *payloadmetadata.CachedObject {
 	return &payloadmetadata.CachedObject{CachedObject: tangle.payloadMetadataStorage.Load(payloadId.Bytes())}
 }
 
 // GetApprovers retrieves the approvers of a payload from the object storage.
-func (tangle *Tangle) GetApprovers(transactionId payloadid.Id) payloadapprover.CachedObjects {
+func (tangle *Tangle) GetApprovers(transactionId payload.Id) payloadapprover.CachedObjects {
 	approvers := make(payloadapprover.CachedObjects, 0)
 	tangle.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		approvers = append(approvers, &payloadapprover.CachedObject{CachedObject: cachedObject})
@@ -248,8 +248,8 @@ func (tangle *Tangle) isPayloadSolid(payload *valuepayload.Payload, metadata *pa
 
 // isPayloadMarkedAsSolid returns true if the payload was marked as solid already (by setting the corresponding flags
 // in its metadata.
-func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payloadid.Id) bool {
-	if payloadId == payloadid.GenesisId {
+func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payload.Id) bool {
+	if payloadId == payload.GenesisId {
 		return true
 	}
 
