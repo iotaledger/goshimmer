@@ -37,7 +37,7 @@ func getNeighbors(c echo.Context) error {
 		for _, peer := range autopeering.Discovery.GetVerifiedPeers() {
 			n := Neighbor{
 				ID:        peer.ID().String(),
-				PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey()),
+				PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey().Bytes()),
 			}
 			n.Services = getServices(peer)
 			knownPeers = append(knownPeers, n)
@@ -47,7 +47,7 @@ func getNeighbors(c echo.Context) error {
 	for _, peer := range autopeering.Selection.GetOutgoingNeighbors() {
 		n := Neighbor{
 			ID:        peer.ID().String(),
-			PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey()),
+			PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey().Bytes()),
 		}
 		n.Services = getServices(peer)
 		chosen = append(chosen, n)
@@ -55,7 +55,7 @@ func getNeighbors(c echo.Context) error {
 	for _, peer := range autopeering.Selection.GetIncomingNeighbors() {
 		n := Neighbor{
 			ID:        peer.ID().String(),
-			PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey()),
+			PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey().Bytes()),
 		}
 		n.Services = getServices(peer)
 		accepted = append(accepted, n)

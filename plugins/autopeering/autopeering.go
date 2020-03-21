@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/autopeering/server"
 	"github.com/iotaledger/hive.go/autopeering/transport"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
@@ -145,11 +146,15 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: can't decode public key: %s", ErrParsingMasterNode, err)
 		}
+		publicKey, err, _ := ed25519.PublicKeyFromBytes(pubKey)
+		if err != nil {
+			return nil, err
+		}
 
 		services := service.New()
 		services.Update(service.PeeringKey, "udp", parts[1])
 
-		result = append(result, peer.NewPeer(pubKey, services))
+		result = append(result, peer.NewPeer(publicKey, services))
 	}
 
 	return result, nil

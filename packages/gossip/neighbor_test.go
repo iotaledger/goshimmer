@@ -9,6 +9,7 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -126,7 +127,10 @@ func newTestPeer(name string, addr net.Addr) *peer.Peer {
 	services.Update(service.PeeringKey, addr.Network(), addr.String())
 	services.Update(service.GossipKey, addr.Network(), addr.String())
 
-	return peer.NewPeer([]byte(name), services)
+	var publicKey ed25519.PublicKey
+	copy(publicKey[:], name)
+
+	return peer.NewPeer(publicKey, services)
 }
 
 func newPipe() (net.Conn, net.Conn, func()) {

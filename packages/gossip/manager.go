@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
@@ -37,7 +38,7 @@ type Manager struct {
 
 	mu        sync.RWMutex
 	srv       *server.TCP
-	neighbors map[peer.ID]*Neighbor
+	neighbors map[identity.ID]*Neighbor
 	running   bool
 }
 
@@ -47,7 +48,7 @@ func NewManager(local *peer.Local, f GetTransaction, log *zap.SugaredLogger) *Ma
 		getTransaction: f,
 		log:            log,
 		srv:            nil,
-		neighbors:      make(map[peer.ID]*Neighbor),
+		neighbors:      make(map[identity.ID]*Neighbor),
 		running:        false,
 	}
 }
@@ -113,7 +114,7 @@ func (m *Manager) AddInbound(p *peer.Peer) error {
 }
 
 // NeighborRemoved disconnects the neighbor with the given ID.
-func (m *Manager) DropNeighbor(id peer.ID) error {
+func (m *Manager) DropNeighbor(id identity.ID) error {
 	n, err := m.removeNeighbor(id)
 	if err != nil {
 		return err
@@ -125,7 +126,7 @@ func (m *Manager) DropNeighbor(id peer.ID) error {
 
 // RequestTransaction requests the transaction with the given hash from the neighbors.
 // If no peer is provided, all neighbors are queried.
-func (m *Manager) RequestTransaction(txHash []byte, to ...peer.ID) {
+func (m *Manager) RequestTransaction(txHash []byte, to ...identity.ID) {
 	req := &pb.TransactionRequest{
 		Hash: txHash,
 	}
@@ -135,7 +136,7 @@ func (m *Manager) RequestTransaction(txHash []byte, to ...peer.ID) {
 
 // SendTransaction adds the given transaction data to the send queue of the neighbors.
 // The actual send then happens asynchronously. If no peer is provided, it is send to all neighbors.
-func (m *Manager) SendTransaction(txData []byte, to ...peer.ID) {
+func (m *Manager) SendTransaction(txData []byte, to ...identity.ID) {
 	tx := &pb.Transaction{
 		Data: txData,
 	}
@@ -153,14 +154,14 @@ func (m *Manager) GetAllNeighbors() []*Neighbor {
 	return result
 }
 
-func (m *Manager) getNeighbors(ids ...peer.ID) []*Neighbor {
+func (m *Manager) getNeighbors(ids ...identity.ID) []*Neighbor {
 	if len(ids) > 0 {
 		return m.getNeighborsById(ids)
 	}
 	return m.GetAllNeighbors()
 }
 
-func (m *Manager) getNeighborsById(ids []peer.ID) []*Neighbor {
+func (m *Manager) getNeighborsById(ids []identity.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
 
 	m.mu.RLock()
@@ -173,7 +174,7 @@ func (m *Manager) getNeighborsById(ids []peer.ID) []*Neighbor {
 	return result
 }
 
-func (m *Manager) send(b []byte, to ...peer.ID) {
+func (m *Manager) send(b []byte, to ...identity.ID) {
 	neighbors := m.getNeighbors(to...)
 
 	for _, nbr := range neighbors {
@@ -219,7 +220,7 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 	return nil
 }
 
-func (m *Manager) removeNeighbor(id peer.ID) (*Neighbor, error) {
+func (m *Manager) removeNeighbor(id identity.ID) (*Neighbor, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, ok := m.neighbors[id]; !ok {
