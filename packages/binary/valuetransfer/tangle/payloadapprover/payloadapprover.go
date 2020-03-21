@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
-	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 )
 
 // PayloadApprover is a database entity, that allows us to keep track of the "tangle structure" by encoding which
@@ -14,13 +14,13 @@ type PayloadApprover struct {
 	objectstorage.StorableObjectFlags
 
 	storageKey          []byte
-	referencedPayloadId payloadid.Id
-	approvingPayloadId  payloadid.Id
+	referencedPayloadId payload.Id
+	approvingPayloadId  payload.Id
 }
 
 // New creates an approver object that encodes a single relation between an approved and an approving payload.
-func New(referencedPayload payloadid.Id, approvingPayload payloadid.Id) *PayloadApprover {
-	marshalUtil := marshalutil.New(payloadid.IdLength + payloadid.IdLength)
+func New(referencedPayload payload.Id, approvingPayload payload.Id) *PayloadApprover {
+	marshalUtil := marshalutil.New(payload.IdLength + payload.IdLength)
 	marshalUtil.WriteBytes(referencedPayload.Bytes())
 	marshalUtil.WriteBytes(approvingPayload.Bytes())
 
@@ -37,11 +37,11 @@ func New(referencedPayload payloadid.Id, approvingPayload payloadid.Id) *Payload
 func FromStorage(idBytes []byte) objectstorage.StorableObject {
 	marshalUtil := marshalutil.New(idBytes)
 
-	referencedPayloadId, err := payloadid.ParseId(marshalUtil)
+	referencedPayloadId, err := payload.ParseId(marshalUtil)
 	if err != nil {
 		panic(err)
 	}
-	approvingPayloadId, err := payloadid.ParseId(marshalUtil)
+	approvingPayloadId, err := payload.ParseId(marshalUtil)
 	if err != nil {
 		panic(err)
 	}
@@ -56,7 +56,7 @@ func FromStorage(idBytes []byte) objectstorage.StorableObject {
 }
 
 // GetApprovingPayloadId returns the id of the approving payload.
-func (approver *PayloadApprover) GetApprovingPayloadId() payloadid.Id {
+func (approver *PayloadApprover) GetApprovingPayloadId() payload.Id {
 	return approver.approvingPayloadId
 }
 
