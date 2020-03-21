@@ -55,7 +55,7 @@ func SignaturesFromBytes(bytes []byte, optionalTargetObject ...*Signatures) (res
 
 				return
 			}
-			typeCastedSignature := signature.(signaturescheme.Signature)
+			typeCastedSignature := signature.(Signature)
 
 			result.orderedMap.Set(typeCastedSignature.Address(), typeCastedSignature)
 		}
@@ -72,17 +72,17 @@ func SignaturesFromBytes(bytes []byte, optionalTargetObject ...*Signatures) (res
 	return
 }
 
-func (signatures *Signatures) Add(address address.Address, signature signaturescheme.Signature) {
+func (signatures *Signatures) Add(address address.Address, signature Signature) {
 	signatures.orderedMap.Set(address, signature)
 }
 
-func (signatures *Signatures) Get(address address.Address) (signaturescheme.Signature, bool) {
+func (signatures *Signatures) Get(address address.Address) (Signature, bool) {
 	signature, exists := signatures.orderedMap.Get(address)
 	if !exists {
 		return nil, false
 	}
 
-	return signature.(signaturescheme.Signature), exists
+	return signature.(Signature), exists
 }
 
 // Size returns the amount of signatures in this container.
@@ -92,9 +92,9 @@ func (signatures *Signatures) Size() int {
 
 // ForEach iterates through all signatures, calling the consumer for every found entry.
 // The iteration can be aborted by the consumer returning false
-func (signatures *Signatures) ForEach(consumer func(address address.Address, signature signaturescheme.Signature) bool) {
+func (signatures *Signatures) ForEach(consumer func(address address.Address, signature Signature) bool) {
 	signatures.orderedMap.ForEach(func(key, value interface{}) bool {
-		return consumer(key.(address.Address), value.(signaturescheme.Signature))
+		return consumer(key.(address.Address), value.(Signature))
 	})
 }
 
@@ -104,7 +104,7 @@ func (signatures *Signatures) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 
 	// iterate through signatures and dump them
-	signatures.ForEach(func(address address.Address, signature signaturescheme.Signature) bool {
+	signatures.ForEach(func(address address.Address, signature Signature) bool {
 		marshalUtil.WriteBytes(signature.Bytes())
 
 		return true

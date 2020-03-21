@@ -9,8 +9,8 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
 	valuepayload "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
-	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/missingpayload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadapprover"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadmetadata"
@@ -40,7 +40,7 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 
 		payloadStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayload...), valuepayload.FromStorage, objectstorage.CacheTime(time.Second)),
 		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), payloadmetadata.FromStorage, objectstorage.CacheTime(time.Second)),
-		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), payloadapprover.FromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payloadid.IdLength, payloadid.IdLength), objectstorage.KeysOnly(true)),
+		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), payloadapprover.FromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), missingpayload.FromStorage, objectstorage.CacheTime(time.Second)),
 
 		Events: *newEvents(),
@@ -55,7 +55,7 @@ func (tangle *Tangle) AttachPayload(payload *valuepayload.Payload) {
 }
 
 // GetPayload retrieves a payload from the object storage.
-func (tangle *Tangle) GetPayload(payloadId payloadid.Id) *valuepayload.CachedObject {
+func (tangle *Tangle) GetPayload(payloadId payload.Id) *valuepayload.CachedObject {
 	return &valuepayload.CachedObject{CachedObject: tangle.payloadStorage.Load(payloadId.Bytes())}
 }
 
