@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance/color"
@@ -48,12 +48,12 @@ func ExamplePayload() {
 	)
 
 	// 3. build actual transaction (the base layer creates this and wraps the ontology provided payload)
-	tx := transaction.New(
+	tx := message.New(
 		// trunk in "network tangle" ontology (filled by tipSelector)
-		transaction.EmptyId,
+		message.EmptyId,
 
 		// branch in "network tangle" ontology (filled by tipSelector)
-		transaction.EmptyId,
+		message.EmptyId,
 
 		// issuer of the transaction (signs automatically)
 		ed25119.GenerateKeyPair(),

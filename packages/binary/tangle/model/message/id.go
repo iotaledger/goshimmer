@@ -1,4 +1,4 @@
-package transaction
+package message
 
 import (
 	"fmt"

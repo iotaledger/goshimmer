@@ -3,36 +3,36 @@ package approver
 import (
 	"github.com/iotaledger/hive.go/objectstorage"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 )
 
 type Approver struct {
 	objectstorage.StorableObjectFlags
 
 	storageKey            []byte
-	referencedTransaction transaction.Id
-	approvingTransaction  transaction.Id
+	referencedTransaction message.Id
+	approvingTransaction  message.Id
 }
 
-func New(referencedTransaction transaction.Id, approvingTransaction transaction.Id) *Approver {
+func New(referencedTransaction message.Id, approvingTransaction message.Id) *Approver {
 	approver := &Approver{
-		storageKey:            make([]byte, transaction.IdLength+transaction.IdLength),
+		storageKey:            make([]byte, message.IdLength+message.IdLength),
 		referencedTransaction: referencedTransaction,
 		approvingTransaction:  approvingTransaction,
 	}
 
-	copy(approver.storageKey[:transaction.IdLength], referencedTransaction[:])
-	copy(approver.storageKey[transaction.IdLength:], approvingTransaction[:])
+	copy(approver.storageKey[:message.IdLength], referencedTransaction[:])
+	copy(approver.storageKey[message.IdLength:], approvingTransaction[:])
 
 	return approver
 }
 
 func FromStorage(id []byte) (result objectstorage.StorableObject) {
 	approver := &Approver{
-		storageKey: make([]byte, transaction.IdLength+transaction.IdLength),
+		storageKey: make([]byte, message.IdLength+message.IdLength),
 	}
-	copy(approver.referencedTransaction[:], id[:transaction.IdLength])
-	copy(approver.approvingTransaction[:], id[transaction.IdLength:])
+	copy(approver.referencedTransaction[:], id[:message.IdLength])
+	copy(approver.approvingTransaction[:], id[message.IdLength:])
 	copy(approver.storageKey, id)
 
 	return approver
@@ -42,7 +42,7 @@ func (approver *Approver) GetStorageKey() []byte {
 	return approver.storageKey
 }
 
-func (approver *Approver) GetApprovingTransactionId() transaction.Id {
+func (approver *Approver) GetApprovingTransactionId() message.Id {
 	return approver.approvingTransaction
 }
 

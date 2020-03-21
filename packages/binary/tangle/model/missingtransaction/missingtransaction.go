@@ -3,18 +3,18 @@ package missingtransaction
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/hive.go/objectstorage"
 )
 
 type MissingTransaction struct {
 	objectstorage.StorableObjectFlags
 
-	transactionId transaction.Id
+	transactionId message.Id
 	missingSince  time.Time
 }
 
-func New(transactionId transaction.Id) *MissingTransaction {
+func New(transactionId message.Id) *MissingTransaction {
 	return &MissingTransaction{
 		transactionId: transactionId,
 		missingSince:  time.Now(),
@@ -28,7 +28,7 @@ func FromStorage(key []byte) objectstorage.StorableObject {
 	return result
 }
 
-func (missingTransaction *MissingTransaction) GetTransactionId() transaction.Id {
+func (missingTransaction *MissingTransaction) GetTransactionId() message.Id {
 	return missingTransaction.transactionId
 }
 

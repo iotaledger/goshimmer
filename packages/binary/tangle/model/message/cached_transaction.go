@@ -1,4 +1,4 @@
-package transaction
+package message
 
 import (
 	"github.com/iotaledger/hive.go/objectstorage"

@@ -1,4 +1,4 @@
-package transaction
+package message
 
 import (
 	"sync"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
 
 	"github.com/iotaledger/hive.go/objectstorage"
 

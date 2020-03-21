@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -27,7 +27,7 @@ var (
 	testTxData = []byte("testTx")
 )
 
-func getTestTransaction(transaction.Id) ([]byte, error) { return testTxData, nil }
+func getTestTransaction(message.Id) ([]byte, error) { return testTxData, nil }
 
 func TestClose(t *testing.T) {
 	_, detach := newEventMock(t)
