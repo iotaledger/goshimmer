@@ -26,7 +26,7 @@ func TestSignatures(t *testing.T) {
 
 	assert.Equal(t, 2, signatures.Size())
 
-	signatures.ForEach(func(address address.Address, signature Signature) bool {
+	signatures.ForEach(func(address address.Address, signature signaturescheme.Signature) bool {
 		assert.Equal(t, true, signature.IsValid(dataToSign))
 
 		return true
@@ -41,7 +41,7 @@ func TestSignatures(t *testing.T) {
 
 	assert.Equal(t, 2, clonedSignatures.Size())
 
-	clonedSignatures.ForEach(func(address address.Address, signature Signature) bool {
+	clonedSignatures.ForEach(func(address address.Address, signature signaturescheme.Signature) bool {
 		assert.Equal(t, true, signature.IsValid(dataToSign))
 
 		return true
