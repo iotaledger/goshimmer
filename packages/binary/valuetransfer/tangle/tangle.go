@@ -40,7 +40,7 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 
 		payloadStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayload...), valuepayload.FromStorage, objectstorage.CacheTime(time.Second)),
 		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), payloadmetadata.FromStorage, objectstorage.CacheTime(time.Second)),
-		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), payloadapprover.FromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payloadid.Length, payloadid.Length), objectstorage.KeysOnly(true)),
+		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), payloadapprover.FromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payloadid.IdLength, payloadid.IdLength), objectstorage.KeysOnly(true)),
 		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), missingpayload.FromStorage, objectstorage.CacheTime(time.Second)),
 
 		Events: *newEvents(),
@@ -249,7 +249,7 @@ func (tangle *Tangle) isPayloadSolid(payload *valuepayload.Payload, metadata *pa
 // isPayloadMarkedAsSolid returns true if the payload was marked as solid already (by setting the corresponding flags
 // in its metadata.
 func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payloadid.Id) bool {
-	if payloadId == payloadid.Genesis {
+	if payloadId == payloadid.GenesisId {
 		return true
 	}
 

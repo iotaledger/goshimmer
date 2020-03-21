@@ -46,7 +46,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*PayloadMetadata) (result *
 
 	// parse the bytes
 	marshalUtil := marshalutil.New(bytes)
-	if result.payloadId, err = payloadid.Parse(marshalUtil); err != nil {
+	if result.payloadId, err = payloadid.ParseId(marshalUtil); err != nil {
 		return
 	}
 	if result.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
@@ -66,7 +66,7 @@ func FromStorage(id []byte) objectstorage.StorableObject {
 	result := &PayloadMetadata{}
 
 	var err error
-	if result.payloadId, err = payloadid.Parse(marshalutil.New(id)); err != nil {
+	if result.payloadId, err = payloadid.ParseId(marshalutil.New(id)); err != nil {
 		panic(err)
 	}
 

@@ -9,25 +9,24 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
-	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
 type Payload struct {
 	objectstorage.StorableObjectFlags
 
-	trunkPayloadId  payloadid.Id
-	branchPayloadId payloadid.Id
+	trunkPayloadId  Id
+	branchPayloadId Id
 	transfer        *transaction.Transaction
 
-	id      *payloadid.Id
+	id      *Id
 	idMutex sync.RWMutex
 
 	bytes      []byte
 	bytesMutex sync.RWMutex
 }
 
-func New(trunkPayloadId, branchPayloadId payloadid.Id, valueTransfer *transaction.Transaction) *Payload {
+func New(trunkPayloadId, branchPayloadId Id, valueTransfer *transaction.Transaction) *Payload {
 	return &Payload{
 		trunkPayloadId:  trunkPayloadId,
 		branchPayloadId: branchPayloadId,
@@ -36,7 +35,7 @@ func New(trunkPayloadId, branchPayloadId payloadid.Id, valueTransfer *transactio
 }
 
 func FromStorage(key []byte) objectstorage.StorableObject {
-	id, err, _ := payloadid.FromBytes(key)
+	id, err, _ := IdFromBytes(key)
 	if err != nil {
 		panic(err)
 	}
@@ -73,18 +72,18 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	}
 
 	// parse trunk payload id
-	parsedTrunkPayloadId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return payloadid.FromBytes(data) })
+	parsedTrunkPayloadId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) })
 	if err != nil {
 		return
 	}
-	result.trunkPayloadId = parsedTrunkPayloadId.(payloadid.Id)
+	result.trunkPayloadId = parsedTrunkPayloadId.(Id)
 
 	// parse branch payload id
-	parsedBranchPayloadId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return payloadid.FromBytes(data) })
+	parsedBranchPayloadId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) })
 	if err != nil {
 		return
 	}
-	result.branchPayloadId = parsedBranchPayloadId.(payloadid.Id)
+	result.branchPayloadId = parsedBranchPayloadId.(Id)
 
 	// parse transfer
 	parsedTransfer, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return transaction.FromBytes(data) })
@@ -102,7 +101,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	return
 }
 
-func (payload *Payload) GetId() payloadid.Id {
+func (payload *Payload) GetId() Id {
 	// acquire lock for reading id
 	payload.idMutex.RLock()
 
@@ -124,22 +123,22 @@ func (payload *Payload) GetId() payloadid.Id {
 	}
 
 	// otherwise calculate the id
-	marshalUtil := marshalutil.New(payloadid.Length + payloadid.Length + transaction.IdLength)
+	marshalUtil := marshalutil.New(IdLength + IdLength + transaction.IdLength)
 	marshalUtil.WriteBytes(payload.trunkPayloadId.Bytes())
 	marshalUtil.WriteBytes(payload.branchPayloadId.Bytes())
 	marshalUtil.WriteBytes(payload.GetTransfer().Id().Bytes())
 
-	var id payloadid.Id = blake2b.Sum256(marshalUtil.Bytes())
+	var id Id = blake2b.Sum256(marshalUtil.Bytes())
 	payload.id = &id
 
 	return id
 }
 
-func (payload *Payload) TrunkId() payloadid.Id {
+func (payload *Payload) TrunkId() Id {
 	return payload.trunkPayloadId
 }
 
-func (payload *Payload) BranchId() payloadid.Id {
+func (payload *Payload) BranchId() Id {
 	return payload.branchPayloadId
 }
 
@@ -175,7 +174,7 @@ func (payload *Payload) Bytes() (bytes []byte) {
 	}
 
 	// marshal fields
-	payloadLength := payloadid.Length + payloadid.Length + len(transferBytes)
+	payloadLength := IdLength + IdLength + len(transferBytes)
 	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
 	marshalUtil.WriteUint32(Type)
 	marshalUtil.WriteUint32(uint32(payloadLength))

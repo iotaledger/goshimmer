@@ -10,7 +10,7 @@ import (
 )
 
 func TestMarshalUnmarshal(t *testing.T) {
-	originalMetadata := New(id.Genesis)
+	originalMetadata := New(id.GenesisId)
 
 	clonedMetadata, err, _ := FromBytes(originalMetadata.Bytes())
 	if err != nil {
@@ -34,7 +34,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 }
 
 func TestPayloadMetadata_SetSolid(t *testing.T) {
-	originalMetadata := New(id.Genesis)
+	originalMetadata := New(id.GenesisId)
 
 	assert.Equal(t, false, originalMetadata.IsSolid())
 	assert.Equal(t, time.Time{}, originalMetadata.GetSoldificationTime())

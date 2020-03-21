@@ -20,7 +20,7 @@ type PayloadApprover struct {
 
 // New creates an approver object that encodes a single relation between an approved and an approving payload.
 func New(referencedPayload payloadid.Id, approvingPayload payloadid.Id) *PayloadApprover {
-	marshalUtil := marshalutil.New(payloadid.Length + payloadid.Length)
+	marshalUtil := marshalutil.New(payloadid.IdLength + payloadid.IdLength)
 	marshalUtil.WriteBytes(referencedPayload.Bytes())
 	marshalUtil.WriteBytes(approvingPayload.Bytes())
 
@@ -37,11 +37,11 @@ func New(referencedPayload payloadid.Id, approvingPayload payloadid.Id) *Payload
 func FromStorage(idBytes []byte) objectstorage.StorableObject {
 	marshalUtil := marshalutil.New(idBytes)
 
-	referencedPayloadId, err := payloadid.Parse(marshalUtil)
+	referencedPayloadId, err := payloadid.ParseId(marshalUtil)
 	if err != nil {
 		panic(err)
 	}
-	approvingPayloadId, err := payloadid.Parse(marshalUtil)
+	approvingPayloadId, err := payloadid.ParseId(marshalUtil)
 	if err != nil {
 		panic(err)
 	}

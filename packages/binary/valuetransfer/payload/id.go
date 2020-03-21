@@ -1,4 +1,4 @@
-package id
+package payload
 
 import (
 	"fmt"
@@ -9,16 +9,16 @@ import (
 )
 
 // Id represents the hash of a payload that is used to identify the given payload.
-type Id [Length]byte
+type Id [IdLength]byte
 
-// New creates a payload id from a base58 encoded string.
-func New(base58EncodedString string) (result Id, err error) {
+// NewId creates a payload id from a base58 encoded string.
+func NewId(base58EncodedString string) (result Id, err error) {
 	bytes, err := base58.Decode(base58EncodedString)
 	if err != nil {
 		return
 	}
 
-	if len(bytes) != Length {
+	if len(bytes) != IdLength {
 		err = fmt.Errorf("length of base58 formatted payload id is wrong")
 
 		return
@@ -29,18 +29,18 @@ func New(base58EncodedString string) (result Id, err error) {
 	return
 }
 
-// Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func Parse(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
-	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) }); err != nil {
+// ParseId is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func ParseId(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
+	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) }); err != nil {
 		return Id{}, err
 	} else {
 		return id.(Id), nil
 	}
 }
 
-// FromBytes unmarshals a payload id from a sequence of bytes.
+// IdFromBytes unmarshals a payload id from a sequence of bytes.
 // It either creates a new payload id or fills the optionally provided object with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Id) (result Id, err error, consumedBytes int) {
+func IdFromBytes(bytes []byte, optionalTargetObject ...*Id) (result Id, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	var targetObject *Id
 	switch len(optionalTargetObject) {
@@ -49,14 +49,14 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Id) (result Id, err error,
 	case 1:
 		targetObject = optionalTargetObject[0]
 	default:
-		panic("too many arguments in call to FromBytes")
+		panic("too many arguments in call to IdFromBytes")
 	}
 
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 
 	// read id from bytes
-	idBytes, err := marshalUtil.ReadBytes(Length)
+	idBytes, err := marshalUtil.ReadBytes(IdLength)
 	if err != nil {
 		return
 	}
@@ -81,7 +81,7 @@ func (id Id) Bytes() []byte {
 }
 
 // Empty represents the id encoding the genesis.
-var Genesis Id
+var GenesisId Id
 
-// Length defined the amount of bytes in a payload id (32 bytes hash value).
-const Length = 32
+// IdLength defined the amount of bytes in a payload id (32 bytes hash value).
+const IdLength = 32
