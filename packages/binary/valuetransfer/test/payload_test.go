@@ -14,25 +14,21 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance/color"
 	valuepayload "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer"
-	transferid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/inputs"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/outputs"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/signatures"
-	transferoutputid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfer"
 )
 
 func ExamplePayload() {
 	// 1. create value transfer (user provides this)
 	valueTransfer := transfer.New(
 		// inputs
-		inputs.New(
-			transferoutputid.New(address.Random(), transferid.New([]byte("transfer1"))),
-			transferoutputid.New(address.Random(), transferid.New([]byte("transfer2"))),
+		transfer.NewInputs(
+			transfer.NewOutputId(address.Random(), transfer.RandomId()),
+			transfer.NewOutputId(address.Random(), transfer.RandomId()),
 		),
 
 		// outputs
-		outputs.New(map[address.Address][]*coloredbalance.ColoredBalance{
+		transfer.NewOutputs(map[address.Address][]*coloredbalance.ColoredBalance{
 			address.Random(): {
 				coloredbalance.New(color.IOTA, 1337),
 			},
@@ -83,12 +79,12 @@ func TestPayload(t *testing.T) {
 		payloadid.Genesis,
 		payloadid.Genesis,
 		transfer.New(
-			inputs.New(
-				transferoutputid.New(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferid.New([]byte("transfer1"))),
-				transferoutputid.New(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferid.New([]byte("transfer2"))),
+			transfer.NewInputs(
+				transfer.NewOutputId(address.FromED25519PubKey(addressKeyPair1.PublicKey), transfer.RandomId()),
+				transfer.NewOutputId(address.FromED25519PubKey(addressKeyPair2.PublicKey), transfer.RandomId()),
 			),
 
-			outputs.New(map[address.Address][]*coloredbalance.ColoredBalance{
+			transfer.NewOutputs(map[address.Address][]*coloredbalance.ColoredBalance{
 				address.Random(): {
 					coloredbalance.New(color.IOTA, 1337),
 				},

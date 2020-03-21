@@ -45,8 +45,8 @@ func TestTangle_AttachPayload(t *testing.T) {
 	addressKeyPair1 := ed25119.GenerateKeyPair()
 	addressKeyPair2 := ed25119.GenerateKeyPair()
 
-	transferId1, _ := transfer.FromBase58("8opHzTAnfzRpPEx21XtnrVTX28YQuCpAjcn1PczScKh")
-	transferId2, _ := transfer.FromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
+	transferId1, _ := transfer.IdFromBase58("8opHzTAnfzRpPEx21XtnrVTX28YQuCpAjcn1PczScKh")
+	transferId2, _ := transfer.IdFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
 
 	tangle.AttachPayload(payload.New(id.Genesis, id.Genesis, transfer.New(
 		transfer.NewInputs(
