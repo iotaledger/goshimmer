@@ -1,4 +1,4 @@
-package transfer
+package transaction
 
 import (
 	"sync"
@@ -24,9 +24,9 @@ type OutputMetadata struct {
 }
 
 // NewOutputMetadata is the constructor for the OutputMetadata type.
-func NewOutputMetadata(transferOutputId OutputId) *OutputMetadata {
+func NewOutputMetadata(outputId OutputId) *OutputMetadata {
 	return &OutputMetadata{
-		id: transferOutputId,
+		id: outputId,
 	}
 }
 
@@ -74,10 +74,10 @@ func OutputMetadataFromStorage(storageKey []byte) objectstorage.StorableObject {
 
 // Parse is a wrapper for simplified unmarshaling of OutputMetadata objects from a byte stream using the marshalUtil package.
 func ParseOutputMetadata(marshalUtil *marshalutil.MarshalUtil) (*OutputMetadata, error) {
-	if transferMetadata, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return OutputMetadataFromBytes(data) }); err != nil {
+	if outputMetadata, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return OutputMetadataFromBytes(data) }); err != nil {
 		return nil, err
 	} else {
-		return transferMetadata.(*OutputMetadata), nil
+		return outputMetadata.(*OutputMetadata), nil
 	}
 }
 
@@ -145,7 +145,7 @@ func (outputMetadata *OutputMetadata) Bytes() []byte {
 
 // String creates a human readable version of the metadata (for debug purposes).
 func (outputMetadata *OutputMetadata) String() string {
-	return stringify.Struct("transfer.OutputMetadata",
+	return stringify.Struct("transaction.OutputMetadata",
 		stringify.StructField("payloadId", outputMetadata.Id()),
 		stringify.StructField("solid", outputMetadata.Solid()),
 		stringify.StructField("solidificationTime", outputMetadata.SoldificationTime()),

@@ -1,4 +1,4 @@
-package transfer
+package transaction
 
 import (
 	"fmt"
@@ -45,7 +45,7 @@ func (output *Output) Address() address.Address {
 	return output.address
 }
 
-// TransferId returns the transfer id, that created this output.
+// TransactionId returns the transfer id, that created this output.
 func (output *Output) TransferId() Id {
 	return output.transferId
 }

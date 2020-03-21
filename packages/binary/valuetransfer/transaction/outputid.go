@@ -1,4 +1,4 @@
-package transfer
+package transaction
 
 import (
 	"github.com/mr-tron/base58"
@@ -11,9 +11,9 @@ import (
 type OutputId [OutputIdLength]byte
 
 // NewOutputId is the constructor for the OutputId type.
-func NewOutputId(outputAddress address.Address, transferId Id) (transferOutputId OutputId) {
+func NewOutputId(outputAddress address.Address, transactionId Id) (transferOutputId OutputId) {
 	copy(transferOutputId[:address.Length], outputAddress.Bytes())
-	copy(transferOutputId[address.Length:], transferId[:])
+	copy(transferOutputId[address.Length:], transactionId[:])
 
 	return
 }
@@ -50,8 +50,8 @@ func (outputId OutputId) Address() (address address.Address) {
 	return
 }
 
-// TransferId returns the transfer id part of an OutputId.
-func (outputId OutputId) TransferId() (transferId Id) {
+// TransactionId returns the transfer id part of an OutputId.
+func (outputId OutputId) TransactionId() (transferId Id) {
 	copy(transferId[:], outputId[address.Length:])
 
 	return

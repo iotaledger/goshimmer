@@ -1,4 +1,4 @@
-package transfer
+package transaction
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"

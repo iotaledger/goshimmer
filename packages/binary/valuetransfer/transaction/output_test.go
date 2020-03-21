@@ -1,4 +1,4 @@
-package transfer
+package transaction
 
 import (
 	"testing"

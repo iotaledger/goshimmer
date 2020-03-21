@@ -1,4 +1,4 @@
-package transfer
+package transaction
 
 import (
 	"crypto/rand"
@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 )
 
-// Id is the data type that represents the identifier for a Transfer.
+// Id is the data type that represents the identifier for a Transaction.
 type Id [IdLength]byte
 
 // IdFromBase58 creates an id from a base58 encoded string.

@@ -1,4 +1,4 @@
-package transfer
+package transaction
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
@@ -10,10 +10,10 @@ type Inputs struct {
 	*orderedmap.OrderedMap
 }
 
-func NewInputs(transferOutputIds ...OutputId) (inputs *Inputs) {
+func NewInputs(outputIds ...OutputId) (inputs *Inputs) {
 	inputs = &Inputs{orderedmap.New()}
-	for _, transferOutputId := range transferOutputIds {
-		inputs.Add(transferOutputId)
+	for _, outputId := range outputIds {
+		inputs.Add(outputId)
 	}
 
 	return
@@ -36,15 +36,15 @@ func InputsFromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int
 			return
 		}
 
-		transferIdBytes, readErr := marshalUtil.ReadBytes(IdLength)
+		idBytes, readErr := marshalUtil.ReadBytes(IdLength)
 		if readErr != nil {
 			err = readErr
 
 			return
 		}
-		transferId, transferIdErr, _ := IdFromBytes(transferIdBytes)
-		if transferIdErr != nil {
-			err = transferIdErr
+		id, idErr, _ := IdFromBytes(idBytes)
+		if idErr != nil {
+			err = idErr
 
 			return
 		}
@@ -55,7 +55,7 @@ func InputsFromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int
 
 			inputs.Set(readAddress, addressMap)
 		}
-		addressMap.(*orderedmap.OrderedMap).Set(transferId, NewOutputId(readAddress, transferId))
+		addressMap.(*orderedmap.OrderedMap).Set(id, NewOutputId(readAddress, id))
 	}
 
 	consumedBytes = marshalUtil.ReadOffset()
@@ -65,7 +65,7 @@ func InputsFromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int
 
 func (inputs *Inputs) Add(input OutputId) *Inputs {
 	inputAddress := input.Address()
-	transferId := input.TransferId()
+	transactionId := input.TransactionId()
 
 	addressMap, addressExists := inputs.Get(inputAddress)
 	if !addressExists {
@@ -74,7 +74,7 @@ func (inputs *Inputs) Add(input OutputId) *Inputs {
 		inputs.Set(inputAddress, addressMap)
 	}
 
-	addressMap.(*orderedmap.OrderedMap).Set(transferId, input)
+	addressMap.(*orderedmap.OrderedMap).Set(transactionId, input)
 
 	return inputs
 }
@@ -84,8 +84,8 @@ func (inputs *Inputs) Bytes() (bytes []byte) {
 
 	marshalUtil.WriteSeek(4)
 	var inputCounter uint32
-	inputs.ForEach(func(transferOutputId OutputId) bool {
-		marshalUtil.WriteBytes(transferOutputId.Bytes())
+	inputs.ForEach(func(outputId OutputId) bool {
+		marshalUtil.WriteBytes(outputId.Bytes())
 
 		inputCounter++
 
@@ -97,7 +97,7 @@ func (inputs *Inputs) Bytes() (bytes []byte) {
 	return marshalUtil.Bytes()
 }
 
-func (inputs *Inputs) ForEach(consumer func(transferOutputId OutputId) bool) bool {
+func (inputs *Inputs) ForEach(consumer func(outputId OutputId) bool) bool {
 	return inputs.OrderedMap.ForEach(func(key, value interface{}) bool {
 		return value.(*orderedmap.OrderedMap).ForEach(func(key, value interface{}) bool {
 			return consumer(value.(OutputId))
@@ -114,8 +114,8 @@ func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Addres
 func (inputs *Inputs) ForEachTransfer(consumer func(currentTransfer Id) bool) bool {
 	seenTransfers := make(map[Id]bool)
 
-	return inputs.ForEach(func(transferOutputId OutputId) bool {
-		if currentTransferId := transferOutputId.TransferId(); !seenTransfers[currentTransferId] {
+	return inputs.ForEach(func(outputId OutputId) bool {
+		if currentTransferId := outputId.TransactionId(); !seenTransfers[currentTransferId] {
 			seenTransfers[currentTransferId] = true
 
 			return consumer(currentTransferId)
@@ -133,10 +133,10 @@ func (inputs *Inputs) String() string {
 	result := "[\n"
 
 	empty := true
-	inputs.ForEach(func(transferOutputId OutputId) bool {
+	inputs.ForEach(func(outputId OutputId) bool {
 		empty = false
 
-		result += "    " + transferOutputId.String() + ",\n"
+		result += "    " + outputId.String() + ",\n"
 
 		return true
 	})

@@ -15,20 +15,20 @@ import (
 	valuepayload "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/signatures"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfer"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
 func ExamplePayload() {
 	// 1. create value transfer (user provides this)
-	valueTransfer := transfer.New(
+	valueTransfer := transaction.New(
 		// inputs
-		transfer.NewInputs(
-			transfer.NewOutputId(address.Random(), transfer.RandomId()),
-			transfer.NewOutputId(address.Random(), transfer.RandomId()),
+		transaction.NewInputs(
+			transaction.NewOutputId(address.Random(), transaction.RandomId()),
+			transaction.NewOutputId(address.Random(), transaction.RandomId()),
 		),
 
 		// outputs
-		transfer.NewOutputs(map[address.Address][]*coloredbalance.ColoredBalance{
+		transaction.NewOutputs(map[address.Address][]*coloredbalance.ColoredBalance{
 			address.Random(): {
 				coloredbalance.New(color.IOTA, 1337),
 			},
@@ -78,13 +78,13 @@ func TestPayload(t *testing.T) {
 	originalPayload := valuepayload.New(
 		payloadid.Genesis,
 		payloadid.Genesis,
-		transfer.New(
-			transfer.NewInputs(
-				transfer.NewOutputId(address.FromED25519PubKey(addressKeyPair1.PublicKey), transfer.RandomId()),
-				transfer.NewOutputId(address.FromED25519PubKey(addressKeyPair2.PublicKey), transfer.RandomId()),
+		transaction.New(
+			transaction.NewInputs(
+				transaction.NewOutputId(address.FromED25519PubKey(addressKeyPair1.PublicKey), transaction.RandomId()),
+				transaction.NewOutputId(address.FromED25519PubKey(addressKeyPair2.PublicKey), transaction.RandomId()),
 			),
 
-			transfer.NewOutputs(map[address.Address][]*coloredbalance.ColoredBalance{
+			transaction.NewOutputs(map[address.Address][]*coloredbalance.ColoredBalance{
 				address.Random(): {
 					coloredbalance.New(color.IOTA, 1337),
 				},

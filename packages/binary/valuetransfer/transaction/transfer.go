@@ -1,4 +1,4 @@
-package transfer
+package transaction
 
 import (
 	"fmt"
@@ -14,9 +14,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/signatures"
 )
 
-// region IMPLEMENT Transfer ///////////////////////////////////////////////////////////////////////////////////////////
+// region IMPLEMENT Transaction ///////////////////////////////////////////////////////////////////////////////////////////
 
-type Transfer struct {
+type Transaction struct {
 	objectstorage.StorableObjectFlags
 
 	inputs     *Inputs
@@ -36,19 +36,19 @@ type Transfer struct {
 	bytesMutex sync.RWMutex
 }
 
-func New(inputs *Inputs, outputs *Outputs) *Transfer {
-	return &Transfer{
+func New(inputs *Inputs, outputs *Outputs) *Transaction {
+	return &Transaction{
 		inputs:     inputs,
 		outputs:    outputs,
 		signatures: signatures.New(),
 	}
 }
 
-func FromBytes(bytes []byte, optionalTargetObject ...*Transfer) (result *Transfer, err error, consumedBytes int) {
+func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Transaction, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
-		result = &Transfer{}
+		result = &Transaction{}
 	case 1:
 		result = optionalTargetObject[0]
 	default:
@@ -98,59 +98,59 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Transfer) (result *Transfe
 	return
 }
 
-func FromStorage(key []byte) *Transfer {
-	transferId, err, _ := IdFromBytes(key)
+func FromStorage(key []byte) *Transaction {
+	id, err, _ := IdFromBytes(key)
 	if err != nil {
 		panic(err)
 	}
 
-	return &Transfer{
-		id: &transferId,
+	return &Transaction{
+		id: &id,
 	}
 }
 
-func (transfer *Transfer) Id() Id {
+func (transaction *Transaction) Id() Id {
 	// acquire lock for reading id
-	transfer.idMutex.RLock()
+	transaction.idMutex.RLock()
 
 	// return if id has been calculated already
-	if transfer.id != nil {
-		defer transfer.idMutex.RUnlock()
+	if transaction.id != nil {
+		defer transaction.idMutex.RUnlock()
 
-		return *transfer.id
+		return *transaction.id
 	}
 
 	// switch to write lock
-	transfer.idMutex.RUnlock()
-	transfer.idMutex.Lock()
-	defer transfer.idMutex.Unlock()
+	transaction.idMutex.RUnlock()
+	transaction.idMutex.Lock()
+	defer transaction.idMutex.Unlock()
 
 	// return if id has been calculated in the mean time
-	if transfer.id != nil {
-		return *transfer.id
+	if transaction.id != nil {
+		return *transaction.id
 	}
 
 	// otherwise calculate the id
-	idBytes := blake2b.Sum256(transfer.Bytes())
-	transferId, err, _ := IdFromBytes(idBytes[:])
+	idBytes := blake2b.Sum256(transaction.Bytes())
+	id, err, _ := IdFromBytes(idBytes[:])
 	if err != nil {
 		panic(err)
 	}
 
 	// cache result for later calls
-	transfer.id = &transferId
+	transaction.id = &id
 
-	return transferId
+	return id
 }
 
-func (transfer *Transfer) Inputs() *Inputs {
-	return transfer.inputs
+func (transaction *Transaction) Inputs() *Inputs {
+	return transaction.inputs
 }
 
-func (transfer *Transfer) SignaturesValid() bool {
+func (transaction *Transaction) SignaturesValid() bool {
 	signaturesValid := true
-	transfer.inputs.ForEachAddress(func(address address.Address) bool {
-		if signature, exists := transfer.signatures.Get(address); !exists || !signature.IsValid(transfer.EssenceBytes()) {
+	transaction.inputs.ForEachAddress(func(address address.Address) bool {
+		if signature, exists := transaction.signatures.Get(address); !exists || !signature.IsValid(transaction.EssenceBytes()) {
 			signaturesValid = false
 
 			return false
@@ -162,24 +162,24 @@ func (transfer *Transfer) SignaturesValid() bool {
 	return signaturesValid
 }
 
-func (transfer *Transfer) EssenceBytes() []byte {
+func (transaction *Transaction) EssenceBytes() []byte {
 	// acquire read lock on essenceBytes
-	transfer.essenceBytesMutex.RLock()
+	transaction.essenceBytesMutex.RLock()
 
 	// return essenceBytes if the object has been marshaled already
-	if transfer.essenceBytes != nil {
-		defer transfer.essenceBytesMutex.RUnlock()
+	if transaction.essenceBytes != nil {
+		defer transaction.essenceBytesMutex.RUnlock()
 
-		return transfer.essenceBytes
+		return transaction.essenceBytes
 	}
 
 	// switch to write lock
-	transfer.essenceBytesMutex.RUnlock()
-	transfer.essenceBytesMutex.Lock()
-	defer transfer.essenceBytesMutex.Unlock()
+	transaction.essenceBytesMutex.RUnlock()
+	transaction.essenceBytesMutex.Lock()
+	defer transaction.essenceBytesMutex.Unlock()
 
 	// return essenceBytes if the object has been marshaled in the mean time
-	if essenceBytes := transfer.essenceBytes; essenceBytes != nil {
+	if essenceBytes := transaction.essenceBytes; essenceBytes != nil {
 		return essenceBytes
 	}
 
@@ -187,57 +187,57 @@ func (transfer *Transfer) EssenceBytes() []byte {
 	marshalUtil := marshalutil.New()
 
 	// marshal inputs
-	marshalUtil.WriteBytes(transfer.inputs.Bytes())
+	marshalUtil.WriteBytes(transaction.inputs.Bytes())
 
 	// marshal outputs
-	marshalUtil.WriteBytes(transfer.outputs.Bytes())
+	marshalUtil.WriteBytes(transaction.outputs.Bytes())
 
 	// store marshaled result
-	transfer.essenceBytes = marshalUtil.Bytes()
+	transaction.essenceBytes = marshalUtil.Bytes()
 
-	return transfer.essenceBytes
+	return transaction.essenceBytes
 }
 
-func (transfer *Transfer) SignatureBytes() []byte {
-	transfer.signatureBytesMutex.RLock()
-	if transfer.signatureBytes != nil {
-		defer transfer.signatureBytesMutex.RUnlock()
+func (transaction *Transaction) SignatureBytes() []byte {
+	transaction.signatureBytesMutex.RLock()
+	if transaction.signatureBytes != nil {
+		defer transaction.signatureBytesMutex.RUnlock()
 
-		return transfer.signatureBytes
+		return transaction.signatureBytes
 	}
 
-	transfer.signatureBytesMutex.RUnlock()
-	transfer.signatureBytesMutex.Lock()
-	defer transfer.signatureBytesMutex.Unlock()
+	transaction.signatureBytesMutex.RUnlock()
+	transaction.signatureBytesMutex.Lock()
+	defer transaction.signatureBytesMutex.Unlock()
 
-	if transfer.signatureBytes != nil {
-		return transfer.signatureBytes
+	if transaction.signatureBytes != nil {
+		return transaction.signatureBytes
 	}
 
 	// generate signatures
-	transfer.signatureBytes = transfer.signatures.Bytes()
+	transaction.signatureBytes = transaction.signatures.Bytes()
 
-	return transfer.signatureBytes
+	return transaction.signatureBytes
 }
 
-func (transfer *Transfer) Bytes() []byte {
+func (transaction *Transaction) Bytes() []byte {
 	// acquire read lock on bytes
-	transfer.bytesMutex.RLock()
+	transaction.bytesMutex.RLock()
 
 	// return bytes if the object has been marshaled already
-	if transfer.bytes != nil {
-		defer transfer.bytesMutex.RUnlock()
+	if transaction.bytes != nil {
+		defer transaction.bytesMutex.RUnlock()
 
-		return transfer.bytes
+		return transaction.bytes
 	}
 
 	// switch to write lock
-	transfer.bytesMutex.RUnlock()
-	transfer.bytesMutex.Lock()
-	defer transfer.bytesMutex.Unlock()
+	transaction.bytesMutex.RUnlock()
+	transaction.bytesMutex.Lock()
+	defer transaction.bytesMutex.Unlock()
 
 	// return bytes if the object has been marshaled in the mean time
-	if bytes := transfer.bytes; bytes != nil {
+	if bytes := transaction.bytes; bytes != nil {
 		return bytes
 	}
 
@@ -245,30 +245,30 @@ func (transfer *Transfer) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 
 	// marshal essence bytes
-	marshalUtil.WriteBytes(transfer.EssenceBytes())
+	marshalUtil.WriteBytes(transaction.EssenceBytes())
 
 	// marshal signature bytes
-	marshalUtil.WriteBytes(transfer.SignatureBytes())
+	marshalUtil.WriteBytes(transaction.SignatureBytes())
 
 	// store marshaled result
-	transfer.bytes = marshalUtil.Bytes()
+	transaction.bytes = marshalUtil.Bytes()
 
-	return transfer.bytes
+	return transaction.bytes
 }
 
-func (transfer *Transfer) Sign(signature signatures.SignatureScheme) *Transfer {
-	transfer.signatures.Add(signature.Address(), signature.Sign(transfer.EssenceBytes()))
+func (transaction *Transaction) Sign(signature signatures.SignatureScheme) *Transaction {
+	transaction.signatures.Add(signature.Address(), signature.Sign(transaction.EssenceBytes()))
 
-	return transfer
+	return transaction
 }
 
-func (transfer *Transfer) String() string {
-	id := transfer.Id()
+func (transaction *Transaction) String() string {
+	id := transaction.Id()
 
-	return stringify.Struct("Transfer"+fmt.Sprintf("(%p)", transfer),
+	return stringify.Struct("Transaction"+fmt.Sprintf("(%p)", transaction),
 		stringify.StructField("id", base58.Encode(id[:])),
-		stringify.StructField("inputs", transfer.inputs),
-		stringify.StructField("outputs", transfer.outputs),
+		stringify.StructField("inputs", transaction.inputs),
+		stringify.StructField("outputs", transaction.outputs),
 	)
 }
 
@@ -277,25 +277,25 @@ func (transfer *Transfer) String() string {
 // region IMPLEMENT StorableObject interface ///////////////////////////////////////////////////////////////////////////
 
 // define contract (ensure that the struct fulfills the given interface)
-var _ objectstorage.StorableObject = &Transfer{}
+var _ objectstorage.StorableObject = &Transaction{}
 
-func (transfer *Transfer) GetStorageKey() []byte {
-	id := transfer.Id()
+func (transaction *Transaction) GetStorageKey() []byte {
+	id := transaction.Id()
 
 	return id[:]
 }
 
-func (transfer *Transfer) Update(other objectstorage.StorableObject) {
+func (transaction *Transaction) Update(other objectstorage.StorableObject) {
 	panic("update forbidden")
 }
 
-// MarshalBinary returns a bytes representation of the transfer by implementing the encoding.BinaryMarshaler interface.
-func (transfer *Transfer) MarshalBinary() ([]byte, error) {
-	return transfer.Bytes(), nil
+// MarshalBinary returns a bytes representation of the Transaction by implementing the encoding.BinaryMarshaler interface.
+func (transaction *Transaction) MarshalBinary() ([]byte, error) {
+	return transaction.Bytes(), nil
 }
 
-func (transfer *Transfer) UnmarshalBinary(bytes []byte) (err error) {
-	_, err, _ = FromBytes(bytes, transfer)
+func (transaction *Transaction) UnmarshalBinary(bytes []byte) (err error) {
+	_, err, _ = FromBytes(bytes, transaction)
 
 	return
 }

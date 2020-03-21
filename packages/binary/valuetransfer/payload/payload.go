@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
 	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transfer"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
 type Payload struct {
@@ -18,7 +18,7 @@ type Payload struct {
 
 	trunkPayloadId  payloadid.Id
 	branchPayloadId payloadid.Id
-	transfer        *transfer.Transfer
+	transfer        *transaction.Transaction
 
 	id      *payloadid.Id
 	idMutex sync.RWMutex
@@ -27,7 +27,7 @@ type Payload struct {
 	bytesMutex sync.RWMutex
 }
 
-func New(trunkPayloadId, branchPayloadId payloadid.Id, valueTransfer *transfer.Transfer) *Payload {
+func New(trunkPayloadId, branchPayloadId payloadid.Id, valueTransfer *transaction.Transaction) *Payload {
 	return &Payload{
 		trunkPayloadId:  trunkPayloadId,
 		branchPayloadId: branchPayloadId,
@@ -87,11 +87,11 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	result.branchPayloadId = parsedBranchPayloadId.(payloadid.Id)
 
 	// parse transfer
-	parsedTransfer, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return transfer.FromBytes(data) })
+	parsedTransfer, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return transaction.FromBytes(data) })
 	if err != nil {
 		return
 	}
-	result.transfer = parsedTransfer.(*transfer.Transfer)
+	result.transfer = parsedTransfer.(*transaction.Transaction)
 
 	// return the number of bytes we processed
 	consumedBytes = marshalUtil.ReadOffset()
@@ -124,7 +124,7 @@ func (payload *Payload) GetId() payloadid.Id {
 	}
 
 	// otherwise calculate the id
-	marshalUtil := marshalutil.New(payloadid.Length + payloadid.Length + transfer.IdLength)
+	marshalUtil := marshalutil.New(payloadid.Length + payloadid.Length + transaction.IdLength)
 	marshalUtil.WriteBytes(payload.trunkPayloadId.Bytes())
 	marshalUtil.WriteBytes(payload.branchPayloadId.Bytes())
 	marshalUtil.WriteBytes(payload.GetTransfer().Id().Bytes())
@@ -143,7 +143,7 @@ func (payload *Payload) BranchId() payloadid.Id {
 	return payload.branchPayloadId
 }
 
-func (payload *Payload) GetTransfer() *transfer.Transfer {
+func (payload *Payload) GetTransfer() *transaction.Transaction {
 	return payload.transfer
 }
 

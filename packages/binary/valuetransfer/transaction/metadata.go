@@ -1,4 +1,4 @@
-package transfer
+package transaction
 
 import (
 	"sync"
@@ -81,12 +81,12 @@ func ParseMetadata(marshalUtil *marshalutil.MarshalUtil) (*Metadata, error) {
 	}
 }
 
-// Id return the id of the Transfer that this Metadata is associated to.
+// Id return the id of the Transaction that this Metadata is associated to.
 func (metadata *Metadata) Id() Id {
 	return metadata.id
 }
 
-// Solid returns true if the Transfer has been marked as solid.
+// Solid returns true if the Transaction has been marked as solid.
 func (metadata *Metadata) Solid() (result bool) {
 	metadata.solidMutex.RLock()
 	result = metadata.solid
@@ -95,7 +95,7 @@ func (metadata *Metadata) Solid() (result bool) {
 	return
 }
 
-// SetSolid marks a Transfer as either solid or not solid.
+// SetSolid marks a Transaction as either solid or not solid.
 // It returns true if the solid flag was changes and automatically updates the solidificationTime as well.
 func (metadata *Metadata) SetSolid(solid bool) (modified bool) {
 	metadata.solidMutex.RLock()
@@ -124,7 +124,7 @@ func (metadata *Metadata) SetSolid(solid bool) (modified bool) {
 	return
 }
 
-// SoldificationTime returns the time when the Transfer was marked to be solid.
+// SoldificationTime returns the time when the Transaction was marked to be solid.
 func (metadata *Metadata) SoldificationTime() time.Time {
 	metadata.solidificationTimeMutex.RLock()
 	defer metadata.solidificationTimeMutex.RUnlock()
