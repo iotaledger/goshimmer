@@ -1,4 +1,4 @@
-package payload
+package tangle
 
 import (
 	"testing"
@@ -8,9 +8,9 @@ import (
 )
 
 func TestMarshalUnmarshal(t *testing.T) {
-	originalMetadata := NewMetadata(GenesisId)
+	originalMetadata := NewPayloadMetadata(GenesisId)
 
-	clonedMetadata, err, _ := MetadataFromBytes(originalMetadata.Bytes())
+	clonedMetadata, err, _ := PayloadMetadataFromBytes(originalMetadata.Bytes())
 	if err != nil {
 		panic(err)
 	}
@@ -21,7 +21,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 
 	originalMetadata.SetSolid(true)
 
-	clonedMetadata, err, _ = MetadataFromBytes(originalMetadata.Bytes())
+	clonedMetadata, err, _ = PayloadMetadataFromBytes(originalMetadata.Bytes())
 	if err != nil {
 		panic(err)
 	}
@@ -32,7 +32,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 }
 
 func TestPayloadMetadata_SetSolid(t *testing.T) {
-	originalMetadata := NewMetadata(GenesisId)
+	originalMetadata := NewPayloadMetadata(GenesisId)
 
 	assert.Equal(t, false, originalMetadata.IsSolid())
 	assert.Equal(t, time.Time{}, originalMetadata.GetSoldificationTime())

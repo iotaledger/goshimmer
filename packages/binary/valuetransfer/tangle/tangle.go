@@ -38,7 +38,7 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		storageId: storageId,
 
 		payloadStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayload...), payload.FromStorage, objectstorage.CacheTime(time.Second)),
-		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), payload.MetadataFromStorage, objectstorage.CacheTime(time.Second)),
+		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), payload.PayloadMetadataFromStorage, objectstorage.CacheTime(time.Second)),
 		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), payload.PayloadApproverFromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), payload.MissingPayloadFromStorage, objectstorage.CacheTime(time.Second)),
 		missingOutputStorage:   objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), transaction.MissingOutputFromStorage, objectstorage.CacheTime(time.Second)),
@@ -60,8 +60,8 @@ func (tangle *Tangle) GetPayload(payloadId payload.Id) *payload.CachedPayload {
 }
 
 // GetPayloadMetadata retrieves the metadata of a value payload from the object storage.
-func (tangle *Tangle) GetPayloadMetadata(payloadId payload.Id) *payload.CachedMetadata {
-	return &payload.CachedMetadata{CachedObject: tangle.payloadMetadataStorage.Load(payloadId.Bytes())}
+func (tangle *Tangle) GetPayloadMetadata(payloadId payload.Id) *payload.CachedPayloadMetadata {
+	return &payload.CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Load(payloadId.Bytes())}
 }
 
 // GetApprovers retrieves the approvers of a payload from the object storage.
@@ -118,7 +118,7 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 
 	// store payload metadata
 	payloadId := payloadToStore.Id()
-	cachedMetadata := &payload.CachedMetadata{CachedObject: tangle.payloadMetadataStorage.Store(payload.NewMetadata(payloadId))}
+	cachedMetadata := &payload.CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(payload.NewPayloadMetadata(payloadId))}
 
 	// store trunk approver
 	trunkId := payloadToStore.TrunkId()
@@ -143,7 +143,7 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 		} else {
 			cachedPayload = &payload.CachedPayload{CachedObject: _tmp}
 		}
-		cachedTransaction := &transaction.CachedMetadata{CachedObject: tangle.payloadMetadataStorage.Store(payloadToStore.Transaction())}
+		cachedTransaction := &transaction.CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(payloadToStore.Transaction())}
 	*/
 
 	// check solidity
@@ -153,14 +153,14 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 }
 
 // solidifyTransactionWorker is the worker function that solidifies the payloads (recursively from past to present).
-func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPayload, cachedMetadata *payload.CachedMetadata) {
-	popElementsFromStack := func(stack *list.List) (*payload.CachedPayload, *payload.CachedMetadata) {
+func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPayload, cachedMetadata *payload.CachedPayloadMetadata) {
+	popElementsFromStack := func(stack *list.List) (*payload.CachedPayload, *payload.CachedPayloadMetadata) {
 		currentSolidificationEntry := stack.Front()
 		currentCachedPayload := currentSolidificationEntry.Value.([2]interface{})[0]
 		currentCachedMetadata := currentSolidificationEntry.Value.([2]interface{})[1]
 		stack.Remove(currentSolidificationEntry)
 
-		return currentCachedPayload.(*payload.CachedPayload), currentCachedMetadata.(*payload.CachedMetadata)
+		return currentCachedPayload.(*payload.CachedPayload), currentCachedMetadata.(*payload.CachedPayloadMetadata)
 	}
 
 	// initialize the stack
@@ -241,7 +241,7 @@ func (tangle *Tangle) isOutputMarkedAsSolid(transferOutputId transaction.OutputI
 
 // isPayloadSolid returns true if the given payload is solid. A payload is considered to be solid solid, if it is either
 // already marked as solid or if its referenced payloads are marked as solid.
-func (tangle *Tangle) isPayloadSolid(payload *payload.Payload, metadata *payload.Metadata) bool {
+func (tangle *Tangle) isPayloadSolid(payload *payload.Payload, metadata *payload.PayloadMetadata) bool {
 	if payload == nil || payload.IsDeleted() {
 		return false
 	}
