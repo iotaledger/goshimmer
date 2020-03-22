@@ -10,7 +10,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/missingpayload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
@@ -38,7 +37,7 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		payloadStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayload...), payload.FromStorage, objectstorage.CacheTime(time.Second)),
 		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), payload.MetadataFromStorage, objectstorage.CacheTime(time.Second)),
 		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), payload.ApproverFromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
-		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), missingpayload.FromStorage, objectstorage.CacheTime(time.Second)),
+		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), payload.MissingPayloadFromStorage, objectstorage.CacheTime(time.Second)),
 
 		Events: *newEvents(),
 	}
@@ -255,9 +254,9 @@ func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payload.Id) bool {
 		transactionMetadataCached.Release()
 
 		// if transaction is missing and was not reported as missing, yet
-		if cachedMissingPayload, missingPayloadStored := tangle.missingPayloadStorage.StoreIfAbsent(missingpayload.New(payloadId)); missingPayloadStored {
+		if cachedMissingPayload, missingPayloadStored := tangle.missingPayloadStorage.StoreIfAbsent(payload.NewMissingPayload(payloadId)); missingPayloadStored {
 			cachedMissingPayload.Consume(func(object objectstorage.StorableObject) {
-				tangle.Events.PayloadMissing.Trigger(object.(*missingpayload.MissingPayload).GetId())
+				tangle.Events.PayloadMissing.Trigger(object.(*payload.MissingPayload).GetId())
 			})
 		}
 

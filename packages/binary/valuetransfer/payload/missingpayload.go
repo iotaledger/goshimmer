@@ -1,4 +1,4 @@
-package missingpayload
+package payload
 
 import (
 	"time"
@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 )
 
 // MissingPayload represents a payload that was referenced through branch or trunk but that is missing in our object
@@ -14,21 +13,21 @@ import (
 type MissingPayload struct {
 	objectstorage.StorableObjectFlags
 
-	payloadId    payload.Id
+	payloadId    Id
 	missingSince time.Time
 }
 
-// New creates an entry for a missing value transfer payload.
-func New(payloadId payload.Id) *MissingPayload {
+// NewMissingPayload creates an entry for a missing value transfer payload.
+func NewMissingPayload(payloadId Id) *MissingPayload {
 	return &MissingPayload{
 		payloadId:    payloadId,
 		missingSince: time.Now(),
 	}
 }
 
-// FromBytes unmarshals an entry for a missing value transfer payload from a sequence of bytes.
+// MissingPayloadFromBytes unmarshals an entry for a missing value transfer payload from a sequence of bytes.
 // It either creates a new entry or fills the optionally provided one with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*MissingPayload) (result *MissingPayload, err error, consumedBytes int) {
+func MissingPayloadFromBytes(bytes []byte, optionalTargetObject ...*MissingPayload) (result *MissingPayload, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -36,12 +35,12 @@ func FromBytes(bytes []byte, optionalTargetObject ...*MissingPayload) (result *M
 	case 1:
 		result = optionalTargetObject[0]
 	default:
-		panic("too many arguments in call to FromBytes")
+		panic("too many arguments in call to MissingPayloadFromBytes")
 	}
 
 	// parse the bytes
 	marshalUtil := marshalutil.New(bytes)
-	if result.payloadId, err = payload.ParseId(marshalUtil); err != nil {
+	if result.payloadId, err = ParseId(marshalUtil); err != nil {
 		return
 	}
 	if result.missingSince, err = marshalUtil.ReadTime(); err != nil {
@@ -52,14 +51,14 @@ func FromBytes(bytes []byte, optionalTargetObject ...*MissingPayload) (result *M
 	return
 }
 
-// FromStorage gets called when we restore an entry for a missing value transfer payload from the storage. The bytes and
+// MissingPayloadFromStorage gets called when we restore an entry for a missing value transfer payload from the storage. The bytes and
 // the content will be unmarshaled by an external caller using the binary.MarshalBinary interface.
-func FromStorage([]byte) objectstorage.StorableObject {
+func MissingPayloadFromStorage([]byte) objectstorage.StorableObject {
 	return &MissingPayload{}
 }
 
 // GetId returns the payload id, that is missing.
-func (missingPayload *MissingPayload) GetId() payload.Id {
+func (missingPayload *MissingPayload) GetId() Id {
 	return missingPayload.payloadId
 }
 
@@ -97,7 +96,7 @@ func (missingPayload *MissingPayload) MarshalBinary() (data []byte, err error) {
 
 // UnmarshalBinary is required to match the encoding.BinaryUnmarshaler interface.
 func (missingPayload *MissingPayload) UnmarshalBinary(data []byte) (err error) {
-	_, err, _ = FromBytes(data, missingPayload)
+	_, err, _ = MissingPayloadFromBytes(data, missingPayload)
 
 	return
 }
