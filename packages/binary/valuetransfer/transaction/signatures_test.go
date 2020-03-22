@@ -7,7 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction/signaturescheme"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address/signaturescheme"
 )
 
 func TestSignatures(t *testing.T) {

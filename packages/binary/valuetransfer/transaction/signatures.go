@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction/signaturescheme"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address/signaturescheme"
 )
 
 // Signatures represents a container for the address signatures of a value transfer.

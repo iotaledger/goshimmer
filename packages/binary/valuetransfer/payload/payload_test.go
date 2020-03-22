@@ -1,4 +1,4 @@
-package test
+package payload
 
 import (
 	"fmt"
@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction/signaturescheme"
 )
@@ -34,12 +33,12 @@ func ExamplePayload() {
 	)
 
 	// 2. create value payload (the ontology creates this and wraps the user provided transfer accordingly)
-	valuePayload := payload.New(
+	valuePayload := New(
 		// trunk in "value transfer ontology" (filled by ontology tipSelector)
-		payload.GenesisId,
+		GenesisId,
 
 		// branch in "value transfer ontology"  (filled by ontology tipSelector)
-		payload.GenesisId,
+		GenesisId,
 
 		// value transfer
 		valueTransfer,
@@ -73,9 +72,9 @@ func TestPayload(t *testing.T) {
 	addressKeyPair1 := ed25119.GenerateKeyPair()
 	addressKeyPair2 := ed25119.GenerateKeyPair()
 
-	originalPayload := payload.New(
-		payload.GenesisId,
-		payload.GenesisId,
+	originalPayload := New(
+		GenesisId,
+		GenesisId,
 		transaction.New(
 			transaction.NewInputs(
 				transaction.NewOutputId(address.FromED25519PubKey(addressKeyPair1.PublicKey), transaction.RandomId()),
@@ -100,7 +99,7 @@ func TestPayload(t *testing.T) {
 
 	assert.Equal(t, true, originalPayload.Transaction().SignaturesValid())
 
-	clonedPayload1, err, _ := payload.FromBytes(originalPayload.Bytes())
+	clonedPayload1, err, _ := FromBytes(originalPayload.Bytes())
 	if err != nil {
 		panic(err)
 	}
@@ -111,7 +110,7 @@ func TestPayload(t *testing.T) {
 	assert.Equal(t, originalPayload.GetId(), clonedPayload1.GetId())
 	assert.Equal(t, true, clonedPayload1.Transaction().SignaturesValid())
 
-	clonedPayload2, err, _ := payload.FromBytes(clonedPayload1.Bytes())
+	clonedPayload2, err, _ := FromBytes(clonedPayload1.Bytes())
 	if err != nil {
 		panic(err)
 	}
