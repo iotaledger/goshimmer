@@ -1,4 +1,4 @@
-package payload
+package tangle
 
 import (
 	"time"
@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 )
 
 // MissingPayload represents a payload that was referenced through branch or trunk but that is missing in our object
@@ -13,12 +14,12 @@ import (
 type MissingPayload struct {
 	objectstorage.StorableObjectFlags
 
-	payloadId    Id
+	payloadId    payload.Id
 	missingSince time.Time
 }
 
 // NewMissingPayload creates an entry for a missing value transfer payload.
-func NewMissingPayload(payloadId Id) *MissingPayload {
+func NewMissingPayload(payloadId payload.Id) *MissingPayload {
 	return &MissingPayload{
 		payloadId:    payloadId,
 		missingSince: time.Now(),
@@ -40,7 +41,7 @@ func MissingPayloadFromBytes(bytes []byte, optionalTargetObject ...*MissingPaylo
 
 	// parse the bytes
 	marshalUtil := marshalutil.New(bytes)
-	if result.payloadId, err = ParseId(marshalUtil); err != nil {
+	if result.payloadId, err = payload.ParseId(marshalUtil); err != nil {
 		return
 	}
 	if result.missingSince, err = marshalUtil.ReadTime(); err != nil {
@@ -58,7 +59,7 @@ func MissingPayloadFromStorage([]byte) objectstorage.StorableObject {
 }
 
 // GetId returns the payload id, that is missing.
-func (missingPayload *MissingPayload) GetId() Id {
+func (missingPayload *MissingPayload) GetId() payload.Id {
 	return missingPayload.payloadId
 }
 
