@@ -1,4 +1,4 @@
-package tangle
+package valuetransfer
 
 import (
 	"container/list"

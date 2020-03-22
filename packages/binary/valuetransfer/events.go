@@ -1,4 +1,4 @@
-package tangle
+package valuetransfer
 
 import (
 	"github.com/iotaledger/hive.go/events"

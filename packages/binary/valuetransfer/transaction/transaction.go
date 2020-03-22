@@ -269,6 +269,7 @@ func (transaction *Transaction) String() string {
 		stringify.StructField("id", base58.Encode(id[:])),
 		stringify.StructField("inputs", transaction.inputs),
 		stringify.StructField("outputs", transaction.outputs),
+		stringify.StructField("signatures", transaction.signatures),
 	)
 }
 

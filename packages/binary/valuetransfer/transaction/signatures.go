@@ -116,3 +116,40 @@ func (signatures *Signatures) Bytes() []byte {
 	// return result
 	return marshalUtil.Bytes()
 }
+
+func (signatures *Signatures) String() string {
+	if signatures == nil {
+		return "<nil>"
+	}
+
+	result := "[\n"
+	empty := true
+	signatures.ForEach(func(address address.Address, signature signaturescheme.Signature) bool {
+		empty = false
+
+		result += "    " + address.String() + ": [\n"
+
+		/*
+			balancesEmpty := true
+			for _, balance := range balances {
+				balancesEmpty = false
+
+				result += "        " + balance.String() + ",\n"
+			}
+
+			if balancesEmpty {
+				result += "        <empty>\n"
+			}
+		*/
+
+		result += "    ]\n"
+
+		return true
+	})
+
+	if empty {
+		result += "    <empty>\n"
+	}
+
+	return result + "]"
+}

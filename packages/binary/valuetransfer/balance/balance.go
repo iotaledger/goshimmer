@@ -53,7 +53,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (*Balance, error) {
 }
 
 func (balance *Balance) Bytes() []byte {
-	marshalUtil := marshalutil.New(Length + marshalutil.UINT32_SIZE)
+	marshalUtil := marshalutil.New(Length)
 
 	marshalUtil.WriteBytes(balance.color.Bytes())
 	marshalUtil.WriteInt64(balance.balance)

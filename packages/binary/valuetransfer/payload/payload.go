@@ -126,7 +126,7 @@ func (payload *Payload) GetId() Id {
 	marshalUtil := marshalutil.New(IdLength + IdLength + transaction.IdLength)
 	marshalUtil.WriteBytes(payload.trunkPayloadId.Bytes())
 	marshalUtil.WriteBytes(payload.branchPayloadId.Bytes())
-	marshalUtil.WriteBytes(payload.GetTransfer().Id().Bytes())
+	marshalUtil.WriteBytes(payload.Transaction().Id().Bytes())
 
 	var id Id = blake2b.Sum256(marshalUtil.Bytes())
 	payload.id = &id
@@ -142,7 +142,7 @@ func (payload *Payload) BranchId() Id {
 	return payload.branchPayloadId
 }
 
-func (payload *Payload) GetTransfer() *transaction.Transaction {
+func (payload *Payload) Transaction() *transaction.Transaction {
 	return payload.transfer
 }
 
@@ -168,7 +168,7 @@ func (payload *Payload) Bytes() (bytes []byte) {
 	}
 
 	// retrieve bytes of transfer
-	transferBytes, err := payload.GetTransfer().MarshalBinary()
+	transferBytes, err := payload.Transaction().MarshalBinary()
 	if err != nil {
 		return
 	}
@@ -194,7 +194,7 @@ func (payload *Payload) String() string {
 		stringify.StructField("id", payload.GetId()),
 		stringify.StructField("trunk", payload.TrunkId()),
 		stringify.StructField("branch", payload.BranchId()),
-		stringify.StructField("transfer", payload.GetTransfer()),
+		stringify.StructField("transfer", payload.Transaction()),
 	)
 }
 
