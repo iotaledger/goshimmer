@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/missingpayload"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadapprover"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
@@ -38,7 +37,7 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 
 		payloadStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayload...), payload.FromStorage, objectstorage.CacheTime(time.Second)),
 		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), payload.MetadataFromStorage, objectstorage.CacheTime(time.Second)),
-		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), payloadapprover.FromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
+		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), payload.ApproverFromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), missingpayload.FromStorage, objectstorage.CacheTime(time.Second)),
 
 		Events: *newEvents(),
@@ -63,10 +62,10 @@ func (tangle *Tangle) GetPayloadMetadata(payloadId payload.Id) *payload.CachedMe
 }
 
 // GetApprovers retrieves the approvers of a payload from the object storage.
-func (tangle *Tangle) GetApprovers(transactionId payload.Id) payloadapprover.CachedObjects {
-	approvers := make(payloadapprover.CachedObjects, 0)
+func (tangle *Tangle) GetApprovers(transactionId payload.Id) payload.CachedApprovers {
+	approvers := make(payload.CachedApprovers, 0)
 	tangle.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		approvers = append(approvers, &payloadapprover.CachedObject{CachedObject: cachedObject})
+		approvers = append(approvers, &payload.CachedApprover{CachedObject: cachedObject})
 
 		return true
 	}, transactionId[:])
@@ -120,11 +119,11 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 
 	// store trunk approver
 	trunkId := payloadToStore.TrunkId()
-	tangle.approverStorage.Store(payloadapprover.New(trunkId, payloadId)).Release()
+	tangle.approverStorage.Store(payload.NewApprover(trunkId, payloadId)).Release()
 
 	// store branch approver
 	if branchId := payloadToStore.BranchId(); branchId != trunkId {
-		tangle.approverStorage.Store(payloadapprover.New(branchId, trunkId)).Release()
+		tangle.approverStorage.Store(payload.NewApprover(branchId, trunkId)).Release()
 	}
 
 	// trigger events
@@ -171,7 +170,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 		if tangle.isPayloadSolid(currentPayload, currentMetadata) && currentMetadata.SetSolid(true) {
 			tangle.Events.PayloadSolid.Trigger(currentCachedPayload, currentCachedMetadata)
 
-			tangle.GetApprovers(currentPayload.GetId()).Consume(func(approver *payloadapprover.PayloadApprover) {
+			tangle.GetApprovers(currentPayload.GetId()).Consume(func(approver *payload.Approver) {
 				approverTransactionId := approver.GetApprovingPayloadId()
 
 				solidificationStack.PushBack([2]interface{}{
