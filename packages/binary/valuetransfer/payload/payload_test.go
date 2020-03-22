@@ -10,9 +10,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction/signaturescheme"
 )
 
 func ExamplePayload() {
