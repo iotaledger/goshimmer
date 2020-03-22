@@ -17,7 +17,7 @@ type Payload struct {
 
 	trunkPayloadId  Id
 	branchPayloadId Id
-	transfer        *transaction.Transaction
+	transaction     *transaction.Transaction
 
 	id      *Id
 	idMutex sync.RWMutex
@@ -30,7 +30,7 @@ func New(trunkPayloadId, branchPayloadId Id, valueTransfer *transaction.Transact
 	return &Payload{
 		trunkPayloadId:  trunkPayloadId,
 		branchPayloadId: branchPayloadId,
-		transfer:        valueTransfer,
+		transaction:     valueTransfer,
 	}
 }
 
@@ -90,7 +90,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	if err != nil {
 		return
 	}
-	result.transfer = parsedTransfer.(*transaction.Transaction)
+	result.transaction = parsedTransfer.(*transaction.Transaction)
 
 	// return the number of bytes we processed
 	consumedBytes = marshalUtil.ReadOffset()
@@ -101,7 +101,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	return
 }
 
-func (payload *Payload) GetId() Id {
+func (payload *Payload) Id() Id {
 	// acquire lock for reading id
 	payload.idMutex.RLock()
 
@@ -143,7 +143,7 @@ func (payload *Payload) BranchId() Id {
 }
 
 func (payload *Payload) Transaction() *transaction.Transaction {
-	return payload.transfer
+	return payload.transaction
 }
 
 func (payload *Payload) Bytes() (bytes []byte) {
@@ -191,7 +191,7 @@ func (payload *Payload) Bytes() (bytes []byte) {
 
 func (payload *Payload) String() string {
 	return stringify.Struct("Payload",
-		stringify.StructField("id", payload.GetId()),
+		stringify.StructField("id", payload.Id()),
 		stringify.StructField("trunk", payload.TrunkId()),
 		stringify.StructField("branch", payload.BranchId()),
 		stringify.StructField("transfer", payload.Transaction()),
@@ -237,7 +237,7 @@ var _ payload.Payload = &Payload{}
 // UnmarshalBinary(data []byte) (err error) already implemented by Payload
 
 func (payload *Payload) GetStorageKey() []byte {
-	id := payload.GetId()
+	id := payload.Id()
 
 	return id[:]
 }

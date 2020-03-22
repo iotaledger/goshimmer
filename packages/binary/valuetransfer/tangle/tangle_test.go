@@ -1,4 +1,4 @@
-package valuetransfer
+package tangle
 
 import (
 	"fmt"

@@ -107,7 +107,7 @@ func TestPayload(t *testing.T) {
 	assert.Equal(t, originalPayload.BranchId(), clonedPayload1.BranchId())
 	assert.Equal(t, originalPayload.TrunkId(), clonedPayload1.TrunkId())
 	assert.Equal(t, originalPayload.Transaction().Bytes(), clonedPayload1.Transaction().Bytes())
-	assert.Equal(t, originalPayload.GetId(), clonedPayload1.GetId())
+	assert.Equal(t, originalPayload.Id(), clonedPayload1.Id())
 	assert.Equal(t, true, clonedPayload1.Transaction().SignaturesValid())
 
 	clonedPayload2, err, _ := FromBytes(clonedPayload1.Bytes())
@@ -115,6 +115,6 @@ func TestPayload(t *testing.T) {
 		panic(err)
 	}
 
-	assert.Equal(t, originalPayload.GetId(), clonedPayload2.GetId())
+	assert.Equal(t, originalPayload.Id(), clonedPayload2.Id())
 	assert.Equal(t, true, clonedPayload2.Transaction().SignaturesValid())
 }
