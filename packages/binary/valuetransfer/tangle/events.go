@@ -35,9 +35,9 @@ func payloadIdEvent(handler interface{}, params ...interface{}) {
 }
 
 func cachedPayloadEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*payload.CachedPayload, *payload.CachedPayloadMetadata))(
+	handler.(func(*payload.CachedPayload, *CachedPayloadMetadata))(
 		params[0].(*payload.CachedPayload).Retain(),
-		params[1].(*payload.CachedPayloadMetadata).Retain(),
+		params[1].(*CachedPayloadMetadata).Retain(),
 	)
 }
 

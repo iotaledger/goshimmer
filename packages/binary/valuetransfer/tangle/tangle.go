@@ -38,8 +38,8 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		storageId: storageId,
 
 		payloadStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayload...), payload.FromStorage, objectstorage.CacheTime(time.Second)),
-		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), payload.PayloadMetadataFromStorage, objectstorage.CacheTime(time.Second)),
-		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), payload.PayloadApproverFromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
+		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), PayloadMetadataFromStorage, objectstorage.CacheTime(time.Second)),
+		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), PayloadApproverFromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), payload.MissingPayloadFromStorage, objectstorage.CacheTime(time.Second)),
 		missingOutputStorage:   objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), transaction.MissingOutputFromStorage, objectstorage.CacheTime(time.Second)),
 
@@ -60,15 +60,15 @@ func (tangle *Tangle) GetPayload(payloadId payload.Id) *payload.CachedPayload {
 }
 
 // GetPayloadMetadata retrieves the metadata of a value payload from the object storage.
-func (tangle *Tangle) GetPayloadMetadata(payloadId payload.Id) *payload.CachedPayloadMetadata {
-	return &payload.CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Load(payloadId.Bytes())}
+func (tangle *Tangle) GetPayloadMetadata(payloadId payload.Id) *CachedPayloadMetadata {
+	return &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Load(payloadId.Bytes())}
 }
 
 // GetApprovers retrieves the approvers of a payload from the object storage.
-func (tangle *Tangle) GetApprovers(transactionId payload.Id) payload.CachedApprovers {
-	approvers := make(payload.CachedApprovers, 0)
+func (tangle *Tangle) GetApprovers(transactionId payload.Id) CachedApprovers {
+	approvers := make(CachedApprovers, 0)
 	tangle.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		approvers = append(approvers, &payload.CachedPayloadApprover{CachedObject: cachedObject})
+		approvers = append(approvers, &CachedPayloadApprover{CachedObject: cachedObject})
 
 		return true
 	}, transactionId[:])
@@ -118,15 +118,15 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 
 	// store payload metadata
 	payloadId := payloadToStore.Id()
-	cachedMetadata := &payload.CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(payload.NewPayloadMetadata(payloadId))}
+	cachedMetadata := &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(NewPayloadMetadata(payloadId))}
 
 	// store trunk approver
 	trunkId := payloadToStore.TrunkId()
-	tangle.approverStorage.Store(payload.NewPayloadApprover(trunkId, payloadId)).Release()
+	tangle.approverStorage.Store(NewPayloadApprover(trunkId, payloadId)).Release()
 
 	// store branch approver
 	if branchId := payloadToStore.BranchId(); branchId != trunkId {
-		tangle.approverStorage.Store(payload.NewPayloadApprover(branchId, trunkId)).Release()
+		tangle.approverStorage.Store(NewPayloadApprover(branchId, trunkId)).Release()
 	}
 
 	// trigger events
@@ -153,14 +153,14 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 }
 
 // solidifyTransactionWorker is the worker function that solidifies the payloads (recursively from past to present).
-func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPayload, cachedMetadata *payload.CachedPayloadMetadata) {
-	popElementsFromStack := func(stack *list.List) (*payload.CachedPayload, *payload.CachedPayloadMetadata) {
+func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata) {
+	popElementsFromStack := func(stack *list.List) (*payload.CachedPayload, *CachedPayloadMetadata) {
 		currentSolidificationEntry := stack.Front()
 		currentCachedPayload := currentSolidificationEntry.Value.([2]interface{})[0]
 		currentCachedMetadata := currentSolidificationEntry.Value.([2]interface{})[1]
 		stack.Remove(currentSolidificationEntry)
 
-		return currentCachedPayload.(*payload.CachedPayload), currentCachedMetadata.(*payload.CachedPayloadMetadata)
+		return currentCachedPayload.(*payload.CachedPayload), currentCachedMetadata.(*CachedPayloadMetadata)
 	}
 
 	// initialize the stack
@@ -185,7 +185,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 			if currentMetadata.SetSolid(true) {
 				tangle.Events.PayloadSolid.Trigger(currentCachedPayload, currentCachedMetadata)
 
-				tangle.GetApprovers(currentPayload.Id()).Consume(func(approver *payload.PayloadApprover) {
+				tangle.GetApprovers(currentPayload.Id()).Consume(func(approver *PayloadApprover) {
 					approverTransactionId := approver.GetApprovingPayloadId()
 
 					solidificationStack.PushBack([2]interface{}{
@@ -241,7 +241,7 @@ func (tangle *Tangle) isOutputMarkedAsSolid(transferOutputId transaction.OutputI
 
 // isPayloadSolid returns true if the given payload is solid. A payload is considered to be solid solid, if it is either
 // already marked as solid or if its referenced payloads are marked as solid.
-func (tangle *Tangle) isPayloadSolid(payload *payload.Payload, metadata *payload.PayloadMetadata) bool {
+func (tangle *Tangle) isPayloadSolid(payload *payload.Payload, metadata *PayloadMetadata) bool {
 	if payload == nil || payload.IsDeleted() {
 		return false
 	}
