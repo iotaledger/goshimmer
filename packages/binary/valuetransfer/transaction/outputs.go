@@ -4,14 +4,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
 )
 
 type Outputs struct {
 	*orderedmap.OrderedMap
 }
 
-func NewOutputs(outputs map[address.Address][]*coloredbalance.ColoredBalance) (result *Outputs) {
+func NewOutputs(outputs map[address.Address][]*balance.Balance) (result *Outputs) {
 	result = &Outputs{orderedmap.New()}
 	for address, balances := range outputs {
 		result.Add(address, balances)
@@ -61,16 +61,16 @@ func OutputsFromBytes(bytes []byte, optionalTargetObject ...*Outputs) (result *O
 		}
 
 		// iterate the corresponding times and collect balances
-		coloredBalances := make([]*coloredbalance.ColoredBalance, balanceCount)
+		coloredBalances := make([]*balance.Balance, balanceCount)
 		for j := uint32(0); j < balanceCount; j++ {
-			coloredBalance, coloredBalanceErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return coloredbalance.FromBytes(data) })
+			coloredBalance, coloredBalanceErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return balance.FromBytes(data) })
 			if coloredBalanceErr != nil {
 				err = coloredBalanceErr
 
 				return
 			}
 
-			coloredBalances[j] = coloredBalance.(*coloredbalance.ColoredBalance)
+			coloredBalances[j] = coloredBalance.(*balance.Balance)
 		}
 
 		// add the gathered information as an output
@@ -83,15 +83,15 @@ func OutputsFromBytes(bytes []byte, optionalTargetObject ...*Outputs) (result *O
 	return
 }
 
-func (outputs *Outputs) Add(address address.Address, balances []*coloredbalance.ColoredBalance) *Outputs {
+func (outputs *Outputs) Add(address address.Address, balances []*balance.Balance) *Outputs {
 	outputs.Set(address, balances)
 
 	return outputs
 }
 
-func (outputs *Outputs) ForEach(consumer func(address address.Address, balances []*coloredbalance.ColoredBalance)) {
+func (outputs *Outputs) ForEach(consumer func(address address.Address, balances []*balance.Balance)) {
 	outputs.OrderedMap.ForEach(func(key, value interface{}) bool {
-		consumer(key.(address.Address), value.([]*coloredbalance.ColoredBalance))
+		consumer(key.(address.Address), value.([]*balance.Balance))
 
 		return true
 	})
@@ -107,7 +107,7 @@ func (outputs *Outputs) Bytes() []byte {
 	}
 
 	marshalUtil.WriteUint32(uint32(outputs.Size()))
-	outputs.ForEach(func(address address.Address, balances []*coloredbalance.ColoredBalance) {
+	outputs.ForEach(func(address address.Address, balances []*balance.Balance) {
 		marshalUtil.WriteBytes(address.Bytes())
 		marshalUtil.WriteUint32(uint32(len(balances)))
 
@@ -126,7 +126,7 @@ func (outputs *Outputs) String() string {
 
 	result := "[\n"
 	empty := true
-	outputs.ForEach(func(address address.Address, balances []*coloredbalance.ColoredBalance) {
+	outputs.ForEach(func(address address.Address, balances []*balance.Balance) {
 		empty = false
 
 		result += "    " + address.String() + ": [\n"

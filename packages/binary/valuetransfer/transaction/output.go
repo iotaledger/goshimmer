@@ -7,21 +7,21 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
 )
 
 // Output represents the output of a Transaction and contains the balances and the identifiers for this output.
 type Output struct {
 	address       address.Address
 	transactionId Id
-	balances      []*coloredbalance.ColoredBalance
+	balances      []*balance.Balance
 
 	objectstorage.StorableObjectFlags
 	storageKey []byte
 }
 
 // NewOutput creates an Output that contains the balances and identifiers of a Transaction.
-func NewOutput(address address.Address, transactionId Id, balances []*coloredbalance.ColoredBalance) *Output {
+func NewOutput(address address.Address, transactionId Id, balances []*balance.Balance) *Output {
 	return &Output{
 		address:       address,
 		transactionId: transactionId,
@@ -51,7 +51,7 @@ func (output *Output) TransactionId() Id {
 }
 
 // Balances returns the colored balances (color + balance) that this output contains.
-func (output *Output) Balances() []*coloredbalance.ColoredBalance {
+func (output *Output) Balances() []*balance.Balance {
 	return output.balances
 }
 
@@ -62,7 +62,7 @@ func (output *Output) MarshalBinary() (data []byte, err error) {
 	balanceCount := len(output.balances)
 
 	// initialize helper
-	marshalUtil := marshalutil.New(4 + balanceCount*coloredbalance.Length)
+	marshalUtil := marshalutil.New(4 + balanceCount*balance.Length)
 
 	// marshal the amount of balances
 	marshalUtil.WriteUint32(uint32(balanceCount))
@@ -100,9 +100,9 @@ func (output *Output) UnmarshalBinary(data []byte) (err error) {
 	if err != nil {
 		return
 	}
-	output.balances = make([]*coloredbalance.ColoredBalance, balanceCount)
+	output.balances = make([]*balance.Balance, balanceCount)
 	for i := uint32(0); i < balanceCount; i++ {
-		output.balances[i], err = coloredbalance.Parse(contentUnmarshaler)
+		output.balances[i], err = balance.Parse(contentUnmarshaler)
 		if err != nil {
 			return
 		}

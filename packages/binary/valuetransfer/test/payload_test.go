@@ -10,8 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance/color"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction/signaturescheme"
@@ -27,9 +26,9 @@ func ExamplePayload() {
 		),
 
 		// outputs
-		transaction.NewOutputs(map[address.Address][]*coloredbalance.ColoredBalance{
+		transaction.NewOutputs(map[address.Address][]*balance.Balance{
 			address.Random(): {
-				coloredbalance.New(color.IOTA, 1337),
+				balance.New(balance.COLOR_IOTA, 1337),
 			},
 		}),
 	)
@@ -83,9 +82,9 @@ func TestPayload(t *testing.T) {
 				transaction.NewOutputId(address.FromED25519PubKey(addressKeyPair2.PublicKey), transaction.RandomId()),
 			),
 
-			transaction.NewOutputs(map[address.Address][]*coloredbalance.ColoredBalance{
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
 				address.Random(): {
-					coloredbalance.New(color.IOTA, 1337),
+					balance.New(balance.COLOR_IOTA, 1337),
 				},
 			}),
 		).Sign(
