@@ -11,7 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction/signaturescheme"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address/signaturescheme"
 )
 
 // region IMPLEMENT Transaction ///////////////////////////////////////////////////////////////////////////////////////////
