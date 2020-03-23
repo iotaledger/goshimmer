@@ -1,4 +1,4 @@
-package transaction
+package tangle
 
 import (
 	"time"
@@ -6,18 +6,19 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
 // MissingPayload represents an Output that was referenced by a Transaction, but that is missing in our object storage.
 type MissingOutput struct {
 	objectstorage.StorableObjectFlags
 
-	outputId     OutputId
+	outputId     transaction.OutputId
 	missingSince time.Time
 }
 
 // NewMissingOutput creates a new MissingOutput object, that .
-func NewMissingOutput(outputId OutputId) *MissingOutput {
+func NewMissingOutput(outputId transaction.OutputId) *MissingOutput {
 	return &MissingOutput{
 		outputId:     outputId,
 		missingSince: time.Now(),
@@ -39,7 +40,7 @@ func MissingOutputFromBytes(bytes []byte, optionalTargetObject ...*MissingOutput
 
 	// parse the bytes
 	marshalUtil := marshalutil.New(bytes)
-	if result.outputId, err = ParseOutputId(marshalUtil); err != nil {
+	if result.outputId, err = transaction.ParseOutputId(marshalUtil); err != nil {
 		return
 	}
 	if result.missingSince, err = marshalUtil.ReadTime(); err != nil {
@@ -53,7 +54,7 @@ func MissingOutputFromBytes(bytes []byte, optionalTargetObject ...*MissingOutput
 // MissingOutputFromStorage gets called when we restore a MissingOutput from the storage. The content will be
 // unmarshaled by an external caller using the binary.MarshalBinary interface.
 func MissingOutputFromStorage(keyBytes []byte) objectstorage.StorableObject {
-	outputId, err, _ := OutputIdFromBytes(keyBytes)
+	outputId, err, _ := transaction.OutputIdFromBytes(keyBytes)
 	if err != nil {
 		panic(err)
 	}
@@ -64,7 +65,7 @@ func MissingOutputFromStorage(keyBytes []byte) objectstorage.StorableObject {
 }
 
 // Id returns the id of the Output that is missing.
-func (missingOutput *MissingOutput) Id() OutputId {
+func (missingOutput *MissingOutput) Id() transaction.OutputId {
 	return missingOutput.outputId
 }
 

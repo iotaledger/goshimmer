@@ -41,7 +41,7 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), PayloadMetadataFromStorage, objectstorage.CacheTime(time.Second)),
 		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), PayloadApproverFromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingPayloadFromStorage, objectstorage.CacheTime(time.Second)),
-		missingOutputStorage:   objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), transaction.MissingOutputFromStorage, objectstorage.CacheTime(time.Second)),
+		missingOutputStorage:   objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingOutputFromStorage, objectstorage.CacheTime(time.Second)),
 
 		Events: *newEvents(),
 	}
@@ -219,19 +219,19 @@ func (tangle *Tangle) isTransactionSolid(transfer *transaction.Transaction, meta
 	return transfer.Inputs().ForEach(tangle.isOutputMarkedAsSolid)
 }
 
-func (tangle *Tangle) GetTransferOutputMetadata(transferOutputId transaction.OutputId) *transaction.CachedOutputMetadata {
+func (tangle *Tangle) GetTransferOutputMetadata(transferOutputId transaction.OutputId) *CachedTransactionOutputMetadata {
 	return nil
 }
 
 func (tangle *Tangle) isOutputMarkedAsSolid(transferOutputId transaction.OutputId) (result bool) {
-	objectConsumed := tangle.GetTransferOutputMetadata(transferOutputId).Consume(func(transferOutputMetadata *transaction.OutputMetadata) {
+	objectConsumed := tangle.GetTransferOutputMetadata(transferOutputId).Consume(func(transferOutputMetadata *TransactionOutputMetadata) {
 		result = transferOutputMetadata.Solid()
 	})
 
 	if !objectConsumed {
-		if cachedMissingOutput, missingOutputStored := tangle.missingOutputStorage.StoreIfAbsent(transaction.NewMissingOutput(transferOutputId)); missingOutputStored {
+		if cachedMissingOutput, missingOutputStored := tangle.missingOutputStorage.StoreIfAbsent(NewMissingOutput(transferOutputId)); missingOutputStored {
 			cachedMissingOutput.Consume(func(object objectstorage.StorableObject) {
-				tangle.Events.OutputMissing.Trigger(object.(*transaction.MissingOutput).Id())
+				tangle.Events.OutputMissing.Trigger(object.(*MissingOutput).Id())
 			})
 		}
 	}
