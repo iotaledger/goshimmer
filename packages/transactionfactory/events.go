@@ -1,8 +1,8 @@
 package transactionfactory
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -22,5 +22,5 @@ func payloadConstructedEvent(handler interface{}, params ...interface{}) {
 }
 
 func transactionConstructedEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*transaction.Transaction))(params[0].(*transaction.Transaction))
+	handler.(func(*message.Transaction))(params[0].(*message.Transaction))
 }

@@ -1,8 +1,8 @@
 package baseontology
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload/data"
 	"github.com/iotaledger/goshimmer/packages/transactionfactory"
 )
 

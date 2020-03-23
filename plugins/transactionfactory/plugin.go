@@ -3,7 +3,7 @@ package transactionfactory
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/transactionfactory"
 	"github.com/iotaledger/hive.go/events"
@@ -36,7 +36,7 @@ func configure(plugin *node.Plugin) {
 	//	instance.BuildTransaction(payload)
 	//}))
 
-	transactionfactory.Events.TransactionConstructed.Attach(events.NewClosure(func(tx *transaction.Transaction) {
+	transactionfactory.Events.TransactionConstructed.Attach(events.NewClosure(func(tx *message.Transaction) {
 		fmt.Printf("Transaction created: %v\n", tx)
 		//	TODO: call gossip
 	}))

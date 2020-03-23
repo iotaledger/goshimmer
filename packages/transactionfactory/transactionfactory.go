@@ -1,13 +1,13 @@
 package transactionfactory
 
 import (
-	"fmt"
 	"sync"
+	"time"
 
 	"github.com/dgraph-io/badger/v2"
-	"github.com/iotaledger/goshimmer/packages/binary/identity"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
+	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/hive.go/logger"
 )
@@ -48,17 +48,34 @@ func (t *TransactionFactory) Shutdown() {
 	}
 }
 
-func (t *TransactionFactory) BuildTransaction(payload *payload.Payload) *transaction.Transaction {
+func (t *TransactionFactory) BuildTransaction(payload *payload.Payload) *message.Transaction {
 	// TODO: fill other fields: tip selection, time, sequence number, get local identity and add to singleton
-	seq, _ := t.sequence.Next()
-	fmt.Printf("Sequence number: %d\n", seq)
+	seq, err := t.sequence.Next()
+	if err != nil {
+		panic("Could not create sequence number")
+	}
 
-	tx := transaction.New(
-		transaction.EmptyId,
-		transaction.EmptyId,
+	localIdentity := identity.GenerateLocalIdentity()
+	tx := message.New(
+		// trunk in "network tangle" ontology (filled by tipSelector)
+		message.EmptyId,
+
+		// branch in "network tangle" ontology (filled by tipSelector)
+		message.EmptyId,
+
 		// issuer of the transaction (signs automatically)
-		identity.Generate(),
+		localIdentity.PublicKey(),
+
+		// the time when the transaction was created
+		time.Now(),
+
+		// the ever increasing sequence number of this transaction
+		seq,
+
+		// payload
 		*payload,
+
+		localIdentity,
 	)
 
 	Events.TransactionConstructed.Trigger(tx)

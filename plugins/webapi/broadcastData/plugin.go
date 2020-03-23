@@ -3,10 +3,8 @@ package broadcastData
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/transactionfactory/baseontology"
-
 	"github.com/iotaledger/goshimmer/packages/transactionfactory"
-
+	"github.com/iotaledger/goshimmer/packages/transactionfactory/baseontology"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
