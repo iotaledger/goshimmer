@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
 )
 
 type Payload struct {
