@@ -3,6 +3,8 @@ package spa
 import (
 	"net/http"
 
+	//"github.com/iotaledger/goshimmer/plugins/tangle"
+
 	"github.com/labstack/echo"
 	"github.com/pkg/errors"
 )
@@ -28,10 +30,15 @@ func setupFaucetRoutes(routeGroup *echo.Group) {
 }
 
 func sendFaucetReq(address string) (res *SendResult, err error) {
+	// TODO: send transfer
+	/*
+	   trunkTransactionId, branchTransactionId := tangle.TipSelector.GetTips()
+	   txn := transaction.New(trunkTransactionId, branchTransactionId, identity.Generate(), data.New([]byte(address)))
+	   tangle.AttachTransaction(txn)
+	*/
+
 	r := &SendResult{
 		Resp: "sentFaucet",
 	}
 	return r, nil
-	//TODO
-	// Send request here
 }
