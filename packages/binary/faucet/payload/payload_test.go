@@ -18,7 +18,7 @@ func ExampleFaucetPayload() {
 	)
 
 	// 2. build actual transaction
-	tx := transaction.New(
+	tx := message.New(
 		// trunk in "network tangle" ontology (filled by tipSelector)
 		transaction.EmptyId,
 
