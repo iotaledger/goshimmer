@@ -326,11 +326,11 @@ func (cachedTransaction *CachedTransaction) Consume(consumer func(metadata *Tran
 }
 
 // Unwrap provides a way to retrieve a type casted version of the underlying object.
-func (cachedTransaction *CachedTransaction) Unwrap() *TransactionMetadata {
+func (cachedTransaction *CachedTransaction) Unwrap() *Transaction {
 	if untypedTransaction := cachedTransaction.Get(); untypedTransaction == nil {
 		return nil
 	} else {
-		if typeCastedTransaction := untypedTransaction.(*TransactionMetadata); typeCastedTransaction == nil || typeCastedTransaction.IsDeleted() {
+		if typeCastedTransaction := untypedTransaction.(*Transaction); typeCastedTransaction == nil || typeCastedTransaction.IsDeleted() {
 			return nil
 		} else {
 			return typeCastedTransaction
