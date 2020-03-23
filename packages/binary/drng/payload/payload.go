@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
