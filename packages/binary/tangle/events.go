@@ -3,7 +3,7 @@ package tangle
 import (
 	"github.com/iotaledger/hive.go/events"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
 )
 
@@ -29,12 +29,12 @@ func newEvents() *Events {
 }
 
 func transactionIdEvent(handler interface{}, params ...interface{}) {
-	handler.(func(transaction.Id))(params[0].(transaction.Id))
+	handler.(func(message.Id))(params[0].(message.Id))
 }
 
 func cachedTransactionEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*transaction.CachedTransaction, *transactionmetadata.CachedTransactionMetadata))(
-		params[0].(*transaction.CachedTransaction).Retain(),
+	handler.(func(*message.CachedTransaction, *transactionmetadata.CachedTransactionMetadata))(
+		params[0].(*message.CachedTransaction).Retain(),
 		params[1].(*transactionmetadata.CachedTransactionMetadata).Retain(),
 	)
 }

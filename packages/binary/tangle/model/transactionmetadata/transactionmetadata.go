@@ -6,13 +6,13 @@ import (
 
 	"github.com/iotaledger/hive.go/objectstorage"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 )
 
 type TransactionMetadata struct {
 	objectstorage.StorableObjectFlags
 
-	transactionId      transaction.Id
+	transactionId      message.Id
 	receivedTime       time.Time
 	solid              bool
 	solidificationTime time.Time
@@ -21,7 +21,7 @@ type TransactionMetadata struct {
 	solidificationTimeMutex sync.RWMutex
 }
 
-func New(transactionId transaction.Id) *TransactionMetadata {
+func New(transactionId message.Id) *TransactionMetadata {
 	return &TransactionMetadata{
 		transactionId: transactionId,
 		receivedTime:  time.Now(),

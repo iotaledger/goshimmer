@@ -11,16 +11,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance/color"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer"
-	transferid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/inputs"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/outputs"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle/payloadmetadata"
-	transferoutputid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput/id"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
 )
@@ -39,7 +32,7 @@ func TestTangle_AttachPayload(t *testing.T) {
 		return
 	}
 
-	tangle.Events.PayloadSolid.Attach(events.NewClosure(func(payload *payload.CachedObject, metadata *payloadmetadata.CachedObject) {
+	tangle.Events.PayloadSolid.Attach(events.NewClosure(func(payload *payload.CachedPayload, metadata *CachedPayloadMetadata) {
 		fmt.Println(payload.Unwrap())
 
 		payload.Release()
@@ -49,15 +42,18 @@ func TestTangle_AttachPayload(t *testing.T) {
 	addressKeyPair1 := ed25119.GenerateKeyPair()
 	addressKeyPair2 := ed25119.GenerateKeyPair()
 
-	tangle.AttachPayload(payload.New(id.Genesis, id.Genesis, transfer.New(
-		inputs.New(
-			transferoutputid.New(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferid.New([]byte("transfer1"))),
-			transferoutputid.New(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferid.New([]byte("transfer2"))),
+	transferId1, _ := transaction.IdFromBase58("8opHzTAnfzRpPEx21XtnrVTX28YQuCpAjcn1PczScKh")
+	transferId2, _ := transaction.IdFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
+
+	tangle.AttachPayload(payload.New(payload.GenesisId, payload.GenesisId, transaction.New(
+		transaction.NewInputs(
+			transaction.NewOutputId(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferId1),
+			transaction.NewOutputId(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferId2),
 		),
 
-		outputs.New(map[address.Address][]*coloredbalance.ColoredBalance{
+		transaction.NewOutputs(map[address.Address][]*balance.Balance{
 			address.Random(): {
-				coloredbalance.New(color.IOTA, 1337),
+				balance.New(balance.COLOR_IOTA, 1337),
 			},
 		}),
 	)))
