@@ -153,7 +153,7 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 
 	// if the transaction is new, store the Consumers.
 	if newTransaction {
-		fmt.Println("WADD")
+		fmt.Println("git aWADD")
 	}
 
 	// check solidity
@@ -186,6 +186,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 		if currentPayload == nil || currentMetadata == nil {
 			currentCachedPayload.Release()
 			currentCachedMetadata.Release()
+			cachedTransactionMetadata.Release()
 
 			continue
 		}
@@ -209,6 +210,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 		// release cached results
 		currentCachedPayload.Release()
 		currentCachedMetadata.Release()
+		cachedTransactionMetadata.Release()
 	}
 }
 
