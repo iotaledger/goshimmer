@@ -24,7 +24,8 @@ type Tangle struct {
 	approverStorage        *objectstorage.ObjectStorage
 	missingPayloadStorage  *objectstorage.ObjectStorage
 
-	missingOutputStorage *objectstorage.ObjectStorage
+	transactionOutputMetadataStorage *objectstorage.ObjectStorage
+	missingOutputStorage             *objectstorage.ObjectStorage
 
 	Events Events
 
@@ -41,7 +42,9 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), PayloadMetadataFromStorage, objectstorage.CacheTime(time.Second)),
 		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), PayloadApproverFromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingPayloadFromStorage, objectstorage.CacheTime(time.Second)),
-		missingOutputStorage:   objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingOutputFromStorage, objectstorage.CacheTime(time.Second)),
+
+		transactionOutputMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleApprovers...), transaction.OutputFromStorage, objectstorage.CacheTime(time.Second)),
+		missingOutputStorage:             objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingOutputFromStorage, objectstorage.CacheTime(time.Second)),
 
 		Events: *newEvents(),
 	}
@@ -226,8 +229,8 @@ func (tangle *Tangle) isTransactionSolid(transaction *transaction.Transaction, m
 	return transaction.Inputs().ForEach(tangle.isOutputMarkedAsSolid)
 }
 
-func (tangle *Tangle) GetTransferOutputMetadata(transferOutputId transaction.OutputId) *CachedTransactionOutputMetadata {
-	return nil
+func (tangle *Tangle) GetTransferOutputMetadata(transactionOutputId transaction.OutputId) *CachedTransactionOutputMetadata {
+	return &CachedTransactionOutputMetadata{CachedObject: tangle.transactionOutputMetadataStorage.Load(transactionOutputId.Bytes())}
 }
 
 func (tangle *Tangle) isOutputMarkedAsSolid(transferOutputId transaction.OutputId) (result bool) {
