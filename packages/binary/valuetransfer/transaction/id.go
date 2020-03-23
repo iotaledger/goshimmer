@@ -58,7 +58,7 @@ func ParseId(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
 	}
 }
 
-// Random creates a random address, which can for example be used in unit tests.
+// Random creates a random id which can for example be used in unit tests.
 func RandomId() (id Id) {
 	// generate a random sequence of bytes
 	idBytes := make([]byte, IdLength)
