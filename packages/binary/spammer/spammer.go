@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload/data"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/tipselector"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/transactionparser"
 )
@@ -53,7 +53,7 @@ func (spammer *Spammer) run(tps int, processId int64) {
 
 		trunkTransactionId, branchTransactionId := spammer.tipSelector.GetTips()
 		spammer.transactionParser.Parse(
-			transaction.New(trunkTransactionId, branchTransactionId, spammingIdentity, time.Now(), 0, data.New([]byte("SPAM"))).Bytes(),
+			message.New(trunkTransactionId, branchTransactionId, spammingIdentity, time.Now(), 0, data.New([]byte("SPAM"))).Bytes(),
 			nil,
 		)
 
@@ -75,7 +75,7 @@ func (spammer *Spammer) run(tps int, processId int64) {
 func (spammer *Spammer) sendBurst(transactions int, processId int64) {
 	spammingIdentity := ed25119.GenerateKeyPair()
 
-	previousTransactionId := transaction.EmptyId
+	previousTransactionId := message.EmptyId
 
 	burstBuffer := make([][]byte, transactions)
 	for i := 0; i < transactions; i++ {
@@ -83,7 +83,7 @@ func (spammer *Spammer) sendBurst(transactions int, processId int64) {
 			return
 		}
 
-		spamTransaction := transaction.New(previousTransactionId, previousTransactionId, spammingIdentity, time.Now(), 0, data.New([]byte("SPAM")))
+		spamTransaction := message.New(previousTransactionId, previousTransactionId, spammingIdentity, time.Now(), 0, data.New([]byte("SPAM")))
 		previousTransactionId = spamTransaction.GetId()
 		burstBuffer[i] = spamTransaction.Bytes()
 	}

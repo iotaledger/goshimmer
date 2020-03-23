@@ -8,36 +8,34 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload"
-	payloadid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/id"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer"
-	transferid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload/transfer/id"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
 type Payload struct {
 	objectstorage.StorableObjectFlags
 
-	trunkPayloadId  payloadid.Id
-	branchPayloadId payloadid.Id
-	transfer        *transfer.Transfer
+	trunkPayloadId  Id
+	branchPayloadId Id
+	transaction     *transaction.Transaction
 
-	id      *payloadid.Id
+	id      *Id
 	idMutex sync.RWMutex
 
 	bytes      []byte
 	bytesMutex sync.RWMutex
 }
 
-func New(trunkPayloadId, branchPayloadId payloadid.Id, valueTransfer *transfer.Transfer) *Payload {
+func New(trunkPayloadId, branchPayloadId Id, valueTransfer *transaction.Transaction) *Payload {
 	return &Payload{
 		trunkPayloadId:  trunkPayloadId,
 		branchPayloadId: branchPayloadId,
-		transfer:        valueTransfer,
+		transaction:     valueTransfer,
 	}
 }
 
 func FromStorage(key []byte) objectstorage.StorableObject {
-	id, err, _ := payloadid.FromBytes(key)
+	id, err, _ := IdFromBytes(key)
 	if err != nil {
 		panic(err)
 	}
@@ -74,25 +72,25 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	}
 
 	// parse trunk payload id
-	parsedTrunkPayloadId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return payloadid.FromBytes(data) })
+	parsedTrunkPayloadId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) })
 	if err != nil {
 		return
 	}
-	result.trunkPayloadId = parsedTrunkPayloadId.(payloadid.Id)
+	result.trunkPayloadId = parsedTrunkPayloadId.(Id)
 
 	// parse branch payload id
-	parsedBranchPayloadId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return payloadid.FromBytes(data) })
+	parsedBranchPayloadId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) })
 	if err != nil {
 		return
 	}
-	result.branchPayloadId = parsedBranchPayloadId.(payloadid.Id)
+	result.branchPayloadId = parsedBranchPayloadId.(Id)
 
 	// parse transfer
-	parsedTransfer, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return transfer.FromBytes(data) })
+	parsedTransfer, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return transaction.FromBytes(data) })
 	if err != nil {
 		return
 	}
-	result.transfer = parsedTransfer.(*transfer.Transfer)
+	result.transaction = parsedTransfer.(*transaction.Transaction)
 
 	// return the number of bytes we processed
 	consumedBytes = marshalUtil.ReadOffset()
@@ -103,7 +101,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	return
 }
 
-func (payload *Payload) GetId() payloadid.Id {
+func (payload *Payload) Id() Id {
 	// acquire lock for reading id
 	payload.idMutex.RLock()
 
@@ -125,27 +123,27 @@ func (payload *Payload) GetId() payloadid.Id {
 	}
 
 	// otherwise calculate the id
-	marshalUtil := marshalutil.New(payloadid.Length + payloadid.Length + transferid.Length)
+	marshalUtil := marshalutil.New(IdLength + IdLength + transaction.IdLength)
 	marshalUtil.WriteBytes(payload.trunkPayloadId.Bytes())
 	marshalUtil.WriteBytes(payload.branchPayloadId.Bytes())
-	marshalUtil.WriteBytes(payload.GetTransfer().GetId().Bytes())
+	marshalUtil.WriteBytes(payload.Transaction().Id().Bytes())
 
-	var id payloadid.Id = blake2b.Sum256(marshalUtil.Bytes())
+	var id Id = blake2b.Sum256(marshalUtil.Bytes())
 	payload.id = &id
 
 	return id
 }
 
-func (payload *Payload) GetTrunkId() payloadid.Id {
+func (payload *Payload) TrunkId() Id {
 	return payload.trunkPayloadId
 }
 
-func (payload *Payload) GetBranchId() payloadid.Id {
+func (payload *Payload) BranchId() Id {
 	return payload.branchPayloadId
 }
 
-func (payload *Payload) GetTransfer() *transfer.Transfer {
-	return payload.transfer
+func (payload *Payload) Transaction() *transaction.Transaction {
+	return payload.transaction
 }
 
 func (payload *Payload) Bytes() (bytes []byte) {
@@ -170,13 +168,13 @@ func (payload *Payload) Bytes() (bytes []byte) {
 	}
 
 	// retrieve bytes of transfer
-	transferBytes, err := payload.GetTransfer().MarshalBinary()
+	transferBytes, err := payload.Transaction().MarshalBinary()
 	if err != nil {
 		return
 	}
 
 	// marshal fields
-	payloadLength := payloadid.Length + payloadid.Length + len(transferBytes)
+	payloadLength := IdLength + IdLength + len(transferBytes)
 	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
 	marshalUtil.WriteUint32(Type)
 	marshalUtil.WriteUint32(uint32(payloadLength))
@@ -193,10 +191,10 @@ func (payload *Payload) Bytes() (bytes []byte) {
 
 func (payload *Payload) String() string {
 	return stringify.Struct("Payload",
-		stringify.StructField("id", payload.GetId()),
-		stringify.StructField("trunk", payload.GetTrunkId()),
-		stringify.StructField("branch", payload.GetBranchId()),
-		stringify.StructField("transfer", payload.GetTransfer()),
+		stringify.StructField("id", payload.Id()),
+		stringify.StructField("trunk", payload.TrunkId()),
+		stringify.StructField("branch", payload.BranchId()),
+		stringify.StructField("transfer", payload.Transaction()),
 	)
 }
 
@@ -239,7 +237,7 @@ var _ payload.Payload = &Payload{}
 // UnmarshalBinary(data []byte) (err error) already implemented by Payload
 
 func (payload *Payload) GetStorageKey() []byte {
-	id := payload.GetId()
+	id := payload.Id()
 
 	return id[:]
 }
@@ -252,3 +250,37 @@ func (payload *Payload) Update(other objectstorage.StorableObject) {
 var _ objectstorage.StorableObject = &Payload{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// CachedPayload is a wrapper for the object storage, that takes care of type casting the managed objects.
+// Since go does not have generics (yet), the object storage works based on the generic "interface{}" type, which means
+// that we have to regularly type cast the returned objects, to match the expected type. To reduce the burden of
+// manually managing these type, we create a wrapper that does this for us. This way, we can consistently handle the
+// specialized types of CachedObjects, without having to manually type cast over and over again.
+type CachedPayload struct {
+	objectstorage.CachedObject
+}
+
+// Retain wraps the underlying method to return a new "wrapped object".
+func (cachedPayload *CachedPayload) Retain() *CachedPayload {
+	return &CachedPayload{cachedPayload.CachedObject.Retain()}
+}
+
+// Consume wraps the underlying method to return the correctly typed objects in the callback.
+func (cachedPayload *CachedPayload) Consume(consumer func(payload *Payload)) bool {
+	return cachedPayload.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*Payload))
+	})
+}
+
+// Unwrap provides a way to "Get" a type casted version of the underlying object.
+func (cachedPayload *CachedPayload) Unwrap() *Payload {
+	if untypedTransaction := cachedPayload.Get(); untypedTransaction == nil {
+		return nil
+	} else {
+		if typeCastedTransaction := untypedTransaction.(*Payload); typeCastedTransaction == nil || typeCastedTransaction.IsDeleted() {
+			return nil
+		} else {
+			return typeCastedTransaction
+		}
+	}
+}
