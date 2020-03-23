@@ -7,11 +7,11 @@ import (
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/events"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 )
 
 type TransactionRequester struct {
-	scheduledRequests map[transaction.Id]*time.Timer
+	scheduledRequests map[message.Id]*time.Timer
 	requestWorker     async.NonBlockingWorkerPool
 	options           *Options
 	Events            Events
@@ -21,11 +21,11 @@ type TransactionRequester struct {
 
 func New(optionalOptions ...Option) *TransactionRequester {
 	requester := &TransactionRequester{
-		scheduledRequests: make(map[transaction.Id]*time.Timer),
+		scheduledRequests: make(map[message.Id]*time.Timer),
 		options:           newOptions(optionalOptions),
 		Events: Events{
 			SendRequest: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func(transaction.Id))(params[0].(transaction.Id))
+				handler.(func(message.Id))(params[0].(message.Id))
 			}),
 		},
 	}
@@ -35,7 +35,7 @@ func New(optionalOptions ...Option) *TransactionRequester {
 	return requester
 }
 
-func (requester *TransactionRequester) ScheduleRequest(transactionId transaction.Id) {
+func (requester *TransactionRequester) ScheduleRequest(transactionId message.Id) {
 	var retryRequest func(bool)
 	retryRequest = func(initialRequest bool) {
 		requester.requestWorker.Submit(func() {
@@ -58,7 +58,7 @@ func (requester *TransactionRequester) ScheduleRequest(transactionId transaction
 	retryRequest(true)
 }
 
-func (requester *TransactionRequester) StopRequest(transactionId transaction.Id) {
+func (requester *TransactionRequester) StopRequest(transactionId message.Id) {
 	requester.scheduledRequestsMutex.RLock()
 	if timer, timerExists := requester.scheduledRequests[transactionId]; timerExists {
 		requester.scheduledRequestsMutex.RUnlock()

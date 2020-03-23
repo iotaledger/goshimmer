@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 
 	"github.com/labstack/echo"
@@ -23,7 +23,7 @@ type ExplorerTx struct {
 	MWM                      int    `json:"mwm"`
 }
 
-func createExplorerTx(tx *transaction.Transaction) (*ExplorerTx, error) {
+func createExplorerTx(tx *message.Transaction) (*ExplorerTx, error) {
 	transactionId := tx.GetId()
 
 	txMetadata := tangle.Instance.GetTransactionMetadata(transactionId)
@@ -57,7 +57,7 @@ type SearchResult struct {
 
 func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/tx/:hash", func(c echo.Context) (err error) {
-		transactionId, err := transaction.NewId(c.Param("hash"))
+		transactionId, err := message.NewId(c.Param("hash"))
 		if err != nil {
 			return
 		}
@@ -91,7 +91,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		go func() {
 			defer wg.Done()
 
-			transactionId, err := transaction.NewId(search)
+			transactionId, err := message.NewId(search)
 			if err != nil {
 				return
 			}
@@ -115,8 +115,8 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func findTransaction(transactionId transaction.Id) (explorerTx *ExplorerTx, err error) {
-	if !tangle.Instance.GetTransaction(transactionId).Consume(func(transaction *transaction.Transaction) {
+func findTransaction(transactionId message.Id) (explorerTx *ExplorerTx, err error) {
+	if !tangle.Instance.GetTransaction(transactionId).Consume(func(transaction *message.Transaction) {
 		explorerTx, err = createExplorerTx(transaction)
 	}) {
 		err = errors.Wrapf(ErrNotFound, "tx hash: %s", transactionId.String())

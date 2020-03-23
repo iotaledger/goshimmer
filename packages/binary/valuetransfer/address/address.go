@@ -11,13 +11,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 )
 
-type AddressVersion = byte
+type Version = byte
 
-type AddressDigest = []byte
+type Digest = []byte
 
 type Address [Length]byte
 
-// Random create a random address, which can for example be used in unit tests.
+// Random creates a random address, which can for example be used in unit tests.
 func Random() (address Address) {
 	// generate a random sequence of bytes
 	addressBytes := make([]byte, Length)
@@ -31,7 +31,7 @@ func Random() (address Address) {
 	return
 }
 
-// FromBase58 creates an address from base58 encoded string.
+// FromBase58 creates an address from a base58 encoded string.
 func FromBase58(base58String string) (address Address, err error) {
 	// decode string
 	bytes, err := base58.Decode(base58String)
@@ -52,6 +52,7 @@ func FromBase58(base58String string) (address Address, err error) {
 	return
 }
 
+// FromED25519PubKey creates an address from an ed25519 public key.
 func FromED25519PubKey(key ed25119.PublicKey) (address Address) {
 	digest := blake2b.Sum256(key[:])
 
@@ -75,7 +76,7 @@ func FromBytes(bytes []byte) (result Address, err error, consumedBytes int) {
 	return
 }
 
-// Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+// Parse is a wrapper for simplified unmarshaling of a byte stream using the marshalUtil package.
 func Parse(marshalUtil *marshalutil.MarshalUtil) (Address, error) {
 	if address, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) }); err != nil {
 		return Address{}, err
@@ -84,11 +85,13 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (Address, error) {
 	}
 }
 
-func (address *Address) GetVersion() AddressVersion {
+// Version returns the version of the address, which corresponds to the signature scheme that is used.
+func (address *Address) Version() Version {
 	return address[0]
 }
 
-func (address *Address) GetDigest() AddressDigest {
+// Digest returns the digest part of an address (i.e. the hashed version of the ed25519 public key)-
+func (address *Address) Digest() Digest {
 	return address[1:]
 }
 
@@ -102,4 +105,5 @@ func (address Address) String() string {
 	return base58.Encode(address.Bytes())
 }
 
+// Length contains the length of an address (digest length = 32 + version byte length = 1).
 const Length = 33

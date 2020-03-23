@@ -2,7 +2,7 @@ package tipselector
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -21,7 +21,7 @@ func New() *TipSelector {
 	}
 }
 
-func (tipSelector *TipSelector) AddTip(transaction *transaction.Transaction) {
+func (tipSelector *TipSelector) AddTip(transaction *message.Transaction) {
 	transactionId := transaction.GetId()
 	if tipSelector.tips.Set(transactionId, transactionId) {
 		tipSelector.Events.TipAdded.Trigger(transactionId)
@@ -38,16 +38,16 @@ func (tipSelector *TipSelector) AddTip(transaction *transaction.Transaction) {
 	}
 }
 
-func (tipSelector *TipSelector) GetTips() (trunkTransaction, branchTransaction transaction.Id) {
+func (tipSelector *TipSelector) GetTips() (trunkTransaction, branchTransaction message.Id) {
 	tip := tipSelector.tips.RandomEntry()
 	if tip == nil {
-		trunkTransaction = transaction.EmptyId
-		branchTransaction = transaction.EmptyId
+		trunkTransaction = message.EmptyId
+		branchTransaction = message.EmptyId
 
 		return
 	}
 
-	branchTransaction = tip.(transaction.Id)
+	branchTransaction = tip.(message.Id)
 
 	if tipSelector.tips.Size() == 1 {
 		trunkTransaction = branchTransaction
@@ -55,9 +55,9 @@ func (tipSelector *TipSelector) GetTips() (trunkTransaction, branchTransaction t
 		return
 	}
 
-	trunkTransaction = tipSelector.tips.RandomEntry().(transaction.Id)
+	trunkTransaction = tipSelector.tips.RandomEntry().(message.Id)
 	for trunkTransaction == branchTransaction && tipSelector.tips.Size() > 1 {
-		trunkTransaction = tipSelector.tips.RandomEntry().(transaction.Id)
+		trunkTransaction = tipSelector.tips.RandomEntry().(message.Id)
 	}
 
 	return

@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
@@ -19,7 +19,7 @@ var liveFeedWorkerPool *workerpool.WorkerPool
 
 func configureLiveFeed() {
 	liveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
-		task.Param(0).(*transaction.CachedTransaction).Consume(func(transaction *transaction.Transaction) {
+		task.Param(0).(*message.CachedTransaction).Consume(func(transaction *message.Transaction) {
 			sendToAllWSClient(&msg{MsgTypeTx, &tx{transaction.GetId().String(), 0}})
 		})
 
@@ -29,7 +29,7 @@ func configureLiveFeed() {
 
 func runLiveFeed() {
 	newTxRateLimiter := time.NewTicker(time.Second / 10)
-	notifyNewTx := events.NewClosure(func(tx *transaction.CachedTransaction, metadata *transactionmetadata.CachedTransactionMetadata) {
+	notifyNewTx := events.NewClosure(func(tx *message.CachedTransaction, metadata *transactionmetadata.CachedTransactionMetadata) {
 		metadata.Release()
 
 		select {
