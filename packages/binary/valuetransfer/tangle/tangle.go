@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"container/list"
+	"fmt"
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
@@ -23,7 +24,6 @@ type Tangle struct {
 	approverStorage        *objectstorage.ObjectStorage
 	missingPayloadStorage  *objectstorage.ObjectStorage
 
-	transactionStorage   *objectstorage.ObjectStorage
 	missingOutputStorage *objectstorage.ObjectStorage
 
 	Events Events
@@ -150,7 +150,7 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 
 	// if the transaction is new, store the Consumers.
 	if newTransaction {
-
+		fmt.Println("WADD")
 	}
 
 	// check solidity
