@@ -9,13 +9,13 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload/data"
 )
 
 func BenchmarkTransactionParser_ParseBytesSame(b *testing.B) {
 	localIdentity := identity.GenerateLocalIdentity()
-	txBytes := transaction.New(transaction.EmptyId, transaction.EmptyId, localIdentity.PublicKey(), time.Now(), 0, data.New([]byte("Test")), localIdentity).Bytes()
+	txBytes := message.New(message.EmptyId, message.EmptyId, localIdentity.PublicKey(), time.Now(), 0, data.New([]byte("Test")), localIdentity).Bytes()
 	txParser := New()
 
 	b.ResetTimer()
@@ -31,7 +31,7 @@ func BenchmarkTransactionParser_ParseBytesDifferent(b *testing.B) {
 	transactionBytes := make([][]byte, b.N)
 	localIdentity := identity.GenerateLocalIdentity()
 	for i := 0; i < b.N; i++ {
-		transactionBytes[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, localIdentity.PublicKey(), time.Now(), 0, data.New([]byte("Test"+strconv.Itoa(i))), localIdentity).Bytes()
+		transactionBytes[i] = message.New(message.EmptyId, message.EmptyId, localIdentity.PublicKey(), time.Now(), 0, data.New([]byte("Test"+strconv.Itoa(i))), localIdentity).Bytes()
 	}
 
 	txParser := New()
@@ -47,12 +47,12 @@ func BenchmarkTransactionParser_ParseBytesDifferent(b *testing.B) {
 
 func TestTransactionParser_ParseTransaction(t *testing.T) {
 	localIdentity := identity.GenerateLocalIdentity()
-	tx := transaction.New(transaction.EmptyId, transaction.EmptyId, localIdentity.PublicKey(), time.Now(), 0, data.New([]byte("Test")), localIdentity)
+	tx := message.New(message.EmptyId, message.EmptyId, localIdentity.PublicKey(), time.Now(), 0, data.New([]byte("Test")), localIdentity)
 
 	txParser := New()
 	txParser.Parse(tx.Bytes(), nil)
 
-	txParser.Events.TransactionParsed.Attach(events.NewClosure(func(tx *transaction.Transaction) {
+	txParser.Events.TransactionParsed.Attach(events.NewClosure(func(tx *message.Transaction) {
 		fmt.Println("PARSED!!!")
 	}))
 

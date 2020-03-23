@@ -1,7 +1,7 @@
 package tipselector
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -11,5 +11,5 @@ type Events struct {
 }
 
 func transactionIdEvent(handler interface{}, params ...interface{}) {
-	handler.(func(transaction.Id))(params[0].(transaction.Id))
+	handler.(func(message.Id))(params[0].(message.Id))
 }

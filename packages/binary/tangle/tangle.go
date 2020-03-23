@@ -9,8 +9,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/approver"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/missingtransaction"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
 
 	"github.com/iotaledger/hive.go/async"
@@ -41,9 +41,9 @@ type Tangle struct {
 func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 	result = &Tangle{
 		storageId:                  storageId,
-		transactionStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleTransaction...), transaction.FromStorage, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
+		transactionStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleTransaction...), message.FromStorage, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
 		transactionMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleTransactionMetadata...), transactionmetadata.FromStorage, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:            objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleApprovers...), approver.FromStorage, objectstorage.CacheTime(10*time.Second), objectstorage.PartitionKey(transaction.IdLength, transaction.IdLength), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:            objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleApprovers...), approver.FromStorage, objectstorage.CacheTime(10*time.Second), objectstorage.PartitionKey(message.IdLength, message.IdLength), objectstorage.LeakDetectionEnabled(false)),
 		missingTransactionsStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleMissingTransaction...), missingtransaction.FromStorage, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: *newEvents(),
@@ -60,22 +60,22 @@ func (tangle *Tangle) GetStorageId() []byte {
 }
 
 // Attaches a new transaction to the tangle.
-func (tangle *Tangle) AttachTransaction(transaction *transaction.Transaction) {
+func (tangle *Tangle) AttachTransaction(transaction *message.Transaction) {
 	tangle.storeTransactionsWorkerPool.Submit(func() { tangle.storeTransactionWorker(transaction) })
 }
 
 // Retrieves a transaction from the tangle.
-func (tangle *Tangle) GetTransaction(transactionId transaction.Id) *transaction.CachedTransaction {
-	return &transaction.CachedTransaction{CachedObject: tangle.transactionStorage.Load(transactionId[:])}
+func (tangle *Tangle) GetTransaction(transactionId message.Id) *message.CachedTransaction {
+	return &message.CachedTransaction{CachedObject: tangle.transactionStorage.Load(transactionId[:])}
 }
 
 // Retrieves the metadata of a transaction from the tangle.
-func (tangle *Tangle) GetTransactionMetadata(transactionId transaction.Id) *transactionmetadata.CachedTransactionMetadata {
+func (tangle *Tangle) GetTransactionMetadata(transactionId message.Id) *transactionmetadata.CachedTransactionMetadata {
 	return &transactionmetadata.CachedTransactionMetadata{CachedObject: tangle.transactionMetadataStorage.Load(transactionId[:])}
 }
 
 // GetApprovers retrieves the approvers of a transaction from the tangle.
-func (tangle *Tangle) GetApprovers(transactionId transaction.Id) approver.CachedApprovers {
+func (tangle *Tangle) GetApprovers(transactionId message.Id) approver.CachedApprovers {
 	approvers := make(approver.CachedApprovers, 0)
 	tangle.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		approvers = append(approvers, &approver.CachedApprover{CachedObject: cachedObject})
@@ -87,8 +87,8 @@ func (tangle *Tangle) GetApprovers(transactionId transaction.Id) approver.Cached
 }
 
 // Deletes a transaction from the tangle (i.e. for local snapshots)
-func (tangle *Tangle) DeleteTransaction(transactionId transaction.Id) {
-	tangle.GetTransaction(transactionId).Consume(func(currentTransaction *transaction.Transaction) {
+func (tangle *Tangle) DeleteTransaction(transactionId message.Id) {
+	tangle.GetTransaction(transactionId).Consume(func(currentTransaction *message.Transaction) {
 		trunkTransactionId := currentTransaction.GetTrunkTransactionId()
 		tangle.deleteApprover(trunkTransactionId, transactionId)
 
@@ -135,13 +135,13 @@ func (tangle *Tangle) Prune() error {
 }
 
 // Worker that stores the transactions and calls the corresponding storage events"
-func (tangle *Tangle) storeTransactionWorker(tx *transaction.Transaction) {
+func (tangle *Tangle) storeTransactionWorker(tx *message.Transaction) {
 	// store transaction
-	var cachedTransaction *transaction.CachedTransaction
+	var cachedTransaction *message.CachedTransaction
 	if _tmp, transactionIsNew := tangle.transactionStorage.StoreIfAbsent(tx); !transactionIsNew {
 		return
 	} else {
-		cachedTransaction = &transaction.CachedTransaction{CachedObject: _tmp}
+		cachedTransaction = &message.CachedTransaction{CachedObject: _tmp}
 	}
 
 	// store transaction metadata
@@ -170,9 +170,9 @@ func (tangle *Tangle) storeTransactionWorker(tx *transaction.Transaction) {
 }
 
 // Worker that solidifies the transactions (recursively from past to present).
-func (tangle *Tangle) solidifyTransactionWorker(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
-	isTransactionMarkedAsSolid := func(transactionId transaction.Id) bool {
-		if transactionId == transaction.EmptyId {
+func (tangle *Tangle) solidifyTransactionWorker(cachedTransaction *message.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+	isTransactionMarkedAsSolid := func(transactionId message.Id) bool {
+		if transactionId == message.EmptyId {
 			return true
 		}
 
@@ -198,7 +198,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedTransaction *transaction.C
 		return true
 	}
 
-	isTransactionSolid := func(transaction *transaction.Transaction, transactionMetadata *transactionmetadata.TransactionMetadata) bool {
+	isTransactionSolid := func(transaction *message.Transaction, transactionMetadata *transactionmetadata.TransactionMetadata) bool {
 		if transaction == nil || transaction.IsDeleted() {
 			return false
 		}
@@ -214,13 +214,13 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedTransaction *transaction.C
 		return isTransactionMarkedAsSolid(transaction.GetTrunkTransactionId()) && isTransactionMarkedAsSolid(transaction.GetBranchTransactionId())
 	}
 
-	popElementsFromStack := func(stack *list.List) (*transaction.CachedTransaction, *transactionmetadata.CachedTransactionMetadata) {
+	popElementsFromStack := func(stack *list.List) (*message.CachedTransaction, *transactionmetadata.CachedTransactionMetadata) {
 		currentSolidificationEntry := stack.Front()
 		currentCachedTransaction := currentSolidificationEntry.Value.([2]interface{})[0]
 		currentCachedTransactionMetadata := currentSolidificationEntry.Value.([2]interface{})[1]
 		stack.Remove(currentSolidificationEntry)
 
-		return currentCachedTransaction.(*transaction.CachedTransaction), currentCachedTransactionMetadata.(*transactionmetadata.CachedTransactionMetadata)
+		return currentCachedTransaction.(*message.CachedTransaction), currentCachedTransactionMetadata.(*transactionmetadata.CachedTransactionMetadata)
 	}
 
 	// initialize the stack
@@ -261,9 +261,9 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedTransaction *transaction.C
 }
 
 // Worker that Monitors the missing transactions (by scheduling regular checks).
-func (tangle *Tangle) monitorMissingTransactionWorker(transactionId transaction.Id) {
-	var scheduleNextMissingCheck func(transactionId transaction.Id)
-	scheduleNextMissingCheck = func(transactionId transaction.Id) {
+func (tangle *Tangle) monitorMissingTransactionWorker(transactionId message.Id) {
+	var scheduleNextMissingCheck func(transactionId message.Id)
+	scheduleNextMissingCheck = func(transactionId message.Id) {
 		time.AfterFunc(MISSING_CHECK_INTERVAL, func() {
 			tangle.missingTransactionsStorage.Load(transactionId[:]).Consume(func(object objectstorage.StorableObject) {
 				missingTransaction := object.(*missingtransaction.MissingTransaction)
@@ -288,24 +288,24 @@ func (tangle *Tangle) monitorMissingTransactionWorker(transactionId transaction.
 	scheduleNextMissingCheck(transactionId)
 }
 
-func (tangle *Tangle) deleteApprover(approvedTransaction transaction.Id, approvingTransaction transaction.Id) {
-	idToDelete := make([]byte, transaction.IdLength+transaction.IdLength)
-	copy(idToDelete[:transaction.IdLength], approvedTransaction[:])
-	copy(idToDelete[transaction.IdLength:], approvingTransaction[:])
+func (tangle *Tangle) deleteApprover(approvedTransaction message.Id, approvingTransaction message.Id) {
+	idToDelete := make([]byte, message.IdLength+message.IdLength)
+	copy(idToDelete[:message.IdLength], approvedTransaction[:])
+	copy(idToDelete[message.IdLength:], approvingTransaction[:])
 	tangle.approverStorage.Delete(idToDelete)
 }
 
 // Deletes a transaction and all of its approvers (recursively).
-func (tangle *Tangle) deleteSubtangle(transactionId transaction.Id) {
+func (tangle *Tangle) deleteSubtangle(transactionId message.Id) {
 	cleanupStack := list.New()
 	cleanupStack.PushBack(transactionId)
 
-	processedTransactions := make(map[transaction.Id]types.Empty)
+	processedTransactions := make(map[message.Id]types.Empty)
 	processedTransactions[transactionId] = types.Void
 
 	for cleanupStack.Len() >= 1 {
 		currentStackEntry := cleanupStack.Front()
-		currentTransactionId := currentStackEntry.Value.(transaction.Id)
+		currentTransactionId := currentStackEntry.Value.(message.Id)
 		cleanupStack.Remove(currentStackEntry)
 
 		tangle.DeleteTransaction(currentTransactionId)

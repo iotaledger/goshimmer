@@ -6,15 +6,16 @@ import (
 	"net"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
-	"github.com/iotaledger/hive.go/identity"
-
 	"github.com/golang/protobuf/proto"
-	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
-	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"go.uber.org/zap"
+
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
-	"go.uber.org/zap"
+	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
+	"github.com/iotaledger/goshimmer/packages/gossip/server"
 )
 
 const (
@@ -27,7 +28,7 @@ var (
 )
 
 // GetTransaction defines a function that returns the transaction data with the given hash.
-type GetTransaction func(transactionId transaction.Id) ([]byte, error)
+type GetTransaction func(transactionId message.Id) ([]byte, error)
 
 type Manager struct {
 	local          *peer.Local
@@ -257,7 +258,7 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 		}
 		m.log.Debugw("received message", "type", "TRANSACTION_REQUEST", "id", p.ID())
 		// do something
-		txId, err, _ := transaction.IdFromBytes(msg.GetHash())
+		txId, err, _ := message.IdFromBytes(msg.GetHash())
 		if err != nil {
 			m.log.Debugw("error getting transaction", "hash", msg.GetHash(), "err", err)
 		}

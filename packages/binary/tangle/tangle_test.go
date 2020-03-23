@@ -11,8 +11,8 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload/data"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -34,9 +34,9 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 
 	testIdentity := identity.GenerateLocalIdentity()
 
-	transactionBytes := make([]*transaction.Transaction, b.N)
+	transactionBytes := make([]*message.Transaction, b.N)
 	for i := 0; i < b.N; i++ {
-		transactionBytes[i] = transaction.New(transaction.EmptyId, transaction.EmptyId, testIdentity.PublicKey(), time.Now(), 0, data.New([]byte("some data")), testIdentity)
+		transactionBytes[i] = message.New(message.EmptyId, message.EmptyId, testIdentity.PublicKey(), time.Now(), 0, data.New([]byte("some data")), testIdentity)
 		transactionBytes[i].Bytes()
 	}
 
@@ -63,38 +63,38 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		return
 	}
 
-	tangle.Events.TransactionAttached.Attach(events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+	tangle.Events.TransactionAttached.Attach(events.NewClosure(func(cachedTransaction *message.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
 		cachedTransactionMetadata.Release()
 
-		cachedTransaction.Consume(func(transaction *transaction.Transaction) {
+		cachedTransaction.Consume(func(transaction *message.Transaction) {
 			fmt.Println("ATTACHED:", transaction.GetId())
 		})
 	}))
 
-	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
 		cachedTransactionMetadata.Release()
 
-		cachedTransaction.Consume(func(transaction *transaction.Transaction) {
+		cachedTransaction.Consume(func(transaction *message.Transaction) {
 			fmt.Println("SOLID:", transaction.GetId())
 		})
 	}))
 
-	tangle.Events.TransactionUnsolidifiable.Attach(events.NewClosure(func(transactionId transaction.Id) {
+	tangle.Events.TransactionUnsolidifiable.Attach(events.NewClosure(func(transactionId message.Id) {
 		fmt.Println("UNSOLIDIFIABLE:", transactionId)
 	}))
 
-	tangle.Events.TransactionMissing.Attach(events.NewClosure(func(transactionId transaction.Id) {
+	tangle.Events.TransactionMissing.Attach(events.NewClosure(func(transactionId message.Id) {
 		fmt.Println("MISSING:", transactionId)
 	}))
 
-	tangle.Events.TransactionRemoved.Attach(events.NewClosure(func(transactionId transaction.Id) {
+	tangle.Events.TransactionRemoved.Attach(events.NewClosure(func(transactionId message.Id) {
 		fmt.Println("REMOVED:", transactionId)
 	}))
 
 	localIdentity1 := identity.GenerateLocalIdentity()
 	localIdentity2 := identity.GenerateLocalIdentity()
-	newTransaction1 := transaction.New(transaction.EmptyId, transaction.EmptyId, localIdentity1.PublicKey(), time.Now(), 0, data.New([]byte("some data")), localIdentity1)
-	newTransaction2 := transaction.New(newTransaction1.GetId(), newTransaction1.GetId(), localIdentity2.PublicKey(), time.Now(), 0, data.New([]byte("some other data")), localIdentity2)
+	newTransaction1 := message.New(message.EmptyId, message.EmptyId, localIdentity1.PublicKey(), time.Now(), 0, data.New([]byte("some data")), localIdentity1)
+	newTransaction2 := message.New(newTransaction1.GetId(), newTransaction1.GetId(), localIdentity2.PublicKey(), time.Now(), 0, data.New([]byte("some other data")), localIdentity2)
 
 	tangle.AttachTransaction(newTransaction2)
 

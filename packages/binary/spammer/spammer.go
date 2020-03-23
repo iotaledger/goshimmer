@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload/data"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/tipselector"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/transactionparser"
 )
@@ -54,7 +54,7 @@ func (spammer *Spammer) run(tps int, processId int64) {
 
 		// TODO: use transaction factory
 		trunkTransactionId, branchTransactionId := spammer.tipSelector.GetTips()
-		tx := transaction.New(
+		msg := message.New(
 			trunkTransactionId,
 			branchTransactionId,
 			spammingIdentity.PublicKey(),
@@ -63,7 +63,7 @@ func (spammer *Spammer) run(tps int, processId int64) {
 			data.New([]byte("SPAM")),
 			spammingIdentity,
 		)
-		spammer.transactionParser.Parse(tx.Bytes(), nil)
+		spammer.transactionParser.Parse(msg.Bytes(), nil)
 
 		currentSentCounter++
 
@@ -84,7 +84,7 @@ func (spammer *Spammer) sendBurst(transactions int, processId int64) {
 	// TODO: this should be the local peer's identity
 	spammingIdentity := identity.GenerateLocalIdentity()
 
-	previousTransactionId := transaction.EmptyId
+	previousTransactionId := message.EmptyId
 
 	burstBuffer := make([][]byte, transactions)
 	for i := 0; i < transactions; i++ {
@@ -93,7 +93,7 @@ func (spammer *Spammer) sendBurst(transactions int, processId int64) {
 		}
 
 		// TODO: use transaction factory
-		spamTransaction := transaction.New(
+		spamTransaction := message.New(
 			previousTransactionId,
 			previousTransactionId,
 			spammingIdentity.PublicKey(),
