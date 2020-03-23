@@ -3,6 +3,10 @@ package marshalutil
 // WriteBytes appends the given bytes to the internal buffer.
 // It returns the same MarshalUtil so calls can be chained.
 func (util *MarshalUtil) WriteBytes(bytes []byte) *MarshalUtil {
+	if bytes == nil {
+		return util
+	}
+
 	writeEndOffset := util.expandWriteCapacity(len(bytes))
 
 	copy(util.bytes[util.writeOffset:writeEndOffset], bytes)

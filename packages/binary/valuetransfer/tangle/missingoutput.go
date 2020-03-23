@@ -25,8 +25,8 @@ func NewMissingOutput(outputId transaction.OutputId) *MissingOutput {
 	}
 }
 
-// MissingOutput unmarshals a MissingOutput from a sequence of bytes - it either creates a new object or fills the
-// optionally provided one with the parsed information.
+// MissingOutputFromBytes unmarshals a MissingOutput from a sequence of bytes - it either creates a new object or fills
+// the optionally provided one with the parsed information.
 func MissingOutputFromBytes(bytes []byte, optionalTargetObject ...*MissingOutput) (result *MissingOutput, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
