@@ -3,7 +3,7 @@ package gtta
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/node"
@@ -24,6 +24,6 @@ func Handler(c echo.Context) error {
 }
 
 type Response struct {
-	BranchTransaction transaction.Id `json:"branchTransaction"`
-	TrunkTransaction  transaction.Id `json:"trunkTransaction"`
+	BranchTransaction message.Id `json:"branchTransaction"`
+	TrunkTransaction  message.Id `json:"trunkTransaction"`
 }

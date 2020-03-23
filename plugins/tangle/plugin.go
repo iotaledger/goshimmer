@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/tipselector"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/transactionparser"
@@ -41,7 +41,7 @@ func configure(*node.Plugin) {
 	Instance = tangle.New(database.GetBadgerInstance(), storageprefix.MainNet)
 
 	// setup TransactionParser
-	TransactionParser.Events.TransactionParsed.Attach(events.NewClosure(func(transaction *transaction.Transaction, peer *peer.Peer) {
+	TransactionParser.Events.TransactionParsed.Attach(events.NewClosure(func(transaction *message.Transaction, peer *peer.Peer) {
 		// TODO: ADD PEER
 
 		Instance.AttachTransaction(transaction)
@@ -49,16 +49,16 @@ func configure(*node.Plugin) {
 
 	// setup TransactionRequester
 	Instance.Events.TransactionMissing.Attach(events.NewClosure(TransactionRequester.ScheduleRequest))
-	Instance.Events.MissingTransactionReceived.Attach(events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+	Instance.Events.MissingTransactionReceived.Attach(events.NewClosure(func(cachedTransaction *message.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
 		cachedTransactionMetadata.Release()
 
-		cachedTransaction.Consume(func(transaction *transaction.Transaction) {
+		cachedTransaction.Consume(func(transaction *message.Transaction) {
 			TransactionRequester.StopRequest(transaction.GetId())
 		})
 	}))
 
 	// setup TipSelector
-	Instance.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+	Instance.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
 		cachedTransactionMetadata.Release()
 
 		cachedTransaction.Consume(TipSelector.AddTip)

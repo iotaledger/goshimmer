@@ -36,7 +36,9 @@ func Configure() {
 		engine.Static("/static", "./plugins/analysis/webinterface/httpserver/static")
 		engine.File("/", "./plugins/analysis/webinterface/httpserver/static/index.html")
 	} else {
-		engine.GET("/static/*", echo.WrapHandler(http.StripPrefix("/static", http.FileServer(assetsBox))))
+		for _, res := range assetsBox.List() {
+			engine.GET("/static/"+res, echo.WrapHandler(http.StripPrefix("/static", http.FileServer(assetsBox))))
+		}
 		engine.GET("/", index)
 	}
 

@@ -10,9 +10,21 @@ services:
       dockerfile: Dockerfile
     container_name: iota_goshimmer
     restart: unless-stopped
+    # Mount volumes:
+    # make sure to give read/write access to the folder ./mainnetdb (e.g., chmod -R 777 ./mainnetdb)
+    # optionally, you can mount a config.json into the container
     volumes:
-      - ./mainnetdb:/app/mainnetdb:rw
+      - ./mainnetdb/:/mainnetdb/:rw
+      #- ./config.json:/config.json:ro
+    # Expose ports:
+    # gossip:       - "14666:14666/tcp"
+    # autopeering:  - "14626:14626/udp"
+    # webAPI:       - "8080:8080/tcp"
+    # dashboard:    - "8081:8081/tcp"
+    # graph:        - "8082:8082/tcp"
     ports:
       - "14666:14666/tcp"
       - "14626:14626/udp"
-      - "14626:14626/tcp"
+      #- "8080:8080/tcp"
+      #- "8081:8081/tcp"
+      #- "8082:8082/tcp"

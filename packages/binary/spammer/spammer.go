@@ -1,15 +1,14 @@
 package spammer
 
 import (
-	"fmt"
 	"sync/atomic"
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/binary/identity"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction/payload/data"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload/data"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/tipselector"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/transactionparser"
 )
@@ -43,7 +42,8 @@ func (spammer *Spammer) Shutdown() {
 }
 
 func (spammer *Spammer) run(tps int, processId int64) {
-	fmt.Println(processId)
+	// TODO: this should be the local peer's identity
+	spammingIdentity := identity.GenerateLocalIdentity()
 	currentSentCounter := 0
 	start := time.Now()
 
@@ -52,11 +52,18 @@ func (spammer *Spammer) run(tps int, processId int64) {
 			return
 		}
 
+		// TODO: use transaction factory
 		trunkTransactionId, branchTransactionId := spammer.tipSelector.GetTips()
-		spammer.transactionParser.Parse(
-			transaction.New(trunkTransactionId, branchTransactionId, identity.Generate(), data.New([]byte("SPAM"))).GetBytes(),
-			nil,
+		msg := message.New(
+			trunkTransactionId,
+			branchTransactionId,
+			spammingIdentity.PublicKey(),
+			time.Now(),
+			0,
+			data.New([]byte("SPAM")),
+			spammingIdentity,
 		)
+		spammer.transactionParser.Parse(msg.Bytes(), nil)
 
 		currentSentCounter++
 
@@ -74,9 +81,10 @@ func (spammer *Spammer) run(tps int, processId int64) {
 }
 
 func (spammer *Spammer) sendBurst(transactions int, processId int64) {
-	spammingIdentity := identity.Generate()
+	// TODO: this should be the local peer's identity
+	spammingIdentity := identity.GenerateLocalIdentity()
 
-	previousTransactionId := transaction.EmptyId
+	previousTransactionId := message.EmptyId
 
 	burstBuffer := make([][]byte, transactions)
 	for i := 0; i < transactions; i++ {
@@ -84,9 +92,18 @@ func (spammer *Spammer) sendBurst(transactions int, processId int64) {
 			return
 		}
 
-		spamTransaction := transaction.New(previousTransactionId, previousTransactionId, spammingIdentity, data.New([]byte("SPAM")))
+		// TODO: use transaction factory
+		spamTransaction := message.New(
+			previousTransactionId,
+			previousTransactionId,
+			spammingIdentity.PublicKey(),
+			time.Now(),
+			0,
+			data.New([]byte("SPAM")),
+			spammingIdentity,
+		)
 		previousTransactionId = spamTransaction.GetId()
-		burstBuffer[i] = spamTransaction.GetBytes()
+		burstBuffer[i] = spamTransaction.Bytes()
 	}
 
 	for i := 0; i < transactions; i++ {
