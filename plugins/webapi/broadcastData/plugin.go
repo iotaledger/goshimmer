@@ -3,8 +3,8 @@ package broadcastData
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/transactionfactory"
-	"github.com/iotaledger/goshimmer/packages/transactionfactory/baseontology"
+	"github.com/iotaledger/goshimmer/packages/messsagefactory"
+	"github.com/iotaledger/goshimmer/packages/messsagefactory/baseontology"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -30,12 +30,12 @@ func broadcastData(c echo.Context) error {
 
 	builder := baseontology.Builder{}
 	payload := builder.BuildPayload([]byte(request.Data))
-	tx := transactionfactory.GetInstance().BuildTransaction(payload)
+	tx := messsagefactory.GetInstance().BuildMessage(payload)
 
 	// create dummy value transaction
 	//builder := valueontology.Builder{}
 	//payload := builder.BuildPayload(builder.BuildValueTransfer())
-	//tx := transactionfactory.GetInstance().BuildTransaction(payload)
+	//tx := transactionfactory.GetInstance().BuildMessage(payload)
 
 	/*
 		// TODO: FIX FOR NEW TX LAYOUT

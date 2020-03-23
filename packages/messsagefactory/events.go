@@ -1,4 +1,4 @@
-package transactionfactory
+package messsagefactory
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
@@ -7,20 +7,20 @@ import (
 )
 
 var Events = struct {
-	// A PayloadConstructed event is triggered when a transaction's payload is built.
+	// A PayloadConstructed event is triggered when a message's payload is built.
 	// Each ontology should implement a PayloadBuilder which triggers PayloadConstructed.
 	PayloadConstructed *events.Event
-	// A TransactionConstructed event is triggered when a transaction is built including tips, sequence number and other metadata.
-	TransactionConstructed *events.Event
+	// A MessageConstructed event is triggered when a message is built including tips, sequence number and other metadata.
+	MessageConstructed *events.Event
 }{
-	PayloadConstructed:     events.NewEvent(payloadConstructedEvent),
-	TransactionConstructed: events.NewEvent(transactionConstructedEvent),
+	PayloadConstructed: events.NewEvent(payloadConstructedEvent),
+	MessageConstructed: events.NewEvent(messageConstructedEvent),
 }
 
 func payloadConstructedEvent(handler interface{}, params ...interface{}) {
 	handler.(func(*payload.Payload))(params[0].(*payload.Payload))
 }
 
-func transactionConstructedEvent(handler interface{}, params ...interface{}) {
+func messageConstructedEvent(handler interface{}, params ...interface{}) {
 	handler.(func(*message.Transaction))(params[0].(*message.Transaction))
 }

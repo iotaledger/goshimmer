@@ -1,11 +1,11 @@
-package transactionfactory
+package messagefactory
 
 import (
 	"fmt"
 
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/transactionfactory"
+	"github.com/iotaledger/goshimmer/packages/messsagefactory"
 	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/hive.go/daemon"
@@ -16,34 +16,34 @@ import (
 )
 
 const (
-	PLUGIN_NAME        = "TransactionFactory"
+	PLUGIN_NAME        = "MessageFactory"
 	DB_SEQUENCE_NUMBER = "seq"
 )
 
 var (
 	PLUGIN   = node.NewPlugin(PLUGIN_NAME, node.Enabled, configure, run)
 	log      *logger.Logger
-	instance *transactionfactory.TransactionFactory
+	instance *messsagefactory.MessageFactory
 )
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PLUGIN_NAME)
 
-	instance = transactionfactory.Setup(log, database.GetBadgerInstance(), []byte(DB_SEQUENCE_NUMBER))
+	instance = messsagefactory.Setup(log, database.GetBadgerInstance(), []byte(DB_SEQUENCE_NUMBER))
 
 	// configure events
-	//transactionfactory.Events.PayloadConstructed.Attach(events.NewClosure(func(payload *payload.Payload) {
-	//	instance.BuildTransaction(payload)
+	//messsagefactory.Events.PayloadConstructed.Attach(events.NewClosure(func(payload *payload.Payload) {
+	//	instance.BuildMessage(payload)
 	//}))
 
-	transactionfactory.Events.TransactionConstructed.Attach(events.NewClosure(func(tx *message.Transaction) {
-		fmt.Printf("Transaction created: %v\n", tx)
+	messsagefactory.Events.MessageConstructed.Attach(events.NewClosure(func(msg *message.Transaction) {
+		fmt.Printf("Message created: %v\n", msg)
 		//	TODO: call gossip
 	}))
 }
 
 func run(plugin *node.Plugin) {
-	if err := daemon.BackgroundWorker(PLUGIN_NAME, start, shutdown.ShutdownPriorityTransactionFactory); err != nil {
+	if err := daemon.BackgroundWorker(PLUGIN_NAME, start, shutdown.ShutdownPriorityMessageFactory); err != nil {
 		log.Errorf("Failed to start as daemon: %s", err)
 	}
 }

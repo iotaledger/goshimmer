@@ -1,4 +1,4 @@
-package transactionfactory
+package messsagefactory
 
 import (
 	"sync"
@@ -14,15 +14,15 @@ import (
 
 var (
 	once     sync.Once
-	instance *TransactionFactory
+	instance *MessageFactory
 	log      *logger.Logger
 )
 
-type TransactionFactory struct {
+type MessageFactory struct {
 	sequence *badger.Sequence
 }
 
-func Setup(logger *logger.Logger, db *badger.DB, sequenceKey []byte) *TransactionFactory {
+func Setup(logger *logger.Logger, db *badger.DB, sequenceKey []byte) *MessageFactory {
 	once.Do(func() {
 		log = logger
 		sequence, err := db.GetSequence(sequenceKey, 100)
@@ -30,7 +30,7 @@ func Setup(logger *logger.Logger, db *badger.DB, sequenceKey []byte) *Transactio
 			log.Fatalf("Could not create transaction sequence number. %v", err)
 		}
 
-		instance = &TransactionFactory{
+		instance = &MessageFactory{
 			sequence: sequence,
 		}
 	})
@@ -38,17 +38,17 @@ func Setup(logger *logger.Logger, db *badger.DB, sequenceKey []byte) *Transactio
 	return instance
 }
 
-func GetInstance() *TransactionFactory {
+func GetInstance() *MessageFactory {
 	return instance
 }
 
-func (t *TransactionFactory) Shutdown() {
+func (t *MessageFactory) Shutdown() {
 	if err := t.sequence.Release(); err != nil {
 		log.Errorf("Could not release transaction sequence number. %v", err)
 	}
 }
 
-func (t *TransactionFactory) BuildTransaction(payload *payload.Payload) *message.Transaction {
+func (t *MessageFactory) BuildMessage(payload *payload.Payload) *message.Transaction {
 	// TODO: fill other fields: tip selection, time, sequence number, get local identity and add to singleton
 	seq, err := t.sequence.Next()
 	if err != nil {
@@ -78,6 +78,6 @@ func (t *TransactionFactory) BuildTransaction(payload *payload.Payload) *message
 		localIdentity,
 	)
 
-	Events.TransactionConstructed.Trigger(tx)
+	Events.MessageConstructed.Trigger(tx)
 	return tx
 }

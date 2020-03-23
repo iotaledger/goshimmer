@@ -1,4 +1,4 @@
-package transactionfactory
+package messsagefactory
 
 import "github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
 
