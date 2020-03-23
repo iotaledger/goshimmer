@@ -4,10 +4,15 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"net"
 	"strconv"
 	"strings"
 
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
@@ -15,13 +20,13 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/server"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
-const VersionNum = 2
+// autopeering constants
+const (
+	ProtocolVersion = 0      // update on protocol changes
+	NetworkVersion  = "v0.2" // update on network changes
+)
 
 var (
 	// Discovery is the peer discovery protocol.
@@ -29,10 +34,23 @@ var (
 	// Selection is the peer selection protocol.
 	Selection *selection.Protocol
 
-	ErrParsingMasterNode = errors.New("can't parse master node")
+	// ErrParsingMasterNode is returned for an invalid master node
+	ErrParsingMasterNode = errors.New("cannot parse master node")
+
+	// NetworkID specifies the autopeering network identifier
+	NetworkID = hash32([]byte(banner.AppVersion + NetworkVersion))
 
 	log *logger.Logger
 )
+
+func hash32(b []byte) uint32 {
+	hash := fnv.New32()
+	_, err := hash.Write(b)
+	if err != nil {
+		panic(err)
+	}
+	return hash.Sum32()
+}
 
 // GetBindAddress returns the string form of the autopeering bind address.
 func GetBindAddress() string {
@@ -49,7 +67,7 @@ func configureAP() {
 	}
 	log.Debugf("Master peers: %v", masterPeers)
 
-	Discovery = discover.New(local.GetInstance(), VersionNum,
+	Discovery = discover.New(local.GetInstance(), ProtocolVersion, NetworkID,
 		discover.Logger(log.Named("disc")),
 		discover.MasterPeers(masterPeers),
 	)
