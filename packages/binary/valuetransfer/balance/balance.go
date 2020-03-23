@@ -3,7 +3,7 @@ package balance
 import (
 	"strconv"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
+	"github.com/iotaledger/hive.go/marshalutil"
 )
 
 type Balance struct {
