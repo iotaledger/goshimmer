@@ -135,25 +135,32 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 	}
 	tangle.Events.PayloadAttached.Trigger(cachedPayload, cachedMetadata)
 
-	/*
-		// store payload
-		var cachedTransaction *transaction.CachedTransaction
-		if _tmp, transactionIsNew := tangle.transactionStorage.StoreIfAbsent(payloadToStore); !transactionIsNew {
-			return
-		} else {
-			cachedPayload = &payload.CachedPayload{CachedObject: _tmp}
-		}
-		cachedTransaction := &transaction.CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(payloadToStore.Transaction())}
-	*/
+	// retrieve or store TransactionMetadata
+	newTransaction := false
+	transactionId := cachedPayload.Unwrap().Transaction().Id()
+	cachedTransactionMetadata := &CachedTransactionMetadata{CachedObject: tangle.payloadMetadataStorage.ComputeIfAbsent(transactionId.Bytes(), func(key []byte) objectstorage.StorableObject {
+		newTransaction = true
+
+		result := NewTransactionMetadata(transactionId)
+		result.Persist()
+		result.SetModified()
+
+		return result
+	})}
+
+	// if the transaction is new, store the Consumers.
+	if newTransaction {
+
+	}
 
 	// check solidity
 	tangle.solidifierWorkerPool.Submit(func() {
-		tangle.solidifyTransactionWorker(cachedPayload, cachedMetadata)
+		tangle.solidifyTransactionWorker(cachedPayload, cachedMetadata, cachedTransactionMetadata)
 	})
 }
 
 // solidifyTransactionWorker is the worker function that solidifies the payloads (recursively from past to present).
-func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata) {
+func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata, cachedTransactionMetadata *CachedTransactionMetadata) {
 	popElementsFromStack := func(stack *list.List) (*payload.CachedPayload, *CachedPayloadMetadata) {
 		currentSolidificationEntry := stack.Front()
 		currentCachedPayload := currentSolidificationEntry.Value.([2]interface{})[0]
@@ -181,7 +188,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 		}
 
 		// if current transaction is solid and was not marked as solid before: mark as solid and propagate
-		if tangle.isPayloadSolid(currentPayload, currentMetadata) && tangle.isTransactionSolid(currentPayload.Transaction(), currentMetadata) {
+		if tangle.isPayloadSolid(currentPayload, currentMetadata) && tangle.isTransactionSolid(currentPayload.Transaction(), cachedTransactionMetadata.Unwrap()) {
 			if currentMetadata.SetSolid(true) {
 				tangle.Events.PayloadSolid.Trigger(currentCachedPayload, currentCachedMetadata)
 
@@ -202,8 +209,8 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 	}
 }
 
-func (tangle *Tangle) isTransactionSolid(transfer *transaction.Transaction, metadata *TransactionMetadata) bool {
-	if transfer == nil || transfer.IsDeleted() {
+func (tangle *Tangle) isTransactionSolid(transaction *transaction.Transaction, metadata *TransactionMetadata) bool {
+	if transaction == nil || transaction.IsDeleted() {
 		return false
 	}
 
@@ -216,7 +223,7 @@ func (tangle *Tangle) isTransactionSolid(transfer *transaction.Transaction, meta
 	}
 
 	// iterate through all transfers and check if they are solid
-	return transfer.Inputs().ForEach(tangle.isOutputMarkedAsSolid)
+	return transaction.Inputs().ForEach(tangle.isOutputMarkedAsSolid)
 }
 
 func (tangle *Tangle) GetTransferOutputMetadata(transferOutputId transaction.OutputId) *CachedTransactionOutputMetadata {
