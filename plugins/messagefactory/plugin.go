@@ -6,6 +6,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/messsagefactory"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/hive.go/daemon"
@@ -29,7 +31,13 @@ var (
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PLUGIN_NAME)
 
-	instance = messsagefactory.Setup(log, database.GetBadgerInstance(), []byte(DB_SEQUENCE_NUMBER))
+	instance = messsagefactory.Setup(
+		log,
+		database.GetBadgerInstance(),
+		local.GetInstance().LocalIdentity(),
+		tangle.TipSelector,
+		[]byte(DB_SEQUENCE_NUMBER),
+	)
 
 	// configure events
 	//messsagefactory.Events.PayloadConstructed.Attach(events.NewClosure(func(payload *payload.Payload) {

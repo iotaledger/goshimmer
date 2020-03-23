@@ -7,6 +7,7 @@ import (
 	"github.com/dgraph-io/badger/v2"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/tipselector"
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/hive.go/logger"
@@ -19,10 +20,12 @@ var (
 )
 
 type MessageFactory struct {
-	sequence *badger.Sequence
+	sequence      *badger.Sequence
+	localIdentity *identity.LocalIdentity
+	tipSelector   *tipselector.TipSelector
 }
 
-func Setup(logger *logger.Logger, db *badger.DB, sequenceKey []byte) *MessageFactory {
+func Setup(logger *logger.Logger, db *badger.DB, localIdentity *identity.LocalIdentity, tipSelector *tipselector.TipSelector, sequenceKey []byte) *MessageFactory {
 	once.Do(func() {
 		log = logger
 		sequence, err := db.GetSequence(sequenceKey, 100)
@@ -31,7 +34,9 @@ func Setup(logger *logger.Logger, db *badger.DB, sequenceKey []byte) *MessageFac
 		}
 
 		instance = &MessageFactory{
-			sequence: sequence,
+			sequence:      sequence,
+			localIdentity: localIdentity,
+			tipSelector:   tipSelector,
 		}
 	})
 
@@ -42,40 +47,28 @@ func GetInstance() *MessageFactory {
 	return instance
 }
 
-func (t *MessageFactory) Shutdown() {
-	if err := t.sequence.Release(); err != nil {
+func (m *MessageFactory) Shutdown() {
+	if err := m.sequence.Release(); err != nil {
 		log.Errorf("Could not release transaction sequence number. %v", err)
 	}
 }
 
-func (t *MessageFactory) BuildMessage(payload *payload.Payload) *message.Transaction {
-	// TODO: fill other fields: tip selection, time, sequence number, get local identity and add to singleton
-	seq, err := t.sequence.Next()
+func (m *MessageFactory) BuildMessage(payload *payload.Payload) *message.Transaction {
+	sequenceNumber, err := m.sequence.Next()
 	if err != nil {
 		panic("Could not create sequence number")
 	}
 
-	localIdentity := identity.GenerateLocalIdentity()
+	trunkTransaction, branchTransaction := m.tipSelector.GetTips()
+
 	tx := message.New(
-		// trunk in "network tangle" ontology (filled by tipSelector)
-		message.EmptyId,
-
-		// branch in "network tangle" ontology (filled by tipSelector)
-		message.EmptyId,
-
-		// issuer of the transaction (signs automatically)
-		localIdentity.PublicKey(),
-
-		// the time when the transaction was created
+		trunkTransaction,
+		branchTransaction,
+		m.localIdentity.PublicKey(),
 		time.Now(),
-
-		// the ever increasing sequence number of this transaction
-		seq,
-
-		// payload
+		sequenceNumber,
 		*payload,
-
-		localIdentity,
+		m.localIdentity,
 	)
 
 	Events.MessageConstructed.Trigger(tx)
