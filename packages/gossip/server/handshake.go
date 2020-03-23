@@ -50,13 +50,6 @@ func (t *TCP) validateHandshakeRequest(reqData []byte) bool {
 		)
 		return false
 	}
-	if m.GetTo() != t.publicAddr.String() {
-		t.log.Debugw("invalid handshake",
-			"to", m.GetTo(),
-			"want", t.publicAddr.String(),
-		)
-		return false
-	}
 	if isExpired(m.GetTimestamp()) {
 		t.log.Debugw("invalid handshake",
 			"timestamp", time.Unix(m.GetTimestamp(), 0),

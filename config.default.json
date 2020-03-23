@@ -14,8 +14,7 @@
     "entryNodes": [
       "MRCJTGX9x+PPiT3um1DQSHXvALaUg/tCH/oQr6mliGo=@35.246.104.243:14626"
     ],
-    "port": 14626,
-    "version": 1
+    "port": 14626
   },
   "dashboard": {
     "bindAddress": "127.0.0.1:8081",

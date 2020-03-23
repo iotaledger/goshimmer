@@ -4,14 +4,12 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"net"
-	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/netutil"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -25,30 +23,28 @@ var (
 func configureLocal() *peer.Local {
 	log := logger.NewLogger("Local")
 
-	var externalIP net.IP
+	var peeringIP net.IP
 	if str := config.Node.GetString(CFG_EXTERNAL); strings.ToLower(str) == "auto" {
-		log.Info("Querying external IP ...")
-		ip, err := netutil.GetPublicIP(false)
-		if err != nil {
-			log.Fatalf("Error querying external IP: %s", err)
-		}
-		log.Infof("External IP queried: address=%s", ip.String())
-		externalIP = ip
+		// let the autopeering discover the IP
+		peeringIP = net.IPv4zero
 	} else {
-		externalIP = net.ParseIP(str)
-		if externalIP == nil {
+		peeringIP = net.ParseIP(str)
+		if peeringIP == nil {
 			log.Fatalf("Invalid IP address (%s): %s", CFG_EXTERNAL, str)
 		}
-	}
-	if !externalIP.IsGlobalUnicast() {
-		log.Warnf("IP is not a global unicast address: %s", externalIP.String())
+		if !peeringIP.IsGlobalUnicast() {
+			log.Warnf("IP is not a global unicast address: %s", peeringIP.String())
+		}
 	}
 
-	peeringPort := strconv.Itoa(config.Node.GetInt(CFG_PORT))
+	peeringPort := config.Node.GetInt(CFG_PORT)
+	if 0 > peeringPort || peeringPort > 65535 {
+		log.Fatalf("Invalid port number (%s): %d", CFG_PORT, peeringPort)
+	}
 
 	// announce the peering service
 	services := service.New()
-	services.Update(service.PeeringKey, "udp", net.JoinHostPort(externalIP.String(), peeringPort))
+	services.Update(service.PeeringKey, "udp", peeringPort)
 
 	// set the private key from the seed provided in the config
 	var seed [][]byte
@@ -75,7 +71,7 @@ func configureLocal() *peer.Local {
 	// key, _ := peerDB.LocalPrivateKey()
 	// fmt.Println(base64.StdEncoding.EncodeToString(ed25519.PrivateKey(key).Seed()))
 
-	local, err := peer.NewLocal(services, peerDB, seed...)
+	local, err := peer.NewLocal(peeringIP, services, peerDB, seed...)
 	if err != nil {
 		log.Fatalf("Error creating local: %s", err)
 	}
