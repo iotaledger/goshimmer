@@ -3,6 +3,7 @@ package faucetpayload
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -17,16 +18,22 @@ func ExampleFaucetPayload() {
 		[]byte("address"),
 	)
 
-	// 2. build actual transaction
+	// 2. build actual message
 	tx := message.New(
 		// trunk in "network tangle" ontology (filled by tipSelector)
-		transaction.EmptyId,
+		message.EmptyId,
 
 		// branch in "network tangle" ontology (filled by tipSelector)
-		transaction.EmptyId,
+		message.EmptyId,
 
-		// issuer of the transaction (signs automatically)
+		// issuer of the message (signs automatically)
 		ed25119.GenerateKeyPair(),
+
+		// issuing time
+		time.Now(),
+
+		// sequence number
+		0,
 
 		// payload
 		faucetPayload,
