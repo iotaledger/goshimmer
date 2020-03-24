@@ -13,9 +13,10 @@ var (
 	ValueTransferApprover        = []byte{7}
 	ValueTransferMissingPayload  = []byte{8}
 	ValueTransferAttachment      = []byte{9}
+	ValueTransferConsumer        = []byte{10}
 
-	LedgerStateTransferOutput        = []byte{10}
-	LedgerStateTransferOutputBooking = []byte{11}
-	LedgerStateReality               = []byte{12}
-	LedgerStateConflictSet           = []byte{13}
+	LedgerStateTransferOutput        = []byte{11}
+	LedgerStateTransferOutputBooking = []byte{12}
+	LedgerStateReality               = []byte{13}
+	LedgerStateConflictSet           = []byte{14}
 )

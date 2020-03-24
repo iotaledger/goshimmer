@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"container/list"
-	"fmt"
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
@@ -25,6 +24,7 @@ type Tangle struct {
 	missingPayloadStorage  *objectstorage.ObjectStorage
 	attachmentStorage      *objectstorage.ObjectStorage
 
+	consumerStorage                  *objectstorage.ObjectStorage
 	transactionOutputMetadataStorage *objectstorage.ObjectStorage
 	missingOutputStorage             *objectstorage.ObjectStorage
 
@@ -45,6 +45,7 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingPayloadFromStorage, objectstorage.CacheTime(time.Second)),
 		attachmentStorage:      objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferAttachment...), AttachmentFromStorage, objectstorage.CacheTime(time.Second)),
 
+		consumerStorage:                  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferConsumer...), transaction.OutputFromStorage, objectstorage.CacheTime(time.Second)),
 		transactionOutputMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleApprovers...), transaction.OutputFromStorage, objectstorage.CacheTime(time.Second)),
 		missingOutputStorage:             objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingOutputFromStorage, objectstorage.CacheTime(time.Second)),
 
@@ -157,7 +158,11 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 
 	// if the transaction is new, store the Consumers.
 	if newTransaction {
-		fmt.Println("git aWADD")
+		payloadToStore.Transaction().Inputs().ForEach(func(outputId transaction.OutputId) bool {
+			tangle.consumerStorage.Store(NewConsumer(outputId, transactionId))
+
+			return true
+		})
 	}
 
 	// check solidity
