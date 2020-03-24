@@ -47,12 +47,15 @@ func GetInstance() *MessageFactory {
 	return instance
 }
 
+// Shutdown closes the  messageFactory and persists the sequence number
 func (m *MessageFactory) Shutdown() {
 	if err := m.sequence.Release(); err != nil {
 		log.Errorf("Could not release transaction sequence number. %v", err)
 	}
 }
 
+// BuildMessage constructs a new message with sequence number and performs tip selection and returns it.
+// It triggers MessageConstructed event once it's done.
 func (m *MessageFactory) BuildMessage(payload payload.Payload) *message.Transaction {
 	sequenceNumber, err := m.sequence.Next()
 	if err != nil {
