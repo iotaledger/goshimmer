@@ -38,8 +38,8 @@ func configure(plugin *node.Plugin) {
 	)
 
 	// configure events
-	//messsagefactory.Events.PayloadConstructed.Attach(events.NewClosure(func(payload *payload.Payload) {
-	//	instance.BuildMessage(payload)
+	//messagefactory.Events.PayloadConstructed.Attach(events.NewClosure(func(payload payload.Payload) {
+	//	fmt.Printf("Payload created: %v\n", payload)
 	//}))
 
 	messagefactory.Events.MessageConstructed.Attach(events.NewClosure(func(msg *message.Transaction) {

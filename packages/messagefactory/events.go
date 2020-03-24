@@ -18,7 +18,7 @@ var Events = struct {
 }
 
 func payloadConstructedEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*payload.Payload))(params[0].(*payload.Payload))
+	handler.(func(payload.Payload))(params[0].(payload.Payload))
 }
 
 func messageConstructedEvent(handler interface{}, params ...interface{}) {

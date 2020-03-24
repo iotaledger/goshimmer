@@ -53,7 +53,7 @@ func (m *MessageFactory) Shutdown() {
 	}
 }
 
-func (m *MessageFactory) BuildMessage(payload *payload.Payload) *message.Transaction {
+func (m *MessageFactory) BuildMessage(payload payload.Payload) *message.Transaction {
 	sequenceNumber, err := m.sequence.Next()
 	if err != nil {
 		panic("Could not create sequence number")
@@ -67,7 +67,7 @@ func (m *MessageFactory) BuildMessage(payload *payload.Payload) *message.Transac
 		m.localIdentity.PublicKey(),
 		time.Now(),
 		sequenceNumber,
-		*payload,
+		payload,
 		m.localIdentity,
 	)
 

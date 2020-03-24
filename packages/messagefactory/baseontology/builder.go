@@ -9,10 +9,10 @@ import (
 type Builder struct {
 }
 
-func (b *Builder) BuildPayload(raw []byte) *payload.Payload {
+func (b *Builder) BuildPayload(raw []byte) payload.Payload {
 	var dataPayload payload.Payload = data.New(raw)
 
-	messagefactory.Events.PayloadConstructed.Trigger(&dataPayload)
+	messagefactory.Events.PayloadConstructed.Trigger(dataPayload)
 
-	return &dataPayload
+	return dataPayload
 }

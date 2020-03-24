@@ -54,7 +54,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 	t.Run("CheckProperties", func(t *testing.T) {
 		data := []byte("TestCheckProperties")
 		var p payload.Payload = NewMockPayload(data)
-		msg := msgFactory.BuildMessage(&p)
+		msg := msgFactory.BuildMessage(p)
 
 		assert.NotNil(t, msg.GetTrunkTransactionId())
 		assert.NotNil(t, msg.GetBranchTransactionId())
@@ -80,7 +80,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 				t.Parallel()
 				data := []byte("TestCheckProperties")
 				var p payload.Payload = NewMockPayload(data)
-				msg := msgFactory.BuildMessage(&p)
+				msg := msgFactory.BuildMessage(p)
 
 				assert.NotNil(t, msg.GetTrunkTransactionId())
 				assert.NotNil(t, msg.GetBranchTransactionId())
