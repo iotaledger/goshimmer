@@ -1,4 +1,4 @@
-package messsagefactory
+package messagefactory
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"

@@ -1,11 +1,9 @@
 package messagefactory
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/messsagefactory"
+	"github.com/iotaledger/goshimmer/packages/messagefactory"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/events"
@@ -25,13 +23,13 @@ const (
 var (
 	PLUGIN   = node.NewPlugin(PLUGIN_NAME, node.Enabled, configure, run)
 	log      *logger.Logger
-	instance *messsagefactory.MessageFactory
+	instance *messagefactory.MessageFactory
 )
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PLUGIN_NAME)
 
-	instance = messsagefactory.Setup(
+	instance = messagefactory.Setup(
 		log,
 		database.GetBadgerInstance(),
 		local.GetInstance().LocalIdentity(),
@@ -44,9 +42,9 @@ func configure(plugin *node.Plugin) {
 	//	instance.BuildMessage(payload)
 	//}))
 
-	messsagefactory.Events.MessageConstructed.Attach(events.NewClosure(func(msg *message.Transaction) {
-		fmt.Printf("Message created: %v\n", msg)
-		//	TODO: call gossip
+	messagefactory.Events.MessageConstructed.Attach(events.NewClosure(func(msg *message.Transaction) {
+		log.Debugf("Message created: %v\n", msg)
+		tangle.Instance.AttachTransaction(msg)
 	}))
 }
 

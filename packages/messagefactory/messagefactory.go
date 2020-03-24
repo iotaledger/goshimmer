@@ -1,4 +1,4 @@
-package messsagefactory
+package messagefactory
 
 import (
 	"sync"
