@@ -33,7 +33,7 @@ func NewAttachment(transactionId transaction.Id, payloadId payload.Id) *Attachme
 	}
 }
 
-// AttachmentFromBytes unmarshals a MissingOutput from a sequence of bytes - it either creates a new object or fills the
+// AttachmentFromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
 func AttachmentFromBytes(bytes []byte, optionalTargetObject ...*Attachment) (result *Attachment, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
@@ -54,9 +54,19 @@ func AttachmentFromBytes(bytes []byte, optionalTargetObject ...*Attachment) (res
 	if result.payloadId, err = payload.ParseId(marshalUtil); err != nil {
 		return
 	}
+	result.storageKey = marshalutil.New(bytes[:AttachmentLength]).Bytes(true)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
+}
+
+// Parse is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil package.
+func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (*Attachment, error) {
+	if attachment, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return AttachmentFromBytes(data) }); err != nil {
+		return nil, err
+	} else {
+		return attachment.(*Attachment), nil
+	}
 }
 
 // AttachmentFromStorage gets called when we restore an Attachment from the storage - it parses the key bytes and
@@ -80,7 +90,7 @@ func (attachment *Attachment) PayloadId() payload.Id {
 	return attachment.payloadId
 }
 
-// Bytes marshals an Attachment into a sequence of bytes.
+// Bytes marshals the Attachment into a sequence of bytes.
 func (attachment *Attachment) Bytes() []byte {
 	return attachment.GetStorageKey()
 }
