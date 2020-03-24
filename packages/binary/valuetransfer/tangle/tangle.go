@@ -23,6 +23,7 @@ type Tangle struct {
 	payloadMetadataStorage *objectstorage.ObjectStorage
 	approverStorage        *objectstorage.ObjectStorage
 	missingPayloadStorage  *objectstorage.ObjectStorage
+	attachmentStorage      *objectstorage.ObjectStorage
 
 	transactionOutputMetadataStorage *objectstorage.ObjectStorage
 	missingOutputStorage             *objectstorage.ObjectStorage
@@ -42,6 +43,7 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), PayloadMetadataFromStorage, objectstorage.CacheTime(time.Second)),
 		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), PayloadApproverFromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingPayloadFromStorage, objectstorage.CacheTime(time.Second)),
+		attachmentStorage:      objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferAttachment...), AttachmentFromStorage, objectstorage.CacheTime(time.Second)),
 
 		transactionOutputMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleApprovers...), transaction.OutputFromStorage, objectstorage.CacheTime(time.Second)),
 		missingOutputStorage:             objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingOutputFromStorage, objectstorage.CacheTime(time.Second)),
@@ -150,6 +152,8 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 
 		return result
 	})}
+
+	tangle.attachmentStorage.StoreIfAbsent(NewAttachment(payloadToStore.Transaction().Id(), payloadToStore.Id()))
 
 	// if the transaction is new, store the Consumers.
 	if newTransaction {
