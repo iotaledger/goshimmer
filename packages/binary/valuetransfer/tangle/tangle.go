@@ -126,21 +126,6 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 	payloadId := payloadToStore.Id()
 	cachedMetadata := &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(NewPayloadMetadata(payloadId))}
 
-	// store trunk approver
-	trunkId := payloadToStore.TrunkId()
-	tangle.approverStorage.Store(NewPayloadApprover(trunkId, payloadId)).Release()
-
-	// store branch approver
-	if branchId := payloadToStore.BranchId(); branchId != trunkId {
-		tangle.approverStorage.Store(NewPayloadApprover(branchId, trunkId)).Release()
-	}
-
-	// trigger events
-	if tangle.missingPayloadStorage.DeleteIfPresent(payloadId.Bytes()) {
-		tangle.Events.MissingPayloadReceived.Trigger(cachedPayload, cachedMetadata)
-	}
-	tangle.Events.PayloadAttached.Trigger(cachedPayload, cachedMetadata)
-
 	// retrieve or store TransactionMetadata
 	newTransaction := false
 	transactionId := cachedPayload.Unwrap().Transaction().Id()
@@ -154,9 +139,16 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 		return result
 	})}
 
-	tangle.attachmentStorage.StoreIfAbsent(NewAttachment(payloadToStore.Transaction().Id(), payloadToStore.Id()))
+	// store trunk approver
+	trunkId := payloadToStore.TrunkId()
+	tangle.approverStorage.Store(NewPayloadApprover(trunkId, payloadId)).Release()
 
-	// if the transaction is new, store the Consumers.
+	// store branch approver
+	if branchId := payloadToStore.BranchId(); branchId != trunkId {
+		tangle.approverStorage.Store(NewPayloadApprover(branchId, trunkId)).Release()
+	}
+
+	// store the consumers, the first time we see a Transaction
 	if newTransaction {
 		payloadToStore.Transaction().Inputs().ForEach(func(outputId transaction.OutputId) bool {
 			tangle.consumerStorage.Store(NewConsumer(outputId, transactionId))
@@ -164,6 +156,15 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 			return true
 		})
 	}
+
+	// store attachment
+	tangle.attachmentStorage.StoreIfAbsent(NewAttachment(payloadToStore.Transaction().Id(), payloadToStore.Id()))
+
+	// trigger events
+	if tangle.missingPayloadStorage.DeleteIfPresent(payloadId.Bytes()) {
+		tangle.Events.MissingPayloadReceived.Trigger(cachedPayload, cachedMetadata)
+	}
+	tangle.Events.PayloadAttached.Trigger(cachedPayload, cachedMetadata)
 
 	// check solidity
 	tangle.solidifierWorkerPool.Submit(func() {
@@ -173,13 +174,14 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 
 // solidifyTransactionWorker is the worker function that solidifies the payloads (recursively from past to present).
 func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata, cachedTransactionMetadata *CachedTransactionMetadata) {
-	popElementsFromStack := func(stack *list.List) (*payload.CachedPayload, *CachedPayloadMetadata) {
+	popElementsFromStack := func(stack *list.List) (*payload.CachedPayload, *CachedPayloadMetadata, *CachedTransactionMetadata) {
 		currentSolidificationEntry := stack.Front()
-		currentCachedPayload := currentSolidificationEntry.Value.([2]interface{})[0]
-		currentCachedMetadata := currentSolidificationEntry.Value.([2]interface{})[1]
+		currentCachedPayload := currentSolidificationEntry.Value.([3]interface{})[0]
+		currentCachedMetadata := currentSolidificationEntry.Value.([3]interface{})[1]
+		currentCachedTransactionMetadata := currentSolidificationEntry.Value.([3]interface{})[2]
 		stack.Remove(currentSolidificationEntry)
 
-		return currentCachedPayload.(*payload.CachedPayload), currentCachedMetadata.(*CachedPayloadMetadata)
+		return currentCachedPayload.(*payload.CachedPayload), currentCachedMetadata.(*CachedPayloadMetadata), currentCachedTransactionMetadata.(*CachedTransactionMetadata)
 	}
 
 	// initialize the stack
@@ -188,7 +190,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 
 	// process payloads that are supposed to be checked for solidity recursively
 	for solidificationStack.Len() > 0 {
-		currentCachedPayload, currentCachedMetadata := popElementsFromStack(solidificationStack)
+		currentCachedPayload, currentCachedMetadata, currentCachedTransactionMetadata := popElementsFromStack(solidificationStack)
 
 		currentPayload := currentCachedPayload.Unwrap()
 		currentMetadata := currentCachedMetadata.Unwrap()
@@ -201,7 +203,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 		}
 
 		// if current transaction is solid and was not marked as solid before: mark as solid and propagate
-		if tangle.isPayloadSolid(currentPayload, currentMetadata) && tangle.isTransactionSolid(currentPayload.Transaction(), cachedTransactionMetadata.Unwrap()) {
+		if tangle.isPayloadSolid(currentPayload, currentMetadata) && tangle.isTransactionSolid(currentPayload.Transaction(), currentCachedTransactionMetadata.Unwrap()) {
 			if currentMetadata.SetSolid(true) {
 				tangle.Events.PayloadSolid.Trigger(currentCachedPayload, currentCachedMetadata)
 
