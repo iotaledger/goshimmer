@@ -153,7 +153,7 @@ func (transactionMetadata *TransactionMetadata) String() string {
 	)
 }
 
-// GetStorageKey returns the key that is used to identify the TransactionMetadata in the objectstorage.
+// ObjectStorageKey returns the key that is used to identify the TransactionMetadata in the objectstorage.
 func (transactionMetadata *TransactionMetadata) GetStorageKey() []byte {
 	return transactionMetadata.id.Bytes()
 }

@@ -84,7 +84,7 @@ func (missingOutput *MissingOutput) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
-// GetStorageKey returns the key that is used to store the object in the object storage.
+// ObjectStorageKey returns the key that is used to store the object in the object storage.
 func (missingOutput *MissingOutput) GetStorageKey() []byte {
 	return missingOutput.outputId.Bytes()
 }

@@ -78,7 +78,7 @@ func (missingPayload *MissingPayload) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
-// GetStorageKey returns the key that is used to store the object in the database.
+// ObjectStorageKey returns the key that is used to store the object in the database.
 // It is required to match StorableObject interface.
 func (missingPayload *MissingPayload) GetStorageKey() []byte {
 	return missingPayload.payloadId.Bytes()

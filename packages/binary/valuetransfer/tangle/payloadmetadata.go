@@ -153,7 +153,7 @@ func (payloadMetadata *PayloadMetadata) String() string {
 	)
 }
 
-// GetStorageKey returns the key that is used to store the object in the database.
+// ObjectStorageKey returns the key that is used to store the object in the database.
 // It is required to match StorableObject interface.
 func (payloadMetadata *PayloadMetadata) GetStorageKey() []byte {
 	return payloadMetadata.payloadId.Bytes()

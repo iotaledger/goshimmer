@@ -102,7 +102,7 @@ func (consumer *Consumer) String() string {
 	)
 }
 
-// GetStorageKey returns the key that is used to store the object in the database.
+// ObjectStorageKey returns the key that is used to store the object in the database.
 func (consumer *Consumer) GetStorageKey() []byte {
 	return consumer.storageKey
 }

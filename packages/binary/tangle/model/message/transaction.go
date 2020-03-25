@@ -249,17 +249,17 @@ func (transaction *Transaction) Bytes() []byte {
 }
 
 // Since transactions are immutable and do not get changed after being created, we cache the result of the marshaling.
-func (transaction *Transaction) MarshalBinary() (result []byte, err error) {
-	return transaction.Bytes(), nil
+func (transaction *Transaction) ObjectStorageValue() []byte {
+	return transaction.Bytes()
 }
 
-func (transaction *Transaction) UnmarshalBinary(data []byte) (err error) {
+func (transaction *Transaction) UnmarshalObjectStorageValue(data []byte) (err error) {
 	_, err, _ = FromBytes(data, transaction)
 
 	return
 }
 
-func (transaction *Transaction) GetStorageKey() []byte {
+func (transaction *Transaction) ObjectStorageKey() []byte {
 	transactionId := transaction.GetId()
 
 	return transactionId[:]

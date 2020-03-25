@@ -92,7 +92,7 @@ func (attachment *Attachment) PayloadId() payload.Id {
 
 // Bytes marshals the Attachment into a sequence of bytes.
 func (attachment *Attachment) Bytes() []byte {
-	return attachment.GetStorageKey()
+	return attachment.ObjectStorageKey()
 }
 
 // String returns a human readable version of the Attachment.
@@ -103,8 +103,8 @@ func (attachment *Attachment) String() string {
 	)
 }
 
-// GetStorageKey returns the key that is used to store the object in the database.
-func (attachment *Attachment) GetStorageKey() []byte {
+// ObjectStorageKey returns the key that is used to store the object in the database.
+func (attachment *Attachment) ObjectStorageKey() []byte {
 	return attachment.storageKey
 }
 

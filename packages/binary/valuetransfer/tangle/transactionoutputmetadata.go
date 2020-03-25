@@ -153,7 +153,7 @@ func (transactionOutputMetadata *TransactionOutputMetadata) String() string {
 	)
 }
 
-// GetStorageKey returns the key that is used to identify the TransactionOutputMetadata in the objectstorage.
+// ObjectStorageKey returns the key that is used to identify the TransactionOutputMetadata in the objectstorage.
 func (transactionOutputMetadata *TransactionOutputMetadata) GetStorageKey() []byte {
 	return transactionOutputMetadata.id.Bytes()
 }

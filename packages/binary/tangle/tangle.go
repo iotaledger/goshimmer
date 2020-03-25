@@ -43,8 +43,8 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		storageId:                  storageId,
 		transactionStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleTransaction...), message.FromStorage, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
 		transactionMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleTransactionMetadata...), transactionmetadata.FromStorage, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:            objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleApprovers...), approver.FromStorage, objectstorage.CacheTime(10*time.Second), objectstorage.PartitionKey(message.IdLength, message.IdLength), objectstorage.LeakDetectionEnabled(false)),
-		missingTransactionsStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleMissingTransaction...), missingtransaction.FromStorage, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:            objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleApprovers...), approver.StorableObjectFromKey, objectstorage.CacheTime(10*time.Second), objectstorage.PartitionKey(message.IdLength, message.IdLength), objectstorage.LeakDetectionEnabled(false)),
+		missingTransactionsStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleMissingTransaction...), missingtransaction.StorableObjectFromKey, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: *newEvents(),
 	}
