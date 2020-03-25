@@ -36,7 +36,6 @@ func RandBLS_BDN() SignatureScheme {
 }
 
 func (sigscheme *blsBdnSignatureScheme) Version() byte {
-	suite.ScalarLen()
 	return address.VERSION_BLS_BDN
 }
 
@@ -57,10 +56,10 @@ func (sigscheme *blsBdnSignatureScheme) Sign(data []byte) Signature {
 	if err != nil {
 		panic(err)
 	}
-	return &blsBdnSignature{
-		pubKey:    pubKeyBin,
-		signature: sig,
-	}
+	ret := &blsBdnSignature{}
+	copy(ret.pubKey[:], pubKeyBin)
+	copy(ret.signature[:], sig)
+	return ret
 }
 
 // interface contract (allow the compiler to check if the implementation has all of the required methods).
@@ -68,31 +67,36 @@ var _ SignatureScheme = &blsBdnSignatureScheme{}
 
 // BLS-BDN signature, in binary marshaled form
 
+const (
+	BLS_SIGNATURE_SIZE  = 64
+	BLS_PUBLIC_KEY_SIZE = 128
+)
+
 type blsBdnSignature struct {
-	pubKey    []byte
-	signature []byte
+	pubKey    [BLS_PUBLIC_KEY_SIZE]byte
+	signature [BLS_SIGNATURE_SIZE]byte
 }
 
 func (sig *blsBdnSignature) IsValid(signedData []byte) bool {
 	// unmarshal public key
 	pubKey := suite.G2().Point()
-	if err := pubKey.UnmarshalBinary(sig.pubKey); err != nil {
+	if err := pubKey.UnmarshalBinary(sig.pubKey[:]); err != nil {
 		return false
 	}
-	return bdn.Verify(suite, pubKey, signedData, sig.signature) == nil
+	return bdn.Verify(suite, pubKey, signedData, sig.signature[:]) == nil
 }
 
 func (sig *blsBdnSignature) Bytes() []byte {
-	b := make([]byte, 1+len(sig.pubKey)+len(sig.signature))
+	b := make([]byte, 1+BLS_PUBLIC_KEY_SIZE+BLS_SIGNATURE_SIZE)
 	buf := bytes.NewBuffer(b)
 	buf.WriteByte(address.VERSION_BLS_BDN)
-	buf.Write(sig.pubKey)
-	buf.Write(sig.signature)
+	buf.Write(sig.pubKey[:])
+	buf.Write(sig.signature[:])
 	return b
 }
 
 func (sig *blsBdnSignature) Address() address.Address {
-	return address.FromBLSPubKey(sig.pubKey)
+	return address.FromBLSPubKey(sig.pubKey[:])
 }
 
 // interface contract (allow the compiler to check if the implementation has all of the required methods).
