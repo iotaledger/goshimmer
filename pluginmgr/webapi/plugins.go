@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/broadcastData"
 	"github.com/iotaledger/goshimmer/plugins/webapi/findTransactionHashes"
+	"github.com/iotaledger/goshimmer/plugins/webapi/getFundsFromFaucet"
 	"github.com/iotaledger/goshimmer/plugins/webapi/getNeighbors"
 	"github.com/iotaledger/goshimmer/plugins/webapi/getTransactionObjectsByHash"
 	"github.com/iotaledger/goshimmer/plugins/webapi/getTransactionTrytesByHash"
@@ -19,6 +20,7 @@ var PLUGINS = node.Plugins(
 	gtta.PLUGIN,
 	spammer.PLUGIN,
 	broadcastData.PLUGIN,
+	getFundsFromFaucet.PLUGIN,
 	getTransactionTrytesByHash.PLUGIN,
 	getTransactionObjectsByHash.PLUGIN,
 	findTransactionHashes.PLUGIN,
