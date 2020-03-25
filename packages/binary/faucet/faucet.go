@@ -26,8 +26,7 @@ func IsFaucetReq(txn *message.Transaction) bool {
 }
 
 func SendFunds(txn *message.Transaction) error {
-	data := txn.GetPayload()
-	addr := data.(*faucetpayload.Payload).GetAddress()
+	addr := txn.GetPayload().(*faucetpayload.Payload).GetAddress()
 	// Check address length
 	if len(addr) != address.Length {
 		return ErrInvalidAddr
@@ -36,5 +35,5 @@ func SendFunds(txn *message.Transaction) error {
 	fmt.Println(addr)
 	return nil
 
-	// Send value transfer
+	// TODO: Send value transfer
 }
