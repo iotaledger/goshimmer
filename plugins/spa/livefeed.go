@@ -3,12 +3,14 @@ package spa
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	tangle_plugin "github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
+
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/tangle"
 )
 
 var liveFeedWorkerCount = 1
@@ -17,28 +19,33 @@ var liveFeedWorkerPool *workerpool.WorkerPool
 
 func configureLiveFeed() {
 	liveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
-		t := task.Param(0).(*value_transaction.ValueTransaction)
-		sendToAllWSClient(&msg{MsgTypeTx, &tx{t.GetHash(), t.GetValue()}})
+		task.Param(0).(*message.CachedTransaction).Consume(func(transaction *message.Transaction) {
+			sendToAllWSClient(&msg{MsgTypeTx, &tx{transaction.GetId().String(), 0}})
+		})
+
 		task.Return(nil)
 	}, workerpool.WorkerCount(liveFeedWorkerCount), workerpool.QueueSize(liveFeedWorkerQueueSize))
 }
 
 func runLiveFeed() {
 	newTxRateLimiter := time.NewTicker(time.Second / 10)
-	notifyNewTx := events.NewClosure(func(tx *value_transaction.ValueTransaction) {
+	notifyNewTx := events.NewClosure(func(tx *message.CachedTransaction, metadata *transactionmetadata.CachedTransactionMetadata) {
+		metadata.Release()
+
 		select {
 		case <-newTxRateLimiter.C:
 			liveFeedWorkerPool.TrySubmit(tx)
 		default:
+			tx.Release()
 		}
 	})
 
 	daemon.BackgroundWorker("SPA[TxUpdater]", func(shutdownSignal <-chan struct{}) {
-		tangle_plugin.Events.TransactionStored.Attach(notifyNewTx)
+		tangle.Instance.Events.TransactionAttached.Attach(notifyNewTx)
 		liveFeedWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping SPA[TxUpdater] ...")
-		tangle_plugin.Events.TransactionStored.Detach(notifyNewTx)
+		tangle.Instance.Events.TransactionAttached.Detach(notifyNewTx)
 		newTxRateLimiter.Stop()
 		liveFeedWorkerPool.Stop()
 		log.Info("Stopping SPA[TxUpdater] ... done")

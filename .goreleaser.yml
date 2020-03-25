@@ -13,13 +13,9 @@ builds:
   - id: goshimmer-darwin-amd64
     binary: goshimmer
     env:
-      - CGO_ENABLED=1
-      - CC=o64-clang
-      - CXX=o64-clang++
+      - CGO_ENABLED=0
     ldflags:
       - -s -w -X github.com/iotaledger/goshimmer/plugins/cli.AppVersion={{.Version}}
-    flags:
-      - -tags=pow_avx
     main: main.go
     goos:
       - darwin

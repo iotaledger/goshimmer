@@ -5,11 +5,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/parameter"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+
 	"golang.org/x/net/context"
+
+	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 
 	engineio "github.com/googollee/go-engine.io"
 	"github.com/googollee/go-engine.io/transport"
@@ -39,7 +41,7 @@ var (
 )
 
 func downloadSocketIOHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, parameter.NodeConfig.GetString(CFG_SOCKET_IO))
+	http.ServeFile(w, r, config.Node.GetString(CFG_SOCKET_IO))
 }
 
 func configureSocketIOServer() error {
@@ -72,11 +74,11 @@ func configure(plugin *node.Plugin) {
 
 	// socket.io and web server
 	server = &http.Server{
-		Addr:    parameter.NodeConfig.GetString(CFG_BIND_ADDRESS),
+		Addr:    config.Node.GetString(CFG_BIND_ADDRESS),
 		Handler: router,
 	}
 
-	fs := http.FileServer(http.Dir(parameter.NodeConfig.GetString(CFG_WEBROOT)))
+	fs := http.FileServer(http.Dir(config.Node.GetString(CFG_WEBROOT)))
 
 	if err := configureSocketIOServer(); err != nil {
 		log.Panicf("Graph: %v", err.Error())
@@ -100,10 +102,10 @@ func run(*node.Plugin) {
 
 	daemon.BackgroundWorker("Graph[NewTxWorker]", func(shutdownSignal <-chan struct{}) {
 		log.Info("Starting Graph[NewTxWorker] ... done")
-		tangle.Events.TransactionStored.Attach(notifyNewTx)
+		tangle.Instance.Events.TransactionAttached.Attach(notifyNewTx)
 		newTxWorkerPool.Start()
 		<-shutdownSignal
-		tangle.Events.TransactionStored.Detach(notifyNewTx)
+		tangle.Instance.Events.TransactionAttached.Detach(notifyNewTx)
 		newTxWorkerPool.Stop()
 		log.Info("Stopping Graph[NewTxWorker] ... done")
 	}, shutdown.ShutdownPriorityGraph)
@@ -113,7 +115,7 @@ func run(*node.Plugin) {
 
 		stopped := make(chan struct{})
 		go func() {
-			log.Infof("You can now access IOTA Tangle Visualiser using: http://%s", parameter.NodeConfig.GetString(CFG_BIND_ADDRESS))
+			log.Infof("You can now access IOTA Tangle Visualiser using: http://%s", config.Node.GetString(CFG_BIND_ADDRESS))
 			if err := server.ListenAndServe(); err != nil {
 				if !errors.Is(err, http.ErrServerClosed) {
 					log.Errorf("Error serving: %s", err)

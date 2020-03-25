@@ -4,58 +4,44 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/model/transactionmetadata"
-	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/plugins/tangle"
+
 	"github.com/labstack/echo"
 	"github.com/pkg/errors"
-
-	"github.com/iotaledger/iota.go/consts"
-	"github.com/iotaledger/iota.go/guards"
-	. "github.com/iotaledger/iota.go/trinary"
 )
 
 type ExplorerTx struct {
-	Hash                     Hash   `json:"hash"`
-	SignatureMessageFragment Trytes `json:"signature_message_fragment"`
-	Address                  Hash   `json:"address"`
+	Hash                     string `json:"hash"`
+	SignatureMessageFragment string `json:"signature_message_fragment"`
+	Address                  string `json:"address"`
 	Value                    int64  `json:"value"`
 	Timestamp                uint   `json:"timestamp"`
-	Trunk                    Hash   `json:"trunk"`
-	Branch                   Hash   `json:"branch"`
+	Trunk                    string `json:"trunk"`
+	Branch                   string `json:"branch"`
 	Solid                    bool   `json:"solid"`
 	MWM                      int    `json:"mwm"`
 }
 
-func createExplorerTx(hash Hash, tx *value_transaction.ValueTransaction) (*ExplorerTx, error) {
+func createExplorerTx(tx *message.Transaction) (*ExplorerTx, error) {
+	transactionId := tx.GetId()
 
-	txMetadata, err := tangle.GetTransactionMetadata(hash, transactionmetadata.New)
-	if err != nil {
-		return nil, err
-	}
+	txMetadata := tangle.Instance.GetTransactionMetadata(transactionId)
 
 	t := &ExplorerTx{
-		Hash:                     tx.GetHash(),
-		SignatureMessageFragment: tx.GetSignatureMessageFragment(),
-		Address:                  tx.GetAddress(),
-		Timestamp:                tx.GetTimestamp(),
-		Value:                    tx.GetValue(),
-		Trunk:                    tx.GetTrunkTransactionHash(),
-		Branch:                   tx.GetBranchTransactionHash(),
-		Solid:                    txMetadata.GetSolid(),
+		Hash:                     transactionId.String(),
+		SignatureMessageFragment: "",
+		Address:                  "",
+		Timestamp:                0,
+		Value:                    0,
+		Trunk:                    tx.GetTrunkTransactionId().String(),
+		Branch:                   tx.GetBranchTransactionId().String(),
+		Solid:                    txMetadata.Unwrap().IsSolid(),
 	}
 
-	// compute mwm
-	trits := MustTrytesToTrits(hash)
-	var mwm int
-	for i := len(trits) - 1; i >= 0; i-- {
-		if trits[i] == 0 {
-			mwm++
-			continue
-		}
-		break
-	}
-	t.MWM = mwm
+	// TODO: COMPUTE MWM
+	t.MWM = 0
+
 	return t, nil
 }
 
@@ -70,12 +56,17 @@ type SearchResult struct {
 }
 
 func setupExplorerRoutes(routeGroup *echo.Group) {
-
-	routeGroup.GET("/tx/:hash", func(c echo.Context) error {
-		t, err := findTransaction(c.Param("hash"))
+	routeGroup.GET("/tx/:hash", func(c echo.Context) (err error) {
+		transactionId, err := message.NewId(c.Param("hash"))
 		if err != nil {
-			return err
+			return
 		}
+
+		t, err := findTransaction(transactionId)
+		if err != nil {
+			return
+		}
+
 		return c.JSON(http.StatusOK, t)
 	})
 
@@ -95,14 +86,17 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 			return errors.Wrapf(ErrInvalidParameter, "search hash invalid: %s", search)
 		}
 
-		// auto. remove checksum
-		search = search[:81]
-
 		wg := sync.WaitGroup{}
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			tx, err := findTransaction(search)
+
+			transactionId, err := message.NewId(search)
+			if err != nil {
+				return
+			}
+
+			tx, err := findTransaction(transactionId)
 			if err == nil {
 				result.Tx = tx
 			}
@@ -121,57 +115,56 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func findTransaction(hash Hash) (*ExplorerTx, error) {
-	if !guards.IsTrytesOfExactLength(hash, consts.HashTrytesSize) {
-		return nil, errors.Wrapf(ErrInvalidParameter, "hash invalid: %s", hash)
+func findTransaction(transactionId message.Id) (explorerTx *ExplorerTx, err error) {
+	if !tangle.Instance.GetTransaction(transactionId).Consume(func(transaction *message.Transaction) {
+		explorerTx, err = createExplorerTx(transaction)
+	}) {
+		err = errors.Wrapf(ErrNotFound, "tx hash: %s", transactionId.String())
 	}
 
-	tx, err := tangle.GetTransaction(hash)
-	if err != nil {
-		return nil, err
-	}
-	if tx == nil {
-		return nil, errors.Wrapf(ErrNotFound, "tx hash: %s", hash)
-	}
-
-	t, err := createExplorerTx(hash, tx)
-	return t, err
+	return
 }
 
-func findAddress(hash Hash) (*ExplorerAdress, error) {
-	if len(hash) > 81 {
-		hash = hash[:81]
-	}
-	if !guards.IsTrytesOfExactLength(hash, consts.HashTrytesSize) {
-		return nil, errors.Wrapf(ErrInvalidParameter, "hash invalid: %s", hash)
-	}
+func findAddress(address string) (*ExplorerAdress, error) {
+	return nil, errors.Wrapf(ErrNotFound, "address %s not found", address)
 
-	txHashes, err := tangle.ReadTransactionHashesForAddressFromDatabase(hash)
-	if err != nil {
-		return nil, ErrInternalError
-	}
+	// TODO: ADD ADDRESS LOOKUPS ONCE THE VALUE TRANSFER ONTOLOGY IS MERGED
 
-	if len(txHashes) == 0 {
-		return nil, errors.Wrapf(ErrNotFound, "address %s not found", hash)
-	}
+	/*
+		if len(hash) > 81 {
+			hash = hash[:81]
+		}
+		if !guards.IsTrytesOfExactLength(hash, consts.HashTrytesSize) {
+			return nil, errors.Wrapf(ErrInvalidParameter, "hash invalid: %s", hash)
+		}
 
-	txs := make([]*ExplorerTx, 0, len(txHashes))
-	for i := 0; i < len(txHashes); i++ {
-		txHash := txHashes[i]
-
-		tx, err := tangle.GetTransaction(hash)
+		txHashes, err := tangle_old.ReadTransactionHashesForAddressFromDatabase(hash)
 		if err != nil {
-			continue
+			return nil, ErrInternalError
 		}
-		if tx == nil {
-			continue
-		}
-		expTx, err := createExplorerTx(txHash, tx)
-		if err != nil {
-			return nil, err
-		}
-		txs = append(txs, expTx)
-	}
 
-	return &ExplorerAdress{Txs: txs}, nil
+		if len(txHashes) == 0 {
+			return nil, errors.Wrapf(ErrNotFound, "address %s not found", hash)
+		}
+
+		txs := make([]*ExplorerTx, 0, len(txHashes))
+		for i := 0; i < len(txHashes); i++ {
+			txHash := txHashes[i]
+
+			tx, err := tangle_old.GetTransaction(hash)
+			if err != nil {
+				continue
+			}
+			if tx == nil {
+				continue
+			}
+			expTx, err := createExplorerTx(txHash, tx)
+			if err != nil {
+				return nil, err
+			}
+			txs = append(txs, expTx)
+		}
+
+		return &ExplorerAdress{Txs: txs}, nil
+	*/
 }

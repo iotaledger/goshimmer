@@ -1,17 +1,20 @@
 package storageprefix
 
 var (
-	TangleTransaction         = []byte{0}
-	TangleTransactionMetadata = []byte{1}
-	TangleApprovers           = []byte{2}
-	TangleMissingTransaction  = []byte{3}
+	MainNet = []byte{0}
 
-	ValueTangleTransferMetadata = []byte{4}
-	ValueTangleConsumers        = []byte{5}
-	ValueTangleMissingTransfers = []byte{6}
+	TangleTransaction         = []byte{1}
+	TangleTransactionMetadata = []byte{2}
+	TangleApprovers           = []byte{3}
+	TangleMissingTransaction  = []byte{4}
 
-	LedgerStateTransferOutput        = []byte{7}
-	LedgerStateTransferOutputBooking = []byte{8}
-	LedgerStateReality               = []byte{9}
-	LedgerStateConflictSet           = []byte{10}
+	ValueTransferPayload         = []byte{5}
+	ValueTransferPayloadMetadata = []byte{6}
+	ValueTransferApprover        = []byte{7}
+	ValueTransferMissingPayload  = []byte{8}
+
+	LedgerStateTransferOutput        = []byte{9}
+	LedgerStateTransferOutputBooking = []byte{10}
+	LedgerStateReality               = []byte{11}
+	LedgerStateConflictSet           = []byte{12}
 )

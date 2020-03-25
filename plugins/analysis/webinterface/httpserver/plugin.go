@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"github.com/gobuffalo/packr/v2"
-	"github.com/iotaledger/goshimmer/packages/parameter"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/labstack/echo"
 	"golang.org/x/net/context"
 	"golang.org/x/net/websocket"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 var (
@@ -31,11 +32,13 @@ func Configure() {
 	engine.HideBanner = true
 
 	// we only need this special flag, because we always keep a packed box in the same directory
-	if parameter.NodeConfig.GetBool(CFG_DEV) {
+	if config.Node.GetBool(CFG_DEV) {
 		engine.Static("/static", "./plugins/analysis/webinterface/httpserver/static")
 		engine.File("/", "./plugins/analysis/webinterface/httpserver/static/index.html")
 	} else {
-		engine.GET("/static/*", echo.WrapHandler(http.StripPrefix("/static", http.FileServer(assetsBox))))
+		for _, res := range assetsBox.List() {
+			engine.GET("/static/"+res, echo.WrapHandler(http.StripPrefix("/static", http.FileServer(assetsBox))))
+		}
 		engine.GET("/", index)
 	}
 
@@ -51,7 +54,7 @@ func Run() {
 
 func start(shutdownSignal <-chan struct{}) {
 	stopped := make(chan struct{})
-	bindAddr := parameter.NodeConfig.GetString(CFG_BIND_ADDRESS)
+	bindAddr := config.Node.GetString(CFG_BIND_ADDRESS)
 	go func() {
 		log.Infof("Started %s: http://%s", name, bindAddr)
 		if err := engine.Start(bindAddr); err != nil {

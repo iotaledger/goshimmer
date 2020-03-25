@@ -5,19 +5,20 @@ import (
 	"errors"
 	"math"
 
-	"github.com/iotaledger/goshimmer/packages/parameter"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/ping"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/removenode"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/network"
 	"github.com/iotaledger/hive.go/network/tcp"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
+	"github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
+	"github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
+	"github.com/iotaledger/goshimmer/plugins/analysis/types/ping"
+	"github.com/iotaledger/goshimmer/plugins/analysis/types/removenode"
+	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 var (
@@ -36,7 +37,7 @@ func Configure(plugin *node.Plugin) {
 		log.Errorf("error in server: %s", err.Error())
 	}))
 	server.Events.Start.Attach(events.NewClosure(func() {
-		log.Infof("Starting Server (port %d) ... done", parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
+		log.Infof("Starting Server (port %d) ... done", config.Node.GetInt(CFG_SERVER_PORT))
 	}))
 	server.Events.Shutdown.Attach(events.NewClosure(func() {
 		log.Info("Stopping Server ... done")
@@ -45,8 +46,8 @@ func Configure(plugin *node.Plugin) {
 
 func Run(plugin *node.Plugin) {
 	daemon.BackgroundWorker("Analysis Server", func(shutdownSignal <-chan struct{}) {
-		log.Infof("Starting Server (port %d) ... done", parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
-		go server.Listen("0.0.0.0", parameter.NodeConfig.GetInt(CFG_SERVER_PORT))
+		log.Infof("Starting Server (port %d) ... done", config.Node.GetInt(CFG_SERVER_PORT))
+		go server.Listen("0.0.0.0", config.Node.GetInt(CFG_SERVER_PORT))
 		<-shutdownSignal
 		Shutdown()
 	}, shutdown.ShutdownPriorityAnalysis)

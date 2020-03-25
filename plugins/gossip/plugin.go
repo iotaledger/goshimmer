@@ -1,16 +1,18 @@
 package gossip
 
 import (
-	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/tangle"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
+	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/tangle"
 )
 
 const name = "Gossip" // name of the plugin
@@ -69,9 +71,22 @@ func configureEvents() {
 		log.Infof("Neighbor removed: %s / %s", gossip.GetAddress(p), p.ID())
 	}))
 
-	// gossip transactions on solidification
-	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(tx *value_transaction.ValueTransaction) {
-		mgr.SendTransaction(tx.GetBytes())
+	// configure flow of incoming transactions
+	gossip.Events.TransactionReceived.Attach(events.NewClosure(func(event *gossip.TransactionReceivedEvent) {
+		tangle.TransactionParser.Parse(event.Data, event.Peer)
 	}))
-	tangle.SetRequester(tangle.RequesterFunc(requestTransaction))
+
+	// configure flow of outgoing transactions (gossip on solidification)
+	tangle.Instance.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedTransaction, transactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+		transactionMetadata.Release()
+
+		cachedTransaction.Consume(func(transaction *message.Transaction) {
+			mgr.SendTransaction(transaction.Bytes())
+		})
+	}))
+
+	// request missing transactions
+	tangle.TransactionRequester.Events.SendRequest.Attach(events.NewClosure(func(transactionId message.Id) {
+		mgr.RequestTransaction(transactionId[:])
+	}))
 }

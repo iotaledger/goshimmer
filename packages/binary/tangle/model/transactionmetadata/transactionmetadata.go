@@ -6,13 +6,13 @@ import (
 
 	"github.com/iotaledger/hive.go/objectstorage"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 )
 
 type TransactionMetadata struct {
 	objectstorage.StorableObjectFlags
 
-	transactionId      transaction.Id
+	transactionId      message.Id
 	receivedTime       time.Time
 	solid              bool
 	solidificationTime time.Time
@@ -21,7 +21,7 @@ type TransactionMetadata struct {
 	solidificationTimeMutex sync.RWMutex
 }
 
-func New(transactionId transaction.Id) *TransactionMetadata {
+func New(transactionId message.Id) *TransactionMetadata {
 	return &TransactionMetadata{
 		transactionId: transactionId,
 		receivedTime:  time.Now(),
@@ -86,9 +86,22 @@ func (transactionMetadata *TransactionMetadata) Update(other objectstorage.Stora
 }
 
 func (transactionMetadata *TransactionMetadata) MarshalBinary() ([]byte, error) {
-	return nil, nil
+	return (&Proto{
+		receivedTime:       transactionMetadata.receivedTime,
+		solidificationTime: transactionMetadata.solidificationTime,
+		solid:              transactionMetadata.solid,
+	}).ToBytes(), nil
 }
 
-func (transactionMetadata *TransactionMetadata) UnmarshalBinary([]byte) error {
-	return nil
+func (transactionMetadata *TransactionMetadata) UnmarshalBinary(data []byte) (err error) {
+	proto, err := ProtoFromBytes(data)
+	if err != nil {
+		return
+	}
+
+	transactionMetadata.receivedTime = proto.receivedTime
+	transactionMetadata.solidificationTime = proto.solidificationTime
+	transactionMetadata.solid = proto.solid
+
+	return
 }

@@ -1,22 +1,25 @@
 package spa
 
 import (
+	"net"
 	"net/http"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/iotaledger/goshimmer/packages/parameter"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/cli"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
-	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/plugins/metrics"
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -32,7 +35,7 @@ var (
 	nodeStartAt = time.Now()
 
 	clientsMu    sync.Mutex
-	clients             = make(map[uint64]chan interface{}, 0)
+	clients             = make(map[uint64]chan interface{})
 	nextClientID uint64 = 0
 
 	wsSendWorkerCount     = 1
@@ -54,7 +57,6 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-
 	notifyStatus := events.NewClosure(func(tps uint64) {
 		wsSendWorkerPool.TrySubmit(tps)
 	})
@@ -80,10 +82,10 @@ func run(plugin *node.Plugin) {
 	e.HideBanner = true
 	e.Use(middleware.Recover())
 
-	if parameter.NodeConfig.GetBool(CFG_BASIC_AUTH_ENABLED) {
+	if config.Node.GetBool(CFG_BASIC_AUTH_ENABLED) {
 		e.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-			if username == parameter.NodeConfig.GetString(CFG_BASIC_AUTH_USERNAME) &&
-				password == parameter.NodeConfig.GetString(CFG_BASIC_AUTH_PASSWORD) {
+			if username == config.Node.GetString(CFG_BASIC_AUTH_USERNAME) &&
+				password == config.Node.GetString(CFG_BASIC_AUTH_PASSWORD) {
 				return true, nil
 			}
 			return false, nil
@@ -91,7 +93,7 @@ func run(plugin *node.Plugin) {
 	}
 
 	setupRoutes(e)
-	addr := parameter.NodeConfig.GetString(CFG_BIND_ADDRESS)
+	addr := config.Node.GetString(CFG_BIND_ADDRESS)
 
 	log.Infof("You can now access the dashboard using: http://%s", addr)
 	go e.Start(addr)
@@ -183,9 +185,12 @@ func neighborMetrics() []neighbormetric {
 				break
 			}
 		}
+
+		host := neighbor.Peer.IP().String()
+		port := neighbor.Peer.Services().Get(service.GossipKey).Port()
 		stats = append(stats, neighbormetric{
 			ID:               neighbor.Peer.ID().String(),
-			Address:          neighbor.Peer.Services().Get(service.GossipKey).String(),
+			Address:          net.JoinHostPort(host, strconv.Itoa(port)),
 			BytesRead:        neighbor.BytesRead(),
 			BytesWritten:     neighbor.BytesWritten(),
 			ConnectionOrigin: origin,
@@ -201,7 +206,7 @@ func currentNodeStatus() *nodestatus {
 	status.ID = local.GetInstance().ID().String()
 
 	// node status
-	status.Version = cli.AppVersion
+	status.Version = banner.AppVersion
 	status.Uptime = time.Since(nodeStartAt).Milliseconds()
 
 	// memory metrics

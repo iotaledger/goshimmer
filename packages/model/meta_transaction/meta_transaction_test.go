@@ -47,7 +47,9 @@ func TestMetaTransaction_SettersGetters(t *testing.T) {
 	assert.Equal(t, tx.IsHead(), head)
 	assert.Equal(t, tx.IsTail(), tail)
 	assert.Equal(t, tx.GetTransactionType(), transactionType)
-	assert.Equal(t, tx.GetHash(), FromBytes(tx.GetBytes()).GetHash())
+	metaTx, err := FromBytes(tx.GetBytes())
+	require.NoError(t, err)
+	assert.Equal(t, tx.GetHash(), metaTx.GetHash())
 
 	assert.EqualValues(t, "KKDVHBENVLQUNO9WOWWEJPBBHUSYRSRKIMZWCFCDB9RYZKYWLAYWRIBRQETBFKE9TIVWQPCKFWAMCLCAV", tx.GetHash())
 }

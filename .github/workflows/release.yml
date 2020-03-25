@@ -9,12 +9,14 @@ jobs:
     name: Release
     runs-on: [ubuntu-latest]
     container:
-      image: iotmod/goreleaser-cgo-cross-compiler:1.13.5
+      image: iotmod/goreleaser-cgo-cross-compiler:1.14
       volumes: [/repo]
 
     steps:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
+    - name: Copy config.default.json to config.json
+      run: cp config.default.json config.json
     - name: Release GoShimmer
       run: goreleaser --rm-dist
       env:

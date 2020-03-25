@@ -128,7 +128,7 @@ If you want to build your own executable file, you need to follow these steps.
 
 #### Prerequisites
 
-To complete this guide, you need to have at least [version 1.13 of Go installed](https://golang.org/doc/install) on your device.
+To complete this guide, you need to have at least [version 1.14 of Go installed](https://golang.org/doc/install) on your device.
 
 To check if you have Go installed, run the following command:
 
@@ -148,7 +148,16 @@ If Go is installed, you should see the version that's installed.
 
 2. Change into the `goshimmer` directory
 
-3. Use one of the following commands to build your executable file, depending on your operating system
+3. Copy and adjust `config.default.json`
+
+    ```bash
+    # Linux and macOS
+    cp config.default.json config.json
+    # Windows
+    copy config.default.json config.json
+    ```
+
+4. Use one of the following commands to build your executable file, depending on your operating system
 
     ```bash
     # Linux and macOS
