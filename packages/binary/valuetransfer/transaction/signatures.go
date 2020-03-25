@@ -47,7 +47,7 @@ func SignaturesFromBytes(bytes []byte, optionalTargetObject ...*Signatures) (res
 	for versionByte != 0 {
 		// perform signature scheme specific decoding
 		switch versionByte {
-		case signaturescheme.VERSION_ED25519:
+		case address.VERSION_ED25519:
 			marshalUtil.ReadSeek(-1)
 			signature, signatureErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return signaturescheme.Ed25519SignatureFromBytes(data) })
 			if signatureErr != nil {
