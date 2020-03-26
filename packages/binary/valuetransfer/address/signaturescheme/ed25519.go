@@ -3,6 +3,8 @@ package signaturescheme
 import (
 	"fmt"
 
+	"github.com/iotaledger/hive.go/marshalutil"
+
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 
@@ -10,11 +12,6 @@ import (
 )
 
 // region PUBLIC API ///////////////////////////////////////////////////////////////////////////////////////////////////
-
-const (
-	// every signature scheme has a version byte associated to it.
-	VERSION_ED25519 = byte(1)
-)
 
 // ED25519 creates an instance of a signature scheme, that is used to sign the corresponding address.
 func ED25519(keyPair ed25519.KeyPair) SignatureScheme {
@@ -34,7 +31,7 @@ type ed25519SignatureScheme struct {
 
 // Version returns the version byte that is associated to this signature scheme.
 func (signatureScheme *ed25519SignatureScheme) Version() byte {
-	return VERSION_ED25519
+	return address.VERSION_ED25519
 }
 
 // Address returns the address that this signature scheme instance is securing.
@@ -83,7 +80,7 @@ func Ed25519SignatureFromBytes(bytes []byte, optionalTargetObject ...*ed25519Sig
 	versionByte, err := marshalUtil.ReadByte()
 	if err != nil {
 		return
-	} else if versionByte != VERSION_ED25519 {
+	} else if versionByte != address.VERSION_ED25519 {
 		err = fmt.Errorf("invalid version byte when parsing ed25519 signature")
 
 		return
@@ -117,7 +114,7 @@ func (signature *ed25519Signature) IsValid(signedData []byte) bool {
 // Bytes returns a marshaled version of the signature.
 func (signature *ed25519Signature) Bytes() []byte {
 	marshalUtil := marshalutil.New(1 + ed25519.PublicKeySize + ed25519.SignatureSize)
-	marshalUtil.WriteByte(VERSION_ED25519)
+	marshalUtil.WriteByte(address.VERSION_ED25519)
 	marshalUtil.WriteBytes(signature.publicKey[:])
 	marshalUtil.WriteBytes(signature.signature[:])
 

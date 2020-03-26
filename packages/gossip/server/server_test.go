@@ -19,7 +19,7 @@ const graceTime = 5 * time.Millisecond
 var log = logger.NewExampleLogger("server")
 
 func getPeer(t *TCP) *peer.Peer {
-	return &t.local.Peer
+	return t.local.Peer
 }
 
 func TestClose(t *testing.T) {
@@ -57,8 +57,8 @@ func TestUnansweredDial(t *testing.T) {
 
 	// create peer with invalid gossip address
 	services := getPeer(transA).Services().CreateRecord()
-	services.Update(service.GossipKey, "tcp", "localhost:0")
-	unreachablePeer := peer.NewPeer(getPeer(transA).PublicKey(), services)
+	services.Update(service.GossipKey, "tcp", 0)
+	unreachablePeer := peer.NewPeer(getPeer(transA).PublicKey(), net.ParseIP("127.0.0.1"), services)
 
 	_, err := transA.DialPeer(unreachablePeer)
 	assert.Error(t, err)
@@ -81,8 +81,8 @@ func TestNoHandshakeResponse(t *testing.T) {
 
 	// create peer for the listener
 	services := getPeer(transA).Services().CreateRecord()
-	services.Update(service.GossipKey, lis.Addr().Network(), lis.Addr().String())
-	p := peer.NewPeer(getPeer(transA).PublicKey(), services)
+	services.Update(service.GossipKey, lis.Addr().Network(), lis.Addr().(*net.TCPAddr).Port)
+	p := peer.NewPeer(getPeer(transA).PublicKey(), lis.Addr().(*net.TCPAddr).IP, services)
 
 	_, err = transA.DialPeer(p)
 	assert.Error(t, err)
@@ -174,18 +174,17 @@ func newTestDB(t require.TestingT) *peer.DB {
 func newTestServer(t require.TestingT, name string) (*TCP, func()) {
 	l := log.Named(name)
 
-	services := service.New()
-	services.Update(service.PeeringKey, "peering", name)
-	local, err := peer.NewLocal(services, newTestDB(t))
-	require.NoError(t, err)
-
 	laddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	lis, err := net.ListenTCP("tcp", laddr)
 	require.NoError(t, err)
 
-	// enable TCP gossipping
-	require.NoError(t, local.UpdateService(service.GossipKey, lis.Addr().Network(), lis.Addr().String()))
+	services := service.New()
+	services.Update(service.PeeringKey, "peering", 0)
+	services.Update(service.GossipKey, lis.Addr().Network(), lis.Addr().(*net.TCPAddr).Port)
+
+	local, err := peer.NewLocal(lis.Addr().(*net.TCPAddr).IP, services, newTestDB(t))
+	require.NoError(t, err)
 
 	srv := ServeTCP(local, lis, l)
 

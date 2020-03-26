@@ -2,7 +2,9 @@ package getNeighbors
 
 import (
 	"encoding/base64"
+	"net"
 	"net/http"
+	"strconv"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -83,12 +85,14 @@ type peerService struct {
 }
 
 func getServices(p *peer.Peer) []peerService {
-	services := []peerService{}
+	var services []peerService
+
+	host := p.IP().String()
 	peeringService := p.Services().Get(service.PeeringKey)
 	if peeringService != nil {
 		services = append(services, peerService{
 			ID:      "peering",
-			Address: peeringService.String(),
+			Address: net.JoinHostPort(host, strconv.Itoa(peeringService.Port())),
 		})
 	}
 
@@ -96,7 +100,7 @@ func getServices(p *peer.Peer) []peerService {
 	if gossipService != nil {
 		services = append(services, peerService{
 			ID:      "gossip",
-			Address: gossipService.String(),
+			Address: net.JoinHostPort(host, strconv.Itoa(gossipService.Port())),
 		})
 	}
 
@@ -104,7 +108,7 @@ func getServices(p *peer.Peer) []peerService {
 	if fpcService != nil {
 		services = append(services, peerService{
 			ID:      "FPC",
-			Address: fpcService.String(),
+			Address: net.JoinHostPort(host, strconv.Itoa(fpcService.Port())),
 		})
 	}
 

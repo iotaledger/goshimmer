@@ -119,18 +119,16 @@ func TestNeighborParallelWrite(t *testing.T) {
 }
 
 func newTestNeighbor(name string, conn net.Conn) *Neighbor {
-	return NewNeighbor(newTestPeer(name, conn.LocalAddr()), conn, log.Named(name))
+	return NewNeighbor(newTestPeer(name, conn), conn, log.Named(name))
 }
 
-func newTestPeer(name string, addr net.Addr) *peer.Peer {
+func newTestPeer(name string, conn net.Conn) *peer.Peer {
 	services := service.New()
-	services.Update(service.PeeringKey, addr.Network(), addr.String())
-	services.Update(service.GossipKey, addr.Network(), addr.String())
-
+	services.Update(service.PeeringKey, conn.LocalAddr().Network(), 0)
+	services.Update(service.GossipKey, conn.LocalAddr().Network(), 0)
 	var publicKey ed25519.PublicKey
 	copy(publicKey[:], name)
-
-	return peer.NewPeer(publicKey, services)
+	return peer.NewPeer(publicKey, net.IPv4zero, services)
 }
 
 func newPipe() (net.Conn, net.Conn, func()) {

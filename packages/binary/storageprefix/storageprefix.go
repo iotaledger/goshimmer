@@ -12,9 +12,11 @@ var (
 	ValueTransferPayloadMetadata = []byte{6}
 	ValueTransferApprover        = []byte{7}
 	ValueTransferMissingPayload  = []byte{8}
+	ValueTransferAttachment      = []byte{9}
+	ValueTransferConsumer        = []byte{10}
 
-	LedgerStateTransferOutput        = []byte{9}
-	LedgerStateTransferOutputBooking = []byte{10}
-	LedgerStateReality               = []byte{11}
-	LedgerStateConflictSet           = []byte{12}
+	LedgerStateTransferOutput        = []byte{11}
+	LedgerStateTransferOutputBooking = []byte{12}
+	LedgerStateReality               = []byte{13}
+	LedgerStateConflictSet           = []byte{14}
 )
