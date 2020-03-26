@@ -122,6 +122,7 @@ func BLSSignatureFromBytes(data []byte) (result *blsSignature, err error, consum
 	}
 	if data[0] != address.VERSION_BLS {
 		err = fmt.Errorf("wrong version byte, expected %d", address.VERSION_BLS)
+		return
 	}
 	result = &blsSignature{}
 	copy(result[:BLS_FULL_SIGNATURE_SIZE], data)
