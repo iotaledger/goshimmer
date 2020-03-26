@@ -280,7 +280,7 @@ func (transaction *Transaction) String() string {
 // define contract (ensure that the struct fulfills the given interface)
 var _ objectstorage.StorableObject = &Transaction{}
 
-func (transaction *Transaction) GetStorageKey() []byte {
+func (transaction *Transaction) ObjectStorageKey() []byte {
 	id := transaction.Id()
 
 	return id[:]
@@ -290,12 +290,12 @@ func (transaction *Transaction) Update(other objectstorage.StorableObject) {
 	panic("update forbidden")
 }
 
-// MarshalBinary returns a bytes representation of the Transaction by implementing the encoding.BinaryMarshaler interface.
-func (transaction *Transaction) MarshalBinary() ([]byte, error) {
-	return transaction.Bytes(), nil
+// ObjectStorageValue returns a bytes representation of the Transaction by implementing the encoding.BinaryMarshaler interface.
+func (transaction *Transaction) ObjectStorageValue() []byte {
+	return transaction.Bytes()
 }
 
-func (transaction *Transaction) UnmarshalBinary(bytes []byte) (err error) {
+func (transaction *Transaction) UnmarshalObjectStorageValue(bytes []byte) (err error) {
 	_, err, _ = FromBytes(bytes, transaction)
 
 	return

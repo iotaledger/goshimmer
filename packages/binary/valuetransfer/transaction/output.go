@@ -82,7 +82,7 @@ func OutputFromBytes(bytes []byte, optionalTargetObject ...*Output) (result *Out
 
 // OutputFromStorage get's called when we restore a Output from the storage.
 // In contrast to other database models, it unmarshals some information from the key so we simply store the key before
-// it gets handed over to UnmarshalBinary (by the ObjectStorage).
+// it gets handed over to UnmarshalObjectStorageValue (by the ObjectStorage).
 func OutputFromStorage(keyBytes []byte) objectstorage.StorableObject {
 	return &Output{
 		storageKey: keyBytes[:OutputIdLength],
@@ -104,9 +104,9 @@ func (output *Output) Balances() []*balance.Balance {
 	return output.balances
 }
 
-// MarshalBinary marshals the balances into a sequence of bytes - the address and transaction id are stored inside the key
+// ObjectStorageValue marshals the balances into a sequence of bytes - the address and transaction id are stored inside the key
 // and are ignored here.
-func (output *Output) MarshalBinary() (data []byte, err error) {
+func (output *Output) ObjectStorageValue() (data []byte) {
 	// determine amount of balances in the output
 	balanceCount := len(output.balances)
 
@@ -124,9 +124,9 @@ func (output *Output) MarshalBinary() (data []byte, err error) {
 	return
 }
 
-// UnmarshalBinary restores a Output from a serialized version in the ObjectStorage with parts of the object
+// UnmarshalObjectStorageValue restores a Output from a serialized version in the ObjectStorage with parts of the object
 // being stored in its key rather than the content of the database to reduce storage requirements.
-func (output *Output) UnmarshalBinary(data []byte) (err error) {
+func (output *Output) UnmarshalObjectStorageValue(data []byte) (err error) {
 	_, err, _ = OutputFromBytes(marshalutil.New(output.storageKey).WriteBytes(data).Bytes(), output)
 
 	return
@@ -139,7 +139,7 @@ func (output *Output) Update(other objectstorage.StorableObject) {
 
 // ObjectStorageKey returns the key that is used to store the object in the database.
 // It is required to match StorableObject interface.
-func (output *Output) GetStorageKey() []byte {
+func (output *Output) ObjectStorageKey() []byte {
 	return output.storageKey
 }
 

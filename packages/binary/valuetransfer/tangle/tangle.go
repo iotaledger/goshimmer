@@ -40,7 +40,7 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		storageId: storageId,
 
 		// payload related storage
-		payloadStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayload...), payload.FromStorage, objectstorage.CacheTime(time.Second)),
+		payloadStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayload...), payload.StorableObjectFromKey, objectstorage.CacheTime(time.Second)),
 		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), PayloadMetadataFromStorage, objectstorage.CacheTime(time.Second)),
 		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingPayloadFromStorage, objectstorage.CacheTime(time.Second)),
 		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), PayloadApproverFromStorage, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
@@ -241,7 +241,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 				tangle.Events.TransactionSolid.Trigger(currentTransaction, currentTransactionMetadata)
 
 				currentTransaction.Inputs().ForEach(func(outputId transaction.OutputId) bool {
-
+					return true
 				})
 				tangle.GetConsumers(outputId)
 			}

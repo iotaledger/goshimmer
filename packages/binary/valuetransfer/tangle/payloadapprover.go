@@ -32,7 +32,7 @@ func NewPayloadApprover(referencedPayload payload.Id, approvingPayload payload.I
 }
 
 // PayloadApproverFromStorage get's called when we restore transaction metadata from the storage.
-// In contrast to other database models, it unmarshals the information from the key and does not use the UnmarshalBinary
+// In contrast to other database models, it unmarshals the information from the key and does not use the UnmarshalObjectStorageValue
 // method.
 func PayloadApproverFromStorage(idBytes []byte) objectstorage.StorableObject {
 	marshalUtil := marshalutil.New(idBytes)
@@ -66,13 +66,13 @@ func (payloadApprover *PayloadApprover) GetStorageKey() []byte {
 	return payloadApprover.storageKey
 }
 
-// MarshalBinary is implemented to conform with the StorableObject interface, but it does not really do anything,
+// ObjectStorageValue is implemented to conform with the StorableObject interface, but it does not really do anything,
 // since all of the information about an approver are stored in the "key".
 func (payloadApprover *PayloadApprover) MarshalBinary() (data []byte, err error) {
 	return
 }
 
-// UnmarshalBinary is implemented to conform with the StorableObject interface, but it does not really do anything,
+// UnmarshalObjectStorageValue is implemented to conform with the StorableObject interface, but it does not really do anything,
 // since all of the information about an approver are stored in the "key".
 func (payloadApprover *PayloadApprover) UnmarshalBinary(data []byte) error {
 	return nil

@@ -108,15 +108,15 @@ func (attachment *Attachment) ObjectStorageKey() []byte {
 	return attachment.storageKey
 }
 
-// MarshalBinary marshals the "content part" of an Attachment to a sequence of bytes. Since all of the information for
-// this object are stored in its key, this method does nothing and is only required to conform with the interface.
-func (attachment *Attachment) MarshalBinary() (data []byte, err error) {
+// ObjectStorageValue marshals the "content part" of an Attachment to a sequence of bytes. Since all of the information
+// for this object are stored in its key, this method does nothing and is only required to conform with the interface.
+func (attachment *Attachment) ObjectStorageValue() (data []byte) {
 	return
 }
 
-// UnmarshalBinary unmarshals the "content part" of an Attachment from a sequence of bytes. Since all of the information
+// UnmarshalObjectStorageValue unmarshals the "content part" of an Attachment from a sequence of bytes. Since all of the information
 // for this object are stored in its key, this method does nothing and is only required to conform with the interface.
-func (attachment *Attachment) UnmarshalBinary(data []byte) (err error) {
+func (attachment *Attachment) UnmarshalObjectStorageValue(data []byte) (err error) {
 	return
 }
 

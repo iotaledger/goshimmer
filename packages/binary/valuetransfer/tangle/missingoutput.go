@@ -52,7 +52,7 @@ func MissingOutputFromBytes(bytes []byte, optionalTargetObject ...*MissingOutput
 }
 
 // MissingOutputFromStorage gets called when we restore a MissingOutput from the storage. The content will be
-// unmarshaled by an external caller using the binary.MarshalBinary interface.
+// unmarshaled by an external caller using the binary.ObjectStorageValue interface.
 func MissingOutputFromStorage(keyBytes []byte) objectstorage.StorableObject {
 	outputId, err, _ := transaction.OutputIdFromBytes(keyBytes)
 	if err != nil {
@@ -85,8 +85,22 @@ func (missingOutput *MissingOutput) Bytes() []byte {
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the object storage.
-func (missingOutput *MissingOutput) GetStorageKey() []byte {
+func (missingOutput *MissingOutput) ObjectStorageKey() []byte {
 	return missingOutput.outputId.Bytes()
+}
+
+// ObjectStorageValue returns a bytes representation of the Transaction by implementing the encoding.BinaryMarshaler
+// interface.
+func (missingOutput *MissingOutput) ObjectStorageValue() []byte {
+	return missingOutput.Bytes()
+}
+
+// UnmarshalObjectStorageValue restores the values of a MissingOutput from a sequence of bytes using the  encoding.BinaryUnmarshaler
+// interface.
+func (missingOutput *MissingOutput) UnmarshalObjectStorageValue(data []byte) (err error) {
+	_, err, _ = MissingOutputFromBytes(data, missingOutput)
+
+	return
 }
 
 // Update is disabled and panics if it ever gets called - updates are supposed to happen through the setters.
@@ -94,16 +108,5 @@ func (missingOutput *MissingOutput) Update(other objectstorage.StorableObject) {
 	panic("implement me")
 }
 
-// MarshalBinary returns a bytes representation of the Transaction by implementing the encoding.BinaryMarshaler
-// interface.
-func (missingOutput *MissingOutput) MarshalBinary() (data []byte, err error) {
-	return missingOutput.Bytes(), nil
-}
-
-// UnmarshalBinary restores the values of a MissingOutput from a sequence of bytes using the  encoding.BinaryUnmarshaler
-// interface.
-func (missingOutput *MissingOutput) UnmarshalBinary(data []byte) (err error) {
-	_, err, _ = MissingOutputFromBytes(data, missingOutput)
-
-	return
-}
+// Interface contract: make compiler warn if the interface is not implemented correctly.
+var _ objectstorage.StorableObject = &MissingOutput{}

@@ -91,7 +91,7 @@ func (consumer *Consumer) TransactionId() transaction.Id {
 
 // Bytes marshals the Consumer into a sequence of bytes.
 func (consumer *Consumer) Bytes() []byte {
-	return consumer.GetStorageKey()
+	return consumer.ObjectStorageKey()
 }
 
 // String returns a human readable version of the Consumer.
@@ -103,19 +103,19 @@ func (consumer *Consumer) String() string {
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database.
-func (consumer *Consumer) GetStorageKey() []byte {
+func (consumer *Consumer) ObjectStorageKey() []byte {
 	return consumer.storageKey
 }
 
-// MarshalBinary marshals the "content part" of an Consumer to a sequence of bytes. Since all of the information for
+// ObjectStorageValue marshals the "content part" of an Consumer to a sequence of bytes. Since all of the information for
 // this object are stored in its key, this method does nothing and is only required to conform with the interface.
-func (consumer *Consumer) MarshalBinary() (data []byte, err error) {
+func (consumer *Consumer) ObjectStorageValue() (data []byte) {
 	return
 }
 
-// UnmarshalBinary unmarshals the "content part" of a Consumer from a sequence of bytes. Since all of the information
+// UnmarshalObjectStorageValue unmarshals the "content part" of a Consumer from a sequence of bytes. Since all of the information
 // for this object are stored in its key, this method does nothing and is only required to conform with the interface.
-func (consumer *Consumer) UnmarshalBinary(data []byte) (err error) {
+func (consumer *Consumer) UnmarshalObjectStorageValue(data []byte) (err error) {
 	return
 }
 
