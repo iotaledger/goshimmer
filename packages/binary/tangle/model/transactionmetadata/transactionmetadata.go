@@ -28,11 +28,11 @@ func New(transactionId message.Id) *TransactionMetadata {
 	}
 }
 
-func FromStorage(id []byte) objectstorage.StorableObject {
+func StorableObjectFromKey(id []byte) (objectstorage.StorableObject, error) {
 	result := &TransactionMetadata{}
 	copy(result.transactionId[:], id)
 
-	return result
+	return result, nil
 }
 
 func (transactionMetadata *TransactionMetadata) IsSolid() (result bool) {
@@ -77,7 +77,7 @@ func (transactionMetadata *TransactionMetadata) GetSoldificationTime() time.Time
 	return transactionMetadata.solidificationTime
 }
 
-func (transactionMetadata *TransactionMetadata) GetStorageKey() []byte {
+func (transactionMetadata *TransactionMetadata) ObjectStorageKey() []byte {
 	return transactionMetadata.transactionId[:]
 }
 
@@ -85,15 +85,15 @@ func (transactionMetadata *TransactionMetadata) Update(other objectstorage.Stora
 
 }
 
-func (transactionMetadata *TransactionMetadata) MarshalBinary() ([]byte, error) {
+func (transactionMetadata *TransactionMetadata) ObjectStorageValue() []byte {
 	return (&Proto{
 		receivedTime:       transactionMetadata.receivedTime,
 		solidificationTime: transactionMetadata.solidificationTime,
 		solid:              transactionMetadata.solid,
-	}).ToBytes(), nil
+	}).ToBytes()
 }
 
-func (transactionMetadata *TransactionMetadata) UnmarshalBinary(data []byte) (err error) {
+func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data []byte) (err error) {
 	proto, err := ProtoFromBytes(data)
 	if err != nil {
 		return
@@ -105,3 +105,5 @@ func (transactionMetadata *TransactionMetadata) UnmarshalBinary(data []byte) (er
 
 	return
 }
+
+var _ objectstorage.StorableObject = &TransactionMetadata{}

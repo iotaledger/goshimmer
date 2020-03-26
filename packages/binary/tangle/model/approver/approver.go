@@ -27,7 +27,7 @@ func New(referencedTransaction message.Id, approvingTransaction message.Id) *App
 	return approver
 }
 
-func FromStorage(id []byte) (result objectstorage.StorableObject) {
+func StorableObjectFromKey(id []byte) (result objectstorage.StorableObject, err error) {
 	approver := &Approver{
 		storageKey: make([]byte, message.IdLength+message.IdLength),
 	}
@@ -35,10 +35,10 @@ func FromStorage(id []byte) (result objectstorage.StorableObject) {
 	copy(approver.approvingTransaction[:], id[message.IdLength:])
 	copy(approver.storageKey, id)
 
-	return approver
+	return approver, nil
 }
 
-func (approver *Approver) GetStorageKey() []byte {
+func (approver *Approver) ObjectStorageKey() []byte {
 	return approver.storageKey
 }
 
@@ -50,10 +50,10 @@ func (approver *Approver) Update(other objectstorage.StorableObject) {
 	panic("approvers should never be overwritten and only stored once to optimize IO")
 }
 
-func (approver *Approver) MarshalBinary() (result []byte, err error) {
+func (approver *Approver) ObjectStorageValue() (result []byte) {
 	return
 }
 
-func (approver *Approver) UnmarshalBinary(data []byte) (err error) {
+func (approver *Approver) UnmarshalObjectStorageValue(data []byte) (err error) {
 	return
 }
