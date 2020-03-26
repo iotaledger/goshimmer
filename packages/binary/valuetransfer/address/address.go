@@ -19,7 +19,7 @@ type Address [Length]byte
 const (
 	// every signature scheme has a version byte associated to it.
 	VERSION_ED25519 = byte(1)
-	VERSION_BLS_BDN = byte(2)
+	VERSION_BLS     = byte(2)
 )
 
 // Random creates a random address, which can for example be used in unit tests.
@@ -70,7 +70,7 @@ func FromED25519PubKey(key ed25119.PublicKey) (address Address) {
 func FromBLSPubKey(pubKey []byte) (address Address) {
 	digest := blake2b.Sum256(pubKey)
 
-	address[0] = VERSION_BLS_BDN
+	address[0] = VERSION_BLS
 	copy(address[1:], digest[:])
 
 	return
