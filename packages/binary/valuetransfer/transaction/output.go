@@ -104,6 +104,15 @@ func (output *Output) Balances() []*balance.Balance {
 	return output.balances
 }
 
+// ObjectStorageKey returns the key that is used to store the object in the database.
+// It is required to match StorableObject interface.
+func (output *Output) ObjectStorageKey() []byte {
+	return marshalutil.New(OutputIdLength).
+		WriteBytes(output.address.Bytes()).
+		WriteBytes(output.transactionId.Bytes()).
+		Bytes()
+}
+
 // ObjectStorageValue marshals the balances into a sequence of bytes - the address and transaction id are stored inside the key
 // and are ignored here.
 func (output *Output) ObjectStorageValue() (data []byte) {
@@ -112,13 +121,11 @@ func (output *Output) ObjectStorageValue() (data []byte) {
 
 	// initialize helper
 	marshalUtil := marshalutil.New(4 + balanceCount*balance.Length)
-
-	// marshal the amount of balances
+	marshalUtil.WriteBool(output.solid)
+	marshalUtil.WriteTime(output.solidSince)
 	marshalUtil.WriteUint32(uint32(balanceCount))
-
-	// marshal balances
-	for _, balance := range output.balances {
-		marshalUtil.WriteBytes(balance.Bytes())
+	for _, balanceToMarshal := range output.balances {
+		marshalUtil.WriteBytes(balanceToMarshal.Bytes())
 	}
 
 	return
@@ -135,12 +142,6 @@ func (output *Output) UnmarshalObjectStorageValue(data []byte) (err error) {
 // Update is disabled and panics if it ever gets called - it is required to match StorableObject interface.
 func (output *Output) Update(other objectstorage.StorableObject) {
 	panic("this object should never be updated")
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database.
-// It is required to match StorableObject interface.
-func (output *Output) ObjectStorageKey() []byte {
-	return output.storageKey
 }
 
 // define contract (ensure that the struct fulfills the given interface)
