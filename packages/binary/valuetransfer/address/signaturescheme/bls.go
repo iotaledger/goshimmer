@@ -23,9 +23,10 @@ import (
 var suite = bn256.NewSuite()
 
 const (
-	BLS_SIGNATURE_SIZE   = 64
-	BLS_PUBLIC_KEY_SIZE  = 128
-	BLS_PRIVATE_KEY_SIZE = 32
+	BLS_SIGNATURE_SIZE      = 64
+	BLS_PUBLIC_KEY_SIZE     = 128
+	BLS_PRIVATE_KEY_SIZE    = 32
+	BLS_FULL_SIGNATURE_SIZE = 1 + BLS_PUBLIC_KEY_SIZE + BLS_SIGNATURE_SIZE
 )
 
 // ---------------- implements SignatureScheme interface
@@ -110,7 +111,23 @@ var _ SignatureScheme = &blsSignatureScheme{}
 
 // ---------------- implements Signature interface
 
-type blsSignature [1 + BLS_PUBLIC_KEY_SIZE + BLS_SIGNATURE_SIZE]byte
+type blsSignature [BLS_FULL_SIGNATURE_SIZE]byte
+
+func BLSSignatureFromBytes(data []byte) (result *blsSignature, err error, consumedBytes int) {
+	consumedBytes = 0
+	err = nil
+	if len(data) < BLS_FULL_SIGNATURE_SIZE {
+		err = fmt.Errorf("marshalled BLS signature size must be %d", BLS_FULL_SIGNATURE_SIZE)
+		return
+	}
+	if data[0] != address.VERSION_BLS {
+		err = fmt.Errorf("wrong version byte, expected %d", address.VERSION_BLS)
+	}
+	result = &blsSignature{}
+	copy(result[:BLS_FULL_SIGNATURE_SIZE], data)
+	consumedBytes = BLS_FULL_SIGNATURE_SIZE
+	return
+}
 
 func newBLSSignature(pubKey, signature []byte) *blsSignature {
 	var ret blsSignature
