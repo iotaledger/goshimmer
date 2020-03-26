@@ -1,8 +1,10 @@
 package spa
 
 import (
+	"net"
 	"net/http"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
@@ -183,9 +185,12 @@ func neighborMetrics() []neighbormetric {
 				break
 			}
 		}
+
+		host := neighbor.Peer.IP().String()
+		port := neighbor.Peer.Services().Get(service.GossipKey).Port()
 		stats = append(stats, neighbormetric{
 			ID:               neighbor.Peer.ID().String(),
-			Address:          neighbor.Peer.Services().Get(service.GossipKey).String(),
+			Address:          net.JoinHostPort(host, strconv.Itoa(port)),
 			BytesRead:        neighbor.BytesRead(),
 			BytesWritten:     neighbor.BytesWritten(),
 			ConnectionOrigin: origin,

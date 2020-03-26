@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -46,10 +47,9 @@ var dialRetryPolicy = backoff.ConstantBackOff(500 * time.Millisecond).With(backo
 
 // TCP establishes verified incoming and outgoing TCP connections to other peers.
 type TCP struct {
-	local      *peer.Local
-	publicAddr net.Addr
-	listener   *net.TCPListener
-	log        *zap.SugaredLogger
+	local    *peer.Local
+	listener *net.TCPListener
+	log      *zap.SugaredLogger
 
 	addAcceptMatcher chan *acceptMatcher
 	acceptReceived   chan accept
@@ -81,15 +81,11 @@ type accept struct {
 func ServeTCP(local *peer.Local, listener *net.TCPListener, log *zap.SugaredLogger) *TCP {
 	t := &TCP{
 		local:            local,
-		publicAddr:       local.Services().Get(service.GossipKey),
 		listener:         listener,
 		log:              log,
 		addAcceptMatcher: make(chan *acceptMatcher),
 		acceptReceived:   make(chan accept),
 		closing:          make(chan struct{}),
-	}
-	if t.publicAddr == nil {
-		panic(ErrNoGossip)
 	}
 
 	t.log.Debugw("server started",
@@ -123,21 +119,22 @@ func (t *TCP) LocalAddr() net.Addr {
 // DialPeer establishes a gossip connection to the given peer.
 // If the peer does not accept the connection or the handshake fails, an error is returned.
 func (t *TCP) DialPeer(p *peer.Peer) (net.Conn, error) {
-	gossipAddr := p.Services().Get(service.GossipKey)
-	if gossipAddr == nil {
+	gossipEndpoint := p.Services().Get(service.GossipKey)
+	if gossipEndpoint == nil {
 		return nil, ErrNoGossip
 	}
 
 	var conn net.Conn
 	if err := backoff.Retry(dialRetryPolicy, func() error {
 		var err error
-		conn, err = net.DialTimeout(gossipAddr.Network(), gossipAddr.String(), dialTimeout)
+		address := net.JoinHostPort(p.IP().String(), strconv.Itoa(gossipEndpoint.Port()))
+		conn, err = net.DialTimeout("tcp", address, dialTimeout)
 		if err != nil {
-			return fmt.Errorf("dial %s / %s failed: %w", gossipAddr.String(), p.ID(), err)
+			return fmt.Errorf("dial %s / %s failed: %w", address, p.ID(), err)
 		}
 
-		if err = t.doHandshake(p.PublicKey(), gossipAddr.String(), conn); err != nil {
-			return fmt.Errorf("handshake %s / %s failed: %w", gossipAddr.String(), p.ID(), err)
+		if err = t.doHandshake(p.PublicKey(), address, conn); err != nil {
+			return fmt.Errorf("handshake %s / %s failed: %w", address, p.ID(), err)
 		}
 		return nil
 	}); err != nil {
@@ -154,15 +151,15 @@ func (t *TCP) DialPeer(p *peer.Peer) (net.Conn, error) {
 // AcceptPeer awaits an incoming connection from the given peer.
 // If the peer does not establish the connection or the handshake fails, an error is returned.
 func (t *TCP) AcceptPeer(p *peer.Peer) (net.Conn, error) {
-	gossipAddr := p.Services().Get(service.GossipKey)
-	if gossipAddr == nil {
+	gossipEndpoint := p.Services().Get(service.GossipKey)
+	if gossipEndpoint == nil {
 		return nil, ErrNoGossip
 	}
 
 	// wait for the connection
 	connected := <-t.acceptPeer(p)
 	if connected.err != nil {
-		return nil, fmt.Errorf("accept %s / %s failed: %w", gossipAddr.String(), p.ID(), connected.err)
+		return nil, fmt.Errorf("accept %s / %s failed: %w", net.JoinHostPort(p.IP().String(), strconv.Itoa(gossipEndpoint.Port())), p.ID(), connected.err)
 	}
 
 	t.log.Debugw("incoming connection established",
