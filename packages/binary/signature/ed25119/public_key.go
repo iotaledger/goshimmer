@@ -4,9 +4,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/oasislabs/ed25519"
-
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 )
 
 type PublicKey [PublicKeySize]byte
