@@ -2,14 +2,16 @@ package signaturescheme
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
+	"math/rand"
+
 	"github.com/mr-tron/base58"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/kyber/v3/pairing/bn256"
 	"go.dedis.ch/kyber/v3/sign"
 	"go.dedis.ch/kyber/v3/sign/bdn"
 	"go.dedis.ch/kyber/v3/util/random"
-	"math/rand"
+
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 )
 
 // BLS implements BLS signature scheme which is robust against rogue public key attacks, or BDN
@@ -19,7 +21,6 @@ import (
 // This package doesn't implement any threshold signature related primitives.
 // it only contains what is needed for the node to check validity of the BLS signatures against addresses
 // and also minimum signing required for testing
-
 var suite = bn256.NewSuite()
 
 const (
@@ -31,7 +32,6 @@ const (
 
 // ---------------- implements SignatureScheme interface
 // blsSignatureScheme defines an interface for the key pairs of BLS signatures.
-
 type blsSignatureScheme struct {
 	priKey kyber.Scalar
 	pubKey kyber.Point
@@ -43,7 +43,6 @@ var rnd = random.New(rand.New(rand.NewSource(42)))
 // RandBLS creates a RANDOM instance of a signature scheme, that is used to sign the corresponding address.
 // mostly intended for testing.
 // only for testing: each time same sequence!
-
 func RandBLS() SignatureScheme {
 	ret := &blsSignatureScheme{}
 	ret.priKey, ret.pubKey = bdn.NewKeyPair(suite, rnd)
@@ -52,7 +51,6 @@ func RandBLS() SignatureScheme {
 
 // BLS creates an instance of BLS signature scheme
 // from given private and public keys in marshaled binary form
-
 func BLS(priKey, pubKey []byte) (SignatureScheme, error) {
 	if len(priKey) != BLS_PRIVATE_KEY_SIZE || len(pubKey) != BLS_PUBLIC_KEY_SIZE {
 		return nil, fmt.Errorf("wrong key size")
@@ -117,7 +115,7 @@ func BLSSignatureFromBytes(data []byte) (result *blsSignature, err error, consum
 	consumedBytes = 0
 	err = nil
 	if len(data) < BLS_FULL_SIGNATURE_SIZE {
-		err = fmt.Errorf("marshalled BLS signature size must be %d", BLS_FULL_SIGNATURE_SIZE)
+		err = fmt.Errorf("marshaled BLS signature size must be %d", BLS_FULL_SIGNATURE_SIZE)
 		return
 	}
 	if data[0] != address.VERSION_BLS {
