@@ -168,10 +168,7 @@ func (payload *Payload) Bytes() (bytes []byte) {
 	}
 
 	// retrieve bytes of transfer
-	transferBytes, err := payload.Transaction().ObjectStorageValue()
-	if err != nil {
-		return
-	}
+	transferBytes := payload.Transaction().ObjectStorageValue()
 
 	// marshal fields
 	payloadLength := IdLength + IdLength + len(transferBytes)
