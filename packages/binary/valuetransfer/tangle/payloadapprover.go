@@ -39,11 +39,11 @@ func PayloadApproverFromStorageKey(idBytes []byte) (objectstorage.StorableObject
 
 	referencedPayloadId, err := payload.ParseId(marshalUtil)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	approvingPayloadId, err := payload.ParseId(marshalUtil)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	result := &PayloadApprover{

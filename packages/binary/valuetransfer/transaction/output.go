@@ -80,13 +80,13 @@ func OutputFromBytes(bytes []byte, optionalTargetObject ...*Output) (result *Out
 	return
 }
 
-// OutputFromStorage get's called when we restore a Output from the storage.
+// OutputFromStorageKey get's called when we restore a Output from the storage.
 // In contrast to other database models, it unmarshals some information from the key so we simply store the key before
 // it gets handed over to UnmarshalObjectStorageValue (by the ObjectStorage).
-func OutputFromStorage(keyBytes []byte) objectstorage.StorableObject {
+func OutputFromStorageKey(keyBytes []byte) (objectstorage.StorableObject, error) {
 	return &Output{
 		storageKey: keyBytes[:OutputIdLength],
-	}
+	}, nil
 }
 
 // Address returns the address that this output belongs to.

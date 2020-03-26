@@ -46,11 +46,11 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), PayloadApproverFromStorageKey, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 
 		// transaction related storage
-		transactionOutputMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleApprovers...), transaction.OutputFromStorage, objectstorage.CacheTime(time.Second)),
-		missingOutputStorage:             objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingOutputFromStorage, objectstorage.CacheTime(time.Second)),
-		consumerStorage:                  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferConsumer...), transaction.OutputFromStorage, objectstorage.CacheTime(time.Second)),
+		transactionOutputMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.TangleApprovers...), transaction.OutputFromStorageKey, objectstorage.CacheTime(time.Second)),
+		missingOutputStorage:             objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingOutputFromStorageKey, objectstorage.CacheTime(time.Second)),
+		consumerStorage:                  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferConsumer...), transaction.OutputFromStorageKey, objectstorage.CacheTime(time.Second)),
 
-		attachmentStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferAttachment...), AttachmentFromStorage, objectstorage.CacheTime(time.Second)),
+		attachmentStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferAttachment...), AttachmentFromStorageKey, objectstorage.CacheTime(time.Second)),
 
 		// transaction related storage
 
