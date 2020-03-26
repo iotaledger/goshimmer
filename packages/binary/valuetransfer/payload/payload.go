@@ -34,15 +34,15 @@ func New(trunkPayloadId, branchPayloadId Id, valueTransfer *transaction.Transact
 	}
 }
 
-func StorableObjectFromKey(key []byte) objectstorage.StorableObject {
+func StorableObjectFromKey(key []byte) (objectstorage.StorableObject, error) {
 	id, err, _ := IdFromBytes(key)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	return &Payload{
 		id: &id,
-	}
+	}, nil
 }
 
 // FromBytes parses the marshaled version of a Payload into an object.

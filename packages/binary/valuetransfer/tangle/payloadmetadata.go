@@ -60,17 +60,17 @@ func PayloadMetadataFromBytes(bytes []byte, optionalTargetObject ...*PayloadMeta
 	return
 }
 
-// PayloadMetadataFromStorage gets called when we restore transaction metadata from the storage. The bytes and the content will be
+// PayloadMetadataFromStorageKey gets called when we restore transaction metadata from the storage. The bytes and the content will be
 // unmarshaled by an external caller using the binary.ObjectStorageValue interface.
-func PayloadMetadataFromStorage(id []byte) objectstorage.StorableObject {
+func PayloadMetadataFromStorageKey(id []byte) (objectstorage.StorableObject, error) {
 	result := &PayloadMetadata{}
 
 	var err error
 	if result.payloadId, err = payload.ParseId(marshalutil.New(id)); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return result
+	return result, nil
 }
 
 // ParsePayloadMetadata is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
@@ -155,7 +155,7 @@ func (payloadMetadata *PayloadMetadata) String() string {
 
 // ObjectStorageKey returns the key that is used to store the object in the database.
 // It is required to match StorableObject interface.
-func (payloadMetadata *PayloadMetadata) GetStorageKey() []byte {
+func (payloadMetadata *PayloadMetadata) ObjectStorageKey() []byte {
 	return payloadMetadata.payloadId.Bytes()
 }
 
@@ -166,12 +166,12 @@ func (payloadMetadata *PayloadMetadata) Update(other objectstorage.StorableObjec
 }
 
 // ObjectStorageValue is required to match the encoding.BinaryMarshaler interface.
-func (payloadMetadata *PayloadMetadata) MarshalBinary() ([]byte, error) {
-	return payloadMetadata.Bytes(), nil
+func (payloadMetadata *PayloadMetadata) ObjectStorageValue() []byte {
+	return payloadMetadata.Bytes()
 }
 
 // UnmarshalObjectStorageValue is required to match the encoding.BinaryUnmarshaler interface.
-func (payloadMetadata *PayloadMetadata) UnmarshalBinary(data []byte) (err error) {
+func (payloadMetadata *PayloadMetadata) UnmarshalObjectStorageValue(data []byte) (err error) {
 	_, err, _ = PayloadMetadataFromBytes(data, payloadMetadata)
 
 	return

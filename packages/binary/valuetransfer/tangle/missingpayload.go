@@ -52,10 +52,10 @@ func MissingPayloadFromBytes(bytes []byte, optionalTargetObject ...*MissingPaylo
 	return
 }
 
-// MissingPayloadFromStorage gets called when we restore an entry for a missing value transfer payload from the storage. The bytes and
+// MissingPayloadFromStorageKey gets called when we restore an entry for a missing value transfer payload from the storage. The bytes and
 // the content will be unmarshaled by an external caller using the binary.ObjectStorageValue interface.
-func MissingPayloadFromStorage([]byte) objectstorage.StorableObject {
-	return &MissingPayload{}
+func MissingPayloadFromStorageKey([]byte) (objectstorage.StorableObject, error) {
+	return &MissingPayload{}, nil
 }
 
 // GetId returns the payload id, that is missing.

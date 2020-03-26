@@ -35,7 +35,7 @@ func StorableObjectFromKey(id []byte) (result objectstorage.StorableObject, err 
 	copy(approver.approvingTransaction[:], id[message.IdLength:])
 	copy(approver.storageKey, id)
 
-	return approver
+	return approver, nil
 }
 
 func (approver *Approver) ObjectStorageKey() []byte {
