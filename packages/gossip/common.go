@@ -1,6 +1,9 @@
 package gossip
 
 import (
+	"net"
+	"strconv"
+
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 )
@@ -12,9 +15,9 @@ func IsSupported(p *peer.Peer) bool {
 
 // GetAddress returns the address of the gossip service.
 func GetAddress(p *peer.Peer) string {
-	gossip := p.Services().Get(service.GossipKey)
-	if gossip == nil {
-		panic("peer does not support gossip")
+	gossipEndpoint := p.Services().Get(service.GossipKey)
+	if gossipEndpoint == nil {
+		panic("peer does not support gossipEndpoint")
 	}
-	return gossip.String()
+	return net.JoinHostPort(p.IP().String(), strconv.Itoa(gossipEndpoint.Port()))
 }

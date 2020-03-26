@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/netutil"
 
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
@@ -25,19 +26,15 @@ var (
 func configureGossip() {
 	lPeer := local.GetInstance()
 
-	peeringAddr := lPeer.Services().Get(service.PeeringKey)
-	external, _, err := net.SplitHostPort(peeringAddr.String())
-	if err != nil {
-		panic(err)
+	// announce the gossip service
+	gossipPort := config.Node.GetInt(GOSSIP_PORT)
+	if !netutil.IsValidPort(gossipPort) {
+		log.Fatalf("Invalid port number (%s): %d", GOSSIP_PORT, gossipPort)
 	}
 
-	// announce the gossip service
-	gossipPort := strconv.Itoa(config.Node.GetInt(GOSSIP_PORT))
-	err = lPeer.UpdateService(service.GossipKey, "tcp", net.JoinHostPort(external, gossipPort))
-	if err != nil {
+	if err := lPeer.UpdateService(service.GossipKey, "tcp", gossipPort); err != nil {
 		log.Fatalf("could not update services: %s", err)
 	}
-
 	mgr = gp.NewManager(lPeer, getTransaction, log)
 }
 
@@ -45,20 +42,18 @@ func start(shutdownSignal <-chan struct{}) {
 	defer log.Info("Stopping " + name + " ... done")
 
 	lPeer := local.GetInstance()
+
 	// use the port of the gossip service
-	gossipAddr := lPeer.Services().Get(service.GossipKey)
-	_, gossipPort, err := net.SplitHostPort(gossipAddr.String())
-	if err != nil {
-		panic(err)
-	}
+	gossipEndpoint := lPeer.Services().Get(service.GossipKey)
+
 	// resolve the bind address
-	address := net.JoinHostPort(config.Node.GetString(local.CFG_BIND), gossipPort)
-	localAddr, err := net.ResolveTCPAddr(gossipAddr.Network(), address)
+	address := net.JoinHostPort(config.Node.GetString(local.CFG_BIND), strconv.Itoa(gossipEndpoint.Port()))
+	localAddr, err := net.ResolveTCPAddr(gossipEndpoint.Network(), address)
 	if err != nil {
 		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
 	}
 
-	listener, err := net.ListenTCP(gossipAddr.Network(), localAddr)
+	listener, err := net.ListenTCP(gossipEndpoint.Network(), localAddr)
 	if err != nil {
 		log.Fatalf("Error listening: %v", err)
 	}
@@ -70,7 +65,7 @@ func start(shutdownSignal <-chan struct{}) {
 	mgr.Start(srv)
 	defer mgr.Close()
 
-	log.Infof("%s started: Address=%s/%s", name, gossipAddr.String(), gossipAddr.Network())
+	log.Infof("%s started: Address=%s/%s", name, localAddr.String(), localAddr.Network())
 
 	<-shutdownSignal
 	log.Info("Stopping " + name + " ...")

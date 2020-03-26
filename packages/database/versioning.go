@@ -8,7 +8,7 @@ import (
 const (
 	// DBVersion defines the version of the database schema this version of GoShimmer supports.
 	// everytime there's a breaking change regarding the stored data, this version flag should be adjusted.
-	DBVersion = 1
+	DBVersion = 2
 )
 
 var (
