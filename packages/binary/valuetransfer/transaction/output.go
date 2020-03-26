@@ -120,7 +120,7 @@ func (output *Output) ObjectStorageValue() (data []byte) {
 	balanceCount := len(output.balances)
 
 	// initialize helper
-	marshalUtil := marshalutil.New(4 + balanceCount*balance.Length)
+	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + balanceCount*balance.Length)
 	marshalUtil.WriteBool(output.solid)
 	marshalUtil.WriteTime(output.solidSince)
 	marshalUtil.WriteUint32(uint32(balanceCount))
