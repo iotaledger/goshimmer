@@ -4,9 +4,8 @@ import (
 	"crypto/rand"
 	"fmt"
 
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/mr-tron/base58"
-
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 )
 
 // Id is the data type that represents the identifier for a Transaction.
