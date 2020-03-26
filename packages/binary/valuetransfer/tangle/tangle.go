@@ -76,8 +76,8 @@ func (tangle *Tangle) GetPayloadMetadata(payloadId payload.Id) *CachedPayloadMet
 }
 
 // GetPayloadMetadata retrieves the metadata of a value payload from the object storage.
-func (tangle *Tangle) GetTransactionMetadata(transactionId payload.Id) *CachedTransactionMetadata {
-	return &CachedTransactionMetadata{CachedObject: tangle.transactionMetadataStorage.Load(transactionId.Bytes())}
+func (tangle *Tangle) GetTransactionMetadata(transactionId transaction.Id) *CachedTransactionMetadata {
+	return &CachedTransactionMetadata{CachedObject: tangle.missingOutputStorage.Load(transactionId.Bytes())}
 }
 
 // GetApprovers retrieves the approvers of a payload from the object storage.
@@ -243,7 +243,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 				currentTransaction.Inputs().ForEach(func(outputId transaction.OutputId) bool {
 					return true
 				})
-				tangle.GetConsumers(outputId)
+				//tangle.GetConsumers(outputId)
 			}
 		}
 
