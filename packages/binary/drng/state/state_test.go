@@ -40,3 +40,12 @@ func TestState(t *testing.T) {
 	stateTest.SetRandomness(newRandomness)
 	require.Equal(t, *newRandomness, stateTest.Randomness())
 }
+
+func TestFloat64(t *testing.T) {
+
+	max := []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	r := &Randomness{1, max, time.Now()}
+	stateTest := New(SetRandomness(r))
+	require.Equal(t, 0.9999999999999999, stateTest.Randomness().Float64())
+
+}

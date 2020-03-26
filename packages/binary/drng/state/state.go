@@ -1,6 +1,7 @@
 package state
 
 import (
+	"encoding/binary"
 	"sync"
 	"time"
 
@@ -13,6 +14,11 @@ type Randomness struct {
 	Timestamp  time.Time
 }
 
+// Float64 returns a float64 [0.0,1.0) rapresentation of the randomness byte slice
+func (r Randomness) Float64() float64 {
+	return float64(binary.BigEndian.Uint64(r.Randomness[:8])>>11) / (1 << 53)
+}
+
 type Committee struct {
 	InstanceID    uint32
 	Threshold     uint8
@@ -21,7 +27,7 @@ type Committee struct {
 }
 type State struct {
 	randomness *Randomness
-	committe   *Committee
+	committee  *Committee
 
 	mutex sync.RWMutex
 }
@@ -34,7 +40,7 @@ func New(setters ...Option) *State {
 	}
 	return &State{
 		randomness: args.Randomness,
-		committe:   args.Committee,
+		committee:  args.Committee,
 	}
 }
 
@@ -56,14 +62,14 @@ func (s *State) Randomness() Randomness {
 func (s *State) SetCommittee(c *Committee) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.committe = c
+	s.committee = c
 }
 
 func (s *State) Committee() Committee {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	if s.committe == nil {
+	if s.committee == nil {
 		return Committee{}
 	}
-	return *s.committe
+	return *s.committee
 }
