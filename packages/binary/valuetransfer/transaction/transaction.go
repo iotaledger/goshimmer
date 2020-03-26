@@ -295,8 +295,8 @@ func (transaction *Transaction) ObjectStorageValue() []byte {
 	return transaction.Bytes()
 }
 
-func (transaction *Transaction) UnmarshalObjectStorageValue(bytes []byte) (err error) {
-	_, err, _ = FromBytes(bytes, transaction)
+func (transaction *Transaction) UnmarshalObjectStorageValue(bytes []byte) (err error, consumedBytes int) {
+	_, err, consumedBytes = FromBytes(bytes, transaction)
 
 	return
 }

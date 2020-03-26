@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 )
 
@@ -53,6 +54,13 @@ func (missingTransaction *MissingTransaction) ObjectStorageValue() (result []byt
 	return
 }
 
-func (missingTransaction *MissingTransaction) UnmarshalObjectStorageValue(data []byte) (err error) {
-	return missingTransaction.missingSince.UnmarshalBinary(data)
+func (missingTransaction *MissingTransaction) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+	marshalUtil := marshalutil.New(data)
+	missingTransaction.missingSince, err = marshalUtil.ReadTime()
+	if err != nil {
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
 }

@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
@@ -28,11 +29,47 @@ func New(transactionId message.Id) *TransactionMetadata {
 	}
 }
 
-func StorableObjectFromKey(id []byte) (objectstorage.StorableObject, error) {
-	result := &TransactionMetadata{}
-	copy(result.transactionId[:], id)
+func FromBytes(bytes []byte) (result *TransactionMetadata, err error, consumedBytes int) {
+	marshalUtil := marshalutil.New(bytes)
+	result, err = Parse(marshalUtil)
+	consumedBytes = marshalUtil.ReadOffset()
 
-	return result, nil
+	return
+}
+
+func Parse(marshalUtil *marshalutil.MarshalUtil) (result *TransactionMetadata, err error) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+		return StorableObjectFromKey(data)
+	}); parseErr != nil {
+		err = parseErr
+
+		return
+	} else {
+		result = parsedObject.(*TransactionMetadata)
+	}
+
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+
+		return
+	}); err != nil {
+		return
+	}
+
+	return
+}
+
+func StorableObjectFromKey(key []byte) (result objectstorage.StorableObject, err error, consumedBytes int) {
+	result = &TransactionMetadata{}
+
+	marshalUtil := marshalutil.New(key)
+	result.(*TransactionMetadata).transactionId, err = message.ParseId(marshalUtil)
+	if err != nil {
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
 }
 
 func (transactionMetadata *TransactionMetadata) IsSolid() (result bool) {
@@ -93,7 +130,7 @@ func (transactionMetadata *TransactionMetadata) ObjectStorageValue() []byte {
 	}).ToBytes()
 }
 
-func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data []byte) (err error) {
+func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
 	proto, err := ProtoFromBytes(data)
 	if err != nil {
 		return

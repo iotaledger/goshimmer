@@ -57,62 +57,47 @@ func New(trunkTransactionId Id, branchTransactionId Id, issuerKeyPair ed25119.Ke
 	}
 }
 
-// Get's called when we restore a transaction from storage. The bytes and the content will be unmarshaled by an external
-// caller (the objectStorage factory).
-func StorableObjectFromKey(id []byte) (result objectstorage.StorableObject, err error) {
-	var transactionId Id
-	copy(transactionId[:], id)
+func FromBytes(bytes []byte) (result *Transaction, err error, consumedBytes int) {
+	marshalUtil := marshalutil.New(bytes)
+	result, err = Parse(marshalUtil)
+	consumedBytes = marshalUtil.ReadOffset()
 
-	result = &Transaction{
-		id: &transactionId,
+	return
+}
+
+func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Transaction, err error) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+		return StorableObjectFromKey(data)
+	}); parseErr != nil {
+		err = parseErr
+
+		return
+	} else {
+		result = parsedObject.(*Transaction)
+	}
+
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+
+		return
+	}); err != nil {
+		return
 	}
 
 	return
 }
 
-func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Transaction, err error, consumedBytes int) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Transaction{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to FromBytes")
-	}
+// Get's called when we restore a transaction from storage. The bytes and the content will be unmarshaled by an external
+// caller (the objectStorage factory).
+func StorableObjectFromKey(key []byte) (result objectstorage.StorableObject, err error, consumedBytes int) {
+	result = &Transaction{}
 
-	// initialize helper
-	marshalUtil := marshalutil.New(bytes)
-
-	// parse information
-	if result.trunkTransactionId, err = ParseId(marshalUtil); err != nil {
+	marshalUtil := marshalutil.New(key)
+	*result.(*Transaction).id, err = ParseId(marshalUtil)
+	if err != nil {
 		return
 	}
-	if result.branchTransactionId, err = ParseId(marshalUtil); err != nil {
-		return
-	}
-	if result.issuerPublicKey, err = ed25119.ParsePublicKey(marshalUtil); err != nil {
-		return
-	}
-	if result.issuingTime, err = marshalUtil.ReadTime(); err != nil {
-		return
-	}
-	if result.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
-		return
-	}
-	if result.payload, err = payload.Parse(marshalUtil); err != nil {
-		return
-	}
-	if result.signature, err = ed25119.ParseSignature(marshalUtil); err != nil {
-		return
-	}
-
-	// return the number of bytes we processed
 	consumedBytes = marshalUtil.ReadOffset()
-
-	// store marshaled version
-	result.bytes = make([]byte, consumedBytes)
-	copy(result.bytes, bytes)
 
 	return
 }
@@ -253,8 +238,39 @@ func (transaction *Transaction) ObjectStorageValue() []byte {
 	return transaction.Bytes()
 }
 
-func (transaction *Transaction) UnmarshalObjectStorageValue(data []byte) (err error) {
-	_, err, _ = FromBytes(data, transaction)
+func (transaction *Transaction) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+	// initialize helper
+	marshalUtil := marshalutil.New(data)
+
+	// parse information
+	if transaction.trunkTransactionId, err = ParseId(marshalUtil); err != nil {
+		return
+	}
+	if transaction.branchTransactionId, err = ParseId(marshalUtil); err != nil {
+		return
+	}
+	if transaction.issuerPublicKey, err = ed25119.ParsePublicKey(marshalUtil); err != nil {
+		return
+	}
+	if transaction.issuingTime, err = marshalUtil.ReadTime(); err != nil {
+		return
+	}
+	if transaction.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
+		return
+	}
+	if transaction.payload, err = payload.Parse(marshalUtil); err != nil {
+		return
+	}
+	if transaction.signature, err = ed25119.ParseSignature(marshalUtil); err != nil {
+		return
+	}
+
+	// return the number of bytes we processed
+	consumedBytes = marshalUtil.ReadOffset()
+
+	// store marshaled version
+	transaction.bytes = make([]byte, consumedBytes)
+	copy(transaction.bytes, data)
 
 	return
 }
