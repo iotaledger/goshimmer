@@ -3,8 +3,6 @@ package signaturescheme
 import (
 	"fmt"
 
-	"github.com/iotaledger/hive.go/marshalutil"
-
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 

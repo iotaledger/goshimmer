@@ -9,18 +9,20 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/autopeering/server"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
 // autopeering constants
@@ -169,7 +171,7 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 		services := service.New()
 		services.Update(service.PeeringKey, addr.Network(), addr.Port)
 
-		result = append(result, peer.NewPeer(publicKey, addr.IP, services))
+		result = append(result, peer.NewPeer(identity.NewIdentity(publicKey), addr.IP, services))
 	}
 
 	return result, nil
