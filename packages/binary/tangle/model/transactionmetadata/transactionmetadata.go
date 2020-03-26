@@ -28,11 +28,11 @@ func New(transactionId message.Id) *TransactionMetadata {
 	}
 }
 
-func FromStorage(id []byte) objectstorage.StorableObject {
+func StorableObjectFromKey(id []byte) (objectstorage.StorableObject, error) {
 	result := &TransactionMetadata{}
 	copy(result.transactionId[:], id)
 
-	return result
+	return result, nil
 }
 
 func (transactionMetadata *TransactionMetadata) IsSolid() (result bool) {

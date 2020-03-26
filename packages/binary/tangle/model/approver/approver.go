@@ -27,7 +27,7 @@ func New(referencedTransaction message.Id, approvingTransaction message.Id) *App
 	return approver
 }
 
-func StorableObjectFromKey(id []byte) (result objectstorage.StorableObject) {
+func StorableObjectFromKey(id []byte) (result objectstorage.StorableObject, err error) {
 	approver := &Approver{
 		storageKey: make([]byte, message.IdLength+message.IdLength),
 	}

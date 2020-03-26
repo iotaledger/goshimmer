@@ -59,7 +59,7 @@ func New(trunkTransactionId Id, branchTransactionId Id, issuerKeyPair ed25119.Ke
 
 // Get's called when we restore a transaction from storage. The bytes and the content will be unmarshaled by an external
 // caller (the objectStorage factory).
-func FromStorage(id []byte) (result objectstorage.StorableObject) {
+func StorableObjectFromKey(id []byte) (result objectstorage.StorableObject, err error) {
 	var transactionId Id
 	copy(transactionId[:], id)
 

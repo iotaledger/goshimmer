@@ -21,11 +21,11 @@ func New(transactionId message.Id) *MissingTransaction {
 	}
 }
 
-func StorableObjectFromKey(key []byte) objectstorage.StorableObject {
+func StorableObjectFromKey(key []byte) (objectstorage.StorableObject, error) {
 	result := &MissingTransaction{}
 	copy(result.transactionId[:], key)
 
-	return result
+	return result, nil
 }
 
 func (missingTransaction *MissingTransaction) GetTransactionId() message.Id {
