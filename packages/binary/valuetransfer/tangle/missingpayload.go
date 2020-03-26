@@ -3,9 +3,9 @@ package tangle
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 )
 
@@ -52,10 +52,10 @@ func MissingPayloadFromBytes(bytes []byte, optionalTargetObject ...*MissingPaylo
 	return
 }
 
-// MissingPayloadFromStorage gets called when we restore an entry for a missing value transfer payload from the storage. The bytes and
-// the content will be unmarshaled by an external caller using the binary.MarshalBinary interface.
-func MissingPayloadFromStorage([]byte) objectstorage.StorableObject {
-	return &MissingPayload{}
+// MissingPayloadFromStorageKey gets called when we restore an entry for a missing value transfer payload from the storage. The bytes and
+// the content will be unmarshaled by an external caller using the binary.ObjectStorageValue interface.
+func MissingPayloadFromStorageKey([]byte) (objectstorage.StorableObject, error) {
+	return &MissingPayload{}, nil
 }
 
 // GetId returns the payload id, that is missing.
@@ -78,26 +78,29 @@ func (missingPayload *MissingPayload) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
-// GetStorageKey returns the key that is used to store the object in the database.
-// It is required to match StorableObject interface.
-func (missingPayload *MissingPayload) GetStorageKey() []byte {
-	return missingPayload.payloadId.Bytes()
-}
-
 // Update is disabled and panics if it ever gets called - updates are supposed to happen through the setters.
 // It is required to match StorableObject interface.
 func (missingPayload *MissingPayload) Update(other objectstorage.StorableObject) {
 	panic("implement me")
 }
 
-// MarshalBinary is required to match the encoding.BinaryMarshaler interface.
-func (missingPayload *MissingPayload) MarshalBinary() (data []byte, err error) {
-	return missingPayload.Bytes(), nil
+// ObjectStorageKey returns the key that is used to store the object in the database.
+// It is required to match StorableObject interface.
+func (missingPayload *MissingPayload) ObjectStorageKey() []byte {
+	return missingPayload.payloadId.Bytes()
 }
 
-// UnmarshalBinary is required to match the encoding.BinaryUnmarshaler interface.
-func (missingPayload *MissingPayload) UnmarshalBinary(data []byte) (err error) {
+// ObjectStorageValue is required to match the encoding.BinaryMarshaler interface.
+func (missingPayload *MissingPayload) ObjectStorageValue() (data []byte) {
+	return missingPayload.Bytes()
+}
+
+// UnmarshalObjectStorageValue is required to match the encoding.BinaryUnmarshaler interface.
+func (missingPayload *MissingPayload) UnmarshalObjectStorageValue(data []byte) (err error) {
 	_, err, _ = MissingPayloadFromBytes(data, missingPayload)
 
 	return
 }
+
+// Interface contract: make compiler warn if the interface is not implemented correctly.
+var _ objectstorage.StorableObject = &MissingPayload{}

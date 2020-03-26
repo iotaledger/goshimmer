@@ -1,9 +1,9 @@
 package tangle
 
 import (
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 )
 
@@ -31,19 +31,19 @@ func NewPayloadApprover(referencedPayload payload.Id, approvingPayload payload.I
 	}
 }
 
-// PayloadApproverFromStorage get's called when we restore transaction metadata from the storage.
-// In contrast to other database models, it unmarshals the information from the key and does not use the UnmarshalBinary
+// PayloadApproverFromStorageKey get's called when we restore transaction metadata from the storage.
+// In contrast to other database models, it unmarshals the information from the key and does not use the UnmarshalObjectStorageValue
 // method.
-func PayloadApproverFromStorage(idBytes []byte) objectstorage.StorableObject {
+func PayloadApproverFromStorageKey(idBytes []byte) (objectstorage.StorableObject, error) {
 	marshalUtil := marshalutil.New(idBytes)
 
 	referencedPayloadId, err := payload.ParseId(marshalUtil)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	approvingPayloadId, err := payload.ParseId(marshalUtil)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	result := &PayloadApprover{
@@ -52,7 +52,7 @@ func PayloadApproverFromStorage(idBytes []byte) objectstorage.StorableObject {
 		storageKey:          marshalUtil.Bytes(true),
 	}
 
-	return result
+	return result, nil
 }
 
 // GetApprovingPayloadId returns the id of the approving payload.
@@ -60,21 +60,21 @@ func (payloadApprover *PayloadApprover) GetApprovingPayloadId() payload.Id {
 	return payloadApprover.approvingPayloadId
 }
 
-// GetStorageKey returns the key that is used to store the object in the database.
+// ObjectStorageKey returns the key that is used to store the object in the database.
 // It is required to match StorableObject interface.
-func (payloadApprover *PayloadApprover) GetStorageKey() []byte {
+func (payloadApprover *PayloadApprover) ObjectStorageKey() []byte {
 	return payloadApprover.storageKey
 }
 
-// MarshalBinary is implemented to conform with the StorableObject interface, but it does not really do anything,
+// ObjectStorageValue is implemented to conform with the StorableObject interface, but it does not really do anything,
 // since all of the information about an approver are stored in the "key".
-func (payloadApprover *PayloadApprover) MarshalBinary() (data []byte, err error) {
+func (payloadApprover *PayloadApprover) ObjectStorageValue() (data []byte) {
 	return
 }
 
-// UnmarshalBinary is implemented to conform with the StorableObject interface, but it does not really do anything,
-// since all of the information about an approver are stored in the "key".
-func (payloadApprover *PayloadApprover) UnmarshalBinary(data []byte) error {
+// UnmarshalObjectStorageValue is implemented to conform with the StorableObject interface, but it does not really do
+// anything, since all of the information about an approver are stored in the "key".
+func (payloadApprover *PayloadApprover) UnmarshalObjectStorageValue(data []byte) error {
 	return nil
 }
 

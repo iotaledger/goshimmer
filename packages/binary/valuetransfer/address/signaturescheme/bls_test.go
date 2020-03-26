@@ -1,14 +1,14 @@
 package signaturescheme
 
 import (
-	"github.com/magiconair/properties/assert"
 	"testing"
+
+	"github.com/magiconair/properties/assert"
 )
 
 var dataToSign = []byte("Hello Boneh-Lynn-Shacham (BLS) --> Boneh-Drijvers-Neven (BDN)")
 
 func TestBLS_base(t *testing.T) {
-
 	blsSigScheme := RandBLS()
 	t.Logf("generating random BLS signature scheme: %s\n", blsSigScheme.(*blsSignatureScheme).String())
 	signature := blsSigScheme.Sign(dataToSign)

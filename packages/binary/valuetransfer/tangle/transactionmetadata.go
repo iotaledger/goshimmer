@@ -4,10 +4,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
@@ -61,7 +61,7 @@ func TransactionMetadataFromBytes(bytes []byte, optionalTargetObject ...*Transac
 }
 
 // TransactionMetadataFromStorage is the factory method for TransactionMetadata objects stored in the objectstorage. The bytes and the content
-// will be filled by the objectstorage, by subsequently calling MarshalBinary.
+// will be filled by the objectstorage, by subsequently calling ObjectStorageValue.
 func TransactionMetadataFromStorage(storageKey []byte) objectstorage.StorableObject {
 	result := &TransactionMetadata{}
 
@@ -153,8 +153,8 @@ func (transactionMetadata *TransactionMetadata) String() string {
 	)
 }
 
-// GetStorageKey returns the key that is used to identify the TransactionMetadata in the objectstorage.
-func (transactionMetadata *TransactionMetadata) GetStorageKey() []byte {
+// ObjectStorageKey returns the key that is used to identify the TransactionMetadata in the objectstorage.
+func (transactionMetadata *TransactionMetadata) ObjectStorageKey() []byte {
 	return transactionMetadata.id.Bytes()
 }
 
@@ -163,15 +163,15 @@ func (transactionMetadata *TransactionMetadata) Update(other objectstorage.Stora
 	panic("update forbidden")
 }
 
-// MarshalBinary marshals the TransactionMetadata object into a sequence of bytes and matches the encoding.BinaryMarshaler
+// ObjectStorageValue marshals the TransactionMetadata object into a sequence of bytes and matches the encoding.BinaryMarshaler
 // interface.
-func (transactionMetadata *TransactionMetadata) MarshalBinary() ([]byte, error) {
-	return transactionMetadata.Bytes(), nil
+func (transactionMetadata *TransactionMetadata) ObjectStorageValue() []byte {
+	return transactionMetadata.Bytes()
 }
 
-// UnmarshalBinary restores the values of a TransactionMetadata object from a sequence of bytes and matches the
+// UnmarshalObjectStorageValue restores the values of a TransactionMetadata object from a sequence of bytes and matches the
 // encoding.BinaryUnmarshaler interface.
-func (transactionMetadata *TransactionMetadata) UnmarshalBinary(data []byte) (err error) {
+func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data []byte) (err error) {
 	_, err, _ = TransactionMetadataFromBytes(data, transactionMetadata)
 
 	return
@@ -211,3 +211,6 @@ func (cachedTransactionMetadata *CachedTransactionMetadata) Unwrap() *Transactio
 		}
 	}
 }
+
+// Interface contract: make compiler warn if the interface is not implemented correctly.
+var _ objectstorage.StorableObject = &TransactionMetadata{}

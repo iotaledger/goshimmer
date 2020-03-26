@@ -3,9 +3,9 @@ package tangle
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
@@ -51,9 +51,9 @@ func MissingOutputFromBytes(bytes []byte, optionalTargetObject ...*MissingOutput
 	return
 }
 
-// MissingOutputFromStorage gets called when we restore a MissingOutput from the storage. The content will be
-// unmarshaled by an external caller using the binary.MarshalBinary interface.
-func MissingOutputFromStorage(keyBytes []byte) objectstorage.StorableObject {
+// MissingOutputFromStorageKey gets called when we restore a MissingOutput from the storage. The content will be
+// unmarshaled by an external caller using the binary.ObjectStorageValue interface.
+func MissingOutputFromStorageKey(keyBytes []byte) (objectstorage.StorableObject, error) {
 	outputId, err, _ := transaction.OutputIdFromBytes(keyBytes)
 	if err != nil {
 		panic(err)
@@ -61,7 +61,7 @@ func MissingOutputFromStorage(keyBytes []byte) objectstorage.StorableObject {
 
 	return &MissingOutput{
 		outputId: outputId,
-	}
+	}, nil
 }
 
 // Id returns the id of the Output that is missing.
@@ -84,9 +84,23 @@ func (missingOutput *MissingOutput) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
-// GetStorageKey returns the key that is used to store the object in the object storage.
-func (missingOutput *MissingOutput) GetStorageKey() []byte {
+// ObjectStorageKey returns the key that is used to store the object in the object storage.
+func (missingOutput *MissingOutput) ObjectStorageKey() []byte {
 	return missingOutput.outputId.Bytes()
+}
+
+// ObjectStorageValue returns a bytes representation of the Transaction by implementing the encoding.BinaryMarshaler
+// interface.
+func (missingOutput *MissingOutput) ObjectStorageValue() []byte {
+	return missingOutput.Bytes()
+}
+
+// UnmarshalObjectStorageValue restores the values of a MissingOutput from a sequence of bytes using the  encoding.BinaryUnmarshaler
+// interface.
+func (missingOutput *MissingOutput) UnmarshalObjectStorageValue(data []byte) (err error) {
+	_, err, _ = MissingOutputFromBytes(data, missingOutput)
+
+	return
 }
 
 // Update is disabled and panics if it ever gets called - updates are supposed to happen through the setters.
@@ -94,16 +108,5 @@ func (missingOutput *MissingOutput) Update(other objectstorage.StorableObject) {
 	panic("implement me")
 }
 
-// MarshalBinary returns a bytes representation of the Transaction by implementing the encoding.BinaryMarshaler
-// interface.
-func (missingOutput *MissingOutput) MarshalBinary() (data []byte, err error) {
-	return missingOutput.Bytes(), nil
-}
-
-// UnmarshalBinary restores the values of a MissingOutput from a sequence of bytes using the  encoding.BinaryUnmarshaler
-// interface.
-func (missingOutput *MissingOutput) UnmarshalBinary(data []byte) (err error) {
-	_, err, _ = MissingOutputFromBytes(data, missingOutput)
-
-	return
-}
+// Interface contract: make compiler warn if the interface is not implemented correctly.
+var _ objectstorage.StorableObject = &MissingOutput{}

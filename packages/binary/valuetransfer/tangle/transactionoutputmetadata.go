@@ -4,10 +4,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
@@ -61,7 +61,7 @@ func TransactionOutputMetadataFromBytes(bytes []byte, optionalTargetObject ...*T
 }
 
 // TransactionOutputMetadataFromStorage is the factory method for TransactionOutputMetadata objects stored in the objectstorage. The bytes and the content
-// will be filled by the objectstorage, by subsequently calling MarshalBinary.
+// will be filled by the objectstorage, by subsequently calling ObjectStorageValue.
 func TransactionOutputMetadataFromStorage(storageKey []byte) objectstorage.StorableObject {
 	result := &TransactionOutputMetadata{}
 
@@ -153,9 +153,22 @@ func (transactionOutputMetadata *TransactionOutputMetadata) String() string {
 	)
 }
 
-// GetStorageKey returns the key that is used to identify the TransactionOutputMetadata in the objectstorage.
-func (transactionOutputMetadata *TransactionOutputMetadata) GetStorageKey() []byte {
+// ObjectStorageKey returns the key that is used to identify the TransactionOutputMetadata in the objectstorage.
+func (transactionOutputMetadata *TransactionOutputMetadata) ObjectStorageKey() []byte {
 	return transactionOutputMetadata.id.Bytes()
+}
+
+// ObjectStorageValue returns the bytes, that are stored in the value part of the k/v store.
+func (transactionOutputMetadata *TransactionOutputMetadata) ObjectStorageValue() []byte {
+	return transactionOutputMetadata.Bytes()
+}
+
+// UnmarshalObjectStorageValue restores the values of a TransactionOutputMetadata object from a sequence of bytes and matches the
+// encoding.BinaryUnmarshaler interface.
+func (transactionOutputMetadata *TransactionOutputMetadata) UnmarshalObjectStorageValue(data []byte) (err error) {
+	_, err, _ = TransactionOutputMetadataFromBytes(data, transactionOutputMetadata)
+
+	return
 }
 
 // Update is disabled and panics if it ever gets called - updates are supposed to happen through the setters.
@@ -163,19 +176,8 @@ func (transactionOutputMetadata *TransactionOutputMetadata) Update(other objects
 	panic("update forbidden")
 }
 
-// MarshalBinary marshals the TransactionOutputMetadata object into a sequence of bytes and matches the encoding.BinaryMarshaler
-// interface.
-func (transactionOutputMetadata *TransactionOutputMetadata) MarshalBinary() ([]byte, error) {
-	return transactionOutputMetadata.Bytes(), nil
-}
-
-// UnmarshalBinary restores the values of a TransactionOutputMetadata object from a sequence of bytes and matches the
-// encoding.BinaryUnmarshaler interface.
-func (transactionOutputMetadata *TransactionOutputMetadata) UnmarshalBinary(data []byte) (err error) {
-	_, err, _ = TransactionOutputMetadataFromBytes(data, transactionOutputMetadata)
-
-	return
-}
+// Interface contract: make compiler warn if the interface is not implemented correctly.
+var _ objectstorage.StorableObject = &TransactionOutputMetadata{}
 
 // CachedTransactionOutputMetadata is a wrapper for the object storage, that takes care of type casting the TransactionOutputMetadata objects.
 // Since go does not have generics (yet), the object storage works based on the generic "interface{}" type, which means

@@ -3,11 +3,11 @@ package payload
 import (
 	"sync"
 
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
@@ -34,15 +34,15 @@ func New(trunkPayloadId, branchPayloadId Id, valueTransfer *transaction.Transact
 	}
 }
 
-func FromStorage(key []byte) objectstorage.StorableObject {
+func StorableObjectFromKey(key []byte) (objectstorage.StorableObject, error) {
 	id, err, _ := IdFromBytes(key)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	return &Payload{
 		id: &id,
-	}
+	}, nil
 }
 
 // FromBytes parses the marshaled version of a Payload into an object.
@@ -168,10 +168,7 @@ func (payload *Payload) Bytes() (bytes []byte) {
 	}
 
 	// retrieve bytes of transfer
-	transferBytes, err := payload.Transaction().MarshalBinary()
-	if err != nil {
-		return
-	}
+	transferBytes := payload.Transaction().ObjectStorageValue()
 
 	// marshal fields
 	payloadLength := IdLength + IdLength + len(transferBytes)
@@ -202,15 +199,21 @@ func (payload *Payload) String() string {
 
 var Type = payload.Type(1)
 
-func (payload *Payload) GetType() payload.Type {
+func (payload *Payload) Type() payload.Type {
 	return Type
 }
 
-func (payload *Payload) MarshalBinary() (bytes []byte, err error) {
-	return payload.Bytes(), nil
+func (payload *Payload) ObjectStorageValue() []byte {
+	return payload.Bytes()
 }
 
-func (payload *Payload) UnmarshalBinary(data []byte) (err error) {
+func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (err error) {
+	_, err, _ = FromBytes(data, payload)
+
+	return
+}
+
+func (payload *Payload) Unmarshal(data []byte) (err error) {
 	_, err, _ = FromBytes(data, payload)
 
 	return
@@ -219,7 +222,7 @@ func (payload *Payload) UnmarshalBinary(data []byte) (err error) {
 func init() {
 	payload.RegisterType(Type, func(data []byte) (payload payload.Payload, err error) {
 		payload = &Payload{}
-		err = payload.UnmarshalBinary(data)
+		err = payload.Unmarshal(data)
 
 		return
 	})
@@ -232,11 +235,11 @@ var _ payload.Payload = &Payload{}
 
 // region StorableObject implementation ////////////////////////////////////////////////////////////////////////////////
 
-// MarshalBinary() (bytes []byte, err error) already implemented by Payload
+// ObjectStorageValue() (bytes []byte, err error) already implemented by Payload
 
-// UnmarshalBinary(data []byte) (err error) already implemented by Payload
+// UnmarshalObjectStorageValue(data []byte) (err error) already implemented by Payload
 
-func (payload *Payload) GetStorageKey() []byte {
+func (payload *Payload) ObjectStorageKey() []byte {
 	id := payload.Id()
 
 	return id[:]
