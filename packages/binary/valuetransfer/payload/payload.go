@@ -37,9 +37,12 @@ func StorableObjectFromKey(key []byte) (result objectstorage.StorableObject, err
 	result = &Payload{}
 
 	marshalUtil := marshalutil.New(key)
-	*result.(*Payload).id, err = ParseId(marshalUtil)
-	if err != nil {
+	if payloadId, idErr := ParseId(marshalUtil); idErr != nil {
+		err = idErr
+
 		return
+	} else {
+		result.(*Payload).id = &payloadId
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
