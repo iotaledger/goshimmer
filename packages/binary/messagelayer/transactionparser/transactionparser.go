@@ -3,11 +3,10 @@ package transactionparser
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/autopeering/peer"
-
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/transactionparser/builtinfilters"
 
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/typeutils"
 )

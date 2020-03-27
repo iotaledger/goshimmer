@@ -8,17 +8,17 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/transactionmetadata"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 var PLUGIN = node.NewPlugin("Metrics", node.Enabled, configure, run)
 
 func configure(plugin *node.Plugin) {
 	// increase received TPS counter whenever we receive a new transaction
-	tangle.Instance.Events.TransactionAttached.Attach(events.NewClosure(func(transaction *message.CachedMessage, metadata *transactionmetadata.CachedMessageMetadata) {
+	messagelayer.Tangle.Events.TransactionAttached.Attach(events.NewClosure(func(transaction *message.CachedMessage, metadata *tangle.CachedMessageMetadata) {
 		transaction.Release()
 		metadata.Release()
 

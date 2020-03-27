@@ -6,7 +6,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"

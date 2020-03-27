@@ -3,11 +3,12 @@ package gtta
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
-	"github.com/iotaledger/goshimmer/plugins/tangle"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
+
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 var PLUGIN = node.NewPlugin("WebAPI GTTA Endpoint", node.Disabled, func(plugin *node.Plugin) {
@@ -15,7 +16,7 @@ var PLUGIN = node.NewPlugin("WebAPI GTTA Endpoint", node.Disabled, func(plugin *
 })
 
 func Handler(c echo.Context) error {
-	trunkTransactionId, branchTransactionId := tangle.TipSelector.GetTips()
+	trunkTransactionId, branchTransactionId := messagelayer.TipSelector.GetTips()
 
 	return c.JSON(http.StatusOK, Response{
 		TrunkTransaction:  trunkTransactionId,

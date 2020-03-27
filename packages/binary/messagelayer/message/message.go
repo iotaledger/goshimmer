@@ -5,12 +5,11 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
-
-	"github.com/iotaledger/hive.go/objectstorage"
 
 	"github.com/mr-tron/base58"
 

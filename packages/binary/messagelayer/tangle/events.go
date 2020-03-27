@@ -3,8 +3,7 @@ package tangle
 import (
 	"github.com/iotaledger/hive.go/events"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/transactionmetadata"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 )
 
 type Events struct {
@@ -33,8 +32,8 @@ func transactionIdEvent(handler interface{}, params ...interface{}) {
 }
 
 func cachedTransactionEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*message.CachedMessage, *transactionmetadata.CachedMessageMetadata))(
+	handler.(func(*message.CachedMessage, *CachedMessageMetadata))(
 		params[0].(*message.CachedMessage).Retain(),
-		params[1].(*transactionmetadata.CachedMessageMetadata).Retain(),
+		params[1].(*CachedMessageMetadata).Retain(),
 	)
 }

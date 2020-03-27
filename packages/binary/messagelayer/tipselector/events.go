@@ -1,8 +1,9 @@
 package tipselector
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
 	"github.com/iotaledger/hive.go/events"
+
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 )
 
 type Events struct {

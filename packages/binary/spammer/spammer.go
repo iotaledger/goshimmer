@@ -6,8 +6,8 @@ import (
 
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message/payload/data"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/transactionparser"
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
@@ -53,7 +53,7 @@ func (spammer *Spammer) run(tps int, processId int64) {
 
 		trunkTransactionId, branchTransactionId := spammer.tipSelector.GetTips()
 		spammer.transactionParser.Parse(
-			message.New(trunkTransactionId, branchTransactionId, spammingIdentity, time.Now(), 0, data.NewData([]byte("SPAM"))).Bytes(),
+			message.New(trunkTransactionId, branchTransactionId, spammingIdentity, time.Now(), 0, payload.NewData([]byte("SPAM"))).Bytes(),
 			nil,
 		)
 
@@ -83,7 +83,7 @@ func (spammer *Spammer) sendBurst(transactions int, processId int64) {
 			return
 		}
 
-		spamTransaction := message.New(previousTransactionId, previousTransactionId, spammingIdentity, time.Now(), 0, data.NewData([]byte("SPAM")))
+		spamTransaction := message.New(previousTransactionId, previousTransactionId, spammingIdentity, time.Now(), 0, payload.NewData([]byte("SPAM")))
 		previousTransactionId = spamTransaction.GetId()
 		burstBuffer[i] = spamTransaction.Bytes()
 	}

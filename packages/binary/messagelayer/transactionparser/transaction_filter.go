@@ -3,7 +3,7 @@ package transactionparser
 import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 )
 
 type TransactionFilter interface {

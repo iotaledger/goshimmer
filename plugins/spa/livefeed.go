@@ -7,10 +7,10 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/transactionmetadata"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 var liveFeedWorkerCount = 1
@@ -29,7 +29,7 @@ func configureLiveFeed() {
 
 func runLiveFeed() {
 	newTxRateLimiter := time.NewTicker(time.Second / 10)
-	notifyNewTx := events.NewClosure(func(tx *message.CachedMessage, metadata *transactionmetadata.CachedMessageMetadata) {
+	notifyNewTx := events.NewClosure(func(tx *message.CachedMessage, metadata *tangle.CachedMessageMetadata) {
 		metadata.Release()
 
 		select {
@@ -41,11 +41,11 @@ func runLiveFeed() {
 	})
 
 	daemon.BackgroundWorker("SPA[TxUpdater]", func(shutdownSignal <-chan struct{}) {
-		tangle.Instance.Events.TransactionAttached.Attach(notifyNewTx)
+		messagelayer.Tangle.Events.TransactionAttached.Attach(notifyNewTx)
 		liveFeedWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping SPA[TxUpdater] ...")
-		tangle.Instance.Events.TransactionAttached.Detach(notifyNewTx)
+		messagelayer.Tangle.Events.TransactionAttached.Detach(notifyNewTx)
 		newTxRateLimiter.Stop()
 		liveFeedWorkerPool.Stop()
 		log.Info("Stopping SPA[TxUpdater] ... done")

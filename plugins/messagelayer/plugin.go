@@ -1,11 +1,10 @@
-package tangle
+package messagelayer
 
 import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/transactionmetadata"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/transactionparser"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/transactionrequester"
@@ -27,7 +26,7 @@ var TransactionRequester *transactionrequester.TransactionRequester
 
 var TipSelector *tipselector.TipSelector
 
-var Instance *messagelayer.Tangle
+var Tangle *tangle.Tangle
 
 var log *logger.Logger
 
@@ -38,18 +37,18 @@ func configure(*node.Plugin) {
 	TransactionParser = transactionparser.New()
 	TransactionRequester = transactionrequester.New()
 	TipSelector = tipselector.New()
-	Instance = messagelayer.New(database.GetBadgerInstance(), storageprefix.MainNet)
+	Tangle = tangle.New(database.GetBadgerInstance(), storageprefix.MainNet)
 
 	// setup TransactionParser
 	TransactionParser.Events.TransactionParsed.Attach(events.NewClosure(func(transaction *message.Message, peer *peer.Peer) {
 		// TODO: ADD PEER
 
-		Instance.AttachTransaction(transaction)
+		Tangle.AttachMessage(transaction)
 	}))
 
 	// setup TransactionRequester
-	Instance.Events.TransactionMissing.Attach(events.NewClosure(TransactionRequester.ScheduleRequest))
-	Instance.Events.MissingTransactionReceived.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *transactionmetadata.CachedMessageMetadata) {
+	Tangle.Events.TransactionMissing.Attach(events.NewClosure(TransactionRequester.ScheduleRequest))
+	Tangle.Events.MissingTransactionReceived.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *tangle.CachedMessageMetadata) {
 		cachedTransactionMetadata.Release()
 
 		cachedTransaction.Consume(func(transaction *message.Message) {
@@ -58,7 +57,7 @@ func configure(*node.Plugin) {
 	}))
 
 	// setup TipSelector
-	Instance.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *transactionmetadata.CachedMessageMetadata) {
+	Tangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *tangle.CachedMessageMetadata) {
 		cachedTransactionMetadata.Release()
 
 		cachedTransaction.Consume(TipSelector.AddTip)
@@ -70,6 +69,6 @@ func run(*node.Plugin) {
 		<-shutdownSignal
 
 		TransactionParser.Shutdown()
-		Instance.Shutdown()
+		Tangle.Shutdown()
 	}, shutdown.ShutdownPriorityTangle)
 }

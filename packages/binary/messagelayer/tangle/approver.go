@@ -5,7 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 )
 
 // region Approver /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -153,8 +153,8 @@ type CachedApprovers []*CachedApprover
 
 func (cachedApprovers CachedApprovers) Consume(consumer func(approver *Approver)) (consumed bool) {
 	for _, cachedApprover := range cachedApprovers {
-		consumed = cachedApprover.Consume(func(object objectstorage.StorableObject) {
-			consumer(object.(*Approver))
+		consumed = cachedApprover.Consume(func(approver *Approver) {
+			consumer(approver)
 		}) || consumed
 	}
 
