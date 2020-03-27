@@ -1,6 +1,7 @@
 package approver
 
 import (
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
@@ -9,45 +10,67 @@ import (
 type Approver struct {
 	objectstorage.StorableObjectFlags
 
-	storageKey            []byte
 	referencedTransaction message.Id
 	approvingTransaction  message.Id
 }
 
 func New(referencedTransaction message.Id, approvingTransaction message.Id) *Approver {
 	approver := &Approver{
-		storageKey:            make([]byte, message.IdLength+message.IdLength),
 		referencedTransaction: referencedTransaction,
 		approvingTransaction:  approvingTransaction,
 	}
 
-	copy(approver.storageKey[:message.IdLength], referencedTransaction[:])
-	copy(approver.storageKey[message.IdLength:], approvingTransaction[:])
-
 	return approver
 }
 
-func StorableObjectFromKey(id []byte) (result objectstorage.StorableObject, err error) {
-	approver := &Approver{
-		storageKey: make([]byte, message.IdLength+message.IdLength),
-	}
-	copy(approver.referencedTransaction[:], id[:message.IdLength])
-	copy(approver.approvingTransaction[:], id[message.IdLength:])
-	copy(approver.storageKey, id)
+func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Approver, err error) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+		return StorableObjectFromKey(data)
+	}); parseErr != nil {
+		err = parseErr
 
-	return approver, nil
+		return
+	} else {
+		result = parsedObject.(*Approver)
+	}
+
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+
+		return
+	}); err != nil {
+		return
+	}
+
+	return
 }
 
-func (approver *Approver) ObjectStorageKey() []byte {
-	return approver.storageKey
+func StorableObjectFromKey(key []byte) (result objectstorage.StorableObject, err error, consumedBytes int) {
+	result = &Approver{}
+
+	marshalUtil := marshalutil.New(key)
+	result.(*Approver).referencedTransaction, err = message.ParseId(marshalUtil)
+	if err != nil {
+		return
+	}
+	result.(*Approver).approvingTransaction, err = message.ParseId(marshalUtil)
+	if err != nil {
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
 }
 
 func (approver *Approver) GetApprovingTransactionId() message.Id {
 	return approver.approvingTransaction
 }
 
-func (approver *Approver) Update(other objectstorage.StorableObject) {
-	panic("approvers should never be overwritten and only stored once to optimize IO")
+func (approver *Approver) ObjectStorageKey() []byte {
+	return marshalutil.New().
+		WriteBytes(approver.referencedTransaction.Bytes()).
+		WriteBytes(approver.approvingTransaction.Bytes()).
+		Bytes()
 }
 
 func (approver *Approver) ObjectStorageValue() (result []byte) {
@@ -56,4 +79,8 @@ func (approver *Approver) ObjectStorageValue() (result []byte) {
 
 func (approver *Approver) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
 	return
+}
+
+func (approver *Approver) Update(other objectstorage.StorableObject) {
+	panic("approvers should never be overwritten and only stored once to optimize IO")
 }

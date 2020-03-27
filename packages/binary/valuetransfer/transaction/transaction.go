@@ -109,6 +109,10 @@ func FromStorage(key []byte) *Transaction {
 	}
 }
 
+func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Transaction, err error) {
+	return
+}
+
 func (transaction *Transaction) Id() Id {
 	// acquire lock for reading id
 	transaction.idMutex.RLock()

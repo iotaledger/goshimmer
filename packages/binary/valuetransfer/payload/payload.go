@@ -15,15 +15,14 @@ import (
 type Payload struct {
 	objectstorage.StorableObjectFlags
 
-	trunkPayloadId  Id
-	branchPayloadId Id
-	transaction     *transaction.Transaction
-
 	id      *Id
 	idMutex sync.RWMutex
 
-	bytes      []byte
-	bytesMutex sync.RWMutex
+	trunkPayloadId  Id
+	branchPayloadId Id
+	transaction     *transaction.Transaction
+	bytes           []byte
+	bytesMutex      sync.RWMutex
 }
 
 func New(trunkPayloadId, branchPayloadId Id, valueTransfer *transaction.Transaction) *Payload {
@@ -34,33 +33,30 @@ func New(trunkPayloadId, branchPayloadId Id, valueTransfer *transaction.Transact
 	}
 }
 
-func StorableObjectFromKey(key []byte) (objectstorage.StorableObject, error) {
-	id, err, _ := IdFromBytes(key)
-	if err != nil {
-		return nil, err
-	}
+func StorableObjectFromKey(key []byte) (result objectstorage.StorableObject, err error, consumedBytes int) {
+	result = &Payload{}
 
-	return &Payload{
-		id: &id,
-	}, nil
+	marshalUtil := marshalutil.New(key)
+	*result.(*Payload).id, err = ParseId(marshalUtil)
+	if err != nil {
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
 }
 
 // FromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, err error, consumedBytes int) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Payload{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to OutputFromBytes")
-	}
-
-	// initialize helper
+func FromBytes(bytes []byte) (result *Payload, err error, consumedBytes int) {
 	marshalUtil := marshalutil.New(bytes)
+	result, err = Parse(marshalUtil)
+	consumedBytes = marshalUtil.ReadOffset()
 
+	return
+}
+
+func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
 	// read information that are required to identify the payload from the outside
 	_, err = marshalUtil.ReadUint32()
 	if err != nil {
@@ -71,32 +67,23 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 		return
 	}
 
-	// parse trunk payload id
-	parsedTrunkPayloadId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) })
-	if err != nil {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+		return StorableObjectFromKey(data)
+	}); parseErr != nil {
+		err = parseErr
+
+		return
+	} else {
+		result = parsedObject.(*Payload)
+	}
+
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+
+		return
+	}); err != nil {
 		return
 	}
-	result.trunkPayloadId = parsedTrunkPayloadId.(Id)
-
-	// parse branch payload id
-	parsedBranchPayloadId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) })
-	if err != nil {
-		return
-	}
-	result.branchPayloadId = parsedBranchPayloadId.(Id)
-
-	// parse transfer
-	parsedTransfer, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return transaction.FromBytes(data) })
-	if err != nil {
-		return
-	}
-	result.transaction = parsedTransfer.(*transaction.Transaction)
-
-	// return the number of bytes we processed
-	consumedBytes = marshalUtil.ReadOffset()
-
-	// store bytes, so we don't have to marshal manually
-	result.bytes = bytes[:consumedBytes]
 
 	return
 }
@@ -207,22 +194,39 @@ func (payload *Payload) ObjectStorageValue() []byte {
 	return payload.Bytes()
 }
 
-func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (err error) {
-	_, err, _ = FromBytes(data, payload)
+func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+	marshalUtil := marshalutil.New(data)
+
+	// parse trunk payload id
+	if payload.trunkPayloadId, err = ParseId(marshalUtil); err != nil {
+		return
+	}
+	if payload.branchPayloadId, err = ParseId(marshalUtil); err != nil {
+		return
+	}
+	if payload.transaction, err = transaction.Parse(marshalUtil); err != nil {
+		return
+	}
+
+	// return the number of bytes we processed
+	consumedBytes = marshalUtil.ReadOffset()
+
+	// store bytes, so we don't have to marshal manually
+	payload.bytes = make([]byte, consumedBytes)
+	copy(payload.bytes, data[:consumedBytes])
 
 	return
 }
 
 func (payload *Payload) Unmarshal(data []byte) (err error) {
-	_, err, _ = FromBytes(data, payload)
+	_, err, _ = FromBytes(data)
 
 	return
 }
 
 func init() {
 	payload.RegisterType(Type, func(data []byte) (payload payload.Payload, err error) {
-		payload = &Payload{}
-		err = payload.Unmarshal(data)
+		payload, err, _ = FromBytes(data)
 
 		return
 	})

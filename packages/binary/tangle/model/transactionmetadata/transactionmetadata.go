@@ -115,32 +115,37 @@ func (transactionMetadata *TransactionMetadata) GetSoldificationTime() time.Time
 }
 
 func (transactionMetadata *TransactionMetadata) ObjectStorageKey() []byte {
-	return transactionMetadata.transactionId[:]
+	return transactionMetadata.transactionId.Bytes()
+}
+
+func (transactionMetadata *TransactionMetadata) ObjectStorageValue() []byte {
+	return marshalutil.New().
+		WriteTime(transactionMetadata.receivedTime).
+		WriteTime(transactionMetadata.solidificationTime).
+		WriteBool(transactionMetadata.solid).
+		Bytes()
+}
+
+func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+	marshalUtil := marshalutil.New(data)
+
+	if transactionMetadata.receivedTime, err = marshalUtil.ReadTime(); err != nil {
+		return
+	}
+	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+		return
+	}
+	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
 }
 
 func (transactionMetadata *TransactionMetadata) Update(other objectstorage.StorableObject) {
 
-}
-
-func (transactionMetadata *TransactionMetadata) ObjectStorageValue() []byte {
-	return (&Proto{
-		receivedTime:       transactionMetadata.receivedTime,
-		solidificationTime: transactionMetadata.solidificationTime,
-		solid:              transactionMetadata.solid,
-	}).ToBytes()
-}
-
-func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
-	proto, err := ProtoFromBytes(data)
-	if err != nil {
-		return
-	}
-
-	transactionMetadata.receivedTime = proto.receivedTime
-	transactionMetadata.solidificationTime = proto.solidificationTime
-	transactionMetadata.solid = proto.solid
-
-	return
 }
 
 var _ objectstorage.StorableObject = &TransactionMetadata{}
