@@ -23,11 +23,7 @@ func BenchmarkVerifyDataTransactions(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		tx := message.New(message.EmptyId, message.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("some data")))
 
-		if marshaledTransaction, err := tx.MarshalBinary(); err != nil {
-			b.Error(err)
-		} else {
-			transactions[i] = marshaledTransaction
-		}
+		transactions[i] = tx.Bytes()
 	}
 
 	b.ResetTimer()

@@ -1,9 +1,9 @@
 package data
 
 import (
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
 )
 
@@ -55,7 +55,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Data) (result *Data, err e
 	return
 }
 
-func (dataPayload *Data) GetType() payload.Type {
+func (dataPayload *Data) Type() payload.Type {
 	return dataPayload.payloadType
 }
 
@@ -69,7 +69,7 @@ func (dataPayload *Data) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(dataPayload.GetType())
+	marshalUtil.WriteUint32(dataPayload.Type())
 	marshalUtil.WriteUint32(uint32(len(dataPayload.data)))
 	marshalUtil.WriteBytes(dataPayload.data[:])
 
@@ -77,14 +77,10 @@ func (dataPayload *Data) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
-func (dataPayload *Data) UnmarshalBinary(data []byte) (err error) {
+func (dataPayload *Data) Unmarshal(data []byte) (err error) {
 	_, err, _ = FromBytes(data, dataPayload)
 
 	return
-}
-
-func (dataPayload *Data) MarshalBinary() (data []byte, err error) {
-	return dataPayload.Bytes(), nil
 }
 
 func (dataPayload *Data) String() string {
@@ -98,7 +94,7 @@ func GenericPayloadUnmarshalerFactory(payloadType payload.Type) payload.Unmarsha
 		payload = &Data{
 			payloadType: payloadType,
 		}
-		err = payload.UnmarshalBinary(data)
+		err = payload.Unmarshal(data)
 
 		return
 	}

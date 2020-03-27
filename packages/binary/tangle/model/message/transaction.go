@@ -4,9 +4,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
 
@@ -59,7 +59,7 @@ func New(trunkTransactionId Id, branchTransactionId Id, issuerKeyPair ed25119.Ke
 
 // Get's called when we restore a transaction from storage. The bytes and the content will be unmarshaled by an external
 // caller (the objectStorage factory).
-func FromStorage(id []byte) (result objectstorage.StorableObject) {
+func StorableObjectFromKey(id []byte) (result objectstorage.StorableObject, err error) {
 	var transactionId Id
 	copy(transactionId[:], id)
 
@@ -254,17 +254,17 @@ func (transaction *Transaction) Bytes() []byte {
 }
 
 // Since transactions are immutable and do not get changed after being created, we cache the result of the marshaling.
-func (transaction *Transaction) MarshalBinary() (result []byte, err error) {
-	return transaction.Bytes(), nil
+func (transaction *Transaction) ObjectStorageValue() []byte {
+	return transaction.Bytes()
 }
 
-func (transaction *Transaction) UnmarshalBinary(data []byte) (err error) {
+func (transaction *Transaction) UnmarshalObjectStorageValue(data []byte) (err error) {
 	_, err, _ = FromBytes(data, transaction)
 
 	return
 }
 
-func (transaction *Transaction) GetStorageKey() []byte {
+func (transaction *Transaction) ObjectStorageKey() []byte {
 	transactionId := transaction.GetId()
 
 	return transactionId[:]

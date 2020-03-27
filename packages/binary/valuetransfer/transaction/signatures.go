@@ -1,8 +1,9 @@
 package transaction
 
 import (
+	"github.com/iotaledger/hive.go/marshalutil"
+
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address/signaturescheme"
 )
@@ -44,10 +45,12 @@ func SignaturesFromBytes(bytes []byte, optionalTargetObject ...*Signatures) (res
 	}
 
 	// 0 byte encodes the end of the signatures
+	var typeCastedSignature signaturescheme.Signature
 	for versionByte != 0 {
+		typeCastedSignature = nil
 		// perform signature scheme specific decoding
 		switch versionByte {
-		case signaturescheme.VERSION_ED25519:
+		case address.VERSION_ED25519:
 			marshalUtil.ReadSeek(-1)
 			signature, signatureErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return signaturescheme.Ed25519SignatureFromBytes(data) })
 			if signatureErr != nil {
@@ -55,8 +58,21 @@ func SignaturesFromBytes(bytes []byte, optionalTargetObject ...*Signatures) (res
 
 				return
 			}
-			typeCastedSignature := signature.(signaturescheme.Signature)
+			typeCastedSignature = signature.(signaturescheme.Signature)
 
+		case address.VERSION_BLS:
+			marshalUtil.ReadSeek(-1)
+			signature, signatureErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return signaturescheme.BLSSignatureFromBytes(data) })
+			if signatureErr != nil {
+				err = signatureErr
+
+				return
+			}
+			typeCastedSignature = signature.(signaturescheme.Signature)
+		default:
+			// unknown signature type...
+		}
+		if typeCastedSignature != nil {
 			result.orderedMap.Set(typeCastedSignature.Address(), typeCastedSignature)
 		}
 

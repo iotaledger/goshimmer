@@ -4,10 +4,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 )
 
@@ -60,17 +60,17 @@ func PayloadMetadataFromBytes(bytes []byte, optionalTargetObject ...*PayloadMeta
 	return
 }
 
-// PayloadMetadataFromStorage gets called when we restore transaction metadata from the storage. The bytes and the content will be
-// unmarshaled by an external caller using the binary.MarshalBinary interface.
-func PayloadMetadataFromStorage(id []byte) objectstorage.StorableObject {
+// PayloadMetadataFromStorageKey gets called when we restore transaction metadata from the storage. The bytes and the content will be
+// unmarshaled by an external caller using the binary.ObjectStorageValue interface.
+func PayloadMetadataFromStorageKey(id []byte) (objectstorage.StorableObject, error) {
 	result := &PayloadMetadata{}
 
 	var err error
 	if result.payloadId, err = payload.ParseId(marshalutil.New(id)); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return result
+	return result, nil
 }
 
 // ParsePayloadMetadata is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
@@ -153,9 +153,9 @@ func (payloadMetadata *PayloadMetadata) String() string {
 	)
 }
 
-// GetStorageKey returns the key that is used to store the object in the database.
+// ObjectStorageKey returns the key that is used to store the object in the database.
 // It is required to match StorableObject interface.
-func (payloadMetadata *PayloadMetadata) GetStorageKey() []byte {
+func (payloadMetadata *PayloadMetadata) ObjectStorageKey() []byte {
 	return payloadMetadata.payloadId.Bytes()
 }
 
@@ -165,13 +165,13 @@ func (payloadMetadata *PayloadMetadata) Update(other objectstorage.StorableObjec
 	panic("update forbidden")
 }
 
-// MarshalBinary is required to match the encoding.BinaryMarshaler interface.
-func (payloadMetadata *PayloadMetadata) MarshalBinary() ([]byte, error) {
-	return payloadMetadata.Bytes(), nil
+// ObjectStorageValue is required to match the encoding.BinaryMarshaler interface.
+func (payloadMetadata *PayloadMetadata) ObjectStorageValue() []byte {
+	return payloadMetadata.Bytes()
 }
 
-// UnmarshalBinary is required to match the encoding.BinaryUnmarshaler interface.
-func (payloadMetadata *PayloadMetadata) UnmarshalBinary(data []byte) (err error) {
+// UnmarshalObjectStorageValue is required to match the encoding.BinaryUnmarshaler interface.
+func (payloadMetadata *PayloadMetadata) UnmarshalObjectStorageValue(data []byte) (err error) {
 	_, err, _ = PayloadMetadataFromBytes(data, payloadMetadata)
 
 	return

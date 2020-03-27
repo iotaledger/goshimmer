@@ -21,11 +21,11 @@ func New(transactionId message.Id) *MissingTransaction {
 	}
 }
 
-func FromStorage(key []byte) objectstorage.StorableObject {
+func StorableObjectFromKey(key []byte) (objectstorage.StorableObject, error) {
 	result := &MissingTransaction{}
 	copy(result.transactionId[:], key)
 
-	return result
+	return result, nil
 }
 
 func (missingTransaction *MissingTransaction) GetTransactionId() message.Id {
@@ -36,18 +36,23 @@ func (missingTransaction *MissingTransaction) GetMissingSince() time.Time {
 	return missingTransaction.missingSince
 }
 
-func (missingTransaction *MissingTransaction) GetStorageKey() []byte {
-	return missingTransaction.transactionId[:]
-}
-
 func (missingTransaction *MissingTransaction) Update(other objectstorage.StorableObject) {
 	panic("missing transactions should never be overwritten and only stored once to optimize IO")
 }
 
-func (missingTransaction *MissingTransaction) MarshalBinary() (result []byte, err error) {
-	return missingTransaction.missingSince.MarshalBinary()
+func (missingTransaction *MissingTransaction) ObjectStorageKey() []byte {
+	return missingTransaction.transactionId[:]
 }
 
-func (missingTransaction *MissingTransaction) UnmarshalBinary(data []byte) (err error) {
+func (missingTransaction *MissingTransaction) ObjectStorageValue() (result []byte) {
+	result, err := missingTransaction.missingSince.MarshalBinary()
+	if err != nil {
+		panic(err)
+	}
+
+	return
+}
+
+func (missingTransaction *MissingTransaction) UnmarshalObjectStorageValue(data []byte) (err error) {
 	return missingTransaction.missingSince.UnmarshalBinary(data)
 }

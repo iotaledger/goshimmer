@@ -1,10 +1,10 @@
 package tangle
 
 import (
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
@@ -33,7 +33,7 @@ func NewAttachment(transactionId transaction.Id, payloadId payload.Id) *Attachme
 	}
 }
 
-// AttachmentFromBytes unmarshals a MissingOutput from a sequence of bytes - it either creates a new object or fills the
+// AttachmentFromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
 func AttachmentFromBytes(bytes []byte, optionalTargetObject ...*Attachment) (result *Attachment, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
@@ -54,20 +54,30 @@ func AttachmentFromBytes(bytes []byte, optionalTargetObject ...*Attachment) (res
 	if result.payloadId, err = payload.ParseId(marshalUtil); err != nil {
 		return
 	}
+	result.storageKey = marshalutil.New(bytes[:AttachmentLength]).Bytes(true)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// AttachmentFromStorage gets called when we restore an Attachment from the storage - it parses the key bytes and
+// Parse is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil package.
+func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (*Attachment, error) {
+	if attachment, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return AttachmentFromBytes(data) }); err != nil {
+		return nil, err
+	} else {
+		return attachment.(*Attachment), nil
+	}
+}
+
+// AttachmentFromStorageKey gets called when we restore an Attachment from the storage - it parses the key bytes and
 // returns the new object.
-func AttachmentFromStorage(keyBytes []byte) objectstorage.StorableObject {
+func AttachmentFromStorageKey(keyBytes []byte) (objectstorage.StorableObject, error) {
 	result, err, _ := AttachmentFromBytes(keyBytes)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return result
+	return result, nil
 }
 
 // TransactionId returns the transaction id of this Attachment.
@@ -80,9 +90,9 @@ func (attachment *Attachment) PayloadId() payload.Id {
 	return attachment.payloadId
 }
 
-// Bytes marshals an Attachment into a sequence of bytes.
+// Bytes marshals the Attachment into a sequence of bytes.
 func (attachment *Attachment) Bytes() []byte {
-	return attachment.GetStorageKey()
+	return attachment.ObjectStorageKey()
 }
 
 // String returns a human readable version of the Attachment.
@@ -93,20 +103,20 @@ func (attachment *Attachment) String() string {
 	)
 }
 
-// GetStorageKey returns the key that is used to store the object in the database.
-func (attachment *Attachment) GetStorageKey() []byte {
+// ObjectStorageKey returns the key that is used to store the object in the database.
+func (attachment *Attachment) ObjectStorageKey() []byte {
 	return attachment.storageKey
 }
 
-// MarshalBinary marshals the "content part" of an Attachment to a sequence of bytes. Since all of the information for
-// this object are stored in its key, this method does nothing and is only required to conform with the interface.
-func (attachment *Attachment) MarshalBinary() (data []byte, err error) {
+// ObjectStorageValue marshals the "content part" of an Attachment to a sequence of bytes. Since all of the information
+// for this object are stored in its key, this method does nothing and is only required to conform with the interface.
+func (attachment *Attachment) ObjectStorageValue() (data []byte) {
 	return
 }
 
-// UnmarshalBinary unmarshals the "content part" of an Attachment from a sequence of bytes. Since all of the information
+// UnmarshalObjectStorageValue unmarshals the "content part" of an Attachment from a sequence of bytes. Since all of the information
 // for this object are stored in its key, this method does nothing and is only required to conform with the interface.
-func (attachment *Attachment) UnmarshalBinary(data []byte) (err error) {
+func (attachment *Attachment) UnmarshalObjectStorageValue(data []byte) (err error) {
 	return
 }
 

@@ -16,6 +16,8 @@ type Events struct {
 	PayloadUnsolidifiable  *events.Event
 	TransactionRemoved     *events.Event
 	OutputMissing          *events.Event
+
+	TransactionSolid *events.Event
 }
 
 func newEvents() *Events {
@@ -25,8 +27,9 @@ func newEvents() *Events {
 		MissingPayloadReceived: events.NewEvent(cachedPayloadEvent),
 		PayloadMissing:         events.NewEvent(payloadIdEvent),
 		PayloadUnsolidifiable:  events.NewEvent(payloadIdEvent),
-		TransactionRemoved:     events.NewEvent(payloadIdEvent),
 		OutputMissing:          events.NewEvent(outputIdEvent),
+
+		TransactionSolid: events.NewEvent(transactionEvent),
 	}
 }
 
@@ -38,6 +41,13 @@ func cachedPayloadEvent(handler interface{}, params ...interface{}) {
 	handler.(func(*payload.CachedPayload, *CachedPayloadMetadata))(
 		params[0].(*payload.CachedPayload).Retain(),
 		params[1].(*CachedPayloadMetadata).Retain(),
+	)
+}
+
+func transactionEvent(handler interface{}, params ...interface{}) {
+	handler.(func(*transaction.Transaction, *CachedTransactionMetadata))(
+		params[0].(*transaction.Transaction),
+		params[1].(*CachedTransactionMetadata).Retain(),
 	)
 }
 

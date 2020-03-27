@@ -1,17 +1,13 @@
 package payload
 
 import (
-	"encoding"
-
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
+	"github.com/iotaledger/hive.go/marshalutil"
 )
 
 type Payload interface {
-	encoding.BinaryMarshaler
-	encoding.BinaryUnmarshaler
-
+	Type() Type
 	Bytes() []byte
-	GetType() Type
+	Unmarshal(bytes []byte) error
 	String() string
 }
 
