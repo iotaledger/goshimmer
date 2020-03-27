@@ -10,9 +10,9 @@ import (
 
 	"github.com/panjf2000/ants/v2"
 
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message/payload/data"
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload/data"
 )
 
 func BenchmarkVerifyDataTransactions(b *testing.B) {
@@ -21,7 +21,7 @@ func BenchmarkVerifyDataTransactions(b *testing.B) {
 
 	transactions := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
-		tx := message.New(message.EmptyId, message.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("some data")))
+		tx := message.New(message.EmptyId, message.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.NewData([]byte("some data")))
 
 		transactions[i] = tx.Bytes()
 	}
@@ -45,9 +45,9 @@ func BenchmarkVerifyDataTransactions(b *testing.B) {
 func BenchmarkVerifySignature(b *testing.B) {
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
-	transactions := make([]*message.Transaction, b.N)
+	transactions := make([]*message.Message, b.N)
 	for i := 0; i < b.N; i++ {
-		transactions[i] = message.New(message.EmptyId, message.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("test")))
+		transactions[i] = message.New(message.EmptyId, message.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.NewData([]byte("test")))
 		transactions[i].Bytes()
 	}
 

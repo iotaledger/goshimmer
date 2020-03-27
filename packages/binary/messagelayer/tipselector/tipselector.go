@@ -2,7 +2,7 @@ package tipselector
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -21,7 +21,7 @@ func New() *TipSelector {
 	}
 }
 
-func (tipSelector *TipSelector) AddTip(transaction *message.Transaction) {
+func (tipSelector *TipSelector) AddTip(transaction *message.Message) {
 	transactionId := transaction.GetId()
 	if tipSelector.tips.Set(transactionId, transactionId) {
 		tipSelector.Events.TipAdded.Trigger(transactionId)

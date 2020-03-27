@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
 
 	"github.com/iotaledger/hive.go/objectstorage"
 
@@ -17,7 +17,9 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-type Transaction struct {
+// region Message //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type Message struct {
 	// base functionality of StorableObject
 	objectstorage.StorableObjectFlags
 
@@ -44,8 +46,8 @@ type Transaction struct {
 }
 
 // New creates a new transaction with the details provided by the issuer.
-func New(trunkTransactionId Id, branchTransactionId Id, issuerKeyPair ed25119.KeyPair, issuingTime time.Time, sequenceNumber uint64, payload payload.Payload) (result *Transaction) {
-	return &Transaction{
+func New(trunkTransactionId Id, branchTransactionId Id, issuerKeyPair ed25119.KeyPair, issuingTime time.Time, sequenceNumber uint64, payload payload.Payload) (result *Message) {
+	return &Message{
 		trunkTransactionId:  trunkTransactionId,
 		branchTransactionId: branchTransactionId,
 		issuerPublicKey:     issuerKeyPair.PublicKey,
@@ -57,15 +59,25 @@ func New(trunkTransactionId Id, branchTransactionId Id, issuerKeyPair ed25119.Ke
 	}
 }
 
-func FromBytes(bytes []byte) (result *Transaction, err error, consumedBytes int) {
+func FromBytes(bytes []byte, optionalTargetObject ...*Message) (result *Message, err error, consumedBytes int) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = Parse(marshalUtil)
+	result, err = Parse(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Transaction, err error) {
+func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Message) (result *Message, err error) {
+	// determine the target object that will hold the unmarshaled information
+	switch len(optionalTargetObject) {
+	case 0:
+		result = &Message{}
+	case 1:
+		result = optionalTargetObject[0]
+	default:
+		panic("too many arguments in call to Parse")
+	}
+
 	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
 		return StorableObjectFromKey(data)
 	}); parseErr != nil {
@@ -73,9 +85,8 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Transaction, err error
 
 		return
 	} else {
-		result = parsedObject.(*Transaction)
+		result = parsedObject.(*Message)
 	}
-
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
@@ -89,11 +100,19 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Transaction, err error
 
 // Get's called when we restore a transaction from storage. The bytes and the content will be unmarshaled by an external
 // caller (the objectStorage factory).
-func StorableObjectFromKey(key []byte) (result objectstorage.StorableObject, err error, consumedBytes int) {
-	result = &Transaction{}
+func StorableObjectFromKey(key []byte, optionalTargetObject ...*Message) (result objectstorage.StorableObject, err error, consumedBytes int) {
+	// determine the target object that will hold the unmarshaled information
+	switch len(optionalTargetObject) {
+	case 0:
+		result = &Message{}
+	case 1:
+		result = optionalTargetObject[0]
+	default:
+		panic("too many arguments in call to StorableObjectFromKey")
+	}
 
 	marshalUtil := marshalutil.New(key)
-	*result.(*Transaction).id, err = ParseId(marshalUtil)
+	*result.(*Message).id, err = ParseId(marshalUtil)
 	if err != nil {
 		return
 	}
@@ -102,7 +121,7 @@ func StorableObjectFromKey(key []byte) (result objectstorage.StorableObject, err
 	return
 }
 
-func (transaction *Transaction) VerifySignature() (result bool) {
+func (transaction *Message) VerifySignature() (result bool) {
 	transactionBytes := transaction.Bytes()
 
 	transaction.signatureMutex.RLock()
@@ -112,7 +131,7 @@ func (transaction *Transaction) VerifySignature() (result bool) {
 	return
 }
 
-func (transaction *Transaction) GetId() (result Id) {
+func (transaction *Message) GetId() (result Id) {
 	transaction.idMutex.RLock()
 	if transaction.id == nil {
 		transaction.idMutex.RUnlock()
@@ -135,29 +154,29 @@ func (transaction *Transaction) GetId() (result Id) {
 	return
 }
 
-func (transaction *Transaction) GetTrunkTransactionId() Id {
+func (transaction *Message) GetTrunkTransactionId() Id {
 	return transaction.trunkTransactionId
 }
 
-func (transaction *Transaction) GetBranchTransactionId() Id {
+func (transaction *Message) GetBranchTransactionId() Id {
 	return transaction.branchTransactionId
 }
 
 // IssuingTime returns the time when the transaction was created.
-func (transaction *Transaction) IssuingTime() time.Time {
+func (transaction *Message) IssuingTime() time.Time {
 	return transaction.issuingTime
 }
 
 // SequenceNumber returns the sequence number of this transaction.
-func (transaction *Transaction) SequenceNumber() uint64 {
+func (transaction *Message) SequenceNumber() uint64 {
 	return transaction.sequenceNumber
 }
 
-func (transaction *Transaction) GetPayload() payload.Payload {
+func (transaction *Message) GetPayload() payload.Payload {
 	return transaction.payload
 }
 
-func (transaction *Transaction) GetPayloadId() (result payload.Id) {
+func (transaction *Message) GetPayloadId() (result payload.Id) {
 	transaction.payloadIdMutex.RLock()
 	if transaction.payloadId == nil {
 		transaction.payloadIdMutex.RUnlock()
@@ -180,7 +199,7 @@ func (transaction *Transaction) GetPayloadId() (result payload.Id) {
 	return
 }
 
-func (transaction *Transaction) calculateTransactionId() Id {
+func (transaction *Message) calculateTransactionId() Id {
 	payloadId := transaction.GetPayloadId()
 
 	hashBase := make([]byte, IdLength+IdLength+payload.IdLength)
@@ -198,13 +217,13 @@ func (transaction *Transaction) calculateTransactionId() Id {
 	return blake2b.Sum512(hashBase)
 }
 
-func (transaction *Transaction) calculatePayloadId() payload.Id {
+func (transaction *Message) calculatePayloadId() payload.Id {
 	bytes := transaction.Bytes()
 
 	return blake2b.Sum512(bytes[2*IdLength:])
 }
 
-func (transaction *Transaction) Bytes() []byte {
+func (transaction *Message) Bytes() []byte {
 	transaction.bytesMutex.RLock()
 	if transaction.bytes != nil {
 		defer transaction.bytesMutex.RUnlock()
@@ -233,12 +252,7 @@ func (transaction *Transaction) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
-// Since transactions are immutable and do not get changed after being created, we cache the result of the marshaling.
-func (transaction *Transaction) ObjectStorageValue() []byte {
-	return transaction.Bytes()
-}
-
-func (transaction *Transaction) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (transaction *Message) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
 	// initialize helper
 	marshalUtil := marshalutil.New(data)
 
@@ -275,23 +289,58 @@ func (transaction *Transaction) UnmarshalObjectStorageValue(data []byte) (err er
 	return
 }
 
-func (transaction *Transaction) ObjectStorageKey() []byte {
-	transactionId := transaction.GetId()
-
-	return transactionId[:]
+func (transaction *Message) ObjectStorageKey() []byte {
+	return transaction.GetId().Bytes()
 }
 
-func (transaction *Transaction) Update(other objectstorage.StorableObject) {
+// Since transactions are immutable and do not get changed after being created, we cache the result of the marshaling.
+func (transaction *Message) ObjectStorageValue() []byte {
+	return transaction.Bytes()
+}
+
+func (transaction *Message) Update(other objectstorage.StorableObject) {
 	panic("transactions should never be overwritten and only stored once to optimize IO")
 }
 
-func (transaction *Transaction) String() string {
+func (transaction *Message) String() string {
 	transactionId := transaction.GetId()
 
-	return stringify.Struct("Transaction",
+	return stringify.Struct("Message",
 		stringify.StructField("id", base58.Encode(transactionId[:])),
 		stringify.StructField("trunkTransactionId", base58.Encode(transaction.trunkTransactionId[:])),
 		stringify.StructField("trunkTransactionId", base58.Encode(transaction.branchTransactionId[:])),
 		stringify.StructField("payload", transaction.payload),
 	)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region CachedMessage ////////////////////////////////////////////////////////////////////////////////////////////////
+
+type CachedMessage struct {
+	objectstorage.CachedObject
+}
+
+func (cachedMessage *CachedMessage) Retain() *CachedMessage {
+	return &CachedMessage{cachedMessage.CachedObject.Retain()}
+}
+
+func (cachedMessage *CachedMessage) Consume(consumer func(transaction *Message)) bool {
+	return cachedMessage.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*Message))
+	})
+}
+
+func (cachedMessage *CachedMessage) Unwrap() *Message {
+	if untypedTransaction := cachedMessage.Get(); untypedTransaction == nil {
+		return nil
+	} else {
+		if typeCastedTransaction := untypedTransaction.(*Message); typeCastedTransaction == nil || typeCastedTransaction.IsDeleted() {
+			return nil
+		} else {
+			return typeCastedTransaction
+		}
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

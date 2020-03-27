@@ -4,6 +4,12 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
+func init() {
+	SetGenericUnmarshalerFactory(GenericPayloadUnmarshalerFactory)
+
+	RegisterType(DataType, GenericPayloadUnmarshalerFactory(DataType))
+}
+
 type Payload interface {
 	Type() Type
 	Bytes() []byte

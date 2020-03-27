@@ -5,8 +5,8 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/transactionparser/builtinfilters"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/transactionparser/builtinfilters"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -33,10 +33,10 @@ func New() (result *TransactionParser) {
 				handler.(func([]byte, error, *peer.Peer))(params[0].([]byte), params[1].(error), params[2].(*peer.Peer))
 			}),
 			TransactionParsed: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func(*message.Transaction, *peer.Peer))(params[0].(*message.Transaction), params[1].(*peer.Peer))
+				handler.(func(*message.Message, *peer.Peer))(params[0].(*message.Message), params[1].(*peer.Peer))
 			}),
 			TransactionRejected: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func(*message.Transaction, error, *peer.Peer))(params[0].(*message.Transaction), params[1].(error), params[2].(*peer.Peer))
+				handler.(func(*message.Message, error, *peer.Peer))(params[0].(*message.Message), params[1].(error), params[2].(*peer.Peer))
 			}),
 		},
 	}
@@ -121,13 +121,13 @@ func (transactionParser *TransactionParser) setupTransactionsFilterDataFlow() {
 		numberOfTransactionFilters := len(transactionParser.transactionFilters)
 		for i := 0; i < numberOfTransactionFilters; i++ {
 			if i == numberOfTransactionFilters-1 {
-				transactionParser.transactionFilters[i].OnAccept(func(tx *message.Transaction, peer *peer.Peer) {
+				transactionParser.transactionFilters[i].OnAccept(func(tx *message.Message, peer *peer.Peer) {
 					transactionParser.Events.TransactionParsed.Trigger(tx, peer)
 				})
 			} else {
 				transactionParser.transactionFilters[i].OnAccept(transactionParser.transactionFilters[i+1].Filter)
 			}
-			transactionParser.transactionFilters[i].OnReject(func(tx *message.Transaction, err error, peer *peer.Peer) {
+			transactionParser.transactionFilters[i].OnReject(func(tx *message.Message, err error, peer *peer.Peer) {
 				transactionParser.Events.TransactionRejected.Trigger(tx, err, peer)
 			})
 		}

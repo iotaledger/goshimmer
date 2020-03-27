@@ -1,27 +1,33 @@
-package data
+package payload
 
 import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
 )
 
+var DataType = Type(0)
+
 type Data struct {
-	payloadType payload.Type
+	payloadType Type
 	data        []byte
 }
 
-var Type = payload.Type(0)
-
-func New(data []byte) *Data {
+func NewData(data []byte) *Data {
 	return &Data{
-		payloadType: Type,
+		payloadType: DataType,
 		data:        data,
 	}
 }
 
-func FromBytes(bytes []byte, optionalTargetObject ...*Data) (result *Data, err error, consumedBytes int) {
+func DataFromBytes(bytes []byte, optionalTargetObject ...*Data) (result *Data, err error, consumedBytes int) {
+	marshalUtil := marshalutil.New(bytes)
+	result, err = ParseData(marshalUtil, optionalTargetObject...)
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+func ParseData(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Data) (result *Data, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -29,13 +35,10 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Data) (result *Data, err e
 	case 1:
 		result = optionalTargetObject[0]
 	default:
-		panic("too many arguments in call to FromBytes")
+		panic("too many arguments in call to ParseData")
 	}
 
-	// initialize helper
-	marshalUtil := marshalutil.New(bytes)
-
-	// read data
+	// parse information
 	result.payloadType, err = marshalUtil.ReadUint32()
 	if err != nil {
 		return
@@ -49,17 +52,14 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Data) (result *Data, err e
 		return
 	}
 
-	// return the number of bytes we processed
-	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
-func (dataPayload *Data) Type() payload.Type {
+func (dataPayload *Data) Type() Type {
 	return dataPayload.payloadType
 }
 
-func (dataPayload *Data) GetData() []byte {
+func (dataPayload *Data) Data() []byte {
 	return dataPayload.data
 }
 
@@ -78,19 +78,19 @@ func (dataPayload *Data) Bytes() []byte {
 }
 
 func (dataPayload *Data) Unmarshal(data []byte) (err error) {
-	_, err, _ = FromBytes(data, dataPayload)
+	_, err, _ = DataFromBytes(data, dataPayload)
 
 	return
 }
 
 func (dataPayload *Data) String() string {
 	return stringify.Struct("Data",
-		stringify.StructField("data", string(dataPayload.GetData())),
+		stringify.StructField("data", string(dataPayload.Data())),
 	)
 }
 
-func GenericPayloadUnmarshalerFactory(payloadType payload.Type) payload.Unmarshaler {
-	return func(data []byte) (payload payload.Payload, err error) {
+func GenericPayloadUnmarshalerFactory(payloadType Type) Unmarshaler {
+	return func(data []byte) (payload Payload, err error) {
 		payload = &Data{
 			payloadType: payloadType,
 		}

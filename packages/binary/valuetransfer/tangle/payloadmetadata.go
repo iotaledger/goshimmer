@@ -125,7 +125,7 @@ func (payloadMetadata *PayloadMetadata) SetSolid(solid bool) (modified bool) {
 	return
 }
 
-// GetSoldificationTime returns the time when the payload was marked to be solid.
+// SoldificationTime returns the time when the payload was marked to be solid.
 func (payloadMetadata *PayloadMetadata) GetSoldificationTime() time.Time {
 	payloadMetadata.solidificationTimeMutex.RLock()
 	defer payloadMetadata.solidificationTimeMutex.RUnlock()

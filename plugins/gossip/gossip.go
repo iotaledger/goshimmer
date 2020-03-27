@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/netutil"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -74,7 +74,7 @@ func start(shutdownSignal <-chan struct{}) {
 func getTransaction(transactionId message.Id) (bytes []byte, err error) {
 	log.Debugw("get tx from db", "id", transactionId.String())
 
-	if !tangle.Instance.GetTransaction(transactionId).Consume(func(transaction *message.Transaction) {
+	if !tangle.Instance.GetTransaction(transactionId).Consume(func(transaction *message.Message) {
 		bytes = transaction.Bytes()
 	}) {
 		err = fmt.Errorf("transaction not found: hash=%s", transactionId)

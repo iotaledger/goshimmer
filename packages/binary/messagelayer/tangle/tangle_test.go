@@ -10,10 +10,10 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message/payload/data"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload/data"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
 )
@@ -34,16 +34,16 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 
 	testIdentity := ed25119.GenerateKeyPair()
 
-	transactionBytes := make([]*message.Transaction, b.N)
+	transactionBytes := make([]*message.Message, b.N)
 	for i := 0; i < b.N; i++ {
-		transactionBytes[i] = message.New(message.EmptyId, message.EmptyId, testIdentity, time.Now(), 0, data.New([]byte("some data")))
+		transactionBytes[i] = message.New(message.EmptyId, message.EmptyId, testIdentity, time.Now(), 0, data.NewData([]byte("some data")))
 		transactionBytes[i].Bytes()
 	}
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		tangle.AttachTransaction(transactionBytes[i])
+		tangle.AttachMessage(transactionBytes[i])
 	}
 
 	tangle.Shutdown()
@@ -63,18 +63,18 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		return
 	}
 
-	tangle.Events.TransactionAttached.Attach(events.NewClosure(func(cachedTransaction *message.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+	tangle.Events.TransactionAttached.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *transactionmetadata.CachedMessageMetadata) {
 		cachedTransactionMetadata.Release()
 
-		cachedTransaction.Consume(func(transaction *message.Transaction) {
+		cachedTransaction.Consume(func(transaction *message.Message) {
 			fmt.Println("ATTACHED:", transaction.GetId())
 		})
 	}))
 
-	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *transactionmetadata.CachedMessageMetadata) {
 		cachedTransactionMetadata.Release()
 
-		cachedTransaction.Consume(func(transaction *message.Transaction) {
+		cachedTransaction.Consume(func(transaction *message.Message) {
 			fmt.Println("SOLID:", transaction.GetId())
 		})
 	}))
@@ -91,14 +91,14 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		fmt.Println("REMOVED:", transactionId)
 	}))
 
-	newTransaction1 := message.New(message.EmptyId, message.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("some data")))
-	newTransaction2 := message.New(newTransaction1.GetId(), newTransaction1.GetId(), ed25119.GenerateKeyPair(), time.Now(), 0, data.New([]byte("some other data")))
+	newTransaction1 := message.New(message.EmptyId, message.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.NewData([]byte("some data")))
+	newTransaction2 := message.New(newTransaction1.GetId(), newTransaction1.GetId(), ed25119.GenerateKeyPair(), time.Now(), 0, data.NewData([]byte("some other data")))
 
-	tangle.AttachTransaction(newTransaction2)
+	tangle.AttachMessage(newTransaction2)
 
 	time.Sleep(7 * time.Second)
 
-	tangle.AttachTransaction(newTransaction1)
+	tangle.AttachMessage(newTransaction1)
 
 	tangle.Shutdown()
 }

@@ -1,7 +1,7 @@
 package tipselector
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
 	"github.com/iotaledger/hive.go/events"
 )
 
