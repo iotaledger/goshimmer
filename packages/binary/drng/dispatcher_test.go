@@ -11,8 +11,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/events"
 	cbPayload "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/require"
 )
 

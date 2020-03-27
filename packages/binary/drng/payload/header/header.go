@@ -1,7 +1,7 @@
 package header
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
+	"github.com/iotaledger/hive.go/marshalutil"
 )
 
 type Type = byte

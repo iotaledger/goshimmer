@@ -7,8 +7,8 @@ import (
 
 	drngPayload "github.com/iotaledger/goshimmer/packages/binary/drng/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
+	"github.com/iotaledger/hive.go/marshalutil"
 )
 
 type Payload struct {
@@ -177,15 +177,15 @@ func (payload *Payload) String() string {
 
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
-func (payload *Payload) GetType() payload.Type {
+func (payload *Payload) Type() payload.Type {
 	return drngPayload.Type
 }
 
-func (payload *Payload) MarshalBinary() (bytes []byte, err error) {
+func (payload *Payload) Marshal() (bytes []byte, err error) {
 	return payload.Bytes(), nil
 }
 
-func (payload *Payload) UnmarshalBinary(data []byte) (err error) {
+func (payload *Payload) Unmarshal(data []byte) (err error) {
 	_, err, _ = FromBytes(data, payload)
 
 	return

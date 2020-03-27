@@ -4,8 +4,8 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
@@ -135,15 +135,15 @@ func (payload *Payload) String() string {
 
 var Type = payload.Type(111)
 
-func (payload *Payload) GetType() payload.Type {
+func (payload *Payload) Type() payload.Type {
 	return Type
 }
 
-func (payload *Payload) MarshalBinary() (bytes []byte, err error) {
+func (payload *Payload) Marshal() (bytes []byte, err error) {
 	return payload.Bytes(), nil
 }
 
-func (payload *Payload) UnmarshalBinary(data []byte) (err error) {
+func (payload *Payload) Unmarshal(data []byte) (err error) {
 	_, err, _ = FromBytes(data, payload)
 
 	return
@@ -152,7 +152,7 @@ func (payload *Payload) UnmarshalBinary(data []byte) (err error) {
 func init() {
 	payload.RegisterType(Type, func(data []byte) (payload payload.Payload, err error) {
 		payload = &Payload{}
-		err = payload.UnmarshalBinary(data)
+		err = payload.Unmarshal(data)
 
 		return
 	})

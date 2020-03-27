@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/require"
 )
 
