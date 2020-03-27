@@ -115,7 +115,7 @@ func (consumer *Consumer) ObjectStorageValue() (data []byte) {
 
 // UnmarshalObjectStorageValue unmarshals the "content part" of a Consumer from a sequence of bytes. Since all of the information
 // for this object are stored in its key, this method does nothing and is only required to conform with the interface.
-func (consumer *Consumer) UnmarshalObjectStorageValue(data []byte) (err error) {
+func (consumer *Consumer) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
 	return
 }
 

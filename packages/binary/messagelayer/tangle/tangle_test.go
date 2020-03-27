@@ -10,9 +10,8 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/message/payload/data"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/model/transactionmetadata"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -36,7 +35,7 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 
 	transactionBytes := make([]*message.Message, b.N)
 	for i := 0; i < b.N; i++ {
-		transactionBytes[i] = message.New(message.EmptyId, message.EmptyId, testIdentity, time.Now(), 0, data.NewData([]byte("some data")))
+		transactionBytes[i] = message.New(message.EmptyId, message.EmptyId, testIdentity, time.Now(), 0, payload.NewData([]byte("some data")))
 		transactionBytes[i].Bytes()
 	}
 
@@ -56,14 +55,14 @@ func TestTangle_AttachTransaction(t *testing.T) {
 	// use the tempdir for the database
 	config.Node.Set(database.CFG_DIRECTORY, dir)
 
-	tangle := New(database.GetBadgerInstance(), []byte("TEST_BINARY_TANGLE"))
-	if err := tangle.Prune(); err != nil {
+	messageTangle := New(database.GetBadgerInstance(), []byte("TEST_BINARY_TANGLE"))
+	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
 
 		return
 	}
 
-	tangle.Events.TransactionAttached.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *transactionmetadata.CachedMessageMetadata) {
+	messageTangle.Events.TransactionAttached.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *CachedMessageMetadata) {
 		cachedTransactionMetadata.Release()
 
 		cachedTransaction.Consume(func(transaction *message.Message) {
@@ -71,7 +70,7 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		})
 	}))
 
-	tangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *transactionmetadata.CachedMessageMetadata) {
+	messageTangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *CachedMessageMetadata) {
 		cachedTransactionMetadata.Release()
 
 		cachedTransaction.Consume(func(transaction *message.Message) {
@@ -79,26 +78,26 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		})
 	}))
 
-	tangle.Events.TransactionUnsolidifiable.Attach(events.NewClosure(func(transactionId message.Id) {
+	messageTangle.Events.TransactionUnsolidifiable.Attach(events.NewClosure(func(transactionId message.Id) {
 		fmt.Println("UNSOLIDIFIABLE:", transactionId)
 	}))
 
-	tangle.Events.TransactionMissing.Attach(events.NewClosure(func(transactionId message.Id) {
+	messageTangle.Events.TransactionMissing.Attach(events.NewClosure(func(transactionId message.Id) {
 		fmt.Println("MISSING:", transactionId)
 	}))
 
-	tangle.Events.TransactionRemoved.Attach(events.NewClosure(func(transactionId message.Id) {
+	messageTangle.Events.TransactionRemoved.Attach(events.NewClosure(func(transactionId message.Id) {
 		fmt.Println("REMOVED:", transactionId)
 	}))
 
-	newTransaction1 := message.New(message.EmptyId, message.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, data.NewData([]byte("some data")))
-	newTransaction2 := message.New(newTransaction1.GetId(), newTransaction1.GetId(), ed25119.GenerateKeyPair(), time.Now(), 0, data.NewData([]byte("some other data")))
+	newTransaction1 := message.New(message.EmptyId, message.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, payload.NewData([]byte("some data")))
+	newTransaction2 := message.New(newTransaction1.GetId(), newTransaction1.GetId(), ed25119.GenerateKeyPair(), time.Now(), 0, payload.NewData([]byte("some other data")))
 
-	tangle.AttachMessage(newTransaction2)
+	messageTangle.AttachMessage(newTransaction2)
 
 	time.Sleep(7 * time.Second)
 
-	tangle.AttachMessage(newTransaction1)
+	messageTangle.AttachMessage(newTransaction1)
 
-	tangle.Shutdown()
+	messageTangle.Shutdown()
 }

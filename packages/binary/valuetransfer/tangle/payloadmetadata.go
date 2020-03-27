@@ -62,15 +62,16 @@ func PayloadMetadataFromBytes(bytes []byte, optionalTargetObject ...*PayloadMeta
 
 // PayloadMetadataFromStorageKey gets called when we restore transaction metadata from the storage. The bytes and the content will be
 // unmarshaled by an external caller using the binary.ObjectStorageValue interface.
-func PayloadMetadataFromStorageKey(id []byte) (objectstorage.StorableObject, error) {
-	result := &PayloadMetadata{}
+func PayloadMetadataFromStorageKey(id []byte) (result objectstorage.StorableObject, err error, consumedBytes int) {
+	result = &PayloadMetadata{}
 
-	var err error
-	if result.payloadId, err = payload.ParseId(marshalutil.New(id)); err != nil {
-		return nil, err
+	marshalUtil := marshalutil.New(id)
+	if result.(*PayloadMetadata).payloadId, err = payload.ParseId(marshalUtil); err != nil {
+		return
 	}
+	consumedBytes = marshalUtil.ReadOffset()
 
-	return result, nil
+	return
 }
 
 // ParsePayloadMetadata is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
@@ -171,8 +172,8 @@ func (payloadMetadata *PayloadMetadata) ObjectStorageValue() []byte {
 }
 
 // UnmarshalObjectStorageValue is required to match the encoding.BinaryUnmarshaler interface.
-func (payloadMetadata *PayloadMetadata) UnmarshalObjectStorageValue(data []byte) (err error) {
-	_, err, _ = PayloadMetadataFromBytes(data, payloadMetadata)
+func (payloadMetadata *PayloadMetadata) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+	_, err, consumedBytes = PayloadMetadataFromBytes(data, payloadMetadata)
 
 	return
 }
