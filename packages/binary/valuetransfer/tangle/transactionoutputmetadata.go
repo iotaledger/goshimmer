@@ -165,8 +165,8 @@ func (transactionOutputMetadata *TransactionOutputMetadata) ObjectStorageValue()
 
 // UnmarshalObjectStorageValue restores the values of a TransactionOutputMetadata object from a sequence of bytes and matches the
 // encoding.BinaryUnmarshaler interface.
-func (transactionOutputMetadata *TransactionOutputMetadata) UnmarshalObjectStorageValue(data []byte) (err error) {
-	_, err, _ = TransactionOutputMetadataFromBytes(data, transactionOutputMetadata)
+func (transactionOutputMetadata *TransactionOutputMetadata) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+	_, err, consumedBytes = TransactionOutputMetadataFromBytes(data, transactionOutputMetadata)
 
 	return
 }

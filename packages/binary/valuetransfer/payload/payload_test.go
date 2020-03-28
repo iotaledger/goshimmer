@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"

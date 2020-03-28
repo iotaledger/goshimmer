@@ -9,12 +9,12 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/netutil"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 var (
@@ -71,13 +71,13 @@ func start(shutdownSignal <-chan struct{}) {
 	log.Info("Stopping " + name + " ...")
 }
 
-func getTransaction(transactionId message.Id) (bytes []byte, err error) {
-	log.Debugw("get tx from db", "id", transactionId.String())
+func getTransaction(messageId message.Id) (bytes []byte, err error) {
+	log.Debugw("get tx from db", "id", messageId.String())
 
-	if !tangle.Instance.GetTransaction(transactionId).Consume(func(transaction *message.Transaction) {
-		bytes = transaction.Bytes()
+	if !messagelayer.Tangle.Message(messageId).Consume(func(message *message.Message) {
+		bytes = message.Bytes()
 	}) {
-		err = fmt.Errorf("transaction not found: hash=%s", transactionId)
+		err = fmt.Errorf("transaction not found: hash=%s", messageId)
 	}
 
 	return

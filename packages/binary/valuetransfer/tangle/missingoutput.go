@@ -53,7 +53,7 @@ func MissingOutputFromBytes(bytes []byte, optionalTargetObject ...*MissingOutput
 
 // MissingOutputFromStorageKey gets called when we restore a MissingOutput from the storage. The content will be
 // unmarshaled by an external caller using the binary.ObjectStorageValue interface.
-func MissingOutputFromStorageKey(keyBytes []byte) (objectstorage.StorableObject, error) {
+func MissingOutputFromStorageKey(keyBytes []byte) (objectstorage.StorableObject, error, int) {
 	outputId, err, _ := transaction.OutputIdFromBytes(keyBytes)
 	if err != nil {
 		panic(err)
@@ -61,7 +61,7 @@ func MissingOutputFromStorageKey(keyBytes []byte) (objectstorage.StorableObject,
 
 	return &MissingOutput{
 		outputId: outputId,
-	}, nil
+	}, nil, transaction.OutputIdLength
 }
 
 // Id returns the id of the Output that is missing.
@@ -97,8 +97,8 @@ func (missingOutput *MissingOutput) ObjectStorageValue() []byte {
 
 // UnmarshalObjectStorageValue restores the values of a MissingOutput from a sequence of bytes using the  encoding.BinaryUnmarshaler
 // interface.
-func (missingOutput *MissingOutput) UnmarshalObjectStorageValue(data []byte) (err error) {
-	_, err, _ = MissingOutputFromBytes(data, missingOutput)
+func (missingOutput *MissingOutput) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+	_, err, consumedBytes = MissingOutputFromBytes(data, missingOutput)
 
 	return
 }

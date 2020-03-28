@@ -8,11 +8,11 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 const name = "Gossip" // name of the plugin
@@ -73,20 +73,20 @@ func configureEvents() {
 
 	// configure flow of incoming transactions
 	gossip.Events.TransactionReceived.Attach(events.NewClosure(func(event *gossip.TransactionReceivedEvent) {
-		tangle.TransactionParser.Parse(event.Data, event.Peer)
+		messagelayer.TransactionParser.Parse(event.Data, event.Peer)
 	}))
 
 	// configure flow of outgoing transactions (gossip on solidification)
-	tangle.Instance.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedTransaction, transactionMetadata *transactionmetadata.CachedTransactionMetadata) {
+	messagelayer.Tangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, transactionMetadata *tangle.CachedMessageMetadata) {
 		transactionMetadata.Release()
 
-		cachedTransaction.Consume(func(transaction *message.Transaction) {
+		cachedTransaction.Consume(func(transaction *message.Message) {
 			mgr.SendTransaction(transaction.Bytes())
 		})
 	}))
 
 	// request missing transactions
-	tangle.TransactionRequester.Events.SendRequest.Attach(events.NewClosure(func(transactionId message.Id) {
+	messagelayer.TransactionRequester.Events.SendRequest.Attach(events.NewClosure(func(transactionId message.Id) {
 		mgr.RequestTransaction(transactionId[:])
 	}))
 }
