@@ -1,0 +1,14 @@
+version: "3.7"
+
+services:
+  tester:
+    image: iotaledger/goshimmer_tester
+    container_name: tester
+    build:
+      context: .
+    networks:
+      - integration-test
+
+networks:
+  integration-test:
+    external: true
