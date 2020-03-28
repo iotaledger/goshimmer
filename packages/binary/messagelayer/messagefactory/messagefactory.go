@@ -1,57 +1,37 @@
 package messagefactory
 
 import (
-	"sync"
+	"fmt"
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
+	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/logger"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
 )
 
-var (
-	once     sync.Once
-	instance *MessageFactory
-	log      *logger.Logger
-)
-
 type MessageFactory struct {
+	Events        *Events
 	sequence      *badger.Sequence
 	localIdentity *identity.LocalIdentity
 	tipSelector   *tipselector.TipSelector
 }
 
-func Setup(logger *logger.Logger, db *badger.DB, localIdentity *identity.LocalIdentity, tipSelector *tipselector.TipSelector, sequenceKey []byte) *MessageFactory {
-	once.Do(func() {
-		log = logger
-		sequence, err := db.GetSequence(sequenceKey, 100)
-		if err != nil {
-			log.Fatalf("Could not create transaction sequence number. %v", err)
-		}
+func New(db *badger.DB, localIdentity *identity.LocalIdentity, tipSelector *tipselector.TipSelector, sequenceKey []byte) *MessageFactory {
+	sequence, err := db.GetSequence(sequenceKey, 100)
+	if err != nil {
+		panic(fmt.Errorf("Could not create transaction sequence number. %v", err))
+	}
 
-		instance = &MessageFactory{
-			sequence:      sequence,
-			localIdentity: localIdentity,
-			tipSelector:   tipSelector,
-		}
-	})
-
-	return instance
-}
-
-func GetInstance() *MessageFactory {
-	return instance
-}
-
-// Shutdown closes the  messageFactory and persists the sequence number
-func (m *MessageFactory) Shutdown() {
-	if err := m.sequence.Release(); err != nil {
-		log.Errorf("Could not release transaction sequence number. %v", err)
+	return &MessageFactory{
+		Events:        newEvents(),
+		sequence:      sequence,
+		localIdentity: localIdentity,
+		tipSelector:   tipSelector,
 	}
 }
 
@@ -60,7 +40,9 @@ func (m *MessageFactory) Shutdown() {
 func (m *MessageFactory) BuildMessage(payload payload.Payload) *message.Message {
 	sequenceNumber, err := m.sequence.Next()
 	if err != nil {
-		panic("Could not create sequence number")
+		m.Events.Error.Trigger(errors.Wrap(err, "Could not create sequence number"))
+
+		return nil
 	}
 
 	trunkTransaction, branchTransaction := m.tipSelector.GetTips()
@@ -75,6 +57,14 @@ func (m *MessageFactory) BuildMessage(payload payload.Payload) *message.Message 
 		m.localIdentity,
 	)
 
-	Events.MessageConstructed.Trigger(tx)
+	m.Events.MessageConstructed.Trigger(tx)
+
 	return tx
+}
+
+// Shutdown closes the  messageFactory and persists the sequence number
+func (m *MessageFactory) Shutdown() {
+	if err := m.sequence.Release(); err != nil {
+		m.Events.Error.Trigger(errors.Wrap(err, "Could not release transaction sequence number."))
+	}
 }

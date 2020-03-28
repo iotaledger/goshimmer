@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,20 +35,19 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 	config.Node.Set(database.CFG_DIRECTORY, dir)
 	db := database.GetBadgerInstance()
 
-	log := logger.NewExampleLogger("MessageFactory")
 	localIdentity := identity.GenerateLocalIdentity()
 	tipSelector := tipselector.New()
-
-	// attach to event and count
-	countEvents := uint64(0)
-	Events.MessageConstructed.Attach(events.NewClosure(func(msg *message.Message) {
-		atomic.AddUint64(&countEvents, 1)
-	}))
 
 	// keep track of sequence numbers
 	sequenceNumbers := sync.Map{}
 
-	msgFactory := Setup(log, db, localIdentity, tipSelector, []byte(sequenceKey))
+	msgFactory := New(db, localIdentity, tipSelector, []byte(sequenceKey))
+
+	// attach to event and count
+	countEvents := uint64(0)
+	msgFactory.Events.MessageConstructed.Attach(events.NewClosure(func(msg *message.Message) {
+		atomic.AddUint64(&countEvents, 1)
+	}))
 
 	t.Run("CheckProperties", func(t *testing.T) {
 		data := []byte("TestCheckProperties")
