@@ -42,7 +42,7 @@ func (spammer *Spammer) run(tps int, processId int64) {
 			return
 		}
 
-		spammer.messageFactory.BuildMessage(payload.NewData([]byte("SPAM")))
+		spammer.messageFactory.IssueMessage(payload.NewData([]byte("SPAM")))
 
 		currentSentCounter++
 

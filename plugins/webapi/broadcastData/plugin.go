@@ -28,7 +28,7 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	tx := messagelayer.MessageFactory.BuildMessage(payload.NewData([]byte(request.Data)))
+	tx := messagelayer.MessageFactory.IssueMessage(payload.NewData([]byte(request.Data)))
 
 	return c.JSON(http.StatusOK, Response{Hash: tx.GetId().String()})
 }

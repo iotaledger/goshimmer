@@ -35,9 +35,10 @@ func New(db *badger.DB, localIdentity *identity.LocalIdentity, tipSelector *tips
 	}
 }
 
-// BuildMessage constructs a new message with sequence number and performs tip selection and returns it.
-// It triggers MessageConstructed event once it's done.
-func (m *MessageFactory) BuildMessage(payload payload.Payload) *message.Message {
+// IssueMessage creates a new message including sequence number and tip selection and returns it.
+// It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
+// messages that shall be attached to the tangle.
+func (m *MessageFactory) IssueMessage(payload payload.Payload) *message.Message {
 	sequenceNumber, err := m.sequence.Next()
 	if err != nil {
 		m.Events.Error.Trigger(errors.Wrap(err, "Could not create sequence number"))
