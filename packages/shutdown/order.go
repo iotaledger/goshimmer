@@ -6,7 +6,6 @@ const (
 	ShutdownPriorityRemoteLog
 	ShutdownPriorityAnalysis
 	ShutdownPriorityMetrics
-	ShutdownPriorityMessageFactory
 	ShutdownPriorityAutopeering
 	ShutdownPriorityGossip
 	ShutdownPriorityWebAPI

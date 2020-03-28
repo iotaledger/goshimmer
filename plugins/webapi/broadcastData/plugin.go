@@ -3,8 +3,8 @@ package broadcastData
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload/data"
-	"github.com/iotaledger/goshimmer/packages/messagefactory"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -28,8 +28,7 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	payload := data.BuildPayload([]byte(request.Data))
-	tx := messagefactory.GetInstance().BuildMessage(payload)
+	tx := messagelayer.MessageFactory.BuildMessage(payload.NewData([]byte(request.Data)))
 
 	return c.JSON(http.StatusOK, Response{Hash: tx.GetId().String()})
 }
