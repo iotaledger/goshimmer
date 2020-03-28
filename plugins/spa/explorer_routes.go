@@ -26,7 +26,7 @@ type ExplorerTx struct {
 func createExplorerTx(tx *message.Message) (*ExplorerTx, error) {
 	transactionId := tx.GetId()
 
-	txMetadata := messagelayer.Tangle.GetTransactionMetadata(transactionId)
+	txMetadata := messagelayer.Tangle.MessageMetadata(transactionId)
 
 	t := &ExplorerTx{
 		Hash:                     transactionId.String(),
@@ -116,7 +116,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 }
 
 func findTransaction(transactionId message.Id) (explorerTx *ExplorerTx, err error) {
-	if !messagelayer.Tangle.GetTransaction(transactionId).Consume(func(transaction *message.Message) {
+	if !messagelayer.Tangle.Message(transactionId).Consume(func(transaction *message.Message) {
 		explorerTx, err = createExplorerTx(transaction)
 	}) {
 		err = errors.Wrapf(ErrNotFound, "tx hash: %s", transactionId.String())
