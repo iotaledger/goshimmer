@@ -6,7 +6,7 @@ on:
 jobs:
 
   build:
-    name: Test GoShimmer
+    name: Unit tests
     runs-on: ubuntu-latest
     steps:
 
@@ -20,3 +20,23 @@ jobs:
 
     - name: Run Tests
       run: go test ./...
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Build GoShimmer Docker network
+      run: docker-compose -f tools/integration-tests/docker-compose.yml up -d --scale peer_replica=5
+
+    - name: Dispay containers
+      run: docker ps -a
+
+    - name: Run integration tests
+      run: docker-compose -f tools/integration-tests/tests/docker-compose.yml up --exit-code-from tester
+
+    - name: Clean up
+      run: docker-compose -f tools/integration-tests/docker-compose.yml down --rmi all --remove-orphan --volumes
