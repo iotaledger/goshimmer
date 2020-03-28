@@ -1,9 +1,10 @@
 package messagefactory
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
 	"github.com/iotaledger/hive.go/events"
+
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
 var Events = struct {
@@ -22,5 +23,5 @@ func payloadConstructedEvent(handler interface{}, params ...interface{}) {
 }
 
 func messageConstructedEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*message.Transaction))(params[0].(*message.Transaction))
+	handler.(func(*message.Message))(params[0].(*message.Message))
 }

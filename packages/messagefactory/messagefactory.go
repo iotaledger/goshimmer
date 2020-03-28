@@ -5,12 +5,13 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/tipselector"
-	"github.com/iotaledger/hive.go/identity"
 
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
+
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
 )
 
 var (
@@ -56,7 +57,7 @@ func (m *MessageFactory) Shutdown() {
 
 // BuildMessage constructs a new message with sequence number and performs tip selection and returns it.
 // It triggers MessageConstructed event once it's done.
-func (m *MessageFactory) BuildMessage(payload payload.Payload) *message.Transaction {
+func (m *MessageFactory) BuildMessage(payload payload.Payload) *message.Message {
 	sequenceNumber, err := m.sequence.Next()
 	if err != nil {
 		panic("Could not create sequence number")

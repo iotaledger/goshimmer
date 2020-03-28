@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/tipselector"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
 
@@ -42,7 +42,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 
 	// attach to event and count
 	countEvents := uint64(0)
-	Events.MessageConstructed.Attach(events.NewClosure(func(msg *message.Transaction) {
+	Events.MessageConstructed.Attach(events.NewClosure(func(msg *message.Message) {
 		atomic.AddUint64(&countEvents, 1)
 	}))
 
@@ -136,10 +136,14 @@ func (m *MockPayload) Bytes() []byte {
 	return m.data
 }
 
-func (m *MockPayload) GetType() payload.Type {
+func (m *MockPayload) Type() payload.Type {
 	return payload.Type(0)
 }
 
 func (m *MockPayload) String() string {
 	return string(m.data)
+}
+
+func (m *MockPayload) Unmarshal(bytes []byte) error {
+	panic("implement me")
 }
