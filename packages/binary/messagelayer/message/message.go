@@ -4,16 +4,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/mr-tron/base58"
+	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
-
-	"github.com/mr-tron/base58"
-
-	"golang.org/x/crypto/blake2b"
 )
 
 // region Message //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -25,13 +24,13 @@ type Message struct {
 	// core properties (they are part of the transaction when being sent)
 	trunkTransactionId  Id
 	branchTransactionId Id
-	issuerPublicKey     ed25119.PublicKey
+	issuerPublicKey     ed25519.PublicKey
 	issuingTime         time.Time
 	sequenceNumber      uint64
 	payload             payload.Payload
 	bytes               []byte
 	bytesMutex          sync.RWMutex
-	signature           ed25119.Signature
+	signature           ed25519.Signature
 	signatureMutex      sync.RWMutex
 
 	// derived properties
@@ -41,20 +40,20 @@ type Message struct {
 	payloadIdMutex sync.RWMutex
 
 	// only stored on the machine of the signer
-	issuerPrivateKey ed25119.PrivateKey
+	issuerLocalIdentity *identity.LocalIdentity
 }
 
 // New creates a new transaction with the details provided by the issuer.
-func New(trunkTransactionId Id, branchTransactionId Id, issuerKeyPair ed25119.KeyPair, issuingTime time.Time, sequenceNumber uint64, payload payload.Payload) (result *Message) {
+func New(trunkTransactionId Id, branchTransactionId Id, issuerPublicKey ed25519.PublicKey, issuingTime time.Time, sequenceNumber uint64, payload payload.Payload, localIdentity *identity.LocalIdentity) (result *Message) {
 	return &Message{
 		trunkTransactionId:  trunkTransactionId,
 		branchTransactionId: branchTransactionId,
-		issuerPublicKey:     issuerKeyPair.PublicKey,
+		issuerPublicKey:     issuerPublicKey,
 		issuingTime:         issuingTime,
 		sequenceNumber:      sequenceNumber,
 		payload:             payload,
 
-		issuerPrivateKey: issuerKeyPair.PrivateKey,
+		issuerLocalIdentity: localIdentity,
 	}
 }
 
@@ -124,7 +123,7 @@ func (transaction *Message) VerifySignature() (result bool) {
 	transactionBytes := transaction.Bytes()
 
 	transaction.signatureMutex.RLock()
-	result = transaction.issuerPublicKey.VerifySignature(transactionBytes[:len(transactionBytes)-ed25119.SignatureSize], transaction.signature)
+	result = transaction.issuerPublicKey.VerifySignature(transactionBytes[:len(transactionBytes)-ed25519.SignatureSize], transaction.signature)
 	transaction.signatureMutex.RUnlock()
 
 	return
@@ -246,7 +245,7 @@ func (transaction *Message) Bytes() []byte {
 	marshalUtil.WriteTime(transaction.issuingTime)
 	marshalUtil.WriteUint64(transaction.sequenceNumber)
 	marshalUtil.WriteBytes(transaction.payload.Bytes())
-	marshalUtil.WriteBytes(transaction.issuerPrivateKey.Sign(marshalUtil.Bytes()).Bytes())
+	marshalUtil.WriteBytes(transaction.issuerLocalIdentity.Sign(marshalUtil.Bytes()).Bytes())
 
 	return marshalUtil.Bytes()
 }
@@ -262,9 +261,7 @@ func (transaction *Message) UnmarshalObjectStorageValue(data []byte) (err error,
 	if transaction.branchTransactionId, err = ParseId(marshalUtil); err != nil {
 		return
 	}
-	if transaction.issuerPublicKey, err = ed25119.ParsePublicKey(marshalUtil); err != nil {
-		return
-	}
+	// TODO PARSE PUBLIC KEY
 	if transaction.issuingTime, err = marshalUtil.ReadTime(); err != nil {
 		return
 	}
@@ -274,9 +271,7 @@ func (transaction *Message) UnmarshalObjectStorageValue(data []byte) (err error,
 	if transaction.payload, err = payload.Parse(marshalUtil); err != nil {
 		return
 	}
-	if transaction.signature, err = ed25119.ParseSignature(marshalUtil); err != nil {
-		return
-	}
+	// TODO PARSE SIGNATURE
 
 	// return the number of bytes we processed
 	consumedBytes = marshalUtil.ReadOffset()

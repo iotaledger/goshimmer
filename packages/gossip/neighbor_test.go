@@ -1,7 +1,6 @@
 package gossip
 
 import (
-	"crypto/ed25519"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -10,7 +9,9 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -126,9 +127,11 @@ func newTestPeer(name string, conn net.Conn) *peer.Peer {
 	services := service.New()
 	services.Update(service.PeeringKey, conn.LocalAddr().Network(), 0)
 	services.Update(service.GossipKey, conn.LocalAddr().Network(), 0)
-	key := make([]byte, ed25519.PublicKeySize)
-	copy(key, name)
-	return peer.NewPeer(key, net.IPv4zero, services)
+
+	var publicKey ed25519.PublicKey
+	copy(publicKey[:], name)
+
+	return peer.NewPeer(identity.NewIdentity(publicKey), net.IPv4zero, services)
 }
 
 func newPipe() (net.Conn, net.Conn, func()) {

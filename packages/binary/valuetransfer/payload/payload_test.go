@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
@@ -45,6 +46,7 @@ func ExamplePayload() {
 	)
 
 	// 3. build actual transaction (the base layer creates this and wraps the ontology provided payload)
+	localIdentity := identity.GenerateLocalIdentity()
 	tx := message.New(
 		// trunk in "network tangle" ontology (filled by tipSelector)
 		message.EmptyId,
@@ -53,7 +55,7 @@ func ExamplePayload() {
 		message.EmptyId,
 
 		// issuer of the transaction (signs automatically)
-		ed25119.GenerateKeyPair(),
+		localIdentity.PublicKey(),
 
 		// the time when the transaction was created
 		time.Now(),
@@ -63,14 +65,16 @@ func ExamplePayload() {
 
 		// payload
 		valuePayload,
+
+		localIdentity,
 	)
 
 	fmt.Println(tx)
 }
 
 func TestPayload(t *testing.T) {
-	addressKeyPair1 := ed25119.GenerateKeyPair()
-	addressKeyPair2 := ed25119.GenerateKeyPair()
+	addressKeyPair1 := ed25519.GenerateKeyPair()
+	addressKeyPair2 := ed25519.GenerateKeyPair()
 
 	originalPayload := New(
 		GenesisId,

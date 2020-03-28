@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
 )
@@ -31,11 +31,11 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 		return
 	}
 
-	testIdentity := ed25119.GenerateKeyPair()
+	testIdentity := identity.GenerateLocalIdentity()
 
 	transactionBytes := make([]*message.Message, b.N)
 	for i := 0; i < b.N; i++ {
-		transactionBytes[i] = message.New(message.EmptyId, message.EmptyId, testIdentity, time.Now(), 0, payload.NewData([]byte("some data")))
+		transactionBytes[i] = message.New(message.EmptyId, message.EmptyId, testIdentity.PublicKey(), time.Now(), 0, payload.NewData([]byte("some data")), testIdentity)
 		transactionBytes[i].Bytes()
 	}
 
@@ -90,8 +90,10 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		fmt.Println("REMOVED:", transactionId)
 	}))
 
-	newTransaction1 := message.New(message.EmptyId, message.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, payload.NewData([]byte("some data")))
-	newTransaction2 := message.New(newTransaction1.GetId(), newTransaction1.GetId(), ed25119.GenerateKeyPair(), time.Now(), 0, payload.NewData([]byte("some other data")))
+	localIdentity1 := identity.GenerateLocalIdentity()
+	localIdentity2 := identity.GenerateLocalIdentity()
+	newTransaction1 := message.New(message.EmptyId, message.EmptyId, localIdentity1.PublicKey(), time.Now(), 0, payload.NewData([]byte("some data")), localIdentity1)
+	newTransaction2 := message.New(newTransaction1.GetId(), newTransaction1.GetId(), localIdentity2.PublicKey(), time.Now(), 0, payload.NewData([]byte("some other data")), localIdentity2)
 
 	messageTangle.AttachMessage(newTransaction2)
 

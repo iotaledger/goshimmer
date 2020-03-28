@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 )
 
 func Test(t *testing.T) {
@@ -21,7 +21,8 @@ func Test(t *testing.T) {
 	assert.Equal(t, message.EmptyId, branch1)
 
 	// create a transaction and attach it
-	transaction1 := message.New(trunk1, branch1, ed25119.GenerateKeyPair(), time.Now(), 0, payload.NewData([]byte("testtransaction")))
+	localIdentity1 := identity.GenerateLocalIdentity()
+	transaction1 := message.New(trunk1, branch1, localIdentity1.PublicKey(), time.Now(), 0, payload.NewData([]byte("testtransaction")), localIdentity1)
 	tipSelector.AddTip(transaction1)
 
 	// check if the tip shows up in the tip count
@@ -33,15 +34,17 @@ func Test(t *testing.T) {
 	assert.Equal(t, transaction1.GetId(), branch2)
 
 	// create a 2nd transaction and attach it
-	transaction2 := message.New(message.EmptyId, message.EmptyId, ed25119.GenerateKeyPair(), time.Now(), 0, payload.NewData([]byte("testtransaction")))
+	localIdentity2 := identity.GenerateLocalIdentity()
+	transaction2 := message.New(message.EmptyId, message.EmptyId, localIdentity2.PublicKey(), time.Now(), 0, payload.NewData([]byte("testtransaction")), localIdentity2)
 	tipSelector.AddTip(transaction2)
 
 	// check if the tip shows up in the tip count
 	assert.Equal(t, 2, tipSelector.GetTipCount())
 
 	// attach a transaction to our two tips
+	localIdentity3 := identity.GenerateLocalIdentity()
 	trunk3, branch3 := tipSelector.GetTips()
-	transaction3 := message.New(trunk3, branch3, ed25119.GenerateKeyPair(), time.Now(), 0, payload.NewData([]byte("testtransaction")))
+	transaction3 := message.New(trunk3, branch3, localIdentity3.PublicKey(), time.Now(), 0, payload.NewData([]byte("testtransaction")), localIdentity3)
 	tipSelector.AddTip(transaction3)
 
 	// check if the tip shows replaces the current tips

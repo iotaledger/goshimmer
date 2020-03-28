@@ -4,13 +4,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/transactionparser"
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 )
 
 type Spammer struct {
@@ -42,7 +42,8 @@ func (spammer *Spammer) Shutdown() {
 }
 
 func (spammer *Spammer) run(tps int, processId int64) {
-	spammingIdentity := ed25119.GenerateKeyPair()
+	// TODO: this should be the local peer's identity
+	spammingIdentity := identity.GenerateLocalIdentity()
 	currentSentCounter := 0
 	start := time.Now()
 
@@ -51,11 +52,19 @@ func (spammer *Spammer) run(tps int, processId int64) {
 			return
 		}
 
+		// TODO: use transaction factory
 		trunkTransactionId, branchTransactionId := spammer.tipSelector.GetTips()
-		spammer.transactionParser.Parse(
-			message.New(trunkTransactionId, branchTransactionId, spammingIdentity, time.Now(), 0, payload.NewData([]byte("SPAM"))).Bytes(),
-			nil,
+
+		msg := message.New(
+			trunkTransactionId,
+			branchTransactionId,
+			spammingIdentity.PublicKey(),
+			time.Now(),
+			0,
+			payload.NewData([]byte("SPAM")),
+			spammingIdentity,
 		)
+		spammer.transactionParser.Parse(msg.Bytes(), nil)
 
 		currentSentCounter++
 
@@ -73,7 +82,8 @@ func (spammer *Spammer) run(tps int, processId int64) {
 }
 
 func (spammer *Spammer) sendBurst(transactions int, processId int64) {
-	spammingIdentity := ed25119.GenerateKeyPair()
+	// TODO: this should be the local peer's identity
+	spammingIdentity := identity.GenerateLocalIdentity()
 
 	previousTransactionId := message.EmptyId
 
@@ -83,7 +93,17 @@ func (spammer *Spammer) sendBurst(transactions int, processId int64) {
 			return
 		}
 
-		spamTransaction := message.New(previousTransactionId, previousTransactionId, spammingIdentity, time.Now(), 0, payload.NewData([]byte("SPAM")))
+		// TODO: use transaction factory
+		spamTransaction := message.New(
+			previousTransactionId,
+			previousTransactionId,
+			spammingIdentity.PublicKey(),
+			time.Now(),
+			0,
+			payload.NewData([]byte("SPAM")),
+			spammingIdentity,
+		)
+
 		previousTransactionId = spamTransaction.GetId()
 		burstBuffer[i] = spamTransaction.Bytes()
 	}
