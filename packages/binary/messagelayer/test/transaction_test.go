@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/panjf2000/ants/v2"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"

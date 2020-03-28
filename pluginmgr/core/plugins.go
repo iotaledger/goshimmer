@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
+
 	"github.com/iotaledger/hive.go/node"
 )
 
