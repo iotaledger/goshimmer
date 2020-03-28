@@ -84,6 +84,7 @@ func run(*node.Plugin) {
 	_ = daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 
+		MessageFactory.Shutdown()
 		TransactionParser.Shutdown()
 		Tangle.Shutdown()
 	}, shutdown.ShutdownPriorityTangle)
