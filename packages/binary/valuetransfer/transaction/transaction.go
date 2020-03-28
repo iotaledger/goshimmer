@@ -45,6 +45,14 @@ func New(inputs *Inputs, outputs *Outputs) *Transaction {
 }
 
 func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Transaction, err error, consumedBytes int) {
+	marshalUtil := marshalutil.New(bytes)
+	result, err = Parse(marshalUtil, optionalTargetObject...)
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+func FromStorageKey(key []byte, optionalTargetObject ...*Transaction) (result objectstorage.StorableObject, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -52,64 +60,38 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Tran
 	case 1:
 		result = optionalTargetObject[0]
 	default:
-		panic("too many arguments in call to OutputFromBytes")
+		panic("too many arguments in call to FromStorageKey")
 	}
 
-	// initialize helper
-	marshalUtil := marshalutil.New(bytes)
-
-	// unmarshal inputs
-	parsedInputs, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return InputsFromBytes(data) })
+	marshalUtil := marshalutil.New(key)
+	id, err := ParseId(marshalUtil)
 	if err != nil {
 		return
 	}
-	result.inputs = parsedInputs.(*Inputs)
-
-	// unmarshal outputs
-	parsedOutputs, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return OutputsFromBytes(data) })
-	if err != nil {
-		return
-	}
-	result.outputs = parsedOutputs.(*Outputs)
-
-	// store essence bytes
-	essenceBytesCount := marshalUtil.ReadOffset()
-	result.essenceBytes = make([]byte, essenceBytesCount)
-	copy(result.essenceBytes, bytes[:essenceBytesCount])
-
-	// unmarshal outputs
-	parsedSignatures, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return SignaturesFromBytes(data) })
-	if err != nil {
-		return
-	}
-	result.signatures = parsedSignatures.(*Signatures)
-
-	// store signature bytes
-	signatureBytesCount := marshalUtil.ReadOffset() - essenceBytesCount
-	result.signatureBytes = make([]byte, signatureBytesCount)
-	copy(result.signatureBytes, bytes[essenceBytesCount:essenceBytesCount+signatureBytesCount])
-
-	// return the number of bytes we processed
-	consumedBytes = essenceBytesCount + signatureBytesCount
-
-	// store bytes, so we don't have to marshal manually
-	result.bytes = bytes[:consumedBytes]
+	result.(*Transaction).id = &id
 
 	return
 }
 
-func FromStorage(key []byte) *Transaction {
-	id, err, _ := IdFromBytes(key)
-	if err != nil {
-		panic(err)
+func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Transaction) (result *Transaction, err error) {
+	// determine the target object that will hold the unmarshaled information
+	switch len(optionalTargetObject) {
+	case 0:
+		result = &Transaction{}
+	case 1:
+		result = optionalTargetObject[0]
+	default:
+		panic("too many arguments in call to Parse")
 	}
 
-	return &Transaction{
-		id: &id,
-	}
-}
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
-func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Transaction, err error) {
+		return
+	}); err != nil {
+		return
+	}
+
 	return
 }
 
@@ -285,9 +267,7 @@ func (transaction *Transaction) String() string {
 var _ objectstorage.StorableObject = &Transaction{}
 
 func (transaction *Transaction) ObjectStorageKey() []byte {
-	id := transaction.Id()
-
-	return id[:]
+	return transaction.Id().Bytes()
 }
 
 func (transaction *Transaction) Update(other objectstorage.StorableObject) {
@@ -300,7 +280,45 @@ func (transaction *Transaction) ObjectStorageValue() []byte {
 }
 
 func (transaction *Transaction) UnmarshalObjectStorageValue(bytes []byte) (err error, consumedBytes int) {
-	_, err, consumedBytes = FromBytes(bytes, transaction)
+	// initialize helper
+	marshalUtil := marshalutil.New(bytes)
+
+	// unmarshal inputs
+	parsedInputs, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return InputsFromBytes(data) })
+	if err != nil {
+		return
+	}
+	transaction.inputs = parsedInputs.(*Inputs)
+
+	// unmarshal outputs
+	parsedOutputs, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return OutputsFromBytes(data) })
+	if err != nil {
+		return
+	}
+	transaction.outputs = parsedOutputs.(*Outputs)
+
+	// store essence bytes
+	essenceBytesCount := marshalUtil.ReadOffset()
+	transaction.essenceBytes = make([]byte, essenceBytesCount)
+	copy(transaction.essenceBytes, bytes[:essenceBytesCount])
+
+	// unmarshal outputs
+	parsedSignatures, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return SignaturesFromBytes(data) })
+	if err != nil {
+		return
+	}
+	transaction.signatures = parsedSignatures.(*Signatures)
+
+	// store signature bytes
+	signatureBytesCount := marshalUtil.ReadOffset() - essenceBytesCount
+	transaction.signatureBytes = make([]byte, signatureBytesCount)
+	copy(transaction.signatureBytes, bytes[essenceBytesCount:essenceBytesCount+signatureBytesCount])
+
+	// return the number of bytes we processed
+	consumedBytes = essenceBytesCount + signatureBytesCount
+
+	// store bytes, so we don't have to marshal manually
+	transaction.bytes = bytes[:consumedBytes]
 
 	return
 }

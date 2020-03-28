@@ -33,9 +33,20 @@ func New(trunkPayloadId, branchPayloadId Id, valueTransfer *transaction.Transact
 	}
 }
 
+// FromBytes parses the marshaled version of a Payload into an object.
+// It either returns a new Payload or fills an optionally provided Payload with the parsed information.
+func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, err error, consumedBytes int) {
+	marshalUtil := marshalutil.New(bytes)
+	result, err = Parse(marshalUtil, optionalTargetObject...)
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
 func StorableObjectFromKey(key []byte) (result objectstorage.StorableObject, err error, consumedBytes int) {
 	result = &Payload{}
 
+	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
 	if payloadId, idErr := ParseId(marshalUtil); idErr != nil {
 		err = idErr
@@ -49,35 +60,15 @@ func StorableObjectFromKey(key []byte) (result objectstorage.StorableObject, err
 	return
 }
 
-// FromBytes parses the marshaled version of a Payload into an object.
-// It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte) (result *Payload, err error, consumedBytes int) {
-	marshalUtil := marshalutil.New(bytes)
-	result, err = Parse(marshalUtil)
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
-	// read information that are required to identify the payload from the outside
-	_, err = marshalUtil.ReadUint32()
-	if err != nil {
-		return
-	}
-	_, err = marshalUtil.ReadUint32()
-	if err != nil {
-		return
-	}
-
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
-		return StorableObjectFromKey(data)
-	}); parseErr != nil {
-		err = parseErr
-
-		return
-	} else {
-		result = parsedObject.(*Payload)
+func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Payload) (result *Payload, err error) {
+	// determine the target object that will hold the unmarshaled information
+	switch len(optionalTargetObject) {
+	case 0:
+		result = &Payload{}
+	case 1:
+		result = optionalTargetObject[0]
+	default:
+		panic("too many arguments in call to Parse")
 	}
 
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
@@ -199,6 +190,16 @@ func (payload *Payload) ObjectStorageValue() []byte {
 
 func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
 	marshalUtil := marshalutil.New(data)
+
+	// read information that are required to identify the payload from the outside
+	_, err = marshalUtil.ReadUint32()
+	if err != nil {
+		return
+	}
+	_, err = marshalUtil.ReadUint32()
+	if err != nil {
+		return
+	}
 
 	// parse trunk payload id
 	if payload.trunkPayloadId, err = ParseId(marshalUtil); err != nil {
