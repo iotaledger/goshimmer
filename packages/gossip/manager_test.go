@@ -7,9 +7,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
-	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
-	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/database/mapdb"
@@ -18,6 +15,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
+	"github.com/iotaledger/goshimmer/packages/gossip/server"
 )
 
 const graceTime = 10 * time.Millisecond
@@ -380,18 +381,17 @@ func newTestDB(t require.TestingT) *peer.DB {
 func newTestManager(t require.TestingT, name string) (*Manager, func(), *peer.Peer) {
 	l := log.Named(name)
 
-	services := service.New()
-	services.Update(service.PeeringKey, "peering", name)
-	local, err := peer.NewLocal(services, newTestDB(t))
-	require.NoError(t, err)
-
 	laddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	lis, err := net.ListenTCP("tcp", laddr)
 	require.NoError(t, err)
 
-	// enable TCP gossipping
-	require.NoError(t, local.UpdateService(service.GossipKey, lis.Addr().Network(), lis.Addr().String()))
+	services := service.New()
+	services.Update(service.PeeringKey, "peering", 0)
+	services.Update(service.GossipKey, lis.Addr().Network(), lis.Addr().(*net.TCPAddr).Port)
+
+	local, err := peer.NewLocal(lis.Addr().(*net.TCPAddr).IP, services, newTestDB(t))
+	require.NoError(t, err)
 
 	srv := server.ServeTCP(local, lis, l)
 
@@ -404,7 +404,7 @@ func newTestManager(t require.TestingT, name string) (*Manager, func(), *peer.Pe
 		srv.Close()
 		_ = lis.Close()
 	}
-	return mgr, detach, &local.Peer
+	return mgr, detach, local.Peer
 }
 
 func newEventMock(t mock.TestingT) (*eventMock, func()) {

@@ -7,10 +7,10 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload/data"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/tipselector"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/transactionparser"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/transactionparser"
 )
 
 type Spammer struct {
@@ -54,13 +54,14 @@ func (spammer *Spammer) run(tps int, processId int64) {
 
 		// TODO: use transaction factory
 		trunkTransactionId, branchTransactionId := spammer.tipSelector.GetTips()
+
 		msg := message.New(
 			trunkTransactionId,
 			branchTransactionId,
 			spammingIdentity.PublicKey(),
 			time.Now(),
 			0,
-			data.New([]byte("SPAM")),
+			payload.NewData([]byte("SPAM")),
 			spammingIdentity,
 		)
 		spammer.transactionParser.Parse(msg.Bytes(), nil)
@@ -99,9 +100,10 @@ func (spammer *Spammer) sendBurst(transactions int, processId int64) {
 			spammingIdentity.PublicKey(),
 			time.Now(),
 			0,
-			data.New([]byte("SPAM")),
+			payload.NewData([]byte("SPAM")),
 			spammingIdentity,
 		)
+
 		previousTransactionId = spamTransaction.GetId()
 		burstBuffer[i] = spamTransaction.Bytes()
 	}

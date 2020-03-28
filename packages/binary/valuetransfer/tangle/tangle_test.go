@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
@@ -17,6 +18,25 @@ import (
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
 )
+
+func TestAttachment(t *testing.T) {
+	transactionId := transaction.RandomId()
+	payloadId := payload.RandomId()
+
+	attachment := NewAttachment(transactionId, payloadId)
+
+	assert.Equal(t, transactionId, attachment.TransactionId())
+	assert.Equal(t, payloadId, attachment.PayloadId())
+
+	clonedAttachment, err, consumedBytes := AttachmentFromBytes(attachment.Bytes())
+	if err != nil {
+		panic(err)
+	}
+
+	assert.Equal(t, AttachmentLength, consumedBytes)
+	assert.Equal(t, transactionId, clonedAttachment.TransactionId())
+	assert.Equal(t, payloadId, clonedAttachment.PayloadId())
+}
 
 func TestTangle_AttachPayload(t *testing.T) {
 	dir, err := ioutil.TempDir("", t.Name())
