@@ -171,7 +171,7 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 		services := service.New()
 		services.Update(service.PeeringKey, addr.Network(), addr.Port)
 
-		result = append(result, peer.NewPeer(identity.NewIdentity(publicKey), addr.IP, services))
+		result = append(result, peer.NewPeer(identity.New(publicKey), addr.IP, services))
 	}
 
 	return result, nil

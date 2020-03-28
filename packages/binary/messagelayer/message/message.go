@@ -261,7 +261,9 @@ func (transaction *Message) UnmarshalObjectStorageValue(data []byte) (err error,
 	if transaction.branchTransactionId, err = ParseId(marshalUtil); err != nil {
 		return
 	}
-	// TODO PARSE PUBLIC KEY
+	if transaction.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
+		return
+	}
 	if transaction.issuingTime, err = marshalUtil.ReadTime(); err != nil {
 		return
 	}
@@ -271,7 +273,9 @@ func (transaction *Message) UnmarshalObjectStorageValue(data []byte) (err error,
 	if transaction.payload, err = payload.Parse(marshalUtil); err != nil {
 		return
 	}
-	// TODO PARSE SIGNATURE
+	if transaction.signature, err = ed25519.ParseSignature(marshalUtil); err != nil {
+		return
+	}
 
 	// return the number of bytes we processed
 	consumedBytes = marshalUtil.ReadOffset()
