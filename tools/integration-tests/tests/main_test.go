@@ -87,24 +87,20 @@ func waitForNeighbors(peers []string) {
 			url := fmt.Sprintf("%s/%s", base, getNeighborsAPI)
 			if err := getJson(client, url, resp); err != nil {
 				fmt.Printf("request error: %v\n", err)
-				break
-			}
-
-			totalNeighbors := len(resp.Chosen) + len(resp.Accepted)
-			neighbors[base] = totalNeighbors
-
-			// if below threshold, quit current round
-			if totalNeighbors < minimumNeighbors {
-				break
+				neighbors[base] = 0
+			} else {
+				totalNeighbors := len(resp.Chosen) + len(resp.Accepted)
+				neighbors[base] = totalNeighbors
 			}
 		}
 
-		min := 0
+		min := 100
 		total := 0
 		for _, num := range neighbors {
-			if num > min {
+			if num < min {
 				min = num
 			}
+			fmt.Printf("total=%d, len(neighbors)=%d\n", total, len(neighbors))
 			total += num
 		}
 		if min >= minimumNeighbors {
@@ -116,6 +112,7 @@ func waitForNeighbors(peers []string) {
 		time.Sleep(5 * time.Second)
 		maxTries--
 	}
+	panic("Peering not successful.")
 }
 
 func getJson(client *http.Client, url string, target interface{}) error {
