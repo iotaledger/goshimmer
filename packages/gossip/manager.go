@@ -6,7 +6,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 
 	"github.com/golang/protobuf/proto"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
@@ -238,7 +238,7 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 
 	switch pb.MType(data[0]) {
 
-	// Incoming Transaction
+	// Incoming Message
 	case pb.MTransaction:
 		msg := new(pb.Transaction)
 		if err := proto.Unmarshal(data[1:], msg); err != nil {
@@ -247,7 +247,7 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 		m.log.Debugw("received message", "type", "TRANSACTION", "id", p.ID())
 		Events.TransactionReceived.Trigger(&TransactionReceivedEvent{Data: msg.GetData(), Peer: p})
 
-	// Incoming Transaction request
+	// Incoming Message request
 	case pb.MTransactionRequest:
 
 		msg := new(pb.TransactionRequest)
