@@ -1,0 +1,39 @@
+version: "3.7"
+
+services:
+  entry_node:
+    container_name: entry_node
+    image: iotaledger/goshimmer
+    build:
+      context: ../..
+    volumes:
+      - ./config.entry_node.json:/config.json:ro
+# TODO: Issue with visualizer not displaying. Needs to be fixed and then analysis server can run
+#    ports:
+#      - "9000:9000/tcp"
+#    expose:
+#      - "1888/tcp"
+
+  peer_master:
+    container_name: peer_master
+    image: iotaledger/goshimmer
+    build:
+      context: ../..
+    volumes:
+      - ./config.peer_master.json:/config.json:ro
+    ports:
+      - "8080:8080/tcp"
+      - "8081:8081/tcp"
+    depends_on:
+      - entry_node
+
+  peer_replica:
+    image: iotaledger/goshimmer
+    build:
+      context: ../..
+    volumes:
+      - ./config.peer_replica.json:/config.json:ro
+    expose:
+      - "8080/tcp"
+    depends_on:
+      - entry_node
