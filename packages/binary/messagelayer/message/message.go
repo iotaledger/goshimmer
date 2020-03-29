@@ -22,16 +22,16 @@ type Message struct {
 	objectstorage.StorableObjectFlags
 
 	// core properties (they are part of the transaction when being sent)
-	trunkTransactionId  Id
-	branchTransactionId Id
-	issuerPublicKey     ed25519.PublicKey
-	issuingTime         time.Time
-	sequenceNumber      uint64
-	payload             payload.Payload
-	bytes               []byte
-	bytesMutex          sync.RWMutex
-	signature           ed25519.Signature
-	signatureMutex      sync.RWMutex
+	trunkMessageId  Id
+	branchMessageId Id
+	issuerPublicKey ed25519.PublicKey
+	issuingTime     time.Time
+	sequenceNumber  uint64
+	payload         payload.Payload
+	bytes           []byte
+	bytesMutex      sync.RWMutex
+	signature       ed25519.Signature
+	signatureMutex  sync.RWMutex
 
 	// derived properties
 	id             *Id
@@ -44,14 +44,14 @@ type Message struct {
 }
 
 // New creates a new transaction with the details provided by the issuer.
-func New(trunkTransactionId Id, branchTransactionId Id, issuerPublicKey ed25519.PublicKey, issuingTime time.Time, sequenceNumber uint64, payload payload.Payload, localIdentity *identity.LocalIdentity) (result *Message) {
+func New(trunkTransactionId Id, branchTransactionId Id, localIdentity *identity.LocalIdentity, issuingTime time.Time, sequenceNumber uint64, payload payload.Payload) (result *Message) {
 	return &Message{
-		trunkTransactionId:  trunkTransactionId,
-		branchTransactionId: branchTransactionId,
-		issuerPublicKey:     issuerPublicKey,
-		issuingTime:         issuingTime,
-		sequenceNumber:      sequenceNumber,
-		payload:             payload,
+		trunkMessageId:  trunkTransactionId,
+		branchMessageId: branchTransactionId,
+		issuerPublicKey: localIdentity.PublicKey(),
+		issuingTime:     issuingTime,
+		sequenceNumber:  sequenceNumber,
+		payload:         payload,
 
 		issuerLocalIdentity: localIdentity,
 	}
@@ -76,15 +76,6 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Messag
 		panic("too many arguments in call to Parse")
 	}
 
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
-		return StorableObjectFromKey(data)
-	}); parseErr != nil {
-		err = parseErr
-
-		return
-	} else {
-		result = parsedObject.(*Message)
-	}
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
@@ -110,9 +101,12 @@ func StorableObjectFromKey(key []byte, optionalTargetObject ...*Message) (result
 	}
 
 	marshalUtil := marshalutil.New(key)
-	*result.(*Message).id, err = ParseId(marshalUtil)
-	if err != nil {
+	if id, idErr := ParseId(marshalUtil); idErr != nil {
+		err = idErr
+
 		return
+	} else {
+		result.(*Message).id = &id
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
@@ -129,7 +123,7 @@ func (transaction *Message) VerifySignature() (result bool) {
 	return
 }
 
-func (transaction *Message) GetId() (result Id) {
+func (transaction *Message) Id() (result Id) {
 	transaction.idMutex.RLock()
 	if transaction.id == nil {
 		transaction.idMutex.RUnlock()
@@ -152,12 +146,16 @@ func (transaction *Message) GetId() (result Id) {
 	return
 }
 
-func (transaction *Message) GetTrunkTransactionId() Id {
-	return transaction.trunkTransactionId
+func (transaction *Message) TrunkMessageId() Id {
+	return transaction.trunkMessageId
 }
 
-func (transaction *Message) GetBranchTransactionId() Id {
-	return transaction.branchTransactionId
+func (transaction *Message) BranchMessageId() Id {
+	return transaction.branchMessageId
+}
+
+func (transaction *Message) IssuerPublicKey() ed25519.PublicKey {
+	return transaction.issuerPublicKey
 }
 
 // IssuingTime returns the time when the transaction was created.
@@ -170,11 +168,11 @@ func (transaction *Message) SequenceNumber() uint64 {
 	return transaction.sequenceNumber
 }
 
-func (transaction *Message) GetPayload() payload.Payload {
+func (transaction *Message) Payload() payload.Payload {
 	return transaction.payload
 }
 
-func (transaction *Message) GetPayloadId() (result payload.Id) {
+func (transaction *Message) PayloadId() (result payload.Id) {
 	transaction.payloadIdMutex.RLock()
 	if transaction.payloadId == nil {
 		transaction.payloadIdMutex.RUnlock()
@@ -198,15 +196,15 @@ func (transaction *Message) GetPayloadId() (result payload.Id) {
 }
 
 func (transaction *Message) calculateTransactionId() Id {
-	payloadId := transaction.GetPayloadId()
+	payloadId := transaction.PayloadId()
 
 	hashBase := make([]byte, IdLength+IdLength+payload.IdLength)
 	offset := 0
 
-	copy(hashBase[offset:], transaction.trunkTransactionId[:])
+	copy(hashBase[offset:], transaction.trunkMessageId[:])
 	offset += IdLength
 
-	copy(hashBase[offset:], transaction.branchTransactionId[:])
+	copy(hashBase[offset:], transaction.branchMessageId[:])
 	offset += IdLength
 
 	copy(hashBase[offset:], payloadId[:])
@@ -239,15 +237,20 @@ func (transaction *Message) Bytes() []byte {
 
 	// marshal result
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteBytes(transaction.trunkTransactionId.Bytes())
-	marshalUtil.WriteBytes(transaction.branchTransactionId.Bytes())
+	marshalUtil.WriteBytes(transaction.trunkMessageId.Bytes())
+	marshalUtil.WriteBytes(transaction.branchMessageId.Bytes())
 	marshalUtil.WriteBytes(transaction.issuerPublicKey.Bytes())
 	marshalUtil.WriteTime(transaction.issuingTime)
 	marshalUtil.WriteUint64(transaction.sequenceNumber)
 	marshalUtil.WriteBytes(transaction.payload.Bytes())
-	marshalUtil.WriteBytes(transaction.issuerLocalIdentity.Sign(marshalUtil.Bytes()).Bytes())
 
-	return marshalUtil.Bytes()
+	transaction.signature = transaction.issuerLocalIdentity.Sign(marshalUtil.Bytes())
+
+	marshalUtil.WriteBytes(transaction.signature.Bytes())
+
+	transaction.bytes = marshalUtil.Bytes()
+
+	return transaction.bytes
 }
 
 func (transaction *Message) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
@@ -255,10 +258,10 @@ func (transaction *Message) UnmarshalObjectStorageValue(data []byte) (err error,
 	marshalUtil := marshalutil.New(data)
 
 	// parse information
-	if transaction.trunkTransactionId, err = ParseId(marshalUtil); err != nil {
+	if transaction.trunkMessageId, err = ParseId(marshalUtil); err != nil {
 		return
 	}
-	if transaction.branchTransactionId, err = ParseId(marshalUtil); err != nil {
+	if transaction.branchMessageId, err = ParseId(marshalUtil); err != nil {
 		return
 	}
 	if transaction.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
@@ -288,7 +291,7 @@ func (transaction *Message) UnmarshalObjectStorageValue(data []byte) (err error,
 }
 
 func (transaction *Message) ObjectStorageKey() []byte {
-	return transaction.GetId().Bytes()
+	return transaction.Id().Bytes()
 }
 
 // Since transactions are immutable and do not get changed after being created, we cache the result of the marshaling.
@@ -301,13 +304,17 @@ func (transaction *Message) Update(other objectstorage.StorableObject) {
 }
 
 func (transaction *Message) String() string {
-	transactionId := transaction.GetId()
+	transactionId := transaction.Id()
 
 	return stringify.Struct("Message",
 		stringify.StructField("id", base58.Encode(transactionId[:])),
-		stringify.StructField("trunkTransactionId", base58.Encode(transaction.trunkTransactionId[:])),
-		stringify.StructField("trunkTransactionId", base58.Encode(transaction.branchTransactionId[:])),
+		stringify.StructField("trunkTransactionId", base58.Encode(transaction.trunkMessageId[:])),
+		stringify.StructField("trunkTransactionId", base58.Encode(transaction.branchMessageId[:])),
+		stringify.StructField("issuer", base58.Encode(transaction.issuerPublicKey[:])),
+		stringify.StructField("issuingTime", transaction.issuingTime),
+		stringify.StructField("sequenceNumber", transaction.sequenceNumber),
 		stringify.StructField("payload", transaction.payload),
+		stringify.StructField("signature", transaction.signature[:]),
 	)
 }
 

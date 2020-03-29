@@ -3,6 +3,7 @@ module github.com/iotaledger/goshimmer
 go 1.14
 
 require (
+	github.com/dgraph-io/badger v1.5.4
 	github.com/dgraph-io/badger/v2 v2.0.2
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gobuffalo/packr/v2 v2.7.1

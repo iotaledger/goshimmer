@@ -54,15 +54,15 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 		var p payload.Payload = NewMockPayload(data)
 		msg := msgFactory.IssuePayload(p)
 
-		assert.NotNil(t, msg.GetTrunkTransactionId())
-		assert.NotNil(t, msg.GetBranchTransactionId())
+		assert.NotNil(t, msg.TrunkMessageId())
+		assert.NotNil(t, msg.BranchMessageId())
 
 		// time in range of 0.1 seconds
 		assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
 
 		// check payload
-		assert.Same(t, p, msg.GetPayload())
-		assert.Equal(t, data, msg.GetPayload().Bytes())
+		assert.Same(t, p, msg.Payload())
+		assert.Equal(t, data, msg.Payload().Bytes())
 
 		// check total events and sequence number
 		assert.EqualValues(t, 1, countEvents)
@@ -80,15 +80,15 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 				var p payload.Payload = NewMockPayload(data)
 				msg := msgFactory.IssuePayload(p)
 
-				assert.NotNil(t, msg.GetTrunkTransactionId())
-				assert.NotNil(t, msg.GetBranchTransactionId())
+				assert.NotNil(t, msg.TrunkMessageId())
+				assert.NotNil(t, msg.BranchMessageId())
 
 				// time in range of 0.1 seconds
 				assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
 
 				// check payload
-				assert.Same(t, p, msg.GetPayload())
-				assert.Equal(t, data, msg.GetPayload().Bytes())
+				assert.Same(t, p, msg.Payload())
+				assert.Equal(t, data, msg.Payload().Bytes())
 
 				sequenceNumbers.Store(msg.SequenceNumber(), true)
 			})

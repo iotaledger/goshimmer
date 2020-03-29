@@ -55,7 +55,7 @@ func ExamplePayload() {
 		message.EmptyId,
 
 		// issuer of the transaction (signs automatically)
-		localIdentity.PublicKey(),
+		localIdentity,
 
 		// the time when the transaction was created
 		time.Now(),
@@ -65,8 +65,6 @@ func ExamplePayload() {
 
 		// payload
 		valuePayload,
-
-		localIdentity,
 	)
 
 	fmt.Println(tx)

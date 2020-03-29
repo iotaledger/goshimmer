@@ -24,7 +24,7 @@ type ExplorerTx struct {
 }
 
 func createExplorerTx(tx *message.Message) (*ExplorerTx, error) {
-	transactionId := tx.GetId()
+	transactionId := tx.Id()
 
 	txMetadata := messagelayer.Tangle.MessageMetadata(transactionId)
 
@@ -34,8 +34,8 @@ func createExplorerTx(tx *message.Message) (*ExplorerTx, error) {
 		Address:                  "",
 		Timestamp:                0,
 		Value:                    0,
-		Trunk:                    tx.GetTrunkTransactionId().String(),
-		Branch:                   tx.GetBranchTransactionId().String(),
+		Trunk:                    tx.TrunkMessageId().String(),
+		Branch:                   tx.BranchMessageId().String(),
 		Solid:                    txMetadata.Unwrap().IsSolid(),
 	}
 
