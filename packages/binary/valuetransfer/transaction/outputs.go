@@ -2,8 +2,9 @@ package transaction
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
+	"github.com/iotaledger/hive.go/marshalutil"
+
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
 )
 

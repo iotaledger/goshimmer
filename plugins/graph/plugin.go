@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"golang.org/x/net/context"
 
@@ -102,10 +102,10 @@ func run(*node.Plugin) {
 
 	daemon.BackgroundWorker("Graph[NewTxWorker]", func(shutdownSignal <-chan struct{}) {
 		log.Info("Starting Graph[NewTxWorker] ... done")
-		tangle.Instance.Events.TransactionAttached.Attach(notifyNewTx)
+		messagelayer.Tangle.Events.TransactionAttached.Attach(notifyNewTx)
 		newTxWorkerPool.Start()
 		<-shutdownSignal
-		tangle.Instance.Events.TransactionAttached.Detach(notifyNewTx)
+		messagelayer.Tangle.Events.TransactionAttached.Detach(notifyNewTx)
 		newTxWorkerPool.Stop()
 		log.Info("Stopping Graph[NewTxWorker] ... done")
 	}, shutdown.ShutdownPriorityGraph)

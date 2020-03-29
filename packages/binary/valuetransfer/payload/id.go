@@ -4,9 +4,8 @@ import (
 	"crypto/rand"
 	"fmt"
 
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/mr-tron/base58"
-
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
 )
 
 // Id represents the hash of a payload that is used to identify the given payload.

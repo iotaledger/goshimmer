@@ -58,7 +58,7 @@ func TestUnansweredDial(t *testing.T) {
 	// create peer with invalid gossip address
 	services := getPeer(transA).Services().CreateRecord()
 	services.Update(service.GossipKey, "tcp", 0)
-	unreachablePeer := peer.NewPeer(getPeer(transA).PublicKey(), net.ParseIP("127.0.0.1"), services)
+	unreachablePeer := peer.NewPeer(getPeer(transA).Identity, net.ParseIP("127.0.0.1"), services)
 
 	_, err := transA.DialPeer(unreachablePeer)
 	assert.Error(t, err)
@@ -82,7 +82,7 @@ func TestNoHandshakeResponse(t *testing.T) {
 	// create peer for the listener
 	services := getPeer(transA).Services().CreateRecord()
 	services.Update(service.GossipKey, lis.Addr().Network(), lis.Addr().(*net.TCPAddr).Port)
-	p := peer.NewPeer(getPeer(transA).PublicKey(), lis.Addr().(*net.TCPAddr).IP, services)
+	p := peer.NewPeer(getPeer(transA).Identity, lis.Addr().(*net.TCPAddr).IP, services)
 
 	_, err = transA.DialPeer(p)
 	assert.Error(t, err)
