@@ -2,6 +2,7 @@ package test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -35,5 +36,8 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 		assert.Equal(t, testMessage.TrunkMessageId(), restoredMessage.TrunkMessageId())
 		assert.Equal(t, testMessage.BranchMessageId(), restoredMessage.BranchMessageId())
 		assert.Equal(t, testMessage.IssuerPublicKey(), restoredMessage.IssuerPublicKey())
+		assert.Equal(t, testMessage.IssuingTime().Round(time.Second), restoredMessage.IssuingTime().Round(time.Second))
+		assert.Equal(t, testMessage.SequenceNumber(), restoredMessage.SequenceNumber())
+		assert.Equal(t, testMessage.Signature(), restoredMessage.Signature())
 	}
 }

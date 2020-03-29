@@ -168,6 +168,10 @@ func (transaction *Message) SequenceNumber() uint64 {
 	return transaction.sequenceNumber
 }
 
+func (transaction *Message) Signature() ed25519.Signature {
+	return transaction.signature
+}
+
 func (transaction *Message) Payload() payload.Payload {
 	return transaction.payload
 }
@@ -308,8 +312,8 @@ func (transaction *Message) String() string {
 
 	return stringify.Struct("Message",
 		stringify.StructField("id", base58.Encode(transactionId[:])),
-		stringify.StructField("trunkTransactionId", base58.Encode(transaction.trunkMessageId[:])),
-		stringify.StructField("trunkTransactionId", base58.Encode(transaction.branchMessageId[:])),
+		stringify.StructField("trunkMessageId", base58.Encode(transaction.trunkMessageId[:])),
+		stringify.StructField("branchMessageId", base58.Encode(transaction.branchMessageId[:])),
 		stringify.StructField("issuer", base58.Encode(transaction.issuerPublicKey[:])),
 		stringify.StructField("issuingTime", transaction.issuingTime),
 		stringify.StructField("sequenceNumber", transaction.sequenceNumber),
