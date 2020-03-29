@@ -170,36 +170,6 @@ func (sig *blsSignature) String() string {
 	return base58.Encode(sig[:])
 }
 
-func AggregateBLSSignatureSchemes(sigSchemes ...SignatureScheme) (SignatureScheme, error) {
-	priKeys := make([]kyber.Scalar, len(sigSchemes))
-	pubKeys := make([]kyber.Point, len(sigSchemes))
-	for i, s := range sigSchemes {
-		ss, ok := s.(*blsSignatureScheme)
-		if !ok {
-			return nil, fmt.Errorf("not a BLS signature scheme")
-		}
-		priKeys[i] = ss.priKey
-		pubKeys[i] = ss.pubKey
-	}
-	aggregatedPriKey := suite.G2().Scalar().Zero()
-	// sum up all private keys
-	for i := range priKeys {
-		aggregatedPriKey = aggregatedPriKey.Add(aggregatedPriKey, priKeys[i])
-	}
-	mask, _ := sign.NewMask(suite, pubKeys, nil)
-	for i := range pubKeys {
-		_ = mask.SetBit(i, true)
-	}
-	aggregatedPubKey, err := bdn.AggregatePublicKeys(suite, mask)
-	if err != nil {
-		return nil, err
-	}
-	return &blsSignatureScheme{
-		priKey: aggregatedPriKey,
-		pubKey: aggregatedPubKey,
-	}, nil
-}
-
 func AggregateBLSSignatures(sigs ...Signature) (Signature, error) {
 	if len(sigs) == 0 {
 		return nil, fmt.Errorf("must be at least one signature to aggregate")
