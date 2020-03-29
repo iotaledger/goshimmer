@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/analysis/types/heartbeat"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/network"
@@ -13,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/timeutil"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/heartbeat"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -42,7 +42,7 @@ func Run(plugin *node.Plugin) {
 
 					reportHeartbeat(eventDispatchers)
 
-					timeutil.Sleep(15*time.Second, shutdownSignal)
+					timeutil.Sleep(REPORT_INTERVAL*time.Second, shutdownSignal)
 				}
 			}
 		}
@@ -66,13 +66,15 @@ func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 				"outboundIds", out,
 				"inboundIds", in,
 			)
-			log.Info("Heartbeat message on the way...")
-			log.Info("nodeId: " + hex.EncodeToString(nodeId))
-			log.Info("outboundIds" + out)
-			log.Info("inbound: " + in)
+			/*
+				log.Info("Heartbeat message on the way...")
+				log.Info("nodeId: " + hex.EncodeToString(nodeId))
+				log.Info("outboundIds" + out)
+				log.Info("inbound: " + in)*/
 			connLock.Lock()
 			_, _ = conn.Write((&heartbeat.Packet{OwnID: nodeId, OutboundIDs: outboundIds, InboundIDs: inboundIds}).Marshal())
 			connLock.Unlock()
+
 		},
 	}
 }

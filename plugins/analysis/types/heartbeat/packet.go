@@ -13,7 +13,7 @@ type Packet struct {
 	InboundIDs  [][]byte
 }
 
-func UnMarshal(data []byte) (*Packet, error) {
+func Unmarshal(data []byte) (*Packet, error) {
 	// So far we are only sure about the static part
 	MARSHALED_TOTAL_SIZE := MARSHALED_PACKET_HEADER_SIZE + MARSHALED_OWN_ID_SIZE
 	// Check if len is smaller than the static parts we know at the moment

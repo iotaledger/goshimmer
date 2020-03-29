@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/iotaledger/goshimmer/plugins/analysis/types/heartbeat"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -12,6 +13,7 @@ var Events = struct {
 	NodeOnline      *events.Event
 	NodeOffline     *events.Event
 	Error           *events.Event
+	Heartbeat       *events.Event
 }{
 	events.NewEvent(stringCaller),
 	events.NewEvent(stringCaller),
@@ -20,6 +22,7 @@ var Events = struct {
 	events.NewEvent(stringCaller),
 	events.NewEvent(stringCaller),
 	events.NewEvent(errorCaller),
+	events.NewEvent(heartbeatPacketCaller),
 }
 
 func stringCaller(handler interface{}, params ...interface{}) {
@@ -29,3 +32,7 @@ func stringStringCaller(handler interface{}, params ...interface{}) {
 	handler.(func(string, string))(params[0].(string), params[1].(string))
 }
 func errorCaller(handler interface{}, params ...interface{}) { handler.(func(error))(params[0].(error)) }
+
+func heartbeatPacketCaller(handler interface{}, params ...interface{}) {
+	handler.(func(heartbeat.Packet))(params[0].(heartbeat.Packet))
+}

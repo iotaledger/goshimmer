@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
+	"github.com/iotaledger/goshimmer/plugins/analysis/types/heartbeat"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/ping"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/removenode"
 )
@@ -21,4 +22,5 @@ const (
 	STATE_REMOVE_NODE      = removenode.MARSHALED_PACKET_HEADER
 	STATE_CONNECT_NODES    = connectnodes.MARSHALED_PACKET_HEADER
 	STATE_DISCONNECT_NODES = disconnectnodes.MARSHALED_PACKET_HEADER
+	STATE_HEARTBEAT        = heartbeat.MARSHALED_PACKET_HEADER
 )

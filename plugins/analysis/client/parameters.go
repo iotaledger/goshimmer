@@ -6,6 +6,7 @@ import (
 
 const (
 	CFG_SERVER_ADDRESS = "analysis.client.serverAddress"
+	REPORT_INTERVAL    = 5
 )
 
 func init() {
