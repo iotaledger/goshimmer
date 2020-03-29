@@ -83,10 +83,10 @@ func OutputFromBytes(bytes []byte, optionalTargetObject ...*Output) (result *Out
 // OutputFromStorageKey get's called when we restore a Output from the storage.
 // In contrast to other database models, it unmarshals some information from the key so we simply store the key before
 // it gets handed over to UnmarshalObjectStorageValue (by the ObjectStorage).
-func OutputFromStorageKey(keyBytes []byte) (objectstorage.StorableObject, error) {
+func OutputFromStorageKey(keyBytes []byte) (result objectstorage.StorableObject, err error, consumedBytes int) {
 	return &Output{
 		storageKey: keyBytes[:OutputIdLength],
-	}, nil
+	}, nil, OutputIdLength
 }
 
 // Address returns the address that this output belongs to.
@@ -120,7 +120,7 @@ func (output *Output) ObjectStorageValue() (data []byte) {
 	balanceCount := len(output.balances)
 
 	// initialize helper
-	marshalUtil := marshalutil.New(4 + balanceCount*balance.Length)
+	marshalUtil := marshalutil.New(marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
 	marshalUtil.WriteBool(output.solid)
 	marshalUtil.WriteTime(output.solidSince)
 	marshalUtil.WriteUint32(uint32(balanceCount))
@@ -133,8 +133,8 @@ func (output *Output) ObjectStorageValue() (data []byte) {
 
 // UnmarshalObjectStorageValue restores a Output from a serialized version in the ObjectStorage with parts of the object
 // being stored in its key rather than the content of the database to reduce storage requirements.
-func (output *Output) UnmarshalObjectStorageValue(data []byte) (err error) {
-	_, err, _ = OutputFromBytes(marshalutil.New(output.storageKey).WriteBytes(data).Bytes(), output)
+func (output *Output) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+	_, err, consumedBytes = OutputFromBytes(marshalutil.New(output.storageKey).WriteBytes(data).Bytes(), output)
 
 	return
 }

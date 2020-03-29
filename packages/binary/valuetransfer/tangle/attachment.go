@@ -71,13 +71,13 @@ func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (*Attachment, error) 
 
 // AttachmentFromStorageKey gets called when we restore an Attachment from the storage - it parses the key bytes and
 // returns the new object.
-func AttachmentFromStorageKey(keyBytes []byte) (objectstorage.StorableObject, error) {
+func AttachmentFromStorageKey(keyBytes []byte) (objectstorage.StorableObject, error, int) {
 	result, err, _ := AttachmentFromBytes(keyBytes)
 	if err != nil {
-		return nil, err
+		return nil, err, 0
 	}
 
-	return result, nil
+	return result, nil, 0
 }
 
 // TransactionId returns the transaction id of this Attachment.
@@ -116,7 +116,7 @@ func (attachment *Attachment) ObjectStorageValue() (data []byte) {
 
 // UnmarshalObjectStorageValue unmarshals the "content part" of an Attachment from a sequence of bytes. Since all of the information
 // for this object are stored in its key, this method does nothing and is only required to conform with the interface.
-func (attachment *Attachment) UnmarshalObjectStorageValue(data []byte) (err error) {
+func (attachment *Attachment) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
 	return
 }
 
