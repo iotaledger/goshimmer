@@ -36,7 +36,7 @@ jobs:
       run: docker ps -a
 
     - name: Run integration tests
-      run: docker-compose -f tools/integration-tests/tests/docker-compose.yml up --exit-code-from tester
+      run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --exit-code-from tester
 
     - name: Clean up
       run: docker-compose -f tools/integration-tests/docker-compose.yml down --rmi all --remove-orphan --volumes
