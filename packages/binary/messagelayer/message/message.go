@@ -117,7 +117,7 @@ func (transaction *Message) VerifySignature() (result bool) {
 	transactionBytes := transaction.Bytes()
 
 	transaction.signatureMutex.RLock()
-	result = transaction.issuerPublicKey.VerifySignature(transactionBytes[:len(transactionBytes)-ed25519.SignatureSize], transaction.signature)
+	result = transaction.issuerPublicKey.VerifySignature(transactionBytes[:len(transactionBytes)-ed25519.SignatureSize], transaction.Signature())
 	transaction.signatureMutex.RUnlock()
 
 	return
@@ -169,6 +169,20 @@ func (transaction *Message) SequenceNumber() uint64 {
 }
 
 func (transaction *Message) Signature() ed25519.Signature {
+	transaction.signatureMutex.RLock()
+	if transaction.signature == ed25519.EmptySignature {
+		transaction.signatureMutex.RUnlock()
+		transaction.signatureMutex.Lock()
+		defer transaction.signatureMutex.Unlock()
+
+		if transaction.signature == ed25519.EmptySignature {
+			// generate the signature
+			transaction.Bytes()
+		}
+	} else {
+		defer transaction.signatureMutex.RUnlock()
+	}
+
 	return transaction.signature
 }
 

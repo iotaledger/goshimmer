@@ -39,5 +39,6 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 		assert.Equal(t, testMessage.IssuingTime().Round(time.Second), restoredMessage.IssuingTime().Round(time.Second))
 		assert.Equal(t, testMessage.SequenceNumber(), restoredMessage.SequenceNumber())
 		assert.Equal(t, testMessage.Signature(), restoredMessage.Signature())
+		assert.Equal(t, true, restoredMessage.VerifySignature())
 	}
 }
