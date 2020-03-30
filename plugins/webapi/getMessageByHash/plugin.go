@@ -32,7 +32,7 @@ func getMessageByHash(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	result := make([]Message, len(request.Hashes))
+	var result []Message
 	for _, hash := range request.Hashes {
 		log.Info("Received:", hash)
 
@@ -48,15 +48,16 @@ func getMessageByHash(c echo.Context) error {
 		}
 
 		msg := msgObject.Unwrap()
+		msgObject.Release()
 		msgResp := Message{
-			MessageId:           msg.GetId().String(),
-			TrunkTransactionId:  msg.GetTrunkTransactionId().String(),
-			BranchTransactionId: msg.GetBranchTransactionId().String(),
-			IssuerPublicKey:     "",
+			MessageId:           msg.Id().String(),
+			TrunkTransactionId:  msg.TrunkId().String(),
+			BranchTransactionId: msg.BranchId().String(),
+			IssuerPublicKey:     msg.IssuerPublicKey().String(),
 			IssuingTime:         msg.IssuingTime().String(),
 			SequenceNumber:      msg.SequenceNumber(),
-			Payload:             msg.GetPayload().String(),
-			Signature:           "",
+			Payload:             msg.Payload().String(),
+			Signature:           msg.Signature().String(),
 		}
 		result = append(result, msgResp)
 	}
