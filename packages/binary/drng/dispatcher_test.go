@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/events"
 	cbPayload "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/require"
 )
@@ -21,7 +21,7 @@ var (
 	prevSignatureTest []byte
 	signatureTest     []byte
 	dpkTest           []byte
-	issuerPK          ed25119.PublicKey
+	issuerPK          ed25519.PublicKey
 	committeeTest     *state.Committee
 	timestampTest     time.Time
 	randomnessTest    *state.Randomness
@@ -40,13 +40,13 @@ func init() {
 		Timestamp:  timestampTest,
 	}
 
-	kp := ed25119.GenerateKeyPair()
+	kp := ed25519.GenerateKeyPair()
 	issuerPK = kp.PublicKey
 
 	committeeTest = &state.Committee{
 		InstanceID:    1,
 		Threshold:     3,
-		Identities:    []ed25119.PublicKey{issuerPK},
+		Identities:    []ed25519.PublicKey{issuerPK},
 		DistributedPK: dpkTest,
 	}
 }

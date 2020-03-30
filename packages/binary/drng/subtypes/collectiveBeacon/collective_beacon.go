@@ -9,7 +9,7 @@ import (
 	"github.com/drand/drand/key"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/events"
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 )
 
 // ProcessTransaction performs the following tasks:
@@ -68,7 +68,7 @@ func VerifyCollectiveBeacon(state *state.State, data *events.CollectiveBeaconEve
 }
 
 // verifyIssuer checks the given issuer is a member of the committee
-func verifyIssuer(state *state.State, issuer ed25119.PublicKey) error {
+func verifyIssuer(state *state.State, issuer ed25519.PublicKey) error {
 	for _, member := range state.Committee().Identities {
 		if member == issuer {
 			return nil

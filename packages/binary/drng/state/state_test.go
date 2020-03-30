@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,7 +19,7 @@ func dummyCommittee() *Committee {
 	return &Committee{
 		InstanceID:    0,
 		Threshold:     0,
-		Identities:    []ed25119.PublicKey{},
+		Identities:    []ed25519.PublicKey{},
 		DistributedPK: []byte{},
 	}
 }
@@ -31,7 +31,7 @@ func TestState(t *testing.T) {
 	require.Equal(t, *dummyCommittee(), stateTest.Committee())
 
 	// committee setters - getters
-	newCommittee := &Committee{1, 1, []ed25119.PublicKey{}, []byte{11}}
+	newCommittee := &Committee{1, 1, []ed25519.PublicKey{}, []byte{11}}
 	stateTest.SetCommittee(newCommittee)
 	require.Equal(t, *newCommittee, stateTest.Committee())
 

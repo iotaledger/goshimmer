@@ -3,9 +3,9 @@ package drng
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/drng"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/transactionmetadata"
-	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/node"
@@ -25,17 +25,17 @@ func configure(*node.Plugin) {
 func run(*node.Plugin) {}
 
 func configureEvents() {
-	tangle.Instance.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedTransaction, cachedTransactionMetadata *transactionmetadata.CachedTransactionMetadata) {
-		cachedTransactionMetadata.Release()
+	messagelayer.Tangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		cachedMessageMetadata.Release()
 
-		cachedTransaction.Consume(func(transaction *message.Transaction) {
-			marshalUtil := marshalutil.New(transaction.GetPayload().Bytes())
+		cachedMessage.Consume(func(msg *message.Message) {
+			marshalUtil := marshalutil.New(msg.GetPayload().Bytes())
 			parsedPayload, err := payload.Parse(marshalUtil)
 			if err != nil {
 				//TODO: handle error
 				return
 			}
-			if err := Instance.Dispatch(transaction.IssuerPublicKey(), transaction.IssuingTime(), parsedPayload); err != nil {
+			if err := Instance.Dispatch(msg.IssuerPublicKey(), msg.IssuingTime(), parsedPayload); err != nil {
 				//TODO: handle error
 			}
 		})

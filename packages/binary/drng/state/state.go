@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 )
 
 type Randomness struct {
@@ -22,7 +22,7 @@ func (r Randomness) Float64() float64 {
 type Committee struct {
 	InstanceID    uint32
 	Threshold     uint8
-	Identities    []ed25119.PublicKey
+	Identities    []ed25519.PublicKey
 	DistributedPK []byte
 }
 type State struct {

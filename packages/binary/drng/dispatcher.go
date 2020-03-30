@@ -9,11 +9,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/events"
 	cb "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
-func (drng *Instance) Dispatch(issuer ed25119.PublicKey, timestamp time.Time, payload *payload.Payload) error {
+func (drng *Instance) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payload *payload.Payload) error {
 	switch payload.SubType() {
 	case header.CollectiveBeaconType():
 		// parse as CollectiveBeaconType

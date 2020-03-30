@@ -7,7 +7,7 @@ import (
 
 	drngPayload "github.com/iotaledger/goshimmer/packages/binary/drng/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
