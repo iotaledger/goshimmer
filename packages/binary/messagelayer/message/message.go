@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
-	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
@@ -22,8 +21,8 @@ type Message struct {
 	objectstorage.StorableObjectFlags
 
 	// core properties (they are part of the transaction when being sent)
-	trunkMessageId  Id
-	branchMessageId Id
+	trunkId         Id
+	branchId        Id
 	issuerPublicKey ed25519.PublicKey
 	issuingTime     time.Time
 	sequenceNumber  uint64
@@ -46,8 +45,8 @@ type Message struct {
 // New creates a new transaction with the details provided by the issuer.
 func New(trunkTransactionId Id, branchTransactionId Id, localIdentity *identity.LocalIdentity, issuingTime time.Time, sequenceNumber uint64, payload payload.Payload) (result *Message) {
 	return &Message{
-		trunkMessageId:  trunkTransactionId,
-		branchMessageId: branchTransactionId,
+		trunkId:         trunkTransactionId,
+		branchId:        branchTransactionId,
 		issuerPublicKey: localIdentity.PublicKey(),
 		issuingTime:     issuingTime,
 		sequenceNumber:  sequenceNumber,
@@ -113,186 +112,176 @@ func StorableObjectFromKey(key []byte, optionalTargetObject ...*Message) (result
 	return
 }
 
-func (transaction *Message) VerifySignature() (result bool) {
-	transactionBytes := transaction.Bytes()
+func (message *Message) VerifySignature() (result bool) {
+	transactionBytes := message.Bytes()
 
-	transaction.signatureMutex.RLock()
-	result = transaction.issuerPublicKey.VerifySignature(transactionBytes[:len(transactionBytes)-ed25519.SignatureSize], transaction.Signature())
-	transaction.signatureMutex.RUnlock()
+	message.signatureMutex.RLock()
+	result = message.issuerPublicKey.VerifySignature(transactionBytes[:len(transactionBytes)-ed25519.SignatureSize], message.Signature())
+	message.signatureMutex.RUnlock()
 
 	return
 }
 
-func (transaction *Message) Id() (result Id) {
-	transaction.idMutex.RLock()
-	if transaction.id == nil {
-		transaction.idMutex.RUnlock()
+func (message *Message) Id() (result Id) {
+	message.idMutex.RLock()
+	if message.id == nil {
+		message.idMutex.RUnlock()
 
-		transaction.idMutex.Lock()
-		if transaction.id == nil {
-			result = transaction.calculateTransactionId()
+		message.idMutex.Lock()
+		if message.id == nil {
+			result = message.calculateId()
 
-			transaction.id = &result
+			message.id = &result
 		} else {
-			result = *transaction.id
+			result = *message.id
 		}
-		transaction.idMutex.Unlock()
+		message.idMutex.Unlock()
 	} else {
-		result = *transaction.id
+		result = *message.id
 
-		transaction.idMutex.RUnlock()
+		message.idMutex.RUnlock()
 	}
 
 	return
 }
 
-func (transaction *Message) TrunkMessageId() Id {
-	return transaction.trunkMessageId
+func (message *Message) TrunkId() Id {
+	return message.trunkId
 }
 
-func (transaction *Message) BranchMessageId() Id {
-	return transaction.branchMessageId
+func (message *Message) BranchId() Id {
+	return message.branchId
 }
 
-func (transaction *Message) IssuerPublicKey() ed25519.PublicKey {
-	return transaction.issuerPublicKey
+func (message *Message) IssuerPublicKey() ed25519.PublicKey {
+	return message.issuerPublicKey
 }
 
 // IssuingTime returns the time when the transaction was created.
-func (transaction *Message) IssuingTime() time.Time {
-	return transaction.issuingTime
+func (message *Message) IssuingTime() time.Time {
+	return message.issuingTime
 }
 
 // SequenceNumber returns the sequence number of this transaction.
-func (transaction *Message) SequenceNumber() uint64 {
-	return transaction.sequenceNumber
+func (message *Message) SequenceNumber() uint64 {
+	return message.sequenceNumber
 }
 
-func (transaction *Message) Signature() ed25519.Signature {
-	transaction.signatureMutex.RLock()
-	defer transaction.signatureMutex.RUnlock()
+func (message *Message) Signature() ed25519.Signature {
+	message.signatureMutex.RLock()
+	defer message.signatureMutex.RUnlock()
 
-	if transaction.signature == ed25519.EmptySignature {
+	if message.signature == ed25519.EmptySignature {
 		// unlock the signatureMutex so Bytes() can write the Signature
-		transaction.signatureMutex.RUnlock()
-		transaction.Bytes()
-		transaction.signatureMutex.RLock()
+		message.signatureMutex.RUnlock()
+		message.Bytes()
+		message.signatureMutex.RLock()
 	}
 
-	return transaction.signature
+	return message.signature
 }
 
-func (transaction *Message) Payload() payload.Payload {
-	return transaction.payload
+func (message *Message) Payload() payload.Payload {
+	return message.payload
 }
 
-func (transaction *Message) PayloadId() (result payload.Id) {
-	transaction.payloadIdMutex.RLock()
-	if transaction.payloadId == nil {
-		transaction.payloadIdMutex.RUnlock()
+func (message *Message) PayloadId() (result payload.Id) {
+	message.payloadIdMutex.RLock()
+	if message.payloadId == nil {
+		message.payloadIdMutex.RUnlock()
 
-		transaction.payloadIdMutex.Lock()
-		if transaction.payloadId == nil {
-			result = transaction.calculatePayloadId()
+		message.payloadIdMutex.Lock()
+		if message.payloadId == nil {
+			result = message.calculatePayloadId()
 
-			transaction.payloadId = &result
+			message.payloadId = &result
 		} else {
-			result = *transaction.payloadId
+			result = *message.payloadId
 		}
-		transaction.payloadIdMutex.Unlock()
+		message.payloadIdMutex.Unlock()
 	} else {
-		result = *transaction.payloadId
+		result = *message.payloadId
 
-		transaction.payloadIdMutex.RUnlock()
+		message.payloadIdMutex.RUnlock()
 	}
 
 	return
 }
 
-func (transaction *Message) calculateTransactionId() Id {
-	payloadId := transaction.PayloadId()
-
-	hashBase := make([]byte, IdLength+IdLength+payload.IdLength)
-	offset := 0
-
-	copy(hashBase[offset:], transaction.trunkMessageId[:])
-	offset += IdLength
-
-	copy(hashBase[offset:], transaction.branchMessageId[:])
-	offset += IdLength
-
-	copy(hashBase[offset:], payloadId[:])
-	// offset += payloadIdLength
-
-	return blake2b.Sum512(hashBase)
+func (message *Message) calculateId() Id {
+	return blake2b.Sum512(
+		marshalutil.New(IdLength + IdLength + payload.IdLength).
+			WriteBytes(message.trunkId.Bytes()).
+			WriteBytes(message.branchId.Bytes()).
+			WriteBytes(message.PayloadId().Bytes()).
+			Bytes(),
+	)
 }
 
-func (transaction *Message) calculatePayloadId() payload.Id {
-	bytes := transaction.Bytes()
-
-	return blake2b.Sum512(bytes[2*IdLength:])
+func (message *Message) calculatePayloadId() payload.Id {
+	return blake2b.Sum512(message.Bytes()[2*IdLength:])
 }
 
-func (transaction *Message) Bytes() []byte {
-	transaction.bytesMutex.RLock()
-	if transaction.bytes != nil {
-		defer transaction.bytesMutex.RUnlock()
+func (message *Message) Bytes() []byte {
+	message.bytesMutex.RLock()
+	if message.bytes != nil {
+		defer message.bytesMutex.RUnlock()
 
-		return transaction.bytes
+		return message.bytes
 	}
 
-	transaction.bytesMutex.RUnlock()
-	transaction.bytesMutex.RLock()
-	defer transaction.bytesMutex.RUnlock()
+	message.bytesMutex.RUnlock()
+	message.bytesMutex.RLock()
+	defer message.bytesMutex.RUnlock()
 
-	if transaction.bytes != nil {
-		return transaction.bytes
+	if message.bytes != nil {
+		return message.bytes
 	}
 
 	// marshal result
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteBytes(transaction.trunkMessageId.Bytes())
-	marshalUtil.WriteBytes(transaction.branchMessageId.Bytes())
-	marshalUtil.WriteBytes(transaction.issuerPublicKey.Bytes())
-	marshalUtil.WriteTime(transaction.issuingTime)
-	marshalUtil.WriteUint64(transaction.sequenceNumber)
-	marshalUtil.WriteBytes(transaction.payload.Bytes())
+	marshalUtil.WriteBytes(message.trunkId.Bytes())
+	marshalUtil.WriteBytes(message.branchId.Bytes())
+	marshalUtil.WriteBytes(message.issuerPublicKey.Bytes())
+	marshalUtil.WriteTime(message.issuingTime)
+	marshalUtil.WriteUint64(message.sequenceNumber)
+	marshalUtil.WriteBytes(message.payload.Bytes())
 
-	transaction.signatureMutex.Lock()
-	transaction.signature = transaction.issuerLocalIdentity.Sign(marshalUtil.Bytes())
-	transaction.signatureMutex.Unlock()
+	message.signatureMutex.Lock()
+	message.signature = message.issuerLocalIdentity.Sign(marshalUtil.Bytes())
+	message.signatureMutex.Unlock()
 
-	marshalUtil.WriteBytes(transaction.signature.Bytes())
+	marshalUtil.WriteBytes(message.signature.Bytes())
 
-	transaction.bytes = marshalUtil.Bytes()
+	message.bytes = marshalUtil.Bytes()
 
-	return transaction.bytes
+	return message.bytes
 }
 
-func (transaction *Message) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (message *Message) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
 	// initialize helper
 	marshalUtil := marshalutil.New(data)
 
 	// parse information
-	if transaction.trunkMessageId, err = ParseId(marshalUtil); err != nil {
+	if message.trunkId, err = ParseId(marshalUtil); err != nil {
 		return
 	}
-	if transaction.branchMessageId, err = ParseId(marshalUtil); err != nil {
+	if message.branchId, err = ParseId(marshalUtil); err != nil {
 		return
 	}
-	if transaction.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
+	if message.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
 		return
 	}
-	if transaction.issuingTime, err = marshalUtil.ReadTime(); err != nil {
+	if message.issuingTime, err = marshalUtil.ReadTime(); err != nil {
 		return
 	}
-	if transaction.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
+	if message.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
 		return
 	}
-	if transaction.payload, err = payload.Parse(marshalUtil); err != nil {
+	if message.payload, err = payload.Parse(marshalUtil); err != nil {
 		return
 	}
-	if transaction.signature, err = ed25519.ParseSignature(marshalUtil); err != nil {
+	if message.signature, err = ed25519.ParseSignature(marshalUtil); err != nil {
 		return
 	}
 
@@ -300,37 +289,35 @@ func (transaction *Message) UnmarshalObjectStorageValue(data []byte) (err error,
 	consumedBytes = marshalUtil.ReadOffset()
 
 	// store marshaled version
-	transaction.bytes = make([]byte, consumedBytes)
-	copy(transaction.bytes, data)
+	message.bytes = make([]byte, consumedBytes)
+	copy(message.bytes, data)
 
 	return
 }
 
-func (transaction *Message) ObjectStorageKey() []byte {
-	return transaction.Id().Bytes()
+func (message *Message) ObjectStorageKey() []byte {
+	return message.Id().Bytes()
 }
 
 // Since transactions are immutable and do not get changed after being created, we cache the result of the marshaling.
-func (transaction *Message) ObjectStorageValue() []byte {
-	return transaction.Bytes()
+func (message *Message) ObjectStorageValue() []byte {
+	return message.Bytes()
 }
 
-func (transaction *Message) Update(other objectstorage.StorableObject) {
+func (message *Message) Update(other objectstorage.StorableObject) {
 	panic("transactions should never be overwritten and only stored once to optimize IO")
 }
 
-func (transaction *Message) String() string {
-	transactionId := transaction.Id()
-
+func (message *Message) String() string {
 	return stringify.Struct("Message",
-		stringify.StructField("id", base58.Encode(transactionId[:])),
-		stringify.StructField("trunkMessageId", base58.Encode(transaction.trunkMessageId[:])),
-		stringify.StructField("branchMessageId", base58.Encode(transaction.branchMessageId[:])),
-		stringify.StructField("issuer", base58.Encode(transaction.issuerPublicKey[:])),
-		stringify.StructField("issuingTime", transaction.issuingTime),
-		stringify.StructField("sequenceNumber", transaction.sequenceNumber),
-		stringify.StructField("payload", transaction.payload),
-		stringify.StructField("signature", transaction.signature[:]),
+		stringify.StructField("id", message.Id()),
+		stringify.StructField("trunkMessageId", message.TrunkId()),
+		stringify.StructField("branchMessageId", message.BranchId()),
+		stringify.StructField("issuer", message.IssuerPublicKey()),
+		stringify.StructField("issuingTime", message.IssuingTime()),
+		stringify.StructField("sequenceNumber", message.SequenceNumber()),
+		stringify.StructField("payload", message.Payload()),
+		stringify.StructField("signature", message.Signature()),
 	)
 }
 

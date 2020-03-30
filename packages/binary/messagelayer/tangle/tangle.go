@@ -98,10 +98,10 @@ func (tangle *Tangle) Approvers(transactionId message.Id) CachedApprovers {
 // Deletes a transaction from the tangle (i.e. for local snapshots)
 func (tangle *Tangle) DeleteMessage(messageId message.Id) {
 	tangle.Message(messageId).Consume(func(currentTransaction *message.Message) {
-		trunkTransactionId := currentTransaction.TrunkMessageId()
+		trunkTransactionId := currentTransaction.TrunkId()
 		tangle.deleteApprover(trunkTransactionId, messageId)
 
-		branchTransactionId := currentTransaction.BranchMessageId()
+		branchTransactionId := currentTransaction.BranchId()
 		if branchTransactionId != trunkTransactionId {
 			tangle.deleteApprover(branchTransactionId, messageId)
 		}
@@ -158,11 +158,11 @@ func (tangle *Tangle) storeMessageWorker(tx *message.Message) {
 	cachedTransactionMetadata := &CachedMessageMetadata{CachedObject: tangle.messageMetadataStorage.Store(NewMessageMetadata(transactionId))}
 
 	// store trunk approver
-	trunkTransactionID := tx.TrunkMessageId()
+	trunkTransactionID := tx.TrunkId()
 	tangle.approverStorage.Store(NewApprover(trunkTransactionID, transactionId)).Release()
 
 	// store branch approver
-	if branchTransactionID := tx.BranchMessageId(); branchTransactionID != trunkTransactionID {
+	if branchTransactionID := tx.BranchId(); branchTransactionID != trunkTransactionID {
 		tangle.approverStorage.Store(NewApprover(branchTransactionID, transactionId)).Release()
 	}
 
@@ -220,7 +220,7 @@ func (tangle *Tangle) solidifyMessageWorker(cachedTransaction *message.CachedMes
 			return true
 		}
 
-		return isTransactionMarkedAsSolid(transaction.TrunkMessageId()) && isTransactionMarkedAsSolid(transaction.BranchMessageId())
+		return isTransactionMarkedAsSolid(transaction.TrunkId()) && isTransactionMarkedAsSolid(transaction.BranchId())
 	}
 
 	popElementsFromStack := func(stack *list.List) (*message.CachedMessage, *CachedMessageMetadata) {

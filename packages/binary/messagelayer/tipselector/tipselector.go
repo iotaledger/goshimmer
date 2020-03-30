@@ -28,12 +28,12 @@ func (tipSelector *TipSelector) AddTip(transaction *message.Message) {
 		tipSelector.Events.TipAdded.Trigger(transactionId)
 	}
 
-	trunkTransactionId := transaction.TrunkMessageId()
+	trunkTransactionId := transaction.TrunkId()
 	if _, deleted := tipSelector.tips.Delete(trunkTransactionId); deleted {
 		tipSelector.Events.TipRemoved.Trigger(trunkTransactionId)
 	}
 
-	branchTransactionId := transaction.BranchMessageId()
+	branchTransactionId := transaction.BranchId()
 	if _, deleted := tipSelector.tips.Delete(branchTransactionId); deleted {
 		tipSelector.Events.TipRemoved.Trigger(branchTransactionId)
 	}

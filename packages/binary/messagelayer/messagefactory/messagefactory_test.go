@@ -54,8 +54,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 		var p payload.Payload = NewMockPayload(data)
 		msg := msgFactory.IssuePayload(p)
 
-		assert.NotNil(t, msg.TrunkMessageId())
-		assert.NotNil(t, msg.BranchMessageId())
+		assert.NotNil(t, msg.TrunkId())
+		assert.NotNil(t, msg.BranchId())
 
 		// time in range of 0.1 seconds
 		assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
@@ -80,8 +80,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 				var p payload.Payload = NewMockPayload(data)
 				msg := msgFactory.IssuePayload(p)
 
-				assert.NotNil(t, msg.TrunkMessageId())
-				assert.NotNil(t, msg.BranchMessageId())
+				assert.NotNil(t, msg.TrunkId())
+				assert.NotNil(t, msg.BranchId())
 
 				// time in range of 0.1 seconds
 				assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)

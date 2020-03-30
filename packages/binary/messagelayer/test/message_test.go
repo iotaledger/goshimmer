@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -30,11 +31,13 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 	testMessage := testutil.MessageFactory(t).IssuePayload(payload.NewData([]byte("sth")))
 	assert.Equal(t, true, testMessage.VerifySignature())
 
+	fmt.Print(testMessage)
+
 	restoredMessage, err, _ := message.FromBytes(testMessage.Bytes())
 	if assert.NoError(t, err, err) {
 		assert.Equal(t, testMessage.Id(), restoredMessage.Id())
-		assert.Equal(t, testMessage.TrunkMessageId(), restoredMessage.TrunkMessageId())
-		assert.Equal(t, testMessage.BranchMessageId(), restoredMessage.BranchMessageId())
+		assert.Equal(t, testMessage.TrunkId(), restoredMessage.TrunkId())
+		assert.Equal(t, testMessage.BranchId(), restoredMessage.BranchId())
 		assert.Equal(t, testMessage.IssuerPublicKey(), restoredMessage.IssuerPublicKey())
 		assert.Equal(t, testMessage.IssuingTime().Round(time.Second), restoredMessage.IssuingTime().Round(time.Second))
 		assert.Equal(t, testMessage.SequenceNumber(), restoredMessage.SequenceNumber())

@@ -34,8 +34,8 @@ func createExplorerTx(tx *message.Message) (*ExplorerTx, error) {
 		Address:                  "",
 		Timestamp:                0,
 		Value:                    0,
-		Trunk:                    tx.TrunkMessageId().String(),
-		Branch:                   tx.BranchMessageId().String(),
+		Trunk:                    tx.TrunkId().String(),
+		Branch:                   tx.BranchId().String(),
 		Solid:                    txMetadata.Unwrap().IsSolid(),
 	}
 
