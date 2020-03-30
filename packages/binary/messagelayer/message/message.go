@@ -170,17 +170,13 @@ func (transaction *Message) SequenceNumber() uint64 {
 
 func (transaction *Message) Signature() ed25519.Signature {
 	transaction.signatureMutex.RLock()
-	if transaction.signature == ed25519.EmptySignature {
-		transaction.signatureMutex.RUnlock()
-		transaction.signatureMutex.Lock()
-		defer transaction.signatureMutex.Unlock()
+	defer transaction.signatureMutex.RUnlock()
 
-		if transaction.signature == ed25519.EmptySignature {
-			// generate the signature
-			transaction.Bytes()
-		}
-	} else {
-		defer transaction.signatureMutex.RUnlock()
+	if transaction.signature == ed25519.EmptySignature {
+		// unlock the signatureMutex so Bytes() can write the Signature
+		transaction.signatureMutex.RUnlock()
+		transaction.Bytes()
+		transaction.signatureMutex.RLock()
 	}
 
 	return transaction.signature
