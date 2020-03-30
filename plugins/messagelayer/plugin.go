@@ -68,7 +68,7 @@ func configure(*node.Plugin) {
 		cachedTransactionMetadata.Release()
 
 		cachedTransaction.Consume(func(transaction *message.Message) {
-			TransactionRequester.StopRequest(transaction.GetId())
+			TransactionRequester.StopRequest(transaction.Id())
 		})
 	}))
 

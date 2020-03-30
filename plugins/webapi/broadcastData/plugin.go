@@ -30,7 +30,7 @@ func broadcastData(c echo.Context) error {
 
 	tx := messagelayer.MessageFactory.IssuePayload(payload.NewData([]byte(request.Data)))
 
-	return c.JSON(http.StatusOK, Response{Hash: tx.GetId().String()})
+	return c.JSON(http.StatusOK, Response{Hash: tx.Id().String()})
 }
 
 type Response struct {
