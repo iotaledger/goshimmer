@@ -12,13 +12,12 @@ require (
 	github.com/googollee/go-engine.io v1.4.3-0.20190924125625-798118fc0dd2
 	github.com/googollee/go-socket.io v1.4.3-0.20191204093753-683f8725b6d0
 	github.com/gorilla/websocket v1.4.1
-	github.com/iotaledger/hive.go v0.0.0-20200325224052-ac4d38108211
+	github.com/iotaledger/hive.go v0.0.0-20200328153852-4d06dcf6bf29
 	github.com/iotaledger/iota.go v1.0.0-beta.14
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0 // indirect
 	github.com/magiconair/properties v1.8.1
 	github.com/mr-tron/base58 v1.1.3
-	github.com/oasislabs/ed25519 v0.0.0-20200302143042-29f6767a7c3e
 	github.com/panjf2000/ants/v2 v2.2.2
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/pflag v1.0.5

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
-	"github.com/iotaledger/goshimmer/plugins/tangle"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"github.com/labstack/echo"
 	"github.com/pkg/errors"
@@ -23,10 +23,10 @@ type ExplorerTx struct {
 	MWM                      int    `json:"mwm"`
 }
 
-func createExplorerTx(tx *message.Transaction) (*ExplorerTx, error) {
+func createExplorerTx(tx *message.Message) (*ExplorerTx, error) {
 	transactionId := tx.GetId()
 
-	txMetadata := tangle.Instance.GetTransactionMetadata(transactionId)
+	txMetadata := messagelayer.Tangle.MessageMetadata(transactionId)
 
 	t := &ExplorerTx{
 		Hash:                     transactionId.String(),
@@ -116,7 +116,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 }
 
 func findTransaction(transactionId message.Id) (explorerTx *ExplorerTx, err error) {
-	if !tangle.Instance.GetTransaction(transactionId).Consume(func(transaction *message.Transaction) {
+	if !messagelayer.Tangle.Message(transactionId).Consume(func(transaction *message.Message) {
 		explorerTx, err = createExplorerTx(transaction)
 	}) {
 		err = errors.Wrapf(ErrNotFound, "tx hash: %s", transactionId.String())

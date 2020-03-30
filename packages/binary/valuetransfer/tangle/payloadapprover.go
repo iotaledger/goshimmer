@@ -34,25 +34,27 @@ func NewPayloadApprover(referencedPayload payload.Id, approvingPayload payload.I
 // PayloadApproverFromStorageKey get's called when we restore transaction metadata from the storage.
 // In contrast to other database models, it unmarshals the information from the key and does not use the UnmarshalObjectStorageValue
 // method.
-func PayloadApproverFromStorageKey(idBytes []byte) (objectstorage.StorableObject, error) {
+func PayloadApproverFromStorageKey(idBytes []byte) (result objectstorage.StorableObject, err error, consumedBytes int) {
 	marshalUtil := marshalutil.New(idBytes)
 
 	referencedPayloadId, err := payload.ParseId(marshalUtil)
 	if err != nil {
-		return nil, err
+		return
 	}
 	approvingPayloadId, err := payload.ParseId(marshalUtil)
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	result := &PayloadApprover{
+	result = &PayloadApprover{
 		referencedPayloadId: referencedPayloadId,
 		approvingPayloadId:  approvingPayloadId,
 		storageKey:          marshalUtil.Bytes(true),
 	}
 
-	return result, nil
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
 }
 
 // GetApprovingPayloadId returns the id of the approving payload.
@@ -74,8 +76,8 @@ func (payloadApprover *PayloadApprover) ObjectStorageValue() (data []byte) {
 
 // UnmarshalObjectStorageValue is implemented to conform with the StorableObject interface, but it does not really do
 // anything, since all of the information about an approver are stored in the "key".
-func (payloadApprover *PayloadApprover) UnmarshalObjectStorageValue(data []byte) error {
-	return nil
+func (payloadApprover *PayloadApprover) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+	return
 }
 
 // Update is disabled and panics if it ever gets called - updates are supposed to happen through the setters.
