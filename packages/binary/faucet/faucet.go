@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	faucetpayload "github.com/iotaledger/goshimmer/packages/binary/faucet/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	/*
@@ -21,12 +21,12 @@ import (
 		transferoutputid "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transferoutput/id"
 	*/)
 
-func IsFaucetReq(txn *message.Transaction) bool {
-	return txn.GetPayload().GetType() == faucetpayload.Type
+func IsFaucetReq(msg *message.Message) bool {
+	return msg.GetPayload().Type() == faucetpayload.Type
 }
 
-func SendFunds(txn *message.Transaction) error {
-	addr := txn.GetPayload().(*faucetpayload.Payload).GetAddress()
+func SendFunds(msg *message.Message) error {
+	addr := msg.GetPayload().(*faucetpayload.Payload).Address()
 	// Check address length
 	if len(addr) != address.Length {
 		return ErrInvalidAddr

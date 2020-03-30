@@ -7,13 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	faucet "github.com/iotaledger/goshimmer/packages/binary/faucet/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message/payload/data"
 	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload/data"
 )
 
 func TestIsFaucetReq(t *testing.T) {
-	faucetTxn := message.New(
+	faucetMsg := message.New(
 		message.EmptyId,
 		message.EmptyId,
 		ed25119.GenerateKeyPair(),
@@ -22,7 +22,7 @@ func TestIsFaucetReq(t *testing.T) {
 		faucet.New([]byte("address")),
 	)
 
-	dataTxn := message.New(
+	dataMsg := message.New(
 		message.EmptyId,
 		message.EmptyId,
 		ed25119.GenerateKeyPair(),
@@ -31,6 +31,6 @@ func TestIsFaucetReq(t *testing.T) {
 		data.New([]byte("data")),
 	)
 
-	assert.Equal(t, true, IsFaucetReq(faucetTxn))
-	assert.Equal(t, false, IsFaucetReq(dataTxn))
+	assert.Equal(t, true, IsFaucetReq(faucetMsg))
+	assert.Equal(t, false, IsFaucetReq(dataMsg))
 }

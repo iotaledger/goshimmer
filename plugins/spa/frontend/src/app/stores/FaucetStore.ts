@@ -1,7 +1,7 @@
 import {action, observable} from 'mobx';
 
 class SendResult {
-    Resp: string;
+    MsgId: string;
 }
 
 enum QueryError {

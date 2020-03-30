@@ -49,12 +49,12 @@ func TestPayload(t *testing.T) {
 		panic(err)
 	}
 
-	assert.Equal(t, originalPayload.GetAddress(), clonedPayload1.GetAddress())
+	assert.Equal(t, originalPayload.Address(), clonedPayload1.Address())
 
 	clonedPayload2, err, _ := FromBytes(clonedPayload1.Bytes())
 	if err != nil {
 		panic(err)
 	}
 
-	assert.Equal(t, originalPayload.GetAddress(), clonedPayload2.GetAddress())
+	assert.Equal(t, originalPayload.Address(), clonedPayload2.Address())
 }

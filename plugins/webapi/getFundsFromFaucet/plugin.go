@@ -2,12 +2,10 @@ package getFundsFromFaucet
 
 import (
 	"net/http"
-	"time"
 
 	faucetpayload "github.com/iotaledger/goshimmer/packages/binary/faucet/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -22,8 +20,8 @@ func configure(plugin *node.Plugin) {
 	webapi.Server.POST("faucet", requestFunds)
 }
 
-// requestFunds creates a faucet request (0-value) transaction given an input of address and
-// broadcasts it to the node's neighbors. It returns the transaction ID if successful.
+// requestFunds creates a faucet request (0-value) message given an input of address and
+// broadcasts it to the node's neighbors. It returns the message ID if successful.
 func requestFunds(c echo.Context) error {
 	var request Request
 	if err := c.Bind(&request); err != nil {
@@ -38,17 +36,13 @@ func requestFunds(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: "Invalid address"})
 	}
 
-	// TODO: build faucet transaction with transaction factory
-	tx := message.New(
-		message.EmptyId,
-		message.EmptyId,
-		ed25119.GenerateKeyPair(),
-		time.Now(),
-		0,
-		faucetpayload.New([]byte(request.Address)),
-	)
+	// Build faucet message with transaction factory
+	msg := messagelayer.MessageFactory.IssuePayload(faucetpayload.New([]byte(request.Address)))
+	if msg == nil {
+		return c.JSON(http.StatusInternalServerError, Response{Error: "Fail to send faucetrequest"})
+	}
 
-	return c.JSON(http.StatusOK, Response{Id: tx.GetId().String()})
+	return c.JSON(http.StatusOK, Response{Id: msg.GetId().String()})
 }
 
 type Response struct {
