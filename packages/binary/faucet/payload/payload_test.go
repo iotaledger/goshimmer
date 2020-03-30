@@ -7,11 +7,16 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 )
 
 func ExampleFaucetPayload() {
+	keyPair := ed25519.GenerateKeyPair()
+	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
+
 	// 1. create faucet payload
 	faucetPayload := New(
 		// request address
@@ -27,7 +32,7 @@ func ExampleFaucetPayload() {
 		message.EmptyId,
 
 		// issuer of the message (signs automatically)
-		ed25119.GenerateKeyPair(),
+		keyPair.PublicKey,
 
 		// issuing time
 		time.Now(),
@@ -37,6 +42,9 @@ func ExampleFaucetPayload() {
 
 		// payload
 		faucetPayload,
+
+		// local identity
+		local,
 	)
 	fmt.Println(tx.String())
 }

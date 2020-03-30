@@ -6,29 +6,36 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
+
 	faucet "github.com/iotaledger/goshimmer/packages/binary/faucet/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message/payload/data"
-	"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
+	data "github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
 func TestIsFaucetReq(t *testing.T) {
+	keyPair := ed25519.GenerateKeyPair()
+	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
+
 	faucetMsg := message.New(
 		message.EmptyId,
 		message.EmptyId,
-		ed25119.GenerateKeyPair(),
+		keyPair.PublicKey,
 		time.Now(),
 		0,
 		faucet.New([]byte("address")),
+		local,
 	)
 
 	dataMsg := message.New(
 		message.EmptyId,
 		message.EmptyId,
-		ed25119.GenerateKeyPair(),
+		keyPair.PublicKey,
 		time.Now(),
 		0,
-		data.New([]byte("data")),
+		data.NewData([]byte("data")),
+		local,
 	)
 
 	assert.Equal(t, true, IsFaucetReq(faucetMsg))
