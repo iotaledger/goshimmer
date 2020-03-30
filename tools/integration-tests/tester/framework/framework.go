@@ -17,7 +17,7 @@ func New() *Framework {
 
 	f := &Framework{
 		peers:      getAvailablePeers(),
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		httpClient: &http.Client{Timeout: 30 * time.Second},
 	}
 
 	if len(f.peers) == 0 {
