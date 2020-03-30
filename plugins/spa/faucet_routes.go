@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	faucetpayload "github.com/iotaledger/goshimmer/packages/binary/faucet/payload"
-	faucetpayload "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"github.com/labstack/echo"
