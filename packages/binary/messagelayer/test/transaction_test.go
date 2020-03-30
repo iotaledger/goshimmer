@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/panjf2000/ants/v2"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
@@ -22,7 +23,7 @@ func BenchmarkVerifyDataTransactions(b *testing.B) {
 
 	transactions := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
-		tx := message.New(message.EmptyId, message.EmptyId, localIdentity.PublicKey(), time.Now(), 0, payload.NewData([]byte("some data")), localIdentity)
+		tx := message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("some data")))
 
 		transactions[i] = tx.Bytes()
 	}
@@ -50,7 +51,7 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	transactions := make([]*message.Message, b.N)
 	for i := 0; i < b.N; i++ {
-		transactions[i] = message.New(message.EmptyId, message.EmptyId, localIdentity.PublicKey(), time.Now(), 0, payload.NewData([]byte("test")), localIdentity)
+		transactions[i] = message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("test")))
 		transactions[i].Bytes()
 	}
 

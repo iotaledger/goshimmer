@@ -2,7 +2,6 @@ package spammer
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/labstack/echo"
 )
@@ -22,15 +21,6 @@ func handleRequest(c echo.Context) error {
 		transactionSpammer.Shutdown()
 		transactionSpammer.Start(request.Tps)
 		return c.JSON(http.StatusOK, Response{Message: "started spamming transactions"})
-	case "burst":
-		if request.Tps == 0 {
-			return c.JSON(http.StatusBadRequest, Response{Error: "burst requires the tps to be set"})
-		}
-
-		transactionSpammer.Shutdown()
-		transactionSpammer.Burst(request.Tps)
-
-		return c.JSON(http.StatusOK, Response{Message: "sent a burst of " + strconv.Itoa(request.Tps) + " transactions"})
 	case "stop":
 		transactionSpammer.Shutdown()
 		return c.JSON(http.StatusOK, Response{Message: "stopped spamming transactions"})

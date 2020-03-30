@@ -131,7 +131,7 @@ func newTestPeer(name string, conn net.Conn) *peer.Peer {
 	var publicKey ed25519.PublicKey
 	copy(publicKey[:], name)
 
-	return peer.NewPeer(identity.NewIdentity(publicKey), net.IPv4zero, services)
+	return peer.NewPeer(identity.New(publicKey), net.IPv4zero, services)
 }
 
 func newPipe() (net.Conn, net.Conn, func()) {

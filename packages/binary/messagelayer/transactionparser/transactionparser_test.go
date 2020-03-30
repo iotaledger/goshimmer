@@ -15,7 +15,7 @@ import (
 
 func BenchmarkTransactionParser_ParseBytesSame(b *testing.B) {
 	localIdentity := identity.GenerateLocalIdentity()
-	txBytes := message.New(message.EmptyId, message.EmptyId, localIdentity.PublicKey(), time.Now(), 0, payload.NewData([]byte("Test")), localIdentity).Bytes()
+	txBytes := message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("Test"))).Bytes()
 	txParser := New()
 
 	b.ResetTimer()
@@ -31,7 +31,7 @@ func BenchmarkTransactionParser_ParseBytesDifferent(b *testing.B) {
 	transactionBytes := make([][]byte, b.N)
 	localIdentity := identity.GenerateLocalIdentity()
 	for i := 0; i < b.N; i++ {
-		transactionBytes[i] = message.New(message.EmptyId, message.EmptyId, localIdentity.PublicKey(), time.Now(), 0, payload.NewData([]byte("Test"+strconv.Itoa(i))), localIdentity).Bytes()
+		transactionBytes[i] = message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("Test"+strconv.Itoa(i)))).Bytes()
 	}
 
 	txParser := New()
@@ -47,7 +47,7 @@ func BenchmarkTransactionParser_ParseBytesDifferent(b *testing.B) {
 
 func TestTransactionParser_ParseTransaction(t *testing.T) {
 	localIdentity := identity.GenerateLocalIdentity()
-	tx := message.New(message.EmptyId, message.EmptyId, localIdentity.PublicKey(), time.Now(), 0, payload.NewData([]byte("Test")), localIdentity)
+	tx := message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("Test")))
 
 	txParser := New()
 	txParser.Parse(tx.Bytes(), nil)
