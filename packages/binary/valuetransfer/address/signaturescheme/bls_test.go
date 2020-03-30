@@ -1,9 +1,10 @@
 package signaturescheme
 
 import (
+	"testing"
+
 	"github.com/magiconair/properties/assert"
 	"github.com/mr-tron/base58"
-	"testing"
 )
 
 var dataToSign = []byte("Hello Boneh-Lynn-Shacham (BLS) --> Boneh-Drijvers-Neven (BDN)")
