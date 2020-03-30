@@ -262,7 +262,9 @@ func (transaction *Message) Bytes() []byte {
 	marshalUtil.WriteUint64(transaction.sequenceNumber)
 	marshalUtil.WriteBytes(transaction.payload.Bytes())
 
+	transaction.signatureMutex.Lock()
 	transaction.signature = transaction.issuerLocalIdentity.Sign(marshalUtil.Bytes())
+	transaction.signatureMutex.Unlock()
 
 	marshalUtil.WriteBytes(transaction.signature.Bytes())
 
