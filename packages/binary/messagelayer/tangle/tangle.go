@@ -98,10 +98,10 @@ func (tangle *Tangle) Approvers(transactionId message.Id) CachedApprovers {
 // Deletes a transaction from the tangle (i.e. for local snapshots)
 func (tangle *Tangle) DeleteMessage(messageId message.Id) {
 	tangle.Message(messageId).Consume(func(currentTransaction *message.Message) {
-		trunkTransactionId := currentTransaction.GetTrunkTransactionId()
+		trunkTransactionId := currentTransaction.TrunkId()
 		tangle.deleteApprover(trunkTransactionId, messageId)
 
-		branchTransactionId := currentTransaction.GetBranchTransactionId()
+		branchTransactionId := currentTransaction.BranchId()
 		if branchTransactionId != trunkTransactionId {
 			tangle.deleteApprover(branchTransactionId, messageId)
 		}
@@ -154,15 +154,15 @@ func (tangle *Tangle) storeMessageWorker(tx *message.Message) {
 	}
 
 	// store transaction metadata
-	transactionId := tx.GetId()
+	transactionId := tx.Id()
 	cachedTransactionMetadata := &CachedMessageMetadata{CachedObject: tangle.messageMetadataStorage.Store(NewMessageMetadata(transactionId))}
 
 	// store trunk approver
-	trunkTransactionID := tx.GetTrunkTransactionId()
+	trunkTransactionID := tx.TrunkId()
 	tangle.approverStorage.Store(NewApprover(trunkTransactionID, transactionId)).Release()
 
 	// store branch approver
-	if branchTransactionID := tx.GetBranchTransactionId(); branchTransactionID != trunkTransactionID {
+	if branchTransactionID := tx.BranchId(); branchTransactionID != trunkTransactionID {
 		tangle.approverStorage.Store(NewApprover(branchTransactionID, transactionId)).Release()
 	}
 
@@ -220,7 +220,7 @@ func (tangle *Tangle) solidifyMessageWorker(cachedTransaction *message.CachedMes
 			return true
 		}
 
-		return isTransactionMarkedAsSolid(transaction.GetTrunkTransactionId()) && isTransactionMarkedAsSolid(transaction.GetBranchTransactionId())
+		return isTransactionMarkedAsSolid(transaction.TrunkId()) && isTransactionMarkedAsSolid(transaction.BranchId())
 	}
 
 	popElementsFromStack := func(stack *list.List) (*message.CachedMessage, *CachedMessageMetadata) {
@@ -253,7 +253,7 @@ func (tangle *Tangle) solidifyMessageWorker(cachedTransaction *message.CachedMes
 		if isTransactionSolid(currentTransaction, currentTransactionMetadata) && currentTransactionMetadata.SetSolid(true) {
 			tangle.Events.TransactionSolid.Trigger(currentCachedTransaction, currentCachedTransactionMetadata)
 
-			tangle.Approvers(currentTransaction.GetId()).Consume(func(approver *Approver) {
+			tangle.Approvers(currentTransaction.Id()).Consume(func(approver *Approver) {
 				approverTransactionId := approver.ReferencedMessageId()
 
 				solidificationStack.PushBack([2]interface{}{
