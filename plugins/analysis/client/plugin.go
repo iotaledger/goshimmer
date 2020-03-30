@@ -36,7 +36,6 @@ func Run(plugin *node.Plugin) {
 
 					timeutil.Sleep(1*time.Second, shutdownSignal)
 				} else {
-					log.Info("Here we are")
 					managedConn := network.NewManagedConnection(conn)
 					eventDispatchers := getEventDispatchers(managedConn)
 
@@ -66,11 +65,7 @@ func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 				"outboundIds", out,
 				"inboundIds", in,
 			)
-			/*
-				log.Info("Heartbeat message on the way...")
-				log.Info("nodeId: " + hex.EncodeToString(nodeId))
-				log.Info("outboundIds" + out)
-				log.Info("inbound: " + in)*/
+
 			connLock.Lock()
 			_, _ = conn.Write((&heartbeat.Packet{OwnID: nodeId, OutboundIDs: outboundIds, InboundIDs: inboundIds}).Marshal())
 			connLock.Unlock()

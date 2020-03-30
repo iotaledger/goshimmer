@@ -126,13 +126,13 @@ func parsePackageHeader(data []byte) (ConnectionState, []byte, error) {
 }
 
 func processHeartbeatePacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte) {
-	if heartbeatPacket, err := heartbeat.Unmarshal(*receiveBuffer); err != nil {
+	if heartbeatPacket, err := heartbeat.Unmarshal(data); err != nil {
 		Events.Error.Trigger(err)
 
 		conn.Close()
 
 		return
 	} else {
-		Events.Heartbeat.Trigger(heartbeatPacket)
+		Events.Heartbeat.Trigger(*heartbeatPacket)
 	}
 }
