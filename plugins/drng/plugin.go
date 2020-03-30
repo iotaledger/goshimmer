@@ -29,7 +29,7 @@ func configureEvents() {
 		cachedMessageMetadata.Release()
 
 		cachedMessage.Consume(func(msg *message.Message) {
-			marshalUtil := marshalutil.New(msg.GetPayload().Bytes())
+			marshalUtil := marshalutil.New(msg.Payload().Bytes())
 			parsedPayload, err := payload.Parse(marshalUtil)
 			if err != nil {
 				//TODO: handle error
