@@ -3,24 +3,27 @@ package spa
 import (
 	"net/http"
 
-	//"github.com/iotaledger/goshimmer/plugins/tangle"
+	faucetpayload "github.com/iotaledger/goshimmer/packages/binary/faucet/payload"
+	faucetpayload "github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"github.com/labstack/echo"
 	"github.com/pkg/errors"
 )
 
-type SendResult struct {
-	Resp string `json:"res"`
+type ReqMsg struct {
+	Id string `json:"MsgId"`
 }
 
 func setupFaucetRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/faucet/:hash", func(c echo.Context) (err error) {
-		address := c.Param("hash")
-		if len(address) < 81 {
-			return errors.Wrapf(ErrInvalidParameter, "search address invalid: %s", address)
+		addr := c.Param("hash")
+		// TODO: check if the address is valid
+		if len(addr) < address.Length {
+			return errors.Wrapf(ErrInvalidParameter, "search address invalid: %s", addr)
 		}
 
-		t, err := sendFaucetReq(address)
+		t, err := sendFaucetReq(addr)
 		if err != nil {
 			return
 		}
@@ -29,16 +32,14 @@ func setupFaucetRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func sendFaucetReq(address string) (res *SendResult, err error) {
-	// TODO: send transfer
-	/*
-	   trunkTransactionId, branchTransactionId := tangle.TipSelector.GetTips()
-	   txn := transaction.New(trunkTransactionId, branchTransactionId, identity.Generate(), data.New([]byte(address)))
-	   tangle.AttachTransaction(txn)
-	*/
+func sendFaucetReq(address string) (res *ReqMsg, err error) {
+	msg := messagelayer.MessageFactory.IssuePayload(faucetpayload.New([]byte(address)))
+	if msg == nil {
+		return nil, errors.Wrapf(ErrInternalError, "Fail to send faucet request")
+	}
 
-	r := &SendResult{
-		Resp: "sentFaucet",
+	r := &ReqMsg{
+		Id: msg.GetId().String(),
 	}
 	return r, nil
 }

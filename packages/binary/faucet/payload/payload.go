@@ -1,10 +1,10 @@
 package faucetpayload
 
 import (
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/binary/marshalutil"
-	"github.com/iotaledger/goshimmer/packages/binary/tangle/model/message/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
 type Payload struct {
@@ -59,11 +59,11 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	return
 }
 
-func (faucetPayload *Payload) GetType() payload.Type {
+func (faucetPayload *Payload) Type() payload.Type {
 	return faucetPayload.payloadType
 }
 
-func (faucetPayload *Payload) GetAddress() []byte {
+func (faucetPayload *Payload) Address() []byte {
 	return faucetPayload.address
 }
 
@@ -73,7 +73,7 @@ func (faucetPayload *Payload) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(faucetPayload.GetType())
+	marshalUtil.WriteUint32(faucetPayload.Type())
 	marshalUtil.WriteUint32(uint32(len(faucetPayload.address)))
 	marshalUtil.WriteBytes(faucetPayload.address[:])
 
@@ -81,7 +81,7 @@ func (faucetPayload *Payload) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
-func (faucetPayload *Payload) UnmarshalBinary(data []byte) (err error) {
+func (faucetPayload *Payload) Unmarshal(data []byte) (err error) {
 	_, err, _ = FromBytes(data, faucetPayload)
 
 	return
@@ -93,7 +93,7 @@ func (faucetPayload *Payload) MarshalBinary() (data []byte, err error) {
 
 func (faucetPayload *Payload) String() string {
 	return stringify.Struct("FaucetPayload",
-		stringify.StructField("address", string(faucetPayload.GetAddress())),
+		stringify.StructField("address", string(faucetPayload.Address())),
 	)
 }
 
@@ -102,7 +102,7 @@ func GenericPayloadUnmarshalerFactory(payloadType payload.Type) payload.Unmarsha
 		payload = &Payload{
 			payloadType: payloadType,
 		}
-		err = payload.UnmarshalBinary(data)
+		err = payload.Unmarshal(data)
 
 		return
 	}
