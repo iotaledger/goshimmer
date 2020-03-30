@@ -2,6 +2,7 @@ package framework
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"time"
 )
@@ -71,6 +72,15 @@ func (f *Framework) HttpGet(peer *Peer, endpoint string, target interface{}) err
 	return getJson(f.httpClient, url, target)
 }
 
+func (f *Framework) HttpPost(peer *Peer, endpoint string, requestBody interface{}, responseBody interface{}) error {
+	url := fmt.Sprintf("%s%s", peer.api, endpoint)
+	return postJson(f.httpClient, url, requestBody, responseBody)
+}
+
 func (f *Framework) Peers() []*Peer {
 	return f.peers
+}
+
+func (f *Framework) RandomPeer() *Peer {
+	return f.peers[rand.Intn(len(f.peers))]
 }

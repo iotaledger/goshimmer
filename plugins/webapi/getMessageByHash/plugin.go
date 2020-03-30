@@ -48,7 +48,6 @@ func getMessageByHash(c echo.Context) error {
 		}
 
 		msg := msgObject.Unwrap()
-		msgObject.Release()
 		msgResp := Message{
 			MessageId:           msg.Id().String(),
 			TrunkTransactionId:  msg.TrunkId().String(),
@@ -60,6 +59,7 @@ func getMessageByHash(c echo.Context) error {
 			Signature:           msg.Signature().String(),
 		}
 		result = append(result, msgResp)
+		msgObject.Release()
 	}
 
 	return c.JSON(http.StatusOK, Response{Messages: result})
