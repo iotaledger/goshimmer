@@ -49,10 +49,10 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), PayloadApproverFromStorageKey, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 
 		// transaction related storage
-		outputStorage:                    objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTangleOutputs...), transaction.OutputFromStorageKey, objectstorage.CacheTime(time.Second)),
-		transactionOutputMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.Layer0Approvers...), transaction.OutputFromStorageKey, objectstorage.CacheTime(time.Second)),
+		outputStorage:                    objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTangleOutputs...), outputFromStorageKey, objectstorage.CacheTime(time.Second)),
+		transactionOutputMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.Layer0Approvers...), outputFromStorageKey, objectstorage.CacheTime(time.Second)),
 		missingOutputStorage:             objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingOutputFromStorageKey, objectstorage.CacheTime(time.Second)),
-		consumerStorage:                  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferConsumer...), transaction.OutputFromStorageKey, objectstorage.CacheTime(time.Second)),
+		consumerStorage:                  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferConsumer...), outputFromStorageKey, objectstorage.CacheTime(time.Second)),
 
 		attachmentStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferAttachment...), AttachmentFromStorageKey, objectstorage.CacheTime(time.Second)),
 
@@ -364,4 +364,8 @@ func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payload.Id) bool {
 	transactionMetadataCached.Release()
 
 	return true
+}
+
+func outputFromStorageKey(key []byte) (objectstorage.StorableObject, error, int) {
+	return transaction.OutputFromStorageKey(key)
 }
