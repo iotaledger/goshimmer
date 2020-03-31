@@ -109,19 +109,24 @@ func Configure(plugin *node.Plugin) {
 	go cleanUpPeriodically(CLEAN_UP_PERIOD)
 }
 
-// Remove nodes and links we haven't seen for at least 2 times the heartbeat interval
+// Remove nodes and links we haven't seen for at least 3 times the heartbeat interval
 func cleanUpPeriodically(interval time.Duration) {
 	for {
 		lock.Lock()
+		defer lock.Unlock()
 		now := time.Now()
 
 		// Go through the list of connections. Remove connections that are older than interval time.
 		for srcNode, targetMap := range links {
-			for _, lastSeen := range targetMap {
+			for trgNode, lastSeen := range targetMap {
 				if now.Sub(lastSeen) > interval {
-					delete(links, srcNode)
-					server.Events.DisconnectNodes.Trigger()
+					delete(links[srcNode], trgNode)
+					server.Events.DisconnectNodes.Trigger(srcNode, trgNode)
 				}
+			}
+			// Delete src node from links if it doesn't have any connections
+			if !len(links[srcNode]) {
+				delete(links, srcNode)
 			}
 		}
 
@@ -133,7 +138,6 @@ func cleanUpPeriodically(interval time.Duration) {
 				server.Events.RemoveNode.Trigger(node)
 			}
 		}
-		lock.Unlock()
 		// Sleep for interval time
 		time.Sleep(interval)
 	}

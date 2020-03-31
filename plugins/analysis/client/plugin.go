@@ -41,6 +41,7 @@ func Run(plugin *node.Plugin) {
 
 					reportHeartbeat(eventDispatchers)
 
+					// TODO: rewrite with ticker, chan
 					timeutil.Sleep(REPORT_INTERVAL*time.Second, shutdownSignal)
 				}
 			}
@@ -80,7 +81,7 @@ func reportHeartbeat(dispatchers *EventDispatchers) {
 		nodeId = local.GetInstance().ID().Bytes()
 	}
 
-	// Get outboundIds (choosen neighbors)
+	// Get outboundIds (chosen neighbors)
 	outgoingNeighbors := autopeering.Selection.GetOutgoingNeighbors()
 	outboundIds := make([][]byte, len(outgoingNeighbors))
 	for i, neighbor := range outgoingNeighbors {
