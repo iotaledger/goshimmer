@@ -23,4 +23,4 @@ RUN go mod verify
 COPY . .
 
 
-ENTRYPOINT ["go", "test", "./tests"]
+ENTRYPOINT ["go", "test", "./tests", "-v"]
