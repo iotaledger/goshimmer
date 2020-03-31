@@ -3,4 +3,4 @@ package recordedevents
 import "time"
 
 // 15 seconds
-const CLEAN_UP_PERIOD = time.Duration(15000000000)
+const CLEAN_UP_PERIOD = 15 * time.Second

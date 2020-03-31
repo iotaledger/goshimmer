@@ -125,7 +125,7 @@ func cleanUpPeriodically(interval time.Duration) {
 				}
 			}
 			// Delete src node from links if it doesn't have any connections
-			if !len(links[srcNode]) {
+			if len(links[srcNode]) == 0 {
 				delete(links, srcNode)
 			}
 		}

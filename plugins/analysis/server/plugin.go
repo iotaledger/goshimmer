@@ -103,7 +103,7 @@ func processIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *n
 
 	switch *connectionState {
 	case STATE_HEARTBEAT:
-		processHeartbeatePacket(connectionState, receiveBuffer, conn, data)
+		processHeartbeatPacket(connectionState, receiveBuffer, conn, data)
 	}
 
 }
@@ -125,7 +125,7 @@ func parsePackageHeader(data []byte) (ConnectionState, []byte, error) {
 	return connectionState, receiveBuffer, nil
 }
 
-func processHeartbeatePacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte) {
+func processHeartbeatPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte) {
 	if heartbeatPacket, err := heartbeat.Unmarshal(data); err != nil {
 		Events.Error.Trigger(err)
 
