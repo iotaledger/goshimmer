@@ -97,7 +97,7 @@ func (packet *Packet) Marshal() []byte {
 
 	// Copy contents of packet.OutboundIDs
 	for i, outboundID := range packet.OutboundIDs {
-		copy(marshaledPackage[MARSHALED_OUTBOUND_IDS_LENGTH_END+i*MARSHALED_OUTBOUND_ID_SIZE:(i+1)*MARSHALED_OUTBOUND_ID_SIZE], outboundID[:MARSHALED_OUTBOUND_ID_SIZE])
+		copy(marshaledPackage[MARSHALED_OUTBOUND_IDS_LENGTH_END+i*MARSHALED_OUTBOUND_ID_SIZE:MARSHALED_OUTBOUND_IDS_LENGTH_END+(i+1)*MARSHALED_OUTBOUND_ID_SIZE], outboundID[:MARSHALED_OUTBOUND_ID_SIZE])
 	}
 
 	// Calculate where inbound nodeId-s start
@@ -116,7 +116,7 @@ func (packet *Packet) Marshal() []byte {
 
 	// Copy contents of packet.InboundIDs
 	for i, inboundID := range packet.InboundIDs {
-		copy(marshaledPackage[MARSHALED_INBOUND_IDS_LENGTH_END+i*MARSHALED_INBOUND_ID_SIZE:(i+1)*MARSHALED_INBOUND_ID_SIZE], inboundID[:MARSHALED_INBOUND_ID_SIZE])
+		copy(marshaledPackage[MARSHALED_INBOUND_IDS_LENGTH_END+i*MARSHALED_INBOUND_ID_SIZE:MARSHALED_INBOUND_IDS_LENGTH_END+(i+1)*MARSHALED_INBOUND_ID_SIZE], inboundID[:MARSHALED_INBOUND_ID_SIZE])
 	}
 
 	return marshaledPackage

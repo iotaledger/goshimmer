@@ -65,7 +65,6 @@ func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 				"outboundIds", out,
 				"inboundIds", in,
 			)
-
 			connLock.Lock()
 			_, _ = conn.Write((&heartbeat.Packet{OwnID: nodeId, OutboundIDs: outboundIds, InboundIDs: inboundIds}).Marshal())
 			connLock.Unlock()
