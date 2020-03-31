@@ -133,6 +133,10 @@ func (transaction *Transaction) Inputs() *Inputs {
 	return transaction.inputs
 }
 
+func (transaction *Transaction) Outputs() *Outputs {
+	return transaction.outputs
+}
+
 func (transaction *Transaction) SignaturesValid() bool {
 	signaturesValid := true
 	transaction.inputs.ForEachAddress(func(address address.Address) bool {

@@ -9,6 +9,8 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
@@ -24,6 +26,7 @@ type Tangle struct {
 	missingPayloadStorage  *objectstorage.ObjectStorage
 	attachmentStorage      *objectstorage.ObjectStorage
 
+	outputStorage                    *objectstorage.ObjectStorage
 	consumerStorage                  *objectstorage.ObjectStorage
 	transactionOutputMetadataStorage *objectstorage.ObjectStorage
 	missingOutputStorage             *objectstorage.ObjectStorage
@@ -46,6 +49,7 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), PayloadApproverFromStorageKey, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 
 		// transaction related storage
+		outputStorage:                    objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTangleOutputs...), transaction.OutputFromStorageKey, objectstorage.CacheTime(time.Second)),
 		transactionOutputMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.Layer0Approvers...), transaction.OutputFromStorageKey, objectstorage.CacheTime(time.Second)),
 		missingOutputStorage:             objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingOutputFromStorageKey, objectstorage.CacheTime(time.Second)),
 		consumerStorage:                  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferConsumer...), transaction.OutputFromStorageKey, objectstorage.CacheTime(time.Second)),
@@ -124,61 +128,85 @@ func (tangle *Tangle) Prune() error {
 
 // storePayloadWorker is the worker function that stores the payload and calls the corresponding storage events.
 func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
-	// store payload
-	var cachedPayload *payload.CachedPayload
+	// store the payload and transaction models
+	cachedPayload, cachedPayloadMetadata, payloadStored := tangle.storePayload(payloadToStore)
+	if !payloadStored {
+		// abort if we have seen the payload already
+		return
+	}
+	cachedTransactionMetadata, transactionStored := tangle.storeTransaction(payloadToStore.Transaction())
+
+	// store the references between the different entities (we do this after the actual entities were stored, so that
+	// all the metadata models exist in the database as soon as the entities are reachable by walks).
+	tangle.storePayloadReferences(payloadToStore)
+	if transactionStored {
+		tangle.storeTransactionReferences(payloadToStore.Transaction())
+	}
+
+	// trigger events
+	if tangle.missingPayloadStorage.DeleteIfPresent(payloadToStore.Id().Bytes()) {
+		tangle.Events.MissingPayloadReceived.Trigger(cachedPayload, cachedPayloadMetadata)
+	}
+	tangle.Events.PayloadAttached.Trigger(cachedPayload, cachedPayloadMetadata)
+
+	// check solidity
+	tangle.solidifierWorkerPool.Submit(func() {
+		tangle.solidifyTransactionWorker(cachedPayload, cachedPayloadMetadata, cachedTransactionMetadata)
+	})
+}
+
+func (tangle *Tangle) storePayload(payloadToStore *payload.Payload) (cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata, payloadStored bool) {
 	if _tmp, transactionIsNew := tangle.payloadStorage.StoreIfAbsent(payloadToStore); !transactionIsNew {
 		return
 	} else {
 		cachedPayload = &payload.CachedPayload{CachedObject: _tmp}
+		cachedMetadata = &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(NewPayloadMetadata(payloadToStore.Id()))}
+		payloadStored = true
+
+		return
 	}
+}
 
-	// store payload metadata
-	payloadId := payloadToStore.Id()
-	cachedMetadata := &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(NewPayloadMetadata(payloadId))}
+func (tangle *Tangle) storeTransaction(tx *transaction.Transaction) (cachedTransactionMetadata *CachedTransactionMetadata, transactionStored bool) {
+	cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: tangle.payloadMetadataStorage.ComputeIfAbsent(tx.Id().Bytes(), func(key []byte) objectstorage.StorableObject {
+		transactionStored = true
 
-	// retrieve or store TransactionMetadata
-	newTransaction := false
-	transactionId := cachedPayload.Unwrap().Transaction().Id()
-	cachedTransactionMetadata := &CachedTransactionMetadata{CachedObject: tangle.payloadMetadataStorage.ComputeIfAbsent(transactionId.Bytes(), func(key []byte) objectstorage.StorableObject {
-		newTransaction = true
-
-		result := NewTransactionMetadata(transactionId)
+		result := NewTransactionMetadata(tx.Id())
 		result.Persist()
 		result.SetModified()
 
 		return result
 	})}
 
-	// store trunk approver
-	trunkId := payloadToStore.TrunkId()
-	tangle.approverStorage.Store(NewPayloadApprover(trunkId, payloadId)).Release()
-
-	// store branch approver
-	if branchId := payloadToStore.BranchId(); branchId != trunkId {
-		tangle.approverStorage.Store(NewPayloadApprover(branchId, trunkId)).Release()
-	}
-
-	// store the consumers, the first time we see a Transaction
-	if newTransaction {
-		payloadToStore.Transaction().Inputs().ForEach(func(outputId transaction.OutputId) bool {
-			tangle.consumerStorage.Store(NewConsumer(outputId, transactionId))
-
-			return true
+	if transactionStored {
+		tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) {
+			tangle.outputStorage.Store(transaction.NewOutput(address, tx.Id(), balances))
 		})
 	}
 
-	// store attachment
-	tangle.attachmentStorage.StoreIfAbsent(NewAttachment(payloadToStore.Transaction().Id(), payloadToStore.Id()))
+	return
+}
 
-	// trigger events
-	if tangle.missingPayloadStorage.DeleteIfPresent(payloadId.Bytes()) {
-		tangle.Events.MissingPayloadReceived.Trigger(cachedPayload, cachedMetadata)
+func (tangle *Tangle) storePayloadReferences(payload *payload.Payload) {
+	// store trunk approver
+	trunkId := payload.TrunkId()
+	tangle.approverStorage.Store(NewPayloadApprover(trunkId, payload.Id())).Release()
+
+	// store branch approver
+	if branchId := payload.BranchId(); branchId != trunkId {
+		tangle.approverStorage.Store(NewPayloadApprover(branchId, trunkId)).Release()
 	}
-	tangle.Events.PayloadAttached.Trigger(cachedPayload, cachedMetadata)
 
-	// check solidity
-	tangle.solidifierWorkerPool.Submit(func() {
-		tangle.solidifyTransactionWorker(cachedPayload, cachedMetadata, cachedTransactionMetadata)
+	// store a reference from the transaction to the payload that attached it
+	tangle.attachmentStorage.Store(NewAttachment(payload.Transaction().Id(), payload.Id()))
+}
+
+func (tangle *Tangle) storeTransactionReferences(tx *transaction.Transaction) {
+	// store references to the consumed outputs
+	tx.Inputs().ForEach(func(outputId transaction.OutputId) bool {
+		tangle.consumerStorage.Store(NewConsumer(outputId, tx.Id()))
+
+		return true
 	})
 }
 
