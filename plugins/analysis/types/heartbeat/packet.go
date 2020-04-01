@@ -4,6 +4,7 @@ import "errors"
 
 var (
 	ErrMalformedHeartbeatPacket = errors.New("malformed heartbeat packet")
+	ErrTooManyNeighborsToReport = errors.New("too many neighbors to report in packet")
 )
 
 // A heartbeat packet
@@ -72,7 +73,7 @@ func Unmarshal(data []byte) (*Packet, error) {
 
 }
 
-func (packet *Packet) Marshal() []byte {
+func (packet *Packet) Marshal() ([]byte, error) {
 	// Calculate total needed bytes based on packet
 	MARSHALED_TOTAL_SIZE := MARSHALED_PACKET_HEADER_SIZE + MARSHALED_OWN_ID_SIZE +
 		// Dynamic part 1, outbound IDs
@@ -90,8 +91,8 @@ func (packet *Packet) Marshal() []byte {
 
 	// Outbound nodeIds, need to tell first how many we have to be able to unmarshal it later
 	lengthOutboundIDs := len(packet.OutboundIDs)
-	if lengthOutboundIDs > 255 {
-		// panic
+	if lengthOutboundIDs > MAX_OUTBOUND_NEIGHBOR_COUNT {
+		return nil, ErrTooManyNeighborsToReport
 	} else {
 		marshaledPackage[MARSHALED_OUTBOUND_IDS_LENGTH_START] = byte(lengthOutboundIDs)
 	}
@@ -106,8 +107,8 @@ func (packet *Packet) Marshal() []byte {
 
 	// Tell how many inbound nodeId-s we have
 	lengthInboundIDs := len(packet.InboundIDs)
-	if lengthInboundIDs > 255 {
-		// panic
+	if lengthInboundIDs > MAX_INBOUND_NEIGHBOR_COUNT {
+		return nil, ErrTooManyNeighborsToReport
 	} else {
 		marshaledPackage[MARSHALED_INBOUND_IDS_LENGTH_START] = byte(lengthInboundIDs)
 	}
@@ -120,5 +121,5 @@ func (packet *Packet) Marshal() []byte {
 		copy(marshaledPackage[MARSHALED_INBOUND_IDS_LENGTH_END+i*MARSHALED_INBOUND_ID_SIZE:MARSHALED_INBOUND_IDS_LENGTH_END+(i+1)*MARSHALED_INBOUND_ID_SIZE], inboundID[:MARSHALED_INBOUND_ID_SIZE])
 	}
 
-	return marshaledPackage
+	return marshaledPackage, nil
 }

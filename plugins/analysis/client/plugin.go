@@ -64,10 +64,14 @@ func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 				"outboundIds", out,
 				"inboundIds", in,
 			)
-			connLock.Lock()
-			_, _ = conn.Write(packet.Marshal())
-			connLock.Unlock()
 
+			if data, err := packet.Marshal(); err != nil {
+				log.Info(err, " - heartbeat message skipped")
+			} else {
+				connLock.Lock()
+				defer connLock.Unlock()
+				_, _ = conn.Write(data)
+			}
 		},
 	}
 }
