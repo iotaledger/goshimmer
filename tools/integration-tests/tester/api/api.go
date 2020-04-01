@@ -20,8 +20,9 @@ var (
 )
 
 const (
-	routeBroadcastData = "broadcastData"
-	routeGetNeighbors  = "getNeighbors"
+	routeBroadcastData    = "broadcastData"
+	routeGetNeighbors     = "getNeighbors"
+	routeGetMessageByHash = "getMessageByHash"
 
 	contentTypeJSON = "application/json"
 )
@@ -151,6 +152,22 @@ func (api *Api) GetNeighbors(knownPeers bool) (*GetNeighborResponse, error) {
 			return fmt.Sprintf("%s?known=1", routeGetNeighbors)
 		}(),
 		nil,
+		res,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (api *Api) GetMessageByHash(hashes []string) (*GetMessageByHashResponse, error) {
+	res := &GetMessageByHashResponse{}
+
+	err := api.do(
+		http.MethodPost,
+		routeGetMessageByHash,
+		&GetMessageByHashRequest{Hashes: hashes},
 		res,
 	)
 	if err != nil {
