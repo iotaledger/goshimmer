@@ -3,21 +3,18 @@ package framework
 import (
 	"fmt"
 	"math/rand"
-	"net/http"
 	"time"
 )
 
 type Framework struct {
-	peers      []*Peer
-	httpClient *http.Client
+	peers []*Peer
 }
 
 func New() *Framework {
 	fmt.Printf("Finding available peers...\n")
 
 	f := &Framework{
-		peers:      getAvailablePeers(),
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		peers: getAvailablePeers(),
 	}
 
 	if len(f.peers) == 0 {
@@ -37,8 +34,7 @@ func (f *Framework) waitForAutopeering() {
 	for maxTries > 0 {
 
 		for _, p := range f.peers {
-			resp := new(GetNeighborResponse)
-			if err := f.HttpGet(p, apiGetNeighbors, resp); err != nil {
+			if resp, err := p.GetNeighbors(false); err != nil {
 				fmt.Printf("request error: %v\n", err)
 			} else {
 				p.SetNeighbors(resp.Chosen, resp.Accepted)
@@ -65,16 +61,6 @@ func (f *Framework) waitForAutopeering() {
 		maxTries--
 	}
 	panic("Peering not successful.")
-}
-
-func (f *Framework) HttpGet(peer *Peer, endpoint string, target interface{}) error {
-	url := fmt.Sprintf("%s%s", peer.api, endpoint)
-	return getJson(f.httpClient, url, target)
-}
-
-func (f *Framework) HttpPost(peer *Peer, endpoint string, requestBody interface{}, responseBody interface{}) error {
-	url := fmt.Sprintf("%s%s", peer.api, endpoint)
-	return postJson(f.httpClient, url, requestBody, responseBody)
 }
 
 func (f *Framework) Peers() []*Peer {

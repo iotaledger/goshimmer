@@ -7,6 +7,5 @@ const (
 	autopeeringMaxTries         = 50
 	autopeeringMinimumNeighbors = 2
 
-	apiPort         = "8080"
-	apiGetNeighbors = "getNeighbors"
+	apiPort = "8080"
 )

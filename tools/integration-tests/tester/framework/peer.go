@@ -3,37 +3,41 @@ package framework
 import (
 	"fmt"
 	"net"
+	"net/http"
+	"time"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/api"
 )
 
 type Peer struct {
-	name     string
-	ip       net.IP
-	api      string
-	chosen   []Neighbor
-	accepted []Neighbor
+	name string
+	ip   net.IP
+	*api.Api
+	chosen   []api.Neighbor
+	accepted []api.Neighbor
 }
 
 func NewPeer(name string, ip net.IP) *Peer {
 	return &Peer{
 		name: name,
 		ip:   ip,
-		api:  getWebApi(ip),
+		Api:  api.New(getWebApiBaseUrl(ip), http.Client{Timeout: 30 * time.Second}),
 	}
 }
 
 func (p *Peer) String() string {
-	return fmt.Sprintf("Peer:{%s, %s, %s, %d}", p.name, p.ip.String(), p.api, p.TotalNeighbors())
+	return fmt.Sprintf("Peer:{%s, %s, %s, %d}", p.name, p.ip.String(), p.BaseUrl, p.TotalNeighbors())
 }
 
 func (p *Peer) TotalNeighbors() int {
 	return len(p.chosen) + len(p.accepted)
 }
 
-func (p *Peer) SetNeighbors(chosen, accepted []Neighbor) {
-	p.chosen = make([]Neighbor, len(chosen))
+func (p *Peer) SetNeighbors(chosen, accepted []api.Neighbor) {
+	p.chosen = make([]api.Neighbor, len(chosen))
 	copy(p.chosen, chosen)
 
-	p.accepted = make([]Neighbor, len(accepted))
+	p.accepted = make([]api.Neighbor, len(accepted))
 	copy(p.accepted, accepted)
 }
 
@@ -60,24 +64,6 @@ func getAvailablePeers() (peers []*Peer) {
 	return
 }
 
-func getWebApi(ip net.IP) string {
-	return fmt.Sprintf("http://%s:%s/", ip.String(), apiPort)
-}
-
-type GetNeighborResponse struct {
-	KnownPeers []Neighbor `json:"known,omitempty"`
-	Chosen     []Neighbor `json:"chosen"`
-	Accepted   []Neighbor `json:"accepted"`
-	Error      string     `json:"error,omitempty"`
-}
-
-type Neighbor struct {
-	ID        string        `json:"id"`        // comparable node identifier
-	PublicKey string        `json:"publicKey"` // public key used to verify signatures
-	Services  []PeerService `json:"services,omitempty"`
-}
-
-type PeerService struct {
-	ID      string `json:"id"`      // ID of the service
-	Address string `json:"address"` // network address of the service
+func getWebApiBaseUrl(ip net.IP) string {
+	return fmt.Sprintf("http://%s:%s", ip.String(), apiPort)
 }
