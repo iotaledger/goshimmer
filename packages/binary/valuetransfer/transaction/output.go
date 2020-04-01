@@ -11,6 +11,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
 )
 
+var OutputKeyPartitions = []int{address.Length, IdLength}
+
 // Output represents the output of a Transaction and contains the balances and the identifiers for this output.
 type Output struct {
 	address            address.Address
@@ -227,3 +229,41 @@ func (output *Output) Update(other objectstorage.StorableObject) {
 
 // define contract (ensure that the struct fulfills the given interface)
 var _ objectstorage.StorableObject = &Output{}
+
+// region CachedOutput /////////////////////////////////////////////////////////////////////////////////////////////////
+
+type CachedOutput struct {
+	objectstorage.CachedObject
+}
+
+func (cachedOutput *CachedOutput) Unwrap() *Output {
+	if untypedObject := cachedOutput.Get(); untypedObject == nil {
+		return nil
+	} else {
+		if typedObject := untypedObject.(*Output); typedObject == nil || typedObject.IsDeleted() {
+			return nil
+		} else {
+			return typedObject
+		}
+	}
+}
+
+func (cachedOutput *CachedOutput) Consume(consumer func(output *Output)) (consumed bool) {
+	return cachedOutput.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*Output))
+	})
+}
+
+type CachedOutputs []*CachedOutput
+
+func (cachedOutputs CachedOutputs) Consume(consumer func(output *Output)) (consumed bool) {
+	for _, cachedOutput := range cachedOutputs {
+		consumed = cachedOutput.Consume(func(output *Output) {
+			consumer(output)
+		}) || consumed
+	}
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -130,3 +130,41 @@ var _ objectstorage.StorableObject = &Attachment{}
 
 // AttachmentLength holds the length of a marshaled Attachment in bytes.
 const AttachmentLength = transaction.IdLength + payload.IdLength
+
+// region CachedAttachment /////////////////////////////////////////////////////////////////////////////////////////////
+
+type CachedAttachment struct {
+	objectstorage.CachedObject
+}
+
+func (cachedAttachment *CachedAttachment) Unwrap() *Attachment {
+	if untypedObject := cachedAttachment.Get(); untypedObject == nil {
+		return nil
+	} else {
+		if typedObject := untypedObject.(*Attachment); typedObject == nil || typedObject.IsDeleted() {
+			return nil
+		} else {
+			return typedObject
+		}
+	}
+}
+
+func (cachedAttachment *CachedAttachment) Consume(consumer func(attachment *Attachment)) (consumed bool) {
+	return cachedAttachment.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*Attachment))
+	})
+}
+
+type CachedAttachments []*CachedAttachment
+
+func (cachedAttachments CachedAttachments) Consume(consumer func(attachment *Attachment)) (consumed bool) {
+	for _, cachedAttachment := range cachedAttachments {
+		consumed = cachedAttachment.Consume(func(output *Attachment) {
+			consumer(output)
+		}) || consumed
+	}
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

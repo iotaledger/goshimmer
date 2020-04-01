@@ -129,3 +129,41 @@ var _ objectstorage.StorableObject = &Consumer{}
 
 // ConsumerLength holds the length of a marshaled Consumer in bytes.
 const ConsumerLength = transaction.OutputIdLength + transaction.IdLength
+
+// region CachedConsumer /////////////////////////////////////////////////////////////////////////////////////////////////
+
+type CachedConsumer struct {
+	objectstorage.CachedObject
+}
+
+func (cachedConsumer *CachedConsumer) Unwrap() *Consumer {
+	if untypedObject := cachedConsumer.Get(); untypedObject == nil {
+		return nil
+	} else {
+		if typedObject := untypedObject.(*Consumer); typedObject == nil || typedObject.IsDeleted() {
+			return nil
+		} else {
+			return typedObject
+		}
+	}
+}
+
+func (cachedConsumer *CachedConsumer) Consume(consumer func(consumer *Consumer)) (consumed bool) {
+	return cachedConsumer.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*Consumer))
+	})
+}
+
+type CachedConsumers []*CachedConsumer
+
+func (cachedConsumers CachedConsumers) Consume(consumer func(consumer *Consumer)) (consumed bool) {
+	for _, cachedConsumer := range cachedConsumers {
+		consumed = cachedConsumer.Consume(func(output *Consumer) {
+			consumer(output)
+		}) || consumed
+	}
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

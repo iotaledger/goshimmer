@@ -7,6 +7,7 @@ import (
 	"github.com/dgraph-io/badger/v2"
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
@@ -26,10 +27,9 @@ type Tangle struct {
 	missingPayloadStorage  *objectstorage.ObjectStorage
 	attachmentStorage      *objectstorage.ObjectStorage
 
-	outputStorage                    *objectstorage.ObjectStorage
-	consumerStorage                  *objectstorage.ObjectStorage
-	transactionOutputMetadataStorage *objectstorage.ObjectStorage
-	missingOutputStorage             *objectstorage.ObjectStorage
+	outputStorage        *objectstorage.ObjectStorage
+	consumerStorage      *objectstorage.ObjectStorage
+	missingOutputStorage *objectstorage.ObjectStorage
 
 	Events Events
 
@@ -49,10 +49,9 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), PayloadApproverFromStorageKey, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 
 		// transaction related storage
-		outputStorage:                    objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTangleOutputs...), outputFromStorageKey, objectstorage.CacheTime(time.Second)),
-		transactionOutputMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.Layer0Approvers...), outputFromStorageKey, objectstorage.CacheTime(time.Second)),
-		missingOutputStorage:             objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingOutputFromStorageKey, objectstorage.CacheTime(time.Second)),
-		consumerStorage:                  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferConsumer...), outputFromStorageKey, objectstorage.CacheTime(time.Second)),
+		outputStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTangleOutputs...), outputFromStorageKey, objectstorage.PartitionKey(transaction.OutputKeyPartitions...), objectstorage.CacheTime(time.Second)),
+		missingOutputStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingOutputFromStorageKey, objectstorage.CacheTime(time.Second)),
+		consumerStorage:      objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferConsumer...), outputFromStorageKey, objectstorage.CacheTime(time.Second)),
 
 		attachmentStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferAttachment...), AttachmentFromStorageKey, objectstorage.CacheTime(time.Second)),
 
@@ -84,16 +83,44 @@ func (tangle *Tangle) GetTransactionMetadata(transactionId transaction.Id) *Cach
 	return &CachedTransactionMetadata{CachedObject: tangle.missingOutputStorage.Load(transactionId.Bytes())}
 }
 
+func (tangle *Tangle) GetTransactionOutput(outputId transaction.OutputId) *transaction.CachedOutput {
+	return &transaction.CachedOutput{CachedObject: tangle.outputStorage.Load(outputId.Bytes())}
+}
+
 // GetApprovers retrieves the approvers of a payload from the object storage.
-func (tangle *Tangle) GetApprovers(transactionId payload.Id) CachedApprovers {
+func (tangle *Tangle) GetApprovers(payloadId payload.Id) CachedApprovers {
 	approvers := make(CachedApprovers, 0)
 	tangle.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		approvers = append(approvers, &CachedPayloadApprover{CachedObject: cachedObject})
 
 		return true
-	}, transactionId[:])
+	}, payloadId.Bytes())
 
 	return approvers
+}
+
+// GetApprovers retrieves the approvers of a payload from the object storage.
+func (tangle *Tangle) GetConsumers(outputId transaction.OutputId) CachedConsumers {
+	consumers := make(CachedConsumers, 0)
+	tangle.consumerStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		consumers = append(consumers, &CachedConsumer{CachedObject: cachedObject})
+
+		return true
+	}, outputId.Bytes())
+
+	return consumers
+}
+
+// GetApprovers retrieves the approvers of a payload from the object storage.
+func (tangle *Tangle) GetAttachments(transactionId transaction.Id) CachedAttachments {
+	attachments := make(CachedAttachments, 0)
+	tangle.attachmentStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		attachments = append(attachments, &CachedAttachment{CachedObject: cachedObject})
+
+		return true
+	}, transactionId.Bytes())
+
+	return attachments
 }
 
 // Shutdown stops the worker pools and shuts down the object storage instances.
@@ -228,57 +255,94 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 
 	// process payloads that are supposed to be checked for solidity recursively
 	for solidificationStack.Len() > 0 {
-		currentCachedPayload, currentCachedMetadata, currentCachedTransactionMetadata := popElementsFromStack(solidificationStack)
+		// execute logic inside a func, so we can use defer to release the objects
+		func() {
+			// retrieve cached objects
+			currentCachedPayload, currentCachedMetadata, currentCachedTransactionMetadata := popElementsFromStack(solidificationStack)
+			defer currentCachedPayload.Release()
+			defer currentCachedMetadata.Release()
+			defer currentCachedTransactionMetadata.Release()
 
-		currentPayload := currentCachedPayload.Unwrap()
-		currentPayloadMetadata := currentCachedMetadata.Unwrap()
-		currentTransaction := currentPayload.Transaction()
-		currentTransactionMetadata := currentCachedTransactionMetadata.Unwrap()
-		if currentPayload == nil || currentPayloadMetadata == nil || currentTransactionMetadata == nil {
-			currentCachedPayload.Release()
-			currentCachedMetadata.Release()
-			currentCachedTransactionMetadata.Release()
+			// unwrap cached objects
+			currentPayload := currentCachedPayload.Unwrap()
+			currentPayloadMetadata := currentCachedMetadata.Unwrap()
+			currentTransactionMetadata := currentCachedTransactionMetadata.Unwrap()
+			currentTransaction := currentPayload.Transaction()
 
-			continue
-		}
+			// abort if any of the retrieved models is nil
+			if currentPayload == nil || currentPayloadMetadata == nil || currentTransactionMetadata == nil {
+				return
+			}
 
-		// if current transaction and payload are solid ...
-		if tangle.isPayloadSolid(currentPayload, currentPayloadMetadata) && tangle.isTransactionSolid(currentTransaction, currentTransactionMetadata) {
+			// abort if the entities are not solid
+			if !tangle.isPayloadSolid(currentPayload, currentPayloadMetadata) || !tangle.isTransactionSolid(currentTransaction, currentTransactionMetadata) {
+				return
+			}
+
+			// abort if the payload was marked as solid already (if a payload is solid already then the tx is also solid)
 			payloadBecameSolid := currentPayloadMetadata.SetSolid(true)
+			if !payloadBecameSolid {
+				return
+			}
+
+			// set the transaction related entities to be solid
 			transactionBecameSolid := currentTransactionMetadata.SetSolid(true)
-
-			// if payload was marked as solid the first time ...
-			if payloadBecameSolid {
-				tangle.Events.PayloadSolid.Trigger(currentCachedPayload, currentCachedMetadata)
-
-				tangle.GetApprovers(currentPayload.Id()).Consume(func(approver *PayloadApprover) {
-					approvingPayloadId := approver.GetApprovingPayloadId()
-					approvingCachedPayload := tangle.GetPayload(approvingPayloadId)
-
-					approvingCachedPayload.Consume(func(payload *payload.Payload) {
-						solidificationStack.PushBack([3]interface{}{
-							approvingCachedPayload,
-							tangle.GetPayloadMetadata(approvingPayloadId),
-							tangle.GetTransactionMetadata(payload.Transaction().Id()),
-						})
+			if transactionBecameSolid {
+				currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) {
+					tangle.GetTransactionOutput(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(output *transaction.Output) {
+						output.SetSolid(true)
 					})
 				})
 			}
 
-			if transactionBecameSolid {
-				tangle.Events.TransactionSolid.Trigger(currentTransaction, currentTransactionMetadata)
+			// ... trigger solid event ...
+			tangle.Events.PayloadSolid.Trigger(currentCachedPayload, currentCachedMetadata)
 
-				currentTransaction.Inputs().ForEach(func(outputId transaction.OutputId) bool {
-					return true
+			// ... and schedule check of approvers
+			tangle.GetApprovers(currentPayload.Id()).Consume(func(approver *PayloadApprover) {
+				approvingPayloadId := approver.GetApprovingPayloadId()
+				approvingCachedPayload := tangle.GetPayload(approvingPayloadId)
+
+				approvingCachedPayload.Consume(func(payload *payload.Payload) {
+					solidificationStack.PushBack([3]interface{}{
+						approvingCachedPayload,
+						tangle.GetPayloadMetadata(approvingPayloadId),
+						tangle.GetTransactionMetadata(payload.Transaction().Id()),
+					})
 				})
-				//tangle.GetConsumers(outputId)
-			}
-		}
+			})
 
-		// release cached objects
-		currentCachedPayload.Release()
-		currentCachedMetadata.Release()
-		currentCachedTransactionMetadata.Release()
+			if !transactionBecameSolid {
+				return
+			}
+
+			tangle.Events.TransactionSolid.Trigger(currentTransaction, currentTransactionMetadata)
+
+			seenTransactions := make(map[transaction.Id]types.Empty)
+			currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) {
+				tangle.GetTransactionOutput(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(output *transaction.Output) {
+					// trigger events
+				})
+
+				tangle.GetConsumers(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(consumer *Consumer) {
+					// keep track of the processed transactions (the same transaction can consume multiple outputs)
+					if _, transactionSeen := seenTransactions[consumer.TransactionId()]; transactionSeen {
+						seenTransactions[consumer.TransactionId()] = types.Void
+
+						transactionMetadata := tangle.GetTransactionMetadata(consumer.TransactionId())
+
+						// retrieve all the payloads that attached the transaction
+						tangle.GetAttachments(consumer.TransactionId()).Consume(func(attachment *Attachment) {
+							solidificationStack.PushBack([3]interface{}{
+								tangle.GetPayload(attachment.PayloadId()),
+								tangle.GetPayloadMetadata(attachment.PayloadId()),
+								transactionMetadata,
+							})
+						})
+					}
+				})
+			})
+		}()
 	}
 }
 
@@ -299,17 +363,13 @@ func (tangle *Tangle) isTransactionSolid(transaction *transaction.Transaction, m
 	return transaction.Inputs().ForEach(tangle.isOutputMarkedAsSolid)
 }
 
-func (tangle *Tangle) GetTransferOutputMetadata(transactionOutputId transaction.OutputId) *CachedTransactionOutputMetadata {
-	return &CachedTransactionOutputMetadata{CachedObject: tangle.transactionOutputMetadataStorage.Load(transactionOutputId.Bytes())}
-}
-
-func (tangle *Tangle) isOutputMarkedAsSolid(transferOutputId transaction.OutputId) (result bool) {
-	objectConsumed := tangle.GetTransferOutputMetadata(transferOutputId).Consume(func(transferOutputMetadata *TransactionOutputMetadata) {
-		result = transferOutputMetadata.Solid()
+func (tangle *Tangle) isOutputMarkedAsSolid(transactionOutputId transaction.OutputId) (result bool) {
+	outputExists := tangle.GetTransactionOutput(transactionOutputId).Consume(func(output *transaction.Output) {
+		result = output.Solid()
 	})
 
-	if !objectConsumed {
-		if cachedMissingOutput, missingOutputStored := tangle.missingOutputStorage.StoreIfAbsent(NewMissingOutput(transferOutputId)); missingOutputStored {
+	if !outputExists {
+		if cachedMissingOutput, missingOutputStored := tangle.missingOutputStorage.StoreIfAbsent(NewMissingOutput(transactionOutputId)); missingOutputStored {
 			cachedMissingOutput.Consume(func(object objectstorage.StorableObject) {
 				tangle.Events.OutputMissing.Trigger(object.(*MissingOutput).Id())
 			})
