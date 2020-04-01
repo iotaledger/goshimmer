@@ -178,7 +178,7 @@ func Replay(handlers *types.EventHandlers) {
 
 	// When a node is present in the list, it means we heard about it directly
 	// or indirectly, but within CLEAN_UP_PERIOD, therefore it is online
-	for nodeId, _ := range copiedNodes {
+	for nodeId := range copiedNodes {
 		handlers.AddNode(nodeId)
 		handlers.NodeOnline(nodeId)
 	}

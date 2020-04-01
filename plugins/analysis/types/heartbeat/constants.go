@@ -3,7 +3,7 @@ package heartbeat
 import "crypto/sha256"
 
 const (
-	MARSHALED_PACKET_HEADER = 0x05
+	MARSHALED_PACKET_HEADER = 0x01
 
 	// Maximum number of allowed neighbors in one direction
 	MAX_OUTBOUND_NEIGHBOR_COUNT = 4

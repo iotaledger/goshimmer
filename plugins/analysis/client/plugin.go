@@ -25,7 +25,7 @@ var connLock sync.Mutex
 func Run(plugin *node.Plugin) {
 	log = logger.NewLogger("Analysis-Client")
 	daemon.BackgroundWorker("Analysis Client", func(shutdownSignal <-chan struct{}) {
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(REPORT_INTERVAL * time.Second)
 		for {
 			select {
 			case <-shutdownSignal:
