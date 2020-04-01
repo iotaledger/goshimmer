@@ -5,9 +5,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/heartbeat"
 	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface/types"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 )
@@ -104,41 +106,50 @@ func Configure(plugin *node.Plugin) {
 			links[incomingNeighborString][nodeIdString] = timestamp
 		}
 	}))
+}
 
-	go cleanUpPeriodically(CLEAN_UP_PERIOD)
+func Run() {
+	daemon.BackgroundWorker("Analysis Server Record Manager", func(shutdownSignal <-chan struct{}) {
+		ticker := time.NewTicker(CLEAN_UP_PERIOD)
+		for {
+			select {
+			case <-shutdownSignal:
+				return
+
+			case <-ticker.C:
+				cleanUp(CLEAN_UP_PERIOD)
+			}
+		}
+	}, shutdown.ShutdownPriorityAnalysis)
 }
 
 // Remove nodes and links we haven't seen for at least 3 times the heartbeat interval
-func cleanUpPeriodically(interval time.Duration) {
-	for {
-		lock.Lock()
-		now := time.Now()
+func cleanUp(interval time.Duration) {
+	lock.Lock()
+	defer lock.Unlock()
+	now := time.Now()
 
-		// Go through the list of connections. Remove connections that are older than interval time.
-		for srcNode, targetMap := range links {
-			for trgNode, lastSeen := range targetMap {
-				if now.Sub(lastSeen) > interval {
-					delete(targetMap, trgNode)
-					server.Events.DisconnectNodes.Trigger(srcNode, trgNode)
-				}
-			}
-			// Delete src node from links if it doesn't have any connections
-			if len(targetMap) == 0 {
-				delete(links, srcNode)
-			}
-		}
-
-		// Go through the list of nodes. Remove nodes that haven't been seen for interval time
-		for node, lastSeen := range nodes {
+	// Go through the list of connections. Remove connections that are older than interval time.
+	for srcNode, targetMap := range links {
+		for trgNode, lastSeen := range targetMap {
 			if now.Sub(lastSeen) > interval {
-				delete(nodes, node)
-				server.Events.NodeOffline.Trigger(node)
-				server.Events.RemoveNode.Trigger(node)
+				delete(targetMap, trgNode)
+				server.Events.DisconnectNodes.Trigger(srcNode, trgNode)
 			}
 		}
-		lock.Unlock()
-		// Sleep for interval time
-		time.Sleep(interval)
+		// Delete src node from links if it doesn't have any connections
+		if len(targetMap) == 0 {
+			delete(links, srcNode)
+		}
+	}
+
+	// Go through the list of nodes. Remove nodes that haven't been seen for interval time
+	for node, lastSeen := range nodes {
+		if now.Sub(lastSeen) > interval {
+			delete(nodes, node)
+			server.Events.NodeOffline.Trigger(node)
+			server.Events.RemoveNode.Trigger(node)
+		}
 	}
 }
 

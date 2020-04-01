@@ -81,6 +81,7 @@ func (packet *Packet) Marshal() []byte {
 		MARSHALED_INBOUND_IDS_LENGTH_SIZE + len(packet.InboundIDs)*MARSHALED_INBOUND_ID_SIZE
 
 	marshaledPackage := make([]byte, MARSHALED_TOTAL_SIZE)
+
 	// Header byte
 	marshaledPackage[MARSHALED_PACKET_HEADER_START] = MARSHALED_PACKET_HEADER
 

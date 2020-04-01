@@ -56,7 +56,7 @@ func Shutdown() {
 func HandleConnection(conn *network.ManagedConnection) {
 	conn.SetTimeout(IDLE_TIMEOUT)
 
-	var connectionState = STATE_INITIAL
+	var connectionState byte
 	var receiveBuffer []byte
 
 	var onDisconnect *events.Closure

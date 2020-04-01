@@ -25,12 +25,13 @@ var connLock sync.Mutex
 func Run(plugin *node.Plugin) {
 	log = logger.NewLogger("Analysis-Client")
 	daemon.BackgroundWorker("Analysis Client", func(shutdownSignal <-chan struct{}) {
+		ticker := time.NewTicker(5 * time.Second)
 		for {
 			select {
 			case <-shutdownSignal:
 				return
 
-			default:
+			case <-ticker.C:
 				if conn, err := net.Dial("tcp", config.Node.GetString(CFG_SERVER_ADDRESS)); err != nil {
 					log.Debugf("Could not connect to reporting server: %s", err.Error())
 
@@ -40,9 +41,6 @@ func Run(plugin *node.Plugin) {
 					eventDispatchers := getEventDispatchers(managedConn)
 
 					reportHeartbeat(eventDispatchers)
-
-					// TODO: rewrite with ticker, chan
-					timeutil.Sleep(REPORT_INTERVAL*time.Second, shutdownSignal)
 				}
 			}
 		}
@@ -51,23 +49,23 @@ func Run(plugin *node.Plugin) {
 
 func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 	return &EventDispatchers{
-		Heartbeat: func(nodeId []byte, outboundIds [][]byte, inboundIds [][]byte) {
+		Heartbeat: func(packet *heartbeat.Packet) {
 			out := ""
-			for _, value := range outboundIds {
+			for _, value := range packet.OutboundIDs {
 				out += hex.EncodeToString(value)
 			}
 			in := ""
-			for _, value := range inboundIds {
+			for _, value := range packet.InboundIDs {
 				in += hex.EncodeToString(value)
 			}
 			log.Debugw(
 				"Heartbeat",
-				"nodeId", hex.EncodeToString(nodeId),
+				"nodeId", hex.EncodeToString(packet.OwnID),
 				"outboundIds", out,
 				"inboundIds", in,
 			)
 			connLock.Lock()
-			_, _ = conn.Write((&heartbeat.Packet{OwnID: nodeId, OutboundIDs: outboundIds, InboundIDs: inboundIds}).Marshal())
+			_, _ = conn.Write(packet.Marshal())
 			connLock.Unlock()
 
 		},
@@ -95,5 +93,7 @@ func reportHeartbeat(dispatchers *EventDispatchers) {
 		inboundIds[i] = neighbor.ID().Bytes()
 	}
 
-	dispatchers.Heartbeat(nodeId, outboundIds, inboundIds)
+	packet := heartbeat.Packet{OwnID: nodeId, OutboundIDs: outboundIds, InboundIDs: inboundIds}
+
+	dispatchers.Heartbeat(&packet)
 }
