@@ -39,23 +39,16 @@ func Configure(plugin *node.Plugin) {
 		lock.Lock()
 		defer lock.Unlock()
 
-		// process the packet
 		nodeIdString := hex.EncodeToString(packet.OwnID)
 		timestamp := time.Now()
 
-		// When it is present in the list, we just update the timestamp
+		// When node is new, add to graph
 		if _, isAlready := nodes[nodeIdString]; !isAlready {
 			server.Events.AddNode.Trigger(nodeIdString)
 			server.Events.NodeOnline.Trigger(nodeIdString)
 		}
+		// Save it + update timestamp
 		nodes[nodeIdString] = timestamp
-
-		// Do we have any links already with src=nodeIdString?
-		if _, isAlready := links[nodeIdString]; !isAlready {
-			// Nope, so we have to allocate an empty map to be nested in links for nodeIdString
-			initMap := make(map[string]time.Time)
-			links[nodeIdString] = initMap
-		}
 
 		// Outgoing neighbor links update
 		for _, outgoingNeighbor := range packet.OutboundIDs {
@@ -70,6 +63,12 @@ func Configure(plugin *node.Plugin) {
 			// We have indirectly heard about the neighbor.
 			nodes[outgoingNeighborString] = timestamp
 
+			// Do we have any links already with src=nodeIdString?
+			if _, isAlready := links[nodeIdString]; !isAlready {
+				// Nope, so we have to allocate an empty map to be nested in links for nodeIdString
+				links[nodeIdString] = make(map[string]time.Time)
+			}
+
 			// Update graph when connection hasn't been seen before
 			if _, isAlready := links[nodeIdString][outgoingNeighborString]; !isAlready {
 				server.Events.ConnectNodes.Trigger(nodeIdString, outgoingNeighborString)
@@ -77,8 +76,9 @@ func Configure(plugin *node.Plugin) {
 			// Update links
 			links[nodeIdString][outgoingNeighborString] = timestamp
 		}
+
 		// Incoming neighbor links update
-		for _, incomingNeighbor := range packet.OutboundIDs {
+		for _, incomingNeighbor := range packet.InboundIDs {
 			incomingNeighborString := hex.EncodeToString(incomingNeighbor)
 			// Do we already know about this neighbor?
 			// If no, add it and set it online
@@ -93,8 +93,7 @@ func Configure(plugin *node.Plugin) {
 			// Do we have any links already with src=incomingNeighborString?
 			if _, isAlready := links[incomingNeighborString]; !isAlready {
 				// Nope, so we have to allocate an empty map to be nested in links for incomingNeighborString
-				initMap := make(map[string]time.Time)
-				links[nodeIdString] = initMap
+				links[incomingNeighborString] = make(map[string]time.Time)
 			}
 
 			// Update graph when connection hasn't been seen before
@@ -113,19 +112,18 @@ func Configure(plugin *node.Plugin) {
 func cleanUpPeriodically(interval time.Duration) {
 	for {
 		lock.Lock()
-		defer lock.Unlock()
 		now := time.Now()
 
 		// Go through the list of connections. Remove connections that are older than interval time.
 		for srcNode, targetMap := range links {
 			for trgNode, lastSeen := range targetMap {
 				if now.Sub(lastSeen) > interval {
-					delete(links[srcNode], trgNode)
+					delete(targetMap, trgNode)
 					server.Events.DisconnectNodes.Trigger(srcNode, trgNode)
 				}
 			}
 			// Delete src node from links if it doesn't have any connections
-			if len(links[srcNode]) == 0 {
+			if len(targetMap) == 0 {
 				delete(links, srcNode)
 			}
 		}
@@ -138,10 +136,10 @@ func cleanUpPeriodically(interval time.Duration) {
 				server.Events.RemoveNode.Trigger(node)
 			}
 		}
+		lock.Unlock()
 		// Sleep for interval time
 		time.Sleep(interval)
 	}
-
 }
 
 func getEventsToReplay() (map[string]time.Time, map[string]map[string]time.Time) {
