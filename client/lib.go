@@ -147,7 +147,7 @@ func (api *GoShimmerAPI) Login(username string, password string) error {
 	return nil
 }
 
-// BroadcastData sends the given data by creating a zero value transaction in the backend targeting the given address.
+// BroadcastData sends the given data (payload) by creating a message in the backend.
 func (api *GoShimmerAPI) BroadcastData(data []byte) (string, error) {
 
 	res := &webapi_broadcastData.Response{}
