@@ -51,7 +51,7 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		// transaction related storage
 		outputStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTangleOutputs...), outputFromStorageKey, objectstorage.PartitionKey(transaction.OutputKeyPartitions...), objectstorage.CacheTime(time.Second)),
 		missingOutputStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingOutputFromStorageKey, objectstorage.CacheTime(time.Second)),
-		consumerStorage:      objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferConsumer...), outputFromStorageKey, objectstorage.CacheTime(time.Second)),
+		consumerStorage:      objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferConsumer...), consumerFromStorageKey, objectstorage.CacheTime(time.Second)),
 
 		attachmentStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferAttachment...), AttachmentFromStorageKey, objectstorage.CacheTime(time.Second)),
 
@@ -428,4 +428,8 @@ func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payload.Id) bool {
 
 func outputFromStorageKey(key []byte) (objectstorage.StorableObject, error, int) {
 	return transaction.OutputFromStorageKey(key)
+}
+
+func consumerFromStorageKey(key []byte) (objectstorage.StorableObject, error, int) {
+	return ConsumerFromStorageKey(key)
 }
