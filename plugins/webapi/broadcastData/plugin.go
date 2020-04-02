@@ -19,8 +19,8 @@ func configure(plugin *node.Plugin) {
 	webapi.Server.POST("broadcastData", broadcastData)
 }
 
-// broadcastData creates a data (0-value) transaction given an input of bytes and
-// broadcasts it to the node's neighbors. It returns the transaction hash if successful.
+// broadcastData creates a message of the given payload and
+// broadcasts it to the node's neighbors. It returns the message ID if successful.
 func broadcastData(c echo.Context) error {
 	var request Request
 	if err := c.Bind(&request); err != nil {
@@ -28,17 +28,18 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	tx := messagelayer.MessageFactory.IssuePayload(payload.NewData([]byte(request.Data)))
+	//TODO: to check max payload size allowed, if exceeding return an error
 
-	return c.JSON(http.StatusOK, Response{Hash: tx.Id().String()})
+	tx := messagelayer.MessageFactory.IssuePayload(payload.NewData(request.Data))
+
+	return c.JSON(http.StatusOK, Response{Id: tx.Id().String()})
 }
 
 type Response struct {
-	Hash  string `json:"hash,omitempty"`
+	Id    string `json:"id,omitempty"`
 	Error string `json:"error,omitempty"`
 }
 
 type Request struct {
-	Address string `json:"address"`
-	Data    string `json:"data"`
+	Data []byte `json:"data"`
 }
