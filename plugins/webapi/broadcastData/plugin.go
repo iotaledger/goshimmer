@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 )
@@ -30,7 +31,12 @@ func broadcastData(c echo.Context) error {
 
 	//TODO: to check max payload size allowed, if exceeding return an error
 
-	tx := messagelayer.MessageFactory.IssuePayload(payload.NewData(request.Data))
+	marshalUtil := marshalutil.New(request.Data)
+	parsedPayload, err := payload.Parse(marshalUtil)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: "Not a valid Payload"})
+	}
+	tx := messagelayer.MessageFactory.IssuePayload(parsedPayload)
 
 	return c.JSON(http.StatusOK, Response{Id: tx.Id().String()})
 }
