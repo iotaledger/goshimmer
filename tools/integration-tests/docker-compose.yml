@@ -8,11 +8,10 @@ services:
       context: ../..
     volumes:
       - ./config.entry_node.json:/config.json:ro
-# TODO: Issue with visualizer not displaying. Needs to be fixed and then analysis server can run
-#    ports:
-#      - "9000:9000/tcp"
-#    expose:
-#      - "1888/tcp"
+    ports:
+      - "9000:9000/tcp"
+    expose:
+      - "1888/tcp"
     networks:
       - integration-test
 
