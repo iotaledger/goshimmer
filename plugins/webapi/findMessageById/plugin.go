@@ -20,7 +20,7 @@ func configure(plugin *node.Plugin) {
 	webapi.Server.POST("findMessageById", findMessageById)
 }
 
-// getMessageByHash returns the array of messages for the
+// findMessageById returns the array of messages for the
 // given message ids (MUST be encoded in base58), in the same order as the parameters.
 // If a node doesn't have the message for a given ID in its ledger,
 // the value at the index of that message ID is empty.
