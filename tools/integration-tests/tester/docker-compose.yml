@@ -6,6 +6,8 @@ services:
     container_name: tester
     build:
       context: .
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - integration-test
 

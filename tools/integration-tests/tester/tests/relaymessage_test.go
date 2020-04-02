@@ -1,10 +1,15 @@
 package tests
 
 import (
+	"context"
+	"fmt"
+	"io"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,6 +20,49 @@ var f *framework.Framework
 
 func TestMain(m *testing.M) {
 	f = framework.New()
+
+	cli, err := client.NewClient(
+		"unix:///var/run/docker.sock",
+		"",
+		nil,
+		nil,
+	)
+	if err != nil {
+		fmt.Println("CLI error")
+		panic(err)
+	}
+
+	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{All: true})
+	if err != nil {
+		fmt.Println("containers error")
+		panic(err)
+	}
+
+	reader, err := cli.ContainerLogs(
+		context.Background(),
+		"peer_master",
+		types.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: false,
+			Since:      "",
+			Timestamps: false,
+			Follow:     false,
+			Tail:       "",
+			Details:    false,
+		})
+	if err != nil {
+		fmt.Println("logs error")
+		panic(err)
+	}
+
+	_, err = io.Copy(os.Stdout, reader)
+	if err != nil && err != io.EOF {
+		panic(err)
+	}
+
+	for _, container := range containers {
+		fmt.Printf("%s %s\n", container.ID, container.Names)
+	}
 
 	// call the tests
 	os.Exit(m.Run())
