@@ -7,6 +7,7 @@ require (
 	github.com/dgraph-io/badger/v2 v2.0.2
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/drand/drand v0.5.4
+	github.com/gobuffalo/logger v1.0.1
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/golang/protobuf v1.3.4
 	github.com/googollee/go-engine.io v1.4.3-0.20190924125625-798118fc0dd2
