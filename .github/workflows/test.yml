@@ -51,6 +51,6 @@ jobs:
     - name: Save logs as artifacts
       if: always()
       uses: actions/upload-artifact@v1
-        with:
-          name: container logs
-          path: tools/integration-tests
+      with:
+        name: container logs
+        path: tools/integration-tests
