@@ -49,13 +49,10 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), PayloadApproverFromStorageKey, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 
 		// transaction related storage
+		attachmentStorage:    objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferAttachment...), attachmentFromStorageKey, objectstorage.CacheTime(time.Second)),
 		outputStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTangleOutputs...), outputFromStorageKey, objectstorage.PartitionKey(transaction.OutputKeyPartitions...), objectstorage.CacheTime(time.Second)),
-		missingOutputStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingOutputFromStorageKey, objectstorage.CacheTime(time.Second)),
+		missingOutputStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), missingOutputFromStorageKey, objectstorage.CacheTime(time.Second)),
 		consumerStorage:      objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferConsumer...), consumerFromStorageKey, objectstorage.CacheTime(time.Second)),
-
-		attachmentStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferAttachment...), AttachmentFromStorageKey, objectstorage.CacheTime(time.Second)),
-
-		// transaction related storage
 
 		Events: *newEvents(),
 	}
@@ -430,6 +427,14 @@ func outputFromStorageKey(key []byte) (objectstorage.StorableObject, error, int)
 	return transaction.OutputFromStorageKey(key)
 }
 
+func missingOutputFromStorageKey(key []byte) (objectstorage.StorableObject, error, int) {
+	return MissingOutputFromStorageKey(key)
+}
+
 func consumerFromStorageKey(key []byte) (objectstorage.StorableObject, error, int) {
 	return ConsumerFromStorageKey(key)
+}
+
+func attachmentFromStorageKey(key []byte) (objectstorage.StorableObject, error, int) {
+	return AttachmentFromStorageKey(key)
 }

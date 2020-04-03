@@ -36,37 +36,34 @@ func NewAttachment(transactionId transaction.Id, payloadId payload.Id) *Attachme
 // AttachmentFromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
 func AttachmentFromBytes(bytes []byte, optionalTargetObject ...*Attachment) (result *Attachment, err error, consumedBytes int) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Attachment{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to AttachmentFromBytes")
-	}
-
-	// parse the bytes
 	marshalUtil := marshalutil.New(bytes)
-	if result.transactionId, err = transaction.ParseId(marshalUtil); err != nil {
-		return
-	}
-	if result.payloadId, err = payload.ParseId(marshalUtil); err != nil {
-		return
-	}
-	result.storageKey = marshalutil.New(bytes[:AttachmentLength]).Bytes(true)
+	result, err = ParseAttachment(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // Parse is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil package.
-func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (*Attachment, error) {
-	if attachment, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return AttachmentFromBytes(data) }); err != nil {
-		return nil, err
+func ParseAttachment(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Attachment) (result *Attachment, err error) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+		return AttachmentFromStorageKey(data, optionalTargetObject...)
+	}); parseErr != nil {
+		err = parseErr
+
+		return
 	} else {
-		return attachment.(*Attachment), nil
+		result = parsedObject.(*Attachment)
 	}
+
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+
+		return
+	}); err != nil {
+		return
+	}
+
+	return
 }
 
 // AttachmentFromStorageKey gets called when we restore an Attachment from the storage - it parses the key bytes and
