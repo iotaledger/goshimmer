@@ -5,8 +5,11 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
+
+var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{address.Length, transaction.IdLength, transaction.IdLength}...)
 
 // Consumer stores the information which transaction output was consumed by which transaction. We need this to be able
 // to perform reverse lookups from transaction outputs to their corresponding consuming transactions.

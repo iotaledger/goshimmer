@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
 )
 
-var OutputKeyPartitions = []int{address.Length, IdLength}
+var OutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, IdLength}...)
 
 // Output represents the output of a Transaction and contains the balances and the identifiers for this output.
 type Output struct {

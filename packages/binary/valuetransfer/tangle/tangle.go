@@ -50,9 +50,9 @@ func New(badgerInstance *badger.DB) (result *Tangle) {
 
 		// transaction related storages
 		attachmentStorage:    osFactory.New(PrefixAttachment, attachmentFromStorageKey, objectstorage.CacheTime(time.Second)),
-		outputStorage:        osFactory.New(PrefixOutput, outputFromStorageKey, objectstorage.PartitionKey(transaction.OutputKeyPartitions...), objectstorage.CacheTime(time.Second)),
-		missingOutputStorage: osFactory.New(PrefixMissingOutput, missingOutputFromStorageKey, objectstorage.PartitionKey(MissingOutputKeyPartitions...), objectstorage.CacheTime(time.Second)),
-		consumerStorage:      osFactory.New(PrefixConsumer, consumerFromStorageKey, objectstorage.CacheTime(time.Second)),
+		outputStorage:        osFactory.New(PrefixOutput, outputFromStorageKey, transaction.OutputKeyPartitions, objectstorage.CacheTime(time.Second)),
+		missingOutputStorage: osFactory.New(PrefixMissingOutput, missingOutputFromStorageKey, MissingOutputKeyPartitions, objectstorage.CacheTime(time.Second)),
+		consumerStorage:      osFactory.New(PrefixConsumer, consumerFromStorageKey, ConsumerPartitionKeys, objectstorage.CacheTime(time.Second)),
 
 		Events: *newEvents(),
 	}
