@@ -35,6 +35,36 @@ func NewConsumer(consumedInput transaction.OutputId, transactionId transaction.I
 // ConsumerFromBytes unmarshals a Consumer from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
 func ConsumerFromBytes(bytes []byte, optionalTargetObject ...*Consumer) (result *Consumer, err error, consumedBytes int) {
+	marshalUtil := marshalutil.New(bytes)
+	result, err = ParseConsumer(marshalUtil, optionalTargetObject...)
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+func ParseConsumer(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Consumer) (result *Consumer, err error) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+		return ConsumerFromStorageKey(data, optionalTargetObject...)
+	}); parseErr != nil {
+		err = parseErr
+
+		return
+	} else {
+		result = parsedObject.(*Consumer)
+	}
+
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+
+		return
+	}); err != nil {
+		return
+	}
+
+	return
+}
+
+func ConsumerFromStorageKey(key []byte, optionalTargetObject ...*Consumer) (result objectstorage.StorableObject, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -42,41 +72,21 @@ func ConsumerFromBytes(bytes []byte, optionalTargetObject ...*Consumer) (result 
 	case 1:
 		result = optionalTargetObject[0]
 	default:
-		panic("too many arguments in call to ConsumerFromBytes")
+		panic("too many arguments in call to ConsumerFromStorageKey")
 	}
 
-	// parse the bytes
-	marshalUtil := marshalutil.New(bytes)
-	if result.consumedInput, err = transaction.ParseOutputId(marshalUtil); err != nil {
+	// parse the properties that are stored in the key
+	marshalUtil := marshalutil.New(key)
+	if result.(*Consumer).consumedInput, err = transaction.ParseOutputId(marshalUtil); err != nil {
 		return
 	}
-	if result.transactionId, err = transaction.ParseId(marshalUtil); err != nil {
+	if result.(*Consumer).transactionId, err = transaction.ParseId(marshalUtil); err != nil {
 		return
 	}
-	result.storageKey = marshalutil.New(bytes[:ConsumerLength]).Bytes(true)
+	result.(*Consumer).storageKey = marshalutil.New(key[:marshalUtil.ReadOffset()]).Bytes(true)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
-}
-
-// Parse is a wrapper for simplified unmarshaling of Consumers from a byte stream using the marshalUtil package.
-func ParseConsumer(marshalUtil *marshalutil.MarshalUtil) (*Consumer, error) {
-	if consumer, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return ConsumerFromBytes(data) }); err != nil {
-		return nil, err
-	} else {
-		return consumer.(*Consumer), nil
-	}
-}
-
-// ConsumerFromStorage gets called when we restore an Consumer from the storage - it parses the key bytes and
-// returns the new object.
-func ConsumerFromStorage(keyBytes []byte) objectstorage.StorableObject {
-	result, err, _ := ConsumerFromBytes(keyBytes)
-	if err != nil {
-		panic(err)
-	}
-
-	return result
 }
 
 // ConsumedInput returns the OutputId of the Consumer.
@@ -129,3 +139,41 @@ var _ objectstorage.StorableObject = &Consumer{}
 
 // ConsumerLength holds the length of a marshaled Consumer in bytes.
 const ConsumerLength = transaction.OutputIdLength + transaction.IdLength
+
+// region CachedConsumer /////////////////////////////////////////////////////////////////////////////////////////////////
+
+type CachedConsumer struct {
+	objectstorage.CachedObject
+}
+
+func (cachedConsumer *CachedConsumer) Unwrap() *Consumer {
+	if untypedObject := cachedConsumer.Get(); untypedObject == nil {
+		return nil
+	} else {
+		if typedObject := untypedObject.(*Consumer); typedObject == nil || typedObject.IsDeleted() {
+			return nil
+		} else {
+			return typedObject
+		}
+	}
+}
+
+func (cachedConsumer *CachedConsumer) Consume(consumer func(consumer *Consumer)) (consumed bool) {
+	return cachedConsumer.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*Consumer))
+	})
+}
+
+type CachedConsumers []*CachedConsumer
+
+func (cachedConsumers CachedConsumers) Consume(consumer func(consumer *Consumer)) (consumed bool) {
+	for _, cachedConsumer := range cachedConsumers {
+		consumed = cachedConsumer.Consume(func(output *Consumer) {
+			consumer(output)
+		}) || consumed
+	}
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
