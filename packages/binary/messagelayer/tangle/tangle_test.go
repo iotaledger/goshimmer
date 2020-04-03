@@ -24,7 +24,7 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 	// use the tempdir for the database
 	config.Node.Set(database.CFG_DIRECTORY, dir)
 
-	tangle := New(database.GetBadgerInstance(), []byte("TEST_BINARY_TANGLE"))
+	tangle := New(database.GetBadgerInstance())
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
 
@@ -55,7 +55,7 @@ func TestTangle_AttachTransaction(t *testing.T) {
 	// use the tempdir for the database
 	config.Node.Set(database.CFG_DIRECTORY, dir)
 
-	messageTangle := New(database.GetBadgerInstance(), []byte("TEST_BINARY_TANGLE"))
+	messageTangle := New(database.GetBadgerInstance())
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
 

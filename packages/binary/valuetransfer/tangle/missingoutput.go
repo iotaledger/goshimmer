@@ -6,8 +6,11 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
+
+var MissingOutputKeyPartitions = []int{address.Length, transaction.IdLength}
 
 // MissingPayload represents an Output that was referenced by a Transaction, but that is missing in our object storage.
 type MissingOutput struct {

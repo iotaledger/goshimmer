@@ -38,21 +38,21 @@ type Tangle struct {
 	cleanupWorkerPool      async.WorkerPool
 }
 
-func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
+func New(badgerInstance *badger.DB) (result *Tangle) {
+	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.ValueTransfers)
+
 	result = &Tangle{
-		storageId: storageId,
-
 		// payload related storage
-		payloadStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayload...), payload.StorableObjectFromKey, objectstorage.CacheTime(time.Second)),
-		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), PayloadMetadataFromStorageKey, objectstorage.CacheTime(time.Second)),
-		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingPayloadFromStorageKey, objectstorage.CacheTime(time.Second)),
-		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), PayloadApproverFromStorageKey, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
+		payloadStorage:         osFactory.New(PrefixPayload, payload.StorableObjectFromKey, objectstorage.CacheTime(time.Second)),
+		payloadMetadataStorage: osFactory.New(PrefixPayloadMetadata, PayloadMetadataFromStorageKey, objectstorage.CacheTime(time.Second)),
+		missingPayloadStorage:  osFactory.New(PrefixMissingPayload, MissingPayloadFromStorageKey, objectstorage.CacheTime(time.Second)),
+		approverStorage:        osFactory.New(PrefixApprover, PayloadApproverFromStorageKey, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 
-		// transaction related storage
-		attachmentStorage:    objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferAttachment...), attachmentFromStorageKey, objectstorage.CacheTime(time.Second)),
-		outputStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTangleOutputs...), outputFromStorageKey, objectstorage.PartitionKey(transaction.OutputKeyPartitions...), objectstorage.CacheTime(time.Second)),
-		missingOutputStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), missingOutputFromStorageKey, objectstorage.CacheTime(time.Second)),
-		consumerStorage:      objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferConsumer...), consumerFromStorageKey, objectstorage.CacheTime(time.Second)),
+		// transaction related storages
+		attachmentStorage:    osFactory.New(PrefixAttachment, attachmentFromStorageKey, objectstorage.CacheTime(time.Second)),
+		outputStorage:        osFactory.New(PrefixOutput, outputFromStorageKey, objectstorage.PartitionKey(transaction.OutputKeyPartitions...), objectstorage.CacheTime(time.Second)),
+		missingOutputStorage: osFactory.New(PrefixMissingOutput, missingOutputFromStorageKey, objectstorage.PartitionKey(MissingOutputKeyPartitions...), objectstorage.CacheTime(time.Second)),
+		consumerStorage:      osFactory.New(PrefixConsumer, consumerFromStorageKey, objectstorage.CacheTime(time.Second)),
 
 		Events: *newEvents(),
 	}
