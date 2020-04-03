@@ -7,8 +7,5 @@ CHANGELOG.md
 images/
 docker-compose.yml
 
-tools/
-client/
-
 # Database directory
 mainnetdb/

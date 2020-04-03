@@ -1,13 +1,13 @@
 package framework
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"time"
 
-	"github.com/docker/distribution/context"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 
