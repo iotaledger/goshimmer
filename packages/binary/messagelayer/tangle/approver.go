@@ -69,12 +69,10 @@ func ApproverFromStorageKey(key []byte, optionalTargetObject ...*Approver) (resu
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	result.(*Approver).referencedMessageId, err = message.ParseId(marshalUtil)
-	if err != nil {
+	if result.(*Approver).referencedMessageId, err = message.ParseId(marshalUtil); err != nil {
 		return
 	}
-	result.(*Approver).approvingMessageId, err = message.ParseId(marshalUtil)
-	if err != nil {
+	if result.(*Approver).approvingMessageId, err = message.ParseId(marshalUtil); err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
