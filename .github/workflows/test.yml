@@ -38,5 +38,19 @@ jobs:
     - name: Run integration tests
       run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --exit-code-from tester
 
-    - name: Clean up
-      run: docker-compose -f tools/integration-tests/docker-compose.yml down --rmi all --remove-orphan --volumes
+    - name: Shut down GoShimmer Docker network
+      if: always()
+      run: docker-compose -f tools/integration-tests/docker-compose.yml down
+
+    - name: Create logs from containers in network
+      if: always()
+      run: |
+        docker logs entry_node > tools/integration-tests/logs/entry_node.log
+        docker logs peer_master > tools/integration-tests/logs/peer_master.log
+
+    - name: Save logs as artifacts
+      if: always()
+      uses: actions/upload-artifact@v1
+        with:
+          name: container logs
+          path: tools/integration-tests
