@@ -2,9 +2,14 @@ package framework
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/docker/distribution/context"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/api"
 )
@@ -13,15 +18,17 @@ type Peer struct {
 	name string
 	ip   net.IP
 	*api.Api
-	chosen   []api.Neighbor
-	accepted []api.Neighbor
+	dockerCli *client.Client
+	chosen    []api.Neighbor
+	accepted  []api.Neighbor
 }
 
-func NewPeer(name string, ip net.IP) *Peer {
+func NewPeer(name string, ip net.IP, dockerCli *client.Client) *Peer {
 	return &Peer{
-		name: name,
-		ip:   ip,
-		Api:  api.New(getWebApiBaseUrl(ip), http.Client{Timeout: 30 * time.Second}),
+		name:      name,
+		ip:        ip,
+		Api:       api.New(getWebApiBaseUrl(ip), http.Client{Timeout: 30 * time.Second}),
+		dockerCli: dockerCli,
 	}
 }
 
@@ -41,12 +48,27 @@ func (p *Peer) SetNeighbors(chosen, accepted []api.Neighbor) {
 	copy(p.accepted, accepted)
 }
 
-func getAvailablePeers() (peers []*Peer) {
+func (p *Peer) Logs() (io.ReadCloser, error) {
+	return p.dockerCli.ContainerLogs(
+		context.Background(),
+		p.name,
+		types.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: false,
+			Since:      "",
+			Timestamps: false,
+			Follow:     false,
+			Tail:       "",
+			Details:    false,
+		})
+}
+
+func getAvailablePeers(dockerCli *client.Client) (peers []*Peer) {
 	// get peer master
 	if addr, err := net.LookupIP(hostnamePeerMaster); err != nil {
 		fmt.Printf("Could not resolve %s\n", hostnamePeerMaster)
 	} else {
-		p := NewPeer(hostnamePeerMaster, addr[0])
+		p := NewPeer(hostnamePeerMaster, addr[0], dockerCli)
 		peers = append(peers, p)
 	}
 
@@ -57,7 +79,7 @@ func getAvailablePeers() (peers []*Peer) {
 			//fmt.Printf("Could not resolve %s\n", peerName)
 			break
 		} else {
-			p := NewPeer(peerName, addr[0])
+			p := NewPeer(peerName, addr[0], dockerCli)
 			peers = append(peers, p)
 		}
 	}

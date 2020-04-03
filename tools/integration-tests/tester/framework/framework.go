@@ -4,17 +4,32 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+
+	"github.com/docker/docker/client"
 )
 
 type Framework struct {
-	peers []*Peer
+	peers     []*Peer
+	dockerCli *client.Client
 }
 
 func New() *Framework {
 	fmt.Printf("Finding available peers...\n")
 
+	cli, err := client.NewClient(
+		"unix:///var/run/docker.sock",
+		"",
+		nil,
+		nil,
+	)
+	if err != nil {
+		fmt.Println("Could not create docker CLI client.")
+		panic(err)
+	}
+
 	f := &Framework{
-		peers: getAvailablePeers(),
+		dockerCli: cli,
+		peers:     getAvailablePeers(cli),
 	}
 
 	if len(f.peers) == 0 {
