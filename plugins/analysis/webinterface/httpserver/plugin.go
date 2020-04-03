@@ -34,7 +34,7 @@ func Configure() {
 	// we only need this special flag, because we always keep a packed box in the same directory
 	if config.Node.GetBool(CFG_DEV) {
 		engine.Static("/static", "./plugins/analysis/webinterface/httpserver/static")
-		engine.File("/", "./plugins/analysis/webinterface/httpserver/static/index.html")
+		engine.File("/", "./plugins/analysis/webinterface/httpserver/static/index-3d.html")
 	} else {
 		for _, res := range assetsBox.List() {
 			engine.GET("/static/"+res, echo.WrapHandler(http.StripPrefix("/static", http.FileServer(assetsBox))))
