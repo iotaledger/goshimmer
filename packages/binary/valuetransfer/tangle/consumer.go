@@ -83,8 +83,8 @@ func ConsumerFromStorageKey(key []byte, optionalTargetObject ...*Consumer) (resu
 	if result.(*Consumer).transactionId, err = transaction.ParseId(marshalUtil); err != nil {
 		return
 	}
-	result.(*Consumer).storageKey = marshalutil.New(key[:marshalUtil.ReadOffset()]).Bytes(true)
 	consumedBytes = marshalUtil.ReadOffset()
+	result.(*Consumer).storageKey = marshalutil.New(key[:consumedBytes]).Bytes(true)
 
 	return
 }
