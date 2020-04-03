@@ -32,7 +32,7 @@ func configure(*node.Plugin) {
 	// parse identities of the committee members
 	committeeMembers, err := parseCommitteeMembers()
 	if err != nil {
-		log.Fatalf("Invalid %s: %s", CFG_COMMITTEE_MEMBERS, err)
+		log.Warnf("Invalid %s: %s", CFG_COMMITTEE_MEMBERS, err)
 	}
 
 	// parse distributed public key of the committee
@@ -40,10 +40,10 @@ func configure(*node.Plugin) {
 	if str := config.Node.GetString(CFG_DISTRIBUTED_PUB_KEY); str != "" {
 		bytes, err := hex.DecodeString(str)
 		if err != nil {
-			log.Fatalf("Invalid %s: %s", CFG_DISTRIBUTED_PUB_KEY, err)
+			log.Warnf("Invalid %s: %s", CFG_DISTRIBUTED_PUB_KEY, err)
 		}
 		if l := len(bytes); l != cbPayload.PublicKeySize {
-			log.Fatalf("Invalid %s length: %d, need %d", CFG_DISTRIBUTED_PUB_KEY, l, cbPayload.PublicKeySize)
+			log.Warnf("Invalid %s length: %d, need %d", CFG_DISTRIBUTED_PUB_KEY, l, cbPayload.PublicKeySize)
 		}
 		dpk = append(dpk, bytes...)
 	}
