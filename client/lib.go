@@ -1,5 +1,5 @@
 // Implements a very simple wrapper for GoShimmer's web API .
-package goshimmer
+package client
 
 import (
 	"bytes"
@@ -11,16 +11,10 @@ import (
 	"net/http"
 
 	webapi_broadcastData "github.com/iotaledger/goshimmer/plugins/webapi/broadcastData"
-	webapi_findTransactionHashes "github.com/iotaledger/goshimmer/plugins/webapi/findTransactionHashes"
+	webapi_findMessageById "github.com/iotaledger/goshimmer/plugins/webapi/findMessageById"
 	webapi_getNeighbors "github.com/iotaledger/goshimmer/plugins/webapi/getNeighbors"
-	webapi_getTransactionObjectsByHash "github.com/iotaledger/goshimmer/plugins/webapi/getTransactionObjectsByHash"
-	webapi_getTransactionTrytesByHash "github.com/iotaledger/goshimmer/plugins/webapi/getTransactionTrytesByHash"
-	webapi_gtta "github.com/iotaledger/goshimmer/plugins/webapi/gtta"
 	webapi_spammer "github.com/iotaledger/goshimmer/plugins/webapi/spammer"
 	webapi_auth "github.com/iotaledger/goshimmer/plugins/webauth"
-	"github.com/iotaledger/iota.go/consts"
-	"github.com/iotaledger/iota.go/guards"
-	"github.com/iotaledger/iota.go/trinary"
 )
 
 var (
@@ -33,14 +27,12 @@ var (
 )
 
 const (
-	routeBroadcastData               = "broadcastData"
-	routeGetTransactionTrytesByHash  = "getTransactionTrytesByHash"
-	routeGetTransactionObjectsByHash = "getTransactionObjectsByHash"
-	routeFindTransactionsHashes      = "findTransactionHashes"
-	routeGetNeighbors                = "getNeighbors"
-	routeGetTransactionsToApprove    = "getTransactionsToApprove"
-	routeSpammer                     = "spammer"
-	routeLogin                       = "login"
+	routeBroadcastData  = "broadcastData"
+	routeGetMessageById = "getMessageById"
+	routeGetNeighbors   = "getNeighbors"
+	routeSpammer        = "spammer"
+	routeLogin          = "login"
+	//routeGetTransactionsToApprove = "getTransactionsToApprove"
 
 	contentTypeJSON = "application/json"
 )
@@ -155,69 +147,32 @@ func (api *GoShimmerAPI) Login(username string, password string) error {
 	return nil
 }
 
-// BroadcastData sends the given data by creating a zero value transaction in the backend targeting the given address.
-func (api *GoShimmerAPI) BroadcastData(targetAddress trinary.Trytes, data string) (trinary.Hash, error) {
-	if !guards.IsHash(targetAddress) {
-		return "", fmt.Errorf("%w: invalid address: %s", consts.ErrInvalidHash, targetAddress)
-	}
+// BroadcastData sends the given data (payload) by creating a message in the backend.
+func (api *GoShimmerAPI) BroadcastData(data []byte) (string, error) {
 
 	res := &webapi_broadcastData.Response{}
 	if err := api.do(http.MethodPost, routeBroadcastData,
-		&webapi_broadcastData.Request{Address: targetAddress, Data: data}, res); err != nil {
+		&webapi_broadcastData.Request{Data: data}, res); err != nil {
 		return "", err
 	}
 
-	return res.Hash, nil
+	return res.Id, nil
 }
 
-// GetTransactionTrytesByHash gets the corresponding transaction trytes given the transaction hashes.
-func (api *GoShimmerAPI) GetTransactionTrytesByHash(txHashes trinary.Hashes) ([]trinary.Trytes, error) {
-	for _, hash := range txHashes {
-		if !guards.IsTrytes(hash) {
-			return nil, fmt.Errorf("%w: invalid hash: %s", consts.ErrInvalidHash, hash)
-		}
-	}
+func (api *GoShimmerAPI) FindMessageById(base58EncodedIds []string) (*webapi_findMessageById.Response, error) {
+	res := &webapi_findMessageById.Response{}
 
-	res := &webapi_getTransactionTrytesByHash.Response{}
-	if err := api.do(http.MethodPost, routeGetTransactionTrytesByHash,
-		&webapi_getTransactionTrytesByHash.Request{Hashes: txHashes}, res); err != nil {
+	err := api.do(
+		http.MethodPost,
+		routeGetMessageById,
+		&webapi_findMessageById.Request{Ids: base58EncodedIds},
+		res,
+	)
+	if err != nil {
 		return nil, err
 	}
 
-	return res.Trytes, nil
-}
-
-// GetTransactionObjectsByHash gets the transaction objects given the transaction hashes.
-func (api *GoShimmerAPI) GetTransactionObjectsByHash(txHashes trinary.Hashes) ([]webapi_getTransactionObjectsByHash.Transaction, error) {
-	for _, hash := range txHashes {
-		if !guards.IsTrytes(hash) {
-			return nil, fmt.Errorf("%w: invalid hash: %s", consts.ErrInvalidHash, hash)
-		}
-	}
-
-	res := &webapi_getTransactionObjectsByHash.Response{}
-	if err := api.do(http.MethodPost, routeGetTransactionObjectsByHash,
-		&webapi_getTransactionObjectsByHash.Request{Hashes: txHashes}, res); err != nil {
-		return nil, err
-	}
-
-	return res.Transactions, nil
-}
-
-// FindTransactionHashes finds the given transaction hashes given the query.
-func (api *GoShimmerAPI) FindTransactionHashes(query *webapi_findTransactionHashes.Request) ([]trinary.Hashes, error) {
-	for _, hash := range query.Addresses {
-		if !guards.IsTrytes(hash) {
-			return nil, fmt.Errorf("%w: invalid hash: %s", consts.ErrInvalidHash, hash)
-		}
-	}
-
-	res := &webapi_findTransactionHashes.Response{}
-	if err := api.do(http.MethodPost, routeFindTransactionsHashes, query, res); err != nil {
-		return nil, err
-	}
-
-	return res.Transactions, nil
+	return res, nil
 }
 
 // GetNeighbors gets the chosen/accepted neighbors.
@@ -235,14 +190,14 @@ func (api *GoShimmerAPI) GetNeighbors(knownPeers bool) (*webapi_getNeighbors.Res
 	return res, nil
 }
 
-// GetTips executes the tip-selection on the node to retrieve tips to approve.
-func (api *GoShimmerAPI) GetTransactionsToApprove() (*webapi_gtta.Response, error) {
-	res := &webapi_gtta.Response{}
-	if err := api.do(http.MethodGet, routeGetTransactionsToApprove, nil, res); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
+// // GetTips executes the tip-selection on the node to retrieve tips to approve.
+// func (api *GoShimmerAPI) GetTransactionsToApprove() (*webapi_gtta.Response, error) {
+// 	res := &webapi_gtta.Response{}
+// 	if err := api.do(http.MethodGet, routeGetTransactionsToApprove, nil, res); err != nil {
+// 		return nil, err
+// 	}
+// 	return res, nil
+// }
 
 // ToggleSpammer toggles the node internal spammer.
 func (api *GoShimmerAPI) ToggleSpammer(enable bool) (*webapi_spammer.Response, error) {
