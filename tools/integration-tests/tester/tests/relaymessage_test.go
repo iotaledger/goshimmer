@@ -6,18 +6,22 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
 func TestRelayMessages(t *testing.T) {
 	numMessages := 100
-	hashes := make([]string, numMessages)
+	ids := make([]string, numMessages)
+
+	data := payload.NewData([]byte("Test")).Bytes()
 
 	// create messages on random peers
 	for i := 0; i < numMessages; i++ {
-		hash, err := f.RandomPeer().BroadcastData("Test")
+		id, err := f.RandomPeer().BroadcastData(data)
 		require.NoError(t, err)
 
-		hashes[i] = hash
+		ids[i] = id
 	}
 
 	// wait for messages to be gossiped
@@ -25,7 +29,7 @@ func TestRelayMessages(t *testing.T) {
 
 	// check for messages on every peer
 	for _, peer := range f.Peers() {
-		resp, err := peer.GetMessageByHash(hashes)
+		resp, err := peer.FindMessageById(ids)
 		require.NoError(t, err)
 
 		// check for the count of messages
@@ -33,15 +37,15 @@ func TestRelayMessages(t *testing.T) {
 
 		// check that all messages are present in response
 	outer:
-		for _, hash := range hashes {
+		for _, id := range ids {
 			for _, msg := range resp.Messages {
 				// if message found skip to next
-				if msg.MessageId == hash {
+				if msg.Id == id {
 					continue outer
 				}
 			}
 
-			t.Errorf("MessageId=%s not found in peer %s.", hash, peer.String())
+			t.Errorf("MessageId=%s not found in peer %s.", id, peer.String())
 		}
 	}
 }

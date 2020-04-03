@@ -28,7 +28,7 @@ var (
 
 const (
 	routeBroadcastData  = "broadcastData"
-	routeGetMessageById = "getMessageById"
+	routeGetMessageById = "findMessageById"
 	routeGetNeighbors   = "getNeighbors"
 	routeSpammer        = "spammer"
 	routeLogin          = "login"
@@ -39,15 +39,15 @@ const (
 
 func NewGoShimmerAPI(node string, httpClient ...http.Client) *GoShimmerAPI {
 	if len(httpClient) > 0 {
-		return &GoShimmerAPI{node: node, httpClient: httpClient[0]}
+		return &GoShimmerAPI{baseUrl: node, httpClient: httpClient[0]}
 	}
-	return &GoShimmerAPI{node: node}
+	return &GoShimmerAPI{baseUrl: node}
 }
 
 // GoShimmerAPI is an API wrapper over the web API of GoShimmer.
 type GoShimmerAPI struct {
 	httpClient http.Client
-	node       string
+	baseUrl    string
 	jwt        string
 }
 
@@ -75,7 +75,7 @@ func interpretBody(res *http.Response, decodeTo interface{}) error {
 	case http.StatusInternalServerError:
 		return fmt.Errorf("%w: %s", ErrInternalServerError, errRes.Error)
 	case http.StatusNotFound:
-		return fmt.Errorf("%w: %s", ErrNotFound, errRes.Error)
+		return fmt.Errorf("%w: %s", ErrNotFound, res.Request.URL)
 	case http.StatusBadRequest:
 		return fmt.Errorf("%w: %s", ErrBadRequest, errRes.Error)
 	case http.StatusUnauthorized:
@@ -99,7 +99,7 @@ func (api *GoShimmerAPI) do(method string, route string, reqObj interface{}, res
 	}
 
 	// construct request
-	req, err := http.NewRequest(method, fmt.Sprintf("%s/%s", api.node, route), func() io.Reader {
+	req, err := http.NewRequest(method, fmt.Sprintf("%s/%s", api.baseUrl, route), func() io.Reader {
 		if data == nil {
 			return nil
 		}
@@ -211,4 +211,8 @@ func (api *GoShimmerAPI) ToggleSpammer(enable bool) (*webapi_spammer.Response, e
 		return nil, err
 	}
 	return res, nil
+}
+
+func (api *GoShimmerAPI) BaseUrl() string {
+	return api.baseUrl
 }

@@ -9,42 +9,43 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
+	dockerclient "github.com/docker/docker/client"
+	"github.com/iotaledger/goshimmer/plugins/webapi/getNeighbors"
 
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/api"
+	"github.com/iotaledger/goshimmer/client"
 )
 
 type Peer struct {
 	name string
 	ip   net.IP
-	*api.Api
-	dockerCli *client.Client
-	chosen    []api.Neighbor
-	accepted  []api.Neighbor
+	*client.GoShimmerAPI
+	dockerCli *dockerclient.Client
+	chosen    []getNeighbors.Neighbor
+	accepted  []getNeighbors.Neighbor
 }
 
-func NewPeer(name string, ip net.IP, dockerCli *client.Client) *Peer {
+func NewPeer(name string, ip net.IP, dockerCli *dockerclient.Client) *Peer {
 	return &Peer{
-		name:      name,
-		ip:        ip,
-		Api:       api.New(getWebApiBaseUrl(ip), http.Client{Timeout: 30 * time.Second}),
-		dockerCli: dockerCli,
+		name:         name,
+		ip:           ip,
+		GoShimmerAPI: client.NewGoShimmerAPI(getWebApiBaseUrl(ip), http.Client{Timeout: 30 * time.Second}),
+		dockerCli:    dockerCli,
 	}
 }
 
 func (p *Peer) String() string {
-	return fmt.Sprintf("Peer:{%s, %s, %s, %d}", p.name, p.ip.String(), p.BaseUrl, p.TotalNeighbors())
+	return fmt.Sprintf("Peer:{%s, %s, %s, %d}", p.name, p.ip.String(), p.BaseUrl(), p.TotalNeighbors())
 }
 
 func (p *Peer) TotalNeighbors() int {
 	return len(p.chosen) + len(p.accepted)
 }
 
-func (p *Peer) SetNeighbors(chosen, accepted []api.Neighbor) {
-	p.chosen = make([]api.Neighbor, len(chosen))
+func (p *Peer) SetNeighbors(chosen, accepted []getNeighbors.Neighbor) {
+	p.chosen = make([]getNeighbors.Neighbor, len(chosen))
 	copy(p.chosen, chosen)
 
-	p.accepted = make([]api.Neighbor, len(accepted))
+	p.accepted = make([]getNeighbors.Neighbor, len(accepted))
 	copy(p.accepted, accepted)
 }
 
@@ -63,7 +64,7 @@ func (p *Peer) Logs() (io.ReadCloser, error) {
 		})
 }
 
-func getAvailablePeers(dockerCli *client.Client) (peers []*Peer) {
+func getAvailablePeers(dockerCli *dockerclient.Client) (peers []*Peer) {
 	// get peer master
 	if addr, err := net.LookupIP(hostnamePeerMaster); err != nil {
 		fmt.Printf("Could not resolve %s\n", hostnamePeerMaster)
