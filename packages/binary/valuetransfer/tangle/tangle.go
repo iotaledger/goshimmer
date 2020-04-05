@@ -41,8 +41,8 @@ func New(badgerInstance *badger.DB) (result *Tangle) {
 
 	result = &Tangle{
 		// payload related storage
-		payloadStorage:         osFactory.New(osPayload, payload.StorableObjectFromKey, objectstorage.CacheTime(time.Second)),
-		payloadMetadataStorage: osFactory.New(osPayloadMetadata, PayloadMetadataFromStorageKey, objectstorage.CacheTime(time.Second)),
+		payloadStorage:         osFactory.New(osPayload, osPayloadFactory, objectstorage.CacheTime(time.Second)),
+		payloadMetadataStorage: osFactory.New(osPayloadMetadata, osPayloadMetadataFactory, objectstorage.CacheTime(time.Second)),
 		missingPayloadStorage:  osFactory.New(osMissingPayload, osMissingPayloadFactory, objectstorage.CacheTime(time.Second)),
 		approverStorage:        osFactory.New(osApprover, osPayloadApproverFactory, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 

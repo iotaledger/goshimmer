@@ -3,6 +3,7 @@ package tangle
 import (
 	"github.com/iotaledger/hive.go/objectstorage"
 
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
@@ -20,6 +21,14 @@ const (
 	osMissingOutput
 	osConsumer
 )
+
+func osPayloadFactory(key []byte) (objectstorage.StorableObject, error, int) {
+	return payload.FromStorageKey(key)
+}
+
+func osPayloadMetadataFactory(key []byte) (objectstorage.StorableObject, error, int) {
+	return PayloadMetadataFromStorageKey(key)
+}
 
 func osMissingPayloadFactory(key []byte) (objectstorage.StorableObject, error, int) {
 	return MissingPayloadFromStorageKey(key)
