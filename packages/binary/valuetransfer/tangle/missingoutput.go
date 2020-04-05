@@ -62,7 +62,7 @@ func ParseMissingOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObje
 
 // MissingOutputFromStorageKey gets called when we restore a MissingOutput from the storage. The content will be
 // unmarshaled by an external caller using the binary.ObjectStorageValue interface.
-func MissingOutputFromStorageKey(key []byte, optionalTargetObject ...*MissingOutput) (result objectstorage.StorableObject, err error, consumedBytes int) {
+func MissingOutputFromStorageKey(key []byte, optionalTargetObject ...*MissingOutput) (result *MissingOutput, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -75,7 +75,7 @@ func MissingOutputFromStorageKey(key []byte, optionalTargetObject ...*MissingOut
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	if result.(*MissingOutput).outputId, err = transaction.ParseOutputId(marshalUtil); err != nil {
+	if result.outputId, err = transaction.ParseOutputId(marshalUtil); err != nil {
 		return
 	}
 

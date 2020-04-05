@@ -19,8 +19,6 @@ import (
 // Tangle represents the value tangle that consists out of value payloads.
 // It is an independent ontology, that lives inside the tangle.
 type Tangle struct {
-	storageId []byte
-
 	payloadStorage         *objectstorage.ObjectStorage
 	payloadMetadataStorage *objectstorage.ObjectStorage
 	approverStorage        *objectstorage.ObjectStorage
@@ -43,16 +41,16 @@ func New(badgerInstance *badger.DB) (result *Tangle) {
 
 	result = &Tangle{
 		// payload related storage
-		payloadStorage:         osFactory.New(PrefixPayload, payload.StorableObjectFromKey, objectstorage.CacheTime(time.Second)),
-		payloadMetadataStorage: osFactory.New(PrefixPayloadMetadata, PayloadMetadataFromStorageKey, objectstorage.CacheTime(time.Second)),
-		missingPayloadStorage:  osFactory.New(PrefixMissingPayload, MissingPayloadFromStorageKey, objectstorage.CacheTime(time.Second)),
-		approverStorage:        osFactory.New(PrefixApprover, PayloadApproverFromStorageKey, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
+		payloadStorage:         osFactory.New(osPayload, payload.StorableObjectFromKey, objectstorage.CacheTime(time.Second)),
+		payloadMetadataStorage: osFactory.New(osPayloadMetadata, PayloadMetadataFromStorageKey, objectstorage.CacheTime(time.Second)),
+		missingPayloadStorage:  osFactory.New(osMissingPayload, osMissingPayloadFactory, objectstorage.CacheTime(time.Second)),
+		approverStorage:        osFactory.New(osApprover, osPayloadApproverFactory, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 
-		// transaction related storages
-		attachmentStorage:    osFactory.New(PrefixAttachment, attachmentFromStorageKey, objectstorage.CacheTime(time.Second)),
-		outputStorage:        osFactory.New(PrefixOutput, outputFromStorageKey, transaction.OutputKeyPartitions, objectstorage.CacheTime(time.Second)),
-		missingOutputStorage: osFactory.New(PrefixMissingOutput, missingOutputFromStorageKey, MissingOutputKeyPartitions, objectstorage.CacheTime(time.Second)),
-		consumerStorage:      osFactory.New(PrefixConsumer, consumerFromStorageKey, ConsumerPartitionKeys, objectstorage.CacheTime(time.Second)),
+		// transaction related storage
+		attachmentStorage:    osFactory.New(osAttachment, osAttachmentFactory, objectstorage.CacheTime(time.Second)),
+		outputStorage:        osFactory.New(osOutput, osOutputFactory, transaction.OutputKeyPartitions, objectstorage.CacheTime(time.Second)),
+		missingOutputStorage: osFactory.New(osMissingOutput, osMissingOutputFactory, MissingOutputKeyPartitions, objectstorage.CacheTime(time.Second)),
+		consumerStorage:      osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(time.Second)),
 
 		Events: *newEvents(),
 	}
@@ -421,20 +419,4 @@ func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payload.Id) bool {
 	transactionMetadataCached.Release()
 
 	return true
-}
-
-func outputFromStorageKey(key []byte) (objectstorage.StorableObject, error, int) {
-	return transaction.OutputFromStorageKey(key)
-}
-
-func missingOutputFromStorageKey(key []byte) (objectstorage.StorableObject, error, int) {
-	return MissingOutputFromStorageKey(key)
-}
-
-func consumerFromStorageKey(key []byte) (objectstorage.StorableObject, error, int) {
-	return ConsumerFromStorageKey(key)
-}
-
-func attachmentFromStorageKey(key []byte) (objectstorage.StorableObject, error, int) {
-	return AttachmentFromStorageKey(key)
 }

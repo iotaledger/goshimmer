@@ -68,7 +68,7 @@ func ParseAttachment(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject 
 
 // AttachmentFromStorageKey gets called when we restore an Attachment from the storage - it parses the key bytes and
 // returns the new object.
-func AttachmentFromStorageKey(key []byte, optionalTargetObject ...*Attachment) (result objectstorage.StorableObject, err error, consumedBytes int) {
+func AttachmentFromStorageKey(key []byte, optionalTargetObject ...*Attachment) (result *Attachment, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -81,14 +81,14 @@ func AttachmentFromStorageKey(key []byte, optionalTargetObject ...*Attachment) (
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	if result.(*Attachment).transactionId, err = transaction.ParseId(marshalUtil); err != nil {
+	if result.transactionId, err = transaction.ParseId(marshalUtil); err != nil {
 		return
 	}
-	if result.(*Attachment).payloadId, err = payload.ParseId(marshalUtil); err != nil {
+	if result.payloadId, err = payload.ParseId(marshalUtil); err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
-	result.(*Attachment).storageKey = marshalutil.New(key[:consumedBytes]).Bytes(true)
+	result.storageKey = marshalutil.New(key[:consumedBytes]).Bytes(true)
 
 	return
 }

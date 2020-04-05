@@ -67,7 +67,7 @@ func ParseConsumer(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ..
 	return
 }
 
-func ConsumerFromStorageKey(key []byte, optionalTargetObject ...*Consumer) (result objectstorage.StorableObject, err error, consumedBytes int) {
+func ConsumerFromStorageKey(key []byte, optionalTargetObject ...*Consumer) (result *Consumer, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -80,14 +80,14 @@ func ConsumerFromStorageKey(key []byte, optionalTargetObject ...*Consumer) (resu
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	if result.(*Consumer).consumedInput, err = transaction.ParseOutputId(marshalUtil); err != nil {
+	if result.consumedInput, err = transaction.ParseOutputId(marshalUtil); err != nil {
 		return
 	}
-	if result.(*Consumer).transactionId, err = transaction.ParseId(marshalUtil); err != nil {
+	if result.transactionId, err = transaction.ParseId(marshalUtil); err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
-	result.(*Consumer).storageKey = marshalutil.New(key[:consumedBytes]).Bytes(true)
+	result.storageKey = marshalutil.New(key[:consumedBytes]).Bytes(true)
 
 	return
 }
