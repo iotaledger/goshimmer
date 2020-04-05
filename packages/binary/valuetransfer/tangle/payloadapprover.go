@@ -31,28 +31,60 @@ func NewPayloadApprover(referencedPayload payload.Id, approvingPayload payload.I
 	}
 }
 
+func PayloadApproverFromBytes(bytes []byte, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, err error, consumedBytes int) {
+	marshalUtil := marshalutil.New(bytes)
+	result, err = ParsePayloadApprover(marshalUtil, optionalTargetObject...)
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, err error) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+		return PayloadApproverFromStorageKey(data, optionalTargetObject...)
+	}); parseErr != nil {
+		err = parseErr
+
+		return
+	} else {
+		result = parsedObject.(*PayloadApprover)
+	}
+
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+
+		return
+	}); err != nil {
+		return
+	}
+
+	return
+}
+
 // PayloadApproverFromStorageKey get's called when we restore transaction metadata from the storage.
 // In contrast to other database models, it unmarshals the information from the key and does not use the UnmarshalObjectStorageValue
 // method.
-func PayloadApproverFromStorageKey(idBytes []byte) (result objectstorage.StorableObject, err error, consumedBytes int) {
-	marshalUtil := marshalutil.New(idBytes)
+func PayloadApproverFromStorageKey(key []byte, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, err error, consumedBytes int) {
+	// determine the target object that will hold the unmarshaled information
+	switch len(optionalTargetObject) {
+	case 0:
+		result = &PayloadApprover{}
+	case 1:
+		result = optionalTargetObject[0]
+	default:
+		panic("too many arguments in call to PayloadApproverFromStorageKey")
+	}
 
-	referencedPayloadId, err := payload.ParseId(marshalUtil)
-	if err != nil {
+	// parse the properties that are stored in the key
+	marshalUtil := marshalutil.New(key)
+	if result.referencedPayloadId, err = payload.ParseId(marshalUtil); err != nil {
 		return
 	}
-	approvingPayloadId, err := payload.ParseId(marshalUtil)
-	if err != nil {
+	if result.approvingPayloadId, err = payload.ParseId(marshalUtil); err != nil {
 		return
 	}
-
-	result = &PayloadApprover{
-		referencedPayloadId: referencedPayloadId,
-		approvingPayloadId:  approvingPayloadId,
-		storageKey:          marshalUtil.Bytes(true),
-	}
-
 	consumedBytes = marshalUtil.ReadOffset()
+	result.storageKey = marshalutil.New(key[:consumedBytes]).Bytes(true)
 
 	return
 }

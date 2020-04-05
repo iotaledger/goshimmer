@@ -19,8 +19,6 @@ import (
 // Tangle represents the value tangle that consists out of value payloads.
 // It is an independent ontology, that lives inside the tangle.
 type Tangle struct {
-	storageId []byte
-
 	payloadStorage         *objectstorage.ObjectStorage
 	payloadMetadataStorage *objectstorage.ObjectStorage
 	approverStorage        *objectstorage.ObjectStorage
@@ -38,24 +36,21 @@ type Tangle struct {
 	cleanupWorkerPool      async.WorkerPool
 }
 
-func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
+func New(badgerInstance *badger.DB) (result *Tangle) {
+	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.ValueTransfers)
+
 	result = &Tangle{
-		storageId: storageId,
-
 		// payload related storage
-		payloadStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayload...), payload.StorableObjectFromKey, objectstorage.CacheTime(time.Second)),
-		payloadMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferPayloadMetadata...), PayloadMetadataFromStorageKey, objectstorage.CacheTime(time.Second)),
-		missingPayloadStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingPayloadFromStorageKey, objectstorage.CacheTime(time.Second)),
-		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferApprover...), PayloadApproverFromStorageKey, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
+		payloadStorage:         osFactory.New(osPayload, osPayloadFactory, objectstorage.CacheTime(time.Second)),
+		payloadMetadataStorage: osFactory.New(osPayloadMetadata, osPayloadMetadataFactory, objectstorage.CacheTime(time.Second)),
+		missingPayloadStorage:  osFactory.New(osMissingPayload, osMissingPayloadFactory, objectstorage.CacheTime(time.Second)),
+		approverStorage:        osFactory.New(osApprover, osPayloadApproverFactory, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
 
 		// transaction related storage
-		outputStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTangleOutputs...), outputFromStorageKey, objectstorage.PartitionKey(transaction.OutputKeyPartitions...), objectstorage.CacheTime(time.Second)),
-		missingOutputStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferMissingPayload...), MissingOutputFromStorageKey, objectstorage.CacheTime(time.Second)),
-		consumerStorage:      objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferConsumer...), consumerFromStorageKey, objectstorage.CacheTime(time.Second)),
-
-		attachmentStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.ValueTransferAttachment...), AttachmentFromStorageKey, objectstorage.CacheTime(time.Second)),
-
-		// transaction related storage
+		attachmentStorage:    osFactory.New(osAttachment, osAttachmentFactory, objectstorage.CacheTime(time.Second)),
+		outputStorage:        osFactory.New(osOutput, osOutputFactory, transaction.OutputKeyPartitions, objectstorage.CacheTime(time.Second)),
+		missingOutputStorage: osFactory.New(osMissingOutput, osMissingOutputFactory, MissingOutputKeyPartitions, objectstorage.CacheTime(time.Second)),
+		consumerStorage:      osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(time.Second)),
 
 		Events: *newEvents(),
 	}
@@ -424,12 +419,4 @@ func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payload.Id) bool {
 	transactionMetadataCached.Release()
 
 	return true
-}
-
-func outputFromStorageKey(key []byte) (objectstorage.StorableObject, error, int) {
-	return transaction.OutputFromStorageKey(key)
-}
-
-func consumerFromStorageKey(key []byte) (objectstorage.StorableObject, error, int) {
-	return ConsumerFromStorageKey(key)
 }
