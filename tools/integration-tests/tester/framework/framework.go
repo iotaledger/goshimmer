@@ -1,3 +1,7 @@
+// Package framework provides integration test functionality for GoShimmer with a Docker network.
+// It effectively abstracts away all complexity with discovering peers,
+// waiting for them to autopeer and offers easy access to the peers' web API
+// and logs via Docker.
 package framework
 
 import (
@@ -8,11 +12,15 @@ import (
 	"github.com/docker/docker/client"
 )
 
+// Framework is a wrapper encapsulating all peers
 type Framework struct {
 	peers     []*Peer
 	dockerCli *client.Client
 }
 
+// New creates a new instance of Framework, gets all available peers within the Docker network and
+// waits for them to autopeer.
+// Panics if no peer is found.
 func New() *Framework {
 	fmt.Printf("Finding available peers...\n")
 
@@ -44,6 +52,8 @@ func New() *Framework {
 	return f
 }
 
+// waitForAutopeering waits until all peers have reached a minimum amount of neighbors.
+// Panics if this minimum is not reached after autopeeringMaxTries.
 func (f *Framework) waitForAutopeering() {
 	maxTries := autopeeringMaxTries
 	for maxTries > 0 {
@@ -78,10 +88,12 @@ func (f *Framework) waitForAutopeering() {
 	panic("Peering not successful.")
 }
 
+// Peers returns all available peers.
 func (f *Framework) Peers() []*Peer {
 	return f.peers
 }
 
+// RandomPeer returns a random peer out of the list of peers.
 func (f *Framework) RandomPeer() *Peer {
 	return f.peers[rand.Intn(len(f.peers))]
 }

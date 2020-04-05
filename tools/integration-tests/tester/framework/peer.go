@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/client"
 )
 
+// Peer represents a GoShimmer node inside the Docker network
 type Peer struct {
 	name string
 	ip   net.IP
@@ -24,6 +25,7 @@ type Peer struct {
 	accepted  []getNeighbors.Neighbor
 }
 
+// NewPeer creates a new instance of Peer with the given information.
 func NewPeer(name string, ip net.IP, dockerCli *dockerclient.Client) *Peer {
 	return &Peer{
 		name:         name,
@@ -37,10 +39,12 @@ func (p *Peer) String() string {
 	return fmt.Sprintf("Peer:{%s, %s, %s, %d}", p.name, p.ip.String(), p.BaseUrl(), p.TotalNeighbors())
 }
 
+// TotalNeighbors returns the total number of neighbors the peer has.
 func (p *Peer) TotalNeighbors() int {
 	return len(p.chosen) + len(p.accepted)
 }
 
+// SetNeighbors sets the neighbors of the peer accordingly.
 func (p *Peer) SetNeighbors(chosen, accepted []getNeighbors.Neighbor) {
 	p.chosen = make([]getNeighbors.Neighbor, len(chosen))
 	copy(p.chosen, chosen)
@@ -49,13 +53,15 @@ func (p *Peer) SetNeighbors(chosen, accepted []getNeighbors.Neighbor) {
 	copy(p.accepted, accepted)
 }
 
+// Logs returns the logs of the peer as io.ReadCloser.
+// Logs are returned via Docker and contain every log entry since start of the container/GoShimmer node.
 func (p *Peer) Logs() (io.ReadCloser, error) {
 	return p.dockerCli.ContainerLogs(
 		context.Background(),
 		p.name,
 		types.ContainerLogsOptions{
 			ShowStdout: true,
-			ShowStderr: false,
+			ShowStderr: true,
 			Since:      "",
 			Timestamps: false,
 			Follow:     false,
@@ -64,6 +70,9 @@ func (p *Peer) Logs() (io.ReadCloser, error) {
 		})
 }
 
+// getAvailablePeers gets all available peers in the Docker network.
+// It uses the expected Docker hostnames and tries to resolve them.
+// If that does not work it means the host is not available in the network
 func getAvailablePeers(dockerCli *dockerclient.Client) (peers []*Peer) {
 	// get peer master
 	if addr, err := net.LookupIP(hostnamePeerMaster); err != nil {
@@ -87,6 +96,7 @@ func getAvailablePeers(dockerCli *dockerclient.Client) (peers []*Peer) {
 	return
 }
 
+// getWebApiBaseUrl returns the web API base url for the given IP.
 func getWebApiBaseUrl(ip net.IP) string {
 	return fmt.Sprintf("http://%s:%s", ip.String(), apiPort)
 }

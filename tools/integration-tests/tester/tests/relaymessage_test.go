@@ -10,6 +10,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
+// TestRelayMessages checks whether messages are actually relayed/gossiped through the network
+// by checking the messages' existence on all nodes after a cool down.
 func TestRelayMessages(t *testing.T) {
 	numMessages := 100
 	ids := make([]string, numMessages)
