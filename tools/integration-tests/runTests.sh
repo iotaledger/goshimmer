@@ -8,7 +8,7 @@ fi
 REPLICAS=$1
 
 echo "Build GoShimmer Docker network"
-docker-compose -f docker-compose.yml up -d --scale peer_replica=$1
+docker-compose -f docker-compose.yml up -d --scale peer_replica=$REPLICAS
 if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
 
 echo "Dispay containers"
