@@ -20,8 +20,6 @@ const (
 )
 
 type Tangle struct {
-	storageId []byte
-
 	messageStorage         *objectstorage.ObjectStorage
 	messageMetadataStorage *objectstorage.ObjectStorage
 	approverStorage        *objectstorage.ObjectStorage
@@ -47,13 +45,14 @@ func missingMessageFactory(key []byte) (objectstorage.StorableObject, error, int
 }
 
 // Constructor for the tangle.
-func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
+func New(badgerInstance *badger.DB) (result *Tangle) {
+	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.MessageLayer)
+
 	result = &Tangle{
-		storageId:              storageId,
-		messageStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.Layer0Message...), messageFactory, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
-		messageMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.Layer0MessageMetadata...), MessageMetadataFromStorageKey, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.Layer0Approvers...), approverFactory, objectstorage.CacheTime(10*time.Second), objectstorage.PartitionKey(message.IdLength, message.IdLength), objectstorage.LeakDetectionEnabled(false)),
-		missingMessageStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.Layer0MissingMessage...), missingMessageFactory, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
+		messageStorage:         osFactory.New(PrefixMessage, messageFactory, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
+		messageMetadataStorage: osFactory.New(PrefixMessageMetadata, MessageMetadataFromStorageKey, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:        osFactory.New(PrefixApprovers, approverFactory, objectstorage.CacheTime(10*time.Second), objectstorage.PartitionKey(message.IdLength, message.IdLength), objectstorage.LeakDetectionEnabled(false)),
+		missingMessageStorage:  osFactory.New(PrefixMissingMessage, missingMessageFactory, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: *newEvents(),
 	}
@@ -61,11 +60,6 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 	result.solidifierWorkerPool.Tune(1024)
 
 	return
-}
-
-// Returns the storage id of this tangle (can be used to create ontologies that follow the storage of the main tangle).
-func (tangle *Tangle) StorageId() []byte {
-	return tangle.storageId
 }
 
 // Attaches a new transaction to the tangle.
