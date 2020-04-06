@@ -43,8 +43,16 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	return
 }
 
-func StorableObjectFromKey(key []byte) (result objectstorage.StorableObject, err error, consumedBytes int) {
-	result = &Payload{}
+func FromStorageKey(key []byte, optionalTargetObject ...*Payload) (result *Payload, err error, consumedBytes int) {
+	// determine the target object that will hold the unmarshaled information
+	switch len(optionalTargetObject) {
+	case 0:
+		result = &Payload{}
+	case 1:
+		result = optionalTargetObject[0]
+	default:
+		panic("too many arguments in call to MissingPayloadFromStorageKey")
+	}
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
@@ -53,7 +61,7 @@ func StorableObjectFromKey(key []byte) (result objectstorage.StorableObject, err
 
 		return
 	} else {
-		result.(*Payload).id = &payloadId
+		result.id = &payloadId
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
@@ -127,7 +135,28 @@ func (payload *Payload) Transaction() *transaction.Transaction {
 	return payload.transaction
 }
 
-func (payload *Payload) Bytes() (bytes []byte) {
+func (payload *Payload) Bytes() []byte {
+	return payload.ObjectStorageValue()
+}
+
+func (payload *Payload) String() string {
+	return stringify.Struct("Payload",
+		stringify.StructField("id", payload.Id()),
+		stringify.StructField("trunk", payload.TrunkId()),
+		stringify.StructField("branch", payload.BranchId()),
+		stringify.StructField("transfer", payload.Transaction()),
+	)
+}
+
+// region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
+
+var Type = payload.Type(1)
+
+func (payload *Payload) Type() payload.Type {
+	return Type
+}
+
+func (payload *Payload) ObjectStorageValue() (bytes []byte) {
 	// acquire lock for reading bytes
 	payload.bytesMutex.RLock()
 
@@ -165,27 +194,6 @@ func (payload *Payload) Bytes() (bytes []byte) {
 	payload.bytes = bytes
 
 	return
-}
-
-func (payload *Payload) String() string {
-	return stringify.Struct("Payload",
-		stringify.StructField("id", payload.Id()),
-		stringify.StructField("trunk", payload.TrunkId()),
-		stringify.StructField("branch", payload.BranchId()),
-		stringify.StructField("transfer", payload.Transaction()),
-	)
-}
-
-// region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
-
-var Type = payload.Type(1)
-
-func (payload *Payload) Type() payload.Type {
-	return Type
-}
-
-func (payload *Payload) ObjectStorageValue() []byte {
-	return payload.Bytes()
 }
 
 func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
@@ -248,9 +256,7 @@ var _ payload.Payload = &Payload{}
 // UnmarshalObjectStorageValue(data []byte) (err error) already implemented by Payload
 
 func (payload *Payload) ObjectStorageKey() []byte {
-	id := payload.Id()
-
-	return id[:]
+	return payload.Id().Bytes()
 }
 
 func (payload *Payload) Update(other objectstorage.StorableObject) {

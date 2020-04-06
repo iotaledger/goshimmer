@@ -36,6 +36,39 @@ func NewAttachment(transactionId transaction.Id, payloadId payload.Id) *Attachme
 // AttachmentFromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
 func AttachmentFromBytes(bytes []byte, optionalTargetObject ...*Attachment) (result *Attachment, err error, consumedBytes int) {
+	marshalUtil := marshalutil.New(bytes)
+	result, err = ParseAttachment(marshalUtil, optionalTargetObject...)
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// Parse is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil package.
+func ParseAttachment(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Attachment) (result *Attachment, err error) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+		return AttachmentFromStorageKey(data, optionalTargetObject...)
+	}); parseErr != nil {
+		err = parseErr
+
+		return
+	} else {
+		result = parsedObject.(*Attachment)
+	}
+
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+
+		return
+	}); err != nil {
+		return
+	}
+
+	return
+}
+
+// AttachmentFromStorageKey gets called when we restore an Attachment from the storage - it parses the key bytes and
+// returns the new object.
+func AttachmentFromStorageKey(key []byte, optionalTargetObject ...*Attachment) (result *Attachment, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -43,41 +76,21 @@ func AttachmentFromBytes(bytes []byte, optionalTargetObject ...*Attachment) (res
 	case 1:
 		result = optionalTargetObject[0]
 	default:
-		panic("too many arguments in call to AttachmentFromBytes")
+		panic("too many arguments in call to AttachmentFromStorageKey")
 	}
 
-	// parse the bytes
-	marshalUtil := marshalutil.New(bytes)
+	// parse the properties that are stored in the key
+	marshalUtil := marshalutil.New(key)
 	if result.transactionId, err = transaction.ParseId(marshalUtil); err != nil {
 		return
 	}
 	if result.payloadId, err = payload.ParseId(marshalUtil); err != nil {
 		return
 	}
-	result.storageKey = marshalutil.New(bytes[:AttachmentLength]).Bytes(true)
 	consumedBytes = marshalUtil.ReadOffset()
+	result.storageKey = marshalutil.New(key[:consumedBytes]).Bytes(true)
 
 	return
-}
-
-// Parse is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil package.
-func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (*Attachment, error) {
-	if attachment, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return AttachmentFromBytes(data) }); err != nil {
-		return nil, err
-	} else {
-		return attachment.(*Attachment), nil
-	}
-}
-
-// AttachmentFromStorageKey gets called when we restore an Attachment from the storage - it parses the key bytes and
-// returns the new object.
-func AttachmentFromStorageKey(keyBytes []byte) (objectstorage.StorableObject, error, int) {
-	result, err, _ := AttachmentFromBytes(keyBytes)
-	if err != nil {
-		return nil, err, 0
-	}
-
-	return result, nil, 0
 }
 
 // TransactionId returns the transaction id of this Attachment.
@@ -130,3 +143,41 @@ var _ objectstorage.StorableObject = &Attachment{}
 
 // AttachmentLength holds the length of a marshaled Attachment in bytes.
 const AttachmentLength = transaction.IdLength + payload.IdLength
+
+// region CachedAttachment /////////////////////////////////////////////////////////////////////////////////////////////
+
+type CachedAttachment struct {
+	objectstorage.CachedObject
+}
+
+func (cachedAttachment *CachedAttachment) Unwrap() *Attachment {
+	if untypedObject := cachedAttachment.Get(); untypedObject == nil {
+		return nil
+	} else {
+		if typedObject := untypedObject.(*Attachment); typedObject == nil || typedObject.IsDeleted() {
+			return nil
+		} else {
+			return typedObject
+		}
+	}
+}
+
+func (cachedAttachment *CachedAttachment) Consume(consumer func(attachment *Attachment)) (consumed bool) {
+	return cachedAttachment.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*Attachment))
+	})
+}
+
+type CachedAttachments []*CachedAttachment
+
+func (cachedAttachments CachedAttachments) Consume(consumer func(attachment *Attachment)) (consumed bool) {
+	for _, cachedAttachment := range cachedAttachments {
+		consumed = cachedAttachment.Consume(func(output *Attachment) {
+			consumer(output)
+		}) || consumed
+	}
+
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -27,7 +27,7 @@ func MissingMessageFromStorageKey(key []byte, optionalTargetObject ...*MissingMe
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
-		result = &Approver{}
+		result = &MissingMessage{}
 	case 1:
 		result = optionalTargetObject[0]
 	default:

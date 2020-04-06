@@ -45,7 +45,7 @@ func TestTangle_AttachPayload(t *testing.T) {
 
 	config.Node.Set(database.CFG_DIRECTORY, dir)
 
-	tangle := New(database.GetBadgerInstance(), []byte("TEST_BINARY_TANGLE"))
+	tangle := New(database.GetBadgerInstance())
 	if err := tangle.Prune(); err != nil {
 		t.Error(err)
 
