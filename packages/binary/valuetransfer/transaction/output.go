@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
 )
 
-var OutputKeyPartitions = []int{address.Length, IdLength}
+var OutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, IdLength}...)
 
 // Output represents the output of a Transaction and contains the balances and the identifiers for this output.
 type Output struct {
@@ -76,7 +76,7 @@ func ParseOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*
 // OutputFromStorageKey get's called when we restore a Output from the storage.
 // In contrast to other database models, it unmarshals some information from the key so we simply store the key before
 // it gets handed over to UnmarshalObjectStorageValue (by the ObjectStorage).
-func OutputFromStorageKey(keyBytes []byte, optionalTargetObject ...*Output) (result objectstorage.StorableObject, err error, consumedBytes int) {
+func OutputFromStorageKey(keyBytes []byte, optionalTargetObject ...*Output) (result *Output, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -89,15 +89,15 @@ func OutputFromStorageKey(keyBytes []byte, optionalTargetObject ...*Output) (res
 
 	// parse information
 	marshalUtil := marshalutil.New(keyBytes)
-	result.(*Output).address, err = address.Parse(marshalUtil)
+	result.address, err = address.Parse(marshalUtil)
 	if err != nil {
 		return
 	}
-	result.(*Output).transactionId, err = ParseId(marshalUtil)
+	result.transactionId, err = ParseId(marshalUtil)
 	if err != nil {
 		return
 	}
-	result.(*Output).storageKey = marshalutil.New(keyBytes[:OutputIdLength]).Bytes(true)
+	result.storageKey = marshalutil.New(keyBytes[:OutputIdLength]).Bytes(true)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
