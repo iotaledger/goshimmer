@@ -359,21 +359,19 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 }
 
 func (tangle *Tangle) isTransactionSolid(tx *transaction.Transaction, metadata *TransactionMetadata) (bool, error) {
+	// abort if any of the models are nil or has been delted
 	if tx == nil || tx.IsDeleted() || metadata == nil || metadata.IsDeleted() {
 		return false, nil
 	}
 
+	// abort if we have previously determined the solidity status of the transaction already
 	if metadata.Solid() {
 		return true, nil
 	}
 
 	// get outputs that were referenced in the transaction inputs
 	cachedInputs := tangle.getCachedOutputsFromTransactionInputs(tx)
-	defer func() {
-		for _, input := range cachedInputs {
-			input.Release()
-		}
-	}()
+	defer cachedInputs.Release()
 
 	// iterate through the inputs to see if they exist, are solid and to calculate the sum of their balances
 	inputsSolid := true
@@ -426,8 +424,8 @@ func (tangle *Tangle) isTransactionSolid(tx *transaction.Transaction, metadata *
 	return true, nil
 }
 
-func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result map[transaction.OutputId]*transaction.CachedOutput) {
-	result = make(map[transaction.OutputId]*transaction.CachedOutput)
+func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result transaction.CachedOutputs) {
+	result = make(transaction.CachedOutputs)
 	tx.Inputs().ForEach(func(inputId transaction.OutputId) bool {
 		result[inputId] = tangle.GetTransactionOutput(inputId)
 

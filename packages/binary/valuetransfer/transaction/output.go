@@ -269,7 +269,7 @@ func (cachedOutput *CachedOutput) Consume(consumer func(output *Output)) (consum
 	})
 }
 
-type CachedOutputs []*CachedOutput
+type CachedOutputs map[OutputId]*CachedOutput
 
 func (cachedOutputs CachedOutputs) Consume(consumer func(output *Output)) (consumed bool) {
 	for _, cachedOutput := range cachedOutputs {
@@ -279,6 +279,12 @@ func (cachedOutputs CachedOutputs) Consume(consumer func(output *Output)) (consu
 	}
 
 	return
+}
+
+func (cachedOutputs CachedOutputs) Release(force ...bool) {
+	for _, cachedOutput := range cachedOutputs {
+		cachedOutput.Release(force...)
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
