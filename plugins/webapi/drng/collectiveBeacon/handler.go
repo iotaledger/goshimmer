@@ -3,8 +3,7 @@ package collectiveBeacon
 import (
 	"net/http"
 
-	cb "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
-	generic "github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/echo"
@@ -23,12 +22,11 @@ func Handler(c echo.Context) error {
 	//TODO: to check max payload size allowed, if exceeding return an error
 
 	marshalUtil := marshalutil.New(request.Payload)
-	cbPayload, err := cb.Parse(marshalUtil)
-
-	parsedPayload, err := generic.Parse(marshalUtil)
+	parsedPayload, err := payload.Parse(marshalUtil)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: "Not a valid Payload"})
+		return c.JSON(http.StatusBadRequest, Response{Error: "Not a valid Collective Beacon payload"})
 	}
+
 	tx := messagelayer.MessageFactory.IssuePayload(parsedPayload)
 
 	return c.JSON(http.StatusOK, Response{Id: tx.Id().String()})
