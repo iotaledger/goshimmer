@@ -80,7 +80,7 @@ func TestTangle_AttachPayload(t *testing.T) {
 
 		transaction.NewOutputs(map[address.Address][]*balance.Balance{
 			outputAddress: {
-				balance.New(balance.COLOR_New, 1338),
+				balance.New(balance.COLOR_New, 1337),
 			},
 		}),
 	)

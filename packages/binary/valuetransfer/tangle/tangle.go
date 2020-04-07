@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"container/list"
+	"fmt"
 	"math"
 	"time"
 
@@ -273,7 +274,17 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 			}
 
 			// abort if the entities are not solid
-			if !tangle.isPayloadSolid(currentPayload, currentPayloadMetadata) || !tangle.isTransactionSolidAndValid(currentTransaction, currentTransactionMetadata) {
+			if !tangle.isPayloadSolid(currentPayload, currentPayloadMetadata) {
+				return
+			}
+
+			// check solidity (and validity) of transaction
+			if transactionSolid, err := tangle.isTransactionSolid(currentTransaction, currentTransactionMetadata); err != nil {
+				// TODO: TRIGGER INVALID TX + REMOVE TXS THAT APPROVE IT
+				fmt.Println(err)
+
+				return
+			} else if !transactionSolid {
 				return
 			}
 
@@ -348,13 +359,13 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 	}
 }
 
-func (tangle *Tangle) isTransactionSolidAndValid(tx *transaction.Transaction, metadata *TransactionMetadata) bool {
+func (tangle *Tangle) isTransactionSolid(tx *transaction.Transaction, metadata *TransactionMetadata) (bool, error) {
 	if tx == nil || tx.IsDeleted() || metadata == nil || metadata.IsDeleted() {
-		return false
+		return false, nil
 	}
 
 	if metadata.Solid() {
-		return true
+		return true, nil
 	}
 
 	// get outputs that were referenced in the transaction inputs
@@ -391,14 +402,12 @@ func (tangle *Tangle) isTransactionSolidAndValid(tx *transaction.Transaction, me
 		for _, inputBalance := range input.Balances() {
 			var newBalance int64
 			if currentBalance, balanceExists := availableBalances[inputBalance.Color()]; balanceExists {
-				newBalance = currentBalance + inputBalance.Value()
-
 				// check overflows in the numbers
-				if newBalance < currentBalance {
-					// TODO: TRIGGER REMOVAL OF TX + APPROVERS
-
-					return false
+				if inputBalance.Value() > math.MaxInt64-currentBalance {
+					return false, fmt.Errorf("buffer overflow in inputs of transaction '%s'", tx.Id())
 				}
+
+				newBalance = currentBalance + inputBalance.Value()
 			} else {
 				newBalance = inputBalance.Value()
 			}
@@ -408,10 +417,14 @@ func (tangle *Tangle) isTransactionSolidAndValid(tx *transaction.Transaction, me
 
 	// abort if the inputs are not solid
 	if !inputsSolid {
-		return false
+		return false, nil
 	}
 
-	return tangle.checkTransactionOutputs(availableBalances, tx.Outputs())
+	if !tangle.checkTransactionOutputs(availableBalances, tx.Outputs()) {
+		return false, fmt.Errorf("the outputs do not match the inputs in transaction with id '%s'", tx.Id())
+	}
+
+	return true, nil
 }
 
 func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result map[transaction.OutputId]*transaction.CachedOutput) {
