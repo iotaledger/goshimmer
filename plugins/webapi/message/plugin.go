@@ -1,4 +1,4 @@
-package findMessageById
+package message
 
 import (
 	"net/http"
@@ -12,12 +12,12 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI findMessageById Endpoint", node.Enabled, configure)
+var PLUGIN = node.NewPlugin("WebAPI message Endpoint", node.Enabled, configure)
 var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("API-findMessageById")
-	webapi.Server.POST("findMessageById", findMessageById)
+	log = logger.NewLogger("API-message")
+	webapi.Server.POST("message/findById", findMessageById)
 }
 
 // findMessageById returns the array of messages for the

@@ -1,4 +1,4 @@
-package broadcastData
+package data
 
 import (
 	"net/http"
@@ -11,12 +11,12 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI broadcastData Endpoint", node.Enabled, configure)
+var PLUGIN = node.NewPlugin("WebAPI data Endpoint", node.Enabled, configure)
 var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("API-broadcastData")
-	webapi.Server.POST("broadcastData", broadcastData)
+	log = logger.NewLogger("API-data")
+	webapi.Server.POST("data", broadcastData)
 }
 
 // broadcastData creates a message of the given payload and
