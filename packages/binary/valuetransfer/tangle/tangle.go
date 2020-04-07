@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"container/list"
+	"math"
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
@@ -94,7 +95,7 @@ func (tangle *Tangle) GetApprovers(payloadId payload.Id) CachedApprovers {
 	return approvers
 }
 
-// GetApprovers retrieves the approvers of a payload from the object storage.
+// GetConsumers retrieves the approvers of a payload from the object storage.
 func (tangle *Tangle) GetConsumers(outputId transaction.OutputId) CachedConsumers {
 	consumers := make(CachedConsumers, 0)
 	tangle.consumerStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
@@ -201,8 +202,10 @@ func (tangle *Tangle) storeTransaction(tx *transaction.Transaction) (cachedTrans
 	})}
 
 	if transactionStored {
-		tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) {
+		tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
 			tangle.outputStorage.Store(transaction.NewOutput(address, tx.Id(), balances))
+
+			return true
 		})
 	}
 
@@ -270,7 +273,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 			}
 
 			// abort if the entities are not solid
-			if !tangle.isPayloadSolid(currentPayload, currentPayloadMetadata) || !tangle.isTransactionSolid(currentTransaction, currentTransactionMetadata) {
+			if !tangle.isPayloadSolid(currentPayload, currentPayloadMetadata) || !tangle.isTransactionSolidAndValid(currentTransaction, currentTransactionMetadata) {
 				return
 			}
 
@@ -283,10 +286,12 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 			// set the transaction related entities to be solid
 			transactionBecameSolid := currentTransactionMetadata.SetSolid(true)
 			if transactionBecameSolid {
-				currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) {
+				currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
 					tangle.GetTransactionOutput(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(output *transaction.Output) {
 						output.SetSolid(true)
 					})
+
+					return true
 				})
 			}
 
@@ -314,7 +319,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 			tangle.Events.TransactionSolid.Trigger(currentTransaction, currentTransactionMetadata)
 
 			seenTransactions := make(map[transaction.Id]types.Empty)
-			currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) {
+			currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
 				tangle.GetTransactionOutput(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(output *transaction.Output) {
 					// trigger events
 				})
@@ -336,17 +341,15 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 						})
 					}
 				})
+
+				return true
 			})
 		}()
 	}
 }
 
-func (tangle *Tangle) isTransactionSolid(transaction *transaction.Transaction, metadata *TransactionMetadata) bool {
-	if transaction == nil || transaction.IsDeleted() {
-		return false
-	}
-
-	if metadata == nil || metadata.IsDeleted() {
+func (tangle *Tangle) isTransactionSolidAndValid(tx *transaction.Transaction, metadata *TransactionMetadata) bool {
+	if tx == nil || tx.IsDeleted() || metadata == nil || metadata.IsDeleted() {
 		return false
 	}
 
@@ -354,24 +357,143 @@ func (tangle *Tangle) isTransactionSolid(transaction *transaction.Transaction, m
 		return true
 	}
 
-	// iterate through all transfers and check if they are solid
-	return transaction.Inputs().ForEach(tangle.isOutputMarkedAsSolid)
-}
+	// get outputs that were referenced in the transaction inputs
+	cachedInputs := tangle.getCachedOutputsFromTransactionInputs(tx)
+	defer func() {
+		for _, input := range cachedInputs {
+			input.Release()
+		}
+	}()
 
-func (tangle *Tangle) isOutputMarkedAsSolid(transactionOutputId transaction.OutputId) (result bool) {
-	outputExists := tangle.GetTransactionOutput(transactionOutputId).Consume(func(output *transaction.Output) {
-		result = output.Solid()
-	})
+	// iterate through the inputs to see if they exist, are solid and to calculate the sum of their balances
+	inputsSolid := true
+	availableBalances := make(map[balance.Color]int64)
+	for inputId, cachedInput := range cachedInputs {
+		if !cachedInput.Exists() {
+			inputsSolid = false
 
-	if !outputExists {
-		if cachedMissingOutput, missingOutputStored := tangle.missingOutputStorage.StoreIfAbsent(NewMissingOutput(transactionOutputId)); missingOutputStored {
-			cachedMissingOutput.Consume(func(object objectstorage.StorableObject) {
-				tangle.Events.OutputMissing.Trigger(object.(*MissingOutput).Id())
-			})
+			if cachedMissingOutput, missingOutputStored := tangle.missingOutputStorage.StoreIfAbsent(NewMissingOutput(inputId)); missingOutputStored {
+				cachedMissingOutput.Consume(func(object objectstorage.StorableObject) {
+					tangle.Events.OutputMissing.Trigger(object.(*MissingOutput).Id())
+				})
+			}
+
+			continue
+		}
+
+		// should never be nil as we check Exists() before
+		input := cachedInput.Unwrap()
+
+		// update solid status
+		inputsSolid = inputsSolid && input.Solid()
+
+		// calculate the input balances
+		for _, inputBalance := range input.Balances() {
+			var newBalance int64
+			if currentBalance, balanceExists := availableBalances[inputBalance.Color()]; balanceExists {
+				newBalance = currentBalance + inputBalance.Value()
+
+				// check overflows in the numbers
+				if newBalance < currentBalance {
+					// TODO: TRIGGER REMOVAL OF TX + APPROVERS
+
+					return false
+				}
+			} else {
+				newBalance = inputBalance.Value()
+			}
+			availableBalances[inputBalance.Color()] = newBalance
 		}
 	}
 
+	// abort if the inputs are not solid
+	if !inputsSolid {
+		return false
+	}
+
+	return tangle.checkTransactionOutputs(availableBalances, tx.Outputs())
+}
+
+func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result map[transaction.OutputId]*transaction.CachedOutput) {
+	result = make(map[transaction.OutputId]*transaction.CachedOutput)
+	tx.Inputs().ForEach(func(inputId transaction.OutputId) bool {
+		result[inputId] = tangle.GetTransactionOutput(inputId)
+
+		return true
+	})
+
 	return
+}
+
+// checkTransactionOutputs is a utility function that returns true, if the outputs are consuming all of the given inputs
+// (the sum of all the balance changes is 0). It also accounts for the ability to "recolor" coins during the creating of
+// outputs. If this function returns false, then the outputs that are defined in the transaction are invalid and the
+// transaction should be removed from the ledger state.
+func (tangle *Tangle) checkTransactionOutputs(inputBalances map[balance.Color]int64, outputs *transaction.Outputs) bool {
+	// create a variable to keep track of outputs that create a new color
+	var newlyColoredCoins int64
+
+	// iterate through outputs and check them one by one
+	aborted := !outputs.ForEach(func(address address.Address, balances []*balance.Balance) bool {
+		for _, outputBalance := range balances {
+			// abort if the output creates a negative or empty output
+			if outputBalance.Value() <= 0 {
+				return false
+			}
+
+			// sidestep logic if we have a newly colored output (we check the supply later)
+			if outputBalance.Color() == balance.COLOR_New {
+				// catch overflows
+				if newlyColoredCoins > math.MaxInt64-outputBalance.Value() {
+					return false
+				}
+
+				newlyColoredCoins += outputBalance.Value()
+
+				continue
+			}
+
+			// check if the used color does not exist in our supply
+			availableBalance, spentColorExists := inputBalances[outputBalance.Color()]
+			if !spentColorExists {
+				return false
+			}
+
+			// abort if we spend more coins of the given color than we have
+			if availableBalance < outputBalance.Value() {
+				return false
+			}
+
+			// subtract the spent coins from the supply of this transaction
+			inputBalances[outputBalance.Color()] -= outputBalance.Value()
+
+			// cleanup the entry in the supply map if we have exhausted all funds
+			if inputBalances[outputBalance.Color()] == 0 {
+				delete(inputBalances, outputBalance.Color())
+			}
+		}
+
+		return true
+	})
+
+	// abort if the previous checks failed
+	if aborted {
+		return false
+	}
+
+	// determine the unspent inputs
+	var unspentCoins int64
+	for _, unspentBalance := range inputBalances {
+		// catch overflows
+		if unspentCoins > math.MaxInt64-unspentBalance {
+			return false
+		}
+
+		unspentCoins += unspentBalance
+	}
+
+	// the outputs are valid if they spend all outputs
+	return unspentCoins == newlyColoredCoins
 }
 
 // isPayloadSolid returns true if the given payload is solid. A payload is considered to be solid solid, if it is either

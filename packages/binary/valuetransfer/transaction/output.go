@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
@@ -101,6 +102,10 @@ func OutputFromStorageKey(keyBytes []byte, optionalTargetObject ...*Output) (res
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
+}
+
+func (output *Output) Id() OutputId {
+	return NewOutputId(output.Address(), output.TransactionId())
 }
 
 // Address returns the address that this output belongs to.
@@ -225,6 +230,16 @@ func (output *Output) UnmarshalObjectStorageValue(data []byte) (err error, consu
 // Update is disabled and panics if it ever gets called - it is required to match StorableObject interface.
 func (output *Output) Update(other objectstorage.StorableObject) {
 	panic("this object should never be updated")
+}
+
+func (output *Output) String() string {
+	return stringify.Struct("Output",
+		stringify.StructField("address", output.Address()),
+		stringify.StructField("transactionId", output.TransactionId()),
+		stringify.StructField("solid", output.Solid()),
+		stringify.StructField("solidificationTime", output.SolidificationTime()),
+		stringify.StructField("balances", output.Balances()),
+	)
 }
 
 // define contract (ensure that the struct fulfills the given interface)

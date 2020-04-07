@@ -90,11 +90,9 @@ func (outputs *Outputs) Add(address address.Address, balances []*balance.Balance
 	return outputs
 }
 
-func (outputs *Outputs) ForEach(consumer func(address address.Address, balances []*balance.Balance)) {
-	outputs.OrderedMap.ForEach(func(key, value interface{}) bool {
-		consumer(key.(address.Address), value.([]*balance.Balance))
-
-		return true
+func (outputs *Outputs) ForEach(consumer func(address address.Address, balances []*balance.Balance) bool) bool {
+	return outputs.OrderedMap.ForEach(func(key, value interface{}) bool {
+		return consumer(key.(address.Address), value.([]*balance.Balance))
 	})
 }
 
@@ -108,13 +106,15 @@ func (outputs *Outputs) Bytes() []byte {
 	}
 
 	marshalUtil.WriteUint32(uint32(outputs.Size()))
-	outputs.ForEach(func(address address.Address, balances []*balance.Balance) {
+	outputs.ForEach(func(address address.Address, balances []*balance.Balance) bool {
 		marshalUtil.WriteBytes(address.Bytes())
 		marshalUtil.WriteUint32(uint32(len(balances)))
 
 		for _, balance := range balances {
 			marshalUtil.WriteBytes(balance.Bytes())
 		}
+
+		return true
 	})
 
 	return marshalUtil.Bytes()
@@ -127,7 +127,7 @@ func (outputs *Outputs) String() string {
 
 	result := "[\n"
 	empty := true
-	outputs.ForEach(func(address address.Address, balances []*balance.Balance) {
+	outputs.ForEach(func(address address.Address, balances []*balance.Balance) bool {
 		empty = false
 
 		result += "    " + address.String() + ": [\n"
@@ -144,6 +144,8 @@ func (outputs *Outputs) String() string {
 		}
 
 		result += "    ]\n"
+
+		return true
 	})
 
 	if empty {

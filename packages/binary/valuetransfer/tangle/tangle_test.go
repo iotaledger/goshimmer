@@ -5,9 +5,9 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -52,31 +52,48 @@ func TestTangle_AttachPayload(t *testing.T) {
 		return
 	}
 
-	tangle.Events.PayloadSolid.Attach(events.NewClosure(func(payload *payload.CachedPayload, metadata *CachedPayloadMetadata) {
-		fmt.Println(payload.Unwrap())
-
-		payload.Release()
-		metadata.Release()
-	}))
-
 	addressKeyPair1 := ed25519.GenerateKeyPair()
 	addressKeyPair2 := ed25519.GenerateKeyPair()
 
 	transferId1, _ := transaction.IdFromBase58("8opHzTAnfzRpPEx21XtnrVTX28YQuCpAjcn1PczScKh")
 	transferId2, _ := transaction.IdFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
 
-	tangle.AttachPayload(payload.New(payload.GenesisId, payload.GenesisId, transaction.New(
+	input1 := transaction.NewOutput(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferId1, []*balance.Balance{
+		balance.New(balance.COLOR_IOTA, 337),
+	})
+	input1.SetSolid(true)
+	input2 := transaction.NewOutput(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferId2, []*balance.Balance{
+		balance.New(balance.COLOR_IOTA, 1000),
+	})
+	input2.SetSolid(true)
+
+	tangle.outputStorage.Store(input1)
+	tangle.outputStorage.Store(input2)
+
+	outputAddress := address.Random()
+
+	tx := transaction.New(
 		transaction.NewInputs(
-			transaction.NewOutputId(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferId1),
-			transaction.NewOutputId(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferId2),
+			input1.Id(),
+			input2.Id(),
 		),
 
 		transaction.NewOutputs(map[address.Address][]*balance.Balance{
-			address.Random(): {
-				balance.New(balance.COLOR_IOTA, 1337),
+			outputAddress: {
+				balance.New(balance.COLOR_New, 1338),
 			},
 		}),
-	)))
+	)
+
+	tangle.AttachPayload(payload.New(payload.GenesisId, payload.GenesisId, tx))
+
+	time.Sleep(1 * time.Second)
+
+	fmt.Println(tx.Id(), outputAddress)
+
+	tangle.GetTransactionOutput(transaction.NewOutputId(outputAddress, tx.Id())).Consume(func(output *transaction.Output) {
+		fmt.Println(output)
+	})
 
 	tangle.Shutdown()
 }
