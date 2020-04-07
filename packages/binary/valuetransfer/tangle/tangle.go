@@ -273,24 +273,23 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 				return
 			}
 
-			// abort if the entities are not solid
+			// abort if the payload is not solid
 			if !tangle.isPayloadSolid(currentPayload, currentPayloadMetadata) {
 				return
 			}
 
-			// check solidity (and validity) of transaction
-			if transactionSolid, err := tangle.isTransactionSolid(currentTransaction, currentTransactionMetadata); err != nil {
-				// TODO: TRIGGER INVALID TX + REMOVE TXS THAT APPROVE IT
-				fmt.Println(err)
+			// abort if the transaction is not solid or invalid
+			if transactionSolid, err := tangle.isTransactionSolid(currentTransaction, currentTransactionMetadata); !transactionSolid || err != nil {
+				if err != nil {
+					// TODO: TRIGGER INVALID TX + REMOVE TXS THAT APPROVE IT
+					fmt.Println(err)
+				}
 
-				return
-			} else if !transactionSolid {
 				return
 			}
 
 			// abort if the payload was marked as solid already (if a payload is solid already then the tx is also solid)
-			payloadBecameSolid := currentPayloadMetadata.SetSolid(true)
-			if !payloadBecameSolid {
+			if !currentPayloadMetadata.SetSolid(true) {
 				return
 			}
 
