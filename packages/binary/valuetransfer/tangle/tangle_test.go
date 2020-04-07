@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -89,11 +88,10 @@ func TestTangle_AttachPayload(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	fmt.Println(tx.Id(), outputAddress)
-
-	tangle.GetTransactionOutput(transaction.NewOutputId(outputAddress, tx.Id())).Consume(func(output *transaction.Output) {
-		fmt.Println(output)
+	outputFound := tangle.GetTransactionOutput(transaction.NewOutputId(outputAddress, tx.Id())).Consume(func(output *transaction.Output) {
+		assert.Equal(t, true, output.Solid())
 	})
+	assert.Equal(t, true, outputFound)
 
 	tangle.Shutdown()
 }
