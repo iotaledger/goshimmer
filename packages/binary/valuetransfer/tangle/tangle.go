@@ -358,6 +358,53 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 	}
 }
 
+// isPayloadSolid returns true if the given payload is solid. A payload is considered to be solid solid, if it is either
+// already marked as solid or if its referenced payloads are marked as solid.
+func (tangle *Tangle) isPayloadSolid(payload *payload.Payload, metadata *PayloadMetadata) bool {
+	if payload == nil || payload.IsDeleted() {
+		return false
+	}
+
+	if metadata == nil || metadata.IsDeleted() {
+		return false
+	}
+
+	if metadata.IsSolid() {
+		return true
+	}
+
+	return tangle.isPayloadMarkedAsSolid(payload.TrunkId()) && tangle.isPayloadMarkedAsSolid(payload.BranchId())
+}
+
+// isPayloadMarkedAsSolid returns true if the payload was marked as solid already (by setting the corresponding flags
+// in its metadata.
+func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payload.Id) bool {
+	if payloadId == payload.GenesisId {
+		return true
+	}
+
+	transactionMetadataCached := tangle.GetPayloadMetadata(payloadId)
+	if transactionMetadata := transactionMetadataCached.Unwrap(); transactionMetadata == nil {
+		transactionMetadataCached.Release()
+
+		// if transaction is missing and was not reported as missing, yet
+		if cachedMissingPayload, missingPayloadStored := tangle.missingPayloadStorage.StoreIfAbsent(NewMissingPayload(payloadId)); missingPayloadStored {
+			cachedMissingPayload.Consume(func(object objectstorage.StorableObject) {
+				tangle.Events.PayloadMissing.Trigger(object.(*MissingPayload).GetId())
+			})
+		}
+
+		return false
+	} else if !transactionMetadata.IsSolid() {
+		transactionMetadataCached.Release()
+
+		return false
+	}
+	transactionMetadataCached.Release()
+
+	return true
+}
+
 func (tangle *Tangle) isTransactionSolid(tx *transaction.Transaction, metadata *TransactionMetadata) (bool, error) {
 	// abort if any of the models are nil or has been delted
 	if tx == nil || tx.IsDeleted() || metadata == nil || metadata.IsDeleted() {
@@ -373,9 +420,36 @@ func (tangle *Tangle) isTransactionSolid(tx *transaction.Transaction, metadata *
 	cachedInputs := tangle.getCachedOutputsFromTransactionInputs(tx)
 	defer cachedInputs.Release()
 
-	// iterate through the inputs to see if they exist, are solid and to calculate the sum of their balances
-	inputsSolid := true
-	availableBalances := make(map[balance.Color]int64)
+	// check the solidity of the inputs and retrieve the consumed balances
+	inputsSolid, consumedBalances, err := tangle.checkTransactionInputs(cachedInputs)
+
+	// abort if an error occurred or the inputs are not solid, yet
+	if !inputsSolid || err != nil {
+		return false, err
+	}
+
+	if !tangle.checkTransactionOutputs(consumedBalances, tx.Outputs()) {
+		return false, fmt.Errorf("the outputs do not match the inputs in transaction with id '%s'", tx.Id())
+	}
+
+	return true, nil
+}
+
+func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result transaction.CachedOutputs) {
+	result = make(transaction.CachedOutputs)
+	tx.Inputs().ForEach(func(inputId transaction.OutputId) bool {
+		result[inputId] = tangle.GetTransactionOutput(inputId)
+
+		return true
+	})
+
+	return
+}
+
+func (tangle *Tangle) checkTransactionInputs(cachedInputs transaction.CachedOutputs) (inputsSolid bool, consumedBalances map[balance.Color]int64, err error) {
+	inputsSolid = true
+	consumedBalances = make(map[balance.Color]int64)
+
 	for inputId, cachedInput := range cachedInputs {
 		if !cachedInput.Exists() {
 			inputsSolid = false
@@ -398,39 +472,21 @@ func (tangle *Tangle) isTransactionSolid(tx *transaction.Transaction, metadata *
 		// calculate the input balances
 		for _, inputBalance := range input.Balances() {
 			var newBalance int64
-			if currentBalance, balanceExists := availableBalances[inputBalance.Color()]; balanceExists {
+			if currentBalance, balanceExists := consumedBalances[inputBalance.Color()]; balanceExists {
 				// check overflows in the numbers
 				if inputBalance.Value() > math.MaxInt64-currentBalance {
-					return false, fmt.Errorf("buffer overflow in inputs of transaction '%s'", tx.Id())
+					err = fmt.Errorf("buffer overflow in balances of inputs")
+
+					return
 				}
 
 				newBalance = currentBalance + inputBalance.Value()
 			} else {
 				newBalance = inputBalance.Value()
 			}
-			availableBalances[inputBalance.Color()] = newBalance
+			consumedBalances[inputBalance.Color()] = newBalance
 		}
 	}
-
-	// abort if the inputs are not solid
-	if !inputsSolid {
-		return false, nil
-	}
-
-	if !tangle.checkTransactionOutputs(availableBalances, tx.Outputs()) {
-		return false, fmt.Errorf("the outputs do not match the inputs in transaction with id '%s'", tx.Id())
-	}
-
-	return true, nil
-}
-
-func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result transaction.CachedOutputs) {
-	result = make(transaction.CachedOutputs)
-	tx.Inputs().ForEach(func(inputId transaction.OutputId) bool {
-		result[inputId] = tangle.GetTransactionOutput(inputId)
-
-		return true
-	})
 
 	return
 }
@@ -504,51 +560,4 @@ func (tangle *Tangle) checkTransactionOutputs(inputBalances map[balance.Color]in
 
 	// the outputs are valid if they spend all outputs
 	return unspentCoins == newlyColoredCoins
-}
-
-// isPayloadSolid returns true if the given payload is solid. A payload is considered to be solid solid, if it is either
-// already marked as solid or if its referenced payloads are marked as solid.
-func (tangle *Tangle) isPayloadSolid(payload *payload.Payload, metadata *PayloadMetadata) bool {
-	if payload == nil || payload.IsDeleted() {
-		return false
-	}
-
-	if metadata == nil || metadata.IsDeleted() {
-		return false
-	}
-
-	if metadata.IsSolid() {
-		return true
-	}
-
-	return tangle.isPayloadMarkedAsSolid(payload.TrunkId()) && tangle.isPayloadMarkedAsSolid(payload.BranchId())
-}
-
-// isPayloadMarkedAsSolid returns true if the payload was marked as solid already (by setting the corresponding flags
-// in its metadata.
-func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payload.Id) bool {
-	if payloadId == payload.GenesisId {
-		return true
-	}
-
-	transactionMetadataCached := tangle.GetPayloadMetadata(payloadId)
-	if transactionMetadata := transactionMetadataCached.Unwrap(); transactionMetadata == nil {
-		transactionMetadataCached.Release()
-
-		// if transaction is missing and was not reported as missing, yet
-		if cachedMissingPayload, missingPayloadStored := tangle.missingPayloadStorage.StoreIfAbsent(NewMissingPayload(payloadId)); missingPayloadStored {
-			cachedMissingPayload.Consume(func(object objectstorage.StorableObject) {
-				tangle.Events.PayloadMissing.Trigger(object.(*MissingPayload).GetId())
-			})
-		}
-
-		return false
-	} else if !transactionMetadata.IsSolid() {
-		transactionMetadataCached.Release()
-
-		return false
-	}
-	transactionMetadataCached.Release()
-
-	return true
 }
