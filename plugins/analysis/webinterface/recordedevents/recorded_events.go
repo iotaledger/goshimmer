@@ -2,6 +2,7 @@ package recordedevents
 
 import (
 	"encoding/hex"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,19 +25,19 @@ var lock sync.Mutex
 
 func Configure(plugin *node.Plugin) {
 	server.Events.Heartbeat.Attach(events.NewClosure(func(packet heartbeat.Packet) {
-		out := ""
+		var out strings.Builder
 		for _, value := range packet.OutboundIDs {
-			out += hex.EncodeToString(value)
+			out.WriteString(hex.EncodeToString(value))
 		}
-		in := ""
+		var in strings.Builder
 		for _, value := range packet.InboundIDs {
-			in += hex.EncodeToString(value)
+			in.WriteString(hex.EncodeToString(value))
 		}
 		plugin.Node.Logger.Debugw(
 			"Heartbeat",
 			"nodeId", hex.EncodeToString(packet.OwnID),
-			"outboundIds", out,
-			"inboundIds", in,
+			"outboundIds", out.String(),
+			"inboundIds", in.String(),
 		)
 		lock.Lock()
 		defer lock.Unlock()
@@ -111,6 +112,7 @@ func Configure(plugin *node.Plugin) {
 func Run() {
 	daemon.BackgroundWorker("Analysis Server Record Manager", func(shutdownSignal <-chan struct{}) {
 		ticker := time.NewTicker(CLEAN_UP_PERIOD)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-shutdownSignal:
@@ -157,14 +159,14 @@ func getEventsToReplay() (map[string]time.Time, map[string]map[string]time.Time)
 	lock.Lock()
 	defer lock.Unlock()
 
-	copiedNodes := make(map[string]time.Time)
+	copiedNodes := make(map[string]time.Time, len(nodes))
 	for nodeId, lastHeartbeat := range nodes {
 		copiedNodes[nodeId] = lastHeartbeat
 	}
 
-	copiedLinks := make(map[string]map[string]time.Time)
+	copiedLinks := make(map[string]map[string]time.Time, len(links))
 	for sourceId, targetMap := range links {
-		copiedLinks[sourceId] = make(map[string]time.Time)
+		copiedLinks[sourceId] = make(map[string]time.Time, len(targetMap))
 		for targetId, lastHeartbeat := range targetMap {
 			copiedLinks[sourceId][targetId] = lastHeartbeat
 		}
