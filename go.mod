@@ -29,5 +29,6 @@ require (
 	go.uber.org/zap v1.14.0
 	golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073
 	golang.org/x/net v0.0.0-20200301022130-244492dfa37a
+	golang.org/x/tools v0.0.0-20200330040139-fa3cc9eebcfe // indirect
 	gopkg.in/src-d/go-git.v4 v4.13.1
 )
