@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/events"
 	cbPayload "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -17,7 +16,6 @@ import (
 )
 
 var (
-	eventTest         *events.CollectiveBeaconEvent
 	prevSignatureTest []byte
 	signatureTest     []byte
 	dpkTest           []byte

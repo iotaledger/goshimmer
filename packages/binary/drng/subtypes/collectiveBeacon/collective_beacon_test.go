@@ -65,7 +65,7 @@ func TestProcessBeacon(t *testing.T) {
 // 	var priPoly *share.PriPoly
 // 	var pubPoly *share.PubPoly
 // 	var err error
-// 	// create shares and committments
+// 	// create shares and commitments
 // 	for i := 0; i < n; i++ {
 // 		pri := share.NewPriPoly(key.KeyGroup, threshold, key.KeyGroup.Scalar().Pick(random.New()), random.New())
 // 		pub := pri.Commit(key.KeyGroup.Point().Base())
