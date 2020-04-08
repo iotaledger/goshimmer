@@ -580,13 +580,6 @@ class Application {
             ((window.location.protocol === "https:") ? "wss://" : "ws://") + this.url
         );
     
-        this.socket.onopen = () => {
-            this.setStatusMessage("WebSocket opened. Loading ... ");
-            setInterval(() => {
-                this.socket.send("_");
-            }, 1000);
-        };
-    
         this.socket.onerror = (e) => {
             this.setStatusMessage("WebSocket error observed. Please reload.");
             console.error("WebSocket error observed", e);
@@ -629,16 +622,6 @@ class Application {
                     console.log("disconnectNodes event:", idA, " - ", idB);
                     this.ds.disconnectNodes(idA+idB, idA, idB);
                     break;
-    
-                case "O":
-                    console.log("setNodeOnline event:", idA);
-                    this.ds.setNodeOnline(idA);
-                    break;
-    
-                case "o":
-                    console.log("setNodeOffline event:", idA);
-                    this.ds.setNodeOffline(idA);
-                    break;
             }
         }
     }
@@ -650,9 +633,6 @@ window.onload = () => {
     app = new Application(ANALYSIS_SERVER_URL);
     app.run()
 }
-
-
-
 
 function hasClass(elem, className) {
     return elem.classList.contains(className);
