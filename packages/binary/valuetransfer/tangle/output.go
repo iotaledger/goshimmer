@@ -1,4 +1,4 @@
-package transaction
+package tangle
 
 import (
 	"sync"
@@ -10,14 +10,16 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
-var OutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, IdLength}...)
+var OutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, transaction.IdLength}...)
 
 // Output represents the output of a Transaction and contains the balances and the identifiers for this output.
 type Output struct {
 	address            address.Address
-	transactionId      Id
+	transactionId      transaction.Id
+	branchId           BranchId
 	solid              bool
 	solidificationTime time.Time
 	balances           []*balance.Balance
@@ -30,7 +32,7 @@ type Output struct {
 }
 
 // NewOutput creates an Output that contains the balances and identifiers of a Transaction.
-func NewOutput(address address.Address, transactionId Id, balances []*balance.Balance) *Output {
+func NewOutput(address address.Address, transactionId transaction.Id, balances []*balance.Balance) *Output {
 	return &Output{
 		address:            address,
 		transactionId:      transactionId,
@@ -94,18 +96,18 @@ func OutputFromStorageKey(keyBytes []byte, optionalTargetObject ...*Output) (res
 	if err != nil {
 		return
 	}
-	result.transactionId, err = ParseId(marshalUtil)
+	result.transactionId, err = transaction.ParseId(marshalUtil)
 	if err != nil {
 		return
 	}
-	result.storageKey = marshalutil.New(keyBytes[:OutputIdLength]).Bytes(true)
+	result.storageKey = marshalutil.New(keyBytes[:transaction.OutputIdLength]).Bytes(true)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-func (output *Output) Id() OutputId {
-	return NewOutputId(output.Address(), output.TransactionId())
+func (output *Output) Id() transaction.OutputId {
+	return transaction.NewOutputId(output.Address(), output.TransactionId())
 }
 
 // Address returns the address that this output belongs to.
@@ -114,7 +116,7 @@ func (output *Output) Address() address.Address {
 }
 
 // TransactionId returns the id of the Transaction, that created this output.
-func (output *Output) TransactionId() Id {
+func (output *Output) TransactionId() transaction.Id {
 	return output.transactionId
 }
 
@@ -176,7 +178,7 @@ func (output *Output) Bytes() []byte {
 // ObjectStorageKey returns the key that is used to store the object in the database.
 // It is required to match StorableObject interface.
 func (output *Output) ObjectStorageKey() []byte {
-	return marshalutil.New(OutputIdLength).
+	return marshalutil.New(transaction.OutputIdLength).
 		WriteBytes(output.address.Bytes()).
 		WriteBytes(output.transactionId.Bytes()).
 		Bytes()
@@ -269,7 +271,7 @@ func (cachedOutput *CachedOutput) Consume(consumer func(output *Output)) (consum
 	})
 }
 
-type CachedOutputs map[OutputId]*CachedOutput
+type CachedOutputs map[transaction.OutputId]*CachedOutput
 
 func (cachedOutputs CachedOutputs) Consume(consumer func(output *Output)) (consumed bool) {
 	for _, cachedOutput := range cachedOutputs {

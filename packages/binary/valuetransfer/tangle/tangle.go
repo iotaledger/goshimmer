@@ -50,7 +50,7 @@ func New(badgerInstance *badger.DB) (result *Tangle) {
 
 		// transaction related storage
 		attachmentStorage:    osFactory.New(osAttachment, osAttachmentFactory, objectstorage.CacheTime(time.Second)),
-		outputStorage:        osFactory.New(osOutput, osOutputFactory, transaction.OutputKeyPartitions, objectstorage.CacheTime(time.Second)),
+		outputStorage:        osFactory.New(osOutput, osOutputFactory, OutputKeyPartitions, objectstorage.CacheTime(time.Second)),
 		missingOutputStorage: osFactory.New(osMissingOutput, osMissingOutputFactory, MissingOutputKeyPartitions, objectstorage.CacheTime(time.Second)),
 		consumerStorage:      osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(time.Second)),
 
@@ -80,8 +80,8 @@ func (tangle *Tangle) GetTransactionMetadata(transactionId transaction.Id) *Cach
 	return &CachedTransactionMetadata{CachedObject: tangle.missingOutputStorage.Load(transactionId.Bytes())}
 }
 
-func (tangle *Tangle) GetTransactionOutput(outputId transaction.OutputId) *transaction.CachedOutput {
-	return &transaction.CachedOutput{CachedObject: tangle.outputStorage.Load(outputId.Bytes())}
+func (tangle *Tangle) GetTransactionOutput(outputId transaction.OutputId) *CachedOutput {
+	return &CachedOutput{CachedObject: tangle.outputStorage.Load(outputId.Bytes())}
 }
 
 // GetApprovers retrieves the approvers of a payload from the object storage.
@@ -204,7 +204,7 @@ func (tangle *Tangle) storeTransaction(tx *transaction.Transaction) (cachedTrans
 
 	if transactionStored {
 		tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-			tangle.outputStorage.Store(transaction.NewOutput(address, tx.Id(), balances))
+			tangle.outputStorage.Store(NewOutput(address, tx.Id(), balances))
 
 			return true
 		})
@@ -297,7 +297,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 			transactionBecameSolid := currentTransactionMetadata.SetSolid(true)
 			if transactionBecameSolid {
 				currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-					tangle.GetTransactionOutput(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(output *transaction.Output) {
+					tangle.GetTransactionOutput(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(output *Output) {
 						output.SetSolid(true)
 					})
 
@@ -330,7 +330,7 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 
 			seenTransactions := make(map[transaction.Id]types.Empty)
 			currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-				tangle.GetTransactionOutput(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(output *transaction.Output) {
+				tangle.GetTransactionOutput(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(output *Output) {
 					// trigger events
 				})
 
@@ -406,7 +406,7 @@ func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payload.Id) bool {
 }
 
 func (tangle *Tangle) isTransactionSolid(tx *transaction.Transaction, metadata *TransactionMetadata) (bool, error) {
-	// abort if any of the models are nil or has been delted
+	// abort if any of the models are nil or has been deleted
 	if tx == nil || tx.IsDeleted() || metadata == nil || metadata.IsDeleted() {
 		return false, nil
 	}
@@ -435,8 +435,8 @@ func (tangle *Tangle) isTransactionSolid(tx *transaction.Transaction, metadata *
 	return true, nil
 }
 
-func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result transaction.CachedOutputs) {
-	result = make(transaction.CachedOutputs)
+func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result CachedOutputs) {
+	result = make(CachedOutputs)
 	tx.Inputs().ForEach(func(inputId transaction.OutputId) bool {
 		result[inputId] = tangle.GetTransactionOutput(inputId)
 
@@ -446,7 +446,7 @@ func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Tran
 	return
 }
 
-func (tangle *Tangle) checkTransactionInputs(cachedInputs transaction.CachedOutputs) (inputsSolid bool, consumedBalances map[balance.Color]int64, err error) {
+func (tangle *Tangle) checkTransactionInputs(cachedInputs CachedOutputs) (inputsSolid bool, consumedBalances map[balance.Color]int64, err error) {
 	inputsSolid = true
 	consumedBalances = make(map[balance.Color]int64)
 

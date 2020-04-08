@@ -57,11 +57,11 @@ func TestTangle_AttachPayload(t *testing.T) {
 	transferId1, _ := transaction.IdFromBase58("8opHzTAnfzRpPEx21XtnrVTX28YQuCpAjcn1PczScKh")
 	transferId2, _ := transaction.IdFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
 
-	input1 := transaction.NewOutput(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferId1, []*balance.Balance{
+	input1 := NewOutput(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferId1, []*balance.Balance{
 		balance.New(balance.COLOR_IOTA, 337),
 	})
 	input1.SetSolid(true)
-	input2 := transaction.NewOutput(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferId2, []*balance.Balance{
+	input2 := NewOutput(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferId2, []*balance.Balance{
 		balance.New(balance.COLOR_IOTA, 1000),
 	})
 	input2.SetSolid(true)
@@ -88,7 +88,7 @@ func TestTangle_AttachPayload(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	outputFound := tangle.GetTransactionOutput(transaction.NewOutputId(outputAddress, tx.Id())).Consume(func(output *transaction.Output) {
+	outputFound := tangle.GetTransactionOutput(transaction.NewOutputId(outputAddress, tx.Id())).Consume(func(output *Output) {
 		assert.Equal(t, true, output.Solid())
 	})
 	assert.Equal(t, true, outputFound)
