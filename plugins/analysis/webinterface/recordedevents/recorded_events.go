@@ -48,7 +48,6 @@ func Configure(plugin *node.Plugin) {
 		// When node is new, add to graph
 		if _, isAlready := nodes[nodeIdString]; !isAlready {
 			server.Events.AddNode.Trigger(nodeIdString)
-			server.Events.NodeOnline.Trigger(nodeIdString)
 		}
 		// Save it + update timestamp
 		nodes[nodeIdString] = timestamp
@@ -61,7 +60,6 @@ func Configure(plugin *node.Plugin) {
 			if _, isAlready := nodes[outgoingNeighborString]; !isAlready {
 				// First time we see this particular node
 				server.Events.AddNode.Trigger(outgoingNeighborString)
-				server.Events.NodeOnline.Trigger(outgoingNeighborString)
 			}
 			// We have indirectly heard about the neighbor.
 			nodes[outgoingNeighborString] = timestamp
@@ -88,7 +86,6 @@ func Configure(plugin *node.Plugin) {
 			if _, isAlready := nodes[incomingNeighborString]; !isAlready {
 				// First time we see this particular node
 				server.Events.AddNode.Trigger(incomingNeighborString)
-				server.Events.NodeOnline.Trigger(incomingNeighborString)
 			}
 			// We have indirectly heard about the neighbor.
 			nodes[incomingNeighborString] = timestamp
@@ -149,7 +146,6 @@ func cleanUp(interval time.Duration) {
 	for node, lastSeen := range nodes {
 		if now.Sub(lastSeen) > interval {
 			delete(nodes, node)
-			server.Events.NodeOffline.Trigger(node)
 			server.Events.RemoveNode.Trigger(node)
 		}
 	}
@@ -182,7 +178,6 @@ func Replay(handlers *types.EventHandlers) {
 	// or indirectly, but within CLEAN_UP_PERIOD, therefore it is online
 	for nodeId := range copiedNodes {
 		handlers.AddNode(nodeId)
-		handlers.NodeOnline(nodeId)
 	}
 
 	for sourceId, targetMap := range copiedLinks {
