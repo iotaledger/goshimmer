@@ -126,6 +126,7 @@ const (
 	MsgTypeTPSMetric
 	MsgTypeTx
 	MsgTypeNeighborMetric
+	MsgTypeDrng
 )
 
 type msg struct {
