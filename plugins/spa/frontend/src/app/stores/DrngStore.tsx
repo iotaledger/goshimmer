@@ -1,26 +1,21 @@
 import {action, computed, observable} from 'mobx';
 import {registerHandler, WSMsgType} from "app/misc/WS";
 import * as React from "react";
-import {Link} from 'react-router-dom';
 import {RouterStore} from "mobx-react-router";
 
 export class DrngMessage {
-    instanceId: number;
+    instance: number;
+    dpk: string;
     round: number; 
-    value: number;
-    timestamp: number;
-}
-
-class Msg {
-    hash: string;
-    randomValue: number;
+    randomness: string;
+    timestamp: string;
 }
 
 const liveFeedSize = 10;
 
 export class DrngStore {
     // live feed
-    @observable latest_msgs: Array<Msg> = [];
+    @observable latest_msgs: Array<DrngMessage> = [];
 
     // queries
     @observable msg: DrngMessage = null;
@@ -37,9 +32,9 @@ export class DrngStore {
     }
 
     @action
-    addLiveFeed = (msg: Msg) => {
+    addLiveFeed = (msg: DrngMessage) => {
         // prevent duplicates (should be fast with only size 10)
-        if (this.latest_msgs.findIndex((t) => t.hash == msg.hash) === -1) {
+        if (this.latest_msgs.findIndex((t) => t.round == msg.round) === -1) {
             if (this.latest_msgs.length >= liveFeedSize) {
                 this.latest_msgs.shift();
             }
@@ -53,14 +48,18 @@ export class DrngStore {
         for (let i = this.latest_msgs.length - 1; i >= 0; i--) {
             let msg = this.latest_msgs[i];
             feed.push(
-                <tr key={msg.hash}>
+                <tr key={msg.round}>
                     <td>
-                        <Link to={`/drng/msg/${msg.hash}`}>
-                            {msg.hash.substr(0, 35)}
-                        </Link>
+                        {msg.instance}
                     </td>
                     <td>
-                        {msg.randomValue}
+                        {msg.round}
+                    </td>
+                    <td>
+                        {msg.randomness}
+                    </td>
+                    <td>
+                        {msg.timestamp}
                     </td>
                 </tr>
             );

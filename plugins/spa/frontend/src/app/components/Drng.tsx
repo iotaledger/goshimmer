@@ -14,7 +14,7 @@ export class Drng extends React.Component<Props, any> {
     render() {
         return (
             <Container>
-                <h3>dRNG Explorer</h3>
+                <h3>dRNG Beacons</h3>
                 <DrngLiveFeed/>
             </Container>
         );

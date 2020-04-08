@@ -56,7 +56,7 @@ export class Root extends React.Component<Props, any> {
                         </LinkContainer>
                         <LinkContainer to="/drng">
                             <Nav.Link>
-                                dRNG Explorer
+                                dRNG
                             </Nav.Link>
                         </LinkContainer>
                     </Nav>

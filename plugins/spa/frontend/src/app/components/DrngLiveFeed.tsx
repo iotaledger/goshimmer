@@ -26,12 +26,14 @@ export class DrngLiveFeed extends React.Component<Props, any> {
                             <Card.Title>Live Feed</Card.Title>
                             <Row className={"mb-3"}>
                                 <Col xs={12}>
-                                    <h6>Messages</h6>
+                                    <h6>Collective Beacons</h6>
                                     <Table>
                                         <thead>
                                         <tr>
-                                            <td>ID</td>
-                                            <td>Random value</td>
+                                            <td>InstanceID</td>
+                                            <td>Round</td>
+                                            <td>Randomness</td>
+                                            <td>Timestamp</td>
                                         </tr>
                                         </thead>
                                         <tbody>

@@ -1,16 +1,16 @@
 package spa
 
 import (
+	"encoding/hex"
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
+	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/drng"
 )
 
 var drngLiveFeedWorkerCount = 1
@@ -18,10 +18,16 @@ var drngLiveFeedWorkerQueueSize = 50
 var drngLiveFeedWorkerPool *workerpool.WorkerPool
 
 func configureDrngLiveFeed() {
-	liveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
-		task.Param(0).(*message.CachedMessage).Consume(func(message *message.Message) {
-			sendToAllWSClient(&msg{MsgTypeTx, &tx{message.Id().String(), 0}})
-		})
+	drngLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
+		newRandomness := task.Param(0).(state.Randomness)
+		log.Info(newRandomness)
+
+		sendToAllWSClient(&msg{MsgTypeDrng, &drngMsg{
+			Instance:      drng.Instance.State.Committee().InstanceID,
+			DistributedPK: hex.EncodeToString(drng.Instance.State.Committee().DistributedPK),
+			Round:         newRandomness.Round,
+			Randomness:    hex.EncodeToString(newRandomness.Randomness[:32]),
+			Timestamp:     newRandomness.Timestamp.Format("2 Jan 2006 15:04:05")}})
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(drngLiveFeedWorkerCount), workerpool.QueueSize(drngLiveFeedWorkerQueueSize))
@@ -29,23 +35,21 @@ func configureDrngLiveFeed() {
 
 func runDrngLiveFeed() {
 	newMsgRateLimiter := time.NewTicker(time.Second / 10)
-	notifyNewMsg := events.NewClosure(func(message *message.CachedMessage, metadata *tangle.CachedMessageMetadata) {
-		metadata.Release()
+	notifyNewRandomness := events.NewClosure(func(message state.Randomness) {
 
 		select {
 		case <-newMsgRateLimiter.C:
 			drngLiveFeedWorkerPool.TrySubmit(message)
 		default:
-			message.Release()
 		}
 	})
 
 	daemon.BackgroundWorker("SPA[DrngUpdater]", func(shutdownSignal <-chan struct{}) {
-		messagelayer.Tangle.Events.TransactionAttached.Attach(notifyNewMsg)
+		drng.Instance.Events.Randomness.Attach(notifyNewRandomness)
 		drngLiveFeedWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping SPA[DrngUpdater] ...")
-		messagelayer.Tangle.Events.TransactionAttached.Detach(notifyNewMsg)
+		drng.Instance.Events.Randomness.Detach(notifyNewRandomness)
 		newMsgRateLimiter.Stop()
 		drngLiveFeedWorkerPool.Stop()
 		log.Info("Stopping SPA[DrngUpdater] ... done")
