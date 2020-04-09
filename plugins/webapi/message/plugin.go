@@ -70,6 +70,7 @@ type Response struct {
 	Error    string    `json:"error,omitempty"`
 }
 
+// Request holds the message ids to query.
 type Request struct {
 	Ids []string `json:"ids"`
 }
