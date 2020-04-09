@@ -8,8 +8,7 @@ import (
 	"github.com/labstack/echo"
 )
 
-// Handler creates a message of the given payload and
-// broadcasts it to the node's neighbors. It returns the message ID if successful.
+// Handler returns the current DRNG randomness used.
 func Handler(c echo.Context) error {
 	randomness := drng.Instance.State.Randomness()
 	return c.JSON(http.StatusOK, Response{
