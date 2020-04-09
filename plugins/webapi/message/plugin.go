@@ -64,6 +64,7 @@ func findMessageById(c echo.Context) error {
 	return c.JSON(http.StatusOK, Response{Messages: result})
 }
 
+// Response is the HTTP response containing the queried messages.
 type Response struct {
 	Messages []Message `json:"messages,omitempty"`
 	Error    string    `json:"error,omitempty"`
