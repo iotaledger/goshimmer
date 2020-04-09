@@ -35,6 +35,7 @@ type Tangle struct {
 
 	storePayloadWorkerPool async.WorkerPool
 	solidifierWorkerPool   async.WorkerPool
+	bookerWorkerPool       async.WorkerPool
 	cleanupWorkerPool      async.WorkerPool
 }
 
@@ -202,14 +203,6 @@ func (tangle *Tangle) storeTransaction(tx *transaction.Transaction) (cachedTrans
 		return result
 	})}
 
-	if transactionStored {
-		tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-			tangle.outputStorage.Store(NewOutput(address, tx.Id(), balances))
-
-			return true
-		})
-	}
-
 	return
 }
 
@@ -293,15 +286,19 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 				return
 			}
 
-			// set the transaction related entities to be solid
+			// book the outputs
 			transactionBecameSolid := currentTransactionMetadata.SetSolid(true)
 			if transactionBecameSolid {
-				currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-					tangle.GetTransactionOutput(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(output *Output) {
-						output.SetSolid(true)
-					})
+				tangle.bookerWorkerPool.Submit(func() {
+					// TODO: HAND OVER TO BOOKER WP
+					currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+						// TODO: DETERMINE BRANCH BASED ON CONFLICTS
+						newOutput := NewOutput(address, currentTransaction.Id(), MasterBranch, balances)
+						newOutput.SetSolid(true)
+						tangle.outputStorage.Store(newOutput)
 
-					return true
+						return true
+					})
 				})
 			}
 
@@ -330,10 +327,6 @@ func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPay
 
 			seenTransactions := make(map[transaction.Id]types.Empty)
 			currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-				tangle.GetTransactionOutput(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(output *Output) {
-					// trigger events
-				})
-
 				tangle.GetConsumers(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(consumer *Consumer) {
 					// keep track of the processed transactions (the same transaction can consume multiple outputs)
 					if _, transactionSeen := seenTransactions[consumer.TransactionId()]; transactionSeen {

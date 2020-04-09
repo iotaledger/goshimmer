@@ -32,10 +32,11 @@ type Output struct {
 }
 
 // NewOutput creates an Output that contains the balances and identifiers of a Transaction.
-func NewOutput(address address.Address, transactionId transaction.Id, balances []*balance.Balance) *Output {
+func NewOutput(address address.Address, transactionId transaction.Id, branchId BranchId, balances []*balance.Balance) *Output {
 	return &Output{
 		address:            address,
 		transactionId:      transactionId,
+		branchId:           branchId,
 		solid:              false,
 		solidificationTime: time.Time{},
 		balances:           balances,
@@ -120,6 +121,11 @@ func (output *Output) TransactionId() transaction.Id {
 	return output.transactionId
 }
 
+// BranchId returns the id of the ledger state branch, that this output was booked in.
+func (output *Output) BranchId() BranchId {
+	return output.branchId
+}
+
 // Solid returns true if the output has been marked as solid.
 func (output *Output) Solid() bool {
 	output.solidMutex.RLock()
@@ -191,7 +197,8 @@ func (output *Output) ObjectStorageValue() []byte {
 	balanceCount := len(output.balances)
 
 	// initialize helper
-	marshalUtil := marshalutil.New(marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
+	marshalUtil := marshalutil.New(BranchIdLength + marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
+	marshalUtil.WriteBytes(output.branchId.Bytes())
 	marshalUtil.WriteBool(output.solid)
 	marshalUtil.WriteTime(output.solidificationTime)
 	marshalUtil.WriteUint32(uint32(balanceCount))
@@ -206,6 +213,9 @@ func (output *Output) ObjectStorageValue() []byte {
 // being stored in its key rather than the content of the database to reduce storage requirements.
 func (output *Output) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
 	marshalUtil := marshalutil.New(data)
+	if output.branchId, err = ParseBranchId(marshalUtil); err != nil {
+		return
+	}
 	if output.solid, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
@@ -238,6 +248,7 @@ func (output *Output) String() string {
 	return stringify.Struct("Output",
 		stringify.StructField("address", output.Address()),
 		stringify.StructField("transactionId", output.TransactionId()),
+		stringify.StructField("branchId", output.BranchId()),
 		stringify.StructField("solid", output.Solid()),
 		stringify.StructField("solidificationTime", output.SolidificationTime()),
 		stringify.StructField("balances", output.Balances()),

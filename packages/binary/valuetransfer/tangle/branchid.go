@@ -11,6 +11,8 @@ import (
 
 type BranchId [transaction.IdLength]byte
 
+var MasterBranch = BranchId{}
+
 // NewBranchId creates a new BranchId from a transaction Id.
 func NewBranchId(transactionId transaction.Id) (branchId BranchId) {
 	copy(branchId[:], transactionId.Bytes())
