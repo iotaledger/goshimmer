@@ -14,7 +14,7 @@ const (
 	routeCommittee        = "drng/info/committee"
 )
 
-// BroadcastData sends the given collective beacon (payload) by creating a message in the backend.
+// BroadcastCollectiveBeacon sends the given collective beacon (payload) by creating a message in the backend.
 func (api *GoShimmerAPI) BroadcastCollectiveBeacon(payload []byte) (string, error) {
 
 	res := &webapi_collectiveBeacon.Response{}
