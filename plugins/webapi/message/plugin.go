@@ -75,6 +75,7 @@ type Request struct {
 	Ids []string `json:"ids"`
 }
 
+// Message contains information about a given message.
 type Message struct {
 	Id              string `json:"Id,omitempty"`
 	TrunkId         string `json:"trunkId,omitempty"`
