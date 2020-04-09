@@ -37,7 +37,7 @@ func (api *GoShimmerAPI) GetRandomness() (*webapi_randomness.Response, error) {
 	return res, nil
 }
 
-// GetRandomness gets the current randomness.
+// GetCommittee gets the current committee.
 func (api *GoShimmerAPI) GetCommittee() (*webapi_committee.Response, error) {
 	res := &webapi_committee.Response{}
 	if err := api.do(http.MethodGet, func() string {
