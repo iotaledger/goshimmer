@@ -9,31 +9,21 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 )
 
+// Payload defines a DRNG payload.
 type Payload struct {
-	header header.Header
-	data   []byte
+	header.Header
+	Data []byte
 
 	bytes      []byte
 	bytesMutex sync.RWMutex
 }
 
+// New creates a new DRNG payload.
 func New(header header.Header, data []byte) *Payload {
 	return &Payload{
-		header: header,
-		data:   data,
+		Header: header,
+		Data:   data,
 	}
-}
-
-func (p *Payload) SubType() header.Type {
-	return p.header.PayloadType()
-}
-
-func (payload *Payload) Instance() uint32 {
-	return payload.header.Instance()
-}
-
-func (payload *Payload) Data() []byte {
-	return payload.data
 }
 
 // Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
@@ -72,12 +62,12 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	}
 
 	// parse header
-	if result.header, err = header.Parse(marshalUtil); err != nil {
+	if result.Header, err = header.Parse(marshalUtil); err != nil {
 		return
 	}
 
 	// parse data
-	if result.data, err = marshalUtil.ReadBytes(int(len - header.Length)); err != nil {
+	if result.Data, err = marshalUtil.ReadBytes(int(len - header.Length)); err != nil {
 		return
 	}
 
@@ -96,7 +86,7 @@ func (payload *Payload) Bytes() (bytes []byte) {
 
 	// return if bytes have been determined already
 	if bytes = payload.bytes; bytes != nil {
-		defer payload.bytesMutex.RUnlock()
+		payload.bytesMutex.RUnlock()
 		return
 	}
 
@@ -114,9 +104,9 @@ func (payload *Payload) Bytes() (bytes []byte) {
 
 	// marshal the payload specific information
 	marshalUtil.WriteUint32(Type)
-	marshalUtil.WriteUint32(uint32(len(payload.data) + header.Length))
-	marshalUtil.WriteBytes(payload.header.Bytes())
-	marshalUtil.WriteBytes(payload.data[:])
+	marshalUtil.WriteUint32(uint32(len(payload.Data) + header.Length))
+	marshalUtil.WriteBytes(payload.Header.Bytes())
+	marshalUtil.WriteBytes(payload.Data[:])
 
 	bytes = marshalUtil.Bytes()
 
@@ -125,9 +115,9 @@ func (payload *Payload) Bytes() (bytes []byte) {
 
 func (payload *Payload) String() string {
 	return stringify.Struct("Payload",
-		stringify.StructField("type", uint64(payload.SubType())),
-		stringify.StructField("instance", uint64(payload.Instance())),
-		stringify.StructField("data", payload.Data()),
+		stringify.StructField("type", uint64(payload.Header.PayloadType)),
+		stringify.StructField("instance", uint64(payload.Header.InstanceID)),
+		stringify.StructField("data", payload.Data),
 	)
 }
 
@@ -157,8 +147,5 @@ func init() {
 		return
 	})
 }
-
-// define contract (ensure that the struct fulfills the corresponding interface)
-var _ payload.Payload = &Payload{}
 
 // // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

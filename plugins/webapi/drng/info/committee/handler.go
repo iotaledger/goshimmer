@@ -8,8 +8,7 @@ import (
 	"github.com/labstack/echo"
 )
 
-// Handler creates a message of the given payload and
-// broadcasts it to the node's neighbors. It returns the message ID if successful.
+// Handler returns the current DRNG committee used.
 func Handler(c echo.Context) error {
 	committee := drng.Instance.State.Committee()
 	return c.JSON(http.StatusOK, Response{
@@ -20,6 +19,7 @@ func Handler(c echo.Context) error {
 	})
 }
 
+// Response is the HTTP message containing the DRNG committee.
 type Response struct {
 	InstanceID    uint32              `json:"instanceID,omitempty"`
 	Threshold     uint8               `json:"threshold,omitempty"`

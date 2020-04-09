@@ -15,7 +15,7 @@ var (
 )
 
 func parseCommitteeMembers() (result []ed25519.PublicKey, err error) {
-	for _, committeeMember := range config.Node.GetStringSlice(CFG_COMMITTEE_MEMBERS) {
+	for _, committeeMember := range config.Node.GetStringSlice(CfgDRNGCommitteeMembers) {
 		if committeeMember == "" {
 			continue
 		}

@@ -1,10 +1,14 @@
 package state
 
+// Options define state options of a DRNG.
 type Options struct {
-	Committee  *Committee
+	// The initial committee of the DRNG.
+	Committee *Committee
+	// The initial randomness of the DRNG.
 	Randomness *Randomness
 }
 
+// Option is a function which sets the given option.
 type Option func(*Options)
 
 // SetCommittee sets the initial committee

@@ -32,12 +32,12 @@ func TestState(t *testing.T) {
 
 	// committee setters - getters
 	newCommittee := &Committee{1, 1, []ed25519.PublicKey{}, []byte{11}}
-	stateTest.SetCommittee(newCommittee)
+	stateTest.UpdateCommittee(newCommittee)
 	require.Equal(t, *newCommittee, stateTest.Committee())
 
 	// randomness setters - getters
 	newRandomness := &Randomness{1, []byte{123}, time.Now()}
-	stateTest.SetRandomness(newRandomness)
+	stateTest.UpdateRandomness(newRandomness)
 	require.Equal(t, *newRandomness, stateTest.Randomness())
 }
 

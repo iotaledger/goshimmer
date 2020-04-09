@@ -4,49 +4,38 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
+// Type defines the data model of a DRNG payload type
 type Type = byte
 
-type payloadType struct {
-	CollectiveBeacon Type
-}
+const (
+	// TypeCollectiveBeacon defines a CollectiveBeacon payload type
+	TypeCollectiveBeacon Type = 1
+)
 
-var drngTypes = &payloadType{
-	CollectiveBeacon: Type(1),
-}
-
+// Length defines the length of a DRNG header
 const Length = 5
 
-func CollectiveBeaconType() Type {
-	return drngTypes.CollectiveBeacon
-}
-
+// Header defines defines a DRNG payload header
 type Header struct {
-	payloadType Type   // message type
-	instanceID  uint32 // identifier of the dRAND instance
+	PayloadType Type   // message type
+	InstanceID  uint32 // identifier of the DRNG instance
 }
 
+// New creates a new DRNG payload header for the given type and instance id.
 func New(payloadType Type, instanceID uint32) Header {
 	return Header{
-		payloadType: payloadType,
-		instanceID:  instanceID,
+		PayloadType: payloadType,
+		InstanceID:  instanceID,
 	}
-}
-
-func (h Header) PayloadType() Type {
-	return h.payloadType
-}
-
-func (h Header) Instance() uint32 {
-	return h.instanceID
 }
 
 // Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func Parse(marshalUtil *marshalutil.MarshalUtil) (Header, error) {
-	if header, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) }); err != nil {
+	header, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) })
+	if err != nil {
 		return Header{}, err
-	} else {
-		return header.(Header), nil
 	}
+	return header.(Header), nil
 }
 
 // FromBytes unmarshals a header from a sequence of bytes.
@@ -67,12 +56,12 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Header) (result Header, er
 	marshalUtil := marshalutil.New(bytes)
 
 	// read payload type from bytes
-	if targetObject.payloadType, err = marshalUtil.ReadByte(); err != nil {
+	if targetObject.PayloadType, err = marshalUtil.ReadByte(); err != nil {
 		return
 	}
 
 	// read instance ID from bytes
-	if targetObject.instanceID, err = marshalUtil.ReadUint32(); err != nil {
+	if targetObject.InstanceID, err = marshalUtil.ReadUint32(); err != nil {
 		return
 	}
 
@@ -85,13 +74,14 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Header) (result Header, er
 	return
 }
 
+// Bytes returns the header in serialized bytes form.
 func (header *Header) Bytes() (bytes []byte) {
 	// initialize helper
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteByte(header.PayloadType())
-	marshalUtil.WriteUint32(header.Instance())
+	marshalUtil.WriteByte(header.PayloadType)
+	marshalUtil.WriteUint32(header.InstanceID)
 
 	bytes = marshalUtil.Bytes()
 

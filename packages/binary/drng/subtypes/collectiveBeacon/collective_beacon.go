@@ -12,7 +12,16 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 )
 
-// ProcessTransaction performs the following tasks:
+var (
+	ErrDistributedPubKeyMismatch = errors.New("Distributed Public Key does not match")
+	ErrInvalidRound              = errors.New("Invalid Round")
+	ErrInstanceIdMismatch        = errors.New("InstanceID does not match")
+	ErrInvalidIssuer             = errors.New("Invalid Issuer")
+	ErrNilState                  = errors.New("Nil state")
+	ErrNilData                   = errors.New("Nil data")
+)
+
+// ProcessBeacon performs the following tasks:
 // - verify that we have a valid random
 // - update drng state
 func ProcessBeacon(drng *state.State, cb *events.CollectiveBeaconEvent) error {
@@ -24,7 +33,7 @@ func ProcessBeacon(drng *state.State, cb *events.CollectiveBeaconEvent) error {
 	}
 
 	// update drng state
-	randomness, err := GetRandomness(cb.Signature)
+	randomness, err := ExtractRandomness(cb.Signature)
 	if err != nil {
 		//TODO: handle error
 		return err
@@ -35,29 +44,36 @@ func ProcessBeacon(drng *state.State, cb *events.CollectiveBeaconEvent) error {
 		Timestamp:  cb.Timestamp,
 	}
 
-	drng.SetRandomness(newRandomness)
+	drng.UpdateRandomness(newRandomness)
 
 	return nil
 }
 
 // VerifyCollectiveBeacon verifies against a given state that
-// the given CollectiveBeaconEvent contains a valid beacon
+// the given CollectiveBeaconEvent contains a valid beacon.
 func VerifyCollectiveBeacon(state *state.State, data *events.CollectiveBeaconEvent) error {
+	if state == nil {
+		return ErrNilState
+	}
+
+	if data == nil {
+		return ErrNilData
+	}
 
 	if err := verifyIssuer(state, data.IssuerPublicKey); err != nil {
 		return err
 	}
 
 	if !bytes.Equal(data.Dpk, state.Committee().DistributedPK) {
-		return errors.New("Distributed Public Key does not match")
+		return ErrDistributedPubKeyMismatch
 	}
 
 	if data.Round <= state.Randomness().Round {
-		return errors.New("invalid Round")
+		return ErrInvalidRound
 	}
 
 	if data.InstanceID != state.Committee().InstanceID {
-		return errors.New("invalid instanceID")
+		return ErrInstanceIdMismatch
 	}
 
 	if err := verifySignature(data); err != nil {
@@ -67,22 +83,18 @@ func VerifyCollectiveBeacon(state *state.State, data *events.CollectiveBeaconEve
 	return nil
 }
 
-// verifyIssuer checks the given issuer is a member of the committee
+// verifyIssuer checks the given issuer is a member of the committee.
 func verifyIssuer(state *state.State, issuer ed25519.PublicKey) error {
 	for _, member := range state.Committee().Identities {
 		if member == issuer {
 			return nil
 		}
 	}
-	return errors.New("Invalid Issuer")
+	return ErrInvalidIssuer
 }
 
-// verifySignature checks the current signature against the distributed public key
+// verifySignature checks the current signature against the distributed public key.
 func verifySignature(data *events.CollectiveBeaconEvent) error {
-	if data == nil {
-		return errors.New("nil data")
-	}
-
 	dpk := key.KeyGroup.Point()
 	if err := dpk.UnmarshalBinary(data.Dpk); err != nil {
 		return err
@@ -97,8 +109,8 @@ func verifySignature(data *events.CollectiveBeaconEvent) error {
 	return nil
 }
 
-// GetRandomness returns the randomness from a given signature
-func GetRandomness(signature []byte) ([]byte, error) {
+// ExtractRandomness returns the randomness from a given signature.
+func ExtractRandomness(signature []byte) ([]byte, error) {
 	hash := sha512.New()
 	if _, err := hash.Write(signature); err != nil {
 		return nil, err

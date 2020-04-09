@@ -22,7 +22,7 @@ const name = "DRNG" // name of the plugin
 var PLUGIN = node.NewPlugin(name, node.Enabled, configure, run)
 
 var (
-	Instance *drng.Instance
+	Instance *drng.DRNG
 	log      *logger.Logger
 )
 
@@ -32,26 +32,26 @@ func configure(*node.Plugin) {
 	// parse identities of the committee members
 	committeeMembers, err := parseCommitteeMembers()
 	if err != nil {
-		log.Warnf("Invalid %s: %s", CFG_COMMITTEE_MEMBERS, err)
+		log.Warnf("Invalid %s: %s", CfgDRNGCommitteeMembers, err)
 	}
 
 	// parse distributed public key of the committee
 	var dpk []byte
-	if str := config.Node.GetString(CFG_DISTRIBUTED_PUB_KEY); str != "" {
+	if str := config.Node.GetString(CfgDRNGDistributedPubKey); str != "" {
 		bytes, err := hex.DecodeString(str)
 		if err != nil {
-			log.Warnf("Invalid %s: %s", CFG_DISTRIBUTED_PUB_KEY, err)
+			log.Warnf("Invalid %s: %s", CfgDRNGDistributedPubKey, err)
 		}
 		if l := len(bytes); l != cbPayload.PublicKeySize {
-			log.Warnf("Invalid %s length: %d, need %d", CFG_DISTRIBUTED_PUB_KEY, l, cbPayload.PublicKeySize)
+			log.Warnf("Invalid %s length: %d, need %d", CfgDRNGDistributedPubKey, l, cbPayload.PublicKeySize)
 		}
 		dpk = append(dpk, bytes...)
 	}
 
 	// configure committee
 	committeeConf := &state.Committee{
-		InstanceID:    config.Node.GetUint32(CFG_INSTANCE_ID),
-		Threshold:     uint8(config.Node.GetUint32(CFG_THRESHOLD)),
+		InstanceID:    config.Node.GetUint32(CfgDRNGInstanceID),
+		Threshold:     uint8(config.Node.GetUint32(CfgDRNGThreshold)),
 		DistributedPK: dpk,
 		Identities:    committeeMembers,
 	}

@@ -31,7 +31,7 @@ func init() {
 	dpkTest, _ = hex.DecodeString("a02fcd15edd52c8e134027491a43b597505b466d1679e88f70f927e57c45a93ae0765ff02fc2d015e3a02fd8748e2103")
 	timestampTest = time.Now()
 
-	rand, _ := collectiveBeacon.GetRandomness(signatureTest)
+	rand, _ := collectiveBeacon.ExtractRandomness(signatureTest)
 	randomnessTest = &state.Randomness{
 		Round:      1,
 		Randomness: rand,
@@ -50,8 +50,8 @@ func init() {
 }
 
 func dummyPayload() *cbPayload.Payload {
-	header := header.New(header.CollectiveBeaconType(), 1)
-	return cbPayload.New(header.Instance(),
+	header := header.New(header.TypeCollectiveBeacon, 1)
+	return cbPayload.New(header.InstanceID,
 		1,
 		prevSignatureTest,
 		signatureTest,

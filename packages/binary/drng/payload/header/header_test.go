@@ -8,7 +8,7 @@ import (
 )
 
 func TestParse(t *testing.T) {
-	header := New(CollectiveBeaconType(), 0)
+	header := New(TypeCollectiveBeacon, 0)
 	bytes := header.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)

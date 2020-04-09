@@ -20,7 +20,6 @@ var drngLiveFeedWorkerPool *workerpool.WorkerPool
 func configureDrngLiveFeed() {
 	drngLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
 		newRandomness := task.Param(0).(state.Randomness)
-		log.Info(newRandomness)
 
 		sendToAllWSClient(&msg{MsgTypeDrng, &drngMsg{
 			Instance:      drng.Instance.State.Committee().InstanceID,
@@ -36,7 +35,6 @@ func configureDrngLiveFeed() {
 func runDrngLiveFeed() {
 	newMsgRateLimiter := time.NewTicker(time.Second / 10)
 	notifyNewRandomness := events.NewClosure(func(message state.Randomness) {
-
 		select {
 		case <-newMsgRateLimiter.C:
 			drngLiveFeedWorkerPool.TrySubmit(message)
@@ -44,14 +42,14 @@ func runDrngLiveFeed() {
 		}
 	})
 
-	daemon.BackgroundWorker("SPA[DrngUpdater]", func(shutdownSignal <-chan struct{}) {
+	daemon.BackgroundWorker("SPA[DRNGUpdater]", func(shutdownSignal <-chan struct{}) {
 		drng.Instance.Events.Randomness.Attach(notifyNewRandomness)
 		drngLiveFeedWorkerPool.Start()
 		<-shutdownSignal
-		log.Info("Stopping SPA[DrngUpdater] ...")
+		log.Info("Stopping SPA[DRNGUpdater] ...")
 		drng.Instance.Events.Randomness.Detach(notifyNewRandomness)
 		newMsgRateLimiter.Stop()
 		drngLiveFeedWorkerPool.Stop()
-		log.Info("Stopping SPA[DrngUpdater] ... done")
+		log.Info("Stopping SPA[DRNGUpdater] ... done")
 	}, shutdown.ShutdownPrioritySPA)
 }

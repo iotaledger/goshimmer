@@ -13,9 +13,10 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
-func (drng *Instance) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payload *payload.Payload) error {
-	switch payload.SubType() {
-	case header.CollectiveBeaconType():
+// Dispatch parses a DRNG message and process it based on its subtype
+func (drng *DRNG) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payload *payload.Payload) error {
+	switch payload.Header.PayloadType {
+	case header.TypeCollectiveBeacon:
 		// parse as CollectiveBeaconType
 		marshalUtil := marshalutil.New(payload.Bytes())
 		parsedPayload, err := cb.Parse(marshalUtil)
@@ -26,11 +27,11 @@ func (drng *Instance) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, pa
 		cbEvent := &events.CollectiveBeaconEvent{
 			IssuerPublicKey: issuer,
 			Timestamp:       timestamp,
-			InstanceID:      parsedPayload.Instance(),
-			Round:           parsedPayload.Round(),
-			PrevSignature:   parsedPayload.PrevSignature(),
-			Signature:       parsedPayload.Signature(),
-			Dpk:             parsedPayload.DistributedPK(),
+			InstanceID:      parsedPayload.Header.InstanceID,
+			Round:           parsedPayload.Round,
+			PrevSignature:   parsedPayload.PrevSignature,
+			Signature:       parsedPayload.Signature,
+			Dpk:             parsedPayload.Dpk,
 		}
 		drng.Events.CollectiveBeacon.Trigger(cbEvent)
 
@@ -45,7 +46,6 @@ func (drng *Instance) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, pa
 		return nil
 
 	default:
-		//do other stuff
 		return errors.New("subtype not implemented")
 	}
 }

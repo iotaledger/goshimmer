@@ -9,8 +9,8 @@ import (
 )
 
 func dummyPayload() *Payload {
-	header := header.New(header.CollectiveBeaconType(), 0)
-	return New(header.Instance(),
+	header := header.New(header.TypeCollectiveBeacon, 0)
+	return New(header.InstanceID,
 		0,
 		[]byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), // prevSignature
 		[]byte("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"), // signature
@@ -25,12 +25,12 @@ func TestParse(t *testing.T) {
 	parsedPayload, err := Parse(marshalUtil)
 	require.NoError(t, err)
 
-	require.Equal(t, payload.SubType(), parsedPayload.SubType())
-	require.Equal(t, payload.Instance(), parsedPayload.Instance())
-	require.Equal(t, payload.Round(), parsedPayload.Round())
-	require.Equal(t, payload.PrevSignature(), parsedPayload.PrevSignature())
-	require.Equal(t, payload.Signature(), parsedPayload.Signature())
-	require.Equal(t, payload.DistributedPK(), parsedPayload.DistributedPK())
+	require.Equal(t, payload.Header.PayloadType, parsedPayload.Header.PayloadType)
+	require.Equal(t, payload.Header.InstanceID, parsedPayload.Header.InstanceID)
+	require.Equal(t, payload.Round, parsedPayload.Round)
+	require.Equal(t, payload.PrevSignature, parsedPayload.PrevSignature)
+	require.Equal(t, payload.Signature, parsedPayload.Signature)
+	require.Equal(t, payload.Dpk, parsedPayload.Dpk)
 }
 
 func TestString(t *testing.T) {

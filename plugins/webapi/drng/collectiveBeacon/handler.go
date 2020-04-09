@@ -10,8 +10,7 @@ import (
 	"github.com/labstack/gommon/log"
 )
 
-// Handler creates a message of the given payload and
-// broadcasts it to the node's neighbors. It returns the message ID if successful.
+// Handler gets the current DRNG committee.
 func Handler(c echo.Context) error {
 	var request Request
 	if err := c.Bind(&request); err != nil {
@@ -24,7 +23,7 @@ func Handler(c echo.Context) error {
 	marshalUtil := marshalutil.New(request.Payload)
 	parsedPayload, err := payload.Parse(marshalUtil)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: "Not a valid Collective Beacon payload"})
+		return c.JSON(http.StatusBadRequest, Response{Error: "not a valid Collective Beacon payload"})
 	}
 
 	tx := messagelayer.MessageFactory.IssuePayload(parsedPayload)
@@ -32,11 +31,13 @@ func Handler(c echo.Context) error {
 	return c.JSON(http.StatusOK, Response{Id: tx.Id().String()})
 }
 
+// Response is the HTTP response from broadcasting a collective beacon message.
 type Response struct {
 	Id    string `json:"id,omitempty"`
 	Error string `json:"error,omitempty"`
 }
 
+// Request is a request containing a collective beacon response.
 type Request struct {
 	Payload []byte `json:"payload"`
 }

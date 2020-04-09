@@ -4,25 +4,27 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
 )
 
-type CollectiveBeacon = *events.Event
-
-func NewCollectiveBeaconEvent() *events.Event {
-	return events.NewEvent(collectiveBeaconReceived)
-}
-
+// CollectiveBeaconEvent holds data about a collective beacon event.
 type CollectiveBeaconEvent struct {
-	IssuerPublicKey ed25519.PublicKey // public key of the issuer
-	Timestamp       time.Time         // timestamp when the beacon was issued
-	InstanceID      uint32            // instanceID of the beacon
-	Round           uint64            // round of the current beacon
-	PrevSignature   []byte            // collective signature of the previous beacon
-	Signature       []byte            // collective signature of the current beacon
-	Dpk             []byte            // distributed public key
+	// Public key of the issuer.
+	IssuerPublicKey ed25519.PublicKey
+	// Timestamp when the beacon was issued.
+	Timestamp time.Time
+	// InstanceID of the beacon.
+	InstanceID uint32
+	// Round of the current beacon.
+	Round uint64
+	// Collective signature of the previous beacon.
+	PrevSignature []byte
+	// Collective signature of the current beacon.
+	Signature []byte
+	// The distributed public key.
+	Dpk []byte
 }
 
-func collectiveBeaconReceived(handler interface{}, params ...interface{}) {
+// CollectiveBeaconReceived returns the data of a collective beacon event.
+func CollectiveBeaconReceived(handler interface{}, params ...interface{}) {
 	handler.(func(*CollectiveBeaconEvent))(params[0].(*CollectiveBeaconEvent))
 }
