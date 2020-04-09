@@ -18,6 +18,7 @@ func Handler(c echo.Context) error {
 	})
 }
 
+// Response is the HTTP message containing the current DRNG randomness.
 type Response struct {
 	Round      uint64    `json:"round,omitempty"`
 	Timestamp  time.Time `json:"timestamp,omitempty"`
