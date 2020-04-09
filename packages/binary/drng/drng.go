@@ -9,6 +9,7 @@ type Instance struct {
 	Events *Event
 }
 
+// New creates a new DRNG instance.
 func New(setters ...state.Option) *Instance {
 	return &Instance{
 		State:  state.New(setters...),
