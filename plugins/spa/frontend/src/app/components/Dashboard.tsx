@@ -5,6 +5,7 @@ import Col from "react-bootstrap/Col";
 import Uptime from "app/components/Uptime";
 import Version from "app/components/Version";
 import TPSChart from "app/components/TPSChart";
+import TipsChart from "app/components/TipsChart";
 import NodeStore from "app/stores/NodeStore";
 import {inject, observer} from "mobx-react";
 import ListGroup from "react-bootstrap/ListGroup";
@@ -45,6 +46,9 @@ export class Dashboard extends React.Component<Props, any> {
                 </Row>
                 <Row className={"mb-3"}>
                     <Col><TPSChart/></Col>
+                </Row>
+                <Row className={"mb-3"}>
+                    <Col><TipsChart/></Col>
                 </Row>
                 <Row className={"mb-3"}>
                     <Col><MemChart/></Col>

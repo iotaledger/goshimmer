@@ -50,6 +50,7 @@ func configure(plugin *node.Plugin) {
 		sendToAllWSClient(&msg{MsgTypeTPSMetric, task.Param(0).(uint64)})
 		sendToAllWSClient(&msg{MsgTypeNodeStatus, currentNodeStatus()})
 		sendToAllWSClient(&msg{MsgTypeNeighborMetric, neighborMetrics()})
+		sendToAllWSClient(&msg{MsgTypeTipsMetric, metrics.GetTips()})
 		task.Return(nil)
 	}, workerpool.WorkerCount(wsSendWorkerCount), workerpool.QueueSize(wsSendWorkerQueueSize))
 
@@ -126,6 +127,7 @@ const (
 	MsgTypeTPSMetric
 	MsgTypeTx
 	MsgTypeNeighborMetric
+	MsgTypeTipsMetric
 )
 
 type msg struct {
