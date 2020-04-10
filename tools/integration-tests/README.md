@@ -7,7 +7,7 @@ Running the integration tests spins up a GoShimmer network within Docker as sche
 The peers can communicate freely within the Docker network and this is exactly how the tests are run using the `tester` container.
 Test can be written in regular Go style while the framework provides convenience functions to access a specific peer's web API or logs.
 
-The visualizer, `master_peer's` dashboard and web API are reachable from the host system on the respective ports.
+The autopeering network visualizer, `master_peer's` dashboard and web API are reachable from the host system on the respective ports.
 
 The different containers (`entry_node`, `peer_master`, `peer_replica`) load separate config files that can be modified as necessary, respectively. 
 

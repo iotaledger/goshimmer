@@ -8,14 +8,14 @@ fi
 REPLICAS=$1
 
 echo "Build GoShimmer Docker network"
-docker-compose -f docker-compose.yml up -d --scale peer_replica=$REPLICAS
+docker-compose -f docker-compose.yml up -d --scale peer_replica=$REPLICAS --build
 if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
 
 echo "Dispay containers"
 docker ps -a
 
 echo "Run integration tests"
-docker-compose -f tester/docker-compose.yml up --exit-code-from tester
+docker-compose -f tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
 
 echo "Create logs from containers in network"
 docker-compose -f docker-compose.yml stop
@@ -28,5 +28,5 @@ docker logs integration-tests_peer_replica_$c > logs/peer_replica_$c.log
 done
 
 echo "Clean up"
-docker-compose -f tester/docker-compose.yml down --rmi all --remove-orphan --volumes
-docker-compose -f docker-compose.yml down --rmi all --remove-orphan --volumes
+docker-compose -f tester/docker-compose.yml down
+docker-compose -f docker-compose.yml down

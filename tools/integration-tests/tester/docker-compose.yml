@@ -1,14 +1,14 @@
-version: "3.7"
+version: "3.5"
 
 services:
   tester:
-    image: iotaledger/goshimmer_tester
     container_name: tester
-    build:
-      context: ../../..
-      dockerfile: Dockerfile-tester
+    image: golang:1.14
+    working_dir: /go/src/github.com/iotaledger/goshimmer/tools/integration-tests/tester
+    entrypoint: go test ./tests -v -mod=readonly
     volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - ../../..:/go/src/github.com/iotaledger/goshimmer:ro
     networks:
       - integration-test
 
