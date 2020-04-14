@@ -24,16 +24,6 @@ func configure(plugin *node.Plugin) {
 
 		increaseReceivedTPSCounter()
 	}))
-
-	// increase number of tips a message is added to tip set
-	messagelayer.TipSelector.Events.TipAdded.Attach(events.NewClosure(func(messageId message.Id) {
-		increaseTipsCounter()
-	}))
-
-	// decrease number of tips when a tip is removed
-	messagelayer.TipSelector.Events.TipRemoved.Attach(events.NewClosure(func(messageId message.Id) {
-		decreaseTipsCounter()
-	}))
 }
 
 func run(plugin *node.Plugin) {

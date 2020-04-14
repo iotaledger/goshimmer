@@ -19,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 
 	"github.com/iotaledger/hive.go/daemon"
@@ -50,7 +51,7 @@ func configure(plugin *node.Plugin) {
 		sendToAllWSClient(&msg{MsgTypeTPSMetric, task.Param(0).(uint64)})
 		sendToAllWSClient(&msg{MsgTypeNodeStatus, currentNodeStatus()})
 		sendToAllWSClient(&msg{MsgTypeNeighborMetric, neighborMetrics()})
-		sendToAllWSClient(&msg{MsgTypeTipsMetric, metrics.GetTips()})
+		sendToAllWSClient(&msg{MsgTypeTipsMetric, messagelayer.TipSelector.GetTipCount()})
 		task.Return(nil)
 	}, workerpool.WorkerCount(wsSendWorkerCount), workerpool.QueueSize(wsSendWorkerQueueSize))
 
