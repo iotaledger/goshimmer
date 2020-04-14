@@ -157,11 +157,11 @@ func (f *FPC) finalizeOpinions() {
 		if voteCtx.IsFinalized(f.paras.CoolingOffPeriod, f.paras.FinalizationThreshold) {
 			f.events.Finalized.Trigger(id, voteCtx.LastOpinion())
 			delete(f.ctxs, id)
+			continue
 		}
 		if voteCtx.Rounds >= f.paras.MaxRoundsPerVoteContext {
 			f.events.Failed.Trigger(id, voteCtx.LastOpinion())
 			delete(f.ctxs, id)
-			continue
 		}
 	}
 }
