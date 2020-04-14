@@ -10,9 +10,9 @@ import (
 
 	"github.com/docker/docker/api/types"
 	dockerclient "github.com/docker/docker/client"
-	"github.com/iotaledger/goshimmer/plugins/webapi/getNeighbors"
 
 	"github.com/iotaledger/goshimmer/client"
+	"github.com/iotaledger/goshimmer/plugins/webapi/autopeering"
 )
 
 // Peer represents a GoShimmer node inside the Docker network
@@ -21,8 +21,8 @@ type Peer struct {
 	ip   net.IP
 	*client.GoShimmerAPI
 	dockerCli *dockerclient.Client
-	chosen    []getNeighbors.Neighbor
-	accepted  []getNeighbors.Neighbor
+	chosen    []autopeering.Neighbor
+	accepted  []autopeering.Neighbor
 }
 
 // NewPeer creates a new instance of Peer with the given information.
@@ -45,11 +45,11 @@ func (p *Peer) TotalNeighbors() int {
 }
 
 // SetNeighbors sets the neighbors of the peer accordingly.
-func (p *Peer) SetNeighbors(chosen, accepted []getNeighbors.Neighbor) {
-	p.chosen = make([]getNeighbors.Neighbor, len(chosen))
+func (p *Peer) SetNeighbors(chosen, accepted []autopeering.Neighbor) {
+	p.chosen = make([]autopeering.Neighbor, len(chosen))
 	copy(p.chosen, chosen)
 
-	p.accepted = make([]getNeighbors.Neighbor, len(accepted))
+	p.accepted = make([]autopeering.Neighbor, len(accepted))
 	copy(p.accepted, accepted)
 }
 

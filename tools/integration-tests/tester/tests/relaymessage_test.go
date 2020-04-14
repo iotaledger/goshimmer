@@ -6,8 +6,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
 // TestRelayMessages checks whether messages are actually relayed/gossiped through the network
@@ -16,11 +14,11 @@ func TestRelayMessages(t *testing.T) {
 	numMessages := 100
 	ids := make([]string, numMessages)
 
-	data := payload.NewData([]byte("Test")).Bytes()
+	data := []byte("Test")
 
 	// create messages on random peers
 	for i := 0; i < numMessages; i++ {
-		id, err := f.RandomPeer().BroadcastData(data)
+		id, err := f.RandomPeer().Data(data)
 		require.NoError(t, err)
 
 		ids[i] = id
