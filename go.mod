@@ -3,8 +3,10 @@ module github.com/iotaledger/goshimmer
 go 1.14
 
 require (
+	github.com/coreos/bbolt v1.3.3 // indirect
 	github.com/dgraph-io/badger/v2 v2.0.2
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/drand/drand v0.5.4
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/golang/protobuf v1.3.4
 	github.com/googollee/go-engine.io v1.4.3-0.20190924125625-798118fc0dd2
@@ -13,7 +15,7 @@ require (
 	github.com/iotaledger/hive.go v0.0.0-20200403132600-4c10556e08a0
 	github.com/iotaledger/iota.go v1.0.0-beta.14
 	github.com/labstack/echo v3.3.10+incompatible
-	github.com/labstack/gommon v0.3.0 // indirect
+	github.com/labstack/gommon v0.3.0
 	github.com/magiconair/properties v1.8.1
 	github.com/mr-tron/base58 v1.1.3
 	github.com/panjf2000/ants/v2 v2.2.2
