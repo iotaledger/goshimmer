@@ -37,7 +37,7 @@ func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryRe
 	for i, id := range req.Id {
 		// check whether there's an ongoing vote
 		opinion, err := vs.voter.IntermediateOpinion(id)
-		if err != nil {
+		if err == nil {
 			reply.Opinion[i] = int32(opinion)
 			continue
 		}
