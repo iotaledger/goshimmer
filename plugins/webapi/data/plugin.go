@@ -1,4 +1,4 @@
-package broadcastData
+package data
 
 import (
 	"net/http"
@@ -7,17 +7,16 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI broadcastData Endpoint", node.Enabled, configure)
+var PLUGIN = node.NewPlugin("WebAPI data Endpoint", node.Enabled, configure)
 var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("API-broadcastData")
-	webapi.Server.POST("broadcastData", broadcastData)
+	log = logger.NewLogger("API-data")
+	webapi.Server.POST("data", broadcastData)
 }
 
 // broadcastData creates a message of the given payload and
@@ -30,13 +29,7 @@ func broadcastData(c echo.Context) error {
 	}
 
 	//TODO: to check max payload size allowed, if exceeding return an error
-
-	marshalUtil := marshalutil.New(request.Data)
-	parsedPayload, err := payload.Parse(marshalUtil)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: "Not a valid Payload"})
-	}
-	tx := messagelayer.MessageFactory.IssuePayload(parsedPayload)
+	tx := messagelayer.MessageFactory.IssuePayload(payload.NewData(request.Data))
 
 	return c.JSON(http.StatusOK, Response{Id: tx.Id().String()})
 }

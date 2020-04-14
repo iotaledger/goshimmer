@@ -1,4 +1,4 @@
-package findMessageById
+package message
 
 import (
 	"net/http"
@@ -12,12 +12,12 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI findMessageById Endpoint", node.Enabled, configure)
+var PLUGIN = node.NewPlugin("WebAPI message Endpoint", node.Enabled, configure)
 var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("API-findMessageById")
-	webapi.Server.POST("findMessageById", findMessageById)
+	log = logger.NewLogger("API-message")
+	webapi.Server.POST("message/findById", findMessageById)
 }
 
 // findMessageById returns the array of messages for the
@@ -64,15 +64,18 @@ func findMessageById(c echo.Context) error {
 	return c.JSON(http.StatusOK, Response{Messages: result})
 }
 
+// Response is the HTTP response containing the queried messages.
 type Response struct {
 	Messages []Message `json:"messages,omitempty"`
 	Error    string    `json:"error,omitempty"`
 }
 
+// Request holds the message ids to query.
 type Request struct {
 	Ids []string `json:"ids"`
 }
 
+// Message contains information about a given message.
 type Message struct {
 	Id              string `json:"Id,omitempty"`
 	TrunkId         string `json:"trunkId,omitempty"`

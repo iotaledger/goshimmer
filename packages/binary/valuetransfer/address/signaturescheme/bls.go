@@ -14,13 +14,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 )
 
-// BLS implements BLS signature scheme which is robust against rogue public key attacks, or BDN
-// it uses go.dedis/kyber library
-// more info https://github.com/dedis/kyber/blob/master/sign/bdn/bdn.go
-// usually BLS signatures are used as threshold signatures.
+// bls.go implements BLS signature scheme which is robust against rogue public key attacks,
+// called "Boneh-Drijvers-Neven" or BDN
+// It uses go.dedis/kyber library. More info https://github.com/dedis/kyber/blob/master/sign/bdn/bdn.go
+// Often BLS signatures are used as threshold signatures.
 // This package doesn't implement any threshold signature related primitives.
-// it only contains what is needed for the node to check validity of the BLS signatures against addresses
-// and also minimum signing required for testing
+// it only contains what is needed for the node to check validity of the BLS signatures against addresses,
+// signature aggregation function and minimum signing required for testing
 var suite = bn256.NewSuite()
 
 const (
@@ -41,7 +41,6 @@ type blsSignatureScheme struct {
 var rnd = random.New(rand.New(rand.NewSource(42)))
 
 // RandBLS creates a RANDOM instance of a signature scheme, that is used to sign the corresponding address.
-// mostly intended for testing.
 // only for testing: each time same sequence!
 func RandBLS() SignatureScheme {
 	ret := &blsSignatureScheme{}
@@ -49,7 +48,7 @@ func RandBLS() SignatureScheme {
 	return ret
 }
 
-// BLS creates an instance of BLS signature scheme
+// BLS(,) creates an instance of BLS signature scheme
 // from given private and public keys in marshaled binary form
 func BLS(priKey, pubKey []byte) (SignatureScheme, error) {
 	if len(priKey) != BLS_PRIVATE_KEY_SIZE || len(pubKey) != BLS_PUBLIC_KEY_SIZE {
@@ -166,36 +165,6 @@ func (sig *blsSignature) Address() address.Address {
 
 func (sig *blsSignature) String() string {
 	return base58.Encode(sig[:])
-}
-
-func AggregateBLSSignatureSchemes(sigSchemes ...SignatureScheme) (SignatureScheme, error) {
-	priKeys := make([]kyber.Scalar, len(sigSchemes))
-	pubKeys := make([]kyber.Point, len(sigSchemes))
-	for i, s := range sigSchemes {
-		ss, ok := s.(*blsSignatureScheme)
-		if !ok {
-			return nil, fmt.Errorf("not a BLS signature scheme")
-		}
-		priKeys[i] = ss.priKey
-		pubKeys[i] = ss.pubKey
-	}
-	aggregatedPriKey := suite.G2().Scalar().Zero()
-	// sum up all private keys
-	for i := range priKeys {
-		aggregatedPriKey = aggregatedPriKey.Add(aggregatedPriKey, priKeys[i])
-	}
-	mask, _ := sign.NewMask(suite, pubKeys, nil)
-	for i := range pubKeys {
-		_ = mask.SetBit(i, true)
-	}
-	aggregatedPubKey, err := bdn.AggregatePublicKeys(suite, mask)
-	if err != nil {
-		return nil, err
-	}
-	return &blsSignatureScheme{
-		priKey: aggregatedPriKey,
-		pubKey: aggregatedPubKey,
-	}, nil
 }
 
 func AggregateBLSSignatures(sigs ...Signature) (Signature, error) {

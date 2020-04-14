@@ -10,7 +10,7 @@ import (
 )
 
 func testBroadcastData(api *client.GoShimmerAPI) (string, error) {
-	msgId, err := api.BroadcastData([]byte(msgData))
+	msgId, err := api.Data([]byte(msgData))
 	if err != nil {
 		return "", fmt.Errorf("broadcast failed: %w", err)
 	}
