@@ -155,8 +155,6 @@ class Datastructure {
         this.nodes = new Set();
         this.connections = new Set();
         this.neighbors = new Map();
-        this.recRemove = 0;
-        this.recDisconnect = 0;
     }
 
     getStatusText() {
@@ -167,10 +165,10 @@ class Datastructure {
     addNode(idA) {
         if(!this.nodes.has(idA)) {
             this.app.setStreamStatusMessage("Added Node: " + idA);
-            this.app.updateStatus();
         }
         this.nodes.add(idA);
         this.app.graph.addVertex(idA);
+        this.app.updateStatus();
     }
 
     removeNode(idA) {
@@ -179,7 +177,6 @@ class Datastructure {
 
         this.app.setStreamStatusMessage("Removed Node: " + idA); 
         this.app.updateStatus();
-        this.recRemove++;
     }
 
     createNeighborsObject() {
@@ -219,7 +216,6 @@ class Datastructure {
 
     disconnectNodes(con, idA, idB) {
         if(this.connections.has(con)) {
-            this.recDisconnect++;
             this.connections.delete(con);
             this.app.graph.deleteEdge(idA, idB);
 
@@ -492,7 +488,18 @@ class Application {
             this.setStatusMessage("WebSocket error observed. Please reload.");
             console.error("WebSocket error observed", e);
           };
-    
+
+        this.socket.onopen = () => {	
+            this.setStatusMessage("WebSocket opened. Loading ... ");
+            setInterval(() => {
+                this.socket.send("_");
+            }, 1000);
+        };
+
+        this.socket.onclose = () => {
+            console.log("WebSocket connection was closed.")
+        }
+
         this.socket.onmessage = (e) => {
             let type = e.data[0];
             let data = e.data.substr(1);
