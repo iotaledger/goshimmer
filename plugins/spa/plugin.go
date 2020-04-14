@@ -55,6 +55,7 @@ func configure(plugin *node.Plugin) {
 	}, workerpool.WorkerCount(wsSendWorkerCount), workerpool.QueueSize(wsSendWorkerQueueSize))
 
 	configureLiveFeed()
+	configureDrngLiveFeed()
 }
 
 func run(plugin *node.Plugin) {
@@ -73,6 +74,7 @@ func run(plugin *node.Plugin) {
 	}, shutdown.ShutdownPrioritySPA)
 
 	runLiveFeed()
+	runDrngLiveFeed()
 
 	// allow any origin for websocket connections
 	upgrader.CheckOrigin = func(r *http.Request) bool {
@@ -127,6 +129,7 @@ const (
 	MsgTypeTPSMetric
 	MsgTypeTx
 	MsgTypeNeighborMetric
+	MsgTypeDrng
 	MsgTypeTipsMetric
 )
 
@@ -138,6 +141,14 @@ type msg struct {
 type tx struct {
 	Hash  string `json:"hash"`
 	Value int64  `json:"value"`
+}
+
+type drngMsg struct {
+	Instance      uint32 `json:"instance"`
+	DistributedPK string `json:"dpk"`
+	Round         uint64 `json:"round"`
+	Randomness    string `json:"randomness"`
+	Timestamp     string `json:"timestamp"`
 }
 
 type nodestatus struct {
