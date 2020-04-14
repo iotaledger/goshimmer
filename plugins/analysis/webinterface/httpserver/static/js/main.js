@@ -491,12 +491,13 @@ class Application {
 
         this.socket.onopen = () => {	
             this.setStatusMessage("WebSocket opened. Loading ... ");
-            setInterval(() => {
+            this.pingId = setInterval(() => {
                 this.socket.send("_");
             }, 1000);
         };
 
         this.socket.onclose = () => {
+            clearInterval(this.pingId)
             console.log("WebSocket connection was closed.")
         }
 
