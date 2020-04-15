@@ -186,10 +186,13 @@ func (f *FPC) queryOpinions() error {
 		return ErrNoOpinionGiversAvailable
 	}
 
-	// select random subset to query (the same opinion giver can occur multiple times)
-	opinionGiversToQuery := make([]vote.OpinionGiver, f.paras.QuerySampleSize)
+	// select a random subset of opinion givers to query.
+	// if the same opinion giver is selected multiple times, we query it only once
+	// but use its opinion N selected times.
+	opinionGiversToQuery := map[vote.OpinionGiver]int{}
 	for i := 0; i < f.paras.QuerySampleSize; i++ {
-		opinionGiversToQuery[i] = opinionGivers[f.opinionGiverRng.Intn(len(opinionGivers))]
+		selected := opinionGivers[f.opinionGiverRng.Intn(len(opinionGivers))]
+		opinionGiversToQuery[selected]++
 	}
 
 	// votes per id
@@ -198,9 +201,9 @@ func (f *FPC) queryOpinions() error {
 
 	// send queries
 	var wg sync.WaitGroup
-	for _, opinionGiverToQuery := range opinionGiversToQuery {
+	for opinionGiverToQuery, selectedCount := range opinionGiversToQuery {
 		wg.Add(1)
-		go func(opinionGiverToQuery vote.OpinionGiver) {
+		go func(opinionGiverToQuery vote.OpinionGiver, selectedCount int) {
 			defer wg.Done()
 
 			queryCtx, cancel := context.WithTimeout(context.Background(), f.paras.QueryTimeout)
@@ -221,10 +224,14 @@ func (f *FPC) queryOpinions() error {
 				if !has {
 					votes = vote.Opinions{}
 				}
-				votes = append(votes, opinions[i])
+				// reuse the opinion N times selected.
+				// note this is always at least 1.
+				for j := 0; j < selectedCount; j++ {
+					votes = append(votes, opinions[i])
+				}
 				voteMap[id] = votes
 			}
-		}(opinionGiverToQuery)
+		}(opinionGiverToQuery, selectedCount)
 	}
 	wg.Wait()
 
