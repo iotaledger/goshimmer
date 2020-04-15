@@ -8,8 +8,10 @@ type Parameters struct {
 	FirstRoundLowerBoundThreshold float64
 	// The upper bound liked percentage threshold at the first round. Also called 'b'.
 	FirstRoundUpperBoundThreshold float64
-	// The liked percentage threshold used after the first round. Also called 'beta'.
+	// The lower bound liked percentage threshold used after the first round.
 	SubsequentRoundsLowerBoundThreshold float64
+	// The upper bound liked percentage threshold used after the first round.
+	SubsequentRoundsUpperBoundThreshold float64
 	// The amount of opinions to query on each round for a given vote context. Also called 'k'.
 	QuerySampleSize int
 	// The amount of rounds a vote context's opinion needs to stay the same to be considered final. Also called 'l'.
@@ -26,8 +28,9 @@ type Parameters struct {
 func DefaultParameters() *Parameters {
 	return &Parameters{
 		FirstRoundLowerBoundThreshold:       0.75,
-		FirstRoundUpperBoundThreshold:       0.85,
-		SubsequentRoundsLowerBoundThreshold: 0.33,
+		FirstRoundUpperBoundThreshold:       0.75,
+		SubsequentRoundsLowerBoundThreshold: 0.50,
+		SubsequentRoundsUpperBoundThreshold: 0.67,
 		QuerySampleSize:                     10,
 		FinalizationThreshold:               2,
 		CoolingOffPeriod:                    2,

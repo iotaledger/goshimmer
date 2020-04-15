@@ -134,7 +134,7 @@ func (f *FPC) formOpinions(rand float64) {
 		}
 
 		lowerThreshold := f.paras.SubsequentRoundsLowerBoundThreshold
-		upperThreshold := 1 - f.paras.SubsequentRoundsLowerBoundThreshold
+		upperThreshold := f.paras.SubsequentRoundsUpperBoundThreshold
 
 		if voteCtx.HadFirstRound() {
 			lowerThreshold = f.paras.FirstRoundLowerBoundThreshold
