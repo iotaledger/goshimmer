@@ -22,11 +22,12 @@ type VoteContext struct {
 	Opinions []vote.Opinion
 }
 
-// adds the given opinion to this vote context
+// AddOpinion adds the given opinion to this vote context.
 func (vc *VoteContext) AddOpinion(opn vote.Opinion) {
 	vc.Opinions = append(vc.Opinions, opn)
 }
 
+// LastOpinion returns the last formed opinion.
 func (vc *VoteContext) LastOpinion() vote.Opinion {
 	return vc.Opinions[len(vc.Opinions)-1]
 }
@@ -52,12 +53,12 @@ func (vc *VoteContext) IsFinalized(coolingOffPeriod int, finalizationThreshold i
 	return true
 }
 
-// tells whether the vote context is new.
+// IsNew tells whether the vote context is new.
 func (vc *VoteContext) IsNew() bool {
 	return vc.Liked == likedInit
 }
 
-// tells whether the vote context just had its first round.
+// HadFirstRound tells whether the vote context just had its first round.
 func (vc *VoteContext) HadFirstRound() bool {
 	return vc.Rounds == 1
 }

@@ -23,7 +23,7 @@ func New(opinionGiverFunc vote.OpinionGiverFunc, paras ...*Parameters) *FPC {
 	f := &FPC{
 		opinionGiverFunc: opinionGiverFunc,
 		paras:            DefaultParameters(),
-		rng:              rand.New(rand.NewSource(time.Now().UnixNano())),
+		opinionGiverRng:  rand.New(rand.NewSource(time.Now().UnixNano())),
 		ctxs:             make(map[string]*VoteContext),
 		queue:            list.New(),
 		queueSet:         make(map[string]struct{}),
@@ -54,9 +54,10 @@ type FPC struct {
 	ctxsMu sync.RWMutex
 	// parameters to use within FPC.
 	paras *Parameters
-	// indicates whether the last round was performed successfully
+	// indicates whether the last round was performed successfully.
 	lastRoundCompletedSuccessfully bool
-	rng                            *rand.Rand
+	// used to randomly select opinion givers.
+	opinionGiverRng *rand.Rand
 }
 
 func (f *FPC) Vote(id string, initOpn vote.Opinion) error {
@@ -188,7 +189,7 @@ func (f *FPC) queryOpinions() error {
 	// select random subset to query (the same opinion giver can occur multiple times)
 	opinionGiversToQuery := make([]vote.OpinionGiver, f.paras.QuerySampleSize)
 	for i := 0; i < f.paras.QuerySampleSize; i++ {
-		opinionGiversToQuery[i] = opinionGivers[f.rng.Intn(len(opinionGivers))]
+		opinionGiversToQuery[i] = opinionGivers[f.opinionGiverRng.Intn(len(opinionGivers))]
 	}
 
 	// votes per id
