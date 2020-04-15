@@ -87,6 +87,8 @@ func TestFPCFinalizedEvent(t *testing.T) {
 	id := "a"
 
 	paras := fpc.DefaultParameters()
+	paras.FinalizationThreshold = 2
+	paras.CoolingOffPeriod = 2
 	paras.QuerySampleSize = 1
 	voter := fpc.New(opinionGiverFunc, paras)
 	var finalizedOpinion *vote.Opinion
@@ -159,7 +161,10 @@ func TestFPCVotingMultipleOpinionGivers(t *testing.T) {
 			return opinionGivers, nil
 		}
 
-		voter := fpc.New(opinionGiverFunc)
+		paras := fpc.DefaultParameters()
+		paras.FinalizationThreshold = 2
+		paras.CoolingOffPeriod = 2
+		voter := fpc.New(opinionGiverFunc, paras)
 		var finalOpinion *vote.Opinion
 		voter.Events().Finalized.Attach(events.NewClosure(func(id string, finalizedOpinion vote.Opinion) {
 			finalOpinion = &finalizedOpinion
