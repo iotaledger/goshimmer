@@ -2,12 +2,13 @@ version: "3.5"
 
 services:
   entry_node:
+    command: --autopeering.seed=uuDCzsjyLNQ17/7fWKPNMYmr4IWuaVRf7qKqRL0v/6c= --autopeering.entryNodes= --analysis.server.port=1888 --node.disablePlugins=gossip,portcheck,spa,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     container_name: entry_node
     image: iotaledger/goshimmer
     build:
       context: ../..
     volumes:
-      - ./config.entry_node.json:/config.json:ro
+      - ./config.docker.json:/config.json:ro
     ports:
       - "9000:9000/tcp" # visualizer
     expose:
@@ -21,7 +22,7 @@ services:
     build:
       context: ../..
     volumes:
-      - ./config.peer_master.json:/config.json:ro
+      - ./config.docker.json:/config.json:ro
     ports:
       - "8080:8080/tcp" # web API
       - "8081:8081/tcp" # dashboard
@@ -31,11 +32,12 @@ services:
       - integration-test
 
   peer_replica:
+    command: --node.disablePlugins=spa
     image: iotaledger/goshimmer
     build:
       context: ../..
     volumes:
-      - ./config.peer_replica.json:/config.json:ro
+      - ./config.docker.json:/config.json:ro
     expose:
       - "8080/tcp" # web API (within Docker network)
     depends_on:
