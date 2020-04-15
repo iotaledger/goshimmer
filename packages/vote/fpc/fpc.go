@@ -24,13 +24,14 @@ func New(opinionGiverFunc vote.OpinionGiverFunc, paras ...*Parameters) *FPC {
 		opinionGiverFunc: opinionGiverFunc,
 		paras:            DefaultParameters(),
 		opinionGiverRng:  rand.New(rand.NewSource(time.Now().UnixNano())),
-		ctxs:             make(map[string]*VoteContext),
+		ctxs:             make(map[string]*vote.Context),
 		queue:            list.New(),
 		queueSet:         make(map[string]struct{}),
 		events: vote.Events{
-			Finalized: events.NewEvent(vote.OpinionCaller),
-			Failed:    events.NewEvent(vote.OpinionCaller),
-			Error:     events.NewEvent(events.ErrorCaller),
+			Finalized:     events.NewEvent(vote.OpinionCaller),
+			Failed:        events.NewEvent(vote.OpinionCaller),
+			RoundExecuted: events.NewEvent(vote.RoundStatsCaller),
+			Error:         events.NewEvent(events.ErrorCaller),
 		},
 	}
 	if len(paras) > 0 {
@@ -50,7 +51,7 @@ type FPC struct {
 	queueSet map[string]struct{}
 	queueMu  sync.Mutex
 	// contains the set of current vote contexts.
-	ctxs   map[string]*VoteContext
+	ctxs   map[string]*vote.Context
 	ctxsMu sync.RWMutex
 	// parameters to use within FPC.
 	paras *Parameters
@@ -71,7 +72,7 @@ func (f *FPC) Vote(id string, initOpn vote.Opinion) error {
 	if _, alreadyOngoing := f.ctxs[id]; alreadyOngoing {
 		return fmt.Errorf("%w: %s", ErrVoteAlreadyOngoing, id)
 	}
-	f.queue.PushBack(newVoteContext(id, initOpn))
+	f.queue.PushBack(vote.NewContext(id, initOpn))
 	f.queueSet[id] = struct{}{}
 	return nil
 }
@@ -93,6 +94,7 @@ func (f *FPC) Events() vote.Events {
 // Round enqueues new items, sets opinions on active vote contexts, finalizes them and then
 // queries for opinions.
 func (f *FPC) Round(rand float64) error {
+	start := time.Now()
 	// enqueue new voting contexts
 	f.enqueue()
 	// we can only form opinions when the last round was actually executed successfully
@@ -104,8 +106,20 @@ func (f *FPC) Round(rand float64) error {
 		f.finalizeOpinions()
 	}
 	// query for opinions on the current vote contexts
-	err := f.queryOpinions()
-	f.lastRoundCompletedSuccessfully = err == nil
+	queriedOpinions, err := f.queryOpinions()
+	if err == nil {
+		f.lastRoundCompletedSuccessfully = true
+		// execute a round executed event
+		roundStats := &vote.RoundStats{
+			Duration:           time.Since(start),
+			RandUsed:           rand,
+			ActiveVoteContexts: f.ctxs,
+			QueriedOpinions:    queriedOpinions,
+		}
+		// TODO: add possibility to check whether an event handler is registered
+		// in order to prevent the collection of the round stats data if not needed
+		f.events.RoundExecuted.Trigger(roundStats)
+	}
 	return err
 }
 
@@ -116,10 +130,10 @@ func (f *FPC) enqueue() {
 	f.ctxsMu.Lock()
 	defer f.ctxsMu.Unlock()
 	for ele := f.queue.Front(); ele != nil; ele = f.queue.Front() {
-		voteCtx := ele.Value.(*VoteContext)
-		f.ctxs[voteCtx.id] = voteCtx
+		voteCtx := ele.Value.(*vote.Context)
+		f.ctxs[voteCtx.ID] = voteCtx
 		f.queue.Remove(ele)
-		delete(f.queueSet, voteCtx.id)
+		delete(f.queueSet, voteCtx.ID)
 	}
 }
 
@@ -168,22 +182,22 @@ func (f *FPC) finalizeOpinions() {
 }
 
 // queries the opinions of QuerySampleSize amount of OpinionGivers.
-func (f *FPC) queryOpinions() error {
+func (f *FPC) queryOpinions() ([]vote.QueriedOpinions, error) {
 	ids := f.voteContextIDs()
 
 	// nothing to vote on
 	if len(ids) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	opinionGivers, err := f.opinionGiverFunc()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// nobody to query
 	if len(opinionGivers) == 0 {
-		return ErrNoOpinionGiversAvailable
+		return nil, ErrNoOpinionGiversAvailable
 	}
 
 	// select a random subset of opinion givers to query.
@@ -198,6 +212,9 @@ func (f *FPC) queryOpinions() error {
 	// votes per id
 	var voteMapMu sync.Mutex
 	voteMap := map[string]vote.Opinions{}
+
+	// holds queried opinions
+	allQueriedOpinions := []vote.QueriedOpinions{}
 
 	// send queries
 	var wg sync.WaitGroup
@@ -216,6 +233,12 @@ func (f *FPC) queryOpinions() error {
 				return
 			}
 
+			queriedOpinions := vote.QueriedOpinions{
+				OpinionGiverID: opinionGiverToQuery.ID(),
+				Opinions:       make(map[string]vote.Opinion),
+				TimesCounted:   selectedCount,
+			}
+
 			// add opinions to vote map
 			voteMapMu.Lock()
 			defer voteMapMu.Unlock()
@@ -229,8 +252,10 @@ func (f *FPC) queryOpinions() error {
 				for j := 0; j < selectedCount; j++ {
 					votes = append(votes, opinions[i])
 				}
+				queriedOpinions.Opinions[id] = opinions[i]
 				voteMap[id] = votes
 			}
+			allQueriedOpinions = append(allQueriedOpinions, queriedOpinions)
 		}(opinionGiverToQuery, selectedCount)
 	}
 	wg.Wait()
@@ -259,7 +284,7 @@ func (f *FPC) queryOpinions() error {
 		}
 		f.ctxs[id].Liked = likedSum / votedCount
 	}
-	return nil
+	return allQueriedOpinions, nil
 }
 
 func (f *FPC) voteContextIDs() []string {

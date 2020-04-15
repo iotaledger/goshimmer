@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/prng"
+	"github.com/iotaledger/hive.go/events"
 	"google.golang.org/grpc"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -36,6 +37,7 @@ var (
 	roundIntervalSeconds int64 = 5
 )
 
+// Voter returns the DRNGRoundBasedVoter instance used by the FPC plugin.
 func Voter() vote.DRNGRoundBasedVoter {
 	voterOnce.Do(func() {
 		// create a function which gets OpinionGivers
@@ -46,7 +48,8 @@ func Voter() vote.DRNGRoundBasedVoter {
 				if fpcService == nil {
 					continue
 				}
-				opinionGivers = append(opinionGivers, peerOpinionGiver(p))
+				// TODO: maybe cache the PeerOpinionGiver instead of creating a new one every time
+				opinionGivers = append(opinionGivers, &PeerOpinionGiver{p: p})
 			}
 			return opinionGivers, nil
 		}
@@ -72,6 +75,12 @@ func configure(_ *node.Plugin) {
 	if err := lPeer.UpdateService(service.FPCKey, "tcp", port); err != nil {
 		log.Fatalf("could not update services: %v", err)
 	}
+
+	voter.Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
+		peersQueried := len(roundStats.QueriedOpinions)
+		voteContextsCount := len(roundStats.ActiveVoteContexts)
+		log.Infof("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
+	}))
 }
 
 func run(_ *node.Plugin) {
@@ -113,34 +122,40 @@ func run(_ *node.Plugin) {
 	}, shutdown.ShutdownPriorityFPC)
 }
 
-// creates an OpinionQueryFunc which uses the given peer.
-func peerOpinionGiver(p *peer.Peer) vote.OpinionQueryFunc {
-	return func(ctx context.Context, ids []string) (vote.Opinions, error) {
-		fpcServicePort := p.Services().Get(service.FPCKey).Port()
-		fpcAddr := net.JoinHostPort(p.IP().String(), strconv.Itoa(fpcServicePort))
+// PeerOpinionGiver implements the OpinionGiver interface based on a peer.
+type PeerOpinionGiver struct {
+	p *peer.Peer
+}
 
-		var opts []grpc.DialOption
-		opts = append(opts, grpc.WithInsecure())
+func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opinions, error) {
+	fpcServicePort := pog.p.Services().Get(service.FPCKey).Port()
+	fpcAddr := net.JoinHostPort(pog.p.IP().String(), strconv.Itoa(fpcServicePort))
 
-		// connect to the FPC service
-		conn, err := grpc.Dial(fpcAddr, opts...)
-		if err != nil {
-			return nil, fmt.Errorf("unable to connect to FPC service: %w", err)
-		}
-		defer conn.Close()
+	var opts []grpc.DialOption
+	opts = append(opts, grpc.WithInsecure())
 
-		client := votenet.NewVoterQueryClient(conn)
-		reply, err := client.Opinion(ctx, &votenet.QueryRequest{Id: ids})
-		if err != nil {
-			return nil, fmt.Errorf("unable to query opinions: %w", err)
-		}
-
-		// convert int32s in reply to opinions
-		opinions := make(vote.Opinions, len(reply.Opinion))
-		for i, intOpn := range reply.Opinion {
-			opinions[i] = vote.ConvertInt32Opinion(intOpn)
-		}
-
-		return opinions, nil
+	// connect to the FPC service
+	conn, err := grpc.Dial(fpcAddr, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("unable to connect to FPC service: %w", err)
 	}
+	defer conn.Close()
+
+	client := votenet.NewVoterQueryClient(conn)
+	reply, err := client.Opinion(ctx, &votenet.QueryRequest{Id: ids})
+	if err != nil {
+		return nil, fmt.Errorf("unable to query opinions: %w", err)
+	}
+
+	// convert int32s in reply to opinions
+	opinions := make(vote.Opinions, len(reply.Opinion))
+	for i, intOpn := range reply.Opinion {
+		opinions[i] = vote.ConvertInt32Opinion(intOpn)
+	}
+
+	return opinions, nil
+}
+
+func (pog *PeerOpinionGiver) ID() string {
+	return pog.p.ID().String()
 }

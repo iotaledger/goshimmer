@@ -14,16 +14,16 @@ import (
 
 func TestVoteContext_IsFinalized(t *testing.T) {
 	type testInput struct {
-		voteCtx               fpc.VoteContext
+		voteCtx               vote.Context
 		coolOffPeriod         int
 		finalizationThreshold int
 		want                  bool
 	}
 	var tests = []testInput{
-		{fpc.VoteContext{
+		{vote.Context{
 			Opinions: []vote.Opinion{vote.Like, vote.Like, vote.Like, vote.Like, vote.Like},
 		}, 2, 2, true},
-		{fpc.VoteContext{
+		{vote.Context{
 			Opinions: []vote.Opinion{vote.Like, vote.Like, vote.Like, vote.Like, vote.Dislike},
 		}, 2, 2, false},
 	}
@@ -35,14 +35,14 @@ func TestVoteContext_IsFinalized(t *testing.T) {
 
 func TestVoteContext_LastOpinion(t *testing.T) {
 	type testInput struct {
-		voteCtx  fpc.VoteContext
+		voteCtx  vote.Context
 		expected vote.Opinion
 	}
 	var tests = []testInput{
-		{fpc.VoteContext{
+		{vote.Context{
 			Opinions: []vote.Opinion{vote.Like, vote.Like, vote.Like, vote.Like},
 		}, vote.Like},
-		{fpc.VoteContext{
+		{vote.Context{
 			Opinions: []vote.Opinion{vote.Like, vote.Like, vote.Like, vote.Dislike},
 		}, vote.Dislike},
 	}
@@ -62,6 +62,10 @@ func TestFPCPreventSameIDMultipleTimes(t *testing.T) {
 type opiniongivermock struct {
 	roundsReplies []vote.Opinions
 	roundIndex    int
+}
+
+func (ogm *opiniongivermock) ID() string {
+	return ""
 }
 
 func (ogm *opiniongivermock) Query(_ context.Context, _ []string) (vote.Opinions, error) {

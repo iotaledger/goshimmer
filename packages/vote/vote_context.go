@@ -1,40 +1,39 @@
-package fpc
+package vote
 
-import "github.com/iotaledger/goshimmer/packages/vote"
-
-func newVoteContext(id string, initOpn vote.Opinion) *VoteContext {
-	voteCtx := &VoteContext{id: id, Liked: likedInit}
+// NewContext creates a new vote context.
+func NewContext(id string, initOpn Opinion) *Context {
+	voteCtx := &Context{ID: id, Liked: likedInit}
 	voteCtx.AddOpinion(initOpn)
 	return voteCtx
 }
 
 const likedInit = -1
 
-// VoteContext is the context of votes from multiple rounds about a given item.
-type VoteContext struct {
-	id string
+// Context is the context of votes from multiple rounds about a given item.
+type Context struct {
+	ID string
 	// The percentage of OpinionGivers who liked this item on the last query.
 	Liked float64
 	// The number of voting rounds performed.
 	Rounds int
 	// Append-only list of opinions formed after each round.
 	// the first opinion is the initial opinion when this vote context was created.
-	Opinions []vote.Opinion
+	Opinions []Opinion
 }
 
 // AddOpinion adds the given opinion to this vote context.
-func (vc *VoteContext) AddOpinion(opn vote.Opinion) {
+func (vc *Context) AddOpinion(opn Opinion) {
 	vc.Opinions = append(vc.Opinions, opn)
 }
 
 // LastOpinion returns the last formed opinion.
-func (vc *VoteContext) LastOpinion() vote.Opinion {
+func (vc *Context) LastOpinion() Opinion {
 	return vc.Opinions[len(vc.Opinions)-1]
 }
 
-// tells whether this vote context is finalized by checking whether the opinion was held
+// IsFinalized tells whether this vote context is finalized by checking whether the opinion was held
 // for finalizationThreshold number of rounds.
-func (vc *VoteContext) IsFinalized(coolingOffPeriod int, finalizationThreshold int) bool {
+func (vc *Context) IsFinalized(coolingOffPeriod int, finalizationThreshold int) bool {
 	// check whether we have enough opinions to say whether this vote context is finalized.
 	// we start from the 2nd opinion since the first one is the initial opinion.
 	if len(vc.Opinions[1:]) < coolingOffPeriod+finalizationThreshold {
@@ -54,11 +53,11 @@ func (vc *VoteContext) IsFinalized(coolingOffPeriod int, finalizationThreshold i
 }
 
 // IsNew tells whether the vote context is new.
-func (vc *VoteContext) IsNew() bool {
+func (vc *Context) IsNew() bool {
 	return vc.Liked == likedInit
 }
 
 // HadFirstRound tells whether the vote context just had its first round.
-func (vc *VoteContext) HadFirstRound() bool {
+func (vc *Context) HadFirstRound() bool {
 	return vc.Rounds == 1
 }
