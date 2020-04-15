@@ -33,7 +33,7 @@ func DefaultParameters() *Parameters {
 		SubsequentRoundsUpperBoundThreshold: 0.67,
 		QuerySampleSize:                     21,
 		FinalizationThreshold:               2,
-		CoolingOffPeriod:                    2,
+		CoolingOffPeriod:                    0,
 		MaxRoundsPerVoteContext:             100,
 		QueryTimeout:                        1500 * time.Millisecond,
 	}
