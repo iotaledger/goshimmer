@@ -30,5 +30,6 @@ require (
 	golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073
 	golang.org/x/net v0.0.0-20200301022130-244492dfa37a
 	golang.org/x/tools v0.0.0-20200330040139-fa3cc9eebcfe // indirect
+	google.golang.org/grpc v1.28.1
 	gopkg.in/src-d/go-git.v4 v4.13.1
 )
