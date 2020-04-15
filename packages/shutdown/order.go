@@ -2,6 +2,7 @@ package shutdown
 
 const (
 	ShutdownPriorityDatabase = iota
+	ShutdownPriorityFPC
 	ShutdownPriorityTangle
 	ShutdownPriorityRemoteLog
 	ShutdownPriorityAnalysis
