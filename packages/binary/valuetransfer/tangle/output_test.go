@@ -15,7 +15,7 @@ func TestNew(t *testing.T) {
 	randomAddress := address.Random()
 	randomTransactionId := transaction.RandomId()
 
-	output := NewOutput(randomAddress, randomTransactionId, MasterBranch, []*balance.Balance{
+	output := NewOutput(randomAddress, randomTransactionId, MasterBranchId, []*balance.Balance{
 		balance.New(balance.COLOR_IOTA, 1337),
 	})
 

@@ -9,9 +9,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
-type BranchId [transaction.IdLength]byte
+type BranchId [BranchIdLength]byte
 
-var MasterBranch = BranchId{}
+var (
+	UndefinedBranchId = BranchId{}
+	MasterBranchId    = BranchId{1}
+)
 
 // NewBranchId creates a new BranchId from a transaction Id.
 func NewBranchId(transactionId transaction.Id) (branchId BranchId) {

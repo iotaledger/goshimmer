@@ -22,10 +22,13 @@ type Output struct {
 	branchId           BranchId
 	solid              bool
 	solidificationTime time.Time
+	firstConsumer      transaction.Id
+	consumerCount      int
 	balances           []*balance.Balance
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
+	consumerMutex           sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 	storageKey []byte
@@ -166,6 +169,20 @@ func (output *Output) SolidificationTime() time.Time {
 	defer output.solidificationTimeMutex.RUnlock()
 
 	return output.solidificationTime
+}
+
+func (output *Output) RegisterConsumer(consumer transaction.Id) (consumerCount int, firstConsumerId transaction.Id) {
+	output.consumerMutex.Lock()
+	defer output.consumerMutex.Unlock()
+
+	if consumerCount = output.consumerCount; consumerCount == 0 {
+		output.firstConsumer = consumer
+	}
+	output.consumerCount++
+
+	firstConsumerId = output.firstConsumer
+
+	return
 }
 
 // Balances returns the colored balances (color + balance) that this output contains.
