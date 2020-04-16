@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package net;
+
+option go_package = ".;net";
+
+service VoterQuery {
+    rpc Opinion (QueryRequest) returns (QueryReply) {}
+}
+
+message QueryRequest {
+    repeated string id = 1;
+}
+
+message QueryReply {
+    repeated int32 opinion = 1;
+}

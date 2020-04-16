@@ -28,6 +28,12 @@
   "database": {
     "directory": "mainnetdb"
   },
+  "drng": {
+    "instanceId": 1,
+    "threshold": 3,
+    "distributedPubKey": "",
+    "committeeMembers": []
+  },
   "gossip": {
     "port": 14666
   },

@@ -1,4 +1,4 @@
-package getNeighbors
+package autopeering
 
 import (
 	"encoding/base64"
@@ -14,10 +14,10 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI getNeighbors Endpoint", node.Enabled, configure)
+var PLUGIN = node.NewPlugin("WebAPI autopeering Endpoint", node.Enabled, configure)
 
 func configure(plugin *node.Plugin) {
-	webapi.Server.GET("getNeighbors", getNeighbors)
+	webapi.Server.GET("autopeering/neighbors", getNeighbors)
 }
 
 // getNeighbors returns the chosen and accepted neighbors of the node
