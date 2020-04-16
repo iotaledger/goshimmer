@@ -14,7 +14,7 @@ services:
     # make sure to give read/write access to the folder ./mainnetdb (e.g., chmod -R 777 ./mainnetdb)
     # optionally, you can mount a config.json into the container
     volumes:
-      - ./mainnetdb/:/mainnetdb/:rw
+      - ./mainnetdb/:/tmp/mainnetdb/:rw
       #- ./config.json:/config.json:ro
     # Expose ports:
     # gossip:       - "14666:14666/tcp"

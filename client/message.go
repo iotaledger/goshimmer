@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	routeFindById = "findById"
+	routeFindById = "message/findById"
 )
 
 // FindMessageById finds messages by the given ids. The messages are returned in the same order as
