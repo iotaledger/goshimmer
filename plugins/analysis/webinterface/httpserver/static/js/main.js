@@ -1,4 +1,4 @@
-const ANALYSIS_SERVER_URL = "116.202.49.178" + "/datastream";
+const ANALYSIS_SERVER_URL = window.location.host + "/datastream";
 const NODE_ID_LENGTH = 64;
 
 // for some strange reason color formats for edges and nodes need to be different... careful!

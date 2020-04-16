@@ -20,8 +20,6 @@ const (
 )
 
 type Tangle struct {
-	storageId []byte
-
 	messageStorage         *objectstorage.ObjectStorage
 	messageMetadataStorage *objectstorage.ObjectStorage
 	approverStorage        *objectstorage.ObjectStorage
@@ -47,13 +45,14 @@ func missingMessageFactory(key []byte) (objectstorage.StorableObject, error, int
 }
 
 // Constructor for the tangle.
-func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
+func New(badgerInstance *badger.DB) (result *Tangle) {
+	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.MessageLayer)
+
 	result = &Tangle{
-		storageId:              storageId,
-		messageStorage:         objectstorage.New(badgerInstance, append(storageId, storageprefix.Layer0Message...), messageFactory, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
-		messageMetadataStorage: objectstorage.New(badgerInstance, append(storageId, storageprefix.Layer0MessageMetadata...), MessageMetadataFromStorageKey, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:        objectstorage.New(badgerInstance, append(storageId, storageprefix.Layer0Approvers...), approverFactory, objectstorage.CacheTime(10*time.Second), objectstorage.PartitionKey(message.IdLength, message.IdLength), objectstorage.LeakDetectionEnabled(false)),
-		missingMessageStorage:  objectstorage.New(badgerInstance, append(storageId, storageprefix.Layer0MissingMessage...), missingMessageFactory, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
+		messageStorage:         osFactory.New(PrefixMessage, messageFactory, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
+		messageMetadataStorage: osFactory.New(PrefixMessageMetadata, MessageMetadataFromStorageKey, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:        osFactory.New(PrefixApprovers, approverFactory, objectstorage.CacheTime(10*time.Second), objectstorage.PartitionKey(message.IdLength, message.IdLength), objectstorage.LeakDetectionEnabled(false)),
+		missingMessageStorage:  osFactory.New(PrefixMissingMessage, missingMessageFactory, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: *newEvents(),
 	}
@@ -61,11 +60,6 @@ func New(badgerInstance *badger.DB, storageId []byte) (result *Tangle) {
 	result.solidifierWorkerPool.Tune(1024)
 
 	return
-}
-
-// Returns the storage id of this tangle (can be used to create ontologies that follow the storage of the main tangle).
-func (tangle *Tangle) StorageId() []byte {
-	return tangle.storageId
 }
 
 // Attaches a new transaction to the tangle.
@@ -98,10 +92,10 @@ func (tangle *Tangle) Approvers(transactionId message.Id) CachedApprovers {
 // Deletes a transaction from the tangle (i.e. for local snapshots)
 func (tangle *Tangle) DeleteMessage(messageId message.Id) {
 	tangle.Message(messageId).Consume(func(currentTransaction *message.Message) {
-		trunkTransactionId := currentTransaction.GetTrunkTransactionId()
+		trunkTransactionId := currentTransaction.TrunkId()
 		tangle.deleteApprover(trunkTransactionId, messageId)
 
-		branchTransactionId := currentTransaction.GetBranchTransactionId()
+		branchTransactionId := currentTransaction.BranchId()
 		if branchTransactionId != trunkTransactionId {
 			tangle.deleteApprover(branchTransactionId, messageId)
 		}
@@ -154,15 +148,15 @@ func (tangle *Tangle) storeMessageWorker(tx *message.Message) {
 	}
 
 	// store transaction metadata
-	transactionId := tx.GetId()
+	transactionId := tx.Id()
 	cachedTransactionMetadata := &CachedMessageMetadata{CachedObject: tangle.messageMetadataStorage.Store(NewMessageMetadata(transactionId))}
 
 	// store trunk approver
-	trunkTransactionID := tx.GetTrunkTransactionId()
+	trunkTransactionID := tx.TrunkId()
 	tangle.approverStorage.Store(NewApprover(trunkTransactionID, transactionId)).Release()
 
 	// store branch approver
-	if branchTransactionID := tx.GetBranchTransactionId(); branchTransactionID != trunkTransactionID {
+	if branchTransactionID := tx.BranchId(); branchTransactionID != trunkTransactionID {
 		tangle.approverStorage.Store(NewApprover(branchTransactionID, transactionId)).Release()
 	}
 
@@ -220,7 +214,7 @@ func (tangle *Tangle) solidifyMessageWorker(cachedTransaction *message.CachedMes
 			return true
 		}
 
-		return isTransactionMarkedAsSolid(transaction.GetTrunkTransactionId()) && isTransactionMarkedAsSolid(transaction.GetBranchTransactionId())
+		return isTransactionMarkedAsSolid(transaction.TrunkId()) && isTransactionMarkedAsSolid(transaction.BranchId())
 	}
 
 	popElementsFromStack := func(stack *list.List) (*message.CachedMessage, *CachedMessageMetadata) {
@@ -253,7 +247,7 @@ func (tangle *Tangle) solidifyMessageWorker(cachedTransaction *message.CachedMes
 		if isTransactionSolid(currentTransaction, currentTransactionMetadata) && currentTransactionMetadata.SetSolid(true) {
 			tangle.Events.TransactionSolid.Trigger(currentCachedTransaction, currentCachedTransactionMetadata)
 
-			tangle.Approvers(currentTransaction.GetId()).Consume(func(approver *Approver) {
+			tangle.Approvers(currentTransaction.Id()).Consume(func(approver *Approver) {
 				approverTransactionId := approver.ReferencedMessageId()
 
 				solidificationStack.PushBack([2]interface{}{

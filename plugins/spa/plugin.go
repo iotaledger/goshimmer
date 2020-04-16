@@ -19,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 
 	"github.com/iotaledger/hive.go/daemon"
@@ -50,10 +51,12 @@ func configure(plugin *node.Plugin) {
 		sendToAllWSClient(&msg{MsgTypeTPSMetric, task.Param(0).(uint64)})
 		sendToAllWSClient(&msg{MsgTypeNodeStatus, currentNodeStatus()})
 		sendToAllWSClient(&msg{MsgTypeNeighborMetric, neighborMetrics()})
+		sendToAllWSClient(&msg{MsgTypeTipsMetric, messagelayer.TipSelector.GetTipCount()})
 		task.Return(nil)
 	}, workerpool.WorkerCount(wsSendWorkerCount), workerpool.QueueSize(wsSendWorkerQueueSize))
 
 	configureLiveFeed()
+	configureDrngLiveFeed()
 }
 
 func run(plugin *node.Plugin) {
@@ -72,6 +75,7 @@ func run(plugin *node.Plugin) {
 	}, shutdown.ShutdownPrioritySPA)
 
 	runLiveFeed()
+	runDrngLiveFeed()
 
 	// allow any origin for websocket connections
 	upgrader.CheckOrigin = func(r *http.Request) bool {
@@ -126,6 +130,8 @@ const (
 	MsgTypeTPSMetric
 	MsgTypeTx
 	MsgTypeNeighborMetric
+	MsgTypeDrng
+	MsgTypeTipsMetric
 )
 
 type msg struct {
@@ -136,6 +142,14 @@ type msg struct {
 type tx struct {
 	Hash  string `json:"hash"`
 	Value int64  `json:"value"`
+}
+
+type drngMsg struct {
+	Instance      uint32 `json:"instance"`
+	DistributedPK string `json:"dpk"`
+	Round         uint64 `json:"round"`
+	Randomness    string `json:"randomness"`
+	Timestamp     string `json:"timestamp"`
 }
 
 type nodestatus struct {

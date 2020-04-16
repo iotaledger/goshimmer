@@ -24,7 +24,7 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 	// use the tempdir for the database
 	config.Node.Set(database.CFG_DIRECTORY, dir)
 
-	tangle := New(database.GetBadgerInstance(), []byte("TEST_BINARY_TANGLE"))
+	tangle := New(database.GetBadgerInstance())
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
 
@@ -35,7 +35,7 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 
 	transactionBytes := make([]*message.Message, b.N)
 	for i := 0; i < b.N; i++ {
-		transactionBytes[i] = message.New(message.EmptyId, message.EmptyId, testIdentity.PublicKey(), time.Now(), 0, payload.NewData([]byte("some data")), testIdentity)
+		transactionBytes[i] = message.New(message.EmptyId, message.EmptyId, testIdentity, time.Now(), 0, payload.NewData([]byte("some data")))
 		transactionBytes[i].Bytes()
 	}
 
@@ -55,7 +55,7 @@ func TestTangle_AttachTransaction(t *testing.T) {
 	// use the tempdir for the database
 	config.Node.Set(database.CFG_DIRECTORY, dir)
 
-	messageTangle := New(database.GetBadgerInstance(), []byte("TEST_BINARY_TANGLE"))
+	messageTangle := New(database.GetBadgerInstance())
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
 
@@ -66,7 +66,7 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		cachedTransactionMetadata.Release()
 
 		cachedTransaction.Consume(func(transaction *message.Message) {
-			fmt.Println("ATTACHED:", transaction.GetId())
+			fmt.Println("ATTACHED:", transaction.Id())
 		})
 	}))
 
@@ -74,7 +74,7 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		cachedTransactionMetadata.Release()
 
 		cachedTransaction.Consume(func(transaction *message.Message) {
-			fmt.Println("SOLID:", transaction.GetId())
+			fmt.Println("SOLID:", transaction.Id())
 		})
 	}))
 
@@ -92,8 +92,8 @@ func TestTangle_AttachTransaction(t *testing.T) {
 
 	localIdentity1 := identity.GenerateLocalIdentity()
 	localIdentity2 := identity.GenerateLocalIdentity()
-	newTransaction1 := message.New(message.EmptyId, message.EmptyId, localIdentity1.PublicKey(), time.Now(), 0, payload.NewData([]byte("some data")), localIdentity1)
-	newTransaction2 := message.New(newTransaction1.GetId(), newTransaction1.GetId(), localIdentity2.PublicKey(), time.Now(), 0, payload.NewData([]byte("some other data")), localIdentity2)
+	newTransaction1 := message.New(message.EmptyId, message.EmptyId, localIdentity1, time.Now(), 0, payload.NewData([]byte("some data")))
+	newTransaction2 := message.New(newTransaction1.Id(), newTransaction1.Id(), localIdentity2, time.Now(), 0, payload.NewData([]byte("some other data")))
 
 	messageTangle.AttachMessage(newTransaction2)
 

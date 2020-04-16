@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/transactionparser"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/transactionrequester"
-	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -46,7 +45,7 @@ func configure(*node.Plugin) {
 	TransactionParser = transactionparser.New()
 	TransactionRequester = transactionrequester.New()
 	TipSelector = tipselector.New()
-	Tangle = tangle.New(database.GetBadgerInstance(), storageprefix.MainNet)
+	Tangle = tangle.New(database.GetBadgerInstance())
 
 	// Setup MessageFactory (behavior + logging))
 	MessageFactory = messagefactory.New(database.GetBadgerInstance(), local.GetInstance().LocalIdentity(), TipSelector, []byte(DB_SEQUENCE_NUMBER))
@@ -68,7 +67,7 @@ func configure(*node.Plugin) {
 		cachedTransactionMetadata.Release()
 
 		cachedTransaction.Consume(func(transaction *message.Message) {
-			TransactionRequester.StopRequest(transaction.GetId())
+			TransactionRequester.StopRequest(transaction.Id())
 		})
 	}))
 

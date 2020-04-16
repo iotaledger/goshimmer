@@ -19,8 +19,8 @@ var liveFeedWorkerPool *workerpool.WorkerPool
 
 func configureLiveFeed() {
 	liveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
-		task.Param(0).(*message.CachedMessage).Consume(func(transaction *message.Message) {
-			sendToAllWSClient(&msg{MsgTypeTx, &tx{transaction.GetId().String(), 0}})
+		task.Param(0).(*message.CachedMessage).Consume(func(message *message.Message) {
+			sendToAllWSClient(&msg{MsgTypeTx, &tx{message.Id().String(), 0}})
 		})
 
 		task.Return(nil)
@@ -28,26 +28,26 @@ func configureLiveFeed() {
 }
 
 func runLiveFeed() {
-	newTxRateLimiter := time.NewTicker(time.Second / 10)
-	notifyNewTx := events.NewClosure(func(tx *message.CachedMessage, metadata *tangle.CachedMessageMetadata) {
+	newMsgRateLimiter := time.NewTicker(time.Second / 10)
+	notifyNewMsg := events.NewClosure(func(message *message.CachedMessage, metadata *tangle.CachedMessageMetadata) {
 		metadata.Release()
 
 		select {
-		case <-newTxRateLimiter.C:
-			liveFeedWorkerPool.TrySubmit(tx)
+		case <-newMsgRateLimiter.C:
+			liveFeedWorkerPool.TrySubmit(message)
 		default:
-			tx.Release()
+			message.Release()
 		}
 	})
 
-	daemon.BackgroundWorker("SPA[TxUpdater]", func(shutdownSignal <-chan struct{}) {
-		messagelayer.Tangle.Events.TransactionAttached.Attach(notifyNewTx)
+	daemon.BackgroundWorker("SPA[MsgUpdater]", func(shutdownSignal <-chan struct{}) {
+		messagelayer.Tangle.Events.TransactionAttached.Attach(notifyNewMsg)
 		liveFeedWorkerPool.Start()
 		<-shutdownSignal
-		log.Info("Stopping SPA[TxUpdater] ...")
-		messagelayer.Tangle.Events.TransactionAttached.Detach(notifyNewTx)
-		newTxRateLimiter.Stop()
+		log.Info("Stopping SPA[MsgUpdater] ...")
+		messagelayer.Tangle.Events.TransactionAttached.Detach(notifyNewMsg)
+		newMsgRateLimiter.Stop()
 		liveFeedWorkerPool.Stop()
-		log.Info("Stopping SPA[TxUpdater] ... done")
+		log.Info("Stopping SPA[MsgUpdater] ... done")
 	}, shutdown.ShutdownPrioritySPA)
 }

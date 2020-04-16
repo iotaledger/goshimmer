@@ -3,6 +3,8 @@ export enum WSMsgType {
     TPSMetrics,
     Tx,
     NeighborStats,
+    Drng,
+    TipsMetrics,
 }
 
 export interface WSMessage {

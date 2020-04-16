@@ -29,6 +29,11 @@ class MemoryMetrics {
     ts: string;
 }
 
+class TipsMetric {
+    tips: number;
+    ts: string;
+}
+
 class NetworkIO {
     tx: number;
     rx: number;
@@ -154,11 +159,14 @@ export class NodeStore {
     @observable collected_tps_metrics: Array<TPSMetric> = [];
     @observable collected_mem_metrics: Array<MemoryMetrics> = [];
     @observable neighbor_metrics = new ObservableMap<string, NeighborMetrics>();
+    @observable last_tips_metric: TipsMetric = new TipsMetric();
+    @observable collected_tips_metrics: Array<TipsMetric> = [];
 
     constructor() {
         registerHandler(WSMsgType.Status, this.updateStatus);
         registerHandler(WSMsgType.TPSMetrics, this.updateLastTPSMetric);
         registerHandler(WSMsgType.NeighborStats, this.updateNeighborMetrics);
+        registerHandler(WSMsgType.TipsMetrics, this.updateLastTipsMetric);
     }
 
     connect() {
@@ -214,6 +222,18 @@ export class NodeStore {
         this.collected_tps_metrics.push(tpsMetric);
     };
 
+    @action
+    updateLastTipsMetric = (tips: number) => {
+        let tipsMetric = new TipsMetric();
+        tipsMetric.tips = tips;
+        tipsMetric.ts = dateformat(Date.now(), "HH:MM:ss");
+        this.last_tips_metric = tipsMetric;
+        if (this.collected_tips_metrics.length > maxMetricsDataPoints) {
+            this.collected_tips_metrics.shift();
+        }
+        this.collected_tips_metrics.push(tipsMetric);
+    };
+
     @computed
     get tpsSeries() {
         let tps = Object.assign({}, chartSeriesOpts,
@@ -230,6 +250,25 @@ export class NodeStore {
         return {
             labels: labels,
             datasets: [tps],
+        };
+    }
+
+    @computed
+    get tipsSeries() {
+        let tips = Object.assign({}, chartSeriesOpts,
+            series("Tips", 'rgba(250, 140, 30,1)', 'rgba(250, 140, 30,0.4)')
+        );
+
+        let labels = [];
+        for (let i = 0; i < this.collected_tips_metrics.length; i++) {
+            let metric: TipsMetric = this.collected_tips_metrics[i];
+            labels.push(metric.ts);
+            tips.data.push(metric.tips);
+        }
+
+        return {
+            labels: labels,
+            datasets: [tips],
         };
     }
 

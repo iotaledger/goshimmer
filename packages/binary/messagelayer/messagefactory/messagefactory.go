@@ -51,11 +51,10 @@ func (m *MessageFactory) IssuePayload(payload payload.Payload) *message.Message 
 	tx := message.New(
 		trunkTransaction,
 		branchTransaction,
-		m.localIdentity.PublicKey(),
+		m.localIdentity,
 		time.Now(),
 		sequenceNumber,
 		payload,
-		m.localIdentity,
 	)
 
 	m.Events.MessageConstructed.Trigger(tx)

@@ -34,8 +34,6 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 # user:group is nonroot:nonroot, uid:gid = 65532:65532
 FROM gcr.io/distroless/static@sha256:23aa732bba4c8618c0d97c26a72a32997363d591807b0d4c31b0bbc8a774bddf
 
-VOLUME /mainnetdb
-
 EXPOSE 14666/tcp
 EXPOSE 14626/udp
 
@@ -44,4 +42,4 @@ COPY --from=build /go/bin/goshimmer /run/goshimmer
 # Copy the default config
 COPY config.default.json /config.json
 
-ENTRYPOINT ["/run/goshimmer", "--config-dir=/", "--database.directory=/mainnetdb"]
+ENTRYPOINT ["/run/goshimmer", "--config-dir=/", "--database.directory=/tmp/mainnetdb"]
