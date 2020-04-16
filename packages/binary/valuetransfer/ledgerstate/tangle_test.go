@@ -1,10 +1,9 @@
-package tangle
+package ledgerstate
 
 import (
 	"io/ioutil"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
@@ -85,13 +84,6 @@ func TestTangle_AttachPayload(t *testing.T) {
 	)
 
 	tangle.AttachPayload(payload.New(payload.GenesisId, payload.GenesisId, tx))
-
-	time.Sleep(1 * time.Second)
-
-	outputFound := tangle.GetTransactionOutput(transaction.NewOutputId(outputAddress, tx.Id())).Consume(func(output *Output) {
-		assert.Equal(t, true, output.Solid())
-	})
-	assert.Equal(t, true, outputFound)
 
 	tangle.Shutdown()
 }

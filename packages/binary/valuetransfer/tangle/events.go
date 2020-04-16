@@ -4,7 +4,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
 type Events struct {
@@ -14,8 +13,6 @@ type Events struct {
 	MissingPayloadReceived *events.Event
 	PayloadMissing         *events.Event
 	PayloadUnsolidifiable  *events.Event
-	TransactionRemoved     *events.Event
-	OutputMissing          *events.Event
 
 	TransactionSolid *events.Event
 }
@@ -27,9 +24,6 @@ func newEvents() *Events {
 		MissingPayloadReceived: events.NewEvent(cachedPayloadEvent),
 		PayloadMissing:         events.NewEvent(payloadIdEvent),
 		PayloadUnsolidifiable:  events.NewEvent(payloadIdEvent),
-		OutputMissing:          events.NewEvent(outputIdEvent),
-
-		TransactionSolid: events.NewEvent(transactionEvent),
 	}
 }
 
@@ -42,15 +36,4 @@ func cachedPayloadEvent(handler interface{}, params ...interface{}) {
 		params[0].(*payload.CachedPayload).Retain(),
 		params[1].(*CachedPayloadMetadata).Retain(),
 	)
-}
-
-func transactionEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*transaction.Transaction, *CachedTransactionMetadata))(
-		params[0].(*transaction.Transaction),
-		params[1].(*CachedTransactionMetadata).Retain(),
-	)
-}
-
-func outputIdEvent(handler interface{}, params ...interface{}) {
-	handler.(func(transaction.OutputId))(params[0].(transaction.OutputId))
 }
