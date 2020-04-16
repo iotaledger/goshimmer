@@ -24,11 +24,11 @@ const (
 	contentTypeJSON = "application/json"
 )
 
-func NewGoShimmerAPI(node string, httpClient ...http.Client) *GoShimmerAPI {
+func NewGoShimmerAPI(baseUrl string, httpClient ...http.Client) *GoShimmerAPI {
 	if len(httpClient) > 0 {
-		return &GoShimmerAPI{baseUrl: node, httpClient: httpClient[0]}
+		return &GoShimmerAPI{baseUrl: baseUrl, httpClient: httpClient[0]}
 	}
-	return &GoShimmerAPI{baseUrl: node}
+	return &GoShimmerAPI{baseUrl: baseUrl}
 }
 
 // GoShimmerAPI is an API wrapper over the web API of GoShimmer.
