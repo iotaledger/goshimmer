@@ -1,4 +1,4 @@
-package tangle
+package ledgerstate
 
 import (
 	"time"

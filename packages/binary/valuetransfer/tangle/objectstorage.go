@@ -15,10 +15,6 @@ const (
 	osPayloadMetadata
 	osMissingPayload
 	osApprover
-	osAttachment
-	osOutput
-	osMissingOutput
-	osConsumer
 )
 
 func osPayloadFactory(key []byte) (objectstorage.StorableObject, error, int) {
@@ -35,20 +31,4 @@ func osMissingPayloadFactory(key []byte) (objectstorage.StorableObject, error, i
 
 func osPayloadApproverFactory(key []byte) (objectstorage.StorableObject, error, int) {
 	return PayloadApproverFromStorageKey(key)
-}
-
-func osAttachmentFactory(key []byte) (objectstorage.StorableObject, error, int) {
-	return AttachmentFromStorageKey(key)
-}
-
-func osOutputFactory(key []byte) (objectstorage.StorableObject, error, int) {
-	return OutputFromStorageKey(key)
-}
-
-func osMissingOutputFactory(key []byte) (objectstorage.StorableObject, error, int) {
-	return MissingOutputFromStorageKey(key)
-}
-
-func osConsumerFactory(key []byte) (objectstorage.StorableObject, error, int) {
-	return ConsumerFromStorageKey(key)
 }

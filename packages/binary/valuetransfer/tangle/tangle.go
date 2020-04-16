@@ -28,12 +28,6 @@ type Tangle struct {
 	payloadMetadataStorage *objectstorage.ObjectStorage
 	approverStorage        *objectstorage.ObjectStorage
 	missingPayloadStorage  *objectstorage.ObjectStorage
-	attachmentStorage      *objectstorage.ObjectStorage
-
-	outputStorage        *objectstorage.ObjectStorage
-	consumerStorage      *objectstorage.ObjectStorage
-	missingOutputStorage *objectstorage.ObjectStorage
-	branchStorage        *objectstorage.ObjectStorage
 
 	Events Events
 
@@ -52,12 +46,6 @@ func New(badgerInstance *badger.DB) (result *Tangle) {
 		payloadMetadataStorage: osFactory.New(osPayloadMetadata, osPayloadMetadataFactory, objectstorage.CacheTime(time.Second)),
 		missingPayloadStorage:  osFactory.New(osMissingPayload, osMissingPayloadFactory, objectstorage.CacheTime(time.Second)),
 		approverStorage:        osFactory.New(osApprover, osPayloadApproverFactory, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
-
-		// transaction related storage
-		attachmentStorage:    osFactory.New(osAttachment, osAttachmentFactory, objectstorage.CacheTime(time.Second)),
-		outputStorage:        osFactory.New(osOutput, osOutputFactory, OutputKeyPartitions, objectstorage.CacheTime(time.Second)),
-		missingOutputStorage: osFactory.New(osMissingOutput, osMissingOutputFactory, MissingOutputKeyPartitions, objectstorage.CacheTime(time.Second)),
-		consumerStorage:      osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(time.Second)),
 
 		Events: *newEvents(),
 	}
