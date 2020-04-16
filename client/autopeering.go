@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	routeGetNeighbors = "getNeighbors"
+	routeGetNeighbors = "autopeering/neighbors"
 )
 
 // GetNeighbors gets the chosen/accepted neighbors.
