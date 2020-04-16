@@ -1,4 +1,4 @@
-package transaction
+package tangle
 
 import (
 	"testing"
@@ -8,13 +8,14 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
 func TestNew(t *testing.T) {
 	randomAddress := address.Random()
-	randomTransactionId := RandomId()
+	randomTransactionId := transaction.RandomId()
 
-	output := NewOutput(randomAddress, randomTransactionId, []*balance.Balance{
+	output := NewOutput(randomAddress, randomTransactionId, MasterBranchId, []*balance.Balance{
 		balance.New(balance.COLOR_IOTA, 1337),
 	})
 

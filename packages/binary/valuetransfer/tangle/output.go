@@ -1,4 +1,4 @@
-package transaction
+package tangle
 
 import (
 	"sync"
@@ -6,33 +6,40 @@ import (
 
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
-var OutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, IdLength}...)
+var OutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, transaction.IdLength}...)
 
 // Output represents the output of a Transaction and contains the balances and the identifiers for this output.
 type Output struct {
 	address            address.Address
-	transactionId      Id
+	transactionId      transaction.Id
+	branchId           BranchId
 	solid              bool
 	solidificationTime time.Time
+	firstConsumer      transaction.Id
+	consumerCount      int
 	balances           []*balance.Balance
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
+	consumerMutex           sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 	storageKey []byte
 }
 
 // NewOutput creates an Output that contains the balances and identifiers of a Transaction.
-func NewOutput(address address.Address, transactionId Id, balances []*balance.Balance) *Output {
+func NewOutput(address address.Address, transactionId transaction.Id, branchId BranchId, balances []*balance.Balance) *Output {
 	return &Output{
 		address:            address,
 		transactionId:      transactionId,
+		branchId:           branchId,
 		solid:              false,
 		solidificationTime: time.Time{},
 		balances:           balances,
@@ -93,14 +100,18 @@ func OutputFromStorageKey(keyBytes []byte, optionalTargetObject ...*Output) (res
 	if err != nil {
 		return
 	}
-	result.transactionId, err = ParseId(marshalUtil)
+	result.transactionId, err = transaction.ParseId(marshalUtil)
 	if err != nil {
 		return
 	}
-	result.storageKey = marshalutil.New(keyBytes[:OutputIdLength]).Bytes(true)
+	result.storageKey = marshalutil.New(keyBytes[:transaction.OutputIdLength]).Bytes(true)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
+}
+
+func (output *Output) Id() transaction.OutputId {
+	return transaction.NewOutputId(output.Address(), output.TransactionId())
 }
 
 // Address returns the address that this output belongs to.
@@ -109,8 +120,13 @@ func (output *Output) Address() address.Address {
 }
 
 // TransactionId returns the id of the Transaction, that created this output.
-func (output *Output) TransactionId() Id {
+func (output *Output) TransactionId() transaction.Id {
 	return output.transactionId
+}
+
+// BranchId returns the id of the ledger state branch, that this output was booked in.
+func (output *Output) BranchId() BranchId {
+	return output.branchId
 }
 
 // Solid returns true if the output has been marked as solid.
@@ -155,6 +171,20 @@ func (output *Output) SolidificationTime() time.Time {
 	return output.solidificationTime
 }
 
+func (output *Output) RegisterConsumer(consumer transaction.Id) (consumerCount int, firstConsumerId transaction.Id) {
+	output.consumerMutex.Lock()
+	defer output.consumerMutex.Unlock()
+
+	if consumerCount = output.consumerCount; consumerCount == 0 {
+		output.firstConsumer = consumer
+	}
+	output.consumerCount++
+
+	firstConsumerId = output.firstConsumer
+
+	return
+}
+
 // Balances returns the colored balances (color + balance) that this output contains.
 func (output *Output) Balances() []*balance.Balance {
 	return output.balances
@@ -171,7 +201,7 @@ func (output *Output) Bytes() []byte {
 // ObjectStorageKey returns the key that is used to store the object in the database.
 // It is required to match StorableObject interface.
 func (output *Output) ObjectStorageKey() []byte {
-	return marshalutil.New(OutputIdLength).
+	return marshalutil.New(transaction.OutputIdLength).
 		WriteBytes(output.address.Bytes()).
 		WriteBytes(output.transactionId.Bytes()).
 		Bytes()
@@ -184,7 +214,8 @@ func (output *Output) ObjectStorageValue() []byte {
 	balanceCount := len(output.balances)
 
 	// initialize helper
-	marshalUtil := marshalutil.New(marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
+	marshalUtil := marshalutil.New(BranchIdLength + marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
+	marshalUtil.WriteBytes(output.branchId.Bytes())
 	marshalUtil.WriteBool(output.solid)
 	marshalUtil.WriteTime(output.solidificationTime)
 	marshalUtil.WriteUint32(uint32(balanceCount))
@@ -199,6 +230,9 @@ func (output *Output) ObjectStorageValue() []byte {
 // being stored in its key rather than the content of the database to reduce storage requirements.
 func (output *Output) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
 	marshalUtil := marshalutil.New(data)
+	if output.branchId, err = ParseBranchId(marshalUtil); err != nil {
+		return
+	}
 	if output.solid, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
@@ -225,6 +259,17 @@ func (output *Output) UnmarshalObjectStorageValue(data []byte) (err error, consu
 // Update is disabled and panics if it ever gets called - it is required to match StorableObject interface.
 func (output *Output) Update(other objectstorage.StorableObject) {
 	panic("this object should never be updated")
+}
+
+func (output *Output) String() string {
+	return stringify.Struct("Output",
+		stringify.StructField("address", output.Address()),
+		stringify.StructField("transactionId", output.TransactionId()),
+		stringify.StructField("branchId", output.BranchId()),
+		stringify.StructField("solid", output.Solid()),
+		stringify.StructField("solidificationTime", output.SolidificationTime()),
+		stringify.StructField("balances", output.Balances()),
+	)
 }
 
 // define contract (ensure that the struct fulfills the given interface)
@@ -254,7 +299,7 @@ func (cachedOutput *CachedOutput) Consume(consumer func(output *Output)) (consum
 	})
 }
 
-type CachedOutputs []*CachedOutput
+type CachedOutputs map[transaction.OutputId]*CachedOutput
 
 func (cachedOutputs CachedOutputs) Consume(consumer func(output *Output)) (consumed bool) {
 	for _, cachedOutput := range cachedOutputs {
@@ -264,6 +309,12 @@ func (cachedOutputs CachedOutputs) Consume(consumer func(output *Output)) (consu
 	}
 
 	return
+}
+
+func (cachedOutputs CachedOutputs) Release(force ...bool) {
+	for _, cachedOutput := range cachedOutputs {
+		cachedOutput.Release(force...)
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
