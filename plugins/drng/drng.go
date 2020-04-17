@@ -1,7 +1,7 @@
 package drng
 
 import (
-	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -20,7 +20,7 @@ func parseCommitteeMembers() (result []ed25519.PublicKey, err error) {
 			continue
 		}
 
-		pubKey, err := base64.StdEncoding.DecodeString(committeeMember)
+		pubKey, err := hex.DecodeString(committeeMember)
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid public key: %s", ErrParsingCommitteeMember, err)
 		}
