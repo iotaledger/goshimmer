@@ -8,10 +8,10 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
-	"github.com/mr-tron/base58"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI info Endpoint", node.Enabled, configure)
+// Plugin exports the plugin
+var Plugin = node.NewPlugin("WebAPI info Endpoint", node.Enabled, configure)
 
 func configure(plugin *node.Plugin) {
 	webapi.Server.GET("info", getInfo)
@@ -21,7 +21,7 @@ func configure(plugin *node.Plugin) {
 // e.g.,
 // {
 // 	"version":"v0.2.0",
-// 	"identity":"7BxV1v3nFHefn4J88jeZebqnJRvSHt1jC7ME6tmKLhy7",
+// 	"identityID":"5bf4aa1d6c47e4ce",
 // 	"publickey":"CjUsn86jpFHWnSCx3NhWfU4Lk16mDdy1Hr7ERSTv3xn9",
 // 	"enabledplugins":[
 // 		"Config",
@@ -53,8 +53,8 @@ func configure(plugin *node.Plugin) {
 // 	]
 // }
 func getInfo(c echo.Context) error {
-	enabledPlugins := []string{}
-	disabledPlugins := []string{}
+	var enabledPlugins []string
+	var disabledPlugins []string
 	for plugin, status := range node.GetPlugins() {
 		switch status {
 		case node.Disabled:
@@ -68,8 +68,8 @@ func getInfo(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, Response{
 		Version:         banner.AppVersion,
-		Identity:        base58.Encode(local.GetInstance().Identity.ID().Bytes()),
-		PublicKey:       base58.Encode(local.GetInstance().PublicKey().Bytes()),
+		IdentityID:      local.GetInstance().Identity.ID().String(),
+		PublicKey:       local.GetInstance().PublicKey().String(),
 		EnabledPlugins:  enabledPlugins,
 		DisabledPlugins: disabledPlugins,
 	})
@@ -79,8 +79,8 @@ func getInfo(c echo.Context) error {
 type Response struct {
 	// version of GoShimmer
 	Version string `json:"version,omitempty"`
-	// identity of the node encoded in base58
-	Identity string `json:"identity,omitempty"`
+	// identity ID of the node encoded in hex and truncated to its first 8 bytes
+	IdentityID string `json:"identityID,omitempty"`
 	// public key of the node encoded in base58
 	PublicKey string `json:"publickey,omitempty"`
 	// list of enabled plugins

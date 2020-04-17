@@ -20,5 +20,5 @@ var PLUGINS = node.Plugins(
 	drng.PLUGIN,
 	message.PLUGIN,
 	autopeering.PLUGIN,
-	info.PLUGIN,
+	info.Plugin,
 )
