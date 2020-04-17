@@ -88,8 +88,8 @@ func (approver *Approver) ReferencedMessageId() message.Id {
 	return approver.referencedMessageId
 }
 
-// ApprovingMessageId returns the id of the message which referenced the given approved message.
-func (approver *Approver) ApprovingMessageId() message.Id {
+// ApproverMessageId returns the id of the message which referenced the given approved message.
+func (approver *Approver) ApproverMessageId() message.Id {
 	return approver.approverMessageId
 }
 
@@ -100,7 +100,7 @@ func (approver *Approver) Bytes() []byte {
 func (approver *Approver) String() string {
 	return stringify.Struct("Approver",
 		stringify.StructField("referencedMessageId", approver.ReferencedMessageId()),
-		stringify.StructField("approverMessageId", approver.ApprovingMessageId()),
+		stringify.StructField("approverMessageId", approver.ApproverMessageId()),
 	)
 }
 

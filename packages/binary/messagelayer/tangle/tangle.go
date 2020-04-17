@@ -252,7 +252,7 @@ func (tangle *Tangle) checkMessageSolidityAndPropagate(cachedMessage *message.Ca
 
 			// auto. push approvers of the newly solid message to propagate solidification
 			tangle.Approvers(currentMessage.Id()).Consume(func(approver *Approver) {
-				approverMessageId := approver.ReferencedMessageId()
+				approverMessageId := approver.ApproverMessageId()
 				solidificationStack.PushBack([2]interface{}{
 					tangle.Message(approverMessageId),
 					tangle.MessageMetadata(approverMessageId),
