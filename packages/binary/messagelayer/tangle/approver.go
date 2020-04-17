@@ -8,24 +8,25 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 )
 
-// region Approver /////////////////////////////////////////////////////////////////////////////////////////////////////
-
+// Approver is an approver of a given referenced message.
 type Approver struct {
 	objectstorage.StorableObjectFlags
-
+	// the message which got referenced by the approver message.
 	referencedMessageId message.Id
-	approvingMessageId  message.Id
+	// the message which approved/referenced the given referenced message.
+	approverMessageId message.Id
 }
 
-func NewApprover(referencedMessage message.Id, approvingMessage message.Id) *Approver {
+// NewApprover creates a new approver relation to the given approved/referenced message.
+func NewApprover(referencedMessageId message.Id, approverMessageId message.Id) *Approver {
 	approver := &Approver{
-		referencedMessageId: referencedMessage,
-		approvingMessageId:  approvingMessage,
+		referencedMessageId: referencedMessageId,
+		approverMessageId:   approverMessageId,
 	}
-
 	return approver
 }
 
+// ApproverFromBytes parses the given bytes into an approver.
 func ApproverFromBytes(bytes []byte, optionalTargetObject ...*Approver) (result *Approver, err error, consumedBytes int) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParseApprover(marshalUtil, optionalTargetObject...)
@@ -34,6 +35,7 @@ func ApproverFromBytes(bytes []byte, optionalTargetObject ...*Approver) (result 
 	return
 }
 
+// ParseApprover parses a new approver from the given marshal utility.
 func ParseApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Approver) (result *Approver, err error) {
 	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
 		return ApproverFromStorageKey(data, optionalTargetObject...)
@@ -56,6 +58,7 @@ func ParseApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ..
 	return
 }
 
+// ApproverFromStorageKey returns an approver for the given key.
 func ApproverFromStorageKey(key []byte, optionalTargetObject ...*Approver) (result objectstorage.StorableObject, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
@@ -72,7 +75,7 @@ func ApproverFromStorageKey(key []byte, optionalTargetObject ...*Approver) (resu
 	if result.(*Approver).referencedMessageId, err = message.ParseId(marshalUtil); err != nil {
 		return
 	}
-	if result.(*Approver).approvingMessageId, err = message.ParseId(marshalUtil); err != nil {
+	if result.(*Approver).approverMessageId, err = message.ParseId(marshalUtil); err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -80,12 +83,14 @@ func ApproverFromStorageKey(key []byte, optionalTargetObject ...*Approver) (resu
 	return
 }
 
+// ReferencedMessageId returns the id of the message which is referenced by the approver.
 func (approver *Approver) ReferencedMessageId() message.Id {
-	return approver.approvingMessageId
+	return approver.referencedMessageId
 }
 
+// ApprovingMessageId returns the id of the message which referenced the given approved message.
 func (approver *Approver) ApprovingMessageId() message.Id {
-	return approver.approvingMessageId
+	return approver.approverMessageId
 }
 
 func (approver *Approver) Bytes() []byte {
@@ -95,14 +100,14 @@ func (approver *Approver) Bytes() []byte {
 func (approver *Approver) String() string {
 	return stringify.Struct("Approver",
 		stringify.StructField("referencedMessageId", approver.ReferencedMessageId()),
-		stringify.StructField("approvingMessageId", approver.ApprovingMessageId()),
+		stringify.StructField("approverMessageId", approver.ApprovingMessageId()),
 	)
 }
 
 func (approver *Approver) ObjectStorageKey() []byte {
 	return marshalutil.New().
 		WriteBytes(approver.referencedMessageId.Bytes()).
-		WriteBytes(approver.approvingMessageId.Bytes()).
+		WriteBytes(approver.approverMessageId.Bytes()).
 		Bytes()
 }
 
@@ -120,10 +125,6 @@ func (approver *Approver) Update(other objectstorage.StorableObject) {
 
 // interface contract (allow the compiler to check if the implementation has all of the required methods).
 var _ objectstorage.StorableObject = &Approver{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedApprover ///////////////////////////////////////////////////////////////////////////////////////////////
 
 type CachedApprover struct {
 	objectstorage.CachedObject
@@ -158,5 +159,3 @@ func (cachedApprovers CachedApprovers) Consume(consumer func(approver *Approver)
 
 	return
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
