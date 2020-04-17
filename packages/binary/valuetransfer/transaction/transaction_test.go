@@ -40,7 +40,7 @@ func TestShortDataPayload(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	dpBack, dptBack := tx.GetDataPayload()
-	assert.Equal(t, true, bytes.Compare(dpBack, dataPayload) == 0)
+	assert.Equal(t, true, bytes.Equal(dpBack, dataPayload))
 	assert.Equal(t, true, dptBack == dataPayloadType)
 
 	tx.Sign(sigScheme)
@@ -95,7 +95,7 @@ func TestMarshalingEmptyDataPayload(t *testing.T) {
 		assert.Error(t, err)
 	}
 	assert.Equal(t, true, tx1.SignaturesValid())
-	assert.Equal(t, true, bytes.Compare(tx1.Id().Bytes(), tx.Id().Bytes()) == 0)
+	assert.Equal(t, true, bytes.Equal(tx1.Id().Bytes(), tx.Id().Bytes()))
 }
 
 func TestMarshalingDataPayload(t *testing.T) {
@@ -124,5 +124,5 @@ func TestMarshalingDataPayload(t *testing.T) {
 	assert.Equal(t, nil, err)
 	assert.Equal(t, true, tx1.SignaturesValid())
 
-	assert.Equal(t, true, bytes.Compare(tx1.Id().Bytes(), tx.Id().Bytes()) == 0)
+	assert.Equal(t, true, bytes.Equal(tx1.Id().Bytes(), tx.Id().Bytes()))
 }
