@@ -17,10 +17,10 @@ type Approver struct {
 	approvingMessageId  message.Id
 }
 
-func NewApprover(referencedTransaction message.Id, approvingTransaction message.Id) *Approver {
+func NewApprover(referencedMessage message.Id, approvingMessage message.Id) *Approver {
 	approver := &Approver{
-		referencedMessageId: referencedTransaction,
-		approvingMessageId:  approvingTransaction,
+		referencedMessageId: referencedMessage,
+		approvingMessageId:  approvingMessage,
 	}
 
 	return approver

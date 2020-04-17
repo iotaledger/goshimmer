@@ -56,7 +56,7 @@ func (missingMessage *MissingMessage) MissingSince() time.Time {
 }
 
 func (missingMessage *MissingMessage) Update(other objectstorage.StorableObject) {
-	panic("missing transactions should never be overwritten and only stored once to optimize IO")
+	panic("missing messages should never be overwritten and only stored once to optimize IO")
 }
 
 func (missingMessage *MissingMessage) ObjectStorageKey() []byte {
