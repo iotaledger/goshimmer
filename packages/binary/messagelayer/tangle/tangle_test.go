@@ -62,7 +62,7 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		return
 	}
 
-	messageTangle.Events.TransactionAttached.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *CachedMessageMetadata) {
+	messageTangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *CachedMessageMetadata) {
 		cachedTransactionMetadata.Release()
 
 		cachedTransaction.Consume(func(transaction *message.Message) {
@@ -70,7 +70,7 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		})
 	}))
 
-	messageTangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *CachedMessageMetadata) {
+	messageTangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *CachedMessageMetadata) {
 		cachedTransactionMetadata.Release()
 
 		cachedTransaction.Consume(func(transaction *message.Message) {
@@ -78,15 +78,15 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		})
 	}))
 
-	messageTangle.Events.TransactionUnsolidifiable.Attach(events.NewClosure(func(transactionId message.Id) {
+	messageTangle.Events.MessageUnsolidifiable.Attach(events.NewClosure(func(transactionId message.Id) {
 		fmt.Println("UNSOLIDIFIABLE:", transactionId)
 	}))
 
-	messageTangle.Events.TransactionMissing.Attach(events.NewClosure(func(transactionId message.Id) {
+	messageTangle.Events.MessageMissing.Attach(events.NewClosure(func(transactionId message.Id) {
 		fmt.Println("MISSING:", transactionId)
 	}))
 
-	messageTangle.Events.TransactionRemoved.Attach(events.NewClosure(func(transactionId message.Id) {
+	messageTangle.Events.MessageRemoved.Attach(events.NewClosure(func(transactionId message.Id) {
 		fmt.Println("REMOVED:", transactionId)
 	}))
 

@@ -102,10 +102,10 @@ func run(*node.Plugin) {
 
 	daemon.BackgroundWorker("Graph[NewTxWorker]", func(shutdownSignal <-chan struct{}) {
 		log.Info("Starting Graph[NewTxWorker] ... done")
-		messagelayer.Tangle.Events.TransactionAttached.Attach(notifyNewTx)
+		messagelayer.Tangle.Events.MessageAttached.Attach(notifyNewTx)
 		newTxWorkerPool.Start()
 		<-shutdownSignal
-		messagelayer.Tangle.Events.TransactionAttached.Detach(notifyNewTx)
+		messagelayer.Tangle.Events.MessageAttached.Detach(notifyNewTx)
 		newTxWorkerPool.Stop()
 		log.Info("Stopping Graph[NewTxWorker] ... done")
 	}, shutdown.ShutdownPriorityGraph)

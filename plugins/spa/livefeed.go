@@ -41,11 +41,11 @@ func runLiveFeed() {
 	})
 
 	daemon.BackgroundWorker("SPA[MsgUpdater]", func(shutdownSignal <-chan struct{}) {
-		messagelayer.Tangle.Events.TransactionAttached.Attach(notifyNewMsg)
+		messagelayer.Tangle.Events.MessageAttached.Attach(notifyNewMsg)
 		liveFeedWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping SPA[MsgUpdater] ...")
-		messagelayer.Tangle.Events.TransactionAttached.Detach(notifyNewMsg)
+		messagelayer.Tangle.Events.MessageAttached.Detach(notifyNewMsg)
 		newMsgRateLimiter.Stop()
 		liveFeedWorkerPool.Stop()
 		log.Info("Stopping SPA[MsgUpdater] ... done")

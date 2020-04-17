@@ -77,7 +77,7 @@ func configureEvents() {
 	}))
 
 	// configure flow of outgoing transactions (gossip on solidification)
-	messagelayer.Tangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, transactionMetadata *tangle.CachedMessageMetadata) {
+	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, transactionMetadata *tangle.CachedMessageMetadata) {
 		transactionMetadata.Release()
 
 		cachedTransaction.Consume(func(transaction *message.Message) {

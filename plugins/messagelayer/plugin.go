@@ -62,8 +62,8 @@ func configure(*node.Plugin) {
 	}))
 
 	// setup TransactionRequester
-	Tangle.Events.TransactionMissing.Attach(events.NewClosure(TransactionRequester.ScheduleRequest))
-	Tangle.Events.MissingTransactionReceived.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *tangle.CachedMessageMetadata) {
+	Tangle.Events.MessageMissing.Attach(events.NewClosure(TransactionRequester.ScheduleRequest))
+	Tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *tangle.CachedMessageMetadata) {
 		cachedTransactionMetadata.Release()
 
 		cachedTransaction.Consume(func(transaction *message.Message) {
@@ -72,7 +72,7 @@ func configure(*node.Plugin) {
 	}))
 
 	// setup TipSelector
-	Tangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *tangle.CachedMessageMetadata) {
+	Tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *tangle.CachedMessageMetadata) {
 		cachedTransactionMetadata.Release()
 
 		cachedTransaction.Consume(TipSelector.AddTip)

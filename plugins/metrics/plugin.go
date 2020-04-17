@@ -18,7 +18,7 @@ var PLUGIN = node.NewPlugin("Metrics", node.Enabled, configure, run)
 
 func configure(plugin *node.Plugin) {
 	// increase received TPS counter whenever we receive a new transaction
-	messagelayer.Tangle.Events.TransactionAttached.Attach(events.NewClosure(func(transaction *message.CachedMessage, metadata *tangle.CachedMessageMetadata) {
+	messagelayer.Tangle.Events.MessageAttached.Attach(events.NewClosure(func(transaction *message.CachedMessage, metadata *tangle.CachedMessageMetadata) {
 		transaction.Release()
 		metadata.Release()
 
