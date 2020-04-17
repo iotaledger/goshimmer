@@ -315,8 +315,7 @@ func (tangle *Tangle) deleteFutureCone(messageId message.Id) {
 		tangle.DeleteMessage(currentMessageId)
 
 		tangle.Approvers(currentMessageId).Consume(func(approver *Approver) {
-			approverId := approver.ReferencedMessageId()
-
+			approverId := approver.ApproverMessageId()
 			if _, messageProcessed := processedMessages[approverId]; !messageProcessed {
 				cleanupStack.PushBack(approverId)
 				processedMessages[approverId] = types.Void
