@@ -32,6 +32,10 @@ type Transaction struct {
 	signatureBytes      []byte
 	signatureBytesMutex sync.RWMutex
 
+	dataPayloadType  uint32
+	dataPayload      []byte
+	dataPayloadMutex sync.RWMutex
+
 	bytes      []byte
 	bytesMutex sync.RWMutex
 }
@@ -182,6 +186,15 @@ func (transaction *Transaction) EssenceBytes() []byte {
 	// marshal outputs
 	marshalUtil.WriteBytes(transaction.outputs.Bytes())
 
+	// marshal dataPayload type
+	marshalUtil.WriteUint32(transaction.dataPayloadType)
+
+	// marshal dataPayload size
+	marshalUtil.WriteUint32(transaction.DataPayloadSize())
+
+	// marshal dataPayload data
+	marshalUtil.WriteBytes(transaction.dataPayload)
+
 	// store marshaled result
 	transaction.essenceBytes = marshalUtil.Bytes()
 
@@ -260,7 +273,41 @@ func (transaction *Transaction) String() string {
 		stringify.StructField("inputs", transaction.inputs),
 		stringify.StructField("outputs", transaction.outputs),
 		stringify.StructField("signatures", transaction.signatures),
+		stringify.StructField("dataPayloadSize", transaction.DataPayloadSize()),
 	)
+}
+
+// max dataPayload size limit
+const MAX_DATA_PAYLOAD_SIZE = 64 * 1024
+
+// sets yhe dataPayload and its type
+func (transaction *Transaction) SetDataPayload(data []byte, payloadType uint32) error {
+	transaction.dataPayloadMutex.Lock()
+	defer transaction.dataPayloadMutex.Unlock()
+
+	if len(data) > MAX_DATA_PAYLOAD_SIZE {
+		return fmt.Errorf("maximum dataPayload size of %d bytes exceeded", MAX_DATA_PAYLOAD_SIZE)
+	}
+	transaction.dataPayload = data
+	transaction.dataPayloadType = payloadType
+	return nil
+}
+
+// gets the dataPayload and its type
+func (transaction *Transaction) GetDataPayload() ([]byte, uint32) {
+	transaction.dataPayloadMutex.RLock()
+	defer transaction.dataPayloadMutex.RUnlock()
+
+	return transaction.dataPayload, transaction.dataPayloadType
+}
+
+// return size of the dataPayload as uint32
+// nil payload as size 0
+func (transaction *Transaction) DataPayloadSize() uint32 {
+	transaction.dataPayloadMutex.RLock()
+	defer transaction.dataPayloadMutex.RUnlock()
+
+	return uint32(len(transaction.dataPayload))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -300,6 +347,30 @@ func (transaction *Transaction) UnmarshalObjectStorageValue(bytes []byte) (err e
 		return
 	}
 	transaction.outputs = parsedOutputs.(*Outputs)
+
+	// unmarshal data payload type
+	transaction.dataPayloadType, err = marshalUtil.ReadUint32()
+	if err != nil {
+		return
+	}
+
+	// unmarshal data payload size
+	var dataPayloadSize uint32
+	dataPayloadSize, err = marshalUtil.ReadUint32()
+	if err != nil {
+		return
+	}
+	if dataPayloadSize > MAX_DATA_PAYLOAD_SIZE {
+		err = fmt.Errorf("data payload size of %d bytes exceeds maximum limit of %d bytes",
+			dataPayloadSize, MAX_DATA_PAYLOAD_SIZE)
+		return
+	}
+
+	// unmarshal data payload
+	transaction.dataPayload, err = marshalUtil.ReadBytes(int(dataPayloadSize))
+	if err != nil {
+		return
+	}
 
 	// store essence bytes
 	essenceBytesCount := marshalUtil.ReadOffset()

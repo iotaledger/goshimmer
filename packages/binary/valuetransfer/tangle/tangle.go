@@ -70,7 +70,7 @@ func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
 	tangle.storePayloadWorkerPool.Submit(func() { tangle.storePayloadWorker(payload) })
 }
 
-// GetPayload retrieves a payload from the object storage.
+// GetDataPayload retrieves a payload from the object storage.
 func (tangle *Tangle) GetPayload(payloadId payload.Id) *payload.CachedPayload {
 	return &payload.CachedPayload{CachedObject: tangle.payloadStorage.Load(payloadId.Bytes())}
 }
