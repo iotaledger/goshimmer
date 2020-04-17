@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
-// Message represents the core container
+// Message represents the core message for the base layer Tangle.
 type Message struct {
 	// base functionality of StorableObject
 	objectstorage.StorableObjectFlags
