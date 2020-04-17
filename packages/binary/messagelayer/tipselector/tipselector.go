@@ -7,63 +7,67 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 )
 
+// TipSelector manages a map of tips and emits events for their removal and addition.
 type TipSelector struct {
 	tips   *datastructure.RandomMap
 	Events Events
 }
 
+// New creates a new tip-selector.
 func New() *TipSelector {
 	return &TipSelector{
 		tips: datastructure.NewRandomMap(),
 		Events: Events{
-			TipAdded:   events.NewEvent(transactionIdEvent),
-			TipRemoved: events.NewEvent(transactionIdEvent),
+			TipAdded:   events.NewEvent(messageIdEvent),
+			TipRemoved: events.NewEvent(messageIdEvent),
 		},
 	}
 }
 
-func (tipSelector *TipSelector) AddTip(transaction *message.Message) {
-	transactionId := transaction.Id()
-	if tipSelector.tips.Set(transactionId, transactionId) {
-		tipSelector.Events.TipAdded.Trigger(transactionId)
+// AddTip adds the given message as a tip.
+func (tipSelector *TipSelector) AddTip(msg *message.Message) {
+	messageId := msg.Id()
+	if tipSelector.tips.Set(messageId, messageId) {
+		tipSelector.Events.TipAdded.Trigger(messageId)
 	}
 
-	trunkTransactionId := transaction.TrunkId()
-	if _, deleted := tipSelector.tips.Delete(trunkTransactionId); deleted {
-		tipSelector.Events.TipRemoved.Trigger(trunkTransactionId)
+	trunkMessageId := msg.TrunkId()
+	if _, deleted := tipSelector.tips.Delete(trunkMessageId); deleted {
+		tipSelector.Events.TipRemoved.Trigger(trunkMessageId)
 	}
 
-	branchTransactionId := transaction.BranchId()
-	if _, deleted := tipSelector.tips.Delete(branchTransactionId); deleted {
-		tipSelector.Events.TipRemoved.Trigger(branchTransactionId)
+	branchMessageId := msg.BranchId()
+	if _, deleted := tipSelector.tips.Delete(branchMessageId); deleted {
+		tipSelector.Events.TipRemoved.Trigger(branchMessageId)
 	}
 }
 
-func (tipSelector *TipSelector) GetTips() (trunkTransaction, branchTransaction message.Id) {
+// Tips returns two tips.
+func (tipSelector *TipSelector) Tips() (trunkMessageId, branchMessageId message.Id) {
 	tip := tipSelector.tips.RandomEntry()
 	if tip == nil {
-		trunkTransaction = message.EmptyId
-		branchTransaction = message.EmptyId
+		trunkMessageId = message.EmptyId
+		branchMessageId = message.EmptyId
 
 		return
 	}
 
-	branchTransaction = tip.(message.Id)
+	branchMessageId = tip.(message.Id)
 
 	if tipSelector.tips.Size() == 1 {
-		trunkTransaction = branchTransaction
-
+		trunkMessageId = branchMessageId
 		return
 	}
 
-	trunkTransaction = tipSelector.tips.RandomEntry().(message.Id)
-	for trunkTransaction == branchTransaction && tipSelector.tips.Size() > 1 {
-		trunkTransaction = tipSelector.tips.RandomEntry().(message.Id)
+	trunkMessageId = tipSelector.tips.RandomEntry().(message.Id)
+	for trunkMessageId == branchMessageId && tipSelector.tips.Size() > 1 {
+		trunkMessageId = tipSelector.tips.RandomEntry().(message.Id)
 	}
 
 	return
 }
 
-func (tipSelector *TipSelector) GetTipCount() int {
+// TipCount the amount of current tips.
+func (tipSelector *TipSelector) TipCount() int {
 	return tipSelector.tips.Size()
 }

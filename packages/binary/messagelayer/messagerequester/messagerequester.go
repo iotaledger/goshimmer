@@ -1,4 +1,4 @@
-package transactionrequester
+package messagerequester
 
 import (
 	"sync"
@@ -10,7 +10,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 )
 
-type TransactionRequester struct {
+// MessageRequester takes care of requesting messages.
+type MessageRequester struct {
 	scheduledRequests map[message.Id]*time.Timer
 	requestWorker     async.NonBlockingWorkerPool
 	options           *Options
@@ -19,8 +20,9 @@ type TransactionRequester struct {
 	scheduledRequestsMutex sync.RWMutex
 }
 
-func New(optionalOptions ...Option) *TransactionRequester {
-	requester := &TransactionRequester{
+// New creates a new message requester.
+func New(optionalOptions ...Option) *MessageRequester {
+	requester := &MessageRequester{
 		scheduledRequests: make(map[message.Id]*time.Timer),
 		options:           newOptions(optionalOptions),
 		Events: Events{
@@ -31,26 +33,25 @@ func New(optionalOptions ...Option) *TransactionRequester {
 	}
 
 	requester.requestWorker.Tune(requester.options.workerCount)
-
 	return requester
 }
 
-func (requester *TransactionRequester) ScheduleRequest(transactionId message.Id) {
+// ScheduleRequest schedules a request for the given message.
+func (requester *MessageRequester) ScheduleRequest(messageId message.Id) {
 	var retryRequest func(bool)
 	retryRequest = func(initialRequest bool) {
 		requester.requestWorker.Submit(func() {
 			requester.scheduledRequestsMutex.RLock()
-			if _, requestExists := requester.scheduledRequests[transactionId]; !initialRequest && !requestExists {
+			if _, requestExists := requester.scheduledRequests[messageId]; !initialRequest && !requestExists {
 				requester.scheduledRequestsMutex.RUnlock()
-
 				return
 			}
 			requester.scheduledRequestsMutex.RUnlock()
 
-			requester.Events.SendRequest.Trigger(transactionId)
+			requester.Events.SendRequest.Trigger(messageId)
 
 			requester.scheduledRequestsMutex.Lock()
-			requester.scheduledRequests[transactionId] = time.AfterFunc(requester.options.retryInterval, func() { retryRequest(false) })
+			requester.scheduledRequests[messageId] = time.AfterFunc(requester.options.retryInterval, func() { retryRequest(false) })
 			requester.scheduledRequestsMutex.Unlock()
 		})
 	}
@@ -58,17 +59,18 @@ func (requester *TransactionRequester) ScheduleRequest(transactionId message.Id)
 	retryRequest(true)
 }
 
-func (requester *TransactionRequester) StopRequest(transactionId message.Id) {
+// StopRequest stops requests for the given message to further happen.
+func (requester *MessageRequester) StopRequest(messageId message.Id) {
 	requester.scheduledRequestsMutex.RLock()
-	if timer, timerExists := requester.scheduledRequests[transactionId]; timerExists {
+	if timer, timerExists := requester.scheduledRequests[messageId]; timerExists {
 		requester.scheduledRequestsMutex.RUnlock()
 
 		timer.Stop()
 
 		requester.scheduledRequestsMutex.Lock()
-		delete(requester.scheduledRequests, transactionId)
+		delete(requester.scheduledRequests, messageId)
 		requester.scheduledRequestsMutex.Unlock()
-	} else {
-		requester.scheduledRequestsMutex.RUnlock()
+		return
 	}
+	requester.scheduledRequestsMutex.RUnlock()
 }

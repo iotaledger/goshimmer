@@ -15,17 +15,15 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
-func BenchmarkVerifyDataTransactions(b *testing.B) {
+func BenchmarkVerifyDataMessages(b *testing.B) {
 	var pool async.WorkerPool
 	pool.Tune(runtime.NumCPU() * 2)
 
 	localIdentity := identity.GenerateLocalIdentity()
 
-	transactions := make([][]byte, b.N)
+	messages := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
-		tx := message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("some data")))
-
-		transactions[i] = tx.Bytes()
+		messages[i] = message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("some data"))).Bytes()
 	}
 
 	b.ResetTimer()
@@ -33,10 +31,10 @@ func BenchmarkVerifyDataTransactions(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		currentIndex := i
 		pool.Submit(func() {
-			if tx, err, _ := message.FromBytes(transactions[currentIndex]); err != nil {
+			if msg, err, _ := message.FromBytes(messages[currentIndex]); err != nil {
 				b.Error(err)
 			} else {
-				tx.VerifySignature()
+				msg.VerifySignature()
 			}
 		})
 	}
@@ -49,10 +47,10 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	localIdentity := identity.GenerateLocalIdentity()
 
-	transactions := make([]*message.Message, b.N)
+	messages := make([]*message.Message, b.N)
 	for i := 0; i < b.N; i++ {
-		transactions[i] = message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("test")))
-		transactions[i].Bytes()
+		messages[i] = message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("test")))
+		messages[i].Bytes()
 	}
 
 	var wg sync.WaitGroup
@@ -64,12 +62,10 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 		currentIndex := i
 		if err := pool.Submit(func() {
-			transactions[currentIndex].VerifySignature()
-
+			messages[currentIndex].VerifySignature()
 			wg.Done()
 		}); err != nil {
 			b.Error(err)
-
 			return
 		}
 	}

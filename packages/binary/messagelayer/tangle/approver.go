@@ -31,7 +31,6 @@ func ApproverFromBytes(bytes []byte, optionalTargetObject ...*Approver) (result 
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParseApprover(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
@@ -41,19 +40,15 @@ func ParseApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ..
 		return ApproverFromStorageKey(data, optionalTargetObject...)
 	}); parseErr != nil {
 		err = parseErr
-
 		return
 	} else {
 		result = parsedObject.(*Approver)
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
-
 		return
-	}); err != nil {
-		return
-	}
+	})
 
 	return
 }
@@ -131,15 +126,18 @@ type CachedApprover struct {
 }
 
 func (cachedApprover *CachedApprover) Unwrap() *Approver {
-	if untypedObject := cachedApprover.Get(); untypedObject == nil {
+	untypedObject := cachedApprover.Get()
+	if untypedObject == nil {
 		return nil
-	} else {
-		if typedObject := untypedObject.(*Approver); typedObject == nil || typedObject.IsDeleted() {
-			return nil
-		} else {
-			return typedObject
-		}
 	}
+
+	typedObject := untypedObject.(*Approver)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+
 }
 
 func (cachedApprover *CachedApprover) Consume(consumer func(approver *Approver)) (consumed bool) {

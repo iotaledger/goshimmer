@@ -12,8 +12,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagefactory"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/transactionparser"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/transactionrequester"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messageparser"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagerequester"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -26,9 +26,9 @@ const (
 
 var PLUGIN = node.NewPlugin(PLUGIN_NAME, node.Enabled, configure, run)
 
-var TransactionParser *transactionparser.TransactionParser
+var TransactionParser *messageparser.MessageParser
 
-var TransactionRequester *transactionrequester.TransactionRequester
+var TransactionRequester *messagerequester.MessageRequester
 
 var TipSelector *tipselector.TipSelector
 
@@ -42,8 +42,8 @@ func configure(*node.Plugin) {
 	log = logger.NewLogger(PLUGIN_NAME)
 
 	// create instances
-	TransactionParser = transactionparser.New()
-	TransactionRequester = transactionrequester.New()
+	TransactionParser = messageparser.New()
+	TransactionRequester = messagerequester.New()
 	TipSelector = tipselector.New()
 	Tangle = tangle.New(database.GetBadgerInstance())
 
@@ -54,14 +54,14 @@ func configure(*node.Plugin) {
 		log.Errorf("Error in MessageFactory: %v", err)
 	}))
 
-	// setup TransactionParser
-	TransactionParser.Events.TransactionParsed.Attach(events.NewClosure(func(transaction *message.Message, peer *peer.Peer) {
+	// setup MessageParser
+	TransactionParser.Events.MessageParsed.Attach(events.NewClosure(func(transaction *message.Message, peer *peer.Peer) {
 		// TODO: ADD PEER
 
 		Tangle.AttachMessage(transaction)
 	}))
 
-	// setup TransactionRequester
+	// setup MessageRequester
 	Tangle.Events.MessageMissing.Attach(events.NewClosure(TransactionRequester.ScheduleRequest))
 	Tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *tangle.CachedMessageMetadata) {
 		cachedTransactionMetadata.Release()

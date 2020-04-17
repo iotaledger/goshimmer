@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
 )
 
+// MessageFactory acts as a factory to create new messages.
 type MessageFactory struct {
 	Events        *Events
 	sequence      *badger.Sequence
@@ -21,10 +22,11 @@ type MessageFactory struct {
 	tipSelector   *tipselector.TipSelector
 }
 
+// New creates a new message factory.
 func New(db *badger.DB, localIdentity *identity.LocalIdentity, tipSelector *tipselector.TipSelector, sequenceKey []byte) *MessageFactory {
 	sequence, err := db.GetSequence(sequenceKey, 100)
 	if err != nil {
-		panic(fmt.Errorf("Could not create transaction sequence number. %v", err))
+		panic(fmt.Errorf("could not create message sequence number. %v", err))
 	}
 
 	return &MessageFactory{
@@ -41,16 +43,14 @@ func New(db *badger.DB, localIdentity *identity.LocalIdentity, tipSelector *tips
 func (m *MessageFactory) IssuePayload(payload payload.Payload) *message.Message {
 	sequenceNumber, err := m.sequence.Next()
 	if err != nil {
-		m.Events.Error.Trigger(errors.Wrap(err, "Could not create sequence number"))
-
+		m.Events.Error.Trigger(errors.Wrap(err, "could not create sequence number"))
 		return nil
 	}
 
-	trunkTransaction, branchTransaction := m.tipSelector.GetTips()
-
+	trunkMessageId, branchMessageId := m.tipSelector.Tips()
 	tx := message.New(
-		trunkTransaction,
-		branchTransaction,
+		trunkMessageId,
+		branchMessageId,
 		m.localIdentity,
 		time.Now(),
 		sequenceNumber,
@@ -58,13 +58,12 @@ func (m *MessageFactory) IssuePayload(payload payload.Payload) *message.Message 
 	)
 
 	m.Events.MessageConstructed.Trigger(tx)
-
 	return tx
 }
 
-// Shutdown closes the  messageFactory and persists the sequence number
+// Shutdown closes the messageFactory and persists the sequence number.
 func (m *MessageFactory) Shutdown() {
 	if err := m.sequence.Release(); err != nil {
-		m.Events.Error.Trigger(errors.Wrap(err, "Could not release transaction sequence number."))
+		m.Events.Error.Trigger(errors.Wrap(err, "could not release message sequence number"))
 	}
 }

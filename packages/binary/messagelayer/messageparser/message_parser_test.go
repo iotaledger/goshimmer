@@ -1,4 +1,4 @@
-package transactionparser
+package messageparser
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
-func BenchmarkTransactionParser_ParseBytesSame(b *testing.B) {
+func BenchmarkMessageParser_ParseBytesSame(b *testing.B) {
 	localIdentity := identity.GenerateLocalIdentity()
 	txBytes := message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("Test"))).Bytes()
 	txParser := New()
@@ -27,11 +27,11 @@ func BenchmarkTransactionParser_ParseBytesSame(b *testing.B) {
 	txParser.Shutdown()
 }
 
-func BenchmarkTransactionParser_ParseBytesDifferent(b *testing.B) {
-	transactionBytes := make([][]byte, b.N)
+func BenchmarkMessageParser_ParseBytesDifferent(b *testing.B) {
+	messageBytes := make([][]byte, b.N)
 	localIdentity := identity.GenerateLocalIdentity()
 	for i := 0; i < b.N; i++ {
-		transactionBytes[i] = message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("Test"+strconv.Itoa(i)))).Bytes()
+		messageBytes[i] = message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("Test"+strconv.Itoa(i)))).Bytes()
 	}
 
 	txParser := New()
@@ -39,20 +39,20 @@ func BenchmarkTransactionParser_ParseBytesDifferent(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		txParser.Parse(transactionBytes[i], nil)
+		txParser.Parse(messageBytes[i], nil)
 	}
 
 	txParser.Shutdown()
 }
 
-func TestTransactionParser_ParseTransaction(t *testing.T) {
+func TestMessageParser_ParseMessage(t *testing.T) {
 	localIdentity := identity.GenerateLocalIdentity()
 	tx := message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("Test")))
 
 	txParser := New()
 	txParser.Parse(tx.Bytes(), nil)
 
-	txParser.Events.TransactionParsed.Attach(events.NewClosure(func(tx *message.Message) {
+	txParser.Events.MessageParsed.Attach(events.NewClosure(func(tx *message.Message) {
 		fmt.Println("PARSED!!!")
 	}))
 
