@@ -16,7 +16,7 @@ func NewId(base58EncodedString string) (result Id, err error) {
 	}
 
 	if len(bytes) != IdLength {
-		err = fmt.Errorf("length of base58 formatted transaction id is wrong")
+		err = fmt.Errorf("length of base58 formatted message id is wrong")
 
 		return
 	}
@@ -26,11 +26,11 @@ func NewId(base58EncodedString string) (result Id, err error) {
 	return
 }
 
-// IdFromBytes unmarshals a transaction id from a sequence of bytes.
+// IdFromBytes unmarshals a message id from a sequence of bytes.
 func IdFromBytes(bytes []byte) (result Id, err error, consumedBytes int) {
 	// check arguments
 	if len(bytes) < IdLength {
-		err = fmt.Errorf("bytes not long enough to encode a valid transaction id")
+		err = fmt.Errorf("bytes not long enough to encode a valid message id")
 	}
 
 	// calculate result

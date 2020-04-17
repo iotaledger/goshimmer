@@ -35,7 +35,7 @@ func ApproverFromBytes(bytes []byte, optionalTargetObject ...*Approver) (result 
 	return
 }
 
-// ParseApprover parses a new approver from the given marshal utility.
+// ParseApprover parses a new approver from the given marshal util.
 func ParseApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Approver) (result *Approver, err error) {
 	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
 		return ApproverFromStorageKey(data, optionalTargetObject...)
