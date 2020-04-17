@@ -2,6 +2,8 @@ package ledgerstate
 
 import (
 	"github.com/iotaledger/hive.go/objectstorage"
+
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
 const (
@@ -9,11 +11,20 @@ const (
 	_ byte = iota
 
 	// prefixes used for the objectstorage
+	osTransaction
+	osTransactionMetadata
 	osAttachment
 	osOutput
-	osMissingOutput
 	osConsumer
 )
+
+func osTransactionFactory(key []byte) (objectstorage.StorableObject, error, int) {
+	return transaction.FromStorageKey(key)
+}
+
+func osTransactionMetadataFactory(key []byte) (objectstorage.StorableObject, error, int) {
+	return TransactionMetadataFromStorageKey(key)
+}
 
 func osAttachmentFactory(key []byte) (objectstorage.StorableObject, error, int) {
 	return AttachmentFromStorageKey(key)
@@ -21,10 +32,6 @@ func osAttachmentFactory(key []byte) (objectstorage.StorableObject, error, int) 
 
 func osOutputFactory(key []byte) (objectstorage.StorableObject, error, int) {
 	return OutputFromStorageKey(key)
-}
-
-func osMissingOutputFactory(key []byte) (objectstorage.StorableObject, error, int) {
-	return MissingOutputFromStorageKey(key)
 }
 
 func osConsumerFactory(key []byte) (objectstorage.StorableObject, error, int) {

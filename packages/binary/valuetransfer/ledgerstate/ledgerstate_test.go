@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -43,12 +44,14 @@ func TestTangle_AttachPayload(t *testing.T) {
 
 	config.Node.Set(database.CFG_DIRECTORY, dir)
 
-	tangle := New(database.GetBadgerInstance())
-	if err := tangle.Prune(); err != nil {
+	valueTangle := tangle.New(database.GetBadgerInstance())
+	if err := valueTangle.Prune(); err != nil {
 		t.Error(err)
 
 		return
 	}
+
+	ledgerState := New(database.GetBadgerInstance(), valueTangle)
 
 	addressKeyPair1 := ed25519.GenerateKeyPair()
 	addressKeyPair2 := ed25519.GenerateKeyPair()
@@ -65,8 +68,8 @@ func TestTangle_AttachPayload(t *testing.T) {
 	})
 	input2.SetSolid(true)
 
-	tangle.outputStorage.Store(input1)
-	tangle.outputStorage.Store(input2)
+	ledgerState.outputStorage.Store(input1).Release()
+	ledgerState.outputStorage.Store(input2).Release()
 
 	outputAddress := address.Random()
 
@@ -83,7 +86,8 @@ func TestTangle_AttachPayload(t *testing.T) {
 		}),
 	)
 
-	tangle.AttachPayload(payload.New(payload.GenesisId, payload.GenesisId, tx))
+	valueTangle.AttachPayload(payload.New(payload.GenesisId, payload.GenesisId, tx))
 
-	tangle.Shutdown()
+	valueTangle.Shutdown()
+	ledgerState.Shutdown()
 }

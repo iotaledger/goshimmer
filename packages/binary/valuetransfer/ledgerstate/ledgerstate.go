@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
+	"github.com/iotaledger/hive.go/async"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
@@ -17,29 +19,56 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
 type LedgerState struct {
 	attachmentStorage *objectstorage.ObjectStorage
 
-	outputStorage        *objectstorage.ObjectStorage
-	consumerStorage      *objectstorage.ObjectStorage
-	missingOutputStorage *objectstorage.ObjectStorage
-	branchStorage        *objectstorage.ObjectStorage
+	tangle *tangle.Tangle
+
+	transactionStorage         *objectstorage.ObjectStorage
+	transactionMetadataStorage *objectstorage.ObjectStorage
+	outputStorage              *objectstorage.ObjectStorage
+	consumerStorage            *objectstorage.ObjectStorage
+	branchStorage              *objectstorage.ObjectStorage
+
+	Events *Events
+
+	storeTransactionWorkerPool async.WorkerPool
+	solidifierWorkerPool       async.WorkerPool
 }
 
-func New(badgerInstance *badger.DB) (result *LedgerState) {
+func New(badgerInstance *badger.DB, tangle *tangle.Tangle) (result *LedgerState) {
 	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.LedgerState)
 
+	leakDetectionOption := objectstorage.LeakDetectionEnabled(false, objectstorage.LeakDetectionOptions{
+		MaxConsumersPerObject: 10,
+		MaxConsumerHoldTime:   10 * time.Second,
+	})
+
 	result = &LedgerState{
-		attachmentStorage:    osFactory.New(osAttachment, osAttachmentFactory, objectstorage.CacheTime(time.Second)),
-		outputStorage:        osFactory.New(osOutput, osOutputFactory, OutputKeyPartitions, objectstorage.CacheTime(time.Second)),
-		missingOutputStorage: osFactory.New(osMissingOutput, osMissingOutputFactory, MissingOutputKeyPartitions, objectstorage.CacheTime(time.Second)),
-		consumerStorage:      osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(time.Second)),
+		tangle:                     tangle,
+		transactionStorage:         osFactory.New(osTransaction, osTransactionFactory, objectstorage.CacheTime(time.Second), leakDetectionOption),
+		transactionMetadataStorage: osFactory.New(osTransactionMetadata, osTransactionMetadataFactory, objectstorage.CacheTime(time.Second), leakDetectionOption),
+		attachmentStorage:          osFactory.New(osAttachment, osAttachmentFactory, objectstorage.CacheTime(time.Second), leakDetectionOption),
+		outputStorage:              osFactory.New(osOutput, osOutputFactory, OutputKeyPartitions, objectstorage.CacheTime(time.Second), leakDetectionOption),
+		consumerStorage:            osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(time.Second), leakDetectionOption),
+		Events:                     newEvents(),
 	}
 
+	tangle.Events.PayloadSolid.Attach(events.NewClosure(result.ProcessSolidPayload))
+
 	return
+}
+
+func (ledgerState *LedgerState) ProcessSolidPayload(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
+	ledgerState.storeTransactionWorkerPool.Submit(func() { ledgerState.storeTransactionWorker(cachedPayload, cachedMetadata) })
+}
+
+func (ledgerState *LedgerState) GetTransaction(transactionId transaction.Id) *transaction.CachedTransaction {
+	return &transaction.CachedTransaction{CachedObject: ledgerState.transactionStorage.Load(transactionId.Bytes())}
 }
 
 // GetPayloadMetadata retrieves the metadata of a value payload from the object storage.
@@ -49,6 +78,10 @@ func (ledgerState *LedgerState) GetTransactionMetadata(transactionId transaction
 
 func (ledgerState *LedgerState) GetTransactionOutput(outputId transaction.OutputId) *CachedOutput {
 	return &CachedOutput{CachedObject: ledgerState.outputStorage.Load(outputId.Bytes())}
+}
+
+func (ledgerState *LedgerState) GetBranch(branchId BranchId) *CachedBranch {
+	return &CachedBranch{CachedObject: ledgerState.branchStorage.Load(branchId.Bytes())}
 }
 
 // GetConsumers retrieves the approvers of a payload from the object storage.
@@ -75,491 +108,166 @@ func (ledgerState *LedgerState) GetAttachments(transactionId transaction.Id) Cac
 	return attachments
 }
 
-func (ledgerState *LedgerState) processSolidPayloadWorker(cachedPayload *payload.CachedPayload) {
-	solidPayload := cachedPayload.Unwrap()
-	defer cachedPayload.Release()
+// Shutdown stops the worker pools and shuts down the object storage instances.
+func (ledgerState *LedgerState) Shutdown() *LedgerState {
+	ledgerState.storeTransactionWorkerPool.ShutdownGracefully()
+	ledgerState.solidifierWorkerPool.ShutdownGracefully()
 
-	cachedTransactionMetadata, transactionStored := ledgerState.storeTransaction(solidPayload.Transaction())
-	if transactionStored {
-		ledgerState.storeTransactionReferences(solidPayload.Transaction())
-	}
+	ledgerState.transactionStorage.Shutdown()
+	ledgerState.transactionMetadataStorage.Shutdown()
+	ledgerState.outputStorage.Shutdown()
+	ledgerState.consumerStorage.Shutdown()
+
+	return ledgerState
 }
 
-func (ledgerState *LedgerState) solidifyTransactionWorker() {
-	// abort if the transaction is not solid or invalid
-	if transactionSolid, err := tangle.isTransactionSolid(currentPayload.Transaction(), currentTransactionMetadata); !transactionSolid || err != nil {
-		if err != nil {
-			// TODO: TRIGGER INVALID TX + REMOVE TXS THAT APPROVE IT
-			fmt.Println(err)
+// Prune resets the database and deletes all objects (for testing or "node resets").
+func (ledgerState *LedgerState) Prune() error {
+	for _, storage := range []*objectstorage.ObjectStorage{
+		ledgerState.transactionStorage,
+		ledgerState.transactionMetadataStorage,
+		ledgerState.outputStorage,
+		ledgerState.consumerStorage,
+		ledgerState.branchStorage,
+	} {
+		if err := storage.Prune(); err != nil {
+			return err
 		}
+	}
+
+	return nil
+}
+
+func (ledgerState *LedgerState) storeTransactionWorker(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *tangle.CachedPayloadMetadata) {
+	defer cachedPayload.Release()
+	defer cachedPayloadMetadata.Release()
+
+	// abort if the parameters are empty
+	solidPayload := cachedPayload.Unwrap()
+	if solidPayload == nil || cachedPayloadMetadata.Unwrap() == nil {
+		return
+	}
+
+	// store objects in database
+	cachedTransaction, cachedTransactionMetadata, cachedAttachment, transactionIsNew := ledgerState.storeTransactionModels(solidPayload)
+
+	// abort if the attachment was previously processed already (nil == was not stored)
+	if cachedAttachment == nil {
+		cachedTransaction.Release()
+		cachedTransactionMetadata.Release()
 
 		return
 	}
+
+	// trigger events for a new transaction
+	if transactionIsNew {
+		ledgerState.Events.TransactionReceived.Trigger(cachedTransaction, cachedTransactionMetadata, cachedAttachment)
+	}
+
+	// check solidity of transaction and its corresponding attachment
+	ledgerState.solidifierWorkerPool.Submit(func() {
+		ledgerState.solidifyTransactionWorker(cachedTransaction, cachedTransactionMetadata, cachedAttachment)
+	})
 }
 
-func (ledgerState *LedgerState) storeTransaction(tx *transaction.Transaction) (cachedTransactionMetadata *CachedTransactionMetadata, transactionStored bool) {
-	cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: ledgerState.transactionMetadataStorage.ComputeIfAbsent(tx.Id().Bytes(), func(key []byte) objectstorage.StorableObject {
-		transactionStored = true
+func (ledgerState *LedgerState) storeTransactionModels(solidPayload *payload.Payload) (cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment, transactionIsNew bool) {
+	cachedTransaction = &transaction.CachedTransaction{CachedObject: ledgerState.transactionStorage.ComputeIfAbsent(solidPayload.Transaction().Id().Bytes(), func(key []byte) objectstorage.StorableObject {
+		transactionIsNew = true
 
-		result := NewTransactionMetadata(tx.Id())
+		result := solidPayload.Transaction()
 		result.Persist()
 		result.SetModified()
 
 		return result
 	})}
 
-	return
-}
+	if transactionIsNew {
+		cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: ledgerState.transactionMetadataStorage.Store(NewTransactionMetadata(solidPayload.Transaction().Id()))}
 
-func (ledgerState *LedgerState) storeTransactionReferences(tx *transaction.Transaction) {
-	// store references to the consumed outputs
-	tx.Inputs().ForEach(func(outputId transaction.OutputId) bool {
-		ledgerState.consumerStorage.Store(NewConsumer(outputId, tx.Id()))
+		// store references to the consumed outputs
+		solidPayload.Transaction().Inputs().ForEach(func(outputId transaction.OutputId) bool {
+			ledgerState.consumerStorage.Store(NewConsumer(outputId, solidPayload.Transaction().Id())).Release()
 
-		return true
-	})
-
-	// store a reference from the transaction to the payload that attached it
-	ledgerState.attachmentStorage.Store(NewAttachment(tx.Id(), payload.Id()))
-}
-
-func (tangle *Tangle) bookPayloadTransaction(cachedPayload *payload.CachedPayload) {
-	payloadToBook := cachedPayload.Unwrap()
-	defer cachedPayload.Release()
-
-	if payloadToBook == nil {
-		return
-	}
-	transactionToBook := payloadToBook.Transaction()
-
-	consumedBranches := make(map[BranchId]types.Empty)
-	conflictingConsumersToFork := make(map[transaction.Id]types.Empty)
-	createFork := false
-
-	inputsSuccessfullyProcessed := payloadToBook.Transaction().Inputs().ForEach(func(outputId transaction.OutputId) bool {
-		cachedOutput := tangle.GetTransactionOutput(outputId)
-		defer cachedOutput.Release()
-
-		// abort if the output could not be found
-		output := cachedOutput.Unwrap()
-		if output == nil {
-			return false
-		}
-
-		consumedBranches[output.BranchId()] = types.Void
-
-		// continue if we are the first consumer and there is no double spend
-		consumerCount, firstConsumerId := output.RegisterConsumer(transactionToBook.Id())
-		if consumerCount == 0 {
 			return true
-		}
-
-		// fork into a new branch
-		createFork = true
-
-		// also fork the previous consumer
-		if consumerCount == 1 {
-			conflictingConsumersToFork[firstConsumerId] = types.Void
-		}
-
-		return true
-	})
-
-	if !inputsSuccessfullyProcessed {
-		return
+		})
+	} else {
+		cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: ledgerState.transactionMetadataStorage.Load(solidPayload.Transaction().Id().Bytes())}
 	}
 
-	transactionToBook.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		newOutput := NewOutput(address, transactionToBook.Id(), MasterBranchId, balances)
-		newOutput.SetSolid(true)
-		tangle.outputStorage.Store(newOutput)
+	// store a reference from the transaction to the payload that attached it or abort, if we have processed this attachment already
+	attachment, stored := ledgerState.attachmentStorage.StoreIfAbsent(NewAttachment(solidPayload.Transaction().Id(), solidPayload.Id()))
+	if !stored {
+		return
+	}
+	cachedAttachment = &CachedAttachment{CachedObject: attachment}
 
-		return true
-	})
-
-	fmt.Println(consumedBranches)
-	fmt.Println(MasterBranchId)
-	fmt.Println(createFork)
+	return
 }
 
-func (tangle *Tangle) InheritBranches(branches ...BranchId) (cachedAggregatedBranch *CachedBranch, err error) {
-	// return the MasterBranch if we have no branches in the parameters
-	if len(branches) == 0 {
-		cachedAggregatedBranch = tangle.GetBranch(MasterBranchId)
+func (ledgerState *LedgerState) solidifyTransactionWorker(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetdata *CachedTransactionMetadata, attachment *CachedAttachment) {
+	// initialize the stack
+	solidificationStack := list.New()
+	solidificationStack.PushBack([3]interface{}{cachedTransaction, cachedTransactionMetdata, attachment})
 
-		return
-	}
+	// process payloads that are supposed to be checked for solidity recursively
+	for solidificationStack.Len() > 0 {
+		// execute logic inside a func, so we can use defer to release the objects
+		func() {
+			// retrieve cached objects
+			currentCachedTransaction, currentCachedTransactionMetadata, currentCachedAttachment := ledgerState.popElementsFromSolidificationStack(solidificationStack)
+			defer currentCachedTransaction.Release()
+			defer currentCachedTransactionMetadata.Release()
+			defer currentCachedAttachment.Release()
 
-	if len(branches) == 1 {
-		cachedAggregatedBranch = tangle.GetBranch(branches[0])
+			// unwrap cached objects
+			currentTransaction := currentCachedTransaction.Unwrap()
+			currentTransactionMetadata := currentCachedTransactionMetadata.Unwrap()
+			currentAttachment := currentCachedAttachment.Unwrap()
 
-		return
-	}
-
-	// filter out duplicates and shared ancestor Branches (abort if we faced an error)
-	deepestCommonAncestors, err := tangle.findDeepestCommonAncestorBranches(branches...)
-	if err != nil {
-		return
-	}
-
-	// if there is only one branch that we found, then we are done
-	if len(deepestCommonAncestors) == 1 {
-		for _, firstBranchInList := range deepestCommonAncestors {
-			cachedAggregatedBranch = firstBranchInList
-		}
-
-		return
-	}
-
-	// if there is more than one parents: aggregate
-	aggregatedBranchId, aggregatedBranchParents, err := tangle.determineAggregatedBranchDetails(deepestCommonAncestors)
-	if err != nil {
-		return
-	}
-
-	newAggregatedBranchCreated := false
-	cachedAggregatedBranch = &CachedBranch{CachedObject: tangle.branchStorage.ComputeIfAbsent(aggregatedBranchId.Bytes(), func(key []byte) (object objectstorage.StorableObject) {
-		aggregatedReality := NewBranch(aggregatedBranchId, aggregatedBranchParents)
-
-		// TODO: FIX
-		/*
-			for _, parentRealityId := range aggregatedBranchParents {
-				tangle.GetBranch(parentRealityId).Consume(func(branch *Branch) {
-					branch.RegisterSubReality(aggregatedRealityId)
-				})
+			// abort if any of the retrieved models is nil or payload is not solid or it was set as solid already
+			if currentTransaction == nil || currentTransactionMetadata == nil || currentAttachment == nil {
+				return
 			}
-		*/
 
-		aggregatedReality.SetModified()
-
-		newAggregatedBranchCreated = true
-
-		return aggregatedReality
-	})}
-
-	if !newAggregatedBranchCreated {
-		fmt.Println("1")
-		// TODO: FIX
-		/*
-			aggregatedBranch := cachedAggregatedBranch.Unwrap()
-
-			for _, realityId := range aggregatedBranchParents {
-				if aggregatedBranch.AddParentReality(realityId) {
-					tangle.GetBranch(realityId).Consume(func(branch *Branch) {
-						branch.RegisterSubReality(aggregatedRealityId)
-					})
+			// abort if the transaction is not solid or invalid
+			if transactionSolid, err := ledgerState.isTransactionSolid(currentTransaction, currentTransactionMetadata); !transactionSolid || err != nil {
+				if err != nil {
+					// TODO: TRIGGER INVALID TX + REMOVE TXS THAT APPROVE IT
+					fmt.Println(err, currentTransaction)
 				}
-			}
-		*/
-	}
 
-	return
-}
-
-func (tangle *Tangle) determineAggregatedBranchDetails(deepestCommonAncestors CachedBranches) (aggregatedBranchId BranchId, aggregatedBranchParents []BranchId, err error) {
-	aggregatedBranchParents = make([]BranchId, len(deepestCommonAncestors))
-
-	i := 0
-	aggregatedBranchConflictParents := make(CachedBranches)
-	for branchId, cachedBranch := range deepestCommonAncestors {
-		// release all following entries if we have encountered an error
-		if err != nil {
-			cachedBranch.Release()
-
-			continue
-		}
-
-		// store BranchId as parent
-		aggregatedBranchParents[i] = branchId
-		i++
-
-		// abort if we could not unwrap the Branch (should never happen)
-		branch := cachedBranch.Unwrap()
-		if branch == nil {
-			cachedBranch.Release()
-
-			err = fmt.Errorf("failed to unwrap brach '%s'", branchId)
-
-			continue
-		}
-
-		if branch.IsAggregated() {
-			aggregatedBranchConflictParents[branchId] = cachedBranch
-
-			continue
-		}
-
-		err = tangle.collectClosestConflictAncestors(branch, aggregatedBranchConflictParents)
-
-		cachedBranch.Release()
-	}
-
-	if err != nil {
-		aggregatedBranchConflictParents.Release()
-		aggregatedBranchConflictParents = nil
-
-		return
-	}
-
-	aggregatedBranchId = tangle.generateAggregatedBranchId(aggregatedBranchConflictParents)
-
-	return
-}
-
-func (tangle *Tangle) generateAggregatedBranchId(aggregatedBranches CachedBranches) BranchId {
-	counter := 0
-	branchIds := make([]BranchId, len(aggregatedBranches))
-	for branchId, cachedBranch := range aggregatedBranches {
-		branchIds[counter] = branchId
-
-		counter++
-
-		cachedBranch.Release()
-	}
-
-	sort.Slice(branchIds, func(i, j int) bool {
-		for k := 0; k < len(branchIds[k]); k++ {
-			if branchIds[i][k] < branchIds[j][k] {
-				return true
-			} else if branchIds[i][k] > branchIds[j][k] {
-				return false
-			}
-		}
-
-		return false
-	})
-
-	marshalUtil := marshalutil.New(BranchIdLength * len(branchIds))
-	for _, branchId := range branchIds {
-		marshalUtil.WriteBytes(branchId.Bytes())
-	}
-
-	return blake2b.Sum256(marshalUtil.Bytes())
-}
-
-func (tangle *Tangle) collectClosestConflictAncestors(branch *Branch, closestConflictAncestors CachedBranches) (err error) {
-	// initialize stack
-	stack := list.New()
-	for _, parentRealityId := range branch.ParentBranches() {
-		stack.PushBack(parentRealityId)
-	}
-
-	// work through stack
-	processedBranches := make(map[BranchId]types.Empty)
-	for stack.Len() != 0 {
-		// iterate through the parents (in a func so we can used defer)
-		err = func() error {
-			// pop parent branch id from stack
-			firstStackElement := stack.Front()
-			defer stack.Remove(firstStackElement)
-			parentBranchId := stack.Front().Value.(BranchId)
-
-			// abort if the parent has been processed already
-			if _, branchProcessed := processedBranches[parentBranchId]; branchProcessed {
-				return nil
-			}
-			processedBranches[parentBranchId] = types.Void
-
-			// load parent branch from database
-			cachedParentBranch := tangle.GetBranch(parentBranchId)
-
-			// abort if the parent branch could not be found (should never happen)
-			parentBranch := cachedParentBranch.Unwrap()
-			if parentBranch == nil {
-				cachedParentBranch.Release()
-
-				return fmt.Errorf("failed to load branch '%s'", parentBranchId)
+				return
 			}
 
-			// if the parent Branch is not aggregated, then we have found the closest conflict ancestor
-			if !parentBranch.IsAggregated() {
-				closestConflictAncestors[parentBranchId] = cachedParentBranch
+			transactionBecameNewlySolid := currentTransactionMetadata.SetSolid(true)
+			if !transactionBecameNewlySolid {
+				// TODO: book attachment
 
-				return nil
+				return
 			}
 
-			// queue parents for additional check (recursion)
-			for _, parentRealityId := range parentBranch.ParentBranches() {
-				stack.PushBack(parentRealityId)
-			}
+			// ... and schedule check of approvers
+			ledgerState.ForEachConsumers(currentTransaction, func(cachedTransaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment) {
+				solidificationStack.PushBack([3]interface{}{cachedTransaction, transactionMetadata, cachedAttachment})
+			})
 
-			// release the branch (we don't need it anymore)
-			cachedParentBranch.Release()
-
-			return nil
+			// TODO: BOOK TRANSACTION
+			ledgerState.bookTransaction(cachedTransaction.Retain())
 		}()
-
-		if err != nil {
-			return
-		}
 	}
-
-	return
 }
 
-// findDeepestCommonAncestorBranches takes a number of BranchIds and determines the most specialized Branches (furthest
-// away from the MasterBranch) in that list, that contains all of the named BranchIds.
-//
-// Example: If we hand in "A, B" and B has A as its parent, then the result will contain the Branch B, because B is a
-//          child of A.
-func (tangle *Tangle) findDeepestCommonAncestorBranches(branches ...BranchId) (result CachedBranches, err error) {
-	result = make(CachedBranches)
+func (ledgerState *LedgerState) popElementsFromSolidificationStack(stack *list.List) (*transaction.CachedTransaction, *CachedTransactionMetadata, *CachedAttachment) {
+	currentSolidificationEntry := stack.Front()
+	cachedTransaction := currentSolidificationEntry.Value.([3]interface{})[0].(*transaction.CachedTransaction)
+	cachedTransactionMetadata := currentSolidificationEntry.Value.([3]interface{})[1].(*CachedTransactionMetadata)
+	cachedAttachment := currentSolidificationEntry.Value.([3]interface{})[2].(*CachedAttachment)
+	stack.Remove(currentSolidificationEntry)
 
-	processedBranches := make(map[BranchId]types.Empty)
-	for _, branchId := range branches {
-		err = func() error {
-			// continue, if we have processed this branch already
-			if _, exists := processedBranches[branchId]; exists {
-				return nil
-			}
-			processedBranches[branchId] = types.Void
-
-			// load branch from objectstorage
-			cachedBranch := tangle.GetBranch(branchId)
-
-			// abort if we could not load the CachedBranch
-			branch := cachedBranch.Unwrap()
-			if branch == nil {
-				cachedBranch.Release()
-
-				return fmt.Errorf("could not load branch '%s'", branchId)
-			}
-
-			// check branches position relative to already aggregated branches
-			for aggregatedBranchId, cachedAggregatedBranch := range result {
-				// abort if we can not load the branch
-				aggregatedBranch := cachedAggregatedBranch.Unwrap()
-				if aggregatedBranch == nil {
-					return fmt.Errorf("could not load branch '%s'", aggregatedBranchId)
-				}
-
-				// if the current branch is an ancestor of an already aggregated branch, then we have found the more
-				// "specialized" branch already and keep it
-				if isAncestor, ancestorErr := tangle.branchIsAncestorOfBranch(branch, aggregatedBranch); isAncestor || ancestorErr != nil {
-					return ancestorErr
-				}
-
-				// check if the aggregated Branch is an ancestor of the current Branch and abort if we face an error
-				isAncestor, ancestorErr := tangle.branchIsAncestorOfBranch(aggregatedBranch, branch)
-				if ancestorErr != nil {
-					return ancestorErr
-				}
-
-				// if the aggregated branch is an ancestor of the current branch, then we have found a more specialized
-				// Branch and replace the old one with this one.
-				if isAncestor {
-					// replace aggregated branch if we have found a more specialized on
-					delete(result, aggregatedBranchId)
-					cachedAggregatedBranch.Release()
-
-					result[branchId] = cachedBranch
-
-					return nil
-				}
-			}
-
-			// store the branch as a new aggregate candidate if it was not found to be in any relation with the already
-			// aggregated ones.
-			result[branchId] = cachedBranch
-
-			return nil
-		}()
-
-		// abort if an error occurred while processing the current branch
-		if err != nil {
-			result.Release()
-			result = nil
-
-			return
-		}
-	}
-
-	return
+	return cachedTransaction, cachedTransactionMetadata, cachedAttachment
 }
 
-func (tangle *Tangle) branchIsAncestorOfBranch(ancestor *Branch, descendant *Branch) (isAncestor bool, err error) {
-	if ancestor.Id() == descendant.Id() {
-		return true, nil
-	}
-
-	ancestorBranches, err := tangle.getAncestorBranches(descendant)
-	if err != nil {
-		return
-	}
-
-	ancestorBranches.Consume(func(ancestorOfDescendant *Branch) {
-		if ancestorOfDescendant.Id() == ancestor.Id() {
-			isAncestor = true
-		}
-	})
-
-	return
-}
-
-func (tangle *Tangle) getAncestorBranches(branch *Branch) (ancestorBranches CachedBranches, err error) {
-	// initialize result
-	ancestorBranches = make(CachedBranches)
-
-	// initialize stack
-	stack := list.New()
-	for _, parentRealityId := range branch.ParentBranches() {
-		stack.PushBack(parentRealityId)
-	}
-
-	// work through stack
-	for stack.Len() != 0 {
-		// iterate through the parents (in a func so we can used defer)
-		err = func() error {
-			// pop parent branch id from stack
-			firstStackElement := stack.Front()
-			defer stack.Remove(firstStackElement)
-			parentBranchId := stack.Front().Value.(BranchId)
-
-			// abort if the parent has been processed already
-			if _, branchProcessed := ancestorBranches[parentBranchId]; branchProcessed {
-				return nil
-			}
-
-			// load parent branch from database
-			cachedParentBranch := tangle.GetBranch(parentBranchId)
-
-			// abort if the parent branch could not be founds (should never happen)
-			parentBranch := cachedParentBranch.Unwrap()
-			if parentBranch == nil {
-				cachedParentBranch.Release()
-
-				return fmt.Errorf("failed to unwrap branch '%s'", parentBranchId)
-			}
-
-			// store parent branch in result
-			ancestorBranches[parentBranchId] = cachedParentBranch
-
-			// queue parents for additional check (recursion)
-			for _, parentRealityId := range parentBranch.ParentBranches() {
-				stack.PushBack(parentRealityId)
-			}
-
-			return nil
-		}()
-
-		// abort if an error occurs while trying to process the parents
-		if err != nil {
-			ancestorBranches.Release()
-			ancestorBranches = nil
-
-			return
-		}
-	}
-
-	return
-}
-
-func (tangle *Tangle) GetBranch(branchId BranchId) *CachedBranch {
-	// TODO: IMPLEMENT
-	return nil
-}
-
-func (tangle *Tangle) isTransactionSolid(tx *transaction.Transaction, metadata *TransactionMetadata) (bool, error) {
+func (ledgerState *LedgerState) isTransactionSolid(tx *transaction.Transaction, metadata *TransactionMetadata) (bool, error) {
 	// abort if any of the models are nil or has been deleted
 	if tx == nil || tx.IsDeleted() || metadata == nil || metadata.IsDeleted() {
 		return false, nil
@@ -571,28 +279,28 @@ func (tangle *Tangle) isTransactionSolid(tx *transaction.Transaction, metadata *
 	}
 
 	// get outputs that were referenced in the transaction inputs
-	cachedInputs := tangle.getCachedOutputsFromTransactionInputs(tx)
+	cachedInputs := ledgerState.getCachedOutputsFromTransactionInputs(tx)
 	defer cachedInputs.Release()
 
 	// check the solidity of the inputs and retrieve the consumed balances
-	inputsSolid, consumedBalances, err := tangle.checkTransactionInputs(cachedInputs)
+	inputsSolid, consumedBalances, err := ledgerState.checkTransactionInputs(cachedInputs)
 
 	// abort if an error occurred or the inputs are not solid, yet
 	if !inputsSolid || err != nil {
 		return false, err
 	}
 
-	if !tangle.checkTransactionOutputs(consumedBalances, tx.Outputs()) {
+	if !ledgerState.checkTransactionOutputs(consumedBalances, tx.Outputs()) {
 		return false, fmt.Errorf("the outputs do not match the inputs in transaction with id '%s'", tx.Id())
 	}
 
 	return true, nil
 }
 
-func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result CachedOutputs) {
+func (ledgerState *LedgerState) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result CachedOutputs) {
 	result = make(CachedOutputs)
 	tx.Inputs().ForEach(func(inputId transaction.OutputId) bool {
-		result[inputId] = tangle.GetTransactionOutput(inputId)
+		result[inputId] = ledgerState.GetTransactionOutput(inputId)
 
 		return true
 	})
@@ -600,19 +308,13 @@ func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Tran
 	return
 }
 
-func (tangle *Tangle) checkTransactionInputs(cachedInputs CachedOutputs) (inputsSolid bool, consumedBalances map[balance.Color]int64, err error) {
+func (ledgerState *LedgerState) checkTransactionInputs(cachedInputs CachedOutputs) (inputsSolid bool, consumedBalances map[balance.Color]int64, err error) {
 	inputsSolid = true
 	consumedBalances = make(map[balance.Color]int64)
 
-	for inputId, cachedInput := range cachedInputs {
+	for _, cachedInput := range cachedInputs {
 		if !cachedInput.Exists() {
 			inputsSolid = false
-
-			if cachedMissingOutput, missingOutputStored := tangle.missingOutputStorage.StoreIfAbsent(NewMissingOutput(inputId)); missingOutputStored {
-				cachedMissingOutput.Consume(func(object objectstorage.StorableObject) {
-					tangle.Events.OutputMissing.Trigger(object.(*MissingOutput).Id())
-				})
-			}
 
 			continue
 		}
@@ -649,7 +351,7 @@ func (tangle *Tangle) checkTransactionInputs(cachedInputs CachedOutputs) (inputs
 // (the sum of all the balance changes is 0). It also accounts for the ability to "recolor" coins during the creating of
 // outputs. If this function returns false, then the outputs that are defined in the transaction are invalid and the
 // transaction should be removed from the ledger state.
-func (tangle *Tangle) checkTransactionOutputs(inputBalances map[balance.Color]int64, outputs *transaction.Outputs) bool {
+func (ledgerState *LedgerState) checkTransactionOutputs(inputBalances map[balance.Color]int64, outputs *transaction.Outputs) bool {
 	// create a variable to keep track of outputs that create a new color
 	var newlyColoredCoins int64
 
@@ -716,23 +418,451 @@ func (tangle *Tangle) checkTransactionOutputs(inputBalances map[balance.Color]in
 	return unspentCoins == newlyColoredCoins
 }
 
-func (tangle *Tangle) ForEachConsumers(currentTransaction *transaction.Transaction, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata, cachedTransactionMetadata *CachedTransactionMetadata)) {
+func (ledgerState *LedgerState) ForEachConsumers(currentTransaction *transaction.Transaction, consume func(cachedTransaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment)) {
 	seenTransactions := make(map[transaction.Id]types.Empty)
 	currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		tangle.GetConsumers(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(consumer *Consumer) {
-			// keep track of the processed transactions (the same transaction can consume multiple outputs)
-			if _, transactionSeen := seenTransactions[consumer.TransactionId()]; transactionSeen {
+		ledgerState.GetConsumers(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(consumer *Consumer) {
+			if _, transactionSeen := seenTransactions[consumer.TransactionId()]; !transactionSeen {
 				seenTransactions[consumer.TransactionId()] = types.Void
 
-				transactionMetadata := tangle.GetTransactionMetadata(consumer.TransactionId())
-
-				// retrieve all the payloads that attached the transaction
-				tangle.GetAttachments(consumer.TransactionId()).Consume(func(attachment *Attachment) {
-					consume(tangle.GetPayload(attachment.PayloadId()), tangle.GetPayloadMetadata(attachment.PayloadId()), transactionMetadata)
-				})
+				cachedTransaction := ledgerState.GetTransaction(consumer.TransactionId())
+				cachedTransactionMetadata := ledgerState.GetTransactionMetadata(consumer.TransactionId())
+				for _, cachedAttachment := range ledgerState.GetAttachments(consumer.TransactionId()) {
+					consume(cachedTransaction, cachedTransactionMetadata, cachedAttachment)
+				}
 			}
 		})
 
 		return true
 	})
+}
+
+func (ledgerState *LedgerState) bookTransaction(cachedTransaction *transaction.CachedTransaction) {
+	defer cachedTransaction.Release()
+
+	transactionToBook := cachedTransaction.Unwrap()
+	if transactionToBook == nil {
+		return
+	}
+
+	consumedBranches := make(map[BranchId]types.Empty)
+	conflictingConsumersToFork := make(map[transaction.Id]types.Empty)
+	createFork := false
+
+	inputsSuccessfullyProcessed := transactionToBook.Inputs().ForEach(func(outputId transaction.OutputId) bool {
+		cachedOutput := ledgerState.GetTransactionOutput(outputId)
+		defer cachedOutput.Release()
+
+		// abort if the output could not be found
+		output := cachedOutput.Unwrap()
+		if output == nil {
+			return false
+		}
+
+		consumedBranches[output.BranchId()] = types.Void
+
+		// continue if we are the first consumer and there is no double spend
+		consumerCount, firstConsumerId := output.RegisterConsumer(transactionToBook.Id())
+		if consumerCount == 0 {
+			return true
+		}
+
+		// fork into a new branch
+		createFork = true
+
+		// also fork the previous consumer
+		if consumerCount == 1 {
+			conflictingConsumersToFork[firstConsumerId] = types.Void
+		}
+
+		return true
+	})
+
+	if !inputsSuccessfullyProcessed {
+		return
+	}
+
+	transactionToBook.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+		newOutput := NewOutput(address, transactionToBook.Id(), MasterBranchId, balances)
+		newOutput.SetSolid(true)
+		ledgerState.outputStorage.Store(newOutput).Release()
+
+		return true
+	})
+
+	fmt.Println(consumedBranches)
+	fmt.Println(MasterBranchId)
+	fmt.Println(createFork)
+}
+
+func (ledgerState *LedgerState) InheritBranches(branches ...BranchId) (cachedAggregatedBranch *CachedBranch, err error) {
+	// return the MasterBranch if we have no branches in the parameters
+	if len(branches) == 0 {
+		cachedAggregatedBranch = ledgerState.GetBranch(MasterBranchId)
+
+		return
+	}
+
+	if len(branches) == 1 {
+		cachedAggregatedBranch = ledgerState.GetBranch(branches[0])
+
+		return
+	}
+
+	// filter out duplicates and shared ancestor Branches (abort if we faced an error)
+	deepestCommonAncestors, err := ledgerState.findDeepestCommonAncestorBranches(branches...)
+	if err != nil {
+		return
+	}
+
+	// if there is only one branch that we found, then we are done
+	if len(deepestCommonAncestors) == 1 {
+		for _, firstBranchInList := range deepestCommonAncestors {
+			cachedAggregatedBranch = firstBranchInList
+		}
+
+		return
+	}
+
+	// if there is more than one parents: aggregate
+	aggregatedBranchId, aggregatedBranchParents, err := ledgerState.determineAggregatedBranchDetails(deepestCommonAncestors)
+	if err != nil {
+		return
+	}
+
+	newAggregatedBranchCreated := false
+	cachedAggregatedBranch = &CachedBranch{CachedObject: ledgerState.branchStorage.ComputeIfAbsent(aggregatedBranchId.Bytes(), func(key []byte) (object objectstorage.StorableObject) {
+		aggregatedReality := NewBranch(aggregatedBranchId, aggregatedBranchParents)
+
+		// TODO: FIX
+		/*
+			for _, parentRealityId := range aggregatedBranchParents {
+				tangle.GetBranch(parentRealityId).Consume(func(branch *Branch) {
+					branch.RegisterSubReality(aggregatedRealityId)
+				})
+			}
+		*/
+
+		aggregatedReality.SetModified()
+
+		newAggregatedBranchCreated = true
+
+		return aggregatedReality
+	})}
+
+	if !newAggregatedBranchCreated {
+		fmt.Println("1")
+		// TODO: FIX
+		/*
+			aggregatedBranch := cachedAggregatedBranch.Unwrap()
+
+			for _, realityId := range aggregatedBranchParents {
+				if aggregatedBranch.AddParentReality(realityId) {
+					tangle.GetBranch(realityId).Consume(func(branch *Branch) {
+						branch.RegisterSubReality(aggregatedRealityId)
+					})
+				}
+			}
+		*/
+	}
+
+	return
+}
+
+func (ledgerState *LedgerState) determineAggregatedBranchDetails(deepestCommonAncestors CachedBranches) (aggregatedBranchId BranchId, aggregatedBranchParents []BranchId, err error) {
+	aggregatedBranchParents = make([]BranchId, len(deepestCommonAncestors))
+
+	i := 0
+	aggregatedBranchConflictParents := make(CachedBranches)
+	for branchId, cachedBranch := range deepestCommonAncestors {
+		// release all following entries if we have encountered an error
+		if err != nil {
+			cachedBranch.Release()
+
+			continue
+		}
+
+		// store BranchId as parent
+		aggregatedBranchParents[i] = branchId
+		i++
+
+		// abort if we could not unwrap the Branch (should never happen)
+		branch := cachedBranch.Unwrap()
+		if branch == nil {
+			cachedBranch.Release()
+
+			err = fmt.Errorf("failed to unwrap brach '%s'", branchId)
+
+			continue
+		}
+
+		if branch.IsAggregated() {
+			aggregatedBranchConflictParents[branchId] = cachedBranch
+
+			continue
+		}
+
+		err = ledgerState.collectClosestConflictAncestors(branch, aggregatedBranchConflictParents)
+
+		cachedBranch.Release()
+	}
+
+	if err != nil {
+		aggregatedBranchConflictParents.Release()
+		aggregatedBranchConflictParents = nil
+
+		return
+	}
+
+	aggregatedBranchId = ledgerState.generateAggregatedBranchId(aggregatedBranchConflictParents)
+
+	return
+}
+
+func (ledgerState *LedgerState) generateAggregatedBranchId(aggregatedBranches CachedBranches) BranchId {
+	counter := 0
+	branchIds := make([]BranchId, len(aggregatedBranches))
+	for branchId, cachedBranch := range aggregatedBranches {
+		branchIds[counter] = branchId
+
+		counter++
+
+		cachedBranch.Release()
+	}
+
+	sort.Slice(branchIds, func(i, j int) bool {
+		for k := 0; k < len(branchIds[k]); k++ {
+			if branchIds[i][k] < branchIds[j][k] {
+				return true
+			} else if branchIds[i][k] > branchIds[j][k] {
+				return false
+			}
+		}
+
+		return false
+	})
+
+	marshalUtil := marshalutil.New(BranchIdLength * len(branchIds))
+	for _, branchId := range branchIds {
+		marshalUtil.WriteBytes(branchId.Bytes())
+	}
+
+	return blake2b.Sum256(marshalUtil.Bytes())
+}
+
+func (ledgerState *LedgerState) collectClosestConflictAncestors(branch *Branch, closestConflictAncestors CachedBranches) (err error) {
+	// initialize stack
+	stack := list.New()
+	for _, parentRealityId := range branch.ParentBranches() {
+		stack.PushBack(parentRealityId)
+	}
+
+	// work through stack
+	processedBranches := make(map[BranchId]types.Empty)
+	for stack.Len() != 0 {
+		// iterate through the parents (in a func so we can used defer)
+		err = func() error {
+			// pop parent branch id from stack
+			firstStackElement := stack.Front()
+			defer stack.Remove(firstStackElement)
+			parentBranchId := stack.Front().Value.(BranchId)
+
+			// abort if the parent has been processed already
+			if _, branchProcessed := processedBranches[parentBranchId]; branchProcessed {
+				return nil
+			}
+			processedBranches[parentBranchId] = types.Void
+
+			// load parent branch from database
+			cachedParentBranch := ledgerState.GetBranch(parentBranchId)
+
+			// abort if the parent branch could not be found (should never happen)
+			parentBranch := cachedParentBranch.Unwrap()
+			if parentBranch == nil {
+				cachedParentBranch.Release()
+
+				return fmt.Errorf("failed to load branch '%s'", parentBranchId)
+			}
+
+			// if the parent Branch is not aggregated, then we have found the closest conflict ancestor
+			if !parentBranch.IsAggregated() {
+				closestConflictAncestors[parentBranchId] = cachedParentBranch
+
+				return nil
+			}
+
+			// queue parents for additional check (recursion)
+			for _, parentRealityId := range parentBranch.ParentBranches() {
+				stack.PushBack(parentRealityId)
+			}
+
+			// release the branch (we don't need it anymore)
+			cachedParentBranch.Release()
+
+			return nil
+		}()
+
+		if err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+// findDeepestCommonAncestorBranches takes a number of BranchIds and determines the most specialized Branches (furthest
+// away from the MasterBranch) in that list, that contains all of the named BranchIds.
+//
+// Example: If we hand in "A, B" and B has A as its parent, then the result will contain the Branch B, because B is a
+//          child of A.
+func (ledgerState *LedgerState) findDeepestCommonAncestorBranches(branches ...BranchId) (result CachedBranches, err error) {
+	result = make(CachedBranches)
+
+	processedBranches := make(map[BranchId]types.Empty)
+	for _, branchId := range branches {
+		err = func() error {
+			// continue, if we have processed this branch already
+			if _, exists := processedBranches[branchId]; exists {
+				return nil
+			}
+			processedBranches[branchId] = types.Void
+
+			// load branch from objectstorage
+			cachedBranch := ledgerState.GetBranch(branchId)
+
+			// abort if we could not load the CachedBranch
+			branch := cachedBranch.Unwrap()
+			if branch == nil {
+				cachedBranch.Release()
+
+				return fmt.Errorf("could not load branch '%s'", branchId)
+			}
+
+			// check branches position relative to already aggregated branches
+			for aggregatedBranchId, cachedAggregatedBranch := range result {
+				// abort if we can not load the branch
+				aggregatedBranch := cachedAggregatedBranch.Unwrap()
+				if aggregatedBranch == nil {
+					return fmt.Errorf("could not load branch '%s'", aggregatedBranchId)
+				}
+
+				// if the current branch is an ancestor of an already aggregated branch, then we have found the more
+				// "specialized" branch already and keep it
+				if isAncestor, ancestorErr := ledgerState.branchIsAncestorOfBranch(branch, aggregatedBranch); isAncestor || ancestorErr != nil {
+					return ancestorErr
+				}
+
+				// check if the aggregated Branch is an ancestor of the current Branch and abort if we face an error
+				isAncestor, ancestorErr := ledgerState.branchIsAncestorOfBranch(aggregatedBranch, branch)
+				if ancestorErr != nil {
+					return ancestorErr
+				}
+
+				// if the aggregated branch is an ancestor of the current branch, then we have found a more specialized
+				// Branch and replace the old one with this one.
+				if isAncestor {
+					// replace aggregated branch if we have found a more specialized on
+					delete(result, aggregatedBranchId)
+					cachedAggregatedBranch.Release()
+
+					result[branchId] = cachedBranch
+
+					return nil
+				}
+			}
+
+			// store the branch as a new aggregate candidate if it was not found to be in any relation with the already
+			// aggregated ones.
+			result[branchId] = cachedBranch
+
+			return nil
+		}()
+
+		// abort if an error occurred while processing the current branch
+		if err != nil {
+			result.Release()
+			result = nil
+
+			return
+		}
+	}
+
+	return
+}
+
+func (ledgerState *LedgerState) branchIsAncestorOfBranch(ancestor *Branch, descendant *Branch) (isAncestor bool, err error) {
+	if ancestor.Id() == descendant.Id() {
+		return true, nil
+	}
+
+	ancestorBranches, err := ledgerState.getAncestorBranches(descendant)
+	if err != nil {
+		return
+	}
+
+	ancestorBranches.Consume(func(ancestorOfDescendant *Branch) {
+		if ancestorOfDescendant.Id() == ancestor.Id() {
+			isAncestor = true
+		}
+	})
+
+	return
+}
+
+func (ledgerState *LedgerState) getAncestorBranches(branch *Branch) (ancestorBranches CachedBranches, err error) {
+	// initialize result
+	ancestorBranches = make(CachedBranches)
+
+	// initialize stack
+	stack := list.New()
+	for _, parentRealityId := range branch.ParentBranches() {
+		stack.PushBack(parentRealityId)
+	}
+
+	// work through stack
+	for stack.Len() != 0 {
+		// iterate through the parents (in a func so we can used defer)
+		err = func() error {
+			// pop parent branch id from stack
+			firstStackElement := stack.Front()
+			defer stack.Remove(firstStackElement)
+			parentBranchId := stack.Front().Value.(BranchId)
+
+			// abort if the parent has been processed already
+			if _, branchProcessed := ancestorBranches[parentBranchId]; branchProcessed {
+				return nil
+			}
+
+			// load parent branch from database
+			cachedParentBranch := ledgerState.GetBranch(parentBranchId)
+
+			// abort if the parent branch could not be founds (should never happen)
+			parentBranch := cachedParentBranch.Unwrap()
+			if parentBranch == nil {
+				cachedParentBranch.Release()
+
+				return fmt.Errorf("failed to unwrap branch '%s'", parentBranchId)
+			}
+
+			// store parent branch in result
+			ancestorBranches[parentBranchId] = cachedParentBranch
+
+			// queue parents for additional check (recursion)
+			for _, parentRealityId := range parentBranch.ParentBranches() {
+				stack.PushBack(parentRealityId)
+			}
+
+			return nil
+		}()
+
+		// abort if an error occurs while trying to process the parents
+		if err != nil {
+			ancestorBranches.Release()
+			ancestorBranches = nil
+
+			return
+		}
+	}
+
+	return
 }

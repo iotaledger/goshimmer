@@ -91,7 +91,7 @@ func OutputFromStorageKey(keyBytes []byte, optionalTargetObject ...*Output) (res
 	case 1:
 		result = optionalTargetObject[0]
 	default:
-		panic("too many arguments in call to OutputFromBytes")
+		panic("too many arguments in call to OutputFromStorageKey")
 	}
 
 	// parse information

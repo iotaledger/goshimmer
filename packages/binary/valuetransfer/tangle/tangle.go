@@ -120,7 +120,7 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 
 	// check solidity
 	tangle.solidifierWorkerPool.Submit(func() {
-		tangle.solidifyTransactionWorker(cachedPayload, cachedPayloadMetadata)
+		tangle.solidifyPayloadWorker(cachedPayload, cachedPayloadMetadata)
 	})
 }
 
@@ -156,8 +156,8 @@ func (tangle *Tangle) popElementsFromSolidificationStack(stack *list.List) (*pay
 	return currentCachedPayload.(*payload.CachedPayload), currentCachedMetadata.(*CachedPayloadMetadata)
 }
 
-// solidifyTransactionWorker is the worker function that solidifies the payloads (recursively from past to present).
-func (tangle *Tangle) solidifyTransactionWorker(cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata) {
+// solidifyPayloadWorker is the worker function that solidifies the payloads (recursively from past to present).
+func (tangle *Tangle) solidifyPayloadWorker(cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata) {
 	// initialize the stack
 	solidificationStack := list.New()
 	solidificationStack.PushBack([2]interface{}{cachedPayload, cachedMetadata})

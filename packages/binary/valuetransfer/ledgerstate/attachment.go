@@ -150,6 +150,11 @@ type CachedAttachment struct {
 	objectstorage.CachedObject
 }
 
+// Retain overrides the underlying method to return a new CachedTransaction instead of a generic CachedObject.
+func (cachedAttachment *CachedAttachment) Retain() *CachedAttachment {
+	return &CachedAttachment{cachedAttachment.CachedObject.Retain()}
+}
+
 func (cachedAttachment *CachedAttachment) Unwrap() *Attachment {
 	if untypedObject := cachedAttachment.Get(); untypedObject == nil {
 		return nil

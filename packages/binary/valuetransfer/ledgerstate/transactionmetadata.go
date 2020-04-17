@@ -34,6 +34,17 @@ func NewTransactionMetadata(id transaction.Id) *TransactionMetadata {
 // TransactionMetadataFromBytes unmarshals a TransactionMetadata object from a sequence of bytes.
 // It either creates a new object or fills the optionally provided object with the parsed information.
 func TransactionMetadataFromBytes(bytes []byte, optionalTargetObject ...*TransactionMetadata) (result *TransactionMetadata, err error, consumedBytes int) {
+	marshalUtil := marshalutil.New(bytes)
+	result, err = ParseTransactionMetadata(marshalUtil, optionalTargetObject...)
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// TransactionMetadataFromStorageKey get's called when we restore TransactionMetadata from the storage.
+// In contrast to other database models, it unmarshals some information from the key so we simply store the key before
+// it gets handed over to UnmarshalObjectStorageValue (by the ObjectStorage).
+func TransactionMetadataFromStorageKey(keyBytes []byte, optionalTargetObject ...*TransactionMetadata) (result *TransactionMetadata, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -41,18 +52,13 @@ func TransactionMetadataFromBytes(bytes []byte, optionalTargetObject ...*Transac
 	case 1:
 		result = optionalTargetObject[0]
 	default:
-		panic("too many arguments in call to TransactionMetadataFromBytes")
+		panic("too many arguments in call to TransactionMetadataFromStorageKey")
 	}
 
-	// parse the bytes
-	marshalUtil := marshalutil.New(bytes)
-	if result.id, err = transaction.ParseId(marshalUtil); err != nil {
-		return
-	}
-	if result.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		return
-	}
-	if result.solid, err = marshalUtil.ReadBool(); err != nil {
+	// parse information
+	marshalUtil := marshalutil.New(keyBytes)
+	result.id, err = transaction.ParseId(marshalUtil)
+	if err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -60,26 +66,27 @@ func TransactionMetadataFromBytes(bytes []byte, optionalTargetObject ...*Transac
 	return
 }
 
-// TransactionMetadataFromStorage is the factory method for TransactionMetadata objects stored in the objectstorage. The bytes and the content
-// will be filled by the objectstorage, by subsequently calling ObjectStorageValue.
-func TransactionMetadataFromStorage(storageKey []byte) objectstorage.StorableObject {
-	result := &TransactionMetadata{}
-
-	var err error
-	if result.id, err = transaction.ParseId(marshalutil.New(storageKey)); err != nil {
-		panic(err)
-	}
-
-	return result
-}
-
 // Parse is a wrapper for simplified unmarshaling of TransactionMetadata objects from a byte stream using the marshalUtil package.
-func ParseTransactionMetadata(marshalUtil *marshalutil.MarshalUtil) (*TransactionMetadata, error) {
-	if metadata, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return TransactionMetadataFromBytes(data) }); err != nil {
-		return nil, err
+func ParseTransactionMetadata(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*TransactionMetadata) (result *TransactionMetadata, err error) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+		return TransactionMetadataFromStorageKey(data, optionalTargetObject...)
+	}); parseErr != nil {
+		err = parseErr
+
+		return
 	} else {
-		return metadata.(*TransactionMetadata), nil
+		result = parsedObject.(*TransactionMetadata)
 	}
+
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+
+		return
+	}); err != nil {
+		return
+	}
+
+	return
 }
 
 // Id return the id of the Transaction that this TransactionMetadata is associated to.
@@ -135,13 +142,10 @@ func (transactionMetadata *TransactionMetadata) SoldificationTime() time.Time {
 
 // Bytes marshals the TransactionMetadata object into a sequence of bytes.
 func (transactionMetadata *TransactionMetadata) Bytes() []byte {
-	marshalUtil := marshalutil.New()
-
-	marshalUtil.WriteBytes(transactionMetadata.id.Bytes())
-	marshalUtil.WriteTime(transactionMetadata.solidificationTime)
-	marshalUtil.WriteBool(transactionMetadata.solid)
-
-	return marshalUtil.Bytes()
+	return marshalutil.New(marshalutil.TIME_SIZE + marshalutil.BOOL_SIZE).
+		WriteTime(transactionMetadata.solidificationTime).
+		WriteBool(transactionMetadata.solid).
+		Bytes()
 }
 
 // String creates a human readable version of the metadata (for debug purposes).
@@ -172,7 +176,14 @@ func (transactionMetadata *TransactionMetadata) ObjectStorageValue() []byte {
 // UnmarshalObjectStorageValue restores the values of a TransactionMetadata object from a sequence of bytes and matches the
 // encoding.BinaryUnmarshaler interface.
 func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
-	_, err, consumedBytes = TransactionMetadataFromBytes(data, transactionMetadata)
+	marshalUtil := marshalutil.New(data)
+	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+		return
+	}
+	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }

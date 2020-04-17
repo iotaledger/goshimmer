@@ -13,8 +13,6 @@ type Events struct {
 	MissingPayloadReceived *events.Event
 	PayloadMissing         *events.Event
 	PayloadUnsolidifiable  *events.Event
-
-	TransactionSolid *events.Event
 }
 
 func newEvents() *Events {
