@@ -7,8 +7,14 @@ import (
 	"github.com/mr-tron/base58"
 )
 
+// ContentId identifies the content of a message without its trunk/branch ids.
+type ContentId = Id
+
+// Id identifies a message in its entirety. Unlike the sole content id, it also incorporates
+// the trunk and branch ids.
 type Id [IdLength]byte
 
+// NewId creates a new message id.
 func NewId(base58EncodedString string) (result Id, err error) {
 	bytes, err := base58.Decode(base58EncodedString)
 	if err != nil {

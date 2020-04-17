@@ -34,8 +34,8 @@ type Message struct {
 	// derived properties
 	id             *Id
 	idMutex        sync.RWMutex
-	payloadId      *payload.Id
-	payloadIdMutex sync.RWMutex
+	contentId      *ContentId
+	contentIdMutex sync.RWMutex
 
 	// only stored on the machine of the signer
 	issuerLocalIdentity *identity.LocalIdentity
@@ -121,7 +121,8 @@ func (message *Message) VerifySignature() bool {
 	return valid
 }
 
-// Id returns the id of the message.
+// Id returns the id of the message which is made up of the content id and trunk/branch ids.
+// This id can be used for merkle proofs.
 func (message *Message) Id() (result Id) {
 	message.idMutex.RLock()
 
@@ -189,41 +190,43 @@ func (message *Message) Payload() payload.Payload {
 	return message.payload
 }
 
-// PayloadId returns the id of the payload.
-func (message *Message) PayloadId() (result payload.Id) {
-	message.payloadIdMutex.RLock()
-	if message.payloadId == nil {
-		message.payloadIdMutex.RUnlock()
+// ContentId returns the content id of the message which is made up of all the
+// parts of the message minus the trunk and branch ids.
+func (message *Message) ContentId() (result ContentId) {
+	message.contentIdMutex.RLock()
+	if message.contentId == nil {
+		message.contentIdMutex.RUnlock()
 
-		message.payloadIdMutex.Lock()
-		defer message.payloadIdMutex.Unlock()
-		if message.payloadId != nil {
-			result = *message.payloadId
+		message.contentIdMutex.Lock()
+		defer message.contentIdMutex.Unlock()
+		if message.contentId != nil {
+			result = *message.contentId
 			return
 		}
-		result = message.calculatePayloadId()
-		message.payloadId = &result
+		result = message.calculateContentId()
+		message.contentId = &result
 		return
 	}
 
-	result = *message.payloadId
-	message.payloadIdMutex.RUnlock()
+	result = *message.contentId
+	message.contentIdMutex.RUnlock()
 	return
 }
 
-// calculates the id of the message.
+// calculates the message id.
 func (message *Message) calculateId() Id {
 	return blake2b.Sum512(
 		marshalutil.New(IdLength + IdLength + payload.IdLength).
 			WriteBytes(message.trunkId.Bytes()).
 			WriteBytes(message.branchId.Bytes()).
-			WriteBytes(message.PayloadId().Bytes()).
+			WriteBytes(message.ContentId().Bytes()).
 			Bytes(),
 	)
 }
 
-// calculates the id of the payload.
-func (message *Message) calculatePayloadId() payload.Id {
+// calculates the content id of the message.
+func (message *Message) calculateContentId() ContentId {
+	// compute content id from the message data (except trunk and branch ids)
 	return blake2b.Sum512(message.Bytes()[2*IdLength:])
 }
 
