@@ -8,7 +8,7 @@ linters-settings:
     gofmt:
         simplify: true
     golint:
-        min-confidence: 0.9
+        min-confidence: 0.8
     govet:
         check-shadowing: true
     misspell:
