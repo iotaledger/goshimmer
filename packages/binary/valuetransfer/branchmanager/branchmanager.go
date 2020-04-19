@@ -19,7 +19,7 @@ type BranchManager struct {
 }
 
 func New(badgerInstance *badger.DB) (result *BranchManager) {
-	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.LedgerState)
+	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.ValueTransfers)
 
 	result = &BranchManager{
 		branchStorage: osFactory.New(osBranch, osBranchFactory, osBranchOptions...),

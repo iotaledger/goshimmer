@@ -4,7 +4,6 @@ go 1.14
 
 require (
 	github.com/coreos/bbolt v1.3.3 // indirect
-	github.com/dgraph-io/badger v1.5.4
 	github.com/dgraph-io/badger/v2 v2.0.2
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/drand/drand v0.5.4

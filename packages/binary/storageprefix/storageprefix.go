@@ -7,5 +7,4 @@ const (
 	// package specific prefixes used for the objectstorage in the corresponding packages
 	MessageLayer
 	ValueTransfers
-	LedgerState
 )

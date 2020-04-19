@@ -37,7 +37,7 @@ type UTXODAG struct {
 }
 
 func New(badgerInstance *badger.DB, tangle *tangle.Tangle) (result *UTXODAG) {
-	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.LedgerState)
+	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.ValueTransfers)
 
 	result = &UTXODAG{
 		tangle:        tangle,
