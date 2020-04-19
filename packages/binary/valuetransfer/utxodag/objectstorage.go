@@ -1,6 +1,8 @@
-package ledgerstate
+package utxodag
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
@@ -16,6 +18,13 @@ const (
 	osAttachment
 	osOutput
 	osConsumer
+)
+
+var (
+	osLeakDetectionOption = objectstorage.LeakDetectionEnabled(false, objectstorage.LeakDetectionOptions{
+		MaxConsumersPerObject: 10,
+		MaxConsumerHoldTime:   10 * time.Second,
+	})
 )
 
 func osTransactionFactory(key []byte) (objectstorage.StorableObject, error, int) {

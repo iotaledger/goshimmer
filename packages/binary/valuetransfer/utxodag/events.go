@@ -1,4 +1,4 @@
-package ledgerstate
+package utxodag
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
@@ -13,11 +13,11 @@ type Events struct {
 
 func newEvents() *Events {
 	return &Events{
-		TransactionReceived: events.NewEvent(cachedPayloadEvent),
+		TransactionReceived: events.NewEvent(cachedTransactionEvent),
 	}
 }
 
-func cachedPayloadEvent(handler interface{}, params ...interface{}) {
+func cachedTransactionEvent(handler interface{}, params ...interface{}) {
 	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, *CachedAttachment))(
 		params[0].(*transaction.CachedTransaction).Retain(),
 		params[1].(*CachedTransactionMetadata).Retain(),

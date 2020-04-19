@@ -1,4 +1,4 @@
-package ledgerstate
+package utxodag
 
 import (
 	"sync"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/branchmanager"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
@@ -19,7 +20,7 @@ var OutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, trans
 type Output struct {
 	address            address.Address
 	transactionId      transaction.Id
-	branchId           BranchId
+	branchId           branchmanager.BranchId
 	solid              bool
 	solidificationTime time.Time
 	firstConsumer      transaction.Id
@@ -35,7 +36,7 @@ type Output struct {
 }
 
 // NewOutput creates an Output that contains the balances and identifiers of a Transaction.
-func NewOutput(address address.Address, transactionId transaction.Id, branchId BranchId, balances []*balance.Balance) *Output {
+func NewOutput(address address.Address, transactionId transaction.Id, branchId branchmanager.BranchId, balances []*balance.Balance) *Output {
 	return &Output{
 		address:            address,
 		transactionId:      transactionId,
@@ -125,7 +126,7 @@ func (output *Output) TransactionId() transaction.Id {
 }
 
 // BranchId returns the id of the ledger state branch, that this output was booked in.
-func (output *Output) BranchId() BranchId {
+func (output *Output) BranchId() branchmanager.BranchId {
 	return output.branchId
 }
 
@@ -214,7 +215,7 @@ func (output *Output) ObjectStorageValue() []byte {
 	balanceCount := len(output.balances)
 
 	// initialize helper
-	marshalUtil := marshalutil.New(BranchIdLength + marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
+	marshalUtil := marshalutil.New(branchmanager.BranchIdLength + marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
 	marshalUtil.WriteBytes(output.branchId.Bytes())
 	marshalUtil.WriteBool(output.solid)
 	marshalUtil.WriteTime(output.solidificationTime)
@@ -230,7 +231,7 @@ func (output *Output) ObjectStorageValue() []byte {
 // being stored in its key rather than the content of the database to reduce storage requirements.
 func (output *Output) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
 	marshalUtil := marshalutil.New(data)
-	if output.branchId, err = ParseBranchId(marshalUtil); err != nil {
+	if output.branchId, err = branchmanager.ParseBranchId(marshalUtil); err != nil {
 		return
 	}
 	if output.solid, err = marshalUtil.ReadBool(); err != nil {

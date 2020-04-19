@@ -1,4 +1,4 @@
-package ledgerstate
+package utxodag
 
 import (
 	"time"

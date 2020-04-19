@@ -1,4 +1,4 @@
-package ledgerstate
+package utxodag
 
 import (
 	"github.com/iotaledger/hive.go/marshalutil"

@@ -1,9 +1,10 @@
-package ledgerstate
+package utxodag
 
 import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
@@ -11,12 +12,46 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/branchmanager"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
 )
+
+func TestNewOutput(t *testing.T) {
+	randomAddress := address.Random()
+	randomTransactionId := transaction.RandomId()
+
+	output := NewOutput(randomAddress, randomTransactionId, branchmanager.MasterBranchId, []*balance.Balance{
+		balance.New(balance.COLOR_IOTA, 1337),
+	})
+
+	assert.Equal(t, randomAddress, output.Address())
+	assert.Equal(t, randomTransactionId, output.TransactionId())
+	assert.Equal(t, false, output.Solid())
+	assert.Equal(t, time.Time{}, output.SolidificationTime())
+	assert.Equal(t, []*balance.Balance{
+		balance.New(balance.COLOR_IOTA, 1337),
+	}, output.Balances())
+
+	assert.Equal(t, true, output.SetSolid(true))
+	assert.Equal(t, false, output.SetSolid(true))
+	assert.Equal(t, true, output.Solid())
+	assert.NotEqual(t, time.Time{}, output.SolidificationTime())
+
+	clonedOutput, err, _ := OutputFromBytes(output.Bytes())
+	if err != nil {
+		panic(err)
+	}
+
+	assert.Equal(t, output.Address(), clonedOutput.Address())
+	assert.Equal(t, output.TransactionId(), clonedOutput.TransactionId())
+	assert.Equal(t, output.Solid(), clonedOutput.Solid())
+	assert.Equal(t, output.SolidificationTime().Round(time.Second), clonedOutput.SolidificationTime().Round(time.Second))
+	assert.Equal(t, output.Balances(), clonedOutput.Balances())
+}
 
 func TestAttachment(t *testing.T) {
 	transactionId := transaction.RandomId()
@@ -51,7 +86,7 @@ func TestTangle_AttachPayload(t *testing.T) {
 		return
 	}
 
-	ledgerState := New(database.GetBadgerInstance(), valueTangle)
+	utxoDAG := New(database.GetBadgerInstance(), valueTangle)
 
 	addressKeyPair1 := ed25519.GenerateKeyPair()
 	addressKeyPair2 := ed25519.GenerateKeyPair()
@@ -59,17 +94,17 @@ func TestTangle_AttachPayload(t *testing.T) {
 	transferId1, _ := transaction.IdFromBase58("8opHzTAnfzRpPEx21XtnrVTX28YQuCpAjcn1PczScKh")
 	transferId2, _ := transaction.IdFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
 
-	input1 := NewOutput(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferId1, MasterBranchId, []*balance.Balance{
+	input1 := NewOutput(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferId1, branchmanager.MasterBranchId, []*balance.Balance{
 		balance.New(balance.COLOR_IOTA, 337),
 	})
 	input1.SetSolid(true)
-	input2 := NewOutput(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferId2, MasterBranchId, []*balance.Balance{
+	input2 := NewOutput(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferId2, branchmanager.MasterBranchId, []*balance.Balance{
 		balance.New(balance.COLOR_IOTA, 1000),
 	})
 	input2.SetSolid(true)
 
-	ledgerState.outputStorage.Store(input1).Release()
-	ledgerState.outputStorage.Store(input2).Release()
+	utxoDAG.outputStorage.Store(input1).Release()
+	utxoDAG.outputStorage.Store(input2).Release()
 
 	outputAddress := address.Random()
 
@@ -89,5 +124,5 @@ func TestTangle_AttachPayload(t *testing.T) {
 	valueTangle.AttachPayload(payload.New(payload.GenesisId, payload.GenesisId, tx))
 
 	valueTangle.Shutdown()
-	ledgerState.Shutdown()
+	utxoDAG.Shutdown()
 }
