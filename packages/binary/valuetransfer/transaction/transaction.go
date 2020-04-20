@@ -294,7 +294,7 @@ func (transaction *Transaction) SetDataPayload(data []byte, payloadType uint32) 
 	return nil
 }
 
-// gets the dataPayload and its type
+// GetDataPayload gets the dataPayload and its type
 func (transaction *Transaction) GetDataPayload() ([]byte, uint32) {
 	transaction.dataPayloadMutex.RLock()
 	defer transaction.dataPayloadMutex.RUnlock()
