@@ -57,7 +57,7 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
         }
         return (
             <Container>
-                <h3>Address {addr !== null && <span>({addr.txs.length} Transactions)</span>}</h3>
+                <h3>Address {addr !== null && <span>({addr.txs.length} Messages)</span>}</h3>
                 <p>
                     {hash} {' '}
                 </p>

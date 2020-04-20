@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
+// Spammer spams messages with a static data payload.
 type Spammer struct {
 	messageFactory *messagefactory.MessageFactory
 
@@ -17,6 +18,7 @@ type Spammer struct {
 	shutdownSignal chan types.Empty
 }
 
+// New creates a new spammer.
 func New(messageFactory *messagefactory.MessageFactory) *Spammer {
 	return &Spammer{
 		messageFactory: messageFactory,
@@ -25,10 +27,12 @@ func New(messageFactory *messagefactory.MessageFactory) *Spammer {
 	}
 }
 
+// Start starts the spammer to spam with the given transactions per second.
 func (spammer *Spammer) Start(tps int) {
 	go spammer.run(tps, atomic.AddInt64(&spammer.processId, 1))
 }
 
+// Shutdown shuts down the spammer.
 func (spammer *Spammer) Shutdown() {
 	atomic.AddInt64(&spammer.processId, 1)
 }

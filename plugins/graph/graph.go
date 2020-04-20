@@ -3,50 +3,49 @@ package graph
 import (
 	"container/ring"
 	"fmt"
-	"strconv"
 	"strings"
 
 	socketio "github.com/googollee/go-socket.io"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/iota.go/consts"
 
-	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/plugins/config"
 
 	"github.com/iotaledger/hive.go/syncutils"
 )
 
 const (
-	TX_BUFFER_SIZE = 1800
+	MessageBufferSize = 1800
 )
 
 var (
-	txRingBuffer *ring.Ring // transactions
-	snRingBuffer *ring.Ring // confirmed transactions
-	msRingBuffer *ring.Ring // Milestones
+	msgRingBuffer *ring.Ring // messages
+	snRingBuffer  *ring.Ring // confirmed messages
+	msRingBuffer  *ring.Ring // Milestones
 
-	broadcastLock    = syncutils.Mutex{}
-	txRingBufferLock = syncutils.Mutex{}
+	broadcastLock     = syncutils.Mutex{}
+	msgRingBufferLock = syncutils.Mutex{}
 )
 
-type wsTransaction struct {
-	Hash              string `json:"hash"`
-	Address           string `json:"address"`
-	Value             string `json:"value"`
-	Tag               string `json:"tag"`
-	Timestamp         string `json:"timestamp"`
-	CurrentIndex      string `json:"current_index"`
-	LastIndex         string `json:"last_index"`
-	Bundle            string `json:"bundle_hash"`
-	TrunkTransaction  string `json:"transaction_trunk"`
-	BranchTransaction string `json:"transaction_branch"`
+type wsMessage struct {
+	Hash            string `json:"hash"`
+	Address         string `json:"address"`
+	Value           string `json:"value"`
+	Tag             string `json:"tag"`
+	Timestamp       string `json:"timestamp"`
+	CurrentIndex    string `json:"current_index"`
+	LastIndex       string `json:"last_index"`
+	Bundle          string `json:"bundle_hash"`
+	TrunkMessageId  string `json:"transaction_trunk"`
+	BranchMessageId string `json:"transaction_branch"`
 }
 
-type wsTransactionSn struct {
-	Hash              string `json:"hash"`
-	Address           string `json:"address"`
-	TrunkTransaction  string `json:"transaction_trunk"`
-	BranchTransaction string `json:"transaction_branch"`
-	Bundle            string `json:"bundle"`
+type wsMessageSn struct {
+	Hash            string `json:"hash"`
+	Address         string `json:"address"`
+	TrunkMessageId  string `json:"transaction_trunk"`
+	BranchMessageId string `json:"transaction_branch"`
+	Bundle          string `json:"bundle"`
 }
 
 type wsConfig struct {
@@ -54,8 +53,8 @@ type wsConfig struct {
 }
 
 func initRingBuffers() {
-	txRingBuffer = ring.New(TX_BUFFER_SIZE)
-	snRingBuffer = ring.New(TX_BUFFER_SIZE)
+	msgRingBuffer = ring.New(MessageBufferSize)
+	snRingBuffer = ring.New(MessageBufferSize)
 	msRingBuffer = ring.New(20)
 }
 
@@ -69,17 +68,17 @@ func onConnectHandler(s socketio.Conn) error {
 
 	config := &wsConfig{NetworkName: config.Node.GetString(CFG_NETWORK)}
 
-	var initTxs []*wsTransaction
-	txRingBuffer.Do(func(tx interface{}) {
-		if tx != nil {
-			initTxs = append(initTxs, tx.(*wsTransaction))
+	var initMsgs []*wsMessage
+	msgRingBuffer.Do(func(wsMsg interface{}) {
+		if wsMsg != nil {
+			initMsgs = append(initMsgs, wsMsg.(*wsMessage))
 		}
 	})
 
-	var initSns []*wsTransactionSn
+	var initSns []*wsMessageSn
 	snRingBuffer.Do(func(sn interface{}) {
 		if sn != nil {
-			initSns = append(initSns, sn.(*wsTransactionSn))
+			initSns = append(initSns, sn.(*wsMessageSn))
 		}
 	})
 
@@ -91,7 +90,7 @@ func onConnectHandler(s socketio.Conn) error {
 	})
 
 	s.Emit("config", config)
-	s.Emit("inittx", initTxs)
+	s.Emit("inittx", initMsgs) // needs to be 'tx' for now
 	s.Emit("initsn", initSns)
 	s.Emit("initms", initMs)
 	s.Emit("donation", "0")
@@ -120,26 +119,27 @@ func onDisconnectHandler(s socketio.Conn, msg string) {
 
 var emptyTag = strings.Repeat("9", consts.TagTrinarySize/3)
 
-func onNewTx(tx *value_transaction.ValueTransaction) {
-	wsTx := &wsTransaction{
-		Hash:              tx.GetHash(),
-		Address:           tx.GetAddress(),
-		Value:             strconv.FormatInt(tx.GetValue(), 10),
-		Tag:               emptyTag,
-		Timestamp:         strconv.FormatInt(int64(tx.GetTimestamp()), 10),
-		CurrentIndex:      "0",
-		LastIndex:         "0",
-		Bundle:            consts.NullHashTrytes,
-		TrunkTransaction:  tx.GetTrunkTransactionHash(),
-		BranchTransaction: tx.GetBranchTransactionHash(),
+func onAttachedMessage(msg *message.Message) {
+	wsMsg := &wsMessage{
+		Hash:            msg.Id().String(),
+		Address:         "",
+		Value:           "0",
+		Tag:             emptyTag,
+		Timestamp:       "0",
+		CurrentIndex:    "0",
+		LastIndex:       "0",
+		Bundle:          consts.NullHashTrytes,
+		TrunkMessageId:  msg.TrunkId().String(),
+		BranchMessageId: msg.BranchId().String(),
 	}
 
-	txRingBufferLock.Lock()
-	txRingBuffer.Value = wsTx
-	txRingBuffer = txRingBuffer.Next()
-	txRingBufferLock.Unlock()
+	msgRingBufferLock.Lock()
+	msgRingBuffer.Value = wsMsg
+	msgRingBuffer = msgRingBuffer.Next()
+	msgRingBufferLock.Unlock()
 
 	broadcastLock.Lock()
-	socketioServer.BroadcastToRoom("broadcast", "tx", wsTx)
+	// needs to use  'tx' for now
+	socketioServer.BroadcastToRoom("broadcast", "tx", wsMsg)
 	broadcastLock.Unlock()
 }

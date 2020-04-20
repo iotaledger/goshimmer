@@ -18,11 +18,11 @@ func handleRequest(c echo.Context) error {
 			request.Tps = 1
 		}
 
-		transactionSpammer.Shutdown()
-		transactionSpammer.Start(request.Tps)
+		messageSpammer.Shutdown()
+		messageSpammer.Start(request.Tps)
 		return c.JSON(http.StatusOK, Response{Message: "started spamming transactions"})
 	case "stop":
-		transactionSpammer.Shutdown()
+		messageSpammer.Shutdown()
 		return c.JSON(http.StatusOK, Response{Message: "stopped spamming transactions"})
 	default:
 		return c.JSON(http.StatusBadRequest, Response{Error: "invalid cmd in request"})

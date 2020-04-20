@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type ExplorerTx struct {
+type ExplorerMessage struct {
 	Hash                     string `json:"hash"`
 	SignatureMessageFragment string `json:"signature_message_fragment"`
 	Address                  string `json:"address"`
@@ -23,20 +23,18 @@ type ExplorerTx struct {
 	MWM                      int    `json:"mwm"`
 }
 
-func createExplorerTx(tx *message.Message) (*ExplorerTx, error) {
-	transactionId := tx.Id()
-
-	txMetadata := messagelayer.Tangle.MessageMetadata(transactionId)
-
-	t := &ExplorerTx{
-		Hash:                     transactionId.String(),
+func createExplorerTx(msg *message.Message) (*ExplorerMessage, error) {
+	messageId := msg.Id()
+	messageMetadata := messagelayer.Tangle.MessageMetadata(messageId)
+	t := &ExplorerMessage{
+		Hash:                     messageId.String(),
 		SignatureMessageFragment: "",
 		Address:                  "",
 		Timestamp:                0,
 		Value:                    0,
-		Trunk:                    tx.TrunkId().String(),
-		Branch:                   tx.BranchId().String(),
-		Solid:                    txMetadata.Unwrap().IsSolid(),
+		Trunk:                    msg.TrunkId().String(),
+		Branch:                   msg.BranchId().String(),
+		Solid:                    messageMetadata.Unwrap().IsSolid(),
 	}
 
 	// TODO: COMPUTE MWM
@@ -46,13 +44,13 @@ func createExplorerTx(tx *message.Message) (*ExplorerTx, error) {
 }
 
 type ExplorerAdress struct {
-	Txs []*ExplorerTx `json:"txs"`
+	Txs []*ExplorerMessage `json:"txs"`
 }
 
 type SearchResult struct {
-	Tx        *ExplorerTx     `json:"tx"`
-	Address   *ExplorerAdress `json:"address"`
-	Milestone *ExplorerTx     `json:"milestone"`
+	Tx        *ExplorerMessage `json:"tx"`
+	Address   *ExplorerAdress  `json:"address"`
+	Milestone *ExplorerMessage `json:"milestone"`
 }
 
 func setupExplorerRoutes(routeGroup *echo.Group) {
@@ -115,7 +113,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func findTransaction(transactionId message.Id) (explorerTx *ExplorerTx, err error) {
+func findTransaction(transactionId message.Id) (explorerTx *ExplorerMessage, err error) {
 	if !messagelayer.Tangle.Message(transactionId).Consume(func(transaction *message.Message) {
 		explorerTx, err = createExplorerTx(transaction)
 	}) {
@@ -147,7 +145,7 @@ func findAddress(address string) (*ExplorerAdress, error) {
 			return nil, errors.Wrapf(ErrNotFound, "address %s not found", hash)
 		}
 
-		txs := make([]*ExplorerTx, 0, len(txHashes))
+		txs := make([]*ExplorerMessage, 0, len(txHashes))
 		for i := 0; i < len(txHashes); i++ {
 			txHash := txHashes[i]
 
