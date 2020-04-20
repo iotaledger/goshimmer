@@ -48,7 +48,7 @@ func (m *MessageFactory) IssuePayload(payload payload.Payload) *message.Message 
 	}
 
 	trunkMessageId, branchMessageId := m.tipSelector.Tips()
-	tx := message.New(
+	msg := message.New(
 		trunkMessageId,
 		branchMessageId,
 		m.localIdentity,
@@ -57,8 +57,8 @@ func (m *MessageFactory) IssuePayload(payload payload.Payload) *message.Message 
 		payload,
 	)
 
-	m.Events.MessageConstructed.Trigger(tx)
-	return tx
+	m.Events.MessageConstructed.Trigger(msg)
+	return msg
 }
 
 // Shutdown closes the messageFactory and persists the sequence number.

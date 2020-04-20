@@ -15,16 +15,16 @@ import (
 
 func BenchmarkMessageParser_ParseBytesSame(b *testing.B) {
 	localIdentity := identity.GenerateLocalIdentity()
-	txBytes := message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("Test"))).Bytes()
-	txParser := New()
+	msgBytes := message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("Test"))).Bytes()
+	msgParser := New()
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		txParser.Parse(txBytes, nil)
+		msgParser.Parse(msgBytes, nil)
 	}
 
-	txParser.Shutdown()
+	msgParser.Shutdown()
 }
 
 func BenchmarkMessageParser_ParseBytesDifferent(b *testing.B) {
@@ -34,27 +34,27 @@ func BenchmarkMessageParser_ParseBytesDifferent(b *testing.B) {
 		messageBytes[i] = message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("Test"+strconv.Itoa(i)))).Bytes()
 	}
 
-	txParser := New()
+	msgParser := New()
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		txParser.Parse(messageBytes[i], nil)
+		msgParser.Parse(messageBytes[i], nil)
 	}
 
-	txParser.Shutdown()
+	msgParser.Shutdown()
 }
 
 func TestMessageParser_ParseMessage(t *testing.T) {
 	localIdentity := identity.GenerateLocalIdentity()
-	tx := message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("Test")))
+	msg := message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("Test")))
 
-	txParser := New()
-	txParser.Parse(tx.Bytes(), nil)
+	msgParser := New()
+	msgParser.Parse(msg.Bytes(), nil)
 
-	txParser.Events.MessageParsed.Attach(events.NewClosure(func(tx *message.Message) {
+	msgParser.Events.MessageParsed.Attach(events.NewClosure(func(msg *message.Message) {
 		fmt.Println("PARSED!!!")
 	}))
 
-	txParser.Shutdown()
+	msgParser.Shutdown()
 }

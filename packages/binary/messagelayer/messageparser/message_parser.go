@@ -123,14 +123,14 @@ func (messageParser *MessageParser) setupMessageFilterDataFlow() {
 		numberOfMessageFilters := len(messageParser.messageFilters)
 		for i := 0; i < numberOfMessageFilters; i++ {
 			if i == numberOfMessageFilters-1 {
-				messageParser.messageFilters[i].OnAccept(func(tx *message.Message, peer *peer.Peer) {
-					messageParser.Events.MessageParsed.Trigger(tx, peer)
+				messageParser.messageFilters[i].OnAccept(func(msg *message.Message, peer *peer.Peer) {
+					messageParser.Events.MessageParsed.Trigger(msg, peer)
 				})
 			} else {
 				messageParser.messageFilters[i].OnAccept(messageParser.messageFilters[i+1].Filter)
 			}
-			messageParser.messageFilters[i].OnReject(func(tx *message.Message, err error, peer *peer.Peer) {
-				messageParser.Events.MessageRejected.Trigger(tx, err, peer)
+			messageParser.messageFilters[i].OnReject(func(msg *message.Message, err error, peer *peer.Peer) {
+				messageParser.Events.MessageRejected.Trigger(msg, err, peer)
 			})
 		}
 	}

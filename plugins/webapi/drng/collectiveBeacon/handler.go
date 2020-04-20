@@ -26,9 +26,8 @@ func Handler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: "not a valid Collective Beacon payload"})
 	}
 
-	tx := messagelayer.MessageFactory.IssuePayload(parsedPayload)
-
-	return c.JSON(http.StatusOK, Response{Id: tx.Id().String()})
+	msg := messagelayer.MessageFactory.IssuePayload(parsedPayload)
+	return c.JSON(http.StatusOK, Response{Id: msg.Id().String()})
 }
 
 // Response is the HTTP response from broadcasting a collective beacon message.
