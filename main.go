@@ -1,15 +1,15 @@
 package main
 
 import (
-	"net/http"
+	"github.com/iotaledger/hive.go/node"
+
+  "net/http"
 	_ "net/http/pprof"
 
 	"github.com/iotaledger/goshimmer/pluginmgr/core"
 	"github.com/iotaledger/goshimmer/pluginmgr/research"
 	"github.com/iotaledger/goshimmer/pluginmgr/ui"
-	"github.com/iotaledger/goshimmer/pluginmgr/webapi"
-
-	"github.com/iotaledger/hive.go/node"
+"github.com/iotaledger/goshimmer/pluginmgr/webapi"
 )
 
 func main() {
