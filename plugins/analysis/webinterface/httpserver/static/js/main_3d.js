@@ -1,5 +1,11 @@
 const ANALYSIS_SERVER_URL = "127.0.0.1" + "/datastream";
 const NODE_ID_LENGTH = 64;
+const backgroundColor = '#060D29'
+const nodeColor = 'rgba(168, 208, 230, 0.8)' //#A8D0E6
+const linkColor = 'rgba(255, 125, 108, 0.4)'  //#ff7d6c
+const highlightNodeColor = 'rgba(168, 208, 230, 1.0)' //#A8D0E6
+const highlightInColor =  'rgba(134, 194, 50, 1.0)' // #86c232
+const highlightOutColor = 'rgba(191, 10, 173, 1.0)' // #bf0aad
 
 class Frontend {
     constructor(app) {
@@ -146,25 +152,27 @@ class Frontend {
     highlightLinks(node) {
         this.app.ds.gData.links.forEach(link => {
             if (link.source.id == node){
-                this.app.graph.highlightLinks.add(link);
+                this.app.graph.highlightOutLinks.add(link);
+                this.app.graph.highlightOutNeighbors.add(link.target.id)
             } else if (link.target.id == node){
-                this.app.graph.highlightLinks.add(link);
+                this.app.graph.highlightInLinks.add(link);
+                this.app.graph.highlightInNeighbors.add(link.source.id)
             }
         })
     }
 
     clearHighlight(){
         this.app.graph.highlightNodes.clear();
-        this.app.graph.highlightLinks.clear();
+        this.app.graph.highlightInNeighbors.clear();
+        this.app.graph.highlightOutNeighbors.clear();
+        this.app.graph.highlightInLinks.clear();
+        this.app.graph.highlightOutLinks.clear();
         this.refreshGraphHighlights();
     }
 
     // Refereshes rendering of graph
     refreshGraphHighlights(){
-        this.app.graph.graph.nodeColor(this.app.graph.graph.nodeColor());
-        //this.app.graph.graph.nodeOpacity(this.app.graph.graph.nodeOpacity());
-        this.app.graph.graph.linkColor(this.app.graph.graph.linkColor());
-        //this.app.graph.graph.linkOpacity(this.app.graph.graph.linkOpacity());
+        this.app.graph.graph.refresh();
     }
 }
 
@@ -174,12 +182,14 @@ class Datastructure {
         this.gData = {
             nodes: [],
             links: []
-        }; 
+        };
+        this.needsDataSet = false;
     }
 
     addNode(idA) {
         this.gData.nodes.push({ id: idA})
         this.app.graph.setGraphData(this.gData);
+        this.needsDataSet = true;
         this.app.setStreamStatusMessage("Added Node: " + idA);
     }
 
@@ -187,12 +197,14 @@ class Datastructure {
         this.gData.links = this.gData.links.filter(l => l.source.id !== idA && l.target.id !== idA); // Remove links attached to node
         this.gData.nodes = this.gData.nodes.filter(n => n.id !== idA); // Remove node
         this.app.graph.setGraphData(this.gData);
+        this.needsDataSet = true;
         this.app.setStreamStatusMessage("Removed Node: " + idA);
     }
 
     connectNodes(idA, idB) {
         this.gData.links.push({ source: idA, target: idB })
         this.app.graph.setGraphData(this.gData);
+        this.needsDataSet = true;
         this.app.setStreamStatusMessage("Connected Nodes: " + idA + " > " + idB);
 
     }
@@ -200,6 +212,7 @@ class Datastructure {
         this.gData.links = this.gData.links.filter(l => (l.source.id !== idA && l.target.id !== idB));
         this.gData.links = this.gData.links.filter(l => (l.source.id !== idB && l.target.id !== idA));
         this.app.graph.setGraphData(this.gData);
+        this.needsDataSet = true;
         this.app.setStreamStatusMessage("Disconnected Nodes: " + idA + " > " + idB);
     }
 
@@ -220,20 +233,43 @@ class Graph{
     constructor(app) {
         this.app = app
         this.highlightNodes = new Set()
-        this.highlightLinks = new Set()
+        this.highlightInLinks = new Set()
+        this.highlightOutLinks = new Set()
+        this.highlightInNeighbors = new Set()
+        this.highlightOutNeighbors = new Set()
         this.graph = ForceGraph3D()
             (document.getElementById('graphc'))
+            .backgroundColor(backgroundColor)
             // Disable dragginf nodes for perfromance.
             .enableNodeDrag(false)
-            .graphData(app.ds.gData)
-            .nodeColor(node => this.highlightNodes.has(node.id) === true ? 'rgb(255,0,0,1)' : 'rgba(142,209,242,0.6)')
-            //.nodeOpacity(node => this.highlightNodes.has(node.id) === true ? 1 : 0.75)
-            .linkColor(link => this.highlightLinks.has(link) === false ? 'rgba(141,153,174,0.6)' : 'rgb(255,0,0,1)')
-            //.linkOpacity(link => this.highlightLinks.has(link) === false ? 0.2 : 1)
-            .nodeResolution(4)
+            //.graphData(app.ds.gData)
+            .linkOpacity(1.0)
+            .nodeOpacity(1.0)
+            .nodeVal( node => {
+                if (this.highlightNodes.has(node.id) === true)
+                    return 5
+                return 1
+            })
+            .nodeColor((node) => {
+                if (this.highlightNodes.has(node.id) === true)
+                    return highlightNodeColor
+                if (this.highlightInNeighbors.has(node.id) === true)
+                    return highlightInColor
+                if (this.highlightOutNeighbors.has(node.id) === true)
+                    return highlightOutColor
+                return nodeColor
+            })
+            .linkColor((link) => {
+                if (this.highlightInLinks.has(link) === true)
+                    return highlightInColor
+                if (this.highlightOutLinks.has(link) === true)
+                    return highlightOutColor
+                return linkColor
+            })
+            .nodeResolution(2)
             .linkWidth(1)
             //.linkDirectionalParticles(5)
-            .numDimensions(3)	
+            .numDimensions(2)	
             //.linkDirectionalParticleSpeed(0.01);
     }
 
@@ -266,14 +302,19 @@ class Application {
         );
     
         this.socket.onopen = () => {
-            setInterval(() => {
+            this.pingId = setInterval(() => {
                 this.socket.send("_");
             }, 1000);
         };
     
         this.socket.onerror = (e) => {
             console.error("WebSocket error observed", e);
-          };
+        };
+
+        this.socket.onclose = () => {
+            clearInterval(this.pingId)
+            console.log("Websocket connection closed.")
+        }
     
         this.socket.onmessage = (e) => {
             let type = e.data[0];
@@ -335,13 +376,11 @@ class Application {
     }
 
     setActiveNode(nodeId, updateHash=false) {
-        // TODO: highlight node in graph
         // Display node and neighbors in div info
         this.frontend.setActiveNode(nodeId, updateHash);
     }
 
     resetActiveNode() {
-        // TODO stop highlighting the node in graph
         this.frontend.resetActiveNode();
     }
 }
