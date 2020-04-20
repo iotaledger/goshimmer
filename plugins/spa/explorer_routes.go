@@ -12,55 +12,44 @@ import (
 )
 
 type ExplorerMessage struct {
-	Hash                     string `json:"hash"`
-	SignatureMessageFragment string `json:"signature_message_fragment"`
-	Address                  string `json:"address"`
-	Value                    int64  `json:"value"`
-	Timestamp                uint   `json:"timestamp"`
-	Trunk                    string `json:"trunk"`
-	Branch                   string `json:"branch"`
-	Solid                    bool   `json:"solid"`
-	MWM                      int    `json:"mwm"`
+	Id              string `json:"id"`
+	Timestamp       uint   `json:"timestamp"`
+	TrunkMessageId  string `json:"trunk_message_id"`
+	BranchMessageId string `json:"branch_message_id"`
+	Solid           bool   `json:"solid"`
 }
 
-func createExplorerTx(msg *message.Message) (*ExplorerMessage, error) {
+func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
 	messageId := msg.Id()
 	messageMetadata := messagelayer.Tangle.MessageMetadata(messageId)
 	t := &ExplorerMessage{
-		Hash:                     messageId.String(),
-		SignatureMessageFragment: "",
-		Address:                  "",
-		Timestamp:                0,
-		Value:                    0,
-		Trunk:                    msg.TrunkId().String(),
-		Branch:                   msg.BranchId().String(),
-		Solid:                    messageMetadata.Unwrap().IsSolid(),
+		Id:              messageId.String(),
+		Timestamp:       0,
+		TrunkMessageId:  msg.TrunkId().String(),
+		BranchMessageId: msg.BranchId().String(),
+		Solid:           messageMetadata.Unwrap().IsSolid(),
 	}
-
-	// TODO: COMPUTE MWM
-	t.MWM = 0
 
 	return t, nil
 }
 
-type ExplorerAdress struct {
-	Txs []*ExplorerMessage `json:"txs"`
+type ExplorerAddress struct {
+	Messages []*ExplorerMessage `json:"message"`
 }
 
 type SearchResult struct {
-	Tx        *ExplorerMessage `json:"tx"`
-	Address   *ExplorerAdress  `json:"address"`
-	Milestone *ExplorerMessage `json:"milestone"`
+	Message   *ExplorerMessage `json:"message"`
+	Address   *ExplorerAddress `json:"address"`
 }
 
 func setupExplorerRoutes(routeGroup *echo.Group) {
-	routeGroup.GET("/tx/:hash", func(c echo.Context) (err error) {
-		transactionId, err := message.NewId(c.Param("hash"))
+	routeGroup.GET("/message/:id", func(c echo.Context) (err error) {
+		messageId, err := message.NewId(c.Param("id"))
 		if err != nil {
 			return
 		}
 
-		t, err := findTransaction(transactionId)
+		t, err := findMessage(messageId)
 		if err != nil {
 			return
 		}
@@ -68,8 +57,8 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		return c.JSON(http.StatusOK, t)
 	})
 
-	routeGroup.GET("/addr/:hash", func(c echo.Context) error {
-		addr, err := findAddress(c.Param("hash"))
+	routeGroup.GET("/address/:id", func(c echo.Context) error {
+		addr, err := findAddress(c.Param("id"))
 		if err != nil {
 			return err
 		}
@@ -81,7 +70,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		result := &SearchResult{}
 
 		if len(search) < 81 {
-			return errors.Wrapf(ErrInvalidParameter, "search hash invalid: %s", search)
+			return errors.Wrapf(ErrInvalidParameter, "search id invalid: %s", search)
 		}
 
 		wg := sync.WaitGroup{}
@@ -89,14 +78,14 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		go func() {
 			defer wg.Done()
 
-			transactionId, err := message.NewId(search)
+			messageId, err := message.NewId(search)
 			if err != nil {
 				return
 			}
 
-			tx, err := findTransaction(transactionId)
+			msg, err := findMessage(messageId)
 			if err == nil {
-				result.Tx = tx
+				result.Message = msg
 			}
 		}()
 
@@ -113,56 +102,18 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func findTransaction(transactionId message.Id) (explorerTx *ExplorerMessage, err error) {
-	if !messagelayer.Tangle.Message(transactionId).Consume(func(transaction *message.Message) {
-		explorerTx, err = createExplorerTx(transaction)
+func findMessage(messageId message.Id) (explorerMsg *ExplorerMessage, err error) {
+	if !messagelayer.Tangle.Message(messageId).Consume(func(msg *message.Message) {
+		explorerMsg, err = createExplorerMessage(msg)
 	}) {
-		err = errors.Wrapf(ErrNotFound, "tx hash: %s", transactionId.String())
+		err = errors.Wrapf(ErrNotFound, "message: %s", messageId.String())
 	}
 
 	return
 }
 
-func findAddress(address string) (*ExplorerAdress, error) {
+func findAddress(address string) (*ExplorerAddress, error) {
 	return nil, errors.Wrapf(ErrNotFound, "address %s not found", address)
 
 	// TODO: ADD ADDRESS LOOKUPS ONCE THE VALUE TRANSFER ONTOLOGY IS MERGED
-
-	/*
-		if len(hash) > 81 {
-			hash = hash[:81]
-		}
-		if !guards.IsTrytesOfExactLength(hash, consts.HashTrytesSize) {
-			return nil, errors.Wrapf(ErrInvalidParameter, "hash invalid: %s", hash)
-		}
-
-		txHashes, err := tangle_old.ReadTransactionHashesForAddressFromDatabase(hash)
-		if err != nil {
-			return nil, ErrInternalError
-		}
-
-		if len(txHashes) == 0 {
-			return nil, errors.Wrapf(ErrNotFound, "address %s not found", hash)
-		}
-
-		txs := make([]*ExplorerMessage, 0, len(txHashes))
-		for i := 0; i < len(txHashes); i++ {
-			txHash := txHashes[i]
-
-			tx, err := tangle_old.GetTransaction(hash)
-			if err != nil {
-				continue
-			}
-			if tx == nil {
-				continue
-			}
-			expTx, err := createExplorerTx(txHash, tx)
-			if err != nil {
-				return nil, err
-			}
-			txs = append(txs, expTx)
-		}
-
-		return &ExplorerAdress{Txs: txs}, nil
-	*/
 }

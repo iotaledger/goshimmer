@@ -1,7 +1,7 @@
 export enum WSMsgType {
     Status,
-    TPSMetrics,
-    Tx,
+    MPSMetrics,
+    Message,
     NeighborStats,
     Drng,
     TipsMetrics,

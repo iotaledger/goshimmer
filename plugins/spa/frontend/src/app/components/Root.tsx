@@ -11,7 +11,7 @@ import {Explorer} from "app/components/Explorer";
 import {NavExplorerSearchbar} from "app/components/NavExplorerSearchbar";
 import {Redirect, Route, Switch} from 'react-router-dom';
 import {LinkContainer} from 'react-router-bootstrap';
-import {ExplorerTransactionQueryResult} from "app/components/ExplorerTransactionQueryResult";
+import {ExplorerMessageQueryResult} from "app/components/ExplorerMessageQueryResult";
 import {ExplorerAddressQueryResult} from "app/components/ExplorerAddressResult";
 import {Explorer404} from "app/components/Explorer404";
 import {Neighbors} from "app/components/Neighbors";
@@ -72,8 +72,8 @@ export class Root extends React.Component<Props, any> {
                 <Switch>
                     <Route exact path="/dashboard" component={Dashboard}/>
                     <Route exact path="/neighbors" component={Neighbors}/>
-                    <Route exact path="/explorer/tx/:hash" component={ExplorerTransactionQueryResult}/>
-                    <Route exact path="/explorer/addr/:hash" component={ExplorerAddressQueryResult}/>
+                    <Route exact path="/explorer/message/:id" component={ExplorerMessageQueryResult}/>
+                    <Route exact path="/explorer/address/:id" component={ExplorerAddressQueryResult}/>
                     <Route exact path="/explorer/404/:search" component={Explorer404}/>
                     <Route exact path="/explorer" component={Explorer}/>
                     <Route exact path="/drng" component={Drng}/>

@@ -20,7 +20,7 @@ var liveFeedWorkerPool *workerpool.WorkerPool
 func configureLiveFeed() {
 	liveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
 		task.Param(0).(*message.CachedMessage).Consume(func(message *message.Message) {
-			sendToAllWSClient(&msg{MsgTypeTx, &tx{message.Id().String(), 0}})
+			sendToAllWSClient(&wsmsg{MsgTypeMessage, &msg{message.Id().String(), 0}})
 		})
 
 		task.Return(nil)

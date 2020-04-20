@@ -4,33 +4,26 @@ import * as React from "react";
 import {Link} from 'react-router-dom';
 import {RouterStore} from "mobx-react-router";
 
-export class Transaction {
-    hash: string;
-    signature_message_fragment: string;
-    address: string;
-    value: number;
+export class Message {
+    id: string;
     timestamp: number;
-    trunk: string;
-    branch: string;
+    trunk_message_id: string;
+    branch_message_id: string;
     solid: boolean;
 }
 
 class AddressResult {
     balance: number;
-    txs: Array<Transaction>;
-    spent: boolean;
+    messages: Array<Message>;
 }
 
 class SearchResult {
-    tx: Transaction;
+    message: MessageRef;
     address: AddressResult;
-    milestone: Transaction;
-    bundles: Array<Array<Transaction>>;
 }
 
-class Tx {
-    hash: string;
-    value: number;
+class MessageRef {
+    id: string;
 }
 
 const liveFeedSize = 10;
@@ -41,10 +34,10 @@ enum QueryError {
 
 export class ExplorerStore {
     // live feed
-    @observable latest_txs: Array<Tx> = [];
+    @observable latest_messages: Array<MessageRef> = [];
 
     // queries
-    @observable tx: Transaction = null;
+    @observable msg: Message = null;
     @observable addr: AddressResult = null;
 
     // loading
@@ -60,7 +53,7 @@ export class ExplorerStore {
 
     constructor(routerStore: RouterStore) {
         this.routerStore = routerStore;
-        registerHandler(WSMsgType.Tx, this.addLiveFeedTx);
+        registerHandler(WSMsgType.Message, this.addLiveFeedMessage);
     }
 
     searchAny = async () => {
@@ -86,16 +79,12 @@ export class ExplorerStore {
         this.searching = false;
         let search = this.search;
         this.search = '';
-        if (this.search_result.tx) {
-            this.routerStore.push(`/explorer/tx/${search}`);
-            return;
-        }
-        if (this.search_result.milestone) {
-            this.routerStore.push(`/explorer/tx/${this.search_result.milestone.hash}`);
+        if (this.search_result.message) {
+            this.routerStore.push(`/explorer/message/${search}`);
             return;
         }
         if (this.search_result.address) {
-            this.routerStore.push(`/explorer/addr/${search}`);
+            this.routerStore.push(`/explorer/address/${search}`);
             return;
         }
         this.routerStore.push(`/explorer/404/${search}`);
@@ -109,25 +98,25 @@ export class ExplorerStore {
     @action
     updateSearching = (searching: boolean) => this.searching = searching;
 
-    searchTx = async (hash: string) => {
+    searchMessage = async (id: string) => {
         this.updateQueryLoading(true);
         try {
-            let res = await fetch(`/api/tx/${hash}`);
+            let res = await fetch(`/api/message/${id}`);
             if (res.status === 404) {
                 this.updateQueryError(QueryError.NotFound);
                 return;
             }
-            let tx: Transaction = await res.json();
-            this.updateTx(tx);
+            let msg: Message = await res.json();
+            this.updateMessage(msg);
         } catch (err) {
             this.updateQueryError(err);
         }
     };
 
-    searchAddress = async (hash: string) => {
+    searchAddress = async (id: string) => {
         this.updateQueryLoading(true);
         try {
-            let res = await fetch(`/api/addr/${hash}`);
+            let res = await fetch(`/api/address/${id}`);
             if (res.status === 404) {
                 this.updateQueryError(QueryError.NotFound);
                 return;
@@ -141,13 +130,13 @@ export class ExplorerStore {
 
     @action
     reset = () => {
-        this.tx = null;
+        this.msg = null;
         this.query_err = null;
     };
 
     @action
     updateAddress = (addr: AddressResult) => {
-        addr.txs = addr.txs.sort((a, b) => {
+        addr.messages = addr.messages.sort((a, b) => {
             return a.timestamp < b.timestamp ? 1 : -1;
         });
         this.addr = addr;
@@ -156,8 +145,8 @@ export class ExplorerStore {
     };
 
     @action
-    updateTx = (tx: Transaction) => {
-        this.tx = tx;
+    updateMessage = (msg: Message) => {
+        this.msg = msg;
         this.query_err = null;
         this.query_loading = false;
     };
@@ -173,30 +162,27 @@ export class ExplorerStore {
     };
 
     @action
-    addLiveFeedTx = (tx: Tx) => {
+    addLiveFeedMessage = (msg: MessageRef) => {
         // prevent duplicates (should be fast with only size 10)
-        if (this.latest_txs.findIndex((t) => t.hash == tx.hash) === -1) {
-            if (this.latest_txs.length >= liveFeedSize) {
-                this.latest_txs.shift();
+        if (this.latest_messages.findIndex((t) => t.id == msg.id) === -1) {
+            if (this.latest_messages.length >= liveFeedSize) {
+                this.latest_messages.shift();
             }
-            this.latest_txs.push(tx);
+            this.latest_messages.push(msg);
         }
     };
 
     @computed
-    get txsLiveFeed() {
+    get msgsLiveFeed() {
         let feed = [];
-        for (let i = this.latest_txs.length - 1; i >= 0; i--) {
-            let tx = this.latest_txs[i];
+        for (let i = this.latest_messages.length - 1; i >= 0; i--) {
+            let msg = this.latest_messages[i];
             feed.push(
-                <tr key={tx.hash}>
+                <tr key={msg.id}>
                     <td>
-                        <Link to={`/explorer/tx/${tx.hash}`}>
-                            {tx.hash.substr(0, 35)}
+                        <Link to={`/explorer/message/${msg.id}`}>
+                            {msg.id.substr(0, 35)}
                         </Link>
-                    </td>
-                    <td>
-                        {tx.value}
                     </td>
                 </tr>
             );
