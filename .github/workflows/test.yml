@@ -1,8 +1,7 @@
 name: Test GoShimmer
-on:
-  push:
-  pull_request:
-    types: [opened, reopened]
+
+on: [push, pull_request]
+
 jobs:
 
   build:
