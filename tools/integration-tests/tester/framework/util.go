@@ -25,8 +25,6 @@ func createLogFile(name string, logs io.ReadCloser) {
 	scanner := bufio.NewScanner(logs)
 	for scanner.Scan() {
 		bytes := append(scanner.Bytes()[8:], '\n')
-
-		fmt.Println(bytes)
 		f.Write(bytes)
 	}
 
