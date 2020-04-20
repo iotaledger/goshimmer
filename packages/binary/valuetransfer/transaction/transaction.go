@@ -302,7 +302,7 @@ func (transaction *Transaction) GetDataPayload() ([]byte, uint32) {
 	return transaction.dataPayload, transaction.dataPayloadType
 }
 
-// return size of the dataPayload as uint32
+// DataPayloadSize returns the size of the dataPayload as uint32.
 // nil payload as size 0
 func (transaction *Transaction) DataPayloadSize() uint32 {
 	transaction.dataPayloadMutex.RLock()
