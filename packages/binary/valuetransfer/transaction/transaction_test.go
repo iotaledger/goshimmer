@@ -2,6 +2,9 @@ package transaction
 
 import (
 	"bytes"
+	"strings"
+	"testing"
+
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
