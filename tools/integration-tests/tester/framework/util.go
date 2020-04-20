@@ -21,6 +21,14 @@ func createLogFile(name string, logs io.ReadCloser) {
 	}
 	defer f.Close()
 
-	io.Copy(f, bufio.NewReader(logs))
+	// remove non-ascii chars at beginning of line
+	scanner := bufio.NewScanner(logs)
+	for scanner.Scan() {
+		bytes := append(scanner.Bytes()[8:], '\n')
+
+		fmt.Println(bytes)
+		f.Write(bytes)
+	}
+
 	f.Sync()
 }

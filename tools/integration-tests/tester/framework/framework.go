@@ -46,7 +46,7 @@ func newFramework() *Framework {
 	return f
 }
 
-func (f *Framework) CreateNetwork(name string, peers int) *Network {
+func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int) *Network {
 	network := newNetwork(f.dockerClient, strings.ToLower(name), f.tester)
 	// create entry_node
 	network.createEntryNode()
@@ -58,7 +58,7 @@ func (f *Framework) CreateNetwork(name string, peers int) *Network {
 
 	// wait until containers are fully started
 	time.Sleep(1 * time.Second)
-	network.WaitForAutopeering()
+	network.WaitForAutopeering(minimumNeighbors)
 
 	return network
 }

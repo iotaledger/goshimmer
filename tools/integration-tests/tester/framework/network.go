@@ -105,7 +105,7 @@ func (n *Network) getNamePrefix(suffix string) string {
 
 // WaitForAutopeering waits until all peers have reached a minimum amount of neighbors.
 // Panics if this minimum is not reached after autopeeringMaxTries.
-func (n *Network) WaitForAutopeering() {
+func (n *Network) WaitForAutopeering(minimumNeighbors int) {
 	fmt.Printf("Waiting for autopeering...\n")
 	defer fmt.Printf("Waiting for autopeering... done\n")
 
@@ -130,7 +130,7 @@ func (n *Network) WaitForAutopeering() {
 			}
 			total += neighbors
 		}
-		if min >= autopeeringMinimumNeighbors {
+		if min >= minimumNeighbors {
 			fmt.Printf("Neighbors: min=%d avg=%.2f\n", min, float64(total)/float64(len(n.peers)))
 			return
 		}

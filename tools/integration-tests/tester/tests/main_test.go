@@ -17,7 +17,7 @@ var f *framework.Framework
 // TestMain gets called by the test utility and is executed before any other test in this package.
 // It is therefore used to initialize the integration testing framework.
 func TestMain(m *testing.M) {
-	f = framework.New()
+	f = framework.Instance()
 
 	// call the tests
 	os.Exit(m.Run())
