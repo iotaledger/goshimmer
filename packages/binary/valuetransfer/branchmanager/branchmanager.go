@@ -33,6 +33,15 @@ func (branchManager *BranchManager) init() {
 	branchManager.branchStorage.StoreIfAbsent(NewBranch(MasterBranchId, []BranchId{}))
 }
 
+func (branchManager *BranchManager) AddBranch(branch *Branch) *CachedBranch {
+	return &CachedBranch{CachedObject: branchManager.branchStorage.ComputeIfAbsent(branch.Id().Bytes(), func(key []byte) objectstorage.StorableObject {
+		branch.Persist()
+		branch.SetModified()
+
+		return branch
+	})}
+}
+
 func (branchManager *BranchManager) GetBranch(branchId BranchId) *CachedBranch {
 	return &CachedBranch{CachedObject: branchManager.branchStorage.Load(branchId.Bytes())}
 }

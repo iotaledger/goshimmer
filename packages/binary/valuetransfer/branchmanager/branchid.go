@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
@@ -89,3 +90,16 @@ func (branchId BranchId) String() string {
 // BranchIdLength encodes the length of a branch identifier - since branches get created by transactions, it has the
 // same length as a transaction Id.
 const BranchIdLength = transaction.IdLength
+
+type BranchIds map[BranchId]types.Empty
+
+func (branchIds BranchIds) ToList() (result []BranchId) {
+	result = make([]BranchId, len(branchIds))
+	i := 0
+	for branchId := range branchIds {
+		result[i] = branchId
+		i++
+	}
+
+	return
+}

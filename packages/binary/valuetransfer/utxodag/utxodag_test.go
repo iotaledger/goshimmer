@@ -106,22 +106,36 @@ func TestTangle_AttachPayload(t *testing.T) {
 	utxoDAG.outputStorage.Store(input1).Release()
 	utxoDAG.outputStorage.Store(input2).Release()
 
-	outputAddress := address.Random()
+	outputAddress1 := address.Random()
+	outputAddress2 := address.Random()
 
-	tx := transaction.New(
+	// attach first spend
+	valueTangle.AttachPayload(payload.New(payload.GenesisId, payload.GenesisId, transaction.New(
 		transaction.NewInputs(
 			input1.Id(),
 			input2.Id(),
 		),
 
 		transaction.NewOutputs(map[address.Address][]*balance.Balance{
-			outputAddress: {
+			outputAddress1: {
 				balance.New(balance.COLOR_NEW, 1337),
 			},
 		}),
-	)
+	)))
 
-	valueTangle.AttachPayload(payload.New(payload.GenesisId, payload.GenesisId, tx))
+	// attach double spend
+	valueTangle.AttachPayload(payload.New(payload.GenesisId, payload.GenesisId, transaction.New(
+		transaction.NewInputs(
+			input1.Id(),
+			input2.Id(),
+		),
+
+		transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			outputAddress2: {
+				balance.New(balance.COLOR_NEW, 1337),
+			},
+		}),
+	)))
 
 	valueTangle.Shutdown()
 	utxoDAG.Shutdown()

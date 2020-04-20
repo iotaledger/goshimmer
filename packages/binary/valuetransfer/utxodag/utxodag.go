@@ -2,6 +2,7 @@ package utxodag
 
 import (
 	"container/list"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -242,7 +243,7 @@ func (utxoDAG *UTXODAG) solidifyTransactionWorker(cachedTransaction *transaction
 			})
 
 			// TODO: BOOK TRANSACTION
-			utxoDAG.bookTransaction(cachedTransaction.Retain())
+			utxoDAG.bookTransaction(cachedTransaction.Retain(), cachedTransactionMetdata.Retain())
 		}()
 	}
 }
@@ -427,25 +428,37 @@ func (utxoDAG *UTXODAG) ForEachConsumers(currentTransaction *transaction.Transac
 	})
 }
 
-func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTransaction) {
+func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) (err error) {
 	defer cachedTransaction.Release()
+	defer cachedTransactionMetadata.Release()
 
 	transactionToBook := cachedTransaction.Unwrap()
 	if transactionToBook == nil {
+		err = errors.New("failed to unwrap transaction")
+
 		return
 	}
 
-	consumedBranches := make(map[branchmanager.BranchId]types.Empty)
-	conflictingConsumersToFork := make(map[transaction.Id]types.Empty)
-	createFork := false
+	transactionMetadata := cachedTransactionMetadata.Unwrap()
+	if transactionMetadata == nil {
+		err = errors.New("failed to unwrap transaction metadata")
 
-	inputsSuccessfullyProcessed := transactionToBook.Inputs().ForEach(func(outputId transaction.OutputId) bool {
+		return
+	}
+
+	consumedBranches := make(branchmanager.BranchIds)
+	conflictingInputs := make([]transaction.OutputId, 0)
+	conflictingInputsOfConflictingConsumers := make(map[transaction.Id][]transaction.OutputId)
+
+	if !transactionToBook.Inputs().ForEach(func(outputId transaction.OutputId) bool {
 		cachedOutput := utxoDAG.GetTransactionOutput(outputId)
 		defer cachedOutput.Release()
 
 		// abort if the output could not be found
 		output := cachedOutput.Unwrap()
 		if output == nil {
+			err = fmt.Errorf("could not load output '%s'", outputId)
+
 			return false
 		}
 
@@ -457,39 +470,66 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 			return true
 		}
 
-		// fork into a new branch
-		createFork = true
+		// keep track of conflicting inputs
+		conflictingInputs = append(conflictingInputs, outputId)
 
-		// also fork the previous consumer
+		// also keep track of conflicting inputs of previous consumers
 		if consumerCount == 1 {
-			conflictingConsumersToFork[firstConsumerId] = types.Void
+			if _, conflictingInputsExist := conflictingInputsOfConflictingConsumers[firstConsumerId]; !conflictingInputsExist {
+				conflictingInputsOfConflictingConsumers[firstConsumerId] = make([]transaction.OutputId, 0)
+			}
+
+			conflictingInputsOfConflictingConsumers[firstConsumerId] = append(conflictingInputsOfConflictingConsumers[firstConsumerId], outputId)
 		}
 
 		return true
-	})
-
-	if !inputsSuccessfullyProcessed {
+	}) {
 		return
 	}
 
+	cachedTargetBranch, _ := utxoDAG.branchManager.InheritBranches(consumedBranches.ToList()...)
+	defer cachedTargetBranch.Release()
+
+	targetBranch := cachedTargetBranch.Unwrap()
+	if targetBranch == nil {
+		return errors.New("failed to unwrap target branch")
+	}
+	targetBranch.Persist()
+
+	if len(conflictingInputs) >= 1 {
+		cachedTargetBranch = utxoDAG.branchManager.AddBranch(branchmanager.NewBranch(branchmanager.NewBranchId(transactionToBook.Id()), []branchmanager.BranchId{targetBranch.Id()}))
+		defer cachedTargetBranch.Release()
+
+		targetBranch = cachedTargetBranch.Unwrap()
+		if targetBranch == nil {
+			return errors.New("failed to inherit branches")
+		}
+
+		// TODO: CREATE / RETRIEVE CONFLICT SETS + ADD TARGET REALITY TO THEM
+	}
+
+	// book transaction into target reality
+	transactionMetadata.SetBranchId(targetBranch.Id())
+
+	// book outputs into the target branch
 	transactionToBook.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		newOutput := NewOutput(address, transactionToBook.Id(), branchmanager.MasterBranchId, balances)
+		newOutput := NewOutput(address, transactionToBook.Id(), targetBranch.Id(), balances)
 		newOutput.SetSolid(true)
 		utxoDAG.outputStorage.Store(newOutput).Release()
+
+		fmt.Println(newOutput)
 
 		return true
 	})
 
-	consumedBranchesList := make([]branchmanager.BranchId, len(consumedBranches))
-	i := 0
-	for branchId := range consumedBranches {
-		consumedBranchesList[i] = branchId
-		i++
+	// TODO: FORK CONFLICTING CONSUMERS
+	if len(conflictingInputsOfConflictingConsumers) >= 1 {
+
 	}
 
-	cachedParentBranch, _ := utxoDAG.branchManager.InheritBranches(consumedBranchesList...)
-	fmt.Println(cachedParentBranch.Unwrap())
-	fmt.Println(consumedBranches)
-	fmt.Println(branchmanager.MasterBranchId)
-	fmt.Println(createFork)
+	// TODO: TRIGGER TX CONFLICT EVENTS
+
+	// TODO: BOOK ATTACHMENT
+
+	return
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 
+	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/branchmanager"
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
@@ -17,9 +18,11 @@ type TransactionMetadata struct {
 	objectstorage.StorableObjectFlags
 
 	id                 transaction.Id
+	branchId           branchmanager.BranchId
 	solid              bool
 	solidificationTime time.Time
 
+	branchIdMutex           sync.RWMutex
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 }
@@ -94,6 +97,35 @@ func (transactionMetadata *TransactionMetadata) Id() transaction.Id {
 	return transactionMetadata.id
 }
 
+func (transactionMetadata *TransactionMetadata) BranchId() branchmanager.BranchId {
+	transactionMetadata.branchIdMutex.RLock()
+	defer transactionMetadata.branchIdMutex.RUnlock()
+
+	return transactionMetadata.branchId
+}
+
+func (transactionMetadata *TransactionMetadata) SetBranchId(branchId branchmanager.BranchId) (modified bool) {
+	transactionMetadata.branchIdMutex.RLock()
+	if transactionMetadata.branchId == branchId {
+		transactionMetadata.branchIdMutex.RUnlock()
+
+		return
+	}
+
+	transactionMetadata.branchIdMutex.RUnlock()
+	transactionMetadata.branchIdMutex.Lock()
+	defer transactionMetadata.branchIdMutex.Unlock()
+
+	if transactionMetadata.branchId == branchId {
+		return
+	}
+
+	transactionMetadata.branchId = branchId
+	modified = true
+
+	return
+}
+
 // Solid returns true if the Transaction has been marked as solid.
 func (transactionMetadata *TransactionMetadata) Solid() (result bool) {
 	transactionMetadata.solidMutex.RLock()
@@ -142,7 +174,8 @@ func (transactionMetadata *TransactionMetadata) SoldificationTime() time.Time {
 
 // Bytes marshals the TransactionMetadata object into a sequence of bytes.
 func (transactionMetadata *TransactionMetadata) Bytes() []byte {
-	return marshalutil.New(marshalutil.TIME_SIZE + marshalutil.BOOL_SIZE).
+	return marshalutil.New(branchmanager.BranchIdLength + marshalutil.TIME_SIZE + marshalutil.BOOL_SIZE).
+		WriteBytes(transactionMetadata.BranchId().Bytes()).
 		WriteTime(transactionMetadata.solidificationTime).
 		WriteBool(transactionMetadata.solid).
 		Bytes()
@@ -151,7 +184,8 @@ func (transactionMetadata *TransactionMetadata) Bytes() []byte {
 // String creates a human readable version of the metadata (for debug purposes).
 func (transactionMetadata *TransactionMetadata) String() string {
 	return stringify.Struct("transaction.TransactionMetadata",
-		stringify.StructField("payloadId", transactionMetadata.Id()),
+		stringify.StructField("id", transactionMetadata.Id()),
+		stringify.StructField("branchId", transactionMetadata.BranchId()),
 		stringify.StructField("solid", transactionMetadata.Solid()),
 		stringify.StructField("solidificationTime", transactionMetadata.SoldificationTime()),
 	)
@@ -177,6 +211,9 @@ func (transactionMetadata *TransactionMetadata) ObjectStorageValue() []byte {
 // encoding.BinaryUnmarshaler interface.
 func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
 	marshalUtil := marshalutil.New(data)
+	if transactionMetadata.branchId, err = branchmanager.ParseBranchId(marshalUtil); err != nil {
+		return
+	}
 	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
 		return
 	}
