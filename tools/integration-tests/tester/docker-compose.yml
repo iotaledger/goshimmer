@@ -9,9 +9,5 @@ services:
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock:ro
     - ../../..:/go/src/github.com/iotaledger/goshimmer:ro
-    networks:
-      - integration-test
+    - ../logs:/tmp/logs
 
-networks:
-  integration-test:
-    external: true
