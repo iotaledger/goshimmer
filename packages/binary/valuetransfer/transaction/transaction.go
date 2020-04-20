@@ -273,6 +273,7 @@ func (transaction *Transaction) String() string {
 		stringify.StructField("inputs", transaction.inputs),
 		stringify.StructField("outputs", transaction.outputs),
 		stringify.StructField("signatures", transaction.signatures),
+		stringify.StructField("dataPayloadType", transaction.dataPayloadType),
 		stringify.StructField("dataPayloadSize", transaction.DataPayloadSize()),
 	)
 }
