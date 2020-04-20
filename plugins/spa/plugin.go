@@ -65,11 +65,11 @@ func run(plugin *node.Plugin) {
 	})
 
 	daemon.BackgroundWorker("SPA[WSSend]", func(shutdownSignal <-chan struct{}) {
-		metrics.Events.ReceivedTPSUpdated.Attach(notifyStatus)
+		metrics.Events.ReceivedMPSUpdated.Attach(notifyStatus)
 		wsSendWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping SPA[WSSend] ...")
-		metrics.Events.ReceivedTPSUpdated.Detach(notifyStatus)
+		metrics.Events.ReceivedMPSUpdated.Detach(notifyStatus)
 		wsSendWorkerPool.Stop()
 		log.Info("Stopping SPA[WSSend] ... done")
 	}, shutdown.ShutdownPrioritySPA)
