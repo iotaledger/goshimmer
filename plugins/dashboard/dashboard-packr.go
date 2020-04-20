@@ -3,6 +3,6 @@
 
 // You can use the "packr clean" command to clean up this,
 // and any other packr generated files.
-package spa
+package dashboard
 
-import _ "github.com/iotaledger/goshimmer/plugins/spa/packrd"
+import _ "github.com/iotaledger/goshimmer/plugins/dashboard/packrd"

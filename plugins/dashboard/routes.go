@@ -1,4 +1,4 @@
-package spa
+package dashboard
 
 import (
 	"fmt"
@@ -18,8 +18,8 @@ var ErrNotFound = errors.New("not found")
 var ErrForbidden = errors.New("forbidden")
 
 // holds SPA assets
-var appBox = packr.New("SPA_App", "./frontend/build")
-var assetsBox = packr.New("SPA_Assets", "./frontend/src/assets")
+var appBox = packr.New("Dashboard_App", "./frontend/build")
+var assetsBox = packr.New("Dashboard_Assets", "./frontend/src/assets")
 
 func indexRoute(e echo.Context) error {
 	if config.Node.GetBool(CFG_DEV) {
@@ -43,7 +43,7 @@ func indexRoute(e echo.Context) error {
 func setupRoutes(e *echo.Echo) {
 
 	if config.Node.GetBool("dashboard.dev") {
-		e.Static("/assets", "./plugins/spa/frontend/src/assets")
+		e.Static("/assets", "./plugins/dashboard/frontend/src/assets")
 	} else {
 
 		// load assets from packr: either from within the binary or actual disk

@@ -1,4 +1,4 @@
-package spa
+package dashboard
 
 import (
 	flag "github.com/spf13/pflag"

@@ -1,4 +1,4 @@
-package spa
+package dashboard
 
 import (
 	"time"
@@ -40,14 +40,14 @@ func runLiveFeed() {
 		}
 	})
 
-	daemon.BackgroundWorker("SPA[MsgUpdater]", func(shutdownSignal <-chan struct{}) {
+	daemon.BackgroundWorker("Dashboard[MsgUpdater]", func(shutdownSignal <-chan struct{}) {
 		messagelayer.Tangle.Events.TransactionAttached.Attach(notifyNewMsg)
 		liveFeedWorkerPool.Start()
 		<-shutdownSignal
-		log.Info("Stopping SPA[MsgUpdater] ...")
+		log.Info("Stopping Dashboard[MsgUpdater] ...")
 		messagelayer.Tangle.Events.TransactionAttached.Detach(notifyNewMsg)
 		newMsgRateLimiter.Stop()
 		liveFeedWorkerPool.Stop()
-		log.Info("Stopping SPA[MsgUpdater] ... done")
-	}, shutdown.ShutdownPrioritySPA)
+		log.Info("Stopping Dashboard[MsgUpdater] ... done")
+	}, shutdown.ShutdownPriorityDashboard)
 }

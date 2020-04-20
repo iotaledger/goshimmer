@@ -1,4 +1,4 @@
-package spa
+package dashboard
 
 import (
 	"net"
@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	PLUGIN = node.NewPlugin("SPA", node.Enabled, configure, run)
+	PLUGIN = node.NewPlugin("Dashboard", node.Enabled, configure, run)
 	log    *logger.Logger
 
 	nodeStartAt = time.Now()
@@ -64,15 +64,15 @@ func run(plugin *node.Plugin) {
 		wsSendWorkerPool.TrySubmit(tps)
 	})
 
-	daemon.BackgroundWorker("SPA[WSSend]", func(shutdownSignal <-chan struct{}) {
+	daemon.BackgroundWorker("Dashboard[WSSend]", func(shutdownSignal <-chan struct{}) {
 		metrics.Events.ReceivedTPSUpdated.Attach(notifyStatus)
 		wsSendWorkerPool.Start()
 		<-shutdownSignal
-		log.Info("Stopping SPA[WSSend] ...")
+		log.Info("Stopping Dashboard[WSSend] ...")
 		metrics.Events.ReceivedTPSUpdated.Detach(notifyStatus)
 		wsSendWorkerPool.Stop()
-		log.Info("Stopping SPA[WSSend] ... done")
-	}, shutdown.ShutdownPrioritySPA)
+		log.Info("Stopping Dashboard[WSSend] ... done")
+	}, shutdown.ShutdownPriorityDashboard)
 
 	runLiveFeed()
 	runDrngLiveFeed()

@@ -10,7 +10,7 @@ const (
 	ShutdownPriorityAutopeering
 	ShutdownPriorityGossip
 	ShutdownPriorityWebAPI
-	ShutdownPrioritySPA
+	ShutdownPriorityDashboard
 	ShutdownPriorityGraph
 	ShutdownPrioritySpammer
 	ShutdownPriorityBadgerGarbageCollection
