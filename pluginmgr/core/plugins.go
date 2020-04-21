@@ -24,7 +24,7 @@ var PLUGINS = node.Plugins(
 	logger.PLUGIN,
 	cli.PLUGIN,
 	portcheck.PLUGIN,
-	profiling.PLUGIN,
+	profiling.Plugin,
 	database.PLUGIN,
 	autopeering.PLUGIN,
 	messagelayer.PLUGIN,
