@@ -38,8 +38,8 @@ type ExplorerAddress struct {
 }
 
 type SearchResult struct {
-	Message   *ExplorerMessage `json:"message"`
-	Address   *ExplorerAddress `json:"address"`
+	Message *ExplorerMessage `json:"message"`
+	Address *ExplorerAddress `json:"address"`
 }
 
 func setupExplorerRoutes(routeGroup *echo.Group) {
