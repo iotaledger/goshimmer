@@ -119,7 +119,7 @@ func Run() {
 				cleanUp(CLEAN_UP_PERIOD)
 			}
 		}
-	}, shutdown.ShutdownPriorityAnalysis)
+	}, shutdown.PriorityAnalysis)
 }
 
 // Remove nodes and links we haven't seen for at least 3 times the heartbeat interval
