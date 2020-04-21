@@ -20,7 +20,6 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/server"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -41,8 +40,6 @@ var (
 
 	// NetworkID specifies the autopeering network identifier
 	NetworkID = hash32([]byte(banner.AppVersion + NetworkVersion))
-
-	log *logger.Logger
 )
 
 func hash32(b []byte) uint32 {
@@ -75,7 +72,7 @@ func configureAP() {
 	)
 
 	// enable peer selection only when gossip is enabled
-	if !node.IsSkipped(gossip.PLUGIN) {
+	if !node.IsSkipped(gossip.Plugin) {
 		Selection = selection.New(local.GetInstance(), Discovery,
 			selection.Logger(log.Named("sel")),
 			selection.NeighborValidator(selection.ValidatorFunc(isValidNeighbor)),
@@ -98,7 +95,7 @@ func isValidNeighbor(p *peer.Peer) bool {
 }
 
 func start(shutdownSignal <-chan struct{}) {
-	defer log.Info("Stopping " + name + " ... done")
+	defer log.Info("Stopping " + PluginName + " ... done")
 
 	lPeer := local.GetInstance()
 	peering := lPeer.Services().Get(service.PeeringKey)
@@ -134,11 +131,11 @@ func start(shutdownSignal <-chan struct{}) {
 		defer Selection.Close()
 	}
 
-	log.Infof("%s started: ID=%s Address=%s/%s", name, lPeer.ID(), localAddr.String(), localAddr.Network())
+	log.Infof("%s started: ID=%s Address=%s/%s", PluginName, lPeer.ID(), localAddr.String(), localAddr.Network())
 
 	<-shutdownSignal
 
-	log.Infof("Stopping %s ...", name)
+	log.Infof("Stopping %s ...", PluginName)
 
 	count := lPeer.Database().PersistSeeds()
 	log.Infof("%d peers persisted as seeds", count)

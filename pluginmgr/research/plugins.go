@@ -7,6 +7,6 @@ import (
 )
 
 var PLUGINS = node.Plugins(
-	remotelog.PLUGIN,
-	analysis.PLUGIN,
+	remotelog.Plugin,
+	analysis.Plugin,
 )

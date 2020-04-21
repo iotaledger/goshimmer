@@ -13,13 +13,18 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI", node.Enabled, configure, run)
-var log *logger.Logger
+// PluginName is the name of the web API plugin.
+const PluginName = "WebAPI"
 
-var Server = echo.New()
+var (
+	// Plugin is the plugin instance of the web API plugin.
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	log    *logger.Logger
+	Server = echo.New()
+)
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("WebAPI")
+	log = logger.NewLogger(PluginName)
 	Server.HideBanner = true
 	Server.HidePort = true
 	Server.GET("/", IndexRequest)
