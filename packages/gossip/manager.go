@@ -241,7 +241,7 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 		if err := proto.Unmarshal(data[1:], protoMsg); err != nil {
 			return fmt.Errorf("invalid packet: %w", err)
 		}
-		m.log.Debugw("received packet", "type", protoMsg.String(), "peer-id", p.ID())
+		m.log.Debugw("received packet", "type", protoMsg.Type(), "peer-id", p.ID())
 		Events.MessageReceived.Trigger(&MessageReceivedEvent{Data: protoMsg.GetData(), Peer: p})
 
 	case pb.PacketMessageRequest:
@@ -250,7 +250,7 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 			return fmt.Errorf("invalid packet: %w", err)
 		}
 
-		m.log.Debugw("received packet", "type", protoMsgReq.String(), "peer-id", p.ID())
+		m.log.Debugw("received packet", "type", protoMsgReq.Type(), "peer-id", p.ID())
 		msgId, err, _ := message.IdFromBytes(protoMsgReq.GetId())
 		if err != nil {
 			m.log.Debugw("couldn't compute message id from bytes", "peer-id", p.ID(), "err", err)
