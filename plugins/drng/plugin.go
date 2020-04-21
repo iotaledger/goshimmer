@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/drng"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
 	cbPayload "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
@@ -68,6 +69,12 @@ func configureEvents() {
 		cachedMessageMetadata.Release()
 
 		cachedMessage.Consume(func(msg *message.Message) {
+			if msg.Payload().Type() != payload.Type {
+				return
+			}
+			if len(msg.Payload().Bytes()) < header.Length {
+				return
+			}
 			marshalUtil := marshalutil.New(msg.Payload().Bytes())
 			parsedPayload, err := payload.Parse(marshalUtil)
 			if err != nil {
