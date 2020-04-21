@@ -86,5 +86,5 @@ func run(*node.Plugin) {
 		MessageFactory.Shutdown()
 		TransactionParser.Shutdown()
 		Tangle.Shutdown()
-	}, shutdown.ShutdownPriorityTangle)
+	}, shutdown.PriorityTangle)
 }

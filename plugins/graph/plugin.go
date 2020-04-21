@@ -108,7 +108,7 @@ func run(*node.Plugin) {
 		messagelayer.Tangle.Events.TransactionAttached.Detach(notifyNewTx)
 		newTxWorkerPool.Stop()
 		log.Info("Stopping Graph[NewTxWorker] ... done")
-	}, shutdown.ShutdownPriorityGraph)
+	}, shutdown.PriorityGraph)
 
 	daemon.BackgroundWorker("Graph Webserver", func(shutdownSignal <-chan struct{}) {
 		go socketioServer.Serve()
@@ -141,5 +141,5 @@ func run(*node.Plugin) {
 			log.Errorf("Error closing Socket.IO server: %s", err)
 		}
 		log.Info("Stopping Graph Webserver ... done")
-	}, shutdown.ShutdownPriorityGraph)
+	}, shutdown.PriorityGraph)
 }

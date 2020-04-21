@@ -26,7 +26,7 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker(name, start, shutdown.ShutdownPriorityAutopeering); err != nil {
+	if err := daemon.BackgroundWorker(name, start, shutdown.PriorityAutopeering); err != nil {
 		log.Errorf("Failed to start as daemon: %s", err)
 	}
 }

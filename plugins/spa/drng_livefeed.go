@@ -51,5 +51,5 @@ func runDrngLiveFeed() {
 		newMsgRateLimiter.Stop()
 		drngLiveFeedWorkerPool.Stop()
 		log.Info("Stopping SPA[DRNGUpdater] ... done")
-	}, shutdown.ShutdownPrioritySPA)
+	}, shutdown.PrioritySPA)
 }

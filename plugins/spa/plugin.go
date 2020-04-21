@@ -72,7 +72,7 @@ func run(plugin *node.Plugin) {
 		metrics.Events.ReceivedTPSUpdated.Detach(notifyStatus)
 		wsSendWorkerPool.Stop()
 		log.Info("Stopping SPA[WSSend] ... done")
-	}, shutdown.ShutdownPrioritySPA)
+	}, shutdown.PrioritySPA)
 
 	runLiveFeed()
 	runDrngLiveFeed()
