@@ -23,7 +23,7 @@ func dataStream(ws *websocket.Conn) {
 				replayMutex.RLock()
 				defer replayMutex.RUnlock()
 
-				wsChan.TryWrite(messagePrefix + nodeId)
+				wsChan.Write(messagePrefix + nodeId)
 			}()
 		}
 	}
@@ -33,7 +33,7 @@ func dataStream(ws *websocket.Conn) {
 				replayMutex.RLock()
 				defer replayMutex.RUnlock()
 
-				wsChan.TryWrite(messagePrefix + sourceId + targetId)
+				wsChan.Write(messagePrefix + sourceId + targetId)
 			}()
 		}
 	}
