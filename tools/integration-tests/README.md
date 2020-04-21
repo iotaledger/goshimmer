@@ -31,3 +31,9 @@ n := f.CreateNetwork("testnetwork", 6, 3)
 // must be called to create log files and properly clean up
 defer n.Shutdown() 
 ```
+
+## Other tips
+Useful for development is to only execute the test you're currently building. For that matter, simply modify the `docker-compose.yml` file as follows:
+```yaml
+entrypoint: go test ./tests -run <YOUR_TEST_NAME> -v -mod=readonly
+```
