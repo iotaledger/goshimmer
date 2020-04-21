@@ -32,7 +32,7 @@ func (c *WebSocketChannel) TryWrite(update string) {
 		// When channel is full, having the default case means we skip this update
 		// and hence don't send it into the channel.
 		// Without the the default case, select becomes blocking, so we wait until
-		// there is a vailable space in the channel buffer, and then send the update.
+		// there is a variable space in the channel buffer, and then send the update.
 		//default:
 	}
 }

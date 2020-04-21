@@ -31,7 +31,7 @@ func Configure(plugin *node.Plugin) {
 		log.Errorf("error in server: %s", err.Error())
 	}))
 	server.Events.Start.Attach(events.NewClosure(func() {
-		log.Infof("Starting Server (port %d) ... done", config.Node.GetInt(CFG_SERVER_PORT))
+		log.Infof("Starting Server (port %d) ... done", config.Node.GetInt(CfgServerPort))
 	}))
 	server.Events.Shutdown.Attach(events.NewClosure(func() {
 		log.Info("Stopping Server ... done")
@@ -40,8 +40,8 @@ func Configure(plugin *node.Plugin) {
 
 func Run(plugin *node.Plugin) {
 	daemon.BackgroundWorker("Analysis Server", func(shutdownSignal <-chan struct{}) {
-		log.Infof("Starting Server (port %d) ... done", config.Node.GetInt(CFG_SERVER_PORT))
-		go server.Listen("0.0.0.0", config.Node.GetInt(CFG_SERVER_PORT))
+		log.Infof("Starting Server (port %d) ... done", config.Node.GetInt(CfgServerPort))
+		go server.Listen("0.0.0.0", config.Node.GetInt(CfgServerPort))
 		<-shutdownSignal
 		Shutdown()
 	}, shutdown.PriorityAnalysis)
@@ -54,7 +54,10 @@ func Shutdown() {
 }
 
 func HandleConnection(conn *network.ManagedConnection) {
-	conn.SetTimeout(IDLE_TIMEOUT)
+	err := conn.SetTimeout(IdleTimeout)
+	if err!=nil {
+		log.Errorf(err.Error())
+	}
 
 	var connectionState byte
 	var receiveBuffer []byte
@@ -73,7 +76,7 @@ func HandleConnection(conn *network.ManagedConnection) {
 	conn.Events.Close.Attach(onDisconnect)
 
 	maxPacketsSize := getMaxPacketSize(
-		heartbeat.MAX_MARSHALED_TOTAL_SIZE,
+		heartbeat.MaxMarshaledTotalSize,
 	)
 
 	go conn.Read(make([]byte, maxPacketsSize))
@@ -102,7 +105,7 @@ func processIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *n
 	}
 
 	switch *connectionState {
-	case STATE_HEARTBEAT:
+	case StateHeartbeat:
 		processHeartbeatPacket(connectionState, receiveBuffer, conn, data)
 	}
 
@@ -113,10 +116,10 @@ func parsePackageHeader(data []byte) (ConnectionState, []byte, error) {
 	var receiveBuffer []byte
 
 	switch data[0] {
-	case heartbeat.MARSHALED_PACKET_HEADER:
-		receiveBuffer = make([]byte, heartbeat.MAX_MARSHALED_TOTAL_SIZE)
+	case heartbeat.MarshaledPacketHeader:
+		receiveBuffer = make([]byte, heartbeat.MaxMarshaledTotalSize)
 
-		connectionState = STATE_HEARTBEAT
+		connectionState = StateHeartbeat
 
 	default:
 		return 0, nil, ErrInvalidPackageHeader
@@ -126,13 +129,12 @@ func parsePackageHeader(data []byte) (ConnectionState, []byte, error) {
 }
 
 func processHeartbeatPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte) {
-	if heartbeatPacket, err := heartbeat.Unmarshal(data); err != nil {
+
+	heartbeatPacket, err := heartbeat.Unmarshal(data)
+	if err != nil {
 		Events.Error.Trigger(err)
-
 		conn.Close()
-
 		return
-	} else {
-		Events.Heartbeat.Trigger(*heartbeatPacket)
 	}
+	Events.Heartbeat.Trigger(*heartbeatPacket)
 }

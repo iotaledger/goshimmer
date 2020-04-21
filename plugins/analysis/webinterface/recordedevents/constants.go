@@ -2,5 +2,5 @@ package recordedevents
 
 import "time"
 
-// 15 seconds
-const CLEAN_UP_PERIOD = 15 * time.Second
+// CleanUpPeriod is the period in which we scan and delete old data
+const CleanUpPeriod = 15 * time.Second

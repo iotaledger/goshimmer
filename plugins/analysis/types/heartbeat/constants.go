@@ -3,30 +3,32 @@ package heartbeat
 import "crypto/sha256"
 
 const (
-	MARSHALED_PACKET_HEADER = 0x01
+	// MarshaledPacketHeader unique identifier of packet
+	MarshaledPacketHeader = 0x01
 
-	// Maximum number of allowed neighbors in one direction
-	MAX_OUTBOUND_NEIGHBOR_COUNT = 4
-	MAX_INBOUND_NEIGHBOR_COUNT  = 4
+	// MaxOutboundNeighborCount is the maximum number of allowed neighbors in one direction
+	MaxOutboundNeighborCount = 4
+	// MaxInboundNeighborCount is the maximum number of allowed neighbors in one direction
+	MaxInboundNeighborCount  = 4
 
-	// Maximum packet length in bytes
-	MAX_MARSHALED_TOTAL_SIZE = MARSHALED_PACKET_HEADER_SIZE + MARSHALED_OWN_ID_SIZE +
-		MARSHALED_OUTBOUND_IDS_LENGTH_SIZE + MAX_OUTBOUND_NEIGHBOR_COUNT*MARSHALED_OUTBOUND_ID_SIZE +
-		MARSHALED_INBOUND_IDS_LENGTH_SIZE + MAX_INBOUND_NEIGHBOR_COUNT*MARSHALED_INBOUND_ID_SIZE
+	// MaxMarshaledTotalSize Maximum packet length in bytes
+	MaxMarshaledTotalSize = MarshaledPacketHeaderSize + MarshaledOwnIDSize +
+		MarshaledOutboundIDsLengthSize + MaxOutboundNeighborCount*MarshaledOutboundIDSize +
+		MarshaledInboundIDsLengthSize + MaxInboundNeighborCount*MarshaledInboundIDSize
 
-	MARSHALED_PACKET_HEADER_START = 0
-	MARSHALED_PACKET_HEADER_SIZE  = 1
-	MARSHALED_PACKET_HEADER_END   = MARSHALED_PACKET_HEADER_START + MARSHALED_PACKET_HEADER_SIZE
+	MarshaledPacketHeaderStart = 0
+	MarshaledPacketHeaderSize  = 1
+	MarshaledPacketHeaderEnd   = MarshaledPacketHeaderStart + MarshaledPacketHeaderSize
 
-	MARSHALED_OWN_ID_START = MARSHALED_PACKET_HEADER_END
-	MARSHALED_OWN_ID_SIZE  = sha256.Size
-	MARSHALED_OWN_ID_END   = MARSHALED_OWN_ID_START + MARSHALED_OWN_ID_SIZE
+	MarshaledOwnIDStart = MarshaledPacketHeaderEnd
+	MarshaledOwnIDSize  = sha256.Size
+	MarshaledOwnIDEnd   = MarshaledOwnIDStart + MarshaledOwnIDSize
 
-	MARSHALED_OUTBOUND_IDS_LENGTH_START = MARSHALED_OWN_ID_END
-	MARSHALED_OUTBOUND_IDS_LENGTH_SIZE  = 1
-	MARSHALED_OUTBOUND_ID_SIZE          = sha256.Size
-	MARSHALED_OUTBOUND_IDS_LENGTH_END   = MARSHALED_OUTBOUND_IDS_LENGTH_START + MARSHALED_OUTBOUND_IDS_LENGTH_SIZE
+	MarshaledOutboundIDsLengthStart = MarshaledOwnIDEnd
+	MarshaledOutboundIDsLengthSize  = 1
+	MarshaledOutboundIDSize         = sha256.Size
+	MarshaledOutboundIDsLengthEnd   = MarshaledOutboundIDsLengthStart + MarshaledOutboundIDsLengthSize
 
-	MARSHALED_INBOUND_IDS_LENGTH_SIZE = 1
-	MARSHALED_INBOUND_ID_SIZE         = sha256.Size
+	MarshaledInboundIDsLengthSize = 1
+	MarshaledInboundIDSize        = sha256.Size
 )

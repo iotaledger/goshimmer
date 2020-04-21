@@ -108,7 +108,7 @@ func Configure(plugin *node.Plugin) {
 
 func Run() {
 	daemon.BackgroundWorker("Analysis Server Record Manager", func(shutdownSignal <-chan struct{}) {
-		ticker := time.NewTicker(CLEAN_UP_PERIOD)
+		ticker := time.NewTicker(CleanUpPeriod)
 		defer ticker.Stop()
 		for {
 			select {
@@ -116,7 +116,7 @@ func Run() {
 				return
 
 			case <-ticker.C:
-				cleanUp(CLEAN_UP_PERIOD)
+				cleanUp(CleanUpPeriod)
 			}
 		}
 	}, shutdown.PriorityAnalysis)
@@ -156,15 +156,15 @@ func getEventsToReplay() (map[string]time.Time, map[string]map[string]time.Time)
 	defer lock.Unlock()
 
 	copiedNodes := make(map[string]time.Time, len(nodes))
-	for nodeId, lastHeartbeat := range nodes {
-		copiedNodes[nodeId] = lastHeartbeat
+	for nodeID, lastHeartbeat := range nodes {
+		copiedNodes[nodeID] = lastHeartbeat
 	}
 
 	copiedLinks := make(map[string]map[string]time.Time, len(links))
-	for sourceId, targetMap := range links {
-		copiedLinks[sourceId] = make(map[string]time.Time, len(targetMap))
-		for targetId, lastHeartbeat := range targetMap {
-			copiedLinks[sourceId][targetId] = lastHeartbeat
+	for sourceID, targetMap := range links {
+		copiedLinks[sourceID] = make(map[string]time.Time, len(targetMap))
+		for targetID, lastHeartbeat := range targetMap {
+			copiedLinks[sourceID][targetID] = lastHeartbeat
 		}
 	}
 
@@ -176,13 +176,13 @@ func Replay(handlers *types.EventHandlers) {
 
 	// When a node is present in the list, it means we heard about it directly
 	// or indirectly, but within CLEAN_UP_PERIOD, therefore it is online
-	for nodeId := range copiedNodes {
-		handlers.AddNode(nodeId)
+	for nodeID := range copiedNodes {
+		handlers.AddNode(nodeID)
 	}
 
-	for sourceId, targetMap := range copiedLinks {
-		for targetId := range targetMap {
-			handlers.ConnectNodes(sourceId, targetId)
+	for sourceID, targetMap := range copiedLinks {
+		for targetID := range targetMap {
+			handlers.ConnectNodes(sourceID, targetID)
 		}
 	}
 }

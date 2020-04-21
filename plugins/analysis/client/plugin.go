@@ -25,7 +25,7 @@ var connLock sync.Mutex
 func Run(plugin *node.Plugin) {
 	log = logger.NewLogger("Analysis-Client")
 	daemon.BackgroundWorker("Analysis Client", func(shutdownSignal <-chan struct{}) {
-		ticker := time.NewTicker(REPORT_INTERVAL * time.Second)
+		ticker := time.NewTicker(ReportInterval * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
@@ -33,7 +33,7 @@ func Run(plugin *node.Plugin) {
 				return
 
 			case <-ticker.C:
-				conn, err := net.Dial("tcp", config.Node.GetString(CFG_SERVER_ADDRESS))
+				conn, err := net.Dial("tcp", config.Node.GetString(CfgServerAddress))
 				if err != nil {
 					log.Debugf("Could not connect to reporting server: %s", err.Error())
 					continue
@@ -82,17 +82,17 @@ func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 
 func reportHeartbeat(dispatchers *EventDispatchers) {
 	// Get own ID
-	var nodeId []byte
+	var nodeID []byte
 	if local.GetInstance() != nil {
-		// Doesn't copy the ID, take care not to modify underlaying bytearray!
-		nodeId = local.GetInstance().ID().Bytes()
+		// Doesn't copy the ID, take care not to modify underlying bytearray!
+		nodeID = local.GetInstance().ID().Bytes()
 	}
 
 	// Get outboundIds (chosen neighbors)
 	outgoingNeighbors := autopeering.Selection.GetOutgoingNeighbors()
 	outboundIds := make([][]byte, len(outgoingNeighbors))
 	for i, neighbor := range outgoingNeighbors {
-		// Doesn't copy the ID, take care not to modify underlaying bytearray!
+		// Doesn't copy the ID, take care not to modify underlying bytearray!
 		outboundIds[i] = neighbor.ID().Bytes()
 	}
 
@@ -100,11 +100,11 @@ func reportHeartbeat(dispatchers *EventDispatchers) {
 	incomingNeighbors := autopeering.Selection.GetIncomingNeighbors()
 	inboundIds := make([][]byte, len(incomingNeighbors))
 	for i, neighbor := range incomingNeighbors {
-		// Doesn't copy the ID, take care not to modify underlaying bytearray!
+		// Doesn't copy the ID, take care not to modify underlying bytearray!
 		inboundIds[i] = neighbor.ID().Bytes()
 	}
 
-	packet := &heartbeat.Packet{OwnID: nodeId, OutboundIDs: outboundIds, InboundIDs: inboundIds}
+	packet := &heartbeat.Packet{OwnID: nodeID, OutboundIDs: outboundIds, InboundIDs: inboundIds}
 
 	dispatchers.Heartbeat(packet)
 }

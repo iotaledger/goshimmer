@@ -7,7 +7,7 @@ var (
 	ErrTooManyNeighborsToReport = errors.New("too many neighbors to report in packet")
 )
 
-// A heartbeat packet
+// Packet is a heartbeat packet
 type Packet struct {
 	OwnID       []byte
 	OutboundIDs [][]byte
@@ -16,109 +16,109 @@ type Packet struct {
 
 func Unmarshal(data []byte) (*Packet, error) {
 	// So far we are only sure about the static part
-	MARSHALED_TOTAL_SIZE := MARSHALED_PACKET_HEADER_SIZE + MARSHALED_OWN_ID_SIZE
+	MarshaledTotalSize := MarshaledPacketHeaderSize + MarshaledOwnIDSize
 	// Check if len is smaller than the static parts we know at the moment
-	if len(data) < MARSHALED_TOTAL_SIZE || data[0] != MARSHALED_PACKET_HEADER {
+	if len(data) < MarshaledTotalSize || data[0] != MarshaledPacketHeader {
 		return nil, ErrMalformedHeartbeatPacket
 	}
 
 	// First the static part
-	unmarshaledOwnID := make([]byte, MARSHALED_OWN_ID_SIZE)
-	copy(unmarshaledOwnID[:MARSHALED_OWN_ID_SIZE], data[MARSHALED_OWN_ID_START:MARSHALED_OWN_ID_END])
+	unmarshalledOwnID := make([]byte, MarshaledOwnIDSize)
+	copy(unmarshalledOwnID[:MarshaledOwnIDSize], data[MarshaledOwnIDStart:MarshaledOwnIDEnd])
 
 	// Now the dynamic parts, first outbound neighbors
-	lengthOutboundIDs := int(data[MARSHALED_OUTBOUND_IDS_LENGTH_START])
+	lengthOutboundIDs := int(data[MarshaledOutboundIDsLengthStart])
 
-	MARSHALED_TOTAL_SIZE += MARSHALED_OUTBOUND_IDS_LENGTH_SIZE + lengthOutboundIDs*MARSHALED_OUTBOUND_ID_SIZE
+	MarshaledTotalSize += MarshaledOutboundIDsLengthSize + lengthOutboundIDs*MarshaledOutboundIDSize
 	// Check if len is smaller than the size we know at the moment
-	if len(data) < MARSHALED_TOTAL_SIZE {
+	if len(data) < MarshaledTotalSize {
 		return nil, ErrMalformedHeartbeatPacket
 	}
 
-	unmarshaledOutboundIDs := make([][]byte, lengthOutboundIDs)
+	unmarshalledOutboundIDs := make([][]byte, lengthOutboundIDs)
 
-	for i := range unmarshaledOutboundIDs {
+	for i := range unmarshalledOutboundIDs {
 		// Allocate space for each ID
-		unmarshaledOutboundIDs[i] = make([]byte, MARSHALED_OUTBOUND_ID_SIZE)
-		copy(unmarshaledOutboundIDs[i][:MARSHALED_OUTBOUND_ID_SIZE], data[MARSHALED_OUTBOUND_IDS_LENGTH_END+i*MARSHALED_OUTBOUND_ID_SIZE:MARSHALED_OUTBOUND_IDS_LENGTH_END+(i+1)*MARSHALED_OUTBOUND_ID_SIZE])
+		unmarshalledOutboundIDs[i] = make([]byte, MarshaledOutboundIDSize)
+		copy(unmarshalledOutboundIDs[i][:MarshaledOutboundIDSize], data[MarshaledOutboundIDsLengthEnd+i*MarshaledOutboundIDSize:MarshaledOutboundIDsLengthEnd+(i+1)*MarshaledOutboundIDSize])
 	}
 
-	MARSHALED_INBOUND_IDS_LENGTH_START := MARSHALED_OUTBOUND_IDS_LENGTH_END + lengthOutboundIDs*MARSHALED_OUTBOUND_ID_SIZE
-	MARSHALED_INBOUND_IDS_LENGTH_END := MARSHALED_INBOUND_IDS_LENGTH_START + MARSHALED_INBOUND_IDS_LENGTH_SIZE
+	MarshaledInboundIdsLengthStart := MarshaledOutboundIDsLengthEnd + lengthOutboundIDs*MarshaledOutboundIDSize
+	MarshaledInboundIdsLengthEnd := MarshaledInboundIdsLengthStart + MarshaledInboundIDsLengthSize
 
 	// Second dynamic part, inbound neighbors
-	lengthInboundIDs := int(data[MARSHALED_INBOUND_IDS_LENGTH_START])
+	lengthInboundIDs := int(data[MarshaledInboundIdsLengthStart])
 
-	MARSHALED_TOTAL_SIZE += MARSHALED_INBOUND_IDS_LENGTH_SIZE + lengthInboundIDs*MARSHALED_INBOUND_ID_SIZE
+	MarshaledTotalSize += MarshaledInboundIDsLengthSize + lengthInboundIDs*MarshaledInboundIDSize
 	// Check if len is smaller than the size we know at the moment
-	if len(data) < MARSHALED_TOTAL_SIZE {
+	if len(data) < MarshaledTotalSize {
 		return nil, ErrMalformedHeartbeatPacket
 	}
 
-	unmarshaledInboundIDs := make([][]byte, lengthInboundIDs)
+	unmarshalledInboundIDs := make([][]byte, lengthInboundIDs)
 
-	for i := range unmarshaledInboundIDs {
+	for i := range unmarshalledInboundIDs {
 		// Allocate space for each ID
-		unmarshaledInboundIDs[i] = make([]byte, MARSHALED_INBOUND_ID_SIZE)
-		copy(unmarshaledInboundIDs[i][:MARSHALED_INBOUND_ID_SIZE], data[MARSHALED_INBOUND_IDS_LENGTH_END+i*MARSHALED_INBOUND_ID_SIZE:MARSHALED_INBOUND_IDS_LENGTH_END+(i+1)*MARSHALED_INBOUND_ID_SIZE])
+		unmarshalledInboundIDs[i] = make([]byte, MarshaledInboundIDSize)
+		copy(unmarshalledInboundIDs[i][:MarshaledInboundIDSize], data[MarshaledInboundIdsLengthEnd+i*MarshaledInboundIDSize:MarshaledInboundIdsLengthEnd+(i+1)*MarshaledInboundIDSize])
 	}
 
-	unmarshaledPackage := &Packet{
-		OwnID:       unmarshaledOwnID,
-		OutboundIDs: unmarshaledOutboundIDs,
-		InboundIDs:  unmarshaledInboundIDs,
+	unmarshalledPackage := &Packet{
+		OwnID:       unmarshalledOwnID,
+		OutboundIDs: unmarshalledOutboundIDs,
+		InboundIDs:  unmarshalledInboundIDs,
 	}
 
-	return unmarshaledPackage, nil
+	return unmarshalledPackage, nil
 
 }
 
 func (packet *Packet) Marshal() ([]byte, error) {
 	// Calculate total needed bytes based on packet
-	MARSHALED_TOTAL_SIZE := MARSHALED_PACKET_HEADER_SIZE + MARSHALED_OWN_ID_SIZE +
+	MarshaledTotalSize := MarshaledPacketHeaderSize + MarshaledOwnIDSize +
 		// Dynamic part 1, outbound IDs
-		MARSHALED_OUTBOUND_IDS_LENGTH_SIZE + len(packet.OutboundIDs)*MARSHALED_OUTBOUND_ID_SIZE +
+		MarshaledOutboundIDsLengthSize + len(packet.OutboundIDs)*MarshaledOutboundIDSize +
 		// Dynamic part 2, Inbound IDs
-		MARSHALED_INBOUND_IDS_LENGTH_SIZE + len(packet.InboundIDs)*MARSHALED_INBOUND_ID_SIZE
+		MarshaledInboundIDsLengthSize + len(packet.InboundIDs)*MarshaledInboundIDSize
 
-	marshaledPackage := make([]byte, MARSHALED_TOTAL_SIZE)
+	marshaledPackage := make([]byte, MarshaledTotalSize)
 
 	// Header byte
-	marshaledPackage[MARSHALED_PACKET_HEADER_START] = MARSHALED_PACKET_HEADER
+	marshaledPackage[MarshaledPacketHeaderStart] = MarshaledPacketHeader
 
 	// Own nodeId
-	copy(marshaledPackage[MARSHALED_OWN_ID_START:MARSHALED_OWN_ID_END], packet.OwnID[:MARSHALED_OWN_ID_SIZE])
+	copy(marshaledPackage[MarshaledOwnIDStart:MarshaledOwnIDEnd], packet.OwnID[:MarshaledOwnIDSize])
 
 	// Outbound nodeIds, need to tell first how many we have to be able to unmarshal it later
 	lengthOutboundIDs := len(packet.OutboundIDs)
-	if lengthOutboundIDs > MAX_OUTBOUND_NEIGHBOR_COUNT {
+	if lengthOutboundIDs > MaxOutboundNeighborCount {
 		return nil, ErrTooManyNeighborsToReport
 	} else {
-		marshaledPackage[MARSHALED_OUTBOUND_IDS_LENGTH_START] = byte(lengthOutboundIDs)
+		marshaledPackage[MarshaledOutboundIDsLengthStart] = byte(lengthOutboundIDs)
 	}
 
 	// Copy contents of packet.OutboundIDs
 	for i, outboundID := range packet.OutboundIDs {
-		copy(marshaledPackage[MARSHALED_OUTBOUND_IDS_LENGTH_END+i*MARSHALED_OUTBOUND_ID_SIZE:MARSHALED_OUTBOUND_IDS_LENGTH_END+(i+1)*MARSHALED_OUTBOUND_ID_SIZE], outboundID[:MARSHALED_OUTBOUND_ID_SIZE])
+		copy(marshaledPackage[MarshaledOutboundIDsLengthEnd+i*MarshaledOutboundIDSize:MarshaledOutboundIDsLengthEnd+(i+1)*MarshaledOutboundIDSize], outboundID[:MarshaledOutboundIDSize])
 	}
 
 	// Calculate where inbound nodeId-s start
-	MARSHALED_INBOUND_IDS_LENGTH_START := MARSHALED_OUTBOUND_IDS_LENGTH_END + lengthOutboundIDs*MARSHALED_OUTBOUND_ID_SIZE
+	MarshaledInboundIdsLengthStart := MarshaledOutboundIDsLengthEnd + lengthOutboundIDs*MarshaledOutboundIDSize
 
 	// Tell how many inbound nodeId-s we have
 	lengthInboundIDs := len(packet.InboundIDs)
-	if lengthInboundIDs > MAX_INBOUND_NEIGHBOR_COUNT {
+	if lengthInboundIDs > MaxInboundNeighborCount {
 		return nil, ErrTooManyNeighborsToReport
 	} else {
-		marshaledPackage[MARSHALED_INBOUND_IDS_LENGTH_START] = byte(lengthInboundIDs)
+		marshaledPackage[MarshaledInboundIdsLengthStart] = byte(lengthInboundIDs)
 	}
 
 	// End of length is the start of inbound nodeId-s
-	MARSHALED_INBOUND_IDS_LENGTH_END := MARSHALED_INBOUND_IDS_LENGTH_START + MARSHALED_INBOUND_IDS_LENGTH_SIZE
+	MarshaledInboundIdsLengthEnd := MarshaledInboundIdsLengthStart + MarshaledInboundIDsLengthSize
 
 	// Copy contents of packet.InboundIDs
 	for i, inboundID := range packet.InboundIDs {
-		copy(marshaledPackage[MARSHALED_INBOUND_IDS_LENGTH_END+i*MARSHALED_INBOUND_ID_SIZE:MARSHALED_INBOUND_IDS_LENGTH_END+(i+1)*MARSHALED_INBOUND_ID_SIZE], inboundID[:MARSHALED_INBOUND_ID_SIZE])
+		copy(marshaledPackage[MarshaledInboundIdsLengthEnd+i*MarshaledInboundIDSize:MarshaledInboundIdsLengthEnd+(i+1)*MarshaledInboundIDSize], inboundID[:MarshaledInboundIDSize])
 	}
 
 	return marshaledPackage, nil
