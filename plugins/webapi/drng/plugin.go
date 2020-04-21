@@ -14,12 +14,11 @@ const PluginName = "WebAPI DRNG Endpoint"
 
 var (
 	// Plugin is the plugin instance of the web API DRNG endpoint plugin.
-	Plugin = node.NewPlugin("WebAPI dRNG Endpoint", node.Enabled, configure)
-	log    *logger.Logger
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	_      *logger.Logger
 )
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger(PluginName)
 	webapi.Server.POST("drng/collectiveBeacon", collectiveBeacon.Handler)
 	webapi.Server.GET("drng/info/committee", committee.Handler)
 	webapi.Server.GET("drng/info/randomness", randomness.Handler)
