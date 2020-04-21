@@ -173,6 +173,10 @@ class Datastructure {
         this.nodes.add(idA);
         this.app.graph.addVertex(idA);
         this.app.updateStatus();
+        // 30 is the minimum springLength
+        if (this.nodes.size > 30) {
+            this.app.graph.layout.simulator.springLength(this.nodes.size)
+        }
     }
 
     removeNode(idA) {
@@ -181,6 +185,10 @@ class Datastructure {
 
         this.app.setStreamStatusMessage("Removed Node: " + idA); 
         this.app.updateStatus();
+        // 30 is the minimum springLength
+        if (this.nodes.size > 30) {
+            this.app.graph.layout.simulator.springLength(this.nodes.size)
+        }
     }
 
     createNeighborsObject() {
