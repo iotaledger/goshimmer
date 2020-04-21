@@ -81,7 +81,7 @@ func ApproverFromStorageKey(key []byte, optionalTargetObject ...*Approver) (resu
 }
 
 func (approver *Approver) ReferencedMessageId() message.Id {
-	return approver.approvingMessageId
+	return approver.referencedMessageId
 }
 
 func (approver *Approver) ApprovingMessageId() message.Id {

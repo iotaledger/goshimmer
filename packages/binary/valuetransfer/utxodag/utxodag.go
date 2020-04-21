@@ -62,12 +62,12 @@ func (utxoDAG *UTXODAG) ProcessSolidPayload(cachedPayload *payload.CachedPayload
 	utxoDAG.workerPool.Submit(func() { utxoDAG.storeTransactionWorker(cachedPayload, cachedMetadata) })
 }
 
-func (utxoDAG *UTXODAG) GetTransaction(transactionId transaction.Id) *transaction.CachedTransaction {
+func (utxoDAG *UTXODAG) Transaction(transactionId transaction.Id) *transaction.CachedTransaction {
 	return &transaction.CachedTransaction{CachedObject: utxoDAG.transactionStorage.Load(transactionId.Bytes())}
 }
 
 // GetPayloadMetadata retrieves the metadata of a value payload from the object storage.
-func (utxoDAG *UTXODAG) GetTransactionMetadata(transactionId transaction.Id) *CachedTransactionMetadata {
+func (utxoDAG *UTXODAG) TransactionMetadata(transactionId transaction.Id) *CachedTransactionMetadata {
 	return &CachedTransactionMetadata{CachedObject: utxoDAG.transactionMetadataStorage.Load(transactionId.Bytes())}
 }
 
@@ -355,7 +355,7 @@ func (utxoDAG *UTXODAG) checkTransactionOutputs(inputBalances map[balance.Color]
 			}
 
 			// sidestep logic if we have a newly colored output (we check the supply later)
-			if outputBalance.Color() == balance.COLOR_NEW {
+			if outputBalance.Color() == balance.ColorNew {
 				// catch overflows
 				if newlyColoredCoins > math.MaxInt64-outputBalance.Value() {
 					return false
@@ -416,8 +416,8 @@ func (utxoDAG *UTXODAG) ForEachConsumers(currentTransaction *transaction.Transac
 			if _, transactionSeen := seenTransactions[consumer.TransactionId()]; !transactionSeen {
 				seenTransactions[consumer.TransactionId()] = types.Void
 
-				cachedTransaction := utxoDAG.GetTransaction(consumer.TransactionId())
-				cachedTransactionMetadata := utxoDAG.GetTransactionMetadata(consumer.TransactionId())
+				cachedTransaction := utxoDAG.Transaction(consumer.TransactionId())
+				cachedTransactionMetadata := utxoDAG.TransactionMetadata(consumer.TransactionId())
 				for _, cachedAttachment := range utxoDAG.GetAttachments(consumer.TransactionId()) {
 					consume(cachedTransaction, cachedTransactionMetadata, cachedAttachment)
 				}
@@ -506,6 +506,13 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 		}
 
 		// TODO: CREATE / RETRIEVE CONFLICT SETS + ADD TARGET REALITY TO THEM
+		/*
+			for _, conflictingInput := range conflictingInputs {
+
+			}
+		*/
+
+		utxoDAG.Events.TransactionConflicting.Trigger(cachedTransaction, cachedTransactionMetadata, conflictingInputs)
 	}
 
 	// book transaction into target reality
@@ -524,12 +531,40 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 
 	// TODO: FORK CONFLICTING CONSUMERS
 	if len(conflictingInputsOfConflictingConsumers) >= 1 {
-
+		for consumerId, conflictingInputs := range conflictingInputsOfConflictingConsumers {
+			utxoDAG.Fork(consumerId, conflictingInputs)
+		}
 	}
-
-	// TODO: TRIGGER TX CONFLICT EVENTS
 
 	// TODO: BOOK ATTACHMENT
 
 	return
+}
+
+func (utxoDAG *UTXODAG) Fork(transactionId transaction.Id, conflictingInputs []transaction.OutputId) {
+	cachedTransaction := utxoDAG.Transaction(transactionId)
+	defer cachedTransaction.Release()
+
+	tx := cachedTransaction.Unwrap()
+	if tx == nil {
+		return
+	}
+
+	cachedTransactionMetadata := utxoDAG.TransactionMetadata(transactionId)
+	defer cachedTransaction.Release()
+
+	txMetadata := cachedTransactionMetadata.Unwrap()
+	if txMetadata == nil {
+		return
+	}
+
+	cachedTargetBranch := utxoDAG.branchManager.AddBranch(branchmanager.NewBranch(branchmanager.NewBranchId(tx.Id()), []branchmanager.BranchId{txMetadata.BranchId()}))
+	defer cachedTargetBranch.Release()
+
+	targetBranch := cachedTargetBranch.Unwrap()
+	if targetBranch == nil {
+		return
+	}
+
+	utxoDAG.Events.TransactionConflicting.Trigger(cachedTransaction, cachedTransactionMetadata, conflictingInputs)
 }

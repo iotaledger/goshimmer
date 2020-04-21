@@ -28,7 +28,7 @@ func ExamplePayload() {
 		// outputs
 		transaction.NewOutputs(map[address.Address][]*balance.Balance{
 			address.Random(): {
-				balance.New(balance.COLOR_IOTA, 1337),
+				balance.New(balance.ColorIOTA, 1337),
 			},
 		}),
 	)
@@ -85,7 +85,7 @@ func TestPayload(t *testing.T) {
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
 				address.Random(): {
-					balance.New(balance.COLOR_IOTA, 1337),
+					balance.New(balance.ColorIOTA, 1337),
 				},
 			}),
 		).Sign(

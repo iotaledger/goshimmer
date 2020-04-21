@@ -8,7 +8,8 @@ import (
 
 type Events struct {
 	// Get's called whenever a transaction
-	TransactionReceived *events.Event
+	TransactionReceived    *events.Event
+	TransactionConflicting *events.Event
 }
 
 func newEvents() *Events {

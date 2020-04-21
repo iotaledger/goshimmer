@@ -25,7 +25,7 @@ func TestNewOutput(t *testing.T) {
 	randomTransactionId := transaction.RandomId()
 
 	output := NewOutput(randomAddress, randomTransactionId, branchmanager.MasterBranchId, []*balance.Balance{
-		balance.New(balance.COLOR_IOTA, 1337),
+		balance.New(balance.ColorIOTA, 1337),
 	})
 
 	assert.Equal(t, randomAddress, output.Address())
@@ -33,7 +33,7 @@ func TestNewOutput(t *testing.T) {
 	assert.Equal(t, false, output.Solid())
 	assert.Equal(t, time.Time{}, output.SolidificationTime())
 	assert.Equal(t, []*balance.Balance{
-		balance.New(balance.COLOR_IOTA, 1337),
+		balance.New(balance.ColorIOTA, 1337),
 	}, output.Balances())
 
 	assert.Equal(t, true, output.SetSolid(true))
@@ -95,11 +95,11 @@ func TestTangle_AttachPayload(t *testing.T) {
 	transferId2, _ := transaction.IdFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
 
 	input1 := NewOutput(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferId1, branchmanager.MasterBranchId, []*balance.Balance{
-		balance.New(balance.COLOR_IOTA, 337),
+		balance.New(balance.ColorIOTA, 337),
 	})
 	input1.SetSolid(true)
 	input2 := NewOutput(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferId2, branchmanager.MasterBranchId, []*balance.Balance{
-		balance.New(balance.COLOR_IOTA, 1000),
+		balance.New(balance.ColorIOTA, 1000),
 	})
 	input2.SetSolid(true)
 
@@ -118,7 +118,7 @@ func TestTangle_AttachPayload(t *testing.T) {
 
 		transaction.NewOutputs(map[address.Address][]*balance.Balance{
 			outputAddress1: {
-				balance.New(balance.COLOR_NEW, 1337),
+				balance.New(balance.ColorNew, 1337),
 			},
 		}),
 	)))
@@ -132,7 +132,7 @@ func TestTangle_AttachPayload(t *testing.T) {
 
 		transaction.NewOutputs(map[address.Address][]*balance.Balance{
 			outputAddress2: {
-				balance.New(balance.COLOR_NEW, 1337),
+				balance.New(balance.ColorNew, 1337),
 			},
 		}),
 	)))

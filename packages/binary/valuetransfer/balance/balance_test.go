@@ -7,9 +7,9 @@ import (
 )
 
 func TestMarshalUnmarshal(t *testing.T) {
-	balance := New(COLOR_IOTA, 1337)
+	balance := New(ColorIOTA, 1337)
 	assert.Equal(t, int64(1337), balance.Value())
-	assert.Equal(t, COLOR_IOTA, balance.Color())
+	assert.Equal(t, ColorIOTA, balance.Color())
 
 	marshaledBalance := balance.Bytes()
 	assert.Equal(t, Length, len(marshaledBalance))
