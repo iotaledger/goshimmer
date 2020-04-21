@@ -110,6 +110,10 @@ class Frontend {
         }
 
         let neighbors = this.app.ds.neighbors.get(nodeId);
+        // when node doesn't have neighbors yet
+        if (neighbors === undefined) {
+            neighbors=this.app.ds.createNeighborsObject();
+        }
         this.showNodeLinks(nodeId, neighbors);
     }
 
@@ -326,16 +330,19 @@ class Graph {
         // highlight current node
         this.updateNodeUiColor(selectedNode, VERTEX_COLOR_ACTIVE);
 
-        // highlight incoming connections
-        for(let n of neighbors.in) {
-            this.updateNodeUiColor(n, VERTEX_COLOR_CONNECTED);
-            this.updateLinkUiColor(n, selectedNode, EDGE_COLOR_INCOMING);
-        }
+        // Node doesn't have any neighbors yet. nothing to be highlighted
+        if (neighbors!==undefined){
+            // highlight incoming connections
+            for(let n of neighbors.in) {
+                this.updateNodeUiColor(n, VERTEX_COLOR_CONNECTED);
+                this.updateLinkUiColor(n, selectedNode, EDGE_COLOR_INCOMING);
+            }
 
-        // highlight outcoming connections
-        for(let n of neighbors.out) {
-            this.updateNodeUiColor(n, VERTEX_COLOR_CONNECTED);
-            this.updateLinkUiColor(selectedNode, n, EDGE_COLOR_OUTGOING);
+            // highlight outcoming connections
+            for(let n of neighbors.out) {
+                this.updateNodeUiColor(n, VERTEX_COLOR_CONNECTED);
+                this.updateLinkUiColor(selectedNode, n, EDGE_COLOR_OUTGOING);
+            }
         }
 
         this.graph.endUpdate();
