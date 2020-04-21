@@ -3,8 +3,8 @@ const NODE_ID_LENGTH = 64;
 
 // for some strange reason color formats for edges and nodes need to be different... careful!
 const EDGE_COLOR_DEFAULT = "#ff7d6c40";
-const EDGE_COLOR_OUTGOING = "#336db5";
-const EDGE_COLOR_INCOMING = "#1c8d7f";
+const EDGE_COLOR_OUTGOING = "#336db5ff";
+const EDGE_COLOR_INCOMING = "#1c8d7fff";
 const VERTEX_COLOR_DEFAULT = "0xa8d0e6";
 const VERTEX_COLOR_ACTIVE = "0x336db5";
 const VERTEX_COLOR_CONNECTED = "0x1c8d7f";
