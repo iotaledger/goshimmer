@@ -55,34 +55,39 @@ func NewDockerContainerFromExisting(c *client.Client, name string) *DockerContai
 	panic(fmt.Sprintf("Could not find container with name '%s'", name))
 }
 
-func (d *DockerContainer) CreateGoShimmer(name string, entryNode string) {
-	// TODO: identities?
-	// configure GoShimmer container instance
-	var containerConfig *container.Config
-	if entryNode == "" {
-		containerConfig = &container.Config{
-			Image:        "iotaledger/goshimmer",
-			ExposedPorts: nil,
-			Cmd: strslice.StrSlice{
-				"--node.disablePlugins=portcheck,spa,analysis,gossip,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint",
-				"--autopeering.entryNodes=",
-				"--autopeering.seed=uuDCzsjyLNQ17/7fWKPNMYmr4IWuaVRf7qKqRL0v/6c=",
-			},
-		}
-	} else {
-		containerConfig = &container.Config{
-			Image: "iotaledger/goshimmer",
-			ExposedPorts: nat.PortSet{
-				nat.Port("8080/tcp"): {},
-			},
-			Cmd: strslice.StrSlice{
-				"--node.disablePlugins=portcheck,spa,analysis",
-				"--webapi.bindAddress=0.0.0.0:8080",
-				fmt.Sprintf("--autopeering.entryNodes=X2cmCzYnZDjmsvdAH90Q7oKmhNeTdwJdj2FX84adLzo=@%s:14626", entryNode),
-			},
-		}
+func (d *DockerContainer) CreateGoShimmerEntryNode(name string, seed string) {
+	containerConfig := &container.Config{
+		Image:        "iotaledger/goshimmer",
+		ExposedPorts: nil,
+		Cmd: strslice.StrSlice{
+			"--node.disablePlugins=portcheck,spa,analysis,gossip,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint",
+			"--autopeering.entryNodes=",
+			fmt.Sprintf("--autopeering.seed=%s", seed),
+		},
 	}
 
+	d.CreateContainer(name, containerConfig)
+}
+
+func (d *DockerContainer) CreateGoShimmerPeer(name string, seed string, entryNodeHost string, entryNodePublicKey string) {
+	// configure GoShimmer container instance
+	containerConfig := &container.Config{
+		Image: "iotaledger/goshimmer",
+		ExposedPorts: nat.PortSet{
+			nat.Port("8080/tcp"): {},
+		},
+		Cmd: strslice.StrSlice{
+			"--node.disablePlugins=portcheck,spa,analysis",
+			"--webapi.bindAddress=0.0.0.0:8080",
+			fmt.Sprintf("--autopeering.seed=%s", seed),
+			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", entryNodePublicKey, entryNodeHost),
+		},
+	}
+
+	d.CreateContainer(name, containerConfig)
+}
+
+func (d *DockerContainer) CreateContainer(name string, containerConfig *container.Config) {
 	resp, err := d.client.ContainerCreate(context.Background(), containerConfig, nil, nil, name)
 	if err != nil {
 		panic(err)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/plugins/webapi/autopeering"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 // Peer represents a GoShimmer node inside the Docker network
@@ -14,7 +15,7 @@ type Peer struct {
 	// name of the GoShimmer instance, Docker container and hostname
 	name string
 	// GoShimmer identity
-	identity string
+	identity *identity.Identity
 
 	*client.GoShimmerAPI
 
@@ -25,7 +26,7 @@ type Peer struct {
 }
 
 // NewPeer creates a new instance of Peer with the given information.
-func NewPeer(name string, identity string, dockerContainer *DockerContainer) *Peer {
+func NewPeer(name string, identity *identity.Identity, dockerContainer *DockerContainer) *Peer {
 	return &Peer{
 		name:            name,
 		identity:        identity,

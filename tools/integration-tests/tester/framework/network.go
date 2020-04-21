@@ -2,21 +2,27 @@ package framework
 
 import (
 	"context"
+	"crypto/ed25519"
+	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	hive_ed25519 "github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 type Network struct {
 	id   string
 	name string
 
-	peers     []*Peer
-	entryNode *DockerContainer
-	tester    *DockerContainer
+	peers  []*Peer
+	tester *DockerContainer
+
+	entryNode         *DockerContainer
+	entryNodeIdentity *identity.Identity
 
 	dockerClient *client.Client
 }
@@ -50,22 +56,39 @@ func (n *Network) RandomPeer() *Peer {
 }
 
 func (n *Network) createEntryNode() {
+	// create identity
+	publicKey, privateKey, err := hive_ed25519.GenerateKey()
+	if err != nil {
+		panic(err)
+	}
+
+	n.entryNodeIdentity = identity.New(publicKey)
+	seed := base64.StdEncoding.EncodeToString(ed25519.PrivateKey(privateKey.Bytes()).Seed())
+
+	// create entry node container
 	n.entryNode = NewDockerContainer(n.dockerClient)
-	n.entryNode.CreateGoShimmer(n.getNamePrefix(containerNameEntryNode), "")
+	n.entryNode.CreateGoShimmerEntryNode(n.namePrefix(containerNameEntryNode), seed)
 	n.entryNode.ConnectToNetwork(n.id)
 	n.entryNode.Start()
 }
 
 func (n *Network) CreatePeer() *Peer {
-	name := n.getNamePrefix(fmt.Sprintf("%s%d", containerNameReplica, len(n.peers)))
+	name := n.namePrefix(fmt.Sprintf("%s%d", containerNameReplica, len(n.peers)))
 
-	//TODO: generate identity
+	// create identity
+	publicKey, privateKey, err := hive_ed25519.GenerateKey()
+	if err != nil {
+		panic(err)
+	}
+	seed := base64.StdEncoding.EncodeToString(ed25519.PrivateKey(privateKey.Bytes()).Seed())
+
+	// create peer container
 	container := NewDockerContainer(n.dockerClient)
-	container.CreateGoShimmer(name, n.getNamePrefix(containerNameEntryNode))
+	container.CreateGoShimmerPeer(name, seed, n.namePrefix(containerNameEntryNode), n.entryNodePublicKey())
 	container.ConnectToNetwork(n.id)
 	container.Start()
 
-	peer := NewPeer(name, name, container)
+	peer := NewPeer(name, identity.New(publicKey), container)
 	n.peers = append(n.peers, peer)
 	return peer
 }
@@ -78,7 +101,7 @@ func (n *Network) Shutdown() {
 	}
 
 	// retrieve logs
-	createLogFile(n.getNamePrefix(containerNameEntryNode), n.entryNode.Logs())
+	createLogFile(n.namePrefix(containerNameEntryNode), n.entryNode.Logs())
 	for _, p := range n.peers {
 		createLogFile(p.name, p.Logs())
 	}
@@ -99,8 +122,12 @@ func (n *Network) Shutdown() {
 	}
 }
 
-func (n *Network) getNamePrefix(suffix string) string {
+func (n *Network) namePrefix(suffix string) string {
 	return fmt.Sprintf("%s-%s", n.name, suffix)
+}
+
+func (n *Network) entryNodePublicKey() string {
+	return base64.StdEncoding.EncodeToString(n.entryNodeIdentity.PublicKey().Bytes())
 }
 
 // WaitForAutopeering waits until all peers have reached a minimum amount of neighbors.
