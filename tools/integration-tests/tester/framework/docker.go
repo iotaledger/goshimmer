@@ -13,7 +13,8 @@ import (
 	"github.com/docker/go-connections/nat"
 )
 
-func NewDockerClient() *client.Client {
+// newDockerClient creates a Docker client that communicates via the Docker socket.
+func newDockerClient() *client.Client {
 	c, err := client.NewClient(
 		"unix:///var/run/docker.sock",
 		"",
@@ -28,15 +29,18 @@ func NewDockerClient() *client.Client {
 	return c
 }
 
+// Wrapper object for a Docker container.
 type DockerContainer struct {
 	client *client.Client
 	id     string
 }
 
+// NewDockerContainer creates a new DockerContainer.
 func NewDockerContainer(c *client.Client) *DockerContainer {
 	return &DockerContainer{client: c}
 }
 
+// NewDockerContainerFromExisting creates a new DockerContainer from an already existing Docker container by name.
 func NewDockerContainerFromExisting(c *client.Client, name string) *DockerContainer {
 	containers, err := c.ContainerList(context.Background(), types.ContainerListOptions{})
 	if err != nil {
@@ -55,6 +59,7 @@ func NewDockerContainerFromExisting(c *client.Client, name string) *DockerContai
 	panic(fmt.Sprintf("Could not find container with name '%s'", name))
 }
 
+// CreateGoShimmerEntryNode creates a new container with the GoShimmer entry node's configuration.
 func (d *DockerContainer) CreateGoShimmerEntryNode(name string, seed string) {
 	containerConfig := &container.Config{
 		Image:        "iotaledger/goshimmer",
@@ -69,6 +74,7 @@ func (d *DockerContainer) CreateGoShimmerEntryNode(name string, seed string) {
 	d.CreateContainer(name, containerConfig)
 }
 
+// CreateGoShimmerPeer creates a new container with the GoShimmer peer's configuration.
 func (d *DockerContainer) CreateGoShimmerPeer(name string, seed string, entryNodeHost string, entryNodePublicKey string) {
 	// configure GoShimmer container instance
 	containerConfig := &container.Config{
@@ -87,6 +93,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(name string, seed string, entryNod
 	d.CreateContainer(name, containerConfig)
 }
 
+// CreateContainer creates a new container with the given configuration.
 func (d *DockerContainer) CreateContainer(name string, containerConfig *container.Config) {
 	resp, err := d.client.ContainerCreate(context.Background(), containerConfig, nil, nil, name)
 	if err != nil {
@@ -96,6 +103,7 @@ func (d *DockerContainer) CreateContainer(name string, containerConfig *containe
 	d.id = resp.ID
 }
 
+// ConnectToNetwork connects a container to an existent network in the docker host.
 func (d *DockerContainer) ConnectToNetwork(networkId string) {
 	err := d.client.NetworkConnect(context.Background(), networkId, d.id, nil)
 	if err != nil {
@@ -103,6 +111,7 @@ func (d *DockerContainer) ConnectToNetwork(networkId string) {
 	}
 }
 
+// DisconnectFromNetwork disconnects a container from an existent network in the docker host.
 func (d *DockerContainer) DisconnectFromNetwork(networkId string) {
 	err := d.client.NetworkDisconnect(context.Background(), networkId, d.id, true)
 	if err != nil {
@@ -110,12 +119,14 @@ func (d *DockerContainer) DisconnectFromNetwork(networkId string) {
 	}
 }
 
+// Start sends a request to the docker daemon to start a container.
 func (d *DockerContainer) Start() {
 	if err := d.client.ContainerStart(context.Background(), d.id, types.ContainerStartOptions{}); err != nil {
 		panic(err)
 	}
 }
 
+// Remove kills and removes a container from the docker host.
 func (d *DockerContainer) Remove() {
 	err := d.client.ContainerRemove(context.Background(), d.id, types.ContainerRemoveOptions{Force: true})
 	if err != nil {
@@ -123,6 +134,8 @@ func (d *DockerContainer) Remove() {
 	}
 }
 
+// Stop stops a container without terminating the process.
+// The process is blocked until the container stops or the timeout expires.
 func (d *DockerContainer) Stop() {
 	duration := 10 * time.Second
 	err := d.client.ContainerStop(context.Background(), d.id, &duration)

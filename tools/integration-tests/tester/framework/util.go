@@ -12,6 +12,7 @@ func getWebApiBaseUrl(hostname string) string {
 	return fmt.Sprintf("http://%s:%s", hostname, apiPort)
 }
 
+// createLogFile creates a log file from the given logs ReadCloser.
 func createLogFile(name string, logs io.ReadCloser) {
 	defer logs.Close()
 

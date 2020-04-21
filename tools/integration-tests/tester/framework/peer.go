@@ -17,16 +17,18 @@ type Peer struct {
 	// GoShimmer identity
 	identity *identity.Identity
 
+	// Web API of this peer
 	*client.GoShimmerAPI
 
+	// the DockerContainer that this peer is running in
 	*DockerContainer
 
 	chosen   []autopeering.Neighbor
 	accepted []autopeering.Neighbor
 }
 
-// NewPeer creates a new instance of Peer with the given information.
-func NewPeer(name string, identity *identity.Identity, dockerContainer *DockerContainer) *Peer {
+// newPeer creates a new instance of Peer with the given information.
+func newPeer(name string, identity *identity.Identity, dockerContainer *DockerContainer) *Peer {
 	return &Peer{
 		name:            name,
 		identity:        identity,
