@@ -2,10 +2,10 @@ const ANALYSIS_SERVER_URL = window.location.host + "/datastream";
 const NODE_ID_LENGTH = 64;
 
 // for some strange reason color formats for edges and nodes need to be different... careful!
-const EDGE_COLOR_DEFAULT = "#444444";
+const EDGE_COLOR_DEFAULT = "#ff7d6c40";
 const EDGE_COLOR_OUTGOING = "#336db5";
 const EDGE_COLOR_INCOMING = "#1c8d7f";
-const VERTEX_COLOR_DEFAULT = "0x666666";
+const VERTEX_COLOR_DEFAULT = "0xa8d0e6";
 const VERTEX_COLOR_ACTIVE = "0x336db5";
 const VERTEX_COLOR_CONNECTED = "0x1c8d7f";
 const VERTEX_SIZE = 14;
