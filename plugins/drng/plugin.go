@@ -69,6 +69,9 @@ func configureEvents() {
 		cachedMessageMetadata.Release()
 
 		cachedMessage.Consume(func(msg *message.Message) {
+			if msg.Payload().Type() != payload.Type {
+				return
+			}
 			if len(msg.Payload().Bytes()) < header.Length {
 				return
 			}
