@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	PLUGIN = node.NewPlugin("Profiling", node.Enabled, configure, run)
+	Plugin = node.NewPlugin("Profiling", node.Enabled, configure, run)
 )
 
 const CfgProfilingBindAddress = "profiling.bindAddress"
