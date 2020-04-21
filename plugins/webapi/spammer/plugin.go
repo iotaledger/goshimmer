@@ -25,5 +25,5 @@ func run(*node.Plugin) {
 		<-shutdownSignal
 
 		messageSpammer.Shutdown()
-	}, shutdown.ShutdownPrioritySpammer)
+	}, shutdown.PrioritySpammer)
 }

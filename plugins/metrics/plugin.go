@@ -29,5 +29,5 @@ func run(_ *node.Plugin) {
 	// create a background worker that "measures" the MPS value every second
 	daemon.BackgroundWorker("Metrics MPS Updater", func(shutdownSignal <-chan struct{}) {
 		timeutil.Ticker(measureReceivedMPS, 1*time.Second, shutdownSignal)
-	}, shutdown.ShutdownPriorityMetrics)
+	}, shutdown.PriorityMetrics)
 }

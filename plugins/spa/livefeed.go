@@ -49,5 +49,5 @@ func runLiveFeed() {
 		newMsgRateLimiter.Stop()
 		liveFeedWorkerPool.Stop()
 		log.Info("Stopping SPA[MsgUpdater] ... done")
-	}, shutdown.ShutdownPrioritySPA)
+	}, shutdown.PrioritySPA)
 }

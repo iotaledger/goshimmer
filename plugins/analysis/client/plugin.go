@@ -55,7 +55,7 @@ func Run(plugin *node.Plugin) {
 				}
 			}
 		}
-	}, shutdown.ShutdownPriorityAnalysis)
+	}, shutdown.PriorityAnalysis)
 }
 
 func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {

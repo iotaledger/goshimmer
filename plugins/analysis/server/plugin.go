@@ -50,7 +50,7 @@ func Run(plugin *node.Plugin) {
 		go server.Listen("0.0.0.0", config.Node.GetInt(CFG_SERVER_PORT))
 		<-shutdownSignal
 		Shutdown()
-	}, shutdown.ShutdownPriorityAnalysis)
+	}, shutdown.PriorityAnalysis)
 }
 
 func Shutdown() {
