@@ -1,17 +1,17 @@
 package shutdown
 
 const (
-	ShutdownPriorityDatabase = iota
-	ShutdownPriorityFPC
-	ShutdownPriorityTangle
-	ShutdownPriorityRemoteLog
-	ShutdownPriorityAnalysis
-	ShutdownPriorityMetrics
-	ShutdownPriorityAutopeering
-	ShutdownPriorityGossip
-	ShutdownPriorityWebAPI
-	ShutdownPrioritySPA
-	ShutdownPriorityGraph
-	ShutdownPrioritySpammer
-	ShutdownPriorityBadgerGarbageCollection
+	PriorityDatabase = iota
+	PriorityFPC
+	PriorityTangle
+	PriorityRemoteLog
+	PriorityAnalysis
+	PriorityMetrics
+	PriorityAutopeering
+	PriorityGossip
+	PriorityWebAPI
+	PrioritySPA
+	PriorityGraph
+	PrioritySpammer
+	PriorityBadgerGarbageCollection
 )

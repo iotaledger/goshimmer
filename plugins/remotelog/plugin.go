@@ -96,7 +96,7 @@ func run(plugin *node.Plugin) {
 		logger.Events.AnyMsg.Detach(logEvent)
 		workerPool.Stop()
 		log.Infof("Stopping %s ... done", PLUGIN_NAME)
-	}, shutdown.ShutdownPriorityRemoteLog)
+	}, shutdown.PriorityRemoteLog)
 }
 
 func sendLogMsg(level logger.Level, name string, msg string) {

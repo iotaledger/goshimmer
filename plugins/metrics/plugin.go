@@ -30,5 +30,5 @@ func run(plugin *node.Plugin) {
 	// create a background worker that "measures" the TPS value every second
 	daemon.BackgroundWorker("Metrics TPS Updater", func(shutdownSignal <-chan struct{}) {
 		timeutil.Ticker(measureReceivedTPS, 1*time.Second, shutdownSignal)
-	}, shutdown.ShutdownPriorityMetrics)
+	}, shutdown.PriorityMetrics)
 }

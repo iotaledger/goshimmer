@@ -26,5 +26,5 @@ func run(*node.Plugin) {
 		<-shutdownSignal
 
 		transactionSpammer.Shutdown()
-	}, shutdown.ShutdownPrioritySpammer)
+	}, shutdown.PrioritySpammer)
 }

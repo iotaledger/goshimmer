@@ -47,7 +47,7 @@ func Configure() {
 
 func Run() {
 	log.Infof("Starting %s ...", name)
-	if err := daemon.BackgroundWorker(name, start, shutdown.ShutdownPriorityAnalysis); err != nil {
+	if err := daemon.BackgroundWorker(name, start, shutdown.PriorityAnalysis); err != nil {
 		log.Errorf("Error starting as daemon: %s", err)
 	}
 }
