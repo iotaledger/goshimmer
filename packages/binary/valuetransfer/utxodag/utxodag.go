@@ -529,33 +529,135 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 		return true
 	})
 
-	// TODO: FORK CONFLICTING CONSUMERS
+	// TODO: BOOK ATTACHMENT
+
 	if len(conflictingInputsOfConflictingConsumers) >= 1 {
 		for consumerId, conflictingInputs := range conflictingInputsOfConflictingConsumers {
-			utxoDAG.Fork(consumerId, conflictingInputs)
+			if err = utxoDAG.Fork(consumerId, conflictingInputs); err != nil {
+				return
+			}
 		}
 	}
-
-	// TODO: BOOK ATTACHMENT
 
 	return
 }
 
-func (utxoDAG *UTXODAG) Fork(transactionId transaction.Id, conflictingInputs []transaction.OutputId) {
+func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata, cachedTargetBranch *branchmanager.CachedBranch) (err error) {
+	popElementsFromTransactionStack := func(stack *list.List) (*transaction.CachedTransaction, *CachedTransactionMetadata) {
+		currentSolidificationEntry := stack.Front()
+		cachedTransaction := currentSolidificationEntry.Value.([2]interface{})[0].(*transaction.CachedTransaction)
+		cachedTransactionMetadata := currentSolidificationEntry.Value.([2]interface{})[1].(*CachedTransactionMetadata)
+		stack.Remove(currentSolidificationEntry)
+
+		return cachedTransaction, cachedTransactionMetadata
+	}
+
+	popElementsFromBranchStack := func(stack *list.List) (branchmanager.BranchId, *branchmanager.CachedBranch, *list.List) {
+		currentSolidificationEntry := stack.Front()
+		sourceBranch := currentSolidificationEntry.Value.([3]interface{})[0].(branchmanager.BranchId)
+		cachedTargetBranch := currentSolidificationEntry.Value.([3]interface{})[1].(*branchmanager.CachedBranch)
+		transactionStack := currentSolidificationEntry.Value.([3]interface{})[2].(*list.List)
+		stack.Remove(currentSolidificationEntry)
+
+		return sourceBranch, cachedTargetBranch, transactionStack
+	}
+
+	transactionStack := list.New()
+	branchStack := list.New()
+	branchStack.PushBack([3]interface{}{cachedTransactionMetadata.Unwrap().BranchId(), cachedTargetBranch, transactionStack})
+	transactionStack.PushBack([2]interface{}{cachedTransaction, cachedTransactionMetadata})
+
+	for branchStack.Len() >= 1 {
+		if err = func() error {
+			currentSourceBranch, currentCachedTargetBranch, transactionStack := popElementsFromBranchStack(branchStack)
+			defer currentCachedTargetBranch.Release()
+
+			targetBranch := currentCachedTargetBranch.Unwrap()
+			if targetBranch == nil {
+				return errors.New("failed to unpack branch")
+			}
+
+			for transactionStack.Len() >= 1 {
+				if err = func() error {
+					currentCachedTransaction, currentCachedTransactionMetadata := popElementsFromTransactionStack(transactionStack)
+					defer currentCachedTransaction.Release()
+					defer currentCachedTransactionMetadata.Release()
+
+					currentTransaction := currentCachedTransaction.Unwrap()
+					if currentTransaction == nil {
+						return errors.New("failed to unwrap transaction")
+					}
+
+					currentTransactionMetadata := currentCachedTransactionMetadata.Unwrap()
+					if currentTransactionMetadata == nil {
+						return errors.New("failed to unwrap transaction metadata")
+					}
+
+					if currentTransactionMetadata.BranchId() == currentSourceBranch {
+						if !currentTransactionMetadata.SetBranchId(targetBranch.Id()) {
+							return nil
+						}
+
+						currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+							outputId := transaction.NewOutputId(address, currentTransaction.Id())
+
+							cachedOutput := utxoDAG.GetTransactionOutput(outputId)
+							defer cachedOutput.Release()
+
+							output := cachedOutput.Unwrap()
+							if output == nil {
+								err = fmt.Errorf("failed to load output '%s'", outputId)
+
+								return false
+							}
+
+							output.SetBranchId(targetBranch.Id())
+
+							fmt.Println(output)
+
+							consumingTransactions := make(map[transaction.Id]types.Empty)
+							utxoDAG.GetConsumers(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(consumer *Consumer) {
+								consumingTransactions[consumer.TransactionId()] = types.Void
+							})
+
+							for transactionId := range consumingTransactions {
+								transactionStack.PushBack([2]interface{}{utxoDAG.Transaction(transactionId), utxoDAG.TransactionMetadata(transactionId)})
+							}
+
+							return true
+						})
+					} else {
+						panic("REACHED ANOTHER REALITY" + currentTransactionMetadata.BranchId().String())
+					}
+
+					return nil
+				}(); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		}(); err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+func (utxoDAG *UTXODAG) Fork(transactionId transaction.Id, conflictingInputs []transaction.OutputId) error {
 	cachedTransaction := utxoDAG.Transaction(transactionId)
+	cachedTransactionMetadata := utxoDAG.TransactionMetadata(transactionId)
 	defer cachedTransaction.Release()
+	defer cachedTransactionMetadata.Release()
 
 	tx := cachedTransaction.Unwrap()
 	if tx == nil {
-		return
+		return fmt.Errorf("failed to load transaction '%s'", transactionId)
 	}
-
-	cachedTransactionMetadata := utxoDAG.TransactionMetadata(transactionId)
-	defer cachedTransaction.Release()
-
 	txMetadata := cachedTransactionMetadata.Unwrap()
 	if txMetadata == nil {
-		return
+		return fmt.Errorf("failed to load metadata of transaction '%s'", transactionId)
 	}
 
 	cachedTargetBranch := utxoDAG.branchManager.AddBranch(branchmanager.NewBranch(branchmanager.NewBranchId(tx.Id()), []branchmanager.BranchId{txMetadata.BranchId()}))
@@ -563,8 +665,12 @@ func (utxoDAG *UTXODAG) Fork(transactionId transaction.Id, conflictingInputs []t
 
 	targetBranch := cachedTargetBranch.Unwrap()
 	if targetBranch == nil {
-		return
+		return fmt.Errorf("failed to create branch for transaction '%s'", transactionId)
 	}
 
 	utxoDAG.Events.TransactionConflicting.Trigger(cachedTransaction, cachedTransactionMetadata, conflictingInputs)
+
+	utxoDAG.moveTransactionToBranch(cachedTransaction.Retain(), cachedTransactionMetadata.Retain(), cachedTargetBranch.Retain())
+
+	return nil
 }

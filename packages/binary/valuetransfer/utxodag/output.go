@@ -27,6 +27,7 @@ type Output struct {
 	consumerCount      int
 	balances           []*balance.Balance
 
+	branchIdMutex           sync.RWMutex
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 	consumerMutex           sync.RWMutex
@@ -127,7 +128,32 @@ func (output *Output) TransactionId() transaction.Id {
 
 // BranchId returns the id of the ledger state branch, that this output was booked in.
 func (output *Output) BranchId() branchmanager.BranchId {
+	output.branchIdMutex.RLock()
+	defer output.branchIdMutex.RUnlock()
+
 	return output.branchId
+}
+
+func (output *Output) SetBranchId(branchId branchmanager.BranchId) (modified bool) {
+	output.branchIdMutex.RLock()
+	if output.branchId == branchId {
+		output.branchIdMutex.RUnlock()
+
+		return
+	}
+
+	output.branchIdMutex.RUnlock()
+	output.branchIdMutex.Lock()
+	defer output.branchIdMutex.Unlock()
+
+	if output.branchId == branchId {
+		return
+	}
+
+	output.branchId = branchId
+	modified = true
+
+	return
 }
 
 // Solid returns true if the output has been marked as solid.

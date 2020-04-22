@@ -140,6 +140,10 @@ type CachedBranch struct {
 	objectstorage.CachedObject
 }
 
+func (cachedBranches *CachedBranch) Retain() *CachedBranch {
+	return &CachedBranch{cachedBranches.CachedObject.Retain()}
+}
+
 func (cachedBranches *CachedBranch) Unwrap() *Branch {
 	if untypedObject := cachedBranches.Get(); untypedObject == nil {
 		return nil

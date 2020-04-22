@@ -14,8 +14,17 @@ type Events struct {
 
 func newEvents() *Events {
 	return &Events{
-		TransactionReceived: events.NewEvent(cachedTransactionEvent),
+		TransactionReceived:    events.NewEvent(cachedTransactionEvent),
+		TransactionConflicting: events.NewEvent(conflictEvent),
 	}
+}
+
+func conflictEvent(handler interface{}, params ...interface{}) {
+	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, []transaction.OutputId))(
+		params[0].(*transaction.CachedTransaction).Retain(),
+		params[1].(*CachedTransactionMetadata).Retain(),
+		params[2].([]transaction.OutputId),
+	)
 }
 
 func cachedTransactionEvent(handler interface{}, params ...interface{}) {
