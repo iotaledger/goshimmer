@@ -41,7 +41,7 @@ func New(db *badger.DB, localIdentity *identity.LocalIdentity, tipSelector *tips
 func (m *MessageFactory) IssuePayload(payload payload.Payload) *message.Message {
 	sequenceNumber, err := m.sequence.Next()
 	if err != nil {
-		m.Events.Error.Trigger(fmt.Errorf("%w: could not create sequence number", err))
+		m.Events.Error.Trigger(fmt.Errorf("could not create sequence number: %w", err))
 		return nil
 	}
 
@@ -62,6 +62,6 @@ func (m *MessageFactory) IssuePayload(payload payload.Payload) *message.Message 
 // Shutdown closes the messageFactory and persists the sequence number.
 func (m *MessageFactory) Shutdown() {
 	if err := m.sequence.Release(); err != nil {
-		m.Events.Error.Trigger(fmt.Errorf("%w: could not release message sequence number", err))
+		m.Events.Error.Trigger(fmt.Errorf("could not release message sequence number: %w", err))
 	}
 }
