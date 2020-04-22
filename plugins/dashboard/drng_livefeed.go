@@ -21,7 +21,7 @@ func configureDrngLiveFeed() {
 	drngLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
 		newRandomness := task.Param(0).(state.Randomness)
 
-		sendToAllWSClient(&msg{MsgTypeDrng, &drngMsg{
+		sendToAllWSClient(&wsmsg{MsgTypeDrng, &drngMsg{
 			Instance:      drng.Instance.State.Committee().InstanceID,
 			DistributedPK: hex.EncodeToString(drng.Instance.State.Committee().DistributedPK),
 			Round:         newRandomness.Round,
@@ -51,5 +51,5 @@ func runDrngLiveFeed() {
 		newMsgRateLimiter.Stop()
 		drngLiveFeedWorkerPool.Stop()
 		log.Info("Stopping Dashboard[DRNGUpdater] ... done")
-	}, shutdown.ShutdownPriorityDashboard)
+	}, shutdown.PriorityDashboard)
 }

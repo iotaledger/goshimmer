@@ -16,7 +16,7 @@ interface Props {
     explorerStore?: ExplorerStore;
     match?: {
         params: {
-            hash: string,
+            id: string,
         }
     }
 }
@@ -28,28 +28,28 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
 
     componentDidMount() {
         this.props.explorerStore.resetSearch();
-        this.props.explorerStore.searchAddress(this.props.match.params.hash);
+        this.props.explorerStore.searchAddress(this.props.match.params.id);
     }
 
     getSnapshotBeforeUpdate(prevProps: Props, prevState) {
-        if (prevProps.match.params.hash !== this.props.match.params.hash) {
-            this.props.explorerStore.searchAddress(this.props.match.params.hash);
+        if (prevProps.match.params.id !== this.props.match.params.id) {
+            this.props.explorerStore.searchAddress(this.props.match.params.id);
         }
         return null;
     }
 
     render() {
-        let {hash} = this.props.match.params;
+        let {id} = this.props.match.params;
         let {addr, query_loading} = this.props.explorerStore;
-        let txsEle = [];
+        let msgsEle = [];
         if (addr) {
-            for (let i = 0; i < addr.txs.length; i++) {
-                let tx = addr.txs[i];
-                txsEle.push(
-                    <ListGroup.Item key={tx.hash}>
+            for (let i = 0; i < addr.messages.length; i++) {
+                let msg = addr.messages[i];
+                msgsEle.push(
+                    <ListGroup.Item key={msg.id}>
                         <small>
-                            {dateformat(new Date(tx.timestamp * 1000), "dd.mm.yyyy HH:MM:ss")} {' '}
-                            <Link to={`/explorer/tx/${tx.hash}`}>{tx.hash}</Link>
+                            {dateformat(new Date(msg.timestamp * 1000), "dd.mm.yyyy HH:MM:ss")} {' '}
+                            <Link to={`/explorer/message/${msg.id}`}>{msg.id}</Link>
                         </small>
                     </ListGroup.Item>
                 );
@@ -57,23 +57,23 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
         }
         return (
             <Container>
-                <h3>Address {addr !== null && <span>({addr.txs.length} Transactions)</span>}</h3>
+                <h3>Address {addr !== null && <span>({addr.messages.length} Messages)</span>}</h3>
                 <p>
-                    {hash} {' '}
+                    {id} {' '}
                 </p>
                 {
                     addr !== null ?
                         <React.Fragment>
                             {
-                                addr.txs !== null && addr.txs.length === 100 &&
+                                addr.messages !== null && addr.messages.length === 100 &&
                                 <Alert variant={"warning"}>
-                                    Max. 100 transactions are shown.
+                                    Max. 100 messages are shown.
                                 </Alert>
                             }
                             <Row className={"mb-3"}>
                                 <Col>
                                     <ListGroup variant={"flush"}>
-                                        {txsEle}
+                                        {msgsEle}
                                     </ListGroup>
                                 </Col>
                             </Row>

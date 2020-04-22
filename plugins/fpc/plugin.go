@@ -101,7 +101,7 @@ func run(_ *node.Plugin) {
 		<-shutdownSignal
 		voterServer.Shutdown()
 		log.Info("Stopped vote server")
-	}, shutdown.ShutdownPriorityFPC)
+	}, shutdown.PriorityFPC)
 
 	daemon.BackgroundWorker("FPCRoundsInitiator", func(shutdownSignal <-chan struct{}) {
 		log.Infof("Started FPC round initiator")
@@ -119,7 +119,7 @@ func run(_ *node.Plugin) {
 			}
 		}
 		log.Infof("Stopped FPC round initiator")
-	}, shutdown.ShutdownPriorityFPC)
+	}, shutdown.PriorityFPC)
 }
 
 // PeerOpinionGiver implements the OpinionGiver interface based on a peer.

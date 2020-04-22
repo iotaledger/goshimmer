@@ -21,16 +21,15 @@ export class Explorer extends React.Component<Props, any> {
                 <Row className={"mb-3"}>
                     <Col>
                         <p>
-                            Search for addresses or transactions by supplying
-                            their corresponding hashes.
+                            Search for addresses or messages.
                         </p>
-
                     </Col>
                 </Row>
                 <ExplorerSearchbar/>
                 <ExplorerLiveFeed/>
                 <small>
-                    This explorer implementation is heavily inspired by <a href={"https://thetangle.org"}>thetangle.org</a>.
+                    This explorer implementation is heavily inspired by <a
+                    href={"https://thetangle.org"}>thetangle.org</a>.
                 </small>
             </Container>
         );

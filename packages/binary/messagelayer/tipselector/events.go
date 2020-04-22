@@ -6,11 +6,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 )
 
+// Events represents event happening on the tip-selector.
 type Events struct {
-	TipAdded   *events.Event
+	// Fired when a tip is added.
+	TipAdded *events.Event
+	// Fired when a tip is removed.
 	TipRemoved *events.Event
 }
 
-func transactionIdEvent(handler interface{}, params ...interface{}) {
+func messageIdEvent(handler interface{}, params ...interface{}) {
 	handler.(func(message.Id))(params[0].(message.Id))
 }

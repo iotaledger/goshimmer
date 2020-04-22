@@ -12,14 +12,14 @@ import (
 type MissingMessage struct {
 	objectstorage.StorableObjectFlags
 
-	transactionId message.Id
-	missingSince  time.Time
+	messageId    message.Id
+	missingSince time.Time
 }
 
-func NewMissingMessage(transactionId message.Id) *MissingMessage {
+func NewMissingMessage(messageId message.Id) *MissingMessage {
 	return &MissingMessage{
-		transactionId: transactionId,
-		missingSince:  time.Now(),
+		messageId:    messageId,
+		missingSince: time.Now(),
 	}
 }
 
@@ -36,7 +36,7 @@ func MissingMessageFromStorageKey(key []byte, optionalTargetObject ...*MissingMe
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	result.(*MissingMessage).transactionId, err = message.ParseId(marshalUtil)
+	result.(*MissingMessage).messageId, err = message.ParseId(marshalUtil)
 	if err != nil {
 		return
 	}
@@ -45,20 +45,22 @@ func MissingMessageFromStorageKey(key []byte, optionalTargetObject ...*MissingMe
 	return
 }
 
-func (missingMessage *MissingMessage) GetTransactionId() message.Id {
-	return missingMessage.transactionId
+// MessageId returns the id of the message.
+func (missingMessage *MissingMessage) MessageId() message.Id {
+	return missingMessage.messageId
 }
 
-func (missingMessage *MissingMessage) GetMissingSince() time.Time {
+// MissingSince returns the time since when this message is missing.
+func (missingMessage *MissingMessage) MissingSince() time.Time {
 	return missingMessage.missingSince
 }
 
 func (missingMessage *MissingMessage) Update(other objectstorage.StorableObject) {
-	panic("missing transactions should never be overwritten and only stored once to optimize IO")
+	panic("missing messages should never be overwritten and only stored once to optimize IO")
 }
 
 func (missingMessage *MissingMessage) ObjectStorageKey() []byte {
-	return missingMessage.transactionId[:]
+	return missingMessage.messageId[:]
 }
 
 func (missingMessage *MissingMessage) ObjectStorageValue() (result []byte) {

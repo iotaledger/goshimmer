@@ -2,8 +2,8 @@ import {action, computed, observable, ObservableMap} from 'mobx';
 import * as dateformat from 'dateformat';
 import {connectWebSocket, registerHandler, WSMsgType} from "app/misc/WS";
 
-class TPSMetric {
-    tps: number;
+class MPSMetric {
+    mps: number;
     ts: string;
 }
 
@@ -155,8 +155,8 @@ const maxMetricsDataPoints = 900;
 export class NodeStore {
     @observable status: Status = new Status();
     @observable websocketConnected: boolean = false;
-    @observable last_tps_metric: TPSMetric = new TPSMetric();
-    @observable collected_tps_metrics: Array<TPSMetric> = [];
+    @observable last_mps_metric: MPSMetric = new MPSMetric();
+    @observable collected_mps_metrics: Array<MPSMetric> = [];
     @observable collected_mem_metrics: Array<MemoryMetrics> = [];
     @observable neighbor_metrics = new ObservableMap<string, NeighborMetrics>();
     @observable last_tips_metric: TipsMetric = new TipsMetric();
@@ -164,7 +164,7 @@ export class NodeStore {
 
     constructor() {
         registerHandler(WSMsgType.Status, this.updateStatus);
-        registerHandler(WSMsgType.TPSMetrics, this.updateLastTPSMetric);
+        registerHandler(WSMsgType.MPSMetrics, this.updateLastMPSMetric);
         registerHandler(WSMsgType.NeighborStats, this.updateNeighborMetrics);
         registerHandler(WSMsgType.TipsMetrics, this.updateLastTipsMetric);
     }
@@ -211,15 +211,15 @@ export class NodeStore {
     };
 
     @action
-    updateLastTPSMetric = (tps: number) => {
-        let tpsMetric = new TPSMetric();
-        tpsMetric.tps = tps;
-        tpsMetric.ts = dateformat(Date.now(), "HH:MM:ss");
-        this.last_tps_metric = tpsMetric;
-        if (this.collected_tps_metrics.length > maxMetricsDataPoints) {
-            this.collected_tps_metrics.shift();
+    updateLastMPSMetric = (mps: number) => {
+        let mpsMetric = new MPSMetric();
+        mpsMetric.mps = mps;
+        mpsMetric.ts = dateformat(Date.now(), "HH:MM:ss");
+        this.last_mps_metric = mpsMetric;
+        if (this.collected_mps_metrics.length > maxMetricsDataPoints) {
+            this.collected_mps_metrics.shift();
         }
-        this.collected_tps_metrics.push(tpsMetric);
+        this.collected_mps_metrics.push(mpsMetric);
     };
 
     @action
@@ -235,21 +235,21 @@ export class NodeStore {
     };
 
     @computed
-    get tpsSeries() {
-        let tps = Object.assign({}, chartSeriesOpts,
-            series("TPS", 'rgba(67, 196, 99,1)', 'rgba(67, 196, 99,0.4)')
+    get mpsSeries() {
+        let mps = Object.assign({}, chartSeriesOpts,
+            series("MPS", 'rgba(67, 196, 99,1)', 'rgba(67, 196, 99,0.4)')
         );
 
         let labels = [];
-        for (let i = 0; i < this.collected_tps_metrics.length; i++) {
-            let metric: TPSMetric = this.collected_tps_metrics[i];
+        for (let i = 0; i < this.collected_mps_metrics.length; i++) {
+            let metric: MPSMetric = this.collected_mps_metrics[i];
             labels.push(metric.ts);
-            tps.data.push(metric.tps);
+            mps.data.push(metric.mps);
         }
 
         return {
             labels: labels,
-            datasets: [tps],
+            datasets: [mps],
         };
     }
 

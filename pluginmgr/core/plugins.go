@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
+	"github.com/iotaledger/goshimmer/plugins/profiling"
 
 	"github.com/iotaledger/hive.go/node"
 )
@@ -23,6 +24,7 @@ var PLUGINS = node.Plugins(
 	logger.PLUGIN,
 	cli.PLUGIN,
 	portcheck.PLUGIN,
+	profiling.Plugin,
 	database.PLUGIN,
 	autopeering.PLUGIN,
 	messagelayer.PLUGIN,

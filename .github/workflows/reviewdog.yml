@@ -1,0 +1,20 @@
+name: reviewdog
+
+on: pull_request
+
+jobs:
+
+  golangci-lint:
+    name: GolangCI-Lint 
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+    
+    - name: Run golangci-lint
+      uses: docker://reviewdog/action-golangci-lint:latest
+      with:
+        github_token: ${{ secrets.github_token }}
+        golangci_lint_flags: "--timeout=10m"
+        reporter: "github-pr-review"

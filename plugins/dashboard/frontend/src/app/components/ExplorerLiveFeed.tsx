@@ -17,7 +17,7 @@ interface Props {
 @observer
 export class ExplorerLiveFeed extends React.Component<Props, any> {
     render() {
-        let {txsLiveFeed} = this.props.explorerStore;
+        let {msgsLiveFeed} = this.props.explorerStore;
         return (
             <Row className={"mb-3"}>
                 <Col>
@@ -26,16 +26,16 @@ export class ExplorerLiveFeed extends React.Component<Props, any> {
                             <Card.Title>Live Feed</Card.Title>
                             <Row className={"mb-3"}>
                                 <Col xs={12}>
-                                    <h6>Transactions</h6>
+                                    <h6>Messages</h6>
                                     <Table>
                                         <thead>
                                         <tr>
-                                            <td>Hash</td>
+                                            <td>Id</td>
                                             <td>Value</td>
                                         </tr>
                                         </thead>
                                         <tbody>
-                                        {txsLiveFeed}
+                                        {msgsLiveFeed}
                                         </tbody>
                                     </Table>
                                 </Col>
