@@ -22,6 +22,7 @@ const (
 // LoadMessageFunc defines a function that returns the message for the given id.
 type LoadMessageFunc func(messageId message.Id) ([]byte, error)
 
+// The Manager handles the connected neighbors.
 type Manager struct {
 	local           *peer.Local
 	loadMessageFunc LoadMessageFunc
@@ -37,14 +38,15 @@ type Manager struct {
 // NewManager creates a new Manager.
 func NewManager(local *peer.Local, f LoadMessageFunc, log *zap.SugaredLogger) *Manager {
 	return &Manager{
-		local:          local,
+		local:           local,
 		loadMessageFunc: f,
-		log:            log,
-		srv:            nil,
-		neighbors:      make(map[identity.ID]*Neighbor),
+		log:             log,
+		srv:             nil,
+		neighbors:       make(map[identity.ID]*Neighbor),
 	}
 }
 
+// Start starts the manager for the given TCP server.
 func (m *Manager) Start(srv *server.TCP) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
