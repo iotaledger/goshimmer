@@ -97,7 +97,7 @@ func (m *Manager) AddInbound(p *peer.Peer) error {
 	return m.addNeighbor(p, m.srv.AcceptPeer)
 }
 
-// NeighborRemoved disconnects the neighbor with the given ID.
+// DropNeighbor disconnects the neighbor with the given ID.
 func (m *Manager) DropNeighbor(id identity.ID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
