@@ -5,7 +5,8 @@ import "github.com/mr-tron/base58"
 // Id represents the id of a data payload.
 type Id [IdLength]byte
 
-// Bytes returns a copy of the id.
+// Bytes returns the id as a byte slice backed by the original array,
+// therefore it should not be modified.
 func (id Id) Bytes() []byte {
 	return id[:]
 }

@@ -1,13 +1,13 @@
 package messageparser
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/labstack/gommon/log"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
@@ -53,7 +53,7 @@ func TestMessageParser_ParseMessage(t *testing.T) {
 	msgParser.Parse(msg.Bytes(), nil)
 
 	msgParser.Events.MessageParsed.Attach(events.NewClosure(func(msg *message.Message) {
-		fmt.Println("PARSED!!!")
+		log.Infof("parsed message")
 	}))
 
 	msgParser.Shutdown()

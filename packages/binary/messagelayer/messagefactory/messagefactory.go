@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
-	"github.com/pkg/errors"
-
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
@@ -26,7 +24,7 @@ type MessageFactory struct {
 func New(db *badger.DB, localIdentity *identity.LocalIdentity, tipSelector *tipselector.TipSelector, sequenceKey []byte) *MessageFactory {
 	sequence, err := db.GetSequence(sequenceKey, 100)
 	if err != nil {
-		panic(fmt.Errorf("could not create message sequence number. %v", err))
+		panic(fmt.Sprintf("could not create message sequence number: %v", err))
 	}
 
 	return &MessageFactory{
@@ -43,7 +41,7 @@ func New(db *badger.DB, localIdentity *identity.LocalIdentity, tipSelector *tips
 func (m *MessageFactory) IssuePayload(payload payload.Payload) *message.Message {
 	sequenceNumber, err := m.sequence.Next()
 	if err != nil {
-		m.Events.Error.Trigger(errors.Wrap(err, "could not create sequence number"))
+		m.Events.Error.Trigger(fmt.Errorf("%w: could not create sequence number", err))
 		return nil
 	}
 
@@ -64,6 +62,6 @@ func (m *MessageFactory) IssuePayload(payload payload.Payload) *message.Message 
 // Shutdown closes the messageFactory and persists the sequence number.
 func (m *MessageFactory) Shutdown() {
 	if err := m.sequence.Release(); err != nil {
-		m.Events.Error.Trigger(errors.Wrap(err, "could not release message sequence number"))
+		m.Events.Error.Trigger(fmt.Errorf("%w: could not release message sequence number", err))
 	}
 }
