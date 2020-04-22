@@ -131,7 +131,8 @@ func (m *Manager) SendTransaction(txData []byte, to ...identity.ID) {
 	m.send(marshal(tx), to...)
 }
 
-func (m *Manager) GetAllNeighbors() []*Neighbor {
+// AllNeighbors returns all the neighbors that are currently connected.
+func (m *Manager) AllNeighbors() []*Neighbor {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -146,7 +147,7 @@ func (m *Manager) getNeighbors(ids ...identity.ID) []*Neighbor {
 	if len(ids) > 0 {
 		return m.getNeighborsById(ids)
 	}
-	return m.GetAllNeighbors()
+	return m.AllNeighbors()
 }
 
 func (m *Manager) getNeighborsById(ids []identity.ID) []*Neighbor {

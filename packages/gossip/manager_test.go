@@ -404,11 +404,11 @@ func TestDropNeighbor(t *testing.T) {
 	// drop and connect many many times
 	for i := 0; i < 100; i++ {
 		connect()
-		assert.NotEmpty(t, mgrA.GetAllNeighbors())
-		assert.NotEmpty(t, mgrB.GetAllNeighbors())
+		assert.NotEmpty(t, mgrA.AllNeighbors())
+		assert.NotEmpty(t, mgrB.AllNeighbors())
 		disc()
-		assert.Empty(t, mgrA.GetAllNeighbors())
-		assert.Empty(t, mgrB.GetAllNeighbors())
+		assert.Empty(t, mgrA.AllNeighbors())
+		assert.Empty(t, mgrB.AllNeighbors())
 	}
 }
 
