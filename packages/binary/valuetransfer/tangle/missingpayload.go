@@ -86,7 +86,7 @@ func (missingPayload *MissingPayload) GetId() payload.Id {
 	return missingPayload.payloadId
 }
 
-// GetMissingSince returns the time.Time since the transaction was first reported as being missing.
+// MissingSince returns the time.Time since the transaction was first reported as being missing.
 func (missingPayload *MissingPayload) GetMissingSince() time.Time {
 	return missingPayload.missingSince
 }

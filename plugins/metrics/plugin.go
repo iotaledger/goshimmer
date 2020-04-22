@@ -16,19 +16,18 @@ import (
 
 var PLUGIN = node.NewPlugin("Metrics", node.Enabled, configure, run)
 
-func configure(plugin *node.Plugin) {
-	// increase received TPS counter whenever we receive a new transaction
-	messagelayer.Tangle.Events.TransactionAttached.Attach(events.NewClosure(func(transaction *message.CachedMessage, metadata *tangle.CachedMessageMetadata) {
-		transaction.Release()
-		metadata.Release()
-
-		increaseReceivedTPSCounter()
+func configure(_ *node.Plugin) {
+	// increase received MPS counter whenever we attached a message
+	messagelayer.Tangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		cachedMessage.Release()
+		cachedMessageMetadata.Release()
+		increaseReceivedMPSCounter()
 	}))
 }
 
-func run(plugin *node.Plugin) {
-	// create a background worker that "measures" the TPS value every second
-	daemon.BackgroundWorker("Metrics TPS Updater", func(shutdownSignal <-chan struct{}) {
-		timeutil.Ticker(measureReceivedTPS, 1*time.Second, shutdownSignal)
+func run(_ *node.Plugin) {
+	// create a background worker that "measures" the MPS value every second
+	daemon.BackgroundWorker("Metrics MPS Updater", func(shutdownSignal <-chan struct{}) {
+		timeutil.Ticker(measureReceivedMPS, 1*time.Second, shutdownSignal)
 	}, shutdown.PriorityMetrics)
 }

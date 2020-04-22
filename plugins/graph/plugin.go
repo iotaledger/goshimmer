@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"golang.org/x/net/context"
 
-	"github.com/iotaledger/goshimmer/packages/model/value_transaction"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 
 	engineio "github.com/googollee/go-engine.io"
@@ -31,9 +31,9 @@ var (
 
 	log *logger.Logger
 
-	newTxWorkerCount     = 1
-	newTxWorkerQueueSize = 10000
-	newTxWorkerPool      *workerpool.WorkerPool
+	newMsgWorkerCount     = 1
+	newMsgWorkerQueueSize = 10000
+	newMsgWorkerPool      *workerpool.WorkerPool
 
 	server         *http.Server
 	router         *http.ServeMux
@@ -88,26 +88,26 @@ func configure(plugin *node.Plugin) {
 	router.HandleFunc("/socket.io/socket.io.js", downloadSocketIOHandler)
 	router.Handle("/socket.io/", socketioServer)
 
-	newTxWorkerPool = workerpool.New(func(task workerpool.Task) {
-		onNewTx(task.Param(0).(*value_transaction.ValueTransaction))
+	newMsgWorkerPool = workerpool.New(func(task workerpool.Task) {
+		onAttachedMessage(task.Param(0).(*message.Message))
 		task.Return(nil)
-	}, workerpool.WorkerCount(newTxWorkerCount), workerpool.QueueSize(newTxWorkerQueueSize))
+	}, workerpool.WorkerCount(newMsgWorkerCount), workerpool.QueueSize(newMsgWorkerQueueSize))
 }
 
 func run(*node.Plugin) {
 
-	notifyNewTx := events.NewClosure(func(transaction *value_transaction.ValueTransaction) {
-		newTxWorkerPool.TrySubmit(transaction)
+	onMessageAttached := events.NewClosure(func(msg *message.Message) {
+		newMsgWorkerPool.TrySubmit(msg)
 	})
 
-	daemon.BackgroundWorker("Graph[NewTxWorker]", func(shutdownSignal <-chan struct{}) {
-		log.Info("Starting Graph[NewTxWorker] ... done")
-		messagelayer.Tangle.Events.TransactionAttached.Attach(notifyNewTx)
-		newTxWorkerPool.Start()
+	daemon.BackgroundWorker("Graph[AttachedMessageWorker]", func(shutdownSignal <-chan struct{}) {
+		log.Info("Starting Graph[AttachedMessageWorker] ... done")
+		messagelayer.Tangle.Events.MessageAttached.Attach(onMessageAttached)
+		newMsgWorkerPool.Start()
 		<-shutdownSignal
-		messagelayer.Tangle.Events.TransactionAttached.Detach(notifyNewTx)
-		newTxWorkerPool.Stop()
-		log.Info("Stopping Graph[NewTxWorker] ... done")
+		messagelayer.Tangle.Events.MessageAttached.Detach(onMessageAttached)
+		newMsgWorkerPool.Stop()
+		log.Info("Stopping Graph[AttachedMessageWorker] ... done")
 	}, shutdown.PriorityGraph)
 
 	daemon.BackgroundWorker("Graph Webserver", func(shutdownSignal <-chan struct{}) {
