@@ -1,4 +1,4 @@
-package spa
+package dashboard
 
 import (
 	"net/http"

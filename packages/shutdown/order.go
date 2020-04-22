@@ -10,7 +10,7 @@ const (
 	PriorityAutopeering
 	PriorityGossip
 	PriorityWebAPI
-	PrioritySPA
+	PriorityDashboard
 	PriorityGraph
 	PrioritySpammer
 	PriorityBadgerGarbageCollection

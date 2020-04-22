@@ -1,4 +1,4 @@
-package spa
+package dashboard
 
 import (
 	"encoding/hex"
@@ -42,14 +42,14 @@ func runDrngLiveFeed() {
 		}
 	})
 
-	daemon.BackgroundWorker("SPA[DRNGUpdater]", func(shutdownSignal <-chan struct{}) {
+	daemon.BackgroundWorker("Dashboard[DRNGUpdater]", func(shutdownSignal <-chan struct{}) {
 		drng.Instance.Events.Randomness.Attach(notifyNewRandomness)
 		drngLiveFeedWorkerPool.Start()
 		<-shutdownSignal
-		log.Info("Stopping SPA[DRNGUpdater] ...")
+		log.Info("Stopping Dashboard[DRNGUpdater] ...")
 		drng.Instance.Events.Randomness.Detach(notifyNewRandomness)
 		newMsgRateLimiter.Stop()
 		drngLiveFeedWorkerPool.Stop()
-		log.Info("Stopping SPA[DRNGUpdater] ... done")
-	}, shutdown.PrioritySPA)
+		log.Info("Stopping Dashboard[DRNGUpdater] ... done")
+	}, shutdown.PriorityDashboard)
 }
