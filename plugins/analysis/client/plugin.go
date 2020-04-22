@@ -3,24 +3,17 @@ package client
 import (
 	"encoding/hex"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/autopeering/discover"
-	"github.com/iotaledger/hive.go/autopeering/selection"
+	"github.com/iotaledger/goshimmer/plugins/analysis/types/heartbeat"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/network"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/timeutil"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/addnode"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/connectnodes"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/disconnectnodes"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/ping"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/removenode"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -32,27 +25,22 @@ var connLock sync.Mutex
 func Run(plugin *node.Plugin) {
 	log = logger.NewLogger("Analysis-Client")
 	daemon.BackgroundWorker("Analysis Client", func(shutdownSignal <-chan struct{}) {
-		shuttingDown := false
-
-		for !shuttingDown {
+		ticker := time.NewTicker(ReportInterval * time.Second)
+		defer ticker.Stop()
+		for {
 			select {
 			case <-shutdownSignal:
 				return
 
-			default:
-				if conn, err := net.Dial("tcp", config.Node.GetString(CFG_SERVER_ADDRESS)); err != nil {
+			case <-ticker.C:
+				conn, err := net.Dial("tcp", config.Node.GetString(CfgServerAddress))
+				if err != nil {
 					log.Debugf("Could not connect to reporting server: %s", err.Error())
-
-					timeutil.Sleep(1*time.Second, shutdownSignal)
-				} else {
-					managedConn := network.NewManagedConnection(conn)
-					eventDispatchers := getEventDispatchers(managedConn)
-
-					reportCurrentStatus(eventDispatchers)
-					setupHooks(plugin, managedConn, eventDispatchers)
-
-					shuttingDown = keepConnectionAlive(managedConn, shutdownSignal)
+					continue
 				}
+				managedConn := network.NewManagedConnection(conn)
+				eventDispatchers := getEventDispatchers(managedConn)
+				reportHeartbeat(eventDispatchers)
 			}
 		}
 	}, shutdown.PriorityAnalysis)
@@ -60,135 +48,63 @@ func Run(plugin *node.Plugin) {
 
 func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 	return &EventDispatchers{
-		AddNode: func(nodeId []byte) {
-			log.Debugw("AddNode", "nodeId", hex.EncodeToString(nodeId))
-			connLock.Lock()
-			_, _ = conn.Write((&addnode.Packet{NodeId: nodeId}).Marshal())
-			connLock.Unlock()
-		},
-		RemoveNode: func(nodeId []byte) {
-			log.Debugw("RemoveNode", "nodeId", hex.EncodeToString(nodeId))
-			connLock.Lock()
-			_, _ = conn.Write((&removenode.Packet{NodeId: nodeId}).Marshal())
-			connLock.Unlock()
-		},
-		ConnectNodes: func(sourceId []byte, targetId []byte) {
-			log.Debugw("ConnectNodes", "sourceId", hex.EncodeToString(sourceId), "targetId", hex.EncodeToString(targetId))
-			connLock.Lock()
-			_, _ = conn.Write((&connectnodes.Packet{SourceId: sourceId, TargetId: targetId}).Marshal())
-			connLock.Unlock()
-		},
-		DisconnectNodes: func(sourceId []byte, targetId []byte) {
-			log.Debugw("DisconnectNodes", "sourceId", hex.EncodeToString(sourceId), "targetId", hex.EncodeToString(targetId))
-			connLock.Lock()
-			_, _ = conn.Write((&disconnectnodes.Packet{SourceId: sourceId, TargetId: targetId}).Marshal())
-			connLock.Unlock()
-		},
-	}
-}
-
-func reportCurrentStatus(eventDispatchers *EventDispatchers) {
-	if local.GetInstance() != nil {
-		eventDispatchers.AddNode(local.GetInstance().ID().Bytes())
-	}
-
-	reportKnownPeers(eventDispatchers)
-	reportChosenNeighbors(eventDispatchers)
-	reportAcceptedNeighbors(eventDispatchers)
-}
-
-func setupHooks(plugin *node.Plugin, conn *network.ManagedConnection, eventDispatchers *EventDispatchers) {
-	// define hooks ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-	onDiscoverPeer := events.NewClosure(func(ev *discover.DiscoveredEvent) {
-		eventDispatchers.AddNode(ev.Peer.ID().Bytes())
-	})
-
-	onDeletePeer := events.NewClosure(func(ev *discover.DeletedEvent) {
-		eventDispatchers.RemoveNode(ev.Peer.ID().Bytes())
-	})
-
-	onAddChosenNeighbor := events.NewClosure(func(ev *selection.PeeringEvent) {
-		if ev.Status {
-			eventDispatchers.ConnectNodes(local.GetInstance().ID().Bytes(), ev.Peer.ID().Bytes())
-		}
-	})
-
-	onAddAcceptedNeighbor := events.NewClosure(func(ev *selection.PeeringEvent) {
-		if ev.Status {
-			eventDispatchers.ConnectNodes(ev.Peer.ID().Bytes(), local.GetInstance().ID().Bytes())
-		}
-	})
-
-	onRemoveNeighbor := events.NewClosure(func(ev *selection.DroppedEvent) {
-		eventDispatchers.DisconnectNodes(ev.DroppedID.Bytes(), local.GetInstance().ID().Bytes())
-	})
-
-	// setup hooks /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-	discover.Events.PeerDiscovered.Attach(onDiscoverPeer)
-	discover.Events.PeerDeleted.Attach(onDeletePeer)
-	selection.Events.IncomingPeering.Attach(onAddAcceptedNeighbor)
-	selection.Events.OutgoingPeering.Attach(onAddChosenNeighbor)
-	selection.Events.Dropped.Attach(onRemoveNeighbor)
-
-	// clean up hooks on close /////////////////////////////////////////////////////////////////////////////////////////
-
-	var onClose *events.Closure
-	onClose = events.NewClosure(func() {
-		discover.Events.PeerDiscovered.Detach(onDiscoverPeer)
-		discover.Events.PeerDeleted.Detach(onDeletePeer)
-		selection.Events.IncomingPeering.Detach(onAddAcceptedNeighbor)
-		selection.Events.OutgoingPeering.Detach(onAddChosenNeighbor)
-		selection.Events.Dropped.Detach(onRemoveNeighbor)
-
-		conn.Events.Close.Detach(onClose)
-	})
-	conn.Events.Close.Attach(onClose)
-}
-
-func reportKnownPeers(dispatchers *EventDispatchers) {
-	if autopeering.Discovery != nil {
-		for _, peer := range autopeering.Discovery.GetVerifiedPeers() {
-			dispatchers.AddNode(peer.ID().Bytes())
-		}
-	}
-}
-
-func reportChosenNeighbors(dispatchers *EventDispatchers) {
-	if autopeering.Selection != nil {
-		for _, chosenNeighbor := range autopeering.Selection.GetOutgoingNeighbors() {
-			//dispatchers.AddNode(chosenNeighbor.ID().Bytes())
-			dispatchers.ConnectNodes(local.GetInstance().ID().Bytes(), chosenNeighbor.ID().Bytes())
-		}
-	}
-}
-
-func reportAcceptedNeighbors(dispatchers *EventDispatchers) {
-	if autopeering.Selection != nil {
-		for _, acceptedNeighbor := range autopeering.Selection.GetIncomingNeighbors() {
-			//dispatchers.AddNode(acceptedNeighbor.ID().Bytes())
-			dispatchers.ConnectNodes(acceptedNeighbor.ID().Bytes(), local.GetInstance().ID().Bytes())
-		}
-	}
-}
-
-func keepConnectionAlive(conn *network.ManagedConnection, shutdownSignal <-chan struct{}) bool {
-	go conn.Read(make([]byte, 1))
-
-	ticker := time.NewTicker(1 * time.Second)
-	for {
-		select {
-		case <-shutdownSignal:
-			return true
-
-		case <-ticker.C:
-			connLock.Lock()
-			if _, err := conn.Write((&ping.Packet{}).Marshal()); err != nil {
-				connLock.Unlock()
-				return false
+		Heartbeat: func(packet *heartbeat.Packet) {
+			var out strings.Builder
+			for _, value := range packet.OutboundIDs {
+				out.WriteString(hex.EncodeToString(value))
 			}
-			connLock.Unlock()
-		}
+			var in strings.Builder
+			for _, value := range packet.InboundIDs {
+				in.WriteString(hex.EncodeToString(value))
+			}
+			log.Debugw(
+				"Heartbeat",
+				"nodeId", hex.EncodeToString(packet.OwnID),
+				"outboundIds", out.String(),
+				"inboundIds", in.String(),
+			)
+
+			// Marshal() copies the content of packet, it doesn't modify it.
+			data, err := packet.Marshal()
+			if err != nil {
+				log.Info(err, " - heartbeat message skipped")
+				return
+			}
+
+			connLock.Lock()
+			defer connLock.Unlock()
+			if _, err = conn.Write(data); err != nil {
+				log.Debugw("Error while writing to connection", "Description", err)
+			}
+		},
 	}
+}
+
+func reportHeartbeat(dispatchers *EventDispatchers) {
+	// Get own ID
+	var nodeID []byte
+	if local.GetInstance() != nil {
+		// Doesn't copy the ID, take care not to modify underlying bytearray!
+		nodeID = local.GetInstance().ID().Bytes()
+	}
+
+	// Get outboundIds (chosen neighbors)
+	outgoingNeighbors := autopeering.Selection.GetOutgoingNeighbors()
+	outboundIds := make([][]byte, len(outgoingNeighbors))
+	for i, neighbor := range outgoingNeighbors {
+		// Doesn't copy the ID, take care not to modify underlying bytearray!
+		outboundIds[i] = neighbor.ID().Bytes()
+	}
+
+	// Get inboundIds (accepted neighbors)
+	incomingNeighbors := autopeering.Selection.GetIncomingNeighbors()
+	inboundIds := make([][]byte, len(incomingNeighbors))
+	for i, neighbor := range incomingNeighbors {
+		// Doesn't copy the ID, take care not to modify underlying bytearray!
+		inboundIds[i] = neighbor.ID().Bytes()
+	}
+
+	packet := &heartbeat.Packet{OwnID: nodeID, OutboundIDs: outboundIds, InboundIDs: inboundIds}
+
+	dispatchers.Heartbeat(packet)
 }

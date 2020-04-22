@@ -26,13 +26,6 @@ func (c *WebSocketChannel) Write(update string) {
 	c.send <- update
 }
 
-func (c *WebSocketChannel) TryWrite(update string) {
-	select {
-	case c.send <- update:
-	default:
-	}
-}
-
 func (c *WebSocketChannel) KeepAlive() {
 	buf := make([]byte, 1)
 	for {

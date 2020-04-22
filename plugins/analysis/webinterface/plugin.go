@@ -13,4 +13,5 @@ func Configure(plugin *node.Plugin) {
 
 func Run(plugin *node.Plugin) {
 	httpserver.Run()
+	recordedevents.Run()
 }
