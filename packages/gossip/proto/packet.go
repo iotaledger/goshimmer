@@ -23,8 +23,14 @@ type Packet interface {
 	Type() PacketType
 }
 
-func (m *Message) Name() string     { return "message" }
+// Name returns the name of the message packet.
+func (m *Message) Name() string { return "message" }
+
+// Type returns the packet type id of the message packet.
 func (m *Message) Type() PacketType { return PacketMessage }
 
-func (m *MessageRequest) Name() string     { return "message_request" }
+// Name returns the name of the message request packet.
+func (m *MessageRequest) Name() string { return "message_request" }
+
+// Type returns the packet type id of the message request packet.
 func (m *MessageRequest) Type() PacketType { return PacketMessageRequest }
