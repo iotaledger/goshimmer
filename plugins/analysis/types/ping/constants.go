@@ -1,11 +1,11 @@
 package ping
 
 const (
-	MARSHALED_PACKET_HEADER = 0x00
+	MarshaledPacketHeader = 0x00
 
-	MARSHALED_PACKET_HEADER_START = 0
-	MARSHALED_PACKET_HEADER_SIZE  = 1
-	MARSHALED_PACKET_HEADER_END   = MARSHALED_PACKET_HEADER_START + MARSHALED_PACKET_HEADER_SIZE
+	MarshaledPacketHeaderStart = 0
+	MarshaledPacketHeaderSize  = 1
+	MarshaledPacketHeaderEnd   = MarshaledPacketHeaderStart + MarshaledPacketHeaderSize
 
-	MARSHALED_TOTAL_SIZE = MARSHALED_PACKET_HEADER_END
+	MarshaledTotalSize = MarshaledPacketHeaderEnd
 )

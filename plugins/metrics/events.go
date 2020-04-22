@@ -5,11 +5,12 @@ import (
 )
 
 var Events = pluginEvents{
-	ReceivedTPSUpdated: events.NewEvent(uint64EventCaller),
+	ReceivedMPSUpdated: events.NewEvent(uint64EventCaller),
 }
 
 type pluginEvents struct {
-	ReceivedTPSUpdated *events.Event
+	// Fired when the messages per second metric is updated.
+	ReceivedMPSUpdated *events.Event
 }
 
 func uint64EventCaller(handler interface{}, params ...interface{}) {

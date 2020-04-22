@@ -17,7 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
-func BenchmarkTangle_AttachTransaction(b *testing.B) {
+func BenchmarkTangle_AttachMessage(b *testing.B) {
 	dir, err := ioutil.TempDir("", b.Name())
 	require.NoError(b, err)
 	defer os.Remove(dir)
@@ -33,22 +33,22 @@ func BenchmarkTangle_AttachTransaction(b *testing.B) {
 
 	testIdentity := identity.GenerateLocalIdentity()
 
-	transactionBytes := make([]*message.Message, b.N)
+	messageBytes := make([]*message.Message, b.N)
 	for i := 0; i < b.N; i++ {
-		transactionBytes[i] = message.New(message.EmptyId, message.EmptyId, testIdentity, time.Now(), 0, payload.NewData([]byte("some data")))
-		transactionBytes[i].Bytes()
+		messageBytes[i] = message.New(message.EmptyId, message.EmptyId, testIdentity, time.Now(), 0, payload.NewData([]byte("some data")))
+		messageBytes[i].Bytes()
 	}
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		tangle.AttachMessage(transactionBytes[i])
+		tangle.AttachMessage(messageBytes[i])
 	}
 
 	tangle.Shutdown()
 }
 
-func TestTangle_AttachTransaction(t *testing.T) {
+func TestTangle_AttachMessage(t *testing.T) {
 	dir, err := ioutil.TempDir("", t.Name())
 	require.NoError(t, err)
 	defer os.Remove(dir)
@@ -62,44 +62,44 @@ func TestTangle_AttachTransaction(t *testing.T) {
 		return
 	}
 
-	messageTangle.Events.TransactionAttached.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *CachedMessageMetadata) {
-		cachedTransactionMetadata.Release()
+	messageTangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *CachedMessageMetadata) {
+		cachedMessageMetadata.Release()
 
-		cachedTransaction.Consume(func(transaction *message.Message) {
-			fmt.Println("ATTACHED:", transaction.Id())
+		cachedMessage.Consume(func(msg *message.Message) {
+			fmt.Println("ATTACHED:", msg.Id())
 		})
 	}))
 
-	messageTangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *CachedMessageMetadata) {
-		cachedTransactionMetadata.Release()
+	messageTangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *CachedMessageMetadata) {
+		cachedMessageMetadata.Release()
 
-		cachedTransaction.Consume(func(transaction *message.Message) {
-			fmt.Println("SOLID:", transaction.Id())
+		cachedMessage.Consume(func(msg *message.Message) {
+			fmt.Println("SOLID:", msg.Id())
 		})
 	}))
 
-	messageTangle.Events.TransactionUnsolidifiable.Attach(events.NewClosure(func(transactionId message.Id) {
-		fmt.Println("UNSOLIDIFIABLE:", transactionId)
+	messageTangle.Events.MessageUnsolidifiable.Attach(events.NewClosure(func(messageId message.Id) {
+		fmt.Println("UNSOLIDIFIABLE:", messageId)
 	}))
 
-	messageTangle.Events.TransactionMissing.Attach(events.NewClosure(func(transactionId message.Id) {
-		fmt.Println("MISSING:", transactionId)
+	messageTangle.Events.MessageMissing.Attach(events.NewClosure(func(messageId message.Id) {
+		fmt.Println("MISSING:", messageId)
 	}))
 
-	messageTangle.Events.TransactionRemoved.Attach(events.NewClosure(func(transactionId message.Id) {
-		fmt.Println("REMOVED:", transactionId)
+	messageTangle.Events.MessageRemoved.Attach(events.NewClosure(func(messageId message.Id) {
+		fmt.Println("REMOVED:", messageId)
 	}))
 
 	localIdentity1 := identity.GenerateLocalIdentity()
 	localIdentity2 := identity.GenerateLocalIdentity()
-	newTransaction1 := message.New(message.EmptyId, message.EmptyId, localIdentity1, time.Now(), 0, payload.NewData([]byte("some data")))
-	newTransaction2 := message.New(newTransaction1.Id(), newTransaction1.Id(), localIdentity2, time.Now(), 0, payload.NewData([]byte("some other data")))
+	newMessageOne := message.New(message.EmptyId, message.EmptyId, localIdentity1, time.Now(), 0, payload.NewData([]byte("some data")))
+	newMessageTwo := message.New(newMessageOne.Id(), newMessageOne.Id(), localIdentity2, time.Now(), 0, payload.NewData([]byte("some other data")))
 
-	messageTangle.AttachMessage(newTransaction2)
+	messageTangle.AttachMessage(newMessageTwo)
 
 	time.Sleep(7 * time.Second)
 
-	messageTangle.AttachMessage(newTransaction1)
+	messageTangle.AttachMessage(newMessageOne)
 
 	messageTangle.Shutdown()
 }

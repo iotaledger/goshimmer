@@ -16,7 +16,7 @@ interface Props {
     explorerStore?: ExplorerStore;
     match?: {
         params: {
-            hash: string,
+            id: string,
         }
     }
 }
@@ -24,54 +24,47 @@ interface Props {
 @inject("nodeStore")
 @inject("explorerStore")
 @observer
-export class ExplorerTransactionQueryResult extends React.Component<Props, any> {
+export class ExplorerMessageQueryResult extends React.Component<Props, any> {
 
     componentDidMount() {
         this.props.explorerStore.resetSearch();
-        this.props.explorerStore.searchTx(this.props.match.params.hash);
+        this.props.explorerStore.searchMessage(this.props.match.params.id);
     }
 
     getSnapshotBeforeUpdate(prevProps: Props, prevState) {
-        if (prevProps.match.params.hash !== this.props.match.params.hash) {
-            this.props.explorerStore.searchTx(this.props.match.params.hash);
+        if (prevProps.match.params.id !== this.props.match.params.id) {
+            this.props.explorerStore.searchMessage(this.props.match.params.id);
         }
         return null;
     }
 
     render() {
-        let {hash} = this.props.match.params;
-        let {tx, query_loading} = this.props.explorerStore;
+        let {id} = this.props.match.params;
+        let {msg, query_loading} = this.props.explorerStore;
         return (
             <Container>
-                <h3>
-                    Transaction
-                </h3>
+                <h3>Message</h3>
                 <p>
-                    {hash} {' '}
+                    {id} {' '}
                     {
-                        tx &&
+                        msg &&
                         <React.Fragment>
                             <br/>
                             <span>
                                 <Badge variant="light">
-                                   Time: {dateformat(new Date(tx.timestamp * 1000), "dd.mm.yyyy HH:MM:ss")}
+                                   Time: {dateformat(new Date(msg.timestamp * 1000), "dd.mm.yyyy HH:MM:ss")}
                                 </Badge>
                             </span>
                         </React.Fragment>
                     }
                 </p>
                 {
-                    tx &&
+                    msg &&
                     <React.Fragment>
                         <Row className={"mb-3"}>
                             <Col>
                                 <ListGroup>
-                                    <ListGroup.Item>Value: {tx.value}i</ListGroup.Item>
-                                </ListGroup>
-                            </Col>
-                            <Col>
-                                <ListGroup>
-                                    <ListGroup.Item>Solid: {tx.solid ? 'Yes' : 'No'}</ListGroup.Item>
+                                    <ListGroup.Item>Solid: {msg.solid ? 'Yes' : 'No'}</ListGroup.Item>
                                 </ListGroup>
                             </Col>
                         </Row>
@@ -79,9 +72,9 @@ export class ExplorerTransactionQueryResult extends React.Component<Props, any> 
                             <Col>
                                 <ListGroup>
                                     <ListGroup.Item className="text-break">
-                                        Trunk: {' '}
-                                        <Link to={`/explorer/tx/${tx.trunk}`}>
-                                            {tx.trunk}
+                                        Trunk Message Id: {' '}
+                                        <Link to={`/explorer/message/${msg.trunk_message_id}`}>
+                                            {msg.trunk_message_id}
                                         </Link>
                                     </ListGroup.Item>
                                 </ListGroup>
@@ -89,28 +82,10 @@ export class ExplorerTransactionQueryResult extends React.Component<Props, any> 
                             <Col>
                                 <ListGroup>
                                     <ListGroup.Item className="text-break">
-                                        Branch: {' '}
-                                        <Link to={`/explorer/tx/${tx.branch}`}>
-                                            {tx.branch}
+                                        Branch Message Id: {' '}
+                                        <Link to={`/explorer/message/${msg.branch_message_id}`}>
+                                            {msg.branch_message_id}
                                         </Link>
-                                    </ListGroup.Item>
-                                </ListGroup>
-                            </Col>
-                        </Row>
-                        <Row className={"mb-3"}>
-                            <Col>
-                                <ListGroup>
-                                    <ListGroup.Item>
-                                        Address: {' '}
-                                        <Link to={`/explorer/addr/${tx.address}`}>
-                                            {tx.address}
-                                        </Link>
-                                    </ListGroup.Item>
-                                    <ListGroup.Item className="text-break">
-                                        Message:<br/>
-                                        <small>
-                                            {tx.signature_message_fragment}
-                                        </small>
                                     </ListGroup.Item>
                                 </ListGroup>
                             </Col>

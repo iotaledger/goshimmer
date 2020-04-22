@@ -7,24 +7,27 @@ import (
 
 // Events contains all the events related to the gossip protocol.
 var Events = struct {
-	// A ConnectionFailed event is triggered when a neighbor connection to a peer could not be established.
+	// Fired when an attempt to build a connection to a neighbor has failed.
 	ConnectionFailed *events.Event
-	// A NeighborAdded event is triggered when a connection to a new neighbor has been established.
+	// Fired when a neighbor connection has been established.
 	NeighborAdded *events.Event
-	// A NeighborRemoved event is triggered when a neighbor has been dropped.
+	// Fired when a neighbor has been removed.
 	NeighborRemoved *events.Event
-	// A TransactionReceived event is triggered when a new transaction is received by the gossip protocol.
-	TransactionReceived *events.Event
+	// Fired when a new message was received via the gossip protocol.
+	MessageReceived *events.Event
 }{
-	ConnectionFailed:    events.NewEvent(peerAndErrorCaller),
-	NeighborAdded:       events.NewEvent(neighborCaller),
-	NeighborRemoved:     events.NewEvent(peerCaller),
-	TransactionReceived: events.NewEvent(transactionReceived),
+	ConnectionFailed: events.NewEvent(peerAndErrorCaller),
+	NeighborAdded:    events.NewEvent(neighborCaller),
+	NeighborRemoved:  events.NewEvent(peerCaller),
+	MessageReceived:  events.NewEvent(messageReceived),
 }
 
-type TransactionReceivedEvent struct {
-	Data []byte     // transaction data
-	Peer *peer.Peer // peer that send the transaction
+// MessageReceivedEvent holds data about a message received event.
+type MessageReceivedEvent struct {
+	// The raw message.
+	Data []byte
+	// The sender of the message.
+	Peer *peer.Peer
 }
 
 func peerAndErrorCaller(handler interface{}, params ...interface{}) {
@@ -39,6 +42,6 @@ func neighborCaller(handler interface{}, params ...interface{}) {
 	handler.(func(*Neighbor))(params[0].(*Neighbor))
 }
 
-func transactionReceived(handler interface{}, params ...interface{}) {
-	handler.(func(*TransactionReceivedEvent))(params[0].(*TransactionReceivedEvent))
+func messageReceived(handler interface{}, params ...interface{}) {
+	handler.(func(*MessageReceivedEvent))(params[0].(*MessageReceivedEvent))
 }

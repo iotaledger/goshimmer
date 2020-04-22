@@ -36,8 +36,8 @@ export class ExplorerSearchbar extends React.Component<Props, any> {
                     <Col>
                         <InputGroup className="mb-3">
                             <FormControl
-                                placeholder="Address- or transaction hash"
-                                aria-label="Address- or transaction hash"
+                                placeholder="Address or message id"
+                                aria-label="Address message id"
                                 aria-describedby="basic-addon1"
                                 value={search} onChange={this.updateSearch}
                                 onKeyUp={this.executeSearch}

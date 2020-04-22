@@ -48,10 +48,10 @@ func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 
 	wsSendWorkerPool = workerpool.New(func(task workerpool.Task) {
-		sendToAllWSClient(&msg{MsgTypeTPSMetric, task.Param(0).(uint64)})
-		sendToAllWSClient(&msg{MsgTypeNodeStatus, currentNodeStatus()})
-		sendToAllWSClient(&msg{MsgTypeNeighborMetric, neighborMetrics()})
-		sendToAllWSClient(&msg{MsgTypeTipsMetric, messagelayer.TipSelector.GetTipCount()})
+		sendToAllWSClient(&wsmsg{MsgTypeMPSMetric, task.Param(0).(uint64)})
+		sendToAllWSClient(&wsmsg{MsgTypeNodeStatus, currentNodeStatus()})
+		sendToAllWSClient(&wsmsg{MsgTypeNeighborMetric, neighborMetrics()})
+		sendToAllWSClient(&wsmsg{MsgTypeTipsMetric, messagelayer.TipSelector.TipCount()})
 		task.Return(nil)
 	}, workerpool.WorkerCount(wsSendWorkerCount), workerpool.QueueSize(wsSendWorkerQueueSize))
 
@@ -60,16 +60,16 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(plugin *node.Plugin) {
-	notifyStatus := events.NewClosure(func(tps uint64) {
-		wsSendWorkerPool.TrySubmit(tps)
+	notifyStatus := events.NewClosure(func(mps uint64) {
+		wsSendWorkerPool.TrySubmit(mps)
 	})
 
 	daemon.BackgroundWorker("SPA[WSSend]", func(shutdownSignal <-chan struct{}) {
-		metrics.Events.ReceivedTPSUpdated.Attach(notifyStatus)
+		metrics.Events.ReceivedMPSUpdated.Attach(notifyStatus)
 		wsSendWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping SPA[WSSend] ...")
-		metrics.Events.ReceivedTPSUpdated.Detach(notifyStatus)
+		metrics.Events.ReceivedMPSUpdated.Detach(notifyStatus)
 		wsSendWorkerPool.Stop()
 		log.Info("Stopping SPA[WSSend] ... done")
 	}, shutdown.PrioritySPA)
@@ -127,20 +127,20 @@ var (
 
 const (
 	MsgTypeNodeStatus byte = iota
-	MsgTypeTPSMetric
-	MsgTypeTx
+	MsgTypeMPSMetric
+	MsgTypeMessage
 	MsgTypeNeighborMetric
 	MsgTypeDrng
 	MsgTypeTipsMetric
 )
 
-type msg struct {
+type wsmsg struct {
 	Type byte        `json:"type"`
 	Data interface{} `json:"data"`
 }
 
-type tx struct {
-	Hash  string `json:"hash"`
+type msg struct {
+	Id    string `json:"id"`
 	Value int64  `json:"value"`
 }
 
