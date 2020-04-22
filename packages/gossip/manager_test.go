@@ -372,6 +372,46 @@ func TestMessageRequest(t *testing.T) {
 	e.AssertExpectations(t)
 }
 
+func TestDropNeighbor(t *testing.T) {
+	mgrA, closeA, peerA := newTestManager(t, "A")
+	defer closeA()
+	mgrB, closeB, peerB := newTestManager(t, "B")
+	defer closeB()
+
+	connect := func() {
+		var wg sync.WaitGroup
+		closure := events.NewClosure(func(_ *Neighbor) { wg.Done() })
+		wg.Add(2)
+		Events.NeighborAdded.Attach(closure)
+		defer Events.NeighborAdded.Detach(closure)
+
+		go func() { assert.NoError(t, mgrA.AddInbound(peerB)) }()
+		go func() { assert.NoError(t, mgrB.AddOutbound(peerA)) }()
+		wg.Wait() // wait until the events were triggered
+	}
+	disc := func() {
+		var wg sync.WaitGroup
+		closure := events.NewClosure(func(_ *peer.Peer) { wg.Done() })
+		wg.Add(2)
+		Events.NeighborRemoved.Attach(closure)
+		defer Events.NeighborRemoved.Detach(closure)
+
+		go func() { _ = mgrA.DropNeighbor(peerB.ID()) }()
+		go func() { _ = mgrB.DropNeighbor(peerA.ID()) }()
+		wg.Wait() // wait until the events were triggered
+	}
+
+	// drop and connect many many times
+	for i := 0; i < 100; i++ {
+		connect()
+		assert.NotEmpty(t, mgrA.AllNeighbors())
+		assert.NotEmpty(t, mgrB.AllNeighbors())
+		disc()
+		assert.Empty(t, mgrA.AllNeighbors())
+		assert.Empty(t, mgrB.AllNeighbors())
+	}
+}
+
 func newTestDB(t require.TestingT) *peer.DB {
 	db, err := peer.NewDB(mapdb.NewMapDB())
 	require.NoError(t, err)

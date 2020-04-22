@@ -86,5 +86,5 @@ func GetAllNeighbors() []*gp.Neighbor {
 	if mgr == nil {
 		return nil
 	}
-	return mgr.GetAllNeighbors()
+	return mgr.AllNeighbors()
 }
