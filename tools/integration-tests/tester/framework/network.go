@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"math/rand"
 	"time"
 
@@ -122,14 +123,14 @@ func (n *Network) Shutdown() {
 // WaitForAutopeering waits until all peers have reached the minimum amount of neighbors.
 // Panics if this minimum is not reached after autopeeringMaxTries.
 func (n *Network) WaitForAutopeering(minimumNeighbors int) {
-	fmt.Printf("Waiting for autopeering...\n")
-	defer fmt.Printf("Waiting for autopeering... done\n")
+	log.Printf("Waiting for autopeering...\n")
+	defer log.Printf("Waiting for autopeering... done\n")
 
 	for i := autopeeringMaxTries; i > 0; i-- {
 
 		for _, p := range n.peers {
 			if resp, err := p.GetNeighbors(false); err != nil {
-				fmt.Printf("request error: %v\n", err)
+				log.Printf("request error: %v\n", err)
 			} else {
 				p.SetNeighbors(resp.Chosen, resp.Accepted)
 			}
@@ -146,11 +147,11 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) {
 			total += neighbors
 		}
 		if min >= minimumNeighbors {
-			fmt.Printf("Neighbors: min=%d avg=%.2f\n", min, float64(total)/float64(len(n.peers)))
+			log.Printf("Neighbors: min=%d avg=%.2f\n", min, float64(total)/float64(len(n.peers)))
 			return
 		}
 
-		fmt.Println("Not done yet. Try again in 5 seconds...")
+		log.Println("Not done yet. Try again in 5 seconds...")
 		time.Sleep(5 * time.Second)
 	}
 	panic("Peering not successful.")

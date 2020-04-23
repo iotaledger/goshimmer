@@ -22,7 +22,6 @@ func newDockerClient() *client.Client {
 		nil,
 	)
 	if err != nil {
-		fmt.Println("Could not create docker CLI client.")
 		panic(err)
 	}
 
@@ -148,7 +147,7 @@ func (d *DockerContainer) Stop() {
 func (d *DockerContainer) Logs() io.ReadCloser {
 	options := types.ContainerLogsOptions{
 		ShowStdout: true,
-		ShowStderr: false,
+		ShowStderr: true,
 		Since:      "",
 		Timestamps: false,
 		Follow:     false,
