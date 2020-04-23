@@ -1,65 +1,57 @@
 package gossip
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"sync"
 
 	"github.com/golang/protobuf/proto"
-	"go.uber.org/zap"
-
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
-
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
+	"go.uber.org/zap"
 )
 
 const (
 	maxPacketSize = 2048
 )
 
-var (
-	ErrNeighborManagerNotRunning = errors.New("neighbor manager is not running")
-	ErrNeighborAlreadyConnected  = errors.New("neighbor is already connected")
-)
+// LoadMessageFunc defines a function that returns the message for the given id.
+type LoadMessageFunc func(messageId message.Id) ([]byte, error)
 
-// GetTransaction defines a function that returns the transaction data with the given hash.
-type GetTransaction func(transactionId message.Id) ([]byte, error)
-
+// The Manager handles the connected neighbors.
 type Manager struct {
-	local          *peer.Local
-	getTransaction GetTransaction
-	log            *zap.SugaredLogger
+	local           *peer.Local
+	loadMessageFunc LoadMessageFunc
+	log             *zap.SugaredLogger
 
 	wg sync.WaitGroup
 
-	mu        sync.RWMutex
+	mu        sync.Mutex
 	srv       *server.TCP
 	neighbors map[identity.ID]*Neighbor
-	running   bool
 }
 
-func NewManager(local *peer.Local, f GetTransaction, log *zap.SugaredLogger) *Manager {
+// NewManager creates a new Manager.
+func NewManager(local *peer.Local, f LoadMessageFunc, log *zap.SugaredLogger) *Manager {
 	return &Manager{
-		local:          local,
-		getTransaction: f,
-		log:            log,
-		srv:            nil,
-		neighbors:      make(map[identity.ID]*Neighbor),
-		running:        false,
+		local:           local,
+		loadMessageFunc: f,
+		log:             log,
+		srv:             nil,
+		neighbors:       make(map[identity.ID]*Neighbor),
 	}
 }
 
+// Start starts the manager for the given TCP server.
 func (m *Manager) Start(srv *server.TCP) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.srv = srv
-	m.running = true
 }
 
 // Close stops the manager and closes all established connections.
@@ -72,7 +64,7 @@ func (m *Manager) stop() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.running = false
+	m.srv = nil
 
 	// close all neighbor connections
 	for _, nbr := range m.neighbors {
@@ -82,72 +74,67 @@ func (m *Manager) stop() {
 
 // AddOutbound tries to add a neighbor by connecting to that peer.
 func (m *Manager) AddOutbound(p *peer.Peer) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if p.ID() == m.local.ID() {
 		return ErrLoopback
 	}
-	var srv *server.TCP
-	m.mu.RLock()
 	if m.srv == nil {
-		m.mu.RUnlock()
-		return ErrNotStarted
+		return ErrNotRunning
 	}
-	srv = m.srv
-	m.mu.RUnlock()
-
-	return m.addNeighbor(p, srv.DialPeer)
+	return m.addNeighbor(p, m.srv.DialPeer)
 }
 
 // AddInbound tries to add a neighbor by accepting an incoming connection from that peer.
 func (m *Manager) AddInbound(p *peer.Peer) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if p.ID() == m.local.ID() {
 		return ErrLoopback
 	}
-	var srv *server.TCP
-	m.mu.RLock()
 	if m.srv == nil {
-		m.mu.RUnlock()
-		return ErrNotStarted
+		return ErrNotRunning
 	}
-	srv = m.srv
-	m.mu.RUnlock()
-
-	return m.addNeighbor(p, srv.AcceptPeer)
+	return m.addNeighbor(p, m.srv.AcceptPeer)
 }
 
-// NeighborRemoved disconnects the neighbor with the given ID.
+// DropNeighbor disconnects the neighbor with the given ID.
 func (m *Manager) DropNeighbor(id identity.ID) error {
-	n, err := m.removeNeighbor(id)
-	if err != nil {
-		return err
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, ok := m.neighbors[id]; !ok {
+		return ErrNotANeighbor
 	}
-	err = n.Close()
-	Events.NeighborRemoved.Trigger(n.Peer)
-	return err
+	n := m.neighbors[id]
+	delete(m.neighbors, id)
+
+	return n.Close()
 }
 
-// RequestTransaction requests the transaction with the given hash from the neighbors.
+// RequestMessage requests the message with the given id from the neighbors.
 // If no peer is provided, all neighbors are queried.
-func (m *Manager) RequestTransaction(txHash []byte, to ...identity.ID) {
-	req := &pb.TransactionRequest{
-		Hash: txHash,
-	}
-	m.log.Debugw("send message", "type", "TRANSACTION_REQUEST", "to", to)
-	m.send(marshal(req), to...)
+func (m *Manager) RequestMessage(messageId []byte, to ...identity.ID) {
+	msgReq := &pb.MessageRequest{Id: messageId}
+	m.log.Debugw("send packet", "type", msgReq.Type(), "to", to)
+	m.send(marshal(msgReq), to...)
 }
 
-// SendTransaction adds the given transaction data to the send queue of the neighbors.
+// SendMessage adds the given message the send queue of the neighbors.
 // The actual send then happens asynchronously. If no peer is provided, it is send to all neighbors.
-func (m *Manager) SendTransaction(txData []byte, to ...identity.ID) {
-	tx := &pb.Transaction{
-		Data: txData,
-	}
-	m.log.Debugw("send message", "type", "TRANSACTION", "to", to)
-	m.send(marshal(tx), to...)
+func (m *Manager) SendMessage(msgData []byte, to ...identity.ID) {
+	msg := &pb.Message{Data: msgData}
+	m.log.Debugw("send packet", "type", msg.Type(), "to", to)
+	m.send(marshal(msg), to...)
 }
 
-func (m *Manager) GetAllNeighbors() []*Neighbor {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+// AllNeighbors returns all the neighbors that are currently connected.
+func (m *Manager) AllNeighbors() []*Neighbor {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	result := make([]*Neighbor, 0, len(m.neighbors))
 	for _, n := range m.neighbors {
 		result = append(result, n)
@@ -159,14 +146,15 @@ func (m *Manager) getNeighbors(ids ...identity.ID) []*Neighbor {
 	if len(ids) > 0 {
 		return m.getNeighborsById(ids)
 	}
-	return m.GetAllNeighbors()
+	return m.AllNeighbors()
 }
 
 func (m *Manager) getNeighborsById(ids []identity.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
 
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	for _, id := range ids {
 		if n, ok := m.neighbors[id]; ok {
 			result = append(result, n)
@@ -192,22 +180,19 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 		return err
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if !m.running {
-		_ = conn.Close()
-		Events.ConnectionFailed.Trigger(peer, ErrNeighborManagerNotRunning)
-		return ErrClosed
-	}
 	if _, ok := m.neighbors[peer.ID()]; ok {
 		_ = conn.Close()
-		Events.ConnectionFailed.Trigger(peer, ErrNeighborAlreadyConnected)
+		Events.ConnectionFailed.Trigger(peer, ErrDuplicateNeighbor)
 		return ErrDuplicateNeighbor
 	}
 
 	// create and add the neighbor
 	n := NewNeighbor(peer, conn, m.log)
-	n.Events.Close.Attach(events.NewClosure(func() { _ = m.DropNeighbor(peer.ID()) }))
+	n.Events.Close.Attach(events.NewClosure(func() {
+		// assure that the neighbor is removed and notify
+		_ = m.DropNeighbor(peer.ID())
+		Events.NeighborRemoved.Trigger(peer)
+	}))
 	n.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
 		if err := m.handlePacket(data, peer); err != nil {
 			m.log.Debugw("error handling packet", "err", err)
@@ -221,54 +206,42 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 	return nil
 }
 
-func (m *Manager) removeNeighbor(id identity.ID) (*Neighbor, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if _, ok := m.neighbors[id]; !ok {
-		return nil, ErrNotANeighbor
-	}
-	n := m.neighbors[id]
-	delete(m.neighbors, id)
-	return n, nil
-}
-
 func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 	// ignore empty packages
 	if len(data) == 0 {
 		return nil
 	}
 
-	switch pb.MType(data[0]) {
+	switch pb.PacketType(data[0]) {
 
-	// Incoming Message
-	case pb.MTransaction:
-		msg := new(pb.Transaction)
-		if err := proto.Unmarshal(data[1:], msg); err != nil {
+	case pb.PacketMessage:
+		protoMsg := new(pb.Message)
+		if err := proto.Unmarshal(data[1:], protoMsg); err != nil {
 			return fmt.Errorf("invalid packet: %w", err)
 		}
-		m.log.Debugw("received message", "type", "TRANSACTION", "id", p.ID())
-		Events.TransactionReceived.Trigger(&TransactionReceivedEvent{Data: msg.GetData(), Peer: p})
+		m.log.Debugw("received packet", "type", protoMsg.Type(), "peer-id", p.ID())
+		Events.MessageReceived.Trigger(&MessageReceivedEvent{Data: protoMsg.GetData(), Peer: p})
 
-	// Incoming Message request
-	case pb.MTransactionRequest:
-
-		msg := new(pb.TransactionRequest)
-		if err := proto.Unmarshal(data[1:], msg); err != nil {
+	case pb.PacketMessageRequest:
+		protoMsgReq := new(pb.MessageRequest)
+		if err := proto.Unmarshal(data[1:], protoMsgReq); err != nil {
 			return fmt.Errorf("invalid packet: %w", err)
 		}
-		m.log.Debugw("received message", "type", "TRANSACTION_REQUEST", "id", p.ID())
-		// do something
-		txId, err, _ := message.IdFromBytes(msg.GetHash())
+
+		m.log.Debugw("received packet", "type", protoMsgReq.Type(), "peer-id", p.ID())
+		msgId, err, _ := message.IdFromBytes(protoMsgReq.GetId())
 		if err != nil {
-			m.log.Debugw("error getting transaction", "hash", msg.GetHash(), "err", err)
-		}
-		tx, err := m.getTransaction(txId)
-		if err != nil {
-			m.log.Debugw("error getting transaction", "hash", msg.GetHash(), "err", err)
-		} else {
-			m.SendTransaction(tx, p.ID())
+			m.log.Debugw("couldn't compute message id from bytes", "peer-id", p.ID(), "err", err)
+			return nil
 		}
 
+		msg, err := m.loadMessageFunc(msgId)
+		if err != nil {
+			m.log.Debugw("error getting message", "peer-id", p.ID(), "msg-id", msgId, "err", err)
+			return nil
+		}
+
+		m.SendMessage(msg, p.ID())
 	default:
 		return ErrInvalidPacket
 	}
@@ -276,15 +249,15 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 	return nil
 }
 
-func marshal(msg pb.Message) []byte {
-	mType := msg.Type()
-	if mType > 0xFF {
-		panic("invalid message")
+func marshal(packet pb.Packet) []byte {
+	packetType := packet.Type()
+	if packetType > 0xFF {
+		panic("invalid packet")
 	}
 
-	data, err := proto.Marshal(msg)
+	data, err := proto.Marshal(packet)
 	if err != nil {
-		panic("invalid message")
+		panic("invalid packet")
 	}
-	return append([]byte{byte(mType)}, data...)
+	return append([]byte{byte(packetType)}, data...)
 }

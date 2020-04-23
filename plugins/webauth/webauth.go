@@ -16,12 +16,18 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI Auth", node.Disabled, configure)
-var log *logger.Logger
-var privateKey string
+// PluginName is the name of the web API auth plugin.
+const PluginName = "WebAPI Auth"
+
+var (
+	// Plugin is the plugin instance of the web API auth plugin.
+	Plugin     = node.NewPlugin(PluginName, node.Disabled, configure)
+	log        *logger.Logger
+	privateKey string
+)
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("WebAPI Auth")
+	log = logger.NewLogger(PluginName)
 	privateKey = config.Node.GetString(WEBAPI_AUTH_PRIVATE_KEY)
 	if len(privateKey) == 0 {
 		panic("")

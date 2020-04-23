@@ -13,17 +13,17 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-const (
-	PLUGIN_NAME = "PortCheck"
-)
+// PluginName is the name of the port check plugin.
+const PluginName = "PortCheck"
 
 var (
-	PLUGIN = node.NewPlugin(PLUGIN_NAME, node.Enabled, configure, run)
+	// Plugin is the plugin instance of the port check plugin.
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	log    *logger.Logger
 )
 
 func configure(*node.Plugin) {
-	log = logger.NewLogger(PLUGIN_NAME)
+	log = logger.NewLogger(PluginName)
 }
 
 func run(*node.Plugin) {
@@ -39,7 +39,7 @@ func checkAutopeeringConnection() {
 	// resolve the bind address
 	localAddr, err := net.ResolveUDPAddr(peering.Network(), autopeering.GetBindAddress())
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
+		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
 	}
 	// open a connection
 	conn, err := net.ListenUDP(peering.Network(), localAddr)

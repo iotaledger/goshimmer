@@ -6,11 +6,13 @@ import (
 	"golang.org/x/net/websocket"
 )
 
+// WebSocketChannel holds the websocket connection and its channel.
 type WebSocketChannel struct {
 	ws   *websocket.Conn
 	send chan string
 }
 
+// NewWebSocketChannel returns a new *WebSocketChannel for the given websocket connection.
 func NewWebSocketChannel(ws *websocket.Conn) *WebSocketChannel {
 	wsChan := &WebSocketChannel{
 		ws:   ws,
@@ -22,17 +24,12 @@ func NewWebSocketChannel(ws *websocket.Conn) *WebSocketChannel {
 	return wsChan
 }
 
+// Write writes into the given WebSocketChannel.
 func (c *WebSocketChannel) Write(update string) {
 	c.send <- update
 }
 
-func (c *WebSocketChannel) TryWrite(update string) {
-	select {
-	case c.send <- update:
-	default:
-	}
-}
-
+// KeepAlive keeps the websocket connection alive.
 func (c *WebSocketChannel) KeepAlive() {
 	buf := make([]byte, 1)
 	for {
@@ -44,6 +41,7 @@ func (c *WebSocketChannel) KeepAlive() {
 	}
 }
 
+// Close closes the WebSocketChannel.
 func (c *WebSocketChannel) Close() {
 	close(c.send)
 	_ = c.ws.Close()

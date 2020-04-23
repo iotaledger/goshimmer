@@ -6,11 +6,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 )
 
+// Events represents events happening on a message factory.
 type Events struct {
-	// A MessageConstructed event is triggered when a message is built including tips, sequence number and other metadata.
+	// Fired when a message is built including tips, sequence number and other metadata.
 	MessageConstructed *events.Event
-
-	// Error gets triggered when an error occurred.
+	// Fired when an error occurred.
 	Error *events.Event
 }
 
