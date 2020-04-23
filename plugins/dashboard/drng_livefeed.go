@@ -42,6 +42,9 @@ func runDrngLiveFeed() {
 	})
 
 	daemon.BackgroundWorker("Dashboard[DRNGUpdater]", func(shutdownSignal <-chan struct{}) {
+		if drng.Instance == nil {
+			return
+		}
 		drng.Instance.Events.Randomness.Attach(notifyNewRandomness)
 		drngLiveFeedWorkerPool.Start()
 		<-shutdownSignal
