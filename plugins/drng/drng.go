@@ -49,6 +49,7 @@ func configureDRNG() *drng.DRNG {
 	return drng.New(state.SetCommittee(committeeConf))
 }
 
+// Instance returns the DRNG instance.
 func Instance() *drng.DRNG {
 	once.Do(func() { instance = configureDRNG() })
 	return instance
