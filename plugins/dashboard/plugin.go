@@ -189,7 +189,7 @@ func neighborMetrics() []neighbormetric {
 	stats := []neighbormetric{}
 
 	// gossip plugin might be disabled
-	neighbors := gossip.GetAllNeighbors()
+	neighbors := gossip.Neighbors()
 	if neighbors == nil {
 		return stats
 	}
