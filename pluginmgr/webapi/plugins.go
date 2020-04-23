@@ -13,12 +13,12 @@ import (
 )
 
 var PLUGINS = node.Plugins(
-	webapi.PLUGIN,
-	webauth.PLUGIN,
-	spammer.PLUGIN,
-	data.PLUGIN,
-	drng.PLUGIN,
-	message.PLUGIN,
-	autopeering.PLUGIN,
+	webapi.Plugin,
+	webauth.Plugin,
+	spammer.Plugin,
+	data.Plugin,
+	drng.Plugin,
+	message.Plugin,
+	autopeering.Plugin,
 	info.Plugin,
 )

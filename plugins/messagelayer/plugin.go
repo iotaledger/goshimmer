@@ -25,7 +25,8 @@ const (
 )
 
 var (
-	PLUGIN           = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	// Plugin is the plugin instance of the message layer plugin.
+	Plugin           = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	MessageParser    *messageparser.MessageParser
 	MessageRequester *messagerequester.MessageRequester
 	TipSelector      *tipselector.TipSelector

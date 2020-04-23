@@ -12,11 +12,17 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI message Endpoint", node.Enabled, configure)
-var log *logger.Logger
+// PluginName is the name of the web API message endpoint plugin.
+const PluginName = "WebAPI message Endpoint"
+
+var (
+	// Plugin is the plugin instance of the web API message endpoint plugin.
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	log    *logger.Logger
+)
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("API-message")
+	log = logger.NewLogger(PluginName)
 	webapi.Server.POST("message/findById", findMessageById)
 }
 

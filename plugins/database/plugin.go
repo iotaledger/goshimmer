@@ -14,29 +14,29 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-const (
-	PLUGIN_NAME = "Database"
-)
+// PluginName is the name of the database plugin.
+const PluginName = "Database"
 
 var (
-	PLUGIN = node.NewPlugin(PLUGIN_NAME, node.Enabled, configure, run)
+	// Plugin is the plugin instance of the database plugin.
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	log    *logger.Logger
 )
 
-func configure(plugin *node.Plugin) {
-	log = logger.NewLogger(PLUGIN_NAME)
+func configure(_ *node.Plugin) {
+	log = logger.NewLogger(PluginName)
 
 	_ = database.GetBadgerInstance()
 }
 
-func run(plugin *node.Plugin) {
-	daemon.BackgroundWorker(PLUGIN_NAME+"_GC", func(shutdownSignal <-chan struct{}) {
+func run(_ *node.Plugin) {
+	daemon.BackgroundWorker(PluginName+"_GC", func(shutdownSignal <-chan struct{}) {
 		timeutil.Ticker(func() {
 			database.CleanupBadgerInstance(log)
 		}, 5*time.Minute, shutdownSignal)
 	}, shutdown.PriorityBadgerGarbageCollection)
 
-	daemon.BackgroundWorker(PLUGIN_NAME, func(shutdownSignal <-chan struct{}) {
+	daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		log.Infof("Syncing database to disk...")
 		database.GetBadgerInstance().Close()
