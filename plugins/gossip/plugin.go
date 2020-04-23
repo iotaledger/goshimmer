@@ -14,20 +14,21 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-const pluginName = "Gossip" // name of the plugin
+// PluginName is the name of the gossip plugin.
+const PluginName = "Gossip"
 
-// Plugin defines the gossip plugin
-var Plugin = node.NewPlugin(pluginName, node.Enabled, configure, run)
+// Plugin is the plugin instance of the gossip plugin.
+var Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 func configure(*node.Plugin) {
-	log = logger.NewLogger(pluginName)
+	log = logger.NewLogger(PluginName)
 
 	configureGossip()
 	configureEvents()
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker(pluginName, start, shutdown.PriorityGossip); err != nil {
+	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
 		log.Errorf("Failed to start as daemon: %s", err)
 	}
 }

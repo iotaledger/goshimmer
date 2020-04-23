@@ -19,17 +19,17 @@ import (
 )
 
 var PLUGINS = node.Plugins(
-	banner.PLUGIN,
-	config.PLUGIN,
-	logger.PLUGIN,
-	cli.PLUGIN,
-	portcheck.PLUGIN,
+	banner.Plugin,
+	config.Plugin,
+	logger.Plugin,
+	cli.Plugin,
+	portcheck.Plugin,
 	profiling.Plugin,
-	database.PLUGIN,
+	database.Plugin,
 	autopeering.Plugin,
-	messagelayer.PLUGIN,
+	messagelayer.Plugin,
 	gossip.Plugin,
-	gracefulshutdown.PLUGIN,
-	metrics.PLUGIN,
-	drng.PLUGIN,
+	gracefulshutdown.Plugin,
+	metrics.Plugin,
+	drng.Plugin,
 )

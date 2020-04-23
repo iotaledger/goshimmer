@@ -38,7 +38,7 @@ func configureGossip() {
 }
 
 func start(shutdownSignal <-chan struct{}) {
-	defer log.Info("Stopping " + pluginName + " ... done")
+	defer log.Info("Stopping " + PluginName + " ... done")
 
 	lPeer := local.GetInstance()
 
@@ -64,10 +64,10 @@ func start(shutdownSignal <-chan struct{}) {
 	mgr.Start(srv)
 	defer mgr.Close()
 
-	log.Infof("%s started: Address=%s/%s", pluginName, localAddr.String(), localAddr.Network())
+  log.Infof("%s started: Address=%s/%s", PluginName, localAddr.String(), localAddr.Network())
 
 	<-shutdownSignal
-	log.Info("Stopping " + pluginName + " ...")
+	log.Info("Stopping " + PluginName + " ...")
 }
 
 // loads the given message from the message layer or an error if not found.

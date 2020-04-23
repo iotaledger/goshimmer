@@ -14,7 +14,11 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-var PLUGIN = node.NewPlugin("Metrics", node.Enabled, configure, run)
+// PluginName is the name of the metrics plugin.
+const PluginName = "Metrics"
+
+// Plugin is the plugin instance of the metrics plugin.
+var Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 func configure(_ *node.Plugin) {
 	// increase received MPS counter whenever we attached a message

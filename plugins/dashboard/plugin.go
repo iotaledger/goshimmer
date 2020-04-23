@@ -29,8 +29,12 @@ import (
 	"github.com/iotaledger/hive.go/workerpool"
 )
 
+// PluginName is the name of the dashboard plugin.
+const PluginName = "Dashboard"
+
 var (
-	PLUGIN = node.NewPlugin("Dashboard", node.Enabled, configure, run)
+	// Plugin is the plugin instance of the dashboard plugin.
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	log    *logger.Logger
 
 	nodeStartAt = time.Now()

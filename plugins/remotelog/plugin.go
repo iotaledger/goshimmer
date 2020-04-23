@@ -40,13 +40,15 @@ type logMessage struct {
 }
 
 const (
-	CFG_SERVER_ADDRESS = "logger.remotelog.serverAddress"
-	CFG_DISABLE_EVENTS = "logger.disableEvents"
-	PLUGIN_NAME        = "RemoteLog"
+	CfgServerAddress = "logger.remotelog.serverAddress"
+	CfgDisableEvents = "logger.disableEvents"
+	// PluginName is the name of the remote log plugin.
+	PluginName = "RemoteLog"
 )
 
 var (
-	PLUGIN      = node.NewPlugin(PLUGIN_NAME, node.Disabled, configure, run)
+	// Plugin is the plugin instance of the remote plugin instance.
+	Plugin      = node.NewPlugin(PluginName, node.Disabled, configure, run)
 	log         *logger.Logger
 	conn        net.Conn
 	myID        string
@@ -56,16 +58,16 @@ var (
 )
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger(PLUGIN_NAME)
+	log = logger.NewLogger(PluginName)
 
-	if config.Node.GetBool(CFG_DISABLE_EVENTS) {
-		log.Fatalf("%s in config.json needs to be false so that events can be captured!", CFG_DISABLE_EVENTS)
+	if config.Node.GetBool(CfgDisableEvents) {
+		log.Fatalf("%s in config.json needs to be false so that events can be captured!", CfgDisableEvents)
 		return
 	}
 
-	c, err := net.Dial("udp", config.Node.GetString(CFG_SERVER_ADDRESS))
+	c, err := net.Dial("udp", config.Node.GetString(CfgServerAddress))
 	if err != nil {
-		log.Fatalf("Could not create UDP socket to '%s'. %v", config.Node.GetString(CFG_SERVER_ADDRESS), err)
+		log.Fatalf("Could not create UDP socket to '%s'. %v", config.Node.GetString(CfgServerAddress), err)
 		return
 	}
 	conn = c
@@ -88,14 +90,14 @@ func run(plugin *node.Plugin) {
 		workerPool.TrySubmit(level, name, msg)
 	})
 
-	daemon.BackgroundWorker(PLUGIN_NAME, func(shutdownSignal <-chan struct{}) {
+	daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		logger.Events.AnyMsg.Attach(logEvent)
 		workerPool.Start()
 		<-shutdownSignal
-		log.Infof("Stopping %s ...", PLUGIN_NAME)
+		log.Infof("Stopping %s ...", PluginName)
 		logger.Events.AnyMsg.Detach(logEvent)
 		workerPool.Stop()
-		log.Infof("Stopping %s ... done", PLUGIN_NAME)
+		log.Infof("Stopping %s ... done", PluginName)
 	}, shutdown.PriorityRemoteLog)
 }
 
