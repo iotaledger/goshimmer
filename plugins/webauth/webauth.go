@@ -5,15 +5,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
-
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
-
-	"github.com/dgrijalva/jwt-go"
 )
 
 // PluginName is the name of the web API auth plugin.
