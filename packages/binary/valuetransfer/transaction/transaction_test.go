@@ -10,8 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
-	"strings"
-	"testing"
 )
 
 func TestEmptyDataPayload(t *testing.T) {
@@ -38,13 +36,11 @@ func TestShortDataPayload(t *testing.T) {
 	tx := New(inputs, outputs)
 
 	dataPayload := []byte("data payload test")
-	dataPayloadType := uint32(42)
-	err := tx.SetDataPayload(dataPayload, dataPayloadType)
+	err := tx.SetDataPayload(dataPayload)
 	assert.Equal(t, nil, err)
 
-	dpBack, dptBack := tx.GetDataPayload()
+	dpBack := tx.GetDataPayload()
 	assert.Equal(t, true, bytes.Equal(dpBack, dataPayload))
-	assert.Equal(t, true, dptBack == dataPayloadType)
 
 	tx.Sign(sigScheme)
 	check := tx.SignaturesValid()
@@ -54,7 +50,7 @@ func TestShortDataPayload(t *testing.T) {
 	// reset essence to force recalculation
 	tx.essenceBytes = nil
 	dataPayload[2] = '?'
-	err = tx.SetDataPayload(dataPayload, dataPayloadType)
+	err = tx.SetDataPayload(dataPayload)
 	assert.Equal(t, nil, err)
 
 	// expect signature is not valid
@@ -72,8 +68,7 @@ func TestTooLongDataPayload(t *testing.T) {
 	tx := New(inputs, outputs)
 
 	dataPayload := []byte(strings.Repeat("1", MAX_DATA_PAYLOAD_SIZE+1))
-	dataPayloadType := uint32(42)
-	err := tx.SetDataPayload(dataPayload, dataPayloadType)
+	err := tx.SetDataPayload(dataPayload)
 	assert.Equal(t, true, err != nil)
 }
 
@@ -111,8 +106,7 @@ func TestMarshalingDataPayload(t *testing.T) {
 	tx := New(inputs, outputs)
 
 	dataPayload := []byte("data payload test")
-	dataPayloadType := uint32(42)
-	err := tx.SetDataPayload(dataPayload, dataPayloadType)
+	err := tx.SetDataPayload(dataPayload)
 	assert.Equal(t, nil, err)
 
 	tx.Sign(sigScheme)
