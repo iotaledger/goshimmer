@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/gossip"
@@ -17,12 +18,18 @@ import (
 )
 
 var (
-	log *logger.Logger
-	mgr *gossip.Manager
-	srv *server.TCP
+	log     *logger.Logger
+	mgr     *gossip.Manager
+	mgrOnce sync.Once
 )
 
-func configureGossip() {
+func Manager() *gossip.Manager {
+	mgrOnce.Do(createManager)
+	return mgr
+}
+
+func createManager() {
+	log = logger.NewLogger(PluginName)
 	lPeer := local.GetInstance()
 
 	// announce the gossip service
@@ -58,7 +65,7 @@ func start(shutdownSignal <-chan struct{}) {
 	}
 	defer listener.Close()
 
-	srv = server.ServeTCP(lPeer, listener, log)
+	srv := server.ServeTCP(lPeer, listener, log)
 	defer srv.Close()
 
 	mgr.Start(srv)
@@ -79,17 +86,4 @@ func loadMessage(messageID message.Id) (bytes []byte, err error) {
 		err = fmt.Errorf("message not found: hash=%s", messageID)
 	}
 	return
-}
-
-// Neighbors returns the list of the neighbors.
-func Neighbors() []*gossip.Neighbor {
-	if mgr == nil {
-		return nil
-	}
-	return mgr.AllNeighbors()
-}
-
-// Events exposes all the events triggered by the gossip plugin.
-func Events() gossip.Events {
-	return mgr.Events()
 }

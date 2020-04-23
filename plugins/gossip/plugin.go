@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -21,19 +20,6 @@ const PluginName = "Gossip"
 var Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 func configure(*node.Plugin) {
-	log = logger.NewLogger(PluginName)
-
-	configureGossip()
-	configureEvents()
-}
-
-func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
-		log.Errorf("Failed to start as daemon: %s", err)
-	}
-}
-
-func configureEvents() {
 	selection.Events.Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
 		go func() {
 			if err := mgr.DropNeighbor(ev.DroppedID); err != nil {
@@ -62,6 +48,7 @@ func configureEvents() {
 		}()
 	}))
 
+	mgr := Manager()
 	mgr.Events().ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, err error) {
 		log.Infof("Connection to neighbor %s / %s failed: %s", gossip.GetAddress(p), p.ID(), err)
 	}))
@@ -89,4 +76,10 @@ func configureEvents() {
 	messagelayer.MessageRequester.Events.SendRequest.Attach(events.NewClosure(func(messageId message.Id) {
 		mgr.RequestMessage(messageId[:])
 	}))
+}
+
+func run(*node.Plugin) {
+	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
+		log.Errorf("Failed to start as daemon: %s", err)
+	}
 }
