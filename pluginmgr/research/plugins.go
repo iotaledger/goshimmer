@@ -8,5 +8,5 @@ import (
 
 var PLUGINS = node.Plugins(
 	remotelog.PLUGIN,
-	analysis.PLUGIN,
+	analysis.Plugin,
 )

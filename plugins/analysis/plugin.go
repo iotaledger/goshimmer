@@ -10,11 +10,15 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
-var PLUGIN = node.NewPlugin("Analysis", node.Enabled, configure, run)
+var pluginName = "Analysis"
+
+// Plugin defines the analysis plugin.
+var Plugin = node.NewPlugin(pluginName, node.Enabled, configure, run)
+
 var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("Analysis")
+	log = logger.NewLogger(pluginName)
 	if config.Node.GetInt(server.CfgServerPort) != 0 {
 		webinterface.Configure(plugin)
 		server.Configure(plugin)

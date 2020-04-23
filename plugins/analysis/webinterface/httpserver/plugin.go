@@ -25,6 +25,7 @@ const name = "Analysis HTTP Server"
 
 var assetsBox = packr.New("Assets", "./static")
 
+// Configure configures the plugin.
 func Configure() {
 	log = logger.NewLogger(name)
 
@@ -45,6 +46,7 @@ func Configure() {
 	engine.GET("/datastream", echo.WrapHandler(websocket.Handler(dataStream)))
 }
 
+// Run runs the plugin.
 func Run() {
 	log.Infof("Starting %s ...", name)
 	if err := daemon.BackgroundWorker(name, start, shutdown.PriorityAnalysis); err != nil {

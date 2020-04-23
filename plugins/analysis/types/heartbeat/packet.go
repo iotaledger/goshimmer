@@ -3,7 +3,9 @@ package heartbeat
 import "errors"
 
 var (
+	// ErrMalformedHeartbeatPacket defines the malformed heartbeat packet error.
 	ErrMalformedHeartbeatPacket = errors.New("malformed heartbeat packet")
+	// ErrTooManyNeighborsToReport defines the too many neighbors to report in packet error.
 	ErrTooManyNeighborsToReport = errors.New("too many neighbors to report in packet")
 )
 
@@ -14,6 +16,7 @@ type Packet struct {
 	InboundIDs  [][]byte
 }
 
+// Unmarshal unmarshals a slice of byte and returns a *Packet and an error (nil if successful).
 func Unmarshal(data []byte) (*Packet, error) {
 	// So far we are only sure about the static part
 	MarshaledTotalSize := MarshaledPacketHeaderSize + MarshaledOwnIDSize
@@ -73,6 +76,7 @@ func Unmarshal(data []byte) (*Packet, error) {
 
 }
 
+// Marshal marshals a given *Packet and returns the marshaled slice of byte and an error (nil if successful).
 func (packet *Packet) Marshal() ([]byte, error) {
 	// Calculate total needed bytes based on packet
 	MarshaledTotalSize := MarshaledPacketHeaderSize + MarshaledOwnIDSize +
@@ -93,9 +97,8 @@ func (packet *Packet) Marshal() ([]byte, error) {
 	lengthOutboundIDs := len(packet.OutboundIDs)
 	if lengthOutboundIDs > MaxOutboundNeighborCount {
 		return nil, ErrTooManyNeighborsToReport
-	} else {
-		marshaledPackage[MarshaledOutboundIDsLengthStart] = byte(lengthOutboundIDs)
 	}
+	marshaledPackage[MarshaledOutboundIDsLengthStart] = byte(lengthOutboundIDs)
 
 	// Copy contents of packet.OutboundIDs
 	for i, outboundID := range packet.OutboundIDs {
@@ -109,9 +112,8 @@ func (packet *Packet) Marshal() ([]byte, error) {
 	lengthInboundIDs := len(packet.InboundIDs)
 	if lengthInboundIDs > MaxInboundNeighborCount {
 		return nil, ErrTooManyNeighborsToReport
-	} else {
-		marshaledPackage[MarshaledInboundIdsLengthStart] = byte(lengthInboundIDs)
 	}
+	marshaledPackage[MarshaledInboundIdsLengthStart] = byte(lengthInboundIDs)
 
 	// End of length is the start of inbound nodeId-s
 	MarshaledInboundIdsLengthEnd := MarshaledInboundIdsLengthStart + MarshaledInboundIDsLengthSize

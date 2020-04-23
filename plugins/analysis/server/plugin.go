@@ -3,25 +3,27 @@ package server
 import (
 	"errors"
 
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/analysis/types/heartbeat"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/network"
 	"github.com/iotaledger/hive.go/network/tcp"
 	"github.com/iotaledger/hive.go/node"
-
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/heartbeat"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 var (
-	ErrInvalidPackageHeader          = errors.New("invalid package header")
+	// ErrInvalidPackageHeader defines an invalid package header error.
+	ErrInvalidPackageHeader = errors.New("invalid package header")
+	// ErrExpectedInitialAddNodePackage defines an expected initial add node package error.
 	ErrExpectedInitialAddNodePackage = errors.New("expected initial add node package")
 	server                           *tcp.TCPServer
 	log                              *logger.Logger
 )
 
+// Configure configures the plugin.
 func Configure(plugin *node.Plugin) {
 	log = logger.NewLogger("Analysis-Server")
 	server = tcp.NewServer()
@@ -38,6 +40,7 @@ func Configure(plugin *node.Plugin) {
 	}))
 }
 
+// Run runs the plugin.
 func Run(plugin *node.Plugin) {
 	daemon.BackgroundWorker("Analysis Server", func(shutdownSignal <-chan struct{}) {
 		log.Infof("Starting Server (port %d) ... done", config.Node.GetInt(CfgServerPort))
@@ -47,15 +50,17 @@ func Run(plugin *node.Plugin) {
 	}, shutdown.PriorityAnalysis)
 }
 
+// Shutdown shutdowns the plugin.
 func Shutdown() {
 	log.Info("Stopping Server ...")
 	server.Shutdown()
 	log.Info("Stopping Server ... done")
 }
 
+// HandleConnection handles the given connection.
 func HandleConnection(conn *network.ManagedConnection) {
 	err := conn.SetTimeout(IdleTimeout)
-	if err!=nil {
+	if err != nil {
 		log.Errorf(err.Error())
 	}
 
