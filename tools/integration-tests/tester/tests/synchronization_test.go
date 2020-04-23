@@ -12,7 +12,8 @@ import (
 // TestNodeSynchronization checks whether messages are synchronized by a peer that joined the network later
 // and initially missed some messages.
 func TestNodeSynchronization(t *testing.T) {
-	n := f.CreateNetwork("TestNodeSynchronization", 4, 2)
+	n, err := f.CreateNetwork("TestNodeSynchronization", 4, 2)
+	require.NoError(t, err)
 	defer n.Shutdown()
 
 	numMessages := 100
@@ -36,8 +37,10 @@ func TestNodeSynchronization(t *testing.T) {
 	checkForMessageIds(t, n.Peers(), numMessages, ids)
 
 	// spawn peer without knowledge of previous messages
-	newPeer := n.CreatePeer()
-	n.WaitForAutopeering(3)
+	newPeer, err := n.CreatePeer()
+	require.NoError(t, err)
+	err = n.WaitForAutopeering(3)
+	require.NoError(t, err)
 
 	ids2 := make([]string, numMessages)
 
