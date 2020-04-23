@@ -15,19 +15,20 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-const name = "Gossip" // name of the plugin
+const pluginName = "Gossip" // name of the plugin
 
-var PLUGIN = node.NewPlugin(name, node.Enabled, configure, run)
+// Plugin defines the gossip plugin
+var Plugin = node.NewPlugin(pluginName, node.Enabled, configure, run)
 
 func configure(*node.Plugin) {
-	log = logger.NewLogger(name)
+	log = logger.NewLogger(pluginName)
 
 	configureGossip()
 	configureEvents()
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker(name, start, shutdown.PriorityGossip); err != nil {
+	if err := daemon.BackgroundWorker(pluginName, start, shutdown.PriorityGossip); err != nil {
 		log.Errorf("Failed to start as daemon: %s", err)
 	}
 }

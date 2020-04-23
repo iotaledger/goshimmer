@@ -75,7 +75,7 @@ func configureAP() {
 	)
 
 	// enable peer selection only when gossip is enabled
-	if !node.IsSkipped(gossip.PLUGIN) {
+	if !node.IsSkipped(gossip.Plugin) {
 		Selection = selection.New(local.GetInstance(), Discovery,
 			selection.Logger(log.Named("sel")),
 			selection.NeighborValidator(selection.ValidatorFunc(isValidNeighbor)),

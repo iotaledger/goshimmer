@@ -28,7 +28,7 @@ var PLUGINS = node.Plugins(
 	database.PLUGIN,
 	autopeering.Plugin,
 	messagelayer.PLUGIN,
-	gossip.PLUGIN,
+	gossip.Plugin,
 	gracefulshutdown.PLUGIN,
 	metrics.PLUGIN,
 	drng.PLUGIN,

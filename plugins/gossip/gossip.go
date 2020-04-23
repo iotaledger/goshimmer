@@ -27,9 +27,9 @@ func configureGossip() {
 	lPeer := local.GetInstance()
 
 	// announce the gossip service
-	gossipPort := config.Node.GetInt(GOSSIP_PORT)
+	gossipPort := config.Node.GetInt(CfgGossipPort)
 	if !netutil.IsValidPort(gossipPort) {
-		log.Fatalf("Invalid port number (%s): %d", GOSSIP_PORT, gossipPort)
+		log.Fatalf("Invalid port number (%s): %d", CfgGossipPort, gossipPort)
 	}
 
 	if err := lPeer.UpdateService(service.GossipKey, "tcp", gossipPort); err != nil {
@@ -39,7 +39,7 @@ func configureGossip() {
 }
 
 func start(shutdownSignal <-chan struct{}) {
-	defer log.Info("Stopping " + name + " ... done")
+	defer log.Info("Stopping " + pluginName + " ... done")
 
 	lPeer := local.GetInstance()
 
@@ -65,24 +65,25 @@ func start(shutdownSignal <-chan struct{}) {
 	mgr.Start(srv)
 	defer mgr.Close()
 
-	log.Infof("%s started: Address=%s/%s", name, localAddr.String(), localAddr.Network())
+	log.Infof("%s started: Address=%s/%s", pluginName, localAddr.String(), localAddr.Network())
 
 	<-shutdownSignal
-	log.Info("Stopping " + name + " ...")
+	log.Info("Stopping " + pluginName + " ...")
 }
 
 // loads the given message from the message layer or an error if not found.
-func loadMessage(messageId message.Id) (bytes []byte, err error) {
-	log.Debugw("load message from db", "id", messageId.String())
-	if !messagelayer.Tangle.Message(messageId).Consume(func(message *message.Message) {
+func loadMessage(messageID message.Id) (bytes []byte, err error) {
+	log.Debugw("load message from db", "id", messageID.String())
+	if !messagelayer.Tangle.Message(messageID).Consume(func(message *message.Message) {
 		bytes = message.Bytes()
 	}) {
-		err = fmt.Errorf("message not found: hash=%s", messageId)
+		err = fmt.Errorf("message not found: hash=%s", messageID)
 	}
 	return
 }
 
-func GetAllNeighbors() []*gp.Neighbor {
+// Neighbors returns the list of the neighbors.
+func Neighbors() []*gp.Neighbor {
 	if mgr == nil {
 		return nil
 	}
