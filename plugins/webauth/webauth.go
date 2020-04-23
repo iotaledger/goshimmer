@@ -28,7 +28,7 @@ var (
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	privateKey = config.Node.GetString(WEBAPI_AUTH_PRIVATE_KEY)
+	privateKey = config.Node.GetString(CfgWebAPIAuthPrivateKey)
 	if len(privateKey) == 0 {
 		panic("")
 	}
@@ -47,23 +47,29 @@ func configure(plugin *node.Plugin) {
 	log.Info("WebAPI is now secured through JWT authentication")
 }
 
+// Request defines the struct of the request.
 type Request struct {
+	// Username is the username of the request.
 	Username string `json:"username"`
+	// Password is the password of the request.
 	Password string `json:"password"`
 }
 
+// Response defines the struct of the response.
 type Response struct {
+	// Token is the json web token.
 	Token string `json:"token"`
 }
 
+// Handler handles the web auth request.
 func Handler(c echo.Context) error {
 	login := &Request{}
 	if err := c.Bind(login); err != nil {
 		return echo.ErrBadRequest
 	}
 
-	if login.Username != config.Node.GetString(WEBAPI_AUTH_USERNAME) ||
-		login.Password != config.Node.GetString(WEBAPI_AUTH_PASSWORD) {
+	if login.Username != config.Node.GetString(CfgWebAPIAuthUsername) ||
+		login.Password != config.Node.GetString(CfgWebAPIAuthPassword) {
 		return echo.ErrUnauthorized
 	}
 
