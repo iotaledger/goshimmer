@@ -59,6 +59,7 @@ func configure(plugin *node.Plugin) {
 
 	configureLiveFeed()
 	configureDrngLiveFeed()
+	configureVisualizer()
 }
 
 func run(plugin *node.Plugin) {
@@ -78,6 +79,7 @@ func run(plugin *node.Plugin) {
 
 	runLiveFeed()
 	runDrngLiveFeed()
+	runVisualizer()
 
 	// allow any origin for websocket connections
 	upgrader.CheckOrigin = func(r *http.Request) bool {
@@ -106,10 +108,14 @@ func run(plugin *node.Plugin) {
 }
 
 // sends the given message to all connected websocket clients
-func sendToAllWSClient(msg interface{}) {
+func sendToAllWSClient(msg interface{}, dontDrop ...bool) {
 	clientsMu.Lock()
 	defer clientsMu.Unlock()
 	for _, channel := range clients {
+		if len(dontDrop) > 0 {
+			channel <- msg
+			continue
+		}
 		select {
 		case channel <- msg:
 		default:
@@ -140,6 +146,10 @@ const (
 	MsgTypeDrng
 	// MsgTypeTipsMetric is the type of the TipsMetric message.
 	MsgTypeTipsMetric
+	// MsgTypeVertex defines a vertex message.
+	MsgTypeVertex
+	// MsgTypeTipInfo defines a tip info message.
+	MsgTypeTipInfo
 )
 
 type wsmsg struct {
@@ -150,14 +160,6 @@ type wsmsg struct {
 type msg struct {
 	ID    string `json:"id"`
 	Value int64  `json:"value"`
-}
-
-type drngMsg struct {
-	Instance      uint32 `json:"instance"`
-	DistributedPK string `json:"dpk"`
-	Round         uint64 `json:"round"`
-	Randomness    string `json:"randomness"`
-	Timestamp     string `json:"timestamp"`
 }
 
 type nodestatus struct {

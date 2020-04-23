@@ -148,11 +148,7 @@ func websocketRoute(c echo.Context) error {
 		clientsMu.Unlock()
 	}()
 
-	msgRateLimiter := time.NewTicker(time.Second / 20)
-	defer msgRateLimiter.Stop()
-
 	for {
-		<-msgRateLimiter.C
 		msg := <-channel
 		if err := ws.WriteJSON(msg); err != nil {
 			log.Warnf("error while writing to web socket client %s: %s", c.RealIP(), err.Error())
