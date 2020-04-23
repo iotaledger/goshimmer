@@ -64,7 +64,7 @@ func start(shutdownSignal <-chan struct{}) {
 	mgr.Start(srv)
 	defer mgr.Close()
 
-  log.Infof("%s started: Address=%s/%s", PluginName, localAddr.String(), localAddr.Network())
+	log.Infof("%s started: Address=%s/%s", PluginName, localAddr.String(), localAddr.Network())
 
 	<-shutdownSignal
 	log.Info("Stopping " + PluginName + " ...")
