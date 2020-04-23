@@ -12,9 +12,8 @@ import (
 )
 
 var (
-	once        sync.Once
-	instance    *Framework
-	instanceErr error
+	once     sync.Once
+	instance *Framework
 )
 
 // Framework is a wrapper that provides the integration testing functionality.
@@ -24,12 +23,13 @@ type Framework struct {
 }
 
 // Instance returns the singleton Framework instance.
-func Instance() (*Framework, error) {
+func Instance() (f *Framework, err error) {
 	once.Do(func() {
-		instance, instanceErr = newFramework()
+		f, err = newFramework()
+		instance = f
 	})
 
-	return instance, instanceErr
+	return instance, err
 }
 
 // newFramework creates a new instance of Framework, creates a DockerClient
