@@ -20,6 +20,10 @@ const PluginName = "Gossip"
 var Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 func configure(*node.Plugin) {
+	// assure that the Manager is instantiated
+	mgr := Manager()
+
+	// link to the auto peering
 	selection.Events.Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
 		go func() {
 			if err := mgr.DropNeighbor(ev.DroppedID); err != nil {
@@ -48,7 +52,7 @@ func configure(*node.Plugin) {
 		}()
 	}))
 
-	mgr := Manager()
+	// log neighbor changes
 	mgr.Events().ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, err error) {
 		log.Infof("Connection to neighbor %s / %s failed: %s", gossip.GetAddress(p), p.ID(), err)
 	}))
