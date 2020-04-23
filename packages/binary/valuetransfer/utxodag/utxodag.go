@@ -542,14 +542,42 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 	return
 }
 
+func (utxoDAG *UTXODAG) calculateBranchOfTransaction(currentTransaction *transaction.Transaction) (branch *branchmanager.CachedBranch, err error) {
+	consumedBranches := make(branchmanager.BranchIds)
+	if !currentTransaction.Inputs().ForEach(func(outputId transaction.OutputId) bool {
+		cachedTransactionOutput := utxoDAG.GetTransactionOutput(outputId)
+		defer cachedTransactionOutput.Release()
+
+		transactionOutput := cachedTransactionOutput.Unwrap()
+		if transactionOutput == nil {
+			err = fmt.Errorf("failed to load output '%s'", outputId)
+
+			return false
+		}
+
+		consumedBranches[transactionOutput.BranchId()] = types.Void
+
+		return true
+	}) {
+		return
+	}
+
+	branch, err = utxoDAG.branchManager.InheritBranches(consumedBranches.ToList()...)
+
+	return
+}
+
 func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata, cachedTargetBranch *branchmanager.CachedBranch) (err error) {
+	// push transaction that shall be moved to the stack
 	transactionStack := list.New()
 	branchStack := list.New()
 	branchStack.PushBack([3]interface{}{cachedTransactionMetadata.Unwrap().BranchId(), cachedTargetBranch, transactionStack})
 	transactionStack.PushBack([2]interface{}{cachedTransaction, cachedTransactionMetadata})
 
+	// iterate through all transactions (grouped by their branch)
 	for branchStack.Len() >= 1 {
 		if err = func() error {
+			// retrieve branch details from stack
 			currentSolidificationEntry := branchStack.Front()
 			currentSourceBranch := currentSolidificationEntry.Value.([3]interface{})[0].(branchmanager.BranchId)
 			currentCachedTargetBranch := currentSolidificationEntry.Value.([3]interface{})[1].(*branchmanager.CachedBranch)
@@ -557,13 +585,16 @@ func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.C
 			branchStack.Remove(currentSolidificationEntry)
 			defer currentCachedTargetBranch.Release()
 
+			// unpack target branch
 			targetBranch := currentCachedTargetBranch.Unwrap()
 			if targetBranch == nil {
 				return errors.New("failed to unpack branch")
 			}
 
+			// iterate through transactions
 			for transactionStack.Len() >= 1 {
 				if err = func() error {
+					// retrieve transaction details from stack
 					currentSolidificationEntry := transactionStack.Front()
 					currentCachedTransaction := currentSolidificationEntry.Value.([2]interface{})[0].(*transaction.CachedTransaction)
 					currentCachedTransactionMetadata := currentSolidificationEntry.Value.([2]interface{})[1].(*CachedTransactionMetadata)
@@ -571,57 +602,43 @@ func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.C
 					defer currentCachedTransaction.Release()
 					defer currentCachedTransactionMetadata.Release()
 
+					// unwrap transaction
 					currentTransaction := currentCachedTransaction.Unwrap()
 					if currentTransaction == nil {
 						return errors.New("failed to unwrap transaction")
 					}
 
+					// unwrap transaction metadata
 					currentTransactionMetadata := currentCachedTransactionMetadata.Unwrap()
 					if currentTransactionMetadata == nil {
 						return errors.New("failed to unwrap transaction metadata")
 					}
 
+					// if we arrived at a nested branch
 					if currentTransactionMetadata.BranchId() != currentSourceBranch {
-						consumedBranches := make(branchmanager.BranchIds)
-
-						if !currentTransaction.Inputs().ForEach(func(outputId transaction.OutputId) bool {
-							cachedTransactionOutput := utxoDAG.GetTransactionOutput(outputId)
-							defer cachedTransactionOutput.Release()
-
-							transactionOutput := cachedTransactionMetadata.Unwrap()
-							if transactionOutput == nil {
-								err = fmt.Errorf("failed to load output '%s'", outputId)
-
-								return false
-							}
-
-							consumedBranches[transactionOutput.BranchId()] = types.Void
-
-							return true
-						}) {
-							return err
-						}
-
-						newCachedTargetBranch, inheritErr := utxoDAG.branchManager.InheritBranches(consumedBranches.ToList()...)
-						if inheritErr != nil {
-							return inheritErr
+						// determine the new branch of the transaction
+						newCachedTargetBranch, branchErr := utxoDAG.calculateBranchOfTransaction(currentTransaction)
+						if branchErr != nil {
+							return branchErr
 						}
 						defer newCachedTargetBranch.Release()
 
+						// unwrap the branch
 						newTargetBranch := newCachedTargetBranch.Unwrap()
 						if newTargetBranch == nil {
-							return errors.New("failed to inherit branches")
+							return errors.New("failed to unwrap branch")
 						}
 						newTargetBranch.Persist()
 
+						// add the new branch (with the current transaction as a starting point to the branch stack)
 						newTransactionStack := list.New()
 						newTransactionStack.PushBack([2]interface{}{currentCachedTransaction.Retain(), currentCachedTransactionMetadata.Retain()})
-
 						branchStack.PushBack([3]interface{}{currentTransactionMetadata.BranchId(), newCachedTargetBranch.Retain(), newTransactionStack})
 
 						return nil
 					}
 
+					// abort if we did not modify the branch of the transaction
 					if !currentTransactionMetadata.SetBranchId(targetBranch.Id()) {
 						return nil
 					}
