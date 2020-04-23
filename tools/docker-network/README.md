@@ -14,8 +14,8 @@ and separate config file and modified as necessary, respectively.
 Using a standalone throwaway Docker network can be really helpful as a development tool. 
 
 Prerequisites: 
-- Docker
-- Docker compose
+- Docker 17.12.0+
+- Docker compose: file format 3.5
 
 Reachable from the host system
 - autopeering visualizer: http://localhost:9000

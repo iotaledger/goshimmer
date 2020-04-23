@@ -10,7 +10,7 @@ services:
     volumes:
       - ./config.docker.json:/config.json:ro
     ports:
-      - "9000:9000/tcp" # visualizer
+      - "127.0.0.1:9000:9000/tcp" # autopeering visualizer
     expose:
       - "1888/tcp" # analysis server (within Docker network)
     networks:
@@ -24,8 +24,8 @@ services:
     volumes:
       - ./config.docker.json:/config.json:ro
     ports:
-      - "8080:8080/tcp" # web API
-      - "8081:8081/tcp" # dashboard
+      - "127.0.0.1:8080:8080/tcp" # web API
+      - "127.0.0.1:8081:8081/tcp" # dashboard
     depends_on:
       - entry_node
     networks:

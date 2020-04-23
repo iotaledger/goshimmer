@@ -26,10 +26,12 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-const name = "FPC"
+// PluginName is the name of the FPC plugin.
+const PluginName = "FPC"
 
 var (
-	PLUGIN               = node.NewPlugin(name, node.Enabled, configure, run)
+	// Plugin is the plugin instance of the FPC plugin.
+	Plugin               = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	log                  *logger.Logger
 	voter                *fpc.FPC
 	voterOnce            sync.Once
@@ -59,7 +61,7 @@ func Voter() vote.DRNGRoundBasedVoter {
 }
 
 func configure(_ *node.Plugin) {
-	log = logger.NewLogger(name)
+	log = logger.NewLogger(PluginName)
 	lPeer := local.GetInstance()
 
 	bindAddr := config.Node.GetString(CfgFPCBindAddress)
@@ -101,7 +103,7 @@ func run(_ *node.Plugin) {
 		<-shutdownSignal
 		voterServer.Shutdown()
 		log.Info("Stopped vote server")
-	}, shutdown.ShutdownPriorityFPC)
+	}, shutdown.PriorityFPC)
 
 	daemon.BackgroundWorker("FPCRoundsInitiator", func(shutdownSignal <-chan struct{}) {
 		log.Infof("Started FPC round initiator")
@@ -119,7 +121,7 @@ func run(_ *node.Plugin) {
 			}
 		}
 		log.Infof("Stopped FPC round initiator")
-	}, shutdown.ShutdownPriorityFPC)
+	}, shutdown.PriorityFPC)
 }
 
 // PeerOpinionGiver implements the OpinionGiver interface based on a peer.

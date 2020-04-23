@@ -6,14 +6,13 @@ import (
 	"time"
 
 	"github.com/gobuffalo/packr/v2"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/labstack/echo"
 	"golang.org/x/net/context"
 	"golang.org/x/net/websocket"
-
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 var (
@@ -25,6 +24,7 @@ const name = "Analysis HTTP Server"
 
 var assetsBox = packr.New("Assets", "./static")
 
+// Configure configures the plugin.
 func Configure() {
 	log = logger.NewLogger(name)
 
@@ -32,7 +32,7 @@ func Configure() {
 	engine.HideBanner = true
 
 	// we only need this special flag, because we always keep a packed box in the same directory
-	if config.Node.GetBool(CFG_DEV) {
+	if config.Node.GetBool(CfgDev) {
 		engine.Static("/static", "./plugins/analysis/webinterface/httpserver/static")
 		engine.File("/", "./plugins/analysis/webinterface/httpserver/static/index.html")
 	} else {
@@ -45,16 +45,17 @@ func Configure() {
 	engine.GET("/datastream", echo.WrapHandler(websocket.Handler(dataStream)))
 }
 
+// Run runs the plugin.
 func Run() {
 	log.Infof("Starting %s ...", name)
-	if err := daemon.BackgroundWorker(name, start, shutdown.ShutdownPriorityAnalysis); err != nil {
+	if err := daemon.BackgroundWorker(name, start, shutdown.PriorityAnalysis); err != nil {
 		log.Errorf("Error starting as daemon: %s", err)
 	}
 }
 
 func start(shutdownSignal <-chan struct{}) {
 	stopped := make(chan struct{})
-	bindAddr := config.Node.GetString(CFG_BIND_ADDRESS)
+	bindAddr := config.Node.GetString(CfgBindAddress)
 	go func() {
 		log.Infof("Started %s: http://%s", name, bindAddr)
 		if err := engine.Start(bindAddr); err != nil {

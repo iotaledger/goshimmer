@@ -11,13 +11,16 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-var transactionSpammer *spammer.Spammer
+var messageSpammer *spammer.Spammer
 
-var PLUGIN = node.NewPlugin("Spammer", node.Disabled, configure, run)
+// PluginName is the name of the spammer plugin.
+const PluginName = "Spammer"
+
+// Plugin is the plugin instance of the spammer plugin.
+var Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
 
 func configure(plugin *node.Plugin) {
-	transactionSpammer = spammer.New(messagelayer.MessageFactory)
-
+	messageSpammer = spammer.New(messagelayer.MessageFactory)
 	webapi.Server.GET("spammer", handleRequest)
 }
 
@@ -25,6 +28,6 @@ func run(*node.Plugin) {
 	_ = daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 
-		transactionSpammer.Shutdown()
-	}, shutdown.ShutdownPrioritySpammer)
+		messageSpammer.Shutdown()
+	}, shutdown.PrioritySpammer)
 }

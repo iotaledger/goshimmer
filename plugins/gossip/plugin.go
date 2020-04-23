@@ -15,19 +15,21 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-const name = "Gossip" // name of the plugin
+// PluginName is the name of the gossip plugin.
+const PluginName = "Gossip"
 
-var PLUGIN = node.NewPlugin(name, node.Enabled, configure, run)
+// Plugin is the plugin instance of the gossip plugin.
+var Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 func configure(*node.Plugin) {
-	log = logger.NewLogger(name)
+	log = logger.NewLogger(PluginName)
 
 	configureGossip()
 	configureEvents()
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker(name, start, shutdown.ShutdownPriorityGossip); err != nil {
+	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
 		log.Errorf("Failed to start as daemon: %s", err)
 	}
 }
@@ -71,22 +73,21 @@ func configureEvents() {
 		log.Infof("Neighbor removed: %s / %s", gossip.GetAddress(p), p.ID())
 	}))
 
-	// configure flow of incoming transactions
-	gossip.Events.TransactionReceived.Attach(events.NewClosure(func(event *gossip.TransactionReceivedEvent) {
-		messagelayer.TransactionParser.Parse(event.Data, event.Peer)
+	// configure flow of incoming messages
+	gossip.Events.MessageReceived.Attach(events.NewClosure(func(event *gossip.MessageReceivedEvent) {
+		messagelayer.MessageParser.Parse(event.Data, event.Peer)
 	}))
 
-	// configure flow of outgoing transactions (gossip on solidification)
-	messagelayer.Tangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, transactionMetadata *tangle.CachedMessageMetadata) {
-		transactionMetadata.Release()
-
-		cachedTransaction.Consume(func(transaction *message.Message) {
-			mgr.SendTransaction(transaction.Bytes())
+	// configure flow of outgoing messages (gossip on solidification)
+	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		cachedMessageMetadata.Release()
+		cachedMessage.Consume(func(msg *message.Message) {
+			mgr.SendMessage(msg.Bytes())
 		})
 	}))
 
-	// request missing transactions
-	messagelayer.TransactionRequester.Events.SendRequest.Attach(events.NewClosure(func(transactionId message.Id) {
-		mgr.RequestTransaction(transactionId[:])
+	// request missing messages
+	messagelayer.MessageRequester.Events.SendRequest.Attach(events.NewClosure(func(messageId message.Id) {
+		mgr.RequestMessage(messageId[:])
 	}))
 }

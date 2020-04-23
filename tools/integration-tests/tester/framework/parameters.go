@@ -10,4 +10,9 @@ const (
 	containerNameReplica   = "replica_"
 
 	logsDir = "/tmp/logs/"
+
+	disabledPluginsEntryNode = "portcheck,spa,analysis,gossip,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint"
+	disabledPluginsPeer      = "portcheck,spa,analysis"
+
+	dockerLogsPrefixLen = 8
 )

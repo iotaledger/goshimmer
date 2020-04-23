@@ -7,15 +7,18 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-// define the plugin as a placeholder, so the init methods get executed accordingly
-var PLUGIN = node.NewPlugin("Logger", node.Enabled)
+// PluginName is the name of the logger plugin.
+const PluginName = "Logger"
+
+// Plugin is the plugin instance of the logger plugin.
+var Plugin = node.NewPlugin(PluginName, node.Enabled)
 
 func Init() {
-	PLUGIN.Events.Init.Trigger(PLUGIN)
+	Plugin.Events.Init.Trigger(Plugin)
 }
 
 func init() {
-	PLUGIN.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
+	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
 		if err := logger.InitGlobalLogger(config.Node); err != nil {
 			panic(err)
 		}

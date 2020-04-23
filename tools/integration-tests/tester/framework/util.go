@@ -13,21 +13,29 @@ func getWebApiBaseUrl(hostname string) string {
 }
 
 // createLogFile creates a log file from the given logs ReadCloser.
-func createLogFile(name string, logs io.ReadCloser) {
+func createLogFile(name string, logs io.ReadCloser) error {
 	defer logs.Close()
 
 	f, err := os.Create(fmt.Sprintf("%s%s.log", logsDir, name))
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer f.Close()
 
 	// remove non-ascii chars at beginning of line
 	scanner := bufio.NewScanner(logs)
 	for scanner.Scan() {
-		bytes := append(scanner.Bytes()[8:], '\n')
-		f.Write(bytes)
+		bytes := append(scanner.Bytes()[dockerLogsPrefixLen:], '\n')
+		_, err = f.Write(bytes)
+		if err != nil {
+			return err
+		}
 	}
 
-	f.Sync()
+	err = f.Sync()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -1,8 +1,7 @@
 name: Test GoShimmer
-on:
-  push:
-  pull_request:
-    types: [opened, reopened]
+
+on: [push, pull_request]
+
 jobs:
 
   integration-test:
@@ -22,7 +21,7 @@ jobs:
       - name: Create logs from tester
         if: always()
         run: |
-          docker logs tester > tools/integration-tests/logs/tester.log
+          docker logs tester &> tools/integration-tests/logs/tester.log
 
       - name: Save logs as artifacts
         if: always()

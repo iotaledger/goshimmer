@@ -5,9 +5,10 @@ import (
 )
 
 const (
-	CFG_SERVER_PORT = "analysis.server.port"
+	// CfgServerPort defines the config flag of the analysis server TCP port.
+	CfgServerPort = "analysis.server.port"
 )
 
 func init() {
-	flag.Int(CFG_SERVER_PORT, 0, "tcp port for incoming analysis packets")
+	flag.Int(CfgServerPort, 0, "tcp port for incoming analysis packets")
 }

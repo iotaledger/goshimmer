@@ -9,8 +9,8 @@ Test can be written in regular Go style while the framework provides convenience
 
 ## How to run
 Prerequisites: 
-- Docker
-- Docker compose
+- Docker 17.12.0+
+- Docker compose: file format 3.5
 
 ```
 # Mac & Linux

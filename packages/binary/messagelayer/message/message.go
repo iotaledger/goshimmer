@@ -14,13 +14,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
-// region Message //////////////////////////////////////////////////////////////////////////////////////////////////////
-
+// Message represents the core message for the base layer Tangle.
 type Message struct {
 	// base functionality of StorableObject
 	objectstorage.StorableObjectFlags
 
-	// core properties (they are part of the transaction when being sent)
+	// core properties (get sent over the wire)
 	trunkId         Id
 	branchId        Id
 	issuerPublicKey ed25519.PublicKey
@@ -35,18 +34,18 @@ type Message struct {
 	// derived properties
 	id             *Id
 	idMutex        sync.RWMutex
-	payloadId      *payload.Id
-	payloadIdMutex sync.RWMutex
+	contentId      *ContentId
+	contentIdMutex sync.RWMutex
 
 	// only stored on the machine of the signer
 	issuerLocalIdentity *identity.LocalIdentity
 }
 
-// New creates a new transaction with the details provided by the issuer.
-func New(trunkTransactionId Id, branchTransactionId Id, localIdentity *identity.LocalIdentity, issuingTime time.Time, sequenceNumber uint64, payload payload.Payload) (result *Message) {
+// New creates a new message with the details provided by the issuer.
+func New(trunkMessageId Id, branchMessageId Id, localIdentity *identity.LocalIdentity, issuingTime time.Time, sequenceNumber uint64, payload payload.Payload) (result *Message) {
 	return &Message{
-		trunkId:         trunkTransactionId,
-		branchId:        branchTransactionId,
+		trunkId:         trunkMessageId,
+		branchId:        branchMessageId,
 		issuerPublicKey: localIdentity.PublicKey(),
 		issuingTime:     issuingTime,
 		sequenceNumber:  sequenceNumber,
@@ -56,14 +55,15 @@ func New(trunkTransactionId Id, branchTransactionId Id, localIdentity *identity.
 	}
 }
 
+// FromBytes parses the given bytes into a message.
 func FromBytes(bytes []byte, optionalTargetObject ...*Message) (result *Message, err error, consumedBytes int) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = Parse(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
+// Parse parses a message from the given marshal util.
 func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Message) (result *Message, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
@@ -86,8 +86,8 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Messag
 	return
 }
 
-// Get's called when we restore a transaction from storage. The bytes and the content will be unmarshaled by an external
-// caller (the objectStorage factory).
+// StorableObjectFromKey gets called when we restore a message from storage.
+// The bytes and the content will be unmarshaled by an external caller (the objectStorage factory).
 func StorableObjectFromKey(key []byte, optionalTargetObject ...*Message) (result objectstorage.StorableObject, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
@@ -112,61 +112,65 @@ func StorableObjectFromKey(key []byte, optionalTargetObject ...*Message) (result
 	return
 }
 
-func (message *Message) VerifySignature() (result bool) {
-	transactionBytes := message.Bytes()
-
+// VerifySignature verifies the signature of the message.
+func (message *Message) VerifySignature() bool {
+	msgBytes := message.Bytes()
 	message.signatureMutex.RLock()
-	result = message.issuerPublicKey.VerifySignature(transactionBytes[:len(transactionBytes)-ed25519.SignatureSize], message.Signature())
+	valid := message.issuerPublicKey.VerifySignature(msgBytes[:len(msgBytes)-ed25519.SignatureSize], message.Signature())
 	message.signatureMutex.RUnlock()
-
-	return
+	return valid
 }
 
+// Id returns the id of the message which is made up of the content id and trunk/branch ids.
+// This id can be used for merkle proofs.
 func (message *Message) Id() (result Id) {
 	message.idMutex.RLock()
+
 	if message.id == nil {
 		message.idMutex.RUnlock()
 
 		message.idMutex.Lock()
-		if message.id == nil {
-			result = message.calculateId()
-
-			message.id = &result
-		} else {
+		defer message.idMutex.Unlock()
+		if message.id != nil {
 			result = *message.id
+			return
 		}
-		message.idMutex.Unlock()
-	} else {
-		result = *message.id
-
-		message.idMutex.RUnlock()
+		result = message.calculateId()
+		message.id = &result
+		return
 	}
 
+	result = *message.id
+	message.idMutex.RUnlock()
 	return
 }
 
+// TrunkId returns the id of the trunk message.
 func (message *Message) TrunkId() Id {
 	return message.trunkId
 }
 
+// BranchId returns the id of the branch message.
 func (message *Message) BranchId() Id {
 	return message.branchId
 }
 
+// IssuerPublicKey returns the public key of the message issuer.
 func (message *Message) IssuerPublicKey() ed25519.PublicKey {
 	return message.issuerPublicKey
 }
 
-// IssuingTime returns the time when the transaction was created.
+// IssuingTime returns the time when this message was created.
 func (message *Message) IssuingTime() time.Time {
 	return message.issuingTime
 }
 
-// SequenceNumber returns the sequence number of this transaction.
+// SequenceNumber returns the sequence number of this message.
 func (message *Message) SequenceNumber() uint64 {
 	return message.sequenceNumber
 }
 
+// Signature returns the signature of the message.
 func (message *Message) Signature() ed25519.Signature {
 	message.signatureMutex.RLock()
 	defer message.signatureMutex.RUnlock()
@@ -181,47 +185,52 @@ func (message *Message) Signature() ed25519.Signature {
 	return message.signature
 }
 
+// Payload returns the payload of the message.
 func (message *Message) Payload() payload.Payload {
 	return message.payload
 }
 
-func (message *Message) PayloadId() (result payload.Id) {
-	message.payloadIdMutex.RLock()
-	if message.payloadId == nil {
-		message.payloadIdMutex.RUnlock()
+// ContentId returns the content id of the message which is made up of all the
+// parts of the message minus the trunk and branch ids.
+func (message *Message) ContentId() (result ContentId) {
+	message.contentIdMutex.RLock()
+	if message.contentId == nil {
+		message.contentIdMutex.RUnlock()
 
-		message.payloadIdMutex.Lock()
-		if message.payloadId == nil {
-			result = message.calculatePayloadId()
-
-			message.payloadId = &result
-		} else {
-			result = *message.payloadId
+		message.contentIdMutex.Lock()
+		defer message.contentIdMutex.Unlock()
+		if message.contentId != nil {
+			result = *message.contentId
+			return
 		}
-		message.payloadIdMutex.Unlock()
-	} else {
-		result = *message.payloadId
-
-		message.payloadIdMutex.RUnlock()
+		result = message.calculateContentId()
+		message.contentId = &result
+		return
 	}
 
+	result = *message.contentId
+	message.contentIdMutex.RUnlock()
 	return
 }
 
+// calculates the message id.
 func (message *Message) calculateId() Id {
 	return blake2b.Sum512(
 		marshalutil.New(IdLength + IdLength + payload.IdLength).
 			WriteBytes(message.trunkId.Bytes()).
 			WriteBytes(message.branchId.Bytes()).
-			WriteBytes(message.PayloadId().Bytes()).
+			WriteBytes(message.ContentId().Bytes()).
 			Bytes(),
 	)
 }
 
-func (message *Message) calculatePayloadId() payload.Id {
+// calculates the content id of the message.
+func (message *Message) calculateContentId() ContentId {
+	// compute content id from the message data (except trunk and branch ids)
 	return blake2b.Sum512(message.Bytes()[2*IdLength:])
 }
 
+// Bytes returns the message in serialized byte form.
 func (message *Message) Bytes() []byte {
 	message.bytesMutex.RLock()
 	if message.bytes != nil {
@@ -299,13 +308,13 @@ func (message *Message) ObjectStorageKey() []byte {
 	return message.Id().Bytes()
 }
 
-// Since transactions are immutable and do not get changed after being created, we cache the result of the marshaling.
+// Since messages are immutable and do not get changed after being created, we cache the result of the marshaling.
 func (message *Message) ObjectStorageValue() []byte {
 	return message.Bytes()
 }
 
 func (message *Message) Update(other objectstorage.StorableObject) {
-	panic("transactions should never be overwritten and only stored once to optimize IO")
+	panic("messages should never be overwritten and only stored once to optimize IO")
 }
 
 func (message *Message) String() string {
@@ -321,10 +330,6 @@ func (message *Message) String() string {
 	)
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedMessage ////////////////////////////////////////////////////////////////////////////////////////////////
-
 type CachedMessage struct {
 	objectstorage.CachedObject
 }
@@ -333,22 +338,20 @@ func (cachedMessage *CachedMessage) Retain() *CachedMessage {
 	return &CachedMessage{cachedMessage.CachedObject.Retain()}
 }
 
-func (cachedMessage *CachedMessage) Consume(consumer func(transaction *Message)) bool {
+func (cachedMessage *CachedMessage) Consume(consumer func(msg *Message)) bool {
 	return cachedMessage.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Message))
 	})
 }
 
 func (cachedMessage *CachedMessage) Unwrap() *Message {
-	if untypedTransaction := cachedMessage.Get(); untypedTransaction == nil {
+	if untypedMessage := cachedMessage.Get(); untypedMessage == nil {
 		return nil
 	} else {
-		if typeCastedTransaction := untypedTransaction.(*Message); typeCastedTransaction == nil || typeCastedTransaction.IsDeleted() {
+		if typeCastedMessage := untypedMessage.(*Message); typeCastedMessage == nil || typeCastedMessage.IsDeleted() {
 			return nil
 		} else {
-			return typeCastedTransaction
+			return typeCastedMessage
 		}
 	}
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
