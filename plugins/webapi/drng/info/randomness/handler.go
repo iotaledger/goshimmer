@@ -10,7 +10,7 @@ import (
 
 // Handler returns the current DRNG randomness used.
 func Handler(c echo.Context) error {
-	randomness := drng.Instance.State.Randomness()
+	randomness := drng.Instance().State.Randomness()
 	return c.JSON(http.StatusOK, Response{
 		Round:      randomness.Round,
 		Randomness: randomness.Randomness,

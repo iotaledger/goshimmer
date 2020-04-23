@@ -21,8 +21,8 @@ func configureDrngLiveFeed() {
 		newRandomness := task.Param(0).(state.Randomness)
 
 		sendToAllWSClient(&wsmsg{MsgTypeDrng, &drngMsg{
-			Instance:      drng.Instance.State.Committee().InstanceID,
-			DistributedPK: hex.EncodeToString(drng.Instance.State.Committee().DistributedPK),
+			Instance:      drng.Instance().State.Committee().InstanceID,
+			DistributedPK: hex.EncodeToString(drng.Instance().State.Committee().DistributedPK),
 			Round:         newRandomness.Round,
 			Randomness:    hex.EncodeToString(newRandomness.Randomness[:32]),
 			Timestamp:     newRandomness.Timestamp.Format("2 Jan 2006 15:04:05")}})
@@ -42,14 +42,14 @@ func runDrngLiveFeed() {
 	})
 
 	daemon.BackgroundWorker("Dashboard[DRNGUpdater]", func(shutdownSignal <-chan struct{}) {
-		if drng.Instance == nil {
+		if !drng.Enabled() {
 			return
 		}
-		drng.Instance.Events.Randomness.Attach(notifyNewRandomness)
+		drng.Instance().Events.Randomness.Attach(notifyNewRandomness)
 		drngLiveFeedWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[DRNGUpdater] ...")
-		drng.Instance.Events.Randomness.Detach(notifyNewRandomness)
+		drng.Instance().Events.Randomness.Detach(notifyNewRandomness)
 		newMsgRateLimiter.Stop()
 		drngLiveFeedWorkerPool.Stop()
 		log.Info("Stopping Dashboard[DRNGUpdater] ... done")
