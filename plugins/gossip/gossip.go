@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	gp "github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -18,7 +18,7 @@ import (
 
 var (
 	log *logger.Logger
-	mgr *gp.Manager
+	mgr *gossip.Manager
 	srv *server.TCP
 )
 
@@ -34,7 +34,7 @@ func configureGossip() {
 	if err := lPeer.UpdateService(service.GossipKey, "tcp", gossipPort); err != nil {
 		log.Fatalf("could not update services: %s", err)
 	}
-	mgr = gp.NewManager(lPeer, loadMessage, log)
+	mgr = gossip.NewManager(lPeer, loadMessage, log)
 }
 
 func start(shutdownSignal <-chan struct{}) {
@@ -82,9 +82,14 @@ func loadMessage(messageID message.Id) (bytes []byte, err error) {
 }
 
 // Neighbors returns the list of the neighbors.
-func Neighbors() []*gp.Neighbor {
+func Neighbors() []*gossip.Neighbor {
 	if mgr == nil {
 		return nil
 	}
 	return mgr.AllNeighbors()
+}
+
+// Events exposes all the events triggered by the gossip plugin.
+func Events() gossip.Events {
+	return mgr.Events()
 }

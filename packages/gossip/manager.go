@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
-	"go.uber.org/zap"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 const (
@@ -26,7 +26,8 @@ type LoadMessageFunc func(messageId message.Id) ([]byte, error)
 type Manager struct {
 	local           *peer.Local
 	loadMessageFunc LoadMessageFunc
-	log             *zap.SugaredLogger
+	log             *logger.Logger
+	events          Events
 
 	wg sync.WaitGroup
 
@@ -36,13 +37,19 @@ type Manager struct {
 }
 
 // NewManager creates a new Manager.
-func NewManager(local *peer.Local, f LoadMessageFunc, log *zap.SugaredLogger) *Manager {
+func NewManager(local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manager {
 	return &Manager{
 		local:           local,
 		loadMessageFunc: f,
 		log:             log,
-		srv:             nil,
-		neighbors:       make(map[identity.ID]*Neighbor),
+		events: Events{
+			ConnectionFailed: events.NewEvent(peerAndErrorCaller),
+			NeighborAdded:    events.NewEvent(neighborCaller),
+			NeighborRemoved:  events.NewEvent(peerCaller),
+			MessageReceived:  events.NewEvent(messageReceived),
+		},
+		srv:       nil,
+		neighbors: make(map[identity.ID]*Neighbor),
 	}
 }
 
@@ -58,6 +65,11 @@ func (m *Manager) Start(srv *server.TCP) {
 func (m *Manager) Close() {
 	m.stop()
 	m.wg.Wait()
+}
+
+// Events returns the events related to the gossip protocol.
+func (m *Manager) Events() Events {
+	return m.events
 }
 
 func (m *Manager) stop() {
@@ -176,13 +188,13 @@ func (m *Manager) send(b []byte, to ...identity.ID) {
 func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (net.Conn, error)) error {
 	conn, err := connectorFunc(peer)
 	if err != nil {
-		Events.ConnectionFailed.Trigger(peer, err)
+		m.events.ConnectionFailed.Trigger(peer, err)
 		return err
 	}
 
 	if _, ok := m.neighbors[peer.ID()]; ok {
 		_ = conn.Close()
-		Events.ConnectionFailed.Trigger(peer, ErrDuplicateNeighbor)
+		m.events.ConnectionFailed.Trigger(peer, ErrDuplicateNeighbor)
 		return ErrDuplicateNeighbor
 	}
 
@@ -191,7 +203,7 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 	n.Events.Close.Attach(events.NewClosure(func() {
 		// assure that the neighbor is removed and notify
 		_ = m.DropNeighbor(peer.ID())
-		Events.NeighborRemoved.Trigger(peer)
+		m.events.NeighborRemoved.Trigger(peer)
 	}))
 	n.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
 		if err := m.handlePacket(data, peer); err != nil {
@@ -201,7 +213,7 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 
 	m.neighbors[peer.ID()] = n
 	n.Listen()
-	Events.NeighborAdded.Trigger(n)
+	m.events.NeighborAdded.Trigger(n)
 
 	return nil
 }
@@ -220,7 +232,7 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 			return fmt.Errorf("invalid packet: %w", err)
 		}
 		m.log.Debugw("received packet", "type", protoMsg.Type(), "peer-id", p.ID())
-		Events.MessageReceived.Trigger(&MessageReceivedEvent{Data: protoMsg.GetData(), Peer: p})
+		m.events.MessageReceived.Trigger(&MessageReceivedEvent{Data: protoMsg.GetData(), Peer: p})
 
 	case pb.PacketMessageRequest:
 		protoMsgReq := new(pb.MessageRequest)

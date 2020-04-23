@@ -62,18 +62,18 @@ func configureEvents() {
 		}()
 	}))
 
-	gossip.Events.ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, err error) {
+	mgr.Events().ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, err error) {
 		log.Infof("Connection to neighbor %s / %s failed: %s", gossip.GetAddress(p), p.ID(), err)
 	}))
-	gossip.Events.NeighborAdded.Attach(events.NewClosure(func(n *gossip.Neighbor) {
+	mgr.Events().NeighborAdded.Attach(events.NewClosure(func(n *gossip.Neighbor) {
 		log.Infof("Neighbor added: %s / %s", gossip.GetAddress(n.Peer), n.ID())
 	}))
-	gossip.Events.NeighborRemoved.Attach(events.NewClosure(func(p *peer.Peer) {
+	mgr.Events().NeighborRemoved.Attach(events.NewClosure(func(p *peer.Peer) {
 		log.Infof("Neighbor removed: %s / %s", gossip.GetAddress(p), p.ID())
 	}))
 
 	// configure flow of incoming messages
-	gossip.Events.MessageReceived.Attach(events.NewClosure(func(event *gossip.MessageReceivedEvent) {
+	mgr.Events().MessageReceived.Attach(events.NewClosure(func(event *gossip.MessageReceivedEvent) {
 		messagelayer.MessageParser.Parse(event.Data, event.Peer)
 	}))
 
