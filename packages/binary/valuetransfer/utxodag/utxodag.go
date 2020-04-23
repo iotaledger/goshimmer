@@ -643,12 +643,16 @@ func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.C
 						return nil
 					}
 
+					// iterate through the outputs of the moved transaction
 					currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+						// create reference to the output
 						outputId := transaction.NewOutputId(address, currentTransaction.Id())
 
+						// load output from database
 						cachedOutput := utxoDAG.GetTransactionOutput(outputId)
 						defer cachedOutput.Release()
 
+						// unwrap output
 						output := cachedOutput.Unwrap()
 						if output == nil {
 							err = fmt.Errorf("failed to load output '%s'", outputId)
@@ -656,15 +660,16 @@ func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.C
 							return false
 						}
 
+						// abort if the output was moved already
 						if !output.SetBranchId(targetBranch.Id()) {
 							return true
 						}
 
+						// schedule consumers for further checks
 						consumingTransactions := make(map[transaction.Id]types.Empty)
 						utxoDAG.GetConsumers(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(consumer *Consumer) {
 							consumingTransactions[consumer.TransactionId()] = types.Void
 						})
-
 						for transactionId := range consumingTransactions {
 							transactionStack.PushBack([2]interface{}{utxoDAG.Transaction(transactionId), utxoDAG.TransactionMetadata(transactionId)})
 						}
