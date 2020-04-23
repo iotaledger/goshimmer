@@ -276,7 +276,7 @@ func (transaction *Transaction) String() string {
 // max dataPayload size limit
 const MAX_DATA_PAYLOAD_SIZE = 64 * 1024
 
-// sets yhe dataPayload and its type
+// SetDataPayload sets yhe dataPayload and its type
 func (transaction *Transaction) SetDataPayload(data []byte) error {
 	transaction.dataPayloadMutex.Lock()
 	defer transaction.dataPayloadMutex.Unlock()
@@ -288,7 +288,7 @@ func (transaction *Transaction) SetDataPayload(data []byte) error {
 	return nil
 }
 
-// gets the dataPayload and its type
+// GetDataPayload gets the dataPayload and its type
 func (transaction *Transaction) GetDataPayload() []byte {
 	transaction.dataPayloadMutex.RLock()
 	defer transaction.dataPayloadMutex.RUnlock()
@@ -296,7 +296,7 @@ func (transaction *Transaction) GetDataPayload() []byte {
 	return transaction.dataPayload
 }
 
-// return size of the dataPayload as uint32
+// DataPayloadSize returns the size of the dataPayload as uint32.
 // nil payload as size 0
 func (transaction *Transaction) DataPayloadSize() uint32 {
 	transaction.dataPayloadMutex.RLock()
