@@ -23,6 +23,7 @@ var (
 	mgrOnce sync.Once
 )
 
+// Manager returns the manager instance of the gossip plugin.
 func Manager() *gossip.Manager {
 	mgrOnce.Do(createManager)
 	return mgr
