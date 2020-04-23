@@ -11,7 +11,8 @@ import (
 // TestRelayMessages checks whether messages are actually relayed/gossiped through the network
 // by checking the messages' existence on all nodes after a cool down.
 func TestRelayMessages(t *testing.T) {
-	n := f.CreateNetwork("TestRelayMessages", 6, 3)
+	n, err := f.CreateNetwork("TestRelayMessages", 6, 3)
+	require.NoError(t, err)
 	defer n.Shutdown()
 
 	numMessages := 105

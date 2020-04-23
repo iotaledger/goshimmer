@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	once     sync.Once
-	instance *Framework
+	once        sync.Once
+	instance    *Framework
+	instanceErr error
 )
 
 // Framework is a wrapper that provides the integration testing functionality.
@@ -23,41 +24,62 @@ type Framework struct {
 }
 
 // Instance returns the singleton Framework instance.
-func Instance() *Framework {
+func Instance() (*Framework, error) {
 	once.Do(func() {
-		instance = newFramework()
+		instance, instanceErr = newFramework()
 	})
 
-	return instance
+	return instance, instanceErr
 }
 
 // newFramework creates a new instance of Framework, creates a DockerClient
 // and creates a DockerContainer for the tester container where the tests are running in.
-func newFramework() *Framework {
-	dockerClient := newDockerClient()
-	f := &Framework{
-		dockerClient: dockerClient,
-		tester:       NewDockerContainerFromExisting(dockerClient, containerNameTester),
+func newFramework() (*Framework, error) {
+	dockerClient, err := newDockerClient()
+	if err != nil {
+		return nil, err
 	}
 
-	return f
+	tester, err := NewDockerContainerFromExisting(dockerClient, containerNameTester)
+	if err != nil {
+		return nil, err
+	}
+
+	f := &Framework{
+		dockerClient: dockerClient,
+		tester:       tester,
+	}
+
+	return f, nil
 }
 
 // CreateNetwork creates and returns a (Docker) Network that contains `peers` GoShimmer nodes.
 // It waits for the peers to autopeer until the minimum neighbors criteria is met for every peer.
-func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int) *Network {
-	network := newNetwork(f.dockerClient, strings.ToLower(name), f.tester)
+func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int) (*Network, error) {
+	network, err := newNetwork(f.dockerClient, strings.ToLower(name), f.tester)
+	if err != nil {
+		return nil, err
+	}
 
-	network.createEntryNode()
+	err = network.createEntryNode()
+	if err != nil {
+		return nil, err
+	}
 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
-		network.CreatePeer()
+		_, err = network.CreatePeer()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// wait until containers are fully started
 	time.Sleep(1 * time.Second)
-	network.WaitForAutopeering(minimumNeighbors)
+	err = network.WaitForAutopeering(minimumNeighbors)
+	if err != nil {
+		return nil, err
+	}
 
-	return network
+	return network, nil
 }

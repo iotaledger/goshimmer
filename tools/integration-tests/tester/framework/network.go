@@ -31,30 +31,33 @@ type Network struct {
 }
 
 // newNetwork returns a Network instance, creates its underlying Docker network and adds the tester container to the network.
-func newNetwork(dockerClient *client.Client, name string, tester *DockerContainer) *Network {
+func newNetwork(dockerClient *client.Client, name string, tester *DockerContainer) (*Network, error) {
 	// create Docker network
 	resp, err := dockerClient.NetworkCreate(context.Background(), name, types.NetworkCreate{})
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	// the tester container needs to join the Docker network in order to communicate with the peers
-	tester.ConnectToNetwork(resp.ID)
+	err = tester.ConnectToNetwork(resp.ID)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Network{
 		id:           resp.ID,
 		name:         name,
 		tester:       tester,
 		dockerClient: dockerClient,
-	}
+	}, nil
 }
 
 // createEntryNode creates the network's entry node.
-func (n *Network) createEntryNode() {
+func (n *Network) createEntryNode() error {
 	// create identity
 	publicKey, privateKey, err := hive_ed25519.GenerateKey()
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	n.entryNodeIdentity = identity.New(publicKey)
@@ -62,67 +65,118 @@ func (n *Network) createEntryNode() {
 
 	// create entry node container
 	n.entryNode = NewDockerContainer(n.dockerClient)
-	n.entryNode.CreateGoShimmerEntryNode(n.namePrefix(containerNameEntryNode), seed)
-	n.entryNode.ConnectToNetwork(n.id)
-	n.entryNode.Start()
+	err = n.entryNode.CreateGoShimmerEntryNode(n.namePrefix(containerNameEntryNode), seed)
+	if err != nil {
+		return err
+	}
+	err = n.entryNode.ConnectToNetwork(n.id)
+	if err != nil {
+		return err
+	}
+	err = n.entryNode.Start()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // CreatePeer creates a new peer/GoShimmer node in the network and returns it.
-func (n *Network) CreatePeer() *Peer {
+func (n *Network) CreatePeer() (*Peer, error) {
 	name := n.namePrefix(fmt.Sprintf("%s%d", containerNameReplica, len(n.peers)))
 
 	// create identity
 	publicKey, privateKey, err := hive_ed25519.GenerateKey()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	seed := base64.StdEncoding.EncodeToString(ed25519.PrivateKey(privateKey.Bytes()).Seed())
 
 	// create Docker container
 	container := NewDockerContainer(n.dockerClient)
-	container.CreateGoShimmerPeer(name, seed, n.namePrefix(containerNameEntryNode), n.entryNodePublicKey())
-	container.ConnectToNetwork(n.id)
-	container.Start()
+	err = container.CreateGoShimmerPeer(name, seed, n.namePrefix(containerNameEntryNode), n.entryNodePublicKey())
+	if err != nil {
+		return nil, err
+	}
+	err = container.ConnectToNetwork(n.id)
+	if err != nil {
+		return nil, err
+	}
+	err = container.Start()
+	if err != nil {
+		return nil, err
+	}
 
 	peer := newPeer(name, identity.New(publicKey), container)
 	n.peers = append(n.peers, peer)
-	return peer
+	return peer, nil
 }
 
 // Shutdown creates logs and removes network and containers.
 // Should always be called when a network is not needed anymore!
-func (n *Network) Shutdown() {
+func (n *Network) Shutdown() error {
 	// stop containers
-	n.entryNode.Stop()
+	err := n.entryNode.Stop()
+	if err != nil {
+		return err
+	}
 	for _, p := range n.peers {
-		p.Stop()
+		err = p.Stop()
+		if err != nil {
+			return err
+		}
 	}
 
 	// retrieve logs
-	createLogFile(n.namePrefix(containerNameEntryNode), n.entryNode.Logs())
+	logs, err := n.entryNode.Logs()
+	if err != nil {
+		return err
+	}
+	err = createLogFile(n.namePrefix(containerNameEntryNode), logs)
+	if err != nil {
+		return err
+	}
 	for _, p := range n.peers {
-		createLogFile(p.name, p.Logs())
+		logs, err = p.Logs()
+		if err != nil {
+			return err
+		}
+		err = createLogFile(p.name, logs)
+		if err != nil {
+			return err
+		}
 	}
 
 	// remove containers
-	n.entryNode.Remove()
+	err = n.entryNode.Remove()
+	if err != nil {
+		return err
+	}
 	for _, p := range n.peers {
-		p.Remove()
+		err = p.Remove()
+		if err != nil {
+			return err
+		}
 	}
 
 	// disconnect tester from network otherwise the network can't be removed
-	n.tester.DisconnectFromNetwork(n.id)
+	err = n.tester.DisconnectFromNetwork(n.id)
+	if err != nil {
+		return err
+	}
 
 	// remove network
-	err := n.dockerClient.NetworkRemove(context.Background(), n.id)
+	err = n.dockerClient.NetworkRemove(context.Background(), n.id)
 	if err != nil {
-		panic(err)
+		return err
 	}
+
+	return nil
 }
 
 // WaitForAutopeering waits until all peers have reached the minimum amount of neighbors.
-// Panics if this minimum is not reached after autopeeringMaxTries.
-func (n *Network) WaitForAutopeering(minimumNeighbors int) {
+// Returns error if this minimum is not reached after autopeeringMaxTries.
+func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 	log.Printf("Waiting for autopeering...\n")
 	defer log.Printf("Waiting for autopeering... done\n")
 
@@ -148,13 +202,14 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) {
 		}
 		if min >= minimumNeighbors {
 			log.Printf("Neighbors: min=%d avg=%.2f\n", min, float64(total)/float64(len(n.peers)))
-			return
+			return nil
 		}
 
 		log.Println("Not done yet. Try again in 5 seconds...")
 		time.Sleep(5 * time.Second)
 	}
-	panic("Peering not successful.")
+
+	return fmt.Errorf("autopeering not successful")
 }
 
 // namePrefix returns the suffix prefixed with the name.
