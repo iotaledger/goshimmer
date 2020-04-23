@@ -1,13 +1,12 @@
 package analysis
 
 import (
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
-
 	"github.com/iotaledger/goshimmer/plugins/analysis/client"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface"
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 )
 
 // PluginName is the name of the analysis plugin.

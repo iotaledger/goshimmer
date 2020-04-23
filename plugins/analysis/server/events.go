@@ -5,13 +5,20 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
+// Events holds the events of the analysis server package.
 var Events = struct {
-	AddNode         *events.Event
-	RemoveNode      *events.Event
-	ConnectNodes    *events.Event
+	// AddNode triggers when adding a new node.
+	AddNode *events.Event
+	// RemoveNode triggers when removing a node.
+	RemoveNode *events.Event
+	// ConnectNodes triggers when connecting two nodes.
+	ConnectNodes *events.Event
+	// DisconnectNodes triggers when disconnecting two nodes.
 	DisconnectNodes *events.Event
-	Error           *events.Event
-	Heartbeat       *events.Event
+	// Error triggers when an error occurs.
+	Error *events.Event
+	// Heartbeat triggers when an heartbeat has been received.
+	Heartbeat *events.Event
 }{
 	events.NewEvent(stringCaller),
 	events.NewEvent(stringCaller),

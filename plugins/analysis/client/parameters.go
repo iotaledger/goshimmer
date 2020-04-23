@@ -5,8 +5,10 @@ import (
 )
 
 const (
+	// CfgServerAddress defines the config flag of the analysis server address.
 	CfgServerAddress = "analysis.client.serverAddress"
-	ReportInterval   = 5
+	// ReportInterval defines the interval of the reporting.
+	ReportInterval = 5
 )
 
 func init() {

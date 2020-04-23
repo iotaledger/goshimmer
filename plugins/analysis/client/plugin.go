@@ -7,21 +7,21 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/types/heartbeat"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/network"
 	"github.com/iotaledger/hive.go/node"
-
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 var log *logger.Logger
 var connLock sync.Mutex
 
+// Run runs the plugin.
 func Run(plugin *node.Plugin) {
 	log = logger.NewLogger("Analysis-Client")
 	daemon.BackgroundWorker("Analysis Client", func(shutdownSignal <-chan struct{}) {

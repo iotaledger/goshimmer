@@ -5,6 +5,7 @@ import (
 )
 
 const (
+	// CfgServerPort defines the config flag of the analysis server TCP port.
 	CfgServerPort = "analysis.server.port"
 )
 
