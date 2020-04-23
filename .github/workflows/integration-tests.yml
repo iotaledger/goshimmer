@@ -22,7 +22,7 @@ jobs:
       - name: Create logs from tester
         if: always()
         run: |
-          docker logs tester > tools/integration-tests/logs/tester.log
+          docker logs tester &> tools/integration-tests/logs/tester.log
 
       - name: Save logs as artifacts
         if: always()

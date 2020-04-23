@@ -25,7 +25,7 @@ func createLogFile(name string, logs io.ReadCloser) {
 	// remove non-ascii chars at beginning of line
 	scanner := bufio.NewScanner(logs)
 	for scanner.Scan() {
-		bytes := append(scanner.Bytes()[8:], '\n')
+		bytes := append(scanner.Bytes()[dockerLogsPrefixLen:], '\n')
 		f.Write(bytes)
 	}
 

@@ -125,8 +125,7 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) {
 	fmt.Printf("Waiting for autopeering...\n")
 	defer fmt.Printf("Waiting for autopeering... done\n")
 
-	maxTries := autopeeringMaxTries
-	for maxTries > 0 {
+	for i := autopeeringMaxTries; i > 0; i-- {
 
 		for _, p := range n.peers {
 			if resp, err := p.GetNeighbors(false); err != nil {
@@ -153,7 +152,6 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) {
 
 		fmt.Println("Not done yet. Try again in 5 seconds...")
 		time.Sleep(5 * time.Second)
-		maxTries--
 	}
 	panic("Peering not successful.")
 }
