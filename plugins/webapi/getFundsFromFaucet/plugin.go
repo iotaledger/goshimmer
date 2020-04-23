@@ -42,7 +42,7 @@ func requestFunds(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, Response{Error: "Fail to send faucetrequest"})
 	}
 
-	return c.JSON(http.StatusOK, Response{Id: msg.GetId().String()})
+	return c.JSON(http.StatusOK, Response{Id: msg.Id().String()})
 }
 
 type Response struct {

@@ -32,7 +32,7 @@ var _ = func() error {
 		b.SetResolver("index.html", packr.Pointer{ForwardBox: gk, ForwardPath: "2f53e054245e3cec681be9135541dbcb"})
 		b.SetResolver("js/main.js", packr.Pointer{ForwardBox: gk, ForwardPath: "f256e6f5a46e10e60db6a2444386dc4e"})
 		b.SetResolver("js/vivagraph-0.12.0.min.js", packr.Pointer{ForwardBox: gk, ForwardPath: "853579e9f8c28c5a0ea8a5ed642bbad0"})
-		}()
+	}()
 
 	return nil
 }()

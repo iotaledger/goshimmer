@@ -22,11 +22,11 @@ import (
 	*/)
 
 func IsFaucetReq(msg *message.Message) bool {
-	return msg.GetPayload().Type() == faucetpayload.Type
+	return msg.Payload().Type() == faucetpayload.Type
 }
 
 func SendFunds(msg *message.Message) error {
-	addr := msg.GetPayload().(*faucetpayload.Payload).Address()
+	addr := msg.Payload().(*faucetpayload.Payload).Address()
 	// Check address length
 	if len(addr) != address.Length {
 		return ErrInvalidAddr

@@ -28,4 +28,6 @@ func stringCaller(handler interface{}, params ...interface{}) {
 func stringStringCaller(handler interface{}, params ...interface{}) {
 	handler.(func(string, string))(params[0].(string), params[1].(string))
 }
-func errorCaller(handler interface{}, params ...interface{}) { handler.(func(error))(params[0].(error)) }
+func errorCaller(handler interface{}, params ...interface{}) {
+	handler.(func(error))(params[0].(error))
+}

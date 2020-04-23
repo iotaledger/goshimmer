@@ -39,7 +39,7 @@ func sendFaucetReq(address string) (res *ReqMsg, err error) {
 	}
 
 	r := &ReqMsg{
-		Id: msg.GetId().String(),
+		Id: msg.Id().String(),
 	}
 	return r, nil
 }
