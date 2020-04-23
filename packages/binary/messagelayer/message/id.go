@@ -7,8 +7,14 @@ import (
 	"github.com/mr-tron/base58"
 )
 
+// ContentId identifies the content of a message without its trunk/branch ids.
+type ContentId = Id
+
+// Id identifies a message in its entirety. Unlike the sole content id, it also incorporates
+// the trunk and branch ids.
 type Id [IdLength]byte
 
+// NewId creates a new message id.
 func NewId(base58EncodedString string) (result Id, err error) {
 	bytes, err := base58.Decode(base58EncodedString)
 	if err != nil {
@@ -16,7 +22,7 @@ func NewId(base58EncodedString string) (result Id, err error) {
 	}
 
 	if len(bytes) != IdLength {
-		err = fmt.Errorf("length of base58 formatted transaction id is wrong")
+		err = fmt.Errorf("length of base58 formatted message id is wrong")
 
 		return
 	}
@@ -26,11 +32,11 @@ func NewId(base58EncodedString string) (result Id, err error) {
 	return
 }
 
-// IdFromBytes unmarshals a transaction id from a sequence of bytes.
+// IdFromBytes unmarshals a message id from a sequence of bytes.
 func IdFromBytes(bytes []byte) (result Id, err error, consumedBytes int) {
 	// check arguments
 	if len(bytes) < IdLength {
-		err = fmt.Errorf("bytes not long enough to encode a valid transaction id")
+		err = fmt.Errorf("bytes not long enough to encode a valid message id")
 	}
 
 	// calculate result

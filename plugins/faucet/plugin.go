@@ -24,7 +24,7 @@ func configure(*node.Plugin) {
 }
 
 func configureEvents() {
-	messagelayer.Tangle.Events.TransactionSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *tangle.CachedMessageMetadata) {
+	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *tangle.CachedMessageMetadata) {
 		if msg := cachedTransaction.Unwrap(); msg != nil {
 			if faucet.IsFaucetReq(msg) {
 				faucet.SendFunds(msg)

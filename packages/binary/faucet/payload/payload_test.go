@@ -31,8 +31,8 @@ func ExampleFaucetPayload() {
 		// branch in "network tangle" ontology (filled by tipSelector)
 		message.EmptyId,
 
-		// issuer of the message (signs automatically)
-		keyPair.PublicKey,
+		// local identity
+		local,
 
 		// issuing time
 		time.Now(),
@@ -42,9 +42,6 @@ func ExampleFaucetPayload() {
 
 		// payload
 		faucetPayload,
-
-		// local identity
-		local,
 	)
 	fmt.Println(tx.String())
 }

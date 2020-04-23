@@ -13,7 +13,7 @@ import (
 type MessageMetadata struct {
 	objectstorage.StorableObjectFlags
 
-	transactionId      message.Id
+	messageId          message.Id
 	receivedTime       time.Time
 	solid              bool
 	solidificationTime time.Time
@@ -22,10 +22,10 @@ type MessageMetadata struct {
 	solidificationTimeMutex sync.RWMutex
 }
 
-func NewMessageMetadata(transactionId message.Id) *MessageMetadata {
+func NewMessageMetadata(messageId message.Id) *MessageMetadata {
 	return &MessageMetadata{
-		transactionId: transactionId,
-		receivedTime:  time.Now(),
+		messageId:    messageId,
+		receivedTime: time.Now(),
 	}
 }
 
@@ -63,7 +63,7 @@ func MessageMetadataFromStorageKey(key []byte) (result objectstorage.StorableObj
 	result = &MessageMetadata{}
 
 	marshalUtil := marshalutil.New(key)
-	result.(*MessageMetadata).transactionId, err = message.ParseId(marshalUtil)
+	result.(*MessageMetadata).messageId, err = message.ParseId(marshalUtil)
 	if err != nil {
 		return
 	}
@@ -115,7 +115,7 @@ func (messageMetadata *MessageMetadata) SoldificationTime() time.Time {
 }
 
 func (messageMetadata *MessageMetadata) ObjectStorageKey() []byte {
-	return messageMetadata.transactionId.Bytes()
+	return messageMetadata.messageId.Bytes()
 }
 
 func (messageMetadata *MessageMetadata) ObjectStorageValue() []byte {

@@ -46,5 +46,5 @@ func run(plugin *node.Plugin) {
 		if err := Server.Shutdown(ctx); err != nil {
 			log.Errorf("Couldn't stop server cleanly: %s", err.Error())
 		}
-	}, shutdown.ShutdownPriorityWebAPI)
+	}, shutdown.PriorityWebAPI)
 }

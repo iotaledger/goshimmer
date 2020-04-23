@@ -24,11 +24,11 @@ import (
 const graceTime = 10 * time.Millisecond
 
 var (
-	log        = logger.NewExampleLogger("gossip")
-	testTxData = []byte("testTx")
+	log             = logger.NewExampleLogger("gossip")
+	testMessageData = []byte("testMsg")
 )
 
-func getTestTransaction(message.Id) ([]byte, error) { return testTxData, nil }
+func loadTestMessage(message.Id) ([]byte, error) { return testMessageData, nil }
 
 func TestClose(t *testing.T) {
 	_, detach := newEventMock(t)
@@ -112,12 +112,12 @@ func TestP2PSend(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	e.On("transactionReceived", &TransactionReceivedEvent{
-		Data: testTxData,
+	e.On("messageReceived", &MessageReceivedEvent{
+		Data: testMessageData,
 		Peer: peerA,
 	}).Once()
 
-	mgrA.SendTransaction(testTxData)
+	mgrA.SendMessage(testMessageData)
 	time.Sleep(graceTime)
 
 	e.On("neighborRemoved", peerA).Once()
@@ -160,14 +160,14 @@ func TestP2PSendTwice(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	e.On("transactionReceived", &TransactionReceivedEvent{
-		Data: testTxData,
+	e.On("messageReceived", &MessageReceivedEvent{
+		Data: testMessageData,
 		Peer: peerA,
 	}).Twice()
 
-	mgrA.SendTransaction(testTxData)
+	mgrA.SendMessage(testMessageData)
 	time.Sleep(1 * time.Second) // wait a bit between the sends, to test timeouts
-	mgrA.SendTransaction(testTxData)
+	mgrA.SendMessage(testMessageData)
 	time.Sleep(graceTime)
 
 	e.On("neighborRemoved", peerA).Once()
@@ -221,12 +221,12 @@ func TestBroadcast(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	e.On("transactionReceived", &TransactionReceivedEvent{
-		Data: testTxData,
+	e.On("messageReceived", &MessageReceivedEvent{
+		Data: testMessageData,
 		Peer: peerA,
 	}).Twice()
 
-	mgrA.SendTransaction(testTxData)
+	mgrA.SendMessage(testMessageData)
 	time.Sleep(graceTime)
 
 	e.On("neighborRemoved", peerA).Twice()
@@ -282,13 +282,13 @@ func TestSingleSend(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	e.On("transactionReceived", &TransactionReceivedEvent{
-		Data: testTxData,
+	e.On("messageReceived", &MessageReceivedEvent{
+		Data: testMessageData,
 		Peer: peerA,
 	}).Once()
 
-	// A sends the transaction only to B
-	mgrA.SendTransaction(testTxData, peerB.ID())
+	// A sends the message only to B
+	mgrA.SendMessage(testMessageData, peerB.ID())
 	time.Sleep(graceTime)
 
 	e.On("neighborRemoved", peerA).Twice()
@@ -320,7 +320,7 @@ func TestDropUnsuccessfulAccept(t *testing.T) {
 	e.AssertExpectations(t)
 }
 
-func TestTxRequest(t *testing.T) {
+func TestMessageRequest(t *testing.T) {
 	e, detach := newEventMock(t)
 	defer detach()
 
@@ -350,16 +350,16 @@ func TestTxRequest(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	txHash := []byte("Hello!")
+	messageId := message.Id{}
 
-	e.On("transactionReceived", &TransactionReceivedEvent{
-		Data: testTxData,
+	e.On("messageReceived", &MessageReceivedEvent{
+		Data: testMessageData,
 		Peer: peerB,
 	}).Once()
 
-	b, err := proto.Marshal(&pb.TransactionRequest{Hash: txHash})
+	b, err := proto.Marshal(&pb.MessageRequest{Id: messageId[:]})
 	require.NoError(t, err)
-	mgrA.RequestTransaction(b)
+	mgrA.RequestMessage(b)
 	time.Sleep(graceTime)
 
 	e.On("neighborRemoved", peerA).Once()
@@ -370,6 +370,46 @@ func TestTxRequest(t *testing.T) {
 	time.Sleep(graceTime)
 
 	e.AssertExpectations(t)
+}
+
+func TestDropNeighbor(t *testing.T) {
+	mgrA, closeA, peerA := newTestManager(t, "A")
+	defer closeA()
+	mgrB, closeB, peerB := newTestManager(t, "B")
+	defer closeB()
+
+	connect := func() {
+		var wg sync.WaitGroup
+		closure := events.NewClosure(func(_ *Neighbor) { wg.Done() })
+		wg.Add(2)
+		Events.NeighborAdded.Attach(closure)
+		defer Events.NeighborAdded.Detach(closure)
+
+		go func() { assert.NoError(t, mgrA.AddInbound(peerB)) }()
+		go func() { assert.NoError(t, mgrB.AddOutbound(peerA)) }()
+		wg.Wait() // wait until the events were triggered
+	}
+	disc := func() {
+		var wg sync.WaitGroup
+		closure := events.NewClosure(func(_ *peer.Peer) { wg.Done() })
+		wg.Add(2)
+		Events.NeighborRemoved.Attach(closure)
+		defer Events.NeighborRemoved.Detach(closure)
+
+		go func() { _ = mgrA.DropNeighbor(peerB.ID()) }()
+		go func() { _ = mgrB.DropNeighbor(peerA.ID()) }()
+		wg.Wait() // wait until the events were triggered
+	}
+
+	// drop and connect many many times
+	for i := 0; i < 100; i++ {
+		connect()
+		assert.NotEmpty(t, mgrA.AllNeighbors())
+		assert.NotEmpty(t, mgrB.AllNeighbors())
+		disc()
+		assert.Empty(t, mgrA.AllNeighbors())
+		assert.Empty(t, mgrB.AllNeighbors())
+	}
 }
 
 func newTestDB(t require.TestingT) *peer.DB {
@@ -396,7 +436,7 @@ func newTestManager(t require.TestingT, name string) (*Manager, func(), *peer.Pe
 	srv := server.ServeTCP(local, lis, l)
 
 	// start the actual gossipping
-	mgr := NewManager(local, getTestTransaction, l)
+	mgr := NewManager(local, loadTestMessage, l)
 	mgr.Start(srv)
 
 	detach := func() {
@@ -414,18 +454,18 @@ func newEventMock(t mock.TestingT) (*eventMock, func()) {
 	connectionFailedC := events.NewClosure(e.connectionFailed)
 	neighborAddedC := events.NewClosure(e.neighborAdded)
 	neighborRemoved := events.NewClosure(e.neighborRemoved)
-	transactionReceivedC := events.NewClosure(e.transactionReceived)
+	messageReceivedC := events.NewClosure(e.messageReceived)
 
 	Events.ConnectionFailed.Attach(connectionFailedC)
 	Events.NeighborAdded.Attach(neighborAddedC)
 	Events.NeighborRemoved.Attach(neighborRemoved)
-	Events.TransactionReceived.Attach(transactionReceivedC)
+	Events.MessageReceived.Attach(messageReceivedC)
 
 	return e, func() {
 		Events.ConnectionFailed.Detach(connectionFailedC)
 		Events.NeighborAdded.Detach(neighborAddedC)
 		Events.NeighborRemoved.Detach(neighborRemoved)
-		Events.TransactionReceived.Detach(transactionReceivedC)
+		Events.MessageReceived.Detach(messageReceivedC)
 	}
 }
 
@@ -433,7 +473,7 @@ type eventMock struct {
 	mock.Mock
 }
 
-func (e *eventMock) connectionFailed(p *peer.Peer, err error)         { e.Called(p, err) }
-func (e *eventMock) neighborAdded(n *Neighbor)                        { e.Called(n) }
-func (e *eventMock) neighborRemoved(p *peer.Peer)                     { e.Called(p) }
-func (e *eventMock) transactionReceived(ev *TransactionReceivedEvent) { e.Called(ev) }
+func (e *eventMock) connectionFailed(p *peer.Peer, err error) { e.Called(p, err) }
+func (e *eventMock) neighborAdded(n *Neighbor)                { e.Called(n) }
+func (e *eventMock) neighborRemoved(p *peer.Peer)             { e.Called(p) }
+func (e *eventMock) messageReceived(ev *MessageReceivedEvent) { e.Called(ev) }

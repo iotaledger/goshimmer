@@ -5,8 +5,7 @@ import "github.com/iotaledger/goshimmer/plugins/config"
 var (
 	nodes        []string
 	target       = ""
-	txnAddr      = "GOSHIMMER99TEST999999999999999999999999999999999999999999999999999999999999999999"
-	txnData      = "TEST99BROADCAST99DATA"
+	msgData      = "TEST99BROADCAST99DATA"
 	cooldownTime = 2
 	repeat       = 1
 )
@@ -23,11 +22,8 @@ func InitConfig() {
 	nodes = append(nodes, config.Node.GetStringSlice(CFG_TEST_NODES)...)
 
 	// optional settings
-	if config.Node.GetString(CFG_TX_ADDRESS) != "" {
-		txnAddr = config.Node.GetString(CFG_TX_ADDRESS)
-	}
 	if config.Node.GetString(CFG_DATA) != "" {
-		txnData = config.Node.GetString(CFG_DATA)
+		msgData = config.Node.GetString(CFG_DATA)
 	}
 	if config.Node.GetInt(CFG_COOLDOWN_TIME) > 0 {
 		cooldownTime = config.Node.GetInt(CFG_COOLDOWN_TIME)

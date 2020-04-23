@@ -4,7 +4,6 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/transaction"
 )
 
 const (
@@ -43,7 +42,7 @@ func osAttachmentFactory(key []byte) (objectstorage.StorableObject, error, int) 
 }
 
 func osOutputFactory(key []byte) (objectstorage.StorableObject, error, int) {
-	return transaction.OutputFromStorageKey(key)
+	return OutputFromStorageKey(key)
 }
 
 func osMissingOutputFactory(key []byte) (objectstorage.StorableObject, error, int) {
