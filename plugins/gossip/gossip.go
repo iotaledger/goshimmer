@@ -35,7 +35,7 @@ func configureGossip() {
 	if err := lPeer.UpdateService(service.GossipKey, "tcp", gossipPort); err != nil {
 		log.Fatalf("could not update services: %s", err)
 	}
-	mgr = gp.NewManager(lPeer, getTransaction, log)
+	mgr = gp.NewManager(lPeer, loadMessage, log)
 }
 
 func start(shutdownSignal <-chan struct{}) {
@@ -47,10 +47,10 @@ func start(shutdownSignal <-chan struct{}) {
 	gossipEndpoint := lPeer.Services().Get(service.GossipKey)
 
 	// resolve the bind address
-	address := net.JoinHostPort(config.Node.GetString(local.CFG_BIND), strconv.Itoa(gossipEndpoint.Port()))
+	address := net.JoinHostPort(config.Node.GetString(local.CfgBind), strconv.Itoa(gossipEndpoint.Port()))
 	localAddr, err := net.ResolveTCPAddr(gossipEndpoint.Network(), address)
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
+		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
 	}
 
 	listener, err := net.ListenTCP(gossipEndpoint.Network(), localAddr)
@@ -71,15 +71,14 @@ func start(shutdownSignal <-chan struct{}) {
 	log.Info("Stopping " + name + " ...")
 }
 
-func getTransaction(messageId message.Id) (bytes []byte, err error) {
-	log.Debugw("get tx from db", "id", messageId.String())
-
+// loads the given message from the message layer or an error if not found.
+func loadMessage(messageId message.Id) (bytes []byte, err error) {
+	log.Debugw("load message from db", "id", messageId.String())
 	if !messagelayer.Tangle.Message(messageId).Consume(func(message *message.Message) {
 		bytes = message.Bytes()
 	}) {
-		err = fmt.Errorf("transaction not found: hash=%s", messageId)
+		err = fmt.Errorf("message not found: hash=%s", messageId)
 	}
-
 	return
 }
 
@@ -87,5 +86,5 @@ func GetAllNeighbors() []*gp.Neighbor {
 	if mgr == nil {
 		return nil
 	}
-	return mgr.GetAllNeighbors()
+	return mgr.AllNeighbors()
 }

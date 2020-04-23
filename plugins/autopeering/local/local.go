@@ -7,12 +7,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
-
-	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 var (
@@ -24,22 +23,22 @@ func configureLocal() *peer.Local {
 	log := logger.NewLogger("Local")
 
 	var peeringIP net.IP
-	if str := config.Node.GetString(CFG_EXTERNAL); strings.ToLower(str) == "auto" {
+	if str := config.Node.GetString(CfgExternal); strings.ToLower(str) == "auto" {
 		// let the autopeering discover the IP
 		peeringIP = net.IPv4zero
 	} else {
 		peeringIP = net.ParseIP(str)
 		if peeringIP == nil {
-			log.Fatalf("Invalid IP address (%s): %s", CFG_EXTERNAL, str)
+			log.Fatalf("Invalid IP address (%s): %s", CfgExternal, str)
 		}
 		if !peeringIP.IsGlobalUnicast() {
 			log.Warnf("IP is not a global unicast address: %s", peeringIP.String())
 		}
 	}
 
-	peeringPort := config.Node.GetInt(CFG_PORT)
+	peeringPort := config.Node.GetInt(CfgPort)
 	if 0 > peeringPort || peeringPort > 65535 {
-		log.Fatalf("Invalid port number (%s): %d", CFG_PORT, peeringPort)
+		log.Fatalf("Invalid port number (%s): %d", CfgPort, peeringPort)
 	}
 
 	// announce the peering service
@@ -48,13 +47,13 @@ func configureLocal() *peer.Local {
 
 	// set the private key from the seed provided in the config
 	var seed [][]byte
-	if str := config.Node.GetString(CFG_SEED); str != "" {
+	if str := config.Node.GetString(CfgSeed); str != "" {
 		bytes, err := base64.StdEncoding.DecodeString(str)
 		if err != nil {
-			log.Fatalf("Invalid %s: %s", CFG_SEED, err)
+			log.Fatalf("Invalid %s: %s", CfgSeed, err)
 		}
 		if l := len(bytes); l != ed25519.SeedSize {
-			log.Fatalf("Invalid %s length: %d, need %d", CFG_SEED, l, ed25519.SeedSize)
+			log.Fatalf("Invalid %s length: %d, need %d", CfgSeed, l, ed25519.SeedSize)
 		}
 		seed = append(seed, bytes)
 	}
@@ -80,6 +79,7 @@ func configureLocal() *peer.Local {
 	return local
 }
 
+// GetInstance returns the instance of the local peer.
 func GetInstance() *peer.Local {
 	once.Do(func() { instance = configureLocal() })
 	return instance

@@ -9,7 +9,7 @@ var (
 type Packet struct{}
 
 func Unmarshal(data []byte) (*Packet, error) {
-	if len(data) < MARSHALED_TOTAL_SIZE || data[MARSHALED_PACKET_HEADER_START] != MARSHALED_PACKET_HEADER {
+	if len(data) < MarshaledTotalSize || data[MarshaledPacketHeaderStart] != MarshaledPacketHeader {
 		return nil, ErrMalformedPingPacket
 	}
 
@@ -19,9 +19,9 @@ func Unmarshal(data []byte) (*Packet, error) {
 }
 
 func (packet *Packet) Marshal() []byte {
-	marshaledPackage := make([]byte, MARSHALED_TOTAL_SIZE)
+	marshaledPackage := make([]byte, MarshaledTotalSize)
 
-	marshaledPackage[MARSHALED_PACKET_HEADER_START] = MARSHALED_PACKET_HEADER
+	marshaledPackage[MarshaledPacketHeaderStart] = MarshaledPacketHeader
 
 	return marshaledPackage
 }

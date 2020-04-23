@@ -29,9 +29,8 @@ func broadcastData(c echo.Context) error {
 	}
 
 	//TODO: to check max payload size allowed, if exceeding return an error
-	tx := messagelayer.MessageFactory.IssuePayload(payload.NewData(request.Data))
-
-	return c.JSON(http.StatusOK, Response{Id: tx.Id().String()})
+	msg := messagelayer.MessageFactory.IssuePayload(payload.NewData(request.Data))
+	return c.JSON(http.StatusOK, Response{Id: msg.Id().String()})
 }
 
 type Response struct {

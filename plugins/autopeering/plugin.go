@@ -16,7 +16,8 @@ import (
 
 const name = "Autopeering" // name of the plugin
 
-var PLUGIN = node.NewPlugin(name, node.Enabled, configure, run)
+// Plugin defines the autopeering plugin.
+var Plugin = node.NewPlugin(name, node.Enabled, configure, run)
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(name)
@@ -26,7 +27,7 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker(name, start, shutdown.ShutdownPriorityAutopeering); err != nil {
+	if err := daemon.BackgroundWorker(name, start, shutdown.PriorityAutopeering); err != nil {
 		log.Errorf("Failed to start as daemon: %s", err)
 	}
 }

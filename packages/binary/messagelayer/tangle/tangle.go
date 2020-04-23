@@ -15,10 +15,15 @@ import (
 )
 
 const (
-	MAX_MISSING_TIME_BEFORE_CLEANUP = 30 * time.Second
-	MISSING_CHECK_INTERVAL          = 5 * time.Second
+	// MaxMissingTimeBeforeCleanup is  the max. amount of time a message can be marked as missing
+	// before it is ultimately un-marked as missing.
+	MaxMissingTimeBeforeCleanup = 30 * time.Second
+	// MissingCheckInterval is the interval on which it is checked whether a missing
+	// message is still missing.
+	MissingCheckInterval = 5 * time.Second
 )
 
+// Tangle represents the base layer of messages.
 type Tangle struct {
 	messageStorage         *objectstorage.ObjectStorage
 	messageMetadataStorage *objectstorage.ObjectStorage
@@ -44,7 +49,7 @@ func missingMessageFactory(key []byte) (objectstorage.StorableObject, error, int
 	return MissingMessageFromStorageKey(key)
 }
 
-// Constructor for the tangle.
+// New creates a new Tangle.
 func New(badgerInstance *badger.DB) (result *Tangle) {
 	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.MessageLayer)
 
@@ -58,56 +63,54 @@ func New(badgerInstance *badger.DB) (result *Tangle) {
 	}
 
 	result.solidifierWorkerPool.Tune(1024)
-
 	return
 }
 
-// Attaches a new transaction to the tangle.
-func (tangle *Tangle) AttachMessage(transaction *message.Message) {
-	tangle.storeMessageWorkerPool.Submit(func() { tangle.storeMessageWorker(transaction) })
+// AttachMessage attaches a new message to the tangle.
+func (tangle *Tangle) AttachMessage(msg *message.Message) {
+	tangle.storeMessageWorkerPool.Submit(func() { tangle.storeMessageWorker(msg) })
 }
 
-// Retrieves a transaction from the tangle.
-func (tangle *Tangle) Message(transactionId message.Id) *message.CachedMessage {
-	return &message.CachedMessage{CachedObject: tangle.messageStorage.Load(transactionId[:])}
+// Message retrieves a message from the tangle.
+func (tangle *Tangle) Message(messageId message.Id) *message.CachedMessage {
+	return &message.CachedMessage{CachedObject: tangle.messageStorage.Load(messageId[:])}
 }
 
-// Retrieves the metadata of a transaction from the tangle.
-func (tangle *Tangle) MessageMetadata(transactionId message.Id) *CachedMessageMetadata {
-	return &CachedMessageMetadata{CachedObject: tangle.messageMetadataStorage.Load(transactionId[:])}
+// MessageMetadata retrieves the metadata of a message from the tangle.
+func (tangle *Tangle) MessageMetadata(messageId message.Id) *CachedMessageMetadata {
+	return &CachedMessageMetadata{CachedObject: tangle.messageMetadataStorage.Load(messageId[:])}
 }
 
-// Approvers retrieves the approvers of a transaction from the tangle.
-func (tangle *Tangle) Approvers(transactionId message.Id) CachedApprovers {
+// Approvers retrieves the approvers of a message from the tangle.
+func (tangle *Tangle) Approvers(messageId message.Id) CachedApprovers {
 	approvers := make(CachedApprovers, 0)
 	tangle.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		approvers = append(approvers, &CachedApprover{CachedObject: cachedObject})
-
 		return true
-	}, transactionId[:])
-
+	}, messageId[:])
 	return approvers
 }
 
-// Deletes a transaction from the tangle (i.e. for local snapshots)
+// DeleteMessage deletes a message and its association to approvees by un-marking the given
+// message as an approver.
 func (tangle *Tangle) DeleteMessage(messageId message.Id) {
-	tangle.Message(messageId).Consume(func(currentTransaction *message.Message) {
-		trunkTransactionId := currentTransaction.TrunkId()
-		tangle.deleteApprover(trunkTransactionId, messageId)
+	tangle.Message(messageId).Consume(func(currentMsg *message.Message) {
+		trunkMsgId := currentMsg.TrunkId()
+		tangle.deleteApprover(trunkMsgId, messageId)
 
-		branchTransactionId := currentTransaction.BranchId()
-		if branchTransactionId != trunkTransactionId {
-			tangle.deleteApprover(branchTransactionId, messageId)
+		branchMsgId := currentMsg.BranchId()
+		if branchMsgId != trunkMsgId {
+			tangle.deleteApprover(branchMsgId, messageId)
 		}
 
 		tangle.messageMetadataStorage.Delete(messageId[:])
 		tangle.messageStorage.Delete(messageId[:])
 
-		tangle.Events.TransactionRemoved.Trigger(messageId)
+		tangle.Events.MessageRemoved.Trigger(messageId)
 	})
 }
 
-// Marks the tangle as stopped, so it will not accept any new transactions (waits for all backgroundTasks to finish.
+// Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (tangle *Tangle) Shutdown() *Tangle {
 	tangle.storeMessageWorkerPool.ShutdownGracefully()
 	tangle.solidifierWorkerPool.ShutdownGracefully()
@@ -121,7 +124,7 @@ func (tangle *Tangle) Shutdown() *Tangle {
 	return tangle
 }
 
-// Resets the database and deletes all objects (good for testing or "node resets").
+// Prune resets the database and deletes all objects (good for testing or "node resets").
 func (tangle *Tangle) Prune() error {
 	for _, storage := range []*objectstorage.ObjectStorage{
 		tangle.messageStorage,
@@ -137,189 +140,185 @@ func (tangle *Tangle) Prune() error {
 	return nil
 }
 
-// Worker that stores the transactions and calls the corresponding storage events"
-func (tangle *Tangle) storeMessageWorker(tx *message.Message) {
-	// store transaction
-	var cachedTransaction *message.CachedMessage
-	if _tmp, transactionIsNew := tangle.messageStorage.StoreIfAbsent(tx); !transactionIsNew {
+// worker that stores the message and calls the corresponding storage events.
+func (tangle *Tangle) storeMessageWorker(msg *message.Message) {
+	// store message
+	var cachedMessage *message.CachedMessage
+	_tmp, msgIsNew := tangle.messageStorage.StoreIfAbsent(msg)
+	if !msgIsNew {
 		return
-	} else {
-		cachedTransaction = &message.CachedMessage{CachedObject: _tmp}
 	}
+	cachedMessage = &message.CachedMessage{CachedObject: _tmp}
 
-	// store transaction metadata
-	transactionId := tx.Id()
-	cachedTransactionMetadata := &CachedMessageMetadata{CachedObject: tangle.messageMetadataStorage.Store(NewMessageMetadata(transactionId))}
+	// store message metadata
+	messageId := msg.Id()
+	cachedMsgMetadata := &CachedMessageMetadata{CachedObject: tangle.messageMetadataStorage.Store(NewMessageMetadata(messageId))}
 
 	// store trunk approver
-	trunkTransactionID := tx.TrunkId()
-	tangle.approverStorage.Store(NewApprover(trunkTransactionID, transactionId)).Release()
+	trunkMsgId := msg.TrunkId()
+	tangle.approverStorage.Store(NewApprover(trunkMsgId, messageId)).Release()
 
 	// store branch approver
-	if branchTransactionID := tx.BranchId(); branchTransactionID != trunkTransactionID {
-		tangle.approverStorage.Store(NewApprover(branchTransactionID, transactionId)).Release()
+	if branchMsgId := msg.BranchId(); branchMsgId != trunkMsgId {
+		tangle.approverStorage.Store(NewApprover(branchMsgId, messageId)).Release()
 	}
 
 	// trigger events
-	if tangle.missingMessageStorage.DeleteIfPresent(transactionId[:]) {
-		tangle.Events.MissingTransactionReceived.Trigger(cachedTransaction, cachedTransactionMetadata)
+	if tangle.missingMessageStorage.DeleteIfPresent(messageId[:]) {
+		tangle.Events.MissingMessageReceived.Trigger(cachedMessage, cachedMsgMetadata)
 	}
-	tangle.Events.TransactionAttached.Trigger(cachedTransaction, cachedTransactionMetadata)
+	tangle.Events.MessageAttached.Trigger(cachedMessage, cachedMsgMetadata)
 
-	// check solidity
+	// check message solidity
 	tangle.solidifierWorkerPool.Submit(func() {
-		tangle.solidifyMessageWorker(cachedTransaction, cachedTransactionMetadata)
+		tangle.checkMessageSolidityAndPropagate(cachedMessage, cachedMsgMetadata)
 	})
 }
 
-// Worker that solidifies the transactions (recursively from past to present).
-func (tangle *Tangle) solidifyMessageWorker(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *CachedMessageMetadata) {
-	isTransactionMarkedAsSolid := func(transactionId message.Id) bool {
-		if transactionId == message.EmptyId {
-			return true
-		}
-
-		transactionMetadataCached := tangle.MessageMetadata(transactionId)
-		if transactionMetadata := transactionMetadataCached.Unwrap(); transactionMetadata == nil {
-			transactionMetadataCached.Release()
-
-			// if transaction is missing and was not reported as missing, yet
-			if cachedMissingTransaction, missingTransactionStored := tangle.missingMessageStorage.StoreIfAbsent(NewMissingMessage(transactionId)); missingTransactionStored {
-				cachedMissingTransaction.Consume(func(object objectstorage.StorableObject) {
-					tangle.monitorMissingMessageWorker(object.(*MissingMessage).GetTransactionId())
-				})
-			}
-
-			return false
-		} else if !transactionMetadata.IsSolid() {
-			transactionMetadataCached.Release()
-
-			return false
-		}
-		transactionMetadataCached.Release()
-
+// checks whether the given message is solid and marks it as missing if it isn't known.
+func (tangle *Tangle) isMessageMarkedAsSolid(messageId message.Id) bool {
+	if messageId == message.EmptyId {
 		return true
 	}
 
-	isTransactionSolid := func(transaction *message.Message, transactionMetadata *MessageMetadata) bool {
-		if transaction == nil || transaction.IsDeleted() {
-			return false
-		}
+	msgMetadataCached := tangle.MessageMetadata(messageId)
+	defer msgMetadataCached.Release()
+	msgMetadata := msgMetadataCached.Unwrap()
 
-		if transactionMetadata == nil || transactionMetadata.IsDeleted() {
-			return false
+	// mark message as missing
+	if msgMetadata == nil {
+		missingMessage := NewMissingMessage(messageId)
+		if cachedMissingMessage, stored := tangle.missingMessageStorage.StoreIfAbsent(missingMessage); stored {
+			cachedMissingMessage.Consume(func(object objectstorage.StorableObject) {
+				// TODO: perhaps make it a separate worker for better efficiency
+				go tangle.monitorMissingMessage(object.(*MissingMessage).MessageId())
+			})
 		}
-
-		if transactionMetadata.IsSolid() {
-			return true
-		}
-
-		return isTransactionMarkedAsSolid(transaction.TrunkId()) && isTransactionMarkedAsSolid(transaction.BranchId())
+		return false
 	}
+
+	return msgMetadata.IsSolid()
+}
+
+// checks whether the given message is solid by examining whether its trunk and
+// branch messages are solid.
+func (tangle *Tangle) isMessageSolid(msg *message.Message, msgMetadata *MessageMetadata) bool {
+	if msg == nil || msg.IsDeleted() {
+		return false
+	}
+
+	if msgMetadata == nil || msgMetadata.IsDeleted() {
+		return false
+	}
+
+	if msgMetadata.IsSolid() {
+		return true
+	}
+
+	return tangle.isMessageMarkedAsSolid(msg.TrunkId()) && tangle.isMessageMarkedAsSolid(msg.BranchId())
+}
+
+// builds up a stack from the given message and tries to solidify into the present.
+// missing messages which are needed for a message to become solid are marked as missing.
+func (tangle *Tangle) checkMessageSolidityAndPropagate(cachedMessage *message.CachedMessage, cachedMsgMetadata *CachedMessageMetadata) {
 
 	popElementsFromStack := func(stack *list.List) (*message.CachedMessage, *CachedMessageMetadata) {
 		currentSolidificationEntry := stack.Front()
-		currentCachedTransaction := currentSolidificationEntry.Value.([2]interface{})[0]
-		currentCachedTransactionMetadata := currentSolidificationEntry.Value.([2]interface{})[1]
+		currentCachedMsg := currentSolidificationEntry.Value.([2]interface{})[0]
+		currentCachedMsgMetadata := currentSolidificationEntry.Value.([2]interface{})[1]
 		stack.Remove(currentSolidificationEntry)
-
-		return currentCachedTransaction.(*message.CachedMessage), currentCachedTransactionMetadata.(*CachedMessageMetadata)
+		return currentCachedMsg.(*message.CachedMessage), currentCachedMsgMetadata.(*CachedMessageMetadata)
 	}
 
 	// initialize the stack
 	solidificationStack := list.New()
-	solidificationStack.PushBack([2]interface{}{cachedTransaction, cachedTransactionMetadata})
+	solidificationStack.PushBack([2]interface{}{cachedMessage, cachedMsgMetadata})
 
-	// process transactions that are supposed to be checked for solidity recursively
+	// processed messages that are supposed to be checked for solidity recursively
 	for solidificationStack.Len() > 0 {
-		currentCachedTransaction, currentCachedTransactionMetadata := popElementsFromStack(solidificationStack)
+		currentCachedMessage, currentCachedMsgMetadata := popElementsFromStack(solidificationStack)
 
-		currentTransaction := currentCachedTransaction.Unwrap()
-		currentTransactionMetadata := currentCachedTransactionMetadata.Unwrap()
-		if currentTransaction == nil || currentTransactionMetadata == nil {
-			currentCachedTransaction.Release()
-			currentCachedTransactionMetadata.Release()
-
+		currentMessage := currentCachedMessage.Unwrap()
+		currentMsgMetadata := currentCachedMsgMetadata.Unwrap()
+		if currentMessage == nil || currentMsgMetadata == nil {
+			currentCachedMessage.Release()
+			currentCachedMsgMetadata.Release()
 			continue
 		}
 
-		// if current transaction is solid and was not marked as solid before: mark as solid and propagate
-		if isTransactionSolid(currentTransaction, currentTransactionMetadata) && currentTransactionMetadata.SetSolid(true) {
-			tangle.Events.TransactionSolid.Trigger(currentCachedTransaction, currentCachedTransactionMetadata)
+		// mark the message as solid if it has become solid
+		if tangle.isMessageSolid(currentMessage, currentMsgMetadata) && currentMsgMetadata.SetSolid(true) {
+			tangle.Events.MessageSolid.Trigger(currentCachedMessage, currentCachedMsgMetadata)
 
-			tangle.Approvers(currentTransaction.Id()).Consume(func(approver *Approver) {
-				approverTransactionId := approver.ReferencedMessageId()
-
+			// auto. push approvers of the newly solid message to propagate solidification
+			tangle.Approvers(currentMessage.Id()).Consume(func(approver *Approver) {
+				approverMessageId := approver.ApproverMessageId()
 				solidificationStack.PushBack([2]interface{}{
-					tangle.Message(approverTransactionId),
-					tangle.MessageMetadata(approverTransactionId),
+					tangle.Message(approverMessageId),
+					tangle.MessageMetadata(approverMessageId),
 				})
 			})
 		}
 
-		// release cached results
-		currentCachedTransaction.Release()
-		currentCachedTransactionMetadata.Release()
+		currentCachedMessage.Release()
+		currentCachedMsgMetadata.Release()
 	}
 }
 
-// Worker that Monitors the missing transactions (by scheduling regular checks).
-func (tangle *Tangle) monitorMissingMessageWorker(transactionId message.Id) {
-	var scheduleNextMissingCheck func(transactionId message.Id)
-	scheduleNextMissingCheck = func(transactionId message.Id) {
-		time.AfterFunc(MISSING_CHECK_INTERVAL, func() {
-			tangle.missingMessageStorage.Load(transactionId[:]).Consume(func(object objectstorage.StorableObject) {
-				missingTransaction := object.(*MissingMessage)
+// periodically checks whether the given message is missing and un-marks it as missing
+// if it didn't become known after MaxMissingTimeBeforeCleanup. note that the message is not deleted
+// from the missing message storage within this function but up on arrival.
+func (tangle *Tangle) monitorMissingMessage(messageId message.Id) {
+	tangle.Events.MessageMissing.Trigger(messageId)
+	reCheckInterval := time.NewTicker(MissingCheckInterval)
+	defer reCheckInterval.Stop()
+	for range reCheckInterval.C {
+		tangle.missingMessageStorage.Load(messageId[:]).Consume(func(object objectstorage.StorableObject) {
+			missingMessage := object.(*MissingMessage)
 
-				if time.Since(missingTransaction.GetMissingSince()) >= MAX_MISSING_TIME_BEFORE_CLEANUP {
-					tangle.cleanupWorkerPool.Submit(func() {
-						tangle.Events.TransactionUnsolidifiable.Trigger(transactionId)
+			// check whether message is missing since over our max time delta
+			if time.Since(missingMessage.MissingSince()) >= MaxMissingTimeBeforeCleanup {
+				tangle.cleanupWorkerPool.Submit(func() {
+					tangle.Events.MessageUnsolidifiable.Trigger(messageId)
+					// delete the future cone of the missing message
+					tangle.deleteFutureCone(missingMessage.MessageId())
+				})
+				return
+			}
 
-						tangle.deleteSubtangle(missingTransaction.GetTransactionId())
-					})
-				} else {
-					// TRIGGER STILL MISSING EVENT?
-
-					scheduleNextMissingCheck(transactionId)
-				}
-			})
+			// TODO: should a StillMissing event be triggered?
 		})
 	}
-
-	tangle.Events.TransactionMissing.Trigger(transactionId)
-
-	scheduleNextMissingCheck(transactionId)
 }
 
-func (tangle *Tangle) deleteApprover(approvedTransaction message.Id, approvingTransaction message.Id) {
+// deletes the given approver association for the given approvee to its approver.
+func (tangle *Tangle) deleteApprover(approvedMessageId message.Id, approvingMessage message.Id) {
 	idToDelete := make([]byte, message.IdLength+message.IdLength)
-	copy(idToDelete[:message.IdLength], approvedTransaction[:])
-	copy(idToDelete[message.IdLength:], approvingTransaction[:])
+	copy(idToDelete[:message.IdLength], approvedMessageId[:])
+	copy(idToDelete[message.IdLength:], approvingMessage[:])
 	tangle.approverStorage.Delete(idToDelete)
 }
 
-// Deletes a transaction and all of its approvers (recursively).
-func (tangle *Tangle) deleteSubtangle(transactionId message.Id) {
+// deletes a message and its future cone of messages/approvers.
+func (tangle *Tangle) deleteFutureCone(messageId message.Id) {
 	cleanupStack := list.New()
-	cleanupStack.PushBack(transactionId)
+	cleanupStack.PushBack(messageId)
 
-	processedTransactions := make(map[message.Id]types.Empty)
-	processedTransactions[transactionId] = types.Void
+	processedMessages := make(map[message.Id]types.Empty)
+	processedMessages[messageId] = types.Void
 
 	for cleanupStack.Len() >= 1 {
 		currentStackEntry := cleanupStack.Front()
-		currentTransactionId := currentStackEntry.Value.(message.Id)
+		currentMessageId := currentStackEntry.Value.(message.Id)
 		cleanupStack.Remove(currentStackEntry)
 
-		tangle.DeleteMessage(currentTransactionId)
+		tangle.DeleteMessage(currentMessageId)
 
-		tangle.Approvers(currentTransactionId).Consume(func(approver *Approver) {
-			approverId := approver.ReferencedMessageId()
-
-			if _, transactionProcessed := processedTransactions[approverId]; !transactionProcessed {
+		tangle.Approvers(currentMessageId).Consume(func(approver *Approver) {
+			approverId := approver.ApproverMessageId()
+			if _, messageProcessed := processedMessages[approverId]; !messageProcessed {
 				cleanupStack.PushBack(approverId)
-
-				processedTransactions[approverId] = types.Void
+				processedMessages[approverId] = types.Void
 			}
 		})
 	}

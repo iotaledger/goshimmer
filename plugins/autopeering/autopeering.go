@@ -9,6 +9,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
@@ -18,11 +22,6 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 )
 
 // autopeering constants
@@ -58,7 +57,7 @@ func hash32(b []byte) uint32 {
 // GetBindAddress returns the string form of the autopeering bind address.
 func GetBindAddress() string {
 	peering := local.GetInstance().Services().Get(service.PeeringKey)
-	host := config.Node.GetString(local.CFG_BIND)
+	host := config.Node.GetString(local.CfgBind)
 	port := strconv.Itoa(peering.Port())
 	return net.JoinHostPort(host, port)
 }
@@ -107,7 +106,7 @@ func start(shutdownSignal <-chan struct{}) {
 	// resolve the bind address
 	localAddr, err := net.ResolveUDPAddr(peering.Network(), GetBindAddress())
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
+		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
 	}
 
 	conn, err := net.ListenUDP(peering.Network(), localAddr)
@@ -146,7 +145,7 @@ func start(shutdownSignal <-chan struct{}) {
 }
 
 func parseEntryNodes() (result []*peer.Peer, err error) {
-	for _, entryNodeDefinition := range config.Node.GetStringSlice(CFG_ENTRY_NODES) {
+	for _, entryNodeDefinition := range config.Node.GetStringSlice(CfgEntryNodes) {
 		if entryNodeDefinition == "" {
 			continue
 		}

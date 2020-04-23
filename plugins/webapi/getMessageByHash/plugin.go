@@ -49,14 +49,14 @@ func getMessageByHash(c echo.Context) error {
 
 		msg := msgObject.Unwrap()
 		msgResp := Message{
-			MessageId:           msg.Id().String(),
-			TrunkTransactionId:  msg.TrunkId().String(),
-			BranchTransactionId: msg.BranchId().String(),
-			IssuerPublicKey:     msg.IssuerPublicKey().String(),
-			IssuingTime:         msg.IssuingTime().String(),
-			SequenceNumber:      msg.SequenceNumber(),
-			Payload:             msg.Payload().String(),
-			Signature:           msg.Signature().String(),
+			MessageId:       msg.Id().String(),
+			TrunkMessageId:  msg.TrunkId().String(),
+			BranchMessageId: msg.BranchId().String(),
+			IssuerPublicKey: msg.IssuerPublicKey().String(),
+			IssuingTime:     msg.IssuingTime().String(),
+			SequenceNumber:  msg.SequenceNumber(),
+			Payload:         msg.Payload().String(),
+			Signature:       msg.Signature().String(),
 		}
 		result = append(result, msgResp)
 		msgObject.Release()
@@ -75,12 +75,12 @@ type Request struct {
 }
 
 type Message struct {
-	MessageId           string `json:"messageId,omitempty"`
-	TrunkTransactionId  string `json:"trunkTransactionId,omitempty"`
-	BranchTransactionId string `json:"branchTransactionId,omitempty"`
-	IssuerPublicKey     string `json:"issuerPublicKey,omitempty"`
-	IssuingTime         string `json:"issuingTime,omitempty"`
-	SequenceNumber      uint64 `json:"sequenceNumber,omitempty"`
-	Payload             string `json:"payload,omitempty"`
-	Signature           string `json:"signature,omitempty"`
+	MessageId       string `json:"messageId,omitempty"`
+	TrunkMessageId  string `json:"trunkMessageId,omitempty"`
+	BranchMessageId string `json:"branchMessageId,omitempty"`
+	IssuerPublicKey string `json:"issuerPublicKey,omitempty"`
+	IssuingTime     string `json:"issuingTime,omitempty"`
+	SequenceNumber  uint64 `json:"sequenceNumber,omitempty"`
+	Payload         string `json:"payload,omitempty"`
+	Signature       string `json:"signature,omitempty"`
 }

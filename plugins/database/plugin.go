@@ -34,12 +34,12 @@ func run(plugin *node.Plugin) {
 		timeutil.Ticker(func() {
 			database.CleanupBadgerInstance(log)
 		}, 5*time.Minute, shutdownSignal)
-	}, shutdown.ShutdownPriorityBadgerGarbageCollection)
+	}, shutdown.PriorityBadgerGarbageCollection)
 
 	daemon.BackgroundWorker(PLUGIN_NAME, func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		log.Infof("Syncing database to disk...")
 		database.GetBadgerInstance().Close()
 		log.Infof("Syncing database to disk... done")
-	}, shutdown.ShutdownPriorityDatabase)
+	}, shutdown.PriorityDatabase)
 }
