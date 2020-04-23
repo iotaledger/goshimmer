@@ -16,7 +16,8 @@ import (
 
 const name = "Autopeering" // name of the plugin
 
-var PLUGIN = node.NewPlugin(name, node.Enabled, configure, run)
+// Plugin defines the autopeering plugin.
+var Plugin = node.NewPlugin(name, node.Enabled, configure, run)
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(name)
