@@ -34,6 +34,12 @@ func Random() (address Address) {
 	return
 }
 
+func RandomOfType(versionByte byte) Address {
+	ret := Random()
+	ret[0] = versionByte
+	return ret
+}
+
 // FromBase58 creates an address from a base58 encoded string.
 func FromBase58(base58String string) (address Address, err error) {
 	// decode string
