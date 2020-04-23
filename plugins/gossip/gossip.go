@@ -5,16 +5,15 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/netutil"
-
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	gp "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/netutil"
 )
 
 var (
