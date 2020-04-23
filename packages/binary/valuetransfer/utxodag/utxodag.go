@@ -602,17 +602,17 @@ func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.C
 							return err
 						}
 
-						newCachedTargetBranch, err := utxoDAG.branchManager.InheritBranches(consumedBranches.ToList()...)
-						if err != nil {
-							return err
+						newCachedTargetBranch, inheritErr := utxoDAG.branchManager.InheritBranches(consumedBranches.ToList()...)
+						if inheritErr != nil {
+							return inheritErr
 						}
 						defer newCachedTargetBranch.Release()
 
-						targetBranch := newCachedTargetBranch.Unwrap()
-						targetBranch.Persist()
-						if targetBranch == nil {
+						newTargetBranch := newCachedTargetBranch.Unwrap()
+						if newTargetBranch == nil {
 							return errors.New("failed to inherit branches")
 						}
+						newTargetBranch.Persist()
 
 						newTransactionStack := list.New()
 						newTransactionStack.PushBack([2]interface{}{currentCachedTransaction.Retain(), currentCachedTransactionMetadata.Retain()})
