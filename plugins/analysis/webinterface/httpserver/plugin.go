@@ -6,14 +6,13 @@ import (
 	"time"
 
 	"github.com/gobuffalo/packr/v2"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/labstack/echo"
 	"golang.org/x/net/context"
 	"golang.org/x/net/websocket"
-
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 var (
