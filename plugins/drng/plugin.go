@@ -64,8 +64,5 @@ func configureEvents() {
 
 // Enabled returns the enabled status of the plugin
 func Enabled() bool {
-	if Plugin.Status == node.Disabled {
-		return false
-	}
-	return true
+	return Plugin.Status != node.Disabled
 }
