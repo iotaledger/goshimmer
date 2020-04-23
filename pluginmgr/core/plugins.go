@@ -26,7 +26,7 @@ var PLUGINS = node.Plugins(
 	portcheck.PLUGIN,
 	profiling.Plugin,
 	database.PLUGIN,
-	autopeering.PLUGIN,
+	autopeering.Plugin,
 	messagelayer.PLUGIN,
 	gossip.PLUGIN,
 	gracefulshutdown.PLUGIN,

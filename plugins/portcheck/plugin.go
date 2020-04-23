@@ -39,7 +39,7 @@ func checkAutopeeringConnection() {
 	// resolve the bind address
 	localAddr, err := net.ResolveUDPAddr(peering.Network(), autopeering.GetBindAddress())
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
+		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
 	}
 	// open a connection
 	conn, err := net.ListenUDP(peering.Network(), localAddr)
