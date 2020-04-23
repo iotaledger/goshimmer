@@ -11,9 +11,14 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )
 
-var PLUGIN = node.NewPlugin("CLI", node.Enabled)
+// PluginName is the name of the CLI plugin.
+const PluginName = "CLI"
 
-var version = flag.BoolP("version", "v", false, "Prints the GoShimmer version")
+var (
+	// Plugin is the plugin instance of the CLI plugin.
+	Plugin  = node.NewPlugin(PluginName, node.Enabled)
+	version = flag.BoolP("version", "v", false, "Prints the GoShimmer version")
+)
 
 func init() {
 	for name, status := range node.GetPlugins() {
@@ -24,7 +29,7 @@ func init() {
 
 	flag.Usage = printUsage
 
-	PLUGIN.Events.Init.Attach(events.NewClosure(onInit))
+	Plugin.Events.Init.Attach(events.NewClosure(onInit))
 }
 
 func onAddPlugin(name string, status int) {

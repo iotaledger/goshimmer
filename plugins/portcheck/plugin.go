@@ -13,17 +13,17 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-const (
-	PLUGIN_NAME = "PortCheck"
-)
+// PluginName is the name of the port check plugin.
+const PluginName = "PortCheck"
 
 var (
-	PLUGIN = node.NewPlugin(PLUGIN_NAME, node.Enabled, configure, run)
+	// Plugin is the plugin instance of the port check plugin.
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	log    *logger.Logger
 )
 
 func configure(*node.Plugin) {
-	log = logger.NewLogger(PLUGIN_NAME)
+	log = logger.NewLogger(PluginName)
 }
 
 func run(*node.Plugin) {

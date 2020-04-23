@@ -13,7 +13,11 @@ import (
 
 var messageSpammer *spammer.Spammer
 
-var PLUGIN = node.NewPlugin("Spammer", node.Disabled, configure, run)
+// PluginName is the name of the spammer plugin.
+const PluginName = "Spammer"
+
+// Plugin is the plugin instance of the spammer plugin.
+var Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
 
 func configure(plugin *node.Plugin) {
 	messageSpammer = spammer.New(messagelayer.MessageFactory)

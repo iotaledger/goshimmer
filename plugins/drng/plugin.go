@@ -18,17 +18,18 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-const name = "DRNG" // name of the plugin
-
-var PLUGIN = node.NewPlugin(name, node.Enabled, configure, run)
+// PluginName is the name of the DRNG plugin.
+const PluginName = "DRNG"
 
 var (
+	// Plugin is the plugin instance of the DRNG plugin.
+	Plugin   = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	Instance *drng.DRNG
 	log      *logger.Logger
 )
 
 func configure(*node.Plugin) {
-	log = logger.NewLogger(name)
+	log = logger.NewLogger(PluginName)
 
 	// parse identities of the committee members
 	committeeMembers, err := parseCommitteeMembers()

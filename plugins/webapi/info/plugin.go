@@ -10,10 +10,13 @@ import (
 	"github.com/labstack/echo"
 )
 
-// Plugin exports the plugin
-var Plugin = node.NewPlugin("WebAPI info Endpoint", node.Enabled, configure)
+// PluginName is the name of the web API info endpoint plugin.
+const PluginName = "WebAPI info Endpoint"
 
-func configure(plugin *node.Plugin) {
+// Plugin is the plugin instance of the web API info endpoint plugin.
+var Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+
+func configure(_ *node.Plugin) {
 	webapi.Server.GET("info", getInfo)
 }
 
