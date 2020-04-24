@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -9,7 +10,6 @@ import (
 	"github.com/gobuffalo/packr/v2"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/labstack/echo"
-	"github.com/pkg/errors"
 )
 
 // ErrInvalidParameter defines the invalid parameter error.
@@ -79,7 +79,7 @@ func setupRoutes(e *echo.Echo) {
 		var statusCode int
 		var message string
 
-		switch errors.Cause(err) {
+		switch errors.Unwrap(err) {
 
 		case echo.ErrNotFound:
 			c.Redirect(http.StatusSeeOther, "/")

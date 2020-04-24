@@ -1,13 +1,13 @@
 package dashboard
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/labstack/echo"
-	"github.com/pkg/errors"
 )
 
 // ExplorerMessage defines the struct of the ExplorerMessage.
@@ -80,7 +80,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		result := &SearchResult{}
 
 		if len(search) < 81 {
-			return errors.Wrapf(ErrInvalidParameter, "search id invalid: %s", search)
+			return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
 		}
 
 		wg := sync.WaitGroup{}
@@ -116,14 +116,14 @@ func findMessage(messageID message.Id) (explorerMsg *ExplorerMessage, err error)
 	if !messagelayer.Tangle.Message(messageID).Consume(func(msg *message.Message) {
 		explorerMsg, err = createExplorerMessage(msg)
 	}) {
-		err = errors.Wrapf(ErrNotFound, "message: %s", messageID.String())
+		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.String())
 	}
 
 	return
 }
 
 func findAddress(address string) (*ExplorerAddress, error) {
-	return nil, errors.Wrapf(ErrNotFound, "address %s not found", address)
+	return nil, fmt.Errorf("%w: address %s", ErrNotFound, address)
 
 	// TODO: ADD ADDRESS LOOKUPS ONCE THE VALUE TRANSFER ONTOLOGY IS MERGED
 }
