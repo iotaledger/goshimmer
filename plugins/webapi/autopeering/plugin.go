@@ -14,7 +14,11 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI autopeering Endpoint", node.Enabled, configure)
+// PluginName is the name of the web API autopeering endpoint plugin.
+const PluginName = "WebAPI autopeering Endpoint"
+
+// Plugin is the plugin instance of the web API autopeering endpoint plugin.
+var Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 
 func configure(plugin *node.Plugin) {
 	webapi.Server.GET("autopeering/neighbors", getNeighbors)

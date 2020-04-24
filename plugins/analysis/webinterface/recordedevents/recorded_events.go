@@ -23,6 +23,7 @@ var links = make(map[string]map[string]time.Time)
 
 var lock sync.Mutex
 
+// Configure configures the plugin.
 func Configure(plugin *node.Plugin) {
 	server.Events.Heartbeat.Attach(events.NewClosure(func(packet heartbeat.Packet) {
 		var out strings.Builder
@@ -42,15 +43,15 @@ func Configure(plugin *node.Plugin) {
 		lock.Lock()
 		defer lock.Unlock()
 
-		nodeIdString := hex.EncodeToString(packet.OwnID)
+		nodeIDString := hex.EncodeToString(packet.OwnID)
 		timestamp := time.Now()
 
 		// When node is new, add to graph
-		if _, isAlready := nodes[nodeIdString]; !isAlready {
-			server.Events.AddNode.Trigger(nodeIdString)
+		if _, isAlready := nodes[nodeIDString]; !isAlready {
+			server.Events.AddNode.Trigger(nodeIDString)
 		}
 		// Save it + update timestamp
-		nodes[nodeIdString] = timestamp
+		nodes[nodeIDString] = timestamp
 
 		// Outgoing neighbor links update
 		for _, outgoingNeighbor := range packet.OutboundIDs {
@@ -65,17 +66,17 @@ func Configure(plugin *node.Plugin) {
 			nodes[outgoingNeighborString] = timestamp
 
 			// Do we have any links already with src=nodeIdString?
-			if _, isAlready := links[nodeIdString]; !isAlready {
+			if _, isAlready := links[nodeIDString]; !isAlready {
 				// Nope, so we have to allocate an empty map to be nested in links for nodeIdString
-				links[nodeIdString] = make(map[string]time.Time)
+				links[nodeIDString] = make(map[string]time.Time)
 			}
 
 			// Update graph when connection hasn't been seen before
-			if _, isAlready := links[nodeIdString][outgoingNeighborString]; !isAlready {
-				server.Events.ConnectNodes.Trigger(nodeIdString, outgoingNeighborString)
+			if _, isAlready := links[nodeIDString][outgoingNeighborString]; !isAlready {
+				server.Events.ConnectNodes.Trigger(nodeIDString, outgoingNeighborString)
 			}
 			// Update links
-			links[nodeIdString][outgoingNeighborString] = timestamp
+			links[nodeIDString][outgoingNeighborString] = timestamp
 		}
 
 		// Incoming neighbor links update
@@ -97,15 +98,16 @@ func Configure(plugin *node.Plugin) {
 			}
 
 			// Update graph when connection hasn't been seen before
-			if _, isAlready := links[incomingNeighborString][nodeIdString]; !isAlready {
-				server.Events.ConnectNodes.Trigger(incomingNeighborString, nodeIdString)
+			if _, isAlready := links[incomingNeighborString][nodeIDString]; !isAlready {
+				server.Events.ConnectNodes.Trigger(incomingNeighborString, nodeIDString)
 			}
 			// Update links map
-			links[incomingNeighborString][nodeIdString] = timestamp
+			links[incomingNeighborString][nodeIDString] = timestamp
 		}
 	}))
 }
 
+// Run runs the plugin.
 func Run() {
 	daemon.BackgroundWorker("Analysis Server Record Manager", func(shutdownSignal <-chan struct{}) {
 		ticker := time.NewTicker(CleanUpPeriod)
@@ -171,6 +173,7 @@ func getEventsToReplay() (map[string]time.Time, map[string]map[string]time.Time)
 	return copiedNodes, copiedLinks
 }
 
+// Replay runs the handlers on the events to replay.
 func Replay(handlers *types.EventHandlers) {
 	copiedNodes, copiedLinks := getEventsToReplay()
 

@@ -12,30 +12,16 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
 
-      - name: Build GoShimmer Docker network
-        run: docker-compose -f tools/integration-tests/docker-compose.yml up -d --scale peer_replica=5 --build
-
-      - name: Dispay containers
-        run: docker ps -a
+      - name: Build GoShimmer image
+        run: docker build -t iotaledger/goshimmer .
 
       - name: Run integration tests
         run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
 
-      - name: Stop GoShimmer Docker network
-        if: always()
-        run: docker-compose -f tools/integration-tests/docker-compose.yml stop
-
-      - name: Create logs from containers in network
+      - name: Create logs from tester
         if: always()
         run: |
-          docker logs entry_node > tools/integration-tests/logs/entry_node.log
-          docker logs peer_master > tools/integration-tests/logs/peer_master.log
-          docker logs integration-tests_peer_replica_1 > tools/integration-tests/logs/peer_replica_1.log
-          docker logs integration-tests_peer_replica_2 > tools/integration-tests/logs/peer_replica_2.log
-          docker logs integration-tests_peer_replica_3 > tools/integration-tests/logs/peer_replica_3.log
-          docker logs integration-tests_peer_replica_4 > tools/integration-tests/logs/peer_replica_4.log
-          docker logs integration-tests_peer_replica_5 > tools/integration-tests/logs/peer_replica_5.log
-          docker logs tester > tools/integration-tests/logs/tester.log
+          docker logs tester &> tools/integration-tests/logs/tester.log
 
       - name: Save logs as artifacts
         if: always()
@@ -46,4 +32,4 @@ jobs:
 
       - name: Clean up
         if: always()
-        run: docker-compose -f tools/integration-tests/docker-compose.yml down
+        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml down

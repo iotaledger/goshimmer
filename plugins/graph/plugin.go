@@ -26,8 +26,12 @@ import (
 	"github.com/iotaledger/hive.go/workerpool"
 )
 
+// PluginName is the name of the graph plugin.
+const PluginName = "Graph"
+
 var (
-	PLUGIN = node.NewPlugin("Graph", node.Disabled, configure, run)
+	// Plugin is the plugin instance of the graph plugin.
+	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
 
 	log *logger.Logger
 
@@ -67,7 +71,7 @@ func configureSocketIOServer() error {
 }
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("Graph")
+	log = logger.NewLogger(PluginName)
 	initRingBuffers()
 
 	router = http.NewServeMux()
@@ -81,7 +85,7 @@ func configure(plugin *node.Plugin) {
 	fs := http.FileServer(http.Dir(config.Node.GetString(CFG_WEBROOT)))
 
 	if err := configureSocketIOServer(); err != nil {
-		log.Panicf("Graph: %v", err.Error())
+		log.Panicf("%v", err.Error())
 	}
 
 	router.Handle("/", fs)

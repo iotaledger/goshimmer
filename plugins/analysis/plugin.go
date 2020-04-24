@@ -1,20 +1,25 @@
 package analysis
 
 import (
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
-
 	"github.com/iotaledger/goshimmer/plugins/analysis/client"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface"
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 )
 
-var PLUGIN = node.NewPlugin("Analysis", node.Enabled, configure, run)
-var log *logger.Logger
+// PluginName is the name of the analysis plugin.
+const PluginName = "Analysis"
+
+var (
+	// Plugin is the plugin instance of the analysis plugin.
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	log    *logger.Logger
+)
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("Analysis")
+	log = logger.NewLogger(PluginName)
 	if config.Node.GetInt(server.CfgServerPort) != 0 {
 		webinterface.Configure(plugin)
 		server.Configure(plugin)

@@ -12,9 +12,16 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ErrInvalidParameter defines the invalid parameter error.
 var ErrInvalidParameter = errors.New("invalid parameter")
+
+// ErrInternalError defines the internal error.
 var ErrInternalError = errors.New("internal error")
+
+// ErrNotFound defines the not found error.
 var ErrNotFound = errors.New("not found")
+
+// ErrForbidden defines the forbidden error.
 var ErrForbidden = errors.New("forbidden")
 
 // holds SPA assets
@@ -22,7 +29,7 @@ var appBox = packr.New("Dashboard_App", "./frontend/build")
 var assetsBox = packr.New("Dashboard_Assets", "./frontend/src/assets")
 
 func indexRoute(e echo.Context) error {
-	if config.Node.GetBool(CFG_DEV) {
+	if config.Node.GetBool(CfgDev) {
 		res, err := http.Get("http://127.0.0.1:9090/")
 		if err != nil {
 			return err

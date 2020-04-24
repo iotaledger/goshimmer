@@ -1,33 +1,34 @@
 package gossip
 
 import (
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
+	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
-	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-const name = "Gossip" // name of the plugin
+// PluginName is the name of the gossip plugin.
+const PluginName = "Gossip"
 
-var PLUGIN = node.NewPlugin(name, node.Enabled, configure, run)
+// Plugin is the plugin instance of the gossip plugin.
+var Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 func configure(*node.Plugin) {
-	log = logger.NewLogger(name)
+	log = logger.NewLogger(PluginName)
 
 	configureGossip()
 	configureEvents()
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker(name, start, shutdown.PriorityGossip); err != nil {
+	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
 		log.Errorf("Failed to start as daemon: %s", err)
 	}
 }

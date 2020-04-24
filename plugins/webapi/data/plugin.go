@@ -11,11 +11,17 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI data Endpoint", node.Enabled, configure)
-var log *logger.Logger
+// PluginName is the name of the web API data endpoint plugin.
+const PluginName = "WebAPI data Endpoint"
+
+var (
+	// Plugin is the plugin instance of the web API data endpoint plugin.
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	log    *logger.Logger
+)
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("API-data")
+	log = logger.NewLogger(PluginName)
 	webapi.Server.POST("data", broadcastData)
 }
 

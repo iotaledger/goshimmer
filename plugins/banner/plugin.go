@@ -6,7 +6,11 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-var PLUGIN = node.NewPlugin("Banner", node.Enabled, configure, run)
+// PluginName is the name of the banner plugin.
+const PluginName = "Banner"
+
+// Plugin is the plugin instance of the banner plugin.
+var Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 const (
 	// AppVersion version number

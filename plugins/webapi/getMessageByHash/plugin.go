@@ -13,8 +13,14 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI getMessageByHash Endpoint", node.Enabled, configure)
-var log *logger.Logger
+// PluginName is the name of the web API getMessageByHash endpoint plugin.
+const PluginName = "WebAPI getMessageByHash Endpoint"
+
+var (
+	// Plugin is the plugin instance of the web API getMessageByHash endpoint plugin.
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	log    *logger.Logger
+)
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger("API-getMessageByHash")
