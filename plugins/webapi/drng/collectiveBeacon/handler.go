@@ -19,7 +19,6 @@ func Handler(c echo.Context) error {
 	}
 
 	//TODO: to check max payload size allowed, if exceeding return an error
-
 	marshalUtil := marshalutil.New(request.Payload)
 	parsedPayload, err := payload.Parse(marshalUtil)
 	if err != nil {
