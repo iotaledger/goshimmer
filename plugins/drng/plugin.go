@@ -26,15 +26,14 @@ var (
 	log      *logger.Logger
 )
 
-func configure(*node.Plugin) {
-	log = logger.NewLogger(PluginName)
-	instance = Instance()
+func configure(_ *node.Plugin) {
 	configureEvents()
 }
 
 func run(*node.Plugin) {}
 
 func configureEvents() {
+	instance := Instance()
 	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
 		cachedMessageMetadata.Release()
 
@@ -60,9 +59,4 @@ func configureEvents() {
 			log.Info(instance.State.Randomness())
 		})
 	}))
-}
-
-// Enabled returns the enabled status of the plugin
-func Enabled() bool {
-	return Plugin.Status != node.Disabled
 }

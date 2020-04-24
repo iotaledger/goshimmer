@@ -32,26 +32,25 @@ func configureDrngLiveFeed() {
 }
 
 func runDrngLiveFeed() {
-	newMsgRateLimiter := time.NewTicker(time.Second / 10)
-	notifyNewRandomness := events.NewClosure(func(message state.Randomness) {
-		select {
-		case <-newMsgRateLimiter.C:
-			drngLiveFeedWorkerPool.TrySubmit(message)
-		default:
-		}
-	})
-
 	daemon.BackgroundWorker("Dashboard[DRNGUpdater]", func(shutdownSignal <-chan struct{}) {
-		if !drng.Enabled() {
-			return
-		}
+		newMsgRateLimiter := time.NewTicker(time.Second / 10)
+		defer newMsgRateLimiter.Stop()
+
+		notifyNewRandomness := events.NewClosure(func(message state.Randomness) {
+			select {
+			case <-newMsgRateLimiter.C:
+				drngLiveFeedWorkerPool.TrySubmit(message)
+			default:
+			}
+		})
 		drng.Instance().Events.Randomness.Attach(notifyNewRandomness)
+
 		drngLiveFeedWorkerPool.Start()
+		defer drngLiveFeedWorkerPool.Stop()
+
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[DRNGUpdater] ...")
 		drng.Instance().Events.Randomness.Detach(notifyNewRandomness)
-		newMsgRateLimiter.Stop()
-		drngLiveFeedWorkerPool.Stop()
 		log.Info("Stopping Dashboard[DRNGUpdater] ... done")
 	}, shutdown.PriorityDashboard)
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
@@ -77,7 +78,11 @@ func run(plugin *node.Plugin) {
 	}, shutdown.PriorityDashboard)
 
 	runLiveFeed()
-	runDrngLiveFeed()
+
+	// run dRNG live feed if dRNG plugin is enabled
+	if !node.IsSkipped(drng.Plugin) {
+		runDrngLiveFeed()
+	}
 
 	// allow any origin for websocket connections
 	upgrader.CheckOrigin = func(r *http.Request) bool {

@@ -10,6 +10,7 @@ import (
 	cbPayload "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/mr-tron/base58/base58"
 )
 
@@ -19,6 +20,7 @@ var (
 )
 
 func configureDRNG() *drng.DRNG {
+	log = logger.NewLogger(PluginName)
 	// parse identities of the committee members
 	committeeMembers, err := parseCommitteeMembers()
 	if err != nil {
