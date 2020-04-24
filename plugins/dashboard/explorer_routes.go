@@ -1,55 +1,65 @@
 package dashboard
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-
 	"github.com/labstack/echo"
-	"github.com/pkg/errors"
 )
 
+// ExplorerMessage defines the struct of the ExplorerMessage.
 type ExplorerMessage struct {
-	Id              string `json:"id"`
-	Timestamp       uint   `json:"timestamp"`
-	TrunkMessageId  string `json:"trunk_message_id"`
-	BranchMessageId string `json:"branch_message_id"`
-	Solid           bool   `json:"solid"`
+	// ID is the message ID.
+	ID string `json:"id"`
+	// Timestamp is the timestamp of the message.
+	Timestamp uint `json:"timestamp"`
+	// TrunkMessageId is the Trunk ID of the message.
+	TrunkMessageID string `json:"trunk_message_id"`
+	// BranchMessageId is the Branch ID of the message.
+	BranchMessageID string `json:"branch_message_id"`
+	// Solid defines the solid status of the message.
+	Solid bool `json:"solid"`
 }
 
 func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
-	messageId := msg.Id()
-	messageMetadata := messagelayer.Tangle.MessageMetadata(messageId)
+	messageID := msg.Id()
+	messageMetadata := messagelayer.Tangle.MessageMetadata(messageID)
 	t := &ExplorerMessage{
-		Id:              messageId.String(),
+		ID:              messageID.String(),
 		Timestamp:       0,
-		TrunkMessageId:  msg.TrunkId().String(),
-		BranchMessageId: msg.BranchId().String(),
+		TrunkMessageID:  msg.TrunkId().String(),
+		BranchMessageID: msg.BranchId().String(),
 		Solid:           messageMetadata.Unwrap().IsSolid(),
 	}
 
 	return t, nil
 }
 
+// ExplorerAddress defines the struct of the ExplorerAddress.
 type ExplorerAddress struct {
+	// Messagess hold the list of *ExplorerMessage.
 	Messages []*ExplorerMessage `json:"message"`
 }
 
+// SearchResult defines the struct of the SearchResult.
 type SearchResult struct {
+	// Message is the *ExplorerMessage.
 	Message *ExplorerMessage `json:"message"`
+	// Address is the *ExplorerAddress.
 	Address *ExplorerAddress `json:"address"`
 }
 
 func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/message/:id", func(c echo.Context) (err error) {
-		messageId, err := message.NewId(c.Param("id"))
+		messageID, err := message.NewId(c.Param("id"))
 		if err != nil {
 			return
 		}
 
-		t, err := findMessage(messageId)
+		t, err := findMessage(messageID)
 		if err != nil {
 			return
 		}
@@ -70,7 +80,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		result := &SearchResult{}
 
 		if len(search) < 81 {
-			return errors.Wrapf(ErrInvalidParameter, "search id invalid: %s", search)
+			return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
 		}
 
 		wg := sync.WaitGroup{}
@@ -78,12 +88,12 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		go func() {
 			defer wg.Done()
 
-			messageId, err := message.NewId(search)
+			messageID, err := message.NewId(search)
 			if err != nil {
 				return
 			}
 
-			msg, err := findMessage(messageId)
+			msg, err := findMessage(messageID)
 			if err == nil {
 				result.Message = msg
 			}
@@ -102,18 +112,18 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func findMessage(messageId message.Id) (explorerMsg *ExplorerMessage, err error) {
-	if !messagelayer.Tangle.Message(messageId).Consume(func(msg *message.Message) {
+func findMessage(messageID message.Id) (explorerMsg *ExplorerMessage, err error) {
+	if !messagelayer.Tangle.Message(messageID).Consume(func(msg *message.Message) {
 		explorerMsg, err = createExplorerMessage(msg)
 	}) {
-		err = errors.Wrapf(ErrNotFound, "message: %s", messageId.String())
+		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.String())
 	}
 
 	return
 }
 
 func findAddress(address string) (*ExplorerAddress, error) {
-	return nil, errors.Wrapf(ErrNotFound, "address %s not found", address)
+	return nil, fmt.Errorf("%w: address %s", ErrNotFound, address)
 
 	// TODO: ADD ADDRESS LOOKUPS ONCE THE VALUE TRANSFER ONTOLOGY IS MERGED
 }

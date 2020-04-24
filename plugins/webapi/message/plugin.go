@@ -6,10 +6,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/labstack/echo"
-
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/labstack/echo"
 )
 
 // PluginName is the name of the web API message endpoint plugin.
@@ -51,19 +50,31 @@ func findMessageById(c echo.Context) error {
 		if !msgObject.Exists() {
 			continue
 		}
+		msgMetadataObject := messagelayer.Tangle.MessageMetadata(msgId)
+		if !msgMetadataObject.Exists() {
+			continue
+		}
 
 		msg := msgObject.Unwrap()
+		msgMetadata := msgMetadataObject.Unwrap()
+
 		msgResp := Message{
+			Metadata: Metadata{
+				Solid:              msgMetadata.IsSolid(),
+				SolidificationTime: msgMetadata.SoldificationTime().Unix(),
+			},
 			Id:              msg.Id().String(),
 			TrunkId:         msg.TrunkId().String(),
 			BranchId:        msg.BranchId().String(),
 			IssuerPublicKey: msg.IssuerPublicKey().String(),
-			IssuingTime:     msg.IssuingTime().String(),
+			IssuingTime:     msg.IssuingTime().Unix(),
 			SequenceNumber:  msg.SequenceNumber(),
 			Payload:         msg.Payload().Bytes(),
 			Signature:       msg.Signature().String(),
 		}
 		result = append(result, msgResp)
+
+		msgMetadataObject.Release()
 		msgObject.Release()
 	}
 
@@ -83,12 +94,19 @@ type Request struct {
 
 // Message contains information about a given message.
 type Message struct {
+	Metadata        `json:"metadata,omitempty"`
 	Id              string `json:"Id,omitempty"`
 	TrunkId         string `json:"trunkId,omitempty"`
 	BranchId        string `json:"branchId,omitempty"`
 	IssuerPublicKey string `json:"issuerPublicKey,omitempty"`
-	IssuingTime     string `json:"issuingTime,omitempty"`
+	IssuingTime     int64  `json:"issuingTime,omitempty"`
 	SequenceNumber  uint64 `json:"sequenceNumber,omitempty"`
 	Payload         []byte `json:"payload,omitempty"`
 	Signature       string `json:"signature,omitempty"`
+}
+
+// Metadata contains metadata information of a message.
+type Metadata struct {
+	Solid              bool  `json:"solid,omitempty"`
+	SolidificationTime int64 `json:"solidificationTime,omitempty"`
 }

@@ -9,24 +9,23 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/labstack/echo"
-	"github.com/labstack/echo/middleware"
-
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
-
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
+	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 )
 
 // PluginName is the name of the dashboard plugin.
@@ -40,8 +39,8 @@ var (
 	nodeStartAt = time.Now()
 
 	clientsMu    sync.Mutex
-	clients             = make(map[uint64]chan interface{})
-	nextClientID uint64 = 0
+	clients      = make(map[uint64]chan interface{})
+	nextClientID uint64
 
 	wsSendWorkerCount     = 1
 	wsSendWorkerQueueSize = 250
@@ -79,7 +78,11 @@ func run(plugin *node.Plugin) {
 	}, shutdown.PriorityDashboard)
 
 	runLiveFeed()
-	runDrngLiveFeed()
+
+	// run dRNG live feed if dRNG plugin is enabled
+	if !node.IsSkipped(drng.Plugin) {
+		runDrngLiveFeed()
+	}
 
 	// allow any origin for websocket connections
 	upgrader.CheckOrigin = func(r *http.Request) bool {
@@ -90,10 +93,10 @@ func run(plugin *node.Plugin) {
 	e.HideBanner = true
 	e.Use(middleware.Recover())
 
-	if config.Node.GetBool(CFG_BASIC_AUTH_ENABLED) {
+	if config.Node.GetBool(CfgBasicAuthEnabled) {
 		e.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-			if username == config.Node.GetString(CFG_BASIC_AUTH_USERNAME) &&
-				password == config.Node.GetString(CFG_BASIC_AUTH_PASSWORD) {
+			if username == config.Node.GetString(CfgBasicAuthUsername) &&
+				password == config.Node.GetString(CfgBasicAuthPassword) {
 				return true, nil
 			}
 			return false, nil
@@ -101,7 +104,7 @@ func run(plugin *node.Plugin) {
 	}
 
 	setupRoutes(e)
-	addr := config.Node.GetString(CFG_BIND_ADDRESS)
+	addr := config.Node.GetString(CfgBindAddress)
 
 	log.Infof("You can now access the dashboard using: http://%s", addr)
 	go e.Start(addr)
@@ -130,11 +133,17 @@ var (
 )
 
 const (
+	// MsgTypeNodeStatus is the type of the NodeStatus message.
 	MsgTypeNodeStatus byte = iota
+	// MsgTypeMPSMetric is the type of the message per second (MPS) metric message.
 	MsgTypeMPSMetric
+	// MsgTypeMessage is the type of the message.
 	MsgTypeMessage
+	// MsgTypeNeighborMetric is the type of the NeighborMetric message.
 	MsgTypeNeighborMetric
+	// MsgTypeDrng is the type of the dRNG message.
 	MsgTypeDrng
+	// MsgTypeTipsMetric is the type of the TipsMetric message.
 	MsgTypeTipsMetric
 )
 
@@ -144,7 +153,7 @@ type wsmsg struct {
 }
 
 type msg struct {
-	Id    string `json:"id"`
+	ID    string `json:"id"`
 	Value int64  `json:"value"`
 }
 
@@ -189,7 +198,7 @@ func neighborMetrics() []neighbormetric {
 	stats := []neighbormetric{}
 
 	// gossip plugin might be disabled
-	neighbors := gossip.GetAllNeighbors()
+	neighbors := gossip.Neighbors()
 	if neighbors == nil {
 		return stats
 	}

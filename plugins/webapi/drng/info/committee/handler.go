@@ -10,7 +10,7 @@ import (
 
 // Handler returns the current DRNG committee used.
 func Handler(c echo.Context) error {
-	committee := drng.Instance.State.Committee()
+	committee := drng.Instance().State.Committee()
 	return c.JSON(http.StatusOK, Response{
 		InstanceID:    committee.InstanceID,
 		Threshold:     committee.Threshold,
