@@ -41,7 +41,7 @@ export class Visualizer extends React.Component<Props, any> {
         let {
             vertices, solid_count, selected,
             selected_approvers_count, selected_approvees_count,
-            verticesLimit, tips_count, paused,
+            verticesLimit, tips_count, paused
         } = this.props.visualizerStore;
         let {last_mps_metric} = this.props.nodeStore;
         return (
@@ -112,7 +112,6 @@ export class Visualizer extends React.Component<Props, any> {
                         </p>
                     </Col>
                 </Row>
-
                 <div className={"visualizer"} style={{
                     zIndex: -1, position: "absolute",
                     top: 0, left: 0,

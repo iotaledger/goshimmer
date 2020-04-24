@@ -18,7 +18,7 @@ export class TipInfo {
 
 export class VisualizerStore {
     @observable vertices = new ObservableMap<string, Vertex>();
-    @observable verticesLimit = 1000;
+    @observable verticesLimit = 1500;
     @observable solid_count = 0;
     @observable tips_count = 0;
     verticesIncomingOrder = [];
@@ -30,6 +30,7 @@ export class VisualizerStore {
     @observable selected_approvers_count = 0;
     @observable selected_approvees_count = 0;
     selected_via_click: boolean = false;
+    selected_origin_color: number = 0;
 
     // viva graph objs
     graph;
@@ -144,6 +145,7 @@ export class VisualizerStore {
     }
 
     drawVertex = (vert: Vertex) => {
+        this.graph.beginUpdate();
         let node = this.graph.addNode(vert.id, vert);
         if (vert.trunk_id && (!node.links || !node.links.some(link => link.fromId === vert.trunk_id))) {
             this.graph.addLink(vert.trunk_id, vert.id);
@@ -151,6 +153,7 @@ export class VisualizerStore {
         if (vert.branch_id && (!node.links || !node.links.some(link => link.fromId === vert.branch_id))) {
             this.graph.addLink(vert.branch_id, vert.id);
         }
+        this.graph.endUpdate();
     }
 
     start = () => {
@@ -162,7 +165,8 @@ export class VisualizerStore {
         const layout = Viva.Graph.Layout.forceDirected(this.graph, {
             springLength: 10,
             springCoeff: 0.0001,
-            gravity: -4,
+            stableThreshold: 0.15,
+            gravity: -2,
             dragCoeff: 0.02,
             timeStep: 22,
             theta: 0.8,
@@ -191,9 +195,6 @@ export class VisualizerStore {
             this.updateSelected(node.data);
         }).mouseLeave((node) => {
             this.clearSelected();
-        }).click((node) => {
-            this.clearSelected();
-            this.updateSelected(node.data, true);
         });
         this.graphics = graphics;
         this.renderer.run();
@@ -201,6 +202,7 @@ export class VisualizerStore {
 
     stop = () => {
         this.collect = false;
+        this.renderer.dispose();
         this.graph = null;
         this.paused = false;
         this.selected = null;
@@ -216,6 +218,9 @@ export class VisualizerStore {
 
         // mutate links
         let node = this.graph.getNode(vert.id);
+        let nodeUI = this.graphics.getNodeUI(vert.id);
+        this.selected_origin_color = nodeUI.color
+        nodeUI.color = 0xe23df4ff;
 
         const seenForward = [];
         const seenBackwards = [];
@@ -251,6 +256,10 @@ export class VisualizerStore {
 
         // clear link highlight
         let node = this.graph.getNode(this.selected.id);
+
+        let nodeUI = this.graphics.getNodeUI(this.selected.id);
+        nodeUI.color = this.selected_origin_color;
+
         const seenForward = [];
         const seenBackwards = [];
         dfsIterator(this.graph, node, node => {

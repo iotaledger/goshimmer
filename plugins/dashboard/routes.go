@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/gobuffalo/packr/v2"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -113,51 +112,4 @@ func setupRoutes(e *echo.Echo) {
 		message = fmt.Sprintf("%s, error: %+v", message, err)
 		c.String(statusCode, message)
 	}
-}
-
-func registerWSClient() (uint64, chan interface{}) {
-	// allocate new client id
-	clientsMu.Lock()
-	defer clientsMu.Unlock()
-	clientID := nextClientID
-	channel := make(chan interface{}, 100)
-	clients[clientID] = channel
-	nextClientID++
-	return clientID, channel
-}
-
-func websocketRoute(c echo.Context) error {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Errorf("recovered from panic within WS handle func: %s", r)
-		}
-	}()
-	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
-	if err != nil {
-		return err
-	}
-	defer ws.Close()
-	ws.EnableWriteCompression(true)
-
-	// cleanup client websocket
-	clientID, channel := registerWSClient()
-	defer func() {
-		clientsMu.Lock()
-		delete(clients, clientID)
-		close(channel)
-		clientsMu.Unlock()
-	}()
-
-	for {
-		msg := <-channel
-		if err := ws.WriteJSON(msg); err != nil {
-			log.Warnf("error while writing to web socket client %s: %s", c.RealIP(), err.Error())
-			break
-		}
-		if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
-			log.Warnf("error while setting write deadline on web socket client %s: %s", c.RealIP(), err.Error())
-			break
-		}
-	}
-	return nil
 }

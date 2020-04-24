@@ -11,7 +11,7 @@ import (
 )
 
 var visualizerWorkerCount = 1
-var visualizerWorkerQueueSize = 50
+var visualizerWorkerQueueSize = 500
 var visualizerWorkerPool *workerpool.WorkerPool
 
 type vertex struct {
@@ -45,7 +45,7 @@ func sendVertex(cachedMessage *message.CachedMessage, cachedMessageMetadata *tan
 	defer cachedMessageMetadata.Release()
 
 	msg := cachedMessage.Unwrap()
-	sendToAllWSClient(&wsmsg{MsgTypeVertex, &vertex{
+	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
 		ID:       msg.Id().String(),
 		TrunkId:  msg.TrunkId().String(),
 		BranchId: msg.BranchId().String(),
@@ -54,7 +54,7 @@ func sendVertex(cachedMessage *message.CachedMessage, cachedMessageMetadata *tan
 }
 
 func sendTipInfo(messageId message.Id, isTip bool) {
-	sendToAllWSClient(&wsmsg{MsgTypeTipInfo, &tipinfo{
+	broadcastWsMessage(&wsmsg{MsgTypeTipInfo, &tipinfo{
 		ID:    messageId.String(),
 		IsTip: isTip,
 	}}, true)
