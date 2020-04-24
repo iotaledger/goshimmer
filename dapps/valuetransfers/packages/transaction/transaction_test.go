@@ -5,11 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address/signaturescheme"
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/balance"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 )
 
 func TestEmptyDataPayload(t *testing.T) {
@@ -17,7 +18,7 @@ func TestEmptyDataPayload(t *testing.T) {
 	addr := sigScheme.Address()
 	o1 := NewOutputId(addr, RandomId())
 	inputs := NewInputs(o1)
-	bal := balance.New(balance.COLOR_IOTA, 1)
+	bal := balance.New(balance.ColorIOTA, 1)
 	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
 	tx := New(inputs, outputs)
 	tx.Sign(sigScheme)
@@ -31,7 +32,7 @@ func TestShortDataPayload(t *testing.T) {
 	addr := sigScheme.Address()
 	o1 := NewOutputId(addr, RandomId())
 	inputs := NewInputs(o1)
-	bal := balance.New(balance.COLOR_IOTA, 1)
+	bal := balance.New(balance.ColorIOTA, 1)
 	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
 	tx := New(inputs, outputs)
 
@@ -63,7 +64,7 @@ func TestTooLongDataPayload(t *testing.T) {
 	addr := sigScheme.Address()
 	o1 := NewOutputId(addr, RandomId())
 	inputs := NewInputs(o1)
-	bal := balance.New(balance.COLOR_IOTA, 1)
+	bal := balance.New(balance.ColorIOTA, 1)
 	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
 	tx := New(inputs, outputs)
 
@@ -77,7 +78,7 @@ func TestMarshalingEmptyDataPayload(t *testing.T) {
 	addr := sigScheme.Address()
 	o1 := NewOutputId(addr, RandomId())
 	inputs := NewInputs(o1)
-	bal := balance.New(balance.COLOR_IOTA, 1)
+	bal := balance.New(balance.ColorIOTA, 1)
 	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
 	tx := New(inputs, outputs)
 
@@ -101,7 +102,7 @@ func TestMarshalingDataPayload(t *testing.T) {
 	addr := sigScheme.Address()
 	o1 := NewOutputId(addr, RandomId())
 	inputs := NewInputs(o1)
-	bal := balance.New(balance.COLOR_IOTA, 1)
+	bal := balance.New(balance.ColorIOTA, 1)
 	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
 	tx := New(inputs, outputs)
 
