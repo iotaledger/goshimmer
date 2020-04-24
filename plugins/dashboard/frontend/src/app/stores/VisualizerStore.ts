@@ -168,7 +168,7 @@ export class VisualizerStore {
             stableThreshold: 0.15,
             gravity: -2,
             dragCoeff: 0.02,
-            timeStep: 22,
+            timeStep: 20,
             theta: 0.8,
         });
 
@@ -232,7 +232,7 @@ export class VisualizerStore {
             true,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                linkUI.color = 0xe23df4ff;
+                linkUI.color = parseColor("#d33682");
             },
             seenForward
         );
@@ -240,7 +240,7 @@ export class VisualizerStore {
                 this.selected_approvees_count++;
             }, false, link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                linkUI.color = 0xf1b727ff;
+                linkUI.color = parseColor("#b58900");
             },
             seenBackwards
         );
@@ -266,7 +266,7 @@ export class VisualizerStore {
             }, true,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                linkUI.color = 0x586E75FF;
+                linkUI.color = parseColor("#586e75");
             },
             seenBackwards
         );
@@ -274,7 +274,7 @@ export class VisualizerStore {
             }, false,
             link => {
                 const linkUI = this.graphics.getLinkUI(link.id);
-                linkUI.color = 0x586E75FF;
+                linkUI.color = parseColor("#586e75");
             },
             seenForward
         );
@@ -309,4 +309,30 @@ function dfsIterator(graph, node, cb, up, cbLinks: any = false, seenNodes = []) 
             }
         }
     }
+}
+
+function parseColor(color): any {
+    let parsedColor = 0x009ee8ff;
+
+    if (typeof color === 'number') {
+        return color;
+    }
+
+    if (typeof color === 'string' && color) {
+        if (color.length === 4) {
+            // #rgb, duplicate each letter except first #.
+            color = color.replace(/([^#])/g, '$1$1');
+        }
+        if (color.length === 9) {
+            // #rrggbbaa
+            parsedColor = parseInt(color.substr(1), 16);
+        } else if (color.length === 7) {
+            // or #rrggbb.
+            parsedColor = (parseInt(color.substr(1), 16) << 8) | 0xff;
+        } else {
+            throw 'Color expected in hex format with preceding "#". E.g. #00ff00. Got value: ' + color;
+        }
+    }
+
+    return parsedColor;
 }
