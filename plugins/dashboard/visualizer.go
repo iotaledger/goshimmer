@@ -77,9 +77,9 @@ func runVisualizer() {
 
 	daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {
 		messagelayer.Tangle.Events.MessageAttached.Attach(notifyNewMsg)
-		//messagelayer.Tangle.Events.MessageSolid.Attach(notifyNewMsg)
-		//messagelayer.TipSelector.Events.TipAdded.Attach(notifyNewTip)
-		//messagelayer.TipSelector.Events.TipRemoved.Attach(notifyDeletedTip)
+		messagelayer.Tangle.Events.MessageSolid.Attach(notifyNewMsg)
+		messagelayer.TipSelector.Events.TipAdded.Attach(notifyNewTip)
+		messagelayer.TipSelector.Events.TipRemoved.Attach(notifyDeletedTip)
 		visualizerWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[Visualizer] ...")
