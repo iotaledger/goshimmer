@@ -70,6 +70,7 @@ func getNeighbors(c echo.Context) error {
 	return c.JSON(http.StatusOK, Response{KnownPeers: knownPeers, Chosen: chosen, Accepted: accepted})
 }
 
+// Response contains information of the autopeering.
 type Response struct {
 	KnownPeers []Neighbor `json:"known,omitempty"`
 	Chosen     []Neighbor `json:"chosen"`
@@ -77,6 +78,7 @@ type Response struct {
 	Error      string     `json:"error,omitempty"`
 }
 
+// Neighbor contains information of a neighbor peer.
 type Neighbor struct {
 	ID        string        `json:"id"`        // comparable node identifier
 	PublicKey string        `json:"publicKey"` // public key used to verify signatures

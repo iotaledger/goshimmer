@@ -3,7 +3,7 @@ package client
 import (
 	"net/http"
 
-	webapi_collectiveBeacon "github.com/iotaledger/goshimmer/plugins/webapi/drng/collectiveBeacon"
+	webapi_collectiveBeacon "github.com/iotaledger/goshimmer/plugins/webapi/drng/collectivebeacon"
 	webapi_committee "github.com/iotaledger/goshimmer/plugins/webapi/drng/info/committee"
 	webapi_randomness "github.com/iotaledger/goshimmer/plugins/webapi/drng/info/randomness"
 )
@@ -23,7 +23,7 @@ func (api *GoShimmerAPI) BroadcastCollectiveBeacon(payload []byte) (string, erro
 		return "", err
 	}
 
-	return res.Id, nil
+	return res.ID, nil
 }
 
 // GetRandomness gets the current randomness.
