@@ -1,9 +1,11 @@
 package tests
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,16 +19,24 @@ func TestNodeSynchronization(t *testing.T) {
 	defer n.Shutdown()
 
 	numMessages := 100
+	idsMap := make(map[string]MessageSent, numMessages)
 	ids := make([]string, numMessages)
-
-	data := []byte("Test")
 
 	// create messages on random peers
 	for i := 0; i < numMessages; i++ {
+		data := []byte(fmt.Sprintf("Test%d", i))
+
 		peer := n.RandomPeer()
 		id, err := peer.Data(data)
 		require.NoError(t, err)
 
+		idsMap[id] = MessageSent{
+			number: i,
+			id:     id,
+			// save payload to be able to compare API response
+			data:            payload.NewData(data).Bytes(),
+			issuerPublicKey: peer.Identity.PublicKey().String(),
+		}
 		ids[i] = id
 	}
 
@@ -34,7 +44,7 @@ func TestNodeSynchronization(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// make sure every peer got every message
-	checkForMessageIds(t, n.Peers(), numMessages, ids)
+	checkForMessageIds(t, n.Peers(), numMessages, ids, idsMap)
 
 	// spawn peer without knowledge of previous messages
 	newPeer, err := n.CreatePeer()
@@ -46,24 +56,40 @@ func TestNodeSynchronization(t *testing.T) {
 
 	// create messages on random peers
 	for i := 0; i < numMessages; i++ {
+		data := []byte(fmt.Sprintf("Test%d", i))
+
 		peer := n.RandomPeer()
 		id, err := peer.Data(data)
 		require.NoError(t, err)
 
 		ids2[i] = id
+		idsMap[id] = MessageSent{
+			number: i,
+			id:     id,
+			// save payload to be able to compare API response
+			data:            payload.NewData(data).Bytes(),
+			issuerPublicKey: peer.Identity.PublicKey().String(),
+		}
 	}
 
 	// wait for messages to be gossiped
 	time.Sleep(5 * time.Second)
 
 	// check whether peer has synchronized ids (previous messages)
-	checkForMessageIds(t, []*framework.Peer{newPeer}, numMessages, ids)
+	checkForMessageIds(t, []*framework.Peer{newPeer}, numMessages, ids, idsMap)
 
 	// make sure every peer got every message
-	checkForMessageIds(t, n.Peers(), numMessages, ids2)
+	checkForMessageIds(t, n.Peers(), numMessages, ids2, idsMap)
 }
 
-func checkForMessageIds(t *testing.T, peers []*framework.Peer, numMessages int, ids []string) {
+type MessageSent struct {
+	number          int
+	id              string
+	data            []byte
+	issuerPublicKey string
+}
+
+func checkForMessageIds(t *testing.T, peers []*framework.Peer, numMessages int, ids []string, idsMap map[string]MessageSent) {
 	for _, peer := range peers {
 		resp, err := peer.FindMessageById(ids)
 		require.NoError(t, err)
@@ -81,7 +107,16 @@ func checkForMessageIds(t *testing.T, peers []*framework.Peer, numMessages int, 
 				}
 			}
 
-			t.Errorf("MessageId=%s not found in peer %s.", id, peer.String())
+			t.Errorf("MessageId=%s, issuer=%s not found in peer %s.", id, idsMap[id].issuerPublicKey, peer.String())
+		}
+
+		// check for general information
+		for _, msg := range resp.Messages {
+			msgSent := idsMap[msg.Id]
+
+			assert.Equal(t, msgSent.issuerPublicKey, msg.IssuerPublicKey, "MessageId=%s, issuer=%s not correct issuer in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
+			assert.Equal(t, msgSent.data, msg.Payload, "MessageId=%s, issuer=%s data not equal in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
+			assert.True(t, msg.Metadata.Solid, "MessageId=%s, issuer=%s not solid in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
 		}
 	}
 }
