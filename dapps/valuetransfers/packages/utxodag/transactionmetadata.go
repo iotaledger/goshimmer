@@ -20,10 +20,13 @@ type TransactionMetadata struct {
 	id                 transaction.Id
 	branchId           branchmanager.BranchId
 	solid              bool
+	finalized          bool
 	solidificationTime time.Time
+	finalizationTime   time.Time
 
 	branchIdMutex           sync.RWMutex
 	solidMutex              sync.RWMutex
+	finalizedMutex          sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 }
 
@@ -164,6 +167,45 @@ func (transactionMetadata *TransactionMetadata) SetSolid(solid bool) (modified b
 	return
 }
 
+func (transactionMetadata *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
+	transactionMetadata.finalizedMutex.RLock()
+	if transactionMetadata.finalized == finalized {
+		transactionMetadata.finalizedMutex.RUnlock()
+
+		return
+	}
+
+	transactionMetadata.finalizedMutex.RUnlock()
+	transactionMetadata.finalizedMutex.Lock()
+	defer transactionMetadata.finalizedMutex.Unlock()
+
+	if transactionMetadata.finalized == finalized {
+		return
+	}
+
+	transactionMetadata.finalized = finalized
+	if finalized {
+		transactionMetadata.finalizationTime = time.Now()
+	}
+	modified = true
+
+	return
+}
+
+func (transactionMetadata *TransactionMetadata) Finalized() bool {
+	transactionMetadata.finalizedMutex.RLock()
+	defer transactionMetadata.finalizedMutex.RUnlock()
+
+	return transactionMetadata.finalized
+}
+
+func (transactionMetadata *TransactionMetadata) FinalizationTime() time.Time {
+	transactionMetadata.finalizedMutex.RLock()
+	defer transactionMetadata.finalizedMutex.RUnlock()
+
+	return transactionMetadata.finalizationTime
+}
+
 // SoldificationTime returns the time when the Transaction was marked to be solid.
 func (transactionMetadata *TransactionMetadata) SoldificationTime() time.Time {
 	transactionMetadata.solidificationTimeMutex.RLock()
@@ -174,10 +216,12 @@ func (transactionMetadata *TransactionMetadata) SoldificationTime() time.Time {
 
 // Bytes marshals the TransactionMetadata object into a sequence of bytes.
 func (transactionMetadata *TransactionMetadata) Bytes() []byte {
-	return marshalutil.New(branchmanager.BranchIdLength + marshalutil.TIME_SIZE + marshalutil.BOOL_SIZE).
+	return marshalutil.New(branchmanager.BranchIdLength + 2*marshalutil.TIME_SIZE + 2*marshalutil.BOOL_SIZE).
 		WriteBytes(transactionMetadata.BranchId().Bytes()).
 		WriteTime(transactionMetadata.solidificationTime).
+		WriteTime(transactionMetadata.finalizationTime).
 		WriteBool(transactionMetadata.solid).
+		WriteBool(transactionMetadata.finalized).
 		Bytes()
 }
 
@@ -217,7 +261,13 @@ func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data
 	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
 		return
 	}
+	if transactionMetadata.finalizationTime, err = marshalUtil.ReadTime(); err != nil {
+		return
+	}
 	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if transactionMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()

@@ -1,6 +1,8 @@
 package branchmanager
 
 import (
+	"sync"
+
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -11,6 +13,11 @@ type Branch struct {
 
 	id             BranchId
 	parentBranches []BranchId
+	preferred      bool
+	liked          bool
+
+	preferredMutex sync.RWMutex
+	likedMutex     sync.RWMutex
 }
 
 func NewBranch(id BranchId, parentBranches []BranchId) *Branch {
@@ -84,6 +91,64 @@ func (branch *Branch) IsAggregated() bool {
 	return len(branch.parentBranches) > 1
 }
 
+func (branch *Branch) Preferred() bool {
+	branch.preferredMutex.RLock()
+	defer branch.preferredMutex.RUnlock()
+
+	return branch.preferred
+}
+
+func (branch *Branch) SetPreferred(preferred bool) (modified bool) {
+	branch.preferredMutex.RLock()
+	if branch.preferred == preferred {
+		branch.preferredMutex.RUnlock()
+
+		return
+	}
+
+	branch.preferredMutex.RUnlock()
+	branch.preferredMutex.Lock()
+	defer branch.preferredMutex.Lock()
+
+	if branch.preferred == preferred {
+		return
+	}
+
+	branch.preferred = preferred
+	modified = true
+
+	return branch.preferred
+}
+
+func (branch *Branch) Liked() bool {
+	branch.likedMutex.RLock()
+	defer branch.likedMutex.RUnlock()
+
+	return branch.liked
+}
+
+func (branch *Branch) SetLiked(liked bool) (modified bool) {
+	branch.likedMutex.RLock()
+	if branch.liked == liked {
+		branch.likedMutex.RUnlock()
+
+		return
+	}
+
+	branch.likedMutex.RUnlock()
+	branch.likedMutex.Lock()
+	defer branch.likedMutex.Lock()
+
+	if branch.liked == liked {
+		return
+	}
+
+	branch.liked = liked
+	modified = true
+
+	return branch.liked
+}
+
 func (branch *Branch) Bytes() []byte {
 	return marshalutil.New().
 		WriteBytes(branch.ObjectStorageKey()).
@@ -106,10 +171,17 @@ func (branch *Branch) ObjectStorageKey() []byte {
 }
 
 func (branch *Branch) ObjectStorageValue() []byte {
+	branch.preferredMutex.RLock()
+	branch.likedMutex.RLock()
+	defer branch.preferredMutex.RUnlock()
+	defer branch.likedMutex.RUnlock()
+
 	parentBranches := branch.ParentBranches()
 	parentBranchCount := len(parentBranches)
 
-	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + parentBranchCount*BranchIdLength)
+	marshalUtil := marshalutil.New(2*marshalutil.BOOL_SIZE + marshalutil.UINT32_SIZE + parentBranchCount*BranchIdLength)
+	marshalUtil.WriteBool(branch.preferred)
+	marshalUtil.WriteBool(branch.liked)
 	marshalUtil.WriteUint32(uint32(parentBranchCount))
 	for _, branchId := range parentBranches {
 		marshalUtil.WriteBytes(branchId.Bytes())
@@ -120,13 +192,21 @@ func (branch *Branch) ObjectStorageValue() []byte {
 
 func (branch *Branch) UnmarshalObjectStorageValue(valueBytes []byte) (err error, consumedBytes int) {
 	marshalUtil := marshalutil.New(valueBytes)
+	branch.preferred, err = marshalUtil.ReadBool()
+	if err != nil {
+		return
+	}
+	branch.liked, err = marshalUtil.ReadBool()
+	if err != nil {
+		return
+	}
 	parentBranchCount, err := marshalUtil.ReadUint32()
 	if err != nil {
 		return
 	}
-	parentBranches := make([]BranchId, parentBranchCount)
+	branch.parentBranches = make([]BranchId, parentBranchCount)
 	for i := uint32(0); i < parentBranchCount; i++ {
-		parentBranches[i], err = ParseBranchId(marshalUtil)
+		branch.parentBranches[i], err = ParseBranchId(marshalUtil)
 		if err != nil {
 			return
 		}

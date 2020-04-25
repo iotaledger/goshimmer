@@ -58,6 +58,10 @@ func New(badgerInstance *badger.DB, tangle *tangle.Tangle) (result *UTXODAG) {
 	return
 }
 
+func (utxoDAG *UTXODAG) BranchManager() *branchmanager.BranchManager {
+	return utxoDAG.branchManager
+}
+
 func (utxoDAG *UTXODAG) ProcessSolidPayload(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
 	utxoDAG.workerPool.Submit(func() { utxoDAG.storeTransactionWorker(cachedPayload, cachedMetadata) })
 }
@@ -511,8 +515,6 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 
 			}
 		*/
-
-		utxoDAG.Events.TransactionConflicting.Trigger(cachedTransaction, cachedTransactionMetadata, conflictingInputs)
 	}
 
 	// book transaction into target reality
@@ -524,20 +526,26 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 		newOutput.SetSolid(true)
 		utxoDAG.outputStorage.Store(newOutput).Release()
 
-		fmt.Println(newOutput)
-
 		return true
 	})
 
-	// TODO: BOOK ATTACHMENT
+	// fork the conflicting transactions into their own branch
+	previousConsumerForked := false
+	for consumerId, conflictingInputs := range conflictingInputsOfConflictingConsumers {
+		consumerForked, forkedErr := utxoDAG.Fork(consumerId, conflictingInputs)
+		if forkedErr != nil {
+			err = forkedErr
 
-	if len(conflictingInputsOfConflictingConsumers) >= 1 {
-		for consumerId, conflictingInputs := range conflictingInputsOfConflictingConsumers {
-			if err = utxoDAG.Fork(consumerId, conflictingInputs); err != nil {
-				return
-			}
+			return
 		}
+
+		previousConsumerForked = previousConsumerForked || consumerForked
 	}
+
+	// trigger events
+	utxoDAG.Events.TransactionBooked.Trigger(cachedTransaction, cachedTransactionMetadata, cachedTargetBranch, conflictingInputs, previousConsumerForked)
+
+	// TODO: BOOK ATTACHMENT
 
 	return
 }
@@ -692,7 +700,7 @@ func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.C
 	return
 }
 
-func (utxoDAG *UTXODAG) Fork(transactionId transaction.Id, conflictingInputs []transaction.OutputId) error {
+func (utxoDAG *UTXODAG) Fork(transactionId transaction.Id, conflictingInputs []transaction.OutputId) (forked bool, err error) {
 	cachedTransaction := utxoDAG.Transaction(transactionId)
 	cachedTransactionMetadata := utxoDAG.TransactionMetadata(transactionId)
 	defer cachedTransaction.Release()
@@ -700,11 +708,20 @@ func (utxoDAG *UTXODAG) Fork(transactionId transaction.Id, conflictingInputs []t
 
 	tx := cachedTransaction.Unwrap()
 	if tx == nil {
-		return fmt.Errorf("failed to load transaction '%s'", transactionId)
+		err = fmt.Errorf("failed to load transaction '%s'", transactionId)
+
+		return
 	}
 	txMetadata := cachedTransactionMetadata.Unwrap()
 	if txMetadata == nil {
-		return fmt.Errorf("failed to load metadata of transaction '%s'", transactionId)
+		err = fmt.Errorf("failed to load metadata of transaction '%s'", transactionId)
+
+		return
+	}
+
+	// abort if this transaction was finalized already
+	if txMetadata.Finalized() {
+		return
 	}
 
 	cachedTargetBranch := utxoDAG.branchManager.AddBranch(branchmanager.NewBranch(branchmanager.NewBranchId(tx.Id()), []branchmanager.BranchId{txMetadata.BranchId()}))
@@ -712,12 +729,17 @@ func (utxoDAG *UTXODAG) Fork(transactionId transaction.Id, conflictingInputs []t
 
 	targetBranch := cachedTargetBranch.Unwrap()
 	if targetBranch == nil {
-		return fmt.Errorf("failed to create branch for transaction '%s'", transactionId)
+		err = fmt.Errorf("failed to create branch for transaction '%s'", transactionId)
+
+		return
 	}
 
-	utxoDAG.Events.TransactionConflicting.Trigger(cachedTransaction, cachedTransactionMetadata, conflictingInputs)
+	if err = utxoDAG.moveTransactionToBranch(cachedTransaction.Retain(), cachedTransactionMetadata.Retain(), cachedTargetBranch.Retain()); err != nil {
+		return
+	}
 
-	utxoDAG.moveTransactionToBranch(cachedTransaction.Retain(), cachedTransactionMetadata.Retain(), cachedTargetBranch.Retain())
+	utxoDAG.Events.Fork.Trigger(cachedTransaction, cachedTransactionMetadata, targetBranch, conflictingInputs)
+	forked = true
 
-	return nil
+	return
 }
