@@ -22,14 +22,14 @@ var (
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	webapi.Server.POST("message/findById", findMessageById)
+	webapi.Server.POST("message/findById", findMessageByID)
 }
 
-// findMessageById returns the array of messages for the
+// findMessageByID returns the array of messages for the
 // given message ids (MUST be encoded in base58), in the same order as the parameters.
 // If a node doesn't have the message for a given ID in its ledger,
 // the value at the index of that message ID is empty.
-func findMessageById(c echo.Context) error {
+func findMessageByID(c echo.Context) error {
 	var request Request
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
@@ -37,20 +37,20 @@ func findMessageById(c echo.Context) error {
 	}
 
 	var result []Message
-	for _, id := range request.Ids {
+	for _, id := range request.IDs {
 		log.Info("Received:", id)
 
-		msgId, err := message.NewId(id)
+		msgID, err := message.NewId(id)
 		if err != nil {
 			log.Info(err)
 			continue
 		}
 
-		msgObject := messagelayer.Tangle.Message(msgId)
+		msgObject := messagelayer.Tangle.Message(msgID)
 		if !msgObject.Exists() {
 			continue
 		}
-		msgMetadataObject := messagelayer.Tangle.MessageMetadata(msgId)
+		msgMetadataObject := messagelayer.Tangle.MessageMetadata(msgID)
 		if !msgMetadataObject.Exists() {
 			continue
 		}
@@ -63,9 +63,9 @@ func findMessageById(c echo.Context) error {
 				Solid:              msgMetadata.IsSolid(),
 				SolidificationTime: msgMetadata.SoldificationTime().Unix(),
 			},
-			Id:              msg.Id().String(),
-			TrunkId:         msg.TrunkId().String(),
-			BranchId:        msg.BranchId().String(),
+			ID:              msg.Id().String(),
+			TrunkID:         msg.TrunkId().String(),
+			BranchID:        msg.BranchId().String(),
 			IssuerPublicKey: msg.IssuerPublicKey().String(),
 			IssuingTime:     msg.IssuingTime().Unix(),
 			SequenceNumber:  msg.SequenceNumber(),
@@ -89,15 +89,15 @@ type Response struct {
 
 // Request holds the message ids to query.
 type Request struct {
-	Ids []string `json:"ids"`
+	IDs []string `json:"ids"`
 }
 
 // Message contains information about a given message.
 type Message struct {
 	Metadata        `json:"metadata,omitempty"`
-	Id              string `json:"Id,omitempty"`
-	TrunkId         string `json:"trunkId,omitempty"`
-	BranchId        string `json:"branchId,omitempty"`
+	ID              string `json:"Id,omitempty"`
+	TrunkID         string `json:"trunkId,omitempty"`
+	BranchID        string `json:"branchId,omitempty"`
 	IssuerPublicKey string `json:"issuerPublicKey,omitempty"`
 	IssuingTime     int64  `json:"issuingTime,omitempty"`
 	SequenceNumber  uint64 `json:"sequenceNumber,omitempty"`

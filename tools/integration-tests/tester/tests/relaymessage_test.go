@@ -34,7 +34,7 @@ func TestRelayMessages(t *testing.T) {
 
 	// check for messages on every peer
 	for _, peer := range n.Peers() {
-		resp, err := peer.FindMessageById(ids)
+		resp, err := peer.FindMessageByID(ids)
 		require.NoError(t, err)
 
 		// check for the count of messages
@@ -45,7 +45,7 @@ func TestRelayMessages(t *testing.T) {
 		for _, id := range ids {
 			for _, msg := range resp.Messages {
 				// if message found skip to next
-				if msg.Id == id {
+				if msg.ID == id {
 					continue outer
 				}
 			}

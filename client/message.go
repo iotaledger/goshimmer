@@ -7,18 +7,18 @@ import (
 )
 
 const (
-	routeFindById = "message/findById"
+	routeFindByID = "message/findById"
 )
 
-// FindMessageById finds messages by the given ids. The messages are returned in the same order as
-// the given ids. Non available messages are empty at their corresponding index.
-func (api *GoShimmerAPI) FindMessageById(base58EncodedIds []string) (*webapi_message.Response, error) {
+// FindMessageByID finds messages by the given base58 encoded IDs. The messages are returned in the same order as
+// the given IDs. Non available messages are empty at their corresponding index.
+func (api *GoShimmerAPI) FindMessageByID(base58EncodedIDs []string) (*webapi_message.Response, error) {
 	res := &webapi_message.Response{}
 
 	if err := api.do(
 		http.MethodPost,
-		routeFindById,
-		&webapi_message.Request{Ids: base58EncodedIds},
+		routeFindByID,
+		&webapi_message.Request{IDs: base58EncodedIDs},
 		res,
 	); err != nil {
 		return nil, err

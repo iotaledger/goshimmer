@@ -1,4 +1,4 @@
-package collectiveBeacon
+package collectivebeacon
 
 import (
 	"net/http"
@@ -19,7 +19,6 @@ func Handler(c echo.Context) error {
 	}
 
 	//TODO: to check max payload size allowed, if exceeding return an error
-
 	marshalUtil := marshalutil.New(request.Payload)
 	parsedPayload, err := payload.Parse(marshalUtil)
 	if err != nil {
@@ -27,12 +26,12 @@ func Handler(c echo.Context) error {
 	}
 
 	msg := messagelayer.MessageFactory.IssuePayload(parsedPayload)
-	return c.JSON(http.StatusOK, Response{Id: msg.Id().String()})
+	return c.JSON(http.StatusOK, Response{ID: msg.Id().String()})
 }
 
 // Response is the HTTP response from broadcasting a collective beacon message.
 type Response struct {
-	Id    string `json:"id,omitempty"`
+	ID    string `json:"id,omitempty"`
 	Error string `json:"error,omitempty"`
 }
 
