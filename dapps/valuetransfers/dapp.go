@@ -180,7 +180,7 @@ func onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionM
 		return
 	}
 
-	if time.Now().Sub(transactionMetadata.SoldificationTime()) < AverageNetworkDelay {
+	if time.Since(transactionMetadata.SoldificationTime()) < AverageNetworkDelay {
 		return
 	}
 
