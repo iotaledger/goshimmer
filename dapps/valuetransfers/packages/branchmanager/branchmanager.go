@@ -66,6 +66,51 @@ func (branchManager *BranchManager) GetBranch(branchId BranchId) *CachedBranch {
 	return &CachedBranch{CachedObject: branchManager.branchStorage.Load(branchId.Bytes())}
 }
 
+func (branchManager *BranchManager) BranchesConflicting(branchIds ...BranchId) (branchesConflicting bool, err error) {
+	conflictingBranches := make(map[BranchId]types.Empty)
+	processedBranches := make(map[BranchId]types.Empty)
+
+	for _, branchId := range branchIds {
+		ancestorStack := list.New()
+		ancestorStack.PushBack(branchId)
+
+		for ancestorStack.Len() >= 1 {
+			firstElement := ancestorStack.Front()
+			ancestorBranchId := firstElement.Value.(BranchId)
+			ancestorStack.Remove(firstElement)
+
+			if _, processedAlready := processedBranches[ancestorBranchId]; processedAlready {
+				continue
+			}
+
+			cachedBranch := branchManager.GetBranch(branchId)
+			branch := cachedBranch.Unwrap()
+			if branch == nil {
+				err = fmt.Errorf("failed to load branch '%s'", ancestorBranchId)
+
+				return
+			}
+
+			for conflictId := range branch.Conflicts() {
+				for _, cachedConflictMember := range branchManager.ConflictMembers(conflictId) {
+					conflictMember := cachedConflictMember.Unwrap()
+					if conflictMember == nil {
+						continue
+					}
+
+					if _, branchesConflicting = conflictingBranches[conflictMember.BranchId()]; branchesConflicting {
+						return
+					}
+
+					conflictingBranches[conflictMember.BranchId()] = types.Void
+				}
+			}
+		}
+	}
+
+	return
+}
+
 func (branchManager *BranchManager) InheritBranches(branches ...BranchId) (cachedAggregatedBranch *CachedBranch, err error) {
 	// return the MasterBranch if we have no branches in the parameters
 	if len(branches) == 0 {
