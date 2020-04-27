@@ -6,26 +6,24 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
-
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 )
 
 type Conflict struct {
 	objectstorage.StorableObjectFlags
 
-	id          transaction.OutputId
+	id          ConflictId
 	memberCount uint32
 
 	memberCountMutex sync.RWMutex
 }
 
-func NewConflict(id transaction.OutputId) *Conflict {
+func NewConflict(id ConflictId) *Conflict {
 	return &Conflict{
 		id: id,
 	}
 }
 
-func (conflict *Conflict) Id() transaction.OutputId {
+func (conflict *Conflict) Id() ConflictId {
 	return conflict.id
 }
 
@@ -108,3 +106,29 @@ func (conflict *Conflict) Update(other objectstorage.StorableObject) {
 }
 
 var _ objectstorage.StorableObject = &Conflict{}
+
+type CachedConflict struct {
+	objectstorage.CachedObject
+}
+
+func (cachedConflict *CachedConflict) Retain() *CachedConflict {
+	return &CachedConflict{cachedConflict.CachedObject.Retain()}
+}
+
+func (cachedConflict *CachedConflict) Unwrap() *Conflict {
+	if untypedObject := cachedConflict.Get(); untypedObject == nil {
+		return nil
+	} else {
+		if typedObject := untypedObject.(*Conflict); typedObject == nil || typedObject.IsDeleted() {
+			return nil
+		} else {
+			return typedObject
+		}
+	}
+}
+
+func (cachedConflict *CachedConflict) Consume(consumer func(branch *Conflict), forceRelease ...bool) (consumed bool) {
+	return cachedConflict.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*Conflict))
+	}, forceRelease...)
+}

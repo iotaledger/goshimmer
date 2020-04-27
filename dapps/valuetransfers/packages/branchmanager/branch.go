@@ -6,6 +6,9 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/types"
+
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 )
 
 type Branch struct {
@@ -13,17 +16,25 @@ type Branch struct {
 
 	id             BranchId
 	parentBranches []BranchId
+	conflicts      map[ConflictId]types.Empty
 	preferred      bool
 	liked          bool
 
+	conflictsMutex sync.RWMutex
 	preferredMutex sync.RWMutex
 	likedMutex     sync.RWMutex
 }
 
-func NewBranch(id BranchId, parentBranches []BranchId) *Branch {
+func NewBranch(id BranchId, parentBranches []BranchId, conflictingInputs []transaction.OutputId) *Branch {
+	conflictingInputsMap := make(map[ConflictId]types.Empty)
+	for _, conflictingInput := range conflictingInputs {
+		conflictingInputsMap[conflictingInput] = types.Void
+	}
+
 	return &Branch{
 		id:             id,
 		parentBranches: parentBranches,
+		conflicts:      conflictingInputsMap,
 	}
 }
 
@@ -35,7 +46,7 @@ func BranchFromStorageKey(key []byte, optionalTargetObject ...*Branch) (result *
 	case 1:
 		result = optionalTargetObject[0]
 	default:
-		panic("too many arguments in call to TransactionMetadataFromStorageKey")
+		panic("too many arguments in call to BranchFromStorageKey")
 	}
 
 	// parse information
@@ -89,6 +100,40 @@ func (branch *Branch) ParentBranches() []BranchId {
 
 func (branch *Branch) IsAggregated() bool {
 	return len(branch.parentBranches) > 1
+}
+
+func (branch *Branch) Conflicts() (conflicts map[ConflictId]types.Empty) {
+	branch.conflictsMutex.RLock()
+	defer branch.conflictsMutex.RUnlock()
+
+	conflicts = make(map[ConflictId]types.Empty, len(branch.conflicts))
+	for conflict := range branch.conflicts {
+		conflicts[conflict] = types.Void
+	}
+
+	return
+}
+
+func (branch *Branch) AddConflict(conflict ConflictId) (added bool) {
+	branch.conflictsMutex.RLock()
+	if _, exists := branch.conflicts[conflict]; exists {
+		branch.conflictsMutex.RUnlock()
+
+		return
+	}
+
+	branch.conflictsMutex.RUnlock()
+	branch.conflictsMutex.Lock()
+	defer branch.conflictsMutex.Unlock()
+
+	if _, exists := branch.conflicts[conflict]; exists {
+		return
+	}
+
+	branch.conflicts[conflict] = types.Void
+	added = true
+
+	return
 }
 
 func (branch *Branch) Preferred() bool {

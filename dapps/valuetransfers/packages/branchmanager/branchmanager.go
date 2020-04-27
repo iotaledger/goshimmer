@@ -15,7 +15,10 @@ import (
 )
 
 type BranchManager struct {
-	branchStorage *objectstorage.ObjectStorage
+	branchStorage         *objectstorage.ObjectStorage
+	childBranchStorage    *objectstorage.ObjectStorage
+	conflictStorage       *objectstorage.ObjectStorage
+	conflictMemberStorage *objectstorage.ObjectStorage
 }
 
 func New(badgerInstance *badger.DB) (result *BranchManager) {
@@ -31,6 +34,21 @@ func New(badgerInstance *badger.DB) (result *BranchManager) {
 
 func (branchManager *BranchManager) init() {
 	branchManager.branchStorage.StoreIfAbsent(NewBranch(MasterBranchId, []BranchId{}))
+}
+
+func (branchManager *BranchManager) Conflict(conflictId ConflictId) *CachedConflict {
+	return &CachedConflict{CachedObject: branchManager.conflictStorage.Load(conflictId.Bytes())}
+}
+
+func (branchManager *BranchManager) ConflictMembers(conflictId ConflictId) CachedConflictMembers {
+	conflictMembers := make(CachedConflictMembers, 0)
+	branchManager.conflictMemberStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		conflictMembers = append(conflictMembers, &CachedConflictMember{CachedObject: cachedObject})
+
+		return true
+	}, conflictId.Bytes())
+
+	return conflictMembers
 }
 
 func (branchManager *BranchManager) AddBranch(branch *Branch) *CachedBranch {
@@ -118,6 +136,133 @@ func (branchManager *BranchManager) InheritBranches(branches ...BranchId) (cache
 	}
 
 	return
+}
+
+func (branchManager *BranchManager) ChildBranches(branchId BranchId) CachedChildBranches {
+	childBranches := make(CachedChildBranches, 0)
+	branchManager.childBranchStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		childBranches = append(childBranches, &CachedChildBranch{CachedObject: cachedObject})
+
+		return true
+	}, branchId.Bytes())
+
+	return childBranches
+}
+
+func (branchManager *BranchManager) SetBranchPreferred(branchId BranchId, preferred bool) (modified bool, err error) {
+	return branchManager.setBranchPreferred(branchManager.GetBranch(branchId), preferred)
+}
+
+func (branchManager *BranchManager) setBranchPreferred(cachedBranch *CachedBranch, preferred bool) (modified bool, err error) {
+	defer cachedBranch.Release()
+	branch := cachedBranch.Unwrap()
+	if branch == nil {
+		err = fmt.Errorf("failed to unwrap branch")
+
+		return
+	}
+
+	if !preferred {
+		if modified = branch.SetPreferred(false); modified {
+			branchManager.Events.BranchUnpreferred.Trigger(cachedBranch)
+
+			branchManager.propagateDislike(cachedBranch.Retain())
+		}
+
+		return
+	}
+
+	for conflictId := range branch.Conflicts() {
+		branchManager.ConflictMembers(conflictId).Consume(func(conflictMember *ConflictMember) {
+			if conflictMember.BranchId() == branch.Id() {
+				return
+			}
+
+			_, _ = branchManager.setBranchPreferred(branchManager.GetBranch(conflictMember.BranchId()), false)
+		})
+	}
+
+	if modified = branch.SetPreferred(true); !modified {
+		return
+	}
+
+	branchManager.Events.BranchPreferred.Trigger(cachedBranch)
+
+	err = branchManager.propagateLike(cachedBranch.Retain())
+
+	return
+}
+
+func (branchManager *BranchManager) propagateLike(cachedBranch *CachedBranch) (err error) {
+	// unpack CachedBranch and abort of the branch doesn't exist or isn't preferred
+	defer cachedBranch.Release()
+	branch := cachedBranch.Unwrap()
+	if branch == nil || !branch.Preferred() {
+		return
+	}
+
+	// check if parents are liked
+	for _, parentBranchId := range branch.ParentBranches() {
+		// abort, if the parent branch can not be loaded
+		cachedParentBranch := branchManager.GetBranch(parentBranchId)
+		parentBranch := cachedParentBranch.Unwrap()
+		if parentBranch == nil {
+			cachedParentBranch.Release()
+
+			return fmt.Errorf("failed to load parent branch '%s' of branch '%s'", parentBranchId, branch.Id())
+		}
+
+		// abort if the parent branch is not liked
+		if !parentBranch.Liked() {
+			cachedParentBranch.Release()
+
+			return
+		}
+
+		cachedParentBranch.Release()
+	}
+
+	// abort if the branch was liked already
+	if !branch.SetLiked(true) {
+		return
+	}
+
+	// trigger events
+	branchManager.Events.BranchLiked.Trigger(cachedBranch)
+
+	// propagate liked checks to the children
+	for _, cachedChildBranch := range branchManager.ChildBranches(branch.Id()) {
+		childBranch := cachedChildBranch.Unwrap()
+		if childBranch == nil {
+			cachedChildBranch.Release()
+
+			continue
+		}
+
+		if err = branchManager.propagateLike(branchManager.GetBranch(childBranch.Id())); err != nil {
+			cachedChildBranch.Release()
+
+			return
+		}
+
+		cachedChildBranch.Release()
+	}
+
+	return
+}
+
+func (branchManager *BranchManager) propagateDislike(cachedBranch *CachedBranch) {
+	defer cachedBranch.Release()
+	branch := cachedBranch.Unwrap()
+	if branch == nil || !branch.SetLiked(false) {
+		return
+	}
+
+	branchManager.Events.BranchDisliked.Trigger(cachedBranch)
+
+	branchManager.ChildBranches(branch.Id()).Consume(func(childBranch *ChildBranch) {
+		branchManager.propagateDislike(branchManager.GetBranch(childBranch.Id()))
+	})
 }
 
 func (branchManager *BranchManager) determineAggregatedBranchDetails(deepestCommonAncestors CachedBranches) (aggregatedBranchId BranchId, aggregatedBranchParents []BranchId, err error) {
