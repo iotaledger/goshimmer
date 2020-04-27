@@ -29,9 +29,14 @@ import (
 )
 
 const (
+	// CfgFPCQuerySampleSize defines how many nodes will be queried each round.
 	CfgFPCQuerySampleSize = "fpc.querySampleSize"
-	CfgFPCRoundInterval   = "fpc.roundInterval"
-	CfgFPCBindAddress     = "fpc.bindAddress"
+
+	// CfgFPCRoundInterval defines how long a round lasts (in seconds)
+	CfgFPCRoundInterval = "fpc.roundInterval"
+
+	// CfgFPCBindAddress defines on which address the FPC service should listen.
+	CfgFPCBindAddress = "fpc.bindAddress"
 )
 
 func init() {
@@ -96,14 +101,14 @@ func configureFPC() {
 func runFPC() {
 	daemon.BackgroundWorker("FPCVoterServer", func(shutdownSignal <-chan struct{}) {
 		voterServer = votenet.New(Voter(), func(id string) vote.Opinion {
-			branchId, err := branchmanager.BranchIdFromBase58(id)
+			branchID, err := branchmanager.BranchIdFromBase58(id)
 			if err != nil {
 				log.Errorf("received invalid vote request for branch '%s'", id)
 
 				return vote.Unknown
 			}
 
-			cachedBranch := UTXODAG.BranchManager().GetBranch(branchId)
+			cachedBranch := UTXODAG.BranchManager().GetBranch(branchID)
 			defer cachedBranch.Release()
 
 			branch := cachedBranch.Unwrap()
@@ -154,6 +159,7 @@ type PeerOpinionGiver struct {
 	p *peer.Peer
 }
 
+// Query queries another node for its opinion.
 func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opinions, error) {
 	fpcServicePort := pog.p.Services().Get(service.FPCKey).Port()
 	fpcAddr := net.JoinHostPort(pog.p.IP().String(), strconv.Itoa(fpcServicePort))

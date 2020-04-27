@@ -24,12 +24,14 @@ import (
 
 const (
 	// PluginName contains the human readable name of the plugin.
-	PluginName          = "ValueTransfers"
+	PluginName = "ValueTransfers"
+
+	// AverageNetworkDelay contains the average time it takes for a network to propagate through gossip.
 	AverageNetworkDelay = 6 * time.Second
 )
 
 var (
-	// Plugin is the plugin instance of the message layer plugin.
+	// App is the "plugin" instance of the value-transfers application.
 	App = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 	// Tangle represents the value tangle that is used to express votes on value transactions.
@@ -66,7 +68,7 @@ func configure(_ *node.Plugin) {
 	// TODO: DECIDE WHAT WE SHOULD DO IF FPC FAILS
 	// voter.Events().Failed.Attach(events.NewClosure(panic))
 	voter.Events().Finalized.Attach(events.NewClosure(func(id string, opinion vote.Opinion) {
-		branchId, err := branchmanager.BranchIdFromBase58(id)
+		branchID, err := branchmanager.BranchIdFromBase58(id)
 		if err != nil {
 			log.Error(err)
 
@@ -75,9 +77,9 @@ func configure(_ *node.Plugin) {
 
 		switch opinion {
 		case vote.Like:
-			UTXODAG.BranchManager().SetBranchPreferred(branchId, true)
+			UTXODAG.BranchManager().SetBranchPreferred(branchID, true)
 		case vote.Dislike:
-			UTXODAG.BranchManager().SetBranchPreferred(branchId, false)
+			UTXODAG.BranchManager().SetBranchPreferred(branchID, false)
 		}
 	}))
 }
