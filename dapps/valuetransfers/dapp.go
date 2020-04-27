@@ -63,13 +63,21 @@ func configure(_ *node.Plugin) {
 	UTXODAG.Events.Fork.Attach(events.NewClosure(onFork))
 
 	configureFPC()
-	voter.Events().Failed.Attach(events.NewClosure(panic))
+	// TODO: DECIDE WHAT WE SHOULD DO IF FPC FAILS
+	// voter.Events().Failed.Attach(events.NewClosure(panic))
 	voter.Events().Finalized.Attach(events.NewClosure(func(id string, opinion vote.Opinion) {
+		branchId, err := branchmanager.BranchIdFromBase58(id)
+		if err != nil {
+			log.Error(err)
+
+			return
+		}
+
 		switch opinion {
 		case vote.Like:
-			LedgerState.SetBranchPreferred(id)
+			UTXODAG.BranchManager().SetBranchPreferred(branchId, true)
 		case vote.Dislike:
-			LedgerState.SetBranchUnpreferred(id)
+			UTXODAG.BranchManager().SetBranchPreferred(branchId, false)
 		}
 	}))
 }
@@ -176,5 +184,7 @@ func onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionM
 		return
 	}
 
-	UTXODAG.BranchManager().SetBranchPreferred(cachedBranch.Retain())
+	if _, err := UTXODAG.BranchManager().SetBranchPreferred(branch.Id(), true); err != nil {
+		log.Error(err)
+	}
 }

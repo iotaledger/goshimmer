@@ -19,6 +19,8 @@ type BranchManager struct {
 	childBranchStorage    *objectstorage.ObjectStorage
 	conflictStorage       *objectstorage.ObjectStorage
 	conflictMemberStorage *objectstorage.ObjectStorage
+
+	Events *Events
 }
 
 func New(badgerInstance *badger.DB) (result *BranchManager) {
@@ -33,7 +35,7 @@ func New(badgerInstance *badger.DB) (result *BranchManager) {
 }
 
 func (branchManager *BranchManager) init() {
-	branchManager.branchStorage.StoreIfAbsent(NewBranch(MasterBranchId, []BranchId{}))
+	branchManager.branchStorage.StoreIfAbsent(NewBranch(MasterBranchId, []BranchId{}, []ConflictId{}))
 }
 
 func (branchManager *BranchManager) Conflict(conflictId ConflictId) *CachedConflict {
@@ -101,7 +103,7 @@ func (branchManager *BranchManager) InheritBranches(branches ...BranchId) (cache
 
 	newAggregatedBranchCreated := false
 	cachedAggregatedBranch = &CachedBranch{CachedObject: branchManager.branchStorage.ComputeIfAbsent(aggregatedBranchId.Bytes(), func(key []byte) (object objectstorage.StorableObject) {
-		aggregatedReality := NewBranch(aggregatedBranchId, aggregatedBranchParents)
+		aggregatedReality := NewBranch(aggregatedBranchId, aggregatedBranchParents, []ConflictId{})
 
 		// TODO: FIX
 		/*

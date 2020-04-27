@@ -77,13 +77,6 @@ func (branchId BranchId) Bytes() []byte {
 
 // String creates a base58 encoded version of the BranchId.
 func (branchId BranchId) String() string {
-	switch branchId {
-	case MasterBranchId:
-		return "MasterBranch"
-	case UndefinedBranchId:
-		return "UndefinedBranch"
-	}
-
 	return base58.Encode(branchId[:])
 }
 

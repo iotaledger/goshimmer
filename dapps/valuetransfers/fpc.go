@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"google.golang.org/grpc"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
@@ -95,10 +96,26 @@ func configureFPC() {
 func runFPC() {
 	daemon.BackgroundWorker("FPCVoterServer", func(shutdownSignal <-chan struct{}) {
 		voterServer = votenet.New(Voter(), func(id string) vote.Opinion {
-			LedgerState.BranchLiked(id)
+			branchId, err := branchmanager.BranchIdFromBase58(id)
+			if err != nil {
+				log.Errorf("received invalid vote request for branch '%s'", id)
 
-			// TODO: replace with persistence layer call
-			return vote.Unknown
+				return vote.Unknown
+			}
+
+			cachedBranch := UTXODAG.BranchManager().GetBranch(branchId)
+			defer cachedBranch.Release()
+
+			branch := cachedBranch.Unwrap()
+			if branch == nil {
+				return vote.Unknown
+			}
+
+			if !branch.Preferred() {
+				return vote.Dislike
+			}
+
+			return vote.Like
 		}, config.Node.GetString(CfgFPCBindAddress))
 
 		go func() {
