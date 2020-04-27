@@ -13,7 +13,7 @@ import (
 
 const name = "Faucet" // name of the plugin
 
-var PLUGIN = node.NewPlugin(name, node.Enabled, configure, run)
+var PLUGIN = node.NewPlugin(name, node.Disabled, configure, run)
 
 var log *logger.Logger
 
