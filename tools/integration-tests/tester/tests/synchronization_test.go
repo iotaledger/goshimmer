@@ -91,7 +91,7 @@ type MessageSent struct {
 
 func checkForMessageIds(t *testing.T, peers []*framework.Peer, numMessages int, ids []string, idsMap map[string]MessageSent) {
 	for _, peer := range peers {
-		resp, err := peer.FindMessageById(ids)
+		resp, err := peer.FindMessageByID(ids)
 		require.NoError(t, err)
 
 		// check for the count of messages
@@ -102,7 +102,7 @@ func checkForMessageIds(t *testing.T, peers []*framework.Peer, numMessages int, 
 		for _, id := range ids {
 			for _, msg := range resp.Messages {
 				// if message found skip to next
-				if msg.Id == id {
+				if msg.ID == id {
 					continue outer
 				}
 			}
@@ -112,7 +112,7 @@ func checkForMessageIds(t *testing.T, peers []*framework.Peer, numMessages int, 
 
 		// check for general information
 		for _, msg := range resp.Messages {
-			msgSent := idsMap[msg.Id]
+			msgSent := idsMap[msg.ID]
 
 			assert.Equal(t, msgSent.issuerPublicKey, msg.IssuerPublicKey, "MessageId=%s, issuer=%s not correct issuer in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
 			assert.Equal(t, msgSent.data, msg.Payload, "MessageId=%s, issuer=%s data not equal in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
