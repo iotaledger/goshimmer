@@ -37,7 +37,7 @@ func MissingPayloadFromBytes(bytes []byte, optionalTargetObject ...*MissingPaylo
 }
 
 func ParseMissingPayload(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*MissingPayload) (result *MissingPayload, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return MissingPayloadFromStorageKey(data, optionalTargetObject...)
 	}); parseErr != nil {
 		err = parseErr
@@ -47,7 +47,7 @@ func ParseMissingPayload(marshalUtil *marshalutil.MarshalUtil, optionalTargetObj
 		result = parsedObject.(*MissingPayload)
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
 		return
@@ -60,7 +60,7 @@ func ParseMissingPayload(marshalUtil *marshalutil.MarshalUtil, optionalTargetObj
 
 // MissingPayloadFromStorageKey gets called when we restore an entry for a missing value transfer payload from the storage. The bytes and
 // the content will be unmarshaled by an external caller using the binary.ObjectStorageValue interface.
-func MissingPayloadFromStorageKey(key []byte, optionalTargetObject ...*MissingPayload) (result *MissingPayload, err error, consumedBytes int) {
+func MissingPayloadFromStorageKey(key []byte, optionalTargetObject ...*MissingPayload) (result *MissingPayload, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:

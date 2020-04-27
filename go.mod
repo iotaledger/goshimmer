@@ -13,7 +13,7 @@ require (
 	github.com/googollee/go-engine.io v1.4.3-0.20190924125625-798118fc0dd2
 	github.com/googollee/go-socket.io v1.4.3-0.20191204093753-683f8725b6d0
 	github.com/gorilla/websocket v1.4.1
-	github.com/iotaledger/hive.go v0.0.0-20200403132600-4c10556e08a0
+	github.com/iotaledger/hive.go v0.0.0-20200427200628-284e7291d770
 	github.com/iotaledger/iota.go v1.0.0-beta.14
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0

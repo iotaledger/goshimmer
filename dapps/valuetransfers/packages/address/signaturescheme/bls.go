@@ -68,7 +68,7 @@ func BLS(priKey, pubKey []byte) (SignatureScheme, error) {
 }
 
 func (sigscheme *blsSignatureScheme) Version() byte {
-	return address.VERSION_BLS
+	return address.VersionBLS
 }
 
 func (sigscheme *blsSignatureScheme) Address() address.Address {
@@ -110,15 +110,15 @@ var _ SignatureScheme = &blsSignatureScheme{}
 
 type blsSignature [BLS_FULL_SIGNATURE_SIZE]byte
 
-func BLSSignatureFromBytes(data []byte) (result *blsSignature, err error, consumedBytes int) {
+func BLSSignatureFromBytes(data []byte) (result *blsSignature, consumedBytes int, err error) {
 	consumedBytes = 0
 	err = nil
 	if len(data) < BLS_FULL_SIGNATURE_SIZE {
 		err = fmt.Errorf("marshaled BLS signature size must be %d", BLS_FULL_SIGNATURE_SIZE)
 		return
 	}
-	if data[0] != address.VERSION_BLS {
-		err = fmt.Errorf("wrong version byte, expected %d", address.VERSION_BLS)
+	if data[0] != address.VersionBLS {
+		err = fmt.Errorf("wrong version byte, expected %d", address.VersionBLS)
 		return
 	}
 	result = &blsSignature{}
@@ -129,7 +129,7 @@ func BLSSignatureFromBytes(data []byte) (result *blsSignature, err error, consum
 
 func newBLSSignature(pubKey, signature []byte) *blsSignature {
 	var ret blsSignature
-	ret[0] = address.VERSION_BLS
+	ret[0] = address.VersionBLS
 	copy(ret.pubKey(), pubKey)
 	copy(ret.signature(), signature)
 	return &ret
@@ -144,7 +144,7 @@ func (sig *blsSignature) signature() []byte {
 }
 
 func (sig *blsSignature) IsValid(signedData []byte) bool {
-	if sig[0] != address.VERSION_BLS {
+	if sig[0] != address.VersionBLS {
 		return false
 	}
 	// unmarshal public key

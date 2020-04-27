@@ -30,7 +30,7 @@ func NewMissingOutput(outputId transaction.OutputId) *MissingOutput {
 
 // MissingOutputFromBytes unmarshals a MissingOutput from a sequence of bytes - it either creates a new object or fills
 // the optionally provided one with the parsed information.
-func MissingOutputFromBytes(bytes []byte, optionalTargetObject ...*MissingOutput) (result *MissingOutput, err error, consumedBytes int) {
+func MissingOutputFromBytes(bytes []byte, optionalTargetObject ...*MissingOutput) (result *MissingOutput, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParseMissingOutput(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
@@ -39,7 +39,7 @@ func MissingOutputFromBytes(bytes []byte, optionalTargetObject ...*MissingOutput
 }
 
 func ParseMissingOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*MissingOutput) (result *MissingOutput, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return MissingOutputFromStorageKey(data, optionalTargetObject...)
 	}); parseErr != nil {
 		err = parseErr
@@ -49,7 +49,7 @@ func ParseMissingOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObje
 		result = parsedObject.(*MissingOutput)
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
 		return
@@ -62,7 +62,7 @@ func ParseMissingOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObje
 
 // MissingOutputFromStorageKey gets called when we restore a MissingOutput from the storage. The content will be
 // unmarshaled by an external caller using the binary.ObjectStorageValue interface.
-func MissingOutputFromStorageKey(key []byte, optionalTargetObject ...*MissingOutput) (result *MissingOutput, err error, consumedBytes int) {
+func MissingOutputFromStorageKey(key []byte, optionalTargetObject ...*MissingOutput) (result *MissingOutput, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:

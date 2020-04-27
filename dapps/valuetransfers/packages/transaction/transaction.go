@@ -47,7 +47,7 @@ func New(inputs *Inputs, outputs *Outputs) *Transaction {
 	}
 }
 
-func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Transaction, err error, consumedBytes int) {
+func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Transaction, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = Parse(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
@@ -55,7 +55,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Tran
 	return
 }
 
-func FromStorageKey(key []byte, optionalTargetObject ...*Transaction) (result objectstorage.StorableObject, err error, consumedBytes int) {
+func FromStorageKey(key []byte, optionalTargetObject ...*Transaction) (result objectstorage.StorableObject, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -87,7 +87,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Transa
 		panic("too many arguments in call to Parse")
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
 		return
@@ -121,7 +121,7 @@ func (transaction *Transaction) Id() Id {
 
 	// otherwise calculate the id
 	idBytes := blake2b.Sum256(transaction.Bytes())
-	id, err, _ := IdFromBytes(idBytes[:])
+	id, _, err := IdFromBytes(idBytes[:])
 	if err != nil {
 		panic(err)
 	}
@@ -330,14 +330,14 @@ func (transaction *Transaction) UnmarshalObjectStorageValue(bytes []byte) (err e
 	marshalUtil := marshalutil.New(bytes)
 
 	// unmarshal inputs
-	parsedInputs, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return InputsFromBytes(data) })
+	parsedInputs, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return InputsFromBytes(data) })
 	if err != nil {
 		return
 	}
 	transaction.inputs = parsedInputs.(*Inputs)
 
 	// unmarshal outputs
-	parsedOutputs, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return OutputsFromBytes(data) })
+	parsedOutputs, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return OutputsFromBytes(data) })
 	if err != nil {
 		return
 	}
@@ -367,7 +367,7 @@ func (transaction *Transaction) UnmarshalObjectStorageValue(bytes []byte) (err e
 	copy(transaction.essenceBytes, bytes[:essenceBytesCount])
 
 	// unmarshal outputs
-	parsedSignatures, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return SignaturesFromBytes(data) })
+	parsedSignatures, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return SignaturesFromBytes(data) })
 	if err != nil {
 		return
 	}

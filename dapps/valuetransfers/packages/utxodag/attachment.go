@@ -35,7 +35,7 @@ func NewAttachment(transactionId transaction.Id, payloadId payload.Id) *Attachme
 
 // AttachmentFromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
-func AttachmentFromBytes(bytes []byte, optionalTargetObject ...*Attachment) (result *Attachment, err error, consumedBytes int) {
+func AttachmentFromBytes(bytes []byte, optionalTargetObject ...*Attachment) (result *Attachment, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParseAttachment(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
@@ -45,7 +45,7 @@ func AttachmentFromBytes(bytes []byte, optionalTargetObject ...*Attachment) (res
 
 // Parse is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil package.
 func ParseAttachment(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Attachment) (result *Attachment, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return AttachmentFromStorageKey(data, optionalTargetObject...)
 	}); parseErr != nil {
 		err = parseErr
@@ -55,7 +55,7 @@ func ParseAttachment(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject 
 		result = parsedObject.(*Attachment)
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
 		return
@@ -68,7 +68,7 @@ func ParseAttachment(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject 
 
 // AttachmentFromStorageKey gets called when we restore an Attachment from the storage - it parses the key bytes and
 // returns the new object.
-func AttachmentFromStorageKey(key []byte, optionalTargetObject ...*Attachment) (result *Attachment, err error, consumedBytes int) {
+func AttachmentFromStorageKey(key []byte, optionalTargetObject ...*Attachment) (result *Attachment, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:

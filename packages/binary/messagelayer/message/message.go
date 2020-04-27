@@ -75,7 +75,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Messag
 		panic("too many arguments in call to Parse")
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
 		return
@@ -88,7 +88,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Messag
 
 // StorableObjectFromKey gets called when we restore a message from storage.
 // The bytes and the content will be unmarshaled by an external caller (the objectStorage factory).
-func StorableObjectFromKey(key []byte, optionalTargetObject ...*Message) (result objectstorage.StorableObject, err error, consumedBytes int) {
+func StorableObjectFromKey(key []byte, optionalTargetObject ...*Message) (result objectstorage.StorableObject, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:

@@ -35,7 +35,7 @@ func New(trunkPayloadId, branchPayloadId Id, valueTransfer *transaction.Transact
 
 // FromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, err error, consumedBytes int) {
+func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = Parse(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
@@ -43,7 +43,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	return
 }
 
-func FromStorageKey(key []byte, optionalTargetObject ...*Payload) (result *Payload, err error, consumedBytes int) {
+func FromStorageKey(key []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -79,7 +79,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Payloa
 		panic("too many arguments in call to Parse")
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
 		return
@@ -231,14 +231,14 @@ func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (err error, con
 }
 
 func (payload *Payload) Unmarshal(data []byte) (err error) {
-	_, err, _ = FromBytes(data)
+	_, _, err = FromBytes(data)
 
 	return
 }
 
 func init() {
 	payload.RegisterType(Type, func(data []byte) (payload payload.Payload, err error) {
-		payload, err, _ = FromBytes(data)
+		payload, _, err = FromBytes(data)
 
 		return
 	})

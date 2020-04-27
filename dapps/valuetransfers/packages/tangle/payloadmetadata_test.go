@@ -12,7 +12,7 @@ import (
 func TestMarshalUnmarshal(t *testing.T) {
 	originalMetadata := NewPayloadMetadata(payload.GenesisId)
 
-	clonedMetadata, err, _ := PayloadMetadataFromBytes(originalMetadata.Bytes())
+	clonedMetadata, _, err := PayloadMetadataFromBytes(originalMetadata.Bytes())
 	if err != nil {
 		panic(err)
 	}
@@ -23,7 +23,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 
 	originalMetadata.SetSolid(true)
 
-	clonedMetadata, err, _ = PayloadMetadataFromBytes(originalMetadata.Bytes())
+	clonedMetadata, _, err = PayloadMetadataFromBytes(originalMetadata.Bytes())
 	if err != nil {
 		panic(err)
 	}

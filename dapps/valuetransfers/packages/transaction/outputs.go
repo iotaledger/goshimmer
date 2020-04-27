@@ -24,7 +24,7 @@ func NewOutputs(outputs map[address.Address][]*balance.Balance) (result *Outputs
 
 // FromBytes reads the bytes and unmarshals the given information into an *Outputs object. It either creates a
 // new object, or uses the optional object provided in the arguments.
-func OutputsFromBytes(bytes []byte, optionalTargetObject ...*Outputs) (result *Outputs, err error, consumedBytes int) {
+func OutputsFromBytes(bytes []byte, optionalTargetObject ...*Outputs) (result *Outputs, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -65,7 +65,7 @@ func OutputsFromBytes(bytes []byte, optionalTargetObject ...*Outputs) (result *O
 		// iterate the corresponding times and collect balances
 		coloredBalances := make([]*balance.Balance, balanceCount)
 		for j := uint32(0); j < balanceCount; j++ {
-			coloredBalance, coloredBalanceErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return balance.FromBytes(data) })
+			coloredBalance, coloredBalanceErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return balance.FromBytes(data) })
 			if coloredBalanceErr != nil {
 				err = coloredBalanceErr
 

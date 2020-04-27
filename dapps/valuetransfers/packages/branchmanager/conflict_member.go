@@ -19,7 +19,7 @@ func NewConflictMember(conflictId ConflictId, branchId BranchId) *ConflictMember
 	}
 }
 
-func ConflictMemberFromBytes(bytes []byte, optionalTargetObject ...*ConflictMember) (result *ConflictMember, err error, consumedBytes int) {
+func ConflictMemberFromBytes(bytes []byte, optionalTargetObject ...*ConflictMember) (result *ConflictMember, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParseConflictMember(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
@@ -27,7 +27,7 @@ func ConflictMemberFromBytes(bytes []byte, optionalTargetObject ...*ConflictMemb
 	return
 }
 
-func ConflictMemberFromStorageKey(key []byte, optionalTargetObject ...*ConflictMember) (result *ConflictMember, err error, consumedBytes int) {
+func ConflictMemberFromStorageKey(key []byte, optionalTargetObject ...*ConflictMember) (result *ConflictMember, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -52,7 +52,7 @@ func ConflictMemberFromStorageKey(key []byte, optionalTargetObject ...*ConflictM
 }
 
 func ParseConflictMember(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*ConflictMember) (result *ConflictMember, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return ConflictMemberFromStorageKey(data, optionalTargetObject...)
 	}); parseErr != nil {
 		err = parseErr
@@ -62,7 +62,7 @@ func ParseConflictMember(marshalUtil *marshalutil.MarshalUtil, optionalTargetObj
 		result = parsedObject.(*ConflictMember)
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
 		return

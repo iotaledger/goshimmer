@@ -33,7 +33,7 @@ func IdFromBase58(base58String string) (id Id, err error) {
 }
 
 // IdFromBytes unmarshals an Id from a sequence of bytes.
-func IdFromBytes(bytes []byte) (result Id, err error, consumedBytes int) {
+func IdFromBytes(bytes []byte) (result Id, consumedBytes int, err error) {
 	// parse the bytes
 	marshalUtil := marshalutil.New(bytes)
 	if idBytes, idErr := marshalUtil.ReadBytes(IdLength); idErr != nil {
@@ -50,7 +50,7 @@ func IdFromBytes(bytes []byte) (result Id, err error, consumedBytes int) {
 
 // Parse is a wrapper for simplified unmarshaling of Ids from a byte stream using the marshalUtil package.
 func ParseId(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
-	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) }); err != nil {
+	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return IdFromBytes(data) }); err != nil {
 		return Id{}, err
 	} else {
 		return id.(Id), nil

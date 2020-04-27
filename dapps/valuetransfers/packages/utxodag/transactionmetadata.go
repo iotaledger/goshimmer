@@ -39,7 +39,7 @@ func NewTransactionMetadata(id transaction.Id) *TransactionMetadata {
 
 // TransactionMetadataFromBytes unmarshals a TransactionMetadata object from a sequence of bytes.
 // It either creates a new object or fills the optionally provided object with the parsed information.
-func TransactionMetadataFromBytes(bytes []byte, optionalTargetObject ...*TransactionMetadata) (result *TransactionMetadata, err error, consumedBytes int) {
+func TransactionMetadataFromBytes(bytes []byte, optionalTargetObject ...*TransactionMetadata) (result *TransactionMetadata, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParseTransactionMetadata(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
@@ -50,7 +50,7 @@ func TransactionMetadataFromBytes(bytes []byte, optionalTargetObject ...*Transac
 // TransactionMetadataFromStorageKey get's called when we restore TransactionMetadata from the storage.
 // In contrast to other database models, it unmarshals some information from the key so we simply store the key before
 // it gets handed over to UnmarshalObjectStorageValue (by the ObjectStorage).
-func TransactionMetadataFromStorageKey(keyBytes []byte, optionalTargetObject ...*TransactionMetadata) (result *TransactionMetadata, err error, consumedBytes int) {
+func TransactionMetadataFromStorageKey(keyBytes []byte, optionalTargetObject ...*TransactionMetadata) (result *TransactionMetadata, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -74,7 +74,7 @@ func TransactionMetadataFromStorageKey(keyBytes []byte, optionalTargetObject ...
 
 // Parse is a wrapper for simplified unmarshaling of TransactionMetadata objects from a byte stream using the marshalUtil package.
 func ParseTransactionMetadata(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*TransactionMetadata) (result *TransactionMetadata, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return TransactionMetadataFromStorageKey(data, optionalTargetObject...)
 	}); parseErr != nil {
 		err = parseErr
@@ -84,7 +84,7 @@ func ParseTransactionMetadata(marshalUtil *marshalutil.MarshalUtil, optionalTarg
 		result = parsedObject.(*TransactionMetadata)
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
 		return

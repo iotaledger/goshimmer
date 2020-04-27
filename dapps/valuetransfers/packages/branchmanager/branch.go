@@ -38,7 +38,7 @@ func NewBranch(id BranchId, parentBranches []BranchId, conflictingInputs []trans
 	}
 }
 
-func BranchFromStorageKey(key []byte, optionalTargetObject ...*Branch) (result *Branch, err error, consumedBytes int) {
+func BranchFromStorageKey(key []byte, optionalTargetObject ...*Branch) (result *Branch, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -69,7 +69,7 @@ func BranchFromBytes(bytes []byte, optionalTargetObject ...*Branch) (result *Bra
 }
 
 func ParseBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Branch) (result *Branch, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return BranchFromStorageKey(data, optionalTargetObject...)
 	}); parseErr != nil {
 		err = parseErr
@@ -79,7 +79,7 @@ func ParseBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*
 		result = parsedObject.(*Branch)
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
 		return

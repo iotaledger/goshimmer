@@ -26,6 +26,6 @@ var (
 	}
 )
 
-func osBranchFactory(key []byte) (objectstorage.StorableObject, error, int) {
+func osBranchFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return BranchFromStorageKey(key)
 }

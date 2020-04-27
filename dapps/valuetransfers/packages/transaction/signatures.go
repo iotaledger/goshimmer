@@ -24,7 +24,7 @@ func NewSignatures() *Signatures {
 
 // FromBytes unmarshals a container with signatures from a sequence of bytes.
 // It either creates a new container or fills the optionally provided container with the parsed information.
-func SignaturesFromBytes(bytes []byte, optionalTargetObject ...*Signatures) (result *Signatures, err error, consumedBytes int) {
+func SignaturesFromBytes(bytes []byte, optionalTargetObject ...*Signatures) (result *Signatures, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -50,9 +50,9 @@ func SignaturesFromBytes(bytes []byte, optionalTargetObject ...*Signatures) (res
 		typeCastedSignature = nil
 		// perform signature scheme specific decoding
 		switch versionByte {
-		case address.VERSION_ED25519:
+		case address.VersionED25519:
 			marshalUtil.ReadSeek(-1)
-			signature, signatureErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return signaturescheme.Ed25519SignatureFromBytes(data) })
+			signature, signatureErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return signaturescheme.Ed25519SignatureFromBytes(data) })
 			if signatureErr != nil {
 				err = signatureErr
 
@@ -60,9 +60,9 @@ func SignaturesFromBytes(bytes []byte, optionalTargetObject ...*Signatures) (res
 			}
 			typeCastedSignature = signature.(signaturescheme.Signature)
 
-		case address.VERSION_BLS:
+		case address.VersionBLS:
 			marshalUtil.ReadSeek(-1)
-			signature, signatureErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return signaturescheme.BLSSignatureFromBytes(data) })
+			signature, signatureErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return signaturescheme.BLSSignatureFromBytes(data) })
 			if signatureErr != nil {
 				err = signatureErr
 

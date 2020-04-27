@@ -31,7 +31,7 @@ func NewId(base58EncodedString string) (result Id, err error) {
 
 // ParseId is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func ParseId(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
-	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) }); err != nil {
+	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return IdFromBytes(data) }); err != nil {
 		return Id{}, err
 	} else {
 		return id.(Id), nil
@@ -40,7 +40,7 @@ func ParseId(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
 
 // IdFromBytes unmarshals a payload id from a sequence of bytes.
 // It either creates a new payload id or fills the optionally provided object with the parsed information.
-func IdFromBytes(bytes []byte, optionalTargetObject ...*Id) (result Id, err error, consumedBytes int) {
+func IdFromBytes(bytes []byte, optionalTargetObject ...*Id) (result Id, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	var targetObject *Id
 	switch len(optionalTargetObject) {

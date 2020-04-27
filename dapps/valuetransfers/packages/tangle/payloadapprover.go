@@ -31,7 +31,7 @@ func NewPayloadApprover(referencedPayload payload.Id, approvingPayload payload.I
 	}
 }
 
-func PayloadApproverFromBytes(bytes []byte, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, err error, consumedBytes int) {
+func PayloadApproverFromBytes(bytes []byte, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParsePayloadApprover(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
@@ -40,7 +40,7 @@ func PayloadApproverFromBytes(bytes []byte, optionalTargetObject ...*PayloadAppr
 }
 
 func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return PayloadApproverFromStorageKey(data, optionalTargetObject...)
 	}); parseErr != nil {
 		err = parseErr
@@ -50,7 +50,7 @@ func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetOb
 		result = parsedObject.(*PayloadApprover)
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
 		return
@@ -64,7 +64,7 @@ func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetOb
 // PayloadApproverFromStorageKey get's called when we restore transaction metadata from the storage.
 // In contrast to other database models, it unmarshals the information from the key and does not use the UnmarshalObjectStorageValue
 // method.
-func PayloadApproverFromStorageKey(key []byte, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, err error, consumedBytes int) {
+func PayloadApproverFromStorageKey(key []byte, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:

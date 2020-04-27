@@ -20,7 +20,7 @@ func NewInputs(outputIds ...OutputId) (inputs *Inputs) {
 	return
 }
 
-func InputsFromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int) {
+func InputsFromBytes(bytes []byte) (inputs *Inputs, consumedBytes int, err error) {
 	inputs = NewInputs()
 
 	marshalUtil := marshalutil.New(bytes)
@@ -43,7 +43,7 @@ func InputsFromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int
 
 			return
 		}
-		id, idErr, _ := IdFromBytes(idBytes)
+		id, _, idErr := IdFromBytes(idBytes)
 		if idErr != nil {
 			err = idErr
 

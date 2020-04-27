@@ -46,7 +46,7 @@ func ConsumerFromBytes(bytes []byte, optionalTargetObject ...*Consumer) (result 
 }
 
 func ParseConsumer(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Consumer) (result *Consumer, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return ConsumerFromStorageKey(data, optionalTargetObject...)
 	}); parseErr != nil {
 		err = parseErr
@@ -56,7 +56,7 @@ func ParseConsumer(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ..
 		result = parsedObject.(*Consumer)
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
 		return
@@ -67,7 +67,7 @@ func ParseConsumer(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ..
 	return
 }
 
-func ConsumerFromStorageKey(key []byte, optionalTargetObject ...*Consumer) (result *Consumer, err error, consumedBytes int) {
+func ConsumerFromStorageKey(key []byte, optionalTargetObject ...*Consumer) (result *Consumer, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:

@@ -41,7 +41,7 @@ func TestNewOutput(t *testing.T) {
 	assert.Equal(t, true, output.Solid())
 	assert.NotEqual(t, time.Time{}, output.SolidificationTime())
 
-	clonedOutput, err, _ := OutputFromBytes(output.Bytes())
+	clonedOutput, _, err := OutputFromBytes(output.Bytes())
 	if err != nil {
 		panic(err)
 	}
@@ -62,7 +62,7 @@ func TestAttachment(t *testing.T) {
 	assert.Equal(t, transactionId, attachment.TransactionId())
 	assert.Equal(t, payloadId, attachment.PayloadId())
 
-	clonedAttachment, err, consumedBytes := AttachmentFromBytes(attachment.Bytes())
+	clonedAttachment, consumedBytes, err := AttachmentFromBytes(attachment.Bytes())
 	if err != nil {
 		panic(err)
 	}

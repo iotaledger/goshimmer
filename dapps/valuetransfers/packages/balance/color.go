@@ -7,7 +7,7 @@ import (
 
 type Color [ColorLength]byte
 
-func ColorFromBytes(bytes []byte) (result Color, err error, consumedBytes int) {
+func ColorFromBytes(bytes []byte) (result Color, consumedBytes int, err error) {
 	colorBytes, err := marshalutil.New(bytes).ReadBytes(ColorLength)
 	if err != nil {
 		return

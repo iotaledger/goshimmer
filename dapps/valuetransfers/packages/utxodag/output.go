@@ -52,7 +52,7 @@ func NewOutput(address address.Address, transactionId transaction.Id, branchId b
 
 // OutputFromBytes unmarshals an Output object from a sequence of bytes.
 // It either creates a new object or fills the optionally provided object with the parsed information.
-func OutputFromBytes(bytes []byte, optionalTargetObject ...*Output) (result *Output, err error, consumedBytes int) {
+func OutputFromBytes(bytes []byte, optionalTargetObject ...*Output) (result *Output, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParseOutput(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
@@ -61,7 +61,7 @@ func OutputFromBytes(bytes []byte, optionalTargetObject ...*Output) (result *Out
 }
 
 func ParseOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Output) (result *Output, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return OutputFromStorageKey(data, optionalTargetObject...)
 	}); parseErr != nil {
 		err = parseErr
@@ -71,7 +71,7 @@ func ParseOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*
 		result = parsedObject.(*Output)
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
 		return
@@ -85,7 +85,7 @@ func ParseOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*
 // OutputFromStorageKey get's called when we restore a Output from the storage.
 // In contrast to other database models, it unmarshals some information from the key so we simply store the key before
 // it gets handed over to UnmarshalObjectStorageValue (by the ObjectStorage).
-func OutputFromStorageKey(keyBytes []byte, optionalTargetObject ...*Output) (result *Output, err error, consumedBytes int) {
+func OutputFromStorageKey(keyBytes []byte, optionalTargetObject ...*Output) (result *Output, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:

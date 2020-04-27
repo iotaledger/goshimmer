@@ -1,0 +1,942 @@
+dapps\valuetransfers\packages\address\address.go:93:1: error should be the last type when returning multiple items (golint)
+func FromBytes(bytes []byte) (result Address, err error, consumedBytes int) {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:14:6: exported type `Branch` should have comment or be unexported (golint)
+type Branch struct {
+     ^
+dapps\valuetransfers\packages\branchmanager\branch.go:28:1: exported function `NewBranch` should have comment or be unexported (golint)
+func NewBranch(id BranchId, parentBranches []BranchId, conflictingInputs []transaction.OutputId) *Branch {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:41:1: error should be the last type when returning multiple items (golint)
+func BranchFromStorageKey(key []byte, optionalTargetObject ...*Branch) (result *Branch, err error, consumedBytes int) {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:63:1: error should be the last type when returning multiple items (golint)
+func BranchFromBytes(bytes []byte, optionalTargetObject ...*Branch) (result *Branch, err error, consumedBytes int) {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:71:1: exported function `ParseBranch` should have comment or be unexported (golint)
+func ParseBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Branch) (result *Branch, err error) {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:78:9: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
+	} else {
+	       ^
+dapps\valuetransfers\packages\branchmanager\branch.go:93:1: exported method `Branch.Id` should have comment or be unexported (golint)
+func (branch *Branch) Id() BranchId {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:97:1: exported method `Branch.ParentBranches` should have comment or be unexported (golint)
+func (branch *Branch) ParentBranches() []BranchId {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:101:1: exported method `Branch.IsAggregated` should have comment or be unexported (golint)
+func (branch *Branch) IsAggregated() bool {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:105:1: exported method `Branch.Conflicts` should have comment or be unexported (golint)
+func (branch *Branch) Conflicts() (conflicts map[ConflictId]types.Empty) {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:117:1: exported method `Branch.AddConflict` should have comment or be unexported (golint)
+func (branch *Branch) AddConflict(conflict ConflictId) (added bool) {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:139:1: exported method `Branch.Preferred` should have comment or be unexported (golint)
+func (branch *Branch) Preferred() bool {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:146:1: exported method `Branch.SetPreferred` should have comment or be unexported (golint)
+func (branch *Branch) SetPreferred(preferred bool) (modified bool) {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:168:1: exported method `Branch.Liked` should have comment or be unexported (golint)
+func (branch *Branch) Liked() bool {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:175:1: exported method `Branch.SetLiked` should have comment or be unexported (golint)
+func (branch *Branch) SetLiked(liked bool) (modified bool) {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:197:1: exported method `Branch.Bytes` should have comment or be unexported (golint)
+func (branch *Branch) Bytes() []byte {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:210:1: exported method `Branch.Update` should have comment or be unexported (golint)
+func (branch *Branch) Update(other objectstorage.StorableObject) {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:214:1: exported method `Branch.ObjectStorageKey` should have comment or be unexported (golint)
+func (branch *Branch) ObjectStorageKey() []byte {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:218:1: exported method `Branch.ObjectStorageValue` should have comment or be unexported (golint)
+func (branch *Branch) ObjectStorageValue() []byte {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:231:9: range var `branchId` should be `branchID` (golint)
+	for _, branchId := range parentBranches {
+	       ^
+dapps\valuetransfers\packages\branchmanager\branch.go:264:6: exported type `CachedBranch` should have comment or be unexported (golint)
+type CachedBranch struct {
+     ^
+dapps\valuetransfers\packages\branchmanager\branch.go:268:1: exported method `CachedBranch.Retain` should have comment or be unexported (golint)
+func (cachedBranches *CachedBranch) Retain() *CachedBranch {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:272:1: exported method `CachedBranch.Unwrap` should have comment or be unexported (golint)
+func (cachedBranches *CachedBranch) Unwrap() *Branch {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:275:9: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
+	} else {
+	       ^
+dapps\valuetransfers\packages\branchmanager\branch.go:278:10: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
+		} else {
+		       ^
+dapps\valuetransfers\packages\branchmanager\branch.go:284:1: exported method `CachedBranch.Consume` should have comment or be unexported (golint)
+func (cachedBranches *CachedBranch) Consume(consumer func(branch *Branch), forceRelease ...bool) (consumed bool) {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:290:6: exported type `CachedBranches` should have comment or be unexported (golint)
+type CachedBranches map[BranchId]*CachedBranch
+     ^
+dapps\valuetransfers\packages\branchmanager\branch.go:292:1: exported method `CachedBranches.Consume` should have comment or be unexported (golint)
+func (cachedBranches CachedBranches) Consume(consumer func(branch *Branch)) (consumed bool) {
+^
+dapps\valuetransfers\packages\branchmanager\branch.go:302:1: exported method `CachedBranches.Release` should have comment or be unexported (golint)
+func (cachedBranches CachedBranches) Release(force ...bool) {
+^
+dapps\valuetransfers\packages\branchmanager\branchid.go:13:6: exported type `BranchId` should have comment or be unexported (golint)
+type BranchId [BranchIdLength]byte
+     ^
+dapps\valuetransfers\packages\branchmanager\branchid.go:16:2: exported var `UndefinedBranchId` should have comment or be unexported (golint)
+	UndefinedBranchId = BranchId{}
+	^
+dapps\valuetransfers\packages\branchmanager\branchid.go:17:2: var `MasterBranchId` should be `MasterBranchID` (golint)
+	MasterBranchId    = BranchId{1}
+	^
+dapps\valuetransfers\packages\branchmanager\branchid.go:21:6: func NewBranchId should be NewBranchID (golint)
+func NewBranchId(transactionId transaction.Id) (branchId BranchId) {
+     ^
+dapps\valuetransfers\packages\branchmanager\branchid.go:30:2: var `branchIdBytes` should be `branchIDBytes` (golint)
+	branchIdBytes, idErr := marshalUtil.ReadBytes(BranchIdLength)
+	^
+dapps\valuetransfers\packages\branchmanager\branchid.go:42:1: exported function `BranchIdFromBase58` should have comment or be unexported (golint)
+func BranchIdFromBase58(base58String string) (branchId BranchId, err error) {
+^
+dapps\valuetransfers\packages\branchmanager\branchid.go:62:1: exported function `ParseBranchId` should have comment or be unexported (golint)
+func ParseBranchId(marshalUtil *marshalutil.MarshalUtil) (result BranchId, err error) {
+^
+dapps\valuetransfers\packages\branchmanager\branchid.go:63:6: var `branchIdBytes` should be `branchIDBytes` (golint)
+	var branchIdBytes []byte
+	    ^
+dapps\valuetransfers\packages\branchmanager\branchid.go:85:7: const `BranchIdLength` should be `BranchIDLength` (golint)
+const BranchIdLength = transaction.IdLength
+      ^
+dapps\valuetransfers\packages\branchmanager\branchid.go:87:6: exported type `BranchIds` should have comment or be unexported (golint)
+type BranchIds map[BranchId]types.Empty
+     ^
+dapps\valuetransfers\packages\branchmanager\branchid.go:89:1: exported method `BranchIds.ToList` should have comment or be unexported (golint)
+func (branchIds BranchIds) ToList() (result []BranchId) {
+^
+dapps\valuetransfers\packages\branchmanager\branchid.go:92:6: range var `branchId` should be `branchID` (golint)
+	for branchId := range branchIds {
+	    ^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:17:6: exported type `BranchManager` should have comment or be unexported (golint)
+type BranchManager struct {
+     ^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:26:1: exported function `New` should have comment or be unexported (golint)
+func New(badgerInstance *badger.DB) (result *BranchManager) {
+^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:41:1: exported method `BranchManager.Conflict` should have comment or be unexported (golint)
+func (branchManager *BranchManager) Conflict(conflictId ConflictId) *CachedConflict {
+^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:45:1: exported method `BranchManager.ConflictMembers` should have comment or be unexported (golint)
+func (branchManager *BranchManager) ConflictMembers(conflictId ConflictId) CachedConflictMembers {
+^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:56:1: exported method `BranchManager.AddBranch` should have comment or be unexported (golint)
+func (branchManager *BranchManager) AddBranch(branch *Branch) *CachedBranch {
+^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:65:1: exported method `BranchManager.GetBranch` should have comment or be unexported (golint)
+func (branchManager *BranchManager) GetBranch(branchId BranchId) *CachedBranch {
+^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:69:1: exported method `BranchManager.InheritBranches` should have comment or be unexported (golint)
+func (branchManager *BranchManager) InheritBranches(branches ...BranchId) (cachedAggregatedBranch *CachedBranch, err error) {
+^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:99:2: var `aggregatedBranchId` should be `aggregatedBranchID` (golint)
+	aggregatedBranchId, aggregatedBranchParents, err := branchManager.determineAggregatedBranchDetails(deepestCommonAncestors)
+	^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:143:1: exported method `BranchManager.ChildBranches` should have comment or be unexported (golint)
+func (branchManager *BranchManager) ChildBranches(branchId BranchId) CachedChildBranches {
+^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:154:1: exported method `BranchManager.SetBranchPreferred` should have comment or be unexported (golint)
+func (branchManager *BranchManager) SetBranchPreferred(branchId BranchId, preferred bool) (modified bool, err error) {
+^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:177:6: range var `conflictId` should be `conflictID` (golint)
+	for conflictId := range branch.Conflicts() {
+	    ^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:207:9: range var `parentBranchId` should be `parentBranchID` (golint)
+	for _, parentBranchId := range branch.ParentBranches() {
+	       ^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:270:110: method result `aggregatedBranchId` should be `aggregatedBranchID` (golint)
+func (branchManager *BranchManager) determineAggregatedBranchDetails(deepestCommonAncestors CachedBranches) (aggregatedBranchId BranchId, aggregatedBranchParents []BranchId, err error) {
+                                                                                                             ^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:275:6: range var `branchId` should be `branchID` (golint)
+	for branchId, cachedBranch := range deepestCommonAncestors {
+	    ^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:320:37: method generateAggregatedBranchId should be generateAggregatedBranchID (golint)
+func (branchManager *BranchManager) generateAggregatedBranchId(aggregatedBranches CachedBranches) BranchId {
+                                    ^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:354:9: range var `parentRealityId` should be `parentRealityID` (golint)
+	for _, parentRealityId := range branch.ParentBranches() {
+	       ^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:366:4: var `parentBranchId` should be `parentBranchID` (golint)
+			parentBranchId := stack.Front().Value.(BranchId)
+			^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:393:11: range var `parentRealityId` should be `parentRealityID` (golint)
+			for _, parentRealityId := range parentBranch.ParentBranches() {
+			       ^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:440:8: range var `aggregatedBranchId` should be `aggregatedBranchID` (golint)
+			for aggregatedBranchId, cachedAggregatedBranch := range result {
+			    ^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:516:9: range var `parentRealityId` should be `parentRealityID` (golint)
+	for _, parentRealityId := range branch.ParentBranches() {
+	       ^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:527:4: var `parentBranchId` should be `parentBranchID` (golint)
+			parentBranchId := stack.Front().Value.(BranchId)
+			^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:8:6: exported type `ChildBranch` should have comment or be unexported (golint)
+type ChildBranch struct {
+     ^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:11:2: struct field `parentId` should be `parentID` (golint)
+	parentId BranchId
+	^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:15:1: exported function `NewChildBranch` should have comment or be unexported (golint)
+func NewChildBranch(parentId BranchId, id BranchId) *ChildBranch {
+^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:54:1: exported function `ParseChildBranch` should have comment or be unexported (golint)
+func ParseChildBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*ChildBranch) (result *ChildBranch, err error) {
+^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:76:1: exported method `ChildBranch.ParentId` should have comment or be unexported (golint)
+func (childBranch *ChildBranch) ParentId() BranchId {
+^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:80:1: exported method `ChildBranch.Id` should have comment or be unexported (golint)
+func (childBranch *ChildBranch) Id() BranchId {
+^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:84:1: exported method `ChildBranch.ObjectStorageKey` should have comment or be unexported (golint)
+func (childBranch ChildBranch) ObjectStorageKey() []byte {
+^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:91:1: exported method `ChildBranch.ObjectStorageValue` should have comment or be unexported (golint)
+func (childBranch ChildBranch) ObjectStorageValue() []byte {
+^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:99:1: exported method `ChildBranch.Update` should have comment or be unexported (golint)
+func (childBranch ChildBranch) Update(other objectstorage.StorableObject) {
+^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:105:6: exported type `CachedChildBranch` should have comment or be unexported (golint)
+type CachedChildBranch struct {
+     ^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:109:1: exported method `CachedChildBranch.Retain` should have comment or be unexported (golint)
+func (cachedChildBranch *CachedChildBranch) Retain() *CachedChildBranch {
+^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:113:1: exported method `CachedChildBranch.Unwrap` should have comment or be unexported (golint)
+func (cachedChildBranch *CachedChildBranch) Unwrap() *ChildBranch {
+^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:125:1: exported method `CachedChildBranch.Consume` should have comment or be unexported (golint)
+func (cachedChildBranch *CachedChildBranch) Consume(consumer func(childBranch *ChildBranch), forceRelease ...bool) (consumed bool) {
+^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:131:6: exported type `CachedChildBranches` should have comment or be unexported (golint)
+type CachedChildBranches []*CachedChildBranch
+     ^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:133:1: exported method `CachedChildBranches.Consume` should have comment or be unexported (golint)
+func (cachedChildBranches CachedChildBranches) Consume(consumer func(childBranch *ChildBranch)) (consumed bool) {
+^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:143:1: exported method `CachedChildBranches.Release` should have comment or be unexported (golint)
+func (cachedChildBranches CachedChildBranches) Release(force ...bool) {
+^
+dapps\valuetransfers\packages\branchmanager\conflict.go:11:6: exported type `Conflict` should have comment or be unexported (golint)
+type Conflict struct {
+     ^
+dapps\valuetransfers\packages\branchmanager\conflict.go:20:1: exported function `NewConflict` should have comment or be unexported (golint)
+func NewConflict(id ConflictId) *Conflict {
+^
+dapps\valuetransfers\packages\branchmanager\conflict.go:26:1: exported method `Conflict.Id` should have comment or be unexported (golint)
+func (conflict *Conflict) Id() ConflictId {
+^
+dapps\valuetransfers\packages\branchmanager\conflict.go:30:1: exported method `Conflict.MemberCount` should have comment or be unexported (golint)
+func (conflict *Conflict) MemberCount() int {
+^
+dapps\valuetransfers\packages\branchmanager\conflict.go:37:1: exported method `Conflict.IncreaseMemberCount` should have comment or be unexported (golint)
+func (conflict *Conflict) IncreaseMemberCount(optionalDelta ...int) (newMemberCount int) {
+^
+dapps\valuetransfers\packages\branchmanager\conflict.go:53:1: exported method `Conflict.DecreaseMemberCount` should have comment or be unexported (golint)
+func (conflict *Conflict) DecreaseMemberCount(optionalDelta ...int) (newMemberCount int) {
+^
+dapps\valuetransfers\packages\branchmanager\conflict.go:69:1: exported method `Conflict.Bytes` should have comment or be unexported (golint)
+func (conflict *Conflict) Bytes() []byte {
+^
+dapps\valuetransfers\packages\branchmanager\conflict.go:83:1: exported method `Conflict.ObjectStorageKey` should have comment or be unexported (golint)
+func (conflict *Conflict) ObjectStorageKey() []byte {
+^
+dapps\valuetransfers\packages\branchmanager\conflict.go:87:1: exported method `Conflict.ObjectStorageValue` should have comment or be unexported (golint)
+func (conflict *Conflict) ObjectStorageValue() []byte {
+^
+dapps\valuetransfers\packages\branchmanager\conflict.go:104:1: exported method `Conflict.Update` should have comment or be unexported (golint)
+func (conflict *Conflict) Update(other objectstorage.StorableObject) {
+^
+dapps\valuetransfers\packages\branchmanager\conflict.go:110:6: exported type `CachedConflict` should have comment or be unexported (golint)
+type CachedConflict struct {
+     ^
+dapps\valuetransfers\packages\branchmanager\conflict.go:114:1: exported method `CachedConflict.Retain` should have comment or be unexported (golint)
+func (cachedConflict *CachedConflict) Retain() *CachedConflict {
+^
+dapps\valuetransfers\packages\branchmanager\conflict.go:118:1: exported method `CachedConflict.Unwrap` should have comment or be unexported (golint)
+func (cachedConflict *CachedConflict) Unwrap() *Conflict {
+^
+dapps\valuetransfers\packages\branchmanager\conflict.go:130:1: exported method `CachedConflict.Consume` should have comment or be unexported (golint)
+func (cachedConflict *CachedConflict) Consume(consumer func(branch *Conflict), forceRelease ...bool) (consumed bool) {
+^
+dapps\valuetransfers\packages\branchmanager\conflict_id.go:7:6: exported type `ConflictId` should have comment or be unexported (golint)
+type ConflictId = transaction.OutputId
+     ^
+dapps\valuetransfers\packages\branchmanager\conflict_id.go:10:2: exported var `ParseConflictId` should have comment or be unexported (golint)
+	ParseConflictId     = transaction.ParseOutputId
+	^
+dapps\valuetransfers\packages\branchmanager\conflict_id.go:11:2: var `ConflictIdFromBytes` should be `ConflictIDFromBytes` (golint)
+	ConflictIdFromBytes = transaction.OutputIdFromBytes
+	^
+dapps\valuetransfers\packages\branchmanager\conflict_id.go:14:7: const `ConflictIdLength` should be `ConflictIDLength` (golint)
+const ConflictIdLength = transaction.OutputIdLength
+      ^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:8:6: exported type `ConflictMember` should have comment or be unexported (golint)
+type ConflictMember struct {
+     ^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:11:2: struct field `conflictId` should be `conflictID` (golint)
+	conflictId ConflictId
+	^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:12:2: struct field `branchId` should be `branchID` (golint)
+	branchId   BranchId
+	^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:15:1: exported function `NewConflictMember` should have comment or be unexported (golint)
+func NewConflictMember(conflictId ConflictId, branchId BranchId) *ConflictMember {
+^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:54:1: exported function `ParseConflictMember` should have comment or be unexported (golint)
+func ParseConflictMember(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*ConflictMember) (result *ConflictMember, err error) {
+^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:76:1: exported method `ConflictMember.ConflictId` should have comment or be unexported (golint)
+func (conflictMember *ConflictMember) ConflictId() ConflictId {
+^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:80:1: exported method `ConflictMember.BranchId` should have comment or be unexported (golint)
+func (conflictMember *ConflictMember) BranchId() BranchId {
+^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:84:1: exported method `ConflictMember.ObjectStorageKey` should have comment or be unexported (golint)
+func (conflictMember ConflictMember) ObjectStorageKey() []byte {
+^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:91:1: exported method `ConflictMember.ObjectStorageValue` should have comment or be unexported (golint)
+func (conflictMember ConflictMember) ObjectStorageValue() []byte {
+^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:99:1: exported method `ConflictMember.Update` should have comment or be unexported (golint)
+func (conflictMember ConflictMember) Update(other objectstorage.StorableObject) {
+^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:105:6: exported type `CachedConflictMember` should have comment or be unexported (golint)
+type CachedConflictMember struct {
+     ^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:109:1: exported method `CachedConflictMember.Retain` should have comment or be unexported (golint)
+func (cachedConflictMember *CachedConflictMember) Retain() *CachedConflictMember {
+^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:113:1: exported method `CachedConflictMember.Unwrap` should have comment or be unexported (golint)
+func (cachedConflictMember *CachedConflictMember) Unwrap() *ConflictMember {
+^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:125:1: exported method `CachedConflictMember.Consume` should have comment or be unexported (golint)
+func (cachedConflictMember *CachedConflictMember) Consume(consumer func(conflictMember *ConflictMember), forceRelease ...bool) (consumed bool) {
+^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:131:6: exported type `CachedConflictMembers` should have comment or be unexported (golint)
+type CachedConflictMembers []*CachedConflictMember
+     ^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:133:1: exported method `CachedConflictMembers.Consume` should have comment or be unexported (golint)
+func (cachedConflictMembers CachedConflictMembers) Consume(consumer func(conflictMember *ConflictMember)) (consumed bool) {
+^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:143:1: exported method `CachedConflictMembers.Release` should have comment or be unexported (golint)
+func (cachedConflictMembers CachedConflictMembers) Release(force ...bool) {
+^
+dapps\valuetransfers\packages\branchmanager\events.go:7:6: exported type `Events` should have comment or be unexported (golint)
+type Events struct {
+     ^
+dapps\valuetransfers\packages\ledgerstate\ledgerstate.go:7:6: exported type `LedgerState` should have comment or be unexported (golint)
+type LedgerState struct {
+     ^
+dapps\valuetransfers\packages\ledgerstate\ledgerstate.go:11:1: exported function `New` should have comment or be unexported (golint)
+func New(utxoDAG *utxodag.UTXODAG) *LedgerState {
+^
+dapps\valuetransfers\dapp.go:28:2: exported const AverageNetworkDelay should have comment (or a comment on this block) or be unexported (golint)
+	AverageNetworkDelay = 6 * time.Second
+	^
+dapps\valuetransfers\dapp.go:32:2: comment on exported var `App` should be of the form `App ...` (golint)
+	// Plugin is the plugin instance of the message layer plugin.
+	^
+dapps\valuetransfers\dapp.go:69:3: var `branchId` should be `branchID` (golint)
+		branchId, err := branchmanager.BranchIdFromBase58(id)
+		^
+dapps\valuetransfers\fpc.go:32:2: exported const CfgFPCQuerySampleSize should have comment (or a comment on this block) or be unexported (golint)
+	CfgFPCQuerySampleSize = "fpc.querySampleSize"
+	^
+dapps\valuetransfers\fpc.go:99:4: var `branchId` should be `branchID` (golint)
+			branchId, err := branchmanager.BranchIdFromBase58(id)
+			^
+dapps\valuetransfers\fpc.go:157:1: exported method `PeerOpinionGiver.Query` should have comment or be unexported (golint)
+func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opinions, error) {
+^
+dapps\valuetransfers\fpc.go:186:1: exported method `PeerOpinionGiver.ID` should have comment or be unexported (golint)
+func (pog *PeerOpinionGiver) ID() string {
+^
+dapps\valuetransfers\packages\address\signaturescheme\bls.go:27:2: don't use ALL_CAPS in Go names; use CamelCase (golint)
+	BLS_SIGNATURE_SIZE      = 64
+	^
+dapps\valuetransfers\packages\address\signaturescheme\bls.go:28:2: don't use ALL_CAPS in Go names; use CamelCase (golint)
+	BLS_PUBLIC_KEY_SIZE     = 128
+	^
+dapps\valuetransfers\packages\address\signaturescheme\bls.go:29:2: don't use ALL_CAPS in Go names; use CamelCase (golint)
+	BLS_PRIVATE_KEY_SIZE    = 32
+	^
+dapps\valuetransfers\packages\address\signaturescheme\bls.go:51:1: comment on exported function `BLS` should be of the form `BLS ...` (golint)
+// BLS(,) creates an instance of BLS signature scheme
+^
+dapps\valuetransfers\packages\address\signaturescheme\bls.go:170:1: exported function `AggregateBLSSignatures` should have comment or be unexported (golint)
+func AggregateBLSSignatures(sigs ...Signature) (Signature, error) {
+^
+dapps\valuetransfers\packages\address\signaturescheme\ed25519.go:61:1: comment on exported function `Ed25519SignatureFromBytes` should be of the form `Ed25519SignatureFromBytes ...` (golint)
+// ed25519SignatureFromBytes unmarshals an ed25519 signatures from a sequence of bytes.
+^
+dapps\valuetransfers\packages\balance\balance.go:9:6: exported type `Balance` should have comment or be unexported (golint)
+type Balance struct {
+     ^
+dapps\valuetransfers\packages\balance\balance.go:14:1: exported function `New` should have comment or be unexported (golint)
+func New(color Color, balance int64) (result *Balance) {
+^
+dapps\valuetransfers\packages\balance\balance.go:65:1: exported method `Balance.Bytes` should have comment or be unexported (golint)
+func (balance *Balance) Bytes() []byte {
+^
+dapps\valuetransfers\packages\balance\color.go:8:6: exported type `Color` should have comment or be unexported (golint)
+type Color [ColorLength]byte
+     ^
+dapps\valuetransfers\packages\balance\color.go:22:7: exported const `ColorLength` should have comment or be unexported (golint)
+const ColorLength = 32
+      ^
+dapps\valuetransfers\packages\balance\color.go:24:1: exported method `Color.Bytes` should have comment or be unexported (golint)
+func (color Color) Bytes() []byte {
+^
+dapps\valuetransfers\packages\balance\color.go:36:5: exported var `ColorIOTA` should have comment or be unexported (golint)
+var ColorIOTA Color = [32]byte{}
+    ^
+dapps\valuetransfers\packages\balance\color.go:38:5: exported var `ColorNew` should have comment or be unexported (golint)
+var ColorNew = [32]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
+    ^
+dapps\valuetransfers\packages\payload\id.go:12:6: type `Id` should be `ID` (golint)
+type Id [IdLength]byte
+     ^
+dapps\valuetransfers\packages\payload\id.go:15:6: func NewId should be NewID (golint)
+func NewId(base58EncodedString string) (result Id, err error) {
+     ^
+dapps\valuetransfers\packages\payload\id.go:33:6: func ParseId should be ParseID (golint)
+func ParseId(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
+     ^
+dapps\valuetransfers\packages\payload\id.go:74:1: comment on exported function `RandomId` should be of the form `RandomId ...` (golint)
+// Random creates a random id which can for example be used in unit tests.
+^
+dapps\valuetransfers\packages\payload\id.go:75:6: func RandomId should be RandomID (golint)
+func RandomId() (id Id) {
+     ^
+dapps\valuetransfers\packages\payload\id.go:93:1: exported method `Id.Bytes` should have comment or be unexported (golint)
+func (id Id) Bytes() []byte {
+^
+dapps\valuetransfers\packages\payload\id.go:97:1: comment on exported var `GenesisId` should be of the form `GenesisId ...` (golint)
+// Empty represents the id encoding the genesis.
+^
+dapps\valuetransfers\packages\payload\id.go:98:5: var `GenesisId` should be `GenesisID` (golint)
+var GenesisId Id
+    ^
+dapps\valuetransfers\packages\payload\id.go:101:7: const `IdLength` should be `IDLength` (golint)
+const IdLength = 32
+      ^
+dapps\valuetransfers\packages\payload\id_test.go:11:2: var `sourceId` should be `sourceID` (golint)
+	sourceId, err := NewId("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
+	^
+dapps\valuetransfers\packages\payload\id_test.go:17:6: var `restoredIdPointer` should be `restoredIDPointer` (golint)
+	var restoredIdPointer Id
+	    ^
+dapps\valuetransfers\packages\payload\id_test.go:18:2: var `restoredIdValue` should be `restoredIDValue` (golint)
+	restoredIdValue, err, _ := IdFromBytes(sourceId.Bytes(), &restoredIdPointer)
+	^
+dapps\valuetransfers\packages\payload\payload.go:15:6: exported type `Payload` should have comment or be unexported (golint)
+type Payload struct {
+     ^
+dapps\valuetransfers\packages\payload\payload.go:21:2: struct field `trunkPayloadId` should be `trunkPayloadID` (golint)
+	trunkPayloadId  Id
+	^
+dapps\valuetransfers\packages\payload\payload.go:22:2: struct field `branchPayloadId` should be `branchPayloadID` (golint)
+	branchPayloadId Id
+	^
+dapps\valuetransfers\packages\payload\payload.go:59:5: var `payloadId` should be `payloadID` (golint)
+	if payloadId, idErr := ParseId(marshalUtil); idErr != nil {
+	   ^
+dapps\valuetransfers\packages\payload\payload.go:71:1: exported function `Parse` should have comment or be unexported (golint)
+func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Payload) (result *Payload, err error) {
+^
+dapps\valuetransfers\packages\payload\payload.go:93:1: exported method `Payload.Id` should have comment or be unexported (golint)
+func (payload *Payload) Id() Id {
+^
+dapps\valuetransfers\packages\payload\payload.go:126:1: exported method `Payload.TrunkId` should have comment or be unexported (golint)
+func (payload *Payload) TrunkId() Id {
+^
+dapps\valuetransfers\packages\payload\payload.go:130:1: exported method `Payload.BranchId` should have comment or be unexported (golint)
+func (payload *Payload) BranchId() Id {
+^
+dapps\valuetransfers\packages\payload\payload.go:134:1: exported method `Payload.Transaction` should have comment or be unexported (golint)
+func (payload *Payload) Transaction() *transaction.Transaction {
+^
+dapps\valuetransfers\packages\payload\payload.go:138:1: exported method `Payload.Bytes` should have comment or be unexported (golint)
+func (payload *Payload) Bytes() []byte {
+^
+dapps\valuetransfers\packages\payload\payload.go:153:5: exported var `Type` should have comment or be unexported (golint)
+var Type = payload.Type(1)
+    ^
+dapps\valuetransfers\packages\payload\payload.go:155:1: exported method `Payload.Type` should have comment or be unexported (golint)
+func (payload *Payload) Type() payload.Type {
+^
+dapps\valuetransfers\packages\payload\payload.go:159:1: exported method `Payload.ObjectStorageValue` should have comment or be unexported (golint)
+func (payload *Payload) ObjectStorageValue() (bytes []byte) {
+^
+dapps\valuetransfers\packages\payload\payload.go:233:1: exported method `Payload.Unmarshal` should have comment or be unexported (golint)
+func (payload *Payload) Unmarshal(data []byte) (err error) {
+^
+dapps\valuetransfers\packages\payload\payload.go:258:1: exported method `Payload.ObjectStorageKey` should have comment or be unexported (golint)
+func (payload *Payload) ObjectStorageKey() []byte {
+^
+dapps\valuetransfers\packages\payload\payload.go:262:1: exported method `Payload.Update` should have comment or be unexported (golint)
+func (payload *Payload) Update(other objectstorage.StorableObject) {
+^
+dapps\valuetransfers\packages\tangle\events.go:9:6: exported type `Events` should have comment or be unexported (golint)
+type Events struct {
+     ^
+dapps\valuetransfers\packages\tangle\events.go:28:6: func payloadIdEvent should be payloadIDEvent (golint)
+func payloadIdEvent(handler interface{}, params ...interface{}) {
+     ^
+dapps\valuetransfers\packages\tangle\missingpayload.go:17:2: struct field `payloadId` should be `payloadID` (golint)
+	payloadId    payload.Id
+	^
+dapps\valuetransfers\packages\tangle\missingpayload.go:22:24: func parameter `payloadId` should be `payloadID` (golint)
+func NewMissingPayload(payloadId payload.Id) *MissingPayload {
+                       ^
+dapps\valuetransfers\packages\tangle\missingpayload.go:39:1: exported function `ParseMissingPayload` should have comment or be unexported (golint)
+func ParseMissingPayload(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*MissingPayload) (result *MissingPayload, err error) {
+^
+dapps\valuetransfers\packages\tangle\missingpayload.go:85:39: method GetId should be GetID (golint)
+func (missingPayload *MissingPayload) GetId() payload.Id {
+                                      ^
+dapps\valuetransfers\packages\tangle\missingpayload.go:89:1: comment on exported method `MissingPayload.GetMissingSince` should be of the form `GetMissingSince ...` (golint)
+// MissingSince returns the time.Time since the transaction was first reported as being missing.
+^
+dapps\valuetransfers\packages\tangle\payloadapprover.go:17:2: struct field `referencedPayloadId` should be `referencedPayloadID` (golint)
+	referencedPayloadId payload.Id
+	^
+dapps\valuetransfers\packages\tangle\payloadapprover.go:18:2: struct field `approvingPayloadId` should be `approvingPayloadID` (golint)
+	approvingPayloadId  payload.Id
+	^
+dapps\valuetransfers\packages\tangle\payloadapprover.go:42:1: exported function `ParsePayloadApprover` should have comment or be unexported (golint)
+func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, err error) {
+^
+dapps\valuetransfers\packages\tangle\payloadapprover.go:93:41: method GetApprovingPayloadId should be GetApprovingPayloadID (golint)
+func (payloadApprover *PayloadApprover) GetApprovingPayloadId() payload.Id {
+                                        ^
+dapps\valuetransfers\packages\tangle\payloadapprover.go:155:6: exported type `CachedApprovers` should have comment or be unexported (golint)
+type CachedApprovers []*CachedPayloadApprover
+     ^
+dapps\valuetransfers\packages\tangle\payloadapprover.go:157:1: exported method `CachedApprovers.Consume` should have comment or be unexported (golint)
+func (cachedApprovers CachedApprovers) Consume(consumer func(approver *PayloadApprover)) (consumed bool) {
+^
+dapps\valuetransfers\packages\tangle\payloadmetadata.go:19:2: struct field `payloadId` should be `payloadID` (golint)
+	payloadId          payload.Id
+	^
+dapps\valuetransfers\packages\tangle\payloadmetadata.go:28:25: func parameter `payloadId` should be `payloadID` (golint)
+func NewPayloadMetadata(payloadId payload.Id) *PayloadMetadata {
+                        ^
+dapps\valuetransfers\packages\tangle\payloadmetadata.go:91:41: method GetPayloadId should be GetPayloadID (golint)
+func (payloadMetadata *PayloadMetadata) GetPayloadId() payload.Id {
+                                        ^
+dapps\valuetransfers\packages\tangle\payloadmetadata.go:133:1: comment on exported method `PayloadMetadata.GetSoldificationTime` should be of the form `GetSoldificationTime ...` (golint)
+// SoldificationTime returns the time when the payload was marked to be solid.
+^
+dapps\valuetransfers\packages\tangle\tangle.go:51:34: method parameter `payloadId` should be `payloadID` (golint)
+func (tangle *Tangle) GetPayload(payloadId payload.Id) *payload.CachedPayload {
+                                 ^
+dapps\valuetransfers\packages\tangle\tangle.go:56:42: method parameter `payloadId` should be `payloadID` (golint)
+func (tangle *Tangle) GetPayloadMetadata(payloadId payload.Id) *CachedPayloadMetadata {
+                                         ^
+dapps\valuetransfers\packages\tangle\tangle.go:61:36: method parameter `payloadId` should be `payloadID` (golint)
+func (tangle *Tangle) GetApprovers(payloadId payload.Id) CachedApprovers {
+                                   ^
+dapps\valuetransfers\packages\tangle\tangle.go:141:2: var `trunkId` should be `trunkID` (golint)
+	trunkId := payload.TrunkId()
+	^
+dapps\valuetransfers\packages\tangle\tangle.go:145:5: var `branchId` should be `branchID` (golint)
+	if branchId := payload.BranchId(); branchId != trunkId {
+	   ^
+dapps\valuetransfers\packages\tangle\tangle.go:194:1: exported method `Tangle.ForeachApprovers` should have comment or be unexported (golint)
+func (tangle *Tangle) ForeachApprovers(payloadId payload.Id, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata)) {
+^
+dapps\valuetransfers\packages\tangle\tangle.go:196:3: var `approvingPayloadId` should be `approvingPayloadID` (golint)
+		approvingPayloadId := approver.GetApprovingPayloadId()
+		^
+dapps\valuetransfers\packages\transaction\id.go:12:6: type `Id` should be `ID` (golint)
+type Id [IdLength]byte
+     ^
+dapps\valuetransfers\packages\transaction\id.go:15:6: func IdFromBase58 should be IDFromBase58 (golint)
+func IdFromBase58(base58String string) (id Id, err error) {
+     ^
+dapps\valuetransfers\packages\transaction\id.go:51:1: comment on exported function `ParseId` should be of the form `ParseId ...` (golint)
+// Parse is a wrapper for simplified unmarshaling of Ids from a byte stream using the marshalUtil package.
+^
+dapps\valuetransfers\packages\transaction\id.go:52:6: func ParseId should be ParseID (golint)
+func ParseId(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
+     ^
+dapps\valuetransfers\packages\transaction\id.go:60:1: comment on exported function `RandomId` should be of the form `RandomId ...` (golint)
+// Random creates a random id which can for example be used in unit tests.
+^
+dapps\valuetransfers\packages\transaction\id.go:61:6: func RandomId should be RandomID (golint)
+func RandomId() (id Id) {
+     ^
+dapps\valuetransfers\packages\transaction\id.go:85:7: const `IdLength` should be `IDLength` (golint)
+const IdLength = 32
+      ^
+dapps\valuetransfers\packages\transaction\inputs.go:10:6: exported type `Inputs` should have comment or be unexported (golint)
+type Inputs struct {
+     ^
+dapps\valuetransfers\packages\transaction\inputs.go:14:1: exported function `NewInputs` should have comment or be unexported (golint)
+func NewInputs(outputIds ...OutputId) (inputs *Inputs) {
+^
+dapps\valuetransfers\packages\transaction\inputs.go:16:9: range var `outputId` should be `outputID` (golint)
+	for _, outputId := range outputIds {
+	       ^
+dapps\valuetransfers\packages\transaction\inputs.go:67:1: exported method `Inputs.Add` should have comment or be unexported (golint)
+func (inputs *Inputs) Add(input OutputId) *Inputs {
+^
+dapps\valuetransfers\packages\transaction\inputs.go:69:2: var `transactionId` should be `transactionID` (golint)
+	transactionId := input.TransactionId()
+	^
+dapps\valuetransfers\packages\transaction\inputs.go:83:1: exported method `Inputs.Bytes` should have comment or be unexported (golint)
+func (inputs *Inputs) Bytes() (bytes []byte) {
+^
+dapps\valuetransfers\packages\transaction\inputs.go:101:1: exported method `Inputs.ForEach` should have comment or be unexported (golint)
+func (inputs *Inputs) ForEach(consumer func(outputId OutputId) bool) bool {
+^
+dapps\valuetransfers\packages\transaction\inputs.go:109:1: exported method `Inputs.ForEachAddress` should have comment or be unexported (golint)
+func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Address) bool) bool {
+^
+dapps\valuetransfers\packages\transaction\inputs.go:115:1: exported method `Inputs.ForEachTransaction` should have comment or be unexported (golint)
+func (inputs *Inputs) ForEachTransaction(consumer func(transactionId Id) bool) bool {
+^
+dapps\valuetransfers\packages\transaction\inputs.go:119:6: var `currentTransactionId` should be `currentTransactionID` (golint)
+		if currentTransactionId := outputId.TransactionId(); !seenTransactions[currentTransactionId] {
+		   ^
+dapps\valuetransfers\packages\transaction\outputid.go:12:6: type `OutputId` should be `OutputID` (golint)
+type OutputId [OutputIdLength]byte
+     ^
+dapps\valuetransfers\packages\transaction\outputid.go:15:6: func NewOutputId should be NewOutputID (golint)
+func NewOutputId(outputAddress address.Address, transactionId Id) (outputId OutputId) {
+     ^
+dapps\valuetransfers\packages\transaction\outputid.go:38:1: comment on exported function `ParseOutputId` should be of the form `ParseOutputId ...` (golint)
+// Parse is a wrapper for simplified unmarshaling of Ids from a byte stream using the marshalUtil package.
+^
+dapps\valuetransfers\packages\transaction\outputid.go:39:6: func ParseOutputId should be ParseOutputID (golint)
+func ParseOutputId(marshalUtil *marshalutil.MarshalUtil) (OutputId, error) {
+     ^
+dapps\valuetransfers\packages\transaction\outputid.go:40:5: var `outputId` should be `outputID` (golint)
+	if outputId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return OutputIdFromBytes(data) }); err != nil {
+	   ^
+dapps\valuetransfers\packages\transaction\outputid.go:55:26: method TransactionId should be TransactionID (golint)
+func (outputId OutputId) TransactionId() (transactionId Id) {
+                         ^
+dapps\valuetransfers\packages\transaction\outputid.go:71:1: comment on exported const `OutputIdLength` should be of the form `OutputIdLength ...` (golint)
+// IdLength contains the amount of bytes that a marshaled version of the OutputId contains.
+^
+dapps\valuetransfers\packages\transaction\outputid.go:72:7: const `OutputIdLength` should be `OutputIDLength` (golint)
+const OutputIdLength = address.Length + IdLength
+      ^
+dapps\valuetransfers\packages\transaction\outputs.go:12:6: exported type `Outputs` should have comment or be unexported (golint)
+type Outputs struct {
+     ^
+dapps\valuetransfers\packages\transaction\outputs.go:16:1: exported function `NewOutputs` should have comment or be unexported (golint)
+func NewOutputs(outputs map[address.Address][]*balance.Balance) (result *Outputs) {
+^
+dapps\valuetransfers\packages\transaction\outputs.go:25:1: comment on exported function `OutputsFromBytes` should be of the form `OutputsFromBytes ...` (golint)
+// FromBytes reads the bytes and unmarshals the given information into an *Outputs object. It either creates a
+^
+dapps\valuetransfers\packages\transaction\outputs.go:88:1: exported method `Outputs.Add` should have comment or be unexported (golint)
+func (outputs *Outputs) Add(address address.Address, balances []*balance.Balance) *Outputs {
+^
+dapps\valuetransfers\packages\transaction\outputs.go:94:1: exported method `Outputs.ForEach` should have comment or be unexported (golint)
+func (outputs *Outputs) ForEach(consumer func(address address.Address, balances []*balance.Balance) bool) bool {
+^
+dapps\valuetransfers\packages\transaction\outputs.go:100:1: exported method `Outputs.Bytes` should have comment or be unexported (golint)
+func (outputs *Outputs) Bytes() []byte {
+^
+dapps\valuetransfers\packages\transaction\signatures.go:18:1: comment on exported function `NewSignatures` should be of the form `NewSignatures ...` (golint)
+// New creates an empty container for the address signatures of a value transfer.
+^
+dapps\valuetransfers\packages\transaction\signatures.go:25:1: comment on exported function `SignaturesFromBytes` should be of the form `SignaturesFromBytes ...` (golint)
+// FromBytes unmarshals a container with signatures from a sequence of bytes.
+^
+dapps\valuetransfers\packages\transaction\signatures.go:91:1: exported method `Signatures.Add` should have comment or be unexported (golint)
+func (signatures *Signatures) Add(address address.Address, signature signaturescheme.Signature) {
+^
+dapps\valuetransfers\packages\transaction\signatures.go:95:1: exported method `Signatures.Get` should have comment or be unexported (golint)
+func (signatures *Signatures) Get(address address.Address) (signaturescheme.Signature, bool) {
+^
+dapps\valuetransfers\packages\transaction\transaction.go:19:6: exported type `Transaction` should have comment or be unexported (golint)
+type Transaction struct {
+     ^
+dapps\valuetransfers\packages\transaction\transaction.go:79:1: exported function `Parse` should have comment or be unexported (golint)
+func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Transaction) (result *Transaction, err error) {
+^
+dapps\valuetransfers\packages\transaction\transaction.go:101:1: exported method `Transaction.Id` should have comment or be unexported (golint)
+func (transaction *Transaction) Id() Id {
+^
+dapps\valuetransfers\packages\transaction\transaction.go:135:1: exported method `Transaction.Inputs` should have comment or be unexported (golint)
+func (transaction *Transaction) Inputs() *Inputs {
+^
+dapps\valuetransfers\packages\transaction\transaction.go:139:1: exported method `Transaction.Outputs` should have comment or be unexported (golint)
+func (transaction *Transaction) Outputs() *Outputs {
+^
+dapps\valuetransfers\packages\transaction\transaction.go:143:1: exported method `Transaction.SignaturesValid` should have comment or be unexported (golint)
+func (transaction *Transaction) SignaturesValid() bool {
+^
+dapps\valuetransfers\packages\transaction\transaction.go:158:1: exported method `Transaction.EssenceBytes` should have comment or be unexported (golint)
+func (transaction *Transaction) EssenceBytes() []byte {
+^
+dapps\valuetransfers\packages\transaction\transaction.go:200:1: exported method `Transaction.SignatureBytes` should have comment or be unexported (golint)
+func (transaction *Transaction) SignatureBytes() []byte {
+^
+dapps\valuetransfers\packages\transaction\transaction.go:222:1: exported method `Transaction.Bytes` should have comment or be unexported (golint)
+func (transaction *Transaction) Bytes() []byte {
+^
+dapps\valuetransfers\packages\transaction\transaction.go:258:1: exported method `Transaction.Sign` should have comment or be unexported (golint)
+func (transaction *Transaction) Sign(signature signaturescheme.SignatureScheme) *Transaction {
+^
+dapps\valuetransfers\packages\transaction\transaction.go:276:1: comment on exported const `MAX_DATA_PAYLOAD_SIZE` should be of the form `MAX_DATA_PAYLOAD_SIZE ...` (golint)
+// max dataPayload size limit
+^
+dapps\valuetransfers\packages\transaction\transaction.go:315:1: exported method `Transaction.ObjectStorageKey` should have comment or be unexported (golint)
+func (transaction *Transaction) ObjectStorageKey() []byte {
+^
+dapps\valuetransfers\packages\transaction\transaction.go:319:1: exported method `Transaction.Update` should have comment or be unexported (golint)
+func (transaction *Transaction) Update(other objectstorage.StorableObject) {
+^
+dapps\valuetransfers\packages\utxodag\attachment.go:17:2: struct field `transactionId` should be `transactionID` (golint)
+	transactionId transaction.Id
+	^
+dapps\valuetransfers\packages\utxodag\attachment.go:18:2: struct field `payloadId` should be `payloadID` (golint)
+	payloadId     payload.Id
+	^
+dapps\valuetransfers\packages\utxodag\attachment.go:24:20: func parameter `transactionId` should be `transactionID` (golint)
+func NewAttachment(transactionId transaction.Id, payloadId payload.Id) *Attachment {
+                   ^
+dapps\valuetransfers\packages\utxodag\attachment.go:46:1: comment on exported function `ParseAttachment` should be of the form `ParseAttachment ...` (golint)
+// Parse is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil package.
+^
+dapps\valuetransfers\packages\utxodag\attachment.go:97:31: method TransactionId should be TransactionID (golint)
+func (attachment *Attachment) TransactionId() transaction.Id {
+                              ^
+dapps\valuetransfers\packages\utxodag\attachment.go:102:31: method PayloadId should be PayloadID (golint)
+func (attachment *Attachment) PayloadId() payload.Id {
+                              ^
+dapps\valuetransfers\packages\utxodag\attachment.go:149:6: exported type `CachedAttachment` should have comment or be unexported (golint)
+type CachedAttachment struct {
+     ^
+dapps\valuetransfers\packages\utxodag\attachment.go:158:1: exported method `CachedAttachment.Unwrap` should have comment or be unexported (golint)
+func (cachedAttachment *CachedAttachment) Unwrap() *Attachment {
+^
+dapps\valuetransfers\packages\utxodag\attachment.go:170:1: exported method `CachedAttachment.Consume` should have comment or be unexported (golint)
+func (cachedAttachment *CachedAttachment) Consume(consumer func(attachment *Attachment)) (consumed bool) {
+^
+dapps\valuetransfers\packages\utxodag\attachment.go:176:6: exported type `CachedAttachments` should have comment or be unexported (golint)
+type CachedAttachments []*CachedAttachment
+     ^
+dapps\valuetransfers\packages\utxodag\attachment.go:178:1: exported method `CachedAttachments.Consume` should have comment or be unexported (golint)
+func (cachedAttachments CachedAttachments) Consume(consumer func(attachment *Attachment)) (consumed bool) {
+^
+dapps\valuetransfers\packages\utxodag\consumer.go:12:5: exported var `ConsumerPartitionKeys` should have comment or be unexported (golint)
+var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{address.Length, transaction.IdLength, transaction.IdLength}...)
+    ^
+dapps\valuetransfers\packages\utxodag\consumer.go:20:2: struct field `transactionId` should be `transactionID` (golint)
+	transactionId transaction.Id
+	^
+dapps\valuetransfers\packages\utxodag\consumer.go:26:54: func parameter `transactionId` should be `transactionID` (golint)
+func NewConsumer(consumedInput transaction.OutputId, transactionId transaction.Id) *Consumer {
+                                                     ^
+dapps\valuetransfers\packages\utxodag\consumer.go:48:1: exported function `ParseConsumer` should have comment or be unexported (golint)
+func ParseConsumer(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Consumer) (result *Consumer, err error) {
+^
+dapps\valuetransfers\packages\utxodag\consumer.go:101:27: method TransactionId should be TransactionID (golint)
+func (consumer *Consumer) TransactionId() transaction.Id {
+                          ^
+dapps\valuetransfers\packages\utxodag\consumer.go:148:6: exported type `CachedConsumer` should have comment or be unexported (golint)
+type CachedConsumer struct {
+     ^
+dapps\valuetransfers\packages\utxodag\consumer.go:152:1: exported method `CachedConsumer.Unwrap` should have comment or be unexported (golint)
+func (cachedConsumer *CachedConsumer) Unwrap() *Consumer {
+^
+dapps\valuetransfers\packages\utxodag\consumer.go:164:1: exported method `CachedConsumer.Consume` should have comment or be unexported (golint)
+func (cachedConsumer *CachedConsumer) Consume(consumer func(consumer *Consumer)) (consumed bool) {
+^
+dapps\valuetransfers\packages\utxodag\consumer.go:170:6: exported type `CachedConsumers` should have comment or be unexported (golint)
+type CachedConsumers []*CachedConsumer
+     ^
+dapps\valuetransfers\packages\utxodag\consumer.go:172:1: exported method `CachedConsumers.Consume` should have comment or be unexported (golint)
+func (cachedConsumers CachedConsumers) Consume(consumer func(consumer *Consumer)) (consumed bool) {
+^
+dapps\valuetransfers\packages\utxodag\events.go:10:6: exported type `Events` should have comment or be unexported (golint)
+type Events struct {
+     ^
+dapps\valuetransfers\packages\utxodag\missingoutput.go:13:5: exported var `MissingOutputKeyPartitions` should have comment or be unexported (golint)
+var MissingOutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, transaction.IdLength}...)
+    ^
+dapps\valuetransfers\packages\utxodag\missingoutput.go:15:1: comment on exported type MissingOutput should be of the form "MissingOutput ..." (with optional leading article) (golint)
+// MissingPayload represents an Output that was referenced by a Transaction, but that is missing in our object storage.
+^
+dapps\valuetransfers\packages\utxodag\missingoutput.go:19:2: struct field `outputId` should be `outputID` (golint)
+	outputId     transaction.OutputId
+	^
+dapps\valuetransfers\packages\utxodag\missingoutput.go:24:23: func parameter `outputId` should be `outputID` (golint)
+func NewMissingOutput(outputId transaction.OutputId) *MissingOutput {
+                      ^
+dapps\valuetransfers\packages\utxodag\missingoutput.go:41:1: exported function `ParseMissingOutput` should have comment or be unexported (golint)
+func ParseMissingOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*MissingOutput) (result *MissingOutput, err error) {
+^
+dapps\valuetransfers\packages\utxodag\missingoutput.go:86:37: method Id should be ID (golint)
+func (missingOutput *MissingOutput) Id() transaction.OutputId {
+                                    ^
+dapps\valuetransfers\packages\utxodag\output.go:17:5: exported var `OutputKeyPartitions` should have comment or be unexported (golint)
+var OutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, transaction.IdLength}...)
+    ^
+dapps\valuetransfers\packages\utxodag\output.go:22:2: struct field `transactionId` should be `transactionID` (golint)
+	transactionId      transaction.Id
+	^
+dapps\valuetransfers\packages\utxodag\output.go:23:2: struct field `branchId` should be `branchID` (golint)
+	branchId           branchmanager.BranchId
+	^
+dapps\valuetransfers\packages\utxodag\output.go:30:2: struct field `branchIdMutex` should be `branchIDMutex` (golint)
+	branchIdMutex           sync.RWMutex
+	^
+dapps\valuetransfers\packages\utxodag\output.go:40:41: func parameter `transactionId` should be `transactionID` (golint)
+func NewOutput(address address.Address, transactionId transaction.Id, branchId branchmanager.BranchId, balances []*balance.Balance) *Output {
+                                        ^
+dapps\valuetransfers\packages\utxodag\output.go:63:1: exported function `ParseOutput` should have comment or be unexported (golint)
+func ParseOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Output) (result *Output, err error) {
+^
+dapps\valuetransfers\packages\utxodag\output.go:115:1: exported method `Output.Id` should have comment or be unexported (golint)
+func (output *Output) Id() transaction.OutputId {
+^
+dapps\valuetransfers\packages\utxodag\output.go:130:23: method BranchId should be BranchID (golint)
+func (output *Output) BranchId() branchmanager.BranchId {
+                      ^
+dapps\valuetransfers\packages\utxodag\output.go:137:1: exported method `Output.SetBranchId` should have comment or be unexported (golint)
+func (output *Output) SetBranchId(branchId branchmanager.BranchId) (modified bool) {
+^
+dapps\valuetransfers\packages\utxodag\output.go:167:1: exported method `Output.SetSolid` should have comment or be unexported (golint)
+func (output *Output) SetSolid(solid bool) (modified bool) {
+^
+dapps\valuetransfers\packages\utxodag\output.go:194:1: exported method `Output.SolidificationTime` should have comment or be unexported (golint)
+func (output *Output) SolidificationTime() time.Time {
+^
+dapps\valuetransfers\packages\utxodag\output.go:201:1: exported method `Output.RegisterConsumer` should have comment or be unexported (golint)
+func (output *Output) RegisterConsumer(consumer transaction.Id) (consumerCount int, firstConsumerId transaction.Id) {
+^
+dapps\valuetransfers\packages\utxodag\output.go:272:9: `if` block ends with a `return` statement, so drop this `else` and outdent its block (golint)
+	} else {
+	       ^
+dapps\valuetransfers\packages\utxodag\output.go:307:6: exported type `CachedOutput` should have comment or be unexported (golint)
+type CachedOutput struct {
+     ^
+dapps\valuetransfers\packages\utxodag\output.go:311:1: exported method `CachedOutput.Unwrap` should have comment or be unexported (golint)
+func (cachedOutput *CachedOutput) Unwrap() *Output {
+^
+dapps\valuetransfers\packages\utxodag\output.go:323:1: exported method `CachedOutput.Consume` should have comment or be unexported (golint)
+func (cachedOutput *CachedOutput) Consume(consumer func(output *Output)) (consumed bool) {
+^
+dapps\valuetransfers\packages\utxodag\output.go:329:6: exported type `CachedOutputs` should have comment or be unexported (golint)
+type CachedOutputs map[transaction.OutputId]*CachedOutput
+     ^
+dapps\valuetransfers\packages\utxodag\output.go:331:1: exported method `CachedOutputs.Consume` should have comment or be unexported (golint)
+func (cachedOutputs CachedOutputs) Consume(consumer func(output *Output)) (consumed bool) {
+^
+dapps\valuetransfers\packages\utxodag\output.go:341:1: exported method `CachedOutputs.Release` should have comment or be unexported (golint)
+func (cachedOutputs CachedOutputs) Release(force ...bool) {
+^
+dapps\valuetransfers\packages\utxodag\transactionmetadata.go:21:2: struct field `branchId` should be `branchID` (golint)
+	branchId           branchmanager.BranchId
+	^
+dapps\valuetransfers\packages\utxodag\transactionmetadata.go:27:2: struct field `branchIdMutex` should be `branchIDMutex` (golint)
+	branchIdMutex           sync.RWMutex
+	^
+dapps\valuetransfers\packages\utxodag\transactionmetadata.go:75:1: comment on exported function `ParseTransactionMetadata` should be of the form `ParseTransactionMetadata ...` (golint)
+// Parse is a wrapper for simplified unmarshaling of TransactionMetadata objects from a byte stream using the marshalUtil package.
+^
+dapps\valuetransfers\packages\utxodag\transactionmetadata.go:99:49: method Id should be ID (golint)
+func (transactionMetadata *TransactionMetadata) Id() transaction.Id {
+                                                ^
+dapps\valuetransfers\packages\utxodag\transactionmetadata.go:103:1: exported method `TransactionMetadata.BranchId` should have comment or be unexported (golint)
+func (transactionMetadata *TransactionMetadata) BranchId() branchmanager.BranchId {
+^
+dapps\valuetransfers\packages\utxodag\transactionmetadata.go:110:1: exported method `TransactionMetadata.SetBranchId` should have comment or be unexported (golint)
+func (transactionMetadata *TransactionMetadata) SetBranchId(branchId branchmanager.BranchId) (modified bool) {
+^
+dapps\valuetransfers\packages\utxodag\transactionmetadata.go:170:1: exported method `TransactionMetadata.SetFinalized` should have comment or be unexported (golint)
+func (transactionMetadata *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
+^
+dapps\valuetransfers\packages\utxodag\transactionmetadata.go:195:1: exported method `TransactionMetadata.Finalized` should have comment or be unexported (golint)
+func (transactionMetadata *TransactionMetadata) Finalized() bool {
+^
+dapps\valuetransfers\packages\utxodag\transactionmetadata.go:202:1: exported method `TransactionMetadata.FinalizationTime` should have comment or be unexported (golint)
+func (transactionMetadata *TransactionMetadata) FinalizationTime() time.Time {
+^
+dapps\valuetransfers\packages\utxodag\utxodag.go:25:6: exported type `UTXODAG` should have comment or be unexported (golint)
+type UTXODAG struct {
+     ^
+dapps\valuetransfers\packages\utxodag\utxodag.go:61:1: exported method `UTXODAG.BranchManager` should have comment or be unexported (golint)
+func (utxoDAG *UTXODAG) BranchManager() *branchmanager.BranchManager {
+^
+dapps\valuetransfers\packages\utxodag\utxodag.go:65:1: exported method `UTXODAG.ProcessSolidPayload` should have comment or be unexported (golint)
+func (utxoDAG *UTXODAG) ProcessSolidPayload(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
+^
+dapps\valuetransfers\packages\utxodag\utxodag.go:69:1: exported method `UTXODAG.Transaction` should have comment or be unexported (golint)
+func (utxoDAG *UTXODAG) Transaction(transactionId transaction.Id) *transaction.CachedTransaction {
+^
+dapps\valuetransfers\packages\utxodag\utxodag.go:73:1: comment on exported method `UTXODAG.TransactionMetadata` should be of the form `TransactionMetadata ...` (golint)
+// GetPayloadMetadata retrieves the metadata of a value payload from the object storage.
+^
+dapps\valuetransfers\packages\utxodag\utxodag.go:74:45: method parameter `transactionId` should be `transactionID` (golint)
+func (utxoDAG *UTXODAG) TransactionMetadata(transactionId transaction.Id) *CachedTransactionMetadata {
+                                            ^
+dapps\valuetransfers\packages\utxodag\utxodag.go:78:1: exported method `UTXODAG.GetTransactionOutput` should have comment or be unexported (golint)
+func (utxoDAG *UTXODAG) GetTransactionOutput(outputId transaction.OutputId) *CachedOutput {
+^
+dapps\valuetransfers\packages\utxodag\utxodag.go:83:38: method parameter `outputId` should be `outputID` (golint)
+func (utxoDAG *UTXODAG) GetConsumers(outputId transaction.OutputId) CachedConsumers {
+                                     ^
+dapps\valuetransfers\packages\utxodag\utxodag.go:95:40: method parameter `transactionId` should be `transactionID` (golint)
+func (utxoDAG *UTXODAG) GetAttachments(transactionId transaction.Id) CachedAttachments {
+                                       ^
+dapps\valuetransfers\packages\utxodag\utxodag.go:416:1: exported method `UTXODAG.ForEachConsumers` should have comment or be unexported (golint)
+func (utxoDAG *UTXODAG) ForEachConsumers(currentTransaction *transaction.Transaction, consume func(cachedTransaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment)) {
+^
+dapps\valuetransfers\packages\utxodag\utxodag.go:472:18: var `firstConsumerId` should be `firstConsumerID` (golint)
+		consumerCount, firstConsumerId := output.RegisterConsumer(transactionToBook.Id())
+		               ^
+dapps\valuetransfers\packages\utxodag\utxodag.go:534:6: range var `consumerId` should be `consumerID` (golint)
+	for consumerId, conflictingInputs := range conflictingInputsOfConflictingConsumers {
+	    ^
+dapps\valuetransfers\packages\utxodag\utxodag.go:657:7: var `outputId` should be `outputID` (golint)
+						outputId := transaction.NewOutputId(address, currentTransaction.Id())
+						^
+dapps\valuetransfers\packages\utxodag\utxodag.go:681:11: range var `transactionId` should be `transactionID` (golint)
+						for transactionId := range consumingTransactions {
+						    ^
+dapps\valuetransfers\packages\utxodag\utxodag.go:703:1: exported method `UTXODAG.Fork` should have comment or be unexported (golint)
+func (utxoDAG *UTXODAG) Fork(transactionId transaction.Id, conflictingInputs []transaction.OutputId) (forked bool, err error) {
+^
+dapps\valuetransfers\packages\utxodag\utxodag_test.go:25:2: var `randomTransactionId` should be `randomTransactionID` (golint)
+	randomTransactionId := transaction.RandomId()
+	^
+dapps\valuetransfers\packages\utxodag\utxodag_test.go:57:2: var `transactionId` should be `transactionID` (golint)
+	transactionId := transaction.RandomId()
+	^
+dapps\valuetransfers\packages\utxodag\utxodag_test.go:58:2: var `payloadId` should be `payloadID` (golint)
+	payloadId := payload.RandomId()
+	^
+dapps\valuetransfers\packages\utxodag\utxodag_test.go:94:2: var `transferId1` should be `transferID1` (golint)
+	transferId1, _ := transaction.IdFromBase58("8opHzTAnfzRpPEx21XtnrVTX28YQuCpAjcn1PczScKh")
+	^
+dapps\valuetransfers\packages\utxodag\utxodag_test.go:95:2: var `transferId2` should be `transferID2` (golint)
+	transferId2, _ := transaction.IdFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
+	^

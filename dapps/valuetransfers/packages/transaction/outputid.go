@@ -20,7 +20,7 @@ func NewOutputId(outputAddress address.Address, transactionId Id) (outputId Outp
 }
 
 // OutputIdFromBytes unmarshals an OutputId from a sequence of bytes.
-func OutputIdFromBytes(bytes []byte) (result OutputId, err error, consumedBytes int) {
+func OutputIdFromBytes(bytes []byte) (result OutputId, consumedBytes int, err error) {
 	// parse the bytes
 	marshalUtil := marshalutil.New(bytes)
 	if idBytes, idErr := marshalUtil.ReadBytes(OutputIdLength); idErr != nil {
@@ -37,7 +37,7 @@ func OutputIdFromBytes(bytes []byte) (result OutputId, err error, consumedBytes 
 
 // Parse is a wrapper for simplified unmarshaling of Ids from a byte stream using the marshalUtil package.
 func ParseOutputId(marshalUtil *marshalutil.MarshalUtil) (OutputId, error) {
-	if outputId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return OutputIdFromBytes(data) }); err != nil {
+	if outputId, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return OutputIdFromBytes(data) }); err != nil {
 		return OutputId{}, err
 	} else {
 		return outputId.(OutputId), nil

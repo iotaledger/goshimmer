@@ -33,7 +33,7 @@ func NewPayloadMetadata(payloadId payload.Id) *PayloadMetadata {
 
 // PayloadMetadataFromBytes unmarshals a container with the metadata of a value transfer payload from a sequence of bytes.
 // It either creates a new container or fills the optionally provided container with the parsed information.
-func PayloadMetadataFromBytes(bytes []byte, optionalTargetObject ...*PayloadMetadata) (result *PayloadMetadata, err error, consumedBytes int) {
+func PayloadMetadataFromBytes(bytes []byte, optionalTargetObject ...*PayloadMetadata) (result *PayloadMetadata, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParsePayloadMetadata(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
@@ -43,7 +43,7 @@ func PayloadMetadataFromBytes(bytes []byte, optionalTargetObject ...*PayloadMeta
 
 // ParsePayloadMetadata is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func ParsePayloadMetadata(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*PayloadMetadata) (result *PayloadMetadata, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return PayloadMetadataFromStorageKey(data, optionalTargetObject...)
 	}); parseErr != nil {
 		err = parseErr
@@ -53,7 +53,7 @@ func ParsePayloadMetadata(marshalUtil *marshalutil.MarshalUtil, optionalTargetOb
 		result = parsedObject.(*PayloadMetadata)
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
 
 		return
@@ -66,7 +66,7 @@ func ParsePayloadMetadata(marshalUtil *marshalutil.MarshalUtil, optionalTargetOb
 
 // PayloadMetadataFromStorageKey gets called when we restore transaction metadata from the storage. The bytes and the content will be
 // unmarshaled by an external caller using the binary.ObjectStorageValue interface.
-func PayloadMetadataFromStorageKey(id []byte, optionalTargetObject ...*PayloadMetadata) (result *PayloadMetadata, err error, consumedBytes int) {
+func PayloadMetadataFromStorageKey(id []byte, optionalTargetObject ...*PayloadMetadata) (result *PayloadMetadata, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:

@@ -20,7 +20,7 @@ func New(color Color, balance int64) (result *Balance) {
 	return
 }
 
-func FromBytes(bytes []byte) (result *Balance, err error, consumedBytes int) {
+func FromBytes(bytes []byte) (result *Balance, consumedBytes int, err error) {
 	result = &Balance{}
 
 	marshalUtil := marshalutil.New(bytes)
@@ -30,10 +30,10 @@ func FromBytes(bytes []byte) (result *Balance, err error, consumedBytes int) {
 		return
 	}
 
-	if coinColor, colorErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+	if coinColor, colorErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return ColorFromBytes(data)
 	}); colorErr != nil {
-		return nil, colorErr, marshalUtil.ReadOffset()
+		return nil, marshalUtil.ReadOffset(), colorErr
 	} else {
 		result.color = coinColor.(Color)
 	}
@@ -45,7 +45,7 @@ func FromBytes(bytes []byte) (result *Balance, err error, consumedBytes int) {
 
 // Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func Parse(marshalUtil *marshalutil.MarshalUtil) (*Balance, error) {
-	if address, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) }); err != nil {
+	if address, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) }); err != nil {
 		return nil, err
 	} else {
 		return address.(*Balance), nil
