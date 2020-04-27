@@ -1,13 +1,11 @@
 package spammer
 
 import (
-	"github.com/iotaledger/hive.go/daemon"
-
 	"github.com/iotaledger/goshimmer/packages/binary/spammer"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
-
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/node"
 )
 

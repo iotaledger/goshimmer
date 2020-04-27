@@ -4,13 +4,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
-
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
 // PluginName is the name of the web API plugin.
@@ -20,6 +19,7 @@ var (
 	// Plugin is the plugin instance of the web API plugin.
 	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	log    *logger.Logger
+	// Server is the web API server.
 	Server = echo.New()
 )
 
@@ -37,7 +37,7 @@ func run(plugin *node.Plugin) {
 		log.Info("Starting Web Server ... done")
 
 		go func() {
-			if err := Server.Start(config.Node.GetString(BIND_ADDRESS)); err != nil {
+			if err := Server.Start(config.Node.GetString(CfgBindAddress)); err != nil {
 				log.Info("Stopping Web Server ... done")
 			}
 		}()

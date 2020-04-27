@@ -19,7 +19,7 @@ require (
 	github.com/magiconair/properties v1.8.1
 	github.com/mr-tron/base58 v1.1.3
 	github.com/panjf2000/ants/v2 v2.2.2
-	github.com/pkg/errors v0.9.1
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.5.1

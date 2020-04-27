@@ -387,7 +387,7 @@ func TestDropNeighbor(t *testing.T) {
 
 		go func() { assert.NoError(t, mgrA.AddInbound(peerB)) }()
 		go func() { assert.NoError(t, mgrB.AddOutbound(peerA)) }()
-		wg.Wait() // wait until the events were triggered
+		wg.Wait() // wait until the events were triggered and the peers are connected
 	}
 	disc := func() {
 		var wg sync.WaitGroup
@@ -396,9 +396,17 @@ func TestDropNeighbor(t *testing.T) {
 		Events.NeighborRemoved.Attach(closure)
 		defer Events.NeighborRemoved.Detach(closure)
 
-		go func() { _ = mgrA.DropNeighbor(peerB.ID()) }()
-		go func() { _ = mgrB.DropNeighbor(peerA.ID()) }()
-		wg.Wait() // wait until the events were triggered
+		// assure that no DropNeighbor calls are leaking
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_ = mgrA.DropNeighbor(peerB.ID())
+		}()
+		go func() {
+			defer wg.Done()
+			_ = mgrB.DropNeighbor(peerA.ID())
+		}()
+		wg.Wait() // wait until the events were triggered and the go routines are done
 	}
 
 	// drop and connect many many times

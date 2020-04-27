@@ -5,10 +5,14 @@ import (
 )
 
 const (
-	CfgDRNGInstanceID        = "drng.instanceId"
-	CfgDRNGThreshold         = "drng.threshold"
+	// CfgDRNGInstanceID defines the config flag of the DRNG instanceID.
+	CfgDRNGInstanceID = "drng.instanceId"
+	// CfgDRNGThreshold defines the config flag of the DRNG threshold.
+	CfgDRNGThreshold = "drng.threshold"
+	// CfgDRNGDistributedPubKey defines the config flag of the DRNG distributed Public Key.
 	CfgDRNGDistributedPubKey = "drng.distributedPubKey"
-	CfgDRNGCommitteeMembers  = "drng.committeeMembers"
+	// CfgDRNGCommitteeMembers defines the config flag of the DRNG committee members identities.
+	CfgDRNGCommitteeMembers = "drng.committeeMembers"
 )
 
 func init() {

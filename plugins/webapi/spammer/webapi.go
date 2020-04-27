@@ -29,11 +29,13 @@ func handleRequest(c echo.Context) error {
 	}
 }
 
+// Response is the HTTP response of a spammer request.
 type Response struct {
 	Message string `json:"message"`
 	Error   string `json:"error"`
 }
 
+// Request contains the parameters of a spammer request.
 type Request struct {
 	Cmd string `json:"cmd"`
 	MPS int    `json:"mps"`
