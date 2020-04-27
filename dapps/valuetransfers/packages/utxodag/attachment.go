@@ -15,13 +15,13 @@ type Attachment struct {
 	objectstorage.StorableObjectFlags
 
 	transactionId transaction.Id
-	payloadId     payload.Id
+	payloadId     payload.ID
 
 	storageKey []byte
 }
 
 // NewAttachment creates an attachment object with the given information.
-func NewAttachment(transactionId transaction.Id, payloadId payload.Id) *Attachment {
+func NewAttachment(transactionId transaction.Id, payloadId payload.ID) *Attachment {
 	return &Attachment{
 		transactionId: transactionId,
 		payloadId:     payloadId,
@@ -99,7 +99,7 @@ func (attachment *Attachment) TransactionId() transaction.Id {
 }
 
 // PayloadId returns the payload id of this Attachment.
-func (attachment *Attachment) PayloadId() payload.Id {
+func (attachment *Attachment) PayloadId() payload.ID {
 	return attachment.payloadId
 }
 
@@ -142,7 +142,7 @@ func (attachment *Attachment) Update(other objectstorage.StorableObject) {
 var _ objectstorage.StorableObject = &Attachment{}
 
 // AttachmentLength holds the length of a marshaled Attachment in bytes.
-const AttachmentLength = transaction.IdLength + payload.IdLength
+const AttachmentLength = transaction.IdLength + payload.IDLength
 
 // region CachedAttachment /////////////////////////////////////////////////////////////////////////////////////////////
 

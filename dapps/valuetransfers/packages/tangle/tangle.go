@@ -34,7 +34,7 @@ func New(badgerInstance *badger.DB) (result *Tangle) {
 		payloadStorage:         osFactory.New(osPayload, osPayloadFactory, objectstorage.CacheTime(time.Second)),
 		payloadMetadataStorage: osFactory.New(osPayloadMetadata, osPayloadMetadataFactory, objectstorage.CacheTime(time.Second)),
 		missingPayloadStorage:  osFactory.New(osMissingPayload, osMissingPayloadFactory, objectstorage.CacheTime(time.Second)),
-		approverStorage:        osFactory.New(osApprover, osPayloadApproverFactory, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IdLength, payload.IdLength), objectstorage.KeysOnly(true)),
+		approverStorage:        osFactory.New(osApprover, osPayloadApproverFactory, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IDLength, payload.IDLength), objectstorage.KeysOnly(true)),
 
 		Events: *newEvents(),
 	}
@@ -48,17 +48,17 @@ func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
 }
 
 // GetPayload retrieves a payload from the object storage.
-func (tangle *Tangle) GetPayload(payloadId payload.Id) *payload.CachedPayload {
+func (tangle *Tangle) GetPayload(payloadId payload.ID) *payload.CachedPayload {
 	return &payload.CachedPayload{CachedObject: tangle.payloadStorage.Load(payloadId.Bytes())}
 }
 
 // GetPayloadMetadata retrieves the metadata of a value payload from the object storage.
-func (tangle *Tangle) GetPayloadMetadata(payloadId payload.Id) *CachedPayloadMetadata {
+func (tangle *Tangle) GetPayloadMetadata(payloadId payload.ID) *CachedPayloadMetadata {
 	return &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Load(payloadId.Bytes())}
 }
 
 // GetApprovers retrieves the approvers of a payload from the object storage.
-func (tangle *Tangle) GetApprovers(payloadId payload.Id) CachedApprovers {
+func (tangle *Tangle) GetApprovers(payloadId payload.ID) CachedApprovers {
 	approvers := make(CachedApprovers, 0)
 	tangle.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		approvers = append(approvers, &CachedPayloadApprover{CachedObject: cachedObject})
@@ -191,7 +191,7 @@ func (tangle *Tangle) solidifyPayloadWorker(cachedPayload *payload.CachedPayload
 	}
 }
 
-func (tangle *Tangle) ForeachApprovers(payloadId payload.Id, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata)) {
+func (tangle *Tangle) ForeachApprovers(payloadId payload.ID, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata)) {
 	tangle.GetApprovers(payloadId).Consume(func(approver *PayloadApprover) {
 		approvingPayloadId := approver.GetApprovingPayloadId()
 		approvingCachedPayload := tangle.GetPayload(approvingPayloadId)
@@ -222,7 +222,7 @@ func (tangle *Tangle) isPayloadSolid(payload *payload.Payload, metadata *Payload
 
 // isPayloadMarkedAsSolid returns true if the payload was marked as solid already (by setting the corresponding flags
 // in its metadata.
-func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payload.Id) bool {
+func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payload.ID) bool {
 	if payloadId == payload.GenesisId {
 		return true
 	}

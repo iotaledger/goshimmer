@@ -22,14 +22,14 @@ import (
 
 func TestNewOutput(t *testing.T) {
 	randomAddress := address.Random()
-	randomTransactionId := transaction.RandomId()
+	randomTransactionID := transaction.RandomId()
 
-	output := NewOutput(randomAddress, randomTransactionId, branchmanager.MasterBranchId, []*balance.Balance{
+	output := NewOutput(randomAddress, randomTransactionID, branchmanager.MasterBranchId, []*balance.Balance{
 		balance.New(balance.ColorIOTA, 1337),
 	})
 
 	assert.Equal(t, randomAddress, output.Address())
-	assert.Equal(t, randomTransactionId, output.TransactionId())
+	assert.Equal(t, randomTransactionID, output.TransactionId())
 	assert.Equal(t, false, output.Solid())
 	assert.Equal(t, time.Time{}, output.SolidificationTime())
 	assert.Equal(t, []*balance.Balance{
@@ -54,13 +54,13 @@ func TestNewOutput(t *testing.T) {
 }
 
 func TestAttachment(t *testing.T) {
-	transactionId := transaction.RandomId()
-	payloadId := payload.RandomId()
+	transactionID := transaction.RandomId()
+	payloadID := payload.RandomId()
 
-	attachment := NewAttachment(transactionId, payloadId)
+	attachment := NewAttachment(transactionID, payloadID)
 
-	assert.Equal(t, transactionId, attachment.TransactionId())
-	assert.Equal(t, payloadId, attachment.PayloadId())
+	assert.Equal(t, transactionID, attachment.TransactionId())
+	assert.Equal(t, payloadID, attachment.PayloadId())
 
 	clonedAttachment, consumedBytes, err := AttachmentFromBytes(attachment.Bytes())
 	if err != nil {
@@ -68,8 +68,8 @@ func TestAttachment(t *testing.T) {
 	}
 
 	assert.Equal(t, AttachmentLength, consumedBytes)
-	assert.Equal(t, transactionId, clonedAttachment.TransactionId())
-	assert.Equal(t, payloadId, clonedAttachment.PayloadId())
+	assert.Equal(t, transactionID, clonedAttachment.TransactionId())
+	assert.Equal(t, payloadID, clonedAttachment.PayloadId())
 }
 
 func TestTangle_AttachPayload(t *testing.T) {
@@ -91,14 +91,14 @@ func TestTangle_AttachPayload(t *testing.T) {
 	addressKeyPair1 := ed25519.GenerateKeyPair()
 	addressKeyPair2 := ed25519.GenerateKeyPair()
 
-	transferId1, _ := transaction.IdFromBase58("8opHzTAnfzRpPEx21XtnrVTX28YQuCpAjcn1PczScKh")
-	transferId2, _ := transaction.IdFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
+	transferID1, _ := transaction.IdFromBase58("8opHzTAnfzRpPEx21XtnrVTX28YQuCpAjcn1PczScKh")
+	transferID2, _ := transaction.IdFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
 
-	input1 := NewOutput(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferId1, branchmanager.MasterBranchId, []*balance.Balance{
+	input1 := NewOutput(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferID1, branchmanager.MasterBranchId, []*balance.Balance{
 		balance.New(balance.ColorIOTA, 337),
 	})
 	input1.SetSolid(true)
-	input2 := NewOutput(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferId2, branchmanager.MasterBranchId, []*balance.Balance{
+	input2 := NewOutput(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferID2, branchmanager.MasterBranchId, []*balance.Balance{
 		balance.New(balance.ColorIOTA, 1000),
 	})
 	input2.SetSolid(true)

@@ -14,12 +14,12 @@ import (
 type MissingPayload struct {
 	objectstorage.StorableObjectFlags
 
-	payloadId    payload.Id
+	payloadId    payload.ID
 	missingSince time.Time
 }
 
 // NewMissingPayload creates an entry for a missing value transfer payload.
-func NewMissingPayload(payloadId payload.Id) *MissingPayload {
+func NewMissingPayload(payloadId payload.ID) *MissingPayload {
 	return &MissingPayload{
 		payloadId:    payloadId,
 		missingSince: time.Now(),
@@ -82,7 +82,7 @@ func MissingPayloadFromStorageKey(key []byte, optionalTargetObject ...*MissingPa
 }
 
 // GetId returns the payload id, that is missing.
-func (missingPayload *MissingPayload) GetId() payload.Id {
+func (missingPayload *MissingPayload) GetId() payload.ID {
 	return missingPayload.payloadId
 }
 
@@ -93,7 +93,7 @@ func (missingPayload *MissingPayload) GetMissingSince() time.Time {
 
 // Bytes marshals the missing payload into a sequence of bytes.
 func (missingPayload *MissingPayload) Bytes() []byte {
-	return marshalutil.New(payload.IdLength + marshalutil.TIME_SIZE).
+	return marshalutil.New(payload.IDLength + marshalutil.TIME_SIZE).
 		WriteBytes(missingPayload.ObjectStorageKey()).
 		WriteBytes(missingPayload.ObjectStorageValue()).
 		Bytes()

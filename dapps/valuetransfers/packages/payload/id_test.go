@@ -14,7 +14,7 @@ func Test(t *testing.T) {
 	}
 
 	// read serialized id into both variables
-	var restoredIdPointer Id
+	var restoredIdPointer ID
 	restoredIdValue, _, err := IdFromBytes(sourceId.Bytes(), &restoredIdPointer)
 	if err != nil {
 		panic(err)

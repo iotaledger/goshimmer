@@ -1,14 +1,11 @@
-dapps\valuetransfers\packages\address\address.go:93:1: error should be the last type when returning multiple items (golint)
-func FromBytes(bytes []byte) (result Address, err error, consumedBytes int) {
-^
 dapps\valuetransfers\packages\branchmanager\branch.go:14:6: exported type `Branch` should have comment or be unexported (golint)
 type Branch struct {
      ^
 dapps\valuetransfers\packages\branchmanager\branch.go:28:1: exported function `NewBranch` should have comment or be unexported (golint)
 func NewBranch(id BranchId, parentBranches []BranchId, conflictingInputs []transaction.OutputId) *Branch {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:41:1: error should be the last type when returning multiple items (golint)
-func BranchFromStorageKey(key []byte, optionalTargetObject ...*Branch) (result *Branch, err error, consumedBytes int) {
+dapps\valuetransfers\packages\branchmanager\branch.go:41:1: exported function `BranchFromStorageKey` should have comment or be unexported (golint)
+func BranchFromStorageKey(key []byte, optionalTargetObject ...*Branch) (result *Branch, consumedBytes int, err error) {
 ^
 dapps\valuetransfers\packages\branchmanager\branch.go:63:1: error should be the last type when returning multiple items (golint)
 func BranchFromBytes(bytes []byte, optionalTargetObject ...*Branch) (result *Branch, err error, consumedBytes int) {
@@ -61,6 +58,9 @@ func (branch *Branch) ObjectStorageValue() []byte {
 dapps\valuetransfers\packages\branchmanager\branch.go:231:9: range var `branchId` should be `branchID` (golint)
 	for _, branchId := range parentBranches {
 	       ^
+dapps\valuetransfers\packages\branchmanager\branch.go:238:1: error should be the last type when returning multiple items (golint)
+func (branch *Branch) UnmarshalObjectStorageValue(valueBytes []byte) (err error, consumedBytes int) {
+^
 dapps\valuetransfers\packages\branchmanager\branch.go:264:6: exported type `CachedBranch` should have comment or be unexported (golint)
 type CachedBranch struct {
      ^
@@ -100,6 +100,9 @@ dapps\valuetransfers\packages\branchmanager\branchid.go:17:2: var `MasterBranchI
 dapps\valuetransfers\packages\branchmanager\branchid.go:21:6: func NewBranchId should be NewBranchID (golint)
 func NewBranchId(transactionId transaction.Id) (branchId BranchId) {
      ^
+dapps\valuetransfers\packages\branchmanager\branchid.go:27:1: error should be the last type when returning multiple items (golint)
+func BranchIdFromBytes(bytes []byte) (result BranchId, err error, consumedBytes int) {
+^
 dapps\valuetransfers\packages\branchmanager\branchid.go:30:2: var `branchIdBytes` should be `branchIDBytes` (golint)
 	branchIdBytes, idErr := marshalUtil.ReadBytes(BranchIdLength)
 	^
@@ -195,6 +198,12 @@ dapps\valuetransfers\packages\branchmanager\child_branch.go:11:2: struct field `
 	^
 dapps\valuetransfers\packages\branchmanager\child_branch.go:15:1: exported function `NewChildBranch` should have comment or be unexported (golint)
 func NewChildBranch(parentId BranchId, id BranchId) *ChildBranch {
+^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:22:1: exported function `ChildBranchFromBytes` should have comment or be unexported (golint)
+func ChildBranchFromBytes(bytes []byte, optionalTargetObject ...*ChildBranch) (result *ChildBranch, consumedBytes int, err error) {
+^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:30:1: exported function `ChildBranchFromStorageKey` should have comment or be unexported (golint)
+func ChildBranchFromStorageKey(key []byte, optionalTargetObject ...*ChildBranch) (result *ChildBranch, consumedBytes int, err error) {
 ^
 dapps\valuetransfers\packages\branchmanager\child_branch.go:54:1: exported function `ParseChildBranch` should have comment or be unexported (golint)
 func ParseChildBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*ChildBranch) (result *ChildBranch, err error) {
@@ -301,6 +310,12 @@ dapps\valuetransfers\packages\branchmanager\conflict_member.go:12:2: struct fiel
 dapps\valuetransfers\packages\branchmanager\conflict_member.go:15:1: exported function `NewConflictMember` should have comment or be unexported (golint)
 func NewConflictMember(conflictId ConflictId, branchId BranchId) *ConflictMember {
 ^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:22:1: exported function `ConflictMemberFromBytes` should have comment or be unexported (golint)
+func ConflictMemberFromBytes(bytes []byte, optionalTargetObject ...*ConflictMember) (result *ConflictMember, consumedBytes int, err error) {
+^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:30:1: exported function `ConflictMemberFromStorageKey` should have comment or be unexported (golint)
+func ConflictMemberFromStorageKey(key []byte, optionalTargetObject ...*ConflictMember) (result *ConflictMember, consumedBytes int, err error) {
+^
 dapps\valuetransfers\packages\branchmanager\conflict_member.go:54:1: exported function `ParseConflictMember` should have comment or be unexported (golint)
 func ParseConflictMember(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*ConflictMember) (result *ConflictMember, err error) {
 ^
@@ -382,17 +397,26 @@ dapps\valuetransfers\packages\address\signaturescheme\bls.go:29:2: don't use ALL
 dapps\valuetransfers\packages\address\signaturescheme\bls.go:51:1: comment on exported function `BLS` should be of the form `BLS ...` (golint)
 // BLS(,) creates an instance of BLS signature scheme
 ^
+dapps\valuetransfers\packages\address\signaturescheme\bls.go:113:1: exported function `BLSSignatureFromBytes` should have comment or be unexported (golint)
+func BLSSignatureFromBytes(data []byte) (result *blsSignature, consumedBytes int, err error) {
+^
 dapps\valuetransfers\packages\address\signaturescheme\bls.go:170:1: exported function `AggregateBLSSignatures` should have comment or be unexported (golint)
 func AggregateBLSSignatures(sigs ...Signature) (Signature, error) {
 ^
 dapps\valuetransfers\packages\address\signaturescheme\ed25519.go:61:1: comment on exported function `Ed25519SignatureFromBytes` should be of the form `Ed25519SignatureFromBytes ...` (golint)
 // ed25519SignatureFromBytes unmarshals an ed25519 signatures from a sequence of bytes.
 ^
+dapps\valuetransfers\packages\address\signaturescheme\ed25519.go:63:97: exported func Ed25519SignatureFromBytes returns unexported type *signaturescheme.ed25519Signature, which can be annoying to use (golint)
+func Ed25519SignatureFromBytes(bytes []byte, optionalTargetObject ...*ed25519Signature) (result *ed25519Signature, consumedBytes int, err error) {
+                                                                                                ^
 dapps\valuetransfers\packages\balance\balance.go:9:6: exported type `Balance` should have comment or be unexported (golint)
 type Balance struct {
      ^
 dapps\valuetransfers\packages\balance\balance.go:14:1: exported function `New` should have comment or be unexported (golint)
 func New(color Color, balance int64) (result *Balance) {
+^
+dapps\valuetransfers\packages\balance\balance.go:23:1: exported function `FromBytes` should have comment or be unexported (golint)
+func FromBytes(bytes []byte) (result *Balance, consumedBytes int, err error) {
 ^
 dapps\valuetransfers\packages\balance\balance.go:65:1: exported method `Balance.Bytes` should have comment or be unexported (golint)
 func (balance *Balance) Bytes() []byte {
@@ -400,6 +424,9 @@ func (balance *Balance) Bytes() []byte {
 dapps\valuetransfers\packages\balance\color.go:8:6: exported type `Color` should have comment or be unexported (golint)
 type Color [ColorLength]byte
      ^
+dapps\valuetransfers\packages\balance\color.go:10:1: exported function `ColorFromBytes` should have comment or be unexported (golint)
+func ColorFromBytes(bytes []byte) (result Color, consumedBytes int, err error) {
+^
 dapps\valuetransfers\packages\balance\color.go:22:7: exported const `ColorLength` should have comment or be unexported (golint)
 const ColorLength = 32
       ^
@@ -412,51 +439,57 @@ var ColorIOTA Color = [32]byte{}
 dapps\valuetransfers\packages\balance\color.go:38:5: exported var `ColorNew` should have comment or be unexported (golint)
 var ColorNew = [32]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
     ^
-dapps\valuetransfers\packages\payload\id.go:12:6: type `Id` should be `ID` (golint)
-type Id [IdLength]byte
-     ^
+dapps\valuetransfers\packages\payload\id.go:11:1: comment on exported type ID should be of the form "ID ..." (with optional leading article) (golint)
+// Id represents the hash of a payload that is used to identify the given payload.
+^
 dapps\valuetransfers\packages\payload\id.go:15:6: func NewId should be NewID (golint)
-func NewId(base58EncodedString string) (result Id, err error) {
+func NewId(base58EncodedString string) (result ID, err error) {
      ^
 dapps\valuetransfers\packages\payload\id.go:33:6: func ParseId should be ParseID (golint)
-func ParseId(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
+func ParseId(marshalUtil *marshalutil.MarshalUtil) (ID, error) {
+     ^
+dapps\valuetransfers\packages\payload\id.go:43:6: func IdFromBytes should be IDFromBytes (golint)
+func IdFromBytes(bytes []byte, optionalTargetObject ...*ID) (result ID, consumedBytes int, err error) {
      ^
 dapps\valuetransfers\packages\payload\id.go:74:1: comment on exported function `RandomId` should be of the form `RandomId ...` (golint)
 // Random creates a random id which can for example be used in unit tests.
 ^
 dapps\valuetransfers\packages\payload\id.go:75:6: func RandomId should be RandomID (golint)
-func RandomId() (id Id) {
+func RandomId() (id ID) {
      ^
-dapps\valuetransfers\packages\payload\id.go:93:1: exported method `Id.Bytes` should have comment or be unexported (golint)
-func (id Id) Bytes() []byte {
+dapps\valuetransfers\packages\payload\id.go:93:1: exported method `ID.Bytes` should have comment or be unexported (golint)
+func (id ID) Bytes() []byte {
 ^
 dapps\valuetransfers\packages\payload\id.go:97:1: comment on exported var `GenesisId` should be of the form `GenesisId ...` (golint)
 // Empty represents the id encoding the genesis.
 ^
 dapps\valuetransfers\packages\payload\id.go:98:5: var `GenesisId` should be `GenesisID` (golint)
-var GenesisId Id
+var GenesisId ID
     ^
-dapps\valuetransfers\packages\payload\id.go:101:7: const `IdLength` should be `IDLength` (golint)
-const IdLength = 32
-      ^
+dapps\valuetransfers\packages\payload\id.go:100:1: comment on exported const `IDLength` should be of the form `IDLength ...` (golint)
+// IdLength defined the amount of bytes in a payload id (32 bytes hash value).
+^
 dapps\valuetransfers\packages\payload\id_test.go:11:2: var `sourceId` should be `sourceID` (golint)
 	sourceId, err := NewId("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
 	^
 dapps\valuetransfers\packages\payload\id_test.go:17:6: var `restoredIdPointer` should be `restoredIDPointer` (golint)
-	var restoredIdPointer Id
+	var restoredIdPointer ID
 	    ^
 dapps\valuetransfers\packages\payload\id_test.go:18:2: var `restoredIdValue` should be `restoredIDValue` (golint)
-	restoredIdValue, err, _ := IdFromBytes(sourceId.Bytes(), &restoredIdPointer)
+	restoredIdValue, _, err := IdFromBytes(sourceId.Bytes(), &restoredIdPointer)
 	^
 dapps\valuetransfers\packages\payload\payload.go:15:6: exported type `Payload` should have comment or be unexported (golint)
 type Payload struct {
      ^
 dapps\valuetransfers\packages\payload\payload.go:21:2: struct field `trunkPayloadId` should be `trunkPayloadID` (golint)
-	trunkPayloadId  Id
+	trunkPayloadId  ID
 	^
 dapps\valuetransfers\packages\payload\payload.go:22:2: struct field `branchPayloadId` should be `branchPayloadID` (golint)
-	branchPayloadId Id
+	branchPayloadId ID
 	^
+dapps\valuetransfers\packages\payload\payload.go:46:1: exported function `FromStorageKey` should have comment or be unexported (golint)
+func FromStorageKey(key []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
+^
 dapps\valuetransfers\packages\payload\payload.go:59:5: var `payloadId` should be `payloadID` (golint)
 	if payloadId, idErr := ParseId(marshalUtil); idErr != nil {
 	   ^
@@ -464,13 +497,13 @@ dapps\valuetransfers\packages\payload\payload.go:71:1: exported function `Parse`
 func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Payload) (result *Payload, err error) {
 ^
 dapps\valuetransfers\packages\payload\payload.go:93:1: exported method `Payload.Id` should have comment or be unexported (golint)
-func (payload *Payload) Id() Id {
+func (payload *Payload) Id() ID {
 ^
 dapps\valuetransfers\packages\payload\payload.go:126:1: exported method `Payload.TrunkId` should have comment or be unexported (golint)
-func (payload *Payload) TrunkId() Id {
+func (payload *Payload) TrunkId() ID {
 ^
 dapps\valuetransfers\packages\payload\payload.go:130:1: exported method `Payload.BranchId` should have comment or be unexported (golint)
-func (payload *Payload) BranchId() Id {
+func (payload *Payload) BranchId() ID {
 ^
 dapps\valuetransfers\packages\payload\payload.go:134:1: exported method `Payload.Transaction` should have comment or be unexported (golint)
 func (payload *Payload) Transaction() *transaction.Transaction {
@@ -503,31 +536,34 @@ dapps\valuetransfers\packages\tangle\events.go:28:6: func payloadIdEvent should 
 func payloadIdEvent(handler interface{}, params ...interface{}) {
      ^
 dapps\valuetransfers\packages\tangle\missingpayload.go:17:2: struct field `payloadId` should be `payloadID` (golint)
-	payloadId    payload.Id
+	payloadId    payload.ID
 	^
 dapps\valuetransfers\packages\tangle\missingpayload.go:22:24: func parameter `payloadId` should be `payloadID` (golint)
-func NewMissingPayload(payloadId payload.Id) *MissingPayload {
+func NewMissingPayload(payloadId payload.ID) *MissingPayload {
                        ^
 dapps\valuetransfers\packages\tangle\missingpayload.go:39:1: exported function `ParseMissingPayload` should have comment or be unexported (golint)
 func ParseMissingPayload(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*MissingPayload) (result *MissingPayload, err error) {
 ^
 dapps\valuetransfers\packages\tangle\missingpayload.go:85:39: method GetId should be GetID (golint)
-func (missingPayload *MissingPayload) GetId() payload.Id {
+func (missingPayload *MissingPayload) GetId() payload.ID {
                                       ^
 dapps\valuetransfers\packages\tangle\missingpayload.go:89:1: comment on exported method `MissingPayload.GetMissingSince` should be of the form `GetMissingSince ...` (golint)
 // MissingSince returns the time.Time since the transaction was first reported as being missing.
 ^
 dapps\valuetransfers\packages\tangle\payloadapprover.go:17:2: struct field `referencedPayloadId` should be `referencedPayloadID` (golint)
-	referencedPayloadId payload.Id
+	referencedPayloadId payload.ID
 	^
 dapps\valuetransfers\packages\tangle\payloadapprover.go:18:2: struct field `approvingPayloadId` should be `approvingPayloadID` (golint)
-	approvingPayloadId  payload.Id
+	approvingPayloadId  payload.ID
 	^
+dapps\valuetransfers\packages\tangle\payloadapprover.go:34:1: exported function `PayloadApproverFromBytes` should have comment or be unexported (golint)
+func PayloadApproverFromBytes(bytes []byte, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, consumedBytes int, err error) {
+^
 dapps\valuetransfers\packages\tangle\payloadapprover.go:42:1: exported function `ParsePayloadApprover` should have comment or be unexported (golint)
 func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, err error) {
 ^
 dapps\valuetransfers\packages\tangle\payloadapprover.go:93:41: method GetApprovingPayloadId should be GetApprovingPayloadID (golint)
-func (payloadApprover *PayloadApprover) GetApprovingPayloadId() payload.Id {
+func (payloadApprover *PayloadApprover) GetApprovingPayloadId() payload.ID {
                                         ^
 dapps\valuetransfers\packages\tangle\payloadapprover.go:155:6: exported type `CachedApprovers` should have comment or be unexported (golint)
 type CachedApprovers []*CachedPayloadApprover
@@ -536,25 +572,25 @@ dapps\valuetransfers\packages\tangle\payloadapprover.go:157:1: exported method `
 func (cachedApprovers CachedApprovers) Consume(consumer func(approver *PayloadApprover)) (consumed bool) {
 ^
 dapps\valuetransfers\packages\tangle\payloadmetadata.go:19:2: struct field `payloadId` should be `payloadID` (golint)
-	payloadId          payload.Id
+	payloadId          payload.ID
 	^
 dapps\valuetransfers\packages\tangle\payloadmetadata.go:28:25: func parameter `payloadId` should be `payloadID` (golint)
-func NewPayloadMetadata(payloadId payload.Id) *PayloadMetadata {
+func NewPayloadMetadata(payloadId payload.ID) *PayloadMetadata {
                         ^
 dapps\valuetransfers\packages\tangle\payloadmetadata.go:91:41: method GetPayloadId should be GetPayloadID (golint)
-func (payloadMetadata *PayloadMetadata) GetPayloadId() payload.Id {
+func (payloadMetadata *PayloadMetadata) GetPayloadId() payload.ID {
                                         ^
 dapps\valuetransfers\packages\tangle\payloadmetadata.go:133:1: comment on exported method `PayloadMetadata.GetSoldificationTime` should be of the form `GetSoldificationTime ...` (golint)
 // SoldificationTime returns the time when the payload was marked to be solid.
 ^
 dapps\valuetransfers\packages\tangle\tangle.go:51:34: method parameter `payloadId` should be `payloadID` (golint)
-func (tangle *Tangle) GetPayload(payloadId payload.Id) *payload.CachedPayload {
+func (tangle *Tangle) GetPayload(payloadId payload.ID) *payload.CachedPayload {
                                  ^
 dapps\valuetransfers\packages\tangle\tangle.go:56:42: method parameter `payloadId` should be `payloadID` (golint)
-func (tangle *Tangle) GetPayloadMetadata(payloadId payload.Id) *CachedPayloadMetadata {
+func (tangle *Tangle) GetPayloadMetadata(payloadId payload.ID) *CachedPayloadMetadata {
                                          ^
 dapps\valuetransfers\packages\tangle\tangle.go:61:36: method parameter `payloadId` should be `payloadID` (golint)
-func (tangle *Tangle) GetApprovers(payloadId payload.Id) CachedApprovers {
+func (tangle *Tangle) GetApprovers(payloadId payload.ID) CachedApprovers {
                                    ^
 dapps\valuetransfers\packages\tangle\tangle.go:141:2: var `trunkId` should be `trunkID` (golint)
 	trunkId := payload.TrunkId()
@@ -563,7 +599,7 @@ dapps\valuetransfers\packages\tangle\tangle.go:145:5: var `branchId` should be `
 	if branchId := payload.BranchId(); branchId != trunkId {
 	   ^
 dapps\valuetransfers\packages\tangle\tangle.go:194:1: exported method `Tangle.ForeachApprovers` should have comment or be unexported (golint)
-func (tangle *Tangle) ForeachApprovers(payloadId payload.Id, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata)) {
+func (tangle *Tangle) ForeachApprovers(payloadId payload.ID, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata)) {
 ^
 dapps\valuetransfers\packages\tangle\tangle.go:196:3: var `approvingPayloadId` should be `approvingPayloadID` (golint)
 		approvingPayloadId := approver.GetApprovingPayloadId()
@@ -573,6 +609,9 @@ type Id [IdLength]byte
      ^
 dapps\valuetransfers\packages\transaction\id.go:15:6: func IdFromBase58 should be IDFromBase58 (golint)
 func IdFromBase58(base58String string) (id Id, err error) {
+     ^
+dapps\valuetransfers\packages\transaction\id.go:36:6: func IdFromBytes should be IDFromBytes (golint)
+func IdFromBytes(bytes []byte) (result Id, consumedBytes int, err error) {
      ^
 dapps\valuetransfers\packages\transaction\id.go:51:1: comment on exported function `ParseId` should be of the form `ParseId ...` (golint)
 // Parse is a wrapper for simplified unmarshaling of Ids from a byte stream using the marshalUtil package.
@@ -598,6 +637,9 @@ func NewInputs(outputIds ...OutputId) (inputs *Inputs) {
 dapps\valuetransfers\packages\transaction\inputs.go:16:9: range var `outputId` should be `outputID` (golint)
 	for _, outputId := range outputIds {
 	       ^
+dapps\valuetransfers\packages\transaction\inputs.go:23:1: exported function `InputsFromBytes` should have comment or be unexported (golint)
+func InputsFromBytes(bytes []byte) (inputs *Inputs, consumedBytes int, err error) {
+^
 dapps\valuetransfers\packages\transaction\inputs.go:67:1: exported method `Inputs.Add` should have comment or be unexported (golint)
 func (inputs *Inputs) Add(input OutputId) *Inputs {
 ^
@@ -625,6 +667,9 @@ type OutputId [OutputIdLength]byte
 dapps\valuetransfers\packages\transaction\outputid.go:15:6: func NewOutputId should be NewOutputID (golint)
 func NewOutputId(outputAddress address.Address, transactionId Id) (outputId OutputId) {
      ^
+dapps\valuetransfers\packages\transaction\outputid.go:23:6: func OutputIdFromBytes should be OutputIDFromBytes (golint)
+func OutputIdFromBytes(bytes []byte) (result OutputId, consumedBytes int, err error) {
+     ^
 dapps\valuetransfers\packages\transaction\outputid.go:38:1: comment on exported function `ParseOutputId` should be of the form `ParseOutputId ...` (golint)
 // Parse is a wrapper for simplified unmarshaling of Ids from a byte stream using the marshalUtil package.
 ^
@@ -632,7 +677,7 @@ dapps\valuetransfers\packages\transaction\outputid.go:39:6: func ParseOutputId s
 func ParseOutputId(marshalUtil *marshalutil.MarshalUtil) (OutputId, error) {
      ^
 dapps\valuetransfers\packages\transaction\outputid.go:40:5: var `outputId` should be `outputID` (golint)
-	if outputId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return OutputIdFromBytes(data) }); err != nil {
+	if outputId, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return OutputIdFromBytes(data) }); err != nil {
 	   ^
 dapps\valuetransfers\packages\transaction\outputid.go:55:26: method TransactionId should be TransactionID (golint)
 func (outputId OutputId) TransactionId() (transactionId Id) {
@@ -676,6 +721,12 @@ func (signatures *Signatures) Get(address address.Address) (signaturescheme.Sign
 dapps\valuetransfers\packages\transaction\transaction.go:19:6: exported type `Transaction` should have comment or be unexported (golint)
 type Transaction struct {
      ^
+dapps\valuetransfers\packages\transaction\transaction.go:50:1: exported function `FromBytes` should have comment or be unexported (golint)
+func FromBytes(bytes []byte, optionalTargetObject ...*Transaction) (result *Transaction, consumedBytes int, err error) {
+^
+dapps\valuetransfers\packages\transaction\transaction.go:58:1: exported function `FromStorageKey` should have comment or be unexported (golint)
+func FromStorageKey(key []byte, optionalTargetObject ...*Transaction) (result objectstorage.StorableObject, consumedBytes int, err error) {
+^
 dapps\valuetransfers\packages\transaction\transaction.go:79:1: exported function `Parse` should have comment or be unexported (golint)
 func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Transaction) (result *Transaction, err error) {
 ^
@@ -716,10 +767,10 @@ dapps\valuetransfers\packages\utxodag\attachment.go:17:2: struct field `transact
 	transactionId transaction.Id
 	^
 dapps\valuetransfers\packages\utxodag\attachment.go:18:2: struct field `payloadId` should be `payloadID` (golint)
-	payloadId     payload.Id
+	payloadId     payload.ID
 	^
 dapps\valuetransfers\packages\utxodag\attachment.go:24:20: func parameter `transactionId` should be `transactionID` (golint)
-func NewAttachment(transactionId transaction.Id, payloadId payload.Id) *Attachment {
+func NewAttachment(transactionId transaction.Id, payloadId payload.ID) *Attachment {
                    ^
 dapps\valuetransfers\packages\utxodag\attachment.go:46:1: comment on exported function `ParseAttachment` should be of the form `ParseAttachment ...` (golint)
 // Parse is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil package.
@@ -728,7 +779,7 @@ dapps\valuetransfers\packages\utxodag\attachment.go:97:31: method TransactionId 
 func (attachment *Attachment) TransactionId() transaction.Id {
                               ^
 dapps\valuetransfers\packages\utxodag\attachment.go:102:31: method PayloadId should be PayloadID (golint)
-func (attachment *Attachment) PayloadId() payload.Id {
+func (attachment *Attachment) PayloadId() payload.ID {
                               ^
 dapps\valuetransfers\packages\utxodag\attachment.go:149:6: exported type `CachedAttachment` should have comment or be unexported (golint)
 type CachedAttachment struct {
@@ -756,6 +807,9 @@ func NewConsumer(consumedInput transaction.OutputId, transactionId transaction.I
                                                      ^
 dapps\valuetransfers\packages\utxodag\consumer.go:48:1: exported function `ParseConsumer` should have comment or be unexported (golint)
 func ParseConsumer(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Consumer) (result *Consumer, err error) {
+^
+dapps\valuetransfers\packages\utxodag\consumer.go:70:1: exported function `ConsumerFromStorageKey` should have comment or be unexported (golint)
+func ConsumerFromStorageKey(key []byte, optionalTargetObject ...*Consumer) (result *Consumer, consumedBytes int, err error) {
 ^
 dapps\valuetransfers\packages\utxodag\consumer.go:101:27: method TransactionId should be TransactionID (golint)
 func (consumer *Consumer) TransactionId() transaction.Id {
@@ -883,60 +937,3 @@ func (transactionMetadata *TransactionMetadata) FinalizationTime() time.Time {
 dapps\valuetransfers\packages\utxodag\utxodag.go:25:6: exported type `UTXODAG` should have comment or be unexported (golint)
 type UTXODAG struct {
      ^
-dapps\valuetransfers\packages\utxodag\utxodag.go:61:1: exported method `UTXODAG.BranchManager` should have comment or be unexported (golint)
-func (utxoDAG *UTXODAG) BranchManager() *branchmanager.BranchManager {
-^
-dapps\valuetransfers\packages\utxodag\utxodag.go:65:1: exported method `UTXODAG.ProcessSolidPayload` should have comment or be unexported (golint)
-func (utxoDAG *UTXODAG) ProcessSolidPayload(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
-^
-dapps\valuetransfers\packages\utxodag\utxodag.go:69:1: exported method `UTXODAG.Transaction` should have comment or be unexported (golint)
-func (utxoDAG *UTXODAG) Transaction(transactionId transaction.Id) *transaction.CachedTransaction {
-^
-dapps\valuetransfers\packages\utxodag\utxodag.go:73:1: comment on exported method `UTXODAG.TransactionMetadata` should be of the form `TransactionMetadata ...` (golint)
-// GetPayloadMetadata retrieves the metadata of a value payload from the object storage.
-^
-dapps\valuetransfers\packages\utxodag\utxodag.go:74:45: method parameter `transactionId` should be `transactionID` (golint)
-func (utxoDAG *UTXODAG) TransactionMetadata(transactionId transaction.Id) *CachedTransactionMetadata {
-                                            ^
-dapps\valuetransfers\packages\utxodag\utxodag.go:78:1: exported method `UTXODAG.GetTransactionOutput` should have comment or be unexported (golint)
-func (utxoDAG *UTXODAG) GetTransactionOutput(outputId transaction.OutputId) *CachedOutput {
-^
-dapps\valuetransfers\packages\utxodag\utxodag.go:83:38: method parameter `outputId` should be `outputID` (golint)
-func (utxoDAG *UTXODAG) GetConsumers(outputId transaction.OutputId) CachedConsumers {
-                                     ^
-dapps\valuetransfers\packages\utxodag\utxodag.go:95:40: method parameter `transactionId` should be `transactionID` (golint)
-func (utxoDAG *UTXODAG) GetAttachments(transactionId transaction.Id) CachedAttachments {
-                                       ^
-dapps\valuetransfers\packages\utxodag\utxodag.go:416:1: exported method `UTXODAG.ForEachConsumers` should have comment or be unexported (golint)
-func (utxoDAG *UTXODAG) ForEachConsumers(currentTransaction *transaction.Transaction, consume func(cachedTransaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment)) {
-^
-dapps\valuetransfers\packages\utxodag\utxodag.go:472:18: var `firstConsumerId` should be `firstConsumerID` (golint)
-		consumerCount, firstConsumerId := output.RegisterConsumer(transactionToBook.Id())
-		               ^
-dapps\valuetransfers\packages\utxodag\utxodag.go:534:6: range var `consumerId` should be `consumerID` (golint)
-	for consumerId, conflictingInputs := range conflictingInputsOfConflictingConsumers {
-	    ^
-dapps\valuetransfers\packages\utxodag\utxodag.go:657:7: var `outputId` should be `outputID` (golint)
-						outputId := transaction.NewOutputId(address, currentTransaction.Id())
-						^
-dapps\valuetransfers\packages\utxodag\utxodag.go:681:11: range var `transactionId` should be `transactionID` (golint)
-						for transactionId := range consumingTransactions {
-						    ^
-dapps\valuetransfers\packages\utxodag\utxodag.go:703:1: exported method `UTXODAG.Fork` should have comment or be unexported (golint)
-func (utxoDAG *UTXODAG) Fork(transactionId transaction.Id, conflictingInputs []transaction.OutputId) (forked bool, err error) {
-^
-dapps\valuetransfers\packages\utxodag\utxodag_test.go:25:2: var `randomTransactionId` should be `randomTransactionID` (golint)
-	randomTransactionId := transaction.RandomId()
-	^
-dapps\valuetransfers\packages\utxodag\utxodag_test.go:57:2: var `transactionId` should be `transactionID` (golint)
-	transactionId := transaction.RandomId()
-	^
-dapps\valuetransfers\packages\utxodag\utxodag_test.go:58:2: var `payloadId` should be `payloadID` (golint)
-	payloadId := payload.RandomId()
-	^
-dapps\valuetransfers\packages\utxodag\utxodag_test.go:94:2: var `transferId1` should be `transferID1` (golint)
-	transferId1, _ := transaction.IdFromBase58("8opHzTAnfzRpPEx21XtnrVTX28YQuCpAjcn1PczScKh")
-	^
-dapps\valuetransfers\packages\utxodag\utxodag_test.go:95:2: var `transferId2` should be `transferID2` (golint)
-	transferId2, _ := transaction.IdFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
-	^

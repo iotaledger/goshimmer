@@ -26,7 +26,7 @@ func newEvents() *Events {
 }
 
 func payloadIdEvent(handler interface{}, params ...interface{}) {
-	handler.(func(payload.Id))(params[0].(payload.Id))
+	handler.(func(payload.ID))(params[0].(payload.ID))
 }
 
 func cachedPayloadEvent(handler interface{}, params ...interface{}) {

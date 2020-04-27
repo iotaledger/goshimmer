@@ -16,7 +16,7 @@ import (
 type PayloadMetadata struct {
 	objectstorage.StorableObjectFlags
 
-	payloadId          payload.Id
+	payloadId          payload.ID
 	solid              bool
 	solidificationTime time.Time
 
@@ -25,7 +25,7 @@ type PayloadMetadata struct {
 }
 
 // NewPayloadMetadata creates an empty container for the metadata of a value transfer payload.
-func NewPayloadMetadata(payloadId payload.Id) *PayloadMetadata {
+func NewPayloadMetadata(payloadId payload.ID) *PayloadMetadata {
 	return &PayloadMetadata{
 		payloadId: payloadId,
 	}
@@ -88,7 +88,7 @@ func PayloadMetadataFromStorageKey(id []byte, optionalTargetObject ...*PayloadMe
 }
 
 // GetPayloadId return the id of the payload that this metadata is associated to.
-func (payloadMetadata *PayloadMetadata) GetPayloadId() payload.Id {
+func (payloadMetadata *PayloadMetadata) GetPayloadId() payload.ID {
 	return payloadMetadata.payloadId
 }
 
@@ -140,7 +140,7 @@ func (payloadMetadata *PayloadMetadata) GetSoldificationTime() time.Time {
 
 // Bytes marshals the metadata into a sequence of bytes.
 func (payloadMetadata *PayloadMetadata) Bytes() []byte {
-	return marshalutil.New(payload.IdLength + marshalutil.TIME_SIZE + marshalutil.BOOL_SIZE).
+	return marshalutil.New(payload.IDLength + marshalutil.TIME_SIZE + marshalutil.BOOL_SIZE).
 		WriteBytes(payloadMetadata.ObjectStorageKey()).
 		WriteBytes(payloadMetadata.ObjectStorageValue()).
 		Bytes()

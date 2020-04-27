@@ -95,7 +95,7 @@ type Request struct {
 // Message contains information about a given message.
 type Message struct {
 	Metadata        `json:"metadata,omitempty"`
-	ID              string `json:"Id,omitempty"`
+	ID              string `json:"ID,omitempty"`
 	TrunkID         string `json:"trunkId,omitempty"`
 	BranchID        string `json:"branchId,omitempty"`
 	IssuerPublicKey string `json:"issuerPublicKey,omitempty"`

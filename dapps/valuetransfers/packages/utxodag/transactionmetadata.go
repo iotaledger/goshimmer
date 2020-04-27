@@ -95,8 +95,8 @@ func ParseTransactionMetadata(marshalUtil *marshalutil.MarshalUtil, optionalTarg
 	return
 }
 
-// Id return the id of the Transaction that this TransactionMetadata is associated to.
-func (transactionMetadata *TransactionMetadata) Id() transaction.Id {
+// ID return the id of the Transaction that this TransactionMetadata is associated to.
+func (transactionMetadata *TransactionMetadata) ID() transaction.Id {
 	return transactionMetadata.id
 }
 
@@ -192,6 +192,7 @@ func (transactionMetadata *TransactionMetadata) SetFinalized(finalized bool) (mo
 	return
 }
 
+// Finalized returns true, if the decision if this transaction is liked or not has been finalized by consensus already.
 func (transactionMetadata *TransactionMetadata) Finalized() bool {
 	transactionMetadata.finalizedMutex.RLock()
 	defer transactionMetadata.finalizedMutex.RUnlock()
@@ -199,6 +200,7 @@ func (transactionMetadata *TransactionMetadata) Finalized() bool {
 	return transactionMetadata.finalized
 }
 
+// FinalizationTime returns the time when this transaction was finalized.
 func (transactionMetadata *TransactionMetadata) FinalizationTime() time.Time {
 	transactionMetadata.finalizedMutex.RLock()
 	defer transactionMetadata.finalizedMutex.RUnlock()
@@ -228,7 +230,7 @@ func (transactionMetadata *TransactionMetadata) Bytes() []byte {
 // String creates a human readable version of the metadata (for debug purposes).
 func (transactionMetadata *TransactionMetadata) String() string {
 	return stringify.Struct("transaction.TransactionMetadata",
-		stringify.StructField("id", transactionMetadata.Id()),
+		stringify.StructField("id", transactionMetadata.ID()),
 		stringify.StructField("branchId", transactionMetadata.BranchId()),
 		stringify.StructField("solid", transactionMetadata.Solid()),
 		stringify.StructField("solidificationTime", transactionMetadata.SoldificationTime()),

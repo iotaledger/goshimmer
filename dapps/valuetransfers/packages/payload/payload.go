@@ -15,17 +15,17 @@ import (
 type Payload struct {
 	objectstorage.StorableObjectFlags
 
-	id      *Id
+	id      *ID
 	idMutex sync.RWMutex
 
-	trunkPayloadId  Id
-	branchPayloadId Id
+	trunkPayloadId  ID
+	branchPayloadId ID
 	transaction     *transaction.Transaction
 	bytes           []byte
 	bytesMutex      sync.RWMutex
 }
 
-func New(trunkPayloadId, branchPayloadId Id, valueTransfer *transaction.Transaction) *Payload {
+func New(trunkPayloadId, branchPayloadId ID, valueTransfer *transaction.Transaction) *Payload {
 	return &Payload{
 		trunkPayloadId:  trunkPayloadId,
 		branchPayloadId: branchPayloadId,
@@ -90,7 +90,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Payloa
 	return
 }
 
-func (payload *Payload) Id() Id {
+func (payload *Payload) Id() ID {
 	// acquire lock for reading id
 	payload.idMutex.RLock()
 
@@ -112,22 +112,22 @@ func (payload *Payload) Id() Id {
 	}
 
 	// otherwise calculate the id
-	marshalUtil := marshalutil.New(IdLength + IdLength + transaction.IdLength)
+	marshalUtil := marshalutil.New(IDLength + IDLength + transaction.IdLength)
 	marshalUtil.WriteBytes(payload.trunkPayloadId.Bytes())
 	marshalUtil.WriteBytes(payload.branchPayloadId.Bytes())
 	marshalUtil.WriteBytes(payload.Transaction().Id().Bytes())
 
-	var id Id = blake2b.Sum256(marshalUtil.Bytes())
+	var id ID = blake2b.Sum256(marshalUtil.Bytes())
 	payload.id = &id
 
 	return id
 }
 
-func (payload *Payload) TrunkId() Id {
+func (payload *Payload) TrunkId() ID {
 	return payload.trunkPayloadId
 }
 
-func (payload *Payload) BranchId() Id {
+func (payload *Payload) BranchId() ID {
 	return payload.branchPayloadId
 }
 
@@ -181,7 +181,7 @@ func (payload *Payload) ObjectStorageValue() (bytes []byte) {
 	transferBytes := payload.Transaction().ObjectStorageValue()
 
 	// marshal fields
-	payloadLength := IdLength + IdLength + len(transferBytes)
+	payloadLength := IDLength + IDLength + len(transferBytes)
 	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
 	marshalUtil.WriteUint32(Type)
 	marshalUtil.WriteUint32(uint32(payloadLength))

@@ -183,6 +183,7 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opin
 	return opinions, nil
 }
 
+// ID returns a string representation of the identifier of the underlying Peer.
 func (pog *PeerOpinionGiver) ID() string {
 	return pog.p.ID().String()
 }

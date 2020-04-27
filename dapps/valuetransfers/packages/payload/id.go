@@ -9,16 +9,16 @@ import (
 )
 
 // Id represents the hash of a payload that is used to identify the given payload.
-type Id [IdLength]byte
+type ID [IDLength]byte
 
 // NewId creates a payload id from a base58 encoded string.
-func NewId(base58EncodedString string) (result Id, err error) {
+func NewId(base58EncodedString string) (result ID, err error) {
 	bytes, err := base58.Decode(base58EncodedString)
 	if err != nil {
 		return
 	}
 
-	if len(bytes) != IdLength {
+	if len(bytes) != IDLength {
 		err = fmt.Errorf("length of base58 formatted payload id is wrong")
 
 		return
@@ -30,19 +30,19 @@ func NewId(base58EncodedString string) (result Id, err error) {
 }
 
 // ParseId is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func ParseId(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
+func ParseId(marshalUtil *marshalutil.MarshalUtil) (ID, error) {
 	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return IdFromBytes(data) }); err != nil {
-		return Id{}, err
+		return ID{}, err
 	} else {
-		return id.(Id), nil
+		return id.(ID), nil
 	}
 }
 
 // IdFromBytes unmarshals a payload id from a sequence of bytes.
 // It either creates a new payload id or fills the optionally provided object with the parsed information.
-func IdFromBytes(bytes []byte, optionalTargetObject ...*Id) (result Id, consumedBytes int, err error) {
+func IdFromBytes(bytes []byte, optionalTargetObject ...*ID) (result ID, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
-	var targetObject *Id
+	var targetObject *ID
 	switch len(optionalTargetObject) {
 	case 0:
 		targetObject = &result
@@ -56,7 +56,7 @@ func IdFromBytes(bytes []byte, optionalTargetObject ...*Id) (result Id, consumed
 	marshalUtil := marshalutil.New(bytes)
 
 	// read id from bytes
-	idBytes, err := marshalUtil.ReadBytes(IdLength)
+	idBytes, err := marshalUtil.ReadBytes(IDLength)
 	if err != nil {
 		return
 	}
@@ -72,9 +72,9 @@ func IdFromBytes(bytes []byte, optionalTargetObject ...*Id) (result Id, consumed
 }
 
 // Random creates a random id which can for example be used in unit tests.
-func RandomId() (id Id) {
+func RandomId() (id ID) {
 	// generate a random sequence of bytes
-	idBytes := make([]byte, IdLength)
+	idBytes := make([]byte, IDLength)
 	if _, err := rand.Read(idBytes); err != nil {
 		panic(err)
 	}
@@ -86,16 +86,16 @@ func RandomId() (id Id) {
 }
 
 // String returns a base58 encoded version of the payload id.
-func (id Id) String() string {
+func (id ID) String() string {
 	return base58.Encode(id[:])
 }
 
-func (id Id) Bytes() []byte {
+func (id ID) Bytes() []byte {
 	return id[:]
 }
 
 // Empty represents the id encoding the genesis.
-var GenesisId Id
+var GenesisId ID
 
 // IdLength defined the amount of bytes in a payload id (32 bytes hash value).
-const IdLength = 32
+const IDLength = 32
