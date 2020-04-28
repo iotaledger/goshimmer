@@ -335,7 +335,7 @@ func (cachedBranches CachedBranches) Consume(consumer func(branch *Branch)) (con
 	return
 }
 
-// Release is a utility function, that allows us to release all CachedObjects in the collection.
+// Release is a utility function that allows us to release all CachedObjects in the collection.
 func (cachedBranches CachedBranches) Release(force ...bool) {
 	for _, cachedBranch := range cachedBranches {
 		cachedBranch.Release(force...)
