@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 )
 
-type ConflictId = transaction.OutputId
+type ConflictID = transaction.OutputId
 
 var (
 	ParseConflictId     = transaction.ParseOutputId

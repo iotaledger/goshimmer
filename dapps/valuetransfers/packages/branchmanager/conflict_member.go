@@ -8,11 +8,11 @@ import (
 type ConflictMember struct {
 	objectstorage.StorableObjectFlags
 
-	conflictId ConflictId
+	conflictId ConflictID
 	branchId   BranchID
 }
 
-func NewConflictMember(conflictId ConflictId, branchId BranchID) *ConflictMember {
+func NewConflictMember(conflictId ConflictID, branchId BranchID) *ConflictMember {
 	return &ConflictMember{
 		conflictId: conflictId,
 		branchId:   branchId,
@@ -43,7 +43,7 @@ func ConflictMemberFromStorageKey(key []byte, optionalTargetObject ...*ConflictM
 	if result.conflictId, err = ParseConflictId(marshalUtil); err != nil {
 		return
 	}
-	if result.branchId, err = ParseBranchId(marshalUtil); err != nil {
+	if result.branchId, err = ParseBranchID(marshalUtil); err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -73,7 +73,7 @@ func ParseConflictMember(marshalUtil *marshalutil.MarshalUtil, optionalTargetObj
 	return
 }
 
-func (conflictMember *ConflictMember) ConflictId() ConflictId {
+func (conflictMember *ConflictMember) ConflictId() ConflictID {
 	return conflictMember.conflictId
 }
 
@@ -82,7 +82,7 @@ func (conflictMember *ConflictMember) BranchId() BranchID {
 }
 
 func (conflictMember ConflictMember) ObjectStorageKey() []byte {
-	return marshalutil.New(ConflictIdLength + BranchIdLength).
+	return marshalutil.New(ConflictIdLength + BranchIDLength).
 		WriteBytes(conflictMember.conflictId.Bytes()).
 		WriteBytes(conflictMember.branchId.Bytes()).
 		Bytes()

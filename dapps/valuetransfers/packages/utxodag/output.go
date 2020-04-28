@@ -250,7 +250,7 @@ func (output *Output) ObjectStorageValue() []byte {
 	balanceCount := len(output.balances)
 
 	// initialize helper
-	marshalUtil := marshalutil.New(branchmanager.BranchIdLength + marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
+	marshalUtil := marshalutil.New(branchmanager.BranchIDLength + marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
 	marshalUtil.WriteBytes(output.branchID.Bytes())
 	marshalUtil.WriteBool(output.solid)
 	marshalUtil.WriteTime(output.solidificationTime)
@@ -266,7 +266,7 @@ func (output *Output) ObjectStorageValue() []byte {
 // being stored in its key rather than the content of the database to reduce storage requirements.
 func (output *Output) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
-	if output.branchID, err = branchmanager.ParseBranchId(marshalUtil); err != nil {
+	if output.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
 		return
 	}
 	if output.solid, err = marshalUtil.ReadBool(); err != nil {

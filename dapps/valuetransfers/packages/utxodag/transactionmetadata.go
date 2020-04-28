@@ -223,7 +223,7 @@ func (transactionMetadata *TransactionMetadata) SoldificationTime() time.Time {
 
 // Bytes marshals the TransactionMetadata object into a sequence of bytes.
 func (transactionMetadata *TransactionMetadata) Bytes() []byte {
-	return marshalutil.New(branchmanager.BranchIdLength + 2*marshalutil.TIME_SIZE + 2*marshalutil.BOOL_SIZE).
+	return marshalutil.New(branchmanager.BranchIDLength + 2*marshalutil.TIME_SIZE + 2*marshalutil.BOOL_SIZE).
 		WriteBytes(transactionMetadata.BranchID().Bytes()).
 		WriteTime(transactionMetadata.solidificationTime).
 		WriteTime(transactionMetadata.finalizationTime).
@@ -262,7 +262,7 @@ func (transactionMetadata *TransactionMetadata) ObjectStorageValue() []byte {
 // encoding.BinaryUnmarshaler interface.
 func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
-	if transactionMetadata.branchID, err = branchmanager.ParseBranchId(marshalUtil); err != nil {
+	if transactionMetadata.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
 		return
 	}
 	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {

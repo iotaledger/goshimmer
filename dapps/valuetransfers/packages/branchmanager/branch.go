@@ -19,7 +19,7 @@ type Branch struct {
 
 	id             BranchID
 	parentBranches []BranchID
-	conflicts      map[ConflictId]types.Empty
+	conflicts      map[ConflictID]types.Empty
 	preferred      bool
 	liked          bool
 
@@ -30,7 +30,7 @@ type Branch struct {
 
 // NewBranch is the constructor of a branch and creates a new Branch object from the given details.
 func NewBranch(id BranchID, parentBranches []BranchID, conflictingInputs []transaction.OutputId) *Branch {
-	conflictingInputsMap := make(map[ConflictId]types.Empty)
+	conflictingInputsMap := make(map[ConflictID]types.Empty)
 	for _, conflictingInput := range conflictingInputs {
 		conflictingInputsMap[conflictingInput] = types.Void
 	}
@@ -57,7 +57,7 @@ func BranchFromStorageKey(key []byte, optionalTargetObject ...*Branch) (result *
 
 	// parse information
 	marshalUtil := marshalutil.New(key)
-	result.id, err = ParseBranchId(marshalUtil)
+	result.id, err = ParseBranchID(marshalUtil)
 	if err != nil {
 		return
 	}
@@ -113,11 +113,11 @@ func (branch *Branch) IsAggregated() bool {
 }
 
 // Conflicts retrieves the Conflicts that a Branch is part of.
-func (branch *Branch) Conflicts() (conflicts map[ConflictId]types.Empty) {
+func (branch *Branch) Conflicts() (conflicts map[ConflictID]types.Empty) {
 	branch.conflictsMutex.RLock()
 	defer branch.conflictsMutex.RUnlock()
 
-	conflicts = make(map[ConflictId]types.Empty, len(branch.conflicts))
+	conflicts = make(map[ConflictID]types.Empty, len(branch.conflicts))
 	for conflict := range branch.conflicts {
 		conflicts[conflict] = types.Void
 	}
@@ -126,7 +126,7 @@ func (branch *Branch) Conflicts() (conflicts map[ConflictId]types.Empty) {
 }
 
 // AddConflict registers the membership of this Branch in a given
-func (branch *Branch) AddConflict(conflict ConflictId) (added bool) {
+func (branch *Branch) AddConflict(conflict ConflictID) (added bool) {
 	branch.conflictsMutex.RLock()
 	if _, exists := branch.conflicts[conflict]; exists {
 		branch.conflictsMutex.RUnlock()
@@ -247,7 +247,7 @@ func (branch *Branch) ObjectStorageValue() []byte {
 	parentBranches := branch.ParentBranches()
 	parentBranchCount := len(parentBranches)
 
-	marshalUtil := marshalutil.New(2*marshalutil.BOOL_SIZE + marshalutil.UINT32_SIZE + parentBranchCount*BranchIdLength)
+	marshalUtil := marshalutil.New(2*marshalutil.BOOL_SIZE + marshalutil.UINT32_SIZE + parentBranchCount*BranchIDLength)
 	marshalUtil.WriteBool(branch.preferred)
 	marshalUtil.WriteBool(branch.liked)
 	marshalUtil.WriteUint32(uint32(parentBranchCount))
@@ -275,7 +275,7 @@ func (branch *Branch) UnmarshalObjectStorageValue(valueBytes []byte) (consumedBy
 	}
 	branch.parentBranches = make([]BranchID, parentBranchCount)
 	for i := uint32(0); i < parentBranchCount; i++ {
-		branch.parentBranches[i], err = ParseBranchId(marshalUtil)
+		branch.parentBranches[i], err = ParseBranchID(marshalUtil)
 		if err != nil {
 			return
 		}

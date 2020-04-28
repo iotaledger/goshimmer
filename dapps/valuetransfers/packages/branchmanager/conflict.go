@@ -11,19 +11,19 @@ import (
 type Conflict struct {
 	objectstorage.StorableObjectFlags
 
-	id          ConflictId
+	id          ConflictID
 	memberCount uint32
 
 	memberCountMutex sync.RWMutex
 }
 
-func NewConflict(id ConflictId) *Conflict {
+func NewConflict(id ConflictID) *Conflict {
 	return &Conflict{
 		id: id,
 	}
 }
 
-func (conflict *Conflict) Id() ConflictId {
+func (conflict *Conflict) Id() ConflictID {
 	return conflict.id
 }
 

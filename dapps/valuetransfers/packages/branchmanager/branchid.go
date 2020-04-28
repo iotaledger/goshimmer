@@ -11,7 +11,7 @@ import (
 )
 
 // BranchID represents an identifier of a Branch.
-type BranchID [BranchIdLength]byte
+type BranchID [BranchIDLength]byte
 
 var (
 	// UndefinedBranchID is the zero value of a BranchID and represents a branch that has not been set.
@@ -21,29 +21,31 @@ var (
 	MasterBranchID = BranchID{1}
 )
 
-// NewBranchId creates a new BranchID from a transaction ID.
-func NewBranchId(transactionId transaction.Id) (branchId BranchID) {
-	copy(branchId[:], transactionId.Bytes())
+// NewBranchID creates a new BranchID from a transaction ID.
+func NewBranchID(transactionID transaction.Id) (branchID BranchID) {
+	copy(branchID[:], transactionID.Bytes())
 
 	return
 }
 
-func BranchIdFromBytes(bytes []byte) (result BranchID, err error, consumedBytes int) {
+// BranchIDFromBytes unmarshals a BranchID from a sequence of bytes.
+func BranchIDFromBytes(bytes []byte) (result BranchID, consumedBytes int, err error) {
 	// parse the bytes
 	marshalUtil := marshalutil.New(bytes)
-	branchIdBytes, idErr := marshalUtil.ReadBytes(BranchIdLength)
+	branchIDBytes, idErr := marshalUtil.ReadBytes(BranchIDLength)
 	if idErr != nil {
 		err = idErr
 
 		return
 	}
-	copy(result[:], branchIdBytes)
+	copy(result[:], branchIDBytes)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-func BranchIdFromBase58(base58String string) (branchId BranchID, err error) {
+// BranchIDFromBase58 creates a new BranchID from a base58 encoded string.
+func BranchIDFromBase58(base58String string) (branchID BranchID, err error) {
 	// decode string
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
@@ -51,25 +53,26 @@ func BranchIdFromBase58(base58String string) (branchId BranchID, err error) {
 	}
 
 	// sanitize input
-	if len(bytes) != BranchIdLength {
+	if len(bytes) != BranchIDLength {
 		err = fmt.Errorf("base58 encoded string does not match the length of a BranchID")
 
 		return
 	}
 
 	// copy bytes to result
-	copy(branchId[:], bytes)
+	copy(branchID[:], bytes)
 
 	return
 }
 
-func ParseBranchId(marshalUtil *marshalutil.MarshalUtil) (result BranchID, err error) {
-	var branchIdBytes []byte
-	if branchIdBytes, err = marshalUtil.ReadBytes(BranchIdLength); err != nil {
+// ParseBranchID unmarshals a BranchID using the given marshalUtil (for easier marshaling/unmarshaling).
+func ParseBranchID(marshalUtil *marshalutil.MarshalUtil) (result BranchID, err error) {
+	var branchIDBytes []byte
+	if branchIDBytes, err = marshalUtil.ReadBytes(BranchIDLength); err != nil {
 		return
 	}
 
-	copy(result[:], branchIdBytes)
+	copy(result[:], branchIDBytes)
 
 	return
 }
@@ -84,17 +87,19 @@ func (branchId BranchID) String() string {
 	return base58.Encode(branchId[:])
 }
 
-// BranchIdLength encodes the length of a branch identifier - since branches get created by transactions, it has the
+// BranchIDLength encodes the length of a branch identifier - since branches get created by transactions, it has the
 // same length as a transaction ID.
-const BranchIdLength = transaction.IdLength
+const BranchIDLength = transaction.IdLength
 
+// BranchIds represents a collection of BranchIds.
 type BranchIds map[BranchID]types.Empty
 
-func (branchIds BranchIds) ToList() (result []BranchID) {
-	result = make([]BranchID, len(branchIds))
+// ToList create a slice of BranchIDs from the collection.
+func (branchIDs BranchIds) ToList() (result []BranchID) {
+	result = make([]BranchID, len(branchIDs))
 	i := 0
-	for branchId := range branchIds {
-		result[i] = branchId
+	for branchID := range branchIDs {
+		result[i] = branchID
 		i++
 	}
 

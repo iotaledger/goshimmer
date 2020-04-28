@@ -101,14 +101,14 @@ func configureFPC() {
 func runFPC() {
 	daemon.BackgroundWorker("FPCVoterServer", func(shutdownSignal <-chan struct{}) {
 		voterServer = votenet.New(Voter(), func(id string) vote.Opinion {
-			branchID, err := branchmanager.BranchIdFromBase58(id)
+			branchID, err := branchmanager.BranchIDFromBase58(id)
 			if err != nil {
 				log.Errorf("received invalid vote request for branch '%s'", id)
 
 				return vote.Unknown
 			}
 
-			cachedBranch := UTXODAG.BranchManager().GetBranch(branchID)
+			cachedBranch := UTXODAG.BranchManager().Branch(branchID)
 			defer cachedBranch.Release()
 
 			branch := cachedBranch.Unwrap()

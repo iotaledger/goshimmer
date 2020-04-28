@@ -40,10 +40,10 @@ func ChildBranchFromStorageKey(key []byte, optionalTargetObject ...*ChildBranch)
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	if result.parentId, err = ParseBranchId(marshalUtil); err != nil {
+	if result.parentId, err = ParseBranchID(marshalUtil); err != nil {
 		return
 	}
-	if result.id, err = ParseBranchId(marshalUtil); err != nil {
+	if result.id, err = ParseBranchID(marshalUtil); err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -82,7 +82,7 @@ func (childBranch *ChildBranch) Id() BranchID {
 }
 
 func (childBranch ChildBranch) ObjectStorageKey() []byte {
-	return marshalutil.New(ConflictIdLength + BranchIdLength).
+	return marshalutil.New(ConflictIdLength + BranchIDLength).
 		WriteBytes(childBranch.parentId.Bytes()).
 		WriteBytes(childBranch.id.Bytes()).
 		Bytes()

@@ -68,7 +68,7 @@ func configure(_ *node.Plugin) {
 	// TODO: DECIDE WHAT WE SHOULD DO IF FPC FAILS
 	// voter.Events().Failed.Attach(events.NewClosure(panic))
 	voter.Events().Finalized.Attach(events.NewClosure(func(id string, opinion vote.Opinion) {
-		branchID, err := branchmanager.BranchIdFromBase58(id)
+		branchID, err := branchmanager.BranchIDFromBase58(id)
 		if err != nil {
 			log.Error(err)
 
@@ -159,7 +159,7 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 			return
 		}
 
-		if transactionMetadata.BranchID() != branchmanager.NewBranchId(transactionMetadata.ID()) {
+		if transactionMetadata.BranchID() != branchmanager.NewBranchID(transactionMetadata.ID()) {
 			return
 		}
 
