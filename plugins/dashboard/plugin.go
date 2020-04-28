@@ -7,10 +7,8 @@ import (
 	"net/http"
 	"runtime"
 	"strconv"
-	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -18,14 +16,12 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 )
@@ -41,30 +37,14 @@ var (
 	server *echo.Echo
 
 	nodeStartAt = time.Now()
-
-	clientsMu    sync.Mutex
-	clients      = make(map[uint64]chan interface{})
-	nextClientID uint64
-
-	wsSendWorkerCount     = 1
-	wsSendWorkerQueueSize = 250
-	wsSendWorkerPool      *workerpool.WorkerPool
 )
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
-
-	wsSendWorkerPool = workerpool.New(func(task workerpool.Task) {
-		sendToAllWSClient(&wsmsg{MsgTypeMPSMetric, task.Param(0).(uint64)})
-		sendToAllWSClient(&wsmsg{MsgTypeNodeStatus, currentNodeStatus()})
-		sendToAllWSClient(&wsmsg{MsgTypeNeighborMetric, neighborMetrics()})
-		sendToAllWSClient(&wsmsg{MsgTypeTipsMetric, messagelayer.TipSelector.TipCount()})
-		task.Return(nil)
-	}, workerpool.WorkerCount(wsSendWorkerCount), workerpool.QueueSize(wsSendWorkerQueueSize))
-
+	configureWebSocketWorkerPool()
 	configureLiveFeed()
 	configureDrngLiveFeed()
-
+	configureVisualizer()
 	configureServer()
 }
 
@@ -88,8 +68,12 @@ func configureServer() {
 }
 
 func run(*node.Plugin) {
-	// rune the message live feed
+	// run message broker
+	runWebSocketStreams()
+	// run the message live feed
 	runLiveFeed()
+	// run the visualizer vertex feed
+	runVisualizer()
 	// run dRNG live feed if dRNG plugin is enabled
 	if !node.IsSkipped(drng.Plugin) {
 		runDrngLiveFeed()
@@ -139,29 +123,6 @@ func worker(shutdownSignal <-chan struct{}) {
 	}
 }
 
-// sends the given message to all connected websocket clients
-func sendToAllWSClient(msg interface{}) {
-	clientsMu.Lock()
-	defer clientsMu.Unlock()
-	for _, channel := range clients {
-		select {
-		case channel <- msg:
-		default:
-			// drop if buffer not drained
-		}
-	}
-}
-
-var webSocketWriteTimeout = time.Duration(3) * time.Second
-
-var (
-	upgrader = websocket.Upgrader{
-		HandshakeTimeout:  webSocketWriteTimeout,
-		CheckOrigin:       func(r *http.Request) bool { return true },
-		EnableCompression: true,
-	}
-)
-
 const (
 	// MsgTypeNodeStatus is the type of the NodeStatus message.
 	MsgTypeNodeStatus byte = iota
@@ -175,6 +136,10 @@ const (
 	MsgTypeDrng
 	// MsgTypeTipsMetric is the type of the TipsMetric message.
 	MsgTypeTipsMetric
+	// MsgTypeVertex defines a vertex message.
+	MsgTypeVertex
+	// MsgTypeTipInfo defines a tip info message.
+	MsgTypeTipInfo
 )
 
 type wsmsg struct {
@@ -185,14 +150,6 @@ type wsmsg struct {
 type msg struct {
 	ID    string `json:"id"`
 	Value int64  `json:"value"`
-}
-
-type drngMsg struct {
-	Instance      uint32 `json:"instance"`
-	DistributedPK string `json:"dpk"`
-	Round         uint64 `json:"round"`
-	Randomness    string `json:"randomness"`
-	Timestamp     string `json:"timestamp"`
 }
 
 type nodestatus struct {
