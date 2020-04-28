@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"net/http"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ var (
 	// gorilla websocket layer
 	upgrader = websocket.Upgrader{
 		HandshakeTimeout:  webSocketWriteTimeout,
+		CheckOrigin:       func(r *http.Request) bool { return true },
 		EnableCompression: true,
 	}
 )

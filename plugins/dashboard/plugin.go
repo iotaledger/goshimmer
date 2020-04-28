@@ -1,19 +1,25 @@
 package dashboard
 
 import (
+	"context"
+	"errors"
 	"net"
 	"net/http"
 	"runtime"
 	"strconv"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
@@ -26,7 +32,9 @@ const PluginName = "Dashboard"
 var (
 	// Plugin is the plugin instance of the dashboard plugin.
 	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+
 	log    *logger.Logger
+	server *echo.Echo
 
 	nodeStartAt = time.Now()
 )
@@ -37,30 +45,17 @@ func configure(plugin *node.Plugin) {
 	configureLiveFeed()
 	configureDrngLiveFeed()
 	configureVisualizer()
+	configureServer()
 }
 
-func run(_ *node.Plugin) {
-
-	runWebSocketStreams()
-	runLiveFeed()
-	runVisualizer()
-
-	// run dRNG live feed if dRNG plugin is enabled
-	if !node.IsSkipped(drng.Plugin) {
-		runDrngLiveFeed()
-	}
-
-	// allow any origin for websocket connections
-	upgrader.CheckOrigin = func(r *http.Request) bool {
-		return true
-	}
-
-	e := echo.New()
-	e.HideBanner = true
-	e.Use(middleware.Recover())
+func configureServer() {
+	server = echo.New()
+	server.HideBanner = true
+	server.HidePort = true
+	server.Use(middleware.Recover())
 
 	if config.Node.GetBool(CfgBasicAuthEnabled) {
-		e.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
+		server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
 			if username == config.Node.GetString(CfgBasicAuthUsername) &&
 				password == config.Node.GetString(CfgBasicAuthPassword) {
 				return true, nil
@@ -69,11 +64,63 @@ func run(_ *node.Plugin) {
 		}))
 	}
 
-	setupRoutes(e)
-	addr := config.Node.GetString(CfgBindAddress)
+	setupRoutes(server)
+}
 
-	log.Infof("You can now access the dashboard using: http://%s", addr)
-	go e.Start(addr)
+func run(*node.Plugin) {
+	// run message broker
+	runWebSocketStreams()
+	// run the message live feed
+	runLiveFeed()
+	// run the visualizer vertex feed
+	runVisualizer()
+	// run dRNG live feed if dRNG plugin is enabled
+	if !node.IsSkipped(drng.Plugin) {
+		runDrngLiveFeed()
+	}
+
+	log.Infof("Starting %s ...", PluginName)
+	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityAnalysis); err != nil {
+		log.Errorf("Error starting as daemon: %s", err)
+	}
+}
+
+func worker(shutdownSignal <-chan struct{}) {
+	defer log.Infof("Stopping %s ... done", PluginName)
+
+	// start the web socket worker pool
+	wsSendWorkerPool.Start()
+	defer wsSendWorkerPool.Stop()
+
+	// submit the mps to the worker pool when triggered
+	notifyStatus := events.NewClosure(func(mps uint64) { wsSendWorkerPool.TrySubmit(mps) })
+	metrics.Events.ReceivedMPSUpdated.Attach(notifyStatus)
+	defer metrics.Events.ReceivedMPSUpdated.Detach(notifyStatus)
+
+	stopped := make(chan struct{})
+	bindAddr := config.Node.GetString(CfgBindAddress)
+	go func() {
+		log.Infof("Started %s: http://%s", PluginName, bindAddr)
+		if err := server.Start(bindAddr); err != nil {
+			if !errors.Is(err, http.ErrServerClosed) {
+				log.Errorf("Error serving: %s", err)
+			}
+			close(stopped)
+		}
+	}()
+
+	// stop if we are shutting down or the server could not be started
+	select {
+	case <-shutdownSignal:
+	case <-stopped:
+	}
+
+	log.Infof("Stopping %s ...", PluginName)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Errorf("Error stopping: %s", err)
+	}
 }
 
 const (
@@ -135,10 +182,10 @@ type neighbormetric struct {
 }
 
 func neighborMetrics() []neighbormetric {
-	stats := []neighbormetric{}
+	var stats []neighbormetric
 
 	// gossip plugin might be disabled
-	neighbors := gossip.Neighbors()
+	neighbors := gossip.Manager().AllNeighbors()
 	if neighbors == nil {
 		return stats
 	}
