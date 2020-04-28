@@ -14,7 +14,7 @@ import (
 func TestDockerLogs(t *testing.T) {
 	n, err := f.CreateNetwork("TestDockerLogs", 3, 1)
 	require.NoError(t, err)
-	defer n.Shutdown()
+	defer ShutdownNetwork(t, n)
 
 	r := regexp.MustCompile("GoShimmer")
 

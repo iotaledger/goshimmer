@@ -15,4 +15,6 @@ const (
 	disabledPluginsPeer      = "portcheck,dashboard,analysis"
 
 	dockerLogsPrefixLen = 8
+
+	exitStatusSuccessful = 0
 )

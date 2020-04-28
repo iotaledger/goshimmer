@@ -125,6 +125,16 @@ func (d *DockerContainer) Stop() error {
 	return d.client.ContainerStop(context.Background(), d.id, &duration)
 }
 
+// ExitStatus returns the exit status according to the container information.
+func (d *DockerContainer) ExitStatus() (int, error) {
+	resp, err := d.client.ContainerInspect(context.Background(), d.id)
+	if err != nil {
+		return -1, err
+	}
+
+	return resp.State.ExitCode, nil
+}
+
 // Logs returns the logs of the container as io.ReadCloser.
 func (d *DockerContainer) Logs() (io.ReadCloser, error) {
 	options := types.ContainerLogsOptions{

@@ -16,7 +16,7 @@ import (
 func TestNodeSynchronization(t *testing.T) {
 	n, err := f.CreateNetwork("TestNodeSynchronization", 4, 2)
 	require.NoError(t, err)
-	defer n.Shutdown()
+	defer ShutdownNetwork(t, n)
 
 	numMessages := 100
 	idsMap := make(map[string]MessageSent, numMessages)

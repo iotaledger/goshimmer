@@ -13,7 +13,7 @@ import (
 func TestRelayMessages(t *testing.T) {
 	n, err := f.CreateNetwork("TestRelayMessages", 6, 3)
 	require.NoError(t, err)
-	defer n.Shutdown()
+	defer ShutdownNetwork(t, n)
 
 	numMessages := 105
 	ids := make([]string, numMessages)
