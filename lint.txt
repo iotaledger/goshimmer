@@ -1,91 +1,82 @@
-dapps\valuetransfers\packages\branchmanager\branch.go:14:6: exported type `Branch` should have comment or be unexported (golint)
-type Branch struct {
-     ^
-dapps\valuetransfers\packages\branchmanager\branch.go:28:1: exported function `NewBranch` should have comment or be unexported (golint)
-func NewBranch(id BranchId, parentBranches []BranchId, conflictingInputs []transaction.OutputId) *Branch {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:41:1: exported function `BranchFromStorageKey` should have comment or be unexported (golint)
-func BranchFromStorageKey(key []byte, optionalTargetObject ...*Branch) (result *Branch, consumedBytes int, err error) {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:63:1: error should be the last type when returning multiple items (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:69:1: error should be the last type when returning multiple items (golint)
 func BranchFromBytes(bytes []byte, optionalTargetObject ...*Branch) (result *Branch, err error, consumedBytes int) {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:71:1: exported function `ParseBranch` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:77:1: exported function `ParseBranch` should have comment or be unexported (golint)
 func ParseBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Branch) (result *Branch, err error) {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:78:9: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:84:9: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
 	} else {
 	       ^
-dapps\valuetransfers\packages\branchmanager\branch.go:93:1: exported method `Branch.Id` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:99:1: exported method `Branch.Id` should have comment or be unexported (golint)
 func (branch *Branch) Id() BranchId {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:97:1: exported method `Branch.ParentBranches` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:103:1: exported method `Branch.ParentBranches` should have comment or be unexported (golint)
 func (branch *Branch) ParentBranches() []BranchId {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:101:1: exported method `Branch.IsAggregated` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:107:1: exported method `Branch.IsAggregated` should have comment or be unexported (golint)
 func (branch *Branch) IsAggregated() bool {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:105:1: exported method `Branch.Conflicts` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:111:1: exported method `Branch.Conflicts` should have comment or be unexported (golint)
 func (branch *Branch) Conflicts() (conflicts map[ConflictId]types.Empty) {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:117:1: exported method `Branch.AddConflict` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:123:1: exported method `Branch.AddConflict` should have comment or be unexported (golint)
 func (branch *Branch) AddConflict(conflict ConflictId) (added bool) {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:139:1: exported method `Branch.Preferred` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:145:1: exported method `Branch.Preferred` should have comment or be unexported (golint)
 func (branch *Branch) Preferred() bool {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:146:1: exported method `Branch.SetPreferred` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:152:1: exported method `Branch.SetPreferred` should have comment or be unexported (golint)
 func (branch *Branch) SetPreferred(preferred bool) (modified bool) {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:168:1: exported method `Branch.Liked` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:174:1: exported method `Branch.Liked` should have comment or be unexported (golint)
 func (branch *Branch) Liked() bool {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:175:1: exported method `Branch.SetLiked` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:181:1: exported method `Branch.SetLiked` should have comment or be unexported (golint)
 func (branch *Branch) SetLiked(liked bool) (modified bool) {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:197:1: exported method `Branch.Bytes` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:203:1: exported method `Branch.Bytes` should have comment or be unexported (golint)
 func (branch *Branch) Bytes() []byte {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:210:1: exported method `Branch.Update` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:216:1: exported method `Branch.Update` should have comment or be unexported (golint)
 func (branch *Branch) Update(other objectstorage.StorableObject) {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:214:1: exported method `Branch.ObjectStorageKey` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:220:1: exported method `Branch.ObjectStorageKey` should have comment or be unexported (golint)
 func (branch *Branch) ObjectStorageKey() []byte {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:218:1: exported method `Branch.ObjectStorageValue` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:224:1: exported method `Branch.ObjectStorageValue` should have comment or be unexported (golint)
 func (branch *Branch) ObjectStorageValue() []byte {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:231:9: range var `branchId` should be `branchID` (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:237:9: range var `branchId` should be `branchID` (golint)
 	for _, branchId := range parentBranches {
 	       ^
-dapps\valuetransfers\packages\branchmanager\branch.go:238:1: error should be the last type when returning multiple items (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:244:1: error should be the last type when returning multiple items (golint)
 func (branch *Branch) UnmarshalObjectStorageValue(valueBytes []byte) (err error, consumedBytes int) {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:264:6: exported type `CachedBranch` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:270:6: exported type `CachedBranch` should have comment or be unexported (golint)
 type CachedBranch struct {
      ^
-dapps\valuetransfers\packages\branchmanager\branch.go:268:1: exported method `CachedBranch.Retain` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:274:1: exported method `CachedBranch.Retain` should have comment or be unexported (golint)
 func (cachedBranches *CachedBranch) Retain() *CachedBranch {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:272:1: exported method `CachedBranch.Unwrap` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:278:1: exported method `CachedBranch.Unwrap` should have comment or be unexported (golint)
 func (cachedBranches *CachedBranch) Unwrap() *Branch {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:275:9: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:281:9: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
 	} else {
 	       ^
-dapps\valuetransfers\packages\branchmanager\branch.go:278:10: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:284:10: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
 		} else {
 		       ^
-dapps\valuetransfers\packages\branchmanager\branch.go:284:1: exported method `CachedBranch.Consume` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:290:1: exported method `CachedBranch.Consume` should have comment or be unexported (golint)
 func (cachedBranches *CachedBranch) Consume(consumer func(branch *Branch), forceRelease ...bool) (consumed bool) {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:290:6: exported type `CachedBranches` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:296:6: exported type `CachedBranches` should have comment or be unexported (golint)
 type CachedBranches map[BranchId]*CachedBranch
      ^
-dapps\valuetransfers\packages\branchmanager\branch.go:292:1: exported method `CachedBranches.Consume` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:298:1: exported method `CachedBranches.Consume` should have comment or be unexported (golint)
 func (cachedBranches CachedBranches) Consume(consumer func(branch *Branch)) (consumed bool) {
 ^
-dapps\valuetransfers\packages\branchmanager\branch.go:302:1: exported method `CachedBranches.Release` should have comment or be unexported (golint)
+dapps\valuetransfers\packages\branchmanager\branch.go:308:1: exported method `CachedBranches.Release` should have comment or be unexported (golint)
 func (cachedBranches CachedBranches) Release(force ...bool) {
 ^
 dapps\valuetransfers\packages\branchmanager\branchid.go:13:6: exported type `BranchId` should have comment or be unexported (golint)
@@ -363,27 +354,6 @@ type LedgerState struct {
      ^
 dapps\valuetransfers\packages\ledgerstate\ledgerstate.go:11:1: exported function `New` should have comment or be unexported (golint)
 func New(utxoDAG *utxodag.UTXODAG) *LedgerState {
-^
-dapps\valuetransfers\dapp.go:28:2: exported const AverageNetworkDelay should have comment (or a comment on this block) or be unexported (golint)
-	AverageNetworkDelay = 6 * time.Second
-	^
-dapps\valuetransfers\dapp.go:32:2: comment on exported var `App` should be of the form `App ...` (golint)
-	// Plugin is the plugin instance of the message layer plugin.
-	^
-dapps\valuetransfers\dapp.go:69:3: var `branchId` should be `branchID` (golint)
-		branchId, err := branchmanager.BranchIdFromBase58(id)
-		^
-dapps\valuetransfers\fpc.go:32:2: exported const CfgFPCQuerySampleSize should have comment (or a comment on this block) or be unexported (golint)
-	CfgFPCQuerySampleSize = "fpc.querySampleSize"
-	^
-dapps\valuetransfers\fpc.go:99:4: var `branchId` should be `branchID` (golint)
-			branchId, err := branchmanager.BranchIdFromBase58(id)
-			^
-dapps\valuetransfers\fpc.go:157:1: exported method `PeerOpinionGiver.Query` should have comment or be unexported (golint)
-func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opinions, error) {
-^
-dapps\valuetransfers\fpc.go:186:1: exported method `PeerOpinionGiver.ID` should have comment or be unexported (golint)
-func (pog *PeerOpinionGiver) ID() string {
 ^
 dapps\valuetransfers\packages\address\signaturescheme\bls.go:27:2: don't use ALL_CAPS in Go names; use CamelCase (golint)
 	BLS_SIGNATURE_SIZE      = 64
@@ -916,9 +886,6 @@ dapps\valuetransfers\packages\utxodag\transactionmetadata.go:27:2: struct field 
 dapps\valuetransfers\packages\utxodag\transactionmetadata.go:75:1: comment on exported function `ParseTransactionMetadata` should be of the form `ParseTransactionMetadata ...` (golint)
 // Parse is a wrapper for simplified unmarshaling of TransactionMetadata objects from a byte stream using the marshalUtil package.
 ^
-dapps\valuetransfers\packages\utxodag\transactionmetadata.go:99:49: method Id should be ID (golint)
-func (transactionMetadata *TransactionMetadata) Id() transaction.Id {
-                                                ^
 dapps\valuetransfers\packages\utxodag\transactionmetadata.go:103:1: exported method `TransactionMetadata.BranchId` should have comment or be unexported (golint)
 func (transactionMetadata *TransactionMetadata) BranchId() branchmanager.BranchId {
 ^
@@ -928,12 +895,3 @@ func (transactionMetadata *TransactionMetadata) SetBranchId(branchId branchmanag
 dapps\valuetransfers\packages\utxodag\transactionmetadata.go:170:1: exported method `TransactionMetadata.SetFinalized` should have comment or be unexported (golint)
 func (transactionMetadata *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
 ^
-dapps\valuetransfers\packages\utxodag\transactionmetadata.go:195:1: exported method `TransactionMetadata.Finalized` should have comment or be unexported (golint)
-func (transactionMetadata *TransactionMetadata) Finalized() bool {
-^
-dapps\valuetransfers\packages\utxodag\transactionmetadata.go:202:1: exported method `TransactionMetadata.FinalizationTime` should have comment or be unexported (golint)
-func (transactionMetadata *TransactionMetadata) FinalizationTime() time.Time {
-^
-dapps\valuetransfers\packages\utxodag\utxodag.go:25:6: exported type `UTXODAG` should have comment or be unexported (golint)
-type UTXODAG struct {
-     ^

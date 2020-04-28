@@ -90,7 +90,7 @@ func (conflict *Conflict) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-func (conflict *Conflict) UnmarshalObjectStorageValue(valueBytes []byte) (err error, consumedBytes int) {
+func (conflict *Conflict) UnmarshalObjectStorageValue(valueBytes []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(valueBytes)
 	conflict.memberCount, err = marshalUtil.ReadUint32()
 	if err != nil {

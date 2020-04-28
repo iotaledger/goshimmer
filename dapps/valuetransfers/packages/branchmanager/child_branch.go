@@ -63,7 +63,7 @@ func ParseChildBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject
 	}
 
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -92,7 +92,7 @@ func (childBranch ChildBranch) ObjectStorageValue() []byte {
 	return nil
 }
 
-func (childBranch ChildBranch) UnmarshalObjectStorageValue([]byte) (err error, consumedBytes int) {
+func (childBranch ChildBranch) UnmarshalObjectStorageValue([]byte) (consumedBytes int, err error) {
 	return
 }
 

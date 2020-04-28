@@ -51,7 +51,7 @@ func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetOb
 	}
 
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -108,7 +108,7 @@ func (payloadApprover *PayloadApprover) ObjectStorageValue() (data []byte) {
 
 // UnmarshalObjectStorageValue is implemented to conform with the StorableObject interface, but it does not really do
 // anything, since all of the information about an approver are stored in the "key".
-func (payloadApprover *PayloadApprover) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (payloadApprover *PayloadApprover) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	return
 }
 

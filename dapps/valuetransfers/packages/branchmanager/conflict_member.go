@@ -63,7 +63,7 @@ func ParseConflictMember(marshalUtil *marshalutil.MarshalUtil, optionalTargetObj
 	}
 
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -92,7 +92,7 @@ func (conflictMember ConflictMember) ObjectStorageValue() []byte {
 	return nil
 }
 
-func (conflictMember ConflictMember) UnmarshalObjectStorageValue([]byte) (err error, consumedBytes int) {
+func (conflictMember ConflictMember) UnmarshalObjectStorageValue([]byte) (consumedBytes int, err error) {
 	return
 }
 

@@ -140,7 +140,7 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 			return
 		}
 
-		err := voter.Vote(branch.Id().String(), vote.Dislike)
+		err := voter.Vote(branch.ID().String(), vote.Dislike)
 		if err != nil {
 			log.Error(err)
 		}
@@ -186,7 +186,7 @@ func onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionM
 		return
 	}
 
-	if _, err := UTXODAG.BranchManager().SetBranchPreferred(branch.Id(), true); err != nil {
+	if _, err := UTXODAG.BranchManager().SetBranchPreferred(branch.ID(), true); err != nil {
 		log.Error(err)
 	}
 }

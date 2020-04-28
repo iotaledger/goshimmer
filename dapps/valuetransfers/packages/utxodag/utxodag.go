@@ -509,7 +509,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 	targetBranch.Persist()
 
 	if len(conflictingInputs) >= 1 {
-		cachedTargetBranch = utxoDAG.branchManager.AddBranch(branchmanager.NewBranch(branchmanager.NewBranchId(transactionToBook.Id()), []branchmanager.BranchId{targetBranch.Id()}, conflictingInputs))
+		cachedTargetBranch = utxoDAG.branchManager.AddBranch(branchmanager.NewBranch(branchmanager.NewBranchId(transactionToBook.Id()), []branchmanager.BranchId{targetBranch.ID()}, conflictingInputs))
 		defer cachedTargetBranch.Release()
 
 		targetBranch = cachedTargetBranch.Unwrap()
@@ -526,11 +526,11 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 	}
 
 	// book transaction into target reality
-	transactionMetadata.SetBranchId(targetBranch.Id())
+	transactionMetadata.SetBranchId(targetBranch.ID())
 
 	// book outputs into the target branch
 	transactionToBook.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		newOutput := NewOutput(address, transactionToBook.Id(), targetBranch.Id(), balances)
+		newOutput := NewOutput(address, transactionToBook.Id(), targetBranch.ID(), balances)
 		newOutput.SetSolid(true)
 		utxoDAG.outputStorage.Store(newOutput).Release()
 
@@ -655,7 +655,7 @@ func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.C
 					}
 
 					// abort if we did not modify the branch of the transaction
-					if !currentTransactionMetadata.SetBranchId(targetBranch.Id()) {
+					if !currentTransactionMetadata.SetBranchId(targetBranch.ID()) {
 						return nil
 					}
 
@@ -677,7 +677,7 @@ func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.C
 						}
 
 						// abort if the output was moved already
-						if !output.SetBranchId(targetBranch.Id()) {
+						if !output.SetBranchId(targetBranch.ID()) {
 							return true
 						}
 

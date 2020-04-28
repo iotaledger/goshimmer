@@ -80,7 +80,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Payloa
 	}
 
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -196,7 +196,7 @@ func (payload *Payload) ObjectStorageValue() (bytes []byte) {
 	return
 }
 
-func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
 
 	// read information that are required to identify the payload from the outside

@@ -54,7 +54,7 @@ func (branchManager *BranchManager) ConflictMembers(conflictId ConflictId) Cache
 }
 
 func (branchManager *BranchManager) AddBranch(branch *Branch) *CachedBranch {
-	return &CachedBranch{CachedObject: branchManager.branchStorage.ComputeIfAbsent(branch.Id().Bytes(), func(key []byte) objectstorage.StorableObject {
+	return &CachedBranch{CachedObject: branchManager.branchStorage.ComputeIfAbsent(branch.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
 		branch.Persist()
 		branch.SetModified()
 
@@ -176,7 +176,7 @@ func (branchManager *BranchManager) setBranchPreferred(cachedBranch *CachedBranc
 
 	for conflictId := range branch.Conflicts() {
 		branchManager.ConflictMembers(conflictId).Consume(func(conflictMember *ConflictMember) {
-			if conflictMember.BranchId() == branch.Id() {
+			if conflictMember.BranchId() == branch.ID() {
 				return
 			}
 
@@ -211,7 +211,7 @@ func (branchManager *BranchManager) propagateLike(cachedBranch *CachedBranch) (e
 		if parentBranch == nil {
 			cachedParentBranch.Release()
 
-			return fmt.Errorf("failed to load parent branch '%s' of branch '%s'", parentBranchId, branch.Id())
+			return fmt.Errorf("failed to load parent branch '%s' of branch '%s'", parentBranchId, branch.ID())
 		}
 
 		// abort if the parent branch is not liked
@@ -233,7 +233,7 @@ func (branchManager *BranchManager) propagateLike(cachedBranch *CachedBranch) (e
 	branchManager.Events.BranchLiked.Trigger(cachedBranch)
 
 	// propagate liked checks to the children
-	for _, cachedChildBranch := range branchManager.ChildBranches(branch.Id()) {
+	for _, cachedChildBranch := range branchManager.ChildBranches(branch.ID()) {
 		childBranch := cachedChildBranch.Unwrap()
 		if childBranch == nil {
 			cachedChildBranch.Release()
@@ -262,7 +262,7 @@ func (branchManager *BranchManager) propagateDislike(cachedBranch *CachedBranch)
 
 	branchManager.Events.BranchDisliked.Trigger(cachedBranch)
 
-	branchManager.ChildBranches(branch.Id()).Consume(func(childBranch *ChildBranch) {
+	branchManager.ChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch) {
 		branchManager.propagateDislike(branchManager.GetBranch(childBranch.Id()))
 	})
 }
@@ -489,7 +489,7 @@ func (branchManager *BranchManager) findDeepestCommonAncestorBranches(branches .
 }
 
 func (branchManager *BranchManager) branchIsAncestorOfBranch(ancestor *Branch, descendant *Branch) (isAncestor bool, err error) {
-	if ancestor.Id() == descendant.Id() {
+	if ancestor.ID() == descendant.ID() {
 		return true, nil
 	}
 
@@ -499,7 +499,7 @@ func (branchManager *BranchManager) branchIsAncestorOfBranch(ancestor *Branch, d
 	}
 
 	ancestorBranches.Consume(func(ancestorOfDescendant *Branch) {
-		if ancestorOfDescendant.Id() == ancestor.Id() {
+		if ancestorOfDescendant.ID() == ancestor.ID() {
 			isAncestor = true
 		}
 	})

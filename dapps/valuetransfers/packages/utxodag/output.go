@@ -72,7 +72,7 @@ func ParseOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*
 	}
 
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -255,7 +255,7 @@ func (output *Output) ObjectStorageValue() []byte {
 
 // UnmarshalObjectStorageValue restores a Output from a serialized version in the ObjectStorage with parts of the object
 // being stored in its key rather than the content of the database to reduce storage requirements.
-func (output *Output) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (output *Output) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
 	if output.branchId, err = branchmanager.ParseBranchId(marshalUtil); err != nil {
 		return

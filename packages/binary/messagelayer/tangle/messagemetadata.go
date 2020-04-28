@@ -49,7 +49,7 @@ func ParseMessageMetadata(marshalUtil *marshalutil.MarshalUtil) (result *Message
 	}
 
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -126,7 +126,7 @@ func (messageMetadata *MessageMetadata) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-func (messageMetadata *MessageMetadata) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (messageMetadata *MessageMetadata) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
 
 	if messageMetadata.receivedTime, err = marshalUtil.ReadTime(); err != nil {

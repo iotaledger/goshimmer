@@ -11,6 +11,9 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 )
 
+// Branch represents a part of the tangle, that shares the same perception of the ledger state. Every conflicting
+// transaction formw a Branch, that contains all transactions that are spending Outputs of the conflicting transactions.
+// Branches can also be created by merging two other Branches, which creates an aggregated Branch.
 type Branch struct {
 	objectstorage.StorableObjectFlags
 
@@ -25,6 +28,7 @@ type Branch struct {
 	likedMutex     sync.RWMutex
 }
 
+// NewBranch is the constructor of a branch and creates a new Branch object from the given details.
 func NewBranch(id BranchId, parentBranches []BranchId, conflictingInputs []transaction.OutputId) *Branch {
 	conflictingInputsMap := make(map[ConflictId]types.Empty)
 	for _, conflictingInput := range conflictingInputs {
@@ -38,6 +42,8 @@ func NewBranch(id BranchId, parentBranches []BranchId, conflictingInputs []trans
 	}
 }
 
+// BranchFromStorageKey is a factory method that creates a new Branch instance from a storage key of the objectstorage.
+// It is used by the objectstorage, to create new instances of this entity.
 func BranchFromStorageKey(key []byte, optionalTargetObject ...*Branch) (result *Branch, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
@@ -60,7 +66,8 @@ func BranchFromStorageKey(key []byte, optionalTargetObject ...*Branch) (result *
 	return
 }
 
-func BranchFromBytes(bytes []byte, optionalTargetObject ...*Branch) (result *Branch, err error, consumedBytes int) {
+// BranchFromBytes unmarshals a Branch from a sequence of bytes.
+func BranchFromBytes(bytes []byte, optionalTargetObject ...*Branch) (result *Branch, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParseBranch(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
@@ -68,19 +75,18 @@ func BranchFromBytes(bytes []byte, optionalTargetObject ...*Branch) (result *Bra
 	return
 }
 
+// ParseBranch unmarshals a Branch using the given marshalUtil (for easier marshaling/unmarshaling).
 func ParseBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Branch) (result *Branch, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
+	parsedObject, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return BranchFromStorageKey(data, optionalTargetObject...)
-	}); parseErr != nil {
-		err = parseErr
-
+	})
+	if err != nil {
 		return
-	} else {
-		result = parsedObject.(*Branch)
 	}
 
+	result = parsedObject.(*Branch)
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -90,18 +96,23 @@ func ParseBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*
 	return
 }
 
-func (branch *Branch) Id() BranchId {
+// ID returns the identifier of the Branch (usually the transaction.ID that created the branch - unless its an
+// aggregated Branch).
+func (branch *Branch) ID() BranchId {
 	return branch.id
 }
 
+// ParentBranches returns the identifiers of the parents of this Branch.
 func (branch *Branch) ParentBranches() []BranchId {
 	return branch.parentBranches
 }
 
+// IsAggregated returns true if the branch is not a conflict-branch, but was created by merging multiple other branches.
 func (branch *Branch) IsAggregated() bool {
 	return len(branch.parentBranches) > 1
 }
 
+// Conflicts retrieves the Conflicts that a Branch is part of.
 func (branch *Branch) Conflicts() (conflicts map[ConflictId]types.Empty) {
 	branch.conflictsMutex.RLock()
 	defer branch.conflictsMutex.RUnlock()
@@ -114,6 +125,7 @@ func (branch *Branch) Conflicts() (conflicts map[ConflictId]types.Empty) {
 	return
 }
 
+// AddConflict registers the membership of this Branch in a given
 func (branch *Branch) AddConflict(conflict ConflictId) (added bool) {
 	branch.conflictsMutex.RLock()
 	if _, exists := branch.conflicts[conflict]; exists {
@@ -136,6 +148,7 @@ func (branch *Branch) AddConflict(conflict ConflictId) (added bool) {
 	return
 }
 
+// Preferred returns true, if the branch is the favored one among the branches in the same conflict sets.
 func (branch *Branch) Preferred() bool {
 	branch.preferredMutex.RLock()
 	defer branch.preferredMutex.RUnlock()
@@ -143,6 +156,8 @@ func (branch *Branch) Preferred() bool {
 	return branch.preferred
 }
 
+// SetPreferred is the setter for the preferred flag. It returns true if the value of the flag has been updated.
+// A branch is preferred if it represents the "liked" part of the tangle in it corresponding Branch.
 func (branch *Branch) SetPreferred(preferred bool) (modified bool) {
 	branch.preferredMutex.RLock()
 	if branch.preferred == preferred {
@@ -165,6 +180,7 @@ func (branch *Branch) SetPreferred(preferred bool) (modified bool) {
 	return branch.preferred
 }
 
+// Liked returns if the branch is liked (it is preferred and all of its parents are liked).
 func (branch *Branch) Liked() bool {
 	branch.likedMutex.RLock()
 	defer branch.likedMutex.RUnlock()
@@ -172,6 +188,7 @@ func (branch *Branch) Liked() bool {
 	return branch.liked
 }
 
+// SetLiked modifies the liked flag of this branch. It returns true, if the current value has been modified.
 func (branch *Branch) SetLiked(liked bool) (modified bool) {
 	branch.likedMutex.RLock()
 	if branch.liked == liked {
@@ -194,6 +211,7 @@ func (branch *Branch) SetLiked(liked bool) (modified bool) {
 	return branch.liked
 }
 
+// Bytes returns a marshaled version of this Branch.
 func (branch *Branch) Bytes() []byte {
 	return marshalutil.New().
 		WriteBytes(branch.ObjectStorageKey()).
@@ -201,20 +219,25 @@ func (branch *Branch) Bytes() []byte {
 		Bytes()
 }
 
+// String returns a human readable version of this Branch (for debug purposes).
 func (branch *Branch) String() string {
 	return stringify.Struct("Branch",
-		stringify.StructField("id", branch.Id()),
+		stringify.StructField("id", branch.ID()),
 	)
 }
 
+// Update is disabled but needs to be implemented to be compatible with the objectstorage.
 func (branch *Branch) Update(other objectstorage.StorableObject) {
 	panic("updates are disabled - please use the setters")
 }
 
+// ObjectStorageKey returns the bytes that are used a key when storing the Branch in an objectstorage.
 func (branch *Branch) ObjectStorageKey() []byte {
 	return branch.id.Bytes()
 }
 
+// ObjectStorageValue returns the bytes that represent all remaining information (not stored in the key) of a marshaled
+// Branch.
 func (branch *Branch) ObjectStorageValue() []byte {
 	branch.preferredMutex.RLock()
 	branch.likedMutex.RLock()
@@ -228,14 +251,14 @@ func (branch *Branch) ObjectStorageValue() []byte {
 	marshalUtil.WriteBool(branch.preferred)
 	marshalUtil.WriteBool(branch.liked)
 	marshalUtil.WriteUint32(uint32(parentBranchCount))
-	for _, branchId := range parentBranches {
-		marshalUtil.WriteBytes(branchId.Bytes())
+	for _, branchID := range parentBranches {
+		marshalUtil.WriteBytes(branchID.Bytes())
 	}
 
 	return marshalUtil.Bytes()
 }
 
-func (branch *Branch) UnmarshalObjectStorageValue(valueBytes []byte) (err error, consumedBytes int) {
+func (branch *Branch) UnmarshalObjectStorageValue(valueBytes []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(valueBytes)
 	branch.preferred, err = marshalUtil.ReadBool()
 	if err != nil {

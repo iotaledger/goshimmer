@@ -54,7 +54,7 @@ func ParsePayloadMetadata(marshalUtil *marshalutil.MarshalUtil, optionalTargetOb
 	}
 
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -176,7 +176,7 @@ func (payloadMetadata *PayloadMetadata) ObjectStorageValue() []byte {
 }
 
 // UnmarshalObjectStorageValue is required to match the encoding.BinaryUnmarshaler interface.
-func (payloadMetadata *PayloadMetadata) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (payloadMetadata *PayloadMetadata) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
 	if payloadMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
 		return

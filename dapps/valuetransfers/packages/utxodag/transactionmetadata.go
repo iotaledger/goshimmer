@@ -85,7 +85,7 @@ func ParseTransactionMetadata(marshalUtil *marshalutil.MarshalUtil, optionalTarg
 	}
 
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -255,7 +255,7 @@ func (transactionMetadata *TransactionMetadata) ObjectStorageValue() []byte {
 
 // UnmarshalObjectStorageValue restores the values of a TransactionMetadata object from a sequence of bytes and matches the
 // encoding.BinaryUnmarshaler interface.
-func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
 	if transactionMetadata.branchId, err = branchmanager.ParseBranchId(marshalUtil); err != nil {
 		return

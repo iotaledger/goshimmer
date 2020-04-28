@@ -72,7 +72,7 @@ func (missingMessage *MissingMessage) ObjectStorageValue() (result []byte) {
 	return
 }
 
-func (missingMessage *MissingMessage) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (missingMessage *MissingMessage) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
 	missingMessage.missingSince, err = marshalUtil.ReadTime()
 	if err != nil {

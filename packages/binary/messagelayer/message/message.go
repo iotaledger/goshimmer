@@ -76,7 +76,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Messag
 	}
 
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -267,7 +267,7 @@ func (message *Message) Bytes() []byte {
 	return message.bytes
 }
 
-func (message *Message) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (message *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	// initialize helper
 	marshalUtil := marshalutil.New(data)
 

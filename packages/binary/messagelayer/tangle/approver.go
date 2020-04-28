@@ -46,7 +46,8 @@ func ParseApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ..
 	}
 
 	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
+
 		return
 	})
 
@@ -110,7 +111,7 @@ func (approver *Approver) ObjectStorageValue() (result []byte) {
 	return
 }
 
-func (approver *Approver) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (approver *Approver) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	return
 }
 

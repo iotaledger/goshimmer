@@ -56,7 +56,7 @@ func ParseAttachment(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject 
 	}
 
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -129,7 +129,7 @@ func (attachment *Attachment) ObjectStorageValue() (data []byte) {
 
 // UnmarshalObjectStorageValue unmarshals the "content part" of an Attachment from a sequence of bytes. Since all of the information
 // for this object are stored in its key, this method does nothing and is only required to conform with the interface.
-func (attachment *Attachment) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (attachment *Attachment) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	return
 }
 

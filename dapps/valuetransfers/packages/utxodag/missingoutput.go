@@ -50,7 +50,7 @@ func ParseMissingOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObje
 	}
 
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -115,7 +115,7 @@ func (missingOutput *MissingOutput) ObjectStorageValue() []byte {
 
 // UnmarshalObjectStorageValue restores the values of a MissingOutput from a sequence of bytes using the  encoding.BinaryUnmarshaler
 // interface.
-func (missingOutput *MissingOutput) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (missingOutput *MissingOutput) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
 	if missingOutput.missingSince, err = marshalUtil.ReadTime(); err != nil {
 		return
