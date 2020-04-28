@@ -5,9 +5,12 @@ import (
 )
 
 const (
-	CFG_SERVER_ADDRESS = "analysis.client.serverAddress"
+	// CfgServerAddress defines the config flag of the analysis server address.
+	CfgServerAddress = "analysis.client.serverAddress"
+	// ReportInterval defines the interval of the reporting.
+	ReportInterval = 5
 )
 
 func init() {
-	flag.String(CFG_SERVER_ADDRESS, "ressims.iota.cafe:188", "tcp server for collecting analysis information")
+	flag.String(CfgServerAddress, "ressims.iota.cafe:188", "tcp server for collecting analysis information")
 }

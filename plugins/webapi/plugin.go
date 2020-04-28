@@ -4,22 +4,27 @@ import (
 	"context"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
-
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/config"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI", node.Enabled, configure, run)
-var log *logger.Logger
+// PluginName is the name of the web API plugin.
+const PluginName = "WebAPI"
 
-var Server = echo.New()
+var (
+	// Plugin is the plugin instance of the web API plugin.
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	log    *logger.Logger
+	// Server is the web API server.
+	Server = echo.New()
+)
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("WebAPI")
+	log = logger.NewLogger(PluginName)
 	Server.HideBanner = true
 	Server.HidePort = true
 	Server.GET("/", IndexRequest)
@@ -32,7 +37,7 @@ func run(plugin *node.Plugin) {
 		log.Info("Starting Web Server ... done")
 
 		go func() {
-			if err := Server.Start(config.Node.GetString(BIND_ADDRESS)); err != nil {
+			if err := Server.Start(config.Node.GetString(CfgBindAddress)); err != nil {
 				log.Info("Stopping Web Server ... done")
 			}
 		}()
@@ -46,5 +51,5 @@ func run(plugin *node.Plugin) {
 		if err := Server.Shutdown(ctx); err != nil {
 			log.Errorf("Couldn't stop server cleanly: %s", err.Error())
 		}
-	}, shutdown.ShutdownPriorityWebAPI)
+	}, shutdown.PriorityWebAPI)
 }

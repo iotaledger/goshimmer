@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
-	"github.com/pkg/errors"
-
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
@@ -14,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
 )
 
+// MessageFactory acts as a factory to create new messages.
 type MessageFactory struct {
 	Events        *Events
 	sequence      *badger.Sequence
@@ -21,10 +20,11 @@ type MessageFactory struct {
 	tipSelector   *tipselector.TipSelector
 }
 
+// New creates a new message factory.
 func New(db *badger.DB, localIdentity *identity.LocalIdentity, tipSelector *tipselector.TipSelector, sequenceKey []byte) *MessageFactory {
 	sequence, err := db.GetSequence(sequenceKey, 100)
 	if err != nil {
-		panic(fmt.Errorf("Could not create transaction sequence number. %v", err))
+		panic(fmt.Sprintf("could not create message sequence number: %v", err))
 	}
 
 	return &MessageFactory{
@@ -41,30 +41,27 @@ func New(db *badger.DB, localIdentity *identity.LocalIdentity, tipSelector *tips
 func (m *MessageFactory) IssuePayload(payload payload.Payload) *message.Message {
 	sequenceNumber, err := m.sequence.Next()
 	if err != nil {
-		m.Events.Error.Trigger(errors.Wrap(err, "Could not create sequence number"))
-
+		m.Events.Error.Trigger(fmt.Errorf("could not create sequence number: %w", err))
 		return nil
 	}
 
-	trunkTransaction, branchTransaction := m.tipSelector.GetTips()
-
-	tx := message.New(
-		trunkTransaction,
-		branchTransaction,
+	trunkMessageId, branchMessageId := m.tipSelector.Tips()
+	msg := message.New(
+		trunkMessageId,
+		branchMessageId,
 		m.localIdentity,
 		time.Now(),
 		sequenceNumber,
 		payload,
 	)
 
-	m.Events.MessageConstructed.Trigger(tx)
-
-	return tx
+	m.Events.MessageConstructed.Trigger(msg)
+	return msg
 }
 
-// Shutdown closes the  messageFactory and persists the sequence number
+// Shutdown closes the messageFactory and persists the sequence number.
 func (m *MessageFactory) Shutdown() {
 	if err := m.sequence.Release(); err != nil {
-		m.Events.Error.Trigger(errors.Wrap(err, "Could not release transaction sequence number."))
+		m.Events.Error.Trigger(fmt.Errorf("could not release message sequence number: %w", err))
 	}
 }

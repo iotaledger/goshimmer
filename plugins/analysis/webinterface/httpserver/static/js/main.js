@@ -2,10 +2,10 @@ const ANALYSIS_SERVER_URL = window.location.host + "/datastream";
 const NODE_ID_LENGTH = 64;
 
 // for some strange reason color formats for edges and nodes need to be different... careful!
-const EDGE_COLOR_DEFAULT = "#444444";
-const EDGE_COLOR_OUTGOING = "#336db5";
-const EDGE_COLOR_INCOMING = "#1c8d7f";
-const VERTEX_COLOR_DEFAULT = "0x666666";
+const EDGE_COLOR_DEFAULT = "#ff7d6c40";
+const EDGE_COLOR_OUTGOING = "#336db5ff";
+const EDGE_COLOR_INCOMING = "#1c8d7fff";
+const VERTEX_COLOR_DEFAULT = "0xa8d0e6";
 const VERTEX_COLOR_ACTIVE = "0x336db5";
 const VERTEX_COLOR_CONNECTED = "0x1c8d7f";
 const VERTEX_SIZE = 14;
@@ -25,8 +25,7 @@ class Frontend {
                     return;
                 }
 
-                // TODO: add active class and remove possible others (necessary for search feature)
-
+                this.app.resetActiveNode();
                 this.app.setActiveNode(nodeId, true);
             }
         }, false);
@@ -46,7 +45,7 @@ class Frontend {
             this.searchTerm = value;
             
             let results = new Set();
-            for(let n of this.app.ds.nodesOnline) {
+            for(let n of this.app.ds.nodes) {
                 if(n.startsWith(value)) {
                     results.add(n);
                 }
@@ -58,7 +57,7 @@ class Frontend {
                 this.app.setActiveNode(n, true);
             }
 
-            this.displayNodesOnline(results);
+            this.displayNodes(results);
         });
 
         document.getElementById("clear").addEventListener("click", (e) => {
@@ -110,7 +109,11 @@ class Frontend {
             history.replaceState(null, null, '#'+nodeId);
         }
 
-        let neighbors = this.app.ds.neighbors[nodeId];
+        let neighbors = this.app.ds.neighbors.get(nodeId);
+        // when node doesn't have neighbors yet
+        if (neighbors === undefined) {
+            neighbors=this.app.ds.createNeighborsObject();
+        }
         this.showNodeLinks(nodeId, neighbors);
     }
 
@@ -127,19 +130,26 @@ class Frontend {
         document.getElementById("out").innerHTML = "";
     }
 
-    displayNodesOnline(nodesOnline) {
+    displayNodes(nodes) {
         // this line might be a performance killer!
-        nodesOnline = Array.from(nodesOnline).sort();
+        nodes = Array.from(nodes).sort();
+        // When the active node gets removed, we should reset the nodeLink too
+        var isActiveNodePresent = false;
 
         let html = [];
-        for(let n of nodesOnline) {
+        for(let n of nodes) {
             if(n == this.activeNode) {
                 html.push('<span class="n active">' + n + "</span>");
+                isActiveNodePresent = true;
             } else {
                 html.push('<span class="n">' + n + "</span>");
             }
         }
         document.getElementById("nodesOnline").innerHTML = html.join("");
+        if (!isActiveNodePresent) {
+            // active node was removed
+            this.resetActiveNode();
+        }
     }
 }
 
@@ -147,191 +157,97 @@ class Datastructure {
     constructor(app) {
         this.app = app;
         this.nodes = new Set();
-        this.nodesOnline = new Set();
-        this.nodesOffline = new Set();
-        this.nodesDisconnected = new Set();
         this.connections = new Set();
         this.neighbors = new Map();
     }
 
     getStatusText() {
         // avg = this.connections.size*2 / (this.nodesOnline-1) : -1 == entry node (always disconnected)
-        return "nodes online: " + this.nodesOnline.size + "(" + this.nodesDisconnected.size + ")" + " - IDs: " + this.nodes.size + " - edges: " + this.connections.size + " - avg: " + (this.connections.size*2 / (this.nodesOnline.size-1)).toFixed(2);
+        return "nodes online: " + this.nodes.size + " - edges: " + this.connections.size + " - avg: " + (this.connections.size*2 / (this.nodes.size-1)).toFixed(2);
     }
 
     addNode(idA) {
         if(!this.nodes.has(idA)) {
-            this.nodes.add(idA);
-
-            this.app.setStreamStatusMessage("addedToNodepool: " + idA);
-            this.app.updateStatus();
+            this.app.setStreamStatusMessage("Added Node: " + idA);
         }
-
-        // TODO: temporary fix for faulty analysis server. do not set nodes offline.
-        this.setNodeOnline(idA);
+        this.nodes.add(idA);
+        this.app.graph.addVertex(idA);
+        this.app.updateStatus();
+        // 30 is the minimum springLength
+        if (this.nodes.size > 30) {
+            this.app.graph.layout.simulator.springLength(this.nodes.size)
+        }
     }
 
     removeNode(idA) {
-        if(!this.nodes.has(idA)) {
-            console.error("removeNode but not in nodes list:", idA);
-            return;
-        }
+        this.nodes.delete(idA);
+        this.app.graph.deleteVertex(idA)
 
-        if(this.nodesDisconnected.has(idA)) { this.nodesDisconnected.delete(idA); }
-        if(this.neighbors.has(idA)) { this.neighbors.delete(idA); }
-
-        if(this.nodesOnline.has(idA)) {
-            this.nodesOnline.delete(idA);
-            this.app.graph.deleteVertex(idA);
-
-            this.app.setStreamStatusMessage("removeNode from onlinepool: " + idA);
-        }
-        
-        if(this.nodesOffline.has(idA)) {
-            this.nodesOffline.delete(idA);
-            this.app.setStreamStatusMessage("removeNode from offlinepool: " + idA);
-        }
-
-        if(this.nodes.has(idA)) {
-            this.nodes.delete(idA);
-            this.app.setStreamStatusMessage("removeNode from nodepool: " + idA);
-        }
-        
+        this.app.setStreamStatusMessage("Removed Node: " + idA); 
         this.app.updateStatus();
-    }
-
-    setNodeOnline(idA) {
-        if(!this.nodes.has(idA)) {
-            console.error("setNodeOnline but not in nodes list:", idA);
-            return;
+        // 30 is the minimum springLength
+        if (this.nodes.size > 30) {
+            this.app.graph.layout.simulator.springLength(this.nodes.size)
         }
-
-        // check if not in nodesOnline set
-        if(!this.nodesOnline.has(idA)) {
-            this.nodesOnline.add(idA);
-            this.app.graph.addVertex(idA);
-
-            // create entry in neighbors map
-            this.neighbors[idA] = this.createNeighborsObject();
-            this.nodesDisconnected.add(idA);
-
-            this.app.setStreamStatusMessage("setNodeOnline: " + idA)
-        } else {
-            this.app.setStreamStatusMessage("setNodeOnline skipped: " + idA)
-        }
-
-        // check if in nodesOffline set
-        if(this.nodesOffline.has(idA)) {
-            this.nodesOffline.delete(idA);
-
-            this.app.setStreamStatusMessage("removedFromOfflinepool: " + idA)
-        }
-
-        this.app.updateStatus();
     }
 
     createNeighborsObject() {
         return {
             in: new Set(),
             out: new Set(),
-        }
-    }
-
-    setNodeOffline(idA) {
-        // TODO: temporary fix for faulty analysis server. do not set nodes offline.
-        return;
-
-        if(!this.nodes.has(idA)) {
-            console.error("setNodeOffline but not in nodes list:", idA);
-            return;
-        }
-
-        if(this.nodesDisconnected.has(idA)) { this.nodesDisconnected.delete(idA); }
-        if(this.neighbors.has(idA)) { this.neighbors.delete(idA); }
-
-        if(!this.nodesOffline.has(idA)) {
-            this.nodesOffline.add(idA);
-
-            this.app.setStreamStatusMessage("addedToOfflinepool: " + idA)
-        }
-
-        // check if node is currently online
-        if(this.nodesOnline.has(idA)) {
-            this.nodesOnline.delete(idA);
-            this.app.graph.deleteVertex(idA);
-
-            this.app.setStreamStatusMessage("removedFromOnlinepool: " + idA)
-        }
-
-        this.app.updateStatus();
-    }
-
-    connectNodes(con, idA, idB) {
-        if(!this.nodes.has(idA)) {
-            console.error("connectNodes but not in nodes list:", idA, con);
-            return;
-        }
-        if(!this.nodes.has(idB)) {
-            console.error("connectNodes but not in nodes list:", idB, con);
-            return;
-        }
-
-        if(this.connections.has(con)) {
-            this.app.setStreamStatusMessage("connectNodes skipped: " + idA + " > " + idB);
-        } else {
-            // add new connection only if both nodes are online
-            if(this.nodesOnline.has(idA) && this.nodesOnline.has(idB) && idA != idB) {
-                this.app.graph.addEdge(con, idA, idB);
-                this.connections.add(con);
-
-                // update datastructure for fast neighbor lookup
-                this.neighbors[idA].out.add(idB);
-                this.neighbors[idB].in.add(idA);
-
-                // remove from disconnected list
-                if(this.nodesDisconnected.has(idA)) { this.nodesDisconnected.delete(idA); }
-                if(this.nodesDisconnected.has(idB)) { this.nodesDisconnected.delete(idB); }
-
-                this.app.setStreamStatusMessage("connectNodes: " + idA + " > " + idB);
-                this.app.updateStatus();
-            } else {
-                console.log("connectNodes skipped: either node not online", idA, idB);
+            isEmpty : function() {
+                return this.in.size + this.out.size === 0;
             }
         }
     }
 
-    disconnectNodes(con, idA, idB) {
-        if(!this.nodes.has(idA)) {
-            console.error("disconnectNodes but not in nodes list:", idA, con);
-            return;
-        }
-        if(!this.nodes.has(idB)) {
-            console.error("disconnectNodes but not in nodes list:", idB, con);
-            return;
-        }
-
+    connectNodes(con, idA, idB) {
         if(this.connections.has(con)) {
-            this.connections.delete(con);
-            this.app.graph.deleteEdge(con, idA, idB);
+            this.app.setStreamStatusMessage("connectNodes skipped: " + idA + " > " + idB);
+        } else {
+            this.app.graph.addEdge(con, idA, idB);
+            this.connections.add(con);
 
             // update datastructure for fast neighbor lookup
-            this.neighbors[idA].out.delete(idB);
-            this.neighbors[idB].in.delete(idA);
+            if (!this.neighbors.has(idA)) {
+                // Need to initialize the object
+                this.neighbors.set(idA, this.createNeighborsObject());
+            }
 
-            // check if nodes still have neighbors
-            if(!this.hasNodeNeighbors(idA)) { this.nodesDisconnected.add(idA); }
-            if(!this.hasNodeNeighbors(idB)) { this.nodesDisconnected.add(idB); }
+            this.neighbors.get(idA).out.add(idB);
+            if (!this.neighbors.has(idB)) {
+                // Need to initialize the object
+                this.neighbors.set(idB, this.createNeighborsObject());
+            }
+            this.neighbors.get(idB).in.add(idA);
+
+            this.app.setStreamStatusMessage("connectNodes: " + idA + " > " + idB);
+            this.app.updateStatus();
+        }
+    }
+
+    disconnectNodes(con, idA, idB) {
+        if(this.connections.has(con)) {
+            this.connections.delete(con);
+            this.app.graph.deleteEdge(idA, idB);
+
+            // update datastructure for fast neighbor lookup
+            this.neighbors.get(idA).out.delete(idB);
+            this.neighbors.get(idB).in.delete(idA);
+
+            if (this.neighbors.get(idA).isEmpty()){
+                this.neighbors.delete(idA);
+            }
+
+            if (this.neighbors.get(idB).isEmpty()){
+                this.neighbors.delete(idB);
+            }
 
             this.app.setStreamStatusMessage("disconnectNodes: " + idA + " > " + idB);
             this.app.updateStatus();
         } else {
-            console.log("disconnectNodes skipped: either node not online", idA, idB);
+            console.log("disconnectNodes skipped: ", idA, idB);
         }
-    }
-
-    hasNodeNeighbors(idA) {
-        let neighbors = this.neighbors[idA];
-        return ((neighbors.in.size + neighbors.out.size) > 0)
     }
 }
 
@@ -417,21 +333,24 @@ class Graph {
 
         this.graph.beginUpdate();
 
-        let neighbors = this.app.ds.neighbors[selectedNode];
+        let neighbors = this.app.ds.neighbors.get(selectedNode);
 
         // highlight current node
         this.updateNodeUiColor(selectedNode, VERTEX_COLOR_ACTIVE);
 
-        // highlight incoming connections
-        for(let n of neighbors.in) {
-            this.updateNodeUiColor(n, VERTEX_COLOR_CONNECTED);
-            this.updateLinkUiColor(n, selectedNode, EDGE_COLOR_INCOMING);
-        }
+        // Node doesn't have any neighbors yet. nothing to be highlighted
+        if (neighbors!==undefined){
+            // highlight incoming connections
+            for(let n of neighbors.in) {
+                this.updateNodeUiColor(n, VERTEX_COLOR_CONNECTED);
+                this.updateLinkUiColor(n, selectedNode, EDGE_COLOR_INCOMING);
+            }
 
-        // highlight outcoming connections
-        for(let n of neighbors.out) {
-            this.updateNodeUiColor(n, VERTEX_COLOR_CONNECTED);
-            this.updateLinkUiColor(selectedNode, n, EDGE_COLOR_OUTGOING);
+            // highlight outcoming connections
+            for(let n of neighbors.out) {
+                this.updateNodeUiColor(n, VERTEX_COLOR_CONNECTED);
+                this.updateLinkUiColor(selectedNode, n, EDGE_COLOR_OUTGOING);
+            }
         }
 
         this.graph.endUpdate();
@@ -472,7 +391,7 @@ class Graph {
         this.graph.addLink(idA, idB, con);
     }
 
-    deleteEdge(con, idA, idB) {
+    deleteEdge(idA, idB) {
         let link = this.graph.getLink(idA, idB);
         this.graph.removeLink(link);
     }
@@ -536,7 +455,7 @@ class Application {
             if(this.frontend.searchTerm.length > 0) {
                 return;
             }
-            this.frontend.displayNodesOnline(this.ds.nodesOnline) 
+            this.frontend.displayNodes(this.ds.nodes)
         }, 300);
     }
 
@@ -580,18 +499,23 @@ class Application {
             ((window.location.protocol === "https:") ? "wss://" : "ws://") + this.url
         );
     
-        this.socket.onopen = () => {
-            this.setStatusMessage("WebSocket opened. Loading ... ");
-            setInterval(() => {
-                this.socket.send("_");
-            }, 1000);
-        };
-    
         this.socket.onerror = (e) => {
             this.setStatusMessage("WebSocket error observed. Please reload.");
             console.error("WebSocket error observed", e);
           };
-    
+
+        this.socket.onopen = () => {	
+            this.setStatusMessage("WebSocket opened. Loading ... ");
+            this.pingId = setInterval(() => {
+                this.socket.send("_");
+            }, 1000);
+        };
+
+        this.socket.onclose = () => {
+            clearInterval(this.pingId)
+            console.log("WebSocket connection was closed.")
+        }
+
         this.socket.onmessage = (e) => {
             let type = e.data[0];
             let data = e.data.substr(1);
@@ -629,16 +553,6 @@ class Application {
                     console.log("disconnectNodes event:", idA, " - ", idB);
                     this.ds.disconnectNodes(idA+idB, idA, idB);
                     break;
-    
-                case "O":
-                    console.log("setNodeOnline event:", idA);
-                    this.ds.setNodeOnline(idA);
-                    break;
-    
-                case "o":
-                    console.log("setNodeOffline event:", idA);
-                    this.ds.setNodeOffline(idA);
-                    break;
             }
         }
     }
@@ -650,9 +564,6 @@ window.onload = () => {
     app = new Application(ANALYSIS_SERVER_URL);
     app.run()
 }
-
-
-
 
 function hasClass(elem, className) {
     return elem.classList.contains(className);

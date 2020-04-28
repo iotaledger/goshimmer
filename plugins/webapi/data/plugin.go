@@ -11,11 +11,17 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI data Endpoint", node.Enabled, configure)
-var log *logger.Logger
+// PluginName is the name of the web API data endpoint plugin.
+const PluginName = "WebAPI data Endpoint"
+
+var (
+	// Plugin is the plugin instance of the web API data endpoint plugin.
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	log    *logger.Logger
+)
 
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger("API-data")
+	log = logger.NewLogger(PluginName)
 	webapi.Server.POST("data", broadcastData)
 }
 
@@ -29,16 +35,17 @@ func broadcastData(c echo.Context) error {
 	}
 
 	//TODO: to check max payload size allowed, if exceeding return an error
-	tx := messagelayer.MessageFactory.IssuePayload(payload.NewData(request.Data))
-
-	return c.JSON(http.StatusOK, Response{Id: tx.Id().String()})
+	msg := messagelayer.MessageFactory.IssuePayload(payload.NewData(request.Data))
+	return c.JSON(http.StatusOK, Response{ID: msg.Id().String()})
 }
 
+// Response contains the ID of the message sent.
 type Response struct {
-	Id    string `json:"id,omitempty"`
+	ID    string `json:"id,omitempty"`
 	Error string `json:"error,omitempty"`
 }
 
+// Request contains the data of the message to send.
 type Request struct {
 	Data []byte `json:"data"`
 }

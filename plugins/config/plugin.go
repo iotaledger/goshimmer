@@ -10,11 +10,14 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
-var (
-	// define the plugin as a placeholder, so the init methods get executed accordingly
-	PLUGIN = node.NewPlugin("Config", node.Enabled)
+// PluginName is the name of the config plugin.
+const PluginName = "Config"
 
-	// flags<
+var (
+	// Plugin is the plugin instance of the config plugin.
+	Plugin = node.NewPlugin(PluginName, node.Enabled)
+
+	// flags
 	configName    = flag.StringP("config", "c", "config", "Filename of the config file without the file extension")
 	configDirPath = flag.StringP("config-dir", "d", ".", "Path to the directory containing the config file")
 
@@ -33,7 +36,7 @@ var (
 )
 
 func Init() {
-	PLUGIN.Events.Init.Trigger(PLUGIN)
+	Plugin.Events.Init.Trigger(Plugin)
 }
 
 func init() {
@@ -41,7 +44,7 @@ func init() {
 	Node = viper.New()
 	Node.SetDefault(logger.ViperKey, defaultLoggerConfig)
 
-	PLUGIN.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
+	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
 		if err := fetch(false); err != nil {
 			panic(err)
 		}

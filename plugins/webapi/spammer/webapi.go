@@ -14,27 +14,29 @@ func handleRequest(c echo.Context) error {
 
 	switch request.Cmd {
 	case "start":
-		if request.Tps == 0 {
-			request.Tps = 1
+		if request.MPS == 0 {
+			request.MPS = 1
 		}
 
-		transactionSpammer.Shutdown()
-		transactionSpammer.Start(request.Tps)
-		return c.JSON(http.StatusOK, Response{Message: "started spamming transactions"})
+		messageSpammer.Shutdown()
+		messageSpammer.Start(request.MPS)
+		return c.JSON(http.StatusOK, Response{Message: "started spamming messages"})
 	case "stop":
-		transactionSpammer.Shutdown()
-		return c.JSON(http.StatusOK, Response{Message: "stopped spamming transactions"})
+		messageSpammer.Shutdown()
+		return c.JSON(http.StatusOK, Response{Message: "stopped spamming messages"})
 	default:
 		return c.JSON(http.StatusBadRequest, Response{Error: "invalid cmd in request"})
 	}
 }
 
+// Response is the HTTP response of a spammer request.
 type Response struct {
 	Message string `json:"message"`
 	Error   string `json:"error"`
 }
 
+// Request contains the parameters of a spammer request.
 type Request struct {
 	Cmd string `json:"cmd"`
-	Tps int    `json:"tps"`
+	MPS int    `json:"mps"`
 }

@@ -5,9 +5,10 @@ import (
 )
 
 const (
-	GOSSIP_PORT = "gossip.port"
+	// CfgGossipPort defines the config flag of the gossip port.
+	CfgGossipPort = "gossip.port"
 )
 
 func init() {
-	flag.Int(GOSSIP_PORT, 14666, "tcp port for gossip connection")
+	flag.Int(CfgGossipPort, 14666, "tcp port for gossip connection")
 }

@@ -14,7 +14,11 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI autopeering Endpoint", node.Enabled, configure)
+// PluginName is the name of the web API autopeering endpoint plugin.
+const PluginName = "WebAPI autopeering Endpoint"
+
+// Plugin is the plugin instance of the web API autopeering endpoint plugin.
+var Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 
 func configure(plugin *node.Plugin) {
 	webapi.Server.GET("autopeering/neighbors", getNeighbors)
@@ -66,6 +70,7 @@ func getNeighbors(c echo.Context) error {
 	return c.JSON(http.StatusOK, Response{KnownPeers: knownPeers, Chosen: chosen, Accepted: accepted})
 }
 
+// Response contains information of the autopeering.
 type Response struct {
 	KnownPeers []Neighbor `json:"known,omitempty"`
 	Chosen     []Neighbor `json:"chosen"`
@@ -73,6 +78,7 @@ type Response struct {
 	Error      string     `json:"error,omitempty"`
 }
 
+// Neighbor contains information of a neighbor peer.
 type Neighbor struct {
 	ID        string        `json:"id"`        // comparable node identifier
 	PublicKey string        `json:"publicKey"` // public key used to verify signatures

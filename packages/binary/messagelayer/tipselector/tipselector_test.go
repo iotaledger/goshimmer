@@ -16,40 +16,40 @@ func Test(t *testing.T) {
 	tipSelector := New()
 
 	// check if first tips point to genesis
-	trunk1, branch1 := tipSelector.GetTips()
+	trunk1, branch1 := tipSelector.Tips()
 	assert.Equal(t, message.EmptyId, trunk1)
 	assert.Equal(t, message.EmptyId, branch1)
 
-	// create a transaction and attach it
+	// create a message and attach it
 	localIdentity1 := identity.GenerateLocalIdentity()
-	transaction1 := message.New(trunk1, branch1, localIdentity1, time.Now(), 0, payload.NewData([]byte("testtransaction")))
-	tipSelector.AddTip(transaction1)
+	message1 := message.New(trunk1, branch1, localIdentity1, time.Now(), 0, payload.NewData([]byte("testmessage")))
+	tipSelector.AddTip(message1)
 
 	// check if the tip shows up in the tip count
-	assert.Equal(t, 1, tipSelector.GetTipCount())
+	assert.Equal(t, 1, tipSelector.TipCount())
 
-	// check if next tips point to our first transaction
-	trunk2, branch2 := tipSelector.GetTips()
-	assert.Equal(t, transaction1.Id(), trunk2)
-	assert.Equal(t, transaction1.Id(), branch2)
+	// check if next tips point to our first message
+	trunk2, branch2 := tipSelector.Tips()
+	assert.Equal(t, message1.Id(), trunk2)
+	assert.Equal(t, message1.Id(), branch2)
 
-	// create a 2nd transaction and attach it
+	// create a 2nd message and attach it
 	localIdentity2 := identity.GenerateLocalIdentity()
-	transaction2 := message.New(message.EmptyId, message.EmptyId, localIdentity2, time.Now(), 0, payload.NewData([]byte("testtransaction")))
-	tipSelector.AddTip(transaction2)
+	message2 := message.New(message.EmptyId, message.EmptyId, localIdentity2, time.Now(), 0, payload.NewData([]byte("testmessage")))
+	tipSelector.AddTip(message2)
 
 	// check if the tip shows up in the tip count
-	assert.Equal(t, 2, tipSelector.GetTipCount())
+	assert.Equal(t, 2, tipSelector.TipCount())
 
-	// attach a transaction to our two tips
+	// attach a message to our two tips
 	localIdentity3 := identity.GenerateLocalIdentity()
-	trunk3, branch3 := tipSelector.GetTips()
-	transaction3 := message.New(trunk3, branch3, localIdentity3, time.Now(), 0, payload.NewData([]byte("testtransaction")))
-	tipSelector.AddTip(transaction3)
+	trunk3, branch3 := tipSelector.Tips()
+	message3 := message.New(trunk3, branch3, localIdentity3, time.Now(), 0, payload.NewData([]byte("testmessage")))
+	tipSelector.AddTip(message3)
 
 	// check if the tip shows replaces the current tips
-	trunk4, branch4 := tipSelector.GetTips()
-	assert.Equal(t, 1, tipSelector.GetTipCount())
-	assert.Equal(t, transaction3.Id(), trunk4)
-	assert.Equal(t, transaction3.Id(), branch4)
+	trunk4, branch4 := tipSelector.Tips()
+	assert.Equal(t, 1, tipSelector.TipCount())
+	assert.Equal(t, message3.Id(), trunk4)
+	assert.Equal(t, message3.Id(), branch4)
 }

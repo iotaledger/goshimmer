@@ -19,5 +19,5 @@ func (api *GoShimmerAPI) Data(data []byte) (string, error) {
 		return "", err
 	}
 
-	return res.Id, nil
+	return res.ID, nil
 }

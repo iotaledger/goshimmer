@@ -23,7 +23,7 @@ func dataStream(ws *websocket.Conn) {
 				replayMutex.RLock()
 				defer replayMutex.RUnlock()
 
-				wsChan.TryWrite(messagePrefix + nodeId)
+				wsChan.Write(messagePrefix + nodeId)
 			}()
 		}
 	}
@@ -33,7 +33,7 @@ func dataStream(ws *websocket.Conn) {
 				replayMutex.RLock()
 				defer replayMutex.RUnlock()
 
-				wsChan.TryWrite(messagePrefix + sourceId + targetId)
+				wsChan.Write(messagePrefix + sourceId + targetId)
 			}()
 		}
 	}
@@ -46,14 +46,10 @@ func dataStream(ws *websocket.Conn) {
 	removeNodeClosure := events.NewClosure(createAsyncNodeCallback(wsChan, "a"))
 	connectNodesClosure := events.NewClosure(createAsyncLinkCallback(wsChan, "C"))
 	disconnectNodesClosure := events.NewClosure(createAsyncLinkCallback(wsChan, "c"))
-	nodeOnlineClosure := events.NewClosure(createAsyncNodeCallback(wsChan, "O"))
-	nodeOfflineClosure := events.NewClosure(createAsyncNodeCallback(wsChan, "o"))
 	server.Events.AddNode.Attach(addNodeClosure)
 	server.Events.RemoveNode.Attach(removeNodeClosure)
 	server.Events.ConnectNodes.Attach(connectNodesClosure)
 	server.Events.DisconnectNodes.Attach(disconnectNodesClosure)
-	server.Events.NodeOnline.Attach(nodeOnlineClosure)
-	server.Events.NodeOffline.Attach(nodeOfflineClosure)
 
 	// replay old events
 	recordedevents.Replay(createEventHandlers(wsChan, createSyncNodeCallback, createSyncLinkCallback))
@@ -69,8 +65,6 @@ func dataStream(ws *websocket.Conn) {
 	server.Events.RemoveNode.Detach(removeNodeClosure)
 	server.Events.ConnectNodes.Detach(connectNodesClosure)
 	server.Events.DisconnectNodes.Detach(disconnectNodesClosure)
-	server.Events.NodeOnline.Detach(nodeOnlineClosure)
-	server.Events.NodeOffline.Detach(nodeOfflineClosure)
 }
 
 func createEventHandlers(wsChan *WebSocketChannel, nodeCallbackFactory func(*WebSocketChannel, string) func(string), linkCallbackFactory func(*WebSocketChannel, string) func(string, string)) *types.EventHandlers {
@@ -79,8 +73,6 @@ func createEventHandlers(wsChan *WebSocketChannel, nodeCallbackFactory func(*Web
 		RemoveNode:      nodeCallbackFactory(wsChan, "a"),
 		ConnectNodes:    linkCallbackFactory(wsChan, "C"),
 		DisconnectNodes: linkCallbackFactory(wsChan, "c"),
-		NodeOnline:      nodeCallbackFactory(wsChan, "O"),
-		NodeOffline:     nodeCallbackFactory(wsChan, "o"),
 	}
 }
 
