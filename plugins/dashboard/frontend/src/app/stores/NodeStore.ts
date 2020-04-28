@@ -212,7 +212,7 @@ export class NodeStore {
     updateStatus = (status: Status) => {
         status.mem.ts = dateformat(Date.now(), "HH:MM:ss");
         if (this.collected_mem_metrics.length > maxMetricsDataPoints) {
-            this.collected_mem_metrics.shift();
+            this.collectedb_mem_metrics.shift();
         }
         this.collected_mem_metrics.push(status.mem);
         this.status = status;

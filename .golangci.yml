@@ -3,6 +3,7 @@ run:
 
 issues:
     exclude-use-default: false
+    max-issues-per-linter: 0
 
 linters-settings:
     gofmt:

@@ -1,4 +1,4 @@
-// Implements a very simple wrapper for GoShimmer's web API .
+// Package client implements a very simple wrapper for GoShimmer's web API.
 package client
 
 import (
@@ -12,29 +12,36 @@ import (
 )
 
 var (
-	ErrBadRequest          = errors.New("bad request")
+	// ErrBadRequest defines the "bad request" error.
+	ErrBadRequest = errors.New("bad request")
+	// ErrInternalServerError defines the "internal server error" error.
 	ErrInternalServerError = errors.New("internal server error")
-	ErrNotFound            = errors.New("not found")
-	ErrUnauthorized        = errors.New("unauthorized")
-	ErrUnknownError        = errors.New("unknown error")
-	ErrNotImplemented      = errors.New("operation not implemented/supported/available")
+	// ErrNotFound defines the "not found" error.
+	ErrNotFound = errors.New("not found")
+	// ErrUnauthorized defines the "unauthorized" error.
+	ErrUnauthorized = errors.New("unauthorized")
+	// ErrUnknownError defines the "unknown error" error.
+	ErrUnknownError = errors.New("unknown error")
+	// ErrNotImplemented defines the "operation not implemented/supported/available" error.
+	ErrNotImplemented = errors.New("operation not implemented/supported/available")
 )
 
 const (
 	contentTypeJSON = "application/json"
 )
 
-func NewGoShimmerAPI(baseUrl string, httpClient ...http.Client) *GoShimmerAPI {
+// NewGoShimmerAPI returns a new *GoShimmerAPI with the given baseURL and httpClient.
+func NewGoShimmerAPI(baseURL string, httpClient ...http.Client) *GoShimmerAPI {
 	if len(httpClient) > 0 {
-		return &GoShimmerAPI{baseUrl: baseUrl, httpClient: httpClient[0]}
+		return &GoShimmerAPI{baseURL: baseURL, httpClient: httpClient[0]}
 	}
-	return &GoShimmerAPI{baseUrl: baseUrl}
+	return &GoShimmerAPI{baseURL: baseURL}
 }
 
 // GoShimmerAPI is an API wrapper over the web API of GoShimmer.
 type GoShimmerAPI struct {
 	httpClient http.Client
-	baseUrl    string
+	baseURL    string
 	jwt        string
 }
 
@@ -86,7 +93,7 @@ func (api *GoShimmerAPI) do(method string, route string, reqObj interface{}, res
 	}
 
 	// construct request
-	req, err := http.NewRequest(method, fmt.Sprintf("%s/%s", api.baseUrl, route), func() io.Reader {
+	req, err := http.NewRequest(method, fmt.Sprintf("%s/%s", api.baseURL, route), func() io.Reader {
 		if data == nil {
 			return nil
 		}
@@ -122,6 +129,7 @@ func (api *GoShimmerAPI) do(method string, route string, reqObj interface{}, res
 	return nil
 }
 
-func (api *GoShimmerAPI) BaseUrl() string {
-	return api.baseUrl
+// BaseURL returns the baseURL of the API.
+func (api *GoShimmerAPI) BaseURL() string {
+	return api.baseURL
 }

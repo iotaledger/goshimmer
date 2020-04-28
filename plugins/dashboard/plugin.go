@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
@@ -42,8 +43,12 @@ func run(_ *node.Plugin) {
 
 	runWebSocketStreams()
 	runLiveFeed()
-	runDrngLiveFeed()
 	runVisualizer()
+
+	// run dRNG live feed if dRNG plugin is enabled
+	if !node.IsSkipped(drng.Plugin) {
+		runDrngLiveFeed()
+	}
 
 	// allow any origin for websocket connections
 	upgrader.CheckOrigin = func(r *http.Request) bool {

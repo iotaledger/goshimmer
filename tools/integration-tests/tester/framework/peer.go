@@ -38,7 +38,7 @@ func newPeer(name string, identity *identity.Identity, dockerContainer *DockerCo
 }
 
 func (p *Peer) String() string {
-	return fmt.Sprintf("Peer:{%s, %s, %s, %d}", p.name, p.identity.ID().String(), p.BaseUrl(), p.TotalNeighbors())
+	return fmt.Sprintf("Peer:{%s, %s, %s, %d}", p.name, p.identity.ID().String(), p.BaseURL(), p.TotalNeighbors())
 }
 
 // TotalNeighbors returns the total number of neighbors the peer has.
