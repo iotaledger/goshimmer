@@ -1,6 +1,6 @@
 import {action, computed, observable, ObservableMap} from 'mobx';
 import * as dateformat from 'dateformat';
-import {connectWebSocket, registerHandler, WSMsgType} from "app/misc/WS";
+import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from "app/misc/WS";
 
 class MPSMetric {
     mps: number;
@@ -161,12 +161,41 @@ export class NodeStore {
     @observable neighbor_metrics = new ObservableMap<string, NeighborMetrics>();
     @observable last_tips_metric: TipsMetric = new TipsMetric();
     @observable collected_tips_metrics: Array<TipsMetric> = [];
+    @observable collecting: boolean = true;
 
     constructor() {
+        this.registerHandlers();
+    }
+
+    registerHandlers = () => {
         registerHandler(WSMsgType.Status, this.updateStatus);
-        registerHandler(WSMsgType.MPSMetrics, this.updateLastMPSMetric);
+        registerHandler(WSMsgType.MPSMetrics, (mps: number) => {
+            this.addMPSMetric(this.updateLastMPSMetric(mps));
+        });
         registerHandler(WSMsgType.NeighborStats, this.updateNeighborMetrics);
         registerHandler(WSMsgType.TipsMetrics, this.updateLastTipsMetric);
+        this.updateCollecting(true);
+    }
+
+    unregisterHandlers = () => {
+        unregisterHandler(WSMsgType.Status);
+        registerHandler(WSMsgType.MPSMetrics, this.updateLastMPSMetric);
+        unregisterHandler(WSMsgType.NeighborStats);
+        unregisterHandler(WSMsgType.TipsMetrics);
+        this.updateCollecting(false);
+    }
+
+    @action
+    updateCollecting = (collecting: boolean) => {
+        this.collecting = collecting;
+    }
+
+    @action
+    reset() {
+        this.collected_mps_metrics = [];
+        this.collected_mem_metrics = [];
+        this.neighbor_metrics = new ObservableMap<string, NeighborMetrics>();
+        this.collected_tips_metrics = [];
     }
 
     connect() {
@@ -216,11 +245,16 @@ export class NodeStore {
         mpsMetric.mps = mps;
         mpsMetric.ts = dateformat(Date.now(), "HH:MM:ss");
         this.last_mps_metric = mpsMetric;
+        return mpsMetric;
+    };
+
+    @action
+    addMPSMetric = (metric: MPSMetric) => {
         if (this.collected_mps_metrics.length > maxMetricsDataPoints) {
             this.collected_mps_metrics.shift();
         }
-        this.collected_mps_metrics.push(mpsMetric);
-    };
+        this.collected_mps_metrics.push(metric);
+    }
 
     @action
     updateLastTipsMetric = (tips: number) => {

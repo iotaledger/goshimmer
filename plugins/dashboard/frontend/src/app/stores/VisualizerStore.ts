@@ -16,6 +16,8 @@ export class TipInfo {
     is_tip: boolean;
 }
 
+const vertexSize = 20;
+
 export class VisualizerStore {
     @observable vertices = new ObservableMap<string, Vertex>();
     @observable verticesLimit = 1500;
@@ -32,6 +34,9 @@ export class VisualizerStore {
     selected_via_click: boolean = false;
     selected_origin_color: number = 0;
 
+    // search
+    @observable search: string = "";
+
     // viva graph objs
     graph;
     graphics;
@@ -42,6 +47,27 @@ export class VisualizerStore {
         this.routerStore = routerStore;
         registerHandler(WSMsgType.Vertex, this.addVertex);
         registerHandler(WSMsgType.TipInfo, this.addTipInfo);
+    }
+
+    @action
+    updateSearch = (search: string) => {
+        this.search = search.trim();
+    }
+
+    @action
+    searchAndHighlight = () => {
+        this.clearSelected();
+        if (!this.search) return;
+        let iter: IterableIterator<string> = this.vertices.keys();
+        let found = null;
+        for (const key of iter) {
+            if (key.indexOf(this.search) >= 0) {
+                found = key;
+                break;
+            }
+        }
+        if (!found) return;
+        this.updateSelected(this.vertices.get(found), false);
     }
 
     @action
@@ -110,6 +136,10 @@ export class VisualizerStore {
         while (this.verticesIncomingOrder.length > this.verticesLimit) {
             let deleteId = this.verticesIncomingOrder.shift();
             let vert = this.vertices.get(deleteId);
+            // make sure we remove any markings if the vertex gets deleted
+            if (this.selected && deleteId === this.selected.id) {
+                this.clearSelected();
+            }
             this.vertices.delete(deleteId);
             this.graph.removeNode(deleteId);
             if (!vert) {
@@ -133,6 +163,9 @@ export class VisualizerStore {
         }
         let approvee = this.vertices.get(approveeId);
         if (approvee) {
+            if (this.selected && approveeId === this.selected.id) {
+                this.clearSelected();
+            }
             if (approvee.is_solid) {
                 this.solid_count--;
             }
@@ -145,15 +178,36 @@ export class VisualizerStore {
     }
 
     drawVertex = (vert: Vertex) => {
-        this.graph.beginUpdate();
-        let node = this.graph.addNode(vert.id, vert);
+        let node;
+        let existing = this.graph.getNode(vert.id);
+        if (existing) {
+            // update coloring
+            let nodeUI = this.graphics.getNodeUI(vert.id);
+            nodeUI.color = parseColor(this.colorForVertexState(vert));
+            node = existing
+        } else {
+            node = this.graph.addNode(vert.id, vert);
+        }
         if (vert.trunk_id && (!node.links || !node.links.some(link => link.fromId === vert.trunk_id))) {
             this.graph.addLink(vert.trunk_id, vert.id);
+        }
+        if (vert.trunk_id === vert.branch_id) {
+            return;
         }
         if (vert.branch_id && (!node.links || !node.links.some(link => link.fromId === vert.branch_id))) {
             this.graph.addLink(vert.branch_id, vert.id);
         }
-        this.graph.endUpdate();
+    }
+
+    colorForVertexState = (vert: Vertex) => {
+        if (!vert || (!vert.trunk_id && !vert.branch_id)) return "#b58900";
+        if (vert.is_tip) {
+            return "#cb4b16";
+        }
+        if (vert.is_solid) {
+            return "#6c71c4";
+        }
+        return "#2aa198";
     }
 
     start = () => {
@@ -173,14 +227,10 @@ export class VisualizerStore {
         });
 
         graphics.node((node) => {
-            if (!node.data) return Viva.Graph.View.webglSquare(10, "#b58900");
-            if (node.data.is_tip) {
-                return Viva.Graph.View.webglSquare(20, "#cb4b16");
+            if (!node.data) {
+                return Viva.Graph.View.webglSquare(10, this.colorForVertexState(node.data));
             }
-            if (node.data.is_solid) {
-                return Viva.Graph.View.webglSquare(20, "#6c71c4");
-            }
-            return Viva.Graph.View.webglSquare(20, "#2aa198");
+            return Viva.Graph.View.webglSquare(vertexSize, this.colorForVertexState(node.data));
         })
         graphics.link(() => Viva.Graph.View.webglLine("#586e75"));
         let ele = document.getElementById('visualizer');
@@ -213,6 +263,8 @@ export class VisualizerStore {
 
     @action
     updateSelected = (vert: Vertex, viaClick?: boolean) => {
+        if (!vert) return;
+
         this.selected = vert;
         this.selected_via_click = !!viaClick;
 
@@ -220,7 +272,8 @@ export class VisualizerStore {
         let node = this.graph.getNode(vert.id);
         let nodeUI = this.graphics.getNodeUI(vert.id);
         this.selected_origin_color = nodeUI.color
-        nodeUI.color = 0xe23df4ff;
+        nodeUI.color = parseColor("#859900");
+        nodeUI.size = vertexSize * 1.5;
 
         const seenForward = [];
         const seenBackwards = [];
@@ -246,6 +299,13 @@ export class VisualizerStore {
         );
     }
 
+    resetLinks = () => {
+        this.graph.forEachLink(function (link) {
+            const linkUI = this.graphics.getLinkUI(link.id);
+            linkUI.color = parseColor("#586e75");
+        });
+    }
+
     @action
     clearSelected = () => {
         this.selected_approvers_count = 0;
@@ -256,9 +316,15 @@ export class VisualizerStore {
 
         // clear link highlight
         let node = this.graph.getNode(this.selected.id);
+        if (!node) {
+            // clear links
+            this.resetLinks();
+            return;
+        }
 
         let nodeUI = this.graphics.getNodeUI(this.selected.id);
         nodeUI.color = this.selected_origin_color;
+        nodeUI.size = vertexSize;
 
         const seenForward = [];
         const seenBackwards = [];
