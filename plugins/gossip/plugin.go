@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -21,19 +20,10 @@ const PluginName = "Gossip"
 var Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 func configure(*node.Plugin) {
-	log = logger.NewLogger(PluginName)
+	// assure that the Manager is instantiated
+	mgr := Manager()
 
-	configureGossip()
-	configureEvents()
-}
-
-func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
-		log.Errorf("Failed to start as daemon: %s", err)
-	}
-}
-
-func configureEvents() {
+	// link to the auto peering
 	selection.Events.Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
 		go func() {
 			if err := mgr.DropNeighbor(ev.DroppedID); err != nil {
@@ -62,18 +52,19 @@ func configureEvents() {
 		}()
 	}))
 
-	gossip.Events.ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, err error) {
+	// log neighbor changes
+	mgr.Events().ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, err error) {
 		log.Infof("Connection to neighbor %s / %s failed: %s", gossip.GetAddress(p), p.ID(), err)
 	}))
-	gossip.Events.NeighborAdded.Attach(events.NewClosure(func(n *gossip.Neighbor) {
+	mgr.Events().NeighborAdded.Attach(events.NewClosure(func(n *gossip.Neighbor) {
 		log.Infof("Neighbor added: %s / %s", gossip.GetAddress(n.Peer), n.ID())
 	}))
-	gossip.Events.NeighborRemoved.Attach(events.NewClosure(func(p *peer.Peer) {
+	mgr.Events().NeighborRemoved.Attach(events.NewClosure(func(p *peer.Peer) {
 		log.Infof("Neighbor removed: %s / %s", gossip.GetAddress(p), p.ID())
 	}))
 
 	// configure flow of incoming messages
-	gossip.Events.MessageReceived.Attach(events.NewClosure(func(event *gossip.MessageReceivedEvent) {
+	mgr.Events().MessageReceived.Attach(events.NewClosure(func(event *gossip.MessageReceivedEvent) {
 		messagelayer.MessageParser.Parse(event.Data, event.Peer)
 	}))
 
@@ -89,4 +80,10 @@ func configureEvents() {
 	messagelayer.MessageRequester.Events.SendRequest.Attach(events.NewClosure(func(messageId message.Id) {
 		mgr.RequestMessage(messageId[:])
 	}))
+}
+
+func run(*node.Plugin) {
+	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
+		log.Errorf("Failed to start as daemon: %s", err)
+	}
 }
