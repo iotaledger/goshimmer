@@ -24,7 +24,7 @@ var ErrNotFound = errors.New("not found")
 // ErrForbidden defines the forbidden error.
 var ErrForbidden = errors.New("forbidden")
 
-// holds SPA assets
+// holds dashboard assets
 var appBox = packr.New("Dashboard_App", "./frontend/build")
 var assetsBox = packr.New("Dashboard_Assets", "./frontend/src/assets")
 
@@ -66,7 +66,7 @@ func setupRoutes(e *echo.Echo) {
 	e.GET("/ws", websocketRoute)
 	e.GET("/", indexRoute)
 
-	// used to route into the SPA index
+	// used to route into the dashboard index
 	e.GET("*", indexRoute)
 
 	apiRoutes := e.Group("/api")
