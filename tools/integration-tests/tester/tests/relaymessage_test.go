@@ -41,16 +41,22 @@ func TestRelayMessages(t *testing.T) {
 		assert.Equal(t, numMessages, len(resp.Messages))
 
 		// check that all messages are present in response
-	outer:
+		idsSeen := make(map[string]bool)
 		for _, id := range ids {
-			for _, msg := range resp.Messages {
-				// if message found skip to next
-				if msg.ID == id {
-					continue outer
-				}
+			idsSeen[id] = false
+		}
+		for _, msg := range resp.Messages {
+			if _, ok := idsSeen[msg.ID]; !ok {
+				t.Errorf("MessageId=%s found but not created. %s.", msg.ID, peer.String())
+				continue
 			}
 
-			t.Errorf("MessageId=%s not found in peer %s.", id, peer.String())
+			idsSeen[msg.ID] = true
+		}
+		for id, seen := range idsSeen {
+			if !seen {
+				t.Errorf("MessageId=%s not found in peer %s.", id, peer.String())
+			}
 		}
 	}
 }
