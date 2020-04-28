@@ -10,10 +10,13 @@ import (
 	"github.com/iotaledger/hive.go/workerpool"
 )
 
-var visualizerWorkerCount = 1
-var visualizerWorkerQueueSize = 500
-var visualizerWorkerPool *workerpool.WorkerPool
+var (
+	visualizerWorkerCount     = 1
+	visualizerWorkerQueueSize = 500
+	visualizerWorkerPool      *workerpool.WorkerPool
+)
 
+// vertex defines a vertex in a DAG.
 type vertex struct {
 	ID       string `json:"id"`
 	TrunkID  string `json:"trunk_id"`
@@ -21,6 +24,7 @@ type vertex struct {
 	IsSolid  bool   `json:"is_solid"`
 }
 
+// tipinfo holds information about whether a given message is a tip or not.
 type tipinfo struct {
 	ID    string `json:"id"`
 	IsTip bool   `json:"is_tip"`
