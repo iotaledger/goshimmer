@@ -37,26 +37,11 @@ func TestRelayMessages(t *testing.T) {
 		resp, err := peer.FindMessageByID(ids)
 		require.NoError(t, err)
 
-		// check for the count of messages
-		assert.Equal(t, numMessages, len(resp.Messages))
-
 		// check that all messages are present in response
-		idsSeen := make(map[string]bool)
-		for _, id := range ids {
-			idsSeen[id] = false
+		respIDs := make([]string, len(resp.Messages))
+		for i, msg := range resp.Messages {
+			respIDs[i] = msg.ID
 		}
-		for _, msg := range resp.Messages {
-			if _, ok := idsSeen[msg.ID]; !ok {
-				t.Errorf("MessageId=%s found but not created. %s.", msg.ID, peer.String())
-				continue
-			}
-
-			idsSeen[msg.ID] = true
-		}
-		for id, seen := range idsSeen {
-			if !seen {
-				t.Errorf("MessageId=%s not found in peer %s.", id, peer.String())
-			}
-		}
+		assert.ElementsMatchf(t, ids, respIDs, "messages do not match sent in %s", peer.String())
 	}
 }
