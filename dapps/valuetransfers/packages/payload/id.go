@@ -8,7 +8,7 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-// Id represents the hash of a payload that is used to identify the given payload.
+// ID represents the hash of a payload that is used to identify the given payload.
 type ID [IDLength]byte
 
 // NewId creates a payload id from a base58 encoded string.

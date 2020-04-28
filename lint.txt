@@ -1,121 +1,37 @@
-dapps\valuetransfers\packages\branchmanager\branch.go:69:1: error should be the last type when returning multiple items (golint)
-func BranchFromBytes(bytes []byte, optionalTargetObject ...*Branch) (result *Branch, err error, consumedBytes int) {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:77:1: exported function `ParseBranch` should have comment or be unexported (golint)
-func ParseBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Branch) (result *Branch, err error) {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:84:9: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
-	} else {
-	       ^
-dapps\valuetransfers\packages\branchmanager\branch.go:99:1: exported method `Branch.Id` should have comment or be unexported (golint)
-func (branch *Branch) Id() BranchId {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:103:1: exported method `Branch.ParentBranches` should have comment or be unexported (golint)
-func (branch *Branch) ParentBranches() []BranchId {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:107:1: exported method `Branch.IsAggregated` should have comment or be unexported (golint)
-func (branch *Branch) IsAggregated() bool {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:111:1: exported method `Branch.Conflicts` should have comment or be unexported (golint)
-func (branch *Branch) Conflicts() (conflicts map[ConflictId]types.Empty) {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:123:1: exported method `Branch.AddConflict` should have comment or be unexported (golint)
-func (branch *Branch) AddConflict(conflict ConflictId) (added bool) {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:145:1: exported method `Branch.Preferred` should have comment or be unexported (golint)
-func (branch *Branch) Preferred() bool {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:152:1: exported method `Branch.SetPreferred` should have comment or be unexported (golint)
-func (branch *Branch) SetPreferred(preferred bool) (modified bool) {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:174:1: exported method `Branch.Liked` should have comment or be unexported (golint)
-func (branch *Branch) Liked() bool {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:181:1: exported method `Branch.SetLiked` should have comment or be unexported (golint)
-func (branch *Branch) SetLiked(liked bool) (modified bool) {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:203:1: exported method `Branch.Bytes` should have comment or be unexported (golint)
-func (branch *Branch) Bytes() []byte {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:216:1: exported method `Branch.Update` should have comment or be unexported (golint)
-func (branch *Branch) Update(other objectstorage.StorableObject) {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:220:1: exported method `Branch.ObjectStorageKey` should have comment or be unexported (golint)
-func (branch *Branch) ObjectStorageKey() []byte {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:224:1: exported method `Branch.ObjectStorageValue` should have comment or be unexported (golint)
-func (branch *Branch) ObjectStorageValue() []byte {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:237:9: range var `branchId` should be `branchID` (golint)
-	for _, branchId := range parentBranches {
-	       ^
-dapps\valuetransfers\packages\branchmanager\branch.go:244:1: error should be the last type when returning multiple items (golint)
-func (branch *Branch) UnmarshalObjectStorageValue(valueBytes []byte) (err error, consumedBytes int) {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:270:6: exported type `CachedBranch` should have comment or be unexported (golint)
-type CachedBranch struct {
-     ^
-dapps\valuetransfers\packages\branchmanager\branch.go:274:1: exported method `CachedBranch.Retain` should have comment or be unexported (golint)
-func (cachedBranches *CachedBranch) Retain() *CachedBranch {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:278:1: exported method `CachedBranch.Unwrap` should have comment or be unexported (golint)
-func (cachedBranches *CachedBranch) Unwrap() *Branch {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:281:9: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
-	} else {
-	       ^
-dapps\valuetransfers\packages\branchmanager\branch.go:284:10: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
-		} else {
-		       ^
-dapps\valuetransfers\packages\branchmanager\branch.go:290:1: exported method `CachedBranch.Consume` should have comment or be unexported (golint)
-func (cachedBranches *CachedBranch) Consume(consumer func(branch *Branch), forceRelease ...bool) (consumed bool) {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:296:6: exported type `CachedBranches` should have comment or be unexported (golint)
-type CachedBranches map[BranchId]*CachedBranch
-     ^
-dapps\valuetransfers\packages\branchmanager\branch.go:298:1: exported method `CachedBranches.Consume` should have comment or be unexported (golint)
-func (cachedBranches CachedBranches) Consume(consumer func(branch *Branch)) (consumed bool) {
-^
-dapps\valuetransfers\packages\branchmanager\branch.go:308:1: exported method `CachedBranches.Release` should have comment or be unexported (golint)
-func (cachedBranches CachedBranches) Release(force ...bool) {
-^
-dapps\valuetransfers\packages\branchmanager\branchid.go:13:6: exported type `BranchId` should have comment or be unexported (golint)
-type BranchId [BranchIdLength]byte
-     ^
-dapps\valuetransfers\packages\branchmanager\branchid.go:16:2: exported var `UndefinedBranchId` should have comment or be unexported (golint)
-	UndefinedBranchId = BranchId{}
+dapps\valuetransfers\packages\branchmanager\branchid.go:17:2: exported var `UndefinedBranchId` should have comment or be unexported (golint)
+	UndefinedBranchId = BranchID{}
 	^
-dapps\valuetransfers\packages\branchmanager\branchid.go:17:2: var `MasterBranchId` should be `MasterBranchID` (golint)
-	MasterBranchId    = BranchId{1}
+dapps\valuetransfers\packages\branchmanager\branchid.go:18:2: var `MasterBranchId` should be `MasterBranchID` (golint)
+	MasterBranchId    = BranchID{1}
 	^
-dapps\valuetransfers\packages\branchmanager\branchid.go:21:6: func NewBranchId should be NewBranchID (golint)
-func NewBranchId(transactionId transaction.Id) (branchId BranchId) {
+dapps\valuetransfers\packages\branchmanager\branchid.go:22:6: func NewBranchId should be NewBranchID (golint)
+func NewBranchId(transactionId transaction.Id) (branchId BranchID) {
      ^
-dapps\valuetransfers\packages\branchmanager\branchid.go:27:1: error should be the last type when returning multiple items (golint)
-func BranchIdFromBytes(bytes []byte) (result BranchId, err error, consumedBytes int) {
+dapps\valuetransfers\packages\branchmanager\branchid.go:28:1: error should be the last type when returning multiple items (golint)
+func BranchIdFromBytes(bytes []byte) (result BranchID, err error, consumedBytes int) {
 ^
-dapps\valuetransfers\packages\branchmanager\branchid.go:30:2: var `branchIdBytes` should be `branchIDBytes` (golint)
+dapps\valuetransfers\packages\branchmanager\branchid.go:31:2: var `branchIdBytes` should be `branchIDBytes` (golint)
 	branchIdBytes, idErr := marshalUtil.ReadBytes(BranchIdLength)
 	^
-dapps\valuetransfers\packages\branchmanager\branchid.go:42:1: exported function `BranchIdFromBase58` should have comment or be unexported (golint)
-func BranchIdFromBase58(base58String string) (branchId BranchId, err error) {
+dapps\valuetransfers\packages\branchmanager\branchid.go:43:1: exported function `BranchIdFromBase58` should have comment or be unexported (golint)
+func BranchIdFromBase58(base58String string) (branchId BranchID, err error) {
 ^
-dapps\valuetransfers\packages\branchmanager\branchid.go:62:1: exported function `ParseBranchId` should have comment or be unexported (golint)
-func ParseBranchId(marshalUtil *marshalutil.MarshalUtil) (result BranchId, err error) {
+dapps\valuetransfers\packages\branchmanager\branchid.go:63:1: exported function `ParseBranchId` should have comment or be unexported (golint)
+func ParseBranchId(marshalUtil *marshalutil.MarshalUtil) (result BranchID, err error) {
 ^
-dapps\valuetransfers\packages\branchmanager\branchid.go:63:6: var `branchIdBytes` should be `branchIDBytes` (golint)
+dapps\valuetransfers\packages\branchmanager\branchid.go:64:6: var `branchIdBytes` should be `branchIDBytes` (golint)
 	var branchIdBytes []byte
 	    ^
-dapps\valuetransfers\packages\branchmanager\branchid.go:85:7: const `BranchIdLength` should be `BranchIDLength` (golint)
+dapps\valuetransfers\packages\branchmanager\branchid.go:86:7: const `BranchIdLength` should be `BranchIDLength` (golint)
 const BranchIdLength = transaction.IdLength
       ^
-dapps\valuetransfers\packages\branchmanager\branchid.go:87:6: exported type `BranchIds` should have comment or be unexported (golint)
-type BranchIds map[BranchId]types.Empty
+dapps\valuetransfers\packages\branchmanager\branchid.go:88:6: exported type `BranchIds` should have comment or be unexported (golint)
+type BranchIds map[BranchID]types.Empty
      ^
-dapps\valuetransfers\packages\branchmanager\branchid.go:89:1: exported method `BranchIds.ToList` should have comment or be unexported (golint)
-func (branchIds BranchIds) ToList() (result []BranchId) {
+dapps\valuetransfers\packages\branchmanager\branchid.go:90:1: exported method `BranchIds.ToList` should have comment or be unexported (golint)
+func (branchIds BranchIds) ToList() (result []BranchID) {
 ^
-dapps\valuetransfers\packages\branchmanager\branchid.go:92:6: range var `branchId` should be `branchID` (golint)
+dapps\valuetransfers\packages\branchmanager\branchid.go:93:6: range var `branchId` should be `branchID` (golint)
 	for branchId := range branchIds {
 	    ^
 dapps\valuetransfers\packages\branchmanager\branchmanager.go:17:6: exported type `BranchManager` should have comment or be unexported (golint)
@@ -134,19 +50,19 @@ dapps\valuetransfers\packages\branchmanager\branchmanager.go:56:1: exported meth
 func (branchManager *BranchManager) AddBranch(branch *Branch) *CachedBranch {
 ^
 dapps\valuetransfers\packages\branchmanager\branchmanager.go:65:1: exported method `BranchManager.GetBranch` should have comment or be unexported (golint)
-func (branchManager *BranchManager) GetBranch(branchId BranchId) *CachedBranch {
+func (branchManager *BranchManager) GetBranch(branchId BranchID) *CachedBranch {
 ^
 dapps\valuetransfers\packages\branchmanager\branchmanager.go:69:1: exported method `BranchManager.InheritBranches` should have comment or be unexported (golint)
-func (branchManager *BranchManager) InheritBranches(branches ...BranchId) (cachedAggregatedBranch *CachedBranch, err error) {
+func (branchManager *BranchManager) InheritBranches(branches ...BranchID) (cachedAggregatedBranch *CachedBranch, err error) {
 ^
 dapps\valuetransfers\packages\branchmanager\branchmanager.go:99:2: var `aggregatedBranchId` should be `aggregatedBranchID` (golint)
 	aggregatedBranchId, aggregatedBranchParents, err := branchManager.determineAggregatedBranchDetails(deepestCommonAncestors)
 	^
 dapps\valuetransfers\packages\branchmanager\branchmanager.go:143:1: exported method `BranchManager.ChildBranches` should have comment or be unexported (golint)
-func (branchManager *BranchManager) ChildBranches(branchId BranchId) CachedChildBranches {
+func (branchManager *BranchManager) ChildBranches(branchId BranchID) CachedChildBranches {
 ^
 dapps\valuetransfers\packages\branchmanager\branchmanager.go:154:1: exported method `BranchManager.SetBranchPreferred` should have comment or be unexported (golint)
-func (branchManager *BranchManager) SetBranchPreferred(branchId BranchId, preferred bool) (modified bool, err error) {
+func (branchManager *BranchManager) SetBranchPreferred(branchId BranchID, preferred bool) (modified bool, err error) {
 ^
 dapps\valuetransfers\packages\branchmanager\branchmanager.go:177:6: range var `conflictId` should be `conflictID` (golint)
 	for conflictId := range branch.Conflicts() {
@@ -155,19 +71,22 @@ dapps\valuetransfers\packages\branchmanager\branchmanager.go:207:9: range var `p
 	for _, parentBranchId := range branch.ParentBranches() {
 	       ^
 dapps\valuetransfers\packages\branchmanager\branchmanager.go:270:110: method result `aggregatedBranchId` should be `aggregatedBranchID` (golint)
-func (branchManager *BranchManager) determineAggregatedBranchDetails(deepestCommonAncestors CachedBranches) (aggregatedBranchId BranchId, aggregatedBranchParents []BranchId, err error) {
+func (branchManager *BranchManager) determineAggregatedBranchDetails(deepestCommonAncestors CachedBranches) (aggregatedBranchId BranchID, aggregatedBranchParents []BranchID, err error) {
                                                                                                              ^
 dapps\valuetransfers\packages\branchmanager\branchmanager.go:275:6: range var `branchId` should be `branchID` (golint)
 	for branchId, cachedBranch := range deepestCommonAncestors {
 	    ^
 dapps\valuetransfers\packages\branchmanager\branchmanager.go:320:37: method generateAggregatedBranchId should be generateAggregatedBranchID (golint)
-func (branchManager *BranchManager) generateAggregatedBranchId(aggregatedBranches CachedBranches) BranchId {
+func (branchManager *BranchManager) generateAggregatedBranchId(aggregatedBranches CachedBranches) BranchID {
                                     ^
+dapps\valuetransfers\packages\branchmanager\branchmanager.go:323:6: range var `branchId` should be `branchID` (golint)
+	for branchId, cachedBranch := range aggregatedBranches {
+	    ^
 dapps\valuetransfers\packages\branchmanager\branchmanager.go:354:9: range var `parentRealityId` should be `parentRealityID` (golint)
 	for _, parentRealityId := range branch.ParentBranches() {
 	       ^
 dapps\valuetransfers\packages\branchmanager\branchmanager.go:366:4: var `parentBranchId` should be `parentBranchID` (golint)
-			parentBranchId := stack.Front().Value.(BranchId)
+			parentBranchId := stack.Front().Value.(BranchID)
 			^
 dapps\valuetransfers\packages\branchmanager\branchmanager.go:393:11: range var `parentRealityId` should be `parentRealityID` (golint)
 			for _, parentRealityId := range parentBranch.ParentBranches() {
@@ -179,16 +98,16 @@ dapps\valuetransfers\packages\branchmanager\branchmanager.go:516:9: range var `p
 	for _, parentRealityId := range branch.ParentBranches() {
 	       ^
 dapps\valuetransfers\packages\branchmanager\branchmanager.go:527:4: var `parentBranchId` should be `parentBranchID` (golint)
-			parentBranchId := stack.Front().Value.(BranchId)
+			parentBranchId := stack.Front().Value.(BranchID)
 			^
 dapps\valuetransfers\packages\branchmanager\child_branch.go:8:6: exported type `ChildBranch` should have comment or be unexported (golint)
 type ChildBranch struct {
      ^
 dapps\valuetransfers\packages\branchmanager\child_branch.go:11:2: struct field `parentId` should be `parentID` (golint)
-	parentId BranchId
+	parentId BranchID
 	^
 dapps\valuetransfers\packages\branchmanager\child_branch.go:15:1: exported function `NewChildBranch` should have comment or be unexported (golint)
-func NewChildBranch(parentId BranchId, id BranchId) *ChildBranch {
+func NewChildBranch(parentId BranchID, id BranchID) *ChildBranch {
 ^
 dapps\valuetransfers\packages\branchmanager\child_branch.go:22:1: exported function `ChildBranchFromBytes` should have comment or be unexported (golint)
 func ChildBranchFromBytes(bytes []byte, optionalTargetObject ...*ChildBranch) (result *ChildBranch, consumedBytes int, err error) {
@@ -199,17 +118,23 @@ func ChildBranchFromStorageKey(key []byte, optionalTargetObject ...*ChildBranch)
 dapps\valuetransfers\packages\branchmanager\child_branch.go:54:1: exported function `ParseChildBranch` should have comment or be unexported (golint)
 func ParseChildBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*ChildBranch) (result *ChildBranch, err error) {
 ^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:61:9: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
+	} else {
+	       ^
 dapps\valuetransfers\packages\branchmanager\child_branch.go:76:1: exported method `ChildBranch.ParentId` should have comment or be unexported (golint)
-func (childBranch *ChildBranch) ParentId() BranchId {
+func (childBranch *ChildBranch) ParentId() BranchID {
 ^
 dapps\valuetransfers\packages\branchmanager\child_branch.go:80:1: exported method `ChildBranch.Id` should have comment or be unexported (golint)
-func (childBranch *ChildBranch) Id() BranchId {
+func (childBranch *ChildBranch) Id() BranchID {
 ^
 dapps\valuetransfers\packages\branchmanager\child_branch.go:84:1: exported method `ChildBranch.ObjectStorageKey` should have comment or be unexported (golint)
 func (childBranch ChildBranch) ObjectStorageKey() []byte {
 ^
 dapps\valuetransfers\packages\branchmanager\child_branch.go:91:1: exported method `ChildBranch.ObjectStorageValue` should have comment or be unexported (golint)
 func (childBranch ChildBranch) ObjectStorageValue() []byte {
+^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:95:1: exported method `ChildBranch.UnmarshalObjectStorageValue` should have comment or be unexported (golint)
+func (childBranch ChildBranch) UnmarshalObjectStorageValue([]byte) (consumedBytes int, err error) {
 ^
 dapps\valuetransfers\packages\branchmanager\child_branch.go:99:1: exported method `ChildBranch.Update` should have comment or be unexported (golint)
 func (childBranch ChildBranch) Update(other objectstorage.StorableObject) {
@@ -223,6 +148,12 @@ func (cachedChildBranch *CachedChildBranch) Retain() *CachedChildBranch {
 dapps\valuetransfers\packages\branchmanager\child_branch.go:113:1: exported method `CachedChildBranch.Unwrap` should have comment or be unexported (golint)
 func (cachedChildBranch *CachedChildBranch) Unwrap() *ChildBranch {
 ^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:116:9: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
+	} else {
+	       ^
+dapps\valuetransfers\packages\branchmanager\child_branch.go:119:10: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
+		} else {
+		       ^
 dapps\valuetransfers\packages\branchmanager\child_branch.go:125:1: exported method `CachedChildBranch.Consume` should have comment or be unexported (golint)
 func (cachedChildBranch *CachedChildBranch) Consume(consumer func(childBranch *ChildBranch), forceRelease ...bool) (consumed bool) {
 ^
@@ -262,6 +193,9 @@ func (conflict *Conflict) ObjectStorageKey() []byte {
 dapps\valuetransfers\packages\branchmanager\conflict.go:87:1: exported method `Conflict.ObjectStorageValue` should have comment or be unexported (golint)
 func (conflict *Conflict) ObjectStorageValue() []byte {
 ^
+dapps\valuetransfers\packages\branchmanager\conflict.go:93:1: exported method `Conflict.UnmarshalObjectStorageValue` should have comment or be unexported (golint)
+func (conflict *Conflict) UnmarshalObjectStorageValue(valueBytes []byte) (consumedBytes int, err error) {
+^
 dapps\valuetransfers\packages\branchmanager\conflict.go:104:1: exported method `Conflict.Update` should have comment or be unexported (golint)
 func (conflict *Conflict) Update(other objectstorage.StorableObject) {
 ^
@@ -296,10 +230,10 @@ dapps\valuetransfers\packages\branchmanager\conflict_member.go:11:2: struct fiel
 	conflictId ConflictId
 	^
 dapps\valuetransfers\packages\branchmanager\conflict_member.go:12:2: struct field `branchId` should be `branchID` (golint)
-	branchId   BranchId
+	branchId   BranchID
 	^
 dapps\valuetransfers\packages\branchmanager\conflict_member.go:15:1: exported function `NewConflictMember` should have comment or be unexported (golint)
-func NewConflictMember(conflictId ConflictId, branchId BranchId) *ConflictMember {
+func NewConflictMember(conflictId ConflictId, branchId BranchID) *ConflictMember {
 ^
 dapps\valuetransfers\packages\branchmanager\conflict_member.go:22:1: exported function `ConflictMemberFromBytes` should have comment or be unexported (golint)
 func ConflictMemberFromBytes(bytes []byte, optionalTargetObject ...*ConflictMember) (result *ConflictMember, consumedBytes int, err error) {
@@ -314,13 +248,16 @@ dapps\valuetransfers\packages\branchmanager\conflict_member.go:76:1: exported me
 func (conflictMember *ConflictMember) ConflictId() ConflictId {
 ^
 dapps\valuetransfers\packages\branchmanager\conflict_member.go:80:1: exported method `ConflictMember.BranchId` should have comment or be unexported (golint)
-func (conflictMember *ConflictMember) BranchId() BranchId {
+func (conflictMember *ConflictMember) BranchId() BranchID {
 ^
 dapps\valuetransfers\packages\branchmanager\conflict_member.go:84:1: exported method `ConflictMember.ObjectStorageKey` should have comment or be unexported (golint)
 func (conflictMember ConflictMember) ObjectStorageKey() []byte {
 ^
 dapps\valuetransfers\packages\branchmanager\conflict_member.go:91:1: exported method `ConflictMember.ObjectStorageValue` should have comment or be unexported (golint)
 func (conflictMember ConflictMember) ObjectStorageValue() []byte {
+^
+dapps\valuetransfers\packages\branchmanager\conflict_member.go:95:1: exported method `ConflictMember.UnmarshalObjectStorageValue` should have comment or be unexported (golint)
+func (conflictMember ConflictMember) UnmarshalObjectStorageValue([]byte) (consumedBytes int, err error) {
 ^
 dapps\valuetransfers\packages\branchmanager\conflict_member.go:99:1: exported method `ConflictMember.Update` should have comment or be unexported (golint)
 func (conflictMember ConflictMember) Update(other objectstorage.StorableObject) {
@@ -409,9 +346,6 @@ var ColorIOTA Color = [32]byte{}
 dapps\valuetransfers\packages\balance\color.go:38:5: exported var `ColorNew` should have comment or be unexported (golint)
 var ColorNew = [32]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
     ^
-dapps\valuetransfers\packages\payload\id.go:11:1: comment on exported type ID should be of the form "ID ..." (with optional leading article) (golint)
-// Id represents the hash of a payload that is used to identify the given payload.
-^
 dapps\valuetransfers\packages\payload\id.go:15:6: func NewId should be NewID (golint)
 func NewId(base58EncodedString string) (result ID, err error) {
      ^
@@ -490,6 +424,9 @@ func (payload *Payload) Type() payload.Type {
 dapps\valuetransfers\packages\payload\payload.go:159:1: exported method `Payload.ObjectStorageValue` should have comment or be unexported (golint)
 func (payload *Payload) ObjectStorageValue() (bytes []byte) {
 ^
+dapps\valuetransfers\packages\payload\payload.go:199:1: exported method `Payload.UnmarshalObjectStorageValue` should have comment or be unexported (golint)
+func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
+^
 dapps\valuetransfers\packages\payload\payload.go:233:1: exported method `Payload.Unmarshal` should have comment or be unexported (golint)
 func (payload *Payload) Unmarshal(data []byte) (err error) {
 ^
@@ -511,6 +448,9 @@ dapps\valuetransfers\packages\tangle\missingpayload.go:17:2: struct field `paylo
 dapps\valuetransfers\packages\tangle\missingpayload.go:22:24: func parameter `payloadId` should be `payloadID` (golint)
 func NewMissingPayload(payloadId payload.ID) *MissingPayload {
                        ^
+dapps\valuetransfers\packages\tangle\missingpayload.go:31:1: error should be the last type when returning multiple items (golint)
+func MissingPayloadFromBytes(bytes []byte, optionalTargetObject ...*MissingPayload) (result *MissingPayload, err error, consumedBytes int) {
+^
 dapps\valuetransfers\packages\tangle\missingpayload.go:39:1: exported function `ParseMissingPayload` should have comment or be unexported (golint)
 func ParseMissingPayload(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*MissingPayload) (result *MissingPayload, err error) {
 ^
@@ -574,6 +514,9 @@ func (tangle *Tangle) ForeachApprovers(payloadId payload.ID, consume func(payloa
 dapps\valuetransfers\packages\tangle\tangle.go:196:3: var `approvingPayloadId` should be `approvingPayloadID` (golint)
 		approvingPayloadId := approver.GetApprovingPayloadId()
 		^
+dapps\valuetransfers\packages\transaction\id.go:11:1: comment on exported type Id should be of the form "Id ..." (with optional leading article) (golint)
+// ID is the data type that represents the identifier for a Transaction.
+^
 dapps\valuetransfers\packages\transaction\id.go:12:6: type `Id` should be `ID` (golint)
 type Id [IdLength]byte
      ^
@@ -649,6 +592,9 @@ func ParseOutputId(marshalUtil *marshalutil.MarshalUtil) (OutputId, error) {
 dapps\valuetransfers\packages\transaction\outputid.go:40:5: var `outputId` should be `outputID` (golint)
 	if outputId, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return OutputIdFromBytes(data) }); err != nil {
 	   ^
+dapps\valuetransfers\packages\transaction\outputid.go:54:1: comment on exported method `OutputId.TransactionId` should be of the form `TransactionId ...` (golint)
+// TransactionID returns the transaction id part of an OutputId.
+^
 dapps\valuetransfers\packages\transaction\outputid.go:55:26: method TransactionId should be TransactionID (golint)
 func (outputId OutputId) TransactionId() (transactionId Id) {
                          ^
@@ -733,165 +679,6 @@ func (transaction *Transaction) ObjectStorageKey() []byte {
 dapps\valuetransfers\packages\transaction\transaction.go:319:1: exported method `Transaction.Update` should have comment or be unexported (golint)
 func (transaction *Transaction) Update(other objectstorage.StorableObject) {
 ^
-dapps\valuetransfers\packages\utxodag\attachment.go:17:2: struct field `transactionId` should be `transactionID` (golint)
-	transactionId transaction.Id
-	^
-dapps\valuetransfers\packages\utxodag\attachment.go:18:2: struct field `payloadId` should be `payloadID` (golint)
-	payloadId     payload.ID
-	^
-dapps\valuetransfers\packages\utxodag\attachment.go:24:20: func parameter `transactionId` should be `transactionID` (golint)
-func NewAttachment(transactionId transaction.Id, payloadId payload.ID) *Attachment {
-                   ^
-dapps\valuetransfers\packages\utxodag\attachment.go:46:1: comment on exported function `ParseAttachment` should be of the form `ParseAttachment ...` (golint)
-// Parse is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil package.
-^
-dapps\valuetransfers\packages\utxodag\attachment.go:97:31: method TransactionId should be TransactionID (golint)
-func (attachment *Attachment) TransactionId() transaction.Id {
-                              ^
-dapps\valuetransfers\packages\utxodag\attachment.go:102:31: method PayloadId should be PayloadID (golint)
-func (attachment *Attachment) PayloadId() payload.ID {
-                              ^
-dapps\valuetransfers\packages\utxodag\attachment.go:149:6: exported type `CachedAttachment` should have comment or be unexported (golint)
-type CachedAttachment struct {
-     ^
-dapps\valuetransfers\packages\utxodag\attachment.go:158:1: exported method `CachedAttachment.Unwrap` should have comment or be unexported (golint)
-func (cachedAttachment *CachedAttachment) Unwrap() *Attachment {
-^
-dapps\valuetransfers\packages\utxodag\attachment.go:170:1: exported method `CachedAttachment.Consume` should have comment or be unexported (golint)
-func (cachedAttachment *CachedAttachment) Consume(consumer func(attachment *Attachment)) (consumed bool) {
-^
-dapps\valuetransfers\packages\utxodag\attachment.go:176:6: exported type `CachedAttachments` should have comment or be unexported (golint)
-type CachedAttachments []*CachedAttachment
-     ^
-dapps\valuetransfers\packages\utxodag\attachment.go:178:1: exported method `CachedAttachments.Consume` should have comment or be unexported (golint)
-func (cachedAttachments CachedAttachments) Consume(consumer func(attachment *Attachment)) (consumed bool) {
-^
-dapps\valuetransfers\packages\utxodag\consumer.go:12:5: exported var `ConsumerPartitionKeys` should have comment or be unexported (golint)
-var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{address.Length, transaction.IdLength, transaction.IdLength}...)
-    ^
-dapps\valuetransfers\packages\utxodag\consumer.go:20:2: struct field `transactionId` should be `transactionID` (golint)
-	transactionId transaction.Id
-	^
-dapps\valuetransfers\packages\utxodag\consumer.go:26:54: func parameter `transactionId` should be `transactionID` (golint)
-func NewConsumer(consumedInput transaction.OutputId, transactionId transaction.Id) *Consumer {
-                                                     ^
-dapps\valuetransfers\packages\utxodag\consumer.go:48:1: exported function `ParseConsumer` should have comment or be unexported (golint)
-func ParseConsumer(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Consumer) (result *Consumer, err error) {
-^
-dapps\valuetransfers\packages\utxodag\consumer.go:70:1: exported function `ConsumerFromStorageKey` should have comment or be unexported (golint)
-func ConsumerFromStorageKey(key []byte, optionalTargetObject ...*Consumer) (result *Consumer, consumedBytes int, err error) {
-^
-dapps\valuetransfers\packages\utxodag\consumer.go:101:27: method TransactionId should be TransactionID (golint)
-func (consumer *Consumer) TransactionId() transaction.Id {
-                          ^
-dapps\valuetransfers\packages\utxodag\consumer.go:148:6: exported type `CachedConsumer` should have comment or be unexported (golint)
-type CachedConsumer struct {
-     ^
-dapps\valuetransfers\packages\utxodag\consumer.go:152:1: exported method `CachedConsumer.Unwrap` should have comment or be unexported (golint)
-func (cachedConsumer *CachedConsumer) Unwrap() *Consumer {
-^
-dapps\valuetransfers\packages\utxodag\consumer.go:164:1: exported method `CachedConsumer.Consume` should have comment or be unexported (golint)
-func (cachedConsumer *CachedConsumer) Consume(consumer func(consumer *Consumer)) (consumed bool) {
-^
-dapps\valuetransfers\packages\utxodag\consumer.go:170:6: exported type `CachedConsumers` should have comment or be unexported (golint)
-type CachedConsumers []*CachedConsumer
-     ^
-dapps\valuetransfers\packages\utxodag\consumer.go:172:1: exported method `CachedConsumers.Consume` should have comment or be unexported (golint)
-func (cachedConsumers CachedConsumers) Consume(consumer func(consumer *Consumer)) (consumed bool) {
-^
-dapps\valuetransfers\packages\utxodag\events.go:10:6: exported type `Events` should have comment or be unexported (golint)
-type Events struct {
-     ^
-dapps\valuetransfers\packages\utxodag\missingoutput.go:13:5: exported var `MissingOutputKeyPartitions` should have comment or be unexported (golint)
-var MissingOutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, transaction.IdLength}...)
-    ^
-dapps\valuetransfers\packages\utxodag\missingoutput.go:15:1: comment on exported type MissingOutput should be of the form "MissingOutput ..." (with optional leading article) (golint)
-// MissingPayload represents an Output that was referenced by a Transaction, but that is missing in our object storage.
-^
-dapps\valuetransfers\packages\utxodag\missingoutput.go:19:2: struct field `outputId` should be `outputID` (golint)
-	outputId     transaction.OutputId
-	^
-dapps\valuetransfers\packages\utxodag\missingoutput.go:24:23: func parameter `outputId` should be `outputID` (golint)
-func NewMissingOutput(outputId transaction.OutputId) *MissingOutput {
-                      ^
-dapps\valuetransfers\packages\utxodag\missingoutput.go:41:1: exported function `ParseMissingOutput` should have comment or be unexported (golint)
-func ParseMissingOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*MissingOutput) (result *MissingOutput, err error) {
-^
-dapps\valuetransfers\packages\utxodag\missingoutput.go:86:37: method Id should be ID (golint)
-func (missingOutput *MissingOutput) Id() transaction.OutputId {
-                                    ^
-dapps\valuetransfers\packages\utxodag\output.go:17:5: exported var `OutputKeyPartitions` should have comment or be unexported (golint)
-var OutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, transaction.IdLength}...)
-    ^
-dapps\valuetransfers\packages\utxodag\output.go:22:2: struct field `transactionId` should be `transactionID` (golint)
-	transactionId      transaction.Id
-	^
-dapps\valuetransfers\packages\utxodag\output.go:23:2: struct field `branchId` should be `branchID` (golint)
-	branchId           branchmanager.BranchId
-	^
-dapps\valuetransfers\packages\utxodag\output.go:30:2: struct field `branchIdMutex` should be `branchIDMutex` (golint)
-	branchIdMutex           sync.RWMutex
-	^
-dapps\valuetransfers\packages\utxodag\output.go:40:41: func parameter `transactionId` should be `transactionID` (golint)
-func NewOutput(address address.Address, transactionId transaction.Id, branchId branchmanager.BranchId, balances []*balance.Balance) *Output {
-                                        ^
-dapps\valuetransfers\packages\utxodag\output.go:63:1: exported function `ParseOutput` should have comment or be unexported (golint)
-func ParseOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Output) (result *Output, err error) {
-^
-dapps\valuetransfers\packages\utxodag\output.go:115:1: exported method `Output.Id` should have comment or be unexported (golint)
-func (output *Output) Id() transaction.OutputId {
-^
-dapps\valuetransfers\packages\utxodag\output.go:130:23: method BranchId should be BranchID (golint)
-func (output *Output) BranchId() branchmanager.BranchId {
-                      ^
-dapps\valuetransfers\packages\utxodag\output.go:137:1: exported method `Output.SetBranchId` should have comment or be unexported (golint)
-func (output *Output) SetBranchId(branchId branchmanager.BranchId) (modified bool) {
-^
-dapps\valuetransfers\packages\utxodag\output.go:167:1: exported method `Output.SetSolid` should have comment or be unexported (golint)
-func (output *Output) SetSolid(solid bool) (modified bool) {
-^
-dapps\valuetransfers\packages\utxodag\output.go:194:1: exported method `Output.SolidificationTime` should have comment or be unexported (golint)
-func (output *Output) SolidificationTime() time.Time {
-^
-dapps\valuetransfers\packages\utxodag\output.go:201:1: exported method `Output.RegisterConsumer` should have comment or be unexported (golint)
-func (output *Output) RegisterConsumer(consumer transaction.Id) (consumerCount int, firstConsumerId transaction.Id) {
-^
-dapps\valuetransfers\packages\utxodag\output.go:272:9: `if` block ends with a `return` statement, so drop this `else` and outdent its block (golint)
-	} else {
-	       ^
-dapps\valuetransfers\packages\utxodag\output.go:307:6: exported type `CachedOutput` should have comment or be unexported (golint)
-type CachedOutput struct {
-     ^
-dapps\valuetransfers\packages\utxodag\output.go:311:1: exported method `CachedOutput.Unwrap` should have comment or be unexported (golint)
-func (cachedOutput *CachedOutput) Unwrap() *Output {
-^
-dapps\valuetransfers\packages\utxodag\output.go:323:1: exported method `CachedOutput.Consume` should have comment or be unexported (golint)
-func (cachedOutput *CachedOutput) Consume(consumer func(output *Output)) (consumed bool) {
-^
-dapps\valuetransfers\packages\utxodag\output.go:329:6: exported type `CachedOutputs` should have comment or be unexported (golint)
-type CachedOutputs map[transaction.OutputId]*CachedOutput
-     ^
-dapps\valuetransfers\packages\utxodag\output.go:331:1: exported method `CachedOutputs.Consume` should have comment or be unexported (golint)
-func (cachedOutputs CachedOutputs) Consume(consumer func(output *Output)) (consumed bool) {
-^
-dapps\valuetransfers\packages\utxodag\output.go:341:1: exported method `CachedOutputs.Release` should have comment or be unexported (golint)
-func (cachedOutputs CachedOutputs) Release(force ...bool) {
-^
-dapps\valuetransfers\packages\utxodag\transactionmetadata.go:21:2: struct field `branchId` should be `branchID` (golint)
-	branchId           branchmanager.BranchId
-	^
-dapps\valuetransfers\packages\utxodag\transactionmetadata.go:27:2: struct field `branchIdMutex` should be `branchIDMutex` (golint)
-	branchIdMutex           sync.RWMutex
-	^
-dapps\valuetransfers\packages\utxodag\transactionmetadata.go:75:1: comment on exported function `ParseTransactionMetadata` should be of the form `ParseTransactionMetadata ...` (golint)
-// Parse is a wrapper for simplified unmarshaling of TransactionMetadata objects from a byte stream using the marshalUtil package.
-^
-dapps\valuetransfers\packages\utxodag\transactionmetadata.go:103:1: exported method `TransactionMetadata.BranchId` should have comment or be unexported (golint)
-func (transactionMetadata *TransactionMetadata) BranchId() branchmanager.BranchId {
-^
-dapps\valuetransfers\packages\utxodag\transactionmetadata.go:110:1: exported method `TransactionMetadata.SetBranchId` should have comment or be unexported (golint)
-func (transactionMetadata *TransactionMetadata) SetBranchId(branchId branchmanager.BranchId) (modified bool) {
-^
-dapps\valuetransfers\packages\utxodag\transactionmetadata.go:170:1: exported method `TransactionMetadata.SetFinalized` should have comment or be unexported (golint)
-func (transactionMetadata *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
+dapps\valuetransfers\packages\transaction\transaction.go:328:1: exported method `Transaction.UnmarshalObjectStorageValue` should have comment or be unexported (golint)
+func (transaction *Transaction) UnmarshalObjectStorageValue(bytes []byte) (consumedBytes int, err error) {
 ^

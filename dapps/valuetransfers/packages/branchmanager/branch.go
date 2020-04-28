@@ -17,8 +17,8 @@ import (
 type Branch struct {
 	objectstorage.StorableObjectFlags
 
-	id             BranchId
-	parentBranches []BranchId
+	id             BranchID
+	parentBranches []BranchID
 	conflicts      map[ConflictId]types.Empty
 	preferred      bool
 	liked          bool
@@ -29,7 +29,7 @@ type Branch struct {
 }
 
 // NewBranch is the constructor of a branch and creates a new Branch object from the given details.
-func NewBranch(id BranchId, parentBranches []BranchId, conflictingInputs []transaction.OutputId) *Branch {
+func NewBranch(id BranchID, parentBranches []BranchID, conflictingInputs []transaction.OutputId) *Branch {
 	conflictingInputsMap := make(map[ConflictId]types.Empty)
 	for _, conflictingInput := range conflictingInputs {
 		conflictingInputsMap[conflictingInput] = types.Void
@@ -98,12 +98,12 @@ func ParseBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*
 
 // ID returns the identifier of the Branch (usually the transaction.ID that created the branch - unless its an
 // aggregated Branch).
-func (branch *Branch) ID() BranchId {
+func (branch *Branch) ID() BranchID {
 	return branch.id
 }
 
 // ParentBranches returns the identifiers of the parents of this Branch.
-func (branch *Branch) ParentBranches() []BranchId {
+func (branch *Branch) ParentBranches() []BranchID {
 	return branch.parentBranches
 }
 
@@ -258,6 +258,7 @@ func (branch *Branch) ObjectStorageValue() []byte {
 	return marshalUtil.Bytes()
 }
 
+// UnmarshalObjectStorageValue unmarshals the bytes that are stored in the value of the objectstorage.
 func (branch *Branch) UnmarshalObjectStorageValue(valueBytes []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(valueBytes)
 	branch.preferred, err = marshalUtil.ReadBool()
@@ -272,7 +273,7 @@ func (branch *Branch) UnmarshalObjectStorageValue(valueBytes []byte) (consumedBy
 	if err != nil {
 		return
 	}
-	branch.parentBranches = make([]BranchId, parentBranchCount)
+	branch.parentBranches = make([]BranchID, parentBranchCount)
 	for i := uint32(0); i < parentBranchCount; i++ {
 		branch.parentBranches[i], err = ParseBranchId(marshalUtil)
 		if err != nil {
@@ -284,34 +285,46 @@ func (branch *Branch) UnmarshalObjectStorageValue(valueBytes []byte) (consumedBy
 	return
 }
 
+// CachedBranch is a wrapper for the generic CachedObject returned by the objectstorage, that overrides the accessor
+// methods, with a type-casted one.
 type CachedBranch struct {
 	objectstorage.CachedObject
 }
 
-func (cachedBranches *CachedBranch) Retain() *CachedBranch {
-	return &CachedBranch{cachedBranches.CachedObject.Retain()}
+// Retain marks this CachedObject to still be in use by the program.
+func (cachedBranch *CachedBranch) Retain() *CachedBranch {
+	return &CachedBranch{cachedBranch.CachedObject.Retain()}
 }
 
-func (cachedBranches *CachedBranch) Unwrap() *Branch {
-	if untypedObject := cachedBranches.Get(); untypedObject == nil {
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (cachedBranch *CachedBranch) Unwrap() *Branch {
+	untypedObject := cachedBranch.Get()
+	if untypedObject == nil {
 		return nil
-	} else {
-		if typedObject := untypedObject.(*Branch); typedObject == nil || typedObject.IsDeleted() {
-			return nil
-		} else {
-			return typedObject
-		}
 	}
+
+	typedObject := untypedObject.(*Branch)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
 }
 
-func (cachedBranches *CachedBranch) Consume(consumer func(branch *Branch), forceRelease ...bool) (consumed bool) {
-	return cachedBranches.CachedObject.Consume(func(object objectstorage.StorableObject) {
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (cachedBranch *CachedBranch) Consume(consumer func(branch *Branch), forceRelease ...bool) (consumed bool) {
+	return cachedBranch.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Branch))
 	}, forceRelease...)
 }
 
-type CachedBranches map[BranchId]*CachedBranch
+// CachedBranches represents a collection of CachedBranches.
+type CachedBranches map[BranchID]*CachedBranch
 
+// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
+// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
+// least one object was consumed.
 func (cachedBranches CachedBranches) Consume(consumer func(branch *Branch)) (consumed bool) {
 	for _, cachedBranch := range cachedBranches {
 		consumed = cachedBranch.Consume(func(output *Branch) {
@@ -322,6 +335,7 @@ func (cachedBranches CachedBranches) Consume(consumer func(branch *Branch)) (con
 	return
 }
 
+// Release is a utility function, that allows us to release all CachedObjects in the collection.
 func (cachedBranches CachedBranches) Release(force ...bool) {
 	for _, cachedBranch := range cachedBranches {
 		cachedBranch.Release(force...)

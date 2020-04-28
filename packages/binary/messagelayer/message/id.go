@@ -10,7 +10,7 @@ import (
 // ContentId identifies the content of a message without its trunk/branch ids.
 type ContentId = Id
 
-// Id identifies a message in its entirety. Unlike the sole content id, it also incorporates
+// ID identifies a message in its entirety. Unlike the sole content id, it also incorporates
 // the trunk and branch ids.
 type Id [IdLength]byte
 

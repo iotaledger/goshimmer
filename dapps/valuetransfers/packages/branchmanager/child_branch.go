@@ -8,11 +8,11 @@ import (
 type ChildBranch struct {
 	objectstorage.StorableObjectFlags
 
-	parentId BranchId
-	id       BranchId
+	parentId BranchID
+	id       BranchID
 }
 
-func NewChildBranch(parentId BranchId, id BranchId) *ChildBranch {
+func NewChildBranch(parentId BranchID, id BranchID) *ChildBranch {
 	return &ChildBranch{
 		parentId: parentId,
 		id:       id,
@@ -73,11 +73,11 @@ func ParseChildBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject
 	return
 }
 
-func (childBranch *ChildBranch) ParentId() BranchId {
+func (childBranch *ChildBranch) ParentId() BranchID {
 	return childBranch.parentId
 }
 
-func (childBranch *ChildBranch) Id() BranchId {
+func (childBranch *ChildBranch) Id() BranchID {
 	return childBranch.id
 }
 

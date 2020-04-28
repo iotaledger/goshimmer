@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 )
 
+// ConsumerPartitionKeys defines the "layout" of the key. This enables prefix iterations in the objectstorage.
 var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{address.Length, transaction.IdLength, transaction.IdLength}...)
 
 // Consumer stores the information which transaction output was consumed by which transaction. We need this to be able
@@ -17,27 +18,27 @@ type Consumer struct {
 	objectstorage.StorableObjectFlags
 
 	consumedInput transaction.OutputId
-	transactionId transaction.Id
+	transactionID transaction.Id
 
 	storageKey []byte
 }
 
 // NewConsumer creates a Consumer object with the given information.
-func NewConsumer(consumedInput transaction.OutputId, transactionId transaction.Id) *Consumer {
+func NewConsumer(consumedInput transaction.OutputId, transactionID transaction.Id) *Consumer {
 	return &Consumer{
 		consumedInput: consumedInput,
-		transactionId: transactionId,
+		transactionID: transactionID,
 
 		storageKey: marshalutil.New(ConsumerLength).
 			WriteBytes(consumedInput.Bytes()).
-			WriteBytes(transactionId.Bytes()).
+			WriteBytes(transactionID.Bytes()).
 			Bytes(),
 	}
 }
 
 // ConsumerFromBytes unmarshals a Consumer from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
-func ConsumerFromBytes(bytes []byte, optionalTargetObject ...*Consumer) (result *Consumer, err error, consumedBytes int) {
+func ConsumerFromBytes(bytes []byte, optionalTargetObject ...*Consumer) (result *Consumer, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParseConsumer(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
@@ -45,16 +46,18 @@ func ConsumerFromBytes(bytes []byte, optionalTargetObject ...*Consumer) (result 
 	return
 }
 
+// ParseConsumer unmarshals a Consumer using the given marshalUtil (for easier marshaling/unmarshaling).
 func ParseConsumer(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Consumer) (result *Consumer, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
+	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return ConsumerFromStorageKey(data, optionalTargetObject...)
-	}); parseErr != nil {
+	})
+	if parseErr != nil {
 		err = parseErr
 
 		return
-	} else {
-		result = parsedObject.(*Consumer)
 	}
+
+	result = parsedObject.(*Consumer)
 
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
@@ -67,6 +70,8 @@ func ParseConsumer(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ..
 	return
 }
 
+// ConsumerFromStorageKey is a factory method that creates a new Consumer instance from a storage key of the
+// objectstorage. It is used by the objectstorage, to create new instances of this entity.
 func ConsumerFromStorageKey(key []byte, optionalTargetObject ...*Consumer) (result *Consumer, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
@@ -83,7 +88,7 @@ func ConsumerFromStorageKey(key []byte, optionalTargetObject ...*Consumer) (resu
 	if result.consumedInput, err = transaction.ParseOutputId(marshalUtil); err != nil {
 		return
 	}
-	if result.transactionId, err = transaction.ParseId(marshalUtil); err != nil {
+	if result.transactionID, err = transaction.ParseId(marshalUtil); err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -97,9 +102,9 @@ func (consumer *Consumer) ConsumedInput() transaction.OutputId {
 	return consumer.consumedInput
 }
 
-// TransactionId returns the transaction Id of this Consumer.
-func (consumer *Consumer) TransactionId() transaction.Id {
-	return consumer.transactionId
+// TransactionID returns the transaction ID of this Consumer.
+func (consumer *Consumer) TransactionID() transaction.Id {
+	return consumer.transactionID
 }
 
 // Bytes marshals the Consumer into a sequence of bytes.
@@ -111,7 +116,7 @@ func (consumer *Consumer) Bytes() []byte {
 func (consumer *Consumer) String() string {
 	return stringify.Struct("Consumer",
 		stringify.StructField("consumedInput", consumer.ConsumedInput()),
-		stringify.StructField("transactionId", consumer.TransactionId()),
+		stringify.StructField("transactionId", consumer.TransactionID()),
 	)
 }
 
@@ -145,30 +150,41 @@ const ConsumerLength = transaction.OutputIdLength + transaction.IdLength
 
 // region CachedConsumer /////////////////////////////////////////////////////////////////////////////////////////////////
 
+// CachedConsumer is a wrapper for the generic CachedObject returned by the objectstorage, that overrides the accessor
+// methods, with a type-casted one.
 type CachedConsumer struct {
 	objectstorage.CachedObject
 }
 
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
 func (cachedConsumer *CachedConsumer) Unwrap() *Consumer {
-	if untypedObject := cachedConsumer.Get(); untypedObject == nil {
+	untypedObject := cachedConsumer.Get()
+	if untypedObject == nil {
 		return nil
-	} else {
-		if typedObject := untypedObject.(*Consumer); typedObject == nil || typedObject.IsDeleted() {
-			return nil
-		} else {
-			return typedObject
-		}
 	}
+
+	typedObject := untypedObject.(*Consumer)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
 }
 
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
 func (cachedConsumer *CachedConsumer) Consume(consumer func(consumer *Consumer)) (consumed bool) {
 	return cachedConsumer.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Consumer))
 	})
 }
 
+// CachedConsumers represents a collection of CachedConsumers.
 type CachedConsumers []*CachedConsumer
 
+// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
+// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
+// least one object was consumed.
 func (cachedConsumers CachedConsumers) Consume(consumer func(consumer *Consumer)) (consumed bool) {
 	for _, cachedConsumer := range cachedConsumers {
 		consumed = cachedConsumer.Consume(func(output *Consumer) {

@@ -8,7 +8,7 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-// Id is the data type that represents the identifier for a Transaction.
+// ID is the data type that represents the identifier for a Transaction.
 type Id [IdLength]byte
 
 // IdFromBase58 creates an id from a base58 encoded string.
@@ -32,7 +32,7 @@ func IdFromBase58(base58String string) (id Id, err error) {
 	return
 }
 
-// IdFromBytes unmarshals an Id from a sequence of bytes.
+// IdFromBytes unmarshals an ID from a sequence of bytes.
 func IdFromBytes(bytes []byte) (result Id, consumedBytes int, err error) {
 	// parse the bytes
 	marshalUtil := marshalutil.New(bytes)
@@ -71,15 +71,15 @@ func RandomId() (id Id) {
 	return
 }
 
-// Bytes marshals the Id into a sequence of bytes.
+// Bytes marshals the ID into a sequence of bytes.
 func (id Id) Bytes() []byte {
 	return id[:]
 }
 
-// String creates a human readable version of the Id (for debug purposes).
+// String creates a human readable version of the ID (for debug purposes).
 func (id Id) String() string {
 	return base58.Encode(id[:])
 }
 
-// IdLength contains the amount of bytes that a marshaled version of the Id contains.
+// IdLength contains the amount of bytes that a marshaled version of the ID contains.
 const IdLength = 32

@@ -7,11 +7,17 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
+// Events is a container for the different kind of events of the UTXODAG.
 type Events struct {
-	// Get's called whenever a transaction
+	// TransactionReceived gets triggered whenever a transaction was received for the first time (not solid yet).
 	TransactionReceived *events.Event
-	TransactionBooked   *events.Event
-	Fork                *events.Event
+
+	// TransactionBooked gets triggered whenever a transactions becomes solid and gets booked into a particular branch.
+	TransactionBooked *events.Event
+
+	// Fork gets triggered when a previously un-conflicting transaction get's some of its inputs double spend, so that a
+	// new Branch is created.
+	Fork *events.Event
 }
 
 func newEvents() *Events {

@@ -24,12 +24,12 @@ func TestNewOutput(t *testing.T) {
 	randomAddress := address.Random()
 	randomTransactionID := transaction.RandomId()
 
-	output := NewOutput(randomAddress, randomTransactionID, branchmanager.MasterBranchId, []*balance.Balance{
+	output := NewOutput(randomAddress, randomTransactionID, branchmanager.MasterBranchID, []*balance.Balance{
 		balance.New(balance.ColorIOTA, 1337),
 	})
 
 	assert.Equal(t, randomAddress, output.Address())
-	assert.Equal(t, randomTransactionID, output.TransactionId())
+	assert.Equal(t, randomTransactionID, output.TransactionID())
 	assert.Equal(t, false, output.Solid())
 	assert.Equal(t, time.Time{}, output.SolidificationTime())
 	assert.Equal(t, []*balance.Balance{
@@ -47,7 +47,7 @@ func TestNewOutput(t *testing.T) {
 	}
 
 	assert.Equal(t, output.Address(), clonedOutput.Address())
-	assert.Equal(t, output.TransactionId(), clonedOutput.TransactionId())
+	assert.Equal(t, output.TransactionID(), clonedOutput.TransactionID())
 	assert.Equal(t, output.Solid(), clonedOutput.Solid())
 	assert.Equal(t, output.SolidificationTime().Round(time.Second), clonedOutput.SolidificationTime().Round(time.Second))
 	assert.Equal(t, output.Balances(), clonedOutput.Balances())
@@ -59,8 +59,8 @@ func TestAttachment(t *testing.T) {
 
 	attachment := NewAttachment(transactionID, payloadID)
 
-	assert.Equal(t, transactionID, attachment.TransactionId())
-	assert.Equal(t, payloadID, attachment.PayloadId())
+	assert.Equal(t, transactionID, attachment.TransactionID())
+	assert.Equal(t, payloadID, attachment.PayloadID())
 
 	clonedAttachment, consumedBytes, err := AttachmentFromBytes(attachment.Bytes())
 	if err != nil {
@@ -68,8 +68,8 @@ func TestAttachment(t *testing.T) {
 	}
 
 	assert.Equal(t, AttachmentLength, consumedBytes)
-	assert.Equal(t, transactionID, clonedAttachment.TransactionId())
-	assert.Equal(t, payloadID, clonedAttachment.PayloadId())
+	assert.Equal(t, transactionID, clonedAttachment.TransactionID())
+	assert.Equal(t, payloadID, clonedAttachment.PayloadID())
 }
 
 func TestTangle_AttachPayload(t *testing.T) {
@@ -94,11 +94,11 @@ func TestTangle_AttachPayload(t *testing.T) {
 	transferID1, _ := transaction.IdFromBase58("8opHzTAnfzRpPEx21XtnrVTX28YQuCpAjcn1PczScKh")
 	transferID2, _ := transaction.IdFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
 
-	input1 := NewOutput(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferID1, branchmanager.MasterBranchId, []*balance.Balance{
+	input1 := NewOutput(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferID1, branchmanager.MasterBranchID, []*balance.Balance{
 		balance.New(balance.ColorIOTA, 337),
 	})
 	input1.SetSolid(true)
-	input2 := NewOutput(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferID2, branchmanager.MasterBranchId, []*balance.Balance{
+	input2 := NewOutput(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferID2, branchmanager.MasterBranchID, []*balance.Balance{
 		balance.New(balance.ColorIOTA, 1000),
 	})
 	input2.SetSolid(true)
@@ -112,8 +112,8 @@ func TestTangle_AttachPayload(t *testing.T) {
 	// attach first spend
 	valueTangle.AttachPayload(payload.New(payload.GenesisId, payload.GenesisId, transaction.New(
 		transaction.NewInputs(
-			input1.Id(),
-			input2.Id(),
+			input1.ID(),
+			input2.ID(),
 		),
 
 		transaction.NewOutputs(map[address.Address][]*balance.Balance{
@@ -126,8 +126,8 @@ func TestTangle_AttachPayload(t *testing.T) {
 	// attach double spend
 	valueTangle.AttachPayload(payload.New(payload.GenesisId, payload.GenesisId, transaction.New(
 		transaction.NewInputs(
-			input1.Id(),
-			input2.Id(),
+			input1.ID(),
+			input2.ID(),
 		),
 
 		transaction.NewOutputs(map[address.Address][]*balance.Balance{

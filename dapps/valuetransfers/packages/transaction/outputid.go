@@ -51,7 +51,7 @@ func (outputId OutputId) Address() (address address.Address) {
 	return
 }
 
-// TransactionId returns the transaction id part of an OutputId.
+// TransactionID returns the transaction id part of an OutputId.
 func (outputId OutputId) TransactionId() (transactionId Id) {
 	copy(transactionId[:], outputId[address.Length:])
 

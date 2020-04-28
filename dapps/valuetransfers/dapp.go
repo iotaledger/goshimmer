@@ -159,7 +159,7 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 			return
 		}
 
-		if transactionMetadata.BranchId() != branchmanager.NewBranchId(transactionMetadata.ID()) {
+		if transactionMetadata.BranchID() != branchmanager.NewBranchId(transactionMetadata.ID()) {
 			return
 		}
 

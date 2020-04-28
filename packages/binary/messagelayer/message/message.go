@@ -121,7 +121,7 @@ func (message *Message) VerifySignature() bool {
 	return valid
 }
 
-// Id returns the id of the message which is made up of the content id and trunk/branch ids.
+// ID returns the id of the message which is made up of the content id and trunk/branch ids.
 // This id can be used for merkle proofs.
 func (message *Message) Id() (result Id) {
 	message.idMutex.RLock()
@@ -150,7 +150,7 @@ func (message *Message) TrunkId() Id {
 	return message.trunkId
 }
 
-// BranchId returns the id of the branch message.
+// BranchID returns the id of the branch message.
 func (message *Message) BranchId() Id {
 	return message.branchId
 }

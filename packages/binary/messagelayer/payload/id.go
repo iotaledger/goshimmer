@@ -2,7 +2,7 @@ package payload
 
 import "github.com/mr-tron/base58"
 
-// Id represents the id of a data payload.
+// ID represents the id of a data payload.
 type Id [IdLength]byte
 
 // Bytes returns the id as a byte slice backed by the original array,

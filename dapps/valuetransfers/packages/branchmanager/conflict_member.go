@@ -9,10 +9,10 @@ type ConflictMember struct {
 	objectstorage.StorableObjectFlags
 
 	conflictId ConflictId
-	branchId   BranchId
+	branchId   BranchID
 }
 
-func NewConflictMember(conflictId ConflictId, branchId BranchId) *ConflictMember {
+func NewConflictMember(conflictId ConflictId, branchId BranchID) *ConflictMember {
 	return &ConflictMember{
 		conflictId: conflictId,
 		branchId:   branchId,
@@ -77,7 +77,7 @@ func (conflictMember *ConflictMember) ConflictId() ConflictId {
 	return conflictMember.conflictId
 }
 
-func (conflictMember *ConflictMember) BranchId() BranchId {
+func (conflictMember *ConflictMember) BranchId() BranchID {
 	return conflictMember.branchId
 }
 

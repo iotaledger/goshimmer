@@ -18,13 +18,13 @@ type TransactionMetadata struct {
 	objectstorage.StorableObjectFlags
 
 	id                 transaction.Id
-	branchId           branchmanager.BranchId
+	branchID           branchmanager.BranchID
 	solid              bool
 	finalized          bool
 	solidificationTime time.Time
 	finalizationTime   time.Time
 
-	branchIdMutex           sync.RWMutex
+	branchIDMutex           sync.RWMutex
 	solidMutex              sync.RWMutex
 	finalizedMutex          sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
@@ -72,17 +72,18 @@ func TransactionMetadataFromStorageKey(keyBytes []byte, optionalTargetObject ...
 	return
 }
 
-// Parse is a wrapper for simplified unmarshaling of TransactionMetadata objects from a byte stream using the marshalUtil package.
+// ParseTransactionMetadata is a wrapper for simplified unmarshaling of TransactionMetadata objects from a byte stream using the marshalUtil package.
 func ParseTransactionMetadata(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*TransactionMetadata) (result *TransactionMetadata, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
+	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return TransactionMetadataFromStorageKey(data, optionalTargetObject...)
-	}); parseErr != nil {
+	})
+	if parseErr != nil {
 		err = parseErr
 
 		return
-	} else {
-		result = parsedObject.(*TransactionMetadata)
 	}
+
+	result = parsedObject.(*TransactionMetadata)
 
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
@@ -100,30 +101,32 @@ func (transactionMetadata *TransactionMetadata) ID() transaction.Id {
 	return transactionMetadata.id
 }
 
-func (transactionMetadata *TransactionMetadata) BranchId() branchmanager.BranchId {
-	transactionMetadata.branchIdMutex.RLock()
-	defer transactionMetadata.branchIdMutex.RUnlock()
+// BranchID returns the identifier of the Branch, that this transaction is booked into.
+func (transactionMetadata *TransactionMetadata) BranchID() branchmanager.BranchID {
+	transactionMetadata.branchIDMutex.RLock()
+	defer transactionMetadata.branchIDMutex.RUnlock()
 
-	return transactionMetadata.branchId
+	return transactionMetadata.branchID
 }
 
-func (transactionMetadata *TransactionMetadata) SetBranchId(branchId branchmanager.BranchId) (modified bool) {
-	transactionMetadata.branchIdMutex.RLock()
-	if transactionMetadata.branchId == branchId {
-		transactionMetadata.branchIdMutex.RUnlock()
+// SetBranchID is the setter for the branch id. It returns true if the value of the flag has been updated.
+func (transactionMetadata *TransactionMetadata) SetBranchID(branchID branchmanager.BranchID) (modified bool) {
+	transactionMetadata.branchIDMutex.RLock()
+	if transactionMetadata.branchID == branchID {
+		transactionMetadata.branchIDMutex.RUnlock()
 
 		return
 	}
 
-	transactionMetadata.branchIdMutex.RUnlock()
-	transactionMetadata.branchIdMutex.Lock()
-	defer transactionMetadata.branchIdMutex.Unlock()
+	transactionMetadata.branchIDMutex.RUnlock()
+	transactionMetadata.branchIDMutex.Lock()
+	defer transactionMetadata.branchIDMutex.Unlock()
 
-	if transactionMetadata.branchId == branchId {
+	if transactionMetadata.branchID == branchID {
 		return
 	}
 
-	transactionMetadata.branchId = branchId
+	transactionMetadata.branchID = branchID
 	modified = true
 
 	return
@@ -167,6 +170,8 @@ func (transactionMetadata *TransactionMetadata) SetSolid(solid bool) (modified b
 	return
 }
 
+// SetFinalized allows us to set the finalized flag on the transactions. Finalized transactions will not be forked when
+// a conflict arrives later.
 func (transactionMetadata *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
 	transactionMetadata.finalizedMutex.RLock()
 	if transactionMetadata.finalized == finalized {
@@ -219,7 +224,7 @@ func (transactionMetadata *TransactionMetadata) SoldificationTime() time.Time {
 // Bytes marshals the TransactionMetadata object into a sequence of bytes.
 func (transactionMetadata *TransactionMetadata) Bytes() []byte {
 	return marshalutil.New(branchmanager.BranchIdLength + 2*marshalutil.TIME_SIZE + 2*marshalutil.BOOL_SIZE).
-		WriteBytes(transactionMetadata.BranchId().Bytes()).
+		WriteBytes(transactionMetadata.BranchID().Bytes()).
 		WriteTime(transactionMetadata.solidificationTime).
 		WriteTime(transactionMetadata.finalizationTime).
 		WriteBool(transactionMetadata.solid).
@@ -231,7 +236,7 @@ func (transactionMetadata *TransactionMetadata) Bytes() []byte {
 func (transactionMetadata *TransactionMetadata) String() string {
 	return stringify.Struct("transaction.TransactionMetadata",
 		stringify.StructField("id", transactionMetadata.ID()),
-		stringify.StructField("branchId", transactionMetadata.BranchId()),
+		stringify.StructField("branchId", transactionMetadata.BranchID()),
 		stringify.StructField("solid", transactionMetadata.Solid()),
 		stringify.StructField("solidificationTime", transactionMetadata.SoldificationTime()),
 	)
@@ -257,7 +262,7 @@ func (transactionMetadata *TransactionMetadata) ObjectStorageValue() []byte {
 // encoding.BinaryUnmarshaler interface.
 func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
-	if transactionMetadata.branchId, err = branchmanager.ParseBranchId(marshalUtil); err != nil {
+	if transactionMetadata.branchID, err = branchmanager.ParseBranchId(marshalUtil); err != nil {
 		return
 	}
 	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
@@ -301,15 +306,17 @@ func (cachedTransactionMetadata *CachedTransactionMetadata) Consume(consumer fun
 
 // Unwrap provides a way to retrieve a type casted version of the underlying object.
 func (cachedTransactionMetadata *CachedTransactionMetadata) Unwrap() *TransactionMetadata {
-	if untypedTransaction := cachedTransactionMetadata.Get(); untypedTransaction == nil {
+	untypedTransaction := cachedTransactionMetadata.Get()
+	if untypedTransaction == nil {
 		return nil
-	} else {
-		if typeCastedTransaction := untypedTransaction.(*TransactionMetadata); typeCastedTransaction == nil || typeCastedTransaction.IsDeleted() {
-			return nil
-		} else {
-			return typeCastedTransaction
-		}
 	}
+
+	typeCastedTransaction := untypedTransaction.(*TransactionMetadata)
+	if typeCastedTransaction == nil || typeCastedTransaction.IsDeleted() {
+		return nil
+	}
+
+	return typeCastedTransaction
 }
 
 // Interface contract: make compiler warn if the interface is not implemented correctly.
