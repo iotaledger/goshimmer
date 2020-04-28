@@ -17,9 +17,9 @@ func TestMarshalUnmarshal(t *testing.T) {
 		panic(err)
 	}
 
-	assert.Equal(t, originalMetadata.GetPayloadId(), clonedMetadata.GetPayloadId())
+	assert.Equal(t, originalMetadata.PayloadID(), clonedMetadata.PayloadID())
 	assert.Equal(t, originalMetadata.IsSolid(), clonedMetadata.IsSolid())
-	assert.Equal(t, originalMetadata.GetSoldificationTime().Round(time.Second), clonedMetadata.GetSoldificationTime().Round(time.Second))
+	assert.Equal(t, originalMetadata.SoldificationTime().Round(time.Second), clonedMetadata.SoldificationTime().Round(time.Second))
 
 	originalMetadata.SetSolid(true)
 
@@ -28,19 +28,19 @@ func TestMarshalUnmarshal(t *testing.T) {
 		panic(err)
 	}
 
-	assert.Equal(t, originalMetadata.GetPayloadId(), clonedMetadata.GetPayloadId())
+	assert.Equal(t, originalMetadata.PayloadID(), clonedMetadata.PayloadID())
 	assert.Equal(t, originalMetadata.IsSolid(), clonedMetadata.IsSolid())
-	assert.Equal(t, originalMetadata.GetSoldificationTime().Round(time.Second), clonedMetadata.GetSoldificationTime().Round(time.Second))
+	assert.Equal(t, originalMetadata.SoldificationTime().Round(time.Second), clonedMetadata.SoldificationTime().Round(time.Second))
 }
 
 func TestPayloadMetadata_SetSolid(t *testing.T) {
 	originalMetadata := NewPayloadMetadata(payload.GenesisId)
 
 	assert.Equal(t, false, originalMetadata.IsSolid())
-	assert.Equal(t, time.Time{}, originalMetadata.GetSoldificationTime())
+	assert.Equal(t, time.Time{}, originalMetadata.SoldificationTime())
 
 	originalMetadata.SetSolid(true)
 
 	assert.Equal(t, true, originalMetadata.IsSolid())
-	assert.Equal(t, time.Now().Round(time.Second), originalMetadata.GetSoldificationTime().Round(time.Second))
+	assert.Equal(t, time.Now().Round(time.Second), originalMetadata.SoldificationTime().Round(time.Second))
 }

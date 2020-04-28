@@ -85,7 +85,7 @@ func AttachmentFromStorageKey(key []byte, optionalTargetObject ...*Attachment) (
 	if result.transactionID, err = transaction.ParseId(marshalUtil); err != nil {
 		return
 	}
-	if result.payloadID, err = payload.ParseId(marshalUtil); err != nil {
+	if result.payloadID, err = payload.ParseID(marshalUtil); err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()

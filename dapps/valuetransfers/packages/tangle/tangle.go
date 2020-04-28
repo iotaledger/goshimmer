@@ -27,6 +27,7 @@ type Tangle struct {
 	cleanupWorkerPool      async.WorkerPool
 }
 
+// New is the constructor of a Tangle and creates a new Tangle object from the given details.
 func New(badgerInstance *badger.DB) (result *Tangle) {
 	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.ValueTransfers)
 
@@ -48,23 +49,23 @@ func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
 }
 
 // GetPayload retrieves a payload from the object storage.
-func (tangle *Tangle) GetPayload(payloadId payload.ID) *payload.CachedPayload {
-	return &payload.CachedPayload{CachedObject: tangle.payloadStorage.Load(payloadId.Bytes())}
+func (tangle *Tangle) GetPayload(payloadID payload.ID) *payload.CachedPayload {
+	return &payload.CachedPayload{CachedObject: tangle.payloadStorage.Load(payloadID.Bytes())}
 }
 
-// GetPayloadMetadata retrieves the metadata of a value payload from the object storage.
-func (tangle *Tangle) GetPayloadMetadata(payloadId payload.ID) *CachedPayloadMetadata {
-	return &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Load(payloadId.Bytes())}
+// PayloadMetadata retrieves the metadata of a value payload from the object storage.
+func (tangle *Tangle) PayloadMetadata(payloadID payload.ID) *CachedPayloadMetadata {
+	return &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Load(payloadID.Bytes())}
 }
 
 // GetApprovers retrieves the approvers of a payload from the object storage.
-func (tangle *Tangle) GetApprovers(payloadId payload.ID) CachedApprovers {
+func (tangle *Tangle) GetApprovers(payloadID payload.ID) CachedApprovers {
 	approvers := make(CachedApprovers, 0)
 	tangle.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		approvers = append(approvers, &CachedPayloadApprover{CachedObject: cachedObject})
 
 		return true
-	}, payloadId.Bytes())
+	}, payloadID.Bytes())
 
 	return approvers
 }
@@ -125,25 +126,26 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 }
 
 func (tangle *Tangle) storePayload(payloadToStore *payload.Payload) (cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata, payloadStored bool) {
-	if _tmp, transactionIsNew := tangle.payloadStorage.StoreIfAbsent(payloadToStore); !transactionIsNew {
-		return
-	} else {
-		cachedPayload = &payload.CachedPayload{CachedObject: _tmp}
-		cachedMetadata = &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(NewPayloadMetadata(payloadToStore.Id()))}
-		payloadStored = true
-
+	storedTransaction, transactionIsNew := tangle.payloadStorage.StoreIfAbsent(payloadToStore)
+	if !transactionIsNew {
 		return
 	}
+
+	cachedPayload = &payload.CachedPayload{CachedObject: storedTransaction}
+	cachedMetadata = &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(NewPayloadMetadata(payloadToStore.Id()))}
+	payloadStored = true
+
+	return
 }
 
 func (tangle *Tangle) storePayloadReferences(payload *payload.Payload) {
 	// store trunk approver
-	trunkId := payload.TrunkId()
-	tangle.approverStorage.Store(NewPayloadApprover(trunkId, payload.Id())).Release()
+	trunkID := payload.TrunkID()
+	tangle.approverStorage.Store(NewPayloadApprover(trunkID, payload.Id())).Release()
 
 	// store branch approver
-	if branchId := payload.BranchId(); branchId != trunkId {
-		tangle.approverStorage.Store(NewPayloadApprover(branchId, trunkId)).Release()
+	if branchID := payload.BranchID(); branchID != trunkID {
+		tangle.approverStorage.Store(NewPayloadApprover(branchID, trunkID)).Release()
 	}
 }
 
@@ -191,13 +193,14 @@ func (tangle *Tangle) solidifyPayloadWorker(cachedPayload *payload.CachedPayload
 	}
 }
 
-func (tangle *Tangle) ForeachApprovers(payloadId payload.ID, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata)) {
-	tangle.GetApprovers(payloadId).Consume(func(approver *PayloadApprover) {
-		approvingPayloadId := approver.GetApprovingPayloadId()
-		approvingCachedPayload := tangle.GetPayload(approvingPayloadId)
+// ForeachApprovers iterates through the approvers of a payload and calls the passed in consumer function.
+func (tangle *Tangle) ForeachApprovers(payloadID payload.ID, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata)) {
+	tangle.GetApprovers(payloadID).Consume(func(approver *PayloadApprover) {
+		approvingPayloadID := approver.ApprovingPayloadID()
+		approvingCachedPayload := tangle.GetPayload(approvingPayloadID)
 
 		approvingCachedPayload.Consume(func(payload *payload.Payload) {
-			consume(approvingCachedPayload, tangle.GetPayloadMetadata(approvingPayloadId))
+			consume(approvingCachedPayload, tangle.PayloadMetadata(approvingPayloadID))
 		})
 	})
 }
@@ -217,24 +220,24 @@ func (tangle *Tangle) isPayloadSolid(payload *payload.Payload, metadata *Payload
 		return true
 	}
 
-	return tangle.isPayloadMarkedAsSolid(payload.TrunkId()) && tangle.isPayloadMarkedAsSolid(payload.BranchId())
+	return tangle.isPayloadMarkedAsSolid(payload.TrunkID()) && tangle.isPayloadMarkedAsSolid(payload.BranchID())
 }
 
 // isPayloadMarkedAsSolid returns true if the payload was marked as solid already (by setting the corresponding flags
 // in its metadata.
-func (tangle *Tangle) isPayloadMarkedAsSolid(payloadId payload.ID) bool {
-	if payloadId == payload.GenesisId {
+func (tangle *Tangle) isPayloadMarkedAsSolid(payloadID payload.ID) bool {
+	if payloadID == payload.GenesisId {
 		return true
 	}
 
-	transactionMetadataCached := tangle.GetPayloadMetadata(payloadId)
+	transactionMetadataCached := tangle.PayloadMetadata(payloadID)
 	if transactionMetadata := transactionMetadataCached.Unwrap(); transactionMetadata == nil {
 		transactionMetadataCached.Release()
 
 		// if transaction is missing and was not reported as missing, yet
-		if cachedMissingPayload, missingPayloadStored := tangle.missingPayloadStorage.StoreIfAbsent(NewMissingPayload(payloadId)); missingPayloadStored {
+		if cachedMissingPayload, missingPayloadStored := tangle.missingPayloadStorage.StoreIfAbsent(NewMissingPayload(payloadID)); missingPayloadStored {
 			cachedMissingPayload.Consume(func(object objectstorage.StorableObject) {
-				tangle.Events.PayloadMissing.Trigger(object.(*MissingPayload).GetId())
+				tangle.Events.PayloadMissing.Trigger(object.(*MissingPayload).ID())
 			})
 		}
 

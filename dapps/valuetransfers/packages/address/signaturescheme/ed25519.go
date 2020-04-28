@@ -39,7 +39,7 @@ func (signatureScheme *ed25519SignatureScheme) Address() address.Address {
 
 // Sign creates a valid signature for the given data according to the signature scheme implementation.
 func (signatureScheme *ed25519SignatureScheme) Sign(data []byte) Signature {
-	return &ed25519Signature{
+	return &ED25519Signature{
 		publicKey: signatureScheme.keyPair.PublicKey,
 		signature: signatureScheme.keyPair.PrivateKey.Sign(data),
 	}
@@ -52,19 +52,19 @@ var _ SignatureScheme = &ed25519SignatureScheme{}
 
 // region signature implementation /////////////////////////////////////////////////////////////////////////////////////
 
-// ed25519Signature represents a signature for an addresses that uses elliptic curve cryptography.
-type ed25519Signature struct {
+// ED25519Signature represents a signature for an addresses that uses elliptic curve cryptography.
+type ED25519Signature struct {
 	publicKey ed25519.PublicKey
 	signature ed25519.Signature
 }
 
-// ed25519SignatureFromBytes unmarshals an ed25519 signatures from a sequence of bytes.
+// Ed25519SignatureFromBytes unmarshals an ed25519 signatures from a sequence of bytes.
 // It either creates a new signature or fills the optionally provided object with the parsed information.
-func Ed25519SignatureFromBytes(bytes []byte, optionalTargetObject ...*ed25519Signature) (result *ed25519Signature, consumedBytes int, err error) {
+func Ed25519SignatureFromBytes(bytes []byte, optionalTargetObject ...*ED25519Signature) (result *ED25519Signature, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
-		result = &ed25519Signature{}
+		result = &ED25519Signature{}
 	case 1:
 		result = optionalTargetObject[0]
 	default:
@@ -105,12 +105,12 @@ func Ed25519SignatureFromBytes(bytes []byte, optionalTargetObject ...*ed25519Sig
 }
 
 // IsValid returns true if the signature is valid for the given data.
-func (signature *ed25519Signature) IsValid(signedData []byte) bool {
+func (signature *ED25519Signature) IsValid(signedData []byte) bool {
 	return signature.publicKey.VerifySignature(signedData, signature.signature)
 }
 
 // Bytes returns a marshaled version of the signature.
-func (signature *ed25519Signature) Bytes() []byte {
+func (signature *ED25519Signature) Bytes() []byte {
 	marshalUtil := marshalutil.New(1 + ed25519.PublicKeySize + ed25519.SignatureSize)
 	marshalUtil.WriteByte(address.VersionED25519)
 	marshalUtil.WriteBytes(signature.publicKey[:])
@@ -120,7 +120,7 @@ func (signature *ed25519Signature) Bytes() []byte {
 }
 
 // Address returns the address, that this signature signs.
-func (signature *ed25519Signature) Address() address.Address {
+func (signature *ED25519Signature) Address() address.Address {
 	return address.FromED25519PubKey(signature.publicKey)
 }
 

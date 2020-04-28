@@ -6,11 +6,13 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
+// Balance represents a balance in the IOTA ledger. It consists out of a numeric value and a color.
 type Balance struct {
 	value int64
 	color Color
 }
 
+// New creates a new Balance with the given details.
 func New(color Color, balance int64) (result *Balance) {
 	result = &Balance{
 		color: color,
@@ -20,6 +22,7 @@ func New(color Color, balance int64) (result *Balance) {
 	return
 }
 
+// FromBytes unmarshals a Balance from a sequence of bytes.
 func FromBytes(bytes []byte) (result *Balance, consumedBytes int, err error) {
 	result = &Balance{}
 
@@ -30,14 +33,14 @@ func FromBytes(bytes []byte) (result *Balance, consumedBytes int, err error) {
 		return
 	}
 
-	if coinColor, colorErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
+	coinColor, colorErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return ColorFromBytes(data)
-	}); colorErr != nil {
+	})
+	if colorErr != nil {
 		return nil, marshalUtil.ReadOffset(), colorErr
-	} else {
-		result.color = coinColor.(Color)
 	}
 
+	result.color = coinColor.(Color)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
@@ -45,11 +48,12 @@ func FromBytes(bytes []byte) (result *Balance, consumedBytes int, err error) {
 
 // Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func Parse(marshalUtil *marshalutil.MarshalUtil) (*Balance, error) {
-	if address, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) }); err != nil {
+	address, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) })
+	if err != nil {
 		return nil, err
-	} else {
-		return address.(*Balance), nil
 	}
+
+	return address.(*Balance), nil
 }
 
 // Value returns the numeric value of the balance.
@@ -62,6 +66,7 @@ func (balance *Balance) Color() Color {
 	return balance.color
 }
 
+// Bytes marshals the Balance into a sequence of bytes.
 func (balance *Balance) Bytes() []byte {
 	marshalUtil := marshalutil.New(Length)
 
@@ -71,6 +76,7 @@ func (balance *Balance) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
+// String creates a human readable string of the Balance.
 func (balance *Balance) String() string {
 	return strconv.FormatInt(balance.value, 10) + " " + balance.color.String()
 }

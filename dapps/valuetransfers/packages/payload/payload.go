@@ -56,7 +56,7 @@ func FromStorageKey(key []byte, optionalTargetObject ...*Payload) (result *Paylo
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	if payloadId, idErr := ParseId(marshalUtil); idErr != nil {
+	if payloadId, idErr := ParseID(marshalUtil); idErr != nil {
 		err = idErr
 
 		return
@@ -123,11 +123,11 @@ func (payload *Payload) Id() ID {
 	return id
 }
 
-func (payload *Payload) TrunkId() ID {
+func (payload *Payload) TrunkID() ID {
 	return payload.trunkPayloadId
 }
 
-func (payload *Payload) BranchId() ID {
+func (payload *Payload) BranchID() ID {
 	return payload.branchPayloadId
 }
 
@@ -142,8 +142,8 @@ func (payload *Payload) Bytes() []byte {
 func (payload *Payload) String() string {
 	return stringify.Struct("Payload",
 		stringify.StructField("id", payload.Id()),
-		stringify.StructField("trunk", payload.TrunkId()),
-		stringify.StructField("branch", payload.BranchId()),
+		stringify.StructField("trunk", payload.TrunkID()),
+		stringify.StructField("branch", payload.BranchID()),
 		stringify.StructField("transfer", payload.Transaction()),
 	)
 }
@@ -210,10 +210,10 @@ func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (consumedBytes 
 	}
 
 	// parse trunk payload id
-	if payload.trunkPayloadId, err = ParseId(marshalUtil); err != nil {
+	if payload.trunkPayloadId, err = ParseID(marshalUtil); err != nil {
 		return
 	}
-	if payload.branchPayloadId, err = ParseId(marshalUtil); err != nil {
+	if payload.branchPayloadId, err = ParseID(marshalUtil); err != nil {
 		return
 	}
 	if payload.transaction, err = transaction.Parse(marshalUtil); err != nil {

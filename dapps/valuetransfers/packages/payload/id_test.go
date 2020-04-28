@@ -8,7 +8,7 @@ import (
 
 func Test(t *testing.T) {
 	// create variable for id
-	sourceId, err := NewId("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
+	sourceId, err := NewID("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
 	if err != nil {
 		panic(err)
 	}

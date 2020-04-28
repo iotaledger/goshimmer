@@ -11,8 +11,8 @@ import (
 // ID represents the hash of a payload that is used to identify the given payload.
 type ID [IDLength]byte
 
-// NewId creates a payload id from a base58 encoded string.
-func NewId(base58EncodedString string) (result ID, err error) {
+// NewID creates a payload id from a base58 encoded string.
+func NewID(base58EncodedString string) (result ID, err error) {
 	bytes, err := base58.Decode(base58EncodedString)
 	if err != nil {
 		return
@@ -29,8 +29,8 @@ func NewId(base58EncodedString string) (result ID, err error) {
 	return
 }
 
-// ParseId is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func ParseId(marshalUtil *marshalutil.MarshalUtil) (ID, error) {
+// ParseID is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func ParseID(marshalUtil *marshalutil.MarshalUtil) (ID, error) {
 	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return IdFromBytes(data) }); err != nil {
 		return ID{}, err
 	} else {

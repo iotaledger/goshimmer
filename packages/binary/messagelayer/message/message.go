@@ -145,7 +145,7 @@ func (message *Message) Id() (result Id) {
 	return
 }
 
-// TrunkId returns the id of the trunk message.
+// TrunkID returns the id of the trunk message.
 func (message *Message) TrunkId() Id {
 	return message.trunkId
 }

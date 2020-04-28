@@ -14,8 +14,8 @@ type PayloadApprover struct {
 	objectstorage.StorableObjectFlags
 
 	storageKey          []byte
-	referencedPayloadId payload.ID
-	approvingPayloadId  payload.ID
+	referencedPayloadID payload.ID
+	approvingPayloadID  payload.ID
 }
 
 // NewPayloadApprover creates an approver object that encodes a single relation between an approved and an approving payload.
@@ -25,12 +25,13 @@ func NewPayloadApprover(referencedPayload payload.ID, approvingPayload payload.I
 	marshalUtil.WriteBytes(approvingPayload.Bytes())
 
 	return &PayloadApprover{
-		referencedPayloadId: referencedPayload,
-		approvingPayloadId:  approvingPayload,
+		referencedPayloadID: referencedPayload,
+		approvingPayloadID:  approvingPayload,
 		storageKey:          marshalUtil.Bytes(),
 	}
 }
 
+// PayloadApproverFromBytes unmarshals a PayloadApprover from a sequence of bytes.
 func PayloadApproverFromBytes(bytes []byte, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParsePayloadApprover(marshalUtil, optionalTargetObject...)
@@ -39,16 +40,18 @@ func PayloadApproverFromBytes(bytes []byte, optionalTargetObject ...*PayloadAppr
 	return
 }
 
+// ParsePayloadApprover unmarshals a PayloadApprover using the given marshalUtil (for easier marshaling/unmarshaling).
 func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
+	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return PayloadApproverFromStorageKey(data, optionalTargetObject...)
-	}); parseErr != nil {
+	})
+	if parseErr != nil {
 		err = parseErr
 
 		return
-	} else {
-		result = parsedObject.(*PayloadApprover)
 	}
+
+	result = parsedObject.(*PayloadApprover)
 
 	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
@@ -77,10 +80,10 @@ func PayloadApproverFromStorageKey(key []byte, optionalTargetObject ...*PayloadA
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	if result.referencedPayloadId, err = payload.ParseId(marshalUtil); err != nil {
+	if result.referencedPayloadID, err = payload.ParseID(marshalUtil); err != nil {
 		return
 	}
-	if result.approvingPayloadId, err = payload.ParseId(marshalUtil); err != nil {
+	if result.approvingPayloadID, err = payload.ParseID(marshalUtil); err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -89,9 +92,9 @@ func PayloadApproverFromStorageKey(key []byte, optionalTargetObject ...*PayloadA
 	return
 }
 
-// GetApprovingPayloadId returns the id of the approving payload.
-func (payloadApprover *PayloadApprover) GetApprovingPayloadId() payload.ID {
-	return payloadApprover.approvingPayloadId
+// ApprovingPayloadID returns the identifier of the approving payload.
+func (payloadApprover *PayloadApprover) ApprovingPayloadID() payload.ID {
+	return payloadApprover.approvingPayloadID
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database.
@@ -141,19 +144,25 @@ func (cachedPayloadApprover *CachedPayloadApprover) Consume(consumer func(payloa
 
 // Unwrap provides a way to "Get" a type casted version of the underlying object.
 func (cachedPayloadApprover *CachedPayloadApprover) Unwrap() *PayloadApprover {
-	if untypedTransaction := cachedPayloadApprover.Get(); untypedTransaction == nil {
+	untypedTransaction := cachedPayloadApprover.Get()
+	if untypedTransaction == nil {
 		return nil
-	} else {
-		if typeCastedTransaction := untypedTransaction.(*PayloadApprover); typeCastedTransaction == nil || typeCastedTransaction.IsDeleted() {
-			return nil
-		} else {
-			return typeCastedTransaction
-		}
 	}
+
+	typeCastedTransaction := untypedTransaction.(*PayloadApprover)
+	if typeCastedTransaction == nil || typeCastedTransaction.IsDeleted() {
+		return nil
+	}
+
+	return typeCastedTransaction
 }
 
+// CachedApprovers represents a collection of CachedPayloadApprover.
 type CachedApprovers []*CachedPayloadApprover
 
+// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
+// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
+// least one object was consumed.
 func (cachedApprovers CachedApprovers) Consume(consumer func(approver *PayloadApprover)) (consumed bool) {
 	for _, cachedApprover := range cachedApprovers {
 		consumed = cachedApprover.Consume(consumer) || consumed

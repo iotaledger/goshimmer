@@ -28,7 +28,7 @@ type Branch struct {
 	likedMutex     sync.RWMutex
 }
 
-// NewBranch is the constructor of a branch and creates a new Branch object from the given details.
+// NewBranch is the constructor of a Branch and creates a new Branch object from the given details.
 func NewBranch(id BranchID, parentBranches []BranchID, conflictingInputs []transaction.OutputId) *Branch {
 	conflictingInputsMap := make(map[ConflictID]types.Empty)
 	for _, conflictingInput := range conflictingInputs {
