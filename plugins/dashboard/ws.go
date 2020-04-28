@@ -24,7 +24,7 @@ var (
 	// clients
 	wsClientsMu    sync.Mutex
 	wsClients      = make(map[uint64]*wsclient)
-	nextWsClientId uint64
+	nextWsClientID uint64
 
 	// gorilla websocket layer
 	upgrader = websocket.Upgrader{
@@ -71,13 +71,13 @@ func runWebSocketStreams() {
 func registerWSClient() (uint64, *wsclient) {
 	wsClientsMu.Lock()
 	defer wsClientsMu.Unlock()
-	clientID := nextWsClientId
+	clientID := nextWsClientID
 	wsClient := &wsclient{
 		channel: make(chan interface{}, 500),
 		exit:    make(chan struct{}),
 	}
 	wsClients[clientID] = wsClient
-	nextWsClientId++
+	nextWsClientID++
 	return clientID, wsClient
 }
 

@@ -16,8 +16,8 @@ var visualizerWorkerPool *workerpool.WorkerPool
 
 type vertex struct {
 	ID       string `json:"id"`
-	TrunkId  string `json:"trunk_id"`
-	BranchId string `json:"branch_id"`
+	TrunkID  string `json:"trunk_id"`
+	BranchID string `json:"branch_id"`
 	IsSolid  bool   `json:"is_solid"`
 }
 
@@ -47,15 +47,15 @@ func sendVertex(cachedMessage *message.CachedMessage, cachedMessageMetadata *tan
 	msg := cachedMessage.Unwrap()
 	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
 		ID:       msg.Id().String(),
-		TrunkId:  msg.TrunkId().String(),
-		BranchId: msg.BranchId().String(),
+		TrunkID:  msg.TrunkId().String(),
+		BranchID: msg.BranchId().String(),
 		IsSolid:  cachedMessageMetadata.Unwrap().IsSolid(),
 	}}, true)
 }
 
-func sendTipInfo(messageId message.Id, isTip bool) {
+func sendTipInfo(messageID message.Id, isTip bool) {
 	broadcastWsMessage(&wsmsg{MsgTypeTipInfo, &tipinfo{
-		ID:    messageId.String(),
+		ID:    messageID.String(),
 		IsTip: isTip,
 	}}, true)
 }
