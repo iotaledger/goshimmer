@@ -91,6 +91,11 @@ func sendDataMessage(t *testing.T, peer *framework.Peer, data []byte, number int
 
 func checkForMessageIds(t *testing.T, peers []*framework.Peer, ids []string, idsMap map[string]MessageSent) {
 	for _, peer := range peers {
+		// check that the peer sees itself as synchronized
+		info, err := peer.Info()
+		require.NoError(t, err)
+		require.True(t, info.Synchronized)
+
 		resp, err := peer.FindMessageByID(ids)
 		require.NoError(t, err)
 

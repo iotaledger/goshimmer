@@ -143,7 +143,7 @@ func initAnchorPoint(cachedMessage *message.CachedMessage, cachedMessageMetadata
 
 	// add a new anchor point
 	anchorPoints.add(msg.Id())
-	log.Infof("added message %s as synchronization anchor point (%d of %d collected)", msg.Id(), anchorPoints.collectedCount(), anchorPoints.wanted)
+	log.Infof("added message %s as synchronization anchor point (%d of %d collected)", msg.Id().String()[:10], anchorPoints.collectedCount(), anchorPoints.wanted)
 }
 
 // checks whether an anchor point message became solid.
@@ -166,7 +166,7 @@ func checkAnchorPointSolidity(cachedMessage *message.CachedMessage, cachedMessag
 	}
 
 	// an anchor became solid
-	log.Infof("anchor message %s has become solid", msgID)
+	log.Infof("anchor message %s has become solid", msgID.String()[:10])
 	anchorPoints.markAsSolidified(msgID)
 
 	if !anchorPoints.wereAllSolidified() {
@@ -174,7 +174,7 @@ func checkAnchorPointSolidity(cachedMessage *message.CachedMessage, cachedMessag
 	}
 
 	// all anchor points have become solid
-	log.Infof("all anchor messages have become solid, setting node as synchronized", msgID)
+	log.Infof("all anchor messages have become solid, setting node as synchronized")
 	synchronized.Store(true)
 
 	// since we now are synchronized, we no longer need to listen to this events,
