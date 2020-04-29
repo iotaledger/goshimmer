@@ -17,18 +17,18 @@ const (
 	osApprover
 )
 
-func osPayloadFactory(key []byte) (objectstorage.StorableObject, error, int) {
+func osPayloadFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return payload.FromStorageKey(key)
 }
 
-func osPayloadMetadataFactory(key []byte) (objectstorage.StorableObject, error, int) {
+func osPayloadMetadataFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return PayloadMetadataFromStorageKey(key)
 }
 
-func osMissingPayloadFactory(key []byte) (objectstorage.StorableObject, error, int) {
+func osMissingPayloadFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return MissingPayloadFromStorageKey(key)
 }
 
-func osPayloadApproverFactory(key []byte) (objectstorage.StorableObject, error, int) {
+func osPayloadApproverFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return PayloadApproverFromStorageKey(key)
 }

@@ -24,10 +24,17 @@ import (
 var suite = bn256.NewSuite()
 
 const (
-	BLS_SIGNATURE_SIZE      = 64
-	BLS_PUBLIC_KEY_SIZE     = 128
-	BLS_PRIVATE_KEY_SIZE    = 32
-	BLS_FULL_SIGNATURE_SIZE = 1 + BLS_PUBLIC_KEY_SIZE + BLS_SIGNATURE_SIZE
+	// BLSSignatureSize represents the length in bytes of a BLS signature.
+	BLSSignatureSize = 64
+
+	// BLSPublicKeySize represents the length in bytes of a BLS public key.
+	BLSPublicKeySize = 128
+
+	// BLSPrivateKeySize represents the length in bytes of a BLS private key.
+	BLSPrivateKeySize = 32
+
+	// BLSFullSignatureSize represents the length in bytes of a full BLS signature.
+	BLSFullSignatureSize = 1 + BLSPublicKeySize + BLSSignatureSize
 )
 
 // ---------------- implements SignatureScheme interface
@@ -48,10 +55,10 @@ func RandBLS() SignatureScheme {
 	return ret
 }
 
-// BLS(,) creates an instance of BLS signature scheme
+// BLS creates an instance of BLS signature scheme
 // from given private and public keys in marshaled binary form
 func BLS(priKey, pubKey []byte) (SignatureScheme, error) {
-	if len(priKey) != BLS_PRIVATE_KEY_SIZE || len(pubKey) != BLS_PUBLIC_KEY_SIZE {
+	if len(priKey) != BLSPrivateKeySize || len(pubKey) != BLSPublicKeySize {
 		return nil, fmt.Errorf("wrong key size")
 	}
 	ret := &blsSignatureScheme{
@@ -68,7 +75,7 @@ func BLS(priKey, pubKey []byte) (SignatureScheme, error) {
 }
 
 func (sigscheme *blsSignatureScheme) Version() byte {
-	return address.VERSION_BLS
+	return address.VersionBLS
 }
 
 func (sigscheme *blsSignatureScheme) Address() address.Address {
@@ -108,43 +115,46 @@ var _ SignatureScheme = &blsSignatureScheme{}
 
 // ---------------- implements Signature interface
 
-type blsSignature [BLS_FULL_SIGNATURE_SIZE]byte
+// BLSSignature represents a signature created with the BLS signature scheme.
+type BLSSignature [BLSFullSignatureSize]byte
 
-func BLSSignatureFromBytes(data []byte) (result *blsSignature, err error, consumedBytes int) {
+// BLSSignatureFromBytes unmarshals a BLS signature from a sequence of bytes.
+func BLSSignatureFromBytes(data []byte) (result *BLSSignature, consumedBytes int, err error) {
 	consumedBytes = 0
 	err = nil
-	if len(data) < BLS_FULL_SIGNATURE_SIZE {
-		err = fmt.Errorf("marshaled BLS signature size must be %d", BLS_FULL_SIGNATURE_SIZE)
+	if len(data) < BLSFullSignatureSize {
+		err = fmt.Errorf("marshaled BLS signature size must be %d", BLSFullSignatureSize)
 		return
 	}
-	if data[0] != address.VERSION_BLS {
-		err = fmt.Errorf("wrong version byte, expected %d", address.VERSION_BLS)
+	if data[0] != address.VersionBLS {
+		err = fmt.Errorf("wrong version byte, expected %d", address.VersionBLS)
 		return
 	}
-	result = &blsSignature{}
-	copy(result[:BLS_FULL_SIGNATURE_SIZE], data)
-	consumedBytes = BLS_FULL_SIGNATURE_SIZE
+	result = &BLSSignature{}
+	copy(result[:BLSFullSignatureSize], data)
+	consumedBytes = BLSFullSignatureSize
 	return
 }
 
-func newBLSSignature(pubKey, signature []byte) *blsSignature {
-	var ret blsSignature
-	ret[0] = address.VERSION_BLS
+func newBLSSignature(pubKey, signature []byte) *BLSSignature {
+	var ret BLSSignature
+	ret[0] = address.VersionBLS
 	copy(ret.pubKey(), pubKey)
 	copy(ret.signature(), signature)
 	return &ret
 }
 
-func (sig *blsSignature) pubKey() []byte {
-	return sig[1 : BLS_PUBLIC_KEY_SIZE+1]
+func (sig *BLSSignature) pubKey() []byte {
+	return sig[1 : BLSPublicKeySize+1]
 }
 
-func (sig *blsSignature) signature() []byte {
-	return sig[1+BLS_PUBLIC_KEY_SIZE:]
+func (sig *BLSSignature) signature() []byte {
+	return sig[1+BLSPublicKeySize:]
 }
 
-func (sig *blsSignature) IsValid(signedData []byte) bool {
-	if sig[0] != address.VERSION_BLS {
+// IsValid returns true if the signature correctly signs the given data.
+func (sig *BLSSignature) IsValid(signedData []byte) bool {
+	if sig[0] != address.VersionBLS {
 		return false
 	}
 	// unmarshal public key
@@ -155,18 +165,21 @@ func (sig *blsSignature) IsValid(signedData []byte) bool {
 	return bdn.Verify(suite, pubKey, signedData, sig.signature()) == nil
 }
 
-func (sig *blsSignature) Bytes() []byte {
+// Bytes marshals the signature into a sequence of bytes.
+func (sig *BLSSignature) Bytes() []byte {
 	return sig[:]
 }
 
-func (sig *blsSignature) Address() address.Address {
+// Address returns the address that this signature signs.
+func (sig *BLSSignature) Address() address.Address {
 	return address.FromBLSPubKey(sig.pubKey())
 }
 
-func (sig *blsSignature) String() string {
+func (sig *BLSSignature) String() string {
 	return base58.Encode(sig[:])
 }
 
+// AggregateBLSSignatures combined multiple Signatures into a single one.
 func AggregateBLSSignatures(sigs ...Signature) (Signature, error) {
 	if len(sigs) == 0 {
 		return nil, fmt.Errorf("must be at least one signature to aggregate")
@@ -180,7 +193,7 @@ func AggregateBLSSignatures(sigs ...Signature) (Signature, error) {
 
 	var err error
 	for i, sig := range sigs {
-		sigBls, ok := sig.(*blsSignature)
+		sigBls, ok := sig.(*BLSSignature)
 		if !ok {
 			return nil, fmt.Errorf("not a BLS signature")
 		}
@@ -214,4 +227,4 @@ func AggregateBLSSignatures(sigs ...Signature) (Signature, error) {
 }
 
 // interface contract (allow the compiler to check if the implementation has all of the required methods).
-var _ Signature = &blsSignature{}
+var _ Signature = &BLSSignature{}

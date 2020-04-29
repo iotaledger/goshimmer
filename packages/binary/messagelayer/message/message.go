@@ -75,8 +75,8 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Messag
 		panic("too many arguments in call to Parse")
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -88,7 +88,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Messag
 
 // StorableObjectFromKey gets called when we restore a message from storage.
 // The bytes and the content will be unmarshaled by an external caller (the objectStorage factory).
-func StorableObjectFromKey(key []byte, optionalTargetObject ...*Message) (result objectstorage.StorableObject, err error, consumedBytes int) {
+func StorableObjectFromKey(key []byte, optionalTargetObject ...*Message) (result objectstorage.StorableObject, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -121,7 +121,7 @@ func (message *Message) VerifySignature() bool {
 	return valid
 }
 
-// Id returns the id of the message which is made up of the content id and trunk/branch ids.
+// ID returns the id of the message which is made up of the content id and trunk/branch ids.
 // This id can be used for merkle proofs.
 func (message *Message) Id() (result Id) {
 	message.idMutex.RLock()
@@ -145,12 +145,12 @@ func (message *Message) Id() (result Id) {
 	return
 }
 
-// TrunkId returns the id of the trunk message.
+// TrunkID returns the id of the trunk message.
 func (message *Message) TrunkId() Id {
 	return message.trunkId
 }
 
-// BranchId returns the id of the branch message.
+// BranchID returns the id of the branch message.
 func (message *Message) BranchId() Id {
 	return message.branchId
 }
@@ -267,7 +267,7 @@ func (message *Message) Bytes() []byte {
 	return message.bytes
 }
 
-func (message *Message) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (message *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	// initialize helper
 	marshalUtil := marshalutil.New(data)
 

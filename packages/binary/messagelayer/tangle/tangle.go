@@ -37,15 +37,15 @@ type Tangle struct {
 	cleanupWorkerPool      async.WorkerPool
 }
 
-func messageFactory(key []byte) (objectstorage.StorableObject, error, int) {
+func messageFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return message.StorableObjectFromKey(key)
 }
 
-func approverFactory(key []byte) (objectstorage.StorableObject, error, int) {
+func approverFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return ApproverFromStorageKey(key)
 }
 
-func missingMessageFactory(key []byte) (objectstorage.StorableObject, error, int) {
+func missingMessageFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return MissingMessageFromStorageKey(key)
 }
 

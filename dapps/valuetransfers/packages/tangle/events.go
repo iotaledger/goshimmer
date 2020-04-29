@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 )
 
+// Events is a container for the different kind of events of the Tangle.
 type Events struct {
 	// Get's called whenever a transaction
 	PayloadAttached        *events.Event
@@ -20,13 +21,13 @@ func newEvents() *Events {
 		PayloadAttached:        events.NewEvent(cachedPayloadEvent),
 		PayloadSolid:           events.NewEvent(cachedPayloadEvent),
 		MissingPayloadReceived: events.NewEvent(cachedPayloadEvent),
-		PayloadMissing:         events.NewEvent(payloadIdEvent),
-		PayloadUnsolidifiable:  events.NewEvent(payloadIdEvent),
+		PayloadMissing:         events.NewEvent(payloadIDEvent),
+		PayloadUnsolidifiable:  events.NewEvent(payloadIDEvent),
 	}
 }
 
-func payloadIdEvent(handler interface{}, params ...interface{}) {
-	handler.(func(payload.Id))(params[0].(payload.Id))
+func payloadIDEvent(handler interface{}, params ...interface{}) {
+	handler.(func(payload.ID))(params[0].(payload.ID))
 }
 
 func cachedPayloadEvent(handler interface{}, params ...interface{}) {

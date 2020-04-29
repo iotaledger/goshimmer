@@ -7,20 +7,23 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
+// Inputs represents a list of referenced Outputs that are used as Inputs in a transaction.
 type Inputs struct {
 	*orderedmap.OrderedMap
 }
 
-func NewInputs(outputIds ...OutputId) (inputs *Inputs) {
+// NewInputs is the constructor of the Inputs object and creates a new list with the given OutputIds.
+func NewInputs(outputIds ...OutputID) (inputs *Inputs) {
 	inputs = &Inputs{orderedmap.New()}
-	for _, outputId := range outputIds {
-		inputs.Add(outputId)
+	for _, outputID := range outputIds {
+		inputs.Add(outputID)
 	}
 
 	return
 }
 
-func InputsFromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int) {
+// InputsFromBytes unmarshals the Inputs from a sequence of bytes.
+func InputsFromBytes(bytes []byte) (inputs *Inputs, consumedBytes int, err error) {
 	inputs = NewInputs()
 
 	marshalUtil := marshalutil.New(bytes)
@@ -37,13 +40,13 @@ func InputsFromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int
 			return
 		}
 
-		idBytes, readErr := marshalUtil.ReadBytes(IdLength)
+		idBytes, readErr := marshalUtil.ReadBytes(IDLength)
 		if readErr != nil {
 			err = readErr
 
 			return
 		}
-		id, idErr, _ := IdFromBytes(idBytes)
+		id, _, idErr := IDFromBytes(idBytes)
 		if idErr != nil {
 			err = idErr
 
@@ -56,7 +59,7 @@ func InputsFromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int
 
 			inputs.Set(readAddress, addressMap)
 		}
-		addressMap.(*orderedmap.OrderedMap).Set(id, NewOutputId(readAddress, id))
+		addressMap.(*orderedmap.OrderedMap).Set(id, NewOutputID(readAddress, id))
 	}
 
 	consumedBytes = marshalUtil.ReadOffset()
@@ -64,9 +67,10 @@ func InputsFromBytes(bytes []byte) (inputs *Inputs, err error, consumedBytes int
 	return
 }
 
-func (inputs *Inputs) Add(input OutputId) *Inputs {
+// Add allows us to add a new Output to the list of Inputs.
+func (inputs *Inputs) Add(input OutputID) *Inputs {
 	inputAddress := input.Address()
-	transactionId := input.TransactionId()
+	transactionID := input.TransactionID()
 
 	addressMap, addressExists := inputs.Get(inputAddress)
 	if !addressExists {
@@ -75,17 +79,18 @@ func (inputs *Inputs) Add(input OutputId) *Inputs {
 		inputs.Set(inputAddress, addressMap)
 	}
 
-	addressMap.(*orderedmap.OrderedMap).Set(transactionId, input)
+	addressMap.(*orderedmap.OrderedMap).Set(transactionID, input)
 
 	return inputs
 }
 
+// Bytes returns a marshaled version of this list of Inputs.
 func (inputs *Inputs) Bytes() (bytes []byte) {
 	marshalUtil := marshalutil.New()
 
 	marshalUtil.WriteSeek(4)
 	var inputCounter uint32
-	inputs.ForEach(func(outputId OutputId) bool {
+	inputs.ForEach(func(outputId OutputID) bool {
 		marshalUtil.WriteBytes(outputId.Bytes())
 
 		inputCounter++
@@ -98,34 +103,41 @@ func (inputs *Inputs) Bytes() (bytes []byte) {
 	return marshalUtil.Bytes()
 }
 
-func (inputs *Inputs) ForEach(consumer func(outputId OutputId) bool) bool {
+// ForEach iterates through the referenced Outputs and calls the consumer function for every Output. The iteration can
+// be aborted by returning false in the consumer.
+func (inputs *Inputs) ForEach(consumer func(outputId OutputID) bool) bool {
 	return inputs.OrderedMap.ForEach(func(key, value interface{}) bool {
 		return value.(*orderedmap.OrderedMap).ForEach(func(key, value interface{}) bool {
-			return consumer(value.(OutputId))
+			return consumer(value.(OutputID))
 		})
 	})
 }
 
+// ForEachAddress iterates through the input addresses and calls the consumer function for every Address. The iteration
+// can be aborted by returning false in the consumer.
 func (inputs *Inputs) ForEachAddress(consumer func(currentAddress address.Address) bool) bool {
 	return inputs.OrderedMap.ForEach(func(key, value interface{}) bool {
 		return consumer(key.(address.Address))
 	})
 }
 
-func (inputs *Inputs) ForEachTransaction(consumer func(transactionId Id) bool) bool {
-	seenTransactions := make(map[Id]bool)
+// ForEachTransaction iterates through the transactions that had their Outputs consumed and calls the consumer function
+// for every founds transaction. The iteration can be aborted by returning false in the consumer.
+func (inputs *Inputs) ForEachTransaction(consumer func(transactionId ID) bool) bool {
+	seenTransactions := make(map[ID]bool)
 
-	return inputs.ForEach(func(outputId OutputId) bool {
-		if currentTransactionId := outputId.TransactionId(); !seenTransactions[currentTransactionId] {
-			seenTransactions[currentTransactionId] = true
+	return inputs.ForEach(func(outputId OutputID) bool {
+		if currentTransactionID := outputId.TransactionID(); !seenTransactions[currentTransactionID] {
+			seenTransactions[currentTransactionID] = true
 
-			return consumer(currentTransactionId)
+			return consumer(currentTransactionID)
 		}
 
 		return true
 	})
 }
 
+// String returns a human readable version of the list of Inputs (for debug purposes).
 func (inputs *Inputs) String() string {
 	if inputs == nil {
 		return "<nil>"
@@ -134,7 +146,7 @@ func (inputs *Inputs) String() string {
 	result := "[\n"
 
 	empty := true
-	inputs.ForEach(func(outputId OutputId) bool {
+	inputs.ForEach(func(outputId OutputID) bool {
 		empty = false
 
 		result += "    " + outputId.String() + ",\n"
