@@ -79,29 +79,37 @@ func (branchManager *BranchManager) BranchesConflicting(branchIds ...BranchID) (
 	conflictingBranches := make(map[BranchID]types.Empty)
 	processedBranches := make(map[BranchID]types.Empty)
 
-	for _, branchId := range branchIds {
+	for _, branchID := range branchIds {
 		ancestorStack := list.New()
-		ancestorStack.PushBack(branchId)
+		ancestorStack.PushBack(branchID)
 
 		for ancestorStack.Len() >= 1 {
 			firstElement := ancestorStack.Front()
-			ancestorBranchId := firstElement.Value.(BranchID)
+			ancestorBranchID := firstElement.Value.(BranchID)
 			ancestorStack.Remove(firstElement)
 
-			if _, processedAlready := processedBranches[ancestorBranchId]; processedAlready {
+			if _, processedAlready := processedBranches[ancestorBranchID]; processedAlready {
 				continue
 			}
 
-			cachedBranch := branchManager.Branch(branchId)
+			cachedBranch := branchManager.Branch(branchID)
 			branch := cachedBranch.Unwrap()
 			if branch == nil {
-				err = fmt.Errorf("failed to load branch '%s'", ancestorBranchId)
+				err = fmt.Errorf("failed to load branch '%s'", ancestorBranchID)
 
 				return
 			}
 
-			for conflictId := range branch.Conflicts() {
-				for _, cachedConflictMember := range branchManager.ConflictMembers(conflictId) {
+			for _, parentBranchID := range branch.ParentBranches() {
+				ancestorStack.PushBack(parentBranchID)
+			}
+
+			if branch.IsAggregated() {
+				continue
+			}
+
+			for conflictID := range branch.Conflicts() {
+				for _, cachedConflictMember := range branchManager.ConflictMembers(conflictID) {
 					conflictMember := cachedConflictMember.Unwrap()
 					if conflictMember == nil {
 						continue
