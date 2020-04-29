@@ -509,7 +509,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 	targetBranch.Persist()
 
 	if len(conflictingInputs) >= 1 {
-		cachedTargetBranch = utxoDAG.branchManager.AddBranch(branchmanager.NewBranch(branchmanager.NewBranchID(transactionToBook.ID()), []branchmanager.BranchID{targetBranch.ID()}, conflictingInputs))
+		cachedTargetBranch = utxoDAG.branchManager.AddBranch(branchmanager.NewBranchID(transactionToBook.ID()), []branchmanager.BranchID{targetBranch.ID()}, conflictingInputs)
 		defer cachedTargetBranch.Release()
 
 		targetBranch = cachedTargetBranch.Unwrap()
@@ -733,7 +733,7 @@ func (utxoDAG *UTXODAG) Fork(transactionID transaction.ID, conflictingInputs []t
 		return
 	}
 
-	cachedTargetBranch := utxoDAG.branchManager.AddBranch(branchmanager.NewBranch(branchmanager.NewBranchID(tx.ID()), []branchmanager.BranchID{txMetadata.BranchID()}, conflictingInputs))
+	cachedTargetBranch := utxoDAG.branchManager.AddBranch(branchmanager.NewBranchID(tx.ID()), []branchmanager.BranchID{txMetadata.BranchID()}, conflictingInputs)
 	defer cachedTargetBranch.Release()
 
 	targetBranch := cachedTargetBranch.Unwrap()

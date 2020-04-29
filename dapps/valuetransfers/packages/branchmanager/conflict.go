@@ -148,7 +148,7 @@ func (cachedConflict *CachedConflict) Unwrap() *Conflict {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (cachedConflict *CachedConflict) Consume(consumer func(branch *Conflict), forceRelease ...bool) (consumed bool) {
+func (cachedConflict *CachedConflict) Consume(consumer func(conflict *Conflict), forceRelease ...bool) (consumed bool) {
 	return cachedConflict.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Conflict))
 	}, forceRelease...)

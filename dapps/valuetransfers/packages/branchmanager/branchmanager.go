@@ -58,14 +58,45 @@ func (branchManager *BranchManager) ConflictMembers(conflictID ConflictID) Cache
 	return conflictMembers
 }
 
-// AddBranch adds a new Branch to the branch-DAG.
-func (branchManager *BranchManager) AddBranch(branch *Branch) *CachedBranch {
-	return &CachedBranch{CachedObject: branchManager.branchStorage.ComputeIfAbsent(branch.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
-		branch.Persist()
-		branch.SetModified()
+// AddBranch adds a new Branch to the branch-DAG and connects the branch with its parents, children and conflicts. It
+// automatically creates the Conflicts if they don't exist.
+func (branchManager *BranchManager) AddBranch(branchID BranchID, parentBranches []BranchID, conflicts []ConflictID) (cachedBranch *CachedBranch) {
+	// create the branch
+	branchIsNew := false
+	cachedBranch = &CachedBranch{CachedObject: branchManager.branchStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {
+		newBranch := NewBranch(branchID, parentBranches, conflicts)
+		newBranch.Persist()
+		newBranch.SetModified()
 
-		return branch
+		branchIsNew = true
+
+		return newBranch
 	})}
+
+	// create the referenced entities and references
+	cachedBranch.Retain().Consume(func(branch *Branch) {
+		if branchIsNew {
+			for _, parentBranchID := range parentBranches {
+				if cachedChildBranch, stored := branchManager.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID)); stored {
+					cachedChildBranch.Release()
+				}
+			}
+
+			for _, conflictID := range conflicts {
+				(&CachedConflict{CachedObject: branchManager.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) objectstorage.StorableObject {
+					return NewConflict(conflictID)
+				})}).Consume(func(conflict *Conflict) {
+					if cachedConflictMember, stored := branchManager.conflictMemberStorage.StoreIfAbsent(NewConflictMember(conflictID, branchID)); stored {
+						conflict.IncreaseMemberCount()
+
+						cachedConflictMember.Release()
+					}
+				})
+			}
+		}
+	})
+
+	return
 }
 
 // Branch loads a Branch from the objectstorage.
