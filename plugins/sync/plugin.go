@@ -28,7 +28,7 @@ const (
 	// CfgSyncAnchorPointsCount defines the amount of anchor points to use to determine
 	// whether a node is synchronized.
 	CfgSyncAnchorPointsCount = "sync.anchorPointsCount"
-	// CfgSyncAnchorPointsCount defines the time period in which new messages must be received and if not
+	// CfgSyncDesyncedIfNoMessageInSec defines the time period in which new messages must be received and if not
 	// the node is marked as desynced.
 	CfgSyncDesyncedIfNoMessageInSec = "sync.desyncedIfNoMessagesInSec"
 )
