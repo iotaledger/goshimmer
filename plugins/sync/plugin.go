@@ -19,7 +19,7 @@ import (
 const (
 	// PluginName is the plugin name of the sync plugin.
 	PluginName = "Sync"
-	// CfgBootstrapSyncAnchorPointsCount defines the amount of anchor points to use to determine
+	// CfgSyncAnchorPointsCount defines the amount of anchor points to use to determine
 	// whether a node is synchronized.
 	CfgSyncAnchorPointsCount = "sync.anchorPointsCount"
 )

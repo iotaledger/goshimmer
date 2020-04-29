@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/sync"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -17,12 +16,9 @@ const PluginName = "Issuer"
 var (
 	// Plugin is the plugin instance of the issuer plugin.
 	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
-	log    *logger.Logger
 )
 
-func configure(_ *node.Plugin) {
-	log = logger.NewLogger(PluginName)
-}
+func configure(_ *node.Plugin) {}
 
 // IssuePayload issues a payload to the message layer.
 // If the node is not synchronized an error is returned.
