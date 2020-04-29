@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/bootstrap"
+	"github.com/iotaledger/goshimmer/plugins/sync"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
@@ -72,7 +72,7 @@ func getInfo(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, Response{
 		Version:         banner.AppVersion,
-		Synchronized:    bootstrap.Synchronized(),
+		Synced:          sync.Synced(),
 		IdentityID:      local.GetInstance().Identity.ID().String(),
 		PublicKey:       local.GetInstance().PublicKey().String(),
 		EnabledPlugins:  enabledPlugins,
@@ -85,7 +85,7 @@ type Response struct {
 	// version of GoShimmer
 	Version string `json:"version,omitempty"`
 	// whether the node is synchronized
-	Synchronized bool `json:"synchronized"`
+	Synced bool `json:"synced"`
 	// identity ID of the node encoded in hex and truncated to its first 8 bytes
 	IdentityID string `json:"identityID,omitempty"`
 	// public key of the node encoded in base58

@@ -10,11 +10,13 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
+	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/logger"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
+	"github.com/iotaledger/goshimmer/plugins/sync"
 
 	"github.com/iotaledger/hive.go/node"
 )
@@ -30,7 +32,9 @@ var PLUGINS = node.Plugins(
 	autopeering.Plugin,
 	messagelayer.Plugin,
 	gossip.Plugin,
+	issuer.Plugin,
 	bootstrap.Plugin,
+	sync.Plugin,
 	gracefulshutdown.Plugin,
 	metrics.Plugin,
 	drng.Plugin,
