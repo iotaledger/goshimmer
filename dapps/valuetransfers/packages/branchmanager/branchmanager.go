@@ -76,15 +76,21 @@ func (branchManager *BranchManager) AddBranch(branchID BranchID, parentBranches 
 	// create the referenced entities and references
 	cachedBranch.Retain().Consume(func(branch *Branch) {
 		if branchIsNew {
+			// store parent references
 			for _, parentBranchID := range parentBranches {
 				if cachedChildBranch, stored := branchManager.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID)); stored {
 					cachedChildBranch.Release()
 				}
 			}
 
+			// store conflict + conflict references
 			for _, conflictID := range conflicts {
 				(&CachedConflict{CachedObject: branchManager.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) objectstorage.StorableObject {
-					return NewConflict(conflictID)
+					newConflict := NewConflict(conflictID)
+					newConflict.Persist()
+					newConflict.SetModified()
+
+					return newConflict
 				})}).Consume(func(conflict *Conflict) {
 					if cachedConflictMember, stored := branchManager.conflictMemberStorage.StoreIfAbsent(NewConflictMember(conflictID, branchID)); stored {
 						conflict.IncreaseMemberCount()
@@ -240,41 +246,8 @@ func (branchManager *BranchManager) InheritBranches(branches ...BranchID) (cache
 		return
 	}
 
-	newAggregatedBranchCreated := false
-	cachedAggregatedBranch = &CachedBranch{CachedObject: branchManager.branchStorage.ComputeIfAbsent(aggregatedBranchID.Bytes(), func(key []byte) (object objectstorage.StorableObject) {
-		aggregatedReality := NewBranch(aggregatedBranchID, aggregatedBranchParents, []ConflictID{})
-
-		// TODO: FIX
-		/*
-			for _, parentRealityId := range aggregatedBranchParents {
-				tangle.Branch(parentRealityId).Consume(func(branch *Branch) {
-					branch.RegisterSubReality(aggregatedRealityId)
-				})
-			}
-		*/
-
-		aggregatedReality.SetModified()
-
-		newAggregatedBranchCreated = true
-
-		return aggregatedReality
-	})}
-
-	if !newAggregatedBranchCreated {
-		fmt.Println("1")
-		// TODO: FIX
-		/*
-			aggregatedBranch := cachedAggregatedBranch.Unwrap()
-
-			for _, realityId := range aggregatedBranchParents {
-				if aggregatedBranch.AddParentReality(realityId) {
-					tangle.Branch(realityId).Consume(func(branch *Branch) {
-						branch.RegisterSubReality(aggregatedRealityId)
-					})
-				}
-			}
-		*/
-	}
+	// store the aggregated branch
+	cachedAggregatedBranch = branchManager.AddBranch(aggregatedBranchID, aggregatedBranchParents, []ConflictID{})
 
 	return
 }
