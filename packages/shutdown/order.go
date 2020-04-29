@@ -11,6 +11,7 @@ const (
 	PriorityGossip
 	PriorityWebAPI
 	PriorityDashboard
+	PrioritySynchronization
 	PriorityGraph
 	PrioritySpammer
 	PriorityBadgerGarbageCollection
