@@ -76,52 +76,86 @@ func (branchManager *BranchManager) Branch(branchID BranchID) *CachedBranch {
 // BranchesConflicting returns true if the given Branches are part of the same Conflicts and can therefore not be
 // merged.
 func (branchManager *BranchManager) BranchesConflicting(branchIds ...BranchID) (branchesConflicting bool, err error) {
+	// iterate through parameters and collect conflicting branches
 	conflictingBranches := make(map[BranchID]types.Empty)
 	processedBranches := make(map[BranchID]types.Empty)
-
 	for _, branchID := range branchIds {
+		// add the current branch to the stack of branches to check
 		ancestorStack := list.New()
 		ancestorStack.PushBack(branchID)
 
+		// iterate over all ancestors and collect the conflicting branches
 		for ancestorStack.Len() >= 1 {
+			// retrieve branch from stack
 			firstElement := ancestorStack.Front()
 			ancestorBranchID := firstElement.Value.(BranchID)
 			ancestorStack.Remove(firstElement)
 
+			// abort if we have seen this branch already
 			if _, processedAlready := processedBranches[ancestorBranchID]; processedAlready {
 				continue
 			}
 
+			// unpack the branch and abort if we failed to load it
 			cachedBranch := branchManager.Branch(branchID)
 			branch := cachedBranch.Unwrap()
 			if branch == nil {
 				err = fmt.Errorf("failed to load branch '%s'", ancestorBranchID)
 
+				cachedBranch.Release()
+
 				return
 			}
 
+			// add the parents of the current branch to the list if branches to check
 			for _, parentBranchID := range branch.ParentBranches() {
 				ancestorStack.PushBack(parentBranchID)
 			}
 
+			// abort the following checks if the branch is aggregated
 			if branch.IsAggregated() {
+				cachedBranch.Release()
+
 				continue
 			}
 
-			for conflictID := range branch.Conflicts() {
+			// determine conflicts of this branch
+			conflicts := branch.Conflicts()
+			if len(conflicts) == 0 {
+				ancestorStack.PushBack(ancestorBranchID)
+
+				cachedBranch.Release()
+
+				continue
+			}
+
+			// iterate through the conflicts and take note of the conflicting branches
+			for conflictID := range conflicts {
 				for _, cachedConflictMember := range branchManager.ConflictMembers(conflictID) {
+					// unwrap the current ConflictMember
 					conflictMember := cachedConflictMember.Unwrap()
 					if conflictMember == nil {
+						cachedConflictMember.Release()
+
 						continue
 					}
 
+					// abort if this branch was found as a conflict of another branch already
 					if _, branchesConflicting = conflictingBranches[conflictMember.BranchID()]; branchesConflicting {
+						cachedConflictMember.Release()
+						cachedBranch.Release()
+
 						return
 					}
 
+					// store the current conflict in the list of seen conflicting branches
 					conflictingBranches[conflictMember.BranchID()] = types.Void
+
+					cachedConflictMember.Release()
 				}
 			}
+
+			cachedBranch.Release()
 		}
 	}
 
