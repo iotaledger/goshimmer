@@ -177,6 +177,17 @@ func (branchManager *BranchManager) InheritBranches(branches ...BranchID) (cache
 		return
 	}
 
+	// check if the branches are conflicting
+	branchesConflicting, err := branchManager.BranchesConflicting(branches...)
+	if err != nil {
+		return
+	}
+	if branchesConflicting {
+		err = fmt.Errorf("the branches are conflicting")
+
+		return
+	}
+
 	// filter out duplicates and shared ancestor Branches (abort if we faced an error)
 	deepestCommonAncestors, err := branchManager.findDeepestCommonAncestorBranches(branches...)
 	if err != nil {
