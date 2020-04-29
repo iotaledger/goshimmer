@@ -49,7 +49,6 @@ func configure(_ *node.Plugin) {
 // 		"Logger"
 // 	],
 // 	"disabledlugins":[
-// 		"Graph",
 // 		"RemoteLog",
 // 		"Spammer",
 // 		"WebAPI Auth"
