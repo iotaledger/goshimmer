@@ -36,7 +36,7 @@ func ApproverFromBytes(bytes []byte, optionalTargetObject ...*Approver) (result 
 
 // ParseApprover parses a new approver from the given marshal util.
 func ParseApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Approver) (result *Approver, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return ApproverFromStorageKey(data, optionalTargetObject...)
 	}); parseErr != nil {
 		err = parseErr
@@ -45,8 +45,9 @@ func ParseApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ..
 		result = parsedObject.(*Approver)
 	}
 
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
+
 		return
 	})
 
@@ -54,7 +55,7 @@ func ParseApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ..
 }
 
 // ApproverFromStorageKey returns an approver for the given key.
-func ApproverFromStorageKey(key []byte, optionalTargetObject ...*Approver) (result objectstorage.StorableObject, err error, consumedBytes int) {
+func ApproverFromStorageKey(key []byte, optionalTargetObject ...*Approver) (result objectstorage.StorableObject, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -110,7 +111,7 @@ func (approver *Approver) ObjectStorageValue() (result []byte) {
 	return
 }
 
-func (approver *Approver) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (approver *Approver) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	return
 }
 

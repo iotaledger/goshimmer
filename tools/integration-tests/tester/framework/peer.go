@@ -15,7 +15,7 @@ type Peer struct {
 	// name of the GoShimmer instance, Docker container and hostname
 	name string
 	// GoShimmer identity
-	identity *identity.Identity
+	*identity.Identity
 
 	// Web API of this peer
 	*client.GoShimmerAPI
@@ -31,14 +31,14 @@ type Peer struct {
 func newPeer(name string, identity *identity.Identity, dockerContainer *DockerContainer) *Peer {
 	return &Peer{
 		name:            name,
-		identity:        identity,
+		Identity:        identity,
 		GoShimmerAPI:    client.NewGoShimmerAPI(getWebApiBaseUrl(name), http.Client{Timeout: 30 * time.Second}),
 		DockerContainer: dockerContainer,
 	}
 }
 
 func (p *Peer) String() string {
-	return fmt.Sprintf("Peer:{%s, %s, %s, %d}", p.name, p.identity.ID().String(), p.BaseURL(), p.TotalNeighbors())
+	return fmt.Sprintf("Peer:{%s, %s, %s, %d}", p.name, p.ID().String(), p.BaseURL(), p.TotalNeighbors())
 }
 
 // TotalNeighbors returns the total number of neighbors the peer has.

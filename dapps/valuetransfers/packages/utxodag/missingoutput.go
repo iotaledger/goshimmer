@@ -10,27 +10,28 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 )
 
-var MissingOutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, transaction.IdLength}...)
+// MissingOutputKeyPartitions defines the "layout" of the key. This enables prefix iterations in the objectstorage.
+var MissingOutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, transaction.IDLength}...)
 
-// MissingPayload represents an Output that was referenced by a Transaction, but that is missing in our object storage.
+// MissingOutput represents an Output that was referenced by a Transaction, but that is missing in our object storage.
 type MissingOutput struct {
 	objectstorage.StorableObjectFlags
 
-	outputId     transaction.OutputId
+	outputID     transaction.OutputID
 	missingSince time.Time
 }
 
 // NewMissingOutput creates a new MissingOutput object, that .
-func NewMissingOutput(outputId transaction.OutputId) *MissingOutput {
+func NewMissingOutput(outputID transaction.OutputID) *MissingOutput {
 	return &MissingOutput{
-		outputId:     outputId,
+		outputID:     outputID,
 		missingSince: time.Now(),
 	}
 }
 
 // MissingOutputFromBytes unmarshals a MissingOutput from a sequence of bytes - it either creates a new object or fills
 // the optionally provided one with the parsed information.
-func MissingOutputFromBytes(bytes []byte, optionalTargetObject ...*MissingOutput) (result *MissingOutput, err error, consumedBytes int) {
+func MissingOutputFromBytes(bytes []byte, optionalTargetObject ...*MissingOutput) (result *MissingOutput, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParseMissingOutput(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
@@ -38,19 +39,21 @@ func MissingOutputFromBytes(bytes []byte, optionalTargetObject ...*MissingOutput
 	return
 }
 
+// ParseMissingOutput unmarshals a MissingOutput using the given marshalUtil (for easier marshaling/unmarshaling).
 func ParseMissingOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*MissingOutput) (result *MissingOutput, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return MissingOutputFromStorageKey(data, optionalTargetObject...)
-	}); parseErr != nil {
+	})
+	if parseErr != nil {
 		err = parseErr
 
 		return
-	} else {
-		result = parsedObject.(*MissingOutput)
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+	result = parsedObject.(*MissingOutput)
+
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -62,7 +65,7 @@ func ParseMissingOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObje
 
 // MissingOutputFromStorageKey gets called when we restore a MissingOutput from the storage. The content will be
 // unmarshaled by an external caller using the binary.ObjectStorageValue interface.
-func MissingOutputFromStorageKey(key []byte, optionalTargetObject ...*MissingOutput) (result *MissingOutput, err error, consumedBytes int) {
+func MissingOutputFromStorageKey(key []byte, optionalTargetObject ...*MissingOutput) (result *MissingOutput, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -75,16 +78,16 @@ func MissingOutputFromStorageKey(key []byte, optionalTargetObject ...*MissingOut
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	if result.outputId, err = transaction.ParseOutputId(marshalUtil); err != nil {
+	if result.outputID, err = transaction.ParseOutputID(marshalUtil); err != nil {
 		return
 	}
 
 	return
 }
 
-// Id returns the id of the Output that is missing.
-func (missingOutput *MissingOutput) Id() transaction.OutputId {
-	return missingOutput.outputId
+// ID returns the id of the Output that is missing.
+func (missingOutput *MissingOutput) ID() transaction.OutputID {
+	return missingOutput.outputID
 }
 
 // MissingSince returns the Time since the transaction was first reported as being missing.
@@ -94,7 +97,7 @@ func (missingOutput *MissingOutput) MissingSince() time.Time {
 
 // Bytes marshals the MissingOutput into a sequence of bytes.
 func (missingOutput *MissingOutput) Bytes() []byte {
-	return marshalutil.New(transaction.OutputIdLength + marshalutil.TIME_SIZE).
+	return marshalutil.New(transaction.OutputIDLength + marshalutil.TIME_SIZE).
 		WriteBytes(missingOutput.ObjectStorageKey()).
 		WriteBytes(missingOutput.ObjectStorageValue()).
 		Bytes()
@@ -102,7 +105,7 @@ func (missingOutput *MissingOutput) Bytes() []byte {
 
 // ObjectStorageKey returns the key that is used to store the object in the object storage.
 func (missingOutput *MissingOutput) ObjectStorageKey() []byte {
-	return missingOutput.outputId.Bytes()
+	return missingOutput.outputID.Bytes()
 }
 
 // ObjectStorageValue returns a bytes representation of the Transaction by implementing the encoding.BinaryMarshaler
@@ -115,7 +118,7 @@ func (missingOutput *MissingOutput) ObjectStorageValue() []byte {
 
 // UnmarshalObjectStorageValue restores the values of a MissingOutput from a sequence of bytes using the  encoding.BinaryUnmarshaler
 // interface.
-func (missingOutput *MissingOutput) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (missingOutput *MissingOutput) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
 	if missingOutput.missingSince, err = marshalUtil.ReadTime(); err != nil {
 		return

@@ -5,8 +5,8 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
-// Events contains all the events related to the gossip protocol.
-var Events = struct {
+// Events defines all the events related to the gossip protocol.
+type Events struct {
 	// Fired when an attempt to build a connection to a neighbor has failed.
 	ConnectionFailed *events.Event
 	// Fired when a neighbor connection has been established.
@@ -15,11 +15,6 @@ var Events = struct {
 	NeighborRemoved *events.Event
 	// Fired when a new message was received via the gossip protocol.
 	MessageReceived *events.Event
-}{
-	ConnectionFailed: events.NewEvent(peerAndErrorCaller),
-	NeighborAdded:    events.NewEvent(neighborCaller),
-	NeighborRemoved:  events.NewEvent(peerCaller),
-	MessageReceived:  events.NewEvent(messageReceived),
 }
 
 // MessageReceivedEvent holds data about a message received event.

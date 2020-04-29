@@ -159,7 +159,7 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: host cannot be resolved: %s", ErrParsingMasterNode, err)
 		}
-		publicKey, err, _ := ed25519.PublicKeyFromBytes(pubKey)
+		publicKey, _, err := ed25519.PublicKeyFromBytes(pubKey)
 		if err != nil {
 			return nil, err
 		}

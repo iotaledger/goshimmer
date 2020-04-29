@@ -21,10 +21,8 @@ services:
     # autopeering:  - "14626:14626/udp"
     # webAPI:       - "8080:8080/tcp"
     # dashboard:    - "8081:8081/tcp"
-    # graph:        - "8082:8082/tcp"
     ports:
       - "14666:14666/tcp"
       - "14626:14626/udp"
       #- "8080:8080/tcp"
       #- "8081:8081/tcp"
-      #- "8082:8082/tcp"

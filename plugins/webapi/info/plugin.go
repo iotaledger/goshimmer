@@ -39,7 +39,7 @@ func configure(_ *node.Plugin) {
 // 		"WebAPI autopeering Endpoint",
 // 		"Metrics",
 // 		"PortCheck",
-// 		"SPA",
+// 		"Dashboard",
 // 		"WebAPI",
 // 		"WebAPI info Endpoint",
 // 		"WebAPI message Endpoint",
@@ -49,7 +49,6 @@ func configure(_ *node.Plugin) {
 // 		"Logger"
 // 	],
 // 	"disabledlugins":[
-// 		"Graph",
 // 		"RemoteLog",
 // 		"Spammer",
 // 		"WebAPI Auth"
