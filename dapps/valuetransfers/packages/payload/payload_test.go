@@ -21,8 +21,8 @@ func ExamplePayload() {
 	valueTransfer := transaction.New(
 		// inputs
 		transaction.NewInputs(
-			transaction.NewOutputId(address.Random(), transaction.RandomId()),
-			transaction.NewOutputId(address.Random(), transaction.RandomId()),
+			transaction.NewOutputID(address.Random(), transaction.RandomID()),
+			transaction.NewOutputID(address.Random(), transaction.RandomID()),
 		),
 
 		// outputs
@@ -79,8 +79,8 @@ func TestPayload(t *testing.T) {
 		GenesisID,
 		transaction.New(
 			transaction.NewInputs(
-				transaction.NewOutputId(address.FromED25519PubKey(addressKeyPair1.PublicKey), transaction.RandomId()),
-				transaction.NewOutputId(address.FromED25519PubKey(addressKeyPair2.PublicKey), transaction.RandomId()),
+				transaction.NewOutputID(address.FromED25519PubKey(addressKeyPair1.PublicKey), transaction.RandomID()),
+				transaction.NewOutputID(address.FromED25519PubKey(addressKeyPair2.PublicKey), transaction.RandomID()),
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{

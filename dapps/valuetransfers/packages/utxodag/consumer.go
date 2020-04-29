@@ -10,21 +10,21 @@ import (
 )
 
 // ConsumerPartitionKeys defines the "layout" of the key. This enables prefix iterations in the objectstorage.
-var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{address.Length, transaction.IdLength, transaction.IdLength}...)
+var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{address.Length, transaction.IDLength, transaction.IDLength}...)
 
 // Consumer stores the information which transaction output was consumed by which transaction. We need this to be able
 // to perform reverse lookups from transaction outputs to their corresponding consuming transactions.
 type Consumer struct {
 	objectstorage.StorableObjectFlags
 
-	consumedInput transaction.OutputId
-	transactionID transaction.Id
+	consumedInput transaction.OutputID
+	transactionID transaction.ID
 
 	storageKey []byte
 }
 
 // NewConsumer creates a Consumer object with the given information.
-func NewConsumer(consumedInput transaction.OutputId, transactionID transaction.Id) *Consumer {
+func NewConsumer(consumedInput transaction.OutputID, transactionID transaction.ID) *Consumer {
 	return &Consumer{
 		consumedInput: consumedInput,
 		transactionID: transactionID,
@@ -85,10 +85,10 @@ func ConsumerFromStorageKey(key []byte, optionalTargetObject ...*Consumer) (resu
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	if result.consumedInput, err = transaction.ParseOutputId(marshalUtil); err != nil {
+	if result.consumedInput, err = transaction.ParseOutputID(marshalUtil); err != nil {
 		return
 	}
-	if result.transactionID, err = transaction.ParseId(marshalUtil); err != nil {
+	if result.transactionID, err = transaction.ParseID(marshalUtil); err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -97,13 +97,13 @@ func ConsumerFromStorageKey(key []byte, optionalTargetObject ...*Consumer) (resu
 	return
 }
 
-// ConsumedInput returns the OutputId of the Consumer.
-func (consumer *Consumer) ConsumedInput() transaction.OutputId {
+// ConsumedInput returns the OutputID of the Consumer.
+func (consumer *Consumer) ConsumedInput() transaction.OutputID {
 	return consumer.consumedInput
 }
 
 // TransactionID returns the transaction ID of this Consumer.
-func (consumer *Consumer) TransactionID() transaction.Id {
+func (consumer *Consumer) TransactionID() transaction.ID {
 	return consumer.transactionID
 }
 
@@ -146,7 +146,7 @@ func (consumer *Consumer) Update(other objectstorage.StorableObject) {
 var _ objectstorage.StorableObject = &Consumer{}
 
 // ConsumerLength holds the length of a marshaled Consumer in bytes.
-const ConsumerLength = transaction.OutputIdLength + transaction.IdLength
+const ConsumerLength = transaction.OutputIDLength + transaction.IDLength
 
 // region CachedConsumer /////////////////////////////////////////////////////////////////////////////////////////////////
 

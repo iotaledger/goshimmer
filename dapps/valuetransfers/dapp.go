@@ -122,7 +122,7 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 	Tangle.AttachPayload(valuePayload)
 }
 
-func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputId, previousConsumersForked bool) {
+func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID, previousConsumersForked bool) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
 	defer cachedBranch.Release()
@@ -167,7 +167,7 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 	})
 }
 
-func onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputId) {
+func onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
 	defer cachedBranch.Release()

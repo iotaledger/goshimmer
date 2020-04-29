@@ -119,10 +119,10 @@ func (payload *Payload) ID() ID {
 	}
 
 	// otherwise calculate the id
-	marshalUtil := marshalutil.New(IDLength + IDLength + transaction.IdLength)
+	marshalUtil := marshalutil.New(IDLength + IDLength + transaction.IDLength)
 	marshalUtil.WriteBytes(payload.trunkPayloadID.Bytes())
 	marshalUtil.WriteBytes(payload.branchPayloadID.Bytes())
-	marshalUtil.WriteBytes(payload.Transaction().Id().Bytes())
+	marshalUtil.WriteBytes(payload.Transaction().ID().Bytes())
 
 	var id ID = blake2b.Sum256(marshalUtil.Bytes())
 	payload.id = &id

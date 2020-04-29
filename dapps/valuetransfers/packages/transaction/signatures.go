@@ -15,14 +15,14 @@ type Signatures struct {
 	orderedMap *orderedmap.OrderedMap
 }
 
-// New creates an empty container for the address signatures of a value transfer.
+// NewSignatures creates an empty container for the address signatures of a value transfer.
 func NewSignatures() *Signatures {
 	return &Signatures{
 		orderedMap: orderedmap.New(),
 	}
 }
 
-// FromBytes unmarshals a container with signatures from a sequence of bytes.
+// SignaturesFromBytes unmarshals a container with signatures from a sequence of bytes.
 // It either creates a new container or fills the optionally provided container with the parsed information.
 func SignaturesFromBytes(bytes []byte, optionalTargetObject ...*Signatures) (result *Signatures, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
@@ -88,10 +88,12 @@ func SignaturesFromBytes(bytes []byte, optionalTargetObject ...*Signatures) (res
 	return
 }
 
+// Add adds a new Signature to this container.
 func (signatures *Signatures) Add(address address.Address, signature signaturescheme.Signature) {
 	signatures.orderedMap.Set(address, signature)
 }
 
+// Get returns the Signature, that belongs to an Address.
 func (signatures *Signatures) Get(address address.Address) (signaturescheme.Signature, bool) {
 	signature, exists := signatures.orderedMap.Get(address)
 	if !exists {

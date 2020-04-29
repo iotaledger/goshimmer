@@ -22,7 +22,7 @@ import (
 
 func TestNewOutput(t *testing.T) {
 	randomAddress := address.Random()
-	randomTransactionID := transaction.RandomId()
+	randomTransactionID := transaction.RandomID()
 
 	output := NewOutput(randomAddress, randomTransactionID, branchmanager.MasterBranchID, []*balance.Balance{
 		balance.New(balance.ColorIOTA, 1337),
@@ -54,7 +54,7 @@ func TestNewOutput(t *testing.T) {
 }
 
 func TestAttachment(t *testing.T) {
-	transactionID := transaction.RandomId()
+	transactionID := transaction.RandomID()
 	payloadID := payload.RandomID()
 
 	attachment := NewAttachment(transactionID, payloadID)
@@ -91,8 +91,8 @@ func TestTangle_AttachPayload(t *testing.T) {
 	addressKeyPair1 := ed25519.GenerateKeyPair()
 	addressKeyPair2 := ed25519.GenerateKeyPair()
 
-	transferID1, _ := transaction.IdFromBase58("8opHzTAnfzRpPEx21XtnrVTX28YQuCpAjcn1PczScKh")
-	transferID2, _ := transaction.IdFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
+	transferID1, _ := transaction.IDFromBase58("8opHzTAnfzRpPEx21XtnrVTX28YQuCpAjcn1PczScKh")
+	transferID2, _ := transaction.IDFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
 
 	input1 := NewOutput(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferID1, branchmanager.MasterBranchID, []*balance.Balance{
 		balance.New(balance.ColorIOTA, 337),

@@ -17,7 +17,7 @@ import (
 type TransactionMetadata struct {
 	objectstorage.StorableObjectFlags
 
-	id                 transaction.Id
+	id                 transaction.ID
 	branchID           branchmanager.BranchID
 	solid              bool
 	finalized          bool
@@ -31,7 +31,7 @@ type TransactionMetadata struct {
 }
 
 // NewTransactionMetadata is the constructor for the TransactionMetadata type.
-func NewTransactionMetadata(id transaction.Id) *TransactionMetadata {
+func NewTransactionMetadata(id transaction.ID) *TransactionMetadata {
 	return &TransactionMetadata{
 		id: id,
 	}
@@ -63,7 +63,7 @@ func TransactionMetadataFromStorageKey(keyBytes []byte, optionalTargetObject ...
 
 	// parse information
 	marshalUtil := marshalutil.New(keyBytes)
-	result.id, err = transaction.ParseId(marshalUtil)
+	result.id, err = transaction.ParseID(marshalUtil)
 	if err != nil {
 		return
 	}
@@ -97,7 +97,7 @@ func ParseTransactionMetadata(marshalUtil *marshalutil.MarshalUtil, optionalTarg
 }
 
 // ID return the id of the Transaction that this TransactionMetadata is associated to.
-func (transactionMetadata *TransactionMetadata) ID() transaction.Id {
+func (transactionMetadata *TransactionMetadata) ID() transaction.ID {
 	return transactionMetadata.id
 }
 

@@ -9,10 +9,12 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 )
 
+// Outputs represents a list of Outputs that are part of a transaction.
 type Outputs struct {
 	*orderedmap.OrderedMap
 }
 
+// NewOutputs is the constructor of the Outputs struct and creates the list of Outputs from the given details.
 func NewOutputs(outputs map[address.Address][]*balance.Balance) (result *Outputs) {
 	result = &Outputs{orderedmap.New()}
 	for address, balances := range outputs {
@@ -22,7 +24,7 @@ func NewOutputs(outputs map[address.Address][]*balance.Balance) (result *Outputs
 	return
 }
 
-// FromBytes reads the bytes and unmarshals the given information into an *Outputs object. It either creates a
+// OutputsFromBytes reads the bytes and unmarshals the given information into an *Outputs object. It either creates a
 // new object, or uses the optional object provided in the arguments.
 func OutputsFromBytes(bytes []byte, optionalTargetObject ...*Outputs) (result *Outputs, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
@@ -85,18 +87,22 @@ func OutputsFromBytes(bytes []byte, optionalTargetObject ...*Outputs) (result *O
 	return
 }
 
+// Add adds a new Output to the list of Outputs.
 func (outputs *Outputs) Add(address address.Address, balances []*balance.Balance) *Outputs {
 	outputs.Set(address, balances)
 
 	return outputs
 }
 
+// ForEach iterates through the Outputs and calls them consumer for every found one. The iteration can be aborted by
+// returning false in the consumer.
 func (outputs *Outputs) ForEach(consumer func(address address.Address, balances []*balance.Balance) bool) bool {
 	return outputs.OrderedMap.ForEach(func(key, value interface{}) bool {
 		return consumer(key.(address.Address), value.([]*balance.Balance))
 	})
 }
 
+// Bytes returns a marshaled version of this list of Outputs.
 func (outputs *Outputs) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 
@@ -121,6 +127,7 @@ func (outputs *Outputs) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
+// String returns a human readable version of this list of Outputs (for debug purposes).
 func (outputs *Outputs) String() string {
 	if outputs == nil {
 		return "<nil>"

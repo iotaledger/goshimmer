@@ -11,18 +11,18 @@ import (
 )
 
 // MissingOutputKeyPartitions defines the "layout" of the key. This enables prefix iterations in the objectstorage.
-var MissingOutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, transaction.IdLength}...)
+var MissingOutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, transaction.IDLength}...)
 
 // MissingOutput represents an Output that was referenced by a Transaction, but that is missing in our object storage.
 type MissingOutput struct {
 	objectstorage.StorableObjectFlags
 
-	outputID     transaction.OutputId
+	outputID     transaction.OutputID
 	missingSince time.Time
 }
 
 // NewMissingOutput creates a new MissingOutput object, that .
-func NewMissingOutput(outputID transaction.OutputId) *MissingOutput {
+func NewMissingOutput(outputID transaction.OutputID) *MissingOutput {
 	return &MissingOutput{
 		outputID:     outputID,
 		missingSince: time.Now(),
@@ -78,7 +78,7 @@ func MissingOutputFromStorageKey(key []byte, optionalTargetObject ...*MissingOut
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	if result.outputID, err = transaction.ParseOutputId(marshalUtil); err != nil {
+	if result.outputID, err = transaction.ParseOutputID(marshalUtil); err != nil {
 		return
 	}
 
@@ -86,7 +86,7 @@ func MissingOutputFromStorageKey(key []byte, optionalTargetObject ...*MissingOut
 }
 
 // ID returns the id of the Output that is missing.
-func (missingOutput *MissingOutput) ID() transaction.OutputId {
+func (missingOutput *MissingOutput) ID() transaction.OutputID {
 	return missingOutput.outputID
 }
 
@@ -97,7 +97,7 @@ func (missingOutput *MissingOutput) MissingSince() time.Time {
 
 // Bytes marshals the MissingOutput into a sequence of bytes.
 func (missingOutput *MissingOutput) Bytes() []byte {
-	return marshalutil.New(transaction.OutputIdLength + marshalutil.TIME_SIZE).
+	return marshalutil.New(transaction.OutputIDLength + marshalutil.TIME_SIZE).
 		WriteBytes(missingOutput.ObjectStorageKey()).
 		WriteBytes(missingOutput.ObjectStorageValue()).
 		Bytes()

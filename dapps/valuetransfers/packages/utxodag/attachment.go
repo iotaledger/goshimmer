@@ -14,14 +14,14 @@ import (
 type Attachment struct {
 	objectstorage.StorableObjectFlags
 
-	transactionID transaction.Id
+	transactionID transaction.ID
 	payloadID     payload.ID
 
 	storageKey []byte
 }
 
 // NewAttachment creates an attachment object with the given information.
-func NewAttachment(transactionID transaction.Id, payloadID payload.ID) *Attachment {
+func NewAttachment(transactionID transaction.ID, payloadID payload.ID) *Attachment {
 	return &Attachment{
 		transactionID: transactionID,
 		payloadID:     payloadID,
@@ -82,7 +82,7 @@ func AttachmentFromStorageKey(key []byte, optionalTargetObject ...*Attachment) (
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	if result.transactionID, err = transaction.ParseId(marshalUtil); err != nil {
+	if result.transactionID, err = transaction.ParseID(marshalUtil); err != nil {
 		return
 	}
 	if result.payloadID, err = payload.ParseID(marshalUtil); err != nil {
@@ -95,7 +95,7 @@ func AttachmentFromStorageKey(key []byte, optionalTargetObject ...*Attachment) (
 }
 
 // TransactionID returns the transaction id of this Attachment.
-func (attachment *Attachment) TransactionID() transaction.Id {
+func (attachment *Attachment) TransactionID() transaction.ID {
 	return attachment.transactionID
 }
 
@@ -143,7 +143,7 @@ func (attachment *Attachment) Update(other objectstorage.StorableObject) {
 var _ objectstorage.StorableObject = &Attachment{}
 
 // AttachmentLength holds the length of a marshaled Attachment in bytes.
-const AttachmentLength = transaction.IdLength + payload.IDLength
+const AttachmentLength = transaction.IDLength + payload.IDLength
 
 // region CachedAttachment /////////////////////////////////////////////////////////////////////////////////////////////
 

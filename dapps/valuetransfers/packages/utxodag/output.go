@@ -15,16 +15,16 @@ import (
 )
 
 // OutputKeyPartitions defines the "layout" of the key. This enables prefix iterations in the objectstorage.
-var OutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, transaction.IdLength}...)
+var OutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, transaction.IDLength}...)
 
 // Output represents the output of a Transaction and contains the balances and the identifiers for this output.
 type Output struct {
 	address            address.Address
-	transactionID      transaction.Id
+	transactionID      transaction.ID
 	branchID           branchmanager.BranchID
 	solid              bool
 	solidificationTime time.Time
-	firstConsumer      transaction.Id
+	firstConsumer      transaction.ID
 	consumerCount      int
 	balances           []*balance.Balance
 
@@ -38,7 +38,7 @@ type Output struct {
 }
 
 // NewOutput creates an Output that contains the balances and identifiers of a Transaction.
-func NewOutput(address address.Address, transactionID transaction.Id, branchID branchmanager.BranchID, balances []*balance.Balance) *Output {
+func NewOutput(address address.Address, transactionID transaction.ID, branchID branchmanager.BranchID, balances []*balance.Balance) *Output {
 	return &Output{
 		address:            address,
 		transactionID:      transactionID,
@@ -105,19 +105,19 @@ func OutputFromStorageKey(keyBytes []byte, optionalTargetObject ...*Output) (res
 	if err != nil {
 		return
 	}
-	result.transactionID, err = transaction.ParseId(marshalUtil)
+	result.transactionID, err = transaction.ParseID(marshalUtil)
 	if err != nil {
 		return
 	}
-	result.storageKey = marshalutil.New(keyBytes[:transaction.OutputIdLength]).Bytes(true)
+	result.storageKey = marshalutil.New(keyBytes[:transaction.OutputIDLength]).Bytes(true)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // ID returns the identifier of this Output.
-func (output *Output) ID() transaction.OutputId {
-	return transaction.NewOutputId(output.Address(), output.TransactionID())
+func (output *Output) ID() transaction.OutputID {
+	return transaction.NewOutputID(output.Address(), output.TransactionID())
 }
 
 // Address returns the address that this output belongs to.
@@ -126,7 +126,7 @@ func (output *Output) Address() address.Address {
 }
 
 // TransactionID returns the id of the Transaction, that created this output.
-func (output *Output) TransactionID() transaction.Id {
+func (output *Output) TransactionID() transaction.ID {
 	return output.transactionID
 }
 
@@ -207,7 +207,7 @@ func (output *Output) SolidificationTime() time.Time {
 
 // RegisterConsumer keeps track of the first transaction, that consumed an Output and consequently keeps track of the
 // amount of other transactions spending the same Output.
-func (output *Output) RegisterConsumer(consumer transaction.Id) (consumerCount int, firstConsumerID transaction.Id) {
+func (output *Output) RegisterConsumer(consumer transaction.ID) (consumerCount int, firstConsumerID transaction.ID) {
 	output.consumerMutex.Lock()
 	defer output.consumerMutex.Unlock()
 
@@ -237,7 +237,7 @@ func (output *Output) Bytes() []byte {
 // ObjectStorageKey returns the key that is used to store the object in the database.
 // It is required to match StorableObject interface.
 func (output *Output) ObjectStorageKey() []byte {
-	return marshalutil.New(transaction.OutputIdLength).
+	return marshalutil.New(transaction.OutputIDLength).
 		WriteBytes(output.address.Bytes()).
 		WriteBytes(output.transactionID.Bytes()).
 		Bytes()
@@ -342,7 +342,7 @@ func (cachedOutput *CachedOutput) Consume(consumer func(output *Output)) (consum
 }
 
 // CachedOutputs represents a collection of CachedOutputs.
-type CachedOutputs map[transaction.OutputId]*CachedOutput
+type CachedOutputs map[transaction.OutputID]*CachedOutput
 
 // Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
 // is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at

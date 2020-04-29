@@ -72,22 +72,22 @@ func (utxoDAG *UTXODAG) ProcessSolidPayload(cachedPayload *payload.CachedPayload
 }
 
 // Transaction loads the given transaction from the objectstorage.
-func (utxoDAG *UTXODAG) Transaction(transactionID transaction.Id) *transaction.CachedTransaction {
+func (utxoDAG *UTXODAG) Transaction(transactionID transaction.ID) *transaction.CachedTransaction {
 	return &transaction.CachedTransaction{CachedObject: utxoDAG.transactionStorage.Load(transactionID.Bytes())}
 }
 
 // TransactionMetadata retrieves the metadata of a value payload from the object storage.
-func (utxoDAG *UTXODAG) TransactionMetadata(transactionID transaction.Id) *CachedTransactionMetadata {
+func (utxoDAG *UTXODAG) TransactionMetadata(transactionID transaction.ID) *CachedTransactionMetadata {
 	return &CachedTransactionMetadata{CachedObject: utxoDAG.transactionMetadataStorage.Load(transactionID.Bytes())}
 }
 
 // TransactionOutput loads the given output from the objectstorage.
-func (utxoDAG *UTXODAG) TransactionOutput(outputID transaction.OutputId) *CachedOutput {
+func (utxoDAG *UTXODAG) TransactionOutput(outputID transaction.OutputID) *CachedOutput {
 	return &CachedOutput{CachedObject: utxoDAG.outputStorage.Load(outputID.Bytes())}
 }
 
 // GetConsumers retrieves the approvers of a payload from the object storage.
-func (utxoDAG *UTXODAG) GetConsumers(outputID transaction.OutputId) CachedConsumers {
+func (utxoDAG *UTXODAG) GetConsumers(outputID transaction.OutputID) CachedConsumers {
 	consumers := make(CachedConsumers, 0)
 	utxoDAG.consumerStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		consumers = append(consumers, &CachedConsumer{CachedObject: cachedObject})
@@ -99,7 +99,7 @@ func (utxoDAG *UTXODAG) GetConsumers(outputID transaction.OutputId) CachedConsum
 }
 
 // GetAttachments retrieves the att of a payload from the object storage.
-func (utxoDAG *UTXODAG) GetAttachments(transactionID transaction.Id) CachedAttachments {
+func (utxoDAG *UTXODAG) GetAttachments(transactionID transaction.ID) CachedAttachments {
 	attachments := make(CachedAttachments, 0)
 	utxoDAG.attachmentStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		attachments = append(attachments, &CachedAttachment{CachedObject: cachedObject})
@@ -173,7 +173,7 @@ func (utxoDAG *UTXODAG) storeTransactionWorker(cachedPayload *payload.CachedPayl
 }
 
 func (utxoDAG *UTXODAG) storeTransactionModels(solidPayload *payload.Payload) (cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment, transactionIsNew bool) {
-	cachedTransaction = &transaction.CachedTransaction{CachedObject: utxoDAG.transactionStorage.ComputeIfAbsent(solidPayload.Transaction().Id().Bytes(), func(key []byte) objectstorage.StorableObject {
+	cachedTransaction = &transaction.CachedTransaction{CachedObject: utxoDAG.transactionStorage.ComputeIfAbsent(solidPayload.Transaction().ID().Bytes(), func(key []byte) objectstorage.StorableObject {
 		transactionIsNew = true
 
 		result := solidPayload.Transaction()
@@ -184,20 +184,20 @@ func (utxoDAG *UTXODAG) storeTransactionModels(solidPayload *payload.Payload) (c
 	})}
 
 	if transactionIsNew {
-		cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: utxoDAG.transactionMetadataStorage.Store(NewTransactionMetadata(solidPayload.Transaction().Id()))}
+		cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: utxoDAG.transactionMetadataStorage.Store(NewTransactionMetadata(solidPayload.Transaction().ID()))}
 
 		// store references to the consumed outputs
-		solidPayload.Transaction().Inputs().ForEach(func(outputId transaction.OutputId) bool {
-			utxoDAG.consumerStorage.Store(NewConsumer(outputId, solidPayload.Transaction().Id())).Release()
+		solidPayload.Transaction().Inputs().ForEach(func(outputId transaction.OutputID) bool {
+			utxoDAG.consumerStorage.Store(NewConsumer(outputId, solidPayload.Transaction().ID())).Release()
 
 			return true
 		})
 	} else {
-		cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: utxoDAG.transactionMetadataStorage.Load(solidPayload.Transaction().Id().Bytes())}
+		cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: utxoDAG.transactionMetadataStorage.Load(solidPayload.Transaction().ID().Bytes())}
 	}
 
 	// store a reference from the transaction to the payload that attached it or abort, if we have processed this attachment already
-	attachment, stored := utxoDAG.attachmentStorage.StoreIfAbsent(NewAttachment(solidPayload.Transaction().Id(), solidPayload.ID()))
+	attachment, stored := utxoDAG.attachmentStorage.StoreIfAbsent(NewAttachment(solidPayload.Transaction().ID(), solidPayload.ID()))
 	if !stored {
 		return
 	}
@@ -293,7 +293,7 @@ func (utxoDAG *UTXODAG) isTransactionSolid(tx *transaction.Transaction, metadata
 	}
 
 	if !utxoDAG.checkTransactionOutputs(consumedBalances, tx.Outputs()) {
-		return false, fmt.Errorf("the outputs do not match the inputs in transaction with id '%s'", tx.Id())
+		return false, fmt.Errorf("the outputs do not match the inputs in transaction with id '%s'", tx.ID())
 	}
 
 	return true, nil
@@ -301,7 +301,7 @@ func (utxoDAG *UTXODAG) isTransactionSolid(tx *transaction.Transaction, metadata
 
 func (utxoDAG *UTXODAG) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result CachedOutputs) {
 	result = make(CachedOutputs)
-	tx.Inputs().ForEach(func(inputId transaction.OutputId) bool {
+	tx.Inputs().ForEach(func(inputId transaction.OutputID) bool {
 		result[inputId] = utxoDAG.TransactionOutput(inputId)
 
 		return true
@@ -422,9 +422,9 @@ func (utxoDAG *UTXODAG) checkTransactionOutputs(inputBalances map[balance.Color]
 
 // ForEachConsumers iterates through the transactions that are consuming outputs of the given transactions
 func (utxoDAG *UTXODAG) ForEachConsumers(currentTransaction *transaction.Transaction, consume func(cachedTransaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment)) {
-	seenTransactions := make(map[transaction.Id]types.Empty)
+	seenTransactions := make(map[transaction.ID]types.Empty)
 	currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		utxoDAG.GetConsumers(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(consumer *Consumer) {
+		utxoDAG.GetConsumers(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(consumer *Consumer) {
 			if _, transactionSeen := seenTransactions[consumer.TransactionID()]; !transactionSeen {
 				seenTransactions[consumer.TransactionID()] = types.Void
 
@@ -459,10 +459,10 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 	}
 
 	consumedBranches := make(branchmanager.BranchIds)
-	conflictingInputs := make([]transaction.OutputId, 0)
-	conflictingInputsOfConflictingConsumers := make(map[transaction.Id][]transaction.OutputId)
+	conflictingInputs := make([]transaction.OutputID, 0)
+	conflictingInputsOfConflictingConsumers := make(map[transaction.ID][]transaction.OutputID)
 
-	if !transactionToBook.Inputs().ForEach(func(outputId transaction.OutputId) bool {
+	if !transactionToBook.Inputs().ForEach(func(outputId transaction.OutputID) bool {
 		cachedOutput := utxoDAG.TransactionOutput(outputId)
 		defer cachedOutput.Release()
 
@@ -477,7 +477,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 		consumedBranches[output.BranchID()] = types.Void
 
 		// continue if we are the first consumer and there is no double spend
-		consumerCount, firstConsumerID := output.RegisterConsumer(transactionToBook.Id())
+		consumerCount, firstConsumerID := output.RegisterConsumer(transactionToBook.ID())
 		if consumerCount == 0 {
 			return true
 		}
@@ -488,7 +488,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 		// also keep track of conflicting inputs of previous consumers
 		if consumerCount == 1 {
 			if _, conflictingInputsExist := conflictingInputsOfConflictingConsumers[firstConsumerID]; !conflictingInputsExist {
-				conflictingInputsOfConflictingConsumers[firstConsumerID] = make([]transaction.OutputId, 0)
+				conflictingInputsOfConflictingConsumers[firstConsumerID] = make([]transaction.OutputID, 0)
 			}
 
 			conflictingInputsOfConflictingConsumers[firstConsumerID] = append(conflictingInputsOfConflictingConsumers[firstConsumerID], outputId)
@@ -509,7 +509,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 	targetBranch.Persist()
 
 	if len(conflictingInputs) >= 1 {
-		cachedTargetBranch = utxoDAG.branchManager.AddBranch(branchmanager.NewBranch(branchmanager.NewBranchID(transactionToBook.Id()), []branchmanager.BranchID{targetBranch.ID()}, conflictingInputs))
+		cachedTargetBranch = utxoDAG.branchManager.AddBranch(branchmanager.NewBranch(branchmanager.NewBranchID(transactionToBook.ID()), []branchmanager.BranchID{targetBranch.ID()}, conflictingInputs))
 		defer cachedTargetBranch.Release()
 
 		targetBranch = cachedTargetBranch.Unwrap()
@@ -530,7 +530,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 
 	// book outputs into the target branch
 	transactionToBook.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		newOutput := NewOutput(address, transactionToBook.Id(), targetBranch.ID(), balances)
+		newOutput := NewOutput(address, transactionToBook.ID(), targetBranch.ID(), balances)
 		newOutput.SetSolid(true)
 		utxoDAG.outputStorage.Store(newOutput).Release()
 
@@ -560,7 +560,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 
 func (utxoDAG *UTXODAG) calculateBranchOfTransaction(currentTransaction *transaction.Transaction) (branch *branchmanager.CachedBranch, err error) {
 	consumedBranches := make(branchmanager.BranchIds)
-	if !currentTransaction.Inputs().ForEach(func(outputId transaction.OutputId) bool {
+	if !currentTransaction.Inputs().ForEach(func(outputId transaction.OutputID) bool {
 		cachedTransactionOutput := utxoDAG.TransactionOutput(outputId)
 		defer cachedTransactionOutput.Release()
 
@@ -662,7 +662,7 @@ func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.C
 					// iterate through the outputs of the moved transaction
 					currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
 						// create reference to the output
-						outputID := transaction.NewOutputId(address, currentTransaction.Id())
+						outputID := transaction.NewOutputID(address, currentTransaction.ID())
 
 						// load output from database
 						cachedOutput := utxoDAG.TransactionOutput(outputID)
@@ -682,8 +682,8 @@ func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.C
 						}
 
 						// schedule consumers for further checks
-						consumingTransactions := make(map[transaction.Id]types.Empty)
-						utxoDAG.GetConsumers(transaction.NewOutputId(address, currentTransaction.Id())).Consume(func(consumer *Consumer) {
+						consumingTransactions := make(map[transaction.ID]types.Empty)
+						utxoDAG.GetConsumers(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(consumer *Consumer) {
 							consumingTransactions[consumer.TransactionID()] = types.Void
 						})
 						for transactionID := range consumingTransactions {
@@ -709,7 +709,7 @@ func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.C
 }
 
 // Fork creates a new branch from an existing transaction.
-func (utxoDAG *UTXODAG) Fork(transactionID transaction.Id, conflictingInputs []transaction.OutputId) (forked bool, err error) {
+func (utxoDAG *UTXODAG) Fork(transactionID transaction.ID, conflictingInputs []transaction.OutputID) (forked bool, err error) {
 	cachedTransaction := utxoDAG.Transaction(transactionID)
 	cachedTransactionMetadata := utxoDAG.TransactionMetadata(transactionID)
 	defer cachedTransaction.Release()
@@ -733,7 +733,7 @@ func (utxoDAG *UTXODAG) Fork(transactionID transaction.Id, conflictingInputs []t
 		return
 	}
 
-	cachedTargetBranch := utxoDAG.branchManager.AddBranch(branchmanager.NewBranch(branchmanager.NewBranchID(tx.Id()), []branchmanager.BranchID{txMetadata.BranchID()}, conflictingInputs))
+	cachedTargetBranch := utxoDAG.branchManager.AddBranch(branchmanager.NewBranch(branchmanager.NewBranchID(tx.ID()), []branchmanager.BranchID{txMetadata.BranchID()}, conflictingInputs))
 	defer cachedTargetBranch.Release()
 
 	targetBranch := cachedTargetBranch.Unwrap()

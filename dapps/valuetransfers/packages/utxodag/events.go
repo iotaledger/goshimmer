@@ -29,21 +29,21 @@ func newEvents() *Events {
 }
 
 func transactionBookedEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, *branchmanager.CachedBranch, []transaction.OutputId, bool))(
+	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, *branchmanager.CachedBranch, []transaction.OutputID, bool))(
 		params[0].(*transaction.CachedTransaction).Retain(),
 		params[1].(*CachedTransactionMetadata).Retain(),
 		params[2].(*branchmanager.CachedBranch).Retain(),
-		params[3].([]transaction.OutputId),
+		params[3].([]transaction.OutputID),
 		params[4].(bool),
 	)
 }
 
 func forkEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, *branchmanager.CachedBranch, []transaction.OutputId))(
+	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, *branchmanager.CachedBranch, []transaction.OutputID))(
 		params[0].(*transaction.CachedTransaction).Retain(),
 		params[1].(*CachedTransactionMetadata).Retain(),
 		params[2].(*branchmanager.CachedBranch).Retain(),
-		params[3].([]transaction.OutputId),
+		params[3].([]transaction.OutputID),
 	)
 }
 

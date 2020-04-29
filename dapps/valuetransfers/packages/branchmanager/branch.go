@@ -29,7 +29,7 @@ type Branch struct {
 }
 
 // NewBranch is the constructor of a Branch and creates a new Branch object from the given details.
-func NewBranch(id BranchID, parentBranches []BranchID, conflictingInputs []transaction.OutputId) *Branch {
+func NewBranch(id BranchID, parentBranches []BranchID, conflictingInputs []transaction.OutputID) *Branch {
 	conflictingInputsMap := make(map[ConflictID]types.Empty)
 	for _, conflictingInput := range conflictingInputs {
 		conflictingInputsMap[conflictingInput] = types.Void
@@ -231,7 +231,7 @@ func (branch *Branch) Update(other objectstorage.StorableObject) {
 	panic("updates are disabled - please use the setters")
 }
 
-// ObjectStorageKey returns the bytes that are used a key when storing the Branch in an objectstorage.
+// ObjectStorageKey returns the bytes that are used as a key when storing the Branch in an objectstorage.
 func (branch *Branch) ObjectStorageKey() []byte {
 	return branch.id.Bytes()
 }

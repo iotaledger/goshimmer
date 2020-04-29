@@ -22,7 +22,7 @@ var (
 )
 
 // NewBranchID creates a new BranchID from a transaction ID.
-func NewBranchID(transactionID transaction.Id) (branchID BranchID) {
+func NewBranchID(transactionID transaction.ID) (branchID BranchID) {
 	copy(branchID[:], transactionID.Bytes())
 
 	return
@@ -89,7 +89,7 @@ func (branchId BranchID) String() string {
 
 // BranchIDLength encodes the length of a branch identifier - since branches get created by transactions, it has the
 // same length as a transaction ID.
-const BranchIDLength = transaction.IdLength
+const BranchIDLength = transaction.IDLength
 
 // BranchIds represents a collection of BranchIds.
 type BranchIds map[BranchID]types.Empty
