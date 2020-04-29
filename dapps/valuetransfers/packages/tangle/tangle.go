@@ -114,7 +114,7 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 	tangle.storePayloadReferences(payloadToStore)
 
 	// trigger events
-	if tangle.missingPayloadStorage.DeleteIfPresent(payloadToStore.Id().Bytes()) {
+	if tangle.missingPayloadStorage.DeleteIfPresent(payloadToStore.ID().Bytes()) {
 		tangle.Events.MissingPayloadReceived.Trigger(cachedPayload, cachedPayloadMetadata)
 	}
 	tangle.Events.PayloadAttached.Trigger(cachedPayload, cachedPayloadMetadata)
@@ -132,7 +132,7 @@ func (tangle *Tangle) storePayload(payloadToStore *payload.Payload) (cachedPaylo
 	}
 
 	cachedPayload = &payload.CachedPayload{CachedObject: storedTransaction}
-	cachedMetadata = &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(NewPayloadMetadata(payloadToStore.Id()))}
+	cachedMetadata = &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(NewPayloadMetadata(payloadToStore.ID()))}
 	payloadStored = true
 
 	return
@@ -141,7 +141,7 @@ func (tangle *Tangle) storePayload(payloadToStore *payload.Payload) (cachedPaylo
 func (tangle *Tangle) storePayloadReferences(payload *payload.Payload) {
 	// store trunk approver
 	trunkID := payload.TrunkID()
-	tangle.approverStorage.Store(NewPayloadApprover(trunkID, payload.Id())).Release()
+	tangle.approverStorage.Store(NewPayloadApprover(trunkID, payload.ID())).Release()
 
 	// store branch approver
 	if branchID := payload.BranchID(); branchID != trunkID {
@@ -186,7 +186,7 @@ func (tangle *Tangle) solidifyPayloadWorker(cachedPayload *payload.CachedPayload
 			tangle.Events.PayloadSolid.Trigger(currentCachedPayload, currentCachedMetadata)
 
 			// ... and schedule check of approvers
-			tangle.ForeachApprovers(currentPayload.Id(), func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata) {
+			tangle.ForeachApprovers(currentPayload.ID(), func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata) {
 				solidificationStack.PushBack([2]interface{}{payload, payloadMetadata})
 			})
 		}()
@@ -226,7 +226,7 @@ func (tangle *Tangle) isPayloadSolid(payload *payload.Payload, metadata *Payload
 // isPayloadMarkedAsSolid returns true if the payload was marked as solid already (by setting the corresponding flags
 // in its metadata.
 func (tangle *Tangle) isPayloadMarkedAsSolid(payloadID payload.ID) bool {
-	if payloadID == payload.GenesisId {
+	if payloadID == payload.GenesisID {
 		return true
 	}
 

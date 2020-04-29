@@ -55,7 +55,7 @@ func TestNewOutput(t *testing.T) {
 
 func TestAttachment(t *testing.T) {
 	transactionID := transaction.RandomId()
-	payloadID := payload.RandomId()
+	payloadID := payload.RandomID()
 
 	attachment := NewAttachment(transactionID, payloadID)
 
@@ -110,7 +110,7 @@ func TestTangle_AttachPayload(t *testing.T) {
 	outputAddress2 := address.Random()
 
 	// attach first spend
-	valueTangle.AttachPayload(payload.New(payload.GenesisId, payload.GenesisId, transaction.New(
+	valueTangle.AttachPayload(payload.New(payload.GenesisID, payload.GenesisID, transaction.New(
 		transaction.NewInputs(
 			input1.ID(),
 			input2.ID(),
@@ -124,7 +124,7 @@ func TestTangle_AttachPayload(t *testing.T) {
 	)))
 
 	// attach double spend
-	valueTangle.AttachPayload(payload.New(payload.GenesisId, payload.GenesisId, transaction.New(
+	valueTangle.AttachPayload(payload.New(payload.GenesisID, payload.GenesisID, transaction.New(
 		transaction.NewInputs(
 			input1.ID(),
 			input2.ID(),

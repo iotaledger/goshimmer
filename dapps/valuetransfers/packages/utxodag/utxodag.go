@@ -197,7 +197,7 @@ func (utxoDAG *UTXODAG) storeTransactionModels(solidPayload *payload.Payload) (c
 	}
 
 	// store a reference from the transaction to the payload that attached it or abort, if we have processed this attachment already
-	attachment, stored := utxoDAG.attachmentStorage.StoreIfAbsent(NewAttachment(solidPayload.Transaction().Id(), solidPayload.Id()))
+	attachment, stored := utxoDAG.attachmentStorage.StoreIfAbsent(NewAttachment(solidPayload.Transaction().Id(), solidPayload.ID()))
 	if !stored {
 		return
 	}

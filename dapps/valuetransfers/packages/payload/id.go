@@ -31,16 +31,17 @@ func NewID(base58EncodedString string) (result ID, err error) {
 
 // ParseID is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func ParseID(marshalUtil *marshalutil.MarshalUtil) (ID, error) {
-	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return IdFromBytes(data) }); err != nil {
+	id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return IDFromBytes(data) })
+	if err != nil {
 		return ID{}, err
-	} else {
-		return id.(ID), nil
 	}
+
+	return id.(ID), nil
 }
 
-// IdFromBytes unmarshals a payload id from a sequence of bytes.
+// IDFromBytes unmarshals a payload id from a sequence of bytes.
 // It either creates a new payload id or fills the optionally provided object with the parsed information.
-func IdFromBytes(bytes []byte, optionalTargetObject ...*ID) (result ID, consumedBytes int, err error) {
+func IDFromBytes(bytes []byte, optionalTargetObject ...*ID) (result ID, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	var targetObject *ID
 	switch len(optionalTargetObject) {
@@ -49,7 +50,7 @@ func IdFromBytes(bytes []byte, optionalTargetObject ...*ID) (result ID, consumed
 	case 1:
 		targetObject = optionalTargetObject[0]
 	default:
-		panic("too many arguments in call to IdFromBytes")
+		panic("too many arguments in call to IDFromBytes")
 	}
 
 	// initialize helper
@@ -71,8 +72,8 @@ func IdFromBytes(bytes []byte, optionalTargetObject ...*ID) (result ID, consumed
 	return
 }
 
-// Random creates a random id which can for example be used in unit tests.
-func RandomId() (id ID) {
+// RandomID creates a random payload id which can for example be used in unit tests.
+func RandomID() (id ID) {
 	// generate a random sequence of bytes
 	idBytes := make([]byte, IDLength)
 	if _, err := rand.Read(idBytes); err != nil {
@@ -90,12 +91,13 @@ func (id ID) String() string {
 	return base58.Encode(id[:])
 }
 
+// Bytes returns a marshaled version of this ID.
 func (id ID) Bytes() []byte {
 	return id[:]
 }
 
-// Empty represents the id encoding the genesis.
-var GenesisId ID
+// GenesisID contains the zero value of this ID which represents the genesis.
+var GenesisID ID
 
-// IdLength defined the amount of bytes in a payload id (32 bytes hash value).
+// IDLength defined the amount of bytes in a payload id (32 bytes hash value).
 const IDLength = 32

@@ -1,9 +1,3 @@
-dapps\valuetransfers\packages\payload\id.go:15:6: func NewId should be NewID (golint)
-func NewId(base58EncodedString string) (result ID, err error) {
-     ^
-dapps\valuetransfers\packages\payload\id.go:33:6: func ParseId should be ParseID (golint)
-func ParseId(marshalUtil *marshalutil.MarshalUtil) (ID, error) {
-     ^
 dapps\valuetransfers\packages\payload\id.go:36:9: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
 	} else {
 	       ^
@@ -29,7 +23,7 @@ dapps\valuetransfers\packages\payload\id.go:100:1: comment on exported const `ID
 // IdLength defined the amount of bytes in a payload id (32 bytes hash value).
 ^
 dapps\valuetransfers\packages\payload\id_test.go:11:2: var `sourceId` should be `sourceID` (golint)
-	sourceId, err := NewId("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
+	sourceId, err := NewID("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
 	^
 dapps\valuetransfers\packages\payload\id_test.go:17:6: var `restoredIdPointer` should be `restoredIDPointer` (golint)
 	var restoredIdPointer ID
@@ -53,7 +47,7 @@ dapps\valuetransfers\packages\payload\payload.go:46:1: exported function `FromSt
 func FromStorageKey(key []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
 ^
 dapps\valuetransfers\packages\payload\payload.go:59:5: var `payloadId` should be `payloadID` (golint)
-	if payloadId, idErr := ParseId(marshalUtil); idErr != nil {
+	if payloadId, idErr := ParseID(marshalUtil); idErr != nil {
 	   ^
 dapps\valuetransfers\packages\payload\payload.go:63:9: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
 	} else {
@@ -64,11 +58,11 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Payloa
 dapps\valuetransfers\packages\payload\payload.go:93:1: exported method `Payload.Id` should have comment or be unexported (golint)
 func (payload *Payload) Id() ID {
 ^
-dapps\valuetransfers\packages\payload\payload.go:126:1: exported method `Payload.TrunkId` should have comment or be unexported (golint)
-func (payload *Payload) TrunkId() ID {
+dapps\valuetransfers\packages\payload\payload.go:126:1: exported method `Payload.TrunkID` should have comment or be unexported (golint)
+func (payload *Payload) TrunkID() ID {
 ^
-dapps\valuetransfers\packages\payload\payload.go:130:1: exported method `Payload.BranchId` should have comment or be unexported (golint)
-func (payload *Payload) BranchId() ID {
+dapps\valuetransfers\packages\payload\payload.go:130:1: exported method `Payload.BranchID` should have comment or be unexported (golint)
+func (payload *Payload) BranchID() ID {
 ^
 dapps\valuetransfers\packages\payload\payload.go:134:1: exported method `Payload.Transaction` should have comment or be unexported (golint)
 func (payload *Payload) Transaction() *transaction.Transaction {
@@ -100,93 +94,6 @@ func (payload *Payload) Update(other objectstorage.StorableObject) {
 dapps\valuetransfers\packages\payload\payload.go:296:9: if block ends with a return statement, so drop this else and outdent its block (move short variable declaration to its own line if necessary) (golint)
 	} else {
 	       ^
-dapps\valuetransfers\packages\tangle\constants.go:8:2: don't use ALL_CAPS in Go names; use CamelCase (golint)
-	MAX_MISSING_TIME_BEFORE_CLEANUP = 30 * time.Second
-	^
-dapps\valuetransfers\packages\tangle\constants.go:9:2: don't use ALL_CAPS in Go names; use CamelCase (golint)
-	MISSING_CHECK_INTERVAL          = 5 * time.Second
-	^
-dapps\valuetransfers\packages\tangle\events.go:9:6: exported type `Events` should have comment or be unexported (golint)
-type Events struct {
-     ^
-dapps\valuetransfers\packages\tangle\events.go:28:6: func payloadIdEvent should be payloadIDEvent (golint)
-func payloadIdEvent(handler interface{}, params ...interface{}) {
-     ^
-dapps\valuetransfers\packages\tangle\missingpayload.go:17:2: struct field `payloadId` should be `payloadID` (golint)
-	payloadId    payload.ID
-	^
-dapps\valuetransfers\packages\tangle\missingpayload.go:22:24: func parameter `payloadId` should be `payloadID` (golint)
-func NewMissingPayload(payloadId payload.ID) *MissingPayload {
-                       ^
-dapps\valuetransfers\packages\tangle\missingpayload.go:31:1: error should be the last type when returning multiple items (golint)
-func MissingPayloadFromBytes(bytes []byte, optionalTargetObject ...*MissingPayload) (result *MissingPayload, err error, consumedBytes int) {
-^
-dapps\valuetransfers\packages\tangle\missingpayload.go:39:1: exported function `ParseMissingPayload` should have comment or be unexported (golint)
-func ParseMissingPayload(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*MissingPayload) (result *MissingPayload, err error) {
-^
-dapps\valuetransfers\packages\tangle\missingpayload.go:85:39: method GetId should be GetID (golint)
-func (missingPayload *MissingPayload) GetId() payload.ID {
-                                      ^
-dapps\valuetransfers\packages\tangle\missingpayload.go:89:1: comment on exported method `MissingPayload.GetMissingSince` should be of the form `GetMissingSince ...` (golint)
-// MissingSince returns the time.Time since the transaction was first reported as being missing.
-^
-dapps\valuetransfers\packages\tangle\payloadapprover.go:17:2: struct field `referencedPayloadId` should be `referencedPayloadID` (golint)
-	referencedPayloadId payload.ID
-	^
-dapps\valuetransfers\packages\tangle\payloadapprover.go:18:2: struct field `approvingPayloadId` should be `approvingPayloadID` (golint)
-	approvingPayloadId  payload.ID
-	^
-dapps\valuetransfers\packages\tangle\payloadapprover.go:34:1: exported function `PayloadApproverFromBytes` should have comment or be unexported (golint)
-func PayloadApproverFromBytes(bytes []byte, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, consumedBytes int, err error) {
-^
-dapps\valuetransfers\packages\tangle\payloadapprover.go:42:1: exported function `ParsePayloadApprover` should have comment or be unexported (golint)
-func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, err error) {
-^
-dapps\valuetransfers\packages\tangle\payloadapprover.go:93:41: method GetApprovingPayloadId should be GetApprovingPayloadID (golint)
-func (payloadApprover *PayloadApprover) GetApprovingPayloadId() payload.ID {
-                                        ^
-dapps\valuetransfers\packages\tangle\payloadapprover.go:155:6: exported type `CachedApprovers` should have comment or be unexported (golint)
-type CachedApprovers []*CachedPayloadApprover
-     ^
-dapps\valuetransfers\packages\tangle\payloadapprover.go:157:1: exported method `CachedApprovers.Consume` should have comment or be unexported (golint)
-func (cachedApprovers CachedApprovers) Consume(consumer func(approver *PayloadApprover)) (consumed bool) {
-^
-dapps\valuetransfers\packages\tangle\payloadmetadata.go:19:2: struct field `payloadId` should be `payloadID` (golint)
-	payloadId          payload.ID
-	^
-dapps\valuetransfers\packages\tangle\payloadmetadata.go:28:25: func parameter `payloadId` should be `payloadID` (golint)
-func NewPayloadMetadata(payloadId payload.ID) *PayloadMetadata {
-                        ^
-dapps\valuetransfers\packages\tangle\payloadmetadata.go:91:41: method GetPayloadId should be GetPayloadID (golint)
-func (payloadMetadata *PayloadMetadata) GetPayloadId() payload.ID {
-                                        ^
-dapps\valuetransfers\packages\tangle\payloadmetadata.go:133:1: comment on exported method `PayloadMetadata.GetSoldificationTime` should be of the form `GetSoldificationTime ...` (golint)
-// SoldificationTime returns the time when the payload was marked to be solid.
-^
-dapps\valuetransfers\packages\tangle\tangle.go:30:1: exported function `New` should have comment or be unexported (golint)
-func New(badgerInstance *badger.DB) (result *Tangle) {
-^
-dapps\valuetransfers\packages\tangle\tangle.go:51:34: method parameter `payloadId` should be `payloadID` (golint)
-func (tangle *Tangle) GetPayload(payloadId payload.ID) *payload.CachedPayload {
-                                 ^
-dapps\valuetransfers\packages\tangle\tangle.go:56:42: method parameter `payloadId` should be `payloadID` (golint)
-func (tangle *Tangle) GetPayloadMetadata(payloadId payload.ID) *CachedPayloadMetadata {
-                                         ^
-dapps\valuetransfers\packages\tangle\tangle.go:61:36: method parameter `payloadId` should be `payloadID` (golint)
-func (tangle *Tangle) GetApprovers(payloadId payload.ID) CachedApprovers {
-                                   ^
-dapps\valuetransfers\packages\tangle\tangle.go:141:2: var `trunkId` should be `trunkID` (golint)
-	trunkId := payload.TrunkId()
-	^
-dapps\valuetransfers\packages\tangle\tangle.go:145:5: var `branchId` should be `branchID` (golint)
-	if branchId := payload.BranchId(); branchId != trunkId {
-	   ^
-dapps\valuetransfers\packages\tangle\tangle.go:194:1: exported method `Tangle.ForeachApprovers` should have comment or be unexported (golint)
-func (tangle *Tangle) ForeachApprovers(payloadId payload.ID, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata)) {
-^
-dapps\valuetransfers\packages\tangle\tangle.go:196:3: var `approvingPayloadId` should be `approvingPayloadID` (golint)
-		approvingPayloadId := approver.GetApprovingPayloadId()
-		^
 dapps\valuetransfers\packages\transaction\id.go:11:1: comment on exported type Id should be of the form "Id ..." (with optional leading article) (golint)
 // ID is the data type that represents the identifier for a Transaction.
 ^

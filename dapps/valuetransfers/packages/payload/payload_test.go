@@ -36,10 +36,10 @@ func ExamplePayload() {
 	// 2. create value payload (the ontology creates this and wraps the user provided transfer accordingly)
 	valuePayload := New(
 		// trunk in "value transfer ontology" (filled by ontology tipSelector)
-		GenesisId,
+		GenesisID,
 
 		// branch in "value transfer ontology"  (filled by ontology tipSelector)
-		GenesisId,
+		GenesisID,
 
 		// value transfer
 		valueTransfer,
@@ -75,8 +75,8 @@ func TestPayload(t *testing.T) {
 	addressKeyPair2 := ed25519.GenerateKeyPair()
 
 	originalPayload := New(
-		GenesisId,
-		GenesisId,
+		GenesisID,
+		GenesisID,
 		transaction.New(
 			transaction.NewInputs(
 				transaction.NewOutputId(address.FromED25519PubKey(addressKeyPair1.PublicKey), transaction.RandomId()),
@@ -109,7 +109,7 @@ func TestPayload(t *testing.T) {
 	assert.Equal(t, originalPayload.BranchID(), clonedPayload1.BranchID())
 	assert.Equal(t, originalPayload.TrunkID(), clonedPayload1.TrunkID())
 	assert.Equal(t, originalPayload.Transaction().Bytes(), clonedPayload1.Transaction().Bytes())
-	assert.Equal(t, originalPayload.Id(), clonedPayload1.Id())
+	assert.Equal(t, originalPayload.ID(), clonedPayload1.ID())
 	assert.Equal(t, true, clonedPayload1.Transaction().SignaturesValid())
 
 	clonedPayload2, _, err := FromBytes(clonedPayload1.Bytes())
@@ -117,6 +117,6 @@ func TestPayload(t *testing.T) {
 		panic(err)
 	}
 
-	assert.Equal(t, originalPayload.Id(), clonedPayload2.Id())
+	assert.Equal(t, originalPayload.ID(), clonedPayload2.ID())
 	assert.Equal(t, true, clonedPayload2.Transaction().SignaturesValid())
 }
