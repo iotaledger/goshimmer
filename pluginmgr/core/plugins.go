@@ -3,6 +3,7 @@ package core
 import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/bootstrap"
 	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
@@ -29,6 +30,7 @@ var PLUGINS = node.Plugins(
 	autopeering.Plugin,
 	messagelayer.Plugin,
 	gossip.Plugin,
+	bootstrap.Plugin,
 	gracefulshutdown.Plugin,
 	metrics.Plugin,
 	drng.Plugin,
