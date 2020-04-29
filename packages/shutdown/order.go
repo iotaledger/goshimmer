@@ -12,7 +12,7 @@ const (
 	PriorityWebAPI
 	PriorityDashboard
 	PrioritySynchronization
-	PriorityGraph
+	PriorityBootstrap
 	PrioritySpammer
 	PriorityBadgerGarbageCollection
 )

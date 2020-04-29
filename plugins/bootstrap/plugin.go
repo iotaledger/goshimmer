@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/spammer"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/sync"
@@ -64,5 +65,5 @@ func run(_ *node.Plugin) {
 		case <-time.After(issuancePeriod):
 		case <-shutdownSignal:
 		}
-	})
+	}, shutdown.PriorityBootstrap)
 }
