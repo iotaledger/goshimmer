@@ -59,6 +59,7 @@ func (d *DockerContainer) CreateGoShimmerEntryNode(name string, seed string) err
 		Image:        "iotaledger/goshimmer",
 		ExposedPorts: nil,
 		Cmd: strslice.StrSlice{
+			"--skip-config=true",
 			fmt.Sprintf("--node.disablePlugins=%s", disabledPluginsEntryNode),
 			"--autopeering.entryNodes=",
 			fmt.Sprintf("--autopeering.seed=%s", seed),
@@ -77,6 +78,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(name string, seed string, entryNod
 			nat.Port("8080/tcp"): {},
 		},
 		Cmd: strslice.StrSlice{
+			"--skip-config=true",
 			fmt.Sprintf("--node.disablePlugins=%s", disabledPluginsPeer),
 			"--webapi.bindAddress=0.0.0.0:8080",
 			fmt.Sprintf("--autopeering.seed=%s", seed),
