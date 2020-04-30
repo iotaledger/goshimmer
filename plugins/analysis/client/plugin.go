@@ -91,20 +91,20 @@ func reportHeartbeat(dispatchers *EventDispatchers) {
 	var outboundIds [][]byte
 	var inboundIds [][]byte
 
-	// Get outboundIds (chosen neighbors)
+	// Get outboundIDs (chosen neighbors)
 	outgoingNeighbors := autopeering.Selection().GetOutgoingNeighbors()
-	outboundIds = make([][]byte, len(outgoingNeighbors))
+	outboundIDs = make([][]byte, len(outgoingNeighbors))
 	for i, neighbor := range outgoingNeighbors {
 		// Doesn't copy the ID, take care not to modify underlying bytearray!
-		outboundIds[i] = neighbor.ID().Bytes()
+		outboundIDs[i] = neighbor.ID().Bytes()
 	}
 
-	// Get inboundIds (accepted neighbors)
+	// Get inboundIDs (accepted neighbors)
 	incomingNeighbors := autopeering.Selection().GetIncomingNeighbors()
-	inboundIds = make([][]byte, len(incomingNeighbors))
+	inboundIDs = make([][]byte, len(incomingNeighbors))
 	for i, neighbor := range incomingNeighbors {
 		// Doesn't copy the ID, take care not to modify underlying bytearray!
-		inboundIds[i] = neighbor.ID().Bytes()
+		inboundIDs[i] = neighbor.ID().Bytes()
 	}
 
 	packet := &heartbeat.Packet{OwnID: nodeID, OutboundIDs: outboundIds, InboundIDs: inboundIds}
