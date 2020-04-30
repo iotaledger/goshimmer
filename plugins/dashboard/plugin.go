@@ -193,7 +193,7 @@ func neighborMetrics() []neighbormetric {
 	for _, neighbor := range neighbors {
 		// unfortunately the neighbor manager doesn't keep track of the origin of the connection
 		origin := "Inbound"
-		for _, peer := range autopeering.Selection.GetOutgoingNeighbors() {
+		for _, peer := range autopeering.Selection().GetOutgoingNeighbors() {
 			if neighbor.Peer == peer {
 				origin = "Outbound"
 				break
