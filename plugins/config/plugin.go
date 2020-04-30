@@ -50,8 +50,8 @@ func init() {
 	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
 		if err := fetch(false); err != nil {
 			if !*skipConfigAvailable {
-				// We wanted a config file but it was not present
-				// Global logger instance is not initialized at this stage...
+				// we wanted a config file but it was not present
+				// global logger instance is not initialized at this stage...
 				fmt.Println(err.Error())
 				fmt.Println("no config file present, terminating GoShimmer. please use the provided config.default.json to create a config.json.")
 				// daemon is not running yet, so we just exit
