@@ -1,13 +1,15 @@
 package config
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/parameter"
-	"github.com/spf13/viper"
-
 	flag "github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 // PluginName is the name of the config plugin.
@@ -20,6 +22,7 @@ var (
 	// flags
 	configName    = flag.StringP("config", "c", "config", "Filename of the config file without the file extension")
 	configDirPath = flag.StringP("config-dir", "d", ".", "Path to the directory containing the config file")
+	skipConfigAvailable = flag.Bool("skip-config", false, "Skip config file availability check")
 
 	// viper
 	Node *viper.Viper
@@ -46,6 +49,12 @@ func init() {
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
 		if err := fetch(false); err != nil {
+			if *skipConfigAvailable == false {
+				// We wanted a config file but it was not present
+				fmt.Println(err.Error())
+				fmt.Println("No config file present, terminating GoShimmer. Use '--skip-config=true' to disable this check and supply values through CLI flags.")
+				os.Exit(1)
+			}
 			panic(err)
 		}
 	}))
@@ -57,8 +66,9 @@ func init() {
 // and ending with: .json, .toml, .yaml or .yml (in this sequence).
 func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
 	flag.Parse()
-	err := parameter.LoadConfigFile(Node, *configDirPath, *configName, true, true)
+	err := parameter.LoadConfigFile(Node, *configDirPath, *configName, true, *skipConfigAvailable)
 	if err != nil {
+
 		return err
 	}
 
