@@ -4,7 +4,9 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
+// Events defines the events of the plugin.
 var Events = pluginEvents{
+	// ReceivedMPSUpdated triggers upon reception of a MPS update.
 	ReceivedMPSUpdated: events.NewEvent(uint64EventCaller),
 }
 

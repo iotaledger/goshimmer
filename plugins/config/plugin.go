@@ -5,9 +5,8 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/parameter"
-	"github.com/spf13/viper"
-
 	flag "github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 // PluginName is the name of the config plugin.
@@ -21,7 +20,7 @@ var (
 	configName    = flag.StringP("config", "c", "config", "Filename of the config file without the file extension")
 	configDirPath = flag.StringP("config-dir", "d", ".", "Path to the directory containing the config file")
 
-	// viper
+	// Node is viper
 	Node *viper.Viper
 
 	// logger
@@ -35,6 +34,7 @@ var (
 	}
 )
 
+// Init triggers the Init event.
 func Init() {
 	Plugin.Events.Init.Trigger(Plugin)
 }

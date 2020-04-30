@@ -2,6 +2,7 @@ package profiling
 
 import (
 	"net/http"
+	// import required to profile
 	_ "net/http/pprof"
 
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -10,9 +11,11 @@ import (
 )
 
 var (
+	// Plugin is the profiling plugin.
 	Plugin = node.NewPlugin("Profiling", node.Enabled, configure, run)
 )
 
+// CfgProfilingBindAddress defines the config flag of the profiling binding address.
 const CfgProfilingBindAddress = "profiling.bindAddress"
 
 func init() {
