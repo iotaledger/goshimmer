@@ -33,7 +33,7 @@ const (
 	// of how long it should take for an anchor point to become solid. Even if this value is set too low, usually a node
 	// would eventually solidify collected anchor points.
 	CfgSyncAnchorPointsCleanupAfterSec = "sync.anchorPointsCleanupAfterSec"
-	// CfgSyncAnchorPointsCleanupAfterSec defines the interval at which it is checked whether anchor points fall
+	// CfgSyncAnchorPointsCleanupIntervalSec defines the interval at which it is checked whether anchor points fall
 	// into the cleanup window.
 	CfgSyncAnchorPointsCleanupIntervalSec = "sync.anchorPointsCleanupIntervalSec"
 	// CfgSyncDesyncedIfNoMessageAfterSec defines the time period in which new messages must be received and if not
@@ -133,7 +133,6 @@ func monitorForDesynchronization() {
 	daemon.BackgroundWorker("Desync-Monitor", func(shutdownSignal <-chan struct{}) {
 		gossip.Manager().Events().NeighborRemoved.Attach(monitorPeerCountClosure)
 		defer gossip.Manager().Events().NeighborRemoved.Detach(monitorPeerCountClosure)
-		// TODO: replace with MessageSolid
 		messagelayer.Tangle.Events.MessageAttached.Attach(monitorMessageInflowClosure)
 		defer messagelayer.Tangle.Events.MessageAttached.Detach(monitorMessageInflowClosure)
 
