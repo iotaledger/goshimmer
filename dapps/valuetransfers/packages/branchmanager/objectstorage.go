@@ -30,6 +30,7 @@ var (
 
 	osChildBranchOptions = []objectstorage.Option{
 		objectstorage.CacheTime(60 * time.Second),
+		objectstorage.PartitionKey(BranchIDLength, BranchIDLength),
 		osLeakDetectionOption,
 	}
 
@@ -40,6 +41,7 @@ var (
 
 	osConflictMemberOptions = []objectstorage.Option{
 		objectstorage.CacheTime(60 * time.Second),
+		objectstorage.PartitionKey(ConflictIDLength, BranchIDLength),
 		osLeakDetectionOption,
 	}
 )
@@ -56,6 +58,6 @@ func osConflictFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return ConflictFromStorageKey(key)
 }
 
-func osCOnflictMemberFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func osConflictMemberFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return ConflictMemberFromStorageKey(key)
 }

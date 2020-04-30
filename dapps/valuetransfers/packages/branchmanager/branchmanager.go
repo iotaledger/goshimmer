@@ -33,7 +33,7 @@ func New(badgerInstance *badger.DB) (result *BranchManager) {
 		branchStorage:         osFactory.New(osBranch, osBranchFactory, osBranchOptions...),
 		childBranchStorage:    osFactory.New(osChildBranch, osChildBranchFactory, osChildBranchOptions...),
 		conflictStorage:       osFactory.New(osConflict, osConflictFactory, osConflictOptions...),
-		conflictMemberStorage: osFactory.New(osConflictMember, osCOnflictMemberFactory, osConflictMemberOptions...),
+		conflictMemberStorage: osFactory.New(osConflictMember, osConflictMemberFactory, osConflictMemberOptions...),
 	}
 	result.init()
 
