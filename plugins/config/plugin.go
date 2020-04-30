@@ -20,8 +20,8 @@ var (
 	Plugin = node.NewPlugin(PluginName, node.Enabled)
 
 	// flags
-	configName    = flag.StringP("config", "c", "config", "Filename of the config file without the file extension")
-	configDirPath = flag.StringP("config-dir", "d", ".", "Path to the directory containing the config file")
+	configName          = flag.StringP("config", "c", "config", "Filename of the config file without the file extension")
+	configDirPath       = flag.StringP("config-dir", "d", ".", "Path to the directory containing the config file")
 	skipConfigAvailable = flag.Bool("skip-config", false, "Skip config file availability check")
 
 	// viper
@@ -49,11 +49,11 @@ func init() {
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
 		if err := fetch(false); err != nil {
-			if *skipConfigAvailable == false {
+			if !*skipConfigAvailable {
 				// We wanted a config file but it was not present
 				// Global logger instance is not initialized at this stage...
 				fmt.Println(err.Error())
-				fmt.Println("No config file present, terminating GoShimmer. Use '--skip-config=true' to disable this check and supply values through CLI flags.")
+				fmt.Println("no config file present, terminating GoShimmer. please use the provided config.default.json to create a config.json.")
 				// daemon is not running yet, so we just exit
 				os.Exit(1)
 			}
