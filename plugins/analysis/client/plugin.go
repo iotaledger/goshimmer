@@ -59,9 +59,9 @@ func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 			}
 			log.Debugw(
 				"Heartbeat",
-				"nodeId", hex.EncodeToString(packet.OwnID),
-				"outboundIds", out.String(),
-				"inboundIds", in.String(),
+				"nodeID", hex.EncodeToString(packet.OwnID),
+				"outboundIDs", out.String(),
+				"inboundIDs", in.String(),
 			)
 
 			// Marshal() copies the content of packet, it doesn't modify it.
@@ -88,8 +88,8 @@ func reportHeartbeat(dispatchers *EventDispatchers) {
 		nodeID = local.GetInstance().ID().Bytes()
 	}
 
-	var outboundIds [][]byte
-	var inboundIds [][]byte
+	var outboundIDs [][]byte
+	var inboundIDs [][]byte
 
 	// Get outboundIDs (chosen neighbors)
 	outgoingNeighbors := autopeering.Selection().GetOutgoingNeighbors()
@@ -107,7 +107,7 @@ func reportHeartbeat(dispatchers *EventDispatchers) {
 		inboundIDs[i] = neighbor.ID().Bytes()
 	}
 
-	packet := &heartbeat.Packet{OwnID: nodeID, OutboundIDs: outboundIds, InboundIDs: inboundIds}
+	packet := &heartbeat.Packet{OwnID: nodeID, OutboundIDs: outboundIDs, InboundIDs: inboundIDs}
 
 	dispatchers.Heartbeat(packet)
 }
