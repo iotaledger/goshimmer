@@ -10,6 +10,8 @@ export class Message {
     trunk_message_id: string;
     branch_message_id: string;
     solid: boolean;
+    payload_type: number;
+    payload: string;
 }
 
 class AddressResult {
