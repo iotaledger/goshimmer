@@ -73,17 +73,16 @@ func start(shutdownSignal <-chan struct{}) {
 	mgr.Start(srv)
 	defer mgr.Close()
 
-	err = autopeering.StartSelection()
-	if err != nil {
-		log.Errorf("Error starting neighbor selection: %v", err)
-	}
-	// assure that the selection is always stopped before the gossip manager
-	defer autopeering.Selection().Close()
+	// trigger start of the autopeering selection
+	go func() { autopeering.StartSelection() }()
 
 	log.Infof("%s started: Address=%s/%s", PluginName, localAddr.String(), localAddr.Network())
 
 	<-shutdownSignal
 	log.Info("Stopping " + PluginName + " ...")
+
+	// assure that the autopeering selection is always stopped before the gossip manager
+	autopeering.Selection().Close()
 }
 
 // loads the given message from the message layer or an error if not found.
