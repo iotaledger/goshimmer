@@ -168,7 +168,7 @@ func (branch *Branch) SetPreferred(preferred bool) (modified bool) {
 
 	branch.preferredMutex.RUnlock()
 	branch.preferredMutex.Lock()
-	defer branch.preferredMutex.Lock()
+	defer branch.preferredMutex.Unlock()
 
 	if branch.preferred == preferred {
 		return
@@ -199,7 +199,7 @@ func (branch *Branch) SetLiked(liked bool) (modified bool) {
 
 	branch.likedMutex.RUnlock()
 	branch.likedMutex.Lock()
-	defer branch.likedMutex.Lock()
+	defer branch.likedMutex.Unlock()
 
 	if branch.liked == liked {
 		return

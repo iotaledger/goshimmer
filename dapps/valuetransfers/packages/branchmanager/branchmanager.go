@@ -30,7 +30,10 @@ func New(badgerInstance *badger.DB) (result *BranchManager) {
 	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.ValueTransfers)
 
 	result = &BranchManager{
-		branchStorage: osFactory.New(osBranch, osBranchFactory, osBranchOptions...),
+		branchStorage:         osFactory.New(osBranch, osBranchFactory, osBranchOptions...),
+		childBranchStorage:    osFactory.New(osChildBranch, osChildBranchFactory, osChildBranchOptions...),
+		conflictStorage:       osFactory.New(osConflict, osConflictFactory, osConflictOptions...),
+		conflictMemberStorage: osFactory.New(osConflictMember, osCOnflictMemberFactory, osConflictMemberOptions...),
 	}
 	result.init()
 
@@ -82,32 +85,34 @@ func (branchManager *BranchManager) AddBranch(branchID BranchID, parentBranches 
 		return newBranch
 	})}
 
+	if !newBranchAdded {
+		return
+	}
+
 	// create the referenced entities and references
 	cachedBranch.Retain().Consume(func(branch *Branch) {
-		if newBranchAdded {
-			// store parent references
-			for _, parentBranchID := range parentBranches {
-				if cachedChildBranch, stored := branchManager.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID)); stored {
-					cachedChildBranch.Release()
+		// store parent references
+		for _, parentBranchID := range parentBranches {
+			if cachedChildBranch, stored := branchManager.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID)); stored {
+				cachedChildBranch.Release()
+			}
+		}
+
+		// store conflict + conflict references
+		for _, conflictID := range conflicts {
+			(&CachedConflict{CachedObject: branchManager.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) objectstorage.StorableObject {
+				newConflict := NewConflict(conflictID)
+				newConflict.Persist()
+				newConflict.SetModified()
+
+				return newConflict
+			})}).Consume(func(conflict *Conflict) {
+				if cachedConflictMember, stored := branchManager.conflictMemberStorage.StoreIfAbsent(NewConflictMember(conflictID, branchID)); stored {
+					conflict.IncreaseMemberCount()
+
+					cachedConflictMember.Release()
 				}
-			}
-
-			// store conflict + conflict references
-			for _, conflictID := range conflicts {
-				(&CachedConflict{CachedObject: branchManager.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) objectstorage.StorableObject {
-					newConflict := NewConflict(conflictID)
-					newConflict.Persist()
-					newConflict.SetModified()
-
-					return newConflict
-				})}).Consume(func(conflict *Conflict) {
-					if cachedConflictMember, stored := branchManager.conflictMemberStorage.StoreIfAbsent(NewConflictMember(conflictID, branchID)); stored {
-						conflict.IncreaseMemberCount()
-
-						cachedConflictMember.Release()
-					}
-				})
-			}
+			})
 		}
 	})
 
