@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/heartbeat"
+	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -41,5 +41,5 @@ func errorCaller(handler interface{}, params ...interface{}) {
 }
 
 func heartbeatPacketCaller(handler interface{}, params ...interface{}) {
-	handler.(func(heartbeat.Packet))(params[0].(heartbeat.Packet))
+	handler.(func(heartbeat *packet.Heartbeat))(params[0].(*packet.Heartbeat))
 }
