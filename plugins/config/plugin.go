@@ -5,9 +5,8 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/parameter"
-	"github.com/spf13/viper"
-
 	flag "github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 // PluginName is the name of the config plugin.
