@@ -40,18 +40,21 @@ func New(badgerInstance *badger.DB) (result *BranchManager) {
 	return
 }
 
-func (branchManager *BranchManager) init() {
-	cachedBranch, branchAdded := branchManager.AddBranch(MasterBranchID, []BranchID{}, []ConflictID{})
-	if !branchAdded {
-		cachedBranch.Release()
+// Branch loads a Branch from the objectstorage.
+func (branchManager *BranchManager) Branch(branchID BranchID) *CachedBranch {
+	return &CachedBranch{CachedObject: branchManager.branchStorage.Load(branchID.Bytes())}
+}
 
-		return
-	}
+// ChildBranches loads the ChildBranches that are forking off, of the given Branch.
+func (branchManager *BranchManager) ChildBranches(branchID BranchID) CachedChildBranches {
+	childBranches := make(CachedChildBranches, 0)
+	branchManager.childBranchStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		childBranches = append(childBranches, &CachedChildBranch{CachedObject: cachedObject})
 
-	cachedBranch.Consume(func(branch *Branch) {
-		branch.SetPreferred(true)
-		branch.SetLiked(true)
-	})
+		return true
+	}, branchID.Bytes())
+
+	return childBranches
 }
 
 // Conflict loads the corresponding Conflict from the objectstorage.
@@ -117,11 +120,6 @@ func (branchManager *BranchManager) AddBranch(branchID BranchID, parentBranches 
 	})
 
 	return
-}
-
-// Branch loads a Branch from the objectstorage.
-func (branchManager *BranchManager) Branch(branchID BranchID) *CachedBranch {
-	return &CachedBranch{CachedObject: branchManager.branchStorage.Load(branchID.Bytes())}
 }
 
 // BranchesConflicting returns true if the given Branches are part of the same Conflicts and can therefore not be
@@ -266,21 +264,38 @@ func (branchManager *BranchManager) InheritBranches(branches ...BranchID) (cache
 	return
 }
 
-// ChildBranches loads the ChildBranches that are forking off, of the given Branch.
-func (branchManager *BranchManager) ChildBranches(branchID BranchID) CachedChildBranches {
-	childBranches := make(CachedChildBranches, 0)
-	branchManager.childBranchStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		childBranches = append(childBranches, &CachedChildBranch{CachedObject: cachedObject})
-
-		return true
-	}, branchID.Bytes())
-
-	return childBranches
-}
-
-// SetBranchPreferred is the method that allows us to modify the preferred flag of a transaction.
+// SetBranchPreferred is the method that allows us to modify the preferred flag of a branch.
 func (branchManager *BranchManager) SetBranchPreferred(branchID BranchID, preferred bool) (modified bool, err error) {
 	return branchManager.setBranchPreferred(branchManager.Branch(branchID), preferred)
+}
+
+// Prune resets the database and deletes all objects (for testing or "node resets").
+func (branchManager *BranchManager) Prune() (err error) {
+	for _, storage := range []*objectstorage.ObjectStorage{
+		branchManager.branchStorage,
+	} {
+		if err = storage.Prune(); err != nil {
+			return
+		}
+	}
+
+	branchManager.init()
+
+	return
+}
+
+func (branchManager *BranchManager) init() {
+	cachedBranch, branchAdded := branchManager.AddBranch(MasterBranchID, []BranchID{}, []ConflictID{})
+	if !branchAdded {
+		cachedBranch.Release()
+
+		return
+	}
+
+	cachedBranch.Consume(func(branch *Branch) {
+		branch.SetPreferred(true)
+		branch.SetLiked(true)
+	})
 }
 
 func (branchManager *BranchManager) setBranchPreferred(cachedBranch *CachedBranch, preferred bool) (modified bool, err error) {
@@ -689,21 +704,6 @@ func (branchManager *BranchManager) getAncestorBranches(branch *Branch) (ancesto
 			return
 		}
 	}
-
-	return
-}
-
-// Prune resets the database and deletes all objects (for testing or "node resets").
-func (branchManager *BranchManager) Prune() (err error) {
-	for _, storage := range []*objectstorage.ObjectStorage{
-		branchManager.branchStorage,
-	} {
-		if err = storage.Prune(); err != nil {
-			return
-		}
-	}
-
-	branchManager.init()
 
 	return
 }
