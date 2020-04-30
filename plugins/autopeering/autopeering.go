@@ -32,8 +32,6 @@ const (
 var (
 	// ErrParsingMasterNode is returned for an invalid master node.
 	ErrParsingMasterNode = errors.New("cannot parse master node")
-	// ErrDiscoveryNotStarted is returned when the peer discovery is required, but has not yet been started.
-	ErrDiscoveryNotStarted = errors.New("peer discovery not started")
 
 	// NetworkID specifies the autopeering network identifier
 	NetworkID = hash32([]byte(banner.AppVersion + NetworkVersion))
@@ -44,11 +42,15 @@ var (
 	peerDisc     *discover.Protocol
 	peerDiscOnce sync.Once
 
-	// the peer selection protocol.
+	// the peer selection protocol
 	peerSel     *selection.Protocol
 	peerSelOnce sync.Once
 
-	srv *server.Server
+	// block until the peering server has been started
+	srvBarrier = struct {
+		once sync.Once
+		c    chan *server.Server
+	}{c: make(chan *server.Server, 1)}
 )
 
 // Discovery returns the peer discovery instance.
@@ -63,8 +65,8 @@ func Selection() *selection.Protocol {
 	return peerSel
 }
 
-// GetBindAddress returns the string form of the autopeering bind address.
-func GetBindAddress() string {
+// BindAddress returns the string form of the autopeering bind address.
+func BindAddress() string {
 	peering := local.GetInstance().Services().Get(service.PeeringKey)
 	host := config.Node.GetString(local.CfgBind)
 	port := strconv.Itoa(peering.Port())
@@ -72,12 +74,14 @@ func GetBindAddress() string {
 }
 
 // StartSelection starts the neighbor selection process.
-func StartSelection() error {
-	if srv == nil {
-		return ErrDiscoveryNotStarted
-	}
-	Selection().Start(srv)
-	return nil
+// It blocks until the peer discovery has been started. Multiple calls of StartSelection are ignored.
+func StartSelection() {
+	srvBarrier.once.Do(func() {
+		srv := <-srvBarrier.c
+		close(srvBarrier.c)
+
+		Selection().Start(srv)
+	})
 }
 
 func createPeerDisc() {
@@ -127,7 +131,7 @@ func start(shutdownSignal <-chan struct{}) {
 	peering := lPeer.Services().Get(service.PeeringKey)
 
 	// resolve the bind address
-	localAddr, err := net.ResolveUDPAddr(peering.Network(), GetBindAddress())
+	localAddr, err := net.ResolveUDPAddr(peering.Network(), BindAddress())
 	if err != nil {
 		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
 	}
@@ -139,11 +143,12 @@ func start(shutdownSignal <-chan struct{}) {
 	defer conn.Close()
 
 	// start a server doing peerDisc and peering
-	srv = server.Serve(lPeer, conn, log.Named("srv"), Discovery(), Selection())
+	srv := server.Serve(lPeer, conn, log.Named("srv"), Discovery(), Selection())
 	defer srv.Close()
 
 	// start the peer discovery on that connection
 	Discovery().Start(srv)
+	srvBarrier.c <- srv
 
 	log.Infof("%s started: ID=%s Address=%s/%s", PluginName, lPeer.ID(), localAddr.String(), localAddr.Network())
 
