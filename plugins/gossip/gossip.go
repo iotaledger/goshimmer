@@ -76,7 +76,7 @@ func start(shutdownSignal <-chan struct{}) {
 	// trigger start of the autopeering selection
 	go func() { autopeering.StartSelection() }()
 
-	log.Infof("%s started: Address=%s/%s", PluginName, localAddr.String(), localAddr.Network())
+	log.Infof("%s started, bind-address=%s", PluginName, localAddr.String())
 
 	<-shutdownSignal
 	log.Info("Stopping " + PluginName + " ...")
