@@ -21,7 +21,7 @@ var (
 	configName    = flag.StringP("config", "c", "config", "Filename of the config file without the file extension")
 	configDirPath = flag.StringP("config-dir", "d", ".", "Path to the directory containing the config file")
 
-	// viper
+	// Node is viper
 	Node *viper.Viper
 
 	// logger
@@ -35,6 +35,7 @@ var (
 	}
 )
 
+// Init triggers the Init event.
 func Init() {
 	Plugin.Events.Init.Trigger(Plugin)
 }

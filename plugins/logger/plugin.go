@@ -13,6 +13,7 @@ const PluginName = "Logger"
 // Plugin is the plugin instance of the logger plugin.
 var Plugin = node.NewPlugin(PluginName, node.Enabled)
 
+// Init triggers the Init event.
 func Init() {
 	Plugin.Events.Init.Trigger(Plugin)
 }

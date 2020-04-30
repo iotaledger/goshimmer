@@ -1,4 +1,4 @@
-// remotelog is a plugin that enables log messages being sent via UDP to a central ELK stack for debugging.
+// Package remotelog is a plugin that enables log messages being sent via UDP to a central ELK stack for debugging.
 // It is disabled by default and when enabled, additionally, logger.disableEvents=false in config.json needs to be set.
 // The destination can be set via logger.remotelog.serverAddress.
 // All events according to logger.level in config.json are sent.
@@ -32,7 +32,7 @@ type logMessage struct {
 	Version   string    `json:"version"`
 	GitHead   string    `json:"gitHead,omitempty"`
 	GitBranch string    `json:"gitBranch,omitempty"`
-	NodeId    string    `json:"nodeId"`
+	NodeID    string    `json:"nodeId"`
 	Level     string    `json:"level"`
 	Name      string    `json:"name"`
 	Msg       string    `json:"msg"`
@@ -40,7 +40,9 @@ type logMessage struct {
 }
 
 const (
+	// CfgServerAddress defines the config flag of the server address.
 	CfgServerAddress = "logger.remotelog.serverAddress"
+	// CfgDisableEvents defines the config flag for disabling logger events.
 	CfgDisableEvents = "logger.disableEvents"
 	// PluginName is the name of the remote log plugin.
 	PluginName = "RemoteLog"
