@@ -18,6 +18,9 @@ func TestNodeSynchronization(t *testing.T) {
 	require.NoError(t, err)
 	defer n.Shutdown()
 
+	// wait for peers to change their state to synchronized
+	time.Sleep(5 * time.Second)
+
 	numMessages := 100
 	idsMap := make(map[string]MessageSent, numMessages)
 	ids := make([]string, numMessages)
@@ -40,7 +43,7 @@ func TestNodeSynchronization(t *testing.T) {
 	checkForMessageIds(t, n.Peers(), ids, idsMap)
 
 	// spawn peer without knowledge of previous messages
-	newPeer, err := n.CreatePeer()
+	newPeer, err := n.CreatePeer(false)
 	require.NoError(t, err)
 	err = n.WaitForAutopeering(3)
 	require.NoError(t, err)
@@ -91,6 +94,11 @@ func sendDataMessage(t *testing.T, peer *framework.Peer, data []byte, number int
 
 func checkForMessageIds(t *testing.T, peers []*framework.Peer, ids []string, idsMap map[string]MessageSent) {
 	for _, peer := range peers {
+		// check that the peer sees itself as synchronized
+		info, err := peer.Info()
+		require.NoError(t, err)
+		require.True(t, info.Synced)
+
 		resp, err := peer.FindMessageByID(ids)
 		require.NoError(t, err)
 

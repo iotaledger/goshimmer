@@ -17,6 +17,7 @@ services:
       - integration-test
 
   peer_master:
+    command: --node.enablePlugins=bootstrap
     container_name: peer_master
     image: iotaledger/goshimmer
     build:
