@@ -28,14 +28,24 @@ const (
 	// CfgSyncAnchorPointsCount defines the amount of anchor points to use to determine
 	// whether a node is synchronized.
 	CfgSyncAnchorPointsCount = "sync.anchorPointsCount"
-	// CfgSyncDesyncedIfNoMessageInSec defines the time period in which new messages must be received and if not
+	// CfgSyncAnchorPointsCleanupAfterSec defines the amount of time which is allowed to pass between setting an anchor
+	// point and it not becoming solid (to clean its slot for another anchor point). It basically defines the expectancy
+	// of how long it should take for an anchor point to become solid. Even if this value is set too low, usually a node
+	// would eventually solidify collected anchor points.
+	CfgSyncAnchorPointsCleanupAfterSec = "sync.anchorPointsCleanupAfterSec"
+	// CfgSyncAnchorPointsCleanupAfterSec defines the interval at which it is checked whether anchor points fall
+	// into the cleanup window.
+	CfgSyncAnchorPointsCleanupIntervalSec = "sync.anchorPointsCleanupIntervalSec"
+	// CfgSyncDesyncedIfNoMessageAfterSec defines the time period in which new messages must be received and if not
 	// the node is marked as desynced.
-	CfgSyncDesyncedIfNoMessageInSec = "sync.desyncedIfNoMessagesInSec"
+	CfgSyncDesyncedIfNoMessageAfterSec = "sync.desyncedIfNoMessagesAfterSec"
 )
 
 func init() {
 	flag.Int(CfgSyncAnchorPointsCount, 3, "the amount of anchor points to use to determine whether a node is synchronized")
-	flag.Int(CfgSyncDesyncedIfNoMessageInSec, 300, "the time period in seconds which sets the node as desynced if no new messages are received")
+	flag.Int(CfgSyncDesyncedIfNoMessageAfterSec, 300, "the time period in seconds which sets the node as desynced if no new messages are received")
+	flag.Int(CfgSyncAnchorPointsCleanupIntervalSec, 10, "the interval at which it is checked whether anchor points fall into the cleanup window")
+	flag.Int(CfgSyncAnchorPointsCleanupAfterSec, 60, "the amount of time which is allowed to pass between setting an anchor point and it not becoming solid (to clean its slot for another anchor point)")
 }
 
 var (
@@ -115,16 +125,19 @@ func monitorForDesynchronization() {
 		select {
 		case msgReceived <- types.Empty{}:
 		default:
+			// via this default clause, a slow desync-monitor select-loop
+			// worker should not increase latency as it auto. falls through
 		}
 	})
 
 	daemon.BackgroundWorker("Desync-Monitor", func(shutdownSignal <-chan struct{}) {
 		gossip.Manager().Events().NeighborRemoved.Attach(monitorPeerCountClosure)
 		defer gossip.Manager().Events().NeighborRemoved.Detach(monitorPeerCountClosure)
+		// TODO: replace with MessageSolid
 		messagelayer.Tangle.Events.MessageAttached.Attach(monitorMessageInflowClosure)
 		defer messagelayer.Tangle.Events.MessageAttached.Detach(monitorMessageInflowClosure)
 
-		desyncedIfNoMessageInSec := config.Node.GetDuration(CfgSyncDesyncedIfNoMessageInSec) * time.Second
+		desyncedIfNoMessageInSec := config.Node.GetDuration(CfgSyncDesyncedIfNoMessageAfterSec) * time.Second
 		timer := time.NewTimer(desyncedIfNoMessageInSec)
 		for {
 			select {
@@ -145,6 +158,7 @@ func monitorForDesynchronization() {
 			case <-noPeers:
 				log.Info("all peers have been lost, marking node as desynced")
 				markDesynced()
+				return
 
 			case <-shutdownSignal:
 				return
@@ -193,11 +207,27 @@ func monitorForSynchronization() {
 		messagelayer.Tangle.Events.MessageSolid.Attach(checkAnchorPointSolidityClosure)
 		defer messagelayer.Tangle.Events.MessageSolid.Detach(checkAnchorPointSolidityClosure)
 
-		select {
-		case <-shutdownSignal:
-		case <-synced:
-			log.Infof("all anchor messages have become solid, marking node as synced")
-			markSynced()
+		cleanupDelta := config.Node.GetDuration(CfgSyncAnchorPointsCleanupAfterSec) * time.Second
+		ticker := time.NewTimer(config.Node.GetDuration(CfgSyncAnchorPointsCleanupIntervalSec) * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				anchorPoints.Lock()
+				for id, itGotAdded := range anchorPoints.ids {
+					if time.Since(itGotAdded) > cleanupDelta {
+						log.Infof("freeing anchor point slot of %s as it didn't become solid within %v", id.String()[:10], cleanupDelta)
+						delete(anchorPoints.ids, id)
+					}
+				}
+				anchorPoints.Unlock()
+			case <-shutdownSignal:
+				return
+			case <-synced:
+				log.Infof("all anchor messages have become solid, marking node as synced")
+				markSynced()
+				return
+			}
 		}
 	}, shutdown.PrioritySynchronization)
 }
@@ -256,7 +286,7 @@ func checkAnchorPointSolidity(anchorPoints *anchorpoints, msg *message.Message) 
 
 func newAnchorPoints(wantedAnchorPointsCount int) *anchorpoints {
 	return &anchorpoints{
-		ids:    make(map[message.Id]types.Empty),
+		ids:    make(map[message.Id]time.Time),
 		wanted: wantedAnchorPointsCount,
 	}
 }
@@ -264,8 +294,8 @@ func newAnchorPoints(wantedAnchorPointsCount int) *anchorpoints {
 // anchorpoints are a set of messages which we use to determine whether the node has become synchronized.
 type anchorpoints struct {
 	sync.Mutex
-	// the ids of the anchor points.
-	ids map[message.Id]types.Empty
+	// the ids of the anchor points with their addition time.
+	ids map[message.Id]time.Time
 	// the wanted amount of anchor points which should become solid.
 	wanted int
 	// how many anchor points have been solidified.
@@ -274,7 +304,7 @@ type anchorpoints struct {
 
 // adds the given message to the anchor points set.
 func (ap *anchorpoints) add(id message.Id) {
-	ap.ids[id] = types.Empty{}
+	ap.ids[id] = time.Now()
 }
 
 func (ap *anchorpoints) has(id message.Id) bool {
