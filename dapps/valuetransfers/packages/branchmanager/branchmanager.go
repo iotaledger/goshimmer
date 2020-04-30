@@ -38,7 +38,17 @@ func New(badgerInstance *badger.DB) (result *BranchManager) {
 }
 
 func (branchManager *BranchManager) init() {
-	branchManager.branchStorage.StoreIfAbsent(NewBranch(MasterBranchID, []BranchID{}, []ConflictID{}))
+	cachedBranch, branchAdded := branchManager.AddBranch(MasterBranchID, []BranchID{}, []ConflictID{})
+	if !branchAdded {
+		cachedBranch.Release()
+
+		return
+	}
+
+	cachedBranch.Consume(func(branch *Branch) {
+		branch.SetPreferred(true)
+		branch.SetLiked(true)
+	})
 }
 
 // Conflict loads the corresponding Conflict from the objectstorage.
@@ -60,22 +70,21 @@ func (branchManager *BranchManager) ConflictMembers(conflictID ConflictID) Cache
 
 // AddBranch adds a new Branch to the branch-DAG and connects the branch with its parents, children and conflicts. It
 // automatically creates the Conflicts if they don't exist.
-func (branchManager *BranchManager) AddBranch(branchID BranchID, parentBranches []BranchID, conflicts []ConflictID) (cachedBranch *CachedBranch) {
+func (branchManager *BranchManager) AddBranch(branchID BranchID, parentBranches []BranchID, conflicts []ConflictID) (cachedBranch *CachedBranch, newBranchAdded bool) {
 	// create the branch
-	branchIsNew := false
 	cachedBranch = &CachedBranch{CachedObject: branchManager.branchStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {
 		newBranch := NewBranch(branchID, parentBranches, conflicts)
 		newBranch.Persist()
 		newBranch.SetModified()
 
-		branchIsNew = true
+		newBranchAdded = true
 
 		return newBranch
 	})}
 
 	// create the referenced entities and references
 	cachedBranch.Retain().Consume(func(branch *Branch) {
-		if branchIsNew {
+		if newBranchAdded {
 			// store parent references
 			for _, parentBranchID := range parentBranches {
 				if cachedChildBranch, stored := branchManager.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID)); stored {
@@ -247,7 +256,7 @@ func (branchManager *BranchManager) InheritBranches(branches ...BranchID) (cache
 	}
 
 	// store the aggregated branch
-	cachedAggregatedBranch = branchManager.AddBranch(aggregatedBranchID, aggregatedBranchParents, []ConflictID{})
+	cachedAggregatedBranch, _ = branchManager.AddBranch(aggregatedBranchID, aggregatedBranchParents, []ConflictID{})
 
 	return
 }

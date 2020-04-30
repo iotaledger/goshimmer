@@ -509,20 +509,13 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 	targetBranch.Persist()
 
 	if len(conflictingInputs) >= 1 {
-		cachedTargetBranch = utxoDAG.branchManager.AddBranch(branchmanager.NewBranchID(transactionToBook.ID()), []branchmanager.BranchID{targetBranch.ID()}, conflictingInputs)
+		cachedTargetBranch, _ = utxoDAG.branchManager.AddBranch(branchmanager.NewBranchID(transactionToBook.ID()), []branchmanager.BranchID{targetBranch.ID()}, conflictingInputs)
 		defer cachedTargetBranch.Release()
 
 		targetBranch = cachedTargetBranch.Unwrap()
 		if targetBranch == nil {
 			return errors.New("failed to inherit branches")
 		}
-
-		// TODO: CREATE / RETRIEVE CONFLICT SETS + ADD TARGET REALITY TO THEM
-		/*
-			for _, conflictingInput := range conflictingInputs {
-
-			}
-		*/
 	}
 
 	// book transaction into target reality
@@ -733,7 +726,7 @@ func (utxoDAG *UTXODAG) Fork(transactionID transaction.ID, conflictingInputs []t
 		return
 	}
 
-	cachedTargetBranch := utxoDAG.branchManager.AddBranch(branchmanager.NewBranchID(tx.ID()), []branchmanager.BranchID{txMetadata.BranchID()}, conflictingInputs)
+	cachedTargetBranch, _ := utxoDAG.branchManager.AddBranch(branchmanager.NewBranchID(tx.ID()), []branchmanager.BranchID{txMetadata.BranchID()}, conflictingInputs)
 	defer cachedTargetBranch.Release()
 
 	targetBranch := cachedTargetBranch.Unwrap()
