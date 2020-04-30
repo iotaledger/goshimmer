@@ -68,7 +68,6 @@ func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
 	flag.Parse()
 	err := parameter.LoadConfigFile(Node, *configDirPath, *configName, true, *skipConfigAvailable)
 	if err != nil {
-
 		return err
 	}
 
