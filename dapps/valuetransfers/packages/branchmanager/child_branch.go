@@ -70,7 +70,6 @@ func ParseChildBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject
 	}
 
 	result = parsedObject.(*ChildBranch)
-
 	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 

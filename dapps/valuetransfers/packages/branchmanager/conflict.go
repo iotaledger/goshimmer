@@ -69,7 +69,6 @@ func ParseConflict(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ..
 	}
 
 	result = parsedObject.(*Conflict)
-
 	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 

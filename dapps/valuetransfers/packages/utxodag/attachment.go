@@ -55,14 +55,11 @@ func ParseAttachment(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject 
 	}
 
 	result = parsedObject.(*Attachment)
-
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
+	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
-	}); err != nil {
-		return
-	}
+	})
 
 	return
 }
