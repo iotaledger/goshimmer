@@ -51,8 +51,10 @@ func init() {
 		if err := fetch(false); err != nil {
 			if *skipConfigAvailable == false {
 				// We wanted a config file but it was not present
+				// Global logger instance is not initialized at this stage...
 				fmt.Println(err.Error())
 				fmt.Println("No config file present, terminating GoShimmer. Use '--skip-config=true' to disable this check and supply values through CLI flags.")
+				// daemon is not running yet, so we just exit
 				os.Exit(1)
 			}
 			panic(err)
