@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -18,7 +19,6 @@ import (
 )
 
 var (
-	log     *logger.Logger
 	mgr     *gossip.Manager
 	mgrOnce sync.Once
 )
@@ -30,8 +30,8 @@ func Manager() *gossip.Manager {
 }
 
 func createManager() {
-	log = logger.NewLogger(PluginName)
-	lPeer := local.GetInstance()
+	// assure that the logger is available
+	log := logger.NewLogger(PluginName)
 
 	// announce the gossip service
 	gossipPort := config.Node.GetInt(CfgGossipPort)
@@ -39,6 +39,7 @@ func createManager() {
 		log.Fatalf("Invalid port number (%s): %d", CfgGossipPort, gossipPort)
 	}
 
+	lPeer := local.GetInstance()
 	if err := lPeer.UpdateService(service.GossipKey, "tcp", gossipPort); err != nil {
 		log.Fatalf("could not update services: %s", err)
 	}
@@ -71,6 +72,13 @@ func start(shutdownSignal <-chan struct{}) {
 
 	mgr.Start(srv)
 	defer mgr.Close()
+
+	err = autopeering.StartSelection()
+	if err != nil {
+		log.Errorf("Error starting neighbor selection: %v", err)
+	}
+	// assure that the selection is always stopped before the gossip manager
+	defer autopeering.Selection().Close()
 
 	log.Infof("%s started: Address=%s/%s", PluginName, localAddr.String(), localAddr.Network())
 

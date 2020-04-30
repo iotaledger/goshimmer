@@ -8,11 +8,11 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
@@ -20,7 +20,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/server"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 // autopeering constants
@@ -30,25 +30,37 @@ const (
 )
 
 var (
-	// Discovery is the peer discovery protocol.
-	Discovery *discover.Protocol
-	// Selection is the peer selection protocol.
-	Selection *selection.Protocol
-
-	// ErrParsingMasterNode is returned for an invalid master node
+	// ErrParsingMasterNode is returned for an invalid master node.
 	ErrParsingMasterNode = errors.New("cannot parse master node")
+	// ErrDiscoveryNotStarted is returned when the peer discovery is required, but has not yet been started.
+	ErrDiscoveryNotStarted = errors.New("peer discovery not started")
 
 	// NetworkID specifies the autopeering network identifier
 	NetworkID = hash32([]byte(banner.AppVersion + NetworkVersion))
 )
 
-func hash32(b []byte) uint32 {
-	hash := fnv.New32()
-	_, err := hash.Write(b)
-	if err != nil {
-		panic(err)
-	}
-	return hash.Sum32()
+var (
+	// the peer discovery protocol
+	peerDisc     *discover.Protocol
+	peerDiscOnce sync.Once
+
+	// the peer selection protocol.
+	peerSel     *selection.Protocol
+	peerSelOnce sync.Once
+
+	srv *server.Server
+)
+
+// Discovery returns the peer discovery instance.
+func Discovery() *discover.Protocol {
+	peerDiscOnce.Do(createPeerDisc)
+	return peerDisc
+}
+
+// Selection returns the neighbor selection instance.
+func Selection() *selection.Protocol {
+	peerSelOnce.Do(createPeerSel)
+	return peerSel
 }
 
 // GetBindAddress returns the string form of the autopeering bind address.
@@ -59,25 +71,39 @@ func GetBindAddress() string {
 	return net.JoinHostPort(host, port)
 }
 
-func configureAP() {
+// StartSelection starts the neighbor selection process.
+func StartSelection() error {
+	if srv == nil {
+		return ErrDiscoveryNotStarted
+	}
+	Selection().Start(srv)
+	return nil
+}
+
+func createPeerDisc() {
+	// assure that the logger is available
+	log := logger.NewLogger(PluginName).Named("disc")
+
 	masterPeers, err := parseEntryNodes()
 	if err != nil {
 		log.Errorf("Invalid entry nodes; ignoring: %v", err)
 	}
 	log.Debugf("Master peers: %v", masterPeers)
 
-	Discovery = discover.New(local.GetInstance(), ProtocolVersion, NetworkID,
-		discover.Logger(log.Named("disc")),
+	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, NetworkID,
+		discover.Logger(log),
 		discover.MasterPeers(masterPeers),
 	)
+}
 
-	// enable peer selection only when gossip is enabled
-	if !node.IsSkipped(gossip.Plugin) {
-		Selection = selection.New(local.GetInstance(), Discovery,
-			selection.Logger(log.Named("sel")),
-			selection.NeighborValidator(selection.ValidatorFunc(isValidNeighbor)),
-		)
-	}
+func createPeerSel() {
+	// assure that the logger is available
+	log := logger.NewLogger(PluginName).Named("sel")
+
+	peerSel = selection.New(local.GetInstance(), Discovery(),
+		selection.Logger(log),
+		selection.NeighborValidator(selection.ValidatorFunc(isValidNeighbor)),
+	)
 }
 
 // isValidNeighbor checks whether a peer is a valid neighbor.
@@ -112,24 +138,12 @@ func start(shutdownSignal <-chan struct{}) {
 	}
 	defer conn.Close()
 
-	handlers := []server.Handler{Discovery}
-	if Selection != nil {
-		handlers = append(handlers, Selection)
-	}
-
-	// start a server doing discovery and peering
-	srv := server.Serve(lPeer, conn, log.Named("srv"), handlers...)
+	// start a server doing peerDisc and peering
+	srv = server.Serve(lPeer, conn, log.Named("srv"), Discovery(), Selection())
 	defer srv.Close()
 
-	// start the discovery on that connection
-	Discovery.Start(srv)
-	defer Discovery.Close()
-
-	if Selection != nil {
-		// start the peering on that connection
-		Selection.Start(srv)
-		defer Selection.Close()
-	}
+	// start the peer discovery on that connection
+	Discovery().Start(srv)
 
 	log.Infof("%s started: ID=%s Address=%s/%s", PluginName, lPeer.ID(), localAddr.String(), localAddr.Network())
 
@@ -137,8 +151,20 @@ func start(shutdownSignal <-chan struct{}) {
 
 	log.Infof("Stopping %s ...", PluginName)
 
-	count := lPeer.Database().PersistSeeds()
-	log.Infof("%d peers persisted as seeds", count)
+	Discovery().Close()
+	Selection().Close()
+
+	// persists potential peering seeds for the next start
+	log.Infof("%d peers persisted as seeds", lPeer.Database().PersistSeeds())
+}
+
+func hash32(b []byte) uint32 {
+	hash := fnv.New32()
+	_, err := hash.Write(b)
+	if err != nil {
+		panic(err)
+	}
+	return hash.Sum32()
 }
 
 func parseEntryNodes() (result []*peer.Peer, err error) {

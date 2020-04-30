@@ -56,7 +56,7 @@ func checkAutopeeringConnection() {
 	disc.Start(srv)
 	defer disc.Close()
 
-	for _, master := range autopeering.Discovery.GetMasterPeers() {
+	for _, master := range autopeering.Discovery().GetMasterPeers() {
 		err = disc.Ping(master)
 		if err == nil {
 			log.Infof("Pong received from %s", master.IP())
