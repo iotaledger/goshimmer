@@ -6,7 +6,6 @@ import (
 	"sort"
 
 	"github.com/dgraph-io/badger/v2"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
@@ -24,8 +23,6 @@ type BranchManager struct {
 	conflictMemberStorage *objectstorage.ObjectStorage
 
 	Events *Events
-
-	onAddBranchToConflictClosure *events.Closure
 }
 
 // New is the constructor of the BranchManager. It creates a new instance with the given storage details.

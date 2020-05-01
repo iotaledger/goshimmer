@@ -116,7 +116,7 @@ func (branch *Branch) Conflicts() (conflicts map[ConflictID]types.Empty) {
 	return
 }
 
-// addConflict registers the membership of this Branch in a given
+// addConflict registers the membership of this Branch in a given conflict.
 func (branch *Branch) addConflict(conflict ConflictID) (added bool) {
 	branch.conflictsMutex.RLock()
 	if _, exists := branch.conflicts[conflict]; exists {
