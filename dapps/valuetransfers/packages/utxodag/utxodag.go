@@ -462,37 +462,38 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 	conflictingInputs := make([]transaction.OutputID, 0)
 	conflictingInputsOfConflictingConsumers := make(map[transaction.ID][]transaction.OutputID)
 
-	if !transactionToBook.Inputs().ForEach(func(outputId transaction.OutputID) bool {
-		cachedOutput := utxoDAG.TransactionOutput(outputId)
+	if !transactionToBook.Inputs().ForEach(func(outputID transaction.OutputID) bool {
+		cachedOutput := utxoDAG.TransactionOutput(outputID)
 		defer cachedOutput.Release()
 
 		// abort if the output could not be found
 		output := cachedOutput.Unwrap()
 		if output == nil {
-			err = fmt.Errorf("could not load output '%s'", outputId)
+			err = fmt.Errorf("could not load output '%s'", outputID)
 
 			return false
 		}
 
 		consumedBranches[output.BranchID()] = types.Void
 
-		// continue if we are the first consumer and there is no double spend
+		// register the current consumer and check if the input has been consumed before
 		consumerCount, firstConsumerID := output.RegisterConsumer(transactionToBook.ID())
-		if consumerCount == 0 {
+		switch consumerCount {
+		// continue if we are the first consumer and there is no double spend
+		case 0:
 			return true
-		}
 
-		// keep track of conflicting inputs
-		conflictingInputs = append(conflictingInputs, outputId)
-
-		// also keep track of conflicting inputs of previous consumers
-		if consumerCount == 1 {
+		// if the input has been consumed before but not been forked, yet
+		case 1:
+			// keep track of the conflicting inputs so we can fork them
 			if _, conflictingInputsExist := conflictingInputsOfConflictingConsumers[firstConsumerID]; !conflictingInputsExist {
 				conflictingInputsOfConflictingConsumers[firstConsumerID] = make([]transaction.OutputID, 0)
 			}
-
-			conflictingInputsOfConflictingConsumers[firstConsumerID] = append(conflictingInputsOfConflictingConsumers[firstConsumerID], outputId)
+			conflictingInputsOfConflictingConsumers[firstConsumerID] = append(conflictingInputsOfConflictingConsumers[firstConsumerID], outputID)
 		}
+
+		// keep track of the conflicting inputs
+		conflictingInputs = append(conflictingInputs, outputID)
 
 		return true
 	}) {
@@ -509,7 +510,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 	targetBranch.Persist()
 
 	if len(conflictingInputs) >= 1 {
-		cachedTargetBranch, _ = utxoDAG.branchManager.AddBranch(branchmanager.NewBranchID(transactionToBook.ID()), []branchmanager.BranchID{targetBranch.ID()}, conflictingInputs)
+		cachedTargetBranch, _ = utxoDAG.branchManager.Fork(branchmanager.NewBranchID(transactionToBook.ID()), []branchmanager.BranchID{targetBranch.ID()}, conflictingInputs)
 		defer cachedTargetBranch.Release()
 
 		targetBranch = cachedTargetBranch.Unwrap()
@@ -726,12 +727,12 @@ func (utxoDAG *UTXODAG) Fork(transactionID transaction.ID, conflictingInputs []t
 		return
 	}
 
-	cachedTargetBranch, _ := utxoDAG.branchManager.AddBranch(branchmanager.NewBranchID(tx.ID()), []branchmanager.BranchID{txMetadata.BranchID()}, conflictingInputs)
+	cachedTargetBranch, _ := utxoDAG.branchManager.Fork(branchmanager.NewBranchID(tx.ID()), []branchmanager.BranchID{txMetadata.BranchID()}, conflictingInputs)
 	defer cachedTargetBranch.Release()
 
 	targetBranch := cachedTargetBranch.Unwrap()
 	if targetBranch == nil {
-		err = fmt.Errorf("failed to create branch for transaction '%s'", transactionID)
+		err = fmt.Errorf("failed to unpack branch for transaction '%s'", transactionID)
 
 		return
 	}

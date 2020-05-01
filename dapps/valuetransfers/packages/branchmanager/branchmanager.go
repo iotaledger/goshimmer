@@ -77,48 +77,48 @@ func (branchManager *BranchManager) ConflictMembers(conflictID ConflictID) Cache
 	return conflictMembers
 }
 
-// AddBranch adds a new Branch to the branch-DAG and connects the branch with its parents, children and conflicts. It
+// Fork adds a new Branch to the branch-DAG and connects the branch with its parents, children and conflicts. It
 // automatically creates the Conflicts if they don't exist.
-func (branchManager *BranchManager) AddBranch(branchID BranchID, parentBranches []BranchID, conflicts []ConflictID) (cachedBranch *CachedBranch, newBranchAdded bool) {
+func (branchManager *BranchManager) Fork(branchID BranchID, parentBranches []BranchID, conflicts []ConflictID) (cachedBranch *CachedBranch, newBranchCreated bool) {
 	// create the branch
 	cachedBranch = &CachedBranch{CachedObject: branchManager.branchStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {
-		newBranch := NewBranch(branchID, parentBranches, conflicts)
+		newBranch := NewBranch(branchID, parentBranches)
 		newBranch.Persist()
 		newBranch.SetModified()
 
-		newBranchAdded = true
+		newBranchCreated = true
 
 		return newBranch
 	})}
 
-	if !newBranchAdded {
-		return
-	}
-
 	// create the referenced entities and references
 	cachedBranch.Retain().Consume(func(branch *Branch) {
-		// store parent references
-		for _, parentBranchID := range parentBranches {
-			if cachedChildBranch, stored := branchManager.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID)); stored {
-				cachedChildBranch.Release()
+		if newBranchCreated {
+			// store parent references
+			for _, parentBranchID := range parentBranches {
+				if cachedChildBranch, stored := branchManager.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID)); stored {
+					cachedChildBranch.Release()
+				}
 			}
 		}
 
 		// store conflict + conflict references
 		for _, conflictID := range conflicts {
-			(&CachedConflict{CachedObject: branchManager.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) objectstorage.StorableObject {
-				newConflict := NewConflict(conflictID)
-				newConflict.Persist()
-				newConflict.SetModified()
+			if branch.addConflict(conflictID) {
+				(&CachedConflict{CachedObject: branchManager.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) objectstorage.StorableObject {
+					newConflict := NewConflict(conflictID)
+					newConflict.Persist()
+					newConflict.SetModified()
 
-				return newConflict
-			})}).Consume(func(conflict *Conflict) {
-				if cachedConflictMember, stored := branchManager.conflictMemberStorage.StoreIfAbsent(NewConflictMember(conflictID, branchID)); stored {
-					conflict.IncreaseMemberCount()
+					return newConflict
+				})}).Consume(func(conflict *Conflict) {
+					if cachedConflictMember, stored := branchManager.conflictMemberStorage.StoreIfAbsent(NewConflictMember(conflictID, branchID)); stored {
+						conflict.IncreaseMemberCount()
 
-					cachedConflictMember.Release()
-				}
-			})
+						cachedConflictMember.Release()
+					}
+				})
+			}
 		}
 	})
 
@@ -285,7 +285,7 @@ func (branchManager *BranchManager) InheritBranches(branches ...BranchID) (cache
 	}
 
 	// store the aggregated branch
-	cachedAggregatedBranch, _ = branchManager.AddBranch(aggregatedBranchID, aggregatedBranchParents, []ConflictID{})
+	cachedAggregatedBranch, _ = branchManager.Fork(aggregatedBranchID, aggregatedBranchParents, []ConflictID{})
 
 	return
 }
@@ -311,7 +311,7 @@ func (branchManager *BranchManager) Prune() (err error) {
 }
 
 func (branchManager *BranchManager) init() {
-	cachedBranch, branchAdded := branchManager.AddBranch(MasterBranchID, []BranchID{}, []ConflictID{})
+	cachedBranch, branchAdded := branchManager.Fork(MasterBranchID, []BranchID{}, []ConflictID{})
 	if !branchAdded {
 		cachedBranch.Release()
 

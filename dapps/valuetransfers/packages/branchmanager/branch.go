@@ -7,8 +7,6 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
-
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 )
 
 // Branch represents a part of the tangle, that shares the same perception of the ledger state. Every conflicting
@@ -29,16 +27,11 @@ type Branch struct {
 }
 
 // NewBranch is the constructor of a Branch and creates a new Branch object from the given details.
-func NewBranch(id BranchID, parentBranches []BranchID, conflictingInputs []transaction.OutputID) *Branch {
-	conflictingInputsMap := make(map[ConflictID]types.Empty)
-	for _, conflictingInput := range conflictingInputs {
-		conflictingInputsMap[conflictingInput] = types.Void
-	}
-
+func NewBranch(id BranchID, parentBranches []BranchID) *Branch {
 	return &Branch{
 		id:             id,
 		parentBranches: parentBranches,
-		conflicts:      conflictingInputsMap,
+		conflicts:      make(map[ConflictID]types.Empty),
 	}
 }
 
