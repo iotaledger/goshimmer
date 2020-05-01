@@ -98,12 +98,6 @@ func (branchManager *BranchManager) AddBranch(branchID BranchID, parentBranches 
 		return newBranch
 	})})
 
-	branch := cachedBranch.Unwrap()
-	if branch == nil {
-		return
-	}
-	branch.Events.AddedToConflict.Trigger()
-
 	if !newBranchAdded {
 		return
 	}
