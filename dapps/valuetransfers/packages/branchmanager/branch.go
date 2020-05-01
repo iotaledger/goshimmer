@@ -12,7 +12,7 @@ import (
 )
 
 // Branch represents a part of the tangle, that shares the same perception of the ledger state. Every conflicting
-// transaction formw a Branch, that contains all transactions that are spending Outputs of the conflicting transactions.
+// transaction forms a Branch, that contains all transactions that are spending Outputs of the conflicting transactions.
 // Branches can also be created by merging two other Branches, which creates an aggregated Branch.
 type Branch struct {
 	objectstorage.StorableObjectFlags
@@ -22,8 +22,6 @@ type Branch struct {
 	conflicts      map[ConflictID]types.Empty
 	preferred      bool
 	liked          bool
-
-	Events *BranchEvents
 
 	conflictsMutex sync.RWMutex
 	preferredMutex sync.RWMutex
@@ -41,7 +39,6 @@ func NewBranch(id BranchID, parentBranches []BranchID, conflictingInputs []trans
 		id:             id,
 		parentBranches: parentBranches,
 		conflicts:      conflictingInputsMap,
-		Events:         newBranchEvents(),
 	}
 }
 
@@ -126,8 +123,8 @@ func (branch *Branch) Conflicts() (conflicts map[ConflictID]types.Empty) {
 	return
 }
 
-// AddConflict registers the membership of this Branch in a given
-func (branch *Branch) AddConflict(conflict ConflictID) (added bool) {
+// addConflict registers the membership of this Branch in a given
+func (branch *Branch) addConflict(conflict ConflictID) (added bool) {
 	branch.conflictsMutex.RLock()
 	if _, exists := branch.conflicts[conflict]; exists {
 		branch.conflictsMutex.RUnlock()
@@ -144,8 +141,8 @@ func (branch *Branch) AddConflict(conflict ConflictID) (added bool) {
 	}
 
 	branch.conflicts[conflict] = types.Void
+	branch.SetModified()
 	added = true
-	branch.Events.AddedToConflict.Trigger(branch, conflict)
 
 	return
 }

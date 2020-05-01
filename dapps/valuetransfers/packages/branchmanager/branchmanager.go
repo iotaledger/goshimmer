@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
-	"github.com/iotaledger/hive.go/typeutils"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
@@ -39,20 +38,14 @@ func New(badgerInstance *badger.DB) (result *BranchManager) {
 		conflictStorage:       osFactory.New(osConflict, osConflictFactory, osConflictOptions...),
 		conflictMemberStorage: osFactory.New(osConflictMember, osConflictMemberFactory, osConflictMemberOptions...),
 	}
-
-	result.onAddBranchToConflictClosure = events.NewClosure(result.onAddBranchToConflict)
 	result.init()
 
 	return
 }
 
-func (branchManager *BranchManager) onAddBranchToConflict(branch *Branch, conflictID ConflictID) {
-	// do something
-}
-
 // Branch loads a Branch from the objectstorage.
 func (branchManager *BranchManager) Branch(branchID BranchID) *CachedBranch {
-	return branchManager.setupBranchEvents(&CachedBranch{CachedObject: branchManager.branchStorage.Load(branchID.Bytes())})
+	return &CachedBranch{CachedObject: branchManager.branchStorage.Load(branchID.Bytes())}
 }
 
 // ChildBranches loads the ChildBranches that are forking off, of the given Branch.
@@ -88,7 +81,7 @@ func (branchManager *BranchManager) ConflictMembers(conflictID ConflictID) Cache
 // automatically creates the Conflicts if they don't exist.
 func (branchManager *BranchManager) AddBranch(branchID BranchID, parentBranches []BranchID, conflicts []ConflictID) (cachedBranch *CachedBranch, newBranchAdded bool) {
 	// create the branch
-	cachedBranch = branchManager.setupBranchEvents(&CachedBranch{CachedObject: branchManager.branchStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {
+	cachedBranch = &CachedBranch{CachedObject: branchManager.branchStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {
 		newBranch := NewBranch(branchID, parentBranches, conflicts)
 		newBranch.Persist()
 		newBranch.SetModified()
@@ -96,7 +89,7 @@ func (branchManager *BranchManager) AddBranch(branchID BranchID, parentBranches 
 		newBranchAdded = true
 
 		return newBranch
-	})})
+	})}
 
 	if !newBranchAdded {
 		return
@@ -130,6 +123,29 @@ func (branchManager *BranchManager) AddBranch(branchID BranchID, parentBranches 
 	})
 
 	return
+}
+
+// AddBranchToConflict adds the branch to a conflict. Since there are certain constraints (i.e. the conflict being added
+// as additional ConflictMember references for reverse lookups), we expose this method here as part of the BranchManager
+// instead of exposing the addConflict method in the Branch itself.
+func (branchManager *BranchManager) AddBranchToConflict(branchID BranchID, conflictID ConflictID) {
+	branchManager.Branch(branchID).Consume(func(branch *Branch) {
+		(&CachedConflict{CachedObject: branchManager.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) objectstorage.StorableObject {
+			newConflict := NewConflict(conflictID)
+			newConflict.Persist()
+			newConflict.SetModified()
+
+			return newConflict
+		})}).Consume(func(conflict *Conflict) {
+			if branch.addConflict(conflictID) {
+				if cachedConflictMember, stored := branchManager.conflictMemberStorage.StoreIfAbsent(NewConflictMember(conflictID, branchID)); stored {
+					conflict.IncreaseMemberCount()
+
+					cachedConflictMember.Release()
+				}
+			}
+		})
+	})
 }
 
 // BranchesConflicting returns true if the given Branches are part of the same Conflicts and can therefore not be
@@ -306,18 +322,6 @@ func (branchManager *BranchManager) init() {
 		branch.SetPreferred(true)
 		branch.SetLiked(true)
 	})
-}
-
-func (branchManager *BranchManager) setupBranchEvents(cachedBranch *CachedBranch) *CachedBranch {
-	unwrappedBranch := cachedBranch.Get()
-	if unwrappedBranch == nil || typeutils.IsInterfaceNil(unwrappedBranch) {
-		return cachedBranch
-	}
-
-	branch := unwrappedBranch.(*Branch)
-	branch.Events.AddedToConflict.Attach(branchManager.onAddBranchToConflictClosure)
-
-	return cachedBranch
 }
 
 func (branchManager *BranchManager) setBranchPreferred(cachedBranch *CachedBranch, preferred bool) (modified bool, err error) {

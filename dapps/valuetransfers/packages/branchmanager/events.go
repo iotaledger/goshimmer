@@ -18,15 +18,3 @@ type Events struct {
 	// BranchLiked gets triggered whenever a Branch becomes preferred that was not preferred before.
 	BranchDisliked *events.Event
 }
-
-type BranchEvents struct {
-	AddedToConflict *events.Event
-}
-
-func newBranchEvents() *BranchEvents {
-	return &BranchEvents{
-		AddedToConflict: events.NewEvent(func(handler interface{}, params ...interface{}) {
-			handler.(func(*Branch, ConflictID))(params[0].(*Branch), params[1].(ConflictID))
-		}),
-	}
-}
