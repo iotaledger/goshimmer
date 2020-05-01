@@ -145,6 +145,7 @@ func (branch *Branch) AddConflict(conflict ConflictID) (added bool) {
 
 	branch.conflicts[conflict] = types.Void
 	added = true
+	branch.Events.AddedToConflict.Trigger(branch, conflict)
 
 	return
 }

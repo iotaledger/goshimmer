@@ -20,12 +20,12 @@ type Events struct {
 }
 
 type BranchEvents struct {
-	ConflictAdded *events.Event
+	AddedToConflict *events.Event
 }
 
 func newBranchEvents() *BranchEvents {
 	return &BranchEvents{
-		ConflictAdded: events.NewEvent(func(handler interface{}, params ...interface{}) {
+		AddedToConflict: events.NewEvent(func(handler interface{}, params ...interface{}) {
 			handler.(func(*Branch, ConflictID))(params[0].(*Branch), params[1].(ConflictID))
 		}),
 	}

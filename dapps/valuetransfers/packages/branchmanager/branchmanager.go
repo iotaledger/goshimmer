@@ -102,7 +102,7 @@ func (branchManager *BranchManager) AddBranch(branchID BranchID, parentBranches 
 	if branch == nil {
 		return
 	}
-	branch.Events.ConflictAdded.Trigger()
+	branch.Events.AddedToConflict.Trigger()
 
 	if !newBranchAdded {
 		return
@@ -321,7 +321,7 @@ func (branchManager *BranchManager) setupBranchEvents(cachedBranch *CachedBranch
 	}
 
 	branch := unwrappedBranch.(*Branch)
-	branch.Events.ConflictAdded.Attach(branchManager.onAddBranchToConflictClosure)
+	branch.Events.AddedToConflict.Attach(branchManager.onAddBranchToConflictClosure)
 
 	return cachedBranch
 }
