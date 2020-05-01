@@ -23,6 +23,8 @@ type Branch struct {
 	preferred      bool
 	liked          bool
 
+	Events *BranchEvents
+
 	conflictsMutex sync.RWMutex
 	preferredMutex sync.RWMutex
 	likedMutex     sync.RWMutex
@@ -39,6 +41,7 @@ func NewBranch(id BranchID, parentBranches []BranchID, conflictingInputs []trans
 		id:             id,
 		parentBranches: parentBranches,
 		conflicts:      conflictingInputsMap,
+		Events:         newBranchEvents(),
 	}
 }
 
