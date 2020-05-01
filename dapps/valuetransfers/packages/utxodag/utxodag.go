@@ -727,9 +727,16 @@ func (utxoDAG *UTXODAG) Fork(transactionID transaction.ID, conflictingInputs []t
 		return
 	}
 
-	cachedTargetBranch, _ := utxoDAG.branchManager.Fork(branchmanager.NewBranchID(tx.ID()), []branchmanager.BranchID{txMetadata.BranchID()}, conflictingInputs)
+	// update / create new branch
+	cachedTargetBranch, newBranchCreated := utxoDAG.branchManager.Fork(branchmanager.NewBranchID(tx.ID()), []branchmanager.BranchID{txMetadata.BranchID()}, conflictingInputs)
 	defer cachedTargetBranch.Release()
 
+	// abort if the branch existed already
+	if !newBranchCreated {
+		return
+	}
+
+	// unpack branch
 	targetBranch := cachedTargetBranch.Unwrap()
 	if targetBranch == nil {
 		err = fmt.Errorf("failed to unpack branch for transaction '%s'", transactionID)
@@ -737,10 +744,12 @@ func (utxoDAG *UTXODAG) Fork(transactionID transaction.ID, conflictingInputs []t
 		return
 	}
 
+	// move transactions to new branch
 	if err = utxoDAG.moveTransactionToBranch(cachedTransaction.Retain(), cachedTransactionMetadata.Retain(), cachedTargetBranch.Retain()); err != nil {
 		return
 	}
 
+	// trigger events + set result
 	utxoDAG.Events.Fork.Trigger(cachedTransaction, cachedTransactionMetadata, targetBranch, conflictingInputs)
 	forked = true
 

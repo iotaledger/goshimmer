@@ -122,29 +122,6 @@ func (branchManager *BranchManager) Fork(branchID BranchID, parentBranches []Bra
 	return
 }
 
-// AddBranchToConflict adds the branch to a conflict. Since there are certain constraints (i.e. the conflict being added
-// as additional ConflictMember references for reverse lookups), we expose this method here as part of the BranchManager
-// instead of exposing the addConflict method in the Branch itself.
-func (branchManager *BranchManager) AddBranchToConflict(branchID BranchID, conflictID ConflictID) {
-	branchManager.Branch(branchID).Consume(func(branch *Branch) {
-		(&CachedConflict{CachedObject: branchManager.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) objectstorage.StorableObject {
-			newConflict := NewConflict(conflictID)
-			newConflict.Persist()
-			newConflict.SetModified()
-
-			return newConflict
-		})}).Consume(func(conflict *Conflict) {
-			if branch.addConflict(conflictID) {
-				if cachedConflictMember, stored := branchManager.conflictMemberStorage.StoreIfAbsent(NewConflictMember(conflictID, branchID)); stored {
-					conflict.IncreaseMemberCount()
-
-					cachedConflictMember.Release()
-				}
-			}
-		})
-	})
-}
-
 // BranchesConflicting returns true if the given Branches are part of the same Conflicts and can therefore not be
 // merged.
 func (branchManager *BranchManager) BranchesConflicting(branchIds ...BranchID) (branchesConflicting bool, err error) {
@@ -281,7 +258,7 @@ func (branchManager *BranchManager) InheritBranches(branches ...BranchID) (cache
 		return
 	}
 
-	// store the aggregated branch
+	// create / update the aggregated branch
 	cachedAggregatedBranch, _ = branchManager.Fork(aggregatedBranchID, aggregatedBranchParents, []ConflictID{})
 
 	return
