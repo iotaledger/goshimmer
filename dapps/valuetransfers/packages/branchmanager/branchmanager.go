@@ -293,8 +293,8 @@ func (branchManager *BranchManager) init() {
 	}
 
 	cachedBranch.Consume(func(branch *Branch) {
-		branch.SetPreferred(true)
-		branch.SetLiked(true)
+		branch.setPreferred(true)
+		branch.setLiked(true)
 	})
 }
 
@@ -308,7 +308,7 @@ func (branchManager *BranchManager) setBranchPreferred(cachedBranch *CachedBranc
 	}
 
 	if !preferred {
-		if modified = branch.SetPreferred(false); modified {
+		if modified = branch.setPreferred(false); modified {
 			branchManager.Events.BranchUnpreferred.Trigger(cachedBranch)
 
 			branchManager.propagateDislike(cachedBranch.Retain())
@@ -327,7 +327,7 @@ func (branchManager *BranchManager) setBranchPreferred(cachedBranch *CachedBranc
 		})
 	}
 
-	if modified = branch.SetPreferred(true); !modified {
+	if modified = branch.setPreferred(true); !modified {
 		return
 	}
 
@@ -368,7 +368,7 @@ func (branchManager *BranchManager) propagateLike(cachedBranch *CachedBranch) (e
 	}
 
 	// abort if the branch was liked already
-	if !branch.SetLiked(true) {
+	if !branch.setLiked(true) {
 		return
 	}
 
@@ -399,7 +399,7 @@ func (branchManager *BranchManager) propagateLike(cachedBranch *CachedBranch) (e
 func (branchManager *BranchManager) propagateDislike(cachedBranch *CachedBranch) {
 	defer cachedBranch.Release()
 	branch := cachedBranch.Unwrap()
-	if branch == nil || !branch.SetLiked(false) {
+	if branch == nil || !branch.setLiked(false) {
 		return
 	}
 

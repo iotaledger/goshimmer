@@ -1,6 +1,7 @@
 package branchmanager
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -21,9 +22,10 @@ type Branch struct {
 	preferred      bool
 	liked          bool
 
-	conflictsMutex sync.RWMutex
-	preferredMutex sync.RWMutex
-	likedMutex     sync.RWMutex
+	parentBranchesMutex sync.RWMutex
+	conflictsMutex      sync.RWMutex
+	preferredMutex      sync.RWMutex
+	likedMutex          sync.RWMutex
 }
 
 // NewBranch is the constructor of a Branch and creates a new Branch object from the given details.
@@ -94,8 +96,49 @@ func (branch *Branch) ID() BranchID {
 }
 
 // ParentBranches returns the identifiers of the parents of this Branch.
-func (branch *Branch) ParentBranches() []BranchID {
-	return branch.parentBranches
+func (branch *Branch) ParentBranches() (parentBranches []BranchID) {
+	branch.parentBranchesMutex.RLock()
+	defer branch.parentBranchesMutex.RUnlock()
+
+	parentBranches = make([]BranchID, len(branch.parentBranches))
+	for i, parentBranchID := range branch.parentBranches {
+		parentBranches[i] = parentBranchID
+	}
+
+	return
+}
+
+// UpdateParentBranch updates the parent of a non-aggregated Branch. Aggregated branches can not simply be "moved
+// around" by changing their parent and need to be re-aggregated (because their ID depends on their parents).
+func (branch *Branch) UpdateParentBranch(newParentBranchID BranchID) (modified bool, err error) {
+	branch.parentBranchesMutex.RLock()
+	if len(branch.parentBranches) != 1 {
+		err = fmt.Errorf("tried to update parent of aggregated Branch '%s'", branch.ID())
+
+		branch.parentBranchesMutex.RUnlock()
+
+		return
+	}
+
+	if branch.parentBranches[0] == newParentBranchID {
+		branch.parentBranchesMutex.RUnlock()
+
+		return
+	}
+
+	branch.parentBranchesMutex.RUnlock()
+	branch.parentBranchesMutex.Lock()
+	defer branch.parentBranchesMutex.Unlock()
+
+	if branch.parentBranches[0] == newParentBranchID {
+		return
+	}
+
+	branch.parentBranches[0] = newParentBranchID
+	branch.SetModified()
+	modified = true
+
+	return
 }
 
 // IsAggregated returns true if the branch is not a conflict-branch, but was created by merging multiple other branches.
@@ -148,9 +191,9 @@ func (branch *Branch) Preferred() bool {
 	return branch.preferred
 }
 
-// SetPreferred is the setter for the preferred flag. It returns true if the value of the flag has been updated.
+// setPreferred is the setter for the preferred flag. It returns true if the value of the flag has been updated.
 // A branch is preferred if it represents the "liked" part of the tangle in it corresponding Branch.
-func (branch *Branch) SetPreferred(preferred bool) (modified bool) {
+func (branch *Branch) setPreferred(preferred bool) (modified bool) {
 	branch.preferredMutex.RLock()
 	if branch.preferred == preferred {
 		branch.preferredMutex.RUnlock()
@@ -167,6 +210,7 @@ func (branch *Branch) SetPreferred(preferred bool) (modified bool) {
 	}
 
 	branch.preferred = preferred
+	branch.SetModified()
 	modified = true
 
 	return branch.preferred
@@ -180,8 +224,8 @@ func (branch *Branch) Liked() bool {
 	return branch.liked
 }
 
-// SetLiked modifies the liked flag of this branch. It returns true, if the current value has been modified.
-func (branch *Branch) SetLiked(liked bool) (modified bool) {
+// setLiked modifies the liked flag of this branch. It returns true, if the current value has been modified.
+func (branch *Branch) setLiked(liked bool) (modified bool) {
 	branch.likedMutex.RLock()
 	if branch.liked == liked {
 		branch.likedMutex.RUnlock()
@@ -198,6 +242,7 @@ func (branch *Branch) SetLiked(liked bool) (modified bool) {
 	}
 
 	branch.liked = liked
+	branch.SetModified()
 	modified = true
 
 	return branch.liked
