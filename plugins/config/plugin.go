@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/parameter"
 	flag "github.com/spf13/pflag"
@@ -26,16 +25,6 @@ var (
 
 	// Node is viper
 	Node *viper.Viper
-
-	// logger
-	defaultLoggerConfig = logger.Config{
-		Level:             "info",
-		DisableCaller:     false,
-		DisableStacktrace: false,
-		Encoding:          "console",
-		OutputPaths:       []string{"goshimmer.log"},
-		DisableEvents:     false,
-	}
 )
 
 // Init triggers the Init event.
@@ -46,7 +35,6 @@ func Init() {
 func init() {
 	// set the default logger config
 	Node = viper.New()
-	Node.SetDefault(logger.ViperKey, defaultLoggerConfig)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
 		if err := fetch(false); err != nil {
