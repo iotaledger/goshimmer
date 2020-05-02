@@ -241,7 +241,7 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 		}
 
 		m.log.Debugw("received packet", "type", protoMsgReq.Type(), "peer-id", p.ID())
-		msgId, err, _ := message.IdFromBytes(protoMsgReq.GetId())
+		msgId, _, err := message.IdFromBytes(protoMsgReq.GetId())
 		if err != nil {
 			m.log.Debugw("couldn't compute message id from bytes", "peer-id", p.ID(), "err", err)
 			return nil

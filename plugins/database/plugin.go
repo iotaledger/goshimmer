@@ -1,17 +1,15 @@
-// database is a plugin that manages the badger database (e.g. garbage collection).
+// Package database is a plugin that manages the badger database (e.g. garbage collection).
 package database
 
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/timeutil"
-
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/timeutil"
 )
 
 // PluginName is the name of the database plugin.

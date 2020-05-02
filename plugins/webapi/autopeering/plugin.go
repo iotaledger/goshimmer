@@ -31,16 +31,8 @@ func getNeighbors(c echo.Context) error {
 	accepted := []Neighbor{}
 	knownPeers := []Neighbor{}
 
-	if autopeering.Selection == nil {
-		return c.JSON(http.StatusNotImplemented, Response{Error: "Neighbor Selection is not enabled"})
-	}
-
-	if autopeering.Discovery == nil {
-		return c.JSON(http.StatusNotImplemented, Response{Error: "Neighbor Discovery is not enabled"})
-	}
-
 	if c.QueryParam("known") == "1" {
-		for _, peer := range autopeering.Discovery.GetVerifiedPeers() {
+		for _, peer := range autopeering.Discovery().GetVerifiedPeers() {
 			n := Neighbor{
 				ID:        peer.ID().String(),
 				PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey().Bytes()),
@@ -50,7 +42,7 @@ func getNeighbors(c echo.Context) error {
 		}
 	}
 
-	for _, peer := range autopeering.Selection.GetOutgoingNeighbors() {
+	for _, peer := range autopeering.Selection().GetOutgoingNeighbors() {
 		n := Neighbor{
 			ID:        peer.ID().String(),
 			PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey().Bytes()),
@@ -58,7 +50,7 @@ func getNeighbors(c echo.Context) error {
 		n.Services = getServices(peer)
 		chosen = append(chosen, n)
 	}
-	for _, peer := range autopeering.Selection.GetIncomingNeighbors() {
+	for _, peer := range autopeering.Selection().GetIncomingNeighbors() {
 		n := Neighbor{
 			ID:        peer.ID().String(),
 			PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey().Bytes()),

@@ -12,30 +12,33 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
+// Payload represents the entity that forms the Tangle by referencing other Payloads using their trunk and branch.
+// A Payload contains a transaction and defines, where in the Tangle a transaction is attached.
 type Payload struct {
 	objectstorage.StorableObjectFlags
 
-	id      *Id
+	id      *ID
 	idMutex sync.RWMutex
 
-	trunkPayloadId  Id
-	branchPayloadId Id
+	trunkPayloadID  ID
+	branchPayloadID ID
 	transaction     *transaction.Transaction
 	bytes           []byte
 	bytesMutex      sync.RWMutex
 }
 
-func New(trunkPayloadId, branchPayloadId Id, valueTransfer *transaction.Transaction) *Payload {
+// New is the constructor of a Payload and creates a new Payload object from the given details.
+func New(trunkPayloadID, branchPayloadID ID, valueTransfer *transaction.Transaction) *Payload {
 	return &Payload{
-		trunkPayloadId:  trunkPayloadId,
-		branchPayloadId: branchPayloadId,
+		trunkPayloadID:  trunkPayloadID,
+		branchPayloadID: branchPayloadID,
 		transaction:     valueTransfer,
 	}
 }
 
 // FromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, err error, consumedBytes int) {
+func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = Parse(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
@@ -43,7 +46,9 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	return
 }
 
-func FromStorageKey(key []byte, optionalTargetObject ...*Payload) (result *Payload, err error, consumedBytes int) {
+// FromStorageKey is a factory method that creates a new Payload instance from a storage key of the objectstorage.
+// It is used by the objectstorage, to create new instances of this entity.
+func FromStorageKey(key []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -56,18 +61,19 @@ func FromStorageKey(key []byte, optionalTargetObject ...*Payload) (result *Paylo
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	if payloadId, idErr := ParseId(marshalUtil); idErr != nil {
+	payloadID, idErr := ParseID(marshalUtil)
+	if idErr != nil {
 		err = idErr
 
 		return
-	} else {
-		result.id = &payloadId
 	}
+	result.id = &payloadID
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
+// Parse unmarshals a Payload using the given marshalUtil (for easier marshaling/unmarshaling).
 func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Payload) (result *Payload, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
@@ -79,8 +85,8 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Payloa
 		panic("too many arguments in call to Parse")
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -90,7 +96,8 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Payloa
 	return
 }
 
-func (payload *Payload) Id() Id {
+// ID returns the identifier if the Payload.
+func (payload *Payload) ID() ID {
 	// acquire lock for reading id
 	payload.idMutex.RLock()
 
@@ -112,50 +119,58 @@ func (payload *Payload) Id() Id {
 	}
 
 	// otherwise calculate the id
-	marshalUtil := marshalutil.New(IdLength + IdLength + transaction.IdLength)
-	marshalUtil.WriteBytes(payload.trunkPayloadId.Bytes())
-	marshalUtil.WriteBytes(payload.branchPayloadId.Bytes())
-	marshalUtil.WriteBytes(payload.Transaction().Id().Bytes())
+	marshalUtil := marshalutil.New(IDLength + IDLength + transaction.IDLength)
+	marshalUtil.WriteBytes(payload.trunkPayloadID.Bytes())
+	marshalUtil.WriteBytes(payload.branchPayloadID.Bytes())
+	marshalUtil.WriteBytes(payload.Transaction().ID().Bytes())
 
-	var id Id = blake2b.Sum256(marshalUtil.Bytes())
+	var id ID = blake2b.Sum256(marshalUtil.Bytes())
 	payload.id = &id
 
 	return id
 }
 
-func (payload *Payload) TrunkId() Id {
-	return payload.trunkPayloadId
+// TrunkID returns the first Payload that is referenced by this Payload.
+func (payload *Payload) TrunkID() ID {
+	return payload.trunkPayloadID
 }
 
-func (payload *Payload) BranchId() Id {
-	return payload.branchPayloadId
+// BranchID returns the second Payload that is referenced by this Payload.
+func (payload *Payload) BranchID() ID {
+	return payload.branchPayloadID
 }
 
+// Transaction returns the Transaction that is being attached in this Payload.
 func (payload *Payload) Transaction() *transaction.Transaction {
 	return payload.transaction
 }
 
+// Bytes returns a marshaled version of this Payload.
 func (payload *Payload) Bytes() []byte {
 	return payload.ObjectStorageValue()
 }
 
 func (payload *Payload) String() string {
 	return stringify.Struct("Payload",
-		stringify.StructField("id", payload.Id()),
-		stringify.StructField("trunk", payload.TrunkId()),
-		stringify.StructField("branch", payload.BranchId()),
+		stringify.StructField("id", payload.ID()),
+		stringify.StructField("trunk", payload.TrunkID()),
+		stringify.StructField("branch", payload.BranchID()),
 		stringify.StructField("transfer", payload.Transaction()),
 	)
 }
 
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
-var Type = payload.Type(1)
+// Type represents the identifier which addresses the value Payload type.
+const Type = payload.Type(1)
 
+// Type returns the type of the Payload.
 func (payload *Payload) Type() payload.Type {
 	return Type
 }
 
+// ObjectStorageValue returns the bytes that represent all remaining information (not stored in the key) of a marshaled
+// Branch.
 func (payload *Payload) ObjectStorageValue() (bytes []byte) {
 	// acquire lock for reading bytes
 	payload.bytesMutex.RLock()
@@ -181,12 +196,12 @@ func (payload *Payload) ObjectStorageValue() (bytes []byte) {
 	transferBytes := payload.Transaction().ObjectStorageValue()
 
 	// marshal fields
-	payloadLength := IdLength + IdLength + len(transferBytes)
+	payloadLength := IDLength + IDLength + len(transferBytes)
 	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
 	marshalUtil.WriteUint32(Type)
 	marshalUtil.WriteUint32(uint32(payloadLength))
-	marshalUtil.WriteBytes(payload.trunkPayloadId.Bytes())
-	marshalUtil.WriteBytes(payload.branchPayloadId.Bytes())
+	marshalUtil.WriteBytes(payload.trunkPayloadID.Bytes())
+	marshalUtil.WriteBytes(payload.branchPayloadID.Bytes())
 	marshalUtil.WriteBytes(transferBytes)
 	bytes = marshalUtil.Bytes()
 
@@ -196,7 +211,8 @@ func (payload *Payload) ObjectStorageValue() (bytes []byte) {
 	return
 }
 
-func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+// UnmarshalObjectStorageValue unmarshals the bytes that are stored in the value of the objectstorage.
+func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
 
 	// read information that are required to identify the payload from the outside
@@ -210,10 +226,10 @@ func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (err error, con
 	}
 
 	// parse trunk payload id
-	if payload.trunkPayloadId, err = ParseId(marshalUtil); err != nil {
+	if payload.trunkPayloadID, err = ParseID(marshalUtil); err != nil {
 		return
 	}
-	if payload.branchPayloadId, err = ParseId(marshalUtil); err != nil {
+	if payload.branchPayloadID, err = ParseID(marshalUtil); err != nil {
 		return
 	}
 	if payload.transaction, err = transaction.Parse(marshalUtil); err != nil {
@@ -230,15 +246,16 @@ func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (err error, con
 	return
 }
 
+// Unmarshal unmarshals a given slice of bytes and fills the object with the.
 func (payload *Payload) Unmarshal(data []byte) (err error) {
-	_, err, _ = FromBytes(data)
+	_, _, err = FromBytes(data, payload)
 
 	return
 }
 
 func init() {
 	payload.RegisterType(Type, func(data []byte) (payload payload.Payload, err error) {
-		payload, err, _ = FromBytes(data)
+		payload, _, err = FromBytes(data)
 
 		return
 	})
@@ -251,14 +268,12 @@ var _ payload.Payload = &Payload{}
 
 // region StorableObject implementation ////////////////////////////////////////////////////////////////////////////////
 
-// ObjectStorageValue() (bytes []byte, err error) already implemented by Payload
-
-// UnmarshalObjectStorageValue(data []byte) (err error) already implemented by Payload
-
+// ObjectStorageKey returns the bytes that are used a key when storing the Branch in an objectstorage.
 func (payload *Payload) ObjectStorageKey() []byte {
-	return payload.Id().Bytes()
+	return payload.ID().Bytes()
 }
 
+// Update is disabled but needs to be implemented to be compatible with the objectstorage.
 func (payload *Payload) Update(other objectstorage.StorableObject) {
 	panic("a Payload should never be updated")
 }
@@ -291,13 +306,15 @@ func (cachedPayload *CachedPayload) Consume(consumer func(payload *Payload)) boo
 
 // Unwrap provides a way to "Get" a type casted version of the underlying object.
 func (cachedPayload *CachedPayload) Unwrap() *Payload {
-	if untypedTransaction := cachedPayload.Get(); untypedTransaction == nil {
+	untypedTransaction := cachedPayload.Get()
+	if untypedTransaction == nil {
 		return nil
-	} else {
-		if typeCastedTransaction := untypedTransaction.(*Payload); typeCastedTransaction == nil || typeCastedTransaction.IsDeleted() {
-			return nil
-		} else {
-			return typeCastedTransaction
-		}
 	}
+
+	typeCastedTransaction := untypedTransaction.(*Payload)
+	if typeCastedTransaction == nil || typeCastedTransaction.IsDeleted() {
+		return nil
+	}
+
+	return typeCastedTransaction
 }

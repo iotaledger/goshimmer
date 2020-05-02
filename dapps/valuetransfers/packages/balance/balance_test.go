@@ -14,7 +14,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 	marshaledBalance := balance.Bytes()
 	assert.Equal(t, Length, len(marshaledBalance))
 
-	restoredBalance, err, consumedBytes := FromBytes(marshaledBalance)
+	restoredBalance, consumedBytes, err := FromBytes(marshaledBalance)
 	if err != nil {
 		panic(err)
 	}

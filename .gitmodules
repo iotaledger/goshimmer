@@ -1,6 +1,0 @@
-[submodule "IOTAtangle"]
-	path = IOTAtangle
-	url = https://github.com/glumb/IOTAtangle.git
-[submodule "socket.io-client"]
-	path = socket.io-client
-	url = https://github.com/socketio/socket.io-client.git

@@ -34,7 +34,7 @@ func TestSignatures(t *testing.T) {
 		return true
 	})
 
-	clonedSignatures, err, _ := SignaturesFromBytes(signatures.Bytes())
+	clonedSignatures, _, err := SignaturesFromBytes(signatures.Bytes())
 	if err != nil {
 		t.Error(err)
 

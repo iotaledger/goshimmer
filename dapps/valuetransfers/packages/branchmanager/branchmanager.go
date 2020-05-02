@@ -14,6 +14,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 )
 
+// BranchManager is an entity, that manages the branches of a UTXODAG. It offers methods to add, delete and modify
+// Branches. It automatically keeps track of maintaining a valid perception.
 type BranchManager struct {
 	branchStorage         *objectstorage.ObjectStorage
 	childBranchStorage    *objectstorage.ObjectStorage
@@ -23,6 +25,7 @@ type BranchManager struct {
 	Events *Events
 }
 
+// New is the constructor of the BranchManager. It creates a new instance with the given storage details.
 func New(badgerInstance *badger.DB) (result *BranchManager) {
 	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.ValueTransfers)
 
@@ -35,26 +38,29 @@ func New(badgerInstance *badger.DB) (result *BranchManager) {
 }
 
 func (branchManager *BranchManager) init() {
-	branchManager.branchStorage.StoreIfAbsent(NewBranch(MasterBranchId, []BranchId{}, []ConflictId{}))
+	branchManager.branchStorage.StoreIfAbsent(NewBranch(MasterBranchID, []BranchID{}, []ConflictID{}))
 }
 
-func (branchManager *BranchManager) Conflict(conflictId ConflictId) *CachedConflict {
-	return &CachedConflict{CachedObject: branchManager.conflictStorage.Load(conflictId.Bytes())}
+// Conflict loads the corresponding Conflict from the objectstorage.
+func (branchManager *BranchManager) Conflict(conflictID ConflictID) *CachedConflict {
+	return &CachedConflict{CachedObject: branchManager.conflictStorage.Load(conflictID.Bytes())}
 }
 
-func (branchManager *BranchManager) ConflictMembers(conflictId ConflictId) CachedConflictMembers {
+// ConflictMembers loads the ConflictMembers that are part of the same Conflict from the objectstorage.
+func (branchManager *BranchManager) ConflictMembers(conflictID ConflictID) CachedConflictMembers {
 	conflictMembers := make(CachedConflictMembers, 0)
 	branchManager.conflictMemberStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		conflictMembers = append(conflictMembers, &CachedConflictMember{CachedObject: cachedObject})
 
 		return true
-	}, conflictId.Bytes())
+	}, conflictID.Bytes())
 
 	return conflictMembers
 }
 
+// AddBranch adds a new Branch to the branch-DAG.
 func (branchManager *BranchManager) AddBranch(branch *Branch) *CachedBranch {
-	return &CachedBranch{CachedObject: branchManager.branchStorage.ComputeIfAbsent(branch.Id().Bytes(), func(key []byte) objectstorage.StorableObject {
+	return &CachedBranch{CachedObject: branchManager.branchStorage.ComputeIfAbsent(branch.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
 		branch.Persist()
 		branch.SetModified()
 
@@ -62,20 +68,22 @@ func (branchManager *BranchManager) AddBranch(branch *Branch) *CachedBranch {
 	})}
 }
 
-func (branchManager *BranchManager) GetBranch(branchId BranchId) *CachedBranch {
-	return &CachedBranch{CachedObject: branchManager.branchStorage.Load(branchId.Bytes())}
+// Branch loads a Branch from the objectstorage.
+func (branchManager *BranchManager) Branch(branchID BranchID) *CachedBranch {
+	return &CachedBranch{CachedObject: branchManager.branchStorage.Load(branchID.Bytes())}
 }
 
-func (branchManager *BranchManager) InheritBranches(branches ...BranchId) (cachedAggregatedBranch *CachedBranch, err error) {
+// InheritBranches takes a list of BranchIDs and tries to "inherit" the given IDs into a new Branch.
+func (branchManager *BranchManager) InheritBranches(branches ...BranchID) (cachedAggregatedBranch *CachedBranch, err error) {
 	// return the MasterBranch if we have no branches in the parameters
 	if len(branches) == 0 {
-		cachedAggregatedBranch = branchManager.GetBranch(MasterBranchId)
+		cachedAggregatedBranch = branchManager.Branch(MasterBranchID)
 
 		return
 	}
 
 	if len(branches) == 1 {
-		cachedAggregatedBranch = branchManager.GetBranch(branches[0])
+		cachedAggregatedBranch = branchManager.Branch(branches[0])
 
 		return
 	}
@@ -96,19 +104,19 @@ func (branchManager *BranchManager) InheritBranches(branches ...BranchId) (cache
 	}
 
 	// if there is more than one parents: aggregate
-	aggregatedBranchId, aggregatedBranchParents, err := branchManager.determineAggregatedBranchDetails(deepestCommonAncestors)
+	aggregatedBranchID, aggregatedBranchParents, err := branchManager.determineAggregatedBranchDetails(deepestCommonAncestors)
 	if err != nil {
 		return
 	}
 
 	newAggregatedBranchCreated := false
-	cachedAggregatedBranch = &CachedBranch{CachedObject: branchManager.branchStorage.ComputeIfAbsent(aggregatedBranchId.Bytes(), func(key []byte) (object objectstorage.StorableObject) {
-		aggregatedReality := NewBranch(aggregatedBranchId, aggregatedBranchParents, []ConflictId{})
+	cachedAggregatedBranch = &CachedBranch{CachedObject: branchManager.branchStorage.ComputeIfAbsent(aggregatedBranchID.Bytes(), func(key []byte) (object objectstorage.StorableObject) {
+		aggregatedReality := NewBranch(aggregatedBranchID, aggregatedBranchParents, []ConflictID{})
 
 		// TODO: FIX
 		/*
 			for _, parentRealityId := range aggregatedBranchParents {
-				tangle.GetBranch(parentRealityId).Consume(func(branch *Branch) {
+				tangle.Branch(parentRealityId).Consume(func(branch *Branch) {
 					branch.RegisterSubReality(aggregatedRealityId)
 				})
 			}
@@ -129,7 +137,7 @@ func (branchManager *BranchManager) InheritBranches(branches ...BranchId) (cache
 
 			for _, realityId := range aggregatedBranchParents {
 				if aggregatedBranch.AddParentReality(realityId) {
-					tangle.GetBranch(realityId).Consume(func(branch *Branch) {
+					tangle.Branch(realityId).Consume(func(branch *Branch) {
 						branch.RegisterSubReality(aggregatedRealityId)
 					})
 				}
@@ -140,19 +148,21 @@ func (branchManager *BranchManager) InheritBranches(branches ...BranchId) (cache
 	return
 }
 
-func (branchManager *BranchManager) ChildBranches(branchId BranchId) CachedChildBranches {
+// ChildBranches loads the ChildBranches that are forking off, of the given Branch.
+func (branchManager *BranchManager) ChildBranches(branchID BranchID) CachedChildBranches {
 	childBranches := make(CachedChildBranches, 0)
 	branchManager.childBranchStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		childBranches = append(childBranches, &CachedChildBranch{CachedObject: cachedObject})
 
 		return true
-	}, branchId.Bytes())
+	}, branchID.Bytes())
 
 	return childBranches
 }
 
-func (branchManager *BranchManager) SetBranchPreferred(branchId BranchId, preferred bool) (modified bool, err error) {
-	return branchManager.setBranchPreferred(branchManager.GetBranch(branchId), preferred)
+// SetBranchPreferred is the method that allows us to modify the preferred flag of a transaction.
+func (branchManager *BranchManager) SetBranchPreferred(branchID BranchID, preferred bool) (modified bool, err error) {
+	return branchManager.setBranchPreferred(branchManager.Branch(branchID), preferred)
 }
 
 func (branchManager *BranchManager) setBranchPreferred(cachedBranch *CachedBranch, preferred bool) (modified bool, err error) {
@@ -174,13 +184,13 @@ func (branchManager *BranchManager) setBranchPreferred(cachedBranch *CachedBranc
 		return
 	}
 
-	for conflictId := range branch.Conflicts() {
-		branchManager.ConflictMembers(conflictId).Consume(func(conflictMember *ConflictMember) {
-			if conflictMember.BranchId() == branch.Id() {
+	for conflictID := range branch.Conflicts() {
+		branchManager.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
+			if conflictMember.BranchID() == branch.ID() {
 				return
 			}
 
-			_, _ = branchManager.setBranchPreferred(branchManager.GetBranch(conflictMember.BranchId()), false)
+			_, _ = branchManager.setBranchPreferred(branchManager.Branch(conflictMember.BranchID()), false)
 		})
 	}
 
@@ -204,14 +214,14 @@ func (branchManager *BranchManager) propagateLike(cachedBranch *CachedBranch) (e
 	}
 
 	// check if parents are liked
-	for _, parentBranchId := range branch.ParentBranches() {
+	for _, parentBranchID := range branch.ParentBranches() {
 		// abort, if the parent branch can not be loaded
-		cachedParentBranch := branchManager.GetBranch(parentBranchId)
+		cachedParentBranch := branchManager.Branch(parentBranchID)
 		parentBranch := cachedParentBranch.Unwrap()
 		if parentBranch == nil {
 			cachedParentBranch.Release()
 
-			return fmt.Errorf("failed to load parent branch '%s' of branch '%s'", parentBranchId, branch.Id())
+			return fmt.Errorf("failed to load parent branch '%s' of branch '%s'", parentBranchID, branch.ID())
 		}
 
 		// abort if the parent branch is not liked
@@ -233,7 +243,7 @@ func (branchManager *BranchManager) propagateLike(cachedBranch *CachedBranch) (e
 	branchManager.Events.BranchLiked.Trigger(cachedBranch)
 
 	// propagate liked checks to the children
-	for _, cachedChildBranch := range branchManager.ChildBranches(branch.Id()) {
+	for _, cachedChildBranch := range branchManager.ChildBranches(branch.ID()) {
 		childBranch := cachedChildBranch.Unwrap()
 		if childBranch == nil {
 			cachedChildBranch.Release()
@@ -241,7 +251,7 @@ func (branchManager *BranchManager) propagateLike(cachedBranch *CachedBranch) (e
 			continue
 		}
 
-		if err = branchManager.propagateLike(branchManager.GetBranch(childBranch.Id())); err != nil {
+		if err = branchManager.propagateLike(branchManager.Branch(childBranch.ChildID())); err != nil {
 			cachedChildBranch.Release()
 
 			return
@@ -262,17 +272,17 @@ func (branchManager *BranchManager) propagateDislike(cachedBranch *CachedBranch)
 
 	branchManager.Events.BranchDisliked.Trigger(cachedBranch)
 
-	branchManager.ChildBranches(branch.Id()).Consume(func(childBranch *ChildBranch) {
-		branchManager.propagateDislike(branchManager.GetBranch(childBranch.Id()))
+	branchManager.ChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch) {
+		branchManager.propagateDislike(branchManager.Branch(childBranch.ChildID()))
 	})
 }
 
-func (branchManager *BranchManager) determineAggregatedBranchDetails(deepestCommonAncestors CachedBranches) (aggregatedBranchId BranchId, aggregatedBranchParents []BranchId, err error) {
-	aggregatedBranchParents = make([]BranchId, len(deepestCommonAncestors))
+func (branchManager *BranchManager) determineAggregatedBranchDetails(deepestCommonAncestors CachedBranches) (aggregatedBranchID BranchID, aggregatedBranchParents []BranchID, err error) {
+	aggregatedBranchParents = make([]BranchID, len(deepestCommonAncestors))
 
 	i := 0
 	aggregatedBranchConflictParents := make(CachedBranches)
-	for branchId, cachedBranch := range deepestCommonAncestors {
+	for branchID, cachedBranch := range deepestCommonAncestors {
 		// release all following entries if we have encountered an error
 		if err != nil {
 			cachedBranch.Release()
@@ -280,8 +290,8 @@ func (branchManager *BranchManager) determineAggregatedBranchDetails(deepestComm
 			continue
 		}
 
-		// store BranchId as parent
-		aggregatedBranchParents[i] = branchId
+		// store BranchID as parent
+		aggregatedBranchParents[i] = branchID
 		i++
 
 		// abort if we could not unwrap the Branch (should never happen)
@@ -289,13 +299,13 @@ func (branchManager *BranchManager) determineAggregatedBranchDetails(deepestComm
 		if branch == nil {
 			cachedBranch.Release()
 
-			err = fmt.Errorf("failed to unwrap brach '%s'", branchId)
+			err = fmt.Errorf("failed to unwrap brach '%s'", branchID)
 
 			continue
 		}
 
 		if branch.IsAggregated() {
-			aggregatedBranchConflictParents[branchId] = cachedBranch
+			aggregatedBranchConflictParents[branchID] = cachedBranch
 
 			continue
 		}
@@ -312,27 +322,27 @@ func (branchManager *BranchManager) determineAggregatedBranchDetails(deepestComm
 		return
 	}
 
-	aggregatedBranchId = branchManager.generateAggregatedBranchId(aggregatedBranchConflictParents)
+	aggregatedBranchID = branchManager.generateAggregatedBranchID(aggregatedBranchConflictParents)
 
 	return
 }
 
-func (branchManager *BranchManager) generateAggregatedBranchId(aggregatedBranches CachedBranches) BranchId {
+func (branchManager *BranchManager) generateAggregatedBranchID(aggregatedBranches CachedBranches) BranchID {
 	counter := 0
-	branchIds := make([]BranchId, len(aggregatedBranches))
-	for branchId, cachedBranch := range aggregatedBranches {
-		branchIds[counter] = branchId
+	branchIDs := make([]BranchID, len(aggregatedBranches))
+	for branchID, cachedBranch := range aggregatedBranches {
+		branchIDs[counter] = branchID
 
 		counter++
 
 		cachedBranch.Release()
 	}
 
-	sort.Slice(branchIds, func(i, j int) bool {
-		for k := 0; k < len(branchIds[k]); k++ {
-			if branchIds[i][k] < branchIds[j][k] {
+	sort.Slice(branchIDs, func(i, j int) bool {
+		for k := 0; k < len(branchIDs[k]); k++ {
+			if branchIDs[i][k] < branchIDs[j][k] {
 				return true
-			} else if branchIds[i][k] > branchIds[j][k] {
+			} else if branchIDs[i][k] > branchIDs[j][k] {
 				return false
 			}
 		}
@@ -340,9 +350,9 @@ func (branchManager *BranchManager) generateAggregatedBranchId(aggregatedBranche
 		return false
 	})
 
-	marshalUtil := marshalutil.New(BranchIdLength * len(branchIds))
-	for _, branchId := range branchIds {
-		marshalUtil.WriteBytes(branchId.Bytes())
+	marshalUtil := marshalutil.New(BranchIDLength * len(branchIDs))
+	for _, branchID := range branchIDs {
+		marshalUtil.WriteBytes(branchID.Bytes())
 	}
 
 	return blake2b.Sum256(marshalUtil.Bytes())
@@ -351,47 +361,47 @@ func (branchManager *BranchManager) generateAggregatedBranchId(aggregatedBranche
 func (branchManager *BranchManager) collectClosestConflictAncestors(branch *Branch, closestConflictAncestors CachedBranches) (err error) {
 	// initialize stack
 	stack := list.New()
-	for _, parentRealityId := range branch.ParentBranches() {
-		stack.PushBack(parentRealityId)
+	for _, parentRealityID := range branch.ParentBranches() {
+		stack.PushBack(parentRealityID)
 	}
 
 	// work through stack
-	processedBranches := make(map[BranchId]types.Empty)
+	processedBranches := make(map[BranchID]types.Empty)
 	for stack.Len() != 0 {
 		// iterate through the parents (in a func so we can used defer)
 		err = func() error {
 			// pop parent branch id from stack
 			firstStackElement := stack.Front()
 			defer stack.Remove(firstStackElement)
-			parentBranchId := stack.Front().Value.(BranchId)
+			parentBranchID := stack.Front().Value.(BranchID)
 
 			// abort if the parent has been processed already
-			if _, branchProcessed := processedBranches[parentBranchId]; branchProcessed {
+			if _, branchProcessed := processedBranches[parentBranchID]; branchProcessed {
 				return nil
 			}
-			processedBranches[parentBranchId] = types.Void
+			processedBranches[parentBranchID] = types.Void
 
 			// load parent branch from database
-			cachedParentBranch := branchManager.GetBranch(parentBranchId)
+			cachedParentBranch := branchManager.Branch(parentBranchID)
 
 			// abort if the parent branch could not be found (should never happen)
 			parentBranch := cachedParentBranch.Unwrap()
 			if parentBranch == nil {
 				cachedParentBranch.Release()
 
-				return fmt.Errorf("failed to load branch '%s'", parentBranchId)
+				return fmt.Errorf("failed to load branch '%s'", parentBranchID)
 			}
 
 			// if the parent Branch is not aggregated, then we have found the closest conflict ancestor
 			if !parentBranch.IsAggregated() {
-				closestConflictAncestors[parentBranchId] = cachedParentBranch
+				closestConflictAncestors[parentBranchID] = cachedParentBranch
 
 				return nil
 			}
 
 			// queue parents for additional check (recursion)
-			for _, parentRealityId := range parentBranch.ParentBranches() {
-				stack.PushBack(parentRealityId)
+			for _, parentRealityID := range parentBranch.ParentBranches() {
+				stack.PushBack(parentRealityID)
 			}
 
 			// release the branch (we don't need it anymore)
@@ -413,35 +423,35 @@ func (branchManager *BranchManager) collectClosestConflictAncestors(branch *Bran
 //
 // Example: If we hand in "A, B" and B has A as its parent, then the result will contain the Branch B, because B is a
 //          child of A.
-func (branchManager *BranchManager) findDeepestCommonAncestorBranches(branches ...BranchId) (result CachedBranches, err error) {
+func (branchManager *BranchManager) findDeepestCommonAncestorBranches(branches ...BranchID) (result CachedBranches, err error) {
 	result = make(CachedBranches)
 
-	processedBranches := make(map[BranchId]types.Empty)
-	for _, branchId := range branches {
+	processedBranches := make(map[BranchID]types.Empty)
+	for _, branchID := range branches {
 		err = func() error {
 			// continue, if we have processed this branch already
-			if _, exists := processedBranches[branchId]; exists {
+			if _, exists := processedBranches[branchID]; exists {
 				return nil
 			}
-			processedBranches[branchId] = types.Void
+			processedBranches[branchID] = types.Void
 
 			// load branch from objectstorage
-			cachedBranch := branchManager.GetBranch(branchId)
+			cachedBranch := branchManager.Branch(branchID)
 
 			// abort if we could not load the CachedBranch
 			branch := cachedBranch.Unwrap()
 			if branch == nil {
 				cachedBranch.Release()
 
-				return fmt.Errorf("could not load branch '%s'", branchId)
+				return fmt.Errorf("could not load branch '%s'", branchID)
 			}
 
 			// check branches position relative to already aggregated branches
-			for aggregatedBranchId, cachedAggregatedBranch := range result {
+			for aggregatedBranchID, cachedAggregatedBranch := range result {
 				// abort if we can not load the branch
 				aggregatedBranch := cachedAggregatedBranch.Unwrap()
 				if aggregatedBranch == nil {
-					return fmt.Errorf("could not load branch '%s'", aggregatedBranchId)
+					return fmt.Errorf("could not load branch '%s'", aggregatedBranchID)
 				}
 
 				// if the current branch is an ancestor of an already aggregated branch, then we have found the more
@@ -460,10 +470,10 @@ func (branchManager *BranchManager) findDeepestCommonAncestorBranches(branches .
 				// Branch and replace the old one with this one.
 				if isAncestor {
 					// replace aggregated branch if we have found a more specialized on
-					delete(result, aggregatedBranchId)
+					delete(result, aggregatedBranchID)
 					cachedAggregatedBranch.Release()
 
-					result[branchId] = cachedBranch
+					result[branchID] = cachedBranch
 
 					return nil
 				}
@@ -471,7 +481,7 @@ func (branchManager *BranchManager) findDeepestCommonAncestorBranches(branches .
 
 			// store the branch as a new aggregate candidate if it was not found to be in any relation with the already
 			// aggregated ones.
-			result[branchId] = cachedBranch
+			result[branchID] = cachedBranch
 
 			return nil
 		}()
@@ -489,7 +499,7 @@ func (branchManager *BranchManager) findDeepestCommonAncestorBranches(branches .
 }
 
 func (branchManager *BranchManager) branchIsAncestorOfBranch(ancestor *Branch, descendant *Branch) (isAncestor bool, err error) {
-	if ancestor.Id() == descendant.Id() {
+	if ancestor.ID() == descendant.ID() {
 		return true, nil
 	}
 
@@ -499,7 +509,7 @@ func (branchManager *BranchManager) branchIsAncestorOfBranch(ancestor *Branch, d
 	}
 
 	ancestorBranches.Consume(func(ancestorOfDescendant *Branch) {
-		if ancestorOfDescendant.Id() == ancestor.Id() {
+		if ancestorOfDescendant.ID() == ancestor.ID() {
 			isAncestor = true
 		}
 	})
@@ -513,8 +523,8 @@ func (branchManager *BranchManager) getAncestorBranches(branch *Branch) (ancesto
 
 	// initialize stack
 	stack := list.New()
-	for _, parentRealityId := range branch.ParentBranches() {
-		stack.PushBack(parentRealityId)
+	for _, parentRealityID := range branch.ParentBranches() {
+		stack.PushBack(parentRealityID)
 	}
 
 	// work through stack
@@ -524,30 +534,30 @@ func (branchManager *BranchManager) getAncestorBranches(branch *Branch) (ancesto
 			// pop parent branch id from stack
 			firstStackElement := stack.Front()
 			defer stack.Remove(firstStackElement)
-			parentBranchId := stack.Front().Value.(BranchId)
+			parentBranchID := stack.Front().Value.(BranchID)
 
 			// abort if the parent has been processed already
-			if _, branchProcessed := ancestorBranches[parentBranchId]; branchProcessed {
+			if _, branchProcessed := ancestorBranches[parentBranchID]; branchProcessed {
 				return nil
 			}
 
 			// load parent branch from database
-			cachedParentBranch := branchManager.GetBranch(parentBranchId)
+			cachedParentBranch := branchManager.Branch(parentBranchID)
 
 			// abort if the parent branch could not be founds (should never happen)
 			parentBranch := cachedParentBranch.Unwrap()
 			if parentBranch == nil {
 				cachedParentBranch.Release()
 
-				return fmt.Errorf("failed to unwrap branch '%s'", parentBranchId)
+				return fmt.Errorf("failed to unwrap branch '%s'", parentBranchID)
 			}
 
 			// store parent branch in result
-			ancestorBranches[parentBranchId] = cachedParentBranch
+			ancestorBranches[parentBranchID] = cachedParentBranch
 
 			// queue parents for additional check (recursion)
-			for _, parentRealityId := range parentBranch.ParentBranches() {
-				stack.PushBack(parentRealityId)
+			for _, parentRealityID := range parentBranch.ParentBranches() {
+				stack.PushBack(parentRealityID)
 			}
 
 			return nil

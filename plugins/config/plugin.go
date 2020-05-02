@@ -24,7 +24,7 @@ var (
 	configDirPath       = flag.StringP("config-dir", "d", ".", "Path to the directory containing the config file")
 	skipConfigAvailable = flag.Bool("skip-config", false, "Skip config file availability check")
 
-	// viper
+	// Node is viper
 	Node *viper.Viper
 
 	// logger
@@ -38,6 +38,7 @@ var (
 	}
 )
 
+// Init triggers the Init event.
 func Init() {
 	Plugin.Events.Init.Trigger(Plugin)
 }

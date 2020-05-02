@@ -2,7 +2,7 @@ version: "3.5"
 
 services:
   entry_node:
-    command: --autopeering.seed=uuDCzsjyLNQ17/7fWKPNMYmr4IWuaVRf7qKqRL0v/6c= --autopeering.entryNodes= --analysis.server.port=1888 --node.disablePlugins=gossip,portcheck,spa,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+    command: --autopeering.seed=uuDCzsjyLNQ17/7fWKPNMYmr4IWuaVRf7qKqRL0v/6c= --autopeering.entryNodes= --analysis.server.port=1888 --node.disablePlugins=portcheck,dashboard,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     container_name: entry_node
     image: iotaledger/goshimmer
     build:
@@ -17,6 +17,7 @@ services:
       - integration-test
 
   peer_master:
+    command: --node.enablePlugins=bootstrap
     container_name: peer_master
     image: iotaledger/goshimmer
     build:
@@ -32,7 +33,7 @@ services:
       - integration-test
 
   peer_replica:
-    command: --node.disablePlugins=spa
+    command: --node.disablePlugins=dashboard,portcheck
     image: iotaledger/goshimmer
     build:
       context: ../..

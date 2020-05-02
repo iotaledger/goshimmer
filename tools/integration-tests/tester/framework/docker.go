@@ -70,7 +70,7 @@ func (d *DockerContainer) CreateGoShimmerEntryNode(name string, seed string) err
 }
 
 // CreateGoShimmerPeer creates a new container with the GoShimmer peer's configuration.
-func (d *DockerContainer) CreateGoShimmerPeer(name string, seed string, entryNodeHost string, entryNodePublicKey string) error {
+func (d *DockerContainer) CreateGoShimmerPeer(name string, seed string, entryNodeHost string, entryNodePublicKey string, bootstrap bool) error {
 	// configure GoShimmer container instance
 	containerConfig := &container.Config{
 		Image: "iotaledger/goshimmer",
@@ -80,6 +80,12 @@ func (d *DockerContainer) CreateGoShimmerPeer(name string, seed string, entryNod
 		Cmd: strslice.StrSlice{
 			"--skip-config=true",
 			fmt.Sprintf("--node.disablePlugins=%s", disabledPluginsPeer),
+			fmt.Sprintf("--node.enablePlugins=%s", func() string {
+				if bootstrap {
+					return "Bootstrap"
+				}
+				return ""
+			}()),
 			"--webapi.bindAddress=0.0.0.0:8080",
 			fmt.Sprintf("--autopeering.seed=%s", seed),
 			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", entryNodePublicKey, entryNodeHost),

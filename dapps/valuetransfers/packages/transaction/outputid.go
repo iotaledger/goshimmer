@@ -8,65 +8,66 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 )
 
-// OutputId is the data type that represents the identifier for a Output.
-type OutputId [OutputIdLength]byte
+// OutputID is the data type that represents the identifier for a Output.
+type OutputID [OutputIDLength]byte
 
-// NewOutputId is the constructor for the OutputId type.
-func NewOutputId(outputAddress address.Address, transactionId Id) (outputId OutputId) {
-	copy(outputId[:address.Length], outputAddress.Bytes())
-	copy(outputId[address.Length:], transactionId[:])
+// NewOutputID is the constructor for the OutputID type.
+func NewOutputID(outputAddress address.Address, transactionID ID) (outputID OutputID) {
+	copy(outputID[:address.Length], outputAddress.Bytes())
+	copy(outputID[address.Length:], transactionID[:])
 
 	return
 }
 
-// OutputIdFromBytes unmarshals an OutputId from a sequence of bytes.
-func OutputIdFromBytes(bytes []byte) (result OutputId, err error, consumedBytes int) {
+// OutputIDFromBytes unmarshals an OutputID from a sequence of bytes.
+func OutputIDFromBytes(bytes []byte) (result OutputID, consumedBytes int, err error) {
 	// parse the bytes
 	marshalUtil := marshalutil.New(bytes)
-	if idBytes, idErr := marshalUtil.ReadBytes(OutputIdLength); idErr != nil {
+	idBytes, idErr := marshalUtil.ReadBytes(OutputIDLength)
+	if idErr != nil {
 		err = idErr
 
 		return
-	} else {
-		copy(result[:], idBytes)
 	}
+	copy(result[:], idBytes)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// Parse is a wrapper for simplified unmarshaling of Ids from a byte stream using the marshalUtil package.
-func ParseOutputId(marshalUtil *marshalutil.MarshalUtil) (OutputId, error) {
-	if outputId, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return OutputIdFromBytes(data) }); err != nil {
-		return OutputId{}, err
-	} else {
-		return outputId.(OutputId), nil
+// ParseOutputID is a wrapper for simplified unmarshaling of Ids from a byte stream using the marshalUtil package.
+func ParseOutputID(marshalUtil *marshalutil.MarshalUtil) (OutputID, error) {
+	outputID, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return OutputIDFromBytes(data) })
+	if err != nil {
+		return OutputID{}, err
 	}
+
+	return outputID.(OutputID), nil
 }
 
-// Address returns the address part of an OutputId.
-func (outputId OutputId) Address() (address address.Address) {
-	copy(address[:], outputId[:])
+// Address returns the address part of an OutputID.
+func (outputID OutputID) Address() (address address.Address) {
+	copy(address[:], outputID[:])
 
 	return
 }
 
-// TransactionId returns the transaction id part of an OutputId.
-func (outputId OutputId) TransactionId() (transactionId Id) {
-	copy(transactionId[:], outputId[address.Length:])
+// TransactionID returns the transaction id part of an OutputID.
+func (outputID OutputID) TransactionID() (transactionID ID) {
+	copy(transactionID[:], outputID[address.Length:])
 
 	return
 }
 
-// Bytes marshals the OutputId into a sequence of bytes.
-func (outputId OutputId) Bytes() []byte {
-	return outputId[:]
+// Bytes marshals the OutputID into a sequence of bytes.
+func (outputID OutputID) Bytes() []byte {
+	return outputID[:]
 }
 
-// String creates a human readable version of the OutputId (for debug purposes).
-func (outputId OutputId) String() string {
-	return base58.Encode(outputId[:])
+// String creates a human readable version of the OutputID (for debug purposes).
+func (outputID OutputID) String() string {
+	return base58.Encode(outputID[:])
 }
 
-// IdLength contains the amount of bytes that a marshaled version of the OutputId contains.
-const OutputIdLength = address.Length + IdLength
+// OutputIDLength contains the amount of bytes that a marshaled version of the OutputID contains.
+const OutputIDLength = address.Length + IDLength

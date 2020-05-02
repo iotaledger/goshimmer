@@ -8,19 +8,19 @@ import (
 
 func Test(t *testing.T) {
 	// create variable for id
-	sourceId, err := NewId("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
+	sourceID, err := NewID("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
 	if err != nil {
 		panic(err)
 	}
 
 	// read serialized id into both variables
-	var restoredIdPointer Id
-	restoredIdValue, err, _ := IdFromBytes(sourceId.Bytes(), &restoredIdPointer)
+	var restoredIDPointer ID
+	restoredIDValue, _, err := IDFromBytes(sourceID.Bytes(), &restoredIDPointer)
 	if err != nil {
 		panic(err)
 	}
 
 	// check if both variables give the same result
-	assert.Equal(t, sourceId, restoredIdValue)
-	assert.Equal(t, sourceId, restoredIdPointer)
+	assert.Equal(t, sourceID, restoredIDValue)
+	assert.Equal(t, sourceID, restoredIDPointer)
 }
