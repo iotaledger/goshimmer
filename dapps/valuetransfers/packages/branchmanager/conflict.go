@@ -102,7 +102,7 @@ func (conflict *Conflict) IncreaseMemberCount(optionalDelta ...int) (newMemberCo
 	defer conflict.memberCountMutex.Unlock()
 
 	conflict.memberCount = conflict.memberCount + delta
-
+	conflict.SetModified()
 	newMemberCount = int(conflict.memberCount)
 
 	return
@@ -119,7 +119,7 @@ func (conflict *Conflict) DecreaseMemberCount(optionalDelta ...int) (newMemberCo
 	defer conflict.memberCountMutex.Unlock()
 
 	conflict.memberCount = conflict.memberCount - delta
-
+	conflict.SetModified()
 	newMemberCount = int(conflict.memberCount)
 
 	return
