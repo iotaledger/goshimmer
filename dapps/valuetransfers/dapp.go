@@ -149,7 +149,7 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 	}
 
 	// If the transaction is not conflicting, then we apply the fcob rule (we finalize after 2 network delays).
-	// Note: We do not set a liked flag after 1 network delay because that can be derived.
+	// Note: We do not set a liked flag after 1 network delay because that can be derived by the retriever later.
 	cachedTransactionMetadata.Retain()
 	time.AfterFunc(2*AverageNetworkDelay, func() {
 		defer cachedTransactionMetadata.Release()
