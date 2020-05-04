@@ -6,9 +6,18 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/labstack/echo"
 )
+
+type DataPayload struct {
+	Data []byte `json:"data"`
+}
+
+type UnknownPayload struct {
+	Bytes []byte `json:"payload_byte"`
+}
 
 // ExplorerMessage defines the struct of the ExplorerMessage.
 type ExplorerMessage struct {
@@ -25,7 +34,7 @@ type ExplorerMessage struct {
 	// PayloadType defines the type of the payload.
 	PayloadType uint32 `json:"payload_type"`
 	// Payload is the content of the payload.
-	Payload []byte `json:"payload"`
+	Payload interface{} `json:"payload"`
 }
 
 func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
@@ -37,11 +46,24 @@ func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
 		TrunkMessageID:  msg.TrunkId().String(),
 		BranchMessageID: msg.BranchId().String(),
 		Solid:           messageMetadata.Unwrap().IsSolid(),
-        PayloadType:     msg.Payload().Type(),
-        Payload:         msg.Payload().Bytes(),
+		PayloadType:     msg.Payload().Type(),
+		Payload:         processPayload(msg.Payload()),
 	}
 
 	return t, nil
+}
+
+func processPayload(p payload.Payload) interface{} {
+	switch p.Type() {
+	case 0:
+		return DataPayload{
+			Data: p.(*payload.Data).Data(),
+		}
+	default:
+		return UnknownPayload{
+			Bytes: p.Bytes(),
+		}
+	}
 }
 
 // ExplorerAddress defines the struct of the ExplorerAddress.

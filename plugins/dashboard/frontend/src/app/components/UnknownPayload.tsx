@@ -13,13 +13,13 @@ interface Props {
 export class UnknownPayload extends React.Component<Props, any> {
 
     render() {
-        let {msg} = this.props.explorerStore;
+        let {payload} = this.props.explorerStore;
         return (
-            msg.payload &&
+            payload &&
             <React.Fragment>
                 <Row className={"mb-3"}>
                     <Col>
-                        {msg.payload}
+                        {payload.bytes}
                     </Col>
                 </Row>
             </React.Fragment>

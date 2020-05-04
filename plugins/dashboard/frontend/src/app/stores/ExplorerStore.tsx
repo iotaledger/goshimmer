@@ -11,7 +11,15 @@ export class Message {
     branch_message_id: string;
     solid: boolean;
     payload_type: number;
-    payload: string;
+    payload: any;
+}
+
+export class DataPayload {
+    data: string;
+}
+
+export class UnknownPayload {
+    bytes: string;
 }
 
 class AddressResult {
@@ -50,6 +58,7 @@ export class ExplorerStore {
     @observable search: string = "";
     @observable search_result: SearchResult = null;
     @observable searching: boolean = false;
+    @observable payload: any;
 
     routerStore: RouterStore;
 
@@ -149,8 +158,17 @@ export class ExplorerStore {
     @action
     updateMessage = (msg: Message) => {
         this.msg = msg;
+        this.payload = msg.payload
         this.query_err = null;
         this.query_loading = false;
+        switch(msg.payload_type){
+            case 0:
+                this.payload = msg.payload as DataPayload
+                break;
+            default:
+                this.payload = msg.payload as UnknownPayload
+                break;
+        }
     };
 
     @action

@@ -52,6 +52,7 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
     renderPayload() {
         switch(this.props.explorerStore.msg.payload_type) {
             case 0:
+                console.log(this.props.explorerStore.msg.payload.data)
                 return <DataPayload/>
             default:
                 return <UnknownPayload/>
