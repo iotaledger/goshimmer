@@ -3,6 +3,7 @@ package webinterface
 import (
 	"errors"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/gobuffalo/packr/v2"
@@ -40,7 +41,7 @@ func configure(plugin *node.Plugin) {
 		engine.File("/", "./plugins/analysis/webinterface/static/index.html")
 	} else {
 		for _, res := range assetsBox.List() {
-			engine.GET("/static/"+res, echo.WrapHandler(http.StripPrefix("/static", http.FileServer(assetsBox))))
+			engine.GET(filepath.ToSlash(filepath.Join("/static", res)), echo.WrapHandler(http.StripPrefix("/static", http.FileServer(assetsBox))))
 		}
 		engine.GET("/", index)
 	}
