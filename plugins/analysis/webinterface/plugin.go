@@ -36,7 +36,7 @@ func configure(plugin *node.Plugin) {
 	engine.HidePort = true
 
 	// we only need this special flag, because we always keep a packed box in the same directory
-	if config.Node.GetBool(CfgDev) {
+	if config.Node.GetBool(CfgAnalysisWebInterfaceDev) {
 		engine.Static("/static", "./plugins/analysis/webinterface/static")
 		engine.File("/", "./plugins/analysis/webinterface/static/index.html")
 	} else {
@@ -63,7 +63,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	stopped := make(chan struct{})
-	bindAddr := config.Node.GetString(CfgBindAddress)
+	bindAddr := config.Node.GetString(CfgAnalysisWebInterfaceBindAddress)
 	go func() {
 		log.Infof("Started %s: http://%s", PluginName, bindAddr)
 		if err := engine.Start(bindAddr); err != nil {
