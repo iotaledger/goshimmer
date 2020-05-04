@@ -12,9 +12,9 @@ var (
 )
 
 const (
-	// HeartbeatMaxOutboundPeersCount is the maximum amount of outbound peer ids a heartbeat packet can contain.
+	// HeartbeatMaxOutboundPeersCount is the maximum amount of outbound peer IDs a heartbeat packet can contain.
 	HeartbeatMaxOutboundPeersCount = 4
-	// HeartbeatMaxInboundPeersCount is the maximum amount of inbound peer ids a heartbeat packet can contain.
+	// HeartbeatMaxInboundPeersCount is the maximum amount of inbound peer IDs a heartbeat packet can contain.
 	HeartbeatMaxInboundPeersCount = 4
 	// HeartbeatPacketHeader is the byte value denoting a heartbeat packet.
 	HeartbeatPacketHeader = 0x01
@@ -33,13 +33,13 @@ const (
 
 // Heartbeat represents a heartbeat packet.
 type Heartbeat struct {
-	// The id of the node who sent the heartbeat.
+	// The ID of the node who sent the heartbeat.
 	// Must be contained when a heartbeat is serialized.
 	OwnID []byte
-	// The ids of the outbound peers. Can be empty or nil.
+	// The IDs of the outbound peers. Can be empty or nil.
 	// It must not exceed HeartbeatMaxOutboundPeersCount.
 	OutboundIDs [][]byte
-	// The ids of the inbound peers. Can be empty or nil.
+	// The IDs of the inbound peers. Can be empty or nil.
 	// It must not exceed HeartbeatMaxInboundPeersCount.
 	InboundIDs [][]byte
 }
@@ -61,7 +61,7 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 	}
 
 	// sanity check: packet len - min packet % id size = 0,
-	// since we're only dealing with ids from that offset
+	// since we're only dealing with IDs from that offset
 	if (len(data)-HeartbeatPacketMinSize)%HeartbeatPacketPeerIDSize != 0 {
 		return nil, fmt.Errorf("%w: heartbeat packet is malformed since the data length after the min. packet size offset isn't conforming with peer ID sizes", ErrMalformedPacket)
 	}
@@ -70,10 +70,10 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 	ownID := make([]byte, HeartbeatPacketPeerIDSize)
 	copy(ownID, data[HeartbeatPacketHeaderSize:HeartbeatPacketHeaderSize+HeartbeatPacketPeerIDSize])
 
-	// read outbound ids count
+	// read outbound IDs count
 	outboundIDCount := int(data[HeartbeatPacketMinSize-1])
 	if outboundIDCount > HeartbeatMaxOutboundPeersCount {
-		return nil, fmt.Errorf("%w: heartbeat packet exceeds maximum outbound ids of %d", ErrMalformedPacket, HeartbeatMaxOutboundPeersCount)
+		return nil, fmt.Errorf("%w: heartbeat packet exceeds maximum outbound IDs of %d", ErrMalformedPacket, HeartbeatMaxOutboundPeersCount)
 	}
 
 	// check whether we'd have the amount of data needed for the advertised outbound id count
@@ -81,7 +81,7 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 		return nil, fmt.Errorf("%w: heartbeat packet is malformed since remaining data length wouldn't fit advertsized outbound IDs count", ErrMalformedPacket)
 	}
 
-	// outbound ids can be zero
+	// outbound IDs can be zero
 	outboundIDs := make([][]byte, outboundIDCount)
 
 	if outboundIDCount != 0 {
@@ -92,13 +92,13 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 		}
 	}
 
-	// (packet size - (min packet size + read outbound ids)) / id size = inbound ids count
+	// (packet size - (min packet size + read outbound IDs)) / ID size = inbound IDs count
 	inboundIDCount := (len(data) - (HeartbeatPacketMinSize + outboundIDCount*HeartbeatPacketPeerIDSize)) / HeartbeatPacketPeerIDSize
 	if inboundIDCount > HeartbeatMaxInboundPeersCount {
-		return nil, fmt.Errorf("%w: heartbeat packet exceeds maximum inbound ids of %d", ErrMalformedPacket, HeartbeatMaxInboundPeersCount)
+		return nil, fmt.Errorf("%w: heartbeat packet exceeds maximum inbound IDs of %d", ErrMalformedPacket, HeartbeatMaxInboundPeersCount)
 	}
 
-	// inbound ids can be zero
+	// inbound IDs can be zero
 	inboundIDs := make([][]byte, inboundIDCount)
 	offset := HeartbeatPacketHeaderSize + HeartbeatPacketPeerIDSize + HeartbeatPacketOutboundIDCountSize + outboundIDCount*HeartbeatPacketPeerIDSize
 	for i := range inboundIDs {
@@ -112,10 +112,10 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 // NewHeartbeatMessage serializes the given heartbeat into a byte slice.
 func NewHeartbeatMessage(hb *Heartbeat) ([]byte, error) {
 	if len(hb.InboundIDs) > HeartbeatMaxInboundPeersCount {
-		return nil, fmt.Errorf("%w: heartbeat exceeds maximum inbound ids of %d", ErrInvalidHeartbeat, HeartbeatMaxInboundPeersCount)
+		return nil, fmt.Errorf("%w: heartbeat exceeds maximum inbound IDs of %d", ErrInvalidHeartbeat, HeartbeatMaxInboundPeersCount)
 	}
 	if len(hb.OutboundIDs) > HeartbeatMaxOutboundPeersCount {
-		return nil, fmt.Errorf("%w: heartbeat exceeds maximum outbound ids of %d", ErrInvalidHeartbeat, HeartbeatMaxOutboundPeersCount)
+		return nil, fmt.Errorf("%w: heartbeat exceeds maximum outbound IDs of %d", ErrInvalidHeartbeat, HeartbeatMaxOutboundPeersCount)
 	}
 
 	if len(hb.OwnID) != HeartbeatPacketPeerIDSize {
@@ -141,7 +141,7 @@ func NewHeartbeatMessage(hb *Heartbeat) ([]byte, error) {
 		copy(packet[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize], outboundID[:HeartbeatPacketPeerIDSize])
 	}
 
-	// advance offset to after outbound ids
+	// advance offset to after outbound IDs
 	offset += len(hb.OutboundIDs) * HeartbeatPacketPeerIDSize
 
 	// copy contents of hb.InboundIDs

@@ -87,7 +87,6 @@ func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 				"inboundIDs", in.String(),
 			)
 
-			// Marshal() copies the content of packet, it doesn't modify it.
 			data, err := packet.NewHeartbeatMessage(hb)
 			if err != nil {
 				log.Info(err, " - heartbeat message skipped")
@@ -104,29 +103,29 @@ func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 }
 
 func reportHeartbeat(dispatchers *EventDispatchers) {
-	// Get own ID
+	// get own ID
 	var nodeID []byte
 	if local.GetInstance() != nil {
-		// Doesn't copy the ID, take care not to modify underlying bytearray!
+		// doesn't copy the ID, take care not to modify underlying bytearray!
 		nodeID = local.GetInstance().ID().Bytes()
 	}
 
 	var outboundIDs [][]byte
 	var inboundIDs [][]byte
 
-	// Get outboundIDs (chosen neighbors)
+	// get outboundIDs (chosen neighbors)
 	outgoingNeighbors := autopeering.Selection().GetOutgoingNeighbors()
 	outboundIDs = make([][]byte, len(outgoingNeighbors))
 	for i, neighbor := range outgoingNeighbors {
-		// Doesn't copy the ID, take care not to modify underlying bytearray!
+		// doesn't copy the ID, take care not to modify underlying bytearray!
 		outboundIDs[i] = neighbor.ID().Bytes()
 	}
 
-	// Get inboundIDs (accepted neighbors)
+	// get inboundIDs (accepted neighbors)
 	incomingNeighbors := autopeering.Selection().GetIncomingNeighbors()
 	inboundIDs = make([][]byte, len(incomingNeighbors))
 	for i, neighbor := range incomingNeighbors {
-		// Doesn't copy the ID, take care not to modify underlying bytearray!
+		// doesn't copy the ID, take care not to modify underlying bytearray!
 		inboundIDs[i] = neighbor.ID().Bytes()
 	}
 

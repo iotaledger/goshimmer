@@ -5,10 +5,10 @@ import (
 )
 
 const (
-	// CfgBindAddress defines the config flag of the analysis http server binding address.
-	CfgBindAddress = "analysis.httpServer.bindAddress"
-	// CfgDev defines the config flag of the analysis http server dev mode.
-	CfgDev = "analysis.httpServer.dev"
+	// CfgBindAddress defines the binding address of the analysis web interface.
+	CfgBindAddress = "analysis.webInterface.bindAddress"
+	// CfgDev defines whether to run the web interface in dev mode.
+	CfgDev = "analysis.webInterface.dev"
 )
 
 func init() {
