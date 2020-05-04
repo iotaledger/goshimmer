@@ -16,10 +16,11 @@ import (
 	"golang.org/x/net/websocket"
 )
 
-// PluginName is the name of the analysis server plugin.
-const PluginName = "Analysis HTTP Server"
+// PluginName is the name of the analysis server webinterface plugin.
+const PluginName = "Analysis-WebInterface"
 
 var (
+	// Plugin is the plugin instance of the analysis server webinterface plugin.
 	Plugin    = node.NewPlugin(PluginName, node.Disabled, configure, run)
 	log       *logger.Logger
 	engine    *echo.Echo
@@ -35,7 +36,7 @@ func configure(plugin *node.Plugin) {
 
 	// we only need this special flag, because we always keep a packed box in the same directory
 	if config.Node.GetBool(CfgDev) {
-		engine.Static("/static", "./plugins/analysis/webinterfacestatic")
+		engine.Static("/static", "./plugins/analysis/webinterface/static")
 		engine.File("/", "./plugins/analysis/webinterface/static/index.html")
 	} else {
 		for _, res := range assetsBox.List() {

@@ -17,31 +17,38 @@ const (
 	// HeartbeatMaxInboundPeersCount is the maximum amount of inbound peer ids a heartbeat packet can contain.
 	HeartbeatMaxInboundPeersCount = 4
 	// HeartbeatPacketHeader is the byte value denoting a heartbeat packet.
-	HeartbeatPacketHeader              = 0x01
-	heartbeatPacketHeaderSize          = 1
-	heartbeatPacketPeerIDSize          = sha256.Size
-	heartbeatPacketOutboundIDCountSize = 1
-	heartbeatPacketMinSize             = heartbeatPacketHeaderSize + heartbeatPacketPeerIDSize + heartbeatPacketOutboundIDCountSize
+	HeartbeatPacketHeader = 0x01
+	// HeartbeatPacketHeaderSize is the byte size of the heartbeat header.
+	HeartbeatPacketHeaderSize = 1
+	// HeartbeatPacketPeerIDSize is the byte size of peer IDs within the heartbeat packet.
+	HeartbeatPacketPeerIDSize = sha256.Size
+	// HeartbeatPacketOutboundIDCountSize is the byte size of the counter indicating the amount of outbound IDs.
+	HeartbeatPacketOutboundIDCountSize = 1
+	// HeartbeatPacketMinSize is the minimum byte size of a heartbeat packet.
+	HeartbeatPacketMinSize = HeartbeatPacketHeaderSize + HeartbeatPacketPeerIDSize + HeartbeatPacketOutboundIDCountSize
 	// HeartbeatPacketMaxSize is the maximum size a heartbeat packet can have.
-	HeartbeatPacketMaxSize = heartbeatPacketHeaderSize + heartbeatPacketPeerIDSize + heartbeatPacketOutboundIDCountSize +
+	HeartbeatPacketMaxSize = HeartbeatPacketHeaderSize + HeartbeatPacketPeerIDSize + HeartbeatPacketOutboundIDCountSize +
 		HeartbeatMaxOutboundPeersCount*sha256.Size + HeartbeatMaxInboundPeersCount*sha256.Size
 )
 
-// Heartbeat is a heartbeat packet.
+// Heartbeat represents a heartbeat packet.
 type Heartbeat struct {
 	// The id of the node who sent the heartbeat.
+	// Must be contained when a heartbeat is serialized.
 	OwnID []byte
-	// The ids of the outbound peers.
+	// The ids of the outbound peers. Can be empty or nil.
+	// It must not exceed HeartbeatMaxOutboundPeersCount.
 	OutboundIDs [][]byte
-	// The ids of the inbound peers.
+	// The ids of the inbound peers. Can be empty or nil.
+	// It must not exceed HeartbeatMaxInboundPeersCount.
 	InboundIDs [][]byte
 }
 
 // ParseHeartbeat parses a slice of bytes into a heartbeat.
 func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 	// check minimum size
-	if len(data) < heartbeatPacketMinSize {
-		return nil, fmt.Errorf("%w: packet doesn't reach minimum heartbeat packet size of %d", ErrMalformedPacket, heartbeatPacketMinSize)
+	if len(data) < HeartbeatPacketMinSize {
+		return nil, fmt.Errorf("%w: packet doesn't reach minimum heartbeat packet size of %d", ErrMalformedPacket, HeartbeatPacketMinSize)
 	}
 
 	if len(data) > HeartbeatPacketMaxSize {
@@ -53,38 +60,50 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 		return nil, fmt.Errorf("%w: packet isn't of type heartbeat", ErrMalformedPacket)
 	}
 
+	// sanity check: packet len - min packet % id size = 0,
+	// since we're only dealing with ids from that offset
+	if (len(data)-HeartbeatPacketMinSize)%HeartbeatPacketPeerIDSize != 0 {
+		return nil, fmt.Errorf("%w: heartbeat packet is malformed since the data length after the min. packet size offset isn't conforming with peer ID sizes", ErrMalformedPacket)
+	}
+
 	// copy own ID
-	ownID := make([]byte, heartbeatPacketPeerIDSize)
-	copy(ownID, data[heartbeatPacketHeaderSize:heartbeatPacketPeerIDSize])
+	ownID := make([]byte, HeartbeatPacketPeerIDSize)
+	copy(ownID, data[HeartbeatPacketHeaderSize:HeartbeatPacketHeaderSize+HeartbeatPacketPeerIDSize])
 
 	// read outbound ids count
-	outboundIDCount := int(data[heartbeatPacketMinSize])
+	outboundIDCount := int(data[HeartbeatPacketMinSize-1])
 	if outboundIDCount > HeartbeatMaxOutboundPeersCount {
 		return nil, fmt.Errorf("%w: heartbeat packet exceeds maximum outbound ids of %d", ErrMalformedPacket, HeartbeatMaxOutboundPeersCount)
 	}
 
+	// check whether we'd have the amount of data needed for the advertised outbound id count
+	if (len(data)-HeartbeatPacketMinSize)/HeartbeatPacketPeerIDSize < outboundIDCount {
+		return nil, fmt.Errorf("%w: heartbeat packet is malformed since remaining data length wouldn't fit advertsized outbound IDs count", ErrMalformedPacket)
+	}
+
 	// outbound ids can be zero
 	outboundIDs := make([][]byte, outboundIDCount)
+
 	if outboundIDCount != 0 {
-		offset := heartbeatPacketMinSize
+		offset := HeartbeatPacketMinSize
 		for i := range outboundIDs {
-			outboundIDs[i] = make([]byte, heartbeatPacketPeerIDSize)
-			copy(outboundIDs[i], data[offset+i*heartbeatPacketPeerIDSize:offset+(i+1)*heartbeatPacketPeerIDSize])
+			outboundIDs[i] = make([]byte, HeartbeatPacketPeerIDSize)
+			copy(outboundIDs[i], data[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize])
 		}
 	}
 
-	// (packet size - min packet size + read outbound ids) / id size = inbound ids count
-	inboundIDCount := (len(data) - heartbeatPacketMinSize + outboundIDCount*heartbeatPacketPeerIDSize) / heartbeatPacketPeerIDSize
+	// (packet size - (min packet size + read outbound ids)) / id size = inbound ids count
+	inboundIDCount := (len(data) - (HeartbeatPacketMinSize + outboundIDCount*HeartbeatPacketPeerIDSize)) / HeartbeatPacketPeerIDSize
 	if inboundIDCount > HeartbeatMaxInboundPeersCount {
 		return nil, fmt.Errorf("%w: heartbeat packet exceeds maximum inbound ids of %d", ErrMalformedPacket, HeartbeatMaxInboundPeersCount)
 	}
 
 	// inbound ids can be zero
 	inboundIDs := make([][]byte, inboundIDCount)
-	offset := heartbeatPacketHeaderSize + heartbeatPacketPeerIDSize + heartbeatPacketOutboundIDCountSize + outboundIDCount*heartbeatPacketPeerIDSize
+	offset := HeartbeatPacketHeaderSize + HeartbeatPacketPeerIDSize + HeartbeatPacketOutboundIDCountSize + outboundIDCount*HeartbeatPacketPeerIDSize
 	for i := range inboundIDs {
-		inboundIDs[i] = make([]byte, heartbeatPacketPeerIDSize)
-		copy(inboundIDs[i], data[offset+i*heartbeatPacketPeerIDSize:offset+(i+1)*heartbeatPacketPeerIDSize])
+		inboundIDs[i] = make([]byte, HeartbeatPacketPeerIDSize)
+		copy(inboundIDs[i], data[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize])
 	}
 
 	return &Heartbeat{OwnID: ownID, OutboundIDs: outboundIDs, InboundIDs: inboundIDs}, nil
@@ -99,31 +118,35 @@ func NewHeartbeatMessage(hb *Heartbeat) ([]byte, error) {
 		return nil, fmt.Errorf("%w: heartbeat exceeds maximum outbound ids of %d", ErrInvalidHeartbeat, HeartbeatMaxOutboundPeersCount)
 	}
 
+	if len(hb.OwnID) != HeartbeatPacketPeerIDSize {
+		return nil, fmt.Errorf("%w: heartbeat must contain the own peer ID", ErrInvalidHeartbeat)
+	}
+
 	// calculate total needed bytes based on packet
-	packetSize := heartbeatPacketMinSize + len(hb.OutboundIDs)*heartbeatPacketPeerIDSize + len(hb.InboundIDs)*heartbeatPacketPeerIDSize
+	packetSize := HeartbeatPacketMinSize + len(hb.OutboundIDs)*HeartbeatPacketPeerIDSize + len(hb.InboundIDs)*HeartbeatPacketPeerIDSize
 	packet := make([]byte, packetSize)
 
 	// header byte
 	packet[0] = HeartbeatPacketHeader
 
 	// own nodeId
-	copy(packet[heartbeatPacketHeaderSize:heartbeatPacketPeerIDSize], hb.OwnID[:heartbeatPacketPeerIDSize])
+	copy(packet[HeartbeatPacketHeaderSize:HeartbeatPacketHeaderSize+HeartbeatPacketPeerIDSize], hb.OwnID[:])
 
 	// outbound id count
-	packet[heartbeatPacketHeaderSize+heartbeatPacketPeerIDSize] = byte(len(hb.OutboundIDs))
+	packet[HeartbeatPacketHeaderSize+HeartbeatPacketPeerIDSize] = byte(len(hb.OutboundIDs))
 
 	// copy contents of hb.OutboundIDs
-	offset := heartbeatPacketMinSize
+	offset := HeartbeatPacketMinSize
 	for i, outboundID := range hb.OutboundIDs {
-		copy(packet[offset+i*heartbeatPacketPeerIDSize:offset+(i+1)*heartbeatPacketPeerIDSize], outboundID[:heartbeatPacketPeerIDSize])
+		copy(packet[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize], outboundID[:HeartbeatPacketPeerIDSize])
 	}
 
 	// advance offset to after outbound ids
-	offset += len(hb.OutboundIDs) * heartbeatPacketPeerIDSize
+	offset += len(hb.OutboundIDs) * HeartbeatPacketPeerIDSize
 
 	// copy contents of hb.InboundIDs
 	for i, inboundID := range hb.InboundIDs {
-		copy(packet[offset+i*heartbeatPacketPeerIDSize:offset+(i+1)*heartbeatPacketPeerIDSize], inboundID[:heartbeatPacketPeerIDSize])
+		copy(packet[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize], inboundID[:HeartbeatPacketPeerIDSize])
 	}
 
 	return packet, nil
