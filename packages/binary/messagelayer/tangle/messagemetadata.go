@@ -38,7 +38,7 @@ func MessageMetadataFromBytes(bytes []byte) (result *MessageMetadata, err error,
 }
 
 func ParseMessageMetadata(marshalUtil *marshalutil.MarshalUtil) (result *MessageMetadata, err error) {
-	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, error, int) {
+	if parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return MessageMetadataFromStorageKey(data)
 	}); parseErr != nil {
 		err = parseErr
@@ -48,8 +48,8 @@ func ParseMessageMetadata(marshalUtil *marshalutil.MarshalUtil) (result *Message
 		result = parsedObject.(*MessageMetadata)
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parseErr error, parsedBytes int) {
-		parseErr, parsedBytes = result.UnmarshalObjectStorageValue(data)
+	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
 	}); err != nil {
@@ -59,7 +59,7 @@ func ParseMessageMetadata(marshalUtil *marshalutil.MarshalUtil) (result *Message
 	return
 }
 
-func MessageMetadataFromStorageKey(key []byte) (result objectstorage.StorableObject, err error, consumedBytes int) {
+func MessageMetadataFromStorageKey(key []byte) (result objectstorage.StorableObject, consumedBytes int, err error) {
 	result = &MessageMetadata{}
 
 	marshalUtil := marshalutil.New(key)
@@ -126,7 +126,7 @@ func (messageMetadata *MessageMetadata) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-func (messageMetadata *MessageMetadata) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (messageMetadata *MessageMetadata) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
 
 	if messageMetadata.receivedTime, err = marshalUtil.ReadTime(); err != nil {

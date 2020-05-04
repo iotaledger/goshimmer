@@ -67,7 +67,7 @@ func parseCommitteeMembers() (result []ed25519.PublicKey, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid public key: %s", ErrParsingCommitteeMember, err)
 		}
-		publicKey, err, _ := ed25519.PublicKeyFromBytes(pubKey)
+		publicKey, _, err := ed25519.PublicKeyFromBytes(pubKey)
 		if err != nil {
 			return nil, err
 		}

@@ -59,9 +59,9 @@ func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 			}
 			log.Debugw(
 				"Heartbeat",
-				"nodeId", hex.EncodeToString(packet.OwnID),
-				"outboundIds", out.String(),
-				"inboundIds", in.String(),
+				"nodeID", hex.EncodeToString(packet.OwnID),
+				"outboundIDs", out.String(),
+				"inboundIDs", in.String(),
 			)
 
 			// Marshal() copies the content of packet, it doesn't modify it.
@@ -88,29 +88,26 @@ func reportHeartbeat(dispatchers *EventDispatchers) {
 		nodeID = local.GetInstance().ID().Bytes()
 	}
 
-	var outboundIds [][]byte
-	var inboundIds [][]byte
+	var outboundIDs [][]byte
+	var inboundIDs [][]byte
 
-	// When gossip (and autopeering selection) is enabled, we have neighbors to report
-	if autopeering.Selection != nil {
-		// Get outboundIds (chosen neighbors)
-		outgoingNeighbors := autopeering.Selection.GetOutgoingNeighbors()
-		outboundIds = make([][]byte, len(outgoingNeighbors))
-		for i, neighbor := range outgoingNeighbors {
-			// Doesn't copy the ID, take care not to modify underlying bytearray!
-			outboundIds[i] = neighbor.ID().Bytes()
-		}
-
-		// Get inboundIds (accepted neighbors)
-		incomingNeighbors := autopeering.Selection.GetIncomingNeighbors()
-		inboundIds = make([][]byte, len(incomingNeighbors))
-		for i, neighbor := range incomingNeighbors {
-			// Doesn't copy the ID, take care not to modify underlying bytearray!
-			inboundIds[i] = neighbor.ID().Bytes()
-		}
+	// Get outboundIDs (chosen neighbors)
+	outgoingNeighbors := autopeering.Selection().GetOutgoingNeighbors()
+	outboundIDs = make([][]byte, len(outgoingNeighbors))
+	for i, neighbor := range outgoingNeighbors {
+		// Doesn't copy the ID, take care not to modify underlying bytearray!
+		outboundIDs[i] = neighbor.ID().Bytes()
 	}
 
-	packet := &heartbeat.Packet{OwnID: nodeID, OutboundIDs: outboundIds, InboundIDs: inboundIds}
+	// Get inboundIDs (accepted neighbors)
+	incomingNeighbors := autopeering.Selection().GetIncomingNeighbors()
+	inboundIDs = make([][]byte, len(incomingNeighbors))
+	for i, neighbor := range incomingNeighbors {
+		// Doesn't copy the ID, take care not to modify underlying bytearray!
+		inboundIDs[i] = neighbor.ID().Bytes()
+	}
+
+	packet := &heartbeat.Packet{OwnID: nodeID, OutboundIDs: outboundIDs, InboundIDs: inboundIDs}
 
 	dispatchers.Heartbeat(packet)
 }

@@ -24,12 +24,14 @@ import (
 
 const (
 	// PluginName contains the human readable name of the plugin.
-	PluginName          = "ValueTransfers"
+	PluginName = "ValueTransfers"
+
+	// AverageNetworkDelay contains the average time it takes for a network to propagate through gossip.
 	AverageNetworkDelay = 6 * time.Second
 )
 
 var (
-	// Plugin is the plugin instance of the message layer plugin.
+	// App is the "plugin" instance of the value-transfers application.
 	App = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 	// Tangle represents the value tangle that is used to express votes on value transactions.
@@ -66,7 +68,7 @@ func configure(_ *node.Plugin) {
 	// TODO: DECIDE WHAT WE SHOULD DO IF FPC FAILS
 	// voter.Events().Failed.Attach(events.NewClosure(panic))
 	voter.Events().Finalized.Attach(events.NewClosure(func(id string, opinion vote.Opinion) {
-		branchId, err := branchmanager.BranchIdFromBase58(id)
+		branchID, err := branchmanager.BranchIDFromBase58(id)
 		if err != nil {
 			log.Error(err)
 
@@ -75,9 +77,9 @@ func configure(_ *node.Plugin) {
 
 		switch opinion {
 		case vote.Like:
-			UTXODAG.BranchManager().SetBranchPreferred(branchId, true)
+			UTXODAG.BranchManager().SetBranchPreferred(branchID, true)
 		case vote.Dislike:
-			UTXODAG.BranchManager().SetBranchPreferred(branchId, false)
+			UTXODAG.BranchManager().SetBranchPreferred(branchID, false)
 		}
 	}))
 }
@@ -120,7 +122,7 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 	Tangle.AttachPayload(valuePayload)
 }
 
-func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputId, previousConsumersForked bool) {
+func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID, previousConsumersForked bool) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
 	defer cachedBranch.Release()
@@ -138,7 +140,7 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 			return
 		}
 
-		err := voter.Vote(branch.Id().String(), vote.Dislike)
+		err := voter.Vote(branch.ID().String(), vote.Dislike)
 		if err != nil {
 			log.Error(err)
 		}
@@ -157,7 +159,7 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 			return
 		}
 
-		if transactionMetadata.BranchId() != branchmanager.NewBranchId(transactionMetadata.Id()) {
+		if transactionMetadata.BranchID() != branchmanager.NewBranchID(transactionMetadata.ID()) {
 			return
 		}
 
@@ -165,7 +167,7 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 	})
 }
 
-func onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputId) {
+func onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
 	defer cachedBranch.Release()
@@ -184,7 +186,7 @@ func onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionM
 		return
 	}
 
-	if _, err := UTXODAG.BranchManager().SetBranchPreferred(branch.Id(), true); err != nil {
+	if _, err := UTXODAG.BranchManager().SetBranchPreferred(branch.ID(), true); err != nil {
 		log.Error(err)
 	}
 }

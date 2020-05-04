@@ -33,13 +33,6 @@
   "gossip": {
     "port": 14666
   },
-  "graph": {
-    "bindAddress": "127.0.0.1:8082",
-    "domain": "",
-    "networkName": "GoShimmer",
-    "socketIOPath": "socket.io-client/dist/socket.io.js",
-    "webrootPath": "IOTAtangle/webroot"
-  },
   "logger": {
     "level": "info",
     "disableCaller": false,

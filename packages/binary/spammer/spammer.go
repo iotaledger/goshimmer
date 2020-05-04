@@ -6,24 +6,26 @@ import (
 
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagefactory"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
+// IssuePayloadFunc is a function which issues a payload.
+type IssuePayloadFunc = func(payload payload.Payload) (*message.Message, error)
+
 // Spammer spams messages with a static data payload.
 type Spammer struct {
-	messageFactory *messagefactory.MessageFactory
+	issuePayloadFunc IssuePayloadFunc
 
 	processId      int64
 	shutdownSignal chan types.Empty
 }
 
 // New creates a new spammer.
-func New(messageFactory *messagefactory.MessageFactory) *Spammer {
+func New(issuePayloadFunc IssuePayloadFunc) *Spammer {
 	return &Spammer{
-		messageFactory: messageFactory,
-
-		shutdownSignal: make(chan types.Empty),
+		issuePayloadFunc: issuePayloadFunc,
+		shutdownSignal:   make(chan types.Empty),
 	}
 }
 
@@ -46,7 +48,8 @@ func (spammer *Spammer) run(mps int, processId int64) {
 			return
 		}
 
-		spammer.messageFactory.IssuePayload(payload.NewData([]byte("SPAM")))
+		// we don't care about errors or the actual issued message
+		_, _ = spammer.issuePayloadFunc(payload.NewData([]byte("SPAM")))
 
 		currentSentCounter++
 

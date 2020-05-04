@@ -18,7 +18,7 @@ func TestMessage_StorableObjectFromKey(t *testing.T) {
 		panic(err)
 	}
 
-	messageFromKey, err, consumedBytes := message.StorableObjectFromKey(key.Bytes())
+	messageFromKey, consumedBytes, err := message.StorableObjectFromKey(key.Bytes())
 	if err != nil {
 		panic(err)
 	}
