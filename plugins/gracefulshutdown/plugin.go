@@ -3,7 +3,6 @@ package gracefulshutdown
 import (
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -20,11 +19,12 @@ const PluginName = "Graceful Shutdown"
 const WaitToKillTimeInSeconds = 10
 
 var log *logger.Logger
+var gracefulStop chan os.Signal
 
 // Plugin is the plugin instance of the graceful shutdown plugin.
 var Plugin = node.NewPlugin(PluginName, node.Enabled, func(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	gracefulStop := make(chan os.Signal)
+	gracefulStop = make(chan os.Signal)
 
 	signal.Notify(gracefulStop, syscall.SIGTERM)
 	signal.Notify(gracefulStop, syscall.SIGINT)
@@ -35,24 +35,19 @@ var Plugin = node.NewPlugin(PluginName, node.Enabled, func(plugin *node.Plugin) 
 		log.Warnf("Received shutdown request - waiting (max %d) to finish processing ...", WaitToKillTimeInSeconds)
 
 		go func() {
-			start := time.Now()
-			for x := range time.Tick(1 * time.Second) {
-				secondsSinceStart := x.Sub(start).Seconds()
-
-				if secondsSinceStart <= WaitToKillTimeInSeconds {
-					processList := ""
-					runningBackgroundWorkers := daemon.GetRunningBackgroundWorkers()
-					if len(runningBackgroundWorkers) >= 1 {
-						processList = "(" + strings.Join(runningBackgroundWorkers, ", ") + ") "
-					}
-					log.Warnf("Received shutdown request - waiting (max %d seconds) to finish processing %s...", WaitToKillTimeInSeconds-int(secondsSinceStart), processList)
-				} else {
-					log.Error("Background processes did not terminate in time! Forcing shutdown ...")
-					os.Exit(1)
-				}
+			select {
+			case <-time.After(WaitToKillTimeInSeconds * time.Second):
+				log.Error("Background processes did not terminate in time! Forcing shutdown ...")
+				os.Exit(1)
 			}
 		}()
 
 		daemon.Shutdown()
 	}()
 })
+
+// ShutdownWithError prints out an error message and shuts down the default daemon instance.
+func ShutdownWithError(err error) {
+	log.Error(err)
+	gracefulStop <- syscall.SIGINT
+}
