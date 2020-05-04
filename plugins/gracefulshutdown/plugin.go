@@ -35,11 +35,9 @@ var Plugin = node.NewPlugin(PluginName, node.Enabled, func(plugin *node.Plugin) 
 		log.Warnf("Received shutdown request - waiting (max %d) to finish processing ...", WaitToKillTimeInSeconds)
 
 		go func() {
-			select {
-			case <-time.After(WaitToKillTimeInSeconds * time.Second):
-				log.Error("Background processes did not terminate in time! Forcing shutdown ...")
-				os.Exit(1)
-			}
+			<-time.After(WaitToKillTimeInSeconds * time.Second)
+			log.Error("Background processes did not terminate in time! Forcing shutdown ...")
+			os.Exit(1)
 		}()
 
 		daemon.Shutdown()
