@@ -2,6 +2,8 @@ package server
 
 import (
 	"errors"
+	"net"
+	"strconv"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -20,8 +22,8 @@ const (
 	// PluginName is the name of the analysis server plugin.
 	PluginName = "Analysis-Server"
 
-	// CfgServerPort defines the config flag of the analysis server TCP port.
-	CfgServerPort = "analysis.server.port"
+	// CfgAnalysisServerBindAddress defines the bind address of the analysis server.
+	CfgAnalysisServerBindAddress = "analysis.server.bindAddress"
 
 	// IdleTimeout defines the idle timeout.
 	IdleTimeout = 10 * time.Second
@@ -30,7 +32,7 @@ const (
 )
 
 func init() {
-	flag.Int(CfgServerPort, 0, "tcp port for incoming analysis packets")
+	flag.String(CfgAnalysisServerBindAddress, "0.0.0.0:16178", "the bind address of the analysis server")
 }
 
 var (
@@ -50,22 +52,26 @@ func configure(_ *node.Plugin) {
 	server.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Errorf("error in server: %s", err.Error())
 	}))
-	server.Events.Start.Attach(events.NewClosure(func() {
-		log.Infof("Starting Server (port %d) ... done", config.Node.GetInt(CfgServerPort))
-	}))
-	server.Events.Shutdown.Attach(events.NewClosure(func() {
-		log.Info("Stopping Server ... done")
-	}))
 }
 
 func run(_ *node.Plugin) {
+	bindAddr := config.Node.GetString(CfgAnalysisServerBindAddress)
+	addr, portStr, err := net.SplitHostPort(bindAddr)
+	if err != nil {
+		log.Fatal("invalid bind address in %s: %s", CfgAnalysisServerBindAddress, err)
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		log.Fatal("invalid port in %s: %s", CfgAnalysisServerBindAddress, err)
+	}
+
 	_ = daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
-		log.Infof("Starting Server (port %d) ... done", config.Node.GetInt(CfgServerPort))
-		go server.Listen("0.0.0.0", config.Node.GetInt(CfgServerPort))
+		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
+		defer log.Infof("Stopping %s ... done", PluginName)
+		go server.Listen(addr, port)
 		<-shutdownSignal
 		log.Info("Stopping Server ...")
 		server.Shutdown()
-		log.Info("Stopping Server ... done")
 	}, shutdown.PriorityAnalysis)
 }
 

@@ -29,7 +29,7 @@ var _ = func() error {
 	g.DefaultResolver = hgr
 
 	func() {
-		b := packr.New("Assets", "./static")
+		b := packr.New("Analysis_WebInterface_Assets", "./static")
 		b.SetResolver("css/normalize.css", packr.Pointer{ForwardBox: gk, ForwardPath: "27ead14b519c977b428fabd34e8c691b"})
 		b.SetResolver("img/gos.png", packr.Pointer{ForwardBox: gk, ForwardPath: "41224bfac365c0fc3e2bdbd21781993b"})
 		b.SetResolver("index-3d.html", packr.Pointer{ForwardBox: gk, ForwardPath: "0e77a173106357ff7126f88256a9e05f"})

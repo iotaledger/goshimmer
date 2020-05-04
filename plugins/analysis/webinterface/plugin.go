@@ -16,15 +16,15 @@ import (
 	"golang.org/x/net/websocket"
 )
 
-// PluginName is the name of the analysis server webinterface plugin.
+// PluginName is the name of the analysis server web interface plugin.
 const PluginName = "Analysis-WebInterface"
 
 var (
-	// Plugin is the plugin instance of the analysis server webinterface plugin.
+	// Plugin is the plugin instance of the analysis server web interface plugin.
 	Plugin    = node.NewPlugin(PluginName, node.Disabled, configure, run)
 	log       *logger.Logger
 	engine    *echo.Echo
-	assetsBox = packr.New("Assets", "./static")
+	assetsBox = packr.New("Analysis_WebInterface_Assets", "./static")
 )
 
 func configure(plugin *node.Plugin) {
@@ -46,7 +46,6 @@ func configure(plugin *node.Plugin) {
 	}
 
 	engine.GET("/datastream", echo.WrapHandler(websocket.Handler(dataStream)))
-
 	configureEventsRecording(plugin)
 }
 
