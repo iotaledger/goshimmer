@@ -7,6 +7,7 @@ require (
 	github.com/dgraph-io/badger/v2 v2.0.2
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/drand/drand v0.8.1
+	github.com/drand/kyber v1.0.1-0.20200331114745-30e90cc60f99
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/golang/protobuf v1.3.5
 	github.com/gorilla/websocket v1.4.1
