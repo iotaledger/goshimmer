@@ -74,7 +74,7 @@ func dkgShares(t *testing.T, n, threshold int) *payload.Payload {
 	var priPoly *share.PriPoly
 	var pubPoly *share.PubPoly
 	var err error
-	// create shares and committments
+	// create shares and commitments
 	for i := 0; i < n; i++ {
 		pri := share.NewPriPoly(key.KeyGroup, threshold, key.KeyGroup.Scalar().Pick(random.New()), random.New())
 		pub := pri.Commit(key.KeyGroup.Point().Base())
@@ -95,9 +95,9 @@ func dkgShares(t *testing.T, n, threshold int) *payload.Payload {
 	require.True(t, secret.Equal(priPoly.Secret()))
 
 	msg := []byte("first message")
-	sigs := make([][]byte, n, n)
+	sigs := make([][]byte, n)
 	_, commits := pubPoly.Info()
-	dkgShares := make([]*key.Share, n, n)
+	dkgShares := make([]*key.Share, n)
 
 	// partial signatures
 	for i := 0; i < n; i++ {
@@ -119,7 +119,7 @@ func dkgShares(t *testing.T, n, threshold int) *payload.Payload {
 	require.NoError(t, err)
 
 	msg = beacon.Message(1, sig)
-	sigs = make([][]byte, n, n)
+	sigs = make([][]byte, n)
 	// partial signatures
 	for i := 0; i < n; i++ {
 		sigs[i], err = key.Scheme.Sign(shares[i], msg)
