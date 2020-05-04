@@ -16,7 +16,7 @@ const PluginName = "Graceful Shutdown"
 
 // WaitToKillTimeInSeconds is the maximum amount of time to wait for background processes to terminate.
 // After that the process is killed.
-const WaitToKillTimeInSeconds = 10
+const WaitToKillTimeInSeconds = 60
 
 var log *logger.Logger
 var gracefulStop chan os.Signal
