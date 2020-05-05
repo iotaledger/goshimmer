@@ -16,7 +16,7 @@ import (
 func TestEmptyDataPayload(t *testing.T) {
 	sigScheme := signaturescheme.ED25519(ed25519.GenerateKeyPair())
 	addr := sigScheme.Address()
-	o1 := NewOutputId(addr, RandomId())
+	o1 := NewOutputID(addr, RandomID())
 	inputs := NewInputs(o1)
 	bal := balance.New(balance.ColorIOTA, 1)
 	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
@@ -30,7 +30,7 @@ func TestEmptyDataPayload(t *testing.T) {
 func TestShortDataPayload(t *testing.T) {
 	sigScheme := signaturescheme.ED25519(ed25519.GenerateKeyPair())
 	addr := sigScheme.Address()
-	o1 := NewOutputId(addr, RandomId())
+	o1 := NewOutputID(addr, RandomID())
 	inputs := NewInputs(o1)
 	bal := balance.New(balance.ColorIOTA, 1)
 	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
@@ -62,13 +62,13 @@ func TestShortDataPayload(t *testing.T) {
 func TestTooLongDataPayload(t *testing.T) {
 	sigScheme := signaturescheme.ED25519(ed25519.GenerateKeyPair())
 	addr := sigScheme.Address()
-	o1 := NewOutputId(addr, RandomId())
+	o1 := NewOutputID(addr, RandomID())
 	inputs := NewInputs(o1)
 	bal := balance.New(balance.ColorIOTA, 1)
 	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
 	tx := New(inputs, outputs)
 
-	dataPayload := []byte(strings.Repeat("1", MAX_DATA_PAYLOAD_SIZE+1))
+	dataPayload := []byte(strings.Repeat("1", MaxDataPayloadSize+1))
 	err := tx.SetDataPayload(dataPayload)
 	assert.Equal(t, true, err != nil)
 }
@@ -76,7 +76,7 @@ func TestTooLongDataPayload(t *testing.T) {
 func TestMarshalingEmptyDataPayload(t *testing.T) {
 	sigScheme := signaturescheme.RandBLS()
 	addr := sigScheme.Address()
-	o1 := NewOutputId(addr, RandomId())
+	o1 := NewOutputID(addr, RandomID())
 	inputs := NewInputs(o1)
 	bal := balance.New(balance.ColorIOTA, 1)
 	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
@@ -89,18 +89,18 @@ func TestMarshalingEmptyDataPayload(t *testing.T) {
 	v := tx.ObjectStorageValue()
 
 	tx1 := Transaction{}
-	err, _ := tx1.UnmarshalObjectStorageValue(v)
+	_, err := tx1.UnmarshalObjectStorageValue(v)
 	if err != nil {
 		assert.Error(t, err)
 	}
 	assert.Equal(t, true, tx1.SignaturesValid())
-	assert.Equal(t, true, bytes.Equal(tx1.Id().Bytes(), tx.Id().Bytes()))
+	assert.Equal(t, true, bytes.Equal(tx1.ID().Bytes(), tx.ID().Bytes()))
 }
 
 func TestMarshalingDataPayload(t *testing.T) {
 	sigScheme := signaturescheme.RandBLS()
 	addr := sigScheme.Address()
-	o1 := NewOutputId(addr, RandomId())
+	o1 := NewOutputID(addr, RandomID())
 	inputs := NewInputs(o1)
 	bal := balance.New(balance.ColorIOTA, 1)
 	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
@@ -117,10 +117,10 @@ func TestMarshalingDataPayload(t *testing.T) {
 	v := tx.ObjectStorageValue()
 
 	tx1 := Transaction{}
-	err, _ = tx1.UnmarshalObjectStorageValue(v)
+	_, err = tx1.UnmarshalObjectStorageValue(v)
 
 	assert.Equal(t, nil, err)
 	assert.Equal(t, true, tx1.SignaturesValid())
 
-	assert.Equal(t, true, bytes.Equal(tx1.Id().Bytes(), tx.Id().Bytes()))
+	assert.Equal(t, true, bytes.Equal(tx1.ID().Bytes(), tx.ID().Bytes()))
 }

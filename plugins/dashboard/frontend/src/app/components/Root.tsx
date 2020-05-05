@@ -15,6 +15,7 @@ import {ExplorerMessageQueryResult} from "app/components/ExplorerMessageQueryRes
 import {ExplorerAddressQueryResult} from "app/components/ExplorerAddressResult";
 import {Explorer404} from "app/components/Explorer404";
 import {Neighbors} from "app/components/Neighbors";
+import {Visualizer} from "app/components/Visualizer";
 
 interface Props {
     history: any;
@@ -51,7 +52,12 @@ export class Root extends React.Component<Props, any> {
                         </LinkContainer>
                         <LinkContainer to="/explorer">
                             <Nav.Link>
-                                Tangle Explorer
+                                Explorer
+                            </Nav.Link>
+                        </LinkContainer>
+                        <LinkContainer to="/visualizer">
+                            <Nav.Link>
+                                Visualizer
                             </Nav.Link>
                         </LinkContainer>
                         <LinkContainer to="/drng">
@@ -76,6 +82,7 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/explorer/address/:id" component={ExplorerAddressQueryResult}/>
                     <Route exact path="/explorer/404/:search" component={Explorer404}/>
                     <Route exact path="/explorer" component={Explorer}/>
+                    <Route exact path="/visualizer" component={Visualizer}/>
                     <Route exact path="/drng" component={Drng}/>
                     <Redirect to="/dashboard"/>
                 </Switch>

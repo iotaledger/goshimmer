@@ -20,16 +20,18 @@ var (
 	engine *echo.Echo
 )
 
-const name = "Analysis HTTP Server"
+// PluginName is the name of the analysis server plugin.
+const PluginName = "Analysis HTTP Server"
 
 var assetsBox = packr.New("Assets", "./static")
 
 // Configure configures the plugin.
 func Configure() {
-	log = logger.NewLogger(name)
+	log = logger.NewLogger(PluginName)
 
 	engine = echo.New()
 	engine.HideBanner = true
+	engine.HidePort = true
 
 	// we only need this special flag, because we always keep a packed box in the same directory
 	if config.Node.GetBool(CfgDev) {
@@ -47,17 +49,19 @@ func Configure() {
 
 // Run runs the plugin.
 func Run() {
-	log.Infof("Starting %s ...", name)
-	if err := daemon.BackgroundWorker(name, start, shutdown.PriorityAnalysis); err != nil {
+	log.Infof("Starting %s ...", PluginName)
+	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityAnalysis); err != nil {
 		log.Errorf("Error starting as daemon: %s", err)
 	}
 }
 
-func start(shutdownSignal <-chan struct{}) {
+func worker(shutdownSignal <-chan struct{}) {
+	defer log.Infof("Stopping %s ... done", PluginName)
+
 	stopped := make(chan struct{})
 	bindAddr := config.Node.GetString(CfgBindAddress)
 	go func() {
-		log.Infof("Started %s: http://%s", name, bindAddr)
+		log.Infof("Started %s: http://%s", PluginName, bindAddr)
 		if err := engine.Start(bindAddr); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Error serving: %s", err)
@@ -66,19 +70,18 @@ func start(shutdownSignal <-chan struct{}) {
 		}
 	}()
 
+	// stop if we are shutting down or the server could not be started
 	select {
 	case <-shutdownSignal:
 	case <-stopped:
 	}
 
-	log.Infof("Stopping %s ...", name)
+	log.Infof("Stopping %s ...", PluginName)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-
 	if err := engine.Shutdown(ctx); err != nil {
 		log.Errorf("Error stopping: %s", err)
 	}
-	log.Info("Stopping %s ... done", name)
 }
 
 func index(e echo.Context) error {

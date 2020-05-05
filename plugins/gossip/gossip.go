@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	gp "github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -17,13 +19,19 @@ import (
 )
 
 var (
-	log *logger.Logger
-	mgr *gp.Manager
-	srv *server.TCP
+	mgr     *gossip.Manager
+	mgrOnce sync.Once
 )
 
-func configureGossip() {
-	lPeer := local.GetInstance()
+// Manager returns the manager instance of the gossip plugin.
+func Manager() *gossip.Manager {
+	mgrOnce.Do(createManager)
+	return mgr
+}
+
+func createManager() {
+	// assure that the logger is available
+	log := logger.NewLogger(PluginName)
 
 	// announce the gossip service
 	gossipPort := config.Node.GetInt(CfgGossipPort)
@@ -31,10 +39,11 @@ func configureGossip() {
 		log.Fatalf("Invalid port number (%s): %d", CfgGossipPort, gossipPort)
 	}
 
+	lPeer := local.GetInstance()
 	if err := lPeer.UpdateService(service.GossipKey, "tcp", gossipPort); err != nil {
 		log.Fatalf("could not update services: %s", err)
 	}
-	mgr = gp.NewManager(lPeer, loadMessage, log)
+	mgr = gossip.NewManager(lPeer, loadMessage, log)
 }
 
 func start(shutdownSignal <-chan struct{}) {
@@ -58,16 +67,22 @@ func start(shutdownSignal <-chan struct{}) {
 	}
 	defer listener.Close()
 
-	srv = server.ServeTCP(lPeer, listener, log)
+	srv := server.ServeTCP(lPeer, listener, log)
 	defer srv.Close()
 
 	mgr.Start(srv)
 	defer mgr.Close()
 
-	log.Infof("%s started: Address=%s/%s", PluginName, localAddr.String(), localAddr.Network())
+	// trigger start of the autopeering selection
+	go func() { autopeering.StartSelection() }()
+
+	log.Infof("%s started, bind-address=%s", PluginName, localAddr.String())
 
 	<-shutdownSignal
 	log.Info("Stopping " + PluginName + " ...")
+
+	// assure that the autopeering selection is always stopped before the gossip manager
+	autopeering.Selection().Close()
 }
 
 // loads the given message from the message layer or an error if not found.
@@ -79,12 +94,4 @@ func loadMessage(messageID message.Id) (bytes []byte, err error) {
 		err = fmt.Errorf("message not found: hash=%s", messageID)
 	}
 	return
-}
-
-// Neighbors returns the list of the neighbors.
-func Neighbors() []*gp.Neighbor {
-	if mgr == nil {
-		return nil
-	}
-	return mgr.AllNeighbors()
 }

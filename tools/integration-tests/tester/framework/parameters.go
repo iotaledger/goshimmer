@@ -11,8 +11,8 @@ const (
 
 	logsDir = "/tmp/logs/"
 
-	disabledPluginsEntryNode = "portcheck,spa,analysis,gossip,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint"
-	disabledPluginsPeer      = "portcheck,spa,analysis"
+	disabledPluginsEntryNode = "portcheck,dashboard,analysis,gossip,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint"
+	disabledPluginsPeer      = "portcheck,dashboard,analysis"
 
 	dockerLogsPrefixLen = 8
 )

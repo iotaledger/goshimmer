@@ -8,11 +8,11 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-// Id is the data type that represents the identifier for a Transaction.
-type Id [IdLength]byte
+// ID is the data type that represents the identifier for a Transaction.
+type ID [IDLength]byte
 
-// IdFromBase58 creates an id from a base58 encoded string.
-func IdFromBase58(base58String string) (id Id, err error) {
+// IDFromBase58 creates an id from a base58 encoded string.
+func IDFromBase58(base58String string) (id ID, err error) {
 	// decode string
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
@@ -20,7 +20,7 @@ func IdFromBase58(base58String string) (id Id, err error) {
 	}
 
 	// sanitize input
-	if len(bytes) != IdLength {
+	if len(bytes) != IDLength {
 		err = fmt.Errorf("base58 encoded string does not match the length of a transaction id")
 
 		return
@@ -32,35 +32,36 @@ func IdFromBase58(base58String string) (id Id, err error) {
 	return
 }
 
-// IdFromBytes unmarshals an Id from a sequence of bytes.
-func IdFromBytes(bytes []byte) (result Id, err error, consumedBytes int) {
+// IDFromBytes unmarshals an ID from a sequence of bytes.
+func IDFromBytes(bytes []byte) (result ID, consumedBytes int, err error) {
 	// parse the bytes
 	marshalUtil := marshalutil.New(bytes)
-	if idBytes, idErr := marshalUtil.ReadBytes(IdLength); idErr != nil {
+	idBytes, idErr := marshalUtil.ReadBytes(IDLength)
+	if idErr != nil {
 		err = idErr
 
 		return
-	} else {
-		copy(result[:], idBytes)
 	}
+	copy(result[:], idBytes)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// Parse is a wrapper for simplified unmarshaling of Ids from a byte stream using the marshalUtil package.
-func ParseId(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
-	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return IdFromBytes(data) }); err != nil {
-		return Id{}, err
-	} else {
-		return id.(Id), nil
+// ParseID is a wrapper for simplified unmarshaling of Ids from a byte stream using the marshalUtil package.
+func ParseID(marshalUtil *marshalutil.MarshalUtil) (ID, error) {
+	id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return IDFromBytes(data) })
+	if err != nil {
+		return ID{}, err
 	}
+
+	return id.(ID), nil
 }
 
-// Random creates a random id which can for example be used in unit tests.
-func RandomId() (id Id) {
+// RandomID creates a random id which can for example be used in unit tests.
+func RandomID() (id ID) {
 	// generate a random sequence of bytes
-	idBytes := make([]byte, IdLength)
+	idBytes := make([]byte, IDLength)
 	if _, err := rand.Read(idBytes); err != nil {
 		panic(err)
 	}
@@ -71,15 +72,15 @@ func RandomId() (id Id) {
 	return
 }
 
-// Bytes marshals the Id into a sequence of bytes.
-func (id Id) Bytes() []byte {
+// Bytes marshals the ID into a sequence of bytes.
+func (id ID) Bytes() []byte {
 	return id[:]
 }
 
-// String creates a human readable version of the Id (for debug purposes).
-func (id Id) String() string {
+// String creates a human readable version of the ID (for debug purposes).
+func (id ID) String() string {
 	return base58.Encode(id[:])
 }
 
-// IdLength contains the amount of bytes that a marshaled version of the Id contains.
-const IdLength = 32
+// IDLength contains the amount of bytes that a marshaled version of the ID contains.
+const IDLength = 32
