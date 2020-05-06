@@ -23,7 +23,7 @@ func newDockerClient() (*client.Client, error) {
 	)
 }
 
-// Wrapper object for a Docker container.
+// DockerContainer is a wrapper object for a Docker container.
 type DockerContainer struct {
 	client *client.Client
 	id     string
@@ -69,7 +69,7 @@ func (d *DockerContainer) CreateGoShimmerEntryNode(name string, seed string) err
 }
 
 // CreateGoShimmerPeer creates a new container with the GoShimmer peer's configuration.
-func (d *DockerContainer) CreateGoShimmerPeer(name string, seed string, entryNodeHost string, entryNodePublicKey string, bootstrap bool) error {
+func (d *DockerContainer) CreateGoShimmerPeer(conf GoShimmerConfig) error {
 	// configure GoShimmer container instance
 	containerConfig := &container.Config{
 		Image: "iotaledger/goshimmer",
@@ -77,17 +77,41 @@ func (d *DockerContainer) CreateGoShimmerPeer(name string, seed string, entryNod
 			nat.Port("8080/tcp"): {},
 		},
 		Cmd: strslice.StrSlice{
-			fmt.Sprintf("--node.disablePlugins=%s", disabledPluginsPeer),
+			fmt.Sprintf("--node.disablePlugins=%s", conf.DisabledPlugins),
 			fmt.Sprintf("--node.enablePlugins=%s", func() string {
-				if bootstrap {
+				if conf.Bootstrap {
 					return "Bootstrap"
 				}
 				return ""
 			}()),
 			"--webapi.bindAddress=0.0.0.0:8080",
-			fmt.Sprintf("--autopeering.seed=%s", seed),
-			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", entryNodePublicKey, entryNodeHost),
+			fmt.Sprintf("--autopeering.seed=%s", conf.Seed),
+			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", conf.EntryNodePublicKey, conf.EntryNodeHost),
+			fmt.Sprintf("--drng.instanceId=%d", conf.DRNGInstance),
+			fmt.Sprintf("--drng.threshold=%d", conf.DRNGThreshold),
+			fmt.Sprintf("--drng.committeeMembers=%s", conf.DRNGCommittee),
+			fmt.Sprintf("--drng.distributedPubKey=%s", conf.DRNGDistKey),
 		},
+	}
+
+	return d.CreateContainer(conf.Name, containerConfig)
+}
+
+// CreateDrandMember creates a new container with the drand configuration.
+func (d *DockerContainer) CreateDrandMember(name string, goShimmerAPI string, leader bool) error {
+	// configure drand container instance
+	env := []string{}
+	if leader {
+		env = append(env, "LEADER=1")
+	}
+	env = append(env, "GOSHIMMER=http://"+goShimmerAPI)
+	containerConfig := &container.Config{
+		Image: "angelocapossele/drand:latest",
+		ExposedPorts: nat.PortSet{
+			nat.Port("8000/tcp"): {},
+		},
+		Env:        env,
+		Entrypoint: strslice.StrSlice{"/data/client-script.sh"},
 	}
 
 	return d.CreateContainer(name, containerConfig)
@@ -105,13 +129,13 @@ func (d *DockerContainer) CreateContainer(name string, containerConfig *containe
 }
 
 // ConnectToNetwork connects a container to an existent network in the docker host.
-func (d *DockerContainer) ConnectToNetwork(networkId string) error {
-	return d.client.NetworkConnect(context.Background(), networkId, d.id, nil)
+func (d *DockerContainer) ConnectToNetwork(networkID string) error {
+	return d.client.NetworkConnect(context.Background(), networkID, d.id, nil)
 }
 
 // DisconnectFromNetwork disconnects a container from an existent network in the docker host.
-func (d *DockerContainer) DisconnectFromNetwork(networkId string) error {
-	return d.client.NetworkDisconnect(context.Background(), networkId, d.id, true)
+func (d *DockerContainer) DisconnectFromNetwork(networkID string) error {
+	return d.client.NetworkDisconnect(context.Background(), networkID, d.id, true)
 }
 
 // Start sends a request to the docker daemon to start a container.
