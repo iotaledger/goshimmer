@@ -108,9 +108,9 @@ func (branch *Branch) ParentBranches() (parentBranches []BranchID) {
 	return
 }
 
-// UpdateParentBranch updates the parent of a non-aggregated Branch. Aggregated branches can not simply be "moved
+// updateParentBranch updates the parent of a non-aggregated Branch. Aggregated branches can not simply be "moved
 // around" by changing their parent and need to be re-aggregated (because their ID depends on their parents).
-func (branch *Branch) UpdateParentBranch(newParentBranchID BranchID) (modified bool, err error) {
+func (branch *Branch) updateParentBranch(newParentBranchID BranchID) (modified bool, err error) {
 	branch.parentBranchesMutex.RLock()
 	if len(branch.parentBranches) != 1 {
 		err = fmt.Errorf("tried to update parent of aggregated Branch '%s'", branch.ID())

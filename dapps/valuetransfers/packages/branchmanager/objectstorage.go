@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	osLeakDetectionOption = objectstorage.LeakDetectionEnabled(false, objectstorage.LeakDetectionOptions{
+	osLeakDetectionOption = objectstorage.LeakDetectionEnabled(true, objectstorage.LeakDetectionOptions{
 		MaxConsumersPerObject: 10,
 		MaxConsumerHoldTime:   10 * time.Second,
 	})

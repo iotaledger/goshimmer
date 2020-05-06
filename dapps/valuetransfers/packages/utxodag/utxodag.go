@@ -206,10 +206,10 @@ func (utxoDAG *UTXODAG) storeTransactionModels(solidPayload *payload.Payload) (c
 	return
 }
 
-func (utxoDAG *UTXODAG) solidifyTransactionWorker(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetdata *CachedTransactionMetadata, attachment *CachedAttachment) {
+func (utxoDAG *UTXODAG) solidifyTransactionWorker(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata, attachment *CachedAttachment) {
 	// initialize the stack
 	solidificationStack := list.New()
-	solidificationStack.PushBack([3]interface{}{cachedTransaction, cachedTransactionMetdata, attachment})
+	solidificationStack.PushBack([3]interface{}{cachedTransaction, cachedTransactionMetadata, attachment})
 
 	// process payloads that are supposed to be checked for solidity recursively
 	for solidificationStack.Len() > 0 {
@@ -253,8 +253,11 @@ func (utxoDAG *UTXODAG) solidifyTransactionWorker(cachedTransaction *transaction
 				solidificationStack.PushBack([3]interface{}{cachedTransaction, transactionMetadata, cachedAttachment})
 			})
 
-			// TODO: BOOK TRANSACTION
-			utxoDAG.bookTransaction(cachedTransaction.Retain(), cachedTransactionMetdata.Retain())
+			err := utxoDAG.bookTransaction(cachedTransaction.Retain(), cachedTransactionMetadata.Retain())
+			if err != nil {
+				// TODO: TIGGER ERROR
+			}
+
 		}()
 	}
 }
@@ -313,6 +316,7 @@ func (utxoDAG *UTXODAG) getCachedOutputsFromTransactionInputs(tx *transaction.Tr
 func (utxoDAG *UTXODAG) checkTransactionInputs(cachedInputs CachedOutputs) (inputsSolid bool, consumedBalances map[balance.Color]int64, err error) {
 	inputsSolid = true
 	consumedBalances = make(map[balance.Color]int64)
+	consumedBranches := make([]branchmanager.BranchID, 0)
 
 	for _, cachedInput := range cachedInputs {
 		if !cachedInput.Exists() {
@@ -326,6 +330,8 @@ func (utxoDAG *UTXODAG) checkTransactionInputs(cachedInputs CachedOutputs) (inpu
 
 		// update solid status
 		inputsSolid = inputsSolid && input.Solid()
+
+		consumedBranches = append(consumedBranches, input.BranchID())
 
 		// calculate the input balances
 		for _, inputBalance := range input.Balances() {
@@ -344,6 +350,11 @@ func (utxoDAG *UTXODAG) checkTransactionInputs(cachedInputs CachedOutputs) (inpu
 			}
 			consumedBalances[inputBalance.Color()] = newBalance
 		}
+	}
+
+	branchesConflicting, err := utxoDAG.BranchManager().BranchesConflicting(consumedBranches...)
+	if branchesConflicting {
+		err = fmt.Errorf("the transaction combines conflicting branches")
 	}
 
 	return
@@ -532,20 +543,20 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 	})
 
 	// fork the conflicting transactions into their own branch
-	previousConsumerForked := false
+	decisionPending := false
 	for consumerID, conflictingInputs := range conflictingInputsOfConflictingConsumers {
-		consumerForked, forkedErr := utxoDAG.Fork(consumerID, conflictingInputs)
+		_, decisionFinalized, forkedErr := utxoDAG.Fork(consumerID, conflictingInputs)
 		if forkedErr != nil {
 			err = forkedErr
 
 			return
 		}
 
-		previousConsumerForked = previousConsumerForked || consumerForked
+		decisionPending = decisionPending || !decisionFinalized
 	}
 
 	// trigger events
-	utxoDAG.Events.TransactionBooked.Trigger(cachedTransaction, cachedTransactionMetadata, cachedTargetBranch, conflictingInputs, previousConsumerForked)
+	utxoDAG.Events.TransactionBooked.Trigger(cachedTransaction, cachedTransactionMetadata, cachedTargetBranch, conflictingInputs, decisionPending)
 
 	// TODO: BOOK ATTACHMENT
 
@@ -626,6 +637,12 @@ func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.C
 
 					// if we arrived at a nested branch
 					if currentTransactionMetadata.BranchID() != currentSourceBranch {
+						// abort if we the branch is a conflict branch or an error occurred while trying to elevate
+						isConflictBranch, _, elevateErr := utxoDAG.branchManager.ElevateConflictBranch(currentTransactionMetadata.BranchID(), targetBranch.ID())
+						if elevateErr != nil || isConflictBranch {
+							return elevateErr
+						}
+
 						// determine the new branch of the transaction
 						newCachedTargetBranch, branchErr := utxoDAG.calculateBranchOfTransaction(currentTransaction)
 						if branchErr != nil {
@@ -703,7 +720,7 @@ func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.C
 }
 
 // Fork creates a new branch from an existing transaction.
-func (utxoDAG *UTXODAG) Fork(transactionID transaction.ID, conflictingInputs []transaction.OutputID) (forked bool, err error) {
+func (utxoDAG *UTXODAG) Fork(transactionID transaction.ID, conflictingInputs []transaction.OutputID) (forked bool, finalized bool, err error) {
 	cachedTransaction := utxoDAG.Transaction(transactionID)
 	cachedTransactionMetadata := utxoDAG.TransactionMetadata(transactionID)
 	defer cachedTransaction.Release()
@@ -724,6 +741,8 @@ func (utxoDAG *UTXODAG) Fork(transactionID transaction.ID, conflictingInputs []t
 
 	// abort if this transaction was finalized already
 	if txMetadata.Finalized() {
+		finalized = true
+
 		return
 	}
 

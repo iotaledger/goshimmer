@@ -122,14 +122,14 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 	Tangle.AttachPayload(valuePayload)
 }
 
-func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID, previousConsumersForked bool) {
+func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID, decisionPending bool) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
 	defer cachedBranch.Release()
 
 	if len(conflictingInputs) >= 1 {
 		// abort if the previous consumers where finalized already
-		if !previousConsumersForked {
+		if !decisionPending {
 			return
 		}
 

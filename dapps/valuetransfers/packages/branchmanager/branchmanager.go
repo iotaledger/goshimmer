@@ -122,6 +122,44 @@ func (branchManager *BranchManager) Fork(branchID BranchID, parentBranches []Bra
 	return
 }
 
+// ElevateConflictBranch moves a branch to a new parent. This is necessary, if a new conflict appears in the past cone
+// of an already existing conflict. It is not valid to
+func (branchManager *BranchManager) ElevateConflictBranch(branchToElevate BranchID, newParent BranchID) (isConflictBranch bool, modified bool, err error) {
+	currentCachedBranch := branchManager.Branch(branchToElevate)
+	defer currentCachedBranch.Release()
+
+	// abort if we could not load the branch
+	currentBranch := currentCachedBranch.Unwrap()
+	if currentBranch == nil {
+		err = fmt.Errorf("failed to load branch '%s'", branchToElevate)
+
+		return
+	}
+
+	// abort if this branch is aggregated (only conflict branches can be elevated)
+	if currentBranch.IsAggregated() {
+		return
+	}
+
+	// update child branch references
+	branchManager.childBranchStorage.Delete(marshalutil.New(BranchIDLength * 2).
+		WriteBytes(currentBranch.ParentBranches()[0].Bytes()).
+		WriteBytes(branchToElevate.Bytes()).
+		Bytes(),
+	)
+	if cachedChildBranch, stored := branchManager.childBranchStorage.StoreIfAbsent(NewChildBranch(newParent, branchToElevate)); stored {
+		cachedChildBranch.Release()
+	}
+
+	// update parent of branch
+	isConflictBranch = true
+	if modified, err = currentBranch.updateParentBranch(newParent); err != nil {
+		return
+	}
+
+	return
+}
+
 // BranchesConflicting returns true if the given Branches are part of the same Conflicts and can therefore not be
 // merged.
 func (branchManager *BranchManager) BranchesConflicting(branchIds ...BranchID) (branchesConflicting bool, err error) {
@@ -144,6 +182,7 @@ func (branchManager *BranchManager) BranchesConflicting(branchIds ...BranchID) (
 			if _, processedAlready := processedBranches[ancestorBranchID]; processedAlready {
 				continue
 			}
+			processedBranches[ancestorBranchID] = types.Void
 
 			// unpack the branch and abort if we failed to load it
 			cachedBranch := branchManager.Branch(branchID)
