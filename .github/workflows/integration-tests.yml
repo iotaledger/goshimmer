@@ -16,7 +16,7 @@ jobs:
         run: docker build -t iotaledger/goshimmer .
 
       - name: Run integration tests
-        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+        run: docker pull angelocapossele/drand:latest & docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
 
       - name: Create logs from tester
         if: always()
