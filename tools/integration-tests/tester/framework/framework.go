@@ -153,5 +153,12 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 		}
 	}
 
+	// wait until peers are fully started and connected
+	time.Sleep(1 * time.Second)
+	err = drng.network.WaitForAutopeering(3)
+	if err != nil {
+		return nil, err
+	}
+
 	return drng, nil
 }
