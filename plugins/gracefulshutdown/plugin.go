@@ -3,6 +3,7 @@ package gracefulshutdown
 import (
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -35,9 +36,22 @@ var Plugin = node.NewPlugin(PluginName, node.Enabled, func(plugin *node.Plugin) 
 		log.Warnf("Received shutdown request - waiting (max %d) to finish processing ...", WaitToKillTimeInSeconds)
 
 		go func() {
-			<-time.After(WaitToKillTimeInSeconds * time.Second)
-			log.Error("Background processes did not terminate in time! Forcing shutdown ...")
-			os.Exit(1)
+			start := time.Now()
+			for x := range time.Tick(1 * time.Second) {
+				secondsSinceStart := x.Sub(start).Seconds()
+
+				if secondsSinceStart <= WaitToKillTimeInSeconds {
+					processList := ""
+					runningBackgroundWorkers := daemon.GetRunningBackgroundWorkers()
+					if len(runningBackgroundWorkers) >= 1 {
+						processList = "(" + strings.Join(runningBackgroundWorkers, ", ") + ") "
+					}
+					log.Warnf("Received shutdown request - waiting (max %d seconds) to finish processing %s...", WaitToKillTimeInSeconds-int(secondsSinceStart), processList)
+				} else {
+					log.Error("Background processes did not terminate in time! Forcing shutdown ...")
+					os.Exit(1)
+				}
+			}
 		}()
 
 		daemon.Shutdown()
