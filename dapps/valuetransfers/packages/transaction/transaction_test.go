@@ -124,3 +124,69 @@ func TestMarshalingDataPayload(t *testing.T) {
 
 	assert.Equal(t, true, bytes.Equal(tx1.ID().Bytes(), tx.ID().Bytes()))
 }
+
+func TestPutSignatureValid(t *testing.T) {
+	sigScheme := signaturescheme.RandBLS()
+	addr := sigScheme.Address()
+	o1 := NewOutputID(addr, RandomID())
+	inputs := NewInputs(o1)
+	bal := balance.New(balance.ColorIOTA, 1)
+	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
+	tx := New(inputs, outputs)
+
+	dataPayload := []byte("data payload test")
+	err := tx.SetDataPayload(dataPayload)
+	assert.Equal(t, nil, err)
+
+	signature := sigScheme.Sign(tx.EssenceBytes())
+	assert.Equal(t, signature.IsValid(tx.EssenceBytes()), true)
+
+	err = tx.PutSignature(signature)
+	assert.Equal(t, nil, err)
+
+	check := tx.SignaturesValid()
+	assert.Equal(t, true, check)
+}
+
+func TestPutSignatureInvalid(t *testing.T) {
+	sigScheme := signaturescheme.RandBLS()
+	addr := sigScheme.Address()
+	o1 := NewOutputID(addr, RandomID())
+	inputs := NewInputs(o1)
+	bal := balance.New(balance.ColorIOTA, 1)
+	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
+	tx := New(inputs, outputs)
+
+	dataPayload := []byte("data payload test")
+	err := tx.SetDataPayload(dataPayload)
+	assert.Equal(t, nil, err)
+
+	signatureValid := sigScheme.Sign(tx.EssenceBytes())
+	assert.Equal(t, true, signatureValid.IsValid(tx.EssenceBytes()))
+
+	sigBytes := make([]byte, len(signatureValid.Bytes()))
+	copy(sigBytes, signatureValid.Bytes())
+	// inverse last byte --> corrupt the signatureValid
+	sigBytes[len(sigBytes)-1] = sigBytes[len(sigBytes)-1] ^ sigBytes[len(sigBytes)-1]
+
+	sigCorrupted, consumed, err := signaturescheme.BLSSignatureFromBytes(sigBytes)
+
+	assert.Equal(t, nil, err)
+	assert.Equal(t, consumed, len(sigBytes))
+	assert.Equal(t, false, sigCorrupted.IsValid(tx.EssenceBytes()))
+
+	err = tx.PutSignature(sigCorrupted)
+	// error expected
+	assert.Equal(t, true, err != nil)
+
+	// 0 signatures is not valid
+	assert.Equal(t, true, !tx.SignaturesValid())
+
+	err = tx.PutSignature(signatureValid)
+	// no error expected
+	assert.Equal(t, nil, err)
+
+	// valid signatures expected
+	assert.Equal(t, true, tx.SignaturesValid())
+
+}
