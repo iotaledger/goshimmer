@@ -23,6 +23,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
+	flag "github.com/spf13/pflag"
 	"gopkg.in/src-d/go-git.v4"
 )
 
@@ -38,8 +39,8 @@ type logMessage struct {
 }
 
 const (
-	// CfgServerAddress defines the config flag of the server address.
-	CfgServerAddress = "logger.remotelog.serverAddress"
+	// CfgLoggerRemotelogServerAddress defines the config flag of the server address.
+	CfgLoggerRemotelogServerAddress = "logger.remotelog.serverAddress"
 	// CfgDisableEvents defines the config flag for disabling logger events.
 	CfgDisableEvents = "logger.disableEvents"
 	// PluginName is the name of the remote log plugin.
@@ -57,6 +58,10 @@ var (
 	workerPool  *workerpool.WorkerPool
 )
 
+func init() {
+	flag.String(CfgLoggerRemotelogServerAddress, "remotelog.goshimmer.iota.cafe:5213", "RemoteLog server address")
+}
+
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
@@ -65,9 +70,9 @@ func configure(plugin *node.Plugin) {
 		return
 	}
 
-	c, err := net.Dial("udp", config.Node.GetString(CfgServerAddress))
+	c, err := net.Dial("udp", config.Node.GetString(CfgLoggerRemotelogServerAddress))
 	if err != nil {
-		log.Fatalf("Could not create UDP socket to '%s'. %v", config.Node.GetString(CfgServerAddress), err)
+		log.Fatalf("Could not create UDP socket to '%s'. %v", config.Node.GetString(CfgLoggerRemotelogServerAddress), err)
 		return
 	}
 	conn = c
