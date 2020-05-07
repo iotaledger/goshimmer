@@ -21,7 +21,7 @@ services:
       --analysis.server.bindAddress=0.0.0.0:1888
       --analysis.webInterface.bindAddress=0.0.0.0:8080
       --node.enablePlugins=analysis-server,analysis-webinterface
-      --node.disablePlugins=gossip,portcheck,spa,dashboard,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.disablePlugins=analysis-client,gossip,portcheck,spa,dashboard,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
 
 volumes:
   entrynode:

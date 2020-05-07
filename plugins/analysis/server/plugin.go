@@ -36,7 +36,7 @@ func init() {
 }
 
 var (
-	// ErrInvalidPacketHeader defines an invalid package header error.
+	// ErrInvalidPacketHeader defines an invalid packet header error.
 	ErrInvalidPacketHeader = errors.New("invalid packet header")
 	// Plugin is the plugin instance of the analysis server plugin.
 	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
@@ -65,14 +65,16 @@ func run(_ *node.Plugin) {
 		log.Fatal("invalid port in %s: %s", CfgAnalysisServerBindAddress, err)
 	}
 
-	_ = daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
 		defer log.Infof("Stopping %s ... done", PluginName)
 		go server.Listen(addr, port)
 		<-shutdownSignal
 		log.Info("Stopping Server ...")
 		server.Shutdown()
-	}, shutdown.PriorityAnalysis)
+	}, shutdown.PriorityAnalysis); err != nil {
+		log.Panic(err)
+	}
 }
 
 // ConnectionState defines the type of a connection state as a byte

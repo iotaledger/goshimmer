@@ -41,7 +41,7 @@ var (
 
 func run(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	_ = daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		ticker := time.NewTicker(reportIntervalSec * time.Second)
 		defer ticker.Stop()
 		for {
@@ -60,7 +60,9 @@ func run(_ *node.Plugin) {
 				reportHeartbeat(eventDispatchers)
 			}
 		}
-	}, shutdown.PriorityAnalysis)
+	}, shutdown.PriorityAnalysis); err != nil {
+		log.Panic(err)
+	}
 }
 
 // EventDispatchers holds the Heartbeat function.
