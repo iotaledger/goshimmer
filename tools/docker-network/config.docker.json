@@ -4,9 +4,9 @@
       "serverAddress": "entry_node:1888"
     },
     "server": {
-      "port": 0
+      "bindAddress": "0.0.0.0:1888"
     },
-    "httpServer": {
+    "webInterface": {
       "bindAddress": "0.0.0.0:9000",
       "dev": false
     }
