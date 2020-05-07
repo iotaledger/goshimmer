@@ -257,7 +257,6 @@ func (utxoDAG *UTXODAG) solidifyTransactionWorker(cachedTransaction *transaction
 			if err != nil {
 				// TODO: TIGGER ERROR
 			}
-
 		}()
 	}
 }
@@ -367,6 +366,7 @@ func (utxoDAG *UTXODAG) checkTransactionInputs(cachedInputs CachedOutputs) (inpu
 func (utxoDAG *UTXODAG) checkTransactionOutputs(inputBalances map[balance.Color]int64, outputs *transaction.Outputs) bool {
 	// create a variable to keep track of outputs that create a new color
 	var newlyColoredCoins int64
+	var uncoloredCoins int64
 
 	// iterate through outputs and check them one by one
 	aborted := !outputs.ForEach(func(address address.Address, balances []*balance.Balance) bool {
@@ -388,6 +388,18 @@ func (utxoDAG *UTXODAG) checkTransactionOutputs(inputBalances map[balance.Color]
 				continue
 			}
 
+			// sidestep logic if we have a newly colored output (we check the supply later)
+			if outputBalance.Color() == balance.ColorIOTA {
+				// catch overflows
+				if uncoloredCoins > math.MaxInt64-outputBalance.Value() {
+					return false
+				}
+
+				uncoloredCoins += outputBalance.Value()
+
+				continue
+			}
+
 			// check if the used color does not exist in our supply
 			availableBalance, spentColorExists := inputBalances[outputBalance.Color()]
 			if !spentColorExists {
@@ -399,10 +411,15 @@ func (utxoDAG *UTXODAG) checkTransactionOutputs(inputBalances map[balance.Color]
 				return false
 			}
 
-			// subtract the spent coins from the supply of this transaction
+			// subtract the spent coins from the supply of this color
 			inputBalances[outputBalance.Color()] -= outputBalance.Value()
 
-			// cleanup the entry in the supply map if we have exhausted all funds
+			// abort if we spend more than we have
+			if inputBalances[outputBalance.Color()] < 0 {
+				return false
+			}
+
+			// cleanup empty map entries (we have exhausted our funds)
 			if inputBalances[outputBalance.Color()] == 0 {
 				delete(inputBalances, outputBalance.Color())
 			}
@@ -428,7 +445,7 @@ func (utxoDAG *UTXODAG) checkTransactionOutputs(inputBalances map[balance.Color]
 	}
 
 	// the outputs are valid if they spend all outputs
-	return unspentCoins == newlyColoredCoins
+	return unspentCoins == newlyColoredCoins+uncoloredCoins
 }
 
 // ForEachConsumers iterates through the transactions that are consuming outputs of the given transactions
