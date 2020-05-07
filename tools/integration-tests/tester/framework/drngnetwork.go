@@ -19,7 +19,7 @@ type DRNGNetwork struct {
 	distKey []byte
 }
 
-// newDRNGNetwork returns a Network instance, creates its underlying Docker network and adds the tester container to the network.
+// newDRNGNetwork returns a DRNGNetwork instance, creates its underlying Docker network and adds the tester container to the network.
 func newDRNGNetwork(dockerClient *client.Client, name string, tester *DockerContainer) (*DRNGNetwork, error) {
 	network, err := newNetwork(dockerClient, name, tester)
 	if err != nil {
@@ -34,15 +34,15 @@ func newDRNGNetwork(dockerClient *client.Client, name string, tester *DockerCont
 func (n *DRNGNetwork) CreatePeer(c GoShimmerConfig, publicKey hive_ed25519.PublicKey) (*Peer, error) {
 	name := n.network.namePrefix(fmt.Sprintf("%s%d", containerNameReplica, len(n.network.peers)))
 
-	conf := c
-	conf.Name = name
-	conf.EntryNodeHost = n.network.namePrefix(containerNameEntryNode)
-	conf.EntryNodePublicKey = n.network.entryNodePublicKey()
-	conf.DisabledPlugins = disabledPluginsPeer
+	config := c
+	config.Name = name
+	config.EntryNodeHost = n.network.namePrefix(containerNameEntryNode)
+	config.EntryNodePublicKey = n.network.entryNodePublicKey()
+	config.DisabledPlugins = disabledPluginsPeer
 
 	// create Docker container
 	container := NewDockerContainer(n.network.dockerClient)
-	err := container.CreateGoShimmerPeer(conf)
+	err := container.CreateGoShimmerPeer(config)
 	if err != nil {
 		return nil, err
 	}
@@ -126,18 +126,8 @@ func (n *DRNGNetwork) WaitForDKG() error {
 	defer log.Printf("Waiting for DKG... done\n")
 
 	for i := dkgMaxTries; i > 0; i-- {
-
-		//var dkey *drand.DistKeyResponse
-		for _, m := range n.members {
-
-			if dkey, err := m.Client.DistKey(m.name+":8000", false); err != nil {
-				log.Printf("request error: %v\n", err)
-			} else {
-				n.SetDistKey(dkey.Key)
-			}
-		}
-
-		if len(n.distKey) != 0 {
+		if dkey, err := n.members[0].Client.DistKey(n.members[0].name+":8000", false); err == nil {
+			n.SetDistKey(dkey.Key)
 			log.Printf("DistKey: %v", hex.EncodeToString(n.distKey))
 			return nil
 		}

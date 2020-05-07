@@ -14,7 +14,6 @@ import (
 
 	"github.com/docker/docker/client"
 	hive_ed25519 "github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/mr-tron/base58"
 )
 
 var (
@@ -92,7 +91,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int) 
 }
 
 // CreateDRNGNetwork creates and returns a (Docker) Network that contains drand and `peers` GoShimmer nodes.
-func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNetwork, error) {
+func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighbors int) (*DRNGNetwork, error) {
 	drng, err := newDRNGNetwork(f.dockerClient, strings.ToLower(name), f.tester)
 	if err != nil {
 		return nil, err
@@ -112,7 +111,7 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 	}
 
 	// wait until containers are fully started
-	time.Sleep(60 * time.Second)
+	time.Sleep(1 * time.Second)
 	err = drng.WaitForDKG()
 	if err != nil {
 		return nil, err
@@ -133,11 +132,11 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 			if drngCommittee != "" {
 				drngCommittee += fmt.Sprintf(",")
 			}
-			drngCommittee += fmt.Sprintf("%s", base58.Encode(pubKeys[i][:]))
+			drngCommittee += pubKeys[i].String()
 		}
 	}
 
-	conf := GoShimmerConfig{
+	config := GoShimmerConfig{
 		DRNGInstance:  1,
 		DRNGThreshold: 3,
 		DRNGDistKey:   hex.EncodeToString(drng.distKey),
@@ -146,16 +145,16 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers int) (*DRNGNet
 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
-		conf.Bootstrap = i == 0
-		conf.Seed = base64.StdEncoding.EncodeToString(ed25519.PrivateKey(privKeys[i].Bytes()).Seed())
-		if _, err = drng.CreatePeer(conf, pubKeys[i]); err != nil {
+		config.Bootstrap = i == 0
+		config.Seed = base64.StdEncoding.EncodeToString(ed25519.PrivateKey(privKeys[i].Bytes()).Seed())
+		if _, err = drng.CreatePeer(config, pubKeys[i]); err != nil {
 			return nil, err
 		}
 	}
 
 	// wait until peers are fully started and connected
 	time.Sleep(1 * time.Second)
-	err = drng.network.WaitForAutopeering(3)
+	err = drng.network.WaitForAutopeering(minimumNeighbors)
 	if err != nil {
 		return nil, err
 	}

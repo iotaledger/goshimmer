@@ -69,7 +69,7 @@ func (d *DockerContainer) CreateGoShimmerEntryNode(name string, seed string) err
 }
 
 // CreateGoShimmerPeer creates a new container with the GoShimmer peer's configuration.
-func (d *DockerContainer) CreateGoShimmerPeer(conf GoShimmerConfig) error {
+func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 	// configure GoShimmer container instance
 	containerConfig := &container.Config{
 		Image: "iotaledger/goshimmer",
@@ -77,24 +77,24 @@ func (d *DockerContainer) CreateGoShimmerPeer(conf GoShimmerConfig) error {
 			nat.Port("8080/tcp"): {},
 		},
 		Cmd: strslice.StrSlice{
-			fmt.Sprintf("--node.disablePlugins=%s", conf.DisabledPlugins),
+			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
 			fmt.Sprintf("--node.enablePlugins=%s", func() string {
-				if conf.Bootstrap {
+				if config.Bootstrap {
 					return "Bootstrap"
 				}
 				return ""
 			}()),
 			"--webapi.bindAddress=0.0.0.0:8080",
-			fmt.Sprintf("--autopeering.seed=%s", conf.Seed),
-			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", conf.EntryNodePublicKey, conf.EntryNodeHost),
-			fmt.Sprintf("--drng.instanceId=%d", conf.DRNGInstance),
-			fmt.Sprintf("--drng.threshold=%d", conf.DRNGThreshold),
-			fmt.Sprintf("--drng.committeeMembers=%s", conf.DRNGCommittee),
-			fmt.Sprintf("--drng.distributedPubKey=%s", conf.DRNGDistKey),
+			fmt.Sprintf("--autopeering.seed=%s", config.Seed),
+			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", config.EntryNodePublicKey, config.EntryNodeHost),
+			fmt.Sprintf("--drng.instanceId=%d", config.DRNGInstance),
+			fmt.Sprintf("--drng.threshold=%d", config.DRNGThreshold),
+			fmt.Sprintf("--drng.committeeMembers=%s", config.DRNGCommittee),
+			fmt.Sprintf("--drng.distributedPubKey=%s", config.DRNGDistKey),
 		},
 	}
 
-	return d.CreateContainer(conf.Name, containerConfig)
+	return d.CreateContainer(config.Name, containerConfig)
 }
 
 // CreateDrandMember creates a new container with the drand configuration.
