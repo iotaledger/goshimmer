@@ -1,11 +1,9 @@
-package httpserver
+package webinterface
 
 import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
-	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface/recordedevents"
-	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface/types"
 	"github.com/iotaledger/hive.go/events"
 	"golang.org/x/net/websocket"
 )
@@ -52,7 +50,7 @@ func dataStream(ws *websocket.Conn) {
 	server.Events.DisconnectNodes.Attach(disconnectNodesClosure)
 
 	// replay old events
-	recordedevents.Replay(createEventHandlers(wsChan, createSyncNodeCallback, createSyncLinkCallback))
+	replayEvents(createEventHandlers(wsChan, createSyncNodeCallback, createSyncLinkCallback))
 
 	// mark replay as complete
 	replayMutex.Unlock()
@@ -67,8 +65,8 @@ func dataStream(ws *websocket.Conn) {
 	server.Events.DisconnectNodes.Detach(disconnectNodesClosure)
 }
 
-func createEventHandlers(wsChan *WebSocketChannel, nodeCallbackFactory func(*WebSocketChannel, string) func(string), linkCallbackFactory func(*WebSocketChannel, string) func(string, string)) *types.EventHandlers {
-	return &types.EventHandlers{
+func createEventHandlers(wsChan *WebSocketChannel, nodeCallbackFactory func(*WebSocketChannel, string) func(string), linkCallbackFactory func(*WebSocketChannel, string) func(string, string)) *EventHandlers {
+	return &EventHandlers{
 		AddNode:         nodeCallbackFactory(wsChan, "A"),
 		RemoveNode:      nodeCallbackFactory(wsChan, "a"),
 		ConnectNodes:    linkCallbackFactory(wsChan, "C"),
