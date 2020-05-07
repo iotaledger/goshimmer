@@ -528,7 +528,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 		return
 	}
 
-	cachedTargetBranch, _ := utxoDAG.branchManager.InheritBranches(consumedBranches.ToList()...)
+	cachedTargetBranch, _ := utxoDAG.branchManager.AggregateBranches(consumedBranches.ToList()...)
 	defer cachedTargetBranch.Release()
 
 	targetBranch := cachedTargetBranch.Unwrap()
@@ -600,7 +600,7 @@ func (utxoDAG *UTXODAG) calculateBranchOfTransaction(currentTransaction *transac
 		return
 	}
 
-	branch, err = utxoDAG.branchManager.InheritBranches(consumedBranches.ToList()...)
+	branch, err = utxoDAG.branchManager.AggregateBranches(consumedBranches.ToList()...)
 
 	return
 }

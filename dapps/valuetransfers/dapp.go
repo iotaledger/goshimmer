@@ -77,9 +77,13 @@ func configure(_ *node.Plugin) {
 
 		switch opinion {
 		case vote.Like:
-			UTXODAG.BranchManager().SetBranchPreferred(branchID, true)
+			if _, err := UTXODAG.BranchManager().SetBranchPreferred(branchID, true); err != nil {
+				panic(err)
+			}
 		case vote.Dislike:
-			UTXODAG.BranchManager().SetBranchPreferred(branchID, false)
+			if _, err := UTXODAG.BranchManager().SetBranchPreferred(branchID, false); err != nil {
+				panic(err)
+			}
 		}
 	}))
 }
