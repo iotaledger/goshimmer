@@ -95,7 +95,14 @@ func (n *Network) CreatePeer(bootstrap bool) (*Peer, error) {
 
 	// create Docker container
 	container := NewDockerContainer(n.dockerClient)
-	err = container.CreateGoShimmerPeer(name, seed, n.namePrefix(containerNameEntryNode), n.entryNodePublicKey(), bootstrap)
+	err = container.CreateGoShimmerPeer(GoShimmerConfig{
+		Name:               name,
+		Seed:               seed,
+		EntryNodeHost:      n.namePrefix(containerNameEntryNode),
+		EntryNodePublicKey: n.entryNodePublicKey(),
+		Bootstrap:          bootstrap,
+		DisabledPlugins:    disabledPluginsPeer,
+	})
 	if err != nil {
 		return nil, err
 	}
