@@ -75,13 +75,11 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Messag
 		panic("too many arguments in call to Parse")
 	}
 
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
+	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
-	}); err != nil {
-		return
-	}
+	})
 
 	return
 }

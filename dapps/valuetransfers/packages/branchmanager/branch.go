@@ -1,18 +1,17 @@
 package branchmanager
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
-
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 )
 
 // Branch represents a part of the tangle, that shares the same perception of the ledger state. Every conflicting
-// transaction formw a Branch, that contains all transactions that are spending Outputs of the conflicting transactions.
+// transaction forms a Branch, that contains all transactions that are spending Outputs of the conflicting transactions.
 // Branches can also be created by merging two other Branches, which creates an aggregated Branch.
 type Branch struct {
 	objectstorage.StorableObjectFlags
@@ -23,22 +22,18 @@ type Branch struct {
 	preferred      bool
 	liked          bool
 
-	conflictsMutex sync.RWMutex
-	preferredMutex sync.RWMutex
-	likedMutex     sync.RWMutex
+	parentBranchesMutex sync.RWMutex
+	conflictsMutex      sync.RWMutex
+	preferredMutex      sync.RWMutex
+	likedMutex          sync.RWMutex
 }
 
 // NewBranch is the constructor of a Branch and creates a new Branch object from the given details.
-func NewBranch(id BranchID, parentBranches []BranchID, conflictingInputs []transaction.OutputID) *Branch {
-	conflictingInputsMap := make(map[ConflictID]types.Empty)
-	for _, conflictingInput := range conflictingInputs {
-		conflictingInputsMap[conflictingInput] = types.Void
-	}
-
+func NewBranch(id BranchID, parentBranches []BranchID) *Branch {
 	return &Branch{
 		id:             id,
 		parentBranches: parentBranches,
-		conflicts:      conflictingInputsMap,
+		conflicts:      make(map[ConflictID]types.Empty),
 	}
 }
 
@@ -85,13 +80,11 @@ func ParseBranch(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*
 	}
 
 	result = parsedObject.(*Branch)
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
+	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
-	}); err != nil {
-		return
-	}
+	})
 
 	return
 }
@@ -103,8 +96,47 @@ func (branch *Branch) ID() BranchID {
 }
 
 // ParentBranches returns the identifiers of the parents of this Branch.
-func (branch *Branch) ParentBranches() []BranchID {
-	return branch.parentBranches
+func (branch *Branch) ParentBranches() (parentBranches []BranchID) {
+	branch.parentBranchesMutex.RLock()
+	defer branch.parentBranchesMutex.RUnlock()
+
+	parentBranches = make([]BranchID, len(branch.parentBranches))
+	copy(parentBranches, branch.parentBranches)
+
+	return
+}
+
+// updateParentBranch updates the parent of a non-aggregated Branch. Aggregated branches can not simply be "moved
+// around" by changing their parent and need to be re-aggregated (because their ID depends on their parents).
+func (branch *Branch) updateParentBranch(newParentBranchID BranchID) (modified bool, err error) {
+	branch.parentBranchesMutex.RLock()
+	if len(branch.parentBranches) != 1 {
+		err = fmt.Errorf("tried to update parent of aggregated Branch '%s'", branch.ID())
+
+		branch.parentBranchesMutex.RUnlock()
+
+		return
+	}
+
+	if branch.parentBranches[0] == newParentBranchID {
+		branch.parentBranchesMutex.RUnlock()
+
+		return
+	}
+
+	branch.parentBranchesMutex.RUnlock()
+	branch.parentBranchesMutex.Lock()
+	defer branch.parentBranchesMutex.Unlock()
+
+	if branch.parentBranches[0] == newParentBranchID {
+		return
+	}
+
+	branch.parentBranches[0] = newParentBranchID
+	branch.SetModified()
+	modified = true
+
+	return
 }
 
 // IsAggregated returns true if the branch is not a conflict-branch, but was created by merging multiple other branches.
@@ -125,8 +157,8 @@ func (branch *Branch) Conflicts() (conflicts map[ConflictID]types.Empty) {
 	return
 }
 
-// AddConflict registers the membership of this Branch in a given
-func (branch *Branch) AddConflict(conflict ConflictID) (added bool) {
+// addConflict registers the membership of this Branch in a given conflict.
+func (branch *Branch) addConflict(conflict ConflictID) (added bool) {
 	branch.conflictsMutex.RLock()
 	if _, exists := branch.conflicts[conflict]; exists {
 		branch.conflictsMutex.RUnlock()
@@ -143,6 +175,7 @@ func (branch *Branch) AddConflict(conflict ConflictID) (added bool) {
 	}
 
 	branch.conflicts[conflict] = types.Void
+	branch.SetModified()
 	added = true
 
 	return
@@ -156,9 +189,9 @@ func (branch *Branch) Preferred() bool {
 	return branch.preferred
 }
 
-// SetPreferred is the setter for the preferred flag. It returns true if the value of the flag has been updated.
+// setPreferred is the setter for the preferred flag. It returns true if the value of the flag has been updated.
 // A branch is preferred if it represents the "liked" part of the tangle in it corresponding Branch.
-func (branch *Branch) SetPreferred(preferred bool) (modified bool) {
+func (branch *Branch) setPreferred(preferred bool) (modified bool) {
 	branch.preferredMutex.RLock()
 	if branch.preferred == preferred {
 		branch.preferredMutex.RUnlock()
@@ -168,13 +201,14 @@ func (branch *Branch) SetPreferred(preferred bool) (modified bool) {
 
 	branch.preferredMutex.RUnlock()
 	branch.preferredMutex.Lock()
-	defer branch.preferredMutex.Lock()
+	defer branch.preferredMutex.Unlock()
 
 	if branch.preferred == preferred {
 		return
 	}
 
 	branch.preferred = preferred
+	branch.SetModified()
 	modified = true
 
 	return branch.preferred
@@ -188,8 +222,8 @@ func (branch *Branch) Liked() bool {
 	return branch.liked
 }
 
-// SetLiked modifies the liked flag of this branch. It returns true, if the current value has been modified.
-func (branch *Branch) SetLiked(liked bool) (modified bool) {
+// setLiked modifies the liked flag of this branch. It returns true, if the current value has been modified.
+func (branch *Branch) setLiked(liked bool) (modified bool) {
 	branch.likedMutex.RLock()
 	if branch.liked == liked {
 		branch.likedMutex.RUnlock()
@@ -199,13 +233,14 @@ func (branch *Branch) SetLiked(liked bool) (modified bool) {
 
 	branch.likedMutex.RUnlock()
 	branch.likedMutex.Lock()
-	defer branch.likedMutex.Lock()
+	defer branch.likedMutex.Unlock()
 
 	if branch.liked == liked {
 		return
 	}
 
 	branch.liked = liked
+	branch.SetModified()
 	modified = true
 
 	return branch.liked
