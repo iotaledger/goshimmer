@@ -60,12 +60,11 @@ func configure(_ *node.Plugin) {
 	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 
 	// setup behavior of package instances
-	Tangle.Events.PayloadSolid.Attach(events.NewClosure(UTXODAG.ProcessSolidPayload))
 	UTXODAG.Events.TransactionBooked.Attach(events.NewClosure(onTransactionBooked))
-	UTXODAG.Events.Fork.Attach(events.NewClosure(onFork))
+	UTXODAG.Events.Fork.Attach(events.NewClosure(onForkOfFirstConsumer))
 
 	configureFPC()
-	// TODO: DECIDE WHAT WE SHOULD DO IF FPC FAILS
+	// TODO: DECIDE WHAT WE SHOULD DO IF FPC FAILS -> cry
 	// voter.Events().Failed.Attach(events.NewClosure(panic))
 	voter.Events().Finalized.Attach(events.NewClosure(func(id string, opinion vote.Opinion) {
 		branchID, err := branchmanager.BranchIDFromBase58(id)
@@ -80,10 +79,12 @@ func configure(_ *node.Plugin) {
 			if _, err := UTXODAG.BranchManager().SetBranchPreferred(branchID, true); err != nil {
 				panic(err)
 			}
+			// TODO: merge branch mutations into the parent branch
 		case vote.Dislike:
 			if _, err := UTXODAG.BranchManager().SetBranchPreferred(branchID, false); err != nil {
 				panic(err)
 			}
+			// TODO: merge branch mutations into the parent branch / cleanup
 		}
 	}))
 }
@@ -163,7 +164,8 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 			return
 		}
 
-		if transactionMetadata.BranchID() != branchmanager.NewBranchID(transactionMetadata.ID()) {
+		// TODO: check that the booking goroutine in the UTXO DAG and this check is somehow synchronized
+		if transactionMetadata.BranchID() == branchmanager.NewBranchID(transactionMetadata.ID()) {
 			return
 		}
 
@@ -171,7 +173,8 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 	})
 }
 
-func onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID) {
+// TODO: clarify what we do here
+func onForkOfFirstConsumer(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
 	defer cachedBranch.Release()
@@ -187,10 +190,18 @@ func onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionM
 	}
 
 	if time.Since(transactionMetadata.SoldificationTime()) < AverageNetworkDelay {
+		if err := voter.Vote(branch.ID().String(), vote.Dislike); err != nil {
+			log.Error(err)
+		}
+
 		return
 	}
 
 	if _, err := UTXODAG.BranchManager().SetBranchPreferred(branch.ID(), true); err != nil {
+		log.Error(err)
+	}
+
+	if err := voter.Vote(branch.ID().String(), vote.Like); err != nil {
 		log.Error(err)
 	}
 }

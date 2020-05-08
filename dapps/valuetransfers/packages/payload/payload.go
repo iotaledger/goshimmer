@@ -20,6 +20,7 @@ type Payload struct {
 	id      *ID
 	idMutex sync.RWMutex
 
+	// TODO: rename to parents
 	trunkPayloadID  ID
 	branchPayloadID ID
 	transaction     *transaction.Transaction

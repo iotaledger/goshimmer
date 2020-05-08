@@ -379,7 +379,9 @@ func (branchManager *BranchManager) setBranchPreferred(cachedBranch *CachedBranc
 	}
 
 	for conflictID := range branch.Conflicts() {
+		// update all other branches to be not preferred
 		branchManager.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
+			// skip the branch which just got preferred
 			if conflictMember.BranchID() == branch.ID() {
 				return
 			}
@@ -388,6 +390,7 @@ func (branchManager *BranchManager) setBranchPreferred(cachedBranch *CachedBranc
 		})
 	}
 
+	// finally set the branch as preferred
 	if modified = branch.setPreferred(true); !modified {
 		return
 	}

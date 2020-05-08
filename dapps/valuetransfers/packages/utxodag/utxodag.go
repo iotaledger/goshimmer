@@ -243,7 +243,7 @@ func (utxoDAG *UTXODAG) solidifyTransactionWorker(cachedTransaction *transaction
 
 			transactionBecameNewlySolid := currentTransactionMetadata.SetSolid(true)
 			if !transactionBecameNewlySolid {
-				// TODO: book attachment
+				// TODO: book attachment / create reference from the value message to the corresponding branch
 
 				return
 			}
@@ -338,6 +338,7 @@ func (utxoDAG *UTXODAG) checkTransactionInputs(cachedInputs CachedOutputs) (inpu
 			if currentBalance, balanceExists := consumedBalances[inputBalance.Color()]; balanceExists {
 				// check overflows in the numbers
 				if inputBalance.Value() > math.MaxInt64-currentBalance {
+					// TODO: make it an explicit error var
 					err = fmt.Errorf("buffer overflow in balances of inputs")
 
 					return
@@ -353,6 +354,7 @@ func (utxoDAG *UTXODAG) checkTransactionInputs(cachedInputs CachedOutputs) (inpu
 
 	branchesConflicting, err := utxoDAG.BranchManager().BranchesConflicting(consumedBranches...)
 	if branchesConflicting {
+		// TODO: make it an explicit error var
 		err = fmt.Errorf("the transaction combines conflicting branches")
 	}
 
@@ -414,11 +416,6 @@ func (utxoDAG *UTXODAG) checkTransactionOutputs(inputBalances map[balance.Color]
 			// subtract the spent coins from the supply of this color
 			inputBalances[outputBalance.Color()] -= outputBalance.Value()
 
-			// abort if we spend more than we have
-			if inputBalances[outputBalance.Color()] < 0 {
-				return false
-			}
-
 			// cleanup empty map entries (we have exhausted our funds)
 			if inputBalances[outputBalance.Color()] == 0 {
 				delete(inputBalances, outputBalance.Color())
@@ -444,7 +441,7 @@ func (utxoDAG *UTXODAG) checkTransactionOutputs(inputBalances map[balance.Color]
 		unspentCoins += unspentBalance
 	}
 
-	// the outputs are valid if they spend all outputs
+	// the outputs are valid if they spend all consumed funds
 	return unspentCoins == newlyColoredCoins+uncoloredCoins
 }
 
@@ -474,6 +471,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 
 	transactionToBook := cachedTransaction.Unwrap()
 	if transactionToBook == nil {
+		// TODO: explicit error var
 		err = errors.New("failed to unwrap transaction")
 
 		return
@@ -481,6 +479,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 
 	transactionMetadata := cachedTransactionMetadata.Unwrap()
 	if transactionMetadata == nil {
+		// TODO: explicit error var
 		err = errors.New("failed to unwrap transaction metadata")
 
 		return
@@ -488,7 +487,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 
 	consumedBranches := make(branchmanager.BranchIds)
 	conflictingInputs := make([]transaction.OutputID, 0)
-	conflictingInputsOfConflictingConsumers := make(map[transaction.ID][]transaction.OutputID)
+	conflictingInputsOfFirstConsumers := make(map[transaction.ID][]transaction.OutputID)
 
 	if !transactionToBook.Inputs().ForEach(func(outputID transaction.OutputID) bool {
 		cachedOutput := utxoDAG.TransactionOutput(outputID)
@@ -514,10 +513,10 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 		// if the input has been consumed before but not been forked, yet
 		case 1:
 			// keep track of the conflicting inputs so we can fork them
-			if _, conflictingInputsExist := conflictingInputsOfConflictingConsumers[firstConsumerID]; !conflictingInputsExist {
-				conflictingInputsOfConflictingConsumers[firstConsumerID] = make([]transaction.OutputID, 0)
+			if _, conflictingInputsExist := conflictingInputsOfFirstConsumers[firstConsumerID]; !conflictingInputsExist {
+				conflictingInputsOfFirstConsumers[firstConsumerID] = make([]transaction.OutputID, 0)
 			}
-			conflictingInputsOfConflictingConsumers[firstConsumerID] = append(conflictingInputsOfConflictingConsumers[firstConsumerID], outputID)
+			conflictingInputsOfFirstConsumers[firstConsumerID] = append(conflictingInputsOfFirstConsumers[firstConsumerID], outputID)
 		}
 
 		// keep track of the conflicting inputs
@@ -528,6 +527,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 		return
 	}
 
+	// TODO: handle error
 	cachedTargetBranch, _ := utxoDAG.branchManager.AggregateBranches(consumedBranches.ToList()...)
 	defer cachedTargetBranch.Release()
 
@@ -547,7 +547,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 		}
 	}
 
-	// book transaction into target reality
+	// book transaction into target branch
 	transactionMetadata.SetBranchID(targetBranch.ID())
 
 	// book outputs into the target branch
@@ -561,7 +561,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 
 	// fork the conflicting transactions into their own branch
 	decisionPending := false
-	for consumerID, conflictingInputs := range conflictingInputsOfConflictingConsumers {
+	for consumerID, conflictingInputs := range conflictingInputsOfFirstConsumers {
 		_, decisionFinalized, forkedErr := utxoDAG.Fork(consumerID, conflictingInputs)
 		if forkedErr != nil {
 			err = forkedErr
@@ -605,6 +605,7 @@ func (utxoDAG *UTXODAG) calculateBranchOfTransaction(currentTransaction *transac
 	return
 }
 
+// TODO: write comment what it does
 func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata, cachedTargetBranch *branchmanager.CachedBranch) (err error) {
 	// push transaction that shall be moved to the stack
 	transactionStack := list.New()
