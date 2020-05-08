@@ -101,9 +101,7 @@ func (branch *Branch) ParentBranches() (parentBranches []BranchID) {
 	defer branch.parentBranchesMutex.RUnlock()
 
 	parentBranches = make([]BranchID, len(branch.parentBranches))
-	for i, parentBranchID := range branch.parentBranches {
-		parentBranches[i] = parentBranchID
-	}
+	copy(parentBranches, branch.parentBranches)
 
 	return
 }

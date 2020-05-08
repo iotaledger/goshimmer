@@ -253,9 +253,9 @@ func (utxoDAG *UTXODAG) solidifyTransactionWorker(cachedTransaction *transaction
 				solidificationStack.PushBack([3]interface{}{cachedTransaction, transactionMetadata, cachedAttachment})
 			})
 
-			err := utxoDAG.bookTransaction(cachedTransaction.Retain(), cachedTransactionMetadata.Retain())
-			if err != nil {
-				// TODO: TIGGER ERROR
+			// book transaction
+			if err := utxoDAG.bookTransaction(cachedTransaction.Retain(), cachedTransactionMetadata.Retain()); err != nil {
+				utxoDAG.Events.Error.Trigger(err)
 			}
 		}()
 	}

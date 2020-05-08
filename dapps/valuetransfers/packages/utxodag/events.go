@@ -18,6 +18,8 @@ type Events struct {
 	// Fork gets triggered when a previously un-conflicting transaction get's some of its inputs double spend, so that a
 	// new Branch is created.
 	Fork *events.Event
+
+	Error *events.Event
 }
 
 func newEvents() *Events {
@@ -25,6 +27,7 @@ func newEvents() *Events {
 		TransactionReceived: events.NewEvent(cachedTransactionEvent),
 		TransactionBooked:   events.NewEvent(transactionBookedEvent),
 		Fork:                events.NewEvent(forkEvent),
+		Error:               events.NewEvent(events.ErrorCaller),
 	}
 }
 
