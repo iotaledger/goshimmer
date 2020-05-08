@@ -1,4 +1,4 @@
-package recordedevents
+package webinterface
 
 import (
 	"encoding/hex"
@@ -7,130 +7,130 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/heartbeat"
-	"github.com/iotaledger/goshimmer/plugins/analysis/webinterface/types"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 )
 
-// Maps nodeId to the latest arrival of a heartbeat
-var nodes = make(map[string]time.Time)
+// the period in which we scan and delete old data.
+const cleanUpPeriod = 15 * time.Second
 
-// Maps nodeId to outgoing connections + latest arrival of heartbeat
-var links = make(map[string]map[string]time.Time)
+var (
+	// maps nodeId to the latest arrival of a heartbeat.
+	nodes = make(map[string]time.Time)
+	// maps nodeId to outgoing connections + latest arrival of heartbeat.
+	links = make(map[string]map[string]time.Time)
+	lock  sync.Mutex
+)
 
-var lock sync.Mutex
-
-// Configure configures the plugin.
-func Configure(plugin *node.Plugin) {
-	server.Events.Heartbeat.Attach(events.NewClosure(func(packet heartbeat.Packet) {
+// configures the event recording by attaching to the analysis server's heartbeat event.
+func configureEventsRecording(plugin *node.Plugin) {
+	server.Events.Heartbeat.Attach(events.NewClosure(func(hb *packet.Heartbeat) {
 		var out strings.Builder
-		for _, value := range packet.OutboundIDs {
+		for _, value := range hb.OutboundIDs {
 			out.WriteString(hex.EncodeToString(value))
 		}
 		var in strings.Builder
-		for _, value := range packet.InboundIDs {
+		for _, value := range hb.InboundIDs {
 			in.WriteString(hex.EncodeToString(value))
 		}
 		plugin.Node.Logger.Debugw(
 			"Heartbeat",
-			"nodeId", hex.EncodeToString(packet.OwnID),
+			"nodeId", hex.EncodeToString(hb.OwnID),
 			"outboundIds", out.String(),
 			"inboundIds", in.String(),
 		)
 		lock.Lock()
 		defer lock.Unlock()
 
-		nodeIDString := hex.EncodeToString(packet.OwnID)
+		nodeIDString := hex.EncodeToString(hb.OwnID)
 		timestamp := time.Now()
 
-		// When node is new, add to graph
+		// when node is new, add to graph
 		if _, isAlready := nodes[nodeIDString]; !isAlready {
 			server.Events.AddNode.Trigger(nodeIDString)
 		}
-		// Save it + update timestamp
+		// save it + update timestamp
 		nodes[nodeIDString] = timestamp
 
-		// Outgoing neighbor links update
-		for _, outgoingNeighbor := range packet.OutboundIDs {
+		// outgoing neighbor links update
+		for _, outgoingNeighbor := range hb.OutboundIDs {
 			outgoingNeighborString := hex.EncodeToString(outgoingNeighbor)
-			// Do we already know about this neighbor?
-			// If no, add it and set it online
+			// do we already know about this neighbor?
+			// if no, add it and set it online
 			if _, isAlready := nodes[outgoingNeighborString]; !isAlready {
-				// First time we see this particular node
+				// first time we see this particular node
 				server.Events.AddNode.Trigger(outgoingNeighborString)
 			}
-			// We have indirectly heard about the neighbor.
+			// we have indirectly heard about the neighbor.
 			nodes[outgoingNeighborString] = timestamp
 
-			// Do we have any links already with src=nodeIdString?
+			// do we have any links already with src=nodeIdString?
 			if _, isAlready := links[nodeIDString]; !isAlready {
-				// Nope, so we have to allocate an empty map to be nested in links for nodeIdString
+				// nope, so we have to allocate an empty map to be nested in links for nodeIdString
 				links[nodeIDString] = make(map[string]time.Time)
 			}
 
-			// Update graph when connection hasn't been seen before
+			// update graph when connection hasn't been seen before
 			if _, isAlready := links[nodeIDString][outgoingNeighborString]; !isAlready {
 				server.Events.ConnectNodes.Trigger(nodeIDString, outgoingNeighborString)
 			}
-			// Update links
+			// update links
 			links[nodeIDString][outgoingNeighborString] = timestamp
 		}
 
-		// Incoming neighbor links update
-		for _, incomingNeighbor := range packet.InboundIDs {
+		// incoming neighbor links update
+		for _, incomingNeighbor := range hb.InboundIDs {
 			incomingNeighborString := hex.EncodeToString(incomingNeighbor)
-			// Do we already know about this neighbor?
-			// If no, add it and set it online
+			// do we already know about this neighbor?
+			// if no, add it and set it online
 			if _, isAlready := nodes[incomingNeighborString]; !isAlready {
 				// First time we see this particular node
 				server.Events.AddNode.Trigger(incomingNeighborString)
 			}
-			// We have indirectly heard about the neighbor.
+			// we have indirectly heard about the neighbor.
 			nodes[incomingNeighborString] = timestamp
 
-			// Do we have any links already with src=incomingNeighborString?
+			// do we have any links already with src=incomingNeighborString?
 			if _, isAlready := links[incomingNeighborString]; !isAlready {
-				// Nope, so we have to allocate an empty map to be nested in links for incomingNeighborString
+				// nope, so we have to allocate an empty map to be nested in links for incomingNeighborString
 				links[incomingNeighborString] = make(map[string]time.Time)
 			}
 
-			// Update graph when connection hasn't been seen before
+			// update graph when connection hasn't been seen before
 			if _, isAlready := links[incomingNeighborString][nodeIDString]; !isAlready {
 				server.Events.ConnectNodes.Trigger(incomingNeighborString, nodeIDString)
 			}
-			// Update links map
+			// update links map
 			links[incomingNeighborString][nodeIDString] = timestamp
 		}
 	}))
 }
 
-// Run runs the plugin.
-func Run() {
-	daemon.BackgroundWorker("Analysis Server Record Manager", func(shutdownSignal <-chan struct{}) {
-		ticker := time.NewTicker(CleanUpPeriod)
+func runEventsRecordManager() {
+	_ = daemon.BackgroundWorker("Analysis Server Record Manager", func(shutdownSignal <-chan struct{}) {
+		ticker := time.NewTicker(cleanUpPeriod)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-shutdownSignal:
 				return
-
 			case <-ticker.C:
-				cleanUp(CleanUpPeriod)
+				cleanUp(cleanUpPeriod)
 			}
 		}
 	}, shutdown.PriorityAnalysis)
 }
 
-// Remove nodes and links we haven't seen for at least 3 times the heartbeat interval
+// removes nodes and links we haven't seen for at least 3 times the heartbeat interval.
 func cleanUp(interval time.Duration) {
 	lock.Lock()
 	defer lock.Unlock()
 	now := time.Now()
 
-	// Go through the list of connections. Remove connections that are older than interval time.
+	// go through the list of connections. Remove connections that are older than interval time.
 	for srcNode, targetMap := range links {
 		for trgNode, lastSeen := range targetMap {
 			if now.Sub(lastSeen) > interval {
@@ -138,13 +138,13 @@ func cleanUp(interval time.Duration) {
 				server.Events.DisconnectNodes.Trigger(srcNode, trgNode)
 			}
 		}
-		// Delete src node from links if it doesn't have any connections
+		// delete src node from links if it doesn't have any connections
 		if len(targetMap) == 0 {
 			delete(links, srcNode)
 		}
 	}
 
-	// Go through the list of nodes. Remove nodes that haven't been seen for interval time
+	// go through the list of nodes. Remove nodes that haven't been seen for interval time
 	for node, lastSeen := range nodes {
 		if now.Sub(lastSeen) > interval {
 			delete(nodes, node)
@@ -173,11 +173,11 @@ func getEventsToReplay() (map[string]time.Time, map[string]map[string]time.Time)
 	return copiedNodes, copiedLinks
 }
 
-// Replay runs the handlers on the events to replay.
-func Replay(handlers *types.EventHandlers) {
+// replays recorded events on the given event handler.
+func replayEvents(handlers *EventHandlers) {
 	copiedNodes, copiedLinks := getEventsToReplay()
 
-	// When a node is present in the list, it means we heard about it directly
+	// when a node is present in the list, it means we heard about it directly
 	// or indirectly, but within CLEAN_UP_PERIOD, therefore it is online
 	for nodeID := range copiedNodes {
 		handlers.AddNode(nodeID)

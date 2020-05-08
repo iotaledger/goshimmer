@@ -18,9 +18,10 @@ services:
       --autopeering.seed=${SEED}
       --autopeering.entryNodes=
       --analysis.client.serverAddress=
-      --analysis.server.port=1888
-      --analysis.httpServer.bindAddress=0.0.0.0:8080
-      --node.disablePlugins=gossip,portcheck,spa,dashboard,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --analysis.server.bindAddress=0.0.0.0:1888
+      --analysis.webInterface.bindAddress=0.0.0.0:8080
+      --node.enablePlugins=analysis-server,analysis-webinterface
+      --node.disablePlugins=analysis-client,gossip,portcheck,spa,dashboard,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
 
 volumes:
   entrynode:

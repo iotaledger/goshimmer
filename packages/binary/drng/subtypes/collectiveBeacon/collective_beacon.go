@@ -100,7 +100,7 @@ func verifySignature(data *events.CollectiveBeaconEvent) error {
 		return err
 	}
 
-	msg := beacon.Message(data.PrevSignature, data.Round)
+	msg := beacon.Message(data.Round, data.PrevSignature)
 
 	if err := key.Scheme.VerifyRecovered(dpk, msg, data.Signature); err != nil {
 		return err

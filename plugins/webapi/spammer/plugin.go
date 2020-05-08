@@ -3,7 +3,7 @@ package spammer
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/spammer"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/node"
@@ -18,7 +18,7 @@ const PluginName = "Spammer"
 var Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
 
 func configure(plugin *node.Plugin) {
-	messageSpammer = spammer.New(messagelayer.MessageFactory)
+	messageSpammer = spammer.New(issuer.IssuePayload)
 	webapi.Server.GET("spammer", handleRequest)
 }
 

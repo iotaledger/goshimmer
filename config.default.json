@@ -4,9 +4,9 @@
       "serverAddress": "node1.goshimmer.dev:188"
     },
     "server": {
-      "port": 0
+      "bindAddress": "0.0.0.0:16178"
     },
-    "httpServer": {
+    "webInterface": {
       "bindAddress": "0.0.0.0:80"
     }
   },
