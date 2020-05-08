@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 )
 
-// ValueObjectBooking stores the UTXODAG related metadata of a ValueObject like the BranchID that it is booked in.
+// ValueObjectBooking stores the branch of a ValueObject that it is booked in.
 type ValueObjectBooking struct {
 	objectstorage.StorableObjectFlags
 
