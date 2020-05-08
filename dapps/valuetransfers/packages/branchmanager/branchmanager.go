@@ -290,7 +290,7 @@ func (branchManager *BranchManager) AggregateBranches(branches ...BranchID) (cac
 	}
 
 	// filter out duplicates and shared ancestor Branches (abort if we faced an error)
-	deepestCommonAncestors, err := branchManager.findDeepestCommonAncestorBranches(branches...)
+	deepestCommonAncestors, err := branchManager.findDeepestCommonDescendants(branches...)
 	if err != nil {
 		return
 	}
@@ -684,12 +684,12 @@ func (branchManager *BranchManager) collectClosestConflictAncestors(branch *Bran
 	return
 }
 
-// findDeepestCommonAncestorBranches takes a number of BranchIds and determines the most specialized Branches (furthest
+// findDeepestCommonDescendants takes a number of BranchIds and determines the most specialized Branches (furthest
 // away from the MasterBranch) in that list, that contains all of the named BranchIds.
 //
 // Example: If we hand in "A, B" and B has A as its parent, then the result will contain the Branch B, because B is a
 //          child of A.
-func (branchManager *BranchManager) findDeepestCommonAncestorBranches(branches ...BranchID) (result CachedBranches, err error) {
+func (branchManager *BranchManager) findDeepestCommonDescendants(branches ...BranchID) (result CachedBranches, err error) {
 	result = make(CachedBranches)
 
 	processedBranches := make(map[BranchID]types.Empty)
