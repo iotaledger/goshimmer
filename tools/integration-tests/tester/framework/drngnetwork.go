@@ -88,8 +88,7 @@ func (n *DRNGNetwork) CreateMember(leader bool) (*Drand, error) {
 // Shutdown creates logs and removes network and containers.
 // Should always be called when a network is not needed anymore!
 func (n *DRNGNetwork) Shutdown() error {
-	defer n.network.Shutdown()
-
+	// stop drand members
 	for _, p := range n.members {
 		err := p.Stop()
 		if err != nil {
@@ -117,7 +116,7 @@ func (n *DRNGNetwork) Shutdown() error {
 		}
 	}
 
-	return nil
+	return n.network.Shutdown()
 }
 
 // WaitForDKG waits until all members have concluded the DKG phase.
