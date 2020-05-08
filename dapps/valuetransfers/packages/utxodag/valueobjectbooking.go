@@ -144,5 +144,5 @@ func (valueObjectBooking *ValueObjectBooking) UnmarshalObjectStorageValue(valueB
 	return
 }
 
-// interface contract
+// interface contract (allow the compiler to check if the implementation has all of the required methods).
 var _ objectstorage.StorableObject = &ValueObjectBooking{}
