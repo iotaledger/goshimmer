@@ -56,17 +56,19 @@ func sendDataMessage(t *testing.T, peer *framework.Peer, data []byte, number int
 }
 
 // checkForMessageIds performs checks to make sure that all peers received all given messages defined in ids.
-func checkForMessageIds(t *testing.T, peers []*framework.Peer, ids map[string]DataMessageSent) {
+func checkForMessageIds(t *testing.T, peers []*framework.Peer, ids map[string]DataMessageSent, checkSynchronized bool) {
 	var idsSlice []string
 	for id := range ids {
 		idsSlice = append(idsSlice, id)
 	}
 
 	for _, peer := range peers {
-		// check that the peer sees itself as synchronized
-		info, err := peer.Info()
-		require.NoError(t, err)
-		require.True(t, info.Synced)
+		if checkSynchronized {
+			// check that the peer sees itself as synchronized
+			info, err := peer.Info()
+			require.NoError(t, err)
+			require.True(t, info.Synced)
+		}
 
 		resp, err := peer.FindMessageByID(idsSlice)
 		require.NoError(t, err)

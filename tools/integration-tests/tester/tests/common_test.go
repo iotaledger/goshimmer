@@ -45,7 +45,7 @@ func TestSynchronization(t *testing.T) {
 	time.Sleep(10 * time.Second)
 
 	// 4. check whether all issued messages are available on all nodes
-	checkForMessageIds(t, n.Peers(), ids)
+	checkForMessageIds(t, n.Peers(), ids, true)
 
 	// 5. shut down newly added peer
 	err = newPeer.Stop()
@@ -73,5 +73,5 @@ func TestSynchronization(t *testing.T) {
 	assert.Truef(t, resp.Synced, "Peer %s should be synced but is desynced!", newPeer.String())
 
 	// 10. check whether all issued messages are available on all nodes
-	checkForMessageIds(t, n.Peers(), ids)
+	checkForMessageIds(t, n.Peers(), ids, true)
 }
