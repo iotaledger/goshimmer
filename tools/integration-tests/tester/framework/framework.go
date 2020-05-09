@@ -61,7 +61,7 @@ func newFramework() (*Framework, error) {
 // CreateNetwork creates and returns a (Docker) Network that contains `peers` GoShimmer nodes.
 // It waits for the peers to autopeer until the minimum neighbors criteria is met for every peer.
 // The first peer automatically starts with the bootstrap plugin enabled.
-func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int) (*Network, error) {
+func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, networkConfig ...NetworkConfig) (*Network, error) {
 	network, err := newNetwork(f.dockerClient, strings.ToLower(name), f.tester)
 	if err != nil {
 		return nil, err
@@ -72,10 +72,19 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int) 
 		return nil, err
 	}
 
+	// configuration of bootstrap plugin
+	bootstrapInitialIssuanceTimePeriodSec := -1
+	if len(networkConfig) > 0 {
+		bootstrapInitialIssuanceTimePeriodSec = networkConfig[0].BootstrapInitialIssuanceTimePeriodSec
+	}
+
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
-		bootstrap := i == 0
-		if _, err = network.CreatePeer(bootstrap); err != nil {
+		config := GoShimmerConfig{
+			Bootstrap:                             i == 0,
+			BootstrapInitialIssuanceTimePeriodSec: bootstrapInitialIssuanceTimePeriodSec,
+		}
+		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
 		}
 	}
