@@ -229,6 +229,7 @@ func (branchManager *BranchManager) BranchesConflicting(branchIds ...BranchID) (
 			}
 
 			// iterate through the conflicts and take note of its member branches
+			processedConflicts := make(map[BranchID]types.Empty)
 			for conflictID := range branch.Conflicts() {
 				for _, cachedConflictMember := range branchManager.ConflictMembers(conflictID) {
 					// unwrap the current ConflictMember
@@ -238,6 +239,12 @@ func (branchManager *BranchManager) BranchesConflicting(branchIds ...BranchID) (
 
 						continue
 					}
+
+					// continue if we have seen this branch already
+					if _, processedAlready := processedConflicts[conflictMember.BranchID()]; processedAlready {
+						continue
+					}
+					processedConflicts[conflictMember.BranchID()] = types.Void
 
 					// abort if this branch was found as a conflict of another branch already
 					if _, branchesConflicting = conflictingBranches[conflictMember.BranchID()]; branchesConflicting {

@@ -33,6 +33,7 @@ type UTXODAG struct {
 	attachmentStorage          *objectstorage.ObjectStorage
 	outputStorage              *objectstorage.ObjectStorage
 	consumerStorage            *objectstorage.ObjectStorage
+	valueObjectBookingStorage  *objectstorage.ObjectStorage
 
 	Events *Events
 
@@ -52,6 +53,7 @@ func New(badgerInstance *badger.DB, tangle *tangle.Tangle) (result *UTXODAG) {
 		attachmentStorage:          osFactory.New(osAttachment, osAttachmentFactory, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
 		outputStorage:              osFactory.New(osOutput, osOutputFactory, OutputKeyPartitions, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
 		consumerStorage:            osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
+		valueObjectBookingStorage:  osFactory.New(osValueObjectBooking, osValueObjectBookingFactory, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
 
 		Events: newEvents(),
 	}
@@ -98,7 +100,7 @@ func (utxoDAG *UTXODAG) GetConsumers(outputID transaction.OutputID) CachedConsum
 	return consumers
 }
 
-// GetAttachments retrieves the att of a payload from the object storage.
+// GetAttachments retrieves the attachment of a payload from the object storage.
 func (utxoDAG *UTXODAG) GetAttachments(transactionID transaction.ID) CachedAttachments {
 	attachments := make(CachedAttachments, 0)
 	utxoDAG.attachmentStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
@@ -108,6 +110,11 @@ func (utxoDAG *UTXODAG) GetAttachments(transactionID transaction.ID) CachedAttac
 	}, transactionID.Bytes())
 
 	return attachments
+}
+
+// ValueObjectBooking retrieves a booking of a value object.
+func (utxoDAG *UTXODAG) ValueObjectBooking(id payload.ID) *CachedValueObjectBooking {
+	return &CachedValueObjectBooking{CachedObject: utxoDAG.valueObjectBookingStorage.Load(id.Bytes())}
 }
 
 // Shutdown stops the worker pools and shuts down the object storage instances.
@@ -206,10 +213,10 @@ func (utxoDAG *UTXODAG) storeTransactionModels(solidPayload *payload.Payload) (c
 	return
 }
 
-func (utxoDAG *UTXODAG) solidifyTransactionWorker(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata, attachment *CachedAttachment) {
+func (utxoDAG *UTXODAG) solidifyTransactionWorker(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment) {
 	// initialize the stack
 	solidificationStack := list.New()
-	solidificationStack.PushBack([3]interface{}{cachedTransaction, cachedTransactionMetadata, attachment})
+	solidificationStack.PushBack([3]interface{}{cachedTransaction, cachedTransactionMetadata, cachedAttachment})
 
 	// process payloads that are supposed to be checked for solidity recursively
 	for solidificationStack.Len() > 0 {
@@ -254,7 +261,7 @@ func (utxoDAG *UTXODAG) solidifyTransactionWorker(cachedTransaction *transaction
 			})
 
 			// book transaction
-			if err := utxoDAG.bookTransaction(cachedTransaction.Retain(), cachedTransactionMetadata.Retain()); err != nil {
+			if err := utxoDAG.bookTransaction(cachedTransaction.Retain(), cachedTransactionMetadata.Retain(), cachedAttachment.Retain()); err != nil {
 				utxoDAG.Events.Error.Trigger(err)
 			}
 		}()
@@ -465,7 +472,7 @@ func (utxoDAG *UTXODAG) ForEachConsumers(currentTransaction *transaction.Transac
 	})
 }
 
-func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) (err error) {
+func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment) (err error) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
 
@@ -576,6 +583,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 	utxoDAG.Events.TransactionBooked.Trigger(cachedTransaction, cachedTransactionMetadata, cachedTargetBranch, conflictingInputs, decisionPending)
 
 	// TODO: BOOK ATTACHMENT
+	utxoDAG.bookValueObject(cachedTransactionMetadata.Retain(), cachedAttachment.Retain())
 
 	return
 }
@@ -791,4 +799,61 @@ func (utxoDAG *UTXODAG) Fork(transactionID transaction.ID, conflictingInputs []t
 	forked = true
 
 	return
+}
+
+func (utxoDAG *UTXODAG) bookValueObject(cachedTransactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment) {
+	defer cachedAttachment.Release()
+	defer cachedTransactionMetadata.Release()
+
+	attachment := cachedAttachment.Unwrap()
+	if attachment == nil {
+		return
+	}
+
+	transactionMetadata := cachedTransactionMetadata.Unwrap()
+	if transactionMetadata == nil {
+		return
+	}
+
+	cachedValueObject := utxoDAG.tangle.GetPayload(attachment.PayloadID())
+	defer cachedValueObject.Release()
+	valueObject := cachedValueObject.Unwrap()
+	if valueObject == nil {
+		return
+	}
+
+	branchBranchID := branchmanager.MasterBranchID
+	if valueObject.BranchID() != payload.GenesisID {
+		cachedBranchBooking := utxoDAG.ValueObjectBooking(valueObject.BranchID())
+		defer cachedBranchBooking.Release()
+		branchBooking := cachedBranchBooking.Unwrap()
+		if branchBooking == nil || branchBooking.BranchID() == branchmanager.UndefinedBranchID {
+			return
+		}
+		branchBranchID = branchBooking.BranchID()
+	}
+
+	trunkBranchID := branchmanager.MasterBranchID
+	if valueObject.TrunkID() != payload.GenesisID {
+		cachedTrunkBooking := utxoDAG.ValueObjectBooking(valueObject.TrunkID())
+		defer cachedTrunkBooking.Release()
+		trunkBooking := cachedTrunkBooking.Unwrap()
+		if trunkBooking == nil || trunkBooking.BranchID() == branchmanager.UndefinedBranchID {
+			return
+		}
+		trunkBranchID = trunkBooking.BranchID()
+	}
+
+	cachedAggregatedBranch, err := utxoDAG.BranchManager().AggregateBranches([]branchmanager.BranchID{branchBranchID, transactionMetadata.BranchID(), trunkBranchID}...)
+	if err != nil {
+		panic(err)
+	}
+	defer cachedAggregatedBranch.Release()
+
+	aggregatedBranch := cachedAggregatedBranch.Unwrap()
+	if aggregatedBranch == nil {
+		return
+	}
+
+	fmt.Println("BOOKED")
 }

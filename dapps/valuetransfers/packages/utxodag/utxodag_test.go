@@ -137,6 +137,8 @@ func TestTangle_AttachPayload(t *testing.T) {
 		}),
 	)))
 
+	time.Sleep(5 * time.Second)
+
 	valueTangle.Shutdown()
 	utxoDAG.Shutdown()
 }

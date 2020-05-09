@@ -146,3 +146,37 @@ func (valueObjectBooking *ValueObjectBooking) UnmarshalObjectStorageValue(valueB
 
 // interface contract (allow the compiler to check if the implementation has all of the required methods).
 var _ objectstorage.StorableObject = &ValueObjectBooking{}
+
+// CachedValueObjectBooking is a wrapper for the generic CachedObject returned by the objectstorage, that overrides the
+// accessor methods with a type-casted one.
+type CachedValueObjectBooking struct {
+	objectstorage.CachedObject
+}
+
+// Retain marks this CachedObject to still be in use by the program.
+func (cachedValueObjectBooking *CachedValueObjectBooking) Retain() *CachedValueObjectBooking {
+	return &CachedValueObjectBooking{cachedValueObjectBooking.CachedObject.Retain()}
+}
+
+// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
+func (cachedValueObjectBooking *CachedValueObjectBooking) Unwrap() *ValueObjectBooking {
+	untypedObject := cachedValueObjectBooking.Get()
+	if untypedObject == nil {
+		return nil
+	}
+
+	typedObject := untypedObject.(*ValueObjectBooking)
+	if typedObject == nil || typedObject.IsDeleted() {
+		return nil
+	}
+
+	return typedObject
+}
+
+// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
+// exists). It automatically releases the object when the consumer finishes.
+func (cachedValueObjectBooking *CachedValueObjectBooking) Consume(consumer func(booking *ValueObjectBooking), forceRelease ...bool) (consumed bool) {
+	return cachedValueObjectBooking.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*ValueObjectBooking))
+	}, forceRelease...)
+}

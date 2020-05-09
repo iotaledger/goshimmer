@@ -18,6 +18,7 @@ const (
 	osAttachment
 	osOutput
 	osConsumer
+	osValueObjectBooking
 )
 
 var (
@@ -45,4 +46,8 @@ func osOutputFactory(key []byte) (objectstorage.StorableObject, int, error) {
 
 func osConsumerFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return ConsumerFromStorageKey(key)
+}
+
+func osValueObjectBookingFactory(key []byte) (objectstorage.StorableObject, int, error) {
+	return ValueObjectBookingFromStorageKey(key)
 }
