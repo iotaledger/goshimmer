@@ -21,7 +21,7 @@ var (
 func TestDRNG(t *testing.T) {
 	var wg sync.WaitGroup
 
-	drng, err := f.CreateDRNGNetwork("drng_TestDRNG", 5, 8, 3)
+	drng, err := f.CreateDRNGNetwork("TestDRNG", 5, 8, 3)
 	require.NoError(t, err)
 	defer drng.Shutdown()
 

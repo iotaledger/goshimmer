@@ -14,7 +14,7 @@ import (
 // and becomes synced again.
 func TestSynchronization(t *testing.T) {
 	config := framework.NetworkConfig{
-		BootstrapInitialIssuanceTimePeriodSec: 30,
+		BootstrapInitialIssuanceTimePeriodSec: 40,
 	}
 	initalPeers := 4
 	n, err := f.CreateNetwork("common_TestSynchronization", initalPeers, 2, config)
