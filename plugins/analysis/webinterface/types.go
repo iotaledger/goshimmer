@@ -1,7 +1,7 @@
-package types
+package webinterface
 
 // EventHandlers holds the handler for each event.
-type EventHandlers = struct {
+type EventHandlers struct {
 	// Addnode defines the handler called when adding a new node.
 	AddNode func(nodeId string)
 	// RemoveNode defines the handler called when adding removing a node.

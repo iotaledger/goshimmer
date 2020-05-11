@@ -25,6 +25,59 @@ func NewConflict(id ConflictID) *Conflict {
 	}
 }
 
+// ConflictFromBytes unmarshals a Conflict from a sequence of bytes.
+func ConflictFromBytes(bytes []byte, optionalTargetObject ...*Conflict) (result *Conflict, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	result, err = ParseConflict(marshalUtil, optionalTargetObject...)
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// ConflictFromStorageKey is a factory method that creates a new Conflict instance from a storage key of the
+// objectstorage. It is used by the objectstorage, to create new instances of this entity.
+func ConflictFromStorageKey(key []byte, optionalTargetObject ...*Conflict) (result *Conflict, consumedBytes int, err error) {
+	// determine the target object that will hold the unmarshaled information
+	switch len(optionalTargetObject) {
+	case 0:
+		result = &Conflict{}
+	case 1:
+		result = optionalTargetObject[0]
+	default:
+		panic("too many arguments in call to ConflictFromStorageKey")
+	}
+
+	// parse the properties that are stored in the key
+	marshalUtil := marshalutil.New(key)
+	if result.id, err = ParseConflictID(marshalUtil); err != nil {
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// ParseConflict unmarshals a Conflict using the given marshalUtil (for easier marshaling/unmarshaling).
+func ParseConflict(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Conflict) (result *Conflict, err error) {
+	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
+		return ConflictFromStorageKey(data, optionalTargetObject...)
+	})
+	if parseErr != nil {
+		err = parseErr
+
+		return
+	}
+
+	result = parsedObject.(*Conflict)
+	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
+		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
+
+		return
+	})
+
+	return
+}
+
 // ID returns the identifier of this Conflict.
 func (conflict *Conflict) ID() ConflictID {
 	return conflict.id
@@ -49,7 +102,7 @@ func (conflict *Conflict) IncreaseMemberCount(optionalDelta ...int) (newMemberCo
 	defer conflict.memberCountMutex.Unlock()
 
 	conflict.memberCount = conflict.memberCount + delta
-
+	conflict.SetModified()
 	newMemberCount = int(conflict.memberCount)
 
 	return
@@ -66,7 +119,7 @@ func (conflict *Conflict) DecreaseMemberCount(optionalDelta ...int) (newMemberCo
 	defer conflict.memberCountMutex.Unlock()
 
 	conflict.memberCount = conflict.memberCount - delta
-
+	conflict.SetModified()
 	newMemberCount = int(conflict.memberCount)
 
 	return
@@ -148,7 +201,7 @@ func (cachedConflict *CachedConflict) Unwrap() *Conflict {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (cachedConflict *CachedConflict) Consume(consumer func(branch *Conflict), forceRelease ...bool) (consumed bool) {
+func (cachedConflict *CachedConflict) Consume(consumer func(conflict *Conflict), forceRelease ...bool) (consumed bool) {
 	return cachedConflict.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Conflict))
 	}, forceRelease...)

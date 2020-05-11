@@ -52,14 +52,11 @@ func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetOb
 	}
 
 	result = parsedObject.(*PayloadApprover)
-
-	if _, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
+	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
 		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
 
 		return
-	}); err != nil {
-		return
-	}
+	})
 
 	return
 }
