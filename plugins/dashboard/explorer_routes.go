@@ -1,23 +1,15 @@
 package dashboard
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/labstack/echo"
 )
-
-type DataPayload struct {
-	Data []byte `json:"data"`
-}
-
-type UnknownPayload struct {
-	Bytes []byte `json:"payload_byte"`
-}
 
 // ExplorerMessage defines the struct of the ExplorerMessage.
 type ExplorerMessage struct {
@@ -47,23 +39,10 @@ func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
 		BranchMessageID: msg.BranchId().String(),
 		Solid:           messageMetadata.Unwrap().IsSolid(),
 		PayloadType:     msg.Payload().Type(),
-		Payload:         processPayload(msg.Payload()),
+		Payload:         ProcessPayload(msg.Payload()),
 	}
 
 	return t, nil
-}
-
-func processPayload(p payload.Payload) interface{} {
-	switch p.Type() {
-	case 0:
-		return DataPayload{
-			Data: p.(*payload.Data).Data(),
-		}
-	default:
-		return UnknownPayload{
-			Bytes: p.Bytes(),
-		}
-	}
 }
 
 // ExplorerAddress defines the struct of the ExplorerAddress.
@@ -136,6 +115,8 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		}()
 		wg.Wait()
 
+		b, _ := json.Marshal(result)
+		fmt.Println(string(b))
 		return c.JSON(http.StatusOK, result)
 	})
 }

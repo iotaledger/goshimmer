@@ -10,7 +10,7 @@ interface Props {
 
 @inject("explorerStore")
 @observer
-export class DataPayload extends React.Component<Props, any> {
+export class BasicPayload extends React.Component<Props, any> {
 
     render() {
         let {payload} = this.props.explorerStore;
@@ -19,7 +19,8 @@ export class DataPayload extends React.Component<Props, any> {
             <React.Fragment>
                 <Row className={"mb-3"}>
                     <Col>
-                        {payload.data}
+                        {payload.content_title}: {' '} 
+                        {payload.bytes}
                     </Col>
                 </Row>
             </React.Fragment>

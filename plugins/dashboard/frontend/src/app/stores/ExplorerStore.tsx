@@ -14,12 +14,22 @@ export class Message {
     payload: any;
 }
 
-export class DataPayload {
-    data: string;
+export class BasicPayload {
+    content_title: string;
+    bytes: string;
 }
 
-export class UnknownPayload {
-    bytes: string;
+export class DrngPayload {
+    subpayload_type: string;
+    instance_id: number;
+    drngpayload: any;
+}
+
+export class DrngCbPayload {
+    round: number;
+    prev_sig: string;
+    sig: string;
+    dpk: string;
 }
 
 class AddressResult {
@@ -59,6 +69,7 @@ export class ExplorerStore {
     @observable search_result: SearchResult = null;
     @observable searching: boolean = false;
     @observable payload: any;
+    @observable subpayload: any;
 
     routerStore: RouterStore;
 
@@ -162,11 +173,17 @@ export class ExplorerStore {
         this.query_err = null;
         this.query_loading = false;
         switch(msg.payload_type){
-            case 0:
-                this.payload = msg.payload as DataPayload
+            case 111:
+                this.payload = msg.payload as DrngPayload
+                if (this.payload.subpayload_type == 1) {
+                    this.subpayload = this.payload.drngpayload as DrngCbPayload
+                } else {
+                    this.subpayload = this.payload.drngpayload as BasicPayload
+                }
                 break;
+            case 0:
             default:
-                this.payload = msg.payload as UnknownPayload
+                this.payload = msg.payload as BasicPayload
                 break;
         }
     };

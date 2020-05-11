@@ -10,8 +10,8 @@ import ListGroup from "react-bootstrap/ListGroup";
 import Badge from "react-bootstrap/Badge";
 import * as dateformat from 'dateformat';
 import {Link} from 'react-router-dom';
-import {DataPayload} from 'app/components/DataPayload'
-import {UnknownPayload} from 'app/components/UnknownPayload'
+import {BasicPayload} from 'app/components/BasicPayload'
+import {DrngPayload} from 'app/components/DrngPayload'
 
 interface Props {
     nodeStore?: NodeStore;
@@ -44,6 +44,8 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
         switch(this.props.explorerStore.msg.payload_type) {
             case 0:
                 return "Data"
+            case 111:
+                return "Drng"
             default:
                 return "Unknown"
         }
@@ -51,11 +53,12 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
 
     renderPayload() {
         switch(this.props.explorerStore.msg.payload_type) {
+            case 111:
+                return <DrngPayload/>
             case 0:
-                console.log(this.props.explorerStore.msg.payload.data)
-                return <DataPayload/>
             default:
-                return <UnknownPayload/>
+                console.log(this.props.explorerStore.msg.payload.bytes)
+                return <BasicPayload/>
         }
     }
 
@@ -125,7 +128,6 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                             <Col>
                                 <ListGroup>
                                     <ListGroup.Item className="text-break">
-                                        Payload Content: {' '}
                                         {this.renderPayload()}
                                     </ListGroup.Item>
                                 </ListGroup>
