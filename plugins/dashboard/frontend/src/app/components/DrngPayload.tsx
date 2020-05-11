@@ -69,8 +69,9 @@ export class DrngPayload extends React.Component<Props, any> {
                                 <React.Fragment>
                                     <Row className={"mb-3"}>
                                         <Col>
-                                            {subpayload.content_title}: <br/> 
-                                            {subpayload.bytes}
+                                            <ListGroup>
+                                                <ListGroup.Item>{subpayload.content_title}: {subpayload.bytes} </ListGroup.Item>
+                                            </ListGroup>
                                         </Col>
                                 </Row>
                                 </React.Fragment>
