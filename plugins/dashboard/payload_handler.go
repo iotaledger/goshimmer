@@ -8,17 +8,22 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
+// BasicPayload contains content title and bytes
+// It can be reused with different payload that only contains one field.
 type BasicPayload struct {
 	ContentTitle string `json:"content_title"`
 	Bytes        []byte `json:"bytes"`
 }
 
+// DrngPayload contains the subtype of drng payload, instance Id
+// and the subpayload
 type DrngPayload struct {
 	SubPayloadType byte        `json:"subpayload_type"`
 	InstanceId     uint32      `json:"instance_id"`
 	SubPayload     interface{} `json:"drngpayload"`
 }
 
+// DrngCollectiveBeaconPayload is the subpayload of DrngPayload.
 type DrngCollectiveBeaconPayload struct {
 	Round   uint64 `json:"round"`
 	PrevSig []byte `json:"prev_sig"`
@@ -26,6 +31,8 @@ type DrngCollectiveBeaconPayload struct {
 	Dpk     []byte `json:"dpk"`
 }
 
+// Processpayload generates different structs regarding to the
+// payload type.
 func ProcessPayload(p payload.Payload) interface{} {
 	switch p.Type() {
 	case payload.DataType:
@@ -46,6 +53,7 @@ func ProcessPayload(p payload.Payload) interface{} {
 	}
 }
 
+// processDrngPayload handles the subtypes of Drng payload
 func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 	var subpayload interface{}
 	marshalUtil := marshalutil.New(p.Bytes())
@@ -53,6 +61,7 @@ func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 
 	switch drngPayload.Header.PayloadType {
 	case drngheader.TypeCollectiveBeacon:
+		// collective beacon
 		marshalUtil := marshalutil.New(drngPayload.Bytes())
 		cbp, _ := cb.Parse(marshalUtil)
 		subpayload = DrngCollectiveBeaconPayload{
