@@ -1,4 +1,4 @@
-package utxodag
+package tangle
 
 import (
 	"sync"

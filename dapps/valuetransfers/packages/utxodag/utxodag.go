@@ -5,12 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"time"
 
-	"github.com/dgraph-io/badger/v2"
 	"github.com/iotaledger/hive.go/async"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
@@ -19,201 +15,15 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 )
 
 // UTXODAG represents the DAG of funds that are flowing from the genesis, to the addresses that have balance now, that
 // is embedded as another layer in the message tangle.
 type UTXODAG struct {
-	tangle        *tangle.Tangle
-	branchManager *branchmanager.BranchManager
-
-	transactionStorage         *objectstorage.ObjectStorage
-	transactionMetadataStorage *objectstorage.ObjectStorage
-	attachmentStorage          *objectstorage.ObjectStorage
-	outputStorage              *objectstorage.ObjectStorage
-	consumerStorage            *objectstorage.ObjectStorage
-	valueObjectBookingStorage  *objectstorage.ObjectStorage
-
-	Events *Events
-
 	workerPool async.WorkerPool
 }
 
-// New is the constructor of the UTXODAG and creates a new DAG on top a tangle.
-func New(badgerInstance *badger.DB, tangle *tangle.Tangle) (result *UTXODAG) {
-	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.ValueTransfers)
-
-	result = &UTXODAG{
-		tangle:        tangle,
-		branchManager: branchmanager.New(badgerInstance),
-
-		transactionStorage:         osFactory.New(osTransaction, osTransactionFactory, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
-		transactionMetadataStorage: osFactory.New(osTransactionMetadata, osTransactionMetadataFactory, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
-		attachmentStorage:          osFactory.New(osAttachment, osAttachmentFactory, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
-		outputStorage:              osFactory.New(osOutput, osOutputFactory, OutputKeyPartitions, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
-		consumerStorage:            osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
-		valueObjectBookingStorage:  osFactory.New(osValueObjectBooking, osValueObjectBookingFactory, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
-
-		Events: newEvents(),
-	}
-
-	tangle.Events.PayloadSolid.Attach(events.NewClosure(result.ProcessSolidPayload))
-
-	return
-}
-
-// BranchManager is the getter for the manager that takes care of creating and updating branches.
-func (utxoDAG *UTXODAG) BranchManager() *branchmanager.BranchManager {
-	return utxoDAG.branchManager
-}
-
-// ProcessSolidPayload is the main method of this struct. It is used to add new solid Payloads to the DAG.
-func (utxoDAG *UTXODAG) ProcessSolidPayload(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
-	utxoDAG.workerPool.Submit(func() { utxoDAG.storeTransactionWorker(cachedPayload, cachedMetadata) })
-}
-
-// Transaction loads the given transaction from the objectstorage.
-func (utxoDAG *UTXODAG) Transaction(transactionID transaction.ID) *transaction.CachedTransaction {
-	return &transaction.CachedTransaction{CachedObject: utxoDAG.transactionStorage.Load(transactionID.Bytes())}
-}
-
-// TransactionMetadata retrieves the metadata of a value payload from the object storage.
-func (utxoDAG *UTXODAG) TransactionMetadata(transactionID transaction.ID) *CachedTransactionMetadata {
-	return &CachedTransactionMetadata{CachedObject: utxoDAG.transactionMetadataStorage.Load(transactionID.Bytes())}
-}
-
-// TransactionOutput loads the given output from the objectstorage.
-func (utxoDAG *UTXODAG) TransactionOutput(outputID transaction.OutputID) *CachedOutput {
-	return &CachedOutput{CachedObject: utxoDAG.outputStorage.Load(outputID.Bytes())}
-}
-
-// GetConsumers retrieves the approvers of a payload from the object storage.
-func (utxoDAG *UTXODAG) GetConsumers(outputID transaction.OutputID) CachedConsumers {
-	consumers := make(CachedConsumers, 0)
-	utxoDAG.consumerStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		consumers = append(consumers, &CachedConsumer{CachedObject: cachedObject})
-
-		return true
-	}, outputID.Bytes())
-
-	return consumers
-}
-
-// GetAttachments retrieves the attachment of a payload from the object storage.
-func (utxoDAG *UTXODAG) GetAttachments(transactionID transaction.ID) CachedAttachments {
-	attachments := make(CachedAttachments, 0)
-	utxoDAG.attachmentStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		attachments = append(attachments, &CachedAttachment{CachedObject: cachedObject})
-
-		return true
-	}, transactionID.Bytes())
-
-	return attachments
-}
-
-// ValueObjectBooking retrieves a booking of a value object.
-func (utxoDAG *UTXODAG) ValueObjectBooking(id payload.ID) *CachedValueObjectBooking {
-	return &CachedValueObjectBooking{CachedObject: utxoDAG.valueObjectBookingStorage.Load(id.Bytes())}
-}
-
-// Shutdown stops the worker pools and shuts down the object storage instances.
-func (utxoDAG *UTXODAG) Shutdown() *UTXODAG {
-	utxoDAG.workerPool.ShutdownGracefully()
-
-	utxoDAG.transactionStorage.Shutdown()
-	utxoDAG.transactionMetadataStorage.Shutdown()
-	utxoDAG.outputStorage.Shutdown()
-	utxoDAG.consumerStorage.Shutdown()
-
-	return utxoDAG
-}
-
-// Prune resets the database and deletes all objects (for testing or "node resets").
-func (utxoDAG *UTXODAG) Prune() (err error) {
-	if err = utxoDAG.branchManager.Prune(); err != nil {
-		return
-	}
-
-	for _, storage := range []*objectstorage.ObjectStorage{
-		utxoDAG.transactionStorage,
-		utxoDAG.transactionMetadataStorage,
-		utxoDAG.outputStorage,
-		utxoDAG.consumerStorage,
-	} {
-		if err = storage.Prune(); err != nil {
-			return
-		}
-	}
-
-	return
-}
-
-func (utxoDAG *UTXODAG) storeTransactionWorker(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *tangle.CachedPayloadMetadata) {
-	defer cachedPayload.Release()
-	defer cachedPayloadMetadata.Release()
-
-	// abort if the parameters are empty
-	solidPayload := cachedPayload.Unwrap()
-	if solidPayload == nil || cachedPayloadMetadata.Unwrap() == nil {
-		return
-	}
-
-	// store objects in database
-	cachedTransaction, cachedTransactionMetadata, cachedAttachment, transactionIsNew := utxoDAG.storeTransactionModels(solidPayload)
-
-	// abort if the attachment was previously processed already (nil == was not stored)
-	if cachedAttachment == nil {
-		cachedTransaction.Release()
-		cachedTransactionMetadata.Release()
-
-		return
-	}
-
-	// trigger events for a new transaction
-	if transactionIsNew {
-		utxoDAG.Events.TransactionReceived.Trigger(cachedTransaction, cachedTransactionMetadata, cachedAttachment)
-	}
-
-	// check solidity of transaction and its corresponding attachment
-	utxoDAG.solidifyTransactionWorker(cachedTransaction, cachedTransactionMetadata, cachedAttachment)
-}
-
-func (utxoDAG *UTXODAG) storeTransactionModels(solidPayload *payload.Payload) (cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment, transactionIsNew bool) {
-	cachedTransaction = &transaction.CachedTransaction{CachedObject: utxoDAG.transactionStorage.ComputeIfAbsent(solidPayload.Transaction().ID().Bytes(), func(key []byte) objectstorage.StorableObject {
-		transactionIsNew = true
-
-		result := solidPayload.Transaction()
-		result.Persist()
-		result.SetModified()
-
-		return result
-	})}
-
-	if transactionIsNew {
-		cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: utxoDAG.transactionMetadataStorage.Store(NewTransactionMetadata(solidPayload.Transaction().ID()))}
-
-		// store references to the consumed outputs
-		solidPayload.Transaction().Inputs().ForEach(func(outputId transaction.OutputID) bool {
-			utxoDAG.consumerStorage.Store(NewConsumer(outputId, solidPayload.Transaction().ID())).Release()
-
-			return true
-		})
-	} else {
-		cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: utxoDAG.transactionMetadataStorage.Load(solidPayload.Transaction().ID().Bytes())}
-	}
-
-	// store a reference from the transaction to the payload that attached it or abort, if we have processed this attachment already
-	attachment, stored := utxoDAG.attachmentStorage.StoreIfAbsent(NewAttachment(solidPayload.Transaction().ID(), solidPayload.ID()))
-	if !stored {
-		return
-	}
-	cachedAttachment = &CachedAttachment{CachedObject: attachment}
-
-	return
-}
-
-func (utxoDAG *UTXODAG) solidifyTransactionWorker(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment) {
+func (utxoDAG *UTXODAG) solidifyTransactionWorker(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, cachedAttachment *tangle.CachedAttachment) {
 	// initialize the stack
 	solidificationStack := list.New()
 	solidificationStack.PushBack([3]interface{}{cachedTransaction, cachedTransactionMetadata, cachedAttachment})
@@ -256,7 +66,7 @@ func (utxoDAG *UTXODAG) solidifyTransactionWorker(cachedTransaction *transaction
 			}
 
 			// ... and schedule check of approvers
-			utxoDAG.ForEachConsumers(currentTransaction, func(cachedTransaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment) {
+			utxoDAG.ForEachConsumers(currentTransaction, func(cachedTransaction *transaction.CachedTransaction, transactionMetadata *tangle.CachedTransactionMetadata, cachedAttachment *tangle.CachedAttachment) {
 				solidificationStack.PushBack([3]interface{}{cachedTransaction, transactionMetadata, cachedAttachment})
 			})
 
@@ -268,17 +78,17 @@ func (utxoDAG *UTXODAG) solidifyTransactionWorker(cachedTransaction *transaction
 	}
 }
 
-func (utxoDAG *UTXODAG) popElementsFromSolidificationStack(stack *list.List) (*transaction.CachedTransaction, *CachedTransactionMetadata, *CachedAttachment) {
+func (utxoDAG *UTXODAG) popElementsFromSolidificationStack(stack *list.List) (*transaction.CachedTransaction, *tangle.CachedTransactionMetadata, *tangle.CachedAttachment) {
 	currentSolidificationEntry := stack.Front()
 	cachedTransaction := currentSolidificationEntry.Value.([3]interface{})[0].(*transaction.CachedTransaction)
-	cachedTransactionMetadata := currentSolidificationEntry.Value.([3]interface{})[1].(*CachedTransactionMetadata)
-	cachedAttachment := currentSolidificationEntry.Value.([3]interface{})[2].(*CachedAttachment)
+	cachedTransactionMetadata := currentSolidificationEntry.Value.([3]interface{})[1].(*tangle.CachedTransactionMetadata)
+	cachedAttachment := currentSolidificationEntry.Value.([3]interface{})[2].(*tangle.CachedAttachment)
 	stack.Remove(currentSolidificationEntry)
 
 	return cachedTransaction, cachedTransactionMetadata, cachedAttachment
 }
 
-func (utxoDAG *UTXODAG) isTransactionSolid(tx *transaction.Transaction, metadata *TransactionMetadata) (bool, error) {
+func (utxoDAG *UTXODAG) isTransactionSolid(tx *transaction.Transaction, metadata *tangle.TransactionMetadata) (bool, error) {
 	// abort if any of the models are nil or has been deleted
 	if tx == nil || tx.IsDeleted() || metadata == nil || metadata.IsDeleted() {
 		return false, nil
@@ -308,8 +118,8 @@ func (utxoDAG *UTXODAG) isTransactionSolid(tx *transaction.Transaction, metadata
 	return true, nil
 }
 
-func (utxoDAG *UTXODAG) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result CachedOutputs) {
-	result = make(CachedOutputs)
+func (utxoDAG *UTXODAG) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result tangle.CachedOutputs) {
+	result = make(tangle.CachedOutputs)
 	tx.Inputs().ForEach(func(inputId transaction.OutputID) bool {
 		result[inputId] = utxoDAG.TransactionOutput(inputId)
 
@@ -319,7 +129,7 @@ func (utxoDAG *UTXODAG) getCachedOutputsFromTransactionInputs(tx *transaction.Tr
 	return
 }
 
-func (utxoDAG *UTXODAG) checkTransactionInputs(cachedInputs CachedOutputs) (inputsSolid bool, consumedBalances map[balance.Color]int64, err error) {
+func (utxoDAG *UTXODAG) checkTransactionInputs(cachedInputs tangle.CachedOutputs) (inputsSolid bool, consumedBalances map[balance.Color]int64, err error) {
 	inputsSolid = true
 	consumedBalances = make(map[balance.Color]int64)
 	consumedBranches := make([]branchmanager.BranchID, 0)
@@ -453,16 +263,16 @@ func (utxoDAG *UTXODAG) checkTransactionOutputs(inputBalances map[balance.Color]
 }
 
 // ForEachConsumers iterates through the transactions that are consuming outputs of the given transactions
-func (utxoDAG *UTXODAG) ForEachConsumers(currentTransaction *transaction.Transaction, consume func(cachedTransaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment)) {
+func (utxoDAG *UTXODAG) ForEachConsumers(currentTransaction *transaction.Transaction, consume func(cachedTransaction *transaction.CachedTransaction, transactionMetadata *tangle.CachedTransactionMetadata, cachedAttachment *tangle.CachedAttachment)) {
 	seenTransactions := make(map[transaction.ID]types.Empty)
 	currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		utxoDAG.GetConsumers(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(consumer *Consumer) {
+		utxoDAG.GetConsumers(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(consumer *tangle.Consumer) {
 			if _, transactionSeen := seenTransactions[consumer.TransactionID()]; !transactionSeen {
 				seenTransactions[consumer.TransactionID()] = types.Void
 
 				cachedTransaction := utxoDAG.Transaction(consumer.TransactionID())
 				cachedTransactionMetadata := utxoDAG.TransactionMetadata(consumer.TransactionID())
-				for _, cachedAttachment := range utxoDAG.GetAttachments(consumer.TransactionID()) {
+				for _, cachedAttachment := range utxoDAG.Attachments(consumer.TransactionID()) {
 					consume(cachedTransaction, cachedTransactionMetadata, cachedAttachment)
 				}
 			}
@@ -472,7 +282,7 @@ func (utxoDAG *UTXODAG) ForEachConsumers(currentTransaction *transaction.Transac
 	})
 }
 
-func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment) (err error) {
+func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, cachedAttachment *tangle.CachedAttachment) (err error) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
 
@@ -559,7 +369,7 @@ func (utxoDAG *UTXODAG) bookTransaction(cachedTransaction *transaction.CachedTra
 
 	// book outputs into the target branch
 	transactionToBook.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		newOutput := NewOutput(address, transactionToBook.ID(), targetBranch.ID(), balances)
+		newOutput := tangle.NewOutput(address, transactionToBook.ID(), targetBranch.ID(), balances)
 		newOutput.SetSolid(true)
 		utxoDAG.outputStorage.Store(newOutput).Release()
 
@@ -614,7 +424,7 @@ func (utxoDAG *UTXODAG) calculateBranchOfTransaction(currentTransaction *transac
 }
 
 // TODO: write comment what it does
-func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata, cachedTargetBranch *branchmanager.CachedBranch) (err error) {
+func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, cachedTargetBranch *branchmanager.CachedBranch) (err error) {
 	// push transaction that shall be moved to the stack
 	transactionStack := list.New()
 	branchStack := list.New()
@@ -644,7 +454,7 @@ func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.C
 					// retrieve transaction details from stack
 					currentSolidificationEntry := transactionStack.Front()
 					currentCachedTransaction := currentSolidificationEntry.Value.([2]interface{})[0].(*transaction.CachedTransaction)
-					currentCachedTransactionMetadata := currentSolidificationEntry.Value.([2]interface{})[1].(*CachedTransactionMetadata)
+					currentCachedTransactionMetadata := currentSolidificationEntry.Value.([2]interface{})[1].(*tangle.CachedTransactionMetadata)
 					transactionStack.Remove(currentSolidificationEntry)
 					defer currentCachedTransaction.Release()
 					defer currentCachedTransactionMetadata.Release()
@@ -720,7 +530,7 @@ func (utxoDAG *UTXODAG) moveTransactionToBranch(cachedTransaction *transaction.C
 
 						// schedule consumers for further checks
 						consumingTransactions := make(map[transaction.ID]types.Empty)
-						utxoDAG.GetConsumers(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(consumer *Consumer) {
+						utxoDAG.GetConsumers(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(consumer *tangle.Consumer) {
 							consumingTransactions[consumer.TransactionID()] = types.Void
 						})
 						for transactionID := range consumingTransactions {
@@ -801,10 +611,11 @@ func (utxoDAG *UTXODAG) Fork(transactionID transaction.ID, conflictingInputs []t
 	return
 }
 
-func (utxoDAG *UTXODAG) bookValueObject(cachedTransactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment) {
+func (utxoDAG *UTXODAG) bookValueObject(cachedTransactionMetadata *tangle.CachedTransactionMetadata, cachedAttachment *tangle.CachedAttachment) {
 	defer cachedAttachment.Release()
 	defer cachedTransactionMetadata.Release()
 
+	// the only reason to
 	attachment := cachedAttachment.Unwrap()
 	if attachment == nil {
 		return
@@ -855,5 +666,5 @@ func (utxoDAG *UTXODAG) bookValueObject(cachedTransactionMetadata *CachedTransac
 		return
 	}
 
-	fmt.Println("BOOKED")
+	fmt.Println("BOOKED", aggregatedBranch.ID())
 }

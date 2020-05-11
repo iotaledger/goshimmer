@@ -24,7 +24,7 @@ func TestNewOutput(t *testing.T) {
 	randomAddress := address.Random()
 	randomTransactionID := transaction.RandomID()
 
-	output := NewOutput(randomAddress, randomTransactionID, branchmanager.MasterBranchID, []*balance.Balance{
+	output := tangle.NewOutput(randomAddress, randomTransactionID, branchmanager.MasterBranchID, []*balance.Balance{
 		balance.New(balance.ColorIOTA, 1337),
 	})
 
@@ -41,7 +41,7 @@ func TestNewOutput(t *testing.T) {
 	assert.Equal(t, true, output.Solid())
 	assert.NotEqual(t, time.Time{}, output.SolidificationTime())
 
-	clonedOutput, _, err := OutputFromBytes(output.Bytes())
+	clonedOutput, _, err := tangle.OutputFromBytes(output.Bytes())
 	if err != nil {
 		panic(err)
 	}
@@ -57,17 +57,17 @@ func TestAttachment(t *testing.T) {
 	transactionID := transaction.RandomID()
 	payloadID := payload.RandomID()
 
-	attachment := NewAttachment(transactionID, payloadID)
+	attachment := tangle.NewAttachment(transactionID, payloadID)
 
 	assert.Equal(t, transactionID, attachment.TransactionID())
 	assert.Equal(t, payloadID, attachment.PayloadID())
 
-	clonedAttachment, consumedBytes, err := AttachmentFromBytes(attachment.Bytes())
+	clonedAttachment, consumedBytes, err := tangle.AttachmentFromBytes(attachment.Bytes())
 	if err != nil {
 		panic(err)
 	}
 
-	assert.Equal(t, AttachmentLength, consumedBytes)
+	assert.Equal(t, tangle.AttachmentLength, consumedBytes)
 	assert.Equal(t, transactionID, clonedAttachment.TransactionID())
 	assert.Equal(t, payloadID, clonedAttachment.PayloadID())
 }
@@ -94,11 +94,11 @@ func TestTangle_AttachPayload(t *testing.T) {
 	transferID1, _ := transaction.IDFromBase58("8opHzTAnfzRpPEx21XtnrVTX28YQuCpAjcn1PczScKh")
 	transferID2, _ := transaction.IDFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
 
-	input1 := NewOutput(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferID1, branchmanager.MasterBranchID, []*balance.Balance{
+	input1 := tangle.NewOutput(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferID1, branchmanager.MasterBranchID, []*balance.Balance{
 		balance.New(balance.ColorIOTA, 337),
 	})
 	input1.SetSolid(true)
-	input2 := NewOutput(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferID2, branchmanager.MasterBranchID, []*balance.Balance{
+	input2 := tangle.NewOutput(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferID2, branchmanager.MasterBranchID, []*balance.Balance{
 		balance.New(balance.ColorIOTA, 1000),
 	})
 	input2.SetSolid(true)
