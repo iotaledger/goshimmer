@@ -16,6 +16,7 @@ import {ExplorerAddressQueryResult} from "app/components/ExplorerAddressResult";
 import {Explorer404} from "app/components/Explorer404";
 import {Neighbors} from "app/components/Neighbors";
 import {Visualizer} from "app/components/Visualizer";
+import FPC from "app/components/FPC";
 
 interface Props {
     history: any;
@@ -65,6 +66,11 @@ export class Root extends React.Component<Props, any> {
                                 dRNG
                             </Nav.Link>
                         </LinkContainer>
+                        <LinkContainer to="/fpc-example">
+                            <Nav.Link>
+                                FPC
+                            </Nav.Link>
+                        </LinkContainer>
                     </Nav>
                     <Navbar.Collapse className="justify-content-end">
                         <NavExplorerSearchbar/>
@@ -82,6 +88,7 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/explorer/address/:id" component={ExplorerAddressQueryResult}/>
                     <Route exact path="/explorer/404/:search" component={Explorer404}/>
                     <Route exact path="/explorer" component={Explorer}/>
+                    <Route exact path="/fpc-example" component={FPC}/>
                     <Route exact path="/visualizer" component={Visualizer}/>
                     <Route exact path="/drng" component={Drng}/>
                     <Redirect to="/dashboard"/>
