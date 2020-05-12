@@ -1,6 +1,9 @@
 package dashboard
 
 import (
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
+	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	drngpayload "github.com/iotaledger/goshimmer/packages/binary/drng/payload"
 	drngheader "github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	cb "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
@@ -31,6 +34,30 @@ type DrngCollectiveBeaconPayload struct {
 	Dpk     []byte `json:"dpk"`
 }
 
+type ValuePayload struct {
+	Id        string          `json:"payload_id"`
+	ParentID0 string          `json:"parent_id_0"`
+	ParentID1 string          `json:"parent_id_1"`
+	TxId      string          `json:"tx_id"`
+	Input     []InputContent  `json:"inputs"`
+	Output    []OutputContent `json:"outputs"`
+	Data      []byte          `json:"data"`
+}
+
+type InputContent struct {
+	Address string `json:"address"`
+}
+
+type OutputContent struct {
+	Address  string    `json:"address"`
+	Balances []Balance `json:"balance"`
+}
+
+type Balance struct {
+	Value int64  `json:"value"`
+	Color string `json:"color"`
+}
+
 // Processpayload generates different structs regarding to the
 // payload type.
 func ProcessPayload(p payload.Payload) interface{} {
@@ -44,6 +71,8 @@ func ProcessPayload(p payload.Payload) interface{} {
 	case drngpayload.Type:
 		// drng payload
 		return processDrngPayload(p)
+	case valuepayload.Type:
+		return processValuePayload(p)
 	default:
 		// unknown payload
 		return BasicPayload{
@@ -80,5 +109,46 @@ func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 		SubPayloadType: drngPayload.Header.PayloadType,
 		InstanceId:     drngPayload.Header.InstanceID,
 		SubPayload:     subpayload,
+	}
+}
+
+// processValuePayload handles Value payload
+func processValuePayload(p payload.Payload) (vp ValuePayload) {
+	marshalUtil := marshalutil.New(p.Bytes())
+	v, _ := valuepayload.Parse(marshalUtil)
+
+	var inputs []InputContent
+	var outputs []OutputContent
+
+	v.Transaction().Inputs().ForEachAddress(func(currentAddress address.Address) bool {
+		inputs = append(inputs, InputContent{Address: currentAddress.String()})
+		return true
+	})
+
+	v.Transaction().Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+		var b []Balance
+		for _, balance := range balances {
+			b = append(b, Balance{
+				Value: balance.Value(),
+				Color: balance.Color().String(),
+			})
+		}
+		t := OutputContent{
+			Address:  address.String(),
+			Balances: b,
+		}
+		outputs = append(outputs, t)
+
+		return true
+	})
+
+	return ValuePayload{
+		Id:        v.ID().String(),
+		ParentID0: v.TrunkID().String(),
+		ParentID1: v.BranchID().String(),
+		TxId:      v.Transaction().ID().String(),
+		Input:     inputs,
+		Output:    outputs,
+		Data:      v.Transaction().GetDataPayload(),
 	}
 }
