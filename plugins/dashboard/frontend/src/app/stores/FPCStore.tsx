@@ -1,5 +1,7 @@
 import {RouterStore} from "mobx-react-router";
-import {action, observable, ObservableMap} from "mobx";
+import {action, computed, observable, ObservableMap} from "mobx";
+import Col from "react-bootstrap/Col";
+import * as React from "react";
 
 export class Node {
     id: number;
@@ -46,6 +48,23 @@ export class FPCStore {
             node.opinion = Math.floor(Math.random() * 100);
             this.nodes.set(key, node);
         }
+    }
+
+    @computed
+    get nodeGrid(){
+        let nodeSquares = [];
+        this.nodes.forEach((node: Node, id: number, obj: Map<number, Node>) => {
+            nodeSquares.push(
+                <Col xs={1} key={id.toString()} style={{
+                    height: 50,
+                    width: 50,
+                    background: LightenDarkenColor("#707070", node.opinion),
+                }}>
+                    {node.opinion}
+                </Col>
+            )
+        })
+        return nodeSquares;
     }
 
 
