@@ -1,18 +1,12 @@
 package tipmanager
 
 import (
-	"math/rand"
-	"sync"
-	"testing"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/stretchr/testify/assert"
 )
 
+/*
 func TestTipManagerSimple(t *testing.T) {
 	tipManager := New()
 
@@ -88,29 +82,7 @@ func TestTipManagerParallel(t *testing.T) {
 	// check total tip count
 	assert.Equal(t, totalTips*totalThreads, tipManager.TipCount(branches...))
 }
-
-func TestTipManager_weightedRandom(t *testing.T) {
-	totalRounds := 1000000
-	weights := []int{1, 20, 39, 30, 9, 1}
-	weightsSum := 0
-	for _, w := range weights {
-		weightsSum += w
-	}
-	// make sure result is within delta of 0.01
-	delta := float64(totalRounds / weightsSum)
-
-	counts := make([]int, len(weights))
-
-	// calculate weighted random
-	for i := 0; i < totalRounds; i++ {
-		counts[weightedRandom(weights)]++
-	}
-
-	for i, c := range counts {
-		expected := totalRounds * weights[i] / weightsSum
-		assert.InDelta(t, expected, c, delta)
-	}
-}
+*/
 
 func createDummyTransaction() *transaction.Transaction {
 	return transaction.New(

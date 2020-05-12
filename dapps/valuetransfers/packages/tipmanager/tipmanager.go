@@ -1,7 +1,6 @@
 package tipmanager
 
 import (
-	"math/rand"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
@@ -10,17 +9,21 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
-// TipManager manages tips of all branches and emits events for their removal and addition.
+// TipManager manages liked tips, tips of all branches and emits events for their removal and addition.
 type TipManager struct {
-	tips      map[branchmanager.BranchID]*datastructure.RandomMap
-	tipsMutex sync.Mutex
-	Events    Events
+	// tips are all currently liked tips.
+	tips *datastructure.RandomMap
+	// branches contains data for every branch and its current tips.
+	branches map[branchmanager.BranchID]*Branch
+	mutex    sync.Mutex // TODO: should be locked at branch level
+	Events   Events
 }
 
 // New creates a new TipManager.
 func New() *TipManager {
 	return &TipManager{
-		tips: make(map[branchmanager.BranchID]*datastructure.RandomMap),
+		tips:     datastructure.NewRandomMap(),
+		branches: make(map[branchmanager.BranchID]*Branch),
 		Events: Events{
 			TipAdded:   events.NewEvent(payloadIDEvent),
 			TipRemoved: events.NewEvent(payloadIDEvent),
@@ -28,136 +31,203 @@ func New() *TipManager {
 	}
 }
 
-// AddTip adds the given value object as a tip in the given branch.
-func (t *TipManager) AddTip(valueObject *payload.Payload, branch branchmanager.BranchID) {
-	objectID := valueObject.ID()
-	//parent1ID := valueObject.TrunkID()
-	//parent2ID := valueObject.BranchID()
-
-	t.tipsMutex.Lock()
-	defer t.tipsMutex.Unlock()
-
-	branchTips, ok := t.tips[branch]
-	if !ok {
-		// add new branch to tips map
-		branchTips = datastructure.NewRandomMap()
-		t.tips[branch] = branchTips
-	}
-
-	if branchTips.Set(objectID, objectID) {
-		t.Events.TipAdded.Trigger(objectID, branch)
-	}
-
-	// remove parents
-	// TODO: parents could be in another branch. get branch via ID ?
-	// utxoDAG.ValueObjectBooking(valueObjectID).Unwrap().BranchID()
-	//if _, deleted := branchTips.Delete(parent1ID); deleted {
-	//	t.Events.TipRemoved.Trigger(parent1ID, branch)
-	//}
-	//
-	//if _, deleted := branchTips.Delete(parent2ID); deleted {
-	//	t.Events.TipRemoved.Trigger(parent2ID, branch)
-	//}
+// Tip represents a tip with its corresponding branchID and a reverse mapping to branches that reference it.
+type Tip struct {
+	id       payload.ID
+	branchID branchmanager.BranchID
+	// referencedByOtherBranches is a reverse mapping to all branches that reference this tip as entryPoint.
+	referencedByOtherBranches map[branchmanager.BranchID]*Branch
 }
 
-// Tips randomly selects tips in the given branches weighted by size.
-func (t *TipManager) Tips(branches ...branchmanager.BranchID) (parent1ObjectID, parent2ObjectID payload.ID) {
-	if len(branches) == 0 {
-		parent1ObjectID = payload.GenesisID
-		parent2ObjectID = payload.GenesisID
-		return
+func newTip(id payload.ID, branchID branchmanager.BranchID) *Tip {
+	return &Tip{
+		id:                        id,
+		branchID:                  branchID,
+		referencedByOtherBranches: make(map[branchmanager.BranchID]*Branch),
+	}
+}
+
+// Branch represents a branch with its tips and entryPoints.
+type Branch struct {
+	branchID branchmanager.BranchID
+	liked    bool
+
+	// tips are the current tips in this branch.
+	tips map[payload.ID]*Tip
+	// entryPoints are tips in other branches that are referenced by this branch.
+	entryPoints map[payload.ID]*Tip
+}
+
+func newBranch(branchID branchmanager.BranchID, liked bool) *Branch {
+	return &Branch{
+		branchID:    branchID,
+		tips:        make(map[payload.ID]*Tip),
+		entryPoints: make(map[payload.ID]*Tip),
+		liked:       liked,
+	}
+}
+
+// AddTip adds the given value object as a tip in the given branch.
+// If the branch is liked it is also added to t.tips.
+// Parents are handled depending on the relation (same or different branch).
+func (t *TipManager) AddTip(valueObject *payload.Payload, b *branchmanager.Branch) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	objectID := valueObject.ID()
+	parent1ID := valueObject.TrunkID()
+	parent2ID := valueObject.BranchID()
+
+	branch, ok := t.branches[b.ID()]
+	if !ok {
+		branch = newBranch(b.ID(), b.Liked())
+		t.branches[b.ID()] = branch
 	}
 
-	weights := make([]int, len(branches))
-	totalTips := 0
-	tipsSlice := make([]*datastructure.RandomMap, len(branches))
+	// add new tip to branch.tips
+	tip := newTip(objectID, branch.branchID)
+	branch.tips[objectID] = tip
 
-	t.tipsMutex.Lock()
-	defer t.tipsMutex.Unlock()
+	// TODO: retrieve parents' branches
+	parent1branch := branch
+	addTipHandleParent(parent1ID, parent1branch, branch)
+	parent2branch := branch
+	addTipHandleParent(parent2ID, parent2branch, branch)
 
-	// prepare weighted random selection
-	for i, b := range branches {
-		branchTips, ok := t.tips[b]
-		if !ok {
-			continue
-		}
-
-		tipsSlice[i] = branchTips
-		weights[i] = branchTips.Size()
-		totalTips += weights[i]
+	// add to t.tips and remove parents from t.tips if branch is liked
+	if branch.liked {
+		t.tips.Set(tip.id, tip)
+		t.tips.Delete(parent1ID)
+		t.tips.Delete(parent2ID)
 	}
+}
 
-	// no tips in the given branches
-	// TODO: what exactly to do in this case?
-	if totalTips == 0 {
-		parent1ObjectID = payload.GenesisID
-		parent2ObjectID = payload.GenesisID
-		return
-	}
+// Tips returns two randomly selected tips.
+func (t *TipManager) Tips() (parent1ObjectID, parent2ObjectID payload.ID) {
+	// TODO: this might be over locking
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
-	// select tips
-	random := weightedRandom(weights)
-
-	branchTips := tipsSlice[random]
-	tip := branchTips.RandomEntry()
+	tip := t.tips.RandomEntry()
 	if tip == nil {
-		// this case should never occur due to weighted random selection
-		panic("tip is nil.")
+		parent1ObjectID = payload.GenesisID
+		parent2ObjectID = payload.GenesisID
+		return
 	}
-	parent1ObjectID = tip.(payload.ID)
 
-	if totalTips == 1 {
+	parent1ObjectID = tip.(Tip).id
+
+	if t.tips.Size() == 1 {
 		parent2ObjectID = parent1ObjectID
 		return
 	}
 
-	// adjust weights
-	weights[random] -= 1
-
-	branchTips = tipsSlice[weightedRandom(weights)]
-	tip = branchTips.RandomEntry()
-	if tip == nil {
-		// this case should never occur due to weighted random selection
-		panic("tip is nil.")
+	parent2ObjectID = t.tips.RandomEntry().(Tip).id
+	// select 2 distinct tips if there's more than 1 tip available
+	for parent1ObjectID == parent2ObjectID && t.tips.Size() > 1 {
+		parent2ObjectID = t.tips.RandomEntry().(Tip).id
 	}
-	parent2ObjectID = tip.(payload.ID)
 
 	return
 }
 
-// TipCount returns the total tips in the given branches.
-func (t *TipManager) TipCount(branches ...branchmanager.BranchID) int {
-	t.tipsMutex.Lock()
-	defer t.tipsMutex.Unlock()
+// TipCount returns the total liked tips.
+func (t *TipManager) TipCount() int {
+	// TODO: this might be over locking
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 
-	totalTips := 0
-	for _, b := range branches {
-		branchTips, ok := t.tips[b]
-		if !ok {
-			continue
-		}
-
-		totalTips += branchTips.Size()
-	}
-	return totalTips
+	return t.tips.Size()
 }
 
-func weightedRandom(weights []int) int {
-	if len(weights) == 0 {
-		return 0
+// OnBranchLiked is called when a branch is liked.
+// It adds the branch's tips to t.tips and removes tips from referenced branches from t.tips.
+func (t *TipManager) OnBranchLiked(branchID branchmanager.BranchID) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	branch := t.branches[branchID]
+	branch.liked = true
+
+	// add tips of current branch
+	for _, tip := range branch.tips {
+		addTipIfNotReferencedByLikedBranch(tip, t)
 	}
 
-	totalWeight := 0
-	for _, w := range weights {
-		totalWeight += w
+	// remove tips from referenced branches
+	for objectID, _ := range branch.entryPoints {
+		t.tips.Delete(objectID)
 	}
-	r := rand.Intn(totalWeight)
+}
 
-	for i, w := range weights {
-		r -= w
-		if r < 0 {
-			return i
+// OnBranchDisliked is called when a branch is disliked.
+// It removes the branch's tips from t.tips and adds tips from referenced branches back to t.tips.
+func (t *TipManager) OnBranchDisliked(branchID branchmanager.BranchID) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	branch := t.branches[branchID]
+	branch.liked = false
+
+	// remove tips of current branch
+	for _, tip := range branch.tips {
+		t.tips.Delete(tip.id)
+	}
+
+	// add tips from referenced branches
+	for _, tipFromOtherBranch := range branch.entryPoints {
+		addTipIfNotReferencedByLikedBranch(tipFromOtherBranch, t)
+	}
+}
+
+// OnBranchDisliked is called when a branch is merged.
+// TODO: it should perform some cleanup logic
+func (t *TipManager) OnBranchMerged(branchID branchmanager.BranchID) {
+	// remove all tips from t.tips
+	// remove tips out of entryPoints of other branches
+}
+
+// removeTipAsEntryPoint removes the tip from all its referenced branches' entry point map.
+func removeTipAsEntryPoint(tip *Tip) {
+	for _, branch := range tip.referencedByOtherBranches {
+		delete(branch.entryPoints, tip.id)
+	}
+}
+
+// addTipHandleParent handles a tip's parent when adding it.
+// If the parent is in the same branch it is removed as a tip.
+// If the parent is not in the same branch a two-way mapping from parent to branch and branch to parent is created.
+func addTipHandleParent(parentID payload.ID, parentBranch *Branch, branch *Branch) {
+	parentTip := parentBranch.tips[parentID]
+
+	if parentBranch.branchID == branch.branchID {
+		// remove parents out of branch.tips
+		delete(branch.tips, parentID)
+		// properly remove parent -> not a tip anymore!
+		removeTipAsEntryPoint(parentTip)
+	} else {
+		// add reference to current branch to parent tip
+		parentTip.referencedByOtherBranches[branch.branchID] = branch
+
+		// add reference to parent to current branch
+		branch.entryPoints[parentID] = parentTip
+	}
+}
+
+// addTipIfNotReferencedByLikedBranch adds a tip to t.tips
+// only if it is not referenced by any liked branch.
+func addTipIfNotReferencedByLikedBranch(tip *Tip, t *TipManager) {
+	addTip := true
+
+	// if there's any liked branch referencing this tip we do not add it to t.tips
+	for _, b := range tip.referencedByOtherBranches {
+		if b.liked {
+			addTip = false
+			break
 		}
 	}
-	return len(weights) - 1
+
+	if addTip {
+		t.tips.Set(tip.id, tip)
+	}
 }
