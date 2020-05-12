@@ -68,7 +68,7 @@ func init() {
 	}
 }
 
-// ParseHeartbeat parses a slice of bytes into a heartbeat.
+// ParseHeartbeat parses a slice of bytes (serialized packet) into a heartbeat.
 func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 	// check minimum size
 	if len(data) < HeartbeatPacketMinSize {
@@ -129,6 +129,7 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 }
 
 // NewHeartbeatMessage serializes the given heartbeat into a byte slice and adds a tlv header to the packet.
+// message = tlv header + serialized packet
 func NewHeartbeatMessage(hb *Heartbeat) ([]byte, error) {
 	if len(hb.InboundIDs) > HeartbeatMaxInboundPeersCount {
 		return nil, fmt.Errorf("%w: heartbeat exceeds maximum inbound IDs of %d", ErrInvalidHeartbeat, HeartbeatMaxInboundPeersCount)
