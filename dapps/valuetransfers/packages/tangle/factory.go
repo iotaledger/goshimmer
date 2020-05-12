@@ -1,31 +1,31 @@
 package tangle
 
 import (
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tipmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/events"
 )
 
+// ValueObjectFactory acts as a factory to create new value objects.
 type ValueObjectFactory struct {
-	branchManager *branchmanager.BranchManager
-	tipManager    *tipmanager.TipManager
-	Events        *ValueObjectFactoryEvents
+	tipManager *tipmanager.TipManager
+	Events     *ValueObjectFactoryEvents
 }
 
-func NewValueObjectFactory(branchManager *branchmanager.BranchManager, tipManager *tipmanager.TipManager) *ValueObjectFactory {
+// NewValueObjectFactory creates a new ValueObjectFactory.
+func NewValueObjectFactory(tipManager *tipmanager.TipManager) *ValueObjectFactory {
 	return &ValueObjectFactory{
-		branchManager: branchManager,
-		tipManager:    tipManager,
+		tipManager: tipManager,
 		Events: &ValueObjectFactoryEvents{
 			ValueObjectConstructed: events.NewEvent(valueObjectConstructedEvent),
 		},
 	}
 }
 
+// IssueTransaction creates a new value object including tip selection and returns it.
+// It also triggers the ValueObjectConstructed event once it's done.
 func (v *ValueObjectFactory) IssueTransaction(tx *transaction.Transaction) *payload.Payload {
-	// TODO: we need a way to get the currently liked branches. e.g. branchManager.LikedBranches()
 	parent1, parent2 := v.tipManager.Tips()
 
 	valueObject := payload.New(parent1, parent2, tx)
