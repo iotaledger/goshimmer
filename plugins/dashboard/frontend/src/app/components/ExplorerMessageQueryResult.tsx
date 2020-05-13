@@ -12,6 +12,7 @@ import * as dateformat from 'dateformat';
 import {Link} from 'react-router-dom';
 import {BasicPayload} from 'app/components/BasicPayload'
 import {DrngPayload} from 'app/components/DrngPayload'
+import {ValuePayload} from 'app/components/ValuePayload'
 
 interface Props {
     nodeStore?: NodeStore;
@@ -44,6 +45,8 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
         switch(this.props.explorerStore.msg.payload_type) {
             case 0:
                 return "Data"
+            case 1:
+                return "Value"
             case 111:
                 return "Drng"
             default:
@@ -55,6 +58,8 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
         switch(this.props.explorerStore.msg.payload_type) {
             case 111:
                 return <DrngPayload/>
+            case 1:
+                return <ValuePayload/>
             case 0:
             default:
                 console.log(this.props.explorerStore.msg.payload.bytes)
