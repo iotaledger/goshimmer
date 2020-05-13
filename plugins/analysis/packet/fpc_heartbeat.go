@@ -1,0 +1,91 @@
+package packet
+
+import (
+	"bytes"
+	"encoding/binary"
+	"encoding/gob"
+	"errors"
+
+	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/hive.go/protocol/message"
+	"github.com/iotaledger/hive.go/protocol/tlv"
+)
+
+var (
+	// ErrInvalidFPCHeartbeat is returned for invalid FPC heartbeats.
+	ErrInvalidFPCHeartbeat = errors.New("invalid FPC heartbeat")
+)
+
+var (
+	// HeartbeatMessageDefinition defines a heartbeat message's format.
+	FPCHeartbeatMessageDefinition = &message.Definition{
+		ID:             MessageTypeFPCHeartbeat,
+		MaxBytesLength: 65535,
+		VariableLength: true,
+	}
+)
+
+// Heartbeat represents a heartbeat packet.
+type FPCHeartbeat struct {
+	// The ID of the node who sent the heartbeat.
+	// Must be contained when a heartbeat is serialized.
+	OwnID []byte
+	// RoundStats contains stats about an FPC round.
+	RoundStats vote.RoundStats
+	// Finalized contains the finalized conflicts within the last FPC round.
+	Finalized map[string]vote.Opinion
+}
+
+// ParseFPCHeartbeat parses a slice of bytes (serialized packet) into a FPC heartbeat.
+func ParseFPCHeartbeat(data []byte) (*FPCHeartbeat, error) {
+	hb := &FPCHeartbeat{}
+
+	buf := new(bytes.Buffer)
+	_, err := buf.Write(data)
+	if err != nil {
+		return nil, err
+	}
+
+	decoder := gob.NewDecoder(buf)
+	err = decoder.Decode(hb)
+	if err != nil {
+		return nil, err
+	}
+
+	return hb, nil
+}
+
+func (hb FPCHeartbeat) Bytes() ([]byte, error) {
+	buf := new(bytes.Buffer)
+	encoder := gob.NewEncoder(buf)
+	err := encoder.Encode(hb)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// NewHeartbeatMessage serializes the given heartbeat into a byte slice and adds a tlv header to the packet.
+// message = tlv header + serialized packet
+func NewFPCHeartbeatMessage(hb *FPCHeartbeat) ([]byte, error) {
+	packet, err := hb.Bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	// calculate total needed bytes based on packet
+	packetSize := len(packet)
+
+	// create a buffer for tlv header plus the packet
+	buf := bytes.NewBuffer(make([]byte, 0, tlv.HeaderMessageDefinition.MaxBytesLength+uint16(packetSize)))
+	// write tlv header into buffer
+	if err := tlv.WriteHeader(buf, MessageTypeFPCHeartbeat, uint16(packetSize)); err != nil {
+		return nil, err
+	}
+	// write serialized packet bytes into the buffer
+	if err := binary.Write(buf, binary.BigEndian, packet); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}

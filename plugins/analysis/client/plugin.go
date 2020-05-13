@@ -7,12 +7,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/fpctest"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/network"
 	"github.com/iotaledger/hive.go/node"
@@ -42,6 +45,10 @@ var (
 func run(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+
+		fpctest.Voter().Events().RoundExecuted.Attach(events.NewClosure(onRoundExecuted))
+		defer fpctest.Voter().Events().RoundExecuted.Detach(events.NewClosure(onRoundExecuted))
+
 		ticker := time.NewTicker(reportIntervalSec * time.Second)
 		defer ticker.Stop()
 		for {
@@ -133,4 +140,39 @@ func reportHeartbeat(dispatchers *EventDispatchers) {
 
 	hb := &packet.Heartbeat{OwnID: nodeID, OutboundIDs: outboundIDs, InboundIDs: inboundIDs}
 	dispatchers.Heartbeat(hb)
+}
+
+func onRoundExecuted(roundStats *vote.RoundStats) {
+	// get own ID
+	var nodeID []byte
+	if local.GetInstance() != nil {
+		// doesn't copy the ID, take care not to modify underlying bytearray!
+		nodeID = local.GetInstance().ID().Bytes()
+	}
+
+	hb := &packet.FPCHeartbeat{
+		OwnID:      nodeID,
+		RoundStats: *roundStats,
+	}
+
+	data, err := packet.NewFPCHeartbeatMessage(hb)
+	if err != nil {
+		log.Info(err, " - FPC heartbeat message skipped")
+		return
+	}
+
+	conn, err := net.Dial("tcp", config.Node.GetString(CfgServerAddress))
+	if err != nil {
+		log.Debugf("Could not connect to reporting server: %s", err.Error())
+		return
+	}
+
+	managedConn := network.NewManagedConnection(conn)
+
+	connLock.Lock()
+	defer connLock.Unlock()
+	if _, err = managedConn.Write(data); err != nil {
+		log.Debugw("Error while writing to connection", "Description", err)
+		return
+	}
 }

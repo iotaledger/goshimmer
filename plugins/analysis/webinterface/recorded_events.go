@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/node"
 )
 
 // the period in which we scan and delete old data.
@@ -26,87 +25,98 @@ var (
 )
 
 // configures the event recording by attaching to the analysis server's heartbeat event.
-func configureEventsRecording(plugin *node.Plugin) {
-	server.Events.Heartbeat.Attach(events.NewClosure(func(hb *packet.Heartbeat) {
-		var out strings.Builder
-		for _, value := range hb.OutboundIDs {
-			out.WriteString(hex.EncodeToString(value))
+func configureEventsRecording() {
+	server.Events.Heartbeat.Attach(events.NewClosure(onHeartbeatReceived))
+	server.Events.FPCHeartbeat.Attach(events.NewClosure(onFPCHeartbeatReceived))
+}
+
+func onHeartbeatReceived(hb *packet.Heartbeat) {
+	var out strings.Builder
+	for _, value := range hb.OutboundIDs {
+		out.WriteString(hex.EncodeToString(value))
+	}
+	var in strings.Builder
+	for _, value := range hb.InboundIDs {
+		in.WriteString(hex.EncodeToString(value))
+	}
+	log.Debugw(
+		"Heartbeat",
+		"nodeId", hex.EncodeToString(hb.OwnID),
+		"outboundIds", out.String(),
+		"inboundIds", in.String(),
+	)
+	lock.Lock()
+	defer lock.Unlock()
+
+	nodeIDString := hex.EncodeToString(hb.OwnID)
+	timestamp := time.Now()
+
+	// when node is new, add to graph
+	if _, isAlready := nodes[nodeIDString]; !isAlready {
+		server.Events.AddNode.Trigger(nodeIDString)
+	}
+	// save it + update timestamp
+	nodes[nodeIDString] = timestamp
+
+	// outgoing neighbor links update
+	for _, outgoingNeighbor := range hb.OutboundIDs {
+		outgoingNeighborString := hex.EncodeToString(outgoingNeighbor)
+		// do we already know about this neighbor?
+		// if no, add it and set it online
+		if _, isAlready := nodes[outgoingNeighborString]; !isAlready {
+			// first time we see this particular node
+			server.Events.AddNode.Trigger(outgoingNeighborString)
 		}
-		var in strings.Builder
-		for _, value := range hb.InboundIDs {
-			in.WriteString(hex.EncodeToString(value))
-		}
-		plugin.Node.Logger.Debugw(
-			"Heartbeat",
-			"nodeId", hex.EncodeToString(hb.OwnID),
-			"outboundIds", out.String(),
-			"inboundIds", in.String(),
-		)
-		lock.Lock()
-		defer lock.Unlock()
+		// we have indirectly heard about the neighbor.
+		nodes[outgoingNeighborString] = timestamp
 
-		nodeIDString := hex.EncodeToString(hb.OwnID)
-		timestamp := time.Now()
-
-		// when node is new, add to graph
-		if _, isAlready := nodes[nodeIDString]; !isAlready {
-			server.Events.AddNode.Trigger(nodeIDString)
-		}
-		// save it + update timestamp
-		nodes[nodeIDString] = timestamp
-
-		// outgoing neighbor links update
-		for _, outgoingNeighbor := range hb.OutboundIDs {
-			outgoingNeighborString := hex.EncodeToString(outgoingNeighbor)
-			// do we already know about this neighbor?
-			// if no, add it and set it online
-			if _, isAlready := nodes[outgoingNeighborString]; !isAlready {
-				// first time we see this particular node
-				server.Events.AddNode.Trigger(outgoingNeighborString)
-			}
-			// we have indirectly heard about the neighbor.
-			nodes[outgoingNeighborString] = timestamp
-
-			// do we have any links already with src=nodeIdString?
-			if _, isAlready := links[nodeIDString]; !isAlready {
-				// nope, so we have to allocate an empty map to be nested in links for nodeIdString
-				links[nodeIDString] = make(map[string]time.Time)
-			}
-
-			// update graph when connection hasn't been seen before
-			if _, isAlready := links[nodeIDString][outgoingNeighborString]; !isAlready {
-				server.Events.ConnectNodes.Trigger(nodeIDString, outgoingNeighborString)
-			}
-			// update links
-			links[nodeIDString][outgoingNeighborString] = timestamp
+		// do we have any links already with src=nodeIdString?
+		if _, isAlready := links[nodeIDString]; !isAlready {
+			// nope, so we have to allocate an empty map to be nested in links for nodeIdString
+			links[nodeIDString] = make(map[string]time.Time)
 		}
 
-		// incoming neighbor links update
-		for _, incomingNeighbor := range hb.InboundIDs {
-			incomingNeighborString := hex.EncodeToString(incomingNeighbor)
-			// do we already know about this neighbor?
-			// if no, add it and set it online
-			if _, isAlready := nodes[incomingNeighborString]; !isAlready {
-				// First time we see this particular node
-				server.Events.AddNode.Trigger(incomingNeighborString)
-			}
-			// we have indirectly heard about the neighbor.
-			nodes[incomingNeighborString] = timestamp
-
-			// do we have any links already with src=incomingNeighborString?
-			if _, isAlready := links[incomingNeighborString]; !isAlready {
-				// nope, so we have to allocate an empty map to be nested in links for incomingNeighborString
-				links[incomingNeighborString] = make(map[string]time.Time)
-			}
-
-			// update graph when connection hasn't been seen before
-			if _, isAlready := links[incomingNeighborString][nodeIDString]; !isAlready {
-				server.Events.ConnectNodes.Trigger(incomingNeighborString, nodeIDString)
-			}
-			// update links map
-			links[incomingNeighborString][nodeIDString] = timestamp
+		// update graph when connection hasn't been seen before
+		if _, isAlready := links[nodeIDString][outgoingNeighborString]; !isAlready {
+			server.Events.ConnectNodes.Trigger(nodeIDString, outgoingNeighborString)
 		}
-	}))
+		// update links
+		links[nodeIDString][outgoingNeighborString] = timestamp
+	}
+
+	// incoming neighbor links update
+	for _, incomingNeighbor := range hb.InboundIDs {
+		incomingNeighborString := hex.EncodeToString(incomingNeighbor)
+		// do we already know about this neighbor?
+		// if no, add it and set it online
+		if _, isAlready := nodes[incomingNeighborString]; !isAlready {
+			// First time we see this particular node
+			server.Events.AddNode.Trigger(incomingNeighborString)
+		}
+		// we have indirectly heard about the neighbor.
+		nodes[incomingNeighborString] = timestamp
+
+		// do we have any links already with src=incomingNeighborString?
+		if _, isAlready := links[incomingNeighborString]; !isAlready {
+			// nope, so we have to allocate an empty map to be nested in links for incomingNeighborString
+			links[incomingNeighborString] = make(map[string]time.Time)
+		}
+
+		// update graph when connection hasn't been seen before
+		if _, isAlready := links[incomingNeighborString][nodeIDString]; !isAlready {
+			server.Events.ConnectNodes.Trigger(incomingNeighborString, nodeIDString)
+		}
+		// update links map
+		links[incomingNeighborString][nodeIDString] = timestamp
+	}
+}
+
+func onFPCHeartbeatReceived(hb *packet.FPCHeartbeat) {
+	log.Infow(
+		"FPCHeartbeat",
+		"nodeId", hex.EncodeToString(hb.OwnID),
+		"ActiveVoteContext", hb.RoundStats.ActiveVoteContexts,
+	)
 }
 
 func runEventsRecordManager() {

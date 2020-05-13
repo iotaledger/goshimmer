@@ -47,7 +47,7 @@ func configure(plugin *node.Plugin) {
 	}
 
 	engine.GET("/datastream", echo.WrapHandler(websocket.Handler(dataStream)))
-	configureEventsRecording(plugin)
+	configureEventsRecording()
 }
 
 func run(_ *node.Plugin) {
