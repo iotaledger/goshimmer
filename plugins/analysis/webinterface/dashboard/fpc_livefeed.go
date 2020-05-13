@@ -46,7 +46,7 @@ func runFPCLiveFeed() {
 			default:
 			}
 		})
-		drng.Instance().Events.Randomness.Attach(notifyNewFPCRound)
+		//drng.Instance().Events.Randomness.Attach(notifyNewFPCRound)
 
 		fpcLiveFeedWorkerPool.Start()
 		defer fpcLiveFeedWorkerPool.Stop()

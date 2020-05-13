@@ -43,7 +43,7 @@ func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 	configureWebSocketWorkerPool()
 	configureLiveFeed()
-	configureDrngLiveFeed()
+	configureFPCLiveFeed()
 	configureVisualizer()
 	configureServer()
 }
@@ -74,9 +74,9 @@ func run(*node.Plugin) {
 	runLiveFeed()
 	// run the visualizer vertex feed
 	runVisualizer()
-	// run dRNG live feed if dRNG plugin is enabled
+	// run FPC live feed if dRNG plugin is enabled
 	if !node.IsSkipped(drng.Plugin) {
-		runDrngLiveFeed()
+		runFPCLiveFeed()
 	}
 
 	log.Infof("Starting %s ...", PluginName)
