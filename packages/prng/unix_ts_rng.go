@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"time"
+
+	"github.com/dchest/blake2b"
 )
 
 // TimeSourceFunc is a function which gets an understanding of time in seconds resolution back.
@@ -62,12 +64,17 @@ func (utrng *UnixTimestampPrng) send() {
 	now := utrng.timeSourceFunc()
 	// reduce to last resolution
 	timePoint := now - (now % utrng.resolution)
-	//  convert to float64
+
 	buf := bytes.NewBuffer(make([]byte, 0, 8))
 	if err := binary.Write(buf, binary.LittleEndian, timePoint); err != nil {
 		panic(err)
 	}
-	pseudoR := float64(binary.BigEndian.Uint64(buf.Bytes()[:8])>>11) / (1 << 53)
+
+	// add entropy
+	h := blake2b.Sum256(buf.Bytes())
+
+	// convert to float64
+	pseudoR := float64(binary.BigEndian.Uint64(h[:8])>>11) / (1 << 53)
 	// skip slow consumers
 	select {
 	case utrng.c <- pseudoR:
