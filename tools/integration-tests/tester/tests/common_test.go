@@ -19,7 +19,7 @@ func TestSynchronization(t *testing.T) {
 	initalPeers := 4
 	n, err := f.CreateNetwork("common_TestSynchronization", initalPeers, 2, config)
 	require.NoError(t, err)
-	defer n.Shutdown()
+	defer ShutdownNetwork(t, n)
 
 	// wait for peers to change their state to synchronized
 	time.Sleep(5 * time.Second)

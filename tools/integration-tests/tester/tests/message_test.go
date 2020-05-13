@@ -11,7 +11,7 @@ import (
 func TestPersistence(t *testing.T) {
 	n, err := f.CreateNetwork("message_TestPersistence", 4, 2)
 	require.NoError(t, err)
-	defer n.Shutdown()
+	defer ShutdownNetwork(t, n)
 
 	// wait for peers to change their state to synchronized
 	time.Sleep(5 * time.Second)

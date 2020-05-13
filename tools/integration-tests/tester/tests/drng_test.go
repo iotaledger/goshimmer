@@ -23,7 +23,7 @@ func TestDRNG(t *testing.T) {
 
 	drng, err := f.CreateDRNGNetwork("TestDRNG", 5, 8, 3)
 	require.NoError(t, err)
-	defer drng.Shutdown()
+	defer ShutdownNetwork(t, drng)
 
 	// wait for randomness generation to be started
 	log.Printf("Waiting for randomness generation to be started...\n")
