@@ -22,6 +22,7 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/stringify"
 	"google.golang.org/grpc"
 )
 
@@ -88,7 +89,28 @@ func configureFPC() {
 		log.Fatalf("could not update services: %v", err)
 	}
 
+	// initialize the voter
 	Voter()
+
+	voter.Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
+		peersQueried := len(roundStats.QueriedOpinions)
+		voteContextsCount := len(roundStats.ActiveVoteContexts)
+		var s string
+		for _, conflict := range roundStats.ActiveVoteContexts {
+			s += stringify.Struct("VoteContext",
+				stringify.StructField("ID", conflict.ID),
+				stringify.StructField("eta", fmt.Sprintf("%.4f", conflict.Liked)),
+				stringify.StructField("history", fmt.Sprintf("%v", conflict.Opinions)),
+				stringify.StructField("last opinion", fmt.Sprintf("%d", conflict.LastOpinion())),
+			)
+			s += fmt.Sprintf("\nOpinion received:\n")
+			for _, opinion := range roundStats.QueriedOpinions {
+				s += fmt.Sprintf("%v - %v\n", opinion.OpinionGiverID, opinion.Opinions[conflict.ID])
+			}
+		}
+
+		log.Infof("executed round with rand %0.4f for %d vote contexts on %d peers, took %v\n%s", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration, s)
+	}))
 }
 
 func runFPC() {
@@ -97,7 +119,7 @@ func runFPC() {
 			ID, err := tangle.IDFromBase58(id)
 			if err != nil {
 				log.Errorf("received invalid vote request for conflict '%s'", id)
-
+				log.Infof("Unknown - from ID error")
 				return vote.Unknown
 			}
 
@@ -106,13 +128,15 @@ func runFPC() {
 
 			metadata := cachedMetadata.Unwrap()
 			if metadata == nil {
+				log.Infof("Unknown - from metadata nil")
 				return vote.Unknown
 			}
 
 			if !metadata.IsLiked() {
+				log.Infof("Dislike")
 				return vote.Dislike
 			}
-
+			log.Infof("Like")
 			return vote.Like
 		}, config.Node.GetString(CfgFPCBindAddress))
 
@@ -146,12 +170,6 @@ func runFPC() {
 		}
 		log.Infof("Stopped FPC round initiator")
 	}, shutdown.PriorityFPC)
-
-	voter.Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
-		peersQueried := len(roundStats.QueriedOpinions)
-		voteContextsCount := len(roundStats.ActiveVoteContexts)
-		log.Infof("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
-	}))
 }
 
 // PeerOpinionGiver implements the OpinionGiver interface based on a peer.

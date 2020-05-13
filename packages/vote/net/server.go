@@ -2,6 +2,7 @@ package net
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"github.com/iotaledger/goshimmer/packages/vote"
@@ -38,9 +39,11 @@ func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryRe
 		// check whether there's an ongoing vote
 		opinion, err := vs.voter.IntermediateOpinion(id)
 		if err == nil {
+			fmt.Println("Using intermediate opinion")
 			reply.Opinion[i] = int32(opinion)
 			continue
 		}
+		fmt.Println("Using storage opinion")
 		reply.Opinion[i] = int32(vs.opnRetriever(id))
 	}
 

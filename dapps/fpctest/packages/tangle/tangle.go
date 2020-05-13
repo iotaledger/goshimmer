@@ -101,6 +101,8 @@ func (tangle *Tangle) Prune() error {
 
 // storePayloadWorker is the worker function that stores the payload and calls the corresponding storage events.
 func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
+	// set initial like status
+
 	// store the payload and transaction models
 	cachedPayload, cachedPayloadMetadata, payloadStored := tangle.storePayload(payloadToStore)
 	if !payloadStored {

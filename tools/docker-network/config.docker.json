@@ -18,6 +18,9 @@
     "port": 14626,
     "version": 1
   },
+  "fpctest": {
+    "bindAddress": "0.0.0.0:10895"
+  },
   "dashboard": {
     "bindAddress": "0.0.0.0:8081",
     "dev": false,

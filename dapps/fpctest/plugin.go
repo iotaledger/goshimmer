@@ -55,16 +55,6 @@ func configure(_ *node.Plugin) {
 	// TODO: DECIDE WHAT WE SHOULD DO IF FPC FAILS -> cry
 	// voter.Events().Failed.Attach(events.NewClosure(panic))
 
-}
-
-func run(*node.Plugin) {
-	_ = daemon.BackgroundWorker("FPCTangle", func(shutdownSignal <-chan struct{}) {
-		<-shutdownSignal
-		FPCTangle.Shutdown()
-	}, shutdown.PriorityTangle)
-
-	runFPC()
-
 	voter.Events().Finalized.Attach(events.NewClosure(func(id string, opinion vote.Opinion) {
 		ID, err := tangle.IDFromBase58(id)
 		if err != nil {
@@ -88,13 +78,23 @@ func run(*node.Plugin) {
 		}
 	}))
 
-	voter.Events().RoundExecuted.Attach(events.NewClosure(func(stats *vote.RoundStats) {
-		log.Info("New Round - ", stats.RandUsed, len(stats.ActiveVoteContexts))
-	}))
+	// voter.Events().RoundExecuted.Attach(events.NewClosure(func(stats *vote.RoundStats) {
+	// 	log.Info("New Round - ", stats.RandUsed, len(stats.ActiveVoteContexts))
+	// }))
 
 	voter.Events().Failed.Attach(events.NewClosure(func(id string, opinion vote.Opinion) {
 		log.Info("FPC fail - ", id, opinion)
 	}))
+
+}
+
+func run(*node.Plugin) {
+	_ = daemon.BackgroundWorker("FPCTangle", func(shutdownSignal <-chan struct{}) {
+		<-shutdownSignal
+		FPCTangle.Shutdown()
+	}, shutdown.PriorityTangle)
+
+	runFPC()
 }
 
 func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cachedMessageMetadata *messageTangle.CachedMessageMetadata) {
