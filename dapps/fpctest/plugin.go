@@ -1,7 +1,6 @@
 package fpctest
 
 import (
-	"math/rand"
 	"time"
 
 	fpcTestPayload "github.com/iotaledger/goshimmer/dapps/fpctest/packages/payload"
@@ -130,22 +129,20 @@ func onReceiveMessageFromFPCTest(cachedPayload *fpcTestPayload.CachedPayload, ca
 	defer cachedPayload.Release()
 	defer cachedMetadata.Release()
 
-	log.Info("Conflict detected - ", cachedPayload.Unwrap().ID())
+	id := cachedPayload.Unwrap().ID()
+	log.Info("Conflict detected - ", id)
 
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	like := r.Intn(100)
-
-	switch uint32(like) < cachedPayload.Unwrap().Like() {
+	var initialOpn vote.Opinion
+	switch cachedMetadata.Unwrap().IsLiked() {
 	case true:
-		err := voter.Vote(cachedPayload.Unwrap().ID().String(), vote.Like)
-		if err != nil {
-			log.Error(err)
-		}
+		initialOpn = vote.Like
 	case false:
-		err := voter.Vote(cachedPayload.Unwrap().ID().String(), vote.Dislike)
-		if err != nil {
-			log.Error(err)
-		}
+		initialOpn = vote.Dislike
+	}
+
+	log.Infof("submitting %s with initial opinion %d", id, initialOpn)
+	if err := voter.Vote(id.String(), initialOpn); err != nil {
+		log.Error(err)
 	}
 
 	return

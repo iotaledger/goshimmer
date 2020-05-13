@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
@@ -121,7 +122,13 @@ func (tangle *Tangle) storePayload(payloadToStore *payload.Payload) (cachedPaylo
 	}
 
 	cachedPayload = &payload.CachedPayload{CachedObject: storedTransaction}
-	cachedMetadata = &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(NewPayloadMetadata(payloadToStore.ID()))}
+	payloadMetadata := NewPayloadMetadata(payloadToStore.ID())
+
+	// set like status
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	payloadMetadata.SetLike(uint32(r.Intn(100)) < payloadToStore.Like())
+	
+	cachedMetadata = &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(payloadMetadata)}
 	payloadStored = true
 
 	return
