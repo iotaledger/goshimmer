@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -120,6 +121,8 @@ func TestTangle_AttachPayload(t *testing.T) {
 		}),
 	)))
 
+	fmt.Println("a")
+
 	// attach double spend
 	valueTangle.AttachPayload(payload.New(payload.GenesisID, payload.GenesisID, transaction.New(
 		transaction.NewInputs(
@@ -133,8 +136,6 @@ func TestTangle_AttachPayload(t *testing.T) {
 			},
 		}),
 	)))
-
-	time.Sleep(5 * time.Second)
 
 	valueTangle.Shutdown()
 	valueTangle.Shutdown()

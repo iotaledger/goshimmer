@@ -199,6 +199,7 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 	if cachedAttachment == nil {
 		return
 	}
+	defer cachedAttachment.Release()
 
 	// store the references between the different entities (we do this after the actual entities were stored, so that
 	// all the metadata models exist in the database as soon as the entities are reachable by walks).
@@ -602,16 +603,18 @@ func (tangle *Tangle) checkPayloadSolidity(payload *payload.Payload, payloadMeta
 	}
 
 	combinedBranches := transactionBranches
-	if trunkBranchID := tangle.payloadBranchID(payload.TrunkID()); trunkBranchID == branchmanager.UndefinedBranchID {
+
+	trunkBranchID := tangle.payloadBranchID(payload.TrunkID())
+	if trunkBranchID == branchmanager.UndefinedBranchID {
 		return
-	} else {
-		combinedBranches = append(combinedBranches, trunkBranchID)
 	}
-	if branchBranchID := tangle.payloadBranchID(payload.BranchID()); branchBranchID == branchmanager.UndefinedBranchID {
+	combinedBranches = append(combinedBranches, trunkBranchID)
+
+	branchBranchID := tangle.payloadBranchID(payload.BranchID())
+	if branchBranchID == branchmanager.UndefinedBranchID {
 		return
-	} else {
-		combinedBranches = append(combinedBranches, branchBranchID)
 	}
+	combinedBranches = append(combinedBranches, branchBranchID)
 
 	branchesConflicting, err := tangle.branchManager.BranchesConflicting(combinedBranches...)
 	if err != nil {
