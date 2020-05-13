@@ -19,6 +19,10 @@ type DataMessageSent struct {
 	issuerPublicKey string
 }
 
+type Shutdowner interface {
+	Shutdown() error
+}
+
 // sendDataMessagesOnRandomPeer sends data messages on a random peer and saves the sent message to a map.
 func sendDataMessagesOnRandomPeer(t *testing.T, peers []*framework.Peer, numMessages int, idsMap ...map[string]DataMessageSent) map[string]DataMessageSent {
 	var ids map[string]DataMessageSent
@@ -89,4 +93,10 @@ func checkForMessageIds(t *testing.T, peers []*framework.Peer, ids map[string]Da
 			assert.Truef(t, msg.Metadata.Solid, "messageID=%s, issuer=%s not solid in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
 		}
 	}
+}
+
+// ShutdownNetwork shuts down the network and reports errors.
+func ShutdownNetwork(t *testing.T, n Shutdowner) {
+	err := n.Shutdown()
+	require.NoError(t, err)
 }
