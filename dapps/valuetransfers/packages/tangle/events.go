@@ -5,7 +5,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 )
 
@@ -53,9 +52,9 @@ func cachedPayloadEvent(handler interface{}, params ...interface{}) {
 }
 
 func transactionBookedEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*transaction.CachedTransaction, *tangle.CachedTransactionMetadata, *branchmanager.CachedBranch, []transaction.OutputID, bool))(
+	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, *branchmanager.CachedBranch, []transaction.OutputID, bool))(
 		params[0].(*transaction.CachedTransaction).Retain(),
-		params[1].(*tangle.CachedTransactionMetadata).Retain(),
+		params[1].(*CachedTransactionMetadata).Retain(),
 		params[2].(*branchmanager.CachedBranch).Retain(),
 		params[3].([]transaction.OutputID),
 		params[4].(bool),
@@ -63,18 +62,18 @@ func transactionBookedEvent(handler interface{}, params ...interface{}) {
 }
 
 func forkEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*transaction.CachedTransaction, *tangle.CachedTransactionMetadata, *branchmanager.CachedBranch, []transaction.OutputID))(
+	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, *branchmanager.CachedBranch, []transaction.OutputID))(
 		params[0].(*transaction.CachedTransaction).Retain(),
-		params[1].(*tangle.CachedTransactionMetadata).Retain(),
+		params[1].(*CachedTransactionMetadata).Retain(),
 		params[2].(*branchmanager.CachedBranch).Retain(),
 		params[3].([]transaction.OutputID),
 	)
 }
 
 func cachedTransactionEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*transaction.CachedTransaction, *tangle.CachedTransactionMetadata, *CachedAttachment))(
+	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, *CachedAttachment))(
 		params[0].(*transaction.CachedTransaction).Retain(),
-		params[1].(*tangle.CachedTransactionMetadata).Retain(),
+		params[1].(*CachedTransactionMetadata).Retain(),
 		params[2].(*CachedAttachment).Retain(),
 	)
 }

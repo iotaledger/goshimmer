@@ -2,16 +2,20 @@ package tangle
 
 import (
 	"container/list"
+	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/types"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 )
@@ -35,9 +39,8 @@ type Tangle struct {
 
 	Events Events
 
-	storePayloadWorkerPool async.WorkerPool
-	solidifierWorkerPool   async.WorkerPool
-	cleanupWorkerPool      async.WorkerPool
+	workerPool        async.WorkerPool
+	cleanupWorkerPool async.WorkerPool
 }
 
 // New is the constructor of a Tangle and creates a new Tangle object from the given details.
@@ -55,8 +58,8 @@ func New(badgerInstance *badger.DB) (result *Tangle) {
 		transactionStorage:         osFactory.New(osTransaction, osTransactionFactory, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
 		transactionMetadataStorage: osFactory.New(osTransactionMetadata, osTransactionMetadataFactory, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
 		attachmentStorage:          osFactory.New(osAttachment, osAttachmentFactory, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
-		outputStorage:              osFactory.New(osOutput, osOutputFactory, tangle.OutputKeyPartitions, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
-		consumerStorage:            osFactory.New(osConsumer, osConsumerFactory, tangle.ConsumerPartitionKeys, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
+		outputStorage:              osFactory.New(osOutput, osOutputFactory, OutputKeyPartitions, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
+		consumerStorage:            osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
 		valueObjectBookingStorage:  osFactory.New(osValueObjectBooking, osValueObjectBookingFactory, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
 
 		Events: *newEvents(),
@@ -76,17 +79,17 @@ func (tangle *Tangle) Transaction(transactionID transaction.ID) *transaction.Cac
 }
 
 // TransactionMetadata retrieves the metadata of a value payload from the object storage.
-func (tangle *Tangle) TransactionMetadata(transactionID transaction.ID) *tangle.CachedTransactionMetadata {
+func (tangle *Tangle) TransactionMetadata(transactionID transaction.ID) *CachedTransactionMetadata {
 	return &CachedTransactionMetadata{CachedObject: tangle.transactionMetadataStorage.Load(transactionID.Bytes())}
 }
 
 // TransactionOutput loads the given output from the objectstorage.
-func (tangle *Tangle) TransactionOutput(outputID transaction.OutputID) *tangle.CachedOutput {
+func (tangle *Tangle) TransactionOutput(outputID transaction.OutputID) *CachedOutput {
 	return &CachedOutput{CachedObject: tangle.outputStorage.Load(outputID.Bytes())}
 }
 
 // Consumers retrieves the approvers of a payload from the object storage.
-func (tangle *Tangle) Consumers(outputID transaction.OutputID) tangle.CachedConsumers {
+func (tangle *Tangle) Consumers(outputID transaction.OutputID) CachedConsumers {
 	consumers := make(CachedConsumers, 0)
 	tangle.consumerStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		consumers = append(consumers, &CachedConsumer{CachedObject: cachedObject})
@@ -98,7 +101,7 @@ func (tangle *Tangle) Consumers(outputID transaction.OutputID) tangle.CachedCons
 }
 
 // Attachments retrieves the attachment of a payload from the object storage.
-func (tangle *Tangle) Attachments(transactionID transaction.ID) tangle.CachedAttachments {
+func (tangle *Tangle) Attachments(transactionID transaction.ID) CachedAttachments {
 	attachments := make(CachedAttachments, 0)
 	tangle.attachmentStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		attachments = append(attachments, &CachedAttachment{CachedObject: cachedObject})
@@ -110,13 +113,13 @@ func (tangle *Tangle) Attachments(transactionID transaction.ID) tangle.CachedAtt
 }
 
 // ValueObjectBooking retrieves a booking of a value object.
-func (tangle *Tangle) ValueObjectBooking(id payload.ID) *tangle.CachedValueObjectBooking {
+func (tangle *Tangle) ValueObjectBooking(id payload.ID) *CachedValueObjectBooking {
 	return &CachedValueObjectBooking{CachedObject: tangle.valueObjectBookingStorage.Load(id.Bytes())}
 }
 
 // AttachPayload adds a new payload to the value tangle.
 func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
-	tangle.storePayloadWorkerPool.Submit(func() { tangle.storePayloadWorker(payload) })
+	tangle.workerPool.Submit(func() { tangle.storePayloadWorker(payload) })
 }
 
 // Payload retrieves a payload from the object storage.
@@ -143,8 +146,7 @@ func (tangle *Tangle) Approvers(payloadID payload.ID) CachedApprovers {
 
 // Shutdown stops the worker pools and shuts down the object storage instances.
 func (tangle *Tangle) Shutdown() *Tangle {
-	tangle.storePayloadWorkerPool.ShutdownGracefully()
-	tangle.solidifierWorkerPool.ShutdownGracefully()
+	tangle.workerPool.ShutdownGracefully()
 	tangle.cleanupWorkerPool.ShutdownGracefully()
 
 	for _, storage := range []*objectstorage.ObjectStorage{
@@ -223,9 +225,7 @@ func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
 	}
 
 	// check solidity
-	tangle.solidifierWorkerPool.Submit(func() {
-		tangle.solidifyPayloadWorker(cachedPayload, cachedPayloadMetadata)
-	})
+	tangle.solidifyPayload(cachedPayload.Retain(), cachedPayloadMetadata.Retain(), cachedTransactionMetadata.Retain())
 }
 
 func (tangle *Tangle) storePayload(payloadToStore *payload.Payload) (cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata, payloadStored bool) {
@@ -253,20 +253,20 @@ func (tangle *Tangle) storeTransactionModels(solidPayload *payload.Payload) (cac
 	})}
 
 	if transactionIsNew {
-		cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: utxoDAG.transactionMetadataStorage.Store(NewTransactionMetadata(solidPayload.Transaction().ID()))}
+		cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: tangle.transactionMetadataStorage.Store(NewTransactionMetadata(solidPayload.Transaction().ID()))}
 
 		// store references to the consumed outputs
 		solidPayload.Transaction().Inputs().ForEach(func(outputId transaction.OutputID) bool {
-			utxoDAG.consumerStorage.Store(NewConsumer(outputId, solidPayload.Transaction().ID())).Release()
+			tangle.consumerStorage.Store(NewConsumer(outputId, solidPayload.Transaction().ID())).Release()
 
 			return true
 		})
 	} else {
-		cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: utxoDAG.transactionMetadataStorage.Load(solidPayload.Transaction().ID().Bytes())}
+		cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: tangle.transactionMetadataStorage.Load(solidPayload.Transaction().ID().Bytes())}
 	}
 
 	// store a reference from the transaction to the payload that attached it or abort, if we have processed this attachment already
-	attachment, stored := utxoDAG.attachmentStorage.StoreIfAbsent(NewAttachment(solidPayload.Transaction().ID(), solidPayload.ID()))
+	attachment, stored := tangle.attachmentStorage.StoreIfAbsent(NewAttachment(solidPayload.Transaction().ID(), solidPayload.ID()))
 	if !stored {
 		return
 	}
@@ -296,8 +296,8 @@ func (tangle *Tangle) popElementsFromSolidificationStack(stack *list.List) (*pay
 	return currentCachedPayload.(*payload.CachedPayload), currentCachedMetadata.(*CachedPayloadMetadata), currentCachedTransactionMetadata.(*CachedTransactionMetadata)
 }
 
-// solidifyPayloadWorker is the worker function that solidifies the payloads (recursively from past to present).
-func (tangle *Tangle) solidifyPayloadWorker(cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata, cachedTransactionMetadata *CachedTransactionMetadata) {
+// solidifyPayload is the worker function that solidifies the payloads (recursively from past to present).
+func (tangle *Tangle) solidifyPayload(cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata, cachedTransactionMetadata *CachedTransactionMetadata) {
 	// initialize the stack
 	solidificationStack := list.New()
 	solidificationStack.PushBack([3]interface{}{cachedPayload, cachedMetadata, cachedTransactionMetadata})
@@ -323,18 +323,37 @@ func (tangle *Tangle) solidifyPayloadWorker(cachedPayload *payload.CachedPayload
 			}
 
 			currentTransaction := currentPayload.Transaction()
-			fmt.Println(currentTransaction)
 
-			if !tangle.isPayloadSolid(currentPayload, currentPayloadMetadata) {
+			// abort if the transaction is not solid or invalid
+			transactionSolid, consumedBranches, err := tangle.checkTransactionSolidity(currentTransaction, currentTransactionMetadata)
+			if err != nil {
+				// TODO: TRIGGER INVALID TX + REMOVE TXS + PAYLOADS THAT APPROVE IT
+				fmt.Println(err, currentTransaction)
+
+				return
+			}
+			if !transactionSolid {
 				return
 			}
 
-			if !currentPayloadMetadata.SetSolid(true) {
+			// abort if the payload is not solid or invalid
+			payloadSolid, err := tangle.checkPayloadSolidity(currentPayload, currentPayloadMetadata, consumedBranches)
+			if err != nil {
+				// TODO: TRIGGER INVALID TX + REMOVE TXS + PAYLOADS THAT APPROVE IT
+				fmt.Println(err, currentTransaction)
+
+				return
+			}
+			if !payloadSolid {
 				return
 			}
 
-			// ... trigger solid event ...
-			tangle.Events.PayloadSolid.Trigger(currentCachedPayload, currentCachedMetadata)
+			// book the solid entities
+			if bookingErr := tangle.book(cachedTransaction.Retain(), cachedTransactionMetadata.Retain()); bookingErr != nil {
+				tangle.Events.Error.Trigger(bookingErr)
+
+				return
+			}
 
 			// ... and schedule check of approvers
 			tangle.ForeachApprovers(currentPayload.ID(), func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata) {
@@ -342,6 +361,182 @@ func (tangle *Tangle) solidifyPayloadWorker(cachedPayload *payload.CachedPayload
 			})
 		}()
 	}
+}
+
+func (tangle *Tangle) book(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) (err error) {
+	if err = tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata); err != nil {
+		return
+	}
+
+	tangle.bookPayload()
+}
+
+func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) (err error) {
+	defer cachedTransaction.Release()
+	defer cachedTransactionMetadata.Release()
+
+	transactionToBook := cachedTransaction.Unwrap()
+	if transactionToBook == nil {
+		// TODO: explicit error var
+		err = errors.New("failed to unwrap transaction")
+
+		return
+	}
+
+	transactionMetadata := cachedTransactionMetadata.Unwrap()
+	if transactionMetadata == nil {
+		// TODO: explicit error var
+		err = errors.New("failed to unwrap transaction metadata")
+
+		return
+	}
+
+	consumedBranches := make(branchmanager.BranchIds)
+	conflictingInputs := make([]transaction.OutputID, 0)
+	conflictingInputsOfFirstConsumers := make(map[transaction.ID][]transaction.OutputID)
+
+	if !transactionToBook.Inputs().ForEach(func(outputID transaction.OutputID) bool {
+		cachedOutput := tangle.TransactionOutput(outputID)
+		defer cachedOutput.Release()
+
+		// abort if the output could not be found
+		output := cachedOutput.Unwrap()
+		if output == nil {
+			err = fmt.Errorf("could not load output '%s'", outputID)
+
+			return false
+		}
+
+		consumedBranches[output.BranchID()] = types.Void
+
+		// register the current consumer and check if the input has been consumed before
+		consumerCount, firstConsumerID := output.RegisterConsumer(transactionToBook.ID())
+		switch consumerCount {
+		// continue if we are the first consumer and there is no double spend
+		case 0:
+			return true
+
+		// if the input has been consumed before but not been forked, yet
+		case 1:
+			// keep track of the conflicting inputs so we can fork them
+			if _, conflictingInputsExist := conflictingInputsOfFirstConsumers[firstConsumerID]; !conflictingInputsExist {
+				conflictingInputsOfFirstConsumers[firstConsumerID] = make([]transaction.OutputID, 0)
+			}
+			conflictingInputsOfFirstConsumers[firstConsumerID] = append(conflictingInputsOfFirstConsumers[firstConsumerID], outputID)
+		}
+
+		return true
+	}) {
+		return
+	}
+
+	// TODO: handle error
+	cachedTargetBranch, _ := tangle.branchManager.AggregateBranches(consumedBranches.ToList()...)
+	defer cachedTargetBranch.Release()
+
+	targetBranch := cachedTargetBranch.Unwrap()
+	if targetBranch == nil {
+		return errors.New("failed to unwrap target branch")
+	}
+	targetBranch.Persist()
+
+	if len(conflictingInputs) >= 1 {
+		cachedTargetBranch, _ = tangle.branchManager.Fork(branchmanager.NewBranchID(transactionToBook.ID()), []branchmanager.BranchID{targetBranch.ID()}, conflictingInputs)
+		defer cachedTargetBranch.Release()
+
+		targetBranch = cachedTargetBranch.Unwrap()
+		if targetBranch == nil {
+			return errors.New("failed to inherit branches")
+		}
+	}
+
+	// book transaction into target branch
+	transactionMetadata.SetBranchID(targetBranch.ID())
+
+	// book outputs into the target branch
+	transactionToBook.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+		newOutput := NewOutput(address, transactionToBook.ID(), targetBranch.ID(), balances)
+		newOutput.SetSolid(true)
+		tangle.outputStorage.Store(newOutput).Release()
+
+		return true
+	})
+
+	// fork the conflicting transactions into their own branch
+	decisionPending := false
+	for consumerID, conflictingInputs := range conflictingInputsOfFirstConsumers {
+		_, decisionFinalized, forkedErr := tangle.Fork(consumerID, conflictingInputs)
+		if forkedErr != nil {
+			err = forkedErr
+
+			return
+		}
+
+		decisionPending = decisionPending || !decisionFinalized
+	}
+
+	// trigger events
+	tangle.Events.TransactionBooked.Trigger(cachedTransaction, cachedTransactionMetadata, cachedTargetBranch, conflictingInputs, decisionPending)
+
+	return
+}
+
+func (tangle *Tangle) bookPayload(cachedTransactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment) {
+	defer cachedAttachment.Release()
+	defer cachedTransactionMetadata.Release()
+
+	// the only reason to
+	attachment := cachedAttachment.Unwrap()
+	if attachment == nil {
+		return
+	}
+
+	transactionMetadata := cachedTransactionMetadata.Unwrap()
+	if transactionMetadata == nil {
+		return
+	}
+
+	cachedValueObject := tangle.Payload(attachment.PayloadID())
+	defer cachedValueObject.Release()
+	valueObject := cachedValueObject.Unwrap()
+	if valueObject == nil {
+		return
+	}
+
+	branchBranchID := branchmanager.MasterBranchID
+	if valueObject.BranchID() != payload.GenesisID {
+		cachedBranchBooking := tangle.ValueObjectBooking(valueObject.BranchID())
+		defer cachedBranchBooking.Release()
+		branchBooking := cachedBranchBooking.Unwrap()
+		if branchBooking == nil || branchBooking.BranchID() == branchmanager.UndefinedBranchID {
+			return
+		}
+		branchBranchID = branchBooking.BranchID()
+	}
+
+	trunkBranchID := branchmanager.MasterBranchID
+	if valueObject.TrunkID() != payload.GenesisID {
+		cachedTrunkBooking := tangle.ValueObjectBooking(valueObject.TrunkID())
+		defer cachedTrunkBooking.Release()
+		trunkBooking := cachedTrunkBooking.Unwrap()
+		if trunkBooking == nil || trunkBooking.BranchID() == branchmanager.UndefinedBranchID {
+			return
+		}
+		trunkBranchID = trunkBooking.BranchID()
+	}
+
+	cachedAggregatedBranch, err := tangle.BranchManager().AggregateBranches([]branchmanager.BranchID{branchBranchID, transactionMetadata.BranchID(), trunkBranchID}...)
+	if err != nil {
+		panic(err)
+	}
+	defer cachedAggregatedBranch.Release()
+
+	aggregatedBranch := cachedAggregatedBranch.Unwrap()
+	if aggregatedBranch == nil {
+		return
+	}
+
+	fmt.Println("BOOKED", aggregatedBranch.ID())
 }
 
 // ForeachApprovers iterates through the approvers of a payload and calls the passed in consumer function.
@@ -356,34 +551,18 @@ func (tangle *Tangle) ForeachApprovers(payloadID payload.ID, consume func(payloa
 	})
 }
 
-// isPayloadSolid returns true if the given payload is solid. A payload is considered to be solid solid, if it is either
-// already marked as solid or if its referenced payloads are marked as solid.
-func (tangle *Tangle) isPayloadSolid(payload *payload.Payload, metadata *PayloadMetadata) bool {
-	if payload == nil || payload.IsDeleted() {
-		return false
-	}
-
-	if metadata == nil || metadata.IsDeleted() {
-		return false
-	}
-
-	if metadata.IsSolid() {
-		return true
-	}
-
-	return tangle.isPayloadMarkedAsSolid(payload.TrunkID()) && tangle.isPayloadMarkedAsSolid(payload.BranchID())
-}
-
-// isPayloadMarkedAsSolid returns true if the payload was marked as solid already (by setting the corresponding flags
-// in its metadata.
-func (tangle *Tangle) isPayloadMarkedAsSolid(payloadID payload.ID) bool {
+// payloadBranchID returns the BranchID that the referenced Payload was booked into.
+func (tangle *Tangle) payloadBranchID(payloadID payload.ID) branchmanager.BranchID {
 	if payloadID == payload.GenesisID {
-		return true
+		return branchmanager.MasterBranchID
 	}
 
-	transactionMetadataCached := tangle.PayloadMetadata(payloadID)
-	if transactionMetadata := transactionMetadataCached.Unwrap(); transactionMetadata == nil {
-		transactionMetadataCached.Release()
+	cachedPayloadMetadata := tangle.PayloadMetadata(payloadID)
+	defer cachedPayloadMetadata.Release()
+
+	payloadMetadata := cachedPayloadMetadata.Unwrap()
+	if payloadMetadata == nil {
+		cachedPayloadMetadata.Release()
 
 		// if transaction is missing and was not reported as missing, yet
 		if cachedMissingPayload, missingPayloadStored := tangle.missingPayloadStorage.StoreIfAbsent(NewMissingPayload(payloadID)); missingPayloadStored {
@@ -392,13 +571,447 @@ func (tangle *Tangle) isPayloadMarkedAsSolid(payloadID payload.ID) bool {
 			})
 		}
 
-		return false
-	} else if !transactionMetadata.IsSolid() {
-		transactionMetadataCached.Release()
+		return branchmanager.UndefinedBranchID
+	}
 
+	// the BranchID is only set if the payload was also marked as solid
+	return payloadMetadata.BranchID()
+}
+
+// checkPayloadSolidity returns true if the given payload is solid. A payload is considered to be solid solid, if it is either
+// already marked as solid or if its referenced payloads are marked as solid.
+func (tangle *Tangle) checkPayloadSolidity(payload *payload.Payload, payloadMetadata *PayloadMetadata, transactionBranches []branchmanager.BranchID) (solid bool, err error) {
+	if payload == nil || payload.IsDeleted() || payloadMetadata == nil || payloadMetadata.IsDeleted() {
+		return
+	}
+
+	if solid = payloadMetadata.IsSolid(); solid {
+		return
+	}
+
+	combinedBranches := transactionBranches
+	if trunkBranchID := tangle.payloadBranchID(payload.TrunkID()); trunkBranchID == branchmanager.UndefinedBranchID {
+		return
+	} else {
+		combinedBranches = append(combinedBranches, trunkBranchID)
+	}
+	if branchBranchID := tangle.payloadBranchID(payload.BranchID()); branchBranchID == branchmanager.UndefinedBranchID {
+		return
+	} else {
+		combinedBranches = append(combinedBranches, branchBranchID)
+	}
+
+	branchesConflicting, err := tangle.branchManager.BranchesConflicting(combinedBranches...)
+	if err != nil {
+		return
+	}
+	if branchesConflicting {
+		err = fmt.Errorf("the payload '%s' combines conflicting versions of the ledger state", payload.ID())
+
+		return
+	}
+
+	return
+}
+
+func (tangle *Tangle) checkTransactionSolidity(tx *transaction.Transaction, metadata *TransactionMetadata) (solid bool, consumedBranches []branchmanager.BranchID, err error) {
+	// abort if any of the models are nil or has been deleted
+	if tx == nil || tx.IsDeleted() || metadata == nil || metadata.IsDeleted() {
+		return
+	}
+
+	// abort if we have previously determined the solidity status of the transaction already
+	if solid = metadata.Solid(); solid {
+		consumedBranches = []branchmanager.BranchID{metadata.BranchID()}
+
+		return
+	}
+
+	// determine the consumed inputs and balances of the transaction
+	inputsSolid, cachedInputs, consumedBalances, consumedBranchesMap, err := tangle.retrieveConsumedInputDetails(tx)
+	if err != nil || !inputsSolid {
+		return
+	}
+	defer cachedInputs.Release()
+
+	// abort if the outputs are not matching the inputs
+	if !tangle.checkTransactionOutputs(consumedBalances, tx.Outputs()) {
+		err = fmt.Errorf("the outputs do not match the inputs in transaction with id '%s'", tx.ID())
+
+		return
+	}
+
+	// abort if the branches are conflicting or we faced an error when checking the validity
+	consumedBranches = consumedBranchesMap.ToList()
+	branchesConflicting, err := tangle.branchManager.BranchesConflicting(consumedBranches...)
+	if err != nil {
+		return
+	}
+	if branchesConflicting {
+		err = fmt.Errorf("the transaction '%s' spends conflicting inputs", tx.ID())
+
+		return
+	}
+
+	// set the result to be solid and valid
+	solid = true
+
+	return
+}
+
+func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result CachedOutputs) {
+	result = make(CachedOutputs)
+	tx.Inputs().ForEach(func(inputId transaction.OutputID) bool {
+		result[inputId] = tangle.TransactionOutput(inputId)
+
+		return true
+	})
+
+	return
+}
+
+func (tangle *Tangle) retrieveConsumedInputDetails(tx *transaction.Transaction) (
+	inputsSolid bool,
+	cachedInputs CachedOutputs,
+	consumedBalances map[balance.Color]int64,
+	consumedBranches branchmanager.BranchIds,
+	err error,
+) {
+	cachedInputs = tangle.getCachedOutputsFromTransactionInputs(tx)
+
+	inputsSolid = true
+	consumedBalances = make(map[balance.Color]int64)
+	consumedBranches = make(branchmanager.BranchIds)
+	for _, cachedInput := range cachedInputs {
+		// calculate new solid status
+		input := cachedInput.Unwrap()
+		inputsSolid = input != nil && input.Solid()
+		if !inputsSolid {
+			cachedInputs.Release()
+
+			return
+		}
+
+		consumedBranches[input.BranchID()] = types.Void
+
+		// calculate the input balances
+		for _, inputBalance := range input.Balances() {
+			var newBalance int64
+			if currentBalance, balanceExists := consumedBalances[inputBalance.Color()]; balanceExists {
+				// check overflows in the numbers
+				if inputBalance.Value() > math.MaxInt64-currentBalance {
+					// TODO: make it an explicit error var
+					err = fmt.Errorf("buffer overflow in balances of inputs")
+
+					cachedInputs.Release()
+
+					return
+				}
+
+				newBalance = currentBalance + inputBalance.Value()
+			} else {
+				newBalance = inputBalance.Value()
+			}
+			consumedBalances[inputBalance.Color()] = newBalance
+		}
+	}
+
+	return
+}
+
+// checkTransactionOutputs is a utility function that returns true, if the outputs are consuming all of the given inputs
+// (the sum of all the balance changes is 0). It also accounts for the ability to "recolor" coins during the creating of
+// outputs. If this function returns false, then the outputs that are defined in the transaction are invalid and the
+// transaction should be removed from the ledger state.
+func (tangle *Tangle) checkTransactionOutputs(inputBalances map[balance.Color]int64, outputs *transaction.Outputs) bool {
+	// create a variable to keep track of outputs that create a new color
+	var newlyColoredCoins int64
+	var uncoloredCoins int64
+
+	// iterate through outputs and check them one by one
+	aborted := !outputs.ForEach(func(address address.Address, balances []*balance.Balance) bool {
+		for _, outputBalance := range balances {
+			// abort if the output creates a negative or empty output
+			if outputBalance.Value() <= 0 {
+				return false
+			}
+
+			// sidestep logic if we have a newly colored output (we check the supply later)
+			if outputBalance.Color() == balance.ColorNew {
+				// catch overflows
+				if newlyColoredCoins > math.MaxInt64-outputBalance.Value() {
+					return false
+				}
+
+				newlyColoredCoins += outputBalance.Value()
+
+				continue
+			}
+
+			// sidestep logic if we have a newly colored output (we check the supply later)
+			if outputBalance.Color() == balance.ColorIOTA {
+				// catch overflows
+				if uncoloredCoins > math.MaxInt64-outputBalance.Value() {
+					return false
+				}
+
+				uncoloredCoins += outputBalance.Value()
+
+				continue
+			}
+
+			// check if the used color does not exist in our supply
+			availableBalance, spentColorExists := inputBalances[outputBalance.Color()]
+			if !spentColorExists {
+				return false
+			}
+
+			// abort if we spend more coins of the given color than we have
+			if availableBalance < outputBalance.Value() {
+				return false
+			}
+
+			// subtract the spent coins from the supply of this color
+			inputBalances[outputBalance.Color()] -= outputBalance.Value()
+
+			// cleanup empty map entries (we have exhausted our funds)
+			if inputBalances[outputBalance.Color()] == 0 {
+				delete(inputBalances, outputBalance.Color())
+			}
+		}
+
+		return true
+	})
+
+	// abort if the previous checks failed
+	if aborted {
 		return false
 	}
-	transactionMetadataCached.Release()
 
-	return true
+	// determine the unspent inputs
+	var unspentCoins int64
+	for _, unspentBalance := range inputBalances {
+		// catch overflows
+		if unspentCoins > math.MaxInt64-unspentBalance {
+			return false
+		}
+
+		unspentCoins += unspentBalance
+	}
+
+	// the outputs are valid if they spend all consumed funds
+	return unspentCoins == newlyColoredCoins+uncoloredCoins
+}
+
+// Fork creates a new branch from an existing transaction.
+func (tangle *Tangle) Fork(transactionID transaction.ID, conflictingInputs []transaction.OutputID) (forked bool, finalized bool, err error) {
+	cachedTransaction := tangle.Transaction(transactionID)
+	cachedTransactionMetadata := tangle.TransactionMetadata(transactionID)
+	defer cachedTransaction.Release()
+	defer cachedTransactionMetadata.Release()
+
+	tx := cachedTransaction.Unwrap()
+	if tx == nil {
+		err = fmt.Errorf("failed to load transaction '%s'", transactionID)
+
+		return
+	}
+	txMetadata := cachedTransactionMetadata.Unwrap()
+	if txMetadata == nil {
+		err = fmt.Errorf("failed to load metadata of transaction '%s'", transactionID)
+
+		return
+	}
+
+	// abort if this transaction was finalized already
+	if txMetadata.Finalized() {
+		finalized = true
+
+		return
+	}
+
+	// update / create new branch
+	cachedTargetBranch, newBranchCreated := tangle.branchManager.Fork(branchmanager.NewBranchID(tx.ID()), []branchmanager.BranchID{txMetadata.BranchID()}, conflictingInputs)
+	defer cachedTargetBranch.Release()
+
+	// abort if the branch existed already
+	if !newBranchCreated {
+		return
+	}
+
+	// unpack branch
+	targetBranch := cachedTargetBranch.Unwrap()
+	if targetBranch == nil {
+		err = fmt.Errorf("failed to unpack branch for transaction '%s'", transactionID)
+
+		return
+	}
+
+	// move transactions to new branch
+	if err = tangle.moveTransactionToBranch(cachedTransaction.Retain(), cachedTransactionMetadata.Retain(), cachedTargetBranch.Retain()); err != nil {
+		return
+	}
+
+	// trigger events + set result
+	tangle.Events.Fork.Trigger(cachedTransaction, cachedTransactionMetadata, targetBranch, conflictingInputs)
+	forked = true
+
+	return
+}
+
+// TODO: write comment what it does
+func (tangle *Tangle) moveTransactionToBranch(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata, cachedTargetBranch *branchmanager.CachedBranch) (err error) {
+	// push transaction that shall be moved to the stack
+	transactionStack := list.New()
+	branchStack := list.New()
+	branchStack.PushBack([3]interface{}{cachedTransactionMetadata.Unwrap().BranchID(), cachedTargetBranch, transactionStack})
+	transactionStack.PushBack([2]interface{}{cachedTransaction, cachedTransactionMetadata})
+
+	// iterate through all transactions (grouped by their branch)
+	for branchStack.Len() >= 1 {
+		if err = func() error {
+			// retrieve branch details from stack
+			currentSolidificationEntry := branchStack.Front()
+			currentSourceBranch := currentSolidificationEntry.Value.([3]interface{})[0].(branchmanager.BranchID)
+			currentCachedTargetBranch := currentSolidificationEntry.Value.([3]interface{})[1].(*branchmanager.CachedBranch)
+			transactionStack := currentSolidificationEntry.Value.([3]interface{})[2].(*list.List)
+			branchStack.Remove(currentSolidificationEntry)
+			defer currentCachedTargetBranch.Release()
+
+			// unpack target branch
+			targetBranch := currentCachedTargetBranch.Unwrap()
+			if targetBranch == nil {
+				return errors.New("failed to unpack branch")
+			}
+
+			// iterate through transactions
+			for transactionStack.Len() >= 1 {
+				if err = func() error {
+					// retrieve transaction details from stack
+					currentSolidificationEntry := transactionStack.Front()
+					currentCachedTransaction := currentSolidificationEntry.Value.([2]interface{})[0].(*transaction.CachedTransaction)
+					currentCachedTransactionMetadata := currentSolidificationEntry.Value.([2]interface{})[1].(*CachedTransactionMetadata)
+					transactionStack.Remove(currentSolidificationEntry)
+					defer currentCachedTransaction.Release()
+					defer currentCachedTransactionMetadata.Release()
+
+					// unwrap transaction
+					currentTransaction := currentCachedTransaction.Unwrap()
+					if currentTransaction == nil {
+						return errors.New("failed to unwrap transaction")
+					}
+
+					// unwrap transaction metadata
+					currentTransactionMetadata := currentCachedTransactionMetadata.Unwrap()
+					if currentTransactionMetadata == nil {
+						return errors.New("failed to unwrap transaction metadata")
+					}
+
+					// if we arrived at a nested branch
+					if currentTransactionMetadata.BranchID() != currentSourceBranch {
+						// abort if we the branch is a conflict branch or an error occurred while trying to elevate
+						isConflictBranch, _, elevateErr := tangle.branchManager.ElevateConflictBranch(currentTransactionMetadata.BranchID(), targetBranch.ID())
+						if elevateErr != nil || isConflictBranch {
+							return elevateErr
+						}
+
+						// determine the new branch of the transaction
+						newCachedTargetBranch, branchErr := tangle.calculateBranchOfTransaction(currentTransaction)
+						if branchErr != nil {
+							return branchErr
+						}
+						defer newCachedTargetBranch.Release()
+
+						// unwrap the branch
+						newTargetBranch := newCachedTargetBranch.Unwrap()
+						if newTargetBranch == nil {
+							return errors.New("failed to unwrap branch")
+						}
+						newTargetBranch.Persist()
+
+						// add the new branch (with the current transaction as a starting point to the branch stack)
+						newTransactionStack := list.New()
+						newTransactionStack.PushBack([2]interface{}{currentCachedTransaction.Retain(), currentCachedTransactionMetadata.Retain()})
+						branchStack.PushBack([3]interface{}{currentTransactionMetadata.BranchID(), newCachedTargetBranch.Retain(), newTransactionStack})
+
+						return nil
+					}
+
+					// abort if we did not modify the branch of the transaction
+					if !currentTransactionMetadata.SetBranchID(targetBranch.ID()) {
+						return nil
+					}
+
+					// iterate through the outputs of the moved transaction
+					currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+						// create reference to the output
+						outputID := transaction.NewOutputID(address, currentTransaction.ID())
+
+						// load output from database
+						cachedOutput := tangle.TransactionOutput(outputID)
+						defer cachedOutput.Release()
+
+						// unwrap output
+						output := cachedOutput.Unwrap()
+						if output == nil {
+							err = fmt.Errorf("failed to load output '%s'", outputID)
+
+							return false
+						}
+
+						// abort if the output was moved already
+						if !output.SetBranchID(targetBranch.ID()) {
+							return true
+						}
+
+						// schedule consumers for further checks
+						consumingTransactions := make(map[transaction.ID]types.Empty)
+						tangle.Consumers(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(consumer *Consumer) {
+							consumingTransactions[consumer.TransactionID()] = types.Void
+						})
+						for transactionID := range consumingTransactions {
+							transactionStack.PushBack([2]interface{}{tangle.Transaction(transactionID), tangle.TransactionMetadata(transactionID)})
+						}
+
+						return true
+					})
+
+					return nil
+				}(); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		}(); err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+func (tangle *Tangle) calculateBranchOfTransaction(currentTransaction *transaction.Transaction) (branch *branchmanager.CachedBranch, err error) {
+	consumedBranches := make(branchmanager.BranchIds)
+	if !currentTransaction.Inputs().ForEach(func(outputId transaction.OutputID) bool {
+		cachedTransactionOutput := tangle.TransactionOutput(outputId)
+		defer cachedTransactionOutput.Release()
+
+		transactionOutput := cachedTransactionOutput.Unwrap()
+		if transactionOutput == nil {
+			err = fmt.Errorf("failed to load output '%s'", outputId)
+
+			return false
+		}
+
+		consumedBranches[transactionOutput.BranchID()] = types.Void
+
+		return true
+	}) {
+		return
+	}
+
+	branch, err = tangle.branchManager.AggregateBranches(consumedBranches.ToList()...)
+
+	return
 }
