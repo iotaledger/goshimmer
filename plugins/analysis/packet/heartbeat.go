@@ -62,12 +62,6 @@ type Heartbeat struct {
 	InboundIDs [][]byte
 }
 
-func init() {
-	if err := message.RegisterType(MessageTypeHeartbeat, HeartbeatMessageDefinition); err != nil {
-		panic(err)
-	}
-}
-
 // ParseHeartbeat parses a slice of bytes (serialized packet) into a heartbeat.
 func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 	// check minimum size

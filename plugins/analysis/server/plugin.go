@@ -81,7 +81,7 @@ func HandleConnection(conn *network.ManagedConnection) {
 	}
 
 	// create new protocol instance
-	p := protocol.New(conn)
+	p := protocol.New(conn, packet.AnalysisMsgRegistry)
 
 	onReceiveData := events.NewClosure(func(data []byte) {
 		// process incoming data in protocol.Receive()
