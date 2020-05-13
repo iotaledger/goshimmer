@@ -1,6 +1,8 @@
 package ledgerstate
 
 import (
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 )
 
@@ -15,4 +17,20 @@ func New(tangle *tangle.Tangle) *LedgerState {
 	return &LedgerState{
 		tangle: tangle,
 	}
+}
+
+func (ledgerState *LedgerState) Balances(address address.Address) (coloredBalances map[balance.Color]int64) {
+	coloredBalances = make(map[balance.Color]int64)
+
+	ledgerState.tangle.OutputsOnAddress(address).Consume(func(output *tangle.Output) {
+		for _, coloredBalance := range output.Balances() {
+			if _, exists := coloredBalances[coloredBalance.Color()]; exists {
+				coloredBalances[coloredBalance.Color()] += coloredBalance.Value()
+			} else {
+				coloredBalances[coloredBalance.Color()] += coloredBalance.Value()
+			}
+		}
+	})
+
+	return
 }

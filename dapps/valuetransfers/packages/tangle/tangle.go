@@ -674,6 +674,40 @@ func (tangle *Tangle) checkTransactionSolidity(tx *transaction.Transaction, meta
 	return
 }
 
+func (tangle *Tangle) LoadSnapshot(snapshot map[transaction.ID]map[address.Address][]*balance.Balance) {
+	for transactionID, addressBalances := range snapshot {
+		for outputAddress, balances := range addressBalances {
+			input := NewOutput(outputAddress, transactionID, branchmanager.MasterBranchID, balances)
+			input.SetSolid(true)
+
+			// store output and abort if the snapshot has already been loaded earlier (output exists in the database)
+			cachedOutput, stored := tangle.outputStorage.StoreIfAbsent(input)
+			if !stored {
+				return
+			}
+
+			cachedOutput.Release()
+		}
+	}
+}
+
+// OutputsOnAddress retrieves all the Outputs that are associated with an address.
+func (tangle *Tangle) OutputsOnAddress(address address.Address) (result CachedOutputs) {
+	result = make(CachedOutputs)
+	tangle.outputStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		outputID, _, err := transaction.OutputIDFromBytes(key)
+		if err != nil {
+			panic(err)
+		}
+
+		result[outputID] = &CachedOutput{CachedObject: cachedObject}
+
+		return true
+	}, address.Bytes())
+
+	return
+}
+
 func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result CachedOutputs) {
 	result = make(CachedOutputs)
 	tx.Inputs().ForEach(func(inputId transaction.OutputID) bool {
