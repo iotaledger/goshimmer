@@ -108,7 +108,7 @@ func runFPC() {
 				return vote.Unknown
 			}
 
-			cachedBranch := UTXODAG.BranchManager().Branch(branchID)
+			cachedBranch := Tangle.BranchManager().Branch(branchID)
 			defer cachedBranch.Release()
 
 			branch := cachedBranch.Unwrap()

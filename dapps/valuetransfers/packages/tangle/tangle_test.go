@@ -1,4 +1,4 @@
-package utxodag
+package tangle
 
 import (
 	"io/ioutil"
@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -24,7 +23,7 @@ func TestNewOutput(t *testing.T) {
 	randomAddress := address.Random()
 	randomTransactionID := transaction.RandomID()
 
-	output := tangle.NewOutput(randomAddress, randomTransactionID, branchmanager.MasterBranchID, []*balance.Balance{
+	output := NewOutput(randomAddress, randomTransactionID, branchmanager.MasterBranchID, []*balance.Balance{
 		balance.New(balance.ColorIOTA, 1337),
 	})
 
@@ -41,7 +40,7 @@ func TestNewOutput(t *testing.T) {
 	assert.Equal(t, true, output.Solid())
 	assert.NotEqual(t, time.Time{}, output.SolidificationTime())
 
-	clonedOutput, _, err := tangle.OutputFromBytes(output.Bytes())
+	clonedOutput, _, err := OutputFromBytes(output.Bytes())
 	if err != nil {
 		panic(err)
 	}
@@ -57,17 +56,17 @@ func TestAttachment(t *testing.T) {
 	transactionID := transaction.RandomID()
 	payloadID := payload.RandomID()
 
-	attachment := tangle.NewAttachment(transactionID, payloadID)
+	attachment := NewAttachment(transactionID, payloadID)
 
 	assert.Equal(t, transactionID, attachment.TransactionID())
 	assert.Equal(t, payloadID, attachment.PayloadID())
 
-	clonedAttachment, consumedBytes, err := tangle.AttachmentFromBytes(attachment.Bytes())
+	clonedAttachment, consumedBytes, err := AttachmentFromBytes(attachment.Bytes())
 	if err != nil {
 		panic(err)
 	}
 
-	assert.Equal(t, tangle.AttachmentLength, consumedBytes)
+	assert.Equal(t, AttachmentLength, consumedBytes)
 	assert.Equal(t, transactionID, clonedAttachment.TransactionID())
 	assert.Equal(t, payloadID, clonedAttachment.PayloadID())
 }
@@ -79,14 +78,12 @@ func TestTangle_AttachPayload(t *testing.T) {
 
 	config.Node.Set(database.CFG_DIRECTORY, dir)
 
-	valueTangle := tangle.New(database.GetBadgerInstance())
+	valueTangle := New(database.GetBadgerInstance())
 	if err := valueTangle.Prune(); err != nil {
 		t.Error(err)
 
 		return
 	}
-
-	utxoDAG := New(database.GetBadgerInstance(), valueTangle)
 
 	addressKeyPair1 := ed25519.GenerateKeyPair()
 	addressKeyPair2 := ed25519.GenerateKeyPair()
@@ -94,17 +91,17 @@ func TestTangle_AttachPayload(t *testing.T) {
 	transferID1, _ := transaction.IDFromBase58("8opHzTAnfzRpPEx21XtnrVTX28YQuCpAjcn1PczScKh")
 	transferID2, _ := transaction.IDFromBase58("4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM")
 
-	input1 := tangle.NewOutput(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferID1, branchmanager.MasterBranchID, []*balance.Balance{
+	input1 := NewOutput(address.FromED25519PubKey(addressKeyPair1.PublicKey), transferID1, branchmanager.MasterBranchID, []*balance.Balance{
 		balance.New(balance.ColorIOTA, 337),
 	})
 	input1.SetSolid(true)
-	input2 := tangle.NewOutput(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferID2, branchmanager.MasterBranchID, []*balance.Balance{
+	input2 := NewOutput(address.FromED25519PubKey(addressKeyPair2.PublicKey), transferID2, branchmanager.MasterBranchID, []*balance.Balance{
 		balance.New(balance.ColorIOTA, 1000),
 	})
 	input2.SetSolid(true)
 
-	utxoDAG.outputStorage.Store(input1).Release()
-	utxoDAG.outputStorage.Store(input2).Release()
+	valueTangle.outputStorage.Store(input1).Release()
+	valueTangle.outputStorage.Store(input2).Release()
 
 	outputAddress1 := address.Random()
 	outputAddress2 := address.Random()
@@ -140,5 +137,5 @@ func TestTangle_AttachPayload(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	valueTangle.Shutdown()
-	utxoDAG.Shutdown()
+	valueTangle.Shutdown()
 }

@@ -37,6 +37,10 @@ func newEvents() *Events {
 		MissingPayloadReceived: events.NewEvent(cachedPayloadEvent),
 		PayloadMissing:         events.NewEvent(payloadIDEvent),
 		PayloadUnsolidifiable:  events.NewEvent(payloadIDEvent),
+		TransactionReceived:    events.NewEvent(cachedTransactionEvent),
+		TransactionBooked:      events.NewEvent(transactionBookedEvent),
+		Fork:                   events.NewEvent(forkEvent),
+		Error:                  events.NewEvent(events.ErrorCaller),
 	}
 }
 
