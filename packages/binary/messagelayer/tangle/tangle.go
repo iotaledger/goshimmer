@@ -34,7 +34,7 @@ type Tangle struct {
 
 	storeMessageWorkerPool async.WorkerPool
 	solidifierWorkerPool   async.WorkerPool
-	cleanupWorkerPool      async.WorkerPool
+	shutdown               chan struct{}
 }
 
 func messageFactory(key []byte) (objectstorage.StorableObject, int, error) {
@@ -54,6 +54,7 @@ func New(badgerInstance *badger.DB) (result *Tangle) {
 	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.MessageLayer)
 
 	result = &Tangle{
+		shutdown:               make(chan struct{}),
 		messageStorage:         osFactory.New(PrefixMessage, messageFactory, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
 		messageMetadataStorage: osFactory.New(PrefixMessageMetadata, MessageMetadataFromStorageKey, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
 		approverStorage:        osFactory.New(PrefixApprovers, approverFactory, objectstorage.CacheTime(10*time.Second), objectstorage.PartitionKey(message.IdLength, message.IdLength), objectstorage.LeakDetectionEnabled(false)),
@@ -114,12 +115,12 @@ func (tangle *Tangle) DeleteMessage(messageId message.Id) {
 func (tangle *Tangle) Shutdown() *Tangle {
 	tangle.storeMessageWorkerPool.ShutdownGracefully()
 	tangle.solidifierWorkerPool.ShutdownGracefully()
-	tangle.cleanupWorkerPool.ShutdownGracefully()
 
 	tangle.messageStorage.Shutdown()
 	tangle.messageMetadataStorage.Shutdown()
 	tangle.approverStorage.Shutdown()
 	tangle.missingMessageStorage.Shutdown()
+	close(tangle.shutdown)
 
 	return tangle
 }
@@ -190,8 +191,7 @@ func (tangle *Tangle) isMessageMarkedAsSolid(messageId message.Id) bool {
 		missingMessage := NewMissingMessage(messageId)
 		if cachedMissingMessage, stored := tangle.missingMessageStorage.StoreIfAbsent(missingMessage); stored {
 			cachedMissingMessage.Consume(func(object objectstorage.StorableObject) {
-				// TODO: perhaps make it a separate worker for better efficiency
-				go tangle.monitorMissingMessage(object.(*MissingMessage).MessageId())
+				tangle.Events.MessageMissing.Trigger(messageId)
 			})
 		}
 		return false
@@ -265,29 +265,34 @@ func (tangle *Tangle) checkMessageSolidityAndPropagate(cachedMessage *message.Ca
 	}
 }
 
-// periodically checks whether the given message is missing and un-marks it as missing
-// if it didn't become known after MaxMissingTimeBeforeCleanup. note that the message is not deleted
-// from the missing message storage within this function but up on arrival.
-func (tangle *Tangle) monitorMissingMessage(messageId message.Id) {
-	tangle.Events.MessageMissing.Trigger(messageId)
+// MonitorMissingMessages continuously monitors for missing messages and eventually deletes them if they
+// don't become available in a certain time frame.
+func (tangle *Tangle) MonitorMissingMessages(shutdownSignal <-chan struct{}) {
 	reCheckInterval := time.NewTicker(MissingCheckInterval)
 	defer reCheckInterval.Stop()
-	for range reCheckInterval.C {
-		tangle.missingMessageStorage.Load(messageId[:]).Consume(func(object objectstorage.StorableObject) {
-			missingMessage := object.(*MissingMessage)
+	for {
+		select {
+		case <-reCheckInterval.C:
+			var toDelete []message.Id
+			tangle.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+				defer cachedObject.Release()
+				missingMessage := cachedObject.Get().(*MissingMessage)
 
-			// check whether message is missing since over our max time delta
-			if time.Since(missingMessage.MissingSince()) >= MaxMissingTimeBeforeCleanup {
-				tangle.cleanupWorkerPool.Submit(func() {
-					tangle.Events.MessageUnsolidifiable.Trigger(messageId)
-					// delete the future cone of the missing message
-					tangle.deleteFutureCone(missingMessage.MessageId())
-				})
-				return
+				// check whether message is missing since over our max time delta
+				if time.Since(missingMessage.MissingSince()) >= MaxMissingTimeBeforeCleanup {
+					toDelete = append(toDelete, missingMessage.MessageId())
+				}
+				return true
+			})
+			for _, msgID := range toDelete {
+				// delete the future cone of the missing message
+				tangle.Events.MessageUnsolidifiable.Trigger(msgID)
+				// TODO: obvious race condition between receiving the message and it getting deleted here
+				tangle.deleteFutureCone(msgID)
 			}
-
-			// TODO: should a StillMissing event be triggered?
-		})
+		case <-shutdownSignal:
+			return
+		}
 	}
 }
 
