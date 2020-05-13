@@ -45,7 +45,7 @@ func Voter() vote.DRNGRoundBasedVoter {
 		// create a function which gets OpinionGivers
 		opinionGiverFunc := func() (givers []vote.OpinionGiver, err error) {
 			opinionGivers := make([]vote.OpinionGiver, 0)
-			for _, p := range autopeering.Discovery.GetVerifiedPeers() {
+			for _, p := range autopeering.Discovery().GetVerifiedPeers() {
 				fpcService := p.Services().Get(service.FPCKey)
 				if fpcService == nil {
 					continue

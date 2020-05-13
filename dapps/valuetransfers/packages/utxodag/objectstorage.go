@@ -27,22 +27,22 @@ var (
 	})
 )
 
-func osTransactionFactory(key []byte) (objectstorage.StorableObject, error, int) {
+func osTransactionFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return transaction.FromStorageKey(key)
 }
 
-func osTransactionMetadataFactory(key []byte) (objectstorage.StorableObject, error, int) {
+func osTransactionMetadataFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return TransactionMetadataFromStorageKey(key)
 }
 
-func osAttachmentFactory(key []byte) (objectstorage.StorableObject, error, int) {
+func osAttachmentFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return AttachmentFromStorageKey(key)
 }
 
-func osOutputFactory(key []byte) (objectstorage.StorableObject, error, int) {
+func osOutputFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return OutputFromStorageKey(key)
 }
 
-func osConsumerFactory(key []byte) (objectstorage.StorableObject, error, int) {
+func osConsumerFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return ConsumerFromStorageKey(key)
 }

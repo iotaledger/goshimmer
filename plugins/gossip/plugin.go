@@ -5,33 +5,54 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 )
 
 // PluginName is the name of the gossip plugin.
 const PluginName = "Gossip"
 
-// Plugin is the plugin instance of the gossip plugin.
-var Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+var (
+	// Plugin is the plugin instance of the gossip plugin.
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+
+	log *logger.Logger
+)
 
 func configure(*node.Plugin) {
+	log = logger.NewLogger(PluginName)
+
+	configureLogging()
+	configureMessageLayer()
+	configureAutopeering()
+}
+
+func run(*node.Plugin) {
+	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
+		log.Errorf("Failed to start as daemon: %s", err)
+	}
+}
+
+func configureAutopeering() {
 	// assure that the Manager is instantiated
 	mgr := Manager()
 
-	// link to the auto peering
-	selection.Events.Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
+	// link to the autopeering events
+	peerSel := autopeering.Selection()
+	peerSel.Events().Dropped.Attach(events.NewClosure(func(ev *selection.DroppedEvent) {
 		go func() {
 			if err := mgr.DropNeighbor(ev.DroppedID); err != nil {
 				log.Debugw("error dropping neighbor", "id", ev.DroppedID, "err", err)
 			}
 		}()
 	}))
-	selection.Events.IncomingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
+	peerSel.Events().IncomingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
 		if !ev.Status {
 			return // ignore rejected peering
 		}
@@ -41,7 +62,7 @@ func configure(*node.Plugin) {
 			}
 		}()
 	}))
-	selection.Events.OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
+	peerSel.Events().OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
 		if !ev.Status {
 			return // ignore rejected peering
 		}
@@ -52,7 +73,20 @@ func configure(*node.Plugin) {
 		}()
 	}))
 
-	// log neighbor changes
+	// notify the autopeering on connection loss
+	mgr.Events().ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, _ error) {
+		peerSel.RemoveNeighbor(p.ID())
+	}))
+	mgr.Events().NeighborRemoved.Attach(events.NewClosure(func(p *peer.Peer) {
+		peerSel.RemoveNeighbor(p.ID())
+	}))
+}
+
+func configureLogging() {
+	// assure that the Manager is instantiated
+	mgr := Manager()
+
+	// log the gossip events
 	mgr.Events().ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, err error) {
 		log.Infof("Connection to neighbor %s / %s failed: %s", gossip.GetAddress(p), p.ID(), err)
 	}))
@@ -62,6 +96,11 @@ func configure(*node.Plugin) {
 	mgr.Events().NeighborRemoved.Attach(events.NewClosure(func(p *peer.Peer) {
 		log.Infof("Neighbor removed: %s / %s", gossip.GetAddress(p), p.ID())
 	}))
+}
+
+func configureMessageLayer() {
+	// assure that the Manager is instantiated
+	mgr := Manager()
 
 	// configure flow of incoming messages
 	mgr.Events().MessageReceived.Attach(events.NewClosure(func(event *gossip.MessageReceivedEvent) {
@@ -80,10 +119,4 @@ func configure(*node.Plugin) {
 	messagelayer.MessageRequester.Events.SendRequest.Attach(events.NewClosure(func(messageId message.Id) {
 		mgr.RequestMessage(messageId[:])
 	}))
-}
-
-func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
-		log.Errorf("Failed to start as daemon: %s", err)
-	}
 }

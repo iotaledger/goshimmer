@@ -4,9 +4,9 @@
       "serverAddress": "node1.goshimmer.dev:188"
     },
     "server": {
-      "port": 0
+      "bindAddress": "0.0.0.0:16178"
     },
-    "httpServer": {
+    "webInterface": {
       "bindAddress": "0.0.0.0:80"
     }
   },
@@ -36,13 +36,6 @@
   },
   "gossip": {
     "port": 14666
-  },
-  "graph": {
-    "bindAddress": "127.0.0.1:8082",
-    "domain": "",
-    "networkName": "GoShimmer",
-    "socketIOPath": "socket.io-client/dist/socket.io.js",
-    "webrootPath": "IOTAtangle/webroot"
   },
   "logger": {
     "level": "info",

@@ -4,6 +4,7 @@ const (
 	PriorityDatabase = iota
 	PriorityFPC
 	PriorityTangle
+	PriorityMissingMessagesMonitoring
 	PriorityRemoteLog
 	PriorityAnalysis
 	PriorityMetrics
@@ -11,7 +12,8 @@ const (
 	PriorityGossip
 	PriorityWebAPI
 	PriorityDashboard
-	PriorityGraph
+	PrioritySynchronization
+	PriorityBootstrap
 	PrioritySpammer
 	PriorityBadgerGarbageCollection
 )

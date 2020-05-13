@@ -172,7 +172,7 @@ If Go is installed, you should see the version that's installed.
 
 When you first run GoShimmer, the node starts running and tries to connects to neighbors, using the autopeering module.
 
-To run other modules such as the `spammer` or the Glumb visualizer `graph`, you can configure GoShimmer to enable them through plugins.
+To run other modules such as the `spammer`, you can configure GoShimmer to enable them through plugins.
 
 **Note:** For a list of all the available configuration parameters, you can run the following command:
 
@@ -210,31 +210,6 @@ You can change its configuration (e.g, bind address, port) under the section `da
 To access the dashboard, you can use your browser (the default address is `http://127.0.0.1:8081`).
 
  ![dashboard](images/dashboard.png "Dashboard")
-
-### Installing the Glumb visualizer
-
-The Glumb visualizer allows you to view the transactions in the network, using a web browser.
-
-1. Enable the `graph` plugin either in your `config.json` file or in the command line (`--node.enablePlugins=["graph"]`)
-
-2. If you're running GoShimmer with the precompiled executable file, do the following in the `goshimmer` directory:
-
-    ```bash
-    git clone https://github.com/glumb/IOTAtangle.git
-    // only this version seems to be stable
-    cd IOTAtangle && git reset --hard 07bba77a296a2d06277cdae56aa963abeeb5f66e 
-    cd ../
-    git clone https://github.com/socketio/socket.io-client.git
-    ```
-
-3. If you built the code from source, do the following in the `goshimmer` directory:
-
-    ```bash
-    git submodule init
-    git submodule update
-    ```
-    
-To open the visualizer, run GoShimmer, and go to `127.0.0.1:8083` in a web browser.
 
 ## Supporting the project
 

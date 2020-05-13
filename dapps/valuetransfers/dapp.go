@@ -24,12 +24,14 @@ import (
 
 const (
 	// PluginName contains the human readable name of the plugin.
-	PluginName          = "ValueTransfers"
+	PluginName = "ValueTransfers"
+
+	// AverageNetworkDelay contains the average time it takes for a network to propagate through gossip.
 	AverageNetworkDelay = 6 * time.Second
 )
 
 var (
-	// Plugin is the plugin instance of the message layer plugin.
+	// App is the "plugin" instance of the value-transfers application.
 	App = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 	// Tangle represents the value tangle that is used to express votes on value transactions.
@@ -58,15 +60,14 @@ func configure(_ *node.Plugin) {
 	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 
 	// setup behavior of package instances
-	Tangle.Events.PayloadSolid.Attach(events.NewClosure(UTXODAG.ProcessSolidPayload))
 	UTXODAG.Events.TransactionBooked.Attach(events.NewClosure(onTransactionBooked))
-	UTXODAG.Events.Fork.Attach(events.NewClosure(onFork))
+	UTXODAG.Events.Fork.Attach(events.NewClosure(onForkOfFirstConsumer))
 
 	configureFPC()
-	// TODO: DECIDE WHAT WE SHOULD DO IF FPC FAILS
+	// TODO: DECIDE WHAT WE SHOULD DO IF FPC FAILS -> cry
 	// voter.Events().Failed.Attach(events.NewClosure(panic))
 	voter.Events().Finalized.Attach(events.NewClosure(func(id string, opinion vote.Opinion) {
-		branchId, err := branchmanager.BranchIdFromBase58(id)
+		branchID, err := branchmanager.BranchIDFromBase58(id)
 		if err != nil {
 			log.Error(err)
 
@@ -75,9 +76,15 @@ func configure(_ *node.Plugin) {
 
 		switch opinion {
 		case vote.Like:
-			UTXODAG.BranchManager().SetBranchPreferred(branchId, true)
+			if _, err := UTXODAG.BranchManager().SetBranchPreferred(branchID, true); err != nil {
+				panic(err)
+			}
+			// TODO: merge branch mutations into the parent branch
 		case vote.Dislike:
-			UTXODAG.BranchManager().SetBranchPreferred(branchId, false)
+			if _, err := UTXODAG.BranchManager().SetBranchPreferred(branchID, false); err != nil {
+				panic(err)
+			}
+			// TODO: merge branch mutations into the parent branch / cleanup
 		}
 	}))
 }
@@ -120,14 +127,14 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 	Tangle.AttachPayload(valuePayload)
 }
 
-func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputId, previousConsumersForked bool) {
+func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID, decisionPending bool) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
 	defer cachedBranch.Release()
 
 	if len(conflictingInputs) >= 1 {
 		// abort if the previous consumers where finalized already
-		if !previousConsumersForked {
+		if !decisionPending {
 			return
 		}
 
@@ -138,7 +145,7 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 			return
 		}
 
-		err := voter.Vote(branch.Id().String(), vote.Dislike)
+		err := voter.Vote(branch.ID().String(), vote.Dislike)
 		if err != nil {
 			log.Error(err)
 		}
@@ -147,7 +154,7 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 	}
 
 	// If the transaction is not conflicting, then we apply the fcob rule (we finalize after 2 network delays).
-	// Note: We do not set a liked flag after 1 network delay because that can be derived.
+	// Note: We do not set a liked flag after 1 network delay because that can be derived by the retriever later.
 	cachedTransactionMetadata.Retain()
 	time.AfterFunc(2*AverageNetworkDelay, func() {
 		defer cachedTransactionMetadata.Release()
@@ -157,7 +164,8 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 			return
 		}
 
-		if transactionMetadata.BranchId() != branchmanager.NewBranchId(transactionMetadata.Id()) {
+		// TODO: check that the booking goroutine in the UTXO DAG and this check is somehow synchronized
+		if transactionMetadata.BranchID() == branchmanager.NewBranchID(transactionMetadata.ID()) {
 			return
 		}
 
@@ -165,7 +173,8 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 	})
 }
 
-func onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputId) {
+// TODO: clarify what we do here
+func onForkOfFirstConsumer(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
 	defer cachedBranch.Release()
@@ -181,10 +190,18 @@ func onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionM
 	}
 
 	if time.Since(transactionMetadata.SoldificationTime()) < AverageNetworkDelay {
+		if err := voter.Vote(branch.ID().String(), vote.Dislike); err != nil {
+			log.Error(err)
+		}
+
 		return
 	}
 
-	if _, err := UTXODAG.BranchManager().SetBranchPreferred(branch.Id(), true); err != nil {
+	if _, err := UTXODAG.BranchManager().SetBranchPreferred(branch.ID(), true); err != nil {
+		log.Error(err)
+	}
+
+	if err := voter.Vote(branch.ID().String(), vote.Like); err != nil {
 		log.Error(err)
 	}
 }

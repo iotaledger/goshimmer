@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/echo"
 	"github.com/labstack/gommon/log"
@@ -25,7 +25,10 @@ func Handler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: "not a valid Collective Beacon payload"})
 	}
 
-	msg := messagelayer.MessageFactory.IssuePayload(parsedPayload)
+	msg, err := issuer.IssuePayload(parsedPayload)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
 	return c.JSON(http.StatusOK, Response{ID: msg.Id().String()})
 }
 

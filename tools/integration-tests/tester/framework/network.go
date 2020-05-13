@@ -82,7 +82,8 @@ func (n *Network) createEntryNode() error {
 }
 
 // CreatePeer creates a new peer/GoShimmer node in the network and returns it.
-func (n *Network) CreatePeer() (*Peer, error) {
+// Passing bootstrap true enables the bootstrap plugin on the given peer.
+func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	name := n.namePrefix(fmt.Sprintf("%s%d", containerNameReplica, len(n.peers)))
 
 	// create identity
@@ -92,9 +93,16 @@ func (n *Network) CreatePeer() (*Peer, error) {
 	}
 	seed := base64.StdEncoding.EncodeToString(ed25519.PrivateKey(privateKey.Bytes()).Seed())
 
+	config := c
+	config.Name = name
+	config.Seed = seed
+	config.EntryNodeHost = n.namePrefix(containerNameEntryNode)
+	config.EntryNodePublicKey = n.entryNodePublicKey()
+	config.DisabledPlugins = disabledPluginsPeer
+
 	// create Docker container
 	container := NewDockerContainer(n.dockerClient)
-	err = container.CreateGoShimmerPeer(name, seed, n.namePrefix(containerNameEntryNode), n.entryNodePublicKey())
+	err = container.CreateGoShimmerPeer(config)
 	if err != nil {
 		return nil, err
 	}

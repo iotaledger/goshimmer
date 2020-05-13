@@ -7,8 +7,8 @@ import (
 	"os"
 )
 
-// getWebApiBaseUrl returns the web API base url for the given IP.
-func getWebApiBaseUrl(hostname string) string {
+// getWebAPIBaseURL returns the web API base url for the given IP.
+func getWebAPIBaseURL(hostname string) string {
 	return fmt.Sprintf("http://%s:%s", hostname, apiPort)
 }
 

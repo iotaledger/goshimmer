@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -35,7 +35,10 @@ func broadcastData(c echo.Context) error {
 	}
 
 	//TODO: to check max payload size allowed, if exceeding return an error
-	msg := messagelayer.MessageFactory.IssuePayload(payload.NewData(request.Data))
+	msg, err := issuer.IssuePayload(payload.NewData(request.Data))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
 	return c.JSON(http.StatusOK, Response{ID: msg.Id().String()})
 }
 

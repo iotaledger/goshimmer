@@ -10,6 +10,6 @@ type Signature interface {
 	// Bytes returns a marshaled version of the signature.
 	Bytes() []byte
 
-	// Address returns the address, that this signature signs.
+	// Address returns the address that this signature signs.
 	Address() address.Address
 }
