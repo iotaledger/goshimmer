@@ -22,7 +22,7 @@ type BasicPayload struct {
 // and the subpayload
 type DrngPayload struct {
 	SubPayloadType byte        `json:"subpayload_type"`
-	InstanceId     uint32      `json:"instance_id"`
+	InstanceID     uint32      `json:"instance_id"`
 	SubPayload     interface{} `json:"drngpayload"`
 }
 
@@ -34,31 +34,35 @@ type DrngCollectiveBeaconPayload struct {
 	Dpk     []byte `json:"dpk"`
 }
 
+// ValuePayload contains the transaction information
 type ValuePayload struct {
-	Id        string          `json:"payload_id"`
+	ID        string          `json:"payload_id"`
 	ParentID0 string          `json:"parent_id_0"`
 	ParentID1 string          `json:"parent_id_1"`
-	TxId      string          `json:"tx_id"`
+	TxID      string          `json:"tx_id"`
 	Input     []InputContent  `json:"inputs"`
 	Output    []OutputContent `json:"outputs"`
 	Data      []byte          `json:"data"`
 }
 
+// InputContent contains the inputs of a transaction
 type InputContent struct {
 	Address string `json:"address"`
 }
 
+// OutputContent contains the outputs of a transaction
 type OutputContent struct {
 	Address  string    `json:"address"`
 	Balances []Balance `json:"balance"`
 }
 
+// Balace contains the amount of specific color token
 type Balance struct {
 	Value int64  `json:"value"`
 	Color string `json:"color"`
 }
 
-// Processpayload generates different structs regarding to the
+// Processpayload returns different structs regarding to the
 // payload type.
 func ProcessPayload(p payload.Payload) interface{} {
 	switch p.Type() {
@@ -107,7 +111,7 @@ func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 	}
 	return DrngPayload{
 		SubPayloadType: drngPayload.Header.PayloadType,
-		InstanceId:     drngPayload.Header.InstanceID,
+		InstanceID:     drngPayload.Header.InstanceID,
 		SubPayload:     subpayload,
 	}
 }
@@ -145,10 +149,10 @@ func processValuePayload(p payload.Payload) (vp ValuePayload) {
 	})
 
 	return ValuePayload{
-		Id:        v.ID().String(),
+		ID:        v.ID().String(),
 		ParentID0: v.TrunkID().String(),
 		ParentID1: v.BranchID().String(),
-		TxId:      v.Transaction().ID().String(),
+		TxID:      v.Transaction().ID().String(),
 		Input:     inputs,
 		Output:    outputs,
 		Data:      v.Transaction().GetDataPayload(),
