@@ -1,7 +1,6 @@
 package dashboard
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
@@ -115,8 +114,6 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		}()
 		wg.Wait()
 
-		b, _ := json.Marshal(result)
-		fmt.Println(string(b))
 		return c.JSON(http.StatusOK, result)
 	})
 }
