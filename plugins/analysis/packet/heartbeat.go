@@ -167,7 +167,7 @@ func NewHeartbeatMessage(hb *Heartbeat) ([]byte, error) {
 		return nil, err
 	}
 	// write serialized packet bytes into the buffer
-	if err := binary.Write(buf, binary.BigEndian, packet); err != nil {
+	if err := binary.Write(buf, binary.LittleEndian, packet); err != nil {
 		return nil, err
 	}
 
