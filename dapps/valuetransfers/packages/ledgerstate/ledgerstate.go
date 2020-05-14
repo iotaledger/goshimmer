@@ -23,11 +23,13 @@ func (ledgerState *LedgerState) Balances(address address.Address) (coloredBalanc
 	coloredBalances = make(map[balance.Color]int64)
 
 	ledgerState.tangle.OutputsOnAddress(address).Consume(func(output *tangle.Output) {
-		for _, coloredBalance := range output.Balances() {
-			if _, exists := coloredBalances[coloredBalance.Color()]; exists {
-				coloredBalances[coloredBalance.Color()] += coloredBalance.Value()
-			} else {
-				coloredBalances[coloredBalance.Color()] += coloredBalance.Value()
+		if output.ConsumerCount() == 0 {
+			for _, coloredBalance := range output.Balances() {
+				if _, exists := coloredBalances[coloredBalance.Color()]; exists {
+					coloredBalances[coloredBalance.Color()] += coloredBalance.Value()
+				} else {
+					coloredBalances[coloredBalance.Color()] += coloredBalance.Value()
+				}
 			}
 		}
 	})

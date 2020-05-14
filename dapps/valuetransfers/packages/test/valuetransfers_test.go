@@ -1,10 +1,14 @@
 package test
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
+
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
@@ -14,31 +18,33 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/stretchr/testify/require"
 )
 
-func TestTangle_AttachPayload(t *testing.T) {
+func TestTangle_ValueTransfer(t *testing.T) {
+	// initialize test environment
 	dir, err := ioutil.TempDir("", t.Name())
 	require.NoError(t, err)
 	defer os.Remove(dir)
-
 	config.Node.Set(database.CFG_DIRECTORY, dir)
 
+	// initialize tangle
 	valueTangle := tangle.New(database.GetBadgerInstance())
 	if err := valueTangle.Prune(); err != nil {
 		t.Error(err)
 
 		return
 	}
-
 	ledgerState := ledgerstate.New(valueTangle)
-
 	addressKeyPair1 := ed25519.GenerateKeyPair()
 	addressKeyPair2 := ed25519.GenerateKeyPair()
 	address1 := address.FromED25519PubKey(addressKeyPair1.PublicKey)
 	address2 := address.FromED25519PubKey(addressKeyPair2.PublicKey)
 
+	// check if ledger empty first
+	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(address1))
+	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(address2))
+
+	// load snapshot
 	valueTangle.LoadSnapshot(map[transaction.ID]map[address.Address][]*balance.Balance{
 		transaction.GenesisID: {
 			address1: []*balance.Balance{
@@ -51,12 +57,12 @@ func TestTangle_AttachPayload(t *testing.T) {
 		},
 	})
 
-	fmt.Printf("Balances on address '%s': %v\n", address1, ledgerState.Balances(address1))
-
-	outputAddress1 := address.Random()
-	outputAddress2 := address.Random()
+	// check if balance exists after loading snapshot
+	assert.Equal(t, map[balance.Color]int64{balance.ColorIOTA: 337}, ledgerState.Balances(address1))
+	assert.Equal(t, map[balance.Color]int64{balance.ColorIOTA: 1000}, ledgerState.Balances(address2))
 
 	// attach first spend
+	outputAddress1 := address.Random()
 	valueTangle.AttachPayload(payload.New(payload.GenesisID, payload.GenesisID, transaction.New(
 		transaction.NewInputs(
 			transaction.NewOutputID(address1, transaction.GenesisID),
@@ -65,12 +71,23 @@ func TestTangle_AttachPayload(t *testing.T) {
 
 		transaction.NewOutputs(map[address.Address][]*balance.Balance{
 			outputAddress1: {
-				balance.New(balance.ColorNew, 1337),
+				balance.New(balance.ColorIOTA, 1337),
 			},
 		}),
 	)))
 
+	// wait for async task to run (TODO: REPLACE TIME BASED APPROACH WITH A WG)
+	time.Sleep(500 * time.Millisecond)
+
+	// check if old addresses are empty
+	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(address1))
+	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(address2))
+
+	// check if new addresses are filled
+	assert.Equal(t, map[balance.Color]int64{balance.ColorIOTA: 1337}, ledgerState.Balances(outputAddress1))
+
 	// attach double spend
+	outputAddress2 := address.Random()
 	valueTangle.AttachPayload(payload.New(payload.GenesisID, payload.GenesisID, transaction.New(
 		transaction.NewInputs(
 			transaction.NewOutputID(address1, transaction.GenesisID),
@@ -84,6 +101,6 @@ func TestTangle_AttachPayload(t *testing.T) {
 		}),
 	)))
 
-	valueTangle.Shutdown()
+	// shutdown tangle
 	valueTangle.Shutdown()
 }

@@ -380,11 +380,16 @@ func (tangle *Tangle) solidifyPayload(cachedPayload *payload.CachedPayload, cach
 }
 
 func (tangle *Tangle) book(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) (transactionBooked bool, payloadBooked bool, err error) {
-	if transactionBooked, err = tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata); err != nil {
+	defer cachedPayload.Release()
+	defer cachedPayloadMetadata.Release()
+	defer cachedTransaction.Release()
+	defer cachedTransactionMetadata.Release()
+
+	if transactionBooked, err = tangle.bookTransaction(cachedTransaction.Retain(), cachedTransactionMetadata.Retain()); err != nil {
 		return
 	}
 
-	if payloadBooked, err = tangle.bookPayload(cachedPayload, cachedPayloadMetadata, cachedTransactionMetadata); err != nil {
+	if payloadBooked, err = tangle.bookPayload(cachedPayload.Retain(), cachedPayloadMetadata.Retain(), cachedTransactionMetadata.Retain()); err != nil {
 		return
 	}
 
@@ -547,7 +552,6 @@ func (tangle *Tangle) bookPayload(cachedPayload *payload.CachedPayload, cachedPa
 	}
 
 	payloadBooked = valueObjectMetadata.SetBranchID(aggregatedBranch.ID())
-	fmt.Println("BOOKED", aggregatedBranch.ID())
 
 	return
 }
@@ -625,6 +629,8 @@ func (tangle *Tangle) checkPayloadSolidity(payload *payload.Payload, payloadMeta
 
 		return
 	}
+
+	solid = true
 
 	return
 }
