@@ -36,6 +36,7 @@ var (
 )
 
 const (
+	// MessageTypeHeartbeat is the unique id of a heartbeat message for analysis.
 	MessageTypeHeartbeat message.Type = 1
 )
 
