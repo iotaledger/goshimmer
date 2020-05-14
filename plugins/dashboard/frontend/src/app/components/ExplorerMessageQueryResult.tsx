@@ -10,6 +10,10 @@ import ListGroup from "react-bootstrap/ListGroup";
 import Badge from "react-bootstrap/Badge";
 import * as dateformat from 'dateformat';
 import {Link} from 'react-router-dom';
+import {BasicPayload} from 'app/components/BasicPayload'
+import {DrngPayload} from 'app/components/DrngPayload'
+import {ValuePayload} from 'app/components/ValuePayload'
+import {PayloadType} from 'app/misc/Payload'
 
 interface Props {
     nodeStore?: NodeStore;
@@ -38,6 +42,32 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
         return null;
     }
 
+    getPayloadType() {
+        switch(this.props.explorerStore.msg.payload_type) {
+            case PayloadType.Data:
+                return "Data"
+            case PayloadType.Value:
+                return "Value"
+            case PayloadType.Drng:
+                return "Drng"
+            default:
+                return "Unknown"
+        }
+    }
+
+    renderPayload() {
+        switch(this.props.explorerStore.msg.payload_type) {
+            case PayloadType.Drng:
+                return <DrngPayload/>
+            case PayloadType.Value:
+                return <ValuePayload/>
+            case PayloadType.Data:
+            default:
+                console.log(this.props.explorerStore.msg.payload.bytes)
+                return <BasicPayload/>
+        }
+    }
+
     render() {
         let {id} = this.props.match.params;
         let {msg, query_loading} = this.props.explorerStore;
@@ -64,6 +94,11 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                         <Row className={"mb-3"}>
                             <Col>
                                 <ListGroup>
+                                    <ListGroup.Item>Payload Type: {this.getPayloadType()} </ListGroup.Item>
+                                </ListGroup>
+                            </Col>
+                            <Col>
+                                <ListGroup>
                                     <ListGroup.Item>Solid: {msg.solid ? 'Yes' : 'No'}</ListGroup.Item>
                                 </ListGroup>
                             </Col>
@@ -86,6 +121,20 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         <Link to={`/explorer/message/${msg.branch_message_id}`}>
                                             {msg.branch_message_id}
                                         </Link>
+                                    </ListGroup.Item>
+                                </ListGroup>
+                            </Col>
+                        </Row>
+                        <Row className={"mb-3"}>
+                            <Col>
+                                <h4>Payload</h4>
+                            </Col>
+                        </Row>
+                        <Row className={"mb-3"}>
+                            <Col>
+                                <ListGroup>
+                                    <ListGroup.Item className="text-break">
+                                        {this.renderPayload()}
                                     </ListGroup.Item>
                                 </ListGroup>
                             </Col>
