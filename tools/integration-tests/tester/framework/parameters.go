@@ -18,6 +18,8 @@ const (
 	dockerLogsPrefixLen = 8
 
 	dkgMaxTries = 50
+
+	exitStatusSuccessful = 0
 )
 
 // GoShimmerConfig defines the config of a GoShimmer node.

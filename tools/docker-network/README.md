@@ -2,7 +2,7 @@
 
 ![Docker network](../../images/docker-network.png)
 
-Running `docker-compose` spins up a GoShimmer network within Docker as schematically shown in the figure above.
+Running `./run.sh` spins up a GoShimmer network within Docker as schematically shown in the figure above.
 `N` defines the number of `peer_replicas` and can be specified when running the network.
 The peers can communicate freely within the Docker network 
 while the autopeering network visualizer, `master_peer's` dashboard and web API are reachable from the host system on the respective ports.
@@ -23,14 +23,8 @@ Reachable from the host system
 - `master_peer's` web API: http: http://localhost:8080
 
 It is therefore possible to send messages to the local network via the `master_peer` and observe log messages either 
-via `docker logs --follow CONTAINER` or by starting the Docker network without the `-d` option, as follows.
+via `docker logs --follow CONTAINER` or all of them combined when running via:
 
 ```
-docker-compose up --scale peer_replica=5
-
-# remove containers and network
-docker-compose down
+./run.sh 5
 ```
-
-Sometimes when changing files Docker does not detect the changes on a rebuild. 
-Then the option `--build` needs to be used with `docker-compose`.

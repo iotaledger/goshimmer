@@ -104,7 +104,7 @@ func TestNewHeartbeatMessage(t *testing.T) {
 		assert.EqualValues(t, len(hb.OutboundIDs), serializedHb[tlvHeaderLength+HeartbeatPacketPeerIDSize], "expected outbound IDs count of %d", len(hb.OutboundIDs))
 
 		// after the outbound IDs count, the outbound IDs are serialized
-		offset := int(tlvHeaderLength) +  HeartbeatPacketMinSize
+		offset := int(tlvHeaderLength) + HeartbeatPacketMinSize
 		for i := 0; i < len(hb.OutboundIDs); i++ {
 			assert.EqualValues(t, hb.OutboundIDs[i], serializedHb[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize], "outbound ID at the given position doesn't match")
 		}
@@ -185,7 +185,7 @@ func TestParseHeartbeat(t *testing.T) {
 			// and add an extra outbound ID (inbound IDs are zero)
 			serializedHb = append(serializedHb, ownID[:]...)
 			// manually overwrite outboundIDCount
-			serializedHb[tlvHeaderLength + HeartbeatPacketMinSize-1] = HeartbeatMaxOutboundPeersCount + 1
+			serializedHb[tlvHeaderLength+HeartbeatPacketMinSize-1] = HeartbeatMaxOutboundPeersCount + 1
 			return testcase{source: serializedHb[tlvHeaderLength:], expected: hb, err: ErrMalformedPacket}
 		}(),
 		// err, advertised outbound ID count is bigger than remaining data

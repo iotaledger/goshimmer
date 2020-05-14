@@ -15,8 +15,7 @@
     "entryNodes": [
       "X2cmCzYnZDjmsvdAH90Q7oKmhNeTdwJdj2FX84adLzo=@entry_node:14626"
     ],
-    "port": 14626,
-    "version": 1
+    "port": 14626
   },
   "fpctest": {
     "bindAddress": "0.0.0.0:10895"
@@ -33,6 +32,12 @@
   "database": {
     "directory": "mainnetdb"
   },
+  "drng": {
+    "instanceId": 1,
+    "threshold": 3,
+    "distributedPubKey": "",
+    "committeeMembers": []
+  },
   "gossip": {
     "port": 14666
   },
@@ -42,8 +47,7 @@
     "disableStacktrace": false,
     "encoding": "console",
     "outputPaths": [
-      "stdout",
-      "goshimmer.log"
+      "stdout"
     ],
     "disableEvents": true,
     "remotelog": {

@@ -155,6 +155,19 @@ func (n *Network) Shutdown() error {
 		}
 	}
 
+	// save exit status of containers to check at end of shutdown process
+	exitStatus := make(map[string]int, len(n.peers)+1)
+	exitStatus[containerNameEntryNode], err = n.entryNode.ExitStatus()
+	if err != nil {
+		return err
+	}
+	for _, p := range n.peers {
+		exitStatus[p.name], err = p.ExitStatus()
+		if err != nil {
+			return err
+		}
+	}
+
 	// remove containers
 	err = n.entryNode.Remove()
 	if err != nil {
@@ -177,6 +190,13 @@ func (n *Network) Shutdown() error {
 	err = n.dockerClient.NetworkRemove(context.Background(), n.id)
 	if err != nil {
 		return err
+	}
+
+	// check exit codes of containers
+	for name, status := range exitStatus {
+		if status != exitStatusSuccessful {
+			return fmt.Errorf("container %s exited with code %d", name, status)
+		}
 	}
 
 	return nil

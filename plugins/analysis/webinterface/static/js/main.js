@@ -162,8 +162,7 @@ class Datastructure {
     }
 
     getStatusText() {
-        // avg = this.connections.size*2 / (this.nodesOnline-1) : -1 == entry node (always disconnected)
-        return "nodes online: " + this.nodes.size + " - edges: " + this.connections.size + " - avg: " + (this.connections.size*2 / (this.nodes.size-1)).toFixed(2);
+        return "nodes online: " + this.nodes.size + " - edges: " + this.connections.size + " - avg: " + (this.connections.size*2 / this.nodes.size).toFixed(2);
     }
 
     addNode(idA) {

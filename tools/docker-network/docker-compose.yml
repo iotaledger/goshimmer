@@ -2,56 +2,57 @@ version: "3.5"
 
 services:
   entry_node:
+    container_name: entry_node
+    image: golang:1.14
+    entrypoint: /go/bin/main
     command: >
+      --config-dir=/tmp
+      --database.directory=/tmp/mainnetdb
       --autopeering.seed=uuDCzsjyLNQ17/7fWKPNMYmr4IWuaVRf7qKqRL0v/6c=
       --autopeering.entryNodes=
       --analysis.server.bindAddress=0.0.0.0:1888
       --node.enablePlugins=analysis-server,analysis-webinterface
-      --node.disablePlugins=portcheck,dashboard,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
-    container_name: entry_node
-    image: iotaledger/goshimmer
-    build:
-      context: ../..
+      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,metrics,messagelayer,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     volumes:
-      - ./config.docker.json:/config.json:ro
+      - ./config.docker.json:/tmp/config.json:ro
+      - goshimmer-cache:/go
     ports:
       - "127.0.0.1:9000:9000/tcp" # autopeering visualizer
     expose:
       - "1888/tcp" # analysis server (within Docker network)
-    networks:
-      - integration-test
 
   peer_master:
-    command: --node.enablePlugins=Bootstrap
     container_name: peer_master
-    image: iotaledger/goshimmer
-    build:
-      context: ../..
+    image: golang:1.14
+    entrypoint: /go/bin/main
+    command: >
+      --config-dir=/tmp
+      --database.directory=/tmp/mainnetdb
+      --node.enablePlugins=bootstrap
     volumes:
-      - ./config.docker.json:/config.json:ro
+      - ./config.docker.json:/tmp/config.json:ro
+      - goshimmer-cache:/go
     ports:
       - "127.0.0.1:8080:8080/tcp" # web API
       - "127.0.0.1:8081:8081/tcp" # dashboard
     depends_on:
       - entry_node
-    networks:
-      - integration-test
 
   peer_replica:
-    command: --node.disablePlugins=dashboard,portcheck
-    image: iotaledger/goshimmer
-    build:
-      context: ../..
+    image: golang:1.14
+    entrypoint: /go/bin/main
+    command: >
+      --config-dir=/tmp
+      --database.directory=/tmp/mainnetdb
+      --node.disablePlugins=dashboard,portcheck
     volumes:
-      - ./config.docker.json:/config.json:ro
+      - ./config.docker.json:/tmp/config.json:ro
+      - goshimmer-cache:/go
     expose:
       - "8080/tcp" # web API (within Docker network)
     depends_on:
       - entry_node
-    networks:
-      - integration-test
 
-networks:
-  integration-test:
-    driver: bridge
-    name: integration-test
+volumes:
+  goshimmer-cache:
+    name: goshimmer-cache
