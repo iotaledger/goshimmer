@@ -17,7 +17,7 @@ var (
 )
 
 var (
-	// HeartbeatMessageDefinition defines a heartbeat message's format.
+	// FPCHeartbeatMessageDefinition defines a heartbeat message's format.
 	FPCHeartbeatMessageDefinition = &message.Definition{
 		ID:             MessageTypeFPCHeartbeat,
 		MaxBytesLength: 65535,
@@ -25,7 +25,7 @@ var (
 	}
 )
 
-// Heartbeat represents a heartbeat packet.
+// FPCHeartbeat represents a heartbeat packet.
 type FPCHeartbeat struct {
 	// The ID of the node who sent the heartbeat.
 	// Must be contained when a heartbeat is serialized.
@@ -55,6 +55,7 @@ func ParseFPCHeartbeat(data []byte) (*FPCHeartbeat, error) {
 	return hb, nil
 }
 
+// Bytes return the FPC heartbeat encoded as bytes
 func (hb FPCHeartbeat) Bytes() ([]byte, error) {
 	buf := new(bytes.Buffer)
 	encoder := gob.NewEncoder(buf)
@@ -65,7 +66,7 @@ func (hb FPCHeartbeat) Bytes() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// NewHeartbeatMessage serializes the given heartbeat into a byte slice and adds a tlv header to the packet.
+// NewFPCHeartbeatMessage serializes the given FPC heartbeat into a byte slice and adds a tlv header to the packet.
 // message = tlv header + serialized packet
 func NewFPCHeartbeatMessage(hb *FPCHeartbeat) ([]byte, error) {
 	packet, err := hb.Bytes()

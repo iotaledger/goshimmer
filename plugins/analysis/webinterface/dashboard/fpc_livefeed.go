@@ -21,18 +21,17 @@ var (
 	conflicts map[string]Conflict
 )
 
+// Conflict defines the struct for the opinions of the nodes regarding a given conflict.
 type Conflict struct {
-	NodesView map[string]voteContext
+	NodesView map[string]voteContext `json:"nodesview"`
 }
 
 type voteContext struct {
-	NodeID   string
-	Rounds   int
-	Opinions []vote.Opinion
-	Like     vote.Opinion
+	NodeID   string         `json:"nodeid"`
+	Rounds   int            `json:"rounds"`
+	Opinions []vote.Opinion `json:"opinions"`
+	Like     vote.Opinion   `json:"like"`
 }
-
-//
 
 // FPCMsg contains an FPC update
 type FPCMsg struct {
