@@ -27,7 +27,7 @@ func TestTangle_ValueTransfer(t *testing.T) {
 	defer os.Remove(dir)
 	config.Node.Set(database.CFG_DIRECTORY, dir)
 
-	// initialize tangle
+	// initialize tangle + ledgerstate
 	valueTangle := tangle.New(database.GetBadgerInstance())
 	if err := valueTangle.Prune(); err != nil {
 		t.Error(err)
@@ -35,6 +35,8 @@ func TestTangle_ValueTransfer(t *testing.T) {
 		return
 	}
 	ledgerState := ledgerstate.New(valueTangle)
+
+	//
 	addressKeyPair1 := ed25519.GenerateKeyPair()
 	addressKeyPair2 := ed25519.GenerateKeyPair()
 	address1 := address.FromED25519PubKey(addressKeyPair1.PublicKey)
