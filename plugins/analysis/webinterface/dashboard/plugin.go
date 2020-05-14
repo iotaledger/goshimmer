@@ -140,6 +140,8 @@ const (
 	MsgTypeVertex
 	// MsgTypeTipInfo defines a tip info message.
 	MsgTypeTipInfo
+	// MsgTypeFPC defines a FPC update message.
+	MsgTypeFPC
 )
 
 type wsmsg struct {

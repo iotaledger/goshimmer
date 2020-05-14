@@ -37,13 +37,23 @@ func init() {
 
 var (
 	// Plugin is the plugin instance of the analysis client plugin.
-	Plugin   = node.NewPlugin(PluginName, node.Enabled, run)
-	log      *logger.Logger
-	connLock sync.Mutex
+	Plugin      = node.NewPlugin(PluginName, node.Enabled, run)
+	log         *logger.Logger
+	managedConn *network.ManagedConnection
+	connLock    sync.Mutex
 )
 
 func run(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
+
+	conn, err := net.Dial("tcp", config.Node.GetString(CfgServerAddress))
+	if err != nil {
+		log.Debugf("Could not connect to reporting server: %s", err.Error())
+		return
+	}
+
+	managedConn = network.NewManagedConnection(conn)
+
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 
 		fpctest.Voter().Events().RoundExecuted.Attach(events.NewClosure(onRoundExecuted))
@@ -57,14 +67,7 @@ func run(_ *node.Plugin) {
 				return
 
 			case <-ticker.C:
-				conn, err := net.Dial("tcp", config.Node.GetString(CfgServerAddress))
-				if err != nil {
-					log.Debugf("Could not connect to reporting server: %s", err.Error())
-					continue
-				}
-				managedConn := network.NewManagedConnection(conn)
-				eventDispatchers := getEventDispatchers(managedConn)
-				reportHeartbeat(eventDispatchers)
+				sendHeartbeat(managedConn, createHeartbeat())
 			}
 		}
 	}, shutdown.PriorityAnalysis); err != nil {
@@ -78,40 +81,36 @@ type EventDispatchers struct {
 	Heartbeat func(heartbeat *packet.Heartbeat)
 }
 
-func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
-	return &EventDispatchers{
-		Heartbeat: func(hb *packet.Heartbeat) {
-			var out strings.Builder
-			for _, value := range hb.OutboundIDs {
-				out.WriteString(hex.EncodeToString(value))
-			}
-			var in strings.Builder
-			for _, value := range hb.InboundIDs {
-				in.WriteString(hex.EncodeToString(value))
-			}
-			log.Debugw(
-				"Heartbeat",
-				"nodeID", hex.EncodeToString(hb.OwnID),
-				"outboundIDs", out.String(),
-				"inboundIDs", in.String(),
-			)
+func sendHeartbeat(conn *network.ManagedConnection, hb *packet.Heartbeat) {
+	var out strings.Builder
+	for _, value := range hb.OutboundIDs {
+		out.WriteString(hex.EncodeToString(value))
+	}
+	var in strings.Builder
+	for _, value := range hb.InboundIDs {
+		in.WriteString(hex.EncodeToString(value))
+	}
+	log.Debugw(
+		"Heartbeat",
+		"nodeID", hex.EncodeToString(hb.OwnID),
+		"outboundIDs", out.String(),
+		"inboundIDs", in.String(),
+	)
 
-			data, err := packet.NewHeartbeatMessage(hb)
-			if err != nil {
-				log.Info(err, " - heartbeat message skipped")
-				return
-			}
+	data, err := packet.NewHeartbeatMessage(hb)
+	if err != nil {
+		log.Info(err, " - heartbeat message skipped")
+		return
+	}
 
-			connLock.Lock()
-			defer connLock.Unlock()
-			if _, err = conn.Write(data); err != nil {
-				log.Debugw("Error while writing to connection", "Description", err)
-			}
-		},
+	connLock.Lock()
+	defer connLock.Unlock()
+	if _, err = conn.Write(data); err != nil {
+		log.Debugw("Error while writing to connection", "Description", err)
 	}
 }
 
-func reportHeartbeat(dispatchers *EventDispatchers) {
+func createHeartbeat() *packet.Heartbeat {
 	// get own ID
 	var nodeID []byte
 	if local.GetInstance() != nil {
@@ -138,8 +137,7 @@ func reportHeartbeat(dispatchers *EventDispatchers) {
 		inboundIDs[i] = neighbor.ID().Bytes()
 	}
 
-	hb := &packet.Heartbeat{OwnID: nodeID, OutboundIDs: outboundIDs, InboundIDs: inboundIDs}
-	dispatchers.Heartbeat(hb)
+	return &packet.Heartbeat{OwnID: nodeID, OutboundIDs: outboundIDs, InboundIDs: inboundIDs}
 }
 
 func onRoundExecuted(roundStats *vote.RoundStats) {
@@ -160,14 +158,6 @@ func onRoundExecuted(roundStats *vote.RoundStats) {
 		log.Info(err, " - FPC heartbeat message skipped")
 		return
 	}
-
-	conn, err := net.Dial("tcp", config.Node.GetString(CfgServerAddress))
-	if err != nil {
-		log.Debugf("Could not connect to reporting server: %s", err.Error())
-		return
-	}
-
-	managedConn := network.NewManagedConnection(conn)
 
 	connLock.Lock()
 	defer connLock.Unlock()
