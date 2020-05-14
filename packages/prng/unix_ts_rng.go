@@ -1,8 +1,7 @@
 package prng
 
 import (
-	"bytes"
-	"encoding/binary"
+	"math/rand"
 	"time"
 )
 
@@ -62,12 +61,10 @@ func (utrng *UnixTimestampPrng) send() {
 	now := utrng.timeSourceFunc()
 	// reduce to last resolution
 	timePoint := now - (now % utrng.resolution)
-	//  convert to float64
-	buf := bytes.NewBuffer(make([]byte, 0, 8))
-	if err := binary.Write(buf, binary.LittleEndian, timePoint); err != nil {
-		panic(err)
-	}
-	pseudoR := float64(binary.BigEndian.Uint64(buf.Bytes()[:8])>>11) / (1 << 53)
+
+	// add entropy and convert to float64
+	pseudoR := rand.New(rand.NewSource(timePoint)).Float64()
+
 	// skip slow consumers
 	select {
 	case utrng.c <- pseudoR:
