@@ -153,7 +153,6 @@ export class ExplorerStore {
     @action
     updateMessage = (msg: Message) => {
         this.msg = msg;
-        this.payload = msg.payload
         this.query_err = null;
         this.query_loading = false;
         switch(msg.payload_type){
