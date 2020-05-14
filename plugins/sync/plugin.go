@@ -150,7 +150,7 @@ func monitorForDesynchronization() {
 				timer.Reset(desyncedIfNoMessageInSec)
 
 			case <-timer.C:
-				log.Infof("no message received in %d seconds, marking node as desynced", desyncedIfNoMessageInSec)
+				log.Infof("no message received in %d seconds, marking node as desynced", int(desyncedIfNoMessageInSec.Seconds()))
 				markDesynced()
 				return
 
