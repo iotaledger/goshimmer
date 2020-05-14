@@ -56,13 +56,13 @@ type OutputContent struct {
 	Balances []Balance `json:"balance"`
 }
 
-// Balace contains the amount of specific color token
+// Balance contains the amount of specific color token
 type Balance struct {
 	Value int64  `json:"value"`
 	Color string `json:"color"`
 }
 
-// Processpayload returns different structs regarding to the
+// ProcessPayload returns different structs regarding to the
 // payload type.
 func ProcessPayload(p payload.Payload) interface{} {
 	switch p.Type() {
