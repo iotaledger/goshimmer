@@ -1,9 +1,14 @@
 package packet
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
+
+	"github.com/iotaledger/hive.go/protocol/message"
+	"github.com/iotaledger/hive.go/protocol/tlv"
 )
 
 var (
@@ -16,19 +21,32 @@ const (
 	HeartbeatMaxOutboundPeersCount = 4
 	// HeartbeatMaxInboundPeersCount is the maximum amount of inbound peer IDs a heartbeat packet can contain.
 	HeartbeatMaxInboundPeersCount = 4
-	// HeartbeatPacketHeader is the byte value denoting a heartbeat packet.
-	HeartbeatPacketHeader = 0x01
-	// HeartbeatPacketHeaderSize is the byte size of the heartbeat header.
-	HeartbeatPacketHeaderSize = 1
 	// HeartbeatPacketPeerIDSize is the byte size of peer IDs within the heartbeat packet.
 	HeartbeatPacketPeerIDSize = sha256.Size
 	// HeartbeatPacketOutboundIDCountSize is the byte size of the counter indicating the amount of outbound IDs.
 	HeartbeatPacketOutboundIDCountSize = 1
+)
+
+var (
 	// HeartbeatPacketMinSize is the minimum byte size of a heartbeat packet.
-	HeartbeatPacketMinSize = HeartbeatPacketHeaderSize + HeartbeatPacketPeerIDSize + HeartbeatPacketOutboundIDCountSize
+	HeartbeatPacketMinSize = HeartbeatPacketPeerIDSize + HeartbeatPacketOutboundIDCountSize
 	// HeartbeatPacketMaxSize is the maximum size a heartbeat packet can have.
-	HeartbeatPacketMaxSize = HeartbeatPacketHeaderSize + HeartbeatPacketPeerIDSize + HeartbeatPacketOutboundIDCountSize +
+	HeartbeatPacketMaxSize = HeartbeatPacketPeerIDSize + HeartbeatPacketOutboundIDCountSize +
 		HeartbeatMaxOutboundPeersCount*sha256.Size + HeartbeatMaxInboundPeersCount*sha256.Size
+)
+
+const (
+	// MessageTypeHeartbeat is the unique id of a heartbeat message for analysis.
+	MessageTypeHeartbeat message.Type = 1
+)
+
+var (
+	// HeartbeatMessageDefinition defines a heartbeat message's format.
+	HeartbeatMessageDefinition = &message.Definition{
+		ID:             MessageTypeHeartbeat,
+		MaxBytesLength: uint16(HeartbeatPacketMaxSize),
+		VariableLength: true,
+	}
 )
 
 // Heartbeat represents a heartbeat packet.
@@ -44,7 +62,7 @@ type Heartbeat struct {
 	InboundIDs [][]byte
 }
 
-// ParseHeartbeat parses a slice of bytes into a heartbeat.
+// ParseHeartbeat parses a slice of bytes (serialized packet) into a heartbeat.
 func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 	// check minimum size
 	if len(data) < HeartbeatPacketMinSize {
@@ -55,11 +73,6 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 		return nil, fmt.Errorf("%w: packet exceeds maximum heartbeat packet size of %d", ErrMalformedPacket, HeartbeatPacketMaxSize)
 	}
 
-	// check whether we're actually dealing with a heartbeat packet
-	if data[0] != HeartbeatPacketHeader {
-		return nil, fmt.Errorf("%w: packet isn't of type heartbeat", ErrMalformedPacket)
-	}
-
 	// sanity check: packet len - min packet % id size = 0,
 	// since we're only dealing with IDs from that offset
 	if (len(data)-HeartbeatPacketMinSize)%HeartbeatPacketPeerIDSize != 0 {
@@ -68,7 +81,7 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 
 	// copy own ID
 	ownID := make([]byte, HeartbeatPacketPeerIDSize)
-	copy(ownID, data[HeartbeatPacketHeaderSize:HeartbeatPacketHeaderSize+HeartbeatPacketPeerIDSize])
+	copy(ownID, data[:HeartbeatPacketPeerIDSize])
 
 	// read outbound IDs count
 	outboundIDCount := int(data[HeartbeatPacketMinSize-1])
@@ -100,7 +113,7 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 
 	// inbound IDs can be zero
 	inboundIDs := make([][]byte, inboundIDCount)
-	offset := HeartbeatPacketHeaderSize + HeartbeatPacketPeerIDSize + HeartbeatPacketOutboundIDCountSize + outboundIDCount*HeartbeatPacketPeerIDSize
+	offset := HeartbeatPacketPeerIDSize + HeartbeatPacketOutboundIDCountSize + outboundIDCount*HeartbeatPacketPeerIDSize
 	for i := range inboundIDs {
 		inboundIDs[i] = make([]byte, HeartbeatPacketPeerIDSize)
 		copy(inboundIDs[i], data[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize])
@@ -109,7 +122,8 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 	return &Heartbeat{OwnID: ownID, OutboundIDs: outboundIDs, InboundIDs: inboundIDs}, nil
 }
 
-// NewHeartbeatMessage serializes the given heartbeat into a byte slice.
+// NewHeartbeatMessage serializes the given heartbeat into a byte slice and adds a tlv header to the packet.
+// message = tlv header + serialized packet
 func NewHeartbeatMessage(hb *Heartbeat) ([]byte, error) {
 	if len(hb.InboundIDs) > HeartbeatMaxInboundPeersCount {
 		return nil, fmt.Errorf("%w: heartbeat exceeds maximum inbound IDs of %d", ErrInvalidHeartbeat, HeartbeatMaxInboundPeersCount)
@@ -126,14 +140,11 @@ func NewHeartbeatMessage(hb *Heartbeat) ([]byte, error) {
 	packetSize := HeartbeatPacketMinSize + len(hb.OutboundIDs)*HeartbeatPacketPeerIDSize + len(hb.InboundIDs)*HeartbeatPacketPeerIDSize
 	packet := make([]byte, packetSize)
 
-	// header byte
-	packet[0] = HeartbeatPacketHeader
-
 	// own nodeId
-	copy(packet[HeartbeatPacketHeaderSize:HeartbeatPacketHeaderSize+HeartbeatPacketPeerIDSize], hb.OwnID[:])
+	copy(packet[:HeartbeatPacketPeerIDSize], hb.OwnID[:])
 
 	// outbound id count
-	packet[HeartbeatPacketHeaderSize+HeartbeatPacketPeerIDSize] = byte(len(hb.OutboundIDs))
+	packet[HeartbeatPacketPeerIDSize] = byte(len(hb.OutboundIDs))
 
 	// copy contents of hb.OutboundIDs
 	offset := HeartbeatPacketMinSize
@@ -149,5 +160,16 @@ func NewHeartbeatMessage(hb *Heartbeat) ([]byte, error) {
 		copy(packet[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize], inboundID[:HeartbeatPacketPeerIDSize])
 	}
 
-	return packet, nil
+	// create a buffer for tlv header plus the packet
+	buf := bytes.NewBuffer(make([]byte, 0, tlv.HeaderMessageDefinition.MaxBytesLength+uint16(packetSize)))
+	// write tlv header into buffer
+	if err := tlv.WriteHeader(buf, MessageTypeHeartbeat, uint16(packetSize)); err != nil {
+		return nil, err
+	}
+	// write serialized packet bytes into the buffer
+	if err := binary.Write(buf, binary.LittleEndian, packet); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
