@@ -16,14 +16,10 @@ var (
 var AnalysisMsgRegistry *message.Registry
 
 func init() {
-	AnalysisMsgRegistry = message.NewRegistry()
-	// register tlv header type
-	if err := AnalysisMsgRegistry.RegisterType(tlv.MessageTypeHeader, tlv.HeaderMessageDefinition); err != nil {
-		panic(err)
+	// message definitions to be registered in registry
+	definitions := []*message.Definition{
+		tlv.HeaderMessageDefinition,
+		HeartbeatMessageDefinition,
 	}
-
-	// analysis plugin specific types (msgType > 0)
-	if err := AnalysisMsgRegistry.RegisterType(MessageTypeHeartbeat, HeartbeatMessageDefinition); err != nil {
-		panic(err)
-	}
+	AnalysisMsgRegistry = message.NewRegistry(definitions)
 }
