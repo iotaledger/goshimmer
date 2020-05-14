@@ -1,8 +1,12 @@
 import * as React from 'react';
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
+import Badge from "react-bootstrap/Badge"
+import ListGroup from "react-bootstrap/ListGroup";
+import {Link} from 'react-router-dom';
 import {inject, observer} from "mobx-react";
 import {ExplorerStore} from "app/stores/ExplorerStore";
+import {IconContext} from "react-icons"
 import {FaChevronCircleRight} from "react-icons/fa"
 
 interface Props {
@@ -31,45 +35,71 @@ export class ValuePayload extends React.Component<Props, any> {
             <React.Fragment>
                 <Row className={"mb-3"}>
                     <Col>
+                        <ListGroup>
+                            <ListGroup.Item>Parent 0: {payload.parent_id_0} </ListGroup.Item>
+                        </ListGroup>
+                    </Col>
+                    <Col>
+                        <ListGroup>
+                            <ListGroup.Item>Parent 1: {payload.parent_id_1} </ListGroup.Item>
+                        </ListGroup>
+                    </Col>
+                </Row>
+                <Row className={"mb-3"}>
+                    <Col>
+                        <ListGroup>
+                            <ListGroup.Item>Transaction ID: {payload.tx_id} </ListGroup.Item>
+                        </ListGroup>
+                    </Col>
+                </Row>
+                <Row className={"mb-3"}>
+                    <Col>
+                        <div style={{
+                            marginBottom: "20px",
+                            paddingBottom: "10px",
+                            borderBottom: "2px solid #eee"}}>Inputs:</div>
                         <React.Fragment>
-                            <Row className={"mb-3"}>
-                                <Col>
-                                    <div style={{
-                                        marginBottom: "20px",
-                                        paddingBottom: "10px",
-                                        borderBottom: "2px solid #eee"}}>Inputs:</div>
-                                    <Row className={"mb-3"}>
-                                        <Col>
-                                            {payload.inputs.map(input => (
-                                                <Inputs address={input.address} key={input.address}/>
-                                            ))}
-                                        </Col>
-                                    </Row>
-                                </Col>
-                                <Col md="auto">
-                                    <FaChevronCircleRight />
-                                </Col>
-                                <Col>
-                                    <div style={{
-                                        marginBottom: "20px",
-                                        paddingBottom: "10px",
-                                        borderBottom: "2px solid #eee"}}>Outputs:</div>
-                                    <Row className={"mb-3"}>
-                                        <Col>
-                                            {payload.outputs.map(output => (
-                                                output.balance.map(balance => (
-                                                    <Outputs key={output.address} 
-                                                             address={output.address}
-                                                             balances={balance} />
-                                                ))
-                                            ))}
-                                        </Col>
-                                    </Row>
-                                </Col>
-                            </Row>
+                            {
+                                payload.inputs.map(input => (
+                                    <Inputs address={input.address} key={input.address}/>
+                            ))}
+                        </React.Fragment>
+                    </Col>
+                    <Col md="auto">
+                        <IconContext.Provider value={{ color: "#00a0ff", size: "2em"}}>
+                            <div style={{
+                                marginTop: "40px"}}>
+                                <FaChevronCircleRight />
+                            </div>
+                        </IconContext.Provider>
+                    </Col>
+                    <Col>
+                        <div style={{
+                            marginBottom: "20px",
+                            paddingBottom: "10px",
+                            borderBottom: "2px solid #eee"}}>Outputs:</div>
+                        <React.Fragment>
+                            {
+                                payload.outputs.map(output => (
+                                    output.balance.map(balance => (
+                                        <Outputs key={balance.value} 
+                                                 address={output.address}
+                                                 balances={balance} />
+                                    ))
+                            ))}
                         </React.Fragment>
                     </Col>
                 </Row>
+                { 
+                    payload.data &&
+                    <Row className={"mb-3"}>
+                        <Col>
+                            <ListGroup>
+                                <ListGroup.Item>Data: {payload.data} </ListGroup.Item>
+                            </ListGroup>
+                        </Col>
+                    </Row>
+                }
             </React.Fragment>
         );
     }
@@ -78,7 +108,15 @@ export class ValuePayload extends React.Component<Props, any> {
 class Inputs extends React.Component<OutputProps> {
     render() {
         return (
-            <p>{this.props.address}</p>
+            <Row className={"mb-3"}>
+                <Col>
+                    <div>
+                        <Link to={`/explorer/address/${this.props.address}`}>
+                            {this.props.address}
+                        </Link>
+                    </div>
+                </Col>
+            </Row>
         );
     }
 }
@@ -86,18 +124,20 @@ class Inputs extends React.Component<OutputProps> {
 class Outputs extends React.Component<OutputProps> {
     render() {
         return (
-            <React.Fragment>
-                <Row className={"mb-3"}>
-                    <Col>
-                        <div>
-                            <span>{this.props.address}</span>
-                        </div>
-                        <div>
-                            <span>{this.props.balances.color}: {this.props.balances.value}</span>
-                        </div>
-                    </Col>
-                </Row>
-            </React.Fragment>
+            <Row className={"mb-3"}>
+                <Col>
+                    <div>
+                        <Link to={`/explorer/address/${this.props.address}`}>
+                            {this.props.address}
+                        </Link>
+                    </div>
+                    <div>
+                        <Badge variant="success">
+                             {this.props.balances.value}{' '}{this.props.balances.color}
+                        </Badge>
+                    </div>
+                </Col>
+            </Row>
         );
     }
 }

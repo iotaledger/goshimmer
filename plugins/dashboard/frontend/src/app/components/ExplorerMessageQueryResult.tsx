@@ -13,6 +13,7 @@ import {Link} from 'react-router-dom';
 import {BasicPayload} from 'app/components/BasicPayload'
 import {DrngPayload} from 'app/components/DrngPayload'
 import {ValuePayload} from 'app/components/ValuePayload'
+import {PayloadType} from 'app/misc/Payload'
 
 interface Props {
     nodeStore?: NodeStore;
@@ -43,11 +44,11 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
 
     getPayloadType() {
         switch(this.props.explorerStore.msg.payload_type) {
-            case 0:
+            case PayloadType.Data:
                 return "Data"
-            case 1:
+            case PayloadType.Value:
                 return "Value"
-            case 111:
+            case PayloadType.Drng:
                 return "Drng"
             default:
                 return "Unknown"
@@ -56,11 +57,11 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
 
     renderPayload() {
         switch(this.props.explorerStore.msg.payload_type) {
-            case 111:
+            case PayloadType.Drng:
                 return <DrngPayload/>
-            case 1:
+            case PayloadType.Value:
                 return <ValuePayload/>
-            case 0:
+            case PayloadType.Data:
             default:
                 console.log(this.props.explorerStore.msg.payload.bytes)
                 return <BasicPayload/>

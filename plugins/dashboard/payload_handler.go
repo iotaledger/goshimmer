@@ -91,7 +91,7 @@ func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 	switch drngPayload.Header.PayloadType {
 	case drngheader.TypeCollectiveBeacon:
 		// collective beacon
-		marshalUtil := marshalutil.New(drngPayload.Bytes())
+		marshalUtil := marshalutil.New(p.Bytes())
 		cbp, _ := cb.Parse(marshalUtil)
 		subpayload = DrngCollectiveBeaconPayload{
 			Round:   cbp.Round,
@@ -120,11 +120,13 @@ func processValuePayload(p payload.Payload) (vp ValuePayload) {
 	var inputs []InputContent
 	var outputs []OutputContent
 
+	// TODO: retrieve balance
 	v.Transaction().Inputs().ForEachAddress(func(currentAddress address.Address) bool {
 		inputs = append(inputs, InputContent{Address: currentAddress.String()})
 		return true
 	})
 
+	// Get outputs address and balance
 	v.Transaction().Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
 		var b []Balance
 		for _, balance := range balances {
