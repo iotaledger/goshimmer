@@ -7,6 +7,7 @@ export enum WSMsgType {
     TipsMetrics,
     Vertex,
     TipInfo,
+    FPC,
 }
 
 export interface WSMessage {

@@ -59,14 +59,14 @@ func runFPCLiveFeed() {
 			default:
 			}
 		})
-		analysis.Events.FPCHeartbeat.Attach(events.NewClosure(onFPCHeartbeatReceived))
+		analysis.Events.FPCHeartbeat.Attach(onFPCHeartbeatReceived)
 
 		fpcLiveFeedWorkerPool.Start()
 		defer fpcLiveFeedWorkerPool.Stop()
 
 		<-shutdownSignal
 		log.Info("Stopping Analysis[FPCUpdater] ...")
-		analysis.Events.FPCHeartbeat.Detach(events.NewClosure(onFPCHeartbeatReceived))
+		analysis.Events.FPCHeartbeat.Detach(onFPCHeartbeatReceived)
 		log.Info("Stopping Analysis[FPCUpdater] ... done")
 	}, shutdown.PriorityDashboard)
 }

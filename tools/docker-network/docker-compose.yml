@@ -11,13 +11,14 @@ services:
       --autopeering.seed=uuDCzsjyLNQ17/7fWKPNMYmr4IWuaVRf7qKqRL0v/6c=
       --autopeering.entryNodes=
       --analysis.server.bindAddress=0.0.0.0:1888
-      --node.enablePlugins=analysis-server,analysis-webinterface
-      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,metrics,messagelayer,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.enablePlugins=analysis-server,analysis-webinterface,analysis-dashboard
+      --node.disablePlugins=portcheck,dashboard
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
     ports:
-      - "127.0.0.1:9000:9000/tcp" # autopeering visualizer
+      - "127.0.0.1:9000:9000/tcp" # autopeering visualizer ,analysis-client,gossip,drng,issuer,sync,metrics,messagelayer,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint,fpctest
+      - "127.0.0.1:8888:8888/tcp" # analysis dashboard
     expose:
       - "1888/tcp" # analysis server (within Docker network)
 

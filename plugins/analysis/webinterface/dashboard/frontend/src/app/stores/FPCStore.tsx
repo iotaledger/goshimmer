@@ -2,6 +2,7 @@ import {RouterStore} from "mobx-react-router";
 import {action, computed, observable, ObservableMap} from "mobx";
 import Col from "react-bootstrap/Col";
 import * as React from "react";
+import {registerHandler, WSMsgType} from "app/misc/WS";
 
 export class Node {
     id: number;
@@ -24,8 +25,24 @@ function SetColor(opinion) {
     return "#00BD00"
 }
 
+class VoteContext {
+    nodeid: string;
+    rounds: number;
+    opinions: number[];
+    like: number;
+}
+class Conflict {
+    nodesview: Map<string, VoteContext>
+}
+export class FPCMessage {
+    nodes: number;
+    conflictset: Map<string, Conflict>
+}
+
 export class FPCStore {
     routerStore: RouterStore;
+
+    @observable msg: FPCMessage = null;
 
     @observable n: number = 0;
 
@@ -36,6 +53,13 @@ export class FPCStore {
 
         setInterval(this.addNewNode, 100);
         setInterval(this.updateNodeValue, 400);
+
+        registerHandler(WSMsgType.FPC, this.addLiveFeed);
+    }
+
+    @action
+    addLiveFeed = (msg: FPCMessage) => {
+        console.log(msg)
     }
 
     @action
