@@ -29,14 +29,14 @@ const (
 
 var (
 	// HeartbeatPacketMinSize is the minimum byte size of a heartbeat packet.
-	HeartbeatPacketMinSize =  HeartbeatPacketPeerIDSize + HeartbeatPacketOutboundIDCountSize
+	HeartbeatPacketMinSize = HeartbeatPacketPeerIDSize + HeartbeatPacketOutboundIDCountSize
 	// HeartbeatPacketMaxSize is the maximum size a heartbeat packet can have.
 	HeartbeatPacketMaxSize = HeartbeatPacketPeerIDSize + HeartbeatPacketOutboundIDCountSize +
 		HeartbeatMaxOutboundPeersCount*sha256.Size + HeartbeatMaxInboundPeersCount*sha256.Size
 )
 
 const (
-	MessageTypeHeartbeat  message.Type = 1
+	MessageTypeHeartbeat message.Type = 1
 )
 
 var (
@@ -47,7 +47,6 @@ var (
 		VariableLength: true,
 	}
 )
-
 
 // Heartbeat represents a heartbeat packet.
 type Heartbeat struct {
