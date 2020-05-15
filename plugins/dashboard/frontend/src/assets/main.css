@@ -9,5 +9,11 @@
 }
 
 .hidden {
-  visibility: hidden !important;
+    visibility: hidden !important;
+}
+
+.visualizer {
+    position: absolute;
+    height: 100%;
+    width: 100%;
 }

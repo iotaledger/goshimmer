@@ -15,6 +15,9 @@ jobs:
       - name: Build GoShimmer image
         run: docker build -t iotaledger/goshimmer .
 
+      - name: Pull drand image
+        run: docker pull angelocapossele/drand:latest
+        
       - name: Run integration tests
         run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
 

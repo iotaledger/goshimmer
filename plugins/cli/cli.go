@@ -14,6 +14,7 @@ import (
 var enabledPlugins []string
 var disabledPlugins []string
 
+// AddPluginStatus adds the status (enabled=1, disabled=0) of a given plugin.
 func AddPluginStatus(name string, status int) {
 	switch status {
 	case node.Enabled:

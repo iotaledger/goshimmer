@@ -41,7 +41,7 @@ func New(instanceID uint32, round uint64, prevSignature, signature, dpk []byte) 
 
 // Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
-	if payload, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) }); err != nil {
+	if payload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) }); err != nil {
 		return &Payload{}, err
 	} else {
 		return payload.(*Payload), nil
@@ -50,7 +50,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
 
 // FromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, err error, consumedBytes int) {
+func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -167,7 +167,7 @@ func (payload *Payload) Marshal() (bytes []byte, err error) {
 }
 
 func (payload *Payload) Unmarshal(data []byte) (err error) {
-	_, err, _ = FromBytes(data, payload)
+	_, _, err = FromBytes(data, payload)
 
 	return
 }

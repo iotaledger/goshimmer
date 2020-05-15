@@ -1,13 +1,6 @@
 package messagelayer
 
 import (
-	"github.com/iotaledger/hive.go/autopeering/peer"
-
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
-
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagefactory"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messageparser"
@@ -17,6 +10,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 )
 
 const (
@@ -74,10 +72,15 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
+	_ = daemon.BackgroundWorker("Tangle[MissingMessagesMonitor]", func(shutdownSignal <-chan struct{}) {
+		Tangle.MonitorMissingMessages(shutdownSignal)
+	}, shutdown.PriorityMissingMessagesMonitoring)
+
 	_ = daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		MessageFactory.Shutdown()
 		MessageParser.Shutdown()
 		Tangle.Shutdown()
 	}, shutdown.PriorityTangle)
+
 }

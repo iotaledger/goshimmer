@@ -3,6 +3,9 @@
 echo "Build GoShimmer image"
 docker build -t iotaledger/goshimmer ../../.
 
+echo "Pulling drand image"
+docker pull angelocapossele/drand:latest
+
 echo "Run integration tests"
 docker-compose -f tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
 

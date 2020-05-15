@@ -16,11 +16,19 @@ var drngLiveFeedWorkerCount = 1
 var drngLiveFeedWorkerQueueSize = 50
 var drngLiveFeedWorkerPool *workerpool.WorkerPool
 
+type drngMsg struct {
+	Instance      uint32 `json:"instance"`
+	DistributedPK string `json:"dpk"`
+	Round         uint64 `json:"round"`
+	Randomness    string `json:"randomness"`
+	Timestamp     string `json:"timestamp"`
+}
+
 func configureDrngLiveFeed() {
 	drngLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
 		newRandomness := task.Param(0).(state.Randomness)
 
-		sendToAllWSClient(&wsmsg{MsgTypeDrng, &drngMsg{
+		broadcastWsMessage(&wsmsg{MsgTypeDrng, &drngMsg{
 			Instance:      drng.Instance().State.Committee().InstanceID,
 			DistributedPK: hex.EncodeToString(drng.Instance().State.Committee().DistributedPK),
 			Round:         newRandomness.Round,

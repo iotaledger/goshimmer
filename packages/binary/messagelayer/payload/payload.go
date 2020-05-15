@@ -25,7 +25,7 @@ type Payload interface {
 }
 
 // FromBytes unmarshals bytes into a payload.
-func FromBytes(bytes []byte) (result Payload, err error, consumedBytes int) {
+func FromBytes(bytes []byte) (result Payload, consumedBytes int, err error) {
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 
@@ -58,7 +58,7 @@ func FromBytes(bytes []byte) (result Payload, err error, consumedBytes int) {
 
 // Parse parses a payload by using the given marshal util.
 func Parse(marshalUtil *marshalutil.MarshalUtil) (Payload, error) {
-	if payload, err := marshalUtil.Parse(func(data []byte) (interface{}, error, int) { return FromBytes(data) }); err != nil {
+	if payload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) }); err != nil {
 		return nil, err
 	} else {
 		return payload.(Payload), nil

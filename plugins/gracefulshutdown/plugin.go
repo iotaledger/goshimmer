@@ -17,14 +17,15 @@ const PluginName = "Graceful Shutdown"
 
 // WaitToKillTimeInSeconds is the maximum amount of time to wait for background processes to terminate.
 // After that the process is killed.
-const WaitToKillTimeInSeconds = 10
+const WaitToKillTimeInSeconds = 60
 
 var log *logger.Logger
+var gracefulStop chan os.Signal
 
 // Plugin is the plugin instance of the graceful shutdown plugin.
 var Plugin = node.NewPlugin(PluginName, node.Enabled, func(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	gracefulStop := make(chan os.Signal)
+	gracefulStop = make(chan os.Signal)
 
 	signal.Notify(gracefulStop, syscall.SIGTERM)
 	signal.Notify(gracefulStop, syscall.SIGINT)
@@ -56,3 +57,9 @@ var Plugin = node.NewPlugin(PluginName, node.Enabled, func(plugin *node.Plugin) 
 		daemon.Shutdown()
 	}()
 })
+
+// ShutdownWithError prints out an error message and shuts down the default daemon instance.
+func ShutdownWithError(err error) {
+	log.Error(err)
+	gracefulStop <- syscall.SIGINT
+}

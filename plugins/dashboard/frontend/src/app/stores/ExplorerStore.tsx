@@ -1,5 +1,7 @@
 import {action, computed, observable} from 'mobx';
 import {registerHandler, WSMsgType} from "app/misc/WS";
+import {PayloadType, DrngSubtype} from "app/misc/Payload";
+import {BasicPayload, DrngPayload, DrngCbPayload, ValuePayload} from "app/misc/Payload";
 import * as React from "react";
 import {Link} from 'react-router-dom';
 import {RouterStore} from "mobx-react-router";
@@ -10,6 +12,8 @@ export class Message {
     trunk_message_id: string;
     branch_message_id: string;
     solid: boolean;
+    payload_type: number;
+    payload: any;
 }
 
 class AddressResult {
@@ -48,6 +52,8 @@ export class ExplorerStore {
     @observable search: string = "";
     @observable search_result: SearchResult = null;
     @observable searching: boolean = false;
+    @observable payload: any;
+    @observable subpayload: any;
 
     routerStore: RouterStore;
 
@@ -149,6 +155,22 @@ export class ExplorerStore {
         this.msg = msg;
         this.query_err = null;
         this.query_loading = false;
+        switch(msg.payload_type){
+            case PayloadType.Drng:
+                this.payload = msg.payload as DrngPayload
+                if (this.payload.subpayload_type == DrngSubtype.Cb) {
+                    this.subpayload = this.payload.drngpayload as DrngCbPayload
+                } else {
+                    this.subpayload = this.payload.drngpayload as BasicPayload
+                }
+                break;
+            case PayloadType.Value:
+                this.payload = msg.payload as ValuePayload
+            case PayloadType.Data:
+            default:
+                this.payload = msg.payload as BasicPayload
+                break;
+        }
     };
 
     @action

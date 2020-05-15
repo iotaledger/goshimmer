@@ -23,7 +23,7 @@ func newDockerClient() (*client.Client, error) {
 	)
 }
 
-// Wrapper object for a Docker container.
+// DockerContainer is a wrapper object for a Docker container.
 type DockerContainer struct {
 	client *client.Client
 	id     string
@@ -59,6 +59,8 @@ func (d *DockerContainer) CreateGoShimmerEntryNode(name string, seed string) err
 		Image:        "iotaledger/goshimmer",
 		ExposedPorts: nil,
 		Cmd: strslice.StrSlice{
+			"--skip-config=true",
+			"--logger.level=debug",
 			fmt.Sprintf("--node.disablePlugins=%s", disabledPluginsEntryNode),
 			"--autopeering.entryNodes=",
 			fmt.Sprintf("--autopeering.seed=%s", seed),
@@ -69,7 +71,7 @@ func (d *DockerContainer) CreateGoShimmerEntryNode(name string, seed string) err
 }
 
 // CreateGoShimmerPeer creates a new container with the GoShimmer peer's configuration.
-func (d *DockerContainer) CreateGoShimmerPeer(name string, seed string, entryNodeHost string, entryNodePublicKey string) error {
+func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 	// configure GoShimmer container instance
 	containerConfig := &container.Config{
 		Image: "iotaledger/goshimmer",
@@ -77,11 +79,44 @@ func (d *DockerContainer) CreateGoShimmerPeer(name string, seed string, entryNod
 			nat.Port("8080/tcp"): {},
 		},
 		Cmd: strslice.StrSlice{
-			fmt.Sprintf("--node.disablePlugins=%s", disabledPluginsPeer),
+			"--skip-config=true",
+			"--logger.level=debug",
+			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
+			fmt.Sprintf("--node.enablePlugins=%s", func() string {
+				if config.Bootstrap {
+					return "Bootstrap"
+				}
+				return ""
+			}()),
+			fmt.Sprintf("--bootstrap.initialIssuance.timePeriodSec=%d", config.BootstrapInitialIssuanceTimePeriodSec),
 			"--webapi.bindAddress=0.0.0.0:8080",
-			fmt.Sprintf("--autopeering.seed=%s", seed),
-			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", entryNodePublicKey, entryNodeHost),
+			fmt.Sprintf("--autopeering.seed=%s", config.Seed),
+			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", config.EntryNodePublicKey, config.EntryNodeHost),
+			fmt.Sprintf("--drng.instanceId=%d", config.DRNGInstance),
+			fmt.Sprintf("--drng.threshold=%d", config.DRNGThreshold),
+			fmt.Sprintf("--drng.committeeMembers=%s", config.DRNGCommittee),
+			fmt.Sprintf("--drng.distributedPubKey=%s", config.DRNGDistKey),
 		},
+	}
+
+	return d.CreateContainer(config.Name, containerConfig)
+}
+
+// CreateDrandMember creates a new container with the drand configuration.
+func (d *DockerContainer) CreateDrandMember(name string, goShimmerAPI string, leader bool) error {
+	// configure drand container instance
+	env := []string{}
+	if leader {
+		env = append(env, "LEADER=1")
+	}
+	env = append(env, "GOSHIMMER=http://"+goShimmerAPI)
+	containerConfig := &container.Config{
+		Image: "angelocapossele/drand:latest",
+		ExposedPorts: nat.PortSet{
+			nat.Port("8000/tcp"): {},
+		},
+		Env:        env,
+		Entrypoint: strslice.StrSlice{"/data/client-script.sh"},
 	}
 
 	return d.CreateContainer(name, containerConfig)
@@ -99,13 +134,13 @@ func (d *DockerContainer) CreateContainer(name string, containerConfig *containe
 }
 
 // ConnectToNetwork connects a container to an existent network in the docker host.
-func (d *DockerContainer) ConnectToNetwork(networkId string) error {
-	return d.client.NetworkConnect(context.Background(), networkId, d.id, nil)
+func (d *DockerContainer) ConnectToNetwork(networkID string) error {
+	return d.client.NetworkConnect(context.Background(), networkID, d.id, nil)
 }
 
 // DisconnectFromNetwork disconnects a container from an existent network in the docker host.
-func (d *DockerContainer) DisconnectFromNetwork(networkId string) error {
-	return d.client.NetworkDisconnect(context.Background(), networkId, d.id, true)
+func (d *DockerContainer) DisconnectFromNetwork(networkID string) error {
+	return d.client.NetworkDisconnect(context.Background(), networkID, d.id, true)
 }
 
 // Start sends a request to the docker daemon to start a container.
@@ -121,8 +156,18 @@ func (d *DockerContainer) Remove() error {
 // Stop stops a container without terminating the process.
 // The process is blocked until the container stops or the timeout expires.
 func (d *DockerContainer) Stop() error {
-	duration := 10 * time.Second
+	duration := 30 * time.Second
 	return d.client.ContainerStop(context.Background(), d.id, &duration)
+}
+
+// ExitStatus returns the exit status according to the container information.
+func (d *DockerContainer) ExitStatus() (int, error) {
+	resp, err := d.client.ContainerInspect(context.Background(), d.id)
+	if err != nil {
+		return -1, err
+	}
+
+	return resp.State.ExitCode, nil
 }
 
 // Logs returns the logs of the container as io.ReadCloser.

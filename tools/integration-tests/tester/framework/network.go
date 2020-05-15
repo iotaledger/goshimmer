@@ -82,7 +82,8 @@ func (n *Network) createEntryNode() error {
 }
 
 // CreatePeer creates a new peer/GoShimmer node in the network and returns it.
-func (n *Network) CreatePeer() (*Peer, error) {
+// Passing bootstrap true enables the bootstrap plugin on the given peer.
+func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	name := n.namePrefix(fmt.Sprintf("%s%d", containerNameReplica, len(n.peers)))
 
 	// create identity
@@ -92,9 +93,16 @@ func (n *Network) CreatePeer() (*Peer, error) {
 	}
 	seed := base64.StdEncoding.EncodeToString(ed25519.PrivateKey(privateKey.Bytes()).Seed())
 
+	config := c
+	config.Name = name
+	config.Seed = seed
+	config.EntryNodeHost = n.namePrefix(containerNameEntryNode)
+	config.EntryNodePublicKey = n.entryNodePublicKey()
+	config.DisabledPlugins = disabledPluginsPeer
+
 	// create Docker container
 	container := NewDockerContainer(n.dockerClient)
-	err = container.CreateGoShimmerPeer(name, seed, n.namePrefix(containerNameEntryNode), n.entryNodePublicKey())
+	err = container.CreateGoShimmerPeer(config)
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +155,19 @@ func (n *Network) Shutdown() error {
 		}
 	}
 
+	// save exit status of containers to check at end of shutdown process
+	exitStatus := make(map[string]int, len(n.peers)+1)
+	exitStatus[containerNameEntryNode], err = n.entryNode.ExitStatus()
+	if err != nil {
+		return err
+	}
+	for _, p := range n.peers {
+		exitStatus[p.name], err = p.ExitStatus()
+		if err != nil {
+			return err
+		}
+	}
+
 	// remove containers
 	err = n.entryNode.Remove()
 	if err != nil {
@@ -169,6 +190,13 @@ func (n *Network) Shutdown() error {
 	err = n.dockerClient.NetworkRemove(context.Background(), n.id)
 	if err != nil {
 		return err
+	}
+
+	// check exit codes of containers
+	for name, status := range exitStatus {
+		if status != exitStatusSuccessful {
+			return fmt.Errorf("container %s exited with code %d", name, status)
+		}
 	}
 
 	return nil

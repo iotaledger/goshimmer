@@ -57,7 +57,7 @@ type RoundStats struct {
 	QueriedOpinions []QueriedOpinions `json:"queried_opinions"`
 }
 
-// OpinionCaller calls the given handler with an Opinion and its associated Id.
+// OpinionCaller calls the given handler with an Opinion and its associated ID.
 func OpinionCaller(handler interface{}, params ...interface{}) {
 	handler.(func(id string, opinion Opinion))(params[0].(string), params[1].(Opinion))
 }

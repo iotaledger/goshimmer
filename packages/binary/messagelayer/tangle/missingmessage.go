@@ -23,7 +23,7 @@ func NewMissingMessage(messageId message.Id) *MissingMessage {
 	}
 }
 
-func MissingMessageFromStorageKey(key []byte, optionalTargetObject ...*MissingMessage) (result objectstorage.StorableObject, err error, consumedBytes int) {
+func MissingMessageFromStorageKey(key []byte, optionalTargetObject ...*MissingMessage) (result objectstorage.StorableObject, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -72,7 +72,7 @@ func (missingMessage *MissingMessage) ObjectStorageValue() (result []byte) {
 	return
 }
 
-func (missingMessage *MissingMessage) UnmarshalObjectStorageValue(data []byte) (err error, consumedBytes int) {
+func (missingMessage *MissingMessage) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
 	missingMessage.missingSince, err = marshalUtil.ReadTime()
 	if err != nil {
