@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/ledgerstate"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
@@ -37,7 +36,7 @@ var (
 	Tangle *tangle.Tangle
 
 	// LedgerState represents the ledger state, that keeps track of the liked branches and offers an API to access funds.
-	LedgerState *ledgerstate.LedgerState
+	LedgerState *tangle.LedgerState
 
 	// log holds a reference to the logger used by this app.
 	log *logger.Logger

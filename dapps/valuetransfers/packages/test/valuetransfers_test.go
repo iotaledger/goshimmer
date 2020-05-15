@@ -1,40 +1,29 @@
 package test
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/packages/binary/testutil"
 )
 
 func TestTangle_ValueTransfer(t *testing.T) {
-	// initialize test environment
-	dir, err := ioutil.TempDir("", t.Name())
-	require.NoError(t, err)
-	defer os.Remove(dir)
-	config.Node.Set(database.CFG_DIRECTORY, dir)
-
 	// initialize tangle + ledgerstate
-	valueTangle := tangle.New(database.GetBadgerInstance())
+	valueTangle := tangle.New(testutil.DB(t))
 	if err := valueTangle.Prune(); err != nil {
 		t.Error(err)
 
 		return
 	}
-	ledgerState := ledgerstate.New(valueTangle)
+	ledgerState := tangle.NewLedgerState(valueTangle)
 
 	//
 	addressKeyPair1 := ed25519.GenerateKeyPair()
