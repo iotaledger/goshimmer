@@ -11,13 +11,14 @@ type LedgerState struct {
 	tangle *Tangle
 }
 
-// New is the constructor of the LedgerState. It creates a new instance with the given UTXODAG.
+// NewLedgerState is the constructor of the LedgerState. It creates a new instance with the given UTXODAG.
 func NewLedgerState(tangle *Tangle) *LedgerState {
 	return &LedgerState{
 		tangle: tangle,
 	}
 }
 
+// Balances returns a map containing the balances of the different colors that are unspent on a certain address.
 func (ledgerState *LedgerState) Balances(address address.Address) (coloredBalances map[balance.Color]int64) {
 	coloredBalances = make(map[balance.Color]int64)
 

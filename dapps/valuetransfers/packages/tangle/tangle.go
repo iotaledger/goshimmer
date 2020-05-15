@@ -680,6 +680,7 @@ func (tangle *Tangle) checkTransactionSolidity(tx *transaction.Transaction, meta
 	return
 }
 
+// LoadSnapshot creates a set of outputs in the value tangle, that are forming the genesis for future transactions.
 func (tangle *Tangle) LoadSnapshot(snapshot map[transaction.ID]map[address.Address][]*balance.Balance) {
 	for transactionID, addressBalances := range snapshot {
 		for outputAddress, balances := range addressBalances {
