@@ -6,7 +6,7 @@ import (
 	faucetpayload "github.com/iotaledger/goshimmer/packages/binary/faucet/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 
-	"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/address"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	/*
 		"github.com/iotaledger/goshimmer/packages/binary/signature/ed25119"
 		"github.com/iotaledger/goshimmer/packages/binary/valuetransfer/coloredbalance"
