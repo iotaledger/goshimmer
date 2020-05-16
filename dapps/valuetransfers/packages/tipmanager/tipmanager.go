@@ -76,7 +76,7 @@ type LikableBrancher interface {
 // AddTip adds the given value object as a tip in the given branch.
 // If the branch is liked it is also added to t.tips.
 // Parents are handled depending on the relation (same or different branch).
-func (t *TipManager) AddTip(valueObject *payload.Payload, b LikableBrancher) {
+func (t *TipManager) AddTip(valueObject *payload.Payload, b LikableBrancher, parent1BranchID, parent2BranchID branchmanager.BranchID) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -94,11 +94,13 @@ func (t *TipManager) AddTip(valueObject *payload.Payload, b LikableBrancher) {
 	tip := newTip(objectID, branch.branchID)
 	branch.tips[objectID] = tip
 
-	// TODO: retrieve parents' branches
-	parent1branch := branch
-	addTipHandleParent(parent1ID, parent1branch, branch)
-	parent2branch := branch
-	addTipHandleParent(parent2ID, parent2branch, branch)
+	if parent1branch, ok := t.branches[parent1BranchID]; ok {
+		addTipHandleParent(parent1ID, parent1branch, branch)
+	}
+
+	if parent2branch, ok := t.branches[parent2BranchID]; ok {
+		addTipHandleParent(parent2ID, parent2branch, branch)
+	}
 
 	// add to t.tips and remove parents from t.tips if branch is liked
 	if branch.liked {
