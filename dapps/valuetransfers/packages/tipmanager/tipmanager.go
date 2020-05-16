@@ -67,10 +67,16 @@ func newBranch(branchID branchmanager.BranchID, liked bool) *Branch {
 	}
 }
 
+// LikableBrancher defines an interface for a likable branch.
+type LikableBrancher interface {
+	ID() branchmanager.BranchID
+	Liked() bool
+}
+
 // AddTip adds the given value object as a tip in the given branch.
 // If the branch is liked it is also added to t.tips.
 // Parents are handled depending on the relation (same or different branch).
-func (t *TipManager) AddTip(valueObject *payload.Payload, b *branchmanager.Branch) {
+func (t *TipManager) AddTip(valueObject *payload.Payload, b LikableBrancher) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -115,17 +121,17 @@ func (t *TipManager) Tips() (parent1ObjectID, parent2ObjectID payload.ID) {
 		return
 	}
 
-	parent1ObjectID = tip.(Tip).id
+	parent1ObjectID = tip.(*Tip).id
 
 	if t.tips.Size() == 1 {
 		parent2ObjectID = parent1ObjectID
 		return
 	}
 
-	parent2ObjectID = t.tips.RandomEntry().(Tip).id
+	parent2ObjectID = t.tips.RandomEntry().(*Tip).id
 	// select 2 distinct tips if there's more than 1 tip available
 	for parent1ObjectID == parent2ObjectID && t.tips.Size() > 1 {
-		parent2ObjectID = t.tips.RandomEntry().(Tip).id
+		parent2ObjectID = t.tips.RandomEntry().(*Tip).id
 	}
 
 	return
@@ -155,7 +161,7 @@ func (t *TipManager) OnBranchLiked(branchID branchmanager.BranchID) {
 	}
 
 	// remove tips from referenced branches
-	for objectID, _ := range branch.entryPoints {
+	for objectID := range branch.entryPoints {
 		t.tips.Delete(objectID)
 	}
 }
@@ -180,7 +186,7 @@ func (t *TipManager) OnBranchDisliked(branchID branchmanager.BranchID) {
 	}
 }
 
-// OnBranchDisliked is called when a branch is merged.
+// OnBranchMerged is called when a branch is merged.
 // TODO: it should perform some cleanup logic
 func (t *TipManager) OnBranchMerged(branchID branchmanager.BranchID) {
 	// remove all tips from t.tips
@@ -198,7 +204,11 @@ func removeTipAsEntryPoint(tip *Tip) {
 // If the parent is in the same branch it is removed as a tip.
 // If the parent is not in the same branch a two-way mapping from parent to branch and branch to parent is created.
 func addTipHandleParent(parentID payload.ID, parentBranch *Branch, branch *Branch) {
-	parentTip := parentBranch.tips[parentID]
+	parentTip, ok := parentBranch.tips[parentID]
+	// parent is not a tip anymore
+	if !ok {
+		return
+	}
 
 	if parentBranch.branchID == branch.branchID {
 		// remove parents out of branch.tips
