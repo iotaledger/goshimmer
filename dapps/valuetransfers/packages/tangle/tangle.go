@@ -117,9 +117,12 @@ func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
 // propagates the changes to the BranchManager if the flag was updated.
 func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, preferred bool) (modified bool, err error) {
 	tangle.TransactionMetadata(transactionID).Consume(func(metadata *TransactionMetadata) {
+		// update the preferred flag
 		modified = metadata.setPreferred(preferred)
-		if modified {
-			_, err = tangle.branchManager.SetBranchPreferred(branchmanager.NewBranchID(transactionID), preferred)
+
+		// propagate changes to the Branch
+		if modified && metadata.Conflicting() {
+			_, err = tangle.branchManager.SetBranchPreferred(metadata.BranchID(), preferred)
 		}
 	})
 

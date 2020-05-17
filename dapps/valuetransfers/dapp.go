@@ -158,7 +158,7 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 		}
 
 		// TODO: check that the booking goroutine in the UTXO DAG and this check is somehow synchronized
-		if transactionMetadata.BranchID() == branchmanager.NewBranchID(transactionMetadata.ID()) {
+		if transactionMetadata.Conflicting() {
 			return
 		}
 
