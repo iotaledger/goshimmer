@@ -177,6 +177,32 @@ func (transactionMetadata *TransactionMetadata) Preferred() (result bool) {
 	return transactionMetadata.preferred
 }
 
+// setPreferred updates the preferred flag of the transaction. It is defined as a private setter, because updating the
+// preferred flag causes changes in other transactions and branches as well, which means that we need additional logic
+// in the tangle. To update the preferred flag of a transaction, we need to use Tangle.SetTransactionPreferred(bool).
+func (transactionMetadata *TransactionMetadata) setPreferred(preferred bool) (modified bool) {
+	transactionMetadata.preferredMutex.RLock()
+	if transactionMetadata.preferred == preferred {
+		transactionMetadata.preferredMutex.RUnlock()
+
+		return
+	}
+
+	transactionMetadata.preferredMutex.RUnlock()
+	transactionMetadata.preferredMutex.Lock()
+	defer transactionMetadata.preferredMutex.Unlock()
+
+	if transactionMetadata.preferred == preferred {
+		return
+	}
+
+	transactionMetadata.preferred = preferred
+	transactionMetadata.SetModified()
+	modified = true
+
+	return
+}
+
 // SetFinalized allows us to set the finalized flag on the transactions. Finalized transactions will not be forked when
 // a conflict arrives later.
 func (transactionMetadata *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
@@ -196,6 +222,7 @@ func (transactionMetadata *TransactionMetadata) SetFinalized(finalized bool) (mo
 	}
 
 	transactionMetadata.finalized = finalized
+	transactionMetadata.SetModified()
 	if finalized {
 		transactionMetadata.finalizationTime = time.Now()
 	}
@@ -230,12 +257,13 @@ func (transactionMetadata *TransactionMetadata) SoldificationTime() time.Time {
 
 // Bytes marshals the TransactionMetadata object into a sequence of bytes.
 func (transactionMetadata *TransactionMetadata) Bytes() []byte {
-	return marshalutil.New(branchmanager.BranchIDLength + 2*marshalutil.TIME_SIZE + 2*marshalutil.BOOL_SIZE).
+	return marshalutil.New(branchmanager.BranchIDLength + 2*marshalutil.TIME_SIZE + 3*marshalutil.BOOL_SIZE).
 		WriteBytes(transactionMetadata.BranchID().Bytes()).
-		WriteTime(transactionMetadata.solidificationTime).
-		WriteTime(transactionMetadata.finalizationTime).
-		WriteBool(transactionMetadata.solid).
-		WriteBool(transactionMetadata.finalized).
+		WriteTime(transactionMetadata.SoldificationTime()).
+		WriteTime(transactionMetadata.FinalizationTime()).
+		WriteBool(transactionMetadata.Solid()).
+		WriteBool(transactionMetadata.Preferred()).
+		WriteBool(transactionMetadata.Finalized()).
 		Bytes()
 }
 
@@ -279,6 +307,9 @@ func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data
 		return
 	}
 	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if transactionMetadata.preferred, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
 	if transactionMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
