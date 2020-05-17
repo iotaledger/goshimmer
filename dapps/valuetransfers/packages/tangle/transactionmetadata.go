@@ -131,6 +131,11 @@ func (transactionMetadata *TransactionMetadata) SetBranchID(branchID branchmanag
 	return
 }
 
+// Conflicting returns true if the Transaction has been forked into its own Branch and there is a vote going on.
+func (transactionMetadata *TransactionMetadata) Conflicting() bool {
+	return transactionMetadata.BranchID() == branchmanager.NewBranchID(transactionMetadata.ID())
+}
+
 // Solid returns true if the Transaction has been marked as solid.
 func (transactionMetadata *TransactionMetadata) Solid() (result bool) {
 	transactionMetadata.solidMutex.RLock()
@@ -177,8 +182,8 @@ func (transactionMetadata *TransactionMetadata) Preferred() (result bool) {
 	return transactionMetadata.preferred
 }
 
-// setPreferred updates the preferred flag of the transaction. It is defined as a private setter, because updating the
-// preferred flag causes changes in other transactions and branches as well, which means that we need additional logic
+// setPreferred updates the preferred flag of the transaction. It is defined as a private setter because updating the
+// preferred flag causes changes in other transactions and branches as well. This means that we need additional logic
 // in the tangle. To update the preferred flag of a transaction, we need to use Tangle.SetTransactionPreferred(bool).
 func (transactionMetadata *TransactionMetadata) setPreferred(preferred bool) (modified bool) {
 	transactionMetadata.preferredMutex.RLock()
