@@ -20,12 +20,14 @@ type TransactionMetadata struct {
 	id                 transaction.ID
 	branchID           branchmanager.BranchID
 	solid              bool
+	preferred          bool
 	finalized          bool
 	solidificationTime time.Time
 	finalizationTime   time.Time
 
 	branchIDMutex           sync.RWMutex
 	solidMutex              sync.RWMutex
+	preferredMutex          sync.RWMutex
 	finalizedMutex          sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 }
@@ -165,6 +167,14 @@ func (transactionMetadata *TransactionMetadata) SetSolid(solid bool) (modified b
 	}
 
 	return
+}
+
+// Preferred returns true if the transaction is considered to be the first valid spender of all of its Inputs.
+func (transactionMetadata *TransactionMetadata) Preferred() (result bool) {
+	transactionMetadata.preferredMutex.RLock()
+	defer transactionMetadata.preferredMutex.RUnlock()
+
+	return transactionMetadata.preferred
 }
 
 // SetFinalized allows us to set the finalized flag on the transactions. Finalized transactions will not be forked when
