@@ -120,25 +120,22 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 	Tangle.AttachPayload(valuePayload)
 }
 
-func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID, decisionPending bool) {
+func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, decisionPending bool) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
-	defer cachedBranch.Release()
 
-	if len(conflictingInputs) >= 1 {
+	transactionMetadata := cachedTransactionMetadata.Unwrap()
+	if transactionMetadata == nil {
+		return
+	}
+
+	if transactionMetadata.Conflicting() {
 		// abort if the previous consumers where finalized already
 		if !decisionPending {
 			return
 		}
 
-		branch := cachedBranch.Unwrap()
-		if branch == nil {
-			log.Error("failed to unpack branch")
-
-			return
-		}
-
-		err := voter.Vote(branch.ID().String(), vote.Dislike)
+		err := voter.Vote(transactionMetadata.BranchID().String(), vote.Dislike)
 		if err != nil {
 			log.Error(err)
 		}
@@ -146,23 +143,40 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 		return
 	}
 
-	// If the transaction is not conflicting, then we apply the fcob rule (we finalize after 2 network delays).
-	// Note: We do not set a liked flag after 1 network delay because that can be derived by the retriever later.
-	cachedTransactionMetadata.Retain()
-	time.AfterFunc(2*AverageNetworkDelay, func() {
-		defer cachedTransactionMetadata.Release()
+	fcobPreferredRule(cachedTransactionMetadata.Retain())
+}
 
-		transactionMetadata := cachedTransactionMetadata.Unwrap()
-		if transactionMetadata == nil {
-			return
-		}
+func fcobPreferredRule(cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
+	time.AfterFunc(AverageNetworkDelay, func() {
+		cachedTransactionMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
+			// TODO: check that the booking goroutine in the UTXO DAG and this check is somehow synchronized
+			if transactionMetadata.Conflicting() {
+				return
+			}
 
-		// TODO: check that the booking goroutine in the UTXO DAG and this check is somehow synchronized
-		if transactionMetadata.Conflicting() {
-			return
-		}
+			modified, err := Tangle.SetTransactionPreferred(transactionMetadata.ID(), true)
+			if err != nil {
+				log.Error(err)
 
-		transactionMetadata.SetFinalized(true)
+				return
+			}
+
+			if modified {
+				scheduleFCOBFinalizedSetter(cachedTransactionMetadata.Retain())
+			}
+		})
+	})
+}
+
+func scheduleFCOBFinalizedSetter(cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
+	time.AfterFunc(AverageNetworkDelay, func() {
+		cachedTransactionMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
+			if transactionMetadata.Conflicting() {
+				return
+			}
+
+			transactionMetadata.SetFinalized(true)
+		})
 	})
 }
 

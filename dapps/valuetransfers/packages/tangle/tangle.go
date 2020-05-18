@@ -113,7 +113,7 @@ func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
 	tangle.workerPool.Submit(func() { tangle.storePayloadWorker(payload) })
 }
 
-// SetTransactionPreferred modified the preferred flag of a transaction. It updates the transactions metadata and
+// SetTransactionPreferred modifies the preferred flag of a transaction. It updates the transactions metadata and
 // propagates the changes to the BranchManager if the flag was updated.
 func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, preferred bool) (modified bool, err error) {
 	tangle.TransactionMetadata(transactionID).Consume(func(metadata *TransactionMetadata) {
@@ -528,7 +528,7 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 	}
 
 	// trigger events
-	tangle.Events.TransactionBooked.Trigger(cachedTransaction, cachedTransactionMetadata, cachedTargetBranch, conflictingInputs, decisionPending)
+	tangle.Events.TransactionBooked.Trigger(cachedTransaction, cachedTransactionMetadata, decisionPending)
 
 	transactionBooked = true
 

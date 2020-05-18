@@ -56,11 +56,9 @@ func cachedPayloadEvent(handler interface{}, params ...interface{}) {
 }
 
 func transactionBookedEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, *branchmanager.CachedBranch, []transaction.OutputID, bool))(
+	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, bool))(
 		params[0].(*transaction.CachedTransaction).Retain(),
 		params[1].(*CachedTransactionMetadata).Retain(),
-		params[2].(*branchmanager.CachedBranch).Retain(),
-		params[3].([]transaction.OutputID),
 		params[4].(bool),
 	)
 }
