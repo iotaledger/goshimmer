@@ -375,16 +375,60 @@ func (tangle *Tangle) solidifyPayload(cachedPayload *payload.CachedPayload, cach
 			return
 		}
 
+		// keep track of the added payloads so we do not add them multiple times
+		processedPayloads := make(map[payload.ID]types.Empty)
+
+		// if the transaction was booked then we analyze its consumers
 		if transactionBooked {
-			tangle.ForEachConsumers(currentTransaction, func(cachedTransaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment) {
-				solidificationStack.PushBack([3]interface{}{cachedTransaction, transactionMetadata, cachedAttachment})
+			tangle.ForEachConsumers(currentTransaction, func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
+				unwrappedPayload := cachedPayload.Unwrap()
+				if unwrappedPayload == nil {
+					cachedPayload.Release()
+					cachedPayloadMetadata.Release()
+					cachedTransaction.Release()
+					cachedTransactionMetadata.Release()
+
+					return
+				}
+
+				if _, payloadProcessed := processedPayloads[unwrappedPayload.ID()]; payloadProcessed {
+					cachedPayload.Release()
+					cachedPayloadMetadata.Release()
+					cachedTransaction.Release()
+					cachedTransactionMetadata.Release()
+
+					return
+				}
+				processedPayloads[unwrappedPayload.ID()] = types.Void
+
+				solidificationStack.PushBack([4]interface{}{cachedPayload, cachedPayloadMetadata, cachedTransaction, cachedTransactionMetadata})
 			})
 		}
 
+		// if the payload was booked then we analyze its approvers
 		if payloadBooked {
-			// ... and schedule check of approvers
-			tangle.ForeachApprovers(currentPayload.ID(), func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata, transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata) {
-				solidificationStack.PushBack([4]interface{}{payload, payloadMetadata, transaction, transactionMetadata})
+			tangle.ForeachApprovers(currentPayload.ID(), func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
+				unwrappedPayload := cachedPayload.Unwrap()
+				if unwrappedPayload == nil {
+					cachedPayload.Release()
+					cachedPayloadMetadata.Release()
+					cachedTransaction.Release()
+					cachedTransactionMetadata.Release()
+
+					return
+				}
+
+				if _, payloadProcessed := processedPayloads[unwrappedPayload.ID()]; payloadProcessed {
+					cachedPayload.Release()
+					cachedPayloadMetadata.Release()
+					cachedTransaction.Release()
+					cachedTransactionMetadata.Release()
+
+					return
+				}
+				processedPayloads[unwrappedPayload.ID()] = types.Void
+
+				solidificationStack.PushBack([4]interface{}{cachedPayload, cachedPayloadMetadata, cachedTransaction, cachedTransactionMetadata})
 			})
 		}
 
@@ -1080,7 +1124,7 @@ func (tangle *Tangle) calculateBranchOfTransaction(currentTransaction *transacti
 }
 
 // ForEachConsumers iterates through the transactions that are consuming outputs of the given transactions
-func (tangle *Tangle) ForEachConsumers(currentTransaction *transaction.Transaction, consume func(cachedTransaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata, cachedAttachment *CachedAttachment)) {
+func (tangle *Tangle) ForEachConsumers(currentTransaction *transaction.Transaction, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata, transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata)) {
 	seenTransactions := make(map[transaction.ID]types.Empty)
 	currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
 		tangle.Consumers(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(consumer *Consumer) {
@@ -1088,9 +1132,15 @@ func (tangle *Tangle) ForEachConsumers(currentTransaction *transaction.Transacti
 				seenTransactions[consumer.TransactionID()] = types.Void
 
 				cachedTransaction := tangle.Transaction(consumer.TransactionID())
+				defer cachedTransaction.Release()
+
 				cachedTransactionMetadata := tangle.TransactionMetadata(consumer.TransactionID())
+				defer cachedTransactionMetadata.Release()
+
 				for _, cachedAttachment := range tangle.Attachments(consumer.TransactionID()) {
-					consume(cachedTransaction, cachedTransactionMetadata, cachedAttachment)
+					cachedAttachment.Consume(func(attachment *Attachment) {
+						consume(tangle.Payload(attachment.PayloadID()), tangle.PayloadMetadata(attachment.PayloadID()), cachedTransaction.Retain(), cachedTransactionMetadata.Retain())
+					})
 				}
 			}
 		})
