@@ -20,7 +20,7 @@ export class BasicPayload extends React.Component<Props, any> {
                 <Row className={"mb-3"}>
                     <Col>
                         {payload.content_title}: {' '} 
-                        {payload.bytes}
+                        {payload.content}
                     </Col>
                 </Row>
             </React.Fragment>

@@ -167,6 +167,7 @@ export class ExplorerStore {
             case PayloadType.Value:
                 this.payload = msg.payload as ValuePayload
             case PayloadType.Data:
+            case PayloadType.Faucet:
             default:
                 this.payload = msg.payload as BasicPayload
                 break;

@@ -50,6 +50,8 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                 return "Value"
             case PayloadType.Drng:
                 return "Drng"
+            case PayloadType.Faucet:
+                return "Faucet"
             default:
                 return "Unknown"
         }
@@ -62,6 +64,7 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
             case PayloadType.Value:
                 return <ValuePayload/>
             case PayloadType.Data:
+            case PayloadType.Faucet:
             default:
                 console.log(this.props.explorerStore.msg.payload.bytes)
                 return <BasicPayload/>
