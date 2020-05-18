@@ -7,7 +7,7 @@ services:
     image: iotaledger/goshimmer
     build:
       context: ./
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
     container_name: iota_goshimmer
     restart: unless-stopped
     # Mount volumes:
