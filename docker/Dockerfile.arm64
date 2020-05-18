@@ -39,4 +39,4 @@ EXPOSE 14626/udp
 # Copy the Pre-built binary file from the previous stage
 COPY --from=build /go/bin/goshimmer /app/goshimmer
 
-ENTRYPOINT ["/app/goshimmer", "--config-dir=/", "--database.directory=/tmp/mainnetdb"]
+ENTRYPOINT ["/app/goshimmer", "--config-dir=/", "--database.directory=/mainnetdb"]
