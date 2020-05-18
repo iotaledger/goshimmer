@@ -27,10 +27,10 @@ type Conflict struct {
 }
 
 type voteContext struct {
-	NodeID   string         `json:"nodeid"`
-	Rounds   int            `json:"rounds"`
-	Opinions []vote.Opinion `json:"opinions"`
-	Like     vote.Opinion   `json:"like"`
+	NodeID   string  `json:"nodeid"`
+	Rounds   int     `json:"rounds"`
+	Opinions []int32 `json:"opinions"`
+	Like     int32   `json:"like"`
 }
 
 // FPCMsg contains an FPC update
@@ -80,7 +80,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCMsg {
 		update[ID].NodesView[nodeID] = voteContext{
 			NodeID:   nodeID,
 			Rounds:   context.Rounds,
-			Opinions: context.Opinions,
+			Opinions: vote.ConvertOpinionsToInts32(context.Opinions),
 		}
 	}
 
