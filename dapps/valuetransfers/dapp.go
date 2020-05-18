@@ -122,28 +122,24 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 
 func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, decisionPending bool) {
 	defer cachedTransaction.Release()
-	defer cachedTransactionMetadata.Release()
 
-	transactionMetadata := cachedTransactionMetadata.Unwrap()
-	if transactionMetadata == nil {
-		return
-	}
+	cachedTransactionMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
+		if transactionMetadata.Conflicting() {
+			// abort if the previous consumers where finalized already
+			if !decisionPending {
+				return
+			}
 
-	if transactionMetadata.Conflicting() {
-		// abort if the previous consumers where finalized already
-		if !decisionPending {
+			err := voter.Vote(transactionMetadata.BranchID().String(), vote.Dislike)
+			if err != nil {
+				log.Error(err)
+			}
+
 			return
 		}
 
-		err := voter.Vote(transactionMetadata.BranchID().String(), vote.Dislike)
-		if err != nil {
-			log.Error(err)
-		}
-
-		return
-	}
-
-	fcobPreferredRule(cachedTransactionMetadata.Retain())
+		fcobPreferredRule(cachedTransactionMetadata.Retain())
+	})
 }
 
 func fcobPreferredRule(cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
