@@ -8,7 +8,6 @@ FROM golang@sha256:944405641f9fb0f322be1dfc4685b916df2de3df54525cf80822f8a0529f6
 RUN update-ca-certificates
 
 # Set the current Working Directory inside the container
-RUN mkdir /goshimmer
 WORKDIR /goshimmer
 
 # Use Go Modules
