@@ -619,11 +619,10 @@ func (tangle *Tangle) bookPayload(cachedPayload *payload.CachedPayload, cachedPa
 // ForeachApprovers iterates through the approvers of a payload and calls the passed in consumer function.
 func (tangle *Tangle) ForeachApprovers(payloadID payload.ID, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata, transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata)) {
 	tangle.Approvers(payloadID).Consume(func(approver *PayloadApprover) {
-		approvingPayloadID := approver.ApprovingPayloadID()
-		approvingCachedPayload := tangle.Payload(approvingPayloadID)
+		approvingCachedPayload := tangle.Payload(approver.ApprovingPayloadID())
 
 		approvingCachedPayload.Consume(func(payload *payload.Payload) {
-			consume(approvingCachedPayload, tangle.PayloadMetadata(approvingPayloadID), tangle.Transaction(payload.Transaction().ID()), tangle.TransactionMetadata(payload.Transaction().ID()))
+			consume(approvingCachedPayload.Retain(), tangle.PayloadMetadata(approver.ApprovingPayloadID()), tangle.Transaction(payload.Transaction().ID()), tangle.TransactionMetadata(payload.Transaction().ID()))
 		})
 	})
 }
@@ -1137,11 +1136,9 @@ func (tangle *Tangle) ForEachConsumers(currentTransaction *transaction.Transacti
 				cachedTransactionMetadata := tangle.TransactionMetadata(consumer.TransactionID())
 				defer cachedTransactionMetadata.Release()
 
-				for _, cachedAttachment := range tangle.Attachments(consumer.TransactionID()) {
-					cachedAttachment.Consume(func(attachment *Attachment) {
-						consume(tangle.Payload(attachment.PayloadID()), tangle.PayloadMetadata(attachment.PayloadID()), cachedTransaction.Retain(), cachedTransactionMetadata.Retain())
-					})
-				}
+				tangle.Attachments(consumer.TransactionID()).Consume(func(attachment *Attachment) {
+					consume(tangle.Payload(attachment.PayloadID()), tangle.PayloadMetadata(attachment.PayloadID()), cachedTransaction.Retain(), cachedTransactionMetadata.Retain())
+				})
 			}
 		})
 
