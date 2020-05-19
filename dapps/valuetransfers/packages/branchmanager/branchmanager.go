@@ -479,9 +479,7 @@ func (branchManager *BranchManager) IsBranchLiked(id BranchID) (liked bool) {
 	}
 
 	if id == MasterBranchID {
-		liked = true
-
-		return
+		return true
 	}
 
 	branchManager.Branch(id).Consume(func(branch *Branch) {
