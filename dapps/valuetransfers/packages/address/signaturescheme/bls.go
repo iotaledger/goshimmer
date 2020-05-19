@@ -136,6 +136,7 @@ func BLSSignatureFromBytes(data []byte) (result *BLSSignature, consumedBytes int
 	return
 }
 
+// NewBLSSignature creates BLS signature from raw public key and signature data
 func NewBLSSignature(pubKey, signature []byte) *BLSSignature {
 	var ret BLSSignature
 	ret[0] = address.VersionBLS

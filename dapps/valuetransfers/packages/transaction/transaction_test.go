@@ -167,7 +167,7 @@ func TestPutSignatureInvalid(t *testing.T) {
 	sigBytes := make([]byte, len(signatureValid.Bytes()))
 	copy(sigBytes, signatureValid.Bytes())
 	// inverse last byte --> corrupt the signatureValid
-	sigBytes[len(sigBytes)-1] = sigBytes[len(sigBytes)-1] ^ sigBytes[len(sigBytes)-1]
+	sigBytes[len(sigBytes)-1] = ^sigBytes[len(sigBytes)-1]
 
 	sigCorrupted, consumed, err := signaturescheme.BLSSignatureFromBytes(sigBytes)
 
