@@ -135,7 +135,6 @@ func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, pref
 			switch preferred {
 			case true:
 				tangle.propagateValuePayloadLikes(transactionID)
-				// propagate like to future cone
 			case false:
 				// propagate dislike to future cone
 			}
@@ -145,43 +144,95 @@ func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, pref
 	return
 }
 
+// propagateValuePayloadLikes updates the liked status of all value payloads attaching a certain transaction. If the
 func (tangle *Tangle) propagateValuePayloadLikes(transactionID transaction.ID) {
-
+	// initiate stack with the passed in transaction
 	propagationStack := list.New()
 	tangle.Attachments(transactionID).Consume(func(attachment *Attachment) {
-		propagationStack.PushBack([3]interface{}{tangle.Payload(attachment.PayloadID()), tangle.PayloadMetadata(attachment.PayloadID()), tangle.TransactionMetadata(transactionID)})
+		propagationStack.PushBack([4]interface{}{tangle.Payload(attachment.PayloadID()), tangle.PayloadMetadata(attachment.PayloadID()), tangle.Transaction(transactionID), tangle.TransactionMetadata(transactionID)})
 	})
 
-	for propagationStack.Len() >= 1 {
-		// retrieve attachment details from stack
-		currentAttachmentEntry := propagationStack.Front()
-		currentCachedPayload := currentAttachmentEntry.Value.([3]interface{})[0].(*payload.CachedPayload)
-		currentCachedPayloadMetadata := currentAttachmentEntry.Value.([3]interface{})[1].(*CachedPayloadMetadata)
-		currentCachedTransactionMetadata := currentAttachmentEntry.Value.([3]interface{})[2].(*CachedTransactionMetadata)
-		propagationStack.Remove(currentAttachmentEntry)
+	// function used to schedule the check of approving and consuming payloads
+	seenPayloads := make(map[payload.ID]types.Empty)
+	scheduleNextCheck := func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
+		defer cachedPayload.Release()
+		defer cachedPayloadMetadata.Release()
+		defer cachedTransaction.Release()
+		defer cachedTransactionMetadata.Release()
 
-		currentPayload := currentCachedPayload.Unwrap()
-		currentPayloadMetadata := currentCachedPayloadMetadata.Unwrap()
-		currentTransactionMetadata := currentCachedTransactionMetadata.Unwrap()
-
-		if currentPayload == nil || currentPayloadMetadata == nil || currentTransactionMetadata == nil ||
-			!currentTransactionMetadata.Preferred() ||
-			!tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) {
-
-			currentCachedPayload.Release()
-			currentCachedPayloadMetadata.Release()
-			currentCachedTransactionMetadata.Release()
-
+		// abort if the payload could not be unwrapped
+		unwrappedPayload := cachedPayload.Unwrap()
+		if unwrappedPayload == nil {
 			return
 		}
 
-		// check if referenced value objects are liked
+		// abort if we have scheduled the check of this payload already
+		if _, payloadSeenAlready := seenPayloads[unwrappedPayload.ID()]; payloadSeenAlready {
+			return
+		}
+		seenPayloads[unwrappedPayload.ID()] = types.Void
 
-		// set liked
-		currentPayloadMetadata.SetLiked(true)
-
-		// add approvers + consumers
+		// schedule next checks
+		propagationStack.PushBack([4]interface{}{cachedPayload.Retain(), cachedPayloadMetadata.Retain(), cachedTransaction.Retain(), cachedTransactionMetadata.Retain()})
 	}
+
+	// iterate through future cone of transactions
+	for propagationStack.Len() >= 1 {
+		// retrieve elements from stack
+		currentAttachmentEntry := propagationStack.Front()
+		currentCachedPayload := currentAttachmentEntry.Value.([4]interface{})[0].(*payload.CachedPayload)
+		currentCachedPayloadMetadata := currentAttachmentEntry.Value.([4]interface{})[1].(*CachedPayloadMetadata)
+		currentCachedTransaction := currentAttachmentEntry.Value.([4]interface{})[2].(*transaction.CachedTransaction)
+		currentCachedTransactionMetadata := currentAttachmentEntry.Value.([4]interface{})[3].(*CachedTransactionMetadata)
+		propagationStack.Remove(currentAttachmentEntry)
+
+		// unpack loaded objects
+		currentPayload := currentCachedPayload.Unwrap()
+		currentPayloadMetadata := currentCachedPayloadMetadata.Unwrap()
+		currentTransaction := currentCachedTransaction.Unwrap()
+		currentTransactionMetadata := currentCachedTransactionMetadata.Unwrap()
+
+		// trigger events + schedule checks of approving and consuming payloads and transactions if:
+		//     - the entities could be loaded from the database
+		//     - the transaction is preferred
+		//     - the branch of this payload is liked
+		//     - the referenced value payloads are liked
+		//     - the payload was not marked as liked before
+		if currentPayload != nil && currentPayloadMetadata != nil && currentTransaction != nil &&
+			currentTransactionMetadata != nil && currentTransactionMetadata.Preferred() &&
+			tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) &&
+			tangle.ValuePayloadsLiked(currentPayload.TrunkID(), currentPayload.BranchID()) &&
+			currentPayloadMetadata.SetLiked(true) {
+
+			// trigger event when the payload was liked
+			tangle.Events.PayloadLiked.Trigger(currentCachedPayload, currentCachedPayloadMetadata)
+
+			// schedule approvers and consumers to be checked as well
+			tangle.ForEachConsumers(currentTransaction, scheduleNextCheck)
+			tangle.ForeachApprovers(currentPayload.ID(), scheduleNextCheck)
+		}
+
+		// release the cached objects
+		currentCachedPayload.Release()
+		currentCachedPayloadMetadata.Release()
+		currentCachedTransaction.Release()
+		currentCachedTransactionMetadata.Release()
+	}
+}
+
+// ValuePayloadsLiked is checking if the Payloads referenced by the passed in IDs are all liked.
+func (tangle *Tangle) ValuePayloadsLiked(payloadIDs ...payload.ID) (liked bool) {
+	for _, payloadID := range payloadIDs {
+		payloadMetadataFound := tangle.PayloadMetadata(payloadID).Consume(func(payloadMetadata *PayloadMetadata) {
+			liked = payloadMetadata.Liked()
+		})
+
+		if !payloadMetadataFound || !liked {
+			return
+		}
+	}
+
+	return true
 }
 
 // Payload retrieves a payload from the object storage.

@@ -20,10 +20,12 @@ type PayloadMetadata struct {
 	payloadID          payload.ID
 	solid              bool
 	solidificationTime time.Time
+	liked              bool
 	branchID           branchmanager.BranchID
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
+	likedMutex              sync.RWMutex
 	branchIDMutex           sync.RWMutex
 }
 
@@ -137,6 +139,38 @@ func (payloadMetadata *PayloadMetadata) SoldificationTime() time.Time {
 	defer payloadMetadata.solidificationTimeMutex.RUnlock()
 
 	return payloadMetadata.solidificationTime
+}
+
+// Liked returns true if the Payload was marked as liked.
+func (payloadMetadata *PayloadMetadata) Liked() bool {
+	payloadMetadata.likedMutex.RLock()
+	defer payloadMetadata.likedMutex.RUnlock()
+
+	return payloadMetadata.liked
+}
+
+// SetLiked modifies the liked flag of the given Payload. It returns true if the value has been updated.
+func (payloadMetadata *PayloadMetadata) SetLiked(liked bool) (modified bool) {
+	payloadMetadata.likedMutex.RLock()
+	if payloadMetadata.liked == liked {
+		payloadMetadata.likedMutex.RUnlock()
+
+		return
+	}
+
+	payloadMetadata.likedMutex.RUnlock()
+	payloadMetadata.likedMutex.Lock()
+	defer payloadMetadata.likedMutex.Unlock()
+
+	if payloadMetadata.liked == liked {
+		return
+	}
+
+	payloadMetadata.liked = liked
+	payloadMetadata.SetModified()
+	modified = true
+
+	return
 }
 
 // BranchID returns the identifier of the Branch that this Payload was booked into.
