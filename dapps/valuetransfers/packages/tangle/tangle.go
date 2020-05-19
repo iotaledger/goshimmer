@@ -173,12 +173,12 @@ func (tangle *Tangle) propagateValuePayloadLikeUpdates(transactionID transaction
 			// if the
 			case true:
 				// only trigger the events if the transaction is preferred, the branch of the payload is liked, the referenced value payloads are liked and the payload was not marked as liked before
-				if updated = currentTransactionMetadata.Preferred() && tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) && tangle.ValuePayloadsLiked(currentPayload.TrunkID(), currentPayload.BranchID()) && currentPayloadMetadata.SetLiked(true); updated {
+				if updated = currentTransactionMetadata.Preferred() && tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) && tangle.ValuePayloadsLiked(currentPayload.TrunkID(), currentPayload.BranchID()) && currentPayloadMetadata.SetLiked(liked); updated {
 					tangle.Events.PayloadLiked.Trigger(currentCachedPayload, currentCachedPayloadMetadata)
 				}
 			case false:
 				// only trigger the events if the payload has not been marked as disliked before
-				if updated = currentPayloadMetadata.SetLiked(false); updated {
+				if updated = currentPayloadMetadata.SetLiked(liked); updated {
 					tangle.Events.PayloadDisliked.Trigger(currentCachedPayload, currentCachedPayloadMetadata)
 				}
 			}
