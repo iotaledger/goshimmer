@@ -117,42 +117,37 @@ func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
 // propagates the changes to the BranchManager if the flag was updated.
 func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, preferred bool) (modified bool, err error) {
 	tangle.TransactionMetadata(transactionID).Consume(func(metadata *TransactionMetadata) {
-		// update the preferred flag
-		modified = metadata.setPreferred(preferred)
+		// only propagate the changes if the flag was modified
+		if modified = metadata.setPreferred(preferred); modified {
+			// propagate changes to the branches (UTXO DAG)
+			if metadata.Conflicting() {
+				_, err = tangle.branchManager.SetBranchPreferred(metadata.BranchID(), preferred)
+				if err != nil {
+					tangle.Events.Error.Trigger(err)
 
-		// propagate changes to the Branch
-		if modified && metadata.Conflicting() {
-			_, err = tangle.branchManager.SetBranchPreferred(metadata.BranchID(), preferred)
-			if err != nil {
-				tangle.Events.Error.Trigger(err)
-
-				return
+					return
+				}
 			}
-		}
 
-		// propagate changes to future cone of transaction
-		if modified {
-			switch preferred {
-			case true:
-				tangle.propagateValuePayloadLikes(transactionID)
-			case false:
-				// propagate dislike to future cone
-			}
+			// propagate changes to future cone of transaction (value tangle)
+			tangle.propagateValuePayloadLikeUpdates(transactionID, preferred)
 		}
 	})
 
 	return
 }
 
-// propagateValuePayloadLikes updates the liked status of all value payloads attaching a certain transaction. If the
-func (tangle *Tangle) propagateValuePayloadLikes(transactionID transaction.ID) {
+// propagateValuePayloadLikeUpdates updates the liked status of all value payloads attaching a certain transaction. If
+// the transaction that was updated was the entry point to a branch then all value payloads inside this branch get
+// updated as well (updates happen from past to presents).
+func (tangle *Tangle) propagateValuePayloadLikeUpdates(transactionID transaction.ID, liked bool) {
 	// initiate stack with the passed in transaction
 	propagationStack := list.New()
 	tangle.Attachments(transactionID).Consume(func(attachment *Attachment) {
 		propagationStack.PushBack([4]interface{}{tangle.Payload(attachment.PayloadID()), tangle.PayloadMetadata(attachment.PayloadID()), tangle.Transaction(transactionID), tangle.TransactionMetadata(transactionID)})
 	})
 
-	// function used to schedule the check of approving and consuming payloads
+	// function used to queue the found approving and consuming payloads
 	seenPayloads := make(map[payload.ID]types.Empty)
 	scheduleNextCheck := func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
 		defer cachedPayload.Release()
@@ -192,24 +187,30 @@ func (tangle *Tangle) propagateValuePayloadLikes(transactionID transaction.ID) {
 		currentTransaction := currentCachedTransaction.Unwrap()
 		currentTransactionMetadata := currentCachedTransactionMetadata.Unwrap()
 
-		// trigger events + schedule checks of approving and consuming payloads and transactions if:
-		//     - the entities could be loaded from the database
-		//     - the transaction is preferred
-		//     - the branch of this payload is liked
-		//     - the referenced value payloads are liked
-		//     - the payload was not marked as liked before
-		if currentPayload != nil && currentPayloadMetadata != nil && currentTransaction != nil &&
-			currentTransactionMetadata != nil && currentTransactionMetadata.Preferred() &&
-			tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) &&
-			tangle.ValuePayloadsLiked(currentPayload.TrunkID(), currentPayload.BranchID()) &&
-			currentPayloadMetadata.SetLiked(true) {
+		// only continue if the entities could be loaded from the database
+		if currentPayload != nil && currentPayloadMetadata != nil && currentTransaction != nil && currentTransactionMetadata != nil {
+			switch liked {
+			case true:
+				// only propagate if the transaction is preferred, the branch of the payload is liked, the referenced value payloads are liked and the payload was not marked as liked before
+				if currentTransactionMetadata.Preferred() && tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) && tangle.ValuePayloadsLiked(currentPayload.TrunkID(), currentPayload.BranchID()) && currentPayloadMetadata.SetLiked(true) {
+					// trigger event when the payload was liked
+					tangle.Events.PayloadLiked.Trigger(currentCachedPayload, currentCachedPayloadMetadata)
 
-			// trigger event when the payload was liked
-			tangle.Events.PayloadLiked.Trigger(currentCachedPayload, currentCachedPayloadMetadata)
+					// schedule approvers and consumers to be checked as well
+					tangle.ForEachConsumers(currentTransaction, scheduleNextCheck)
+					tangle.ForeachApprovers(currentPayload.ID(), scheduleNextCheck)
+				}
+			case false:
+				// only propagate if the payload has not been marked as disliked before
+				if currentPayloadMetadata.SetLiked(false) {
+					// trigger event when the payload was liked
+					tangle.Events.PayloadLiked.Trigger(currentCachedPayload, currentCachedPayloadMetadata)
 
-			// schedule approvers and consumers to be checked as well
-			tangle.ForEachConsumers(currentTransaction, scheduleNextCheck)
-			tangle.ForeachApprovers(currentPayload.ID(), scheduleNextCheck)
+					// schedule approvers and consumers to be checked as well
+					tangle.ForEachConsumers(currentTransaction, scheduleNextCheck)
+					tangle.ForeachApprovers(currentPayload.ID(), scheduleNextCheck)
+				}
+			}
 		}
 
 		// release the cached objects
