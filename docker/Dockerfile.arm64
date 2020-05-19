@@ -32,11 +32,11 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
 # using static nonroot image
 # user:group is nonroot:nonroot, uid:gid = 65532:65532
 FROM gcr.io/distroless/static@sha256:23aa732bba4c8618c0d97c26a72a32997363d591807b0d4c31b0bbc8a774bddf
-WORKDIR /app
+
 EXPOSE 14666/tcp
 EXPOSE 14626/udp
 
 # Copy the Pre-built binary file from the previous stage
-COPY --from=build /go/bin/goshimmer /app/goshimmer
+COPY --from=build /go/bin/goshimmer /run/goshimmer
 
-ENTRYPOINT ["/app/goshimmer", "--config-dir=/", "--database.directory=/mainnetdb"]
+ENTRYPOINT ["/run/goshimmer", "--config-dir=/", "--database.directory=/mainnetdb"]
