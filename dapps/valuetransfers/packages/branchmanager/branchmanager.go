@@ -244,6 +244,8 @@ func (branchManager *BranchManager) BranchesConflicting(branchIds ...BranchID) (
 					}
 
 					if conflictMember.BranchID() == currentBranchID {
+						cachedConflictMember.Release()
+
 						continue
 					}
 
@@ -583,7 +585,7 @@ func (branchManager *BranchManager) determineAggregatedBranchDetails(deepestComm
 			continue
 		}
 
-		if branch.IsAggregated() {
+		if !branch.IsAggregated() {
 			aggregatedBranchConflictParents[branchID] = cachedBranch
 
 			continue
