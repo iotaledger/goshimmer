@@ -472,6 +472,7 @@ func (branchManager *BranchManager) setBranchLiked(cachedBranch *CachedBranch, l
 	return
 }
 
+// IsBranchLiked returns true if the Branch is currently marked as liked.
 func (branchManager *BranchManager) IsBranchLiked(id BranchID) (liked bool) {
 	if id == UndefinedBranchID {
 		return

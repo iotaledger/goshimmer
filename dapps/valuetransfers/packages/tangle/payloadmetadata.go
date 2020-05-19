@@ -207,7 +207,7 @@ func (payloadMetadata *PayloadMetadata) SetBranchID(branchID branchmanager.Branc
 
 // Bytes marshals the metadata into a sequence of bytes.
 func (payloadMetadata *PayloadMetadata) Bytes() []byte {
-	return marshalutil.New(payload.IDLength + marshalutil.TIME_SIZE + marshalutil.BOOL_SIZE + branchmanager.BranchIDLength).
+	return marshalutil.New(payload.IDLength + marshalutil.TIME_SIZE + 2*marshalutil.BOOL_SIZE + branchmanager.BranchIDLength).
 		WriteBytes(payloadMetadata.ObjectStorageKey()).
 		WriteBytes(payloadMetadata.ObjectStorageValue()).
 		Bytes()
@@ -236,9 +236,10 @@ func (payloadMetadata *PayloadMetadata) Update(other objectstorage.StorableObjec
 
 // ObjectStorageValue is required to match the encoding.BinaryMarshaler interface.
 func (payloadMetadata *PayloadMetadata) ObjectStorageValue() []byte {
-	return marshalutil.New(marshalutil.TIME_SIZE + marshalutil.BOOL_SIZE).
+	return marshalutil.New(marshalutil.TIME_SIZE + 2*marshalutil.BOOL_SIZE).
 		WriteTime(payloadMetadata.solidificationTime).
 		WriteBool(payloadMetadata.solid).
+		WriteBool(payloadMetadata.liked).
 		WriteBytes(payloadMetadata.branchID.Bytes()).
 		Bytes()
 }
@@ -250,6 +251,9 @@ func (payloadMetadata *PayloadMetadata) UnmarshalObjectStorageValue(data []byte)
 		return
 	}
 	if payloadMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if payloadMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
 	if payloadMetadata.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
