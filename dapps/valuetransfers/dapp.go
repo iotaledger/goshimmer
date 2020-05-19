@@ -24,7 +24,7 @@ const (
 	PluginName = "ValueTransfers"
 
 	// AverageNetworkDelay contains the average time it takes for a network to propagate through gossip.
-	AverageNetworkDelay = 6 * time.Second
+	AverageNetworkDelay = 5 * time.Second
 )
 
 var (

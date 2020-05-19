@@ -11,7 +11,9 @@ import (
 )
 
 // FCOB defines the "Fast Consensus of Barcelona" rules that are used to form the initial opinions of nodes. It uses a
-// local modified based approach to reach approximate consensus within the network.
+// local modifier based approach to reach approximate consensus within the network by waiting 1 network delay before
+// setting a transaction to preferred (if it didnt see a conflict) and another network delay to set it to finalized (if
+// it still didn't see a conflict).
 type FCOB struct {
 	Events *FCOBEvents
 
