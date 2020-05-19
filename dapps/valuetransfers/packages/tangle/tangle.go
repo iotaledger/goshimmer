@@ -125,6 +125,8 @@ func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, pref
 			_, err = tangle.branchManager.SetBranchPreferred(metadata.BranchID(), preferred)
 			if err != nil {
 				tangle.Events.Error.Trigger(err)
+
+				return
 			}
 		}
 
@@ -132,6 +134,7 @@ func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, pref
 		if modified {
 			switch preferred {
 			case true:
+				tangle.propagateValuePayloadLikes(transactionID)
 				// propagate like to future cone
 			case false:
 				// propagate dislike to future cone
@@ -140,6 +143,45 @@ func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, pref
 	})
 
 	return
+}
+
+func (tangle *Tangle) propagateValuePayloadLikes(transactionID transaction.ID) {
+
+	propagationStack := list.New()
+	tangle.Attachments(transactionID).Consume(func(attachment *Attachment) {
+		propagationStack.PushBack([3]interface{}{tangle.Payload(attachment.PayloadID()), tangle.PayloadMetadata(attachment.PayloadID()), tangle.TransactionMetadata(transactionID)})
+	})
+
+	for propagationStack.Len() >= 1 {
+		// retrieve attachment details from stack
+		currentAttachmentEntry := propagationStack.Front()
+		currentCachedPayload := currentAttachmentEntry.Value.([3]interface{})[0].(*payload.CachedPayload)
+		currentCachedPayloadMetadata := currentAttachmentEntry.Value.([3]interface{})[1].(*CachedPayloadMetadata)
+		currentCachedTransactionMetadata := currentAttachmentEntry.Value.([3]interface{})[2].(*CachedTransactionMetadata)
+		propagationStack.Remove(currentAttachmentEntry)
+
+		currentPayload := currentCachedPayload.Unwrap()
+		currentPayloadMetadata := currentCachedPayloadMetadata.Unwrap()
+		currentTransactionMetadata := currentCachedTransactionMetadata.Unwrap()
+
+		if currentPayload == nil || currentPayloadMetadata == nil || currentTransactionMetadata == nil ||
+			!currentTransactionMetadata.Preferred() ||
+			!tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) {
+
+			currentCachedPayload.Release()
+			currentCachedPayloadMetadata.Release()
+			currentCachedTransactionMetadata.Release()
+
+			return
+		}
+
+		// check if referenced value objects are liked
+
+		// set liked
+		currentPayloadMetadata.SetLiked(true)
+
+		// add approvers + consumers
+	}
 }
 
 // Payload retrieves a payload from the object storage.

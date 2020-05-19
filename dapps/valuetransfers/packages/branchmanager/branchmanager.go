@@ -472,6 +472,24 @@ func (branchManager *BranchManager) setBranchLiked(cachedBranch *CachedBranch, l
 	return
 }
 
+func (branchManager *BranchManager) IsBranchLiked(id BranchID) (liked bool) {
+	if id == UndefinedBranchID {
+		return
+	}
+
+	if id == MasterBranchID {
+		liked = true
+
+		return
+	}
+
+	branchManager.Branch(id).Consume(func(branch *Branch) {
+		liked = branch.Liked()
+	})
+
+	return
+}
+
 func (branchManager *BranchManager) propagateLike(cachedBranch *CachedBranch) (err error) {
 	// unpack CachedBranch and abort of the branch doesn't exist or isn't preferred
 	defer cachedBranch.Release()
