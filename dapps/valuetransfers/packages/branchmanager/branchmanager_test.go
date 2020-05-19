@@ -22,6 +22,7 @@ func TestSomething(t *testing.T) {
 	fmt.Println(branchManager.BranchesConflicting(MasterBranchID, branch2.ID()))
 }
 
+// ./img/testconflictdetection.png
 func TestConflictDetection(t *testing.T) {
 	branchManager := New(testutil.DB(t))
 
