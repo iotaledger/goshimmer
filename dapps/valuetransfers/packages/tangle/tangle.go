@@ -123,6 +123,19 @@ func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, pref
 		// propagate changes to the Branch
 		if modified && metadata.Conflicting() {
 			_, err = tangle.branchManager.SetBranchPreferred(metadata.BranchID(), preferred)
+			if err != nil {
+				tangle.Events.Error.Trigger(err)
+			}
+		}
+
+		// propagate changes to future cone of transaction
+		if modified {
+			switch preferred {
+			case true:
+				// propagate like to future cone
+			case false:
+				// propagate dislike to future cone
+			}
 		}
 	})
 
@@ -937,19 +950,19 @@ func (tangle *Tangle) Fork(transactionID transaction.ID, conflictingInputs []tra
 	}
 
 	// update / create new branch
-	cachedTargetBranch, newBranchCreated := tangle.branchManager.Fork(branchmanager.NewBranchID(tx.ID()), []branchmanager.BranchID{txMetadata.BranchID()}, conflictingInputs)
+	newBranchID := branchmanager.NewBranchID(tx.ID())
+	cachedTargetBranch, newBranchCreated := tangle.branchManager.Fork(newBranchID, []branchmanager.BranchID{txMetadata.BranchID()}, conflictingInputs)
 	defer cachedTargetBranch.Release()
+
+	// set branch to be preferred if the underlying transaction was marked as preferred
+	if txMetadata.Preferred() {
+		if _, err = tangle.branchManager.SetBranchPreferred(newBranchID, true); err != nil {
+			return
+		}
+	}
 
 	// abort if the branch existed already
 	if !newBranchCreated {
-		return
-	}
-
-	// unpack branch
-	targetBranch := cachedTargetBranch.Unwrap()
-	if targetBranch == nil {
-		err = fmt.Errorf("failed to unpack branch for transaction '%s'", transactionID)
-
 		return
 	}
 
@@ -959,7 +972,7 @@ func (tangle *Tangle) Fork(transactionID transaction.ID, conflictingInputs []tra
 	}
 
 	// trigger events + set result
-	tangle.Events.Fork.Trigger(cachedTransaction, cachedTransactionMetadata, targetBranch, conflictingInputs)
+	tangle.Events.Fork.Trigger(cachedTransaction, cachedTransactionMetadata)
 	forked = true
 
 	return

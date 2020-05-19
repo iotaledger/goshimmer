@@ -8,10 +8,9 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	messageTangle "github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -35,6 +34,9 @@ var (
 	// Tangle represents the value tangle that is used to express votes on value transactions.
 	Tangle *tangle.Tangle
 
+	// FCOB contains the fcob consensus logic.
+	FCOB *consensus.FCOB
+
 	// LedgerState represents the ledger state, that keeps track of the liked branches and offers an API to access funds.
 	LedgerState *tangle.LedgerState
 
@@ -43,44 +45,35 @@ var (
 )
 
 func configure(_ *node.Plugin) {
+	// configure logger
 	log = logger.NewLogger(PluginName)
 
-	log.Debug("configuring ValueTransfers")
-
-	// create instances
+	// configure Tangle
 	Tangle = tangle.New(database.GetBadgerInstance())
+	Tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+		log.Error(err)
+	}))
+
+	// configure FCOB consensus rules
+	FCOB = consensus.NewFCOB(Tangle, AverageNetworkDelay)
+	FCOB.Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
+		if err := voter.Vote(id, initOpn); err != nil {
+			log.Error(err)
+		}
+	}))
+	FCOB.Events.Error.Attach(events.NewClosure(func(err error) {
+		log.Error(err)
+	}))
+
+	// configure FPC + link to consensus
+	configureFPC()
+	voter.Events().Finalized.Attach(events.NewClosure(FCOB.ProcessVoteResult))
+	voter.Events().Failed.Attach(events.NewClosure(func(id string, lastOpinion vote.Opinion) {
+		log.Errorf("FPC failed for transaction with id '%s' - last opinion: '%s'", id, lastOpinion)
+	}))
 
 	// subscribe to message-layer
 	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
-
-	// setup behavior of package instances
-	Tangle.Events.TransactionBooked.Attach(events.NewClosure(onTransactionBooked))
-	Tangle.Events.Fork.Attach(events.NewClosure(onForkOfFirstConsumer))
-
-	configureFPC()
-	// TODO: DECIDE WHAT WE SHOULD DO IF FPC FAILS -> cry
-	// voter.Events().Failed.Attach(events.NewClosure(panic))
-	voter.Events().Finalized.Attach(events.NewClosure(func(id string, opinion vote.Opinion) {
-		branchID, err := branchmanager.BranchIDFromBase58(id)
-		if err != nil {
-			log.Error(err)
-
-			return
-		}
-
-		switch opinion {
-		case vote.Like:
-			if _, err := Tangle.BranchManager().SetBranchPreferred(branchID, true); err != nil {
-				panic(err)
-			}
-			// TODO: merge branch mutations into the parent branch
-		case vote.Dislike:
-			if _, err := Tangle.BranchManager().SetBranchPreferred(branchID, false); err != nil {
-				panic(err)
-			}
-			// TODO: merge branch mutations into the parent branch / cleanup
-		}
-	}))
 }
 
 func run(*node.Plugin) {
@@ -98,113 +91,22 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 
 	solidMessage := cachedMessage.Unwrap()
 	if solidMessage == nil {
-		// TODO: LOG ERROR?
+		log.Debug("failed to unpack solid message from message layer")
 
 		return
 	}
 
 	messagePayload := solidMessage.Payload()
 	if messagePayload.Type() != valuepayload.Type {
-		// TODO: LOG ERROR?
-
 		return
 	}
 
 	valuePayload, ok := messagePayload.(*valuepayload.Payload)
 	if !ok {
-		// TODO: LOG ERROR?
+		log.Debug("could not cast payload to value payload")
 
 		return
 	}
 
 	Tangle.AttachPayload(valuePayload)
-}
-
-func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, decisionPending bool) {
-	defer cachedTransaction.Release()
-
-	cachedTransactionMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
-		if transactionMetadata.Conflicting() {
-			// abort if the previous consumers where finalized already
-			if !decisionPending {
-				return
-			}
-
-			err := voter.Vote(transactionMetadata.BranchID().String(), vote.Dislike)
-			if err != nil {
-				log.Error(err)
-			}
-
-			return
-		}
-
-		fcobPreferredRule(cachedTransactionMetadata.Retain())
-	})
-}
-
-func fcobPreferredRule(cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
-	time.AfterFunc(AverageNetworkDelay, func() {
-		cachedTransactionMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
-			// TODO: check that the booking goroutine in the UTXO DAG and this check is somehow synchronized
-			if transactionMetadata.Conflicting() {
-				return
-			}
-
-			modified, err := Tangle.SetTransactionPreferred(transactionMetadata.ID(), true)
-			if err != nil {
-				log.Error(err)
-
-				return
-			}
-
-			if modified {
-				scheduleFCOBFinalizedSetter(cachedTransactionMetadata.Retain())
-			}
-		})
-	})
-}
-
-func scheduleFCOBFinalizedSetter(cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
-	time.AfterFunc(AverageNetworkDelay, func() {
-		cachedTransactionMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
-			if transactionMetadata.Conflicting() {
-				return
-			}
-
-			transactionMetadata.SetFinalized(true)
-		})
-	})
-}
-
-// TODO: clarify what we do here
-func onForkOfFirstConsumer(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID) {
-	defer cachedTransaction.Release()
-	defer cachedTransactionMetadata.Release()
-	defer cachedBranch.Release()
-
-	transactionMetadata := cachedTransactionMetadata.Unwrap()
-	if transactionMetadata == nil {
-		return
-	}
-
-	branch := cachedBranch.Unwrap()
-	if branch == nil {
-		return
-	}
-
-	if time.Since(transactionMetadata.SoldificationTime()) < AverageNetworkDelay {
-		if err := voter.Vote(branch.ID().String(), vote.Dislike); err != nil {
-			log.Error(err)
-		}
-
-		return
-	}
-
-	if _, err := Tangle.BranchManager().SetBranchPreferred(branch.ID(), true); err != nil {
-		log.Error(err)
-	}
-
-	if err := voter.Vote(branch.ID().String(), vote.Like); err != nil {
-		log.Error(err)
-	}
 }
