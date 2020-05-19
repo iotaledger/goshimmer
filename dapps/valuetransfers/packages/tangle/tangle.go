@@ -185,7 +185,13 @@ func (tangle *Tangle) propagateValuePayloadLikeUpdates(transactionID transaction
 
 			// schedule checks of approvers and consumers if we performed an update
 			if updated {
-				tangle.ForEachConsumersAndApprovers(currentPayload, func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
+				tangle.ForEachConsumersAndApprovers(currentPayload, func(
+					cachedPayload *payload.CachedPayload,
+					cachedPayloadMetadata *CachedPayloadMetadata,
+					cachedTransaction *transaction.CachedTransaction,
+					cachedTransactionMetadata *CachedTransactionMetadata,
+				) {
+					// automatically release cached objects when we terminate
 					defer cachedPayload.Release()
 					defer cachedPayloadMetadata.Release()
 					defer cachedTransaction.Release()
@@ -204,7 +210,12 @@ func (tangle *Tangle) propagateValuePayloadLikeUpdates(transactionID transaction
 					seenPayloads[unwrappedPayload.ID()] = types.Void
 
 					// schedule next checks
-					propagationStack.PushBack([4]interface{}{cachedPayload.Retain(), cachedPayloadMetadata.Retain(), cachedTransaction.Retain(), cachedTransactionMetadata.Retain()})
+					propagationStack.PushBack([4]interface{}{
+						cachedPayload.Retain(),
+						cachedPayloadMetadata.Retain(),
+						cachedTransaction.Retain(),
+						cachedTransactionMetadata.Retain(),
+					})
 				})
 			}
 		}
