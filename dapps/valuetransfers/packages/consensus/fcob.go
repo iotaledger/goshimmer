@@ -130,6 +130,9 @@ func (fcob *FCOB) onFork(cachedTransaction *transaction.CachedTransaction, cache
 
 // FCOBEvents acts as a dictionary for events of an FCOB instance.
 type FCOBEvents struct {
+	// Error gets called when FCOB faces an error.
 	Error *events.Event
-	Vote  *events.Event
+
+	// Vote gets called when FCOB needs to vote on a transaction.
+	Vote *events.Event
 }
