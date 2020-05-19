@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/events"
-	"github.com/labstack/gommon/log"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
@@ -52,6 +51,8 @@ func (fcob *FCOB) ProcessVoteResult(id string, opinion vote.Opinion) {
 	}
 }
 
+// onTransactionBooked analyzes the transaction that was booked by the Tangle and initiates the FCOB rules if it is not
+// conflicting. If it is conflicting and a decision is still pending we trigger a voting process.
 func (fcob *FCOB) onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, decisionPending bool) {
 	defer cachedTransaction.Release()
 
@@ -71,6 +72,7 @@ func (fcob *FCOB) onTransactionBooked(cachedTransaction *transaction.CachedTrans
 	})
 }
 
+// scheduleSetPreferred sets the Transaction to preferred if it is still not conflicting after 1 network delay.
 func (fcob *FCOB) scheduleSetPreferred(cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
 	time.AfterFunc(fcob.averageNetworkDelay, func() {
 		cachedTransactionMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
@@ -80,7 +82,7 @@ func (fcob *FCOB) scheduleSetPreferred(cachedTransactionMetadata *tangle.CachedT
 
 			modified, err := fcob.tangle.SetTransactionPreferred(transactionMetadata.ID(), true)
 			if err != nil {
-				log.Error(err)
+				fcob.Events.Error.Trigger(err)
 
 				return
 			}
@@ -92,6 +94,9 @@ func (fcob *FCOB) scheduleSetPreferred(cachedTransactionMetadata *tangle.CachedT
 	})
 }
 
+// scheduleSetFinalized sets the Transaction to finalized if it is still not conflicting after 2 network delays.
+// Note: it is 2 network delays because thos function gets triggered at the end of the first delay that sets a
+// Transaction to preferred (see: scheduleSetPreferred())
 func (fcob *FCOB) scheduleSetFinalized(cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
 	time.AfterFunc(fcob.averageNetworkDelay, func() {
 		cachedTransactionMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
@@ -104,7 +109,8 @@ func (fcob *FCOB) scheduleSetFinalized(cachedTransactionMetadata *tangle.CachedT
 	})
 }
 
-// TODO: clarify what we do here
+// onFork triggers a voting process whenever a Transaction gets forked into a new Branch. The initial opinion is derived
+// from the preferred flag that was set using the FCOB rule.
 func (fcob *FCOB) onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
