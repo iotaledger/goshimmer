@@ -147,29 +147,8 @@ func (tangle *Tangle) propagateValuePayloadLikeUpdates(transactionID transaction
 		propagationStack.PushBack([4]interface{}{tangle.Payload(attachment.PayloadID()), tangle.PayloadMetadata(attachment.PayloadID()), tangle.Transaction(transactionID), tangle.TransactionMetadata(transactionID)})
 	})
 
-	// function used to queue the found approving and consuming payloads
+	// keep track of the seen payloads so we do not process them twice
 	seenPayloads := make(map[payload.ID]types.Empty)
-	scheduleNextCheck := func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
-		defer cachedPayload.Release()
-		defer cachedPayloadMetadata.Release()
-		defer cachedTransaction.Release()
-		defer cachedTransactionMetadata.Release()
-
-		// abort if the payload could not be unwrapped
-		unwrappedPayload := cachedPayload.Unwrap()
-		if unwrappedPayload == nil {
-			return
-		}
-
-		// abort if we have scheduled the check of this payload already
-		if _, payloadSeenAlready := seenPayloads[unwrappedPayload.ID()]; payloadSeenAlready {
-			return
-		}
-		seenPayloads[unwrappedPayload.ID()] = types.Void
-
-		// schedule next checks
-		propagationStack.PushBack([4]interface{}{cachedPayload.Retain(), cachedPayloadMetadata.Retain(), cachedTransaction.Retain(), cachedTransactionMetadata.Retain()})
-	}
 
 	// iterate through future cone of transactions
 	for propagationStack.Len() >= 1 {
@@ -189,27 +168,44 @@ func (tangle *Tangle) propagateValuePayloadLikeUpdates(transactionID transaction
 
 		// only continue if the entities could be loaded from the database
 		if currentPayload != nil && currentPayloadMetadata != nil && currentTransaction != nil && currentTransactionMetadata != nil {
+			var updated bool
 			switch liked {
+			// if the
 			case true:
-				// only propagate if the transaction is preferred, the branch of the payload is liked, the referenced value payloads are liked and the payload was not marked as liked before
-				if currentTransactionMetadata.Preferred() && tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) && tangle.ValuePayloadsLiked(currentPayload.TrunkID(), currentPayload.BranchID()) && currentPayloadMetadata.SetLiked(true) {
-					// trigger event when the payload was liked
+				// only trigger the events if the transaction is preferred, the branch of the payload is liked, the referenced value payloads are liked and the payload was not marked as liked before
+				if updated = currentTransactionMetadata.Preferred() && tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) && tangle.ValuePayloadsLiked(currentPayload.TrunkID(), currentPayload.BranchID()) && currentPayloadMetadata.SetLiked(true); updated {
 					tangle.Events.PayloadLiked.Trigger(currentCachedPayload, currentCachedPayloadMetadata)
-
-					// schedule approvers and consumers to be checked as well
-					tangle.ForEachConsumers(currentTransaction, scheduleNextCheck)
-					tangle.ForeachApprovers(currentPayload.ID(), scheduleNextCheck)
 				}
 			case false:
-				// only propagate if the payload has not been marked as disliked before
-				if currentPayloadMetadata.SetLiked(false) {
-					// trigger event when the payload was liked
-					tangle.Events.PayloadLiked.Trigger(currentCachedPayload, currentCachedPayloadMetadata)
-
-					// schedule approvers and consumers to be checked as well
-					tangle.ForEachConsumers(currentTransaction, scheduleNextCheck)
-					tangle.ForeachApprovers(currentPayload.ID(), scheduleNextCheck)
+				// only trigger the events if the payload has not been marked as disliked before
+				if updated = currentPayloadMetadata.SetLiked(false); updated {
+					tangle.Events.PayloadDisliked.Trigger(currentCachedPayload, currentCachedPayloadMetadata)
 				}
+			}
+
+			// schedule checks of approvers and consumers if we performed an update
+			if updated {
+				tangle.ForEachConsumersAndApprovers(currentPayload, func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
+					defer cachedPayload.Release()
+					defer cachedPayloadMetadata.Release()
+					defer cachedTransaction.Release()
+					defer cachedTransactionMetadata.Release()
+
+					// abort if the payload could not be unwrapped
+					unwrappedPayload := cachedPayload.Unwrap()
+					if unwrappedPayload == nil {
+						return
+					}
+
+					// abort if we have scheduled the check of this payload already
+					if _, payloadSeenAlready := seenPayloads[unwrappedPayload.ID()]; payloadSeenAlready {
+						return
+					}
+					seenPayloads[unwrappedPayload.ID()] = types.Void
+
+					// schedule next checks
+					propagationStack.PushBack([4]interface{}{cachedPayload.Retain(), cachedPayloadMetadata.Retain(), cachedTransaction.Retain(), cachedTransactionMetadata.Retain()})
+				})
 			}
 		}
 
@@ -1251,4 +1247,11 @@ func (tangle *Tangle) ForEachConsumers(currentTransaction *transaction.Transacti
 
 		return true
 	})
+}
+
+// ForEachConsumersAndApprovers calls the passed in consumer for all payloads that either approve the given payload or
+// that attach a transaction that spends outputs from the transaction inside the given payload.
+func (tangle *Tangle) ForEachConsumersAndApprovers(currentPayload *payload.Payload, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata, transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata)) {
+	tangle.ForEachConsumers(currentPayload.Transaction(), consume)
+	tangle.ForeachApprovers(currentPayload.ID(), consume)
 }
