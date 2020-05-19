@@ -160,13 +160,15 @@ func TestConflictDetection(t *testing.T) {
 	// aggregated branch out of aggr. branch 8 and branch 7:
 	// should fail since branch 6 & 7 are conflicting
 	_, err = branchManager.AggregateBranches(aggrBranch8.ID(), branch7.ID())
-	assert.Error(t, err)
+	assert.Error(t, err, "can't aggregate branches aggr. branch 8 & conflict branch 7")
 
 	// aggregated branch out of branch 5 (child of branch 2) and branch 7
 	cachedAggrBranch9, err := branchManager.AggregateBranches(branch5.ID(), branch7.ID())
 	assert.NoError(t, err)
 	defer cachedAggrBranch9.Release()
 	aggrBranch9 := cachedAggrBranch9.Unwrap()
+
+	assert.NotEqual(t, aggrBranch8.ID().String(), aggrBranch9.ID().String(), "aggr. branches 8 & 9 should  have different IDs")
 
 	{
 		// aggr. branch 8 and 9 should be conflicting, since 4&5 and 6&7 are
