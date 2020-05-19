@@ -40,4 +40,4 @@ EXPOSE 14626/udp
 COPY --from=build /go/bin/goshimmer /run/goshimmer
 
 
-ENTRYPOINT ["/run/goshimmer", "--config-dir=/", "--database.directory=/mainnetdb"]
+ENTRYPOINT ["/run/goshimmer", "--config-dir=/", "--database.directory=/tmp/mainnetdb"]
