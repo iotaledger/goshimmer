@@ -22,8 +22,143 @@ func TestSomething(t *testing.T) {
 	fmt.Println(branchManager.BranchesConflicting(MasterBranchID, branch2.ID()))
 }
 
+func TestBranchManager_ConflictMembers(t *testing.T) {
+	branchManager := New(testutil.DB(t))
+
+	cachedBranch2, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{{0}})
+	defer cachedBranch2.Release()
+	branch2 := cachedBranch2.Unwrap()
+
+	cachedBranch3, _ := branchManager.Fork(BranchID{3}, []BranchID{MasterBranchID}, []ConflictID{{0}})
+	defer cachedBranch3.Release()
+	branch3 := cachedBranch3.Unwrap()
+
+	// assert conflict members
+	expectedConflictMembers := map[BranchID]struct{}{
+		branch2.ID(): {}, branch3.ID(): {},
+	}
+	actualConflictMembers := map[BranchID]struct{}{}
+	branchManager.ConflictMembers(ConflictID{0}).Consume(func(conflictMember *ConflictMember) {
+		actualConflictMembers[conflictMember.BranchID()] = struct{}{}
+	})
+	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
+
+	// add branch 4
+	cachedBranch4, _ := branchManager.Fork(BranchID{4}, []BranchID{MasterBranchID}, []ConflictID{{0}})
+	defer cachedBranch4.Release()
+	branch4 := cachedBranch4.Unwrap()
+
+	// branch 4 should now also be part of the conflict set
+	expectedConflictMembers = map[BranchID]struct{}{
+		branch2.ID(): {}, branch3.ID(): {}, branch4.ID(): {},
+	}
+	actualConflictMembers = map[BranchID]struct{}{}
+	branchManager.ConflictMembers(ConflictID{0}).Consume(func(conflictMember *ConflictMember) {
+		actualConflictMembers[conflictMember.BranchID()] = struct{}{}
+	})
+	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
+}
+
+// ./img/testelevation.png
+func TestBranchManager_ElevateConflictBranch(t *testing.T) {
+	branchManager := New(testutil.DB(t))
+
+	cachedBranch2, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{{0}})
+	defer cachedBranch2.Release()
+	branch2 := cachedBranch2.Unwrap()
+
+	cachedBranch3, _ := branchManager.Fork(BranchID{3}, []BranchID{MasterBranchID}, []ConflictID{{0}})
+	defer cachedBranch3.Release()
+	branch3 := cachedBranch3.Unwrap()
+
+	cachedBranch4, _ := branchManager.Fork(BranchID{4}, []BranchID{branch2.ID()}, []ConflictID{{1}})
+	defer cachedBranch4.Release()
+	branch4 := cachedBranch4.Unwrap()
+
+	cachedBranch5, _ := branchManager.Fork(BranchID{5}, []BranchID{branch2.ID()}, []ConflictID{{1}})
+	defer cachedBranch5.Release()
+	branch5 := cachedBranch5.Unwrap()
+
+	cachedBranch6, _ := branchManager.Fork(BranchID{6}, []BranchID{branch4.ID()}, []ConflictID{{2}})
+	defer cachedBranch6.Release()
+	branch6 := cachedBranch6.Unwrap()
+
+	cachedBranch7, _ := branchManager.Fork(BranchID{7}, []BranchID{branch4.ID()}, []ConflictID{{2}})
+	defer cachedBranch7.Release()
+	branch7 := cachedBranch7.Unwrap()
+
+	// lets assume the conflict between 2 and 3 is resolved and therefore we elevate
+	// branches 4 and 5 to the master branch
+	isConflictBranch, modified, err := branchManager.ElevateConflictBranch(branch4.ID(), MasterBranchID)
+	assert.NoError(t, err, "branch 4 should have been elevated to the master branch")
+	assert.True(t, isConflictBranch, "branch 4 should have been a conflict branch")
+	assert.True(t, modified, "branch 4 should have been modified")
+	assert.Equal(t, MasterBranchID, branch4.ParentBranches()[0], "branch 4's parent should now be the master branch")
+
+	isConflictBranch, modified, err = branchManager.ElevateConflictBranch(branch5.ID(), MasterBranchID)
+	assert.NoError(t, err, "branch 5 should have been elevated to the master branch")
+	assert.True(t, isConflictBranch, "branch 5 should have been a conflict branch")
+	assert.True(t, modified, "branch 5 should have been modified")
+	assert.Equal(t, MasterBranchID, branch5.ParentBranches()[0], "branch 5's parent should now be the master branch")
+
+	// check whether the child branches are what we expect them to be of the master branch
+	expectedMasterChildBranches := map[BranchID]struct{}{
+		branch2.ID(): {}, branch3.ID(): {},
+		branch4.ID(): {}, branch5.ID(): {},
+	}
+	actualMasterChildBranches := map[BranchID]struct{}{}
+	branchManager.ChildBranches(MasterBranchID).Consume(func(childBranch *ChildBranch) {
+		actualMasterChildBranches[childBranch.ChildID()] = struct{}{}
+	})
+	assert.Equal(t, expectedMasterChildBranches, actualMasterChildBranches)
+
+	// check that 4 and 5 no longer are children of branch 2
+	expectedBranch2ChildBranches := map[BranchID]struct{}{}
+	actualBranch2ChildBranches := map[BranchID]struct{}{}
+	branchManager.ChildBranches(branch2.ID()).Consume(func(childBranch *ChildBranch) {
+		actualBranch2ChildBranches[childBranch.ChildID()] = struct{}{}
+	})
+	assert.Equal(t, expectedBranch2ChildBranches, actualBranch2ChildBranches)
+
+	// lets assume the conflict between 4 and 5 is resolved and therefore we elevate
+	// branches 6 and 7 to the master branch
+	isConflictBranch, modified, err = branchManager.ElevateConflictBranch(branch6.ID(), MasterBranchID)
+	assert.NoError(t, err, "branch 6 should have been elevated to the master branch")
+	assert.True(t, isConflictBranch, "branch 6 should have been a conflict branch")
+	assert.True(t, modified, "branch 6 should have been modified")
+	assert.Equal(t, MasterBranchID, branch6.ParentBranches()[0], "branch 6's parent should now be the  master branch")
+
+	isConflictBranch, modified, err = branchManager.ElevateConflictBranch(branch7.ID(), MasterBranchID)
+	assert.NoError(t, err, "branch 7 should have been elevated to the master branch")
+	assert.True(t, isConflictBranch, "branch 7 should have been a conflict branch")
+	assert.True(t, modified, "branch 7 should have been modified")
+	assert.Equal(t, MasterBranchID, branch7.ParentBranches()[0], "branch 7's parent should now be the  master branch")
+
+	// check whether the child branches are what we expect them to be of the master branch
+	expectedMasterChildBranches = map[BranchID]struct{}{
+		branch2.ID(): {}, branch3.ID(): {},
+		branch4.ID(): {}, branch5.ID(): {},
+		branch6.ID(): {}, branch7.ID(): {},
+	}
+	actualMasterChildBranches = map[BranchID]struct{}{}
+	branchManager.ChildBranches(MasterBranchID).Consume(func(childBranch *ChildBranch) {
+		actualMasterChildBranches[childBranch.ChildID()] = struct{}{}
+	})
+	assert.Equal(t, expectedMasterChildBranches, actualMasterChildBranches)
+
+	// check that 6 and 7 no longer are children of branch 4
+	expectedBranch4ChildBranches := map[BranchID]struct{}{}
+	actualBranch4ChildBranches := map[BranchID]struct{}{}
+	branchManager.ChildBranches(branch4.ID()).Consume(func(childBranch *ChildBranch) {
+		actualBranch4ChildBranches[childBranch.ChildID()] = struct{}{}
+	})
+	assert.Equal(t, expectedBranch4ChildBranches, actualBranch4ChildBranches)
+
+	// TODO: branches are never deleted?
+}
+
 // ./img/testconflictdetection.png
-func TestConflictDetection(t *testing.T) {
+func TestBranchManager_BranchesConflicting(t *testing.T) {
 	branchManager := New(testutil.DB(t))
 
 	cachedBranch2, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{{0}})
