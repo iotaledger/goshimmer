@@ -390,7 +390,7 @@ func (branchManager *BranchManager) setBranchPreferred(cachedBranch *CachedBranc
 	if !preferred {
 		if modified = branch.setPreferred(false); modified {
 			branchManager.Events.BranchUnpreferred.Trigger(cachedBranch)
-
+			branchManager.propagatePreferredChangesToAggregatedChildBranches(branch.ID())
 			branchManager.propagateDislikeToFutureCone(cachedBranch.Retain())
 		}
 
@@ -415,10 +415,61 @@ func (branchManager *BranchManager) setBranchPreferred(cachedBranch *CachedBranc
 	}
 
 	branchManager.Events.BranchPreferred.Trigger(cachedBranch)
-
+	branchManager.propagatePreferredChangesToAggregatedChildBranches(branch.ID())
 	err = branchManager.propagateLike(cachedBranch.Retain())
 
 	return
+}
+
+// propagatePreferredChangesToAggregatedChildBranches recursively updates the preferred flag of all descendants of the
+// given Branch.
+func (branchManager *BranchManager) propagatePreferredChangesToAggregatedChildBranches(parentBranchID BranchID) {
+	// initialize stack with children of the passed in parent Branch
+	branchStack := list.New()
+	branchManager.ChildBranches(parentBranchID).Consume(func(childBranchReference *ChildBranch) {
+		branchStack.PushBack(childBranchReference.ChildID())
+	})
+
+	// iterate through child branches and propagate changes
+	for branchStack.Len() >= 1 {
+		// retrieve first element from the stack
+		currentEntry := branchStack.Front()
+		currentChildBranchID := currentEntry.Value.(BranchID)
+		branchStack.Remove(currentEntry)
+
+		// load branch from storage
+		cachedAggregatedChildBranch := branchManager.Branch(currentChildBranchID)
+
+		// only process branches that could be loaded and that are aggregated branches
+		if aggregatedChildBranch := cachedAggregatedChildBranch.Unwrap(); aggregatedChildBranch != nil && aggregatedChildBranch.IsAggregated() {
+			// determine if all parents are liked
+			allParentsPreferred := true
+			for _, parentID := range aggregatedChildBranch.ParentBranches() {
+				if allParentsPreferred {
+					allParentsPreferred = allParentsPreferred && branchManager.Branch(parentID).Consume(func(parentBranch *Branch) {
+						allParentsPreferred = allParentsPreferred && parentBranch.Preferred()
+					})
+				}
+			}
+
+			// trigger events and check children if the branch was updated
+			if aggregatedChildBranch.setPreferred(allParentsPreferred) {
+				if allParentsPreferred {
+					branchManager.Events.BranchPreferred.Trigger(cachedAggregatedChildBranch)
+				} else {
+					branchManager.Events.BranchUnpreferred.Trigger(cachedAggregatedChildBranch)
+				}
+
+				// schedule checks for children if preferred flag was updated
+				branchManager.ChildBranches(currentChildBranchID).Consume(func(childBranchReference *ChildBranch) {
+					branchStack.PushBack(childBranchReference.ChildID())
+				})
+			}
+		}
+
+		// release the branch when we are done
+		cachedAggregatedChildBranch.Release()
+	}
 }
 
 func (branchManager *BranchManager) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modified bool, err error) {
