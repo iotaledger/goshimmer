@@ -27,6 +27,8 @@ type Network struct {
 	entryNode         *DockerContainer
 	entryNodeIdentity *identity.Identity
 
+	partitions []*Partition
+
 	dockerClient *client.Client
 }
 
@@ -115,7 +117,10 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 		return nil, err
 	}
 
-	peer := newPeer(name, identity.New(publicKey), container)
+	peer, err := newPeer(name, identity.New(publicKey), container, n)
+	if err != nil {
+		return nil, err
+	}
 	n.peers = append(n.peers, peer)
 	return peer, nil
 }
@@ -130,6 +135,14 @@ func (n *Network) Shutdown() error {
 	}
 	for _, p := range n.peers {
 		err = p.Stop()
+		if err != nil {
+			return err
+		}
+	}
+
+	// delete all partitions
+	for _, p := range n.partitions {
+		err = p.deletePartition()
 		if err != nil {
 			return err
 		}
@@ -208,6 +221,10 @@ func (n *Network) WaitForAutopeering(minimumNeighbors int) error {
 	log.Printf("Waiting for autopeering...\n")
 	defer log.Printf("Waiting for autopeering... done\n")
 
+	if minimumNeighbors == 0 {
+		return nil
+	}
+
 	for i := autopeeringMaxTries; i > 0; i-- {
 
 		for _, p := range n.peers {
@@ -258,4 +275,111 @@ func (n *Network) Peers() []*Peer {
 // RandomPeer returns a random peer out of the list of peers.
 func (n *Network) RandomPeer() *Peer {
 	return n.peers[rand.Intn(len(n.peers))]
+}
+
+// createPumba creates and starts a Pumba Docker container.
+func (n *Network) createPumba(name string, containerName string, targetIPs []string) (*DockerContainer, error) {
+	container := NewDockerContainer(n.dockerClient)
+	err := container.CreatePumba(name, containerName, targetIPs)
+	if err != nil {
+		return nil, err
+	}
+	err = container.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	return container, nil
+}
+
+// createPartition creates a partition with the given peers.
+// It starts a Pumba container for every peer that blocks traffic to all other partitions.
+func (n *Network) createPartition(peers []*Peer) (*Partition, error) {
+	peersMap := make(map[string]struct{})
+	for _, peer := range peers {
+		peersMap[peer.name] = struct{}{}
+	}
+
+	// block all traffic to all other peers except in the current partition
+	var targetIPs []string
+	for _, peer := range n.peers {
+		if _, ok := peersMap[peer.name]; ok {
+			continue
+		}
+		targetIPs = append(targetIPs, peer.ip)
+	}
+
+	partitionName := n.namePrefix(fmt.Sprintf("partition_%d-", len(n.partitions)))
+
+	// create pumba container for every peer in the partition
+	pumbas := make([]*DockerContainer, len(peers))
+	for i, p := range peers {
+		name := partitionName + p.name + containerNameSuffixPumba
+		pumba, err := n.createPumba(name, p.name, targetIPs)
+		if err != nil {
+			return nil, err
+		}
+		pumbas[i] = pumba
+		time.Sleep(1 * time.Second)
+	}
+
+	partition := &Partition{
+		name:   partitionName,
+		peers:  peers,
+		pumbas: pumbas,
+	}
+	n.partitions = append(n.partitions, partition)
+
+	return partition, nil
+}
+
+// Split splits the existing network in given partitions.
+func (n *Network) Split(partitions ...[]*Peer) {
+	// TODO: implement
+}
+
+// Partition represents a network partition.
+// It contains its peers and the corresponding Pumba instances that block all traffic to peers in other partitions.
+type Partition struct {
+	name   string
+	peers  []*Peer
+	pumbas []*DockerContainer
+}
+
+func (p *Partition) String() string {
+	return fmt.Sprintf("Partition{%s, %s}", p.name, p.peers)
+}
+
+// deletePartition deletes a partition, all its Pumba containers and creates logs for them.
+func (p *Partition) deletePartition() error {
+	// TODO: remove from network's list
+
+	// stop containers
+	for _, pumba := range p.pumbas {
+		err := pumba.Stop()
+		if err != nil {
+			return err
+		}
+	}
+
+	// retrieve logs
+	for i, pumba := range p.pumbas {
+		logs, err := pumba.Logs()
+		if err != nil {
+			return err
+		}
+		err = createLogFile(fmt.Sprintf("%s%s", p.name, p.peers[i].name), logs)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, pumba := range p.pumbas {
+		err := pumba.Remove()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
