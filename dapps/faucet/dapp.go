@@ -1,7 +1,7 @@
 package faucet
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/faucet"
+	faucet "github.com/iotaledger/goshimmer/dapps/faucet/packages"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/hive.go/events"
@@ -13,7 +13,7 @@ import (
 
 const name = "Faucet" // name of the plugin
 
-var PLUGIN = node.NewPlugin(name, node.Disabled, configure, run)
+var App = node.NewPlugin(name, node.Disabled, configure, run)
 
 var log *logger.Logger
 

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/iotaledger/goshimmer/dapps/faucet"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/bootstrap"
@@ -8,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/drng"
-	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
@@ -33,11 +33,11 @@ var PLUGINS = node.Plugins(
 	autopeering.Plugin,
 	messagelayer.Plugin,
 	gossip.Plugin,
-	faucet.PLUGIN,
 	issuer.Plugin,
 	bootstrap.Plugin,
 	sync.Plugin,
 	gracefulshutdown.Plugin,
 	metrics.Plugin,
 	drng.Plugin,
+	faucet.App,
 )

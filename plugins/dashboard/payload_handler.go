@@ -7,7 +7,7 @@ import (
 	drngpayload "github.com/iotaledger/goshimmer/packages/binary/drng/payload"
 	drngheader "github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	cb "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
-	faucetpayload "github.com/iotaledger/goshimmer/packages/binary/faucet/payload"
+	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 )

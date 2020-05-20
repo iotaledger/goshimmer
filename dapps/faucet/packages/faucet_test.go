@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 
-	faucet "github.com/iotaledger/goshimmer/packages/binary/faucet/payload"
+	faucet "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	data "github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
