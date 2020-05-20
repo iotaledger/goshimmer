@@ -1,8 +1,8 @@
 {
-  "name": "goshimmer-dashboard",
+  "name": "goshimmer-analysis-dashboard",
   "version": "1.0.0",
   "private": true,
-  "description": "GoShimmer Dashboard",
+  "description": "GoShimmer Analysis Dashboard",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
