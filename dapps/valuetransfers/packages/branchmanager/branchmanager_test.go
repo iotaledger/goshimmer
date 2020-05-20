@@ -459,3 +459,69 @@ func TestBranchManager_BranchesConflicting(t *testing.T) {
 	}
 
 }
+
+func TestBranchManager_SetBranchPreferred(t *testing.T) {
+	branchManager := New(testutil.DB(t))
+
+	cachedBranch2, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{{0}})
+	defer cachedBranch2.Release()
+	branch2 := cachedBranch2.Unwrap()
+
+	cachedBranch3, _ := branchManager.Fork(BranchID{3}, []BranchID{MasterBranchID}, []ConflictID{{0}})
+	defer cachedBranch3.Release()
+	branch3 := cachedBranch3.Unwrap()
+
+	assert.False(t, branch2.Preferred(), "branch 2 should not be preferred")
+	assert.False(t, branch2.Liked(), "branch 2 should not be liked")
+	assert.False(t, branch3.Preferred(), "branch 3 should not be preferred")
+	assert.False(t, branch3.Liked(), "branch 3 should not be liked")
+
+	cachedBranch4, _ := branchManager.Fork(BranchID{4}, []BranchID{branch2.ID()}, []ConflictID{{1}})
+	defer cachedBranch4.Release()
+	branch4 := cachedBranch4.Unwrap()
+
+	cachedBranch5, _ := branchManager.Fork(BranchID{5}, []BranchID{branch2.ID()}, []ConflictID{{1}})
+	defer cachedBranch5.Release()
+	branch5 := cachedBranch5.Unwrap()
+
+	// lets assume branch 4 is preferred since its underlying transaction was longer
+	// solid than the avg. network delay
+	modified, err := branchManager.SetBranchPreferred(branch4.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+
+	assert.True(t, branch4.Preferred(), "branch 4 should be preferred")
+	// is not liked because its parents aren't liked, respectively branch 2
+	assert.False(t, branch4.Liked(), "branch 4 should not be liked")
+	assert.False(t, branch5.Preferred(), "branch 5 should not be preferred")
+	assert.False(t, branch5.Liked(), "branch 5 should not be liked")
+
+	// now branch 2 becomes preferred via FPC, this causes branch 2 to be liked (since
+	// the master branch is liked) and its liked state propagates to branch 4 (but not branch 5)
+	modified, err = branchManager.SetBranchPreferred(branch2.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+
+	assert.True(t, branch2.Liked(), "branch 2 should be liked")
+	assert.True(t, branch2.Preferred(), "branch 2 should be preferred")
+	assert.True(t, branch4.Liked(), "branch 4 should be liked")
+	assert.True(t, branch4.Preferred(), "branch 4 should still be preferred")
+	assert.False(t, branch5.Liked(), "branch 5 should not be liked")
+	assert.False(t, branch5.Preferred(), "branch 5 should not be preferred")
+
+	// now the network decides that branch 5 is preferred (via FPC), thus branch 4 should lose its
+	// preferred and liked state and branch 5 should instead become preferred and liked
+	modified, err = branchManager.SetBranchPreferred(branch5.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+
+	// sanity check for branch 2 state
+	assert.True(t, branch2.Liked(), "branch 2 should be liked")
+	assert.True(t, branch2.Preferred(), "branch 2 should be preferred")
+
+	// check that branch 4 is disliked and not preferred
+	assert.False(t, branch4.Liked(), "branch 4 should be disliked")
+	assert.False(t, branch4.Preferred(), "branch 4 should not be preferred")
+	assert.True(t, branch5.Liked(), "branch 5 should be liked")
+	assert.True(t, branch5.Preferred(), "branch 5 should be preferred")
+}

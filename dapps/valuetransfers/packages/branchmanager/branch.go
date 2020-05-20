@@ -210,8 +210,7 @@ func (branch *Branch) setPreferred(preferred bool) (modified bool) {
 	branch.preferred = preferred
 	branch.SetModified()
 	modified = true
-
-	return branch.preferred
+	return
 }
 
 // Liked returns if the branch is liked (it is preferred and all of its parents are liked).

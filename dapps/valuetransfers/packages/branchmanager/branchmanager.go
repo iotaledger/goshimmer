@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/dgraph-io/badger/v2"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
@@ -47,6 +48,12 @@ func New(badgerInstance *badger.DB) (branchManager *BranchManager) {
 		childBranchStorage:    osFactory.New(osChildBranch, osChildBranchFactory, osChildBranchOptions...),
 		conflictStorage:       osFactory.New(osConflict, osConflictFactory, osConflictOptions...),
 		conflictMemberStorage: osFactory.New(osConflictMember, osConflictMemberFactory, osConflictMemberOptions...),
+		Events: &Events{
+			BranchPreferred:   events.NewEvent(branchCaller),
+			BranchUnpreferred: events.NewEvent(branchCaller),
+			BranchLiked:       events.NewEvent(branchCaller),
+			BranchDisliked:    events.NewEvent(branchCaller),
+		},
 	}
 	branchManager.init()
 
