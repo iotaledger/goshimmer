@@ -485,7 +485,8 @@ func TestBranchManager_SetBranchPreferred(t *testing.T) {
 	branch5 := cachedBranch5.Unwrap()
 
 	// lets assume branch 4 is preferred since its underlying transaction was longer
-	// solid than the avg. network delay
+	// solid than the avg. network delay before the conflicting transaction which created
+	// the conflict set was received
 	modified, err := branchManager.SetBranchPreferred(branch4.ID(), true)
 	assert.NoError(t, err)
 	assert.True(t, modified)
@@ -524,4 +525,131 @@ func TestBranchManager_SetBranchPreferred(t *testing.T) {
 	assert.False(t, branch4.Preferred(), "branch 4 should not be preferred")
 	assert.True(t, branch5.Liked(), "branch 5 should be liked")
 	assert.True(t, branch5.Preferred(), "branch 5 should be preferred")
+}
+
+func TestBranchManager_SetBranchPreferred2(t *testing.T) {
+	branchManager := New(testutil.DB(t))
+
+	cachedBranch2, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{{0}})
+	defer cachedBranch2.Release()
+	branch2 := cachedBranch2.Unwrap()
+
+	cachedBranch3, _ := branchManager.Fork(BranchID{3}, []BranchID{MasterBranchID}, []ConflictID{{0}})
+	defer cachedBranch3.Release()
+	branch3 := cachedBranch3.Unwrap()
+
+	cachedBranch4, _ := branchManager.Fork(BranchID{4}, []BranchID{branch2.ID()}, []ConflictID{{1}})
+	defer cachedBranch4.Release()
+	branch4 := cachedBranch4.Unwrap()
+
+	cachedBranch5, _ := branchManager.Fork(BranchID{5}, []BranchID{branch2.ID()}, []ConflictID{{1}})
+	defer cachedBranch5.Release()
+	branch5 := cachedBranch5.Unwrap()
+
+	cachedBranch6, _ := branchManager.Fork(BranchID{6}, []BranchID{MasterBranchID}, []ConflictID{{2}})
+	defer cachedBranch6.Release()
+	branch6 := cachedBranch6.Unwrap()
+
+	cachedBranch7, _ := branchManager.Fork(BranchID{7}, []BranchID{MasterBranchID}, []ConflictID{{2}})
+	defer cachedBranch7.Release()
+	branch7 := cachedBranch7.Unwrap()
+
+	// assume branch 2 preferred since solid longer than avg. network delay
+	modified, err := branchManager.SetBranchPreferred(branch2.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+
+	// assume branch 6 preferred since solid longer than avg. network delay
+	modified, err = branchManager.SetBranchPreferred(branch6.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+
+	{
+		assert.True(t, branch2.Liked(), "branch 2 should be liked")
+		assert.True(t, branch2.Preferred(), "branch 2 should be preferred")
+		assert.False(t, branch3.Liked(), "branch 3 should not be liked")
+		assert.False(t, branch3.Preferred(), "branch 3 should not be preferred")
+		assert.False(t, branch4.Liked(), "branch 4 should not be liked")
+		assert.False(t, branch4.Preferred(), "branch 4 should not be preferred")
+		assert.False(t, branch5.Liked(), "branch 5 should not be liked")
+		assert.False(t, branch5.Preferred(), "branch 5 should not be preferred")
+
+		assert.True(t, branch6.Liked(), "branch 6 should be liked")
+		assert.True(t, branch6.Preferred(), "branch 6 should be preferred")
+		assert.False(t, branch7.Liked(), "branch 7 should not be liked")
+		assert.False(t, branch7.Preferred(), "branch 7 should not be preferred")
+	}
+
+	// throw some aggregated branches into the mix
+	cachedAggrBranch8, err := branchManager.AggregateBranches(branch4.ID(), branch6.ID())
+	assert.NoError(t, err)
+	defer cachedAggrBranch8.Release()
+	aggrBranch8 := cachedAggrBranch8.Unwrap()
+
+	// should not be preferred because only 6 is is preferred but not 4
+	assert.False(t, aggrBranch8.Liked(), "aggr. branch 8 should not be liked")
+	assert.False(t, aggrBranch8.Preferred(), "aggr. branch 8 should not be preferred")
+
+	cachedAggrBranch9, err := branchManager.AggregateBranches(branch5.ID(), branch7.ID())
+	assert.NoError(t, err)
+	defer cachedAggrBranch9.Release()
+	aggrBranch9 := cachedAggrBranch9.Unwrap()
+
+	// branch 5 and 7 are neither liked or preferred
+	assert.False(t, aggrBranch9.Liked(), "aggr. branch 9 should not be liked")
+	assert.False(t, aggrBranch9.Preferred(), "aggr. branch 9 should not be preferred")
+
+	// should not be preferred because only 6 is is preferred but not 3
+	cachedAggrBranch10, err := branchManager.AggregateBranches(branch3.ID(), branch6.ID())
+	assert.NoError(t, err)
+	defer cachedAggrBranch10.Release()
+	aggrBranch10 := cachedAggrBranch10.Unwrap()
+
+	assert.False(t, aggrBranch10.Liked(), "aggr. branch 10 should not be liked")
+	assert.False(t, aggrBranch10.Preferred(), "aggr. branch 10 should not be preferred")
+
+	// spawn off conflict branch 11 and 12
+	cachedBranch11, _ := branchManager.Fork(BranchID{11}, []BranchID{aggrBranch8.ID()}, []ConflictID{{3}})
+	defer cachedBranch11.Release()
+	branch11 := cachedBranch11.Unwrap()
+
+	assert.False(t, branch11.Liked(), "aggr. branch 11 should not be liked")
+	assert.False(t, branch11.Preferred(), "aggr. branch 11 should not be preferred")
+
+	cachedBranch12, _ := branchManager.Fork(BranchID{12}, []BranchID{aggrBranch8.ID()}, []ConflictID{{3}})
+	defer cachedBranch12.Release()
+	branch12 := cachedBranch12.Unwrap()
+
+	assert.False(t, branch12.Liked(), "aggr. branch 12 should not be liked")
+	assert.False(t, branch12.Preferred(), "aggr. branch 12 should not be preferred")
+
+	cachedAggrBranch13, err := branchManager.AggregateBranches(branch4.ID(), branch12.ID())
+	assert.NoError(t, err)
+	defer cachedAggrBranch13.Release()
+	aggrBranch13 := cachedAggrBranch13.Unwrap()
+
+	assert.False(t, aggrBranch13.Liked(), "aggr. branch 13 should not be liked")
+	assert.False(t, aggrBranch13.Preferred(), "aggr. branch 13 should not be preferred")
+
+	// now lets assume FPC finalized on branch 2, 6 and 4 to be preferred.
+	// branches 2 and 6 are already preferred but 4 is newly preferred. Branch 4 therefore
+	// should also become liked, since 2 of which it spawns off is liked too.
+
+	// simulate branch 3 being not preferred from FPC vote
+	modified, err = branchManager.SetBranchPreferred(branch3.ID(), false)
+	assert.NoError(t, err)
+	// simulate branch 7 being not preferred from FPC vote
+	modified, err = branchManager.SetBranchPreferred(branch7.ID(), false)
+	assert.NoError(t, err)
+	// simulate branch 4 being preferred by FPC vote
+	modified, err = branchManager.SetBranchPreferred(branch4.ID(), true)
+	assert.NoError(t, err)
+	assert.True(t, modified)
+	assert.True(t, branch4.Liked(), "branch 4 should be liked")
+	assert.True(t, branch4.Preferred(), "branch 4 should be preferred")
+
+	// this should cause aggr. branch 8 to also be preferred and liked, since branch 6 and 4
+	// of which it spawns off are.
+	assert.True(t, aggrBranch8.Liked(), "aggr. branch 8 should be liked")
+	assert.True(t, aggrBranch8.Preferred(), "aggr. branch 8 should be preferred")
 }

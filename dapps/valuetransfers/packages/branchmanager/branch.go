@@ -241,8 +241,7 @@ func (branch *Branch) setLiked(liked bool) (modified bool) {
 	branch.liked = liked
 	branch.SetModified()
 	modified = true
-
-	return branch.liked
+	return
 }
 
 // Bytes returns a marshaled version of this Branch.
