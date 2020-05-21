@@ -7,8 +7,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/dgraph-io/badger/v2"
 	"github.com/iotaledger/hive.go/async"
+	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 
@@ -42,11 +42,11 @@ type Tangle struct {
 }
 
 // New is the constructor of a Tangle and creates a new Tangle object from the given details.
-func New(badgerInstance *badger.DB) (result *Tangle) {
-	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.ValueTransfers)
+func New(store kvstore.KVStore) (result *Tangle) {
+	osFactory := objectstorage.NewFactory(store, storageprefix.ValueTransfers)
 
 	result = &Tangle{
-		branchManager: branchmanager.New(badgerInstance),
+		branchManager: branchmanager.New(store),
 
 		payloadStorage:             osFactory.New(osPayload, osPayloadFactory, objectstorage.CacheTime(time.Second)),
 		payloadMetadataStorage:     osFactory.New(osPayloadMetadata, osPayloadMetadataFactory, objectstorage.CacheTime(time.Second)),
