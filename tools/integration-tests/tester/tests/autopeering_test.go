@@ -1,9 +1,9 @@
 package tests
 
 import (
-	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -12,8 +12,26 @@ func TestNetworkSplit(t *testing.T) {
 	require.NoError(t, err)
 	defer ShutdownNetwork(t, n)
 
-	// TODO: test that nodes only have neighbors from same partition
-	// then remove partitions and let them mingle and check that they all peer with each other
+	// test that nodes only have neighbors from same partition
+	for _, partition := range n.Partitions() {
+		for _, peer := range partition.Peers() {
+			resp, err := peer.GetNeighbors(false)
+			require.NoError(t, err)
 
-	fmt.Println("This is a test.")
+			// check that all neighbors are indeed in the same partition
+			for _, n := range resp.Accepted {
+				assert.Contains(t, partition.PeersMap(), n.ID)
+			}
+			for _, n := range resp.Chosen {
+				assert.Contains(t, partition.PeersMap(), n.ID)
+			}
+		}
+	}
+
+	err = n.DeletePartitions()
+	require.NoError(t, err)
+
+	// let them mingle and check that they all peer with each other
+	err = n.WaitForAutopeering(4)
+	require.NoError(t, err)
 }

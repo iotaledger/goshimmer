@@ -38,4 +38,6 @@ jobs:
 
       - name: Clean up
         if: always()
-        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml down
+        run: |
+          docker-compose -f tools/integration-tests/tester/docker-compose.yml down
+          docker rm -f $(docker ps -a -q -f ancestor=gaiadocker/iproute2)

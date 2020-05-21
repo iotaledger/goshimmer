@@ -60,7 +60,7 @@ func (d *DockerContainer) CreateGoShimmerEntryNode(name string, seed string) err
 		ExposedPorts: nil,
 		Cmd: strslice.StrSlice{
 			"--skip-config=true",
-			"--logger.level=info",
+			"--logger.level=debug",
 			fmt.Sprintf("--node.disablePlugins=%s", disabledPluginsEntryNode),
 			"--autopeering.entryNodes=",
 			fmt.Sprintf("--autopeering.seed=%s", seed),
@@ -80,7 +80,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 		},
 		Cmd: strslice.StrSlice{
 			"--skip-config=true",
-			"--logger.level=info",
+			"--logger.level=debug",
 			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
 			fmt.Sprintf("--node.enablePlugins=%s", func() string {
 				if config.Bootstrap {

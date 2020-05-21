@@ -141,11 +141,9 @@ func (n *Network) Shutdown() error {
 	}
 
 	// delete all partitions
-	for _, p := range n.partitions {
-		err = p.deletePartition()
-		if err != nil {
-			return err
-		}
+	err = n.DeletePartitions()
+	if err != nil {
+		return err
 	}
 
 	// retrieve logs
@@ -295,15 +293,15 @@ func (n *Network) createPumba(name string, containerName string, targetIPs []str
 // createPartition creates a partition with the given peers.
 // It starts a Pumba container for every peer that blocks traffic to all other partitions.
 func (n *Network) createPartition(peers []*Peer) (*Partition, error) {
-	peersMap := make(map[string]struct{})
+	peersMap := make(map[string]*Peer)
 	for _, peer := range peers {
-		peersMap[peer.name] = struct{}{}
+		peersMap[peer.ID().String()] = peer
 	}
 
 	// block all traffic to all other peers except in the current partition
 	var targetIPs []string
 	for _, peer := range n.peers {
-		if _, ok := peersMap[peer.name]; ok {
+		if _, ok := peersMap[peer.ID().String()]; ok {
 			continue
 		}
 		targetIPs = append(targetIPs, peer.ip)
@@ -324,26 +322,65 @@ func (n *Network) createPartition(peers []*Peer) (*Partition, error) {
 	}
 
 	partition := &Partition{
-		name:   partitionName,
-		peers:  peers,
-		pumbas: pumbas,
+		name:     partitionName,
+		peers:    peers,
+		peersMap: peersMap,
+		pumbas:   pumbas,
 	}
 	n.partitions = append(n.partitions, partition)
 
 	return partition, nil
 }
 
+// DeletePartitions deletes all partitions of the network.
+// All nodes can communicate with the full network again.
+func (n *Network) DeletePartitions() error {
+	for _, p := range n.partitions {
+		err := p.deletePartition()
+		if err != nil {
+			return err
+		}
+	}
+	n.partitions = nil
+	return nil
+}
+
+// Partitions returns the network's partitions.
+func (n *Network) Partitions() []*Partition {
+	return n.partitions
+}
+
 // Split splits the existing network in given partitions.
-func (n *Network) Split(partitions ...[]*Peer) {
-	// TODO: implement
+func (n *Network) Split(partitions ...[]*Peer) error {
+	for _, peers := range partitions {
+		_, err := n.createPartition(peers)
+		if err != nil {
+			return err
+		}
+	}
+	// wait until pumba containers are started and block traffic between partitions
+	time.Sleep(5 * time.Second)
+
+	return nil
 }
 
 // Partition represents a network partition.
 // It contains its peers and the corresponding Pumba instances that block all traffic to peers in other partitions.
 type Partition struct {
-	name   string
-	peers  []*Peer
-	pumbas []*DockerContainer
+	name     string
+	peers    []*Peer
+	peersMap map[string]*Peer
+	pumbas   []*DockerContainer
+}
+
+// Peers returns the partition's peers.
+func (p *Partition) Peers() []*Peer {
+	return p.peers
+}
+
+// PeersMap returns the partition's peers map.
+func (p *Partition) PeersMap() map[string]*Peer {
+	return p.peersMap
 }
 
 func (p *Partition) String() string {
@@ -352,8 +389,6 @@ func (p *Partition) String() string {
 
 // deletePartition deletes a partition, all its Pumba containers and creates logs for them.
 func (p *Partition) deletePartition() error {
-	// TODO: remove from network's list
-
 	// stop containers
 	for _, pumba := range p.pumbas {
 		err := pumba.Stop()
