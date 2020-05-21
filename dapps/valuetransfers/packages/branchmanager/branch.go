@@ -21,11 +21,13 @@ type Branch struct {
 	conflicts      map[ConflictID]types.Empty
 	preferred      bool
 	liked          bool
+	confirmed      bool
 
 	parentBranchesMutex sync.RWMutex
 	conflictsMutex      sync.RWMutex
 	preferredMutex      sync.RWMutex
 	likedMutex          sync.RWMutex
+	confirmedMutex      sync.RWMutex
 }
 
 // NewBranch is the constructor of a Branch and creates a new Branch object from the given details.
@@ -211,7 +213,7 @@ func (branch *Branch) setPreferred(preferred bool) (modified bool) {
 	branch.SetModified()
 	modified = true
 
-	return branch.preferred
+	return
 }
 
 // Liked returns if the branch is liked (it is preferred and all of its parents are liked).
@@ -244,6 +246,41 @@ func (branch *Branch) setLiked(liked bool) (modified bool) {
 	modified = true
 
 	return branch.liked
+}
+
+// Confirmed returns true if the branch has been accepted to be part of the ledger state.
+func (branch *Branch) Confirmed() bool {
+	branch.confirmedMutex.RLock()
+	defer branch.confirmedMutex.RUnlock()
+
+	return branch.confirmed
+}
+
+// setConfirmed is the setter for the confirmed flag. It returns true if the value of the flag has been updated.
+// A branch is confirmed if it is considered to have been accepted to be part of the ledger state.
+// Note: Just because a branch has been confirmed, does not mean that all transactions it contains have also been
+//       confirmed but only that the underlying conflict that created the Branch has been decided.
+func (branch *Branch) setConfirmed(confirmed bool) (modified bool) {
+	branch.confirmedMutex.RLock()
+	if branch.confirmed == confirmed {
+		branch.confirmedMutex.RUnlock()
+
+		return
+	}
+
+	branch.confirmedMutex.RUnlock()
+	branch.confirmedMutex.Lock()
+	defer branch.confirmedMutex.Unlock()
+
+	if branch.confirmed == confirmed {
+		return
+	}
+
+	branch.confirmed = confirmed
+	branch.SetModified()
+	modified = true
+
+	return
 }
 
 // Bytes returns a marshaled version of this Branch.
@@ -282,9 +319,10 @@ func (branch *Branch) ObjectStorageValue() []byte {
 	parentBranches := branch.ParentBranches()
 	parentBranchCount := len(parentBranches)
 
-	marshalUtil := marshalutil.New(2*marshalutil.BOOL_SIZE + marshalutil.UINT32_SIZE + parentBranchCount*BranchIDLength)
-	marshalUtil.WriteBool(branch.preferred)
-	marshalUtil.WriteBool(branch.liked)
+	marshalUtil := marshalutil.New(3*marshalutil.BOOL_SIZE + marshalutil.UINT32_SIZE + parentBranchCount*BranchIDLength)
+	marshalUtil.WriteBool(branch.Preferred())
+	marshalUtil.WriteBool(branch.Liked())
+	marshalUtil.WriteBool(branch.Confirmed())
 	marshalUtil.WriteUint32(uint32(parentBranchCount))
 	for _, branchID := range parentBranches {
 		marshalUtil.WriteBytes(branchID.Bytes())
@@ -301,6 +339,10 @@ func (branch *Branch) UnmarshalObjectStorageValue(valueBytes []byte) (consumedBy
 		return
 	}
 	branch.liked, err = marshalUtil.ReadBool()
+	if err != nil {
+		return
+	}
+	branch.confirmed, err = marshalUtil.ReadBool()
 	if err != nil {
 		return
 	}

@@ -54,7 +54,7 @@ func New(badgerInstance *badger.DB) (result *Tangle) {
 		approverStorage:            osFactory.New(osApprover, osPayloadApproverFactory, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IDLength, payload.IDLength), objectstorage.KeysOnly(true)),
 		transactionStorage:         osFactory.New(osTransaction, osTransactionFactory, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
 		transactionMetadataStorage: osFactory.New(osTransactionMetadata, osTransactionMetadataFactory, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
-		attachmentStorage:          osFactory.New(osAttachment, osAttachmentFactory, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
+		attachmentStorage:          osFactory.New(osAttachment, osAttachmentFactory, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(transaction.IDLength, payload.IDLength), osLeakDetectionOption),
 		outputStorage:              osFactory.New(osOutput, osOutputFactory, OutputKeyPartitions, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
 		consumerStorage:            osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
 
@@ -110,7 +110,7 @@ func (tangle *Tangle) Attachments(transactionID transaction.ID) CachedAttachment
 
 // AttachPayload adds a new payload to the value tangle.
 func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
-	tangle.workerPool.Submit(func() { tangle.storePayloadWorker(payload) })
+	tangle.workerPool.Submit(func() { tangle.AttachPayloadSync(payload) })
 }
 
 // SetTransactionPreferred modifies the preferred flag of a transaction. It updates the transactions metadata and
@@ -231,6 +231,10 @@ func (tangle *Tangle) propagateValuePayloadLikeUpdates(transactionID transaction
 // ValuePayloadsLiked is checking if the Payloads referenced by the passed in IDs are all liked.
 func (tangle *Tangle) ValuePayloadsLiked(payloadIDs ...payload.ID) (liked bool) {
 	for _, payloadID := range payloadIDs {
+		if payloadID == payload.GenesisID {
+			continue
+		}
+
 		payloadMetadataFound := tangle.PayloadMetadata(payloadID).Consume(func(payloadMetadata *PayloadMetadata) {
 			liked = payloadMetadata.Liked()
 		})
@@ -312,8 +316,8 @@ func (tangle *Tangle) Prune() (err error) {
 	return
 }
 
-// storePayloadWorker is the worker function that stores the payload and calls the corresponding storage events.
-func (tangle *Tangle) storePayloadWorker(payloadToStore *payload.Payload) {
+// AttachPayloadSync is the worker function that stores the payload and calls the corresponding storage events.
+func (tangle *Tangle) AttachPayloadSync(payloadToStore *payload.Payload) {
 	// store the payload models or abort if we have seen the payload already
 	cachedPayload, cachedPayloadMetadata, payloadStored := tangle.storePayload(payloadToStore)
 	if !payloadStored {
@@ -477,7 +481,7 @@ func (tangle *Tangle) solidifyPayload(cachedPayload *payload.CachedPayload, cach
 		}
 
 		// book the solid entities
-		transactionBooked, payloadBooked, bookingErr := tangle.book(currentCachedPayload.Retain(), currentCachedMetadata.Retain(), currentCachedTransaction.Retain(), currentCachedTransactionMetadata.Retain())
+		transactionBooked, payloadBooked, decisionPending, bookingErr := tangle.book(currentCachedPayload.Retain(), currentCachedMetadata.Retain(), currentCachedTransaction.Retain(), currentCachedTransactionMetadata.Retain())
 		if bookingErr != nil {
 			tangle.Events.Error.Trigger(bookingErr)
 
@@ -492,8 +496,10 @@ func (tangle *Tangle) solidifyPayload(cachedPayload *payload.CachedPayload, cach
 		// keep track of the added payloads so we do not add them multiple times
 		processedPayloads := make(map[payload.ID]types.Empty)
 
-		// if the transaction was booked then we analyze its consumers
+		// if the transaction was booked then we trigger events and analyze its consumers
 		if transactionBooked {
+			tangle.Events.TransactionBooked.Trigger(cachedTransaction, cachedTransactionMetadata, decisionPending)
+
 			tangle.ForEachConsumers(currentTransaction, func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
 				unwrappedPayload := cachedPayload.Unwrap()
 				if unwrappedPayload == nil {
@@ -553,13 +559,13 @@ func (tangle *Tangle) solidifyPayload(cachedPayload *payload.CachedPayload, cach
 	}
 }
 
-func (tangle *Tangle) book(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) (transactionBooked bool, payloadBooked bool, err error) {
+func (tangle *Tangle) book(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) (transactionBooked bool, payloadBooked bool, decisionPending bool, err error) {
 	defer cachedPayload.Release()
 	defer cachedPayloadMetadata.Release()
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
 
-	if transactionBooked, err = tangle.bookTransaction(cachedTransaction.Retain(), cachedTransactionMetadata.Retain()); err != nil {
+	if transactionBooked, decisionPending, err = tangle.bookTransaction(cachedTransaction.Retain(), cachedTransactionMetadata.Retain()); err != nil {
 		return
 	}
 
@@ -570,7 +576,7 @@ func (tangle *Tangle) book(cachedPayload *payload.CachedPayload, cachedPayloadMe
 	return
 }
 
-func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) (transactionBooked bool, err error) {
+func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) (transactionBooked bool, decisionPending bool, err error) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
 
@@ -629,6 +635,9 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 			conflictingInputsOfFirstConsumers[firstConsumerID] = append(conflictingInputsOfFirstConsumers[firstConsumerID], outputID)
 		}
 
+		// mark input as conflicting
+		conflictingInputs = append(conflictingInputs, outputID)
+
 		return true
 	}) {
 		return
@@ -673,7 +682,6 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 	})
 
 	// fork the conflicting transactions into their own branch
-	decisionPending := false
 	for consumerID, conflictingInputs := range conflictingInputsOfFirstConsumers {
 		_, decisionFinalized, forkedErr := tangle.Fork(consumerID, conflictingInputs)
 		if forkedErr != nil {
@@ -684,10 +692,6 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 
 		decisionPending = decisionPending || !decisionFinalized
 	}
-
-	// trigger events
-	tangle.Events.TransactionBooked.Trigger(cachedTransaction, cachedTransactionMetadata, decisionPending)
-
 	transactionBooked = true
 
 	return
@@ -859,6 +863,7 @@ func (tangle *Tangle) LoadSnapshot(snapshot map[transaction.ID]map[address.Addre
 		for outputAddress, balances := range addressBalances {
 			input := NewOutput(outputAddress, transactionID, branchmanager.MasterBranchID, balances)
 			input.SetSolid(true)
+			input.SetBranchID(branchmanager.MasterBranchID)
 
 			// store output and abort if the snapshot has already been loaded earlier (output exists in the database)
 			cachedOutput, stored := tangle.outputStorage.StoreIfAbsent(input)
