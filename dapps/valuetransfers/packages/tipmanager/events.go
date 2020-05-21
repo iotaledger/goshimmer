@@ -1,7 +1,6 @@
 package tipmanager
 
 import (
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/hive.go/events"
 )
@@ -15,5 +14,5 @@ type Events struct {
 }
 
 func payloadIDEvent(handler interface{}, params ...interface{}) {
-	handler.(func(payload.ID, branchmanager.BranchID))(params[0].(payload.ID), params[1].(branchmanager.BranchID))
+	handler.(func(payload.ID))(params[0].(payload.ID))
 }
