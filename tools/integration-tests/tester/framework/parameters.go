@@ -12,25 +12,34 @@ const (
 
 	logsDir = "/tmp/logs/"
 
-	disabledPluginsEntryNode = "portcheck,dashboard,analysis,gossip,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint"
-	disabledPluginsPeer      = "portcheck,dashboard,analysis"
+	disabledPluginsEntryNode = "portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,metrics,messagelayer,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint"
+	disabledPluginsPeer      = "portcheck,dashboard,analysis-client"
 
 	dockerLogsPrefixLen = 8
 
 	dkgMaxTries = 50
+
+	exitStatusSuccessful = 0
 )
 
-// GoShimmerConfig defines the config of a goshimmer node.
+// GoShimmerConfig defines the config of a GoShimmer node.
 type GoShimmerConfig struct {
 	Seed               string
 	Name               string
 	EntryNodeHost      string
 	EntryNodePublicKey string
-	Bootstrap          bool
 	DisabledPlugins    string
+
+	Bootstrap                             bool
+	BootstrapInitialIssuanceTimePeriodSec int
 
 	DRNGCommittee string
 	DRNGDistKey   string
 	DRNGInstance  int
 	DRNGThreshold int
+}
+
+// NetworkConfig defines the config of a GoShimmer Docker network.
+type NetworkConfig struct {
+	BootstrapInitialIssuanceTimePeriodSec int
 }

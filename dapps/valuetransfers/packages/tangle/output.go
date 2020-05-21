@@ -1,4 +1,4 @@
-package utxodag
+package tangle
 
 import (
 	"sync"
@@ -212,10 +212,19 @@ func (output *Output) RegisterConsumer(consumer transaction.ID) (consumerCount i
 		output.firstConsumer = consumer
 	}
 	output.consumerCount++
+	output.SetModified()
 
 	firstConsumerID = output.firstConsumer
 
 	return
+}
+
+// ConsumerCount returns the number of transactions that have spent this Output.
+func (output *Output) ConsumerCount() int {
+	output.consumerMutex.RLock()
+	defer output.consumerMutex.RUnlock()
+
+	return output.consumerCount
 }
 
 // Balances returns the colored balances (color + balance) that this output contains.
@@ -247,10 +256,12 @@ func (output *Output) ObjectStorageValue() []byte {
 	balanceCount := len(output.balances)
 
 	// initialize helper
-	marshalUtil := marshalutil.New(branchmanager.BranchIDLength + marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
+	marshalUtil := marshalutil.New(branchmanager.BranchIDLength + marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + transaction.IDLength + marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
 	marshalUtil.WriteBytes(output.branchID.Bytes())
 	marshalUtil.WriteBool(output.solid)
 	marshalUtil.WriteTime(output.solidificationTime)
+	marshalUtil.WriteBytes(output.firstConsumer.Bytes())
+	marshalUtil.WriteUint32(uint32(output.consumerCount))
 	marshalUtil.WriteUint32(uint32(balanceCount))
 	for _, balanceToMarshal := range output.balances {
 		marshalUtil.WriteBytes(balanceToMarshal.Bytes())
@@ -272,8 +283,16 @@ func (output *Output) UnmarshalObjectStorageValue(data []byte) (consumedBytes in
 	if output.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
 		return
 	}
-	var balanceCount uint32
-	if balanceCount, err = marshalUtil.ReadUint32(); err != nil {
+	if output.firstConsumer, err = transaction.ParseID(marshalUtil); err != nil {
+		return
+	}
+	consumerCount, err := marshalUtil.ReadUint32()
+	if err != nil {
+		return
+	}
+	output.consumerCount = int(consumerCount)
+	balanceCount, err := marshalUtil.ReadUint32()
+	if err != nil {
 		return
 	}
 	output.balances = make([]*balance.Balance, balanceCount)

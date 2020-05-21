@@ -1,4 +1,4 @@
-package utxodag
+package tangle
 
 import (
 	"github.com/iotaledger/hive.go/marshalutil"

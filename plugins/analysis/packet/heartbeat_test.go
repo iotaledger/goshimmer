@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	. "github.com/iotaledger/goshimmer/plugins/analysis/packet"
+	"github.com/iotaledger/hive.go/protocol/tlv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -91,18 +92,19 @@ func TestNewHeartbeatMessage(t *testing.T) {
 	for _, testCase := range testCases {
 		hb := testCase.hb
 		serializedHb, err := NewHeartbeatMessage(hb)
+		tlvHeaderLength := int(tlv.HeaderMessageDefinition.MaxBytesLength)
 		if testCase.err != nil {
 			require.True(t, errors.Is(err, testCase.err))
 			continue
 		}
 
 		require.NoError(t, err, "heartbeat should have been serialized successfully")
-		assert.EqualValues(t, HeartbeatPacketHeader, serializedHb[0], "expected heartbeat header value as first byte")
-		assert.EqualValues(t, hb.OwnID[:], serializedHb[HeartbeatPacketHeaderSize:HeartbeatPacketHeaderSize+HeartbeatPacketPeerIDSize], "expected own peer id to be within range of %d:%d", HeartbeatPacketHeaderSize, HeartbeatPacketPeerIDSize)
-		assert.EqualValues(t, len(hb.OutboundIDs), serializedHb[HeartbeatPacketHeaderSize+HeartbeatPacketPeerIDSize], "expected outbound IDs count of %d", len(hb.OutboundIDs))
+		assert.EqualValues(t, MessageTypeHeartbeat, serializedHb[0], "expected heartbeat message type tlv header value as first byte")
+		assert.EqualValues(t, hb.OwnID[:], serializedHb[tlvHeaderLength:tlvHeaderLength+HeartbeatPacketPeerIDSize], "expected own peer id to be within range of %d:%d", tlvHeaderLength, tlvHeaderLength+HeartbeatPacketPeerIDSize)
+		assert.EqualValues(t, len(hb.OutboundIDs), serializedHb[tlvHeaderLength+HeartbeatPacketPeerIDSize], "expected outbound IDs count of %d", len(hb.OutboundIDs))
 
 		// after the outbound IDs count, the outbound IDs are serialized
-		offset := HeartbeatPacketMinSize
+		offset := int(tlvHeaderLength) + HeartbeatPacketMinSize
 		for i := 0; i < len(hb.OutboundIDs); i++ {
 			assert.EqualValues(t, hb.OutboundIDs[i], serializedHb[offset+i*HeartbeatPacketPeerIDSize:offset+(i+1)*HeartbeatPacketPeerIDSize], "outbound ID at the given position doesn't match")
 		}
@@ -117,6 +119,7 @@ func TestNewHeartbeatMessage(t *testing.T) {
 }
 
 func TestParseHeartbeat(t *testing.T) {
+	tlvHeaderLength := int(tlv.HeaderMessageDefinition.MaxBytesLength)
 	type testcase struct {
 		source   []byte
 		expected *Heartbeat
@@ -126,8 +129,10 @@ func TestParseHeartbeat(t *testing.T) {
 		// ok
 		func() testcase {
 			hb := &Heartbeat{OwnID: ownID[:], OutboundIDs: make([][]byte, 0), InboundIDs: make([][]byte, 0)}
+			// message = tlv header + packet
+			// ParseHeartbeat() expects only the packet, hence serializedHb[tlvHeaderLength:]
 			serializedHb, _ := NewHeartbeatMessage(hb)
-			return testcase{source: serializedHb, expected: hb, err: nil}
+			return testcase{source: serializedHb[tlvHeaderLength:], expected: hb, err: nil}
 		}(),
 		// ok
 		func() testcase {
@@ -140,15 +145,10 @@ func TestParseHeartbeat(t *testing.T) {
 				inboundIDs[i] = inboundID[:]
 			}
 			hb := &Heartbeat{OwnID: ownID[:], OutboundIDs: outboundIDs, InboundIDs: inboundIDs}
+			// message = tlv header + packet
+			// ParseHeartbeat() expects only the packet, hence serializedHb[tlvHeaderLength:]
 			serializedHb, _ := NewHeartbeatMessage(hb)
-			return testcase{source: serializedHb, expected: hb, err: nil}
-		}(),
-		// err, modify wrong packet header
-		func() testcase {
-			hb := &Heartbeat{OwnID: ownID[:], OutboundIDs: make([][]byte, 0), InboundIDs: make([][]byte, 0)}
-			serializedHb, _ := NewHeartbeatMessage(hb)
-			serializedHb[0] = 0xff
-			return testcase{source: serializedHb, expected: nil, err: ErrMalformedPacket}
+			return testcase{source: serializedHb[tlvHeaderLength:], expected: hb, err: nil}
 		}(),
 		// err, exceeds max inbound peer IDs
 		func() testcase {
@@ -164,21 +164,29 @@ func TestParseHeartbeat(t *testing.T) {
 				inboundIDs[i] = inboundID[:]
 			}
 			hb := &Heartbeat{OwnID: ownID[:], OutboundIDs: outboundIDs, InboundIDs: inboundIDs}
+			// message = tlv header + packet
+			// ParseHeartbeat() expects only the packet, hence serializedHb[tlvHeaderLength:]
 			serializedHb, _ := NewHeartbeatMessage(hb)
 			// add an additional peer id
 			serializedHb = append(serializedHb, ownID[:]...)
-			return testcase{source: serializedHb, expected: hb, err: ErrMalformedPacket}
+			return testcase{source: serializedHb[tlvHeaderLength:], expected: hb, err: ErrMalformedPacket}
 		}(),
 		// err, exceeds max outbound peer IDs
 		func() testcase {
-			outboundIDs := make([][]byte, HeartbeatMaxOutboundPeersCount+1)
-			for i := 0; i < HeartbeatMaxInboundPeersCount+1; i++ {
+			outboundIDs := make([][]byte, HeartbeatMaxOutboundPeersCount)
+			for i := 0; i < HeartbeatMaxInboundPeersCount; i++ {
 				outboundID := sha256.Sum256([]byte{byte(i)})
 				outboundIDs[i] = outboundID[:]
 			}
 			hb := &Heartbeat{OwnID: ownID[:], OutboundIDs: outboundIDs, InboundIDs: make([][]byte, 0)}
+			// NewHeartbeatMessage would return nil and and error for a malformed packet (too many outbound peer IDs)
+			// so we create a correct message(tlv header + packet)
 			serializedHb, _ := NewHeartbeatMessage(hb)
-			return testcase{source: serializedHb, expected: hb, err: ErrMalformedPacket}
+			// and add an extra outbound ID (inbound IDs are zero)
+			serializedHb = append(serializedHb, ownID[:]...)
+			// manually overwrite outboundIDCount
+			serializedHb[tlvHeaderLength+HeartbeatPacketMinSize-1] = HeartbeatMaxOutboundPeersCount + 1
+			return testcase{source: serializedHb[tlvHeaderLength:], expected: hb, err: ErrMalformedPacket}
 		}(),
 		// err, advertised outbound ID count is bigger than remaining data
 		func() testcase {
@@ -188,11 +196,13 @@ func TestParseHeartbeat(t *testing.T) {
 				outboundIDs[i] = outboundID[:]
 			}
 			hb := &Heartbeat{OwnID: ownID[:], OutboundIDs: outboundIDs, InboundIDs: make([][]byte, 0)}
+			// message = tlv header + packet
+			// ParseHeartbeat() expects only the packet, hence serializedHb[tlvHeaderLength:]
 			serializedHb, _ := NewHeartbeatMessage(hb)
 			// we set the count to HeartbeatMaxOutboundPeersCount but we only have HeartbeatMaxOutboundPeersCount - 1
 			// actually serialized in the packet
-			serializedHb[HeartbeatPacketMinSize-1] = HeartbeatMaxOutboundPeersCount
-			return testcase{source: serializedHb, expected: nil, err: ErrMalformedPacket}
+			serializedHb[tlvHeaderLength+HeartbeatPacketMinSize-1] = HeartbeatMaxOutboundPeersCount
+			return testcase{source: serializedHb[tlvHeaderLength:], expected: nil, err: ErrMalformedPacket}
 		}(),
 		// err, doesn't reach minimum packet size
 		func() testcase {

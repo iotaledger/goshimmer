@@ -88,6 +88,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				}
 				return ""
 			}()),
+			fmt.Sprintf("--bootstrap.initialIssuance.timePeriodSec=%d", config.BootstrapInitialIssuanceTimePeriodSec),
 			"--webapi.bindAddress=0.0.0.0:8080",
 			fmt.Sprintf("--autopeering.seed=%s", config.Seed),
 			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", config.EntryNodePublicKey, config.EntryNodeHost),
@@ -155,8 +156,18 @@ func (d *DockerContainer) Remove() error {
 // Stop stops a container without terminating the process.
 // The process is blocked until the container stops or the timeout expires.
 func (d *DockerContainer) Stop() error {
-	duration := 10 * time.Second
+	duration := 30 * time.Second
 	return d.client.ContainerStop(context.Background(), d.id, &duration)
+}
+
+// ExitStatus returns the exit status according to the container information.
+func (d *DockerContainer) ExitStatus() (int, error) {
+	resp, err := d.client.ContainerInspect(context.Background(), d.id)
+	if err != nil {
+		return -1, err
+	}
+
+	return resp.State.ExitCode, nil
 }
 
 // Logs returns the logs of the container as io.ReadCloser.

@@ -184,9 +184,9 @@ func (branchManager *BranchManager) ElevateConflictBranch(branchToElevate Branch
 // BranchesConflicting returns true if the given Branches are part of the same Conflicts and can therefore not be
 // merged.
 func (branchManager *BranchManager) BranchesConflicting(branchIds ...BranchID) (branchesConflicting bool, err error) {
-	// iterate through parameters and collect conflicting branches
-	conflictingBranches := make(map[BranchID]types.Empty)
-	processedBranches := make(map[BranchID]types.Empty)
+	// iterate through branches and collect conflicting branches
+	traversedBranches := make(map[BranchID]types.Empty)
+	blacklistedBranches := make(map[BranchID]types.Empty)
 	for _, branchID := range branchIds {
 		// add the current branch to the stack of branches to check
 		ancestorStack := list.New()
@@ -196,40 +196,44 @@ func (branchManager *BranchManager) BranchesConflicting(branchIds ...BranchID) (
 		for ancestorStack.Len() >= 1 {
 			// retrieve branch from stack
 			firstElement := ancestorStack.Front()
-			ancestorBranchID := firstElement.Value.(BranchID)
+			currentBranchID := firstElement.Value.(BranchID)
 			ancestorStack.Remove(firstElement)
 
 			// abort if we have seen this branch already
-			if _, processedAlready := processedBranches[ancestorBranchID]; processedAlready {
+			if _, traversedAlready := traversedBranches[currentBranchID]; traversedAlready {
 				continue
 			}
-			processedBranches[ancestorBranchID] = types.Void
+
+			// abort if this branch was blacklisted by another branch already
+			if _, branchesConflicting = blacklistedBranches[currentBranchID]; branchesConflicting {
+				return
+			}
 
 			// unpack the branch and abort if we failed to load it
-			cachedBranch := branchManager.Branch(branchID)
-			branch := cachedBranch.Unwrap()
-			if branch == nil {
-				err = fmt.Errorf("failed to load branch '%s'", ancestorBranchID)
+			currentCachedBranch := branchManager.Branch(currentBranchID)
+			currentBranch := currentCachedBranch.Unwrap()
+			if currentBranch == nil {
+				err = fmt.Errorf("failed to load branch '%s'", currentBranchID)
 
-				cachedBranch.Release()
+				currentCachedBranch.Release()
 
 				return
 			}
 
 			// add the parents of the current branch to the list of branches to check
-			for _, parentBranchID := range branch.ParentBranches() {
+			for _, parentBranchID := range currentBranch.ParentBranches() {
 				ancestorStack.PushBack(parentBranchID)
 			}
 
 			// abort the following checks if the branch is aggregated (aggregated branches have no own conflicts)
-			if branch.IsAggregated() {
-				cachedBranch.Release()
+			if currentBranch.IsAggregated() {
+				currentCachedBranch.Release()
 
 				continue
 			}
 
 			// iterate through the conflicts and take note of its member branches
-			for conflictID := range branch.Conflicts() {
+			for conflictID := range currentBranch.Conflicts() {
 				for _, cachedConflictMember := range branchManager.ConflictMembers(conflictID) {
 					// unwrap the current ConflictMember
 					conflictMember := cachedConflictMember.Unwrap()
@@ -239,22 +243,28 @@ func (branchManager *BranchManager) BranchesConflicting(branchIds ...BranchID) (
 						continue
 					}
 
+					if conflictMember.BranchID() == currentBranchID {
+						continue
+					}
+
 					// abort if this branch was found as a conflict of another branch already
-					if _, branchesConflicting = conflictingBranches[conflictMember.BranchID()]; branchesConflicting {
+					if _, branchesConflicting = traversedBranches[conflictMember.BranchID()]; branchesConflicting {
 						cachedConflictMember.Release()
-						cachedBranch.Release()
+						currentCachedBranch.Release()
 
 						return
 					}
 
 					// store the current conflict in the list of seen conflicting branches
-					conflictingBranches[conflictMember.BranchID()] = types.Void
+					blacklistedBranches[conflictMember.BranchID()] = types.Void
 
 					cachedConflictMember.Release()
 				}
 			}
 
-			cachedBranch.Release()
+			currentCachedBranch.Release()
+
+			traversedBranches[currentBranchID] = types.Void
 		}
 	}
 

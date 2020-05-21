@@ -9,11 +9,9 @@ import (
 	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/ledgerstate"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/utxodag"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	messageTangle "github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -37,11 +35,8 @@ var (
 	// Tangle represents the value tangle that is used to express votes on value transactions.
 	Tangle *tangle.Tangle
 
-	// UTXODAG represents the flow of funds that is derived from the value tangle.
-	UTXODAG *utxodag.UTXODAG
-
 	// LedgerState represents the ledger state, that keeps track of the liked branches and offers an API to access funds.
-	LedgerState *ledgerstate.LedgerState
+	LedgerState *tangle.LedgerState
 
 	// log holds a reference to the logger used by this app.
 	log *logger.Logger
@@ -54,14 +49,13 @@ func configure(_ *node.Plugin) {
 
 	// create instances
 	Tangle = tangle.New(database.GetBadgerInstance())
-	UTXODAG = utxodag.New(database.GetBadgerInstance(), Tangle)
 
 	// subscribe to message-layer
 	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 
 	// setup behavior of package instances
-	UTXODAG.Events.TransactionBooked.Attach(events.NewClosure(onTransactionBooked))
-	UTXODAG.Events.Fork.Attach(events.NewClosure(onForkOfFirstConsumer))
+	Tangle.Events.TransactionBooked.Attach(events.NewClosure(onTransactionBooked))
+	Tangle.Events.Fork.Attach(events.NewClosure(onForkOfFirstConsumer))
 
 	configureFPC()
 	// TODO: DECIDE WHAT WE SHOULD DO IF FPC FAILS -> cry
@@ -76,12 +70,12 @@ func configure(_ *node.Plugin) {
 
 		switch opinion {
 		case vote.Like:
-			if _, err := UTXODAG.BranchManager().SetBranchPreferred(branchID, true); err != nil {
+			if _, err := Tangle.BranchManager().SetBranchPreferred(branchID, true); err != nil {
 				panic(err)
 			}
 			// TODO: merge branch mutations into the parent branch
 		case vote.Dislike:
-			if _, err := UTXODAG.BranchManager().SetBranchPreferred(branchID, false); err != nil {
+			if _, err := Tangle.BranchManager().SetBranchPreferred(branchID, false); err != nil {
 				panic(err)
 			}
 			// TODO: merge branch mutations into the parent branch / cleanup
@@ -93,7 +87,6 @@ func run(*node.Plugin) {
 	_ = daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		Tangle.Shutdown()
-		UTXODAG.Shutdown()
 	}, shutdown.PriorityTangle)
 
 	runFPC()
@@ -127,7 +120,7 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 	Tangle.AttachPayload(valuePayload)
 }
 
-func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID, decisionPending bool) {
+func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID, decisionPending bool) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
 	defer cachedBranch.Release()
@@ -174,7 +167,7 @@ func onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cache
 }
 
 // TODO: clarify what we do here
-func onForkOfFirstConsumer(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *utxodag.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID) {
+func onForkOfFirstConsumer(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, cachedBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
 	defer cachedBranch.Release()
@@ -197,7 +190,7 @@ func onForkOfFirstConsumer(cachedTransaction *transaction.CachedTransaction, cac
 		return
 	}
 
-	if _, err := UTXODAG.BranchManager().SetBranchPreferred(branch.ID(), true); err != nil {
+	if _, err := Tangle.BranchManager().SetBranchPreferred(branch.ID(), true); err != nil {
 		log.Error(err)
 	}
 
