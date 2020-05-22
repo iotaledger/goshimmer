@@ -8,6 +8,7 @@ import {RouterStore} from 'mobx-react-router';
 import {Redirect, Route, Switch} from 'react-router-dom';
 import {LinkContainer} from 'react-router-bootstrap';
 import FPC from "app/components/FPC";
+import Conflict from "app/components/Conflict";
 
 interface Props {
     history: any;
@@ -49,6 +50,7 @@ export class Root extends React.Component<Props, any> {
                 <Switch>
                     <Route exact path="/autopeering" component={Autopeering}/>
                     <Route exact path="/fpc-example" component={FPC}/>
+                    <Route exact path="/fpc-example/conflict/:id" component={Conflict}/>
                     <Redirect to="/autopeering"/>
                 </Switch>
                 {this.props.children}

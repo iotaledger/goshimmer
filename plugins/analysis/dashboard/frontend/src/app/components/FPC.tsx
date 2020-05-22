@@ -15,11 +15,11 @@ interface Props {
 @observer
 export default class FPC extends React.Component<Props, any> {
     render() {
-        let {nodeGrid} = this.props.fpcStore;
+        let {conflictGrid} = this.props.fpcStore;
         return (
             <Container>
                 <Row>
-                    {nodeGrid}
+                    {conflictGrid}
                 </Row>
             </Container>
         );
