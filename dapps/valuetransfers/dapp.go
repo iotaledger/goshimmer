@@ -3,6 +3,7 @@ package valuetransfers
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -13,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	messageTangle "github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
-	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -49,7 +49,7 @@ func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
 	// configure Tangle
-	Tangle = tangle.New(database.GetBadgerInstance())
+	Tangle = tangle.New(database.Store())
 	Tangle.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Error(err)
 	}))

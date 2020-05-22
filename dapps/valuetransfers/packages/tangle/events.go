@@ -13,6 +13,8 @@ type Events struct {
 	// Get's called whenever a transaction
 	PayloadAttached        *events.Event
 	PayloadSolid           *events.Event
+	PayloadLiked           *events.Event
+	PayloadDisliked        *events.Event
 	MissingPayloadReceived *events.Event
 	PayloadMissing         *events.Event
 	PayloadUnsolidifiable  *events.Event
@@ -34,6 +36,8 @@ func newEvents() *Events {
 	return &Events{
 		PayloadAttached:        events.NewEvent(cachedPayloadEvent),
 		PayloadSolid:           events.NewEvent(cachedPayloadEvent),
+		PayloadLiked:           events.NewEvent(cachedPayloadEvent),
+		PayloadDisliked:        events.NewEvent(cachedPayloadEvent),
 		MissingPayloadReceived: events.NewEvent(cachedPayloadEvent),
 		PayloadMissing:         events.NewEvent(payloadIDEvent),
 		PayloadUnsolidifiable:  events.NewEvent(payloadIDEvent),
@@ -59,7 +63,7 @@ func transactionBookedEvent(handler interface{}, params ...interface{}) {
 	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, bool))(
 		params[0].(*transaction.CachedTransaction).Retain(),
 		params[1].(*CachedTransactionMetadata).Retain(),
-		params[4].(bool),
+		params[2].(bool),
 	)
 }
 

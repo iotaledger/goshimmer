@@ -74,40 +74,58 @@ func (fcob *FCOB) onTransactionBooked(cachedTransaction *transaction.CachedTrans
 	})
 }
 
-// scheduleSetPreferred sets the Transaction to preferred if it is still not conflicting after 1 network delay.
+// scheduleSetPreferred schedules the setPreferred logic after 1 network delay.
 func (fcob *FCOB) scheduleSetPreferred(cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
-	time.AfterFunc(fcob.averageNetworkDelay, func() {
-		cachedTransactionMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
-			if transactionMetadata.Conflicting() {
-				return
-			}
-
-			modified, err := fcob.tangle.SetTransactionPreferred(transactionMetadata.ID(), true)
-			if err != nil {
-				fcob.Events.Error.Trigger(err)
-
-				return
-			}
-
-			if modified {
-				fcob.scheduleSetFinalized(cachedTransactionMetadata.Retain())
-			}
+	if fcob.averageNetworkDelay == 0 {
+		fcob.setPreferred(cachedTransactionMetadata)
+	} else {
+		time.AfterFunc(fcob.averageNetworkDelay, func() {
+			fcob.setPreferred(cachedTransactionMetadata)
 		})
+	}
+}
+
+// setPreferred sets the Transaction to preferred if it is not conflicting.
+func (fcob *FCOB) setPreferred(cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
+	cachedTransactionMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
+		if transactionMetadata.Conflicting() {
+			return
+		}
+
+		modified, err := fcob.tangle.SetTransactionPreferred(transactionMetadata.ID(), true)
+		if err != nil {
+			fcob.Events.Error.Trigger(err)
+
+			return
+		}
+
+		if modified {
+			fcob.scheduleSetFinalized(cachedTransactionMetadata.Retain())
+		}
 	})
 }
 
-// scheduleSetFinalized sets the Transaction to finalized if it is still not conflicting after 2 network delays.
-// Note: it is 2 network delays because thos function gets triggered at the end of the first delay that sets a
-// Transaction to preferred (see: scheduleSetPreferred())
+// scheduleSetFinalized schedules the setFinalized logic after 2 network delays.
+// Note: it is 2 network delays because this function gets triggered at the end of the first delay that sets a
+// Transaction to preferred (see setPreferred).
 func (fcob *FCOB) scheduleSetFinalized(cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
-	time.AfterFunc(fcob.averageNetworkDelay, func() {
-		cachedTransactionMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
-			if transactionMetadata.Conflicting() {
-				return
-			}
-
-			transactionMetadata.SetFinalized(true)
+	if fcob.averageNetworkDelay == 0 {
+		fcob.setFinalized(cachedTransactionMetadata)
+	} else {
+		time.AfterFunc(fcob.averageNetworkDelay, func() {
+			fcob.setFinalized(cachedTransactionMetadata)
 		})
+	}
+}
+
+// setFinalized sets the Transaction to finalized if it is not conflicting.
+func (fcob *FCOB) setFinalized(cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
+	cachedTransactionMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
+		if transactionMetadata.Conflicting() {
+			return
+		}
+
+		transactionMetadata.SetFinalized(true)
 	})
 }
 

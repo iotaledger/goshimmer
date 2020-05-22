@@ -22,7 +22,8 @@ func MessageFactory(t *testing.T) *messagefactory.MessageFactory {
 			messageFactoryInstance = nil
 		})
 
-		messageFactoryInstance = messagefactory.New(DB(t), localIdentity, tipSelector, []byte(sequenceKey))
+		// TODO: migrate to store
+		messageFactoryInstance = messagefactory.New(nil, localIdentity, tipSelector, []byte(sequenceKey))
 	}
 
 	return messageFactoryInstance
