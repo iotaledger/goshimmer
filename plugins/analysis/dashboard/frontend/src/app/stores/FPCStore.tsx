@@ -12,26 +12,9 @@ export class Node {
 
 function SetColor(opinion) {
     if (opinion == Opinion.Dislike) {
-        return "#BD0000"
+        return "#800000"
     }
-    return "#00BD00"
-}
-
-function getEta(conflict) {
-    let total = conflict.nodes.length;
-
-    console.log("Total:", total)
-    
-    if (total == 0) return;
-    
-    let likes = 0;
-    conflict.nodes.forEach((node: Node, id: string, obj: Map<string, Node>) => {
-        if (node.opinion == Opinion.Like) likes++;
-    })
-    
-    console.log("Likes:", likes/total)
-    
-    return likes/total;
+    return "#00AB08"
 }
 
 enum Opinion {
@@ -128,9 +111,11 @@ export class FPCStore {
                     height: 50,
                     width: 50,
                     border: "1px solid #FFFFFF",
+                    textAlign: "center",
+                    verticalAlign: "middle",
                     background: SetColor(node.opinion),
                 }}>
-                    {/* {node.opinion} */}
+                    {id.substr(0, 5)}
                 </Col>
             )
         })
@@ -141,15 +126,26 @@ export class FPCStore {
     get conflictGrid(){
         let conflictSquares = [];
         this.conflicts.forEach((conflict: ConflictDetail, id: string, obj: Map<string, ConflictDetail>) => {
+            
+            let likes = 0;
+            let total = conflict.nodes.size;
+
+            conflict.nodes.forEach((node: Node, id: string, obj: Map<string, Node>) => {
+                if (node.opinion == Opinion.Like) likes++;
+            })
+ 
+
             conflictSquares.push(
                 <Col xs={1} key={id} style={{
                     height: 50,
                     width: 50,
                     border: "1px solid #FFFFFF",
-                    background: RGB_Log_Blend(getEta(conflict),"#BD0000", "#00BD00"),
+                    textAlign: "center",
+                    verticalAlign: "middle",
+                    background: getColorShade(likes/total),
                 }}>
                     {<Link to={`/fpc-example/conflict/${id}`}>
-                        {id.substr(0, 5)}
+                        {`[${likes}/${total}]`}
                     </Link>}
                 </Col>
             )
@@ -161,8 +157,16 @@ export class FPCStore {
 
 export default FPCStore;
 
-const RGB_Log_Blend=(p,c0,c1)=>{
-    var i=parseInt,r=Math.round,P=1-p,[a,b,c,d]=c0.split(","),[e,f,g,h]=c1.split(","),x=d||h;
-    //j=x?","+(!d?h:!h?d:r((parseFloat(d)*P+parseFloat(h)*p)*1000)/1000+")"):")";
-	return"rgb"+(x?"a(":"(")+r((P*i(a[3]=="a"?a.slice(5):a.slice(4))**2+p*i(e[3]=="a"?e.slice(5):e.slice(4))**2)**0.5)+","+r((P*i(b)**2+p*i(f)**2)**0.5)+","+r((P*i(c)**2+p*i(g)**2)**0.5)+d;
+function getColorShade(eta) {
+    if (eta == 1) return "#00AB08";  
+    if (eta > 0.9) return "#00C301"; 
+    if (eta > 0.8) return "#26D701";
+    if (eta > 0.7) return "#4DED30";
+    if (eta > 0.6) return "#95F985";
+    if (eta > 0.5) return "#B7FFBF";
+    if (eta > 0.4) return "#FFD5D5";
+    if (eta > 0.3) return "#FF8080";
+    if (eta > 0.2) return "#FF2A2A";
+    if (eta > 0.1) return "#D40000";
+    return "#800000";
 }

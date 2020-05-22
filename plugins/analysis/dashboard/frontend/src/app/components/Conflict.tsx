@@ -4,6 +4,7 @@ import {inject, observer} from "mobx-react";
 import {FPCStore} from "app/stores/FPCStore";
 import Row from "react-bootstrap/Row";
 import Container from "react-bootstrap/Container";
+import Card from "react-bootstrap/Card";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -27,9 +28,15 @@ export default class Conflict extends React.Component<Props, any> {
         let {nodeGrid} = this.props.fpcStore;
         return (
             <Container>
-                <Row>
-                    {nodeGrid}
-                </Row>
+                <h3>Conflict detail</h3>
+                <Card>
+                    <Card.Body>
+                        <Card.Title>ID: {this.props.match.params.id}</Card.Title>
+                        <Row>
+                            {nodeGrid}
+                        </Row>
+                    </Card.Body>
+                </Card>
             </Container>
         );
     }

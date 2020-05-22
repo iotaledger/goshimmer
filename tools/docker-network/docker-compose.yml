@@ -13,6 +13,7 @@ services:
       --analysis.server.bindAddress=0.0.0.0:1888
       --node.enablePlugins=analysis-server,analysis-webinterface,analysis-dashboard
       --node.disablePlugins=portcheck,dashboard
+      --node.enablePlugins=bootstrap
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
