@@ -3,12 +3,12 @@ package branchmanager
 import (
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/binary/testutil"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestBranchManager_ConflictMembers(t *testing.T) {
-	branchManager := New(testutil.DB(t))
+	branchManager := New(mapdb.NewMapDB())
 
 	cachedBranch2, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{{0}})
 	defer cachedBranch2.Release()
@@ -46,7 +46,7 @@ func TestBranchManager_ConflictMembers(t *testing.T) {
 
 // ./img/testelevation.png
 func TestBranchManager_ElevateConflictBranch(t *testing.T) {
-	branchManager := New(testutil.DB(t))
+	branchManager := New(mapdb.NewMapDB())
 
 	cachedBranch2, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{{0}})
 	defer cachedBranch2.Release()
@@ -144,7 +144,7 @@ func TestBranchManager_ElevateConflictBranch(t *testing.T) {
 
 // ./img/testconflictdetection.png
 func TestBranchManager_BranchesConflicting(t *testing.T) {
-	branchManager := New(testutil.DB(t))
+	branchManager := New(mapdb.NewMapDB())
 
 	cachedBranch2, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{{0}})
 	defer cachedBranch2.Release()
@@ -446,7 +446,7 @@ func TestBranchManager_BranchesConflicting(t *testing.T) {
 }
 
 func TestBranchManager_SetBranchPreferred(t *testing.T) {
-	branchManager := New(testutil.DB(t))
+	branchManager := New(mapdb.NewMapDB())
 
 	cachedBranch2, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{{0}})
 	defer cachedBranch2.Release()
@@ -513,7 +513,7 @@ func TestBranchManager_SetBranchPreferred(t *testing.T) {
 }
 
 func TestBranchManager_SetBranchPreferred2(t *testing.T) {
-	branchManager := New(testutil.DB(t))
+	branchManager := New(mapdb.NewMapDB())
 
 	cachedBranch2, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{{0}})
 	defer cachedBranch2.Release()
