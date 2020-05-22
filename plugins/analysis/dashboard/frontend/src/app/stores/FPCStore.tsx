@@ -10,20 +10,28 @@ export class Node {
     opinion: number = 0;
 }
 
-export function LightenDarkenColor(col, amt) {
-    var num = parseInt(col, 16);
-    var r = (num >> 16) + amt;
-    var b = ((num >> 8) & 0x00FF) + amt;
-    var g = (num & 0x0000FF) + amt;
-    var newColor = g | (b << 8) | (r << 16);
-    return newColor.toString(16);
-}
-
 function SetColor(opinion) {
     if (opinion == Opinion.Dislike) {
         return "#BD0000"
     }
     return "#00BD00"
+}
+
+function getEta(conflict) {
+    let total = conflict.nodes.length;
+
+    console.log("Total:", total)
+    
+    if (total == 0) return;
+    
+    let likes = 0;
+    conflict.nodes.forEach((node: Node, id: string, obj: Map<string, Node>) => {
+        if (node.opinion == Opinion.Like) likes++;
+    })
+    
+    console.log("Likes:", likes/total)
+    
+    return likes/total;
 }
 
 enum Opinion {
@@ -46,8 +54,6 @@ export class FPCMessage {
 }
 
 class ConflictDetail {
-    @observable like: number;
-    @observable dislike: number;
     @observable nodes: ObservableMap<string, Node>
 }
 
@@ -76,12 +82,11 @@ export class FPCStore {
         for (const key of Object.keys(msg.conflictset)) {
             for (const key2 of Object.keys(msg.conflictset[key].nodesview)){
                 let voteContext = msg.conflictset[key].nodesview[key2];
-                console.log(voteContext.nodeid, voteContext.rounds, voteContext.opinions, voteContext.like);
+                //console.log(voteContext.nodeid, voteContext.rounds, voteContext.opinions, voteContext.like);
 
                 this.addNewNode(key, voteContext.nodeid, voteContext.opinions[voteContext.opinions.length-1])
                 this.updateNodeValue(key, voteContext.nodeid, voteContext.opinions[voteContext.opinions.length-1])
             }
-            console.log("for loop", this.conflicts.get(key).nodes);
         }
     }
 
@@ -91,8 +96,6 @@ export class FPCStore {
         node.id = nodeID;
         node.opinion = opinion;
 
-        console.log("has", this.conflicts.has(conflictID))
-
         if (!this.conflicts.has(conflictID)) {
             let cd = new ConflictDetail();
             cd.nodes = new ObservableMap<string, Node>();
@@ -100,13 +103,9 @@ export class FPCStore {
         }
 
         let c = this.conflicts.get(conflictID)
-
-        console.log("c nodes", c.nodes);
         
         c.nodes.set(nodeID, node);
         this.conflicts.set(conflictID, c);
-
-        console.log("conflict nodes", this.conflicts.get(conflictID).nodes);
     }
 
     @action
@@ -122,10 +121,7 @@ export class FPCStore {
     get nodeGrid(){
         if (!this.currentConflict) return;
         let nodeSquares = [];
-        let c = this.conflicts.get(this.currentConflict);
-
-        console.log("current conflict", this.currentConflict, "current", c); 
-        
+        let c = this.conflicts.get(this.currentConflict);        
         c.nodes.forEach((node: Node, id: string, obj: Map<string, Node>) => {
             nodeSquares.push(
                 <Col xs={1} key={id} style={{
@@ -145,13 +141,12 @@ export class FPCStore {
     get conflictGrid(){
         let conflictSquares = [];
         this.conflicts.forEach((conflict: ConflictDetail, id: string, obj: Map<string, ConflictDetail>) => {
-            //getEta(conflict)
             conflictSquares.push(
                 <Col xs={1} key={id} style={{
                     height: 50,
                     width: 50,
                     border: "1px solid #FFFFFF",
-                    background: SetColor(conflict.like),
+                    background: RGB_Log_Blend(getEta(conflict),"#BD0000", "#00BD00"),
                 }}>
                     {<Link to={`/fpc-example/conflict/${id}`}>
                         {id.substr(0, 5)}
@@ -165,3 +160,9 @@ export class FPCStore {
 }
 
 export default FPCStore;
+
+const RGB_Log_Blend=(p,c0,c1)=>{
+    var i=parseInt,r=Math.round,P=1-p,[a,b,c,d]=c0.split(","),[e,f,g,h]=c1.split(","),x=d||h;
+    //j=x?","+(!d?h:!h?d:r((parseFloat(d)*P+parseFloat(h)*p)*1000)/1000+")"):")";
+	return"rgb"+(x?"a(":"(")+r((P*i(a[3]=="a"?a.slice(5):a.slice(4))**2+p*i(e[3]=="a"?e.slice(5):e.slice(4))**2)**0.5)+","+r((P*i(b)**2+p*i(f)**2)**0.5)+","+r((P*i(c)**2+p*i(g)**2)**0.5)+d;
+}
