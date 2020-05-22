@@ -1,7 +1,6 @@
 package branchmanager
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -301,9 +300,6 @@ func TestFindDeepestCommonDescendants(t *testing.T) {
 
 	// breaks: should only be aggr. branch 11 which consists out of branch 6 and 8
 	{
-		fmt.Println("branch 6:", st.branches[6].ID())
-		fmt.Println("branch 8:", st.branches[8].ID())
-		fmt.Println("branch 11:", st.branches[11].ID())
 		deepestCommonDescendants, err := branchManager.findDeepestCommonDescendants(
 			st.branches[6].ID(), st.branches[8].ID(), st.branches[11].ID())
 		assert.NoError(t, err)
@@ -317,16 +313,6 @@ func TestFindDeepestCommonDescendants(t *testing.T) {
 		})
 		assert.Equal(t, expectedDeepestCommonDescendants, actualDeepestCommonDescendants)
 	}
-
-	//fmt.Println("branch 6:", branch6.ID())
-	//fmt.Println("branch 8:", branch8.ID())
-	//fmt.Println("aggr. branch 10:", aggrBranch10.ID())
-	//fmt.Println("aggr. branch 11:", aggrBranch11.ID())
-	//fmt.Println("branch 12:", branch12.ID())
-	//fmt.Println("branch 13:", branch13.ID())
-	//fmt.Println("branch 14:", branch14.ID())
-	//fmt.Println("branch 15:", branch15.ID())
-	//fmt.Println("aggr. branch 16:", aggrBranch16.ID())
 
 	// breaks: thinks that branch 13 is one of the deepest common descendants
 	{
@@ -344,6 +330,90 @@ func TestFindDeepestCommonDescendants(t *testing.T) {
 			actualDeepestCommonDescendants[branch.ID()] = struct{}{}
 		})
 		assert.Equal(t, expectedDeepestCommonDescendants, actualDeepestCommonDescendants)
+	}
+}
+
+func TestCollectClosestConflictAncestors(t *testing.T) {
+	branchManager := New(mapdb.NewMapDB())
+
+	st := createSampleTree(branchManager)
+	defer st.Release()
+
+	{
+		aggregatedBranchConflictParents := make(CachedBranches)
+		err := branchManager.collectClosestConflictAncestors(st.branches[10], aggregatedBranchConflictParents)
+		assert.NoError(t, err)
+
+		expectedClosestConflictAncestors := map[BranchID]struct{}{
+			st.branches[3].ID(): {}, st.branches[6].ID(): {},
+		}
+		actualClosestConflictAncestors := map[BranchID]struct{}{}
+		aggregatedBranchConflictParents.Consume(func(branch *Branch) {
+			actualClosestConflictAncestors[branch.ID()] = struct{}{}
+		})
+		assert.Equal(t, expectedClosestConflictAncestors, actualClosestConflictAncestors)
+	}
+
+	{
+		aggregatedBranchConflictParents := make(CachedBranches)
+		err := branchManager.collectClosestConflictAncestors(st.branches[13], aggregatedBranchConflictParents)
+		assert.NoError(t, err)
+
+		expectedClosestConflictAncestors := map[BranchID]struct{}{
+			st.branches[3].ID(): {}, st.branches[6].ID(): {},
+		}
+		actualClosestConflictAncestors := map[BranchID]struct{}{}
+		aggregatedBranchConflictParents.Consume(func(branch *Branch) {
+			actualClosestConflictAncestors[branch.ID()] = struct{}{}
+		})
+		assert.Equal(t, expectedClosestConflictAncestors, actualClosestConflictAncestors)
+	}
+
+	{
+		aggregatedBranchConflictParents := make(CachedBranches)
+		err := branchManager.collectClosestConflictAncestors(st.branches[14], aggregatedBranchConflictParents)
+		assert.NoError(t, err)
+
+		expectedClosestConflictAncestors := map[BranchID]struct{}{
+			st.branches[8].ID(): {}, st.branches[6].ID(): {},
+		}
+		actualClosestConflictAncestors := map[BranchID]struct{}{}
+		aggregatedBranchConflictParents.Consume(func(branch *Branch) {
+			actualClosestConflictAncestors[branch.ID()] = struct{}{}
+		})
+		assert.Equal(t, expectedClosestConflictAncestors, actualClosestConflictAncestors)
+	}
+
+	{
+		aggregatedBranchConflictParents := make(CachedBranches)
+		err := branchManager.collectClosestConflictAncestors(st.branches[16], aggregatedBranchConflictParents)
+		assert.NoError(t, err)
+
+		expectedClosestConflictAncestors := map[BranchID]struct{}{
+			st.branches[13].ID(): {}, st.branches[14].ID(): {},
+		}
+		actualClosestConflictAncestors := map[BranchID]struct{}{}
+		aggregatedBranchConflictParents.Consume(func(branch *Branch) {
+			actualClosestConflictAncestors[branch.ID()] = struct{}{}
+		})
+		assert.Equal(t, expectedClosestConflictAncestors, actualClosestConflictAncestors)
+	}
+
+	{
+		// lets check whether an aggregated branch out of branch 2 and aggr. branch 11
+		// resolves to the same ID as when the actual parents (6 and 8) of aggr. branch 11
+		// are used in conjunction with branch 2.
+		parentsBranches := CachedBranches{
+			st.branches[2].ID(): st.cachedBranches[2].Retain(),
+			st.branches[6].ID(): st.cachedBranches[6].Retain(),
+			st.branches[8].ID(): st.cachedBranches[8].Retain(),
+		}
+		expectedAggrBranchID := branchManager.generateAggregatedBranchID(parentsBranches)
+
+		cachedAggrBranch17, err := branchManager.AggregateBranches(st.branches[2].ID(), st.branches[11].ID())
+		assert.NoError(t, err)
+		assert.Equal(t, expectedAggrBranchID, cachedAggrBranch17.Unwrap().ID())
+		cachedAggrBranch17.Release()
 	}
 }
 
