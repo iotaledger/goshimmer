@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/async"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
@@ -60,6 +61,27 @@ func New(store kvstore.KVStore) (result *Tangle) {
 
 		Events: *newEvents(),
 	}
+
+	result.branchManager.Events.BranchPreferred.Attach(events.NewClosure(func(cachedBranch *branchmanager.CachedBranch) {
+		cachedBranch.Consume(func(branch *branchmanager.Branch) {
+			if !branch.IsAggregated() {
+				transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
+				if err != nil {
+					// this should never ever happen so we panic
+					panic(err)
+
+					return
+				}
+
+				_, err = result.SetTransactionPreferred(transactionID, true)
+				if err != nil {
+					result.Events.Error.Trigger(err)
+
+					return
+				}
+			}
+		})
+	}))
 
 	return
 }

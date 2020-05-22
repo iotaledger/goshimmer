@@ -3,7 +3,6 @@ package ledgerstate
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/types"
@@ -16,65 +15,48 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 )
 
 func TestTangle_ValueTransfer(t *testing.T) {
-	// initialize tangle + ledgerstate
+	// initialize required objects
 	valueTangle := tangle.New(mapdb.NewMapDB())
-	consensus.NewFCOB(valueTangle, 0)
-	if err := valueTangle.Prune(); err != nil {
-		t.Error(err)
-
-		return
-	}
 	ledgerState := tangle.NewLedgerState(valueTangle)
+	seed := wallet.NewSeed()
 
-	// generate addresses and key
-	addressKeyPair1 := ed25519.GenerateKeyPair()
-	addressKeyPair2 := ed25519.GenerateKeyPair()
-	address1 := address.FromED25519PubKey(addressKeyPair1.PublicKey)
-	address2 := address.FromED25519PubKey(addressKeyPair2.PublicKey)
+	// setup consensus rules
+	consensus.NewFCOB(valueTangle, 0)
 
 	// check if ledger empty first
-	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(address1))
-	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(address2))
+	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(seed.Address(0)))
+	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(seed.Address(1)))
 
 	// load snapshot
 	valueTangle.LoadSnapshot(map[transaction.ID]map[address.Address][]*balance.Balance{
 		transaction.GenesisID: {
-			address1: []*balance.Balance{
+			seed.Address(0): []*balance.Balance{
 				balance.New(balance.ColorIOTA, 337),
 			},
 
-			address2: []*balance.Balance{
+			seed.Address(1): []*balance.Balance{
 				balance.New(balance.ColorIOTA, 1000),
 			},
 		},
 	})
 
 	// check if balance exists after loading snapshot
-	assert.Equal(t, map[balance.Color]int64{balance.ColorIOTA: 337}, ledgerState.Balances(address1))
-	assert.Equal(t, map[balance.Color]int64{balance.ColorIOTA: 1000}, ledgerState.Balances(address2))
+	assert.Equal(t, map[balance.Color]int64{balance.ColorIOTA: 337}, ledgerState.Balances(seed.Address(0)))
+	assert.Equal(t, map[balance.Color]int64{balance.ColorIOTA: 1000}, ledgerState.Balances(seed.Address(1)))
 
 	// introduce logic to record liked payloads
-	recordedLikedPayloads := make(map[payload.ID]types.Empty)
-	valueTangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *tangle.CachedPayloadMetadata) {
-		defer cachedPayloadMetadata.Release()
-
-		cachedPayload.Consume(func(payload *payload.Payload) {
-			recordedLikedPayloads[payload.ID()] = types.Void
-		})
-	}))
-	resetRecordedLikedPayloads := func() {
-		recordedLikedPayloads = make(map[payload.ID]types.Empty)
-	}
+	recordedLikedPayloads, resetRecordedLikedPayloads := recordLikedPayloads(valueTangle)
 
 	// attach first spend
 	outputAddress1 := address.Random()
 	attachedPayload1 := payload.New(payload.GenesisID, payload.GenesisID, transaction.New(
 		transaction.NewInputs(
-			transaction.NewOutputID(address1, transaction.GenesisID),
-			transaction.NewOutputID(address2, transaction.GenesisID),
+			transaction.NewOutputID(seed.Address(0), transaction.GenesisID),
+			transaction.NewOutputID(seed.Address(1), transaction.GenesisID),
 		),
 
 		transaction.NewOutputs(map[address.Address][]*balance.Balance{
@@ -86,8 +68,8 @@ func TestTangle_ValueTransfer(t *testing.T) {
 	valueTangle.AttachPayloadSync(attachedPayload1)
 
 	// check if old addresses are empty and new addresses are filled
-	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(address1))
-	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(address2))
+	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(seed.Address(0)))
+	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(seed.Address(1)))
 	assert.Equal(t, map[balance.Color]int64{balance.ColorIOTA: 1337}, ledgerState.Balances(outputAddress1))
 	assert.Equal(t, 1, len(recordedLikedPayloads))
 	_, payloadLiked := recordedLikedPayloads[attachedPayload1.ID()]
@@ -99,8 +81,8 @@ func TestTangle_ValueTransfer(t *testing.T) {
 	outputAddress2 := address.Random()
 	valueTangle.AttachPayloadSync(payload.New(payload.GenesisID, payload.GenesisID, transaction.New(
 		transaction.NewInputs(
-			transaction.NewOutputID(address1, transaction.GenesisID),
-			transaction.NewOutputID(address2, transaction.GenesisID),
+			transaction.NewOutputID(seed.Address(0), transaction.GenesisID),
+			transaction.NewOutputID(seed.Address(1), transaction.GenesisID),
 		),
 
 		transaction.NewOutputs(map[address.Address][]*balance.Balance{
@@ -112,4 +94,22 @@ func TestTangle_ValueTransfer(t *testing.T) {
 
 	// shutdown tangle
 	valueTangle.Shutdown()
+}
+
+func recordLikedPayloads(valueTangle *tangle.Tangle) (recordedLikedPayloads map[payload.ID]types.Empty, resetFunc func()) {
+	recordedLikedPayloads = make(map[payload.ID]types.Empty)
+
+	valueTangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *tangle.CachedPayloadMetadata) {
+		defer cachedPayloadMetadata.Release()
+
+		cachedPayload.Consume(func(payload *payload.Payload) {
+			recordedLikedPayloads[payload.ID()] = types.Void
+		})
+	}))
+
+	resetFunc = func() {
+		recordedLikedPayloads = make(map[payload.ID]types.Empty)
+	}
+
+	return
 }
