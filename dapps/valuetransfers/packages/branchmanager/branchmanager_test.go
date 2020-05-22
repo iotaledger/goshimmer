@@ -23,6 +23,7 @@ func (st *sampleTree) Release() {
 	}
 }
 
+// ./img/sample_tree.png
 func createSampleTree(branchManager *BranchManager) *sampleTree {
 	st := &sampleTree{
 		numID: map[BranchID]int{},
