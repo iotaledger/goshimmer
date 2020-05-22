@@ -1,6 +1,7 @@
 package branchmanager
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -10,6 +11,7 @@ import (
 type sampleTree struct {
 	cachedBranches [17]*CachedBranch
 	branches       [17]*Branch
+	numID          map[BranchID]int
 }
 
 func (st *sampleTree) Release() {
@@ -22,50 +24,61 @@ func (st *sampleTree) Release() {
 }
 
 func createSampleTree(branchManager *BranchManager) *sampleTree {
-	st := &sampleTree{}
+	st := &sampleTree{
+		numID: map[BranchID]int{},
+	}
 	cachedMasterBranch := branchManager.Branch(MasterBranchID)
 	st.cachedBranches[1] = cachedMasterBranch
 	st.branches[1] = cachedMasterBranch.Unwrap()
+	st.numID[st.branches[1].ID()] = 1
 
 	cachedBranch2, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{{0}})
 	branch2 := cachedBranch2.Unwrap()
 	st.branches[2] = branch2
 	st.cachedBranches[2] = cachedBranch2
+	st.numID[st.branches[2].ID()] = 2
 
 	cachedBranch3, _ := branchManager.Fork(BranchID{3}, []BranchID{MasterBranchID}, []ConflictID{{0}})
 	branch3 := cachedBranch3.Unwrap()
 	st.branches[3] = branch3
 	st.cachedBranches[3] = cachedBranch3
+	st.numID[st.branches[3].ID()] = 3
 
 	cachedBranch4, _ := branchManager.Fork(BranchID{4}, []BranchID{branch2.ID()}, []ConflictID{{1}})
 	branch4 := cachedBranch4.Unwrap()
 	st.branches[4] = branch4
 	st.cachedBranches[4] = cachedBranch4
+	st.numID[st.branches[4].ID()] = 4
 
 	cachedBranch5, _ := branchManager.Fork(BranchID{5}, []BranchID{branch2.ID()}, []ConflictID{{1}})
 	branch5 := cachedBranch5.Unwrap()
 	st.branches[5] = branch5
 	st.cachedBranches[5] = cachedBranch5
+	st.numID[st.branches[5].ID()] = 5
 
 	cachedBranch6, _ := branchManager.Fork(BranchID{6}, []BranchID{MasterBranchID}, []ConflictID{{2}})
 	branch6 := cachedBranch6.Unwrap()
 	st.branches[6] = branch6
 	st.cachedBranches[6] = cachedBranch6
+	st.numID[st.branches[6].ID()] = 6
 
 	cachedBranch7, _ := branchManager.Fork(BranchID{7}, []BranchID{MasterBranchID}, []ConflictID{{2}})
 	branch7 := cachedBranch7.Unwrap()
 	st.branches[7] = branch7
 	st.cachedBranches[7] = cachedBranch7
+	st.numID[st.branches[7].ID()] = 7
 
 	cachedBranch8, _ := branchManager.Fork(BranchID{8}, []BranchID{MasterBranchID}, []ConflictID{{3}})
 	branch8 := cachedBranch8.Unwrap()
 	st.branches[8] = branch8
 	st.cachedBranches[8] = cachedBranch8
+	st.numID[st.branches[8].ID()] = 8
 
 	cachedBranch9, _ := branchManager.Fork(BranchID{9}, []BranchID{MasterBranchID}, []ConflictID{{3}})
 	branch9 := cachedBranch9.Unwrap()
 	st.branches[9] = branch9
 	st.cachedBranches[9] = cachedBranch9
+	st.numID[st.branches[9].ID()] = 9
 
 	cachedAggrBranch10, err := branchManager.AggregateBranches(branch3.ID(), branch6.ID())
 	if err != nil {
@@ -74,6 +87,7 @@ func createSampleTree(branchManager *BranchManager) *sampleTree {
 	aggrBranch10 := cachedAggrBranch10.Unwrap()
 	st.branches[10] = aggrBranch10
 	st.cachedBranches[10] = cachedAggrBranch10
+	st.numID[st.branches[10].ID()] = 10
 
 	cachedAggrBranch11, err := branchManager.AggregateBranches(branch6.ID(), branch8.ID())
 	if err != nil {
@@ -82,26 +96,31 @@ func createSampleTree(branchManager *BranchManager) *sampleTree {
 	aggrBranch11 := cachedAggrBranch11.Unwrap()
 	st.branches[11] = aggrBranch11
 	st.cachedBranches[11] = cachedAggrBranch11
+	st.numID[st.branches[11].ID()] = 11
 
 	cachedBranch12, _ := branchManager.Fork(BranchID{12}, []BranchID{aggrBranch10.ID()}, []ConflictID{{4}})
 	branch12 := cachedBranch12.Unwrap()
 	st.branches[12] = branch12
 	st.cachedBranches[12] = cachedBranch12
+	st.numID[st.branches[12].ID()] = 12
 
 	cachedBranch13, _ := branchManager.Fork(BranchID{13}, []BranchID{aggrBranch10.ID()}, []ConflictID{{4}})
 	branch13 := cachedBranch13.Unwrap()
 	st.branches[13] = branch13
 	st.cachedBranches[13] = cachedBranch13
+	st.numID[st.branches[13].ID()] = 13
 
 	cachedBranch14, _ := branchManager.Fork(BranchID{14}, []BranchID{aggrBranch11.ID()}, []ConflictID{{5}})
 	branch14 := cachedBranch14.Unwrap()
 	st.branches[14] = branch14
 	st.cachedBranches[14] = cachedBranch14
+	st.numID[st.branches[14].ID()] = 14
 
 	cachedBranch15, _ := branchManager.Fork(BranchID{15}, []BranchID{aggrBranch11.ID()}, []ConflictID{{5}})
 	branch15 := cachedBranch15.Unwrap()
 	st.branches[15] = branch15
 	st.cachedBranches[15] = cachedBranch15
+	st.numID[st.branches[15].ID()] = 15
 
 	cachedAggrBranch16, err := branchManager.AggregateBranches(branch13.ID(), branch14.ID())
 	if err != nil {
@@ -110,6 +129,7 @@ func createSampleTree(branchManager *BranchManager) *sampleTree {
 	aggrBranch16 := cachedAggrBranch16.Unwrap()
 	st.branches[16] = aggrBranch16
 	st.cachedBranches[16] = cachedAggrBranch16
+	st.numID[st.branches[16].ID()] = 16
 	return st
 }
 
@@ -194,6 +214,42 @@ func TestGetAncestorBranches(t *testing.T) {
 	}
 }
 
+func TestIsAncestorOfBranch(t *testing.T) {
+	branchManager := New(mapdb.NewMapDB())
+
+	st := createSampleTree(branchManager)
+	defer st.Release()
+
+	type testcase struct {
+		ancestor   *Branch
+		descendent *Branch
+		is         bool
+	}
+
+	cases := []testcase{
+		{st.branches[2], st.branches[4], true},
+		{st.branches[4], st.branches[2], false},
+		{st.branches[3], st.branches[4], false},
+		{st.branches[3], st.branches[12], true},
+		{st.branches[3], st.branches[10], true},
+		{st.branches[3], st.branches[16], true},
+		{st.branches[1], st.branches[16], true},
+		{st.branches[11], st.branches[16], true},
+		{st.branches[9], st.branches[16], false},
+		{st.branches[6], st.branches[15], true},
+	}
+
+	for _, testCase := range cases {
+		isAncestor, err := branchManager.branchIsAncestorOfBranch(testCase.ancestor, testCase.descendent)
+		assert.NoError(t, err)
+		if testCase.is {
+			assert.True(t, isAncestor, "branch %d is an ancestor of branch %d", st.numID[testCase.ancestor.ID()], st.numID[testCase.descendent.ID()])
+			continue
+		}
+		assert.False(t, isAncestor, "branch %d is not an ancestor of branch %d", st.numID[testCase.ancestor.ID()], st.numID[testCase.descendent.ID()])
+	}
+}
+
 func TestFindDeepestCommonDescendants(t *testing.T) {
 	branchManager := New(mapdb.NewMapDB())
 
@@ -244,6 +300,9 @@ func TestFindDeepestCommonDescendants(t *testing.T) {
 
 	// breaks: should only be aggr. branch 11 which consists out of branch 6 and 8
 	{
+		fmt.Println("branch 6:", st.branches[6].ID())
+		fmt.Println("branch 8:", st.branches[8].ID())
+		fmt.Println("branch 11:", st.branches[11].ID())
 		deepestCommonDescendants, err := branchManager.findDeepestCommonDescendants(
 			st.branches[6].ID(), st.branches[8].ID(), st.branches[11].ID())
 		assert.NoError(t, err)
