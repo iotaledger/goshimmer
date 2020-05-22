@@ -1,8 +1,11 @@
 package valuetransfers
 
 import (
+	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tipmanager"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -42,6 +45,12 @@ var (
 
 	// log holds a reference to the logger used by this app.
 	log *logger.Logger
+
+	tipManager     *tipmanager.TipManager
+	tipManagerOnce sync.Once
+
+	valueObjectFactory     *tangle.ValueObjectFactory
+	valueObjectFactoryOnce sync.Once
 )
 
 func configure(_ *node.Plugin) {
@@ -52,6 +61,19 @@ func configure(_ *node.Plugin) {
 	Tangle = tangle.New(database.Store())
 	Tangle.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Error(err)
+	}))
+
+	// initialize tip manager and value object factory
+	tipManager = TipManager()
+	valueObjectFactory = ValueObjectFactory()
+
+	Tangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
+		cachedMetadata.Release()
+		cachedPayload.Consume(tipManager.AddTip)
+	}))
+	Tangle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
+		cachedMetadata.Release()
+		cachedPayload.Consume(tipManager.RemoveTip)
 	}))
 
 	// configure FCOB consensus rules
@@ -109,4 +131,20 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 	}
 
 	Tangle.AttachPayload(valuePayload)
+}
+
+// TipManager returns the TipManager singleton.
+func TipManager() *tipmanager.TipManager {
+	tipManagerOnce.Do(func() {
+		tipManager = tipmanager.New()
+	})
+	return tipManager
+}
+
+// ValueObjectFactory returns the ValueObjectFactory singleton.
+func ValueObjectFactory() *tangle.ValueObjectFactory {
+	valueObjectFactoryOnce.Do(func() {
+		valueObjectFactory = tangle.NewValueObjectFactory(TipManager())
+	})
+	return valueObjectFactory
 }
