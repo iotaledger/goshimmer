@@ -121,7 +121,7 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 		return
 	}
 
-	log.Info("Receive FPCTest Msg - ", fpcTestPayload.ID().String())
+	//log.Info("Receive FPCTest Msg - ", fpcTestPayload.ID().String())
 	FPCTangle.AttachPayload(fpcTestPayload)
 }
 
@@ -130,7 +130,7 @@ func onReceiveMessageFromFPCTest(cachedPayload *fpcTestPayload.CachedPayload, ca
 	defer cachedMetadata.Release()
 
 	id := cachedPayload.Unwrap().ID()
-	log.Info("Conflict detected - ", id)
+	//log.Info("Conflict detected - ", id)
 
 	var initialOpn vote.Opinion
 	switch cachedMetadata.Unwrap().IsLiked() {
@@ -140,7 +140,7 @@ func onReceiveMessageFromFPCTest(cachedPayload *fpcTestPayload.CachedPayload, ca
 		initialOpn = vote.Dislike
 	}
 
-	log.Infof("submitting %s with initial opinion %d", id, initialOpn)
+	//log.Infof("submitting %s with initial opinion %d", id, initialOpn)
 	if err := voter.Vote(id.String(), initialOpn); err != nil {
 		log.Error(err)
 	}

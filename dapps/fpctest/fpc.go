@@ -22,7 +22,6 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/stringify"
 	"google.golang.org/grpc"
 )
 
@@ -95,21 +94,21 @@ func configureFPC() {
 	voter.Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
 		peersQueried := len(roundStats.QueriedOpinions)
 		voteContextsCount := len(roundStats.ActiveVoteContexts)
-		var s string
-		for _, conflict := range roundStats.ActiveVoteContexts {
-			s += stringify.Struct("VoteContext",
-				stringify.StructField("ID", conflict.ID),
-				stringify.StructField("eta", fmt.Sprintf("%.4f", conflict.Liked)),
-				stringify.StructField("history", fmt.Sprintf("%v", conflict.Opinions)),
-				stringify.StructField("last opinion", fmt.Sprintf("%d", conflict.LastOpinion())),
-			)
-			s += fmt.Sprintf("\nOpinion received:\n")
-			for _, opinion := range roundStats.QueriedOpinions {
-				s += fmt.Sprintf("%v - %v\n", opinion.OpinionGiverID, opinion.Opinions[conflict.ID])
-			}
-		}
+		// var s string
+		// for _, conflict := range roundStats.ActiveVoteContexts {
+		// 	s += stringify.Struct("VoteContext",
+		// 		stringify.StructField("ID", conflict.ID),
+		// 		stringify.StructField("eta", fmt.Sprintf("%.4f", conflict.Liked)),
+		// 		stringify.StructField("history", fmt.Sprintf("%v", conflict.Opinions)),
+		// 		stringify.StructField("last opinion", fmt.Sprintf("%d", conflict.LastOpinion())),
+		// 	)
+		// 	// s += fmt.Sprintf("\nOpinion received:\n")
+		// 	// for _, opinion := range roundStats.QueriedOpinions {
+		// 	// 	s += fmt.Sprintf("%v - %v\n", opinion.OpinionGiverID, opinion.Opinions[conflict.ID])
+		// 	// }
+		// }
 
-		log.Infof("executed round with rand %0.4f for %d vote contexts on %d peers, took %v\n%s", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration, s)
+		log.Infof("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
 	}))
 }
 

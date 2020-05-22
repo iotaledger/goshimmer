@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -10,12 +11,11 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
-	"github.com/mr-tron/base58"
 )
 
 var (
 	fpcLiveFeedWorkerCount     = 1
-	fpcLiveFeedWorkerQueueSize = 50
+	fpcLiveFeedWorkerQueueSize = 200
 	fpcLiveFeedWorkerPool      *workerpool.WorkerPool
 
 	conflicts map[string]Conflict
@@ -49,7 +49,7 @@ func configureFPCLiveFeed() {
 
 func runFPCLiveFeed() {
 	daemon.BackgroundWorker("Analysis[FPCUpdater]", func(shutdownSignal <-chan struct{}) {
-		newMsgRateLimiter := time.NewTicker(time.Second / 10)
+		newMsgRateLimiter := time.NewTicker(time.Second / 100)
 		defer newMsgRateLimiter.Stop()
 
 		onFPCHeartbeatReceived := events.NewClosure(func(hb *packet.FPCHeartbeat) {
@@ -73,16 +73,19 @@ func runFPCLiveFeed() {
 
 func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCMsg {
 	update := make(map[string]Conflict)
-
+	conflictIds := ""
+	nodeID := fmt.Sprintf("%x", hb.OwnID[:8])
 	for ID, context := range hb.RoundStats.ActiveVoteContexts {
+		conflictIds += fmt.Sprintf("%s - ", ID)
 		update[ID] = newConflict()
-		nodeID := base58.Encode(hb.OwnID)
 		update[ID].NodesView[nodeID] = voteContext{
 			NodeID:   nodeID,
 			Rounds:   context.Rounds,
 			Opinions: vote.ConvertOpinionsToInts32(context.Opinions),
 		}
 	}
+
+	log.Infow("FPC-hb:", "nodeID", nodeID, "conflicts:", conflictIds)
 
 	return &FPCMsg{
 		ConflictSet: update,
