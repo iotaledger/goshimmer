@@ -8,18 +8,27 @@ import Container from "react-bootstrap/Container";
 interface Props {
     nodeStore?: NodeStore;
     fpcStore?: FPCStore;
+    match?: {
+        params: {
+            id: string,
+        }
+    }
 }
 
 @inject("nodeStore")
 @inject("fpcStore")
 @observer
-export default class FPC extends React.Component<Props, any> {
+export default class Conflict extends React.Component<Props, any> {
+    componentDidMount() {
+        this.props.fpcStore.updateCurrentConflict(this.props.match.params.id);
+    }
+
     render() {
-        let {conflictGrid} = this.props.fpcStore;
+        let {nodeGrid} = this.props.fpcStore;
         return (
             <Container>
                 <Row>
-                    {conflictGrid}
+                    {nodeGrid}
                 </Row>
             </Container>
         );
