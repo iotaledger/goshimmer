@@ -11,7 +11,7 @@ import (
 	badgerstore "github.com/iotaledger/hive.go/kvstore/badger"
 )
 
-const ValueLogGCDiscardRatio = 0.1
+const valueLogGCDiscardRatio = 0.1
 
 type badgerDB struct {
 	*badger.DB
@@ -65,7 +65,7 @@ func (db *badgerDB) RequiresGC() bool {
 }
 
 func (db *badgerDB) GC() error {
-	err := db.RunValueLogGC(ValueLogGCDiscardRatio)
+	err := db.RunValueLogGC(valueLogGCDiscardRatio)
 	if err != nil {
 		return err
 	}

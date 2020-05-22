@@ -42,8 +42,7 @@ func StoreRealm(realm kvstore.Realm) kvstore.KVStore {
 }
 
 func createStore() {
-	// assure that the logger is available
-	log := logger.NewLogger(PluginName)
+	log = logger.NewLogger(PluginName)
 
 	var err error
 	if config.Node.GetBool(CfgDatabaseInMemory) {
@@ -60,9 +59,10 @@ func createStore() {
 }
 
 func configure(_ *node.Plugin) {
-	log = logger.NewLogger(PluginName)
+	// assure that the store is initialized
+	store := Store()
 
-	err := checkDatabaseVersion(StoreRealm([]byte{prefix.DBPrefixDatabaseVersion}))
+	err := checkDatabaseVersion(store.WithRealm([]byte{prefix.DBPrefixDatabaseVersion}))
 	if errors.Is(err, ErrDBVersionIncompatible) {
 		log.Panicf("The database scheme was updated. Please delete the database folder.\n%s", err)
 	}
