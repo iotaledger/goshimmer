@@ -4,7 +4,7 @@ import (
 	"container/list"
 	"time"
 
-	"github.com/dgraph-io/badger/v2"
+	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
@@ -50,8 +50,8 @@ func missingMessageFactory(key []byte) (objectstorage.StorableObject, int, error
 }
 
 // New creates a new Tangle.
-func New(badgerInstance *badger.DB) (result *Tangle) {
-	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.MessageLayer)
+func New(store kvstore.KVStore) (result *Tangle) {
+	osFactory := objectstorage.NewFactory(store, storageprefix.MessageLayer)
 
 	result = &Tangle{
 		shutdown:               make(chan struct{}),

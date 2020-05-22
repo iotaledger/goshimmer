@@ -2,11 +2,16 @@
 package database
 
 import (
+	"errors"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/database/prefix"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
@@ -19,25 +24,77 @@ var (
 	// Plugin is the plugin instance of the database plugin.
 	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	log    *logger.Logger
+
+	db        *database.DB
+	store     kvstore.KVStore
+	storeOnce sync.Once
 )
+
+func Store() kvstore.KVStore {
+	storeOnce.Do(createStore)
+	return store
+}
+
+func StoreRealm(realm kvstore.Realm) kvstore.KVStore {
+	return Store().WithRealm(realm)
+}
+
+func createStore() {
+	// assure that the logger is available
+	log := logger.NewLogger(PluginName)
+
+	dbDir := config.Node.GetString(CfgDatabaseDir)
+
+	var err error
+	db, err = database.NewDB(dbDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	store = database.ConfigureStore(db)
+}
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
-	_ = database.GetBadgerInstance()
+	err := checkDatabaseVersion(StoreRealm([]byte{prefix.DBPrefixDatabaseVersion}))
+	if errors.Is(err, ErrDBVersionIncompatible) {
+		log.Panicf("The database scheme was updated. Please delete the database folder.\n%s", err)
+	}
+	if err != nil {
+		log.Panicf("Failed to check database version: %s", err)
+	}
+
+	// we open the database in the configure, so we must also make sure it's closed here
+	err = daemon.BackgroundWorker(PluginName, closeDB, shutdown.PriorityDatabase)
+	if err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
 }
 
 func run(_ *node.Plugin) {
-	daemon.BackgroundWorker(PluginName+"_GC", func(shutdownSignal <-chan struct{}) {
-		timeutil.Ticker(func() {
-			database.CleanupBadgerInstance(log)
-		}, 5*time.Minute, shutdownSignal)
-	}, shutdown.PriorityBadgerGarbageCollection)
+	if err := daemon.BackgroundWorker(PluginName+"[GC]", runGC, shutdown.PriorityBadgerGarbageCollection); err != nil {
+		log.Errorf("Failed to start as daemon: %s", err)
+	}
+}
 
-	daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
-		<-shutdownSignal
-		log.Infof("Syncing database to disk...")
-		database.GetBadgerInstance().Close()
-		log.Infof("Syncing database to disk... done")
-	}, shutdown.PriorityDatabase)
+func closeDB(shutdownSignal <-chan struct{}) {
+	<-shutdownSignal
+	log.Infof("Syncing database to disk...")
+	if err := db.Close(); err != nil {
+		log.Errorf("Failed to flush the database: %s", err)
+	}
+	log.Infof("Syncing database to disk... done")
+}
+
+func runGC(shutdownSignal <-chan struct{}) {
+	if !db.RequiresGC() {
+		return
+	}
+	// run the garbage collection with the given interval
+	timeutil.Ticker(func() {
+		if err := db.GC(); err != nil {
+			log.Warnf("Garbage collection failed: %s", err)
+		}
+	}, 5*time.Minute, shutdownSignal)
 }

@@ -2,92 +2,96 @@
 package database
 
 import (
-	"io/ioutil"
+	"fmt"
 	"os"
 	"runtime"
-	"sync"
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/options"
-	"github.com/iotaledger/hive.go/database"
-	"github.com/iotaledger/hive.go/logger"
-
-	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/hive.go/kvstore"
+	badgerstore "github.com/iotaledger/hive.go/kvstore/badger"
 )
 
-var (
-	instance       *badger.DB
-	once           sync.Once
-	ErrKeyNotFound = database.ErrKeyNotFound
-)
+const ValueLogGCDiscardRatio = 0.1
 
-type (
-	Database     = database.Database
-	Entry        = database.Entry
-	KeyOnlyEntry = database.KeyOnlyEntry
-	KeyPrefix    = database.KeyPrefix
-	Key          = database.Key
-	Value        = database.Value
-)
-
-func Get(dbPrefix byte, optionalBadger ...*badger.DB) (Database, error) {
-	return database.Get(dbPrefix, optionalBadger...)
+type DB struct {
+	*badger.DB
 }
 
-func GetBadgerInstance() *badger.DB {
-	once.Do(func() {
-		dbDir := config.Node.GetString(CFG_DIRECTORY)
+func ConfigureStore(db *DB) kvstore.KVStore {
+	store := badgerstore.New(db.DB)
 
-		var dbDirClear bool
-		// check whether the database is new, by checking whether any file exists within
-		// the database directory
-		fileInfos, err := ioutil.ReadDir(dbDir)
-		if err != nil {
-			// panic on other errors, for example permission related
-			if !os.IsNotExist(err) {
-				panic(err)
-			}
-			dbDirClear = true
-		}
-		if len(fileInfos) == 0 {
-			dbDirClear = true
-		}
-
-		opts := badger.DefaultOptions(dbDir)
-		opts.Logger = nil
-		if runtime.GOOS == "windows" {
-			opts = opts.WithTruncate(true)
-		}
-
-		opts.SyncWrites = false
-		opts.TableLoadingMode = options.MemoryMap
-		opts.ValueLogLoadingMode = options.MemoryMap
-		opts.CompactL0OnClose = false
-		opts.KeepL0InMemory = false
-		opts.VerifyValueChecksum = false
-		opts.ZSTDCompressionLevel = 1
-		opts.Compression = options.None
-		opts.MaxCacheSize = 50000000
-		opts.EventLogging = false
-
-		db, err := database.CreateDB(dbDir, opts)
-		if err != nil {
-			// errors should cause a panic to avoid singleton deadlocks
-			panic(err)
-		}
-		instance = db
-
-		// up on the first caller, check whether the version of the database is compatible
-		checkDatabaseVersion(dbDirClear)
-	})
-	return instance
+	return store
 }
 
-func CleanupBadgerInstance(log *logger.Logger) {
-	db := GetBadgerInstance()
-	log.Info("Running Badger database garbage collection")
-	var err error
-	for err == nil {
-		err = db.RunValueLogGC(0.7)
+func NewDB(dirname string) (*DB, error) {
+	// assure that the directory exists
+	err := createDir(dirname)
+	if err != nil {
+		return nil, fmt.Errorf("could not create DB directory: %w", err)
 	}
+
+	opts := badger.DefaultOptions(dirname)
+
+	opts.Logger = nil
+	opts.SyncWrites = false
+	opts.TableLoadingMode = options.MemoryMap
+	opts.ValueLogLoadingMode = options.MemoryMap
+	opts.CompactL0OnClose = false
+	opts.KeepL0InMemory = false
+	opts.VerifyValueChecksum = false
+	opts.ZSTDCompressionLevel = 1
+	opts.Compression = options.None
+	opts.MaxCacheSize = 50000000
+	opts.EventLogging = false
+
+	if runtime.GOOS == "windows" {
+		opts = opts.WithTruncate(true)
+	}
+
+	db, err := badger.Open(opts)
+	if err != nil {
+		return nil, fmt.Errorf("could not open DB: %w", err)
+	}
+
+	return &DB{DB: db}, nil
+}
+
+// Close closes a DB. It's crucial to call it to ensure all the pending updates make their way to disk.
+func (db *DB) Close() error {
+	return db.DB.Close()
+}
+
+func (db *DB) RequiresGC() bool {
+	return true
+}
+
+func (db *DB) GC() error {
+	err := db.RunValueLogGC(ValueLogGCDiscardRatio)
+	if err != nil {
+		return err
+	}
+	// trigger the go garbage collector to release the used memory
+	runtime.GC()
+	return nil
+}
+
+// Returns whether the given file or directory exists.
+func exists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+func createDir(dirname string) error {
+	exists, err := exists(dirname)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return os.Mkdir(dirname, 0700)
+	}
+	return nil
 }
