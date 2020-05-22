@@ -5,11 +5,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagefactory"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/testutil"
 )
 
 func TestMessage_StorableObjectFromKey(t *testing.T) {
@@ -28,7 +32,10 @@ func TestMessage_StorableObjectFromKey(t *testing.T) {
 }
 
 func TestMessage_MarshalUnmarshal(t *testing.T) {
-	testMessage := testutil.MessageFactory(t).IssuePayload(payload.NewData([]byte("sth")))
+	msgFactory := messagefactory.New(mapdb.NewMapDB(), identity.GenerateLocalIdentity(), tipselector.New(), []byte(messagelayer.DBSequenceNumber))
+	defer msgFactory.Shutdown()
+
+	testMessage := msgFactory.IssuePayload(payload.NewData([]byte("sth")))
 	assert.Equal(t, true, testMessage.VerifySignature())
 
 	fmt.Print(testMessage)
