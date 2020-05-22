@@ -2,6 +2,7 @@ package transaction
 
 import (
 	"bytes"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/magiconair/properties/assert"
