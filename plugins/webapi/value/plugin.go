@@ -3,6 +3,7 @@ package value
 import (
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/attachments"
+	"github.com/iotaledger/goshimmer/plugins/webapi/value/unspentoutputs"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -16,4 +17,5 @@ var (
 
 func configure(_ *node.Plugin) {
 	webapi.Server.GET("value/attachments", attachments.Handler)
+	webapi.Server.POST("value/unspentOutputs", unspentoutputs.Handler)
 }
