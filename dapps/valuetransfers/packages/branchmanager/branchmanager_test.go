@@ -1,26 +1,11 @@
 package branchmanager
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/binary/testutil"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestSomething(t *testing.T) {
-	branchManager := New(testutil.DB(t))
-
-	cachedBranch1, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{{4}})
-	defer cachedBranch1.Release()
-	_ = cachedBranch1.Unwrap()
-
-	cachedBranch2, _ := branchManager.Fork(BranchID{3}, []BranchID{MasterBranchID}, []ConflictID{{4}})
-	defer cachedBranch2.Release()
-	branch2 := cachedBranch2.Unwrap()
-
-	fmt.Println(branchManager.BranchesConflicting(MasterBranchID, branch2.ID()))
-}
 
 func TestBranchManager_ConflictMembers(t *testing.T) {
 	branchManager := New(testutil.DB(t))
@@ -633,7 +618,7 @@ func TestBranchManager_SetBranchPreferred2(t *testing.T) {
 
 	// now lets assume FPC finalized on branch 2, 6 and 4 to be preferred.
 	// branches 2 and 6 are already preferred but 4 is newly preferred. Branch 4 therefore
-	// should also become liked, since 2 of which it spawns off is liked too.
+	// should also become liked, since branch 2 of which it spawns off is liked too.
 
 	// simulate branch 3 being not preferred from FPC vote
 	modified, err = branchManager.SetBranchPreferred(branch3.ID(), false)
