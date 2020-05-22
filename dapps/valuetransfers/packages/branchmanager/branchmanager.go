@@ -830,8 +830,6 @@ func (branchManager *BranchManager) findDeepestCommonDescendants(branches ...Bra
 					cachedAggregatedBranch.Release()
 
 					result[branchID] = cachedBranch
-
-					return nil
 				}
 			}
 
