@@ -7,6 +7,286 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type sampleTree struct {
+	cachedBranches [17]*CachedBranch
+	branches       [17]*Branch
+}
+
+func (st *sampleTree) Release() {
+	for i := range st.cachedBranches {
+		if st.cachedBranches[i] == nil {
+			continue
+		}
+		st.cachedBranches[i].Release()
+	}
+}
+
+func createSampleTree(branchManager *BranchManager) *sampleTree {
+	st := &sampleTree{}
+	cachedMasterBranch := branchManager.Branch(MasterBranchID)
+	st.cachedBranches[1] = cachedMasterBranch
+	st.branches[1] = cachedMasterBranch.Unwrap()
+
+	cachedBranch2, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{{0}})
+	branch2 := cachedBranch2.Unwrap()
+	st.branches[2] = branch2
+	st.cachedBranches[2] = cachedBranch2
+
+	cachedBranch3, _ := branchManager.Fork(BranchID{3}, []BranchID{MasterBranchID}, []ConflictID{{0}})
+	branch3 := cachedBranch3.Unwrap()
+	st.branches[3] = branch3
+	st.cachedBranches[3] = cachedBranch3
+
+	cachedBranch4, _ := branchManager.Fork(BranchID{4}, []BranchID{branch2.ID()}, []ConflictID{{1}})
+	branch4 := cachedBranch4.Unwrap()
+	st.branches[4] = branch4
+	st.cachedBranches[4] = cachedBranch4
+
+	cachedBranch5, _ := branchManager.Fork(BranchID{5}, []BranchID{branch2.ID()}, []ConflictID{{1}})
+	branch5 := cachedBranch5.Unwrap()
+	st.branches[5] = branch5
+	st.cachedBranches[5] = cachedBranch5
+
+	cachedBranch6, _ := branchManager.Fork(BranchID{6}, []BranchID{MasterBranchID}, []ConflictID{{2}})
+	branch6 := cachedBranch6.Unwrap()
+	st.branches[6] = branch6
+	st.cachedBranches[6] = cachedBranch6
+
+	cachedBranch7, _ := branchManager.Fork(BranchID{7}, []BranchID{MasterBranchID}, []ConflictID{{2}})
+	branch7 := cachedBranch7.Unwrap()
+	st.branches[7] = branch7
+	st.cachedBranches[7] = cachedBranch7
+
+	cachedBranch8, _ := branchManager.Fork(BranchID{8}, []BranchID{MasterBranchID}, []ConflictID{{3}})
+	branch8 := cachedBranch8.Unwrap()
+	st.branches[8] = branch8
+	st.cachedBranches[8] = cachedBranch8
+
+	cachedBranch9, _ := branchManager.Fork(BranchID{9}, []BranchID{MasterBranchID}, []ConflictID{{3}})
+	branch9 := cachedBranch9.Unwrap()
+	st.branches[9] = branch9
+	st.cachedBranches[9] = cachedBranch9
+
+	cachedAggrBranch10, err := branchManager.AggregateBranches(branch3.ID(), branch6.ID())
+	if err != nil {
+		panic(err)
+	}
+	aggrBranch10 := cachedAggrBranch10.Unwrap()
+	st.branches[10] = aggrBranch10
+	st.cachedBranches[10] = cachedAggrBranch10
+
+	cachedAggrBranch11, err := branchManager.AggregateBranches(branch6.ID(), branch8.ID())
+	if err != nil {
+		panic(err)
+	}
+	aggrBranch11 := cachedAggrBranch11.Unwrap()
+	st.branches[11] = aggrBranch11
+	st.cachedBranches[11] = cachedAggrBranch11
+
+	cachedBranch12, _ := branchManager.Fork(BranchID{12}, []BranchID{aggrBranch10.ID()}, []ConflictID{{4}})
+	branch12 := cachedBranch12.Unwrap()
+	st.branches[12] = branch12
+	st.cachedBranches[12] = cachedBranch12
+
+	cachedBranch13, _ := branchManager.Fork(BranchID{13}, []BranchID{aggrBranch10.ID()}, []ConflictID{{4}})
+	branch13 := cachedBranch13.Unwrap()
+	st.branches[13] = branch13
+	st.cachedBranches[13] = cachedBranch13
+
+	cachedBranch14, _ := branchManager.Fork(BranchID{14}, []BranchID{aggrBranch11.ID()}, []ConflictID{{5}})
+	branch14 := cachedBranch14.Unwrap()
+	st.branches[14] = branch14
+	st.cachedBranches[14] = cachedBranch14
+
+	cachedBranch15, _ := branchManager.Fork(BranchID{15}, []BranchID{aggrBranch11.ID()}, []ConflictID{{5}})
+	branch15 := cachedBranch15.Unwrap()
+	st.branches[15] = branch15
+	st.cachedBranches[15] = cachedBranch15
+
+	cachedAggrBranch16, err := branchManager.AggregateBranches(branch13.ID(), branch14.ID())
+	if err != nil {
+		panic(err)
+	}
+	aggrBranch16 := cachedAggrBranch16.Unwrap()
+	st.branches[16] = aggrBranch16
+	st.cachedBranches[16] = cachedAggrBranch16
+	return st
+}
+
+func TestGetAncestorBranches(t *testing.T) {
+	branchManager := New(mapdb.NewMapDB())
+
+	st := createSampleTree(branchManager)
+	defer st.Release()
+
+	{
+		masterBranch := branchManager.Branch(MasterBranchID)
+		assert.NotNil(t, masterBranch)
+		ancestorBranches, err := branchManager.getAncestorBranches(masterBranch.Unwrap())
+		assert.NoError(t, err)
+
+		expectedAncestors := map[BranchID]struct{}{}
+		actualAncestors := map[BranchID]struct{}{}
+		ancestorBranches.Consume(func(branch *Branch) {
+			actualAncestors[branch.ID()] = struct{}{}
+		})
+		assert.Equal(t, expectedAncestors, actualAncestors)
+	}
+
+	{
+		ancestorBranches, err := branchManager.getAncestorBranches(st.branches[4])
+		assert.NoError(t, err)
+
+		expectedAncestors := map[BranchID]struct{}{
+			st.branches[2].ID(): {}, MasterBranchID: {},
+		}
+		actualAncestors := map[BranchID]struct{}{}
+		ancestorBranches.Consume(func(branch *Branch) {
+			actualAncestors[branch.ID()] = struct{}{}
+		})
+		assert.Equal(t, expectedAncestors, actualAncestors)
+	}
+
+	{
+		ancestorBranches, err := branchManager.getAncestorBranches(st.branches[16])
+		assert.NoError(t, err)
+
+		expectedAncestors := map[BranchID]struct{}{
+			st.branches[13].ID(): {}, st.branches[14].ID(): {},
+			st.branches[10].ID(): {}, st.branches[11].ID(): {},
+			st.branches[3].ID(): {}, st.branches[6].ID(): {}, st.branches[8].ID(): {},
+			MasterBranchID: {},
+		}
+		actualAncestors := map[BranchID]struct{}{}
+		ancestorBranches.Consume(func(branch *Branch) {
+			actualAncestors[branch.ID()] = struct{}{}
+		})
+		assert.Equal(t, expectedAncestors, actualAncestors)
+	}
+
+	{
+		ancestorBranches, err := branchManager.getAncestorBranches(st.branches[12])
+		assert.NoError(t, err)
+
+		expectedAncestors := map[BranchID]struct{}{
+			st.branches[10].ID(): {}, st.branches[3].ID(): {},
+			st.branches[6].ID(): {}, MasterBranchID: {},
+		}
+		actualAncestors := map[BranchID]struct{}{}
+		ancestorBranches.Consume(func(branch *Branch) {
+			actualAncestors[branch.ID()] = struct{}{}
+		})
+		assert.Equal(t, expectedAncestors, actualAncestors)
+	}
+
+	{
+		ancestorBranches, err := branchManager.getAncestorBranches(st.branches[11])
+		assert.NoError(t, err)
+
+		expectedAncestors := map[BranchID]struct{}{
+			st.branches[8].ID(): {}, st.branches[6].ID(): {}, MasterBranchID: {},
+		}
+		actualAncestors := map[BranchID]struct{}{}
+		ancestorBranches.Consume(func(branch *Branch) {
+			actualAncestors[branch.ID()] = struct{}{}
+		})
+		assert.Equal(t, expectedAncestors, actualAncestors)
+	}
+}
+
+func TestFindDeepestCommonDescendants(t *testing.T) {
+	branchManager := New(mapdb.NewMapDB())
+
+	st := createSampleTree(branchManager)
+	defer st.Release()
+
+	{
+		deepestCommonDescendants, err := branchManager.findDeepestCommonDescendants(MasterBranchID, st.branches[2].ID())
+		assert.NoError(t, err)
+
+		expectedDeepestCommonDescendants := map[BranchID]struct{}{
+			st.branches[2].ID(): {},
+		}
+		actualDeepestCommonDescendants := map[BranchID]struct{}{}
+		deepestCommonDescendants.Consume(func(branch *Branch) {
+			actualDeepestCommonDescendants[branch.ID()] = struct{}{}
+		})
+		assert.Equal(t, expectedDeepestCommonDescendants, actualDeepestCommonDescendants)
+	}
+
+	{
+		deepestCommonDescendants, err := branchManager.findDeepestCommonDescendants(st.branches[2].ID(), st.branches[3].ID())
+		assert.NoError(t, err)
+
+		expectedDeepestCommonDescendants := map[BranchID]struct{}{
+			st.branches[2].ID(): {}, st.branches[3].ID(): {},
+		}
+		actualDeepestCommonDescendants := map[BranchID]struct{}{}
+		deepestCommonDescendants.Consume(func(branch *Branch) {
+			actualDeepestCommonDescendants[branch.ID()] = struct{}{}
+		})
+		assert.Equal(t, expectedDeepestCommonDescendants, actualDeepestCommonDescendants)
+	}
+
+	{
+		deepestCommonDescendants, err := branchManager.findDeepestCommonDescendants(st.branches[2].ID(), st.branches[4].ID(), st.branches[5].ID())
+		assert.NoError(t, err)
+
+		expectedDeepestCommonDescendants := map[BranchID]struct{}{
+			st.branches[4].ID(): {}, st.branches[5].ID(): {},
+		}
+		actualDeepestCommonDescendants := map[BranchID]struct{}{}
+		deepestCommonDescendants.Consume(func(branch *Branch) {
+			actualDeepestCommonDescendants[branch.ID()] = struct{}{}
+		})
+		assert.Equal(t, expectedDeepestCommonDescendants, actualDeepestCommonDescendants)
+	}
+
+	// breaks: should only be aggr. branch 11 which consists out of branch 6 and 8
+	{
+		deepestCommonDescendants, err := branchManager.findDeepestCommonDescendants(
+			st.branches[6].ID(), st.branches[8].ID(), st.branches[11].ID())
+		assert.NoError(t, err)
+
+		expectedDeepestCommonDescendants := map[BranchID]struct{}{
+			st.branches[11].ID(): {},
+		}
+		actualDeepestCommonDescendants := map[BranchID]struct{}{}
+		deepestCommonDescendants.Consume(func(branch *Branch) {
+			actualDeepestCommonDescendants[branch.ID()] = struct{}{}
+		})
+		assert.Equal(t, expectedDeepestCommonDescendants, actualDeepestCommonDescendants)
+	}
+
+	//fmt.Println("branch 6:", branch6.ID())
+	//fmt.Println("branch 8:", branch8.ID())
+	//fmt.Println("aggr. branch 10:", aggrBranch10.ID())
+	//fmt.Println("aggr. branch 11:", aggrBranch11.ID())
+	//fmt.Println("branch 12:", branch12.ID())
+	//fmt.Println("branch 13:", branch13.ID())
+	//fmt.Println("branch 14:", branch14.ID())
+	//fmt.Println("branch 15:", branch15.ID())
+	//fmt.Println("aggr. branch 16:", aggrBranch16.ID())
+
+	// breaks: thinks that branch 13 is one of the deepest common descendants
+	{
+		deepestCommonDescendants, err := branchManager.findDeepestCommonDescendants(
+			st.branches[6].ID(), st.branches[8].ID(), st.branches[10].ID(), st.branches[11].ID(),
+			st.branches[12].ID(), st.branches[15].ID(), st.branches[14].ID(), st.branches[13].ID(),
+			st.branches[16].ID())
+		assert.NoError(t, err)
+
+		expectedDeepestCommonDescendants := map[BranchID]struct{}{
+			st.branches[12].ID(): {}, st.branches[15].ID(): {}, st.branches[16].ID(): {},
+		}
+		actualDeepestCommonDescendants := map[BranchID]struct{}{}
+		deepestCommonDescendants.Consume(func(branch *Branch) {
+			actualDeepestCommonDescendants[branch.ID()] = struct{}{}
+		})
+		assert.Equal(t, expectedDeepestCommonDescendants, actualDeepestCommonDescendants)
+	}
+}
+
 func TestBranchManager_ConflictMembers(t *testing.T) {
 	branchManager := New(mapdb.NewMapDB())
 
