@@ -3,11 +3,12 @@ package transaction
 import (
 	"bytes"
 
+	"testing"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/magiconair/properties/assert"
 	"golang.org/x/crypto/blake2b"
-	"testing"
 )
 
 func TestOutputs(t *testing.T) {
