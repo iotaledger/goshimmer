@@ -82,5 +82,7 @@ func (id ID) String() string {
 	return base58.Encode(id[:])
 }
 
+var GenesisID ID
+
 // IDLength contains the amount of bytes that a marshaled version of the ID contains.
 const IDLength = 32

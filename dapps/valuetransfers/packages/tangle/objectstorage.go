@@ -1,9 +1,12 @@
 package tangle
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/objectstorage"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 )
 
 const (
@@ -15,6 +18,18 @@ const (
 	osPayloadMetadata
 	osMissingPayload
 	osApprover
+	osTransaction
+	osTransactionMetadata
+	osAttachment
+	osOutput
+	osConsumer
+)
+
+var (
+	osLeakDetectionOption = objectstorage.LeakDetectionEnabled(true, objectstorage.LeakDetectionOptions{
+		MaxConsumersPerObject: 10,
+		MaxConsumerHoldTime:   10 * time.Second,
+	})
 )
 
 func osPayloadFactory(key []byte) (objectstorage.StorableObject, int, error) {
@@ -31,4 +46,24 @@ func osMissingPayloadFactory(key []byte) (objectstorage.StorableObject, int, err
 
 func osPayloadApproverFactory(key []byte) (objectstorage.StorableObject, int, error) {
 	return PayloadApproverFromStorageKey(key)
+}
+
+func osTransactionFactory(key []byte) (objectstorage.StorableObject, int, error) {
+	return transaction.FromStorageKey(key)
+}
+
+func osTransactionMetadataFactory(key []byte) (objectstorage.StorableObject, int, error) {
+	return TransactionMetadataFromStorageKey(key)
+}
+
+func osAttachmentFactory(key []byte) (objectstorage.StorableObject, int, error) {
+	return AttachmentFromStorageKey(key)
+}
+
+func osOutputFactory(key []byte) (objectstorage.StorableObject, int, error) {
+	return OutputFromStorageKey(key)
+}
+
+func osConsumerFactory(key []byte) (objectstorage.StorableObject, int, error) {
+	return ConsumerFromStorageKey(key)
 }

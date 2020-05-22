@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 )
 
@@ -19,9 +20,11 @@ type PayloadMetadata struct {
 	payloadID          payload.ID
 	solid              bool
 	solidificationTime time.Time
+	branchID           branchmanager.BranchID
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
+	branchIDMutex           sync.RWMutex
 }
 
 // NewPayloadMetadata creates an empty container for the metadata of a value transfer payload.
@@ -136,9 +139,41 @@ func (payloadMetadata *PayloadMetadata) SoldificationTime() time.Time {
 	return payloadMetadata.solidificationTime
 }
 
+// BranchID returns the identifier of the Branch that this Payload was booked into.
+func (payloadMetadata *PayloadMetadata) BranchID() branchmanager.BranchID {
+	payloadMetadata.branchIDMutex.RLock()
+	defer payloadMetadata.branchIDMutex.RUnlock()
+
+	return payloadMetadata.branchID
+}
+
+// SetBranchID is the setter for the BranchID that the corresponding Payload is booked into.
+func (payloadMetadata *PayloadMetadata) SetBranchID(branchID branchmanager.BranchID) (modified bool) {
+	payloadMetadata.branchIDMutex.RLock()
+	if branchID == payloadMetadata.branchID {
+		payloadMetadata.branchIDMutex.RUnlock()
+
+		return
+	}
+
+	payloadMetadata.branchIDMutex.RUnlock()
+	payloadMetadata.branchIDMutex.Lock()
+	defer payloadMetadata.branchIDMutex.Unlock()
+
+	if branchID == payloadMetadata.branchID {
+		return
+	}
+
+	payloadMetadata.branchID = branchID
+	payloadMetadata.SetModified()
+	modified = true
+
+	return
+}
+
 // Bytes marshals the metadata into a sequence of bytes.
 func (payloadMetadata *PayloadMetadata) Bytes() []byte {
-	return marshalutil.New(payload.IDLength + marshalutil.TIME_SIZE + marshalutil.BOOL_SIZE).
+	return marshalutil.New(payload.IDLength + marshalutil.TIME_SIZE + marshalutil.BOOL_SIZE + branchmanager.BranchIDLength).
 		WriteBytes(payloadMetadata.ObjectStorageKey()).
 		WriteBytes(payloadMetadata.ObjectStorageValue()).
 		Bytes()
@@ -170,6 +205,7 @@ func (payloadMetadata *PayloadMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New(marshalutil.TIME_SIZE + marshalutil.BOOL_SIZE).
 		WriteTime(payloadMetadata.solidificationTime).
 		WriteBool(payloadMetadata.solid).
+		WriteBytes(payloadMetadata.branchID.Bytes()).
 		Bytes()
 }
 
@@ -180,6 +216,9 @@ func (payloadMetadata *PayloadMetadata) UnmarshalObjectStorageValue(data []byte)
 		return
 	}
 	if payloadMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if payloadMetadata.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
