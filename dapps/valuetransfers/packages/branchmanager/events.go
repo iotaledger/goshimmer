@@ -18,3 +18,7 @@ type Events struct {
 	// BranchLiked gets triggered whenever a Branch becomes preferred that was not preferred before.
 	BranchDisliked *events.Event
 }
+
+func branchCaller(handler interface{}, params ...interface{}) {
+	handler.(func(branch *CachedBranch))(params[0].(*CachedBranch).Retain())
+}
