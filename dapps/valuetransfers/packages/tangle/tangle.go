@@ -63,27 +63,36 @@ func New(store kvstore.KVStore) (result *Tangle) {
 	}
 
 	result.branchManager.Events.BranchPreferred.Attach(events.NewClosure(func(cachedBranch *branchmanager.CachedBranch) {
-		cachedBranch.Consume(func(branch *branchmanager.Branch) {
-			if !branch.IsAggregated() {
-				transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
-				if err != nil {
-					// this should never ever happen so we panic
-					panic(err)
-
-					return
-				}
-
-				_, err = result.SetTransactionPreferred(transactionID, true)
-				if err != nil {
-					result.Events.Error.Trigger(err)
-
-					return
-				}
-			}
-		})
+		result.propagateBranchPreferredChangesToTransaction(cachedBranch, true)
+	}))
+	result.branchManager.Events.BranchUnpreferred.Attach(events.NewClosure(func(cachedBranch *branchmanager.CachedBranch) {
+		result.propagateBranchPreferredChangesToTransaction(cachedBranch, false)
 	}))
 
 	return
+}
+
+// propagateBranchPreferredChangesToTransaction updates the preferred flag of a transaction, whenever the preferred
+// status of its corresponding branch changes.
+func (tangle *Tangle) propagateBranchPreferredChangesToTransaction(cachedBranch *branchmanager.CachedBranch, preferred bool) {
+	cachedBranch.Consume(func(branch *branchmanager.Branch) {
+		if !branch.IsAggregated() {
+			transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
+			if err != nil {
+				// this should never ever happen so we panic
+				panic(err)
+
+				return
+			}
+
+			_, err = tangle.SetTransactionPreferred(transactionID, preferred)
+			if err != nil {
+				tangle.Events.Error.Trigger(err)
+
+				return
+			}
+		}
+	})
 }
 
 // BranchManager is the getter for the manager that takes care of creating and updating branches.
@@ -428,7 +437,7 @@ func (tangle *Tangle) storePayloadReferences(payload *payload.Payload) {
 
 	// store branch approver
 	if branchID := payload.BranchID(); branchID != trunkID {
-		tangle.approverStorage.Store(NewPayloadApprover(branchID, trunkID)).Release()
+		tangle.approverStorage.Store(NewPayloadApprover(branchID, payload.ID())).Release()
 	}
 }
 
