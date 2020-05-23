@@ -352,6 +352,8 @@ func (tangle *Tangle) AttachPayloadSync(payloadToStore *payload.Payload) {
 	cachedTransaction, cachedTransactionMetadata, cachedAttachment, transactionIsNew := tangle.storeTransactionModels(payloadToStore)
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
+	// TODO: this should never be nil since we check whether we stored the payload already before,
+	// thus we shouldn't process the same payload again.
 	if cachedAttachment == nil {
 		return
 	}
@@ -375,12 +377,12 @@ func (tangle *Tangle) AttachPayloadSync(payloadToStore *payload.Payload) {
 }
 
 func (tangle *Tangle) storePayload(payloadToStore *payload.Payload) (cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata, payloadStored bool) {
-	storedTransaction, transactionIsNew := tangle.payloadStorage.StoreIfAbsent(payloadToStore)
-	if !transactionIsNew {
+	storedPayload, newPayload := tangle.payloadStorage.StoreIfAbsent(payloadToStore)
+	if !newPayload {
 		return
 	}
 
-	cachedPayload = &payload.CachedPayload{CachedObject: storedTransaction}
+	cachedPayload = &payload.CachedPayload{CachedObject: storedPayload}
 	cachedMetadata = &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(NewPayloadMetadata(payloadToStore.ID()))}
 	payloadStored = true
 
@@ -428,7 +430,7 @@ func (tangle *Tangle) storePayloadReferences(payload *payload.Payload) {
 
 	// store branch approver
 	if branchID := payload.BranchID(); branchID != trunkID {
-		tangle.approverStorage.Store(NewPayloadApprover(branchID, trunkID)).Release()
+		tangle.approverStorage.Store(NewPayloadApprover(branchID, payload.ID())).Release()
 	}
 }
 
