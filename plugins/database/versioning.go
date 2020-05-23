@@ -14,6 +14,7 @@ const (
 )
 
 var (
+	// ErrDBVersionIncompatible is returned when the database has an unexpected version.
 	ErrDBVersionIncompatible = errors.New("database version is not compatible. please delete your database folder and restart")
 	// the key under which the database is stored
 	dbVersionKey = []byte{0}
