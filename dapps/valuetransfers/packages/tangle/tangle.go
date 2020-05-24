@@ -997,7 +997,7 @@ func (tangle *Tangle) checkTransactionOutputs(inputBalances map[balance.Color]in
 				continue
 			}
 
-			// sidestep logic if we have a newly colored output (we check the supply later)
+			// sidestep logic if we have ColorIOTA
 			if outputBalance.Color() == balance.ColorIOTA {
 				// catch overflows
 				if uncoloredCoins > math.MaxInt64-outputBalance.Value() {

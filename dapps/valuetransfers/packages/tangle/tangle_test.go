@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"math"
 	"testing"
 
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -183,6 +184,281 @@ func TestStorePayloadReferences(t *testing.T) {
 			assert.Equal(t, parent2, approver.referencedPayloadID)
 			assert.Contains(t, valueObjectIDs, approver.ApprovingPayloadID())
 		})
+	}
+}
+
+// TestCheckTransactionOutputs checks whether inputs and outputs are correctly reconciled.
+func TestCheckTransactionOutputs(t *testing.T) {
+	tangle := New(mapdb.NewMapDB())
+
+	// test happy cases with ColorIOTA
+	{
+		consumedBalances := make(map[balance.Color]int64)
+		consumedBalances[balance.ColorIOTA] = 1000
+
+		outputs := transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1000),
+			},
+		})
+		assert.True(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+	}
+	{
+		consumedBalances := make(map[balance.Color]int64)
+		consumedBalances[balance.ColorIOTA] = math.MaxInt64
+
+		outputs := transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, math.MaxInt64),
+			},
+		})
+		assert.True(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+	}
+	{
+		consumedBalances := make(map[balance.Color]int64)
+		consumedBalances[balance.ColorIOTA] = 25123
+
+		outputs := transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 122),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 5000),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 20000),
+			},
+		})
+		assert.True(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+	}
+
+	// test wrong balances
+	{
+		consumedBalances := make(map[balance.Color]int64)
+		consumedBalances[balance.ColorIOTA] = 1000
+
+		outputs := transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 122),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 5000),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 20000),
+			},
+		})
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+	}
+
+	// test input overflow
+	{
+		consumedBalances := make(map[balance.Color]int64)
+		consumedBalances[balance.ColorIOTA] = math.MaxInt64
+		consumedBalances[[32]byte{1}] = 1
+
+		outputs := transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1000),
+			},
+		})
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+	}
+
+	// 0, negative outputs and overflows
+	{
+		consumedBalances := make(map[balance.Color]int64)
+		//consumedBalances[balance.ColorIOTA] = 1000
+
+		outputs := transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, -1),
+			},
+		})
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+
+		outputs = transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 0),
+			},
+		})
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+
+		outputs = transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, math.MaxInt64),
+			},
+		})
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+	}
+
+	// test happy cases with ColorNew
+	{
+		consumedBalances := make(map[balance.Color]int64)
+		consumedBalances[balance.ColorIOTA] = 1000
+
+		outputs := transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorNew, 333),
+			},
+			address.Random(): {
+				balance.New(balance.ColorNew, 333),
+			},
+			address.Random(): {
+				balance.New(balance.ColorNew, 334),
+			},
+		})
+		assert.True(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+	}
+
+	// test wrong balances
+	{
+		consumedBalances := make(map[balance.Color]int64)
+		consumedBalances[balance.ColorIOTA] = 1000
+
+		outputs := transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorNew, 122),
+			},
+			address.Random(): {
+				balance.New(balance.ColorNew, 1),
+			},
+		})
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+	}
+
+	// 0, negative outputs and overflows
+	{
+		consumedBalances := make(map[balance.Color]int64)
+		//consumedBalances[balance.ColorIOTA] = 1000
+
+		outputs := transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorNew, -1),
+			},
+		})
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+
+		outputs = transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorNew, 0),
+			},
+		})
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+
+		outputs = transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorNew, 1),
+			},
+			address.Random(): {
+				balance.New(balance.ColorNew, math.MaxInt64),
+			},
+		})
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+	}
+
+	// test happy case with colors
+	{
+		color1 := [32]byte{1}
+		color2 := [32]byte{2}
+
+		consumedBalances := make(map[balance.Color]int64)
+		consumedBalances[color1] = 1000
+		consumedBalances[color2] = 25123
+
+		outputs := transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(color1, 333),
+			},
+			address.Random(): {
+				balance.New(color1, 333),
+			},
+			address.Random(): {
+				balance.New(color1, 334),
+			},
+			address.Random(): {
+				balance.New(color2, 25000),
+			},
+			address.Random(): {
+				balance.New(color2, 123),
+			},
+		})
+		assert.True(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+	}
+
+	// try to spend color that is not in inputs
+	{
+		color1 := [32]byte{1}
+		color2 := [32]byte{2}
+
+		consumedBalances := make(map[balance.Color]int64)
+		consumedBalances[color1] = 1000
+
+		outputs := transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(color1, 333),
+			},
+			address.Random(): {
+				balance.New(color1, 333),
+			},
+			address.Random(): {
+				balance.New(color1, 334),
+			},
+			address.Random(): {
+				balance.New(color2, 25000),
+			},
+		})
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+	}
+
+	// try to spend more than in inputs of color
+	{
+		color1 := [32]byte{1}
+
+		consumedBalances := make(map[balance.Color]int64)
+		consumedBalances[color1] = 1000
+
+		outputs := transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(color1, math.MaxInt64),
+			},
+			address.Random(): {
+				balance.New(color1, math.MaxInt64),
+			},
+		})
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+	}
+
+	// combine unspent colors and colors
+	{
+		color1 := [32]byte{1}
+		color2 := [32]byte{2}
+
+		consumedBalances := make(map[balance.Color]int64)
+		consumedBalances[color1] = 1000
+		consumedBalances[color2] = 1000
+		consumedBalances[balance.ColorIOTA] = 1000
+
+		outputs := transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(color1, 1000),
+				balance.New(color2, 500),
+				balance.New(balance.ColorNew, 500),
+			},
+			address.Random(): {
+				balance.New(balance.ColorNew, 1000),
+			},
+		})
+		assert.True(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 	}
 }
 
