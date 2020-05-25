@@ -2,17 +2,18 @@ package client
 
 import (
 	"net/http"
+    "fmt"
 
 	webapi_attachments "github.com/iotaledger/goshimmer/plugins/webapi/value/attachments"
 	webapi_gettxn "github.com/iotaledger/goshimmer/plugins/webapi/value/gettransactionbyid"
-	webapi_sendtxn "github.com/iotaledger/goshimmer/plugins/webapi/value/sendtransaction"
+	//webapi_sendtxn "github.com/iotaledger/goshimmer/plugins/webapi/value/sendtransaction"
 	webapi_unspentoutputs "github.com/iotaledger/goshimmer/plugins/webapi/value/unspentoutputs"
 )
 
 const (
 	routeAttachments    = "value/attachments"
 	routeGetTxnByID     = "value/transactionByID"
-	routeSendTxn        = "value/sendTransaction"
+	//routeSendTxn        = "value/sendTransaction"
 	routeUnspentOutputs = "value/unspentOutputs"
 )
 
