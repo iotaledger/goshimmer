@@ -2,6 +2,7 @@ package transaction
 
 import (
 	"bytes"
+
 	"github.com/stretchr/testify/assert"
 
 	"testing"
