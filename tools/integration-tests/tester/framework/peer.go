@@ -14,6 +14,7 @@ import (
 type Peer struct {
 	// name of the GoShimmer instance, Docker container and hostname
 	name string
+	ip   string
 	// GoShimmer identity
 	*identity.Identity
 
@@ -28,13 +29,21 @@ type Peer struct {
 }
 
 // newPeer creates a new instance of Peer with the given information.
-func newPeer(name string, identity *identity.Identity, dockerContainer *DockerContainer) *Peer {
+// dockerContainer needs to be started in order to determine the container's (and therefore peer's) IP correctly.
+func newPeer(name string, identity *identity.Identity, dockerContainer *DockerContainer, network *Network) (*Peer, error) {
+	// after container is started we can get its IP
+	ip, err := dockerContainer.IP(network.name)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Peer{
 		name:            name,
+		ip:              ip,
 		Identity:        identity,
 		GoShimmerAPI:    client.NewGoShimmerAPI(getWebAPIBaseURL(name), http.Client{Timeout: 30 * time.Second}),
 		DockerContainer: dockerContainer,
-	}
+	}, nil
 }
 
 func (p *Peer) String() string {

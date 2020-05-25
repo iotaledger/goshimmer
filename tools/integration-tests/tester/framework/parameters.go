@@ -1,19 +1,20 @@
 package framework
 
 const (
-	autopeeringMaxTries = 50
+	autopeeringMaxTries = 25
 
 	apiPort = "8080"
 
-	containerNameTester    = "/tester"
-	containerNameEntryNode = "entry_node"
-	containerNameReplica   = "replica_"
-	containerNameDrand     = "drand_"
+	containerNameTester      = "/tester"
+	containerNameEntryNode   = "entry_node"
+	containerNameReplica     = "replica_"
+	containerNameDrand       = "drand_"
+	containerNameSuffixPumba = "_pumba"
 
 	logsDir = "/tmp/logs/"
 
-	disabledPluginsEntryNode = "portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,metrics,messagelayer,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint"
-	disabledPluginsPeer      = "portcheck,dashboard,analysis-client"
+	disabledPluginsEntryNode = "portcheck,dashboard,analysis-client,profiling,gossip,drng,issuer,sync,metrics,messagelayer,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint"
+	disabledPluginsPeer      = "portcheck,dashboard,analysis-client,profiling"
 
 	dockerLogsPrefixLen = 8
 
