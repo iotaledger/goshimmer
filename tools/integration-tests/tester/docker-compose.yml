@@ -4,9 +4,14 @@ services:
   tester:
     container_name: tester
     image: golang:1.14
-    working_dir: /go/src/github.com/iotaledger/goshimmer/tools/integration-tests/tester
-    entrypoint: go test ./tests -v -mod=readonly
+    working_dir: /tmp/goshimmer/tools/integration-tests/tester
+    entrypoint: go test ./tests -v -mod=readonly -timeout 30m
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ../../..:/go/src/github.com/iotaledger/goshimmer:ro
+      - ../../..:/tmp/goshimmer:ro
       - ../logs:/tmp/logs
+      - goshimmer-testing-cache:/go
+
+volumes:
+  goshimmer-testing-cache:
+    name: goshimmer-testing-cache
