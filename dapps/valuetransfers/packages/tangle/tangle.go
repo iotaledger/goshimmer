@@ -79,10 +79,7 @@ func (tangle *Tangle) propagateBranchPreferredChangesToTransaction(cachedBranch 
 		if !branch.IsAggregated() {
 			transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
 			if err != nil {
-				// this should never ever happen so we panic
-				panic(err)
-
-				return
+				panic(err) // this should never ever happen
 			}
 
 			_, err = tangle.SetTransactionPreferred(transactionID, preferred)
