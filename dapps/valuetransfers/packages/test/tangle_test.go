@@ -1,4 +1,4 @@
-package ledgerstate
+package test
 
 import (
 	"testing"
