@@ -21,12 +21,14 @@ type Branch struct {
 	conflicts      map[ConflictID]types.Empty
 	preferred      bool
 	liked          bool
+	finalized      bool
 	confirmed      bool
 
 	parentBranchesMutex sync.RWMutex
 	conflictsMutex      sync.RWMutex
 	preferredMutex      sync.RWMutex
 	likedMutex          sync.RWMutex
+	finalizedMutex      sync.RWMutex
 	confirmedMutex      sync.RWMutex
 }
 
@@ -243,6 +245,41 @@ func (branch *Branch) setLiked(liked bool) (modified bool) {
 	branch.liked = liked
 	branch.SetModified()
 	modified = true
+	return
+}
+
+// Finalized returns true if the branch has been marked as finalized.
+func (branch *Branch) Finalized() bool {
+	branch.finalizedMutex.RLock()
+	defer branch.finalizedMutex.RUnlock()
+
+	return branch.finalized
+}
+
+// setFinalized is the setter for the finalized flag. It returns true if the value of the flag has been updated.
+// A branch is finalized if a decisions regarding its preference has been made.
+// Note: Just because a branch has been finalized, does not mean that all transactions it contains have also been
+//       finalized but only that the underlying conflict that created the Branch has been finalized.
+func (branch *Branch) setFinalized(finalized bool) (modified bool) {
+	branch.finalizedMutex.RLock()
+	if branch.finalized == finalized {
+		branch.finalizedMutex.RUnlock()
+
+		return
+	}
+
+	branch.finalizedMutex.RUnlock()
+	branch.finalizedMutex.Lock()
+	defer branch.finalizedMutex.Unlock()
+
+	if branch.finalized == finalized {
+		return
+	}
+
+	branch.finalized = finalized
+	branch.SetModified()
+	modified = true
+
 	return
 }
 

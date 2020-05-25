@@ -63,27 +63,33 @@ func New(store kvstore.KVStore) (result *Tangle) {
 	}
 
 	result.branchManager.Events.BranchPreferred.Attach(events.NewClosure(func(cachedBranch *branchmanager.CachedBranch) {
-		cachedBranch.Consume(func(branch *branchmanager.Branch) {
-			if !branch.IsAggregated() {
-				transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
-				if err != nil {
-					// this should never ever happen so we panic
-					panic(err)
-
-					return
-				}
-
-				_, err = result.SetTransactionPreferred(transactionID, true)
-				if err != nil {
-					result.Events.Error.Trigger(err)
-
-					return
-				}
-			}
-		})
+		result.propagateBranchPreferredChangesToTransaction(cachedBranch, true)
+	}))
+	result.branchManager.Events.BranchUnpreferred.Attach(events.NewClosure(func(cachedBranch *branchmanager.CachedBranch) {
+		result.propagateBranchPreferredChangesToTransaction(cachedBranch, false)
 	}))
 
 	return
+}
+
+// propagateBranchPreferredChangesToTransaction updates the preferred flag of a transaction, whenever the preferred
+// status of its corresponding branch changes.
+func (tangle *Tangle) propagateBranchPreferredChangesToTransaction(cachedBranch *branchmanager.CachedBranch, preferred bool) {
+	cachedBranch.Consume(func(branch *branchmanager.Branch) {
+		if !branch.IsAggregated() {
+			transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
+			if err != nil {
+				panic(err) // this should never ever happen
+			}
+
+			_, err = tangle.SetTransactionPreferred(transactionID, preferred)
+			if err != nil {
+				tangle.Events.Error.Trigger(err)
+
+				return
+			}
+		}
+	})
 }
 
 // BranchManager is the getter for the manager that takes care of creating and updating branches.
@@ -133,6 +139,32 @@ func (tangle *Tangle) Attachments(transactionID transaction.ID) CachedAttachment
 // AttachPayload adds a new payload to the value tangle.
 func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
 	tangle.workerPool.Submit(func() { tangle.AttachPayloadSync(payload) })
+}
+
+func (tangle *Tangle) SetTransactionFinalized(transactionID transaction.ID) (modified bool, err error) {
+	tangle.TransactionMetadata(transactionID).Consume(func(metadata *TransactionMetadata) {
+		// only propagate the changes if the flag was modified
+		if modified = metadata.SetFinalized(true); modified {
+			// propagate changes to the branches (UTXO DAG)
+			if metadata.Conflicting() {
+				_, err = tangle.branchManager.SetBranchFinalized(metadata.BranchID())
+				if err != nil {
+					tangle.Events.Error.Trigger(err)
+
+					return
+				}
+			}
+
+			// propagate changes to future cone of transaction (value tangle)
+			tangle.propagateValuePayloadConfirmedUpdates(transactionID)
+		}
+	})
+
+	return
+}
+
+func (tangle *Tangle) propagateValuePayloadConfirmedUpdates(transactionID transaction.ID) {
+	return
 }
 
 // SetTransactionPreferred modifies the preferred flag of a transaction. It updates the transactions metadata and

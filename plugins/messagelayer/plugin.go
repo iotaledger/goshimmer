@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
@@ -42,13 +43,12 @@ func configure(*node.Plugin) {
 	TipSelector = tipselector.New()
 	Tangle = tangle.New(store)
 
-	// TODO: enable with store
 	// Setup MessageFactory (behavior + logging))
-	//MessageFactory = messagefactory.New(nil, local.GetInstance().LocalIdentity(), TipSelector, []byte(DBSequenceNumber))
-	//MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(Tangle.AttachMessage))
-	//MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
-	//	log.Errorf("internal error in message factory: %v", err)
-	//}))
+	MessageFactory = messagefactory.New(database.Store(), local.GetInstance().LocalIdentity(), TipSelector, []byte(DBSequenceNumber))
+	MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(Tangle.AttachMessage))
+	MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
+		log.Errorf("internal error in message factory: %v", err)
+	}))
 
 	// setup MessageParser
 	MessageParser.Events.MessageParsed.Attach(events.NewClosure(func(msg *message.Message, peer *peer.Peer) {

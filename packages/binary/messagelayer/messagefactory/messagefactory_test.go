@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -22,13 +23,11 @@ const (
 )
 
 func TestMessageFactory_BuildMessage(t *testing.T) {
-	localIdentity := identity.GenerateLocalIdentity()
-	tipSelector := tipselector.New()
+	msgFactory := New(mapdb.NewMapDB(), identity.GenerateLocalIdentity(), tipselector.New(), []byte(sequenceKey))
+	defer msgFactory.Shutdown()
 
 	// keep track of sequence numbers
 	sequenceNumbers := sync.Map{}
-
-	msgFactory := New(nil, localIdentity, tipSelector, []byte(sequenceKey))
 
 	// attach to event and count
 	countEvents := uint64(0)

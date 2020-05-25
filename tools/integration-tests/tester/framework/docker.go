@@ -122,9 +122,47 @@ func (d *DockerContainer) CreateDrandMember(name string, goShimmerAPI string, le
 	return d.CreateContainer(name, containerConfig)
 }
 
+// CreatePumba creates a new container with Pumba configuration.
+func (d *DockerContainer) CreatePumba(name string, containerName string, targetIPs []string) error {
+	hostConfig := &container.HostConfig{
+		Binds: strslice.StrSlice{"/var/run/docker.sock:/var/run/docker.sock:ro"},
+	}
+
+	cmd := strslice.StrSlice{
+		"--log-level=debug",
+		"netem",
+		"--duration=100m",
+	}
+
+	for _, ip := range targetIPs {
+		targetFlag := "--target=" + ip
+		cmd = append(cmd, targetFlag)
+	}
+
+	slice := strslice.StrSlice{
+		"--tc-image=gaiadocker/iproute2",
+		"loss",
+		"--percent=100",
+		containerName,
+	}
+	cmd = append(cmd, slice...)
+
+	containerConfig := &container.Config{
+		Image: "gaiaadm/pumba:latest",
+		Cmd:   cmd,
+	}
+
+	return d.CreateContainer(name, containerConfig, hostConfig)
+}
+
 // CreateContainer creates a new container with the given configuration.
-func (d *DockerContainer) CreateContainer(name string, containerConfig *container.Config) error {
-	resp, err := d.client.ContainerCreate(context.Background(), containerConfig, nil, nil, name)
+func (d *DockerContainer) CreateContainer(name string, containerConfig *container.Config, hostConfigs ...*container.HostConfig) error {
+	var hostConfig *container.HostConfig
+	if len(hostConfigs) > 0 {
+		hostConfig = hostConfigs[0]
+	}
+
+	resp, err := d.client.ContainerCreate(context.Background(), containerConfig, hostConfig, nil, name)
 	if err != nil {
 		return err
 	}
@@ -168,6 +206,22 @@ func (d *DockerContainer) ExitStatus() (int, error) {
 	}
 
 	return resp.State.ExitCode, nil
+}
+
+// IP returns the IP address according to the container information for the given network.
+func (d *DockerContainer) IP(network string) (string, error) {
+	resp, err := d.client.ContainerInspect(context.Background(), d.id)
+	if err != nil {
+		return "", err
+	}
+
+	for name, v := range resp.NetworkSettings.Networks {
+		if name == network {
+			return v.IPAddress, nil
+		}
+	}
+
+	return "", fmt.Errorf("IP address in %s could not be determined", network)
 }
 
 // Logs returns the logs of the container as io.ReadCloser.
