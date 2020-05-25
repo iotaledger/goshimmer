@@ -141,6 +141,8 @@ func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
 	tangle.workerPool.Submit(func() { tangle.AttachPayloadSync(payload) })
 }
 
+// SetTransactionFinalized modifies the finalized flag of a transaction. It updates the transactions metadata and
+// propagates the changes to the BranchManager if the flag was updated.
 func (tangle *Tangle) SetTransactionFinalized(transactionID transaction.ID) (modified bool, err error) {
 	tangle.TransactionMetadata(transactionID).Consume(func(metadata *TransactionMetadata) {
 		// only propagate the changes if the flag was modified
@@ -163,16 +165,20 @@ func (tangle *Tangle) SetTransactionFinalized(transactionID transaction.ID) (mod
 	return
 }
 
+// TODO: WRITE COMMENT
 func (tangle *Tangle) propagateValuePayloadConfirmedUpdates(transactionID transaction.ID) {
-	return
+	panic("not yet implemented")
 }
 
 // SetTransactionPreferred modifies the preferred flag of a transaction. It updates the transactions metadata and
 // propagates the changes to the BranchManager if the flag was updated.
 func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, preferred bool) (modified bool, err error) {
 	tangle.TransactionMetadata(transactionID).Consume(func(metadata *TransactionMetadata) {
+		// update the preferred flag of the transaction
+		modified = metadata.setPreferred(preferred)
+
 		// only propagate the changes if the flag was modified
-		if modified = metadata.setPreferred(preferred); modified {
+		if modified {
 			// propagate changes to the branches (UTXO DAG)
 			if metadata.Conflicting() {
 				_, err = tangle.branchManager.SetBranchPreferred(metadata.BranchID(), preferred)
@@ -195,91 +201,101 @@ func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, pref
 // the transaction that was updated was the entry point to a branch then all value payloads inside this branch get
 // updated as well (updates happen from past to presents).
 func (tangle *Tangle) propagateValuePayloadLikeUpdates(transactionID transaction.ID, liked bool) {
-	// initiate stack with the passed in transaction
+	// initiate stack with the attachments of the passed in transaction
 	propagationStack := list.New()
 	tangle.Attachments(transactionID).Consume(func(attachment *Attachment) {
-		propagationStack.PushBack([4]interface{}{tangle.Payload(attachment.PayloadID()), tangle.PayloadMetadata(attachment.PayloadID()), tangle.Transaction(transactionID), tangle.TransactionMetadata(transactionID)})
+		propagationStack.PushBack(&valuePayloadPropagationStackEntry{
+			tangle.Payload(attachment.PayloadID()),
+			tangle.PayloadMetadata(attachment.PayloadID()),
+			tangle.Transaction(transactionID),
+			tangle.TransactionMetadata(transactionID),
+		})
 	})
 
 	// keep track of the seen payloads so we do not process them twice
 	seenPayloads := make(map[payload.ID]types.Empty)
 
-	// iterate through future cone of transactions
+	// iterate through stack (future cone of transactions)
 	for propagationStack.Len() >= 1 {
-		// retrieve elements from stack
 		currentAttachmentEntry := propagationStack.Front()
-		currentCachedPayload := currentAttachmentEntry.Value.([4]interface{})[0].(*payload.CachedPayload)
-		currentCachedPayloadMetadata := currentAttachmentEntry.Value.([4]interface{})[1].(*CachedPayloadMetadata)
-		currentCachedTransaction := currentAttachmentEntry.Value.([4]interface{})[2].(*transaction.CachedTransaction)
-		currentCachedTransactionMetadata := currentAttachmentEntry.Value.([4]interface{})[3].(*CachedTransactionMetadata)
+		tangle.processValuePayloadLikedUpdateStackEntry(propagationStack, seenPayloads, liked, currentAttachmentEntry.Value.(*valuePayloadPropagationStackEntry))
 		propagationStack.Remove(currentAttachmentEntry)
+	}
+}
 
-		// unpack loaded objects
-		currentPayload := currentCachedPayload.Unwrap()
-		currentPayloadMetadata := currentCachedPayloadMetadata.Unwrap()
-		currentTransaction := currentCachedTransaction.Unwrap()
-		currentTransactionMetadata := currentCachedTransactionMetadata.Unwrap()
+// processValuePayloadLikedUpdateStackEntry is an internal utility method that processes a single entry of the
+// propagation stack for the update of the liked flag when iterating through the future cone of a transactions
+// attachments. It checks if a ValuePayloads has become liked (or disliked), updates the flag an schedules its future
+// cone for additional checks.
+func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack *list.List, processedPayloads map[payload.ID]types.Empty, liked bool, propagationStackEntry *valuePayloadPropagationStackEntry) {
+	// release the cached objects when we are done
+	defer propagationStackEntry.CachedPayload.Release()
+	defer propagationStackEntry.CachedPayloadMetadata.Release()
+	defer propagationStackEntry.CachedTransaction.Release()
+	defer propagationStackEntry.CachedTransactionMetadata.Release()
 
-		// only continue if the entities could be loaded from the database
-		if currentPayload != nil && currentPayloadMetadata != nil && currentTransaction != nil && currentTransactionMetadata != nil {
-			var updated bool
-			switch liked {
-			// if the
-			case true:
-				// only trigger the events if the transaction is preferred, the branch of the payload is liked, the referenced value payloads are liked and the payload was not marked as liked before
-				if updated = currentTransactionMetadata.Preferred() && tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) && tangle.ValuePayloadsLiked(currentPayload.TrunkID(), currentPayload.BranchID()) && currentPayloadMetadata.SetLiked(liked); updated {
-					tangle.Events.PayloadLiked.Trigger(currentCachedPayload, currentCachedPayloadMetadata)
-				}
-			case false:
-				// only trigger the events if the payload has not been marked as disliked before
-				if updated = currentPayloadMetadata.SetLiked(liked); updated {
-					tangle.Events.PayloadDisliked.Trigger(currentCachedPayload, currentCachedPayloadMetadata)
-				}
-			}
+	// unpack loaded objects
+	currentPayload := propagationStackEntry.CachedPayload.Unwrap()
+	currentPayloadMetadata := propagationStackEntry.CachedPayloadMetadata.Unwrap()
+	currentTransaction := propagationStackEntry.CachedTransaction.Unwrap()
+	currentTransactionMetadata := propagationStackEntry.CachedTransactionMetadata.Unwrap()
 
-			// schedule checks of approvers and consumers if we performed an update
-			if updated {
-				tangle.ForEachConsumersAndApprovers(currentPayload, func(
-					cachedPayload *payload.CachedPayload,
-					cachedPayloadMetadata *CachedPayloadMetadata,
-					cachedTransaction *transaction.CachedTransaction,
-					cachedTransactionMetadata *CachedTransactionMetadata,
-				) {
-					// automatically release cached objects when we terminate
-					defer cachedPayload.Release()
-					defer cachedPayloadMetadata.Release()
-					defer cachedTransaction.Release()
-					defer cachedTransactionMetadata.Release()
+	// abort if the entities could not be loaded from the database
+	if currentPayload == nil || currentPayloadMetadata == nil || currentTransaction == nil || currentTransactionMetadata == nil {
+		return
+	}
 
-					// abort if the payload could not be unwrapped
-					unwrappedPayload := cachedPayload.Unwrap()
-					if unwrappedPayload == nil {
-						return
-					}
-
-					// abort if we have scheduled the check of this payload already
-					if _, payloadSeenAlready := seenPayloads[unwrappedPayload.ID()]; payloadSeenAlready {
-						return
-					}
-					seenPayloads[unwrappedPayload.ID()] = types.Void
-
-					// schedule next checks
-					propagationStack.PushBack([4]interface{}{
-						cachedPayload.Retain(),
-						cachedPayloadMetadata.Retain(),
-						cachedTransaction.Retain(),
-						cachedTransactionMetadata.Retain(),
-					})
-				})
-			}
+	// perform different logic depending on the type of the change (liked vs dislike)
+	switch liked {
+	case true:
+		// abort if the transaction is not preferred, the branch of the payload is not liked, the referenced value payloads are not liked or the payload was marked as liked before
+		if !currentTransactionMetadata.Preferred() || !tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) || !tangle.ValuePayloadsLiked(currentPayload.TrunkID(), currentPayload.BranchID()) || !currentPayloadMetadata.SetLiked(liked) {
+			return
 		}
 
-		// release the cached objects
-		currentCachedPayload.Release()
-		currentCachedPayloadMetadata.Release()
-		currentCachedTransaction.Release()
-		currentCachedTransactionMetadata.Release()
+		tangle.Events.PayloadLiked.Trigger(propagationStackEntry.CachedPayload, propagationStackEntry.CachedPayloadMetadata)
+	case false:
+		// abort if the payload has been marked as disliked before
+		if !currentPayloadMetadata.SetLiked(liked) {
+			return
+		}
+
+		tangle.Events.PayloadDisliked.Trigger(propagationStackEntry.CachedPayload, propagationStackEntry.CachedPayloadMetadata)
 	}
+
+	// schedule checks of approvers and consumers
+	tangle.ForEachConsumersAndApprovers(currentPayload, func(
+		cachedPayload *payload.CachedPayload,
+		cachedPayloadMetadata *CachedPayloadMetadata,
+		cachedTransaction *transaction.CachedTransaction,
+		cachedTransactionMetadata *CachedTransactionMetadata,
+	) {
+		// automatically release cached objects when we terminate
+		defer cachedPayload.Release()
+		defer cachedPayloadMetadata.Release()
+		defer cachedTransaction.Release()
+		defer cachedTransactionMetadata.Release()
+
+		// abort if the payload could not be unwrapped
+		unwrappedPayload := cachedPayload.Unwrap()
+		if unwrappedPayload == nil {
+			return
+		}
+
+		// abort if we have scheduled the check of this payload already
+		if _, payloadProcessedAlready := processedPayloads[unwrappedPayload.ID()]; payloadProcessedAlready {
+			return
+		}
+		processedPayloads[unwrappedPayload.ID()] = types.Void
+
+		// schedule next checks
+		propagationStack.PushBack(&valuePayloadPropagationStackEntry{
+			cachedPayload.Retain(),
+			cachedPayloadMetadata.Retain(),
+			cachedTransaction.Retain(),
+			cachedTransactionMetadata.Retain(),
+		})
+	})
 }
 
 // ValuePayloadsLiked is checking if the Payloads referenced by the passed in IDs are all liked.
@@ -1324,4 +1340,12 @@ func (tangle *Tangle) ForEachConsumers(currentTransaction *transaction.Transacti
 func (tangle *Tangle) ForEachConsumersAndApprovers(currentPayload *payload.Payload, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata, transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata)) {
 	tangle.ForEachConsumers(currentPayload.Transaction(), consume)
 	tangle.ForeachApprovers(currentPayload.ID(), consume)
+}
+
+// container for the elements in the propagation stack of ValuePayloads
+type valuePayloadPropagationStackEntry struct {
+	CachedPayload             *payload.CachedPayload
+	CachedPayloadMetadata     *CachedPayloadMetadata
+	CachedTransaction         *transaction.CachedTransaction
+	CachedTransactionMetadata *CachedTransactionMetadata
 }
