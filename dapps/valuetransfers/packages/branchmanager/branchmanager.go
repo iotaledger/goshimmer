@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/dgraph-io/badger/v2"
+	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
@@ -39,8 +39,8 @@ type BranchManager struct {
 }
 
 // New is the constructor of the BranchManager.
-func New(badgerInstance *badger.DB) (branchManager *BranchManager) {
-	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.ValueTransfers)
+func New(store kvstore.KVStore) (branchManager *BranchManager) {
+	osFactory := objectstorage.NewFactory(store, storageprefix.ValueTransfers)
 
 	branchManager = &BranchManager{
 		branchStorage:         osFactory.New(osBranch, osBranchFactory, osBranchOptions...),

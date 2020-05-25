@@ -159,8 +159,7 @@ func start(shutdownSignal <-chan struct{}) {
 	Discovery().Close()
 	Selection().Close()
 
-	// persists potential peering seeds for the next start
-	log.Infof("%d peers persisted as seeds", lPeer.Database().PersistSeeds())
+	lPeer.Database().Close()
 }
 
 func hash32(b []byte) uint32 {
