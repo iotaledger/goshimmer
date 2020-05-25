@@ -7,9 +7,9 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/fpctest/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	messageTangle "github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
-	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -41,8 +41,11 @@ func configure(_ *node.Plugin) {
 
 	log.Debug("configuring FPCTest")
 
+	// create storage layer
+	store := database.Store()
+
 	// create instances
-	FPCTangle = tangle.New(database.GetBadgerInstance())
+	FPCTangle = tangle.New(store)
 
 	// subscribe to message-layer
 	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))

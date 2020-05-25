@@ -5,10 +5,10 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/dgraph-io/badger/v2"
 	"github.com/iotaledger/goshimmer/dapps/fpctest/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	"github.com/iotaledger/hive.go/async"
+	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/mr-tron/base58"
 )
@@ -26,8 +26,8 @@ type Tangle struct {
 }
 
 // New is the constructor of a Tangle and creates a new Tangle object from the given details.
-func New(badgerInstance *badger.DB) (result *Tangle) {
-	osFactory := objectstorage.NewFactory(badgerInstance, storageprefix.ValueTransfers)
+func New(store kvstore.KVStore) (result *Tangle) {
+	osFactory := objectstorage.NewFactory(store, storageprefix.ValueTransfers)
 
 	result = &Tangle{
 		payloadStorage:         osFactory.New(osPayload, osPayloadFactory, objectstorage.CacheTime(time.Second)),
@@ -127,7 +127,7 @@ func (tangle *Tangle) storePayload(payloadToStore *payload.Payload) (cachedPaylo
 	// set like status
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	payloadMetadata.SetLike(uint32(r.Intn(100)) < payloadToStore.Like())
-	
+
 	cachedMetadata = &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Store(payloadMetadata)}
 	payloadStored = true
 
