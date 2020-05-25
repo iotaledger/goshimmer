@@ -344,6 +344,10 @@ func (branchManager *BranchManager) SetBranchLiked(branchID BranchID, liked bool
 	return branchManager.setBranchLiked(branchManager.Branch(branchID), liked)
 }
 
+func (branchManager *BranchManager) SetBranchFinalized(branchID BranchID) (modified bool, err error) {
+	return
+}
+
 // Prune resets the database and deletes all objects (for testing or "node resets").
 func (branchManager *BranchManager) Prune() (err error) {
 	for _, storage := range []*objectstorage.ObjectStorage{

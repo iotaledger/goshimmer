@@ -144,6 +144,32 @@ func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
 	tangle.workerPool.Submit(func() { tangle.AttachPayloadSync(payload) })
 }
 
+func (tangle *Tangle) SetTransactionFinalized(transactionID transaction.ID) (modified bool, err error) {
+	tangle.TransactionMetadata(transactionID).Consume(func(metadata *TransactionMetadata) {
+		// only propagate the changes if the flag was modified
+		if modified = metadata.SetFinalized(true); modified {
+			// propagate changes to the branches (UTXO DAG)
+			if metadata.Conflicting() {
+				_, err = tangle.branchManager.SetBranchFinalized(metadata.BranchID())
+				if err != nil {
+					tangle.Events.Error.Trigger(err)
+
+					return
+				}
+			}
+
+			// propagate changes to future cone of transaction (value tangle)
+			tangle.propagateValuePayloadConfirmedUpdates(transactionID)
+		}
+	})
+
+	return
+}
+
+func (tangle *Tangle) propagateValuePayloadConfirmedUpdates(transactionID transaction.ID) {
+	return
+}
+
 // SetTransactionPreferred modifies the preferred flag of a transaction. It updates the transactions metadata and
 // propagates the changes to the BranchManager if the flag was updated.
 func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, preferred bool) (modified bool, err error) {
