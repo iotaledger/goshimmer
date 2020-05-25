@@ -55,7 +55,7 @@ func runFPCLiveFeed() {
 		onFPCHeartbeatReceived := events.NewClosure(func(hb *packet.FPCHeartbeat) {
 			select {
 			case <-newMsgRateLimiter.C:
-				fpcLiveFeedWorkerPool.TrySubmit(createFPCUpdate(hb))
+				fpcLiveFeedWorkerPool.TrySubmit(createFPCUpdate(hb, true))
 			default:
 			}
 		})
@@ -71,7 +71,7 @@ func runFPCLiveFeed() {
 	}, shutdown.PriorityDashboard)
 }
 
-func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
+func createFPCUpdate(hb *packet.FPCHeartbeat, recordEvent bool) *FPCUpdate {
 	// prepare the update
 	conflicts := make(map[string]Conflict)
 	nodeID := base58.Encode(hb.OwnID)
@@ -90,8 +90,10 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 		conflicts[ID] = newConflict()
 		conflicts[ID].NodesView[nodeID] = newVoteContext
 
-		// update recorded events
-		recordedConflicts.Update(ID, Conflict{NodesView: map[string]voteContext{nodeID: newVoteContext}})
+		if recordEvent {
+			// update recorded events
+			recordedConflicts.Update(ID, Conflict{NodesView: map[string]voteContext{nodeID: newVoteContext}})
+		}
 	}
 
 	return &FPCUpdate{

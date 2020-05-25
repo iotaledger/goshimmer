@@ -2,19 +2,19 @@ package dashboard
 
 import (
 	"crypto/sha256"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
+	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/require"
 )
 
 // TestCreateFPCUpdate checks that given a FPC heartbeat, the returned FPCUpdate is ok.
 func TestCreateFPCUpdate(t *testing.T) {
 	ownID := sha256.Sum256([]byte{'A'})
-	shortOwnID := fmt.Sprintf("%x", ownID[:8])
+	base58OwnID := base58.Encode(ownID[:])
 
 	// create a FPCHeartbeat
 	hbTest := &packet.FPCHeartbeat{
@@ -38,8 +38,8 @@ func TestCreateFPCUpdate(t *testing.T) {
 		Conflicts: map[string]Conflict{
 			"one": {
 				NodesView: map[string]voteContext{
-					shortOwnID: {
-						NodeID:   shortOwnID,
+					base58OwnID: {
+						NodeID:   base58OwnID,
 						Rounds:   3,
 						Opinions: []int32{disliked, liked, disliked},
 						Status:   liked,
@@ -50,6 +50,6 @@ func TestCreateFPCUpdate(t *testing.T) {
 	}
 
 	// check that createFPCUpdate returns a matching FPCMsg
-	require.Equal(t, want, createFPCUpdate(hbTest))
+	require.Equal(t, want, createFPCUpdate(hbTest, false))
 
 }
