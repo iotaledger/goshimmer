@@ -1,7 +1,7 @@
 package dashboard
 
 import (
-	"encoding/hex"
+	"github.com/mr-tron/base58"
 	"strings"
 	"sync"
 	"time"
@@ -29,22 +29,22 @@ func configureEventsRecording() {
 	analysisserver.Events.Heartbeat.Attach(events.NewClosure(func(hb *packet.Heartbeat) {
 		var out strings.Builder
 		for _, value := range hb.OutboundIDs {
-			out.WriteString(hex.EncodeToString(value))
+			out.WriteString(base58.Encode(value))
 		}
 		var in strings.Builder
 		for _, value := range hb.InboundIDs {
-			in.WriteString(hex.EncodeToString(value))
+			in.WriteString(base58.Encode(value))
 		}
 		log.Debugw(
 			"Heartbeat",
-			"nodeId", hex.EncodeToString(hb.OwnID),
+			"nodeId", base58.Encode(hb.OwnID),
 			"outboundIds", out.String(),
 			"inboundIds", in.String(),
 		)
 		lock.Lock()
 		defer lock.Unlock()
 
-		nodeIDString := hex.EncodeToString(hb.OwnID)
+		nodeIDString := base58.Encode(hb.OwnID)
 		timestamp := time.Now()
 
 		// when node is new, add to graph
@@ -56,7 +56,7 @@ func configureEventsRecording() {
 
 		// outgoing neighbor links update
 		for _, outgoingNeighbor := range hb.OutboundIDs {
-			outgoingNeighborString := hex.EncodeToString(outgoingNeighbor)
+			outgoingNeighborString := base58.Encode(outgoingNeighbor)
 			// do we already know about this neighbor?
 			// if no, add it and set it online
 			if _, isAlready := nodes[outgoingNeighborString]; !isAlready {
@@ -82,7 +82,7 @@ func configureEventsRecording() {
 
 		// incoming neighbor links update
 		for _, incomingNeighbor := range hb.InboundIDs {
-			incomingNeighborString := hex.EncodeToString(incomingNeighbor)
+			incomingNeighborString :=  base58.Encode(incomingNeighbor)
 			// do we already know about this neighbor?
 			// if no, add it and set it online
 			if _, isAlready := nodes[incomingNeighborString]; !isAlready {
