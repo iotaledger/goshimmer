@@ -30,7 +30,6 @@ var (
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
-	configureMetricsWorkerPool()
 	configureFPCLiveFeed()
 	configureAutopeeringWorkerPool()
 	configureEventsRecording()
@@ -57,8 +56,6 @@ func configureServer() {
 }
 
 func run(*node.Plugin) {
-	// run metrics reporting
-	runMetricsFeed()
 	// run FPC stat reporting
 	runFPCLiveFeed()
 	// run data reporting for autopeering visualizer
@@ -75,10 +72,6 @@ func run(*node.Plugin) {
 func worker(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
-	// start the web socket worker pool
-	metricsWorkerPool.Start()
-	defer metricsWorkerPool.Stop()
-
 	stopped := make(chan struct{})
 	bindAddr := config.Node.GetString(CfgBindAddress)
 	go func() {
@@ -91,12 +84,23 @@ func worker(shutdownSignal <-chan struct{}) {
 		}
 	}()
 
+	// ping all connected ws clients every second to keep the connections alive.
+	ticker := time.NewTicker(1*time.Second)
+	defer ticker.Stop()
 	// stop if we are shutting down or the server could not be started
-	select {
-	case <-shutdownSignal:
-	case <-stopped:
-	}
-
+	func() {
+		for {
+			select {
+			case <-ticker.C:
+				broadcastWsMessage(&wsmsg{MsgTypePing,""})
+			case <-shutdownSignal:
+				return
+			case <-stopped:
+				return
+			}
+		}
+	}()
+	
 	log.Infof("Stopping %s ...", PluginName)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()

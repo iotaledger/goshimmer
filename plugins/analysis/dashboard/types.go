@@ -1,22 +1,7 @@
 package dashboard
 
 const (
-	// MsgTypeNodeStatus is the type of the NodeStatus message.
-	MsgTypeNodeStatus byte = iota
-	// MsgTypeMPSMetric is the type of the message per second (MPS) metric message.
-	MsgTypeMPSMetric
-	// MsgTypeMessage is the type of the message.
-	MsgTypeMessage
-	// MsgTypeNeighborMetric is the type of the NeighborMetric message.
-	MsgTypeNeighborMetric
-	// MsgTypeDrng is the type of the dRNG message.
-	MsgTypeDrng
-	// MsgTypeTipsMetric is the type of the TipsMetric message.
-	MsgTypeTipsMetric
-	// MsgTypeVertex defines a vertex message.
-	MsgTypeVertex
-	// MsgTypeTipInfo defines a tip info message.
-	MsgTypeTipInfo
+	MsgTypePing byte = iota
 	// MsgTypeFPC defines a FPC update message.
 	MsgTypeFPC
 	// MsgTypeAddNode defines an addNode update message for autopeering visualizer.

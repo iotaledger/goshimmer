@@ -1,11 +1,5 @@
 export enum WSMsgType {
-    Status,
-    MPSMetrics,
-    Message,
-    NeighborStats,
-    Drng,
-    TipsMetrics,
-    Vertex,
+    Ping,
     FPC,
     AddNode,
     RemoveNode,
@@ -46,6 +40,10 @@ export function connectWebSocket(path: string, onOpen, onClose, onError) {
 
     ws.onmessage = (e) => {
         let msg: WSMessage = JSON.parse(e.data);
+        // Just a ping, do nothing
+        if (msg.type == WSMsgType.Ping) {
+            return;
+        }
         let handler = handlers[msg.type];
         if (!handler) {
             return;
