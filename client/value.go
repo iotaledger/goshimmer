@@ -46,7 +46,7 @@ func (api *GoShimmerAPI) GetUnspentOutputs(addresses []string) (*webapi_unspento
 	res := &webapi_unspentoutputs.Response{}
 	if err := api.do(http.MethodPost, routeUnspentOutputs,
 		&webapi_unspentoutputs.Request{Addresses: addresses}, res); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	return res, nil
