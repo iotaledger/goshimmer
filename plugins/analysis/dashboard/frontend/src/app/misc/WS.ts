@@ -6,7 +6,6 @@ export enum WSMsgType {
     Drng,
     TipsMetrics,
     Vertex,
-    TipInfo,
     FPC,
     AddNode,
     RemoveNode,
