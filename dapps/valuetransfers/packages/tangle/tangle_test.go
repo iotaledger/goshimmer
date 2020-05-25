@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 
@@ -459,6 +460,78 @@ func TestCheckTransactionOutputs(t *testing.T) {
 			},
 		})
 		assert.True(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
+	}
+}
+
+func TestGetCachedOutputsFromTransactionInputs(t *testing.T) {
+	tangle := New(mapdb.NewMapDB())
+
+	color1 := [32]byte{1}
+
+	// prepare inputs for tx that we want to retrieve from tangle
+	outputs := map[address.Address][]*balance.Balance{
+		address.Random(): {
+			balance.New(balance.ColorIOTA, 1),
+		},
+		address.Random(): {
+			balance.New(balance.ColorIOTA, 2),
+			balance.New(color1, 3),
+		},
+	}
+	snapshot := map[transaction.ID]map[address.Address][]*balance.Balance{transaction.GenesisID: outputs}
+	tangle.LoadSnapshot(snapshot)
+
+	// build tx2 spending "outputs"
+	inputIDs := make([]transaction.OutputID, 0)
+	for addr := range outputs {
+		inputIDs = append(inputIDs, transaction.NewOutputID(addr, transaction.GenesisID))
+	}
+	tx2 := transaction.New(
+		transaction.NewInputs(inputIDs...),
+		// outputs
+		transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1337),
+			},
+		}),
+	)
+
+	// verify that outputs are retrieved correctly
+	{
+		cachedOutputs := tangle.getCachedOutputsFromTransactionInputs(tx2)
+		assert.Len(t, cachedOutputs, len(outputs))
+		cachedOutputs.Consume(func(output *Output) {
+			assert.ElementsMatch(t, outputs[output.Address()], output.Balances())
+		})
+	}
+}
+
+func TestLoadSnapshot(t *testing.T) {
+	tangle := New(mapdb.NewMapDB())
+
+	snapshot := map[transaction.ID]map[address.Address][]*balance.Balance{
+		transaction.GenesisID: {
+			address.Random(): []*balance.Balance{
+				balance.New(balance.ColorIOTA, 337),
+			},
+
+			address.Random(): []*balance.Balance{
+				balance.New(balance.ColorIOTA, 1000),
+				balance.New(balance.ColorIOTA, 1000),
+			},
+		},
+	}
+	tangle.LoadSnapshot(snapshot)
+
+	// check whether outputs can be retrieved from tangle
+	for addr, balances := range snapshot[transaction.GenesisID] {
+		cachedOutput := tangle.TransactionOutput(transaction.NewOutputID(addr, transaction.GenesisID))
+		cachedOutput.Consume(func(output *Output) {
+			assert.Equal(t, addr, output.Address())
+			assert.ElementsMatch(t, balances, output.Balances())
+			assert.True(t, output.Solid())
+			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID())
+		})
 	}
 }
 
