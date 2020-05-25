@@ -11,37 +11,37 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
+	"github.com/mr-tron/base58/base58"
+)
+
+const (
+	unfinalized = 0
+	liked       = 1
+	disliked    = 2
+)
+
+var (
+	ErrConflictMissing = fmt.Errorf("conflictID missing")
 )
 
 var (
 	fpcLiveFeedWorkerCount     = 1
-	fpcLiveFeedWorkerQueueSize = 200
+	fpcLiveFeedWorkerQueueSize = 300
 	fpcLiveFeedWorkerPool      *workerpool.WorkerPool
 
-	conflicts map[string]Conflict
+	recordedConflicts *conflictRecord
 )
 
-// Conflict defines the struct for the opinions of the nodes regarding a given conflict.
-type Conflict struct {
-	NodesView map[string]voteContext `json:"nodesview"`
-}
-
-type voteContext struct {
-	NodeID   string  `json:"nodeid"`
-	Rounds   int     `json:"rounds"`
-	Opinions []int32 `json:"opinions"`
-	Like     int32   `json:"like"`
-}
-
-// FPCMsg contains an FPC update
-type FPCMsg struct {
-	Nodes       int                 `json:"nodes"`
-	ConflictSet map[string]Conflict `json:"conflictset"`
+// FPCUpdate contains an FPC update.
+type FPCUpdate struct {
+	Conflicts ConflictSet `json:"conflictset"`
 }
 
 func configureFPCLiveFeed() {
+	recordedConflicts = NewConflictRecord(100)
+
 	fpcLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
-		newMsg := task.Param(0).(*FPCMsg)
+		newMsg := task.Param(0).(*FPCUpdate)
 		broadcastWsMessage(&wsmsg{MsgTypeFPC, newMsg})
 		task.Return(nil)
 	}, workerpool.WorkerCount(fpcLiveFeedWorkerCount), workerpool.QueueSize(fpcLiveFeedWorkerQueueSize))
@@ -49,7 +49,7 @@ func configureFPCLiveFeed() {
 
 func runFPCLiveFeed() {
 	daemon.BackgroundWorker("Analysis[FPCUpdater]", func(shutdownSignal <-chan struct{}) {
-		newMsgRateLimiter := time.NewTicker(time.Second / 100)
+		newMsgRateLimiter := time.NewTicker(time.Millisecond)
 		defer newMsgRateLimiter.Stop()
 
 		onFPCHeartbeatReceived := events.NewClosure(func(hb *packet.FPCHeartbeat) {
@@ -71,29 +71,30 @@ func runFPCLiveFeed() {
 	}, shutdown.PriorityDashboard)
 }
 
-func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCMsg {
-	update := make(map[string]Conflict)
-	conflictIds := ""
-	nodeID := fmt.Sprintf("%x", hb.OwnID[:8])
+func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
+	// prepare the update
+	conflicts := make(map[string]Conflict)
+	nodeID := base58.Encode(hb.OwnID)
 	for ID, context := range hb.RoundStats.ActiveVoteContexts {
-		conflictIds += fmt.Sprintf("%s - ", ID)
-		update[ID] = newConflict()
-		update[ID].NodesView[nodeID] = voteContext{
+		newVoteContext := voteContext{
 			NodeID:   nodeID,
 			Rounds:   context.Rounds,
 			Opinions: vote.ConvertOpinionsToInts32(context.Opinions),
 		}
+
+		// check conflict has been finalized
+		if _, ok := hb.Finalized[ID]; ok {
+			newVoteContext.Status = vote.ConvertOpinionToInt32(hb.Finalized[ID])
+		}
+
+		conflicts[ID] = newConflict()
+		conflicts[ID].NodesView[nodeID] = newVoteContext
+
+		// update recorded events
+		recordedConflicts.Update(ID, Conflict{NodesView: map[string]voteContext{nodeID: newVoteContext}})
 	}
 
-	log.Infow("FPC-hb:", "nodeID", nodeID, "conflicts:", conflictIds)
-
-	return &FPCMsg{
-		ConflictSet: update,
-	}
-}
-
-func newConflict() Conflict {
-	return Conflict{
-		NodesView: make(map[string]voteContext),
+	return &FPCUpdate{
+		Conflicts: conflicts,
 	}
 }

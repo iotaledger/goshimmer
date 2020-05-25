@@ -26,13 +26,12 @@ class VoteContext {
     nodeid: string;
     rounds: number;
     opinions: number[];
-    like: number;
+    status: number;
 }
 class Conflict {
     nodesview: Map<string, VoteContext>
 }
 export class FPCMessage {
-    nodes: number;
     conflictset: Map<string, Conflict>
 }
 
