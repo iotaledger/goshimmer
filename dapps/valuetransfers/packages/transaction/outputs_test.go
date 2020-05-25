@@ -2,12 +2,12 @@ package transaction
 
 import (
 	"bytes"
+	"github.com/stretchr/testify/assert"
 
 	"testing"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	"github.com/magiconair/properties/assert"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -29,9 +29,6 @@ func TestOutputs(t *testing.T) {
 	}
 	out2 := NewOutputs(theMap2)
 
-	//t.Logf("%s", out1.String())
-	//t.Logf("%s", out2.String())
-
 	h1 := hashOutputs(t, out1)
 	h2 := hashOutputs(t, out2)
 
@@ -40,7 +37,7 @@ func TestOutputs(t *testing.T) {
 
 func hashOutputs(t *testing.T, out *Outputs) []byte {
 	h, err := blake2b.New256(nil)
-	assert.Equal(t, err, nil)
+	assert.NoError(t, err)
 
 	h.Write(out.Bytes())
 	return h.Sum(nil)
