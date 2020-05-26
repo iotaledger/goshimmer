@@ -485,166 +485,87 @@ func (tangle *Tangle) storePayloadReferences(payload *payload.Payload) {
 	}
 }
 
-func (tangle *Tangle) popElementsFromSolidificationStack(stack *list.List) (*payload.CachedPayload, *CachedPayloadMetadata, *transaction.CachedTransaction, *CachedTransactionMetadata) {
-	currentSolidificationEntry := stack.Front()
-	currentCachedPayload := currentSolidificationEntry.Value.([4]interface{})[0].(*payload.CachedPayload)
-	currentCachedMetadata := currentSolidificationEntry.Value.([4]interface{})[1].(*CachedPayloadMetadata)
-	currentCachedTransaction := currentSolidificationEntry.Value.([4]interface{})[2].(*transaction.CachedTransaction)
-	currentCachedTransactionMetadata := currentSolidificationEntry.Value.([4]interface{})[3].(*CachedTransactionMetadata)
-	stack.Remove(currentSolidificationEntry)
-
-	return currentCachedPayload, currentCachedMetadata, currentCachedTransaction, currentCachedTransactionMetadata
-}
-
 // solidifyPayload is the worker function that solidifies the payloads (recursively from past to present).
 func (tangle *Tangle) solidifyPayload(cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
 	// initialize the stack
 	solidificationStack := list.New()
-	solidificationStack.PushBack([4]interface{}{cachedPayload, cachedMetadata, cachedTransaction, cachedTransactionMetadata})
+	solidificationStack.PushBack(&valuePayloadPropagationStackEntry{
+		CachedPayload:             cachedPayload,
+		CachedPayloadMetadata:     cachedMetadata,
+		CachedTransaction:         cachedTransaction,
+		CachedTransactionMetadata: cachedTransactionMetadata,
+	})
+
+	// keep track of the added payloads so we do not add them multiple times
+	processedPayloads := make(map[payload.ID]types.Empty)
 
 	// process payloads that are supposed to be checked for solidity recursively
 	for solidificationStack.Len() > 0 {
-		// retrieve cached objects
-		currentCachedPayload, currentCachedMetadata, currentCachedTransaction, currentCachedTransactionMetadata := tangle.popElementsFromSolidificationStack(solidificationStack)
-
-		// unwrap cached objects
-		currentPayload := currentCachedPayload.Unwrap()
-		currentPayloadMetadata := currentCachedMetadata.Unwrap()
-		currentTransaction := currentCachedTransaction.Unwrap()
-		currentTransactionMetadata := currentCachedTransactionMetadata.Unwrap()
-
-		// abort if any of the retrieved models are nil
-		if currentPayload == nil || currentPayloadMetadata == nil || currentTransaction == nil || currentTransactionMetadata == nil {
-			currentCachedPayload.Release()
-			currentCachedMetadata.Release()
-			currentCachedTransaction.Release()
-			currentCachedTransactionMetadata.Release()
-
-			return
-		}
-
-		// abort if the transaction is not solid or invalid
-		transactionSolid, consumedBranches, err := tangle.checkTransactionSolidity(currentTransaction, currentTransactionMetadata)
-		if err != nil || !transactionSolid {
-			if err != nil {
-				// TODO: TRIGGER INVALID TX + REMOVE TXS + PAYLOADS THAT APPROVE IT
-				fmt.Println(err, currentTransaction)
-			}
-
-			currentCachedPayload.Release()
-			currentCachedMetadata.Release()
-			currentCachedTransaction.Release()
-			currentCachedTransactionMetadata.Release()
-
-			return
-		}
-
-		// abort if the payload is not solid or invalid
-		payloadSolid, err := tangle.checkPayloadSolidity(currentPayload, currentPayloadMetadata, consumedBranches)
-		if err != nil || !payloadSolid {
-			if err != nil {
-				// TODO: TRIGGER INVALID TX + REMOVE TXS + PAYLOADS THAT APPROVE IT
-				fmt.Println(err, currentTransaction)
-			}
-
-			currentCachedPayload.Release()
-			currentCachedMetadata.Release()
-			currentCachedTransaction.Release()
-			currentCachedTransactionMetadata.Release()
-
-			return
-		}
-
-		// book the solid entities
-		transactionBooked, payloadBooked, decisionPending, bookingErr := tangle.book(currentCachedPayload.Retain(), currentCachedMetadata.Retain(), currentCachedTransaction.Retain(), currentCachedTransactionMetadata.Retain())
-		if bookingErr != nil {
-			tangle.Events.Error.Trigger(bookingErr)
-
-			currentCachedPayload.Release()
-			currentCachedMetadata.Release()
-			currentCachedTransaction.Release()
-			currentCachedTransactionMetadata.Release()
-
-			return
-		}
-
-		// keep track of the added payloads so we do not add them multiple times
-		processedPayloads := make(map[payload.ID]types.Empty)
-
-		// if the transaction was booked then we trigger events and analyze its consumers
-		if transactionBooked {
-			tangle.Events.TransactionBooked.Trigger(cachedTransaction, cachedTransactionMetadata, decisionPending)
-
-			tangle.ForEachConsumers(currentTransaction, func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
-				unwrappedPayload := cachedPayload.Unwrap()
-				if unwrappedPayload == nil {
-					cachedPayload.Release()
-					cachedPayloadMetadata.Release()
-					cachedTransaction.Release()
-					cachedTransactionMetadata.Release()
-
-					return
-				}
-
-				if _, payloadProcessed := processedPayloads[unwrappedPayload.ID()]; payloadProcessed {
-					cachedPayload.Release()
-					cachedPayloadMetadata.Release()
-					cachedTransaction.Release()
-					cachedTransactionMetadata.Release()
-
-					return
-				}
-				processedPayloads[unwrappedPayload.ID()] = types.Void
-
-				solidificationStack.PushBack([4]interface{}{cachedPayload, cachedPayloadMetadata, cachedTransaction, cachedTransactionMetadata})
-			})
-		}
-
-		// if the payload was booked then we analyze its approvers
-		if payloadBooked {
-			tangle.ForeachApprovers(currentPayload.ID(), func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
-				unwrappedPayload := cachedPayload.Unwrap()
-				if unwrappedPayload == nil {
-					cachedPayload.Release()
-					cachedPayloadMetadata.Release()
-					cachedTransaction.Release()
-					cachedTransactionMetadata.Release()
-
-					return
-				}
-
-				if _, payloadProcessed := processedPayloads[unwrappedPayload.ID()]; payloadProcessed {
-					cachedPayload.Release()
-					cachedPayloadMetadata.Release()
-					cachedTransaction.Release()
-					cachedTransactionMetadata.Release()
-
-					return
-				}
-				processedPayloads[unwrappedPayload.ID()] = types.Void
-
-				solidificationStack.PushBack([4]interface{}{cachedPayload, cachedPayloadMetadata, cachedTransaction, cachedTransactionMetadata})
-			})
-		}
-
-		currentCachedPayload.Release()
-		currentCachedMetadata.Release()
-		currentCachedTransaction.Release()
-		currentCachedTransactionMetadata.Release()
+		currentSolidificationEntry := solidificationStack.Front()
+		tangle.processSolidificationStackEntry(solidificationStack, processedPayloads, currentSolidificationEntry.Value.(*valuePayloadPropagationStackEntry))
+		solidificationStack.Remove(currentSolidificationEntry)
 	}
 }
 
-func (tangle *Tangle) book(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) (transactionBooked bool, payloadBooked bool, decisionPending bool, err error) {
-	defer cachedPayload.Release()
-	defer cachedPayloadMetadata.Release()
-	defer cachedTransaction.Release()
-	defer cachedTransactionMetadata.Release()
+func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.List, processedPayloads map[payload.ID]types.Empty, solidificationStackEntry *valuePayloadPropagationStackEntry) {
+	// release stack entry when we are done
+	defer solidificationStackEntry.Release()
 
-	if transactionBooked, decisionPending, err = tangle.bookTransaction(cachedTransaction.Retain(), cachedTransactionMetadata.Retain()); err != nil {
+	// unwrap and abort if any of the retrieved models are nil
+	currentPayload, currentPayloadMetadata, currentTransaction, currentTransactionMetadata := solidificationStackEntry.Unwrap()
+	if currentPayload == nil || currentPayloadMetadata == nil || currentTransaction == nil || currentTransactionMetadata == nil {
 		return
 	}
 
-	if payloadBooked, err = tangle.bookPayload(cachedPayload.Retain(), cachedPayloadMetadata.Retain(), cachedTransactionMetadata.Retain()); err != nil {
+	// abort if the transaction is not solid or invalid
+	transactionSolid, consumedBranches, transactionSolidityErr := tangle.checkTransactionSolidity(currentTransaction, currentTransactionMetadata)
+	if transactionSolidityErr != nil {
+		// TODO: TRIGGER INVALID TX + REMOVE TXS + PAYLOADS THAT APPROVE IT
+
+		return
+	}
+	if !transactionSolid {
+		return
+	}
+
+	// abort if the payload is not solid or invalid
+	payloadSolid, payloadSolidityErr := tangle.checkPayloadSolidity(currentPayload, currentPayloadMetadata, consumedBranches)
+	if payloadSolidityErr != nil {
+		// TODO: TRIGGER INVALID TX + REMOVE TXS + PAYLOADS THAT APPROVE IT
+
+		return
+	}
+	if !payloadSolid {
+		return
+	}
+
+	// book the solid entities
+	transactionBooked, payloadBooked, decisionPending, bookingErr := tangle.book(solidificationStackEntry.Retain())
+	if bookingErr != nil {
+		tangle.Events.Error.Trigger(bookingErr)
+
+		return
+	}
+
+	// trigger events and schedule check of approvers / consumers
+	if transactionBooked {
+		tangle.Events.TransactionBooked.Trigger(solidificationStackEntry.CachedTransaction, solidificationStackEntry.CachedTransactionMetadata, decisionPending)
+
+		tangle.ForEachConsumers(currentTransaction, tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads))
+	}
+	if payloadBooked {
+		tangle.ForeachApprovers(currentPayload.ID(), tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads))
+	}
+}
+
+func (tangle *Tangle) book(entitiesToBook *valuePayloadPropagationStackEntry) (transactionBooked bool, payloadBooked bool, decisionPending bool, err error) {
+	defer entitiesToBook.Release()
+
+	if transactionBooked, decisionPending, err = tangle.bookTransaction(entitiesToBook.CachedTransaction.Retain(), entitiesToBook.CachedTransactionMetadata.Retain()); err != nil {
+		return
+	}
+
+	if payloadBooked, err = tangle.bookPayload(entitiesToBook.CachedPayload.Retain(), entitiesToBook.CachedPayloadMetadata.Retain(), entitiesToBook.CachedTransactionMetadata.Retain()); err != nil {
 		return
 	}
 
@@ -1353,4 +1274,29 @@ type valuePayloadPropagationStackEntry struct {
 	CachedPayloadMetadata     *CachedPayloadMetadata
 	CachedTransaction         *transaction.CachedTransaction
 	CachedTransactionMetadata *CachedTransactionMetadata
+}
+
+func (stackEntry *valuePayloadPropagationStackEntry) Retain() *valuePayloadPropagationStackEntry {
+	return &valuePayloadPropagationStackEntry{
+		CachedPayload:             stackEntry.CachedPayload.Retain(),
+		CachedPayloadMetadata:     stackEntry.CachedPayloadMetadata.Retain(),
+		CachedTransaction:         stackEntry.CachedTransaction.Retain(),
+		CachedTransactionMetadata: stackEntry.CachedTransactionMetadata.Retain(),
+	}
+}
+
+func (stackEntry *valuePayloadPropagationStackEntry) Release() {
+	stackEntry.CachedPayload.Release()
+	stackEntry.CachedPayloadMetadata.Release()
+	stackEntry.CachedTransaction.Release()
+	stackEntry.CachedTransactionMetadata.Release()
+}
+
+func (stackEntry *valuePayloadPropagationStackEntry) Unwrap() (payload *payload.Payload, payloadMetadata *PayloadMetadata, transaction *transaction.Transaction, transactionMetadata *TransactionMetadata) {
+	payload = stackEntry.CachedPayload.Unwrap()
+	payloadMetadata = stackEntry.CachedPayloadMetadata.Unwrap()
+	transaction = stackEntry.CachedTransaction.Unwrap()
+	transactionMetadata = stackEntry.CachedTransactionMetadata.Unwrap()
+
+	return
 }
