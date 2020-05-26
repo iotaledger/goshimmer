@@ -145,8 +145,11 @@ func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
 // propagates the changes to the BranchManager if the flag was updated.
 func (tangle *Tangle) SetTransactionFinalized(transactionID transaction.ID) (modified bool, err error) {
 	tangle.TransactionMetadata(transactionID).Consume(func(metadata *TransactionMetadata) {
+		// update the finalized flag of the transaction
+		modified = metadata.SetFinalized(true)
+
 		// only propagate the changes if the flag was modified
-		if modified = metadata.SetFinalized(true); modified {
+		if modified {
 			// propagate changes to the branches (UTXO DAG)
 			if metadata.Conflicting() {
 				_, err = tangle.branchManager.SetBranchFinalized(metadata.BranchID())
