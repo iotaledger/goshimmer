@@ -264,12 +264,14 @@ func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack 
 	}
 
 	// schedule checks of approvers and consumers
-	tangle.ForEachConsumersAndApprovers(currentPayload, func(
-		cachedPayload *payload.CachedPayload,
-		cachedPayloadMetadata *CachedPayloadMetadata,
-		cachedTransaction *transaction.CachedTransaction,
-		cachedTransactionMetadata *CachedTransactionMetadata,
-	) {
+	tangle.ForEachConsumersAndApprovers(currentPayload, tangle.createValuePayloadFutureConeIterator(propagationStack, processedPayloads))
+}
+
+// createValuePayloadFutureConeIterator returns a function that can be handed into the ForEachConsumersAndApprovers
+// method, that iterates through the next level of the future cone of the given transaction and adds the found elements
+// to the given stack.
+func (tangle *Tangle) createValuePayloadFutureConeIterator(propagationStack *list.List, processedPayloads map[payload.ID]types.Empty) func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
+	return func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
 		// automatically release cached objects when we terminate
 		defer cachedPayload.Release()
 		defer cachedPayloadMetadata.Release()
@@ -295,7 +297,7 @@ func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack 
 			cachedTransaction.Retain(),
 			cachedTransactionMetadata.Retain(),
 		})
-	})
+	}
 }
 
 // ValuePayloadsLiked is checking if the Payloads referenced by the passed in IDs are all liked.
