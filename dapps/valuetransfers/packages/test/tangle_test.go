@@ -72,8 +72,7 @@ func TestTangle_ValueTransfer(t *testing.T) {
 	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(seed.Address(1)))
 	assert.Equal(t, map[balance.Color]int64{balance.ColorIOTA: 1337}, ledgerState.Balances(outputAddress1))
 	assert.Equal(t, 1, len(recordedLikedPayloads))
-	_, payloadLiked := recordedLikedPayloads[attachedPayload1.ID()]
-	assert.True(t, payloadLiked)
+	assert.Contains(t, recordedLikedPayloads, attachedPayload1.ID())
 
 	resetRecordedLikedPayloads()
 
