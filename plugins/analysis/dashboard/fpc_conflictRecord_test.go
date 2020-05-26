@@ -13,12 +13,12 @@ func TestConflictRecordUpdate(t *testing.T) {
 
 	// test first new update
 	conflictA := conflict{
-		nodesView: map[string]voteContext{
+		NodesView: map[string]voteContext{
 			"nodeA": {
-				nodeID:   "nodeA",
-				rounds:   3,
-				opinions: []int32{disliked, liked, disliked},
-				status:   liked,
+				NodeID:   "nodeA",
+				Rounds:   3,
+				Opinions: []int32{disliked, liked, disliked},
+				Status:   liked,
 			},
 		},
 	}
@@ -30,12 +30,12 @@ func TestConflictRecordUpdate(t *testing.T) {
 
 	// test second new update
 	conflictB := conflict{
-		nodesView: map[string]voteContext{
+		NodesView: map[string]voteContext{
 			"nodeB": {
-				nodeID:   "nodeB",
-				rounds:   3,
-				opinions: []int32{disliked, liked, disliked},
-				status:   liked,
+				NodeID:   "nodeB",
+				Rounds:   3,
+				Opinions: []int32{disliked, liked, disliked},
+				Status:   liked,
 			},
 		},
 	}
@@ -47,12 +47,12 @@ func TestConflictRecordUpdate(t *testing.T) {
 
 	// test modify existing entry
 	conflictB = conflict{
-		nodesView: map[string]voteContext{
+		NodesView: map[string]voteContext{
 			"nodeB": {
-				nodeID:   "nodeB",
-				rounds:   4,
-				opinions: []int32{disliked, liked, disliked, liked},
-				status:   liked,
+				NodeID:   "nodeB",
+				Rounds:   4,
+				Opinions: []int32{disliked, liked, disliked, liked},
+				Status:   liked,
 			},
 		},
 	}
@@ -64,12 +64,12 @@ func TestConflictRecordUpdate(t *testing.T) {
 
 	// test last update and first update entry removal
 	conflictC := conflict{
-		nodesView: map[string]voteContext{
+		NodesView: map[string]voteContext{
 			"nodeC": {
-				nodeID:   "nodeC",
-				rounds:   3,
-				opinions: []int32{disliked, liked, disliked},
-				status:   liked,
+				NodeID:   "nodeC",
+				Rounds:   3,
+				Opinions: []int32{disliked, liked, disliked},
+				Status:   liked,
 			},
 		},
 	}

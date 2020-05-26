@@ -14,17 +14,17 @@ func TestIsFinalized(t *testing.T) {
 	}{
 		{
 			conflict: conflict{
-				nodesView: map[string]voteContext{
-					"one": {status: liked},
-					"two": {status: disliked},
+				NodesView: map[string]voteContext{
+					"one": {Status: liked},
+					"two": {Status: disliked},
 				},
 			},
 			want: true,
 		},
 		{
 			conflict: conflict{
-				nodesView: map[string]voteContext{
-					"one": {status: liked},
+				NodesView: map[string]voteContext{
+					"one": {Status: liked},
 					"two": {},
 				},
 			},
@@ -50,17 +50,17 @@ func TestFinalizationStatus(t *testing.T) {
 	}{
 		{
 			conflict: conflict{
-				nodesView: map[string]voteContext{
-					"one": {status: liked},
-					"two": {status: disliked},
+				NodesView: map[string]voteContext{
+					"one": {Status: liked},
+					"two": {Status: disliked},
 				},
 			},
 			want: 1,
 		},
 		{
 			conflict: conflict{
-				nodesView: map[string]voteContext{
-					"one": {status: liked},
+				NodesView: map[string]voteContext{
+					"one": {Status: liked},
 					"two": {},
 				},
 			},

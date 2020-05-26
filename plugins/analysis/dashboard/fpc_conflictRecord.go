@@ -27,7 +27,7 @@ func (cr *conflictRecord) ToFPCUpdate() *FPCUpdate {
 	// }
 
 	return &FPCUpdate{
-		conflicts: cr.conflictSet,
+		Conflicts: cr.conflictSet,
 	}
 }
 
@@ -46,7 +46,7 @@ func (cr *conflictRecord) update(ID string, c conflict) {
 		}
 	}
 
-	for nodeID, context := range c.nodesView {
-		cr.conflictSet[ID].nodesView[nodeID] = context
+	for nodeID, context := range c.NodesView {
+		cr.conflictSet[ID].NodesView[nodeID] = context
 	}
 }

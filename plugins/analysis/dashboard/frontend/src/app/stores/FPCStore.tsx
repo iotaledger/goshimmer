@@ -60,7 +60,7 @@ export class FPCStore {
     }
 
     @action
-    addLiveFeed = (msg: FPCMessage) => {        
+    addLiveFeed = (msg: FPCMessage) => { 
         for (const key of Object.keys(msg.conflictset)) {
             for (const key2 of Object.keys(msg.conflictset[key].nodesview)){
                 let voteContext = msg.conflictset[key].nodesview[key2];

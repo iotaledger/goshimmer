@@ -31,7 +31,7 @@ var (
 
 // FPCUpdate contains an FPC update.
 type FPCUpdate struct {
-	conflicts conflictSet `json:"conflictset"`
+	Conflicts conflictSet `json:"conflictset"`
 }
 
 func configureFPCLiveFeed() {
@@ -74,27 +74,27 @@ func createFPCUpdate(hb *packet.FPCHeartbeat, recordEvent bool) *FPCUpdate {
 	nodeID := base58.Encode(hb.OwnID)
 	for ID, context := range hb.RoundStats.ActiveVoteContexts {
 		newVoteContext := voteContext{
-			nodeID:   nodeID,
-			rounds:   context.Rounds,
-			opinions: vote.ConvertOpinionsToInts32(context.Opinions),
+			NodeID:   nodeID,
+			Rounds:   context.Rounds,
+			Opinions: vote.ConvertOpinionsToInts32(context.Opinions),
 		}
 
 		// check conflict has been finalized
 		if _, ok := hb.Finalized[ID]; ok {
-			newVoteContext.status = vote.ConvertOpinionToInt32(hb.Finalized[ID])
+			newVoteContext.Status = vote.ConvertOpinionToInt32(hb.Finalized[ID])
 		}
 
 		conflicts[ID] = newConflict()
-		conflicts[ID].nodesView[nodeID] = newVoteContext
+		conflicts[ID].NodesView[nodeID] = newVoteContext
 
 		if recordEvent {
 			// update recorded events
-			recordedConflicts.update(ID, conflict{nodesView: map[string]voteContext{nodeID: newVoteContext}})
+			recordedConflicts.update(ID, conflict{NodesView: map[string]voteContext{nodeID: newVoteContext}})
 		}
 	}
 
 	return &FPCUpdate{
-		conflicts: conflicts,
+		Conflicts: conflicts,
 	}
 }
 
