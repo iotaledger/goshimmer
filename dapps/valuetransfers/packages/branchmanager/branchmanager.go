@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -47,6 +48,12 @@ func New(store kvstore.KVStore) (branchManager *BranchManager) {
 		childBranchStorage:    osFactory.New(osChildBranch, osChildBranchFactory, osChildBranchOptions...),
 		conflictStorage:       osFactory.New(osConflict, osConflictFactory, osConflictOptions...),
 		conflictMemberStorage: osFactory.New(osConflictMember, osConflictMemberFactory, osConflictMemberOptions...),
+		Events: &Events{
+			BranchPreferred:   events.NewEvent(branchCaller),
+			BranchUnpreferred: events.NewEvent(branchCaller),
+			BranchLiked:       events.NewEvent(branchCaller),
+			BranchDisliked:    events.NewEvent(branchCaller),
+		},
 	}
 	branchManager.init()
 
@@ -337,6 +344,10 @@ func (branchManager *BranchManager) SetBranchLiked(branchID BranchID, liked bool
 	return branchManager.setBranchLiked(branchManager.Branch(branchID), liked)
 }
 
+func (branchManager *BranchManager) SetBranchFinalized(branchID BranchID) (modified bool, err error) {
+	return
+}
+
 // Prune resets the database and deletes all objects (for testing or "node resets").
 func (branchManager *BranchManager) Prune() (err error) {
 	for _, storage := range []*objectstorage.ObjectStorage{
@@ -468,6 +479,23 @@ func (branchManager *BranchManager) setBranchLiked(cachedBranch *CachedBranch, l
 	branchManager.Events.BranchLiked.Trigger(cachedBranch)
 
 	err = branchManager.propagateLike(cachedBranch.Retain())
+
+	return
+}
+
+// IsBranchLiked returns true if the Branch is currently marked as liked.
+func (branchManager *BranchManager) IsBranchLiked(id BranchID) (liked bool) {
+	if id == UndefinedBranchID {
+		return
+	}
+
+	if id == MasterBranchID {
+		return true
+	}
+
+	branchManager.Branch(id).Consume(func(branch *Branch) {
+		liked = branch.Liked()
+	})
 
 	return
 }
