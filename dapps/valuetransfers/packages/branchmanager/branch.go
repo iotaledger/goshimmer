@@ -356,9 +356,10 @@ func (branch *Branch) ObjectStorageValue() []byte {
 	parentBranches := branch.ParentBranches()
 	parentBranchCount := len(parentBranches)
 
-	marshalUtil := marshalutil.New(3*marshalutil.BOOL_SIZE + marshalutil.UINT32_SIZE + parentBranchCount*BranchIDLength)
+	marshalUtil := marshalutil.New(4*marshalutil.BOOL_SIZE + marshalutil.UINT32_SIZE + parentBranchCount*BranchIDLength)
 	marshalUtil.WriteBool(branch.Preferred())
 	marshalUtil.WriteBool(branch.Liked())
+	marshalUtil.WriteBool(branch.Finalized())
 	marshalUtil.WriteBool(branch.Confirmed())
 	marshalUtil.WriteUint32(uint32(parentBranchCount))
 	for _, branchID := range parentBranches {
@@ -376,6 +377,10 @@ func (branch *Branch) UnmarshalObjectStorageValue(valueBytes []byte) (consumedBy
 		return
 	}
 	branch.liked, err = marshalUtil.ReadBool()
+	if err != nil {
+		return
+	}
+	branch.finalized, err = marshalUtil.ReadBool()
 	if err != nil {
 		return
 	}
