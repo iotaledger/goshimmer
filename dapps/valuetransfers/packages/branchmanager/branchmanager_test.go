@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/testutil"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 )
 
 func TestSomething(t *testing.T) {
-	branchManager := New(testutil.DB(t))
+	branchManager := New(mapdb.NewMapDB())
 
 	cachedBranch1, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{transaction.OutputID{4}})
 	defer cachedBranch1.Release()

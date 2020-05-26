@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
@@ -12,12 +13,11 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/testutil"
 )
 
 func TestTangle_ValueTransfer(t *testing.T) {
 	// initialize tangle + ledgerstate
-	valueTangle := tangle.New(testutil.DB(t))
+	valueTangle := tangle.New(mapdb.NewMapDB())
 	if err := valueTangle.Prune(); err != nil {
 		t.Error(err)
 
