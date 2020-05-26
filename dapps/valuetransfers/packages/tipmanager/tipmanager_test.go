@@ -27,7 +27,7 @@ func TestTipManager(t *testing.T) {
 	tipManager.AddTip(v)
 
 	// check count
-	assert.Equal(t, 1, tipManager.TipCount())
+	assert.Equal(t, 1, tipManager.Size())
 
 	// check if both reference it
 	parent1, parent2 = tipManager.Tips()
@@ -39,7 +39,7 @@ func TestTipManager(t *testing.T) {
 	tipManager.AddTip(v2)
 
 	// check count
-	assert.Equal(t, 2, tipManager.TipCount())
+	assert.Equal(t, 2, tipManager.Size())
 
 	// attach new value object to previous 2 tips
 	parent1, parent2 = tipManager.Tips()
@@ -49,7 +49,7 @@ func TestTipManager(t *testing.T) {
 	tipManager.AddTip(v3)
 
 	// check that parents are removed
-	assert.Equal(t, 1, tipManager.TipCount())
+	assert.Equal(t, 1, tipManager.Size())
 	parent1, parent2 = tipManager.Tips()
 	assert.Equal(t, v3.ID(), parent1)
 	assert.Equal(t, v3.ID(), parent2)
@@ -100,7 +100,7 @@ func TestTipManagerConcurrent(t *testing.T) {
 	// check if count matches and corresponding events have been triggered
 	assert.EqualValues(t, numTips*numThreads+numSelected*numThreads, tipsAdded)
 	assert.EqualValues(t, 2*numSelected*numThreads, tipsRemoved)
-	assert.EqualValues(t, numTips*numThreads-numSelected*numThreads, tipManager.TipCount())
+	assert.EqualValues(t, numTips*numThreads-numSelected*numThreads, tipManager.Size())
 }
 
 func randomTip(tips map[payload.ID]struct{}) payload.ID {

@@ -77,7 +77,7 @@ func (t *TipManager) Tips() (parent1ObjectID, parent2ObjectID payload.ID) {
 	return
 }
 
-// TipCount returns the total liked tips.
-func (t *TipManager) TipCount() int {
+// Size returns the total liked tips.
+func (t *TipManager) Size() int {
 	return t.tips.Size()
 }
