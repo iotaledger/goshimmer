@@ -63,27 +63,33 @@ func New(store kvstore.KVStore) (result *Tangle) {
 	}
 
 	result.branchManager.Events.BranchPreferred.Attach(events.NewClosure(func(cachedBranch *branchmanager.CachedBranch) {
-		cachedBranch.Consume(func(branch *branchmanager.Branch) {
-			if !branch.IsAggregated() {
-				transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
-				if err != nil {
-					// this should never ever happen so we panic
-					panic(err)
-
-					return
-				}
-
-				_, err = result.SetTransactionPreferred(transactionID, true)
-				if err != nil {
-					result.Events.Error.Trigger(err)
-
-					return
-				}
-			}
-		})
+		result.propagateBranchPreferredChangesToTransaction(cachedBranch, true)
+	}))
+	result.branchManager.Events.BranchUnpreferred.Attach(events.NewClosure(func(cachedBranch *branchmanager.CachedBranch) {
+		result.propagateBranchPreferredChangesToTransaction(cachedBranch, false)
 	}))
 
 	return
+}
+
+// propagateBranchPreferredChangesToTransaction updates the preferred flag of a transaction, whenever the preferred
+// status of its corresponding branch changes.
+func (tangle *Tangle) propagateBranchPreferredChangesToTransaction(cachedBranch *branchmanager.CachedBranch, preferred bool) {
+	cachedBranch.Consume(func(branch *branchmanager.Branch) {
+		if !branch.IsAggregated() {
+			transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
+			if err != nil {
+				panic(err) // this should never ever happen
+			}
+
+			_, err = tangle.SetTransactionPreferred(transactionID, preferred)
+			if err != nil {
+				tangle.Events.Error.Trigger(err)
+
+				return
+			}
+		}
+	})
 }
 
 // BranchManager is the getter for the manager that takes care of creating and updating branches.
@@ -135,12 +141,47 @@ func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
 	tangle.workerPool.Submit(func() { tangle.AttachPayloadSync(payload) })
 }
 
+// SetTransactionFinalized modifies the finalized flag of a transaction. It updates the transactions metadata and
+// propagates the changes to the BranchManager if the flag was updated.
+func (tangle *Tangle) SetTransactionFinalized(transactionID transaction.ID) (modified bool, err error) {
+	tangle.TransactionMetadata(transactionID).Consume(func(metadata *TransactionMetadata) {
+		// update the finalized flag of the transaction
+		modified = metadata.SetFinalized(true)
+
+		// only propagate the changes if the flag was modified
+		if modified {
+			// propagate changes to the branches (UTXO DAG)
+			if metadata.Conflicting() {
+				_, err = tangle.branchManager.SetBranchFinalized(metadata.BranchID())
+				if err != nil {
+					tangle.Events.Error.Trigger(err)
+
+					return
+				}
+			}
+
+			// propagate changes to future cone of transaction (value tangle)
+			tangle.propagateValuePayloadConfirmedUpdates(transactionID)
+		}
+	})
+
+	return
+}
+
+// TODO: WRITE COMMENT
+func (tangle *Tangle) propagateValuePayloadConfirmedUpdates(transactionID transaction.ID) {
+	panic("not yet implemented")
+}
+
 // SetTransactionPreferred modifies the preferred flag of a transaction. It updates the transactions metadata and
 // propagates the changes to the BranchManager if the flag was updated.
 func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, preferred bool) (modified bool, err error) {
 	tangle.TransactionMetadata(transactionID).Consume(func(metadata *TransactionMetadata) {
+		// update the preferred flag of the transaction
+		modified = metadata.setPreferred(preferred)
+
 		// only propagate the changes if the flag was modified
-		if modified = metadata.setPreferred(preferred); modified {
+		if modified {
 			// propagate changes to the branches (UTXO DAG)
 			if metadata.Conflicting() {
 				_, err = tangle.branchManager.SetBranchPreferred(metadata.BranchID(), preferred)
@@ -163,90 +204,94 @@ func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, pref
 // the transaction that was updated was the entry point to a branch then all value payloads inside this branch get
 // updated as well (updates happen from past to presents).
 func (tangle *Tangle) propagateValuePayloadLikeUpdates(transactionID transaction.ID, liked bool) {
-	// initiate stack with the passed in transaction
+	// initiate stack with the attachments of the passed in transaction
 	propagationStack := list.New()
 	tangle.Attachments(transactionID).Consume(func(attachment *Attachment) {
-		propagationStack.PushBack([4]interface{}{tangle.Payload(attachment.PayloadID()), tangle.PayloadMetadata(attachment.PayloadID()), tangle.Transaction(transactionID), tangle.TransactionMetadata(transactionID)})
+		propagationStack.PushBack(&valuePayloadPropagationStackEntry{
+			CachedPayload:             tangle.Payload(attachment.PayloadID()),
+			CachedPayloadMetadata:     tangle.PayloadMetadata(attachment.PayloadID()),
+			CachedTransaction:         tangle.Transaction(transactionID),
+			CachedTransactionMetadata: tangle.TransactionMetadata(transactionID),
+		})
 	})
 
 	// keep track of the seen payloads so we do not process them twice
 	seenPayloads := make(map[payload.ID]types.Empty)
 
-	// iterate through future cone of transactions
+	// iterate through stack (future cone of transactions)
 	for propagationStack.Len() >= 1 {
-		// retrieve elements from stack
 		currentAttachmentEntry := propagationStack.Front()
-		currentCachedPayload := currentAttachmentEntry.Value.([4]interface{})[0].(*payload.CachedPayload)
-		currentCachedPayloadMetadata := currentAttachmentEntry.Value.([4]interface{})[1].(*CachedPayloadMetadata)
-		currentCachedTransaction := currentAttachmentEntry.Value.([4]interface{})[2].(*transaction.CachedTransaction)
-		currentCachedTransactionMetadata := currentAttachmentEntry.Value.([4]interface{})[3].(*CachedTransactionMetadata)
+		tangle.processValuePayloadLikedUpdateStackEntry(propagationStack, seenPayloads, liked, currentAttachmentEntry.Value.(*valuePayloadPropagationStackEntry))
 		propagationStack.Remove(currentAttachmentEntry)
+	}
+}
 
-		// unpack loaded objects
-		currentPayload := currentCachedPayload.Unwrap()
-		currentPayloadMetadata := currentCachedPayloadMetadata.Unwrap()
-		currentTransaction := currentCachedTransaction.Unwrap()
-		currentTransactionMetadata := currentCachedTransactionMetadata.Unwrap()
+// processValuePayloadLikedUpdateStackEntry is an internal utility method that processes a single entry of the
+// propagation stack for the update of the liked flag when iterating through the future cone of a transactions
+// attachments. It checks if a ValuePayloads has become liked (or disliked), updates the flag an schedules its future
+// cone for additional checks.
+func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack *list.List, processedPayloads map[payload.ID]types.Empty, liked bool, propagationStackEntry *valuePayloadPropagationStackEntry) {
+	// release the entry when we are done
+	defer propagationStackEntry.Release()
 
-		// only continue if the entities could be loaded from the database
-		if currentPayload != nil && currentPayloadMetadata != nil && currentTransaction != nil && currentTransactionMetadata != nil {
-			var updated bool
-			switch liked {
-			// if the
-			case true:
-				// only trigger the events if the transaction is preferred, the branch of the payload is liked, the referenced value payloads are liked and the payload was not marked as liked before
-				if updated = currentTransactionMetadata.Preferred() && tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) && tangle.ValuePayloadsLiked(currentPayload.TrunkID(), currentPayload.BranchID()) && currentPayloadMetadata.SetLiked(liked); updated {
-					tangle.Events.PayloadLiked.Trigger(currentCachedPayload, currentCachedPayloadMetadata)
-				}
-			case false:
-				// only trigger the events if the payload has not been marked as disliked before
-				if updated = currentPayloadMetadata.SetLiked(liked); updated {
-					tangle.Events.PayloadDisliked.Trigger(currentCachedPayload, currentCachedPayloadMetadata)
-				}
-			}
+	// unpack loaded objects and  abort if the entities could not be loaded from the database
+	currentPayload, currentPayloadMetadata, currentTransaction, currentTransactionMetadata := propagationStackEntry.Unwrap()
+	if currentPayload == nil || currentPayloadMetadata == nil || currentTransaction == nil || currentTransactionMetadata == nil {
+		return
+	}
 
-			// schedule checks of approvers and consumers if we performed an update
-			if updated {
-				tangle.ForEachConsumersAndApprovers(currentPayload, func(
-					cachedPayload *payload.CachedPayload,
-					cachedPayloadMetadata *CachedPayloadMetadata,
-					cachedTransaction *transaction.CachedTransaction,
-					cachedTransactionMetadata *CachedTransactionMetadata,
-				) {
-					// automatically release cached objects when we terminate
-					defer cachedPayload.Release()
-					defer cachedPayloadMetadata.Release()
-					defer cachedTransaction.Release()
-					defer cachedTransactionMetadata.Release()
-
-					// abort if the payload could not be unwrapped
-					unwrappedPayload := cachedPayload.Unwrap()
-					if unwrappedPayload == nil {
-						return
-					}
-
-					// abort if we have scheduled the check of this payload already
-					if _, payloadSeenAlready := seenPayloads[unwrappedPayload.ID()]; payloadSeenAlready {
-						return
-					}
-					seenPayloads[unwrappedPayload.ID()] = types.Void
-
-					// schedule next checks
-					propagationStack.PushBack([4]interface{}{
-						cachedPayload.Retain(),
-						cachedPayloadMetadata.Retain(),
-						cachedTransaction.Retain(),
-						cachedTransactionMetadata.Retain(),
-					})
-				})
-			}
+	// perform different logic depending on the type of the change (liked vs dislike)
+	switch liked {
+	case true:
+		// abort if the transaction is not preferred, the branch of the payload is not liked, the referenced value payloads are not liked or the payload was marked as liked before
+		if !currentTransactionMetadata.Preferred() || !tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) || !tangle.ValuePayloadsLiked(currentPayload.TrunkID(), currentPayload.BranchID()) || !currentPayloadMetadata.SetLiked(liked) {
+			return
 		}
 
-		// release the cached objects
-		currentCachedPayload.Release()
-		currentCachedPayloadMetadata.Release()
-		currentCachedTransaction.Release()
-		currentCachedTransactionMetadata.Release()
+		tangle.Events.PayloadLiked.Trigger(propagationStackEntry.CachedPayload, propagationStackEntry.CachedPayloadMetadata)
+	case false:
+		// abort if the payload has been marked as disliked before
+		if !currentPayloadMetadata.SetLiked(liked) {
+			return
+		}
+
+		tangle.Events.PayloadDisliked.Trigger(propagationStackEntry.CachedPayload, propagationStackEntry.CachedPayloadMetadata)
+	}
+
+	// schedule checks of approvers and consumers
+	tangle.ForEachConsumersAndApprovers(currentPayload, tangle.createValuePayloadFutureConeIterator(propagationStack, processedPayloads))
+}
+
+// createValuePayloadFutureConeIterator returns a function that can be handed into the ForEachConsumersAndApprovers
+// method, that iterates through the next level of the future cone of the given transaction and adds the found elements
+// to the given stack.
+func (tangle *Tangle) createValuePayloadFutureConeIterator(propagationStack *list.List, processedPayloads map[payload.ID]types.Empty) func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
+	return func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
+		// automatically release cached objects when we terminate
+		defer cachedPayload.Release()
+		defer cachedPayloadMetadata.Release()
+		defer cachedTransaction.Release()
+		defer cachedTransactionMetadata.Release()
+
+		// abort if the payload could not be unwrapped
+		unwrappedPayload := cachedPayload.Unwrap()
+		if unwrappedPayload == nil {
+			return
+		}
+
+		// abort if we have scheduled the check of this payload already
+		if _, payloadProcessedAlready := processedPayloads[unwrappedPayload.ID()]; payloadProcessedAlready {
+			return
+		}
+		processedPayloads[unwrappedPayload.ID()] = types.Void
+
+		// schedule next checks
+		propagationStack.PushBack(&valuePayloadPropagationStackEntry{
+			CachedPayload:             cachedPayload.Retain(),
+			CachedPayloadMetadata:     cachedPayloadMetadata.Retain(),
+			CachedTransaction:         cachedTransaction.Retain(),
+			CachedTransactionMetadata: cachedTransactionMetadata.Retain(),
+		})
 	}
 }
 
@@ -428,170 +473,93 @@ func (tangle *Tangle) storePayloadReferences(payload *payload.Payload) {
 
 	// store branch approver
 	if branchID := payload.BranchID(); branchID != trunkID {
-		tangle.approverStorage.Store(NewPayloadApprover(branchID, trunkID)).Release()
+		tangle.approverStorage.Store(NewPayloadApprover(branchID, payload.ID())).Release()
 	}
-}
-
-func (tangle *Tangle) popElementsFromSolidificationStack(stack *list.List) (*payload.CachedPayload, *CachedPayloadMetadata, *transaction.CachedTransaction, *CachedTransactionMetadata) {
-	currentSolidificationEntry := stack.Front()
-	currentCachedPayload := currentSolidificationEntry.Value.([4]interface{})[0].(*payload.CachedPayload)
-	currentCachedMetadata := currentSolidificationEntry.Value.([4]interface{})[1].(*CachedPayloadMetadata)
-	currentCachedTransaction := currentSolidificationEntry.Value.([4]interface{})[2].(*transaction.CachedTransaction)
-	currentCachedTransactionMetadata := currentSolidificationEntry.Value.([4]interface{})[3].(*CachedTransactionMetadata)
-	stack.Remove(currentSolidificationEntry)
-
-	return currentCachedPayload, currentCachedMetadata, currentCachedTransaction, currentCachedTransactionMetadata
 }
 
 // solidifyPayload is the worker function that solidifies the payloads (recursively from past to present).
 func (tangle *Tangle) solidifyPayload(cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
 	// initialize the stack
 	solidificationStack := list.New()
-	solidificationStack.PushBack([4]interface{}{cachedPayload, cachedMetadata, cachedTransaction, cachedTransactionMetadata})
+	solidificationStack.PushBack(&valuePayloadPropagationStackEntry{
+		CachedPayload:             cachedPayload,
+		CachedPayloadMetadata:     cachedMetadata,
+		CachedTransaction:         cachedTransaction,
+		CachedTransactionMetadata: cachedTransactionMetadata,
+	})
+
+	// keep track of the added payloads so we do not add them multiple times
+	processedPayloads := make(map[payload.ID]types.Empty)
 
 	// process payloads that are supposed to be checked for solidity recursively
 	for solidificationStack.Len() > 0 {
-		// retrieve cached objects
-		currentCachedPayload, currentCachedMetadata, currentCachedTransaction, currentCachedTransactionMetadata := tangle.popElementsFromSolidificationStack(solidificationStack)
-
-		// unwrap cached objects
-		currentPayload := currentCachedPayload.Unwrap()
-		currentPayloadMetadata := currentCachedMetadata.Unwrap()
-		currentTransaction := currentCachedTransaction.Unwrap()
-		currentTransactionMetadata := currentCachedTransactionMetadata.Unwrap()
-
-		// abort if any of the retrieved models are nil
-		if currentPayload == nil || currentPayloadMetadata == nil || currentTransaction == nil || currentTransactionMetadata == nil {
-			currentCachedPayload.Release()
-			currentCachedMetadata.Release()
-			currentCachedTransaction.Release()
-			currentCachedTransactionMetadata.Release()
-
-			return
-		}
-
-		// abort if the transaction is not solid or invalid
-		transactionSolid, consumedBranches, err := tangle.checkTransactionSolidity(currentTransaction, currentTransactionMetadata)
-		if err != nil || !transactionSolid {
-			if err != nil {
-				// TODO: TRIGGER INVALID TX + REMOVE TXS + PAYLOADS THAT APPROVE IT
-				fmt.Println(err, currentTransaction)
-			}
-
-			currentCachedPayload.Release()
-			currentCachedMetadata.Release()
-			currentCachedTransaction.Release()
-			currentCachedTransactionMetadata.Release()
-
-			return
-		}
-
-		// abort if the payload is not solid or invalid
-		payloadSolid, err := tangle.checkPayloadSolidity(currentPayload, currentPayloadMetadata, consumedBranches)
-		if err != nil || !payloadSolid {
-			if err != nil {
-				// TODO: TRIGGER INVALID TX + REMOVE TXS + PAYLOADS THAT APPROVE IT
-				fmt.Println(err, currentTransaction)
-			}
-
-			currentCachedPayload.Release()
-			currentCachedMetadata.Release()
-			currentCachedTransaction.Release()
-			currentCachedTransactionMetadata.Release()
-
-			return
-		}
-
-		// book the solid entities
-		transactionBooked, payloadBooked, decisionPending, bookingErr := tangle.book(currentCachedPayload.Retain(), currentCachedMetadata.Retain(), currentCachedTransaction.Retain(), currentCachedTransactionMetadata.Retain())
-		if bookingErr != nil {
-			tangle.Events.Error.Trigger(bookingErr)
-
-			currentCachedPayload.Release()
-			currentCachedMetadata.Release()
-			currentCachedTransaction.Release()
-			currentCachedTransactionMetadata.Release()
-
-			return
-		}
-
-		// keep track of the added payloads so we do not add them multiple times
-		processedPayloads := make(map[payload.ID]types.Empty)
-
-		// if the transaction was booked then we trigger events and analyze its consumers
-		if transactionBooked {
-			tangle.Events.TransactionBooked.Trigger(cachedTransaction, cachedTransactionMetadata, decisionPending)
-
-			tangle.ForEachConsumers(currentTransaction, func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
-				unwrappedPayload := cachedPayload.Unwrap()
-				if unwrappedPayload == nil {
-					cachedPayload.Release()
-					cachedPayloadMetadata.Release()
-					cachedTransaction.Release()
-					cachedTransactionMetadata.Release()
-
-					return
-				}
-
-				if _, payloadProcessed := processedPayloads[unwrappedPayload.ID()]; payloadProcessed {
-					cachedPayload.Release()
-					cachedPayloadMetadata.Release()
-					cachedTransaction.Release()
-					cachedTransactionMetadata.Release()
-
-					return
-				}
-				processedPayloads[unwrappedPayload.ID()] = types.Void
-
-				solidificationStack.PushBack([4]interface{}{cachedPayload, cachedPayloadMetadata, cachedTransaction, cachedTransactionMetadata})
-			})
-		}
-
-		// if the payload was booked then we analyze its approvers
-		if payloadBooked {
-			tangle.ForeachApprovers(currentPayload.ID(), func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
-				unwrappedPayload := cachedPayload.Unwrap()
-				if unwrappedPayload == nil {
-					cachedPayload.Release()
-					cachedPayloadMetadata.Release()
-					cachedTransaction.Release()
-					cachedTransactionMetadata.Release()
-
-					return
-				}
-
-				if _, payloadProcessed := processedPayloads[unwrappedPayload.ID()]; payloadProcessed {
-					cachedPayload.Release()
-					cachedPayloadMetadata.Release()
-					cachedTransaction.Release()
-					cachedTransactionMetadata.Release()
-
-					return
-				}
-				processedPayloads[unwrappedPayload.ID()] = types.Void
-
-				solidificationStack.PushBack([4]interface{}{cachedPayload, cachedPayloadMetadata, cachedTransaction, cachedTransactionMetadata})
-			})
-		}
-
-		currentCachedPayload.Release()
-		currentCachedMetadata.Release()
-		currentCachedTransaction.Release()
-		currentCachedTransactionMetadata.Release()
+		currentSolidificationEntry := solidificationStack.Front()
+		tangle.processSolidificationStackEntry(solidificationStack, processedPayloads, currentSolidificationEntry.Value.(*valuePayloadPropagationStackEntry))
+		solidificationStack.Remove(currentSolidificationEntry)
 	}
 }
 
-func (tangle *Tangle) book(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) (transactionBooked bool, payloadBooked bool, decisionPending bool, err error) {
-	defer cachedPayload.Release()
-	defer cachedPayloadMetadata.Release()
-	defer cachedTransaction.Release()
-	defer cachedTransactionMetadata.Release()
+// processSolidificationStackEntry processes a single entry of the solidification stack and schedules its approvers and
+// consumers if necessary.
+func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.List, processedPayloads map[payload.ID]types.Empty, solidificationStackEntry *valuePayloadPropagationStackEntry) {
+	// release stack entry when we are done
+	defer solidificationStackEntry.Release()
 
-	if transactionBooked, decisionPending, err = tangle.bookTransaction(cachedTransaction.Retain(), cachedTransactionMetadata.Retain()); err != nil {
+	// unwrap and abort if any of the retrieved models are nil
+	currentPayload, currentPayloadMetadata, currentTransaction, currentTransactionMetadata := solidificationStackEntry.Unwrap()
+	if currentPayload == nil || currentPayloadMetadata == nil || currentTransaction == nil || currentTransactionMetadata == nil {
 		return
 	}
 
-	if payloadBooked, err = tangle.bookPayload(cachedPayload.Retain(), cachedPayloadMetadata.Retain(), cachedTransactionMetadata.Retain()); err != nil {
+	// abort if the transaction is not solid or invalid
+	transactionSolid, consumedBranches, transactionSolidityErr := tangle.checkTransactionSolidity(currentTransaction, currentTransactionMetadata)
+	if transactionSolidityErr != nil {
+		// TODO: TRIGGER INVALID TX + REMOVE TXS + PAYLOADS THAT APPROVE IT
+
+		return
+	}
+	if !transactionSolid {
+		return
+	}
+
+	// abort if the payload is not solid or invalid
+	payloadSolid, payloadSolidityErr := tangle.checkPayloadSolidity(currentPayload, currentPayloadMetadata, consumedBranches)
+	if payloadSolidityErr != nil {
+		// TODO: TRIGGER INVALID TX + REMOVE TXS + PAYLOADS THAT APPROVE IT
+
+		return
+	}
+	if !payloadSolid {
+		return
+	}
+
+	// book the solid entities
+	transactionBooked, payloadBooked, decisionPending, bookingErr := tangle.book(solidificationStackEntry.Retain())
+	if bookingErr != nil {
+		tangle.Events.Error.Trigger(bookingErr)
+
+		return
+	}
+
+	// trigger events and schedule check of approvers / consumers
+	if transactionBooked {
+		tangle.Events.TransactionBooked.Trigger(solidificationStackEntry.CachedTransaction, solidificationStackEntry.CachedTransactionMetadata, decisionPending)
+
+		tangle.ForEachConsumers(currentTransaction, tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads))
+	}
+	if payloadBooked {
+		tangle.ForeachApprovers(currentPayload.ID(), tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads))
+	}
+}
+
+func (tangle *Tangle) book(entitiesToBook *valuePayloadPropagationStackEntry) (transactionBooked bool, payloadBooked bool, decisionPending bool, err error) {
+	defer entitiesToBook.Release()
+
+	if transactionBooked, decisionPending, err = tangle.bookTransaction(entitiesToBook.CachedTransaction.Retain(), entitiesToBook.CachedTransactionMetadata.Retain()); err != nil {
+		return
+	}
+
+	if payloadBooked, err = tangle.bookPayload(entitiesToBook.CachedPayload.Retain(), entitiesToBook.CachedPayloadMetadata.Retain(), entitiesToBook.CachedTransactionMetadata.Retain()); err != nil {
 		return
 	}
 
@@ -1292,4 +1260,40 @@ func (tangle *Tangle) ForEachConsumers(currentTransaction *transaction.Transacti
 func (tangle *Tangle) ForEachConsumersAndApprovers(currentPayload *payload.Payload, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata, transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata)) {
 	tangle.ForEachConsumers(currentPayload.Transaction(), consume)
 	tangle.ForeachApprovers(currentPayload.ID(), consume)
+}
+
+// valuePayloadPropagationStackEntry is a container for the elements in the propagation stack of ValuePayloads
+type valuePayloadPropagationStackEntry struct {
+	CachedPayload             *payload.CachedPayload
+	CachedPayloadMetadata     *CachedPayloadMetadata
+	CachedTransaction         *transaction.CachedTransaction
+	CachedTransactionMetadata *CachedTransactionMetadata
+}
+
+// Retain creates a new container with its contained elements being retained for further use.
+func (stackEntry *valuePayloadPropagationStackEntry) Retain() *valuePayloadPropagationStackEntry {
+	return &valuePayloadPropagationStackEntry{
+		CachedPayload:             stackEntry.CachedPayload.Retain(),
+		CachedPayloadMetadata:     stackEntry.CachedPayloadMetadata.Retain(),
+		CachedTransaction:         stackEntry.CachedTransaction.Retain(),
+		CachedTransactionMetadata: stackEntry.CachedTransactionMetadata.Retain(),
+	}
+}
+
+// Release releases the elements in this container for being written by the objectstorage.
+func (stackEntry *valuePayloadPropagationStackEntry) Release() {
+	stackEntry.CachedPayload.Release()
+	stackEntry.CachedPayloadMetadata.Release()
+	stackEntry.CachedTransaction.Release()
+	stackEntry.CachedTransactionMetadata.Release()
+}
+
+// Unwrap retrieves the underlying StorableObjects from the cached elements in this container.
+func (stackEntry *valuePayloadPropagationStackEntry) Unwrap() (payload *payload.Payload, payloadMetadata *PayloadMetadata, transaction *transaction.Transaction, transactionMetadata *TransactionMetadata) {
+	payload = stackEntry.CachedPayload.Unwrap()
+	payloadMetadata = stackEntry.CachedPayloadMetadata.Unwrap()
+	transaction = stackEntry.CachedTransaction.Unwrap()
+	transactionMetadata = stackEntry.CachedTransactionMetadata.Unwrap()
+
+	return
 }

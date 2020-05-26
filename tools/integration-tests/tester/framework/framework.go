@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	hive_ed25519 "github.com/iotaledger/hive.go/crypto/ed25519"
 )
@@ -91,6 +92,88 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 
 	// wait until containers are fully started
 	time.Sleep(1 * time.Second)
+	err = network.WaitForAutopeering(minimumNeighbors)
+	if err != nil {
+		return nil, err
+	}
+
+	return network, nil
+}
+
+// CreateNetworkWithPartitions creates and returns a partitioned network that contains `peers` GoShimmer nodes per partition.
+// It waits for the peers to autopeer until the minimum neighbors criteria is met for every peer.
+// The first peer automatically starts with the bootstrap plugin enabled.
+func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, minimumNeighbors int) (*Network, error) {
+	network, err := newNetwork(f.dockerClient, strings.ToLower(name), f.tester)
+	if err != nil {
+		return nil, err
+	}
+
+	err = network.createEntryNode()
+	if err != nil {
+		return nil, err
+	}
+
+	// block all traffic from/to entry node
+	pumbaEntryNodeName := network.namePrefix(containerNameEntryNode) + containerNameSuffixPumba
+	pumbaEntryNode, err := network.createPumba(
+		pumbaEntryNodeName,
+		network.namePrefix(containerNameEntryNode),
+		strslice.StrSlice{},
+	)
+	if err != nil {
+		return nil, err
+	}
+	// wait until pumba is started and blocks all traffic
+	time.Sleep(5 * time.Second)
+
+	// create peers/GoShimmer nodes
+	for i := 0; i < peers; i++ {
+		config := GoShimmerConfig{
+			Bootstrap: i == 0,
+		}
+		if _, err = network.CreatePeer(config); err != nil {
+			return nil, err
+		}
+	}
+	// wait until containers are fully started
+	time.Sleep(2 * time.Second)
+
+	// create partitions
+	chunkSize := peers / partitions
+	var end int
+	for i := 0; end < peers; i += chunkSize {
+		end = i + chunkSize
+		// last partitions takes the rest
+		if i/chunkSize == partitions-1 {
+			end = peers
+		}
+		_, err = network.createPartition(network.peers[i:end])
+		if err != nil {
+			return nil, err
+		}
+	}
+	// wait until pumba containers are started and block traffic between partitions
+	time.Sleep(5 * time.Second)
+
+	// delete pumba for entry node
+	err = pumbaEntryNode.Stop()
+	if err != nil {
+		return nil, err
+	}
+	logs, err := pumbaEntryNode.Logs()
+	if err != nil {
+		return nil, err
+	}
+	err = createLogFile(pumbaEntryNodeName, logs)
+	if err != nil {
+		return nil, err
+	}
+	err = pumbaEntryNode.Remove()
+	if err != nil {
+		return nil, err
+	}
+
 	err = network.WaitForAutopeering(minimumNeighbors)
 	if err != nil {
 		return nil, err
