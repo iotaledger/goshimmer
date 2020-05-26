@@ -208,10 +208,10 @@ func (tangle *Tangle) propagateValuePayloadLikeUpdates(transactionID transaction
 	propagationStack := list.New()
 	tangle.Attachments(transactionID).Consume(func(attachment *Attachment) {
 		propagationStack.PushBack(&valuePayloadPropagationStackEntry{
-			tangle.Payload(attachment.PayloadID()),
-			tangle.PayloadMetadata(attachment.PayloadID()),
-			tangle.Transaction(transactionID),
-			tangle.TransactionMetadata(transactionID),
+			CachedPayload:             tangle.Payload(attachment.PayloadID()),
+			CachedPayloadMetadata:     tangle.PayloadMetadata(attachment.PayloadID()),
+			CachedTransaction:         tangle.Transaction(transactionID),
+			CachedTransactionMetadata: tangle.TransactionMetadata(transactionID),
 		})
 	})
 
@@ -231,19 +231,11 @@ func (tangle *Tangle) propagateValuePayloadLikeUpdates(transactionID transaction
 // attachments. It checks if a ValuePayloads has become liked (or disliked), updates the flag an schedules its future
 // cone for additional checks.
 func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack *list.List, processedPayloads map[payload.ID]types.Empty, liked bool, propagationStackEntry *valuePayloadPropagationStackEntry) {
-	// release the cached objects when we are done
-	defer propagationStackEntry.CachedPayload.Release()
-	defer propagationStackEntry.CachedPayloadMetadata.Release()
-	defer propagationStackEntry.CachedTransaction.Release()
-	defer propagationStackEntry.CachedTransactionMetadata.Release()
+	// release the entry when we are done
+	defer propagationStackEntry.Release()
 
-	// unpack loaded objects
-	currentPayload := propagationStackEntry.CachedPayload.Unwrap()
-	currentPayloadMetadata := propagationStackEntry.CachedPayloadMetadata.Unwrap()
-	currentTransaction := propagationStackEntry.CachedTransaction.Unwrap()
-	currentTransactionMetadata := propagationStackEntry.CachedTransactionMetadata.Unwrap()
-
-	// abort if the entities could not be loaded from the database
+	// unpack loaded objects and  abort if the entities could not be loaded from the database
+	currentPayload, currentPayloadMetadata, currentTransaction, currentTransactionMetadata := propagationStackEntry.Unwrap()
 	if currentPayload == nil || currentPayloadMetadata == nil || currentTransaction == nil || currentTransactionMetadata == nil {
 		return
 	}
@@ -295,10 +287,10 @@ func (tangle *Tangle) createValuePayloadFutureConeIterator(propagationStack *lis
 
 		// schedule next checks
 		propagationStack.PushBack(&valuePayloadPropagationStackEntry{
-			cachedPayload.Retain(),
-			cachedPayloadMetadata.Retain(),
-			cachedTransaction.Retain(),
-			cachedTransactionMetadata.Retain(),
+			CachedPayload:             cachedPayload.Retain(),
+			CachedPayloadMetadata:     cachedPayloadMetadata.Retain(),
+			CachedTransaction:         cachedTransaction.Retain(),
+			CachedTransactionMetadata: cachedTransactionMetadata.Retain(),
 		})
 	}
 }
@@ -507,6 +499,8 @@ func (tangle *Tangle) solidifyPayload(cachedPayload *payload.CachedPayload, cach
 	}
 }
 
+// processSolidificationStackEntry processes a single entry of the solidification stack and schedules its approvers and
+// consumers if necessary.
 func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.List, processedPayloads map[payload.ID]types.Empty, solidificationStackEntry *valuePayloadPropagationStackEntry) {
 	// release stack entry when we are done
 	defer solidificationStackEntry.Release()
@@ -1268,7 +1262,7 @@ func (tangle *Tangle) ForEachConsumersAndApprovers(currentPayload *payload.Paylo
 	tangle.ForeachApprovers(currentPayload.ID(), consume)
 }
 
-// container for the elements in the propagation stack of ValuePayloads
+// valuePayloadPropagationStackEntry is a container for the elements in the propagation stack of ValuePayloads
 type valuePayloadPropagationStackEntry struct {
 	CachedPayload             *payload.CachedPayload
 	CachedPayloadMetadata     *CachedPayloadMetadata
@@ -1276,6 +1270,7 @@ type valuePayloadPropagationStackEntry struct {
 	CachedTransactionMetadata *CachedTransactionMetadata
 }
 
+// Retain creates a new container with its contained elements being retained for further use.
 func (stackEntry *valuePayloadPropagationStackEntry) Retain() *valuePayloadPropagationStackEntry {
 	return &valuePayloadPropagationStackEntry{
 		CachedPayload:             stackEntry.CachedPayload.Retain(),
@@ -1285,6 +1280,7 @@ func (stackEntry *valuePayloadPropagationStackEntry) Retain() *valuePayloadPropa
 	}
 }
 
+// Release releases the elements in this container for being written by the objectstorage.
 func (stackEntry *valuePayloadPropagationStackEntry) Release() {
 	stackEntry.CachedPayload.Release()
 	stackEntry.CachedPayloadMetadata.Release()
@@ -1292,6 +1288,7 @@ func (stackEntry *valuePayloadPropagationStackEntry) Release() {
 	stackEntry.CachedTransactionMetadata.Release()
 }
 
+// Unwrap retrieves the underlying StorableObjects from the cached elements in this container.
 func (stackEntry *valuePayloadPropagationStackEntry) Unwrap() (payload *payload.Payload, payloadMetadata *PayloadMetadata, transaction *transaction.Transaction, transactionMetadata *TransactionMetadata) {
 	payload = stackEntry.CachedPayload.Unwrap()
 	payloadMetadata = stackEntry.CachedPayloadMetadata.Unwrap()
