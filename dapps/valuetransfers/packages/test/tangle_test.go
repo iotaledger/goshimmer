@@ -19,9 +19,14 @@ import (
 )
 
 func TestTangle_ValueTransfer(t *testing.T) {
-	// initialize required objects
+	// initialize tangle
 	valueTangle := tangle.New(mapdb.NewMapDB())
+	defer valueTangle.Shutdown()
+
+	// initialize ledger state
 	ledgerState := tangle.NewLedgerState(valueTangle)
+
+	// initialize seed
 	seed := wallet.NewSeed()
 
 	// setup consensus rules
@@ -90,9 +95,6 @@ func TestTangle_ValueTransfer(t *testing.T) {
 			},
 		}),
 	)))
-
-	// shutdown tangle
-	valueTangle.Shutdown()
 }
 
 func recordLikedPayloads(valueTangle *tangle.Tangle) (recordedLikedPayloads map[payload.ID]types.Empty, resetFunc func()) {
