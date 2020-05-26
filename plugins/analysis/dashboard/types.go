@@ -1,6 +1,7 @@
 package dashboard
 
 const (
+	// MsgTypePing defines a Ping
 	MsgTypePing byte = iota
 	// MsgTypeFPC defines a FPC update message.
 	MsgTypeFPC

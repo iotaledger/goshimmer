@@ -9,29 +9,29 @@ import (
 // TestIsFinalized checks that for a given conflict, its method isFinalized works ok.
 func TestIsFinalized(t *testing.T) {
 	tests := []struct {
-		Conflict
+		conflict
 		want bool
 	}{
 		{
-			Conflict: Conflict{
-				NodesView: map[string]voteContext{
-					"one": {Status: liked},
-					"two": {Status: disliked},
+			conflict: conflict{
+				nodesView: map[string]voteContext{
+					"one": {status: liked},
+					"two": {status: disliked},
 				},
 			},
 			want: true,
 		},
 		{
-			Conflict: Conflict{
-				NodesView: map[string]voteContext{
-					"one": {Status: liked},
+			conflict: conflict{
+				nodesView: map[string]voteContext{
+					"one": {status: liked},
 					"two": {},
 				},
 			},
 			want: false,
 		},
 		{
-			Conflict: Conflict{},
+			conflict: conflict{},
 			want:     false,
 		},
 	}
@@ -45,29 +45,29 @@ func TestIsFinalized(t *testing.T) {
 // TestFinalizationStatus checks that for a given conflict, its method finalizationStatus works ok.
 func TestFinalizationStatus(t *testing.T) {
 	tests := []struct {
-		Conflict
+		conflict
 		want float64
 	}{
 		{
-			Conflict: Conflict{
-				NodesView: map[string]voteContext{
-					"one": {Status: liked},
-					"two": {Status: disliked},
+			conflict: conflict{
+				nodesView: map[string]voteContext{
+					"one": {status: liked},
+					"two": {status: disliked},
 				},
 			},
 			want: 1,
 		},
 		{
-			Conflict: Conflict{
-				NodesView: map[string]voteContext{
-					"one": {Status: liked},
+			conflict: conflict{
+				nodesView: map[string]voteContext{
+					"one": {status: liked},
 					"two": {},
 				},
 			},
 			want: 0.5,
 		},
 		{
-			Conflict: Conflict{},
+			conflict: conflict{},
 			want:     0,
 		},
 	}

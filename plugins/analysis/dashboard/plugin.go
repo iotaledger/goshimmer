@@ -22,7 +22,7 @@ var (
 	// Plugin is the plugin instance of the dashboard plugin.
 	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
-	log             *logger.Logger
+	log    *logger.Logger
 	server *echo.Echo
 
 	nodeStartAt = time.Now()
@@ -85,14 +85,14 @@ func worker(shutdownSignal <-chan struct{}) {
 	}()
 
 	// ping all connected ws clients every second to keep the connections alive.
-	ticker := time.NewTicker(1*time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	// stop if we are shutting down or the server could not be started
 	func() {
 		for {
 			select {
 			case <-ticker.C:
-				broadcastWsMessage(&wsmsg{MsgTypePing,""})
+				broadcastWsMessage(&wsmsg{MsgTypePing, ""})
 			case <-shutdownSignal:
 				return
 			case <-stopped:
@@ -100,7 +100,7 @@ func worker(shutdownSignal <-chan struct{}) {
 			}
 		}
 	}()
-	
+
 	log.Infof("Stopping %s ...", PluginName)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -108,4 +108,3 @@ func worker(shutdownSignal <-chan struct{}) {
 		log.Errorf("Error stopping: %s", err)
 	}
 }
-

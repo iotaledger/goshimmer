@@ -1,13 +1,14 @@
 package dashboard
 
 import (
-	"fmt"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	analysis "github.com/iotaledger/goshimmer/plugins/analysis/server"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
@@ -21,10 +22,6 @@ const (
 )
 
 var (
-	ErrConflictMissing = fmt.Errorf("conflictID missing")
-)
-
-var (
 	fpcLiveFeedWorkerCount     = 1
 	fpcLiveFeedWorkerQueueSize = 300
 	fpcLiveFeedWorkerPool      *workerpool.WorkerPool
@@ -34,11 +31,11 @@ var (
 
 // FPCUpdate contains an FPC update.
 type FPCUpdate struct {
-	Conflicts ConflictSet `json:"conflictset"`
+	conflicts conflictSet `json:"conflictset"`
 }
 
 func configureFPCLiveFeed() {
-	recordedConflicts = NewConflictRecord(100)
+	recordedConflicts = newConflictRecord(config.Node.GetUint32(CfgFPCBufferSize))
 
 	fpcLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
 		newMsg := task.Param(0).(*FPCUpdate)
@@ -73,30 +70,43 @@ func runFPCLiveFeed() {
 
 func createFPCUpdate(hb *packet.FPCHeartbeat, recordEvent bool) *FPCUpdate {
 	// prepare the update
-	conflicts := make(map[string]Conflict)
+	conflicts := make(conflictSet)
 	nodeID := base58.Encode(hb.OwnID)
 	for ID, context := range hb.RoundStats.ActiveVoteContexts {
 		newVoteContext := voteContext{
-			NodeID:   nodeID,
-			Rounds:   context.Rounds,
-			Opinions: vote.ConvertOpinionsToInts32(context.Opinions),
+			nodeID:   nodeID,
+			rounds:   context.Rounds,
+			opinions: vote.ConvertOpinionsToInts32(context.Opinions),
 		}
 
 		// check conflict has been finalized
 		if _, ok := hb.Finalized[ID]; ok {
-			newVoteContext.Status = vote.ConvertOpinionToInt32(hb.Finalized[ID])
+			newVoteContext.status = vote.ConvertOpinionToInt32(hb.Finalized[ID])
 		}
 
 		conflicts[ID] = newConflict()
-		conflicts[ID].NodesView[nodeID] = newVoteContext
+		conflicts[ID].nodesView[nodeID] = newVoteContext
 
 		if recordEvent {
 			// update recorded events
-			recordedConflicts.Update(ID, Conflict{NodesView: map[string]voteContext{nodeID: newVoteContext}})
+			recordedConflicts.update(ID, conflict{nodesView: map[string]voteContext{nodeID: newVoteContext}})
 		}
 	}
 
 	return &FPCUpdate{
-		Conflicts: conflicts,
+		conflicts: conflicts,
+	}
+}
+
+// replay FPC records (past events).
+func replayFPCRecords(ws *websocket.Conn) {
+	wsMessage := &wsmsg{MsgTypeFPC, recordedConflicts.ToFPCUpdate()}
+
+	if err := ws.WriteJSON(wsMessage); err != nil {
+		log.Info(err)
+		return
+	}
+	if err := ws.SetWriteDeadline(time.Now().Add(webSocketWriteTimeout)); err != nil {
+		return
 	}
 }

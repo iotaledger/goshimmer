@@ -8,72 +8,72 @@ import (
 
 func TestConflictRecordUpdate(t *testing.T) {
 	// test ConflictRecord creation
-	c := NewConflictRecord(2)
+	c := newConflictRecord(2)
 	require.Equal(t, 2, int(c.size))
 
 	// test first new update
-	conflictA := Conflict{
-		NodesView: map[string]voteContext{
+	conflictA := conflict{
+		nodesView: map[string]voteContext{
 			"nodeA": {
-				NodeID:   "nodeA",
-				Rounds:   3,
-				Opinions: []int32{disliked, liked, disliked},
-				Status:   liked,
+				nodeID:   "nodeA",
+				rounds:   3,
+				opinions: []int32{disliked, liked, disliked},
+				status:   liked,
 			},
 		},
 	}
-	c.Update("A", conflictA)
+	c.update("A", conflictA)
 
 	require.Equal(t, conflictA, c.conflictSet["A"])
 	require.Equal(t, 1, len(c.buffer))
 	require.Contains(t, c.buffer, "A")
 
 	// test second new update
-	conflictB := Conflict{
-		NodesView: map[string]voteContext{
+	conflictB := conflict{
+		nodesView: map[string]voteContext{
 			"nodeB": {
-				NodeID:   "nodeB",
-				Rounds:   3,
-				Opinions: []int32{disliked, liked, disliked},
-				Status:   liked,
+				nodeID:   "nodeB",
+				rounds:   3,
+				opinions: []int32{disliked, liked, disliked},
+				status:   liked,
 			},
 		},
 	}
-	c.Update("B", conflictB)
+	c.update("B", conflictB)
 
 	require.Equal(t, conflictB, c.conflictSet["B"])
 	require.Equal(t, 2, len(c.buffer))
 	require.Contains(t, c.buffer, "B")
 
 	// test modify existing entry
-	conflictB = Conflict{
-		NodesView: map[string]voteContext{
+	conflictB = conflict{
+		nodesView: map[string]voteContext{
 			"nodeB": {
-				NodeID:   "nodeB",
-				Rounds:   4,
-				Opinions: []int32{disliked, liked, disliked, liked},
-				Status:   liked,
+				nodeID:   "nodeB",
+				rounds:   4,
+				opinions: []int32{disliked, liked, disliked, liked},
+				status:   liked,
 			},
 		},
 	}
-	c.Update("B", conflictB)
+	c.update("B", conflictB)
 
 	require.Equal(t, conflictB, c.conflictSet["B"])
 	require.Equal(t, 2, len(c.buffer))
 	require.Contains(t, c.buffer, "B")
 
 	// test last update and first update entry removal
-	conflictC := Conflict{
-		NodesView: map[string]voteContext{
+	conflictC := conflict{
+		nodesView: map[string]voteContext{
 			"nodeC": {
-				NodeID:   "nodeC",
-				Rounds:   3,
-				Opinions: []int32{disliked, liked, disliked},
-				Status:   liked,
+				nodeID:   "nodeC",
+				rounds:   3,
+				opinions: []int32{disliked, liked, disliked},
+				status:   liked,
 			},
 		},
 	}
-	c.Update("C", conflictC)
+	c.update("C", conflictC)
 
 	require.Equal(t, conflictC, c.conflictSet["C"])
 	require.Equal(t, 2, len(c.buffer))

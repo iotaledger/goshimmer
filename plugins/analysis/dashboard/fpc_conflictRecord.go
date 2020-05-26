@@ -3,21 +3,35 @@ package dashboard
 import "sync"
 
 type conflictRecord struct {
-	conflictSet ConflictSet
+	conflictSet conflictSet
 	size        uint32
 	buffer      []string
 	lock        sync.RWMutex
 }
 
-func NewConflictRecord(recordSize uint32) *conflictRecord {
+func newConflictRecord(recordSize uint32) *conflictRecord {
 	return &conflictRecord{
-		conflictSet: make(ConflictSet),
+		conflictSet: make(conflictSet),
 		size:        recordSize,
 		buffer:      []string{},
 	}
 }
 
-func (cr *conflictRecord) Update(ID string, c Conflict) {
+func (cr *conflictRecord) ToFPCUpdate() *FPCUpdate {
+	cr.lock.RLock()
+	defer cr.lock.RUnlock()
+
+	// log.Info("FPC refresh conflicts: ", len(cr.conflictSet))
+	// for k, v := range cr.conflictSet {
+	// 	log.Info("Conflict ID: ", k, len(v.NodesView))
+	// }
+
+	return &FPCUpdate{
+		conflicts: cr.conflictSet,
+	}
+}
+
+func (cr *conflictRecord) update(ID string, c conflict) {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -32,7 +46,7 @@ func (cr *conflictRecord) Update(ID string, c Conflict) {
 		}
 	}
 
-	for nodeID, context := range c.NodesView {
-		cr.conflictSet[ID].NodesView[nodeID] = context
+	for nodeID, context := range c.nodesView {
+		cr.conflictSet[ID].nodesView[nodeID] = context
 	}
 }

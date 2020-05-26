@@ -6,7 +6,7 @@ import {registerHandler, WSMsgType} from "app/misc/WS";
 import {Link} from 'react-router-dom';
 
 export class Node {
-    id: number;
+    id: string;
     opinion: number = 0;
 }
 
@@ -60,12 +60,10 @@ export class FPCStore {
     }
 
     @action
-    addLiveFeed = (msg: FPCMessage) => {
+    addLiveFeed = (msg: FPCMessage) => {        
         for (const key of Object.keys(msg.conflictset)) {
             for (const key2 of Object.keys(msg.conflictset[key].nodesview)){
                 let voteContext = msg.conflictset[key].nodesview[key2];
-                //console.log(voteContext.nodeid, voteContext.rounds, voteContext.opinions, voteContext.like);
-
                 this.addNewNode(key, voteContext.nodeid, voteContext.opinions[voteContext.opinions.length-1])
                 this.updateNodeValue(key, voteContext.nodeid, voteContext.opinions[voteContext.opinions.length-1])
             }

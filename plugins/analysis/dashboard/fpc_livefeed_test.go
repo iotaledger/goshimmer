@@ -35,14 +35,14 @@ func TestCreateFPCUpdate(t *testing.T) {
 
 	// create a matching FPCUpdate
 	want := &FPCUpdate{
-		Conflicts: map[string]Conflict{
+		conflicts: conflictSet{
 			"one": {
-				NodesView: map[string]voteContext{
+				nodesView: map[string]voteContext{
 					base58OwnID: {
-						NodeID:   base58OwnID,
-						Rounds:   3,
-						Opinions: []int32{disliked, liked, disliked},
-						Status:   liked,
+						nodeID:   base58OwnID,
+						rounds:   3,
+						opinions: []int32{disliked, liked, disliked},
+						status:   liked,
 					},
 				},
 			},
