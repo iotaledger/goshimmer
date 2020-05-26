@@ -95,7 +95,7 @@ func (payloadMetadata *PayloadMetadata) IsLiked() (result bool) {
 	return
 }
 
-// SetSolid marks a payload as either solid or not solid.
+// SetLike sets a payloadMetadata as either liked or disliked.
 // It returns true if the solid flag was changes and automatically updates the solidificationTime as well.
 func (payloadMetadata *PayloadMetadata) SetLike(liked bool) (modified bool) {
 	payloadMetadata.likedMutex.RLock()
