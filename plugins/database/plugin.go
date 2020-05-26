@@ -25,39 +25,44 @@ var (
 	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	log    *logger.Logger
 
-	db        *database.DB
+	db        database.DB
 	store     kvstore.KVStore
 	storeOnce sync.Once
 )
 
+// Store returns the KVStore instance.
 func Store() kvstore.KVStore {
 	storeOnce.Do(createStore)
 	return store
 }
 
+// StoreRealm is a factory method for a different realm backed by the KVStore instance.
 func StoreRealm(realm kvstore.Realm) kvstore.KVStore {
 	return Store().WithRealm(realm)
 }
 
 func createStore() {
-	// assure that the logger is available
-	log := logger.NewLogger(PluginName)
-
-	dbDir := config.Node.GetString(CfgDatabaseDir)
+	log = logger.NewLogger(PluginName)
 
 	var err error
-	db, err = database.NewDB(dbDir)
+	if config.Node.GetBool(CfgDatabaseInMemory) {
+		db, err = database.NewMemDB()
+	} else {
+		dbDir := config.Node.GetString(CfgDatabaseDir)
+		db, err = database.NewDB(dbDir)
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	store = database.ConfigureStore(db)
+	store = db.NewStore()
 }
 
 func configure(_ *node.Plugin) {
-	log = logger.NewLogger(PluginName)
+	// assure that the store is initialized
+	store := Store()
 
-	err := checkDatabaseVersion(StoreRealm([]byte{prefix.DBPrefixDatabaseVersion}))
+	err := checkDatabaseVersion(store.WithRealm([]byte{prefix.DBPrefixDatabaseVersion}))
 	if errors.Is(err, ErrDBVersionIncompatible) {
 		log.Panicf("The database scheme was updated. Please delete the database folder.\n%s", err)
 	}

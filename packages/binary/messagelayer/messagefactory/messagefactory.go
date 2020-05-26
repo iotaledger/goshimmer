@@ -4,25 +4,26 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dgraph-io/badger/v2"
-	"github.com/iotaledger/hive.go/identity"
-
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/kvstore"
 )
+
+const storeSequenceInterval = 100
 
 // MessageFactory acts as a factory to create new messages.
 type MessageFactory struct {
 	Events        *Events
-	sequence      *badger.Sequence
+	sequence      *kvstore.Sequence
 	localIdentity *identity.LocalIdentity
 	tipSelector   *tipselector.TipSelector
 }
 
 // New creates a new message factory.
-func New(db *badger.DB, localIdentity *identity.LocalIdentity, tipSelector *tipselector.TipSelector, sequenceKey []byte) *MessageFactory {
-	sequence, err := db.GetSequence(sequenceKey, 100)
+func New(store kvstore.KVStore, localIdentity *identity.LocalIdentity, tipSelector *tipselector.TipSelector, sequenceKey []byte) *MessageFactory {
+	sequence, err := kvstore.NewSequence(store, sequenceKey, storeSequenceInterval)
 	if err != nil {
 		panic(fmt.Sprintf("could not create message sequence number: %v", err))
 	}

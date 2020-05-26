@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -47,6 +48,12 @@ func New(store kvstore.KVStore) (branchManager *BranchManager) {
 		childBranchStorage:    osFactory.New(osChildBranch, osChildBranchFactory, osChildBranchOptions...),
 		conflictStorage:       osFactory.New(osConflict, osConflictFactory, osConflictOptions...),
 		conflictMemberStorage: osFactory.New(osConflictMember, osConflictMemberFactory, osConflictMemberOptions...),
+		Events: &Events{
+			BranchPreferred:   events.NewEvent(branchCaller),
+			BranchUnpreferred: events.NewEvent(branchCaller),
+			BranchLiked:       events.NewEvent(branchCaller),
+			BranchDisliked:    events.NewEvent(branchCaller),
+		},
 	}
 	branchManager.init()
 
@@ -335,6 +342,10 @@ func (branchManager *BranchManager) SetBranchPreferred(branchID BranchID, prefer
 // SetBranchLiked is the method that allows us to modify the liked flag of a branch (it propagates to the parents).
 func (branchManager *BranchManager) SetBranchLiked(branchID BranchID, liked bool) (modified bool, err error) {
 	return branchManager.setBranchLiked(branchManager.Branch(branchID), liked)
+}
+
+func (branchManager *BranchManager) SetBranchFinalized(branchID BranchID) (modified bool, err error) {
+	return
 }
 
 // Prune resets the database and deletes all objects (for testing or "node resets").
