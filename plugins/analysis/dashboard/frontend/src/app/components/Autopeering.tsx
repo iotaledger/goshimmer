@@ -31,23 +31,20 @@ export class NodeView extends React.Component<Props, any> {
                 <Badge pill style={{background: "#cb4b16", color: "white"}}>
                     Selected Node
                 </Badge>
-                <br/>
                 {this.props.autopeeringStore.selectedNode}
-                <Badge pill style={{background: "#2aa198", color: "white"}}>
+                <br/>
+                <Badge pill style={{background: "#1c8d7f", color: "white"}}>
                     Incoming Neighbors ({this.props.autopeeringStore.selectedNodeInNeighbors.size.toString()})
                 </Badge>
                 <ul>
                     {this.props.autopeeringStore.inNeighborList}
                 </ul>
-                <Badge pill style={{background: "#b58900", color: "white"}}>
+                <Badge pill style={{background: "#336db5", color: "white"}}>
                     Outgoing Neighbors ({this.props.autopeeringStore.selectedNodeOutNeighbors.size.toString()})
                 </Badge>
                 <ul>
                     {this.props.autopeeringStore.outNeighborList}
                 </ul>
-                <Button style={{fontSize: 14}} variant="secondary" onClick={this.props.autopeeringStore.clearSelection}>
-                    Clear Selection
-                </Button>
             </div>
         );
     }
@@ -75,7 +72,7 @@ export class Autopeering extends React.Component<Props, any> {
             <Container>
 
                 <Row className={"mb-1"}>
-                    <Col xs={6}>
+                    <Col xs={6} style={{paddingBottom: 30}}>
                         <Row className={"mb-1"}>
                             <h3>Autopeering Visualizer</h3>
                         </Row>
@@ -84,7 +81,7 @@ export class Autopeering extends React.Component<Props, any> {
                                 <Badge pill style={{background: "#6c71c4", color: "white"}}>
                                     Nodes online: {this.props.autopeeringStore.nodes.size.toString()}
                                 </Badge>
-                                <Badge pill style={{background: "#2aa198", color: "white"}}>
+                                <Badge pill style={{background: "#b58900", color: "white"}}>
                                     Average number of neighbors: {
                                     (2*this.props.autopeeringStore.connections.size / this.props.autopeeringStore.nodes.size).toPrecision(2).toString()
                                 }
@@ -105,8 +102,12 @@ export class Autopeering extends React.Component<Props, any> {
                                 aria-label="node-search" onKeyUp={this.updateSearch}
                                 aria-describedby="node-search"
                             />
+                            <Button style={{fontSize: 14}} variant="secondary" onClick={this.props.autopeeringStore.clearSelection}>
+                                Clear Selection
+                            </Button>
                         </InputGroup>
-                        <ListGroup style={{maxHeight: 200, overflow: 'auto'}}>
+
+                        <ListGroup style={{maxHeight: 180, overflow: 'auto'}}>
                             {nodeListView}
                         </ListGroup>
                     </Col>
@@ -119,7 +120,7 @@ export class Autopeering extends React.Component<Props, any> {
                         top: 0, left: 0,
                         width: "100%",
                         height: "600px",
-                        background: "#202126"
+                        background: "#202126",
                     }} id={"visualizer"}/>
 
 
