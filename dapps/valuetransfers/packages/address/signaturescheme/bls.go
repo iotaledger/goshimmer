@@ -95,7 +95,7 @@ func (sigscheme *blsSignatureScheme) Sign(data []byte) Signature {
 	if err != nil {
 		panic(err)
 	}
-	return newBLSSignature(pubKeyBin, sig)
+	return NewBLSSignature(pubKeyBin, sig)
 }
 
 func (sigscheme *blsSignatureScheme) String() string {
@@ -136,7 +136,8 @@ func BLSSignatureFromBytes(data []byte) (result *BLSSignature, consumedBytes int
 	return
 }
 
-func newBLSSignature(pubKey, signature []byte) *BLSSignature {
+// NewBLSSignature creates BLS signature from raw public key and signature data
+func NewBLSSignature(pubKey, signature []byte) *BLSSignature {
 	var ret BLSSignature
 	ret[0] = address.VersionBLS
 	copy(ret.pubKey(), pubKey)
@@ -223,7 +224,7 @@ func AggregateBLSSignatures(sigs ...Signature) (Signature, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newBLSSignature(pubKeyBin, sigBin), nil
+	return NewBLSSignature(pubKeyBin, sigBin), nil
 }
 
 // interface contract (allow the compiler to check if the implementation has all of the required methods).

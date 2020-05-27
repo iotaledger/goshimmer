@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -275,6 +276,16 @@ func (transaction *Transaction) Sign(signature signaturescheme.SignatureScheme) 
 	transaction.signatures.Add(signature.Address(), signature.Sign(transaction.EssenceBytes()))
 
 	return transaction
+}
+
+// PutSignature validates and adds signature to the transaction
+func (transaction *Transaction) PutSignature(signature signaturescheme.Signature) error {
+	if !signature.IsValid(transaction.EssenceBytes()) {
+		return errors.New("PutSignature: invalid signature")
+	}
+	transaction.signatures.Add(signature.Address(), signature)
+
+	return nil
 }
 
 // String returns a human readable version of this Transaction (for debug purposes).
