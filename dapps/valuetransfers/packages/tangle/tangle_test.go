@@ -15,6 +15,115 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestBookTransaction tests the following cases:
+// - missing output
+// - transaction already booked by another process
+// - booking first spend
+// - booking double spend
+func TestBookTransaction(t *testing.T) {
+	var masterBranchID, forkedBranchID branchmanager.BranchID
+	_, _ = masterBranchID, forkedBranchID
+
+	// CASE: missing output
+	{
+		tangle := New(mapdb.NewMapDB())
+		tx := createDummyTransaction()
+		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
+		cachedTransaction, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
+
+		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
+		assert.Equal(t, false, transactionBooked)
+		assert.Equal(t, false, decisionPending)
+		assert.NotNil(t, err)
+	}
+
+	// CASE: transaction already booked by another process
+	{
+		tangle := New(mapdb.NewMapDB())
+		tx := createDummyTransaction()
+		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
+		cachedTransaction, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
+
+		transactionMetadata := cachedTransactionMetadata.Unwrap()
+		transactionMetadata.SetSolid(true)
+
+		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
+		assert.Equal(t, false, transactionBooked)
+		assert.Equal(t, false, decisionPending)
+		assert.Nil(t, err)
+	}
+
+	// CASE: booking first spend
+	{
+		tangle := New(mapdb.NewMapDB())
+
+		// prepare snapshot
+		color1 := [32]byte{1}
+		outputs := map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 2),
+				balance.New(color1, 3),
+			},
+		}
+		inputIDs := loadSnapshotFromOutputs(tangle, outputs)
+
+		// build first spending
+		tx := transaction.New(
+			transaction.NewInputs(inputIDs[0]),
+			// outputs
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				address.Random(): {
+					balance.New(balance.ColorIOTA, 3),
+					balance.New(color1, 3),
+				},
+			}),
+		)
+
+		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
+		cachedTransaction, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
+		txMetadata := cachedTransactionMetadata.Unwrap()
+
+		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
+		assert.Equal(t, true, transactionBooked, "transactionBooked")
+		assert.Equal(t, false, decisionPending, "decisionPending")
+		assert.Nil(t, err)
+
+		masterBranchID = txMetadata.BranchID()
+
+		// CASE: booking double spend
+		{
+			// build second spending
+			tx := transaction.New(
+				transaction.NewInputs(inputIDs[0]),
+				// outputs
+				transaction.NewOutputs(map[address.Address][]*balance.Balance{
+					address.Random(): {
+						balance.New(balance.ColorIOTA, 3),
+						balance.New(color1, 3),
+					},
+				}),
+			)
+
+			valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
+			cachedTransaction, cachedTransactionMetadata, _, _ = tangle.storeTransactionModels(valueObject)
+			txMetadata := cachedTransactionMetadata.Unwrap()
+
+			transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
+			assert.Equal(t, true, transactionBooked, "transactionBooked")
+			assert.Equal(t, true, decisionPending, "decisionPending")
+			assert.Nil(t, err)
+
+			forkedBranchID = txMetadata.BranchID()
+
+			// assert that first spend and double spend have different BranchIDs
+			assert.NotEqual(t, masterBranchID, forkedBranchID, "BranchID")
+		}
+	}
+}
+
 // TestStorePayload checks whether a value object is correctly stored.
 func TestStorePayload(t *testing.T) {
 	tangle := New(mapdb.NewMapDB())
