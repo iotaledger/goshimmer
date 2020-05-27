@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	webSocketWriteTimeout  = time.Duration(3) * time.Second
+	webSocketWriteTimeout = time.Duration(3) * time.Second
 
 	// clients
 	wsClientsMu    sync.Mutex

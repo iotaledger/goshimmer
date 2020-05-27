@@ -1,6 +1,7 @@
 package dashboard
 
 const (
+	// MsgTypePing defines a ping message type.
 	MsgTypePing byte = iota
 	// MsgTypeFPC defines a FPC update message.
 	MsgTypeFPC
@@ -17,38 +18,4 @@ const (
 type wsmsg struct {
 	Type byte        `json:"type"`
 	Data interface{} `json:"data"`
-}
-
-type msg struct {
-	ID    string `json:"id"`
-	Value int64  `json:"value"`
-}
-
-type nodestatus struct {
-	ID      string      `json:"id"`
-	Version string      `json:"version"`
-	Uptime  int64       `json:"uptime"`
-	Mem     *memmetrics `json:"mem"`
-}
-
-type memmetrics struct {
-	Sys          uint64 `json:"sys"`
-	HeapSys      uint64 `json:"heap_sys"`
-	HeapInuse    uint64 `json:"heap_inuse"`
-	HeapIdle     uint64 `json:"heap_idle"`
-	HeapReleased uint64 `json:"heap_released"`
-	HeapObjects  uint64 `json:"heap_objects"`
-	MSpanInuse   uint64 `json:"m_span_inuse"`
-	MCacheInuse  uint64 `json:"m_cache_inuse"`
-	StackSys     uint64 `json:"stack_sys"`
-	NumGC        uint32 `json:"num_gc"`
-	LastPauseGC  uint64 `json:"last_pause_gc"`
-}
-
-type neighbormetric struct {
-	ID               string `json:"id"`
-	Address          string `json:"address"`
-	ConnectionOrigin string `json:"connection_origin"`
-	BytesRead        uint32 `json:"bytes_read"`
-	BytesWritten     uint32 `json:"bytes_written"`
 }

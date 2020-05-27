@@ -17,8 +17,6 @@ var (
 	fpcLiveFeedWorkerCount     = 1
 	fpcLiveFeedWorkerQueueSize = 50
 	fpcLiveFeedWorkerPool      *workerpool.WorkerPool
-
-	conflicts map[string]Conflict
 )
 
 // Conflict defines the struct for the opinions of the nodes regarding a given conflict.
@@ -48,7 +46,7 @@ func configureFPCLiveFeed() {
 }
 
 func runFPCLiveFeed() {
-	daemon.BackgroundWorker("Analysis[FPCUpdater]", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Analysis[FPCUpdater]", func(shutdownSignal <-chan struct{}) {
 		newMsgRateLimiter := time.NewTicker(time.Second / 10)
 		defer newMsgRateLimiter.Stop()
 
@@ -68,7 +66,9 @@ func runFPCLiveFeed() {
 		log.Info("Stopping Analysis[FPCUpdater] ...")
 		analysis.Events.FPCHeartbeat.Detach(onFPCHeartbeatReceived)
 		log.Info("Stopping Analysis[FPCUpdater] ... done")
-	}, shutdown.PriorityDashboard)
+	}, shutdown.PriorityDashboard); err != nil {
+		panic(err)
+	}
 }
 
 func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCMsg {

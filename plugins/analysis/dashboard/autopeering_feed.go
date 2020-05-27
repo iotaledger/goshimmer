@@ -2,14 +2,14 @@ package dashboard
 
 import (
 	"fmt"
-	"github.com/gorilla/websocket"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
-	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 )
 
 var (
@@ -45,7 +45,7 @@ func configureAutopeeringWorkerPool() {
 	autopeeringWorkerPool = workerpool.New(func(task workerpool.Task) {
 		// determine what msg to send based on first parameter
 		// first parameter is always a letter denoting what to do with the following string or strings
-		x := fmt.Sprintf("%v",task.Param(0))
+		x := fmt.Sprintf("%v", task.Param(0))
 		switch x {
 		case "A":
 			sendAddNode(task.Param(1).(string))
@@ -103,7 +103,7 @@ func runAutopeeringFeed() {
 		autopeeringWorkerPool.Submit("c", source, target)
 	})
 
-	daemon.BackgroundWorker("Analysis-Dashboard[AutopeeringVisualizer]", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Analysis-Dashboard[AutopeeringVisualizer]", func(shutdownSignal <-chan struct{}) {
 		// connect closures (submitting tasks) to events of the analysis server
 		analysisserver.Events.AddNode.Attach(notifyAddNode)
 		defer analysisserver.Events.AddNode.Detach(notifyAddNode)
@@ -118,7 +118,9 @@ func runAutopeeringFeed() {
 		log.Info("Stopping Analysis-Dashboard[AutopeeringVisualizer] ...")
 		autopeeringWorkerPool.Stop()
 		log.Info("Stopping Analysis-Dashboard[AutopeeringVisualizer] ... done")
-	}, shutdown.PriorityDashboard)
+	}, shutdown.PriorityDashboard); err != nil {
+		panic(err)
+	}
 }
 
 // creates event handlers for replaying autopeering events on them
@@ -151,7 +153,7 @@ func createSyncNodeCallback(ws *websocket.Conn, msgType string) func(nodeID stri
 }
 
 // creates callback function for connectNodes and disconnectNodes events
-func createSyncLinkCallback(ws *websocket.Conn, msgType string) func(sourceID string, targetID string){
+func createSyncLinkCallback(ws *websocket.Conn, msgType string) func(sourceID string, targetID string) {
 	return func(sourceID string, targetID string) {
 		var wsMessage *wsmsg
 		switch msgType {
