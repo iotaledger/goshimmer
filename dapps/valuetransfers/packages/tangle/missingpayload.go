@@ -3,10 +3,9 @@ package tangle
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
-
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 )
 
 // MissingPayload represents a payload that was referenced through branch or trunk but that is missing in our object

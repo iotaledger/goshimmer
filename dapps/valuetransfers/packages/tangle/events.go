@@ -1,11 +1,10 @@
 package tangle
 
 import (
-	"github.com/iotaledger/hive.go/events"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/hive.go/events"
 )
 
 // Events is a container for the different kind of events of the Tangle.

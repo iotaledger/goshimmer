@@ -7,18 +7,17 @@ import (
 	"math"
 	"time"
 
-	"github.com/iotaledger/hive.go/async"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/objectstorage"
-	"github.com/iotaledger/hive.go/types"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
+	"github.com/iotaledger/hive.go/async"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/types"
 )
 
 // Tangle represents the value tangle that consists out of value payloads.

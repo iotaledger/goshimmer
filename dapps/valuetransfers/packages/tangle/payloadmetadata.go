@@ -4,12 +4,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
-
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 )
 
 // PayloadMetadata is a container for the metadata of a value transfer payload.
