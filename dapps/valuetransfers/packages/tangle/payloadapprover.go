@@ -1,10 +1,9 @@
 package tangle
 
 import (
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
-
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 )
 
 // PayloadApprover is a database entity, that allows us to keep track of the "tangle structure" by encoding which

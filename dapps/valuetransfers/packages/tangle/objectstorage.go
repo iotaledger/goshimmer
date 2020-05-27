@@ -3,10 +3,9 @@ package tangle
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/objectstorage"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/hive.go/objectstorage"
 )
 
 const (

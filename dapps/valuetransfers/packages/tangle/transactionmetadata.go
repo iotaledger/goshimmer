@@ -4,12 +4,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
-
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 )
 
 // TransactionMetadata contains the information of a Transaction, that are based on our local perception of things (i.e. if it is
