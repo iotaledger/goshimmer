@@ -21,8 +21,6 @@ import (
 // - booking first spend
 // - booking double spend
 func TestBookTransaction(t *testing.T) {
-	var masterBranchID, forkedBranchID branchmanager.BranchID
-	_, _ = masterBranchID, forkedBranchID
 
 	// CASE: missing output
 	{
@@ -86,12 +84,16 @@ func TestBookTransaction(t *testing.T) {
 		cachedTransaction, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 		txMetadata := cachedTransactionMetadata.Unwrap()
 
+		// assert that branchID is undefined before being booked
+		assert.Equal(t, branchmanager.UndefinedBranchID, txMetadata.BranchID())
+
 		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
 		assert.Equal(t, true, transactionBooked, "transactionBooked")
 		assert.Equal(t, false, decisionPending, "decisionPending")
 		assert.Nil(t, err)
 
-		masterBranchID = txMetadata.BranchID()
+		// assert that branchID is the same as the MasterBranchID
+		assert.Equal(t, branchmanager.MasterBranchID, txMetadata.BranchID())
 
 		// CASE: booking double spend
 		{
@@ -111,17 +113,22 @@ func TestBookTransaction(t *testing.T) {
 			cachedTransaction, cachedTransactionMetadata, _, _ = tangle.storeTransactionModels(valueObject)
 			txMetadata := cachedTransactionMetadata.Unwrap()
 
+			// assert that branchID is undefined before being booked
+			assert.Equal(t, branchmanager.UndefinedBranchID, txMetadata.BranchID())
+
 			transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
 			assert.Equal(t, true, transactionBooked, "transactionBooked")
 			assert.Equal(t, true, decisionPending, "decisionPending")
 			assert.Nil(t, err)
 
-			forkedBranchID = txMetadata.BranchID()
-
 			// assert that first spend and double spend have different BranchIDs
-			assert.NotEqual(t, masterBranchID, forkedBranchID, "BranchID")
+			assert.NotEqual(t, branchmanager.MasterBranchID, txMetadata.BranchID(), "BranchID")
 		}
 	}
+}
+
+func TestBookPayload(t *testing.T) {
+
 }
 
 // TestStorePayload checks whether a value object is correctly stored.
