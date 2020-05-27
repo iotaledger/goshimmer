@@ -4,9 +4,11 @@ import (
 	"math"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
@@ -533,6 +535,190 @@ func TestLoadSnapshot(t *testing.T) {
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID())
 		})
 	}
+}
+
+func TestRetrieveConsumedInputDetails(t *testing.T) {
+	// test simple happy case
+	{
+		tangle := New(mapdb.NewMapDB())
+
+		color1 := [32]byte{1}
+
+		// prepare inputs for tx that we want to retrieve from tangle
+		outputs := map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 2),
+				balance.New(color1, 3),
+			},
+		}
+		snapshot := map[transaction.ID]map[address.Address][]*balance.Balance{transaction.GenesisID: outputs}
+		tangle.LoadSnapshot(snapshot)
+
+		// build tx spending "outputs"
+		inputIDs := make([]transaction.OutputID, 0)
+		for addr := range outputs {
+			inputIDs = append(inputIDs, transaction.NewOutputID(addr, transaction.GenesisID))
+		}
+		tx := transaction.New(
+			transaction.NewInputs(inputIDs...),
+			// outputs
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{}),
+		)
+
+		inputsSolid, cachedInputs, consumedBalances, consumedBranches, err := tangle.retrieveConsumedInputDetails(tx)
+		require.NoError(t, err)
+		assert.True(t, inputsSolid)
+		assert.Len(t, cachedInputs, len(outputs))
+		cachedInputs.Consume(func(input *Output) {
+			assert.ElementsMatch(t, outputs[input.Address()], input.Balances())
+		})
+		assert.True(t, cmp.Equal(sumOutputsByColor(outputs), consumedBalances))
+		assert.Len(t, consumedBranches, 1)
+		assert.Contains(t, consumedBranches, branchmanager.MasterBranchID)
+	}
+
+	// test happy case with more colors
+	{
+		tangle := New(mapdb.NewMapDB())
+
+		color1 := [32]byte{1}
+		color2 := [32]byte{2}
+		color3 := [32]byte{3}
+
+		// prepare inputs for tx that we want to retrieve from tangle
+		outputs := map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(color1, 1000),
+			},
+			address.Random(): {
+				balance.New(color2, 210),
+				balance.New(color1, 3),
+			},
+			address.Random(): {
+				balance.New(color3, 5621),
+				balance.New(color1, 3),
+			},
+		}
+		snapshot := map[transaction.ID]map[address.Address][]*balance.Balance{transaction.GenesisID: outputs}
+		tangle.LoadSnapshot(snapshot)
+
+		// build tx spending "outputs"
+		inputIDs := make([]transaction.OutputID, 0)
+		for addr := range outputs {
+			inputIDs = append(inputIDs, transaction.NewOutputID(addr, transaction.GenesisID))
+		}
+		tx := transaction.New(
+			transaction.NewInputs(inputIDs...),
+			// outputs
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{}),
+		)
+
+		inputsSolid, cachedInputs, consumedBalances, consumedBranches, err := tangle.retrieveConsumedInputDetails(tx)
+		require.NoError(t, err)
+		assert.True(t, inputsSolid)
+		assert.Len(t, cachedInputs, len(outputs))
+		cachedInputs.Consume(func(input *Output) {
+			assert.ElementsMatch(t, outputs[input.Address()], input.Balances())
+		})
+		assert.True(t, cmp.Equal(sumOutputsByColor(outputs), consumedBalances))
+		assert.Len(t, consumedBranches, 1)
+		assert.Contains(t, consumedBranches, branchmanager.MasterBranchID)
+	}
+
+	// test int overflow
+	{
+		tangle := New(mapdb.NewMapDB())
+
+		// prepare inputs for tx that we want to retrieve from tangle
+		outputs := map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, math.MaxInt64),
+			},
+		}
+		snapshot := map[transaction.ID]map[address.Address][]*balance.Balance{transaction.GenesisID: outputs}
+		tangle.LoadSnapshot(snapshot)
+
+		// build tx spending "outputs"
+		inputIDs := make([]transaction.OutputID, 0)
+		for addr := range outputs {
+			inputIDs = append(inputIDs, transaction.NewOutputID(addr, transaction.GenesisID))
+		}
+		tx := transaction.New(
+			transaction.NewInputs(inputIDs...),
+			// outputs
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{}),
+		)
+
+		inputsSolid, cachedInputs, _, _, err := tangle.retrieveConsumedInputDetails(tx)
+		assert.Error(t, err)
+		assert.False(t, inputsSolid)
+		assert.Len(t, cachedInputs, len(outputs))
+	}
+
+	// test multiple consumed branches
+	{
+		tangle := New(mapdb.NewMapDB())
+
+		// prepare inputs for tx that we want to retrieve from tangle
+		outputs := map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 2),
+			},
+		}
+		snapshot := map[transaction.ID]map[address.Address][]*balance.Balance{transaction.GenesisID: outputs}
+		tangle.LoadSnapshot(snapshot)
+
+		// build tx spending "outputs"
+		inputIDs := make([]transaction.OutputID, 0)
+		for addr := range outputs {
+			inputIDs = append(inputIDs, transaction.NewOutputID(addr, transaction.GenesisID))
+		}
+		tx := transaction.New(
+			transaction.NewInputs(inputIDs...),
+			// outputs
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{}),
+		)
+
+		// modify branch of 1 output
+		newBranch := branchmanager.NewBranchID(transaction.RandomID())
+		output := tangle.TransactionOutput(inputIDs[0])
+		output.Consume(func(output *Output) {
+			output.branchID = newBranch
+		})
+
+		inputsSolid, cachedInputs, consumedBalances, consumedBranches, err := tangle.retrieveConsumedInputDetails(tx)
+		require.NoError(t, err)
+		assert.True(t, inputsSolid)
+		assert.Len(t, cachedInputs, len(outputs))
+		cachedInputs.Consume(func(input *Output) {
+			assert.ElementsMatch(t, outputs[input.Address()], input.Balances())
+		})
+		assert.True(t, cmp.Equal(sumOutputsByColor(outputs), consumedBalances))
+		assert.Len(t, consumedBranches, 2)
+		assert.Contains(t, consumedBranches, branchmanager.MasterBranchID)
+		assert.Contains(t, consumedBranches, newBranch)
+	}
+}
+
+func sumOutputsByColor(outputs map[address.Address][]*balance.Balance) map[balance.Color]int64 {
+	totals := make(map[balance.Color]int64)
+
+	for _, balances := range outputs {
+		for _, bal := range balances {
+			totals[bal.Color()] += bal.Value()
+		}
+	}
+
+	return totals
 }
 
 func createDummyTransaction() *transaction.Transaction {

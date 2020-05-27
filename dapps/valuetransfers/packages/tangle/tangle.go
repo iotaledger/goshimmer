@@ -764,7 +764,7 @@ func (tangle *Tangle) payloadBranchID(payloadID payload.ID) branchmanager.Branch
 	return payloadMetadata.BranchID()
 }
 
-// checkPayloadSolidity returns true if the given payload is solid. A payload is considered to be solid solid, if it is either
+// checkPayloadSolidity returns true if the given payload is solid. A payload is considered to be solid, if it is either
 // already marked as solid or if its referenced payloads are marked as solid.
 func (tangle *Tangle) checkPayloadSolidity(payload *payload.Payload, payloadMetadata *PayloadMetadata, transactionBranches []branchmanager.BranchID) (solid bool, err error) {
 	if payload == nil || payload.IsDeleted() || payloadMetadata == nil || payloadMetadata.IsDeleted() {
