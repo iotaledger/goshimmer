@@ -52,6 +52,7 @@ func (api *GoShimmerAPI) GetUnspentOutputs(addresses []string) (*webapi_unspento
 	return res, nil
 }
 
+// SendTransaction sends the transaction(bytes) to Tangle and returns transaction ID
 func (api *GoShimmerAPI) SendTransaction(txnBytes []byte) (string, error) {
 	res := &webapi_sendtxn.Response{}
 	if err := api.do(http.MethodPost, routeSendTxn,
