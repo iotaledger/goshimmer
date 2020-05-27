@@ -22,6 +22,6 @@ func configure(_ *node.Plugin) {
 	webapi.Server.GET("value/attachments", attachments.Handler)
 	webapi.Server.POST("value/unspentOutputs", unspentoutputs.Handler)
 	webapi.Server.POST("value/sendTransaction", sendtransaction.Handler)
-	webapi.Server.POST("value/testsendtxn", testsendtxn.Handler)
+	webapi.Server.POST("value/testSendTxn", testsendtxn.Handler)
 	webapi.Server.GET("value/transactionByID", gettransactionbyid.Handler)
 }
