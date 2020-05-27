@@ -480,14 +480,9 @@ func TestGetCachedOutputsFromTransactionInputs(t *testing.T) {
 			balance.New(color1, 3),
 		},
 	}
-	snapshot := map[transaction.ID]map[address.Address][]*balance.Balance{transaction.GenesisID: outputs}
-	tangle.LoadSnapshot(snapshot)
+	inputIDs := loadSnapshotFromOutputs(tangle, outputs)
 
 	// build tx2 spending "outputs"
-	inputIDs := make([]transaction.OutputID, 0)
-	for addr := range outputs {
-		inputIDs = append(inputIDs, transaction.NewOutputID(addr, transaction.GenesisID))
-	}
 	tx2 := transaction.New(
 		transaction.NewInputs(inputIDs...),
 		// outputs
@@ -707,6 +702,163 @@ func TestRetrieveConsumedInputDetails(t *testing.T) {
 		assert.Contains(t, consumedBranches, branchmanager.MasterBranchID)
 		assert.Contains(t, consumedBranches, newBranch)
 	}
+}
+
+func TestCheckTransactionSolidity(t *testing.T) {
+	// already solid tx
+	{
+		tangle := New(mapdb.NewMapDB())
+		tx := createDummyTransaction()
+		txMetadata := NewTransactionMetadata(tx.ID())
+		txMetadata.SetSolid(true)
+		txMetadata.SetBranchID(branchmanager.MasterBranchID)
+
+		solid, consumedBranches, err := tangle.checkTransactionSolidity(tx, txMetadata)
+		assert.True(t, solid)
+		assert.Len(t, consumedBranches, 1)
+		assert.Contains(t, consumedBranches, branchmanager.MasterBranchID)
+		assert.NoError(t, err)
+	}
+
+	// deleted tx
+	{
+		tangle := New(mapdb.NewMapDB())
+		tx := createDummyTransaction()
+		txMetadata := NewTransactionMetadata(tx.ID())
+		tx.Delete()
+		txMetadata.Delete()
+
+		solid, consumedBranches, _ := tangle.checkTransactionSolidity(tx, txMetadata)
+		assert.False(t, solid)
+		assert.Len(t, consumedBranches, 0)
+		//assert.Error(t, err)
+	}
+
+	// invalid tx: inputs not solid/non-existing
+	{
+		tangle := New(mapdb.NewMapDB())
+		tx := createDummyTransaction()
+		txMetadata := NewTransactionMetadata(tx.ID())
+
+		solid, consumedBranches, err := tangle.checkTransactionSolidity(tx, txMetadata)
+		assert.False(t, solid)
+		assert.Len(t, consumedBranches, 0)
+		assert.NoError(t, err)
+	}
+
+	// invalid tx: inputs do not match outputs
+	{
+		tangle := New(mapdb.NewMapDB())
+
+		// prepare snapshot
+		color1 := [32]byte{1}
+		outputs := map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 2),
+				balance.New(color1, 3),
+			},
+		}
+		inputIDs := loadSnapshotFromOutputs(tangle, outputs)
+
+		// build tx spending wrong "outputs"
+		tx := transaction.New(
+			transaction.NewInputs(inputIDs...),
+			// outputs
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				address.Random(): {
+					balance.New(balance.ColorIOTA, 11337),
+					balance.New(color1, 1000),
+				},
+			}),
+		)
+		txMetadata := NewTransactionMetadata(tx.ID())
+
+		solid, consumedBranches, err := tangle.checkTransactionSolidity(tx, txMetadata)
+		assert.False(t, solid)
+		assert.Len(t, consumedBranches, 0)
+		assert.Error(t, err)
+	}
+
+	// spent outputs from master branch (non-conflicting branches)
+	{
+		tangle := New(mapdb.NewMapDB())
+
+		// prepare snapshot
+		color1 := [32]byte{1}
+		outputs := map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 2),
+				balance.New(color1, 3),
+			},
+		}
+		inputIDs := loadSnapshotFromOutputs(tangle, outputs)
+
+		// build tx spending "outputs"
+		tx := transaction.New(
+			transaction.NewInputs(inputIDs...),
+			// outputs
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				address.Random(): {
+					balance.New(balance.ColorIOTA, 3),
+					balance.New(color1, 3),
+				},
+			}),
+		)
+		txMetadata := NewTransactionMetadata(tx.ID())
+
+		solid, consumedBranches, err := tangle.checkTransactionSolidity(tx, txMetadata)
+		assert.True(t, solid)
+		assert.Len(t, consumedBranches, 1)
+		assert.Contains(t, consumedBranches, branchmanager.MasterBranchID)
+		assert.NoError(t, err)
+	}
+
+	// spent outputs from conflicting branches
+	//{
+	//	tangle := New(mapdb.NewMapDB())
+	//
+	//	// create conflicting branches
+	//	cachedBranch2, _ := tangle.BranchManager().Fork(branchmanager.BranchID{2}, []branchmanager.BranchID{branchmanager.MasterBranchID}, []branchmanager.ConflictID{{0}})
+	//	branch2 := cachedBranch2.Unwrap()
+	//	cachedBranch3, _ := tangle.BranchManager().Fork(branchmanager.BranchID{3}, []branchmanager.BranchID{branchmanager.MasterBranchID}, []branchmanager.ConflictID{{0}})
+	//	branch3 := cachedBranch3.Unwrap()
+	//	// create outputs for conflicting branches
+	//	var cachedOutputs []*CachedOutput
+	//	for _, branch := range []*branchmanager.Branch{branch2, branch3} {
+	//		input := NewOutput(address.Random(), transaction.GenesisID, branch.ID(), []*balance.Balance{balance.New(balance.ColorIOTA, 1)})
+	//		input.SetSolid(true)
+	//		cachedObject, _ := tangle.outputStorage.StoreIfAbsent(input)
+	//		defer cachedObject.Release()
+	//		cachedOutputs = append(cachedOutputs, &CachedOutput{CachedObject: cachedObject})
+	//	}
+	//
+	//}
+
+}
+
+func TestPayloadBranchID(t *testing.T) {
+
+}
+
+func TestCheckPayloadSolidity(t *testing.T) {
+
+}
+
+func loadSnapshotFromOutputs(tangle *Tangle, outputs map[address.Address][]*balance.Balance) []transaction.OutputID {
+	snapshot := map[transaction.ID]map[address.Address][]*balance.Balance{transaction.GenesisID: outputs}
+	tangle.LoadSnapshot(snapshot)
+
+	outputIDs := make([]transaction.OutputID, 0)
+	for addr := range outputs {
+		outputIDs = append(outputIDs, transaction.NewOutputID(addr, transaction.GenesisID))
+	}
+	return outputIDs
 }
 
 func sumOutputsByColor(outputs map[address.Address][]*balance.Balance) map[balance.Color]int64 {
