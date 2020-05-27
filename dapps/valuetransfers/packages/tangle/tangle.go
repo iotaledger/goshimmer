@@ -747,9 +747,8 @@ func (tangle *Tangle) payloadBranchID(payloadID payload.ID) branchmanager.Branch
 
 	payloadMetadata := cachedPayloadMetadata.Unwrap()
 	if payloadMetadata == nil {
-		cachedPayloadMetadata.Release()
 
-		// if transaction is missing and was not reported as missing, yet
+		// if payload is missing and was not reported as missing, yet
 		if cachedMissingPayload, missingPayloadStored := tangle.missingPayloadStorage.StoreIfAbsent(NewMissingPayload(payloadID)); missingPayloadStored {
 			cachedMissingPayload.Consume(func(object objectstorage.StorableObject) {
 				tangle.Events.PayloadMissing.Trigger(object.(*MissingPayload).ID())
@@ -777,13 +776,15 @@ func (tangle *Tangle) checkPayloadSolidity(payload *payload.Payload, payloadMeta
 	combinedBranches := transactionBranches
 
 	trunkBranchID := tangle.payloadBranchID(payload.TrunkID())
-	if trunkBranchID == branchmanager.UndefinedBranchID {
+	tangle.PayloadMetadata(payload.TrunkID()).Consume(func(metadata *PayloadMetadata) { solid = metadata.IsSolid() })
+	if trunkBranchID == branchmanager.UndefinedBranchID || !solid {
 		return
 	}
 	combinedBranches = append(combinedBranches, trunkBranchID)
 
 	branchBranchID := tangle.payloadBranchID(payload.BranchID())
-	if branchBranchID == branchmanager.UndefinedBranchID {
+	tangle.PayloadMetadata(payload.BranchID()).Consume(func(metadata *PayloadMetadata) { solid = metadata.IsSolid() })
+	if branchBranchID == branchmanager.UndefinedBranchID || !solid {
 		return
 	}
 	combinedBranches = append(combinedBranches, branchBranchID)

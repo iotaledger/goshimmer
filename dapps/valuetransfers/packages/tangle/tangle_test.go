@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -166,7 +167,6 @@ func TestStorePayload(t *testing.T) {
 		cachedMetadata.Consume(func(payloadMetadata *PayloadMetadata) {
 			assert.Equal(t, valueObject.ID(), payloadMetadata.PayloadID())
 		})
-
 	}
 }
 
@@ -664,14 +664,7 @@ func TestRetrieveConsumedInputDetails(t *testing.T) {
 				balance.New(color1, 3),
 			},
 		}
-		snapshot := map[transaction.ID]map[address.Address][]*balance.Balance{transaction.GenesisID: outputs}
-		tangle.LoadSnapshot(snapshot)
-
-		// build tx spending "outputs"
-		inputIDs := make([]transaction.OutputID, 0)
-		for addr := range outputs {
-			inputIDs = append(inputIDs, transaction.NewOutputID(addr, transaction.GenesisID))
-		}
+		inputIDs := loadSnapshotFromOutputs(tangle, outputs)
 		tx := transaction.New(
 			transaction.NewInputs(inputIDs...),
 			// outputs
@@ -712,14 +705,8 @@ func TestRetrieveConsumedInputDetails(t *testing.T) {
 				balance.New(color1, 3),
 			},
 		}
-		snapshot := map[transaction.ID]map[address.Address][]*balance.Balance{transaction.GenesisID: outputs}
-		tangle.LoadSnapshot(snapshot)
-
 		// build tx spending "outputs"
-		inputIDs := make([]transaction.OutputID, 0)
-		for addr := range outputs {
-			inputIDs = append(inputIDs, transaction.NewOutputID(addr, transaction.GenesisID))
-		}
+		inputIDs := loadSnapshotFromOutputs(tangle, outputs)
 		tx := transaction.New(
 			transaction.NewInputs(inputIDs...),
 			// outputs
@@ -751,14 +738,7 @@ func TestRetrieveConsumedInputDetails(t *testing.T) {
 				balance.New(balance.ColorIOTA, math.MaxInt64),
 			},
 		}
-		snapshot := map[transaction.ID]map[address.Address][]*balance.Balance{transaction.GenesisID: outputs}
-		tangle.LoadSnapshot(snapshot)
-
-		// build tx spending "outputs"
-		inputIDs := make([]transaction.OutputID, 0)
-		for addr := range outputs {
-			inputIDs = append(inputIDs, transaction.NewOutputID(addr, transaction.GenesisID))
-		}
+		inputIDs := loadSnapshotFromOutputs(tangle, outputs)
 		tx := transaction.New(
 			transaction.NewInputs(inputIDs...),
 			// outputs
@@ -784,14 +764,7 @@ func TestRetrieveConsumedInputDetails(t *testing.T) {
 				balance.New(balance.ColorIOTA, 2),
 			},
 		}
-		snapshot := map[transaction.ID]map[address.Address][]*balance.Balance{transaction.GenesisID: outputs}
-		tangle.LoadSnapshot(snapshot)
-
-		// build tx spending "outputs"
-		inputIDs := make([]transaction.OutputID, 0)
-		for addr := range outputs {
-			inputIDs = append(inputIDs, transaction.NewOutputID(addr, transaction.GenesisID))
-		}
+		inputIDs := loadSnapshotFromOutputs(tangle, outputs)
 		tx := transaction.New(
 			transaction.NewInputs(inputIDs...),
 			// outputs
@@ -935,30 +908,86 @@ func TestCheckTransactionSolidity(t *testing.T) {
 	}
 
 	// spent outputs from conflicting branches
-	//{
-	//	tangle := New(mapdb.NewMapDB())
-	//
-	//	// create conflicting branches
-	//	cachedBranch2, _ := tangle.BranchManager().Fork(branchmanager.BranchID{2}, []branchmanager.BranchID{branchmanager.MasterBranchID}, []branchmanager.ConflictID{{0}})
-	//	branch2 := cachedBranch2.Unwrap()
-	//	cachedBranch3, _ := tangle.BranchManager().Fork(branchmanager.BranchID{3}, []branchmanager.BranchID{branchmanager.MasterBranchID}, []branchmanager.ConflictID{{0}})
-	//	branch3 := cachedBranch3.Unwrap()
-	//	// create outputs for conflicting branches
-	//	var cachedOutputs []*CachedOutput
-	//	for _, branch := range []*branchmanager.Branch{branch2, branch3} {
-	//		input := NewOutput(address.Random(), transaction.GenesisID, branch.ID(), []*balance.Balance{balance.New(balance.ColorIOTA, 1)})
-	//		input.SetSolid(true)
-	//		cachedObject, _ := tangle.outputStorage.StoreIfAbsent(input)
-	//		defer cachedObject.Release()
-	//		cachedOutputs = append(cachedOutputs, &CachedOutput{CachedObject: cachedObject})
-	//	}
-	//
-	//}
+	{
+		tangle := New(mapdb.NewMapDB())
+
+		// create conflicting branches
+		cachedBranch2, _ := tangle.BranchManager().Fork(branchmanager.BranchID{2}, []branchmanager.BranchID{branchmanager.MasterBranchID}, []branchmanager.ConflictID{{0}})
+		branch2 := cachedBranch2.Unwrap()
+		defer cachedBranch2.Release()
+		cachedBranch3, _ := tangle.BranchManager().Fork(branchmanager.BranchID{3}, []branchmanager.BranchID{branchmanager.MasterBranchID}, []branchmanager.ConflictID{{0}})
+		branch3 := cachedBranch3.Unwrap()
+		defer cachedBranch3.Release()
+		// create outputs for conflicting branches
+		inputIDs := make([]transaction.OutputID, 0)
+		for _, branch := range []*branchmanager.Branch{branch2, branch3} {
+			input := NewOutput(address.Random(), transaction.GenesisID, branch.ID(), []*balance.Balance{balance.New(balance.ColorIOTA, 1)})
+			input.SetSolid(true)
+			cachedObject, _ := tangle.outputStorage.StoreIfAbsent(input)
+			cachedOutput := &CachedOutput{CachedObject: cachedObject}
+			cachedOutput.Consume(func(output *Output) {
+				inputIDs = append(inputIDs, transaction.NewOutputID(output.Address(), transaction.GenesisID))
+			})
+		}
+
+		// build tx spending "outputs" from conflicting branches
+		tx := transaction.New(
+			transaction.NewInputs(inputIDs...),
+			// outputs
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				address.Random(): {
+					balance.New(balance.ColorIOTA, 2),
+				},
+			}),
+		)
+		txMetadata := NewTransactionMetadata(tx.ID())
+
+		solid, consumedBranches, err := tangle.checkTransactionSolidity(tx, txMetadata)
+		assert.False(t, solid)
+		assert.Len(t, consumedBranches, 2)
+		assert.Contains(t, consumedBranches, branch2.ID())
+		assert.Contains(t, consumedBranches, branch3.ID())
+		assert.Error(t, err)
+	}
 
 }
 
 func TestPayloadBranchID(t *testing.T) {
+	tangle := New(mapdb.NewMapDB())
 
+	{
+		branchID := tangle.payloadBranchID(payload.GenesisID)
+		assert.Equal(t, branchmanager.MasterBranchID, branchID)
+	}
+
+	// test with stored payload
+	{
+		valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
+		cachedPayload, cachedMetadata, stored := tangle.storePayload(valueObject)
+		assert.True(t, stored)
+		cachedPayload.Release()
+		expectedBranchID := branchmanager.BranchID{1}
+		cachedMetadata.Consume(func(metadata *PayloadMetadata) {
+			metadata.SetSolid(true)
+			metadata.SetBranchID(expectedBranchID)
+		})
+
+		branchID := tangle.payloadBranchID(valueObject.ID())
+		assert.Equal(t, expectedBranchID, branchID)
+	}
+
+	// test missing value object
+	{
+		valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
+		missing := 0
+		tangle.Events.PayloadMissing.Attach(events.NewClosure(func(payloadID payload.ID) {
+			missing++
+		}))
+
+		branchID := tangle.payloadBranchID(valueObject.ID())
+		assert.Equal(t, branchmanager.UndefinedBranchID, branchID)
+		assert.Equal(t, 1, missing)
+	}
 }
 
 func TestCheckPayloadSolidity(t *testing.T) {
