@@ -1,8 +1,8 @@
 package client
 
 import (
+	"fmt"
 	"net/http"
-    "fmt"
 
 	webapi_attachments "github.com/iotaledger/goshimmer/plugins/webapi/value/attachments"
 	webapi_gettxn "github.com/iotaledger/goshimmer/plugins/webapi/value/gettransactionbyid"
@@ -52,10 +52,10 @@ func (api *GoShimmerAPI) GetUnspentOutputs(addresses []string) (*webapi_unspento
 	return res, nil
 }
 
-func (api *GoShimmerAPI) SendTransaction (txnBytes []byte) (string, error) {
+func (api *GoShimmerAPI) SendTransaction(txnBytes []byte) (string, error) {
 	res := &webapi_sendtxn.Response{}
 	if err := api.do(http.MethodPost, routeSendTxn,
-    &webapi_sendtxn.Request{TransactionBytes: txnBytes}, res); err != nil {
+		&webapi_sendtxn.Request{TransactionBytes: txnBytes}, res); err != nil {
 		return "", err
 	}
 
