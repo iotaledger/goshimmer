@@ -65,7 +65,7 @@ func TestSynchronization(t *testing.T) {
 	// 8. issue some messages on old peers so that new peer can sync again
 	ids = sendDataMessagesOnRandomPeer(t, n.Peers()[:initalPeers], 10, ids)
 	// wait for peer to sync
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	// 9. newPeer becomes synced again
 	resp, err = newPeer.Info()

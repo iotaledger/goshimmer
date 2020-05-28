@@ -15,8 +15,11 @@ jobs:
       - name: Build GoShimmer image
         run: docker build -t iotaledger/goshimmer .
 
-      - name: Pull drand image
-        run: docker pull angelocapossele/drand:latest
+      - name: Pull additional Docker images
+        run: |
+          docker pull angelocapossele/drand:latest
+          docker pull gaiaadm/pumba:latest
+          docker pull gaiadocker/iproute2:latest
         
       - name: Run integration tests
         run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
@@ -35,4 +38,6 @@ jobs:
 
       - name: Clean up
         if: always()
-        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml down
+        run: |
+          docker-compose -f tools/integration-tests/tester/docker-compose.yml down
+          docker rm -f $(docker ps -a -q -f ancestor=gaiadocker/iproute2)

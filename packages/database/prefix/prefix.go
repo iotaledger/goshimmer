@@ -1,4 +1,4 @@
-package database
+package prefix
 
 const (
 	DBPrefixApprovers byte = iota

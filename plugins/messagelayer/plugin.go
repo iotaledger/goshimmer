@@ -7,9 +7,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagerequester"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
-	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -35,15 +35,16 @@ var (
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
+	store := database.Store()
 
 	// create instances
 	MessageParser = messageparser.New()
 	MessageRequester = messagerequester.New()
 	TipSelector = tipselector.New()
-	Tangle = tangle.New(database.GetBadgerInstance())
+	Tangle = tangle.New(store)
 
 	// Setup MessageFactory (behavior + logging))
-	MessageFactory = messagefactory.New(database.GetBadgerInstance(), local.GetInstance().LocalIdentity(), TipSelector, []byte(DBSequenceNumber))
+	MessageFactory = messagefactory.New(database.Store(), local.GetInstance().LocalIdentity(), TipSelector, []byte(DBSequenceNumber))
 	MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(Tangle.AttachMessage))
 	MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Errorf("internal error in message factory: %v", err)
