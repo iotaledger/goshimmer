@@ -38,7 +38,7 @@ func TestShortDataPayload(t *testing.T) {
 
 	dataPayload := []byte("data payload test")
 	err := tx.SetDataPayload(dataPayload)
-	assert.Equal(t, nil, err)
+	assert.NoError(t, err)
 
 	dpBack := tx.GetDataPayload()
 	assert.Equal(t, true, bytes.Equal(dpBack, dataPayload))
@@ -52,7 +52,7 @@ func TestShortDataPayload(t *testing.T) {
 	tx.essenceBytes = nil
 	dataPayload[2] = '?'
 	err = tx.SetDataPayload(dataPayload)
-	assert.Equal(t, nil, err)
+	assert.NoError(t, err)
 
 	// expect signature is not valid
 	check = tx.SignaturesValid()
@@ -70,7 +70,7 @@ func TestTooLongDataPayload(t *testing.T) {
 
 	dataPayload := []byte(strings.Repeat("1", MaxDataPayloadSize+1))
 	err := tx.SetDataPayload(dataPayload)
-	assert.Equal(t, true, err != nil)
+	assert.Error(t, err)
 }
 
 func TestMarshalingEmptyDataPayload(t *testing.T) {
@@ -90,9 +90,8 @@ func TestMarshalingEmptyDataPayload(t *testing.T) {
 
 	tx1 := Transaction{}
 	_, err := tx1.UnmarshalObjectStorageValue(v)
-	if err != nil {
-		assert.Error(t, err)
-	}
+	assert.NoError(t, err)
+
 	assert.Equal(t, true, tx1.SignaturesValid())
 	assert.Equal(t, true, bytes.Equal(tx1.ID().Bytes(), tx.ID().Bytes()))
 }
@@ -108,7 +107,7 @@ func TestMarshalingDataPayload(t *testing.T) {
 
 	dataPayload := []byte("data payload test")
 	err := tx.SetDataPayload(dataPayload)
-	assert.Equal(t, nil, err)
+	assert.NoError(t, err)
 
 	tx.Sign(sigScheme)
 	check := tx.SignaturesValid()
@@ -119,8 +118,73 @@ func TestMarshalingDataPayload(t *testing.T) {
 	tx1 := Transaction{}
 	_, err = tx1.UnmarshalObjectStorageValue(v)
 
-	assert.Equal(t, nil, err)
+	assert.NoError(t, err)
 	assert.Equal(t, true, tx1.SignaturesValid())
 
 	assert.Equal(t, true, bytes.Equal(tx1.ID().Bytes(), tx.ID().Bytes()))
+}
+
+func TestPutSignatureValid(t *testing.T) {
+	sigScheme := signaturescheme.RandBLS()
+	addr := sigScheme.Address()
+	o1 := NewOutputID(addr, RandomID())
+	inputs := NewInputs(o1)
+	bal := balance.New(balance.ColorIOTA, 1)
+	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
+	tx := New(inputs, outputs)
+
+	dataPayload := []byte("data payload test")
+	err := tx.SetDataPayload(dataPayload)
+	assert.NoError(t, err)
+
+	signature := sigScheme.Sign(tx.EssenceBytes())
+	assert.Equal(t, signature.IsValid(tx.EssenceBytes()), true)
+
+	err = tx.PutSignature(signature)
+	assert.NoError(t, err)
+
+	check := tx.SignaturesValid()
+	assert.Equal(t, true, check)
+}
+
+func TestPutSignatureInvalid(t *testing.T) {
+	sigScheme := signaturescheme.RandBLS()
+	addr := sigScheme.Address()
+	o1 := NewOutputID(addr, RandomID())
+	inputs := NewInputs(o1)
+	bal := balance.New(balance.ColorIOTA, 1)
+	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
+	tx := New(inputs, outputs)
+
+	dataPayload := []byte("data payload test")
+	err := tx.SetDataPayload(dataPayload)
+	assert.NoError(t, err)
+
+	signatureValid := sigScheme.Sign(tx.EssenceBytes())
+	assert.Equal(t, true, signatureValid.IsValid(tx.EssenceBytes()))
+
+	sigBytes := make([]byte, len(signatureValid.Bytes()))
+	copy(sigBytes, signatureValid.Bytes())
+	// inverse last byte --> corrupt the signatureValid
+	sigBytes[len(sigBytes)-1] = ^sigBytes[len(sigBytes)-1]
+
+	sigCorrupted, consumed, err := signaturescheme.BLSSignatureFromBytes(sigBytes)
+
+	assert.NoError(t, err)
+	assert.Equal(t, consumed, len(sigBytes))
+	assert.Equal(t, false, sigCorrupted.IsValid(tx.EssenceBytes()))
+
+	err = tx.PutSignature(sigCorrupted)
+	// error expected
+	assert.Error(t, err)
+
+	// 0 signatures is not valid
+	assert.Equal(t, true, !tx.SignaturesValid())
+
+	err = tx.PutSignature(signatureValid)
+	// no error expected
+	assert.NoError(t, err)
+
+	// valid signatures expected
+	assert.Equal(t, true, tx.SignaturesValid())
 }

@@ -318,6 +318,76 @@ func (branch *Branch) setConfirmed(confirmed bool) (modified bool) {
 	return
 }
 
+// Finalized returns true if the branch has been marked as finalized.
+func (branch *Branch) Finalized() bool {
+	branch.finalizedMutex.RLock()
+	defer branch.finalizedMutex.RUnlock()
+
+	return branch.finalized
+}
+
+// setFinalized is the setter for the finalized flag. It returns true if the value of the flag has been updated.
+// A branch is finalized if a decisions regarding its preference has been made.
+// Note: Just because a branch has been finalized, does not mean that all transactions it contains have also been
+//       finalized but only that the underlying conflict that created the Branch has been finalized.
+func (branch *Branch) setFinalized(finalized bool) (modified bool) {
+	branch.finalizedMutex.RLock()
+	if branch.finalized == finalized {
+		branch.finalizedMutex.RUnlock()
+
+		return
+	}
+
+	branch.finalizedMutex.RUnlock()
+	branch.finalizedMutex.Lock()
+	defer branch.finalizedMutex.Unlock()
+
+	if branch.finalized == finalized {
+		return
+	}
+
+	branch.finalized = finalized
+	branch.SetModified()
+	modified = true
+
+	return
+}
+
+// Confirmed returns true if the branch has been accepted to be part of the ledger state.
+func (branch *Branch) Confirmed() bool {
+	branch.confirmedMutex.RLock()
+	defer branch.confirmedMutex.RUnlock()
+
+	return branch.confirmed
+}
+
+// setConfirmed is the setter for the confirmed flag. It returns true if the value of the flag has been updated.
+// A branch is confirmed if it is considered to have been accepted to be part of the ledger state.
+// Note: Just because a branch has been confirmed, does not mean that all transactions it contains have also been
+//       confirmed but only that the underlying conflict that created the Branch has been decided.
+func (branch *Branch) setConfirmed(confirmed bool) (modified bool) {
+	branch.confirmedMutex.RLock()
+	if branch.confirmed == confirmed {
+		branch.confirmedMutex.RUnlock()
+
+		return
+	}
+
+	branch.confirmedMutex.RUnlock()
+	branch.confirmedMutex.Lock()
+	defer branch.confirmedMutex.Unlock()
+
+	if branch.confirmed == confirmed {
+		return
+	}
+
+	branch.confirmed = confirmed
+	branch.SetModified()
+	modified = true
+
+	return
+}
+
 // Bytes returns a marshaled version of this Branch.
 func (branch *Branch) Bytes() []byte {
 	return marshalutil.New().
