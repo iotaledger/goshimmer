@@ -344,6 +344,7 @@ func (branchManager *BranchManager) SetBranchLiked(branchID BranchID, liked bool
 	return branchManager.setBranchLiked(branchManager.Branch(branchID), liked)
 }
 
+// SetBranchFinalized modifies the finalized flag of a branch. It automatically triggers
 func (branchManager *BranchManager) SetBranchFinalized(branchID BranchID) (modified bool, err error) {
 	return branchManager.setBranchFinalized(branchManager.Branch(branchID))
 }
