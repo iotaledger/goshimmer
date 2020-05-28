@@ -23,6 +23,7 @@ type Branch struct {
 	liked          bool
 	finalized      bool
 	confirmed      bool
+	rejected       bool
 
 	parentBranchesMutex sync.RWMutex
 	conflictsMutex      sync.RWMutex
@@ -30,6 +31,7 @@ type Branch struct {
 	likedMutex          sync.RWMutex
 	finalizedMutex      sync.RWMutex
 	confirmedMutex      sync.RWMutex
+	rejectedMutex       sync.RWMutex
 }
 
 // NewBranch is the constructor of a Branch and creates a new Branch object from the given details.
@@ -314,6 +316,39 @@ func (branch *Branch) setConfirmed(confirmed bool) (modified bool) {
 	}
 
 	branch.confirmed = confirmed
+	branch.SetModified()
+	modified = true
+
+	return
+}
+
+// Rejected returns true if the branch has been rejected to be part of the ledger state.
+func (branch *Branch) Rejected() bool {
+	branch.rejectedMutex.RLock()
+	defer branch.rejectedMutex.RUnlock()
+
+	return branch.rejected
+}
+
+// setRejected is the setter for the rejected flag. It returns true if the value of the flag has been updated.
+// A branch is rejected if it is considered to have been rejected to be part of the ledger state.
+func (branch *Branch) setRejected(rejected bool) (modified bool) {
+	branch.rejectedMutex.RLock()
+	if branch.rejected == rejected {
+		branch.rejectedMutex.RUnlock()
+
+		return
+	}
+
+	branch.rejectedMutex.RUnlock()
+	branch.rejectedMutex.Lock()
+	defer branch.rejectedMutex.Unlock()
+
+	if branch.rejected == rejected {
+		return
+	}
+
+	branch.rejected = rejected
 	branch.SetModified()
 	modified = true
 

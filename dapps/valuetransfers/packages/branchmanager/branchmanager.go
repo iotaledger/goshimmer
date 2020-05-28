@@ -345,6 +345,121 @@ func (branchManager *BranchManager) SetBranchLiked(branchID BranchID, liked bool
 }
 
 func (branchManager *BranchManager) SetBranchFinalized(branchID BranchID) (modified bool, err error) {
+	return branchManager.setBranchFinalized(branchManager.Branch(branchID))
+}
+
+func (branchManager *BranchManager) setBranchFinalized(cachedBranch *CachedBranch) (modified bool, err error) {
+	defer cachedBranch.Release()
+	branch := cachedBranch.Unwrap()
+	if branch == nil {
+		err = fmt.Errorf("failed to unwrap branch")
+
+		return
+	}
+
+	if modified = branch.setFinalized(true); !modified {
+		return
+	}
+
+	branchManager.Events.BranchFinalized.Trigger(cachedBranch)
+
+	if !branch.Preferred() {
+		branchManager.propagateRejectedToChildBranches(cachedBranch.Retain())
+
+		return
+	}
+
+	// update all other branches that are in the same conflict sets to be not preferred and also finalized
+	for conflictID := range branch.Conflicts() {
+		branchManager.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
+			// skip the branch which just got preferred
+			if conflictMember.BranchID() == branch.ID() {
+				return
+			}
+
+			_, err = branchManager.setBranchPreferred(branchManager.Branch(conflictMember.BranchID()), false)
+			if err != nil {
+				return
+			}
+			_, err = branchManager.setBranchFinalized(branchManager.Branch(conflictMember.BranchID()))
+			if err != nil {
+				return
+			}
+		})
+	}
+
+	err = branchManager.propagateConfirmedToChildBranches(cachedBranch.Retain())
+
+	return
+}
+
+func (branchManager *BranchManager) propagateRejectedToChildBranches(cachedBranch *CachedBranch) {
+	branchStack := list.New()
+	branchStack.PushBack(cachedBranch)
+
+	for branchStack.Len() >= 1 {
+		currentStackElement := branchStack.Front()
+		currentCachedBranch := currentStackElement.Value.(*CachedBranch)
+		branchStack.Remove(currentStackElement)
+
+		currentBranch := currentCachedBranch.Unwrap()
+		if currentBranch == nil || !currentBranch.setRejected(false) {
+			currentCachedBranch.Release()
+
+			continue
+		}
+
+		branchManager.Events.BranchRejected.Trigger(cachedBranch)
+
+		branchManager.ChildBranches(currentBranch.ID()).Consume(func(childBranch *ChildBranch) {
+			branchStack.PushBack(branchManager.Branch(childBranch.ChildID()))
+		})
+
+		currentCachedBranch.Release()
+	}
+}
+
+func (branchManager *BranchManager) propagateConfirmedToChildBranches(cachedBranch *CachedBranch) (err error) {
+	// initialize stack with our entry point for the propagation
+	propagationStack := list.New()
+	propagationStack.PushBack(cachedBranch)
+
+	// iterate through stack to propagate the changes to child branches
+	for propagationStack.Len() >= 1 {
+		stackElement := propagationStack.Front()
+		stackElement.Value.(*CachedBranch).Consume(func(branch *Branch) {
+			// abort if the branch does not fulfill the conditions to be confirmed
+			if !branch.Preferred() || !branch.Finalized() {
+				return
+			}
+
+			// abort if not all parents are confirmed
+			for _, parentBranchID := range branch.ParentBranches() {
+				cachedParentBranch := branchManager.Branch(parentBranchID)
+				if parentBranch := cachedParentBranch.Unwrap(); parentBranch == nil || !parentBranch.Confirmed() {
+					cachedParentBranch.Release()
+
+					return
+				}
+				cachedParentBranch.Release()
+			}
+
+			// abort if the branch was confirmed already
+			if !branch.setConfirmed(true) {
+				return
+			}
+
+			// trigger events
+			branchManager.Events.BranchConfirmed.Trigger(cachedBranch)
+
+			// schedule confirmed checks of children
+			for _, cachedChildBranch := range branchManager.ChildBranches(branch.ID()) {
+				propagationStack.PushBack(cachedChildBranch)
+			}
+		})
+		propagationStack.Remove(stackElement)
+	}
+
 	return
 }
 
@@ -462,7 +577,10 @@ func (branchManager *BranchManager) setBranchLiked(cachedBranch *CachedBranch, l
 				return
 			}
 
-			_, _ = branchManager.setBranchPreferred(branchManager.Branch(conflictMember.BranchID()), false)
+			_, err = branchManager.setBranchPreferred(branchManager.Branch(conflictMember.BranchID()), false)
+			if err != nil {
+				return
+			}
 		})
 	}
 
