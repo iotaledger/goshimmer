@@ -31,9 +31,9 @@ func TestBookTransaction(t *testing.T) {
 		cachedTransaction, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 
 		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
-		assert.Equal(t, false, transactionBooked)
-		assert.Equal(t, false, decisionPending)
-		assert.NotNil(t, err)
+		assert.False(t, transactionBooked)
+		assert.False(t, decisionPending)
+		assert.Error(t, err)
 	}
 
 	// CASE: transaction already booked by another process
@@ -47,9 +47,9 @@ func TestBookTransaction(t *testing.T) {
 		transactionMetadata.SetSolid(true)
 
 		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
-		assert.Equal(t, false, transactionBooked)
-		assert.Equal(t, false, decisionPending)
-		assert.Nil(t, err)
+		require.NoError(t, err)
+		assert.False(t, transactionBooked)
+		assert.False(t, decisionPending)
 	}
 
 	// CASE: booking first spend
@@ -71,7 +71,7 @@ func TestBookTransaction(t *testing.T) {
 
 		// build first spending
 		tx := transaction.New(
-			transaction.NewInputs(inputIDs[0]),
+			transaction.NewInputs(inputIDs...),
 			// outputs
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
 				address.Random(): {
@@ -89,9 +89,9 @@ func TestBookTransaction(t *testing.T) {
 		assert.Equal(t, branchmanager.UndefinedBranchID, txMetadata.BranchID())
 
 		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
-		assert.Equal(t, true, transactionBooked, "transactionBooked")
-		assert.Equal(t, false, decisionPending, "decisionPending")
-		assert.Nil(t, err)
+		require.NoError(t, err)
+		assert.True(t, transactionBooked, "transactionBooked")
+		assert.False(t, decisionPending, "decisionPending")
 
 		// assert that branchID is the same as the MasterBranchID
 		assert.Equal(t, branchmanager.MasterBranchID, txMetadata.BranchID())
@@ -100,7 +100,7 @@ func TestBookTransaction(t *testing.T) {
 		{
 			// build second spending
 			tx := transaction.New(
-				transaction.NewInputs(inputIDs[0]),
+				transaction.NewInputs(inputIDs...),
 				// outputs
 				transaction.NewOutputs(map[address.Address][]*balance.Balance{
 					address.Random(): {
@@ -118,9 +118,9 @@ func TestBookTransaction(t *testing.T) {
 			assert.Equal(t, branchmanager.UndefinedBranchID, txMetadata.BranchID())
 
 			transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
-			assert.Equal(t, true, transactionBooked, "transactionBooked")
-			assert.Equal(t, true, decisionPending, "decisionPending")
-			assert.Nil(t, err)
+			require.NoError(t, err)
+			assert.True(t, transactionBooked, "transactionBooked")
+			assert.True(t, decisionPending, "decisionPending")
 
 			// assert that first spend and double spend have different BranchIDs
 			assert.NotEqual(t, branchmanager.MasterBranchID, txMetadata.BranchID(), "BranchID")
@@ -128,6 +128,21 @@ func TestBookTransaction(t *testing.T) {
 	}
 }
 
+func TestCalculateBranchOfTransaction(t *testing.T) {
+
+}
+
+// TODO: implement test
+func TestMoveTransactionToBranch(t *testing.T) {
+
+}
+
+// TODO: implement test
+func TestFork(t *testing.T) {
+
+}
+
+// TODO: implement test
 func TestBookPayload(t *testing.T) {
 
 }
