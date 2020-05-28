@@ -45,7 +45,7 @@ func configureFPCLiveFeed() {
 }
 
 func runFPCLiveFeed() {
-	daemon.BackgroundWorker("Analysis[FPCUpdater]", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Analysis[FPCUpdater]", func(shutdownSignal <-chan struct{}) {
 		newMsgRateLimiter := time.NewTicker(time.Millisecond)
 		defer newMsgRateLimiter.Stop()
 
