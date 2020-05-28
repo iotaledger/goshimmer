@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"fmt"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -15,6 +16,27 @@ type OutputID [OutputIDLength]byte
 func NewOutputID(outputAddress address.Address, transactionID ID) (outputID OutputID) {
 	copy(outputID[:address.Length], outputAddress.Bytes())
 	copy(outputID[address.Length:], transactionID[:])
+
+	return
+}
+
+// OutputIDFromBase58 creates an output id from a base58 encoded string.
+func OutputIDFromBase58(base58String string) (outputid OutputID, err error) {
+	// decode string
+	bytes, err := base58.Decode(base58String)
+	if err != nil {
+		return
+	}
+
+	// sanitize input
+	if len(bytes) != OutputIDLength {
+		err = fmt.Errorf("base58 encoded string does not match the length of a output id")
+
+		return
+	}
+
+	// copy bytes to result
+	copy(outputid[:], bytes)
 
 	return
 }
