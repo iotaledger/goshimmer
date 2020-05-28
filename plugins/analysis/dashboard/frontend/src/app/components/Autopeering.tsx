@@ -31,7 +31,7 @@ export class NodeView extends React.Component<Props, any> {
                 <Badge pill style={{background: "#cb4b16", color: "white"}}>
                     Selected Node
                 </Badge>
-                {this.props.autopeeringStore.selectedNode}
+                <em>{this.props.autopeeringStore.selectedNode}</em>
                 <br/>
                 <Badge pill style={{background: "#1c8d7f", color: "white"}}>
                     Incoming Neighbors ({this.props.autopeeringStore.selectedNodeInNeighbors.size.toString()})
@@ -72,7 +72,7 @@ export class Autopeering extends React.Component<Props, any> {
             <Container>
 
                 <Row className={"mb-1"}>
-                    <Col xs={6} style={{paddingBottom: 30}}>
+                    <Col xs={6} style={{paddingBottom: 15}}>
                         <Row className={"mb-1"}>
                             <h3>Autopeering Visualizer</h3>
                         </Row>
@@ -107,20 +107,21 @@ export class Autopeering extends React.Component<Props, any> {
                             </Button>
                         </InputGroup>
 
-                        <ListGroup style={{maxHeight: 180, overflow: 'auto'}}>
+                        <ListGroup style={{maxHeight: 220, overflow: 'auto'}}>
                             {nodeListView}
                         </ListGroup>
                     </Col>
-                    <Col xs={6}>
+                    <Col xs={6} style={{height: 385,  overflow:'auto'}}>
                         <NodeView></NodeView>
                     </Col>
                 </Row>
                     <div className={"visualizer"} style={{
-                        zIndex: -1, position: "static",
+                        zIndex: -1,
                         top: 0, left: 0,
                         width: "100%",
                         height: "600px",
                         background: "#202126",
+                        borderRadius: 20,
                     }} id={"visualizer"}/>
 
 

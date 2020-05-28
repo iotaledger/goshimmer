@@ -20,7 +20,7 @@ const PluginName = "Analysis-Dashboard"
 
 var (
 	// Plugin is the plugin instance of the dashboard plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
 
 	log    *logger.Logger
 	server *echo.Echo
