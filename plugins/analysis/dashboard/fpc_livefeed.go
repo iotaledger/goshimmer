@@ -65,7 +65,9 @@ func runFPCLiveFeed() {
 		log.Info("Stopping Analysis[FPCUpdater] ...")
 		analysis.Events.FPCHeartbeat.Detach(onFPCHeartbeatReceived)
 		log.Info("Stopping Analysis[FPCUpdater] ... done")
-	}, shutdown.PriorityDashboard)
+	}, shutdown.PriorityDashboard); err != nil {
+		panic(err)
+	}
 }
 
 func createFPCUpdate(hb *packet.FPCHeartbeat, recordEvent bool) *FPCUpdate {

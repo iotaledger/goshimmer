@@ -33,12 +33,11 @@ export class Neighbors {
         this.in = new Set();
         this.out = new Set();
     }
-
 }
 
-const EDGE_COLOR_DEFAULT = "#ff7d6c";
-const EDGE_COLOR_OUTGOING = "#336db5";
-const EDGE_COLOR_INCOMING = "#1c8d7f";
+const EDGE_COLOR_DEFAULT = "#ff7d6cff";
+const EDGE_COLOR_OUTGOING = "#336db5ff";
+const EDGE_COLOR_INCOMING = "#1c8d7fff";
 const VERTEX_COLOR_DEFAULT = "0xa8d0e6";
 const VERTEX_COLOR_ACTIVE = "0x336db5";
 const VERTEX_COLOR_CONNECTED = "0x1c8d7f";
@@ -47,8 +46,7 @@ const statusWebSocketPath = "/ws";
 
 export class AutopeeringStore {
     routerStore: RouterStore;
-    // holds information on nodes
-    //@observable nodes = new ObservableMap<string, Node>();
+
     @observable nodes = new ObservableSet();
     @observable neighbors = new ObservableMap<string,Neighbors>();
     @observable connections = new ObservableSet();
@@ -56,16 +54,16 @@ export class AutopeeringStore {
     graphViewActive: boolean = false;
     @observable websocketConnected: boolean = false;
 
-    // Selecting a certain node
+    // selecting a certain node
     @observable selectionActive: boolean = false;
     @observable selectedNode: string = null;
-    @observable selectedNodeInNeighbors
-    @observable selectedNodeOutNeighbors
+    @observable selectedNodeInNeighbors: Set<string> = null;
+    @observable selectedNodeOutNeighbors: Set<string> = null;
 
     // search
     @observable search: string = "";
 
-    // viva graph objs
+    // viva graph objects
     graph;
     graphics;
     renderer;
@@ -79,6 +77,7 @@ export class AutopeeringStore {
         registerHandler(WSMsgType.DisconnectNodes, this.onDisconnectNodes);
     }
 
+    // connect to analysis server via websocket
     connect() {
         connectWebSocket(statusWebSocketPath,
             () => this.updateWebSocketConnected(true),
@@ -89,6 +88,7 @@ export class AutopeeringStore {
     @action
     updateWebSocketConnected = (connected: boolean) => this.websocketConnected = connected;
 
+    // create a graph and fill it with data
     start = () => {
         this.graphViewActive = true;
         this.graph = Viva.Graph.graph();
@@ -115,54 +115,45 @@ export class AutopeeringStore {
             container: ele, graphics, layout, renderLinks: true,
         });
 
-        // let events = Viva.Graph.webglInputEvents(graphics, this.graph);
-        //
-        // events.mouseEnter((node) => {
-        //
-        // }).mouseLeave((node) => {
-        //
-        // });
+        let events = Viva.Graph.webglInputEvents(graphics, this.graph);
+
+        events.mouseEnter((node) => {
+            this.handleGraphNodeOnHover(node);
+        }).mouseLeave((node) => {
+            this.handleGraphNodeOnHoverLeave(node);
+        });
         this.graphics = graphics;
         this.renderer.run();
+        // draw graph if we have data collected
+        this.initialDrawGraph();
     }
 
-    // initialDrawGraph = () => {
-    //     this.nodes.forEach((node,key,map) => {
-    //         this.drawNode(node);
-    //     })
-    //     this.nodes.forEach((node,key,map) => {
-    //         node.outNeighbors.forEach((outNeighborID) =>{
-    //
-    //             this.graph.addLink(node.id, outNeighborID);
-    //         })
-    //         node.inNeighbors.forEach( (inNeighborID) => {
-    //             this.graph.addLink(inNeighborID, node.id);
-    //         })
-    //     })
-    // }
+    // fill graph with data we have previously collected
+    initialDrawGraph = () => {
+        this.nodes.forEach((node,key,map) => {
+            this.drawNode(node);
+        })
+        this.neighbors.forEach((node,key,map) => {
+            // Only do it for one type of neighbors, as it is duplicated
+            node.out.forEach((outNeighborID) =>{
+                this.graph.addLink(key, outNeighborID);
+            })
+        })
+    }
 
-    // removeAll = () => {
-    //     this.nodes.forEach( (node, key, map) => {
-    //         this.graph.forEachLinkedNode(node.id, (linkedNode,link) => {
-    //             this.graph.removeLink(link);
-    //         })
-    //         this.graph.removeNode(node.id)
-    //     })
-    // }
-
+    // dispose only graph, but keep the data
     stop = () => {
-        //this.removeAll();
         this.graphViewActive = false;
         this.renderer.dispose();
         this.graph = null;
-
-        //this.nodes.clear();
     }
 
     @action
     updateSearch = (searchNode: string) => {
-        this.search = searchNode.trim().toLowerCase();
+        this.search = searchNode.trim();
     }
+
+    // handlers for incoming ws messages //
 
     @action
     onAddNode = (msg: AddNodeMessage) => {
@@ -175,6 +166,11 @@ export class AutopeeringStore {
             this.drawNode(msg.id);
         }
         console.log("Node %s added.", msg.id);
+
+        // the more nodes we have, the more spacing we need
+        if (this.nodes.size > 30) {
+            this.renderer.getLayout().simulator.springLength(this.nodes.size);
+        }
     }
 
     @action
@@ -189,6 +185,11 @@ export class AutopeeringStore {
             this.graph.removeNode(msg.id);
         }
         console.log("Removed node %s", msg.id)
+
+        // the less nodes we have, the less spacing we need
+        if (this.nodes.size >= 30) {
+            this.renderer.getLayout().simulator.springLength(this.nodes.size);
+        }
     }
 
     @action
@@ -207,7 +208,7 @@ export class AutopeeringStore {
             this.graph.addLink(msg.source, msg.target);
         }
 
-        // update connection
+        // update connections
         this.connections.add(msg.source + msg.target);
 
         // Update neighbors map
@@ -241,7 +242,7 @@ export class AutopeeringStore {
             this.graph.removeLink(existingLink);
         }
 
-        // connections and neighbors
+        // update connections and neighbors
         this.connections.delete(msg.source + msg.target);
         this.neighbors.get(msg.source).out.delete(msg.target);
         this.neighbors.get(msg.target).in.delete(msg.source);
@@ -249,19 +250,20 @@ export class AutopeeringStore {
         console.log("Disconnected nodes %s -> %s",msg.source, msg.target)
     }
 
-    // GRAPH RELATED UPDATES //
+    // graph related updates //
 
     drawNode = (node: string) => {
         let existing = this.graph.getNode(node);
 
         if (existing) {
-            // TODO: what to do when it is already in it? Update color maybe?
+            return;
         } else {
             // add to graph structure
             this.graph.addNode(node);
         }
     }
 
+    // updates color of a node (vertex) in the graph
     updateNodeUiColor = (node, color) => {
         let nodeUI = this.graphics.getNodeUI(node);
         if (nodeUI != undefined) {
@@ -269,6 +271,7 @@ export class AutopeeringStore {
         }
     }
 
+    // updates color of a link (edge) in the graph
     updateLinkUiColor = (idA, idB, color) => {
         let con = this.graph.getLink(idA, idB);
 
@@ -280,6 +283,7 @@ export class AutopeeringStore {
         }
     }
 
+    // highlights selectedNode, its links and neighbors
     showHighlight = () => {
         if (!this.selectionActive) {return};
 
@@ -304,6 +308,7 @@ export class AutopeeringStore {
         this.renderer.rerender();
     }
 
+    // disables highlighting of selectedNode, its links and neighbors
     resetPreviousColors = () => {
         if (!this.selectionActive) {return};
         this.graph.beginUpdate();
@@ -327,17 +332,45 @@ export class AutopeeringStore {
         this.renderer.rerender();
     }
 
-    //----------------------------------//
+    // handlers for frontend events //
 
+    // handles graph event of mouse entering a node
+    @action
+    handleGraphNodeOnHover = (node) => {
+        // when node is already selected
+        if (this.selectionActive && this.selectedNode == node.id) {
+            return;
+        }
+
+        // Stop highlighting anything else
+        if (this.selectionActive) {
+            this.resetPreviousColors();
+        }
+
+        this.selectedNode = node.id;
+        // get node incoming neighbors
+        if (!this.nodes.has(this.selectedNode)) {
+            console.log("Selected node not found (%s)", this.selectedNode);
+        }
+        this.selectedNodeInNeighbors = this.neighbors.get(this.selectedNode).in;
+        this.selectedNodeOutNeighbors =  this.neighbors.get(this.selectedNode).out;
+        this.selectionActive = true;
+        this.showHighlight();
+    }
+
+    // handles graph event of mouse leaving a node
+    @action
+    handleGraphNodeOnHoverLeave = (node) => {
+        this.clearSelection();
+        return;
+    }
+
+    // handles click on a node in list
     @action
     handleNodeListOnClick = (e) => {
         // Disable selection on second click when clicked on the same node
         if (this.selectionActive && this.selectedNode == e.target.innerHTML) {
-            this.resetPreviousColors();
-            this.selectedNode = null;
-            this.selectedNodeInNeighbors = null;
-            this.selectedNodeOutNeighbors = null;
-            this.selectionActive = false;
+            this.clearSelection();
             return;
         }
 
@@ -357,6 +390,7 @@ export class AutopeeringStore {
         this.showHighlight();
     }
 
+    // handles clearing the node selection
     @action
     clearSelection = () => {
         this.resetPreviousColors();
@@ -366,6 +400,8 @@ export class AutopeeringStore {
         this.selectionActive = false;
         return;
     }
+
+    // computed values update frontend rendering //
 
     @computed
     get nodeListView(){
@@ -385,7 +421,7 @@ export class AutopeeringStore {
         results.forEach((nodeID) => {
             nodeList.push(
                 <ListGroupItem key={nodeID} style={{padding: 0}}>
-                    <Button style={{fontSize: 14}} variant="outline-dark" onClick={this.handleNodeListOnClick}>
+                    <Button style={{fontSize: 12}} variant="outline-dark" onClick={this.handleNodeListOnClick}>
                         {nodeID}
                     </Button>
                 </ListGroupItem>
@@ -400,7 +436,7 @@ export class AutopeeringStore {
         this.selectedNodeInNeighbors.forEach((inNeighborID) => {
             inNeighbors.push(
                 <li key={inNeighborID}>
-                    <Button style={{fontSize: 14}} variant="outline-dark" onClick={this.handleNodeListOnClick}>
+                    <Button style={{fontSize: 12}} variant="outline-dark" onClick={this.handleNodeListOnClick}>
                         {inNeighborID}
                     </Button>
                 </li>
@@ -416,7 +452,7 @@ export class AutopeeringStore {
         this.selectedNodeOutNeighbors.forEach((outNeighborID) => {
             outNeighbors.push(
                 <li key={outNeighborID}>
-                    <Button style={{fontSize: 14}} variant="outline-dark" onClick={this.handleNodeListOnClick}>
+                    <Button style={{fontSize: 12}} variant="outline-dark" onClick={this.handleNodeListOnClick}>
                         {outNeighborID}
                     </Button>
                 </li>
@@ -428,6 +464,8 @@ export class AutopeeringStore {
 }
 
 export default AutopeeringStore;
+
+// vivagraph related utility functions //
 
 function parseColor(color): any {
     let parsedColor = 0x009ee8ff;
@@ -455,9 +493,7 @@ function parseColor(color): any {
     return parsedColor;
 }
 
-/**
- * WebGL stuff
- */
+// WebGL stuff //
 
 function WebGLCircle(size, color) {
     this.size = size;

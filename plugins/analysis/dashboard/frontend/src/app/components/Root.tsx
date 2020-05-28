@@ -9,6 +9,7 @@ import {LinkContainer} from 'react-router-bootstrap';
 import FPC from "app/components/FPC";
 import Conflict from "app/components/Conflict";
 import AutopeeringStore from "app/stores/AutopeeringStore";
+import Badge from "react-bootstrap/Badge";
 
 interface Props {
     history: any;
@@ -46,6 +47,13 @@ export class Root extends React.Component<Props, any> {
                             </Nav.Link>
                         </LinkContainer>
                     </Nav>
+                    <Navbar.Collapse className="justify-content-end">
+                        <Navbar.Text>
+                            {!this.props.autopeeringStore.websocketConnected &&
+                            <Badge variant="danger">WS not connected!</Badge>
+                            }
+                        </Navbar.Text>
+                    </Navbar.Collapse>
                 </Navbar>
                 <Switch>
                     <Route exact path="/autopeering" component={Autopeering}/>

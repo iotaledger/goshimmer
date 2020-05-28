@@ -24,8 +24,6 @@ var (
 
 	log    *logger.Logger
 	server *echo.Echo
-
-	nodeStartAt = time.Now()
 )
 
 func configure(plugin *node.Plugin) {

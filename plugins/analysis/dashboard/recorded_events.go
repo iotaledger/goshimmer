@@ -1,7 +1,6 @@
 package dashboard
 
 import (
-	"github.com/mr-tron/base58"
 	"strings"
 	"sync"
 	"time"
@@ -11,6 +10,7 @@ import (
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/mr-tron/base58"
 )
 
 // the period in which we scan and delete old data.
@@ -82,7 +82,7 @@ func configureEventsRecording() {
 
 		// incoming neighbor links update
 		for _, incomingNeighbor := range hb.InboundIDs {
-			incomingNeighborString :=  base58.Encode(incomingNeighbor)
+			incomingNeighborString := base58.Encode(incomingNeighbor)
 			// do we already know about this neighbor?
 			// if no, add it and set it online
 			if _, isAlready := nodes[incomingNeighborString]; !isAlready {
