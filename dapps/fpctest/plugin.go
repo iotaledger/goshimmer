@@ -80,10 +80,6 @@ func configure(_ *node.Plugin) {
 		}
 	}))
 
-	// voter.Events().RoundExecuted.Attach(events.NewClosure(func(stats *vote.RoundStats) {
-	// 	log.Info("New Round - ", stats.RandUsed, len(stats.ActiveVoteContexts))
-	// }))
-
 	voter.Events().Failed.Attach(events.NewClosure(func(id string, opinion vote.Opinion) {
 		log.Info("FPC fail - ", id, opinion)
 	}))
