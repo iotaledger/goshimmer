@@ -658,8 +658,8 @@ func TestBranchManager_BranchesConflicting(t *testing.T) {
 	}
 
 	// aggregated branch out of branch 4 (child of branch 2) and branch 6
-	cachedAggrBranch8, err := branchManager.AggregateBranches(branch4.ID(), branch6.ID())
-	assert.NoError(t, err)
+	cachedAggrBranch8, aggrBranchErr := branchManager.AggregateBranches(branch4.ID(), branch6.ID())
+	assert.NoError(t, aggrBranchErr)
 	defer cachedAggrBranch8.Release()
 	aggrBranch8 := cachedAggrBranch8.Unwrap()
 
@@ -690,12 +690,12 @@ func TestBranchManager_BranchesConflicting(t *testing.T) {
 
 	// aggregated branch out of aggr. branch 8 and branch 7:
 	// should fail since branch 6 & 7 are conflicting
-	_, err = branchManager.AggregateBranches(aggrBranch8.ID(), branch7.ID())
-	assert.Error(t, err, "can't aggregate branches aggr. branch 8 & conflict branch 7")
+	_, aggrBranchErr = branchManager.AggregateBranches(aggrBranch8.ID(), branch7.ID())
+	assert.Error(t, aggrBranchErr, "can't aggregate branches aggr. branch 8 & conflict branch 7")
 
 	// aggregated branch out of branch 5 (child of branch 2) and branch 7
-	cachedAggrBranch9, err := branchManager.AggregateBranches(branch5.ID(), branch7.ID())
-	assert.NoError(t, err)
+	cachedAggrBranch9, aggrBranchErr := branchManager.AggregateBranches(branch5.ID(), branch7.ID())
+	assert.NoError(t, aggrBranchErr)
 	defer cachedAggrBranch9.Release()
 	aggrBranch9 := cachedAggrBranch9.Unwrap()
 
@@ -718,8 +718,8 @@ func TestBranchManager_BranchesConflicting(t *testing.T) {
 	}
 
 	// aggregated branch out of branch 3 and branch 6
-	cachedAggrBranch10, err := branchManager.AggregateBranches(branch3.ID(), branch6.ID())
-	assert.NoError(t, err)
+	cachedAggrBranch10, aggrBranchErr := branchManager.AggregateBranches(branch3.ID(), branch6.ID())
+	assert.NoError(t, aggrBranchErr)
 	defer cachedAggrBranch10.Release()
 	aggrBranch10 := cachedAggrBranch10.Unwrap()
 
@@ -763,8 +763,8 @@ func TestBranchManager_BranchesConflicting(t *testing.T) {
 	}
 
 	// aggr. branch 13 out of branch 6 and 11
-	cachedAggrBranch13, err := branchManager.AggregateBranches(branch6.ID(), branch11.ID())
-	assert.NoError(t, err)
+	cachedAggrBranch13, aggrBranchErr := branchManager.AggregateBranches(branch6.ID(), branch11.ID())
+	assert.NoError(t, aggrBranchErr)
 	defer cachedAggrBranch13.Release()
 	aggrBranch13 := cachedAggrBranch13.Unwrap()
 
@@ -783,8 +783,8 @@ func TestBranchManager_BranchesConflicting(t *testing.T) {
 	}
 
 	// aggr. branch 14 out of aggr. branch 10 and 13
-	cachedAggrBranch14, err := branchManager.AggregateBranches(aggrBranch10.ID(), aggrBranch13.ID())
-	assert.NoError(t, err)
+	cachedAggrBranch14, aggrBranchErr := branchManager.AggregateBranches(aggrBranch10.ID(), aggrBranch13.ID())
+	assert.NoError(t, aggrBranchErr)
 	defer cachedAggrBranch14.Release()
 	aggrBranch14 := cachedAggrBranch14.Unwrap()
 
@@ -801,8 +801,8 @@ func TestBranchManager_BranchesConflicting(t *testing.T) {
 	}
 
 	// aggr. branch 15 out of branch 2, 7 and 12
-	cachedAggrBranch15, err := branchManager.AggregateBranches(branch2.ID(), branch7.ID(), branch12.ID())
-	assert.NoError(t, err)
+	cachedAggrBranch15, aggrBranchErr := branchManager.AggregateBranches(branch2.ID(), branch7.ID(), branch12.ID())
+	assert.NoError(t, aggrBranchErr)
 	defer cachedAggrBranch15.Release()
 	aggrBranch15 := cachedAggrBranch15.Unwrap()
 
@@ -824,8 +824,8 @@ func TestBranchManager_BranchesConflicting(t *testing.T) {
 	}
 
 	// aggr. branch 16 out of aggr. branches 15 and 9
-	cachedAggrBranch16, err := branchManager.AggregateBranches(aggrBranch15.ID(), aggrBranch9.ID())
-	assert.NoError(t, err)
+	cachedAggrBranch16, aggrBranchErr := branchManager.AggregateBranches(aggrBranch15.ID(), aggrBranch9.ID())
+	assert.NoError(t, aggrBranchErr)
 	defer cachedAggrBranch16.Release()
 	aggrBranch16 := cachedAggrBranch16.Unwrap()
 
