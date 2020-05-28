@@ -36,12 +36,16 @@ export class Neighbors {
 }
 
 const EDGE_COLOR_DEFAULT = "#ff7d6cff";
+const EDGE_COLOR_HIDE = "#ff7d6c40";
 const EDGE_COLOR_OUTGOING = "#336db5ff";
 const EDGE_COLOR_INCOMING = "#1c8d7fff";
 const VERTEX_COLOR_DEFAULT = "0xa8d0e6";
-const VERTEX_COLOR_ACTIVE = "0x336db5";
-const VERTEX_COLOR_CONNECTED = "0x1c8d7f";
+const VERTEX_COLOR_ACTIVE = "0xcb4b16";
+const VERTEX_COLOR_IN_NEIGHBOR = "0x1c8d7f";
+const VERTEX_COLOR_OUT_NEIGHBOR = "0x336db5";
 const VERTEX_SIZE = 14;
+const VERTEX_SIZE_ACTIVE = 24;
+const VERTEX_SIZE_CONNECTED = 18;
 const statusWebSocketPath = "/ws";
 
 export class AutopeeringStore {
@@ -99,7 +103,10 @@ export class AutopeeringStore {
             springLength: 30,
             springCoeff: 0.0001,
             dragCoeff: 0.02,
-            gravity: -1.2
+            stableThreshold: 0.15,
+            gravity: -2,
+            timeStep: 20,
+            theta: 0.8,
         });
         graphics.link((link) => {
             return Viva.Graph.View.webglLine(EDGE_COLOR_DEFAULT);
@@ -264,10 +271,11 @@ export class AutopeeringStore {
     }
 
     // updates color of a node (vertex) in the graph
-    updateNodeUiColor = (node, color) => {
+    updateNodeUiColor = (node, color, size) => {
         let nodeUI = this.graphics.getNodeUI(node);
         if (nodeUI != undefined) {
             nodeUI.color = color;
+            nodeUI.size = size;
         }
     }
 
@@ -289,18 +297,19 @@ export class AutopeeringStore {
 
         this.graph.beginUpdate();
 
+        this.graph.forEachLink((link) => {
+            let linkUi = this.graphics.getLinkUI(link.id);
+            linkUi.color = parseColor(EDGE_COLOR_HIDE);
+        })
+
         // Highlight selected node
-        this.updateNodeUiColor(this.selectedNode, VERTEX_COLOR_ACTIVE);
+        this.updateNodeUiColor(this.selectedNode, VERTEX_COLOR_ACTIVE, VERTEX_SIZE_ACTIVE);
         this.selectedNodeInNeighbors.forEach((inNeighborID) => {
-            // Remove highlighting of neighbor
-            this.updateNodeUiColor(inNeighborID, VERTEX_COLOR_CONNECTED);
-            // Remove highlighting of linkde);
+            this.updateNodeUiColor(inNeighborID, VERTEX_COLOR_IN_NEIGHBOR, VERTEX_SIZE_CONNECTED);
             this.updateLinkUiColor(inNeighborID, this.selectedNode, EDGE_COLOR_INCOMING);
         })
         this.selectedNodeOutNeighbors.forEach((outNeighborID) => {
-            // Remove highlighting of neighbor
-            this.updateNodeUiColor(outNeighborID, VERTEX_COLOR_CONNECTED);
-            // Remove highlighting of link
+            this.updateNodeUiColor(outNeighborID, VERTEX_COLOR_OUT_NEIGHBOR, VERTEX_SIZE_CONNECTED);
             this.updateLinkUiColor(this.selectedNode, outNeighborID, EDGE_COLOR_OUTGOING);
         })
 
@@ -309,24 +318,37 @@ export class AutopeeringStore {
     }
 
     // disables highlighting of selectedNode, its links and neighbors
-    resetPreviousColors = () => {
+    resetPreviousColors = (skipAllLink: boolean = false, toLinkHide: boolean = false) => {
         if (!this.selectionActive) {return};
         this.graph.beginUpdate();
 
+        let edgeColor = EDGE_COLOR_DEFAULT;
+
+        if (toLinkHide) {
+            edgeColor = EDGE_COLOR_HIDE;
+        }
+
         // Remove highlighting of selected node
-        this.updateNodeUiColor(this.selectedNode, VERTEX_COLOR_DEFAULT);
+        this.updateNodeUiColor(this.selectedNode, VERTEX_COLOR_DEFAULT, VERTEX_SIZE);
         this.selectedNodeInNeighbors.forEach((inNeighborID) => {
             // Remove highlighting of neighbor
-            this.updateNodeUiColor(inNeighborID, VERTEX_COLOR_DEFAULT);
+            this.updateNodeUiColor(inNeighborID, VERTEX_COLOR_DEFAULT, VERTEX_SIZE);
             // Remove highlighting of link
-            this.updateLinkUiColor(inNeighborID, this.selectedNode, EDGE_COLOR_DEFAULT);
+            this.updateLinkUiColor(inNeighborID, this.selectedNode, edgeColor);
         })
         this.selectedNodeOutNeighbors.forEach((outNeighborID) => {
             // Remove highlighting of neighbor
-            this.updateNodeUiColor(outNeighborID, VERTEX_COLOR_DEFAULT);
+            this.updateNodeUiColor(outNeighborID, VERTEX_COLOR_DEFAULT, VERTEX_SIZE);
             // Remove highlighting of link
-            this.updateLinkUiColor(this.selectedNode, outNeighborID, EDGE_COLOR_DEFAULT);
+            this.updateLinkUiColor(this.selectedNode, outNeighborID, edgeColor);
         })
+
+        if (!skipAllLink) {
+            this.graph.forEachLink((link) => {
+                let linkUi = this.graphics.getLinkUI(link.id);
+                linkUi.color = parseColor(EDGE_COLOR_DEFAULT);
+            })
+        }
 
         this.graph.endUpdate();
         this.renderer.rerender();
@@ -344,7 +366,7 @@ export class AutopeeringStore {
 
         // Stop highlighting anything else
         if (this.selectionActive) {
-            this.resetPreviousColors();
+            this.resetPreviousColors(true);
         }
 
         this.selectedNode = node.id;
@@ -368,15 +390,18 @@ export class AutopeeringStore {
     // handles click on a node in list
     @action
     handleNodeListOnClick = (e) => {
-        // Disable selection on second click when clicked on the same node
-        if (this.selectionActive && this.selectedNode == e.target.innerHTML) {
-            this.clearSelection();
-            return;
-        }
 
-        // Stop highlighting the other node if clicked
         if (this.selectionActive) {
-            this.resetPreviousColors();
+            if (this.selectedNode == e.target.innerHTML) {
+                // Disable selection on second click when clicked on the same node
+                this.clearSelection();
+                return;
+            } else {
+                // we clicked on a different node
+                // stop highlighting the other node if clicked
+                // note that edge color defaults back to "hide"
+                this.resetPreviousColors(true, true);
+            }
         }
 
         this.selectedNode = e.target.innerHTML;
