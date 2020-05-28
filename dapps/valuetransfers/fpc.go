@@ -2,8 +2,8 @@ package valuetransfers
 
 import (
 	"context"
-	"flag"
 	"fmt"
+	flag "github.com/spf13/pflag"
 	"net"
 	"strconv"
 
@@ -29,6 +29,9 @@ import (
 )
 
 const (
+	// FpcPluginName contains the human readable name of the plugin.
+	FpcPluginName = "FPC"
+
 	// CfgFPCQuerySampleSize defines how many nodes will be queried each round.
 	CfgFPCQuerySampleSize = "fpc.querySampleSize"
 
@@ -74,8 +77,9 @@ func Voter() vote.DRNGRoundBasedVoter {
 }
 
 func configureFPC() {
-	log = logger.NewLogger(PluginName)
+	log = logger.NewLogger(FpcPluginName)
 	lPeer := local.GetInstance()
+	Voter()
 
 	bindAddr := config.Node.GetString(CfgFPCBindAddress)
 	_, portStr, err := net.SplitHostPort(bindAddr)

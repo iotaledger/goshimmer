@@ -31,7 +31,7 @@ const PluginName = "FPC"
 
 var (
 	// Plugin is the plugin instance of the FPC plugin.
-	Plugin               = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin               = node.NewPlugin(PluginName, node.Disabled, configure, run)
 	log                  *logger.Logger
 	voter                *fpc.FPC
 	voterOnce            sync.Once
