@@ -29,8 +29,8 @@ func TestNewOutput(t *testing.T) {
 		balance.New(balance.ColorIOTA, 1337),
 	}, output.Balances())
 
-	assert.Equal(t, true, output.SetSolid(true))
-	assert.Equal(t, false, output.SetSolid(true))
+	assert.Equal(t, true, output.setSolid(true))
+	assert.Equal(t, false, output.setSolid(true))
 	assert.Equal(t, true, output.Solid())
 	assert.NotEqual(t, time.Time{}, output.SolidificationTime())
 

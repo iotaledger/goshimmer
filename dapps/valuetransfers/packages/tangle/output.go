@@ -167,7 +167,7 @@ func (output *Output) Solid() bool {
 }
 
 // setSolid is the setter of the solid flag. It returns true if the solid flag was modified.
-func (output *Output) SetSolid(solid bool) (modified bool) {
+func (output *Output) setSolid(solid bool) (modified bool) {
 	output.solidMutex.RLock()
 	if output.solid != solid {
 		output.solidMutex.RUnlock()

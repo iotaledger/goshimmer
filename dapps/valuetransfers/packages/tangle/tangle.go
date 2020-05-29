@@ -735,7 +735,7 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 	// book outputs into the target branch
 	transactionToBook.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
 		newOutput := NewOutput(address, transactionToBook.ID(), targetBranch.ID(), balances)
-		newOutput.SetSolid(true)
+		newOutput.setSolid(true)
 		tangle.outputStorage.Store(newOutput).Release()
 
 		return true
@@ -922,7 +922,7 @@ func (tangle *Tangle) LoadSnapshot(snapshot map[transaction.ID]map[address.Addre
 	for transactionID, addressBalances := range snapshot {
 		for outputAddress, balances := range addressBalances {
 			input := NewOutput(outputAddress, transactionID, branchmanager.MasterBranchID, balances)
-			input.SetSolid(true)
+			input.setSolid(true)
 			input.SetBranchID(branchmanager.MasterBranchID)
 
 			// store output and abort if the snapshot has already been loaded earlier (output exists in the database)
