@@ -5,9 +5,9 @@ on: pull_request
 jobs:
 
   autopeering:
-    name: Integration tests | autopeering
     env:
       TEST_NAME: autopeering
+    name: ${{ env.TEST_NAME }}
     runs-on: ubuntu-latest
     steps:
 
