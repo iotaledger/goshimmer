@@ -619,6 +619,23 @@ func (branchManager *BranchManager) IsBranchLiked(id BranchID) (liked bool) {
 	return
 }
 
+// IsBranchConfirmed returns true if the Branch is marked as confirmed.
+func (branchManager *BranchManager) IsBranchConfirmed(id BranchID) (confirmed bool) {
+	if id == UndefinedBranchID {
+		return
+	}
+
+	if id == MasterBranchID {
+		return true
+	}
+
+	branchManager.Branch(id).Consume(func(branch *Branch) {
+		confirmed = branch.Confirmed()
+	})
+
+	return
+}
+
 func (branchManager *BranchManager) propagateLike(cachedBranch *CachedBranch) (err error) {
 	// unpack CachedBranch and abort of the branch doesn't exist or isn't preferred
 	defer cachedBranch.Release()

@@ -161,7 +161,7 @@ func (tangle *Tangle) SetTransactionFinalized(transactionID transaction.ID) (mod
 			}
 
 			// propagate changes to future cone of transaction (value tangle)
-			tangle.propagateValuePayloadConfirmedUpdates(transactionID)
+			tangle.propagateValuePayloadConfirmedRejectedUpdates(transactionID)
 		}
 	})
 
@@ -169,8 +169,59 @@ func (tangle *Tangle) SetTransactionFinalized(transactionID transaction.ID) (mod
 }
 
 // TODO: WRITE COMMENT
-func (tangle *Tangle) propagateValuePayloadConfirmedUpdates(transactionID transaction.ID) {
-	panic("not yet implemented")
+func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdates(transactionID transaction.ID) {
+	// initiate stack with the attachments of the passed in transaction
+	propagationStack := list.New()
+	tangle.Attachments(transactionID).Consume(func(attachment *Attachment) {
+		propagationStack.PushBack(&valuePayloadPropagationStackEntry{
+			CachedPayload:             tangle.Payload(attachment.PayloadID()),
+			CachedPayloadMetadata:     tangle.PayloadMetadata(attachment.PayloadID()),
+			CachedTransaction:         tangle.Transaction(transactionID),
+			CachedTransactionMetadata: tangle.TransactionMetadata(transactionID),
+		})
+	})
+
+	// keep track of the seen payloads so we do not process them twice
+	seenPayloads := make(map[payload.ID]types.Empty)
+
+	// iterate through stack (future cone of transactions)
+	for propagationStack.Len() >= 1 {
+		currentAttachmentEntry := propagationStack.Front()
+		tangle.propagateValuePayloadConfirmedRejectedUpdateStackEntry(propagationStack, seenPayloads, currentAttachmentEntry.Value.(*valuePayloadPropagationStackEntry))
+		propagationStack.Remove(currentAttachmentEntry)
+	}
+}
+
+func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(propagationStack *list.List, processedPayloads map[payload.ID]types.Empty, propagationStackEntry *valuePayloadPropagationStackEntry) {
+	// release the entry when we are done
+	defer propagationStackEntry.Release()
+
+	// unpack loaded objects and abort if the entities could not be loaded from the database
+	currentPayload, currentPayloadMetadata, currentTransaction, currentTransactionMetadata := propagationStackEntry.Unwrap()
+	if currentPayload == nil || currentPayloadMetadata == nil || currentTransaction == nil || currentTransactionMetadata == nil {
+		return
+	}
+
+	// perform different logic depending on the type of the change (liked vs dislike)
+	switch currentTransactionMetadata.Preferred() {
+	case true:
+		// abort if the transaction is not preferred, the branch of the payload is not liked, the referenced value payloads are not liked or the payload was marked as liked before
+		if !currentTransactionMetadata.Finalized() || !tangle.BranchManager().IsBranchConfirmed(currentPayloadMetadata.BranchID()) || !tangle.ValuePayloadsConfirmed(currentPayload.TrunkID(), currentPayload.BranchID()) || !currentPayloadMetadata.SetConfirmed(true) {
+			return
+		}
+
+		tangle.Events.PayloadConfirmed.Trigger(propagationStackEntry.CachedPayload, propagationStackEntry.CachedPayloadMetadata)
+	case false:
+		// abort if the payload has been marked as disliked before
+		if !currentTransactionMetadata.Finalized() || !currentPayloadMetadata.SetRejected(true) {
+			return
+		}
+
+		tangle.Events.PayloadRejected.Trigger(propagationStackEntry.CachedPayload, propagationStackEntry.CachedPayloadMetadata)
+	}
+
+	// schedule checks of approvers and consumers
+	tangle.ForEachConsumersAndApprovers(currentPayload, tangle.createValuePayloadFutureConeIterator(propagationStack, processedPayloads))
 }
 
 // SetTransactionPreferred modifies the preferred flag of a transaction. It updates the transactions metadata and
@@ -234,7 +285,7 @@ func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack 
 	// release the entry when we are done
 	defer propagationStackEntry.Release()
 
-	// unpack loaded objects and  abort if the entities could not be loaded from the database
+	// unpack loaded objects and abort if the entities could not be loaded from the database
 	currentPayload, currentPayloadMetadata, currentTransaction, currentTransactionMetadata := propagationStackEntry.Unwrap()
 	if currentPayload == nil || currentPayloadMetadata == nil || currentTransaction == nil || currentTransactionMetadata == nil {
 		return
@@ -307,7 +358,26 @@ func (tangle *Tangle) ValuePayloadsLiked(payloadIDs ...payload.ID) (liked bool) 
 		})
 
 		if !payloadMetadataFound || !liked {
-			return
+			return false
+		}
+	}
+
+	return true
+}
+
+// ValuePayloadsConfirmed is checking if the Payloads referenced by the passed in IDs are all confirmed.
+func (tangle *Tangle) ValuePayloadsConfirmed(payloadIDs ...payload.ID) (confirmed bool) {
+	for _, payloadID := range payloadIDs {
+		if payloadID == payload.GenesisID {
+			continue
+		}
+
+		payloadMetadataFound := tangle.PayloadMetadata(payloadID).Consume(func(payloadMetadata *PayloadMetadata) {
+			confirmed = payloadMetadata.Liked()
+		})
+
+		if !payloadMetadataFound || !confirmed {
+			return false
 		}
 	}
 

@@ -14,6 +14,8 @@ type Events struct {
 	PayloadAttached        *events.Event
 	PayloadSolid           *events.Event
 	PayloadLiked           *events.Event
+	PayloadConfirmed       *events.Event
+	PayloadRejected        *events.Event
 	PayloadDisliked        *events.Event
 	MissingPayloadReceived *events.Event
 	PayloadMissing         *events.Event
@@ -37,6 +39,8 @@ func newEvents() *Events {
 		PayloadAttached:        events.NewEvent(cachedPayloadEvent),
 		PayloadSolid:           events.NewEvent(cachedPayloadEvent),
 		PayloadLiked:           events.NewEvent(cachedPayloadEvent),
+		PayloadConfirmed:       events.NewEvent(cachedPayloadEvent),
+		PayloadRejected:        events.NewEvent(cachedPayloadEvent),
 		PayloadDisliked:        events.NewEvent(cachedPayloadEvent),
 		MissingPayloadReceived: events.NewEvent(cachedPayloadEvent),
 		PayloadMissing:         events.NewEvent(payloadIDEvent),
