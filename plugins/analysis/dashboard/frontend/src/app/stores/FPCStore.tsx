@@ -3,7 +3,6 @@ import {action, computed, observable, ObservableMap} from "mobx";
 import Col from "react-bootstrap/Col";
 import * as React from "react";
 import {registerHandler, WSMsgType} from "app/misc/WS";
-<<<<<<< HEAD
 import {Link} from 'react-router-dom';
 
 export class Node {
@@ -21,39 +20,13 @@ function SetColor(opinion) {
 enum Opinion {
     Like = 1,
     Dislike
-=======
-
-export class Node {
-    id: number;
-    opinion: number = 0;
-}
-
-export function LightenDarkenColor(col, amt) {
-    var num = parseInt(col, 16);
-    var r = (num >> 16) + amt;
-    var b = ((num >> 8) & 0x00FF) + amt;
-    var g = (num & 0x0000FF) + amt;
-    var newColor = g | (b << 8) | (r << 16);
-    return newColor.toString(16);
-}
-
-function SetColor(opinion) {
-    if (opinion == 0) {
-        return "#BD0000"
-    }
-    return "#00BD00"
->>>>>>> develop
 }
 
 class VoteContext {
     nodeid: string;
     rounds: number;
     opinions: number[];
-<<<<<<< HEAD
     status: number;
-=======
-    like: number;
->>>>>>> develop
 }
 class Conflict {
     nodesview: Map<string, VoteContext>
