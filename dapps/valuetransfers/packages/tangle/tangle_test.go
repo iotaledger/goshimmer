@@ -173,7 +173,6 @@ func TestCalculateBranchOfTransaction(t *testing.T) {
 	})
 }
 
-// TODO: implement test
 func TestMoveTransactionToBranch(t *testing.T) {
 	tangle := New(mapdb.NewMapDB())
 	// prepare snapshot
@@ -212,8 +211,85 @@ func TestMoveTransactionToBranch(t *testing.T) {
 	assert.Equal(t, branchmanager.BranchID{2}, txMetadata.BranchID())
 }
 
-// TODO: implement test
 func TestFork(t *testing.T) {
+	// CASE: already finalized
+	t.Run("CASE: already finalized", func(t *testing.T) {
+		tangle := New(mapdb.NewMapDB())
+		// prepare snapshot
+		color1 := [32]byte{1}
+		outputs := map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 2),
+				balance.New(color1, 3),
+			},
+		}
+		inputIDs := loadSnapshotFromOutputs(tangle, outputs)
+
+		tx := transaction.New(
+			transaction.NewInputs(inputIDs...),
+			// outputs
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				address.Random(): {
+					balance.New(balance.ColorIOTA, 3),
+					balance.New(color1, 3),
+				},
+			}),
+		)
+		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
+		_, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
+		txMetadata := cachedTransactionMetadata.Unwrap()
+
+		txMetadata.SetFinalized(true)
+
+		forked, finalized, err := tangle.Fork(tx.ID(), []transaction.OutputID{})
+		require.NoError(t, err)
+		assert.False(t, forked)
+		assert.True(t, finalized)
+	})
+
+	t.Run("CASE: normal fork", func(t *testing.T) {
+		tangle := New(mapdb.NewMapDB())
+		// prepare snapshot
+		color1 := [32]byte{1}
+		outputs := map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 2),
+				balance.New(color1, 3),
+			},
+		}
+		inputIDs := loadSnapshotFromOutputs(tangle, outputs)
+
+		tx := transaction.New(
+			transaction.NewInputs(inputIDs...),
+			// outputs
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				address.Random(): {
+					balance.New(balance.ColorIOTA, 3),
+					balance.New(color1, 3),
+				},
+			}),
+		)
+		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
+		tangle.storeTransactionModels(valueObject)
+
+		forked, finalized, err := tangle.Fork(tx.ID(), []transaction.OutputID{})
+		require.NoError(t, err)
+		assert.True(t, forked, "forked")
+		assert.False(t, finalized, "finalized")
+
+		t.Run("CASE: branch existed already", func(t *testing.T) {
+			forked, finalized, err = tangle.Fork(tx.ID(), []transaction.OutputID{})
+			require.NoError(t, err)
+			assert.False(t, forked, "forked")
+			assert.False(t, finalized, "finalized")
+		})
+	})
 
 }
 
