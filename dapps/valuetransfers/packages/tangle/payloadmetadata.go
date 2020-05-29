@@ -108,9 +108,9 @@ func (payloadMetadata *PayloadMetadata) IsSolid() (result bool) {
 	return
 }
 
-// SetSolid marks a payload as either solid or not solid.
+// setSolid marks a payload as either solid or not solid.
 // It returns true if the solid flag was changes and automatically updates the solidificationTime as well.
-func (payloadMetadata *PayloadMetadata) SetSolid(solid bool) (modified bool) {
+func (payloadMetadata *PayloadMetadata) setSolid(solid bool) (modified bool) {
 	payloadMetadata.solidMutex.RLock()
 	if payloadMetadata.solid != solid {
 		payloadMetadata.solidMutex.RUnlock()
@@ -153,8 +153,8 @@ func (payloadMetadata *PayloadMetadata) Liked() bool {
 	return payloadMetadata.liked
 }
 
-// SetLiked modifies the liked flag of the given Payload. It returns true if the value has been updated.
-func (payloadMetadata *PayloadMetadata) SetLiked(liked bool) (modified bool) {
+// setLiked modifies the liked flag of the given Payload. It returns true if the value has been updated.
+func (payloadMetadata *PayloadMetadata) setLiked(liked bool) (modified bool) {
 	payloadMetadata.likedMutex.RLock()
 	if payloadMetadata.liked == liked {
 		payloadMetadata.likedMutex.RUnlock()
@@ -185,8 +185,8 @@ func (payloadMetadata *PayloadMetadata) Confirmed() bool {
 	return payloadMetadata.confirmed
 }
 
-// SetConfirmed modifies the confirmed flag of the given Payload. It returns true if the value has been updated.
-func (payloadMetadata *PayloadMetadata) SetConfirmed(confirmed bool) (modified bool) {
+// setConfirmed modifies the confirmed flag of the given Payload. It returns true if the value has been updated.
+func (payloadMetadata *PayloadMetadata) setConfirmed(confirmed bool) (modified bool) {
 	payloadMetadata.confirmedMutex.RLock()
 	if payloadMetadata.confirmed == confirmed {
 		payloadMetadata.confirmedMutex.RUnlock()
@@ -217,8 +217,8 @@ func (payloadMetadata *PayloadMetadata) Rejected() bool {
 	return payloadMetadata.rejected
 }
 
-// SetRejected modifies the rejected flag of the given Payload. It returns true if the value has been updated.
-func (payloadMetadata *PayloadMetadata) SetRejected(rejected bool) (modified bool) {
+// setRejected modifies the rejected flag of the given Payload. It returns true if the value has been updated.
+func (payloadMetadata *PayloadMetadata) setRejected(rejected bool) (modified bool) {
 	payloadMetadata.rejectedMutex.RLock()
 	if payloadMetadata.rejected == rejected {
 		payloadMetadata.rejectedMutex.RUnlock()

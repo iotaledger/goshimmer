@@ -206,14 +206,14 @@ func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(pro
 	switch currentTransactionMetadata.Preferred() {
 	case true:
 		// abort if the transaction is not preferred, the branch of the payload is not liked, the referenced value payloads are not liked or the payload was marked as liked before
-		if !currentTransactionMetadata.Finalized() || !tangle.BranchManager().IsBranchConfirmed(currentPayloadMetadata.BranchID()) || !tangle.ValuePayloadsConfirmed(currentPayload.TrunkID(), currentPayload.BranchID()) || !currentPayloadMetadata.SetConfirmed(true) {
+		if !currentTransactionMetadata.Finalized() || !tangle.BranchManager().IsBranchConfirmed(currentPayloadMetadata.BranchID()) || !tangle.ValuePayloadsConfirmed(currentPayload.TrunkID(), currentPayload.BranchID()) || !currentPayloadMetadata.setConfirmed(true) {
 			return
 		}
 
 		tangle.Events.PayloadConfirmed.Trigger(propagationStackEntry.CachedPayload, propagationStackEntry.CachedPayloadMetadata)
 	case false:
 		// abort if the payload has been marked as disliked before
-		if !currentTransactionMetadata.Finalized() || !currentPayloadMetadata.SetRejected(true) {
+		if !currentTransactionMetadata.Finalized() || !currentPayloadMetadata.setRejected(true) {
 			return
 		}
 
@@ -295,14 +295,14 @@ func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack 
 	switch liked {
 	case true:
 		// abort if the transaction is not preferred, the branch of the payload is not liked, the referenced value payloads are not liked or the payload was marked as liked before
-		if !currentTransactionMetadata.Preferred() || !tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) || !tangle.ValuePayloadsLiked(currentPayload.TrunkID(), currentPayload.BranchID()) || !currentPayloadMetadata.SetLiked(liked) {
+		if !currentTransactionMetadata.Preferred() || !tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) || !tangle.ValuePayloadsLiked(currentPayload.TrunkID(), currentPayload.BranchID()) || !currentPayloadMetadata.setLiked(liked) {
 			return
 		}
 
 		tangle.Events.PayloadLiked.Trigger(propagationStackEntry.CachedPayload, propagationStackEntry.CachedPayloadMetadata)
 	case false:
 		// abort if the payload has been marked as disliked before
-		if !currentPayloadMetadata.SetLiked(liked) {
+		if !currentPayloadMetadata.setLiked(liked) {
 			return
 		}
 
