@@ -46,12 +46,16 @@ func Handler(c echo.Context) error {
 		balances := []*balance.Balance{}
 		for _, b := range out.Balances {
 			// get token color
-			color, _, err := balance.ColorFromBytes([]byte(b.Color))
-			if err != nil {
-				log.Info(err.Error())
-				return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+			if b.Color == "IOTA" {
+				balances = append(balances, balance.New(balance.ColorIOTA, b.Value))
+			} else {
+				color, _, err := balance.ColorFromBytes([]byte(b.Color))
+				if err != nil {
+					log.Info(err.Error())
+					return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+				}
+				balances = append(balances, balance.New(color, b.Value))
 			}
-			balances = append(balances, balance.New(color, b.Value))
 		}
 		outmap[addr] = balances
 	}
