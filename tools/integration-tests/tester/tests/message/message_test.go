@@ -21,7 +21,7 @@ func TestPersistence(t *testing.T) {
 	ids := tests.SendDataMessagesOnRandomPeer(t, n.Peers(), 100)
 
 	// wait for messages to be gossiped
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	// 2. check whether all issued messages are available on all nodes
 	tests.CheckForMessageIds(t, n.Peers(), ids, true)
