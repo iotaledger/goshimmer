@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 )
 
@@ -19,9 +20,13 @@ type PayloadMetadata struct {
 	payloadID          payload.ID
 	solid              bool
 	solidificationTime time.Time
+	liked              bool
+	branchID           branchmanager.BranchID
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
+	likedMutex              sync.RWMutex
+	branchIDMutex           sync.RWMutex
 }
 
 // NewPayloadMetadata creates an empty container for the metadata of a value transfer payload.
@@ -136,9 +141,73 @@ func (payloadMetadata *PayloadMetadata) SoldificationTime() time.Time {
 	return payloadMetadata.solidificationTime
 }
 
+// Liked returns true if the Payload was marked as liked.
+func (payloadMetadata *PayloadMetadata) Liked() bool {
+	payloadMetadata.likedMutex.RLock()
+	defer payloadMetadata.likedMutex.RUnlock()
+
+	return payloadMetadata.liked
+}
+
+// SetLiked modifies the liked flag of the given Payload. It returns true if the value has been updated.
+func (payloadMetadata *PayloadMetadata) SetLiked(liked bool) (modified bool) {
+	payloadMetadata.likedMutex.RLock()
+	if payloadMetadata.liked == liked {
+		payloadMetadata.likedMutex.RUnlock()
+
+		return
+	}
+
+	payloadMetadata.likedMutex.RUnlock()
+	payloadMetadata.likedMutex.Lock()
+	defer payloadMetadata.likedMutex.Unlock()
+
+	if payloadMetadata.liked == liked {
+		return
+	}
+
+	payloadMetadata.liked = liked
+	payloadMetadata.SetModified()
+	modified = true
+
+	return
+}
+
+// BranchID returns the identifier of the Branch that this Payload was booked into.
+func (payloadMetadata *PayloadMetadata) BranchID() branchmanager.BranchID {
+	payloadMetadata.branchIDMutex.RLock()
+	defer payloadMetadata.branchIDMutex.RUnlock()
+
+	return payloadMetadata.branchID
+}
+
+// SetBranchID is the setter for the BranchID that the corresponding Payload is booked into.
+func (payloadMetadata *PayloadMetadata) SetBranchID(branchID branchmanager.BranchID) (modified bool) {
+	payloadMetadata.branchIDMutex.RLock()
+	if branchID == payloadMetadata.branchID {
+		payloadMetadata.branchIDMutex.RUnlock()
+
+		return
+	}
+
+	payloadMetadata.branchIDMutex.RUnlock()
+	payloadMetadata.branchIDMutex.Lock()
+	defer payloadMetadata.branchIDMutex.Unlock()
+
+	if branchID == payloadMetadata.branchID {
+		return
+	}
+
+	payloadMetadata.branchID = branchID
+	payloadMetadata.SetModified()
+	modified = true
+
+	return
+}
+
 // Bytes marshals the metadata into a sequence of bytes.
 func (payloadMetadata *PayloadMetadata) Bytes() []byte {
-	return marshalutil.New(payload.IDLength + marshalutil.TIME_SIZE + marshalutil.BOOL_SIZE).
+	return marshalutil.New(payload.IDLength + marshalutil.TIME_SIZE + 2*marshalutil.BOOL_SIZE + branchmanager.BranchIDLength).
 		WriteBytes(payloadMetadata.ObjectStorageKey()).
 		WriteBytes(payloadMetadata.ObjectStorageValue()).
 		Bytes()
@@ -167,9 +236,11 @@ func (payloadMetadata *PayloadMetadata) Update(other objectstorage.StorableObjec
 
 // ObjectStorageValue is required to match the encoding.BinaryMarshaler interface.
 func (payloadMetadata *PayloadMetadata) ObjectStorageValue() []byte {
-	return marshalutil.New(marshalutil.TIME_SIZE + marshalutil.BOOL_SIZE).
+	return marshalutil.New(marshalutil.TIME_SIZE + 2*marshalutil.BOOL_SIZE).
 		WriteTime(payloadMetadata.solidificationTime).
 		WriteBool(payloadMetadata.solid).
+		WriteBool(payloadMetadata.liked).
+		WriteBytes(payloadMetadata.branchID.Bytes()).
 		Bytes()
 }
 
@@ -180,6 +251,12 @@ func (payloadMetadata *PayloadMetadata) UnmarshalObjectStorageValue(data []byte)
 		return
 	}
 	if payloadMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if payloadMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if payloadMetadata.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()

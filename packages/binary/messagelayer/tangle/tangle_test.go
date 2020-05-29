@@ -2,29 +2,18 @@ package tangle
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/stretchr/testify/require"
-
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
-	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 )
 
 func BenchmarkTangle_AttachMessage(b *testing.B) {
-	dir, err := ioutil.TempDir("", b.Name())
-	require.NoError(b, err)
-	defer os.Remove(dir)
-	// use the tempdir for the database
-	config.Node.Set(database.CFG_DIRECTORY, dir)
-
-	tangle := New(database.GetBadgerInstance())
+	tangle := New(mapdb.NewMapDB())
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
 
@@ -49,13 +38,7 @@ func BenchmarkTangle_AttachMessage(b *testing.B) {
 }
 
 func TestTangle_AttachMessage(t *testing.T) {
-	dir, err := ioutil.TempDir("", t.Name())
-	require.NoError(t, err)
-	defer os.Remove(dir)
-	// use the tempdir for the database
-	config.Node.Set(database.CFG_DIRECTORY, dir)
-
-	messageTangle := New(database.GetBadgerInstance())
+	messageTangle := New(mapdb.NewMapDB())
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
 

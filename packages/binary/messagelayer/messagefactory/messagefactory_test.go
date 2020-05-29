@@ -2,8 +2,6 @@ package messagefactory
 
 import (
 	"encoding"
-	"io/ioutil"
-	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -12,13 +10,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
-	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -27,21 +23,11 @@ const (
 )
 
 func TestMessageFactory_BuildMessage(t *testing.T) {
-	// Set up DB for testing
-	dir, err := ioutil.TempDir("", t.Name())
-	require.NoError(t, err)
-	defer os.Remove(dir)
-	// use the tempdir for the database
-	config.Node.Set(database.CFG_DIRECTORY, dir)
-	db := database.GetBadgerInstance()
-
-	localIdentity := identity.GenerateLocalIdentity()
-	tipSelector := tipselector.New()
+	msgFactory := New(mapdb.NewMapDB(), identity.GenerateLocalIdentity(), tipselector.New(), []byte(sequenceKey))
+	defer msgFactory.Shutdown()
 
 	// keep track of sequence numbers
 	sequenceNumbers := sync.Map{}
-
-	msgFactory := New(db, localIdentity, tipSelector, []byte(sequenceKey))
 
 	// attach to event and count
 	countEvents := uint64(0)
@@ -116,8 +102,6 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 	})
 	assert.EqualValues(t, totalMessages-1, max)
 	assert.EqualValues(t, totalMessages, countSequence)
-
-	_ = db.Close()
 }
 
 type MockPayload struct {
