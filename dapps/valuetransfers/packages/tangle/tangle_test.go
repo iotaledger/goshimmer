@@ -293,8 +293,74 @@ func TestFork(t *testing.T) {
 
 }
 
-// TODO: implement test
 func TestBookPayload(t *testing.T) {
+	t.Run("CASE: undefined branchID", func(t *testing.T) {
+		tangle := New(mapdb.NewMapDB())
+
+		valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
+		cachedPayload, cachedMetadata, _ := tangle.storePayload(valueObject)
+		_, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
+
+		payloadBooked, err := tangle.bookPayload(cachedPayload.Retain(), cachedMetadata.Retain(), cachedTransactionMetadata.Retain())
+		defer func() {
+			cachedPayload.Release()
+			cachedMetadata.Release()
+			cachedTransactionMetadata.Release()
+		}()
+
+		require.NoError(t, err)
+		assert.False(t, payloadBooked, "payloadBooked")
+	})
+
+	t.Run("CASE: successfully book", func(t *testing.T) {
+		tangle := New(mapdb.NewMapDB())
+
+		valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
+		cachedPayload, cachedMetadata, _ := tangle.storePayload(valueObject)
+		metadata := cachedMetadata.Unwrap()
+
+		metadata.SetBranchID(branchmanager.BranchID{1})
+		metadata.SetBranchID(branchmanager.BranchID{2})
+
+		_, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
+		txMetadata := cachedTransactionMetadata.Unwrap()
+		txMetadata.SetBranchID(branchmanager.BranchID{1})
+
+		payloadBooked, err := tangle.bookPayload(cachedPayload.Retain(), cachedMetadata.Retain(), cachedTransactionMetadata.Retain())
+		defer func() {
+			cachedPayload.Release()
+			cachedMetadata.Release()
+			cachedTransactionMetadata.Release()
+		}()
+
+		require.NoError(t, err)
+		assert.True(t, payloadBooked, "payloadBooked")
+	})
+
+	t.Run("CASE: not booked", func(t *testing.T) {
+		tangle := New(mapdb.NewMapDB())
+
+		valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
+		cachedPayload, cachedMetadata, _ := tangle.storePayload(valueObject)
+		metadata := cachedMetadata.Unwrap()
+
+		metadata.SetBranchID(branchmanager.BranchID{1})
+		metadata.SetBranchID(branchmanager.BranchID{1})
+
+		_, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
+		txMetadata := cachedTransactionMetadata.Unwrap()
+		txMetadata.SetBranchID(branchmanager.BranchID{1})
+
+		payloadBooked, err := tangle.bookPayload(cachedPayload.Retain(), cachedMetadata.Retain(), cachedTransactionMetadata.Retain())
+		defer func() {
+			cachedPayload.Release()
+			cachedMetadata.Release()
+			cachedTransactionMetadata.Release()
+		}()
+
+		require.NoError(t, err)
+		assert.False(t, payloadBooked, "payloadBooked")
+	})
 
 }
 

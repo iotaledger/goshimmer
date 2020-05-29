@@ -705,7 +705,9 @@ func (tangle *Tangle) bookPayload(cachedPayload *payload.CachedPayload, cachedPa
 	trunkBranchID := tangle.payloadBranchID(valueObject.TrunkID())
 	transactionBranchID := transactionMetadata.BranchID()
 
-	if branchBranchID == branchmanager.UndefinedBranchID || trunkBranchID == branchmanager.UndefinedBranchID || transactionBranchID == branchmanager.UndefinedBranchID {
+	if branchBranchID == branchmanager.UndefinedBranchID ||
+		trunkBranchID == branchmanager.UndefinedBranchID ||
+		transactionBranchID == branchmanager.UndefinedBranchID {
 		return
 	}
 
