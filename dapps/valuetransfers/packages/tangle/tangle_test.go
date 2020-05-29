@@ -24,7 +24,7 @@ import (
 func TestBookTransaction(t *testing.T) {
 
 	// CASE: missing output
-	{
+	t.Run("CASE: missing output", func(t *testing.T) {
 		tangle := New(mapdb.NewMapDB())
 		tx := createDummyTransaction()
 		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
@@ -34,10 +34,10 @@ func TestBookTransaction(t *testing.T) {
 		assert.False(t, transactionBooked)
 		assert.False(t, decisionPending)
 		assert.Error(t, err)
-	}
+	})
 
 	// CASE: transaction already booked by another process
-	{
+	t.Run("CASE: transaction already booked by another process", func(t *testing.T) {
 		tangle := New(mapdb.NewMapDB())
 		tx := createDummyTransaction()
 		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
@@ -50,10 +50,10 @@ func TestBookTransaction(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, transactionBooked)
 		assert.False(t, decisionPending)
-	}
+	})
 
 	// CASE: booking first spend
-	{
+	t.Run("CASE: booking first spend", func(t *testing.T) {
 		tangle := New(mapdb.NewMapDB())
 
 		// prepare snapshot
@@ -97,7 +97,7 @@ func TestBookTransaction(t *testing.T) {
 		assert.Equal(t, branchmanager.MasterBranchID, txMetadata.BranchID())
 
 		// CASE: booking double spend
-		{
+		t.Run("CASE: booking double spend", func(t *testing.T) {
 			// build second spending
 			tx := transaction.New(
 				transaction.NewInputs(inputIDs...),
@@ -124,12 +124,53 @@ func TestBookTransaction(t *testing.T) {
 
 			// assert that first spend and double spend have different BranchIDs
 			assert.NotEqual(t, branchmanager.MasterBranchID, txMetadata.BranchID(), "BranchID")
-		}
-	}
+		})
+	})
 }
 
 func TestCalculateBranchOfTransaction(t *testing.T) {
 
+	// CASE: missing output
+	t.Run("CASE: missing output", func(t *testing.T) {
+		tangle := New(mapdb.NewMapDB())
+		tx := createDummyTransaction()
+		cachedBranch, err := tangle.calculateBranchOfTransaction(tx)
+		assert.Error(t, err)
+		assert.Nil(t, cachedBranch)
+	})
+
+	// CASE: same as master branch
+	t.Run("CASE: same as master branch", func(t *testing.T) {
+		tangle := New(mapdb.NewMapDB())
+
+		// prepare snapshot
+		color1 := [32]byte{1}
+		outputs := map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1),
+			},
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 2),
+				balance.New(color1, 3),
+			},
+		}
+		inputIDs := loadSnapshotFromOutputs(tangle, outputs)
+
+		tx := transaction.New(
+			transaction.NewInputs(inputIDs...),
+			// outputs
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				address.Random(): {
+					balance.New(balance.ColorIOTA, 3),
+					balance.New(color1, 3),
+				},
+			}),
+		)
+
+		cachedBranch, err := tangle.calculateBranchOfTransaction(tx)
+		require.NoError(t, err)
+		assert.Equal(t, branchmanager.MasterBranchID, cachedBranch.Unwrap().ID())
+	})
 }
 
 // TODO: implement test
