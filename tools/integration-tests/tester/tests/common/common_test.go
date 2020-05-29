@@ -1,10 +1,11 @@
-package tests
+package autopeering
 
 import (
 	"testing"
 	"time"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +20,7 @@ func TestSynchronization(t *testing.T) {
 	initalPeers := 4
 	n, err := f.CreateNetwork("common_TestSynchronization", initalPeers, 2, config)
 	require.NoError(t, err)
-	defer ShutdownNetwork(t, n)
+	defer tests.ShutdownNetwork(t, n)
 
 	// wait for peers to change their state to synchronized
 	time.Sleep(5 * time.Second)
@@ -27,7 +28,7 @@ func TestSynchronization(t *testing.T) {
 	numMessages := 100
 
 	// 1. issue data messages
-	ids := sendDataMessagesOnRandomPeer(t, n.Peers(), numMessages)
+	ids := tests.SendDataMessagesOnRandomPeer(t, n.Peers(), numMessages)
 
 	// wait for messages to be gossiped
 	time.Sleep(5 * time.Second)
@@ -39,13 +40,13 @@ func TestSynchronization(t *testing.T) {
 	require.NoError(t, err)
 
 	// 3. issue some messages on old peers so that new peer can solidify
-	ids = sendDataMessagesOnRandomPeer(t, n.Peers()[:initalPeers], 10, ids)
+	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initalPeers], 10, ids)
 
 	// wait for peer to solidify
 	time.Sleep(10 * time.Second)
 
 	// 4. check whether all issued messages are available on all nodes
-	checkForMessageIds(t, n.Peers(), ids, true)
+	tests.CheckForMessageIds(t, n.Peers(), ids, true)
 
 	// 5. shut down newly added peer
 	err = newPeer.Stop()
@@ -63,7 +64,7 @@ func TestSynchronization(t *testing.T) {
 	assert.Falsef(t, resp.Synced, "Peer %s should be desynced but is synced!", newPeer.String())
 
 	// 8. issue some messages on old peers so that new peer can sync again
-	ids = sendDataMessagesOnRandomPeer(t, n.Peers()[:initalPeers], 10, ids)
+	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initalPeers], 10, ids)
 	// wait for peer to sync
 	time.Sleep(10 * time.Second)
 
@@ -73,5 +74,5 @@ func TestSynchronization(t *testing.T) {
 	assert.Truef(t, resp.Synced, "Peer %s should be synced but is desynced!", newPeer.String())
 
 	// 10. check whether all issued messages are available on all nodes
-	checkForMessageIds(t, n.Peers(), ids, true)
+	tests.CheckForMessageIds(t, n.Peers(), ids, true)
 }

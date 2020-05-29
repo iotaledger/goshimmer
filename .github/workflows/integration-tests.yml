@@ -1,11 +1,13 @@
-name: Test GoShimmer
+name: Integration tests
 
 on: pull_request
 
 jobs:
 
-  integration-test:
-    name: Integration Tests
+  autopeering:
+    name: Integration tests | autopeering
+    env:
+      TEST_NAME: autopeering
     runs-on: ubuntu-latest
     steps:
 
@@ -33,7 +35,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v1
         with:
-          name: container-logs
+          name: ${{ env.TEST_NAME }}
           path: tools/integration-tests/logs
 
       - name: Clean up

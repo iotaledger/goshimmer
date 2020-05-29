@@ -1,4 +1,4 @@
-package tests
+package autopeering
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,7 +24,7 @@ func TestDRNG(t *testing.T) {
 
 	drng, err := f.CreateDRNGNetwork("TestDRNG", 5, 8, 3)
 	require.NoError(t, err)
-	defer ShutdownNetwork(t, drng)
+	defer tests.ShutdownNetwork(t, drng)
 
 	// wait for randomness generation to be started
 	log.Printf("Waiting for randomness generation to be started...\n")
