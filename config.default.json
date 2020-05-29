@@ -6,8 +6,9 @@
     "server": {
       "bindAddress": "0.0.0.0:16178"
     },
-    "webInterface": {
-      "bindAddress": "0.0.0.0:80"
+    "dashboard": {
+      "bindAddress": "0.0.0.0:8000",
+      "dev": false
     }
   },
   "autopeering": {
