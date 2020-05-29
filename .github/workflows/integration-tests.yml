@@ -5,9 +5,9 @@ on: pull_request
 jobs:
 
   autopeering:
+    name: autopeering
     env:
       TEST_NAME: autopeering
-    name: ${{ env.TEST_NAME }}
     runs-on: ubuntu-latest
     steps:
 
@@ -23,6 +23,130 @@ jobs:
           docker pull gaiaadm/pumba:latest
           docker pull gaiadocker/iproute2:latest
         
+      - name: Run integration tests
+        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+
+      - name: Create logs from tester
+        if: always()
+        run: |
+          docker logs tester &> tools/integration-tests/logs/tester.log
+
+      - name: Save logs as artifacts
+        if: always()
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{ env.TEST_NAME }}
+          path: tools/integration-tests/logs
+
+      - name: Clean up
+        if: always()
+        run: |
+          docker-compose -f tools/integration-tests/tester/docker-compose.yml down
+          docker rm -f $(docker ps -a -q -f ancestor=gaiadocker/iproute2)
+
+
+  common:
+    name: common
+    env:
+      TEST_NAME: common
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Build GoShimmer image
+        run: docker build -t iotaledger/goshimmer .
+
+      - name: Pull additional Docker images
+        run: |
+          docker pull angelocapossele/drand:latest
+          docker pull gaiaadm/pumba:latest
+          docker pull gaiadocker/iproute2:latest
+
+      - name: Run integration tests
+        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+
+      - name: Create logs from tester
+        if: always()
+        run: |
+          docker logs tester &> tools/integration-tests/logs/tester.log
+
+      - name: Save logs as artifacts
+        if: always()
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{ env.TEST_NAME }}
+          path: tools/integration-tests/logs
+
+      - name: Clean up
+        if: always()
+        run: |
+          docker-compose -f tools/integration-tests/tester/docker-compose.yml down
+          docker rm -f $(docker ps -a -q -f ancestor=gaiadocker/iproute2)
+
+
+  drng:
+    name: drng
+    env:
+      TEST_NAME: drng
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Build GoShimmer image
+        run: docker build -t iotaledger/goshimmer .
+
+      - name: Pull additional Docker images
+        run: |
+          docker pull angelocapossele/drand:latest
+          docker pull gaiaadm/pumba:latest
+          docker pull gaiadocker/iproute2:latest
+
+      - name: Run integration tests
+        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+
+      - name: Create logs from tester
+        if: always()
+        run: |
+          docker logs tester &> tools/integration-tests/logs/tester.log
+
+      - name: Save logs as artifacts
+        if: always()
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{ env.TEST_NAME }}
+          path: tools/integration-tests/logs
+
+      - name: Clean up
+        if: always()
+        run: |
+          docker-compose -f tools/integration-tests/tester/docker-compose.yml down
+          docker rm -f $(docker ps -a -q -f ancestor=gaiadocker/iproute2)
+
+
+
+  message:
+    name: message
+    env:
+      TEST_NAME: message
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Build GoShimmer image
+        run: docker build -t iotaledger/goshimmer .
+
+      - name: Pull additional Docker images
+        run: |
+          docker pull angelocapossele/drand:latest
+          docker pull gaiaadm/pumba:latest
+          docker pull gaiadocker/iproute2:latest
+
       - name: Run integration tests
         run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
 
