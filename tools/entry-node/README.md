@@ -8,7 +8,7 @@ The GoShimmer DB is persisted in a named Docker volume.
 The entry node exposes the following ports on the host:
 - 14626/udp (Autopeering)
 - 188/tcp (Analysis Server)
-- 80/tcp (Analysis Visualizer)
+- 80/tcp (Analysis Dashboard)
 
 ## How to run
 

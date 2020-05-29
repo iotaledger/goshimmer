@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/info"
 	"github.com/iotaledger/goshimmer/plugins/webapi/message"
 	"github.com/iotaledger/goshimmer/plugins/webapi/spammer"
+	"github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/plugins/webauth"
 	"github.com/iotaledger/hive.go/node"
 )
@@ -23,4 +24,5 @@ var PLUGINS = node.Plugins(
 	autopeering.Plugin,
 	info.Plugin,
 	fpctest.Plugin,
+	value.Plugin,
 )
