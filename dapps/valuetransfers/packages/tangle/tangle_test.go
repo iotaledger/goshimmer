@@ -175,7 +175,41 @@ func TestCalculateBranchOfTransaction(t *testing.T) {
 
 // TODO: implement test
 func TestMoveTransactionToBranch(t *testing.T) {
+	tangle := New(mapdb.NewMapDB())
+	// prepare snapshot
+	color1 := [32]byte{1}
+	outputs := map[address.Address][]*balance.Balance{
+		address.Random(): {
+			balance.New(balance.ColorIOTA, 1),
+		},
+		address.Random(): {
+			balance.New(balance.ColorIOTA, 2),
+			balance.New(color1, 3),
+		},
+	}
+	inputIDs := loadSnapshotFromOutputs(tangle, outputs)
 
+	tx := transaction.New(
+		transaction.NewInputs(inputIDs...),
+		// outputs
+		transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 3),
+				balance.New(color1, 3),
+			},
+		}),
+	)
+	valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
+	cachedTransaction, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
+	txMetadata := cachedTransactionMetadata.Unwrap()
+
+	// create conflicting branche
+	cachedBranch2, _ := tangle.BranchManager().Fork(branchmanager.BranchID{2}, []branchmanager.BranchID{branchmanager.MasterBranchID}, []branchmanager.ConflictID{{0}})
+	defer cachedBranch2.Release()
+
+	err := tangle.moveTransactionToBranch(cachedTransaction.Retain(), cachedTransactionMetadata.Retain(), cachedBranch2.Retain())
+	require.NoError(t, err)
+	assert.Equal(t, branchmanager.BranchID{2}, txMetadata.BranchID())
 }
 
 // TODO: implement test
