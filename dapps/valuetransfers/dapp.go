@@ -98,7 +98,7 @@ func configure(_ *node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	_ = daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
+	_ = daemon.BackgroundWorker("ValueTangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		Tangle.Shutdown()
 	}, shutdown.PriorityTangle)
