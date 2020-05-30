@@ -140,7 +140,7 @@ func runFPC() {
 		log.Info("Stopped vote server")
 	}, shutdown.PriorityFPC)
 
-	daemon.BackgroundWorker("FPCTestRoundsInitiator", func(shutdownSignal <-chan struct{}) {
+	daemon.BackgroundWorker("FPCRoundsInitiator", func(shutdownSignal <-chan struct{}) {
 		log.Infof("Started FPC round initiator")
 		unixTsPRNG := prng.NewUnixTimestampPRNG(roundIntervalSeconds)
 		unixTsPRNG.Start()
