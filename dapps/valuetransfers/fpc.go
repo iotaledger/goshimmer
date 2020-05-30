@@ -3,9 +3,10 @@ package valuetransfers
 import (
 	"context"
 	"fmt"
-	flag "github.com/spf13/pflag"
 	"net"
 	"strconv"
+
+	flag "github.com/spf13/pflag"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
@@ -139,9 +140,10 @@ func runFPC() {
 		log.Info("Stopped vote server")
 	}, shutdown.PriorityFPC)
 
-	daemon.BackgroundWorker("FPCRoundsInitiator", func(shutdownSignal <-chan struct{}) {
+	daemon.BackgroundWorker("FPCTestRoundsInitiator", func(shutdownSignal <-chan struct{}) {
 		log.Infof("Started FPC round initiator")
 		unixTsPRNG := prng.NewUnixTimestampPRNG(roundIntervalSeconds)
+		unixTsPRNG.Start()
 		defer unixTsPRNG.Stop()
 	exit:
 		for {
