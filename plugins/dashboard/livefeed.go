@@ -39,7 +39,7 @@ func runLiveFeed() {
 		}
 	})
 
-	daemon.BackgroundWorker("Dashboard[MsgUpdater]", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Dashboard[MsgUpdater]", func(shutdownSignal <-chan struct{}) {
 		messagelayer.Tangle.Events.MessageAttached.Attach(notifyNewMsg)
 		liveFeedWorkerPool.Start()
 		<-shutdownSignal
@@ -48,5 +48,7 @@ func runLiveFeed() {
 		newMsgRateLimiter.Stop()
 		liveFeedWorkerPool.Stop()
 		log.Info("Stopping Dashboard[MsgUpdater] ... done")
-	}, shutdown.PriorityDashboard)
+	}, shutdown.PriorityDashboard); err != nil {
+		panic(err)
+	}
 }

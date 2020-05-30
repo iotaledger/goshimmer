@@ -58,7 +58,7 @@ func runWebSocketStreams() {
 		wsSendWorkerPool.TrySubmit(mps)
 	})
 
-	daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Dashboard[StatusUpdate]", func(shutdownSignal <-chan struct{}) {
 		metrics.Events.ReceivedMPSUpdated.Attach(updateStatus)
 		wsSendWorkerPool.Start()
 		<-shutdownSignal
@@ -66,7 +66,9 @@ func runWebSocketStreams() {
 		metrics.Events.ReceivedMPSUpdated.Detach(updateStatus)
 		wsSendWorkerPool.Stop()
 		log.Info("Stopping Dashboard[StatusUpdate] ... done")
-	}, shutdown.PriorityDashboard)
+	}, shutdown.PriorityDashboard); err != nil {
+		panic(err)
+	}
 }
 
 // reigsters and creates a new websocket client.

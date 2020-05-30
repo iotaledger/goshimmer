@@ -73,15 +73,19 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	_ = daemon.BackgroundWorker("Tangle[MissingMessagesMonitor]", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Tangle[MissingMessagesMonitor]", func(shutdownSignal <-chan struct{}) {
 		Tangle.MonitorMissingMessages(shutdownSignal)
-	}, shutdown.PriorityMissingMessagesMonitoring)
+	}, shutdown.PriorityMissingMessagesMonitoring); err != nil {
+		panic(err)
+	}
 
-	_ = daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		MessageFactory.Shutdown()
 		MessageParser.Shutdown()
 		Tangle.Shutdown()
-	}, shutdown.PriorityTangle)
+	}, shutdown.PriorityTangle); err != nil {
+		panic(err)
+	}
 
 }

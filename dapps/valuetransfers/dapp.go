@@ -99,10 +99,12 @@ func configure(_ *node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	_ = daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		Tangle.Shutdown()
-	}, shutdown.PriorityTangle)
+	}, shutdown.PriorityTangle); err != nil {
+		panic(err)
+	}
 
 	runFPC()
 }

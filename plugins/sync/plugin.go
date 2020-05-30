@@ -130,7 +130,7 @@ func monitorForDesynchronization() {
 		}
 	})
 
-	daemon.BackgroundWorker("Desync-Monitor", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Desync-Monitor", func(shutdownSignal <-chan struct{}) {
 		gossip.Manager().Events().NeighborRemoved.Attach(monitorPeerCountClosure)
 		defer gossip.Manager().Events().NeighborRemoved.Detach(monitorPeerCountClosure)
 		messagelayer.Tangle.Events.MessageAttached.Attach(monitorMessageInflowClosure)
@@ -163,7 +163,9 @@ func monitorForDesynchronization() {
 				return
 			}
 		}
-	}, shutdown.PrioritySynchronization)
+	}, shutdown.PrioritySynchronization); err != nil {
+		panic(err)
+	}
 }
 
 // starts a background worker and event handlers to check whether the node is synchronized by first collecting
@@ -200,7 +202,7 @@ func monitorForSynchronization() {
 		synced <- types.Empty{}
 	})
 
-	daemon.BackgroundWorker("Sync-Monitor", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Sync-Monitor", func(shutdownSignal <-chan struct{}) {
 		messagelayer.Tangle.Events.MessageAttached.Attach(initAnchorPointClosure)
 		defer messagelayer.Tangle.Events.MessageAttached.Detach(initAnchorPointClosure)
 		messagelayer.Tangle.Events.MessageSolid.Attach(checkAnchorPointSolidityClosure)
@@ -228,7 +230,9 @@ func monitorForSynchronization() {
 				return
 			}
 		}
-	}, shutdown.PrioritySynchronization)
+	}, shutdown.PrioritySynchronization); err != nil {
+		panic(err)
+	}
 }
 
 // fills up the anchor points with newly attached messages which then are used to determine whether we are synchronized.

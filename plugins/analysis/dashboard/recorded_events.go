@@ -110,7 +110,7 @@ func configureEventsRecording() {
 
 // starts record manager that initiates a record cleanup periodically
 func runEventsRecordManager() {
-	_ = daemon.BackgroundWorker("Dashboard Analysis Server Record Manager", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Dashboard Analysis Server Record Manager", func(shutdownSignal <-chan struct{}) {
 		ticker := time.NewTicker(cleanUpPeriod)
 		defer ticker.Stop()
 		for {
@@ -121,7 +121,9 @@ func runEventsRecordManager() {
 				cleanUp(cleanUpPeriod)
 			}
 		}
-	}, shutdown.PriorityAnalysis)
+	}, shutdown.PriorityAnalysis); err != nil {
+		panic(err)
+	}
 }
 
 // removes nodes and links we haven't seen for at least 3 times the heartbeat interval.

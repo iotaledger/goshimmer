@@ -23,9 +23,11 @@ func configure(plugin *node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	_ = daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 
 		messageSpammer.Shutdown()
-	}, shutdown.PrioritySpammer)
+	}, shutdown.PrioritySpammer); err != nil {
+		panic(err)
+	}
 }

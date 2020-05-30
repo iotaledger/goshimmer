@@ -51,7 +51,7 @@ func run(_ *node.Plugin) {
 	issuancePeriod := time.Duration(issuancePeriodSec) * time.Second
 
 	// issue messages on top of the genesis
-	_ = daemon.BackgroundWorker("Bootstrapping-Issuer", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Bootstrapping-Issuer", func(shutdownSignal <-chan struct{}) {
 		messageSpammer.Start(initialIssuanceMPS)
 		defer messageSpammer.Shutdown()
 		// don't stop issuing messages if in continuous mode
@@ -65,5 +65,7 @@ func run(_ *node.Plugin) {
 		case <-time.After(issuancePeriod):
 		case <-shutdownSignal:
 		}
-	}, shutdown.PriorityBootstrap)
+	}, shutdown.PriorityBootstrap); err != nil {
+		panic(err)
+	}
 }

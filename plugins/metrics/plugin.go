@@ -3,15 +3,14 @@ package metrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/timeutil"
-
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/timeutil"
 )
 
 // PluginName is the name of the metrics plugin.
@@ -31,7 +30,9 @@ func configure(_ *node.Plugin) {
 
 func run(_ *node.Plugin) {
 	// create a background worker that "measures" the MPS value every second
-	daemon.BackgroundWorker("Metrics MPS Updater", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Metrics MPS Updater", func(shutdownSignal <-chan struct{}) {
 		timeutil.Ticker(measureReceivedMPS, 1*time.Second, shutdownSignal)
-	}, shutdown.PriorityMetrics)
+	}, shutdown.PriorityMetrics); err != nil {
+		panic(err)
+	}
 }
