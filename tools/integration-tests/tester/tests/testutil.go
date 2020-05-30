@@ -23,8 +23,8 @@ type Shutdowner interface {
 	Shutdown() error
 }
 
-// sendDataMessagesOnRandomPeer sends data messages on a random peer and saves the sent message to a map.
-func sendDataMessagesOnRandomPeer(t *testing.T, peers []*framework.Peer, numMessages int, idsMap ...map[string]DataMessageSent) map[string]DataMessageSent {
+// SendDataMessagesOnRandomPeer sends data messages on a random peer and saves the sent message to a map.
+func SendDataMessagesOnRandomPeer(t *testing.T, peers []*framework.Peer, numMessages int, idsMap ...map[string]DataMessageSent) map[string]DataMessageSent {
 	var ids map[string]DataMessageSent
 	if len(idsMap) > 0 {
 		ids = idsMap[0]
@@ -36,7 +36,7 @@ func sendDataMessagesOnRandomPeer(t *testing.T, peers []*framework.Peer, numMess
 		data := []byte(fmt.Sprintf("Test%d", i))
 
 		peer := peers[rand.Intn(len(peers))]
-		id, sent := sendDataMessage(t, peer, data, i)
+		id, sent := SendDataMessage(t, peer, data, i)
 
 		ids[id] = sent
 	}
@@ -44,8 +44,8 @@ func sendDataMessagesOnRandomPeer(t *testing.T, peers []*framework.Peer, numMess
 	return ids
 }
 
-// sendDataMessage sends a data message on a given peer and returns the id and a DataMessageSent struct.
-func sendDataMessage(t *testing.T, peer *framework.Peer, data []byte, number int) (string, DataMessageSent) {
+// SendDataMessage sends a data message on a given peer and returns the id and a DataMessageSent struct.
+func SendDataMessage(t *testing.T, peer *framework.Peer, data []byte, number int) (string, DataMessageSent) {
 	id, err := peer.Data(data)
 	require.NoErrorf(t, err, "Could not send message on %s", peer.String())
 
@@ -59,8 +59,8 @@ func sendDataMessage(t *testing.T, peer *framework.Peer, data []byte, number int
 	return id, sent
 }
 
-// checkForMessageIds performs checks to make sure that all peers received all given messages defined in ids.
-func checkForMessageIds(t *testing.T, peers []*framework.Peer, ids map[string]DataMessageSent, checkSynchronized bool) {
+// CheckForMessageIds performs checks to make sure that all peers received all given messages defined in ids.
+func CheckForMessageIds(t *testing.T, peers []*framework.Peer, ids map[string]DataMessageSent, checkSynchronized bool) {
 	var idsSlice []string
 	for id := range ids {
 		idsSlice = append(idsSlice, id)
