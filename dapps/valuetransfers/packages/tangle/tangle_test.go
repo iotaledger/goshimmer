@@ -1223,7 +1223,138 @@ func TestPayloadBranchID(t *testing.T) {
 }
 
 func TestCheckPayloadSolidity(t *testing.T) {
+	tangle := New(mapdb.NewMapDB())
 
+	// check with already solid payload
+	{
+		valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
+		metadata := NewPayloadMetadata(valueObject.ID())
+		metadata.SetSolid(true)
+		metadata.SetBranchID(branchmanager.MasterBranchID)
+
+		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
+		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		assert.True(t, solid)
+		assert.NoError(t, err)
+	}
+
+	// check with parents=genesis
+	{
+		valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
+		metadata := NewPayloadMetadata(valueObject.ID())
+
+		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
+		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		assert.True(t, solid)
+		assert.NoError(t, err)
+	}
+
+	// check with solid parents and branch set
+	{
+		setParent := func(payloadMetadata *PayloadMetadata) {
+			payloadMetadata.SetSolid(true)
+			payloadMetadata.SetBranchID(branchmanager.MasterBranchID)
+		}
+
+		valueObject := payload.New(storeParentPayloadWithMetadataFunc(t, tangle, setParent), storeParentPayloadWithMetadataFunc(t, tangle, setParent), createDummyTransaction())
+		metadata := NewPayloadMetadata(valueObject.ID())
+
+		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
+		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		assert.True(t, solid)
+		assert.NoError(t, err)
+	}
+
+	// check with solid parents but no branch set -> should not be solid
+	{
+		setParent := func(payloadMetadata *PayloadMetadata) {
+			payloadMetadata.SetSolid(true)
+		}
+
+		valueObject := payload.New(storeParentPayloadWithMetadataFunc(t, tangle, setParent), storeParentPayloadWithMetadataFunc(t, tangle, setParent), createDummyTransaction())
+		metadata := NewPayloadMetadata(valueObject.ID())
+
+		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
+		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		assert.False(t, solid)
+		assert.NoError(t, err)
+	}
+
+	// check with non-solid parents but branch set -> should not be solid
+	{
+		setParent := func(payloadMetadata *PayloadMetadata) {
+			payloadMetadata.SetBranchID(branchmanager.MasterBranchID)
+		}
+
+		valueObject := payload.New(storeParentPayloadWithMetadataFunc(t, tangle, setParent), storeParentPayloadWithMetadataFunc(t, tangle, setParent), createDummyTransaction())
+		metadata := NewPayloadMetadata(valueObject.ID())
+
+		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
+		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		assert.False(t, solid)
+		assert.NoError(t, err)
+	}
+
+	// conflicting branches of parents
+	{
+		// create conflicting branches
+		cachedBranch2, _ := tangle.BranchManager().Fork(branchmanager.BranchID{2}, []branchmanager.BranchID{branchmanager.MasterBranchID}, []branchmanager.ConflictID{{0}})
+		defer cachedBranch2.Release()
+		cachedBranch3, _ := tangle.BranchManager().Fork(branchmanager.BranchID{3}, []branchmanager.BranchID{branchmanager.MasterBranchID}, []branchmanager.ConflictID{{0}})
+		defer cachedBranch3.Release()
+		setParent1 := func(payloadMetadata *PayloadMetadata) {
+			payloadMetadata.SetSolid(true)
+			payloadMetadata.SetBranchID(branchmanager.BranchID{2})
+		}
+		setParent2 := func(payloadMetadata *PayloadMetadata) {
+			payloadMetadata.SetSolid(true)
+			payloadMetadata.SetBranchID(branchmanager.BranchID{3})
+		}
+
+		valueObject := payload.New(storeParentPayloadWithMetadataFunc(t, tangle, setParent1), storeParentPayloadWithMetadataFunc(t, tangle, setParent2), createDummyTransaction())
+		metadata := NewPayloadMetadata(valueObject.ID())
+
+		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
+		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		assert.False(t, solid)
+		assert.Error(t, err)
+	}
+
+	// conflicting branches with transactions
+	{
+		// create conflicting branches
+		cachedBranch2, _ := tangle.BranchManager().Fork(branchmanager.BranchID{2}, []branchmanager.BranchID{branchmanager.MasterBranchID}, []branchmanager.ConflictID{{0}})
+		defer cachedBranch2.Release()
+		cachedBranch3, _ := tangle.BranchManager().Fork(branchmanager.BranchID{3}, []branchmanager.BranchID{branchmanager.MasterBranchID}, []branchmanager.ConflictID{{0}})
+		defer cachedBranch3.Release()
+		setParent1 := func(payloadMetadata *PayloadMetadata) {
+			payloadMetadata.SetSolid(true)
+			payloadMetadata.SetBranchID(branchmanager.MasterBranchID)
+		}
+		setParent2 := func(payloadMetadata *PayloadMetadata) {
+			payloadMetadata.SetSolid(true)
+			payloadMetadata.SetBranchID(branchmanager.BranchID{3})
+		}
+
+		valueObject := payload.New(storeParentPayloadWithMetadataFunc(t, tangle, setParent1), storeParentPayloadWithMetadataFunc(t, tangle, setParent2), createDummyTransaction())
+		metadata := NewPayloadMetadata(valueObject.ID())
+
+		transactionBranches := []branchmanager.BranchID{branchmanager.BranchID{2}}
+		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		assert.False(t, solid)
+		assert.Error(t, err)
+	}
+}
+
+func storeParentPayloadWithMetadataFunc(t *testing.T, tangle *Tangle, consume func(*PayloadMetadata)) payload.ID {
+	parent1 := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
+	cachedPayload, cachedMetadata, stored := tangle.storePayload(parent1)
+	defer cachedPayload.Release()
+
+	cachedMetadata.Consume(consume)
+	assert.True(t, stored)
+
+	return parent1.ID()
 }
 
 func loadSnapshotFromOutputs(tangle *Tangle, outputs map[address.Address][]*balance.Balance) []transaction.OutputID {

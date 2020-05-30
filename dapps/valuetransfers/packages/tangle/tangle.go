@@ -766,8 +766,8 @@ func (tangle *Tangle) payloadBranchID(payloadID payload.ID) branchmanager.Branch
 
 // checkPayloadSolidity returns true if the given payload is solid. A payload is considered to be solid, if it is either
 // already marked as solid or if its referenced payloads are marked as solid.
-func (tangle *Tangle) checkPayloadSolidity(payload *payload.Payload, payloadMetadata *PayloadMetadata, transactionBranches []branchmanager.BranchID) (solid bool, err error) {
-	if payload == nil || payload.IsDeleted() || payloadMetadata == nil || payloadMetadata.IsDeleted() {
+func (tangle *Tangle) checkPayloadSolidity(p *payload.Payload, payloadMetadata *PayloadMetadata, transactionBranches []branchmanager.BranchID) (solid bool, err error) {
+	if p == nil || p.IsDeleted() || payloadMetadata == nil || payloadMetadata.IsDeleted() {
 		return
 	}
 
@@ -777,17 +777,23 @@ func (tangle *Tangle) checkPayloadSolidity(payload *payload.Payload, payloadMeta
 
 	combinedBranches := transactionBranches
 
-	trunkBranchID := tangle.payloadBranchID(payload.TrunkID())
-	tangle.PayloadMetadata(payload.TrunkID()).Consume(func(metadata *PayloadMetadata) { solid = metadata.IsSolid() })
+	trunkBranchID := tangle.payloadBranchID(p.TrunkID())
+	tangle.PayloadMetadata(p.TrunkID()).Consume(func(metadata *PayloadMetadata) { solid = metadata.IsSolid() })
+	if p.TrunkID() == payload.GenesisID {
+		solid = true
+	}
 	if trunkBranchID == branchmanager.UndefinedBranchID || !solid {
-		return
+		return false, nil
 	}
 	combinedBranches = append(combinedBranches, trunkBranchID)
 
-	branchBranchID := tangle.payloadBranchID(payload.BranchID())
-	tangle.PayloadMetadata(payload.BranchID()).Consume(func(metadata *PayloadMetadata) { solid = metadata.IsSolid() })
+	branchBranchID := tangle.payloadBranchID(p.BranchID())
+	tangle.PayloadMetadata(p.BranchID()).Consume(func(metadata *PayloadMetadata) { solid = metadata.IsSolid() })
+	if p.BranchID() == payload.GenesisID {
+		solid = true
+	}
 	if branchBranchID == branchmanager.UndefinedBranchID || !solid {
-		return
+		return false, nil
 	}
 	combinedBranches = append(combinedBranches, branchBranchID)
 
@@ -796,9 +802,9 @@ func (tangle *Tangle) checkPayloadSolidity(payload *payload.Payload, payloadMeta
 		return
 	}
 	if branchesConflicting {
-		err = fmt.Errorf("the payload '%s' combines conflicting versions of the ledger state", payload.ID())
+		err = fmt.Errorf("the payload '%s' combines conflicting versions of the ledger state", p.ID())
 
-		return
+		return false, err
 	}
 
 	solid = true
