@@ -1,17 +1,16 @@
-package webinterface
+package dashboard
 
 import (
-	"encoding/hex"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
-	"github.com/iotaledger/goshimmer/plugins/analysis/server"
+	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/mr-tron/base58"
 )
 
 // the period in which we scan and delete old data.
@@ -25,44 +24,44 @@ var (
 	lock  sync.Mutex
 )
 
-// configures the event recording by attaching to the analysis server's heartbeat event.
-func configureEventsRecording(plugin *node.Plugin) {
-	server.Events.Heartbeat.Attach(events.NewClosure(func(hb *packet.Heartbeat) {
+// configures the event recording by attaching to the analysis server's events.
+func configureEventsRecording() {
+	analysisserver.Events.Heartbeat.Attach(events.NewClosure(func(hb *packet.Heartbeat) {
 		var out strings.Builder
 		for _, value := range hb.OutboundIDs {
-			out.WriteString(hex.EncodeToString(value))
+			out.WriteString(base58.Encode(value))
 		}
 		var in strings.Builder
 		for _, value := range hb.InboundIDs {
-			in.WriteString(hex.EncodeToString(value))
+			in.WriteString(base58.Encode(value))
 		}
-		plugin.Node.Logger.Debugw(
+		log.Debugw(
 			"Heartbeat",
-			"nodeId", hex.EncodeToString(hb.OwnID),
+			"nodeId", base58.Encode(hb.OwnID),
 			"outboundIds", out.String(),
 			"inboundIds", in.String(),
 		)
 		lock.Lock()
 		defer lock.Unlock()
 
-		nodeIDString := hex.EncodeToString(hb.OwnID)
+		nodeIDString := base58.Encode(hb.OwnID)
 		timestamp := time.Now()
 
 		// when node is new, add to graph
 		if _, isAlready := nodes[nodeIDString]; !isAlready {
-			server.Events.AddNode.Trigger(nodeIDString)
+			analysisserver.Events.AddNode.Trigger(nodeIDString)
 		}
 		// save it + update timestamp
 		nodes[nodeIDString] = timestamp
 
 		// outgoing neighbor links update
 		for _, outgoingNeighbor := range hb.OutboundIDs {
-			outgoingNeighborString := hex.EncodeToString(outgoingNeighbor)
+			outgoingNeighborString := base58.Encode(outgoingNeighbor)
 			// do we already know about this neighbor?
 			// if no, add it and set it online
 			if _, isAlready := nodes[outgoingNeighborString]; !isAlready {
 				// first time we see this particular node
-				server.Events.AddNode.Trigger(outgoingNeighborString)
+				analysisserver.Events.AddNode.Trigger(outgoingNeighborString)
 			}
 			// we have indirectly heard about the neighbor.
 			nodes[outgoingNeighborString] = timestamp
@@ -75,7 +74,7 @@ func configureEventsRecording(plugin *node.Plugin) {
 
 			// update graph when connection hasn't been seen before
 			if _, isAlready := links[nodeIDString][outgoingNeighborString]; !isAlready {
-				server.Events.ConnectNodes.Trigger(nodeIDString, outgoingNeighborString)
+				analysisserver.Events.ConnectNodes.Trigger(nodeIDString, outgoingNeighborString)
 			}
 			// update links
 			links[nodeIDString][outgoingNeighborString] = timestamp
@@ -83,12 +82,12 @@ func configureEventsRecording(plugin *node.Plugin) {
 
 		// incoming neighbor links update
 		for _, incomingNeighbor := range hb.InboundIDs {
-			incomingNeighborString := hex.EncodeToString(incomingNeighbor)
+			incomingNeighborString := base58.Encode(incomingNeighbor)
 			// do we already know about this neighbor?
 			// if no, add it and set it online
 			if _, isAlready := nodes[incomingNeighborString]; !isAlready {
 				// First time we see this particular node
-				server.Events.AddNode.Trigger(incomingNeighborString)
+				analysisserver.Events.AddNode.Trigger(incomingNeighborString)
 			}
 			// we have indirectly heard about the neighbor.
 			nodes[incomingNeighborString] = timestamp
@@ -101,7 +100,7 @@ func configureEventsRecording(plugin *node.Plugin) {
 
 			// update graph when connection hasn't been seen before
 			if _, isAlready := links[incomingNeighborString][nodeIDString]; !isAlready {
-				server.Events.ConnectNodes.Trigger(incomingNeighborString, nodeIDString)
+				analysisserver.Events.ConnectNodes.Trigger(incomingNeighborString, nodeIDString)
 			}
 			// update links map
 			links[incomingNeighborString][nodeIDString] = timestamp
@@ -109,8 +108,9 @@ func configureEventsRecording(plugin *node.Plugin) {
 	}))
 }
 
+// starts record manager that initiates a record cleanup periodically
 func runEventsRecordManager() {
-	_ = daemon.BackgroundWorker("Analysis Server Record Manager", func(shutdownSignal <-chan struct{}) {
+	_ = daemon.BackgroundWorker("Dashboard Analysis Server Record Manager", func(shutdownSignal <-chan struct{}) {
 		ticker := time.NewTicker(cleanUpPeriod)
 		defer ticker.Stop()
 		for {
@@ -135,7 +135,7 @@ func cleanUp(interval time.Duration) {
 		for trgNode, lastSeen := range targetMap {
 			if now.Sub(lastSeen) > interval {
 				delete(targetMap, trgNode)
-				server.Events.DisconnectNodes.Trigger(srcNode, trgNode)
+				analysisserver.Events.DisconnectNodes.Trigger(srcNode, trgNode)
 			}
 		}
 		// delete src node from links if it doesn't have any connections
@@ -148,7 +148,7 @@ func cleanUp(interval time.Duration) {
 	for node, lastSeen := range nodes {
 		if now.Sub(lastSeen) > interval {
 			delete(nodes, node)
-			server.Events.RemoveNode.Trigger(node)
+			analysisserver.Events.RemoveNode.Trigger(node)
 		}
 	}
 }
@@ -174,7 +174,7 @@ func getEventsToReplay() (map[string]time.Time, map[string]map[string]time.Time)
 }
 
 // replays recorded events on the given event handler.
-func replayEvents(handlers *EventHandlers) {
+func replayAutopeeringEvents(handlers *EventHandlers) {
 	copiedNodes, copiedLinks := getEventsToReplay()
 
 	// when a node is present in the list, it means we heard about it directly
@@ -189,3 +189,18 @@ func replayEvents(handlers *EventHandlers) {
 		}
 	}
 }
+
+// EventHandlers holds the handler for each event of the record manager.
+type EventHandlers struct {
+	// Addnode defines the handler called when adding a new node.
+	AddNode func(nodeId string)
+	// RemoveNode defines the handler called when adding removing a node.
+	RemoveNode func(nodeId string)
+	// ConnectNodes defines the handler called when connecting two nodes.
+	ConnectNodes func(sourceId string, targetId string)
+	// DisconnectNodes defines the handler called when connecting two nodes.
+	DisconnectNodes func(sourceId string, targetId string)
+}
+
+// EventHandlersConsumer defines the consumer function of an *EventHandlers.
+type EventHandlersConsumer = func(handler *EventHandlers)

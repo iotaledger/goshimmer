@@ -35,11 +35,6 @@ var (
 		HeartbeatMaxOutboundPeersCount*sha256.Size + HeartbeatMaxInboundPeersCount*sha256.Size
 )
 
-const (
-	// MessageTypeHeartbeat is the unique id of a heartbeat message for analysis.
-	MessageTypeHeartbeat message.Type = 1
-)
-
 var (
 	// HeartbeatMessageDefinition defines a heartbeat message's format.
 	HeartbeatMessageDefinition = &message.Definition{
