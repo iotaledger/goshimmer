@@ -68,6 +68,9 @@ func New(store kvstore.KVStore) (result *Tangle) {
 	result.branchManager.Events.BranchUnpreferred.Attach(events.NewClosure(func(cachedBranch *branchmanager.CachedBranch) {
 		result.propagateBranchPreferredChangesToTransaction(cachedBranch, false)
 	}))
+	result.branchManager.Events.BranchFinalized.Attach(events.NewClosure(func(cachedBranch *branchmanager.CachedBranch) {
+		result.propagateBranchFinalizedChangesToTransaction(cachedBranch)
+	}))
 
 	return
 }
@@ -83,6 +86,26 @@ func (tangle *Tangle) propagateBranchPreferredChangesToTransaction(cachedBranch 
 			}
 
 			_, err = tangle.SetTransactionPreferred(transactionID, preferred)
+			if err != nil {
+				tangle.Events.Error.Trigger(err)
+
+				return
+			}
+		}
+	})
+}
+
+// propagateBranchPreferredChangesToTransaction updates the finalized flag of a transaction, whenever the finalized
+// status of its corresponding branch changes.
+func (tangle *Tangle) propagateBranchFinalizedChangesToTransaction(cachedBranch *branchmanager.CachedBranch) {
+	cachedBranch.Consume(func(branch *branchmanager.Branch) {
+		if !branch.IsAggregated() {
+			transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
+			if err != nil {
+				panic(err) // this should never ever happen
+			}
+
+			_, err = tangle.SetTransactionFinalized(transactionID)
 			if err != nil {
 				tangle.Events.Error.Trigger(err)
 

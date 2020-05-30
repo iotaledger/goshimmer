@@ -53,6 +53,9 @@ func New(store kvstore.KVStore) (branchManager *BranchManager) {
 			BranchUnpreferred: events.NewEvent(branchCaller),
 			BranchLiked:       events.NewEvent(branchCaller),
 			BranchDisliked:    events.NewEvent(branchCaller),
+			BranchFinalized:   events.NewEvent(branchCaller),
+			BranchConfirmed:   events.NewEvent(branchCaller),
+			BranchRejected:    events.NewEvent(branchCaller),
 		},
 	}
 	branchManager.init()
