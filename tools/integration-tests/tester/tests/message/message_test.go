@@ -1,9 +1,10 @@
-package tests
+package autopeering
 
 import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/require"
 )
 
@@ -11,19 +12,19 @@ import (
 func TestPersistence(t *testing.T) {
 	n, err := f.CreateNetwork("message_TestPersistence", 4, 2)
 	require.NoError(t, err)
-	defer ShutdownNetwork(t, n)
+	defer tests.ShutdownNetwork(t, n)
 
 	// wait for peers to change their state to synchronized
 	time.Sleep(5 * time.Second)
 
 	// 1. issue data messages
-	ids := sendDataMessagesOnRandomPeer(t, n.Peers(), 100)
+	ids := tests.SendDataMessagesOnRandomPeer(t, n.Peers(), 100)
 
 	// wait for messages to be gossiped
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	// 2. check whether all issued messages are available on all nodes
-	checkForMessageIds(t, n.Peers(), ids, true)
+	tests.CheckForMessageIds(t, n.Peers(), ids, true)
 
 	// 3. stop all nodes
 	for _, peer := range n.Peers() {
@@ -37,6 +38,9 @@ func TestPersistence(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	// wait for peers to start
+	time.Sleep(10 * time.Second)
+
 	// 5. check whether all issued messages are persistently available on all nodes
-	checkForMessageIds(t, n.Peers(), ids, false)
+	tests.CheckForMessageIds(t, n.Peers(), ids, false)
 }
