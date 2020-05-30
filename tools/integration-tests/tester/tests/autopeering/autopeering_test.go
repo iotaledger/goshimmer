@@ -1,8 +1,9 @@
-package tests
+package autopeering
 
 import (
 	"testing"
 
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -10,7 +11,7 @@ import (
 func TestNetworkSplit(t *testing.T) {
 	n, err := f.CreateNetworkWithPartitions("autopeering_TestNetworkSplit", 6, 2, 2)
 	require.NoError(t, err)
-	defer ShutdownNetwork(t, n)
+	defer tests.ShutdownNetwork(t, n)
 
 	// test that nodes only have neighbors from same partition
 	for _, partition := range n.Partitions() {
