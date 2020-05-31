@@ -11,16 +11,17 @@ services:
       - entrynode:/mainnetdb
     ports:
       - "1888:188/tcp"    # analysis server
-      - "8080:80/tcp"     # analysis HTTP server
+      - "8080:80/tcp"     # analysis dashboard
       - "14626:14626/udp" # autopeering discovery
     restart: unless-stopped
     command: >
       --autopeering.seed=${SEED}
       --autopeering.entryNodes=
       --analysis.client.serverAddress=
-      --analysis.server.port=1888
-      --analysis.httpServer.bindAddress=0.0.0.0:8080
-      --node.disablePlugins=gossip,portcheck,spa,dashboard,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --analysis.server.bindAddress=0.0.0.0:1888
+      --analysis.dashboard.bindAddress=0.0.0.0:8080
+      --node.enablePlugins=analysis-server,analysis-dashboard
+      --node.disablePlugins=analysis-client,gossip,portcheck,spa,dashboard,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
 
 volumes:
   entrynode:

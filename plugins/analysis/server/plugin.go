@@ -1,10 +1,12 @@
 package server
 
 import (
-	"errors"
+	"net"
+	"strconv"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/heartbeat"
+	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -12,49 +14,63 @@ import (
 	"github.com/iotaledger/hive.go/network"
 	"github.com/iotaledger/hive.go/network/tcp"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/protocol"
+	flag "github.com/spf13/pflag"
 )
+
+const (
+	// PluginName is the name of the analysis server plugin.
+	PluginName = "Analysis-Server"
+
+	// CfgAnalysisServerBindAddress defines the bind address of the analysis server.
+	CfgAnalysisServerBindAddress = "analysis.server.bindAddress"
+
+	// IdleTimeout defines the idle timeout.
+	IdleTimeout = 10 * time.Second
+)
+
+func init() {
+	flag.String(CfgAnalysisServerBindAddress, "0.0.0.0:16178", "the bind address of the analysis server")
+}
 
 var (
-	// ErrInvalidPackageHeader defines an invalid package header error.
-	ErrInvalidPackageHeader = errors.New("invalid package header")
-	// ErrExpectedInitialAddNodePackage defines an expected initial add node package error.
-	ErrExpectedInitialAddNodePackage = errors.New("expected initial add node package")
-	server                           *tcp.TCPServer
-	log                              *logger.Logger
+	// Plugin is the plugin instance of the analysis server plugin.
+	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	server *tcp.TCPServer
+	log    *logger.Logger
 )
 
-// Configure configures the plugin.
-func Configure(plugin *node.Plugin) {
-	log = logger.NewLogger("Analysis-Server")
+func configure(_ *node.Plugin) {
+	log = logger.NewLogger(PluginName)
 	server = tcp.NewServer()
 
 	server.Events.Connect.Attach(events.NewClosure(HandleConnection))
 	server.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Errorf("error in server: %s", err.Error())
 	}))
-	server.Events.Start.Attach(events.NewClosure(func() {
-		log.Infof("Starting Server (port %d) ... done", config.Node.GetInt(CfgServerPort))
-	}))
-	server.Events.Shutdown.Attach(events.NewClosure(func() {
-		log.Info("Stopping Server ... done")
-	}))
 }
 
-// Run runs the plugin.
-func Run(plugin *node.Plugin) {
-	daemon.BackgroundWorker("Analysis Server", func(shutdownSignal <-chan struct{}) {
-		log.Infof("Starting Server (port %d) ... done", config.Node.GetInt(CfgServerPort))
-		go server.Listen("0.0.0.0", config.Node.GetInt(CfgServerPort))
+func run(_ *node.Plugin) {
+	bindAddr := config.Node.GetString(CfgAnalysisServerBindAddress)
+	addr, portStr, err := net.SplitHostPort(bindAddr)
+	if err != nil {
+		log.Fatal("invalid bind address in %s: %s", CfgAnalysisServerBindAddress, err)
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		log.Fatal("invalid port in %s: %s", CfgAnalysisServerBindAddress, err)
+	}
+
+	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
+		defer log.Infof("Stopping %s ... done", PluginName)
+		go server.Listen(addr, port)
 		<-shutdownSignal
-		Shutdown()
-	}, shutdown.PriorityAnalysis)
-}
-
-// Shutdown shutdowns the plugin.
-func Shutdown() {
-	log.Info("Stopping Server ...")
-	server.Shutdown()
-	log.Info("Stopping Server ... done")
+		log.Info("Stopping Server ...")
+		server.Shutdown()
+	}, shutdown.PriorityAnalysis); err != nil {
+		log.Panic(err)
+	}
 }
 
 // HandleConnection handles the given connection.
@@ -64,14 +80,15 @@ func HandleConnection(conn *network.ManagedConnection) {
 		log.Errorf(err.Error())
 	}
 
-	var connectionState byte
-	var receiveBuffer []byte
-
-	var onDisconnect *events.Closure
+	// create new protocol instance
+	p := protocol.New(conn, packet.AnalysisMsgRegistry)
 
 	onReceiveData := events.NewClosure(func(data []byte) {
-		processIncomingPacket(&connectionState, &receiveBuffer, conn, data)
+		// process incoming data in protocol.Receive()
+		p.Receive(data)
 	})
+
+	var onDisconnect *events.Closure
 	onDisconnect = events.NewClosure(func() {
 		conn.Events.ReceiveData.Detach(onReceiveData)
 		conn.Events.Close.Detach(onDisconnect)
@@ -80,66 +97,27 @@ func HandleConnection(conn *network.ManagedConnection) {
 	conn.Events.ReceiveData.Attach(onReceiveData)
 	conn.Events.Close.Attach(onDisconnect)
 
-	maxPacketsSize := getMaxPacketSize(
-		heartbeat.MaxMarshaledTotalSize,
-	)
+	// connect protocol events to processors
+	wireUp(p)
 
-	go conn.Read(make([]byte, maxPacketsSize))
+	// starts the protocol and reads from its connection
+	go p.Start()
 }
 
-func getMaxPacketSize(packetSizes ...int) int {
-	maxPacketSize := 0
-
-	for _, packetSize := range packetSizes {
-		if packetSize > maxPacketSize {
-			maxPacketSize = packetSize
-		}
-	}
-
-	return maxPacketSize
+// wireUp connects the Received events of the protocol to the packet specific processor
+func wireUp(p *protocol.Protocol) {
+	p.Events.Received[packet.MessageTypeHeartbeat].Attach(events.NewClosure(func(data []byte) {
+		processHeartbeatPacket(data, p)
+	}))
 }
 
-func processIncomingPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte) {
-	var err error
-	if *connectionState, *receiveBuffer, err = parsePackageHeader(data); err != nil {
-		Events.Error.Trigger(err)
-
-		conn.Close()
-
-		return
-	}
-
-	switch *connectionState {
-	case StateHeartbeat:
-		processHeartbeatPacket(connectionState, receiveBuffer, conn, data)
-	}
-
-}
-
-func parsePackageHeader(data []byte) (ConnectionState, []byte, error) {
-	var connectionState ConnectionState
-	var receiveBuffer []byte
-
-	switch data[0] {
-	case heartbeat.MarshaledPacketHeader:
-		receiveBuffer = make([]byte, heartbeat.MaxMarshaledTotalSize)
-
-		connectionState = StateHeartbeat
-
-	default:
-		return 0, nil, ErrInvalidPackageHeader
-	}
-
-	return connectionState, receiveBuffer, nil
-}
-
-func processHeartbeatPacket(connectionState *byte, receiveBuffer *[]byte, conn *network.ManagedConnection, data []byte) {
-
-	heartbeatPacket, err := heartbeat.Unmarshal(data)
+// processHeartbeatPacket parses the serialized data into a Heartbeat packet and triggers its event
+func processHeartbeatPacket(data []byte, p *protocol.Protocol) {
+	heartbeatPacket, err := packet.ParseHeartbeat(data)
 	if err != nil {
 		Events.Error.Trigger(err)
-		conn.Close()
+		p.CloseConnection()
 		return
 	}
-	Events.Heartbeat.Trigger(*heartbeatPacket)
+	Events.Heartbeat.Trigger(heartbeatPacket)
 }

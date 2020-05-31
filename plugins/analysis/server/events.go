@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/analysis/types/heartbeat"
+	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -19,6 +19,8 @@ var Events = struct {
 	Error *events.Event
 	// Heartbeat triggers when an heartbeat has been received.
 	Heartbeat *events.Event
+	// FPCHeartbeat triggers when an FPC heartbeat has been received.
+	FPCHeartbeat *events.Event
 }{
 	events.NewEvent(stringCaller),
 	events.NewEvent(stringCaller),
@@ -26,6 +28,7 @@ var Events = struct {
 	events.NewEvent(stringStringCaller),
 	events.NewEvent(errorCaller),
 	events.NewEvent(heartbeatPacketCaller),
+	events.NewEvent(fpcHeartbeatPacketCaller),
 }
 
 func stringCaller(handler interface{}, params ...interface{}) {
@@ -41,5 +44,9 @@ func errorCaller(handler interface{}, params ...interface{}) {
 }
 
 func heartbeatPacketCaller(handler interface{}, params ...interface{}) {
-	handler.(func(heartbeat.Packet))(params[0].(heartbeat.Packet))
+	handler.(func(heartbeat *packet.Heartbeat))(params[0].(*packet.Heartbeat))
+}
+
+func fpcHeartbeatPacketCaller(handler interface{}, params ...interface{}) {
+	handler.(func(hb *packet.FPCHeartbeat))(params[0].(*packet.FPCHeartbeat))
 }

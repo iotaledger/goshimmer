@@ -1,13 +1,23 @@
 #!/bin/bash
 
+TEST_NAMES='autopeering common drng message'
+
 echo "Build GoShimmer image"
 docker build -t iotaledger/goshimmer ../../.
 
-echo "Run integration tests"
-docker-compose -f tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+echo "Pull additional Docker images"
+docker pull angelocapossele/drand:latest
+docker pull gaiaadm/pumba:latest
+docker pull gaiadocker/iproute2:latest
 
-echo "Create logs from containers in network"
-docker logs tester &> logs/tester.log
+echo "Run integration tests"
+
+for name in $TEST_NAMES
+do
+  TEST_NAME=$name docker-compose -f tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+  docker logs tester &> logs/"$name"_tester.log
+done
 
 echo "Clean up"
 docker-compose -f tester/docker-compose.yml down
+docker rm -f $(docker ps -a -q -f ancestor=gaiadocker/iproute2)

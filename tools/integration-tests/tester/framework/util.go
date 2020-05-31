@@ -7,8 +7,8 @@ import (
 	"os"
 )
 
-// getWebApiBaseUrl returns the web API base url for the given IP.
-func getWebApiBaseUrl(hostname string) string {
+// getWebAPIBaseURL returns the web API base url for the given IP.
+func getWebAPIBaseURL(hostname string) string {
 	return fmt.Sprintf("http://%s:%s", hostname, apiPort)
 }
 
@@ -25,7 +25,16 @@ func createLogFile(name string, logs io.ReadCloser) error {
 	// remove non-ascii chars at beginning of line
 	scanner := bufio.NewScanner(logs)
 	for scanner.Scan() {
-		bytes := append(scanner.Bytes()[dockerLogsPrefixLen:], '\n')
+		line := scanner.Bytes()
+
+		// in case of an error there is no Docker prefix
+		var bytes []byte
+		if len(line) < dockerLogsPrefixLen {
+			bytes = append(line, '\n')
+		} else {
+			bytes = append(line[dockerLogsPrefixLen:], '\n')
+		}
+
 		_, err = f.Write(bytes)
 		if err != nil {
 			return err

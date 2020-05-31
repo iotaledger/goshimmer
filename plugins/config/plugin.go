@@ -1,8 +1,10 @@
 package config
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/parameter"
 	flag "github.com/spf13/pflag"
@@ -17,21 +19,12 @@ var (
 	Plugin = node.NewPlugin(PluginName, node.Enabled)
 
 	// flags
-	configName    = flag.StringP("config", "c", "config", "Filename of the config file without the file extension")
-	configDirPath = flag.StringP("config-dir", "d", ".", "Path to the directory containing the config file")
+	configName          = flag.StringP("config", "c", "config", "Filename of the config file without the file extension")
+	configDirPath       = flag.StringP("config-dir", "d", ".", "Path to the directory containing the config file")
+	skipConfigAvailable = flag.Bool("skip-config", false, "Skip config file availability check")
 
 	// Node is viper
 	Node *viper.Viper
-
-	// logger
-	defaultLoggerConfig = logger.Config{
-		Level:             "info",
-		DisableCaller:     false,
-		DisableStacktrace: false,
-		Encoding:          "console",
-		OutputPaths:       []string{"goshimmer.log"},
-		DisableEvents:     false,
-	}
 )
 
 // Init triggers the Init event.
@@ -42,10 +35,17 @@ func Init() {
 func init() {
 	// set the default logger config
 	Node = viper.New()
-	Node.SetDefault(logger.ViperKey, defaultLoggerConfig)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
 		if err := fetch(false); err != nil {
+			if !*skipConfigAvailable {
+				// we wanted a config file but it was not present
+				// global logger instance is not initialized at this stage...
+				fmt.Println(err.Error())
+				fmt.Println("no config file present, terminating GoShimmer. please use the provided config.default.json to create a config.json.")
+				// daemon is not running yet, so we just exit
+				os.Exit(1)
+			}
 			panic(err)
 		}
 	}))
@@ -57,7 +57,7 @@ func init() {
 // and ending with: .json, .toml, .yaml or .yml (in this sequence).
 func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
 	flag.Parse()
-	err := parameter.LoadConfigFile(Node, *configDirPath, *configName, true, true)
+	err := parameter.LoadConfigFile(Node, *configDirPath, *configName, true, *skipConfigAvailable)
 	if err != nil {
 		return err
 	}

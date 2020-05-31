@@ -22,6 +22,10 @@ type ExplorerMessage struct {
 	BranchMessageID string `json:"branch_message_id"`
 	// Solid defines the solid status of the message.
 	Solid bool `json:"solid"`
+	// PayloadType defines the type of the payload.
+	PayloadType uint32 `json:"payload_type"`
+	// Payload is the content of the payload.
+	Payload interface{} `json:"payload"`
 }
 
 func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
@@ -33,6 +37,8 @@ func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
 		TrunkMessageID:  msg.TrunkId().String(),
 		BranchMessageID: msg.BranchId().String(),
 		Solid:           messageMetadata.Unwrap().IsSolid(),
+		PayloadType:     msg.Payload().Type(),
+		Payload:         ProcessPayload(msg.Payload()),
 	}
 
 	return t, nil
