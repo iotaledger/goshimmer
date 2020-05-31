@@ -2,7 +2,6 @@ package transaction
 
 import (
 	"errors"
-
 	"fmt"
 
 	"sync"
