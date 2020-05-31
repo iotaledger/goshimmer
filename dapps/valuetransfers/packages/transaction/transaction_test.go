@@ -3,7 +3,6 @@ package transaction
 import (
 	"bytes"
 	"strings"
-
 	"testing"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
