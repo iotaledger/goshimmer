@@ -2,7 +2,6 @@ package transaction
 
 import (
 	"bytes"
-
 	"strings"
 
 	"testing"
