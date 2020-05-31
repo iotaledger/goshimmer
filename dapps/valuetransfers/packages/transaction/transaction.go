@@ -3,7 +3,6 @@ package transaction
 import (
 	"errors"
 	"fmt"
-
 	"sync"
 
 	"github.com/iotaledger/hive.go/marshalutil"
