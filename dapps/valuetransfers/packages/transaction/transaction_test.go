@@ -2,7 +2,9 @@ package transaction
 
 import (
 	"bytes"
+
 	"strings"
+
 	"testing"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -25,6 +27,22 @@ func TestEmptyDataPayload(t *testing.T) {
 	check := tx.SignaturesValid()
 
 	assert.Equal(t, true, check)
+}
+
+func TestEmptyDataPayloadString(t *testing.T) {
+	sigScheme := signaturescheme.ED25519(ed25519.GenerateKeyPair())
+	addr := sigScheme.Address()
+	o1 := NewOutputID(addr, RandomID())
+	inputs := NewInputs(o1)
+	bal := balance.New(balance.ColorIOTA, 1)
+	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
+	tx := New(inputs, outputs)
+	tx.Sign(sigScheme)
+	check := tx.SignaturesValid()
+
+	assert.Equal(t, true, check)
+
+	t.Logf("%s", tx.String())
 }
 
 func TestShortDataPayload(t *testing.T) {

@@ -2,7 +2,9 @@ package transaction
 
 import (
 	"errors"
+
 	"fmt"
+
 	"sync"
 
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -297,7 +299,7 @@ func (transaction *Transaction) String() string {
 		stringify.StructField("inputs", transaction.inputs),
 		stringify.StructField("outputs", transaction.outputs),
 		stringify.StructField("signatures", transaction.signatures),
-		stringify.StructField("dataPayloadSize", transaction.DataPayloadSize()),
+		stringify.StructField("dataPayloadSize", uint64(transaction.DataPayloadSize())),
 	)
 }
 
