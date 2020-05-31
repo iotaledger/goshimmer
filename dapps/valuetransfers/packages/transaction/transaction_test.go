@@ -38,7 +38,7 @@ func TestEmptyDataPayloadString(t *testing.T) {
 	tx.Sign(sigScheme)
 	check := tx.SignaturesValid()
 
-	assert.Equal(t, true, check)
+	assert.True(t, check)
 
 	t.Logf("%s", tx.String())
 }
