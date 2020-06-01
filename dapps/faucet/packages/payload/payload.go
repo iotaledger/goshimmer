@@ -4,17 +4,18 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
 type Payload struct {
 	payloadType payload.Type
-	address     []byte
+	address     address.Address
 }
 
 var Type = payload.Type(2)
 
-func New(addr []byte) *Payload {
+func New(addr address.Address) *Payload {
 	return &Payload{
 		payloadType: Type,
 		address:     addr,
@@ -48,10 +49,11 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	if err != nil {
 		return
 	}
-	result.address, err = marshalUtil.ReadBytes(int(payloadBytes))
+	addr, err := marshalUtil.ReadBytes(int(payloadBytes))
 	if err != nil {
 		return
 	}
+	result.address, _, _ = address.FromBytes(addr)
 
 	// return the number of bytes we processed
 	consumedBytes = marshalUtil.ReadOffset()
@@ -63,7 +65,7 @@ func (faucetPayload *Payload) Type() payload.Type {
 	return faucetPayload.payloadType
 }
 
-func (faucetPayload *Payload) Address() []byte {
+func (faucetPayload *Payload) Address() address.Address {
 	return faucetPayload.address
 }
 
@@ -75,7 +77,7 @@ func (faucetPayload *Payload) Bytes() []byte {
 	// marshal the payload specific information
 	marshalUtil.WriteUint32(faucetPayload.Type())
 	marshalUtil.WriteUint32(uint32(len(faucetPayload.address)))
-	marshalUtil.WriteBytes(faucetPayload.address[:])
+	marshalUtil.WriteBytes(faucetPayload.address.Bytes())
 
 	// return result
 	return marshalUtil.Bytes()
@@ -93,7 +95,7 @@ func (faucetPayload *Payload) MarshalBinary() (data []byte, err error) {
 
 func (faucetPayload *Payload) String() string {
 	return stringify.Struct("FaucetPayload",
-		stringify.StructField("address", string(faucetPayload.Address())),
+		stringify.StructField("address", faucetPayload.Address().String()),
 	)
 }
 

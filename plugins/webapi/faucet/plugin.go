@@ -1,10 +1,10 @@
-package getFundsFromFaucet
+package faucet
 
 import (
 	"net/http"
 
-	faucetpayload "github.com/iotaledger/goshimmer/packages/binary/faucet/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	faucetpayload "github.com/iotaledger/goshimmer/packages/binary/faucet/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
@@ -31,13 +31,13 @@ func requestFunds(c echo.Context) error {
 
 	log.Debug("Received - address:", request.Address)
 
-	if len(request.Address) > address.Length {
+	if addr, err := address.FromBase58(request.Address); err {
 		log.Warnf("Invalid address")
 		return c.JSON(http.StatusBadRequest, Response{Error: "Invalid address"})
 	}
 
 	// Build faucet message with transaction factory
-	msg := messagelayer.MessageFactory.IssuePayload(faucetpayload.New([]byte(request.Address)))
+	msg := messagelayer.MessageFactory.IssuePayload(faucetpayload.New(addr))
 	if msg == nil {
 		return c.JSON(http.StatusInternalServerError, Response{Error: "Fail to send faucetrequest"})
 	}

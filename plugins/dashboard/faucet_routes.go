@@ -3,8 +3,8 @@ package dashboard
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"github.com/labstack/echo"
@@ -17,9 +17,8 @@ type ReqMsg struct {
 
 func setupFaucetRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/faucet/:hash", func(c echo.Context) (err error) {
-		addr := c.Param("hash")
-		// TODO: check if the address is valid
-		if len(addr) < address.Length {
+		var addr address.Address
+		if addr, err := address.FromBase58(c.Param("hash")); err != nil {
 			return errors.Wrapf(ErrInvalidParameter, "search address invalid: %s", addr)
 		}
 
@@ -32,8 +31,8 @@ func setupFaucetRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func sendFaucetReq(address string) (res *ReqMsg, err error) {
-	msg := messagelayer.MessageFactory.IssuePayload(faucetpayload.New([]byte(address)))
+func sendFaucetReq(addr address.Address) (res *ReqMsg, err error) {
+	msg := messagelayer.MessageFactory.IssuePayload(faucetpayload.New(addr))
 	if msg == nil {
 		return nil, errors.Wrapf(ErrInternalError, "Fail to send faucet request")
 	}
