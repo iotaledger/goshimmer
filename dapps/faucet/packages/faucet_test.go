@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 
 	faucet "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	data "github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
@@ -24,7 +25,7 @@ func TestIsFaucetReq(t *testing.T) {
 		local,
 		time.Now(),
 		0,
-		faucet.New([]byte("address")),
+		faucet.New(address.Random()),
 	)
 
 	dataMsg := message.New(

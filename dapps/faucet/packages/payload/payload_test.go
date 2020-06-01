@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 )
 
@@ -20,7 +21,7 @@ func ExampleFaucetPayload() {
 	// 1. create faucet payload
 	faucetPayload := New(
 		// request address
-		[]byte("address"),
+		address.Random(),
 	)
 
 	// 2. build actual message
@@ -47,7 +48,7 @@ func ExampleFaucetPayload() {
 }
 
 func TestPayload(t *testing.T) {
-	originalPayload := New([]byte("address"))
+	originalPayload := New(address.Random())
 
 	clonedPayload1, err, _ := FromBytes(originalPayload.Bytes())
 	if err != nil {
