@@ -3,8 +3,8 @@ package faucet
 import (
 	"net/http"
 
+	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	faucetpayload "github.com/iotaledger/goshimmer/packages/binary/faucet/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
@@ -12,7 +12,7 @@ import (
 	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("WebAPI faucet Endpoint", node.Enabled, configure)
+var Plugin = node.NewPlugin("WebAPI faucet Endpoint", node.Enabled, configure)
 var log *logger.Logger
 
 func configure(plugin *node.Plugin) {
@@ -24,6 +24,7 @@ func configure(plugin *node.Plugin) {
 // broadcasts it to the node's neighbors. It returns the message ID if successful.
 func requestFunds(c echo.Context) error {
 	var request Request
+	var addr address.Address
 	if err := c.Bind(&request); err != nil {
 		log.Info(err.Error())
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
@@ -31,7 +32,8 @@ func requestFunds(c echo.Context) error {
 
 	log.Debug("Received - address:", request.Address)
 
-	if addr, err := address.FromBase58(request.Address); err {
+	addr, err := address.FromBase58(request.Address)
+	if err != nil {
 		log.Warnf("Invalid address")
 		return c.JSON(http.StatusBadRequest, Response{Error: "Invalid address"})
 	}

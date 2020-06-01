@@ -17,8 +17,8 @@ type ReqMsg struct {
 
 func setupFaucetRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/faucet/:hash", func(c echo.Context) (err error) {
-		var addr address.Address
-		if addr, err := address.FromBase58(c.Param("hash")); err != nil {
+		addr, err := address.FromBase58(c.Param("hash"))
+		if err != nil {
 			return errors.Wrapf(ErrInvalidParameter, "search address invalid: %s", addr)
 		}
 
