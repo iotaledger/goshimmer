@@ -43,10 +43,10 @@ type Tangle struct {
 }
 
 // New is the constructor of a Tangle and creates a new Tangle object from the given details.
-func New(store kvstore.KVStore) (result *Tangle) {
+func New(store kvstore.KVStore) (tangle *Tangle) {
 	osFactory := objectstorage.NewFactory(store, storageprefix.ValueTransfers)
 
-	result = &Tangle{
+	tangle = &Tangle{
 		branchManager: branchmanager.New(store),
 
 		payloadStorage:             osFactory.New(osPayload, osPayloadFactory, objectstorage.CacheTime(time.Second)),
@@ -61,23 +61,53 @@ func New(store kvstore.KVStore) (result *Tangle) {
 
 		Events: *newEvents(),
 	}
-
-	result.branchManager.Events.BranchPreferred.Attach(events.NewClosure(func(cachedBranch *branchmanager.CachedBranch) {
-		result.propagateBranchPreferredChangesToTransaction(cachedBranch, true)
-	}))
-	result.branchManager.Events.BranchUnpreferred.Attach(events.NewClosure(func(cachedBranch *branchmanager.CachedBranch) {
-		result.propagateBranchPreferredChangesToTransaction(cachedBranch, false)
-	}))
-	result.branchManager.Events.BranchFinalized.Attach(events.NewClosure(func(cachedBranch *branchmanager.CachedBranch) {
-		result.propagateBranchFinalizedChangesToTransaction(cachedBranch)
-	}))
+	tangle.setupDAGSynchronization()
 
 	return
 }
 
-// propagateBranchPreferredChangesToTransaction updates the preferred flag of a transaction, whenever the preferred
-// status of its corresponding branch changes.
-func (tangle *Tangle) propagateBranchPreferredChangesToTransaction(cachedBranch *branchmanager.CachedBranch, preferred bool) {
+// region DAG SYNCHRONIZATION //////////////////////////////////////////////////////////////////////////////////////////
+
+// setupDAGSynchronization sets up the behavior how the branch dag and the value tangle and UTXO dag are connected.
+func (tangle *Tangle) setupDAGSynchronization() {
+	tangle.branchManager.Events.BranchPreferred.Attach(events.NewClosure(tangle.onBranchPreferred))
+	tangle.branchManager.Events.BranchUnpreferred.Attach(events.NewClosure(tangle.onBranchUnpreferred))
+	tangle.branchManager.Events.BranchLiked.Attach(events.NewClosure(tangle.onBranchLiked))
+	tangle.branchManager.Events.BranchDisliked.Attach(events.NewClosure(tangle.onBranchDisliked))
+	tangle.branchManager.Events.BranchFinalized.Attach(events.NewClosure(tangle.onBranchFinalized))
+	tangle.branchManager.Events.BranchConfirmed.Attach(events.NewClosure(tangle.onBranchConfirmed))
+	tangle.branchManager.Events.BranchRejected.Attach(events.NewClosure(tangle.onBranchRejected))
+}
+
+func (tangle *Tangle) onBranchPreferred(cachedBranch *branchmanager.CachedBranch) {
+	tangle.propagateBranchPreferredChangesToTangle(cachedBranch, true)
+}
+
+func (tangle *Tangle) onBranchUnpreferred(cachedBranch *branchmanager.CachedBranch) {
+	tangle.propagateBranchPreferredChangesToTangle(cachedBranch, false)
+}
+
+func (tangle *Tangle) onBranchLiked(cachedBranch *branchmanager.CachedBranch) {
+	tangle.propagateBranchedLikedChangesToTangle(cachedBranch, true)
+}
+
+func (tangle *Tangle) onBranchDisliked(cachedBranch *branchmanager.CachedBranch) {
+	tangle.propagateBranchedLikedChangesToTangle(cachedBranch, false)
+}
+
+func (tangle *Tangle) onBranchFinalized(cachedBranch *branchmanager.CachedBranch) {
+	tangle.propagateBranchFinalizedChangesToTangle(cachedBranch)
+}
+
+func (tangle *Tangle) onBranchConfirmed(cachedBranch *branchmanager.CachedBranch) {
+	tangle.propagateBranchConfirmedRejectedChangesToTangle(cachedBranch)
+}
+
+func (tangle *Tangle) onBranchRejected(cachedBranch *branchmanager.CachedBranch) {
+	tangle.propagateBranchConfirmedRejectedChangesToTangle(cachedBranch)
+}
+
+func (tangle *Tangle) propagateBranchedLikedChangesToTangle(cachedBranch *branchmanager.CachedBranch, liked bool) {
 	cachedBranch.Consume(func(branch *branchmanager.Branch) {
 		if !branch.IsAggregated() {
 			transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
@@ -85,7 +115,37 @@ func (tangle *Tangle) propagateBranchPreferredChangesToTransaction(cachedBranch 
 				panic(err) // this should never ever happen
 			}
 
-			_, err = tangle.SetTransactionPreferred(transactionID, preferred)
+			// propagate changes to future cone of transaction (value tangle)
+			tangle.propagateValuePayloadLikeUpdates(transactionID, liked)
+		}
+	})
+}
+
+func (tangle *Tangle) propagateBranchConfirmedRejectedChangesToTangle(cachedBranch *branchmanager.CachedBranch) {
+	cachedBranch.Consume(func(branch *branchmanager.Branch) {
+		if !branch.IsAggregated() {
+			transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
+			if err != nil {
+				panic(err) // this should never ever happen
+			}
+
+			// propagate changes to future cone of transaction (value tangle)
+			tangle.propagateValuePayloadConfirmedRejectedUpdates(transactionID)
+		}
+	})
+}
+
+// propagateBranchPreferredChangesToTangle updates the preferred flag of a transaction, whenever the preferred
+// status of its corresponding branch changes.
+func (tangle *Tangle) propagateBranchPreferredChangesToTangle(cachedBranch *branchmanager.CachedBranch, preferred bool) {
+	cachedBranch.Consume(func(branch *branchmanager.Branch) {
+		if !branch.IsAggregated() {
+			transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
+			if err != nil {
+				panic(err) // this should never ever happen
+			}
+
+			_, err = tangle.setTransactionPreferred(transactionID, preferred, EventSourceBranchManager)
 			if err != nil {
 				tangle.Events.Error.Trigger(err)
 
@@ -95,9 +155,9 @@ func (tangle *Tangle) propagateBranchPreferredChangesToTransaction(cachedBranch 
 	})
 }
 
-// propagateBranchPreferredChangesToTransaction updates the finalized flag of a transaction, whenever the finalized
+// propagateBranchPreferredChangesToTangle updates the finalized flag of a transaction, whenever the finalized
 // status of its corresponding branch changes.
-func (tangle *Tangle) propagateBranchFinalizedChangesToTransaction(cachedBranch *branchmanager.CachedBranch) {
+func (tangle *Tangle) propagateBranchFinalizedChangesToTangle(cachedBranch *branchmanager.CachedBranch) {
 	cachedBranch.Consume(func(branch *branchmanager.Branch) {
 		if !branch.IsAggregated() {
 			transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
@@ -105,7 +165,7 @@ func (tangle *Tangle) propagateBranchFinalizedChangesToTransaction(cachedBranch 
 				panic(err) // this should never ever happen
 			}
 
-			_, err = tangle.SetTransactionFinalized(transactionID)
+			_, err = tangle.setTransactionFinalized(transactionID, EventSourceBranchManager)
 			if err != nil {
 				tangle.Events.Error.Trigger(err)
 
@@ -114,6 +174,8 @@ func (tangle *Tangle) propagateBranchFinalizedChangesToTransaction(cachedBranch 
 		}
 	})
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // BranchManager is the getter for the manager that takes care of creating and updating branches.
 func (tangle *Tangle) BranchManager() *branchmanager.BranchManager {
@@ -167,24 +229,46 @@ func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
 // SetTransactionFinalized modifies the finalized flag of a transaction. It updates the transactions metadata and
 // propagates the changes to the BranchManager if the flag was updated.
 func (tangle *Tangle) SetTransactionFinalized(transactionID transaction.ID) (modified bool, err error) {
-	tangle.TransactionMetadata(transactionID).Consume(func(metadata *TransactionMetadata) {
+	return tangle.setTransactionFinalized(transactionID, EventSourceTangle)
+}
+
+func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, eventSource EventSource) (modified bool, err error) {
+	// retrieve metadata and consume
+	cachedTransactionMetadata := tangle.TransactionMetadata(transactionID)
+	cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
 		// update the finalized flag of the transaction
 		modified = metadata.SetFinalized(true)
 
 		// only propagate the changes if the flag was modified
 		if modified {
-			// propagate changes to the branches (UTXO DAG)
-			if metadata.Conflicting() {
-				_, err = tangle.branchManager.SetBranchFinalized(metadata.BranchID())
-				if err != nil {
-					tangle.Events.Error.Trigger(err)
-
-					return
-				}
+			// retrieve transaction from the database (for the events)
+			cachedTransaction := tangle.Transaction(transactionID)
+			defer cachedTransaction.Release()
+			if !cachedTransaction.Exists() {
+				return
 			}
 
-			// propagate changes to future cone of transaction (value tangle)
-			tangle.propagateValuePayloadConfirmedRejectedUpdates(transactionID)
+			// trigger the corresponding event
+			tangle.Events.TransactionFinalized.Trigger(cachedTransaction, cachedTransactionMetadata)
+
+			// propagate changes to value tangle and branch DAG if we were called from the tangle
+			// Note: if the update was triggered by a change in the branch DAG then we do not propagate the confirmed
+			//       and rejected changes yet as those require the branch to be liked before (we instead do it in the
+			//       BranchLiked event)
+			if eventSource == EventSourceTangle {
+				// propagate changes to the branches (UTXO DAG)
+				if metadata.Conflicting() {
+					_, err = tangle.branchManager.SetBranchFinalized(metadata.BranchID())
+					if err != nil {
+						tangle.Events.Error.Trigger(err)
+
+						return
+					}
+				}
+
+				// propagate changes to future cone of transaction (value tangle)
+				tangle.propagateValuePayloadConfirmedRejectedUpdates(transactionID)
+			}
 		}
 	})
 
@@ -247,27 +331,55 @@ func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(pro
 	tangle.ForEachConsumersAndApprovers(currentPayload, tangle.createValuePayloadFutureConeIterator(propagationStack, processedPayloads))
 }
 
-// SetTransactionPreferred modifies the preferred flag of a transaction. It updates the transactions metadata and
-// propagates the changes to the BranchManager if the flag was updated.
+// SetTransactionPreferred modifies the preferred flag of a transaction. It updates the transactions metadata,
+// propagates the changes to the branch DAG and triggers an update of the liked flags in the value tangle.
 func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, preferred bool) (modified bool, err error) {
-	tangle.TransactionMetadata(transactionID).Consume(func(metadata *TransactionMetadata) {
+	return tangle.setTransactionPreferred(transactionID, preferred, EventSourceTangle)
+}
+
+// setTransactionPreferred is an internal utility method that updates the preferred flag and triggers changes to the
+// branch DAG and triggers an updates of the liked flags in the value tangle
+func (tangle *Tangle) setTransactionPreferred(transactionID transaction.ID, preferred bool, eventSource EventSource) (modified bool, err error) {
+	// retrieve metadata and consume
+	cachedTransactionMetadata := tangle.TransactionMetadata(transactionID)
+	cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
 		// update the preferred flag of the transaction
 		modified = metadata.setPreferred(preferred)
 
-		// only propagate the changes if the flag was modified
+		// only do something if the flag was modified
 		if modified {
-			// propagate changes to the branches (UTXO DAG)
-			if metadata.Conflicting() {
-				_, err = tangle.branchManager.SetBranchPreferred(metadata.BranchID(), preferred)
-				if err != nil {
-					tangle.Events.Error.Trigger(err)
-
-					return
-				}
+			// retrieve transaction from the database (for the events)
+			cachedTransaction := tangle.Transaction(transactionID)
+			defer cachedTransaction.Release()
+			if !cachedTransaction.Exists() {
+				return
 			}
 
-			// propagate changes to future cone of transaction (value tangle)
-			tangle.propagateValuePayloadLikeUpdates(transactionID, preferred)
+			// trigger the correct event
+			if preferred {
+				tangle.Events.TransactionPreferred.Trigger(cachedTransaction, cachedTransactionMetadata)
+			} else {
+				tangle.Events.TransactionUnpreferred.Trigger(cachedTransaction, cachedTransactionMetadata)
+			}
+
+			// propagate changes to value tangle and branch DAG if we were called from the tangle
+			// Note: if the update was triggered by a change in the branch DAG then we do not propagate the value
+			//       payload changes yet as those require the branch to be liked before (we instead do it in the
+			//       BranchLiked event)
+			if eventSource == EventSourceTangle {
+				// propagate changes to the branches (UTXO DAG)
+				if metadata.Conflicting() {
+					_, err = tangle.branchManager.SetBranchPreferred(metadata.BranchID(), preferred)
+					if err != nil {
+						tangle.Events.Error.Trigger(err)
+
+						return
+					}
+				}
+
+				// propagate changes to future cone of transaction (value tangle)
+				tangle.propagateValuePayloadLikeUpdates(transactionID, preferred)
+			}
 		}
 	})
 

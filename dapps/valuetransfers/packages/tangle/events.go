@@ -27,11 +27,28 @@ type Events struct {
 	// TransactionBooked gets triggered whenever a transactions becomes solid and gets booked into a particular branch.
 	TransactionBooked *events.Event
 
+	TransactionPreferred *events.Event
+
+	TransactionUnpreferred *events.Event
+
+	TransactionFinalized *events.Event
+
 	// Fork gets triggered when a previously un-conflicting transaction get's some of its inputs double spend, so that a
 	// new Branch is created.
 	Fork *events.Event
 
 	Error *events.Event
+}
+
+type EventSource int
+
+const (
+	EventSourceTangle EventSource = iota
+	EventSourceBranchManager
+)
+
+func (eventSource EventSource) String() string {
+	return [...]string{"EventSourceTangle", "EventSourceBranchManager"}[eventSource]
 }
 
 func newEvents() *Events {
@@ -45,8 +62,11 @@ func newEvents() *Events {
 		MissingPayloadReceived: events.NewEvent(cachedPayloadEvent),
 		PayloadMissing:         events.NewEvent(payloadIDEvent),
 		PayloadUnsolidifiable:  events.NewEvent(payloadIDEvent),
-		TransactionReceived:    events.NewEvent(cachedTransactionEvent),
+		TransactionReceived:    events.NewEvent(cachedTransactionAttachmentEvent),
 		TransactionBooked:      events.NewEvent(transactionBookedEvent),
+		TransactionPreferred:   events.NewEvent(cachedTransactionEvent),
+		TransactionUnpreferred: events.NewEvent(cachedTransactionEvent),
+		TransactionFinalized:   events.NewEvent(cachedTransactionEvent),
 		Fork:                   events.NewEvent(forkEvent),
 		Error:                  events.NewEvent(events.ErrorCaller),
 	}
@@ -81,6 +101,13 @@ func forkEvent(handler interface{}, params ...interface{}) {
 }
 
 func cachedTransactionEvent(handler interface{}, params ...interface{}) {
+	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata))(
+		params[0].(*transaction.CachedTransaction).Retain(),
+		params[1].(*CachedTransactionMetadata).Retain(),
+	)
+}
+
+func cachedTransactionAttachmentEvent(handler interface{}, params ...interface{}) {
 	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, *CachedAttachment))(
 		params[0].(*transaction.CachedTransaction).Retain(),
 		params[1].(*CachedTransactionMetadata).Retain(),
