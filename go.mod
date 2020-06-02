@@ -27,7 +27,7 @@ require (
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.0
 	golang.org/x/crypto v0.0.0-20200429183012-4b2356b1ed79
-	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0
+	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0 // indirect
 	golang.org/x/tools v0.0.0-20200330040139-fa3cc9eebcfe // indirect
 	google.golang.org/grpc v1.28.1
 	gopkg.in/src-d/go-git.v4 v4.13.1

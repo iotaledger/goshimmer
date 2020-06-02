@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/bootstrap"
@@ -38,4 +39,5 @@ var PLUGINS = node.Plugins(
 	gracefulshutdown.Plugin,
 	metrics.Plugin,
 	drng.Plugin,
+	valuetransfers.App,
 )

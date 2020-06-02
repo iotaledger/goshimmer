@@ -2,16 +2,10 @@ package valuetransfers
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"net"
 	"strconv"
-
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
-	"google.golang.org/grpc"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/packages/prng"
@@ -22,13 +16,19 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
-
-	"sync"
-
+	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
+	flag "github.com/spf13/pflag"
+	"google.golang.org/grpc"
 )
 
 const (
+	// FpcPluginName contains the human readable name of the plugin.
+	FpcPluginName = "FPC"
+
 	// CfgFPCQuerySampleSize defines how many nodes will be queried each round.
 	CfgFPCQuerySampleSize = "fpc.querySampleSize"
 
@@ -74,7 +74,7 @@ func Voter() vote.DRNGRoundBasedVoter {
 }
 
 func configureFPC() {
-	log = logger.NewLogger(PluginName)
+	log = logger.NewLogger(FpcPluginName)
 	lPeer := local.GetInstance()
 
 	bindAddr := config.Node.GetString(CfgFPCBindAddress)
@@ -91,7 +91,7 @@ func configureFPC() {
 		log.Fatalf("could not update services: %v", err)
 	}
 
-	voter.Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
+	Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
 		peersQueried := len(roundStats.QueriedOpinions)
 		voteContextsCount := len(roundStats.ActiveVoteContexts)
 		log.Infof("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
@@ -140,6 +140,7 @@ func runFPC() {
 	if err := daemon.BackgroundWorker("FPCRoundsInitiator", func(shutdownSignal <-chan struct{}) {
 		log.Infof("Started FPC round initiator")
 		unixTsPRNG := prng.NewUnixTimestampPRNG(roundIntervalSeconds)
+		unixTsPRNG.Start()
 		defer unixTsPRNG.Stop()
 	exit:
 		for {
