@@ -79,7 +79,7 @@ func configure(_ *node.Plugin) {
 
 func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName+"[GC]", runGC, shutdown.PriorityBadgerGarbageCollection); err != nil {
-		log.Errorf("Failed to start as daemon: %s", err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
