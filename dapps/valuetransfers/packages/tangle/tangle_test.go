@@ -16,6 +16,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestSetTransactionPreferred(t *testing.T) {
+	tangle := New(mapdb.NewMapDB())
+	tx := createDummyTransaction()
+	valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
+	tangle.storeTransactionModels(valueObject)
+
+	modified, err := tangle.SetTransactionPreferred(tx.ID(), true)
+	require.NoError(t, err)
+	assert.True(t, modified)
+}
+
+func TestPropagateValuePayloadLikeUpdates(t *testing.T) {
+
+}
+
+//TODO: missing propagateValuePayloadConfirmedUpdates (not yet implemented)
+
+func TestSetTransactionFinalized(t *testing.T) {
+}
+
 // TestBookTransaction tests the following cases:
 // - missing output
 // - transaction already booked by another process
