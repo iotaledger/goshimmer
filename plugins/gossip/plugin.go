@@ -35,7 +35,7 @@ func configure(*node.Plugin) {
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
-		log.Errorf("Failed to start as daemon: %s", err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 

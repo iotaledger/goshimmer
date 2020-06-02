@@ -6,7 +6,7 @@
     "server": {
       "bindAddress": "0.0.0.0:1888"
     },
-    "webInterface": {
+    "dashboard": {
       "bindAddress": "0.0.0.0:9000",
       "dev": false
     }
