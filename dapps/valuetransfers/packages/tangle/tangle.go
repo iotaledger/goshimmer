@@ -66,6 +66,170 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 	return
 }
 
+// AttachPayload adds a new payload to the value tangle.
+func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
+	tangle.workerPool.Submit(func() { tangle.AttachPayloadSync(payload) })
+}
+
+// AttachPayloadSync is the worker function that stores the payload and calls the corresponding storage events.
+func (tangle *Tangle) AttachPayloadSync(payloadToStore *payload.Payload) {
+	// store the payload models or abort if we have seen the payload already
+	cachedPayload, cachedPayloadMetadata, payloadStored := tangle.storePayload(payloadToStore)
+	if !payloadStored {
+		return
+	}
+	defer cachedPayload.Release()
+	defer cachedPayloadMetadata.Release()
+
+	// store transaction models or abort if we have seen this attachment already  (nil == was not stored)
+	cachedTransaction, cachedTransactionMetadata, cachedAttachment, transactionIsNew := tangle.storeTransactionModels(payloadToStore)
+	defer cachedTransaction.Release()
+	defer cachedTransactionMetadata.Release()
+	if cachedAttachment == nil {
+		return
+	}
+	defer cachedAttachment.Release()
+
+	// store the references between the different entities (we do this after the actual entities were stored, so that
+	// all the metadata models exist in the database as soon as the entities are reachable by walks).
+	tangle.storePayloadReferences(payloadToStore)
+
+	// trigger events
+	if tangle.missingPayloadStorage.DeleteIfPresent(payloadToStore.ID().Bytes()) {
+		tangle.Events.MissingPayloadReceived.Trigger(cachedPayload, cachedPayloadMetadata)
+	}
+	tangle.Events.PayloadAttached.Trigger(cachedPayload, cachedPayloadMetadata)
+	if transactionIsNew {
+		tangle.Events.TransactionReceived.Trigger(cachedTransaction, cachedTransactionMetadata, cachedAttachment)
+	}
+
+	// check solidity
+	tangle.solidifyPayload(cachedPayload.Retain(), cachedPayloadMetadata.Retain(), cachedTransaction.Retain(), cachedTransactionMetadata.Retain())
+}
+
+// Prune resets the database and deletes all objects (for testing or "node resets").
+func (tangle *Tangle) Prune() (err error) {
+	if err = tangle.branchManager.Prune(); err != nil {
+		return
+	}
+
+	for _, storage := range []*objectstorage.ObjectStorage{
+		tangle.payloadStorage,
+		tangle.payloadMetadataStorage,
+		tangle.missingPayloadStorage,
+		tangle.approverStorage,
+		tangle.transactionStorage,
+		tangle.transactionMetadataStorage,
+		tangle.attachmentStorage,
+		tangle.outputStorage,
+		tangle.consumerStorage,
+	} {
+		if err = storage.Prune(); err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+// Shutdown stops the worker pools and shuts down the object storage instances.
+func (tangle *Tangle) Shutdown() *Tangle {
+	tangle.workerPool.ShutdownGracefully()
+	tangle.cleanupWorkerPool.ShutdownGracefully()
+
+	for _, storage := range []*objectstorage.ObjectStorage{
+		tangle.payloadStorage,
+		tangle.payloadMetadataStorage,
+		tangle.missingPayloadStorage,
+		tangle.approverStorage,
+		tangle.transactionStorage,
+		tangle.transactionMetadataStorage,
+		tangle.attachmentStorage,
+		tangle.outputStorage,
+		tangle.consumerStorage,
+	} {
+		storage.Shutdown()
+	}
+
+	return tangle
+}
+
+// region GETTERS/ITERATORS FOR THE STORED MODELS //////////////////////////////////////////////////////////////////////
+
+// Transaction loads the given transaction from the objectstorage.
+func (tangle *Tangle) Transaction(transactionID transaction.ID) *transaction.CachedTransaction {
+	return &transaction.CachedTransaction{CachedObject: tangle.transactionStorage.Load(transactionID.Bytes())}
+}
+
+// TransactionMetadata retrieves the metadata of a value payload from the object storage.
+func (tangle *Tangle) TransactionMetadata(transactionID transaction.ID) *CachedTransactionMetadata {
+	return &CachedTransactionMetadata{CachedObject: tangle.transactionMetadataStorage.Load(transactionID.Bytes())}
+}
+
+// TransactionOutput loads the given output from the objectstorage.
+func (tangle *Tangle) TransactionOutput(outputID transaction.OutputID) *CachedOutput {
+	return &CachedOutput{CachedObject: tangle.outputStorage.Load(outputID.Bytes())}
+}
+
+// Consumers retrieves the approvers of a payload from the object storage.
+func (tangle *Tangle) Consumers(outputID transaction.OutputID) CachedConsumers {
+	consumers := make(CachedConsumers, 0)
+	tangle.consumerStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		consumers = append(consumers, &CachedConsumer{CachedObject: cachedObject})
+
+		return true
+	}, outputID.Bytes())
+
+	return consumers
+}
+
+// Attachments retrieves the attachment of a payload from the object storage.
+func (tangle *Tangle) Attachments(transactionID transaction.ID) CachedAttachments {
+	attachments := make(CachedAttachments, 0)
+	tangle.attachmentStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		attachments = append(attachments, &CachedAttachment{CachedObject: cachedObject})
+
+		return true
+	}, transactionID.Bytes())
+
+	return attachments
+}
+
+// Payload retrieves a payload from the object storage.
+func (tangle *Tangle) Payload(payloadID payload.ID) *payload.CachedPayload {
+	return &payload.CachedPayload{CachedObject: tangle.payloadStorage.Load(payloadID.Bytes())}
+}
+
+// PayloadMetadata retrieves the metadata of a value payload from the object storage.
+func (tangle *Tangle) PayloadMetadata(payloadID payload.ID) *CachedPayloadMetadata {
+	return &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Load(payloadID.Bytes())}
+}
+
+// Approvers retrieves the approvers of a payload from the object storage.
+func (tangle *Tangle) Approvers(payloadID payload.ID) CachedApprovers {
+	approvers := make(CachedApprovers, 0)
+	tangle.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		approvers = append(approvers, &CachedPayloadApprover{CachedObject: cachedObject})
+
+		return true
+	}, payloadID.Bytes())
+
+	return approvers
+}
+
+// ForeachApprovers iterates through the approvers of a payload and calls the passed in consumer function.
+func (tangle *Tangle) ForeachApprovers(payloadID payload.ID, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata, transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata)) {
+	tangle.Approvers(payloadID).Consume(func(approver *PayloadApprover) {
+		approvingCachedPayload := tangle.Payload(approver.ApprovingPayloadID())
+
+		approvingCachedPayload.Consume(func(payload *payload.Payload) {
+			consume(approvingCachedPayload.Retain(), tangle.PayloadMetadata(approver.ApprovingPayloadID()), tangle.Transaction(payload.Transaction().ID()), tangle.TransactionMetadata(payload.Transaction().ID()))
+		})
+	})
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region DAG SYNCHRONIZATION //////////////////////////////////////////////////////////////////////////////////////////
 
 // setupDAGSynchronization sets up the behavior how the branch dag and the value tangle and UTXO dag are connected.
@@ -191,50 +355,6 @@ func (tangle *Tangle) propagateBranchConfirmedRejectedChangesToTangle(cachedBran
 // BranchManager is the getter for the manager that takes care of creating and updating branches.
 func (tangle *Tangle) BranchManager() *branchmanager.BranchManager {
 	return tangle.branchManager
-}
-
-// Transaction loads the given transaction from the objectstorage.
-func (tangle *Tangle) Transaction(transactionID transaction.ID) *transaction.CachedTransaction {
-	return &transaction.CachedTransaction{CachedObject: tangle.transactionStorage.Load(transactionID.Bytes())}
-}
-
-// TransactionMetadata retrieves the metadata of a value payload from the object storage.
-func (tangle *Tangle) TransactionMetadata(transactionID transaction.ID) *CachedTransactionMetadata {
-	return &CachedTransactionMetadata{CachedObject: tangle.transactionMetadataStorage.Load(transactionID.Bytes())}
-}
-
-// TransactionOutput loads the given output from the objectstorage.
-func (tangle *Tangle) TransactionOutput(outputID transaction.OutputID) *CachedOutput {
-	return &CachedOutput{CachedObject: tangle.outputStorage.Load(outputID.Bytes())}
-}
-
-// Consumers retrieves the approvers of a payload from the object storage.
-func (tangle *Tangle) Consumers(outputID transaction.OutputID) CachedConsumers {
-	consumers := make(CachedConsumers, 0)
-	tangle.consumerStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		consumers = append(consumers, &CachedConsumer{CachedObject: cachedObject})
-
-		return true
-	}, outputID.Bytes())
-
-	return consumers
-}
-
-// Attachments retrieves the attachment of a payload from the object storage.
-func (tangle *Tangle) Attachments(transactionID transaction.ID) CachedAttachments {
-	attachments := make(CachedAttachments, 0)
-	tangle.attachmentStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		attachments = append(attachments, &CachedAttachment{CachedObject: cachedObject})
-
-		return true
-	}, transactionID.Bytes())
-
-	return attachments
-}
-
-// AttachPayload adds a new payload to the value tangle.
-func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
-	tangle.workerPool.Submit(func() { tangle.AttachPayloadSync(payload) })
 }
 
 // SetTransactionFinalized modifies the finalized flag of a transaction. It updates the transactions metadata and
@@ -528,111 +648,6 @@ func (tangle *Tangle) ValuePayloadsConfirmed(payloadIDs ...payload.ID) (confirme
 	}
 
 	return true
-}
-
-// Payload retrieves a payload from the object storage.
-func (tangle *Tangle) Payload(payloadID payload.ID) *payload.CachedPayload {
-	return &payload.CachedPayload{CachedObject: tangle.payloadStorage.Load(payloadID.Bytes())}
-}
-
-// PayloadMetadata retrieves the metadata of a value payload from the object storage.
-func (tangle *Tangle) PayloadMetadata(payloadID payload.ID) *CachedPayloadMetadata {
-	return &CachedPayloadMetadata{CachedObject: tangle.payloadMetadataStorage.Load(payloadID.Bytes())}
-}
-
-// Approvers retrieves the approvers of a payload from the object storage.
-func (tangle *Tangle) Approvers(payloadID payload.ID) CachedApprovers {
-	approvers := make(CachedApprovers, 0)
-	tangle.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		approvers = append(approvers, &CachedPayloadApprover{CachedObject: cachedObject})
-
-		return true
-	}, payloadID.Bytes())
-
-	return approvers
-}
-
-// Prune resets the database and deletes all objects (for testing or "node resets").
-func (tangle *Tangle) Prune() (err error) {
-	if err = tangle.branchManager.Prune(); err != nil {
-		return
-	}
-
-	for _, storage := range []*objectstorage.ObjectStorage{
-		tangle.payloadStorage,
-		tangle.payloadMetadataStorage,
-		tangle.missingPayloadStorage,
-		tangle.approverStorage,
-		tangle.transactionStorage,
-		tangle.transactionMetadataStorage,
-		tangle.attachmentStorage,
-		tangle.outputStorage,
-		tangle.consumerStorage,
-	} {
-		if err = storage.Prune(); err != nil {
-			return
-		}
-	}
-
-	return
-}
-
-// Shutdown stops the worker pools and shuts down the object storage instances.
-func (tangle *Tangle) Shutdown() *Tangle {
-	tangle.workerPool.ShutdownGracefully()
-	tangle.cleanupWorkerPool.ShutdownGracefully()
-
-	for _, storage := range []*objectstorage.ObjectStorage{
-		tangle.payloadStorage,
-		tangle.payloadMetadataStorage,
-		tangle.missingPayloadStorage,
-		tangle.approverStorage,
-		tangle.transactionStorage,
-		tangle.transactionMetadataStorage,
-		tangle.attachmentStorage,
-		tangle.outputStorage,
-		tangle.consumerStorage,
-	} {
-		storage.Shutdown()
-	}
-
-	return tangle
-}
-
-// AttachPayloadSync is the worker function that stores the payload and calls the corresponding storage events.
-func (tangle *Tangle) AttachPayloadSync(payloadToStore *payload.Payload) {
-	// store the payload models or abort if we have seen the payload already
-	cachedPayload, cachedPayloadMetadata, payloadStored := tangle.storePayload(payloadToStore)
-	if !payloadStored {
-		return
-	}
-	defer cachedPayload.Release()
-	defer cachedPayloadMetadata.Release()
-
-	// store transaction models or abort if we have seen this attachment already  (nil == was not stored)
-	cachedTransaction, cachedTransactionMetadata, cachedAttachment, transactionIsNew := tangle.storeTransactionModels(payloadToStore)
-	defer cachedTransaction.Release()
-	defer cachedTransactionMetadata.Release()
-	if cachedAttachment == nil {
-		return
-	}
-	defer cachedAttachment.Release()
-
-	// store the references between the different entities (we do this after the actual entities were stored, so that
-	// all the metadata models exist in the database as soon as the entities are reachable by walks).
-	tangle.storePayloadReferences(payloadToStore)
-
-	// trigger events
-	if tangle.missingPayloadStorage.DeleteIfPresent(payloadToStore.ID().Bytes()) {
-		tangle.Events.MissingPayloadReceived.Trigger(cachedPayload, cachedPayloadMetadata)
-	}
-	tangle.Events.PayloadAttached.Trigger(cachedPayload, cachedPayloadMetadata)
-	if transactionIsNew {
-		tangle.Events.TransactionReceived.Trigger(cachedTransaction, cachedTransactionMetadata, cachedAttachment)
-	}
-
-	// check solidity
-	tangle.solidifyPayload(cachedPayload.Retain(), cachedPayloadMetadata.Retain(), cachedTransaction.Retain(), cachedTransactionMetadata.Retain())
 }
 
 func (tangle *Tangle) storePayload(payloadToStore *payload.Payload) (cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata, payloadStored bool) {
@@ -938,17 +953,6 @@ func (tangle *Tangle) bookPayload(cachedPayload *payload.CachedPayload, cachedPa
 	payloadBooked = valueObjectMetadata.SetBranchID(aggregatedBranch.ID())
 
 	return
-}
-
-// ForeachApprovers iterates through the approvers of a payload and calls the passed in consumer function.
-func (tangle *Tangle) ForeachApprovers(payloadID payload.ID, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata, transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata)) {
-	tangle.Approvers(payloadID).Consume(func(approver *PayloadApprover) {
-		approvingCachedPayload := tangle.Payload(approver.ApprovingPayloadID())
-
-		approvingCachedPayload.Consume(func(payload *payload.Payload) {
-			consume(approvingCachedPayload.Retain(), tangle.PayloadMetadata(approver.ApprovingPayloadID()), tangle.Transaction(payload.Transaction().ID()), tangle.TransactionMetadata(payload.Transaction().ID()))
-		})
-	})
 }
 
 // payloadBranchID returns the BranchID that the referenced Payload was booked into.
