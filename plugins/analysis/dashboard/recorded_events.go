@@ -122,7 +122,7 @@ func runEventsRecordManager() {
 			}
 		}
 	}, shutdown.PriorityAnalysis); err != nil {
-		panic(err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 

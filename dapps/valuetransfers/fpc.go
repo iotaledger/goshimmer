@@ -134,7 +134,7 @@ func runFPC() {
 		voterServer.Shutdown()
 		log.Info("Stopped vote server")
 	}, shutdown.PriorityFPC); err != nil {
-		panic(err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 
 	if err := daemon.BackgroundWorker("FPCRoundsInitiator", func(shutdownSignal <-chan struct{}) {
@@ -154,7 +154,7 @@ func runFPC() {
 		}
 		log.Infof("Stopped FPC round initiator")
 	}, shutdown.PriorityFPC); err != nil {
-		panic(err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 

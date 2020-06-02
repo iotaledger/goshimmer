@@ -164,7 +164,7 @@ func monitorForDesynchronization() {
 			}
 		}
 	}, shutdown.PrioritySynchronization); err != nil {
-		panic(err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 
@@ -231,7 +231,7 @@ func monitorForSynchronization() {
 			}
 		}
 	}, shutdown.PrioritySynchronization); err != nil {
-		panic(err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 

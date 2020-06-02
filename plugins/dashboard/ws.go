@@ -67,7 +67,7 @@ func runWebSocketStreams() {
 		wsSendWorkerPool.Stop()
 		log.Info("Stopping Dashboard[StatusUpdate] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
-		panic(err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 

@@ -104,7 +104,7 @@ func run(plugin *node.Plugin) {
 		workerPool.Stop()
 		log.Infof("Stopping %s ... done", PluginName)
 	}, shutdown.PriorityRemoteLog); err != nil {
-		panic(err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 

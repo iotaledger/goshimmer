@@ -49,6 +49,6 @@ func runLiveFeed() {
 		liveFeedWorkerPool.Stop()
 		log.Info("Stopping Dashboard[MsgUpdater] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
-		panic(err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }

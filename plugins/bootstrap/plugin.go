@@ -66,6 +66,6 @@ func run(_ *node.Plugin) {
 		case <-shutdownSignal:
 		}
 	}, shutdown.PriorityBootstrap); err != nil {
-		panic(err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }

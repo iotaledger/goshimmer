@@ -103,7 +103,7 @@ func run(*node.Plugin) {
 		<-shutdownSignal
 		Tangle.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
-		panic(err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 
 	runFPC()
