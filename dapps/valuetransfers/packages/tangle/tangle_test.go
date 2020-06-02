@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"container/list"
 	"math"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1364,6 +1366,158 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		assert.False(t, solid)
 		assert.Error(t, err)
 	}
+}
+
+func TestCreateValuePayloadFutureConeIterator(t *testing.T) {
+	// check with new payload -> should be added to stack
+	{
+		tangle := New(mapdb.NewMapDB())
+		solidificationStack := list.New()
+		processedPayloads := make(map[payload.ID]types.Empty)
+		iterator := tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads)
+
+		// create cached objects
+		tx := createDummyTransaction()
+		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
+		cachedPayload, cachedMetadata, stored := tangle.storePayload(valueObject)
+		assert.True(t, stored)
+		cachedTransaction, cachedTransactionMetadata, _, transactionIsNew := tangle.storeTransactionModels(valueObject)
+		assert.True(t, transactionIsNew)
+
+		iterator(cachedPayload, cachedMetadata, cachedTransaction, cachedTransactionMetadata)
+		assert.Equal(t, 1, solidificationStack.Len())
+		currentSolidificationEntry := solidificationStack.Front().Value.(*valuePayloadPropagationStackEntry)
+		assert.Equal(t, cachedPayload, currentSolidificationEntry.CachedPayload)
+		currentSolidificationEntry.CachedPayload.Consume(func(payload *payload.Payload) {
+			assert.Equal(t, valueObject.ID(), payload.ID())
+		})
+		currentSolidificationEntry.CachedPayloadMetadata.Consume(func(metadata *PayloadMetadata) {
+			assert.Equal(t, valueObject.ID(), metadata.PayloadID())
+		})
+		currentSolidificationEntry.CachedTransaction.Consume(func(transaction *transaction.Transaction) {
+			assert.Equal(t, tx.ID(), transaction.ID())
+		})
+		currentSolidificationEntry.CachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
+			assert.Equal(t, tx.ID(), metadata.ID())
+		})
+	}
+
+	// check with already processed payload -> should not be added to stack
+	{
+		tangle := New(mapdb.NewMapDB())
+		solidificationStack := list.New()
+		processedPayloads := make(map[payload.ID]types.Empty)
+		iterator := tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads)
+
+		// create cached objects
+		tx := createDummyTransaction()
+		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
+		cachedPayload, cachedMetadata, stored := tangle.storePayload(valueObject)
+		assert.True(t, stored)
+		cachedTransaction, cachedTransactionMetadata, _, transactionIsNew := tangle.storeTransactionModels(valueObject)
+		assert.True(t, transactionIsNew)
+
+		// payload was already processed
+		processedPayloads[valueObject.ID()] = types.Void
+
+		iterator(cachedPayload, cachedMetadata, cachedTransaction, cachedTransactionMetadata)
+		assert.Equal(t, 0, solidificationStack.Len())
+	}
+}
+
+func TestForEachConsumers(t *testing.T) {
+	tangle := New(mapdb.NewMapDB())
+
+	// prepare inputs for tx
+	outputs := map[address.Address][]*balance.Balance{
+		address.Random(): {
+			balance.New(balance.ColorIOTA, 1),
+		},
+		address.Random(): {
+			balance.New(balance.ColorIOTA, 2),
+		},
+	}
+	genesisTx := transaction.New(transaction.NewInputs(), transaction.NewOutputs(outputs))
+
+	// store tx that uses outputs from genesisTx
+	outputIDs := make([]transaction.OutputID, 0)
+	for addr := range outputs {
+		outputIDs = append(outputIDs, transaction.NewOutputID(addr, genesisTx.ID()))
+	}
+	tx := transaction.New(
+		transaction.NewInputs(outputIDs...),
+		transaction.NewOutputs(map[address.Address][]*balance.Balance{}),
+	)
+	valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
+	_, _, stored := tangle.storePayload(valueObject)
+	assert.True(t, stored)
+	_, _, _, transactionIsNew := tangle.storeTransactionModels(valueObject)
+	assert.True(t, transactionIsNew)
+
+	counter := 0
+	consume := func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
+		cachedPayload.Consume(func(payload *payload.Payload) {
+			assert.Equal(t, valueObject.ID(), payload.ID())
+		})
+		cachedPayloadMetadata.Consume(func(metadata *PayloadMetadata) {
+			assert.Equal(t, valueObject.ID(), metadata.PayloadID())
+		})
+		cachedTransaction.Consume(func(transaction *transaction.Transaction) {
+			assert.Equal(t, tx.ID(), transaction.ID())
+		})
+		cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
+			assert.Equal(t, tx.ID(), metadata.ID())
+		})
+		counter++
+	}
+
+	tangle.ForEachConsumers(genesisTx, consume)
+	// even though we have 2 outputs it should only be triggered once because the outputs are within 1 transaction
+	assert.Equal(t, 1, counter)
+}
+
+func TestForeachApprovers(t *testing.T) {
+	tangle := New(mapdb.NewMapDB())
+
+	valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
+
+	// create approver 1
+	tx1 := createDummyTransaction()
+	approver1 := payload.New(valueObject.ID(), payload.GenesisID, tx1)
+	_, _, stored := tangle.storePayload(approver1)
+	assert.True(t, stored)
+	_, _, _, transactionIsNew := tangle.storeTransactionModels(approver1)
+	tangle.storePayloadReferences(approver1)
+	assert.True(t, transactionIsNew)
+
+	// create approver 2
+	tx2 := createDummyTransaction()
+	approver2 := payload.New(valueObject.ID(), payload.GenesisID, tx2)
+	_, _, stored = tangle.storePayload(approver2)
+	assert.True(t, stored)
+	_, _, _, transactionIsNew = tangle.storeTransactionModels(approver2)
+	tangle.storePayloadReferences(approver2)
+	assert.True(t, transactionIsNew)
+
+	counter := 0
+	consume := func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *CachedTransactionMetadata) {
+		cachedPayload.Consume(func(p *payload.Payload) {
+			assert.Contains(t, []payload.ID{approver1.ID(), approver2.ID()}, p.ID())
+		})
+		cachedPayloadMetadata.Consume(func(metadata *PayloadMetadata) {
+			assert.Contains(t, []payload.ID{approver1.ID(), approver2.ID()}, metadata.PayloadID())
+		})
+		cachedTransaction.Consume(func(tx *transaction.Transaction) {
+			assert.Contains(t, []transaction.ID{tx1.ID(), tx2.ID()}, tx.ID())
+		})
+		cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
+			assert.Contains(t, []transaction.ID{tx1.ID(), tx2.ID()}, metadata.ID())
+		})
+		counter++
+	}
+
+	tangle.ForeachApprovers(valueObject.ID(), consume)
+	assert.Equal(t, 2, counter)
 }
 
 func storeParentPayloadWithMetadataFunc(t *testing.T, tangle *Tangle, consume func(*PayloadMetadata)) payload.ID {
