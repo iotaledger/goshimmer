@@ -40,10 +40,15 @@ type Events struct {
 	Error *events.Event
 }
 
+// EventSource is a type that contains information from where a specific change was triggered (the branch manager or
+// the tangle).
 type EventSource int
 
 const (
+	// EventSourceTangle indicates that a change was issued by the Tangle.
 	EventSourceTangle EventSource = iota
+
+	// EventSourceBranchManager indicates that a change was issued by the BranchManager.
 	EventSourceBranchManager
 )
 

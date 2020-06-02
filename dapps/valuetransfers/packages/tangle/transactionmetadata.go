@@ -145,7 +145,7 @@ func (transactionMetadata *TransactionMetadata) Solid() (result bool) {
 	return
 }
 
-// setSolid marks a Transaction as either solid or not solid.
+// SetSolid marks a Transaction as either solid or not solid.
 // It returns true if the solid flag was changes and automatically updates the solidificationTime as well.
 func (transactionMetadata *TransactionMetadata) SetSolid(solid bool) (modified bool) {
 	transactionMetadata.solidMutex.RLock()

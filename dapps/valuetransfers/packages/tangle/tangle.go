@@ -66,6 +66,8 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 	return
 }
 
+// region MAIN PUBLIC API //////////////////////////////////////////////////////////////////////////////////////////////
+
 // AttachPayload adds a new payload to the value tangle.
 func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
 	tangle.workerPool.Submit(func() { tangle.AttachPayloadSync(payload) })
@@ -105,6 +107,136 @@ func (tangle *Tangle) AttachPayloadSync(payloadToStore *payload.Payload) {
 
 	// check solidity
 	tangle.solidifyPayload(cachedPayload.Retain(), cachedPayloadMetadata.Retain(), cachedTransaction.Retain(), cachedTransactionMetadata.Retain())
+}
+
+// SetTransactionPreferred modifies the preferred flag of a transaction. It updates the transactions metadata,
+// propagates the changes to the branch DAG and triggers an update of the liked flags in the value tangle.
+func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, preferred bool) (modified bool, err error) {
+	return tangle.setTransactionPreferred(transactionID, preferred, EventSourceTangle)
+}
+
+// SetTransactionFinalized modifies the finalized flag of a transaction. It updates the transactions metadata and
+// propagates the changes to the BranchManager if the flag was updated.
+func (tangle *Tangle) SetTransactionFinalized(transactionID transaction.ID) (modified bool, err error) {
+	return tangle.setTransactionFinalized(transactionID, EventSourceTangle)
+}
+
+// ValuePayloadsLiked is checking if the Payloads referenced by the passed in IDs are all liked.
+func (tangle *Tangle) ValuePayloadsLiked(payloadIDs ...payload.ID) (liked bool) {
+	for _, payloadID := range payloadIDs {
+		if payloadID == payload.GenesisID {
+			continue
+		}
+
+		payloadMetadataFound := tangle.PayloadMetadata(payloadID).Consume(func(payloadMetadata *PayloadMetadata) {
+			liked = payloadMetadata.Liked()
+		})
+
+		if !payloadMetadataFound || !liked {
+			return false
+		}
+	}
+
+	return true
+}
+
+// ValuePayloadsConfirmed is checking if the Payloads referenced by the passed in IDs are all confirmed.
+func (tangle *Tangle) ValuePayloadsConfirmed(payloadIDs ...payload.ID) (confirmed bool) {
+	for _, payloadID := range payloadIDs {
+		if payloadID == payload.GenesisID {
+			continue
+		}
+
+		payloadMetadataFound := tangle.PayloadMetadata(payloadID).Consume(func(payloadMetadata *PayloadMetadata) {
+			confirmed = payloadMetadata.Liked()
+		})
+
+		if !payloadMetadataFound || !confirmed {
+			return false
+		}
+	}
+
+	return true
+}
+
+// BranchManager is the getter for the manager that takes care of creating and updating branches.
+func (tangle *Tangle) BranchManager() *branchmanager.BranchManager {
+	return tangle.branchManager
+}
+
+// LoadSnapshot creates a set of outputs in the value tangle, that are forming the genesis for future transactions.
+func (tangle *Tangle) LoadSnapshot(snapshot map[transaction.ID]map[address.Address][]*balance.Balance) {
+	for transactionID, addressBalances := range snapshot {
+		for outputAddress, balances := range addressBalances {
+			input := NewOutput(outputAddress, transactionID, branchmanager.MasterBranchID, balances)
+			input.setSolid(true)
+			input.SetBranchID(branchmanager.MasterBranchID)
+
+			// store output and abort if the snapshot has already been loaded earlier (output exists in the database)
+			cachedOutput, stored := tangle.outputStorage.StoreIfAbsent(input)
+			if !stored {
+				return
+			}
+
+			cachedOutput.Release()
+		}
+	}
+}
+
+// Fork creates a new branch from an existing transaction.
+func (tangle *Tangle) Fork(transactionID transaction.ID, conflictingInputs []transaction.OutputID) (forked bool, finalized bool, err error) {
+	cachedTransaction := tangle.Transaction(transactionID)
+	cachedTransactionMetadata := tangle.TransactionMetadata(transactionID)
+	defer cachedTransaction.Release()
+	defer cachedTransactionMetadata.Release()
+
+	tx := cachedTransaction.Unwrap()
+	if tx == nil {
+		err = fmt.Errorf("failed to load transaction '%s'", transactionID)
+
+		return
+	}
+	txMetadata := cachedTransactionMetadata.Unwrap()
+	if txMetadata == nil {
+		err = fmt.Errorf("failed to load metadata of transaction '%s'", transactionID)
+
+		return
+	}
+
+	// abort if this transaction was finalized already
+	if txMetadata.Finalized() {
+		finalized = true
+
+		return
+	}
+
+	// update / create new branch
+	newBranchID := branchmanager.NewBranchID(tx.ID())
+	cachedTargetBranch, newBranchCreated := tangle.branchManager.Fork(newBranchID, []branchmanager.BranchID{txMetadata.BranchID()}, conflictingInputs)
+	defer cachedTargetBranch.Release()
+
+	// set branch to be preferred if the underlying transaction was marked as preferred
+	if txMetadata.Preferred() {
+		if _, err = tangle.branchManager.SetBranchPreferred(newBranchID, true); err != nil {
+			return
+		}
+	}
+
+	// abort if the branch existed already
+	if !newBranchCreated {
+		return
+	}
+
+	// move transactions to new branch
+	if err = tangle.moveTransactionToBranch(cachedTransaction.Retain(), cachedTransactionMetadata.Retain(), cachedTargetBranch.Retain()); err != nil {
+		return
+	}
+
+	// trigger events + set result
+	tangle.Events.Fork.Trigger(cachedTransaction, cachedTransactionMetadata)
+	forked = true
+
+	return
 }
 
 // Prune resets the database and deletes all objects (for testing or "node resets").
@@ -154,6 +286,8 @@ func (tangle *Tangle) Shutdown() *Tangle {
 	return tangle
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region GETTERS/ITERATORS FOR THE STORED MODELS //////////////////////////////////////////////////////////////////////
 
 // Transaction loads the given transaction from the objectstorage.
@@ -169,6 +303,23 @@ func (tangle *Tangle) TransactionMetadata(transactionID transaction.ID) *CachedT
 // TransactionOutput loads the given output from the objectstorage.
 func (tangle *Tangle) TransactionOutput(outputID transaction.OutputID) *CachedOutput {
 	return &CachedOutput{CachedObject: tangle.outputStorage.Load(outputID.Bytes())}
+}
+
+// OutputsOnAddress retrieves all the Outputs that are associated with an address.
+func (tangle *Tangle) OutputsOnAddress(address address.Address) (result CachedOutputs) {
+	result = make(CachedOutputs)
+	tangle.outputStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		outputID, _, err := transaction.OutputIDFromBytes(key)
+		if err != nil {
+			panic(err)
+		}
+
+		result[outputID] = &CachedOutput{CachedObject: cachedObject}
+
+		return true
+	}, address.Bytes())
+
+	return
 }
 
 // Consumers retrieves the approvers of a payload from the object storage.
@@ -226,6 +377,37 @@ func (tangle *Tangle) ForeachApprovers(payloadID payload.ID, consume func(payloa
 			consume(approvingCachedPayload.Retain(), tangle.PayloadMetadata(approver.ApprovingPayloadID()), tangle.Transaction(payload.Transaction().ID()), tangle.TransactionMetadata(payload.Transaction().ID()))
 		})
 	})
+}
+
+// ForEachConsumers iterates through the transactions that are consuming outputs of the given transactions
+func (tangle *Tangle) ForEachConsumers(currentTransaction *transaction.Transaction, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata, transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata)) {
+	seenTransactions := make(map[transaction.ID]types.Empty)
+	currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+		tangle.Consumers(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(consumer *Consumer) {
+			if _, transactionSeen := seenTransactions[consumer.TransactionID()]; !transactionSeen {
+				seenTransactions[consumer.TransactionID()] = types.Void
+
+				cachedTransaction := tangle.Transaction(consumer.TransactionID())
+				defer cachedTransaction.Release()
+
+				cachedTransactionMetadata := tangle.TransactionMetadata(consumer.TransactionID())
+				defer cachedTransactionMetadata.Release()
+
+				tangle.Attachments(consumer.TransactionID()).Consume(func(attachment *Attachment) {
+					consume(tangle.Payload(attachment.PayloadID()), tangle.PayloadMetadata(attachment.PayloadID()), cachedTransaction.Retain(), cachedTransactionMetadata.Retain())
+				})
+			}
+		})
+
+		return true
+	})
+}
+
+// ForEachConsumersAndApprovers calls the passed in consumer for all payloads that either approve the given payload or
+// that attach a transaction that spends outputs from the transaction inside the given payload.
+func (tangle *Tangle) ForEachConsumersAndApprovers(currentPayload *payload.Payload, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata, transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata)) {
+	tangle.ForEachConsumers(currentPayload.Transaction(), consume)
+	tangle.ForeachApprovers(currentPayload.ID(), consume)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -352,16 +534,7 @@ func (tangle *Tangle) propagateBranchConfirmedRejectedChangesToTangle(cachedBran
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// BranchManager is the getter for the manager that takes care of creating and updating branches.
-func (tangle *Tangle) BranchManager() *branchmanager.BranchManager {
-	return tangle.branchManager
-}
-
-// SetTransactionFinalized modifies the finalized flag of a transaction. It updates the transactions metadata and
-// propagates the changes to the BranchManager if the flag was updated.
-func (tangle *Tangle) SetTransactionFinalized(transactionID transaction.ID) (modified bool, err error) {
-	return tangle.setTransactionFinalized(transactionID, EventSourceTangle)
-}
+// region PRIVATE UTILITY METHODS //////////////////////////////////////////////////////////////////////////////////////
 
 func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, eventSource EventSource) (modified bool, err error) {
 	// retrieve metadata and consume
@@ -460,12 +633,6 @@ func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(pro
 
 	// schedule checks of approvers and consumers
 	tangle.ForEachConsumersAndApprovers(currentPayload, tangle.createValuePayloadFutureConeIterator(propagationStack, processedPayloads))
-}
-
-// SetTransactionPreferred modifies the preferred flag of a transaction. It updates the transactions metadata,
-// propagates the changes to the branch DAG and triggers an update of the liked flags in the value tangle.
-func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, preferred bool) (modified bool, err error) {
-	return tangle.setTransactionPreferred(transactionID, preferred, EventSourceTangle)
 }
 
 // setTransactionPreferred is an internal utility method that updates the preferred flag and triggers changes to the
@@ -610,44 +777,6 @@ func (tangle *Tangle) createValuePayloadFutureConeIterator(propagationStack *lis
 			CachedTransactionMetadata: cachedTransactionMetadata.Retain(),
 		})
 	}
-}
-
-// ValuePayloadsLiked is checking if the Payloads referenced by the passed in IDs are all liked.
-func (tangle *Tangle) ValuePayloadsLiked(payloadIDs ...payload.ID) (liked bool) {
-	for _, payloadID := range payloadIDs {
-		if payloadID == payload.GenesisID {
-			continue
-		}
-
-		payloadMetadataFound := tangle.PayloadMetadata(payloadID).Consume(func(payloadMetadata *PayloadMetadata) {
-			liked = payloadMetadata.Liked()
-		})
-
-		if !payloadMetadataFound || !liked {
-			return false
-		}
-	}
-
-	return true
-}
-
-// ValuePayloadsConfirmed is checking if the Payloads referenced by the passed in IDs are all confirmed.
-func (tangle *Tangle) ValuePayloadsConfirmed(payloadIDs ...payload.ID) (confirmed bool) {
-	for _, payloadID := range payloadIDs {
-		if payloadID == payload.GenesisID {
-			continue
-		}
-
-		payloadMetadataFound := tangle.PayloadMetadata(payloadID).Consume(func(payloadMetadata *PayloadMetadata) {
-			confirmed = payloadMetadata.Liked()
-		})
-
-		if !payloadMetadataFound || !confirmed {
-			return false
-		}
-	}
-
-	return true
 }
 
 func (tangle *Tangle) storePayload(payloadToStore *payload.Payload) (cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata, payloadStored bool) {
@@ -1067,42 +1196,6 @@ func (tangle *Tangle) checkTransactionSolidity(tx *transaction.Transaction, meta
 	return
 }
 
-// LoadSnapshot creates a set of outputs in the value tangle, that are forming the genesis for future transactions.
-func (tangle *Tangle) LoadSnapshot(snapshot map[transaction.ID]map[address.Address][]*balance.Balance) {
-	for transactionID, addressBalances := range snapshot {
-		for outputAddress, balances := range addressBalances {
-			input := NewOutput(outputAddress, transactionID, branchmanager.MasterBranchID, balances)
-			input.setSolid(true)
-			input.SetBranchID(branchmanager.MasterBranchID)
-
-			// store output and abort if the snapshot has already been loaded earlier (output exists in the database)
-			cachedOutput, stored := tangle.outputStorage.StoreIfAbsent(input)
-			if !stored {
-				return
-			}
-
-			cachedOutput.Release()
-		}
-	}
-}
-
-// OutputsOnAddress retrieves all the Outputs that are associated with an address.
-func (tangle *Tangle) OutputsOnAddress(address address.Address) (result CachedOutputs) {
-	result = make(CachedOutputs)
-	tangle.outputStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		outputID, _, err := transaction.OutputIDFromBytes(key)
-		if err != nil {
-			panic(err)
-		}
-
-		result[outputID] = &CachedOutput{CachedObject: cachedObject}
-
-		return true
-	}, address.Bytes())
-
-	return
-}
-
 func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Transaction) (result CachedOutputs) {
 	result = make(CachedOutputs)
 	tx.Inputs().ForEach(func(inputId transaction.OutputID) bool {
@@ -1236,62 +1329,6 @@ func (tangle *Tangle) checkTransactionOutputs(inputBalances map[balance.Color]in
 
 	// the outputs are valid if they spend all consumed funds
 	return unspentCoins == newlyColoredCoins+uncoloredCoins
-}
-
-// Fork creates a new branch from an existing transaction.
-func (tangle *Tangle) Fork(transactionID transaction.ID, conflictingInputs []transaction.OutputID) (forked bool, finalized bool, err error) {
-	cachedTransaction := tangle.Transaction(transactionID)
-	cachedTransactionMetadata := tangle.TransactionMetadata(transactionID)
-	defer cachedTransaction.Release()
-	defer cachedTransactionMetadata.Release()
-
-	tx := cachedTransaction.Unwrap()
-	if tx == nil {
-		err = fmt.Errorf("failed to load transaction '%s'", transactionID)
-
-		return
-	}
-	txMetadata := cachedTransactionMetadata.Unwrap()
-	if txMetadata == nil {
-		err = fmt.Errorf("failed to load metadata of transaction '%s'", transactionID)
-
-		return
-	}
-
-	// abort if this transaction was finalized already
-	if txMetadata.Finalized() {
-		finalized = true
-
-		return
-	}
-
-	// update / create new branch
-	newBranchID := branchmanager.NewBranchID(tx.ID())
-	cachedTargetBranch, newBranchCreated := tangle.branchManager.Fork(newBranchID, []branchmanager.BranchID{txMetadata.BranchID()}, conflictingInputs)
-	defer cachedTargetBranch.Release()
-
-	// set branch to be preferred if the underlying transaction was marked as preferred
-	if txMetadata.Preferred() {
-		if _, err = tangle.branchManager.SetBranchPreferred(newBranchID, true); err != nil {
-			return
-		}
-	}
-
-	// abort if the branch existed already
-	if !newBranchCreated {
-		return
-	}
-
-	// move transactions to new branch
-	if err = tangle.moveTransactionToBranch(cachedTransaction.Retain(), cachedTransactionMetadata.Retain(), cachedTargetBranch.Retain()); err != nil {
-		return
-	}
-
-	// trigger events + set result
-	tangle.Events.Fork.Trigger(cachedTransaction, cachedTransactionMetadata)
-	forked = true
-
-	return
 }
 
 // TODO: write comment what it does
@@ -1451,36 +1488,7 @@ func (tangle *Tangle) calculateBranchOfTransaction(currentTransaction *transacti
 	return
 }
 
-// ForEachConsumers iterates through the transactions that are consuming outputs of the given transactions
-func (tangle *Tangle) ForEachConsumers(currentTransaction *transaction.Transaction, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata, transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata)) {
-	seenTransactions := make(map[transaction.ID]types.Empty)
-	currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		tangle.Consumers(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(consumer *Consumer) {
-			if _, transactionSeen := seenTransactions[consumer.TransactionID()]; !transactionSeen {
-				seenTransactions[consumer.TransactionID()] = types.Void
-
-				cachedTransaction := tangle.Transaction(consumer.TransactionID())
-				defer cachedTransaction.Release()
-
-				cachedTransactionMetadata := tangle.TransactionMetadata(consumer.TransactionID())
-				defer cachedTransactionMetadata.Release()
-
-				tangle.Attachments(consumer.TransactionID()).Consume(func(attachment *Attachment) {
-					consume(tangle.Payload(attachment.PayloadID()), tangle.PayloadMetadata(attachment.PayloadID()), cachedTransaction.Retain(), cachedTransactionMetadata.Retain())
-				})
-			}
-		})
-
-		return true
-	})
-}
-
-// ForEachConsumersAndApprovers calls the passed in consumer for all payloads that either approve the given payload or
-// that attach a transaction that spends outputs from the transaction inside the given payload.
-func (tangle *Tangle) ForEachConsumersAndApprovers(currentPayload *payload.Payload, consume func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata, transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata)) {
-	tangle.ForEachConsumers(currentPayload.Transaction(), consume)
-	tangle.ForeachApprovers(currentPayload.ID(), consume)
-}
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // valuePayloadPropagationStackEntry is a container for the elements in the propagation stack of ValuePayloads
 type valuePayloadPropagationStackEntry struct {
