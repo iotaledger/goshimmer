@@ -1033,9 +1033,11 @@ func TestBranchManager_SetBranchPreferred2(t *testing.T) {
 	// simulate branch 3 being not preferred from FPC vote
 	modified, err = branchManager.SetBranchPreferred(branch3.ID(), false)
 	assert.NoError(t, err)
+	assert.False(t, modified)
 	// simulate branch 7 being not preferred from FPC vote
 	modified, err = branchManager.SetBranchPreferred(branch7.ID(), false)
 	assert.NoError(t, err)
+	assert.False(t, modified)
 	// simulate branch 4 being preferred by FPC vote
 	modified, err = branchManager.SetBranchPreferred(branch4.ID(), true)
 	assert.NoError(t, err)
