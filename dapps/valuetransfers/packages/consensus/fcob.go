@@ -126,7 +126,9 @@ func (fcob *FCOB) setFinalized(cachedTransactionMetadata *tangle.CachedTransacti
 			return
 		}
 
-		transactionMetadata.SetFinalized(true)
+		if _, err := fcob.tangle.SetTransactionFinalized(transactionMetadata.ID()); err != nil {
+			fcob.Events.Error.Trigger(err)
+		}
 	})
 }
 

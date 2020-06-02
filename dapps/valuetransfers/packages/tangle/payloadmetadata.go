@@ -21,11 +21,15 @@ type PayloadMetadata struct {
 	solid              bool
 	solidificationTime time.Time
 	liked              bool
+	confirmed          bool
+	rejected           bool
 	branchID           branchmanager.BranchID
 
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 	likedMutex              sync.RWMutex
+	confirmedMutex          sync.RWMutex
+	rejectedMutex           sync.RWMutex
 	branchIDMutex           sync.RWMutex
 }
 
@@ -104,9 +108,9 @@ func (payloadMetadata *PayloadMetadata) IsSolid() (result bool) {
 	return
 }
 
-// SetSolid marks a payload as either solid or not solid.
+// setSolid marks a payload as either solid or not solid.
 // It returns true if the solid flag was changes and automatically updates the solidificationTime as well.
-func (payloadMetadata *PayloadMetadata) SetSolid(solid bool) (modified bool) {
+func (payloadMetadata *PayloadMetadata) setSolid(solid bool) (modified bool) {
 	payloadMetadata.solidMutex.RLock()
 	if payloadMetadata.solid != solid {
 		payloadMetadata.solidMutex.RUnlock()
@@ -149,8 +153,8 @@ func (payloadMetadata *PayloadMetadata) Liked() bool {
 	return payloadMetadata.liked
 }
 
-// SetLiked modifies the liked flag of the given Payload. It returns true if the value has been updated.
-func (payloadMetadata *PayloadMetadata) SetLiked(liked bool) (modified bool) {
+// setLiked modifies the liked flag of the given Payload. It returns true if the value has been updated.
+func (payloadMetadata *PayloadMetadata) setLiked(liked bool) (modified bool) {
 	payloadMetadata.likedMutex.RLock()
 	if payloadMetadata.liked == liked {
 		payloadMetadata.likedMutex.RUnlock()
@@ -167,6 +171,70 @@ func (payloadMetadata *PayloadMetadata) SetLiked(liked bool) (modified bool) {
 	}
 
 	payloadMetadata.liked = liked
+	payloadMetadata.SetModified()
+	modified = true
+
+	return
+}
+
+// Confirmed returns true if the Payload was marked as confirmed.
+func (payloadMetadata *PayloadMetadata) Confirmed() bool {
+	payloadMetadata.confirmedMutex.RLock()
+	defer payloadMetadata.confirmedMutex.RUnlock()
+
+	return payloadMetadata.confirmed
+}
+
+// setConfirmed modifies the confirmed flag of the given Payload. It returns true if the value has been updated.
+func (payloadMetadata *PayloadMetadata) setConfirmed(confirmed bool) (modified bool) {
+	payloadMetadata.confirmedMutex.RLock()
+	if payloadMetadata.confirmed == confirmed {
+		payloadMetadata.confirmedMutex.RUnlock()
+
+		return
+	}
+
+	payloadMetadata.confirmedMutex.RUnlock()
+	payloadMetadata.confirmedMutex.Lock()
+	defer payloadMetadata.confirmedMutex.Unlock()
+
+	if payloadMetadata.confirmed == confirmed {
+		return
+	}
+
+	payloadMetadata.confirmed = confirmed
+	payloadMetadata.SetModified()
+	modified = true
+
+	return
+}
+
+// Rejected returns true if the Payload was marked as confirmed.
+func (payloadMetadata *PayloadMetadata) Rejected() bool {
+	payloadMetadata.rejectedMutex.RLock()
+	defer payloadMetadata.rejectedMutex.RUnlock()
+
+	return payloadMetadata.rejected
+}
+
+// setRejected modifies the rejected flag of the given Payload. It returns true if the value has been updated.
+func (payloadMetadata *PayloadMetadata) setRejected(rejected bool) (modified bool) {
+	payloadMetadata.rejectedMutex.RLock()
+	if payloadMetadata.rejected == rejected {
+		payloadMetadata.rejectedMutex.RUnlock()
+
+		return
+	}
+
+	payloadMetadata.rejectedMutex.RUnlock()
+	payloadMetadata.rejectedMutex.Lock()
+	defer payloadMetadata.rejectedMutex.Unlock()
+
+	if payloadMetadata.rejected == rejected {
+		return
+	}
+
+	payloadMetadata.rejected = rejected
 	payloadMetadata.SetModified()
 	modified = true
 
@@ -236,10 +304,12 @@ func (payloadMetadata *PayloadMetadata) Update(other objectstorage.StorableObjec
 
 // ObjectStorageValue is required to match the encoding.BinaryMarshaler interface.
 func (payloadMetadata *PayloadMetadata) ObjectStorageValue() []byte {
-	return marshalutil.New(marshalutil.TIME_SIZE + 2*marshalutil.BOOL_SIZE).
+	return marshalutil.New(marshalutil.TIME_SIZE + 4*marshalutil.BOOL_SIZE).
 		WriteTime(payloadMetadata.solidificationTime).
 		WriteBool(payloadMetadata.solid).
 		WriteBool(payloadMetadata.liked).
+		WriteBool(payloadMetadata.confirmed).
+		WriteBool(payloadMetadata.rejected).
 		WriteBytes(payloadMetadata.branchID.Bytes()).
 		Bytes()
 }
@@ -254,6 +324,12 @@ func (payloadMetadata *PayloadMetadata) UnmarshalObjectStorageValue(data []byte)
 		return
 	}
 	if payloadMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if payloadMetadata.confirmed, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if payloadMetadata.rejected, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
 	if payloadMetadata.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {

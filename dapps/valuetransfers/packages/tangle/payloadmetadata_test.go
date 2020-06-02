@@ -21,7 +21,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 	assert.Equal(t, originalMetadata.IsSolid(), clonedMetadata.IsSolid())
 	assert.Equal(t, originalMetadata.SoldificationTime().Round(time.Second), clonedMetadata.SoldificationTime().Round(time.Second))
 
-	originalMetadata.SetSolid(true)
+	originalMetadata.setSolid(true)
 
 	clonedMetadata, _, err = PayloadMetadataFromBytes(originalMetadata.Bytes())
 	if err != nil {
@@ -39,7 +39,7 @@ func TestPayloadMetadata_SetSolid(t *testing.T) {
 	assert.Equal(t, false, originalMetadata.IsSolid())
 	assert.Equal(t, time.Time{}, originalMetadata.SoldificationTime())
 
-	originalMetadata.SetSolid(true)
+	originalMetadata.setSolid(true)
 
 	assert.Equal(t, true, originalMetadata.IsSolid())
 	assert.Equal(t, time.Now().Round(time.Second), originalMetadata.SoldificationTime().Round(time.Second))
