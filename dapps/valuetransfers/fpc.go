@@ -76,7 +76,6 @@ func Voter() vote.DRNGRoundBasedVoter {
 func configureFPC() {
 	log = logger.NewLogger(FpcPluginName)
 	lPeer := local.GetInstance()
-	Voter()
 
 	bindAddr := config.Node.GetString(CfgFPCBindAddress)
 	_, portStr, err := net.SplitHostPort(bindAddr)
@@ -92,7 +91,7 @@ func configureFPC() {
 		log.Fatalf("could not update services: %v", err)
 	}
 
-	voter.Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
+	Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
 		peersQueried := len(roundStats.QueriedOpinions)
 		voteContextsCount := len(roundStats.ActiveVoteContexts)
 		log.Infof("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
