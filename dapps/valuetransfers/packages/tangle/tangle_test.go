@@ -1361,7 +1361,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		valueObject := payload.New(storeParentPayloadWithMetadataFunc(t, tangle, setParent1), storeParentPayloadWithMetadataFunc(t, tangle, setParent2), createDummyTransaction())
 		metadata := NewPayloadMetadata(valueObject.ID())
 
-		transactionBranches := []branchmanager.BranchID{branchmanager.BranchID{2}}
+		transactionBranches := []branchmanager.BranchID{{2}}
 		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
 		assert.False(t, solid)
 		assert.Error(t, err)
