@@ -214,7 +214,6 @@ func (branch *Branch) setPreferred(preferred bool) (modified bool) {
 	branch.preferred = preferred
 	branch.SetModified()
 	modified = true
-
 	return
 }
 
@@ -246,8 +245,7 @@ func (branch *Branch) setLiked(liked bool) (modified bool) {
 	branch.liked = liked
 	branch.SetModified()
 	modified = true
-
-	return branch.liked
+	return
 }
 
 // Finalized returns true if the branch has been marked as finalized.
