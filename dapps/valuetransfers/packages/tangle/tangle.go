@@ -79,64 +79,43 @@ func (tangle *Tangle) setupDAGSynchronization() {
 	tangle.branchManager.Events.BranchRejected.Attach(events.NewClosure(tangle.onBranchRejected))
 }
 
+// onBranchPreferred gets triggered when a branch in the branch DAG is marked as preferred.
 func (tangle *Tangle) onBranchPreferred(cachedBranch *branchmanager.CachedBranch) {
 	tangle.propagateBranchPreferredChangesToTangle(cachedBranch, true)
 }
 
+// onBranchUnpreferred gets triggered when a branch in the branch DAG is marked as NOT preferred.
 func (tangle *Tangle) onBranchUnpreferred(cachedBranch *branchmanager.CachedBranch) {
 	tangle.propagateBranchPreferredChangesToTangle(cachedBranch, false)
 }
 
+// onBranchLiked gets triggered when a branch in the branch DAG is marked as liked.
 func (tangle *Tangle) onBranchLiked(cachedBranch *branchmanager.CachedBranch) {
 	tangle.propagateBranchedLikedChangesToTangle(cachedBranch, true)
 }
 
+// onBranchDisliked gets triggered when a branch in the branch DAG is marked as disliked.
 func (tangle *Tangle) onBranchDisliked(cachedBranch *branchmanager.CachedBranch) {
 	tangle.propagateBranchedLikedChangesToTangle(cachedBranch, false)
 }
 
+// onBranchFinalized gets triggered when a branch in the branch DAG is marked as finalized.
 func (tangle *Tangle) onBranchFinalized(cachedBranch *branchmanager.CachedBranch) {
 	tangle.propagateBranchFinalizedChangesToTangle(cachedBranch)
 }
 
+// onBranchConfirmed gets triggered when a branch in the branch DAG is marked as confirmed.
 func (tangle *Tangle) onBranchConfirmed(cachedBranch *branchmanager.CachedBranch) {
 	tangle.propagateBranchConfirmedRejectedChangesToTangle(cachedBranch)
 }
 
+// onBranchRejected gets triggered when a branch in the branch DAG is marked as rejected.
 func (tangle *Tangle) onBranchRejected(cachedBranch *branchmanager.CachedBranch) {
 	tangle.propagateBranchConfirmedRejectedChangesToTangle(cachedBranch)
 }
 
-func (tangle *Tangle) propagateBranchedLikedChangesToTangle(cachedBranch *branchmanager.CachedBranch, liked bool) {
-	cachedBranch.Consume(func(branch *branchmanager.Branch) {
-		if !branch.IsAggregated() {
-			transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
-			if err != nil {
-				panic(err) // this should never ever happen
-			}
-
-			// propagate changes to future cone of transaction (value tangle)
-			tangle.propagateValuePayloadLikeUpdates(transactionID, liked)
-		}
-	})
-}
-
-func (tangle *Tangle) propagateBranchConfirmedRejectedChangesToTangle(cachedBranch *branchmanager.CachedBranch) {
-	cachedBranch.Consume(func(branch *branchmanager.Branch) {
-		if !branch.IsAggregated() {
-			transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
-			if err != nil {
-				panic(err) // this should never ever happen
-			}
-
-			// propagate changes to future cone of transaction (value tangle)
-			tangle.propagateValuePayloadConfirmedRejectedUpdates(transactionID)
-		}
-	})
-}
-
-// propagateBranchPreferredChangesToTangle updates the preferred flag of a transaction, whenever the preferred
-// status of its corresponding branch changes.
+// propagateBranchPreferredChangesToTangle triggers the propagation of preferred status changes of a branch to the value
+// tangle and its UTXO DAG.
 func (tangle *Tangle) propagateBranchPreferredChangesToTangle(cachedBranch *branchmanager.CachedBranch, preferred bool) {
 	cachedBranch.Consume(func(branch *branchmanager.Branch) {
 		if !branch.IsAggregated() {
@@ -155,8 +134,8 @@ func (tangle *Tangle) propagateBranchPreferredChangesToTangle(cachedBranch *bran
 	})
 }
 
-// propagateBranchPreferredChangesToTangle updates the finalized flag of a transaction, whenever the finalized
-// status of its corresponding branch changes.
+// propagateBranchFinalizedChangesToTangle triggers the propagation of finalized status changes of a branch to the value
+// tangle and its UTXO DAG.
 func (tangle *Tangle) propagateBranchFinalizedChangesToTangle(cachedBranch *branchmanager.CachedBranch) {
 	cachedBranch.Consume(func(branch *branchmanager.Branch) {
 		if !branch.IsAggregated() {
@@ -171,6 +150,38 @@ func (tangle *Tangle) propagateBranchFinalizedChangesToTangle(cachedBranch *bran
 
 				return
 			}
+		}
+	})
+}
+
+// propagateBranchedLikedChangesToTangle triggers the propagation of liked status changes of a branch to the value
+// tangle and its UTXO DAG.
+func (tangle *Tangle) propagateBranchedLikedChangesToTangle(cachedBranch *branchmanager.CachedBranch, liked bool) {
+	cachedBranch.Consume(func(branch *branchmanager.Branch) {
+		if !branch.IsAggregated() {
+			transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
+			if err != nil {
+				panic(err) // this should never ever happen
+			}
+
+			// propagate changes to future cone of transaction (value tangle)
+			tangle.propagateValuePayloadLikeUpdates(transactionID, liked)
+		}
+	})
+}
+
+// propagateBranchConfirmedRejectedChangesToTangle triggers the propagation of confirmed and rejected status changes of
+// a branch to the value tangle and its UTXO DAG.
+func (tangle *Tangle) propagateBranchConfirmedRejectedChangesToTangle(cachedBranch *branchmanager.CachedBranch) {
+	cachedBranch.Consume(func(branch *branchmanager.Branch) {
+		if !branch.IsAggregated() {
+			transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
+			if err != nil {
+				panic(err) // this should never ever happen
+			}
+
+			// propagate changes to future cone of transaction (value tangle)
+			tangle.propagateValuePayloadConfirmedRejectedUpdates(transactionID)
 		}
 	})
 }
@@ -541,28 +552,6 @@ func (tangle *Tangle) Approvers(payloadID payload.ID) CachedApprovers {
 	return approvers
 }
 
-// Shutdown stops the worker pools and shuts down the object storage instances.
-func (tangle *Tangle) Shutdown() *Tangle {
-	tangle.workerPool.ShutdownGracefully()
-	tangle.cleanupWorkerPool.ShutdownGracefully()
-
-	for _, storage := range []*objectstorage.ObjectStorage{
-		tangle.payloadStorage,
-		tangle.payloadMetadataStorage,
-		tangle.missingPayloadStorage,
-		tangle.approverStorage,
-		tangle.transactionStorage,
-		tangle.transactionMetadataStorage,
-		tangle.attachmentStorage,
-		tangle.outputStorage,
-		tangle.consumerStorage,
-	} {
-		storage.Shutdown()
-	}
-
-	return tangle
-}
-
 // Prune resets the database and deletes all objects (for testing or "node resets").
 func (tangle *Tangle) Prune() (err error) {
 	if err = tangle.branchManager.Prune(); err != nil {
@@ -586,6 +575,28 @@ func (tangle *Tangle) Prune() (err error) {
 	}
 
 	return
+}
+
+// Shutdown stops the worker pools and shuts down the object storage instances.
+func (tangle *Tangle) Shutdown() *Tangle {
+	tangle.workerPool.ShutdownGracefully()
+	tangle.cleanupWorkerPool.ShutdownGracefully()
+
+	for _, storage := range []*objectstorage.ObjectStorage{
+		tangle.payloadStorage,
+		tangle.payloadMetadataStorage,
+		tangle.missingPayloadStorage,
+		tangle.approverStorage,
+		tangle.transactionStorage,
+		tangle.transactionMetadataStorage,
+		tangle.attachmentStorage,
+		tangle.outputStorage,
+		tangle.consumerStorage,
+	} {
+		storage.Shutdown()
+	}
+
+	return tangle
 }
 
 // AttachPayloadSync is the worker function that stores the payload and calls the corresponding storage events.
