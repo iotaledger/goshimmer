@@ -37,7 +37,7 @@ func configure(*node.Plugin) {
 func run(*node.Plugin) {
 	log.Infof("Starting %s ...", PluginName)
 	if err := daemon.BackgroundWorker("WebAPI Server", worker, shutdown.PriorityWebAPI); err != nil {
-		log.Errorf("Error starting as daemon: %s", err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 

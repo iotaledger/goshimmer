@@ -69,7 +69,7 @@ func run(_ *node.Plugin) {
 		log.Info("Stopping Server ...")
 		server.Shutdown()
 	}, shutdown.PriorityAnalysis); err != nil {
-		log.Panic(err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 

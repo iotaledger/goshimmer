@@ -29,12 +29,23 @@ func Handler(c echo.Context) error {
 		outputids := make([]OutputID, 0)
 		// get outputids by address
 		for id, outputObj := range valuetransfers.Tangle.OutputsOnAddress(address) {
+			defer outputObj.Release()
 			output := outputObj.Unwrap()
 
 			// TODO: get inclusion state
 			if output.ConsumerCount() == 0 {
+				// iterate balances
+				var b []utils.Balance
+				for _, balance := range output.Balances() {
+					b = append(b, utils.Balance{
+						Value: balance.Value(),
+						Color: balance.Color().String(),
+					})
+				}
+
 				outputids = append(outputids, OutputID{
-					ID: id.String(),
+					ID:       id.String(),
+					Balances: b,
 					InclusionState: utils.InclusionState{
 						Confirmed: true,
 						Conflict:  false,
@@ -74,5 +85,6 @@ type UnspentOutput struct {
 // OutputID holds the output id and its inclusion state
 type OutputID struct {
 	ID             string               `json:"id"`
+	Balances       []utils.Balance      `json:"balances"`
 	InclusionState utils.InclusionState `json:"inclusion_state"`
 }

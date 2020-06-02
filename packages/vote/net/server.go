@@ -53,10 +53,10 @@ func (vs *VoterServer) Run() error {
 		return err
 	}
 
-	grpcServer := grpc.NewServer()
-	RegisterVoterQueryServer(grpcServer, vs)
+	vs.grpcServer = grpc.NewServer()
+	RegisterVoterQueryServer(vs.grpcServer, vs)
 
-	return grpcServer.Serve(listener)
+	return vs.grpcServer.Serve(listener)
 }
 
 func (vs *VoterServer) Shutdown() {
