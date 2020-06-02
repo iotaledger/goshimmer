@@ -79,7 +79,7 @@ func runVisualizer() {
 		visualizerWorkerPool.TrySubmit(messageId, false)
 	})
 
-	daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {
 		messagelayer.Tangle.Events.MessageAttached.Attach(notifyNewMsg)
 		defer messagelayer.Tangle.Events.MessageAttached.Detach(notifyNewMsg)
 		messagelayer.Tangle.Events.MessageSolid.Attach(notifyNewMsg)
@@ -93,5 +93,7 @@ func runVisualizer() {
 		log.Info("Stopping Dashboard[Visualizer] ...")
 		visualizerWorkerPool.Stop()
 		log.Info("Stopping Dashboard[Visualizer] ... done")
-	}, shutdown.PriorityDashboard)
+	}, shutdown.PriorityDashboard); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
 }

@@ -99,7 +99,7 @@ func configureFPC() {
 }
 
 func runFPC() {
-	daemon.BackgroundWorker("FPCVoterServer", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("FPCVoterServer", func(shutdownSignal <-chan struct{}) {
 		voterServer = votenet.New(Voter(), func(id string) vote.Opinion {
 			branchID, err := branchmanager.BranchIDFromBase58(id)
 			if err != nil {
@@ -133,9 +133,11 @@ func runFPC() {
 		<-shutdownSignal
 		voterServer.Shutdown()
 		log.Info("Stopped vote server")
-	}, shutdown.PriorityFPC)
+	}, shutdown.PriorityFPC); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
 
-	daemon.BackgroundWorker("FPCRoundsInitiator", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("FPCRoundsInitiator", func(shutdownSignal <-chan struct{}) {
 		log.Infof("Started FPC round initiator")
 		unixTsPRNG := prng.NewUnixTimestampPRNG(roundIntervalSeconds)
 		defer unixTsPRNG.Stop()
@@ -151,7 +153,9 @@ func runFPC() {
 			}
 		}
 		log.Infof("Stopped FPC round initiator")
-	}, shutdown.PriorityFPC)
+	}, shutdown.PriorityFPC); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
 }
 
 // PeerOpinionGiver implements the OpinionGiver interface based on a peer.
