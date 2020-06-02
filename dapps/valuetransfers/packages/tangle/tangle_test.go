@@ -1176,7 +1176,7 @@ func TestCheckTransactionSolidity(t *testing.T) {
 		inputIDs := make([]transaction.OutputID, 0)
 		for _, branch := range []*branchmanager.Branch{branch2, branch3} {
 			input := NewOutput(address.Random(), transaction.GenesisID, branch.ID(), []*balance.Balance{balance.New(balance.ColorIOTA, 1)})
-			input.SetSolid(true)
+			input.setSolid(true)
 			cachedObject, _ := tangle.outputStorage.StoreIfAbsent(input)
 			cachedOutput := &CachedOutput{CachedObject: cachedObject}
 			cachedOutput.Consume(func(output *Output) {
@@ -1222,7 +1222,7 @@ func TestPayloadBranchID(t *testing.T) {
 		cachedPayload.Release()
 		expectedBranchID := branchmanager.BranchID{1}
 		cachedMetadata.Consume(func(metadata *PayloadMetadata) {
-			metadata.SetSolid(true)
+			metadata.setSolid(true)
 			metadata.SetBranchID(expectedBranchID)
 		})
 
@@ -1251,7 +1251,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 	{
 		valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
 		metadata := NewPayloadMetadata(valueObject.ID())
-		metadata.SetSolid(true)
+		metadata.setSolid(true)
 		metadata.SetBranchID(branchmanager.MasterBranchID)
 
 		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
@@ -1274,7 +1274,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 	// check with solid parents and branch set
 	{
 		setParent := func(payloadMetadata *PayloadMetadata) {
-			payloadMetadata.SetSolid(true)
+			payloadMetadata.setSolid(true)
 			payloadMetadata.SetBranchID(branchmanager.MasterBranchID)
 		}
 
@@ -1290,7 +1290,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 	// check with solid parents but no branch set -> should not be solid
 	{
 		setParent := func(payloadMetadata *PayloadMetadata) {
-			payloadMetadata.SetSolid(true)
+			payloadMetadata.setSolid(true)
 		}
 
 		valueObject := payload.New(storeParentPayloadWithMetadataFunc(t, tangle, setParent), storeParentPayloadWithMetadataFunc(t, tangle, setParent), createDummyTransaction())
@@ -1325,11 +1325,11 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		cachedBranch3, _ := tangle.BranchManager().Fork(branchmanager.BranchID{3}, []branchmanager.BranchID{branchmanager.MasterBranchID}, []branchmanager.ConflictID{{0}})
 		defer cachedBranch3.Release()
 		setParent1 := func(payloadMetadata *PayloadMetadata) {
-			payloadMetadata.SetSolid(true)
+			payloadMetadata.setSolid(true)
 			payloadMetadata.SetBranchID(branchmanager.BranchID{2})
 		}
 		setParent2 := func(payloadMetadata *PayloadMetadata) {
-			payloadMetadata.SetSolid(true)
+			payloadMetadata.setSolid(true)
 			payloadMetadata.SetBranchID(branchmanager.BranchID{3})
 		}
 
@@ -1350,11 +1350,11 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		cachedBranch3, _ := tangle.BranchManager().Fork(branchmanager.BranchID{3}, []branchmanager.BranchID{branchmanager.MasterBranchID}, []branchmanager.ConflictID{{0}})
 		defer cachedBranch3.Release()
 		setParent1 := func(payloadMetadata *PayloadMetadata) {
-			payloadMetadata.SetSolid(true)
+			payloadMetadata.setSolid(true)
 			payloadMetadata.SetBranchID(branchmanager.MasterBranchID)
 		}
 		setParent2 := func(payloadMetadata *PayloadMetadata) {
-			payloadMetadata.SetSolid(true)
+			payloadMetadata.setSolid(true)
 			payloadMetadata.SetBranchID(branchmanager.BranchID{3})
 		}
 

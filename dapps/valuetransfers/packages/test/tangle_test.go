@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/iotaledger/hive.go/events"
@@ -71,6 +72,10 @@ func TestTangle_ValueTransfer(t *testing.T) {
 		}),
 	))
 	valueTangle.AttachPayloadSync(attachedPayload1)
+
+	valueTangle.PayloadMetadata(attachedPayload1.ID()).Consume(func(payload *tangle.PayloadMetadata) {
+		fmt.Println(payload.Confirmed())
+	})
 
 	// check if old addresses are empty and new addresses are filled
 	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(seed.Address(0)))
