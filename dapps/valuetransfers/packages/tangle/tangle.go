@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 )
@@ -279,6 +280,7 @@ func (tangle *Tangle) Shutdown() *Tangle {
 		tangle.outputStorage,
 		tangle.consumerStorage,
 	} {
+		fmt.Println("A")
 		storage.Shutdown()
 	}
 
@@ -858,6 +860,78 @@ func (tangle *Tangle) solidifyPayload(cachedPayload *payload.CachedPayload, cach
 	}
 }
 
+// deleteTransactionFutureCone removes a transaction and its whole future cone from the database (including all of the
+// reference models).
+func (tangle *Tangle) deleteTransactionFutureCone(transactionID transaction.ID) {
+	// initialize stack with current transaction
+	deleteStack := list.New()
+	deleteStack.PushBack(transactionID)
+
+	// introduce map to keep track of queued transactions (so we don't process them twice)
+	queuedTransaction := make(map[transaction.ID]types.Empty)
+	queuedTransaction[transactionID] = types.Void
+
+	// iterate through stack
+	for deleteStack.Len() >= 1 {
+		// pop first element from stack
+		currentTransactionIDEntry := deleteStack.Front()
+		deleteStack.Remove(currentTransactionIDEntry)
+		currentTransactionID := currentTransactionIDEntry.Value.(transaction.ID)
+
+		// process transaction and its models
+		tangle.Transaction(currentTransactionID).Consume(func(tx *transaction.Transaction) {
+			// mark transaction as deleted
+			tx.Delete()
+
+			// cleanup inputs
+			tx.Inputs().ForEach(func(outputId transaction.OutputID) bool {
+				// delete consumer pointers of the inputs of the current transaction
+				tangle.consumerStorage.Delete(marshalutil.New(transaction.OutputIDLength + transaction.IDLength).WriteBytes(outputId.Bytes()).WriteBytes(currentTransactionID.Bytes()).Bytes())
+
+				return true
+			})
+
+			// cleanup outputs
+			tx.Outputs().ForEach(func(addr address.Address, balances []*balance.Balance) bool {
+				// delete outputs
+				tangle.outputStorage.Delete(marshalutil.New(address.Length + transaction.IDLength).WriteBytes(addr.Bytes()).WriteBytes(currentTransactionID.Bytes()).Bytes())
+
+				// process consumers
+				tangle.Consumers(transaction.NewOutputID(addr, currentTransactionID)).Consume(func(consumer *Consumer) {
+					// check if the transaction has been queued already
+					if _, transactionQueuedAlready := queuedTransaction[consumer.TransactionID()]; transactionQueuedAlready {
+						return
+					}
+					queuedTransaction[consumer.TransactionID()] = types.Void
+
+					// queue consumers for deletion
+					deleteStack.PushBack(consumer.TransactionID())
+				})
+
+				return true
+			})
+		})
+
+		// delete transaction metadata
+		tangle.transactionMetadataStorage.Delete(currentTransactionID.Bytes())
+
+		// process attachments
+		tangle.Attachments(currentTransactionID).Consume(func(attachment *Attachment) {
+			// mark attachment as deleted
+			attachment.Delete()
+
+			// remove payload future cone
+			tangle.deletePayloadFutureCone(attachment.PayloadID())
+		})
+	}
+}
+
+// deletePayloadFutureCone removes a payload and its whole future cone from the database (including all of the reference
+// models).
+func (tangle *Tangle) deletePayloadFutureCone(payloadID payload.ID) {
+	// TODO: FINISH IMPLEMENTATION
+}
+
 // processSolidificationStackEntry processes a single entry of the solidification stack and schedules its approvers and
 // consumers if necessary.
 func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.List, processedPayloads map[payload.ID]types.Empty, solidificationStackEntry *valuePayloadPropagationStackEntry) {
@@ -873,7 +947,9 @@ func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.
 	// abort if the transaction is not solid or invalid
 	transactionSolid, consumedBranches, transactionSolidityErr := tangle.checkTransactionSolidity(currentTransaction, currentTransactionMetadata)
 	if transactionSolidityErr != nil {
-		// TODO: TRIGGER INVALID TX + REMOVE TXS + PAYLOADS THAT APPROVE IT
+		tangle.Events.TransactionInvalid.Trigger(solidificationStackEntry.CachedTransaction, solidificationStackEntry.CachedTransactionMetadata)
+
+		tangle.deleteTransactionFutureCone(currentTransaction.ID())
 
 		return
 	}

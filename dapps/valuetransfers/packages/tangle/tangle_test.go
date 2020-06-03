@@ -1951,6 +1951,11 @@ func TestLucasScenario(t *testing.T) {
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-F, -D, Y+]"])
+
+		// check if all of the invalids transactions models were deleted
+		assert.False(t, tangle.Transaction(transactions["[-F, -D, Y+]"].ID()).Consume(func(metadata *transaction.Transaction) {}))
+		assert.False(t, tangle.TransactionMetadata(transactions["[-F, -D, Y+]"].ID()).Consume(func(metadata *TransactionMetadata) {}))
+		// TODO: CHECK EXISTENCE OF REMAINING MODELS
 	}
 }
 

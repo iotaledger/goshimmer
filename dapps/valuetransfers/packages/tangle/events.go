@@ -23,6 +23,9 @@ type Events struct {
 	// TransactionReceived gets triggered whenever a transaction was received for the first time (not solid yet).
 	TransactionReceived *events.Event
 
+	// TransactionInvalid gets triggered whenever we receive an invalid transaction.
+	TransactionInvalid *events.Event
+
 	// TransactionSolid gets triggered whenever a transaction becomes solid for the first time.
 	TransactionSolid *events.Event
 
@@ -70,6 +73,7 @@ func newEvents() *Events {
 		PayloadMissing:         events.NewEvent(payloadIDEvent),
 		PayloadUnsolidifiable:  events.NewEvent(payloadIDEvent),
 		TransactionReceived:    events.NewEvent(cachedTransactionAttachmentEvent),
+		TransactionInvalid:     events.NewEvent(cachedTransactionEvent),
 		TransactionSolid:       events.NewEvent(cachedTransactionEvent),
 		TransactionBooked:      events.NewEvent(transactionBookedEvent),
 		TransactionPreferred:   events.NewEvent(cachedTransactionEvent),
