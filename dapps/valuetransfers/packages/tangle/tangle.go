@@ -280,7 +280,6 @@ func (tangle *Tangle) Shutdown() *Tangle {
 		tangle.outputStorage,
 		tangle.consumerStorage,
 	} {
-		fmt.Println("A")
 		storage.Shutdown()
 	}
 
