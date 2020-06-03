@@ -1524,13 +1524,14 @@ func TestForeachApprovers(t *testing.T) {
 }
 
 const (
-	G uint64 = iota
+	GENESIS uint64 = iota
 	A
 	B
 	C
 	D
 	E
 	F
+	G
 )
 
 func TestLucasScenario(t *testing.T) {
@@ -1544,7 +1545,7 @@ func TestLucasScenario(t *testing.T) {
 	// initialize tangle with genesis block (+G)
 	tangle.LoadSnapshot(map[transaction.ID]map[address.Address][]*balance.Balance{
 		transaction.GenesisID: {
-			seed.Address(G): {
+			seed.Address(GENESIS): {
 				balance.New(balance.ColorIOTA, 3333),
 			},
 		},
@@ -1552,13 +1553,14 @@ func TestLucasScenario(t *testing.T) {
 
 	transactions := make(map[string]*transaction.Transaction)
 	valueObjects := make(map[string]*payload.Payload)
+	branches := make(map[string]branchmanager.BranchID)
 
-	// [-G, A+, B+, C+]
+	// [-GENESIS, A+, B+, C+]
 	{
 		// create transaction + payload
-		transactions["[-G, A+, B+, C+]"] = transaction.New(
+		transactions["[-GENESIS, A+, B+, C+]"] = transaction.New(
 			transaction.NewInputs(
-				transaction.NewOutputID(seed.Address(G), transaction.GenesisID),
+				transaction.NewOutputID(seed.Address(GENESIS), transaction.GenesisID),
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
@@ -1573,29 +1575,29 @@ func TestLucasScenario(t *testing.T) {
 				},
 			}),
 		)
-		transactions["[-G, A+, B+, C+]"].Sign(signaturescheme.ED25519(*seed.KeyPair(G)))
-		valueObjects["[-G, A+, B+, C+]"] = payload.New(payload.GenesisID, payload.GenesisID, transactions["[-G, A+, B+, C+]"])
+		transactions["[-GENESIS, A+, B+, C+]"].Sign(signaturescheme.ED25519(*seed.KeyPair(GENESIS)))
+		valueObjects["[-GENESIS, A+, B+, C+]"] = payload.New(payload.GenesisID, payload.GenesisID, transactions["[-GENESIS, A+, B+, C+]"])
 
 		// check if signatures are valid
-		assert.True(t, transactions["[-G, A+, B+, C+]"].SignaturesValid())
+		assert.True(t, transactions["[-GENESIS, A+, B+, C+]"].SignaturesValid())
 
 		// attach payload
-		tangle.AttachPayloadSync(valueObjects["[-G, A+, B+, C+]"])
+		tangle.AttachPayloadSync(valueObjects["[-GENESIS, A+, B+, C+]"])
 
 		// check if payload metadata is found in database
-		assert.True(t, tangle.TransactionMetadata(transactions["[-G, A+, B+, C+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+		assert.True(t, tangle.TransactionMetadata(transactions["[-GENESIS, A+, B+, C+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
 			assert.True(t, transactionMetadata.Solid(), "the transaction is not solid")
 			assert.Equal(t, branchmanager.MasterBranchID, transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
 		}))
 
 		// check if transaction metadata is found in database
-		assert.True(t, tangle.PayloadMetadata(valueObjects["[-G, A+, B+, C+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+		assert.True(t, tangle.PayloadMetadata(valueObjects["[-GENESIS, A+, B+, C+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
 			assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
 			assert.Equal(t, branchmanager.MasterBranchID, payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
 		}))
 
 		// check if the balance on address G is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(G)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(GENESIS)).Consume(func(output *Output) {
 			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 3333)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -1632,7 +1634,7 @@ func TestLucasScenario(t *testing.T) {
 		// create transaction + payload
 		transactions["[-A, D+]"] = transaction.New(
 			transaction.NewInputs(
-				transaction.NewOutputID(seed.Address(A), transactions["[-G, A+, B+, C+]"].ID()),
+				transaction.NewOutputID(seed.Address(A), transactions["[-GENESIS, A+, B+, C+]"].ID()),
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
@@ -1642,7 +1644,7 @@ func TestLucasScenario(t *testing.T) {
 			}),
 		)
 		transactions["[-A, D+]"].Sign(signaturescheme.ED25519(*seed.KeyPair(A)))
-		valueObjects["[-A, D+]"] = payload.New(payload.GenesisID, valueObjects["[-G, A+, B+, C+]"].ID(), transactions["[-A, D+]"])
+		valueObjects["[-A, D+]"] = payload.New(payload.GenesisID, valueObjects["[-GENESIS, A+, B+, C+]"].ID(), transactions["[-A, D+]"])
 
 		// check if signatures are valid
 		assert.True(t, transactions["[-A, D+]"].SignaturesValid())
@@ -1684,8 +1686,8 @@ func TestLucasScenario(t *testing.T) {
 		// create transaction + payload
 		transactions["[-B, -C, E+]"] = transaction.New(
 			transaction.NewInputs(
-				transaction.NewOutputID(seed.Address(B), transactions["[-G, A+, B+, C+]"].ID()),
-				transaction.NewOutputID(seed.Address(C), transactions["[-G, A+, B+, C+]"].ID()),
+				transaction.NewOutputID(seed.Address(B), transactions["[-GENESIS, A+, B+, C+]"].ID()),
+				transaction.NewOutputID(seed.Address(C), transactions["[-GENESIS, A+, B+, C+]"].ID()),
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
@@ -1696,7 +1698,7 @@ func TestLucasScenario(t *testing.T) {
 		)
 		transactions["[-B, -C, E+]"].Sign(signaturescheme.ED25519(*seed.KeyPair(B)))
 		transactions["[-B, -C, E+]"].Sign(signaturescheme.ED25519(*seed.KeyPair(C)))
-		valueObjects["[-B, -C, E+]"] = payload.New(payload.GenesisID, valueObjects["[-G, A+, B+, C+]"].ID(), transactions["[-B, -C, E+]"])
+		valueObjects["[-B, -C, E+]"] = payload.New(payload.GenesisID, valueObjects["[-GENESIS, A+, B+, C+]"].ID(), transactions["[-B, -C, E+]"])
 
 		// check if signatures are valid
 		assert.True(t, transactions["[-B, -C, E+]"].SignaturesValid())
@@ -1744,7 +1746,7 @@ func TestLucasScenario(t *testing.T) {
 	// [-B, -C, E+] (Reattachment)
 	{
 		// create payload
-		valueObjects["[-B, -C, E+] (Reattachment)"] = payload.New(valueObjects["[-B, -C, E+]"].ID(), valueObjects["[-G, A+, B+, C+]"].ID(), transactions["[-B, -C, E+]"])
+		valueObjects["[-B, -C, E+] (Reattachment)"] = payload.New(valueObjects["[-B, -C, E+]"].ID(), valueObjects["[-GENESIS, A+, B+, C+]"].ID(), transactions["[-B, -C, E+]"])
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-B, -C, E+] (Reattachment)"])
@@ -1791,7 +1793,7 @@ func TestLucasScenario(t *testing.T) {
 		// create transaction + payload
 		transactions["[-A, F+]"] = transaction.New(
 			transaction.NewInputs(
-				transaction.NewOutputID(seed.Address(A), transactions["[-G, A+, B+, C+]"].ID()),
+				transaction.NewOutputID(seed.Address(A), transactions["[-GENESIS, A+, B+, C+]"].ID()),
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
@@ -1801,7 +1803,7 @@ func TestLucasScenario(t *testing.T) {
 			}),
 		)
 		transactions["[-A, F+]"].Sign(signaturescheme.ED25519(*seed.KeyPair(A)))
-		valueObjects["[-A, F+]"] = payload.New(payload.GenesisID, valueObjects["[-G, A+, B+, C+]"].ID(), transactions["[-A, F+]"])
+		valueObjects["[-A, F+]"] = payload.New(payload.GenesisID, valueObjects["[-GENESIS, A+, B+, C+]"].ID(), transactions["[-A, F+]"])
 
 		// check if signatures are valid
 		assert.True(t, transactions["[-A, F+]"].SignaturesValid())
@@ -1809,16 +1811,20 @@ func TestLucasScenario(t *testing.T) {
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-A, F+]"])
 
+		// create aliases for the branches
+		branches["A"] = branchmanager.NewBranchID(transactions["[-A, D+]"].ID())
+		branches["B"] = branchmanager.NewBranchID(transactions["[-A, F+]"].ID())
+
 		// check if payload metadata is found in database
 		assert.True(t, tangle.TransactionMetadata(transactions["[-A, F+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
 			assert.True(t, transactionMetadata.Solid(), "the transaction is not solid")
-			assert.Equal(t, branchmanager.NewBranchID(transactions["[-A, F+]"].ID()), transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
+			assert.Equal(t, branches["B"], transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
 		}))
 
 		// check if transaction metadata is found in database
 		assert.True(t, tangle.PayloadMetadata(valueObjects["[-A, F+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
 			assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
-			assert.Equal(t, branchmanager.NewBranchID(transactions["[-A, F+]"].ID()), payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+			assert.Equal(t, branches["B"], payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
 		}))
 
 		// check if the balance on address A is found in the database
@@ -1833,7 +1839,7 @@ func TestLucasScenario(t *testing.T) {
 		assert.True(t, tangle.OutputsOnAddress(seed.Address(F)).Consume(func(output *Output) {
 			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
-			assert.Equal(t, branchmanager.NewBranchID(transactions["[-A, F+]"].ID()), output.BranchID(), "the output was booked into the wrong branch")
+			assert.Equal(t, branches["B"], output.BranchID(), "the output was booked into the wrong branch")
 			assert.True(t, output.Solid(), "the output is not solid")
 		}))
 
@@ -1841,14 +1847,51 @@ func TestLucasScenario(t *testing.T) {
 		assert.True(t, tangle.OutputsOnAddress(seed.Address(D)).Consume(func(output *Output) {
 			assert.Equal(t, 0, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
-			assert.Equal(t, branchmanager.NewBranchID(transactions["[-A, D+]"].ID()), output.BranchID(), "the output was booked into the wrong branch")
+			assert.Equal(t, branches["A"], output.BranchID(), "the output was booked into the wrong branch")
 			assert.True(t, output.Solid(), "the output is not solid")
 		}))
 
 		// check if transaction metadata is found in database
 		assert.True(t, tangle.PayloadMetadata(valueObjects["[-A, D+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
 			assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
-			assert.Equal(t, branchmanager.NewBranchID(transactions["[-A, D+]"].ID()), payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+			assert.Equal(t, branches["A"], payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+		}))
+
+		// check if the branches are conflicting
+		branchesConflicting, err := tangle.branchManager.BranchesConflicting(branches["A"], branches["B"])
+		require.NoError(t, err)
+		assert.True(t, branchesConflicting, "the branches should be conflicting")
+	}
+
+	// [-E, -F, G+]
+	{
+		// create transaction + payload
+		transactions["[-E, -F, G+]"] = transaction.New(
+			transaction.NewInputs(
+				transaction.NewOutputID(seed.Address(E), transactions["[-B, -C, E+]"].ID()),
+				transaction.NewOutputID(seed.Address(F), transactions["[-A, F+]"].ID()),
+			),
+
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				seed.Address(G): {
+					balance.New(balance.ColorIOTA, 3333),
+				},
+			}),
+		)
+		transactions["[-E, -F, G+]"].Sign(signaturescheme.ED25519(*seed.KeyPair(E)))
+		transactions["[-E, -F, G+]"].Sign(signaturescheme.ED25519(*seed.KeyPair(F)))
+		valueObjects["[-E, -F, G+]"] = payload.New(valueObjects["[-B, -C, E+]"].ID(), valueObjects["[-A, F+]"].ID(), transactions["[-E, -F, G+]"])
+
+		// check if signatures are valid
+		assert.True(t, transactions["[-E, -F, G+]"].SignaturesValid())
+
+		// attach payload
+		tangle.AttachPayloadSync(valueObjects["[-E, -F, G+]"])
+
+		// check if payload metadata is found in database
+		assert.True(t, tangle.TransactionMetadata(transactions["[-E, -F, G+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.True(t, transactionMetadata.Solid(), "the transaction is not solid")
+			assert.Equal(t, branches["B"], transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
 		}))
 	}
 }

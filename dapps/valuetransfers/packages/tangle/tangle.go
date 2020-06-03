@@ -1433,6 +1433,9 @@ func (tangle *Tangle) moveTransactionToBranch(cachedTransaction *transaction.Cac
 						return nil
 					}
 
+					// update the payloads
+					tangle.updateBranchOfValuePayloadsAttachingTransaction(currentTransactionMetadata.ID())
+
 					// iterate through the outputs of the moved transaction
 					currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
 						// create reference to the output
@@ -1478,6 +1481,83 @@ func (tangle *Tangle) moveTransactionToBranch(cachedTransaction *transaction.Cac
 			return
 		}
 	}
+
+	return
+}
+
+// updateBranchOfValuePayloadsAttachingTransaction updates the BranchID of all payloads that attach a certain
+// transaction (and its approvers).
+func (tangle *Tangle) updateBranchOfValuePayloadsAttachingTransaction(transactionID transaction.ID) {
+	// initialize stack with the attachments of the given transaction
+	payloadStack := list.New()
+	tangle.Attachments(transactionID).Consume(func(attachment *Attachment) {
+		payloadStack.PushBack(tangle.Payload(attachment.PayloadID()))
+	})
+
+	// iterate through the stack to update all payloads we found
+	for payloadStack.Len() >= 1 {
+		// pop the first element from the stack
+		currentPayloadElement := payloadStack.Front()
+		payloadStack.Remove(currentPayloadElement)
+
+		// process the found element
+		currentPayloadElement.Value.(*payload.CachedPayload).Consume(func(currentPayload *payload.Payload) {
+			// determine branches of referenced payloads
+			branchIDofBranch := tangle.branchIDofPayload(currentPayload.BranchID())
+			branchIDofTrunk := tangle.branchIDofPayload(currentPayload.TrunkID())
+
+			// determine branch of contained transaction
+			var branchIDofTransaction branchmanager.BranchID
+			if !tangle.TransactionMetadata(currentPayload.Transaction().ID()).Consume(func(metadata *TransactionMetadata) {
+				branchIDofTransaction = metadata.BranchID()
+			}) {
+				return
+			}
+
+			// abort if any of the branches is undefined
+			if branchIDofBranch == branchmanager.UndefinedBranchID || branchIDofTrunk == branchmanager.UndefinedBranchID || branchIDofTransaction == branchmanager.UndefinedBranchID {
+				return
+			}
+
+			// aggregate the branches or abort if we face an error
+			cachedAggregatedBranch, err := tangle.branchManager.AggregateBranches(branchIDofBranch, branchIDofTrunk, branchIDofTransaction)
+			if err != nil {
+				tangle.Events.Error.Trigger(err)
+
+				return
+			}
+
+			// try to update the metadata of the payload and queue its approvers
+			cachedAggregatedBranch.Consume(func(branch *branchmanager.Branch) {
+				tangle.PayloadMetadata(currentPayload.ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+					if !payloadMetadata.SetBranchID(branch.ID()) {
+						return
+					}
+
+					// queue approvers for recursive updates
+					tangle.ForeachApprovers(currentPayload.ID(), func(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata, transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata) {
+						payloadMetadata.Release()
+						transaction.Release()
+						transactionMetadata.Release()
+
+						payloadStack.PushBack(payload)
+					})
+				})
+
+			})
+		})
+	}
+}
+
+// branchIDofPayload returns the BranchID that a payload is booked into.
+func (tangle *Tangle) branchIDofPayload(payloadID payload.ID) (branchID branchmanager.BranchID) {
+	if payloadID == payload.GenesisID {
+		return branchmanager.MasterBranchID
+	}
+
+	tangle.PayloadMetadata(payloadID).Consume(func(payloadMetadata *PayloadMetadata) {
+		branchID = payloadMetadata.BranchID()
+	})
 
 	return
 }
