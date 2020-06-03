@@ -7,10 +7,13 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
+
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/types"
@@ -1518,6 +1521,336 @@ func TestForeachApprovers(t *testing.T) {
 
 	tangle.ForeachApprovers(valueObject.ID(), consume)
 	assert.Equal(t, 2, counter)
+}
+
+const (
+	G uint64 = iota
+	A
+	B
+	C
+	D
+	E
+	F
+)
+
+func TestLucasScenario(t *testing.T) {
+	// create tangle
+	tangle := New(mapdb.NewMapDB())
+	defer tangle.Shutdown()
+
+	// create seed for testing
+	seed := wallet.NewSeed()
+
+	// initialize tangle with genesis block (+G)
+	tangle.LoadSnapshot(map[transaction.ID]map[address.Address][]*balance.Balance{
+		transaction.GenesisID: {
+			seed.Address(G): {
+				balance.New(balance.ColorIOTA, 3333),
+			},
+		},
+	})
+
+	transactions := make(map[string]*transaction.Transaction)
+	valueObjects := make(map[string]*payload.Payload)
+
+	// [-G, A+, B+, C+]
+	{
+		// create transaction + payload
+		transactions["[-G, A+, B+, C+]"] = transaction.New(
+			transaction.NewInputs(
+				transaction.NewOutputID(seed.Address(G), transaction.GenesisID),
+			),
+
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				seed.Address(A): {
+					balance.New(balance.ColorIOTA, 1111),
+				},
+				seed.Address(B): {
+					balance.New(balance.ColorIOTA, 1111),
+				},
+				seed.Address(C): {
+					balance.New(balance.ColorIOTA, 1111),
+				},
+			}),
+		)
+		transactions["[-G, A+, B+, C+]"].Sign(signaturescheme.ED25519(*seed.KeyPair(G)))
+		valueObjects["[-G, A+, B+, C+]"] = payload.New(payload.GenesisID, payload.GenesisID, transactions["[-G, A+, B+, C+]"])
+
+		// check if signatures are valid
+		assert.True(t, transactions["[-G, A+, B+, C+]"].SignaturesValid())
+
+		// attach payload
+		tangle.AttachPayloadSync(valueObjects["[-G, A+, B+, C+]"])
+
+		// check if payload metadata is found in database
+		assert.True(t, tangle.TransactionMetadata(transactions["[-G, A+, B+, C+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.True(t, transactionMetadata.Solid(), "the transaction is not solid")
+			assert.Equal(t, branchmanager.MasterBranchID, transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
+		}))
+
+		// check if transaction metadata is found in database
+		assert.True(t, tangle.PayloadMetadata(valueObjects["[-G, A+, B+, C+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+			assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
+			assert.Equal(t, branchmanager.MasterBranchID, payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+		}))
+
+		// check if the balance on address G is found in the database
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(G)).Consume(func(output *Output) {
+			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 3333)}, output.Balances())
+			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+			assert.True(t, output.Solid(), "the output is not solid")
+		}))
+
+		// check if the balance on address A is found in the database
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(A)).Consume(func(output *Output) {
+			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
+			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+			assert.True(t, output.Solid(), "the output is not solid")
+		}))
+
+		// check if the balance on address B is found in the database
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(B)).Consume(func(output *Output) {
+			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
+			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+			assert.True(t, output.Solid(), "the output is not solid")
+		}))
+
+		// check if the balance on address C is found in the database
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(C)).Consume(func(output *Output) {
+			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
+			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+			assert.True(t, output.Solid(), "the output is not solid")
+		}))
+	}
+
+	// [-A, D+]
+	{
+		// create transaction + payload
+		transactions["[-A, D+]"] = transaction.New(
+			transaction.NewInputs(
+				transaction.NewOutputID(seed.Address(A), transactions["[-G, A+, B+, C+]"].ID()),
+			),
+
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				seed.Address(D): {
+					balance.New(balance.ColorIOTA, 1111),
+				},
+			}),
+		)
+		transactions["[-A, D+]"].Sign(signaturescheme.ED25519(*seed.KeyPair(A)))
+		valueObjects["[-A, D+]"] = payload.New(payload.GenesisID, valueObjects["[-G, A+, B+, C+]"].ID(), transactions["[-A, D+]"])
+
+		// check if signatures are valid
+		assert.True(t, transactions["[-A, D+]"].SignaturesValid())
+
+		// attach payload
+		tangle.AttachPayloadSync(valueObjects["[-A, D+]"])
+
+		// check if payload metadata is found in database
+		assert.True(t, tangle.TransactionMetadata(transactions["[-A, D+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.True(t, transactionMetadata.Solid(), "the transaction is not solid")
+			assert.Equal(t, branchmanager.MasterBranchID, transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
+		}))
+
+		// check if transaction metadata is found in database
+		assert.True(t, tangle.PayloadMetadata(valueObjects["[-A, D+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+			assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
+			assert.Equal(t, branchmanager.MasterBranchID, payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+		}))
+
+		// check if the balance on address A is found in the database
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(A)).Consume(func(output *Output) {
+			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
+			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+			assert.True(t, output.Solid(), "the output is not solid")
+		}))
+
+		// check if the balance on address D is found in the database
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(D)).Consume(func(output *Output) {
+			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
+			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+			assert.True(t, output.Solid(), "the output is not solid")
+		}))
+	}
+
+	// [-B, -C, E+]
+	{
+		// create transaction + payload
+		transactions["[-B, -C, E+]"] = transaction.New(
+			transaction.NewInputs(
+				transaction.NewOutputID(seed.Address(B), transactions["[-G, A+, B+, C+]"].ID()),
+				transaction.NewOutputID(seed.Address(C), transactions["[-G, A+, B+, C+]"].ID()),
+			),
+
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				seed.Address(E): {
+					balance.New(balance.ColorIOTA, 2222),
+				},
+			}),
+		)
+		transactions["[-B, -C, E+]"].Sign(signaturescheme.ED25519(*seed.KeyPair(B)))
+		transactions["[-B, -C, E+]"].Sign(signaturescheme.ED25519(*seed.KeyPair(C)))
+		valueObjects["[-B, -C, E+]"] = payload.New(payload.GenesisID, valueObjects["[-G, A+, B+, C+]"].ID(), transactions["[-B, -C, E+]"])
+
+		// check if signatures are valid
+		assert.True(t, transactions["[-B, -C, E+]"].SignaturesValid())
+
+		// attach payload
+		tangle.AttachPayloadSync(valueObjects["[-B, -C, E+]"])
+
+		// check if payload metadata is found in database
+		assert.True(t, tangle.TransactionMetadata(transactions["[-B, -C, E+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.True(t, transactionMetadata.Solid(), "the transaction is not solid")
+			assert.Equal(t, branchmanager.MasterBranchID, transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
+		}))
+
+		// check if transaction metadata is found in database
+		assert.True(t, tangle.PayloadMetadata(valueObjects["[-B, -C, E+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+			assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
+			assert.Equal(t, branchmanager.MasterBranchID, payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+		}))
+
+		// check if the balance on address B is found in the database
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(B)).Consume(func(output *Output) {
+			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
+			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+			assert.True(t, output.Solid(), "the output is not solid")
+		}))
+
+		// check if the balance on address C is found in the database
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(C)).Consume(func(output *Output) {
+			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
+			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+			assert.True(t, output.Solid(), "the output is not solid")
+		}))
+
+		// check if the balance on address E is found in the database
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(E)).Consume(func(output *Output) {
+			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 2222)}, output.Balances())
+			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+			assert.True(t, output.Solid(), "the output is not solid")
+		}))
+	}
+
+	// [-B, -C, E+] (Reattachment)
+	{
+		// create payload
+		valueObjects["[-B, -C, E+] (Reattachment)"] = payload.New(valueObjects["[-B, -C, E+]"].ID(), valueObjects["[-G, A+, B+, C+]"].ID(), transactions["[-B, -C, E+]"])
+
+		// attach payload
+		tangle.AttachPayloadSync(valueObjects["[-B, -C, E+] (Reattachment)"])
+
+		// check if payload metadata is found in database
+		assert.True(t, tangle.TransactionMetadata(transactions["[-B, -C, E+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.True(t, transactionMetadata.Solid(), "the transaction is not solid")
+			assert.Equal(t, branchmanager.MasterBranchID, transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
+		}))
+
+		// check if transaction metadata is found in database
+		assert.True(t, tangle.PayloadMetadata(valueObjects["[-B, -C, E+] (Reattachment)"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+			assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
+			assert.Equal(t, branchmanager.MasterBranchID, payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+		}))
+
+		// check if the balance on address B is found in the database
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(B)).Consume(func(output *Output) {
+			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
+			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+			assert.True(t, output.Solid(), "the output is not solid")
+		}))
+
+		// check if the balance on address C is found in the database
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(C)).Consume(func(output *Output) {
+			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
+			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+			assert.True(t, output.Solid(), "the output is not solid")
+		}))
+
+		// check if the balance on address E is found in the database
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(E)).Consume(func(output *Output) {
+			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 2222)}, output.Balances())
+			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+			assert.True(t, output.Solid(), "the output is not solid")
+		}))
+	}
+
+	// [-A, F+]
+	{
+		// create transaction + payload
+		transactions["[-A, F+]"] = transaction.New(
+			transaction.NewInputs(
+				transaction.NewOutputID(seed.Address(A), transactions["[-G, A+, B+, C+]"].ID()),
+			),
+
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				seed.Address(F): {
+					balance.New(balance.ColorIOTA, 1111),
+				},
+			}),
+		)
+		transactions["[-A, F+]"].Sign(signaturescheme.ED25519(*seed.KeyPair(A)))
+		valueObjects["[-A, F+]"] = payload.New(payload.GenesisID, valueObjects["[-G, A+, B+, C+]"].ID(), transactions["[-A, F+]"])
+
+		// check if signatures are valid
+		assert.True(t, transactions["[-A, F+]"].SignaturesValid())
+
+		// attach payload
+		tangle.AttachPayloadSync(valueObjects["[-A, F+]"])
+
+		// check if payload metadata is found in database
+		assert.True(t, tangle.TransactionMetadata(transactions["[-A, F+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.True(t, transactionMetadata.Solid(), "the transaction is not solid")
+			assert.Equal(t, branchmanager.NewBranchID(transactions["[-A, F+]"].ID()), transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
+		}))
+
+		// check if transaction metadata is found in database
+		assert.True(t, tangle.PayloadMetadata(valueObjects["[-A, F+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+			assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
+			assert.Equal(t, branchmanager.NewBranchID(transactions["[-A, F+]"].ID()), payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+		}))
+
+		// check if the balance on address A is found in the database
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(A)).Consume(func(output *Output) {
+			assert.Equal(t, 2, output.ConsumerCount(), "the output should be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
+			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+			assert.True(t, output.Solid(), "the output is not solid")
+		}))
+
+		// check if the balance on address F is found in the database
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(F)).Consume(func(output *Output) {
+			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
+			assert.Equal(t, branchmanager.NewBranchID(transactions["[-A, F+]"].ID()), output.BranchID(), "the output was booked into the wrong branch")
+			assert.True(t, output.Solid(), "the output is not solid")
+		}))
+
+		// check if the balance on address D is found in the database
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(D)).Consume(func(output *Output) {
+			assert.Equal(t, 0, output.ConsumerCount(), "the output should be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
+			assert.Equal(t, branchmanager.NewBranchID(transactions["[-A, D+]"].ID()), output.BranchID(), "the output was booked into the wrong branch")
+			assert.True(t, output.Solid(), "the output is not solid")
+		}))
+
+		// check if transaction metadata is found in database
+		assert.True(t, tangle.PayloadMetadata(valueObjects["[-A, D+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+			assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
+			assert.Equal(t, branchmanager.NewBranchID(transactions["[-A, D+]"].ID()), payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+		}))
+	}
 }
 
 func storeParentPayloadWithMetadataFunc(t *testing.T, tangle *Tangle, consume func(*PayloadMetadata)) payload.ID {

@@ -945,10 +945,13 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 		return
 	}
 
-	// abort if this transaction was booked by another process already
+	// abort if transaction was marked as solid before
 	if !transactionMetadata.SetSolid(true) {
 		return
 	}
+
+	// trigger event if transaction became solid
+	tangle.Events.TransactionSolid.Trigger(cachedTransaction, cachedTransactionMetadata)
 
 	consumedBranches := make(branchmanager.BranchIds)
 	conflictingInputs := make([]transaction.OutputID, 0)
@@ -1058,6 +1061,14 @@ func (tangle *Tangle) bookPayload(cachedPayload *payload.CachedPayload, cachedPa
 	if valueObject == nil || valueObjectMetadata == nil || transactionMetadata == nil {
 		return
 	}
+
+	// abort if the payload has been marked as solid before
+	if !valueObjectMetadata.setSolid(true) {
+		return
+	}
+
+	// trigger event if payload became solid
+	tangle.Events.PayloadSolid.Trigger(cachedPayload, cachedPayloadMetadata)
 
 	branchBranchID := tangle.payloadBranchID(valueObject.BranchID())
 	trunkBranchID := tangle.payloadBranchID(valueObject.TrunkID())
