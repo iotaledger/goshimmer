@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
+	"github.com/iotaledger/goshimmer/plugins/testsnapshots"
 	"github.com/iotaledger/goshimmer/plugins/sync"
 
 	"github.com/iotaledger/hive.go/node"
@@ -40,4 +41,5 @@ var PLUGINS = node.Plugins(
 	metrics.Plugin,
 	drng.Plugin,
 	valuetransfers.App,
+	testsnapshots.Plugin,
 )

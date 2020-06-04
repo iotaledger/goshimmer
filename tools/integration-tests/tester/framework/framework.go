@@ -84,6 +84,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 		config := GoShimmerConfig{
 			Bootstrap:                             i == 0,
 			BootstrapInitialIssuanceTimePeriodSec: bootstrapInitialIssuanceTimePeriodSec,
+			Faucet:                                i == 0,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
