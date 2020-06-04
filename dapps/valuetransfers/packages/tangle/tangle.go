@@ -916,19 +916,55 @@ func (tangle *Tangle) deleteTransactionFutureCone(transactionID transaction.ID) 
 
 		// process attachments
 		tangle.Attachments(currentTransactionID).Consume(func(attachment *Attachment) {
-			// mark attachment as deleted
-			attachment.Delete()
-
 			// remove payload future cone
 			tangle.deletePayloadFutureCone(attachment.PayloadID())
 		})
 	}
 }
 
+func (tangle *Tangle) deleteTransaction(transactionID transaction.ID) (consumers []transaction.ID, attachments []payload.ID) {
+	// TODO: IMPLEMENT METHOD
+
+	return
+}
+
 // deletePayloadFutureCone removes a payload and its whole future cone from the database (including all of the reference
 // models).
 func (tangle *Tangle) deletePayloadFutureCone(payloadID payload.ID) {
-	// TODO: FINISH IMPLEMENTATION
+	// initialize stack with current transaction
+	deleteStack := list.New()
+	deleteStack.PushBack(payloadID)
+
+	// iterate through stack
+	for deleteStack.Len() >= 1 {
+		// pop first element from stack
+		currentTransactionIDEntry := deleteStack.Front()
+		deleteStack.Remove(currentTransactionIDEntry)
+		currentPayloadID := currentTransactionIDEntry.Value.(payload.ID)
+
+		// process payload
+		tangle.Payload(currentPayloadID).Consume(func(currentPayload *payload.Payload) {
+			// delete payload
+			currentPayload.Delete()
+
+			// delete approvers
+			tangle.approverStorage.Delete(marshalutil.New(2 * payload.IDLength).WriteBytes(currentPayload.BranchID().Bytes()).WriteBytes(currentPayloadID.Bytes()).Bytes())
+			if currentPayload.TrunkID() != currentPayload.BranchID() {
+				tangle.approverStorage.Delete(marshalutil.New(2 * payload.IDLength).WriteBytes(currentPayload.TrunkID().Bytes()).WriteBytes(currentPayloadID.Bytes()).Bytes())
+			}
+
+			// delete attachment
+			tangle.attachmentStorage.Delete(marshalutil.New(transaction.IDLength + payload.IDLength).WriteBytes(currentPayload.Transaction().ID().Bytes()).WriteBytes(currentPayloadID.Bytes()).Bytes())
+		})
+
+		// delete payload metadata
+		tangle.payloadMetadataStorage.Delete(currentPayloadID.Bytes())
+
+		// queue approvers
+		tangle.Approvers(currentPayloadID).Consume(func(approver *PayloadApprover) {
+			deleteStack.PushBack(approver.ApprovingPayloadID())
+		})
+	}
 }
 
 // processSolidificationStackEntry processes a single entry of the solidification stack and schedules its approvers and

@@ -354,6 +354,28 @@ func (branchManager *BranchManager) SetBranchFinalized(branchID BranchID) (modif
 	return branchManager.setBranchFinalized(branchManager.Branch(branchID))
 }
 
+// GenerateAggregatedBranchID generates an aggregated BranchID from the handed in BranchIDs.
+func (branchManager *BranchManager) GenerateAggregatedBranchID(branchIDs ...BranchID) BranchID {
+	sort.Slice(branchIDs, func(i, j int) bool {
+		for k := 0; k < len(branchIDs[k]); k++ {
+			if branchIDs[i][k] < branchIDs[j][k] {
+				return true
+			} else if branchIDs[i][k] > branchIDs[j][k] {
+				return false
+			}
+		}
+
+		return false
+	})
+
+	marshalUtil := marshalutil.New(BranchIDLength * len(branchIDs))
+	for _, branchID := range branchIDs {
+		marshalUtil.WriteBytes(branchID.Bytes())
+	}
+
+	return blake2b.Sum256(marshalUtil.Bytes())
+}
+
 func (branchManager *BranchManager) setBranchFinalized(cachedBranch *CachedBranch) (modified bool, err error) {
 	defer cachedBranch.Release()
 	branch := cachedBranch.Unwrap()
@@ -837,24 +859,7 @@ func (branchManager *BranchManager) generateAggregatedBranchID(aggregatedBranche
 		cachedBranch.Release()
 	}
 
-	sort.Slice(branchIDs, func(i, j int) bool {
-		for k := 0; k < len(branchIDs[k]); k++ {
-			if branchIDs[i][k] < branchIDs[j][k] {
-				return true
-			} else if branchIDs[i][k] > branchIDs[j][k] {
-				return false
-			}
-		}
-
-		return false
-	})
-
-	marshalUtil := marshalutil.New(BranchIDLength * len(branchIDs))
-	for _, branchID := range branchIDs {
-		marshalUtil.WriteBytes(branchID.Bytes())
-	}
-
-	return blake2b.Sum256(marshalUtil.Bytes())
+	return branchManager.GenerateAggregatedBranchID(branchIDs...)
 }
 
 func (branchManager *BranchManager) collectClosestConflictAncestors(branch *Branch, closestConflictAncestors CachedBranches) (err error) {
