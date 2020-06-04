@@ -2,6 +2,7 @@ package info
 
 import (
 	"net/http"
+	"sort"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -69,6 +70,9 @@ func getInfo(c echo.Context) error {
 			continue
 		}
 	}
+
+	sort.Strings(enabledPlugins)
+	sort.Strings(disabledPlugins)
 
 	return c.JSON(http.StatusOK, Response{
 		Version:         banner.AppVersion,
