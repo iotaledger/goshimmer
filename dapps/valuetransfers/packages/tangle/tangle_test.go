@@ -1546,7 +1546,7 @@ func TestLucasScenario(t *testing.T) {
 	// create seed for testing
 	seed := wallet.NewSeed()
 
-	// initialize tangle with genesis block (+G)
+	// initialize tangle with genesis block (+GENESIS)
 	tangle.LoadSnapshot(map[transaction.ID]map[address.Address][]*balance.Balance{
 		transaction.GenesisID: {
 			seed.Address(GENESIS): {
@@ -1589,19 +1589,19 @@ func TestLucasScenario(t *testing.T) {
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-GENESIS, A+, B+, C+]"])
 
-		// check if payload metadata is found in database
+		// check if transaction metadata is found in database
 		assert.True(t, tangle.TransactionMetadata(transactions["[-GENESIS, A+, B+, C+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
 			assert.True(t, transactionMetadata.Solid(), "the transaction is not solid")
 			assert.Equal(t, branchmanager.MasterBranchID, transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
 		}))
 
-		// check if transaction metadata is found in database
+		// check if payload metadata is found in database
 		assert.True(t, tangle.PayloadMetadata(valueObjects["[-GENESIS, A+, B+, C+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
 			assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
 			assert.Equal(t, branchmanager.MasterBranchID, payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
 		}))
 
-		// check if the balance on address G is found in the database
+		// check if the balance on address GENESIS is found in the database
 		assert.True(t, tangle.OutputsOnAddress(seed.Address(GENESIS)).Consume(func(output *Output) {
 			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 3333)}, output.Balances())
@@ -1756,13 +1756,13 @@ func TestLucasScenario(t *testing.T) {
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-B, -C, E+] (Reattachment)"])
 
-		// check if payload metadata is found in database
+		// check if transaction metadata is found in database
 		assert.True(t, tangle.TransactionMetadata(transactions["[-B, -C, E+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
 			assert.True(t, transactionMetadata.Solid(), "the transaction is not solid")
 			assert.Equal(t, branchmanager.MasterBranchID, transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
 		}))
 
-		// check if transaction metadata is found in database
+		// check if payload metadata is found in database
 		assert.True(t, tangle.PayloadMetadata(valueObjects["[-B, -C, E+] (Reattachment)"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
 			assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
 			assert.Equal(t, branchmanager.MasterBranchID, payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
@@ -2009,6 +2009,7 @@ func TestLucasScenario(t *testing.T) {
 
 		// create alias for the branch
 		branches["C"] = branchmanager.NewBranchID(transactions["[-C, H+]"].ID())
+		branches["AC"] = tangle.BranchManager().GenerateAggregatedBranchID(branches["A"], branches["C"])
 
 		// check if transaction metadata is found in database
 		assert.True(t, tangle.TransactionMetadata(transactions["[-C, H+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
@@ -2019,7 +2020,8 @@ func TestLucasScenario(t *testing.T) {
 		// check if payload metadata is found in database
 		assert.True(t, tangle.PayloadMetadata(valueObjects["[-C, H+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
 			assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
-			// TODO: Fix this: assert.Equal(t, branches["C"], payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+			assert.NotEqual(t, branches["C"], payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+			assert.Equal(t, branches["AC"], payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
 		}))
 
 		// check if the balance on address C is found in the database
@@ -2039,12 +2041,16 @@ func TestLucasScenario(t *testing.T) {
 		}))
 
 		// Branch D
+
+		// create alias for the branch
+		branches["D"] = branchmanager.NewBranchID(transactions["[-B, -C, E+]"].ID())
+		branches["BD"] = tangle.branchManager.GenerateAggregatedBranchID(branches["B"], branches["D"])
+
 		{
 			// check if transaction metadata is found in database
 			assert.True(t, tangle.PayloadMetadata(valueObjects["[-B, -C, E+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
 				assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
-				assert.NotEqual(t, branchmanager.MasterBranchID, payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
-				branches["D"] = payloadMetadata.BranchID()
+				assert.Equal(t, branches["D"], payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
 			}))
 
 			// check if transaction metadata is found in database
@@ -2064,9 +2070,7 @@ func TestLucasScenario(t *testing.T) {
 			// check if transaction metadata is found in database
 			assert.True(t, tangle.PayloadMetadata(valueObjects["[-E, -F, G+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
 				assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
-				assert.NotEqual(t, branches["B"], payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
-				assert.NotEqual(t, branches["D"], payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
-				branches["BD"] = payloadMetadata.BranchID()
+				assert.Equal(t, branches["BD"], payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
 			}))
 
 			// check if transaction metadata is found in database
@@ -2102,12 +2106,13 @@ func TestLucasScenario(t *testing.T) {
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-H, -D, I+]"])
 
+		// create alias for the branch
+		branches["AC"] = tangle.branchManager.GenerateAggregatedBranchID(branches["A"], branches["C"])
+
 		// check if transaction metadata is found in database
 		assert.True(t, tangle.TransactionMetadata(transactions["[-H, -D, I+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
 			assert.True(t, transactionMetadata.Solid(), "the transaction is not solid")
-			branches["AC"] = transactionMetadata.BranchID()
-			assert.NotEqual(t, branches["AC"], branches["A"], "the branch IDs should not be equal")
-			assert.NotEqual(t, branches["AC"], branches["C"], "the branch IDs should not be equal")
+			assert.Equal(t, branches["AC"], transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
 		}))
 
 		// check if payload metadata is found in database
@@ -2173,13 +2178,13 @@ func TestLucasScenario(t *testing.T) {
 			assert.Equal(t, branches["E"], transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
 		}))
 
+		// create alias for the branch
+		branches["ACE"] = tangle.branchManager.GenerateAggregatedBranchID(branches["A"], branches["C"], branches["E"])
+
 		// check if payload metadata is found in database
 		assert.True(t, tangle.PayloadMetadata(valueObjects["[-B, J+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
 			assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
-			assert.NotEqual(t, branches["A"], payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
-			assert.NotEqual(t, branches["C"], payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
-			assert.NotEqual(t, branches["E"], payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
-			branches["ACE"] = payloadMetadata.BranchID()
+			assert.Equal(t, branches["ACE"], payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
 		}))
 
 		// check if the balance on address B is found in the database
