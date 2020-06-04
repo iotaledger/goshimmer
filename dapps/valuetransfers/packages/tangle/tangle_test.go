@@ -1957,6 +1957,29 @@ func TestLucasScenario(t *testing.T) {
 		assert.False(t, tangle.TransactionMetadata(transactions["[-F, -D, Y+]"].ID()).Consume(func(metadata *TransactionMetadata) {}))
 		// TODO: CHECK EXISTENCE OF REMAINING MODELS
 	}
+
+	// [-B, -C, E+] (2nd Reattachment)
+	valueObjects["[-B, -C, E+] (2nd Reattachment)"] = payload.New(valueObjects["[-A, F+]"].ID(), valueObjects["[-A, D+]"].ID(), transactions["[-B, -C, E+]"])
+
+	// attach payload
+	tangle.AttachPayloadSync(valueObjects["[-B, -C, E+] (2nd Reattachment)"])
+
+	// check if all of the valid transactions models were NOT deleted
+	assert.True(t, tangle.Transaction(transactions["[-B, -C, E+]"].ID()).Consume(func(metadata *transaction.Transaction) {}))
+	// assert.True(t, tangle.TransactionMetadata(transactions["[-B, -C, E+]"].ID()).Consume(func(metadata *TransactionMetadata) {}))
+
+	// check if transaction metadata is found in database
+	assert.True(t, tangle.TransactionMetadata(transactions["[-B, -C, E+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+		assert.True(t, transactionMetadata.Solid(), "the transaction is not solid")
+		assert.Equal(t, branchmanager.MasterBranchID, transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
+	}))
+
+	// check if payload metadata is found in database
+	assert.True(t, tangle.PayloadMetadata(valueObjects["[-B, -C, E+] (2nd Reattachment)"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+		assert.False(t, payloadMetadata.IsSolid(), "the payload should not be solid")
+		assert.Equal(t, branchmanager.UndefinedBranchID, payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+	}))
+
 }
 
 func storeParentPayloadWithMetadataFunc(t *testing.T, tangle *Tangle, consume func(*PayloadMetadata)) payload.ID {
