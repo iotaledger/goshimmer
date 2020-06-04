@@ -866,10 +866,6 @@ func (tangle *Tangle) deleteTransactionFutureCone(transactionID transaction.ID) 
 	deleteStack := list.New()
 	deleteStack.PushBack(transactionID)
 
-	// introduce map to keep track of queued transactions (so we don't process them twice)
-	queuedTransaction := make(map[transaction.ID]types.Empty)
-	queuedTransaction[transactionID] = types.Void
-
 	// iterate through stack
 	for deleteStack.Len() >= 1 {
 		// pop first element from stack
@@ -877,53 +873,75 @@ func (tangle *Tangle) deleteTransactionFutureCone(transactionID transaction.ID) 
 		deleteStack.Remove(currentTransactionIDEntry)
 		currentTransactionID := currentTransactionIDEntry.Value.(transaction.ID)
 
-		// process transaction and its models
-		tangle.Transaction(currentTransactionID).Consume(func(tx *transaction.Transaction) {
-			// mark transaction as deleted
-			tx.Delete()
+		// delete the transaction
+		consumers, attachments := tangle.deleteTransaction(currentTransactionID)
 
-			// cleanup inputs
-			tx.Inputs().ForEach(func(outputId transaction.OutputID) bool {
-				// delete consumer pointers of the inputs of the current transaction
-				tangle.consumerStorage.Delete(marshalutil.New(transaction.OutputIDLength + transaction.IDLength).WriteBytes(outputId.Bytes()).WriteBytes(currentTransactionID.Bytes()).Bytes())
+		// queue consumers to also be deleted
+		for _, consumer := range consumers {
+			deleteStack.PushBack(consumer)
+		}
 
-				return true
-			})
-
-			// cleanup outputs
-			tx.Outputs().ForEach(func(addr address.Address, balances []*balance.Balance) bool {
-				// delete outputs
-				tangle.outputStorage.Delete(marshalutil.New(address.Length + transaction.IDLength).WriteBytes(addr.Bytes()).WriteBytes(currentTransactionID.Bytes()).Bytes())
-
-				// process consumers
-				tangle.Consumers(transaction.NewOutputID(addr, currentTransactionID)).Consume(func(consumer *Consumer) {
-					// check if the transaction has been queued already
-					if _, transactionQueuedAlready := queuedTransaction[consumer.TransactionID()]; transactionQueuedAlready {
-						return
-					}
-					queuedTransaction[consumer.TransactionID()] = types.Void
-
-					// queue consumers for deletion
-					deleteStack.PushBack(consumer.TransactionID())
-				})
-
-				return true
-			})
-		})
-
-		// delete transaction metadata
-		tangle.transactionMetadataStorage.Delete(currentTransactionID.Bytes())
-
-		// process attachments
-		tangle.Attachments(currentTransactionID).Consume(func(attachment *Attachment) {
-			// remove payload future cone
-			tangle.deletePayloadFutureCone(attachment.PayloadID())
-		})
+		// remove payload future cone
+		for _, attachingPayloadID := range attachments {
+			tangle.deletePayloadFutureCone(attachingPayloadID)
+		}
 	}
 }
 
+// deleteTransaction deletes a single transaction and all of its related models from the database.
 func (tangle *Tangle) deleteTransaction(transactionID transaction.ID) (consumers []transaction.ID, attachments []payload.ID) {
-	// TODO: IMPLEMENT METHOD
+	// create result
+	consumers = make([]transaction.ID, 0)
+	attachments = make([]payload.ID, 0)
+
+	// process transaction and its models
+	tangle.Transaction(transactionID).Consume(func(tx *transaction.Transaction) {
+		// mark transaction as deleted
+		tx.Delete()
+
+		// cleanup inputs
+		tx.Inputs().ForEach(func(outputId transaction.OutputID) bool {
+			// delete consumer pointers of the inputs of the current transaction
+			tangle.consumerStorage.Delete(marshalutil.New(transaction.OutputIDLength + transaction.IDLength).WriteBytes(outputId.Bytes()).WriteBytes(transactionID.Bytes()).Bytes())
+
+			return true
+		})
+
+		// introduce map to keep track of seen consumers (so we don't process them twice)
+		seenConsumers := make(map[transaction.ID]types.Empty)
+		seenConsumers[transactionID] = types.Void
+
+		// cleanup outputs
+		tx.Outputs().ForEach(func(addr address.Address, balances []*balance.Balance) bool {
+			// delete outputs
+			tangle.outputStorage.Delete(marshalutil.New(address.Length + transaction.IDLength).WriteBytes(addr.Bytes()).WriteBytes(transactionID.Bytes()).Bytes())
+
+			// process consumers
+			tangle.Consumers(transaction.NewOutputID(addr, transactionID)).Consume(func(consumer *Consumer) {
+				// check if the transaction has been queued already
+				if _, consumerSeenAlready := seenConsumers[consumer.TransactionID()]; consumerSeenAlready {
+					return
+				}
+				seenConsumers[consumer.TransactionID()] = types.Void
+
+				// queue consumers for deletion
+				consumers = append(consumers, consumer.TransactionID())
+			})
+
+			return true
+		})
+	})
+
+	// delete transaction metadata
+	tangle.transactionMetadataStorage.Delete(transactionID.Bytes())
+
+	// process attachments
+	tangle.Attachments(transactionID).Consume(func(attachment *Attachment) {
+		// remove attachment
+		attachment.Delete()
+
+		attachments = append(attachments, attachment.PayloadID())
+	})
 
 	return
 }
