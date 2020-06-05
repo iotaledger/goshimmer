@@ -1956,9 +1956,19 @@ func TestLucasScenario(t *testing.T) {
 		tangle.AttachPayloadSync(valueObjects["[-F, -D, Y+]"])
 
 		// check if all of the invalids transactions models were deleted
-		assert.False(t, tangle.Transaction(transactions["[-F, -D, Y+]"].ID()).Consume(func(metadata *transaction.Transaction) {}))
-		assert.False(t, tangle.TransactionMetadata(transactions["[-F, -D, Y+]"].ID()).Consume(func(metadata *TransactionMetadata) {}))
-		// TODO: CHECK EXISTENCE OF REMAINING MODELS
+		assert.False(t, tangle.Transaction(transactions["[-F, -D, Y+]"].ID()).Consume(func(metadata *transaction.Transaction) {}), "the transaction should not be found")
+		assert.False(t, tangle.TransactionMetadata(transactions["[-F, -D, Y+]"].ID()).Consume(func(metadata *TransactionMetadata) {}), "the transaction metadata should not be found")
+		assert.False(t, tangle.Payload(valueObjects["[-F, -D, Y+]"].ID()).Consume(func(payload *payload.Payload) {}), "the payload should not be found")
+		assert.False(t, tangle.PayloadMetadata(valueObjects["[-F, -D, Y+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {}), "the payload metadata should not be found")
+		assert.True(t, tangle.Approvers(valueObjects["[-A, F+]"].ID()).Consume(func(approver *PayloadApprover) {
+			assert.NotEqual(t, approver.ApprovingPayloadID(), valueObjects["[-F, -D, Y+]"].ID(), "the invalid value object should not show up as an approver")
+		}), "the should be approvers of the referenced output")
+		assert.False(t, tangle.Approvers(valueObjects["[-A, D+]"].ID()).Consume(func(approver *PayloadApprover) {}), "approvers should be empty")
+		assert.False(t, tangle.Attachments(transactions["[-F, -D, Y+]"].ID()).Consume(func(attachment *Attachment) {}), "the transaction should not have any attachments")
+		assert.False(t, tangle.Consumers(transaction.NewOutputID(seed.Address(D), transactions["[-A, D+]"].ID())).Consume(func(consumer *Consumer) {}), "the consumers of the used input should be empty")
+		assert.True(t, tangle.Consumers(transaction.NewOutputID(seed.Address(F), transactions["[-A, F+]"].ID())).Consume(func(consumer *Consumer) {
+			assert.NotEqual(t, consumer.TransactionID(), transactions["[-F, -D, Y+]"].ID(), "the consumers should not contain the invalid transaction")
+		}), "the consumers should not be empty")
 	}
 
 	// [-B, -C, E+] (2nd Reattachment)
@@ -1978,15 +1988,16 @@ func TestLucasScenario(t *testing.T) {
 		}))
 
 		// check if payload and its corresponding models are not found in the database (payload was invalid)
-		assert.False(t, tangle.Payload(valueObjects["[-B, -C, E+] (2nd Reattachment)"].ID()).Consume(func(payload *payload.Payload) {}))
-		assert.False(t, tangle.PayloadMetadata(valueObjects["[-B, -C, E+] (2nd Reattachment)"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {}))
+		assert.False(t, tangle.Payload(valueObjects["[-B, -C, E+] (2nd Reattachment)"].ID()).Consume(func(payload *payload.Payload) {}), "the payload should not exist")
+		assert.False(t, tangle.PayloadMetadata(valueObjects["[-B, -C, E+] (2nd Reattachment)"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {}), "the payload metadata should not exist")
 		assert.True(t, tangle.Attachments(transactions["[-B, -C, E+]"].ID()).Consume(func(attachment *Attachment) {
 			assert.NotEqual(t, valueObjects["[-B, -C, E+] (2nd Reattachment)"].ID(), attachment.PayloadID(), "the attachment to the payload should be deleted")
-		}))
-		tangle.Approvers(valueObjects["[-A, F+]"].ID()).Consume(func(approver *PayloadApprover) {
+		}), "there should be attachments of the transaction")
+		assert.True(t, tangle.Approvers(valueObjects["[-A, F+]"].ID()).Consume(func(approver *PayloadApprover) {
 			assert.NotEqual(t, valueObjects["[-A, F+]"].ID(), approver.ApprovingPayloadID(), "there should not be an approver reference to the invalid payload")
 			assert.NotEqual(t, valueObjects["[-A, D+]"].ID(), approver.ApprovingPayloadID(), "there should not be an approver reference to the invalid payload")
-		})
+		}), "there should be approvers")
+		assert.False(t, tangle.Approvers(valueObjects["[-A, D+]"].ID()).Consume(func(approver *PayloadApprover) {}), "there should be no approvers")
 	}
 
 	// [-C, H+]
