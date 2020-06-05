@@ -29,7 +29,7 @@ var assetsBox = packr.New("AnalysisDashboard_Assets", "./frontend/src/assets")
 
 func indexRoute(e echo.Context) error {
 	if config.Node.GetBool(CfgDev) {
-		res, err := http.Get("http://127.0.0.1:9090/")
+		res, err := http.Get("http://192.168.1.215:9090/")
 		if err != nil {
 			return err
 		}

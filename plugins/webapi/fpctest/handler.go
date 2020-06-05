@@ -7,35 +7,41 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/fpctest/packages/payload"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/labstack/echo"
-	"github.com/labstack/gommon/log"
 )
 
 // Handler issue a new FPCTest message.
 func Handler(c echo.Context) error {
 	var request Request
 	if err := c.Bind(&request); err != nil {
-		log.Info(err.Error())
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	nonce := make([]byte, payload.NonceSize)
-	rand.Read(nonce)
-	p := payload.New(request.Like, nonce)
+	var ids []string
+	for i := 0; i < request.Amount; i++ {
+		nonce := make([]byte, payload.NonceSize)
+		_, err := rand.Read(nonce)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, Response{Error: err.Error()})
+		}
+		p := payload.New(request.Like, nonce)
 
-	msg, err := issuer.IssuePayload(p)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		msg, err := issuer.IssuePayload(p)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		}
+		ids = append(ids, msg.Id().String())
 	}
-	return c.JSON(http.StatusOK, Response{ID: msg.Id().String()})
+	return c.JSON(http.StatusOK, Response{IDs: ids})
 }
 
 // Response is the HTTP response from broadcasting a FPCTest message.
 type Response struct {
-	ID    string `json:"id,omitempty"`
-	Error string `json:"error,omitempty"`
+	IDs   []string `json:"ids,omitempty"`
+	Error string   `json:"error,omitempty"`
 }
 
 // Request is a request containing a collective beacon response.
 type Request struct {
-	Like uint32 `json:"like"`
+	Like   uint32 `json:"like"`
+	Amount int    `json:"amount"`
 }

@@ -13,12 +13,13 @@ services:
       --analysis.server.bindAddress=0.0.0.0:1888
       --analysis.dashboard.bindAddress=0.0.0.0:9000
       --node.enablePlugins=analysis-server,analysis-dashboard
+      --analysis.dashboard.dev=true
       --node.disablePlugins=fpctest,portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,metrics,messagelayer,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
     ports:
-      - "127.0.0.1:9000:9000/tcp" # analysis dashboard 
+      - "127.0.0.1:9000:9000/tcp" # analysis dashboard
     expose:
       - "1888/tcp" # analysis server (within Docker network)
 

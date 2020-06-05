@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -39,22 +40,17 @@ func configureFPCLiveFeed() {
 
 	fpcLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
 		newMsg := task.Param(0).(*FPCUpdate)
-		broadcastWsMessage(&wsmsg{MsgTypeFPC, newMsg})
+		fmt.Println("broadcasting FPC message to websocket clients")
+		broadcastWsMessage(&wsmsg{MsgTypeFPC, newMsg}, true)
 		task.Return(nil)
 	}, workerpool.WorkerCount(fpcLiveFeedWorkerCount), workerpool.QueueSize(fpcLiveFeedWorkerQueueSize))
 }
 
 func runFPCLiveFeed() {
 	if err := daemon.BackgroundWorker("Analysis[FPCUpdater]", func(shutdownSignal <-chan struct{}) {
-		newMsgRateLimiter := time.NewTicker(time.Millisecond)
-		defer newMsgRateLimiter.Stop()
-
 		onFPCHeartbeatReceived := events.NewClosure(func(hb *packet.FPCHeartbeat) {
-			select {
-			case <-newMsgRateLimiter.C:
-				fpcLiveFeedWorkerPool.TrySubmit(createFPCUpdate(hb, true))
-			default:
-			}
+			fmt.Println("broadcasting FPC live feed")
+			fpcLiveFeedWorkerPool.Submit(createFPCUpdate(hb, true))
 		})
 		analysis.Events.FPCHeartbeat.Attach(onFPCHeartbeatReceived)
 
