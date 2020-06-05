@@ -3,6 +3,7 @@ package tangle
 import (
 	"container/list"
 	"math"
+	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -11,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tipmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 
@@ -1425,6 +1427,98 @@ func TestCreateValuePayloadFutureConeIterator(t *testing.T) {
 
 		iterator(cachedPayload, cachedMetadata, cachedTransaction, cachedTransactionMetadata)
 		assert.Equal(t, 0, solidificationStack.Len())
+	}
+}
+
+func TestConcurrency(t *testing.T) {
+	tangle := New(mapdb.NewMapDB())
+	defer tangle.Shutdown()
+
+	tipManager := tipmanager.New()
+
+	count := 1000
+	threads := 10
+	countTotal := threads * count
+
+	// initialize tangle with genesis block
+	outputs := make(map[address.Address][]*balance.Balance)
+	for i := 0; i < countTotal; i++ {
+		outputs[address.Random()] = []*balance.Balance{
+			balance.New(balance.ColorIOTA, 1),
+		}
+	}
+	inputIDs := loadSnapshotFromOutputs(tangle, outputs)
+
+	transactions := make([]*transaction.Transaction, countTotal)
+	valueObjects := make([]*payload.Payload, countTotal)
+
+	// start threads, each working on its chunk of transaction and valueObjects
+	var wg sync.WaitGroup
+	for thread := 0; thread < threads; thread++ {
+		wg.Add(1)
+		go func(threadNo int) {
+			defer wg.Done()
+
+			start := threadNo * count
+			end := start + count
+
+			for i := start; i < end; i++ {
+				tx := transaction.New(
+					transaction.NewInputs(inputIDs[i]),
+					transaction.NewOutputs(
+						map[address.Address][]*balance.Balance{
+							address.Random(): {
+								balance.New(balance.ColorIOTA, 1),
+							},
+						}),
+				)
+				parent1, parent2 := tipManager.Tips()
+				valueObject := payload.New(parent1, parent2, tx)
+
+				tangle.AttachPayloadSync(valueObject)
+
+				tipManager.AddTip(valueObject)
+				transactions[i] = tx
+				valueObjects[i] = valueObject
+			}
+		}(thread)
+	}
+
+	wg.Wait()
+
+	for i := 0; i < countTotal; i++ {
+		// check if transaction metadata is found in database
+		assert.True(t, tangle.TransactionMetadata(transactions[i].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.Truef(t, transactionMetadata.Solid(), "the transaction is not solid")
+			assert.Equalf(t, branchmanager.MasterBranchID, transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
+		}))
+
+		// check if payload metadata is found in database
+		assert.True(t, tangle.PayloadMetadata(valueObjects[i].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+			assert.Truef(t, payloadMetadata.IsSolid(), "the payload is not solid")
+			assert.Equalf(t, branchmanager.MasterBranchID, payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+		}))
+
+		// check if outputs are found in database
+		transactions[i].Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+			cachedOutput := tangle.TransactionOutput(transaction.NewOutputID(address, transactions[i].ID()))
+			assert.True(t, cachedOutput.Consume(func(output *Output) {
+				assert.Equalf(t, 0, output.ConsumerCount(), "the output should not be spent")
+				assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1)}, output.Balances())
+				assert.Equalf(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+				assert.Truef(t, output.Solid(), "the output is not solid")
+			}))
+			return true
+		})
+
+		// check that all inputs are consumed exactly once
+		cachedInput := tangle.TransactionOutput(inputIDs[i])
+		assert.True(t, cachedInput.Consume(func(output *Output) {
+			assert.Equalf(t, 1, output.ConsumerCount(), "the output should be spent")
+			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1)}, output.Balances())
+			assert.Equalf(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+			assert.Truef(t, output.Solid(), "the output is not solid")
+		}))
 	}
 }
 
