@@ -889,6 +889,8 @@ func (tangle *Tangle) deleteTransactionFutureCone(transactionID transaction.ID) 
 }
 
 // deleteTransaction deletes a single transaction and all of its related models from the database.
+// Note: We do not immediately remove the attachments as this is related to the Payloads and is therefore left to the
+//       caller to clean this up.
 func (tangle *Tangle) deleteTransaction(transactionID transaction.ID) (consumers []transaction.ID, attachments []payload.ID) {
 	// create result
 	consumers = make([]transaction.ID, 0)
@@ -937,9 +939,6 @@ func (tangle *Tangle) deleteTransaction(transactionID transaction.ID) (consumers
 
 	// process attachments
 	tangle.Attachments(transactionID).Consume(func(attachment *Attachment) {
-		// remove attachment
-		attachment.Delete()
-
 		attachments = append(attachments, attachment.PayloadID())
 	})
 
@@ -973,6 +972,11 @@ func (tangle *Tangle) deletePayloadFutureCone(payloadID payload.ID) {
 
 			// delete attachment
 			tangle.attachmentStorage.Delete(marshalutil.New(transaction.IDLength + payload.IDLength).WriteBytes(currentPayload.Transaction().ID().Bytes()).WriteBytes(currentPayloadID.Bytes()).Bytes())
+
+			// if this was the last attachment of the transaction then we also delete the transaction
+			if !tangle.Attachments(currentPayload.Transaction().ID()).Consume(func(attachment *Attachment) {}) {
+				tangle.deleteTransaction(currentPayload.Transaction().ID())
+			}
 		})
 
 		// delete payload metadata
@@ -1013,7 +1017,9 @@ func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.
 	// abort if the payload is not solid or invalid
 	payloadSolid, payloadSolidityErr := tangle.checkPayloadSolidity(currentPayload, currentPayloadMetadata, consumedBranches)
 	if payloadSolidityErr != nil {
-		// TODO: TRIGGER INVALID TX + REMOVE TXS + PAYLOADS THAT APPROVE IT
+		tangle.Events.PayloadInvalid.Trigger(solidificationStackEntry.CachedPayload, solidificationStackEntry.CachedPayloadMetadata, payloadSolidityErr)
+
+		tangle.deletePayloadFutureCone(currentPayload.ID())
 
 		return
 	}

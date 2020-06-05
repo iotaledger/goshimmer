@@ -18,6 +18,7 @@ type Events struct {
 	PayloadDisliked        *events.Event
 	MissingPayloadReceived *events.Event
 	PayloadMissing         *events.Event
+	PayloadInvalid         *events.Event
 	PayloadUnsolidifiable  *events.Event
 
 	// TransactionReceived gets triggered whenever a transaction was received for the first time (not solid yet).
@@ -71,6 +72,7 @@ func newEvents() *Events {
 		PayloadDisliked:        events.NewEvent(cachedPayloadEvent),
 		MissingPayloadReceived: events.NewEvent(cachedPayloadEvent),
 		PayloadMissing:         events.NewEvent(payloadIDEvent),
+		PayloadInvalid:         events.NewEvent(cachedPayloadErrorEvent),
 		PayloadUnsolidifiable:  events.NewEvent(payloadIDEvent),
 		TransactionReceived:    events.NewEvent(cachedTransactionAttachmentEvent),
 		TransactionInvalid:     events.NewEvent(cachedTransactionEvent),
@@ -92,6 +94,14 @@ func cachedPayloadEvent(handler interface{}, params ...interface{}) {
 	handler.(func(*payload.CachedPayload, *CachedPayloadMetadata))(
 		params[0].(*payload.CachedPayload).Retain(),
 		params[1].(*CachedPayloadMetadata).Retain(),
+	)
+}
+
+func cachedPayloadErrorEvent(handler interface{}, params ...interface{}) {
+	handler.(func(*payload.CachedPayload, *CachedPayloadMetadata, error))(
+		params[0].(*payload.CachedPayload).Retain(),
+		params[1].(*CachedPayloadMetadata).Retain(),
+		params[2].(error),
 	)
 }
 

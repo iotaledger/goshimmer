@@ -1977,11 +1977,16 @@ func TestLucasScenario(t *testing.T) {
 			assert.Equal(t, branchmanager.MasterBranchID, transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
 		}))
 
-		// check if payload metadata is found in database
-		assert.True(t, tangle.PayloadMetadata(valueObjects["[-B, -C, E+] (2nd Reattachment)"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
-			assert.False(t, payloadMetadata.IsSolid(), "the payload should not be solid")
-			assert.Equal(t, branchmanager.UndefinedBranchID, payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+		// check if payload and its corresponding models are not found in the database (payload was invalid)
+		assert.False(t, tangle.Payload(valueObjects["[-B, -C, E+] (2nd Reattachment)"].ID()).Consume(func(payload *payload.Payload) {}))
+		assert.False(t, tangle.PayloadMetadata(valueObjects["[-B, -C, E+] (2nd Reattachment)"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {}))
+		assert.True(t, tangle.Attachments(transactions["[-B, -C, E+]"].ID()).Consume(func(attachment *Attachment) {
+			assert.NotEqual(t, valueObjects["[-B, -C, E+] (2nd Reattachment)"].ID(), attachment.PayloadID(), "the attachment to the payload should be deleted")
 		}))
+		tangle.Approvers(valueObjects["[-A, F+]"].ID()).Consume(func(approver *PayloadApprover) {
+			assert.NotEqual(t, valueObjects["[-A, F+]"].ID(), approver.ApprovingPayloadID(), "there should not be an approver reference to the invalid payload")
+			assert.NotEqual(t, valueObjects["[-A, D+]"].ID(), approver.ApprovingPayloadID(), "there should not be an approver reference to the invalid payload")
+		})
 	}
 
 	// [-C, H+]
