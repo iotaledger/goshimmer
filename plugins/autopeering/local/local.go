@@ -1,8 +1,8 @@
 package local
 
 import (
-	"crypto/ed25519"
 	"encoding/base64"
+	"fmt"
 	"net"
 	"strings"
 	"sync"
@@ -12,7 +12,9 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/mr-tron/base58"
 )
 
 var (
@@ -49,7 +51,17 @@ func configureLocal() *peer.Local {
 	// set the private key from the seed provided in the config
 	var seed [][]byte
 	if str := config.Node.GetString(CfgSeed); str != "" {
-		bytes, err := base64.StdEncoding.DecodeString(str)
+		var bytes []byte
+		var err error
+
+		if strings.HasPrefix(str, "base58:") {
+			bytes, err = base58.Decode(str[7:])
+		} else if strings.HasPrefix(str, "base64:") {
+			bytes, err = base64.StdEncoding.DecodeString(str[7:])
+		} else {
+			err = fmt.Errorf("neither base58 nor base64 prefix provided")
+		}
+
 		if err != nil {
 			log.Fatalf("Invalid %s: %s", CfgSeed, err)
 		}
@@ -63,9 +75,11 @@ func configureLocal() *peer.Local {
 		log.Fatalf("Error creating peer DB: %s", err)
 	}
 
-	// the private key seed of the current local can be returned the following way:
-	// key, _ := peerDB.LocalPrivateKey()
-	// fmt.Println(base64.StdEncoding.EncodeToString(ed25519.PrivateKey(key).Seed()))
+	if config.Node.GetBool(CfgPrintSeed) {
+		// retrieve private key seed of the current local
+		key, _ := peerDB.LocalPrivateKey()
+		fmt.Printf("Seed: base58:%s\n", key.Seed().String())
+	}
 
 	local, err := peer.NewLocal(peeringIP, services, peerDB, seed...)
 	if err != nil {
