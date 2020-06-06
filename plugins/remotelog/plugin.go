@@ -5,7 +5,6 @@
 package remotelog
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -78,7 +77,7 @@ func configure(plugin *node.Plugin) {
 	conn = c
 
 	if local.GetInstance() != nil {
-		myID = hex.EncodeToString(local.GetInstance().ID().Bytes())
+		myID = local.GetInstance().ID().String()
 	}
 
 	getGitInfo()
