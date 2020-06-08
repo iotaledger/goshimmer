@@ -1431,6 +1431,9 @@ func TestCreateValuePayloadFutureConeIterator(t *testing.T) {
 }
 
 func TestConcurrency(t *testing.T) {
+	// img/concurrency.png
+	// Builds a simple UTXO-DAG where each transaction spends exactly 1 output from genesis.
+	// Tips are concurrently selected (via TipManager) resulting in a moderately wide tangle depending on `threads`.
 	tangle := New(mapdb.NewMapDB())
 	defer tangle.Shutdown()
 
@@ -1526,6 +1529,10 @@ func TestConcurrency(t *testing.T) {
 }
 
 func TestReverseValueObjectSolidification(t *testing.T) {
+	// img/reverse-valueobject-solidification.png
+	// Builds a simple UTXO-DAG where each transaction spends exactly 1 output from genesis.
+	// All value objects reference the previous value object, effectively creating a chain.
+	// The test attaches the prepared value objects concurrently in reverse order.
 	tangle := New(mapdb.NewMapDB())
 	defer tangle.Shutdown()
 
@@ -1620,6 +1627,10 @@ func TestReverseValueObjectSolidification(t *testing.T) {
 }
 
 func TestReverseTransactionSolidification(t *testing.T) {
+	// img/reverse-transaction-solidification.png
+	// Builds a UTXO-DAG with `txChains` spending outputs from the corresponding chain.
+	// All value objects reference the previous value object, effectively creating a chain.
+	// The test attaches the prepared value objects concurrently in reverse order.
 	tangle := New(mapdb.NewMapDB())
 	defer tangle.Shutdown()
 
