@@ -848,13 +848,10 @@ func (tangle *Tangle) solidifyPayload(cachedPayload *payload.CachedPayload, cach
 		CachedTransactionMetadata: cachedTransactionMetadata,
 	})
 
-	// keep track of the added payloads so we do not add them multiple times
-	processedPayloads := make(map[payload.ID]types.Empty)
-
 	// process payloads that are supposed to be checked for solidity recursively
 	for solidificationStack.Len() > 0 {
 		currentSolidificationEntry := solidificationStack.Front()
-		tangle.processSolidificationStackEntry(solidificationStack, processedPayloads, currentSolidificationEntry.Value.(*valuePayloadPropagationStackEntry))
+		tangle.processSolidificationStackEntry(solidificationStack, currentSolidificationEntry.Value.(*valuePayloadPropagationStackEntry))
 		solidificationStack.Remove(currentSolidificationEntry)
 	}
 }
@@ -991,7 +988,7 @@ func (tangle *Tangle) deletePayloadFutureCone(payloadID payload.ID) {
 
 // processSolidificationStackEntry processes a single entry of the solidification stack and schedules its approvers and
 // consumers if necessary.
-func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.List, processedPayloads map[payload.ID]types.Empty, solidificationStackEntry *valuePayloadPropagationStackEntry) {
+func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.List, solidificationStackEntry *valuePayloadPropagationStackEntry) {
 	// release stack entry when we are done
 	defer solidificationStackEntry.Release()
 
@@ -1034,6 +1031,9 @@ func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.
 
 		return
 	}
+
+	// keep track of the added payloads so we do not add them multiple times
+	processedPayloads := make(map[payload.ID]types.Empty)
 
 	// trigger events and schedule check of approvers / consumers
 	if transactionBooked {
