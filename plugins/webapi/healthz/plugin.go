@@ -28,7 +28,7 @@ func getHealthz(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-// IsNodeHealthy returns whether the node is synced, has active neighbors and its latest milestone is not too old.
+// IsNodeHealthy returns whether the node is synced, has active neighbors.
 func IsNodeHealthy() bool {
 	// Synced
 	if !sync.Synced() {
