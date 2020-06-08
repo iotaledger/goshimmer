@@ -2,7 +2,7 @@ import * as React from 'react';
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import {inject, observer} from "mobx-react";
-import AutopeeringStore from "app/stores/AutopeeringStore";
+import AutopeeringStore, {shortenedIDCharCount} from "app/stores/AutopeeringStore";
 import {Col} from "react-bootstrap";
 import Badge from "react-bootstrap/Badge";
 import FormControl from "react-bootstrap/FormControl";
@@ -36,7 +36,7 @@ export class NodeView extends React.Component<Props, any> {
                 </Row>
                 <Row style={{paddingBottom: 20}}>
                     <Col style={{display: 'flex',  justifyContent:'center', alignItems:'center'}}>
-                        <em>{this.props.autopeeringStore.selectedNode.slice(0,8)}</em>
+                        <em>{this.props.autopeeringStore.selectedNode.slice(0,shortenedIDCharCount)}</em>
                     </Col>
                 </Row>
                 <Row style={{paddingBottom: 10}}>
@@ -65,7 +65,7 @@ export class NodeView extends React.Component<Props, any> {
                 </Row>
                 <Row>
                     <Col style={{display: 'flex',  justifyContent:'center', alignItems:'center'}}>
-                        <Button style={{fontSize: 11}} variant="info" onClick={this.props.autopeeringStore.clearSelection}>
+                        <Button style={{fontSize: 11}} variant="info" onClick={this.props.autopeeringStore.clearNodeSelection}>
                             Clear Selection
                         </Button>
                     </Col>

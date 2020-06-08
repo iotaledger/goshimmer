@@ -54,6 +54,8 @@ const VERTEX_SIZE_ACTIVE = 24;
 const VERTEX_SIZE_CONNECTED = 18;
 const statusWebSocketPath = "/ws";
 
+export const shortenedIDCharCount = 8;
+
 export class AutopeeringStore {
     routerStore: RouterStore;
 
@@ -95,7 +97,7 @@ export class AutopeeringStore {
             () => this.updateWebSocketConnected(false))
     }
 
-    // derive the full node ID based on the shortened nodeID (first 8 chars)
+    // derive the full node ID based on the shortened nodeID (first shortenedIDCharCount chars)
     getFullNodeID = (shortNodeID: string) => {
         for(let fullNodeID of this.nodes.values()){
             if (fullNodeID.startsWith(shortNodeID)) {
@@ -372,6 +374,20 @@ export class AutopeeringStore {
 
     // handlers for frontend events //
 
+    // updates the currently selected node
+    @action
+    updateSelectedNode = (node: string) => {
+        this.selectedNode = node;
+        // get node incoming neighbors
+        if (!this.nodes.has(this.selectedNode)) {
+            console.log("Selected node not found (%s)", this.selectedNode);
+        }
+        this.selectedNodeInNeighbors = this.neighbors.get(this.selectedNode).in;
+        this.selectedNodeOutNeighbors =  this.neighbors.get(this.selectedNode).out;
+        this.selectionActive = true;
+        this.showHighlight();
+    }
+
     // handles graph event of mouse entering a node
     @action
     handleGraphNodeOnHover = (node) => {
@@ -384,22 +400,13 @@ export class AutopeeringStore {
         if (this.selectionActive) {
             this.resetPreviousColors(true);
         }
-
-        this.selectedNode = node.id;
-        // get node incoming neighbors
-        if (!this.nodes.has(this.selectedNode)) {
-            console.log("Selected node not found (%s)", this.selectedNode);
-        }
-        this.selectedNodeInNeighbors = this.neighbors.get(this.selectedNode).in;
-        this.selectedNodeOutNeighbors =  this.neighbors.get(this.selectedNode).out;
-        this.selectionActive = true;
-        this.showHighlight();
+        this.updateSelectedNode(node.id);
     }
 
     // handles graph event of mouse leaving a node
     @action
     handleGraphNodeOnHoverLeave = (node) => {
-        this.clearSelection();
+        this.clearNodeSelection();
         return;
     }
 
@@ -408,40 +415,24 @@ export class AutopeeringStore {
     handleNodeButtonOnClick = (e) => {
         // find node based on the first 8 characters
         let clickedNode = this.getFullNodeID(e.target.innerHTML)
-
-        if (this.selectionActive) {
-            if (this.selectedNode === clickedNode) {
-                // Disable selection on second click when clicked on the same node
-                this.clearSelection();
-                return;
-            } else {
-                // we clicked on a different node
-                // stop highlighting the other node if clicked
-                // note that edge color defaults back to "hide"
-                this.resetPreviousColors(true, true);
-            }
-        }
-        this.selectedNode = clickedNode;
-        // get node incoming neighbors
-        if (!this.nodes.has(this.selectedNode)) {
-            console.log("Selected node not found (%s)", this.selectedNode);
-        }
-        this.selectedNodeInNeighbors = this.neighbors.get(this.selectedNode).in;
-        this.selectedNodeOutNeighbors =  this.neighbors.get(this.selectedNode).out;
-        this.selectionActive = true;
-        this.showHighlight();
+        this.handleNodeSelection(clickedNode);
     }
 
     // handles click on a node in word cloud
     @action
     handleNodeOnClick = (word: Word, event) => {
         // find node based on the first 8 characters
-        let clickedNode = this.getFullNodeID(word.text)
+        let clickedNode = this.getFullNodeID(word.text);
+        this.handleNodeSelection(clickedNode);
+    }
 
+    // checks whether selection is already active, then updates selected node
+    @action
+    handleNodeSelection = (clickedNode: string) => {
         if (this.selectionActive) {
             if (this.selectedNode === clickedNode) {
                 // Disable selection on second click when clicked on the same node
-                this.clearSelection();
+                this.clearNodeSelection();
                 return;
             } else {
                 // we clicked on a different node
@@ -450,20 +441,12 @@ export class AutopeeringStore {
                 this.resetPreviousColors(true, true);
             }
         }
-        this.selectedNode = clickedNode;
-        // get node incoming neighbors
-        if (!this.nodes.has(this.selectedNode)) {
-            console.log("Selected node not found (%s)", this.selectedNode);
-        }
-        this.selectedNodeInNeighbors = this.neighbors.get(this.selectedNode).in;
-        this.selectedNodeOutNeighbors =  this.neighbors.get(this.selectedNode).out;
-        this.selectionActive = true;
-        this.showHighlight();
+        this.updateSelectedNode(clickedNode);
     }
 
     // handles clearing the node selection
     @action
-    clearSelection = () => {
+    clearNodeSelection = () => {
         this.resetPreviousColors();
         this.selectedNode = null;
         this.selectedNodeInNeighbors = null;
@@ -490,7 +473,7 @@ export class AutopeeringStore {
         let words = [];
 
         results.forEach((nodeID) => {
-            let shortID = nodeID.slice(0,8);
+            let shortID = nodeID.slice(0,shortenedIDCharCount);
             words.push({
                 text: shortID,
                 value: 1,
@@ -523,7 +506,7 @@ export class AutopeeringStore {
             inNeighbors.push(
                 <li key={inNeighborID}>
                     <Button style={{fontSize: 12}} variant="outline-dark" onClick={this.handleNodeButtonOnClick}>
-                        {inNeighborID.slice(0,8)}
+                        {inNeighborID.slice(0,shortenedIDCharCount)}
                     </Button>
                 </li>
 
@@ -539,7 +522,7 @@ export class AutopeeringStore {
             outNeighbors.push(
                 <li key={outNeighborID}>
                     <Button style={{fontSize: 12}} variant="outline-dark" onClick={this.handleNodeButtonOnClick}>
-                        {outNeighborID.slice(0,8)}
+                        {outNeighborID.slice(0,shortenedIDCharCount)}
                     </Button>
                 </li>
             )
