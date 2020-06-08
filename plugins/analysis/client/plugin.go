@@ -29,6 +29,8 @@ const (
 	CfgServerAddress = "analysis.client.serverAddress"
 	// defines the report interval of the reporting in seconds.
 	reportIntervalSec = 5
+	// maxVoteContext defines the maximum number of vote context to fit into an FPC update
+	maxVoteContext = 50
 )
 
 func init() {
@@ -148,29 +150,57 @@ func onRoundExecuted(roundStats *vote.RoundStats) {
 		nodeID = local.GetInstance().ID().Bytes()
 	}
 
-	rs := vote.RoundStats{
-		Duration:           roundStats.Duration,
-		RandUsed:           roundStats.RandUsed,
-		ActiveVoteContexts: roundStats.ActiveVoteContexts,
-	}
-
-	hb := &packet.FPCHeartbeat{
-		OwnID:      nodeID,
-		RoundStats: rs,
-	}
-
-	data, err := packet.NewFPCHeartbeatMessage(hb)
-	if err != nil {
-		log.Info(err, " - FPC heartbeat message skipped")
-		return
-	}
-
-	log.Info("Client: onRoundExecuted data size: ", len(data))
+	chunks := splitFPCVoteContext(roundStats.ActiveVoteContexts)
 
 	connLock.Lock()
 	defer connLock.Unlock()
-	if _, err = managedConn.Write(data); err != nil {
-		log.Debugw("Error while writing to connection", "Description", err)
+
+	for _, chunk := range chunks {
+		rs := vote.RoundStats{
+			Duration:           roundStats.Duration,
+			RandUsed:           roundStats.RandUsed,
+			ActiveVoteContexts: chunk,
+		}
+
+		hb := &packet.FPCHeartbeat{
+			OwnID:      nodeID,
+			RoundStats: rs,
+		}
+
+		data, err := packet.NewFPCHeartbeatMessage(hb)
+		if err != nil {
+			log.Info(err, " - FPC heartbeat message skipped")
+			return
+		}
+
+		log.Info("Client: onRoundExecuted data size: ", len(data))
+
+		if _, err = managedConn.Write(data); err != nil {
+			log.Debugw("Error while writing to connection", "Description", err)
+			return
+		}
+	}
+}
+
+func splitFPCVoteContext(ctx map[string]*vote.Context) (chunk []map[string]*vote.Context) {
+	chunk = make([]map[string]*vote.Context, 1)
+	i, counter := 0, 0
+	chunk[i] = make(map[string]*vote.Context)
+
+	if len(ctx) < maxVoteContext {
+		chunk[i] = ctx
 		return
 	}
+
+	for conflictID, voteCtx := range ctx {
+		counter++
+		if counter >= maxVoteContext {
+			counter = 0
+			i++
+			chunk = append(chunk, make(map[string]*vote.Context))
+		}
+		chunk[i][conflictID] = voteCtx
+	}
+
+	return
 }
