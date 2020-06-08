@@ -2,9 +2,9 @@ import {RouterStore} from "mobx-react-router";
 import {action, computed, observable, ObservableMap, ObservableSet} from "mobx";
 import {connectWebSocket, registerHandler, WSMsgType} from "app/misc/WS";
 import {default as Viva} from 'vivagraphjs';
-import * as React from "react";
-import ListGroupItem from "react-bootstrap/ListGroupItem";
+import * as React from "react";;
 import Button from "react-bootstrap/Button";
+import ReactWordcloud from "react-wordcloud";
 
 
 export class AddNodeMessage {
@@ -33,6 +33,12 @@ export class Neighbors {
         this.in = new Set();
         this.out = new Set();
     }
+}
+
+export interface Word {
+    [key: string]: any;
+    text: string;
+    value: number;
 }
 
 const EDGE_COLOR_DEFAULT = "#ff7d6cff";
@@ -88,6 +94,16 @@ export class AutopeeringStore {
             () => this.updateWebSocketConnected(false),
             () => this.updateWebSocketConnected(false))
     }
+
+    // derive the full node ID based on the shortened nodeID (first 8 chars)
+    getFullNodeID = (shortNodeID: string) => {
+        for(let fullNodeID of this.nodes.values()){
+            if (fullNodeID.startsWith(shortNodeID)) {
+                return fullNodeID;
+            }
+        }
+        return "";
+    };
 
     @action
     updateWebSocketConnected = (connected: boolean) => this.websocketConnected = connected;
@@ -219,7 +235,7 @@ export class AutopeeringStore {
         this.connections.add(msg.source + msg.target);
 
         // Update neighbors map
-        if (this.neighbors.get(msg.source) == undefined) {
+        if (this.neighbors.get(msg.source) === undefined) {
             let neighbors = new Neighbors();
             neighbors.out.add(msg.target);
             this.neighbors.set(msg.source, neighbors);
@@ -227,7 +243,7 @@ export class AutopeeringStore {
             this.neighbors.get(msg.source).out.add(msg.target);
         }
 
-        if (this.neighbors.get(msg.target) == undefined) {
+        if (this.neighbors.get(msg.target) === undefined) {
             let neighbors = new Neighbors();
             neighbors.in.add(msg.source);
             this.neighbors.set(msg.target, neighbors);
@@ -360,7 +376,7 @@ export class AutopeeringStore {
     @action
     handleGraphNodeOnHover = (node) => {
         // when node is already selected
-        if (this.selectionActive && this.selectedNode == node.id) {
+        if (this.selectionActive && this.selectedNode === node.id) {
             return;
         }
 
@@ -387,12 +403,14 @@ export class AutopeeringStore {
         return;
     }
 
-    // handles click on a node in list
+    // handles click on a node button
     @action
-    handleNodeListOnClick = (e) => {
+    handleNodeButtonOnClick = (e) => {
+        // find node based on the first 8 characters
+        let clickedNode = this.getFullNodeID(e.target.innerHTML)
 
         if (this.selectionActive) {
-            if (this.selectedNode == e.target.innerHTML) {
+            if (this.selectedNode === clickedNode) {
                 // Disable selection on second click when clicked on the same node
                 this.clearSelection();
                 return;
@@ -403,8 +421,36 @@ export class AutopeeringStore {
                 this.resetPreviousColors(true, true);
             }
         }
+        this.selectedNode = clickedNode;
+        // get node incoming neighbors
+        if (!this.nodes.has(this.selectedNode)) {
+            console.log("Selected node not found (%s)", this.selectedNode);
+        }
+        this.selectedNodeInNeighbors = this.neighbors.get(this.selectedNode).in;
+        this.selectedNodeOutNeighbors =  this.neighbors.get(this.selectedNode).out;
+        this.selectionActive = true;
+        this.showHighlight();
+    }
 
-        this.selectedNode = e.target.innerHTML;
+    // handles click on a node in word cloud
+    @action
+    handleNodeOnClick = (word: Word, event) => {
+        // find node based on the first 8 characters
+        let clickedNode = this.getFullNodeID(word.text)
+
+        if (this.selectionActive) {
+            if (this.selectedNode === clickedNode) {
+                // Disable selection on second click when clicked on the same node
+                this.clearSelection();
+                return;
+            } else {
+                // we clicked on a different node
+                // stop highlighting the other node if clicked
+                // note that edge color defaults back to "hide"
+                this.resetPreviousColors(true, true);
+            }
+        }
+        this.selectedNode = clickedNode;
         // get node incoming neighbors
         if (!this.nodes.has(this.selectedNode)) {
             console.log("Selected node not found (%s)", this.selectedNode);
@@ -429,10 +475,9 @@ export class AutopeeringStore {
     // computed values update frontend rendering //
 
     @computed
-    get nodeListView(){
-        let nodeList = [];
+    get nodeWordCloud(){
         let results = null;
-        if (this.search == "") {
+        if (this.search === "") {
             results = this.nodes;
         } else {
             results = new Set();
@@ -442,17 +487,33 @@ export class AutopeeringStore {
                 }
             })
         }
+        let words = [];
 
         results.forEach((nodeID) => {
-            nodeList.push(
-                <ListGroupItem key={nodeID} style={{padding: 0}}>
-                    <Button style={{fontSize: 12}} variant="outline-dark" onClick={this.handleNodeListOnClick}>
-                        {nodeID}
-                    </Button>
-                </ListGroupItem>
-            )
+            let shortID = nodeID.slice(0,8);
+            words.push({
+                text: shortID,
+                value: 1,
+            });
         })
-        return nodeList
+        return (
+            <ReactWordcloud
+                options={{
+                    colors: ['#050517', '#2d080a', '#7cc6fe', '#372554', '#ba5a31'],
+                    deterministic: true,
+                    fontFamily: 'arial',
+                    fontSizes: [15,18],
+                    fontWeight: 'bold',
+                    rotations: 1,
+                    rotationAngles: [0, 0],
+                    enableOptimizations: true
+                }}
+                words={words}
+                callbacks={{
+                    onWordClick: this.handleNodeOnClick
+                }}
+            />
+        )
     }
 
     @computed
@@ -461,8 +522,8 @@ export class AutopeeringStore {
         this.selectedNodeInNeighbors.forEach((inNeighborID) => {
             inNeighbors.push(
                 <li key={inNeighborID}>
-                    <Button style={{fontSize: 12}} variant="outline-dark" onClick={this.handleNodeListOnClick}>
-                        {inNeighborID}
+                    <Button style={{fontSize: 12}} variant="outline-dark" onClick={this.handleNodeButtonOnClick}>
+                        {inNeighborID.slice(0,8)}
                     </Button>
                 </li>
 
@@ -477,8 +538,8 @@ export class AutopeeringStore {
         this.selectedNodeOutNeighbors.forEach((outNeighborID) => {
             outNeighbors.push(
                 <li key={outNeighborID}>
-                    <Button style={{fontSize: 12}} variant="outline-dark" onClick={this.handleNodeListOnClick}>
-                        {outNeighborID}
+                    <Button style={{fontSize: 12}} variant="outline-dark" onClick={this.handleNodeButtonOnClick}>
+                        {outNeighborID.slice(0,8)}
                     </Button>
                 </li>
             )
