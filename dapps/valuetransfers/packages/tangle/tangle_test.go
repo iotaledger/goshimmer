@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"container/list"
+	"log"
 	"math"
 	"testing"
 
@@ -1897,12 +1898,19 @@ func TestLucasScenario(t *testing.T) {
 		assert.True(t, tangle.TransactionMetadata(transactions["[-E, -F, G+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
 			assert.True(t, transactionMetadata.Solid(), "the transaction is not solid")
 			assert.Equal(t, branches["B"], transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
+
+			log.Println("-E, -F, G+] Preferred:", transactionMetadata.Preferred())
+			log.Println("-E, -F, G+] Finalized:", transactionMetadata.Finalized())
 		}))
 
 		// check if transaction metadata is found in database
 		assert.True(t, tangle.PayloadMetadata(valueObjects["[-E, -F, G+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
 			assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
 			assert.Equal(t, branches["B"], payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+
+			log.Println("-E, -F, G+] Payload Liked:", payloadMetadata.Liked())
+			log.Println("-E, -F, G+] Payload Confirmed:", payloadMetadata.Confirmed())
+			log.Println("-E, -F, G+] Payload Rejected:", payloadMetadata.Rejected())
 		}))
 
 		// check if the balance on address E is found in the database
@@ -1928,6 +1936,44 @@ func TestLucasScenario(t *testing.T) {
 			assert.Equal(t, branches["B"], output.BranchID(), "the output was booked into the wrong branch")
 			assert.True(t, output.Solid(), "the output is not solid")
 		}))
+
+		////////
+
+		modified, err := tangle.SetTransactionFinalized(transactions["[-A, F+]"].ID())
+		require.NoError(t, err)
+		assert.True(t, modified)
+
+		assert.True(t, tangle.TransactionMetadata(transactions["[-A, F+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			log.Println("[-A, F+] Preferred:", transactionMetadata.Preferred())
+			log.Println("[-A, F+] Finalized:", transactionMetadata.Finalized())
+		}))
+
+		assert.True(t, tangle.PayloadMetadata(valueObjects["[-A, F+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+			log.Println("[-A, F+] Payload Liked:", payloadMetadata.Liked())
+			log.Println("[-A, F+] Payload Confirmed:", payloadMetadata.Confirmed())
+			log.Println("[-A, F+] Payload Rejected:", payloadMetadata.Rejected())
+		}))
+
+		// check if payload metadata is found in database
+		assert.True(t, tangle.TransactionMetadata(transactions["[-E, -F, G+]"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+			assert.True(t, transactionMetadata.Solid(), "the transaction is not solid")
+			assert.Equal(t, branches["B"], transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
+
+			log.Println("-E, -F, G+] Preferred:", transactionMetadata.Preferred())
+			log.Println("-E, -F, G+] Finalized:", transactionMetadata.Finalized())
+		}))
+
+		// check if transaction metadata is found in database
+		assert.True(t, tangle.PayloadMetadata(valueObjects["[-E, -F, G+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+			assert.True(t, payloadMetadata.IsSolid(), "the payload is not solid")
+			assert.Equal(t, branches["B"], payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+
+			log.Println("-E, -F, G+] Payload Liked:", payloadMetadata.Liked())
+			log.Println("-E, -F, G+] Payload Confirmed:", payloadMetadata.Confirmed())
+			log.Println("-E, -F, G+] Payload Rejected:", payloadMetadata.Rejected())
+		}))
+
+		////////
 	}
 
 	// [-F, -D, Y+]
