@@ -75,11 +75,9 @@ func configureLocal() *peer.Local {
 		log.Fatalf("Error creating peer DB: %s", err)
 	}
 
-	if config.Node.GetBool(CfgPrintSeed) {
-		// retrieve private key seed of the current local
-		key, _ := peerDB.LocalPrivateKey()
-		fmt.Printf("Seed: base58:%s\n", key.Seed().String())
-	}
+	// the private key seed of the current local can be returned the following way:
+	// key, _ := peerDB.LocalPrivateKey()
+	// fmt.Printf("Seed: base58:%s\n", key.Seed().String())
 
 	local, err := peer.NewLocal(peeringIP, services, peerDB, seed...)
 	if err != nil {
