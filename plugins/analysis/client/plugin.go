@@ -148,9 +148,15 @@ func onRoundExecuted(roundStats *vote.RoundStats) {
 		nodeID = local.GetInstance().ID().Bytes()
 	}
 
+	rs := vote.RoundStats{
+		Duration:           roundStats.Duration,
+		RandUsed:           roundStats.RandUsed,
+		ActiveVoteContexts: roundStats.ActiveVoteContexts,
+	}
+
 	hb := &packet.FPCHeartbeat{
 		OwnID:      nodeID,
-		RoundStats: *roundStats,
+		RoundStats: rs,
 	}
 
 	data, err := packet.NewFPCHeartbeatMessage(hb)
@@ -158,6 +164,8 @@ func onRoundExecuted(roundStats *vote.RoundStats) {
 		log.Info(err, " - FPC heartbeat message skipped")
 		return
 	}
+
+	log.Info("Client: onRoundExecuted data size: ", len(data))
 
 	connLock.Lock()
 	defer connLock.Unlock()
