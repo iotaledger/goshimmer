@@ -32,7 +32,7 @@ var (
 
 // FPCUpdate contains an FPC update.
 type FPCUpdate struct {
-	Conflicts conflictSet `json:"conflictset"`
+	Conflicts conflictSet `json:"conflictset" bson:"conflictset"`
 }
 
 func configureFPCLiveFeed() {
@@ -77,17 +77,40 @@ func createFPCUpdate(hb *packet.FPCHeartbeat, recordEvent bool) *FPCUpdate {
 			Opinions: vote.ConvertOpinionsToInts32(context.Opinions),
 		}
 
-		// check conflict has been finalized
-		if _, ok := hb.Finalized[ID]; ok {
-			newVoteContext.Status = vote.ConvertOpinionToInt32(hb.Finalized[ID])
-		}
-
 		conflicts[ID] = newConflict()
 		conflicts[ID].NodesView[nodeID] = newVoteContext
 
 		if recordEvent {
 			// update recorded events
 			recordedConflicts.update(ID, conflict{NodesView: map[string]voteContext{nodeID: newVoteContext}})
+		}
+	}
+
+	// check finalized conflicts
+	if len(hb.Finalized) > 0 {
+		finalizedConflicts := make([]FPCRecord, len(hb.Finalized))
+		i := 0
+		for ID, finalOpinion := range hb.Finalized {
+			recordedConflicts.lock.Lock()
+			conflictDetail := recordedConflicts.conflictSet[ID].NodesView[nodeID]
+			conflictDetail.Status = vote.ConvertOpinionToInt32(finalOpinion)
+			conflicts[ID] = newConflict()
+			conflicts[ID].NodesView[nodeID] = conflictDetail
+			recordedConflicts.conflictSet[ID].NodesView[nodeID] = conflictDetail
+			finalizedConflicts[i] = FPCRecord{
+				ConflictID: ID,
+				NodeID:     conflictDetail.NodeID,
+				Rounds:     conflictDetail.Rounds,
+				Opinions:   conflictDetail.Opinions,
+				Status:     conflictDetail.Status,
+			}
+			recordedConflicts.lock.Unlock()
+			i++
+		}
+
+		err := storeFPCRecords(finalizedConflicts, mongoDB())
+		if err != nil {
+			log.Errorf("Error while writing on MongoDB: %s", err)
 		}
 	}
 

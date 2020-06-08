@@ -5,14 +5,14 @@ type conflictSet = map[string]conflict
 
 // conflict defines the struct for the opinions of the nodes regarding a given conflict.
 type conflict struct {
-	NodesView map[string]voteContext `json:"nodesview"`
+	NodesView map[string]voteContext `json:"nodesview" bson:"nodesview"`
 }
 
 type voteContext struct {
-	NodeID   string  `json:"nodeid"`
-	Rounds   int     `json:"rounds"`
-	Opinions []int32 `json:"opinions"`
-	Status   int32   `json:"status"`
+	NodeID   string  `json:"nodeid" bson:"nodeid"`
+	Rounds   int     `json:"rounds" bson:"rounds"`
+	Opinions []int32 `json:"opinions" bson:"opinions"`
+	Status   int32   `json:"status" bson:"status"`
 }
 
 func newConflict() conflict {

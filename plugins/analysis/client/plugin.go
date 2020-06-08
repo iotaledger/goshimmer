@@ -43,9 +43,13 @@ var (
 	log         *logger.Logger
 	managedConn *network.ManagedConnection
 	connLock    sync.Mutex
+
+	finalized      map[string]vote.Opinion
+	finalizedMutex sync.RWMutex
 )
 
 func run(_ *node.Plugin) {
+	finalized = make(map[string]vote.Opinion)
 	log = logger.NewLogger(PluginName)
 
 	conn, err := net.Dial("tcp", config.Node.GetString(CfgServerAddress))
@@ -57,6 +61,9 @@ func run(_ *node.Plugin) {
 	managedConn = network.NewManagedConnection(conn)
 
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+
+		fpctest.Voter().Events().Finalized.Attach(events.NewClosure(onFinalized))
+		defer fpctest.Voter().Events().Finalized.Detach(events.NewClosure(onFinalized))
 
 		fpctest.Voter().Events().RoundExecuted.Attach(events.NewClosure(onRoundExecuted))
 		defer fpctest.Voter().Events().RoundExecuted.Detach(events.NewClosure(onRoundExecuted))
@@ -75,6 +82,12 @@ func run(_ *node.Plugin) {
 	}, shutdown.PriorityAnalysis); err != nil {
 		log.Panic(err)
 	}
+}
+
+func onFinalized(id string, opinion vote.Opinion) {
+	finalizedMutex.Lock()
+	finalized[id] = opinion
+	finalizedMutex.Unlock()
 }
 
 // EventDispatchers holds the Heartbeat function.
@@ -166,6 +179,11 @@ func onRoundExecuted(roundStats *vote.RoundStats) {
 			OwnID:      nodeID,
 			RoundStats: rs,
 		}
+
+		finalizedMutex.Lock()
+		hb.Finalized = finalized
+		finalized = make(map[string]vote.Opinion)
+		finalizedMutex.Unlock()
 
 		data, err := packet.NewFPCHeartbeatMessage(hb)
 		if err != nil {

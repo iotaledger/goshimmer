@@ -1,6 +1,16 @@
 version: "3.5"
 
 services:
+  mongodb_container:
+    image: mongo:latest
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+    ports:
+      - 27017:27017
+    volumes:
+      - mongodb_data_container:/data/db
+ 
   entry_node:
     container_name: entry_node
     image: golang:1.14
@@ -59,3 +69,4 @@ services:
 volumes:
   goshimmer-cache:
     name: goshimmer-cache
+  mongodb_data_container:
