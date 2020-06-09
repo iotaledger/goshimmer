@@ -11,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
+// FPCRecord defines the FPC record to be stored into a mongoDB
 type FPCRecord struct {
 	ConflictID string  `json:"conflictid" bson:"conflictid"`
 	NodeID     string  `json:"nodeid" bson:"nodeid"`
