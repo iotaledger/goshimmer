@@ -30,7 +30,6 @@ func TestCreateFPCUpdate(t *testing.T) {
 					Opinions: []vote.Opinion{vote.Dislike, vote.Like, vote.Dislike},
 				}},
 		},
-		Finalized: map[string]vote.Opinion{"one": vote.Like},
 	}
 
 	// create a matching FPCUpdate
@@ -42,7 +41,6 @@ func TestCreateFPCUpdate(t *testing.T) {
 						NodeID:   base58OwnID,
 						Rounds:   3,
 						Opinions: []int32{disliked, liked, disliked},
-						Status:   liked,
 					},
 				},
 			},
