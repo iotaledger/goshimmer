@@ -22,6 +22,9 @@ type TransactionMetadata struct {
 	solid              bool
 	preferred          bool
 	finalized          bool
+	liked              bool
+	confirmed          bool
+	rejected           bool
 	solidificationTime time.Time
 	finalizationTime   time.Time
 
@@ -29,6 +32,9 @@ type TransactionMetadata struct {
 	solidMutex              sync.RWMutex
 	preferredMutex          sync.RWMutex
 	finalizedMutex          sync.RWMutex
+	likedMutex              sync.RWMutex
+	confirmedMutex          sync.RWMutex
+	rejectedMutex           sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 }
 
@@ -244,6 +250,102 @@ func (transactionMetadata *TransactionMetadata) Finalized() bool {
 	return transactionMetadata.finalized
 }
 
+// Liked returns true if the Transaction was marked as liked.
+func (transactionMetadata *TransactionMetadata) Liked() bool {
+	transactionMetadata.likedMutex.RLock()
+	defer transactionMetadata.likedMutex.RUnlock()
+
+	return transactionMetadata.liked
+}
+
+// setLiked modifies the liked flag of the given Transaction. It returns true if the value has been updated.
+func (transactionMetadata *TransactionMetadata) setLiked(liked bool) (modified bool) {
+	transactionMetadata.likedMutex.RLock()
+	if transactionMetadata.liked == liked {
+		transactionMetadata.likedMutex.RUnlock()
+
+		return
+	}
+
+	transactionMetadata.likedMutex.RUnlock()
+	transactionMetadata.likedMutex.Lock()
+	defer transactionMetadata.likedMutex.Unlock()
+
+	if transactionMetadata.liked == liked {
+		return
+	}
+
+	transactionMetadata.liked = liked
+	transactionMetadata.SetModified()
+	modified = true
+
+	return
+}
+
+// Confirmed returns true if the Transaction was marked as confirmed.
+func (transactionMetadata *TransactionMetadata) Confirmed() bool {
+	transactionMetadata.confirmedMutex.RLock()
+	defer transactionMetadata.confirmedMutex.RUnlock()
+
+	return transactionMetadata.confirmed
+}
+
+// setConfirmed modifies the confirmed flag of the given Transaction. It returns true if the value has been updated.
+func (transactionMetadata *TransactionMetadata) setConfirmed(confirmed bool) (modified bool) {
+	transactionMetadata.confirmedMutex.RLock()
+	if transactionMetadata.confirmed == confirmed {
+		transactionMetadata.confirmedMutex.RUnlock()
+
+		return
+	}
+
+	transactionMetadata.confirmedMutex.RUnlock()
+	transactionMetadata.confirmedMutex.Lock()
+	defer transactionMetadata.confirmedMutex.Unlock()
+
+	if transactionMetadata.confirmed == confirmed {
+		return
+	}
+
+	transactionMetadata.confirmed = confirmed
+	transactionMetadata.SetModified()
+	modified = true
+
+	return
+}
+
+// Rejected returns true if the Transaction was marked as confirmed.
+func (transactionMetadata *TransactionMetadata) Rejected() bool {
+	transactionMetadata.rejectedMutex.RLock()
+	defer transactionMetadata.rejectedMutex.RUnlock()
+
+	return transactionMetadata.rejected
+}
+
+// setRejected modifies the rejected flag of the given Transaction. It returns true if the value has been updated.
+func (transactionMetadata *TransactionMetadata) setRejected(rejected bool) (modified bool) {
+	transactionMetadata.rejectedMutex.RLock()
+	if transactionMetadata.rejected == rejected {
+		transactionMetadata.rejectedMutex.RUnlock()
+
+		return
+	}
+
+	transactionMetadata.rejectedMutex.RUnlock()
+	transactionMetadata.rejectedMutex.Lock()
+	defer transactionMetadata.rejectedMutex.Unlock()
+
+	if transactionMetadata.rejected == rejected {
+		return
+	}
+
+	transactionMetadata.rejected = rejected
+	transactionMetadata.SetModified()
+	modified = true
+
+	return
+}
+
 // FinalizationTime returns the time when this transaction was finalized.
 func (transactionMetadata *TransactionMetadata) FinalizationTime() time.Time {
 	transactionMetadata.finalizedMutex.RLock()
@@ -262,13 +364,16 @@ func (transactionMetadata *TransactionMetadata) SoldificationTime() time.Time {
 
 // Bytes marshals the TransactionMetadata object into a sequence of bytes.
 func (transactionMetadata *TransactionMetadata) Bytes() []byte {
-	return marshalutil.New(branchmanager.BranchIDLength + 2*marshalutil.TIME_SIZE + 3*marshalutil.BOOL_SIZE).
+	return marshalutil.New(branchmanager.BranchIDLength + 2*marshalutil.TIME_SIZE + 6*marshalutil.BOOL_SIZE).
 		WriteBytes(transactionMetadata.BranchID().Bytes()).
 		WriteTime(transactionMetadata.SoldificationTime()).
 		WriteTime(transactionMetadata.FinalizationTime()).
 		WriteBool(transactionMetadata.Solid()).
 		WriteBool(transactionMetadata.Preferred()).
 		WriteBool(transactionMetadata.Finalized()).
+		WriteBool(transactionMetadata.Liked()).
+		WriteBool(transactionMetadata.Confirmed()).
+		WriteBool(transactionMetadata.Rejected()).
 		Bytes()
 }
 
@@ -318,6 +423,15 @@ func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data
 		return
 	}
 	if transactionMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if transactionMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if transactionMetadata.confirmed, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if transactionMetadata.rejected, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
