@@ -5,10 +5,14 @@ import (
 )
 
 const (
-	CfgPrometheusGoMetrics       = "prometheus.goMetrics"
-	CfgPrometheusProcessMetrics  = "prometheus.processMetrics"
+	// CfgPrometheusGoMetrics defines the config flag to enable/disable go metrics.
+	CfgPrometheusGoMetrics = "prometheus.goMetrics"
+	// CfgPrometheusProcessMetrics defines the config flag to enable/disable process metrics.
+	CfgPrometheusProcessMetrics = "prometheus.processMetrics"
+	// CfgPrometheusPromhttpMetrics defines the config flag to enable/disable promhttp metrics.
 	CfgPrometheusPromhttpMetrics = "prometheus.promhttpMetrics"
-	CfgPrometheusBindAddress     = "prometheus.bindAddress"
+	// CfgPrometheusBindAddress defines the config flag of the bind address on which the Prometheus exporter listens on.
+	CfgPrometheusBindAddress = "prometheus.bindAddress"
 )
 
 func init() {
