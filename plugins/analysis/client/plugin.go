@@ -62,11 +62,13 @@ func run(_ *node.Plugin) {
 
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 
-		fpctest.Voter().Events().Finalized.Attach(events.NewClosure(onFinalized))
-		defer fpctest.Voter().Events().Finalized.Detach(events.NewClosure(onFinalized))
+		onFinalizedClosure := events.NewClosure(onFinalized)
+		fpctest.Voter().Events().Finalized.Attach(onFinalizedClosure)
+		defer fpctest.Voter().Events().Finalized.Detach(onFinalizedClosure)
 
-		fpctest.Voter().Events().RoundExecuted.Attach(events.NewClosure(onRoundExecuted))
-		defer fpctest.Voter().Events().RoundExecuted.Detach(events.NewClosure(onRoundExecuted))
+		onRoundExecutedClosure := events.NewClosure(onRoundExecuted)
+		fpctest.Voter().Events().RoundExecuted.Attach(onRoundExecutedClosure)
+		defer fpctest.Voter().Events().RoundExecuted.Detach(onRoundExecutedClosure)
 
 		ticker := time.NewTicker(reportIntervalSec * time.Second)
 		defer ticker.Stop()
