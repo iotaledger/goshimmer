@@ -431,7 +431,7 @@ func (branchManager *BranchManager) propagateRejectedToChildBranches(cachedBranc
 		branchStack.Remove(currentStackElement)
 
 		currentBranch := currentCachedBranch.Unwrap()
-		if currentBranch == nil || !currentBranch.setRejected(false) {
+		if currentBranch == nil || !currentBranch.setRejected(true) {
 			currentCachedBranch.Release()
 
 			continue
@@ -520,6 +520,8 @@ func (branchManager *BranchManager) init() {
 	cachedBranch.Consume(func(branch *Branch) {
 		branch.setPreferred(true)
 		branch.setLiked(true)
+		branch.setFinalized(true)
+		branch.setConfirmed(true)
 	})
 }
 

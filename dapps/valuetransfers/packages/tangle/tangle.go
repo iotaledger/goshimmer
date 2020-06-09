@@ -148,7 +148,7 @@ func (tangle *Tangle) ValuePayloadsConfirmed(payloadIDs ...payload.ID) (confirme
 		}
 
 		payloadMetadataFound := tangle.PayloadMetadata(payloadID).Consume(func(payloadMetadata *PayloadMetadata) {
-			confirmed = payloadMetadata.Liked()
+			confirmed = payloadMetadata.Confirmed()
 		})
 
 		if !payloadMetadataFound || !confirmed {
@@ -624,7 +624,7 @@ func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(pro
 		tangle.Events.PayloadConfirmed.Trigger(propagationStackEntry.CachedPayload, propagationStackEntry.CachedPayloadMetadata)
 	case false:
 		// abort if the payload has been marked as disliked before
-		if !currentTransactionMetadata.Finalized() || !currentPayloadMetadata.setRejected(true) {
+		if !currentPayloadMetadata.setRejected(true) {
 			return
 		}
 

@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"container/list"
+	"fmt"
 	"log"
 	"math"
 	"sync"
@@ -1863,6 +1864,328 @@ const (
 	J
 	Y
 )
+
+func preparePropagationScenario() (*Tangle, map[string]*transaction.Transaction, map[string]*payload.Payload) {
+	// create tangle
+	tangle := New(mapdb.NewMapDB())
+
+	// create seed for testing
+	seed := wallet.NewSeed()
+
+	// initialize tangle with genesis block (+GENESIS)
+	tangle.LoadSnapshot(map[transaction.ID]map[address.Address][]*balance.Balance{
+		transaction.GenesisID: {
+			seed.Address(GENESIS): {
+				balance.New(balance.ColorIOTA, 3333),
+			},
+		},
+	})
+
+	// create dictionaries so we can address the created entities by their aliases from the picture
+	transactions := make(map[string]*transaction.Transaction)
+	valueObjects := make(map[string]*payload.Payload)
+
+	// [-GENESIS, A+, B+, C+]
+	{
+		// create transaction + payload
+		transactions["[-GENESIS, A+, B+, C+]"] = transaction.New(
+			transaction.NewInputs(
+				transaction.NewOutputID(seed.Address(GENESIS), transaction.GenesisID),
+			),
+
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				seed.Address(A): {
+					balance.New(balance.ColorIOTA, 1111),
+				},
+				seed.Address(B): {
+					balance.New(balance.ColorIOTA, 1111),
+				},
+				seed.Address(C): {
+					balance.New(balance.ColorIOTA, 1111),
+				},
+			}),
+		)
+		valueObjects["[-GENESIS, A+, B+, C+]"] = payload.New(payload.GenesisID, payload.GenesisID, transactions["[-GENESIS, A+, B+, C+]"])
+		// attach payload
+		tangle.AttachPayloadSync(valueObjects["[-GENESIS, A+, B+, C+]"])
+	}
+	// [-A, D+]
+	{
+		// create transaction + payload
+		transactions["[-A, D+]"] = transaction.New(
+			transaction.NewInputs(
+				transaction.NewOutputID(seed.Address(A), transactions["[-GENESIS, A+, B+, C+]"].ID()),
+			),
+
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				seed.Address(D): {
+					balance.New(balance.ColorIOTA, 1111),
+				},
+			}),
+		)
+		valueObjects["[-A, D+]"] = payload.New(payload.GenesisID, valueObjects["[-GENESIS, A+, B+, C+]"].ID(), transactions["[-A, D+]"])
+		// attach payload
+		tangle.AttachPayloadSync(valueObjects["[-A, D+]"])
+	}
+	// [-B, -C, E+]
+	{
+		// create transaction + payload
+		transactions["[-B, -C, E+]"] = transaction.New(
+			transaction.NewInputs(
+				transaction.NewOutputID(seed.Address(B), transactions["[-GENESIS, A+, B+, C+]"].ID()),
+				transaction.NewOutputID(seed.Address(C), transactions["[-GENESIS, A+, B+, C+]"].ID()),
+			),
+
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				seed.Address(E): {
+					balance.New(balance.ColorIOTA, 2222),
+				},
+			}),
+		)
+		valueObjects["[-B, -C, E+]"] = payload.New(payload.GenesisID, valueObjects["[-GENESIS, A+, B+, C+]"].ID(), transactions["[-B, -C, E+]"])
+		// attach payload
+		tangle.AttachPayloadSync(valueObjects["[-B, -C, E+]"])
+	}
+	// [-B, -C, E+] (Reattachment)
+	{
+		// create payload
+		valueObjects["[-B, -C, E+] (Reattachment)"] = payload.New(valueObjects["[-B, -C, E+]"].ID(), valueObjects["[-GENESIS, A+, B+, C+]"].ID(), transactions["[-B, -C, E+]"])
+		// attach payload
+		tangle.AttachPayloadSync(valueObjects["[-B, -C, E+] (Reattachment)"])
+	}
+	// [-A, F+]
+	{
+		// create transaction + payload
+		transactions["[-A, F+]"] = transaction.New(
+			transaction.NewInputs(
+				transaction.NewOutputID(seed.Address(A), transactions["[-GENESIS, A+, B+, C+]"].ID()),
+			),
+
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				seed.Address(F): {
+					balance.New(balance.ColorIOTA, 1111),
+				},
+			}),
+		)
+		valueObjects["[-A, F+]"] = payload.New(payload.GenesisID, valueObjects["[-GENESIS, A+, B+, C+]"].ID(), transactions["[-A, F+]"])
+		// attach payload
+		tangle.AttachPayloadSync(valueObjects["[-A, F+]"])
+	}
+	// [-E, -F, G+]
+	{
+		// create transaction + payload
+		transactions["[-E, -F, G+]"] = transaction.New(
+			transaction.NewInputs(
+				transaction.NewOutputID(seed.Address(E), transactions["[-B, -C, E+]"].ID()),
+				transaction.NewOutputID(seed.Address(F), transactions["[-A, F+]"].ID()),
+			),
+
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				seed.Address(G): {
+					balance.New(balance.ColorIOTA, 3333),
+				},
+			}),
+		)
+		valueObjects["[-E, -F, G+]"] = payload.New(valueObjects["[-B, -C, E+]"].ID(), valueObjects["[-A, F+]"].ID(), transactions["[-E, -F, G+]"])
+		// attach payload
+		tangle.AttachPayloadSync(valueObjects["[-E, -F, G+]"])
+	}
+
+	return tangle, transactions, valueObjects
+}
+
+func TestPropagation(t *testing.T) {
+
+	transactionsSlice := []string{
+		"[-GENESIS, A+, B+, C+]",
+		"[-A, D+]",
+		"[-B, -C, E+]",
+		"[-B, -C, E+] (Reattachment)",
+		"[-A, F+]",
+		"[-E, -F, G+]",
+	}
+
+	//{
+	//	tangle, transactions, valueObjects := preparePropagationScenario()
+	//	//tangle.TransactionMetadata(transactions["[-E, -F, G+]"].ID()).Consume(func(metadata *TransactionMetadata) {
+	//	//	fmt.Println(metadata.Conflicting())
+	//	//})
+	//	setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
+	//	//setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
+	//
+	//	setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
+	//	setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
+	//
+	//	assert.True(t, tangle.TransactionMetadata(transactions["[-B, -C, E+]"].ID()).Consume(func(metadata *TransactionMetadata) {
+	//		assert.True(t, metadata.Preferred())
+	//		assert.True(t, metadata.Finalized())
+	//	}))
+	//	assert.True(t, tangle.PayloadMetadata(valueObjects["[-B, -C, E+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+	//		assert.True(t, payloadMetadata.Liked())
+	//		assert.False(t, payloadMetadata.Confirmed())
+	//		assert.False(t, payloadMetadata.Rejected())
+	//	}))
+	//
+	//	for _, name := range transactionsSlice {
+	//		valueObject := valueObjects[name]
+	//		cachedTxMetadata := tangle.TransactionMetadata(valueObject.Transaction().ID())
+	//		cachedValueObjectMetadata := tangle.PayloadMetadata(valueObject.ID())
+	//		fmt.Println("----", name, "----")
+	//
+	//		assert.True(t, cachedTxMetadata.Consume(func(metadata *TransactionMetadata) {
+	//			log.Println("Preferred:", metadata.Preferred())
+	//			log.Println("Finalized:", metadata.Finalized())
+	//		}))
+	//
+	//		assert.True(t, cachedValueObjectMetadata.Consume(func(payloadMetadata *PayloadMetadata) {
+	//			log.Println("Payload Liked:", payloadMetadata.Liked())
+	//			log.Println("Payload Confirmed:", payloadMetadata.Confirmed())
+	//			log.Println("Payload Rejected:", payloadMetadata.Rejected())
+	//		}))
+	//
+	//		fmt.Println()
+	//	}
+	//}
+
+	//{
+	//	tangle, transactions, valueObjects := preparePropagationScenario()
+	//	//tangle.TransactionMetadata(transactions["[-E, -F, G+]"].ID()).Consume(func(metadata *TransactionMetadata) {
+	//	//	fmt.Println(metadata.Conflicting())
+	//	//})
+	//	setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
+	//	//setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
+	//	setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
+	//	setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
+	//
+	//	setTransactionPreferredWithCheck(t, tangle, transactions["[-A, D+]"], true)
+	//	// TODO: should become rejected
+	//
+	//	assert.True(t, tangle.branchManager.Branch(branchmanager.NewBranchID(transactions["[-A, D+]"].ID())).Consume(func(branch *branchmanager.Branch) {
+	//		assert.True(t, branch.Liked())
+	//		assert.False(t, branch.Finalized())
+	//
+	//		assert.False(t, branch.Confirmed())
+	//		assert.False(t, branch.Rejected())
+	//	}))
+	//
+	//	// vote result
+	//	setTransactionPreferredWithCheck(t, tangle, transactions["[-A, F+]"], true)
+	//	setTransactionFinalizedWithCheck(t, tangle, transactions["[-A, F+]"])
+	//	// TODO: should become confirmed
+	//
+	//	assert.True(t, tangle.branchManager.Branch(branchmanager.NewBranchID(transactions["[-A, D+]"].ID())).Consume(func(branch *branchmanager.Branch) {
+	//		assert.False(t, branch.Liked())
+	//		assert.True(t, branch.Finalized())
+	//
+	//		assert.False(t, branch.Confirmed())
+	//		assert.True(t, branch.Rejected())
+	//	}))
+	//
+	//	setTransactionPreferredWithCheck(t, tangle, transactions["[-E, -F, G+]"], true)
+	//
+	//	for _, name := range transactionsSlice {
+	//		valueObject := valueObjects[name]
+	//		cachedTxMetadata := tangle.TransactionMetadata(valueObject.Transaction().ID())
+	//		cachedValueObjectMetadata := tangle.PayloadMetadata(valueObject.ID())
+	//		fmt.Println("----", name, "----")
+	//
+	//		assert.True(t, cachedTxMetadata.Consume(func(metadata *TransactionMetadata) {
+	//			log.Println("Preferred:", metadata.Preferred())
+	//			log.Println("Finalized:", metadata.Finalized())
+	//		}))
+	//
+	//		assert.True(t, cachedValueObjectMetadata.Consume(func(payloadMetadata *PayloadMetadata) {
+	//			log.Println("Payload Liked:", payloadMetadata.Liked())
+	//			log.Println("Payload Confirmed:", payloadMetadata.Confirmed())
+	//			log.Println("Payload Rejected:", payloadMetadata.Rejected())
+	//		}))
+	//
+	//		fmt.Println()
+	//	}
+	//}
+
+	{
+		tangle, transactions, valueObjects := preparePropagationScenario()
+
+		setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
+		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
+		setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
+		setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
+
+		setTransactionPreferredWithCheck(t, tangle, transactions["[-A, F+]"], true)
+		setTransactionPreferredWithCheck(t, tangle, transactions["[-E, -F, G+]"], true)
+		// TODO: check tstat
+
+		// vote result
+		setTransactionPreferredWithCheck(t, tangle, transactions["[-A, D+]"], true)
+		setTransactionFinalizedWithCheck(t, tangle, transactions["[-A, D+]"])
+		assert.True(t, tangle.branchManager.Branch(branchmanager.NewBranchID(transactions["[-A, D+]"].ID())).Consume(func(branch *branchmanager.Branch) {
+			assert.True(t, branch.Liked())
+			assert.True(t, branch.Finalized())
+
+			assert.True(t, branch.Confirmed())
+			assert.False(t, branch.Rejected())
+		}))
+
+		// check [-A, F+] and to be rejected [-E, -F, G+]
+		assert.True(t, tangle.branchManager.Branch(branchmanager.NewBranchID(transactions["[-A, F+]"].ID())).Consume(func(branch *branchmanager.Branch) {
+			assert.False(t, branch.Liked())
+			assert.True(t, branch.Finalized())
+
+			assert.False(t, branch.Confirmed())
+			assert.True(t, branch.Rejected())
+		}))
+		assert.True(t, tangle.TransactionMetadata(transactions["[-A, F+]"].ID()).Consume(func(metadata *TransactionMetadata) {
+			assert.False(t, metadata.Preferred())
+			assert.True(t, metadata.Finalized())
+		}))
+		assert.True(t, tangle.PayloadMetadata(valueObjects["[-A, F+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+			assert.False(t, payloadMetadata.Liked())
+			assert.False(t, payloadMetadata.Confirmed())
+			assert.True(t, payloadMetadata.Rejected())
+		}))
+		assert.True(t, tangle.TransactionMetadata(transactions["[-E, -F, G+]"].ID()).Consume(func(metadata *TransactionMetadata) {
+			assert.True(t, metadata.Preferred())
+			assert.False(t, metadata.Finalized())
+		}))
+		assert.True(t, tangle.PayloadMetadata(valueObjects["[-E, -F, G+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+			assert.False(t, payloadMetadata.Liked())
+			assert.False(t, payloadMetadata.Confirmed())
+			assert.True(t, payloadMetadata.Rejected())
+		}))
+
+		for _, name := range transactionsSlice {
+			valueObject := valueObjects[name]
+			cachedTxMetadata := tangle.TransactionMetadata(valueObject.Transaction().ID())
+			cachedValueObjectMetadata := tangle.PayloadMetadata(valueObject.ID())
+			fmt.Println("----", name, "----")
+
+			assert.True(t, cachedTxMetadata.Consume(func(metadata *TransactionMetadata) {
+				log.Println("Preferred:", metadata.Preferred())
+				log.Println("Finalized:", metadata.Finalized())
+			}))
+
+			assert.True(t, cachedValueObjectMetadata.Consume(func(payloadMetadata *PayloadMetadata) {
+				log.Println("Payload Liked:", payloadMetadata.Liked())
+				log.Println("Payload Confirmed:", payloadMetadata.Confirmed())
+				log.Println("Payload Rejected:", payloadMetadata.Rejected())
+			}))
+
+			fmt.Println()
+		}
+	}
+}
+
+func setTransactionPreferredWithCheck(t *testing.T, tangle *Tangle, tx *transaction.Transaction, preferred bool) {
+	modified, err := tangle.SetTransactionPreferred(tx.ID(), preferred)
+	require.NoError(t, err)
+	assert.True(t, modified)
+}
+func setTransactionFinalizedWithCheck(t *testing.T, tangle *Tangle, tx *transaction.Transaction) {
+	modified, err := tangle.SetTransactionFinalized(tx.ID())
+	require.NoError(t, err)
+	assert.True(t, modified)
+}
 
 func TestLucasScenario(t *testing.T) {
 	// create tangle
