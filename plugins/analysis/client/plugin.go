@@ -1,7 +1,6 @@
 package client
 
 import (
-	"encoding/hex"
 	"net"
 	"strings"
 	"sync"
@@ -16,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/network"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 )
 
@@ -76,15 +76,15 @@ func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 		Heartbeat: func(hb *packet.Heartbeat) {
 			var out strings.Builder
 			for _, value := range hb.OutboundIDs {
-				out.WriteString(hex.EncodeToString(value))
+				out.WriteString(base58.Encode(value))
 			}
 			var in strings.Builder
 			for _, value := range hb.InboundIDs {
-				in.WriteString(hex.EncodeToString(value))
+				in.WriteString(base58.Encode(value))
 			}
 			log.Debugw(
 				"Heartbeat",
-				"nodeID", hex.EncodeToString(hb.OwnID),
+				"nodeID", base58.Encode(hb.OwnID),
 				"outboundIDs", out.String(),
 				"inboundIDs", in.String(),
 			)
