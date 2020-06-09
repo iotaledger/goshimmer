@@ -36,7 +36,9 @@ export class NodeView extends React.Component<Props, any> {
                 </Row>
                 <Row style={{paddingBottom: 20}}>
                     <Col style={{display: 'flex',  justifyContent:'center', alignItems:'center'}}>
-                        <em>{this.props.autopeeringStore.selectedNode.slice(0,shortenedIDCharCount)}</em>
+                        <Button style={{fontSize: 14, backgroundColor: "#cb4b16"}} variant="danger">
+                            {this.props.autopeeringStore.selectedNode.slice(0,shortenedIDCharCount)}
+                        </Button>
                     </Col>
                 </Row>
                 <Row style={{paddingBottom: 10}}>
@@ -52,13 +54,13 @@ export class NodeView extends React.Component<Props, any> {
                     </Col>
                 </Row>
                 <Row style={{paddingBottom: 20}}>
-                    <Col style={{justifyContent:'center', alignItems:'center'}}>
-                        <ul>
+                    <Col>
+                        <ul style={{marginLeft: 25, listStylePosition: 'inside'}}>
                             {this.props.autopeeringStore.inNeighborList}
                         </ul>
                     </Col>
-                    <Col style={{justifyContent:'center', alignItems:'center'}}>
-                        <ul>
+                    <Col>
+                        <ul style={{marginLeft: 25, listStylePosition: 'inside'}}>
                             {this.props.autopeeringStore.outNeighborList}
                         </ul>
                     </Col>
@@ -92,7 +94,7 @@ export class Autopeering extends React.Component<Props, any> {
     }
 
     render() {
-        let {nodeWordCloud, search} = this.props.autopeeringStore
+        let {nodeListView, search} = this.props.autopeeringStore
         return (
             <Container>
 
@@ -127,8 +129,8 @@ export class Autopeering extends React.Component<Props, any> {
                                 aria-describedby="node-search"
                             />
                         </InputGroup>
-                        <div style={{height: 220}}>
-                            {nodeWordCloud}
+                        <div style={{height: 220, overflow: 'auto'}}>
+                            {nodeListView}
                         </div>
                     </Col>
                     <Col xs={6} style={{height: 352.5,  overflow:'auto'}}>

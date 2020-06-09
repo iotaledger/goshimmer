@@ -4,7 +4,6 @@ import {connectWebSocket, registerHandler, WSMsgType} from "app/misc/WS";
 import {default as Viva} from 'vivagraphjs';
 import * as React from "react";;
 import Button from "react-bootstrap/Button";
-import ReactWordcloud from "react-wordcloud";
 
 
 export class AddNodeMessage {
@@ -33,12 +32,6 @@ export class Neighbors {
         this.in = new Set();
         this.out = new Set();
     }
-}
-
-export interface Word {
-    [key: string]: any;
-    text: string;
-    value: number;
 }
 
 const EDGE_COLOR_DEFAULT = "#ff7d6cff";
@@ -418,14 +411,6 @@ export class AutopeeringStore {
         this.handleNodeSelection(clickedNode);
     }
 
-    // handles click on a node in word cloud
-    @action
-    handleNodeOnClick = (word: Word, event) => {
-        // find node based on the first 8 characters
-        let clickedNode = this.getFullNodeID(word.text);
-        this.handleNodeSelection(clickedNode);
-    }
-
     // checks whether selection is already active, then updates selected node
     @action
     handleNodeSelection = (clickedNode: string) => {
@@ -458,7 +443,7 @@ export class AutopeeringStore {
     // computed values update frontend rendering //
 
     @computed
-    get nodeWordCloud(){
+    get nodeListView(){
         let results = null;
         if (this.search === "") {
             results = this.nodes;
@@ -470,33 +455,17 @@ export class AutopeeringStore {
                 }
             })
         }
-        let words = [];
+        let buttons = [];
 
         results.forEach((nodeID) => {
             let shortID = nodeID.slice(0,shortenedIDCharCount);
-            words.push({
-                text: shortID,
-                value: 1,
-            });
+            buttons.push(
+                <Button style={{fontSize: 12, margin: 2.5}} variant="outline-dark" onClick={this.handleNodeButtonOnClick}>
+                    {shortID}
+                </Button>
+            )
         })
-        return (
-            <ReactWordcloud
-                options={{
-                    colors: ['#050517', '#2d080a', '#7cc6fe', '#372554', '#ba5a31'],
-                    deterministic: true,
-                    fontFamily: 'arial',
-                    fontSizes: [15,18],
-                    fontWeight: 'bold',
-                    rotations: 1,
-                    rotationAngles: [0, 0],
-                    enableOptimizations: true
-                }}
-                words={words}
-                callbacks={{
-                    onWordClick: this.handleNodeOnClick
-                }}
-            />
-        )
+        return buttons
     }
 
     @computed
@@ -505,7 +474,12 @@ export class AutopeeringStore {
         this.selectedNodeInNeighbors.forEach((inNeighborID) => {
             inNeighbors.push(
                 <li key={inNeighborID}>
-                    <Button style={{fontSize: 12}} variant="outline-dark" onClick={this.handleNodeButtonOnClick}>
+                    <Button style={{
+                        fontSize: 12,
+                        background: "#1c8d7f",
+                        borderColor: 'white',
+                        color: 'white',
+                    }} variant="light" onClick={this.handleNodeButtonOnClick}>
                         {inNeighborID.slice(0,shortenedIDCharCount)}
                     </Button>
                 </li>
@@ -521,7 +495,12 @@ export class AutopeeringStore {
         this.selectedNodeOutNeighbors.forEach((outNeighborID) => {
             outNeighbors.push(
                 <li key={outNeighborID}>
-                    <Button style={{fontSize: 12}} variant="outline-dark" onClick={this.handleNodeButtonOnClick}>
+                    <Button style={{
+                        fontSize: 12,
+                        background: "#336db5",
+                        borderColor: 'white',
+                        color: 'white',
+                    }} variant="light" onClick={this.handleNodeButtonOnClick}>
                         {outNeighborID.slice(0,shortenedIDCharCount)}
                     </Button>
                 </li>
