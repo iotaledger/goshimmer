@@ -1,7 +1,6 @@
 package dashboard
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -9,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	analysis "github.com/iotaledger/goshimmer/plugins/analysis/server"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
@@ -36,11 +34,11 @@ type FPCUpdate struct {
 }
 
 func configureFPCLiveFeed() {
-	recordedConflicts = newConflictRecord(config.Node.GetUint32(CfgFPCBufferSize))
+	recordedConflicts = newConflictRecord()
 
 	fpcLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
 		newMsg := task.Param(0).(*FPCUpdate)
-		fmt.Println("broadcasting FPC message to websocket clients")
+		//fmt.Println("broadcasting FPC message to websocket clients")
 		broadcastWsMessage(&wsmsg{MsgTypeFPC, newMsg}, true)
 		task.Return(nil)
 	}, workerpool.WorkerCount(fpcLiveFeedWorkerCount), workerpool.QueueSize(fpcLiveFeedWorkerQueueSize))
@@ -49,7 +47,7 @@ func configureFPCLiveFeed() {
 func runFPCLiveFeed() {
 	if err := daemon.BackgroundWorker("Analysis[FPCUpdater]", func(shutdownSignal <-chan struct{}) {
 		onFPCHeartbeatReceived := events.NewClosure(func(hb *packet.FPCHeartbeat) {
-			fmt.Println("broadcasting FPC live feed")
+			//fmt.Println("broadcasting FPC live feed")
 			fpcLiveFeedWorkerPool.Submit(createFPCUpdate(hb, true))
 		})
 		analysis.Events.FPCHeartbeat.Attach(onFPCHeartbeatReceived)
@@ -57,10 +55,21 @@ func runFPCLiveFeed() {
 		fpcLiveFeedWorkerPool.Start()
 		defer fpcLiveFeedWorkerPool.Stop()
 
-		<-shutdownSignal
-		log.Info("Stopping Analysis[FPCUpdater] ...")
-		analysis.Events.FPCHeartbeat.Detach(onFPCHeartbeatReceived)
-		log.Info("Stopping Analysis[FPCUpdater] ... done")
+		cleanUpTicker := time.NewTicker(1 * time.Minute)
+
+		for {
+			select {
+			case <-shutdownSignal:
+				log.Info("Stopping Analysis[FPCUpdater] ...")
+				analysis.Events.FPCHeartbeat.Detach(onFPCHeartbeatReceived)
+				cleanUpTicker.Stop()
+				log.Info("Stopping Analysis[FPCUpdater] ... done")
+			case <-cleanUpTicker.C:
+				log.Info("Cleaning up Finalized Conflicts ...")
+				recordedConflicts.cleanUp()
+				log.Info("Cleaning up Finalized Conflicts ... done")
+			}
+		}
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
@@ -92,12 +101,16 @@ func createFPCUpdate(hb *packet.FPCHeartbeat, recordEvent bool) *FPCUpdate {
 			finalizedConflicts := make([]FPCRecord, len(hb.Finalized))
 			i := 0
 			for ID, finalOpinion := range hb.Finalized {
-				recordedConflicts.lock.Lock()
-				conflictDetail := recordedConflicts.conflictSet[ID].NodesView[nodeID]
+				conflictOverview, ok := recordedConflicts.load(ID)
+				if !ok {
+					log.Error("Error: missing conflict with ID:", ID)
+					continue
+				}
+				conflictDetail := conflictOverview.NodesView[nodeID]
 				conflictDetail.Status = vote.ConvertOpinionToInt32(finalOpinion)
 				conflicts[ID] = newConflict()
 				conflicts[ID].NodesView[nodeID] = conflictDetail
-				recordedConflicts.conflictSet[ID].NodesView[nodeID] = conflictDetail
+				recordedConflicts.update(ID, conflicts[ID])
 				finalizedConflicts[i] = FPCRecord{
 					ConflictID: ID,
 					NodeID:     conflictDetail.NodeID,
@@ -105,10 +118,10 @@ func createFPCUpdate(hb *packet.FPCHeartbeat, recordEvent bool) *FPCUpdate {
 					Opinions:   conflictDetail.Opinions,
 					Status:     conflictDetail.Status,
 				}
-				recordedConflicts.lock.Unlock()
 				i++
 			}
 
+			//log.Info("Storing:\n", finalizedConflicts)
 			err := storeFPCRecords(finalizedConflicts, mongoDB())
 			if err != nil {
 				log.Errorf("Error while writing on MongoDB: %s", err)

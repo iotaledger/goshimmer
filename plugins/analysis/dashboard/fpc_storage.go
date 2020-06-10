@@ -21,20 +21,21 @@ type FPCRecord struct {
 }
 
 var (
-	db       *mongo.Database
-	ctxDB    context.Context
-	cancelDB context.CancelFunc
+	db              *mongo.Database
+	ctxDisconnectDB context.Context
+	// cancelDB context.CancelFunc
 	clientDB *mongo.Client
 	dbOnce   sync.Once
 )
 
 func shutdownMongoDB() {
-	cancelDB()
-	clientDB.Disconnect(ctxDB)
+	//cancelDB()
+	clientDB.Disconnect(ctxDisconnectDB)
 }
 
 func mongoDB() *mongo.Database {
 	dbOnce.Do(func() {
+		log.Info("ONCEEEEEEE")
 		username := config.Node.GetString(CfgMongoDBUsername)
 		password := config.Node.GetString(CfgMongoDBPassword)
 		bindAddr := config.Node.GetString(CfgMongoDBBindAddress)
@@ -42,13 +43,17 @@ func mongoDB() *mongo.Database {
 		if err != nil {
 			log.Fatal(err)
 		}
-		ctxDB, cancelDB = context.WithTimeout(context.Background(), 10*time.Second)
-		err = client.Connect(ctxDB)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		err = client.Connect(ctx)
+		ctxDisconnectDB = ctx
+		defer cancel()
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = client.Ping(ctxDB, readpref.Primary())
+		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		err = client.Ping(ctx, readpref.Primary())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -62,6 +67,8 @@ func storeFPCRecords(records []FPCRecord, db *mongo.Database) error {
 	for i := range records {
 		data[i] = records[i]
 	}
-	_, err := db.Collection("FPC").InsertMany(ctxDB, data)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := db.Collection("FPC").InsertMany(ctx, data)
 	return err
 }
