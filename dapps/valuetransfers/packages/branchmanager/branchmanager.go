@@ -481,9 +481,9 @@ func (branchManager *BranchManager) propagateConfirmedToChildBranches(cachedBran
 			branchManager.Events.BranchConfirmed.Trigger(cachedBranch)
 
 			// schedule confirmed checks of children
-			for _, cachedChildBranch := range branchManager.ChildBranches(branch.ID()) {
-				propagationStack.PushBack(cachedChildBranch)
-			}
+			branchManager.ChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch) {
+				propagationStack.PushBack(branchManager.Branch(childBranch.childID))
+			})
 		})
 		propagationStack.Remove(stackElement)
 	}

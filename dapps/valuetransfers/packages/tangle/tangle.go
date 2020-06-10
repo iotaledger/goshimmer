@@ -452,12 +452,12 @@ func (tangle *Tangle) onBranchFinalized(cachedBranch *branchmanager.CachedBranch
 
 // onBranchConfirmed gets triggered when a branch in the branch DAG is marked as confirmed.
 func (tangle *Tangle) onBranchConfirmed(cachedBranch *branchmanager.CachedBranch) {
-	tangle.propagateBranchConfirmedRejectedChangesToTangle(cachedBranch)
+	tangle.propagateBranchConfirmedRejectedChangesToTangle(cachedBranch, true)
 }
 
 // onBranchRejected gets triggered when a branch in the branch DAG is marked as rejected.
 func (tangle *Tangle) onBranchRejected(cachedBranch *branchmanager.CachedBranch) {
-	tangle.propagateBranchConfirmedRejectedChangesToTangle(cachedBranch)
+	tangle.propagateBranchConfirmedRejectedChangesToTangle(cachedBranch, false)
 }
 
 // propagateBranchPreferredChangesToTangle triggers the propagation of preferred status changes of a branch to the value
@@ -518,7 +518,7 @@ func (tangle *Tangle) propagateBranchedLikedChangesToTangle(cachedBranch *branch
 
 // propagateBranchConfirmedRejectedChangesToTangle triggers the propagation of confirmed and rejected status changes of
 // a branch to the value tangle and its UTXO DAG.
-func (tangle *Tangle) propagateBranchConfirmedRejectedChangesToTangle(cachedBranch *branchmanager.CachedBranch) {
+func (tangle *Tangle) propagateBranchConfirmedRejectedChangesToTangle(cachedBranch *branchmanager.CachedBranch, confirmed bool) {
 	cachedBranch.Consume(func(branch *branchmanager.Branch) {
 		if !branch.IsAggregated() {
 			transactionID, _, err := transaction.IDFromBytes(branch.ID().Bytes())
@@ -527,7 +527,7 @@ func (tangle *Tangle) propagateBranchConfirmedRejectedChangesToTangle(cachedBran
 			}
 
 			// propagate changes to future cone of transaction (value tangle)
-			tangle.propagateValuePayloadConfirmedRejectedUpdates(transactionID)
+			tangle.propagateValuePayloadConfirmedRejectedUpdates(transactionID, confirmed)
 		}
 	})
 }
@@ -576,7 +576,7 @@ func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, even
 				}
 
 				// propagate changes to future cone of transaction (value tangle)
-				tangle.propagateValuePayloadConfirmedRejectedUpdates(transactionID)
+				tangle.propagateValuePayloadConfirmedRejectedUpdates(transactionID, metadata.Preferred())
 			}
 		}
 	})
@@ -603,6 +603,12 @@ func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.
 		cachedTransactionMetadata := tangle.TransactionMetadata(currentTransactionID)
 		cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
 			if !metadata.setRejected(true) {
+				return
+			}
+			metadata.setPreferred(false)
+
+			if _, err := tangle.setTransactionFinalized(metadata.ID(), EventSourceTangle); err != nil {
+				tangle.Events.Error.Trigger(err)
 				return
 			}
 
@@ -638,7 +644,7 @@ func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.
 }
 
 // TODO: WRITE COMMENT
-func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdates(transactionID transaction.ID) {
+func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdates(transactionID transaction.ID, confirmed bool) {
 	// initiate stack with the attachments of the passed in transaction
 	propagationStack := list.New()
 	tangle.Attachments(transactionID).Consume(func(attachment *Attachment) {
@@ -656,12 +662,12 @@ func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdates(transactionI
 	// iterate through stack (future cone of transactions)
 	for propagationStack.Len() >= 1 {
 		currentAttachmentEntry := propagationStack.Front()
-		tangle.propagateValuePayloadConfirmedRejectedUpdateStackEntry(propagationStack, seenPayloads, currentAttachmentEntry.Value.(*valuePayloadPropagationStackEntry))
+		tangle.propagateValuePayloadConfirmedRejectedUpdateStackEntry(propagationStack, seenPayloads, currentAttachmentEntry.Value.(*valuePayloadPropagationStackEntry), confirmed)
 		propagationStack.Remove(currentAttachmentEntry)
 	}
 }
 
-func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(propagationStack *list.List, processedPayloads map[payload.ID]types.Empty, propagationStackEntry *valuePayloadPropagationStackEntry) {
+func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(propagationStack *list.List, processedPayloads map[payload.ID]types.Empty, propagationStackEntry *valuePayloadPropagationStackEntry, confirmed bool) {
 	// release the entry when we are done
 	defer propagationStackEntry.Release()
 
@@ -672,10 +678,10 @@ func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(pro
 	}
 
 	// perform different logic depending on the type of the change (liked vs dislike)
-	switch currentTransactionMetadata.Preferred() {
+	switch confirmed {
 	case true:
 		// abort if the transaction is not preferred, the branch of the payload is not liked, the referenced value payloads are not liked or the payload was marked as liked before
-		if !currentTransactionMetadata.Finalized() || !tangle.BranchManager().IsBranchConfirmed(currentPayloadMetadata.BranchID()) || !tangle.ValuePayloadsConfirmed(currentPayload.TrunkID(), currentPayload.BranchID()) || !currentPayloadMetadata.setConfirmed(true) {
+		if !currentTransactionMetadata.Preferred() || !currentTransactionMetadata.Finalized() || !tangle.BranchManager().IsBranchConfirmed(currentPayloadMetadata.BranchID()) || !tangle.ValuePayloadsConfirmed(currentPayload.TrunkID(), currentPayload.BranchID()) || !currentPayloadMetadata.setConfirmed(true) {
 			return
 		}
 
@@ -695,6 +701,11 @@ func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(pro
 			tangle.Events.TransactionConfirmed.Trigger(propagationStackEntry.CachedTransaction, propagationStackEntry.CachedTransactionMetadata)
 		}
 	case false:
+		// abort if transaction is not finalized and neither of parents is rejected
+		if !currentTransactionMetadata.Finalized() && !(tangle.payloadRejected(currentPayload.BranchID()) || tangle.payloadRejected(currentPayload.TrunkID())) {
+			return
+		}
+
 		// abort if the payload has been marked as disliked before
 		if !currentPayloadMetadata.setRejected(true) {
 			return
@@ -889,6 +900,13 @@ func (tangle *Tangle) createValuePayloadFutureConeIterator(propagationStack *lis
 			CachedTransactionMetadata: cachedTransactionMetadata.Retain(),
 		})
 	}
+}
+
+func (tangle *Tangle) payloadRejected(payloadID payload.ID) (rejected bool) {
+	tangle.PayloadMetadata(payloadID).Consume(func(payloadMetadata *PayloadMetadata) {
+		rejected = payloadMetadata.Rejected()
+	})
+	return
 }
 
 func (tangle *Tangle) storePayload(payloadToStore *payload.Payload) (cachedPayload *payload.CachedPayload, cachedMetadata *CachedPayloadMetadata, payloadStored bool) {

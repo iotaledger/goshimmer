@@ -1865,7 +1865,7 @@ const (
 	Y
 )
 
-func preparePropagationScenario() (*Tangle, map[string]*transaction.Transaction, map[string]*payload.Payload) {
+func preparePropagationScenario1() (*Tangle, map[string]*transaction.Transaction, map[string]*payload.Payload, *wallet.Seed) {
 	// create tangle
 	tangle := New(mapdb.NewMapDB())
 
@@ -1991,189 +1991,356 @@ func preparePropagationScenario() (*Tangle, map[string]*transaction.Transaction,
 		tangle.AttachPayloadSync(valueObjects["[-E, -F, G+]"])
 	}
 
-	return tangle, transactions, valueObjects
+	return tangle, transactions, valueObjects, seed
 }
 
-func TestPropagation(t *testing.T) {
+func preparePropagationScenario2() (*Tangle, map[string]*transaction.Transaction, map[string]*payload.Payload, *wallet.Seed) {
+	tangle, transactions, valueObjects, seed := preparePropagationScenario1()
 
-	transactionsSlice := []string{
-		"[-GENESIS, A+, B+, C+]",
-		"[-A, D+]",
-		"[-B, -C, E+]",
-		"[-B, -C, E+] (Reattachment)",
-		"[-A, F+]",
-		"[-E, -F, G+]",
+	// [-C, H+]
+	{
+		// create transaction + payload
+		transactions["[-C, H+]"] = transaction.New(
+			transaction.NewInputs(
+				transaction.NewOutputID(seed.Address(C), transactions["[-GENESIS, A+, B+, C+]"].ID()),
+			),
+
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				seed.Address(H): {
+					balance.New(balance.ColorIOTA, 1111),
+				},
+			}),
+		)
+		valueObjects["[-C, H+]"] = payload.New(valueObjects["[-GENESIS, A+, B+, C+]"].ID(), valueObjects["[-A, D+]"].ID(), transactions["[-C, H+]"])
+
+		// attach payload
+		tangle.AttachPayloadSync(valueObjects["[-C, H+]"])
 	}
 
-	//{
-	//	tangle, transactions, valueObjects := preparePropagationScenario()
-	//	//tangle.TransactionMetadata(transactions["[-E, -F, G+]"].ID()).Consume(func(metadata *TransactionMetadata) {
-	//	//	fmt.Println(metadata.Conflicting())
-	//	//})
-	//	setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
-	//	//setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
-	//
-	//	setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
-	//	setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
-	//
-	//	assert.True(t, tangle.TransactionMetadata(transactions["[-B, -C, E+]"].ID()).Consume(func(metadata *TransactionMetadata) {
-	//		assert.True(t, metadata.Preferred())
-	//		assert.True(t, metadata.Finalized())
-	//	}))
-	//	assert.True(t, tangle.PayloadMetadata(valueObjects["[-B, -C, E+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
-	//		assert.True(t, payloadMetadata.Liked())
-	//		assert.False(t, payloadMetadata.Confirmed())
-	//		assert.False(t, payloadMetadata.Rejected())
-	//	}))
-	//
-	//	for _, name := range transactionsSlice {
-	//		valueObject := valueObjects[name]
-	//		cachedTxMetadata := tangle.TransactionMetadata(valueObject.Transaction().ID())
-	//		cachedValueObjectMetadata := tangle.PayloadMetadata(valueObject.ID())
-	//		fmt.Println("----", name, "----")
-	//
-	//		assert.True(t, cachedTxMetadata.Consume(func(metadata *TransactionMetadata) {
-	//			log.Println("Preferred:", metadata.Preferred())
-	//			log.Println("Finalized:", metadata.Finalized())
-	//		}))
-	//
-	//		assert.True(t, cachedValueObjectMetadata.Consume(func(payloadMetadata *PayloadMetadata) {
-	//			log.Println("Payload Liked:", payloadMetadata.Liked())
-	//			log.Println("Payload Confirmed:", payloadMetadata.Confirmed())
-	//			log.Println("Payload Rejected:", payloadMetadata.Rejected())
-	//		}))
-	//
-	//		fmt.Println()
-	//	}
-	//}
-
-	//{
-	//	tangle, transactions, valueObjects := preparePropagationScenario()
-	//	//tangle.TransactionMetadata(transactions["[-E, -F, G+]"].ID()).Consume(func(metadata *TransactionMetadata) {
-	//	//	fmt.Println(metadata.Conflicting())
-	//	//})
-	//	setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
-	//	//setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
-	//	setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
-	//	setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
-	//
-	//	setTransactionPreferredWithCheck(t, tangle, transactions["[-A, D+]"], true)
-	//	// TODO: should become rejected
-	//
-	//	assert.True(t, tangle.branchManager.Branch(branchmanager.NewBranchID(transactions["[-A, D+]"].ID())).Consume(func(branch *branchmanager.Branch) {
-	//		assert.True(t, branch.Liked())
-	//		assert.False(t, branch.Finalized())
-	//
-	//		assert.False(t, branch.Confirmed())
-	//		assert.False(t, branch.Rejected())
-	//	}))
-	//
-	//	// vote result
-	//	setTransactionPreferredWithCheck(t, tangle, transactions["[-A, F+]"], true)
-	//	setTransactionFinalizedWithCheck(t, tangle, transactions["[-A, F+]"])
-	//	// TODO: should become confirmed
-	//
-	//	assert.True(t, tangle.branchManager.Branch(branchmanager.NewBranchID(transactions["[-A, D+]"].ID())).Consume(func(branch *branchmanager.Branch) {
-	//		assert.False(t, branch.Liked())
-	//		assert.True(t, branch.Finalized())
-	//
-	//		assert.False(t, branch.Confirmed())
-	//		assert.True(t, branch.Rejected())
-	//	}))
-	//
-	//	setTransactionPreferredWithCheck(t, tangle, transactions["[-E, -F, G+]"], true)
-	//
-	//	for _, name := range transactionsSlice {
-	//		valueObject := valueObjects[name]
-	//		cachedTxMetadata := tangle.TransactionMetadata(valueObject.Transaction().ID())
-	//		cachedValueObjectMetadata := tangle.PayloadMetadata(valueObject.ID())
-	//		fmt.Println("----", name, "----")
-	//
-	//		assert.True(t, cachedTxMetadata.Consume(func(metadata *TransactionMetadata) {
-	//			log.Println("Preferred:", metadata.Preferred())
-	//			log.Println("Finalized:", metadata.Finalized())
-	//		}))
-	//
-	//		assert.True(t, cachedValueObjectMetadata.Consume(func(payloadMetadata *PayloadMetadata) {
-	//			log.Println("Payload Liked:", payloadMetadata.Liked())
-	//			log.Println("Payload Confirmed:", payloadMetadata.Confirmed())
-	//			log.Println("Payload Rejected:", payloadMetadata.Rejected())
-	//		}))
-	//
-	//		fmt.Println()
-	//	}
-	//}
-
+	// [-H, -D, I+]
 	{
-		tangle, transactions, valueObjects := preparePropagationScenario()
+		// create transaction + payload
+		transactions["[-H, -D, I+]"] = transaction.New(
+			transaction.NewInputs(
+				transaction.NewOutputID(seed.Address(H), transactions["[-C, H+]"].ID()),
+				transaction.NewOutputID(seed.Address(D), transactions["[-A, D+]"].ID()),
+			),
+
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				seed.Address(I): {
+					balance.New(balance.ColorIOTA, 2222),
+				},
+			}),
+		)
+		valueObjects["[-H, -D, I+]"] = payload.New(valueObjects["[-C, H+]"].ID(), valueObjects["[-A, D+]"].ID(), transactions["[-H, -D, I+]"])
+
+		// attach payload
+		tangle.AttachPayloadSync(valueObjects["[-H, -D, I+]"])
+	}
+
+	// [-B, J+]
+	{
+		// create transaction + payload
+		transactions["[-B, J+]"] = transaction.New(
+			transaction.NewInputs(
+				transaction.NewOutputID(seed.Address(B), transactions["[-GENESIS, A+, B+, C+]"].ID()),
+			),
+
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				seed.Address(J): {
+					balance.New(balance.ColorIOTA, 1111),
+				},
+			}),
+		)
+		valueObjects["[-B, J+]"] = payload.New(valueObjects["[-C, H+]"].ID(), valueObjects["[-A, D+]"].ID(), transactions["[-B, J+]"])
+		// attach payload
+		tangle.AttachPayloadSync(valueObjects["[-B, J+]"])
+	}
+
+	return tangle, transactions, valueObjects, seed
+}
+
+func TestPropagationScenario1(t *testing.T) {
+	// test past cone monotonicity - all value objects MUST be confirmed
+	{
+		tangle, transactions, valueObjects, _ := preparePropagationScenario1()
+
+		setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
+		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, false, true, false, false)
+
+		// should not be confirmed because [-GENESIS, A+, B+, C+] is not confirmed
+		setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
+		setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
+		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], true, true, true, false, false)
+
+		// now finalize [-GENESIS, A+, B+, C+]
+		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
+		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, true, true, true, false)
+
+		// and [-B, -C, E+] should be confirmed now too
+		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], true, true, true, true, false)
+		// as well as the reattachment
+		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], true, true, true, true, false)
+	}
+
+	// test future cone monotonicity simple - everything MUST be rejected and finalized if spending funds from rejected tx
+	{
+		tangle, transactions, valueObjects, _ := preparePropagationScenario1()
+
+		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
+		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], false, true, false, false, true)
+
+		// check future cone to be rejected
+		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], false, true, false, false, true)
+		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], false, true, false, false, true)
+		verifyInclusionState(t, tangle, valueObjects["[-A, D+]"], false, true, false, false, true)
+		verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], false, true, false, false, true)
+		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], false, true, false, false, true)
+	}
+
+	// test future cone monotonicity more complex - everything MUST be rejected and finalized if spending funds from rejected tx
+	{
+		transactionsSlice := []string{
+			"[-GENESIS, A+, B+, C+]",
+			"[-A, D+]",
+			"[-B, -C, E+]",
+			"[-B, -C, E+] (Reattachment)",
+			"[-A, F+]",
+			"[-E, -F, G+]",
+		}
+		tangle, transactions, valueObjects, _ := preparePropagationScenario1()
+
+		for _, name := range transactionsSlice {
+			fmt.Println(name, valueObjects[name].Transaction().ID())
+		}
 
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
+		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, true, true, true, false)
+
+		// finalize & reject
+		setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
+		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], false, true, false, false, true)
+
+		// check future cone to be rejected
+		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], false, true, false, false, true)
+
+		// [-A, F+] should be rejected but the tx not finalized since it spends funds from [-GENESIS, A+, B+, C+] which is confirmed
+		verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], false, false, false, false, true)
+		verifyBranchState(t, tangle, valueObjects["[-A, F+]"], false, false, false, true)
+		//TODO:
+
+		// [-E, -F, G+] should be finalized and rejected since it spends funds from [-B, -C, E+]
+		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], false, true, false, false, true)
+
+		// [-A, D+] should be unchanged
+		verifyInclusionState(t, tangle, valueObjects["[-A, D+]"], false, false, false, false, false)
+		verifyBranchState(t, tangle, valueObjects["[-A, D+]"], false, false, false, false)
+	}
+
+	// simulate vote on [-A, F+] -> Branch A becomes rejected, Branch B confirmed
+	{
+		tangle, transactions, valueObjects, _ := preparePropagationScenario1()
+
+		setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
+		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
+		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, true, true, true, false)
+
+		// check future cone
+		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], false, false, false, false, false)
+		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], false, false, false, false, false)
+		verifyInclusionState(t, tangle, valueObjects["[-A, D+]"], false, false, false, false, false)
+		verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], false, false, false, false, false)
+		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], false, false, false, false, false)
+
+		// confirm [-B, -C, E+]
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
+		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], true, true, true, true, false)
 
+		// prefer [-A, D+]
+		setTransactionPreferredWithCheck(t, tangle, transactions["[-A, D+]"], true)
+		verifyInclusionState(t, tangle, valueObjects["[-A, D+]"], true, false, true, false, false)
+		verifyBranchState(t, tangle, valueObjects["[-A, D+]"], false, true, false, false)
+
+		// simulate vote result to like [-A, F+] -> [-A, F+] becomes confirmed and [-A, D+] rejected
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-A, F+]"], true)
-		setTransactionPreferredWithCheck(t, tangle, transactions["[-E, -F, G+]"], true)
-		// TODO: check tstat
+		setTransactionFinalizedWithCheck(t, tangle, transactions["[-A, F+]"])
+		verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], true, true, true, true, false)
+		verifyBranchState(t, tangle, valueObjects["[-A, F+]"], true, true, true, false)
 
-		// vote result
+		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], false, false, false, false, false)
+		setTransactionPreferredWithCheck(t, tangle, transactions["[-E, -F, G+]"], true)
+		setTransactionFinalizedWithCheck(t, tangle, transactions["[-E, -F, G+]"])
+		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], true, true, true, true, false)
+
+		// [-A, D+] should be rejected
+		verifyInclusionState(t, tangle, valueObjects["[-A, D+]"], false, true, false, false, true)
+		verifyBranchState(t, tangle, valueObjects["[-A, D+]"], true, false, false, true)
+	}
+
+	// simulate vote on [-A, D+] -> Branch B becomes rejected, Branch A confirmed
+	{
+		tangle, transactions, valueObjects, _ := preparePropagationScenario1()
+
+		// confirm [-GENESIS, A+, B+, C+]
+		setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
+		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
+		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, true, true, true, false)
+
+		// confirm [-B, -C, E+]
+		setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
+		setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
+		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], true, true, true, true, false)
+
+		// prefer [-A, F+] and thus Branch B
+		setTransactionPreferredWithCheck(t, tangle, transactions["[-A, F+]"], true)
+		verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], true, false, true, false, false)
+		verifyBranchState(t, tangle, valueObjects["[-A, F+]"], false, true, false, false)
+		// prefer [-E, -F, G+]
+		setTransactionPreferredWithCheck(t, tangle, transactions["[-E, -F, G+]"], true)
+		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], true, false, true, false, false)
+
+		// simulate vote result to like [-A, D+] -> [-A, D+] becomes confirmed and [-A, F+], [-E, -F, G+] rejected
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-A, D+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-A, D+]"])
-		assert.True(t, tangle.branchManager.Branch(branchmanager.NewBranchID(transactions["[-A, D+]"].ID())).Consume(func(branch *branchmanager.Branch) {
-			assert.True(t, branch.Liked())
-			assert.True(t, branch.Finalized())
+		verifyInclusionState(t, tangle, valueObjects["[-A, D+]"], true, true, true, true, false)
+		verifyBranchState(t, tangle, valueObjects["[-A, D+]"], true, true, true, false)
 
-			assert.True(t, branch.Confirmed())
-			assert.False(t, branch.Rejected())
-		}))
-
-		// check [-A, F+] and to be rejected [-E, -F, G+]
-		assert.True(t, tangle.branchManager.Branch(branchmanager.NewBranchID(transactions["[-A, F+]"].ID())).Consume(func(branch *branchmanager.Branch) {
-			assert.False(t, branch.Liked())
-			assert.True(t, branch.Finalized())
-
-			assert.False(t, branch.Confirmed())
-			assert.True(t, branch.Rejected())
-		}))
-		assert.True(t, tangle.TransactionMetadata(transactions["[-A, F+]"].ID()).Consume(func(metadata *TransactionMetadata) {
-			assert.False(t, metadata.Preferred())
-			assert.True(t, metadata.Finalized())
-		}))
-		assert.True(t, tangle.PayloadMetadata(valueObjects["[-A, F+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
-			assert.False(t, payloadMetadata.Liked())
-			assert.False(t, payloadMetadata.Confirmed())
-			assert.True(t, payloadMetadata.Rejected())
-		}))
-		assert.True(t, tangle.TransactionMetadata(transactions["[-E, -F, G+]"].ID()).Consume(func(metadata *TransactionMetadata) {
-			assert.True(t, metadata.Preferred())
-			assert.False(t, metadata.Finalized())
-		}))
-		assert.True(t, tangle.PayloadMetadata(valueObjects["[-E, -F, G+]"].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
-			assert.False(t, payloadMetadata.Liked())
-			assert.False(t, payloadMetadata.Confirmed())
-			assert.True(t, payloadMetadata.Rejected())
-		}))
-
-		for _, name := range transactionsSlice {
-			valueObject := valueObjects[name]
-			cachedTxMetadata := tangle.TransactionMetadata(valueObject.Transaction().ID())
-			cachedValueObjectMetadata := tangle.PayloadMetadata(valueObject.ID())
-			fmt.Println("----", name, "----")
-
-			assert.True(t, cachedTxMetadata.Consume(func(metadata *TransactionMetadata) {
-				log.Println("Preferred:", metadata.Preferred())
-				log.Println("Finalized:", metadata.Finalized())
-			}))
-
-			assert.True(t, cachedValueObjectMetadata.Consume(func(payloadMetadata *PayloadMetadata) {
-				log.Println("Payload Liked:", payloadMetadata.Liked())
-				log.Println("Payload Confirmed:", payloadMetadata.Confirmed())
-				log.Println("Payload Rejected:", payloadMetadata.Rejected())
-			}))
-
-			fmt.Println()
-		}
+		// [-A, F+], [-E, -F, G+] should be finalized and rejected
+		verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], false, true, false, false, true)
+		verifyBranchState(t, tangle, valueObjects["[-A, F+]"], true, false, false, true)
+		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], false, true, false, false, true)
 	}
+}
+
+func TestPropagationScenario2(t *testing.T) {
+	tangle, transactions, valueObjects, _ := preparePropagationScenario2()
+
+	// confirm [-GENESIS, A+, B+, C+]
+	setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
+	setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
+	verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, true, true, true, false)
+
+	// prefer [-B, -C, E+] and thus Branch D
+	setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
+	verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], true, false, true, false, false)
+	verifyBranchState(t, tangle, valueObjects["[-B, -C, E+]"], false, true, false, false)
+	verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], true, false, true, false, false)
+
+	// prefer [-A, F+] and thus Branch B
+	setTransactionPreferredWithCheck(t, tangle, transactions["[-A, F+]"], true)
+	verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], true, false, true, false, false)
+	verifyBranchState(t, tangle, valueObjects["[-A, F+]"], false, true, false, false)
+
+	// prefer [-E, -F, G+]
+	setTransactionPreferredWithCheck(t, tangle, transactions["[-E, -F, G+]"], true)
+	verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], true, false, true, false, false)
+
+	// verify states of other transactions, value objects and branches
+	verifyInclusionState(t, tangle, valueObjects["[-A, D+]"], false, false, false, false, false)
+	verifyBranchState(t, tangle, valueObjects["[-A, D+]"], false, false, false, false)
+
+	verifyInclusionState(t, tangle, valueObjects["[-C, H+]"], false, false, false, false, false)
+	verifyBranchState(t, tangle, valueObjects["[-C, H+]"], false, false, false, false)
+
+	verifyInclusionState(t, tangle, valueObjects["[-H, -D, I+]"], false, false, false, false, false)
+
+	verifyInclusionState(t, tangle, valueObjects["[-B, J+]"], false, false, false, false, false)
+	verifyBranchState(t, tangle, valueObjects["[-B, J+]"], false, false, false, false)
+
+	// prefer [-H, -D, I+] - should be liked after votes on [-A, D+] and [-C, H+]
+	setTransactionPreferredWithCheck(t, tangle, transactions["[-H, -D, I+]"], true)
+	verifyInclusionState(t, tangle, valueObjects["[-H, -D, I+]"], true, false, false, false, false)
+
+	// simulate vote result to like [-A, D+] -> [-A, D+] becomes confirmed and [-A, F+], [-E, -F, G+] rejected
+	setTransactionPreferredWithCheck(t, tangle, transactions["[-A, D+]"], true)
+	setTransactionFinalizedWithCheck(t, tangle, transactions["[-A, D+]"])
+	verifyInclusionState(t, tangle, valueObjects["[-A, D+]"], true, true, true, true, false)
+	verifyBranchState(t, tangle, valueObjects["[-A, D+]"], true, true, true, false)
+
+	verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], false, true, false, false, true)
+	verifyBranchState(t, tangle, valueObjects["[-A, F+]"], true, false, false, true)
+	verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], false, true, false, false, true)
+
+	// simulate vote result to like [-C, H+] -> [-C, H+] becomes confirmed and [-B, -C, E+], [-B, -C, E+] (Reattachment) rejected
+	setTransactionPreferredWithCheck(t, tangle, transactions["[-C, H+]"], true)
+	setTransactionFinalizedWithCheck(t, tangle, transactions["[-C, H+]"])
+	verifyInclusionState(t, tangle, valueObjects["[-C, H+]"], true, true, true, true, false)
+	verifyBranchState(t, tangle, valueObjects["[-C, H+]"], true, true, true, false)
+
+	branches := make(map[string]branchmanager.BranchID)
+	branches["A"] = branchmanager.NewBranchID(transactions["[-A, D+]"].ID())
+	branches["C"] = branchmanager.NewBranchID(transactions["[-C, H+]"].ID())
+	branches["AC"] = tangle.BranchManager().GenerateAggregatedBranchID(branches["A"], branches["C"])
+	verifyBranchState2(t, tangle, branches["AC"], true, true, true, false)
+
+	//verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], false, true, false, false, true)
+	//verifyBranchState(t, tangle, valueObjects["[-B, -C, E+]"], true, false, false, true)
+	//verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], false, true, false, false, true)
+	//
+	//// [-H, -D, I+] should now be liked
+	//verifyInclusionState(t, tangle, valueObjects["[-H, -D, I+]"], true, false, true, false, false)
+	//setTransactionFinalizedWithCheck(t, tangle, transactions["[-H, -D, I+]"])
+	//verifyInclusionState(t, tangle, valueObjects["[-H, -D, I+]"], true, true, true, true, false)
+	//
+	//// [-B, J+] should be unchanged
+	//verifyInclusionState(t, tangle, valueObjects["[-B, J+]"], false, false, false, false, false)
+	//// [-B, J+] should become confirmed after preferring and finalizing
+	//setTransactionPreferredWithCheck(t, tangle, transactions["[-B, J+]"], true)
+	//setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, J+]"])
+	//verifyInclusionState(t, tangle, valueObjects["[-B, J+]"], true, true, true, true, false)
+}
+
+func verifyBranchState(t *testing.T, tangle *Tangle, valueObject *payload.Payload, finalized, liked, confirmed, rejected bool) {
+	assert.True(t, tangle.branchManager.Branch(branchmanager.NewBranchID(valueObject.Transaction().ID())).Consume(func(branch *branchmanager.Branch) {
+		assert.Equalf(t, finalized, branch.Finalized(), "branch finalized state does not match")
+		assert.Equalf(t, liked, branch.Liked(), "branch liked state does not match")
+
+		assert.Equalf(t, confirmed, branch.Confirmed(), "branch confirmed state does not match")
+		assert.Equalf(t, rejected, branch.Rejected(), "branch rejected state does not match")
+	}))
+}
+
+func verifyBranchState2(t *testing.T, tangle *Tangle, id branchmanager.BranchID, finalized, liked, confirmed, rejected bool) {
+	assert.True(t, tangle.branchManager.Branch(id).Consume(func(branch *branchmanager.Branch) {
+		assert.Equalf(t, finalized, branch.Finalized(), "branch finalized state does not match")
+		assert.Equalf(t, liked, branch.Liked(), "branch liked state does not match")
+
+		assert.Equalf(t, confirmed, branch.Confirmed(), "branch confirmed state does not match")
+		assert.Equalf(t, rejected, branch.Rejected(), "branch rejected state does not match")
+	}))
+}
+
+func verifyInclusionState(t *testing.T, tangle *Tangle, valueObject *payload.Payload, preferred, finalized, liked, confirmed, rejected bool) {
+	tx := valueObject.Transaction()
+
+	// check outputs
+	tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+		assert.True(t, tangle.TransactionOutput(transaction.NewOutputID(address, tx.ID())).Consume(func(output *Output) {
+			assert.Equalf(t, liked, output.Liked(), "output liked state does not match")
+			assert.Equalf(t, confirmed, output.Confirmed(), "output confirmed state does not match")
+			assert.Equalf(t, rejected, output.Rejected(), "output rejected state does not match")
+		}))
+		return true
+	})
+
+	// check transaction
+	assert.True(t, tangle.TransactionMetadata(tx.ID()).Consume(func(metadata *TransactionMetadata) {
+		assert.Equalf(t, preferred, metadata.Preferred(), "tx preferred state does not match")
+		assert.Equalf(t, finalized, metadata.Finalized(), "tx finalized state does not match")
+
+		assert.Equalf(t, liked, metadata.Liked(), "tx liked state does not match")
+		assert.Equalf(t, confirmed, metadata.Confirmed(), "tx confirmed state does not match")
+		assert.Equalf(t, rejected, metadata.Rejected(), "tx rejected state does not match")
+	}))
+
+	// check value object
+	assert.True(t, tangle.PayloadMetadata(valueObject.ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+		assert.Equalf(t, liked, payloadMetadata.Liked(), "value object liked state does not match")
+		assert.Equalf(t, confirmed, payloadMetadata.Confirmed(), "value object confirmed state does not match")
+		assert.Equalf(t, rejected, payloadMetadata.Rejected(), "value object rejected state does not match")
+	}))
 }
 
 func setTransactionPreferredWithCheck(t *testing.T, tangle *Tangle, tx *transaction.Transaction, preferred bool) {
