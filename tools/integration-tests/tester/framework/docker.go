@@ -63,7 +63,7 @@ func (d *DockerContainer) CreateGoShimmerEntryNode(name string, seed string) err
 			"--logger.level=debug",
 			fmt.Sprintf("--node.disablePlugins=%s", disabledPluginsEntryNode),
 			"--autopeering.entryNodes=",
-			fmt.Sprintf("--autopeering.seed=%s", seed),
+			fmt.Sprintf("--autopeering.seed=base58:%s", seed),
 		},
 	}
 
@@ -90,7 +90,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			}()),
 			fmt.Sprintf("--bootstrap.initialIssuance.timePeriodSec=%d", config.BootstrapInitialIssuanceTimePeriodSec),
 			"--webapi.bindAddress=0.0.0.0:8080",
-			fmt.Sprintf("--autopeering.seed=%s", config.Seed),
+			fmt.Sprintf("--autopeering.seed=base58:%s", config.Seed),
 			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", config.EntryNodePublicKey, config.EntryNodeHost),
 			fmt.Sprintf("--drng.instanceId=%d", config.DRNGInstance),
 			fmt.Sprintf("--drng.threshold=%d", config.DRNGThreshold),

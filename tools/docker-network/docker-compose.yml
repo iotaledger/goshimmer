@@ -8,7 +8,7 @@ services:
     command: >
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
-      --autopeering.seed=uuDCzsjyLNQ17/7fWKPNMYmr4IWuaVRf7qKqRL0v/6c=
+      --autopeering.seed=base58:8kPPCqaJFAt8BJtx6qw5PN8bKEM2XKXor6PxkmHf6bcr
       --autopeering.entryNodes=
       --analysis.server.bindAddress=0.0.0.0:1888
       --analysis.dashboard.bindAddress=0.0.0.0:9000

@@ -1,7 +1,6 @@
 package autopeering
 
 import (
-	"encoding/base64"
 	"net"
 	"net/http"
 	"strconv"
@@ -27,39 +26,34 @@ func configure(plugin *node.Plugin) {
 // getNeighbors returns the chosen and accepted neighbors of the node
 func getNeighbors(c echo.Context) error {
 
-	chosen := []Neighbor{}
-	accepted := []Neighbor{}
-	knownPeers := []Neighbor{}
+	var chosen []Neighbor
+	var accepted []Neighbor
+	var knownPeers []Neighbor
 
 	if c.QueryParam("known") == "1" {
-		for _, peer := range autopeering.Discovery().GetVerifiedPeers() {
-			n := Neighbor{
-				ID:        peer.ID().String(),
-				PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey().Bytes()),
-			}
-			n.Services = getServices(peer)
-			knownPeers = append(knownPeers, n)
+		for _, p := range autopeering.Discovery().GetVerifiedPeers() {
+			knownPeers = append(knownPeers, createNeighborFromPeer(p))
 		}
 	}
 
-	for _, peer := range autopeering.Selection().GetOutgoingNeighbors() {
-		n := Neighbor{
-			ID:        peer.ID().String(),
-			PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey().Bytes()),
-		}
-		n.Services = getServices(peer)
-		chosen = append(chosen, n)
+	for _, p := range autopeering.Selection().GetOutgoingNeighbors() {
+		chosen = append(chosen, createNeighborFromPeer(p))
 	}
-	for _, peer := range autopeering.Selection().GetIncomingNeighbors() {
-		n := Neighbor{
-			ID:        peer.ID().String(),
-			PublicKey: base64.StdEncoding.EncodeToString(peer.PublicKey().Bytes()),
-		}
-		n.Services = getServices(peer)
-		accepted = append(accepted, n)
+	for _, p := range autopeering.Selection().GetIncomingNeighbors() {
+		accepted = append(accepted, createNeighborFromPeer(p))
 	}
 
 	return c.JSON(http.StatusOK, Response{KnownPeers: knownPeers, Chosen: chosen, Accepted: accepted})
+}
+
+func createNeighborFromPeer(p *peer.Peer) Neighbor {
+	n := Neighbor{
+		ID:        p.ID().String(),
+		PublicKey: p.PublicKey().String(),
+	}
+	n.Services = getServices(p)
+
+	return n
 }
 
 // Response contains information of the autopeering.
