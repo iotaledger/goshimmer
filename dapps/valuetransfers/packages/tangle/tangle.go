@@ -536,55 +536,6 @@ func (tangle *Tangle) propagateBranchConfirmedRejectedChangesToTangle(cachedBran
 
 // region PRIVATE UTILITY METHODS //////////////////////////////////////////////////////////////////////////////////////
 
-func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.ID) {
-	rejectedPropagationStack := list.New()
-	rejectedPropagationStack.PushBack(transactionID)
-
-	for rejectedPropagationStack.Len() >= 1 {
-		firstElement := rejectedPropagationStack.Front()
-		rejectedPropagationStack.Remove(firstElement)
-		currentTransactionID := firstElement.Value.(transaction.ID)
-
-		cachedTransactionMetadata := tangle.TransactionMetadata(currentTransactionID)
-		cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
-			if !metadata.setRejected(true) {
-				return
-			}
-
-			cachedTransaction := tangle.Transaction(currentTransactionID)
-			cachedTransaction.Consume(func(tx *transaction.Transaction) {
-				// keep track of the added transactions so we don't add them multiple times
-				addedTransaction := make(map[transaction.ID]types.Empty)
-
-				// process all outputs
-				tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-					outputID := transaction.NewOutputID(address, currentTransactionID)
-
-					// mark the output to be rejected
-					tangle.TransactionOutput(outputID).Consume(func(output *Output) {
-						output.setRejected(true)
-					})
-
-					// queue consumers to also be rejected
-					tangle.Consumers(outputID).Consume(func(consumer *Consumer) {
-						if _, transactionAdded := addedTransaction[consumer.TransactionID()]; transactionAdded {
-							return
-						}
-						addedTransaction[consumer.TransactionID()] = types.Void
-
-						rejectedPropagationStack.PushBack(consumer.TransactionID())
-					})
-
-					return true
-				})
-
-				// trigger event
-				tangle.Events.TransactionRejected.Trigger(cachedTransaction, cachedTransactionMetadata)
-			})
-		})
-	}
-}
-
 func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, eventSource EventSource) (modified bool, err error) {
 	// retrieve metadata and consume
 	cachedTransactionMetadata := tangle.TransactionMetadata(transactionID)
@@ -631,6 +582,59 @@ func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, even
 	})
 
 	return
+}
+
+// propagateRejectedToTransactions propagates the rejected flag to a transaction, its outputs and to its consumers.
+func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.ID) {
+	// initialize stack with first transaction
+	rejectedPropagationStack := list.New()
+	rejectedPropagationStack.PushBack(transactionID)
+
+	// keep track of the added transactions so we don't add them multiple times
+	addedTransaction := make(map[transaction.ID]types.Empty)
+
+	// work through stack
+	for rejectedPropagationStack.Len() >= 1 {
+		// pop the first element from the stack
+		firstElement := rejectedPropagationStack.Front()
+		rejectedPropagationStack.Remove(firstElement)
+		currentTransactionID := firstElement.Value.(transaction.ID)
+
+		cachedTransactionMetadata := tangle.TransactionMetadata(currentTransactionID)
+		cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
+			if !metadata.setRejected(true) {
+				return
+			}
+
+			cachedTransaction := tangle.Transaction(currentTransactionID)
+			cachedTransaction.Consume(func(tx *transaction.Transaction) {
+				// process all outputs
+				tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+					outputID := transaction.NewOutputID(address, currentTransactionID)
+
+					// mark the output to be rejected
+					tangle.TransactionOutput(outputID).Consume(func(output *Output) {
+						output.setRejected(true)
+					})
+
+					// queue consumers to also be rejected
+					tangle.Consumers(outputID).Consume(func(consumer *Consumer) {
+						if _, transactionAdded := addedTransaction[consumer.TransactionID()]; transactionAdded {
+							return
+						}
+						addedTransaction[consumer.TransactionID()] = types.Void
+
+						rejectedPropagationStack.PushBack(consumer.TransactionID())
+					})
+
+					return true
+				})
+
+				// trigger event
+				tangle.Events.TransactionRejected.Trigger(cachedTransaction, cachedTransactionMetadata)
+			})
+		})
+	}
 }
 
 // TODO: WRITE COMMENT
@@ -800,7 +804,22 @@ func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack 
 			return
 		}
 
+		// trigger payload event
 		tangle.Events.PayloadLiked.Trigger(propagationStackEntry.CachedPayload, propagationStackEntry.CachedPayloadMetadata)
+
+		// propagate liked to transaction and its outputs
+		if currentTransactionMetadata.setLiked(true) {
+			currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+				tangle.TransactionOutput(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(output *Output) {
+					output.setLiked(true)
+				})
+
+				return true
+			})
+
+			// trigger event
+			tangle.Events.TransactionLiked.Trigger(propagationStackEntry.CachedTransaction, propagationStackEntry.CachedTransactionMetadata)
+		}
 	case false:
 		// abort if the payload has been marked as disliked before
 		if !currentPayloadMetadata.setLiked(liked) {
@@ -808,6 +827,31 @@ func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack 
 		}
 
 		tangle.Events.PayloadDisliked.Trigger(propagationStackEntry.CachedPayload, propagationStackEntry.CachedPayloadMetadata)
+
+		// look if we still have any liked attachments of this transaction
+		likedAttachmentFound := false
+		tangle.Attachments(currentTransaction.ID()).Consume(func(attachment *Attachment) {
+			tangle.PayloadMetadata(attachment.PayloadID()).Consume(func(payloadMetadata *PayloadMetadata) {
+				likedAttachmentFound = likedAttachmentFound || payloadMetadata.Liked()
+			})
+		})
+
+		// if there are no other liked attachments of this transaction then also set it to disliked
+		if !likedAttachmentFound {
+			// propagate disliked to transaction and its outputs
+			if currentTransactionMetadata.setLiked(false) {
+				currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+					tangle.TransactionOutput(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(output *Output) {
+						output.setLiked(false)
+					})
+
+					return true
+				})
+
+				// trigger event
+				tangle.Events.TransactionDisliked.Trigger(propagationStackEntry.CachedTransaction, propagationStackEntry.CachedTransactionMetadata)
+			}
+		}
 	}
 
 	// schedule checks of approvers and consumers

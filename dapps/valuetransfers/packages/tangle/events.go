@@ -31,6 +31,10 @@ type Events struct {
 
 	TransactionUnpreferred *events.Event
 
+	TransactionLiked *events.Event
+
+	TransactionDisliked *events.Event
+
 	TransactionConfirmed *events.Event
 
 	TransactionRejected *events.Event
@@ -75,6 +79,8 @@ func newEvents() *Events {
 		TransactionBooked:      events.NewEvent(transactionBookedEvent),
 		TransactionPreferred:   events.NewEvent(cachedTransactionEvent),
 		TransactionUnpreferred: events.NewEvent(cachedTransactionEvent),
+		TransactionLiked:       events.NewEvent(cachedTransactionEvent),
+		TransactionDisliked:    events.NewEvent(cachedTransactionEvent),
 		TransactionFinalized:   events.NewEvent(cachedTransactionEvent),
 		TransactionConfirmed:   events.NewEvent(cachedTransactionEvent),
 		TransactionRejected:    events.NewEvent(cachedTransactionEvent),
