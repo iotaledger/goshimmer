@@ -536,6 +536,55 @@ func (tangle *Tangle) propagateBranchConfirmedRejectedChangesToTangle(cachedBran
 
 // region PRIVATE UTILITY METHODS //////////////////////////////////////////////////////////////////////////////////////
 
+func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.ID) {
+	rejectedPropagationStack := list.New()
+	rejectedPropagationStack.PushBack(transactionID)
+
+	for rejectedPropagationStack.Len() >= 1 {
+		firstElement := rejectedPropagationStack.Front()
+		rejectedPropagationStack.Remove(firstElement)
+		currentTransactionID := firstElement.Value.(transaction.ID)
+
+		cachedTransactionMetadata := tangle.TransactionMetadata(currentTransactionID)
+		cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
+			if !metadata.setRejected(true) {
+				return
+			}
+
+			cachedTransaction := tangle.Transaction(currentTransactionID)
+			cachedTransaction.Consume(func(tx *transaction.Transaction) {
+				// keep track of the added transactions so we don't add them multiple times
+				addedTransaction := make(map[transaction.ID]types.Empty)
+
+				// process all outputs
+				tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+					outputID := transaction.NewOutputID(address, currentTransactionID)
+
+					// mark the output to be rejected
+					tangle.TransactionOutput(outputID).Consume(func(output *Output) {
+						output.setRejected(true)
+					})
+
+					// queue consumers to also be rejected
+					tangle.Consumers(outputID).Consume(func(consumer *Consumer) {
+						if _, transactionAdded := addedTransaction[consumer.TransactionID()]; transactionAdded {
+							return
+						}
+						addedTransaction[consumer.TransactionID()] = types.Void
+
+						rejectedPropagationStack.PushBack(consumer.TransactionID())
+					})
+
+					return true
+				})
+
+				// trigger event
+				tangle.Events.TransactionRejected.Trigger(cachedTransaction, cachedTransactionMetadata)
+			})
+		})
+	}
+}
+
 func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, eventSource EventSource) (modified bool, err error) {
 	// retrieve metadata and consume
 	cachedTransactionMetadata := tangle.TransactionMetadata(transactionID)
@@ -554,6 +603,11 @@ func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, even
 
 			// trigger the corresponding event
 			tangle.Events.TransactionFinalized.Trigger(cachedTransaction, cachedTransactionMetadata)
+
+			// propagate the rejected flag
+			if !metadata.Preferred() {
+				tangle.propagateRejectedToTransactions(metadata.ID())
+			}
 
 			// propagate changes to value tangle and branch DAG if we were called from the tangle
 			// Note: if the update was triggered by a change in the branch DAG then we do not propagate the confirmed
@@ -621,7 +675,21 @@ func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(pro
 			return
 		}
 
+		// trigger payload event
 		tangle.Events.PayloadConfirmed.Trigger(propagationStackEntry.CachedPayload, propagationStackEntry.CachedPayloadMetadata)
+
+		// propagate confirmed status to transaction and its outputs
+		if currentTransactionMetadata.setConfirmed(true) {
+			currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+				tangle.TransactionOutput(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(output *Output) {
+					output.setConfirmed(true)
+				})
+
+				return true
+			})
+
+			tangle.Events.TransactionConfirmed.Trigger(propagationStackEntry.CachedTransaction, propagationStackEntry.CachedTransactionMetadata)
+		}
 	case false:
 		// abort if the payload has been marked as disliked before
 		if !currentPayloadMetadata.setRejected(true) {

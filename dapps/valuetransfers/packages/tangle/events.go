@@ -31,6 +31,10 @@ type Events struct {
 
 	TransactionUnpreferred *events.Event
 
+	TransactionConfirmed *events.Event
+
+	TransactionRejected *events.Event
+
 	TransactionFinalized *events.Event
 
 	// Fork gets triggered when a previously un-conflicting transaction get's some of its inputs double spend, so that a
@@ -72,6 +76,8 @@ func newEvents() *Events {
 		TransactionPreferred:   events.NewEvent(cachedTransactionEvent),
 		TransactionUnpreferred: events.NewEvent(cachedTransactionEvent),
 		TransactionFinalized:   events.NewEvent(cachedTransactionEvent),
+		TransactionConfirmed:   events.NewEvent(cachedTransactionEvent),
+		TransactionRejected:    events.NewEvent(cachedTransactionEvent),
 		Fork:                   events.NewEvent(forkEvent),
 		Error:                  events.NewEvent(events.ErrorCaller),
 	}
