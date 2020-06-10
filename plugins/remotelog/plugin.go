@@ -5,7 +5,6 @@
 package remotelog
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -78,7 +77,7 @@ func configure(plugin *node.Plugin) {
 	conn = c
 
 	if local.GetInstance() != nil {
-		myID = hex.EncodeToString(local.GetInstance().ID().Bytes())
+		myID = local.GetInstance().ID().String()
 	}
 
 	getGitInfo()
@@ -95,7 +94,7 @@ func run(plugin *node.Plugin) {
 		workerPool.TrySubmit(level, name, msg)
 	})
 
-	daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		logger.Events.AnyMsg.Attach(logEvent)
 		workerPool.Start()
 		<-shutdownSignal
@@ -103,7 +102,9 @@ func run(plugin *node.Plugin) {
 		logger.Events.AnyMsg.Detach(logEvent)
 		workerPool.Stop()
 		log.Infof("Stopping %s ... done", PluginName)
-	}, shutdown.PriorityRemoteLog)
+	}, shutdown.PriorityRemoteLog); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
 }
 
 func sendLogMsg(level logger.Level, name string, msg string) {

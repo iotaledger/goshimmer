@@ -20,6 +20,7 @@ func Handler(c echo.Context) error {
 
 	// get txn by txn id
 	txnObj := valuetransfers.Tangle.Transaction(txnID)
+	defer txnObj.Release()
 	if !txnObj.Exists() {
 		return c.JSON(http.StatusNotFound, Response{Error: "Transaction not found"})
 	}

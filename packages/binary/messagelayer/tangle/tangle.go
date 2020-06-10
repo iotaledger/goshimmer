@@ -274,9 +274,15 @@ func (tangle *Tangle) MonitorMissingMessages(shutdownSignal <-chan struct{}) {
 		select {
 		case <-reCheckInterval.C:
 			var toDelete []message.Id
+			var toUnmark []message.Id
 			tangle.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 				defer cachedObject.Release()
 				missingMessage := cachedObject.Get().(*MissingMessage)
+
+				if tangle.messageStorage.Contains(missingMessage.messageId.Bytes()) {
+					toUnmark = append(toUnmark, missingMessage.MessageId())
+					return true
+				}
 
 				// check whether message is missing since over our max time delta
 				if time.Since(missingMessage.MissingSince()) >= MaxMissingTimeBeforeCleanup {
@@ -284,6 +290,9 @@ func (tangle *Tangle) MonitorMissingMessages(shutdownSignal <-chan struct{}) {
 				}
 				return true
 			})
+			for _, msgID := range toUnmark {
+				tangle.missingMessageStorage.DeleteIfPresent(msgID.Bytes())
+			}
 			for _, msgID := range toDelete {
 				// delete the future cone of the missing message
 				tangle.Events.MessageUnsolidifiable.Trigger(msgID)

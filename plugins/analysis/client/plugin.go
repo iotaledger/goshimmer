@@ -82,7 +82,7 @@ func run(_ *node.Plugin) {
 			}
 		}
 	}, shutdown.PriorityAnalysis); err != nil {
-		log.Panic(err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 

@@ -29,6 +29,7 @@ func NewFCOB(tangle *tangle.Tangle, averageNetworkDelay time.Duration) (fcob *FC
 		averageNetworkDelay: averageNetworkDelay,
 		Events: &FCOBEvents{
 			Error: events.NewEvent(events.ErrorCaller),
+			Vote:  events.NewEvent(voteEvent),
 		},
 	}
 
@@ -125,7 +126,9 @@ func (fcob *FCOB) setFinalized(cachedTransactionMetadata *tangle.CachedTransacti
 			return
 		}
 
-		transactionMetadata.SetFinalized(true)
+		if _, err := fcob.tangle.SetTransactionFinalized(transactionMetadata.ID()); err != nil {
+			fcob.Events.Error.Trigger(err)
+		}
 	})
 }
 
@@ -155,4 +158,8 @@ type FCOBEvents struct {
 
 	// Vote gets called when FCOB needs to vote on a transaction.
 	Vote *events.Event
+}
+
+func voteEvent(handler interface{}, params ...interface{}) {
+	handler.(func(id string, initOpn vote.Opinion))(params[0].(string), params[1].(vote.Opinion))
 }

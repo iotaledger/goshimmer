@@ -19,5 +19,5 @@ func init() {
 	flag.String(CfgBind, "0.0.0.0", "bind address for global services such as autopeering and gossip")
 	flag.String(CfgExternal, "auto", "external IP address under which the node is reachable; or 'auto' to determine it automatically")
 	flag.Int(CfgPort, 14626, "UDP port for incoming peering requests")
-	flag.BytesBase64(CfgSeed, nil, "private key seed used to derive the node identity; optional Base64 encoded 256-bit string")
+	flag.String(CfgSeed, "", "private key seed used to derive the node identity; optional base58 or base64 encoded 256-bit string. Prefix with 'base58:' or 'base64', respectively")
 }

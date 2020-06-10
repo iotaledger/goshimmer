@@ -62,7 +62,7 @@ func runFPCLiveFeed() {
 		analysis.Events.FPCHeartbeat.Detach(onFPCHeartbeatReceived)
 		log.Info("Stopping Analysis[FPCUpdater] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
-		panic(err)
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
 

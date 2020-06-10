@@ -4,22 +4,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tipmanager"
-	"github.com/iotaledger/goshimmer/plugins/database"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tipmanager"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	messageTangle "github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 )
 
 const (
@@ -99,10 +98,12 @@ func configure(_ *node.Plugin) {
 }
 
 func run(*node.Plugin) {
-	_ = daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("ValueTangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		Tangle.Shutdown()
-	}, shutdown.PriorityTangle)
+	}, shutdown.PriorityTangle); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
 
 	runFPC()
 }

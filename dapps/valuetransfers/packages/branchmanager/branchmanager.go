@@ -53,6 +53,9 @@ func New(store kvstore.KVStore) (branchManager *BranchManager) {
 			BranchUnpreferred: events.NewEvent(branchCaller),
 			BranchLiked:       events.NewEvent(branchCaller),
 			BranchDisliked:    events.NewEvent(branchCaller),
+			BranchFinalized:   events.NewEvent(branchCaller),
+			BranchConfirmed:   events.NewEvent(branchCaller),
+			BranchRejected:    events.NewEvent(branchCaller),
 		},
 	}
 	branchManager.init()
@@ -251,6 +254,8 @@ func (branchManager *BranchManager) BranchesConflicting(branchIds ...BranchID) (
 					}
 
 					if conflictMember.BranchID() == currentBranchID {
+						cachedConflictMember.Release()
+
 						continue
 					}
 
@@ -344,7 +349,123 @@ func (branchManager *BranchManager) SetBranchLiked(branchID BranchID, liked bool
 	return branchManager.setBranchLiked(branchManager.Branch(branchID), liked)
 }
 
+// SetBranchFinalized modifies the finalized flag of a branch. It automatically triggers
 func (branchManager *BranchManager) SetBranchFinalized(branchID BranchID) (modified bool, err error) {
+	return branchManager.setBranchFinalized(branchManager.Branch(branchID))
+}
+
+func (branchManager *BranchManager) setBranchFinalized(cachedBranch *CachedBranch) (modified bool, err error) {
+	defer cachedBranch.Release()
+	branch := cachedBranch.Unwrap()
+	if branch == nil {
+		err = fmt.Errorf("failed to unwrap branch")
+
+		return
+	}
+
+	if modified = branch.setFinalized(true); !modified {
+		return
+	}
+
+	branchManager.Events.BranchFinalized.Trigger(cachedBranch)
+
+	if !branch.Preferred() {
+		branchManager.propagateRejectedToChildBranches(cachedBranch.Retain())
+
+		return
+	}
+
+	// update all other branches that are in the same conflict sets to be not preferred and also finalized
+	for conflictID := range branch.Conflicts() {
+		branchManager.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
+			// skip the branch which just got preferred
+			if conflictMember.BranchID() == branch.ID() {
+				return
+			}
+
+			_, err = branchManager.setBranchPreferred(branchManager.Branch(conflictMember.BranchID()), false)
+			if err != nil {
+				return
+			}
+			_, err = branchManager.setBranchFinalized(branchManager.Branch(conflictMember.BranchID()))
+			if err != nil {
+				return
+			}
+		})
+	}
+
+	err = branchManager.propagateConfirmedToChildBranches(cachedBranch.Retain())
+
+	return
+}
+
+func (branchManager *BranchManager) propagateRejectedToChildBranches(cachedBranch *CachedBranch) {
+	branchStack := list.New()
+	branchStack.PushBack(cachedBranch)
+
+	for branchStack.Len() >= 1 {
+		currentStackElement := branchStack.Front()
+		currentCachedBranch := currentStackElement.Value.(*CachedBranch)
+		branchStack.Remove(currentStackElement)
+
+		currentBranch := currentCachedBranch.Unwrap()
+		if currentBranch == nil || !currentBranch.setRejected(false) {
+			currentCachedBranch.Release()
+
+			continue
+		}
+
+		branchManager.Events.BranchRejected.Trigger(cachedBranch)
+
+		branchManager.ChildBranches(currentBranch.ID()).Consume(func(childBranch *ChildBranch) {
+			branchStack.PushBack(branchManager.Branch(childBranch.ChildID()))
+		})
+
+		currentCachedBranch.Release()
+	}
+}
+
+func (branchManager *BranchManager) propagateConfirmedToChildBranches(cachedBranch *CachedBranch) (err error) {
+	// initialize stack with our entry point for the propagation
+	propagationStack := list.New()
+	propagationStack.PushBack(cachedBranch)
+
+	// iterate through stack to propagate the changes to child branches
+	for propagationStack.Len() >= 1 {
+		stackElement := propagationStack.Front()
+		stackElement.Value.(*CachedBranch).Consume(func(branch *Branch) {
+			// abort if the branch does not fulfill the conditions to be confirmed
+			if !branch.Preferred() || !branch.Finalized() {
+				return
+			}
+
+			// abort if not all parents are confirmed
+			for _, parentBranchID := range branch.ParentBranches() {
+				cachedParentBranch := branchManager.Branch(parentBranchID)
+				if parentBranch := cachedParentBranch.Unwrap(); parentBranch == nil || !parentBranch.Confirmed() {
+					cachedParentBranch.Release()
+
+					return
+				}
+				cachedParentBranch.Release()
+			}
+
+			// abort if the branch was confirmed already
+			if !branch.setConfirmed(true) {
+				return
+			}
+
+			// trigger events
+			branchManager.Events.BranchConfirmed.Trigger(cachedBranch)
+
+			// schedule confirmed checks of children
+			for _, cachedChildBranch := range branchManager.ChildBranches(branch.ID()) {
+				propagationStack.PushBack(cachedChildBranch)
+			}
+		})
+		propagationStack.Remove(stackElement)
+	}
+
 	return
 }
 
@@ -392,7 +513,7 @@ func (branchManager *BranchManager) setBranchPreferred(cachedBranch *CachedBranc
 	if !preferred {
 		if modified = branch.setPreferred(false); modified {
 			branchManager.Events.BranchUnpreferred.Trigger(cachedBranch)
-
+			branchManager.propagatePreferredChangesToAggregatedChildBranches(branch.ID())
 			branchManager.propagateDislikeToFutureCone(cachedBranch.Retain())
 		}
 
@@ -417,10 +538,61 @@ func (branchManager *BranchManager) setBranchPreferred(cachedBranch *CachedBranc
 	}
 
 	branchManager.Events.BranchPreferred.Trigger(cachedBranch)
-
+	branchManager.propagatePreferredChangesToAggregatedChildBranches(branch.ID())
 	err = branchManager.propagateLike(cachedBranch.Retain())
 
 	return
+}
+
+// propagatePreferredChangesToAggregatedChildBranches recursively updates the preferred flag of all descendants of the
+// given Branch.
+func (branchManager *BranchManager) propagatePreferredChangesToAggregatedChildBranches(parentBranchID BranchID) {
+	// initialize stack with children of the passed in parent Branch
+	branchStack := list.New()
+	branchManager.ChildBranches(parentBranchID).Consume(func(childBranchReference *ChildBranch) {
+		branchStack.PushBack(childBranchReference.ChildID())
+	})
+
+	// iterate through child branches and propagate changes
+	for branchStack.Len() >= 1 {
+		// retrieve first element from the stack
+		currentEntry := branchStack.Front()
+		currentChildBranchID := currentEntry.Value.(BranchID)
+		branchStack.Remove(currentEntry)
+
+		// load branch from storage
+		cachedAggregatedChildBranch := branchManager.Branch(currentChildBranchID)
+
+		// only process branches that could be loaded and that are aggregated branches
+		if aggregatedChildBranch := cachedAggregatedChildBranch.Unwrap(); aggregatedChildBranch != nil && aggregatedChildBranch.IsAggregated() {
+			// determine if all parents are liked
+			allParentsPreferred := true
+			for _, parentID := range aggregatedChildBranch.ParentBranches() {
+				if allParentsPreferred {
+					allParentsPreferred = allParentsPreferred && branchManager.Branch(parentID).Consume(func(parentBranch *Branch) {
+						allParentsPreferred = allParentsPreferred && parentBranch.Preferred()
+					})
+				}
+			}
+
+			// trigger events and check children if the branch was updated
+			if aggregatedChildBranch.setPreferred(allParentsPreferred) {
+				if allParentsPreferred {
+					branchManager.Events.BranchPreferred.Trigger(cachedAggregatedChildBranch)
+				} else {
+					branchManager.Events.BranchUnpreferred.Trigger(cachedAggregatedChildBranch)
+				}
+
+				// schedule checks for children if preferred flag was updated
+				branchManager.ChildBranches(currentChildBranchID).Consume(func(childBranchReference *ChildBranch) {
+					branchStack.PushBack(childBranchReference.ChildID())
+				})
+			}
+		}
+
+		// release the branch when we are done
+		cachedAggregatedChildBranch.Release()
+	}
 }
 
 func (branchManager *BranchManager) setBranchLiked(cachedBranch *CachedBranch, liked bool) (modified bool, err error) {
@@ -462,7 +634,10 @@ func (branchManager *BranchManager) setBranchLiked(cachedBranch *CachedBranch, l
 				return
 			}
 
-			_, _ = branchManager.setBranchPreferred(branchManager.Branch(conflictMember.BranchID()), false)
+			_, err = branchManager.setBranchPreferred(branchManager.Branch(conflictMember.BranchID()), false)
+			if err != nil {
+				return
+			}
 		})
 	}
 
@@ -495,6 +670,23 @@ func (branchManager *BranchManager) IsBranchLiked(id BranchID) (liked bool) {
 
 	branchManager.Branch(id).Consume(func(branch *Branch) {
 		liked = branch.Liked()
+	})
+
+	return
+}
+
+// IsBranchConfirmed returns true if the Branch is marked as confirmed.
+func (branchManager *BranchManager) IsBranchConfirmed(id BranchID) (confirmed bool) {
+	if id == UndefinedBranchID {
+		return
+	}
+
+	if id == MasterBranchID {
+		return true
+	}
+
+	branchManager.Branch(id).Consume(func(branch *Branch) {
+		confirmed = branch.Confirmed()
 	})
 
 	return
@@ -611,7 +803,7 @@ func (branchManager *BranchManager) determineAggregatedBranchDetails(deepestComm
 			continue
 		}
 
-		if branch.IsAggregated() {
+		if !branch.IsAggregated() {
 			aggregatedBranchConflictParents[branchID] = cachedBranch
 
 			continue
@@ -781,8 +973,6 @@ func (branchManager *BranchManager) findDeepestCommonDescendants(branches ...Bra
 					cachedAggregatedBranch.Release()
 
 					result[branchID] = cachedBranch
-
-					return nil
 				}
 			}
 
