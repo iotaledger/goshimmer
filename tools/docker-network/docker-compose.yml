@@ -41,6 +41,7 @@ services:
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
       --node.enablePlugins=bootstrap
+      --node.disablePlugins=valuetransfers
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
@@ -57,7 +58,7 @@ services:
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
       --node.enablePlugins=bootstrap
-      --node.disablePlugins=dashboard,portcheck
+      --node.disablePlugins=dashboard,portcheck,valuetransfers
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
