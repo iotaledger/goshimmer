@@ -17,9 +17,9 @@ func init() {
 
 	registry.MustRegister(messagesPerSecond)
 
-	addCollect(collectServer)
+	addCollect(collectMetrics)
 }
 
-func collectServer() {
+func collectMetrics() {
 	messagesPerSecond.Set(float64(metrics.ReceivedMessagesPerSecond()))
 }
