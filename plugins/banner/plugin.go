@@ -14,7 +14,7 @@ var Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 const (
 	// AppVersion version number
-	AppVersion = "v0.666.0"
+	AppVersion = "v0.2.0"
 
 	// AppName app code name
 	AppName = "GoShimmer"

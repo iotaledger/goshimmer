@@ -13,6 +13,17 @@ func newConflictRecord() *conflictRecord {
 	}
 }
 
+func (cr *conflictRecord) cleanUp() {
+	cr.lock.Lock()
+	defer cr.lock.Unlock()
+
+	for id, conflict := range cr.conflictSet {
+		if conflict.isFinalized() {
+			delete(cr.conflictSet, id)
+		}
+	}
+}
+
 func (cr *conflictRecord) ToFPCUpdate() *FPCUpdate {
 	cr.lock.RLock()
 	defer cr.lock.RUnlock()

@@ -55,10 +55,21 @@ func runFPCLiveFeed() {
 		fpcLiveFeedWorkerPool.Start()
 		defer fpcLiveFeedWorkerPool.Stop()
 
-		<-shutdownSignal
-		log.Info("Stopping Analysis[FPCUpdater] ...")
-		analysis.Events.FPCHeartbeat.Detach(onFPCHeartbeatReceived)
-		log.Info("Stopping Analysis[FPCUpdater] ... done")
+		cleanUpTicker := time.NewTicker(1 * time.Minute)
+
+		for {
+			select {
+			case <-shutdownSignal:
+				log.Info("Stopping Analysis[FPCUpdater] ...")
+				analysis.Events.FPCHeartbeat.Detach(onFPCHeartbeatReceived)
+				cleanUpTicker.Stop()
+				log.Info("Stopping Analysis[FPCUpdater] ... done")
+			case <-cleanUpTicker.C:
+				log.Info("Cleaning up Finalized Conflicts ...")
+				recordedConflicts.cleanUp()
+				log.Info("Cleaning up Finalized Conflicts ... done")
+			}
+		}
 	}, shutdown.PriorityDashboard); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
