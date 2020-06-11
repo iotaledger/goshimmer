@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPersistence issues messages on random peers, restarts them and checks for persistence after restart.
+// TestValueIotaPersistence issues messages on random peers, restarts them and checks for persistence after restart.
 func TestValueIotaPersistence(t *testing.T) {
 	n, err := f.CreateNetwork("valueIota_TestPersistence", 4, 2)
 	require.NoError(t, err)
@@ -64,7 +64,7 @@ func TestValueIotaPersistence(t *testing.T) {
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 }
 
-// TestColoredPersistence issues colored tokens on random peers, restarts them and checks for persistence after restart.
+// TestValueColoredPersistence issues colored tokens on random peers, restarts them and checks for persistence after restart.
 func TestValueColoredPersistence(t *testing.T) {
 	n, err := f.CreateNetwork("valueColor_TestPersistence", 4, 2)
 	require.NoError(t, err)
