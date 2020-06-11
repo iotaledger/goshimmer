@@ -26,12 +26,18 @@ type Output struct {
 	solidificationTime time.Time
 	firstConsumer      transaction.ID
 	consumerCount      int
+	liked              bool
+	confirmed          bool
+	rejected           bool
 	balances           []*balance.Balance
 
 	branchIDMutex           sync.RWMutex
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 	consumerMutex           sync.RWMutex
+	likedMutex              sync.RWMutex
+	confirmedMutex          sync.RWMutex
+	rejectedMutex           sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 	storageKey []byte
@@ -225,6 +231,102 @@ func (output *Output) ConsumerCount() int {
 	defer output.consumerMutex.RUnlock()
 
 	return output.consumerCount
+}
+
+// Liked returns true if the Output was marked as liked.
+func (output *Output) Liked() bool {
+	output.likedMutex.RLock()
+	defer output.likedMutex.RUnlock()
+
+	return output.liked
+}
+
+// setLiked modifies the liked flag of the given Output. It returns true if the value has been updated.
+func (output *Output) setLiked(liked bool) (modified bool) {
+	output.likedMutex.RLock()
+	if output.liked == liked {
+		output.likedMutex.RUnlock()
+
+		return
+	}
+
+	output.likedMutex.RUnlock()
+	output.likedMutex.Lock()
+	defer output.likedMutex.Unlock()
+
+	if output.liked == liked {
+		return
+	}
+
+	output.liked = liked
+	output.SetModified()
+	modified = true
+
+	return
+}
+
+// Confirmed returns true if the Output was marked as confirmed.
+func (output *Output) Confirmed() bool {
+	output.confirmedMutex.RLock()
+	defer output.confirmedMutex.RUnlock()
+
+	return output.confirmed
+}
+
+// setConfirmed modifies the confirmed flag of the given Output. It returns true if the value has been updated.
+func (output *Output) setConfirmed(confirmed bool) (modified bool) {
+	output.confirmedMutex.RLock()
+	if output.confirmed == confirmed {
+		output.confirmedMutex.RUnlock()
+
+		return
+	}
+
+	output.confirmedMutex.RUnlock()
+	output.confirmedMutex.Lock()
+	defer output.confirmedMutex.Unlock()
+
+	if output.confirmed == confirmed {
+		return
+	}
+
+	output.confirmed = confirmed
+	output.SetModified()
+	modified = true
+
+	return
+}
+
+// Rejected returns true if the Output was marked as confirmed.
+func (output *Output) Rejected() bool {
+	output.rejectedMutex.RLock()
+	defer output.rejectedMutex.RUnlock()
+
+	return output.rejected
+}
+
+// setRejected modifies the rejected flag of the given Output. It returns true if the value has been updated.
+func (output *Output) setRejected(rejected bool) (modified bool) {
+	output.rejectedMutex.RLock()
+	if output.rejected == rejected {
+		output.rejectedMutex.RUnlock()
+
+		return
+	}
+
+	output.rejectedMutex.RUnlock()
+	output.rejectedMutex.Lock()
+	defer output.rejectedMutex.Unlock()
+
+	if output.rejected == rejected {
+		return
+	}
+
+	output.rejected = rejected
+	output.SetModified()
+	modified = true
+
+	return
 }
 
 // Balances returns the colored balances (color + balance) that this output contains.
