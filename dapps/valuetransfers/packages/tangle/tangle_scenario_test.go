@@ -751,18 +751,13 @@ func TestPropagationScenario1(t *testing.T) {
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], true, true, true, false, false)
 
 		// now finalize [-GENESIS, A+, B+, C+]
-		debugger.Enable()
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
-		debugger.Disable()
-
 		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, true, true, true, false)
 
 		// and [-B, -C, E+] should be confirmed now too
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], true, true, true, true, false)
 		// as well as the reattachment
-
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], true, true, true, true, false)
-		// TODO: sometimes this check does fail. "value object confirmed state does not match" expected: true - actual  : false
 	}
 
 	// test future cone monotonicity simple - everything MUST be rejected and finalized if spending funds from rejected tx
@@ -960,10 +955,8 @@ func TestPropagationScenario2(t *testing.T) {
 	verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], false, true, false, false, true)
 
 	// simulate vote result to like [-C, H+] -> [-C, H+] becomes confirmed and [-B, -C, E+], [-B, -C, E+] (Reattachment) rejected
-	debugger.Enable()
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-C, H+]"], true)
 	setTransactionFinalizedWithCheck(t, tangle, transactions["[-C, H+]"])
-	debugger.Disable()
 
 	verifyBranchState(t, tangle, branches["AC"], true, true, true, false)
 	verifyInclusionState(t, tangle, valueObjects["[-C, H+]"], true, true, true, true, false)

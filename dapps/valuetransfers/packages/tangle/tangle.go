@@ -7,18 +7,19 @@ import (
 	"math"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
+
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 )
 
 // Tangle represents the value tangle that consists out of value payloads.
@@ -668,18 +669,15 @@ func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdates(transactionI
 		})
 	})
 
-	// keep track of the seen payloads so we do not process them twice
-	seenPayloads := make(map[payload.ID]types.Empty)
-
 	// iterate through stack (future cone of transactions)
 	for propagationStack.Len() >= 1 {
 		currentAttachmentEntry := propagationStack.Front()
-		tangle.propagateValuePayloadConfirmedRejectedUpdateStackEntry(propagationStack, seenPayloads, currentAttachmentEntry.Value.(*valuePayloadPropagationStackEntry), confirmed)
+		tangle.propagateValuePayloadConfirmedRejectedUpdateStackEntry(propagationStack, currentAttachmentEntry.Value.(*valuePayloadPropagationStackEntry), confirmed)
 		propagationStack.Remove(currentAttachmentEntry)
 	}
 }
 
-func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(propagationStack *list.List, processedPayloads map[payload.ID]types.Empty, propagationStackEntry *valuePayloadPropagationStackEntry, confirmed bool) {
+func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(propagationStack *list.List, propagationStackEntry *valuePayloadPropagationStackEntry, confirmed bool) {
 	// release the entry when we are done
 	defer propagationStackEntry.Release()
 
@@ -729,7 +727,7 @@ func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(pro
 	}
 
 	// schedule checks of approvers and consumers
-	tangle.ForEachConsumersAndApprovers(currentPayload, tangle.createValuePayloadFutureConeIterator(propagationStack, processedPayloads))
+	tangle.ForEachConsumersAndApprovers(currentPayload, tangle.createValuePayloadFutureConeIterator(propagationStack, make(map[payload.ID]types.Empty)))
 }
 
 // setTransactionPreferred is an internal utility method that updates the preferred flag and triggers changes to the
@@ -796,13 +794,10 @@ func (tangle *Tangle) propagateValuePayloadLikeUpdates(transactionID transaction
 		})
 	})
 
-	// keep track of the seen payloads so we do not process them twice
-	seenPayloads := make(map[payload.ID]types.Empty)
-
 	// iterate through stack (future cone of transactions)
 	for propagationStack.Len() >= 1 {
 		currentAttachmentEntry := propagationStack.Front()
-		tangle.processValuePayloadLikedUpdateStackEntry(propagationStack, seenPayloads, liked, currentAttachmentEntry.Value.(*valuePayloadPropagationStackEntry))
+		tangle.processValuePayloadLikedUpdateStackEntry(propagationStack, liked, currentAttachmentEntry.Value.(*valuePayloadPropagationStackEntry))
 		propagationStack.Remove(currentAttachmentEntry)
 	}
 }
@@ -811,7 +806,7 @@ func (tangle *Tangle) propagateValuePayloadLikeUpdates(transactionID transaction
 // propagation stack for the update of the liked flag when iterating through the future cone of a transactions
 // attachments. It checks if a ValuePayloads has become liked (or disliked), updates the flag an schedules its future
 // cone for additional checks.
-func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack *list.List, processedPayloads map[payload.ID]types.Empty, liked bool, propagationStackEntry *valuePayloadPropagationStackEntry) {
+func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack *list.List, liked bool, propagationStackEntry *valuePayloadPropagationStackEntry) {
 	// release the entry when we are done
 	defer propagationStackEntry.Release()
 
@@ -880,7 +875,7 @@ func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack 
 	}
 
 	// schedule checks of approvers and consumers
-	tangle.ForEachConsumersAndApprovers(currentPayload, tangle.createValuePayloadFutureConeIterator(propagationStack, processedPayloads))
+	tangle.ForEachConsumersAndApprovers(currentPayload, tangle.createValuePayloadFutureConeIterator(propagationStack, make(map[payload.ID]types.Empty)))
 }
 
 // createValuePayloadFutureConeIterator returns a function that can be handed into the ForEachConsumersAndApprovers
