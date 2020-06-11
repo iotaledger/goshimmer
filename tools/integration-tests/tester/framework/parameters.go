@@ -25,8 +25,6 @@ const (
 	dkgMaxTries = 50
 
 	exitStatusSuccessful = 0
-
-	SnapShotFirstAddress = "JaMauTaTSVBNc13edCCvBK9fZxZ1KKW5fXegT1B7N9jY"
 )
 
 var (
