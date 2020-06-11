@@ -613,6 +613,7 @@ func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.
 			}
 			metadata.setPreferred(false)
 
+			// if the transaction is not finalized, yet then we set it to finalized
 			if !metadata.Finalized() {
 				if _, err := tangle.setTransactionFinalized(metadata.ID(), EventSourceTangle); err != nil {
 					tangle.Events.Error.Trigger(err)

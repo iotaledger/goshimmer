@@ -2102,6 +2102,7 @@ func TestPropagationScenario1(t *testing.T) {
 	{
 		tangle, transactions, valueObjects, _ := preparePropagationScenario1()
 
+		// initialize debugger for this test
 		debugger.ResetAliases()
 		for name, valueObject := range valueObjects {
 			debugger.RegisterAlias(valueObject.ID(), "ValueObjectID"+name)
