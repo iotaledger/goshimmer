@@ -60,12 +60,12 @@ func configure(_ *node.Plugin) {
 func getInfo(c echo.Context) error {
 	var enabledPlugins []string
 	var disabledPlugins []string
-	for plugin, status := range node.GetPlugins() {
-		switch status {
+	for pluginName, plugin := range node.GetPlugins() {
+		switch plugin.Status {
 		case node.Disabled:
-			disabledPlugins = append(disabledPlugins, plugin)
+			disabledPlugins = append(disabledPlugins, pluginName)
 		case node.Enabled:
-			enabledPlugins = append(enabledPlugins, plugin)
+			enabledPlugins = append(enabledPlugins, pluginName)
 		default:
 			continue
 		}
@@ -90,7 +90,7 @@ type Response struct {
 	Version string `json:"version,omitempty"`
 	// whether the node is synchronized
 	Synced bool `json:"synced"`
-	// identity ID of the node encoded in hex and truncated to its first 8 bytes
+	// identity ID of the node encoded in base58 and truncated to its first 8 bytes
 	IdentityID string `json:"identityID,omitempty"`
 	// public key of the node encoded in base58
 	PublicKey string `json:"publickey,omitempty"`
