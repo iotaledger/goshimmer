@@ -90,6 +90,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				}
 				if config.Faucet {
 					plugins = append(plugins, "faucet")
+					plugins = append(plugins, "testSnapshots")
 				}
 				return strings.Join(plugins[:], ",")
 			}()),

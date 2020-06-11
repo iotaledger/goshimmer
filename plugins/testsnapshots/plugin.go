@@ -16,7 +16,7 @@ const (
 
 var (
 	// Plugin is the plugin instance of the bootstrap plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
 	log    *logger.Logger
 
 	// addresses for snapshots

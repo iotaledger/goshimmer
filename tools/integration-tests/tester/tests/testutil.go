@@ -159,15 +159,20 @@ func SendIotaValueMessages(t *testing.T, from *framework.Peer, to *framework.Pee
 	inputAddr := from.Seed().Address(0)
 	outputAddr := to.Seed().Address(0)
 
-	// abort if no unspent outputs
-	if addrBalance[inputAddr.String()][balance.ColorIOTA] < sentValue {
-		return true, ""
-	}
-
 	// prepare inputs
 	resp, err := from.GetUnspentOutputs([]string{inputAddr.String()})
 	require.NoErrorf(t, err, "Could not get unspent outputs on %s", from.String())
+
+	// abort if no unspent outputs
+	if len(resp.UnspentOutputs[0].OutputIDs) == 0 {
+		return true, ""
+	}
 	availableValue := resp.UnspentOutputs[0].OutputIDs[0].Balances[0].Value
+
+	//abort if the balance is not enough
+	if availableValue < sentValue {
+		return true, ""
+	}
 
 	out, err := transaction.OutputIDFromBase58(resp.UnspentOutputs[0].OutputIDs[0].ID)
 	require.NoErrorf(t, err, "Invalid unspent outputs ID on %s", from.String())
