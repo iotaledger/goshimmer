@@ -1,15 +1,20 @@
-name: Publish Docker
+name: Publish Docker develop
 
 on:
   push:
-  pull_request:
+    branches:
+    - develop
 
 jobs:
+
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
-    - name: Publish to Registry
+
+    - name: Check out code
+      uses: actions/checkout@master
+
+    - name: Publish to registry
       uses: elgohr/Publish-Docker-Github-Action@master
       with:
         name: iotagoshimmer/goshimmer
