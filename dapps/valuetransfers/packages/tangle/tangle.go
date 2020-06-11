@@ -537,6 +537,8 @@ func (tangle *Tangle) propagateBranchConfirmedRejectedChangesToTangle(cachedBran
 // region PRIVATE UTILITY METHODS //////////////////////////////////////////////////////////////////////////////////////
 
 func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, eventSource EventSource) (modified bool, err error) {
+	defer debugger.FunctionCall("setTransactionFinalized", transactionID, eventSource).Return()
+
 	// retrieve metadata and consume
 	cachedTransactionMetadata := tangle.TransactionMetadata(transactionID)
 	cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
@@ -556,7 +558,7 @@ func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, even
 			tangle.Events.TransactionFinalized.Trigger(cachedTransaction, cachedTransactionMetadata)
 
 			// propagate the rejected flag
-			if !metadata.Preferred() {
+			if !metadata.Preferred() && !metadata.Rejected() {
 				tangle.propagateRejectedToTransactions(metadata.ID())
 			}
 
@@ -586,6 +588,8 @@ func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, even
 
 // propagateRejectedToTransactions propagates the rejected flag to a transaction, its outputs and to its consumers.
 func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.ID) {
+	defer debugger.FunctionCall("propagateRejectedToTransactions", transactionID).Return()
+
 	// initialize stack with first transaction
 	rejectedPropagationStack := list.New()
 	rejectedPropagationStack.PushBack(transactionID)
@@ -600,6 +604,8 @@ func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.
 		rejectedPropagationStack.Remove(firstElement)
 		currentTransactionID := firstElement.Value.(transaction.ID)
 
+		debugger.Print("rejectedPropagationStack.Front()", currentTransactionID)
+
 		cachedTransactionMetadata := tangle.TransactionMetadata(currentTransactionID)
 		cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
 			if !metadata.setRejected(true) {
@@ -607,9 +613,12 @@ func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.
 			}
 			metadata.setPreferred(false)
 
-			if _, err := tangle.setTransactionFinalized(metadata.ID(), EventSourceTangle); err != nil {
-				tangle.Events.Error.Trigger(err)
-				return
+			if !metadata.Finalized() {
+				if _, err := tangle.setTransactionFinalized(metadata.ID(), EventSourceTangle); err != nil {
+					tangle.Events.Error.Trigger(err)
+
+					return
+				}
 			}
 
 			cachedTransaction := tangle.Transaction(currentTransactionID)
@@ -645,6 +654,8 @@ func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.
 
 // TODO: WRITE COMMENT
 func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdates(transactionID transaction.ID, confirmed bool) {
+	defer debugger.FunctionCall("propagateValuePayloadConfirmedRejectedUpdates", transactionID, confirmed).Return()
+
 	// initiate stack with the attachments of the passed in transaction
 	propagationStack := list.New()
 	tangle.Attachments(transactionID).Consume(func(attachment *Attachment) {
@@ -676,6 +687,8 @@ func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(pro
 	if currentPayload == nil || currentPayloadMetadata == nil || currentTransaction == nil || currentTransactionMetadata == nil {
 		return
 	}
+
+	defer debugger.FunctionCall("propagateValuePayloadConfirmedRejectedUpdateStackEntry", currentPayload.ID(), currentTransaction.ID()).Return()
 
 	// perform different logic depending on the type of the change (liked vs dislike)
 	switch confirmed {

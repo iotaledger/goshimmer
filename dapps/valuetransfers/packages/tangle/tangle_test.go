@@ -2,13 +2,13 @@ package tangle
 
 import (
 	"container/list"
-	"fmt"
 	"log"
 	"math"
 	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
@@ -1967,7 +1967,7 @@ func preparePropagationScenario1() (*Tangle, map[string]*transaction.Transaction
 				},
 			}),
 		)
-		valueObjects["[-A, F+]"] = payload.New(payload.GenesisID, valueObjects["[-GENESIS, A+, B+, C+]"].ID(), transactions["[-A, F+]"])
+		valueObjects["[-A, F+]"] = payload.New(valueObjects["[-B, -C, E+]"].ID(), valueObjects["[-GENESIS, A+, B+, C+]"].ID(), transactions["[-A, F+]"])
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-A, F+]"])
 	}
@@ -2100,18 +2100,14 @@ func TestPropagationScenario1(t *testing.T) {
 
 	// test future cone monotonicity more complex - everything MUST be rejected and finalized if spending funds from rejected tx
 	{
-		transactionsSlice := []string{
-			"[-GENESIS, A+, B+, C+]",
-			"[-A, D+]",
-			"[-B, -C, E+]",
-			"[-B, -C, E+] (Reattachment)",
-			"[-A, F+]",
-			"[-E, -F, G+]",
-		}
 		tangle, transactions, valueObjects, _ := preparePropagationScenario1()
 
-		for _, name := range transactionsSlice {
-			fmt.Println(name, valueObjects[name].Transaction().ID())
+		debugger.ResetAliases()
+		for name, valueObject := range valueObjects {
+			debugger.RegisterAlias(valueObject.ID(), "ValueObjectID"+name)
+		}
+		for name, tx := range transactions {
+			debugger.RegisterAlias(tx.ID(), "TransactionID"+name)
 		}
 
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
@@ -2119,8 +2115,10 @@ func TestPropagationScenario1(t *testing.T) {
 		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, true, true, true, false)
 
 		// finalize & reject
+		debugger.Enable()
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], false, true, false, false, true)
+		debugger.Disable()
 
 		// check future cone to be rejected
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], false, true, false, false, true)
@@ -2624,7 +2622,7 @@ func TestLucasScenario(t *testing.T) {
 			}),
 		)
 		transactions["[-A, F+]"].Sign(signaturescheme.ED25519(*seed.KeyPair(A)))
-		valueObjects["[-A, F+]"] = payload.New(payload.GenesisID, valueObjects["[-GENESIS, A+, B+, C+]"].ID(), transactions["[-A, F+]"])
+		valueObjects["[-A, F+]"] = payload.New(valueObjects["[-B, -C, E+]"].ID(), valueObjects["[-GENESIS, A+, B+, C+]"].ID(), transactions["[-A, F+]"])
 
 		// check if signatures are valid
 		assert.True(t, transactions["[-A, F+]"].SignaturesValid())
