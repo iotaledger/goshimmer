@@ -962,23 +962,22 @@ func TestPropagationScenario2(t *testing.T) {
 	verifyInclusionState(t, tangle, valueObjects["[-C, H+]"], true, true, true, true, false)
 	verifyBranchState(t, tangle, branches["C"], true, true, true, false)
 
-	// TODO: check once aggregated branch finalized issue is fixed
-	//verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], false, true, false, false, true)
-	//verifyBranchState(t, tangle, branches["D"], true, false, false, true)
-	//verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], false, true, false, false, true)
-	//
-	//// [-H, -D, I+] should now be liked
-	//verifyInclusionState(t, tangle, valueObjects["[-H, -D, I+]"], true, false, true, false, false)
-	//setTransactionFinalizedWithCheck(t, tangle, transactions["[-H, -D, I+]"])
-	//verifyInclusionState(t, tangle, valueObjects["[-H, -D, I+]"], true, true, true, true, false)
-	//
-	//// [-B, J+] should be unchanged
-	//verifyInclusionState(t, tangle, valueObjects["[-B, J+]"], false, false, false, false, false)
-	//// [-B, J+] should become confirmed after preferring and finalizing
-	//setTransactionPreferredWithCheck(t, tangle, transactions["[-B, J+]"], true)
-	//setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, J+]"])
-	//verifyInclusionState(t, tangle, valueObjects["[-B, J+]"], true, true, true, true, false)
-	//verifyBranchState(t, tangle, branches["E"], true, true, true, false)
+	verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], false, true, false, false, true)
+	verifyBranchState(t, tangle, branches["D"], true, false, false, true)
+	verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], false, true, false, false, true)
+
+	// [-H, -D, I+] should now be liked
+	verifyInclusionState(t, tangle, valueObjects["[-H, -D, I+]"], true, false, true, false, false)
+	setTransactionFinalizedWithCheck(t, tangle, transactions["[-H, -D, I+]"])
+	verifyInclusionState(t, tangle, valueObjects["[-H, -D, I+]"], true, true, true, true, false)
+
+	// [-B, J+] should be unchanged
+	verifyInclusionState(t, tangle, valueObjects["[-B, J+]"], false, false, false, false, false)
+	// [-B, J+] should become confirmed after preferring and finalizing
+	setTransactionPreferredWithCheck(t, tangle, transactions["[-B, J+]"], true)
+	setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, J+]"])
+	verifyInclusionState(t, tangle, valueObjects["[-B, J+]"], true, true, true, true, false)
+	verifyBranchState(t, tangle, branches["E"], true, true, true, false)
 }
 
 func verifyBranchState(t *testing.T, tangle *Tangle, id branchmanager.BranchID, finalized, liked, confirmed, rejected bool) {
