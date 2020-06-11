@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/client"
-	hive_ed25519 "github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 )
 
@@ -31,7 +31,7 @@ func newDRNGNetwork(dockerClient *client.Client, name string, tester *DockerCont
 }
 
 // CreatePeer creates a new peer/GoShimmer node in the network and returns it.
-func (n *DRNGNetwork) CreatePeer(c GoShimmerConfig, publicKey hive_ed25519.PublicKey) (*Peer, error) {
+func (n *DRNGNetwork) CreatePeer(c GoShimmerConfig, publicKey ed25519.PublicKey) (*Peer, error) {
 	name := n.network.namePrefix(fmt.Sprintf("%s%d", containerNameReplica, len(n.network.peers)))
 
 	config := c

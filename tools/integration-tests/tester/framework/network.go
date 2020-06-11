@@ -2,8 +2,6 @@ package framework
 
 import (
 	"context"
-	"crypto/ed25519"
-	"encoding/base64"
 	"fmt"
 	"log"
 	"math/rand"
@@ -12,7 +10,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
-	hive_ed25519 "github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 )
 
@@ -58,13 +56,13 @@ func newNetwork(dockerClient *client.Client, name string, tester *DockerContaine
 // createEntryNode creates the network's entry node.
 func (n *Network) createEntryNode() error {
 	// create identity
-	publicKey, privateKey, err := hive_ed25519.GenerateKey()
+	publicKey, privateKey, err := ed25519.GenerateKey()
 	if err != nil {
 		return err
 	}
 
 	n.entryNodeIdentity = identity.New(publicKey)
-	seed := base64.StdEncoding.EncodeToString(ed25519.PrivateKey(privateKey.Bytes()).Seed())
+	seed := privateKey.Seed().String()
 
 	// create entry node container
 	n.entryNode = NewDockerContainer(n.dockerClient)
@@ -90,11 +88,11 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	name := n.namePrefix(fmt.Sprintf("%s%d", containerNameReplica, len(n.peers)))
 
 	// create identity
-	publicKey, privateKey, err := hive_ed25519.GenerateKey()
+	publicKey, privateKey, err := ed25519.GenerateKey()
 	if err != nil {
 		return nil, err
 	}
-	seed := base64.StdEncoding.EncodeToString(ed25519.PrivateKey(privateKey.Bytes()).Seed())
+	seed := privateKey.Seed().String()
 
 	config := c
 	config.Name = name
@@ -269,9 +267,9 @@ func (n *Network) namePrefix(suffix string) string {
 	return fmt.Sprintf("%s-%s", n.name, suffix)
 }
 
-// entryNodePublicKey returns the entry node's public key encoded as base64
+// entryNodePublicKey returns the entry node's public key encoded as base58
 func (n *Network) entryNodePublicKey() string {
-	return base64.StdEncoding.EncodeToString(n.entryNodeIdentity.PublicKey().Bytes())
+	return n.entryNodeIdentity.PublicKey().String()
 }
 
 // Peers returns all available peers in the network.

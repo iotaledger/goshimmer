@@ -2,9 +2,8 @@ import * as React from 'react';
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import {inject, observer} from "mobx-react";
-import AutopeeringStore from "app/stores/AutopeeringStore";
+import AutopeeringStore, {shortenedIDCharCount} from "app/stores/AutopeeringStore";
 import {Col} from "react-bootstrap";
-import ListGroup from "react-bootstrap/ListGroup";
 import Badge from "react-bootstrap/Badge";
 import FormControl from "react-bootstrap/FormControl";
 import InputGroup from "react-bootstrap/InputGroup";
@@ -28,23 +27,51 @@ export class NodeView extends React.Component<Props, any> {
         };
         return (
             <div>
-                <Badge pill style={{background: "#cb4b16", color: "white"}}>
-                    Selected Node
-                </Badge>
-                <em>{this.props.autopeeringStore.selectedNode}</em>
-                <br/>
-                <Badge pill style={{background: "#1c8d7f", color: "white"}}>
-                    Incoming Neighbors ({this.props.autopeeringStore.selectedNodeInNeighbors.size.toString()})
-                </Badge>
-                <ul>
-                    {this.props.autopeeringStore.inNeighborList}
-                </ul>
-                <Badge pill style={{background: "#336db5", color: "white"}}>
-                    Outgoing Neighbors ({this.props.autopeeringStore.selectedNodeOutNeighbors.size.toString()})
-                </Badge>
-                <ul>
-                    {this.props.autopeeringStore.outNeighborList}
-                </ul>
+                <Row style={{paddingBottom: 10}}>
+                    <Col style={{display: 'flex',  justifyContent:'center', alignItems:'center'}}>
+                        <Badge pill style={{background: "#cb4b16", color: "white"}}>
+                            Selected Node
+                        </Badge>
+                    </Col>
+                </Row>
+                <Row style={{paddingBottom: 20}}>
+                    <Col style={{display: 'flex',  justifyContent:'center', alignItems:'center'}}>
+                        <Button style={{fontSize: 14, backgroundColor: "#cb4b16"}} variant="danger">
+                            {this.props.autopeeringStore.selectedNode.slice(0,shortenedIDCharCount)}
+                        </Button>
+                    </Col>
+                </Row>
+                <Row style={{paddingBottom: 10}}>
+                    <Col style={{display: 'flex',  justifyContent:'center', alignItems:'center'}}>
+                        <Badge pill style={{background: "#1c8d7f", color: "white"}}>
+                            Incoming Neighbors ({this.props.autopeeringStore.selectedNodeInNeighbors.size.toString()})
+                        </Badge>
+                    </Col>
+                    <Col style={{display: 'flex',  justifyContent:'center', alignItems:'center'}}>
+                        <Badge pill style={{background: "#336db5", color: "white"}}>
+                            Outgoing Neighbors ({this.props.autopeeringStore.selectedNodeOutNeighbors.size.toString()})
+                        </Badge>
+                    </Col>
+                </Row>
+                <Row style={{paddingBottom: 20}}>
+                    <Col>
+                        <ul style={{marginLeft: 25, listStylePosition: 'inside'}}>
+                            {this.props.autopeeringStore.inNeighborList}
+                        </ul>
+                    </Col>
+                    <Col>
+                        <ul style={{marginLeft: 25, listStylePosition: 'inside'}}>
+                            {this.props.autopeeringStore.outNeighborList}
+                        </ul>
+                    </Col>
+                </Row>
+                <Row>
+                    <Col style={{display: 'flex',  justifyContent:'center', alignItems:'center'}}>
+                        <Button style={{fontSize: 11}} variant="info" onClick={this.props.autopeeringStore.clearNodeSelection}>
+                            Clear Selection
+                        </Button>
+                    </Col>
+                </Row>
             </div>
         );
     }
@@ -72,7 +99,7 @@ export class Autopeering extends React.Component<Props, any> {
             <Container>
 
                 <Row className={"mb-1"}>
-                    <Col xs={6} style={{paddingBottom: 15}}>
+                    <Col xs={6}>
                         <Row className={"mb-1"}>
                             <h3>Autopeering Visualizer</h3>
                         </Row>
@@ -88,7 +115,6 @@ export class Autopeering extends React.Component<Props, any> {
                                 </Badge>
                             </Col>
                         </Row>
-
                         Online nodes
                         <InputGroup className="mb-1" size="sm">
                             <InputGroup.Prepend>
@@ -102,16 +128,12 @@ export class Autopeering extends React.Component<Props, any> {
                                 aria-label="node-search" onKeyUp={this.updateSearch}
                                 aria-describedby="node-search"
                             />
-                            <Button style={{fontSize: 14}} variant="secondary" onClick={this.props.autopeeringStore.clearSelection}>
-                                Clear Selection
-                            </Button>
                         </InputGroup>
-
-                        <ListGroup style={{maxHeight: 220, overflow: 'auto'}}>
+                        <div style={{height: 220, overflow: 'auto'}}>
                             {nodeListView}
-                        </ListGroup>
+                        </div>
                     </Col>
-                    <Col xs={6} style={{height: 385,  overflow:'auto'}}>
+                    <Col xs={6} style={{height: 352.5,  overflow:'auto'}}>
                         <NodeView></NodeView>
                     </Col>
                 </Row>
@@ -123,8 +145,6 @@ export class Autopeering extends React.Component<Props, any> {
                         background: "#202126",
                         borderRadius: 20,
                     }} id={"visualizer"}/>
-
-
             </Container>
         );
     }
