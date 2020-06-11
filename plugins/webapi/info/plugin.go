@@ -61,13 +61,10 @@ func getInfo(c echo.Context) error {
 	var enabledPlugins []string
 	var disabledPlugins []string
 	for pluginName, plugin := range node.GetPlugins() {
-		switch plugin.Status {
-		case node.Disabled:
+		if node.IsSkipped(plugin) {
 			disabledPlugins = append(disabledPlugins, pluginName)
-		case node.Enabled:
+		} else {
 			enabledPlugins = append(enabledPlugins, pluginName)
-		default:
-			continue
 		}
 	}
 
