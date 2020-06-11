@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"github.com/iotaledger/goshimmer/packages/metrics"
+	"sync/atomic"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
@@ -22,6 +24,11 @@ var Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 var log *logger.Logger
 
+var (
+	_FPCInboundBytes *uint64
+	_FPCOutboundBytes *uint64
+)
+
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	// increase received MPS counter whenever we attached a message
@@ -29,6 +36,12 @@ func configure(_ *node.Plugin) {
 		cachedMessage.Release()
 		cachedMessageMetadata.Release()
 		increaseReceivedMPSCounter()
+	}))
+	metrics.Definitions.FPCInboundBytes.Attach(events.NewClosure(func(amountBytes uint64){
+		atomic.AddUint64(_FPCInboundBytes, amountBytes)
+	}))
+	metrics.Definitions.FPCOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64){
+		atomic.AddUint64(_FPCOutboundBytes, amountBytes)
 	}))
 }
 
@@ -40,3 +53,12 @@ func run(_ *node.Plugin) {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
+
+func FPCInboundBytes() uint64 {
+	return atomic.LoadUint64(_FPCInboundBytes)
+}
+
+func FPCOutboundBytes() uint64 {
+	return atomic.LoadUint64(_FPCOutboundBytes)
+}
+

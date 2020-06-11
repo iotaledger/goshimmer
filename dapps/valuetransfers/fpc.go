@@ -3,6 +3,8 @@ package valuetransfers
 import (
 	"context"
 	"fmt"
+	"github.com/golang/protobuf/proto"
+	"github.com/iotaledger/goshimmer/packages/metrics"
 	"net"
 	"strconv"
 	"sync"
@@ -180,11 +182,14 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opin
 	defer conn.Close()
 
 	client := votenet.NewVoterQueryClient(conn)
-	reply, err := client.Opinion(ctx, &votenet.QueryRequest{Id: ids})
+	query := &votenet.QueryRequest{Id: ids}
+	reply, err := client.Opinion(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("unable to query opinions: %w", err)
 	}
 
+	metrics.Definitions.FPCInboundBytes.Trigger(proto.Size(reply))
+	metrics.Definitions.FPCOutboundBytes.Trigger(proto.Size(query))
 	// convert int32s in reply to opinions
 	opinions := make(vote.Opinions, len(reply.Opinion))
 	for i, intOpn := range reply.Opinion {
