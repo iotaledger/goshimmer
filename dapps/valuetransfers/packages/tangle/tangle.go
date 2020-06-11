@@ -1134,9 +1134,26 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 	// book transaction into target branch
 	transactionMetadata.SetBranchID(targetBranch.ID())
 
+	// create color for newly minted coins
+	mintedColor, _, err := balance.ColorFromBytes(transactionToBook.ID().Bytes())
+	if err != nil {
+		panic(err) // this should never happen (a transaction id is always a valid color)
+	}
+
 	// book outputs into the target branch
 	transactionToBook.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		newOutput := NewOutput(address, transactionToBook.ID(), targetBranch.ID(), balances)
+		// create correctly colored balances (replacing color of newly minted coins with color of transaction id)
+		coloredBalances := make([]*balance.Balance, len(balances))
+		for i, currentBalance := range balances {
+			if currentBalance.Color() == balance.ColorNew {
+				coloredBalances[i] = balance.New(mintedColor, currentBalance.Value())
+			} else {
+				coloredBalances[i] = currentBalance
+			}
+		}
+
+		// store output
+		newOutput := NewOutput(address, transactionToBook.ID(), targetBranch.ID(), coloredBalances)
 		newOutput.setSolid(true)
 		tangle.outputStorage.Store(newOutput).Release()
 
