@@ -3,7 +3,7 @@ package metrics
 import "sync/atomic"
 
 var (
-	_FPCInboundBytes *uint64
+	_FPCInboundBytes  *uint64
 	_FPCOutboundBytes *uint64
 )
 

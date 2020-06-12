@@ -11,6 +11,7 @@ type CollectionEvents struct {
 
 	GossipPacketDropped *events.Event
 	DBSize              *events.Event
+	Synced              *events.Event
 }
 
 func uint64Caller(handler interface{}, params ...interface{}) {
@@ -19,4 +20,8 @@ func uint64Caller(handler interface{}, params ...interface{}) {
 
 func float64Caller(handler interface{}, params ...interface{}) {
 	handler.(func(float64))(params[0].(float64))
+}
+
+func boolCaller(handler interface{}, params ...interface{}) {
+	handler.(func(bool))(params[0].(bool))
 }

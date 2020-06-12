@@ -19,6 +19,7 @@ func new() *CollectionEvents {
 		MemUsage:            events.NewEvent(uint64Caller),
 		GossipPacketDropped: events.NewEvent(uint64Caller),
 		DBSize:              events.NewEvent(uint64Caller),
+		Synced:              events.NewEvent(boolCaller),
 	}
 }
 
