@@ -1,14 +1,13 @@
 package metrics
 
 import (
+	"sync"
+	"testing"
+
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
-	"sync"
-	"testing"
 )
-
-
 
 func TestCpuUsage(t *testing.T) {
 	var wg sync.WaitGroup
