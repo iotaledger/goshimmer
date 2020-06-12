@@ -92,9 +92,9 @@ type Response struct {
 	// public key of the node encoded in base58
 	PublicKey string `json:"publickey,omitempty"`
 	// list of enabled plugins
-	EnabledPlugins []string `json:"enabledplugins,omitempty"`
+	EnabledPlugins []string `json:"enabledPlugins,omitempty"`
 	// list if disabled plugins
-	DisabledPlugins []string `json:"disabledlugins,omitempty"`
+	DisabledPlugins []string `json:"disabledPlugins,omitempty"`
 	// error of the response
 	Error string `json:"error,omitempty"`
 }
