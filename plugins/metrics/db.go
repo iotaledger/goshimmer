@@ -4,15 +4,27 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
+	"github.com/iotaledger/hive.go/syncutils"
 )
 
-func colectData() {
+var (
+	_dbSize    uint64
+	dbSizeLock syncutils.RWMutex
+)
 
+func DBSize() uint64 {
+	dbSizeLock.RLock()
+	defer dbSizeLock.RUnlock()
+	return _dbSize
+}
+
+func colectDBSize() {
 	dbSize, err := directorySize(config.Node.GetString(database.CfgDatabaseDir))
 	if err == nil {
-		dataSizes.WithLabelValues("database").Set(float64(dbSize))
+		metrics.Events().DBSize.Trigger(uint64(dbSize))
 	}
 }
 

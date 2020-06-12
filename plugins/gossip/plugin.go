@@ -77,8 +77,8 @@ func configureAutopeering() {
 	mgr.Events().ConnectionFailed.Attach(events.NewClosure(func(p *peer.Peer, _ error) {
 		peerSel.RemoveNeighbor(p.ID())
 	}))
-	mgr.Events().NeighborRemoved.Attach(events.NewClosure(func(p *peer.Peer) {
-		peerSel.RemoveNeighbor(p.ID())
+	mgr.Events().NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
+		peerSel.RemoveNeighbor(n.ID())
 	}))
 }
 
@@ -93,8 +93,8 @@ func configureLogging() {
 	mgr.Events().NeighborAdded.Attach(events.NewClosure(func(n *gossip.Neighbor) {
 		log.Infof("Neighbor added: %s / %s", gossip.GetAddress(n.Peer), n.ID())
 	}))
-	mgr.Events().NeighborRemoved.Attach(events.NewClosure(func(p *peer.Peer) {
-		log.Infof("Neighbor removed: %s / %s", gossip.GetAddress(p), p.ID())
+	mgr.Events().NeighborRemoved.Attach(events.NewClosure(func(n *gossip.Neighbor) {
+		log.Infof("Neighbor removed: %s / %s", gossip.GetAddress(n.Peer), n.ID())
 	}))
 }
 

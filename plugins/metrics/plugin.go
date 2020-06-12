@@ -53,6 +53,11 @@ func configure(_ *node.Plugin) {
 		defer syncLock.Unlock()
 		isSynced = synced
 	}))
+	metrics.Events().DBSize.Attach(events.NewClosure(func(dbSize uint64) {
+		dbSizeLock.Lock()
+		defer dbSizeLock.Unlock()
+		_dbSize = dbSize
+	}))
 }
 
 func run(_ *node.Plugin) {
