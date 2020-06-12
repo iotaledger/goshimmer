@@ -24,10 +24,7 @@ var Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 var log *logger.Logger
 
-var (
-	_FPCInboundBytes *uint64
-	_FPCOutboundBytes *uint64
-)
+
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
@@ -37,28 +34,30 @@ func configure(_ *node.Plugin) {
 		cachedMessageMetadata.Release()
 		increaseReceivedMPSCounter()
 	}))
-	metrics.Definitions.FPCInboundBytes.Attach(events.NewClosure(func(amountBytes uint64){
+	metrics.Events().FPCInboundBytes.Attach(events.NewClosure(func(amountBytes uint64){
 		atomic.AddUint64(_FPCInboundBytes, amountBytes)
 	}))
-	metrics.Definitions.FPCOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64){
+	metrics.Events().FPCOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64){
 		atomic.AddUint64(_FPCOutboundBytes, amountBytes)
+	}))
+	metrics.Events().CPUUsage.Attach(events.NewClosure(func(cpuPercent float64){
+		cpuLock.Lock()
+		defer cpuLock.Unlock()
+		_cpuUsage = cpuPercent
+	}))
+	metrics.Events().MemUsage.Attach(events.NewClosure(func(memAllocBytes uint64){
+		memUsageLock.Lock()
+		defer memUsageLock.Unlock()
+		_memUsageBytes = memAllocBytes
 	}))
 }
 
 func run(_ *node.Plugin) {
 	// create a background worker that "measures" the MPS value every second
-	if err := daemon.BackgroundWorker("Metrics MPS Updater", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
 		timeutil.Ticker(measureReceivedMPS, 1*time.Second, shutdownSignal)
+		timeutil.Ticker(measureCPUUsage, 1*time.Second, shutdownSignal)
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
-
-func FPCInboundBytes() uint64 {
-	return atomic.LoadUint64(_FPCInboundBytes)
-}
-
-func FPCOutboundBytes() uint64 {
-	return atomic.LoadUint64(_FPCOutboundBytes)
-}
-

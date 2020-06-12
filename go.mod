@@ -3,11 +3,13 @@ module github.com/iotaledger/goshimmer
 go 1.14
 
 require (
+	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/coreos/bbolt v1.3.3 // indirect
 	github.com/dgraph-io/badger/v2 v2.0.2
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/drand/drand v0.8.1
 	github.com/drand/kyber v1.0.1-0.20200331114745-30e90cc60f99
+	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/golang/protobuf v1.3.5
 	github.com/gorilla/websocket v1.4.1
@@ -19,6 +21,7 @@ require (
 	github.com/mr-tron/base58 v1.1.3
 	github.com/panjf2000/ants/v2 v2.2.2
 	github.com/pkg/errors v0.9.1
+	github.com/shirou/gopsutil v2.20.5+incompatible
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.5.1
