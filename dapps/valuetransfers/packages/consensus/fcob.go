@@ -52,6 +52,10 @@ func (fcob *FCOB) ProcessVoteResult(id string, opinion vote.Opinion) {
 	if _, err := fcob.tangle.SetTransactionPreferred(transactionID, opinion == vote.Like); err != nil {
 		fcob.Events.Error.Trigger(err)
 	}
+
+	if _, err := fcob.tangle.SetTransactionFinalized(transactionID); err != nil {
+		fcob.Events.Error.Trigger(err)
+	}
 }
 
 // onTransactionBooked analyzes the transaction that was booked by the Tangle and initiates the FCOB rules if it is not

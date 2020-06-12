@@ -436,7 +436,7 @@ func (cachedTransaction *CachedTransaction) Retain() *CachedTransaction {
 
 // Consume  overrides the underlying method to use a CachedTransaction object instead of a generic CachedObject in the
 // consumer).
-func (cachedTransaction *CachedTransaction) Consume(consumer func(metadata *Transaction)) bool {
+func (cachedTransaction *CachedTransaction) Consume(consumer func(tx *Transaction)) bool {
 	return cachedTransaction.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Transaction))
 	})

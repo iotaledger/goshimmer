@@ -4,6 +4,7 @@ import (
 	"sync"
 )
 
+// OrderedMap provides a concurrent-safe ordered map.
 type OrderedMap struct {
 	head       *Element
 	tail       *Element
@@ -12,23 +13,27 @@ type OrderedMap struct {
 	mutex      sync.RWMutex
 }
 
+// New returns a new *OrderedMap.
 func New() *OrderedMap {
 	return &OrderedMap{
 		dictionary: make(map[interface{}]*Element),
 	}
 }
 
+// Get returns the value mapped to the given key if exists.
 func (orderedMap *OrderedMap) Get(key interface{}) (interface{}, bool) {
 	orderedMap.mutex.RLock()
 	defer orderedMap.mutex.RUnlock()
 
-	if orderedMapElement, orderedMapElementExists := orderedMap.dictionary[key]; !orderedMapElementExists {
+	orderedMapElement, orderedMapElementExists := orderedMap.dictionary[key]
+	if !orderedMapElementExists {
 		return nil, false
-	} else {
-		return orderedMapElement.value, true
 	}
+	return orderedMapElement.value, true
+
 }
 
+// Set adds a key-value pair to the orderedMap. It returns false if the same pair already exists.
 func (orderedMap *OrderedMap) Set(key interface{}, newValue interface{}) bool {
 	if oldValue, oldValueExists := orderedMap.Get(key); oldValueExists && oldValue == newValue {
 		return false
@@ -66,6 +71,8 @@ func (orderedMap *OrderedMap) Set(key interface{}, newValue interface{}) bool {
 	return true
 }
 
+// ForEach iterates through the orderedMap and calls the consumer function for every element.
+// The iteration can be aborted by returning false in the consumer.
 func (orderedMap *OrderedMap) ForEach(consumer func(key, value interface{}) bool) bool {
 	orderedMap.mutex.RLock()
 	currentEntry := orderedMap.head
@@ -84,6 +91,8 @@ func (orderedMap *OrderedMap) ForEach(consumer func(key, value interface{}) bool
 	return true
 }
 
+// Delete deletes the given key (and related value) from the orederedMap.
+// It returns false if the key is not found.
 func (orderedMap *OrderedMap) Delete(key interface{}) bool {
 	if _, valueExists := orderedMap.Get(key); !valueExists {
 		return false
@@ -115,6 +124,7 @@ func (orderedMap *OrderedMap) Delete(key interface{}) bool {
 	return true
 }
 
+// Size returns the size of the orderedMap.
 func (orderedMap *OrderedMap) Size() int {
 	orderedMap.mutex.RLock()
 	defer orderedMap.mutex.RUnlock()

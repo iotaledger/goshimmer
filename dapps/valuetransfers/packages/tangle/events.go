@@ -1,11 +1,10 @@
 package tangle
 
 import (
-	"github.com/iotaledger/hive.go/events"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/hive.go/events"
 )
 
 // Events is a container for the different kind of events of the Tangle.
@@ -19,10 +18,17 @@ type Events struct {
 	PayloadDisliked        *events.Event
 	MissingPayloadReceived *events.Event
 	PayloadMissing         *events.Event
+	PayloadInvalid         *events.Event
 	PayloadUnsolidifiable  *events.Event
 
 	// TransactionReceived gets triggered whenever a transaction was received for the first time (not solid yet).
 	TransactionReceived *events.Event
+
+	// TransactionInvalid gets triggered whenever we receive an invalid transaction.
+	TransactionInvalid *events.Event
+
+	// TransactionSolid gets triggered whenever a transaction becomes solid for the first time.
+	TransactionSolid *events.Event
 
 	// TransactionBooked gets triggered whenever a transactions becomes solid and gets booked into a particular branch.
 	TransactionBooked *events.Event
@@ -30,6 +36,14 @@ type Events struct {
 	TransactionPreferred *events.Event
 
 	TransactionUnpreferred *events.Event
+
+	TransactionLiked *events.Event
+
+	TransactionDisliked *events.Event
+
+	TransactionConfirmed *events.Event
+
+	TransactionRejected *events.Event
 
 	TransactionFinalized *events.Event
 
@@ -66,12 +80,19 @@ func newEvents() *Events {
 		PayloadDisliked:        events.NewEvent(cachedPayloadEvent),
 		MissingPayloadReceived: events.NewEvent(cachedPayloadEvent),
 		PayloadMissing:         events.NewEvent(payloadIDEvent),
+		PayloadInvalid:         events.NewEvent(cachedPayloadErrorEvent),
 		PayloadUnsolidifiable:  events.NewEvent(payloadIDEvent),
 		TransactionReceived:    events.NewEvent(cachedTransactionAttachmentEvent),
+		TransactionInvalid:     events.NewEvent(cachedTransactionEvent),
+		TransactionSolid:       events.NewEvent(cachedTransactionEvent),
 		TransactionBooked:      events.NewEvent(transactionBookedEvent),
 		TransactionPreferred:   events.NewEvent(cachedTransactionEvent),
 		TransactionUnpreferred: events.NewEvent(cachedTransactionEvent),
+		TransactionLiked:       events.NewEvent(cachedTransactionEvent),
+		TransactionDisliked:    events.NewEvent(cachedTransactionEvent),
 		TransactionFinalized:   events.NewEvent(cachedTransactionEvent),
+		TransactionConfirmed:   events.NewEvent(cachedTransactionEvent),
+		TransactionRejected:    events.NewEvent(cachedTransactionEvent),
 		Fork:                   events.NewEvent(forkEvent),
 		Error:                  events.NewEvent(events.ErrorCaller),
 	}
@@ -85,6 +106,14 @@ func cachedPayloadEvent(handler interface{}, params ...interface{}) {
 	handler.(func(*payload.CachedPayload, *CachedPayloadMetadata))(
 		params[0].(*payload.CachedPayload).Retain(),
 		params[1].(*CachedPayloadMetadata).Retain(),
+	)
+}
+
+func cachedPayloadErrorEvent(handler interface{}, params ...interface{}) {
+	handler.(func(*payload.CachedPayload, *CachedPayloadMetadata, error))(
+		params[0].(*payload.CachedPayload).Retain(),
+		params[1].(*CachedPayloadMetadata).Retain(),
+		params[2].(error),
 	)
 }
 
