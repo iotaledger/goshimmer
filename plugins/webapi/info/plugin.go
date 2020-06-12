@@ -2,6 +2,7 @@ package info
 
 import (
 	"net/http"
+	"sort"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -60,15 +61,15 @@ func getInfo(c echo.Context) error {
 	var enabledPlugins []string
 	var disabledPlugins []string
 	for pluginName, plugin := range node.GetPlugins() {
-		switch plugin.Status {
-		case node.Disabled:
+		if node.IsSkipped(plugin) {
 			disabledPlugins = append(disabledPlugins, pluginName)
-		case node.Enabled:
+		} else {
 			enabledPlugins = append(enabledPlugins, pluginName)
-		default:
-			continue
 		}
 	}
+
+	sort.Strings(enabledPlugins)
+	sort.Strings(disabledPlugins)
 
 	return c.JSON(http.StatusOK, Response{
 		Version:         banner.AppVersion,
