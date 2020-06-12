@@ -6,9 +6,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
-	gossipPkg "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
@@ -55,18 +55,13 @@ func configure(_ *node.Plugin) {
 		defer syncLock.Unlock()
 		isSynced = synced
 	}))
-	metrics.Events().DBSize.Attach(events.NewClosure(func(dbSize uint64) {
-		dbSizeLock.Lock()
-		defer dbSizeLock.Unlock()
-		_dbSize = dbSize
-	}))
 
-	gossip.Manager().Events().NeighborRemoved.Attach(events.NewClosure(func(n *gossipPkg.Neighbor) {
-		neighborMutex.Lock()
-		defer neighborMutex.Unlock()
-		neighborDropCount++
-		neighborConnectionsLifeTime += time.Now().Sub(n.ConnectionEstablished())
-	}))
+	metrics.Events().DBSize.Attach(onDBSize)
+
+	gossip.Manager().Events().NeighborRemoved.Attach(onNeighborRemoved)
+
+	autopeering.Selection().Events().IncomingPeering.Attach(onAutopeeringSelection)
+	autopeering.Selection().Events().OutgoingPeering.Attach(onAutopeeringSelection)
 }
 
 func run(_ *node.Plugin) {

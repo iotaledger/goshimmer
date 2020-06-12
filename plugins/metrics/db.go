@@ -7,12 +7,19 @@ import (
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/syncutils"
 )
 
 var (
 	_dbSize    uint64
 	dbSizeLock syncutils.RWMutex
+
+	onDBSize = events.NewClosure(func(dbSize uint64) {
+		dbSizeLock.Lock()
+		defer dbSizeLock.Unlock()
+		_dbSize = dbSize
+	})
 )
 
 func DBSize() uint64 {
