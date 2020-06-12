@@ -148,7 +148,7 @@ func (tangle *Tangle) ValuePayloadsConfirmed(payloadIDs ...payload.ID) (confirme
 		}
 
 		payloadMetadataFound := tangle.PayloadMetadata(payloadID).Consume(func(payloadMetadata *PayloadMetadata) {
-			confirmed = payloadMetadata.Liked()
+			confirmed = payloadMetadata.Confirmed()
 		})
 
 		if !payloadMetadataFound || !confirmed {
@@ -555,6 +555,11 @@ func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, even
 			// trigger the corresponding event
 			tangle.Events.TransactionFinalized.Trigger(cachedTransaction, cachedTransactionMetadata)
 
+			// propagate the rejected flag
+			if !metadata.Preferred() {
+				tangle.propagateRejectedToTransactions(metadata.ID())
+			}
+
 			// propagate changes to value tangle and branch DAG if we were called from the tangle
 			// Note: if the update was triggered by a change in the branch DAG then we do not propagate the confirmed
 			//       and rejected changes yet as those require the branch to be liked before (we instead do it in the
@@ -577,6 +582,59 @@ func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, even
 	})
 
 	return
+}
+
+// propagateRejectedToTransactions propagates the rejected flag to a transaction, its outputs and to its consumers.
+func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.ID) {
+	// initialize stack with first transaction
+	rejectedPropagationStack := list.New()
+	rejectedPropagationStack.PushBack(transactionID)
+
+	// keep track of the added transactions so we don't add them multiple times
+	addedTransaction := make(map[transaction.ID]types.Empty)
+
+	// work through stack
+	for rejectedPropagationStack.Len() >= 1 {
+		// pop the first element from the stack
+		firstElement := rejectedPropagationStack.Front()
+		rejectedPropagationStack.Remove(firstElement)
+		currentTransactionID := firstElement.Value.(transaction.ID)
+
+		cachedTransactionMetadata := tangle.TransactionMetadata(currentTransactionID)
+		cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
+			if !metadata.setRejected(true) {
+				return
+			}
+
+			cachedTransaction := tangle.Transaction(currentTransactionID)
+			cachedTransaction.Consume(func(tx *transaction.Transaction) {
+				// process all outputs
+				tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+					outputID := transaction.NewOutputID(address, currentTransactionID)
+
+					// mark the output to be rejected
+					tangle.TransactionOutput(outputID).Consume(func(output *Output) {
+						output.setRejected(true)
+					})
+
+					// queue consumers to also be rejected
+					tangle.Consumers(outputID).Consume(func(consumer *Consumer) {
+						if _, transactionAdded := addedTransaction[consumer.TransactionID()]; transactionAdded {
+							return
+						}
+						addedTransaction[consumer.TransactionID()] = types.Void
+
+						rejectedPropagationStack.PushBack(consumer.TransactionID())
+					})
+
+					return true
+				})
+
+				// trigger event
+				tangle.Events.TransactionRejected.Trigger(cachedTransaction, cachedTransactionMetadata)
+			})
+		})
+	}
 }
 
 // TODO: WRITE COMMENT
@@ -621,10 +679,24 @@ func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(pro
 			return
 		}
 
+		// trigger payload event
 		tangle.Events.PayloadConfirmed.Trigger(propagationStackEntry.CachedPayload, propagationStackEntry.CachedPayloadMetadata)
+
+		// propagate confirmed status to transaction and its outputs
+		if currentTransactionMetadata.setConfirmed(true) {
+			currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+				tangle.TransactionOutput(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(output *Output) {
+					output.setConfirmed(true)
+				})
+
+				return true
+			})
+
+			tangle.Events.TransactionConfirmed.Trigger(propagationStackEntry.CachedTransaction, propagationStackEntry.CachedTransactionMetadata)
+		}
 	case false:
 		// abort if the payload has been marked as disliked before
-		if !currentTransactionMetadata.Finalized() || !currentPayloadMetadata.setRejected(true) {
+		if !currentPayloadMetadata.setRejected(true) {
 			return
 		}
 
@@ -732,7 +804,22 @@ func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack 
 			return
 		}
 
+		// trigger payload event
 		tangle.Events.PayloadLiked.Trigger(propagationStackEntry.CachedPayload, propagationStackEntry.CachedPayloadMetadata)
+
+		// propagate liked to transaction and its outputs
+		if currentTransactionMetadata.setLiked(true) {
+			currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+				tangle.TransactionOutput(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(output *Output) {
+					output.setLiked(true)
+				})
+
+				return true
+			})
+
+			// trigger event
+			tangle.Events.TransactionLiked.Trigger(propagationStackEntry.CachedTransaction, propagationStackEntry.CachedTransactionMetadata)
+		}
 	case false:
 		// abort if the payload has been marked as disliked before
 		if !currentPayloadMetadata.setLiked(liked) {
@@ -740,6 +827,31 @@ func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack 
 		}
 
 		tangle.Events.PayloadDisliked.Trigger(propagationStackEntry.CachedPayload, propagationStackEntry.CachedPayloadMetadata)
+
+		// look if we still have any liked attachments of this transaction
+		likedAttachmentFound := false
+		tangle.Attachments(currentTransaction.ID()).Consume(func(attachment *Attachment) {
+			tangle.PayloadMetadata(attachment.PayloadID()).Consume(func(payloadMetadata *PayloadMetadata) {
+				likedAttachmentFound = likedAttachmentFound || payloadMetadata.Liked()
+			})
+		})
+
+		// if there are no other liked attachments of this transaction then also set it to disliked
+		if !likedAttachmentFound {
+			// propagate disliked to transaction and its outputs
+			if currentTransactionMetadata.setLiked(false) {
+				currentTransaction.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+					tangle.TransactionOutput(transaction.NewOutputID(address, currentTransaction.ID())).Consume(func(output *Output) {
+						output.setLiked(false)
+					})
+
+					return true
+				})
+
+				// trigger event
+				tangle.Events.TransactionDisliked.Trigger(propagationStackEntry.CachedTransaction, propagationStackEntry.CachedTransactionMetadata)
+			}
+		}
 	}
 
 	// schedule checks of approvers and consumers
@@ -1022,9 +1134,26 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 	// book transaction into target branch
 	transactionMetadata.SetBranchID(targetBranch.ID())
 
+	// create color for newly minted coins
+	mintedColor, _, err := balance.ColorFromBytes(transactionToBook.ID().Bytes())
+	if err != nil {
+		panic(err) // this should never happen (a transaction id is always a valid color)
+	}
+
 	// book outputs into the target branch
 	transactionToBook.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		newOutput := NewOutput(address, transactionToBook.ID(), targetBranch.ID(), balances)
+		// create correctly colored balances (replacing color of newly minted coins with color of transaction id)
+		coloredBalances := make([]*balance.Balance, len(balances))
+		for i, currentBalance := range balances {
+			if currentBalance.Color() == balance.ColorNew {
+				coloredBalances[i] = balance.New(mintedColor, currentBalance.Value())
+			} else {
+				coloredBalances[i] = currentBalance
+			}
+		}
+
+		// store output
+		newOutput := NewOutput(address, transactionToBook.ID(), targetBranch.ID(), coloredBalances)
 		newOutput.setSolid(true)
 		tangle.outputStorage.Store(newOutput).Release()
 

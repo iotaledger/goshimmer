@@ -59,12 +59,12 @@ func configure(_ *node.Plugin) {
 func getInfo(c echo.Context) error {
 	var enabledPlugins []string
 	var disabledPlugins []string
-	for plugin, status := range node.GetPlugins() {
-		switch status {
+	for pluginName, plugin := range node.GetPlugins() {
+		switch plugin.Status {
 		case node.Disabled:
-			disabledPlugins = append(disabledPlugins, plugin)
+			disabledPlugins = append(disabledPlugins, pluginName)
 		case node.Enabled:
-			enabledPlugins = append(enabledPlugins, plugin)
+			enabledPlugins = append(enabledPlugins, pluginName)
 		default:
 			continue
 		}

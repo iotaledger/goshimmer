@@ -355,7 +355,7 @@ func (cachedPayloadMetadata *CachedPayloadMetadata) Retain() *CachedPayloadMetad
 }
 
 // Consume wraps the underlying method to return the correctly typed objects in the callback.
-func (cachedPayloadMetadata *CachedPayloadMetadata) Consume(consumer func(payload *PayloadMetadata)) bool {
+func (cachedPayloadMetadata *CachedPayloadMetadata) Consume(consumer func(payloadMetadata *PayloadMetadata)) bool {
 	return cachedPayloadMetadata.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*PayloadMetadata))
 	})
