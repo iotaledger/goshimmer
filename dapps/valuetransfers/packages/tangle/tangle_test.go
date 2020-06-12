@@ -31,15 +31,6 @@ func TestSetTransactionPreferred(t *testing.T) {
 	assert.True(t, modified)
 }
 
-func TestPropagateValuePayloadLikeUpdates(t *testing.T) {
-
-}
-
-//TODO: missing propagateValuePayloadConfirmedUpdates (not yet implemented)
-
-func TestSetTransactionFinalized(t *testing.T) {
-}
-
 // TestBookTransaction tests the following cases:
 // - missing output
 // - transaction already booked by another process
@@ -491,7 +482,7 @@ func TestStoreTransactionModels(t *testing.T) {
 		})
 
 		// check created consumers
-		// TODO: only reason that there could be multiple consumers = conflict, e.g. 2 tx use same inputs?
+		// only reason that there could be multiple consumers = conflict, e.g. 2 tx use same inputs?
 		tx.Inputs().ForEach(func(inputId transaction.OutputID) bool {
 			expectedConsumer := NewConsumer(inputId, tx.ID())
 			tangle.Consumers(inputId).Consume(func(consumer *Consumer) {
