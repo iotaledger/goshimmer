@@ -127,6 +127,7 @@ func SendValueMessagesOnFaucet(t *testing.T, peers []*framework.Peer) (txIds []s
 		// let the transaction propagate
 		time.Sleep(1 * time.Second)
 	}
+
 	return
 }
 
@@ -253,7 +254,6 @@ func SendColoredValueMessage(t *testing.T, from *framework.Peer, to *framework.P
 	var outputs *transaction.Outputs
 	var availableIOTA int64
 	availableBalances := resp.UnspentOutputs[0].OutputIDs[0].Balances
-	newColor := false
 
 	// set balances
 	if len(availableBalances) > 1 {
@@ -262,30 +262,16 @@ func SendColoredValueMessage(t *testing.T, from *framework.Peer, to *framework.P
 			value := b.Value
 			color := getColorFromString(b.Color)
 			bs = append(bs, balance.New(color, value))
-
-			// update balance list
-			addrBalance[inputAddr.String()][color] -= value
-			if _, ok := addrBalance[outputAddr.String()][color]; ok {
-				addrBalance[outputAddr.String()][color] += value
-			} else {
-				addrBalance[outputAddr.String()][color] = value
-			}
 		}
 	} else {
 		// create new colored token if inputs only contain IOTA
 		// half of availableIota tokens remain IOTA, else get recolored
-		newColor = true
 		availableIOTA = availableBalances[0].Value
 
 		bs = append(bs, balance.New(balance.ColorIOTA, availableIOTA/2))
 		bs = append(bs, balance.New(balance.ColorNew, availableIOTA/2))
-
-		// update balance list
-		addrBalance[inputAddr.String()][balance.ColorIOTA] -= availableIOTA
-		addrBalance[outputAddr.String()][balance.ColorIOTA] += availableIOTA / 2
 	}
 	outmap[outputAddr] = bs
-
 	outputs = transaction.NewOutputs(outmap)
 
 	// sign transaction
@@ -295,16 +281,29 @@ func SendColoredValueMessage(t *testing.T, from *framework.Peer, to *framework.P
 	txId, err = from.SendTransaction(txn.Bytes())
 	require.NoErrorf(t, err, "Could not send transaction on %s", from.String())
 
-	// FIXME: the new color should be txn ID
-	if newColor {
-		if _, ok := addrBalance[outputAddr.String()][balance.ColorNew]; ok {
-			addrBalance[outputAddr.String()][balance.ColorNew] += availableIOTA / 2
-		} else {
-			addrBalance[outputAddr.String()][balance.ColorNew] = availableIOTA / 2
-		}
-		//addrBalance[outputAddr.String()][getColorFromString(txId)] = availableIOTA / 2
-	}
+	// update balance list
+	updateBalanceList(addrBalance, bs, inputAddr.String(), outputAddr.String(), txId)
+
 	return false, txId
+}
+
+func updateBalanceList(addrBalance map[string]map[balance.Color]int64, balances []*balance.Balance, from, to, txId string) {
+	for _, b := range balances {
+		color := b.Color()
+		value := b.Value()
+		if color == balance.ColorNew {
+			addrBalance[from][balance.ColorIOTA] -= value
+			addrBalance[to][getColorFromString(txId)] = value
+		} else {
+			addrBalance[from][color] -= value
+			if _, ok := addrBalance[to][color]; ok {
+				addrBalance[to][color] += value
+			} else {
+				addrBalance[to][color] = value
+			}
+		}
+	}
+	return
 }
 
 func getColorFromString(colorStr string) (color balance.Color) {
