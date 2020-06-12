@@ -3,13 +3,13 @@ package valuetransfers
 import (
 	"context"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/iotaledger/goshimmer/packages/metrics"
 	"net"
 	"strconv"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
+	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
@@ -123,7 +123,9 @@ func runFPC() {
 			}
 
 			return vote.Like
-		}, config.Node.GetString(CfgFPCBindAddress))
+		}, config.Node.GetString(CfgFPCBindAddress),
+			metrics.Events().FPCInboundBytes,
+			metrics.Events().FPCOutboundBytes)
 
 		go func() {
 			if err := voterServer.Run(); err != nil {
@@ -188,8 +190,9 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opin
 		return nil, fmt.Errorf("unable to query opinions: %w", err)
 	}
 
-	metrics.Definitions.FPCInboundBytes.Trigger(proto.Size(reply))
-	metrics.Definitions.FPCOutboundBytes.Trigger(proto.Size(query))
+	metrics.Events().FPCInboundBytes.Trigger(proto.Size(reply))
+	metrics.Events().FPCOutboundBytes.Trigger(proto.Size(query))
+
 	// convert int32s in reply to opinions
 	opinions := make(vote.Opinions, len(reply.Opinion))
 	for i, intOpn := range reply.Opinion {

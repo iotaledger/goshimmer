@@ -2,11 +2,11 @@ package net
 
 import (
 	"context"
-	"github.com/golang/protobuf/proto"
-	"github.com/iotaledger/goshimmer/packages/metrics"
 	"net"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/hive.go/events"
 	"google.golang.org/grpc"
 )
 
@@ -15,12 +15,19 @@ import (
 type OpinionRetriever func(id string) vote.Opinion
 
 // New creates a new VoterServer.
-func New(voter vote.Voter, opnRetriever OpinionRetriever, bindAddr string) *VoterServer {
+func New(voter vote.Voter, opnRetriever OpinionRetriever, bindAddr string, netEvents ...*events.Event) *VoterServer {
 	vs := &VoterServer{
 		voter:        voter,
 		opnRetriever: opnRetriever,
 		bindAddr:     bindAddr,
 	}
+	if netEvents == nil && len(netEvents) < 2 {
+		return vs
+	}
+
+	vs.netEventRX = netEvents[0]
+	vs.netEventTX = netEvents[1]
+
 	return vs
 }
 
@@ -30,6 +37,8 @@ type VoterServer struct {
 	opnRetriever OpinionRetriever
 	bindAddr     string
 	grpcServer   *grpc.Server
+	netEventRX   *events.Event
+	netEventTX   *events.Event
 }
 
 func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryReply, error) {
@@ -46,8 +55,13 @@ func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryRe
 		reply.Opinion[i] = int32(vs.opnRetriever(id))
 	}
 
-	metrics.Definitions.FPCInboundBytes.Trigger(proto.Size(req))
-	metrics.Definitions.FPCOutboundBytes.Trigger(proto.Size(reply))
+	if vs.netEventRX != nil {
+		vs.netEventRX.Trigger(proto.Size(req))
+	}
+	if vs.netEventTX != nil {
+		vs.netEventTX.Trigger(proto.Size(reply))
+	}
+
 	return reply, nil
 }
 

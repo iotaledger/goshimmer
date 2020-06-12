@@ -45,7 +45,7 @@ func NewManager(local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manag
 		events: Events{
 			ConnectionFailed: events.NewEvent(peerAndErrorCaller),
 			NeighborAdded:    events.NewEvent(neighborCaller),
-			NeighborRemoved:  events.NewEvent(peerCaller),
+			NeighborRemoved:  events.NewEvent(neighborCaller),
 			MessageReceived:  events.NewEvent(messageReceived),
 		},
 		srv:       nil,
@@ -203,7 +203,7 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 	n.Events.Close.Attach(events.NewClosure(func() {
 		// assure that the neighbor is removed and notify
 		_ = m.DropNeighbor(peer.ID())
-		m.events.NeighborRemoved.Trigger(peer)
+		m.events.NeighborRemoved.Trigger(n)
 	}))
 	n.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
 		if err := m.handlePacket(data, peer); err != nil {

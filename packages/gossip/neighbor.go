@@ -6,6 +6,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/logger"
@@ -36,6 +37,8 @@ type Neighbor struct {
 	wg             sync.WaitGroup
 	closing        chan struct{}
 	disconnectOnce sync.Once
+
+	connectionEstablished time.Time
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
@@ -52,11 +55,12 @@ func NewNeighbor(peer *peer.Peer, conn net.Conn, log *logger.Logger) *Neighbor {
 	)
 
 	return &Neighbor{
-		Peer:               peer,
-		BufferedConnection: buffconn.NewBufferedConnection(conn),
-		log:                log,
-		queue:              make(chan []byte, neighborQueueSize),
-		closing:            make(chan struct{}),
+		Peer:                  peer,
+		BufferedConnection:    buffconn.NewBufferedConnection(conn),
+		log:                   log,
+		queue:                 make(chan []byte, neighborQueueSize),
+		closing:               make(chan struct{}),
+		connectionEstablished: time.Now(),
 	}
 }
 

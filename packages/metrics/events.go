@@ -3,11 +3,14 @@ package metrics
 import "github.com/iotaledger/hive.go/events"
 
 // CollectionEvents defines the events fot the metrics package
-type CollectionEvents struct{
-	FPCInboundBytes *events.Event
+type CollectionEvents struct {
+	FPCInboundBytes  *events.Event
 	FPCOutboundBytes *events.Event
-	CPUUsage *events.Event
-	MemUsage *events.Event
+	CPUUsage         *events.Event
+	MemUsage         *events.Event
+
+	GossipPacketDropped *events.Event
+	DBSize              *events.Event
 }
 
 func uint64Caller(handler interface{}, params ...interface{}) {

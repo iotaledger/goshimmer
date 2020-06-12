@@ -1,27 +1,30 @@
 package metrics
 
 import (
-	"github.com/iotaledger/hive.go/events"
 	"sync"
+
+	"github.com/iotaledger/hive.go/events"
 )
 
 var (
-	once sync.Once
+	once         sync.Once
 	metricEvents *CollectionEvents
 )
 
-func new()*CollectionEvents {
+func new() *CollectionEvents {
 	return &CollectionEvents{
-		events.NewEvent(uint64Caller),
-		events.NewEvent(uint64Caller),
-		events.NewEvent(float64Caller),
-		events.NewEvent(uint64Caller),
+		FPCInboundBytes:     events.NewEvent(uint64Caller),
+		FPCOutboundBytes:    events.NewEvent(uint64Caller),
+		CPUUsage:            events.NewEvent(float64Caller),
+		MemUsage:            events.NewEvent(uint64Caller),
+		GossipPacketDropped: events.NewEvent(uint64Caller),
+		DBSize:              events.NewEvent(uint64Caller),
 	}
 }
 
 // Events returns the events defined in the package
 func Events() *CollectionEvents {
-	once.Do(func(){
+	once.Do(func() {
 		metricEvents = new()
 	})
 	return metricEvents
