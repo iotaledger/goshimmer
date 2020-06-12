@@ -1,9 +1,11 @@
 package valuetransfers
 
 import (
+	"os"
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/config"
 	flag "github.com/spf13/pflag"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
@@ -35,7 +37,7 @@ const (
 )
 
 func init() {
-	flag.String(CfgValueLayerSnapshotFile, "./snapshot.json", "the path to the snapshot file")
+	flag.String(CfgValueLayerSnapshotFile, "", "the path to the snapshot file")
 }
 
 var (
@@ -67,6 +69,22 @@ func configure(_ *node.Plugin) {
 
 	// configure Tangle
 	Tangle = tangle.New(database.Store())
+
+	// read snapshot file
+	snapshotFilePath := config.Node.GetString(CfgValueLayerSnapshotFile)
+	if len(snapshotFilePath) != 0 {
+		snapshot := tangle.Snapshot{}
+		f, err := os.Open(snapshotFilePath)
+		if err != nil {
+			log.Panic("can not open snapshot file:", err)
+		}
+		if _, err := snapshot.ReadFrom(f); err != nil {
+			log.Panic("could not read snapshot file:", err)
+		}
+		Tangle.LoadSnapshot(snapshot)
+		log.Info("read snapshot from %s", snapshotFilePath)
+	}
+
 	Tangle.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Error(err)
 	}))
