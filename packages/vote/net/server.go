@@ -46,8 +46,8 @@ func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryRe
 		reply.Opinion[i] = int32(vs.opnRetriever(id))
 	}
 
-	metrics.Definitions.FPCInboundBytes.Trigger(proto.Size(req))
-	metrics.Definitions.FPCOutboundBytes.Trigger(proto.Size(reply))
+	metrics.Events().FPCInboundBytes.Trigger(proto.Size(req))
+	metrics.Events().FPCOutboundBytes.Trigger(proto.Size(reply))
 	return reply, nil
 }
 

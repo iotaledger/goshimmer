@@ -188,8 +188,8 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opin
 		return nil, fmt.Errorf("unable to query opinions: %w", err)
 	}
 
-	metrics.Definitions.FPCInboundBytes.Trigger(proto.Size(reply))
-	metrics.Definitions.FPCOutboundBytes.Trigger(proto.Size(query))
+	metrics.Events().FPCInboundBytes.Trigger(proto.Size(reply))
+	metrics.Events().FPCOutboundBytes.Trigger(proto.Size(query))
 	// convert int32s in reply to opinions
 	opinions := make(vote.Opinions, len(reply.Opinion))
 	for i, intOpn := range reply.Opinion {
