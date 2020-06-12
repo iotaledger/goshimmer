@@ -4,6 +4,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
@@ -15,10 +20,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
 )
 
 const (
@@ -92,6 +93,9 @@ func configure(_ *node.Plugin) {
 	voter.Events().Failed.Attach(events.NewClosure(func(id string, lastOpinion vote.Opinion) {
 		log.Errorf("FPC failed for transaction with id '%s' - last opinion: '%s'", id, lastOpinion)
 	}))
+
+	// register MessageFilter in Parser
+	messagelayer.MessageParser.AddMessageFilter(tangle.NewMessageFilter())
 
 	// subscribe to message-layer
 	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
