@@ -1,16 +1,6 @@
-import {RouterStore} from "mobx-react-router";
-import {action, computed, observable} from "mobx";
-import Col from "react-bootstrap/Col";
-import * as React from "react";
-import {registerHandler, WSMsgType} from "app/misc/WS";
-import {Link} from 'react-router-dom';
-
-function SetColor(opinion) {
-    if (opinion == Opinion.Dislike) {
-        return "#800000"
-    }
-    return "#00AB08"
-}
+import { registerHandler, WSMsgType, unregisterHandler } from "app/misc/WS";
+import { action, computed, observable } from "mobx";
+import { RouterStore } from "mobx-react-router";
 
 enum Opinion {
     Like = 1,
@@ -32,22 +22,34 @@ export class FPCMessage {
     conflictset: Map<string, Conflict>
 }
 
-class Conflicts {
-
-}
-
 export class FPCStore {
     routerStore: RouterStore;
 
     @observable msg: FPCMessage = null;
 
-    @observable conflicts = new Conflicts();
+    @observable conflicts: {
+        conflictID: string;
+        nodeOpinions: { nodeID: string; opinion: number }[];
+        lastUpdated: number;
+        likes?: number;
+    }[] = [];
 
     @observable currentConflict = "";
 
+    timerId: NodeJS.Timer;
+
     constructor(routerStore: RouterStore) {
         this.routerStore = routerStore;
+    }
+
+    start() {
         registerHandler(WSMsgType.FPC, this.addLiveFeed);
+        this.timerId = setInterval(() => this.updateConflictStates(), 2000);
+    }
+
+    stop() {
+        unregisterHandler(WSMsgType.FPC);
+        clearInterval(this.timerId);
     }
 
     @action
@@ -59,105 +61,81 @@ export class FPCStore {
     addLiveFeed = (msg: FPCMessage) => {
         let conflictIDs = Object.keys(msg.conflictset);
         if (!conflictIDs) return;
-        console.log("FPC message has conflicts");
+
         for (const conflictID of conflictIDs) {
             let nodeIDs = Object.keys(msg.conflictset[conflictID].nodesview);
-            console.log("nodes for conflict", conflictID, nodeIDs);
             for (const nodeID of nodeIDs) {
                 let voteContext = msg.conflictset[conflictID].nodesview[nodeID];
                 let latestOpinion = voteContext.opinions[voteContext.opinions.length - 1];
-                console.log("updating node opinion");
-                this.updateNodeValue(conflictID, nodeID, latestOpinion);
+
+                let conflict = this.conflicts.find(c => c.conflictID === conflictID);
+                if (!conflict) {
+                    conflict = {
+                        conflictID,
+                        lastUpdated: Date.now(),
+                        nodeOpinions: []
+                    };
+                    this.conflicts.push(conflict);
+                } else {
+                    conflict.lastUpdated = Date.now();
+                }
+
+                const nodeOpinionIndex = conflict.nodeOpinions.findIndex(no => no.nodeID === nodeID);
+                if (nodeOpinionIndex >= 0) {
+                    conflict.nodeOpinions[nodeOpinionIndex].opinion = latestOpinion;
+                } else {
+                    conflict.nodeOpinions.push({
+                        nodeID,
+                        opinion: latestOpinion
+                    });
+                }
+
+                this.updateConflictState(conflict);
             }
         }
     }
 
     @action
-    updateNodeValue = (conflictID: string, nodeID: string, latestOpinion: number) => {
-        let conflicts = Object.assign({}, this.conflicts, {});
-        if (!conflicts.hasOwnProperty(conflictID)) {
-            conflicts[conflictID] = {[nodeID]: latestOpinion}
-            this.conflicts = conflicts;
-            console.log(this.conflicts);
-            return;
+    updateConflictStates() {
+        for (let i = 0; i < this.conflicts.length; i++) {
+            this.updateConflictState(this.conflicts[i]);
         }
 
-        conflicts[conflictID][nodeID] = latestOpinion;
-        this.conflicts = conflicts;
-        console.log(this.conflicts);
-        return;
+        const resolvedConflictIds = this.conflicts.filter(c =>
+            Date.now() - c.lastUpdated > 10000 &&
+            (c.likes === 0 || c.likes === Object.keys(c.nodeOpinions).length)
+        ).map(c => c.conflictID);
+
+        for (const conflictID of resolvedConflictIds) {
+            this.conflicts = this.conflicts.filter(c => c.conflictID !== conflictID)
+        }
+    }
+
+    @action
+    updateConflictState(conflict) {
+        conflict.likes = conflict.nodeOpinions.filter((nodeOpinion) => nodeOpinion.opinion === Opinion.Like).length;
     }
 
     @computed
     get nodeGrid() {
         if (!this.currentConflict) return;
-        let nodeSquares = [];
-        let currentConflict = this.conflicts[this.currentConflict];
-        let nodeIDs = Object.keys(currentConflict);
-        nodeIDs.forEach((nodeID: string) => {
-            nodeSquares.push(
-                <Col xs={1} key={nodeID} style={{
-                    height: 50,
-                    width: 50,
-                    border: "1px solid #FFFFFF",
-                    textAlign: "center",
-                    verticalAlign: "middle",
-                    background: SetColor(currentConflict[nodeID]),
-                }}>
-                    {nodeID.substr(0, 5)}
-                </Col>
-            )
-        })
-        return nodeSquares;
+        const currentConflict = this.conflicts.find(c => c.conflictID === this.currentConflict);
+        if (!currentConflict) return;
+        let nodeDetails = [];
+        for (const nodeID in currentConflict.nodeOpinions) {
+            nodeDetails.push({
+                nodeId: nodeID,
+                state: currentConflict.nodeOpinions[nodeID]
+            });
+        }
+        return nodeDetails;
     }
 
     @computed
     get conflictGrid() {
-        let conflictSquares = [];
-        let conflictIDs = Object.keys(this.conflicts);
-        conflictIDs.forEach((conflictID: string) => {
-
-            let likes = 0;
-            let nodeIDs = Object.keys(this.conflicts[conflictID]);
-            let total = nodeIDs.length;
-
-            nodeIDs.forEach((nodeID) => {
-                if (this.conflicts[conflictID][nodeID] === Opinion.Like) likes++;
-            })
-
-
-            conflictSquares.push(
-                <Col xs={1} key={conflictID} style={{
-                    height: 50,
-                    width: 50,
-                    border: "1px solid #FFFFFF",
-                    textAlign: "center",
-                    verticalAlign: "middle",
-                    background: getColorShade(likes / total),
-                }}>
-                    {<Link to={`/fpc-example/conflict/${conflictID}`} style={{color: "white"}}>
-                        {`[${likes}/${total}]`}
-                    </Link>}
-                </Col>
-            )
-        })
-        return conflictSquares;
+        return this.conflicts.filter(c => c.likes !== undefined);
     }
-
 }
 
 export default FPCStore;
 
-function getColorShade(eta) {
-    if (eta == 1) return "#00AB08";
-    if (eta > 0.9) return "#00C301";
-    if (eta > 0.8) return "#26D701";
-    if (eta > 0.7) return "#4DED30";
-    if (eta > 0.6) return "#95F985";
-    if (eta > 0.5) return "#B7FFBF";
-    if (eta > 0.4) return "#FFD5D5";
-    if (eta > 0.3) return "#FF8080";
-    if (eta > 0.2) return "#FF2A2A";
-    if (eta > 0.0001) return "#D40000";
-    return "#800000";
-}

@@ -1,0 +1,15 @@
+$rem-base-font: 16px !default;
+
+@mixin font-size($font-size, $line-height: 0) {
+  font-size: $font-size;
+
+  // sass-lint:disable no-duplicate-properties
+  font-size: $font-size / $rem-base-font * 1rem;
+
+  @if $line-height > 0 {
+    line-height: $line-height;
+
+    // sass-lint:disable no-duplicate-properties
+    line-height: $line-height / $rem-base-font * 1rem;
+  }
+}
