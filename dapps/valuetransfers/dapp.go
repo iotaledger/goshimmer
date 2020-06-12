@@ -4,6 +4,8 @@ import (
 	"sync"
 	"time"
 
+	flag "github.com/spf13/pflag"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
@@ -27,7 +29,14 @@ const (
 
 	// AverageNetworkDelay contains the average time it takes for a network to propagate through gossip.
 	AverageNetworkDelay = 5 * time.Second
+
+	// CfgValueLayerSnapshotFile is the path to the snapshot file.
+	CfgValueLayerSnapshotFile = "valueLayer.snapshot.file"
 )
+
+func init() {
+	flag.String(CfgValueLayerSnapshotFile, "./snapshot.json", "the path to the snapshot file")
+}
 
 var (
 	// App is the "plugin" instance of the value-transfers application.

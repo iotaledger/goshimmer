@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -26,7 +27,7 @@ var (
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
-	valuetransfers.Tangle.LoadSnapshot(map[transaction.ID]map[address.Address][]*balance.Balance{
+	valuetransfers.Tangle.LoadSnapshot(tangle.Snapshot{
 		transaction.GenesisID: {
 			address0: []*balance.Balance{
 				balance.New(balance.ColorIOTA, 10000000),

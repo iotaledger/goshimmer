@@ -164,8 +164,11 @@ func (tangle *Tangle) BranchManager() *branchmanager.BranchManager {
 	return tangle.branchManager
 }
 
+// Snapshot defines a snapshot of the ledger state.
+type Snapshot map[transaction.ID]map[address.Address][]*balance.Balance
+
 // LoadSnapshot creates a set of outputs in the value tangle, that are forming the genesis for future transactions.
-func (tangle *Tangle) LoadSnapshot(snapshot map[transaction.ID]map[address.Address][]*balance.Balance) {
+func (tangle *Tangle) LoadSnapshot(snapshot Snapshot) {
 	for transactionID, addressBalances := range snapshot {
 		for outputAddress, balances := range addressBalances {
 			input := NewOutput(outputAddress, transactionID, branchmanager.MasterBranchID, balances)
