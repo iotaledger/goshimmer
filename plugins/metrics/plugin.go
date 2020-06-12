@@ -4,6 +4,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
+	valuetangle "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
+
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/metrics"
@@ -26,12 +30,23 @@ var log *logger.Logger
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
+	//// Events declared in other packages which we want to listen to here ////
+
 	// increase received MPS counter whenever we attached a message
 	messagelayer.Tangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
 		cachedMessage.Release()
 		cachedMessageMetadata.Release()
 		increaseReceivedMPSCounter()
 	}))
+
+	// Value payload attached
+	valuetransfers.Tangle.Events.PayloadAttached.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *valuetangle.CachedPayloadMetadata) {
+		cachedPayload.Release()
+		cachedPayloadMetadata.Release()
+		increaseReceivedTPSCounter()
+	}))
+
+	//// Events coming from metrics package ////
 	metrics.Events().FPCInboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
 		atomic.AddUint64(_FPCInboundBytes, amountBytes)
 	}))
@@ -59,6 +74,7 @@ func run(_ *node.Plugin) {
 	// create a background worker that "measures" the MPS value every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
 		timeutil.Ticker(measureReceivedMPS, 1*time.Second, shutdownSignal)
+		timeutil.Ticker(measureReceivedTPS, 1*time.Second, shutdownSignal)
 		timeutil.Ticker(measureCPUUsage, 1*time.Second, shutdownSignal)
 		timeutil.Ticker(measureMemUsage, 1*time.Second, shutdownSignal)
 		timeutil.Ticker(measureSynced, 1*time.Second, shutdownSignal)

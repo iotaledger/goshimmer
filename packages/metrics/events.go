@@ -1,6 +1,8 @@
 package metrics
 
-import "github.com/iotaledger/hive.go/events"
+import (
+	"github.com/iotaledger/hive.go/events"
+)
 
 // CollectionEvents defines the events fot the metrics package
 type CollectionEvents struct {
