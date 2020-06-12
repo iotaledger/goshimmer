@@ -1,11 +1,9 @@
 package tangle
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -223,30 +221,14 @@ func TestReverseTransactionSolidification(t *testing.T) {
 		// Builds a UTXO-DAG with `txChains` spending outputs from the corresponding chain.
 		// All value objects reference the previous value object, effectively creating a chain.
 		// The test attaches the prepared value objects concurrently in reverse order.
-		//name, err := ioutil.TempDir("", "example")
-		//require.NoError(t, err)
-		//bDB, err := database.NewDB(name)
-		//require.NoError(t, err)
-		//
-		//tangle := New(bDB.NewStore())
+
 		tangle := New(mapdb.NewMapDB())
-
-		tangle.Events.Error.Attach(events.NewClosure(func(err error) {
-			fmt.Println(err)
-		}))
-
-		tangle.Events.TransactionInvalid.Attach(events.NewClosure(func(_ *transaction.CachedTransaction, _ *CachedTransactionMetadata, err error) {
-			panic(err)
-		}))
-		tangle.Events.PayloadInvalid.Attach(events.NewClosure(func(_ *payload.CachedPayload, _ *CachedPayloadMetadata, err error) {
-			panic(err)
-		}))
 
 		tipManager := tipmanager.New()
 
-		txChains := 1
+		txChains := 2
 		count := 10
-		threads := 2
+		threads := 5
 		countTotal := txChains * threads * count
 
 		// initialize tangle with genesis block
@@ -302,12 +284,6 @@ func TestReverseTransactionSolidification(t *testing.T) {
 			tipManager.AddTip(valueObject)
 			valueObjects[i] = valueObject
 		}
-
-		//TODO:
-		//for i := 0; i < countTotal; i++ {
-		//	fmt.Println(i, "ValueObject", valueObjects[i].ID())
-		//	fmt.Println(i, "Transaction", valueObjects[i].Transaction().ID())
-		//}
 
 		// attach value objects in reverse order
 		var wg sync.WaitGroup
