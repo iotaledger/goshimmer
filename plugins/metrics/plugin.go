@@ -67,10 +67,12 @@ func configure(_ *node.Plugin) {
 func run(_ *node.Plugin) {
 	// create a background worker that "measures" the MPS value every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
-		timeutil.Ticker(measureReceivedMPS, 1*time.Second, shutdownSignal)
-		timeutil.Ticker(measureCPUUsage, 1*time.Second, shutdownSignal)
-		timeutil.Ticker(measureMemUsage, 1*time.Second, shutdownSignal)
-		timeutil.Ticker(measureSynced, 1*time.Second, shutdownSignal)
+		timeutil.Ticker(func() {
+			measureReceivedMPS()
+			measureCPUUsage()
+			measureMemUsage()
+			measureSynced()
+		}, 1*time.Second, shutdownSignal)
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}

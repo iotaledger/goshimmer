@@ -45,6 +45,7 @@ services:
     command: >
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
+      --node.enablePlugins=bootstrap
       --node.disablePlugins=dashboard,portcheck
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
