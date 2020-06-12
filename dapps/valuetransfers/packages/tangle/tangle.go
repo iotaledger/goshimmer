@@ -50,15 +50,15 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 	tangle = &Tangle{
 		branchManager: branchmanager.New(store),
 
-		payloadStorage:             osFactory.New(osPayload, osPayloadFactory, objectstorage.CacheTime(time.Second)),
-		payloadMetadataStorage:     osFactory.New(osPayloadMetadata, osPayloadMetadataFactory, objectstorage.CacheTime(time.Second)),
-		missingPayloadStorage:      osFactory.New(osMissingPayload, osMissingPayloadFactory, objectstorage.CacheTime(time.Second)),
-		approverStorage:            osFactory.New(osApprover, osPayloadApproverFactory, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(payload.IDLength, payload.IDLength), objectstorage.KeysOnly(true)),
-		transactionStorage:         osFactory.New(osTransaction, osTransactionFactory, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
-		transactionMetadataStorage: osFactory.New(osTransactionMetadata, osTransactionMetadataFactory, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
-		attachmentStorage:          osFactory.New(osAttachment, osAttachmentFactory, objectstorage.CacheTime(time.Second), objectstorage.PartitionKey(transaction.IDLength, payload.IDLength), osLeakDetectionOption),
-		outputStorage:              osFactory.New(osOutput, osOutputFactory, OutputKeyPartitions, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
-		consumerStorage:            osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(time.Second), osLeakDetectionOption),
+		payloadStorage:             osFactory.New(osPayload, osPayloadFactory, objectstorage.CacheTime(1*time.Second)),
+		payloadMetadataStorage:     osFactory.New(osPayloadMetadata, osPayloadMetadataFactory, objectstorage.CacheTime(1*time.Second)),
+		missingPayloadStorage:      osFactory.New(osMissingPayload, osMissingPayloadFactory, objectstorage.CacheTime(1*time.Second)),
+		approverStorage:            osFactory.New(osApprover, osPayloadApproverFactory, objectstorage.CacheTime(1*time.Second), objectstorage.PartitionKey(payload.IDLength, payload.IDLength), objectstorage.KeysOnly(true)),
+		transactionStorage:         osFactory.New(osTransaction, osTransactionFactory, objectstorage.CacheTime(1*time.Second), osLeakDetectionOption),
+		transactionMetadataStorage: osFactory.New(osTransactionMetadata, osTransactionMetadataFactory, objectstorage.CacheTime(1*time.Second), osLeakDetectionOption),
+		attachmentStorage:          osFactory.New(osAttachment, osAttachmentFactory, objectstorage.CacheTime(1*time.Second), objectstorage.PartitionKey(transaction.IDLength, payload.IDLength), osLeakDetectionOption),
+		outputStorage:              osFactory.New(osOutput, osOutputFactory, OutputKeyPartitions, objectstorage.CacheTime(1*time.Second), osLeakDetectionOption),
+		consumerStorage:            osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(1*time.Second), osLeakDetectionOption),
 
 		Events: *newEvents(),
 	}
@@ -1140,7 +1140,7 @@ func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.
 	// abort if the transaction is not solid or invalid
 	transactionSolid, consumedBranches, transactionSolidityErr := tangle.checkTransactionSolidity(currentTransaction, currentTransactionMetadata)
 	if transactionSolidityErr != nil {
-		tangle.Events.TransactionInvalid.Trigger(solidificationStackEntry.CachedTransaction, solidificationStackEntry.CachedTransactionMetadata)
+		tangle.Events.TransactionInvalid.Trigger(solidificationStackEntry.CachedTransaction, solidificationStackEntry.CachedTransactionMetadata, transactionSolidityErr)
 
 		tangle.deleteTransactionFutureCone(currentTransaction.ID())
 
@@ -1403,28 +1403,21 @@ func (tangle *Tangle) checkPayloadSolidity(p *payload.Payload, payloadMetadata *
 		return
 	}
 
-	if solid = payloadMetadata.IsSolid(); solid {
+	if payloadMetadata.IsSolid() {
+		solid = payloadMetadata.BranchID() != branchmanager.UndefinedBranchID
 		return
 	}
 
 	combinedBranches := transactionBranches
 
 	trunkBranchID := tangle.payloadBranchID(p.TrunkID())
-	tangle.PayloadMetadata(p.TrunkID()).Consume(func(metadata *PayloadMetadata) { solid = metadata.IsSolid() })
-	if p.TrunkID() == payload.GenesisID {
-		solid = true
-	}
-	if trunkBranchID == branchmanager.UndefinedBranchID || !solid {
+	if trunkBranchID == branchmanager.UndefinedBranchID {
 		return false, nil
 	}
 	combinedBranches = append(combinedBranches, trunkBranchID)
 
 	branchBranchID := tangle.payloadBranchID(p.BranchID())
-	tangle.PayloadMetadata(p.BranchID()).Consume(func(metadata *PayloadMetadata) { solid = metadata.IsSolid() })
-	if p.BranchID() == payload.GenesisID {
-		solid = true
-	}
-	if branchBranchID == branchmanager.UndefinedBranchID || !solid {
+	if branchBranchID == branchmanager.UndefinedBranchID {
 		return false, nil
 	}
 	combinedBranches = append(combinedBranches, branchBranchID)
@@ -1451,8 +1444,10 @@ func (tangle *Tangle) checkTransactionSolidity(tx *transaction.Transaction, meta
 	}
 
 	// abort if we have previously determined the solidity status of the transaction already
-	if solid = metadata.Solid(); solid {
-		consumedBranches = []branchmanager.BranchID{metadata.BranchID()}
+	if metadata.Solid() {
+		if solid = metadata.BranchID() != branchmanager.UndefinedBranchID; solid {
+			consumedBranches = []branchmanager.BranchID{metadata.BranchID()}
+		}
 
 		return
 	}

@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 
@@ -10,8 +11,10 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tipmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConcurrency(t *testing.T) {
@@ -215,12 +218,28 @@ func TestReverseTransactionSolidification(t *testing.T) {
 	// Builds a UTXO-DAG with `txChains` spending outputs from the corresponding chain.
 	// All value objects reference the previous value object, effectively creating a chain.
 	// The test attaches the prepared value objects concurrently in reverse order.
+	//name, err := ioutil.TempDir("", "example")
+	//require.NoError(t, err)
+	//bDB, err := database.NewDB(name)
+	//require.NoError(t, err)
+	//
+	//tangle := New(bDB.NewStore())
 	tangle := New(mapdb.NewMapDB())
-	defer tangle.Shutdown()
+
+	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+		fmt.Println(err)
+	}))
+
+	tangle.Events.TransactionInvalid.Attach(events.NewClosure(func(_ *transaction.CachedTransaction, _ *CachedTransactionMetadata, err error) {
+		panic(err)
+	}))
+	tangle.Events.PayloadInvalid.Attach(events.NewClosure(func(_ *payload.CachedPayload, _ *CachedPayloadMetadata, err error) {
+		panic(err)
+	}))
 
 	tipManager := tipmanager.New()
 
-	txChains := 5
+	txChains := 1
 	count := 100
 	threads := 10
 	countTotal := txChains * threads * count
@@ -279,6 +298,12 @@ func TestReverseTransactionSolidification(t *testing.T) {
 		valueObjects[i] = valueObject
 	}
 
+	//TODO:
+	//for i := 0; i < countTotal; i++ {
+	//	fmt.Println(i, "ValueObject", valueObjects[i].ID())
+	//	fmt.Println(i, "Transaction", valueObjects[i].Transaction().ID())
+	//}
+
 	// attach value objects in reverse order
 	var wg sync.WaitGroup
 	for thread := 0; thread < threads; thread++ {
@@ -294,24 +319,26 @@ func TestReverseTransactionSolidification(t *testing.T) {
 	}
 	wg.Wait()
 
+	fmt.Println("finished attaching")
+
 	// verify correctness
 	for i := 0; i < countTotal; i++ {
 		// check if transaction metadata is found in database
-		assert.True(t, tangle.TransactionMetadata(transactions[i].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+		require.Truef(t, tangle.TransactionMetadata(transactions[i].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
 			assert.Truef(t, transactionMetadata.Solid(), "the transaction %s is not solid", transactions[i].ID().String())
 			assert.Equalf(t, branchmanager.MasterBranchID, transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
-		}))
+		}), "transaction metadata %s not found in database", transactions[i].ID())
 
-		// check if payload metadata is found in database
-		assert.True(t, tangle.PayloadMetadata(valueObjects[i].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
-			assert.Truef(t, payloadMetadata.IsSolid(), "the payload is not solid")
+		// check if value object metadata is found in database
+		require.Truef(t, tangle.PayloadMetadata(valueObjects[i].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+			assert.Truef(t, payloadMetadata.IsSolid(), "the payload %s is not solid", valueObjects[i].ID())
 			assert.Equalf(t, branchmanager.MasterBranchID, payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
-		}))
+		}), "value object metadata %s not found in database", valueObjects[i].ID())
 
 		// check if outputs are found in database
 		transactions[i].Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
 			cachedOutput := tangle.TransactionOutput(transaction.NewOutputID(address, transactions[i].ID()))
-			assert.True(t, cachedOutput.Consume(func(output *Output) {
+			assert.Truef(t, cachedOutput.Consume(func(output *Output) {
 				// only the last outputs in chain should not be spent
 				if i+txChains >= countTotal {
 					assert.Equalf(t, 0, output.ConsumerCount(), "the output should not be spent")
@@ -321,7 +348,7 @@ func TestReverseTransactionSolidification(t *testing.T) {
 				assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1)}, output.Balances())
 				assert.Equalf(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
 				assert.Truef(t, output.Solid(), "the output is not solid")
-			}))
+			}), "output not found in database for tx %s", transactions[i])
 			return true
 		})
 	}
