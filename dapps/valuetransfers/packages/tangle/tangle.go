@@ -1164,7 +1164,7 @@ func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.
 	}
 
 	// book the solid entities
-	transactionBooked, _, decisionPending, bookingErr := tangle.book(solidificationStackEntry.Retain())
+	transactionBooked, payloadBooked, decisionPending, bookingErr := tangle.book(solidificationStackEntry.Retain())
 	if bookingErr != nil {
 		tangle.Events.Error.Trigger(bookingErr)
 
@@ -1177,9 +1177,12 @@ func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.
 	// trigger events and schedule check of approvers / consumers
 	if transactionBooked {
 		tangle.Events.TransactionBooked.Trigger(solidificationStackEntry.CachedTransaction, solidificationStackEntry.CachedTransactionMetadata, decisionPending)
+
+		tangle.ForEachConsumers(currentTransaction, tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads))
 	}
-	tangle.ForEachConsumers(currentTransaction, tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads))
-	tangle.ForeachApprovers(currentPayload.ID(), tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads))
+	if payloadBooked {
+		tangle.ForeachApprovers(currentPayload.ID(), tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads))
+	}
 }
 
 func (tangle *Tangle) book(entitiesToBook *valuePayloadPropagationStackEntry) (transactionBooked bool, payloadBooked bool, decisionPending bool, err error) {
@@ -1333,6 +1336,14 @@ func (tangle *Tangle) bookPayload(cachedPayload *payload.CachedPayload, cachedPa
 		return
 	}
 
+	branchBranchID := tangle.payloadBranchID(valueObject.BranchID())
+	trunkBranchID := tangle.payloadBranchID(valueObject.TrunkID())
+	transactionBranchID := transactionMetadata.BranchID()
+
+	if branchBranchID == branchmanager.UndefinedBranchID || trunkBranchID == branchmanager.UndefinedBranchID || transactionBranchID == branchmanager.UndefinedBranchID {
+		return
+	}
+
 	// abort if the payload has been marked as solid before
 	if !valueObjectMetadata.setSolid(true) {
 		return
@@ -1340,16 +1351,6 @@ func (tangle *Tangle) bookPayload(cachedPayload *payload.CachedPayload, cachedPa
 
 	// trigger event if payload became solid
 	tangle.Events.PayloadSolid.Trigger(cachedPayload, cachedPayloadMetadata)
-
-	branchBranchID := tangle.payloadBranchID(valueObject.BranchID())
-	trunkBranchID := tangle.payloadBranchID(valueObject.TrunkID())
-	transactionBranchID := transactionMetadata.BranchID()
-
-	if branchBranchID == branchmanager.UndefinedBranchID ||
-		trunkBranchID == branchmanager.UndefinedBranchID ||
-		transactionBranchID == branchmanager.UndefinedBranchID {
-		return
-	}
 
 	cachedAggregatedBranch, err := tangle.BranchManager().AggregateBranches([]branchmanager.BranchID{branchBranchID, trunkBranchID, transactionBranchID}...)
 	if err != nil {

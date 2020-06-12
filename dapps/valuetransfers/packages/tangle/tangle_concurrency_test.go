@@ -341,16 +341,16 @@ func TestReverseTransactionSolidification(t *testing.T) {
 			// check if outputs are found in database
 			transactions[i].Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
 				cachedOutput := tangle.TransactionOutput(transaction.NewOutputID(address, transactions[i].ID()))
-				assert.Truef(t, cachedOutput.Consume(func(output *Output) {
+				require.Truef(t, cachedOutput.Consume(func(output *Output) {
 					// only the last outputs in chain should not be spent
 					if i+txChains >= countTotal {
-						assert.Equalf(t, 0, output.ConsumerCount(), "the output should not be spent")
+						require.Equalf(t, 0, output.ConsumerCount(), "the output should not be spent")
 					} else {
-						assert.Equalf(t, 1, output.ConsumerCount(), "the output should be spent")
+						require.Equalf(t, 1, output.ConsumerCount(), "the output should be spent")
 					}
-					assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1)}, output.Balances())
-					assert.Equalf(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
-					assert.Truef(t, output.Solid(), "the output is not solid")
+					require.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1)}, output.Balances())
+					require.Equalf(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+					require.Truef(t, output.Solid(), "the output is not solid")
 				}), "output not found in database for tx %s", transactions[i])
 				return true
 			})
