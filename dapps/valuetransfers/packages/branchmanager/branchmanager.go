@@ -391,6 +391,11 @@ func (branchManager *BranchManager) setBranchFinalized(cachedBranch *CachedBranc
 
 	branchManager.Events.BranchFinalized.Trigger(cachedBranch)
 
+	// propagate finalized to aggregated child branches
+	if err = branchManager.propagateFinalizedToAggregatedChildBranches(cachedBranch.Retain()); err != nil {
+		return
+	}
+
 	if !branch.Preferred() {
 		branchManager.propagateRejectedToChildBranches(cachedBranch.Retain())
 
@@ -414,11 +419,6 @@ func (branchManager *BranchManager) setBranchFinalized(cachedBranch *CachedBranc
 				return
 			}
 		})
-	}
-
-	// propagate finalized to aggregated child branches
-	if err = branchManager.propagateFinalizedToAggregatedChildBranches(cachedBranch.Retain()); err != nil {
-		return
 	}
 
 	// schedule confirmed checks of children
