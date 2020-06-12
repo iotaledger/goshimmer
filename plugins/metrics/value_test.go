@@ -60,5 +60,4 @@ func TestValueTips(t *testing.T) {
 	measureValueTips()
 	wg.Wait()
 	assert.Equal(t, ValueTips(), (uint64)(0))
-
 }

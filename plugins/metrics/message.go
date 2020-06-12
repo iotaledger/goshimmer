@@ -2,10 +2,13 @@ package metrics
 
 import (
 	"sync/atomic"
+
+	"github.com/iotaledger/goshimmer/packages/metrics"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
-// ReceivedMessagesPerSecond retrieves the current messages per second number.
-func ReceivedMessagesPerSecond() uint64 {
+// MPS retrieves the current messages per second number.
+func MPS() uint64 {
 	return atomic.LoadUint64(&measuredReceivedMPS)
 }
 
@@ -14,6 +17,9 @@ var mpsReceivedSinceLastMeasurement uint64
 
 // measured value of the received MPS
 var measuredReceivedMPS uint64
+
+// current number of message tips
+var messageTips uint64
 
 // increases the received MPS counter
 func increaseReceivedMPSCounter() {
@@ -33,4 +39,13 @@ func measureReceivedMPS() {
 
 	// trigger events for outside listeners
 	Events.ReceivedMPSUpdated.Trigger(sampledMPS)
+}
+
+func measureMessageTips() {
+	metrics.Events().MessageTips.Trigger((uint64)(messagelayer.TipSelector.TipCount()))
+}
+
+// MessageTips returns the actual number of tips in the message tangle.
+func MessageTips() uint64 {
+	return atomic.LoadUint64(&messageTips)
 }

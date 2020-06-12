@@ -19,6 +19,7 @@ func new() *CollectionEvents {
 		events.NewEvent(uint64Caller),
 		events.NewEvent(boolCaller),
 		events.NewEvent(uint64Caller),
+		events.NewEvent(uint64Caller),
 	}
 }
 

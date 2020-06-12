@@ -34,6 +34,7 @@ func configure(_ *node.Plugin) {
 
 	// increase received MPS counter whenever we attached a message
 	messagelayer.Tangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		// TODO: maintain mps figures per payload type
 		cachedMessage.Release()
 		cachedMessageMetadata.Release()
 		increaseReceivedMPSCounter()
@@ -69,6 +70,9 @@ func configure(_ *node.Plugin) {
 		defer syncLock.Unlock()
 		isSynced = synced
 	}))
+	metrics.Events().MessageTips.Attach(events.NewClosure(func(tipsCount uint64) {
+		atomic.StoreUint64(&messageTips, tipsCount)
+	}))
 	metrics.Events().ValueTips.Attach(events.NewClosure(func(tipsCount uint64) {
 		atomic.StoreUint64(&valueTips, tipsCount)
 	}))
@@ -78,6 +82,7 @@ func run(_ *node.Plugin) {
 	// create a background worker that "measures" the MPS value every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
 		timeutil.Ticker(measureReceivedMPS, MPSMeasurementInterval, shutdownSignal)
+		timeutil.Ticker(measureMessageTips, MessageTipsMeasurementInterval, shutdownSignal)
 		timeutil.Ticker(measureReceivedTPS, TPSMeasurementInterval, shutdownSignal)
 		timeutil.Ticker(measureValueTips, ValueTipsMeasurementInterval, shutdownSignal)
 		timeutil.Ticker(measureCPUUsage, CPUUsageMeasurementInterval, shutdownSignal)
