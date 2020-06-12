@@ -64,6 +64,10 @@ func NewNeighbor(peer *peer.Peer, conn net.Conn, log *logger.Logger) *Neighbor {
 	}
 }
 
+func (n *Neighbor) ConnectionEstablished() time.Time {
+	return n.connectionEstablished
+}
+
 // Listen starts the communication to the neighbor.
 func (n *Neighbor) Listen() {
 	n.wg.Add(2)

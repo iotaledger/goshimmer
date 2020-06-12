@@ -6,8 +6,10 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
+	gossipPkg "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -57,6 +59,13 @@ func configure(_ *node.Plugin) {
 		dbSizeLock.Lock()
 		defer dbSizeLock.Unlock()
 		_dbSize = dbSize
+	}))
+
+	gossip.Manager().Events().NeighborRemoved.Attach(events.NewClosure(func(n *gossipPkg.Neighbor) {
+		neighborMutex.Lock()
+		defer neighborMutex.Unlock()
+		neighborDropCount++
+		neighborConnectionsLifeTime += time.Now().Sub(n.ConnectionEstablished())
 	}))
 }
 

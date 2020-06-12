@@ -8,10 +8,8 @@ type CollectionEvents struct {
 	FPCOutboundBytes *events.Event
 	CPUUsage         *events.Event
 	MemUsage         *events.Event
-
-	GossipPacketDropped *events.Event
-	DBSize              *events.Event
-	Synced              *events.Event
+	DBSize           *events.Event
+	Synced           *events.Event
 }
 
 func uint64Caller(handler interface{}, params ...interface{}) {

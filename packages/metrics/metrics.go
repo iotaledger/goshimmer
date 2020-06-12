@@ -13,13 +13,12 @@ var (
 
 func new() *CollectionEvents {
 	return &CollectionEvents{
-		FPCInboundBytes:     events.NewEvent(uint64Caller),
-		FPCOutboundBytes:    events.NewEvent(uint64Caller),
-		CPUUsage:            events.NewEvent(float64Caller),
-		MemUsage:            events.NewEvent(uint64Caller),
-		GossipPacketDropped: events.NewEvent(uint64Caller),
-		DBSize:              events.NewEvent(uint64Caller),
-		Synced:              events.NewEvent(boolCaller),
+		FPCInboundBytes:  events.NewEvent(uint64Caller),
+		FPCOutboundBytes: events.NewEvent(uint64Caller),
+		CPUUsage:         events.NewEvent(float64Caller),
+		MemUsage:         events.NewEvent(uint64Caller),
+		DBSize:           events.NewEvent(uint64Caller),
+		Synced:           events.NewEvent(boolCaller),
 	}
 }
 
