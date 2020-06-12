@@ -1151,7 +1151,7 @@ func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.
 	}
 
 	// abort if the payload is not solid or invalid
-	payloadSolid, payloadSolidityErr := tangle.checkPayloadSolidity(currentPayload, currentPayloadMetadata, consumedBranches)
+	payloadSolid, payloadSolidityErr := tangle.payloadBecameNewlySolid(currentPayload, currentPayloadMetadata, consumedBranches)
 	if payloadSolidityErr != nil {
 		tangle.Events.PayloadInvalid.Trigger(solidificationStackEntry.CachedPayload, solidificationStackEntry.CachedPayloadMetadata, payloadSolidityErr)
 
@@ -1164,7 +1164,7 @@ func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.
 	}
 
 	// book the solid entities
-	transactionBooked, payloadBooked, decisionPending, bookingErr := tangle.book(solidificationStackEntry.Retain())
+	transactionBooked, _, decisionPending, bookingErr := tangle.book(solidificationStackEntry.Retain())
 	if bookingErr != nil {
 		tangle.Events.Error.Trigger(bookingErr)
 
@@ -1177,12 +1177,9 @@ func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.
 	// trigger events and schedule check of approvers / consumers
 	if transactionBooked {
 		tangle.Events.TransactionBooked.Trigger(solidificationStackEntry.CachedTransaction, solidificationStackEntry.CachedTransactionMetadata, decisionPending)
-
-		tangle.ForEachConsumers(currentTransaction, tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads))
 	}
-	if payloadBooked {
-		tangle.ForeachApprovers(currentPayload.ID(), tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads))
-	}
+	tangle.ForEachConsumers(currentTransaction, tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads))
+	tangle.ForeachApprovers(currentPayload.ID(), tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads))
 }
 
 func (tangle *Tangle) book(entitiesToBook *valuePayloadPropagationStackEntry) (transactionBooked bool, payloadBooked bool, decisionPending bool, err error) {
@@ -1396,15 +1393,15 @@ func (tangle *Tangle) payloadBranchID(payloadID payload.ID) branchmanager.Branch
 	return payloadMetadata.BranchID()
 }
 
-// checkPayloadSolidity returns true if the given payload is solid. A payload is considered to be solid, if it is either
-// already marked as solid or if its referenced payloads are marked as solid.
-func (tangle *Tangle) checkPayloadSolidity(p *payload.Payload, payloadMetadata *PayloadMetadata, transactionBranches []branchmanager.BranchID) (solid bool, err error) {
+// payloadBecameNewlySolid returns true if the given payload is solid but was not marked as solid. yet.
+func (tangle *Tangle) payloadBecameNewlySolid(p *payload.Payload, payloadMetadata *PayloadMetadata, transactionBranches []branchmanager.BranchID) (solid bool, err error) {
+	// abort if the payload was deleted
 	if p == nil || p.IsDeleted() || payloadMetadata == nil || payloadMetadata.IsDeleted() {
 		return
 	}
 
+	// abort if the payload was marked as solid already
 	if payloadMetadata.IsSolid() {
-		solid = payloadMetadata.BranchID() != branchmanager.UndefinedBranchID
 		return
 	}
 

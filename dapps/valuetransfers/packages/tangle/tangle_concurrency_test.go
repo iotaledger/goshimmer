@@ -5,16 +5,17 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tipmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestConcurrency(t *testing.T) {
@@ -214,143 +215,146 @@ func TestReverseValueObjectSolidification(t *testing.T) {
 }
 
 func TestReverseTransactionSolidification(t *testing.T) {
-	// img/reverse-transaction-solidification.png
-	// Builds a UTXO-DAG with `txChains` spending outputs from the corresponding chain.
-	// All value objects reference the previous value object, effectively creating a chain.
-	// The test attaches the prepared value objects concurrently in reverse order.
-	//name, err := ioutil.TempDir("", "example")
-	//require.NoError(t, err)
-	//bDB, err := database.NewDB(name)
-	//require.NoError(t, err)
-	//
-	//tangle := New(bDB.NewStore())
-	tangle := New(mapdb.NewMapDB())
+	testIterations := 500
 
-	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
-		fmt.Println(err)
-	}))
+	// repeat the test a few times
+	for k := 0; k < testIterations; k++ {
+		// img/reverse-transaction-solidification.png
+		// Builds a UTXO-DAG with `txChains` spending outputs from the corresponding chain.
+		// All value objects reference the previous value object, effectively creating a chain.
+		// The test attaches the prepared value objects concurrently in reverse order.
+		//name, err := ioutil.TempDir("", "example")
+		//require.NoError(t, err)
+		//bDB, err := database.NewDB(name)
+		//require.NoError(t, err)
+		//
+		//tangle := New(bDB.NewStore())
+		tangle := New(mapdb.NewMapDB())
 
-	tangle.Events.TransactionInvalid.Attach(events.NewClosure(func(_ *transaction.CachedTransaction, _ *CachedTransactionMetadata, err error) {
-		panic(err)
-	}))
-	tangle.Events.PayloadInvalid.Attach(events.NewClosure(func(_ *payload.CachedPayload, _ *CachedPayloadMetadata, err error) {
-		panic(err)
-	}))
+		tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+			fmt.Println(err)
+		}))
 
-	tipManager := tipmanager.New()
+		tangle.Events.TransactionInvalid.Attach(events.NewClosure(func(_ *transaction.CachedTransaction, _ *CachedTransactionMetadata, err error) {
+			panic(err)
+		}))
+		tangle.Events.PayloadInvalid.Attach(events.NewClosure(func(_ *payload.CachedPayload, _ *CachedPayloadMetadata, err error) {
+			panic(err)
+		}))
 
-	txChains := 1
-	count := 100
-	threads := 10
-	countTotal := txChains * threads * count
+		tipManager := tipmanager.New()
 
-	// initialize tangle with genesis block
-	outputs := make(map[address.Address][]*balance.Balance)
-	for i := 0; i < txChains; i++ {
-		outputs[address.Random()] = []*balance.Balance{
-			balance.New(balance.ColorIOTA, 1),
-		}
-	}
-	inputIDs := loadSnapshotFromOutputs(tangle, outputs)
+		txChains := 1
+		count := 10
+		threads := 2
+		countTotal := txChains * threads * count
 
-	transactions := make([]*transaction.Transaction, countTotal)
-	valueObjects := make([]*payload.Payload, countTotal)
-
-	// create chains of transactions
-	for i := 0; i < count*threads; i++ {
-		for j := 0; j < txChains; j++ {
-			var tx *transaction.Transaction
-
-			// transferring from genesis
-			if i == 0 {
-				tx = transaction.New(
-					transaction.NewInputs(inputIDs[j]),
-					transaction.NewOutputs(
-						map[address.Address][]*balance.Balance{
-							address.Random(): {
-								balance.New(balance.ColorIOTA, 1),
-							},
-						}),
-				)
-			} else {
-				// create chains in UTXO dag
-				tx = transaction.New(
-					getTxOutputsAsInputs(transactions[i*txChains-txChains+j]),
-					transaction.NewOutputs(
-						map[address.Address][]*balance.Balance{
-							address.Random(): {
-								balance.New(balance.ColorIOTA, 1),
-							},
-						}),
-				)
+		// initialize tangle with genesis block
+		outputs := make(map[address.Address][]*balance.Balance)
+		for i := 0; i < txChains; i++ {
+			outputs[address.Random()] = []*balance.Balance{
+				balance.New(balance.ColorIOTA, 1),
 			}
-
-			transactions[i*txChains+j] = tx
 		}
-	}
+		inputIDs := loadSnapshotFromOutputs(tangle, outputs)
 
-	// prepare value objects (simple chain)
-	for i := 0; i < countTotal; i++ {
-		parent1, parent2 := tipManager.Tips()
-		valueObject := payload.New(parent1, parent2, transactions[i])
+		transactions := make([]*transaction.Transaction, countTotal)
+		valueObjects := make([]*payload.Payload, countTotal)
 
-		tipManager.AddTip(valueObject)
-		valueObjects[i] = valueObject
-	}
+		// create chains of transactions
+		for i := 0; i < count*threads; i++ {
+			for j := 0; j < txChains; j++ {
+				var tx *transaction.Transaction
 
-	//TODO:
-	//for i := 0; i < countTotal; i++ {
-	//	fmt.Println(i, "ValueObject", valueObjects[i].ID())
-	//	fmt.Println(i, "Transaction", valueObjects[i].Transaction().ID())
-	//}
-
-	// attach value objects in reverse order
-	var wg sync.WaitGroup
-	for thread := 0; thread < threads; thread++ {
-		wg.Add(1)
-		go func(threadNo int) {
-			defer wg.Done()
-
-			for i := countTotal - 1 - threadNo; i >= 0; i -= threads {
-				valueObject := valueObjects[i]
-				tangle.AttachPayloadSync(valueObject)
-			}
-		}(thread)
-	}
-	wg.Wait()
-
-	fmt.Println("finished attaching")
-
-	// verify correctness
-	for i := 0; i < countTotal; i++ {
-		// check if transaction metadata is found in database
-		require.Truef(t, tangle.TransactionMetadata(transactions[i].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Truef(t, transactionMetadata.Solid(), "the transaction %s is not solid", transactions[i].ID().String())
-			assert.Equalf(t, branchmanager.MasterBranchID, transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
-		}), "transaction metadata %s not found in database", transactions[i].ID())
-
-		// check if value object metadata is found in database
-		require.Truef(t, tangle.PayloadMetadata(valueObjects[i].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
-			assert.Truef(t, payloadMetadata.IsSolid(), "the payload %s is not solid", valueObjects[i].ID())
-			assert.Equalf(t, branchmanager.MasterBranchID, payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
-		}), "value object metadata %s not found in database", valueObjects[i].ID())
-
-		// check if outputs are found in database
-		transactions[i].Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-			cachedOutput := tangle.TransactionOutput(transaction.NewOutputID(address, transactions[i].ID()))
-			assert.Truef(t, cachedOutput.Consume(func(output *Output) {
-				// only the last outputs in chain should not be spent
-				if i+txChains >= countTotal {
-					assert.Equalf(t, 0, output.ConsumerCount(), "the output should not be spent")
+				// transferring from genesis
+				if i == 0 {
+					tx = transaction.New(
+						transaction.NewInputs(inputIDs[j]),
+						transaction.NewOutputs(
+							map[address.Address][]*balance.Balance{
+								address.Random(): {
+									balance.New(balance.ColorIOTA, 1),
+								},
+							}),
+					)
 				} else {
-					assert.Equalf(t, 1, output.ConsumerCount(), "the output should be spent")
+					// create chains in UTXO dag
+					tx = transaction.New(
+						getTxOutputsAsInputs(transactions[i*txChains-txChains+j]),
+						transaction.NewOutputs(
+							map[address.Address][]*balance.Balance{
+								address.Random(): {
+									balance.New(balance.ColorIOTA, 1),
+								},
+							}),
+					)
 				}
-				assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1)}, output.Balances())
-				assert.Equalf(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
-				assert.Truef(t, output.Solid(), "the output is not solid")
-			}), "output not found in database for tx %s", transactions[i])
-			return true
-		})
+
+				transactions[i*txChains+j] = tx
+			}
+		}
+
+		// prepare value objects (simple chain)
+		for i := 0; i < countTotal; i++ {
+			parent1, parent2 := tipManager.Tips()
+			valueObject := payload.New(parent1, parent2, transactions[i])
+
+			tipManager.AddTip(valueObject)
+			valueObjects[i] = valueObject
+		}
+
+		//TODO:
+		//for i := 0; i < countTotal; i++ {
+		//	fmt.Println(i, "ValueObject", valueObjects[i].ID())
+		//	fmt.Println(i, "Transaction", valueObjects[i].Transaction().ID())
+		//}
+
+		// attach value objects in reverse order
+		var wg sync.WaitGroup
+		for thread := 0; thread < threads; thread++ {
+			wg.Add(1)
+			go func(threadNo int) {
+				defer wg.Done()
+
+				for i := countTotal - 1 - threadNo; i >= 0; i -= threads {
+					valueObject := valueObjects[i]
+					tangle.AttachPayloadSync(valueObject)
+				}
+			}(thread)
+		}
+		wg.Wait()
+
+		// verify correctness
+		for i := 0; i < countTotal; i++ {
+			// check if transaction metadata is found in database
+			require.Truef(t, tangle.TransactionMetadata(transactions[i].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
+				require.Truef(t, transactionMetadata.Solid(), "the transaction %s is not solid", transactions[i].ID().String())
+				require.Equalf(t, branchmanager.MasterBranchID, transactionMetadata.BranchID(), "the transaction was booked into the wrong branch")
+			}), "transaction metadata %s not found in database", transactions[i].ID())
+
+			// check if value object metadata is found in database
+			require.Truef(t, tangle.PayloadMetadata(valueObjects[i].ID()).Consume(func(payloadMetadata *PayloadMetadata) {
+				require.Truef(t, payloadMetadata.IsSolid(), "the payload %s is not solid", valueObjects[i].ID())
+				require.Equalf(t, branchmanager.MasterBranchID, payloadMetadata.BranchID(), "the payload was booked into the wrong branch")
+			}), "value object metadata %s not found in database", valueObjects[i].ID())
+
+			// check if outputs are found in database
+			transactions[i].Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+				cachedOutput := tangle.TransactionOutput(transaction.NewOutputID(address, transactions[i].ID()))
+				assert.Truef(t, cachedOutput.Consume(func(output *Output) {
+					// only the last outputs in chain should not be spent
+					if i+txChains >= countTotal {
+						assert.Equalf(t, 0, output.ConsumerCount(), "the output should not be spent")
+					} else {
+						assert.Equalf(t, 1, output.ConsumerCount(), "the output should be spent")
+					}
+					assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1)}, output.Balances())
+					assert.Equalf(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
+					assert.Truef(t, output.Solid(), "the output is not solid")
+				}), "output not found in database for tx %s", transactions[i])
+				return true
+			})
+		}
 	}
 }
 

@@ -1248,8 +1248,8 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		metadata.SetBranchID(branchmanager.MasterBranchID)
 
 		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
-		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
-		assert.True(t, solid)
+		solid, err := tangle.payloadBecameNewlySolid(valueObject, metadata, transactionBranches)
+		assert.False(t, solid)
 		assert.NoError(t, err)
 	}
 
@@ -1259,7 +1259,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		metadata := NewPayloadMetadata(valueObject.ID())
 
 		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
-		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		solid, err := tangle.payloadBecameNewlySolid(valueObject, metadata, transactionBranches)
 		assert.True(t, solid)
 		assert.NoError(t, err)
 	}
@@ -1275,7 +1275,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		metadata := NewPayloadMetadata(valueObject.ID())
 
 		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
-		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		solid, err := tangle.payloadBecameNewlySolid(valueObject, metadata, transactionBranches)
 		assert.True(t, solid)
 		assert.NoError(t, err)
 	}
@@ -1290,22 +1290,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		metadata := NewPayloadMetadata(valueObject.ID())
 
 		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
-		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
-		assert.False(t, solid)
-		assert.NoError(t, err)
-	}
-
-	// check with non-solid parents but branch set -> should not be solid
-	{
-		setParent := func(payloadMetadata *PayloadMetadata) {
-			payloadMetadata.SetBranchID(branchmanager.MasterBranchID)
-		}
-
-		valueObject := payload.New(storeParentPayloadWithMetadataFunc(t, tangle, setParent), storeParentPayloadWithMetadataFunc(t, tangle, setParent), createDummyTransaction())
-		metadata := NewPayloadMetadata(valueObject.ID())
-
-		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
-		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		solid, err := tangle.payloadBecameNewlySolid(valueObject, metadata, transactionBranches)
 		assert.False(t, solid)
 		assert.NoError(t, err)
 	}
@@ -1330,7 +1315,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		metadata := NewPayloadMetadata(valueObject.ID())
 
 		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
-		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		solid, err := tangle.payloadBecameNewlySolid(valueObject, metadata, transactionBranches)
 		assert.False(t, solid)
 		assert.Error(t, err)
 	}
@@ -1355,7 +1340,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		metadata := NewPayloadMetadata(valueObject.ID())
 
 		transactionBranches := []branchmanager.BranchID{{2}}
-		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		solid, err := tangle.payloadBecameNewlySolid(valueObject, metadata, transactionBranches)
 		assert.False(t, solid)
 		assert.Error(t, err)
 	}
