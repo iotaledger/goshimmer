@@ -21,8 +21,8 @@ func ParseTransaction(t *transaction.Transaction) (txn Transaction) {
 		var b []Balance
 		for _, balance := range balances {
 			b = append(b, Balance{
-				Value: balance.Value(),
-				Color: balance.Color().String(),
+				Value: balance.Value,
+				Color: balance.Color.String(),
 			})
 		}
 		t := Output{

@@ -874,35 +874,6 @@ func TestGetCachedOutputsFromTransactionInputs(t *testing.T) {
 	}
 }
 
-func TestLoadSnapshot(t *testing.T) {
-	tangle := New(mapdb.NewMapDB())
-
-	snapshot := map[transaction.ID]map[address.Address][]*balance.Balance{
-		transaction.GenesisID: {
-			address.Random(): []*balance.Balance{
-				balance.New(balance.ColorIOTA, 337),
-			},
-
-			address.Random(): []*balance.Balance{
-				balance.New(balance.ColorIOTA, 1000),
-				balance.New(balance.ColorIOTA, 1000),
-			},
-		},
-	}
-	tangle.LoadSnapshot(snapshot)
-
-	// check whether outputs can be retrieved from tangle
-	for addr, balances := range snapshot[transaction.GenesisID] {
-		cachedOutput := tangle.TransactionOutput(transaction.NewOutputID(addr, transaction.GenesisID))
-		cachedOutput.Consume(func(output *Output) {
-			assert.Equal(t, addr, output.Address())
-			assert.ElementsMatch(t, balances, output.Balances())
-			assert.True(t, output.Solid())
-			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID())
-		})
-	}
-}
-
 func TestRetrieveConsumedInputDetails(t *testing.T) {
 	// test simple happy case
 	{
@@ -1549,7 +1520,7 @@ func sumOutputsByColor(outputs map[address.Address][]*balance.Balance) map[balan
 
 	for _, balances := range outputs {
 		for _, bal := range balances {
-			totals[bal.Color()] += bal.Value()
+			totals[bal.Color] += bal.Value
 		}
 	}
 

@@ -38,8 +38,8 @@ func Handler(c echo.Context) error {
 				var b []utils.Balance
 				for _, balance := range output.Balances() {
 					b = append(b, utils.Balance{
-						Value: balance.Value(),
-						Color: balance.Color().String(),
+						Value: balance.Value,
+						Color: balance.Color.String(),
 					})
 				}
 

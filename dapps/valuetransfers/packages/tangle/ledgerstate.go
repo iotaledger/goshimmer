@@ -25,7 +25,7 @@ func (ledgerState *LedgerState) Balances(address address.Address) (coloredBalanc
 	ledgerState.tangle.OutputsOnAddress(address).Consume(func(output *Output) {
 		if output.ConsumerCount() == 0 {
 			for _, coloredBalance := range output.Balances() {
-				coloredBalances[coloredBalance.Color()] += coloredBalance.Value()
+				coloredBalances[coloredBalance.Color] += coloredBalance.Value
 			}
 		}
 	})

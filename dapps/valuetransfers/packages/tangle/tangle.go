@@ -165,9 +165,6 @@ func (tangle *Tangle) BranchManager() *branchmanager.BranchManager {
 	return tangle.branchManager
 }
 
-// Snapshot defines a snapshot of the ledger state.
-type Snapshot map[transaction.ID]map[address.Address][]*balance.Balance
-
 // LoadSnapshot creates a set of outputs in the value tangle, that are forming the genesis for future transactions.
 func (tangle *Tangle) LoadSnapshot(snapshot Snapshot) {
 	for transactionID, addressBalances := range snapshot {
@@ -1520,9 +1517,9 @@ func (tangle *Tangle) retrieveConsumedInputDetails(tx *transaction.Transaction) 
 		// calculate the input balances
 		for _, inputBalance := range input.Balances() {
 			var newBalance int64
-			if currentBalance, balanceExists := consumedBalances[inputBalance.Color()]; balanceExists {
+			if currentBalance, balanceExists := consumedBalances[inputBalance.Color]; balanceExists {
 				// check overflows in the numbers
-				if inputBalance.Value() > math.MaxInt64-currentBalance {
+				if inputBalance.Value > math.MaxInt64-currentBalance {
 					// TODO: make it an explicit error var
 					err = fmt.Errorf("buffer overflow in balances of inputs")
 
@@ -1531,11 +1528,11 @@ func (tangle *Tangle) retrieveConsumedInputDetails(tx *transaction.Transaction) 
 					return
 				}
 
-				newBalance = currentBalance + inputBalance.Value()
+				newBalance = currentBalance + inputBalance.Value
 			} else {
-				newBalance = inputBalance.Value()
+				newBalance = inputBalance.Value
 			}
-			consumedBalances[inputBalance.Color()] = newBalance
+			consumedBalances[inputBalance.Color] = newBalance
 		}
 	}
 	inputsSolid = true
@@ -1556,51 +1553,51 @@ func (tangle *Tangle) checkTransactionOutputs(inputBalances map[balance.Color]in
 	aborted := !outputs.ForEach(func(address address.Address, balances []*balance.Balance) bool {
 		for _, outputBalance := range balances {
 			// abort if the output creates a negative or empty output
-			if outputBalance.Value() <= 0 {
+			if outputBalance.Value <= 0 {
 				return false
 			}
 
 			// sidestep logic if we have a newly colored output (we check the supply later)
-			if outputBalance.Color() == balance.ColorNew {
+			if outputBalance.Color == balance.ColorNew {
 				// catch overflows
-				if newlyColoredCoins > math.MaxInt64-outputBalance.Value() {
+				if newlyColoredCoins > math.MaxInt64-outputBalance.Value {
 					return false
 				}
 
-				newlyColoredCoins += outputBalance.Value()
+				newlyColoredCoins += outputBalance.Value
 
 				continue
 			}
 
 			// sidestep logic if we have ColorIOTA
-			if outputBalance.Color() == balance.ColorIOTA {
+			if outputBalance.Color == balance.ColorIOTA {
 				// catch overflows
-				if uncoloredCoins > math.MaxInt64-outputBalance.Value() {
+				if uncoloredCoins > math.MaxInt64-outputBalance.Value {
 					return false
 				}
 
-				uncoloredCoins += outputBalance.Value()
+				uncoloredCoins += outputBalance.Value
 
 				continue
 			}
 
 			// check if the used color does not exist in our supply
-			availableBalance, spentColorExists := inputBalances[outputBalance.Color()]
+			availableBalance, spentColorExists := inputBalances[outputBalance.Color]
 			if !spentColorExists {
 				return false
 			}
 
 			// abort if we spend more coins of the given color than we have
-			if availableBalance < outputBalance.Value() {
+			if availableBalance < outputBalance.Value {
 				return false
 			}
 
 			// subtract the spent coins from the supply of this color
-			inputBalances[outputBalance.Color()] -= outputBalance.Value()
+			inputBalances[outputBalance.Color] -= outputBalance.Value
 
 			// cleanup empty map entries (we have exhausted our funds)
-			if inputBalances[outputBalance.Color()] == 0 {
-				delete(inputBalances, outputBalance.Color())
+			if inputBalances[outputBalance.Color] == 0 {
+				delete(inputBalances, outputBalance.Color)
 			}
 		}
 
