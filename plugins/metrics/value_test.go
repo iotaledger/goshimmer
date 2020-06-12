@@ -2,7 +2,10 @@ package metrics
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
+
+	"github.com/iotaledger/goshimmer/packages/metrics"
 
 	"github.com/iotaledger/hive.go/events"
 
@@ -23,13 +26,13 @@ func TestReceivedTransactionsPerSecond(t *testing.T) {
 		increaseReceivedTPSCounter()
 	}
 
-	assert.Equal(t, ReceivedTransactionsPerSecond(), (uint64)(10))
+	assert.Equal(t, TPS(), (uint64)(10))
 	// measure at t=2s
 	measureReceivedTPS()
-	assert.Equal(t, ReceivedTransactionsPerSecond(), (uint64)(5))
+	assert.Equal(t, TPS(), (uint64)(5))
 	// measure at t=3s
 	measureReceivedTPS()
-	assert.Equal(t, ReceivedTransactionsPerSecond(), (uint64)(0))
+	assert.Equal(t, TPS(), (uint64)(0))
 }
 
 func TestReceivedTPSUpdatedEvent(t *testing.T) {
@@ -45,4 +48,17 @@ func TestReceivedTPSUpdatedEvent(t *testing.T) {
 	wg.Add(1)
 	measureReceivedTPS()
 	wg.Wait()
+}
+
+func TestValueTips(t *testing.T) {
+	var wg sync.WaitGroup
+	metrics.Events().ValueTips.Attach(events.NewClosure(func(tips uint64) {
+		atomic.StoreUint64(&valueTips, tips)
+		wg.Done()
+	}))
+	wg.Add(1)
+	measureValueTips()
+	wg.Wait()
+	assert.Equal(t, ValueTips(), (uint64)(0))
+
 }

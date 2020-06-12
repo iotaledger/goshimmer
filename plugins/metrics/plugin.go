@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"sync/atomic"
-	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
@@ -30,6 +29,7 @@ var log *logger.Logger
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
+
 	//// Events declared in other packages which we want to listen to here ////
 
 	// increase received MPS counter whenever we attached a message
@@ -47,11 +47,12 @@ func configure(_ *node.Plugin) {
 	}))
 
 	//// Events coming from metrics package ////
+
 	metrics.Events().FPCInboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
-		atomic.AddUint64(_FPCInboundBytes, amountBytes)
+		atomic.AddUint64(&_FPCInboundBytes, amountBytes)
 	}))
 	metrics.Events().FPCOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
-		atomic.AddUint64(_FPCOutboundBytes, amountBytes)
+		atomic.AddUint64(&_FPCOutboundBytes, amountBytes)
 	}))
 	metrics.Events().CPUUsage.Attach(events.NewClosure(func(cpuPercent float64) {
 		cpuLock.Lock()
@@ -68,16 +69,20 @@ func configure(_ *node.Plugin) {
 		defer syncLock.Unlock()
 		isSynced = synced
 	}))
+	metrics.Events().ValueTips.Attach(events.NewClosure(func(tipsCount uint64) {
+		atomic.StoreUint64(&valueTips, tipsCount)
+	}))
 }
 
 func run(_ *node.Plugin) {
 	// create a background worker that "measures" the MPS value every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
-		timeutil.Ticker(measureReceivedMPS, 1*time.Second, shutdownSignal)
-		timeutil.Ticker(measureReceivedTPS, 1*time.Second, shutdownSignal)
-		timeutil.Ticker(measureCPUUsage, 1*time.Second, shutdownSignal)
-		timeutil.Ticker(measureMemUsage, 1*time.Second, shutdownSignal)
-		timeutil.Ticker(measureSynced, 1*time.Second, shutdownSignal)
+		timeutil.Ticker(measureReceivedMPS, MPSMeasurementInterval, shutdownSignal)
+		timeutil.Ticker(measureReceivedTPS, TPSMeasurementInterval, shutdownSignal)
+		timeutil.Ticker(measureValueTips, ValueTipsMeasurementInterval, shutdownSignal)
+		timeutil.Ticker(measureCPUUsage, CPUUsageMeasurementInterval, shutdownSignal)
+		timeutil.Ticker(measureMemUsage, MemUsageMeasurementInterval, shutdownSignal)
+		timeutil.Ticker(measureSynced, SyncedMeasurementInterval, shutdownSignal)
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}

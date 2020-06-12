@@ -11,6 +11,7 @@ type CollectionEvents struct {
 	CPUUsage         *events.Event
 	MemUsage         *events.Event
 	Synced           *events.Event
+	ValueTips        *events.Event
 }
 
 func uint64Caller(handler interface{}, params ...interface{}) {

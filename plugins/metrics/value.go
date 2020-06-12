@@ -1,9 +1,14 @@
 package metrics
 
-import "sync/atomic"
+import (
+	"sync/atomic"
 
-// ReceivedTransactionsPerSecond retrieves the current transactions (value payloads) per second number.
-func ReceivedTransactionsPerSecond() uint64 {
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
+	"github.com/iotaledger/goshimmer/packages/metrics"
+)
+
+// TPS retrieves the current transactions (value payloads) per second number.
+func TPS() uint64 {
 	return atomic.LoadUint64(&measuredReceivedTPS)
 }
 
@@ -12,6 +17,9 @@ var tpsReceivedSinceLastMeasurement uint64
 
 // measured value of the received MPS
 var measuredReceivedTPS uint64
+
+// current number of value tips
+var valueTips uint64
 
 // increases the received TPS counter
 func increaseReceivedTPSCounter() {
@@ -31,4 +39,13 @@ func measureReceivedTPS() {
 
 	// trigger events for outside listeners
 	Events.ReceivedTPSUpdated.Trigger(sampledTPS)
+}
+
+func measureValueTips() {
+	metrics.Events().ValueTips.Trigger((uint64)(valuetransfers.TipManager().Size()))
+}
+
+// ValueTips returns the actual number of tips in the value tangle.
+func ValueTips() uint64 {
+	return atomic.LoadUint64(&valueTips)
 }
