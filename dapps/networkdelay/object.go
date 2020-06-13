@@ -9,12 +9,15 @@ import (
 	"github.com/mr-tron/base58"
 )
 
+// ID represents a 32 byte ID of a network delay object.
 type ID [32]byte
 
+// String returns a human-friendly representation of the ID.
 func (id ID) String() string {
 	return base58.Encode(id[:])
 }
 
+// Object represents the network delay object type.
 type Object struct {
 	id       ID
 	sentTime int64
@@ -23,6 +26,7 @@ type Object struct {
 	bytesMutex sync.RWMutex
 }
 
+// NewObject creates a new  network delay object.
 func NewObject(id ID, sentTime int64) *Object {
 	return &Object{
 		id:       id,
@@ -30,8 +34,8 @@ func NewObject(id ID, sentTime int64) *Object {
 	}
 }
 
-// FromBytes parses the marshaled version of a Payload into an object.
-// It either returns a new Payload or fills an optionally provided Payload with the parsed information.
+// FromBytes parses the marshaled version of an Object into a Go object.
+// It either returns a new Object or fills an optionally provided Object with the parsed information.
 func FromBytes(bytes []byte, optionalTargetObject ...*Object) (result *Object, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = Parse(marshalUtil, optionalTargetObject...)
@@ -40,7 +44,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Object) (result *Object, c
 	return
 }
 
-// Parse unmarshals a Payload using the given marshalUtil (for easier marshaling/unmarshaling).
+// Parse unmarshals an Object using the given marshalUtil (for easier marshaling/unmarshaling).
 func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTarget ...*Object) (result *Object, err error) {
 	// determine the target that will hold the unmarshaled information
 	switch len(optionalTarget) {
@@ -115,6 +119,7 @@ func (o *Object) Bytes() (bytes []byte) {
 	return
 }
 
+// String returns a human-friendly representation of the Object.
 func (o *Object) String() string {
 	return stringify.Struct("NetworkDelayObject",
 		stringify.StructField("id", o.id),
@@ -124,6 +129,7 @@ func (o *Object) String() string {
 
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
+// Type represents the identifier which addresses the network delay Object type.
 const Type = payload.Type(189)
 
 // Type returns the type of the Object.
@@ -131,6 +137,7 @@ func (o *Object) Type() payload.Type {
 	return Type
 }
 
+// Unmarshal unmarshals the payload from the given bytes.
 func (o *Object) Unmarshal(data []byte) (err error) {
 	_, _, err = FromBytes(data, o)
 
@@ -147,6 +154,3 @@ func init() {
 }
 
 // // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// define contract (ensure that the struct fulfills the corresponding interface)
-var _ payload.Payload = &Object{}

@@ -1,11 +1,16 @@
 package networkdelay
 
 import (
+	"encoding/json"
+	"fmt"
+	"net"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	messageTangle "github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/remotelog"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -14,28 +19,35 @@ import (
 const (
 	// PluginName contains the human readable name of the plugin.
 	PluginName = "NetworkDelay"
+
+	remoteLogType = "networkdelay"
 )
 
 var (
 	// App is the "plugin" instance of the network delay application.
-	App = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	App = node.NewPlugin(PluginName, node.Disabled, configure)
 
 	// log holds a reference to the logger used by this app.
 	log *logger.Logger
+
+	remoteLogConnection net.Conn
+	myID                string
 )
 
 func configure(_ *node.Plugin) {
 	// configure logger
 	log = logger.NewLogger(PluginName)
 
+	remoteLogConnection = remotelog.Connection()
+
+	if local.GetInstance() != nil {
+		myID = local.GetInstance().ID().String()
+	}
+
 	configureWebAPI()
 
 	// subscribe to message-layer
 	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
-}
-
-func run(_ *node.Plugin) {
-
 }
 
 func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cachedMessageMetadata *messageTangle.CachedMessageMetadata) {
@@ -61,7 +73,38 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 		return
 	}
 
-	log.Info("Received: ", networkDelayObject)
 	now := time.Now().UnixNano()
-	log.Infof("local time: %d, delta: %d", now, now-networkDelayObject.sentTime)
+
+	// abort if message was sent more than 1min ago
+	// this should only happen due to a node resyncing
+	fmt.Println(time.Duration(now-networkDelayObject.sentTime), time.Minute)
+	if time.Duration(now-networkDelayObject.sentTime) > time.Minute {
+		log.Debugf("Received network delay message with >1min delay\n%s", networkDelayObject)
+		return
+	}
+
+	sendToRemoteLog(networkDelayObject, now)
+}
+
+func sendToRemoteLog(networkDelayObject *Object, receiveTime int64) {
+	m := networkDelay{
+		NodeID:      myID,
+		ID:          networkDelayObject.id.String(),
+		SentTime:    networkDelayObject.sentTime,
+		ReceiveTime: receiveTime,
+		Delta:       receiveTime - networkDelayObject.sentTime,
+		Type:        remoteLogType,
+	}
+	b, _ := json.Marshal(m)
+	fmt.Fprint(remoteLogConnection, string(b))
+	fmt.Println(string(b))
+}
+
+type networkDelay struct {
+	NodeID      string `json:"nodeId"`
+	ID          string `json:"id"`
+	SentTime    int64  `json:"sentTime"`
+	ReceiveTime int64  `json:"receiveTime"`
+	Delta       int64  `json:"delta"`
+	Type        string `json:"type"`
 }
