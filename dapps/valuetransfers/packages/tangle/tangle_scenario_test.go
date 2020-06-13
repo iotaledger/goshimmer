@@ -30,8 +30,9 @@ const (
 	Y
 )
 
-// TODO: clean up create scenario
+// TODO: clean up create scenario with some helper functions: DRY!
 
+// preparePropagationScenario1 creates a tangle according to `img/scenario1.png`.
 func preparePropagationScenario1(t *testing.T) (*Tangle, map[string]*transaction.Transaction, map[string]*payload.Payload, map[string]branchmanager.BranchID, *wallet.Seed) {
 	// create tangle
 	tangle := New(mapdb.NewMapDB())
@@ -496,6 +497,7 @@ func preparePropagationScenario1(t *testing.T) (*Tangle, map[string]*transaction
 	return tangle, transactions, valueObjects, branches, seed
 }
 
+// preparePropagationScenario1 creates a tangle according to `img/scenario2.png`.
 func preparePropagationScenario2(t *testing.T) (*Tangle, map[string]*transaction.Transaction, map[string]*payload.Payload, map[string]branchmanager.BranchID, *wallet.Seed) {
 	tangle, transactions, valueObjects, branches, seed := preparePropagationScenario1(t)
 
@@ -729,6 +731,8 @@ func preparePropagationScenario2(t *testing.T) (*Tangle, map[string]*transaction
 }
 
 func TestPropagationScenario1(t *testing.T) {
+	// img/scenario1.png
+
 	// test past cone monotonicity - all value objects MUST be confirmed
 	{
 		tangle, transactions, valueObjects, _, _ := preparePropagationScenario1(t)
@@ -892,6 +896,7 @@ func TestPropagationScenario1(t *testing.T) {
 }
 
 func TestPropagationScenario2(t *testing.T) {
+	// img/scenario2.png
 	tangle, transactions, valueObjects, branches, _ := preparePropagationScenario2(t)
 
 	// initialize debugger for this test
@@ -958,13 +963,15 @@ func TestPropagationScenario2(t *testing.T) {
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-C, H+]"], true)
 	setTransactionFinalizedWithCheck(t, tangle, transactions["[-C, H+]"])
 
-	verifyBranchState(t, tangle, branches["AC"], true, true, true, false)
 	verifyInclusionState(t, tangle, valueObjects["[-C, H+]"], true, true, true, true, false)
 	verifyBranchState(t, tangle, branches["C"], true, true, true, false)
+	verifyBranchState(t, tangle, branches["AC"], true, true, true, false)
 
 	verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], false, true, false, false, true)
 	verifyBranchState(t, tangle, branches["D"], true, false, false, true)
 	verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], false, true, false, false, true)
+	verifyBranchState(t, tangle, branches["BD"], true, false, false, true)
+	// TODO: BD is not finalized
 
 	// [-H, -D, I+] should now be liked
 	verifyInclusionState(t, tangle, valueObjects["[-H, -D, I+]"], true, false, true, false, false)
@@ -978,8 +985,10 @@ func TestPropagationScenario2(t *testing.T) {
 	setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, J+]"])
 	verifyInclusionState(t, tangle, valueObjects["[-B, J+]"], true, true, true, true, false)
 	verifyBranchState(t, tangle, branches["E"], true, true, true, false)
+	verifyBranchState(t, tangle, branches["ACE"], true, true, true, false)
 }
 
+// verifyBranchState verifies the the branch state according to the given parameters.
 func verifyBranchState(t *testing.T, tangle *Tangle, id branchmanager.BranchID, finalized, liked, confirmed, rejected bool) {
 	assert.True(t, tangle.branchManager.Branch(id).Consume(func(branch *branchmanager.Branch) {
 		assert.Equalf(t, finalized, branch.Finalized(), "branch finalized state does not match")
@@ -989,6 +998,8 @@ func verifyBranchState(t *testing.T, tangle *Tangle, id branchmanager.BranchID, 
 		assert.Equalf(t, rejected, branch.Rejected(), "branch rejected state does not match")
 	}))
 }
+
+// verifyInclusionState verifies the inclusion state of outputs and transaction according to the given parameters.
 func verifyTransactionInclusionState(t *testing.T, tangle *Tangle, valueObject *payload.Payload, preferred, finalized, liked, confirmed, rejected bool) {
 	tx := valueObject.Transaction()
 
@@ -1013,6 +1024,7 @@ func verifyTransactionInclusionState(t *testing.T, tangle *Tangle, valueObject *
 	}))
 }
 
+// verifyValueObjectInclusionState verifies the inclusion state of a value object according to the given parameters.
 func verifyValueObjectInclusionState(t *testing.T, tangle *Tangle, valueObject *payload.Payload, liked, confirmed, rejected bool) {
 	assert.True(t, tangle.PayloadMetadata(valueObject.ID()).Consume(func(payloadMetadata *PayloadMetadata) {
 		assert.Equalf(t, liked, payloadMetadata.Liked(), "value object liked state does not match")
@@ -1021,16 +1033,20 @@ func verifyValueObjectInclusionState(t *testing.T, tangle *Tangle, valueObject *
 	}))
 }
 
+// verifyInclusionState verifies the inclusion state of outputs, transaction and value object according to the given parameters.
 func verifyInclusionState(t *testing.T, tangle *Tangle, valueObject *payload.Payload, preferred, finalized, liked, confirmed, rejected bool) {
 	verifyTransactionInclusionState(t, tangle, valueObject, preferred, finalized, liked, confirmed, rejected)
 	verifyValueObjectInclusionState(t, tangle, valueObject, liked, confirmed, rejected)
 }
 
+// setTransactionPreferredWithCheck sets the transaction to preferred and makes sure that no error occurred and it's modified.
 func setTransactionPreferredWithCheck(t *testing.T, tangle *Tangle, tx *transaction.Transaction, preferred bool) {
 	modified, err := tangle.SetTransactionPreferred(tx.ID(), preferred)
 	require.NoError(t, err)
 	assert.True(t, modified)
 }
+
+// setTransactionFinalizedWithCheck sets the transaction to finalized and makes sure that no error occurred and it's modified.
 func setTransactionFinalizedWithCheck(t *testing.T, tangle *Tangle, tx *transaction.Transaction) {
 	modified, err := tangle.SetTransactionFinalized(tx.ID())
 	require.NoError(t, err)

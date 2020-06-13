@@ -31,15 +31,6 @@ func TestSetTransactionPreferred(t *testing.T) {
 	assert.True(t, modified)
 }
 
-func TestPropagateValuePayloadLikeUpdates(t *testing.T) {
-
-}
-
-//TODO: missing propagateValuePayloadConfirmedUpdates (not yet implemented)
-
-func TestSetTransactionFinalized(t *testing.T) {
-}
-
 // TestBookTransaction tests the following cases:
 // - missing output
 // - transaction already booked by another process
@@ -491,7 +482,7 @@ func TestStoreTransactionModels(t *testing.T) {
 		})
 
 		// check created consumers
-		// TODO: only reason that there could be multiple consumers = conflict, e.g. 2 tx use same inputs?
+		// only reason that there could be multiple consumers = conflict, e.g. 2 tx use same inputs?
 		tx.Inputs().ForEach(func(inputId transaction.OutputID) bool {
 			expectedConsumer := NewConsumer(inputId, tx.ID())
 			tangle.Consumers(inputId).Consume(func(consumer *Consumer) {
@@ -1228,8 +1219,8 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		metadata.SetBranchID(branchmanager.MasterBranchID)
 
 		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
-		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
-		assert.True(t, solid)
+		solid, err := tangle.payloadBecameNewlySolid(valueObject, metadata, transactionBranches)
+		assert.False(t, solid)
 		assert.NoError(t, err)
 	}
 
@@ -1239,7 +1230,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		metadata := NewPayloadMetadata(valueObject.ID())
 
 		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
-		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		solid, err := tangle.payloadBecameNewlySolid(valueObject, metadata, transactionBranches)
 		assert.True(t, solid)
 		assert.NoError(t, err)
 	}
@@ -1255,7 +1246,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		metadata := NewPayloadMetadata(valueObject.ID())
 
 		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
-		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		solid, err := tangle.payloadBecameNewlySolid(valueObject, metadata, transactionBranches)
 		assert.True(t, solid)
 		assert.NoError(t, err)
 	}
@@ -1270,22 +1261,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		metadata := NewPayloadMetadata(valueObject.ID())
 
 		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
-		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
-		assert.False(t, solid)
-		assert.NoError(t, err)
-	}
-
-	// check with non-solid parents but branch set -> should not be solid
-	{
-		setParent := func(payloadMetadata *PayloadMetadata) {
-			payloadMetadata.SetBranchID(branchmanager.MasterBranchID)
-		}
-
-		valueObject := payload.New(storeParentPayloadWithMetadataFunc(t, tangle, setParent), storeParentPayloadWithMetadataFunc(t, tangle, setParent), createDummyTransaction())
-		metadata := NewPayloadMetadata(valueObject.ID())
-
-		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
-		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		solid, err := tangle.payloadBecameNewlySolid(valueObject, metadata, transactionBranches)
 		assert.False(t, solid)
 		assert.NoError(t, err)
 	}
@@ -1310,7 +1286,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		metadata := NewPayloadMetadata(valueObject.ID())
 
 		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
-		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		solid, err := tangle.payloadBecameNewlySolid(valueObject, metadata, transactionBranches)
 		assert.False(t, solid)
 		assert.Error(t, err)
 	}
@@ -1335,7 +1311,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		metadata := NewPayloadMetadata(valueObject.ID())
 
 		transactionBranches := []branchmanager.BranchID{{2}}
-		solid, err := tangle.checkPayloadSolidity(valueObject, metadata, transactionBranches)
+		solid, err := tangle.payloadBecameNewlySolid(valueObject, metadata, transactionBranches)
 		assert.False(t, solid)
 		assert.Error(t, err)
 	}

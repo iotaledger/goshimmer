@@ -83,7 +83,7 @@ func newEvents() *Events {
 		PayloadInvalid:         events.NewEvent(cachedPayloadErrorEvent),
 		PayloadUnsolidifiable:  events.NewEvent(payloadIDEvent),
 		TransactionReceived:    events.NewEvent(cachedTransactionAttachmentEvent),
-		TransactionInvalid:     events.NewEvent(cachedTransactionEvent),
+		TransactionInvalid:     events.NewEvent(cachedTransactionErrorEvent),
 		TransactionSolid:       events.NewEvent(cachedTransactionEvent),
 		TransactionBooked:      events.NewEvent(transactionBookedEvent),
 		TransactionPreferred:   events.NewEvent(cachedTransactionEvent),
@@ -138,6 +138,14 @@ func cachedTransactionEvent(handler interface{}, params ...interface{}) {
 	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata))(
 		params[0].(*transaction.CachedTransaction).Retain(),
 		params[1].(*CachedTransactionMetadata).Retain(),
+	)
+}
+
+func cachedTransactionErrorEvent(handler interface{}, params ...interface{}) {
+	handler.(func(*transaction.CachedTransaction, *CachedTransactionMetadata, error))(
+		params[0].(*transaction.CachedTransaction).Retain(),
+		params[1].(*CachedTransactionMetadata).Retain(),
+		params[2].(error),
 	)
 }
 
