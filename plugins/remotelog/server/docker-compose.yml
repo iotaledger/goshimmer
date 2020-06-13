@@ -4,6 +4,7 @@ services:
   elasticsearch:
     container_name: elasticsearch
     image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
+    restart: always
     volumes:
       - type: bind
         source: ./config/elasticsearch.yml
@@ -23,6 +24,7 @@ services:
   logstash:
     container_name: logstash
     image: docker.elastic.co/logstash/logstash:${ELK_VERSION}
+    restart: always
     volumes:
       - type: bind
         source: ./config/logstash/logstash.yml
@@ -44,13 +46,18 @@ services:
   kibana:
     container_name: kibana
     image: docker.elastic.co/kibana/kibana:${ELK_VERSION}
+    restart: always
     volumes:
       - type: bind
         source: ./config/kibana.yml
         target: /usr/share/kibana/config/kibana.yml
         read_only: true
     ports:
-      - "5601:5601"
+      - "127.0.0.1:5601:5601"
+    environment:
+      - "VIRTUAL_HOST=${VIRTUAL_HOST}"
+      - "LETSENCRYPT_HOST=${LETSENCRYPT_HOST}"
+      - "VIRTUAL_PORT=5601"
     networks:
       - elk
     depends_on:
