@@ -94,6 +94,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				}
 				return strings.Join(plugins[:], ",")
 			}()),
+			fmt.Sprintf("--valueLayer.snapshot.file=%s", config.SnapshotFilePath),
 			fmt.Sprintf("--bootstrap.initialIssuance.timePeriodSec=%d", config.BootstrapInitialIssuanceTimePeriodSec),
 			"--webapi.bindAddress=0.0.0.0:8080",
 			fmt.Sprintf("--autopeering.seed=base58:%s", config.Seed),
@@ -105,7 +106,9 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 		},
 	}
 
-	return d.CreateContainer(config.Name, containerConfig)
+	return d.CreateContainer(config.Name, containerConfig, &container.HostConfig{
+		Binds: []string{"goshimmer-testing-assets:/assets:rw"},
+	})
 }
 
 // CreateDrandMember creates a new container with the drand configuration.

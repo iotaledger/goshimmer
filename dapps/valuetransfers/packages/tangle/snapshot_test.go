@@ -43,7 +43,7 @@ func TestLoadSnapshot(t *testing.T) {
 }
 
 func TestSnapshotMarshalUnmarshal(t *testing.T) {
-	const genesisBalance = 3333
+	const genesisBalance = 1000000000
 	seed := wallet.NewSeed()
 	genesisAddr := seed.Address(GENESIS)
 
