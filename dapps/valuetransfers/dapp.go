@@ -94,8 +94,8 @@ func configure(_ *node.Plugin) {
 		log.Errorf("FPC failed for transaction with id '%s' - last opinion: '%s'", id, lastOpinion)
 	}))
 
-	// register MessageFilter in Parser
-	messagelayer.MessageParser.AddMessageFilter(tangle.NewMessageFilter())
+	// register SignatureFilter in Parser
+	messagelayer.MessageParser.AddMessageFilter(tangle.NewSignatureFilter())
 
 	// subscribe to message-layer
 	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
