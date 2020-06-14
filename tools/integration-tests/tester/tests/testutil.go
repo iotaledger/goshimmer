@@ -1,8 +1,11 @@
 package tests
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -11,9 +14,14 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
+
+var (
+	ErrTransactionNotAvailableInTime = errors.New("transaction was not available in time")
 )
 
 // DataMessageSent defines a struct to identify from which issuer a data message was sent.
@@ -346,8 +354,63 @@ func CheckBalances(t *testing.T, peers []*framework.Peer, addrBalance map[string
 	}
 }
 
-// CheckTransactions performs checks to make sure that all peers have received all transactions .
-func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs []string, checkSynchronized bool) {
+// CheckAddressOutputsFullyConsumed performs checks to make sure that on all given peers,
+// the given addresses have no UTXOs.
+func CheckAddressOutputsFullyConsumed(t *testing.T, peers []*framework.Peer, addrs []string) {
+	for _, peer := range peers {
+		resp, err := peer.GetUnspentOutputs(addrs)
+		assert.NoError(t, err)
+		assert.Len(t, resp.Error, 0)
+		for i, utxos := range resp.UnspentOutputs {
+			assert.Len(t, utxos.OutputIDs, 0, "address %s should not have any UTXOs", addrs[i])
+		}
+	}
+}
+
+// ExpectedInclusionState is an expected inclusion state.
+// All fields are optional.
+type ExpectedInclusionState struct {
+	// The optional confirmed state to check against.
+	Confirmed *bool
+	// The optional finalized state to check against.
+	Finalized *bool
+	// The optional conflict state to check against.
+	Conflict *bool
+	// The optional solid state to check against.
+	Solid *bool
+	// The optional rejected state to check against.
+	Rejected *bool
+	// The optional liked state to check against.
+	Liked *bool
+}
+
+// True returns a pointer to a true bool.
+func True() *bool {
+	x := true
+	return &x
+}
+
+// False returns a pointer to a false bool.
+func False() *bool {
+	x := false
+	return &x
+}
+
+// ExpectedTransaction defines the expected data of a transaction.
+// All fields are optional.
+type ExpectedTransaction struct {
+	// The optional input IDs to check against.
+	Inputs *[]string
+	// The optional outputs to check against.
+	Outputs *[]utils.Output
+	// The optional signature to check against.
+	Signature *[]byte
+}
+
+// CheckTransactions performs checks to make sure that all peers have received all transactions.
+// Optionally takes an expected inclusion state for all supplied transaction IDs and expected transaction
+// data per transaction ID.
+func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map[string]*ExpectedTransaction, checkSynchronized bool, expectedInclusionState ExpectedInclusionState) {
 	for _, peer := range peers {
 		if checkSynchronized {
 			// check that the peer sees itself as synchronized
@@ -356,14 +419,68 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs []s
 			require.True(t, info.Synced)
 		}
 
-		for _, txId := range transactionIDs {
+		for txId, expectedTransaction := range transactionIDs {
 			resp, err := peer.GetTransactionByID(txId)
 			require.NoError(t, err)
 
 			// check inclusion state
-			assert.True(t, resp.InclusionState.Confirmed)
+			if expectedInclusionState.Confirmed != nil {
+				assert.Equal(t, *expectedInclusionState.Confirmed, resp.InclusionState.Confirmed, "confirmed state doesn't match")
+			}
+			if expectedInclusionState.Conflict != nil {
+				assert.Equal(t, *expectedInclusionState.Conflict, resp.InclusionState.Conflict, "conflict state doesn't match")
+			}
+			if expectedInclusionState.Solid != nil {
+				assert.Equal(t, *expectedInclusionState.Solid, resp.InclusionState.Solid, "solid state doesn't match")
+			}
+			if expectedInclusionState.Rejected != nil {
+				assert.Equal(t, *expectedInclusionState.Rejected, resp.InclusionState.Rejected, "rejected state doesn't match")
+			}
+			if expectedInclusionState.Liked != nil {
+				assert.Equal(t, *expectedInclusionState.Liked, resp.InclusionState.Liked, "liked state doesn't match")
+			}
+
+			if expectedTransaction != nil {
+				if expectedTransaction.Inputs != nil {
+					assert.Equal(t, *expectedTransaction.Inputs, resp.Transaction.Inputs, "inputs do not match")
+				}
+				if expectedTransaction.Outputs != nil {
+					assert.Equal(t, *expectedTransaction.Outputs, resp.Transaction.Outputs, "outputs do not match")
+				}
+				if expectedTransaction.Signature != nil {
+					assert.Equal(t, *expectedTransaction.Signature, resp.Transaction.Signature, "signatures do not match")
+				}
+			}
 		}
 	}
+}
+
+// AwaitTransactionAvailability awaits until the given transaction IDs become available on all given peers or
+// the max duration is reached.
+func AwaitTransactionAvailability(peers []*framework.Peer, transactionIDs []string, maxAwait time.Duration) error {
+	s := time.Now()
+	for ; time.Since(s) < maxAwait; {
+		var wg sync.WaitGroup
+		wg.Add(len(peers))
+		counter := int32(len(peers) * len(transactionIDs))
+		for _, p := range peers {
+			go func(p *framework.Peer) {
+				defer wg.Done()
+				for _, txID := range transactionIDs {
+					_, err := p.GetTransactionByID(txID)
+					if err == nil {
+						atomic.AddInt32(&counter, -1)
+					}
+				}
+			}(p)
+		}
+		wg.Wait()
+		if counter == 0 {
+			// everything available
+			return nil
+		}
+	}
+	return ErrTransactionNotAvailableInTime
 }
 
 // ShutdownNetwork shuts down the network and reports errors.

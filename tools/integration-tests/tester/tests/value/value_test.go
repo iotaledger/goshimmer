@@ -18,26 +18,36 @@ func TestValueIotaPersistence(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// master node sends funds to all peers in the network
-	txIds, addrBalance := tests.SendValueMessagesOnFaucet(t, n.Peers())
+	txIdsSlice, addrBalance := tests.SendValueMessagesOnFaucet(t, n.Peers())
+	txIds := make(map[string]*tests.ExpectedTransaction)
+	for _, txID := range txIdsSlice {
+		txIds[txID] = nil
+	}
 
 	// wait for messages to be gossiped
 	time.Sleep(10 * time.Second)
 
 	// check whether the first issued transaction is available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true)
+	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
+		Confirmed: tests.True(),
+	})
 
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
 	// send value message randomly
 	randomTxIds := tests.SendValueMessagesOnRandomPeer(t, n.Peers(), addrBalance, 10)
-	txIds = append(txIds, randomTxIds...)
+	for _, randomTxId := range randomTxIds {
+		txIds[randomTxId] = nil
+	}
 
 	// wait for messages to be gossiped
 	time.Sleep(10 * time.Second)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true)
+	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
+		Confirmed: tests.True(),
+	})
 
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
@@ -58,7 +68,9 @@ func TestValueIotaPersistence(t *testing.T) {
 	time.Sleep(10 * time.Second)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true)
+	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
+		Confirmed: tests.True(),
+	})
 
 	// 5. check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
@@ -74,26 +86,36 @@ func TestValueColoredPersistence(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// master node sends funds to all peers in the network
-	txIds, addrBalance := tests.SendValueMessagesOnFaucet(t, n.Peers())
+	txIdsSlice, addrBalance := tests.SendValueMessagesOnFaucet(t, n.Peers())
+	txIds := make(map[string]*tests.ExpectedTransaction)
+	for _, txID := range txIdsSlice {
+		txIds[txID] = nil
+	}
 
 	// wait for messages to be gossiped
 	time.Sleep(10 * time.Second)
 
 	// check whether the transactions are available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true)
+	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
+		Confirmed: tests.True(),
+	})
 
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
 	// send funds around
 	randomTxIds := tests.SendColoredValueMessagesOnRandomPeer(t, n.Peers(), addrBalance, 10)
-	txIds = append(txIds, randomTxIds...)
+	for _, randomTxId := range randomTxIds {
+		txIds[randomTxId] = nil
+	}
 
 	// wait for value messages to be gossiped
 	time.Sleep(10 * time.Second)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true)
+	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
+		Confirmed: tests.True(),
+	})
 
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
@@ -114,7 +136,9 @@ func TestValueColoredPersistence(t *testing.T) {
 	time.Sleep(10 * time.Second)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true)
+	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
+		Confirmed: tests.True(),
+	})
 
 	// 5. check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)

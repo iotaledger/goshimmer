@@ -67,4 +67,7 @@ type InclusionState struct {
 	Confirmed bool `json:"confirmed,omitempty"`
 	Conflict  bool `json:"conflict,omitempty"`
 	Liked     bool `json:"liked,omitempty"`
+	Solid     bool `json:"solid,omitempty"`
+	Rejected  bool `json:"rejected,omitempty"`
+	Finalized bool `json:"finalized,omitempty"`
 }

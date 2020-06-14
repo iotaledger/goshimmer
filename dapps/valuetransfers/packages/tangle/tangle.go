@@ -167,6 +167,7 @@ func (tangle *Tangle) BranchManager() *branchmanager.BranchManager {
 
 // LoadSnapshot creates a set of outputs in the value tangle, that are forming the genesis for future transactions.
 func (tangle *Tangle) LoadSnapshot(snapshot Snapshot) {
+	// TODO: snapshot should also reflect the consumers of transactions
 	for transactionID, addressBalances := range snapshot {
 		for outputAddress, balances := range addressBalances {
 			input := NewOutput(outputAddress, transactionID, branchmanager.MasterBranchID, balances)
