@@ -18,14 +18,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestConsensusConflicts issues valid conflicting value objects and makes sure that
-// the conflicts are resolved via FPC.
-func TestConsensusConflicts(t *testing.T) {
+// TestConsensusFiftyFiftyOpinionSplit spawns two network partitions with their own peers,
+// then issues valid value objects spending the genesis in both, deletes the partitions (and lets them merge)
+// and then checks that the conflicts are resolved via FPC.
+func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	n, err := f.CreateNetworkWithPartitions("consensus_TestConsensusConflicts", 8, 2, 4)
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// split the network
 	for i, partition := range n.Partitions() {
@@ -58,7 +59,7 @@ func TestConsensusConflicts(t *testing.T) {
 			transaction.NewInputs(genesisOutputID),
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
 				destAddr: {
-					{Value: genesisBalance / 2, Color: balance.ColorIOTA},
+					{Value: genesisBalance, Color: balance.ColorIOTA},
 				},
 			}))
 		tx = tx.Sign(signaturescheme.ED25519(*genesisWallet.Seed().KeyPair(0)))
@@ -72,7 +73,7 @@ func TestConsensusConflicts(t *testing.T) {
 		assert.NoError(t, err)
 
 		// check that the transaction is actually available on all the peers of the partition
-		missing, err := tests.AwaitTransactionAvailability(partition.Peers(), []string{txID}, 4*time.Second)
+		missing, err := tests.AwaitTransactionAvailability(partition.Peers(), []string{txID}, 15*time.Second)
 		if err != nil {
 			assert.NoError(t, err, "transactions should have been available in partition")
 			for p, missingOnPeer := range missing {
@@ -89,6 +90,22 @@ func TestConsensusConflicts(t *testing.T) {
 
 	// sleep the avg. network delay so both partitions prefer their own first seen transaction
 	time.Sleep(valuetransfers.AverageNetworkDelay)
+
+	// check that each partition is preferring its corresponding transaction
+	log.Println("checking that each partition likes its corresponding transaction before the conflict:")
+	for i, partition := range n.Partitions() {
+		tests.CheckTransactions(t, partition.Peers(), map[string]*tests.ExpectedTransaction{
+			conflictingTxIDs[i]: nil,
+		}, true, tests.ExpectedInclusionState{
+			Confirmed: tests.False(),
+			Finalized: tests.False(),
+			Conflict:  tests.False(),
+			Solid:     tests.True(),
+			Rejected:  tests.False(),
+			Liked:     tests.True(),
+			Preferred: tests.True(),
+		})
+	}
 
 	// merge back the partitions
 	log.Println("merging partitions...")
@@ -125,13 +142,42 @@ func TestConsensusConflicts(t *testing.T) {
 		}
 	}
 
+	// check that the transactions are marked as conflicting
 	tests.CheckTransactions(t, n.Peers(), expectations, true, tests.ExpectedInclusionState{
-		Confirmed: tests.False(),
-		Finalized: tests.False(),
-		// should be part of a conflict set
-		Conflict: tests.True(),
-		Solid:    tests.True(),
-		Rejected: tests.False(),
-		Liked:    tests.False(),
+		Finalized: tests.True(),
+		Conflict:  tests.True(),
+		Solid:     tests.True(),
 	})
+
+	// now all transactions must be finalized and at most one must be confirmed
+	var confirmedOverConflictSet int
+	for _, conflictingTx := range conflictingTxIDs {
+		var rejected, confirmed int
+		for _, p := range n.Peers() {
+			tx, err := p.GetTransactionByID(conflictingTx)
+			assert.NoError(t, err)
+			if tx.InclusionState.Confirmed {
+				confirmed++
+				continue
+			}
+			if tx.InclusionState.Rejected {
+				rejected++
+			}
+		}
+
+		if rejected != 0 {
+			assert.Len(t, n.Peers(), rejected, "the rejected count for %s should be equal to the amount of peers", conflictingTx)
+		}
+		if confirmed != 0 {
+			assert.Len(t, n.Peers(), confirmed, "the confirmed count for %s should be equal to the amount of peers", conflictingTx)
+			confirmedOverConflictSet++
+		}
+
+		assert.False(t, rejected == 0 && confirmed == 0, "a transaction must either be rejected or confirmed")
+	}
+
+	// there must only be one confirmed transaction out of the conflict set
+	if confirmedOverConflictSet != 0 {
+		assert.Equal(t, 1, confirmedOverConflictSet, "only one transaction can be confirmed out of the conflict set. %d of %d are confirmed", confirmedOverConflictSet, len(conflictingTxIDs))
+	}
 }

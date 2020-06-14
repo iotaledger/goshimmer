@@ -383,6 +383,8 @@ type ExpectedInclusionState struct {
 	Rejected *bool
 	// The optional liked state to check against.
 	Liked *bool
+	// The optional preferred state to check against.
+	Preferred *bool
 }
 
 // True returns a pointer to a true bool.
@@ -426,30 +428,33 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map
 
 			// check inclusion state
 			if expectedInclusionState.Confirmed != nil {
-				assert.Equal(t, *expectedInclusionState.Confirmed, resp.InclusionState.Confirmed, "confirmed state doesn't match")
+				assert.Equal(t, *expectedInclusionState.Confirmed, resp.InclusionState.Confirmed, "confirmed state doesn't match - %s", txId)
 			}
 			if expectedInclusionState.Conflict != nil {
-				assert.Equal(t, *expectedInclusionState.Conflict, resp.InclusionState.Conflict, "conflict state doesn't match")
+				assert.Equal(t, *expectedInclusionState.Conflict, resp.InclusionState.Conflict, "conflict state doesn't match - %s", txId)
 			}
 			if expectedInclusionState.Solid != nil {
-				assert.Equal(t, *expectedInclusionState.Solid, resp.InclusionState.Solid, "solid state doesn't match")
+				assert.Equal(t, *expectedInclusionState.Solid, resp.InclusionState.Solid, "solid state doesn't match - %s", txId)
 			}
 			if expectedInclusionState.Rejected != nil {
-				assert.Equal(t, *expectedInclusionState.Rejected, resp.InclusionState.Rejected, "rejected state doesn't match")
+				assert.Equal(t, *expectedInclusionState.Rejected, resp.InclusionState.Rejected, "rejected state doesn't match - %s", txId)
 			}
 			if expectedInclusionState.Liked != nil {
-				assert.Equal(t, *expectedInclusionState.Liked, resp.InclusionState.Liked, "liked state doesn't match")
+				assert.Equal(t, *expectedInclusionState.Liked, resp.InclusionState.Liked, "liked state doesn't match - %s", txId)
+			}
+			if expectedInclusionState.Preferred != nil {
+				assert.Equal(t, *expectedInclusionState.Preferred, resp.InclusionState.Preferred, "preferred state doesn't match - %s", txId)
 			}
 
 			if expectedTransaction != nil {
 				if expectedTransaction.Inputs != nil {
-					assert.Equal(t, *expectedTransaction.Inputs, resp.Transaction.Inputs, "inputs do not match")
+					assert.Equal(t, *expectedTransaction.Inputs, resp.Transaction.Inputs, "inputs do not match - %s", txId)
 				}
 				if expectedTransaction.Outputs != nil {
-					assert.Equal(t, *expectedTransaction.Outputs, resp.Transaction.Outputs, "outputs do not match")
+					assert.Equal(t, *expectedTransaction.Outputs, resp.Transaction.Outputs, "outputs do not match - %s", txId)
 				}
 				if expectedTransaction.Signature != nil {
-					assert.Equal(t, *expectedTransaction.Signature, resp.Transaction.Signature, "signatures do not match")
+					assert.Equal(t, *expectedTransaction.Signature, resp.Transaction.Signature, "signatures do not match - %s", txId)
 				}
 			}
 		}

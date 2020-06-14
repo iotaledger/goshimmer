@@ -70,4 +70,5 @@ type InclusionState struct {
 	Solid     bool `json:"solid,omitempty"`
 	Rejected  bool `json:"rejected,omitempty"`
 	Finalized bool `json:"finalized,omitempty"`
+	Preferred bool `json:"preferred,omitempty"`
 }
