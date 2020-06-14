@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -456,10 +457,13 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map
 }
 
 // AwaitTransactionAvailability awaits until the given transaction IDs become available on all given peers or
-// the max duration is reached.
-func AwaitTransactionAvailability(peers []*framework.Peer, transactionIDs []string, maxAwait time.Duration) error {
+// the max duration is reached. Returns a map of missing transactions per peer. An error is returned if at least
+// one peer does not have all specified transactions available.
+func AwaitTransactionAvailability(peers []*framework.Peer, transactionIDs []string, maxAwait time.Duration) (missing map[string]map[string]types.Empty, err error) {
 	s := time.Now()
-	for ; time.Since(s) < maxAwait; {
+	var missingMu sync.Mutex
+	missing = map[string]map[string]types.Empty{}
+	for ; time.Since(s) < maxAwait; time.Sleep(1 * time.Second) {
 		var wg sync.WaitGroup
 		wg.Add(len(peers))
 		counter := int32(len(peers) * len(transactionIDs))
@@ -469,18 +473,36 @@ func AwaitTransactionAvailability(peers []*framework.Peer, transactionIDs []stri
 				for _, txID := range transactionIDs {
 					_, err := p.GetTransactionByID(txID)
 					if err == nil {
+						missingMu.Lock()
+						m, has := missing[p.ID().String()]
+						if has {
+							delete(m, txID)
+							if len(m) == 0 {
+								delete(missing, p.ID().String())
+							}
+						}
+						missingMu.Unlock()
 						atomic.AddInt32(&counter, -1)
+						continue
 					}
+					missingMu.Lock()
+					m, has := missing[p.ID().String()]
+					if !has {
+						m = map[string]types.Empty{}
+					}
+					m[txID] = types.Empty{}
+					missing[p.ID().String()] = m
+					missingMu.Unlock()
 				}
 			}(p)
 		}
 		wg.Wait()
 		if counter == 0 {
 			// everything available
-			return nil
+			return missing, nil
 		}
 	}
-	return ErrTransactionNotAvailableInTime
+	return missing, ErrTransactionNotAvailableInTime
 }
 
 // ShutdownNetwork shuts down the network and reports errors.

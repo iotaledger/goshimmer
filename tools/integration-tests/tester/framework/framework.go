@@ -80,7 +80,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
 		config := GoShimmerConfig{
-			Bootstrap:                             true,
+			Bootstrap:                             i == 0,
 			BootstrapInitialIssuanceTimePeriodSec: bootstrapInitialIssuanceTimePeriodSec,
 			Faucet:                                i == 0,
 		}
@@ -128,7 +128,7 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
-		config := GoShimmerConfig{Bootstrap: true}
+		config := GoShimmerConfig{Bootstrap: i == 0}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
 		}

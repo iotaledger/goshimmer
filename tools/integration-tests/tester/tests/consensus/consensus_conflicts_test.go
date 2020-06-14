@@ -21,14 +21,19 @@ import (
 // TestConsensusConflicts issues valid conflicting value objects and makes sure that
 // the conflicts are resolved via FPC.
 func TestConsensusConflicts(t *testing.T) {
-	n, err := f.CreateNetworkWithPartitions("consensus_TestConsensusConflicts", 8, 2, 2)
+	n, err := f.CreateNetworkWithPartitions("consensus_TestConsensusConflicts", 8, 2, 4)
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
 	time.Sleep(10 * time.Second)
 
 	// split the network
-	//assert.NoError(t, n.Split(n.Peers()[:len(n.Peers())/2], n.Peers()[len(n.Peers())/2:]))
+	for i, partition := range n.Partitions() {
+		log.Printf("partition %d peers:", i)
+		for _, p := range partition.Peers() {
+			log.Println(p.ID().String())
+		}
+	}
 
 	// genesis wallet
 	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
@@ -44,6 +49,8 @@ func TestConsensusConflicts(t *testing.T) {
 	conflictingTxIDs := make([]string, len(n.Partitions()))
 	receiverWallets := make([]*wallet.Wallet, len(n.Partitions()))
 	for i, partition := range n.Partitions() {
+
+		// create a new receiver wallet for the given partition
 		partitionReceiverWallet := wallet.New()
 		destAddr := partitionReceiverWallet.Seed().Address(0)
 		receiverWallets[i] = partitionReceiverWallet
@@ -56,9 +63,27 @@ func TestConsensusConflicts(t *testing.T) {
 			}))
 		tx = tx.Sign(signaturescheme.ED25519(*genesisWallet.Seed().KeyPair(0)))
 		conflictingTxs[i] = tx
-		conflictingTxIDs[i] = tx.ID().String()
-		log.Println("issuing conflict transaction on partition", i, tx.ID().String())
-		_, err := partition.Peers()[0].SendTransaction(tx.Bytes())
+
+		// issue the transaction on the first peer of the partition
+		issuerPeer := partition.Peers()[0]
+		txID, err := issuerPeer.SendTransaction(tx.Bytes())
+		conflictingTxIDs[i] = txID
+		log.Printf("issued conflict transaction %s on partition %d on peer %s", txID, i, issuerPeer.ID().String())
+		assert.NoError(t, err)
+
+		// check that the transaction is actually available on all the peers of the partition
+		missing, err := tests.AwaitTransactionAvailability(partition.Peers(), []string{txID}, 4*time.Second)
+		if err != nil {
+			assert.NoError(t, err, "transactions should have been available in partition")
+			for p, missingOnPeer := range missing {
+				log.Printf("missing on peer %s:", p)
+				for missingTx := range missingOnPeer {
+					log.Println("tx id: ", missingTx)
+				}
+			}
+			return
+		}
+
 		require.NoError(t, err)
 	}
 
@@ -78,8 +103,17 @@ func TestConsensusConflicts(t *testing.T) {
 	}
 
 	log.Println("waiting for transactions to be available on all peers...")
-	err = tests.AwaitTransactionAvailability(n.Peers(), conflictingTxIDs, 30*time.Second)
-	assert.NoError(t, err, "transactions should have been available")
+	missing, err := tests.AwaitTransactionAvailability(n.Peers(), conflictingTxIDs, 30*time.Second)
+	if err != nil {
+		assert.NoError(t, err, "transactions should have been available")
+		for p, missingOnPeer := range missing {
+			log.Printf("missing on peer %s:", p)
+			for missingTx := range missingOnPeer {
+				log.Println("tx id: ", missingTx)
+			}
+		}
+		return
+	}
 
 	expectations := map[string]*tests.ExpectedTransaction{}
 	for _, conflictingTx := range conflictingTxs {
