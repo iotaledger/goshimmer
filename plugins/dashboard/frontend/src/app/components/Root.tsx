@@ -66,7 +66,7 @@ export class Root extends React.Component<Props, any> {
                                 dRNG
                             </Nav.Link>
                         </LinkContainer>
-                        <LinkContainer to="/fpc-example">
+                        <LinkContainer to="/consensus">
                             <Nav.Link>
                                 FPC
                             </Nav.Link>
@@ -88,7 +88,7 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/explorer/address/:id" component={ExplorerAddressQueryResult}/>
                     <Route exact path="/explorer/404/:search" component={Explorer404}/>
                     <Route exact path="/explorer" component={Explorer}/>
-                    <Route exact path="/fpc-example" component={FPC}/>
+                    <Route exact path="/consensus" component={FPC}/>
                     <Route exact path="/visualizer" component={Visualizer}/>
                     <Route exact path="/drng" component={Drng}/>
                     <Redirect to="/dashboard"/>

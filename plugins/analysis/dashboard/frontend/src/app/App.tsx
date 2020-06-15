@@ -28,7 +28,7 @@ class App extends React.Component<AppProps, any> {
                         <Link to="/autopeering">
                             Autopeering
                         </Link>
-                        <Link to="/fpc-example">
+                        <Link to="/consensus">
                             Consensus
                         </Link>
                     </nav>
@@ -40,8 +40,8 @@ class App extends React.Component<AppProps, any> {
                 </header>
                 <Switch>
                     <Route path="/autopeering" component={Autopeering} />
-                    <Route exact path="/fpc-example" component={FPC} />
-                    <Route path="/fpc-example/conflict/:id" component={Conflict} />
+                    <Route exact path="/consensus" component={FPC} />
+                    <Route path="/consensus/conflict/:id" component={Conflict} />
                     <Redirect to="/autopeering" />
                 </Switch>
                 {this.props.children}

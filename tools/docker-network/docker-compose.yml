@@ -23,8 +23,8 @@ services:
       --analysis.server.bindAddress=0.0.0.0:1888
       --analysis.dashboard.bindAddress=0.0.0.0:9000
       --node.enablePlugins=analysis-server,analysis-dashboard
-      --analysis.dashboard.dev=true
-      --node.disablePlugins=fpctest,portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,metrics,messagelayer,valuetransfers,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --analysis.dashboard.dev=false
+      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,metrics,messagelayer,valuetransfers,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
@@ -41,7 +41,6 @@ services:
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
       --node.enablePlugins=bootstrap
-      --node.disablePlugins=valuetransfers
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
@@ -58,7 +57,7 @@ services:
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
       --node.enablePlugins=bootstrap
-      --node.disablePlugins=dashboard,portcheck,valuetransfers
+      --node.disablePlugins=dashboard,portcheck
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go

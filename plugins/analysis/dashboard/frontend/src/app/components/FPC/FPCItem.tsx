@@ -12,7 +12,7 @@ export default class FPCItem extends React.Component<FPCItemProps, any> {
         const total = Object.keys(this.props.nodeOpinions).length;
         return (
             <Link
-                to={`/fpc-example/conflict/${this.props.conflictID}`}
+                to={`/consensus/conflict/${this.props.conflictID}`}
                 className="fpc-item"
             >
                 <div
