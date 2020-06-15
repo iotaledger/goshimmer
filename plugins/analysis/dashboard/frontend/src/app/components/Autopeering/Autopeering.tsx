@@ -8,7 +8,7 @@ import { NodeView } from "./NodeView";
 
 @inject("autopeeringStore")
 @observer
-export class Autopeering extends React.Component<AutopeeringProps, any> {
+export default class Autopeering extends React.Component<AutopeeringProps, any> {
 
     componentDidMount(): void {
         this.props.autopeeringStore.start();
@@ -76,7 +76,7 @@ export class Autopeering extends React.Component<AutopeeringProps, any> {
                             </div>
                         )}
                         {this.props.autopeeringStore.selectedNode && (
-                            <NodeView />
+                            <NodeView {...this.props} />
                         )}
                     </div>
                 </div>

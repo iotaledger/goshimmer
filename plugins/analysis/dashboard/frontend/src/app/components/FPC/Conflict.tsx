@@ -12,7 +12,8 @@ export default class Conflict extends React.Component<FPCProps, any> {
     }
 
     render() {
-        let { nodeGrid } = this.props.fpcStore;
+        let { nodeConflictGrid } = this.props.fpcStore;
+
         return (
             <div className="conflict">
                 <div className="header margin-b-m">
@@ -25,19 +26,19 @@ export default class Conflict extends React.Component<FPCProps, any> {
                     </div>
                 </div>
                 <div className="node-grid">
-                    {!nodeGrid && (
+                    {!nodeConflictGrid && (
                         <div className="card">
                             <p>The node data for this conflict is no longer available.</p>
                         </div>
                     )}
-                    {nodeGrid && nodeGrid.map(nodeDetails => (
+                    {nodeConflictGrid && nodeConflictGrid.map(nodeDetails => (
                         <div
                             key={nodeDetails.nodeID}
                             className={classNames(
                                 "card",
                                 "node-details",
-                                { like: nodeDetails.state === 1 },
-                                { dislike: nodeDetails.state === 2 }
+                                { like: nodeDetails.opinion === 1 },
+                                { dislike: nodeDetails.opinion === 2 }
                             )}
                         >
                             <div className="details row middle">

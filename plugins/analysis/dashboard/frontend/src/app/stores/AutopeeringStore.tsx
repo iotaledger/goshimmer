@@ -1,4 +1,3 @@
-import {RouterStore} from "mobx-react-router";
 import {action, computed, observable, ObservableMap, ObservableSet} from "mobx";
 import {connectWebSocket, registerHandler, WSMsgType} from "app/misc/WS";
 import {default as Viva} from 'vivagraphjs';
@@ -47,8 +46,6 @@ const statusWebSocketPath = "/ws";
 export const shortenedIDCharCount = 8;
 
 export class AutopeeringStore {
-    routerStore: RouterStore;
-
     @observable nodes = new ObservableSet();
     @observable neighbors = new ObservableMap<string,Neighbors>();
     @observable connections = new ObservableSet();
@@ -71,9 +68,7 @@ export class AutopeeringStore {
     graphics;
     renderer;
 
-    constructor(routerStore: RouterStore) {
-        this.routerStore = routerStore;
-
+    constructor() {
         registerHandler(WSMsgType.AddNode, this.onAddNode);
         registerHandler(WSMsgType.RemoveNode, this.onRemoveNode);
         registerHandler(WSMsgType.ConnectNodes, this.onConnectNodes);

@@ -35,7 +35,6 @@ export default class FPC extends React.Component<FPCProps, any> {
                                 timeout={300}
                             >
                                 <FPCItem
-
                                     {...conflict}
                                 />
                             </CSSTransition>

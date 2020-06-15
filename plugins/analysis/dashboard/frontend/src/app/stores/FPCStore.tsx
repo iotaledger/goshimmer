@@ -1,6 +1,5 @@
 import { registerHandler, WSMsgType, unregisterHandler } from "app/misc/WS";
 import { action, computed, observable } from "mobx";
-import { RouterStore } from "mobx-react-router";
 
 enum Opinion {
     Like = 1,
@@ -23,8 +22,6 @@ export class FPCMessage {
 }
 
 export class FPCStore {
-    routerStore: RouterStore;
-
     @observable msg: FPCMessage = null;
 
     @observable conflicts: {
@@ -38,8 +35,7 @@ export class FPCStore {
 
     timerId: NodeJS.Timer;
 
-    constructor(routerStore: RouterStore) {
-        this.routerStore = routerStore;
+    constructor() {
     }
 
     start() {
@@ -117,18 +113,11 @@ export class FPCStore {
     }
 
     @computed
-    get nodeGrid() {
+    get nodeConflictGrid() {
         if (!this.currentConflict) return;
         const currentConflict = this.conflicts.find(c => c.conflictID === this.currentConflict);
         if (!currentConflict) return;
-        let nodeDetails = [];
-        for (const nodeID in currentConflict.nodeOpinions) {
-            nodeDetails.push({
-                nodeId: nodeID,
-                state: currentConflict.nodeOpinions[nodeID]
-            });
-        }
-        return nodeDetails;
+        return currentConflict.nodeOpinions;
     }
 
     @computed
