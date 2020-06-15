@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/fpctest"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
@@ -63,12 +63,12 @@ func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 
 		onFinalizedClosure := events.NewClosure(onFinalized)
-		fpctest.Voter().Events().Finalized.Attach(onFinalizedClosure)
-		defer fpctest.Voter().Events().Finalized.Detach(onFinalizedClosure)
+		valuetransfers.Voter().Events().Finalized.Attach(onFinalizedClosure)
+		defer valuetransfers.Voter().Events().Finalized.Detach(onFinalizedClosure)
 
 		onRoundExecutedClosure := events.NewClosure(onRoundExecuted)
-		fpctest.Voter().Events().RoundExecuted.Attach(onRoundExecutedClosure)
-		defer fpctest.Voter().Events().RoundExecuted.Detach(onRoundExecutedClosure)
+		valuetransfers.Voter().Events().RoundExecuted.Attach(onRoundExecutedClosure)
+		defer valuetransfers.Voter().Events().RoundExecuted.Detach(onRoundExecutedClosure)
 
 		ticker := time.NewTicker(reportIntervalSec * time.Second)
 		defer ticker.Stop()
