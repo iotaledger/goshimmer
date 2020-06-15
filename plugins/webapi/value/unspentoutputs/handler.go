@@ -32,7 +32,6 @@ func Handler(c echo.Context) error {
 			defer outputObj.Release()
 			output := outputObj.Unwrap()
 
-			// TODO: get inclusion state
 			if output.ConsumerCount() == 0 {
 				// iterate balances
 				var b []utils.Balance
@@ -47,9 +46,10 @@ func Handler(c echo.Context) error {
 					ID:       id.String(),
 					Balances: b,
 					InclusionState: utils.InclusionState{
-						Confirmed: true,
-						Conflict:  false,
-						Liked:     true,
+						Solid:     output.Solid(),
+						Confirmed: output.Confirmed(),
+						Conflict:  output.Rejected(),
+						Liked:     output.Liked(),
 					},
 				})
 			}
