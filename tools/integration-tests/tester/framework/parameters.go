@@ -1,9 +1,5 @@
 package framework
 
-import (
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
-)
-
 const (
 	autopeeringMaxTries = 50
 
@@ -49,8 +45,6 @@ type GoShimmerConfig struct {
 	DRNGThreshold int
 
 	Faucet bool
-
-	Wallet *wallet.Wallet
 }
 
 // NetworkConfig defines the config of a GoShimmer Docker network.
