@@ -6,11 +6,11 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	valuetangle "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
-
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -46,6 +46,11 @@ func configure(_ *node.Plugin) {
 		cachedPayload.Release()
 		cachedPayloadMetadata.Release()
 		increaseReceivedTPSCounter()
+	}))
+
+	// FPC round executed
+	valuetransfers.Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats vote.RoundStats) {
+		processRoundStats(roundStats)
 	}))
 
 	//// Events coming from metrics package ////
