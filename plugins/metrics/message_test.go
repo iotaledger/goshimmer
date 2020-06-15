@@ -5,6 +5,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
+	drngpayload "github.com/iotaledger/goshimmer/packages/binary/drng/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -48,6 +51,40 @@ func TestReceivedMPSUpdatedEvent(t *testing.T) {
 	wg.Add(1)
 	measureReceivedMPS()
 	wg.Wait()
+}
+
+func TestMPSPerPayloadSingle(t *testing.T) {
+	// it is empty initially
+	assert.Equal(t, MPSPerPayload(), map[payload.Type]uint64{})
+	// simulate attaching 10 value payloads in 0s < t < 1s
+	for i := 0; i < 10; i++ {
+		increasePerPayloadMPSCounter(valuepayload.Type)
+	}
+	// test measurement
+	measureMPSPerPayload()
+	assert.Equal(t, MPSPerPayload(), map[payload.Type]uint64{valuepayload.Type: 10})
+	// test counter reset on measurement
+	measureMPSPerPayload()
+	assert.Equal(t, MPSPerPayload(), map[payload.Type]uint64{valuepayload.Type: 0})
+}
+
+func TestMPSPerPayloadMultiple(t *testing.T) {
+	// it is empty initially
+	assert.Equal(t, MPSPerPayload(), map[payload.Type]uint64{})
+	// simulate attaching 10 value payloads in 0s < t < 1s
+	for i := 0; i < 10; i++ {
+		increasePerPayloadMPSCounter(valuepayload.Type)
+	}
+	// simulate attaching 5 drng payloads
+	for i := 0; i < 5; i++ {
+		increasePerPayloadMPSCounter(drngpayload.Type)
+	}
+	// test measurement
+	measureMPSPerPayload()
+	assert.Equal(t, MPSPerPayload(), map[payload.Type]uint64{valuepayload.Type: 10, drngpayload.Type: 5})
+	// test counter reset on measurement
+	measureMPSPerPayload()
+	assert.Equal(t, MPSPerPayload(), map[payload.Type]uint64{valuepayload.Type: 0, drngpayload.Type: 0})
 }
 
 func TestMessageTips(t *testing.T) {
