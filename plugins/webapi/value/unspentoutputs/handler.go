@@ -48,7 +48,7 @@ func Handler(c echo.Context) error {
 					InclusionState: utils.InclusionState{
 						Solid:     output.Solid(),
 						Confirmed: output.Confirmed(),
-						Conflict:  output.Rejected(),
+						Rejected:  output.Rejected(),
 						Liked:     output.Liked(),
 					},
 				})

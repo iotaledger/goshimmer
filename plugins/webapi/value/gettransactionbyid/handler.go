@@ -39,7 +39,7 @@ func Handler(c echo.Context) error {
 		InclusionState: utils.InclusionState{
 			Solid:     txnMetadata.Solid(),
 			Confirmed: txnMetadata.Confirmed(),
-			Conflict:  txnMetadata.Rejected(),
+			Rejected:  txnMetadata.Rejected(),
 			Liked:     txnMetadata.Liked(),
 		},
 	})
