@@ -4,7 +4,6 @@ import FPC from "app/components/FPC/FPC";
 import { inject, observer } from "mobx-react";
 import * as React from 'react';
 import { Link, Redirect, Route, Switch } from "react-router-dom";
-import logoHeader from "../assets/logo-header.svg";
 import "./App.scss";
 import { AppProps } from './AppProps';
 import { withRouter } from "react-router";
@@ -21,7 +20,7 @@ class App extends React.Component<AppProps, any> {
             <div className="root">
                 <header>
                     <Link className="brand" to="/">
-                        <img src={logoHeader} alt="GoShimmer Analyser" />
+                        <img src="/assets/logo-header.svg" alt="GoShimmer Analyser" />
                         <h1>GoShimmer Analyzer</h1>
                     </Link>
                     <nav>
