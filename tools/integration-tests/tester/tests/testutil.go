@@ -125,7 +125,7 @@ func SendValueMessagesOnFaucet(t *testing.T, peers []*framework.Peer) (txIds []s
 		txIds = append(txIds, txId)
 
 		// let the transaction propagate
-		time.Sleep(1 * time.Second)
+		time.Sleep(3 * time.Second)
 	}
 
 	return
@@ -146,7 +146,7 @@ func SendValueMessagesOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBa
 		txIds = append(txIds, txId)
 
 		// let the transaction propagate
-		time.Sleep(1 * time.Second)
+		time.Sleep(3 * time.Second)
 	}
 
 	return
@@ -222,7 +222,7 @@ func SendColoredValueMessagesOnRandomPeer(t *testing.T, peers []*framework.Peer,
 		txIds = append(txIds, txId)
 
 		// let the transaction propagate
-		time.Sleep(1 * time.Second)
+		time.Sleep(3 * time.Second)
 	}
 
 	return
@@ -231,6 +231,7 @@ func SendColoredValueMessagesOnRandomPeer(t *testing.T, peers []*framework.Peer,
 // SendColoredValueMessage sends a colored tokens from and to a given peer and returns the transaction ID.
 // The same addresses are used in each round
 func SendColoredValueMessage(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[balance.Color]int64) (fail bool, txId string) {
+	var sentValue int64 = 50
 	sigScheme := signaturescheme.ED25519(*from.Seed().KeyPair(0))
 	inputAddr := from.Seed().Address(0)
 	outputAddr := to.Seed().Address(0)
@@ -244,35 +245,30 @@ func SendColoredValueMessage(t *testing.T, from *framework.Peer, to *framework.P
 		return true, ""
 	}
 
+	// calculate available token in the unspent output
+	var availableValue int64 = 0
+	for _, b := range resp.UnspentOutputs[0].OutputIDs[0].Balances {
+		availableValue += b.Value
+	}
+
+	// abort if no enough tokens
+	if availableValue < sentValue {
+		return true, ""
+	}
+
 	out, err := transaction.OutputIDFromBase58(resp.UnspentOutputs[0].OutputIDs[0].ID)
 	require.NoErrorf(t, err, "Invalid unspent outputs ID on %s", from.String())
 	inputs := transaction.NewInputs([]transaction.OutputID{out}...)
 
 	// prepare outputs
 	outmap := map[address.Address][]*balance.Balance{}
-	bs := []*balance.Balance{}
-	var outputs *transaction.Outputs
-	var availableIOTA int64
-	availableBalances := resp.UnspentOutputs[0].OutputIDs[0].Balances
 
 	// set balances
-	if len(availableBalances) > 1 {
-		// the balances contain more than one color, send it all
-		for _, b := range availableBalances {
-			value := b.Value
-			color := getColorFromString(b.Color)
-			bs = append(bs, balance.New(color, value))
-		}
-	} else {
-		// create new colored token if inputs only contain IOTA
-		// half of availableIota tokens remain IOTA, else get recolored
-		availableIOTA = availableBalances[0].Value
-
-		bs = append(bs, balance.New(balance.ColorIOTA, availableIOTA/2))
-		bs = append(bs, balance.New(balance.ColorNew, availableIOTA/2))
+	outmap[outputAddr] = []*balance.Balance{balance.New(balance.ColorIOTA, sentValue)}
+	if availableValue > sentValue {
+		outmap[outputAddr] = append(outmap[outputAddr], balance.New(balance.ColorNew, availableValue-sentValue))
 	}
-	outmap[outputAddr] = bs
-	outputs = transaction.NewOutputs(outmap)
+	outputs := transaction.NewOutputs(outmap)
 
 	// sign transaction
 	txn := transaction.New(inputs, outputs).Sign(sigScheme)
@@ -282,7 +278,7 @@ func SendColoredValueMessage(t *testing.T, from *framework.Peer, to *framework.P
 	require.NoErrorf(t, err, "Could not send transaction on %s", from.String())
 
 	// update balance list
-	updateBalanceList(addrBalance, bs, inputAddr.String(), outputAddr.String(), txId)
+	updateBalanceList(addrBalance, outmap[outputAddr], inputAddr.String(), outputAddr.String(), txId)
 
 	return false, txId
 }
@@ -361,6 +357,7 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs []s
 
 			// check inclusion state
 			assert.True(t, resp.InclusionState.Confirmed)
+			assert.False(t, resp.InclusionState.Rejected)
 		}
 	}
 }
