@@ -68,7 +68,7 @@ func (filter *SignatureFilter) OnAccept(callback func(message *message.Message, 
 	filter.onAcceptCallbackMutex.Unlock()
 }
 
-// OnAccept registers the given callback as the rejection function of the filter.
+// OnReject registers the given callback as the rejection function of the filter.
 func (filter *SignatureFilter) OnReject(callback func(message *message.Message, err error, peer *peer.Peer)) {
 	filter.onRejectCallbackMutex.Lock()
 	filter.onRejectCallback = callback
@@ -80,7 +80,7 @@ func (filter *SignatureFilter) Shutdown() {
 	filter.workerPool.ShutdownGracefully()
 }
 
-// getAcceptCallback returns the callback that is be executed when a message passes the filter.
+// getAcceptCallback returns the callback that is executed when a message passes the filter.
 func (filter *SignatureFilter) getAcceptCallback() (result func(message *message.Message, peer *peer.Peer)) {
 	filter.onAcceptCallbackMutex.RLock()
 	result = filter.onAcceptCallback
