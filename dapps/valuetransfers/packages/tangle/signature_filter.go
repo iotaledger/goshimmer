@@ -56,7 +56,7 @@ func (filter *SignatureFilter) OnAccept(callback func(message *message.Message, 
 	filter.onAcceptCallbackMutex.Unlock()
 }
 
-// OnAccept registers the given callback as the rejection function of the filter.
+// OnReject registers the given callback as the rejection function of the filter.
 func (filter *SignatureFilter) OnReject(callback func(message *message.Message, err error, peer *peer.Peer)) {
 	filter.onRejectCallbackMutex.Lock()
 	filter.onRejectCallback = callback
