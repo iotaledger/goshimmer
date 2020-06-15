@@ -64,8 +64,8 @@ type Balance struct {
 
 // InclusionState represents the different states of an OutputID
 type InclusionState struct {
-	Solid     bool `json:"confirmed,omitempty"`
+	Solid     bool `json:"solid,omitempty"`
 	Confirmed bool `json:"confirmed,omitempty"`
-	Conflict  bool `json:"conflict,omitempty"`
+	Rejected  bool `json:"rejected,omitempty"`
 	Liked     bool `json:"liked,omitempty"`
 }
