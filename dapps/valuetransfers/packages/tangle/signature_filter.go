@@ -33,19 +33,31 @@ func NewSignatureFilter() (result *SignatureFilter) {
 // then verifies the signature.
 func (filter *SignatureFilter) Filter(message *message.Message, peer *peer.Peer) {
 	filter.workerPool.Submit(func() {
-		if valuePayload := message.Payload(); valuePayload.Type() == payload.Type {
-			if typeCastedValuePayload, ok := valuePayload.(*payload.Payload); ok {
-				if typeCastedValuePayload.Transaction().SignaturesValid() {
-					filter.getAcceptCallback()(message, peer)
-				} else {
-					filter.getRejectCallback()(message, errors.New("invalid transaction signatures"), peer)
-				}
-			} else {
-				filter.getRejectCallback()(message, errors.New("invalid value message"), peer)
-			}
-		} else {
+		// accept message if the message is not a value message (it will be checked by other filters)
+		valuePayload := message.Payload()
+		if valuePayload.Type() != payload.Type {
 			filter.getAcceptCallback()(message, peer)
+
+			return
 		}
+
+		// reject if the payload can not be casted to a ValuePayload (invalid payload)
+		typeCastedValuePayload, ok := valuePayload.(*payload.Payload)
+		if !ok {
+			filter.getRejectCallback()(message, errors.New("invalid value message"), peer)
+
+			return
+		}
+
+		// reject message if it contains a transaction with invalid signatures
+		if !typeCastedValuePayload.Transaction().SignaturesValid() {
+			filter.getRejectCallback()(message, errors.New("invalid transaction signatures"), peer)
+
+			return
+		}
+
+		// if all previous checks passed: accept message
+		filter.getAcceptCallback()(message, peer)
 	})
 }
 
