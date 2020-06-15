@@ -22,11 +22,11 @@ import (
 // then issues valid value objects spending the genesis in both, deletes the partitions (and lets them merge)
 // and then checks that the conflicts are resolved via FPC.
 func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
-	n, err := f.CreateNetworkWithPartitions("consensus_TestConsensusConflicts", 8, 2, 4)
+	n, err := f.CreateNetworkWithPartitions("fiftyfifty", 6, 2, 2)
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	// split the network
 	for i, partition := range n.Partitions() {
@@ -111,7 +111,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	log.Println("merging partitions...")
 	assert.NoError(t, n.DeletePartitions(), "merging the network partitions should work")
 	log.Println("waiting for resolved partitions to autopeer to each other")
-	err = n.WaitForAutopeering(5)
+	err = n.WaitForAutopeering(4)
 	require.NoError(t, err)
 
 	// ensure message flow so that both partitions will get the conflicting tx
