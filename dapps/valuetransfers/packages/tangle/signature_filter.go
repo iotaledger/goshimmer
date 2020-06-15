@@ -29,8 +29,8 @@ func NewSignatureFilter() (result *SignatureFilter) {
 	return
 }
 
-// Filter get's called whenever a new message is received. It first checks if the message contains a value Payload and
-// then verifies the signature.
+// Filter get's called whenever a new message is received. It rejects the message, if the message is not a valid value
+// message.
 func (filter *SignatureFilter) Filter(message *message.Message, peer *peer.Peer) {
 	filter.workerPool.Submit(func() {
 		// accept message if the message is not a value message (it will be checked by other filters)
@@ -64,15 +64,17 @@ func (filter *SignatureFilter) Filter(message *message.Message, peer *peer.Peer)
 // OnAccept registers the given callback as the acceptance function of the filter.
 func (filter *SignatureFilter) OnAccept(callback func(message *message.Message, peer *peer.Peer)) {
 	filter.onAcceptCallbackMutex.Lock()
+	defer filter.onAcceptCallbackMutex.Unlock()
+
 	filter.onAcceptCallback = callback
-	filter.onAcceptCallbackMutex.Unlock()
 }
 
 // OnReject registers the given callback as the rejection function of the filter.
 func (filter *SignatureFilter) OnReject(callback func(message *message.Message, err error, peer *peer.Peer)) {
 	filter.onRejectCallbackMutex.Lock()
+	defer filter.onRejectCallbackMutex.Unlock()
+
 	filter.onRejectCallback = callback
-	filter.onRejectCallbackMutex.Unlock()
 }
 
 // Shutdown shuts down the filter.
