@@ -5,9 +5,6 @@
 package remotelog
 
 import (
-	"encoding/json"
-	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -26,18 +23,6 @@ import (
 	flag "github.com/spf13/pflag"
 	"gopkg.in/src-d/go-git.v4"
 )
-
-type logMessage struct {
-	Version   string    `json:"version"`
-	GitHead   string    `json:"gitHead,omitempty"`
-	GitBranch string    `json:"gitBranch,omitempty"`
-	NodeID    string    `json:"nodeId"`
-	Level     string    `json:"level"`
-	Name      string    `json:"name"`
-	Msg       string    `json:"msg"`
-	Timestamp time.Time `json:"timestamp"`
-	Type      string    `json:"type"`
-}
 
 const (
 	// CfgLoggerRemotelogServerAddress defines the config flag of the server address.
@@ -59,8 +44,8 @@ var (
 	myGitBranch string
 	workerPool  *workerpool.WorkerPool
 
-	conn     net.Conn
-	connOnce sync.Once
+	remoteLogger     *RemoteLoggerConn
+	remoteLoggerOnce sync.Once
 )
 
 func init() {
@@ -75,7 +60,8 @@ func configure(plugin *node.Plugin) {
 		return
 	}
 
-	conn = Connection()
+	// initialize remote logger connection
+	RemoteLogger()
 
 	if local.GetInstance() != nil {
 		myID = local.GetInstance().ID().String()
@@ -120,8 +106,8 @@ func sendLogMsg(level logger.Level, name string, msg string) {
 		time.Now(),
 		remoteLogType,
 	}
-	b, _ := json.Marshal(m)
-	fmt.Fprint(conn, string(b))
+
+	_ = RemoteLogger().Send(m)
 }
 
 func getGitInfo() {
@@ -162,15 +148,29 @@ func getGitDir() string {
 	return gitDir
 }
 
-func Connection() net.Conn {
-	connOnce.Do(func() {
-		c, err := net.Dial("udp", config.Node.GetString(CfgLoggerRemotelogServerAddress))
+// RemoteLogger represents a connection to our remote log server.
+func RemoteLogger() *RemoteLoggerConn {
+	remoteLoggerOnce.Do(func() {
+		r, err := newRemoteLoggerConn(config.Node.GetString(CfgLoggerRemotelogServerAddress))
 		if err != nil {
-			log.Fatalf("Could not create UDP socket to '%s'. %v", config.Node.GetString(CfgLoggerRemotelogServerAddress), err)
+			log.Fatal(err)
 			return
 		}
-		conn = c
+
+		remoteLogger = r
 	})
 
-	return conn
+	return remoteLogger
+}
+
+type logMessage struct {
+	Version   string    `json:"version"`
+	GitHead   string    `json:"gitHead,omitempty"`
+	GitBranch string    `json:"gitBranch,omitempty"`
+	NodeID    string    `json:"nodeId"`
+	Level     string    `json:"level"`
+	Name      string    `json:"name"`
+	Msg       string    `json:"msg"`
+	Timestamp time.Time `json:"timestamp"`
+	Type      string    `json:"type"`
 }
