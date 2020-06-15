@@ -82,21 +82,19 @@ func (filter *SignatureFilter) Shutdown() {
 }
 
 // getAcceptCallback returns the callback that is executed when a message passes the filter.
-func (filter *SignatureFilter) getAcceptCallback() (result func(message *message.Message, peer *peer.Peer)) {
+func (filter *SignatureFilter) getAcceptCallback() func(message *message.Message, peer *peer.Peer) {
 	filter.onAcceptCallbackMutex.RLock()
-	result = filter.onAcceptCallback
-	filter.onAcceptCallbackMutex.RUnlock()
+	defer filter.onAcceptCallbackMutex.RUnlock()
 
-	return
+	return filter.onAcceptCallback
 }
 
 // getRejectCallback returns the callback that is executed when a message is blocked by the filter.
 func (filter *SignatureFilter) getRejectCallback() (result func(message *message.Message, err error, peer *peer.Peer)) {
 	filter.onRejectCallbackMutex.RLock()
-	result = filter.onRejectCallback
-	filter.onRejectCallbackMutex.RUnlock()
+	defer filter.onRejectCallbackMutex.RUnlock()
 
-	return
+	return filter.onRejectCallback
 }
 
 // interface contract (allow the compiler to check if the implementation has all of the required methods).
