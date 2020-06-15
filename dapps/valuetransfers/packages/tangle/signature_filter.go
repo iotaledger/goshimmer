@@ -13,10 +13,9 @@ import (
 
 // SignatureFilter represents a filter for the MessageParser that filters out transactions with an invalid signature.
 type SignatureFilter struct {
-	onAcceptCallback func(message *message.Message, peer *peer.Peer)
-	onRejectCallback func(message *message.Message, err error, peer *peer.Peer)
-	workerPool       async.WorkerPool
-
+	onAcceptCallback      func(message *message.Message, peer *peer.Peer)
+	onRejectCallback      func(message *message.Message, err error, peer *peer.Peer)
+	workerPool            async.WorkerPool
 	onAcceptCallbackMutex sync.RWMutex
 	onRejectCallbackMutex sync.RWMutex
 }
@@ -90,7 +89,7 @@ func (filter *SignatureFilter) getAcceptCallback() func(message *message.Message
 }
 
 // getRejectCallback returns the callback that is executed when a message is blocked by the filter.
-func (filter *SignatureFilter) getRejectCallback() (result func(message *message.Message, err error, peer *peer.Peer)) {
+func (filter *SignatureFilter) getRejectCallback() func(message *message.Message, err error, peer *peer.Peer) {
 	filter.onRejectCallbackMutex.RLock()
 	defer filter.onRejectCallbackMutex.RUnlock()
 
