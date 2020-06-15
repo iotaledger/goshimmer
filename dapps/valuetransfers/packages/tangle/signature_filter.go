@@ -68,7 +68,7 @@ func (filter *SignatureFilter) Shutdown() {
 	filter.workerPool.ShutdownGracefully()
 }
 
-// getAcceptCallback returns the callback that is be executed when a message passes the filter.
+// getAcceptCallback returns the callback that is executed when a message passes the filter.
 func (filter *SignatureFilter) getAcceptCallback() (result func(message *message.Message, peer *peer.Peer)) {
 	filter.onAcceptCallbackMutex.RLock()
 	result = filter.onAcceptCallback
