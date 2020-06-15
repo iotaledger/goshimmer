@@ -14,9 +14,14 @@ import (
 const PluginName = "Issuer"
 
 var (
-	// Plugin is the plugin instance of the issuer plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	// plugin is the plugin instance of the issuer plugin.
+	plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 )
+
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
 
 func configure(_ *node.Plugin) {}
 
@@ -26,5 +31,5 @@ func IssuePayload(payload payload.Payload) (*message.Message, error) {
 	if !sync.Synced() {
 		return nil, fmt.Errorf("can't issue payload: %w", sync.ErrNodeNotSynchronized)
 	}
-	return messagelayer.MessageFactory.IssuePayload(payload), nil
+	return messagelayer.MessageFactory().IssuePayload(payload), nil
 }

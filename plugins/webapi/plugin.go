@@ -18,25 +18,35 @@ import (
 const PluginName = "WebAPI"
 
 var (
-	// Plugin is the plugin instance of the web API plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
-	// Server is the web API server.
-	Server = echo.New()
+	// plugin is the plugin instance of the web API plugin.
+	plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	// server is the web API server.
+	server = echo.New()
 
 	log *logger.Logger
 )
 
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
+
+// Gets the server instance
+func Server() *echo.Echo {
+	return server
+}
+
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	// configure the server
-	Server.HideBanner = true
-	Server.HidePort = true
-	Server.GET("/", IndexRequest)
+	server.HideBanner = true
+	server.HidePort = true
+	server.GET("/", IndexRequest)
 }
 
 func run(*node.Plugin) {
 	log.Infof("Starting %s ...", PluginName)
-	if err := daemon.BackgroundWorker("WebAPI Server", worker, shutdown.PriorityWebAPI); err != nil {
+	if err := daemon.BackgroundWorker("WebAPI server", worker, shutdown.PriorityWebAPI); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
@@ -45,10 +55,10 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	stopped := make(chan struct{})
-	bindAddr := config.Node.GetString(CfgBindAddress)
+	bindAddr := config.Node().GetString(CfgBindAddress)
 	go func() {
 		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
-		if err := Server.Start(bindAddr); err != nil {
+		if err := server.Start(bindAddr); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Error serving: %s", err)
 			}
@@ -65,7 +75,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	log.Infof("Stopping %s ...", PluginName)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := Server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(ctx); err != nil {
 		log.Errorf("Error stopping: %s", err)
 	}
 }

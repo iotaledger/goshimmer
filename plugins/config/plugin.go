@@ -16,8 +16,8 @@ import (
 const PluginName = "Config"
 
 var (
-	// Plugin is the plugin instance of the config plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled)
+	// plugin is the plugin instance of the config plugin.
+	plugin = node.NewPlugin(PluginName, node.Enabled)
 
 	// flags
 	configName          = flag.StringP("config", "c", "config", "Filename of the config file without the file extension")
@@ -25,19 +25,29 @@ var (
 	skipConfigAvailable = flag.Bool("skip-config", false, "Skip config file availability check")
 
 	// Node is viper
-	Node *viper.Viper
+	nde *viper.Viper
 )
 
 // Init triggers the Init event.
 func Init() {
-	Plugin.Events.Init.Trigger(Plugin)
+	plugin.Events.Init.Trigger(plugin)
+}
+
+// gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
+
+// Gets the node
+func Node() *viper.Viper {
+	return nde
 }
 
 func init() {
 	// set the default logger config
-	Node = viper.New()
+	nde = viper.New()
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
+	plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
 		if err := fetch(false); err != nil {
 			if !*skipConfigAvailable {
 				// we wanted a config file but it was not present
@@ -64,19 +74,19 @@ func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
 	Node.AutomaticEnv()
 
 	flag.Parse()
-	err := parameter.LoadConfigFile(Node, *configDirPath, *configName, true, *skipConfigAvailable)
+	err := parameter.LoadConfigFile(nde, *configDirPath, *configName, true, *skipConfigAvailable)
 	if err != nil {
 		return err
 	}
 
 	if printConfig {
-		parameter.PrintConfig(Node, ignoreSettingsAtPrint...)
+		parameter.PrintConfig(nde, ignoreSettingsAtPrint...)
 	}
 
-	for _, pluginName := range Node.GetStringSlice(node.CFG_DISABLE_PLUGINS) {
+	for _, pluginName := range nde.GetStringSlice(node.CFG_DISABLE_PLUGINS) {
 		node.DisabledPlugins[node.GetPluginIdentifier(pluginName)] = true
 	}
-	for _, pluginName := range Node.GetStringSlice(node.CFG_ENABLE_PLUGINS) {
+	for _, pluginName := range nde.GetStringSlice(node.CFG_ENABLE_PLUGINS) {
 		node.EnabledPlugins[node.GetPluginIdentifier(pluginName)] = true
 	}
 

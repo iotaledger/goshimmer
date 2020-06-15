@@ -14,14 +14,19 @@ import (
 const PluginName = "WebAPI Value Endpoint"
 
 var (
-	// Plugin is the plugin instance of the web API DRNG endpoint plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	// plugin is the plugin instance of the web API DRNG endpoint plugin.
+	plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 )
 
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
+
 func configure(_ *node.Plugin) {
-	webapi.Server.GET("value/attachments", attachments.Handler)
-	webapi.Server.POST("value/unspentOutputs", unspentoutputs.Handler)
-	webapi.Server.POST("value/sendTransaction", sendtransaction.Handler)
-	webapi.Server.POST("value/testSendTxn", testsendtxn.Handler)
-	webapi.Server.GET("value/transactionByID", gettransactionbyid.Handler)
+	webapi.Server().GET("value/attachments", attachments.Handler)
+	webapi.Server().POST("value/unspentOutputs", unspentoutputs.Handler)
+	webapi.Server().POST("value/sendTransaction", sendtransaction.Handler)
+	webapi.Server().POST("value/testSendTxn", testsendtxn.Handler)
+	webapi.Server().GET("value/transactionByID", gettransactionbyid.Handler)
 }

@@ -15,14 +15,19 @@ import (
 const PluginName = "WebAPI data Endpoint"
 
 var (
-	// Plugin is the plugin instance of the web API data endpoint plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	// plugin is the plugin instance of the web API data endpoint plugin.
+	plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 	log    *logger.Logger
 )
 
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
+
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	webapi.Server.POST("data", broadcastData)
+	webapi.Server().POST("data", broadcastData)
 }
 
 // broadcastData creates a message of the given payload and

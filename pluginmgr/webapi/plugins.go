@@ -15,14 +15,14 @@ import (
 )
 
 var PLUGINS = node.Plugins(
-	webapi.Plugin,
-	webauth.Plugin,
-	spammer.Plugin,
-	data.Plugin,
-	drng.Plugin,
-	healthz.Plugin,
-	message.Plugin,
-	autopeering.Plugin,
-	info.Plugin,
-	value.Plugin,
+	webapi.Plugin(),
+	webauth.Plugin(),
+	spammer.Plugin(),
+	data.Plugin(),
+	drng.Plugin(),
+	healthz.Plugin(),
+	message.Plugin(),
+	autopeering.Plugin(),
+	info.Plugin(),
+	value.Plugin(),
 )

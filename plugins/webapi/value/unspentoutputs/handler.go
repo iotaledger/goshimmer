@@ -28,7 +28,7 @@ func Handler(c echo.Context) error {
 
 		outputids := make([]OutputID, 0)
 		// get outputids by address
-		for id, outputObj := range valuetransfers.Tangle.OutputsOnAddress(address) {
+		for id, outputObj := range valuetransfers.Tangle().OutputsOnAddress(address) {
 			defer outputObj.Release()
 			output := outputObj.Unwrap()
 

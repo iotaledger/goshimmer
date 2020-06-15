@@ -17,15 +17,21 @@ import (
 // PluginName is the name of the metrics plugin.
 const PluginName = "Metrics"
 
-// Plugin is the plugin instance of the metrics plugin.
-var Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+var (
+	// plugin is the plugin instance of the metrics plugin.
+	plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	log  *logger.Logger
+)
 
-var log *logger.Logger
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	// increase received MPS counter whenever we attached a message
-	messagelayer.Tangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+	messagelayer.Tangle().Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
 		cachedMessage.Release()
 		cachedMessageMetadata.Release()
 		increaseReceivedMPSCounter()

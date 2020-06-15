@@ -21,14 +21,20 @@ import (
 const PluginName = "Database"
 
 var (
-	// Plugin is the plugin instance of the database plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	// plugin is the plugin instance of the database plugin.
+	plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	log    *logger.Logger
 
 	db        database.DB
 	store     kvstore.KVStore
 	storeOnce sync.Once
 )
+
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
+
 
 // Store returns the KVStore instance.
 func Store() kvstore.KVStore {
@@ -45,10 +51,10 @@ func createStore() {
 	log = logger.NewLogger(PluginName)
 
 	var err error
-	if config.Node.GetBool(CfgDatabaseInMemory) {
+	if config.Node().GetBool(CfgDatabaseInMemory) {
 		db, err = database.NewMemDB()
 	} else {
-		dbDir := config.Node.GetString(CfgDatabaseDir)
+		dbDir := config.Node().GetString(CfgDatabaseDir)
 		db, err = database.NewDB(dbDir)
 	}
 	if err != nil {

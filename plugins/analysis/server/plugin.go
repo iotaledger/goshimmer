@@ -34,11 +34,16 @@ func init() {
 }
 
 var (
-	// Plugin is the plugin instance of the analysis server plugin.
-	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	// plugin is the plugin instance of the analysis server plugin.
+	plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
 	server *tcp.TCPServer
 	log    *logger.Logger
 )
+
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
@@ -51,7 +56,7 @@ func configure(_ *node.Plugin) {
 }
 
 func run(_ *node.Plugin) {
-	bindAddr := config.Node.GetString(CfgAnalysisServerBindAddress)
+	bindAddr := config.Node().GetString(CfgAnalysisServerBindAddress)
 	addr, portStr, err := net.SplitHostPort(bindAddr)
 	if err != nil {
 		log.Fatal("invalid bind address in %s: %s", CfgAnalysisServerBindAddress, err)
@@ -81,7 +86,7 @@ func HandleConnection(conn *network.ManagedConnection) {
 	}
 
 	// create new protocol instance
-	p := protocol.New(conn, packet.AnalysisMsgRegistry)
+	p := protocol.New(conn, packet.AnalysisMsgRegistry())
 
 	onReceiveData := events.NewClosure(func(data []byte) {
 		// process incoming data in protocol.Receive()

@@ -33,11 +33,16 @@ func init() {
 }
 
 var (
-	// Plugin is the plugin instance of the analysis client plugin.
-	Plugin   = node.NewPlugin(PluginName, node.Enabled, run)
+	// plugin is the plugin instance of the analysis client plugin.
+	plugin   = node.NewPlugin(PluginName, node.Enabled, run)
 	log      *logger.Logger
 	connLock sync.Mutex
 )
+
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
 
 func run(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
@@ -50,7 +55,7 @@ func run(_ *node.Plugin) {
 				return
 
 			case <-ticker.C:
-				conn, err := net.Dial("tcp", config.Node.GetString(CfgServerAddress))
+				conn, err := net.Dial("tcp", config.Node().GetString(CfgServerAddress))
 				if err != nil {
 					log.Debugf("Could not connect to reporting server: %s", err.Error())
 					continue

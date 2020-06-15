@@ -15,11 +15,16 @@ import (
 // PluginName is the name of the web API info endpoint plugin.
 const PluginName = "WebAPI info Endpoint"
 
-// Plugin is the plugin instance of the web API info endpoint plugin.
-var Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+// plugin is the plugin instance of the web API info endpoint plugin.
+var plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
 
 func configure(_ *node.Plugin) {
-	webapi.Server.GET("info", getInfo)
+	webapi.Server().GET("info", getInfo)
 }
 
 // getInfo returns the info of the node

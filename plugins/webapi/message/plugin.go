@@ -15,14 +15,19 @@ import (
 const PluginName = "WebAPI message Endpoint"
 
 var (
-	// Plugin is the plugin instance of the web API message endpoint plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	// plugin is the plugin instance of the web API message endpoint plugin.
+	plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 	log    *logger.Logger
 )
 
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
+
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	webapi.Server.POST("message/findById", findMessageByID)
+	webapi.Server().POST("message/findById", findMessageByID)
 }
 
 // findMessageByID returns the array of messages for the
@@ -46,11 +51,11 @@ func findMessageByID(c echo.Context) error {
 			continue
 		}
 
-		msgObject := messagelayer.Tangle.Message(msgID)
+		msgObject := messagelayer.Tangle().Message(msgID)
 		if !msgObject.Exists() {
 			continue
 		}
-		msgMetadataObject := messagelayer.Tangle.MessageMetadata(msgID)
+		msgMetadataObject := messagelayer.Tangle().MessageMetadata(msgID)
 		if !msgMetadataObject.Exists() {
 			continue
 		}

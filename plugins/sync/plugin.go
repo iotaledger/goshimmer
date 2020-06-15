@@ -49,8 +49,8 @@ func init() {
 }
 
 var (
-	// Plugin is the plugin instance of the sync plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	// plugin is the plugin instance of the sync plugin.
+	plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	// ErrNodeNotSynchronized is returned when an operation can't be executed because
 	// the node is not synchronized.
 	ErrNodeNotSynchronized = errors.New("node is not synchronized")
@@ -58,6 +58,11 @@ var (
 	synced atomic.Bool
 	log    *logger.Logger
 )
+
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
 
 // Synced tells whether the node is in a state we consider synchronized, meaning
 // it has the relevant past and present message data.
@@ -133,10 +138,10 @@ func monitorForDesynchronization() {
 	if err := daemon.BackgroundWorker("Desync-Monitor", func(shutdownSignal <-chan struct{}) {
 		gossip.Manager().Events().NeighborRemoved.Attach(monitorPeerCountClosure)
 		defer gossip.Manager().Events().NeighborRemoved.Detach(monitorPeerCountClosure)
-		messagelayer.Tangle.Events.MessageAttached.Attach(monitorMessageInflowClosure)
-		defer messagelayer.Tangle.Events.MessageAttached.Detach(monitorMessageInflowClosure)
+		messagelayer.Tangle().Events.MessageAttached.Attach(monitorMessageInflowClosure)
+		defer messagelayer.Tangle().Events.MessageAttached.Detach(monitorMessageInflowClosure)
 
-		desyncedIfNoMessageInSec := config.Node.GetDuration(CfgSyncDesyncedIfNoMessageAfterSec) * time.Second
+		desyncedIfNoMessageInSec := config.Node().GetDuration(CfgSyncDesyncedIfNoMessageAfterSec) * time.Second
 		timer := time.NewTimer(desyncedIfNoMessageInSec)
 		for {
 			select {
@@ -171,7 +176,7 @@ func monitorForDesynchronization() {
 // starts a background worker and event handlers to check whether the node is synchronized by first collecting
 // a set of newly received messages and then waiting for them to become solid.
 func monitorForSynchronization() {
-	wantedAnchorPointsCount := config.Node.GetInt(CfgSyncAnchorPointsCount)
+	wantedAnchorPointsCount := config.Node().GetInt(CfgSyncAnchorPointsCount)
 	anchorPoints := newAnchorPoints(wantedAnchorPointsCount)
 	log.Infof("monitoring for synchronization, awaiting %d anchor point messages to become solid", wantedAnchorPointsCount)
 
@@ -203,13 +208,13 @@ func monitorForSynchronization() {
 	})
 
 	if err := daemon.BackgroundWorker("Sync-Monitor", func(shutdownSignal <-chan struct{}) {
-		messagelayer.Tangle.Events.MessageAttached.Attach(initAnchorPointClosure)
-		defer messagelayer.Tangle.Events.MessageAttached.Detach(initAnchorPointClosure)
-		messagelayer.Tangle.Events.MessageSolid.Attach(checkAnchorPointSolidityClosure)
-		defer messagelayer.Tangle.Events.MessageSolid.Detach(checkAnchorPointSolidityClosure)
+		messagelayer.Tangle().Events.MessageAttached.Attach(initAnchorPointClosure)
+		defer messagelayer.Tangle().Events.MessageAttached.Detach(initAnchorPointClosure)
+		messagelayer.Tangle().Events.MessageSolid.Attach(checkAnchorPointSolidityClosure)
+		defer messagelayer.Tangle().Events.MessageSolid.Detach(checkAnchorPointSolidityClosure)
 
-		cleanupDelta := config.Node.GetDuration(CfgSyncAnchorPointsCleanupAfterSec) * time.Second
-		ticker := time.NewTimer(config.Node.GetDuration(CfgSyncAnchorPointsCleanupIntervalSec) * time.Second)
+		cleanupDelta := config.Node().GetDuration(CfgSyncAnchorPointsCleanupAfterSec) * time.Second
+		ticker := time.NewTimer(config.Node().GetDuration(CfgSyncAnchorPointsCleanupIntervalSec) * time.Second)
 		defer ticker.Stop()
 		for {
 			select {

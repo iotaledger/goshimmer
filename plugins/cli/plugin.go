@@ -15,10 +15,15 @@ import (
 const PluginName = "CLI"
 
 var (
-	// Plugin is the plugin instance of the CLI plugin.
-	Plugin  = node.NewPlugin(PluginName, node.Enabled)
+	// plugin is the plugin instance of the CLI plugin.
+	plugin  = node.NewPlugin(PluginName, node.Enabled)
 	version = flag.BoolP("version", "v", false, "Prints the GoShimmer version")
 )
+
+// gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
 
 func init() {
 	for name, plugin := range node.GetPlugins() {
@@ -29,7 +34,7 @@ func init() {
 
 	flag.Usage = printUsage
 
-	Plugin.Events.Init.Attach(events.NewClosure(onInit))
+	plugin.Events.Init.Attach(events.NewClosure(onInit))
 }
 
 func onAddPlugin(name string, status int) {

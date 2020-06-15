@@ -18,20 +18,25 @@ import (
 const PluginName = "WebAPI Auth"
 
 var (
-	// Plugin is the plugin instance of the web API auth plugin.
-	Plugin     = node.NewPlugin(PluginName, node.Disabled, configure)
+	// plugin is the plugin instance of the web API auth plugin.
+	plugin     = node.NewPlugin(PluginName, node.Disabled, configure)
 	log        *logger.Logger
 	privateKey string
 )
 
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
+
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	privateKey = config.Node.GetString(CfgWebAPIAuthPrivateKey)
+	privateKey = config.Node().GetString(CfgWebAPIAuthPrivateKey)
 	if len(privateKey) == 0 {
 		panic("")
 	}
 
-	webapi.Server.Use(middleware.JWTWithConfig(middleware.JWTConfig{
+	webapi.Server().Use(middleware.JWTWithConfig(middleware.JWTConfig{
 		SigningKey: []byte(privateKey),
 		Skipper: func(c echo.Context) bool {
 			if strings.HasPrefix(c.Path(), "/ui") || c.Path() == "/login" {
@@ -41,7 +46,7 @@ func configure(plugin *node.Plugin) {
 		},
 	}))
 
-	webapi.Server.POST("/login", Handler)
+	webapi.Server().POST("/login", Handler)
 	log.Info("WebAPI is now secured through JWT authentication")
 }
 
@@ -66,8 +71,8 @@ func Handler(c echo.Context) error {
 		return echo.ErrBadRequest
 	}
 
-	if login.Username != config.Node.GetString(CfgWebAPIAuthUsername) ||
-		login.Password != config.Node.GetString(CfgWebAPIAuthPassword) {
+	if login.Username != config.Node().GetString(CfgWebAPIAuthUsername) ||
+		login.Password != config.Node().GetString(CfgWebAPIAuthPassword) {
 		return echo.ErrUnauthorized
 	}
 

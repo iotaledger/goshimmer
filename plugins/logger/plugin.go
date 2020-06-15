@@ -10,19 +10,25 @@ import (
 // PluginName is the name of the logger plugin.
 const PluginName = "Logger"
 
-// Plugin is the plugin instance of the logger plugin.
-var Plugin = node.NewPlugin(PluginName, node.Enabled)
+// plugin is the plugin instance of the logger plugin.
+var plugin = node.NewPlugin(PluginName, node.Enabled)
+
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
+
 
 // Init triggers the Init event.
 func Init() {
-	Plugin.Events.Init.Trigger(Plugin)
+	plugin.Events.Init.Trigger(plugin)
 }
 
 func init() {
 	initFlags()
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
-		if err := logger.InitGlobalLogger(config.Node); err != nil {
+	plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
+		if err := logger.InitGlobalLogger(config.Node()); err != nil {
 			panic(err)
 		}
 	}))

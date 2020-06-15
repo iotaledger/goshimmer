@@ -22,8 +22,8 @@ const WaitToKillTimeInSeconds = 60
 var log *logger.Logger
 var gracefulStop chan os.Signal
 
-// Plugin is the plugin instance of the graceful shutdown plugin.
-var Plugin = node.NewPlugin(PluginName, node.Enabled, func(plugin *node.Plugin) {
+// plugin is the plugin instance of the graceful shutdown plugin.
+var plugin = node.NewPlugin(PluginName, node.Enabled, func(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	gracefulStop = make(chan os.Signal)
 
@@ -57,6 +57,12 @@ var Plugin = node.NewPlugin(PluginName, node.Enabled, func(plugin *node.Plugin) 
 		daemon.Shutdown()
 	}()
 })
+
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
+
 
 // ShutdownWithError prints out an error message and shuts down the default daemon instance.
 func ShutdownWithError(err error) {

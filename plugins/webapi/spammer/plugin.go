@@ -15,15 +15,21 @@ var messageSpammer *spammer.Spammer
 // PluginName is the name of the spammer plugin.
 const PluginName = "Spammer"
 
-// Plugin is the plugin instance of the spammer plugin.
-var Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+var (
+	// plugin is the plugin instance of the spammer plugin.
+	plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	log *logger.Logger
+)
 
-var log *logger.Logger
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	messageSpammer = spammer.New(issuer.IssuePayload)
-	webapi.Server.GET("spammer", handleRequest)
+	webapi.Server().GET("spammer", handleRequest)
 }
 
 func run(*node.Plugin) {

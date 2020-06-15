@@ -47,8 +47,8 @@ const (
 )
 
 var (
-	// Plugin is the plugin instance of the remote plugin instance.
-	Plugin      = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	// plugin is the plugin instance of the remote plugin instance.
+	plugin      = node.NewPlugin(PluginName, node.Disabled, configure, run)
 	log         *logger.Logger
 	conn        net.Conn
 	myID        string
@@ -57,6 +57,11 @@ var (
 	workerPool  *workerpool.WorkerPool
 )
 
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
+
 func init() {
 	flag.String(CfgLoggerRemotelogServerAddress, "remotelog.goshimmer.iota.cafe:5213", "RemoteLog server address")
 }
@@ -64,14 +69,14 @@ func init() {
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
-	if config.Node.GetBool(CfgDisableEvents) {
+	if config.Node().GetBool(CfgDisableEvents) {
 		log.Fatalf("%s in config.json needs to be false so that events can be captured!", CfgDisableEvents)
 		return
 	}
 
-	c, err := net.Dial("udp", config.Node.GetString(CfgLoggerRemotelogServerAddress))
+	c, err := net.Dial("udp", config.Node().GetString(CfgLoggerRemotelogServerAddress))
 	if err != nil {
-		log.Fatalf("Could not create UDP socket to '%s'. %v", config.Node.GetString(CfgLoggerRemotelogServerAddress), err)
+		log.Fatalf("Could not create UDP socket to '%s'. %v", config.Node().GetString(CfgLoggerRemotelogServerAddress), err)
 		return
 	}
 	conn = c

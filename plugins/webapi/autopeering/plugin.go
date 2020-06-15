@@ -16,11 +16,16 @@ import (
 // PluginName is the name of the web API autopeering endpoint plugin.
 const PluginName = "WebAPI autopeering Endpoint"
 
-// Plugin is the plugin instance of the web API autopeering endpoint plugin.
-var Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+// plugin is the plugin instance of the web API autopeering endpoint plugin.
+var plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 
 func configure(plugin *node.Plugin) {
-	webapi.Server.GET("autopeering/neighbors", getNeighbors)
+	webapi.Server().GET("autopeering/neighbors", getNeighbors)
+}
+
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
 }
 
 // getNeighbors returns the chosen and accepted neighbors of the node

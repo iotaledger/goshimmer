@@ -9,8 +9,8 @@ import (
 // PluginName is the name of the banner plugin.
 const PluginName = "Banner"
 
-// Plugin is the plugin instance of the banner plugin.
-var Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+// plugin is the plugin instance of the banner plugin.
+var plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 const (
 	// AppVersion version number
@@ -19,6 +19,11 @@ const (
 	// AppName app code name
 	AppName = "GoShimmer"
 )
+
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
 
 func configure(ctx *node.Plugin) {
 	fmt.Printf(`

@@ -16,11 +16,16 @@ import (
 const PluginName = "Autopeering"
 
 var (
-	// Plugin is the plugin instance of the autopeering plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	// plugin is the plugin instance of the autopeering plugin.
+	plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
 	log *logger.Logger
 )
+
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)

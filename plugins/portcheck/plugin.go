@@ -17,10 +17,15 @@ import (
 const PluginName = "PortCheck"
 
 var (
-	// Plugin is the plugin instance of the port check plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	// plugin is the plugin instance of the port check plugin.
+	plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	log    *logger.Logger
 )
+
+// Gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
@@ -49,7 +54,7 @@ func checkAutopeeringConnection() {
 	defer conn.Close()
 
 	// create a new discovery server for the port check
-	disc := discover.New(local.GetInstance(), autopeering.ProtocolVersion, autopeering.NetworkID, discover.Logger(log))
+	disc := discover.New(local.GetInstance(), autopeering.ProtocolVersion, autopeering.NetworkID(), discover.Logger(log))
 	srv := server.Serve(local.GetInstance(), conn, log, disc)
 	defer srv.Close()
 

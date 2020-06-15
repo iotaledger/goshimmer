@@ -77,7 +77,7 @@ func configureFPC() {
 	log = logger.NewLogger(FpcPluginName)
 	lPeer := local.GetInstance()
 
-	bindAddr := config.Node.GetString(CfgFPCBindAddress)
+	bindAddr := config.Node().GetString(CfgFPCBindAddress)
 	_, portStr, err := net.SplitHostPort(bindAddr)
 	if err != nil {
 		log.Fatalf("FPC bind address '%s' is invalid: %s", bindAddr, err)
@@ -108,7 +108,7 @@ func runFPC() {
 				return vote.Unknown
 			}
 
-			cachedBranch := Tangle.BranchManager().Branch(branchID)
+			cachedBranch := tngle.BranchManager().Branch(branchID)
 			defer cachedBranch.Release()
 
 			branch := cachedBranch.Unwrap()
@@ -121,7 +121,7 @@ func runFPC() {
 			}
 
 			return vote.Like
-		}, config.Node.GetString(CfgFPCBindAddress))
+		}, config.Node().GetString(CfgFPCBindAddress))
 
 		go func() {
 			if err := voterServer.Run(); err != nil {
@@ -129,7 +129,7 @@ func runFPC() {
 			}
 		}()
 
-		log.Infof("Started vote server on %s", config.Node.GetString(CfgFPCBindAddress))
+		log.Infof("Started vote server on %s", config.Node().GetString(CfgFPCBindAddress))
 		<-shutdownSignal
 		voterServer.Shutdown()
 		log.Info("Stopped vote server")

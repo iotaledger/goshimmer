@@ -30,17 +30,17 @@ const (
 )
 
 var (
-	// App is the "plugin" instance of the value-transfers application.
-	App = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	// app is the "plugin" instance of the value-transfers application.
+	app = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
-	// Tangle represents the value tangle that is used to express votes on value transactions.
-	Tangle *tangle.Tangle
+	// tngle represents the value tangle that is used to express votes on value transactions.
+	tngle *tangle.Tangle
 
-	// FCOB contains the fcob consensus logic.
-	FCOB *consensus.FCOB
+	// fcob contains the fcob consensus logic.
+	fcob *consensus.FCOB
 
-	// LedgerState represents the ledger state, that keeps track of the liked branches and offers an API to access funds.
-	LedgerState *tangle.LedgerState
+	// ledgerState represents the ledger state, that keeps track of the liked branches and offers an API to access funds.
+	ledgerState *tangle.LedgerState
 
 	// log holds a reference to the logger used by this app.
 	log *logger.Logger
@@ -52,13 +52,33 @@ var (
 	valueObjectFactoryOnce sync.Once
 )
 
+// Gets the plugin instance
+func App() *node.Plugin {
+	return app
+}
+
+// Gets the tangle instance
+func Tangle() *tangle.Tangle {
+	return tngle
+}
+
+// Gets the fcob instance
+func FCOB() *consensus.FCOB {
+	return fcob
+}
+
+// Gets the ledgerState instance
+func LedgerState() *tangle.LedgerState {
+	return ledgerState
+}
+
 func configure(_ *node.Plugin) {
 	// configure logger
 	log = logger.NewLogger(PluginName)
 
-	// configure Tangle
-	Tangle = tangle.New(database.Store())
-	Tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+	// configure tngle
+	tngle = tangle.New(database.Store())
+	tngle.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Error(err)
 	}))
 
@@ -66,41 +86,41 @@ func configure(_ *node.Plugin) {
 	tipManager = TipManager()
 	valueObjectFactory = ValueObjectFactory()
 
-	Tangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
+	tngle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
 		cachedMetadata.Release()
 		cachedPayload.Consume(tipManager.AddTip)
 	}))
-	Tangle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
+	tngle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
 		cachedMetadata.Release()
 		cachedPayload.Consume(tipManager.RemoveTip)
 	}))
 
-	// configure FCOB consensus rules
-	FCOB = consensus.NewFCOB(Tangle, AverageNetworkDelay)
-	FCOB.Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
+	// configure fcob consensus rules
+	fcob = consensus.NewFCOB(tngle, AverageNetworkDelay)
+	fcob.Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
 		if err := voter.Vote(id, initOpn); err != nil {
 			log.Error(err)
 		}
 	}))
-	FCOB.Events.Error.Attach(events.NewClosure(func(err error) {
+	fcob.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Error(err)
 	}))
 
 	// configure FPC + link to consensus
 	configureFPC()
-	voter.Events().Finalized.Attach(events.NewClosure(FCOB.ProcessVoteResult))
+	voter.Events().Finalized.Attach(events.NewClosure(fcob.ProcessVoteResult))
 	voter.Events().Failed.Attach(events.NewClosure(func(id string, lastOpinion vote.Opinion) {
 		log.Errorf("FPC failed for transaction with id '%s' - last opinion: '%s'", id, lastOpinion)
 	}))
 
 	// subscribe to message-layer
-	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 }
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("ValueTangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
-		Tangle.Shutdown()
+		tngle.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
@@ -131,7 +151,7 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 		return
 	}
 
-	Tangle.AttachPayload(valuePayload)
+	tngle.AttachPayload(valuePayload)
 }
 
 // TipManager returns the TipManager singleton.

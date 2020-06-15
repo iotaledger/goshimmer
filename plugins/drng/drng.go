@@ -29,7 +29,7 @@ func configureDRNG() *drng.DRNG {
 
 	// parse distributed public key of the committee
 	var dpk []byte
-	if str := config.Node.GetString(CfgDRNGDistributedPubKey); str != "" {
+	if str := config.Node().GetString(CfgDRNGDistributedPubKey); str != "" {
 		bytes, err := hex.DecodeString(str)
 		if err != nil {
 			log.Warnf("Invalid %s: %s", CfgDRNGDistributedPubKey, err)
@@ -42,8 +42,8 @@ func configureDRNG() *drng.DRNG {
 
 	// configure committee
 	committeeConf := &state.Committee{
-		InstanceID:    config.Node.GetUint32(CfgDRNGInstanceID),
-		Threshold:     uint8(config.Node.GetUint32(CfgDRNGThreshold)),
+		InstanceID:    config.Node().GetUint32(CfgDRNGInstanceID),
+		Threshold:     uint8(config.Node().GetUint32(CfgDRNGThreshold)),
 		DistributedPK: dpk,
 		Identities:    committeeMembers,
 	}
@@ -58,7 +58,7 @@ func Instance() *drng.DRNG {
 }
 
 func parseCommitteeMembers() (result []ed25519.PublicKey, err error) {
-	for _, committeeMember := range config.Node.GetStringSlice(CfgDRNGCommitteeMembers) {
+	for _, committeeMember := range config.Node().GetStringSlice(CfgDRNGCommitteeMembers) {
 		if committeeMember == "" {
 			continue
 		}
