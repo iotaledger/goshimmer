@@ -21,10 +21,8 @@ type SignatureFilter struct {
 }
 
 // NewSignatureFilter is the constructor of the MessageFilter.
-func NewSignatureFilter() (result *SignatureFilter) {
-	result = &SignatureFilter{}
-
-	return
+func NewSignatureFilter() *SignatureFilter {
+	return &SignatureFilter{}
 }
 
 // Filter get's called whenever a new message is received. It rejects the message, if the message is not a valid value
