@@ -15,9 +15,9 @@ import (
 type SignatureFilter struct {
 	onAcceptCallback      func(message *message.Message, peer *peer.Peer)
 	onRejectCallback      func(message *message.Message, err error, peer *peer.Peer)
-	workerPool            async.WorkerPool
 	onAcceptCallbackMutex sync.RWMutex
 	onRejectCallbackMutex sync.RWMutex
+	workerPool            async.WorkerPool
 }
 
 // NewSignatureFilter is the constructor of the MessageFilter.
