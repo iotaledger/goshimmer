@@ -4,12 +4,11 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/iotaledger/hive.go/async"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messageparser"
+	"github.com/iotaledger/hive.go/async"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 )
 
 // SignatureFilter represents a filter for the MessageParser that filters out transactions with an invalid signature.
