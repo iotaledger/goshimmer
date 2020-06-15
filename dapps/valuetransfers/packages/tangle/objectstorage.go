@@ -3,10 +3,9 @@ package tangle
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/objectstorage"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/hive.go/objectstorage"
 )
 
 const (
@@ -26,7 +25,7 @@ const (
 )
 
 var (
-	osLeakDetectionOption = objectstorage.LeakDetectionEnabled(true, objectstorage.LeakDetectionOptions{
+	osLeakDetectionOption = objectstorage.LeakDetectionEnabled(false, objectstorage.LeakDetectionOptions{
 		MaxConsumersPerObject: 20,
 		MaxConsumerHoldTime:   10 * time.Second,
 	})
