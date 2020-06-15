@@ -4,9 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMarshalUnmarshal(t *testing.T) {
