@@ -4,11 +4,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
@@ -20,6 +15,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 )
 
 const (
