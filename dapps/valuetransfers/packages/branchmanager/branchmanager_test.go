@@ -1,6 +1,7 @@
 package branchmanager
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/iotaledger/hive.go/events"
@@ -33,7 +34,7 @@ type eventMock struct {
 	}
 }
 
-func newEventMock(t mock.TestingT, mgr *BranchManager) *eventMock {
+func newEventMock(t *testing.T, mgr *BranchManager) *eventMock {
 	e := &eventMock{}
 	e.Test(t)
 
@@ -45,6 +46,10 @@ func newEventMock(t mock.TestingT, mgr *BranchManager) *eventMock {
 	e.attach(mgr.Events.BranchPreferred, e.BranchPreferred)
 	e.attach(mgr.Events.BranchRejected, e.BranchRejected)
 	e.attach(mgr.Events.BranchUnpreferred, e.BranchUnpreferred)
+
+	// assure that all available events are mocked
+	numEvents := reflect.ValueOf(mgr.Events).Elem().NumField()
+	assert.Equalf(t, len(e.attached), numEvents, "not all events in BranchManager.Events have been attached")
 
 	return e
 }
