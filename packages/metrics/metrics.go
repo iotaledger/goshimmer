@@ -20,6 +20,8 @@ func new() *CollectionEvents {
 		events.NewEvent(boolCaller),
 		events.NewEvent(uint64Caller),
 		events.NewEvent(uint64Caller),
+		events.NewEvent(queryReceivedEventCaller),
+		events.NewEvent(queryReplyErrorEventCaller),
 	}
 }
 

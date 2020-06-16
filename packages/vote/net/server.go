@@ -2,10 +2,10 @@ package net
 
 import (
 	"context"
-	"github.com/golang/protobuf/proto"
-	"github.com/iotaledger/goshimmer/packages/metrics"
 	"net"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"google.golang.org/grpc"
 )
@@ -46,7 +46,7 @@ func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryRe
 		reply.Opinion[i] = int32(vs.opnRetriever(id))
 	}
 
-	// trigger metrics event
+	metrics.Events().QueryReceived.Trigger(&metrics.QueryReceivedEvent{OpinionCount: len(req.Id)})
 	metrics.Events().FPCInboundBytes.Trigger(proto.Size(req))
 	metrics.Events().FPCOutboundBytes.Trigger(proto.Size(reply))
 	return reply, nil

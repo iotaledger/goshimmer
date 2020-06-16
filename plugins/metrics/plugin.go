@@ -92,6 +92,13 @@ func configure(_ *node.Plugin) {
 	metrics.Events().ValueTips.Attach(events.NewClosure(func(tipsCount uint64) {
 		atomic.StoreUint64(&valueTips, tipsCount)
 	}))
+
+	metrics.Events().QueryReceived.Attach(events.NewClosure(func(ev *metrics.QueryReceivedEvent) {
+		processQueryReceived(ev)
+	}))
+	metrics.Events().QueryReplyError.Attach(events.NewClosure(func(ev *metrics.QueryReplyErrorEvent) {
+		processQueryReplyError(ev)
+	}))
 }
 
 func run(_ *node.Plugin) {

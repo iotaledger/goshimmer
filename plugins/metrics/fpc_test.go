@@ -3,8 +3,8 @@ package metrics
 import (
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/vote"
-
 	"github.com/magiconair/properties/assert"
 )
 
@@ -56,4 +56,34 @@ func TestFinalize(t *testing.T) {
 	assert.Equal(t, FinalizedConflict(), (uint64)(10))
 	// => average should be 7.5
 	assert.Equal(t, AverageRoundsToFinalize(), 7.5)
+}
+
+func TestQueryReceived(t *testing.T) {
+	assert.Equal(t, FPCQueryReceived(), (uint64)(0))
+	assert.Equal(t, FPCOpinionQueryReceived(), (uint64)(0))
+
+	processQueryReceived(&metrics.QueryReceivedEvent{OpinionCount: 5})
+
+	assert.Equal(t, FPCQueryReceived(), (uint64)(1))
+	assert.Equal(t, FPCOpinionQueryReceived(), (uint64)(5))
+
+	processQueryReceived(&metrics.QueryReceivedEvent{OpinionCount: 5})
+
+	assert.Equal(t, FPCQueryReceived(), (uint64)(2))
+	assert.Equal(t, FPCOpinionQueryReceived(), (uint64)(10))
+}
+
+func TestQueryReplyError(t *testing.T) {
+	assert.Equal(t, FPCQueryReplyErrors(), (uint64)(0))
+	assert.Equal(t, FPCOpinionQueryReplyErrors(), (uint64)(0))
+
+	processQueryReplyError(&metrics.QueryReplyErrorEvent{OpinionCount: 5})
+
+	assert.Equal(t, FPCQueryReplyErrors(), (uint64)(1))
+	assert.Equal(t, FPCOpinionQueryReplyErrors(), (uint64)(5))
+
+	processQueryReplyError(&metrics.QueryReplyErrorEvent{OpinionCount: 5})
+
+	assert.Equal(t, FPCQueryReplyErrors(), (uint64)(2))
+	assert.Equal(t, FPCOpinionQueryReplyErrors(), (uint64)(10))
 }

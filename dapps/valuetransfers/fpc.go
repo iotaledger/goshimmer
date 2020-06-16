@@ -3,13 +3,13 @@ package valuetransfers
 import (
 	"context"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/iotaledger/goshimmer/packages/metrics"
 	"net"
 	"strconv"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
+	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
@@ -185,7 +185,10 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opin
 	query := &votenet.QueryRequest{Id: ids}
 	reply, err := client.Opinion(ctx, query)
 	if err != nil {
-		// TODO: add an event QueryErrorEvent (metrics)
+		metrics.Events().QueryReplyError.Trigger(&metrics.QueryReplyErrorEvent{
+			ID:           pog.p.ID().String(),
+			OpinionCount: len(ids),
+		})
 		return nil, fmt.Errorf("unable to query opinions: %w", err)
 	}
 

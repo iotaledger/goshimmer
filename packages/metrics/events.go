@@ -13,6 +13,27 @@ type CollectionEvents struct {
 	Synced           *events.Event
 	ValueTips        *events.Event
 	MessageTips      *events.Event
+	QueryReceived    *events.Event
+	QueryReplyError  *events.Event
+}
+
+// QueryReceivedEvent is used to pass information through a QueryReceived event.
+type QueryReceivedEvent struct {
+	OpinionCount int
+}
+
+// QueryReplyErrorEvent is used to pass information through a QueryReplyError event.
+type QueryReplyErrorEvent struct {
+	ID           string
+	OpinionCount int
+}
+
+func queryReceivedEventCaller(handler interface{}, params ...interface{}) {
+	handler.(func(ev *QueryReceivedEvent))(params[0].(*QueryReceivedEvent))
+}
+
+func queryReplyErrorEventCaller(handler interface{}, params ...interface{}) {
+	handler.(func(ev *QueryReplyErrorEvent))(params[0].(*QueryReplyErrorEvent))
 }
 
 func uint64Caller(handler interface{}, params ...interface{}) {
