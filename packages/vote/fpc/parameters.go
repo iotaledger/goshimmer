@@ -27,8 +27,8 @@ type Parameters struct {
 // DefaultParameters returns the default parameters used in FPC.
 func DefaultParameters() *Parameters {
 	return &Parameters{
-		FirstRoundLowerBoundThreshold:       0.75,
-		FirstRoundUpperBoundThreshold:       0.75,
+		FirstRoundLowerBoundThreshold:       0.67,
+		FirstRoundUpperBoundThreshold:       0.67,
 		SubsequentRoundsLowerBoundThreshold: 0.50,
 		SubsequentRoundsUpperBoundThreshold: 0.67,
 		QuerySampleSize:                     21,

@@ -1,6 +1,16 @@
 version: "3.5"
 
 services:
+  mongodb_container:
+    image: mongo:latest
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+    ports:
+      - 27017:27017
+    volumes:
+      - mongodb_data_container:/data/db
+ 
   entry_node:
     container_name: entry_node
     image: golang:1.14
@@ -13,12 +23,13 @@ services:
       --analysis.server.bindAddress=0.0.0.0:1888
       --analysis.dashboard.bindAddress=0.0.0.0:9000
       --node.enablePlugins=analysis-server,analysis-dashboard
+      --analysis.dashboard.dev=false
       --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,metrics,messagelayer,valuetransfers,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
     ports:
-      - "127.0.0.1:9000:9000/tcp" # autopeering visualizer
+      - "127.0.0.1:9000:9000/tcp" # analysis dashboard
     expose:
       - "1888/tcp" # analysis server (within Docker network)
 
@@ -58,3 +69,4 @@ services:
 volumes:
   goshimmer-cache:
     name: goshimmer-cache
+  mongodb_data_container:

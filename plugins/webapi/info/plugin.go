@@ -90,11 +90,11 @@ type Response struct {
 	// identity ID of the node encoded in base58 and truncated to its first 8 bytes
 	IdentityID string `json:"identityID,omitempty"`
 	// public key of the node encoded in base58
-	PublicKey string `json:"publickey,omitempty"`
+	PublicKey string `json:"publicKey,omitempty"`
 	// list of enabled plugins
-	EnabledPlugins []string `json:"enabledplugins,omitempty"`
+	EnabledPlugins []string `json:"enabledPlugins,omitempty"`
 	// list if disabled plugins
-	DisabledPlugins []string `json:"disabledlugins,omitempty"`
+	DisabledPlugins []string `json:"disabledPlugins,omitempty"`
 	// error of the response
 	Error string `json:"error,omitempty"`
 }

@@ -10,8 +10,10 @@ require (
 	github.com/drand/drand v0.8.1
 	github.com/drand/kyber v1.0.1-0.20200331114745-30e90cc60f99
 	github.com/go-ole/go-ole v1.2.4 // indirect
+	github.com/gin-gonic/gin v1.6.3
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/golang/protobuf v1.3.5
+	github.com/google/go-cmp v0.4.0
 	github.com/gorilla/websocket v1.4.1
 	github.com/iotaledger/hive.go v0.0.0-20200615181744-3ab0cddc15cf
 	github.com/iotaledger/iota.go v1.0.0-beta.14
@@ -22,11 +24,13 @@ require (
 	github.com/panjf2000/ants/v2 v2.2.2
 	github.com/pkg/errors v0.9.1
 	github.com/shirou/gopsutil v2.20.5+incompatible
+	github.com/prometheus/client_golang v1.5.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.5.1
 	github.com/valyala/fasttemplate v1.1.0 // indirect
 	go.dedis.ch/kyber/v3 v3.0.12
+	go.mongodb.org/mongo-driver v1.0.0
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.0
 	golang.org/x/crypto v0.0.0-20200429183012-4b2356b1ed79
