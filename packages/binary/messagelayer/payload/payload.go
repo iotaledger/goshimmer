@@ -49,7 +49,7 @@ func FromBytes(bytes []byte) (result Payload, consumedBytes int, err error) {
 	readOffset := marshalUtil.ReadOffset()
 	result, err = GetUnmarshaler(payloadType)(payloadBytes)
 	if err != nil {
-		// fallback to the generic unmarshaler
+		// fallback to the generic unmarshaler if registered type fails to unmarshal
 		marshalUtil.ReadSeek(readOffset)
 		result, err = GenericPayloadUnmarshalerFactory(payloadType)(payloadBytes)
 		if err != nil {
