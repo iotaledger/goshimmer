@@ -16,7 +16,7 @@ import (
 
 func main() {
 
-	client := client.NewGoShimmerAPI("http://ressims.iota.cafe:8080", http.Client{Timeout: 30 * time.Second})
+	client := client.NewGoShimmerAPI("http://localhost:8080", http.Client{Timeout: 30 * time.Second})
 
 	// genesis wallet
 	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
