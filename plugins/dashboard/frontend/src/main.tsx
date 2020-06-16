@@ -10,7 +10,6 @@ import NodeStore from "app/stores/NodeStore";
 import ExplorerStore from "app/stores/ExplorerStore";
 import DrngStore from "app/stores/DrngStore";
 import VisualizerStore from "app/stores/VisualizerStore";
-import FPCStore from "app/stores/FPCStore";
 
 // prepare MobX stores
 const routerStore = new RouterStore();
@@ -18,14 +17,12 @@ const nodeStore = new NodeStore();
 const explorerStore = new ExplorerStore(routerStore);
 const drngStore = new DrngStore(routerStore);
 const visualizerStore = new VisualizerStore(routerStore);
-const fpcStore = new FPCStore(routerStore);
 const stores = {
     "routerStore": routerStore,
     "nodeStore": nodeStore,
     "explorerStore": explorerStore,
     "drngStore": drngStore,
     "visualizerStore": visualizerStore,
-    "fpcStore": fpcStore,
 };
 
 const browserHistory = createBrowserHistory();
