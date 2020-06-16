@@ -1,8 +1,6 @@
 package valuetransfers
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/config"
-	flag "github.com/spf13/pflag"
 	"os"
 	"sync"
 	"time"
@@ -16,12 +14,14 @@ import (
 	messageTangle "github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	flag "github.com/spf13/pflag"
 )
 
 const (
@@ -85,7 +85,7 @@ func configure(_ *node.Plugin) {
 			log.Panic("could not read snapshot file:", err)
 		}
 		Tangle.LoadSnapshot(snapshot)
-		log.Info("read snapshot from %s", snapshotFilePath)
+		log.Infof("read snapshot from %s", snapshotFilePath)
 	}
 
 	Tangle.Events.Error.Attach(events.NewClosure(func(err error) {
