@@ -33,12 +33,12 @@ func Init() {
 	plugin.Events.Init.Trigger(plugin)
 }
 
-// gets the plugin instance
+// Plugin gets the plugin instance
 func Plugin() *node.Plugin {
 	return plugin
 }
 
-// Gets the node
+// Node gets the node
 func Node() *viper.Viper {
 	return nde
 }

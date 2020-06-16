@@ -20,7 +20,7 @@ var (
 	version = flag.BoolP("version", "v", false, "Prints the GoShimmer version")
 )
 
-// gets the plugin instance
+// Plugin gets the plugin instance
 func Plugin() *node.Plugin {
 	return plugin
 }

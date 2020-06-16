@@ -23,7 +23,7 @@ func configure(plugin *node.Plugin) {
 	webapi.Server().GET("autopeering/neighbors", getNeighbors)
 }
 
-// Gets the plugin instance
+// Plugin gets the plugin instance
 func Plugin() *node.Plugin {
 	return plugin
 }

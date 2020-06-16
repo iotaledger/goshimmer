@@ -13,7 +13,7 @@ const PluginName = "Logger"
 // plugin is the plugin instance of the logger plugin.
 var plugin = node.NewPlugin(PluginName, node.Enabled)
 
-// Gets the plugin instance
+// Plugin gets the plugin instance
 func Plugin() *node.Plugin {
 	return plugin
 }

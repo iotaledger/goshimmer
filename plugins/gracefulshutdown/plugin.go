@@ -58,7 +58,7 @@ var plugin = node.NewPlugin(PluginName, node.Enabled, func(plugin *node.Plugin) 
 	}()
 })
 
-// Gets the plugin instance
+// Plugin gets the plugin instance
 func Plugin() *node.Plugin {
 	return plugin
 }

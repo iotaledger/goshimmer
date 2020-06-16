@@ -53,7 +53,7 @@ var (
 	}{c: make(chan *server.Server, 1)}
 )
 
-// Gets the networkID
+// NetworkID gets the networkID
 func NetworkID() uint32 {
 	return networkID
 }

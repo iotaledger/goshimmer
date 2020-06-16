@@ -26,12 +26,12 @@ var (
 	log *logger.Logger
 )
 
-// Gets the plugin instance
+// Plugin gets the plugin instance
 func Plugin() *node.Plugin {
 	return plugin
 }
 
-// Gets the server instance
+// Server gets the server instance
 func Server() *echo.Echo {
 	return server
 }

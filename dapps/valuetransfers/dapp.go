@@ -52,22 +52,22 @@ var (
 	valueObjectFactoryOnce sync.Once
 )
 
-// Gets the plugin instance
+// Plugin gets the plugin instance
 func App() *node.Plugin {
 	return app
 }
 
-// Gets the tangle instance
+// Tangle gets the tangle instance
 func Tangle() *tangle.Tangle {
 	return tngle
 }
 
-// Gets the fcob instance
+// FCOB gets the fcob instance
 func FCOB() *consensus.FCOB {
 	return fcob
 }
 
-// Gets the ledgerState instance
+// LedgerState gets the ledgerState instance
 func LedgerState() *tangle.LedgerState {
 	return ledgerState
 }

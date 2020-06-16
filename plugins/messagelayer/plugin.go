@@ -33,32 +33,32 @@ var (
 	log              *logger.Logger
 )
 
-// Gets the plugin instance
+// Plugin gets the plugin instance
 func Plugin() *node.Plugin {
 	return plugin
 }
 
-// Gets the messageParser instance
+// MessageParser gets the messageParser instance
 func MessageParser() *messageparser.MessageParser {
 	return messageParser
 }
 
-// Gets the tipSelector instance
+// TipSelector gets the tipSelector instance
 func TipSelector() *tipselector.TipSelector {
 	return tipSelector
 }
 
-// Gets the tangle instance
+// Tangle gets the tangle instance
 func Tangle() *tangle.Tangle {
 	return tngle
 }
 
-// Gets the messageFactory instance
+// MessageFactory gets the messageFactory instance
 func MessageFactory() *messagefactory.MessageFactory {
 	return messageFactory
 }
 
-// Gets the messageRequester instance
+// MessageRequester gets the messageRequester instance
 func MessageRequester() *messagerequester.MessageRequester {
 	return messageRequester
 }

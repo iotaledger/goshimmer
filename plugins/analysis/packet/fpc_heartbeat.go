@@ -26,9 +26,9 @@ type FPCHeartbeat struct {
 	Finalized map[string]vote.Opinion
 }
 
-// Gets the fpcHeartbeatMessageDefinition.
-// fpcHeartbeatMessageDefinition defines a heartbeat message's format.
+// FPCHeartbeatMessageDefinition gets the fpcHeartbeatMessageDefinition.
 func FPCHeartbeatMessageDefinition() *message.Definition {
+	// fpcHeartbeatMessageDefinition defines a heartbeat message's format.
 	var fpcHeartbeatMessageDefinition *message.Definition
 	once.Do(func(){
 		fpcHeartbeatMessageDefinition = &message.Definition{

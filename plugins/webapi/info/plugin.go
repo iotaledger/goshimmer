@@ -18,7 +18,7 @@ const PluginName = "WebAPI info Endpoint"
 // plugin is the plugin instance of the web API info endpoint plugin.
 var plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 
-// Gets the plugin instance
+// Plugin gets the plugin instance
 func Plugin() *node.Plugin {
 	return plugin
 }
