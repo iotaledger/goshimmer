@@ -38,7 +38,7 @@ func New(options ...Option) (wallet *Wallet) {
 
 // SendFunds issues a payment of the given amount to the given address.
 func (wallet *Wallet) SendFunds(address address.Address, amount uint64) (err error) {
-	// TODO: IMPLEMENT
+	unspentOutputs := wallet.UnspentOutputs()
 
 	return
 }
