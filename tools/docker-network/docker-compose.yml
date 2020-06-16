@@ -40,13 +40,14 @@ services:
     command: >
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
-      --node.enablePlugins=bootstrap
+      --node.enablePlugins=bootstrap, prometheus
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
     ports:
       - "127.0.0.1:8080:8080/tcp" # web API
       - "127.0.0.1:8081:8081/tcp" # dashboard
+      - "127.0.0.1:9311:9311/tcp" # prometheus
     depends_on:
       - entry_node
 
@@ -65,6 +66,18 @@ services:
       - "8080/tcp" # web API (within Docker network)
     depends_on:
       - entry_node
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+    - "127.0.0.19090:9090/tcp"
+    command:
+    - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+    - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+    - peer_master
 
 volumes:
   goshimmer-cache:
