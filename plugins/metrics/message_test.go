@@ -53,25 +53,7 @@ func TestReceivedMPSUpdatedEvent(t *testing.T) {
 	wg.Wait()
 }
 
-func TestMPSPerPayloadSingle(t *testing.T) {
-	// it is empty initially
-	assert.Equal(t, MPSPerPayload(), map[payload.Type]uint64{})
-	assert.Equal(t, MessageTotalCount(), (uint64)(0))
-	// simulate attaching 10 value payloads in 0s < t < 1s
-	for i := 0; i < 10; i++ {
-		increasePerPayloadMPSCounter(valuepayload.Type)
-	}
-	// test measurement
-	measureMPSPerPayload()
-	assert.Equal(t, MPSPerPayload(), map[payload.Type]uint64{valuepayload.Type: 10})
-	assert.Equal(t, MessageTotalCount(), (uint64)(10))
-	// test counter reset on measurement
-	measureMPSPerPayload()
-	assert.Equal(t, MPSPerPayload(), map[payload.Type]uint64{valuepayload.Type: 0})
-	assert.Equal(t, MessageTotalCount(), (uint64)(10))
-}
-
-func TestMPSPerPayloadMultiple(t *testing.T) {
+func TestMPSPerPayload(t *testing.T) {
 	// it is empty initially
 	assert.Equal(t, MPSPerPayload(), map[payload.Type]uint64{})
 	assert.Equal(t, MessageTotalCount(), (uint64)(0))

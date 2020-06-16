@@ -53,6 +53,16 @@ func configure(_ *node.Plugin) {
 		processRoundStats(roundStats)
 	}))
 
+	// a conflict has been finalized
+	valuetransfers.Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+		processFinalized(ev.Ctx)
+	}))
+
+	// consensus failure in conflict resolution
+	valuetransfers.Voter().Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+		processFailed(ev.Ctx)
+	}))
+
 	//// Events coming from metrics package ////
 
 	metrics.Events().FPCInboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
