@@ -103,13 +103,13 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 		tests.CheckTransactions(t, partition.Peers(), map[string]*tests.ExpectedTransaction{
 			conflictingTxIDs[i]: nil,
 		}, true, tests.ExpectedInclusionState{
-			Confirmed: tests.False(),
-			Finalized: tests.False(),
-			Conflict:  tests.False(),
-			Solid:     tests.True(),
-			Rejected:  tests.False(),
-			Liked:     tests.True(),
-			Preferred: tests.True(),
+			Confirmed:   tests.False(),
+			Finalized:   tests.False(),
+			Conflicting: tests.False(),
+			Solid:       tests.True(),
+			Rejected:    tests.False(),
+			Liked:       tests.True(),
+			Preferred:   tests.True(),
 		})
 	}
 
@@ -150,9 +150,9 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 
 	// check that the transactions are marked as conflicting
 	tests.CheckTransactions(t, n.Peers(), expectations, true, tests.ExpectedInclusionState{
-		Finalized: tests.False(),
-		Conflict:  tests.True(),
-		Solid:     tests.True(),
+		Finalized:   tests.False(),
+		Conflicting: tests.True(),
+		Solid:       tests.True(),
 	})
 
 	// wait until the voting has finalized

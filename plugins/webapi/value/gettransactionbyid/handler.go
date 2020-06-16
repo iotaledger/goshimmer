@@ -34,13 +34,13 @@ func Handler(c echo.Context) error {
 	return c.JSON(http.StatusOK, Response{
 		Transaction: txn,
 		InclusionState: utils.InclusionState{
-			Confirmed: txnMeta.Confirmed(),
-			Conflict:  txnMeta.Conflicting(),
-			Liked:     txnMeta.Liked(),
-			Solid:     txnMeta.Solid(),
-			Rejected:  txnMeta.Rejected(),
-			Finalized: txnMeta.Finalized(),
-			Preferred: txnMeta.Preferred(),
+			Confirmed:   txnMeta.Confirmed(),
+			Conflicting: txnMeta.Conflicting(),
+			Liked:       txnMeta.Liked(),
+			Solid:       txnMeta.Solid(),
+			Rejected:    txnMeta.Rejected(),
+			Finalized:   txnMeta.Finalized(),
+			Preferred:   txnMeta.Preferred(),
 		},
 	})
 }

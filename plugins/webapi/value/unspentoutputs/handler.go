@@ -53,7 +53,7 @@ func Handler(c echo.Context) error {
 					inclusionState.Liked = txMeta.Liked()
 					inclusionState.Rejected = txMeta.Rejected()
 					inclusionState.Finalized = txMeta.Finalized()
-					inclusionState.Conflict = txMeta.Conflicting()
+					inclusionState.Conflicting = txMeta.Conflicting()
 					inclusionState.Confirmed = txMeta.Confirmed()
 				}
 				outputids = append(outputids, OutputID{

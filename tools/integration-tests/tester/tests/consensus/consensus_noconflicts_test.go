@@ -72,7 +72,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 		txID: {Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, Signature: &utilsTx.Signature},
 	}, true, tests.ExpectedInclusionState{
 		Confirmed: tests.True(), Finalized: tests.True(),
-		Conflict: tests.False(), Solid: tests.True(),
+		Conflicting: tests.False(), Solid: tests.True(),
 		Rejected: tests.False(), Liked: tests.True(),
 	})
 
@@ -110,7 +110,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	tests.CheckTransactions(t, n.Peers(), secondReceiverExpectedTransactions, true,
 		tests.ExpectedInclusionState{
 			Confirmed: tests.True(), Finalized: tests.True(),
-			Conflict: tests.False(), Solid: tests.True(),
+			Conflicting: tests.False(), Solid: tests.True(),
 			Rejected: tests.False(), Liked: tests.True(),
 		},
 	)

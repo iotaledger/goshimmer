@@ -377,7 +377,7 @@ type ExpectedInclusionState struct {
 	// The optional finalized state to check against.
 	Finalized *bool
 	// The optional conflict state to check against.
-	Conflict *bool
+	Conflicting *bool
 	// The optional solid state to check against.
 	Solid *bool
 	// The optional rejected state to check against.
@@ -431,8 +431,8 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map
 			if expectedInclusionState.Confirmed != nil {
 				assert.Equal(t, *expectedInclusionState.Confirmed, resp.InclusionState.Confirmed, "confirmed state doesn't match - %s", txId)
 			}
-			if expectedInclusionState.Conflict != nil {
-				assert.Equal(t, *expectedInclusionState.Conflict, resp.InclusionState.Conflict, "conflict state doesn't match - %s", txId)
+			if expectedInclusionState.Conflicting != nil {
+				assert.Equal(t, *expectedInclusionState.Conflicting, resp.InclusionState.Conflicting, "conflict state doesn't match - %s", txId)
 			}
 			if expectedInclusionState.Solid != nil {
 				assert.Equal(t, *expectedInclusionState.Solid, resp.InclusionState.Solid, "solid state doesn't match - %s", txId)
@@ -533,7 +533,7 @@ func AwaitTransactionInclusionState(peers []*framework.Peer, transactionIDs map[
 					if expInclState.Confirmed != nil && *expInclState.Confirmed != tx.InclusionState.Confirmed {
 						continue
 					}
-					if expInclState.Conflict != nil && *expInclState.Conflict != tx.InclusionState.Conflict {
+					if expInclState.Conflicting != nil && *expInclState.Conflicting != tx.InclusionState.Conflicting {
 						continue
 					}
 					if expInclState.Finalized != nil && *expInclState.Finalized != tx.InclusionState.Finalized {
