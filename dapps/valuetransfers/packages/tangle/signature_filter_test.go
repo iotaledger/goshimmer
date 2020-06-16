@@ -149,7 +149,7 @@ func newSyncMessageParser(messageFilters ...messageparser.MessageFilter) (tester
 	return
 }
 
-// syncMessageParser is a wrapper for the MessageParser that allows to parse Message synchronously.
+// syncMessageParser is a wrapper for the MessageParser that allows to parse Messages synchronously.
 type syncMessageParser struct {
 	messageParser *messageparser.MessageParser
 	result        *messageParserResult
