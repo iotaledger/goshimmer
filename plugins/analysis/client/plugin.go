@@ -202,6 +202,8 @@ func onRoundExecuted(roundStats *vote.RoundStats) {
 			log.Debugw("Error while writing to connection", "Description", err)
 			return
 		}
+		// trigger AnalysisOutboundBytes event
+		metrics.Events().AnalysisOutboundBytes.Trigger(uint64(len(data)))
 	}
 }
 

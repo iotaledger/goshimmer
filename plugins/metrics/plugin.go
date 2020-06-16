@@ -40,6 +40,9 @@ func configure(_ *node.Plugin) {
 	metrics.Events().FPCOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
 		atomic.AddUint64(_FPCOutboundBytes, amountBytes)
 	}))
+	metrics.Events().AnalysisOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
+		atomic.AddUint64(analysisOutboundBytes, amountBytes)
+	}))
 	metrics.Events().CPUUsage.Attach(events.NewClosure(func(cpuPercent float64) {
 		cpuLock.Lock()
 		defer cpuLock.Unlock()
