@@ -36,7 +36,6 @@ func Handler(c echo.Context) error {
 			// TODO: don't do this in a for
 			defer cachedTxMeta.Release()
 
-			// TODO: get inclusion state
 			if output.ConsumerCount() == 0 {
 				// iterate balances
 				var b []utils.Balance

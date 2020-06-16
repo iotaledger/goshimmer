@@ -2,6 +2,7 @@ package info
 
 import (
 	"net/http"
+	"sort"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -60,15 +61,15 @@ func getInfo(c echo.Context) error {
 	var enabledPlugins []string
 	var disabledPlugins []string
 	for pluginName, plugin := range node.GetPlugins() {
-		switch plugin.Status {
-		case node.Disabled:
+		if node.IsSkipped(plugin) {
 			disabledPlugins = append(disabledPlugins, pluginName)
-		case node.Enabled:
+		} else {
 			enabledPlugins = append(enabledPlugins, pluginName)
-		default:
-			continue
 		}
 	}
+
+	sort.Strings(enabledPlugins)
+	sort.Strings(disabledPlugins)
 
 	return c.JSON(http.StatusOK, Response{
 		Version:         banner.AppVersion,
@@ -89,11 +90,11 @@ type Response struct {
 	// identity ID of the node encoded in base58 and truncated to its first 8 bytes
 	IdentityID string `json:"identityID,omitempty"`
 	// public key of the node encoded in base58
-	PublicKey string `json:"publickey,omitempty"`
+	PublicKey string `json:"publicKey,omitempty"`
 	// list of enabled plugins
-	EnabledPlugins []string `json:"enabledplugins,omitempty"`
+	EnabledPlugins []string `json:"enabledPlugins,omitempty"`
 	// list if disabled plugins
-	DisabledPlugins []string `json:"disabledlugins,omitempty"`
+	DisabledPlugins []string `json:"disabledPlugins,omitempty"`
 	// error of the response
 	Error string `json:"error,omitempty"`
 }

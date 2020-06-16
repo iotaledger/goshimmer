@@ -166,8 +166,7 @@ func (tangle *Tangle) BranchManager() *branchmanager.BranchManager {
 }
 
 // LoadSnapshot creates a set of outputs in the value tangle, that are forming the genesis for future transactions.
-func (tangle *Tangle) LoadSnapshot(snapshot Snapshot) {
-	// TODO: snapshot should also reflect the consumers of transactions
+func (tangle *Tangle) LoadSnapshot(snapshot map[transaction.ID]map[address.Address][]*balance.Balance) {
 	for transactionID, addressBalances := range snapshot {
 		for outputAddress, balances := range addressBalances {
 			input := NewOutput(outputAddress, transactionID, branchmanager.MasterBranchID, balances)
@@ -235,7 +234,7 @@ func (tangle *Tangle) Fork(transactionID transaction.ID, conflictingInputs []tra
 	}
 
 	// trigger events + set result
-	tangle.Events.Fork.Trigger(cachedTransaction, cachedTransactionMetadata, cachedTargetBranch, conflictingInputs)
+	tangle.Events.Fork.Trigger(cachedTransaction, cachedTransactionMetadata)
 	forked = true
 
 	return
@@ -1299,9 +1298,26 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 	// book transaction into target branch
 	transactionMetadata.SetBranchID(targetBranch.ID())
 
+	// create color for newly minted coins
+	mintedColor, _, err := balance.ColorFromBytes(transactionToBook.ID().Bytes())
+	if err != nil {
+		panic(err) // this should never happen (a transaction id is always a valid color)
+	}
+
 	// book outputs into the target branch
 	transactionToBook.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-		newOutput := NewOutput(address, transactionToBook.ID(), targetBranch.ID(), balances)
+		// create correctly colored balances (replacing color of newly minted coins with color of transaction id)
+		coloredBalances := make([]*balance.Balance, len(balances))
+		for i, currentBalance := range balances {
+			if currentBalance.Color == balance.ColorNew {
+				coloredBalances[i] = balance.New(mintedColor, currentBalance.Value)
+			} else {
+				coloredBalances[i] = currentBalance
+			}
+		}
+
+		// store output
+		newOutput := NewOutput(address, transactionToBook.ID(), targetBranch.ID(), coloredBalances)
 		newOutput.setSolid(true)
 		tangle.outputStorage.Store(newOutput).Release()
 
