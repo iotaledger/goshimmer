@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
@@ -100,6 +101,8 @@ func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
 			if _, err = conn.Write(data); err != nil {
 				log.Debugw("Error while writing to connection", "Description", err)
 			}
+			// trigger AnalysisOutboundBytes event
+			metrics.Events().AnalysisOutboundBytes.Trigger(uint64(len(data)))
 		},
 	}
 }
