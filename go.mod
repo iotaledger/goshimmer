@@ -9,8 +9,8 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/drand/drand v0.8.1
 	github.com/drand/kyber v1.0.1-0.20200331114745-30e90cc60f99
-	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gin-gonic/gin v1.6.3
+	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/golang/protobuf v1.3.5
 	github.com/google/go-cmp v0.4.0
@@ -23,8 +23,8 @@ require (
 	github.com/mr-tron/base58 v1.1.3
 	github.com/panjf2000/ants/v2 v2.2.2
 	github.com/pkg/errors v0.9.1
-	github.com/shirou/gopsutil v2.20.5+incompatible
 	github.com/prometheus/client_golang v1.5.1
+	github.com/shirou/gopsutil v2.20.5+incompatible
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.2
 	github.com/stretchr/testify v1.5.1
