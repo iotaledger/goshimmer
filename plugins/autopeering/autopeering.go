@@ -35,6 +35,8 @@ var (
 
 	// NetworkID specifies the autopeering network identifier
 	NetworkID = hash32([]byte(banner.AppVersion + NetworkVersion))
+
+	Conn *NetConnMetric
 )
 
 var (
@@ -142,8 +144,10 @@ func start(shutdownSignal <-chan struct{}) {
 	}
 	defer conn.Close()
 
+	Conn = &NetConnMetric{UDPConn: conn}
+
 	// start a server doing peerDisc and peering
-	srv := server.Serve(lPeer, conn, log.Named("srv"), Discovery(), Selection())
+	srv := server.Serve(lPeer, Conn, log.Named("srv"), Discovery(), Selection())
 	defer srv.Close()
 
 	// start the peer discovery on that connection

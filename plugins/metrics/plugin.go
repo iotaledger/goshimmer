@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"sync/atomic"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
@@ -35,13 +34,13 @@ func configure(_ *node.Plugin) {
 		increaseReceivedMPSCounter()
 	}))
 	metrics.Events().FPCInboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
-		atomic.AddUint64(_FPCInboundBytes, amountBytes)
+		_FPCInboundBytes.Add(amountBytes)
 	}))
 	metrics.Events().FPCOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
-		atomic.AddUint64(_FPCOutboundBytes, amountBytes)
+		_FPCOutboundBytes.Add(amountBytes)
 	}))
 	metrics.Events().AnalysisOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
-		atomic.AddUint64(analysisOutboundBytes, amountBytes)
+		analysisOutboundBytes.Add(amountBytes)
 	}))
 	metrics.Events().CPUUsage.Attach(events.NewClosure(func(cpuPercent float64) {
 		cpuLock.Lock()

@@ -1,33 +1,32 @@
 package metrics
 
 import (
-	"sync/atomic"
-
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/identity"
+	"go.uber.org/atomic"
 )
 
 var (
-	_FPCInboundBytes  *uint64
-	_FPCOutboundBytes *uint64
+	_FPCInboundBytes  atomic.Uint64
+	_FPCOutboundBytes atomic.Uint64
 
 	previousNeighbors = make(map[identity.ID]gossipTrafficMetric)
 	gossipOldTx       uint32
 	gossipOldRx       uint32
 
-	analysisOutboundBytes *uint64
+	analysisOutboundBytes atomic.Uint64
 )
 
 func FPCInboundBytes() uint64 {
-	return atomic.LoadUint64(_FPCInboundBytes)
+	return _FPCInboundBytes.Load()
 }
 
 func FPCOutboundBytes() uint64 {
-	return atomic.LoadUint64(_FPCOutboundBytes)
+	return _FPCOutboundBytes.Load()
 }
 
 func AnalysisOutboundBytes() uint64 {
-	return atomic.LoadUint64(analysisOutboundBytes)
+	return analysisOutboundBytes.Load()
 }
 
 type gossipTrafficMetric struct {
