@@ -174,6 +174,11 @@ func onRoundExecuted(roundStats *vote.RoundStats) {
 	defer connLock.Unlock()
 
 	for _, chunk := range chunks {
+		// abort if empty round
+		if len(chunk) == 0 {
+			return
+		}
+
 		rs := vote.RoundStats{
 			Duration:           roundStats.Duration,
 			RandUsed:           roundStats.RandUsed,
