@@ -13,7 +13,7 @@ services:
  
   entry_node:
     container_name: entry_node
-    image: golang:1.14
+    image: golang:1.14.4
     entrypoint: /go/bin/main
     command: >
       --config-dir=/tmp
@@ -35,7 +35,7 @@ services:
 
   peer_master:
     container_name: peer_master
-    image: golang:1.14
+    image: golang:1.14.4
     entrypoint: /go/bin/main
     command: >
       --config-dir=/tmp
@@ -53,7 +53,7 @@ services:
       - entry_node
 
   peer_replica:
-    image: golang:1.14
+    image: golang:1.14.4
     entrypoint: /go/bin/main
     command: >
       --config-dir=/tmp
