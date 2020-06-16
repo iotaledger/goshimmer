@@ -548,6 +548,17 @@ func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, even
 
 		// only propagate the changes if the flag was modified
 		if modified {
+			// set outputs to be finalized as well
+			tangle.Transaction(transactionID).Consume(func(tx *transaction.Transaction) {
+				tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+					tangle.TransactionOutput(transaction.NewOutputID(address, transactionID)).Consume(func(output *Output) {
+						output.setFinalized(true)
+					})
+
+					return true
+				})
+			})
+
 			// retrieve transaction from the database (for the events)
 			cachedTransaction := tangle.Transaction(transactionID)
 			defer cachedTransaction.Release()
@@ -612,7 +623,18 @@ func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.
 			if !metadata.setRejected(true) {
 				return
 			}
-			metadata.setPreferred(false)
+			if metadata.setPreferred(false) {
+				// set outputs to be not preferred as well
+				tangle.Transaction(currentTransactionID).Consume(func(tx *transaction.Transaction) {
+					tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+						tangle.TransactionOutput(transaction.NewOutputID(address, currentTransactionID)).Consume(func(output *Output) {
+							output.setPreferred(false)
+						})
+
+						return true
+					})
+				})
+			}
 
 			// if the transaction is not finalized, yet then we set it to finalized
 			if !metadata.Finalized() {
@@ -741,6 +763,17 @@ func (tangle *Tangle) setTransactionPreferred(transactionID transaction.ID, pref
 
 		// only do something if the flag was modified
 		if modified {
+			// update outputs as well
+			tangle.Transaction(transactionID).Consume(func(tx *transaction.Transaction) {
+				tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+					tangle.TransactionOutput(transaction.NewOutputID(address, transactionID)).Consume(func(output *Output) {
+						output.setPreferred(preferred)
+					})
+
+					return true
+				})
+			})
+
 			// retrieve transaction from the database (for the events)
 			cachedTransaction := tangle.Transaction(transactionID)
 			defer cachedTransaction.Release()
@@ -1260,6 +1293,10 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 			}
 			conflictingInputsOfFirstConsumers[firstConsumerID] = append(conflictingInputsOfFirstConsumers[firstConsumerID], outputID)
 		}
+
+		output.Confirmed()
+		output.Rejected()
+		output.Liked()
 
 		// mark input as conflicting
 		conflictingInputs = append(conflictingInputs, outputID)
