@@ -82,6 +82,8 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 		Cmd: strslice.StrSlice{
 			"--skip-config=true",
 			"--logger.level=debug",
+			fmt.Sprintf("--valueLayer.fcob.averageNetworkDelay=%d", ParaFCoBAverageNetworkDelay),
+			fmt.Sprintf("--autopeering.outboundUpdateIntervalMs=%d", ParaOutboundUpdateIntervalMs),
 			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
 			fmt.Sprintf("--node.enablePlugins=%s", func() string {
 				var plugins []string

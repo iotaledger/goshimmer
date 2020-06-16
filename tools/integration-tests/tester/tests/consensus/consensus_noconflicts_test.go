@@ -60,7 +60,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	// wait for the transaction to be propagated through the network
 	// and it becoming preferred, finalized and confirmed
-	time.Sleep(valuetransfers.AverageNetworkDelay*2 + valuetransfers.AverageNetworkDelay/2)
+	time.Sleep(valuetransfers.DefaultAverageNetworkDelay*2 + valuetransfers.DefaultAverageNetworkDelay/2)
 
 	// since we just issued a transaction spending the genesis output, there
 	// shouldn't be any UTXOs on the genesis address anymore
@@ -105,7 +105,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	}
 
 	// wait again some network delays for the transactions to materialize
-	time.Sleep(valuetransfers.AverageNetworkDelay*2 + valuetransfers.AverageNetworkDelay/2)
+	time.Sleep(valuetransfers.DefaultAverageNetworkDelay*2 + valuetransfers.DefaultAverageNetworkDelay/2)
 	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), firstReceiverAddresses)
 	tests.CheckTransactions(t, n.Peers(), secondReceiverExpectedTransactions, true,
 		tests.ExpectedInclusionState{

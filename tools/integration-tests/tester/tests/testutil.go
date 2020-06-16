@@ -23,6 +23,7 @@ import (
 
 var (
 	ErrTransactionNotAvailableInTime = errors.New("transaction was not available in time")
+	ErrTransactionStateNotSameInTime = errors.New("transaction state did not materialize in time")
 )
 
 // DataMessageSent defines a struct to identify from which issuer a data message was sent.
@@ -508,6 +509,59 @@ func AwaitTransactionAvailability(peers []*framework.Peer, transactionIDs []stri
 		}
 	}
 	return missing, ErrTransactionNotAvailableInTime
+}
+
+// AwaitTransactionInclusionState awaits on all given peers until the specified transactions
+// have the expected state or max duration is reached. This function does not gracefully
+// handle the transactions not existing on the given peers, therefore it must be ensured
+// the the transactions exist beforehand.
+func AwaitTransactionInclusionState(peers []*framework.Peer, transactionIDs map[string]ExpectedInclusionState, maxAwait time.Duration) error {
+	s := time.Now()
+	for ; time.Since(s) < maxAwait; time.Sleep(1 * time.Second) {
+		var wg sync.WaitGroup
+		wg.Add(len(peers))
+		counter := int32(len(peers) * len(transactionIDs))
+		for _, p := range peers {
+			go func(p *framework.Peer) {
+				defer wg.Done()
+				for txID := range transactionIDs {
+					tx, err := p.GetTransactionByID(txID)
+					if err != nil {
+						continue
+					}
+					expInclState := transactionIDs[txID]
+					if expInclState.Confirmed != nil && *expInclState.Confirmed != tx.InclusionState.Confirmed {
+						continue
+					}
+					if expInclState.Conflict != nil && *expInclState.Conflict != tx.InclusionState.Conflict {
+						continue
+					}
+					if expInclState.Finalized != nil && *expInclState.Finalized != tx.InclusionState.Finalized {
+						continue
+					}
+					if expInclState.Liked != nil && *expInclState.Liked != tx.InclusionState.Liked {
+						continue
+					}
+					if expInclState.Preferred != nil && *expInclState.Preferred != tx.InclusionState.Preferred {
+						continue
+					}
+					if expInclState.Rejected != nil && *expInclState.Rejected != tx.InclusionState.Rejected {
+						continue
+					}
+					if expInclState.Solid != nil && *expInclState.Solid != tx.InclusionState.Solid {
+						continue
+					}
+					atomic.AddInt32(&counter, -1)
+				}
+			}(p)
+		}
+		wg.Wait()
+		if counter == 0 {
+			// everything available
+			return nil
+		}
+	}
+	return ErrTransactionStateNotSameInTime
 }
 
 // ShutdownNetwork shuts down the network and reports errors.

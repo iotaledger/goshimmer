@@ -1,11 +1,11 @@
 package consensus
 
 import (
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"log"
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
@@ -22,11 +22,15 @@ import (
 // then issues valid value objects spending the genesis in both, deletes the partitions (and lets them merge)
 // and then checks that the conflicts are resolved via FPC.
 func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
-	n, err := f.CreateNetworkWithPartitions("fiftyfifty", 6, 2, 2)
+
+	// override avg. network delay to accustom integration test slowness
+	framework.ParaFCoBAverageNetworkDelay = 60
+	framework.ParaBootstrapOnEveryNode = true
+
+	// create two partitions with their own peers
+	n, err := f.CreateNetworkWithPartitions("abc", 6, 2, 2)
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
-
-	time.Sleep(10 * time.Second)
 
 	// split the network
 	for i, partition := range n.Partitions() {
@@ -89,7 +93,9 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	}
 
 	// sleep the avg. network delay so both partitions prefer their own first seen transaction
-	time.Sleep(valuetransfers.AverageNetworkDelay)
+	log.Printf("waiting %d seconds avg. network delay to make the transactions "+
+		"preferred in their corresponding partition", framework.ParaFCoBAverageNetworkDelay)
+	time.Sleep(time.Duration(framework.ParaFCoBAverageNetworkDelay) * time.Second)
 
 	// check that each partition is preferring its corresponding transaction
 	log.Println("checking that each partition likes its corresponding transaction before the conflict:")
@@ -148,6 +154,16 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 		Conflict:  tests.True(),
 		Solid:     tests.True(),
 	})
+
+	// wait until the voting has finalized
+	awaitFinalization := map[string]tests.ExpectedInclusionState{}
+	for _, conflictingTx := range conflictingTxs {
+		awaitFinalization[conflictingTx.ID().String()] = tests.ExpectedInclusionState{
+			Finalized: tests.True(),
+		}
+	}
+	err = tests.AwaitTransactionInclusionState(n.Peers(), awaitFinalization, 2*time.Minute)
+	assert.NoError(t, err)
 
 	// now all transactions must be finalized and at most one must be confirmed
 	var confirmedOverConflictSet int

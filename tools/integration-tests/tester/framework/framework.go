@@ -80,7 +80,12 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
 		config := GoShimmerConfig{
-			Bootstrap:                             true,
+			Bootstrap: func(i int) bool {
+				if ParaBootstrapOnEveryNode {
+					return true
+				}
+				return i == 0
+			}(i),
 			BootstrapInitialIssuanceTimePeriodSec: bootstrapInitialIssuanceTimePeriodSec,
 			Faucet:                                i == 0,
 		}
@@ -128,7 +133,12 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
-		config := GoShimmerConfig{Bootstrap: true}
+		config := GoShimmerConfig{Bootstrap: func(i int) bool {
+			if ParaBootstrapOnEveryNode {
+				return true
+			}
+			return i == 0
+		}(i)}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
 		}
@@ -234,7 +244,12 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
-		config.Bootstrap = i == 0
+		config.Bootstrap = func(i int) bool {
+			if ParaBootstrapOnEveryNode {
+				return true
+			}
+			return i == 0
+		}(i)
 		config.Seed = privKeys[i].Seed().String()
 		if _, err = drng.CreatePeer(config, pubKeys[i]); err != nil {
 			return nil, err

@@ -1,12 +1,11 @@
 package valuetransfers
 
 import (
+	"github.com/iotaledger/goshimmer/plugins/config"
+	flag "github.com/spf13/pflag"
 	"os"
 	"sync"
 	"time"
-
-	"github.com/iotaledger/goshimmer/plugins/config"
-	flag "github.com/spf13/pflag"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
@@ -29,15 +28,19 @@ const (
 	// PluginName contains the human readable name of the plugin.
 	PluginName = "ValueTransfers"
 
-	// AverageNetworkDelay contains the average time it takes for a network to propagate through gossip.
-	AverageNetworkDelay = 5 * time.Second
+	// DefaultAverageNetworkDelay contains the default average time it takes for a network to propagate through gossip.
+	DefaultAverageNetworkDelay = 5 * time.Second
 
 	// CfgValueLayerSnapshotFile is the path to the snapshot file.
 	CfgValueLayerSnapshotFile = "valueLayer.snapshot.file"
+
+	// CfgValueLayerFCOBAverageNetworkDelay is the avg. network delay to use for FCoB rules
+	CfgValueLayerFCOBAverageNetworkDelay = "valueLayer.fcob.averageNetworkDelay"
 )
 
 func init() {
 	flag.String(CfgValueLayerSnapshotFile, "", "the path to the snapshot file")
+	flag.Int(CfgValueLayerFCOBAverageNetworkDelay, 5, "the avg. network delay to use for FCoB rules")
 }
 
 var (
@@ -103,7 +106,9 @@ func configure(_ *node.Plugin) {
 	}))
 
 	// configure FCOB consensus rules
-	FCOB = consensus.NewFCOB(Tangle, AverageNetworkDelay)
+	cfgAvgNetworkDelay := config.Node.GetInt(CfgValueLayerFCOBAverageNetworkDelay)
+	log.Infof("avg. network delay configured to %d seconds", cfgAvgNetworkDelay)
+	FCOB = consensus.NewFCOB(Tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
 	FCOB.Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
 		if err := voter.Vote(id, initOpn); err != nil {
 			log.Error(err)

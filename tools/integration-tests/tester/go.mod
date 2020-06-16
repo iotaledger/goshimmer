@@ -12,8 +12,7 @@ require (
 	github.com/iotaledger/goshimmer v0.1.3
 	github.com/iotaledger/hive.go v0.0.0-20200610104211-d603429af242
 	github.com/mr-tron/base58 v1.1.3
-	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
-	github.com/stretchr/testify v1.5.1
+	github.com/stretchr/testify v1.6.1
 )
 
 replace github.com/iotaledger/goshimmer => ../../..

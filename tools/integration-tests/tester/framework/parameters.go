@@ -27,6 +27,16 @@ const (
 	exitStatusSuccessful = 0
 )
 
+// Parameters to override before calling any peer creation function.
+var (
+	// ParaFCoBAverageNetworkDelay defines the configured avg. network delay (in seconds) for the FCOB rules.
+	ParaFCoBAverageNetworkDelay = 5
+	// ParaOutboundUpdateIntervalMs the autopeering outbound update interval in milliseconds.
+	ParaOutboundUpdateIntervalMs = 100
+	// ParaBootstrapOnEveryNode whether to enable the bootstrap plugin on every node.
+	ParaBootstrapOnEveryNode = false
+)
+
 var (
 	faucetSeed = []byte{251, 163, 190, 98, 92, 82, 164, 79, 74, 48, 203, 162, 247, 119, 140, 76, 33, 100, 148, 204, 244, 248, 232, 18,
 		132, 217, 85, 31, 246, 83, 193, 193}
