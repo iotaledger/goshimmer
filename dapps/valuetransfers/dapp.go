@@ -1,10 +1,11 @@
 package valuetransfers
 
 import (
-	flag "github.com/spf13/pflag"
 	"os"
 	"sync"
 	"time"
+
+	flag "github.com/spf13/pflag"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
