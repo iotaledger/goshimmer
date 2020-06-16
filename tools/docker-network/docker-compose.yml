@@ -40,7 +40,7 @@ services:
     command: >
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
-      --node.enablePlugins=bootstrap, prometheus
+      --node.enablePlugins=bootstrap,prometheus
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
@@ -71,7 +71,7 @@ services:
     image: prom/prometheus:latest
     container_name: prometheus
     ports:
-    - "127.0.0.19090:9090/tcp"
+    - "127.0.0.1:9090:9090/tcp"
     command:
     - --config.file=/etc/prometheus/prometheus.yml
     volumes:
