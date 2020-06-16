@@ -79,11 +79,14 @@ func TestSignatureFilter(t *testing.T) {
 
 	// 3. test message with an invalid value payload
 	{
-		// create a data payload with its type set to be a value payload
+		// create a data payload
 		marshalUtil := marshalutil.New(messagePayload.NewData([]byte("test")).Bytes())
+
+		// set the type to be a value payload
 		marshalUtil.WriteSeek(0)
 		marshalUtil.WriteUint32(valuePayload.Type)
 
+		// parse modified bytes back into a payload object
 		dataPayload, err, _ := messagePayload.DataFromBytes(marshalUtil.Bytes())
 		require.NoError(t, err)
 
@@ -93,7 +96,7 @@ func TestSignatureFilter(t *testing.T) {
 		// check results (should be rejected)
 		require.Equal(t, false, accepted)
 		require.NotNil(t, err)
-		require.Equal(t, "invalid transaction signatures", err.Error())
+		require.Equal(t, "invalid value message", err.Error())
 	}
 }
 
