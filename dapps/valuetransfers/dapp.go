@@ -1,7 +1,6 @@
 package valuetransfers
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/config"
 	flag "github.com/spf13/pflag"
 	"os"
 	"sync"
@@ -16,6 +15,7 @@ import (
 	messageTangle "github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
