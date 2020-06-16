@@ -41,15 +41,15 @@ func NewFCOB(tangle *tangle.Tangle, averageNetworkDelay time.Duration) (fcob *FC
 }
 
 // ProcessVoteResult allows an external voter to hand in the results of the voting process.
-func (fcob *FCOB) ProcessVoteResult(id string, opinion vote.Opinion) {
-	transactionID, err := transaction.IDFromBase58(id)
+func (fcob *FCOB) ProcessVoteResult(ev *vote.OpinionEvent) {
+	transactionID, err := transaction.IDFromBase58(ev.ID)
 	if err != nil {
 		fcob.Events.Error.Trigger(err)
 
 		return
 	}
 
-	if _, err := fcob.tangle.SetTransactionPreferred(transactionID, opinion == vote.Like); err != nil {
+	if _, err := fcob.tangle.SetTransactionPreferred(transactionID, ev.Opinion == vote.Like); err != nil {
 		fcob.Events.Error.Trigger(err)
 	}
 }

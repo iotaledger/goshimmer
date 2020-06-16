@@ -185,6 +185,7 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opin
 	query := &votenet.QueryRequest{Id: ids}
 	reply, err := client.Opinion(ctx, query)
 	if err != nil {
+		// TODO: add an event QueryErrorEvent (metrics)
 		return nil, fmt.Errorf("unable to query opinions: %w", err)
 	}
 
