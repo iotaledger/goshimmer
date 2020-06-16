@@ -5,22 +5,18 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/metrics"
-	"github.com/iotaledger/hive.go/syncutils"
 	"github.com/shirou/gopsutil/cpu"
+	"go.uber.org/atomic"
 )
 
 var (
-	_cpuUsage      float64
-	cpuLock        syncutils.RWMutex
-	_memUsageBytes uint64
-	memUsageLock   syncutils.RWMutex
+	cpuUsage      atomic.Float64
+	memUsageBytes atomic.Uint64
 )
 
 // CpuUsage returns the current cpu usage
 func CpuUsage() float64 {
-	cpuLock.RLock()
-	defer cpuLock.RUnlock()
-	return _cpuUsage
+	return cpuUsage.Load()
 }
 
 func measureCPUUsage() {
@@ -42,7 +38,5 @@ func measureMemUsage() {
 
 // MemUsage returns the current memory allocated as bytes
 func MemUsage() uint64 {
-	memUsageLock.RLock()
-	defer memUsageLock.RUnlock()
-	return _memUsageBytes
+	return memUsageBytes.Load()
 }

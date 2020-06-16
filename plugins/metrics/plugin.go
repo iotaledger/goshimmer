@@ -43,14 +43,10 @@ func configure(_ *node.Plugin) {
 		analysisOutboundBytes.Add(amountBytes)
 	}))
 	metrics.Events().CPUUsage.Attach(events.NewClosure(func(cpuPercent float64) {
-		cpuLock.Lock()
-		defer cpuLock.Unlock()
-		_cpuUsage = cpuPercent
+		cpuUsage.Store(cpuPercent)
 	}))
 	metrics.Events().MemUsage.Attach(events.NewClosure(func(memAllocBytes uint64) {
-		memUsageLock.Lock()
-		defer memUsageLock.Unlock()
-		_memUsageBytes = memAllocBytes
+		memUsageBytes.Store(memAllocBytes)
 	}))
 	metrics.Events().Synced.Attach(events.NewClosure(func(synced bool) {
 		syncLock.Lock()
