@@ -69,9 +69,10 @@ func init() {
 func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
 	// replace dots with underscores in env
 	dotReplacer := strings.NewReplacer(".", "_")
-	Node.SetEnvKeyReplacer(dotReplacer)
+	nde.SetEnvKeyReplacer(dotReplacer)
 	// read in ENV variables
-	Node.AutomaticEnv()
+	// read in ENV variables
+	nde.AutomaticEnv()
 
 	flag.Parse()
 	err := parameter.LoadConfigFile(nde, *configDirPath, *configName, true, *skipConfigAvailable)

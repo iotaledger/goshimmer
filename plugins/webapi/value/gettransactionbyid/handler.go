@@ -27,7 +27,7 @@ func Handler(c echo.Context) error {
 	txn := utils.ParseTransaction(txnObj.Unwrap())
 
 	// get txn metadata
-	txnMetadataObj := valuetransfers.Tangle.TransactionMetadata(txnID)
+	txnMetadataObj := valuetransfers.Tangle().TransactionMetadata(txnID)
 	defer txnMetadataObj.Release()
 	if !txnMetadataObj.Exists() {
 		return c.JSON(http.StatusNotFound, Response{Error: "Transaction Metadata not found"})
