@@ -1,7 +1,6 @@
 package message
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -289,7 +288,6 @@ func (message *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes 
 	if message.payload, err = payload.Parse(marshalUtil); err != nil {
 		return
 	}
-	fmt.Println(message.payload)
 	if message.signature, err = ed25519.ParseSignature(marshalUtil); err != nil {
 		return
 	}
