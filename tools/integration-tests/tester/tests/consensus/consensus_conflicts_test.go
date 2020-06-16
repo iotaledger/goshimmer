@@ -1,10 +1,11 @@
 package consensus
 
 import (
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"log"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
@@ -156,13 +157,14 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	})
 
 	// wait until the voting has finalized
+	log.Println("waiting for voting/transaction finalization to be done on all peers...")
 	awaitFinalization := map[string]tests.ExpectedInclusionState{}
 	for _, conflictingTx := range conflictingTxs {
 		awaitFinalization[conflictingTx.ID().String()] = tests.ExpectedInclusionState{
 			Finalized: tests.True(),
 		}
 	}
-	err = tests.AwaitTransactionInclusionState(n.Peers(), awaitFinalization, 2*time.Minute)
+	err = tests.AwaitTransactionInclusionState(n.Peers(), awaitFinalization, 4*time.Minute)
 	assert.NoError(t, err)
 
 	// now all transactions must be finalized and at most one must be confirmed
