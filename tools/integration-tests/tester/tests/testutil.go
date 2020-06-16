@@ -232,6 +232,7 @@ func SendColoredValueMessagesOnRandomPeer(t *testing.T, peers []*framework.Peer,
 // The same addresses are used in each round
 func SendColoredValueMessage(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[balance.Color]int64) (fail bool, txId string) {
 	var sentValue int64 = 50
+	var balanceList []*balance.Balance
 	sigScheme := signaturescheme.ED25519(*from.Seed().KeyPair(0))
 	inputAddr := from.Seed().Address(0)
 	outputAddr := to.Seed().Address(0)
@@ -249,6 +250,7 @@ func SendColoredValueMessage(t *testing.T, from *framework.Peer, to *framework.P
 	var availableValue int64 = 0
 	for _, b := range resp.UnspentOutputs[0].OutputIDs[0].Balances {
 		availableValue += b.Value
+		balanceList = append(balanceList, balance.New(getColorFromString(b.Color), (-1)*b.Value))
 	}
 
 	// abort if no enough tokens
@@ -278,7 +280,8 @@ func SendColoredValueMessage(t *testing.T, from *framework.Peer, to *framework.P
 	require.NoErrorf(t, err, "Could not send transaction on %s", from.String())
 
 	// update balance list
-	updateBalanceList(addrBalance, outmap[outputAddr], inputAddr.String(), outputAddr.String(), txId)
+	balanceList = append(balanceList, outmap[outputAddr]...)
+	updateBalanceList(addrBalance, balanceList, inputAddr.String(), outputAddr.String(), txId)
 
 	return false, txId
 }
@@ -287,15 +290,15 @@ func updateBalanceList(addrBalance map[string]map[balance.Color]int64, balances 
 	for _, b := range balances {
 		color := b.Color()
 		value := b.Value()
-		if color == balance.ColorNew {
-			addrBalance[from][balance.ColorIOTA] -= value
-			addrBalance[to][getColorFromString(txId)] = value
+		if value < 0 {
+			// update from
+			addrBalance[from][color] += value
 		} else {
-			addrBalance[from][color] -= value
-			if _, ok := addrBalance[to][color]; ok {
-				addrBalance[to][color] += value
+			// update to
+			if color == balance.ColorNew {
+				addrBalance[to][getColorFromString(txId)] = value
 			} else {
-				addrBalance[to][color] = value
+				addrBalance[to][color] += value
 			}
 		}
 	}
