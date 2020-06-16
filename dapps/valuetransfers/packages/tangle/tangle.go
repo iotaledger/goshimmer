@@ -4,7 +4,6 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"time"
 
@@ -78,10 +77,8 @@ func (tangle *Tangle) AttachPayload(payload *payload.Payload) {
 // AttachPayloadSync is the worker function that stores the payload and calls the corresponding storage events.
 func (tangle *Tangle) AttachPayloadSync(payloadToStore *payload.Payload) {
 	// store the payload models or abort if we have seen the payload already
-	log.Println("storing payload", payloadToStore.ID())
 	cachedPayload, cachedPayloadMetadata, payloadStored := tangle.storePayload(payloadToStore)
 	if !payloadStored {
-		log.Println("could not store payload", payloadToStore.ID())
 		return
 	}
 	defer cachedPayload.Release()
@@ -947,7 +944,6 @@ func (tangle *Tangle) storeTransactionModels(solidPayload *payload.Payload) (cac
 	})}
 
 	if transactionIsNew {
-		log.Println("stored transaction", cachedTransaction.Unwrap().ID())
 		cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: tangle.transactionMetadataStorage.Store(NewTransactionMetadata(solidPayload.Transaction().ID()))}
 
 		// store references to the consumed outputs
@@ -957,7 +953,6 @@ func (tangle *Tangle) storeTransactionModels(solidPayload *payload.Payload) (cac
 			return true
 		})
 	} else {
-		log.Println("transaction was already stored", cachedTransaction.Unwrap().ID())
 		cachedTransactionMetadata = &CachedTransactionMetadata{CachedObject: tangle.transactionMetadataStorage.Load(solidPayload.Transaction().ID().Bytes())}
 	}
 
