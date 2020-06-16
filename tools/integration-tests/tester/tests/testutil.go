@@ -469,7 +469,7 @@ func AwaitTransactionAvailability(peers []*framework.Peer, transactionIDs []stri
 	s := time.Now()
 	var missingMu sync.Mutex
 	missing = map[string]map[string]types.Empty{}
-	for ; time.Since(s) < maxAwait; time.Sleep(1 * time.Second) {
+	for ; time.Since(s) < maxAwait; time.Sleep(500 * time.Millisecond) {
 		var wg sync.WaitGroup
 		wg.Add(len(peers))
 		counter := int32(len(peers) * len(transactionIDs))

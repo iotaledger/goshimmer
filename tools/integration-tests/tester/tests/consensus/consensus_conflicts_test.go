@@ -24,7 +24,7 @@ import (
 func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 
 	// override avg. network delay to accustom integration test slowness
-	framework.ParaFCoBAverageNetworkDelay = 60
+	framework.ParaFCoBAverageNetworkDelay = 90
 	framework.ParaBootstrapOnEveryNode = true
 
 	// create two partitions with their own peers
@@ -150,7 +150,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 
 	// check that the transactions are marked as conflicting
 	tests.CheckTransactions(t, n.Peers(), expectations, true, tests.ExpectedInclusionState{
-		Finalized: tests.True(),
+		Finalized: tests.False(),
 		Conflict:  tests.True(),
 		Solid:     tests.True(),
 	})

@@ -1,7 +1,6 @@
 package gettransactionbyid
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
@@ -14,7 +13,6 @@ import (
 func Handler(c echo.Context) error {
 	txnID, err := transaction.IDFromBase58(c.QueryParam("txnID"))
 	if err != nil {
-		log.Println(err)
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
@@ -22,13 +20,11 @@ func Handler(c echo.Context) error {
 	cachedTxnMetaObj := valuetransfers.Tangle.TransactionMetadata(txnID)
 	defer cachedTxnMetaObj.Release()
 	if !cachedTxnMetaObj.Exists() {
-		log.Println("transaction meta doesn't exist for", txnID)
 		return c.JSON(http.StatusNotFound, Response{Error: "Transaction not found"})
 	}
 	cachedTxnObj := valuetransfers.Tangle.Transaction(txnID)
 	defer cachedTxnObj.Release()
 	if !cachedTxnObj.Exists() {
-		log.Println("transaction doesn't exist for", txnID)
 		return c.JSON(http.StatusNotFound, Response{Error: "Transaction not found"})
 	}
 	txn := utils.ParseTransaction(cachedTxnObj.Unwrap())
