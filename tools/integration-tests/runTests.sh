@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TEST_NAMES='consensus'
+TEST_NAMES='autopeering common drng message consensus'
 
 echo "Build GoShimmer image"
 docker build -t iotaledger/goshimmer ../../.
