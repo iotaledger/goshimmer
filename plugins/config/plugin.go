@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
@@ -56,6 +57,12 @@ func init() {
 // It automatically reads in a single config file starting with "config" (can be changed via the --config CLI flag)
 // and ending with: .json, .toml, .yaml or .yml (in this sequence).
 func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
+	// replace dots with underscores in env
+	dotReplacer := strings.NewReplacer(".", "_")
+	Node.SetEnvKeyReplacer(dotReplacer)
+	// read in ENV variables
+	Node.AutomaticEnv()
+
 	flag.Parse()
 	err := parameter.LoadConfigFile(Node, *configDirPath, *configName, true, *skipConfigAvailable)
 	if err != nil {
