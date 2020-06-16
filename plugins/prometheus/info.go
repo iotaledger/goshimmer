@@ -6,8 +6,7 @@ import (
 )
 
 var (
-	infoApp  *prometheus.GaugeVec
-	infoTips prometheus.Gauge
+	infoApp *prometheus.GaugeVec
 )
 
 func init() {
@@ -18,18 +17,5 @@ func init() {
 		},
 		[]string{"name", "version"},
 	)
-	infoTips = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "iota_info_tips",
-		Help: "Number of tips.",
-	})
-
 	infoApp.WithLabelValues(banner.AppName, banner.AppVersion).Set(1)
-	registry.MustRegister(infoApp)
-	registry.MustRegister(infoTips)
-	addCollect(collectInfo)
-}
-
-func collectInfo() {
-	// Tips
-	infoTips.Set(0)
 }
