@@ -4,14 +4,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
-	"github.com/iotaledger/hive.go/stringify"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 // OutputKeyPartitions defines the "layout" of the key. This enables prefix iterations in the objectstorage.

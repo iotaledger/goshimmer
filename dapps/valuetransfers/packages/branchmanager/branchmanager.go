@@ -354,6 +354,28 @@ func (branchManager *BranchManager) SetBranchFinalized(branchID BranchID) (modif
 	return branchManager.setBranchFinalized(branchManager.Branch(branchID))
 }
 
+// GenerateAggregatedBranchID generates an aggregated BranchID from the handed in BranchIDs.
+func (branchManager *BranchManager) GenerateAggregatedBranchID(branchIDs ...BranchID) BranchID {
+	sort.Slice(branchIDs, func(i, j int) bool {
+		for k := 0; k < len(branchIDs[k]); k++ {
+			if branchIDs[i][k] < branchIDs[j][k] {
+				return true
+			} else if branchIDs[i][k] > branchIDs[j][k] {
+				return false
+			}
+		}
+
+		return false
+	})
+
+	marshalUtil := marshalutil.New(BranchIDLength * len(branchIDs))
+	for _, branchID := range branchIDs {
+		marshalUtil.WriteBytes(branchID.Bytes())
+	}
+
+	return blake2b.Sum256(marshalUtil.Bytes())
+}
+
 func (branchManager *BranchManager) setBranchFinalized(cachedBranch *CachedBranch) (modified bool, err error) {
 	defer cachedBranch.Release()
 	branch := cachedBranch.Unwrap()
@@ -368,6 +390,11 @@ func (branchManager *BranchManager) setBranchFinalized(cachedBranch *CachedBranc
 	}
 
 	branchManager.Events.BranchFinalized.Trigger(cachedBranch)
+
+	// propagate finalized to aggregated child branches
+	if err = branchManager.propagateFinalizedToAggregatedChildBranches(cachedBranch.Retain()); err != nil {
+		return
+	}
 
 	if !branch.Preferred() {
 		branchManager.propagateRejectedToChildBranches(cachedBranch.Retain())
@@ -394,7 +421,58 @@ func (branchManager *BranchManager) setBranchFinalized(cachedBranch *CachedBranc
 		})
 	}
 
+	// schedule confirmed checks of children
 	err = branchManager.propagateConfirmedToChildBranches(cachedBranch.Retain())
+
+	return
+}
+
+// propagateFinalizedToAggregatedChildBranches propagates the finalized flag to the aggregated child branches of the
+// given branch. An aggregated branch is finalized if all of its parents are finalized.
+func (branchManager *BranchManager) propagateFinalizedToAggregatedChildBranches(cachedBranch *CachedBranch) (err error) {
+	// initialize stack with the child branches of the given branch
+	propagationStack := list.New()
+	cachedBranch.Consume(func(branch *Branch) {
+		branchManager.ChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch) {
+			propagationStack.PushBack(branchManager.Branch(childBranch.ChildID()))
+		})
+	})
+
+	// iterate through stack to propagate the changes to child branches
+	for propagationStack.Len() >= 1 {
+		stackElement := propagationStack.Front()
+		stackElement.Value.(*CachedBranch).Consume(func(branch *Branch) {
+			// abort if the branch is not aggregated
+			if !branch.IsAggregated() {
+				return
+			}
+
+			// abort if not all parents are confirmed
+			for _, parentBranchID := range branch.ParentBranches() {
+				cachedParentBranch := branchManager.Branch(parentBranchID)
+				if parentBranch := cachedParentBranch.Unwrap(); parentBranch == nil || !parentBranch.Finalized() {
+					cachedParentBranch.Release()
+
+					return
+				}
+				cachedParentBranch.Release()
+			}
+
+			// abort if the branch was finalized already
+			if !branch.setFinalized(true) {
+				return
+			}
+
+			// trigger events
+			branchManager.Events.BranchFinalized.Trigger(cachedBranch)
+
+			// schedule confirmed checks of children
+			branchManager.ChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch) {
+				propagationStack.PushBack(branchManager.Branch(childBranch.childID))
+			})
+		})
+		propagationStack.Remove(stackElement)
+	}
 
 	return
 }
@@ -459,9 +537,9 @@ func (branchManager *BranchManager) propagateConfirmedToChildBranches(cachedBran
 			branchManager.Events.BranchConfirmed.Trigger(cachedBranch)
 
 			// schedule confirmed checks of children
-			for _, cachedChildBranch := range branchManager.ChildBranches(branch.ID()) {
-				propagationStack.PushBack(cachedChildBranch)
-			}
+			branchManager.ChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch) {
+				propagationStack.PushBack(branchManager.Branch(childBranch.childID))
+			})
 		})
 		propagationStack.Remove(stackElement)
 	}
@@ -839,24 +917,7 @@ func (branchManager *BranchManager) generateAggregatedBranchID(aggregatedBranche
 		cachedBranch.Release()
 	}
 
-	sort.Slice(branchIDs, func(i, j int) bool {
-		for k := 0; k < len(branchIDs[k]); k++ {
-			if branchIDs[i][k] < branchIDs[j][k] {
-				return true
-			} else if branchIDs[i][k] > branchIDs[j][k] {
-				return false
-			}
-		}
-
-		return false
-	})
-
-	marshalUtil := marshalutil.New(BranchIDLength * len(branchIDs))
-	for _, branchID := range branchIDs {
-		marshalUtil.WriteBytes(branchID.Bytes())
-	}
-
-	return blake2b.Sum256(marshalUtil.Bytes())
+	return branchManager.GenerateAggregatedBranchID(branchIDs...)
 }
 
 func (branchManager *BranchManager) collectClosestConflictAncestors(branch *Branch, closestConflictAncestors CachedBranches) (err error) {
