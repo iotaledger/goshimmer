@@ -164,7 +164,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 			Finalized: tests.True(),
 		}
 	}
-	err = tests.AwaitTransactionInclusionState(n.Peers(), awaitFinalization, 4*time.Minute)
+	err = tests.AwaitTransactionInclusionState(n.Peers(), awaitFinalization, 2*time.Minute)
 	assert.NoError(t, err)
 
 	// now all transactions must be finalized and at most one must be confirmed
