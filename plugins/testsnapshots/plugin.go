@@ -9,13 +9,14 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
+// FIXME: This plugin can be removed after snapshots is implemented
 const (
-	// PluginName is the plugin name of the bootstrap plugin.
+	// PluginName is the plugin name of the TestSnapshots plugin.
 	PluginName = "TestSnapshots"
 )
 
 var (
-	// Plugin is the plugin instance of the bootstrap plugin.
+	// Plugin is the plugin instance of the TestSnapshots plugin.
 	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
 	log    *logger.Logger
 
