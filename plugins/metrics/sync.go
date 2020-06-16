@@ -3,12 +3,11 @@ package metrics
 import (
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/plugins/sync"
-	"github.com/iotaledger/hive.go/syncutils"
+	"go.uber.org/atomic"
 )
 
 var (
-	isSynced bool
-	syncLock syncutils.RWMutex
+	isSynced atomic.Bool
 )
 
 func measureSynced() {
@@ -18,7 +17,5 @@ func measureSynced() {
 
 // Synced returns if the node is synced.
 func Synced() bool {
-	syncLock.RLock()
-	defer syncLock.RUnlock()
-	return isSynced
+	return isSynced.Load()
 }

@@ -13,6 +13,8 @@ var (
 	previousNeighbors = make(map[identity.ID]gossipTrafficMetric)
 	gossipOldTx       uint32
 	gossipOldRx       uint32
+	gossipCurrentTx   atomic.Uint64
+	gossipCurrentRx   atomic.Uint64
 
 	analysisOutboundBytes atomic.Uint64
 )
@@ -23,6 +25,14 @@ func FPCInboundBytes() uint64 {
 
 func FPCOutboundBytes() uint64 {
 	return _FPCOutboundBytes.Load()
+}
+
+func GossipInboundBytes() uint64 {
+	return gossipCurrentRx.Load()
+}
+
+func GossipOutboundBytes() uint64 {
+	return gossipCurrentTx.Load()
 }
 
 func AnalysisOutboundBytes() uint64 {

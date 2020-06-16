@@ -49,9 +49,7 @@ func configure(_ *node.Plugin) {
 		memUsageBytes.Store(memAllocBytes)
 	}))
 	metrics.Events().Synced.Attach(events.NewClosure(func(synced bool) {
-		syncLock.Lock()
-		defer syncLock.Unlock()
-		isSynced = synced
+		isSynced.Store(synced)
 	}))
 
 	metrics.Events().DBSize.Attach(onDBSize)
@@ -70,6 +68,12 @@ func run(_ *node.Plugin) {
 			measureCPUUsage()
 			measureMemUsage()
 			measureSynced()
+
+			// gossip network traffic
+			g := gossipCurrentTraffic()
+			gossipCurrentRx.Store(uint64(g.BytesRead))
+			gossipCurrentTx.Store(uint64(g.BytesWritten))
+
 		}, 1*time.Second, shutdownSignal)
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)

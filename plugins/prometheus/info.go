@@ -2,11 +2,13 @@ package prometheus
 
 import (
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
 	infoApp *prometheus.GaugeVec
+	sync    prometheus.Gauge
 )
 
 func init() {
@@ -18,4 +20,20 @@ func init() {
 		[]string{"name", "version"},
 	)
 	infoApp.WithLabelValues(banner.AppName, banner.AppVersion).Set(1)
+
+	sync = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "sync",
+		Help: "Node sync status.",
+	})
+
+	addCollect(collectInfoMetrics)
+}
+
+func collectInfoMetrics() {
+	sync.Set(func() float64 {
+		if metrics.Synced() {
+			return 1.0
+		}
+		return 0.
+	}())
 }

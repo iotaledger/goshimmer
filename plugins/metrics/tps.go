@@ -1,35 +1,35 @@
 package metrics
 
 import (
-	"sync/atomic"
+	"go.uber.org/atomic"
 )
 
 // ReceivedMessagesPerSecond retrieves the current messages per second number.
 func ReceivedMessagesPerSecond() uint64 {
-	return atomic.LoadUint64(&measuredReceivedMPS)
+	return measuredReceivedMPS.Load()
 }
 
 // counter for the received MPS
-var mpsReceivedSinceLastMeasurement uint64
+var mpsReceivedSinceLastMeasurement atomic.Uint64
 
 // measured value of the received MPS
-var measuredReceivedMPS uint64
+var measuredReceivedMPS atomic.Uint64
 
 // increases the received MPS counter
 func increaseReceivedMPSCounter() {
-	atomic.AddUint64(&mpsReceivedSinceLastMeasurement, 1)
+	mpsReceivedSinceLastMeasurement.Add(1)
 }
 
 // measures the received MPS value
 func measureReceivedMPS() {
 	// sample the current counter value into a measured MPS value
-	sampledMPS := atomic.LoadUint64(&mpsReceivedSinceLastMeasurement)
+	sampledMPS := mpsReceivedSinceLastMeasurement.Load()
 
 	// store the measured value
-	atomic.StoreUint64(&measuredReceivedMPS, sampledMPS)
+	measuredReceivedMPS.Store(sampledMPS)
 
 	// reset the counter
-	atomic.StoreUint64(&mpsReceivedSinceLastMeasurement, 0)
+	mpsReceivedSinceLastMeasurement.Store(0)
 
 	// trigger events for outside listeners
 	Events.ReceivedMPSUpdated.Trigger(sampledMPS)

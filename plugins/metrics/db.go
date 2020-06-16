@@ -8,24 +8,19 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/syncutils"
+	"go.uber.org/atomic"
 )
 
 var (
-	_dbSize    uint64
-	dbSizeLock syncutils.RWMutex
+	dbSize atomic.Uint64
 
-	onDBSize = events.NewClosure(func(dbSize uint64) {
-		dbSizeLock.Lock()
-		defer dbSizeLock.Unlock()
-		_dbSize = dbSize
+	onDBSize = events.NewClosure(func(size uint64) {
+		dbSize.Store(size)
 	})
 )
 
 func DBSize() uint64 {
-	dbSizeLock.RLock()
-	defer dbSizeLock.RUnlock()
-	return _dbSize
+	return dbSize.Load()
 }
 
 func colectDBSize() {
