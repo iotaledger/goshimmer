@@ -40,10 +40,12 @@ services:
     command: >
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
+      --valueLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
       --node.enablePlugins=bootstrap
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
+      - ../integration-tests/assets:/tmp/assets
     ports:
       - "127.0.0.1:8080:8080/tcp" # web API
       - "127.0.0.1:8081:8081/tcp" # dashboard
@@ -57,10 +59,12 @@ services:
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
       --node.enablePlugins=bootstrap
+      --valueLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
       --node.disablePlugins=dashboard,portcheck
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
+      - ../integration-tests/assets:/tmp/assets
     expose:
       - "8080/tcp" # web API (within Docker network)
     depends_on:
