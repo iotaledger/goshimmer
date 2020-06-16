@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	flag "github.com/spf13/pflag"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"

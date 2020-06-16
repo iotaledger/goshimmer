@@ -1,10 +1,11 @@
 package consensus
 
 import (
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"log"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
@@ -24,8 +25,16 @@ import (
 func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 
 	// override avg. network delay to accustom integration test slowness
+	backupFCoBAvgNetworkDelay := framework.ParaFCoBAverageNetworkDelay
+	backupBootstrapOnEveryNode := framework.ParaBootstrapOnEveryNode
 	framework.ParaFCoBAverageNetworkDelay = 90
 	framework.ParaBootstrapOnEveryNode = true
+
+	// reset framework paras
+	defer func() {
+		framework.ParaFCoBAverageNetworkDelay = backupFCoBAvgNetworkDelay
+		framework.ParaBootstrapOnEveryNode = backupBootstrapOnEveryNode
+	}()
 
 	// create two partitions with their own peers
 	n, err := f.CreateNetworkWithPartitions("abc", 6, 2, 2)
@@ -156,6 +165,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	})
 
 	// wait until the voting has finalized
+	log.Println("waiting for voting/transaction finalization to be done on all peers...")
 	awaitFinalization := map[string]tests.ExpectedInclusionState{}
 	for _, conflictingTx := range conflictingTxs {
 		awaitFinalization[conflictingTx.ID().String()] = tests.ExpectedInclusionState{

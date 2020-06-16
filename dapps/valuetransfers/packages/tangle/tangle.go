@@ -234,7 +234,7 @@ func (tangle *Tangle) Fork(transactionID transaction.ID, conflictingInputs []tra
 	}
 
 	// trigger events + set result
-	tangle.Events.Fork.Trigger(cachedTransaction, cachedTransactionMetadata)
+	tangle.Events.Fork.Trigger(cachedTransaction, cachedTransactionMetadata, cachedTargetBranch, conflictingInputs)
 	forked = true
 
 	return
