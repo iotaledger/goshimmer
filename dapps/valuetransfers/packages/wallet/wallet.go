@@ -2,6 +2,7 @@ package wallet
 
 import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 )
 
 // Wallet represents a simple cryptocurrency wallet for the IOTA tangle. It contains the logic to manage the movement of
@@ -37,8 +38,11 @@ func New(options ...Option) (wallet *Wallet) {
 }
 
 // SendFunds issues a payment of the given amount to the given address.
-func (wallet *Wallet) SendFunds(address address.Address, amount uint64) (err error) {
+func (wallet *Wallet) SendFunds(address address.Address, amount uint64, optionalColor ...balance.Color) (err error) {
 	unspentOutputs := wallet.UnspentOutputs()
+	for _, unspentOutput := range unspentOutputs {
+
+	}
 
 	return
 }
