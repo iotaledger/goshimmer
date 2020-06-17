@@ -116,7 +116,6 @@ func (e *eventTangle) PayloadDisliked(payload *payload.CachedPayload, payloadMet
 	e.Called(payload.Unwrap(), payloadMetadata.Unwrap())
 }
 
-// TODO: MissingPayloadReceived is never tested
 func (e *eventTangle) MissingPayloadReceived(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata) {
 	defer payload.Release()
 	defer payloadMetadata.Release()

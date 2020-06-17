@@ -1583,6 +1583,55 @@ func TestForeachApprovers(t *testing.T) {
 	assert.Equal(t, 2, counter)
 }
 
+func TestMissingPayloadReceived(t *testing.T) {
+	tangle := New(mapdb.NewMapDB())
+	event := newEventTangle(t, tangle)
+	defer event.DetachAll()
+
+	// prepare snapshot
+	unspentOutputs := loadSnapshotFromOutputs(
+		tangle,
+		map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 1),
+			},
+		},
+	)
+
+	// create transaction spending those snapshot outputs
+	tx := transaction.New(
+		transaction.NewInputs(unspentOutputs...),
+		transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 3),
+			},
+		}),
+	)
+
+	// create two value objects for this transaction referencing each other
+	parent := payload.New(payload.GenesisID, payload.GenesisID, tx)
+	child := payload.New(parent.ID(), parent.ID(), tx)
+
+	event.Expect("PayloadAttached", child, mock.Anything)
+	event.Expect("PayloadMissing", parent.ID(), mock.Anything)
+	event.Expect("TransactionReceived", tx, mock.Anything, mock.Anything)
+
+	// submit the child first; it cannot be solidified
+	tangle.AttachPayloadSync(child)
+
+	event.Expect("PayloadAttached", parent, mock.Anything)
+	event.Expect("PayloadSolid", parent, mock.Anything)
+	event.Expect("MissingPayloadReceived", parent, mock.Anything)
+	event.Expect("PayloadSolid", child, mock.Anything)
+	event.Expect("TransactionSolid", tx, mock.Anything, mock.Anything)
+	event.Expect("TransactionBooked", tx, mock.Anything, mock.Anything)
+
+	// submitting the parent makes everything solid
+	tangle.AttachPayloadSync(parent)
+
+	event.AssertExpectations(t)
+}
+
 func storeParentPayloadWithMetadataFunc(t *testing.T, tangle *Tangle, consume func(*PayloadMetadata)) payload.ID {
 	parent1 := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
 	cachedPayload, cachedMetadata, stored := tangle.storePayload(parent1)
