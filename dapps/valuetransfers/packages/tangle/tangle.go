@@ -1294,10 +1294,6 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 			conflictingInputsOfFirstConsumers[firstConsumerID] = append(conflictingInputsOfFirstConsumers[firstConsumerID], outputID)
 		}
 
-		output.Confirmed()
-		output.Rejected()
-		output.Liked()
-
 		// mark input as conflicting
 		conflictingInputs = append(conflictingInputs, outputID)
 

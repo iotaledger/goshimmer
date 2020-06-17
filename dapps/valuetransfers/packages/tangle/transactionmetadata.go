@@ -101,113 +101,113 @@ func ParseTransactionMetadata(marshalUtil *marshalutil.MarshalUtil, optionalTarg
 }
 
 // ID return the id of the Transaction that this TransactionMetadata is associated to.
-func (output *TransactionMetadata) ID() transaction.ID {
-	return output.id
+func (transactionMetadata *TransactionMetadata) ID() transaction.ID {
+	return transactionMetadata.id
 }
 
 // BranchID returns the identifier of the Branch, that this transaction is booked into.
-func (output *TransactionMetadata) BranchID() branchmanager.BranchID {
-	output.branchIDMutex.RLock()
-	defer output.branchIDMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) BranchID() branchmanager.BranchID {
+	transactionMetadata.branchIDMutex.RLock()
+	defer transactionMetadata.branchIDMutex.RUnlock()
 
-	return output.branchID
+	return transactionMetadata.branchID
 }
 
 // SetBranchID is the setter for the branch id. It returns true if the value of the flag has been updated.
-func (output *TransactionMetadata) SetBranchID(branchID branchmanager.BranchID) (modified bool) {
-	output.branchIDMutex.RLock()
-	if output.branchID == branchID {
-		output.branchIDMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) SetBranchID(branchID branchmanager.BranchID) (modified bool) {
+	transactionMetadata.branchIDMutex.RLock()
+	if transactionMetadata.branchID == branchID {
+		transactionMetadata.branchIDMutex.RUnlock()
 
 		return
 	}
 
-	output.branchIDMutex.RUnlock()
-	output.branchIDMutex.Lock()
-	defer output.branchIDMutex.Unlock()
+	transactionMetadata.branchIDMutex.RUnlock()
+	transactionMetadata.branchIDMutex.Lock()
+	defer transactionMetadata.branchIDMutex.Unlock()
 
-	if output.branchID == branchID {
+	if transactionMetadata.branchID == branchID {
 		return
 	}
 
-	output.branchID = branchID
+	transactionMetadata.branchID = branchID
 	modified = true
 
 	return
 }
 
 // Conflicting returns true if the Transaction has been forked into its own Branch and there is a vote going on.
-func (output *TransactionMetadata) Conflicting() bool {
-	return output.BranchID() == branchmanager.NewBranchID(output.ID())
+func (transactionMetadata *TransactionMetadata) Conflicting() bool {
+	return transactionMetadata.BranchID() == branchmanager.NewBranchID(transactionMetadata.ID())
 }
 
 // Solid returns true if the Transaction has been marked as solid.
-func (output *TransactionMetadata) Solid() (result bool) {
-	output.solidMutex.RLock()
-	result = output.solid
-	output.solidMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) Solid() (result bool) {
+	transactionMetadata.solidMutex.RLock()
+	result = transactionMetadata.solid
+	transactionMetadata.solidMutex.RUnlock()
 
 	return
 }
 
 // SetSolid marks a Transaction as either solid or not solid.
 // It returns true if the solid flag was changes and automatically updates the solidificationTime as well.
-func (output *TransactionMetadata) SetSolid(solid bool) (modified bool) {
-	output.solidMutex.RLock()
-	if output.solid != solid {
-		output.solidMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) SetSolid(solid bool) (modified bool) {
+	transactionMetadata.solidMutex.RLock()
+	if transactionMetadata.solid != solid {
+		transactionMetadata.solidMutex.RUnlock()
 
-		output.solidMutex.Lock()
-		if output.solid != solid {
-			output.solid = solid
+		transactionMetadata.solidMutex.Lock()
+		if transactionMetadata.solid != solid {
+			transactionMetadata.solid = solid
 			if solid {
-				output.solidificationTimeMutex.Lock()
-				output.solidificationTime = time.Now()
-				output.solidificationTimeMutex.Unlock()
+				transactionMetadata.solidificationTimeMutex.Lock()
+				transactionMetadata.solidificationTime = time.Now()
+				transactionMetadata.solidificationTimeMutex.Unlock()
 			}
 
-			output.SetModified()
+			transactionMetadata.SetModified()
 
 			modified = true
 		}
-		output.solidMutex.Unlock()
+		transactionMetadata.solidMutex.Unlock()
 
 	} else {
-		output.solidMutex.RUnlock()
+		transactionMetadata.solidMutex.RUnlock()
 	}
 
 	return
 }
 
 // Preferred returns true if the transaction is considered to be the first valid spender of all of its Inputs.
-func (output *TransactionMetadata) Preferred() (result bool) {
-	output.preferredMutex.RLock()
-	defer output.preferredMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) Preferred() (result bool) {
+	transactionMetadata.preferredMutex.RLock()
+	defer transactionMetadata.preferredMutex.RUnlock()
 
-	return output.preferred
+	return transactionMetadata.preferred
 }
 
 // setPreferred updates the preferred flag of the transaction. It is defined as a private setter because updating the
 // preferred flag causes changes in other transactions and branches as well. This means that we need additional logic
 // in the tangle. To update the preferred flag of a transaction, we need to use Tangle.SetTransactionPreferred(bool).
-func (output *TransactionMetadata) setPreferred(preferred bool) (modified bool) {
-	output.preferredMutex.RLock()
-	if output.preferred == preferred {
-		output.preferredMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) setPreferred(preferred bool) (modified bool) {
+	transactionMetadata.preferredMutex.RLock()
+	if transactionMetadata.preferred == preferred {
+		transactionMetadata.preferredMutex.RUnlock()
 
 		return
 	}
 
-	output.preferredMutex.RUnlock()
-	output.preferredMutex.Lock()
-	defer output.preferredMutex.Unlock()
+	transactionMetadata.preferredMutex.RUnlock()
+	transactionMetadata.preferredMutex.Lock()
+	defer transactionMetadata.preferredMutex.Unlock()
 
-	if output.preferred == preferred {
+	if transactionMetadata.preferred == preferred {
 		return
 	}
 
-	output.preferred = preferred
-	output.SetModified()
+	transactionMetadata.preferred = preferred
+	transactionMetadata.SetModified()
 	modified = true
 
 	return
@@ -215,26 +215,26 @@ func (output *TransactionMetadata) setPreferred(preferred bool) (modified bool) 
 
 // SetFinalized allows us to set the finalized flag on the transactions. Finalized transactions will not be forked when
 // a conflict arrives later.
-func (output *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
-	output.finalizedMutex.RLock()
-	if output.finalized == finalized {
-		output.finalizedMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
+	transactionMetadata.finalizedMutex.RLock()
+	if transactionMetadata.finalized == finalized {
+		transactionMetadata.finalizedMutex.RUnlock()
 
 		return
 	}
 
-	output.finalizedMutex.RUnlock()
-	output.finalizedMutex.Lock()
-	defer output.finalizedMutex.Unlock()
+	transactionMetadata.finalizedMutex.RUnlock()
+	transactionMetadata.finalizedMutex.Lock()
+	defer transactionMetadata.finalizedMutex.Unlock()
 
-	if output.finalized == finalized {
+	if transactionMetadata.finalized == finalized {
 		return
 	}
 
-	output.finalized = finalized
-	output.SetModified()
+	transactionMetadata.finalized = finalized
+	transactionMetadata.SetModified()
 	if finalized {
-		output.finalizationTime = time.Now()
+		transactionMetadata.finalizationTime = time.Now()
 	}
 	modified = true
 
@@ -242,195 +242,195 @@ func (output *TransactionMetadata) SetFinalized(finalized bool) (modified bool) 
 }
 
 // Finalized returns true, if the decision if this transaction is liked or not has been finalized by consensus already.
-func (output *TransactionMetadata) Finalized() bool {
-	output.finalizedMutex.RLock()
-	defer output.finalizedMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) Finalized() bool {
+	transactionMetadata.finalizedMutex.RLock()
+	defer transactionMetadata.finalizedMutex.RUnlock()
 
-	return output.finalized
+	return transactionMetadata.finalized
 }
 
 // Liked returns true if the Transaction was marked as liked.
-func (output *TransactionMetadata) Liked() bool {
-	output.likedMutex.RLock()
-	defer output.likedMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) Liked() bool {
+	transactionMetadata.likedMutex.RLock()
+	defer transactionMetadata.likedMutex.RUnlock()
 
-	return output.liked
+	return transactionMetadata.liked
 }
 
 // setLiked modifies the liked flag of the given Transaction. It returns true if the value has been updated.
-func (output *TransactionMetadata) setLiked(liked bool) (modified bool) {
-	output.likedMutex.RLock()
-	if output.liked == liked {
-		output.likedMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) setLiked(liked bool) (modified bool) {
+	transactionMetadata.likedMutex.RLock()
+	if transactionMetadata.liked == liked {
+		transactionMetadata.likedMutex.RUnlock()
 
 		return
 	}
 
-	output.likedMutex.RUnlock()
-	output.likedMutex.Lock()
-	defer output.likedMutex.Unlock()
+	transactionMetadata.likedMutex.RUnlock()
+	transactionMetadata.likedMutex.Lock()
+	defer transactionMetadata.likedMutex.Unlock()
 
-	if output.liked == liked {
+	if transactionMetadata.liked == liked {
 		return
 	}
 
-	output.liked = liked
-	output.SetModified()
+	transactionMetadata.liked = liked
+	transactionMetadata.SetModified()
 	modified = true
 
 	return
 }
 
 // Confirmed returns true if the Transaction was marked as confirmed.
-func (output *TransactionMetadata) Confirmed() bool {
-	output.confirmedMutex.RLock()
-	defer output.confirmedMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) Confirmed() bool {
+	transactionMetadata.confirmedMutex.RLock()
+	defer transactionMetadata.confirmedMutex.RUnlock()
 
-	return output.confirmed
+	return transactionMetadata.confirmed
 }
 
 // setConfirmed modifies the confirmed flag of the given Transaction. It returns true if the value has been updated.
-func (output *TransactionMetadata) setConfirmed(confirmed bool) (modified bool) {
-	output.confirmedMutex.RLock()
-	if output.confirmed == confirmed {
-		output.confirmedMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) setConfirmed(confirmed bool) (modified bool) {
+	transactionMetadata.confirmedMutex.RLock()
+	if transactionMetadata.confirmed == confirmed {
+		transactionMetadata.confirmedMutex.RUnlock()
 
 		return
 	}
 
-	output.confirmedMutex.RUnlock()
-	output.confirmedMutex.Lock()
-	defer output.confirmedMutex.Unlock()
+	transactionMetadata.confirmedMutex.RUnlock()
+	transactionMetadata.confirmedMutex.Lock()
+	defer transactionMetadata.confirmedMutex.Unlock()
 
-	if output.confirmed == confirmed {
+	if transactionMetadata.confirmed == confirmed {
 		return
 	}
 
-	output.confirmed = confirmed
-	output.SetModified()
+	transactionMetadata.confirmed = confirmed
+	transactionMetadata.SetModified()
 	modified = true
 
 	return
 }
 
 // Rejected returns true if the Transaction was marked as confirmed.
-func (output *TransactionMetadata) Rejected() bool {
-	output.rejectedMutex.RLock()
-	defer output.rejectedMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) Rejected() bool {
+	transactionMetadata.rejectedMutex.RLock()
+	defer transactionMetadata.rejectedMutex.RUnlock()
 
-	return output.rejected
+	return transactionMetadata.rejected
 }
 
 // setRejected modifies the rejected flag of the given Transaction. It returns true if the value has been updated.
-func (output *TransactionMetadata) setRejected(rejected bool) (modified bool) {
-	output.rejectedMutex.RLock()
-	if output.rejected == rejected {
-		output.rejectedMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) setRejected(rejected bool) (modified bool) {
+	transactionMetadata.rejectedMutex.RLock()
+	if transactionMetadata.rejected == rejected {
+		transactionMetadata.rejectedMutex.RUnlock()
 
 		return
 	}
 
-	output.rejectedMutex.RUnlock()
-	output.rejectedMutex.Lock()
-	defer output.rejectedMutex.Unlock()
+	transactionMetadata.rejectedMutex.RUnlock()
+	transactionMetadata.rejectedMutex.Lock()
+	defer transactionMetadata.rejectedMutex.Unlock()
 
-	if output.rejected == rejected {
+	if transactionMetadata.rejected == rejected {
 		return
 	}
 
-	output.rejected = rejected
-	output.SetModified()
+	transactionMetadata.rejected = rejected
+	transactionMetadata.SetModified()
 	modified = true
 
 	return
 }
 
 // FinalizationTime returns the time when this transaction was finalized.
-func (output *TransactionMetadata) FinalizationTime() time.Time {
-	output.finalizedMutex.RLock()
-	defer output.finalizedMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) FinalizationTime() time.Time {
+	transactionMetadata.finalizedMutex.RLock()
+	defer transactionMetadata.finalizedMutex.RUnlock()
 
-	return output.finalizationTime
+	return transactionMetadata.finalizationTime
 }
 
 // SoldificationTime returns the time when the Transaction was marked to be solid.
-func (output *TransactionMetadata) SoldificationTime() time.Time {
-	output.solidificationTimeMutex.RLock()
-	defer output.solidificationTimeMutex.RUnlock()
+func (transactionMetadata *TransactionMetadata) SoldificationTime() time.Time {
+	transactionMetadata.solidificationTimeMutex.RLock()
+	defer transactionMetadata.solidificationTimeMutex.RUnlock()
 
-	return output.solidificationTime
+	return transactionMetadata.solidificationTime
 }
 
 // Bytes marshals the TransactionMetadata object into a sequence of bytes.
-func (output *TransactionMetadata) Bytes() []byte {
+func (transactionMetadata *TransactionMetadata) Bytes() []byte {
 	return marshalutil.New(branchmanager.BranchIDLength + 2*marshalutil.TIME_SIZE + 6*marshalutil.BOOL_SIZE).
-		WriteBytes(output.BranchID().Bytes()).
-		WriteTime(output.SoldificationTime()).
-		WriteTime(output.FinalizationTime()).
-		WriteBool(output.Solid()).
-		WriteBool(output.Preferred()).
-		WriteBool(output.Finalized()).
-		WriteBool(output.Liked()).
-		WriteBool(output.Confirmed()).
-		WriteBool(output.Rejected()).
+		WriteBytes(transactionMetadata.BranchID().Bytes()).
+		WriteTime(transactionMetadata.SoldificationTime()).
+		WriteTime(transactionMetadata.FinalizationTime()).
+		WriteBool(transactionMetadata.Solid()).
+		WriteBool(transactionMetadata.Preferred()).
+		WriteBool(transactionMetadata.Finalized()).
+		WriteBool(transactionMetadata.Liked()).
+		WriteBool(transactionMetadata.Confirmed()).
+		WriteBool(transactionMetadata.Rejected()).
 		Bytes()
 }
 
 // String creates a human readable version of the metadata (for debug purposes).
-func (output *TransactionMetadata) String() string {
+func (transactionMetadata *TransactionMetadata) String() string {
 	return stringify.Struct("transaction.TransactionMetadata",
-		stringify.StructField("id", output.ID()),
-		stringify.StructField("branchId", output.BranchID()),
-		stringify.StructField("solid", output.Solid()),
-		stringify.StructField("solidificationTime", output.SoldificationTime()),
+		stringify.StructField("id", transactionMetadata.ID()),
+		stringify.StructField("branchId", transactionMetadata.BranchID()),
+		stringify.StructField("solid", transactionMetadata.Solid()),
+		stringify.StructField("solidificationTime", transactionMetadata.SoldificationTime()),
 	)
 }
 
 // ObjectStorageKey returns the key that is used to identify the TransactionMetadata in the objectstorage.
-func (output *TransactionMetadata) ObjectStorageKey() []byte {
-	return output.id.Bytes()
+func (transactionMetadata *TransactionMetadata) ObjectStorageKey() []byte {
+	return transactionMetadata.id.Bytes()
 }
 
 // Update is disabled and panics if it ever gets called - updates are supposed to happen through the setters.
-func (output *TransactionMetadata) Update(other objectstorage.StorableObject) {
+func (transactionMetadata *TransactionMetadata) Update(other objectstorage.StorableObject) {
 	panic("update forbidden")
 }
 
 // ObjectStorageValue marshals the TransactionMetadata object into a sequence of bytes and matches the encoding.BinaryMarshaler
 // interface.
-func (output *TransactionMetadata) ObjectStorageValue() []byte {
-	return output.Bytes()
+func (transactionMetadata *TransactionMetadata) ObjectStorageValue() []byte {
+	return transactionMetadata.Bytes()
 }
 
 // UnmarshalObjectStorageValue restores the values of a TransactionMetadata object from a sequence of bytes and matches the
 // encoding.BinaryUnmarshaler interface.
-func (output *TransactionMetadata) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
+func (transactionMetadata *TransactionMetadata) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
-	if output.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
+	if transactionMetadata.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
 		return
 	}
-	if output.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
 		return
 	}
-	if output.finalizationTime, err = marshalUtil.ReadTime(); err != nil {
+	if transactionMetadata.finalizationTime, err = marshalUtil.ReadTime(); err != nil {
 		return
 	}
-	if output.solid, err = marshalUtil.ReadBool(); err != nil {
+	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
-	if output.preferred, err = marshalUtil.ReadBool(); err != nil {
+	if transactionMetadata.preferred, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
-	if output.finalized, err = marshalUtil.ReadBool(); err != nil {
+	if transactionMetadata.finalized, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
-	if output.liked, err = marshalUtil.ReadBool(); err != nil {
+	if transactionMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
-	if output.confirmed, err = marshalUtil.ReadBool(); err != nil {
+	if transactionMetadata.confirmed, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
-	if output.rejected, err = marshalUtil.ReadBool(); err != nil {
+	if transactionMetadata.rejected, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
