@@ -620,33 +620,36 @@ func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.
 
 		cachedTransactionMetadata := tangle.TransactionMetadata(currentTransactionID)
 		cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
-			if !metadata.setRejected(true) {
-				return
-			}
-			if metadata.setPreferred(false) {
-				// set outputs to be not preferred as well
-				tangle.Transaction(currentTransactionID).Consume(func(tx *transaction.Transaction) {
-					tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
-						tangle.TransactionOutput(transaction.NewOutputID(address, currentTransactionID)).Consume(func(output *Output) {
-							output.setPreferred(false)
-						})
-
-						return true
-					})
-				})
-			}
-
-			// if the transaction is not finalized, yet then we set it to finalized
-			if !metadata.Finalized() {
-				if _, err := tangle.setTransactionFinalized(metadata.ID(), EventSourceTangle); err != nil {
-					tangle.Events.Error.Trigger(err)
-
-					return
-				}
-			}
-
 			cachedTransaction := tangle.Transaction(currentTransactionID)
 			cachedTransaction.Consume(func(tx *transaction.Transaction) {
+				if !metadata.setRejected(true) {
+					return
+				}
+
+				if metadata.setPreferred(false) {
+					// set outputs to be not preferred as well
+					tangle.Transaction(currentTransactionID).Consume(func(tx *transaction.Transaction) {
+						tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+							tangle.TransactionOutput(transaction.NewOutputID(address, currentTransactionID)).Consume(func(output *Output) {
+								output.setPreferred(false)
+							})
+
+							return true
+						})
+					})
+
+					tangle.Events.TransactionUnpreferred.Trigger(cachedTransaction, cachedTransactionMetadata)
+				}
+
+				// if the transaction is not finalized, yet then we set it to finalized
+				if !metadata.Finalized() {
+					if _, err := tangle.setTransactionFinalized(metadata.ID(), EventSourceTangle); err != nil {
+						tangle.Events.Error.Trigger(err)
+
+						return
+					}
+				}
+
 				// process all outputs
 				tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
 					outputID := transaction.NewOutputID(address, currentTransactionID)
