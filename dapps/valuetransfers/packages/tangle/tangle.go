@@ -1373,7 +1373,8 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 	})
 
 	// fork the conflicting transactions into their own branch if a decision is still pending
-	if decisionPending = !finalizedConflictingSpenderFound; decisionPending {
+	decisionPending = !finalizedConflictingSpenderFound
+	if decisionPending {
 		for consumerID, conflictingInputs := range conflictingInputsOfFirstConsumers {
 			_, decisionFinalized, forkedErr := tangle.Fork(consumerID, conflictingInputs)
 			if forkedErr != nil {
