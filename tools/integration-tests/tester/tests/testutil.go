@@ -341,9 +341,9 @@ func CheckBalances(t *testing.T, peers []*framework.Peer, addrBalance map[string
 
 			// calculate the balances of each colored coin
 			for _, unspents := range resp.UnspentOutputs[0].OutputIDs {
-				for _, b := range unspents.Balances {
-					color := getColorFromString(b.Color)
-					sum[color] += b.Value
+				for _, respBalance := range unspents.Balances {
+					color := getColorFromString(respBalance.Color)
+					sum[color] += respBalance.Value
 				}
 			}
 
