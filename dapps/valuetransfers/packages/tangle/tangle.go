@@ -37,7 +37,7 @@ type Tangle struct {
 	outputStorage              *objectstorage.ObjectStorage
 	consumerStorage            *objectstorage.ObjectStorage
 
-	Events Events
+	Events *Events
 
 	workerPool        async.WorkerPool
 	cleanupWorkerPool async.WorkerPool
@@ -60,7 +60,7 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 		outputStorage:              osFactory.New(osOutput, osOutputFactory, OutputKeyPartitions, objectstorage.CacheTime(1*time.Second), osLeakDetectionOption),
 		consumerStorage:            osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(1*time.Second), osLeakDetectionOption),
 
-		Events: *newEvents(),
+		Events: newEvents(),
 	}
 	tangle.setupDAGSynchronization()
 
@@ -234,7 +234,7 @@ func (tangle *Tangle) Fork(transactionID transaction.ID, conflictingInputs []tra
 	}
 
 	// trigger events + set result
-	tangle.Events.Fork.Trigger(cachedTransaction, cachedTransactionMetadata)
+	tangle.Events.Fork.Trigger(cachedTransaction, cachedTransactionMetadata, cachedTargetBranch, conflictingInputs)
 	forked = true
 
 	return
