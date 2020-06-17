@@ -1,4 +1,4 @@
-package autopeering
+package message
 
 import (
 	"os"

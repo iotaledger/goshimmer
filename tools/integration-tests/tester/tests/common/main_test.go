@@ -1,4 +1,4 @@
-package autopeering
+package common
 
 import (
 	"os"
