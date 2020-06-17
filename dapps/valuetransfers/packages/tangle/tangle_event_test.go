@@ -37,7 +37,6 @@ func newEventTangle(t *testing.T, tangle *Tangle) *eventTangle {
 	e.attach(tangle.Events.MissingPayloadReceived, e.MissingPayloadReceived)
 	e.attach(tangle.Events.PayloadMissing, e.PayloadMissing)
 	e.attach(tangle.Events.PayloadInvalid, e.PayloadInvalid)
-	e.attach(tangle.Events.PayloadUnsolidifiable, e.PayloadUnsolidifiable)
 	e.attach(tangle.Events.TransactionReceived, e.TransactionReceived)
 	e.attach(tangle.Events.TransactionInvalid, e.TransactionInvalid)
 	e.attach(tangle.Events.TransactionSolid, e.TransactionSolid)
@@ -130,11 +129,6 @@ func (e *eventTangle) PayloadInvalid(payload *payload.CachedPayload, payloadMeta
 	defer payload.Release()
 	defer payloadMetadata.Release()
 	e.Called(payload.Unwrap(), payloadMetadata.Unwrap(), err)
-}
-
-// TODO: PayloadUnsolidifiable is never even triggered, should we remove it?
-func (e *eventTangle) PayloadUnsolidifiable(id payload.ID) {
-	e.Called(id)
 }
 
 func (e *eventTangle) TransactionReceived(transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata, attachment *CachedAttachment) {
