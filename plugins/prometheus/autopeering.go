@@ -61,6 +61,6 @@ func collectAutopeeringMetrics() {
 	connectionsCount.Set(float64(metrics.ConnectionsCount()))
 	min, max, avg := metrics.AutopeeringDistanceStats()
 	minDistance.Set(float64(min))
-	minDistance.Set(float64(max))
-	minDistance.Set(avg)
+	maxDistance.Set(float64(max))
+	avgDistance.Set(avg)
 }
