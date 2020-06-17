@@ -25,6 +25,8 @@ type Output struct {
 	solidificationTime time.Time
 	firstConsumer      transaction.ID
 	consumerCount      int
+	preferred          bool
+	finalized          bool
 	liked              bool
 	confirmed          bool
 	rejected           bool
@@ -34,6 +36,8 @@ type Output struct {
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 	consumerMutex           sync.RWMutex
+	preferredMutex          sync.RWMutex
+	finalizedMutex          sync.RWMutex
 	likedMutex              sync.RWMutex
 	confirmedMutex          sync.RWMutex
 	rejectedMutex           sync.RWMutex
@@ -230,6 +234,73 @@ func (output *Output) ConsumerCount() int {
 	defer output.consumerMutex.RUnlock()
 
 	return output.consumerCount
+}
+
+// Preferred returns true if the output is considered to be the first valid spender of all of its Inputs.
+func (output *Output) Preferred() (result bool) {
+	output.preferredMutex.RLock()
+	defer output.preferredMutex.RUnlock()
+
+	return output.preferred
+}
+
+// setPreferred updates the preferred flag of the output. It is defined as a private setter because updating the
+// preferred flag causes changes in other outputs and branches as well. This means that we need additional logic
+// in the tangle. To update the preferred flag of a output, we need to use Tangle.SetTransactionPreferred(bool).
+func (output *Output) setPreferred(preferred bool) (modified bool) {
+	output.preferredMutex.RLock()
+	if output.preferred == preferred {
+		output.preferredMutex.RUnlock()
+
+		return
+	}
+
+	output.preferredMutex.RUnlock()
+	output.preferredMutex.Lock()
+	defer output.preferredMutex.Unlock()
+
+	if output.preferred == preferred {
+		return
+	}
+
+	output.preferred = preferred
+	output.SetModified()
+	modified = true
+
+	return
+}
+
+// setFinalized allows us to set the finalized flag on the outputs. Finalized outputs will not be forked when
+// a conflict arrives later.
+func (output *Output) setFinalized(finalized bool) (modified bool) {
+	output.finalizedMutex.RLock()
+	if output.finalized == finalized {
+		output.finalizedMutex.RUnlock()
+
+		return
+	}
+
+	output.finalizedMutex.RUnlock()
+	output.finalizedMutex.Lock()
+	defer output.finalizedMutex.Unlock()
+
+	if output.finalized == finalized {
+		return
+	}
+
+	output.finalized = finalized
+	output.SetModified()
+	modified = true
+
+	return
+}
+
+// Finalized returns true, if the decision if this output is liked or not has been finalized by consensus already.
+func (output *Output) Finalized() bool {
+	output.finalizedMutex.RLock()
+	defer output.finalizedMutex.RUnlock()
+
+	return output.finalized
 }
 
 // Liked returns true if the Output was marked as liked.
