@@ -236,7 +236,7 @@ func (output *Output) ConsumerCount() int {
 	return output.consumerCount
 }
 
-// Preferred returns true if the output is considered to be the first valid spender of all of its Inputs.
+// Preferred returns true if the output belongs to a preferred transaction.
 func (output *Output) Preferred() (result bool) {
 	output.preferredMutex.RLock()
 	defer output.preferredMutex.RUnlock()
@@ -295,7 +295,7 @@ func (output *Output) setFinalized(finalized bool) (modified bool) {
 	return
 }
 
-// Finalized returns true, if the decision if this output is liked or not has been finalized by consensus already.
+// Finalized returns true, if the decision if this output is preferred or not has been finalized by consensus already.
 func (output *Output) Finalized() bool {
 	output.finalizedMutex.RLock()
 	defer output.finalizedMutex.RUnlock()
@@ -428,12 +428,17 @@ func (output *Output) ObjectStorageValue() []byte {
 	balanceCount := len(output.balances)
 
 	// initialize helper
-	marshalUtil := marshalutil.New(branchmanager.BranchIDLength + marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + transaction.IDLength + marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
+	marshalUtil := marshalutil.New(branchmanager.BranchIDLength + 6*marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + transaction.IDLength + marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
 	marshalUtil.WriteBytes(output.branchID.Bytes())
 	marshalUtil.WriteBool(output.solid)
 	marshalUtil.WriteTime(output.solidificationTime)
 	marshalUtil.WriteBytes(output.firstConsumer.Bytes())
 	marshalUtil.WriteUint32(uint32(output.consumerCount))
+	marshalUtil.WriteBool(output.Preferred())
+	marshalUtil.WriteBool(output.Finalized())
+	marshalUtil.WriteBool(output.Liked())
+	marshalUtil.WriteBool(output.Confirmed())
+	marshalUtil.WriteBool(output.Rejected())
 	marshalUtil.WriteUint32(uint32(balanceCount))
 	for _, balanceToMarshal := range output.balances {
 		marshalUtil.WriteBytes(balanceToMarshal.Bytes())
@@ -460,6 +465,21 @@ func (output *Output) UnmarshalObjectStorageValue(data []byte) (consumedBytes in
 	}
 	consumerCount, err := marshalUtil.ReadUint32()
 	if err != nil {
+		return
+	}
+	if output.preferred, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if output.finalized, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if output.liked, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if output.confirmed, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if output.rejected, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
 	output.consumerCount = int(consumerCount)
