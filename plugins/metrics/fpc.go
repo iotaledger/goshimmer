@@ -41,7 +41,7 @@ func FailedConflicts() uint64 {
 	return atomic.LoadUint64(&failedConflictCount)
 }
 
-// AverageRoundsToFinalize returns the average number fo rounds it takes to finalize conflicts since the start of the node.
+// AverageRoundsToFinalize returns the average number of rounds it takes to finalize conflicts since the start of the node.
 func AverageRoundsToFinalize() float64 {
 	avLock.RLock()
 	defer avLock.RUnlock()
