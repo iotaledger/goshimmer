@@ -16,30 +16,26 @@ import (
 type OpinionRetriever func(id string) vote.Opinion
 
 // New creates a new VoterServer.
-func New(voter vote.Voter, opnRetriever OpinionRetriever, bindAddr string, netEvents ...*events.Event) *VoterServer {
-	vs := &VoterServer{
-		voter:        voter,
-		opnRetriever: opnRetriever,
-		bindAddr:     bindAddr,
+func New(voter vote.Voter, opnRetriever OpinionRetriever, bindAddr string, netRxEvent, netTxEvent, queryReceivedEvent *events.Event) *VoterServer {
+	return &VoterServer{
+		voter:              voter,
+		opnRetriever:       opnRetriever,
+		bindAddr:           bindAddr,
+		netRxEvent:         netRxEvent,
+		netTxEvent:         netTxEvent,
+		queryReceivedEvent: queryReceivedEvent,
 	}
-	if netEvents == nil && len(netEvents) < 2 {
-		return vs
-	}
-
-	vs.netEventRX = netEvents[0]
-	vs.netEventTX = netEvents[1]
-
-	return vs
 }
 
 // VoterServer is a server which responds to opinion queries.
 type VoterServer struct {
-	voter        vote.Voter
-	opnRetriever OpinionRetriever
-	bindAddr     string
-	grpcServer   *grpc.Server
-	netEventRX   *events.Event
-	netEventTX   *events.Event
+	voter              vote.Voter
+	opnRetriever       OpinionRetriever
+	bindAddr           string
+	grpcServer         *grpc.Server
+	netRxEvent         *events.Event
+	netTxEvent         *events.Event
+	queryReceivedEvent *events.Event
 }
 
 func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryReply, error) {
@@ -56,14 +52,16 @@ func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryRe
 		reply.Opinion[i] = int32(vs.opnRetriever(id))
 	}
 
-	if vs.netEventRX != nil {
-		vs.netEventRX.Trigger(proto.Size(req))
+	if vs.netRxEvent != nil {
+		vs.netRxEvent.Trigger(uint64(proto.Size(req)))
 	}
-	if vs.netEventTX != nil {
-		vs.netEventTX.Trigger(proto.Size(reply))
+	if vs.netTxEvent != nil {
+		vs.netTxEvent.Trigger(uint64(proto.Size(reply)))
+	}
+	if vs.queryReceivedEvent != nil {
+		vs.queryReceivedEvent.Trigger(&metrics.QueryReceivedEvent{OpinionCount: len(req.Id)})
 	}
 
-	metrics.Events().QueryReceived.Trigger(&metrics.QueryReceivedEvent{OpinionCount: len(req.Id)})
 	return reply, nil
 }
 

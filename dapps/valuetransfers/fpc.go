@@ -125,7 +125,8 @@ func runFPC() {
 			return vote.Like
 		}, config.Node.GetString(CfgFPCBindAddress),
 			metrics.Events().FPCInboundBytes,
-			metrics.Events().FPCOutboundBytes)
+			metrics.Events().FPCOutboundBytes,
+			metrics.Events().QueryReceived)
 
 		go func() {
 			if err := voterServer.Run(); err != nil {
@@ -194,8 +195,9 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opin
 		return nil, fmt.Errorf("unable to query opinions: %w", err)
 	}
 
-	metrics.Events().FPCInboundBytes.Trigger(proto.Size(reply))
-	metrics.Events().FPCOutboundBytes.Trigger(proto.Size(query))
+	metrics.Events().FPCInboundBytes.Trigger(uint64(proto.Size(reply)))
+	metrics.Events().FPCOutboundBytes.Trigger(uint64(proto.Size(query)))
+
 	// convert int32s in reply to opinions
 	opinions := make(vote.Opinions, len(reply.Opinion))
 	for i, intOpn := range reply.Opinion {
