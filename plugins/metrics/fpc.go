@@ -14,17 +14,17 @@ var failedConflictCount uint64
 var averageRoundsToFinalize float64
 var avLock syncutils.RWMutex
 
-// QueryReceivedCount is the number of queries received (each query can contain multiple conflicts to give an opinion about)
-var QueryReceivedCount uint64
+// queryReceivedCount is the number of queries received (each query can contain multiple conflicts to give an opinion about)
+var queryReceivedCount uint64
 
-// OpinionQueryReceivedCount is the number of opinion queries received (multiple in one query)
-var OpinionQueryReceivedCount uint64
+// opinionQueryReceivedCount is the number of opinion queries received (multiple in one query)
+var opinionQueryReceivedCount uint64
 
-// QueryReplyErrorCount counts how many times we haven't received an answer for our query. (each query reply can contain multiple conflicts to get an opinion about)
-var QueryReplyErrorCount uint64
+// queryReplyErrorCount counts how many times we haven't received an answer for our query. (each query reply can contain multiple conflicts to get an opinion about)
+var queryReplyErrorCount uint64
 
-// OpinionQueryReplyErrorCount counts how many opinions we asked for but never heard back (multiple opinions in one query)
-var OpinionQueryReplyErrorCount uint64
+// opinionQueryReplyErrorCount counts how many opinions we asked for but never heard back (multiple opinions in one query)
+var opinionQueryReplyErrorCount uint64
 
 // ActiveConflicts returns the number of currently active conflicts.
 func ActiveConflicts() uint64 {
@@ -50,22 +50,22 @@ func AverageRoundsToFinalize() float64 {
 
 // FPCQueryReceived returns the number of received voting queries. For an exact number of opinion queries, use FPCOpinionQueryReceived().
 func FPCQueryReceived() uint64 {
-	return atomic.LoadUint64(&QueryReceivedCount)
+	return atomic.LoadUint64(&queryReceivedCount)
 }
 
 // FPCOpinionQueryReceived returns the number of received opinion queries.
 func FPCOpinionQueryReceived() uint64 {
-	return atomic.LoadUint64(&OpinionQueryReceivedCount)
+	return atomic.LoadUint64(&opinionQueryReceivedCount)
 }
 
 // FPCQueryReplyErrors returns the number of sent but unanswered queries for conflict opinions. For an exact number of failed opinions, use FPCOpinionQueryReplyErrors().
 func FPCQueryReplyErrors() uint64 {
-	return atomic.LoadUint64(&QueryReplyErrorCount)
+	return atomic.LoadUint64(&queryReplyErrorCount)
 }
 
 // FPCOpinionQueryReplyErrors returns the number of opinions that the node failed to gather from peers.
 func FPCOpinionQueryReplyErrors() uint64 {
-	return atomic.LoadUint64(&OpinionQueryReplyErrorCount)
+	return atomic.LoadUint64(&opinionQueryReplyErrorCount)
 }
 
 //// logic broken into "process..."  functions to be able to write unit tests ////
@@ -93,14 +93,14 @@ func processFailed(ctx vote.Context) {
 
 func processQueryReceived(ev *metrics.QueryReceivedEvent) {
 	// received one query
-	atomic.AddUint64(&QueryReceivedCount, 1)
+	atomic.AddUint64(&queryReceivedCount, 1)
 	// containing this many conflicts to give opinion about
-	atomic.AddUint64(&OpinionQueryReceivedCount, (uint64)(ev.OpinionCount))
+	atomic.AddUint64(&opinionQueryReceivedCount, (uint64)(ev.OpinionCount))
 }
 
 func processQueryReplyError(ev *metrics.QueryReplyErrorEvent) {
 	// received one query
-	atomic.AddUint64(&QueryReplyErrorCount, 1)
+	atomic.AddUint64(&queryReplyErrorCount, 1)
 	// containing this many conflicts to give opinion about
-	atomic.AddUint64(&OpinionQueryReplyErrorCount, (uint64)(ev.OpinionCount))
+	atomic.AddUint64(&opinionQueryReplyErrorCount, (uint64)(ev.OpinionCount))
 }
