@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const maxRetry = 50
+
 // DataMessageSent defines a struct to identify from which issuer a data message was sent.
 type DataMessageSent struct {
 	number          int
@@ -133,12 +135,17 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer) (txIds []s
 
 // SendTransactionOnRandomPeer sends 100 IOTA tokens on random peer, saves the sent token amount to a map and returns transaction IDs.
 func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBalance map[string]map[balance.Color]int64, numMessages int) (txIds []string) {
+	counter := 0
 	for i := 0; i < numMessages; i++ {
 		from := rand.Intn(len(peers))
 		to := rand.Intn(len(peers))
 		fail, txId := SendIotaTransaction(t, peers[from], peers[to], addrBalance)
 		if fail {
 			i--
+			counter++
+			if counter >= maxRetry {
+				return
+			}
 			continue
 		}
 
@@ -209,12 +216,17 @@ func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer,
 
 // SendColoredTransactionOnRandomPeer sends colored tokens on a random peer, saves the sent token amount to a map, and returns transaction IDs.
 func SendColoredTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBalance map[string]map[balance.Color]int64, numMessages int) (txIds []string) {
+	counter := 0
 	for i := 0; i < numMessages; i++ {
 		from := rand.Intn(len(peers))
 		to := rand.Intn(len(peers))
 		fail, txId := SendColoredTransaction(t, peers[from], peers[to], addrBalance)
 		if fail {
 			i--
+			counter++
+			if counter >= maxRetry {
+				return
+			}
 			continue
 		}
 
@@ -296,16 +308,16 @@ func updateBalanceList(addrBalance map[string]map[balance.Color]int64, balances 
 		color := b.Color()
 		value := b.Value()
 		if value < 0 {
-			// update from
+			// deduct
 			addrBalance[from][color] += value
-		} else {
-			// update to
-			if color == balance.ColorNew {
-				addrBalance[to][getColorFromString(txId)] = value
-			} else {
-				addrBalance[to][color] += value
-			}
+			continue
 		}
+		// deposit
+		if color == balance.ColorNew {
+			addrBalance[to][getColorFromString(txId)] = value
+			continue
+		}
+		addrBalance[to][color] += value
 	}
 	return
 }
@@ -335,9 +347,9 @@ func CheckBalances(t *testing.T, peers []*framework.Peer, addrBalance map[string
 					color := getColorFromString(b.Color)
 					if _, ok := sum[color]; ok {
 						sum[color] += b.Value
-					} else {
-						sum[color] = b.Value
+						continue
 					}
+					sum[color] = b.Value
 				}
 			}
 
