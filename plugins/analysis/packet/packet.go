@@ -21,6 +21,7 @@ func init() {
 		tlv.HeaderMessageDefinition,
 		HeartbeatMessageDefinition,
 		FPCHeartbeatMessageDefinition,
+		MetricHeartbeatMessageDefinition,
 	}
 	AnalysisMsgRegistry = message.NewRegistry(definitions)
 }

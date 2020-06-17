@@ -112,6 +112,9 @@ func wireUp(p *protocol.Protocol) {
 	p.Events.Received[packet.MessageTypeFPCHeartbeat].Attach(events.NewClosure(func(data []byte) {
 		processFPCHeartbeatPacket(data, p)
 	}))
+	p.Events.Received[packet.MessageTypeMetricHeartbeat].Attach(events.NewClosure(func(data []byte) {
+		processMetricHeartbeatPacket(data, p)
+	}))
 }
 
 // processHeartbeatPacket parses the serialized data into a Heartbeat packet and triggers its event
@@ -125,7 +128,7 @@ func processHeartbeatPacket(data []byte, p *protocol.Protocol) {
 	Events.Heartbeat.Trigger(heartbeatPacket)
 }
 
-// processHeartbeatPacket parses the serialized data into a Heartbeat packet and triggers its event
+// processHeartbeatPacket parses the serialized data into a FPC Heartbeat packet and triggers its event
 func processFPCHeartbeatPacket(data []byte, p *protocol.Protocol) {
 	hb, err := packet.ParseFPCHeartbeat(data)
 	if err != nil {
@@ -134,4 +137,15 @@ func processFPCHeartbeatPacket(data []byte, p *protocol.Protocol) {
 		return
 	}
 	Events.FPCHeartbeat.Trigger(hb)
+}
+
+// processMetricHeartbeatPacket parses the serialized data into a MEtric Heartbeat packet and triggers its event
+func processMetricHeartbeatPacket(data []byte, p *protocol.Protocol) {
+	hb, err := packet.ParseMetricHeartbeat(data)
+	if err != nil {
+		Events.Error.Trigger(err)
+		p.CloseConnection()
+		return
+	}
+	Events.MetricHeartbeat.Trigger(hb)
 }

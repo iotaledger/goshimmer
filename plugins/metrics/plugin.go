@@ -12,7 +12,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
@@ -36,6 +38,40 @@ func configure(_ *node.Plugin) {
 
 func run(_ *node.Plugin) {
 
+	if config.Node.GetBool(CfgMetricsLocal) {
+		registerLocalMetrics()
+	}
+
+	// Events from analysis server
+	if config.Node.GetBool(CfgMetricsGlobal) {
+		server.Events.MetricHeartbeat.Attach(onMetricHeartbeatReceived)
+	}
+
+	// create a background worker that update the metrics every second
+	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
+		if config.Node.GetBool(CfgMetricsLocal) {
+			timeutil.Ticker(func() {
+				measureReceivedMPS()
+				measureCPUUsage()
+				measureMemUsage()
+				measureSynced()
+
+				// gossip network traffic
+				g := gossipCurrentTraffic()
+				gossipCurrentRx.Store(uint64(g.BytesRead))
+				gossipCurrentTx.Store(uint64(g.BytesWritten))
+			}, 1*time.Second, shutdownSignal)
+			timeutil.Ticker(measureMPSPerPayload, MPSMeasurementInterval, shutdownSignal)
+			timeutil.Ticker(measureMessageTips, MessageTipsMeasurementInterval, shutdownSignal)
+			timeutil.Ticker(measureReceivedTPS, TPSMeasurementInterval, shutdownSignal)
+			timeutil.Ticker(measureValueTips, ValueTipsMeasurementInterval, shutdownSignal)
+		}
+	}, shutdown.PriorityMetrics); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
+}
+
+func registerLocalMetrics() {
 	//// Events declared in other packages which we want to listen to here ////
 
 	// increase received MPS counter whenever we attached a message
@@ -110,26 +146,4 @@ func run(_ *node.Plugin) {
 	metrics.Events().QueryReplyError.Attach(events.NewClosure(func(ev *metrics.QueryReplyErrorEvent) {
 		processQueryReplyError(ev)
 	}))
-
-	// create a background worker that "measures" the MPS value every second
-	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
-		timeutil.Ticker(func() {
-			measureReceivedMPS()
-			measureCPUUsage()
-			measureMemUsage()
-			measureSynced()
-
-			// gossip network traffic
-			g := gossipCurrentTraffic()
-			gossipCurrentRx.Store(uint64(g.BytesRead))
-			gossipCurrentTx.Store(uint64(g.BytesWritten))
-
-		}, 1*time.Second, shutdownSignal)
-		timeutil.Ticker(measureMPSPerPayload, MPSMeasurementInterval, shutdownSignal)
-		timeutil.Ticker(measureMessageTips, MessageTipsMeasurementInterval, shutdownSignal)
-		timeutil.Ticker(measureReceivedTPS, TPSMeasurementInterval, shutdownSignal)
-		timeutil.Ticker(measureValueTips, ValueTipsMeasurementInterval, shutdownSignal)
-	}, shutdown.PriorityMetrics); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
-	}
 }
