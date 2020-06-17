@@ -75,9 +75,6 @@ func TestBookTransaction(t *testing.T) {
 		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
 		cachedTransaction, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 
-		// TODO: shouldn't manually setting solid also trigger the event?
-		// tangle.Expect("TransactionSolid", tx, mock.Anything)
-
 		transactionMetadata := cachedTransactionMetadata.Unwrap()
 		transactionMetadata.SetSolid(true)
 
@@ -128,8 +125,7 @@ func TestBookTransaction(t *testing.T) {
 		assert.Equal(t, branchmanager.UndefinedBranchID, txMetadata.BranchID())
 
 		event.Expect("TransactionSolid", tx1, mock.Anything)
-		// TODO: shouldn't the tx1 booked event be called?
-		// event.Expect("TransactionBooked", tx1, mock.Anything, false)
+		// TransactionBooked is triggered outside of bookTransaction
 
 		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
 		require.NoError(t, err)
@@ -162,11 +158,7 @@ func TestBookTransaction(t *testing.T) {
 
 			// manually book the double spending tx2, this will mark it as solid and trigger a fork
 			event.Expect("TransactionSolid", tx2, mock.Anything)
-			// TODO: shouldn't the tx1 booked event be called?
-			// event.Expect("TransactionBooked", tx2, mock.Anything, true)
 			event.Expect("Fork", tx1, mock.Anything, mock.Anything, inputIDs)
-			// TODO: technically tx2 is also part of the fork, wouldn't it be more consistent to trigger a tx2 fork
-			// event.Expect("Fork", tx2, mock.Anything, mock.Anything, inputIDs)
 
 			transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
 			require.NoError(t, err)
@@ -298,8 +290,6 @@ func TestFork(t *testing.T) {
 		_, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 		txMetadata := cachedTransactionMetadata.Unwrap()
 
-		// TODO: shouldn't manually setting finalized also trigger the event?
-		// tangle.Expect("TransactionFinalized", tx, mock.Anything)
 		txMetadata.SetFinalized(true)
 
 		// no fork created so no event should be triggered

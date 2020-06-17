@@ -483,8 +483,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		assert.True(t, transactions["[-F, -D, Y+]"].SignaturesValid())
 
 		tangle.Expect("PayloadAttached", valueObjects["[-F, -D, Y+]"], mock.Anything)
-		// TODO: received PayloadAttached but the payload won't be stored due to TransactionInvalid. Shouldn't this trigger a PayloadInvalid
-		//tangle.Expect("PayloadInvalid", valueObjects["[-F, -D, Y+]"], mock.Anything, mock.Anything)
+		tangle.Expect("PayloadInvalid", valueObjects["[-F, -D, Y+]"], mock.Anything, mock.MatchedBy(func(err error) bool { return assert.Error(t, err) }))
 		tangle.Expect("TransactionReceived", transactions["[-F, -D, Y+]"], mock.Anything, mock.Anything)
 		tangle.Expect("TransactionInvalid", transactions["[-F, -D, Y+]"], mock.Anything, mock.MatchedBy(func(err error) bool { return assert.Error(t, err) }))
 
@@ -677,7 +676,6 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 		tangle.Expect("PayloadSolid", valueObjects["[-H, -D, I+]"], mock.Anything)
 		tangle.Expect("TransactionReceived", transactions["[-H, -D, I+]"], mock.Anything, mock.Anything)
 		tangle.Expect("TransactionSolid", transactions["[-H, -D, I+]"], mock.Anything)
-		// TODO: what is the definition of decisionPending? Shouldn't that be transitively true due to pending [-C, H+]?
 		tangle.Expect("TransactionBooked", transactions["[-H, -D, I+]"], mock.Anything, false)
 
 		// attach payload
@@ -1087,8 +1085,7 @@ func TestPropagationScenario1(t *testing.T) {
 		tangle.Expect("TransactionRejected", transactions["[-A, F+]"], mock.Anything)
 		tangle.Expect("PayloadRejected", valueObjects["[-E, -F, G+]"], mock.Anything)
 		tangle.Expect("PayloadDisliked", valueObjects["[-E, -F, G+]"], mock.Anything)
-		// TODO: why is this missing
-		//tangle.Expect("TransactionUnpreferred", transactions["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionUnpreferred", transactions["[-E, -F, G+]"], mock.Anything)
 		tangle.Expect("TransactionDisliked", transactions["[-E, -F, G+]"], mock.Anything)
 		tangle.Expect("TransactionFinalized", transactions["[-E, -F, G+]"], mock.Anything)
 		tangle.Expect("TransactionRejected", transactions["[-E, -F, G+]"], mock.Anything)
@@ -1202,8 +1199,7 @@ func TestPropagationScenario2(t *testing.T) {
 	tangle.Expect("TransactionRejected", transactions["[-A, F+]"], mock.Anything)
 	tangle.Expect("PayloadRejected", valueObjects["[-E, -F, G+]"], mock.Anything)
 	tangle.Expect("PayloadDisliked", valueObjects["[-E, -F, G+]"], mock.Anything)
-	// TODO: why is this missing
-	//tangle.Expect("TransactionUnpreferred", transactions["[-E, -F, G+]"], mock.Anything)
+	tangle.Expect("TransactionUnpreferred", transactions["[-E, -F, G+]"], mock.Anything)
 	tangle.Expect("TransactionDisliked", transactions["[-E, -F, G+]"], mock.Anything)
 	tangle.Expect("TransactionFinalized", transactions["[-E, -F, G+]"], mock.Anything)
 	tangle.Expect("TransactionRejected", transactions["[-E, -F, G+]"], mock.Anything)
