@@ -20,6 +20,10 @@ func new() *CollectionEvents {
 		MemUsage:              events.NewEvent(uint64Caller),
 		DBSize:                events.NewEvent(uint64Caller),
 		Synced:                events.NewEvent(boolCaller),
+		ValueTips:             events.NewEvent(uint64Caller),
+		MessageTips:           events.NewEvent(uint64Caller),
+		QueryReceived:         events.NewEvent(queryReceivedEventCaller),
+		QueryReplyError:       events.NewEvent(queryReplyErrorEventCaller),
 	}
 }
 

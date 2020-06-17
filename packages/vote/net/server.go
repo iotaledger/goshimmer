@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/events"
 	"google.golang.org/grpc"
@@ -62,6 +63,7 @@ func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryRe
 		vs.netEventTX.Trigger(proto.Size(reply))
 	}
 
+	metrics.Events().QueryReceived.Trigger(&metrics.QueryReceivedEvent{OpinionCount: len(req.Id)})
 	return reply, nil
 }
 

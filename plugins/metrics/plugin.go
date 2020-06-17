@@ -1,12 +1,17 @@
 package metrics
 
 import (
+	"sync/atomic"
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
+	valuetangle "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -27,12 +32,42 @@ var log *logger.Logger
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
+
+	//// Events declared in other packages which we want to listen to here ////
+
 	// increase received MPS counter whenever we attached a message
 	messagelayer.Tangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		_payloadType := cachedMessage.Unwrap().Payload().Type()
 		cachedMessage.Release()
 		cachedMessageMetadata.Release()
 		increaseReceivedMPSCounter()
+		increasePerPayloadMPSCounter(_payloadType)
 	}))
+
+	// Value payload attached
+	valuetransfers.Tangle.Events.PayloadAttached.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *valuetangle.CachedPayloadMetadata) {
+		cachedPayload.Release()
+		cachedPayloadMetadata.Release()
+		increaseReceivedTPSCounter()
+	}))
+
+	// FPC round executed
+	valuetransfers.Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats vote.RoundStats) {
+		processRoundStats(roundStats)
+	}))
+
+	// a conflict has been finalized
+	valuetransfers.Voter().Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+		processFinalized(ev.Ctx)
+	}))
+
+	// consensus failure in conflict resolution
+	valuetransfers.Voter().Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+		processFailed(ev.Ctx)
+	}))
+
+	//// Events coming from metrics package ////
+
 	metrics.Events().FPCInboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
 		_FPCInboundBytes.Add(amountBytes)
 	}))
@@ -58,6 +93,20 @@ func configure(_ *node.Plugin) {
 
 	autopeering.Selection().Events().IncomingPeering.Attach(onAutopeeringSelection)
 	autopeering.Selection().Events().OutgoingPeering.Attach(onAutopeeringSelection)
+
+	metrics.Events().MessageTips.Attach(events.NewClosure(func(tipsCount uint64) {
+		atomic.StoreUint64(&messageTips, tipsCount)
+	}))
+	metrics.Events().ValueTips.Attach(events.NewClosure(func(tipsCount uint64) {
+		atomic.StoreUint64(&valueTips, tipsCount)
+	}))
+
+	metrics.Events().QueryReceived.Attach(events.NewClosure(func(ev *metrics.QueryReceivedEvent) {
+		processQueryReceived(ev)
+	}))
+	metrics.Events().QueryReplyError.Attach(events.NewClosure(func(ev *metrics.QueryReplyErrorEvent) {
+		processQueryReplyError(ev)
+	}))
 }
 
 func run(_ *node.Plugin) {
@@ -75,6 +124,10 @@ func run(_ *node.Plugin) {
 			gossipCurrentTx.Store(uint64(g.BytesWritten))
 
 		}, 1*time.Second, shutdownSignal)
+		timeutil.Ticker(measureMPSPerPayload, MPSMeasurementInterval, shutdownSignal)
+		timeutil.Ticker(measureMessageTips, MessageTipsMeasurementInterval, shutdownSignal)
+		timeutil.Ticker(measureReceivedTPS, TPSMeasurementInterval, shutdownSignal)
+		timeutil.Ticker(measureValueTips, ValueTipsMeasurementInterval, shutdownSignal)
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
