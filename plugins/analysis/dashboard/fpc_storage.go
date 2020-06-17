@@ -23,19 +23,16 @@ type FPCRecord struct {
 var (
 	db              *mongo.Database
 	ctxDisconnectDB context.Context
-	// cancelDB context.CancelFunc
-	clientDB *mongo.Client
-	dbOnce   sync.Once
+	clientDB        *mongo.Client
+	dbOnce          sync.Once
 )
 
 func shutdownMongoDB() {
-	//cancelDB()
 	clientDB.Disconnect(ctxDisconnectDB)
 }
 
 func mongoDB() *mongo.Database {
 	dbOnce.Do(func() {
-		log.Info("ONCEEEEEEE")
 		username := config.Node.GetString(CfgMongoDBUsername)
 		password := config.Node.GetString(CfgMongoDBPassword)
 		bindAddr := config.Node.GetString(CfgMongoDBBindAddress)
