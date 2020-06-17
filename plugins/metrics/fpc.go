@@ -70,7 +70,7 @@ func FPCOpinionQueryReplyErrors() uint64 {
 
 //// logic broken into "process..."  functions to be able to write unit tests ////
 
-func processRoundStats(stats vote.RoundStats) {
+func processRoundStats(stats *vote.RoundStats) {
 	// get the number of active conflicts
 	numActive := (uint64)(len(stats.ActiveVoteContexts))
 	atomic.StoreUint64(&activeConflicts, numActive)

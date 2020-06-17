@@ -32,6 +32,9 @@ var log *logger.Logger
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
+}
+
+func run(_ *node.Plugin) {
 
 	//// Events declared in other packages which we want to listen to here ////
 
@@ -52,7 +55,7 @@ func configure(_ *node.Plugin) {
 	}))
 
 	// FPC round executed
-	valuetransfers.Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats vote.RoundStats) {
+	valuetransfers.Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
 		processRoundStats(roundStats)
 	}))
 
@@ -107,9 +110,7 @@ func configure(_ *node.Plugin) {
 	metrics.Events().QueryReplyError.Attach(events.NewClosure(func(ev *metrics.QueryReplyErrorEvent) {
 		processQueryReplyError(ev)
 	}))
-}
 
-func run(_ *node.Plugin) {
 	// create a background worker that "measures" the MPS value every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
 		timeutil.Ticker(func() {
