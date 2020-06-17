@@ -106,7 +106,7 @@ func TestBookTransaction(t *testing.T) {
 		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
 		require.NoError(t, err)
 		assert.True(t, transactionBooked, "transactionBooked")
-		assert.False(t, decisionPending, "decisionPending")
+		assert.True(t, decisionPending, "decisionPending")
 
 		// assert that branchID is the same as the MasterBranchID
 		assert.Equal(t, branchmanager.MasterBranchID, txMetadata.BranchID())

@@ -1264,6 +1264,7 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 	conflictingInputs := make([]transaction.OutputID, 0)
 	conflictingInputsOfFirstConsumers := make(map[transaction.ID][]transaction.OutputID)
 
+	finalizedConflictingSpenderFound := false
 	if !transactionToBook.Inputs().ForEach(func(outputID transaction.OutputID) bool {
 		cachedOutput := tangle.TransactionOutput(outputID)
 		defer cachedOutput.Release()
@@ -1292,6 +1293,17 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 				conflictingInputsOfFirstConsumers[firstConsumerID] = make([]transaction.OutputID, 0)
 			}
 			conflictingInputsOfFirstConsumers[firstConsumerID] = append(conflictingInputsOfFirstConsumers[firstConsumerID], outputID)
+		}
+
+		// check if any of the consumers were finalized already
+		if !finalizedConflictingSpenderFound {
+			tangle.Consumers(outputID).Consume(func(consumer *Consumer) {
+				if !finalizedConflictingSpenderFound {
+					tangle.TransactionMetadata(consumer.TransactionID()).Consume(func(metadata *TransactionMetadata) {
+						finalizedConflictingSpenderFound = metadata.Preferred() && metadata.Finalized()
+					})
+				}
+			})
 		}
 
 		// mark input as conflicting
@@ -1357,16 +1369,18 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 		return true
 	})
 
-	// fork the conflicting transactions into their own branch
-	for consumerID, conflictingInputs := range conflictingInputsOfFirstConsumers {
-		_, decisionFinalized, forkedErr := tangle.Fork(consumerID, conflictingInputs)
-		if forkedErr != nil {
-			err = forkedErr
+	// fork the conflicting transactions into their own branch if a decision is still pending
+	if decisionPending = !finalizedConflictingSpenderFound; decisionPending {
+		for consumerID, conflictingInputs := range conflictingInputsOfFirstConsumers {
+			_, decisionFinalized, forkedErr := tangle.Fork(consumerID, conflictingInputs)
+			if forkedErr != nil {
+				err = forkedErr
 
-			return
+				return
+			}
+
+			decisionPending = decisionPending || !decisionFinalized
 		}
-
-		decisionPending = decisionPending || !decisionFinalized
 	}
 	transactionBooked = true
 
