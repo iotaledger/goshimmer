@@ -133,7 +133,7 @@ func (w *Worker) worker(msg []byte, startNonce uint64, target int, done *uint32,
 		}
 		asAnInt.SetBytes(digest)
 		leadingZeros := 8*w.hash.Size() - asAnInt.BitLen()
-		if leadingZeros > target {
+		if leadingZeros >= target {
 			return nonce, nil
 		}
 
