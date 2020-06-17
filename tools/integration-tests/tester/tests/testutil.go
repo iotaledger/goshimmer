@@ -103,13 +103,12 @@ func CheckForMessageIds(t *testing.T, peers []*framework.Peer, ids map[string]Da
 }
 
 // SendTransactionFromFaucet sends funds to peers from the faucet, sends back the remainder to faucet, and returns the transaction ID.
-func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer) (txIds []string, addrBalance map[string]map[balance.Color]int64) {
+func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue int64) (txIds []string, addrBalance map[string]map[balance.Color]int64) {
 	// initiate addrBalance map
 	addrBalance = make(map[string]map[balance.Color]int64)
 	for _, p := range peers {
 		addr := p.Seed().Address(0).String()
 		addrBalance[addr] = make(map[balance.Color]int64)
-		addrBalance[addr][balance.ColorIOTA] = 0
 	}
 
 	faucetPeer := peers[0]
@@ -122,7 +121,7 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer) (txIds []s
 
 	// send funds to other peers
 	for i := 1; i < len(peers); i++ {
-		fail, txId := SendIotaTransaction(t, faucetPeer, peers[i], addrBalance)
+		fail, txId := SendIotaTransaction(t, faucetPeer, peers[i], addrBalance, sentValue)
 		require.False(t, fail)
 		txIds = append(txIds, txId)
 
@@ -134,12 +133,12 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer) (txIds []s
 }
 
 // SendTransactionOnRandomPeer sends 100 IOTA tokens on random peer, saves the sent token amount to a map and returns transaction IDs.
-func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBalance map[string]map[balance.Color]int64, numMessages int) (txIds []string) {
+func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBalance map[string]map[balance.Color]int64, numMessages int, sentValue int64) (txIds []string) {
 	counter := 0
 	for i := 0; i < numMessages; i++ {
 		from := rand.Intn(len(peers))
 		to := rand.Intn(len(peers))
-		fail, txId := SendIotaTransaction(t, peers[from], peers[to], addrBalance)
+		fail, txId := SendIotaTransaction(t, peers[from], peers[to], addrBalance, sentValue)
 		if fail {
 			i--
 			counter++
@@ -161,8 +160,7 @@ func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBala
 
 // SendIotaTransaction sends 100 IOTA tokens and remainders from and to a given peer and returns the fail flag and the transaction ID.
 // Every peer sends and receives the transaction with the same address.
-func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[balance.Color]int64) (fail bool, txId string) {
-	var sentValue int64 = 100
+func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[balance.Color]int64, sentValue int64) (fail bool, txId string) {
 	sigScheme := signaturescheme.ED25519(*from.Seed().KeyPair(0))
 	inputAddr := from.Seed().Address(0)
 	outputAddr := to.Seed().Address(0)
@@ -345,11 +343,7 @@ func CheckBalances(t *testing.T, peers []*framework.Peer, addrBalance map[string
 			for _, unspents := range resp.UnspentOutputs[0].OutputIDs {
 				for _, b := range unspents.Balances {
 					color := getColorFromString(b.Color)
-					if _, ok := sum[color]; ok {
-						sum[color] += b.Value
-						continue
-					}
-					sum[color] = b.Value
+					sum[color] += b.Value
 				}
 			}
 

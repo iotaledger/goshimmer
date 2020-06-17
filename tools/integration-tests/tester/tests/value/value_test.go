@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/require"
 )
@@ -17,11 +18,11 @@ func TestTransactionPersistence(t *testing.T) {
 	// wait for peers to change their state to synchronized
 	time.Sleep(5 * time.Second)
 
-	// master node sends funds to all peers in the network
-	txIds, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers())
+	// faucet node sends 100 IOTA tokens to all peers in the network
+	txIds, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
 
 	// wait for messages to be gossiped
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * valuetransfers.AverageNetworkDelay)
 
 	// check whether the first issued transaction is available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true)
@@ -30,11 +31,11 @@ func TestTransactionPersistence(t *testing.T) {
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
 	// send value message randomly
-	randomTxIds := tests.SendTransactionOnRandomPeer(t, n.Peers(), addrBalance, 10)
+	randomTxIds := tests.SendTransactionOnRandomPeer(t, n.Peers(), addrBalance, 10, 100)
 	txIds = append(txIds, randomTxIds...)
 
 	// wait for messages to be gossiped
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * valuetransfers.AverageNetworkDelay)
 
 	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true)
@@ -74,10 +75,10 @@ func TestValueColoredPersistence(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// master node sends funds to all peers in the network
-	txIds, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers())
+	txIds, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
 
 	// wait for messages to be gossiped
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * valuetransfers.AverageNetworkDelay)
 
 	// check whether the transactions are available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true)
@@ -90,7 +91,7 @@ func TestValueColoredPersistence(t *testing.T) {
 	txIds = append(txIds, randomTxIds...)
 
 	// wait for value messages to be gossiped
-	time.Sleep(10 * time.Second)
+	time.Sleep(2 * valuetransfers.AverageNetworkDelay)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true)
