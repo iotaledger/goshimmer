@@ -89,8 +89,8 @@ func configure(_ *node.Plugin) {
 	// configure FPC + link to consensus
 	configureFPC()
 	voter.Events().Finalized.Attach(events.NewClosure(FCOB.ProcessVoteResult))
-	voter.Events().Failed.Attach(events.NewClosure(func(id string, lastOpinion vote.Opinion) {
-		log.Errorf("FPC failed for transaction with id '%s' - last opinion: '%s'", id, lastOpinion)
+	voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+		log.Errorf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
 	}))
 
 	// subscribe to message-layer

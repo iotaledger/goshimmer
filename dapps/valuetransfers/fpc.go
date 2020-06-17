@@ -187,12 +187,15 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opin
 	query := &votenet.QueryRequest{Id: ids}
 	reply, err := client.Opinion(ctx, query)
 	if err != nil {
+		metrics.Events().QueryReplyError.Trigger(&metrics.QueryReplyErrorEvent{
+			ID:           pog.p.ID().String(),
+			OpinionCount: len(ids),
+		})
 		return nil, fmt.Errorf("unable to query opinions: %w", err)
 	}
 
 	metrics.Events().FPCInboundBytes.Trigger(proto.Size(reply))
 	metrics.Events().FPCOutboundBytes.Trigger(proto.Size(query))
-
 	// convert int32s in reply to opinions
 	opinions := make(vote.Opinions, len(reply.Opinion))
 	for i, intOpn := range reply.Opinion {

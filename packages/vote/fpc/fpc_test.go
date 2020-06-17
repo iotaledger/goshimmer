@@ -96,8 +96,8 @@ func TestFPCFinalizedEvent(t *testing.T) {
 	paras.QuerySampleSize = 1
 	voter := fpc.New(opinionGiverFunc, paras)
 	var finalizedOpinion *vote.Opinion
-	voter.Events().Finalized.Attach(events.NewClosure(func(id string, opinion vote.Opinion) {
-		finalizedOpinion = &opinion
+	voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+		finalizedOpinion = &ev.Opinion
 	}))
 	assert.NoError(t, voter.Vote(id, vote.Like))
 
@@ -129,8 +129,8 @@ func TestFPCFailedEvent(t *testing.T) {
 	paras.FinalizationThreshold = 4
 	voter := fpc.New(opinionGiverFunc, paras)
 	var failedOpinion *vote.Opinion
-	voter.Events().Failed.Attach(events.NewClosure(func(id string, opinion vote.Opinion) {
-		failedOpinion = &opinion
+	voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+		failedOpinion = &ev.Opinion
 	}))
 	assert.NoError(t, voter.Vote(id, vote.Like))
 
@@ -170,8 +170,8 @@ func TestFPCVotingMultipleOpinionGivers(t *testing.T) {
 		paras.CoolingOffPeriod = 2
 		voter := fpc.New(opinionGiverFunc, paras)
 		var finalOpinion *vote.Opinion
-		voter.Events().Finalized.Attach(events.NewClosure(func(id string, finalizedOpinion vote.Opinion) {
-			finalOpinion = &finalizedOpinion
+		voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+			finalOpinion = &ev.Opinion
 		}))
 
 		assert.NoError(t, voter.Vote(test.id, test.initOpinion))

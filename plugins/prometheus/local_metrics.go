@@ -21,5 +21,5 @@ func init() {
 }
 
 func collectLocalMetrics() {
-	messagesPerSecond.Set(float64(metrics.ReceivedMessagesPerSecond()))
+	messagesPerSecond.Set(float64(metrics.MPS()))
 }
