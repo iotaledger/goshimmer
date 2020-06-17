@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestValueIotaPersistence issues messages on random peers, restarts them and checks for persistence after restart.
-func TestValueIotaPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("valueIota_TestPersistence", 4, 2)
+// TestTransactionPersistence issues messages on random peers, restarts them and checks for persistence after restart.
+func TestTransactionPersistence(t *testing.T) {
+	n, err := f.CreateNetwork("transaction_TestPersistence", 4, 2)
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -18,7 +18,7 @@ func TestValueIotaPersistence(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// master node sends funds to all peers in the network
-	txIds, addrBalance := tests.SendValueMessagesOnFaucet(t, n.Peers())
+	txIds, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers())
 
 	// wait for messages to be gossiped
 	time.Sleep(10 * time.Second)
@@ -30,13 +30,13 @@ func TestValueIotaPersistence(t *testing.T) {
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
 	// send value message randomly
-	randomTxIds := tests.SendValueMessagesOnRandomPeer(t, n.Peers(), addrBalance, 10)
+	randomTxIds := tests.SendTransactionOnRandomPeer(t, n.Peers(), addrBalance, 10)
 	txIds = append(txIds, randomTxIds...)
 
 	// wait for messages to be gossiped
 	time.Sleep(10 * time.Second)
 
-	// check whether all issued transactions are persistently available on all nodes, and confirmed
+	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true)
 
 	// check ledger state
@@ -57,7 +57,7 @@ func TestValueIotaPersistence(t *testing.T) {
 	// wait for peers to start
 	time.Sleep(10 * time.Second)
 
-	// check whether all issued transactions are persistently available on all nodes, and confirmed
+	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true)
 
 	// 5. check ledger state
@@ -74,7 +74,7 @@ func TestValueColoredPersistence(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// master node sends funds to all peers in the network
-	txIds, addrBalance := tests.SendValueMessagesOnFaucet(t, n.Peers())
+	txIds, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers())
 
 	// wait for messages to be gossiped
 	time.Sleep(10 * time.Second)
@@ -86,7 +86,7 @@ func TestValueColoredPersistence(t *testing.T) {
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
 	// send funds around
-	randomTxIds := tests.SendColoredValueMessagesOnRandomPeer(t, n.Peers(), addrBalance, 10)
+	randomTxIds := tests.SendColoredTransactionOnRandomPeer(t, n.Peers(), addrBalance, 10)
 	txIds = append(txIds, randomTxIds...)
 
 	// wait for value messages to be gossiped
