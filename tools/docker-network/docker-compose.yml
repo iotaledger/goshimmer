@@ -86,7 +86,7 @@ services:
     - 3000:3000
     user: "104"
     volumes:
-    - ./grafana:/var/lib/grafana
+    - ./grafana:/var/lib/grafana:rw
     # environment:
     #   - GF_SECURITY_ADMIN_PASSWORD=MYPASSWORD
     #   - GF_USERS_ALLOW_SIGN_UP=false
