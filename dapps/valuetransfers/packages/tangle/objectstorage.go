@@ -22,6 +22,8 @@ const (
 	osAttachment
 	osOutput
 	osConsumer
+
+	cacheTime = 20 * time.Second
 )
 
 var (
