@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/netutil"
 	"github.com/iotaledger/hive.go/network"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
@@ -116,6 +117,7 @@ func (c *connector) new() {
 	}
 }
 
+// Close closes the current connection.
 func (c *connector) Close() (err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -127,13 +129,17 @@ func (c *connector) Close() (err error) {
 }
 
 func (c *connector) Write(b []byte) (int, error) {
-	// TODO: check that start was called
-	// TODO: check that Stop was not called
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.conn == nil {
 		return 0, errors.New("no connection established")
 	}
-	return c.conn.Write(b)
+	n, err := c.conn.Write(b)
+	// TODO: should the closing rather only happen outside?
+	// TODO: is the IsTemporaryError useful here?
+	if err != nil && !netutil.IsTemporaryError(err) {
+		c.conn.Close()
+	}
+	return n, err
 }
