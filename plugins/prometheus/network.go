@@ -16,7 +16,7 @@ var (
 	autopeeringOutboundBytes prometheus.Gauge
 )
 
-func init() {
+func registerNetworkMetrics() {
 	fpcInboundBytes = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "fpc_inbound_bytes",
 		Help: "FPC RX network traffic [bytes].",

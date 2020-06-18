@@ -14,7 +14,7 @@ var (
 	avgDistance                   prometheus.Gauge
 )
 
-func init() {
+func registerAutopeeringMetrics() {
 	neighborDropCount = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "neighbor_drop_count",
 		Help: "Autopeering neighbor drop count.",

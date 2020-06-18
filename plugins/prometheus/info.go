@@ -11,7 +11,7 @@ var (
 	sync    prometheus.Gauge
 )
 
-func init() {
+func registerInfoMetrics() {
 	infoApp = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iota_info_app",
@@ -25,6 +25,9 @@ func init() {
 		Name: "sync",
 		Help: "Node sync status.",
 	})
+
+	registry.MustRegister(infoApp)
+	registry.MustRegister(sync)
 
 	addCollect(collectInfoMetrics)
 }

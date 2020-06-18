@@ -7,17 +7,17 @@ import (
 )
 
 var (
-	messagesPerSecond prometheus.Gauge
+	messagesPerSecond          prometheus.Gauge
 	messagePerSecondPerPayload *prometheus.GaugeVec
-	messageTips prometheus.Gauge
-	messageCount *prometheus.GaugeVec
-	messageTotalCount prometheus.Gauge
+	messageTips                prometheus.Gauge
+	messageCount               *prometheus.GaugeVec
+	messageTotalCount          prometheus.Gauge
 
 	transactionsPerSecond prometheus.Gauge
-	valueTips prometheus.Gauge
+	valueTips             prometheus.Gauge
 )
 
-func init() {
+func registerTangleMetrics() {
 	messagesPerSecond = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "tangle_messages_per_second",
 		Help: "Number of messages per second.",

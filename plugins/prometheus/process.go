@@ -10,7 +10,7 @@ var (
 	memUsageBytes prometheus.Gauge
 )
 
-func init() {
+func registerProcessMetrics() {
 	cpuUsage = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "cpu_usage",
 		Help: "CPU (System) usage.",

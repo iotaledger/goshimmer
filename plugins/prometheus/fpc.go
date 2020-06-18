@@ -6,17 +6,17 @@ import (
 )
 
 var (
-	activeConflicts      prometheus.Gauge
+	activeConflicts    prometheus.Gauge
 	finalizedConflicts prometheus.Gauge
-	failedConflicts prometheus.Gauge
-	avgRoundToFin prometheus.Gauge
-	queryRx prometheus.Gauge
-	queryOpRx prometheus.Gauge
-	queryReplyNotRx prometheus.Gauge
-	queryOpReplyNotRx prometheus.Gauge
+	failedConflicts    prometheus.Gauge
+	avgRoundToFin      prometheus.Gauge
+	queryRx            prometheus.Gauge
+	queryOpRx          prometheus.Gauge
+	queryReplyNotRx    prometheus.Gauge
+	queryOpReplyNotRx  prometheus.Gauge
 )
 
-func init() {
+func registerFPCMetrics() {
 	activeConflicts = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "fpc_active_conflicts",
 		Help: "number of currently active conflicts",
@@ -72,4 +72,3 @@ func collectFPCMetrics() {
 	queryReplyNotRx.Set(float64(metrics.FPCQueryReplyErrors()))
 	queryOpReplyNotRx.Set(float64(metrics.FPCOpinionQueryReplyErrors()))
 }
-
