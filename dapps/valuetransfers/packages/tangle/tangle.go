@@ -171,7 +171,7 @@ func (tangle *Tangle) LoadSnapshot(snapshot map[transaction.ID]map[address.Addre
 		for outputAddress, balances := range addressBalances {
 			input := NewOutput(outputAddress, transactionID, branchmanager.MasterBranchID, balances)
 			input.setSolid(true)
-			input.SetBranchID(branchmanager.MasterBranchID)
+			input.setBranchID(branchmanager.MasterBranchID)
 
 			// store output and abort if the snapshot has already been loaded earlier (output exists in the database)
 			cachedOutput, stored := tangle.outputStorage.StoreIfAbsent(input)
@@ -544,7 +544,7 @@ func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, even
 	cachedTransactionMetadata := tangle.TransactionMetadata(transactionID)
 	cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
 		// update the finalized flag of the transaction
-		modified = metadata.SetFinalized(true)
+		modified = metadata.setFinalized(true)
 
 		// only propagate the changes if the flag was modified
 		if modified {
@@ -1256,7 +1256,7 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 	}
 
 	// abort if transaction was marked as solid before
-	if !transactionMetadata.SetSolid(true) {
+	if !transactionMetadata.setSolid(true) {
 		return
 	}
 
@@ -1789,7 +1789,7 @@ func (tangle *Tangle) moveTransactionToBranch(cachedTransaction *transaction.Cac
 						}
 
 						// abort if the output was moved already
-						if !output.SetBranchID(targetBranch.ID()) {
+						if !output.setBranchID(targetBranch.ID()) {
 							return true
 						}
 

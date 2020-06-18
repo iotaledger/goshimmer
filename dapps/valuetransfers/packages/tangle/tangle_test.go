@@ -59,7 +59,7 @@ func TestBookTransaction(t *testing.T) {
 		cachedTransaction, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 
 		transactionMetadata := cachedTransactionMetadata.Unwrap()
-		transactionMetadata.SetSolid(true)
+		transactionMetadata.setSolid(true)
 
 		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
 		require.NoError(t, err)
@@ -257,7 +257,7 @@ func TestFork(t *testing.T) {
 		_, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 		txMetadata := cachedTransactionMetadata.Unwrap()
 
-		txMetadata.SetFinalized(true)
+		txMetadata.setFinalized(true)
 
 		forked, finalized, err := tangle.Fork(tx.ID(), []transaction.OutputID{})
 		require.NoError(t, err)
@@ -1045,7 +1045,7 @@ func TestCheckTransactionSolidity(t *testing.T) {
 		tangle := New(mapdb.NewMapDB())
 		tx := createDummyTransaction()
 		txMetadata := NewTransactionMetadata(tx.ID())
-		txMetadata.SetSolid(true)
+		txMetadata.setSolid(true)
 		txMetadata.SetBranchID(branchmanager.MasterBranchID)
 
 		solid, consumedBranches, err := tangle.checkTransactionSolidity(tx, txMetadata)

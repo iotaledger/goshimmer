@@ -150,9 +150,9 @@ func (transactionMetadata *TransactionMetadata) Solid() (result bool) {
 	return
 }
 
-// SetSolid marks a Transaction as either solid or not solid.
+// setSolid marks a Transaction as either solid or not solid.
 // It returns true if the solid flag was changes and automatically updates the solidificationTime as well.
-func (transactionMetadata *TransactionMetadata) SetSolid(solid bool) (modified bool) {
+func (transactionMetadata *TransactionMetadata) setSolid(solid bool) (modified bool) {
 	transactionMetadata.solidMutex.RLock()
 	if transactionMetadata.solid != solid {
 		transactionMetadata.solidMutex.RUnlock()
@@ -213,9 +213,9 @@ func (transactionMetadata *TransactionMetadata) setPreferred(preferred bool) (mo
 	return
 }
 
-// SetFinalized allows us to set the finalized flag on the transactions. Finalized transactions will not be forked when
+// setFinalized allows us to set the finalized flag on the transactions. Finalized transactions will not be forked when
 // a conflict arrives later.
-func (transactionMetadata *TransactionMetadata) SetFinalized(finalized bool) (modified bool) {
+func (transactionMetadata *TransactionMetadata) setFinalized(finalized bool) (modified bool) {
 	transactionMetadata.finalizedMutex.RLock()
 	if transactionMetadata.finalized == finalized {
 		transactionMetadata.finalizedMutex.RUnlock()
