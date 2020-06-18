@@ -54,7 +54,7 @@ func SendDataMessagesOnRandomPeer(t *testing.T, peers []*framework.Peer, numMess
 // SendDataMessage sends a data message on a given peer and returns the id and a DataMessageSent struct.
 func SendDataMessage(t *testing.T, peer *framework.Peer, data []byte, number int) (string, DataMessageSent) {
 	id, err := peer.Data(data)
-	require.NoErrorf(t, err, "Could not send message on %s", peer.String())
+	require.NoErrorf(t, err, "could not send message on %s", peer.String())
 
 	sent := DataMessageSent{
 		number: number,
@@ -116,7 +116,7 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 
 	// get faucet balances
 	unspentOutputs, err := faucetPeer.GetUnspentOutputs([]string{faucetAddrStr})
-	require.NoErrorf(t, err, "Could not get unspent outputs on %s", faucetPeer.String())
+	require.NoErrorf(t, err, "could not get unspent outputs on %s", faucetPeer.String())
 	addrBalance[faucetAddrStr][balance.ColorIOTA] = unspentOutputs.UnspentOutputs[0].OutputIDs[0].Balances[0].Value
 
 	// send funds to other peers
@@ -132,7 +132,7 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 	return
 }
 
-// SendTransactionOnRandomPeer sends 100 IOTA tokens on random peer, saves the sent token amount to a map and returns transaction IDs.
+// SendTransactionOnRandomPeer sends sentValue amount of IOTA tokens from/to a random peer, mutates the given balance map and returns the transaction IDs.
 func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBalance map[string]map[balance.Color]int64, numMessages int, sentValue int64) (txIds []string) {
 	counter := 0
 	for i := 0; i < numMessages; i++ {
@@ -158,8 +158,8 @@ func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBala
 	return
 }
 
-// SendIotaTransaction sends 100 IOTA tokens and remainders from and to a given peer and returns the fail flag and the transaction ID.
-// Every peer sends and receives the transaction with the same address.
+// SendIotaTransaction sends sentValue amount of IOTA tokens and remainders from and to a given peer and returns the fail flag and the transaction ID.
+// Every peer sends and receives the transaction on the address of index 0.
 func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[balance.Color]int64, sentValue int64) (fail bool, txId string) {
 	sigScheme := signaturescheme.ED25519(*from.Seed().KeyPair(0))
 	inputAddr := from.Seed().Address(0)
@@ -181,7 +181,7 @@ func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer,
 	}
 
 	out, err := transaction.OutputIDFromBase58(resp.UnspentOutputs[0].OutputIDs[0].ID)
-	require.NoErrorf(t, err, "Invalid unspent outputs ID on %s", from.String())
+	require.NoErrorf(t, err, "invalid unspent outputs ID on %s", from.String())
 	inputs := transaction.NewInputs([]transaction.OutputID{out}...)
 
 	// prepare outputs
@@ -251,7 +251,7 @@ func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Pe
 
 	// prepare inputs
 	resp, err := from.GetUnspentOutputs([]string{inputAddr.String()})
-	require.NoErrorf(t, err, "Could not get unspent outputs on %s", from.String())
+	require.NoErrorf(t, err, "could not get unspent outputs on %s", from.String())
 
 	// abort if no unspent outputs
 	if len(resp.UnspentOutputs[0].OutputIDs) == 0 {
