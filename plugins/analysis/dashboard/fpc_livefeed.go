@@ -64,6 +64,7 @@ func runFPCLiveFeed() {
 				analysis.Events.FPCHeartbeat.Detach(onFPCHeartbeatReceived)
 				cleanUpTicker.Stop()
 				log.Info("Stopping Analysis[FPCUpdater] ... done")
+				return
 			case <-cleanUpTicker.C:
 				log.Info("Cleaning up Finalized Conflicts ...")
 				recordedConflicts.cleanUp()
