@@ -194,13 +194,13 @@ func (tangle *Tangle) Fork(transactionID transaction.ID, conflictingInputs []tra
 
 	tx := cachedTransaction.Unwrap()
 	if tx == nil {
-		err = fmt.Errorf("failed to load transaction '%s'", transactionID)
+		err = fmt.Errorf("failed to load transaction '%s': %w", transactionID, ErrFatal)
 
 		return
 	}
 	txMetadata := cachedTransactionMetadata.Unwrap()
 	if txMetadata == nil {
-		err = fmt.Errorf("failed to load metadata of transaction '%s'", transactionID)
+		err = fmt.Errorf("failed to load metadata of transaction '%s': %w", transactionID, ErrFatal)
 
 		return
 	}
@@ -1196,9 +1196,6 @@ func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.
 	// abort if the transaction is not solid or invalid
 	transactionSolid, consumedBranches, transactionSolidityErr := tangle.checkTransactionSolidity(currentTransaction, currentTransactionMetadata)
 	if transactionSolidityErr != nil {
-		//tangle.Events.TransactionInvalid.Trigger(solidificationStackEntry.CachedTransaction, solidificationStackEntry.CachedTransactionMetadata, transactionSolidityErr)
-		//tangle.Events.PayloadInvalid.Trigger(solidificationStackEntry.CachedPayload, solidificationStackEntry.CachedPayloadMetadata, transactionSolidityErr)
-
 		tangle.deleteTransactionFutureCone(currentTransaction.ID(), transactionSolidityErr)
 
 		return
@@ -1210,8 +1207,6 @@ func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.
 	// abort if the payload is not solid or invalid
 	payloadSolid, payloadSolidityErr := tangle.payloadBecameNewlySolid(currentPayload, currentPayloadMetadata, consumedBranches)
 	if payloadSolidityErr != nil {
-		//tangle.Events.PayloadInvalid.Trigger(solidificationStackEntry.CachedPayload, solidificationStackEntry.CachedPayloadMetadata, payloadSolidityErr)
-
 		tangle.deletePayloadFutureCone(currentPayload.ID(), payloadSolidityErr)
 
 		return
@@ -1296,7 +1291,7 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 		// abort if the output could not be found
 		output := cachedOutput.Unwrap()
 		if output == nil {
-			err = fmt.Errorf("could not load output '%s'", outputID)
+			err = fmt.Errorf("could not load output '%s': %w", outputID, ErrFatal)
 
 			return false
 		}
@@ -1548,7 +1543,7 @@ func (tangle *Tangle) checkTransactionSolidity(tx *transaction.Transaction, meta
 
 	// abort if the outputs are not matching the inputs
 	if !tangle.checkTransactionOutputs(consumedBalances, tx.Outputs()) {
-		err = fmt.Errorf("the outputs do not match the inputs in transaction with id '%s'", tx.ID())
+		err = fmt.Errorf("the outputs do not match the inputs in transaction with id '%s': %w", tx.ID(), ErrTransactionInvalid)
 
 		return
 	}
@@ -1603,7 +1598,7 @@ func (tangle *Tangle) retrieveConsumedInputDetails(tx *transaction.Transaction) 
 				// check overflows in the numbers
 				if inputBalance.Value() > math.MaxInt64-currentBalance {
 					// TODO: make it an explicit error var
-					err = fmt.Errorf("buffer overflow in balances of inputs")
+					err = fmt.Errorf("buffer overflow in balances of inputs: %w", ErrTransactionInvalid)
 
 					cachedInputs.Release()
 
@@ -1804,7 +1799,7 @@ func (tangle *Tangle) moveTransactionToBranch(cachedTransaction *transaction.Cac
 						// unwrap output
 						output := cachedOutput.Unwrap()
 						if output == nil {
-							err = fmt.Errorf("failed to load output '%s'", outputID)
+							err = fmt.Errorf("failed to load output '%s': %w", outputID, ErrFatal)
 
 							return false
 						}
@@ -1926,7 +1921,7 @@ func (tangle *Tangle) calculateBranchOfTransaction(currentTransaction *transacti
 
 		transactionOutput := cachedTransactionOutput.Unwrap()
 		if transactionOutput == nil {
-			err = fmt.Errorf("failed to load output '%s'", outputId)
+			err = fmt.Errorf("failed to load output '%s': %w", outputId, ErrFatal)
 
 			return false
 		}
