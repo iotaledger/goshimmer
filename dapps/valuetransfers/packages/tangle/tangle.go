@@ -38,8 +38,7 @@ type Tangle struct {
 
 	Events Events
 
-	workerPool        async.WorkerPool
-	cleanupWorkerPool async.WorkerPool
+	workerPool async.WorkerPool
 }
 
 // New is the constructor of a Tangle and creates a new Tangle object from the given details.
@@ -62,6 +61,9 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 		Events: *newEvents(),
 	}
 	tangle.setupDAGSynchronization()
+
+	// TODO: CHANGE BACK TO MULTI THREADING ONCE WE FIXED LOGICAL RACE CONDITIONS
+	tangle.workerPool.Tune(1)
 
 	return
 }
@@ -170,7 +172,7 @@ func (tangle *Tangle) LoadSnapshot(snapshot map[transaction.ID]map[address.Addre
 		for outputAddress, balances := range addressBalances {
 			input := NewOutput(outputAddress, transactionID, branchmanager.MasterBranchID, balances)
 			input.setSolid(true)
-			input.SetBranchID(branchmanager.MasterBranchID)
+			input.setBranchID(branchmanager.MasterBranchID)
 
 			// store output and abort if the snapshot has already been loaded earlier (output exists in the database)
 			cachedOutput, stored := tangle.outputStorage.StoreIfAbsent(input)
@@ -267,7 +269,6 @@ func (tangle *Tangle) Prune() (err error) {
 // Shutdown stops the worker pools and shuts down the object storage instances.
 func (tangle *Tangle) Shutdown() *Tangle {
 	tangle.workerPool.ShutdownGracefully()
-	tangle.cleanupWorkerPool.ShutdownGracefully()
 
 	for _, storage := range []*objectstorage.ObjectStorage{
 		tangle.payloadStorage,
@@ -543,10 +544,21 @@ func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, even
 	cachedTransactionMetadata := tangle.TransactionMetadata(transactionID)
 	cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
 		// update the finalized flag of the transaction
-		modified = metadata.SetFinalized(true)
+		modified = metadata.setFinalized(true)
 
 		// only propagate the changes if the flag was modified
 		if modified {
+			// set outputs to be finalized as well
+			tangle.Transaction(transactionID).Consume(func(tx *transaction.Transaction) {
+				tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+					tangle.TransactionOutput(transaction.NewOutputID(address, transactionID)).Consume(func(output *Output) {
+						output.setFinalized(true)
+					})
+
+					return true
+				})
+			})
+
 			// retrieve transaction from the database (for the events)
 			cachedTransaction := tangle.Transaction(transactionID)
 			defer cachedTransaction.Release()
@@ -608,22 +620,36 @@ func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.
 
 		cachedTransactionMetadata := tangle.TransactionMetadata(currentTransactionID)
 		cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
-			if !metadata.setRejected(true) {
-				return
-			}
-			metadata.setPreferred(false)
-
-			// if the transaction is not finalized, yet then we set it to finalized
-			if !metadata.Finalized() {
-				if _, err := tangle.setTransactionFinalized(metadata.ID(), EventSourceTangle); err != nil {
-					tangle.Events.Error.Trigger(err)
-
-					return
-				}
-			}
-
 			cachedTransaction := tangle.Transaction(currentTransactionID)
 			cachedTransaction.Consume(func(tx *transaction.Transaction) {
+				if !metadata.setRejected(true) {
+					return
+				}
+
+				if metadata.setPreferred(false) {
+					// set outputs to be not preferred as well
+					tangle.Transaction(currentTransactionID).Consume(func(tx *transaction.Transaction) {
+						tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+							tangle.TransactionOutput(transaction.NewOutputID(address, currentTransactionID)).Consume(func(output *Output) {
+								output.setPreferred(false)
+							})
+
+							return true
+						})
+					})
+
+					tangle.Events.TransactionUnpreferred.Trigger(cachedTransaction, cachedTransactionMetadata)
+				}
+
+				// if the transaction is not finalized, yet then we set it to finalized
+				if !metadata.Finalized() {
+					if _, err := tangle.setTransactionFinalized(metadata.ID(), EventSourceTangle); err != nil {
+						tangle.Events.Error.Trigger(err)
+
+						return
+					}
+				}
+
 				// process all outputs
 				tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
 					outputID := transaction.NewOutputID(address, currentTransactionID)
@@ -740,6 +766,17 @@ func (tangle *Tangle) setTransactionPreferred(transactionID transaction.ID, pref
 
 		// only do something if the flag was modified
 		if modified {
+			// update outputs as well
+			tangle.Transaction(transactionID).Consume(func(tx *transaction.Transaction) {
+				tx.Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
+					tangle.TransactionOutput(transaction.NewOutputID(address, transactionID)).Consume(func(output *Output) {
+						output.setPreferred(preferred)
+					})
+
+					return true
+				})
+			})
+
 			// retrieve transaction from the database (for the events)
 			cachedTransaction := tangle.Transaction(transactionID)
 			defer cachedTransaction.Release()
@@ -1219,7 +1256,7 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 	}
 
 	// abort if transaction was marked as solid before
-	if !transactionMetadata.SetSolid(true) {
+	if !transactionMetadata.setSolid(true) {
 		return
 	}
 
@@ -1230,6 +1267,7 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 	conflictingInputs := make([]transaction.OutputID, 0)
 	conflictingInputsOfFirstConsumers := make(map[transaction.ID][]transaction.OutputID)
 
+	finalizedConflictingSpenderFound := false
 	if !transactionToBook.Inputs().ForEach(func(outputID transaction.OutputID) bool {
 		cachedOutput := tangle.TransactionOutput(outputID)
 		defer cachedOutput.Release()
@@ -1258,6 +1296,17 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 				conflictingInputsOfFirstConsumers[firstConsumerID] = make([]transaction.OutputID, 0)
 			}
 			conflictingInputsOfFirstConsumers[firstConsumerID] = append(conflictingInputsOfFirstConsumers[firstConsumerID], outputID)
+		}
+
+		// check if any of the consumers were finalized already
+		if !finalizedConflictingSpenderFound {
+			tangle.Consumers(outputID).Consume(func(consumer *Consumer) {
+				if !finalizedConflictingSpenderFound {
+					tangle.TransactionMetadata(consumer.TransactionID()).Consume(func(metadata *TransactionMetadata) {
+						finalizedConflictingSpenderFound = metadata.Preferred() && metadata.Finalized()
+					})
+				}
+			})
 		}
 
 		// mark input as conflicting
@@ -1295,7 +1344,7 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 	}
 
 	// book transaction into target branch
-	transactionMetadata.SetBranchID(targetBranch.ID())
+	transactionMetadata.setBranchID(targetBranch.ID())
 
 	// create color for newly minted coins
 	mintedColor, _, err := balance.ColorFromBytes(transactionToBook.ID().Bytes())
@@ -1323,16 +1372,19 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 		return true
 	})
 
-	// fork the conflicting transactions into their own branch
-	for consumerID, conflictingInputs := range conflictingInputsOfFirstConsumers {
-		_, decisionFinalized, forkedErr := tangle.Fork(consumerID, conflictingInputs)
-		if forkedErr != nil {
-			err = forkedErr
+	// fork the conflicting transactions into their own branch if a decision is still pending
+	decisionPending = !finalizedConflictingSpenderFound
+	if decisionPending {
+		for consumerID, conflictingInputs := range conflictingInputsOfFirstConsumers {
+			_, decisionFinalized, forkedErr := tangle.Fork(consumerID, conflictingInputs)
+			if forkedErr != nil {
+				err = forkedErr
 
-			return
+				return
+			}
+
+			decisionPending = decisionPending || !decisionFinalized
 		}
-
-		decisionPending = decisionPending || !decisionFinalized
 	}
 	transactionBooked = true
 
@@ -1379,7 +1431,7 @@ func (tangle *Tangle) bookPayload(cachedPayload *payload.CachedPayload, cachedPa
 		return
 	}
 
-	payloadBooked = valueObjectMetadata.SetBranchID(aggregatedBranch.ID())
+	payloadBooked = valueObjectMetadata.setBranchID(aggregatedBranch.ID())
 
 	return
 }
@@ -1712,7 +1764,7 @@ func (tangle *Tangle) moveTransactionToBranch(cachedTransaction *transaction.Cac
 					}
 
 					// abort if we did not modify the branch of the transaction
-					if !currentTransactionMetadata.SetBranchID(targetBranch.ID()) {
+					if !currentTransactionMetadata.setBranchID(targetBranch.ID()) {
 						return nil
 					}
 
@@ -1737,7 +1789,7 @@ func (tangle *Tangle) moveTransactionToBranch(cachedTransaction *transaction.Cac
 						}
 
 						// abort if the output was moved already
-						if !output.SetBranchID(targetBranch.ID()) {
+						if !output.setBranchID(targetBranch.ID()) {
 							return true
 						}
 
@@ -1813,7 +1865,7 @@ func (tangle *Tangle) updateBranchOfValuePayloadsAttachingTransaction(transactio
 			// try to update the metadata of the payload and queue its approvers
 			cachedAggregatedBranch.Consume(func(branch *branchmanager.Branch) {
 				tangle.PayloadMetadata(currentPayload.ID()).Consume(func(payloadMetadata *PayloadMetadata) {
-					if !payloadMetadata.SetBranchID(branch.ID()) {
+					if !payloadMetadata.setBranchID(branch.ID()) {
 						return
 					}
 

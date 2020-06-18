@@ -55,7 +55,7 @@ func (n *DRNGNetwork) CreatePeer(c GoShimmerConfig, publicKey ed25519.PublicKey)
 		return nil, err
 	}
 
-	peer, err := newPeer(name, identity.New(publicKey), container, n.network)
+	peer, err := newPeer(name, identity.New(publicKey), container, nil, n.network)
 	if err != nil {
 		return nil, err
 	}
