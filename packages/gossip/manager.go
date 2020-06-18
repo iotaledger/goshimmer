@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -34,6 +35,9 @@ type Manager struct {
 	mu        sync.Mutex
 	srv       *server.TCP
 	neighbors map[identity.ID]*Neighbor
+
+	// inboxWorkerPool defines a worker pool where all incoming messages are processed.
+	inboxWorkerPool async.WorkerPool
 }
 
 // NewManager creates a new Manager.
@@ -65,6 +69,8 @@ func (m *Manager) Start(srv *server.TCP) {
 func (m *Manager) Close() {
 	m.stop()
 	m.wg.Wait()
+
+	m.inboxWorkerPool.ShutdownGracefully()
 }
 
 // Events returns the events related to the gossip protocol.
@@ -206,9 +212,13 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 		m.events.NeighborRemoved.Trigger(peer)
 	}))
 	n.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
-		if err := m.handlePacket(data, peer); err != nil {
-			m.log.Debugw("error handling packet", "err", err)
-		}
+		dataCopy := make([]byte, len(data))
+		copy(dataCopy, data)
+		m.inboxWorkerPool.Submit(func() {
+			if err := m.handlePacket(dataCopy, peer); err != nil {
+				m.log.Debugw("error handling packet", "err", err)
+			}
+		})
 	}))
 
 	m.neighbors[peer.ID()] = n
