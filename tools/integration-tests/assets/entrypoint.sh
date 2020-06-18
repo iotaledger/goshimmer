@@ -6,4 +6,4 @@ chmod 777 /assets/*
 echo "assets:"
 ls /assets
 echo "running tests..."
-go test ./tests/"${TEST_NAME}" -v -timeout 30m
+go test ./tests/"${TEST_NAME}" -run TestConsensusNoConflicts -v -timeout 30m
