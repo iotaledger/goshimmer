@@ -4,3 +4,4 @@ scrape_configs:
       static_configs:
       - targets:
         - peer_master:9311
+        - entry_node:9312

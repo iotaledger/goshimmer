@@ -22,16 +22,18 @@ services:
       --autopeering.entryNodes=
       --analysis.server.bindAddress=0.0.0.0:1888
       --analysis.dashboard.bindAddress=0.0.0.0:9000
-      --node.enablePlugins=analysis-server,analysis-dashboard
+      --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
       --analysis.dashboard.dev=false
       --metrics.local=false
       --metrics.global=true
+      --prometheus.bindAddress=0.0.0.0:9312
       --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,messagelayer,valuetransfers,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
     ports:
       - "127.0.0.1:9000:9000/tcp" # analysis dashboard
+      - "127.0.0.1:9312:9312/tcp" # prometheus
     expose:
       - "1888/tcp" # analysis server (within Docker network)
 

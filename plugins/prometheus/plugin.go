@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -33,6 +34,20 @@ func configure(plugin *node.Plugin) {
 	}
 	if config.Node.GetBool(CfgPrometheusProcessMetrics) {
 		registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+	}
+
+	if config.Node.GetBool(metrics.CfgMetricsLocal) {
+		registerAutopeeringMetrics()
+		registerDataMetrics()
+		registerFPCMetrics()
+		registerInfoMetrics()
+		registerNetworkMetrics()
+		registerProcessMetrics()
+		registerTangleMetrics()
+	}
+
+	if config.Node.GetBool(metrics.CfgMetricsGlobal) {
+		registerClientsMetrics()
 	}
 }
 
