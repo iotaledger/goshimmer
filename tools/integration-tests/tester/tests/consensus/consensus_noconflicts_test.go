@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"log"
 	"math/rand"
 	"testing"
 	"time"
@@ -51,6 +52,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	}
 
 	// issue transaction spending from the genesis output
+	log.Printf("issuing transaction spending genesis to %d addresses", depositCount)
 	tx := transaction.New(transaction.NewInputs(genesisOutputID), transaction.NewOutputs(firstReceiverDepositOutputs))
 	tx = tx.Sign(signaturescheme.ED25519(*genesisWallet.Seed().KeyPair(0)))
 	utilsTx := utils.ParseTransaction(tx)
@@ -60,14 +62,17 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	// wait for the transaction to be propagated through the network
 	// and it becoming preferred, finalized and confirmed
+	log.Println("waiting 2.5 avg. network delays")
 	time.Sleep(valuetransfers.DefaultAverageNetworkDelay*2 + valuetransfers.DefaultAverageNetworkDelay/2)
 
 	// since we just issued a transaction spending the genesis output, there
 	// shouldn't be any UTXOs on the genesis address anymore
+	log.Println("checking that genesis has no UTXOs")
 	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), []string{genesisAddr.String()})
 
 	// since we waited 2.5 avg. network delays and there were no conflicting transactions,
 	// the transaction we just issued must be preferred, liked, finalized and confirmed
+	log.Println("check that the transaction is finalized/confirmed by all peers")
 	tests.CheckTransactions(t, n.Peers(), map[string]*tests.ExpectedTransaction{
 		txID: {Inputs: &utilsTx.Inputs, Outputs: &utilsTx.Outputs, Signature: &utilsTx.Signature},
 	}, true, tests.ExpectedInclusionState{
@@ -77,6 +82,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	})
 
 	// check balances on peers
+	log.Println("ensure that all the peers have the same ledger state")
 	tests.CheckBalances(t, n.Peers(), firstReceiverExpectedBalances)
 
 	// issue transactions spending all the outputs which were just created from a random peer
@@ -105,8 +111,11 @@ func TestConsensusNoConflicts(t *testing.T) {
 	}
 
 	// wait again some network delays for the transactions to materialize
+	log.Println("waiting 2.5 avg. network delays")
 	time.Sleep(valuetransfers.DefaultAverageNetworkDelay*2 + valuetransfers.DefaultAverageNetworkDelay/2)
+	log.Println("checking that first set of addresses contain no UTXOs")
 	tests.CheckAddressOutputsFullyConsumed(t, n.Peers(), firstReceiverAddresses)
+	log.Println("checking that the 2nd batch transactions are finalized/confirmed")
 	tests.CheckTransactions(t, n.Peers(), secondReceiverExpectedTransactions, true,
 		tests.ExpectedInclusionState{
 			Confirmed: tests.True(), Finalized: tests.True(),
@@ -114,5 +123,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 			Rejected: tests.False(), Liked: tests.True(),
 		},
 	)
+
+	log.Println("check that the 2nd bach of receive addresses is the same on all peers")
 	tests.CheckBalances(t, n.Peers(), secondReceiverExpectedBalances)
 }
