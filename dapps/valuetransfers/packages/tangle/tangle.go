@@ -36,7 +36,7 @@ type Tangle struct {
 	outputStorage              *objectstorage.ObjectStorage
 	consumerStorage            *objectstorage.ObjectStorage
 
-	Events Events
+	Events *Events
 
 	workerPool async.WorkerPool
 }
@@ -58,7 +58,7 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 		outputStorage:              osFactory.New(osOutput, osOutputFactory, OutputKeyPartitions, objectstorage.CacheTime(cacheTime), osLeakDetectionOption),
 		consumerStorage:            osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(cacheTime), osLeakDetectionOption),
 
-		Events: *newEvents(),
+		Events: newEvents(),
 	}
 	tangle.setupDAGSynchronization()
 
@@ -194,13 +194,13 @@ func (tangle *Tangle) Fork(transactionID transaction.ID, conflictingInputs []tra
 
 	tx := cachedTransaction.Unwrap()
 	if tx == nil {
-		err = fmt.Errorf("failed to load transaction '%s'", transactionID)
+		err = fmt.Errorf("failed to load transaction '%s': %w", transactionID, ErrFatal)
 
 		return
 	}
 	txMetadata := cachedTransactionMetadata.Unwrap()
 	if txMetadata == nil {
-		err = fmt.Errorf("failed to load metadata of transaction '%s'", transactionID)
+		err = fmt.Errorf("failed to load metadata of transaction '%s': %w", transactionID, ErrFatal)
 
 		return
 	}
@@ -1033,7 +1033,7 @@ func (tangle *Tangle) solidifyPayload(cachedPayload *payload.CachedPayload, cach
 
 // deleteTransactionFutureCone removes a transaction and its whole future cone from the database (including all of the
 // reference models).
-func (tangle *Tangle) deleteTransactionFutureCone(transactionID transaction.ID) {
+func (tangle *Tangle) deleteTransactionFutureCone(transactionID transaction.ID, cause error) {
 	// initialize stack with current transaction
 	deleteStack := list.New()
 	deleteStack.PushBack(transactionID)
@@ -1046,7 +1046,7 @@ func (tangle *Tangle) deleteTransactionFutureCone(transactionID transaction.ID) 
 		currentTransactionID := currentTransactionIDEntry.Value.(transaction.ID)
 
 		// delete the transaction
-		consumers, attachments := tangle.deleteTransaction(currentTransactionID)
+		consumers, attachments := tangle.deleteTransaction(currentTransactionID, cause)
 
 		// queue consumers to also be deleted
 		for _, consumer := range consumers {
@@ -1055,7 +1055,7 @@ func (tangle *Tangle) deleteTransactionFutureCone(transactionID transaction.ID) 
 
 		// remove payload future cone
 		for _, attachingPayloadID := range attachments {
-			tangle.deletePayloadFutureCone(attachingPayloadID)
+			tangle.deletePayloadFutureCone(attachingPayloadID, cause)
 		}
 	}
 }
@@ -1063,13 +1063,21 @@ func (tangle *Tangle) deleteTransactionFutureCone(transactionID transaction.ID) 
 // deleteTransaction deletes a single transaction and all of its related models from the database.
 // Note: We do not immediately remove the attachments as this is related to the Payloads and is therefore left to the
 //       caller to clean this up.
-func (tangle *Tangle) deleteTransaction(transactionID transaction.ID) (consumers []transaction.ID, attachments []payload.ID) {
+func (tangle *Tangle) deleteTransaction(transactionID transaction.ID, cause error) (consumers []transaction.ID, attachments []payload.ID) {
 	// create result
 	consumers = make([]transaction.ID, 0)
 	attachments = make([]payload.ID, 0)
 
+	cachedTransaction := tangle.Transaction(transactionID)
+	cachedTransactionMetadata := tangle.TransactionMetadata(transactionID)
+
 	// process transaction and its models
-	tangle.Transaction(transactionID).Consume(func(tx *transaction.Transaction) {
+	cachedTransaction.Consume(func(tx *transaction.Transaction) {
+		// if the removal was triggered by an invalid Transaction
+		if errors.Is(cause, ErrTransactionInvalid) {
+			tangle.Events.TransactionInvalid.Trigger(cachedTransaction, cachedTransactionMetadata, cause)
+		}
+
 		// mark transaction as deleted
 		tx.Delete()
 
@@ -1107,7 +1115,9 @@ func (tangle *Tangle) deleteTransaction(transactionID transaction.ID) (consumers
 	})
 
 	// delete transaction metadata
-	tangle.transactionMetadataStorage.Delete(transactionID.Bytes())
+	cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
+		metadata.Delete()
+	})
 
 	// process attachments
 	tangle.Attachments(transactionID).Consume(func(attachment *Attachment) {
@@ -1119,7 +1129,7 @@ func (tangle *Tangle) deleteTransaction(transactionID transaction.ID) (consumers
 
 // deletePayloadFutureCone removes a payload and its whole future cone from the database (including all of the reference
 // models).
-func (tangle *Tangle) deletePayloadFutureCone(payloadID payload.ID) {
+func (tangle *Tangle) deletePayloadFutureCone(payloadID payload.ID, cause error) {
 	// initialize stack with current transaction
 	deleteStack := list.New()
 	deleteStack.PushBack(payloadID)
@@ -1131,8 +1141,16 @@ func (tangle *Tangle) deletePayloadFutureCone(payloadID payload.ID) {
 		deleteStack.Remove(currentTransactionIDEntry)
 		currentPayloadID := currentTransactionIDEntry.Value.(payload.ID)
 
+		cachedPayload := tangle.Payload(currentPayloadID)
+		cachedPayloadMetadata := tangle.PayloadMetadata(currentPayloadID)
+
 		// process payload
-		tangle.Payload(currentPayloadID).Consume(func(currentPayload *payload.Payload) {
+		cachedPayload.Consume(func(currentPayload *payload.Payload) {
+			// trigger payload invalid if it was called with an "invalid cause"
+			if errors.Is(cause, ErrPayloadInvalid) || errors.Is(cause, ErrTransactionInvalid) {
+				tangle.Events.PayloadInvalid.Trigger(cachedPayload, cachedPayloadMetadata, cause)
+			}
+
 			// delete payload
 			currentPayload.Delete()
 
@@ -1147,12 +1165,14 @@ func (tangle *Tangle) deletePayloadFutureCone(payloadID payload.ID) {
 
 			// if this was the last attachment of the transaction then we also delete the transaction
 			if !tangle.Attachments(currentPayload.Transaction().ID()).Consume(func(attachment *Attachment) {}) {
-				tangle.deleteTransaction(currentPayload.Transaction().ID())
+				tangle.deleteTransaction(currentPayload.Transaction().ID(), nil)
 			}
 		})
 
 		// delete payload metadata
-		tangle.payloadMetadataStorage.Delete(currentPayloadID.Bytes())
+		cachedPayloadMetadata.Consume(func(payloadMetadata *PayloadMetadata) {
+			payloadMetadata.Delete()
+		})
 
 		// queue approvers
 		tangle.Approvers(currentPayloadID).Consume(func(approver *PayloadApprover) {
@@ -1176,9 +1196,7 @@ func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.
 	// abort if the transaction is not solid or invalid
 	transactionSolid, consumedBranches, transactionSolidityErr := tangle.checkTransactionSolidity(currentTransaction, currentTransactionMetadata)
 	if transactionSolidityErr != nil {
-		tangle.Events.TransactionInvalid.Trigger(solidificationStackEntry.CachedTransaction, solidificationStackEntry.CachedTransactionMetadata, transactionSolidityErr)
-
-		tangle.deleteTransactionFutureCone(currentTransaction.ID())
+		tangle.deleteTransactionFutureCone(currentTransaction.ID(), transactionSolidityErr)
 
 		return
 	}
@@ -1189,9 +1207,7 @@ func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.
 	// abort if the payload is not solid or invalid
 	payloadSolid, payloadSolidityErr := tangle.payloadBecameNewlySolid(currentPayload, currentPayloadMetadata, consumedBranches)
 	if payloadSolidityErr != nil {
-		tangle.Events.PayloadInvalid.Trigger(solidificationStackEntry.CachedPayload, solidificationStackEntry.CachedPayloadMetadata, payloadSolidityErr)
-
-		tangle.deletePayloadFutureCone(currentPayload.ID())
+		tangle.deletePayloadFutureCone(currentPayload.ID(), payloadSolidityErr)
 
 		return
 	}
@@ -1275,7 +1291,7 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 		// abort if the output could not be found
 		output := cachedOutput.Unwrap()
 		if output == nil {
-			err = fmt.Errorf("could not load output '%s'", outputID)
+			err = fmt.Errorf("could not load output '%s': %w", outputID, ErrFatal)
 
 			return false
 		}
@@ -1493,7 +1509,7 @@ func (tangle *Tangle) payloadBecameNewlySolid(p *payload.Payload, payloadMetadat
 		return
 	}
 	if branchesConflicting {
-		err = fmt.Errorf("the payload '%s' combines conflicting versions of the ledger state", p.ID())
+		err = fmt.Errorf("the payload '%s' combines conflicting versions of the ledger state: %w", p.ID(), ErrPayloadInvalid)
 
 		return false, err
 	}
@@ -1527,7 +1543,7 @@ func (tangle *Tangle) checkTransactionSolidity(tx *transaction.Transaction, meta
 
 	// abort if the outputs are not matching the inputs
 	if !tangle.checkTransactionOutputs(consumedBalances, tx.Outputs()) {
-		err = fmt.Errorf("the outputs do not match the inputs in transaction with id '%s'", tx.ID())
+		err = fmt.Errorf("the outputs do not match the inputs in transaction with id '%s': %w", tx.ID(), ErrTransactionInvalid)
 
 		return
 	}
@@ -1539,7 +1555,7 @@ func (tangle *Tangle) checkTransactionSolidity(tx *transaction.Transaction, meta
 		return
 	}
 	if branchesConflicting {
-		err = fmt.Errorf("the transaction '%s' spends conflicting inputs", tx.ID())
+		err = fmt.Errorf("the transaction '%s' spends conflicting inputs: %w", tx.ID(), ErrTransactionInvalid)
 
 		return
 	}
@@ -1582,7 +1598,7 @@ func (tangle *Tangle) retrieveConsumedInputDetails(tx *transaction.Transaction) 
 				// check overflows in the numbers
 				if inputBalance.Value > math.MaxInt64-currentBalance {
 					// TODO: make it an explicit error var
-					err = fmt.Errorf("buffer overflow in balances of inputs")
+					err = fmt.Errorf("buffer overflow in balances of inputs: %w", ErrTransactionInvalid)
 
 					cachedInputs.Release()
 
@@ -1783,7 +1799,7 @@ func (tangle *Tangle) moveTransactionToBranch(cachedTransaction *transaction.Cac
 						// unwrap output
 						output := cachedOutput.Unwrap()
 						if output == nil {
-							err = fmt.Errorf("failed to load output '%s'", outputID)
+							err = fmt.Errorf("failed to load output '%s': %w", outputID, ErrFatal)
 
 							return false
 						}
@@ -1905,7 +1921,7 @@ func (tangle *Tangle) calculateBranchOfTransaction(currentTransaction *transacti
 
 		transactionOutput := cachedTransactionOutput.Unwrap()
 		if transactionOutput == nil {
-			err = fmt.Errorf("failed to load output '%s'", outputId)
+			err = fmt.Errorf("failed to load output '%s': %w", outputId, ErrFatal)
 
 			return false
 		}
