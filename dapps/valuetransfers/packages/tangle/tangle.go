@@ -1146,8 +1146,8 @@ func (tangle *Tangle) deletePayloadFutureCone(payloadID payload.ID, cause error)
 
 		// process payload
 		cachedPayload.Consume(func(currentPayload *payload.Payload) {
-			// trigger payload invalid if it was called with a cause
-			if cause != nil {
+			// trigger payload invalid if it was called with an "invalid cause"
+			if errors.Is(cause, ErrPayloadInvalid) || errors.Is(cause, ErrTransactionInvalid) {
 				tangle.Events.PayloadInvalid.Trigger(cachedPayload, cachedPayloadMetadata, cause)
 			}
 
