@@ -26,7 +26,7 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * valuetransfers.AverageNetworkDelay)
+	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
 
 	// check whether the first issued transaction is available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -37,13 +37,13 @@ func TestTransactionPersistence(t *testing.T) {
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
 	// send value message randomly
-	randomTxIds := tests.SendValueMessagesOnRandomPeer(t, n.Peers(), addrBalance, 10)
+	randomTxIds := tests.SendTransactionOnRandomPeer(t, n.Peers(), addrBalance, 10, 100)
 	for _, randomTxId := range randomTxIds {
 		txIds[randomTxId] = nil
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * valuetransfers.AverageNetworkDelay)
+	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
 
 	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -94,7 +94,7 @@ func TestValueColoredPersistence(t *testing.T) {
 	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * valuetransfers.AverageNetworkDelay)
+	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
 
 	// check whether the transactions are available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
@@ -111,10 +111,10 @@ func TestValueColoredPersistence(t *testing.T) {
 	}
 
 	// wait for value messages to be gossiped
-	time.Sleep(2 * valuetransfers.AverageNetworkDelay)
+	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true, ests.ExpectedInclusionState{
+	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
 		Confirmed: tests.True(),
 	})
 

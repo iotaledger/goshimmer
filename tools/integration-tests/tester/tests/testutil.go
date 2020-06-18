@@ -313,8 +313,8 @@ func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Pe
 // If the color is balance.ColorNew, it should be recolored with txId.
 func updateBalanceList(addrBalance map[string]map[balance.Color]int64, balances []*balance.Balance, from, to, txId string) {
 	for _, b := range balances {
-		color := b.Color()
-		value := b.Value()
+		color := b.Color
+		value := b.Value
 		if value < 0 {
 			// deduct
 			addrBalance[from][color] += value
@@ -437,7 +437,6 @@ func CheckTransactions(t *testing.T, peers []*framework.Peer, transactionIDs map
 			require.NoError(t, err)
 
 			// check inclusion state
-<<<<<<< HEAD
 			if expectedInclusionState.Confirmed != nil {
 				assert.Equal(t, *expectedInclusionState.Confirmed, resp.InclusionState.Confirmed, "confirmed state doesn't match - %s", txId)
 			}
