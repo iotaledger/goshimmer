@@ -212,8 +212,10 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 		m.events.NeighborRemoved.Trigger(peer)
 	}))
 	n.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
+		dataCopy := make([]byte, len(data))
+		copy(dataCopy, data)
 		m.inboxWorkerPool.Submit(func() {
-			if err := m.handlePacket(data, peer); err != nil {
+			if err := m.handlePacket(dataCopy, peer); err != nil {
 				m.log.Debugw("error handling packet", "err", err)
 			}
 		})
