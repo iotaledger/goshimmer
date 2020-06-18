@@ -11,7 +11,7 @@ import (
 )
 
 func configureWebAPI() {
-	webapi.Server.POST("networkdelay", broadcastNetworkDelayObject)
+	webapi.Server().POST("networkdelay", broadcastNetworkDelayObject)
 }
 
 // broadcastNetworkDelayObject creates a message with a network delay object and

@@ -58,7 +58,7 @@ func configure(_ *node.Plugin) {
 	}
 
 	// get origin public key from config
-	bytes, err := base58.Decode(config.Node.GetString(CfgNetworkDelayOriginPublicKey))
+	bytes, err := base58.Decode(config.Node().GetString(CfgNetworkDelayOriginPublicKey))
 	if err != nil {
 		log.Fatalf("could not parse %s config entry as base58. %v", CfgNetworkDelayOriginPublicKey, err)
 	}
@@ -70,7 +70,7 @@ func configure(_ *node.Plugin) {
 	configureWebAPI()
 
 	// subscribe to message-layer
-	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 }
 
 func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cachedMessageMetadata *messageTangle.CachedMessageMetadata) {

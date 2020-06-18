@@ -114,7 +114,7 @@ func configure(_ *node.Plugin) {
 	}))
 
 	// register SignatureFilter in Parser
-	messagelayer.MessageParser.AddMessageFilter(tangle.NewSignatureFilter())
+	messagelayer.MessageParser().AddMessageFilter(tangle.NewSignatureFilter())
 
 	// subscribe to message-layer
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
