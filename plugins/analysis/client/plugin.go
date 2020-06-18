@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"net"
 	"sync"
 	"time"
@@ -96,22 +97,33 @@ func (c *connector) Stop() {
 }
 
 func (c *connector) new() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	select {
 	case _ = <-c.closing:
 		return
 	default:
-		c.mu.Lock()
-		defer c.mu.Unlock()
-
-		conn, err := net.Dial("tcp", config.Node.GetString(CfgServerAddress))
+		c.conn = nil
+		tcpConn, err := net.Dial("tcp", config.Node.GetString(CfgServerAddress))
 		if err != nil {
 			time.AfterFunc(1*time.Minute, c.new)
 			log.Warn(err)
 			return
 		}
-		c.conn = network.NewManagedConnection(conn)
+		c.conn = network.NewManagedConnection(tcpConn)
 		c.conn.Events.Close.Attach(events.NewClosure(c.new))
 	}
+}
+
+func (c *connector) Close() (err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.conn != nil {
+		err = c.conn.Close()
+	}
+	return
 }
 
 func (c *connector) Write(b []byte) (int, error) {
@@ -119,5 +131,9 @@ func (c *connector) Write(b []byte) (int, error) {
 	// TODO: check that Stop was not called
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if c.conn == nil {
+		return 0, errors.New("no connection established")
+	}
 	return c.conn.Write(b)
 }
