@@ -162,6 +162,7 @@ func (output *Output) setBranchID(branchID branchmanager.BranchID) (modified boo
 	}
 
 	output.branchID = branchID
+	output.SetModified()
 	modified = true
 
 	return
