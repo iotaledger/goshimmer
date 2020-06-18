@@ -1583,7 +1583,7 @@ func TestMissingPayloadReceived(t *testing.T) {
 		tangle,
 		map[address.Address][]*balance.Balance{
 			address.Random(): {
-				balance.New(balance.ColorIOTA, 1),
+				balance.New(balance.ColorIOTA, 3),
 			},
 		},
 	)

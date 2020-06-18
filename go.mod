@@ -10,7 +10,6 @@ require (
 	github.com/drand/kyber v1.0.1-0.20200331114745-30e90cc60f99
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/golang/protobuf v1.3.5
-	github.com/google/go-cmp v0.4.0
 	github.com/gorilla/websocket v1.4.1
 	github.com/iotaledger/hive.go v0.0.0-20200615181744-3ab0cddc15cf
 	github.com/iotaledger/iota.go v1.0.0-beta.14
