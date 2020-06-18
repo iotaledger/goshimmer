@@ -1,6 +1,7 @@
 package research
 
 import (
+	"github.com/iotaledger/goshimmer/dapps/networkdelay"
 	analysisclient "github.com/iotaledger/goshimmer/plugins/analysis/client"
 	analysisdashboard "github.com/iotaledger/goshimmer/plugins/analysis/dashboard"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
@@ -13,4 +14,5 @@ var PLUGINS = node.Plugins(
 	analysisserver.Plugin(),
 	analysisclient.Plugin(),
 	analysisdashboard.Plugin(),
+	networkdelay.App(),
 )
