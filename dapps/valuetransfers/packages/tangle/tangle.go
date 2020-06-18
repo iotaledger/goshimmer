@@ -1344,7 +1344,7 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 	}
 
 	// book transaction into target branch
-	transactionMetadata.SetBranchID(targetBranch.ID())
+	transactionMetadata.setBranchID(targetBranch.ID())
 
 	// create color for newly minted coins
 	mintedColor, _, err := balance.ColorFromBytes(transactionToBook.ID().Bytes())
@@ -1431,7 +1431,7 @@ func (tangle *Tangle) bookPayload(cachedPayload *payload.CachedPayload, cachedPa
 		return
 	}
 
-	payloadBooked = valueObjectMetadata.SetBranchID(aggregatedBranch.ID())
+	payloadBooked = valueObjectMetadata.setBranchID(aggregatedBranch.ID())
 
 	return
 }
@@ -1764,7 +1764,7 @@ func (tangle *Tangle) moveTransactionToBranch(cachedTransaction *transaction.Cac
 					}
 
 					// abort if we did not modify the branch of the transaction
-					if !currentTransactionMetadata.SetBranchID(targetBranch.ID()) {
+					if !currentTransactionMetadata.setBranchID(targetBranch.ID()) {
 						return nil
 					}
 
@@ -1865,7 +1865,7 @@ func (tangle *Tangle) updateBranchOfValuePayloadsAttachingTransaction(transactio
 			// try to update the metadata of the payload and queue its approvers
 			cachedAggregatedBranch.Consume(func(branch *branchmanager.Branch) {
 				tangle.PayloadMetadata(currentPayload.ID()).Consume(func(payloadMetadata *PayloadMetadata) {
-					if !payloadMetadata.SetBranchID(branch.ID()) {
+					if !payloadMetadata.setBranchID(branch.ID()) {
 						return
 					}
 

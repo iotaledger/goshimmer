@@ -113,8 +113,8 @@ func (transactionMetadata *TransactionMetadata) BranchID() branchmanager.BranchI
 	return transactionMetadata.branchID
 }
 
-// SetBranchID is the setter for the branch id. It returns true if the value of the flag has been updated.
-func (transactionMetadata *TransactionMetadata) SetBranchID(branchID branchmanager.BranchID) (modified bool) {
+// setBranchID is the setter for the branch id. It returns true if the value of the flag has been updated.
+func (transactionMetadata *TransactionMetadata) setBranchID(branchID branchmanager.BranchID) (modified bool) {
 	transactionMetadata.branchIDMutex.RLock()
 	if transactionMetadata.branchID == branchID {
 		transactionMetadata.branchIDMutex.RUnlock()
