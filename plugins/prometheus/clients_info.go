@@ -1,33 +1,65 @@
 package prometheus
 
 import (
+	"strconv"
+
+	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
-	clientsInfo *prometheus.GaugeVec
+	clientsInfoCPU    *prometheus.GaugeVec
+	clientsInfoMemory *prometheus.GaugeVec
 )
 
 func registerClientsMetrics() {
-	clientsInfo = prometheus.NewGaugeVec(
+	clientsInfoCPU = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "clients_info",
-			Help: "Clients info.",
+			Name: "clients_info_cpu",
+			Help: "Info about client's cpu load labeled with nodeID, OS, ARCH and number of cpu cores",
 		},
-		[]string{"info"},
-		// []string{"OS", "ARCH", "NUM_CPU", "CPU_USAGE", "MEM_USAGE"},
+		[]string{
+			"nodeID",
+			"OS",
+			"ARCH",
+			"NUM_CPU",
+		},
 	)
 
-	// registry.MustRegister(clientsInfo)
+	clientsInfoMemory = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "clients_info_mem",
+			Help: "Info about client's memory usage labeled with nodeID, OS, ARCH and number of cpu cores",
+		},
+		[]string{
+			"nodeID",
+			"OS",
+			"ARCH",
+			"NUM_CPU",
+		},
+	)
 
-	// collectClientsInfo()
+	registry.MustRegister(clientsInfoCPU)
+	registry.MustRegister(clientsInfoMemory)
 
-	// clientsInfo.WithLabelValues(banner.AppName, banner.AppVersion).Set(1)
+	addCollect(collectClientsInfo)
 }
 
 func collectClientsInfo() {
-	// for ID, info := range metrics.ClientsMetrics() {
-	// 	clientsInfo.WithLabelValues()
-	// }
+	clientInfoMap := metrics.ClientsMetrics()
 
+	for nodeID, clientInfo := range clientInfoMap {
+		clientsInfoCPU.WithLabelValues(
+			nodeID,
+			clientInfo.OS,
+			clientInfo.Arch,
+			strconv.Itoa(clientInfo.NumCPU),
+		).Set(clientInfo.CPUUsage)
+		clientsInfoMemory.WithLabelValues(
+			nodeID,
+			clientInfo.OS,
+			clientInfo.Arch,
+			strconv.Itoa(clientInfo.NumCPU),
+		).Set(float64(clientInfo.MemoryUsage))
+	}
 }

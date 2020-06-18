@@ -1,8 +1,6 @@
 package metrics
 
 import (
-	"bytes"
-	"encoding/gob"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
@@ -35,23 +33,15 @@ var onMetricHeartbeatReceived = events.NewClosure(func(hb *packet.MetricHeartbea
 	}
 })
 
+// ClientsMetrics returns info about the OS, arch, number of cpu cores, cpu load and memory usage.
 func ClientsMetrics() map[string]ClientInfo {
 	clientsMetricsMutex.RLock()
 	defer clientsMetricsMutex.RUnlock()
-
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	err := enc.Encode(clientsMetrics)
-	if err != nil {
-		return nil
+	// create copy of the map
+	var copy = make(map[string]ClientInfo)
+	// manually copy content
+	for node, clientInfo := range clientsMetrics {
+		copy[node] = clientInfo
 	}
-
-	dec := gob.NewDecoder(&buf)
-	var copy map[string]ClientInfo
-	err = dec.Decode(&copy)
-	if err != nil {
-		return nil
-	}
-
 	return copy
 }
