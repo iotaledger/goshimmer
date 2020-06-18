@@ -56,7 +56,7 @@ func TestTransactionPersistence(t *testing.T) {
 	}
 
 	// wait for peers to start
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 
 	// check whether all issued transactions are available on all nodes and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true)
@@ -112,7 +112,7 @@ func TestValueColoredPersistence(t *testing.T) {
 	}
 
 	// wait for peers to start
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
 	tests.CheckTransactions(t, n.Peers(), txIds, true)
