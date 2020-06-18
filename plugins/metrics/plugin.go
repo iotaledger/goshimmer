@@ -66,6 +66,10 @@ func run(_ *node.Plugin) {
 				gossipCurrentTx.Store(uint64(g.BytesWritten))
 			}, 1*time.Second, shutdownSignal)
 		}
+		if config.Node.GetBool(CfgMetricsGlobal) {
+			timeutil.Ticker(calculateNetworkDiameter, 1 * time.Minute, shutdownSignal)
+		}
+
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}

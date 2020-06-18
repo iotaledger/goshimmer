@@ -1,11 +1,14 @@
 package metrics
 
 import (
+	"fmt"
 	"sync"
 
+	analysisdashboard "github.com/iotaledger/goshimmer/plugins/analysis/dashboard"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/mr-tron/base58/base58"
+	"go.uber.org/atomic"
 )
 
 type ClientInfo struct {
@@ -19,6 +22,7 @@ type ClientInfo struct {
 var (
 	clientsMetrics      = make(map[string]ClientInfo)
 	clientsMetricsMutex sync.RWMutex
+	networkDiameter     atomic.Int32
 )
 
 var onMetricHeartbeatReceived = events.NewClosure(func(hb *packet.MetricHeartbeat) {
@@ -44,4 +48,16 @@ func ClientsMetrics() map[string]ClientInfo {
 		copy[node] = clientInfo
 	}
 	return copy
+}
+
+func calculateNetworkDiameter() {
+	g := analysisdashboard.NetworkGraph()
+	diameter := g.Diameter()
+	networkDiameter.Store(int32(diameter))
+	fmt.Println("Calculated network diameter: ", diameter)
+}
+
+// NetworkDiameter returns the current network diameter.
+func NetworkDiameter() int32 {
+	return networkDiameter.Load()
 }
