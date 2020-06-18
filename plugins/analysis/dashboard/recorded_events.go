@@ -25,6 +25,7 @@ var (
 	lock  sync.RWMutex
 )
 
+// NeighborMetric contains the number of inbound/outbound neighbors.
 type NeighborMetric struct {
 	Inbound  uint
 	Outbound uint
@@ -35,7 +36,7 @@ func NumOfNeighbors() map[string]*NeighborMetric {
 	lock.RLock()
 	defer lock.RUnlock()
 	result := make(map[string]*NeighborMetric)
-	for nodeID, _ := range nodes {
+	for nodeID := range nodes {
 		// number of outgoing neighbors
 		if _, exist := result[nodeID]; !exist {
 			result[nodeID] = &NeighborMetric{Outbound: uint(len(links[nodeID]))}
@@ -44,7 +45,7 @@ func NumOfNeighbors() map[string]*NeighborMetric {
 		}
 
 		// fill in incoming neighbors
-		for outNeighborID, _ := range links[nodeID] {
+		for outNeighborID := range links[nodeID] {
 			if _, exist := result[outNeighborID]; !exist {
 				result[outNeighborID] = &NeighborMetric{Inbound: 1}
 			} else {
@@ -60,13 +61,13 @@ func NetworkGraph() *graph.Graph {
 	lock.RLock()
 	defer lock.RUnlock()
 	var nodeIDs []string
-	for id, _ := range nodes {
+	for id := range nodes {
 		nodeIDs = append(nodeIDs, id)
 	}
 	g := graph.New(nodeIDs)
 
 	for src, trgMap := range links {
-		for dst, _ := range trgMap {
+		for dst := range trgMap {
 			g.AddEdge(src, dst)
 		}
 	}
