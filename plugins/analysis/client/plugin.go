@@ -1,8 +1,6 @@
 package client
 
 import (
-	"net"
-	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
@@ -12,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/network"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
 )
@@ -34,25 +31,19 @@ func init() {
 
 var (
 	// Plugin is the plugin instance of the analysis client plugin.
-	Plugin      = node.NewPlugin(PluginName, node.Enabled, run)
-	log         *logger.Logger
-	managedConn *network.ManagedConnection
-	connLock    sync.Mutex
+	Plugin = node.NewPlugin(PluginName, node.Enabled, run)
+	conn   = NewConnector("tcp", config.Node.GetString(CfgServerAddress))
+
+	log *logger.Logger
 )
 
 func run(_ *node.Plugin) {
 	finalized = make(map[string]vote.Opinion)
 	log = logger.NewLogger(PluginName)
 
-	conn, err := net.Dial("tcp", config.Node.GetString(CfgServerAddress))
-	if err != nil {
-		log.Debugf("Could not connect to reporting server: %s", err.Error())
-		return
-	}
-
-	managedConn = network.NewManagedConnection(conn)
-
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+		conn.Start()
+		defer conn.Stop()
 
 		onFinalizedClosure := events.NewClosure(onFinalized)
 		valuetransfers.Voter().Events().Finalized.Attach(onFinalizedClosure)
@@ -70,8 +61,8 @@ func run(_ *node.Plugin) {
 				return
 
 			case <-ticker.C:
-				sendHeartbeat(managedConn, createHeartbeat())
-				sendMetricHeartbeat(managedConn, createMetricHeartbeat())
+				sendHeartbeat(conn, createHeartbeat())
+				sendMetricHeartbeat(conn, createMetricHeartbeat())
 			}
 		}
 	}, shutdown.PriorityAnalysis); err != nil {
