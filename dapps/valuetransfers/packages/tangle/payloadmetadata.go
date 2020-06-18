@@ -249,8 +249,8 @@ func (payloadMetadata *PayloadMetadata) BranchID() branchmanager.BranchID {
 	return payloadMetadata.branchID
 }
 
-// SetBranchID is the setter for the BranchID that the corresponding Payload is booked into.
-func (payloadMetadata *PayloadMetadata) SetBranchID(branchID branchmanager.BranchID) (modified bool) {
+// setBranchID is the setter for the BranchID that the corresponding Payload is booked into.
+func (payloadMetadata *PayloadMetadata) setBranchID(branchID branchmanager.BranchID) (modified bool) {
 	payloadMetadata.branchIDMutex.RLock()
 	if branchID == payloadMetadata.branchID {
 		payloadMetadata.branchIDMutex.RUnlock()

@@ -144,8 +144,8 @@ func (output *Output) BranchID() branchmanager.BranchID {
 	return output.branchID
 }
 
-// SetBranchID is the setter for the property that indicates in which ledger state branch the output is booked.
-func (output *Output) SetBranchID(branchID branchmanager.BranchID) (modified bool) {
+// setBranchID is the setter for the property that indicates in which ledger state branch the output is booked.
+func (output *Output) setBranchID(branchID branchmanager.BranchID) (modified bool) {
 	output.branchIDMutex.RLock()
 	if output.branchID == branchID {
 		output.branchIDMutex.RUnlock()

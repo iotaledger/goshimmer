@@ -67,5 +67,8 @@
       "username": "goshimmer"
     },
     "bindAddress": "127.0.0.1:8080"
+  },
+  "networkdelay": {
+    "originPublicKey": "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"
   }
 }
