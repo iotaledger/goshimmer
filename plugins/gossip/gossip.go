@@ -83,6 +83,8 @@ func start(shutdownSignal <-chan struct{}) {
 
 	// assure that the autopeering selection is always stopped before the gossip manager
 	autopeering.Selection().Close()
+
+	mgr.Shutdown()
 }
 
 // loads the given message from the message layer or an error if not found.

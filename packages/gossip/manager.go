@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -34,6 +35,9 @@ type Manager struct {
 	mu        sync.Mutex
 	srv       *server.TCP
 	neighbors map[identity.ID]*Neighbor
+
+	// inboxWorkerPool defines a worker pool where all incoming messages are processed.
+	inboxWorkerPool async.WorkerPool
 }
 
 // NewManager creates a new Manager.
@@ -206,9 +210,11 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 		m.events.NeighborRemoved.Trigger(peer)
 	}))
 	n.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
-		if err := m.handlePacket(data, peer); err != nil {
-			m.log.Debugw("error handling packet", "err", err)
-		}
+		m.inboxWorkerPool.Submit(func() {
+			if err := m.handlePacket(data, peer); err != nil {
+				m.log.Debugw("error handling packet", "err", err)
+			}
+		})
 	}))
 
 	m.neighbors[peer.ID()] = n
@@ -272,4 +278,9 @@ func marshal(packet pb.Packet) []byte {
 		panic("invalid packet")
 	}
 	return append([]byte{byte(packetType)}, data...)
+}
+
+// Shutdown stops the Manager while waiting for all tasks to finish.
+func (m *Manager) Shutdown() {
+	m.inboxWorkerPool.ShutdownGracefully()
 }
