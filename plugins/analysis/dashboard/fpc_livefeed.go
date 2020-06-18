@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
@@ -120,9 +121,16 @@ func createFPCUpdate(hb *packet.FPCHeartbeat, recordEvent bool) *FPCUpdate {
 					Status:     conflictDetail.Status,
 				}
 				i++
+
+				metrics.Events().AnalysisFPCFinalized.Trigger(&metrics.AnalysisFPCFinalizedEvent{
+					ConflictID: ID,
+					NodeID:     conflictDetail.NodeID,
+					Rounds:     conflictDetail.Rounds,
+					Opinions:   vote.ConvertInts32ToOpinions(conflictDetail.Opinions),
+					Status:     vote.ConvertInt32Opinion(conflictDetail.Status),
+				})
 			}
 
-			//log.Info("Storing:\n", finalizedConflicts)
 			err := storeFPCRecords(finalizedConflicts, mongoDB())
 			if err != nil {
 				log.Errorf("Error while writing on MongoDB: %s", err)

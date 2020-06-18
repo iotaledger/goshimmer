@@ -14,9 +14,9 @@ var (
 	finalizedMutex sync.RWMutex
 )
 
-func onFinalized(id string, opinion vote.Opinion) {
+func onFinalized(ev *vote.OpinionEvent) {
 	finalizedMutex.Lock()
-	finalized[id] = opinion
+	finalized[ev.ID] = ev.Opinion
 	finalizedMutex.Unlock()
 }
 

@@ -24,6 +24,7 @@ func new() *CollectionEvents {
 		MessageTips:           events.NewEvent(uint64Caller),
 		QueryReceived:         events.NewEvent(queryReceivedEventCaller),
 		QueryReplyError:       events.NewEvent(queryReplyErrorEventCaller),
+		AnalysisFPCFinalized:  events.NewEvent(fpcFinalizedEventCaller),
 	}
 }
 

@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -17,6 +18,7 @@ type CollectionEvents struct {
 	MessageTips           *events.Event
 	QueryReceived         *events.Event
 	QueryReplyError       *events.Event
+	AnalysisFPCFinalized  *events.Event
 }
 
 // QueryReceivedEvent is used to pass information through a QueryReceived event.
@@ -28,6 +30,16 @@ type QueryReceivedEvent struct {
 type QueryReplyErrorEvent struct {
 	ID           string
 	OpinionCount int
+}
+
+// AnalysisFPCFinalizedEvent is triggered by the analysis-server to
+// notify a finalized FPC vote from one node.
+type AnalysisFPCFinalizedEvent struct {
+	ConflictID string
+	NodeID     string
+	Rounds     int
+	Opinions   []vote.Opinion
+	Status     vote.Opinion
 }
 
 func queryReceivedEventCaller(handler interface{}, params ...interface{}) {
@@ -48,4 +60,8 @@ func float64Caller(handler interface{}, params ...interface{}) {
 
 func boolCaller(handler interface{}, params ...interface{}) {
 	handler.(func(bool))(params[0].(bool))
+}
+
+func fpcFinalizedEventCaller(handler interface{}, params ...interface{}) {
+	handler.(func(ev *AnalysisFPCFinalizedEvent))(params[0].(*AnalysisFPCFinalizedEvent))
 }
