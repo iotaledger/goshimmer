@@ -86,7 +86,7 @@ func configure(_ *node.Plugin) {
 			log.Panic("could not read snapshot file:", err)
 		}
 		Tangle.LoadSnapshot(snapshot)
-		log.Info("read snapshot from %s", snapshotFilePath)
+		log.Infof("read snapshot from %s", snapshotFilePath)
 	}
 
 	Tangle.Events.Error.Attach(events.NewClosure(func(err error) {
