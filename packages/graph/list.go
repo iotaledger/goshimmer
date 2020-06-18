@@ -2,7 +2,7 @@ package graph
 
 type listElt struct {
 	next *listElt
-	node *Node
+	node *node
 }
 
 type list struct {
@@ -12,7 +12,7 @@ type list struct {
 	free *listElt
 }
 
-func (l *list) getHead() *Node {
+func (l *list) getHead() *node {
 	elt := l.head
 	if elt == nil {
 		return nil
@@ -32,7 +32,7 @@ func (l *list) getHead() *Node {
 	return n
 }
 
-func (l *list) pushBack(n *Node) {
+func (l *list) pushBack(n *node) {
 	// Get a free listElt to use to point to this node
 	elt := l.free
 	if elt == nil {

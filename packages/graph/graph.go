@@ -5,51 +5,54 @@ import (
 	"sync"
 )
 
-type nodeId int32
+type nodeID int32
 
-type SymbolTable map[string]nodeId
+type symbolTable map[string]nodeID
 
-func (s SymbolTable) getId(name string) nodeId {
+func (s symbolTable) getID(name string) nodeID {
 	id, ok := s[name]
 	if !ok {
-		id = nodeId(len(s))
+		id = nodeID(len(s))
 		s[name] = id
 	}
 	return id
 }
 
+// Graph contains nodes and a symbolTable of a graph.
 type Graph struct {
-	SymbolTable
-	Nodes
+	symbolTable
+	nodes
 }
 
+// New returns a graph.
 func New(IDs []string) *Graph {
 	g := &Graph{
-		SymbolTable: make(SymbolTable, len(IDs)),
-		Nodes:       make(Nodes, len(IDs)),
+		symbolTable: make(symbolTable, len(IDs)),
+		nodes:       make(nodes, len(IDs)),
 	}
 	for index, id := range IDs {
-		g.Nodes[index].ID = nodeId(index)
-		g.SymbolTable[id] = nodeId(index)
+		g.nodes[index].ID = nodeID(index)
+		g.symbolTable[id] = nodeID(index)
 	}
 	return g
 }
 
+// AddEdge adds an edge to the given graph.
 func (g *Graph) AddEdge(a, b string) {
-	aid := g.SymbolTable.getId(a)
-	bid := g.SymbolTable.getId(b)
+	aid := g.symbolTable.getID(a)
+	bid := g.symbolTable.getID(b)
 
-	g.Nodes.AddEdge(aid, bid)
+	g.nodes.AddEdge(aid, bid)
 }
 
-type Node struct {
-	ID nodeId
+type node struct {
+	ID nodeID
 
 	// adjacent edges
-	Adj []nodeId
+	Adj []nodeID
 }
 
-func (n *Node) add(adjNode *Node) {
+func (n *node) add(adjNode *node) {
 	for _, id := range n.Adj {
 		if id == adjNode.ID {
 			return
@@ -58,13 +61,13 @@ func (n *Node) add(adjNode *Node) {
 	n.Adj = append(n.Adj, adjNode.ID)
 }
 
-type Nodes []Node
+type nodes []node
 
-func (nl Nodes) get(id nodeId) *Node {
+func (nl nodes) get(id nodeID) *node {
 	return &nl[id]
 }
 
-func (nl Nodes) AddEdge(a, b nodeId) {
+func (nl nodes) AddEdge(a, b nodeID) {
 	an := nl.get(a)
 	bn := nl.get(b)
 
@@ -72,24 +75,24 @@ func (nl Nodes) AddEdge(a, b nodeId) {
 	bn.add(an)
 }
 
-// diameter is the maximum length of a shortest path in the network
-func (nl Nodes) Diameter() int {
+// Diameter is the maximum length of a shortest path in the network
+func (nl nodes) Diameter() int {
 
 	cpus := runtime.NumCPU()
 	numNodes := len(nl)
-	nodesPerCpu := numNodes / cpus
+	nodesPerCPU := numNodes / cpus
 
 	results := make([]int, cpus)
 	wg := &sync.WaitGroup{}
 	wg.Add(cpus)
 	start := 0
 	for cpu := 0; cpu < cpus; cpu++ {
-		end := start + nodesPerCpu
+		end := start + nodesPerCPU
 		if cpu == cpus-1 {
 			end = numNodes
 		}
 
-		go func(cpu int, start, end nodeId) {
+		go func(cpu int, start, end nodeID) {
 			defer wg.Done()
 			var diameter int
 			q := &list{}
@@ -100,14 +103,14 @@ func (nl Nodes) Diameter() int {
 					depths[i] = -1
 				}
 
-				df := nl.longestShortestPath(nodeId(id), q, depths)
+				df := nl.longestShortestPath(nodeID(id), q, depths)
 				if df > diameter {
 					diameter = df
 				}
 			}
 			results[cpu] = diameter
-		}(cpu, nodeId(start), nodeId(end))
-		start += nodesPerCpu
+		}(cpu, nodeID(start), nodeID(end))
+		start += nodesPerCPU
 	}
 
 	wg.Wait()
@@ -124,9 +127,9 @@ func (nl Nodes) Diameter() int {
 // bfs tracking data
 type bfsNode int16
 
-func (nodes Nodes) longestShortestPath(start nodeId, q *list, depths []bfsNode) int {
+func (nl nodes) longestShortestPath(start nodeID, q *list, depths []bfsNode) int {
 
-	n := nodes.get(start)
+	n := nl.get(start)
 	depths[n.ID] = 0
 	q.pushBack(n)
 
@@ -140,7 +143,7 @@ func (nodes Nodes) longestShortestPath(start nodeId, q *list, depths []bfsNode) 
 		for _, id := range n.Adj {
 			if depths[id] == -1 {
 				depths[id] = depths[n.ID] + 1
-				q.pushBack(nodes.get(id))
+				q.pushBack(nl.get(id))
 			}
 		}
 	}
