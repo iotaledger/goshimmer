@@ -69,6 +69,8 @@ func (m *Manager) Start(srv *server.TCP) {
 func (m *Manager) Close() {
 	m.stop()
 	m.wg.Wait()
+
+	m.inboxWorkerPool.ShutdownGracefully()
 }
 
 // Events returns the events related to the gossip protocol.
@@ -278,9 +280,4 @@ func marshal(packet pb.Packet) []byte {
 		panic("invalid packet")
 	}
 	return append([]byte{byte(packetType)}, data...)
-}
-
-// Shutdown stops the Manager while waiting for all tasks to finish.
-func (m *Manager) Shutdown() {
-	m.inboxWorkerPool.ShutdownGracefully()
 }
