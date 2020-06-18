@@ -38,8 +38,7 @@ type Tangle struct {
 
 	Events *Events
 
-	workerPool        async.WorkerPool
-	cleanupWorkerPool async.WorkerPool
+	workerPool async.WorkerPool
 }
 
 // New is the constructor of a Tangle and creates a new Tangle object from the given details.
@@ -62,6 +61,9 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 		Events: newEvents(),
 	}
 	tangle.setupDAGSynchronization()
+
+	// TODO: CHANGE BACK TO MULTI THREADING ONCE WE FIXED LOGICAL RACE CONDITIONS
+	tangle.workerPool.Tune(1)
 
 	return
 }
@@ -267,7 +269,6 @@ func (tangle *Tangle) Prune() (err error) {
 // Shutdown stops the worker pools and shuts down the object storage instances.
 func (tangle *Tangle) Shutdown() *Tangle {
 	tangle.workerPool.ShutdownGracefully()
-	tangle.cleanupWorkerPool.ShutdownGracefully()
 
 	for _, storage := range []*objectstorage.ObjectStorage{
 		tangle.payloadStorage,

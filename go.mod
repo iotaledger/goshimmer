@@ -11,7 +11,7 @@ require (
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/golang/protobuf v1.3.5
 	github.com/gorilla/websocket v1.4.1
-	github.com/iotaledger/hive.go v0.0.0-20200615181744-3ab0cddc15cf
+	github.com/iotaledger/hive.go v0.0.0-20200617164933-c48b4401b814
 	github.com/iotaledger/iota.go v1.0.0-beta.14
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0

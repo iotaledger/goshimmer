@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -83,10 +84,16 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			"--logger.level=debug",
 			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
 			fmt.Sprintf("--node.enablePlugins=%s", func() string {
+				var plugins []string
+				//TODO: remove this when snapshots is implemented
+				plugins = append(plugins, "testSnapshots")
 				if config.Bootstrap {
-					return "Bootstrap"
+					plugins = append(plugins, "Bootstrap")
 				}
-				return ""
+				if config.Faucet {
+					plugins = append(plugins, "faucet")
+				}
+				return strings.Join(plugins[:], ",")
 			}()),
 			fmt.Sprintf("--bootstrap.initialIssuance.timePeriodSec=%d", config.BootstrapInitialIssuanceTimePeriodSec),
 			"--webapi.bindAddress=0.0.0.0:8080",
