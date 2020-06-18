@@ -1,13 +1,13 @@
 package client
 
 import (
+	"io"
 	"strings"
 
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/hive.go/network"
 	"github.com/mr-tron/base58"
 )
 
@@ -17,7 +17,7 @@ type EventDispatchers struct {
 	Heartbeat func(heartbeat *packet.Heartbeat)
 }
 
-func sendHeartbeat(conn *network.ManagedConnection, hb *packet.Heartbeat) {
+func sendHeartbeat(w io.Writer, hb *packet.Heartbeat) {
 	var out strings.Builder
 	for _, value := range hb.OutboundIDs {
 		out.WriteString(base58.Encode(value))
@@ -39,9 +39,7 @@ func sendHeartbeat(conn *network.ManagedConnection, hb *packet.Heartbeat) {
 		return
 	}
 
-	connLock.Lock()
-	defer connLock.Unlock()
-	if _, err = conn.Write(data); err != nil {
+	if _, err = w.Write(data); err != nil {
 		log.Debugw("Error while writing to connection", "Description", err)
 	}
 	// trigger AnalysisOutboundBytes event

@@ -34,25 +34,18 @@ func init() {
 
 var (
 	// Plugin is the plugin instance of the analysis client plugin.
-	Plugin      = node.NewPlugin(PluginName, node.Enabled, run)
-	log         *logger.Logger
-	managedConn *network.ManagedConnection
-	connLock    sync.Mutex
+	Plugin = node.NewPlugin(PluginName, node.Enabled, run)
+	log    *logger.Logger
+	conn   = &connector{}
 )
 
 func run(_ *node.Plugin) {
 	finalized = make(map[string]vote.Opinion)
 	log = logger.NewLogger(PluginName)
 
-	conn, err := net.Dial("tcp", config.Node.GetString(CfgServerAddress))
-	if err != nil {
-		log.Debugf("Could not connect to reporting server: %s", err.Error())
-		return
-	}
-
-	managedConn = network.NewManagedConnection(conn)
-
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+		conn.Start()
+		defer conn.Stop()
 
 		onFinalizedClosure := events.NewClosure(onFinalized)
 		valuetransfers.Voter().Events().Finalized.Attach(onFinalizedClosure)
@@ -70,11 +63,61 @@ func run(_ *node.Plugin) {
 				return
 
 			case <-ticker.C:
-				sendHeartbeat(managedConn, createHeartbeat())
-				sendMetricHeartbeat(managedConn, createMetricHeartbeat())
+				sendHeartbeat(conn, createHeartbeat())
+				sendMetricHeartbeat(conn, createMetricHeartbeat())
 			}
 		}
 	}, shutdown.PriorityAnalysis); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
+}
+
+type connector struct {
+	mu sync.Mutex
+
+	conn *network.ManagedConnection
+
+	closeOnce sync.Once
+	closing   chan struct{}
+}
+
+func (c *connector) Start() {
+	c.closing = make(chan struct{})
+	c.new()
+}
+
+func (c *connector) Stop() {
+	c.closeOnce.Do(func() {
+		close(c.closing)
+		if c.conn != nil {
+			c.conn.Close()
+		}
+	})
+}
+
+func (c *connector) new() {
+	select {
+	case _ = <-c.closing:
+		return
+	default:
+		c.mu.Lock()
+		defer c.mu.Unlock()
+
+		conn, err := net.Dial("tcp", config.Node.GetString(CfgServerAddress))
+		if err != nil {
+			time.AfterFunc(1*time.Minute, c.new)
+			log.Warn(err)
+			return
+		}
+		c.conn = network.NewManagedConnection(conn)
+		c.conn.Events.Close.Attach(events.NewClosure(c.new))
+	}
+}
+
+func (c *connector) Write(b []byte) (int, error) {
+	// TODO: check that start was called
+	// TODO: check that Stop was not called
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.conn.Write(b)
 }

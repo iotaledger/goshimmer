@@ -30,9 +30,6 @@ func onRoundExecuted(roundStats *vote.RoundStats) {
 
 	chunks := splitFPCVoteContext(roundStats.ActiveVoteContexts)
 
-	connLock.Lock()
-	defer connLock.Unlock()
-
 	for _, chunk := range chunks {
 		// abort if empty round
 		if len(chunk) == 0 {
@@ -63,7 +60,7 @@ func onRoundExecuted(roundStats *vote.RoundStats) {
 
 		log.Info("Client: onRoundExecuted data size: ", len(data))
 
-		if _, err = managedConn.Write(data); err != nil {
+		if _, err = conn.Write(data); err != nil {
 			log.Debugw("Error while writing to connection", "Description", err)
 			return
 		}

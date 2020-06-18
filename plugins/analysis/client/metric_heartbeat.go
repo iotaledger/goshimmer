@@ -1,26 +1,24 @@
 package client
 
 import (
+	"io"
 	"runtime"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/hive.go/network"
 	"github.com/shirou/gopsutil/cpu"
 )
 
-func sendMetricHeartbeat(conn *network.ManagedConnection, hb *packet.MetricHeartbeat) {
+func sendMetricHeartbeat(w io.Writer, hb *packet.MetricHeartbeat) {
 	data, err := packet.NewMetricHeartbeatMessage(hb)
 	if err != nil {
 		log.Info(err, " - metric heartbeat message skipped")
 		return
 	}
 
-	connLock.Lock()
-	defer connLock.Unlock()
-	if _, err = conn.Write(data); err != nil {
+	if _, err = w.Write(data); err != nil {
 		log.Debugw("Error while writing to connection", "Description", err)
 	}
 	// trigger AnalysisOutboundBytes event
