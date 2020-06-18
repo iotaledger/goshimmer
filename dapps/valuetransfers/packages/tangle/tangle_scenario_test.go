@@ -85,7 +85,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		tangle.Expect("PayloadSolid", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
 		tangle.Expect("TransactionReceived", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything, mock.Anything)
 		tangle.Expect("TransactionSolid", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionBooked", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything, false)
+		tangle.Expect("TransactionBooked", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything, true)
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-GENESIS, A+, B+, C+]"])
@@ -159,7 +159,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		tangle.Expect("PayloadSolid", valueObjects["[-A, D+]"], mock.Anything)
 		tangle.Expect("TransactionReceived", transactions["[-A, D+]"], mock.Anything, mock.Anything)
 		tangle.Expect("TransactionSolid", transactions["[-A, D+]"], mock.Anything)
-		tangle.Expect("TransactionBooked", transactions["[-A, D+]"], mock.Anything, false)
+		tangle.Expect("TransactionBooked", transactions["[-A, D+]"], mock.Anything, true)
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-A, D+]"])
@@ -219,7 +219,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		tangle.Expect("PayloadSolid", valueObjects["[-B, -C, E+]"], mock.Anything)
 		tangle.Expect("TransactionReceived", transactions["[-B, -C, E+]"], mock.Anything, mock.Anything)
 		tangle.Expect("TransactionSolid", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("TransactionBooked", transactions["[-B, -C, E+]"], mock.Anything, false)
+		tangle.Expect("TransactionBooked", transactions["[-B, -C, E+]"], mock.Anything, true)
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-B, -C, E+]"])
@@ -418,7 +418,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		tangle.Expect("PayloadSolid", valueObjects["[-E, -F, G+]"], mock.Anything)
 		tangle.Expect("TransactionReceived", transactions["[-E, -F, G+]"], mock.Anything, mock.Anything)
 		tangle.Expect("TransactionSolid", transactions["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionBooked", transactions["[-E, -F, G+]"], mock.Anything, false)
+		tangle.Expect("TransactionBooked", transactions["[-E, -F, G+]"], mock.Anything, true)
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-E, -F, G+]"])
@@ -676,7 +676,7 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 		tangle.Expect("PayloadSolid", valueObjects["[-H, -D, I+]"], mock.Anything)
 		tangle.Expect("TransactionReceived", transactions["[-H, -D, I+]"], mock.Anything, mock.Anything)
 		tangle.Expect("TransactionSolid", transactions["[-H, -D, I+]"], mock.Anything)
-		tangle.Expect("TransactionBooked", transactions["[-H, -D, I+]"], mock.Anything, false)
+		tangle.Expect("TransactionBooked", transactions["[-H, -D, I+]"], mock.Anything, true)
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-H, -D, I+]"])

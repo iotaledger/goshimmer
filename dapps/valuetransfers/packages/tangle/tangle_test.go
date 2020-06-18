@@ -1614,7 +1614,7 @@ func TestMissingPayloadReceived(t *testing.T) {
 	event.Expect("MissingPayloadReceived", parent, mock.Anything)
 	event.Expect("PayloadSolid", child, mock.Anything)
 	event.Expect("TransactionSolid", tx, mock.Anything, mock.Anything)
-	event.Expect("TransactionBooked", tx, mock.Anything, mock.Anything)
+	event.Expect("TransactionBooked", tx, mock.Anything, true)
 
 	// submitting the parent makes everything solid
 	tangle.AttachPayloadSync(parent)
