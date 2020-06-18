@@ -32,14 +32,14 @@ func init() {
 var (
 	// Plugin is the plugin instance of the analysis client plugin.
 	Plugin = node.NewPlugin(PluginName, node.Enabled, run)
-	conn   = NewConnector("tcp", config.Node.GetString(CfgServerAddress))
-
-	log *logger.Logger
+	conn   *Connector
+	log    *logger.Logger
 )
 
 func run(_ *node.Plugin) {
 	finalized = make(map[string]vote.Opinion)
 	log = logger.NewLogger(PluginName)
+	conn = NewConnector("tcp", config.Node.GetString(CfgServerAddress))
 
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		conn.Start()
