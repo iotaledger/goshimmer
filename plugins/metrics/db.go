@@ -19,6 +19,7 @@ var (
 	})
 )
 
+// DBSize returns the size of the db.
 func DBSize() uint64 {
 	return dbSize.Load()
 }

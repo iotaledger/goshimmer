@@ -10,6 +10,7 @@ import (
 	"go.uber.org/atomic"
 )
 
+// ClientInfo holds info of a client.
 type ClientInfo struct {
 	OS          string
 	Arch        string

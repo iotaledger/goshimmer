@@ -14,8 +14,8 @@ var (
 	memUsageBytes atomic.Uint64
 )
 
-// CpuUsage returns the current cpu usage
-func CpuUsage() float64 {
+// CPUUsage returns the current cpu usage
+func CPUUsage() float64 {
 	return cpuUsage.Load()
 }
 

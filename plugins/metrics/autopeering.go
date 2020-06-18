@@ -44,12 +44,14 @@ var (
 	})
 )
 
+// NeighborDropCount returns the neighbor drop count.
 func NeighborDropCount() uint64 {
 	neighborMutex.RLock()
 	defer neighborMutex.RUnlock()
 	return neighborDropCount
 }
 
+// AvgNeighborConnectionLifeTime return the average neighbor connection lifetime.
 func AvgNeighborConnectionLifeTime() float64 {
 	neighborMutex.RLock()
 	defer neighborMutex.RUnlock()
@@ -59,12 +61,14 @@ func AvgNeighborConnectionLifeTime() float64 {
 	return float64(neighborConnectionsLifeTime.Milliseconds()) / float64(neighborDropCount)
 }
 
+// ConnectionsCount returns the neighbors connections count.
 func ConnectionsCount() uint64 {
 	distanceMutex.RLock()
 	defer distanceMutex.RUnlock()
 	return connectionsCount
 }
 
+// AutopeeringDistanceStats returns statistics of the autopeering distance function.
 func AutopeeringDistanceStats() (min, max uint64, avg float64) {
 	distanceMutex.RLock()
 	defer distanceMutex.RUnlock()

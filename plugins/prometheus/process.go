@@ -27,6 +27,6 @@ func registerProcessMetrics() {
 }
 
 func collectProcesskMetrics() {
-	cpuUsage.Set(float64(metrics.CpuUsage()))
+	cpuUsage.Set(float64(metrics.CPUUsage()))
 	memUsageBytes.Set(float64(metrics.MemUsage()))
 }

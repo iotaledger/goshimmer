@@ -19,22 +19,27 @@ var (
 	analysisOutboundBytes atomic.Uint64
 )
 
+// FPCInboundBytes returns the total inbound FPC traffic.
 func FPCInboundBytes() uint64 {
 	return _FPCInboundBytes.Load()
 }
 
+// FPCOutboundBytes returns the total outbound FPC traffic.
 func FPCOutboundBytes() uint64 {
 	return _FPCOutboundBytes.Load()
 }
 
+// GossipInboundBytes returns the total inbound gossip traffic.
 func GossipInboundBytes() uint64 {
 	return gossipCurrentRx.Load()
 }
 
+// GossipOutboundBytes returns the total outbound gossip traffic.
 func GossipOutboundBytes() uint64 {
 	return gossipCurrentTx.Load()
 }
 
+// AnalysisOutboundBytes returns the total outbound analysis traffic.
 func AnalysisOutboundBytes() uint64 {
 	return analysisOutboundBytes.Load()
 }
