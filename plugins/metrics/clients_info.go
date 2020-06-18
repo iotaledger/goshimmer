@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"fmt"
 	"sync"
 
 	analysisdashboard "github.com/iotaledger/goshimmer/plugins/analysis/dashboard"
@@ -54,7 +53,6 @@ func calculateNetworkDiameter() {
 	g := analysisdashboard.NetworkGraph()
 	diameter := g.Diameter()
 	networkDiameter.Store(int32(diameter))
-	fmt.Println("Calculated network diameter: ", diameter)
 }
 
 // NetworkDiameter returns the current network diameter.
