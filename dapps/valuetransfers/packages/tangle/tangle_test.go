@@ -76,7 +76,7 @@ func TestBookTransaction(t *testing.T) {
 		cachedTransaction, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 
 		transactionMetadata := cachedTransactionMetadata.Unwrap()
-		transactionMetadata.SetSolid(true)
+		transactionMetadata.setSolid(true)
 
 		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
 		require.NoError(t, err)
@@ -130,7 +130,7 @@ func TestBookTransaction(t *testing.T) {
 		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
 		require.NoError(t, err)
 		assert.True(t, transactionBooked, "transactionBooked")
-		assert.False(t, decisionPending, "decisionPending")
+		assert.True(t, decisionPending, "decisionPending")
 
 		// assert that branchID is the same as the MasterBranchID
 		assert.Equal(t, branchmanager.MasterBranchID, txMetadata.BranchID())
@@ -290,7 +290,7 @@ func TestFork(t *testing.T) {
 		_, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 		txMetadata := cachedTransactionMetadata.Unwrap()
 
-		txMetadata.SetFinalized(true)
+		txMetadata.setFinalized(true)
 
 		// no fork created so no event should be triggered
 		forked, finalized, err := tangle.Fork(tx.ID(), []transaction.OutputID{})
@@ -383,12 +383,12 @@ func TestBookPayload(t *testing.T) {
 		cachedPayload, cachedMetadata, _ := tangle.storePayload(valueObject)
 		metadata := cachedMetadata.Unwrap()
 
-		metadata.SetBranchID(branchmanager.BranchID{1})
-		metadata.SetBranchID(branchmanager.BranchID{2})
+		metadata.setBranchID(branchmanager.BranchID{1})
+		metadata.setBranchID(branchmanager.BranchID{2})
 
 		_, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 		txMetadata := cachedTransactionMetadata.Unwrap()
-		txMetadata.SetBranchID(branchmanager.BranchID{1})
+		txMetadata.setBranchID(branchmanager.BranchID{1})
 
 		event.Expect("PayloadSolid", valueObject, mock.Anything)
 		payloadBooked, err := tangle.bookPayload(cachedPayload.Retain(), cachedMetadata.Retain(), cachedTransactionMetadata.Retain())
@@ -413,12 +413,12 @@ func TestBookPayload(t *testing.T) {
 		cachedPayload, cachedMetadata, _ := tangle.storePayload(valueObject)
 		metadata := cachedMetadata.Unwrap()
 
-		metadata.SetBranchID(branchmanager.BranchID{1})
-		metadata.SetBranchID(branchmanager.BranchID{1})
+		metadata.setBranchID(branchmanager.BranchID{1})
+		metadata.setBranchID(branchmanager.BranchID{1})
 
 		_, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 		txMetadata := cachedTransactionMetadata.Unwrap()
-		txMetadata.SetBranchID(branchmanager.BranchID{1})
+		txMetadata.setBranchID(branchmanager.BranchID{1})
 
 		event.Expect("PayloadSolid", valueObject, mock.Anything)
 		payloadBooked, err := tangle.bookPayload(cachedPayload.Retain(), cachedMetadata.Retain(), cachedTransactionMetadata.Retain())
@@ -1106,8 +1106,8 @@ func TestCheckTransactionSolidity(t *testing.T) {
 		tangle := New(mapdb.NewMapDB())
 		tx := createDummyTransaction()
 		txMetadata := NewTransactionMetadata(tx.ID())
-		txMetadata.SetSolid(true)
-		txMetadata.SetBranchID(branchmanager.MasterBranchID)
+		txMetadata.setSolid(true)
+		txMetadata.setBranchID(branchmanager.MasterBranchID)
 
 		solid, consumedBranches, err := tangle.checkTransactionSolidity(tx, txMetadata)
 		assert.True(t, solid)
@@ -1279,7 +1279,7 @@ func TestPayloadBranchID(t *testing.T) {
 		expectedBranchID := branchmanager.BranchID{1}
 		cachedMetadata.Consume(func(metadata *PayloadMetadata) {
 			metadata.setSolid(true)
-			metadata.SetBranchID(expectedBranchID)
+			metadata.setBranchID(expectedBranchID)
 		})
 
 		branchID := tangle.payloadBranchID(valueObject.ID())
@@ -1308,7 +1308,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
 		metadata := NewPayloadMetadata(valueObject.ID())
 		metadata.setSolid(true)
-		metadata.SetBranchID(branchmanager.MasterBranchID)
+		metadata.setBranchID(branchmanager.MasterBranchID)
 
 		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
 		solid, err := tangle.payloadBecameNewlySolid(valueObject, metadata, transactionBranches)
@@ -1331,7 +1331,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 	{
 		setParent := func(payloadMetadata *PayloadMetadata) {
 			payloadMetadata.setSolid(true)
-			payloadMetadata.SetBranchID(branchmanager.MasterBranchID)
+			payloadMetadata.setBranchID(branchmanager.MasterBranchID)
 		}
 
 		valueObject := payload.New(storeParentPayloadWithMetadataFunc(t, tangle, setParent), storeParentPayloadWithMetadataFunc(t, tangle, setParent), createDummyTransaction())
@@ -1367,11 +1367,11 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		defer cachedBranch3.Release()
 		setParent1 := func(payloadMetadata *PayloadMetadata) {
 			payloadMetadata.setSolid(true)
-			payloadMetadata.SetBranchID(branchmanager.BranchID{2})
+			payloadMetadata.setBranchID(branchmanager.BranchID{2})
 		}
 		setParent2 := func(payloadMetadata *PayloadMetadata) {
 			payloadMetadata.setSolid(true)
-			payloadMetadata.SetBranchID(branchmanager.BranchID{3})
+			payloadMetadata.setBranchID(branchmanager.BranchID{3})
 		}
 
 		valueObject := payload.New(storeParentPayloadWithMetadataFunc(t, tangle, setParent1), storeParentPayloadWithMetadataFunc(t, tangle, setParent2), createDummyTransaction())
@@ -1392,11 +1392,11 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		defer cachedBranch3.Release()
 		setParent1 := func(payloadMetadata *PayloadMetadata) {
 			payloadMetadata.setSolid(true)
-			payloadMetadata.SetBranchID(branchmanager.MasterBranchID)
+			payloadMetadata.setBranchID(branchmanager.MasterBranchID)
 		}
 		setParent2 := func(payloadMetadata *PayloadMetadata) {
 			payloadMetadata.setSolid(true)
-			payloadMetadata.SetBranchID(branchmanager.BranchID{3})
+			payloadMetadata.setBranchID(branchmanager.BranchID{3})
 		}
 
 		valueObject := payload.New(storeParentPayloadWithMetadataFunc(t, tangle, setParent1), storeParentPayloadWithMetadataFunc(t, tangle, setParent2), createDummyTransaction())
