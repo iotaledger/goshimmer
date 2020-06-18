@@ -135,8 +135,8 @@ func processValuePayload(p payload.Payload) (vp ValuePayload) {
 		var b []Balance
 		for _, balance := range balances {
 			b = append(b, Balance{
-				Value: balance.Value(),
-				Color: balance.Color().String(),
+				Value: balance.Value,
+				Color: balance.Color.String(),
 			})
 		}
 		t := OutputContent{

@@ -100,6 +100,15 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	config.EntryNodeHost = n.namePrefix(containerNameEntryNode)
 	config.EntryNodePublicKey = n.entryNodePublicKey()
 	config.DisabledPlugins = disabledPluginsPeer
+	config.SnapshotFilePath = snapshotFilePath
+
+	// create wallet
+	var nodeWallet *wallet.Wallet
+	if c.Faucet == true {
+		nodeWallet = wallet.New(faucetSeed)
+	} else {
+		nodeWallet = wallet.New()
+	}
 
 	// create wallet
 	var nodeWallet *wallet.Wallet

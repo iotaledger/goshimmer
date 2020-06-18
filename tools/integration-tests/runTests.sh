@@ -10,8 +10,6 @@ docker pull angelocapossele/drand:latest
 docker pull gaiaadm/pumba:latest
 docker pull gaiadocker/iproute2:latest
 
-echo "Run integration tests"
-
 for name in $TEST_NAMES
 do
   TEST_NAME=$name docker-compose -f tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build

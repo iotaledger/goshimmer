@@ -7,21 +7,18 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/labstack/echo"
-	"github.com/labstack/gommon/log"
 )
 
 // Handler sends a transaction.
 func Handler(c echo.Context) error {
 	var request Request
 	if err := c.Bind(&request); err != nil {
-		log.Info(err.Error())
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
 	// prepare transaction
 	tx, _, err := transaction.FromBytes(request.TransactionBytes)
 	if err != nil {
-		log.Info(err.Error())
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
@@ -29,7 +26,6 @@ func Handler(c echo.Context) error {
 	payload := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
 	_, err = issuer.IssuePayload(payload)
 	if err != nil {
-		log.Info(err.Error())
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 

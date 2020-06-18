@@ -6,7 +6,6 @@ import Nav from "react-bootstrap/Nav";
 import {Dashboard} from "app/components/Dashboard";
 import Badge from "react-bootstrap/Badge";
 import {RouterStore} from 'mobx-react-router';
-import {Drng} from "app/components/Drng";
 import {Explorer} from "app/components/Explorer";
 import {NavExplorerSearchbar} from "app/components/NavExplorerSearchbar";
 import {Redirect, Route, Switch} from 'react-router-dom';
@@ -16,7 +15,6 @@ import {ExplorerAddressQueryResult} from "app/components/ExplorerAddressResult";
 import {Explorer404} from "app/components/Explorer404";
 import {Neighbors} from "app/components/Neighbors";
 import {Visualizer} from "app/components/Visualizer";
-import FPC from "app/components/FPC";
 
 interface Props {
     history: any;
@@ -61,16 +59,6 @@ export class Root extends React.Component<Props, any> {
                                 Visualizer
                             </Nav.Link>
                         </LinkContainer>
-                        <LinkContainer to="/drng">
-                            <Nav.Link>
-                                dRNG
-                            </Nav.Link>
-                        </LinkContainer>
-                        <LinkContainer to="/consensus">
-                            <Nav.Link>
-                                FPC
-                            </Nav.Link>
-                        </LinkContainer>
                     </Nav>
                     <Navbar.Collapse className="justify-content-end">
                         <NavExplorerSearchbar/>
@@ -88,9 +76,7 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/explorer/address/:id" component={ExplorerAddressQueryResult}/>
                     <Route exact path="/explorer/404/:search" component={Explorer404}/>
                     <Route exact path="/explorer" component={Explorer}/>
-                    <Route exact path="/consensus" component={FPC}/>
                     <Route exact path="/visualizer" component={Visualizer}/>
-                    <Route exact path="/drng" component={Drng}/>
                     <Redirect to="/dashboard"/>
                 </Switch>
                 {this.props.children}

@@ -15,8 +15,8 @@ const (
 
 	disabledPluginsEntryNode = "portcheck,dashboard,analysis-client,profiling,gossip,drng,issuer,sync,metrics,valuetransfers,testsnapshots,messagelayer,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint"
 	disabledPluginsPeer      = "portcheck,dashboard,analysis-client,profiling"
-
-	dockerLogsPrefixLen = 8
+	snapshotFilePath         = "/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin"
+	dockerLogsPrefixLen      = 8
 
 	dkgMaxTries = 50
 
@@ -35,6 +35,7 @@ type GoShimmerConfig struct {
 	EntryNodeHost      string
 	EntryNodePublicKey string
 	DisabledPlugins    string
+	SnapshotFilePath   string
 
 	Bootstrap                             bool
 	BootstrapInitialIssuanceTimePeriodSec int

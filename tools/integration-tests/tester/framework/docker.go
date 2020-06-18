@@ -82,6 +82,8 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 		Cmd: strslice.StrSlice{
 			"--skip-config=true",
 			"--logger.level=debug",
+			fmt.Sprintf("--valueLayer.fcob.averageNetworkDelay=%d", ParaFCoBAverageNetworkDelay),
+			fmt.Sprintf("--autopeering.outboundUpdateIntervalMs=%d", ParaOutboundUpdateIntervalMs),
 			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
 			fmt.Sprintf("--node.enablePlugins=%s", func() string {
 				var plugins []string
@@ -95,6 +97,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				}
 				return strings.Join(plugins[:], ",")
 			}()),
+			fmt.Sprintf("--valueLayer.snapshot.file=%s", config.SnapshotFilePath),
 			fmt.Sprintf("--bootstrap.initialIssuance.timePeriodSec=%d", config.BootstrapInitialIssuanceTimePeriodSec),
 			"--webapi.bindAddress=0.0.0.0:8080",
 			fmt.Sprintf("--autopeering.seed=base58:%s", config.Seed),
@@ -106,7 +109,9 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 		},
 	}
 
-	return d.CreateContainer(config.Name, containerConfig)
+	return d.CreateContainer(config.Name, containerConfig, &container.HostConfig{
+		Binds: []string{"goshimmer-testing-assets:/assets:rw"},
+	})
 }
 
 // CreateDrandMember creates a new container with the drand configuration.
@@ -155,7 +160,7 @@ func (d *DockerContainer) CreatePumba(name string, containerName string, targetI
 	cmd = append(cmd, slice...)
 
 	containerConfig := &container.Config{
-		Image: "gaiaadm/pumba:latest",
+		Image: "gaiaadm/pumba:0.7.2",
 		Cmd:   cmd,
 	}
 
