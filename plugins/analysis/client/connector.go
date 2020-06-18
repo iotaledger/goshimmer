@@ -95,7 +95,6 @@ func (c *Connector) dial() {
 		c.conn = nil
 		conn, err := net.Dial(c.network, c.address)
 		if err != nil {
-			log.Warnw("Dial error", "err", err)
 			go c.scheduleRedial()
 			return
 		}
