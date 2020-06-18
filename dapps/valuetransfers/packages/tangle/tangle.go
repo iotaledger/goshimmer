@@ -1176,6 +1176,7 @@ func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.
 	transactionSolid, consumedBranches, transactionSolidityErr := tangle.checkTransactionSolidity(currentTransaction, currentTransactionMetadata)
 	if transactionSolidityErr != nil {
 		tangle.Events.TransactionInvalid.Trigger(solidificationStackEntry.CachedTransaction, solidificationStackEntry.CachedTransactionMetadata, transactionSolidityErr)
+		tangle.Events.PayloadInvalid.Trigger(solidificationStackEntry.CachedPayload, solidificationStackEntry.CachedPayloadMetadata, transactionSolidityErr)
 
 		tangle.deleteTransactionFutureCone(currentTransaction.ID())
 
