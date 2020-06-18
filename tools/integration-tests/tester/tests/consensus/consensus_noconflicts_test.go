@@ -99,7 +99,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 			}),
 		)
 		secondReceiverAddresses[i] = addr.String()
-		tx = tx.Sign(signaturescheme.ED25519(*secondReceiverWallet.Seed().KeyPair(uint64(i))))
+		tx = tx.Sign(signaturescheme.ED25519(*firstReceiver.Seed().KeyPair(uint64(i))))
 		txID, err := n.Peers()[rand.Intn(len(n.Peers()))].SendTransaction(tx.Bytes())
 		require.NoError(t, err)
 
@@ -124,6 +124,6 @@ func TestConsensusNoConflicts(t *testing.T) {
 		},
 	)
 
-	log.Println("check that the 2nd bach of receive addresses is the same on all peers")
+	log.Println("check that the 2nd batch of receive addresses is the same on all peers")
 	tests.CheckBalances(t, n.Peers(), secondReceiverExpectedBalances)
 }
