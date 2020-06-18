@@ -1,9 +1,6 @@
 package client
 
 import (
-	"errors"
-	"net"
-	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
@@ -13,8 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/netutil"
-	"github.com/iotaledger/hive.go/network"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
 )
@@ -37,8 +32,9 @@ func init() {
 var (
 	// Plugin is the plugin instance of the analysis client plugin.
 	Plugin = node.NewPlugin(PluginName, node.Enabled, run)
-	log    *logger.Logger
-	conn   = &connector{}
+	conn   = NewConnector("tcp", config.Node.GetString(CfgServerAddress))
+
+	log *logger.Logger
 )
 
 func run(_ *node.Plugin) {
@@ -72,74 +68,4 @@ func run(_ *node.Plugin) {
 	}, shutdown.PriorityAnalysis); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-}
-
-type connector struct {
-	mu sync.Mutex
-
-	conn *network.ManagedConnection
-
-	closeOnce sync.Once
-	closing   chan struct{}
-}
-
-func (c *connector) Start() {
-	c.closing = make(chan struct{})
-	c.new()
-}
-
-func (c *connector) Stop() {
-	c.closeOnce.Do(func() {
-		close(c.closing)
-		if c.conn != nil {
-			c.conn.Close()
-		}
-	})
-}
-
-func (c *connector) new() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	select {
-	case _ = <-c.closing:
-		return
-	default:
-		c.conn = nil
-		tcpConn, err := net.Dial("tcp", config.Node.GetString(CfgServerAddress))
-		if err != nil {
-			time.AfterFunc(1*time.Minute, c.new)
-			log.Warn(err)
-			return
-		}
-		c.conn = network.NewManagedConnection(tcpConn)
-		c.conn.Events.Close.Attach(events.NewClosure(c.new))
-	}
-}
-
-// Close closes the current connection.
-func (c *connector) Close() (err error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.conn != nil {
-		err = c.conn.Close()
-	}
-	return
-}
-
-func (c *connector) Write(b []byte) (int, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.conn == nil {
-		return 0, errors.New("no connection established")
-	}
-	n, err := c.conn.Write(b)
-	// TODO: should the closing rather only happen outside?
-	// TODO: is the IsTemporaryError useful here?
-	if err != nil && !netutil.IsTemporaryError(err) {
-		c.conn.Close()
-	}
-	return n, err
 }
