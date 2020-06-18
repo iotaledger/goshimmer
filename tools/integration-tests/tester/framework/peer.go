@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/client"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	"github.com/iotaledger/goshimmer/plugins/webapi/autopeering"
 	"github.com/iotaledger/hive.go/identity"
 )
@@ -24,13 +25,16 @@ type Peer struct {
 	// the DockerContainer that this peer is running in
 	*DockerContainer
 
+	// Wallet
+	*wallet.Wallet
+
 	chosen   []autopeering.Neighbor
 	accepted []autopeering.Neighbor
 }
 
 // newPeer creates a new instance of Peer with the given information.
 // dockerContainer needs to be started in order to determine the container's (and therefore peer's) IP correctly.
-func newPeer(name string, identity *identity.Identity, dockerContainer *DockerContainer, network *Network) (*Peer, error) {
+func newPeer(name string, identity *identity.Identity, dockerContainer *DockerContainer, wallet *wallet.Wallet, network *Network) (*Peer, error) {
 	// after container is started we can get its IP
 	ip, err := dockerContainer.IP(network.name)
 	if err != nil {
@@ -43,6 +47,7 @@ func newPeer(name string, identity *identity.Identity, dockerContainer *DockerCo
 		Identity:        identity,
 		GoShimmerAPI:    client.NewGoShimmerAPI(getWebAPIBaseURL(name), http.Client{Timeout: 30 * time.Second}),
 		DockerContainer: dockerContainer,
+		Wallet:          wallet,
 	}, nil
 }
 
