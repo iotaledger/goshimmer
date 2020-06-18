@@ -91,6 +91,7 @@ func (dataPayload *Data) Unmarshal(data []byte) (err error) {
 
 func (dataPayload *Data) String() string {
 	return stringify.Struct("Data",
+		stringify.StructField("type", int(dataPayload.Type())),
 		stringify.StructField("data", string(dataPayload.Data())),
 	)
 }
