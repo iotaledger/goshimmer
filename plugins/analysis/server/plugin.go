@@ -86,14 +86,14 @@ func run(_ *node.Plugin) {
 func HandleConnection(conn *network.ManagedConnection) {
 	err := conn.SetReadTimeout(IdleTimeout)
 	if err != nil {
-		log.Warnw("Error setting read timeout; closing connection", "err", err)
+		log.Debugw("Error setting read timeout; closing connection", "err", err)
 		_ = conn.Close()
 		return
 	}
 	onReceiveData := events.NewClosure(func(data []byte) {
 		_, err := prot.Read(data)
 		if err != nil {
-			log.Warnw("Invalid message received; closing connection", "err", err)
+			log.Debugw("Invalid message received; closing connection", "err", err)
 			_ = conn.Close()
 		}
 	})
@@ -103,7 +103,7 @@ func HandleConnection(conn *network.ManagedConnection) {
 		buffer := make([]byte, 2048)
 		_, err := conn.Read(buffer)
 		if err != nil && err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
-			log.Warnw("Read error", "err", err)
+			log.Debugw("Read error", "err", err)
 		}
 		// always close the connection when we've stopped reading from it
 		_ = conn.Close()
