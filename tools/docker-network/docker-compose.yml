@@ -44,7 +44,7 @@ services:
     command: >
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
-      --node.enablePlugins=bootstrap,prometheus
+      --node.enablePlugins=bootstrap,prometheus,spammer
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go

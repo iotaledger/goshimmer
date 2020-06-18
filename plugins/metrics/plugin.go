@@ -55,16 +55,16 @@ func run(_ *node.Plugin) {
 				measureCPUUsage()
 				measureMemUsage()
 				measureSynced()
+				measureMPSPerPayload()
+				measureMessageTips()
+				measureReceivedTPS()
+				measureValueTips()
 
 				// gossip network traffic
 				g := gossipCurrentTraffic()
 				gossipCurrentRx.Store(uint64(g.BytesRead))
 				gossipCurrentTx.Store(uint64(g.BytesWritten))
 			}, 1*time.Second, shutdownSignal)
-			timeutil.Ticker(measureMPSPerPayload, MPSMeasurementInterval, shutdownSignal)
-			timeutil.Ticker(measureMessageTips, MessageTipsMeasurementInterval, shutdownSignal)
-			timeutil.Ticker(measureReceivedTPS, TPSMeasurementInterval, shutdownSignal)
-			timeutil.Ticker(measureValueTips, ValueTipsMeasurementInterval, shutdownSignal)
 		}
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
