@@ -3,6 +3,7 @@ package consensus
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
@@ -138,9 +139,10 @@ func (fcob *FCOB) setFinalized(cachedTransactionMetadata *tangle.CachedTransacti
 
 // onFork triggers a voting process whenever a Transaction gets forked into a new Branch. The initial opinion is derived
 // from the preferred flag that was set using the FCOB rule.
-func (fcob *FCOB) onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
+func (fcob *FCOB) onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, cachedTargetBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
+	defer cachedTargetBranch.Release()
 
 	transactionMetadata := cachedTransactionMetadata.Unwrap()
 	if transactionMetadata == nil {
