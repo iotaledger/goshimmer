@@ -55,7 +55,6 @@ func NewManager(local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manag
 		srv:       nil,
 		neighbors: make(map[identity.ID]*Neighbor),
 	}
-	m.inboxWorkerPool.Tune(2)
 	return m
 }
 
