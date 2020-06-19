@@ -105,15 +105,7 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	// create wallet
 	var nodeWallet *wallet.Wallet
 	if c.Faucet == true {
-		nodeWallet = wallet.New(faucetSeed)
-	} else {
-		nodeWallet = wallet.New()
-	}
-
-	// create wallet
-	var nodeWallet *wallet.Wallet
-	if c.Faucet == true {
-		nodeWallet = wallet.New(faucetSeed)
+		nodeWallet = wallet.New(genesisSeed)
 	} else {
 		nodeWallet = wallet.New()
 	}

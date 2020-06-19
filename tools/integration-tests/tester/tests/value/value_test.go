@@ -18,27 +18,37 @@ func TestTransactionPersistence(t *testing.T) {
 	// wait for peers to change their state to synchronized
 	time.Sleep(5 * time.Second)
 
-	// faucet node sends 100 IOTA tokens to all peers in the network
-	txIds, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
+	// master node sends funds to all peers in the network
+	txIdsSlice, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
+	txIds := make(map[string]*tests.ExpectedTransaction)
+	for _, txID := range txIdsSlice {
+		txIds[txID] = nil
+	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * valuetransfers.AverageNetworkDelay)
+	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
 
 	// check whether the first issued transaction is available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true)
+	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
+		Confirmed: tests.True(),
+	})
 
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
 	// send value message randomly
 	randomTxIds := tests.SendTransactionOnRandomPeer(t, n.Peers(), addrBalance, 10, 100)
-	txIds = append(txIds, randomTxIds...)
+	for _, randomTxId := range randomTxIds {
+		txIds[randomTxId] = nil
+	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * valuetransfers.AverageNetworkDelay)
+	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
 
 	// check whether all issued transactions are available on all nodes and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true)
+	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
+		Confirmed: tests.True(),
+	})
 
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
@@ -59,7 +69,9 @@ func TestTransactionPersistence(t *testing.T) {
 	time.Sleep(20 * time.Second)
 
 	// check whether all issued transactions are available on all nodes and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true)
+	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
+		Confirmed: tests.True(),
+	})
 
 	// 5. check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
@@ -75,26 +87,36 @@ func TestValueColoredPersistence(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// master node sends funds to all peers in the network
-	txIds, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
+	txIdsSlice, addrBalance := tests.SendTransactionFromFaucet(t, n.Peers(), 100)
+	txIds := make(map[string]*tests.ExpectedTransaction)
+	for _, txID := range txIdsSlice {
+		txIds[txID] = nil
+	}
 
 	// wait for messages to be gossiped
-	time.Sleep(2 * valuetransfers.AverageNetworkDelay)
+	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
 
 	// check whether the transactions are available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true)
+	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
+		Confirmed: tests.True(),
+	})
 
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
 
 	// send funds around
 	randomTxIds := tests.SendColoredTransactionOnRandomPeer(t, n.Peers(), addrBalance, 10)
-	txIds = append(txIds, randomTxIds...)
+	for _, randomTxId := range randomTxIds {
+		txIds[randomTxId] = nil
+	}
 
 	// wait for value messages to be gossiped
-	time.Sleep(2 * valuetransfers.AverageNetworkDelay)
+	time.Sleep(2 * valuetransfers.DefaultAverageNetworkDelay)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true)
+	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
+		Confirmed: tests.True(),
+	})
 
 	// check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
@@ -115,7 +137,9 @@ func TestValueColoredPersistence(t *testing.T) {
 	time.Sleep(20 * time.Second)
 
 	// check whether all issued transactions are persistently available on all nodes, and confirmed
-	tests.CheckTransactions(t, n.Peers(), txIds, true)
+	tests.CheckTransactions(t, n.Peers(), txIds, true, tests.ExpectedInclusionState{
+		Confirmed: tests.True(),
+	})
 
 	// 5. check ledger state
 	tests.CheckBalances(t, n.Peers(), addrBalance)
