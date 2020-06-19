@@ -30,9 +30,9 @@ func (api *GoShimmerAPI) FindMessageByID(base58EncodedIDs []string) (*webapi_mes
 
 // SendPayload send a message with the given payload.
 func (api *GoShimmerAPI) SendPayload(payload []byte) (string, error) {
-	res := &webapi_message.MessageResponse{}
+	res := &webapi_message.MsgResponse{}
 	if err := api.do(http.MethodPost, routeSendPayload,
-		&webapi_message.MessageRequest{Payload: payload}, res); err != nil {
+		&webapi_message.MsgRequest{Payload: payload}, res); err != nil {
 		return "", err
 	}
 
