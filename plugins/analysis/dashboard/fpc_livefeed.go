@@ -67,9 +67,9 @@ func runFPCLiveFeed() {
 				log.Info("Stopping Analysis[FPCUpdater] ... done")
 				return
 			case <-cleanUpTicker.C:
-				log.Info("Cleaning up Finalized Conflicts ...")
+				log.Debug("Cleaning up Finalized Conflicts ...")
 				recordedConflicts.cleanUp()
-				log.Info("Cleaning up Finalized Conflicts ... done")
+				log.Debug("Cleaning up Finalized Conflicts ... done")
 			}
 		}
 	}, shutdown.PriorityDashboard); err != nil {

@@ -147,14 +147,14 @@ func registerClientsMetrics() {
 	registry.MustRegister(clientsNeighborCount)
 	registry.MustRegister(networkDiameter)
 
-	registry.MustRegister(conflictFinalizationRounds)
+	registry.MustRegister(conflictCount)
 	registry.MustRegister(conflictFinalizationRounds)
 	registry.MustRegister(conflictInitialOpinion)
 	registry.MustRegister(conflictOutcome)
 
-	addCollect(collectClientsInfo)
-
 	metricspkg.Events().AnalysisFPCFinalized.Attach(onFPCFinalized)
+
+	addCollect(collectClientsInfo)
 }
 
 func collectClientsInfo() {
@@ -181,6 +181,7 @@ func collectClientsInfo() {
 	}
 
 	networkDiameter.Set(float64(metrics.NetworkDiameter()))
+
 }
 
 func opinionToString(opinion vote.Opinion) string {
