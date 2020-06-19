@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,9 +34,9 @@ const (
 // TODO: clean up create scenario with some helper functions: DRY!
 
 // preparePropagationScenario1 creates a tangle according to `img/scenario1.png`.
-func preparePropagationScenario1(t *testing.T) (*Tangle, map[string]*transaction.Transaction, map[string]*payload.Payload, map[string]branchmanager.BranchID, *wallet.Seed) {
+func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transaction.Transaction, map[string]*payload.Payload, map[string]branchmanager.BranchID, *wallet.Seed) {
 	// create tangle
-	tangle := New(mapdb.NewMapDB())
+	tangle := newEventTangle(t, New(mapdb.NewMapDB()))
 
 	// create seed for testing
 	seed := wallet.NewSeed()
@@ -79,6 +80,12 @@ func preparePropagationScenario1(t *testing.T) (*Tangle, map[string]*transaction
 
 		// check if signatures are valid
 		assert.True(t, transactions["[-GENESIS, A+, B+, C+]"].SignaturesValid())
+
+		tangle.Expect("PayloadAttached", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("PayloadSolid", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionReceived", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything, mock.Anything)
+		tangle.Expect("TransactionSolid", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionBooked", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything, true)
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-GENESIS, A+, B+, C+]"])
@@ -148,6 +155,12 @@ func preparePropagationScenario1(t *testing.T) (*Tangle, map[string]*transaction
 		// check if signatures are valid
 		assert.True(t, transactions["[-A, D+]"].SignaturesValid())
 
+		tangle.Expect("PayloadAttached", valueObjects["[-A, D+]"], mock.Anything)
+		tangle.Expect("PayloadSolid", valueObjects["[-A, D+]"], mock.Anything)
+		tangle.Expect("TransactionReceived", transactions["[-A, D+]"], mock.Anything, mock.Anything)
+		tangle.Expect("TransactionSolid", transactions["[-A, D+]"], mock.Anything)
+		tangle.Expect("TransactionBooked", transactions["[-A, D+]"], mock.Anything, true)
+
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-A, D+]"])
 
@@ -202,6 +215,12 @@ func preparePropagationScenario1(t *testing.T) (*Tangle, map[string]*transaction
 		// check if signatures are valid
 		assert.True(t, transactions["[-B, -C, E+]"].SignaturesValid())
 
+		tangle.Expect("PayloadAttached", valueObjects["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("PayloadSolid", valueObjects["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("TransactionReceived", transactions["[-B, -C, E+]"], mock.Anything, mock.Anything)
+		tangle.Expect("TransactionSolid", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("TransactionBooked", transactions["[-B, -C, E+]"], mock.Anything, true)
+
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-B, -C, E+]"])
 
@@ -247,6 +266,9 @@ func preparePropagationScenario1(t *testing.T) (*Tangle, map[string]*transaction
 		// create payload
 		valueObjects["[-B, -C, E+] (Reattachment)"] = payload.New(valueObjects["[-B, -C, E+]"].ID(), valueObjects["[-GENESIS, A+, B+, C+]"].ID(), transactions["[-B, -C, E+]"])
 
+		tangle.Expect("PayloadAttached", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+		tangle.Expect("PayloadSolid", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-B, -C, E+] (Reattachment)"])
 
@@ -290,9 +312,10 @@ func preparePropagationScenario1(t *testing.T) (*Tangle, map[string]*transaction
 	// [-A, F+]
 	{
 		// create transaction + payload
+		outputA := transaction.NewOutputID(seed.Address(A), transactions["[-GENESIS, A+, B+, C+]"].ID())
 		transactions["[-A, F+]"] = transaction.New(
 			transaction.NewInputs(
-				transaction.NewOutputID(seed.Address(A), transactions["[-GENESIS, A+, B+, C+]"].ID()),
+				outputA,
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
@@ -306,6 +329,13 @@ func preparePropagationScenario1(t *testing.T) (*Tangle, map[string]*transaction
 
 		// check if signatures are valid
 		assert.True(t, transactions["[-A, F+]"].SignaturesValid())
+
+		tangle.Expect("PayloadAttached", valueObjects["[-A, F+]"], mock.Anything)
+		tangle.Expect("PayloadSolid", valueObjects["[-A, F+]"], mock.Anything)
+		tangle.Expect("TransactionReceived", transactions["[-A, F+]"], mock.Anything, mock.Anything)
+		tangle.Expect("TransactionSolid", transactions["[-A, F+]"], mock.Anything)
+		tangle.Expect("TransactionBooked", transactions["[-A, F+]"], mock.Anything, true)
+		tangle.Expect("Fork", transactions["[-A, D+]"], mock.Anything, mock.Anything, []transaction.OutputID{outputA})
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-A, F+]"])
@@ -384,6 +414,12 @@ func preparePropagationScenario1(t *testing.T) (*Tangle, map[string]*transaction
 		// check if signatures are valid
 		assert.True(t, transactions["[-E, -F, G+]"].SignaturesValid())
 
+		tangle.Expect("PayloadAttached", valueObjects["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("PayloadSolid", valueObjects["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionReceived", transactions["[-E, -F, G+]"], mock.Anything, mock.Anything)
+		tangle.Expect("TransactionSolid", transactions["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionBooked", transactions["[-E, -F, G+]"], mock.Anything, true)
+
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-E, -F, G+]"])
 
@@ -446,6 +482,11 @@ func preparePropagationScenario1(t *testing.T) (*Tangle, map[string]*transaction
 		// check if signatures are valid
 		assert.True(t, transactions["[-F, -D, Y+]"].SignaturesValid())
 
+		tangle.Expect("PayloadAttached", valueObjects["[-F, -D, Y+]"], mock.Anything)
+		tangle.Expect("PayloadInvalid", valueObjects["[-F, -D, Y+]"], mock.Anything, mock.MatchedBy(func(err error) bool { return assert.Error(t, err) }))
+		tangle.Expect("TransactionReceived", transactions["[-F, -D, Y+]"], mock.Anything, mock.Anything)
+		tangle.Expect("TransactionInvalid", transactions["[-F, -D, Y+]"], mock.Anything, mock.MatchedBy(func(err error) bool { return assert.Error(t, err) }))
+
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-F, -D, Y+]"])
 
@@ -468,6 +509,9 @@ func preparePropagationScenario1(t *testing.T) (*Tangle, map[string]*transaction
 	// [-B, -C, E+] (2nd Reattachment)
 	{
 		valueObjects["[-B, -C, E+] (2nd Reattachment)"] = payload.New(valueObjects["[-A, F+]"].ID(), valueObjects["[-A, D+]"].ID(), transactions["[-B, -C, E+]"])
+
+		tangle.Expect("PayloadAttached", valueObjects["[-B, -C, E+] (2nd Reattachment)"], mock.Anything)
+		tangle.Expect("PayloadInvalid", valueObjects["[-B, -C, E+] (2nd Reattachment)"], mock.Anything, mock.MatchedBy(func(err error) bool { return assert.Error(t, err) }))
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-B, -C, E+] (2nd Reattachment)"])
@@ -498,15 +542,16 @@ func preparePropagationScenario1(t *testing.T) (*Tangle, map[string]*transaction
 }
 
 // preparePropagationScenario1 creates a tangle according to `img/scenario2.png`.
-func preparePropagationScenario2(t *testing.T) (*Tangle, map[string]*transaction.Transaction, map[string]*payload.Payload, map[string]branchmanager.BranchID, *wallet.Seed) {
+func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transaction.Transaction, map[string]*payload.Payload, map[string]branchmanager.BranchID, *wallet.Seed) {
 	tangle, transactions, valueObjects, branches, seed := preparePropagationScenario1(t)
 
 	// [-C, H+]
 	{
 		// create transaction + payload
+		outputC := transaction.NewOutputID(seed.Address(C), transactions["[-GENESIS, A+, B+, C+]"].ID())
 		transactions["[-C, H+]"] = transaction.New(
 			transaction.NewInputs(
-				transaction.NewOutputID(seed.Address(C), transactions["[-GENESIS, A+, B+, C+]"].ID()),
+				outputC,
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
@@ -520,6 +565,13 @@ func preparePropagationScenario2(t *testing.T) (*Tangle, map[string]*transaction
 
 		// check if signatures are valid
 		assert.True(t, transactions["[-C, H+]"].SignaturesValid())
+
+		tangle.Expect("PayloadAttached", valueObjects["[-C, H+]"], mock.Anything)
+		tangle.Expect("PayloadSolid", valueObjects["[-C, H+]"], mock.Anything)
+		tangle.Expect("TransactionReceived", transactions["[-C, H+]"], mock.Anything, mock.Anything)
+		tangle.Expect("TransactionSolid", transactions["[-C, H+]"], mock.Anything)
+		tangle.Expect("TransactionBooked", transactions["[-C, H+]"], mock.Anything, true)
+		tangle.Expect("Fork", transactions["[-B, -C, E+]"], mock.Anything, mock.Anything, []transaction.OutputID{outputC})
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-C, H+]"])
@@ -620,6 +672,12 @@ func preparePropagationScenario2(t *testing.T) (*Tangle, map[string]*transaction
 		// check if signatures are valid
 		assert.True(t, transactions["[-H, -D, I+]"].SignaturesValid())
 
+		tangle.Expect("PayloadAttached", valueObjects["[-H, -D, I+]"], mock.Anything)
+		tangle.Expect("PayloadSolid", valueObjects["[-H, -D, I+]"], mock.Anything)
+		tangle.Expect("TransactionReceived", transactions["[-H, -D, I+]"], mock.Anything, mock.Anything)
+		tangle.Expect("TransactionSolid", transactions["[-H, -D, I+]"], mock.Anything)
+		tangle.Expect("TransactionBooked", transactions["[-H, -D, I+]"], mock.Anything, true)
+
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-H, -D, I+]"])
 
@@ -683,6 +741,12 @@ func preparePropagationScenario2(t *testing.T) (*Tangle, map[string]*transaction
 		// check if signatures are valid
 		assert.True(t, transactions["[-B, J+]"].SignaturesValid())
 
+		tangle.Expect("PayloadAttached", valueObjects["[-B, J+]"], mock.Anything)
+		tangle.Expect("PayloadSolid", valueObjects["[-B, J+]"], mock.Anything)
+		tangle.Expect("TransactionReceived", transactions["[-B, J+]"], mock.Anything, mock.Anything)
+		tangle.Expect("TransactionSolid", transactions["[-B, J+]"], mock.Anything)
+		tangle.Expect("TransactionBooked", transactions["[-B, J+]"], mock.Anything, true)
+
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-B, J+]"])
 
@@ -736,6 +800,7 @@ func TestPropagationScenario1(t *testing.T) {
 	// test past cone monotonicity - all value objects MUST be confirmed
 	{
 		tangle, transactions, valueObjects, _, _ := preparePropagationScenario1(t)
+		defer tangle.DetachAll()
 
 		// initialize debugger for this test
 		debugger.ResetAliases()
@@ -746,42 +811,79 @@ func TestPropagationScenario1(t *testing.T) {
 			debugger.RegisterAlias(tx.ID(), "TransactionID"+name)
 		}
 
+		// preferring [-GENESIS, A+, B+, C+] will get it liked
+		tangle.Expect("TransactionPreferred", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionLiked", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
+
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
 		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, false, true, false, false)
 
-		// should not be confirmed because [-GENESIS, A+, B+, C+] is not confirmed
+		// finalizing [-B, -C, E+] will not get it confirmed, as [-GENESIS, A+, B+, C+] is not yet confirmed
+		tangle.Expect("TransactionPreferred", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("TransactionLiked", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], true, true, true, false, false)
 
-		// now finalize [-GENESIS, A+, B+, C+]
+		// finalize [-GENESIS, A+, B+, C+] to also get [-B, -C, E+] as well as [-B, -C, E+] (Reattachment) confirmed
+		tangle.Expect("TransactionFinalized", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionConfirmed", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionConfirmed", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("PayloadConfirmed", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("PayloadConfirmed", valueObjects["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("PayloadConfirmed", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, true, true, true, false)
-
-		// and [-B, -C, E+] should be confirmed now too
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], true, true, true, true, false)
-		// as well as the reattachment
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], true, true, true, true, false)
+
+		tangle.AssertExpectations(t)
 	}
 
 	// test future cone monotonicity simple - everything MUST be rejected and finalized if spending funds from rejected tx
 	{
 		tangle, transactions, valueObjects, _, _ := preparePropagationScenario1(t)
+		defer tangle.DetachAll()
+
+		// finalizing [-GENESIS, A+, B+, C+] will get the entire future cone finalized and rejected
+		tangle.Expect("TransactionFinalized", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionRejected", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("TransactionRejected", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-A, D+]"], mock.Anything)
+		tangle.Expect("TransactionRejected", transactions["[-A, D+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-A, F+]"], mock.Anything)
+		tangle.Expect("TransactionRejected", transactions["[-A, F+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionRejected", transactions["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("PayloadRejected", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("PayloadRejected", valueObjects["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("PayloadRejected", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+		tangle.Expect("PayloadRejected", valueObjects["[-A, D+]"], mock.Anything)
+		tangle.Expect("PayloadRejected", valueObjects["[-A, F+]"], mock.Anything)
+		tangle.Expect("PayloadRejected", valueObjects["[-E, -F, G+]"], mock.Anything)
 
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], false, true, false, false, true)
-
-		// check future cone to be rejected
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], false, true, false, false, true)
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], false, true, false, false, true)
 		verifyInclusionState(t, tangle, valueObjects["[-A, D+]"], false, true, false, false, true)
 		verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], false, true, false, false, true)
 		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], false, true, false, false, true)
+
+		tangle.AssertExpectations(t)
 	}
 
 	// test future cone monotonicity more complex - everything MUST be rejected and finalized if spending funds from rejected tx
 	{
 		tangle, transactions, valueObjects, branches, _ := preparePropagationScenario1(t)
+		defer tangle.DetachAll()
 
 		// initialize debugger for this test
 		debugger.ResetAliases()
@@ -792,9 +894,25 @@ func TestPropagationScenario1(t *testing.T) {
 			debugger.RegisterAlias(tx.ID(), "TransactionID"+name)
 		}
 
+		tangle.Expect("TransactionPreferred", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionLiked", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionConfirmed", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("PayloadConfirmed", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
+
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, true, true, true, false)
+
+		tangle.Expect("PayloadRejected", valueObjects["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("TransactionRejected", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("PayloadRejected", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+		tangle.Expect("PayloadRejected", valueObjects["[-A, F+]"], mock.Anything)
+		tangle.Expect("PayloadRejected", valueObjects["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionRejected", transactions["[-E, -F, G+]"], mock.Anything)
 
 		// finalize & reject
 		//debugger.Enable()
@@ -816,11 +934,21 @@ func TestPropagationScenario1(t *testing.T) {
 		// [-A, D+] should be unchanged
 		verifyInclusionState(t, tangle, valueObjects["[-A, D+]"], false, false, false, false, false)
 		verifyBranchState(t, tangle, branches["A"], false, false, false, false)
+
+		tangle.AssertExpectations(t)
 	}
 
 	// simulate vote on [-A, F+] -> Branch A becomes rejected, Branch B confirmed
 	{
 		tangle, transactions, valueObjects, branches, _ := preparePropagationScenario1(t)
+		defer tangle.DetachAll()
+
+		tangle.Expect("PayloadLiked", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("PayloadConfirmed", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionPreferred", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionLiked", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionConfirmed", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
 
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
@@ -833,54 +961,134 @@ func TestPropagationScenario1(t *testing.T) {
 		verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], false, false, false, false, false)
 		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], false, false, false, false, false)
 
+		tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("PayloadConfirmed", valueObjects["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+		tangle.Expect("PayloadConfirmed", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+		tangle.Expect("TransactionPreferred", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("TransactionLiked", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("TransactionConfirmed", transactions["[-B, -C, E+]"], mock.Anything)
+
 		// confirm [-B, -C, E+]
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], true, true, true, true, false)
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], true, true, true, true, false)
 
+		tangle.Expect("PayloadLiked", valueObjects["[-A, D+]"], mock.Anything)
+		tangle.Expect("TransactionPreferred", transactions["[-A, D+]"], mock.Anything)
+		tangle.Expect("TransactionLiked", transactions["[-A, D+]"], mock.Anything)
+
 		// prefer [-A, D+]
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-A, D+]"], true)
 		verifyInclusionState(t, tangle, valueObjects["[-A, D+]"], true, false, true, false, false)
 		verifyBranchState(t, tangle, branches["A"], false, true, false, false)
+
+		tangle.Expect("PayloadLiked", valueObjects["[-A, F+]"], mock.Anything)
+		tangle.Expect("PayloadConfirmed", valueObjects["[-A, F+]"], mock.Anything)
+		tangle.Expect("TransactionPreferred", transactions["[-A, F+]"], mock.Anything)
+		tangle.Expect("TransactionLiked", transactions["[-A, F+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-A, F+]"], mock.Anything)
+		tangle.Expect("TransactionConfirmed", transactions["[-A, F+]"], mock.Anything)
+		tangle.Expect("PayloadRejected", valueObjects["[-A, D+]"], mock.Anything)
+		tangle.Expect("PayloadDisliked", valueObjects["[-A, D+]"], mock.Anything)
+		tangle.Expect("TransactionUnpreferred", transactions["[-A, D+]"], mock.Anything)
+		tangle.Expect("TransactionDisliked", transactions["[-A, D+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-A, D+]"], mock.Anything)
+		tangle.Expect("TransactionRejected", transactions["[-A, D+]"], mock.Anything)
 
 		// simulate vote result to like [-A, F+] -> [-A, F+] becomes confirmed and [-A, D+] rejected
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-A, F+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-A, F+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], true, true, true, true, false)
 		verifyBranchState(t, tangle, branches["B"], true, true, true, false)
+		// [-A, D+] should be rejected
+		verifyInclusionState(t, tangle, valueObjects["[-A, D+]"], false, true, false, false, true)
+		verifyBranchState(t, tangle, branches["A"], true, false, false, true)
+
+		tangle.Expect("PayloadLiked", valueObjects["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("PayloadConfirmed", valueObjects["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionPreferred", transactions["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionLiked", transactions["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionConfirmed", transactions["[-E, -F, G+]"], mock.Anything)
 
 		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], false, false, false, false, false)
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-E, -F, G+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-E, -F, G+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], true, true, true, true, false)
 
-		// [-A, D+] should be rejected
-		verifyInclusionState(t, tangle, valueObjects["[-A, D+]"], false, true, false, false, true)
-		verifyBranchState(t, tangle, branches["A"], true, false, false, true)
+		tangle.AssertExpectations(t)
 	}
 
 	// simulate vote on [-A, D+] -> Branch B becomes rejected, Branch A confirmed
 	{
 		tangle, transactions, valueObjects, branches, _ := preparePropagationScenario1(t)
+		defer tangle.DetachAll()
+
+		tangle.Expect("PayloadLiked", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("PayloadConfirmed", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionPreferred", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionLiked", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionConfirmed", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
 
 		// confirm [-GENESIS, A+, B+, C+]
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, true, true, true, false)
 
+		tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("PayloadConfirmed", valueObjects["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+		tangle.Expect("PayloadConfirmed", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+		tangle.Expect("TransactionPreferred", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("TransactionLiked", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("TransactionConfirmed", transactions["[-B, -C, E+]"], mock.Anything)
+
 		// confirm [-B, -C, E+]
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], true, true, true, true, false)
 
+		tangle.Expect("PayloadLiked", valueObjects["[-A, F+]"], mock.Anything)
+		tangle.Expect("TransactionPreferred", transactions["[-A, F+]"], mock.Anything)
+		tangle.Expect("TransactionLiked", transactions["[-A, F+]"], mock.Anything)
+
 		// prefer [-A, F+] and thus Branch B
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-A, F+]"], true)
 		verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], true, false, true, false, false)
 		verifyBranchState(t, tangle, branches["B"], false, true, false, false)
+
+		tangle.Expect("PayloadLiked", valueObjects["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionPreferred", transactions["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionLiked", transactions["[-E, -F, G+]"], mock.Anything)
+
 		// prefer [-E, -F, G+]
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-E, -F, G+]"], true)
 		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], true, false, true, false, false)
+
+		tangle.Expect("PayloadLiked", valueObjects["[-A, D+]"], mock.Anything)
+		tangle.Expect("PayloadConfirmed", valueObjects["[-A, D+]"], mock.Anything)
+		tangle.Expect("TransactionPreferred", transactions["[-A, D+]"], mock.Anything)
+		tangle.Expect("TransactionLiked", transactions["[-A, D+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-A, D+]"], mock.Anything)
+		tangle.Expect("TransactionConfirmed", transactions["[-A, D+]"], mock.Anything)
+
+		tangle.Expect("PayloadRejected", valueObjects["[-A, F+]"], mock.Anything)
+		tangle.Expect("PayloadDisliked", valueObjects["[-A, F+]"], mock.Anything)
+		tangle.Expect("TransactionUnpreferred", transactions["[-A, F+]"], mock.Anything)
+		tangle.Expect("TransactionDisliked", transactions["[-A, F+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-A, F+]"], mock.Anything)
+		tangle.Expect("TransactionRejected", transactions["[-A, F+]"], mock.Anything)
+		tangle.Expect("PayloadRejected", valueObjects["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("PayloadDisliked", valueObjects["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionUnpreferred", transactions["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionDisliked", transactions["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", transactions["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionRejected", transactions["[-E, -F, G+]"], mock.Anything)
 
 		// simulate vote result to like [-A, D+] -> [-A, D+] becomes confirmed and [-A, F+], [-E, -F, G+] rejected
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-A, D+]"], true)
@@ -892,12 +1100,15 @@ func TestPropagationScenario1(t *testing.T) {
 		verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], false, true, false, false, true)
 		verifyBranchState(t, tangle, branches["B"], true, false, false, true)
 		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], false, true, false, false, true)
+
+		tangle.AssertExpectations(t)
 	}
 }
 
 func TestPropagationScenario2(t *testing.T) {
 	// img/scenario2.png
 	tangle, transactions, valueObjects, branches, _ := preparePropagationScenario2(t)
+	defer tangle.DetachAll()
 
 	// initialize debugger for this test
 	debugger.ResetAliases()
@@ -908,10 +1119,22 @@ func TestPropagationScenario2(t *testing.T) {
 		debugger.RegisterAlias(tx.ID(), "TransactionID"+name)
 	}
 
+	tangle.Expect("PayloadLiked", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
+	tangle.Expect("PayloadConfirmed", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
+	tangle.Expect("TransactionPreferred", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+	tangle.Expect("TransactionLiked", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+	tangle.Expect("TransactionFinalized", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+	tangle.Expect("TransactionConfirmed", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+
 	// confirm [-GENESIS, A+, B+, C+]
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
 	setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
 	verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, true, true, true, false)
+
+	tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+]"], mock.Anything)
+	tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+	tangle.Expect("TransactionPreferred", transactions["[-B, -C, E+]"], mock.Anything)
+	tangle.Expect("TransactionLiked", transactions["[-B, -C, E+]"], mock.Anything)
 
 	// prefer [-B, -C, E+] and thus Branch D
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
@@ -919,10 +1142,18 @@ func TestPropagationScenario2(t *testing.T) {
 	verifyBranchState(t, tangle, branches["D"], false, true, false, false)
 	verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], true, false, true, false, false)
 
+	tangle.Expect("PayloadLiked", valueObjects["[-A, F+]"], mock.Anything)
+	tangle.Expect("TransactionPreferred", transactions["[-A, F+]"], mock.Anything)
+	tangle.Expect("TransactionLiked", transactions["[-A, F+]"], mock.Anything)
+
 	// prefer [-A, F+] and thus Branch B
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-A, F+]"], true)
 	verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], true, false, true, false, false)
 	verifyBranchState(t, tangle, branches["B"], false, true, false, false)
+
+	tangle.Expect("PayloadLiked", valueObjects["[-E, -F, G+]"], mock.Anything)
+	tangle.Expect("TransactionPreferred", transactions["[-E, -F, G+]"], mock.Anything)
+	tangle.Expect("TransactionLiked", transactions["[-E, -F, G+]"], mock.Anything)
 
 	// prefer [-E, -F, G+]
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-E, -F, G+]"], true)
@@ -945,9 +1176,33 @@ func TestPropagationScenario2(t *testing.T) {
 	verifyBranchState(t, tangle, branches["E"], false, false, false, false)
 	verifyBranchState(t, tangle, branches["ACE"], false, false, false, false)
 
+	tangle.Expect("PayloadLiked", valueObjects["[-H, -D, I+]"], mock.Anything)
+	tangle.Expect("TransactionPreferred", transactions["[-H, -D, I+]"], mock.Anything)
+	tangle.Expect("TransactionLiked", transactions["[-H, -D, I+]"], mock.Anything)
+
 	// prefer [-H, -D, I+] - should be liked after votes on [-A, D+] and [-C, H+]
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-H, -D, I+]"], true)
 	verifyInclusionState(t, tangle, valueObjects["[-H, -D, I+]"], true, false, false, false, false)
+
+	tangle.Expect("PayloadLiked", valueObjects["[-A, D+]"], mock.Anything)
+	tangle.Expect("PayloadConfirmed", valueObjects["[-A, D+]"], mock.Anything)
+	tangle.Expect("TransactionPreferred", transactions["[-A, D+]"], mock.Anything)
+	tangle.Expect("TransactionLiked", transactions["[-A, D+]"], mock.Anything)
+	tangle.Expect("TransactionFinalized", transactions["[-A, D+]"], mock.Anything)
+	tangle.Expect("TransactionConfirmed", transactions["[-A, D+]"], mock.Anything)
+
+	tangle.Expect("PayloadRejected", valueObjects["[-A, F+]"], mock.Anything)
+	tangle.Expect("PayloadDisliked", valueObjects["[-A, F+]"], mock.Anything)
+	tangle.Expect("TransactionUnpreferred", transactions["[-A, F+]"], mock.Anything)
+	tangle.Expect("TransactionDisliked", transactions["[-A, F+]"], mock.Anything)
+	tangle.Expect("TransactionFinalized", transactions["[-A, F+]"], mock.Anything)
+	tangle.Expect("TransactionRejected", transactions["[-A, F+]"], mock.Anything)
+	tangle.Expect("PayloadRejected", valueObjects["[-E, -F, G+]"], mock.Anything)
+	tangle.Expect("PayloadDisliked", valueObjects["[-E, -F, G+]"], mock.Anything)
+	tangle.Expect("TransactionUnpreferred", transactions["[-E, -F, G+]"], mock.Anything)
+	tangle.Expect("TransactionDisliked", transactions["[-E, -F, G+]"], mock.Anything)
+	tangle.Expect("TransactionFinalized", transactions["[-E, -F, G+]"], mock.Anything)
+	tangle.Expect("TransactionRejected", transactions["[-E, -F, G+]"], mock.Anything)
 
 	// simulate vote result to like [-A, D+] -> [-A, D+] becomes confirmed and [-A, F+], [-E, -F, G+] rejected
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-A, D+]"], true)
@@ -958,6 +1213,22 @@ func TestPropagationScenario2(t *testing.T) {
 	verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], false, true, false, false, true)
 	verifyBranchState(t, tangle, branches["B"], true, false, false, true)
 	verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], false, true, false, false, true)
+
+	tangle.Expect("PayloadLiked", valueObjects["[-C, H+]"], mock.Anything)
+	tangle.Expect("PayloadConfirmed", valueObjects["[-C, H+]"], mock.Anything)
+	tangle.Expect("TransactionPreferred", transactions["[-C, H+]"], mock.Anything)
+	tangle.Expect("TransactionLiked", transactions["[-C, H+]"], mock.Anything)
+	tangle.Expect("TransactionFinalized", transactions["[-C, H+]"], mock.Anything)
+	tangle.Expect("TransactionConfirmed", transactions["[-C, H+]"], mock.Anything)
+
+	tangle.Expect("PayloadRejected", valueObjects["[-B, -C, E+]"], mock.Anything)
+	tangle.Expect("PayloadDisliked", valueObjects["[-B, -C, E+]"], mock.Anything)
+	tangle.Expect("TransactionUnpreferred", transactions["[-B, -C, E+]"], mock.Anything)
+	tangle.Expect("TransactionDisliked", transactions["[-B, -C, E+]"], mock.Anything)
+	tangle.Expect("TransactionFinalized", transactions["[-B, -C, E+]"], mock.Anything)
+	tangle.Expect("TransactionRejected", transactions["[-B, -C, E+]"], mock.Anything)
+	tangle.Expect("PayloadRejected", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+	tangle.Expect("PayloadDisliked", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
 
 	// simulate vote result to like [-C, H+] -> [-C, H+] becomes confirmed and [-B, -C, E+], [-B, -C, E+] (Reattachment) rejected
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-C, H+]"], true)
@@ -973,23 +1244,37 @@ func TestPropagationScenario2(t *testing.T) {
 	verifyBranchState(t, tangle, branches["BD"], true, false, false, true)
 	// TODO: BD is not finalized
 
+	// [-H, -D, I+] is already preferred
+	tangle.Expect("PayloadConfirmed", valueObjects["[-H, -D, I+]"], mock.Anything)
+	tangle.Expect("TransactionFinalized", transactions["[-H, -D, I+]"], mock.Anything)
+	tangle.Expect("TransactionConfirmed", transactions["[-H, -D, I+]"], mock.Anything)
+
 	// [-H, -D, I+] should now be liked
 	verifyInclusionState(t, tangle, valueObjects["[-H, -D, I+]"], true, false, true, false, false)
 	setTransactionFinalizedWithCheck(t, tangle, transactions["[-H, -D, I+]"])
 	verifyInclusionState(t, tangle, valueObjects["[-H, -D, I+]"], true, true, true, true, false)
-
 	// [-B, J+] should be unchanged
 	verifyInclusionState(t, tangle, valueObjects["[-B, J+]"], false, false, false, false, false)
+
+	tangle.Expect("PayloadLiked", valueObjects["[-B, J+]"], mock.Anything)
+	tangle.Expect("PayloadConfirmed", valueObjects["[-B, J+]"], mock.Anything)
+	tangle.Expect("TransactionPreferred", transactions["[-B, J+]"], mock.Anything)
+	tangle.Expect("TransactionLiked", transactions["[-B, J+]"], mock.Anything)
+	tangle.Expect("TransactionFinalized", transactions["[-B, J+]"], mock.Anything)
+	tangle.Expect("TransactionConfirmed", transactions["[-B, J+]"], mock.Anything)
+
 	// [-B, J+] should become confirmed after preferring and finalizing
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-B, J+]"], true)
 	setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, J+]"])
 	verifyInclusionState(t, tangle, valueObjects["[-B, J+]"], true, true, true, true, false)
 	verifyBranchState(t, tangle, branches["E"], true, true, true, false)
 	verifyBranchState(t, tangle, branches["ACE"], true, true, true, false)
+
+	tangle.AssertExpectations(t)
 }
 
 // verifyBranchState verifies the the branch state according to the given parameters.
-func verifyBranchState(t *testing.T, tangle *Tangle, id branchmanager.BranchID, finalized, liked, confirmed, rejected bool) {
+func verifyBranchState(t *testing.T, tangle *eventTangle, id branchmanager.BranchID, finalized, liked, confirmed, rejected bool) {
 	assert.True(t, tangle.branchManager.Branch(id).Consume(func(branch *branchmanager.Branch) {
 		assert.Equalf(t, finalized, branch.Finalized(), "branch finalized state does not match")
 		assert.Equalf(t, liked, branch.Liked(), "branch liked state does not match")
@@ -1000,7 +1285,7 @@ func verifyBranchState(t *testing.T, tangle *Tangle, id branchmanager.BranchID, 
 }
 
 // verifyInclusionState verifies the inclusion state of outputs and transaction according to the given parameters.
-func verifyTransactionInclusionState(t *testing.T, tangle *Tangle, valueObject *payload.Payload, preferred, finalized, liked, confirmed, rejected bool) {
+func verifyTransactionInclusionState(t *testing.T, tangle *eventTangle, valueObject *payload.Payload, preferred, finalized, liked, confirmed, rejected bool) {
 	tx := valueObject.Transaction()
 
 	// check outputs
@@ -1025,7 +1310,7 @@ func verifyTransactionInclusionState(t *testing.T, tangle *Tangle, valueObject *
 }
 
 // verifyValueObjectInclusionState verifies the inclusion state of a value object according to the given parameters.
-func verifyValueObjectInclusionState(t *testing.T, tangle *Tangle, valueObject *payload.Payload, liked, confirmed, rejected bool) {
+func verifyValueObjectInclusionState(t *testing.T, tangle *eventTangle, valueObject *payload.Payload, liked, confirmed, rejected bool) {
 	assert.True(t, tangle.PayloadMetadata(valueObject.ID()).Consume(func(payloadMetadata *PayloadMetadata) {
 		assert.Equalf(t, liked, payloadMetadata.Liked(), "value object liked state does not match")
 		assert.Equalf(t, confirmed, payloadMetadata.Confirmed(), "value object confirmed state does not match")
@@ -1034,20 +1319,20 @@ func verifyValueObjectInclusionState(t *testing.T, tangle *Tangle, valueObject *
 }
 
 // verifyInclusionState verifies the inclusion state of outputs, transaction and value object according to the given parameters.
-func verifyInclusionState(t *testing.T, tangle *Tangle, valueObject *payload.Payload, preferred, finalized, liked, confirmed, rejected bool) {
+func verifyInclusionState(t *testing.T, tangle *eventTangle, valueObject *payload.Payload, preferred, finalized, liked, confirmed, rejected bool) {
 	verifyTransactionInclusionState(t, tangle, valueObject, preferred, finalized, liked, confirmed, rejected)
 	verifyValueObjectInclusionState(t, tangle, valueObject, liked, confirmed, rejected)
 }
 
 // setTransactionPreferredWithCheck sets the transaction to preferred and makes sure that no error occurred and it's modified.
-func setTransactionPreferredWithCheck(t *testing.T, tangle *Tangle, tx *transaction.Transaction, preferred bool) {
+func setTransactionPreferredWithCheck(t *testing.T, tangle *eventTangle, tx *transaction.Transaction, preferred bool) {
 	modified, err := tangle.SetTransactionPreferred(tx.ID(), preferred)
 	require.NoError(t, err)
 	assert.True(t, modified)
 }
 
 // setTransactionFinalizedWithCheck sets the transaction to finalized and makes sure that no error occurred and it's modified.
-func setTransactionFinalizedWithCheck(t *testing.T, tangle *Tangle, tx *transaction.Transaction) {
+func setTransactionFinalizedWithCheck(t *testing.T, tangle *eventTangle, tx *transaction.Transaction) {
 	modified, err := tangle.SetTransactionFinalized(tx.ID())
 	require.NoError(t, err)
 	assert.True(t, modified)

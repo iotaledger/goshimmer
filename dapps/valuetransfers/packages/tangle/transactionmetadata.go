@@ -131,6 +131,7 @@ func (transactionMetadata *TransactionMetadata) setBranchID(branchID branchmanag
 	}
 
 	transactionMetadata.branchID = branchID
+	transactionMetadata.SetModified()
 	modified = true
 
 	return

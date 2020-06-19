@@ -207,6 +207,7 @@ func (transaction *Transaction) EssenceBytes() []byte {
 
 	// store marshaled result
 	transaction.essenceBytes = marshalUtil.Bytes()
+	transaction.SetModified()
 
 	return transaction.essenceBytes
 }
@@ -274,7 +275,7 @@ func (transaction *Transaction) Bytes() []byte {
 // Sign adds a new signature to the Transaction.
 func (transaction *Transaction) Sign(signature signaturescheme.SignatureScheme) *Transaction {
 	transaction.signatures.Add(signature.Address(), signature.Sign(transaction.EssenceBytes()))
-
+	transaction.SetModified()
 	return transaction
 }
 
@@ -284,7 +285,7 @@ func (transaction *Transaction) PutSignature(signature signaturescheme.Signature
 		return errors.New("PutSignature: invalid signature")
 	}
 	transaction.signatures.Add(signature.Address(), signature)
-
+	transaction.SetModified()
 	return nil
 }
 
