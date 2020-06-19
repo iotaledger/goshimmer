@@ -29,10 +29,14 @@ func (api *GoShimmerAPI) FindMessageByID(base58EncodedIDs []string) (*webapi_mes
 }
 
 func (api *GoShimmerAPI) SendPayload(payload []byte) (string, error) {
+<<<<<<< HEAD
 
 	res := &webapi_message.MessageResponse{}
+=======
+	res := &webapi_message.MsgResponse{}
+>>>>>>> cc52696d... 🚨 Fix webapi linter warnings
 	if err := api.do(http.MethodPost, routeSendPayload,
-		&webapi_message.MessageRequest{Payload: payload}, res); err != nil {
+		&webapi_message.MsgRequest{Payload: payload}, res); err != nil {
 		return "", err
 	}
 
