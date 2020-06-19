@@ -13,7 +13,7 @@ require (
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/golang/protobuf v1.3.5
-	github.com/google/go-cmp v0.4.1
+	github.com/google/go-cmp v0.4.1 // indirect
 	github.com/gorilla/websocket v1.4.1
 	github.com/iotaledger/hive.go v0.0.0-20200618165014-e1cb7f9a0afb
 	github.com/iotaledger/iota.go v1.0.0-beta.14
