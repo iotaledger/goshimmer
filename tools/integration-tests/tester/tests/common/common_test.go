@@ -1,4 +1,4 @@
-package autopeering
+package common
 
 import (
 	"testing"
@@ -54,6 +54,9 @@ func TestSynchronization(t *testing.T) {
 	require.NoError(t, err)
 	// wait for peer to start
 	time.Sleep(5 * time.Second)
+
+	err = n.WaitForAutopeering(3)
+	require.NoError(t, err)
 
 	// note: this check is too dependent on the initial time a node sends bootstrap messages
 	// and therefore very error prone. Therefore it's not done for now.

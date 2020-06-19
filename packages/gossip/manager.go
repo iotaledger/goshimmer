@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
+	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -34,11 +35,14 @@ type Manager struct {
 	mu        sync.Mutex
 	srv       *server.TCP
 	neighbors map[identity.ID]*Neighbor
+
+	// inboxWorkerPool defines a worker pool where all incoming messages are processed.
+	inboxWorkerPool async.WorkerPool
 }
 
 // NewManager creates a new Manager.
 func NewManager(local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manager {
-	return &Manager{
+	m := &Manager{
 		local:           local,
 		loadMessageFunc: f,
 		log:             log,
@@ -51,6 +55,8 @@ func NewManager(local *peer.Local, f LoadMessageFunc, log *logger.Logger) *Manag
 		srv:       nil,
 		neighbors: make(map[identity.ID]*Neighbor),
 	}
+	m.inboxWorkerPool.Tune(2)
+	return m
 }
 
 // Start starts the manager for the given TCP server.
@@ -65,6 +71,8 @@ func (m *Manager) Start(srv *server.TCP) {
 func (m *Manager) Close() {
 	m.stop()
 	m.wg.Wait()
+
+	m.inboxWorkerPool.ShutdownGracefully()
 }
 
 // Events returns the events related to the gossip protocol.
@@ -206,9 +214,13 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 		m.events.NeighborRemoved.Trigger(peer)
 	}))
 	n.Events.ReceiveMessage.Attach(events.NewClosure(func(data []byte) {
-		if err := m.handlePacket(data, peer); err != nil {
-			m.log.Debugw("error handling packet", "err", err)
-		}
+		dataCopy := make([]byte, len(data))
+		copy(dataCopy, data)
+		m.inboxWorkerPool.Submit(func() {
+			if err := m.handlePacket(dataCopy, n); err != nil {
+				m.log.Debugw("error handling packet", "err", err)
+			}
+		})
 	}))
 
 	m.neighbors[peer.ID()] = n
@@ -218,7 +230,7 @@ func (m *Manager) addNeighbor(peer *peer.Peer, connectorFunc func(*peer.Peer) (n
 	return nil
 }
 
-func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
+func (m *Manager) handlePacket(data []byte, n *Neighbor) error {
 	// ignore empty packages
 	if len(data) == 0 {
 		return nil
@@ -231,8 +243,8 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 		if err := proto.Unmarshal(data[1:], protoMsg); err != nil {
 			return fmt.Errorf("invalid packet: %w", err)
 		}
-		m.log.Debugw("received packet", "type", protoMsg.Type(), "peer-id", p.ID())
-		m.events.MessageReceived.Trigger(&MessageReceivedEvent{Data: protoMsg.GetData(), Peer: p})
+		m.log.Debugw("received packet", "type", protoMsg.Type(), "peer-id", n.Peer.ID())
+		m.events.MessageReceived.Trigger(&MessageReceivedEvent{Data: protoMsg.GetData(), Peer: n.Peer})
 
 	case pb.PacketMessageRequest:
 		protoMsgReq := new(pb.MessageRequest)
@@ -240,20 +252,20 @@ func (m *Manager) handlePacket(data []byte, p *peer.Peer) error {
 			return fmt.Errorf("invalid packet: %w", err)
 		}
 
-		m.log.Debugw("received packet", "type", protoMsgReq.Type(), "peer-id", p.ID())
+		m.log.Debugw("received packet", "type", protoMsgReq.Type(), "peer-id", n.Peer.ID())
 		msgId, _, err := message.IdFromBytes(protoMsgReq.GetId())
 		if err != nil {
-			m.log.Debugw("couldn't compute message id from bytes", "peer-id", p.ID(), "err", err)
+			m.log.Debugw("couldn't compute message id from bytes", "peer-id", n.Peer.ID(), "err", err)
 			return nil
 		}
 
 		msg, err := m.loadMessageFunc(msgId)
 		if err != nil {
-			m.log.Debugw("error getting message", "peer-id", p.ID(), "msg-id", msgId, "err", err)
+			m.log.Debugw("error getting message", "peer-id", n.Peer.ID(), "msg-id", msgId, "err", err)
 			return nil
 		}
 
-		m.SendMessage(msg, p.ID())
+		n.Write(marshal(&pb.Message{Data: msg}))
 	default:
 		return ErrInvalidPacket
 	}

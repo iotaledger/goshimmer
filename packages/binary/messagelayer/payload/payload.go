@@ -46,9 +46,15 @@ func FromBytes(bytes []byte) (result Payload, consumedBytes int, err error) {
 		return
 	}
 
+	readOffset := marshalUtil.ReadOffset()
 	result, err = GetUnmarshaler(payloadType)(payloadBytes)
 	if err != nil {
-		return
+		// fallback to the generic unmarshaler if registered type fails to unmarshal
+		marshalUtil.ReadSeek(readOffset)
+		result, err = GenericPayloadUnmarshalerFactory(payloadType)(payloadBytes)
+		if err != nil {
+			return
+		}
 	}
 
 	// return the number of bytes we processed

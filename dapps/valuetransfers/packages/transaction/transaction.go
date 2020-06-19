@@ -207,6 +207,7 @@ func (transaction *Transaction) EssenceBytes() []byte {
 
 	// store marshaled result
 	transaction.essenceBytes = marshalUtil.Bytes()
+	transaction.SetModified()
 
 	return transaction.essenceBytes
 }
@@ -274,7 +275,7 @@ func (transaction *Transaction) Bytes() []byte {
 // Sign adds a new signature to the Transaction.
 func (transaction *Transaction) Sign(signature signaturescheme.SignatureScheme) *Transaction {
 	transaction.signatures.Add(signature.Address(), signature.Sign(transaction.EssenceBytes()))
-
+	transaction.SetModified()
 	return transaction
 }
 
@@ -284,7 +285,7 @@ func (transaction *Transaction) PutSignature(signature signaturescheme.Signature
 		return errors.New("PutSignature: invalid signature")
 	}
 	transaction.signatures.Add(signature.Address(), signature)
-
+	transaction.SetModified()
 	return nil
 }
 
@@ -436,7 +437,7 @@ func (cachedTransaction *CachedTransaction) Retain() *CachedTransaction {
 
 // Consume  overrides the underlying method to use a CachedTransaction object instead of a generic CachedObject in the
 // consumer).
-func (cachedTransaction *CachedTransaction) Consume(consumer func(metadata *Transaction)) bool {
+func (cachedTransaction *CachedTransaction) Consume(consumer func(tx *Transaction)) bool {
 	return cachedTransaction.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Transaction))
 	})

@@ -3,17 +3,17 @@ version: "3.5"
 services:
   entry_node:
     container_name: entry_node
-    image: golang:1.14
+    image: golang:1.14.4
     entrypoint: /go/bin/main
     command: >
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
-      --autopeering.seed=uuDCzsjyLNQ17/7fWKPNMYmr4IWuaVRf7qKqRL0v/6c=
+      --autopeering.seed=base58:8kPPCqaJFAt8BJtx6qw5PN8bKEM2XKXor6PxkmHf6bcr
       --autopeering.entryNodes=
       --analysis.server.bindAddress=0.0.0.0:1888
       --analysis.dashboard.bindAddress=0.0.0.0:9000
       --node.enablePlugins=analysis-server,analysis-dashboard
-      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,metrics,messagelayer,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,metrics,messagelayer,valuetransfers,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
@@ -24,7 +24,7 @@ services:
 
   peer_master:
     container_name: peer_master
-    image: golang:1.14
+    image: golang:1.14.4
     entrypoint: /go/bin/main
     command: >
       --config-dir=/tmp
@@ -40,7 +40,7 @@ services:
       - entry_node
 
   peer_replica:
-    image: golang:1.14
+    image: golang:1.14.4
     entrypoint: /go/bin/main
     command: >
       --config-dir=/tmp

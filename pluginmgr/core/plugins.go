@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/iotaledger/goshimmer/dapps/faucet"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/bootstrap"
@@ -18,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
 	"github.com/iotaledger/goshimmer/plugins/sync"
+	"github.com/iotaledger/goshimmer/plugins/testsnapshots"
 
 	"github.com/iotaledger/hive.go/node"
 )
@@ -40,4 +42,6 @@ var PLUGINS = node.Plugins(
 	metrics.Plugin,
 	drng.Plugin,
 	faucet.App,
+	valuetransfers.App,
+	testsnapshots.Plugin,
 )

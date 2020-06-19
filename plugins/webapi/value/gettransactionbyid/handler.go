@@ -20,18 +20,27 @@ func Handler(c echo.Context) error {
 
 	// get txn by txn id
 	txnObj := valuetransfers.Tangle.Transaction(txnID)
+	defer txnObj.Release()
 	if !txnObj.Exists() {
 		return c.JSON(http.StatusNotFound, Response{Error: "Transaction not found"})
 	}
 	txn := utils.ParseTransaction(txnObj.Unwrap())
 
-	// TODO: get inclusion state
+	// get txn metadata
+	txnMetadataObj := valuetransfers.Tangle.TransactionMetadata(txnID)
+	defer txnMetadataObj.Release()
+	if !txnMetadataObj.Exists() {
+		return c.JSON(http.StatusNotFound, Response{Error: "Transaction Metadata not found"})
+	}
+	txnMetadata := txnMetadataObj.Unwrap()
+
 	return c.JSON(http.StatusOK, Response{
 		Transaction: txn,
 		InclusionState: utils.InclusionState{
-			Confirmed: true,
-			Conflict:  false,
-			Liked:     true,
+			Solid:     txnMetadata.Solid(),
+			Confirmed: txnMetadata.Confirmed(),
+			Rejected:  txnMetadata.Rejected(),
+			Liked:     txnMetadata.Liked(),
 		},
 	})
 }

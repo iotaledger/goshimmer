@@ -2,6 +2,7 @@ package info
 
 import (
 	"net/http"
+	"sort"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -59,16 +60,16 @@ func configure(_ *node.Plugin) {
 func getInfo(c echo.Context) error {
 	var enabledPlugins []string
 	var disabledPlugins []string
-	for plugin, status := range node.GetPlugins() {
-		switch status {
-		case node.Disabled:
-			disabledPlugins = append(disabledPlugins, plugin)
-		case node.Enabled:
-			enabledPlugins = append(enabledPlugins, plugin)
-		default:
-			continue
+	for pluginName, plugin := range node.GetPlugins() {
+		if node.IsSkipped(plugin) {
+			disabledPlugins = append(disabledPlugins, pluginName)
+		} else {
+			enabledPlugins = append(enabledPlugins, pluginName)
 		}
 	}
+
+	sort.Strings(enabledPlugins)
+	sort.Strings(disabledPlugins)
 
 	return c.JSON(http.StatusOK, Response{
 		Version:         banner.AppVersion,
@@ -86,14 +87,14 @@ type Response struct {
 	Version string `json:"version,omitempty"`
 	// whether the node is synchronized
 	Synced bool `json:"synced"`
-	// identity ID of the node encoded in hex and truncated to its first 8 bytes
+	// identity ID of the node encoded in base58 and truncated to its first 8 bytes
 	IdentityID string `json:"identityID,omitempty"`
 	// public key of the node encoded in base58
-	PublicKey string `json:"publickey,omitempty"`
+	PublicKey string `json:"publicKey,omitempty"`
 	// list of enabled plugins
-	EnabledPlugins []string `json:"enabledplugins,omitempty"`
+	EnabledPlugins []string `json:"enabledPlugins,omitempty"`
 	// list if disabled plugins
-	DisabledPlugins []string `json:"disabledlugins,omitempty"`
+	DisabledPlugins []string `json:"disabledPlugins,omitempty"`
 	// error of the response
 	Error string `json:"error,omitempty"`
 }

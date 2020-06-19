@@ -3,11 +3,10 @@ package tangle
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/objectstorage"
 )
 
 // MissingOutputKeyPartitions defines the "layout" of the key. This enables prefix iterations in the objectstorage.

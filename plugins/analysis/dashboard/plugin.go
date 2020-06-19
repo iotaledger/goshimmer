@@ -63,7 +63,7 @@ func run(*node.Plugin) {
 
 	log.Infof("Starting %s ...", PluginName)
 	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityAnalysis); err != nil {
-		log.Errorf("Error starting as daemon: %s", err)
+		log.Panicf("Error starting as daemon: %s", err)
 	}
 }
 
