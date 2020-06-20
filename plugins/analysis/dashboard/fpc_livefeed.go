@@ -16,9 +16,8 @@ import (
 )
 
 const (
-	unfinalized = 0
-	liked       = 1
-	disliked    = 2
+	liked    = 1
+	disliked = 2
 )
 
 var (
