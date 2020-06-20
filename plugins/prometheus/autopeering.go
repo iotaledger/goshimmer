@@ -16,32 +16,32 @@ var (
 
 func registerAutopeeringMetrics() {
 	neighborDropCount = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "neighbor_drop_count",
+		Name: "autopeering_neighbor_drop_count",
 		Help: "Autopeering neighbor drop count.",
 	})
 
 	avgNeighborConnectionLifeTime = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "avg_neighbor_connection_lifetime",
+		Name: "autopeering_avg_neighbor_connection_lifetime",
 		Help: "Autopeering avgerage neighbor connection lifetime.",
 	})
 
 	connectionsCount = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "neighbor_connections_count",
+		Name: "autopeering_neighbor_connections_count",
 		Help: "Autopeering neighbor connections count.",
 	})
 
 	minDistance = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "min_distance",
+		Name: "autopeering_min_distance",
 		Help: "Autopeering minimum distance with all neighbors.",
 	})
 
 	maxDistance = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "max_distance",
+		Name: "autopeering_max_distance",
 		Help: "Autopeering maximum distance with all neighbors.",
 	})
 
 	avgDistance = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "avg_distance",
+		Name: "autopeering_avg_distance",
 		Help: "Autopeering average distance with all neighbors.",
 	})
 

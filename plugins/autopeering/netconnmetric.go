@@ -18,7 +18,7 @@ func (nc *NetConnMetric) RXBytes() uint64 {
 	return nc.rxBytes.Load()
 }
 
-// RXBytes returns the TX bytes.
+// TXBytes returns the TX bytes.
 func (nc *NetConnMetric) TXBytes() uint64 {
 	return nc.txBytes.Load()
 }

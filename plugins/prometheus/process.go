@@ -12,11 +12,11 @@ var (
 
 func registerProcessMetrics() {
 	cpuUsage = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "cpu_usage",
+		Name: "process_cpu_usage",
 		Help: "CPU (System) usage.",
 	})
 	memUsageBytes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "mem_usage_bytes",
+		Name: "process_mem_usage_bytes",
 		Help: "memory usage [bytes].",
 	})
 

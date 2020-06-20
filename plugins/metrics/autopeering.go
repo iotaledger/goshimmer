@@ -26,7 +26,7 @@ var (
 		neighborMutex.Lock()
 		defer neighborMutex.Unlock()
 		neighborDropCount++
-		neighborConnectionsLifeTime += time.Now().Sub(n.ConnectionEstablished())
+		neighborConnectionsLifeTime += time.Since(n.ConnectionEstablished())
 	})
 
 	onAutopeeringSelection = events.NewClosure(func(ev *selection.PeeringEvent) {

@@ -15,8 +15,8 @@ func TestIsFinalized(t *testing.T) {
 		{
 			conflict: conflict{
 				NodesView: map[string]voteContext{
-					"one": {Status: liked},
-					"two": {Status: disliked},
+					"one": {Outcome: liked},
+					"two": {Outcome: disliked},
 				},
 			},
 			want: true,
@@ -24,7 +24,7 @@ func TestIsFinalized(t *testing.T) {
 		{
 			conflict: conflict{
 				NodesView: map[string]voteContext{
-					"one": {Status: liked},
+					"one": {Outcome: liked},
 					"two": {},
 				},
 			},
@@ -51,8 +51,8 @@ func TestFinalizationStatus(t *testing.T) {
 		{
 			conflict: conflict{
 				NodesView: map[string]voteContext{
-					"one": {Status: liked},
-					"two": {Status: disliked},
+					"one": {Outcome: liked},
+					"two": {Outcome: disliked},
 				},
 			},
 			want: 1,
@@ -60,7 +60,7 @@ func TestFinalizationStatus(t *testing.T) {
 		{
 			conflict: conflict{
 				NodesView: map[string]voteContext{
-					"one": {Status: liked},
+					"one": {Outcome: liked},
 					"two": {},
 				},
 			},
@@ -73,7 +73,7 @@ func TestFinalizationStatus(t *testing.T) {
 	}
 
 	for _, conflictTest := range tests {
-		require.Equal(t, conflictTest.want, conflictTest.finalizationStatus())
+		require.Equal(t, conflictTest.want, conflictTest.finalizedRatio())
 	}
 
 }

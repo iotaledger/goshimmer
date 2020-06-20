@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"sync/atomic"
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
@@ -27,10 +26,12 @@ import (
 // PluginName is the name of the metrics plugin.
 const PluginName = "Metrics"
 
-// Plugin is the plugin instance of the metrics plugin.
-var Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+var (
+	// Plugin is the plugin instance of the metrics plugin.
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 
-var log *logger.Logger
+	log *logger.Logger
+)
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
@@ -51,13 +52,10 @@ func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
 		if config.Node.GetBool(CfgMetricsLocal) {
 			timeutil.Ticker(func() {
-				measureReceivedMPS()
 				measureCPUUsage()
 				measureMemUsage()
 				measureSynced()
-				measureMPSPerPayload()
 				measureMessageTips()
-				measureReceivedTPS()
 				measureValueTips()
 
 				// gossip network traffic
@@ -67,7 +65,7 @@ func run(_ *node.Plugin) {
 			}, 1*time.Second, shutdownSignal)
 		}
 		if config.Node.GetBool(CfgMetricsGlobal) {
-			timeutil.Ticker(calculateNetworkDiameter, 1 * time.Minute, shutdownSignal)
+			timeutil.Ticker(calculateNetworkDiameter, 1*time.Minute, shutdownSignal)
 		}
 
 	}, shutdown.PriorityMetrics); err != nil {
@@ -83,15 +81,14 @@ func registerLocalMetrics() {
 		_payloadType := cachedMessage.Unwrap().Payload().Type()
 		cachedMessage.Release()
 		cachedMessageMetadata.Release()
-		increaseReceivedMPSCounter()
-		increasePerPayloadMPSCounter(_payloadType)
+		increasePerPayloadCounter(_payloadType)
 	}))
 
 	// Value payload attached
 	valuetransfers.Tangle.Events.PayloadAttached.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *valuetangle.CachedPayloadMetadata) {
 		cachedPayload.Release()
 		cachedPayloadMetadata.Release()
-		increaseReceivedTPSCounter()
+		valueTransactionCounter.Inc()
 	}))
 
 	// FPC round executed
@@ -130,18 +127,16 @@ func registerLocalMetrics() {
 		isSynced.Store(synced)
 	}))
 
-	metrics.Events().DBSize.Attach(onDBSize)
-
 	gossip.Manager().Events().NeighborRemoved.Attach(onNeighborRemoved)
 
 	autopeering.Selection().Events().IncomingPeering.Attach(onAutopeeringSelection)
 	autopeering.Selection().Events().OutgoingPeering.Attach(onAutopeeringSelection)
 
 	metrics.Events().MessageTips.Attach(events.NewClosure(func(tipsCount uint64) {
-		atomic.StoreUint64(&messageTips, tipsCount)
+		messageTips.Store(tipsCount)
 	}))
 	metrics.Events().ValueTips.Attach(events.NewClosure(func(tipsCount uint64) {
-		atomic.StoreUint64(&valueTips, tipsCount)
+		valueTips.Store(tipsCount)
 	}))
 
 	metrics.Events().QueryReceived.Attach(events.NewClosure(func(ev *metrics.QueryReceivedEvent) {

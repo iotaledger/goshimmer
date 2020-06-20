@@ -13,9 +13,9 @@ func TestActiveConflicts(t *testing.T) {
 	assert.Equal(t, ActiveConflicts(), (uint64)(0))
 	stats := &vote.RoundStats{
 		ActiveVoteContexts: map[string]*vote.Context{
-			"test1": &vote.Context{},
-			"test2": &vote.Context{},
-			"test3": &vote.Context{},
+			"test1": {},
+			"test2": {},
+			"test3": {},
 		},
 	}
 	processRoundStats(stats)

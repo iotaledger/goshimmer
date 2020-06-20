@@ -10,28 +10,28 @@ import (
 )
 
 var (
-	dataSizes *prometheus.GaugeVec
+	dbSizes *prometheus.GaugeVec
 )
 
-func registerDataMetrics() {
-	dataSizes = prometheus.NewGaugeVec(
+func registerDBMetrics() {
+	dbSizes = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "iota_data_sizes_bytes",
-			Help: "Data sizes in bytes.",
+			Name: "db_size_bytes",
+			Help: "DB size in bytes.",
 		},
 		[]string{"name"},
 	)
 
-	registry.MustRegister(dataSizes)
+	registry.MustRegister(dbSizes)
 
-	addCollect(colectData)
+	addCollect(colectDBSize)
 }
 
-func colectData() {
-	dataSizes.Reset()
+func colectDBSize() {
+	dbSizes.Reset()
 	dbSize, err := directorySize(config.Node.GetString(database.CfgDatabaseDir))
 	if err == nil {
-		dataSizes.WithLabelValues("database").Set(float64(dbSize))
+		dbSizes.WithLabelValues("database").Set(float64(dbSize))
 	}
 }
 

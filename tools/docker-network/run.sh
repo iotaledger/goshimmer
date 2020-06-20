@@ -11,7 +11,7 @@ echo "Build GoShimmer"
 docker-compose -f builder/docker-compose.builder.yml up
 
 echo "Run GoShimmer network"
-COMPOSE_PARALLEL_LIMIT=10 docker-compose up --scale peer_replica=$REPLICAS > log.txt
+docker-compose up --scale peer_replica=$REPLICAS
 
 echo "Clean up docker network"
 docker-compose down

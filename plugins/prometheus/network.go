@@ -18,32 +18,32 @@ var (
 
 func registerNetworkMetrics() {
 	fpcInboundBytes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "fpc_inbound_bytes",
+		Name: "traffic_fpc_inbound_bytes",
 		Help: "FPC RX network traffic [bytes].",
 	})
 	fpcOutboundBytes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "fpc_outbound_bytes",
+		Name: "traffic_fpc_outbound_bytes",
 		Help: "FPC TX network traffic [bytes].",
 	})
 	autopeeringInboundBytes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "autopeering_inbound_bytes",
-		Help: "autopeering RX network traffic [bytes].",
+		Name: "traffic_autopeering_inbound_bytes",
+		Help: "traffic_autopeering RX network traffic [bytes].",
 	})
 	autopeeringOutboundBytes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "autopeering_outbound_bytes",
-		Help: "autopeering TX network traffic [bytes].",
+		Name: "traffic_autopeering_outbound_bytes",
+		Help: "traffic_autopeering TX network traffic [bytes].",
 	})
 	gossipInboundBytes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "gossip_inbound_bytes",
-		Help: "gossip RX network traffic [bytes].",
+		Name: "traffic_gossip_inbound_bytes",
+		Help: "traffic_gossip RX network traffic [bytes].",
 	})
 	gossipOutboundBytes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "gossip_outbound_bytes",
-		Help: "gossip TX network traffic [bytes].",
+		Name: "traffic_gossip_outbound_bytes",
+		Help: "traffic_gossip TX network traffic [bytes].",
 	})
 	analysisOutboundBytes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "analysis_outbound_bytes",
-		Help: "Analysis client TX network traffic [bytes].",
+		Name: "traffic_analysis_outbound_bytes",
+		Help: "traffic_Analysis client TX network traffic [bytes].",
 	})
 
 	registry.MustRegister(fpcInboundBytes)

@@ -33,9 +33,10 @@ var (
 	// ErrParsingMasterNode is returned for an invalid master node.
 	ErrParsingMasterNode = errors.New("cannot parse master node")
 
-	// NetworkID specifies the autopeering network identifier
+	// NetworkID specifies the autopeering network identifier.
 	NetworkID = hash32([]byte(banner.AppVersion + NetworkVersion))
 
+	// Conn contains the network connection.
 	Conn *NetConnMetric
 )
 

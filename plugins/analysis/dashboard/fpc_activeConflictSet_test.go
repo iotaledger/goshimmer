@@ -6,9 +6,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestConflictRecordUpdate(t *testing.T) {
+func TestActiveConflictsUpdate(t *testing.T) {
 	// ConflictRecord creation
-	c := newConflictRecord()
+	c := newActiveConflictSet()
 
 	// test first new update
 	conflictA := conflict{
@@ -17,7 +17,7 @@ func TestConflictRecordUpdate(t *testing.T) {
 				NodeID:   "nodeA",
 				Rounds:   3,
 				Opinions: []int32{disliked, liked, disliked},
-				Status:   liked,
+				Outcome:  liked,
 			},
 		},
 	}
@@ -32,7 +32,7 @@ func TestConflictRecordUpdate(t *testing.T) {
 				NodeID:   "nodeB",
 				Rounds:   3,
 				Opinions: []int32{disliked, liked, disliked},
-				Status:   liked,
+				Outcome:  liked,
 			},
 		},
 	}
@@ -47,7 +47,7 @@ func TestConflictRecordUpdate(t *testing.T) {
 				NodeID:   "nodeB",
 				Rounds:   4,
 				Opinions: []int32{disliked, liked, disliked, liked},
-				Status:   liked,
+				Outcome:  liked,
 			},
 		},
 	}

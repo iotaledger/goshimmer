@@ -12,19 +12,21 @@ import (
 )
 
 const (
-	// LIKE conflict outcome
-	LIKE = "LIKE"
-	// DISLIKE conflict outcome
-	DISLIKE = "DISLIKE"
+	like    = "LIKE"
+	dislike = "DISLIKE"
 )
 
+// These metrics store information collected via the analysis server.
 var (
-	clientsInfoCPU    *prometheus.GaugeVec
-	clientsInfoMemory *prometheus.GaugeVec
+	// Process related metrics.
+	nodesInfoCPU    *prometheus.GaugeVec
+	nodesInfoMemory *prometheus.GaugeVec
 
-	clientsNeighborCount *prometheus.GaugeVec
-	networkDiameter      prometheus.Gauge
+	// Autopeering related metrics.
+	nodesNeighborCount *prometheus.GaugeVec
+	networkDiameter    prometheus.Gauge
 
+	// FPC related metrics.
 	conflictCount              *prometheus.GaugeVec
 	conflictFinalizationRounds *prometheus.GaugeVec
 	conflictOutcome            *prometheus.GaugeVec
@@ -44,7 +46,7 @@ var onFPCFinalized = events.NewClosure(func(ev *metricspkg.AnalysisFPCFinalizedE
 	conflictOutcome.WithLabelValues(
 		ev.ConflictID,
 		ev.NodeID,
-		opinionToString(ev.Status),
+		opinionToString(ev.Outcome),
 	).Set(1)
 
 	conflictInitialOpinion.WithLabelValues(
@@ -55,10 +57,10 @@ var onFPCFinalized = events.NewClosure(func(ev *metricspkg.AnalysisFPCFinalizedE
 })
 
 func registerClientsMetrics() {
-	clientsInfoCPU = prometheus.NewGaugeVec(
+	nodesInfoCPU = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "clients_info_cpu",
-			Help: "Info about client's cpu load labeled with nodeID, OS, ARCH and number of cpu cores",
+			Name: "global_nodes_info_cpu",
+			Help: "Info about node's cpu load labeled with nodeID, OS, ARCH and number of cpu cores",
 		},
 		[]string{
 			"nodeID",
@@ -68,10 +70,10 @@ func registerClientsMetrics() {
 		},
 	)
 
-	clientsInfoMemory = prometheus.NewGaugeVec(
+	nodesInfoMemory = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "clients_info_mem",
-			Help: "Info about client's memory usage labeled with nodeID, OS, ARCH and number of cpu cores",
+			Name: "global_nodes_info_mem",
+			Help: "Info about node's memory usage labeled with nodeID, OS, ARCH and number of cpu cores",
 		},
 		[]string{
 			"nodeID",
@@ -81,10 +83,10 @@ func registerClientsMetrics() {
 		},
 	)
 
-	clientsNeighborCount = prometheus.NewGaugeVec(
+	nodesNeighborCount = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "clients_neighbor_count",
-			Help: "Info about client's neighbors count",
+			Name: "global_nodes_neighbor_count",
+			Help: "Info about node's neighbors count",
 		},
 		[]string{
 			"nodeID",
@@ -93,13 +95,13 @@ func registerClientsMetrics() {
 	)
 
 	networkDiameter = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "clients_network_diameter",
+		Name: "global_network_diameter",
 		Help: "Autopeering network diameter",
 	})
 
 	conflictCount = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "conflict_count",
+			Name: "global_conflict_count",
 			Help: "Conflicts count labeled with nodeID",
 		},
 		[]string{
@@ -109,7 +111,7 @@ func registerClientsMetrics() {
 
 	conflictFinalizationRounds = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "conflict_finalization_rounds",
+			Name: "global_conflict_finalization_rounds",
 			Help: "Number of rounds to finalize a given conflict labeled with conflictID and nodeID",
 		},
 		[]string{
@@ -120,7 +122,7 @@ func registerClientsMetrics() {
 
 	conflictInitialOpinion = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "conflict_initial_opinion",
+			Name: "global_conflict_initial_opinion",
 			Help: "Initial opinion of a given conflict labeled with conflictID, nodeID and opinion",
 		},
 		[]string{
@@ -132,7 +134,7 @@ func registerClientsMetrics() {
 
 	conflictOutcome = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "conflict_outcome",
+			Name: "global_conflict_outcome",
 			Help: "Outcome of a given conflict labeled with conflictID, nodeID and opinion",
 		},
 		[]string{
@@ -142,9 +144,9 @@ func registerClientsMetrics() {
 		},
 	)
 
-	registry.MustRegister(clientsInfoCPU)
-	registry.MustRegister(clientsInfoMemory)
-	registry.MustRegister(clientsNeighborCount)
+	registry.MustRegister(nodesInfoCPU)
+	registry.MustRegister(nodesInfoMemory)
+	registry.MustRegister(nodesNeighborCount)
 	registry.MustRegister(networkDiameter)
 
 	registry.MustRegister(conflictCount)
@@ -154,30 +156,31 @@ func registerClientsMetrics() {
 
 	metricspkg.Events().AnalysisFPCFinalized.Attach(onFPCFinalized)
 
-	addCollect(collectClientsInfo)
+	addCollect(collectNodesInfo)
 }
 
-func collectClientsInfo() {
-	clientInfoMap := metrics.ClientsMetrics()
+func collectNodesInfo() {
+	nodeInfoMap := metrics.NodesMetrics()
 
-	for nodeID, clientInfo := range clientInfoMap {
-		clientsInfoCPU.WithLabelValues(
+	for nodeID, nodeMetrics := range nodeInfoMap {
+		nodesInfoCPU.WithLabelValues(
 			nodeID,
-			clientInfo.OS,
-			clientInfo.Arch,
-			strconv.Itoa(clientInfo.NumCPU),
-		).Set(clientInfo.CPUUsage)
-		clientsInfoMemory.WithLabelValues(
+			nodeMetrics.OS,
+			nodeMetrics.Arch,
+			strconv.Itoa(nodeMetrics.NumCPU),
+		).Set(nodeMetrics.CPUUsage)
+
+		nodesInfoMemory.WithLabelValues(
 			nodeID,
-			clientInfo.OS,
-			clientInfo.Arch,
-			strconv.Itoa(clientInfo.NumCPU),
-		).Set(float64(clientInfo.MemoryUsage))
+			nodeMetrics.OS,
+			nodeMetrics.Arch,
+			strconv.Itoa(nodeMetrics.NumCPU),
+		).Set(float64(nodeMetrics.MemoryUsage))
 	}
 
 	for nodeID, neighborCount := range analysisdashboard.NumOfNeighbors() {
-		clientsNeighborCount.WithLabelValues(nodeID, "in").Set(float64(neighborCount.Inbound))
-		clientsNeighborCount.WithLabelValues(nodeID, "out").Set(float64(neighborCount.Inbound))
+		nodesNeighborCount.WithLabelValues(nodeID, "in").Set(float64(neighborCount.Inbound))
+		nodesNeighborCount.WithLabelValues(nodeID, "out").Set(float64(neighborCount.Outbound))
 	}
 
 	networkDiameter.Set(float64(metrics.NetworkDiameter()))
@@ -186,7 +189,7 @@ func collectClientsInfo() {
 
 func opinionToString(opinion vote.Opinion) string {
 	if opinion == vote.Like {
-		return LIKE
+		return like
 	}
-	return DISLIKE
+	return dislike
 }

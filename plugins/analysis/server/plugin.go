@@ -27,7 +27,7 @@ const (
 	// CfgAnalysisServerBindAddress defines the bind address of the analysis server.
 	CfgAnalysisServerBindAddress = "analysis.server.bindAddress"
 
-	// IdleTimeout defines the idle timeout.
+	// IdleTimeout defines the idle timeout of the read from the client's connection.
 	IdleTimeout = 1 * time.Minute
 )
 
@@ -84,15 +84,13 @@ func run(_ *node.Plugin) {
 
 // HandleConnection handles the given connection.
 func HandleConnection(conn *network.ManagedConnection) {
-	err := conn.SetReadTimeout(IdleTimeout)
-	if err != nil {
+	if err := conn.SetReadTimeout(IdleTimeout); err != nil {
 		log.Warnw("Error setting read timeout; closing connection", "err", err)
 		_ = conn.Close()
 		return
 	}
 	onReceiveData := events.NewClosure(func(data []byte) {
-		_, err := prot.Read(data)
-		if err != nil {
+		if _, err := prot.Read(data); err != nil {
 			log.Debugw("Invalid message received; closing connection", "err", err)
 			_ = conn.Close()
 		}
@@ -110,7 +108,7 @@ func HandleConnection(conn *network.ManagedConnection) {
 	}()
 }
 
-// wireUp connects the Received events of the protocol to the packet specific processor
+// wireUp connects the Received events of the protocol to the packet specific processor.
 func wireUp(p *protocol.Protocol) {
 	p.Events.Received[packet.MessageTypeHeartbeat].Attach(events.NewClosure(func(data []byte) {
 		processHeartbeatPacket(data)
@@ -123,7 +121,7 @@ func wireUp(p *protocol.Protocol) {
 	}))
 }
 
-// processHeartbeatPacket parses the serialized data into a Heartbeat packet and triggers its event
+// processHeartbeatPacket parses the serialized data into a Heartbeat packet and triggers its event.
 func processHeartbeatPacket(data []byte) {
 	heartbeatPacket, err := packet.ParseHeartbeat(data)
 	if err != nil {
@@ -133,7 +131,7 @@ func processHeartbeatPacket(data []byte) {
 	Events.Heartbeat.Trigger(heartbeatPacket)
 }
 
-// processHeartbeatPacket parses the serialized data into a FPC Heartbeat packet and triggers its event
+// processHeartbeatPacket parses the serialized data into a FPC Heartbeat packet and triggers its event.
 func processFPCHeartbeatPacket(data []byte) {
 	hb, err := packet.ParseFPCHeartbeat(data)
 	if err != nil {
@@ -143,7 +141,7 @@ func processFPCHeartbeatPacket(data []byte) {
 	Events.FPCHeartbeat.Trigger(hb)
 }
 
-// processMetricHeartbeatPacket parses the serialized data into a Metric Heartbeat packet and triggers its event
+// processMetricHeartbeatPacket parses the serialized data into a Metric Heartbeat packet and triggers its event.
 func processMetricHeartbeatPacket(data []byte) {
 	hb, err := packet.ParseMetricHeartbeat(data)
 	if err != nil {

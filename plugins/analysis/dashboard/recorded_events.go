@@ -31,7 +31,7 @@ type NeighborMetric struct {
 	Outbound uint
 }
 
-// NumOfNeighbors returns a map of nodeId-s to their neighbor count.
+// NumOfNeighbors returns a map of nodeIDs to their neighbor count.
 func NumOfNeighbors() map[string]*NeighborMetric {
 	lock.RLock()
 	defer lock.RUnlock()
@@ -56,7 +56,7 @@ func NumOfNeighbors() map[string]*NeighborMetric {
 	return result
 }
 
-// NetworkGraph returns a graph.
+// NetworkGraph returns the autopeering network graph.
 func NetworkGraph() *graph.Graph {
 	lock.RLock()
 	defer lock.RUnlock()

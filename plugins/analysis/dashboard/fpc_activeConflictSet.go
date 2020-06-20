@@ -2,18 +2,20 @@ package dashboard
 
 import "sync"
 
-type conflictRecord struct {
+// activeConflictSet contains the set of the active conflicts, not yet finalized.
+type activeConflictSet struct {
 	conflictSet conflictSet
 	lock        sync.RWMutex
 }
 
-func newConflictRecord() *conflictRecord {
-	return &conflictRecord{
+func newActiveConflictSet() *activeConflictSet {
+	return &activeConflictSet{
 		conflictSet: make(conflictSet),
 	}
 }
 
-func (cr *conflictRecord) cleanUp() {
+// cleanUp removes the finalized conflicts from the active conflicts set.
+func (cr *activeConflictSet) cleanUp() {
 	cr.lock.Lock()
 	defer cr.lock.Unlock()
 
@@ -24,7 +26,7 @@ func (cr *conflictRecord) cleanUp() {
 	}
 }
 
-func (cr *conflictRecord) ToFPCUpdate() *FPCUpdate {
+func (cr *activeConflictSet) ToFPCUpdate() *FPCUpdate {
 	cr.lock.RLock()
 	defer cr.lock.RUnlock()
 
@@ -33,7 +35,7 @@ func (cr *conflictRecord) ToFPCUpdate() *FPCUpdate {
 	}
 }
 
-func (cr *conflictRecord) load(ID string) (conflict, bool) {
+func (cr *activeConflictSet) load(ID string) (conflict, bool) {
 	cr.lock.RLock()
 	defer cr.lock.RUnlock()
 
@@ -45,7 +47,7 @@ func (cr *conflictRecord) load(ID string) (conflict, bool) {
 	return cr.conflictSet[ID], true
 }
 
-func (cr *conflictRecord) update(ID string, c conflict) {
+func (cr *activeConflictSet) update(ID string, c conflict) {
 	cr.lock.Lock()
 	defer cr.lock.Unlock()
 
@@ -59,7 +61,7 @@ func (cr *conflictRecord) update(ID string, c conflict) {
 	}
 }
 
-func (cr *conflictRecord) delete(ID string) {
+func (cr *activeConflictSet) delete(ID string) {
 	cr.lock.Lock()
 	defer cr.lock.Unlock()
 

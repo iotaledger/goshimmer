@@ -15,14 +15,12 @@ const (
 	CfgBasicAuthUsername = "analysis.dashboard.basic_auth.username"
 	// CfgBasicAuthPassword defines the config flag of the analysis dashboard basic auth password.
 	CfgBasicAuthPassword = "analysis.dashboard.basic_auth.password"
-	// CfgFPCBufferSize defines the config flag of the analysis dashboard FPC (past conflicts) buffer size.
-	CfgFPCBufferSize = "analysis.dashboard.fpc.buffer_size"
 	// CfgMongoDBUsername defines the config flag of the analysis dashboard mongoDB username.
 	CfgMongoDBUsername = "analysis.dashboard.mongodb.username"
-	// CfgMongoDBPassword defines the config flag of the analysis dashboard mongoDBpassword.
+	// CfgMongoDBPassword defines the config flag of the analysis dashboard mongoDB password.
 	CfgMongoDBPassword = "analysis.dashboard.mongodb.password"
-	// CfgMongoDBBindAddress defines the config flag of the analysis dashboard mongoDB binding address.
-	CfgMongoDBBindAddress = "analysis.dashboard.mongodb.bindAddress"
+	// CfgMongoDBHostAdress defines the config flag of the analysis dashboard mongoDB binding address.
+	CfgMongoDBHostAddress = "analysis.dashboard.mongodb.hostAddress"
 )
 
 func init() {
@@ -31,8 +29,7 @@ func init() {
 	flag.Bool(CfgBasicAuthEnabled, false, "whether to enable HTTP basic auth")
 	flag.String(CfgBasicAuthUsername, "goshimmer", "HTTP basic auth username")
 	flag.String(CfgBasicAuthPassword, "goshimmer", "HTTP basic auth password")
-	flag.Uint32(CfgFPCBufferSize, 200, "FPC buffer size")
 	flag.String(CfgMongoDBUsername, "root", "MongoDB username")
 	flag.String(CfgMongoDBPassword, "password", "MongoDB username")
-	flag.String(CfgMongoDBBindAddress, "mongodb_container:27017", "MongoDB bind address")
+	flag.String(CfgMongoDBHostAddress, "mongodb:27017", "MongoDB host address")
 }

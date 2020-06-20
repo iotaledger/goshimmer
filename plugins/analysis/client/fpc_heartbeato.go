@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 var (
@@ -22,10 +23,9 @@ func onFinalized(ev *vote.OpinionEvent) {
 
 func onRoundExecuted(roundStats *vote.RoundStats) {
 	// get own ID
-	var nodeID []byte
+	nodeID := make([]byte, len(identity.ID{}))
 	if local.GetInstance() != nil {
-		// doesn't copy the ID, take care not to modify underlying bytearray!
-		nodeID = local.GetInstance().ID().Bytes()
+		copy(nodeID, local.GetInstance().ID().Bytes())
 	}
 
 	chunks := splitFPCVoteContext(roundStats.ActiveVoteContexts)
@@ -54,11 +54,11 @@ func onRoundExecuted(roundStats *vote.RoundStats) {
 
 		data, err := packet.NewFPCHeartbeatMessage(hb)
 		if err != nil {
-			log.Info(err, " - FPC heartbeat message skipped")
+			log.Debugw("FPC heartbeat message skipped", "error", err)
 			return
 		}
 
-		log.Info("Client: onRoundExecuted data size: ", len(data))
+		log.Debugw("Client: onRoundExecuted data size", "len", len(data))
 
 		if _, err = conn.Write(data); err != nil {
 			log.Debugw("Error while writing to connection", "Description", err)
@@ -74,14 +74,14 @@ func splitFPCVoteContext(ctx map[string]*vote.Context) (chunk []map[string]*vote
 	i, counter := 0, 0
 	chunk[i] = make(map[string]*vote.Context)
 
-	if len(ctx) < maxVoteContext {
+	if len(ctx) < voteContextChunkThreshold {
 		chunk[i] = ctx
 		return
 	}
 
 	for conflictID, voteCtx := range ctx {
 		counter++
-		if counter >= maxVoteContext {
+		if counter >= voteContextChunkThreshold {
 			counter = 0
 			i++
 			chunk = append(chunk, make(map[string]*vote.Context))

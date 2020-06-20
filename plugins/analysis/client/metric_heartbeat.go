@@ -8,13 +8,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/shirou/gopsutil/cpu"
 )
 
 func sendMetricHeartbeat(w io.Writer, hb *packet.MetricHeartbeat) {
 	data, err := packet.NewMetricHeartbeatMessage(hb)
 	if err != nil {
-		log.Info(err, " - metric heartbeat message skipped")
+		log.Debugw("metric heartbeat message skipped", "err", err)
 		return
 	}
 
@@ -27,10 +28,9 @@ func sendMetricHeartbeat(w io.Writer, hb *packet.MetricHeartbeat) {
 
 func createMetricHeartbeat() *packet.MetricHeartbeat {
 	// get own ID
-	var nodeID []byte
+	nodeID := make([]byte, len(identity.ID{}))
 	if local.GetInstance() != nil {
-		// doesn't copy the ID, take care not to modify underlying bytearray!
-		nodeID = local.GetInstance().ID().Bytes()
+		copy(nodeID, local.GetInstance().ID().Bytes())
 	}
 
 	return &packet.MetricHeartbeat{
@@ -38,6 +38,7 @@ func createMetricHeartbeat() *packet.MetricHeartbeat {
 		OS:     runtime.GOOS,
 		Arch:   runtime.GOARCH,
 		NumCPU: runtime.NumCPU(),
+		// TODO: replace this with only the CPU usage of the GoShimmer process.
 		CPUUsage: func() (p float64) {
 			percent, err := cpu.Percent(time.Second, false)
 			if err == nil {

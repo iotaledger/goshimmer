@@ -64,6 +64,7 @@ func NewNeighbor(peer *peer.Peer, conn net.Conn, log *logger.Logger) *Neighbor {
 	}
 }
 
+// ConnectionEstablished returns the connection established.
 func (n *Neighbor) ConnectionEstablished() time.Time {
 	return n.connectionEstablished
 }

@@ -10,7 +10,7 @@ class VoteContext {
     nodeid: string;
     rounds: number;
     opinions: number[];
-    status: number;
+    outcome: number;
 }
 
 class Conflict {

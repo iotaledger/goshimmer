@@ -28,11 +28,16 @@ var (
 type MetricHeartbeat struct {
 	// The ID of the node who sent the heartbeat.
 	// Must be contained when a heartbeat is serialized.
-	OwnID       []byte
-	OS          string
-	Arch        string
-	NumCPU      int
-	CPUUsage    float64
+	OwnID []byte
+	// OS defines the operating system of the node.
+	OS string
+	// Arch defines the system architecture of the node.
+	Arch string
+	// NumCPU defines number of logical cores of the node.
+	NumCPU int
+	// CPUUsage defines the CPU usage of the node.
+	CPUUsage float64
+	// MemoryUsage defines the memory usage of the node.
 	MemoryUsage uint64
 }
 
@@ -41,33 +46,30 @@ func ParseMetricHeartbeat(data []byte) (*MetricHeartbeat, error) {
 	hb := &MetricHeartbeat{}
 
 	buf := new(bytes.Buffer)
-	_, err := buf.Write(data)
-	if err != nil {
+	if _, err := buf.Write(data); err != nil {
 		return nil, err
 	}
 
 	decoder := gob.NewDecoder(buf)
-	err = decoder.Decode(hb)
-	if err != nil {
+	if err := decoder.Decode(hb); err != nil {
 		return nil, err
 	}
 
 	return hb, nil
 }
 
-// Bytes return the Metric heartbeat encoded as bytes
+// Bytes return the Metric heartbeat encoded as bytes.
 func (hb MetricHeartbeat) Bytes() ([]byte, error) {
 	buf := new(bytes.Buffer)
 	encoder := gob.NewEncoder(buf)
-	err := encoder.Encode(hb)
-	if err != nil {
+	if err := encoder.Encode(hb); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
-// NewMetricHeartbeatMessage serializes the given Metric heartbeat into a byte slice and adds a tlv header to the packet.
-// message = tlv header + serialized packet
+// NewMetricHeartbeatMessage serializes the given Metric heartbeat into a byte slice and adds a TLV header to the packet.
+// message = TLV header + serialized packet.
 func NewMetricHeartbeatMessage(hb *MetricHeartbeat) ([]byte, error) {
 	packet, err := hb.Bytes()
 	if err != nil {

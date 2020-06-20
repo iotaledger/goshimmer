@@ -11,49 +11,53 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
-// FPCRecord defines the FPC record to be stored into a mongoDB
+// FPCRecord defines the FPC record to be stored into a mongoDB.
 type FPCRecord struct {
-	ConflictID string  `json:"conflictid" bson:"conflictid"`
-	NodeID     string  `json:"nodeid" bson:"nodeid"`
-	Rounds     int     `json:"rounds" bson:"rounds"`
-	Opinions   []int32 `json:"opinions" bson:"opinions"`
-	Status     int32   `json:"status" bson:"status"`
+	// ConflictID defines the ID of the conflict.
+	ConflictID string `json:"conflictid" bson:"conflictid"`
+	// NodeID defines the ID of the node.
+	NodeID string `json:"nodeid" bson:"nodeid"`
+	// Rounds defines number of rounds performed to finalize the conflict.
+	Rounds int `json:"rounds" bson:"rounds"`
+	// Opinions contains the opinion of each round.
+	Opinions []int32 `json:"opinions" bson:"opinions"`
+	// Outcome defines final opinion of the conflict.
+	Outcome int32 `json:"outcome" bson:"outcome"`
 }
 
-var (
-	db              *mongo.Database
-	ctxDisconnectDB context.Context
-	clientDB        *mongo.Client
-	dbOnce          sync.Once
+const (
+	// DefualtMongoDBOpTimeout defines the defualt MongoDB operation timeout.
+	DefualtMongoDBOpTimeout = 5 * time.Second
 )
 
-func shutdownMongoDB() {
-	clientDB.Disconnect(ctxDisconnectDB)
-}
+var (
+	db     *mongo.Database
+	dbOnce sync.Once
+)
 
 func mongoDB() *mongo.Database {
 	dbOnce.Do(func() {
 		username := config.Node.GetString(CfgMongoDBUsername)
 		password := config.Node.GetString(CfgMongoDBPassword)
-		bindAddr := config.Node.GetString(CfgMongoDBBindAddress)
-		client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://" + username + ":" + password + "@" + bindAddr))
-		if err != nil {
-			log.Fatal(err)
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		err = client.Connect(ctx)
-		ctxDisconnectDB = ctx
-		defer cancel()
+		hostAddr := config.Node.GetString(CfgMongoDBHostAddress)
+
+		client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://" + username + ":" + password + "@" + hostAddr))
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := operationTimeout(DefualtMongoDBOpTimeout)
 		defer cancel()
-		err = client.Ping(ctx, readpref.Primary())
-		if err != nil {
+		if err := client.Connect(ctx); err != nil {
 			log.Fatal(err)
 		}
+
+		ctx, cancel = operationTimeout(DefualtMongoDBOpTimeout)
+		defer cancel()
+		if err := client.Ping(ctx, readpref.Primary()); err != nil {
+			log.Fatal(err)
+		}
+
 		db = client.Database("analysis")
 	})
 	return db
@@ -64,8 +68,12 @@ func storeFPCRecords(records []FPCRecord, db *mongo.Database) error {
 	for i := range records {
 		data[i] = records[i]
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := operationTimeout(DefualtMongoDBOpTimeout)
 	defer cancel()
 	_, err := db.Collection("FPC").InsertMany(ctx, data)
 	return err
+}
+
+func operationTimeout(timeout time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), timeout)
 }

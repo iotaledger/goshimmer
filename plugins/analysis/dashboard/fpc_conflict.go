@@ -12,7 +12,7 @@ type voteContext struct {
 	NodeID   string  `json:"nodeid" bson:"nodeid"`
 	Rounds   int     `json:"rounds" bson:"rounds"`
 	Opinions []int32 `json:"opinions" bson:"opinions"`
-	Status   int32   `json:"status" bson:"status"`
+	Outcome  int32   `json:"outcome" bson:"outcome"`
 }
 
 func newConflict() conflict {
@@ -21,7 +21,7 @@ func newConflict() conflict {
 	}
 }
 
-// isFinalized return true if all the nodes have finalized a given conflict.
+// isFinalized returns true if all the nodes have finalized a given conflict.
 // It also returns false if the given conflict has an empty nodesView.
 func (c conflict) isFinalized() bool {
 	if len(c.NodesView) == 0 {
@@ -30,7 +30,7 @@ func (c conflict) isFinalized() bool {
 
 	count := 0
 	for _, context := range c.NodesView {
-		if context.Status == liked || context.Status == disliked {
+		if context.Outcome == liked || context.Outcome == disliked {
 			count++
 		}
 	}
@@ -38,14 +38,14 @@ func (c conflict) isFinalized() bool {
 	return (count == len(c.NodesView))
 }
 
-// finalizationStatus returns the ratio of nodes that have finlized a given conflict.
-func (c conflict) finalizationStatus() float64 {
+// finalizedRatio returns the ratio of nodes that have finlized a given conflict.
+func (c conflict) finalizedRatio() float64 {
 	if len(c.NodesView) == 0 {
 		return 0
 	}
 	count := 0
 	for _, context := range c.NodesView {
-		if context.Status == liked || context.Status == disliked {
+		if context.Outcome == liked || context.Outcome == disliked {
 			count++
 		}
 	}

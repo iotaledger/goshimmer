@@ -18,7 +18,6 @@ func new() *CollectionEvents {
 		FPCOutboundBytes:      events.NewEvent(uint64Caller),
 		CPUUsage:              events.NewEvent(float64Caller),
 		MemUsage:              events.NewEvent(uint64Caller),
-		DBSize:                events.NewEvent(uint64Caller),
 		Synced:                events.NewEvent(boolCaller),
 		ValueTips:             events.NewEvent(uint64Caller),
 		MessageTips:           events.NewEvent(uint64Caller),
@@ -28,7 +27,7 @@ func new() *CollectionEvents {
 	}
 }
 
-// Events returns the events defined in the package
+// Events returns the events defined in the package.
 func Events() *CollectionEvents {
 	once.Do(func() {
 		metricEvents = new()

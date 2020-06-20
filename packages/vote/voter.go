@@ -59,9 +59,9 @@ type RoundStats struct {
 
 // OpinionEvent is the struct containing data to be passed around with Finalized and Failed events.
 type OpinionEvent struct {
-	// ID is the of the conflict
+	// ID is the of the conflict.
 	ID string
-	// Opinion is an opinion about a conflict
+	// Opinion is an opinion about a conflict.
 	Opinion Opinion
 	// Ctx contains all relevant infos regarding the conflict.
 	Ctx Context

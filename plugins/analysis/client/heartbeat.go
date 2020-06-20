@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 )
 
@@ -48,10 +49,9 @@ func sendHeartbeat(w io.Writer, hb *packet.Heartbeat) {
 
 func createHeartbeat() *packet.Heartbeat {
 	// get own ID
-	var nodeID []byte
+	nodeID := make([]byte, len(identity.ID{}))
 	if local.GetInstance() != nil {
-		// doesn't copy the ID, take care not to modify underlying bytearray!
-		nodeID = local.GetInstance().ID().Bytes()
+		copy(nodeID, local.GetInstance().ID().Bytes())
 	}
 
 	var outboundIDs [][]byte
@@ -61,16 +61,16 @@ func createHeartbeat() *packet.Heartbeat {
 	outgoingNeighbors := autopeering.Selection().GetOutgoingNeighbors()
 	outboundIDs = make([][]byte, len(outgoingNeighbors))
 	for i, neighbor := range outgoingNeighbors {
-		// doesn't copy the ID, take care not to modify underlying bytearray!
-		outboundIDs[i] = neighbor.ID().Bytes()
+		outboundIDs[i] = make([]byte, len(identity.ID{}))
+		copy(outboundIDs[i], neighbor.ID().Bytes())
 	}
 
 	// get inboundIDs (accepted neighbors)
 	incomingNeighbors := autopeering.Selection().GetIncomingNeighbors()
 	inboundIDs = make([][]byte, len(incomingNeighbors))
 	for i, neighbor := range incomingNeighbors {
-		// doesn't copy the ID, take care not to modify underlying bytearray!
-		inboundIDs[i] = neighbor.ID().Bytes()
+		inboundIDs[i] = make([]byte, len(identity.ID{}))
+		copy(inboundIDs[i], neighbor.ID().Bytes())
 	}
 
 	return &packet.Heartbeat{OwnID: nodeID, OutboundIDs: outboundIDs, InboundIDs: inboundIDs}

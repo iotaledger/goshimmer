@@ -8,7 +8,7 @@
     },
     "dashboard": {
       "bindAddress": "0.0.0.0:9000",
-      "dev": true
+      "dev": false
     }
   },
   "autopeering": {
@@ -57,7 +57,7 @@
   },
   "node": {
     "disablePlugins": "portcheck",
-    "enablePlugins": ["Bootstrap", "spammer"]
+    "enablePlugins": []
   },
   "webapi": {
     "auth": {

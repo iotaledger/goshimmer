@@ -96,15 +96,6 @@ services:
     user: "104"
     volumes:
     - ./grafana:/var/lib/grafana:rw
-    # environment:
-    #   - GF_SECURITY_ADMIN_PASSWORD=MYPASSWORD
-    #   - GF_USERS_ALLOW_SIGN_UP=false
-    #   - GF_SERVER_DOMAIN=myrul.com
-    #   - GF_SMTP_ENABLED=true
-    #   - GF_SMTP_HOST=smtp.gmail.com:587
-    #   - GF_SMTP_USER=myadrress@gmail.com
-    #   - GF_SMTP_PASSWORD=mypassword
-    #   - GF_SMTP_FROM_ADDRESS=myaddress@gmail.com
 
 volumes:
   goshimmer-cache:

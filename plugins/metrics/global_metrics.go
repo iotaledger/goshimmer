@@ -10,25 +10,29 @@ import (
 	"go.uber.org/atomic"
 )
 
-// ClientInfo holds info of a client.
-type ClientInfo struct {
-	OS          string
-	Arch        string
-	NumCPU      int
-	CPUUsage    float64
+// NodeInfo holds info of a node.
+type NodeInfo struct {
+	OS string
+	// Arch defines the system architecture of the node.
+	Arch string
+	// NumCPU defines number of logical cores of the node.
+	NumCPU int
+	// CPUUsage defines the CPU usage of the node.
+	CPUUsage float64
+	// MemoryUsage defines the memory usage of the node.
 	MemoryUsage uint64
 }
 
 var (
-	clientsMetrics      = make(map[string]ClientInfo)
-	clientsMetricsMutex sync.RWMutex
-	networkDiameter     atomic.Int32
+	nodesMetrics       = make(map[string]NodeInfo)
+	nodessMetricsMutex sync.RWMutex
+	networkDiameter    atomic.Int32
 )
 
 var onMetricHeartbeatReceived = events.NewClosure(func(hb *packet.MetricHeartbeat) {
-	clientsMetricsMutex.Lock()
-	defer clientsMetricsMutex.Unlock()
-	clientsMetrics[base58.Encode(hb.OwnID)] = ClientInfo{
+	nodessMetricsMutex.Lock()
+	defer nodessMetricsMutex.Unlock()
+	nodesMetrics[base58.Encode(hb.OwnID)] = NodeInfo{
 		OS:          hb.OS,
 		Arch:        hb.Arch,
 		NumCPU:      hb.NumCPU,
@@ -37,14 +41,14 @@ var onMetricHeartbeatReceived = events.NewClosure(func(hb *packet.MetricHeartbea
 	}
 })
 
-// ClientsMetrics returns info about the OS, arch, number of cpu cores, cpu load and memory usage.
-func ClientsMetrics() map[string]ClientInfo {
-	clientsMetricsMutex.RLock()
-	defer clientsMetricsMutex.RUnlock()
+// NodesMetrics returns info about the OS, arch, number of cpu cores, cpu load and memory usage.
+func NodesMetrics() map[string]NodeInfo {
+	nodessMetricsMutex.RLock()
+	defer nodessMetricsMutex.RUnlock()
 	// create copy of the map
-	var copy = make(map[string]ClientInfo)
+	var copy = make(map[string]NodeInfo)
 	// manually copy content
-	for node, clientInfo := range clientsMetrics {
+	for node, clientInfo := range nodesMetrics {
 		copy[node] = clientInfo
 	}
 	return copy

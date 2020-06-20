@@ -38,7 +38,7 @@ func configure(plugin *node.Plugin) {
 
 	if config.Node.GetBool(metrics.CfgMetricsLocal) {
 		registerAutopeeringMetrics()
-		registerDataMetrics()
+		registerDBMetrics()
 		registerFPCMetrics()
 		registerInfoMetrics()
 		registerNetworkMetrics()

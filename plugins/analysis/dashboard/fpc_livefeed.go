@@ -26,7 +26,7 @@ var (
 	fpcLiveFeedWorkerQueueSize = 300
 	fpcLiveFeedWorkerPool      *workerpool.WorkerPool
 
-	recordedConflicts *conflictRecord
+	activeConflicts *activeConflictSet
 )
 
 // FPCUpdate contains an FPC update.
@@ -35,7 +35,7 @@ type FPCUpdate struct {
 }
 
 func configureFPCLiveFeed() {
-	recordedConflicts = newConflictRecord()
+	activeConflicts = newActiveConflictSet()
 
 	fpcLiveFeedWorkerPool = workerpool.New(func(task workerpool.Task) {
 		newMsg := task.Param(0).(*FPCUpdate)
@@ -68,7 +68,7 @@ func runFPCLiveFeed() {
 				return
 			case <-cleanUpTicker.C:
 				log.Debug("Cleaning up Finalized Conflicts ...")
-				recordedConflicts.cleanUp()
+				activeConflicts.cleanUp()
 				log.Debug("Cleaning up Finalized Conflicts ... done")
 			}
 		}
@@ -93,7 +93,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat, recordEvent bool) *FPCUpdate {
 
 		if recordEvent {
 			// update recorded events
-			recordedConflicts.update(ID, conflict{NodesView: map[string]voteContext{nodeID: newVoteContext}})
+			activeConflicts.update(ID, conflict{NodesView: map[string]voteContext{nodeID: newVoteContext}})
 		}
 	}
 
@@ -103,22 +103,22 @@ func createFPCUpdate(hb *packet.FPCHeartbeat, recordEvent bool) *FPCUpdate {
 			finalizedConflicts := make([]FPCRecord, len(hb.Finalized))
 			i := 0
 			for ID, finalOpinion := range hb.Finalized {
-				conflictOverview, ok := recordedConflicts.load(ID)
+				conflictOverview, ok := activeConflicts.load(ID)
 				if !ok {
 					log.Error("Error: missing conflict with ID:", ID)
 					continue
 				}
 				conflictDetail := conflictOverview.NodesView[nodeID]
-				conflictDetail.Status = vote.ConvertOpinionToInt32(finalOpinion)
+				conflictDetail.Outcome = vote.ConvertOpinionToInt32(finalOpinion)
 				conflicts[ID] = newConflict()
 				conflicts[ID].NodesView[nodeID] = conflictDetail
-				recordedConflicts.update(ID, conflicts[ID])
+				activeConflicts.update(ID, conflicts[ID])
 				finalizedConflicts[i] = FPCRecord{
 					ConflictID: ID,
 					NodeID:     conflictDetail.NodeID,
 					Rounds:     conflictDetail.Rounds,
 					Opinions:   conflictDetail.Opinions,
-					Status:     conflictDetail.Status,
+					Outcome:    conflictDetail.Outcome,
 				}
 				i++
 
@@ -127,7 +127,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat, recordEvent bool) *FPCUpdate {
 					NodeID:     conflictDetail.NodeID,
 					Rounds:     conflictDetail.Rounds,
 					Opinions:   vote.ConvertInts32ToOpinions(conflictDetail.Opinions),
-					Status:     vote.ConvertInt32Opinion(conflictDetail.Status),
+					Outcome:    vote.ConvertInt32Opinion(conflictDetail.Outcome),
 				})
 			}
 
@@ -145,7 +145,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat, recordEvent bool) *FPCUpdate {
 
 // replay FPC records (past events).
 func replayFPCRecords(ws *websocket.Conn) {
-	wsMessage := &wsmsg{MsgTypeFPC, recordedConflicts.ToFPCUpdate()}
+	wsMessage := &wsmsg{MsgTypeFPC, activeConflicts.ToFPCUpdate()}
 
 	if err := ws.WriteJSON(wsMessage); err != nil {
 		log.Info(err)
