@@ -16,7 +16,6 @@ var (
 )
 
 func registerTangleMetrics() {
-	// TODO: look into why not work
 	messageTips = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "tangle_message_tips_count",
 		Help: "Current number of tips in message tangle",

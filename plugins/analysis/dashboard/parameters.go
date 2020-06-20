@@ -19,7 +19,7 @@ const (
 	CfgMongoDBUsername = "analysis.dashboard.mongodb.username"
 	// CfgMongoDBPassword defines the config flag of the analysis dashboard mongoDB password.
 	CfgMongoDBPassword = "analysis.dashboard.mongodb.password"
-	// CfgMongoDBHostAdress defines the config flag of the analysis dashboard mongoDB binding address.
+	// CfgMongoDBHostAddress defines the config flag of the analysis dashboard mongoDB binding address.
 	CfgMongoDBHostAddress = "analysis.dashboard.mongodb.hostAddress"
 )
 

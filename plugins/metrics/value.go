@@ -17,6 +17,7 @@ func measureValueTips() {
 	metrics.Events().ValueTips.Trigger((uint64)(valuetransfers.TipManager().Size()))
 }
 
+// ValueTransactionCounter returns the number of value transactions seen.
 func ValueTransactionCounter() uint64 {
 	return valueTransactionCounter.Load()
 }

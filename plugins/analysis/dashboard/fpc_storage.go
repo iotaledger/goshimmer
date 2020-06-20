@@ -26,8 +26,8 @@ type FPCRecord struct {
 }
 
 const (
-	// DefualtMongoDBOpTimeout defines the defualt MongoDB operation timeout.
-	DefualtMongoDBOpTimeout = 5 * time.Second
+	// DefaultMongoDBOpTimeout defines the default MongoDB operation timeout.
+	DefaultMongoDBOpTimeout = 5 * time.Second
 )
 
 var (
@@ -46,13 +46,13 @@ func mongoDB() *mongo.Database {
 			log.Fatal(err)
 		}
 
-		ctx, cancel := operationTimeout(DefualtMongoDBOpTimeout)
+		ctx, cancel := operationTimeout(DefaultMongoDBOpTimeout)
 		defer cancel()
 		if err := client.Connect(ctx); err != nil {
 			log.Fatal(err)
 		}
 
-		ctx, cancel = operationTimeout(DefualtMongoDBOpTimeout)
+		ctx, cancel = operationTimeout(DefaultMongoDBOpTimeout)
 		defer cancel()
 		if err := client.Ping(ctx, readpref.Primary()); err != nil {
 			log.Fatal(err)
@@ -68,7 +68,7 @@ func storeFPCRecords(records []FPCRecord, db *mongo.Database) error {
 	for i := range records {
 		data[i] = records[i]
 	}
-	ctx, cancel := operationTimeout(DefualtMongoDBOpTimeout)
+	ctx, cancel := operationTimeout(DefaultMongoDBOpTimeout)
 	defer cancel()
 	_, err := db.Collection("FPC").InsertMany(ctx, data)
 	return err
