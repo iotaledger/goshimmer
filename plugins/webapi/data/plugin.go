@@ -1,6 +1,7 @@
 package data
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
@@ -34,7 +35,13 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	//TODO: to check max payload size allowed, if exceeding return an error
+	dataPayload := payload.NewData(request.Data)
+	if len(dataPayload.Bytes()) > payload.MaxDataPayloadSize {
+		msg := fmt.Sprintf("maximum payload size of %d bytes exceeded", payload.MaxDataPayloadSize)
+		log.Info(msg)
+		return c.JSON(http.StatusBadRequest, Response{Error: msg})
+	}
+
 	msg, err := issuer.IssuePayload(payload.NewData(request.Data))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})

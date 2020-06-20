@@ -1518,14 +1518,14 @@ func (tangle *Tangle) checkTransactionSolidity(tx *transaction.Transaction, meta
 	}
 
 	// determine the consumed inputs and balances of the transaction
-	inputsSolid, cachedInputs, consumedBalances, consumedBranchesMap, err := tangle.retrieveConsumedInputDetails(tx)
+	inputsSolid, cachedInputs, consumedBalances, consumedBranchesMap, err := tangle.RetrieveConsumedInputDetails(tx)
 	if err != nil || !inputsSolid {
 		return
 	}
 	defer cachedInputs.Release()
 
 	// abort if the outputs are not matching the inputs
-	if !tangle.checkTransactionOutputs(consumedBalances, tx.Outputs()) {
+	if !tangle.CheckTransactionOutputs(consumedBalances, tx.Outputs()) {
 		err = fmt.Errorf("the outputs do not match the inputs in transaction with id '%s'", tx.ID())
 
 		return
@@ -1560,7 +1560,8 @@ func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Tran
 	return
 }
 
-func (tangle *Tangle) retrieveConsumedInputDetails(tx *transaction.Transaction) (inputsSolid bool, cachedInputs CachedOutputs, consumedBalances map[balance.Color]int64, consumedBranches branchmanager.BranchIds, err error) {
+// RetrieveConsumedInputDetails retrieves the details of the consumed inputs of a transaction
+func (tangle *Tangle) RetrieveConsumedInputDetails(tx *transaction.Transaction) (inputsSolid bool, cachedInputs CachedOutputs, consumedBalances map[balance.Color]int64, consumedBranches branchmanager.BranchIds, err error) {
 	cachedInputs = tangle.getCachedOutputsFromTransactionInputs(tx)
 	consumedBalances = make(map[balance.Color]int64)
 	consumedBranches = make(branchmanager.BranchIds)
@@ -1600,11 +1601,11 @@ func (tangle *Tangle) retrieveConsumedInputDetails(tx *transaction.Transaction) 
 	return
 }
 
-// checkTransactionOutputs is a utility function that returns true, if the outputs are consuming all of the given inputs
+// CheckTransactionOutputs is a utility function that returns true, if the outputs are consuming all of the given inputs
 // (the sum of all the balance changes is 0). It also accounts for the ability to "recolor" coins during the creating of
 // outputs. If this function returns false, then the outputs that are defined in the transaction are invalid and the
 // transaction should be removed from the ledger state.
-func (tangle *Tangle) checkTransactionOutputs(inputBalances map[balance.Color]int64, outputs *transaction.Outputs) bool {
+func (tangle *Tangle) CheckTransactionOutputs(inputBalances map[balance.Color]int64, outputs *transaction.Outputs) bool {
 	// create a variable to keep track of outputs that create a new color
 	var newlyColoredCoins int64
 	var uncoloredCoins int64

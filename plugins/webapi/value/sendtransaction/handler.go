@@ -25,7 +25,18 @@ func Handler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	// Prepare value payload and send the message to tangle
+	_, _, consumedBalances, _, err := valuetransfers.Tangle.RetrieveConsumedInputDetails(tx)
+	if err != nil {
+		log.Info(err.Error())
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
+	if !valuetransfers.Tangle.CheckTransactionOutputs(consumedBalances, tx.Outputs()) {
+		msg := "Transaction does not spend all funds from inputs"
+		log.Info(msg)
+		return c.JSON(http.StatusBadRequest, Response{Error: msg})
+	}
+
+		// Prepare value payload and send the message to tangle
 	payload := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
 	_, err = issuer.IssuePayload(payload)
 	if err != nil {

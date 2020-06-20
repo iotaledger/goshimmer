@@ -28,6 +28,9 @@ type Payload struct {
 	bytesMutex sync.RWMutex
 }
 
+// MaxCollectiveBeaconPayloadSize defines the maximum size of a collective beacon payload
+const MaxCollectiveBeaconPayloadSize = 64 * 1024
+
 // New creates a new collective beacon payload.
 func New(instanceID uint32, round uint64, prevSignature, signature, dpk []byte) *Payload {
 	return &Payload{
