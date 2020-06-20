@@ -1,8 +1,11 @@
 package valuetransfers
 
 import (
+	"os"
 	"sync"
 	"time"
+
+	flag "github.com/spf13/pflag"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
@@ -13,6 +16,7 @@ import (
 	messageTangle "github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/daemon"
@@ -25,9 +29,20 @@ const (
 	// PluginName contains the human readable name of the plugin.
 	PluginName = "ValueTransfers"
 
-	// AverageNetworkDelay contains the average time it takes for a network to propagate through gossip.
-	AverageNetworkDelay = 5 * time.Second
+	// DefaultAverageNetworkDelay contains the default average time it takes for a network to propagate through gossip.
+	DefaultAverageNetworkDelay = 5 * time.Second
+
+	// CfgValueLayerSnapshotFile is the path to the snapshot file.
+	CfgValueLayerSnapshotFile = "valueLayer.snapshot.file"
+
+	// CfgValueLayerFCOBAverageNetworkDelay is the avg. network delay to use for FCoB rules
+	CfgValueLayerFCOBAverageNetworkDelay = "valueLayer.fcob.averageNetworkDelay"
 )
+
+func init() {
+	flag.String(CfgValueLayerSnapshotFile, "", "the path to the snapshot file")
+	flag.Int(CfgValueLayerFCOBAverageNetworkDelay, 5, "the avg. network delay to use for FCoB rules")
+}
 
 var (
 	// App is the "plugin" instance of the value-transfers application.
@@ -58,6 +73,22 @@ func configure(_ *node.Plugin) {
 
 	// configure Tangle
 	Tangle = tangle.New(database.Store())
+
+	// read snapshot file
+	snapshotFilePath := config.Node.GetString(CfgValueLayerSnapshotFile)
+	if len(snapshotFilePath) != 0 {
+		snapshot := tangle.Snapshot{}
+		f, err := os.Open(snapshotFilePath)
+		if err != nil {
+			log.Panic("can not open snapshot file:", err)
+		}
+		if _, err := snapshot.ReadFrom(f); err != nil {
+			log.Panic("could not read snapshot file:", err)
+		}
+		Tangle.LoadSnapshot(snapshot)
+		log.Infof("read snapshot from %s", snapshotFilePath)
+	}
+
 	Tangle.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Error(err)
 	}))
@@ -76,7 +107,9 @@ func configure(_ *node.Plugin) {
 	}))
 
 	// configure FCOB consensus rules
-	FCOB = consensus.NewFCOB(Tangle, AverageNetworkDelay)
+	cfgAvgNetworkDelay := config.Node.GetInt(CfgValueLayerFCOBAverageNetworkDelay)
+	log.Infof("avg. network delay configured to %d seconds", cfgAvgNetworkDelay)
+	FCOB = consensus.NewFCOB(Tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
 	FCOB.Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
 		if err := voter.Vote(id, initOpn); err != nil {
 			log.Error(err)

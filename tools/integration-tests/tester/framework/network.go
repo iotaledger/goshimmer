@@ -9,6 +9,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 )
@@ -99,6 +100,15 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	config.EntryNodeHost = n.namePrefix(containerNameEntryNode)
 	config.EntryNodePublicKey = n.entryNodePublicKey()
 	config.DisabledPlugins = disabledPluginsPeer
+	config.SnapshotFilePath = snapshotFilePath
+
+	// create wallet
+	var nodeWallet *wallet.Wallet
+	if c.Faucet == true {
+		nodeWallet = wallet.New(genesisSeed)
+	} else {
+		nodeWallet = wallet.New()
+	}
 
 	// create Docker container
 	container := NewDockerContainer(n.dockerClient)
@@ -115,7 +125,7 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 		return nil, err
 	}
 
-	peer, err := newPeer(name, identity.New(publicKey), container, n)
+	peer, err := newPeer(name, identity.New(publicKey), container, nodeWallet, n)
 	if err != nil {
 		return nil, err
 	}
