@@ -25,42 +25,72 @@ type FPCRecord struct {
 	Outcome int32 `json:"outcome" bson:"outcome"`
 }
 
+type FPCRecords []FPCRecord
+
 const (
-	// DefaultMongoDBOpTimeout defines the default MongoDB operation timeout.
-	DefaultMongoDBOpTimeout = 5 * time.Second
+	// defaultMongoDBOpTimeout defines the default MongoDB operation timeout.
+	defaultMongoDBOpTimeout = 5 * time.Second
+	// checkMongoDBConnectionInterval defines the interval for checking the MongoDB connection.
+	checkMongoDBConnectionInterval = 1 * time.Minute
 )
 
 var (
-	db     *mongo.Database
+	clientDB *mongo.Client
+	//db       *mongo.Database
 	dbOnce sync.Once
 )
 
 func mongoDB() *mongo.Database {
 	dbOnce.Do(func() {
-		username := config.Node.GetString(CfgMongoDBUsername)
-		password := config.Node.GetString(CfgMongoDBPassword)
-		hostAddr := config.Node.GetString(CfgMongoDBHostAddress)
-
-		client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://" + username + ":" + password + "@" + hostAddr))
+		client, err := newMongoDB()
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		ctx, cancel := operationTimeout(DefaultMongoDBOpTimeout)
-		defer cancel()
-		if err := client.Connect(ctx); err != nil {
-			log.Fatal(err)
-		}
-
-		ctx, cancel = operationTimeout(DefaultMongoDBOpTimeout)
-		defer cancel()
-		if err := client.Ping(ctx, readpref.Primary()); err != nil {
-			log.Fatal(err)
-		}
-
-		db = client.Database("analysis")
+		clientDB = client
 	})
-	return db
+	return clientDB.Database("analysis")
+}
+
+func newMongoDB() (*mongo.Client, error) {
+	username := config.Node.GetString(CfgMongoDBUsername)
+	password := config.Node.GetString(CfgMongoDBPassword)
+	hostAddr := config.Node.GetString(CfgMongoDBHostAddress)
+
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://" + username + ":" + password + "@" + hostAddr))
+	if err != nil {
+		log.Fatalf("MongoDB NewClient failed: %s", err)
+		return nil, err
+	}
+
+	if err := connectMongoDB(client); err != nil {
+		return nil, err
+	}
+
+	if err := pingMongoDB(client); err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
+func connectMongoDB(client *mongo.Client) error {
+	ctx, cancel := operationTimeout(defaultMongoDBOpTimeout)
+	defer cancel()
+	if err := client.Connect(ctx); err != nil {
+		log.Warnf("MongoDB connection failed: %s", err)
+		return err
+	}
+	return nil
+}
+
+func pingMongoDB(client *mongo.Client) error {
+	ctx, cancel := operationTimeout(defaultMongoDBOpTimeout)
+	defer cancel()
+	if err := client.Ping(ctx, readpref.Primary()); err != nil {
+		log.Warnf("MongoDB ping failed: %s", err)
+		return err
+	}
+	return nil
 }
 
 func storeFPCRecords(records []FPCRecord, db *mongo.Database) error {
@@ -68,7 +98,7 @@ func storeFPCRecords(records []FPCRecord, db *mongo.Database) error {
 	for i := range records {
 		data[i] = records[i]
 	}
-	ctx, cancel := operationTimeout(DefaultMongoDBOpTimeout)
+	ctx, cancel := operationTimeout(defaultMongoDBOpTimeout)
 	defer cancel()
 	_, err := db.Collection("FPC").InsertMany(ctx, data)
 	return err

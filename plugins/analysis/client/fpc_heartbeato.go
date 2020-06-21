@@ -31,11 +31,6 @@ func onRoundExecuted(roundStats *vote.RoundStats) {
 	chunks := splitFPCVoteContext(roundStats.ActiveVoteContexts)
 
 	for _, chunk := range chunks {
-		// abort if empty round
-		if len(chunk) == 0 {
-			return
-		}
-
 		rs := vote.RoundStats{
 			Duration:           roundStats.Duration,
 			RandUsed:           roundStats.RandUsed,
@@ -51,6 +46,11 @@ func onRoundExecuted(roundStats *vote.RoundStats) {
 		hb.Finalized = finalized
 		finalized = make(map[string]vote.Opinion)
 		finalizedMutex.Unlock()
+
+		// abort if empty round and no finalized conflicts.
+		if len(chunk) == 0 && len(hb.Finalized) == 0 {
+			return
+		}
 
 		data, err := packet.NewFPCHeartbeatMessage(hb)
 		if err != nil {

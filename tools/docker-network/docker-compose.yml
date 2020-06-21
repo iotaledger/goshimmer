@@ -22,11 +22,13 @@ services:
       --autopeering.entryNodes=
       --analysis.server.bindAddress=0.0.0.0:1888
       --analysis.dashboard.bindAddress=0.0.0.0:9000
-      --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
       --analysis.dashboard.dev=false
+      --analysis.dashboard.mongodb.enabled=true
+      --analysis.dashboard.mongodb.hostAddress=mongodb_container:27017
       --metrics.local=false
       --metrics.global=true
       --prometheus.bindAddress=0.0.0.0:9312
+      --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
       --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,messagelayer,valuetransfers,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     volumes:
       - ./config.docker.json:/tmp/config.json:ro

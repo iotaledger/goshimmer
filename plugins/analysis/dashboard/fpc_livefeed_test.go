@@ -48,6 +48,6 @@ func TestCreateFPCUpdate(t *testing.T) {
 	}
 
 	// check that createFPCUpdate returns a matching FPCMsg
-	require.Equal(t, want, createFPCUpdate(hbTest, false))
+	require.Equal(t, want, createFPCUpdate(hbTest))
 
 }
