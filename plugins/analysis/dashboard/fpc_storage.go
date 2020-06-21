@@ -25,13 +25,12 @@ type FPCRecord struct {
 	Outcome int32 `json:"outcome" bson:"outcome"`
 }
 
+// FPCRecords defines a slice of FPCRecord
 type FPCRecords []FPCRecord
 
 const (
 	// defaultMongoDBOpTimeout defines the default MongoDB operation timeout.
 	defaultMongoDBOpTimeout = 5 * time.Second
-	// checkMongoDBConnectionInterval defines the interval for checking the MongoDB connection.
-	checkMongoDBConnectionInterval = 1 * time.Minute
 )
 
 var (
