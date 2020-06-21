@@ -57,6 +57,7 @@ func run(_ *node.Plugin) {
 				measureSynced()
 				measureMessageTips()
 				measureValueTips()
+				measureReceivedMPS()
 
 				// gossip network traffic
 				g := gossipCurrentTraffic()
@@ -81,6 +82,7 @@ func registerLocalMetrics() {
 		_payloadType := cachedMessage.Unwrap().Payload().Type()
 		cachedMessage.Release()
 		cachedMessageMetadata.Release()
+		increaseReceivedMPSCounter()
 		increasePerPayloadCounter(_payloadType)
 	}))
 

@@ -15,6 +15,12 @@ var (
 	// current number of message tips.
 	messageTips atomic.Uint64
 
+	// counter for the received MPS
+	mpsReceivedSinceLastMeasurement atomic.Uint64
+
+	// measured value of the received MPS
+	measuredReceivedMPS atomic.Uint64
+
 	// Number of messages per payload type since start of the node.
 	messageCountPerPayload = make(map[payload.Type]uint64)
 
@@ -64,4 +70,29 @@ func increasePerPayloadCounter(p payload.Type) {
 
 func measureMessageTips() {
 	metrics.Events().MessageTips.Trigger((uint64)(messagelayer.TipSelector.TipCount()))
+}
+
+// ReceivedMessagesPerSecond retrieves the current messages per second number.
+func ReceivedMessagesPerSecond() uint64 {
+	return measuredReceivedMPS.Load()
+}
+
+// increases the received MPS counter
+func increaseReceivedMPSCounter() {
+	mpsReceivedSinceLastMeasurement.Inc()
+}
+
+// measures the received MPS value
+func measureReceivedMPS() {
+	// sample the current counter value into a measured MPS value
+	sampledMPS := mpsReceivedSinceLastMeasurement.Load()
+
+	// store the measured value
+	measuredReceivedMPS.Store(sampledMPS)
+
+	// reset the counter
+	mpsReceivedSinceLastMeasurement.Store(0)
+
+	// trigger events for outside listeners
+	Events.ReceivedMPSUpdated.Trigger(sampledMPS)
 }
