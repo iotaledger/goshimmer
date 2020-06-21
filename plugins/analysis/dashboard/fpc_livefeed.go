@@ -26,7 +26,7 @@ var (
 	fpcLiveFeedWorkerQueueSize = 300
 	fpcLiveFeedWorkerPool      *workerpool.WorkerPool
 
-	activeConflicts *activeConflictSet
+	activeConflicts = newActiveConflictSet()
 )
 
 // FPCUpdate contains an FPC update.
@@ -35,7 +35,6 @@ type FPCUpdate struct {
 }
 
 func configureFPCLiveFeed() {
-	activeConflicts = newActiveConflictSet()
 
 	if config.Node.GetBool(CfgMongoDBEnabled) {
 		mongoDB()
