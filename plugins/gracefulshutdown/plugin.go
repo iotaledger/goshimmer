@@ -3,6 +3,7 @@ package gracefulshutdown
 import (
 	"os"
 	"os/signal"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -44,6 +45,7 @@ var Plugin = node.NewPlugin(PluginName, node.Enabled, func(plugin *node.Plugin) 
 					processList := ""
 					runningBackgroundWorkers := daemon.GetRunningBackgroundWorkers()
 					if len(runningBackgroundWorkers) >= 1 {
+						sort.Strings(runningBackgroundWorkers)
 						processList = "(" + strings.Join(runningBackgroundWorkers, ", ") + ") "
 					}
 					log.Warnf("Received shutdown request - waiting (max %d seconds) to finish processing %s...", WaitToKillTimeInSeconds-int(secondsSinceStart), processList)
