@@ -7,8 +7,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 )
 
@@ -20,11 +20,9 @@ func BenchmarkTangle_AttachMessage(b *testing.B) {
 		return
 	}
 
-	testIdentity := identity.GenerateLocalIdentity()
-
 	messageBytes := make([]*message.Message, b.N)
 	for i := 0; i < b.N; i++ {
-		messageBytes[i] = message.New(message.EmptyId, message.EmptyId, testIdentity, time.Now(), 0, payload.NewData([]byte("some data")))
+		messageBytes[i] = newTestMessage("some data")
 		messageBytes[i].Bytes()
 	}
 
@@ -73,10 +71,8 @@ func TestTangle_AttachMessage(t *testing.T) {
 		fmt.Println("REMOVED:", messageId)
 	}))
 
-	localIdentity1 := identity.GenerateLocalIdentity()
-	localIdentity2 := identity.GenerateLocalIdentity()
-	newMessageOne := message.New(message.EmptyId, message.EmptyId, localIdentity1, time.Now(), 0, payload.NewData([]byte("some data")))
-	newMessageTwo := message.New(newMessageOne.Id(), newMessageOne.Id(), localIdentity2, time.Now(), 0, payload.NewData([]byte("some other data")))
+	newMessageOne := newTestMessage("some data")
+	newMessageTwo := newTestMessage("some other data")
 
 	messageTangle.AttachMessage(newMessageTwo)
 
@@ -85,4 +81,8 @@ func TestTangle_AttachMessage(t *testing.T) {
 	messageTangle.AttachMessage(newMessageOne)
 
 	messageTangle.Shutdown()
+}
+
+func newTestMessage(payloadString string) *message.Message {
+	return message.New(message.EmptyId, message.EmptyId, time.Now(), ed25519.PublicKey{}, 0, payload.NewData([]byte(payloadString)), 0, ed25519.Signature{})
 }

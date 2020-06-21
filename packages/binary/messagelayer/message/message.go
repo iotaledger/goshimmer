@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -26,32 +25,29 @@ type Message struct {
 	issuingTime     time.Time
 	sequenceNumber  uint64
 	payload         payload.Payload
-	bytes           []byte
-	bytesMutex      sync.RWMutex
+	nonce           uint64
 	signature       ed25519.Signature
-	signatureMutex  sync.RWMutex
 
 	// derived properties
 	id             *Id
 	idMutex        sync.RWMutex
 	contentId      *ContentId
 	contentIdMutex sync.RWMutex
-
-	// only stored on the machine of the signer
-	issuerLocalIdentity *identity.LocalIdentity
+	bytes          []byte
+	bytesMutex     sync.RWMutex
 }
 
 // New creates a new message with the details provided by the issuer.
-func New(trunkMessageId Id, branchMessageId Id, localIdentity *identity.LocalIdentity, issuingTime time.Time, sequenceNumber uint64, payload payload.Payload) (result *Message) {
+func New(trunkMessageId Id, branchMessageId Id, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
 	return &Message{
 		trunkId:         trunkMessageId,
 		branchId:        branchMessageId,
-		issuerPublicKey: localIdentity.PublicKey(),
+		issuerPublicKey: issuerPublicKey,
 		issuingTime:     issuingTime,
 		sequenceNumber:  sequenceNumber,
 		payload:         payload,
-
-		issuerLocalIdentity: localIdentity,
+		nonce:           nonce,
+		signature:       signature,
 	}
 }
 
@@ -113,10 +109,12 @@ func StorableObjectFromKey(key []byte, optionalTargetObject ...*Message) (result
 // VerifySignature verifies the signature of the message.
 func (message *Message) VerifySignature() bool {
 	msgBytes := message.Bytes()
-	message.signatureMutex.RLock()
-	valid := message.issuerPublicKey.VerifySignature(msgBytes[:len(msgBytes)-ed25519.SignatureSize], message.Signature())
-	message.signatureMutex.RUnlock()
-	return valid
+	signature := message.Signature()
+
+	contentLength := len(msgBytes) - len(signature)
+	content := msgBytes[:contentLength]
+
+	return message.issuerPublicKey.VerifySignature(content, signature)
 }
 
 // ID returns the id of the message which is made up of the content id and trunk/branch ids.
@@ -168,24 +166,19 @@ func (message *Message) SequenceNumber() uint64 {
 	return message.sequenceNumber
 }
 
-// Signature returns the signature of the message.
-func (message *Message) Signature() ed25519.Signature {
-	message.signatureMutex.RLock()
-	defer message.signatureMutex.RUnlock()
-
-	if message.signature == ed25519.EmptySignature {
-		// unlock the signatureMutex so Bytes() can write the Signature
-		message.signatureMutex.RUnlock()
-		message.Bytes()
-		message.signatureMutex.RLock()
-	}
-
-	return message.signature
-}
-
 // Payload returns the payload of the message.
 func (message *Message) Payload() payload.Payload {
 	return message.payload
+}
+
+// Payload returns the payload of the message.
+func (message *Message) Nonce() uint64 {
+	return message.nonce
+}
+
+// Signature returns the signature of the message.
+func (message *Message) Signature() ed25519.Signature {
+	return message.signature
 }
 
 // ContentId returns the content id of the message which is made up of all the
@@ -253,11 +246,7 @@ func (message *Message) Bytes() []byte {
 	marshalUtil.WriteTime(message.issuingTime)
 	marshalUtil.WriteUint64(message.sequenceNumber)
 	marshalUtil.WriteBytes(message.payload.Bytes())
-
-	message.signatureMutex.Lock()
-	message.signature = message.issuerLocalIdentity.Sign(marshalUtil.Bytes())
-	message.signatureMutex.Unlock()
-
+	marshalUtil.WriteUint64(message.nonce)
 	marshalUtil.WriteBytes(message.signature.Bytes())
 
 	message.bytes = marshalUtil.Bytes()
@@ -288,6 +277,9 @@ func (message *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes 
 	if message.payload, err = payload.Parse(marshalUtil); err != nil {
 		return
 	}
+	if message.nonce, err = marshalUtil.ReadUint64(); err != nil {
+		return
+	}
 	if message.signature, err = ed25519.ParseSignature(marshalUtil); err != nil {
 		return
 	}
@@ -311,7 +303,7 @@ func (message *Message) ObjectStorageValue() []byte {
 	return message.Bytes()
 }
 
-func (message *Message) Update(other objectstorage.StorableObject) {
+func (message *Message) Update(objectstorage.StorableObject) {
 	panic("messages should never be overwritten and only stored once to optimize IO")
 }
 
@@ -324,6 +316,7 @@ func (message *Message) String() string {
 		stringify.StructField("issuingTime", message.IssuingTime()),
 		stringify.StructField("sequenceNumber", message.SequenceNumber()),
 		stringify.StructField("payload", message.Payload()),
+		stringify.StructField("nonce", message.Nonce()),
 		stringify.StructField("signature", message.Signature()),
 	)
 }

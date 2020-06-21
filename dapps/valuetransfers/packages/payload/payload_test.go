@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
@@ -46,7 +45,6 @@ func ExamplePayload() {
 	)
 
 	// 3. build actual transaction (the base layer creates this and wraps the ontology provided payload)
-	localIdentity := identity.GenerateLocalIdentity()
 	tx := message.New(
 		// trunk in "network tangle" ontology (filled by tipSelector)
 		message.EmptyId,
@@ -54,17 +52,23 @@ func ExamplePayload() {
 		// branch in "network tangle" ontology (filled by tipSelector)
 		message.EmptyId,
 
-		// issuer of the transaction (signs automatically)
-		localIdentity,
-
 		// the time when the transaction was created
 		time.Now(),
+
+		// public key of the issuer
+		ed25519.PublicKey{},
 
 		// the ever increasing sequence number of this transaction
 		0,
 
 		// payload
 		valuePayload,
+
+		// nonce to check PoW
+		0,
+
+		// signature
+		ed25519.Signature{},
 	)
 
 	fmt.Println(tx)
