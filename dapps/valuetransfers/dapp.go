@@ -69,7 +69,7 @@ var (
 	valueObjectFactoryOnce sync.Once
 )
 
-// App gets the plugin instance
+// App gets the plugin instance.
 func App() *node.Plugin {
 	appOnce.Do(func () {
 		app = node.NewPlugin(PluginName, node.Enabled, configure, run)

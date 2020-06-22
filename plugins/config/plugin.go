@@ -36,7 +36,7 @@ func Init() {
 	plugin.Events.Init.Trigger(plugin)
 }
 
-// Plugin gets the plugin instance
+// Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
 		plugin = node.NewPlugin(PluginName, node.Enabled)
@@ -44,7 +44,7 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
-// Node gets the node
+// Node gets the node.
 func Node() *viper.Viper {
 	nodeOnce.Do(func() {
 		_node = viper.New()

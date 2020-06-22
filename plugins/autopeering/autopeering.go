@@ -33,7 +33,7 @@ var (
 	// ErrParsingMasterNode is returned for an invalid master node.
 	ErrParsingMasterNode = errors.New("cannot parse master node")
 
-	// networkID specifies the autopeering network identifier
+	// networkID specifies the autopeering network identifier.
 	networkID = hash32([]byte(banner.AppVersion + NetworkVersion))
 )
 
@@ -53,7 +53,7 @@ var (
 	}{c: make(chan *server.Server, 1)}
 )
 
-// NetworkID gets the networkID
+// NetworkID gets the networkID.
 func NetworkID() uint32 {
 	return networkID
 }

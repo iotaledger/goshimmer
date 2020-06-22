@@ -27,7 +27,7 @@ var (
 // CfgProfilingBindAddress defines the config flag of the profiling binding address.
 const CfgProfilingBindAddress = "profiling.bindAddress"
 
-// Plugin gets the plugin instance
+// Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
 		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)

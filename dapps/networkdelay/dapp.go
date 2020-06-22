@@ -43,7 +43,7 @@ var (
 	originPublicKey ed25519.PublicKey
 )
 
-// App gets the plugin instance
+// App gets the plugin instance.
 func App() *node.Plugin {
 	once.Do(func () {
 		app =  node.NewPlugin(PluginName, node.Disabled, configure)

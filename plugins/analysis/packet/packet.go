@@ -29,7 +29,7 @@ func init() {
 	analysisMsgRegistry = message.NewRegistry(definitions)
 }
 
-// AnalysisMsgRegistry gets the analysisMsgRegistry
+// AnalysisMsgRegistry gets the analysisMsgRegistry.
 func AnalysisMsgRegistry() *message.Registry {
 	return analysisMsgRegistry
 }

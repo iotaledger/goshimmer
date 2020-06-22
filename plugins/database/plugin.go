@@ -31,7 +31,7 @@ var (
 	storeOnce sync.Once
 )
 
-// Plugin gets the plugin instance
+// Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
 		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)

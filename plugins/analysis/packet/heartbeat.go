@@ -45,7 +45,7 @@ type Heartbeat struct {
 	InboundIDs [][]byte
 }
 
-// HeartBeatMessageDefinition gets the heartbeatMessageDefinition
+// HeartBeatMessageDefinition gets the heartbeatMessageDefinition.
 func HeartBeatMessageDefinition() *message.Definition{
 	// heartbeatMessageDefinition defines a heartbeat message's format.
 	var heartbeatMessageDefinition *message.Definition

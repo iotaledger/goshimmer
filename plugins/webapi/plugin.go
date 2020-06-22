@@ -29,7 +29,7 @@ var (
 	log *logger.Logger
 )
 
-// Plugin gets the plugin instance
+// Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
 		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
@@ -37,7 +37,7 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
-// Server gets the server instance
+// Server gets the server instance.
 func Server() *echo.Echo {
 	serverOnce.Do(func() {
 		server = echo.New()

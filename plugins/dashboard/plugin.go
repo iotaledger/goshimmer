@@ -41,7 +41,7 @@ var (
 	nodeStartAt = time.Now()
 )
 
-// Plugin gets the plugin instance
+// Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
 		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)

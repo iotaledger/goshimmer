@@ -19,7 +19,7 @@ var (
 	plugin *node.Plugin
 	once goSync.Once
 )
-// Plugin gets the plugin instance
+// Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
 		plugin = node.NewPlugin(PluginName, node.Enabled, configure)

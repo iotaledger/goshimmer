@@ -40,7 +40,7 @@ var (
 	log              *logger.Logger
 )
 
-// Plugin gets the plugin instance
+// Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
 		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
@@ -48,7 +48,7 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
-// MessageParser gets the messageParser instance
+// MessageParser gets the messageParser instance.
 func MessageParser() *messageparser.MessageParser {
 	msgParserOnce.Do(func() {
 		messageParser = messageparser.New()
@@ -56,7 +56,7 @@ func MessageParser() *messageparser.MessageParser {
 	return messageParser
 }
 
-// TipSelector gets the tipSelector instance
+// TipSelector gets the tipSelector instance.
 func TipSelector() *tipselector.TipSelector {
 	tipSelectorOnce.Do(func () {
 		tipSelector = tipselector.New()
@@ -64,7 +64,7 @@ func TipSelector() *tipselector.TipSelector {
 	return tipSelector
 }
 
-// Tangle gets the tangle instance
+// Tangle gets the tangle instance.
 func Tangle() *tangle.Tangle {
 	tangleOnce.Do(func() {
 		store := database.Store()
@@ -73,7 +73,7 @@ func Tangle() *tangle.Tangle {
 	return _tangle
 }
 
-// MessageFactory gets the messageFactory instance
+// MessageFactory gets the messageFactory instance.
 func MessageFactory() *messagefactory.MessageFactory {
 	msgFactoryOnce.Do(func() {
 		messageFactory = messagefactory.New(database.Store(), local.GetInstance().LocalIdentity(), TipSelector(), []byte(DBSequenceNumber))
@@ -81,7 +81,7 @@ func MessageFactory() *messagefactory.MessageFactory {
 	return messageFactory
 }
 
-// MessageRequester gets the messageRequester instance
+// MessageRequester gets the messageRequester instance.
 func MessageRequester() *messagerequester.MessageRequester {
 	msgReqOnce.Do(func() {
 		messageRequester = messagerequester.New()
