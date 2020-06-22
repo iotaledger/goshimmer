@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 const (
@@ -136,6 +137,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 			Rounds:     conflictDetail.Rounds,
 			Opinions:   conflictDetail.Opinions,
 			Outcome:    conflictDetail.Outcome,
+			Time:       primitive.NewDateTimeFromTime(time.Now()),
 		}
 		i++
 

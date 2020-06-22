@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -23,6 +24,8 @@ type FPCRecord struct {
 	Opinions []int32 `json:"opinions" bson:"opinions"`
 	// Outcome defines final opinion of the conflict.
 	Outcome int32 `json:"outcome" bson:"outcome"`
+	// Time defines the time when the conflict has been finalized.
+	Time primitive.DateTime `json:"datetime" bson:"datetime"`
 }
 
 // FPCRecords defines a slice of FPCRecord

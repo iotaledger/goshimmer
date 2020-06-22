@@ -30,7 +30,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/valyala/fasttemplate v1.1.0 // indirect
 	go.dedis.ch/kyber/v3 v3.0.12
-	go.mongodb.org/mongo-driver v1.0.0
+	go.mongodb.org/mongo-driver v1.3.4
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.0
 	golang.org/x/crypto v0.0.0-20200429183012-4b2356b1ed79
