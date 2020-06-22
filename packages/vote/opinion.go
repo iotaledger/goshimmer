@@ -51,6 +51,15 @@ func ConvertInt32Opinion(x int32) Opinion {
 	return Unknown
 }
 
+// ConvertInts32ToOpinions converts the given slice of int32 to a slice of Opinion.
+func ConvertInts32ToOpinions(opinions []int32) []Opinion {
+	result := make([]Opinion, len(opinions))
+	for i, opinion := range opinions {
+		result[i] = ConvertInt32Opinion(opinion)
+	}
+	return result
+}
+
 // ConvertOpinionToInt32 converts the given Opinion to an int32.
 func ConvertOpinionToInt32(x Opinion) int32 {
 	switch {

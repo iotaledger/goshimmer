@@ -57,9 +57,19 @@ type RoundStats struct {
 	QueriedOpinions []QueriedOpinions `json:"queried_opinions"`
 }
 
-// OpinionCaller calls the given handler with an Opinion and its associated ID.
+// OpinionEvent is the struct containing data to be passed around with Finalized and Failed events.
+type OpinionEvent struct {
+	// ID is the of the conflict.
+	ID string
+	// Opinion is an opinion about a conflict.
+	Opinion Opinion
+	// Ctx contains all relevant infos regarding the conflict.
+	Ctx Context
+}
+
+// OpinionCaller calls the given handler with an OpinionEvent (containing its opinions, its associated ID and context).
 func OpinionCaller(handler interface{}, params ...interface{}) {
-	handler.(func(id string, opinion Opinion))(params[0].(string), params[1].(Opinion))
+	handler.(func(ev *OpinionEvent))(params[0].(*OpinionEvent))
 }
 
 // RoundStats calls the given handler with a RoundStats.

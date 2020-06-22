@@ -7,7 +7,9 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
+	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
@@ -40,7 +42,7 @@ const (
 )
 
 func init() {
-	flag.Int(CfgFPCQuerySampleSize, 3, "Size of the voting quorum (k)")
+	flag.Int(CfgFPCQuerySampleSize, 21, "Size of the voting quorum (k)")
 	flag.Int(CfgFPCRoundInterval, 5, "FPC round interval [s]")
 	flag.String(CfgFPCBindAddress, "0.0.0.0:10895", "the bind address on which the FPC vote server binds to")
 }
@@ -121,7 +123,10 @@ func runFPC() {
 			}
 
 			return vote.Like
-		}, config.Node.GetString(CfgFPCBindAddress))
+		}, config.Node.GetString(CfgFPCBindAddress),
+			metrics.Events().FPCInboundBytes,
+			metrics.Events().FPCOutboundBytes,
+			metrics.Events().QueryReceived)
 
 		go func() {
 			if err := voterServer.Run(); err != nil {
@@ -180,10 +185,18 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opin
 	defer conn.Close()
 
 	client := votenet.NewVoterQueryClient(conn)
-	reply, err := client.Opinion(ctx, &votenet.QueryRequest{Id: ids})
+	query := &votenet.QueryRequest{Id: ids}
+	reply, err := client.Opinion(ctx, query)
 	if err != nil {
+		metrics.Events().QueryReplyError.Trigger(&metrics.QueryReplyErrorEvent{
+			ID:           pog.p.ID().String(),
+			OpinionCount: len(ids),
+		})
 		return nil, fmt.Errorf("unable to query opinions: %w", err)
 	}
+
+	metrics.Events().FPCInboundBytes.Trigger(uint64(proto.Size(reply)))
+	metrics.Events().FPCOutboundBytes.Trigger(uint64(proto.Size(query)))
 
 	// convert int32s in reply to opinions
 	opinions := make(vote.Opinions, len(reply.Opinion))

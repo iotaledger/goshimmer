@@ -6,12 +6,12 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
+	gossipPkg "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -105,7 +105,7 @@ func monitorForDesynchronization() {
 
 	// monitors the peer count of the manager and sets the node as desynced if it has no more peers.
 	noPeers := make(chan types.Empty)
-	monitorPeerCountClosure := events.NewClosure(func(_ *peer.Peer) {
+	monitorPeerCountClosure := events.NewClosure(func(_ *gossipPkg.Neighbor) {
 		anyPeers := len(gossip.Manager().AllNeighbors()) > 0
 		if anyPeers {
 			return

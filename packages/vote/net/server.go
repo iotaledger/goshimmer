@@ -4,7 +4,10 @@ import (
 	"context"
 	"net"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/hive.go/events"
 	"google.golang.org/grpc"
 )
 
@@ -13,21 +16,26 @@ import (
 type OpinionRetriever func(id string) vote.Opinion
 
 // New creates a new VoterServer.
-func New(voter vote.Voter, opnRetriever OpinionRetriever, bindAddr string) *VoterServer {
-	vs := &VoterServer{
-		voter:        voter,
-		opnRetriever: opnRetriever,
-		bindAddr:     bindAddr,
+func New(voter vote.Voter, opnRetriever OpinionRetriever, bindAddr string, netRxEvent, netTxEvent, queryReceivedEvent *events.Event) *VoterServer {
+	return &VoterServer{
+		voter:              voter,
+		opnRetriever:       opnRetriever,
+		bindAddr:           bindAddr,
+		netRxEvent:         netRxEvent,
+		netTxEvent:         netTxEvent,
+		queryReceivedEvent: queryReceivedEvent,
 	}
-	return vs
 }
 
 // VoterServer is a server which responds to opinion queries.
 type VoterServer struct {
-	voter        vote.Voter
-	opnRetriever OpinionRetriever
-	bindAddr     string
-	grpcServer   *grpc.Server
+	voter              vote.Voter
+	opnRetriever       OpinionRetriever
+	bindAddr           string
+	grpcServer         *grpc.Server
+	netRxEvent         *events.Event
+	netTxEvent         *events.Event
+	queryReceivedEvent *events.Event
 }
 
 func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryReply, error) {
@@ -42,6 +50,16 @@ func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryRe
 			continue
 		}
 		reply.Opinion[i] = int32(vs.opnRetriever(id))
+	}
+
+	if vs.netRxEvent != nil {
+		vs.netRxEvent.Trigger(uint64(proto.Size(req)))
+	}
+	if vs.netTxEvent != nil {
+		vs.netTxEvent.Trigger(uint64(proto.Size(reply)))
+	}
+	if vs.queryReceivedEvent != nil {
+		vs.queryReceivedEvent.Trigger(&metrics.QueryReceivedEvent{OpinionCount: len(req.Id)})
 	}
 
 	return reply, nil

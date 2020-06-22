@@ -1,8 +1,6 @@
 let webpack = require('webpack');
 let path = require('path');
 
-const statements = require('tsx-control-statements').default;
-
 // variables
 let isProduction =
     process.argv.indexOf('-p') >= 0 || process.env.NODE_ENV === 'production';
@@ -11,7 +9,6 @@ let outPath = path.join(__dirname, './build');
 
 // plugins
 let HtmlWebpackPlugin = require('html-webpack-plugin');
-let MiniCssExtractPlugin = require('mini-css-extract-plugin');
 let WebpackCleanupPlugin = require('webpack-cleanup-plugin');
 
 module.exports = {
@@ -21,7 +18,7 @@ module.exports = {
     },
     output: {
         path: outPath,
-        publicPath: isProduction ? "/app" : "http://127.0.0.1:9090/",
+        publicPath: isProduction ? "/app" : "http://192.168.1.215:9090/",
         filename: isProduction ? '[contenthash].js' : '[hash].js',
         chunkFilename: isProduction ? '[name].[contenthash].js' : '[name].[hash].js'
     },
@@ -43,55 +40,30 @@ module.exports = {
                 use: [
                     !isProduction && {
                         loader: 'babel-loader',
-                        options: {plugins: ['react-hot-loader/babel']}
+                        options: { 
+                            plugins: ['react-hot-loader/babel'] 
+                        }
                     },
                     {
-                        loader: 'ts-loader',
-                        options: {
-                            getCustomTransformers: () => ({ before: [statements()] })
-                        }
+                        loader: 'ts-loader'
                     }
                 ].filter(Boolean)
             },
-            // css
+            // scss
             {
-                test: /\.css$/,
+                test: /\.s[ac]ss$/i,
                 use: [
-                    isProduction ? MiniCssExtractPlugin.loader : 'style-loader',
-                    {
-                        loader: 'css-loader',
-                        query: {
-                            modules: true,
-                            sourceMap: !isProduction,
-                            importLoaders: 1,
-                            localIdentName: isProduction
-                                ? '[hash:base64:5]'
-                                : '[local]__[hash:base64:5]'
-                        }
-                    },
-                    {
-                        loader: 'postcss-loader',
-                        options: {
-                            ident: 'postcss',
-                            plugins: [
-                                require('postcss-import')({addDependencyTo: webpack}),
-                                require('postcss-url')(),
-                                require('postcss-preset-env')({
-                                    /* use stage 2 features (defaults) */
-                                    stage: 2
-                                }),
-                                require('postcss-reporter')(),
-                                require('postcss-browser-reporter')({
-                                    disabled: isProduction
-                                })
-                            ]
-                        }
-                    }
-                ]
+                    // Creates `style` nodes from JS strings
+                    'style-loader',
+                    // Translates CSS into CommonJS
+                    'css-loader',
+                    // Compiles Sass to CSS
+                    'sass-loader',
+                ],
             },
             // static assets
-            {test: /\.html$/, use: 'html-loader'},
-            {test: /\.(a?png|svg)$/, use: 'url-loader?limit=10000'},
+            { test: /\.html$/, use: 'html-loader' },
+            { test: /\.(a?png|svg)$/, use: 'url-loader?limit=10000' },
             {
                 test: /\.(jpe?g|gif|bmp|mp3|mp4|ogg|wav|eot|ttf|woff|woff2)$/,
                 use: 'file-loader'
@@ -122,13 +94,9 @@ module.exports = {
             DEBUG: false
         }),
         new WebpackCleanupPlugin(),
-        new MiniCssExtractPlugin({
-            filename: isProduction ? '[contenthash].css' : '[hash].css',
-            disable: !isProduction
-        }),
         new HtmlWebpackPlugin({
             template: 'assets/index.html'
-        }),
+        })
     ],
     devServer: {
         contentBase: sourcePath,

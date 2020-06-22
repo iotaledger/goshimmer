@@ -5,8 +5,6 @@ import (
 	"sync"
 	"time"
 
-	flag "github.com/spf13/pflag"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
@@ -23,6 +21,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	flag "github.com/spf13/pflag"
 )
 
 const (
@@ -122,8 +121,8 @@ func configure(_ *node.Plugin) {
 	// configure FPC + link to consensus
 	configureFPC()
 	voter.Events().Finalized.Attach(events.NewClosure(FCOB.ProcessVoteResult))
-	voter.Events().Failed.Attach(events.NewClosure(func(id string, lastOpinion vote.Opinion) {
-		log.Errorf("FPC failed for transaction with id '%s' - last opinion: '%s'", id, lastOpinion)
+	voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+		log.Errorf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
 	}))
 
 	// register SignatureFilter in Parser

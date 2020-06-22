@@ -7,6 +7,7 @@ const (
 	PriorityMissingMessagesMonitoring
 	PriorityRemoteLog
 	PriorityAnalysis
+	PriorityPrometheus
 	PriorityMetrics
 	PriorityAutopeering
 	PriorityGossip
