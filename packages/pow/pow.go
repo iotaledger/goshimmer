@@ -17,6 +17,9 @@ var (
 	ErrDone      = errors.New("done")
 )
 
+// NonceBytes specifies the number of bytes required for the nonce.
+const NonceBytes = 8
+
 // Hash identifies a cryptographic hash function that is implemented in another package.
 type Hash interface {
 	// Size returns the length, in bytes, of a digest resulting from the given hash function.
@@ -106,7 +109,7 @@ func (w *Worker) LeadingZeros(data []byte) (int, error) {
 // LeadingZerosWithNonce returns the number of leading zeros in the digest
 // after the provided 8-byte nonce is appended to msg.
 func (w *Worker) LeadingZerosWithNonce(msg []byte, nonce uint64) (int, error) {
-	buf := make([]byte, len(msg)+8)
+	buf := make([]byte, len(msg)+NonceBytes)
 	copy(buf, msg)
 	putUint64(buf[len(msg):], nonce)
 
@@ -114,7 +117,7 @@ func (w *Worker) LeadingZerosWithNonce(msg []byte, nonce uint64) (int, error) {
 }
 
 func (w *Worker) worker(msg []byte, startNonce uint64, target int, done *uint32, counter *uint64) (uint64, error) {
-	buf := make([]byte, len(msg)+8)
+	buf := make([]byte, len(msg)+NonceBytes)
 	copy(buf, msg)
 	asAnInt := new(big.Int)
 

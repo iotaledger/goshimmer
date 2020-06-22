@@ -46,7 +46,7 @@ func TestPowFilter_Filter(t *testing.T) {
 		filter.Filter(msgBytes, testPeer)
 	})
 
-	nonce, err := testWorker.Mine(context.Background(), msgBytes[:len(msgBytes)-len(msg.Signature())-8], testDifficulty)
+	nonce, err := testWorker.Mine(context.Background(), msgBytes[:len(msgBytes)-len(msg.Signature())-pow.NonceBytes], testDifficulty)
 	require.NoError(t, err)
 
 	msgPOW := newTestMessage(nonce)

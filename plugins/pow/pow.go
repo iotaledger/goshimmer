@@ -64,7 +64,7 @@ func DoPOW(msg []byte) (uint64, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	nonce, err := worker.Mine(ctx, content[:len(content)-8], difficulty)
+	nonce, err := worker.Mine(ctx, content[:len(content)-pow.NonceBytes], difficulty)
 
 	log.Debugw("PoW stopped", "nonce", nonce, "err", err)
 
@@ -74,7 +74,7 @@ func DoPOW(msg []byte) (uint64, error) {
 // powData returns the bytes over which PoW should be computed.
 func powData(msgBytes []byte) ([]byte, error) {
 	contentLength := len(msgBytes) - ed25519.SignatureSize
-	if contentLength < 8 {
+	if contentLength < pow.NonceBytes {
 		return nil, ErrMessageTooSmall
 	}
 	return msgBytes[:contentLength], nil

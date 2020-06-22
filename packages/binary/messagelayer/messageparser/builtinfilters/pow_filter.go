@@ -101,7 +101,7 @@ func (f *PowFilter) validate(msgBytes []byte) error {
 // powData returns the bytes over which PoW should be computed.
 func powData(msgBytes []byte) ([]byte, error) {
 	contentLength := len(msgBytes) - ed25519.SignatureSize
-	if contentLength < 8 {
+	if contentLength < pow.NonceBytes {
 		return nil, ErrMessageTooSmall
 	}
 	return msgBytes[:contentLength], nil
