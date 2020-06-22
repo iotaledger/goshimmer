@@ -62,11 +62,10 @@ func configure(_ *node.Plugin) {
 	store := Store()
 	configureHealthStore(store)
 
-	err := checkDatabaseVersion(store.WithRealm([]byte{prefix.DBPrefixDatabaseVersion}))
-	if errors.Is(err, ErrDBVersionIncompatible) {
-		log.Panicf("The database scheme was updated. Please delete the database folder.\n%s", err)
-	}
-	if err != nil {
+	if err := checkDatabaseVersion(store.WithRealm([]byte{prefix.DBPrefixDatabaseVersion})); err != nil {
+		if errors.Is(err, ErrDBVersionIncompatible) {
+			log.Panicf("The database scheme was updated. Please delete the database folder.\n%s", err)
+		}
 		log.Panicf("Failed to check database version: %s", err)
 	}
 
@@ -84,7 +83,7 @@ func configure(_ *node.Plugin) {
 	}
 
 	// we open the database in the configure, so we must also make sure it's closed here
-	if err = daemon.BackgroundWorker(PluginName, closeDB, shutdown.PriorityDatabase); err != nil {
+	if err := daemon.BackgroundWorker(PluginName, closeDB, shutdown.PriorityDatabase); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 
