@@ -85,7 +85,7 @@ func ValidatePOW(msg *message.Message) error {
 		return err
 	}
 	if zeros < difficulty {
-		return fmt.Errorf("%w: leading zeros %d for difficulity %d", ErrInvalidPOWDifficultly, zeros, difficulty)
+		return fmt.Errorf("%w: leading zeros %d for difficulty %d", ErrInvalidPOWDifficultly, zeros, difficulty)
 	}
 	return nil
 }
