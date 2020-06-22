@@ -19,13 +19,13 @@ type TipSelector interface {
 	Tips() (trunk message.Id, branch message.Id)
 }
 
-// A Worker performs the PoW for the provided message.
+// A Worker performs the PoW for the provided message in serialized byte form.
 type Worker interface {
-	DoPOW(*message.Message) (nonce uint64, err error)
+	DoPOW([]byte) (nonce uint64, err error)
 }
 
 // ZeroWorker is a PoW worker that always returns 0 as the nonce.
-var ZeroWorker = WorkerFunc(func(*message.Message) (uint64, error) { return 0, nil })
+var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 
 // MessageFactory acts as a factory to create new messages.
 type MessageFactory struct {
@@ -108,7 +108,7 @@ func (m *MessageFactory) Shutdown() {
 
 func (m *MessageFactory) doPOW(trunkID message.Id, branchID message.Id, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	dummy := message.New(trunkID, branchID, issuingTime, key, seq, payload, 0, ed25519.EmptySignature)
+	dummy := message.New(trunkID, branchID, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
 
 	m.workerMutex.RLock()
 	defer m.workerMutex.RUnlock()
@@ -133,9 +133,9 @@ func (f TipSelectorFunc) Tips() (message.Id, message.Id) {
 }
 
 // The WorkerFunc type is an adapter to allow the use of ordinary functions as a PoW performer.
-type WorkerFunc func(*message.Message) (uint64, error)
+type WorkerFunc func([]byte) (uint64, error)
 
 // DoPOW calls f(msg).
-func (f WorkerFunc) DoPOW(msg *message.Message) (uint64, error) {
+func (f WorkerFunc) DoPOW(msg []byte) (uint64, error) {
 	return f(msg)
 }

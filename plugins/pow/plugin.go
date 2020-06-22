@@ -24,6 +24,6 @@ func run(*node.Plugin) {
 		return
 	}
 
-	messagelayer.MessageParser.AddMessageFilter(&powFilter{})
+	messagelayer.MessageParser.AddBytesFilter(&powFilter{})
 	messagelayer.MessageFactory.SetWorker(messagefactory.WorkerFunc(DoPOW))
 }

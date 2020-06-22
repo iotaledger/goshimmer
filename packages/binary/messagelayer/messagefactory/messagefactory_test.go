@@ -3,6 +3,7 @@ package messagefactory
 import (
 	"context"
 	"crypto"
+	"crypto/ed25519"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -119,15 +120,14 @@ func TestMessageFactory_POW(t *testing.T) {
 
 	worker := pow.New(crypto.BLAKE2b_512, 1)
 
-	msgFactory.SetWorker(WorkerFunc(func(msg *message.Message) (uint64, error) {
-		msgBytes := msg.Bytes()
-		content := msgBytes[:len(msgBytes)-len(msg.Signature())-8]
+	msgFactory.SetWorker(WorkerFunc(func(msgBytes []byte) (uint64, error) {
+		content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 		return worker.Mine(context.Background(), content, targetPOW)
 	}))
 
 	msg := msgFactory.IssuePayload(payload.NewData([]byte("test")))
 	msgBytes := msg.Bytes()
-	content := msgBytes[:len(msgBytes)-len(msg.Signature())-8]
+	content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 
 	zeroes, err := worker.LeadingZerosWithNonce(content, msg.Nonce())
 	assert.GreaterOrEqual(t, zeroes, targetPOW)

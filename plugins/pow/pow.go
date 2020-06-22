@@ -3,12 +3,12 @@ package pow
 import (
 	"context"
 	"crypto"
+	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/logger"
@@ -18,6 +18,8 @@ import (
 var (
 	// ErrInvalidPOWDifficultly is returned when the nonce of a message does not fulfill the PoW difficulty.
 	ErrInvalidPOWDifficultly = errors.New("invalid PoW")
+	// ErrMessageTooSmall is returned when the message does not contain enough data for the PoW.
+	ErrMessageTooSmall = errors.New("message too small")
 )
 
 // parameters
@@ -54,7 +56,7 @@ func Worker() *pow.Worker {
 }
 
 // DoPOW performs the PoW on the provided msg and returns the nonce.
-func DoPOW(msg *message.Message) (uint64, error) {
+func DoPOW(msg []byte) (uint64, error) {
 	content, err := powData(msg)
 	if err != nil {
 		return 0, err
@@ -67,7 +69,7 @@ func DoPOW(msg *message.Message) (uint64, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	nonce, err := worker.Mine(ctx, content, difficulty)
+	nonce, err := worker.Mine(ctx, content[:len(content)-8], difficulty)
 
 	log.Debugw("PoW stopped", "nonce", nonce, "err", err)
 
@@ -75,12 +77,12 @@ func DoPOW(msg *message.Message) (uint64, error) {
 }
 
 // ValidatePOW returns an error when the PoW of the provided msg in invalid.
-func ValidatePOW(msg *message.Message) error {
+func ValidatePOW(msg []byte) error {
 	content, err := powData(msg)
 	if err != nil {
 		return err
 	}
-	zeros, err := Worker().LeadingZerosWithNonce(content, msg.Nonce())
+	zeros, err := Worker().LeadingZeros(content)
 	if err != nil {
 		return err
 	}
@@ -91,9 +93,10 @@ func ValidatePOW(msg *message.Message) error {
 }
 
 // powData returns the bytes over which PoW should be computed.
-func powData(msg *message.Message) ([]byte, error) {
-	msgBytes := msg.Bytes()
-
-	contentLength := len(msgBytes) - len(msg.Signature()) - 8
+func powData(msgBytes []byte) ([]byte, error) {
+	contentLength := len(msgBytes) - ed25519.SignatureSize
+	if contentLength < 8 {
+		return nil, ErrMessageTooSmall
+	}
 	return msgBytes[:contentLength], nil
 }

@@ -3,7 +3,6 @@ package pow
 import (
 	"context"
 	"crypto"
-	"log"
 	"math"
 	"sync/atomic"
 	"testing"
@@ -24,7 +23,6 @@ var testWorker = New(crypto.BLAKE2b_512, workers)
 func TestWorker_Work(t *testing.T) {
 	nonce, err := testWorker.Mine(context.Background(), nil, target)
 	require.NoError(t, err)
-	log.Println(nonce)
 	difficulty, err := testWorker.LeadingZerosWithNonce(nil, nonce)
 	assert.GreaterOrEqual(t, difficulty, target)
 	assert.NoError(t, err)
@@ -38,8 +36,8 @@ func TestWorker_Validate(t *testing.T) {
 		expErr          error
 	}{
 		{msg: nil, nonce: 0, expLeadingZeros: 1, expErr: nil},
-		{msg: nil, nonce: 2635249153388224339, expLeadingZeros: 24, expErr: nil},
-		{msg: make([]byte, 2048), nonce: 0, expLeadingZeros: 0, expErr: nil},
+		{msg: nil, nonce: 4611686018451317632, expLeadingZeros: 28, expErr: nil},
+		{msg: make([]byte, 10240), nonce: 0, expLeadingZeros: 1, expErr: nil},
 	}
 
 	w := &Worker{hash: crypto.BLAKE2b_512}

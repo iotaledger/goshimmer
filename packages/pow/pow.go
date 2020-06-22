@@ -108,7 +108,7 @@ func (w *Worker) LeadingZeros(data []byte) (int, error) {
 func (w *Worker) LeadingZerosWithNonce(msg []byte, nonce uint64) (int, error) {
 	buf := make([]byte, len(msg)+8)
 	copy(buf, msg)
-	binary.BigEndian.PutUint64(buf[len(msg):], nonce)
+	putUint64(buf[len(msg):], nonce)
 
 	return w.LeadingZeros(buf)
 }
@@ -125,7 +125,7 @@ func (w *Worker) worker(msg []byte, startNonce uint64, target int, done *uint32,
 		atomic.AddUint64(counter, 1)
 
 		// write nonce in the buffer
-		binary.BigEndian.PutUint64(buf[len(msg):], nonce)
+		putUint64(buf[len(msg):], nonce)
 
 		digest, err := w.sum(buf)
 		if err != nil {
@@ -148,4 +148,8 @@ func (w *Worker) sum(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	return h.Sum(nil), nil
+}
+
+func putUint64(b []byte, v uint64) {
+	binary.LittleEndian.PutUint64(b, v)
 }

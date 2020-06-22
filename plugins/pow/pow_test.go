@@ -37,7 +37,7 @@ func TestPowFilter_Filter(t *testing.T) {
 	filter.OnAccept(m.Accept)
 	filter.OnReject(m.Reject)
 
-	msg := newTestMessage(0)
+	msg := newTestMessage(0).Bytes()
 
 	m.On("Reject", msg, mock.MatchedBy(func(err error) bool { return errors.Is(err, ErrInvalidPOWDifficultly) }), testPeer)
 	filter.Filter(msg, testPeer)
@@ -45,7 +45,7 @@ func TestPowFilter_Filter(t *testing.T) {
 	nonce, err := DoPOW(msg)
 	require.NoError(t, err)
 
-	msgPOW := newTestMessage(nonce)
+	msgPOW := newTestMessage(nonce).Bytes()
 	require.NoError(t, ValidatePOW(msgPOW))
 
 	m.On("Accept", msgPOW, testPeer)
@@ -56,9 +56,9 @@ func TestPowFilter_Filter(t *testing.T) {
 }
 
 func BenchmarkDoPOW(b *testing.B) {
-	messages := make([]*message.Message, b.N)
+	messages := make([][]byte, b.N)
 	for i := range messages {
-		messages[i] = newTestMessage(uint64(i))
+		messages[i] = newTestMessage(uint64(i)).Bytes()
 	}
 	b.ResetTimer()
 
@@ -69,8 +69,8 @@ func BenchmarkDoPOW(b *testing.B) {
 
 type callbackMock struct{ mock.Mock }
 
-func (m *callbackMock) Accept(msg *message.Message, p *peer.Peer)            { m.Called(msg, p) }
-func (m *callbackMock) Reject(msg *message.Message, err error, p *peer.Peer) { m.Called(msg, err, p) }
+func (m *callbackMock) Accept(msg []byte, p *peer.Peer)            { m.Called(msg, p) }
+func (m *callbackMock) Reject(msg []byte, err error, p *peer.Peer) { m.Called(msg, err, p) }
 
 func newTestMessage(nonce uint64) *message.Message {
 	return message.New(message.EmptyId, message.EmptyId, time.Time{}, ed25519.PublicKey{}, 0, testPayload, nonce, ed25519.Signature{})
