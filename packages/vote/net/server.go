@@ -84,5 +84,7 @@ func (vs *VoterServer) Run() error {
 func (vs *VoterServer) Shutdown() {
 	vs.grpcServerMutex.RLock()
 	defer vs.grpcServerMutex.RUnlock()
-	vs.grpcServer.GracefulStop()
+	if vs.grpcServer != nil {
+		vs.grpcServer.GracefulStop()
+	}
 }
