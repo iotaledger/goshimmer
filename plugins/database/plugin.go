@@ -3,6 +3,7 @@ package database
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -51,7 +52,7 @@ func createStore() {
 		db, err = database.NewDB(dbDir)
 	}
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(fmt.Sprintf("Unable to open the database, please delete the database folder. Error: %s", err))
 	}
 
 	store = db.NewStore()
