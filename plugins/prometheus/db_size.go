@@ -10,28 +10,26 @@ import (
 )
 
 var (
-	dbSizes *prometheus.GaugeVec
+	dbSize prometheus.Gauge
 )
 
 func registerDBMetrics() {
-	dbSizes = prometheus.NewGaugeVec(
+	dbSize = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "db_size_bytes",
 			Help: "DB size in bytes.",
 		},
-		[]string{"name"},
 	)
 
-	registry.MustRegister(dbSizes)
+	registry.MustRegister(dbSize)
 
-	addCollect(colectDBSize)
+	addCollect(collectDBSize)
 }
 
-func colectDBSize() {
-	dbSizes.Reset()
-	dbSize, err := directorySize(config.Node.GetString(database.CfgDatabaseDir))
+func collectDBSize() {
+	size, err := directorySize(config.Node.GetString(database.CfgDatabaseDir))
 	if err == nil {
-		dbSizes.WithLabelValues("database").Set(float64(dbSize))
+		dbSize.Set(float64(size))
 	}
 }
 
