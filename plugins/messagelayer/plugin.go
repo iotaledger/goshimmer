@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"sync"
 )
 
 const (
@@ -24,58 +25,82 @@ const (
 
 var (
 	// plugin is the plugin instance of the message layer plugin.
-	plugin           = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	plugin           *node.Plugin
+	pluginOnce 		 sync.Once
 	messageParser    *messageparser.MessageParser
+	msgParserOnce    sync.Once
 	messageRequester *messagerequester.MessageRequester
+	msgReqOnce		 sync.Once
 	tipSelector      *tipselector.TipSelector
-	tngle            *tangle.Tangle
+	tipSelectorOnce  sync.Once
+	_tangle          *tangle.Tangle
+	tangleOnce		 sync.Once
 	messageFactory   *messagefactory.MessageFactory
+	msgFactoryOnce   sync.Once
 	log              *logger.Logger
 )
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	pluginOnce.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
 	return plugin
 }
 
 // MessageParser gets the messageParser instance
 func MessageParser() *messageparser.MessageParser {
+	msgParserOnce.Do(func() {
+		messageParser = messageparser.New()
+	})
 	return messageParser
 }
 
 // TipSelector gets the tipSelector instance
 func TipSelector() *tipselector.TipSelector {
+	tipSelectorOnce.Do(func () {
+		tipSelector = tipselector.New()
+	})
 	return tipSelector
 }
 
 // Tangle gets the tangle instance
 func Tangle() *tangle.Tangle {
-	return tngle
+	tangleOnce.Do(func() {
+		store := database.Store()
+		_tangle = tangle.New(store)
+	})
+	return _tangle
 }
 
 // MessageFactory gets the messageFactory instance
 func MessageFactory() *messagefactory.MessageFactory {
+	msgFactoryOnce.Do(func() {
+		messageFactory = messagefactory.New(database.Store(), local.GetInstance().LocalIdentity(), TipSelector(), []byte(DBSequenceNumber))
+	})
 	return messageFactory
 }
 
 // MessageRequester gets the messageRequester instance
 func MessageRequester() *messagerequester.MessageRequester {
+	msgReqOnce.Do(func() {
+		messageRequester = messagerequester.New()
+	})
 	return messageRequester
 }
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	store := database.Store()
 
 	// create instances
-	messageParser = messageparser.New()
-	messageRequester = messagerequester.New()
-	tipSelector = tipselector.New()
-	tngle = tangle.New(store)
+	messageParser = MessageParser()
+	messageRequester = MessageRequester()
+	tipSelector = TipSelector()
+	_tangle = Tangle()
 
 	// Setup messageFactory (behavior + logging))
-	messageFactory = messagefactory.New(database.Store(), local.GetInstance().LocalIdentity(), tipSelector, []byte(DBSequenceNumber))
-	messageFactory.Events.MessageConstructed.Attach(events.NewClosure(tngle.AttachMessage))
+	messageFactory = MessageFactory()
+	messageFactory.Events.MessageConstructed.Attach(events.NewClosure(_tangle.AttachMessage))
 	messageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Errorf("internal error in message factory: %v", err)
 	}))
@@ -83,12 +108,12 @@ func configure(*node.Plugin) {
 	// setup messageParser
 	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(msg *message.Message, peer *peer.Peer) {
 		// TODO: ADD PEER
-		tngle.AttachMessage(msg)
+		_tangle.AttachMessage(msg)
 	}))
 
 	// setup messageRequester
-	tngle.Events.MessageMissing.Attach(events.NewClosure(messageRequester.ScheduleRequest))
-	tngle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+	_tangle.Events.MessageMissing.Attach(events.NewClosure(messageRequester.ScheduleRequest))
+	_tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
 		cachedMessageMetadata.Release()
 		cachedMessage.Consume(func(msg *message.Message) {
 			messageRequester.StopRequest(msg.Id())
@@ -96,7 +121,7 @@ func configure(*node.Plugin) {
 	}))
 
 	// setup tipSelector
-	tngle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+	_tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
 		cachedMessageMetadata.Release()
 		cachedMessage.Consume(tipSelector.AddTip)
 	}))
@@ -104,17 +129,17 @@ func configure(*node.Plugin) {
 
 func run(*node.Plugin) {
 
-	if err := daemon.BackgroundWorker("tngle[MissingMessagesMonitor]", func(shutdownSignal <-chan struct{}) {
-		tngle.MonitorMissingMessages(shutdownSignal)
+	if err := daemon.BackgroundWorker("_tangle[MissingMessagesMonitor]", func(shutdownSignal <-chan struct{}) {
+		_tangle.MonitorMissingMessages(shutdownSignal)
 	}, shutdown.PriorityMissingMessagesMonitoring); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 
-	if err := daemon.BackgroundWorker("tngle", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("_tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		messageFactory.Shutdown()
 		messageParser.Shutdown()
-		tngle.Shutdown()
+		_tangle.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}

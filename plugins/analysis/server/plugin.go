@@ -3,6 +3,7 @@ package server
 import (
 	"net"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -35,13 +36,17 @@ func init() {
 
 var (
 	// plugin is the plugin instance of the analysis server plugin.
-	plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	plugin *node.Plugin
+	once sync.Once
 	server *tcp.TCPServer
 	log    *logger.Logger
 )
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin =  node.NewPlugin(PluginName, node.Disabled, configure, run)
+	})
 	return plugin
 }
 

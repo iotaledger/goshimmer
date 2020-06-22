@@ -108,7 +108,7 @@ func runFPC() {
 				return vote.Unknown
 			}
 
-			cachedBranch := tngle.BranchManager().Branch(branchID)
+			cachedBranch := _tangle.BranchManager().Branch(branchID)
 			defer cachedBranch.Release()
 
 			branch := cachedBranch.Unwrap()

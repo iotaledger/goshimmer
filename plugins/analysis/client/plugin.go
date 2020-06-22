@@ -34,13 +34,17 @@ func init() {
 
 var (
 	// plugin is the plugin instance of the analysis client plugin.
-	plugin   = node.NewPlugin(PluginName, node.Enabled, run)
+	plugin *node.Plugin
+	once sync.Once
 	log      *logger.Logger
 	connLock sync.Mutex
 )
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, run)
+	})
 	return plugin
 }
 

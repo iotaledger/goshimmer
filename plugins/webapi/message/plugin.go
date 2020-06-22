@@ -2,6 +2,7 @@ package message
 
 import (
 	"net/http"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -16,12 +17,16 @@ const PluginName = "WebAPI message Endpoint"
 
 var (
 	// plugin is the plugin instance of the web API message endpoint plugin.
-	plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	plugin *node.Plugin
+	once sync.Once
 	log    *logger.Logger
 )
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	})
 	return plugin
 }
 

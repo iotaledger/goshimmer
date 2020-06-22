@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -19,24 +20,33 @@ const PluginName = "WebAPI"
 
 var (
 	// plugin is the plugin instance of the web API plugin.
-	plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	plugin     *node.Plugin
+	pluginOnce sync.Once
 	// server is the web API server.
-	server = echo.New()
+	server *echo.Echo
+	serverOnce sync.Once
 
 	log *logger.Logger
 )
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	pluginOnce.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
 	return plugin
 }
 
 // Server gets the server instance
 func Server() *echo.Echo {
+	serverOnce.Do(func() {
+		server = echo.New()
+	})
 	return server
 }
 
 func configure(*node.Plugin) {
+	server = Server()
 	log = logger.NewLogger(PluginName)
 	// configure the server
 	server.HideBanner = true

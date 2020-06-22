@@ -3,6 +3,7 @@ package webauth
 import (
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -19,13 +20,17 @@ const PluginName = "WebAPI Auth"
 
 var (
 	// plugin is the plugin instance of the web API auth plugin.
-	plugin     = node.NewPlugin(PluginName, node.Disabled, configure)
+	plugin     *node.Plugin
+	once 	   sync.Once
 	log        *logger.Logger
 	privateKey string
 )
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	})
 	return plugin
 }
 

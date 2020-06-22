@@ -2,6 +2,7 @@ package networkdelay
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
@@ -29,7 +30,8 @@ const (
 
 var (
 	// App is the "plugin" instance of the network delay application.
-	app = node.NewPlugin(PluginName, node.Disabled, configure)
+	app *node.Plugin
+	once sync.Once
 
 	// log holds a reference to the logger used by this app.
 	log *logger.Logger
@@ -43,6 +45,9 @@ var (
 
 // App gets the plugin instance
 func App() *node.Plugin {
+	once.Do(func () {
+		app =  node.NewPlugin(PluginName, node.Disabled, configure)
+	})
 	return app
 }
 

@@ -5,16 +5,23 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"sync"
 )
 
 // PluginName is the name of the logger plugin.
 const PluginName = "Logger"
 
-// plugin is the plugin instance of the logger plugin.
-var plugin = node.NewPlugin(PluginName, node.Enabled)
+var (
+	// plugin is the plugin instance of the logger plugin.
+	plugin *node.Plugin
+	once sync.Once
+)
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled)
+	})
 	return plugin
 }
 
@@ -25,6 +32,8 @@ func Init() {
 }
 
 func init() {
+	plugin = Plugin()
+
 	initFlags()
 
 	plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {

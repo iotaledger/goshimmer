@@ -2,6 +2,7 @@ package issuer
 
 import (
 	"fmt"
+	goSync "sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
@@ -15,11 +16,16 @@ const PluginName = "Issuer"
 
 var (
 	// plugin is the plugin instance of the issuer plugin.
-	plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	plugin *node.Plugin
+	once goSync.Once
+
 )
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	})
 	return plugin
 }
 

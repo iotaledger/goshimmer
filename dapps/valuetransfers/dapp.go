@@ -46,10 +46,12 @@ func init() {
 
 var (
 	// app is the "plugin" instance of the value-transfers application.
-	app = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	app *node.Plugin
+	appOnce sync.Once
 
-	// tngle represents the value tangle that is used to express votes on value transactions.
-	tngle *tangle.Tangle
+	// _tangle represents the value tangle that is used to express votes on value transactions.
+	_tangle *tangle.Tangle
+	tangleOnce sync.Once
 
 	// fcob contains the fcob consensus logic.
 	fcob *consensus.FCOB
@@ -67,14 +69,20 @@ var (
 	valueObjectFactoryOnce sync.Once
 )
 
-// Plugin gets the plugin instance
+// App gets the plugin instance
 func App() *node.Plugin {
+	appOnce.Do(func () {
+		app = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
 	return app
 }
 
 // Tangle gets the tangle instance
 func Tangle() *tangle.Tangle {
-	return tngle
+	tangleOnce.Do(func () {
+		_tangle = tangle.New(database.Store())
+	})
+	return _tangle
 }
 
 // FCOB gets the fcob instance
@@ -92,7 +100,7 @@ func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
 	// configure Tangle
-	tngle = tangle.New(database.Store())
+	_tangle = Tangle()
 
 	// read snapshot file
 	snapshotFilePath := config.Node().GetString(CfgValueLayerSnapshotFile)
@@ -105,11 +113,11 @@ func configure(_ *node.Plugin) {
 		if _, err := snapshot.ReadFrom(f); err != nil {
 			log.Panic("could not read snapshot file:", err)
 		}
-		tngle.LoadSnapshot(snapshot)
+		_tangle.LoadSnapshot(snapshot)
 		log.Infof("read snapshot from %s", snapshotFilePath)
 	}
 
-	tngle.Events.Error.Attach(events.NewClosure(func(err error) {
+	_tangle.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Error(err)
 	}))
 
@@ -117,11 +125,11 @@ func configure(_ *node.Plugin) {
 	tipManager = TipManager()
 	valueObjectFactory = ValueObjectFactory()
 
-	tngle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
+	_tangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
 		cachedMetadata.Release()
 		cachedPayload.Consume(tipManager.AddTip)
 	}))
-	tngle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
+	_tangle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
 		cachedMetadata.Release()
 		cachedPayload.Consume(tipManager.RemoveTip)
 	}))
@@ -129,7 +137,7 @@ func configure(_ *node.Plugin) {
 	// configure FCOB consensus rules
 	cfgAvgNetworkDelay := config.Node().GetInt(CfgValueLayerFCOBAverageNetworkDelay)
 	log.Infof("avg. network delay configured to %d seconds", cfgAvgNetworkDelay)
-	fcob = consensus.NewFCOB(tngle, time.Duration(cfgAvgNetworkDelay)*time.Second)
+	fcob = consensus.NewFCOB(_tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
 	fcob.Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
 		if err := voter.Vote(id, initOpn); err != nil {
 			log.Error(err)
@@ -156,7 +164,7 @@ func configure(_ *node.Plugin) {
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("ValueTangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
-		tngle.Shutdown()
+		_tangle.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
@@ -187,7 +195,7 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 		return
 	}
 
-	tngle.AttachPayload(valuePayload)
+	_tangle.AttachPayload(valuePayload)
 }
 
 // TipManager returns the TipManager singleton.

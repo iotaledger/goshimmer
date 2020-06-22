@@ -30,7 +30,7 @@ type FPCHeartbeat struct {
 func FPCHeartbeatMessageDefinition() *message.Definition {
 	// fpcHeartbeatMessageDefinition defines a heartbeat message's format.
 	var fpcHeartbeatMessageDefinition *message.Definition
-	once.Do(func(){
+	fpcHeartBeatOnce.Do(func(){
 		fpcHeartbeatMessageDefinition = &message.Definition{
 			ID:             MessageTypeFPCHeartbeat,
 			MaxBytesLength: 65535,

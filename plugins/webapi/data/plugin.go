@@ -2,6 +2,7 @@ package data
 
 import (
 	"net/http"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
@@ -16,12 +17,16 @@ const PluginName = "WebAPI data Endpoint"
 
 var (
 	// plugin is the plugin instance of the web API data endpoint plugin.
-	plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	plugin *node.Plugin
+	once sync.Once
 	log    *logger.Logger
 )
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	})
 	return plugin
 }
 

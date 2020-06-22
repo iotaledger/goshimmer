@@ -16,8 +16,8 @@ var (
 var (
 	// analysisMsgRegistry holds all message definitions for analysis server related messages
 	analysisMsgRegistry *message.Registry
-
-	once sync.Once
+	fpcHeartBeatOnce    sync.Once
+	heartBeatOnce       sync.Once
 )
 
 func init() {

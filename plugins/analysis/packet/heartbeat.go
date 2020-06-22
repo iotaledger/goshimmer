@@ -49,7 +49,7 @@ type Heartbeat struct {
 func HeartBeatMessageDefinition() *message.Definition{
 	// heartbeatMessageDefinition defines a heartbeat message's format.
 	var heartbeatMessageDefinition *message.Definition
-	once.Do(func(){
+	heartBeatOnce.Do(func(){
 		heartbeatMessageDefinition = &message.Definition{
 			ID:             MessageTypeHeartbeat,
 			MaxBytesLength: uint16(HeartbeatPacketMaxSize),

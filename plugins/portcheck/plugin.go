@@ -2,6 +2,7 @@ package portcheck
 
 import (
 	"net"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -18,12 +19,16 @@ const PluginName = "PortCheck"
 
 var (
 	// plugin is the plugin instance of the port check plugin.
-	plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	plugin *node.Plugin
+	once sync.Once
 	log    *logger.Logger
 )
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
 	return plugin
 }
 

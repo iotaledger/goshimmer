@@ -50,7 +50,8 @@ func init() {
 
 var (
 	// plugin is the plugin instance of the sync plugin.
-	plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	plugin *node.Plugin
+	once sync.Once
 	// ErrNodeNotSynchronized is returned when an operation can't be executed because
 	// the node is not synchronized.
 	ErrNodeNotSynchronized = errors.New("node is not synchronized")
@@ -61,6 +62,9 @@ var (
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
 	return plugin
 }
 

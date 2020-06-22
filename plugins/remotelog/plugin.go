@@ -37,7 +37,8 @@ const (
 
 var (
 	// plugin is the plugin instance of the remote plugin instance.
-	plugin      = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	plugin      *node.Plugin
+	pluginOnce	sync.Once
 	log         *logger.Logger
 	myID        string
 	myGitHead   string
@@ -50,6 +51,9 @@ var (
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	pluginOnce.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
 	return plugin
 }
 

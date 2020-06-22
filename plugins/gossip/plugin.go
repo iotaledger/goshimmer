@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"sync"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -20,13 +21,17 @@ const PluginName = "Gossip"
 
 var (
 	// plugin is the plugin instance of the gossip plugin.
-	plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	plugin *node.Plugin
+	once sync.Once
 
 	log *logger.Logger
 )
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
 	return plugin
 }
 

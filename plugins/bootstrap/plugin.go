@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	goSync "sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/spammer"
@@ -33,12 +34,16 @@ func init() {
 
 var (
 	// plugin is the plugin instance of the bootstrap plugin.
-	plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	plugin *node.Plugin
+	once goSync.Once
 	log    *logger.Logger
 )
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin =  node.NewPlugin(PluginName, node.Disabled, configure, run)
+	})
 	return plugin
 }
 

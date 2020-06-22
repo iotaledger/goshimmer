@@ -3,6 +3,7 @@ package profiling
 import (
 	"net/http"
 	"runtime"
+	"sync"
 
 	// import required to profile
 	_ "net/http/pprof"
@@ -18,7 +19,8 @@ const PluginName = "Profiling"
 
 var (
 	// plugin is the profiling plugin.
-	plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	plugin *node.Plugin
+	once sync.Once
 	log    *logger.Logger
 )
 
@@ -27,6 +29,9 @@ const CfgProfilingBindAddress = "profiling.bindAddress"
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
 	return plugin
 }
 

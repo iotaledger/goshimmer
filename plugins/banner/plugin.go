@@ -2,6 +2,7 @@ package banner
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/iotaledger/hive.go/node"
 )
@@ -9,8 +10,11 @@ import (
 // PluginName is the name of the banner plugin.
 const PluginName = "Banner"
 
-// plugin is the plugin instance of the banner plugin.
-var plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+var (
+	// plugin is the plugin instance of the banner plugin.
+	plugin *node.Plugin
+	once sync.Once
+)
 
 const (
 	// AppVersion version number
@@ -22,6 +26,9 @@ const (
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin =  node.NewPlugin(PluginName, node.Disabled, configure, run)
+	})
 	return plugin
 }
 

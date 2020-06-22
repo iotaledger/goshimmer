@@ -22,7 +22,8 @@ const PluginName = "Database"
 
 var (
 	// plugin is the plugin instance of the database plugin.
-	plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	plugin *node.Plugin
+	pluginOnce sync.Once
 	log    *logger.Logger
 
 	db        database.DB
@@ -32,6 +33,9 @@ var (
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	pluginOnce.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
 	return plugin
 }
 

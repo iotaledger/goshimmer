@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
@@ -16,16 +17,22 @@ const PluginName = "CLI"
 
 var (
 	// plugin is the plugin instance of the CLI plugin.
-	plugin  = node.NewPlugin(PluginName, node.Enabled)
+	plugin  *node.Plugin
+	once sync.Once
 	version = flag.BoolP("version", "v", false, "Prints the GoShimmer version")
 )
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled)
+	})
 	return plugin
 }
 
 func init() {
+	plugin = Plugin()
+
 	for name, plugin := range node.GetPlugins() {
 		onAddPlugin(name, plugin.Status)
 	}

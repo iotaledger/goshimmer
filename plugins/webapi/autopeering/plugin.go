@@ -4,6 +4,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -16,8 +17,11 @@ import (
 // PluginName is the name of the web API autopeering endpoint plugin.
 const PluginName = "WebAPI autopeering Endpoint"
 
-// plugin is the plugin instance of the web API autopeering endpoint plugin.
-var plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+var (
+	// plugin is the plugin instance of the web API autopeering endpoint plugin.
+	plugin *node.Plugin
+	once sync.Once
+)
 
 func configure(plugin *node.Plugin) {
 	webapi.Server().GET("autopeering/neighbors", getNeighbors)
@@ -25,6 +29,9 @@ func configure(plugin *node.Plugin) {
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	})
 	return plugin
 }
 

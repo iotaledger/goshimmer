@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
@@ -17,7 +18,8 @@ const PluginName = "Config"
 
 var (
 	// plugin is the plugin instance of the config plugin.
-	plugin = node.NewPlugin(PluginName, node.Enabled)
+	plugin     *node.Plugin
+	pluginOnce sync.Once
 
 	// flags
 	configName          = flag.StringP("config", "c", "config", "Filename of the config file without the file extension")
@@ -25,7 +27,8 @@ var (
 	skipConfigAvailable = flag.Bool("skip-config", false, "Skip config file availability check")
 
 	// Node is viper
-	nde *viper.Viper
+	_node *viper.Viper
+	nodeOnce sync.Once
 )
 
 // Init triggers the Init event.
@@ -35,17 +38,25 @@ func Init() {
 
 // Plugin gets the plugin instance
 func Plugin() *node.Plugin {
+	pluginOnce.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled)
+	})
 	return plugin
 }
 
 // Node gets the node
 func Node() *viper.Viper {
-	return nde
+	nodeOnce.Do(func() {
+		_node = viper.New()
+	})
+	return _node
 }
 
 func init() {
 	// set the default logger config
-	nde = viper.New()
+	_node = Node()
+	plugin = Plugin()
+
 
 	plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
 		if err := fetch(false); err != nil {
@@ -69,25 +80,25 @@ func init() {
 func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
 	// replace dots with underscores in env
 	dotReplacer := strings.NewReplacer(".", "_")
-	nde.SetEnvKeyReplacer(dotReplacer)
+	_node.SetEnvKeyReplacer(dotReplacer)
 	// read in ENV variables
 	// read in ENV variables
-	nde.AutomaticEnv()
+	_node.AutomaticEnv()
 
 	flag.Parse()
-	err := parameter.LoadConfigFile(nde, *configDirPath, *configName, true, *skipConfigAvailable)
+	err := parameter.LoadConfigFile(_node, *configDirPath, *configName, true, *skipConfigAvailable)
 	if err != nil {
 		return err
 	}
 
 	if printConfig {
-		parameter.PrintConfig(nde, ignoreSettingsAtPrint...)
+		parameter.PrintConfig(_node, ignoreSettingsAtPrint...)
 	}
 
-	for _, pluginName := range nde.GetStringSlice(node.CFG_DISABLE_PLUGINS) {
+	for _, pluginName := range _node.GetStringSlice(node.CFG_DISABLE_PLUGINS) {
 		node.DisabledPlugins[node.GetPluginIdentifier(pluginName)] = true
 	}
-	for _, pluginName := range nde.GetStringSlice(node.CFG_ENABLE_PLUGINS) {
+	for _, pluginName := range _node.GetStringSlice(node.CFG_ENABLE_PLUGINS) {
 		node.EnabledPlugins[node.GetPluginIdentifier(pluginName)] = true
 	}
 
