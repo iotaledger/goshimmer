@@ -59,10 +59,7 @@ func MessageTips() uint64 {
 func increasePerPayloadCounter(p payload.Type) {
 	messageCountPerPayloadMutex.Lock()
 	defer messageCountPerPayloadMutex.Unlock()
-	// init counter with zero value if we see the payload for the first time
-	if _, exist := messageCountPerPayload[p]; !exist {
-		messageCountPerPayload[p] = 0
-	}
+
 	// increase cumulative metrics
 	messageCountPerPayload[p]++
 	messageTotalCount.Inc()
