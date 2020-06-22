@@ -24,8 +24,8 @@ type FPCRecord struct {
 	Opinions []int32 `json:"opinions" bson:"opinions"`
 	// Outcome defines final opinion of the conflict.
 	Outcome int32 `json:"outcome" bson:"outcome"`
-	// DateTime defines the datetime when the conflict has been finalized.
-	DateTime primitive.DateTime `json:"datetime" bson:"datetime"`
+	// Time defines the time when the conflict has been finalized.
+	Time primitive.DateTime `json:"datetime" bson:"datetime"`
 }
 
 // FPCRecords defines a slice of FPCRecord

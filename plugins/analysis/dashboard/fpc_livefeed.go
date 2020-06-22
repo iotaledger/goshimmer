@@ -137,7 +137,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 			Rounds:     conflictDetail.Rounds,
 			Opinions:   conflictDetail.Opinions,
 			Outcome:    conflictDetail.Outcome,
-			DateTime:   primitive.DateTime(time.Now().UnixNano() / 1000000),
+			Time:       primitive.NewDateTimeFromTime(time.Now()),
 		}
 		i++
 
