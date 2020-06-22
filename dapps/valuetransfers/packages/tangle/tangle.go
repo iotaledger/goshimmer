@@ -1577,7 +1577,7 @@ func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Tran
 	return
 }
 
-// RetrieveConsumedInputDetails retrieves the details of the consumed inputs of a transaction
+// RetrieveConsumedInputDetails retrieves the details of the consumed inputs of a transaction.
 func (tangle *Tangle) RetrieveConsumedInputDetails(tx *transaction.Transaction) (inputsSolid bool, cachedInputs CachedOutputs, consumedBalances map[balance.Color]int64, consumedBranches branchmanager.BranchIds, err error) {
 	cachedInputs = tangle.getCachedOutputsFromTransactionInputs(tx)
 	consumedBalances = make(map[balance.Color]int64)
