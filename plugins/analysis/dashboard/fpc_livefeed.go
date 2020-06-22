@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"runtime"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -26,6 +27,10 @@ var (
 	fpcLiveFeedWorkerQueueSize = 300
 	fpcLiveFeedWorkerPool      *workerpool.WorkerPool
 
+	fpcStoreFinalizedWorkerCount     = runtime.NumCPU()
+	fpcStoreFinalizedWorkerQueueSize = 300
+	fpcStoreFinalizedWorkerPool      *workerpool.WorkerPool
+
 	activeConflicts = newActiveConflictSet()
 )
 
@@ -45,18 +50,29 @@ func configureFPCLiveFeed() {
 		broadcastWsMessage(&wsmsg{MsgTypeFPC, newMsg}, true)
 		task.Return(nil)
 	}, workerpool.WorkerCount(fpcLiveFeedWorkerCount), workerpool.QueueSize(fpcLiveFeedWorkerQueueSize))
+
+	if config.Node.GetBool(CfgMongoDBEnabled) {
+		fpcStoreFinalizedWorkerPool = workerpool.New(func(task workerpool.Task) {
+			storeFinalizedVoteContext(task.Param(0).([]FPCRecord))
+			task.Return(nil)
+		}, workerpool.WorkerCount(fpcStoreFinalizedWorkerCount), workerpool.QueueSize(fpcStoreFinalizedWorkerQueueSize))
+	}
 }
 
 func runFPCLiveFeed() {
 	if err := daemon.BackgroundWorker("Analysis[FPCUpdater]", func(shutdownSignal <-chan struct{}) {
 		onFPCHeartbeatReceived := events.NewClosure(func(hb *packet.FPCHeartbeat) {
-			//fmt.Println("broadcasting FPC live feed")
 			fpcLiveFeedWorkerPool.Submit(createFPCUpdate(hb))
 		})
 		analysis.Events.FPCHeartbeat.Attach(onFPCHeartbeatReceived)
 
 		fpcLiveFeedWorkerPool.Start()
 		defer fpcLiveFeedWorkerPool.Stop()
+
+		if config.Node.GetBool(CfgMongoDBEnabled) {
+			fpcStoreFinalizedWorkerPool.Start()
+			defer fpcStoreFinalizedWorkerPool.Stop()
+		}
 
 		cleanUpTicker := time.NewTicker(1 * time.Minute)
 
@@ -133,31 +149,24 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 		})
 	}
 
-	if !config.Node.GetBool(CfgMongoDBEnabled) {
-		return &FPCUpdate{Conflicts: conflicts}
+	if config.Node.GetBool(CfgMongoDBEnabled) {
+		fpcStoreFinalizedWorkerPool.TrySubmit(finalizedConflicts)
 	}
 
-	// store FPC records on DB.
-	go func() {
-		db := mongoDB()
-		dbOnlineStatus := true
-
-		if err := pingMongoDB(clientDB); err != nil {
-			if err := connectMongoDB(clientDB); err != nil {
-				dbOnlineStatus = false
-			}
-		}
-
-		if !dbOnlineStatus {
-			return
-		}
-
-		if err := storeFPCRecords(finalizedConflicts, db); err != nil {
-			log.Errorf("Error while writing on MongoDB: %s", err)
-		}
-	}()
-
 	return &FPCUpdate{Conflicts: conflicts}
+}
+
+// stores the given finalized vote contexts into the database.
+func storeFinalizedVoteContext(finalizedConflicts []FPCRecord) {
+	db := mongoDB()
+
+	if err := pingOrReconnectMongoDB(); err != nil {
+		return
+	}
+
+	if err := storeFPCRecords(finalizedConflicts, db); err != nil {
+		log.Errorf("Error while writing on MongoDB: %s", err)
+	}
 }
 
 // replay FPC records (past events).

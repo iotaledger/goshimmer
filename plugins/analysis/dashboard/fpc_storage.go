@@ -37,6 +37,8 @@ var (
 	clientDB *mongo.Client
 	//db       *mongo.Database
 	dbOnce sync.Once
+	// read locked by pingers and write locked by the routine trying to reconnect.
+	mongoReconnectLock sync.RWMutex
 )
 
 func mongoDB() *mongo.Database {
@@ -70,6 +72,39 @@ func newMongoDB() (*mongo.Client, error) {
 	}
 
 	return client, nil
+}
+
+// pings the MongoDB and attempts to reconnect to it in case the connection was lost.
+func pingOrReconnectMongoDB() error {
+	mongoReconnectLock.RLock()
+	ctx, cancel := operationTimeout(defaultMongoDBOpTimeout)
+	defer cancel()
+	err := clientDB.Ping(ctx, readpref.Primary())
+	if err == nil {
+		mongoReconnectLock.RUnlock()
+		return nil
+	}
+	log.Warnf("MongoDB ping failed: %s", err)
+	mongoReconnectLock.RUnlock()
+
+	mongoReconnectLock.Lock()
+	defer mongoReconnectLock.Unlock()
+
+	// check whether ping still doesn't work
+	ctx, cancel = operationTimeout(defaultMongoDBOpTimeout)
+	defer cancel()
+	if err := clientDB.Ping(ctx, readpref.Primary()); err == nil {
+		return nil
+	}
+
+	// reconnect
+	ctx, cancel = operationTimeout(defaultMongoDBOpTimeout)
+	defer cancel()
+	if err := clientDB.Connect(ctx); err != nil {
+		log.Warnf("MongoDB connection failed: %s", err)
+		return err
+	}
+	return nil
 }
 
 func connectMongoDB(client *mongo.Client) error {
