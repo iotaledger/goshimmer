@@ -3,6 +3,7 @@ package net
 import (
 	"context"
 	"net"
+	"sync"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/metrics"
@@ -33,6 +34,7 @@ type VoterServer struct {
 	opnRetriever       OpinionRetriever
 	bindAddr           string
 	grpcServer         *grpc.Server
+	grpcServerMutex    sync.RWMutex
 	netRxEvent         *events.Event
 	netTxEvent         *events.Event
 	queryReceivedEvent *events.Event
@@ -71,12 +73,16 @@ func (vs *VoterServer) Run() error {
 		return err
 	}
 
+	vs.grpcServerMutex.Lock()
 	vs.grpcServer = grpc.NewServer()
+	vs.grpcServerMutex.Unlock()
 	RegisterVoterQueryServer(vs.grpcServer, vs)
 
 	return vs.grpcServer.Serve(listener)
 }
 
 func (vs *VoterServer) Shutdown() {
+	vs.grpcServerMutex.RLock()
+	defer vs.grpcServerMutex.RUnlock()
 	vs.grpcServer.GracefulStop()
 }
