@@ -22,7 +22,8 @@ func Handler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	_, _, consumedBalances, _, err := valuetransfers.Tangle.RetrieveConsumedInputDetails(tx)
+	_, cachedInputs, consumedBalances, _, err := valuetransfers.Tangle.RetrieveConsumedInputDetails(tx)
+	defer cachedInputs.Release()
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
