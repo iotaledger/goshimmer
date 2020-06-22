@@ -303,7 +303,7 @@ func (message *Message) ObjectStorageValue() []byte {
 	return message.Bytes()
 }
 
-// Updates the object with the values of another object.
+// Update updates the object with the values of another object.
 // Since a Message is immutable, this function is not implemented and panics.
 func (message *Message) Update(objectstorage.StorableObject) {
 	panic("messages should never be overwritten and only stored once to optimize IO")
