@@ -1,4 +1,4 @@
-package drng
+package value
 
 import (
 	"os"

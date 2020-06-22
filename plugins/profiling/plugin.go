@@ -2,6 +2,8 @@ package profiling
 
 import (
 	"net/http"
+	"runtime"
+
 	// import required to profile
 	_ "net/http/pprof"
 
@@ -28,7 +30,6 @@ func Plugin() *node.Plugin {
 	return plugin
 }
 
-
 func init() {
 	flag.String(CfgProfilingBindAddress, "127.0.0.1:6061", "bind address for the pprof server")
 }
@@ -39,6 +40,10 @@ func configure(_ *node.Plugin) {
 
 func run(_ *node.Plugin) {
 	bindAddr := config.Node().GetString(CfgProfilingBindAddress)
+
+	runtime.SetMutexProfileFraction(5)
+	runtime.SetBlockProfileRate(5)
+
 	log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
 	go http.ListenAndServe(bindAddr, nil)
 }

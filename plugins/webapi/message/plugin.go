@@ -28,6 +28,7 @@ func Plugin() *node.Plugin {
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	webapi.Server().POST("message/findById", findMessageByID)
+	webapi.Server().POST("message/sendPayload", sendPayload)
 }
 
 // findMessageByID returns the array of messages for the

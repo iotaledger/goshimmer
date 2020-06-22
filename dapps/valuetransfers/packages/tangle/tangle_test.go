@@ -5,30 +5,34 @@ import (
 	"math"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSetTransactionPreferred(t *testing.T) {
 	tangle := New(mapdb.NewMapDB())
+	event := newEventTangle(t, tangle)
+	defer event.DetachAll()
+
 	tx := createDummyTransaction()
 	valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
 	tangle.storeTransactionModels(valueObject)
 
+	event.Expect("TransactionPreferred", tx, mock.Anything)
+
 	modified, err := tangle.SetTransactionPreferred(tx.ID(), true)
 	require.NoError(t, err)
 	assert.True(t, modified)
+
+	event.AssertExpectations(t)
 }
 
 // TestBookTransaction tests the following cases:
@@ -41,35 +45,52 @@ func TestBookTransaction(t *testing.T) {
 	// CASE: missing output
 	t.Run("CASE: missing output", func(t *testing.T) {
 		tangle := New(mapdb.NewMapDB())
+		event := newEventTangle(t, tangle)
+		defer event.DetachAll()
+
 		tx := createDummyTransaction()
 		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
-		cachedTransaction, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 
+		cachedTransaction, cachedTransactionMetadata, _, transactionIsNew := tangle.storeTransactionModels(valueObject)
+		assert.True(t, transactionIsNew)
+
+		event.Expect("TransactionSolid", tx, mock.Anything)
+
+		// manually trigger a booking: tx will be marked solid, but it cannot be book as its inputs are unavailable
 		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
 		assert.False(t, transactionBooked)
 		assert.False(t, decisionPending)
 		assert.Error(t, err)
+
+		event.AssertExpectations(t)
 	})
 
 	// CASE: transaction already booked by another process
 	t.Run("CASE: transaction already booked by another process", func(t *testing.T) {
 		tangle := New(mapdb.NewMapDB())
+		event := newEventTangle(t, tangle)
+		defer event.DetachAll()
+
 		tx := createDummyTransaction()
 		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
 		cachedTransaction, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 
 		transactionMetadata := cachedTransactionMetadata.Unwrap()
-		transactionMetadata.SetSolid(true)
+		transactionMetadata.setSolid(true)
 
 		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
 		require.NoError(t, err)
 		assert.False(t, transactionBooked)
 		assert.False(t, decisionPending)
+
+		event.AssertExpectations(t)
 	})
 
 	// CASE: booking first spend
 	t.Run("CASE: booking first spend", func(t *testing.T) {
 		tangle := New(mapdb.NewMapDB())
+		event := newEventTangle(t, tangle)
+		defer event.DetachAll()
 
 		// prepare snapshot
 		color1 := [32]byte{1}
@@ -85,7 +106,7 @@ func TestBookTransaction(t *testing.T) {
 		inputIDs := loadSnapshotFromOutputs(tangle, outputs)
 
 		// build first spending
-		tx := transaction.New(
+		tx1 := transaction.New(
 			transaction.NewInputs(inputIDs...),
 			// outputs
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
@@ -96,17 +117,20 @@ func TestBookTransaction(t *testing.T) {
 			}),
 		)
 
-		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
+		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx1)
 		cachedTransaction, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 		txMetadata := cachedTransactionMetadata.Unwrap()
 
 		// assert that branchID is undefined before being booked
 		assert.Equal(t, branchmanager.UndefinedBranchID, txMetadata.BranchID())
 
+		event.Expect("TransactionSolid", tx1, mock.Anything)
+		// TransactionBooked is triggered outside of bookTransaction
+
 		transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
 		require.NoError(t, err)
 		assert.True(t, transactionBooked, "transactionBooked")
-		assert.False(t, decisionPending, "decisionPending")
+		assert.True(t, decisionPending, "decisionPending")
 
 		// assert that branchID is the same as the MasterBranchID
 		assert.Equal(t, branchmanager.MasterBranchID, txMetadata.BranchID())
@@ -114,7 +138,7 @@ func TestBookTransaction(t *testing.T) {
 		// CASE: booking double spend
 		t.Run("CASE: booking double spend", func(t *testing.T) {
 			// build second spending
-			tx := transaction.New(
+			tx2 := transaction.New(
 				transaction.NewInputs(inputIDs...),
 				// outputs
 				transaction.NewOutputs(map[address.Address][]*balance.Balance{
@@ -125,12 +149,16 @@ func TestBookTransaction(t *testing.T) {
 				}),
 			)
 
-			valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
+			valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx2)
 			cachedTransaction, cachedTransactionMetadata, _, _ = tangle.storeTransactionModels(valueObject)
 			txMetadata := cachedTransactionMetadata.Unwrap()
 
 			// assert that branchID is undefined before being booked
 			assert.Equal(t, branchmanager.UndefinedBranchID, txMetadata.BranchID())
+
+			// manually book the double spending tx2, this will mark it as solid and trigger a fork
+			event.Expect("TransactionSolid", tx2, mock.Anything)
+			event.Expect("Fork", tx1, mock.Anything, mock.Anything, inputIDs)
 
 			transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
 			require.NoError(t, err)
@@ -140,6 +168,8 @@ func TestBookTransaction(t *testing.T) {
 			// assert that first spend and double spend have different BranchIDs
 			assert.NotEqual(t, branchmanager.MasterBranchID, txMetadata.BranchID(), "BranchID")
 		})
+
+		event.AssertExpectations(t)
 	})
 }
 
@@ -230,6 +260,9 @@ func TestFork(t *testing.T) {
 	// CASE: already finalized
 	t.Run("CASE: already finalized", func(t *testing.T) {
 		tangle := New(mapdb.NewMapDB())
+		event := newEventTangle(t, tangle)
+		defer event.DetachAll()
+
 		// prepare snapshot
 		color1 := [32]byte{1}
 		outputs := map[address.Address][]*balance.Balance{
@@ -257,16 +290,22 @@ func TestFork(t *testing.T) {
 		_, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 		txMetadata := cachedTransactionMetadata.Unwrap()
 
-		txMetadata.SetFinalized(true)
+		txMetadata.setFinalized(true)
 
+		// no fork created so no event should be triggered
 		forked, finalized, err := tangle.Fork(tx.ID(), []transaction.OutputID{})
 		require.NoError(t, err)
 		assert.False(t, forked)
 		assert.True(t, finalized)
+
+		event.AssertExpectations(t)
 	})
 
 	t.Run("CASE: normal fork", func(t *testing.T) {
 		tangle := New(mapdb.NewMapDB())
+		event := newEventTangle(t, tangle)
+		defer event.DetachAll()
+
 		// prepare snapshot
 		color1 := [32]byte{1}
 		outputs := map[address.Address][]*balance.Balance{
@@ -293,24 +332,30 @@ func TestFork(t *testing.T) {
 		valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
 		tangle.storeTransactionModels(valueObject)
 
+		event.Expect("Fork", tx, mock.Anything, mock.Anything, []transaction.OutputID{})
+
 		forked, finalized, err := tangle.Fork(tx.ID(), []transaction.OutputID{})
 		require.NoError(t, err)
 		assert.True(t, forked, "forked")
 		assert.False(t, finalized, "finalized")
 
 		t.Run("CASE: branch existed already", func(t *testing.T) {
+			// no fork created so no event should be triggered
 			forked, finalized, err = tangle.Fork(tx.ID(), []transaction.OutputID{})
 			require.NoError(t, err)
 			assert.False(t, forked, "forked")
 			assert.False(t, finalized, "finalized")
 		})
-	})
 
+		event.AssertExpectations(t)
+	})
 }
 
 func TestBookPayload(t *testing.T) {
 	t.Run("CASE: undefined branchID", func(t *testing.T) {
 		tangle := New(mapdb.NewMapDB())
+		event := newEventTangle(t, tangle)
+		defer event.DetachAll()
 
 		valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
 		cachedPayload, cachedMetadata, _ := tangle.storePayload(valueObject)
@@ -325,22 +370,27 @@ func TestBookPayload(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.False(t, payloadBooked, "payloadBooked")
+
+		event.AssertExpectations(t)
 	})
 
 	t.Run("CASE: successfully book", func(t *testing.T) {
 		tangle := New(mapdb.NewMapDB())
+		event := newEventTangle(t, tangle)
+		defer event.DetachAll()
 
 		valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
 		cachedPayload, cachedMetadata, _ := tangle.storePayload(valueObject)
 		metadata := cachedMetadata.Unwrap()
 
-		metadata.SetBranchID(branchmanager.BranchID{1})
-		metadata.SetBranchID(branchmanager.BranchID{2})
+		metadata.setBranchID(branchmanager.BranchID{1})
+		metadata.setBranchID(branchmanager.BranchID{2})
 
 		_, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 		txMetadata := cachedTransactionMetadata.Unwrap()
-		txMetadata.SetBranchID(branchmanager.BranchID{1})
+		txMetadata.setBranchID(branchmanager.BranchID{1})
 
+		event.Expect("PayloadSolid", valueObject, mock.Anything)
 		payloadBooked, err := tangle.bookPayload(cachedPayload.Retain(), cachedMetadata.Retain(), cachedTransactionMetadata.Retain())
 		defer func() {
 			cachedPayload.Release()
@@ -350,22 +400,27 @@ func TestBookPayload(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.True(t, payloadBooked, "payloadBooked")
+
+		event.AssertExpectations(t)
 	})
 
 	t.Run("CASE: not booked", func(t *testing.T) {
 		tangle := New(mapdb.NewMapDB())
+		event := newEventTangle(t, tangle)
+		defer event.DetachAll()
 
 		valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
 		cachedPayload, cachedMetadata, _ := tangle.storePayload(valueObject)
 		metadata := cachedMetadata.Unwrap()
 
-		metadata.SetBranchID(branchmanager.BranchID{1})
-		metadata.SetBranchID(branchmanager.BranchID{1})
+		metadata.setBranchID(branchmanager.BranchID{1})
+		metadata.setBranchID(branchmanager.BranchID{1})
 
 		_, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 		txMetadata := cachedTransactionMetadata.Unwrap()
-		txMetadata.SetBranchID(branchmanager.BranchID{1})
+		txMetadata.setBranchID(branchmanager.BranchID{1})
 
+		event.Expect("PayloadSolid", valueObject, mock.Anything)
 		payloadBooked, err := tangle.bookPayload(cachedPayload.Retain(), cachedMetadata.Retain(), cachedTransactionMetadata.Retain())
 		defer func() {
 			cachedPayload.Release()
@@ -375,6 +430,8 @@ func TestBookPayload(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.False(t, payloadBooked, "payloadBooked")
+
+		event.AssertExpectations(t)
 	})
 
 }
@@ -382,6 +439,8 @@ func TestBookPayload(t *testing.T) {
 // TestStorePayload checks whether a value object is correctly stored.
 func TestStorePayload(t *testing.T) {
 	tangle := New(mapdb.NewMapDB())
+	event := newEventTangle(t, tangle)
+	defer event.DetachAll()
 
 	tx := createDummyTransaction()
 	valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
@@ -415,6 +474,8 @@ func TestStorePayload(t *testing.T) {
 			assert.Equal(t, valueObject.ID(), payloadMetadata.PayloadID())
 		})
 	}
+
+	event.AssertExpectations(t)
 }
 
 // TestStoreTransactionModels checks whether all models corresponding to a transaction are correctly created.
@@ -865,35 +926,6 @@ func TestGetCachedOutputsFromTransactionInputs(t *testing.T) {
 	}
 }
 
-func TestLoadSnapshot(t *testing.T) {
-	tangle := New(mapdb.NewMapDB())
-
-	snapshot := map[transaction.ID]map[address.Address][]*balance.Balance{
-		transaction.GenesisID: {
-			address.Random(): []*balance.Balance{
-				balance.New(balance.ColorIOTA, 337),
-			},
-
-			address.Random(): []*balance.Balance{
-				balance.New(balance.ColorIOTA, 1000),
-				balance.New(balance.ColorIOTA, 1000),
-			},
-		},
-	}
-	tangle.LoadSnapshot(snapshot)
-
-	// check whether outputs can be retrieved from tangle
-	for addr, balances := range snapshot[transaction.GenesisID] {
-		cachedOutput := tangle.TransactionOutput(transaction.NewOutputID(addr, transaction.GenesisID))
-		cachedOutput.Consume(func(output *Output) {
-			assert.Equal(t, addr, output.Address())
-			assert.ElementsMatch(t, balances, output.Balances())
-			assert.True(t, output.Solid())
-			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID())
-		})
-	}
-}
-
 func TestRetrieveConsumedInputDetails(t *testing.T) {
 	// test simple happy case
 	{
@@ -925,7 +957,7 @@ func TestRetrieveConsumedInputDetails(t *testing.T) {
 		cachedInputs.Consume(func(input *Output) {
 			assert.ElementsMatch(t, outputs[input.Address()], input.Balances())
 		})
-		assert.True(t, cmp.Equal(sumOutputsByColor(outputs), consumedBalances))
+		assert.Equal(t, sumOutputsByColor(outputs), consumedBalances)
 		assert.Len(t, consumedBranches, 1)
 		assert.Contains(t, consumedBranches, branchmanager.MasterBranchID)
 	}
@@ -967,7 +999,7 @@ func TestRetrieveConsumedInputDetails(t *testing.T) {
 		cachedInputs.Consume(func(input *Output) {
 			assert.ElementsMatch(t, outputs[input.Address()], input.Balances())
 		})
-		assert.True(t, cmp.Equal(sumOutputsByColor(outputs), consumedBalances))
+		assert.Equal(t, sumOutputsByColor(outputs), consumedBalances)
 		assert.Len(t, consumedBranches, 1)
 		assert.Contains(t, consumedBranches, branchmanager.MasterBranchID)
 	}
@@ -1032,7 +1064,7 @@ func TestRetrieveConsumedInputDetails(t *testing.T) {
 		cachedInputs.Consume(func(input *Output) {
 			assert.ElementsMatch(t, outputs[input.Address()], input.Balances())
 		})
-		assert.True(t, cmp.Equal(sumOutputsByColor(outputs), consumedBalances))
+		assert.Equal(t, sumOutputsByColor(outputs), consumedBalances)
 		assert.Len(t, consumedBranches, 2)
 		assert.Contains(t, consumedBranches, branchmanager.MasterBranchID)
 		assert.Contains(t, consumedBranches, newBranch)
@@ -1045,8 +1077,8 @@ func TestCheckTransactionSolidity(t *testing.T) {
 		tangle := New(mapdb.NewMapDB())
 		tx := createDummyTransaction()
 		txMetadata := NewTransactionMetadata(tx.ID())
-		txMetadata.SetSolid(true)
-		txMetadata.SetBranchID(branchmanager.MasterBranchID)
+		txMetadata.setSolid(true)
+		txMetadata.setBranchID(branchmanager.MasterBranchID)
 
 		solid, consumedBranches, err := tangle.checkTransactionSolidity(tx, txMetadata)
 		assert.True(t, solid)
@@ -1201,6 +1233,8 @@ func TestCheckTransactionSolidity(t *testing.T) {
 
 func TestPayloadBranchID(t *testing.T) {
 	tangle := New(mapdb.NewMapDB())
+	event := newEventTangle(t, tangle)
+	defer event.DetachAll()
 
 	{
 		branchID := tangle.payloadBranchID(payload.GenesisID)
@@ -1216,7 +1250,7 @@ func TestPayloadBranchID(t *testing.T) {
 		expectedBranchID := branchmanager.BranchID{1}
 		cachedMetadata.Consume(func(metadata *PayloadMetadata) {
 			metadata.setSolid(true)
-			metadata.SetBranchID(expectedBranchID)
+			metadata.setBranchID(expectedBranchID)
 		})
 
 		branchID := tangle.payloadBranchID(valueObject.ID())
@@ -1226,26 +1260,26 @@ func TestPayloadBranchID(t *testing.T) {
 	// test missing value object
 	{
 		valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
-		missing := 0
-		tangle.Events.PayloadMissing.Attach(events.NewClosure(func(payloadID payload.ID) {
-			missing++
-		}))
 
+		event.Expect("PayloadMissing", valueObject.ID())
 		branchID := tangle.payloadBranchID(valueObject.ID())
 		assert.Equal(t, branchmanager.UndefinedBranchID, branchID)
-		assert.Equal(t, 1, missing)
 	}
+
+	event.AssertExpectations(t)
 }
 
 func TestCheckPayloadSolidity(t *testing.T) {
 	tangle := New(mapdb.NewMapDB())
+	event := newEventTangle(t, tangle)
+	defer event.DetachAll()
 
 	// check with already solid payload
 	{
 		valueObject := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
 		metadata := NewPayloadMetadata(valueObject.ID())
 		metadata.setSolid(true)
-		metadata.SetBranchID(branchmanager.MasterBranchID)
+		metadata.setBranchID(branchmanager.MasterBranchID)
 
 		transactionBranches := []branchmanager.BranchID{branchmanager.MasterBranchID}
 		solid, err := tangle.payloadBecameNewlySolid(valueObject, metadata, transactionBranches)
@@ -1268,7 +1302,7 @@ func TestCheckPayloadSolidity(t *testing.T) {
 	{
 		setParent := func(payloadMetadata *PayloadMetadata) {
 			payloadMetadata.setSolid(true)
-			payloadMetadata.SetBranchID(branchmanager.MasterBranchID)
+			payloadMetadata.setBranchID(branchmanager.MasterBranchID)
 		}
 
 		valueObject := payload.New(storeParentPayloadWithMetadataFunc(t, tangle, setParent), storeParentPayloadWithMetadataFunc(t, tangle, setParent), createDummyTransaction())
@@ -1304,11 +1338,11 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		defer cachedBranch3.Release()
 		setParent1 := func(payloadMetadata *PayloadMetadata) {
 			payloadMetadata.setSolid(true)
-			payloadMetadata.SetBranchID(branchmanager.BranchID{2})
+			payloadMetadata.setBranchID(branchmanager.BranchID{2})
 		}
 		setParent2 := func(payloadMetadata *PayloadMetadata) {
 			payloadMetadata.setSolid(true)
-			payloadMetadata.SetBranchID(branchmanager.BranchID{3})
+			payloadMetadata.setBranchID(branchmanager.BranchID{3})
 		}
 
 		valueObject := payload.New(storeParentPayloadWithMetadataFunc(t, tangle, setParent1), storeParentPayloadWithMetadataFunc(t, tangle, setParent2), createDummyTransaction())
@@ -1329,11 +1363,11 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		defer cachedBranch3.Release()
 		setParent1 := func(payloadMetadata *PayloadMetadata) {
 			payloadMetadata.setSolid(true)
-			payloadMetadata.SetBranchID(branchmanager.MasterBranchID)
+			payloadMetadata.setBranchID(branchmanager.MasterBranchID)
 		}
 		setParent2 := func(payloadMetadata *PayloadMetadata) {
 			payloadMetadata.setSolid(true)
-			payloadMetadata.SetBranchID(branchmanager.BranchID{3})
+			payloadMetadata.setBranchID(branchmanager.BranchID{3})
 		}
 
 		valueObject := payload.New(storeParentPayloadWithMetadataFunc(t, tangle, setParent1), storeParentPayloadWithMetadataFunc(t, tangle, setParent2), createDummyTransaction())
@@ -1344,12 +1378,17 @@ func TestCheckPayloadSolidity(t *testing.T) {
 		assert.False(t, solid)
 		assert.Error(t, err)
 	}
+
+	event.AssertExpectations(t)
 }
 
 func TestCreateValuePayloadFutureConeIterator(t *testing.T) {
 	// check with new payload -> should be added to stack
 	{
 		tangle := New(mapdb.NewMapDB())
+		event := newEventTangle(t, tangle)
+		defer event.DetachAll()
+
 		solidificationStack := list.New()
 		processedPayloads := make(map[payload.ID]types.Empty)
 		iterator := tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads)
@@ -1378,11 +1417,16 @@ func TestCreateValuePayloadFutureConeIterator(t *testing.T) {
 		currentSolidificationEntry.CachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, tx.ID(), metadata.ID())
 		})
+
+		event.AssertExpectations(t)
 	}
 
 	// check with already processed payload -> should not be added to stack
 	{
 		tangle := New(mapdb.NewMapDB())
+		event := newEventTangle(t, tangle)
+		defer event.DetachAll()
+
 		solidificationStack := list.New()
 		processedPayloads := make(map[payload.ID]types.Empty)
 		iterator := tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads)
@@ -1400,6 +1444,8 @@ func TestCreateValuePayloadFutureConeIterator(t *testing.T) {
 
 		iterator(cachedPayload, cachedMetadata, cachedTransaction, cachedTransactionMetadata)
 		assert.Equal(t, 0, solidificationStack.Len())
+
+		event.AssertExpectations(t)
 	}
 }
 
@@ -1498,6 +1544,55 @@ func TestForeachApprovers(t *testing.T) {
 	assert.Equal(t, 2, counter)
 }
 
+func TestMissingPayloadReceived(t *testing.T) {
+	tangle := New(mapdb.NewMapDB())
+	event := newEventTangle(t, tangle)
+	defer event.DetachAll()
+
+	// prepare snapshot
+	unspentOutputs := loadSnapshotFromOutputs(
+		tangle,
+		map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 3),
+			},
+		},
+	)
+
+	// create transaction spending those snapshot outputs
+	tx := transaction.New(
+		transaction.NewInputs(unspentOutputs...),
+		transaction.NewOutputs(map[address.Address][]*balance.Balance{
+			address.Random(): {
+				balance.New(balance.ColorIOTA, 3),
+			},
+		}),
+	)
+
+	// create two value objects for this transaction referencing each other
+	parent := payload.New(payload.GenesisID, payload.GenesisID, tx)
+	child := payload.New(parent.ID(), parent.ID(), tx)
+
+	event.Expect("PayloadAttached", child, mock.Anything)
+	event.Expect("PayloadMissing", parent.ID(), mock.Anything)
+	event.Expect("TransactionReceived", tx, mock.Anything, mock.Anything)
+
+	// submit the child first; it cannot be solidified
+	tangle.AttachPayloadSync(child)
+
+	event.Expect("PayloadAttached", parent, mock.Anything)
+	event.Expect("PayloadSolid", parent, mock.Anything)
+	event.Expect("MissingPayloadReceived", parent, mock.Anything)
+	event.Expect("PayloadSolid", child, mock.Anything)
+	event.Expect("TransactionSolid", tx, mock.Anything, mock.Anything)
+	event.Expect("TransactionBooked", tx, mock.Anything, true)
+
+	// submitting the parent makes everything solid
+	tangle.AttachPayloadSync(parent)
+
+	event.AssertExpectations(t)
+}
+
 func storeParentPayloadWithMetadataFunc(t *testing.T, tangle *Tangle, consume func(*PayloadMetadata)) payload.ID {
 	parent1 := payload.New(payload.GenesisID, payload.GenesisID, createDummyTransaction())
 	cachedPayload, cachedMetadata, stored := tangle.storePayload(parent1)
@@ -1525,7 +1620,7 @@ func sumOutputsByColor(outputs map[address.Address][]*balance.Balance) map[balan
 
 	for _, balances := range outputs {
 		for _, bal := range balances {
-			totals[bal.Color()] += bal.Value()
+			totals[bal.Color] += bal.Value
 		}
 	}
 

@@ -1,10 +1,13 @@
 package branchmanager
 
 import (
+	"reflect"
 	"testing"
 
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 type sampleTree struct {
@@ -20,6 +23,92 @@ func (st *sampleTree) Release() {
 		}
 		st.cachedBranches[i].Release()
 	}
+}
+
+// eventMock is a wrapper around mock.Mock used to test the triggered events.
+type eventMock struct {
+	mock.Mock
+
+	attached []struct {
+		*events.Event
+		*events.Closure
+	}
+}
+
+func newEventMock(t *testing.T, mgr *BranchManager) *eventMock {
+	e := &eventMock{}
+	e.Test(t)
+
+	// attach all events
+	e.attach(mgr.Events.BranchConfirmed, e.BranchConfirmed)
+	e.attach(mgr.Events.BranchDisliked, e.BranchDisliked)
+	e.attach(mgr.Events.BranchFinalized, e.BranchFinalized)
+	e.attach(mgr.Events.BranchLiked, e.BranchLiked)
+	e.attach(mgr.Events.BranchPreferred, e.BranchPreferred)
+	e.attach(mgr.Events.BranchRejected, e.BranchRejected)
+	e.attach(mgr.Events.BranchUnpreferred, e.BranchUnpreferred)
+
+	// assure that all available events are mocked
+	numEvents := reflect.ValueOf(mgr.Events).Elem().NumField()
+	assert.Equalf(t, len(e.attached), numEvents, "not all events in BranchManager.Events have been attached")
+
+	return e
+}
+
+// DetachAll detaches all attached event mocks.
+func (e *eventMock) DetachAll() {
+	for _, a := range e.attached {
+		a.Event.Detach(a.Closure)
+	}
+}
+
+// Expect starts a description of an expectation of the specified event being triggered.
+func (e *eventMock) Expect(eventName string, arguments ...interface{}) {
+	e.On(eventName, arguments...)
+}
+
+func (e *eventMock) attach(event *events.Event, f interface{}) {
+	closure := events.NewClosure(f)
+	event.Attach(closure)
+	e.attached = append(e.attached, struct {
+		*events.Event
+		*events.Closure
+	}{event, closure})
+}
+
+func (e *eventMock) BranchConfirmed(cachedBranch *CachedBranch) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Unwrap())
+}
+
+func (e *eventMock) BranchDisliked(cachedBranch *CachedBranch) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Unwrap())
+}
+
+func (e *eventMock) BranchFinalized(cachedBranch *CachedBranch) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Unwrap())
+}
+
+func (e *eventMock) BranchLiked(cachedBranch *CachedBranch) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Unwrap())
+}
+
+func (e *eventMock) BranchPreferred(cachedBranch *CachedBranch) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Unwrap())
+}
+
+func (e *eventMock) BranchRejected(cachedBranch *CachedBranch) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Unwrap())
+}
+
+func (e *eventMock) BranchUnpreferred(cachedBranch *CachedBranch) {
+	defer cachedBranch.Release()
+	e.Called(cachedBranch.Unwrap())
 }
 
 // ./img/sample_tree.png
@@ -857,6 +946,8 @@ func TestBranchManager_BranchesConflicting(t *testing.T) {
 
 func TestBranchManager_SetBranchPreferred(t *testing.T) {
 	branchManager := New(mapdb.NewMapDB())
+	event := newEventMock(t, branchManager)
+	defer event.DetachAll()
 
 	cachedBranch2, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{{0}})
 	defer cachedBranch2.Release()
@@ -882,6 +973,9 @@ func TestBranchManager_SetBranchPreferred(t *testing.T) {
 	// lets assume branch 4 is preferred since its underlying transaction was longer
 	// solid than the avg. network delay before the conflicting transaction which created
 	// the conflict set was received
+
+	event.Expect("BranchPreferred", branch4)
+
 	modified, err := branchManager.SetBranchPreferred(branch4.ID(), true)
 	assert.NoError(t, err)
 	assert.True(t, modified)
@@ -894,6 +988,11 @@ func TestBranchManager_SetBranchPreferred(t *testing.T) {
 
 	// now branch 2 becomes preferred via FPC, this causes branch 2 to be liked (since
 	// the master branch is liked) and its liked state propagates to branch 4 (but not branch 5)
+
+	event.Expect("BranchPreferred", branch2)
+	event.Expect("BranchLiked", branch2)
+	event.Expect("BranchLiked", branch4)
+
 	modified, err = branchManager.SetBranchPreferred(branch2.ID(), true)
 	assert.NoError(t, err)
 	assert.True(t, modified)
@@ -907,6 +1006,12 @@ func TestBranchManager_SetBranchPreferred(t *testing.T) {
 
 	// now the network decides that branch 5 is preferred (via FPC), thus branch 4 should lose its
 	// preferred and liked state and branch 5 should instead become preferred and liked
+
+	event.Expect("BranchPreferred", branch5)
+	event.Expect("BranchLiked", branch5)
+	event.Expect("BranchUnpreferred", branch4)
+	event.Expect("BranchDisliked", branch4)
+
 	modified, err = branchManager.SetBranchPreferred(branch5.ID(), true)
 	assert.NoError(t, err)
 	assert.True(t, modified)
@@ -920,10 +1025,15 @@ func TestBranchManager_SetBranchPreferred(t *testing.T) {
 	assert.False(t, branch4.Preferred(), "branch 4 should not be preferred")
 	assert.True(t, branch5.Liked(), "branch 5 should be liked")
 	assert.True(t, branch5.Preferred(), "branch 5 should be preferred")
+
+	// check that all event have been triggered
+	event.AssertExpectations(t)
 }
 
 func TestBranchManager_SetBranchPreferred2(t *testing.T) {
 	branchManager := New(mapdb.NewMapDB())
+	event := newEventMock(t, branchManager)
+	defer event.DetachAll()
 
 	cachedBranch2, _ := branchManager.Fork(BranchID{2}, []BranchID{MasterBranchID}, []ConflictID{{0}})
 	defer cachedBranch2.Release()
@@ -948,6 +1058,11 @@ func TestBranchManager_SetBranchPreferred2(t *testing.T) {
 	cachedBranch7, _ := branchManager.Fork(BranchID{7}, []BranchID{MasterBranchID}, []ConflictID{{2}})
 	defer cachedBranch7.Release()
 	branch7 := cachedBranch7.Unwrap()
+
+	event.Expect("BranchPreferred", branch2)
+	event.Expect("BranchLiked", branch2)
+	event.Expect("BranchPreferred", branch6)
+	event.Expect("BranchLiked", branch6)
 
 	// assume branch 2 preferred since solid longer than avg. network delay
 	modified, err := branchManager.SetBranchPreferred(branch2.ID(), true)
@@ -1031,13 +1146,21 @@ func TestBranchManager_SetBranchPreferred2(t *testing.T) {
 	// should also become liked, since branch 2 of which it spawns off is liked too.
 
 	// simulate branch 3 being not preferred from FPC vote
+	// this does not trigger any events as branch 3 was never preferred
 	modified, err = branchManager.SetBranchPreferred(branch3.ID(), false)
 	assert.NoError(t, err)
 	assert.False(t, modified)
 	// simulate branch 7 being not preferred from FPC vote
+	// this does not trigger any events as branch 7 was never preferred
 	modified, err = branchManager.SetBranchPreferred(branch7.ID(), false)
 	assert.NoError(t, err)
 	assert.False(t, modified)
+
+	event.Expect("BranchPreferred", branch4)
+	event.Expect("BranchLiked", branch4)
+	event.Expect("BranchPreferred", aggrBranch8)
+	event.Expect("BranchLiked", aggrBranch8)
+
 	// simulate branch 4 being preferred by FPC vote
 	modified, err = branchManager.SetBranchPreferred(branch4.ID(), true)
 	assert.NoError(t, err)
@@ -1049,4 +1172,7 @@ func TestBranchManager_SetBranchPreferred2(t *testing.T) {
 	// of which it spawns off are.
 	assert.True(t, aggrBranch8.Liked(), "aggr. branch 8 should be liked")
 	assert.True(t, aggrBranch8.Preferred(), "aggr. branch 8 should be preferred")
+
+	// check that all event have been triggered
+	event.AssertExpectations(t)
 }

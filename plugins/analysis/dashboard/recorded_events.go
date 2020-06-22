@@ -10,7 +10,7 @@ import (
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/mr-tron/base58"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 // the period in which we scan and delete old data.
@@ -29,22 +29,22 @@ func configureEventsRecording() {
 	analysisserver.Events.Heartbeat.Attach(events.NewClosure(func(hb *packet.Heartbeat) {
 		var out strings.Builder
 		for _, value := range hb.OutboundIDs {
-			out.WriteString(base58.Encode(value))
+			out.WriteString(shortNodeIDString(value))
 		}
 		var in strings.Builder
 		for _, value := range hb.InboundIDs {
-			in.WriteString(base58.Encode(value))
+			in.WriteString(shortNodeIDString(value))
 		}
 		log.Debugw(
 			"Heartbeat",
-			"nodeId", base58.Encode(hb.OwnID),
+			"nodeId", shortNodeIDString(hb.OwnID),
 			"outboundIds", out.String(),
 			"inboundIds", in.String(),
 		)
 		lock.Lock()
 		defer lock.Unlock()
 
-		nodeIDString := base58.Encode(hb.OwnID)
+		nodeIDString := shortNodeIDString(hb.OwnID)
 		timestamp := time.Now()
 
 		// when node is new, add to graph
@@ -56,7 +56,7 @@ func configureEventsRecording() {
 
 		// outgoing neighbor links update
 		for _, outgoingNeighbor := range hb.OutboundIDs {
-			outgoingNeighborString := base58.Encode(outgoingNeighbor)
+			outgoingNeighborString := shortNodeIDString(outgoingNeighbor)
 			// do we already know about this neighbor?
 			// if no, add it and set it online
 			if _, isAlready := nodes[outgoingNeighborString]; !isAlready {
@@ -82,7 +82,7 @@ func configureEventsRecording() {
 
 		// incoming neighbor links update
 		for _, incomingNeighbor := range hb.InboundIDs {
-			incomingNeighborString := base58.Encode(incomingNeighbor)
+			incomingNeighborString := shortNodeIDString(incomingNeighbor)
 			// do we already know about this neighbor?
 			// if no, add it and set it online
 			if _, isAlready := nodes[incomingNeighborString]; !isAlready {
@@ -206,3 +206,9 @@ type EventHandlers struct {
 
 // EventHandlersConsumer defines the consumer function of an *EventHandlers.
 type EventHandlersConsumer = func(handler *EventHandlers)
+
+func shortNodeIDString(b []byte) string {
+	var id identity.ID
+	copy(id[:], b)
+	return id.String()
+}
