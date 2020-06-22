@@ -16,5 +16,4 @@ const (
 	PrioritySynchronization
 	PriorityBootstrap
 	PrioritySpammer
-	PriorityBadgerGarbageCollection
 )

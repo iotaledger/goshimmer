@@ -8,4 +8,5 @@ const (
 	DBPrefixAddressTransactions
 	DBPrefixAutoPeering
 	DBPrefixDatabaseVersion
+	DBPrefixHealth
 )

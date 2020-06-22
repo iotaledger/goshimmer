@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/timeutil"
 )
 
 // PluginName is the name of the database plugin.
@@ -22,7 +21,7 @@ const PluginName = "Database"
 
 var (
 	// Plugin is the plugin instance of the database plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 	log    *logger.Logger
 
 	db        database.DB
@@ -61,6 +60,7 @@ func createStore() {
 func configure(_ *node.Plugin) {
 	// assure that the store is initialized
 	store := Store()
+	configureHealthStore(store)
 
 	err := checkDatabaseVersion(store.WithRealm([]byte{prefix.DBPrefixDatabaseVersion}))
 	if errors.Is(err, ErrDBVersionIncompatible) {
@@ -70,21 +70,32 @@ func configure(_ *node.Plugin) {
 		log.Panicf("Failed to check database version: %s", err)
 	}
 
-	// we open the database in the configure, so we must also make sure it's closed here
-	err = daemon.BackgroundWorker(PluginName, closeDB, shutdown.PriorityDatabase)
-	if err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+	if IsDatabaseUnhealthy() {
+		log.Panic("The database is marked as not properly shutdown/corrupted, please delete the database folder and restart.")
 	}
-}
 
-func run(_ *node.Plugin) {
-	if err := daemon.BackgroundWorker(PluginName+"[GC]", runGC, shutdown.PriorityBadgerGarbageCollection); err != nil {
+	// we mark the database only as corrupted from within a background worker, which means
+	// that we only mark it as dirty, if the node actually started up properly (meaning no termination
+	// signal was received before all plugins loaded).
+	if err := daemon.BackgroundWorker("[Database Health]", func(shutdownSignal <-chan struct{}) {
+		MarkDatabaseUnhealthy()
+	}); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
+
+	// we open the database in the configure, so we must also make sure it's closed here
+	if err = daemon.BackgroundWorker(PluginName, closeDB, shutdown.PriorityDatabase); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
+
+	// run GC up on startup
+	runDatabaseGC()
 }
 
 func closeDB(shutdownSignal <-chan struct{}) {
 	<-shutdownSignal
+	runDatabaseGC()
+	MarkDatabaseHealthy()
 	log.Infof("Syncing database to disk...")
 	if err := db.Close(); err != nil {
 		log.Errorf("Failed to flush the database: %s", err)
@@ -92,14 +103,15 @@ func closeDB(shutdownSignal <-chan struct{}) {
 	log.Infof("Syncing database to disk... done")
 }
 
-func runGC(shutdownSignal <-chan struct{}) {
+func runDatabaseGC() {
 	if !db.RequiresGC() {
 		return
 	}
-	// run the garbage collection with the given interval
-	timeutil.Ticker(func() {
-		if err := db.GC(); err != nil {
-			log.Warnf("Garbage collection failed: %s", err)
-		}
-	}, 5*time.Minute, shutdownSignal)
+	log.Info("Running database garbage collection...")
+	s := time.Now()
+	if err := db.GC(); err != nil {
+		log.Warnf("Database garbage collection failed: %s", err)
+		return
+	}
+	log.Infof("Database garbage collection done, took %v...", time.Since(s))
 }
