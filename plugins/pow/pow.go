@@ -5,7 +5,6 @@ import (
 	"crypto"
 	"crypto/ed25519"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -16,9 +15,7 @@ import (
 )
 
 var (
-	// ErrInvalidPOWDifficultly is returned when the nonce of a message does not fulfill the PoW difficulty.
-	ErrInvalidPOWDifficultly = errors.New("invalid PoW")
-	// ErrMessageTooSmall is returned when the message does not contain enough data for the PoW.
+	// ErrMessageTooSmall is returned when the message is smaller than the 8-byte nonce.
 	ErrMessageTooSmall = errors.New("message too small")
 )
 
@@ -42,9 +39,7 @@ var (
 // Worker returns the PoW worker instance of the PoW plugin.
 func Worker() *pow.Worker {
 	workerOnce.Do(func() {
-		if log == nil {
-			log = logger.NewLogger(PluginName)
-		}
+		log = logger.NewLogger(PluginName)
 		// load the parameters
 		difficulty = config.Node.GetInt(CfgPOWDifficulty)
 		numWorkers = config.Node.GetInt(CfgPOWNumThreads)
@@ -74,22 +69,6 @@ func DoPOW(msg []byte) (uint64, error) {
 	log.Debugw("PoW stopped", "nonce", nonce, "err", err)
 
 	return nonce, err
-}
-
-// ValidatePOW returns an error when the PoW of the provided msg in invalid.
-func ValidatePOW(msg []byte) error {
-	content, err := powData(msg)
-	if err != nil {
-		return err
-	}
-	zeros, err := Worker().LeadingZeros(content)
-	if err != nil {
-		return err
-	}
-	if zeros < difficulty {
-		return fmt.Errorf("%w: leading zeros %d for difficulty %d", ErrInvalidPOWDifficultly, zeros, difficulty)
-	}
-	return nil
 }
 
 // powData returns the bytes over which PoW should be computed.

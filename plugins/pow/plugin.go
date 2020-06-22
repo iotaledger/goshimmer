@@ -2,6 +2,7 @@ package pow
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagefactory"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messageparser/builtinfilters"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -24,6 +25,9 @@ func run(*node.Plugin) {
 		return
 	}
 
-	messagelayer.MessageParser.AddBytesFilter(&powFilter{})
+	// assure that the PoW worker is initialized
+	worker := Worker()
+
+	messagelayer.MessageParser.AddBytesFilter(builtinfilters.NewPowFilter(worker, difficulty))
 	messagelayer.MessageFactory.SetWorker(messagefactory.WorkerFunc(DoPOW))
 }
