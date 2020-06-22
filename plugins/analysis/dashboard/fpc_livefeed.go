@@ -53,7 +53,7 @@ func configureFPCLiveFeed() {
 
 	if config.Node.GetBool(CfgMongoDBEnabled) {
 		fpcStoreFinalizedWorkerPool = workerpool.New(func(task workerpool.Task) {
-			storeFinalizedVoteContext(task.Param(0).([]FPCRecord))
+			storeFinalizedVoteContext(task.Param(0).(FPCRecords))
 			task.Return(nil)
 		}, workerpool.WorkerCount(fpcStoreFinalizedWorkerCount), workerpool.QueueSize(fpcStoreFinalizedWorkerQueueSize))
 	}
@@ -157,7 +157,7 @@ func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 }
 
 // stores the given finalized vote contexts into the database.
-func storeFinalizedVoteContext(finalizedConflicts []FPCRecord) {
+func storeFinalizedVoteContext(finalizedConflicts FPCRecords) {
 	db := mongoDB()
 
 	if err := pingOrReconnectMongoDB(); err != nil {

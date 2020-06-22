@@ -26,7 +26,7 @@ type FPCRecord struct {
 }
 
 // FPCRecords defines a slice of FPCRecord
-type FPCRecords []FPCRecord
+type FPCRecords = []FPCRecord
 
 const (
 	// defaultMongoDBOpTimeout defines the default MongoDB operation timeout.
@@ -127,7 +127,7 @@ func pingMongoDB(client *mongo.Client) error {
 	return nil
 }
 
-func storeFPCRecords(records []FPCRecord, db *mongo.Database) error {
+func storeFPCRecords(records FPCRecords, db *mongo.Database) error {
 	data := make([]interface{}, len(records))
 	for i := range records {
 		data[i] = records[i]
