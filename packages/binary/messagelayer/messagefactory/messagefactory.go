@@ -24,7 +24,7 @@ type Worker interface {
 	DoPOW(*message.Message) (nonce uint64, err error)
 }
 
-// The ZeroWorker is a PoW performer that always returns 0 as the nonce.
+// ZeroWorker is a PoW worker that always returns 0 as the nonce.
 var ZeroWorker = WorkerFunc(func(*message.Message) (uint64, error) { return 0, nil })
 
 // MessageFactory acts as a factory to create new messages.
@@ -71,23 +71,23 @@ func (m *MessageFactory) IssuePayload(payload payload.Payload) *message.Message 
 		return nil
 	}
 
-	trunkMessageId, branchMessageId := m.selector.Tips()
+	trunkID, branchID := m.selector.Tips()
 	issuingTime := time.Now()
 	issuerPublicKey := m.localIdentity.PublicKey()
 
 	// do the PoW
-	nonce, err := m.doPOW(trunkMessageId, branchMessageId, issuingTime, issuerPublicKey, sequenceNumber, payload)
+	nonce, err := m.doPOW(trunkID, branchID, issuingTime, issuerPublicKey, sequenceNumber, payload)
 	if err != nil {
 		m.Events.Error.Trigger(fmt.Errorf("pow failed: %w", err))
 		return nil
 	}
 
 	// create the signature
-	signature := m.sign(trunkMessageId, branchMessageId, issuingTime, issuerPublicKey, sequenceNumber, payload, nonce)
+	signature := m.sign(trunkID, branchID, issuingTime, issuerPublicKey, sequenceNumber, payload, nonce)
 
 	msg := message.New(
-		trunkMessageId,
-		branchMessageId,
+		trunkID,
+		branchID,
 		issuingTime,
 		issuerPublicKey,
 		sequenceNumber,
@@ -107,7 +107,7 @@ func (m *MessageFactory) Shutdown() {
 }
 
 func (m *MessageFactory) doPOW(trunkID message.Id, branchID message.Id, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
-	// create a dummy message to simplify marshalling
+	// create a dummy message to simplify marshaling
 	dummy := message.New(trunkID, branchID, issuingTime, key, seq, payload, 0, ed25519.EmptySignature)
 
 	m.workerMutex.RLock()
@@ -116,7 +116,7 @@ func (m *MessageFactory) doPOW(trunkID message.Id, branchID message.Id, issuingT
 }
 
 func (m *MessageFactory) sign(trunkID message.Id, branchID message.Id, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
-	// create a dummy message to simplify marshalling
+	// create a dummy message to simplify marshaling
 	dummy := message.New(trunkID, branchID, issuingTime, key, seq, payload, nonce, ed25519.EmptySignature)
 	dummyBytes := dummy.Bytes()
 

@@ -19,8 +19,8 @@ type Message struct {
 	objectstorage.StorableObjectFlags
 
 	// core properties (get sent over the wire)
-	trunkId         Id
-	branchId        Id
+	trunkID         Id
+	branchID        Id
 	issuerPublicKey ed25519.PublicKey
 	issuingTime     time.Time
 	sequenceNumber  uint64
@@ -38,10 +38,10 @@ type Message struct {
 }
 
 // New creates a new message with the details provided by the issuer.
-func New(trunkMessageId Id, branchMessageId Id, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
+func New(trunkID Id, branchID Id, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
 	return &Message{
-		trunkId:         trunkMessageId,
-		branchId:        branchMessageId,
+		trunkID:         trunkID,
+		branchID:        branchID,
 		issuerPublicKey: issuerPublicKey,
 		issuingTime:     issuingTime,
 		sequenceNumber:  sequenceNumber,
@@ -143,12 +143,12 @@ func (message *Message) Id() (result Id) {
 
 // TrunkID returns the id of the trunk message.
 func (message *Message) TrunkId() Id {
-	return message.trunkId
+	return message.trunkID
 }
 
 // BranchID returns the id of the branch message.
 func (message *Message) BranchId() Id {
-	return message.branchId
+	return message.branchID
 }
 
 // IssuerPublicKey returns the public key of the message issuer.
@@ -208,8 +208,8 @@ func (message *Message) ContentId() (result ContentId) {
 func (message *Message) calculateId() Id {
 	return blake2b.Sum512(
 		marshalutil.New(IdLength + IdLength + payload.IdLength).
-			WriteBytes(message.trunkId.Bytes()).
-			WriteBytes(message.branchId.Bytes()).
+			WriteBytes(message.trunkID.Bytes()).
+			WriteBytes(message.branchID.Bytes()).
 			WriteBytes(message.ContentId().Bytes()).
 			Bytes(),
 	)
@@ -240,8 +240,8 @@ func (message *Message) Bytes() []byte {
 
 	// marshal result
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteBytes(message.trunkId.Bytes())
-	marshalUtil.WriteBytes(message.branchId.Bytes())
+	marshalUtil.WriteBytes(message.trunkID.Bytes())
+	marshalUtil.WriteBytes(message.branchID.Bytes())
 	marshalUtil.WriteBytes(message.issuerPublicKey.Bytes())
 	marshalUtil.WriteTime(message.issuingTime)
 	marshalUtil.WriteUint64(message.sequenceNumber)
@@ -259,10 +259,10 @@ func (message *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes 
 	marshalUtil := marshalutil.New(data)
 
 	// parse information
-	if message.trunkId, err = ParseId(marshalUtil); err != nil {
+	if message.trunkID, err = ParseId(marshalUtil); err != nil {
 		return
 	}
-	if message.branchId, err = ParseId(marshalUtil); err != nil {
+	if message.branchID, err = ParseId(marshalUtil); err != nil {
 		return
 	}
 	if message.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
@@ -303,6 +303,8 @@ func (message *Message) ObjectStorageValue() []byte {
 	return message.Bytes()
 }
 
+// Updates the object with the values of another object.
+// Since a Message is immutable, this function is not implemented and panics.
 func (message *Message) Update(objectstorage.StorableObject) {
 	panic("messages should never be overwritten and only stored once to optimize IO")
 }
@@ -310,8 +312,8 @@ func (message *Message) Update(objectstorage.StorableObject) {
 func (message *Message) String() string {
 	return stringify.Struct("Message",
 		stringify.StructField("id", message.Id()),
-		stringify.StructField("trunkMessageId", message.TrunkId()),
-		stringify.StructField("branchMessageId", message.BranchId()),
+		stringify.StructField("trunkId", message.TrunkId()),
+		stringify.StructField("branchId", message.BranchId()),
 		stringify.StructField("issuer", message.IssuerPublicKey()),
 		stringify.StructField("issuingTime", message.IssuingTime()),
 		stringify.StructField("sequenceNumber", message.SequenceNumber()),
