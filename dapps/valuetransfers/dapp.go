@@ -77,7 +77,7 @@ func App() *node.Plugin {
 	return app
 }
 
-// Tangle gets the tangle instance
+// Tangle gets the tangle instance.
 func Tangle() *tangle.Tangle {
 	tangleOnce.Do(func () {
 		_tangle = tangle.New(database.Store())
@@ -85,12 +85,12 @@ func Tangle() *tangle.Tangle {
 	return _tangle
 }
 
-// FCOB gets the fcob instance
+// FCOB gets the fcob instance.
 func FCOB() *consensus.FCOB {
 	return fcob
 }
 
-// LedgerState gets the ledgerState instance
+// LedgerState gets the ledgerState instance.
 func LedgerState() *tangle.LedgerState {
 	return ledgerState
 }
