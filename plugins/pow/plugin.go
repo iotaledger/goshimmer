@@ -12,7 +12,7 @@ import (
 const PluginName = "PoW"
 
 var (
-	// Plugin is the plugin instance of the port check plugin.
+	// Plugin is the plugin instance of the PoW plugin.
 	Plugin = node.NewPlugin(PluginName, node.Enabled, run)
 )
 

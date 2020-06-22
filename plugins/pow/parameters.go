@@ -7,11 +7,11 @@ import (
 )
 
 const (
-	// CfgPOWDifficulty defines the config flag of the PoW difficulty
+	// CfgPOWDifficulty defines the config flag of the PoW difficulty.
 	CfgPOWDifficulty = "pow.difficulty"
-	// CfgPOWNumThreads defines the config flag of the number of threads used to do the PoW
+	// CfgPOWNumThreads defines the config flag of the number of threads used to do the PoW.
 	CfgPOWNumThreads = "pow.numThreads"
-	// CfgPOWTimeout defines the config flag for the PoW timeout
+	// CfgPOWTimeout defines the config flag for the PoW timeout.
 	CfgPOWTimeout = "pow.timeout"
 )
 
