@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/workerpool"
-	"github.com/mr-tron/base58/base58"
 )
 
 const (
@@ -98,7 +97,7 @@ func runFPCLiveFeed() {
 func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 	// prepare the update
 	conflicts := make(conflictSet)
-	nodeID := base58.Encode(hb.OwnID)
+	nodeID := shortNodeIDString(hb.OwnID)
 	for ID, context := range hb.RoundStats.ActiveVoteContexts {
 		newVoteContext := voteContext{
 			NodeID:   nodeID,
