@@ -7,14 +7,13 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
-	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/require"
 )
 
 // TestCreateFPCUpdate checks that given a FPC heartbeat, the returned FPCUpdate is ok.
 func TestCreateFPCUpdate(t *testing.T) {
 	ownID := sha256.Sum256([]byte{'A'})
-	base58OwnID := base58.Encode(ownID[:])
+	base58OwnID := shortNodeIDString(ownID[:])
 
 	// create a FPCHeartbeat
 	hbTest := &packet.FPCHeartbeat{

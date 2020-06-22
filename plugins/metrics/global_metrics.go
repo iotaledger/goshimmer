@@ -6,7 +6,7 @@ import (
 	analysisdashboard "github.com/iotaledger/goshimmer/plugins/analysis/dashboard"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/mr-tron/base58/base58"
+	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
 )
 
@@ -32,7 +32,7 @@ var (
 var onMetricHeartbeatReceived = events.NewClosure(func(hb *packet.MetricHeartbeat) {
 	nodessMetricsMutex.Lock()
 	defer nodessMetricsMutex.Unlock()
-	nodesMetrics[base58.Encode(hb.OwnID)] = NodeInfo{
+	nodesMetrics[shortNodeIDString(hb.OwnID)] = NodeInfo{
 		OS:          hb.OS,
 		Arch:        hb.Arch,
 		NumCPU:      hb.NumCPU,
@@ -63,4 +63,10 @@ func calculateNetworkDiameter() {
 // NetworkDiameter returns the current network diameter.
 func NetworkDiameter() int32 {
 	return networkDiameter.Load()
+}
+
+func shortNodeIDString(b []byte) string {
+	var id identity.ID
+	copy(id[:], b)
+	return id.String()
 }
