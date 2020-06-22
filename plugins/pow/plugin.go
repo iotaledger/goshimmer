@@ -3,6 +3,7 @@ package pow
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagefactory"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -15,6 +16,14 @@ var (
 )
 
 func run(*node.Plugin) {
+	// assure that the logger is available
+	log := logger.NewLogger(PluginName)
+
+	if node.IsSkipped(messagelayer.Plugin) {
+		log.Infof("%s is disabled; skipping %s\n", messagelayer.PluginName, PluginName)
+		return
+	}
+
 	messagelayer.MessageParser.AddMessageFilter(&powFilter{})
 	messagelayer.MessageFactory.SetWorker(messagefactory.WorkerFunc(DoPOW))
 }
