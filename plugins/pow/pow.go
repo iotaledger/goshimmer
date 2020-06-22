@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/hive.go/logger"
 	_ "golang.org/x/crypto/blake2b" // required by crypto.BLAKE2b_512
 )
 
@@ -29,6 +31,8 @@ var (
 )
 
 var (
+	log *logger.Logger
+
 	workerOnce sync.Once
 	worker     *pow.Worker
 )
@@ -36,11 +40,15 @@ var (
 // Worker returns the PoW worker instance of the PoW plugin.
 func Worker() *pow.Worker {
 	workerOnce.Do(func() {
+		if log == nil {
+			log = logger.NewLogger(PluginName)
+		}
+		// load the parameters
 		difficulty = config.Node.GetInt(CfgPOWDifficulty)
 		numWorkers = config.Node.GetInt(CfgPOWNumThreads)
 		timeout = config.Node.GetDuration(CfgPOWTimeout)
-
-		worker = newWorker()
+		// create the worker
+		worker = pow.New(hash, numWorkers)
 	})
 	return worker
 }
@@ -52,11 +60,18 @@ func DoPOW(msg *message.Message) (uint64, error) {
 		return 0, err
 	}
 
+	// get the PoW worker
 	worker := Worker()
+
+	log.Debugw("start PoW", "difficulty", difficulty, "numWorkers", numWorkers)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	return worker.Mine(ctx, content, difficulty)
+	nonce, err := worker.Mine(ctx, content, difficulty)
+
+	log.Debugw("PoW stopped", "nonce", nonce, "err", err)
+
+	return nonce, err
 }
 
 // ValidatePOW returns an error when the PoW of the provided msg in invalid.
@@ -70,7 +85,7 @@ func ValidatePOW(msg *message.Message) error {
 		return err
 	}
 	if zeros < difficulty {
-		return ErrInvalidPOWDifficultly
+		return fmt.Errorf("%w: leading zeros %d for difficulity %d", ErrInvalidPOWDifficultly, zeros, difficulty)
 	}
 	return nil
 }
@@ -81,8 +96,4 @@ func powData(msg *message.Message) ([]byte, error) {
 
 	contentLength := len(msgBytes) - len(msg.Signature()) - 8
 	return msgBytes[:contentLength], nil
-}
-
-func newWorker() *pow.Worker {
-	return pow.New(hash, numWorkers)
 }

@@ -38,7 +38,7 @@ func New(hash Hash, numWorkers ...int) *Worker {
 		hash:       hash,
 		numWorkers: 1,
 	}
-	if len(numWorkers) > 0 {
+	if len(numWorkers) > 0 && numWorkers[0] > 0 {
 		w.numWorkers = numWorkers[0]
 	}
 	return w

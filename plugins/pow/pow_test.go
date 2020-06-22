@@ -1,6 +1,7 @@
 package pow
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -16,13 +18,14 @@ import (
 var (
 	testPayload               = payload.NewData([]byte("test"))
 	testPeer       *peer.Peer = nil
-	testDifficulty            = 22
+	testDifficulty            = 10
 )
 
 func init() {
+	log = logger.NewExampleLogger("pow_test")
 	// set the test parameters
 	config.Node.Set(CfgPOWDifficulty, testDifficulty)
-	config.Node.Set(CfgPOWNumThreads, 6)
+	config.Node.Set(CfgPOWNumThreads, 1)
 	config.Node.Set(CfgPOWTimeout, 1*time.Minute)
 }
 
@@ -36,7 +39,7 @@ func TestPowFilter_Filter(t *testing.T) {
 
 	msg := newTestMessage(0)
 
-	m.On("Reject", msg, ErrInvalidPOWDifficultly, testPeer)
+	m.On("Reject", msg, mock.MatchedBy(func(err error) bool { return errors.Is(err, ErrInvalidPOWDifficultly) }), testPeer)
 	filter.Filter(msg, testPeer)
 
 	nonce, err := DoPOW(msg)
