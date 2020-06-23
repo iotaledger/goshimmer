@@ -3,7 +3,9 @@ package client
 import (
 	"github.com/iotaledger/iota.go/address"
 	"github.com/iotaledger/iota.go/consts"
+	"github.com/iotaledger/iota.go/kerl"
 	"github.com/iotaledger/iota.go/signing"
+	"github.com/iotaledger/iota.go/signing/key"
 	"github.com/iotaledger/iota.go/trinary"
 )
 
@@ -27,7 +29,7 @@ func (seed *Seed) GetAddress(index uint64) *Address {
 		panic(err)
 	}
 
-	privateKey, err := signing.Key(seed.GetSubSeed(index), seed.securityLevel)
+	privateKey, err := key.Sponge(seed.GetSubSeed(index), seed.securityLevel, kerl.NewKerl())
 	if err != nil {
 		panic(err)
 	}

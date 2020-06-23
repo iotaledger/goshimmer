@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/types"
-	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/atomic"
 )
