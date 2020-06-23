@@ -3,12 +3,10 @@ package database
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/database/prefix"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
@@ -52,7 +50,7 @@ func createStore() {
 		db, err = database.NewDB(dbDir)
 	}
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Unable to open the database, please delete the database folder. Error: %s", err))
+		log.Fatal("Unable to open the database, please delete the database folder. Error: %s", err)
 	}
 
 	store = db.NewStore()
@@ -63,36 +61,33 @@ func configure(_ *node.Plugin) {
 	store := Store()
 	configureHealthStore(store)
 
-	if err := checkDatabaseVersion(store.WithRealm([]byte{prefix.DBPrefixDatabaseVersion})); err != nil {
+	if err := checkDatabaseVersion(healthStore); err != nil {
 		if errors.Is(err, ErrDBVersionIncompatible) {
-			log.Panicf("The database scheme was updated. Please delete the database folder.\n%s", err)
+			log.Fatalf("The database scheme was updated. Please delete the database folder. %s", err)
 		}
-		log.Panicf("Failed to check database version: %s", err)
+		log.Fatalf("Failed to check database version: %s", err)
 	}
 
 	if IsDatabaseUnhealthy() {
-		log.Panic("The database is marked as not properly shutdown/corrupted, please delete the database folder and restart.")
-	}
-
-	// we mark the database only as corrupted from within a background worker, which means
-	// that we only mark it as dirty, if the node actually started up properly (meaning no termination
-	// signal was received before all plugins loaded).
-	if err := daemon.BackgroundWorker("[Database Health]", func(shutdownSignal <-chan struct{}) {
-		MarkDatabaseUnhealthy()
-	}); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+		log.Fatal("The database is marked as not properly shutdown/corrupted, please delete the database folder and restart.")
 	}
 
 	// we open the database in the configure, so we must also make sure it's closed here
-	if err := daemon.BackgroundWorker(PluginName, closeDB, shutdown.PriorityDatabase); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+	if err := daemon.BackgroundWorker(PluginName, manageDBLifetime, shutdown.PriorityDatabase); err != nil {
+		log.Fatalf("Failed to start as daemon: %s", err)
 	}
 
 	// run GC up on startup
 	runDatabaseGC()
 }
 
-func closeDB(shutdownSignal <-chan struct{}) {
+// manageDBLifetime takes care of managing the lifetime of the database. It marks the database as dirty up on
+// startup and unmarks it up on shutdown. Up on shutdown it will run the db GC and then close the database.
+func manageDBLifetime(shutdownSignal <-chan struct{}) {
+	// we mark the database only as corrupted from within a background worker, which means
+	// that we only mark it as dirty, if the node actually started up properly (meaning no termination
+	// signal was received before all plugins loaded).
+	MarkDatabaseUnhealthy()
 	<-shutdownSignal
 	runDatabaseGC()
 	MarkDatabaseHealthy()
