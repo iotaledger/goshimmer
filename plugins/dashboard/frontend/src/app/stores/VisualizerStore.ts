@@ -108,6 +108,18 @@ export class VisualizerStore {
             }
             this.verticesIncomingOrder.push(vert.id);
             this.checkLimit();
+
+            //clear trunk and branch tip state
+            let trunkVert = this.vertices.get(vert.trunk_id)
+            let branchVert = this.vertices.get(vert.branch_id)
+            if(trunkVert) {
+                trunkVert.is_tip = false
+                this.vertices.set(trunkVert.id, trunkVert)
+            }
+            if(branchVert){
+                branchVert.is_tip = false
+                this.vertices.set(branchVert.id, branchVert)
+            }
         }
 
         this.vertices.set(vert.id, vert);
