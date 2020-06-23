@@ -48,30 +48,33 @@ The code in GoShimmer is modular, where each module represents either one of the
 
 This approach allows us to develop each module in parallel and to test GoShimmer with one or more different versions.
 
-Each module is defined in the `packages` directory and can be enabled, using the `plugins` directory.
+Each module is defined in the `packages` directory, with the exceptions for the dApps (e.g., Value transfer and netowrk delay) that are under the `dapps` folder. Each module can be enabled using the `plugins` directory.
 
 **Note:** See the `main.go` file to see which plugins are currently supported.
 
 ## Implemented Coordicide modules
 
-The `master` branch is the stable version of the GoShimmer software, which includes a minimal set of modules to allow you to send and gossip zero-value transactions.
+The `master` branch is the stable version of the GoShimmer software, which includes a minimal set of modules to allow you to send and gossip the following types of object:
+
+ - Generic data object, and more in general, any non-value transfer can be supported with its own dApp/App. 
+- Value objects to issue transactions. 
 
 The `master` branch includes the following Coordicide modules: 
 
 - [Node identities](https://coordicide.iota.org/module1)
 
-- [Autopeering](https://coordicide.iota.org/module2)
-
-
-The autopeering module is divided into two submodules:
-
-- **Peer discovery:** Responsible for operations such as discovering new peers and verifying their online status
-
-- **Neighbor selection:** Responsible for finding and managing neighbors
-
+- [Autopeering](https://coordicide.iota.org/module2). We also have a standalone autopeering simulator in this [repository](https://github.com/iotaledger/autopeering-sim).
 ![Autopeering design](images/autopeering.png)
 
-We also have a standalone autopeering simulator in this [repository](https://github.com/iotaledger/autopeering-sim).
+- [Fast Probabilistic Consensus](https://coordicide.iota.org//module4.1.2).  We also have a standalone FPC simulator in this [repository](https://github.com/iotaledger/fpc-sim).
+![TSA](images/shimmer.gif)
+
+- [Tips Selection Algorithm](https://coordicide.iota.org//module5)
+![TSA](images/tangle.gif)
+
+- [Parallel-reality-based Ledger State](https://iota.cafe/t/parallel-reality-based-ledger-state-using-utxo/261) (using the UTXO model). 
+![Ledger State](images/ledger-state.png)
+
 
 ## Work-in-progress modules
 
@@ -83,24 +86,13 @@ The following Coordicide modules are a work in progress:
 
 - [Cellular Consensus](https://coordicide.iota.org/module5.1.1): The `ca` branch contains a first implementation of the Cellular Consensus module in the `packages` directory.
 
-- [Fast Probabilistic Consensus](https://coordicide.iota.org/module5.1.2): The `fpc` branch contains a first implementation of the Fast Probabilistic Consensus  module in the `packages` directory. We also have a standalone FPC simulator in this [repository](https://github.com/iotaledger/fpc-sim).
-
 - [Spam Protection](https://coordicide.iota.org/module3): You can find the initial simulation source code of the rate control in this [repository](https://github.com/andypandypi/IOTARateControl) and the source code of the Adaptive Proof of Work simulator [here](https://github.com/iotaledger/adaptive-pow-sim).
-
-As well as these modules, we are working on the following node functions:
-
-- Ledger State: The `ledger_state` branch implements a version of the [parallel-reality-based ledger state](https://iota.cafe/t/parallel-reality-based-ledger-state-using-utxo/261) (using the UTXO model). 
-
-    ![parallel_reality](images/outputs.png "Ledger State")
 
 ## Client-Library and HTTP API reference
 
 You can use the Go client-library to interact with GoShimmer (located under `github.com/iotaledger/goshimmer/client`).
 
-Alternatively, you can check out the [API docs](https://docs.iota.org/docs/node-software/0.1/goshimmer/references/api-reference) 
-to implement your own client or inspect the available HTTP API endpoints.
-
-For code generation, you might want to use the [OAS/Swagger specification file](https://github.com/iotaledger/goshimmer/blob/master/plugins/webapi/api.yaml) directly.
+You can find more info about this on our [client-lib](https://github.com/iotaledger/goshimmer/wiki/Client-Lib:-Interaction-with-layers) wiki page.
 
 ## Installation
 
