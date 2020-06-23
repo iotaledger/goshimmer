@@ -15,32 +15,34 @@ const (
 	osChildBranch
 	osConflict
 	osConflictMember
+
+	cacheTime = 30 * time.Second
 )
 
 var (
-	osLeakDetectionOption = objectstorage.LeakDetectionEnabled(true, objectstorage.LeakDetectionOptions{
+	osLeakDetectionOption = objectstorage.LeakDetectionEnabled(false, objectstorage.LeakDetectionOptions{
 		MaxConsumersPerObject: 10,
 		MaxConsumerHoldTime:   10 * time.Second,
 	})
 
 	osBranchOptions = []objectstorage.Option{
-		objectstorage.CacheTime(60 * time.Second),
+		objectstorage.CacheTime(cacheTime),
 		osLeakDetectionOption,
 	}
 
 	osChildBranchOptions = []objectstorage.Option{
-		objectstorage.CacheTime(60 * time.Second),
+		objectstorage.CacheTime(cacheTime),
 		objectstorage.PartitionKey(BranchIDLength, BranchIDLength),
 		osLeakDetectionOption,
 	}
 
 	osConflictOptions = []objectstorage.Option{
-		objectstorage.CacheTime(60 * time.Second),
+		objectstorage.CacheTime(cacheTime),
 		osLeakDetectionOption,
 	}
 
 	osConflictMemberOptions = []objectstorage.Option{
-		objectstorage.CacheTime(60 * time.Second),
+		objectstorage.CacheTime(cacheTime),
 		objectstorage.PartitionKey(ConflictIDLength, BranchIDLength),
 		osLeakDetectionOption,
 	}

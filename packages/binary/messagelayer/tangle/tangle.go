@@ -21,6 +21,8 @@ const (
 	// MissingCheckInterval is the interval on which it is checked whether a missing
 	// message is still missing.
 	MissingCheckInterval = 5 * time.Second
+
+	cacheTime = 20 * time.Second
 )
 
 // Tangle represents the base layer of messages.
@@ -55,10 +57,10 @@ func New(store kvstore.KVStore) (result *Tangle) {
 
 	result = &Tangle{
 		shutdown:               make(chan struct{}),
-		messageStorage:         osFactory.New(PrefixMessage, messageFactory, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
-		messageMetadataStorage: osFactory.New(PrefixMessageMetadata, MessageMetadataFromStorageKey, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:        osFactory.New(PrefixApprovers, approverFactory, objectstorage.CacheTime(10*time.Second), objectstorage.PartitionKey(message.IdLength, message.IdLength), objectstorage.LeakDetectionEnabled(false)),
-		missingMessageStorage:  osFactory.New(PrefixMissingMessage, missingMessageFactory, objectstorage.CacheTime(10*time.Second), objectstorage.LeakDetectionEnabled(false)),
+		messageStorage:         osFactory.New(PrefixMessage, messageFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		messageMetadataStorage: osFactory.New(PrefixMessageMetadata, MessageMetadataFromStorageKey, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:        osFactory.New(PrefixApprovers, approverFactory, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(message.IdLength, message.IdLength), objectstorage.LeakDetectionEnabled(false)),
+		missingMessageStorage:  osFactory.New(PrefixMissingMessage, missingMessageFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: *newEvents(),
 	}
@@ -274,9 +276,15 @@ func (tangle *Tangle) MonitorMissingMessages(shutdownSignal <-chan struct{}) {
 		select {
 		case <-reCheckInterval.C:
 			var toDelete []message.Id
+			var toUnmark []message.Id
 			tangle.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 				defer cachedObject.Release()
 				missingMessage := cachedObject.Get().(*MissingMessage)
+
+				if tangle.messageStorage.Contains(missingMessage.messageId.Bytes()) {
+					toUnmark = append(toUnmark, missingMessage.MessageId())
+					return true
+				}
 
 				// check whether message is missing since over our max time delta
 				if time.Since(missingMessage.MissingSince()) >= MaxMissingTimeBeforeCleanup {
@@ -284,6 +292,9 @@ func (tangle *Tangle) MonitorMissingMessages(shutdownSignal <-chan struct{}) {
 				}
 				return true
 			})
+			for _, msgID := range toUnmark {
+				tangle.missingMessageStorage.DeleteIfPresent(msgID.Bytes())
+			}
 			for _, msgID := range toDelete {
 				// delete the future cone of the missing message
 				tangle.Events.MessageUnsolidifiable.Trigger(msgID)

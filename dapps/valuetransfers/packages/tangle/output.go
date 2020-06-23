@@ -4,14 +4,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
-	"github.com/iotaledger/hive.go/stringify"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 // OutputKeyPartitions defines the "layout" of the key. This enables prefix iterations in the objectstorage.
@@ -26,12 +25,22 @@ type Output struct {
 	solidificationTime time.Time
 	firstConsumer      transaction.ID
 	consumerCount      int
+	preferred          bool
+	finalized          bool
+	liked              bool
+	confirmed          bool
+	rejected           bool
 	balances           []*balance.Balance
 
 	branchIDMutex           sync.RWMutex
 	solidMutex              sync.RWMutex
 	solidificationTimeMutex sync.RWMutex
 	consumerMutex           sync.RWMutex
+	preferredMutex          sync.RWMutex
+	finalizedMutex          sync.RWMutex
+	likedMutex              sync.RWMutex
+	confirmedMutex          sync.RWMutex
+	rejectedMutex           sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 	storageKey []byte
@@ -135,8 +144,8 @@ func (output *Output) BranchID() branchmanager.BranchID {
 	return output.branchID
 }
 
-// SetBranchID is the setter for the property that indicates in which ledger state branch the output is booked.
-func (output *Output) SetBranchID(branchID branchmanager.BranchID) (modified bool) {
+// setBranchID is the setter for the property that indicates in which ledger state branch the output is booked.
+func (output *Output) setBranchID(branchID branchmanager.BranchID) (modified bool) {
 	output.branchIDMutex.RLock()
 	if output.branchID == branchID {
 		output.branchIDMutex.RUnlock()
@@ -153,6 +162,7 @@ func (output *Output) SetBranchID(branchID branchmanager.BranchID) (modified boo
 	}
 
 	output.branchID = branchID
+	output.SetModified()
 	modified = true
 
 	return
@@ -227,6 +237,169 @@ func (output *Output) ConsumerCount() int {
 	return output.consumerCount
 }
 
+// Preferred returns true if the output belongs to a preferred transaction.
+func (output *Output) Preferred() (result bool) {
+	output.preferredMutex.RLock()
+	defer output.preferredMutex.RUnlock()
+
+	return output.preferred
+}
+
+// setPreferred updates the preferred flag of the output. It is defined as a private setter because updating the
+// preferred flag causes changes in other outputs and branches as well. This means that we need additional logic
+// in the tangle. To update the preferred flag of a output, we need to use Tangle.SetTransactionPreferred(bool).
+func (output *Output) setPreferred(preferred bool) (modified bool) {
+	output.preferredMutex.RLock()
+	if output.preferred == preferred {
+		output.preferredMutex.RUnlock()
+
+		return
+	}
+
+	output.preferredMutex.RUnlock()
+	output.preferredMutex.Lock()
+	defer output.preferredMutex.Unlock()
+
+	if output.preferred == preferred {
+		return
+	}
+
+	output.preferred = preferred
+	output.SetModified()
+	modified = true
+
+	return
+}
+
+// setFinalized allows us to set the finalized flag on the outputs. Finalized outputs will not be forked when
+// a conflict arrives later.
+func (output *Output) setFinalized(finalized bool) (modified bool) {
+	output.finalizedMutex.RLock()
+	if output.finalized == finalized {
+		output.finalizedMutex.RUnlock()
+
+		return
+	}
+
+	output.finalizedMutex.RUnlock()
+	output.finalizedMutex.Lock()
+	defer output.finalizedMutex.Unlock()
+
+	if output.finalized == finalized {
+		return
+	}
+
+	output.finalized = finalized
+	output.SetModified()
+	modified = true
+
+	return
+}
+
+// Finalized returns true, if the decision if this output is preferred or not has been finalized by consensus already.
+func (output *Output) Finalized() bool {
+	output.finalizedMutex.RLock()
+	defer output.finalizedMutex.RUnlock()
+
+	return output.finalized
+}
+
+// Liked returns true if the Output was marked as liked.
+func (output *Output) Liked() bool {
+	output.likedMutex.RLock()
+	defer output.likedMutex.RUnlock()
+
+	return output.liked
+}
+
+// setLiked modifies the liked flag of the given Output. It returns true if the value has been updated.
+func (output *Output) setLiked(liked bool) (modified bool) {
+	output.likedMutex.RLock()
+	if output.liked == liked {
+		output.likedMutex.RUnlock()
+
+		return
+	}
+
+	output.likedMutex.RUnlock()
+	output.likedMutex.Lock()
+	defer output.likedMutex.Unlock()
+
+	if output.liked == liked {
+		return
+	}
+
+	output.liked = liked
+	output.SetModified()
+	modified = true
+
+	return
+}
+
+// Confirmed returns true if the Output was marked as confirmed.
+func (output *Output) Confirmed() bool {
+	output.confirmedMutex.RLock()
+	defer output.confirmedMutex.RUnlock()
+
+	return output.confirmed
+}
+
+// setConfirmed modifies the confirmed flag of the given Output. It returns true if the value has been updated.
+func (output *Output) setConfirmed(confirmed bool) (modified bool) {
+	output.confirmedMutex.RLock()
+	if output.confirmed == confirmed {
+		output.confirmedMutex.RUnlock()
+
+		return
+	}
+
+	output.confirmedMutex.RUnlock()
+	output.confirmedMutex.Lock()
+	defer output.confirmedMutex.Unlock()
+
+	if output.confirmed == confirmed {
+		return
+	}
+
+	output.confirmed = confirmed
+	output.SetModified()
+	modified = true
+
+	return
+}
+
+// Rejected returns true if the Output was marked as confirmed.
+func (output *Output) Rejected() bool {
+	output.rejectedMutex.RLock()
+	defer output.rejectedMutex.RUnlock()
+
+	return output.rejected
+}
+
+// setRejected modifies the rejected flag of the given Output. It returns true if the value has been updated.
+func (output *Output) setRejected(rejected bool) (modified bool) {
+	output.rejectedMutex.RLock()
+	if output.rejected == rejected {
+		output.rejectedMutex.RUnlock()
+
+		return
+	}
+
+	output.rejectedMutex.RUnlock()
+	output.rejectedMutex.Lock()
+	defer output.rejectedMutex.Unlock()
+
+	if output.rejected == rejected {
+		return
+	}
+
+	output.rejected = rejected
+	output.SetModified()
+	modified = true
+
+	return
+}
+
 // Balances returns the colored balances (color + balance) that this output contains.
 func (output *Output) Balances() []*balance.Balance {
 	return output.balances
@@ -256,12 +429,17 @@ func (output *Output) ObjectStorageValue() []byte {
 	balanceCount := len(output.balances)
 
 	// initialize helper
-	marshalUtil := marshalutil.New(branchmanager.BranchIDLength + marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + transaction.IDLength + marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
+	marshalUtil := marshalutil.New(branchmanager.BranchIDLength + 6*marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + transaction.IDLength + marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
 	marshalUtil.WriteBytes(output.branchID.Bytes())
 	marshalUtil.WriteBool(output.solid)
 	marshalUtil.WriteTime(output.solidificationTime)
 	marshalUtil.WriteBytes(output.firstConsumer.Bytes())
 	marshalUtil.WriteUint32(uint32(output.consumerCount))
+	marshalUtil.WriteBool(output.Preferred())
+	marshalUtil.WriteBool(output.Finalized())
+	marshalUtil.WriteBool(output.Liked())
+	marshalUtil.WriteBool(output.Confirmed())
+	marshalUtil.WriteBool(output.Rejected())
 	marshalUtil.WriteUint32(uint32(balanceCount))
 	for _, balanceToMarshal := range output.balances {
 		marshalUtil.WriteBytes(balanceToMarshal.Bytes())
@@ -288,6 +466,21 @@ func (output *Output) UnmarshalObjectStorageValue(data []byte) (consumedBytes in
 	}
 	consumerCount, err := marshalUtil.ReadUint32()
 	if err != nil {
+		return
+	}
+	if output.preferred, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if output.finalized, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if output.liked, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if output.confirmed, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if output.rejected, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
 	output.consumerCount = int(consumerCount)

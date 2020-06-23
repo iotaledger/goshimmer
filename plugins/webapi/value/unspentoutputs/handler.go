@@ -28,29 +28,38 @@ func Handler(c echo.Context) error {
 
 		outputids := make([]OutputID, 0)
 		// get outputids by address
-		for id, outputObj := range valuetransfers.Tangle.OutputsOnAddress(address) {
-			defer outputObj.Release()
-			output := outputObj.Unwrap()
+		for id, cachedOutput := range valuetransfers.Tangle.OutputsOnAddress(address) {
+			// TODO: don't do this in a for
+			defer cachedOutput.Release()
+			output := cachedOutput.Unwrap()
+			cachedTxMeta := valuetransfers.Tangle.TransactionMetadata(output.TransactionID())
+			// TODO: don't do this in a for
+			defer cachedTxMeta.Release()
 
-			// TODO: get inclusion state
 			if output.ConsumerCount() == 0 {
 				// iterate balances
 				var b []utils.Balance
 				for _, balance := range output.Balances() {
 					b = append(b, utils.Balance{
-						Value: balance.Value(),
-						Color: balance.Color().String(),
+						Value: balance.Value,
+						Color: balance.Color.String(),
 					})
 				}
 
+				inclusionState := utils.InclusionState{}
+				if cachedTxMeta.Exists() {
+					txMeta := cachedTxMeta.Unwrap()
+					inclusionState.Confirmed = txMeta.Confirmed()
+					inclusionState.Liked = txMeta.Liked()
+					inclusionState.Rejected = txMeta.Rejected()
+					inclusionState.Finalized = txMeta.Finalized()
+					inclusionState.Conflicting = txMeta.Conflicting()
+					inclusionState.Confirmed = txMeta.Confirmed()
+				}
 				outputids = append(outputids, OutputID{
-					ID:       id.String(),
-					Balances: b,
-					InclusionState: utils.InclusionState{
-						Confirmed: true,
-						Conflict:  false,
-						Liked:     true,
-					},
+					ID:             id.String(),
+					Balances:       b,
+					InclusionState: inclusionState,
 				})
 			}
 		}

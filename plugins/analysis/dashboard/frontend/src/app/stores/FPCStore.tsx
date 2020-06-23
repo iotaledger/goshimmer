@@ -1,105 +1,130 @@
-import {RouterStore} from "mobx-react-router";
-import {action, computed, observable, ObservableMap} from "mobx";
-import Col from "react-bootstrap/Col";
-import * as React from "react";
-import {registerHandler, WSMsgType} from "app/misc/WS";
+import { registerHandler, WSMsgType, unregisterHandler } from "app/misc/WS";
+import { action, computed, observable } from "mobx";
 
-export class Node {
-    id: number;
-    opinion: number = 0;
-}
-
-export function LightenDarkenColor(col, amt) {
-    var num = parseInt(col, 16);
-    var r = (num >> 16) + amt;
-    var b = ((num >> 8) & 0x00FF) + amt;
-    var g = (num & 0x0000FF) + amt;
-    var newColor = g | (b << 8) | (r << 16);
-    return newColor.toString(16);
-}
-
-function SetColor(opinion) {
-    if (opinion == 0) {
-        return "#BD0000"
-    }
-    return "#00BD00"
+enum Opinion {
+    Like = 1,
+    Dislike
 }
 
 class VoteContext {
     nodeid: string;
     rounds: number;
     opinions: number[];
-    like: number;
+    outcome: number;
 }
+
 class Conflict {
     nodesview: Map<string, VoteContext>
 }
+
 export class FPCMessage {
-    nodes: number;
     conflictset: Map<string, Conflict>
 }
 
 export class FPCStore {
-    routerStore: RouterStore;
-
     @observable msg: FPCMessage = null;
 
-    @observable n: number = 0;
+    @observable conflicts: {
+        conflictID: string;
+        nodeOpinions: { nodeID: string; opinion: number }[];
+        lastUpdated: number;
+        likes?: number;
+    }[] = [];
 
-    @observable nodes = new ObservableMap<number, Node>();
+    @observable currentConflict = "";
 
-    constructor(routerStore: RouterStore) {
-        this.routerStore = routerStore;
+    timerId: NodeJS.Timer;
 
-        setInterval(this.addNewNode, 100);
-        setInterval(this.updateNodeValue, 400);
+    constructor() {
+    }
 
+    start() {
         registerHandler(WSMsgType.FPC, this.addLiveFeed);
+        this.timerId = setInterval(() => this.updateConflictStates(), 2000);
+    }
+
+    stop() {
+        unregisterHandler(WSMsgType.FPC);
+        clearInterval(this.timerId);
+    }
+
+    @action
+    updateCurrentConflict = (id: string) => {
+        this.currentConflict = id;
     }
 
     @action
     addLiveFeed = (msg: FPCMessage) => {
-        console.log(msg)
-    }
+        let conflictIDs = Object.keys(msg.conflictset);
+        if (!conflictIDs) return;
 
-    @action
-    addNewNode = () => {
-        const id = Math.floor(Math.random() * 1000);
-        let node = new Node();
-        node.id = id;
-        node.opinion = Math.floor(Math.random() * 100)%2;
-        this.nodes.set(id, node);
-    }
+        for (const conflictID of conflictIDs) {
+            let nodeIDs = Object.keys(msg.conflictset[conflictID].nodesview);
+            for (const nodeID of nodeIDs) {
+                let voteContext = msg.conflictset[conflictID].nodesview[nodeID];
+                let latestOpinion = voteContext.opinions[voteContext.opinions.length - 1];
 
-    @action
-    updateNodeValue = () => {
-        let iter: IterableIterator<number> = this.nodes.keys();
-        for (const key of iter) {
-            let node = this.nodes.get(key);
-            node.opinion = Math.floor(Math.random() * 100)%2;
-            this.nodes.set(key, node);
+                let conflict = this.conflicts.find(c => c.conflictID === conflictID);
+                if (!conflict) {
+                    conflict = {
+                        conflictID,
+                        lastUpdated: Date.now(),
+                        nodeOpinions: []
+                    };
+                    this.conflicts.push(conflict);
+                } else {
+                    conflict.lastUpdated = Date.now();
+                }
+
+                const nodeOpinionIndex = conflict.nodeOpinions.findIndex(no => no.nodeID === nodeID);
+                if (nodeOpinionIndex >= 0) {
+                    conflict.nodeOpinions[nodeOpinionIndex].opinion = latestOpinion;
+                } else {
+                    conflict.nodeOpinions.push({
+                        nodeID,
+                        opinion: latestOpinion
+                    });
+                }
+
+                this.updateConflictState(conflict);
+            }
         }
     }
 
-    @computed
-    get nodeGrid(){
-        let nodeSquares = [];
-        this.nodes.forEach((node: Node, id: number, obj: Map<number, Node>) => {
-            nodeSquares.push(
-                <Col xs={1} key={id.toString()} style={{
-                    height: 50,
-                    width: 50,
-                    border: "1px solid #FFFFFF",
-                    background: SetColor(node.opinion),
-                }}>
-                    {/* {node.opinion} */}
-                </Col>
-            )
-        })
-        return nodeSquares;
+    @action
+    updateConflictStates() {
+        for (let i = 0; i < this.conflicts.length; i++) {
+            this.updateConflictState(this.conflicts[i]);
+        }
+
+        const resolvedConflictIds = this.conflicts.filter(c =>
+            Date.now() - c.lastUpdated > 10000 &&
+            (c.likes === 0 || c.likes === Object.keys(c.nodeOpinions).length)
+        ).map(c => c.conflictID);
+
+        for (const conflictID of resolvedConflictIds) {
+            this.conflicts = this.conflicts.filter(c => c.conflictID !== conflictID)
+        }
     }
 
+    @action
+    updateConflictState(conflict) {
+        conflict.likes = conflict.nodeOpinions.filter((nodeOpinion) => nodeOpinion.opinion === Opinion.Like).length;
+    }
 
+    @computed
+    get nodeConflictGrid() {
+        if (!this.currentConflict) return;
+        const currentConflict = this.conflicts.find(c => c.conflictID === this.currentConflict);
+        if (!currentConflict) return;
+        return currentConflict.nodeOpinions;
+    }
+
+    @computed
+    get conflictGrid() {
+        return this.conflicts.filter(c => c.likes !== undefined);
+    }
 }
 
 export default FPCStore;
+

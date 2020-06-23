@@ -249,8 +249,8 @@ func (payloadMetadata *PayloadMetadata) BranchID() branchmanager.BranchID {
 	return payloadMetadata.branchID
 }
 
-// SetBranchID is the setter for the BranchID that the corresponding Payload is booked into.
-func (payloadMetadata *PayloadMetadata) SetBranchID(branchID branchmanager.BranchID) (modified bool) {
+// setBranchID is the setter for the BranchID that the corresponding Payload is booked into.
+func (payloadMetadata *PayloadMetadata) setBranchID(branchID branchmanager.BranchID) (modified bool) {
 	payloadMetadata.branchIDMutex.RLock()
 	if branchID == payloadMetadata.branchID {
 		payloadMetadata.branchIDMutex.RUnlock()
@@ -355,7 +355,7 @@ func (cachedPayloadMetadata *CachedPayloadMetadata) Retain() *CachedPayloadMetad
 }
 
 // Consume wraps the underlying method to return the correctly typed objects in the callback.
-func (cachedPayloadMetadata *CachedPayloadMetadata) Consume(consumer func(payload *PayloadMetadata)) bool {
+func (cachedPayloadMetadata *CachedPayloadMetadata) Consume(consumer func(payloadMetadata *PayloadMetadata)) bool {
 	return cachedPayloadMetadata.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*PayloadMetadata))
 	})

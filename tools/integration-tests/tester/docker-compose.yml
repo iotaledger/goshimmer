@@ -3,15 +3,21 @@ version: "3.5"
 services:
   tester:
     container_name: tester
-    image: golang:1.14
+    image: golang:1.14.4
     working_dir: /tmp/goshimmer/tools/integration-tests/tester
-    entrypoint: go test ./tests/${TEST_NAME} -v -mod=readonly -timeout 30m
+    command: /tmp/assets/entrypoint.sh
+    environment:
+      - TEST_NAME=${TEST_NAME}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ../../..:/tmp/goshimmer:ro
+      - ../../..:/tmp/goshimmer:rw
       - ../logs:/tmp/logs
+      - ../assets:/tmp/assets
       - goshimmer-testing-cache:/go
+      - goshimmer-testing-assets:/assets
 
 volumes:
   goshimmer-testing-cache:
     name: goshimmer-testing-cache
+  goshimmer-testing-assets:
+    name: goshimmer-testing-assets

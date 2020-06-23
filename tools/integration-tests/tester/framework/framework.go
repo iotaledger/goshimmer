@@ -4,8 +4,6 @@
 package framework
 
 import (
-	"crypto/ed25519"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -14,7 +12,7 @@ import (
 
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
-	hive_ed25519 "github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 )
 
 var (
@@ -82,8 +80,14 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
 		config := GoShimmerConfig{
-			Bootstrap:                             i == 0,
+			Bootstrap: func(i int) bool {
+				if ParaBootstrapOnEveryNode {
+					return true
+				}
+				return i == 0
+			}(i),
 			BootstrapInitialIssuanceTimePeriodSec: bootstrapInitialIssuanceTimePeriodSec,
+			Faucet:                                i == 0,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
@@ -129,9 +133,12 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
-		config := GoShimmerConfig{
-			Bootstrap: i == 0,
-		}
+		config := GoShimmerConfig{Bootstrap: func(i int) bool {
+			if ParaBootstrapOnEveryNode {
+				return true
+			}
+			return i == 0
+		}(i)}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
 		}
@@ -210,12 +217,12 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 	}
 
 	// create GoShimmer identities
-	pubKeys := make([]hive_ed25519.PublicKey, peers)
-	privKeys := make([]hive_ed25519.PrivateKey, peers)
+	pubKeys := make([]ed25519.PublicKey, peers)
+	privKeys := make([]ed25519.PrivateKey, peers)
 	var drngCommittee string
 
 	for i := 0; i < peers; i++ {
-		pubKeys[i], privKeys[i], err = hive_ed25519.GenerateKey()
+		pubKeys[i], privKeys[i], err = ed25519.GenerateKey()
 		if err != nil {
 			return nil, err
 		}
@@ -237,8 +244,13 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
-		config.Bootstrap = i == 0
-		config.Seed = base64.StdEncoding.EncodeToString(ed25519.PrivateKey(privKeys[i].Bytes()).Seed())
+		config.Bootstrap = func(i int) bool {
+			if ParaBootstrapOnEveryNode {
+				return true
+			}
+			return i == 0
+		}(i)
+		config.Seed = privKeys[i].Seed().String()
 		if _, err = drng.CreatePeer(config, pubKeys[i]); err != nil {
 			return nil, err
 		}

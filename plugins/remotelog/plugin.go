@@ -5,13 +5,10 @@
 package remotelog
 
 import (
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -27,17 +24,6 @@ import (
 	"gopkg.in/src-d/go-git.v4"
 )
 
-type logMessage struct {
-	Version   string    `json:"version"`
-	GitHead   string    `json:"gitHead,omitempty"`
-	GitBranch string    `json:"gitBranch,omitempty"`
-	NodeID    string    `json:"nodeId"`
-	Level     string    `json:"level"`
-	Name      string    `json:"name"`
-	Msg       string    `json:"msg"`
-	Timestamp time.Time `json:"timestamp"`
-}
-
 const (
 	// CfgLoggerRemotelogServerAddress defines the config flag of the server address.
 	CfgLoggerRemotelogServerAddress = "logger.remotelog.serverAddress"
@@ -45,17 +31,21 @@ const (
 	CfgDisableEvents = "logger.disableEvents"
 	// PluginName is the name of the remote log plugin.
 	PluginName = "RemoteLog"
+
+	remoteLogType = "log"
 )
 
 var (
 	// Plugin is the plugin instance of the remote plugin instance.
 	Plugin      = node.NewPlugin(PluginName, node.Disabled, configure, run)
 	log         *logger.Logger
-	conn        net.Conn
 	myID        string
 	myGitHead   string
 	myGitBranch string
 	workerPool  *workerpool.WorkerPool
+
+	remoteLogger     *RemoteLoggerConn
+	remoteLoggerOnce sync.Once
 )
 
 func init() {
@@ -70,15 +60,11 @@ func configure(plugin *node.Plugin) {
 		return
 	}
 
-	c, err := net.Dial("udp", config.Node.GetString(CfgLoggerRemotelogServerAddress))
-	if err != nil {
-		log.Fatalf("Could not create UDP socket to '%s'. %v", config.Node.GetString(CfgLoggerRemotelogServerAddress), err)
-		return
-	}
-	conn = c
+	// initialize remote logger connection
+	RemoteLogger()
 
 	if local.GetInstance() != nil {
-		myID = hex.EncodeToString(local.GetInstance().ID().Bytes())
+		myID = local.GetInstance().ID().String()
 	}
 
 	getGitInfo()
@@ -118,9 +104,10 @@ func sendLogMsg(level logger.Level, name string, msg string) {
 		name,
 		msg,
 		time.Now(),
+		remoteLogType,
 	}
-	b, _ := json.Marshal(m)
-	fmt.Fprint(conn, string(b))
+
+	_ = RemoteLogger().Send(m)
 }
 
 func getGitInfo() {
@@ -159,4 +146,31 @@ func getGitDir() string {
 	}
 
 	return gitDir
+}
+
+// RemoteLogger represents a connection to our remote log server.
+func RemoteLogger() *RemoteLoggerConn {
+	remoteLoggerOnce.Do(func() {
+		r, err := newRemoteLoggerConn(config.Node.GetString(CfgLoggerRemotelogServerAddress))
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		remoteLogger = r
+	})
+
+	return remoteLogger
+}
+
+type logMessage struct {
+	Version   string    `json:"version"`
+	GitHead   string    `json:"gitHead,omitempty"`
+	GitBranch string    `json:"gitBranch,omitempty"`
+	NodeID    string    `json:"nodeId"`
+	Level     string    `json:"level"`
+	Name      string    `json:"name"`
+	Msg       string    `json:"msg"`
+	Timestamp time.Time `json:"timestamp"`
+	Type      string    `json:"type"`
 }

@@ -1,7 +1,6 @@
 package autopeering
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"hash/fnv"
@@ -21,6 +20,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/mr-tron/base58"
 )
 
 // autopeering constants
@@ -33,8 +33,11 @@ var (
 	// ErrParsingMasterNode is returned for an invalid master node.
 	ErrParsingMasterNode = errors.New("cannot parse master node")
 
-	// NetworkID specifies the autopeering network identifier
+	// NetworkID specifies the autopeering network identifier.
 	NetworkID = hash32([]byte(banner.AppVersion + NetworkVersion))
+
+	// Conn contains the network connection.
+	Conn *NetConnMetric
 )
 
 var (
@@ -142,8 +145,10 @@ func start(shutdownSignal <-chan struct{}) {
 	}
 	defer conn.Close()
 
+	Conn = &NetConnMetric{UDPConn: conn}
+
 	// start a server doing peerDisc and peering
-	srv := server.Serve(lPeer, conn, log.Named("srv"), Discovery(), Selection())
+	srv := server.Serve(lPeer, Conn, log.Named("srv"), Discovery(), Selection())
 	defer srv.Close()
 
 	// start the peer discovery on that connection
@@ -181,7 +186,7 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("%w: master node parts must be 2, is %d", ErrParsingMasterNode, len(parts))
 		}
-		pubKey, err := base64.StdEncoding.DecodeString(parts[0])
+		pubKey, err := base58.Decode(parts[0])
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid public key: %s", ErrParsingMasterNode, err)
 		}

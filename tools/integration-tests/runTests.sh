@@ -1,13 +1,13 @@
 #!/bin/bash
 
-TEST_NAMES='autopeering common drng message'
+TEST_NAMES='autopeering common drng message value consensus'
 
 echo "Build GoShimmer image"
 docker build -t iotaledger/goshimmer ../../.
 
 echo "Pull additional Docker images"
 docker pull angelocapossele/drand:latest
-docker pull gaiaadm/pumba:latest
+docker pull gaiaadm/pumba:0.7.2
 docker pull gaiadocker/iproute2:latest
 
 echo "Run integration tests"

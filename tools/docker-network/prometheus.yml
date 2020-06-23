@@ -1,0 +1,7 @@
+scrape_configs:
+    - job_name: peer_master
+      scrape_interval: 5s
+      static_configs:
+      - targets:
+        - peer_master:9311
+        - entry_node:9312

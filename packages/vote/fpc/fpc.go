@@ -170,12 +170,12 @@ func (f *FPC) finalizeOpinions() {
 	defer f.ctxsMu.Unlock()
 	for id, voteCtx := range f.ctxs {
 		if voteCtx.IsFinalized(f.paras.CoolingOffPeriod, f.paras.FinalizationThreshold) {
-			f.events.Finalized.Trigger(id, voteCtx.LastOpinion())
+			f.events.Finalized.Trigger(&vote.OpinionEvent{ID: id, Opinion: voteCtx.LastOpinion(), Ctx: *voteCtx})
 			delete(f.ctxs, id)
 			continue
 		}
 		if voteCtx.Rounds >= f.paras.MaxRoundsPerVoteContext {
-			f.events.Failed.Trigger(id, voteCtx.LastOpinion())
+			f.events.Failed.Trigger(&vote.OpinionEvent{ID: id, Opinion: voteCtx.LastOpinion(), Ctx: *voteCtx})
 			delete(f.ctxs, id)
 		}
 	}

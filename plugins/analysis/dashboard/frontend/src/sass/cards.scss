@@ -1,0 +1,26 @@
+@import './colors';
+@import './fonts';
+@import './mixins';
+
+.card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 20px;
+  border: 1px solid #f2f5fb;
+  border-radius: 6px;
+  background-color: $white;
+  box-shadow: 0px 4px 30px rgba(132, 147, 173, 0.1);
+  overflow: hidden;
+
+  .card--header {
+    border-bottom: 1px solid #f2f5fb;
+
+    h3 {
+      @include font-size(20px);
+      margin-bottom: 20px;
+      color: $gray-5;
+      font-family: $metropolis;
+    }
+  }
+}

@@ -8,8 +8,8 @@ import (
 
 func TestMarshalUnmarshal(t *testing.T) {
 	balance := New(ColorIOTA, 1337)
-	assert.Equal(t, int64(1337), balance.Value())
-	assert.Equal(t, ColorIOTA, balance.Color())
+	assert.Equal(t, int64(1337), balance.Value)
+	assert.Equal(t, ColorIOTA, balance.Color)
 
 	marshaledBalance := balance.Bytes()
 	assert.Equal(t, Length, len(marshaledBalance))
@@ -19,6 +19,6 @@ func TestMarshalUnmarshal(t *testing.T) {
 		panic(err)
 	}
 	assert.Equal(t, Length, consumedBytes)
-	assert.Equal(t, balance.value, restoredBalance.Value())
-	assert.Equal(t, balance.color, restoredBalance.Color())
+	assert.Equal(t, balance.Value, restoredBalance.Value)
+	assert.Equal(t, balance.Color, restoredBalance.Color)
 }

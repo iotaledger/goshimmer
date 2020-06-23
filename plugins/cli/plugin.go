@@ -21,8 +21,8 @@ var (
 )
 
 func init() {
-	for name, status := range node.GetPlugins() {
-		onAddPlugin(name, status)
+	for name, plugin := range node.GetPlugins() {
+		onAddPlugin(name, plugin.Status)
 	}
 
 	node.Events.AddPlugin.Attach(events.NewClosure(onAddPlugin))
