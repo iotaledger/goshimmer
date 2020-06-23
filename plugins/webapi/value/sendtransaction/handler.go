@@ -31,6 +31,10 @@ func Handler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: "Transaction does not spend all funds from inputs"})
 	}
 
+	if !tx.SignaturesValid() {
+		return c.JSON(http.StatusBadRequest, Response{Error: "Invalid transaction signatures"})
+	}
+
 	// Prepare value payload and send the message to tangle
 	payload := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
 	_, err = issuer.IssuePayload(payload)
