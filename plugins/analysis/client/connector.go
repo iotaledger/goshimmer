@@ -93,7 +93,7 @@ func (c *Connector) dial() {
 		return
 	default:
 		c.conn = nil
-		conn, err := net.Dial(c.network, c.address)
+		conn, err := net.DialTimeout(c.network, c.address, 5*time.Second)
 		if err != nil {
 			go c.scheduleRedial()
 			return
