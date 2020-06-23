@@ -20,6 +20,8 @@ func init() {
 	definitions := []*message.Definition{
 		tlv.HeaderMessageDefinition,
 		HeartbeatMessageDefinition,
+		FPCHeartbeatMessageDefinition,
+		MetricHeartbeatMessageDefinition,
 	}
 	AnalysisMsgRegistry = message.NewRegistry(definitions)
 }

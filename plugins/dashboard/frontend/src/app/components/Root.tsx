@@ -6,7 +6,6 @@ import Nav from "react-bootstrap/Nav";
 import {Dashboard} from "app/components/Dashboard";
 import Badge from "react-bootstrap/Badge";
 import {RouterStore} from 'mobx-react-router';
-import {Drng} from "app/components/Drng";
 import {Explorer} from "app/components/Explorer";
 import {NavExplorerSearchbar} from "app/components/NavExplorerSearchbar";
 import {Redirect, Route, Switch} from 'react-router-dom';
@@ -61,11 +60,6 @@ export class Root extends React.Component<Props, any> {
                                 Visualizer
                             </Nav.Link>
                         </LinkContainer>
-                        <LinkContainer to="/drng">
-                            <Nav.Link>
-                                dRNG
-                            </Nav.Link>
-                        </LinkContainer>
                         <LinkContainer to="/faucet">
                             <Nav.Link>
                                 Faucet 
@@ -89,7 +83,6 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/explorer/404/:search" component={Explorer404}/>
                     <Route exact path="/explorer" component={Explorer}/>
                     <Route exact path="/visualizer" component={Visualizer}/>
-                    <Route exact path="/drng" component={Drng}/>
                     <Route exact path="/faucet" component={Faucet}/>
                     <Redirect to="/dashboard"/>
                 </Switch>

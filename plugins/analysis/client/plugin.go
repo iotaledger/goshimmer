@@ -1,21 +1,16 @@
 package client
 
 import (
-	"net"
-	"strings"
-	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
-	"github.com/iotaledger/goshimmer/plugins/autopeering"
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/network"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 )
 
@@ -26,6 +21,8 @@ const (
 	CfgServerAddress = "analysis.client.serverAddress"
 	// defines the report interval of the reporting in seconds.
 	reportIntervalSec = 5
+	// voteContextChunkThreshold defines the maximum number of vote context to fit into an FPC update.
+	voteContextChunkThreshold = 50
 )
 
 func init() {
@@ -34,14 +31,28 @@ func init() {
 
 var (
 	// Plugin is the plugin instance of the analysis client plugin.
-	Plugin   = node.NewPlugin(PluginName, node.Enabled, run)
-	log      *logger.Logger
-	connLock sync.Mutex
+	Plugin = node.NewPlugin(PluginName, node.Enabled, run)
+	conn   *Connector
+	log    *logger.Logger
 )
 
 func run(_ *node.Plugin) {
+	finalized = make(map[string]vote.Opinion)
 	log = logger.NewLogger(PluginName)
+	conn = NewConnector("tcp", config.Node.GetString(CfgServerAddress))
+
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
+		conn.Start()
+		defer conn.Stop()
+
+		onFinalizedClosure := events.NewClosure(onFinalized)
+		valuetransfers.Voter().Events().Finalized.Attach(onFinalizedClosure)
+		defer valuetransfers.Voter().Events().Finalized.Detach(onFinalizedClosure)
+
+		onRoundExecutedClosure := events.NewClosure(onRoundExecuted)
+		valuetransfers.Voter().Events().RoundExecuted.Attach(onRoundExecutedClosure)
+		defer valuetransfers.Voter().Events().RoundExecuted.Detach(onRoundExecutedClosure)
+
 		ticker := time.NewTicker(reportIntervalSec * time.Second)
 		defer ticker.Stop()
 		for {
@@ -50,87 +61,11 @@ func run(_ *node.Plugin) {
 				return
 
 			case <-ticker.C:
-				conn, err := net.Dial("tcp", config.Node.GetString(CfgServerAddress))
-				if err != nil {
-					log.Debugf("Could not connect to reporting server: %s", err.Error())
-					continue
-				}
-				managedConn := network.NewManagedConnection(conn)
-				eventDispatchers := getEventDispatchers(managedConn)
-				reportHeartbeat(eventDispatchers)
+				sendHeartbeat(conn, createHeartbeat())
+				sendMetricHeartbeat(conn, createMetricHeartbeat())
 			}
 		}
 	}, shutdown.PriorityAnalysis); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-}
-
-// EventDispatchers holds the Heartbeat function.
-type EventDispatchers struct {
-	// Heartbeat defines the Heartbeat function.
-	Heartbeat func(heartbeat *packet.Heartbeat)
-}
-
-func getEventDispatchers(conn *network.ManagedConnection) *EventDispatchers {
-	return &EventDispatchers{
-		Heartbeat: func(hb *packet.Heartbeat) {
-			var out strings.Builder
-			for _, value := range hb.OutboundIDs {
-				out.WriteString(base58.Encode(value))
-			}
-			var in strings.Builder
-			for _, value := range hb.InboundIDs {
-				in.WriteString(base58.Encode(value))
-			}
-			log.Debugw(
-				"Heartbeat",
-				"nodeID", base58.Encode(hb.OwnID),
-				"outboundIDs", out.String(),
-				"inboundIDs", in.String(),
-			)
-
-			data, err := packet.NewHeartbeatMessage(hb)
-			if err != nil {
-				log.Info(err, " - heartbeat message skipped")
-				return
-			}
-
-			connLock.Lock()
-			defer connLock.Unlock()
-			if _, err = conn.Write(data); err != nil {
-				log.Debugw("Error while writing to connection", "Description", err)
-			}
-		},
-	}
-}
-
-func reportHeartbeat(dispatchers *EventDispatchers) {
-	// get own ID
-	var nodeID []byte
-	if local.GetInstance() != nil {
-		// doesn't copy the ID, take care not to modify underlying bytearray!
-		nodeID = local.GetInstance().ID().Bytes()
-	}
-
-	var outboundIDs [][]byte
-	var inboundIDs [][]byte
-
-	// get outboundIDs (chosen neighbors)
-	outgoingNeighbors := autopeering.Selection().GetOutgoingNeighbors()
-	outboundIDs = make([][]byte, len(outgoingNeighbors))
-	for i, neighbor := range outgoingNeighbors {
-		// doesn't copy the ID, take care not to modify underlying bytearray!
-		outboundIDs[i] = neighbor.ID().Bytes()
-	}
-
-	// get inboundIDs (accepted neighbors)
-	incomingNeighbors := autopeering.Selection().GetIncomingNeighbors()
-	inboundIDs = make([][]byte, len(incomingNeighbors))
-	for i, neighbor := range incomingNeighbors {
-		// doesn't copy the ID, take care not to modify underlying bytearray!
-		inboundIDs[i] = neighbor.ID().Bytes()
-	}
-
-	hb := &packet.Heartbeat{OwnID: nodeID, OutboundIDs: outboundIDs, InboundIDs: inboundIDs}
-	dispatchers.Heartbeat(hb)
 }

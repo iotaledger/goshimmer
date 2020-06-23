@@ -5,12 +5,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/graph"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/mr-tron/base58"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 // the period in which we scan and delete old data.
@@ -21,30 +22,79 @@ var (
 	nodes = make(map[string]time.Time)
 	// maps nodeId to outgoing connections + latest arrival of heartbeat.
 	links = make(map[string]map[string]time.Time)
-	lock  sync.Mutex
+	lock  sync.RWMutex
 )
+
+// NeighborMetric contains the number of inbound/outbound neighbors.
+type NeighborMetric struct {
+	Inbound  uint
+	Outbound uint
+}
+
+// NumOfNeighbors returns a map of nodeIDs to their neighbor count.
+func NumOfNeighbors() map[string]*NeighborMetric {
+	lock.RLock()
+	defer lock.RUnlock()
+	result := make(map[string]*NeighborMetric)
+	for nodeID := range nodes {
+		// number of outgoing neighbors
+		if _, exist := result[nodeID]; !exist {
+			result[nodeID] = &NeighborMetric{Outbound: uint(len(links[nodeID]))}
+		} else {
+			result[nodeID].Outbound = uint(len(links[nodeID]))
+		}
+
+		// fill in incoming neighbors
+		for outNeighborID := range links[nodeID] {
+			if _, exist := result[outNeighborID]; !exist {
+				result[outNeighborID] = &NeighborMetric{Inbound: 1}
+			} else {
+				result[outNeighborID].Inbound++
+			}
+		}
+	}
+	return result
+}
+
+// NetworkGraph returns the autopeering network graph.
+func NetworkGraph() *graph.Graph {
+	lock.RLock()
+	defer lock.RUnlock()
+	var nodeIDs []string
+	for id := range nodes {
+		nodeIDs = append(nodeIDs, id)
+	}
+	g := graph.New(nodeIDs)
+
+	for src, trgMap := range links {
+		for dst := range trgMap {
+			g.AddEdge(src, dst)
+		}
+	}
+	return g
+}
 
 // configures the event recording by attaching to the analysis server's events.
 func configureEventsRecording() {
 	analysisserver.Events.Heartbeat.Attach(events.NewClosure(func(hb *packet.Heartbeat) {
 		var out strings.Builder
 		for _, value := range hb.OutboundIDs {
-			out.WriteString(base58.Encode(value))
+			out.WriteString(shortNodeIDString(value))
 		}
 		var in strings.Builder
 		for _, value := range hb.InboundIDs {
-			in.WriteString(base58.Encode(value))
+			in.WriteString(shortNodeIDString(value))
 		}
 		log.Debugw(
 			"Heartbeat",
-			"nodeId", base58.Encode(hb.OwnID),
+			"nodeId", shortNodeIDString(hb.OwnID),
 			"outboundIds", out.String(),
 			"inboundIds", in.String(),
 		)
 		lock.Lock()
 		defer lock.Unlock()
 
-		nodeIDString := base58.Encode(hb.OwnID)
+		nodeIDString := shortNodeIDString(hb.OwnID)
 		timestamp := time.Now()
 
 		// when node is new, add to graph
@@ -56,7 +106,7 @@ func configureEventsRecording() {
 
 		// outgoing neighbor links update
 		for _, outgoingNeighbor := range hb.OutboundIDs {
-			outgoingNeighborString := base58.Encode(outgoingNeighbor)
+			outgoingNeighborString := shortNodeIDString(outgoingNeighbor)
 			// do we already know about this neighbor?
 			// if no, add it and set it online
 			if _, isAlready := nodes[outgoingNeighborString]; !isAlready {
@@ -82,7 +132,7 @@ func configureEventsRecording() {
 
 		// incoming neighbor links update
 		for _, incomingNeighbor := range hb.InboundIDs {
-			incomingNeighborString := base58.Encode(incomingNeighbor)
+			incomingNeighborString := shortNodeIDString(incomingNeighbor)
 			// do we already know about this neighbor?
 			// if no, add it and set it online
 			if _, isAlready := nodes[incomingNeighborString]; !isAlready {
@@ -156,8 +206,8 @@ func cleanUp(interval time.Duration) {
 }
 
 func getEventsToReplay() (map[string]time.Time, map[string]map[string]time.Time) {
-	lock.Lock()
-	defer lock.Unlock()
+	lock.RLock()
+	defer lock.RUnlock()
 
 	copiedNodes := make(map[string]time.Time, len(nodes))
 	for nodeID, lastHeartbeat := range nodes {
@@ -206,3 +256,9 @@ type EventHandlers struct {
 
 // EventHandlersConsumer defines the consumer function of an *EventHandlers.
 type EventHandlersConsumer = func(handler *EventHandlers)
+
+func shortNodeIDString(b []byte) string {
+	var id identity.ID
+	copy(id[:], b)
+	return id.String()
+}

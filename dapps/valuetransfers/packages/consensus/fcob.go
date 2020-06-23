@@ -3,6 +3,7 @@ package consensus
 import (
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
@@ -41,15 +42,15 @@ func NewFCOB(tangle *tangle.Tangle, averageNetworkDelay time.Duration) (fcob *FC
 }
 
 // ProcessVoteResult allows an external voter to hand in the results of the voting process.
-func (fcob *FCOB) ProcessVoteResult(id string, opinion vote.Opinion) {
-	transactionID, err := transaction.IDFromBase58(id)
+func (fcob *FCOB) ProcessVoteResult(ev *vote.OpinionEvent) {
+	transactionID, err := transaction.IDFromBase58(ev.ID)
 	if err != nil {
 		fcob.Events.Error.Trigger(err)
 
 		return
 	}
 
-	if _, err := fcob.tangle.SetTransactionPreferred(transactionID, opinion == vote.Like); err != nil {
+	if _, err := fcob.tangle.SetTransactionPreferred(transactionID, ev.Opinion == vote.Like); err != nil {
 		fcob.Events.Error.Trigger(err)
 	}
 
@@ -138,9 +139,10 @@ func (fcob *FCOB) setFinalized(cachedTransactionMetadata *tangle.CachedTransacti
 
 // onFork triggers a voting process whenever a Transaction gets forked into a new Branch. The initial opinion is derived
 // from the preferred flag that was set using the FCOB rule.
-func (fcob *FCOB) onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
+func (fcob *FCOB) onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, cachedTargetBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID) {
 	defer cachedTransaction.Release()
 	defer cachedTransactionMetadata.Release()
+	defer cachedTargetBranch.Release()
 
 	transactionMetadata := cachedTransactionMetadata.Unwrap()
 	if transactionMetadata == nil {

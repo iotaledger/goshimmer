@@ -10,8 +10,9 @@ require (
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/drand/drand v0.8.1
 	github.com/iotaledger/goshimmer v0.1.3
-	github.com/iotaledger/hive.go v0.0.0-20200617164933-c48b4401b814
-	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
+	github.com/iotaledger/hive.go v0.0.0-20200622124037-5a9f13a997d1
+	github.com/mr-tron/base58 v1.1.3
+	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/stretchr/testify v1.6.1
 )
 

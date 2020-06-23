@@ -23,12 +23,14 @@ var (
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	webapi.Server.POST("message/findById", findMessageByID)
+	webapi.Server.POST("message/sendPayload", sendPayload)
 }
 
 // findMessageByID returns the array of messages for the
 // given message ids (MUST be encoded in base58), in the same order as the parameters.
 // If a node doesn't have the message for a given ID in its ledger,
 // the value at the index of that message ID is empty.
+// If an ID is not base58 encoded, an error is returned
 func findMessageByID(c echo.Context) error {
 	var request Request
 	if err := c.Bind(&request); err != nil {
@@ -43,15 +45,14 @@ func findMessageByID(c echo.Context) error {
 		msgID, err := message.NewId(id)
 		if err != nil {
 			log.Info(err)
-			continue
+			return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 		}
 
 		msgObject := messagelayer.Tangle.Message(msgID)
-		if !msgObject.Exists() {
-			continue
-		}
 		msgMetadataObject := messagelayer.Tangle.MessageMetadata(msgID)
-		if !msgMetadataObject.Exists() {
+
+		if !msgObject.Exists() || !msgMetadataObject.Exists() {
+			result = append(result, Message{})
 			continue
 		}
 

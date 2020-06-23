@@ -8,15 +8,17 @@ import (
 
 // Balance represents a balance in the IOTA ledger. It consists out of a numeric value and a color.
 type Balance struct {
-	value int64
-	color Color
+	// The numeric value of the balance.
+	Value int64 `json:"value"`
+	// The color of the balance.
+	Color Color `json:"color"`
 }
 
 // New creates a new Balance with the given details.
 func New(color Color, balance int64) (result *Balance) {
 	result = &Balance{
-		color: color,
-		value: balance,
+		Color: color,
+		Value: balance,
 	}
 
 	return
@@ -28,7 +30,7 @@ func FromBytes(bytes []byte) (result *Balance, consumedBytes int, err error) {
 
 	marshalUtil := marshalutil.New(bytes)
 
-	result.value, err = marshalUtil.ReadInt64()
+	result.Value, err = marshalUtil.ReadInt64()
 	if err != nil {
 		return
 	}
@@ -40,7 +42,7 @@ func FromBytes(bytes []byte) (result *Balance, consumedBytes int, err error) {
 		return nil, marshalUtil.ReadOffset(), colorErr
 	}
 
-	result.color = coinColor.(Color)
+	result.Color = coinColor.(Color)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
@@ -56,29 +58,19 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (*Balance, error) {
 	return address.(*Balance), nil
 }
 
-// Value returns the numeric value of the balance.
-func (balance *Balance) Value() int64 {
-	return balance.value
-}
-
-// Color returns the Color of the balance.
-func (balance *Balance) Color() Color {
-	return balance.color
-}
-
 // Bytes marshals the Balance into a sequence of bytes.
 func (balance *Balance) Bytes() []byte {
 	marshalUtil := marshalutil.New(Length)
 
-	marshalUtil.WriteInt64(balance.value)
-	marshalUtil.WriteBytes(balance.color.Bytes())
+	marshalUtil.WriteInt64(balance.Value)
+	marshalUtil.WriteBytes(balance.Color.Bytes())
 
 	return marshalUtil.Bytes()
 }
 
 // String creates a human readable string of the Balance.
 func (balance *Balance) String() string {
-	return strconv.FormatInt(balance.value, 10) + " " + balance.color.String()
+	return strconv.FormatInt(balance.Value, 10) + " " + balance.Color.String()
 }
 
 // Length encodes the length of a marshaled Balance (the length of the color + 8 bytes for the balance).

@@ -1,0 +1,33 @@
+options:
+  merge-default-rules: true
+  formatter: stylish
+rules:
+  class-name-format:
+    - 1
+    -
+      convention: hyphenatedbem
+  hex-length:
+    - 1
+    - 
+      style: long
+  leading-zero: 0
+  no-color-literals: 0
+  property-sort-order:
+    - 1
+    -
+      order: smacss
+  no-important: 0
+  mixins-before-declarations: 0
+  mixin-name-format:
+    - 1
+    -
+      allow-leading-underscore: false
+      convention: hyphenatedlowercase
+  shorthand-values: 0
+  zero-unit: 0
+  no-url-domains: 0
+  no-url-protocols: 0
+  nesting-depth:
+    - 1
+    -
+      max-depth: 5

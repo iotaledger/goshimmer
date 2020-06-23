@@ -1,10 +1,6 @@
-import {RouterStore} from "mobx-react-router";
 import {action, computed, observable, ObservableMap, ObservableSet} from "mobx";
 import {connectWebSocket, registerHandler, WSMsgType} from "app/misc/WS";
 import {default as Viva} from 'vivagraphjs';
-import * as React from "react";;
-import Button from "react-bootstrap/Button";
-
 
 export class AddNodeMessage {
     id: string;
@@ -50,8 +46,6 @@ const statusWebSocketPath = "/ws";
 export const shortenedIDCharCount = 8;
 
 export class AutopeeringStore {
-    routerStore: RouterStore;
-
     @observable nodes = new ObservableSet();
     @observable neighbors = new ObservableMap<string,Neighbors>();
     @observable connections = new ObservableSet();
@@ -64,7 +58,8 @@ export class AutopeeringStore {
     @observable selectedNode: string = null;
     @observable selectedNodeInNeighbors: Set<string> = null;
     @observable selectedNodeOutNeighbors: Set<string> = null;
-
+    @observable previewNode: string = null;
+    
     // search
     @observable search: string = "";
 
@@ -73,9 +68,7 @@ export class AutopeeringStore {
     graphics;
     renderer;
 
-    constructor(routerStore: RouterStore) {
-        this.routerStore = routerStore;
-
+    constructor() {
         registerHandler(WSMsgType.AddNode, this.onAddNode);
         registerHandler(WSMsgType.RemoveNode, this.onRemoveNode);
         registerHandler(WSMsgType.ConnectNodes, this.onConnectNodes);
@@ -135,11 +128,19 @@ export class AutopeeringStore {
 
         let events = Viva.Graph.webglInputEvents(graphics, this.graph);
 
-        events.mouseEnter((node) => {
-            this.handleGraphNodeOnHover(node);
-        }).mouseLeave((node) => {
-            this.handleGraphNodeOnHoverLeave(node);
+        events.click((node) => {
+            this.handleNodeSelection(node.id);
         });
+
+        events.mouseEnter((node) => {
+            this.previewNode = node.id;
+        });
+        
+        events.mouseLeave((node) => {
+            this.previewNode = undefined;
+        });
+
+
         this.graphics = graphics;
         this.renderer.run();
         // draw graph if we have data collected
@@ -375,35 +376,14 @@ export class AutopeeringStore {
         if (!this.nodes.has(this.selectedNode)) {
             console.log("Selected node not found (%s)", this.selectedNode);
         }
-        this.selectedNodeInNeighbors = this.neighbors.get(this.selectedNode).in;
-        this.selectedNodeOutNeighbors =  this.neighbors.get(this.selectedNode).out;
+        const neighbors = this.neighbors.get(this.selectedNode);
+        this.selectedNodeInNeighbors = neighbors ? neighbors.in : new Set();
+        this.selectedNodeOutNeighbors =  neighbors ? neighbors.out : new Set();
         this.selectionActive = true;
         this.showHighlight();
     }
 
-    // handles graph event of mouse entering a node
-    @action
-    handleGraphNodeOnHover = (node) => {
-        // when node is already selected
-        if (this.selectionActive && this.selectedNode === node.id) {
-            return;
-        }
-
-        // Stop highlighting anything else
-        if (this.selectionActive) {
-            this.resetPreviousColors(true);
-        }
-        this.updateSelectedNode(node.id);
-    }
-
-    // handles graph event of mouse leaving a node
-    @action
-    handleGraphNodeOnHoverLeave = (node) => {
-        this.clearNodeSelection();
-        return;
-    }
-
-    // handles click on a node button
+       // handles click on a node button
     @action
     handleNodeButtonOnClick = (e) => {
         // find node based on the first 8 characters
@@ -444,69 +424,33 @@ export class AutopeeringStore {
 
     @computed
     get nodeListView(){
-        let results = null;
-        if (this.search === "") {
+        let results;
+        if (this.search.trim().length === 0) {
             results = this.nodes;
         } else {
             results = new Set();
             this.nodes.forEach((node) => {
-                if (node.startsWith(this.search)){
+                if (node.toLowerCase().indexOf(this.search.toLowerCase()) >= 0){
                     results.add(node);
                 }
             })
         }
-        let buttons = [];
+        let ids = [];
 
         results.forEach((nodeID) => {
-            let shortID = nodeID.slice(0,shortenedIDCharCount);
-            buttons.push(
-                <Button style={{fontSize: 12, margin: 2.5}} variant="outline-dark" onClick={this.handleNodeButtonOnClick}>
-                    {shortID}
-                </Button>
-            )
+            ids.push(nodeID);
         })
-        return buttons
+        return ids
     }
 
     @computed
     get inNeighborList(){
-        let inNeighbors =[];
-        this.selectedNodeInNeighbors.forEach((inNeighborID) => {
-            inNeighbors.push(
-                <li key={inNeighborID}>
-                    <Button style={{
-                        fontSize: 12,
-                        background: "#1c8d7f",
-                        borderColor: 'white',
-                        color: 'white',
-                    }} variant="light" onClick={this.handleNodeButtonOnClick}>
-                        {inNeighborID.slice(0,shortenedIDCharCount)}
-                    </Button>
-                </li>
-
-            )
-        })
-        return inNeighbors;
+        return Array.from(this.selectedNodeInNeighbors);
     }
 
     @computed
     get outNeighborList(){
-        let outNeighbors =[];
-        this.selectedNodeOutNeighbors.forEach((outNeighborID) => {
-            outNeighbors.push(
-                <li key={outNeighborID}>
-                    <Button style={{
-                        fontSize: 12,
-                        background: "#336db5",
-                        borderColor: 'white',
-                        color: 'white',
-                    }} variant="light" onClick={this.handleNodeButtonOnClick}>
-                        {outNeighborID.slice(0,shortenedIDCharCount)}
-                    </Button>
-                </li>
-            )
-        })
-        return outNeighbors;
+        return Array.from(this.selectedNodeOutNeighbors);
     }
 
 }
