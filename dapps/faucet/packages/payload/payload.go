@@ -8,13 +8,16 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
+// Paylaod represents a request which contains an address for faucet to send funds
 type Payload struct {
 	payloadType payload.Type
 	address     address.Address
 }
 
+// Type represents the identifier which addresses the faucet Payload type.
 var Type = payload.Type(2)
 
+// New is the constructor of a Payload and creates a new Payload object from the given details.
 func New(addr address.Address) *Payload {
 	return &Payload{
 		payloadType: Type,
@@ -26,6 +29,8 @@ func init() {
 	payload.RegisterType(Type, GenericPayloadUnmarshalerFactory(Type))
 }
 
+// FromBytes parses the marshaled version of a Payload into an object.
+// It either returns a new Payload or fills an optionally provided Payload with the parsed information.
 func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, err error, consumedBytes int) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
@@ -61,10 +66,12 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	return
 }
 
+// Type returns the type of the faucet Payload.
 func (faucetPayload *Payload) Type() payload.Type {
 	return faucetPayload.payloadType
 }
 
+// Address returns the address of the faucet Payload.
 func (faucetPayload *Payload) Address() address.Address {
 	return faucetPayload.address
 }
@@ -83,6 +90,7 @@ func (faucetPayload *Payload) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
+// Unmarshal unmarshals a given slice of bytes and fills the object.
 func (faucetPayload *Payload) Unmarshal(data []byte) (err error) {
 	_, err, _ = FromBytes(data, faucetPayload)
 
@@ -99,6 +107,7 @@ func (faucetPayload *Payload) String() string {
 	)
 }
 
+// SetGenericUnmarshalerFactory sets the generic unmarshaler.
 func GenericPayloadUnmarshalerFactory(payloadType payload.Type) payload.Unmarshaler {
 	return func(data []byte) (payload payload.Payload, err error) {
 		payload = &Payload{

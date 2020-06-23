@@ -21,8 +21,9 @@ const (
 )
 
 var (
+	// the faucet wallet
 	faucetWallet *wallet.Wallet
-	// just an example for testing lol
+	// the faucet seed, just an example for testing lol
 	faucetSeed = []byte{95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113,
 		104, 71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230}
 )

@@ -10,7 +10,7 @@ const (
 	routeFaucet = "faucet"
 )
 
-// SendFaucetRequest request funds from faucet nodes
+// SendFaucetRequest request funds from faucet nodes by sending faucet payload message
 func (api *GoShimmerAPI) SendFaucetRequest(base58EncodedAddr string) (*webapi_faucet.Response, error) {
 	res := &webapi_faucet.Response{}
 	if err := api.do(http.MethodPost, routeFaucet,
