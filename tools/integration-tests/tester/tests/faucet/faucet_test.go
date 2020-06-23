@@ -54,5 +54,5 @@ func TestFaucetPersistence(t *testing.T) {
 	tests.CheckForMessageIds(t, n.Peers(), ids, true)
 
 	// check ledger state
-	tests.CheckBalances(t, n.Peers(), addrBalance)
+	tests.CheckBalances(t, peers[1:], addrBalance)
 }
