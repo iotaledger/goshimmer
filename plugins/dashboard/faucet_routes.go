@@ -19,7 +19,7 @@ func setupFaucetRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/faucet/:hash", func(c echo.Context) (err error) {
 		addr, err := address.FromBase58(c.Param("hash"))
 		if err != nil {
-			return errors.Wrapf(ErrInvalidParameter, "search address invalid: %s", addr)
+			return errors.Wrapf(ErrInvalidParameter, "faucet request address invalid: %s", addr)
 		}
 
 		t, err := sendFaucetReq(addr)

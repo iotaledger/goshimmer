@@ -31,7 +31,6 @@ var _ = func() error {
 	}
 	g.DefaultResolver = hgr
 
-
 	func() {
 		b := packr.New("AnalysisDashboard_Assets", "./frontend/src/assets")
 		b.SetResolver("index.html", packr.Pointer{ForwardBox: gk, ForwardPath: "9271a1b8adc164735848ba4728cacd53"})
