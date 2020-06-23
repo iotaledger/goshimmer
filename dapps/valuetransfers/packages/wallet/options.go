@@ -17,3 +17,11 @@ func SingleAddress(duration bool) Option {
 		wallet.singleAddress = duration
 	}
 }
+
+// GenericConnector allows us to provide a generic connector to the wallet. It can be used to mock the behavior of a
+// real connector in tests or to provide new connection methods for nodes.
+func GenericConnector(connector Connector) Option {
+	return func(wallet *Wallet) {
+		wallet.connector = connector
+	}
+}
