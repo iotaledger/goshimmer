@@ -44,9 +44,9 @@ The aim of this open repository is  to give the community the opportunity to fol
 
 The code in GoShimmer is modular, where each module represents either one of the [Coordicide components](https://coordicide.iota.org/) or a basic node function such as the gossip layer, ledger state, and API.  
 
-![Coordicide blueprint](images/building-blocks.png)
+![Layers](images/layers.png)
 
-This approach allows us to develop each module in parallel and to test GoShimmer with one or more different versions.
+GoShimmer modularity is based on a combination of event-driven and layer-based approaches.
 
 Each module is defined in the `packages` directory, with the exceptions for the dApps (e.g., Value transfer and netowrk delay) that are under the `dapps` folder. Each module can be enabled using the `plugins` directory.
 
