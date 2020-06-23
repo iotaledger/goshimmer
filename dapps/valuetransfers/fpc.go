@@ -128,11 +128,9 @@ func runFPC() {
 			metrics.Events().FPCOutboundBytes,
 			metrics.Events().QueryReceived)
 
-		go func() {
-			if err := voterServer.Run(); err != nil {
-				log.Error(err)
-			}
-		}()
+		if err := voterServer.Run(); err != nil {
+			log.Errorf("FPC Server error %s", err)
+		}
 
 		log.Infof("Started vote server on %s", config.Node.GetString(CfgFPCBindAddress))
 		<-shutdownSignal
