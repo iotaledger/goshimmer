@@ -16,13 +16,15 @@ import (
 )
 
 const (
-	tokenPerRequest = 1000000
+	// TODO: Modify here before release
+	TokenPerRequest = 1000
 )
 
 var (
 	faucetWallet *wallet.Wallet
 	// just an example for testing lol
-	faucetSeed = []byte{251, 163, 190, 98, 92, 82, 164, 79, 74, 48, 203, 162, 247, 119, 140, 76, 33, 100, 148, 204, 244, 248, 232, 18, 132, 217, 85, 31, 246, 83, 193, 193}
+	faucetSeed = []byte{95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113,
+		104, 71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230}
 )
 
 // ConfigureFaucet restore wallet with faucet seed
@@ -44,7 +46,7 @@ func SendFunds(msg *message.Message) (txID string, err error) {
 	}
 
 	// TODO: remove me
-	fmt.Println(addr)
+	fmt.Println("process faucet request: ", addr)
 
 	// get the output ids for inputs and remain balance for outputs
 	outputIds, remain := getUnspentOutputID()
@@ -56,7 +58,7 @@ func SendFunds(msg *message.Message) (txID string, err error) {
 		// outputs
 		transaction.NewOutputs(map[address.Address][]*balance.Balance{
 			addr: {
-				balance.New(balance.ColorIOTA, tokenPerRequest),
+				balance.New(balance.ColorIOTA, TokenPerRequest),
 			},
 		}),
 	)
@@ -79,38 +81,35 @@ func SendFunds(msg *message.Message) (txID string, err error) {
 	return tx.ID().String(), nil
 }
 
-// getUnspentOutputID iterate unspent outputs until the value of balance reaches tokenPerRequest
+// getUnspentOutputID iterate unspent outputs until the value of balance reaches TokenPerRequest
 // the remaining value is also calculated for outputs
 func getUnspentOutputID() (outputIds []transaction.OutputID, remain int64) {
-	addrCandidates := make([]address.Address, 0)
-	var total int64 = tokenPerRequest
+	var total int64 = TokenPerRequest
 	var i uint64
 
 	// get a list of address for inputs
 	for i = 0; total > 0; i++ {
 		addr := faucetWallet.Seed().Address(i)
-		balances := valuetransfers.LedgerState.Balances(addr)
-		if val, ok := balances[balance.ColorIOTA]; ok {
-			if val <= total {
-				total -= val
-			} else {
-				remain = val - total
-				total = 0
-			}
-			addrCandidates = append(addrCandidates, addr)
-		} else {
-			continue
-		}
-	}
 
-	// get output ids from addresses
-	for _, a := range addrCandidates {
-		valuetransfers.Tangle.OutputsOnAddress(a).Consume(func(output *tangle.Output) {
-			if output.ConsumerCount() == 0 {
+		valuetransfers.Tangle.OutputsOnAddress(addr).Consume(func(output *tangle.Output) {
+			if output.ConsumerCount() == 0 && total > 0 {
+				var val int64 = 0
+				for _, coloredBalance := range output.Balances() {
+					val += coloredBalance.Value
+				}
+
+				// get unspent output ids and check if it's conflict
+				if val <= total {
+					total -= val
+				} else {
+					remain = val - total
+					total = 0
+				}
 				outputIds = append(outputIds, output.ID())
 			}
 		})
 	}
+
 	return
 }
 
