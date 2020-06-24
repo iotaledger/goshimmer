@@ -1535,14 +1535,14 @@ func (tangle *Tangle) checkTransactionSolidity(tx *transaction.Transaction, meta
 	}
 
 	// determine the consumed inputs and balances of the transaction
-	inputsSolid, cachedInputs, consumedBalances, consumedBranchesMap, err := tangle.RetrieveConsumedInputDetails(tx)
+	inputsSolid, cachedInputs, consumedBalances, consumedBranchesMap, err := tangle.retrieveConsumedInputDetails(tx)
 	if err != nil || !inputsSolid {
 		return
 	}
 	defer cachedInputs.Release()
 
 	// abort if the outputs are not matching the inputs
-	if !tangle.CheckTransactionOutputs(consumedBalances, tx.Outputs()) {
+	if !tangle.checkTransactionOutputs(consumedBalances, tx.Outputs()) {
 		err = fmt.Errorf("the outputs do not match the inputs in transaction with id '%s': %w", tx.ID(), ErrTransactionInvalid)
 
 		return
@@ -1577,8 +1577,29 @@ func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Tran
 	return
 }
 
-// RetrieveConsumedInputDetails retrieves the details of the consumed inputs of a transaction.
-func (tangle *Tangle) RetrieveConsumedInputDetails(tx *transaction.Transaction) (inputsSolid bool, cachedInputs CachedOutputs, consumedBalances map[balance.Color]int64, consumedBranches branchmanager.BranchIds, err error) {
+// ValidateTransactionToAttach checks that the transactions spends all funds from its inputs.
+// Then it verifies the signature of the transaction.
+func (tangle *Tangle) ValidateTransactionToAttach(tx *transaction.Transaction) (isValid bool, err error) {
+	_, cachedInputs, consumedBalances, _, err := tangle.retrieveConsumedInputDetails(tx)
+	defer cachedInputs.Release()
+	if err != nil {
+		return
+	}
+	if !tangle.checkTransactionOutputs(consumedBalances, tx.Outputs()) {
+		err = errors.New("transaction does not spend all funds from inputs")
+		return
+	}
+
+	if !tx.SignaturesValid() {
+		err = errors.New("invalid transaction signatures")
+		return
+	}
+	isValid = true
+	return
+}
+
+// retrieveConsumedInputDetails retrieves the details of the consumed inputs of a transaction.
+func (tangle *Tangle) retrieveConsumedInputDetails(tx *transaction.Transaction) (inputsSolid bool, cachedInputs CachedOutputs, consumedBalances map[balance.Color]int64, consumedBranches branchmanager.BranchIds, err error) {
 	cachedInputs = tangle.getCachedOutputsFromTransactionInputs(tx)
 	consumedBalances = make(map[balance.Color]int64)
 	consumedBranches = make(branchmanager.BranchIds)
@@ -1618,11 +1639,11 @@ func (tangle *Tangle) RetrieveConsumedInputDetails(tx *transaction.Transaction) 
 	return
 }
 
-// CheckTransactionOutputs is a utility function that returns true, if the outputs are consuming all of the given inputs
+// checkTransactionOutputs is a utility function that returns true, if the outputs are consuming all of the given inputs
 // (the sum of all the balance changes is 0). It also accounts for the ability to "recolor" coins during the creating of
 // outputs. If this function returns false, then the outputs that are defined in the transaction are invalid and the
 // transaction should be removed from the ledger state.
-func (tangle *Tangle) CheckTransactionOutputs(inputBalances map[balance.Color]int64, outputs *transaction.Outputs) bool {
+func (tangle *Tangle) checkTransactionOutputs(inputBalances map[balance.Color]int64, outputs *transaction.Outputs) bool {
 	// create a variable to keep track of outputs that create a new color
 	var newlyColoredCoins int64
 	var uncoloredCoins int64

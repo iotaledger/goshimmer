@@ -627,7 +627,7 @@ func TestCheckTransactionOutputs(t *testing.T) {
 				balance.New(balance.ColorIOTA, 1000),
 			},
 		})
-		assert.True(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.True(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 	}
 	{
 		consumedBalances := make(map[balance.Color]int64)
@@ -638,7 +638,7 @@ func TestCheckTransactionOutputs(t *testing.T) {
 				balance.New(balance.ColorIOTA, math.MaxInt64),
 			},
 		})
-		assert.True(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.True(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 	}
 	{
 		consumedBalances := make(map[balance.Color]int64)
@@ -658,7 +658,7 @@ func TestCheckTransactionOutputs(t *testing.T) {
 				balance.New(balance.ColorIOTA, 20000),
 			},
 		})
-		assert.True(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.True(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 	}
 
 	// test wrong balances
@@ -680,7 +680,7 @@ func TestCheckTransactionOutputs(t *testing.T) {
 				balance.New(balance.ColorIOTA, 20000),
 			},
 		})
-		assert.False(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 	}
 
 	// test input overflow
@@ -694,7 +694,7 @@ func TestCheckTransactionOutputs(t *testing.T) {
 				balance.New(balance.ColorIOTA, 1000),
 			},
 		})
-		assert.False(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 	}
 
 	// 0, negative outputs and overflows
@@ -707,14 +707,14 @@ func TestCheckTransactionOutputs(t *testing.T) {
 				balance.New(balance.ColorIOTA, -1),
 			},
 		})
-		assert.False(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 
 		outputs = transaction.NewOutputs(map[address.Address][]*balance.Balance{
 			address.Random(): {
 				balance.New(balance.ColorIOTA, 0),
 			},
 		})
-		assert.False(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 
 		outputs = transaction.NewOutputs(map[address.Address][]*balance.Balance{
 			address.Random(): {
@@ -724,7 +724,7 @@ func TestCheckTransactionOutputs(t *testing.T) {
 				balance.New(balance.ColorIOTA, math.MaxInt64),
 			},
 		})
-		assert.False(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 	}
 
 	// test happy cases with ColorNew
@@ -743,7 +743,7 @@ func TestCheckTransactionOutputs(t *testing.T) {
 				balance.New(balance.ColorNew, 334),
 			},
 		})
-		assert.True(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.True(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 	}
 
 	// test wrong balances
@@ -759,7 +759,7 @@ func TestCheckTransactionOutputs(t *testing.T) {
 				balance.New(balance.ColorNew, 1),
 			},
 		})
-		assert.False(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 	}
 
 	// 0, negative outputs and overflows
@@ -772,14 +772,14 @@ func TestCheckTransactionOutputs(t *testing.T) {
 				balance.New(balance.ColorNew, -1),
 			},
 		})
-		assert.False(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 
 		outputs = transaction.NewOutputs(map[address.Address][]*balance.Balance{
 			address.Random(): {
 				balance.New(balance.ColorNew, 0),
 			},
 		})
-		assert.False(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 
 		outputs = transaction.NewOutputs(map[address.Address][]*balance.Balance{
 			address.Random(): {
@@ -789,7 +789,7 @@ func TestCheckTransactionOutputs(t *testing.T) {
 				balance.New(balance.ColorNew, math.MaxInt64),
 			},
 		})
-		assert.False(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 	}
 
 	// test happy case with colors
@@ -818,7 +818,7 @@ func TestCheckTransactionOutputs(t *testing.T) {
 				balance.New(color2, 123),
 			},
 		})
-		assert.True(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.True(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 	}
 
 	// try to spend color that is not in inputs
@@ -843,7 +843,7 @@ func TestCheckTransactionOutputs(t *testing.T) {
 				balance.New(color2, 25000),
 			},
 		})
-		assert.False(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 	}
 
 	// try to spend more than in inputs of color
@@ -861,7 +861,7 @@ func TestCheckTransactionOutputs(t *testing.T) {
 				balance.New(color1, math.MaxInt64),
 			},
 		})
-		assert.False(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.False(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 	}
 
 	// combine unspent colors and colors
@@ -884,7 +884,7 @@ func TestCheckTransactionOutputs(t *testing.T) {
 				balance.New(balance.ColorNew, 1000),
 			},
 		})
-		assert.True(t, tangle.CheckTransactionOutputs(consumedBalances, outputs))
+		assert.True(t, tangle.checkTransactionOutputs(consumedBalances, outputs))
 	}
 }
 
@@ -950,7 +950,7 @@ func TestRetrieveConsumedInputDetails(t *testing.T) {
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{}),
 		)
 
-		inputsSolid, cachedInputs, consumedBalances, consumedBranches, err := tangle.RetrieveConsumedInputDetails(tx)
+		inputsSolid, cachedInputs, consumedBalances, consumedBranches, err := tangle.retrieveConsumedInputDetails(tx)
 		require.NoError(t, err)
 		assert.True(t, inputsSolid)
 		assert.Len(t, cachedInputs, len(outputs))
@@ -992,7 +992,7 @@ func TestRetrieveConsumedInputDetails(t *testing.T) {
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{}),
 		)
 
-		inputsSolid, cachedInputs, consumedBalances, consumedBranches, err := tangle.RetrieveConsumedInputDetails(tx)
+		inputsSolid, cachedInputs, consumedBalances, consumedBranches, err := tangle.retrieveConsumedInputDetails(tx)
 		require.NoError(t, err)
 		assert.True(t, inputsSolid)
 		assert.Len(t, cachedInputs, len(outputs))
@@ -1024,7 +1024,7 @@ func TestRetrieveConsumedInputDetails(t *testing.T) {
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{}),
 		)
 
-		inputsSolid, cachedInputs, _, _, err := tangle.RetrieveConsumedInputDetails(tx)
+		inputsSolid, cachedInputs, _, _, err := tangle.retrieveConsumedInputDetails(tx)
 		assert.Error(t, err)
 		assert.False(t, inputsSolid)
 		assert.Len(t, cachedInputs, len(outputs))
@@ -1057,7 +1057,7 @@ func TestRetrieveConsumedInputDetails(t *testing.T) {
 			output.branchID = newBranch
 		})
 
-		inputsSolid, cachedInputs, consumedBalances, consumedBranches, err := tangle.RetrieveConsumedInputDetails(tx)
+		inputsSolid, cachedInputs, consumedBalances, consumedBranches, err := tangle.retrieveConsumedInputDetails(tx)
 		require.NoError(t, err)
 		assert.True(t, inputsSolid)
 		assert.Len(t, cachedInputs, len(outputs))

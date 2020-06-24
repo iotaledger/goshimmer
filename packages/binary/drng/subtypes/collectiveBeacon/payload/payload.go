@@ -1,6 +1,8 @@
 package payload
 
 import (
+	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/stringify"
@@ -44,11 +46,15 @@ func New(instanceID uint32, round uint64, prevSignature, signature, dpk []byte) 
 
 // Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
-	if payload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) }); err != nil {
+	unmarshalledPayload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) })
+	if err != nil {
 		return &Payload{}, err
-	} else {
-		return payload.(*Payload), nil
 	}
+	_payload := unmarshalledPayload.(*Payload)
+	if len(_payload.bytes) > MaxCollectiveBeaconPayloadSize {
+		return &Payload{}, errors.New(fmt.Sprintf("maximum payload size of %d bytes exceeded", MaxCollectiveBeaconPayloadSize))
+	}
+	return _payload, nil
 }
 
 // FromBytes parses the marshaled version of a Payload into an object.

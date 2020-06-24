@@ -1,7 +1,6 @@
 package collectivebeacon
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
@@ -22,13 +21,7 @@ func Handler(c echo.Context) error {
 	marshalUtil := marshalutil.New(request.Payload)
 	parsedPayload, err := payload.Parse(marshalUtil)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: "not a valid Collective Beacon payload"})
-	}
-
-	if len(parsedPayload.Bytes()) > payload.MaxCollectiveBeaconPayloadSize {
-		msg := fmt.Sprintf("maximum payload size of %d bytes exceeded", payload.MaxCollectiveBeaconPayloadSize)
-		log.Info(msg)
-		return c.JSON(http.StatusBadRequest, Response{Error: msg})
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
 	msg, err := issuer.IssuePayload(parsedPayload)
