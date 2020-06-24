@@ -68,7 +68,7 @@ export class FaucetAddressInput extends React.Component<Props, any> {
                     <Col>
                         <small>
                             Check your funds on the explorer: <Link
-                            to={`/explorer/addr/${send_addr}`}>{send_addr}</Link>
+                            to={`/explorer/address/${send_addr}`}>{send_addr}</Link>
                         </small>
                     </Col>
                 </Row>
