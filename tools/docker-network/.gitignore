@@ -1,0 +1,4 @@
+*.txt
+grafana/grafana.db
+grafana/plugins
+grafana/png

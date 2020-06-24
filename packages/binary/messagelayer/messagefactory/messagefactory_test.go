@@ -1,7 +1,9 @@
 package messagefactory
 
 import (
-	"encoding"
+	"context"
+	"crypto"
+	"crypto/ed25519"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -9,21 +11,27 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
-
+	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
+	_ "golang.org/x/crypto/blake2b"
 )
 
 const (
 	sequenceKey   = "seq"
+	targetPOW     = 10
 	totalMessages = 2000
 )
 
 func TestMessageFactory_BuildMessage(t *testing.T) {
-	msgFactory := New(mapdb.NewMapDB(), identity.GenerateLocalIdentity(), tipselector.New(), []byte(sequenceKey))
+	msgFactory := New(
+		mapdb.NewMapDB(),
+		[]byte(sequenceKey),
+		identity.GenerateLocalIdentity(),
+		TipSelectorFunc(func() (message.Id, message.Id) { return message.EmptyId, message.EmptyId }),
+	)
 	defer msgFactory.Shutdown()
 
 	// keep track of sequence numbers
@@ -36,8 +44,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 	}))
 
 	t.Run("CheckProperties", func(t *testing.T) {
-		data := []byte("TestCheckProperties")
-		var p payload.Payload = NewMockPayload(data)
+		p := payload.NewData([]byte("TestCheckProperties"))
 		msg := msgFactory.IssuePayload(p)
 
 		assert.NotNil(t, msg.TrunkId())
@@ -47,8 +54,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 		assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
 
 		// check payload
-		assert.Same(t, p, msg.Payload())
-		assert.Equal(t, data, msg.Payload().Bytes())
+		assert.Equal(t, p, msg.Payload())
 
 		// check total events and sequence number
 		assert.EqualValues(t, 1, countEvents)
@@ -62,8 +68,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 		for i := 1; i < totalMessages; i++ {
 			t.Run("test", func(t *testing.T) {
 				t.Parallel()
-				data := []byte("TestCheckProperties")
-				var p payload.Payload = NewMockPayload(data)
+
+				p := payload.NewData([]byte("TestParallelCreation"))
 				msg := msgFactory.IssuePayload(p)
 
 				assert.NotNil(t, msg.TrunkId())
@@ -73,8 +79,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 				assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
 
 				// check payload
-				assert.Same(t, p, msg.Payload())
-				assert.Equal(t, data, msg.Payload().Bytes())
+				assert.Equal(t, p, msg.Payload())
 
 				sequenceNumbers.Store(msg.SequenceNumber(), true)
 			})
@@ -104,28 +109,27 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 	assert.EqualValues(t, totalMessages, countSequence)
 }
 
-type MockPayload struct {
-	data []byte
-	encoding.BinaryMarshaler
-	encoding.BinaryUnmarshaler
-}
+func TestMessageFactory_POW(t *testing.T) {
+	msgFactory := New(
+		mapdb.NewMapDB(),
+		[]byte(sequenceKey),
+		identity.GenerateLocalIdentity(),
+		TipSelectorFunc(func() (message.Id, message.Id) { return message.EmptyId, message.EmptyId }),
+	)
+	defer msgFactory.Shutdown()
 
-func NewMockPayload(data []byte) *MockPayload {
-	return &MockPayload{data: data}
-}
+	worker := pow.New(crypto.BLAKE2b_512, 1)
 
-func (m *MockPayload) Bytes() []byte {
-	return m.data
-}
+	msgFactory.SetWorker(WorkerFunc(func(msgBytes []byte) (uint64, error) {
+		content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
+		return worker.Mine(context.Background(), content, targetPOW)
+	}))
 
-func (m *MockPayload) Type() payload.Type {
-	return payload.Type(0)
-}
+	msg := msgFactory.IssuePayload(payload.NewData([]byte("test")))
+	msgBytes := msg.Bytes()
+	content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 
-func (m *MockPayload) String() string {
-	return string(m.data)
-}
-
-func (m *MockPayload) Unmarshal(bytes []byte) error {
-	panic("implement me")
+	zeroes, err := worker.LeadingZerosWithNonce(content, msg.Nonce())
+	assert.GreaterOrEqual(t, zeroes, targetPOW)
+	assert.NoError(t, err)
 }

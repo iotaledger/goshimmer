@@ -7,6 +7,7 @@ const (
 	PriorityMissingMessagesMonitoring
 	PriorityRemoteLog
 	PriorityAnalysis
+	PriorityPrometheus
 	PriorityMetrics
 	PriorityAutopeering
 	PriorityGossip
@@ -15,5 +16,4 @@ const (
 	PrioritySynchronization
 	PriorityBootstrap
 	PrioritySpammer
-	PriorityBadgerGarbageCollection
 )

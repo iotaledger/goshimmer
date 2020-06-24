@@ -44,7 +44,7 @@ func configure(*node.Plugin) {
 	Tangle = tangle.New(store)
 
 	// Setup MessageFactory (behavior + logging))
-	MessageFactory = messagefactory.New(database.Store(), local.GetInstance().LocalIdentity(), TipSelector, []byte(DBSequenceNumber))
+	MessageFactory = messagefactory.New(database.Store(), []byte(DBSequenceNumber), local.GetInstance().LocalIdentity(), TipSelector)
 	MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(Tangle.AttachMessage))
 	MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Errorf("internal error in message factory: %v", err)

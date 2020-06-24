@@ -40,6 +40,16 @@ const (
 	Unknown Opinion = 1 << 2
 )
 
+func (o Opinion) String() string {
+	switch {
+	case o == Like:
+		return "Like"
+	case o == Dislike:
+		return "Dislike"
+	}
+	return "Unknown"
+}
+
 // ConvertInt32Opinion converts the given int32 to an Opinion.
 func ConvertInt32Opinion(x int32) Opinion {
 	switch {
@@ -49,6 +59,15 @@ func ConvertInt32Opinion(x int32) Opinion {
 		return Dislike
 	}
 	return Unknown
+}
+
+// ConvertInts32ToOpinions converts the given slice of int32 to a slice of Opinion.
+func ConvertInts32ToOpinions(opinions []int32) []Opinion {
+	result := make([]Opinion, len(opinions))
+	for i, opinion := range opinions {
+		result[i] = ConvertInt32Opinion(opinion)
+	}
+	return result
 }
 
 // ConvertOpinionToInt32 converts the given Opinion to an int32.

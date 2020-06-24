@@ -7,7 +7,9 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
+	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/prng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
@@ -40,7 +42,7 @@ const (
 )
 
 func init() {
-	flag.Int(CfgFPCQuerySampleSize, 3, "Size of the voting quorum (k)")
+	flag.Int(CfgFPCQuerySampleSize, 21, "Size of the voting quorum (k)")
 	flag.Int(CfgFPCRoundInterval, 5, "FPC round interval [s]")
 	flag.String(CfgFPCBindAddress, "0.0.0.0:10895", "the bind address on which the FPC vote server binds to")
 }
@@ -94,12 +96,15 @@ func configureFPC() {
 	Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
 		peersQueried := len(roundStats.QueriedOpinions)
 		voteContextsCount := len(roundStats.ActiveVoteContexts)
-		log.Infof("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
+		log.Debugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
 	}))
 }
 
 func runFPC() {
-	if err := daemon.BackgroundWorker("FPCVoterServer", func(shutdownSignal <-chan struct{}) {
+	const ServerWorkerName = "FPCVoterServer"
+	if err := daemon.BackgroundWorker(ServerWorkerName, func(shutdownSignal <-chan struct{}) {
+		stopped := make(chan struct{})
+		bindAddr := config.Node.GetString(CfgFPCBindAddress)
 		voterServer = votenet.New(Voter(), func(id string) vote.Opinion {
 			branchID, err := branchmanager.BranchIDFromBase58(id)
 			if err != nil {
@@ -121,18 +126,29 @@ func runFPC() {
 			}
 
 			return vote.Like
-		}, config.Node.GetString(CfgFPCBindAddress))
+		}, bindAddr,
+			metrics.Events().FPCInboundBytes,
+			metrics.Events().FPCOutboundBytes,
+			metrics.Events().QueryReceived,
+		)
 
 		go func() {
+			log.Infof("%s started, bind-address=%s", ServerWorkerName, bindAddr)
 			if err := voterServer.Run(); err != nil {
-				log.Error(err)
+				log.Errorf("Error serving: %s", err)
 			}
+			close(stopped)
 		}()
 
-		log.Infof("Started vote server on %s", config.Node.GetString(CfgFPCBindAddress))
-		<-shutdownSignal
+		// stop if we are shutting down or the server could not be started
+		select {
+		case <-shutdownSignal:
+		case <-stopped:
+		}
+
+		log.Infof("Stopping %s ...", ServerWorkerName)
 		voterServer.Shutdown()
-		log.Info("Stopped vote server")
+		log.Infof("Stopping %s ... done", ServerWorkerName)
 	}, shutdown.PriorityFPC); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
@@ -147,7 +163,7 @@ func runFPC() {
 			select {
 			case r := <-unixTsPRNG.C():
 				if err := voter.Round(r); err != nil {
-					log.Errorf("unable to execute FPC round: %s", err)
+					log.Warnf("unable to execute FPC round: %s", err)
 				}
 			case <-shutdownSignal:
 				break exit
@@ -180,10 +196,18 @@ func (pog *PeerOpinionGiver) Query(ctx context.Context, ids []string) (vote.Opin
 	defer conn.Close()
 
 	client := votenet.NewVoterQueryClient(conn)
-	reply, err := client.Opinion(ctx, &votenet.QueryRequest{Id: ids})
+	query := &votenet.QueryRequest{Id: ids}
+	reply, err := client.Opinion(ctx, query)
 	if err != nil {
+		metrics.Events().QueryReplyError.Trigger(&metrics.QueryReplyErrorEvent{
+			ID:           pog.p.ID().String(),
+			OpinionCount: len(ids),
+		})
 		return nil, fmt.Errorf("unable to query opinions: %w", err)
 	}
+
+	metrics.Events().FPCInboundBytes.Trigger(uint64(proto.Size(reply)))
+	metrics.Events().FPCOutboundBytes.Trigger(uint64(proto.Size(query)))
 
 	// convert int32s in reply to opinions
 	opinions := make(vote.Opinions, len(reply.Opinion))

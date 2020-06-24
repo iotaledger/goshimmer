@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	_ "golang.org/x/crypto/sha3" // required by crypto.SHA3_256
+	_ "golang.org/x/crypto/blake2b" // required by crypto.BLAKE2b_512
 )
 
 const (
@@ -18,7 +18,7 @@ const (
 	target  = 10
 )
 
-var testWorker = New(crypto.SHA3_256, workers)
+var testWorker = New(crypto.BLAKE2b_512, workers)
 
 func TestWorker_Work(t *testing.T) {
 	nonce, err := testWorker.Mine(context.Background(), nil, target)
@@ -36,11 +36,11 @@ func TestWorker_Validate(t *testing.T) {
 		expErr          error
 	}{
 		{msg: nil, nonce: 0, expLeadingZeros: 1, expErr: nil},
-		{msg: nil, nonce: 13176245766944605079, expLeadingZeros: 29, expErr: nil},
-		{msg: make([]byte, 1024), nonce: 0, expLeadingZeros: 4, expErr: nil},
+		{msg: nil, nonce: 4611686018451317632, expLeadingZeros: 28, expErr: nil},
+		{msg: make([]byte, 10240), nonce: 0, expLeadingZeros: 1, expErr: nil},
 	}
 
-	w := &Worker{hash: crypto.SHA3_256}
+	w := &Worker{hash: crypto.BLAKE2b_512}
 	for _, tt := range tests {
 		zeros, err := w.LeadingZerosWithNonce(tt.msg, tt.nonce)
 		assert.Equal(t, tt.expLeadingZeros, zeros)
