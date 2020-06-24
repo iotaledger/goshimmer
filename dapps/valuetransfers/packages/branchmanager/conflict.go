@@ -92,7 +92,7 @@ func (conflict *Conflict) MemberCount() int {
 }
 
 // IncreaseMemberCount offers a thread safe way to increase the MemberCount property.
-func (conflict *Conflict) IncreaseMemberCount(optionalDelta ...int) (newMemberCount int) {
+func (conflict *Conflict) IncreaseMemberCount(optionalDelta ...int) int {
 	delta := uint32(1)
 	if len(optionalDelta) >= 1 {
 		delta = uint32(optionalDelta[0])
@@ -103,9 +103,8 @@ func (conflict *Conflict) IncreaseMemberCount(optionalDelta ...int) (newMemberCo
 
 	conflict.memberCount = conflict.memberCount + delta
 	conflict.SetModified()
-	newMemberCount = int(conflict.memberCount)
 
-	return
+	return int(conflict.memberCount)
 }
 
 // DecreaseMemberCount offers a thread safe way to decrease the MemberCount property.
@@ -150,7 +149,7 @@ func (conflict *Conflict) ObjectStorageKey() []byte {
 // Branch.
 func (conflict *Conflict) ObjectStorageValue() []byte {
 	return marshalutil.New(marshalutil.UINT32_SIZE).
-		WriteUint32(conflict.memberCount).
+		WriteUint32(uint32(conflict.MemberCount())).
 		Bytes()
 }
 
