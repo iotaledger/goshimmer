@@ -96,7 +96,7 @@ func configureFPC() {
 	Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
 		peersQueried := len(roundStats.QueriedOpinions)
 		voteContextsCount := len(roundStats.ActiveVoteContexts)
-		log.Infof("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
+		log.Debugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
 	}))
 }
 
@@ -163,7 +163,7 @@ func runFPC() {
 			select {
 			case r := <-unixTsPRNG.C():
 				if err := voter.Round(r); err != nil {
-					log.Errorf("unable to execute FPC round: %s", err)
+					log.Warnf("unable to execute FPC round: %s", err)
 				}
 			case <-shutdownSignal:
 				break exit
