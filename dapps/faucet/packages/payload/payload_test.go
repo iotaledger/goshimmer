@@ -26,23 +26,14 @@ func ExamplePayload() {
 
 	// 2. build actual message
 	tx := message.New(
-		// trunk in "network tangle" ontology (filled by tipSelector)
 		message.EmptyId,
-
-		// branch in "network tangle" ontology (filled by tipSelector)
 		message.EmptyId,
-
-		// local identity
-		local,
-
-		// issuing time
 		time.Now(),
-
-		// sequence number
+		local.PublicKey(),
 		0,
-
-		// payload
 		faucetPayload,
+		0,
+		ed25519.EmptySignature,
 	)
 	fmt.Println(tx.String())
 }

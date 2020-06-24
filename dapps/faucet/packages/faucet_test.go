@@ -22,19 +22,23 @@ func TestIsFaucetReq(t *testing.T) {
 	faucetMsg := message.New(
 		message.EmptyId,
 		message.EmptyId,
-		local,
 		time.Now(),
+		local.PublicKey(),
 		0,
 		faucet.New(address.Random()),
+		0,
+		ed25519.EmptySignature,
 	)
 
 	dataMsg := message.New(
 		message.EmptyId,
 		message.EmptyId,
-		local,
 		time.Now(),
+		local.PublicKey(),
 		0,
 		data.NewData([]byte("data")),
+		0,
+		ed25519.EmptySignature,
 	)
 
 	assert.Equal(t, true, faucet.IsFaucetReq(faucetMsg))
