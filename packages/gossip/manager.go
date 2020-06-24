@@ -250,14 +250,14 @@ func (m *Manager) handlePacket(data []byte, nbr *Neighbor) error {
 		}
 
 		m.log.Debugw("received packet", "type", packet.Name(), "peer-id", nbr.ID())
-		msgId, _, err := message.IdFromBytes(packet.GetId())
+		msgID, _, err := message.IdFromBytes(packet.GetId())
 		if err != nil {
 			return fmt.Errorf("invalid message id: %w", err)
 		}
 
-		msgBytes, err := m.loadMessageFunc(msgId)
+		msgBytes, err := m.loadMessageFunc(msgID)
 		if err != nil {
-			m.log.Debugw("error loading message", "msg-id", msgId, "err", err)
+			m.log.Debugw("error loading message", "msg-id", msgID, "err", err)
 			return nil
 		}
 
