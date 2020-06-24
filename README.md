@@ -41,8 +41,7 @@ The aim of this open repository is  to give the community the opportunity to fol
 **Note:** You can find details about future development plans in our [roadmap](https://roadmap.iota.org).
 
 ## Design
-
-The code in GoShimmer is modular, where each module represents either one of the [Coordicide components](https://coordicide.iota.org/) or a basic node function such as the gossip layer, ledger state, and API.  
+The code in GoShimmer is modular, where each module represents either one of the [Coordicide components](https://coordicide.iota.org/) or a basic node function such as the gossip, ledger state, API just to mention a few.  
 
 ![Layers](images/layers.png)
 
@@ -56,7 +55,7 @@ Each module is defined in the `packages` directory, with the exceptions for the 
 
 The `master` branch is the stable version of the GoShimmer software, which includes a minimal set of modules to allow you to send and gossip the following types of object:
 
- - Generic data object, and more in general, any non-value transfer can be supported with its own dApp/App. 
+- Generic data object, and more in general, any non-value transfer can be supported with its own dApp/App. 
 - Value objects to issue transactions. 
 
 The `master` branch includes the following Coordicide modules: 
@@ -64,21 +63,17 @@ The `master` branch includes the following Coordicide modules:
 - [Node identities](https://coordicide.iota.org/module1)
 
 - [Autopeering](https://coordicide.iota.org/module2). We also have a standalone autopeering simulator in this [repository](https://github.com/iotaledger/autopeering-sim).
-![Autopeering design](images/autopeering.png)
 
 - [Fast Probabilistic Consensus](https://coordicide.iota.org//module4.1.2).  We also have a standalone FPC simulator in this [repository](https://github.com/iotaledger/fpc-sim).
-![TSA](images/shimmer.gif)
 
 - [Tips Selection Algorithm](https://coordicide.iota.org//module5)
-![TSA](images/tangle.gif)
 
-- [Parallel-reality-based Ledger State](https://iota.cafe/t/parallel-reality-based-ledger-state-using-utxo/261) (using the UTXO model). 
-![Ledger State](images/ledger-state.png)
+- [Parallel-reality-based Ledger State](https://iota.cafe/t/parallel-reality-based-ledger-state-using-utxo/261) (using the UTXO model).
 
 
 ## Work-in-progress modules
 
-Work-in-progress modules are typically kept on a different branch such as `mana`, and are not compatible with the `master` branch. Therefore, nodes that run these branches cannot join the current network because the code either is still too experimental or it includes breaking changes.
+Work-in-progress modules are typically kept on a different branch such as `mana`, and are not compatible with the `master` branch. Therefore, nodes that run these branches cannot join the current network because the code either is still too experimental or it includes breaking changes. The same goes for the `develop` branch.
 
 The following Coordicide modules are a work in progress: 
 
@@ -94,114 +89,9 @@ You can use the Go client-library to interact with GoShimmer (located under `git
 
 You can find more info about this on our [client-lib](https://github.com/iotaledger/goshimmer/wiki/Client-Lib:-Interaction-with-layers) wiki page.
 
-## Installation
-
-You have two options to install and run GoShimmer:
-
-- Use the precompiled executable file
-- Compile the code from source
-
-### Execute the precompiled executable file
-
-The [release page](https://github.com/iotaledger/goshimmer/releases) includes downloadable files for Linux, macOS, and Windows.
-
-To run the node, all you need to do is download and execute one of these files, depending on your operating system.
-
-```bash
-# Linux and macOS
-./goshimmer
-# Windows
-goshimmer.exe
-```
-
-### Compile the code from source
-
-If you want to build your own executable file, you need to follow these steps.
-
-#### Prerequisites
-
-To complete this guide, you need to have at least [version 1.14 of Go installed](https://golang.org/doc/install) on your device.
-
-To check if you have Go installed, run the following command:
-
-```bash
-go version
-```
-
-If Go is installed, you should see the version that's installed.
-
----
-
-1. Clone the repository
-
-    ```bash
-    git clone https://github.com/iotaledger/goshimmer.git
-    ```
-
-2. Change into the `goshimmer` directory
-
-3. Copy and adjust `config.default.json`
-
-    ```bash
-    # Linux and macOS
-    cp config.default.json config.json
-    # Windows
-    copy config.default.json config.json
-    ```
-
-4. Use one of the following commands to build your executable file, depending on your operating system
-
-    ```bash
-    # Linux and macOS
-    go build -o goshimmer
-    # Windows
-    go build -o  goshimmer.exe
-    ```
-
-    **Note:** If you're using Windows PowerShell, enclose `goshimmer.exe` in single quotation marks. For example: go build -o 'goshimmer.exe'.
-
 ## Getting started
 
-When you first run GoShimmer, the node starts running and tries to connects to neighbors, using the autopeering module.
-
-To run other modules such as the `spammer`, you can configure GoShimmer to enable them through plugins.
-
-**Note:** For a list of all the available configuration parameters, you can run the following command:
-
-```bash
-# Linux and macOS
-./goshimmer -help
-# Windows
-goshimmer.exe -help
-```
-
-You can configure GoShimmer in the following ways:
-
-* Use a configuration file called `config.json`
-* Use command-line options
-
-The repository includes a `config.json` file, which the executable file will find and use when you execute it.
-
-To use the command line, execute the file with one of the following commands, depending on your operating system
-
-```bash
-# Linux and macOS
-./goshimmer --node.enablePlugins "spammer"
-# Windows
-goshimmer.exe --node.enablePlugins "spammer"
-```
-
-Here, we use the command-line flags to enable the spammer plugin. This plugin allows you to send spam transactions to your node.
-
-### Dashboard
-
-GoShimmer provides access to a SPA dashboard showing TPS, memory chart, neighbors and a Tangle explorer.
-
-You can change its configuration (e.g, bind address, port) under the section `dashboard` of the `config.json` file, for example by changing the bind address to `0.0.0.0:8081` to enable the access from remote and/or by enabling the authentication.
-
-To access the dashboard, you can use your browser (the default address is `http://127.0.0.1:8081`).
-
- ![dashboard](images/dashboard.png "Dashboard")
+You can find tutorials on how to [setup a GoShimmer node](https://github.com/iotaledger/goshimmer/wiki/Setting-up-a-GoShimmer-node), [writing a dApp](https://github.com/iotaledger/goshimmer/wiki/How-to-create-a-simple-dApp), [obtain tokens from the faucet](https://github.com/iotaledger/goshimmer/wiki/How-to-obtain-tokens-from-the-faucet) and more on our [wiki](https://github.com/iotaledger/goshimmer/wiki).
 
 ## Supporting the project
 
