@@ -85,10 +85,10 @@ func configureEvents() {
 		addr := msg.Payload().(*faucetpayload.Payload).Address()
 		txID, err := Faucet().SendFunds(msg)
 		if err != nil {
-			log.Errorf("Fail to send funds on faucet request")
+			log.Errorf("failed to send funds: %s", err)
 			return
 		}
-		log.Infof("send funds to %s via txID: %s", addr, txID)
+		log.Infof("sent funds to %s via txID: %s", addr, txID)
 	}))
 }
 
