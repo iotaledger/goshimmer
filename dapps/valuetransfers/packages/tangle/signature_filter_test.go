@@ -29,7 +29,7 @@ func TestSignatureFilter(t *testing.T) {
 
 	// create helper instances
 	seed := wallet.NewSeed()
-	messageFactory := messagefactory.New(mapdb.NewMapDB(), identity.GenerateLocalIdentity(), tipselector.New(), []byte("sequenceKey"))
+	messageFactory := messagefactory.New(mapdb.NewMapDB(), []byte("sequenceKey"), identity.GenerateLocalIdentity(), tipselector.New())
 
 	// 1. test value message without signatures
 	{

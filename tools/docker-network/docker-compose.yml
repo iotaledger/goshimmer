@@ -29,7 +29,7 @@ services:
       --metrics.global=true
       --prometheus.bindAddress=0.0.0.0:9312
       --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
-      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,messagelayer,valuetransfers,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,messagelayer,pow,valuetransfers,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go

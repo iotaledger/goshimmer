@@ -60,6 +60,11 @@
     "disablePlugins": [],
     "enablePlugins": []
   },
+  "pow": {
+    "difficulty": 22,
+    "numThreads": 1,
+    "timeout": "1m"
+  },
   "webapi": {
     "auth": {
       "password": "goshimmer",
