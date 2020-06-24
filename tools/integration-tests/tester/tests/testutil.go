@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	faucet "github.com/iotaledger/goshimmer/dapps/faucet/packages"
 	faucet_payload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
@@ -93,7 +92,7 @@ func SendFaucetRequestOnRandomPeer(t *testing.T, peers []*framework.Peer, numMes
 		id, sent := SendFaucetRequest(t, peer)
 
 		ids[id] = sent
-		addrBalance[peer.Seed().Address(0).String()][balance.ColorIOTA] += faucet.TokenPerRequest
+		addrBalance[peer.Seed().Address(0).String()][balance.ColorIOTA] += framework.ParaFaucetTokensPerRequest
 	}
 
 	return ids, addrBalance
