@@ -34,7 +34,7 @@
 
 ## About
 
-This repository is where the IOTA Foundation's Research Department runs simulations of the Coordicide modules to study and evaluate their performance.
+This repository is where the IOTA Foundation's Research Department tests the Coordicide modules to study and evaluate their performance.
 
 The aim of this open repository is  to give the community the opportunity to follow developments, take part in testing, and learn  more about [Coordicide](https://coordicide.iota.org/).
 
