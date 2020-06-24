@@ -13,6 +13,7 @@ import (
 
 const name = "Faucet" // name of the plugin
 
+// App is the "plugin" instance of the faucet application.
 var App = node.NewPlugin(name, node.Disabled, configure, run)
 
 var log *logger.Logger

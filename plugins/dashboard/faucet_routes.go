@@ -11,8 +11,9 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ReqMsg defines the struct of the faucet request message ID.
 type ReqMsg struct {
-	Id string `json:"MsgId"`
+	ID string `json:"MsgId"`
 }
 
 func setupFaucetRoutes(routeGroup *echo.Group) {
@@ -38,7 +39,7 @@ func sendFaucetReq(addr address.Address) (res *ReqMsg, err error) {
 	}
 
 	r := &ReqMsg{
-		Id: msg.Id().String(),
+		ID: msg.Id().String(),
 	}
 	return r, nil
 }

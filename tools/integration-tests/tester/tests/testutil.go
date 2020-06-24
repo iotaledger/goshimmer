@@ -106,12 +106,12 @@ func SendFaucetRequest(t *testing.T, peer *framework.Peer) (string, DataMessageS
 	require.NoErrorf(t, err, "Could not send faucet request on %s", peer.String())
 
 	sent := DataMessageSent{
-		id: resp.Id,
+		id: resp.ID,
 		// save payload to be able to compare API response
 		data:            faucet_payload.New(addr).Bytes(),
 		issuerPublicKey: peer.Identity.PublicKey().String(),
 	}
-	return resp.Id, sent
+	return resp.ID, sent
 }
 
 // CheckForMessageIds performs checks to make sure that all peers received all given messages defined in ids.

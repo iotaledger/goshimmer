@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo"
 )
 
+// Plugin is the plugin instance of the web API faucet request endpoint plugin.
 var Plugin = node.NewPlugin("WebAPI faucet Endpoint", node.Enabled, configure)
 var log *logger.Logger
 
@@ -44,14 +45,16 @@ func requestFunds(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, Response{Error: "Fail to send faucetrequest"})
 	}
 
-	return c.JSON(http.StatusOK, Response{Id: msg.Id().String()})
+	return c.JSON(http.StatusOK, Response{ID: msg.Id().String()})
 }
 
+// Response contains the ID of the message sent.
 type Response struct {
-	Id    string `json:"id,omitempty"`
+	ID    string `json:"id,omitempty"`
 	Error string `json:"error,omitempty"`
 }
 
+// Request contains the address to request funds from faucet.
 type Request struct {
 	Address string `json:"address"`
 }

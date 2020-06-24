@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
-// Paylaod represents a request which contains an address for faucet to send funds
+// Payload represents a request which contains an address for faucet to send funds
 type Payload struct {
 	payloadType payload.Type
 	address     address.Address
@@ -97,17 +97,14 @@ func (faucetPayload *Payload) Unmarshal(data []byte) (err error) {
 	return
 }
 
-func (faucetPayload *Payload) MarshalBinary() (data []byte, err error) {
-	return faucetPayload.Bytes(), nil
-}
-
+// String returns a human readable version of faucet payload (for debug purposes).
 func (faucetPayload *Payload) String() string {
 	return stringify.Struct("FaucetPayload",
 		stringify.StructField("address", faucetPayload.Address().String()),
 	)
 }
 
-// SetGenericUnmarshalerFactory sets the generic unmarshaler.
+// GenericPayloadUnmarshalerFactory sets the generic unmarshaler.
 func GenericPayloadUnmarshalerFactory(payloadType payload.Type) payload.Unmarshaler {
 	return func(data []byte) (payload payload.Payload, err error) {
 		payload = &Payload{

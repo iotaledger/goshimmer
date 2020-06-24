@@ -17,6 +17,7 @@ import (
 
 const (
 	// TODO: Modify here before release
+	// TokenPerRequest represents the amount of token to be sent per faucet request
 	TokenPerRequest = 1000
 )
 
