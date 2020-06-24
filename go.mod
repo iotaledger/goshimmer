@@ -20,6 +20,7 @@ require (
 	github.com/magiconair/properties v1.8.1
 	github.com/mr-tron/base58 v1.2.0
 	github.com/panjf2000/ants/v2 v2.4.1
+	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.7.0
 	github.com/shirou/gopsutil v2.20.5+incompatible
 	github.com/spf13/pflag v1.0.5

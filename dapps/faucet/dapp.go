@@ -72,7 +72,7 @@ func configureEvents() {
 
 		msg := cachedTransaction.Unwrap()
 		if msg == nil {
-			log.Errorf("Fail to unwrap cachedTransaction")
+			log.Errorf("failed to unwrap cachedTransaction")
 			return
 		}
 
