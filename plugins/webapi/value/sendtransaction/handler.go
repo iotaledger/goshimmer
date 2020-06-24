@@ -22,7 +22,7 @@ func Handler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	_, err = valuetransfers.Tangle.ValidateTransactionToAttach(tx)
+	err = valuetransfers.Tangle.ValidateTransactionToAttach(tx)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}

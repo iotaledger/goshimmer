@@ -1579,7 +1579,8 @@ func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Tran
 
 // ValidateTransactionToAttach checks that the transactions spends all funds from its inputs.
 // Then it verifies the signature of the transaction.
-func (tangle *Tangle) ValidateTransactionToAttach(tx *transaction.Transaction) (isValid bool, err error) {
+// It returns error if the transaction is not valid. Else nil
+func (tangle *Tangle) ValidateTransactionToAttach(tx *transaction.Transaction) (err error) {
 	_, cachedInputs, consumedBalances, _, err := tangle.retrieveConsumedInputDetails(tx)
 	defer cachedInputs.Release()
 	if err != nil {
@@ -1594,7 +1595,6 @@ func (tangle *Tangle) ValidateTransactionToAttach(tx *transaction.Transaction) (
 		err = errors.New("invalid transaction signatures")
 		return
 	}
-	isValid = true
 	return
 }
 
