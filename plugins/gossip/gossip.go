@@ -1,7 +1,7 @@
 package gossip
 
 import (
-	"fmt"
+	"errors"
 	"net"
 	"strconv"
 	"sync"
@@ -16,6 +16,11 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/netutil"
+)
+
+var (
+	// ErrMessageNotFound is returned when a message could not be found in the Tangle.
+	ErrMessageNotFound = errors.New("message not found")
 )
 
 var (
@@ -87,11 +92,10 @@ func start(shutdownSignal <-chan struct{}) {
 
 // loads the given message from the message layer or an error if not found.
 func loadMessage(messageID message.Id) (bytes []byte, err error) {
-	log.Debugw("load message from db", "id", messageID.String())
 	if !messagelayer.Tangle.Message(messageID).Consume(func(message *message.Message) {
 		bytes = message.Bytes()
 	}) {
-		err = fmt.Errorf("message not found: hash=%s", messageID)
+		err = ErrMessageNotFound
 	}
 	return
 }
