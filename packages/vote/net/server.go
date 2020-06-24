@@ -21,6 +21,7 @@ func New(voter vote.Voter, opnRetriever OpinionRetriever, bindAddr string, netRx
 		voter:              voter,
 		opnRetriever:       opnRetriever,
 		bindAddr:           bindAddr,
+		grpcServer:         grpc.NewServer(),
 		netRxEvent:         netRxEvent,
 		netTxEvent:         netTxEvent,
 		queryReceivedEvent: queryReceivedEvent,
@@ -71,9 +72,7 @@ func (vs *VoterServer) Run() error {
 		return err
 	}
 
-	vs.grpcServer = grpc.NewServer()
 	RegisterVoterQueryServer(vs.grpcServer, vs)
-
 	return vs.grpcServer.Serve(listener)
 }
 

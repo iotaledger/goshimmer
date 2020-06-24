@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/gommon/log"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
@@ -14,8 +14,7 @@ import (
 )
 
 func BenchmarkMessageParser_ParseBytesSame(b *testing.B) {
-	localIdentity := identity.GenerateLocalIdentity()
-	msgBytes := message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("Test"))).Bytes()
+	msgBytes := newTestMessage("Test").Bytes()
 	msgParser := New()
 
 	b.ResetTimer()
@@ -29,9 +28,8 @@ func BenchmarkMessageParser_ParseBytesSame(b *testing.B) {
 
 func BenchmarkMessageParser_ParseBytesDifferent(b *testing.B) {
 	messageBytes := make([][]byte, b.N)
-	localIdentity := identity.GenerateLocalIdentity()
 	for i := 0; i < b.N; i++ {
-		messageBytes[i] = message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("Test"+strconv.Itoa(i)))).Bytes()
+		messageBytes[i] = newTestMessage("Test" + strconv.Itoa(i)).Bytes()
 	}
 
 	msgParser := New()
@@ -46,8 +44,7 @@ func BenchmarkMessageParser_ParseBytesDifferent(b *testing.B) {
 }
 
 func TestMessageParser_ParseMessage(t *testing.T) {
-	localIdentity := identity.GenerateLocalIdentity()
-	msg := message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("Test")))
+	msg := newTestMessage("Test")
 
 	msgParser := New()
 	msgParser.Parse(msg.Bytes(), nil)
@@ -57,4 +54,8 @@ func TestMessageParser_ParseMessage(t *testing.T) {
 	}))
 
 	msgParser.Shutdown()
+}
+
+func newTestMessage(payloadString string) *message.Message {
+	return message.New(message.EmptyId, message.EmptyId, time.Now(), ed25519.PublicKey{}, 0, payload.NewData([]byte(payloadString)), 0, ed25519.Signature{})
 }

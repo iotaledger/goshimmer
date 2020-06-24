@@ -14,7 +14,6 @@ require (
 	github.com/golang/protobuf v1.4.2
 	github.com/gorilla/websocket v1.4.2
 	github.com/iotaledger/hive.go v0.0.0-20200622211038-2db5f8e0532d
-	github.com/iotaledger/iota.go v1.0.0-beta.15
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/magiconair/properties v1.8.1

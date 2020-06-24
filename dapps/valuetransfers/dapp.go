@@ -114,18 +114,21 @@ func configure(_ *node.Plugin) {
 	FCOB = consensus.NewFCOB(Tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
 	FCOB.Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
 		if err := voter.Vote(id, initOpn); err != nil {
-			log.Error(err)
+			log.Warnf("FPC vote: %s", err)
 		}
 	}))
 	FCOB.Events.Error.Attach(events.NewClosure(func(err error) {
-		log.Error(err)
+		log.Errorf("FCOB error: %s", err)
 	}))
 
 	// configure FPC + link to consensus
 	configureFPC()
 	voter.Events().Finalized.Attach(events.NewClosure(FCOB.ProcessVoteResult))
+	voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+		log.Infof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
+	}))
 	voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
-		log.Errorf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
+		log.Warnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
 	}))
 
 	// register SignatureFilter in Parser
