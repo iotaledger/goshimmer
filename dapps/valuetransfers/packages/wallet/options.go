@@ -1,20 +1,24 @@
 package wallet
 
+import (
+	"github.com/iotaledger/hive.go/bitmask"
+)
+
 // Option represents an optional parameter .
 type Option func(*Wallet)
 
-// ImportSeed imports an existing seed into the wallet.
-func ImportSeed(seedBytes []byte) Option {
+// Import restores a wallet that has previously been created.
+func Import(seed *Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask) Option {
 	return func(wallet *Wallet) {
-		wallet.seed = NewSeed(seedBytes)
+		wallet.addressManager = NewAddressManager(seed, lastAddressIndex, spentAddresses)
 	}
 }
 
 // SingleAddress configures the wallet to run in "single address" mode where all the funds are always managed on a
 // single reusable address.
-func SingleAddress(duration bool) Option {
+func SingleAddress(enabled bool) Option {
 	return func(wallet *Wallet) {
-		wallet.singleAddress = duration
+		wallet.singleAddress = enabled
 	}
 }
 

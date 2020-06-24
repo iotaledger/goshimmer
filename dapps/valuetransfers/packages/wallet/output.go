@@ -6,7 +6,15 @@ import (
 )
 
 type Output struct {
-	id             transaction.OutputID
+	address        Address
+	transactionID  transaction.ID
 	balances       map[balance.Color]uint64
-	inclusionState int
+	inclusionState InclusionState
+}
+
+type InclusionState struct {
+	Liked       bool
+	Confirmed   bool
+	Rejected    bool
+	Conflicting bool
 }
