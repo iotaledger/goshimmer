@@ -20,7 +20,7 @@ export class Faucet extends React.Component<Props, any> {
                 <Row className={"mb-3"}>
                     <Col>
                         <p>
-                            Get tokens from GoShimmer faucet!
+                            Get tokens from the GoShimmer faucet!
                         </p>
                     </Col>
                 </Row>

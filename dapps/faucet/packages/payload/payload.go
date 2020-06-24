@@ -1,6 +1,7 @@
 package faucetpayload
 
 import (
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
@@ -114,4 +115,9 @@ func GenericPayloadUnmarshalerFactory(payloadType payload.Type) payload.Unmarsha
 
 		return
 	}
+}
+
+// IsFaucetReq checks if the message is faucet payload.
+func IsFaucetReq(msg *message.Message) bool {
+	return msg.Payload().Type() == Type
 }

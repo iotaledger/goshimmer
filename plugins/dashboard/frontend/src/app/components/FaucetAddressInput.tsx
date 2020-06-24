@@ -60,14 +60,15 @@ export class FaucetAddressInput extends React.Component<Props, any> {
                             onClick={this.btnExecuteSend}
                             value={send_addr}
                             disabled={sending}>
-                           Send 
+                            Send
                         </Button>
                     </Col>
                 </Row>
                 <Row className={"mb-3"}>
                     <Col>
                         <small>
-                            Check your funds on explorer: <Link to={`/explorer/addr/${send_addr}`}>{send_addr}</Link>
+                            Check your funds on the explorer: <Link
+                            to={`/explorer/addr/${send_addr}`}>{send_addr}</Link>
                         </small>
                     </Col>
                 </Row>

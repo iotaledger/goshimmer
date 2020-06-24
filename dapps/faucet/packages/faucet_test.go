@@ -37,6 +37,6 @@ func TestIsFaucetReq(t *testing.T) {
 		data.NewData([]byte("data")),
 	)
 
-	assert.Equal(t, true, IsFaucetReq(faucetMsg))
-	assert.Equal(t, false, IsFaucetReq(dataMsg))
+	assert.Equal(t, true, faucet.IsFaucetReq(faucetMsg))
+	assert.Equal(t, false, faucet.IsFaucetReq(dataMsg))
 }
