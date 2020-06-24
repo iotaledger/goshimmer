@@ -21,7 +21,7 @@ func configure(plugin *node.Plugin) {
 	webapi.Server.POST("faucet", requestFunds)
 }
 
-// requestFunds creates a faucet request (0-value) message given an input of address and
+// requestFunds creates a faucet request (0-value) message with the given destination address and
 // broadcasts it to the node's neighbors. It returns the message ID if successful.
 func requestFunds(c echo.Context) error {
 	var request Request
@@ -35,11 +35,10 @@ func requestFunds(c echo.Context) error {
 
 	addr, err := address.FromBase58(request.Address)
 	if err != nil {
-		log.Warnf("Invalid address")
 		return c.JSON(http.StatusBadRequest, Response{Error: "Invalid address"})
 	}
 
-	// Build faucet message with transaction factory
+	// build faucet message with transaction factory
 	msg := messagelayer.MessageFactory.IssuePayload(faucetpayload.New(addr))
 	if msg == nil {
 		return c.JSON(http.StatusInternalServerError, Response{Error: "Fail to send faucetrequest"})

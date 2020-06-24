@@ -8,13 +8,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
-// Payload represents a request which contains an address for faucet to send funds
+// Payload represents a request which contains an address for the faucet to send funds to.
 type Payload struct {
 	payloadType payload.Type
 	address     address.Address
 }
 
-// Type represents the identifier which addresses the faucet Payload type.
+// Type represents the identifier for the faucet Payload type.
 var Type = payload.Type(2)
 
 // New is the constructor of a Payload and creates a new Payload object from the given details.

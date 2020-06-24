@@ -13,10 +13,11 @@ import (
 
 const name = "Faucet" // name of the plugin
 
-// App is the "plugin" instance of the faucet application.
-var App = node.NewPlugin(name, node.Disabled, configure, run)
-
-var log *logger.Logger
+var (
+	// App is the "plugin" instance of the faucet application.
+	App = node.NewPlugin(name, node.Disabled, configure, run)
+	log *logger.Logger
+)
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(name)
@@ -29,22 +30,24 @@ func configureEvents() {
 		defer cachedTransaction.Release()
 		cachedTransactionMetadata.Release()
 
-		if msg := cachedTransaction.Unwrap(); msg != nil {
-			if faucet.IsFaucetReq(msg) {
-				log.Info("get a faucet request")
-
-				// send funds
-				txID, err := faucet.SendFunds(msg)
-				if err != nil {
-					log.Errorf("Fail to send funds on faucet request")
-					return
-				}
-				log.Info("send funds on faucet, txID: ", txID)
-
-			}
-		} else {
+		msg := cachedTransaction.Unwrap()
+		if msg == nil {
 			log.Errorf("Fail to unwrap cachedTransaction")
+			return
 		}
+
+		if !faucet.IsFaucetReq(msg) {
+			return
+		}
+		log.Info("got a faucet request")
+
+		// send funds
+		txID, err := faucet.SendFunds(msg)
+		if err != nil {
+			log.Errorf("Fail to send funds on faucet request")
+			return
+		}
+		log.Info("send funds on faucet, txID: ", txID)
 	}))
 }
 
