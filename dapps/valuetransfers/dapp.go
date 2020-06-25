@@ -77,6 +77,7 @@ func App() *node.Plugin {
 }
 
 // Tangle gets the tangle instance.
+// tangle represents the value tangle that is used to express votes on value transactions.
 func Tangle() *tangle.Tangle {
 	tangleOnce.Do(func() {
 		_tangle = tangle.New(database.Store())
@@ -85,11 +86,13 @@ func Tangle() *tangle.Tangle {
 }
 
 // FCOB gets the fcob instance.
+// fcob contains the fcob consensus logic.
 func FCOB() *consensus.FCOB {
 	return fcob
 }
 
 // LedgerState gets the ledgerState instance.
+// ledgerState represents the ledger state, that keeps track of the liked branches and offers an API to access funds.
 func LedgerState() *tangle.LedgerState {
 	return ledgerState
 }
