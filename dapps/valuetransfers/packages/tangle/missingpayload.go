@@ -112,7 +112,7 @@ func (missingPayload *MissingPayload) ObjectStorageKey() []byte {
 // ObjectStorageValue is required to match the encoding.BinaryMarshaler interface.
 func (missingPayload *MissingPayload) ObjectStorageValue() (data []byte) {
 	return marshalutil.New(marshalutil.TIME_SIZE).
-		WriteTime(missingPayload.missingSince).
+		WriteTime(missingPayload.MissingSince()).
 		Bytes()
 }
 
