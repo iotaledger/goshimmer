@@ -24,7 +24,7 @@ func Destination(addr address.Address, amount uint64, optionalColor ...balance.C
 	}
 
 	// return an error if the amount is less
-	if amount <= 0 {
+	if amount == 0 {
 		return optionError(errors.New("the amount provided in the destinations needs to be larger than 0"))
 	}
 
@@ -32,7 +32,7 @@ func Destination(addr address.Address, amount uint64, optionalColor ...balance.C
 	return func(options *SendFundsOptions) error {
 		// initialize destinations property
 		if options.Destinations == nil {
-			options.Destinations = make(map[address.Address]map[balance.Color]uint64, 0)
+			options.Destinations = make(map[address.Address]map[balance.Color]uint64)
 		}
 
 		// initialize address specific destination

@@ -8,4 +8,5 @@ import (
 // locally on a server or it can connect remotely using the web API.
 type Connector interface {
 	UnspentOutputs(addresses ...Address) map[Address]map[transaction.ID]Output
+	SendTransaction(tx *transaction.Transaction)
 }

@@ -51,7 +51,7 @@ func TestWallet_SendFunds(t *testing.T) {
 		{
 			name: "validTransfer",
 			parameters: []SendFundsOption{
-				Destination(address.Empty, 12),
+				Destination(address.Empty, 1200),
 			},
 			validator: func(t *testing.T, err error) {
 				fmt.Println(err)

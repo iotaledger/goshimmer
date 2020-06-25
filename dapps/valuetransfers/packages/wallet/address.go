@@ -11,4 +11,5 @@ type Address struct {
 	Index uint64
 }
 
+// AddressEmpty represents the 0-value of an address.
 var AddressEmpty = Address{}
