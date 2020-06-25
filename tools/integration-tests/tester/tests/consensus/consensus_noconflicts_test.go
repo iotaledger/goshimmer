@@ -86,12 +86,12 @@ func TestConsensusNoConflicts(t *testing.T) {
 	tests.CheckBalances(t, n.Peers(), firstReceiverExpectedBalances)
 
 	// issue transactions spending all the outputs which were just created from a random peer
-	secondReceiverWallet := wallet.NewSeed()
+	secondReceiverSeed := wallet.NewSeed()
 	secondReceiverAddresses := make([]string, depositCount)
 	secondReceiverExpectedBalances := map[string]map[balance.Color]int64{}
 	secondReceiverExpectedTransactions := map[string]*tests.ExpectedTransaction{}
 	for i := 0; i < depositCount; i++ {
-		addr := secondReceiverWallet.Address(uint64(i)).Address
+		addr := secondReceiverSeed.Address(uint64(i)).Address
 		tx := transaction.New(
 			transaction.NewInputs(transaction.NewOutputID(firstReceiver.Address(uint64(i)).Address, tx.ID())),
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
