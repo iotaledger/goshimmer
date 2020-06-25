@@ -106,6 +106,10 @@ type mockConnector struct {
 	outputs map[Address]map[transaction.ID]Output
 }
 
+func (connector *mockConnector) SendTransaction(tx *transaction.Transaction) {
+	fmt.Println("SENT TRANSACTION: ", tx)
+}
+
 func newMockConnector(outputs ...Output) (connector *mockConnector) {
 	connector = &mockConnector{
 		outputs: make(map[Address]map[transaction.ID]Output),
