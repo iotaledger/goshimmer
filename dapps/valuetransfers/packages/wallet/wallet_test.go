@@ -78,7 +78,7 @@ func TestWallet_SendFunds(t *testing.T) {
 				},
 				Output{
 					address:       seed.Address(0),
-					transactionID: transaction.GenesisID,
+					transactionID: transaction.ID{3},
 					balances: map[balance.Color]uint64{
 						balance.ColorIOTA: 663,
 						balance.Color{4}:  1338,

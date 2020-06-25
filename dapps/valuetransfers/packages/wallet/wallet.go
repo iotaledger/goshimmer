@@ -1,9 +1,11 @@
 package wallet
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/bitmask"
@@ -57,12 +59,73 @@ func (wallet *Wallet) SendFunds(options ...SendFundsOption) (err error) {
 		return
 	}
 
-	// determine remainder address with default value (first unspent address) if none was provided
+	// update remainder address with default value (first unspent address) if none was provided
 	if sendFundsOptions.RemainderAddress.Address == address.Empty {
 		sendFundsOptions.RemainderAddress = wallet.RemainderAddress()
 	}
 
-	fmt.Println(outputsToUseAsInputs)
+	// scan + build inputs
+	consumedInputs := make([]transaction.OutputID, 0)
+	totalConsumedFunds := make(map[balance.Color]uint64)
+	for addr, unspentOutputsOfAddress := range outputsToUseAsInputs {
+		for transactionID, output := range unspentOutputsOfAddress {
+			consumedInputs = append(consumedInputs, transaction.NewOutputID(addr.Address, transactionID))
+
+			for color, amount := range output.balances {
+				totalConsumedFunds[color] += amount
+			}
+		}
+	}
+
+	// build outputs
+	outputsByColor := make(map[address.Address]map[balance.Color]uint64)
+	for walletAddress, coloredBalances := range sendFundsOptions.Destinations {
+		if _, addressExists := outputsByColor[walletAddress]; !addressExists {
+			outputsByColor[walletAddress] = make(map[balance.Color]uint64)
+		}
+		for color, amount := range coloredBalances {
+			outputsByColor[walletAddress][color] += amount
+			totalConsumedFunds[color] -= amount
+
+			if totalConsumedFunds[color] == 0 {
+				delete(totalConsumedFunds, color)
+			}
+		}
+	}
+	outputsBySlice := make(map[address.Address][]*balance.Balance)
+	for addr, outputs := range outputsByColor {
+		outputsBySlice[addr] = make([]*balance.Balance, 0)
+		for color, amount := range outputs {
+			outputsBySlice[addr] = append(outputsBySlice[addr], balance.New(color, int64(amount)))
+		}
+	}
+
+	// build remainder
+	if len(totalConsumedFunds) != 0 {
+		outputsBySlice[sendFundsOptions.RemainderAddress.Address] = make([]*balance.Balance, 0)
+
+		for color, amount := range totalConsumedFunds {
+			outputsBySlice[sendFundsOptions.RemainderAddress.Address] = append(outputsBySlice[sendFundsOptions.RemainderAddress.Address], balance.New(color, int64(amount)))
+		}
+	}
+
+	// build transaction
+	tx := transaction.New(
+		transaction.NewInputs(consumedInputs...),
+		transaction.NewOutputs(outputsBySlice),
+	)
+	for addr, _ := range outputsToUseAsInputs {
+		tx.Sign(signaturescheme.ED25519(*wallet.Seed().KeyPair(addr.Index)))
+	}
+
+	// mark addresses as spent
+	fmt.Println(wallet.addressManager.LastUnspentAddress())
+	for addr, _ := range outputsToUseAsInputs {
+		wallet.addressManager.MarkAddressSpent(addr.Index)
+	}
+
+	fmt.Println(tx)
+	fmt.Println(wallet.addressManager.LastUnspentAddress())
 
 	return
 }
@@ -122,6 +185,12 @@ func (wallet *Wallet) determineOutputsForTransfer(sendFundsOptions *SendFundsOpt
 				outputsToUseAsInputs[addr][transactionID] = output
 			}
 		}
+	}
+
+	// check if we have found all required funds
+	if len(requiredFunds) != 0 {
+		outputsToUseAsInputs = nil
+		err = errors.New("not enough funds to create transaction")
 	}
 
 	return

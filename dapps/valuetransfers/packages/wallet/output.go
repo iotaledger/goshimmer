@@ -17,4 +17,5 @@ type InclusionState struct {
 	Confirmed   bool
 	Rejected    bool
 	Conflicting bool
+	Spent       bool
 }

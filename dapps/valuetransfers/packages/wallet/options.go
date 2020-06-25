@@ -14,9 +14,9 @@ func Import(seed *Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMas
 	}
 }
 
-// SingleAddress configures the wallet to run in "single address" mode where all the funds are always managed on a
+// ReusableAddress configures the wallet to run in "single address" mode where all the funds are always managed on a
 // single reusable address.
-func SingleAddress(enabled bool) Option {
+func ReusableAddress(enabled bool) Option {
 	return func(wallet *Wallet) {
 		wallet.singleAddress = enabled
 	}
