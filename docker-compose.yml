@@ -10,6 +10,8 @@ services:
       dockerfile: Dockerfile
     container_name: iota_goshimmer
     restart: unless-stopped
+    command: >
+      --node.enablePlugins=prometheus
     # Mount volumes:
     # make sure to give read/write access to the folder ./mainnetdb (e.g., chmod -R 777 ./mainnetdb)
     # optionally, you can mount a config.json into the container
@@ -25,6 +27,8 @@ services:
       - "14666:14666/tcp"
       - "14626:14626/udp"
       - "9311:9311/tcp" # prometheus exporter
+      - "8080:8080/tcp" # webApi
+      - "8081:8081/tcp" # dashboard
 
   prometheus:
     network_mode: host
