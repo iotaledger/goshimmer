@@ -54,6 +54,7 @@ type ExplorerAddress struct {
 	OutputIDs []ExplorerOutput `json:"output_ids"`
 }
 
+// ExplorerOutput defines the struct of the ExplorerOutput.
 type ExplorerOutput struct {
 	unspentoutputs.OutputID
 	ConsumerCount int `json:"consumer_count"`
