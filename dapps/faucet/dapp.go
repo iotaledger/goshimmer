@@ -2,6 +2,7 @@ package faucet
 
 import (
 	"sync"
+	"time"
 
 	faucet "github.com/iotaledger/goshimmer/dapps/faucet/packages"
 	"github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
@@ -23,11 +24,15 @@ const (
 	CfgFaucetSeed = "faucet.seed"
 	// CfgFaucetTokensPerRequest defines the amount of tokens the faucet should send for each request.
 	CfgFaucetTokensPerRequest = "faucet.tokensPerRequest"
+	// CfgFaucetMaxTransactionBookedAwaitTime defines the time to await for the transaction fulfilling a funding request
+	// to become booked in the value layer.
+	CfgFaucetMaxTransactionBookedAwaitTimeSeconds = "faucet.maxTransactionBookedAwaitTimeSeconds"
 )
 
 func init() {
 	flag.String(CfgFaucetSeed, "", "the base58 encoded seed of the faucet, must be defined if this dApp is enabled")
 	flag.Int(CfgFaucetTokensPerRequest, 1337, "the amount of tokens the faucet should send for each request")
+	flag.Int(CfgFaucetMaxTransactionBookedAwaitTimeSeconds, 5, "the max amount of time for a funding transaction to become booked in the value layer.")
 }
 
 var (
@@ -53,7 +58,11 @@ func Faucet() *faucet.Faucet {
 		if tokensPerRequest <= 0 {
 			log.Fatalf("the amount of tokens to fulfill per request must be above zero")
 		}
-		_faucet = faucet.New(seedBytes, tokensPerRequest)
+		maxTxBookedAwaitTime := config.Node.GetInt64(CfgFaucetMaxTransactionBookedAwaitTimeSeconds)
+		if maxTxBookedAwaitTime <= 0 {
+			log.Fatalf("the max transaction booked await time must be more than 0")
+		}
+		_faucet = faucet.New(seedBytes, tokensPerRequest, time.Duration(maxTxBookedAwaitTime)*time.Second)
 	})
 	return _faucet
 }
@@ -82,12 +91,12 @@ func configureEvents() {
 
 		// send funds
 		addr := msg.Payload().(*faucetpayload.Payload).Address()
-		txID, err := Faucet().SendFunds(msg)
+		msg, txID, err := Faucet().SendFunds(msg)
 		if err != nil {
 			log.Errorf("failed to send funds: %s", err)
 			return
 		}
-		log.Infof("sent funds to %s via txID: %s", addr, txID)
+		log.Infof("sent funds to address %s via tx %s embedded in message %s", addr, txID, msg.Id().String())
 	}))
 }
 
