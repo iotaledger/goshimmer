@@ -38,7 +38,7 @@ func init() {
 
 var (
 	// App is the "plugin" instance of the faucet application.
-	plugin     = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	plugin     *node.Plugin
 	pluginOnce sync.Once
 	_faucet    *faucet.Faucet
 	faucetOnce sync.Once
@@ -48,7 +48,7 @@ var (
 // App returns the plugin instance of the faucet dApp.
 func App() *node.Plugin {
 	pluginOnce.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
 	})
 	return plugin
 }
