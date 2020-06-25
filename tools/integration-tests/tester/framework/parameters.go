@@ -33,6 +33,8 @@ var (
 	ParaBootstrapOnEveryNode = false
 	// ParaFaucetTokensPerRequest defines the tokens to send up on each faucet request message.
 	ParaFaucetTokensPerRequest int64 = 1337
+	// ParaPoWDifficulty defines the PoW difficulty.
+	ParaPoWDifficulty = 1
 )
 
 var (
