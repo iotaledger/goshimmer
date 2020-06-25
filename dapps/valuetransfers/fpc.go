@@ -155,6 +155,7 @@ func runFPC() {
 
 	if err := daemon.BackgroundWorker("FPCRoundsInitiator", func(shutdownSignal <-chan struct{}) {
 		log.Infof("Started FPC round initiator")
+		defer log.Infof("Stopped FPC round initiator")
 		unixTsPRNG := prng.NewUnixTimestampPRNG(roundIntervalSeconds)
 		unixTsPRNG.Start()
 		defer unixTsPRNG.Stop()
@@ -169,7 +170,6 @@ func runFPC() {
 				break exit
 			}
 		}
-		log.Infof("Stopped FPC round initiator")
 	}, shutdown.PriorityFPC); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
