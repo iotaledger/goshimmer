@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/graph"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
@@ -21,8 +22,57 @@ var (
 	nodes = make(map[string]time.Time)
 	// maps nodeId to outgoing connections + latest arrival of heartbeat.
 	links = make(map[string]map[string]time.Time)
-	lock  sync.Mutex
+	lock  sync.RWMutex
 )
+
+// NeighborMetric contains the number of inbound/outbound neighbors.
+type NeighborMetric struct {
+	Inbound  uint
+	Outbound uint
+}
+
+// NumOfNeighbors returns a map of nodeIDs to their neighbor count.
+func NumOfNeighbors() map[string]*NeighborMetric {
+	lock.RLock()
+	defer lock.RUnlock()
+	result := make(map[string]*NeighborMetric)
+	for nodeID := range nodes {
+		// number of outgoing neighbors
+		if _, exist := result[nodeID]; !exist {
+			result[nodeID] = &NeighborMetric{Outbound: uint(len(links[nodeID]))}
+		} else {
+			result[nodeID].Outbound = uint(len(links[nodeID]))
+		}
+
+		// fill in incoming neighbors
+		for outNeighborID := range links[nodeID] {
+			if _, exist := result[outNeighborID]; !exist {
+				result[outNeighborID] = &NeighborMetric{Inbound: 1}
+			} else {
+				result[outNeighborID].Inbound++
+			}
+		}
+	}
+	return result
+}
+
+// NetworkGraph returns the autopeering network graph.
+func NetworkGraph() *graph.Graph {
+	lock.RLock()
+	defer lock.RUnlock()
+	var nodeIDs []string
+	for id := range nodes {
+		nodeIDs = append(nodeIDs, id)
+	}
+	g := graph.New(nodeIDs)
+
+	for src, trgMap := range links {
+		for dst := range trgMap {
+			g.AddEdge(src, dst)
+		}
+	}
+	return g
+}
 
 // configures the event recording by attaching to the analysis server's events.
 func configureEventsRecording() {
@@ -156,8 +206,8 @@ func cleanUp(interval time.Duration) {
 }
 
 func getEventsToReplay() (map[string]time.Time, map[string]map[string]time.Time) {
-	lock.Lock()
-	defer lock.Unlock()
+	lock.RLock()
+	defer lock.RUnlock()
 
 	copiedNodes := make(map[string]time.Time, len(nodes))
 	for nodeID, lastHeartbeat := range nodes {

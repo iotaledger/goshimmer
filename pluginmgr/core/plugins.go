@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
+	"github.com/iotaledger/goshimmer/plugins/pow"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
 	"github.com/iotaledger/goshimmer/plugins/sync"
 
@@ -31,6 +32,7 @@ var PLUGINS = node.Plugins(
 	profiling.Plugin(),
 	database.Plugin(),
 	autopeering.Plugin(),
+	pow.Plugin,
 	messagelayer.Plugin(),
 	gossip.Plugin(),
 	issuer.Plugin(),

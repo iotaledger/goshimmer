@@ -5,8 +5,6 @@ import (
 	"sync"
 	"time"
 
-	flag "github.com/spf13/pflag"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
@@ -23,6 +21,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	flag "github.com/spf13/pflag"
 )
 
 const (
@@ -46,11 +45,11 @@ func init() {
 
 var (
 	// app is the "plugin" instance of the value-transfers application.
-	app *node.Plugin
+	app     *node.Plugin
 	appOnce sync.Once
 
 	// _tangle represents the value tangle that is used to express votes on value transactions.
-	_tangle *tangle.Tangle
+	_tangle    *tangle.Tangle
 	tangleOnce sync.Once
 
 	// fcob contains the fcob consensus logic.
@@ -71,7 +70,7 @@ var (
 
 // App gets the plugin instance.
 func App() *node.Plugin {
-	appOnce.Do(func () {
+	appOnce.Do(func() {
 		app = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	})
 	return app
@@ -79,7 +78,7 @@ func App() *node.Plugin {
 
 // Tangle gets the tangle instance.
 func Tangle() *tangle.Tangle {
-	tangleOnce.Do(func () {
+	tangleOnce.Do(func() {
 		_tangle = tangle.New(database.Store())
 	})
 	return _tangle
@@ -140,18 +139,21 @@ func configure(_ *node.Plugin) {
 	fcob = consensus.NewFCOB(_tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
 	fcob.Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
 		if err := voter.Vote(id, initOpn); err != nil {
-			log.Error(err)
+			log.Warnf("FPC vote: %s", err)
 		}
 	}))
 	fcob.Events.Error.Attach(events.NewClosure(func(err error) {
-		log.Error(err)
+		log.Errorf("FCOB error: %s", err)
 	}))
 
 	// configure FPC + link to consensus
 	configureFPC()
 	voter.Events().Finalized.Attach(events.NewClosure(fcob.ProcessVoteResult))
-	voter.Events().Failed.Attach(events.NewClosure(func(id string, lastOpinion vote.Opinion) {
-		log.Errorf("FPC failed for transaction with id '%s' - last opinion: '%s'", id, lastOpinion)
+	voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+		log.Infof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
+	}))
+	voter.Events().Failed.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
+		log.Warnf("FPC failed for transaction with id '%s' - last opinion: '%s'", ev.ID, ev.Opinion)
 	}))
 
 	// register SignatureFilter in Parser

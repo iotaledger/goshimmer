@@ -7,5 +7,5 @@ const (
 	DBPrefixTransactionMetadata
 	DBPrefixAddressTransactions
 	DBPrefixAutoPeering
-	DBPrefixDatabaseVersion
+	DBPrefixHealth
 )

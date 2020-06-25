@@ -63,8 +63,8 @@ func TestClosedConnection(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	mgrA.On("neighborRemoved", peerB).Once()
-	mgrB.On("neighborRemoved", peerA).Once()
+	mgrA.On("neighborRemoved", mock.Anything).Once()
+	mgrB.On("neighborRemoved", mock.Anything).Once()
 
 	// A drops B
 	err := mgrA.DropNeighbor(peerB.ID())
@@ -111,8 +111,8 @@ func TestP2PSend(t *testing.T) {
 	mgrA.SendMessage(testMessageData)
 	time.Sleep(graceTime)
 
-	mgrA.On("neighborRemoved", peerB).Once()
-	mgrB.On("neighborRemoved", peerA).Once()
+	mgrA.On("neighborRemoved", mock.Anything).Once()
+	mgrB.On("neighborRemoved", mock.Anything).Once()
 
 	closeA()
 	closeB()
@@ -160,8 +160,8 @@ func TestP2PSendTwice(t *testing.T) {
 	mgrA.SendMessage(testMessageData)
 	time.Sleep(graceTime)
 
-	mgrA.On("neighborRemoved", peerB).Once()
-	mgrB.On("neighborRemoved", peerA).Once()
+	mgrA.On("neighborRemoved", mock.Anything).Once()
+	mgrB.On("neighborRemoved", mock.Anything).Once()
 
 	closeA()
 	closeB()
@@ -218,10 +218,10 @@ func TestBroadcast(t *testing.T) {
 	mgrA.SendMessage(testMessageData)
 	time.Sleep(graceTime)
 
-	mgrA.On("neighborRemoved", peerB).Once()
-	mgrA.On("neighborRemoved", peerC).Once()
-	mgrB.On("neighborRemoved", peerA).Once()
-	mgrC.On("neighborRemoved", peerA).Once()
+	mgrA.On("neighborRemoved", mock.Anything).Once()
+	mgrA.On("neighborRemoved", mock.Anything).Once()
+	mgrB.On("neighborRemoved", mock.Anything).Once()
+	mgrC.On("neighborRemoved", mock.Anything).Once()
 
 	closeA()
 	closeB()
@@ -279,10 +279,10 @@ func TestSingleSend(t *testing.T) {
 	mgrA.SendMessage(testMessageData, peerB.ID())
 	time.Sleep(graceTime)
 
-	mgrA.On("neighborRemoved", peerB).Once()
-	mgrA.On("neighborRemoved", peerC).Once()
-	mgrB.On("neighborRemoved", peerA).Once()
-	mgrC.On("neighborRemoved", peerA).Once()
+	mgrA.On("neighborRemoved", mock.Anything).Once()
+	mgrA.On("neighborRemoved", mock.Anything).Once()
+	mgrB.On("neighborRemoved", mock.Anything).Once()
+	mgrC.On("neighborRemoved", mock.Anything).Once()
 
 	closeA()
 	closeB()
@@ -346,8 +346,8 @@ func TestMessageRequest(t *testing.T) {
 	mgrA.RequestMessage(b)
 	time.Sleep(graceTime)
 
-	mgrA.On("neighborRemoved", peerB).Once()
-	mgrB.On("neighborRemoved", peerA).Once()
+	mgrA.On("neighborRemoved", mock.Anything).Once()
+	mgrB.On("neighborRemoved", mock.Anything).Once()
 
 	closeA()
 	closeB()
@@ -383,7 +383,7 @@ func TestDropNeighbor(t *testing.T) {
 	// close connection
 	disconnect := func() {
 		var wg sync.WaitGroup
-		signal := events.NewClosure(func(_ *peer.Peer) { wg.Done() })
+		signal := events.NewClosure(func(_ *Neighbor) { wg.Done() })
 		// we are expecting two signals
 		wg.Add(2)
 
@@ -476,5 +476,5 @@ type mockedManager struct {
 
 func (e *mockedManager) connectionFailed(p *peer.Peer, err error) { e.Called(p, err) }
 func (e *mockedManager) neighborAdded(n *Neighbor)                { e.Called(n) }
-func (e *mockedManager) neighborRemoved(p *peer.Peer)             { e.Called(p) }
+func (e *mockedManager) neighborRemoved(n *Neighbor)              { e.Called(n) }
 func (e *mockedManager) messageReceived(ev *MessageReceivedEvent) { e.Called(ev) }

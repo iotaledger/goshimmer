@@ -1,6 +1,8 @@
 package messagelayer
 
 import (
+	"sync"
+
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagefactory"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messageparser"
@@ -15,7 +17,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"sync"
 )
 
 const (
@@ -26,15 +27,15 @@ const (
 var (
 	// plugin is the plugin instance of the message layer plugin.
 	plugin           *node.Plugin
-	pluginOnce 		 sync.Once
+	pluginOnce       sync.Once
 	messageParser    *messageparser.MessageParser
 	msgParserOnce    sync.Once
 	messageRequester *messagerequester.MessageRequester
-	msgReqOnce		 sync.Once
+	msgReqOnce       sync.Once
 	tipSelector      *tipselector.TipSelector
 	tipSelectorOnce  sync.Once
 	_tangle          *tangle.Tangle
-	tangleOnce		 sync.Once
+	tangleOnce       sync.Once
 	messageFactory   *messagefactory.MessageFactory
 	msgFactoryOnce   sync.Once
 	log              *logger.Logger
@@ -58,7 +59,7 @@ func MessageParser() *messageparser.MessageParser {
 
 // TipSelector gets the tipSelector instance.
 func TipSelector() *tipselector.TipSelector {
-	tipSelectorOnce.Do(func () {
+	tipSelectorOnce.Do(func() {
 		tipSelector = tipselector.New()
 	})
 	return tipSelector
@@ -76,7 +77,7 @@ func Tangle() *tangle.Tangle {
 // MessageFactory gets the messageFactory instance.
 func MessageFactory() *messagefactory.MessageFactory {
 	msgFactoryOnce.Do(func() {
-		messageFactory = messagefactory.New(database.Store(), local.GetInstance().LocalIdentity(), TipSelector(), []byte(DBSequenceNumber))
+		messageFactory = messagefactory.New(database.Store(), []byte(DBSequenceNumber), local.GetInstance().LocalIdentity(), TipSelector())
 	})
 	return messageFactory
 }

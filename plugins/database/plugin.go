@@ -7,14 +7,12 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/database/prefix"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/timeutil"
 )
 
 // PluginName is the name of the database plugin.
@@ -22,9 +20,9 @@ const PluginName = "Database"
 
 var (
 	// plugin is the plugin instance of the database plugin.
-	plugin *node.Plugin
+	plugin     *node.Plugin
 	pluginOnce sync.Once
-	log    *logger.Logger
+	log        *logger.Logger
 
 	db        database.DB
 	store     kvstore.KVStore
@@ -34,11 +32,10 @@ var (
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	pluginOnce.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
 	})
 	return plugin
 }
-
 
 // Store returns the KVStore instance.
 func Store() kvstore.KVStore {
@@ -62,7 +59,7 @@ func createStore() {
 		db, err = database.NewDB(dbDir)
 	}
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Unable to open the database, please delete the database folder. Error: %s", err)
 	}
 
 	store = db.NewStore()
@@ -71,30 +68,38 @@ func createStore() {
 func configure(_ *node.Plugin) {
 	// assure that the store is initialized
 	store := Store()
+	configureHealthStore(store)
 
-	err := checkDatabaseVersion(store.WithRealm([]byte{prefix.DBPrefixDatabaseVersion}))
-	if errors.Is(err, ErrDBVersionIncompatible) {
-		log.Panicf("The database scheme was updated. Please delete the database folder.\n%s", err)
+	if err := checkDatabaseVersion(healthStore); err != nil {
+		if errors.Is(err, ErrDBVersionIncompatible) {
+			log.Fatalf("The database scheme was updated. Please delete the database folder. %s", err)
+		}
+		log.Fatalf("Failed to check database version: %s", err)
 	}
-	if err != nil {
-		log.Panicf("Failed to check database version: %s", err)
+
+	if IsDatabaseUnhealthy() {
+		log.Fatal("The database is marked as not properly shutdown/corrupted, please delete the database folder and restart.")
 	}
 
 	// we open the database in the configure, so we must also make sure it's closed here
-	err = daemon.BackgroundWorker(PluginName, closeDB, shutdown.PriorityDatabase)
-	if err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+	if err := daemon.BackgroundWorker(PluginName, manageDBLifetime, shutdown.PriorityDatabase); err != nil {
+		log.Fatalf("Failed to start as daemon: %s", err)
 	}
+
+	// run GC up on startup
+	runDatabaseGC()
 }
 
-func run(_ *node.Plugin) {
-	if err := daemon.BackgroundWorker(PluginName+"[GC]", runGC, shutdown.PriorityBadgerGarbageCollection); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
-	}
-}
-
-func closeDB(shutdownSignal <-chan struct{}) {
+// manageDBLifetime takes care of managing the lifetime of the database. It marks the database as dirty up on
+// startup and unmarks it up on shutdown. Up on shutdown it will run the db GC and then close the database.
+func manageDBLifetime(shutdownSignal <-chan struct{}) {
+	// we mark the database only as corrupted from within a background worker, which means
+	// that we only mark it as dirty, if the node actually started up properly (meaning no termination
+	// signal was received before all plugins loaded).
+	MarkDatabaseUnhealthy()
 	<-shutdownSignal
+	runDatabaseGC()
+	MarkDatabaseHealthy()
 	log.Infof("Syncing database to disk...")
 	if err := db.Close(); err != nil {
 		log.Errorf("Failed to flush the database: %s", err)
@@ -102,14 +107,15 @@ func closeDB(shutdownSignal <-chan struct{}) {
 	log.Infof("Syncing database to disk... done")
 }
 
-func runGC(shutdownSignal <-chan struct{}) {
+func runDatabaseGC() {
 	if !db.RequiresGC() {
 		return
 	}
-	// run the garbage collection with the given interval
-	timeutil.Ticker(func() {
-		if err := db.GC(); err != nil {
-			log.Warnf("Garbage collection failed: %s", err)
-		}
-	}, 5*time.Minute, shutdownSignal)
+	log.Info("Running database garbage collection...")
+	s := time.Now()
+	if err := db.GC(); err != nil {
+		log.Warnf("Database garbage collection failed: %s", err)
+		return
+	}
+	log.Infof("Database garbage collection done, took %v...", time.Since(s))
 }

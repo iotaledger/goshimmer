@@ -1,6 +1,16 @@
 version: "3.5"
 
 services:
+  mongodb_container:
+    image: mongo:latest
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+    ports:
+      - 27017:27017
+    volumes:
+      - mongodb_data_container:/data/db
+ 
   entry_node:
     container_name: entry_node
     image: golang:1.14.4
@@ -12,13 +22,20 @@ services:
       --autopeering.entryNodes=
       --analysis.server.bindAddress=0.0.0.0:1888
       --analysis.dashboard.bindAddress=0.0.0.0:9000
-      --node.enablePlugins=analysis-server,analysis-dashboard
-      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,metrics,messagelayer,valuetransfers,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --analysis.dashboard.dev=false
+      --analysis.dashboard.mongodb.enabled=true
+      --analysis.dashboard.mongodb.hostAddress=mongodb_container:27017
+      --metrics.local=false
+      --metrics.global=true
+      --prometheus.bindAddress=0.0.0.0:9312
+      --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
+      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,messagelayer,pow,valuetransfers,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
     ports:
-      - "127.0.0.1:9000:9000/tcp" # autopeering visualizer
+      - "127.0.0.1:9000:9000/tcp" # analysis dashboard
+      - "127.0.0.1:9312:9312/tcp" # prometheus
     expose:
       - "1888/tcp" # analysis server (within Docker network)
 
@@ -29,13 +46,16 @@ services:
     command: >
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
-      --node.enablePlugins=bootstrap
+      --node.enablePlugins=bootstrap,prometheus,spammer
+      --valueLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
+      - ../integration-tests/assets:/tmp/assets
     ports:
       - "127.0.0.1:8080:8080/tcp" # web API
       - "127.0.0.1:8081:8081/tcp" # dashboard
+      - "127.0.0.1:9311:9311/tcp" # prometheus
     depends_on:
       - entry_node
 
@@ -45,15 +65,45 @@ services:
     command: >
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
+      --node.enablePlugins=bootstrap
+      --valueLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
       --node.disablePlugins=dashboard,portcheck
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
+      - ../integration-tests/assets:/tmp/assets
     expose:
       - "8080/tcp" # web API (within Docker network)
     depends_on:
       - entry_node
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+    - 9090:9090
+    command:
+    - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+    - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+    - peer_master
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      # path to provisioning definitions can only be defined as
+      # environment variables for grafana within docker
+      - GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning
+    ports:
+    - 3000:3000
+    user: "104"
+    volumes:
+    - ./grafana:/var/lib/grafana:rw
+
 volumes:
   goshimmer-cache:
     name: goshimmer-cache
+  mongodb_data_container:
