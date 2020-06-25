@@ -38,8 +38,20 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
 
     render() {
         let {id} = this.props.match.params;
-        let {addr, query_loading} = this.props.explorerStore;
+        let {addr, query_loading, query_err} = this.props.explorerStore;
         let outputs = [];
+
+        if (query_err) {
+            return (
+                <Container>
+                    <h3>Address not available - 404</h3>
+                    <p>
+                        Address {id} not found.
+                    </p>
+                </Container>
+            );
+        }
+
         if (addr) {
             for (let i = 0; i < addr.output_ids.length; i++) {
                 let output = addr.output_ids[i];
