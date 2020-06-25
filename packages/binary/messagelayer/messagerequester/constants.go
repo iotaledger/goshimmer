@@ -1,14 +1,10 @@
 package messagerequester
 
 import (
-	"runtime"
 	"time"
 )
 
 const (
+	// DefaultRetryInterval defines the Default Retry Interval of the message requester.
 	DefaultRetryInterval = 10 * time.Second
-)
-
-var (
-	DefaultRequestWorkerCount = runtime.GOMAXPROCS(0)
 )
