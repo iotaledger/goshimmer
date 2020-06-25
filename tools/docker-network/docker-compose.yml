@@ -29,7 +29,7 @@ services:
       --metrics.global=true
       --prometheus.bindAddress=0.0.0.0:9312
       --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
-      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,messagelayer,valuetransfers,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,messagelayer,pow,valuetransfers,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
@@ -46,7 +46,8 @@ services:
     command: >
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
-      --node.enablePlugins=bootstrap,prometheus,spammer
+      --node.enablePlugins=bootstrap,prometheus,spammer,faucet
+      --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --valueLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
@@ -93,6 +94,10 @@ services:
     image: grafana/grafana:latest
     container_name: grafana
     restart: unless-stopped
+    environment:
+      # path to provisioning definitions can only be defined as
+      # environment variables for grafana within docker
+      - GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning
     ports:
     - 3000:3000
     user: "104"

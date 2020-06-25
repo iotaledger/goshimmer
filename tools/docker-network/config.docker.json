@@ -59,6 +59,11 @@
     "disablePlugins": "portcheck",
     "enablePlugins": []
   },
+  "pow": {
+    "difficulty": 2,
+    "numThreads": 1,
+    "timeout": "10s"
+  },
   "webapi": {
     "auth": {
       "password": "goshimmer",

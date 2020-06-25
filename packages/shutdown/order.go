@@ -5,6 +5,7 @@ const (
 	PriorityFPC
 	PriorityTangle
 	PriorityMissingMessagesMonitoring
+	PriorityFaucet
 	PriorityRemoteLog
 	PriorityAnalysis
 	PriorityPrometheus

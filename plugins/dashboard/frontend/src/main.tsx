@@ -9,6 +9,7 @@ import {Router} from 'react-router-dom';
 import NodeStore from "app/stores/NodeStore";
 import ExplorerStore from "app/stores/ExplorerStore";
 import DrngStore from "app/stores/DrngStore";
+import FaucetStore from "app/stores/FaucetStore";
 import VisualizerStore from "app/stores/VisualizerStore";
 
 // prepare MobX stores
@@ -16,12 +17,14 @@ const routerStore = new RouterStore();
 const nodeStore = new NodeStore();
 const explorerStore = new ExplorerStore(routerStore);
 const drngStore = new DrngStore(routerStore);
+const faucetStore = new FaucetStore();
 const visualizerStore = new VisualizerStore(routerStore);
 const stores = {
     "routerStore": routerStore,
     "nodeStore": nodeStore,
     "explorerStore": explorerStore,
     "drngStore": drngStore,
+    "faucetStore": faucetStore,
     "visualizerStore": visualizerStore,
 };
 

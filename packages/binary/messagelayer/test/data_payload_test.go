@@ -4,10 +4,12 @@ import (
 	"runtime"
 	"sync"
 	"testing"
-	"time"
 
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagefactory"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 
 	"github.com/panjf2000/ants/v2"
 
@@ -17,13 +19,13 @@ import (
 
 func BenchmarkVerifyDataMessages(b *testing.B) {
 	var pool async.WorkerPool
-	pool.Tune(runtime.NumCPU() * 2)
+	pool.Tune(runtime.GOMAXPROCS(0))
 
-	localIdentity := identity.GenerateLocalIdentity()
+	factory := messagefactory.New(mapdb.NewMapDB(), []byte(messagelayer.DBSequenceNumber), identity.GenerateLocalIdentity(), messagefactory.TipSelectorFunc(func() (message.Id, message.Id) { return message.EmptyId, message.EmptyId }))
 
 	messages := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
-		messages[i] = message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("some data"))).Bytes()
+		messages[i] = factory.IssuePayload(payload.NewData([]byte("some data"))).Bytes()
 	}
 
 	b.ResetTimer()
@@ -45,18 +47,16 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 func BenchmarkVerifySignature(b *testing.B) {
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
-	localIdentity := identity.GenerateLocalIdentity()
+	factory := messagefactory.New(mapdb.NewMapDB(), []byte(messagelayer.DBSequenceNumber), identity.GenerateLocalIdentity(), messagefactory.TipSelectorFunc(func() (message.Id, message.Id) { return message.EmptyId, message.EmptyId }))
 
 	messages := make([]*message.Message, b.N)
 	for i := 0; i < b.N; i++ {
-		messages[i] = message.New(message.EmptyId, message.EmptyId, localIdentity, time.Now(), 0, payload.NewData([]byte("test")))
+		messages[i] = factory.IssuePayload(payload.NewData([]byte("test")))
 		messages[i].Bytes()
 	}
-
-	var wg sync.WaitGroup
-
 	b.ResetTimer()
 
+	var wg sync.WaitGroup
 	for i := 0; i < b.N; i++ {
 		wg.Add(1)
 

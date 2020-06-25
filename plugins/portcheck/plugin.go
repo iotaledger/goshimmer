@@ -2,6 +2,7 @@ package portcheck
 
 import (
 	"net"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
@@ -17,10 +18,19 @@ import (
 const PluginName = "PortCheck"
 
 var (
-	// Plugin is the plugin instance of the port check plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	// plugin is the plugin instance of the port check plugin.
+	plugin *node.Plugin
+	once sync.Once
 	log    *logger.Logger
 )
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
+	return plugin
+}
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
@@ -49,7 +59,7 @@ func checkAutopeeringConnection() {
 	defer conn.Close()
 
 	// create a new discovery server for the port check
-	disc := discover.New(local.GetInstance(), autopeering.ProtocolVersion, autopeering.NetworkID, discover.Logger(log))
+	disc := discover.New(local.GetInstance(), autopeering.ProtocolVersion, autopeering.NetworkID(), discover.Logger(log))
 	srv := server.Serve(local.GetInstance(), conn, log, disc)
 	defer srv.Close()
 

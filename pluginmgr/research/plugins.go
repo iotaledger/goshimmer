@@ -11,10 +11,10 @@ import (
 )
 
 var PLUGINS = node.Plugins(
-	remotelog.Plugin,
-	analysisserver.Plugin,
-	analysisclient.Plugin,
-	analysisdashboard.Plugin,
+	remotelog.Plugin(),
+	analysisserver.Plugin(),
+	analysisclient.Plugin(),
+	analysisdashboard.Plugin(),
 	prometheus.Plugin,
-	networkdelay.App,
+	networkdelay.App(),
 )

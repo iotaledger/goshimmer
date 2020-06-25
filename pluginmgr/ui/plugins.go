@@ -6,5 +6,5 @@ import (
 )
 
 var PLUGINS = node.Plugins(
-	dashboard.Plugin,
+	dashboard.Plugin(),
 )

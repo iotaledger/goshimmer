@@ -17,6 +17,9 @@ var (
 	ErrDone      = errors.New("done")
 )
 
+// NonceBytes specifies the number of bytes required for the nonce.
+const NonceBytes = 8
+
 // Hash identifies a cryptographic hash function that is implemented in another package.
 type Hash interface {
 	// Size returns the length, in bytes, of a digest resulting from the given hash function.
@@ -38,7 +41,7 @@ func New(hash Hash, numWorkers ...int) *Worker {
 		hash:       hash,
 		numWorkers: 1,
 	}
-	if len(numWorkers) > 0 {
+	if len(numWorkers) > 0 && numWorkers[0] > 0 {
 		w.numWorkers = numWorkers[0]
 	}
 	return w
@@ -106,15 +109,15 @@ func (w *Worker) LeadingZeros(data []byte) (int, error) {
 // LeadingZerosWithNonce returns the number of leading zeros in the digest
 // after the provided 8-byte nonce is appended to msg.
 func (w *Worker) LeadingZerosWithNonce(msg []byte, nonce uint64) (int, error) {
-	buf := make([]byte, len(msg)+8)
+	buf := make([]byte, len(msg)+NonceBytes)
 	copy(buf, msg)
-	binary.BigEndian.PutUint64(buf[len(msg):], nonce)
+	putUint64(buf[len(msg):], nonce)
 
 	return w.LeadingZeros(buf)
 }
 
 func (w *Worker) worker(msg []byte, startNonce uint64, target int, done *uint32, counter *uint64) (uint64, error) {
-	buf := make([]byte, len(msg)+8)
+	buf := make([]byte, len(msg)+NonceBytes)
 	copy(buf, msg)
 	asAnInt := new(big.Int)
 
@@ -125,7 +128,7 @@ func (w *Worker) worker(msg []byte, startNonce uint64, target int, done *uint32,
 		atomic.AddUint64(counter, 1)
 
 		// write nonce in the buffer
-		binary.BigEndian.PutUint64(buf[len(msg):], nonce)
+		putUint64(buf[len(msg):], nonce)
 
 		digest, err := w.sum(buf)
 		if err != nil {
@@ -148,4 +151,8 @@ func (w *Worker) sum(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	return h.Sum(nil), nil
+}
+
+func putUint64(b []byte, v uint64) {
+	binary.LittleEndian.PutUint64(b, v)
 }

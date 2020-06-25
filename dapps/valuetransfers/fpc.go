@@ -79,7 +79,7 @@ func configureFPC() {
 	log = logger.NewLogger(FpcPluginName)
 	lPeer := local.GetInstance()
 
-	bindAddr := config.Node.GetString(CfgFPCBindAddress)
+	bindAddr := config.Node().GetString(CfgFPCBindAddress)
 	_, portStr, err := net.SplitHostPort(bindAddr)
 	if err != nil {
 		log.Fatalf("FPC bind address '%s' is invalid: %s", bindAddr, err)
@@ -96,12 +96,15 @@ func configureFPC() {
 	Voter().Events().RoundExecuted.Attach(events.NewClosure(func(roundStats *vote.RoundStats) {
 		peersQueried := len(roundStats.QueriedOpinions)
 		voteContextsCount := len(roundStats.ActiveVoteContexts)
-		log.Infof("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
+		log.Debugf("executed round with rand %0.4f for %d vote contexts on %d peers, took %v", roundStats.RandUsed, voteContextsCount, peersQueried, roundStats.Duration)
 	}))
 }
 
 func runFPC() {
-	if err := daemon.BackgroundWorker("FPCVoterServer", func(shutdownSignal <-chan struct{}) {
+	const ServerWorkerName = "FPCVoterServer"
+	if err := daemon.BackgroundWorker(ServerWorkerName, func(shutdownSignal <-chan struct{}) {
+		stopped := make(chan struct{})
+		bindAddr := config.Node().GetString(CfgFPCBindAddress)
 		voterServer = votenet.New(Voter(), func(id string) vote.Opinion {
 			branchID, err := branchmanager.BranchIDFromBase58(id)
 			if err != nil {
@@ -110,7 +113,7 @@ func runFPC() {
 				return vote.Unknown
 			}
 
-			cachedBranch := Tangle.BranchManager().Branch(branchID)
+			cachedBranch := _tangle.BranchManager().Branch(branchID)
 			defer cachedBranch.Release()
 
 			branch := cachedBranch.Unwrap()
@@ -123,21 +126,29 @@ func runFPC() {
 			}
 
 			return vote.Like
-		}, config.Node.GetString(CfgFPCBindAddress),
+		}, bindAddr,
 			metrics.Events().FPCInboundBytes,
 			metrics.Events().FPCOutboundBytes,
-			metrics.Events().QueryReceived)
+			metrics.Events().QueryReceived,
+		)
 
 		go func() {
+			log.Infof("%s started, bind-address=%s", ServerWorkerName, bindAddr)
 			if err := voterServer.Run(); err != nil {
-				log.Error(err)
+				log.Errorf("Error serving: %s", err)
 			}
+			close(stopped)
 		}()
 
-		log.Infof("Started vote server on %s", config.Node.GetString(CfgFPCBindAddress))
-		<-shutdownSignal
+		// stop if we are shutting down or the server could not be started
+		select {
+		case <-shutdownSignal:
+		case <-stopped:
+		}
+
+		log.Infof("Stopping %s ...", ServerWorkerName)
 		voterServer.Shutdown()
-		log.Info("Stopped vote server")
+		log.Infof("Stopping %s ... done", ServerWorkerName)
 	}, shutdown.PriorityFPC); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
@@ -152,7 +163,7 @@ func runFPC() {
 			select {
 			case r := <-unixTsPRNG.C():
 				if err := voter.Round(r); err != nil {
-					log.Errorf("unable to execute FPC round: %s", err)
+					log.Warnf("unable to execute FPC round: %s", err)
 				}
 			case <-shutdownSignal:
 				break exit

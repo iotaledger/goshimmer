@@ -37,7 +37,7 @@ func createMetricHeartbeat() *packet.MetricHeartbeat {
 		OwnID:  nodeID,
 		OS:     runtime.GOOS,
 		Arch:   runtime.GOARCH,
-		NumCPU: runtime.NumCPU(),
+		NumCPU: runtime.GOMAXPROCS(0),
 		// TODO: replace this with only the CPU usage of the GoShimmer process.
 		CPUUsage: func() (p float64) {
 			percent, err := cpu.Percent(time.Second, false)

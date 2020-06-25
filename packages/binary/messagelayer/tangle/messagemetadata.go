@@ -119,8 +119,8 @@ func (messageMetadata *MessageMetadata) ObjectStorageKey() []byte {
 func (messageMetadata *MessageMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteTime(messageMetadata.receivedTime).
-		WriteTime(messageMetadata.solidificationTime).
-		WriteBool(messageMetadata.solid).
+		WriteTime(messageMetadata.SoldificationTime()).
+		WriteBool(messageMetadata.IsSolid()).
 		Bytes()
 }
 

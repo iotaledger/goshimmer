@@ -13,13 +13,13 @@ require (
 	github.com/gobuffalo/packr/v2 v2.8.0
 	github.com/golang/protobuf v1.4.2
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20200622211038-2db5f8e0532d
-	github.com/iotaledger/iota.go v1.0.0-beta.15
+	github.com/iotaledger/hive.go v0.0.0-20200625105326-310ea88f1337
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/magiconair/properties v1.8.1
 	github.com/mr-tron/base58 v1.2.0
 	github.com/panjf2000/ants/v2 v2.4.1
+	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.7.0
 	github.com/shirou/gopsutil v2.20.5+incompatible
 	github.com/spf13/pflag v1.0.5
