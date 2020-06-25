@@ -66,7 +66,7 @@ func New(store kvstore.KVStore) (result *Tangle) {
 		Events: *newEvents(),
 	}
 
-	result.solidifierWorkerPool.Tune(runtime.NumCPU())
+	result.solidifierWorkerPool.Tune(runtime.GOMAXPROCS(0))
 	return
 }
 
