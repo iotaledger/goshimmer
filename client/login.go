@@ -11,7 +11,7 @@ const (
 )
 
 // Login authorizes this API instance against the web API.
-// You must call this function before any before any other call, if the web-auth plugin is enabled.
+// You must call this function before any other call, if the web-auth plugin is enabled.
 func (api *GoShimmerAPI) Login(username string, password string) error {
 	res := &webapi_auth.Response{}
 	if err := api.do(http.MethodPost, routeLogin,
