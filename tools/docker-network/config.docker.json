@@ -60,7 +60,7 @@
     "enablePlugins": []
   },
   "pow": {
-    "difficulty": 4,
+    "difficulty": 2,
     "numThreads": 1,
     "timeout": "10s"
   },
