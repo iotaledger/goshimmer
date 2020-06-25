@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	goSync "sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/spammer"
@@ -32,10 +33,19 @@ func init() {
 }
 
 var (
-	// Plugin is the plugin instance of the bootstrap plugin.
-	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	// plugin is the plugin instance of the bootstrap plugin.
+	plugin *node.Plugin
+	once goSync.Once
 	log    *logger.Logger
 )
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin =  node.NewPlugin(PluginName, node.Disabled, configure, run)
+	})
+	return plugin
+}
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
@@ -47,7 +57,7 @@ func configure(_ *node.Plugin) {
 func run(_ *node.Plugin) {
 
 	messageSpammer := spammer.New(issuer.IssuePayload)
-	issuancePeriodSec := config.Node.GetInt(CfgBootstrapInitialIssuanceTimePeriodSec)
+	issuancePeriodSec := config.Node().GetInt(CfgBootstrapInitialIssuanceTimePeriodSec)
 	issuancePeriod := time.Duration(issuancePeriodSec) * time.Second
 
 	// issue messages on top of the genesis

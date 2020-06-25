@@ -20,7 +20,7 @@ func run(*node.Plugin) {
 	// assure that the logger is available
 	log := logger.NewLogger(PluginName)
 
-	if node.IsSkipped(messagelayer.Plugin) {
+	if node.IsSkipped(messagelayer.Plugin()) {
 		log.Infof("%s is disabled; skipping %s\n", messagelayer.PluginName, PluginName)
 		return
 	}
@@ -28,6 +28,6 @@ func run(*node.Plugin) {
 	// assure that the PoW worker is initialized
 	worker := Worker()
 
-	messagelayer.MessageParser.AddBytesFilter(builtinfilters.NewPowFilter(worker, difficulty))
-	messagelayer.MessageFactory.SetWorker(messagefactory.WorkerFunc(DoPOW))
+	messagelayer.MessageParser().AddBytesFilter(builtinfilters.NewPowFilter(worker, difficulty))
+	messagelayer.MessageFactory().SetWorker(messagefactory.WorkerFunc(DoPOW))
 }

@@ -21,7 +21,7 @@ func Handler(c echo.Context) error {
 	var valueObjs []ValueObject
 
 	// get txn by txn id
-	txnObj := valuetransfers.Tangle.Transaction(txnID)
+	txnObj := valuetransfers.Tangle().Transaction(txnID)
 	defer txnObj.Release()
 	if !txnObj.Exists() {
 		return c.JSON(http.StatusNotFound, Response{Error: "Transaction not found"})
@@ -29,7 +29,7 @@ func Handler(c echo.Context) error {
 	txn := utils.ParseTransaction(txnObj.Unwrap())
 
 	// get attachements by txn id
-	for _, attachmentObj := range valuetransfers.Tangle.Attachments(txnID) {
+	for _, attachmentObj := range valuetransfers.Tangle().Attachments(txnID) {
 		defer attachmentObj.Release()
 		if !attachmentObj.Exists() {
 			continue
@@ -37,7 +37,7 @@ func Handler(c echo.Context) error {
 		attachment := attachmentObj.Unwrap()
 
 		// get payload by payload id
-		payloadObj := valuetransfers.Tangle.Payload(attachment.PayloadID())
+		payloadObj := valuetransfers.Tangle().Payload(attachment.PayloadID())
 		defer payloadObj.Release()
 		if !payloadObj.Exists() {
 			continue

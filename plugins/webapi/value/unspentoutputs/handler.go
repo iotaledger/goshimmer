@@ -28,11 +28,11 @@ func Handler(c echo.Context) error {
 
 		outputids := make([]OutputID, 0)
 		// get outputids by address
-		for id, cachedOutput := range valuetransfers.Tangle.OutputsOnAddress(address) {
+		for id, cachedOutput := range valuetransfers.Tangle().OutputsOnAddress(address) {
 			// TODO: don't do this in a for
 			defer cachedOutput.Release()
 			output := cachedOutput.Unwrap()
-			cachedTxMeta := valuetransfers.Tangle.TransactionMetadata(output.TransactionID())
+			cachedTxMeta := valuetransfers.Tangle().TransactionMetadata(output.TransactionID())
 			// TODO: don't do this in a for
 			defer cachedTxMeta.Release()
 

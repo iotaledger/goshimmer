@@ -36,8 +36,9 @@ const (
 )
 
 var (
-	// Plugin is the plugin instance of the remote plugin instance.
-	Plugin      = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	// plugin is the plugin instance of the remote plugin instance.
+	plugin      *node.Plugin
+	pluginOnce	sync.Once
 	log         *logger.Logger
 	myID        string
 	myGitHead   string
@@ -48,6 +49,14 @@ var (
 	remoteLoggerOnce sync.Once
 )
 
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	pluginOnce.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	})
+	return plugin
+}
+
 func init() {
 	flag.String(CfgLoggerRemotelogServerAddress, "remotelog.goshimmer.iota.cafe:5213", "RemoteLog server address")
 }
@@ -55,7 +64,7 @@ func init() {
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
-	if config.Node.GetBool(CfgDisableEvents) {
+	if config.Node().GetBool(CfgDisableEvents) {
 		log.Fatalf("%s in config.json needs to be false so that events can be captured!", CfgDisableEvents)
 		return
 	}
@@ -151,7 +160,7 @@ func getGitDir() string {
 // RemoteLogger represents a connection to our remote log server.
 func RemoteLogger() *RemoteLoggerConn {
 	remoteLoggerOnce.Do(func() {
-		r, err := newRemoteLoggerConn(config.Node.GetString(CfgLoggerRemotelogServerAddress))
+		r, err := newRemoteLoggerConn(config.Node().GetString(CfgLoggerRemotelogServerAddress))
 		if err != nil {
 			log.Fatal(err)
 			return

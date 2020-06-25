@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"errors"
-
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
@@ -14,15 +13,6 @@ import (
 var (
 	// ErrInvalidFPCHeartbeat is returned for invalid FPC heartbeats.
 	ErrInvalidFPCHeartbeat = errors.New("invalid FPC heartbeat")
-)
-
-var (
-	// FPCHeartbeatMessageDefinition defines a heartbeat message's format.
-	FPCHeartbeatMessageDefinition = &message.Definition{
-		ID:             MessageTypeFPCHeartbeat,
-		MaxBytesLength: 65535,
-		VariableLength: true,
-	}
 )
 
 // FPCHeartbeat represents a heartbeat packet.
@@ -34,6 +24,20 @@ type FPCHeartbeat struct {
 	RoundStats vote.RoundStats
 	// Finalized contains the finalized conflicts within the last FPC round.
 	Finalized map[string]vote.Opinion
+}
+
+// FPCHeartbeatMessageDefinition gets the fpcHeartbeatMessageDefinition.
+func FPCHeartbeatMessageDefinition() *message.Definition {
+	// fpcHeartbeatMessageDefinition defines a heartbeat message's format.
+	var fpcHeartbeatMessageDefinition *message.Definition
+	fpcHeartBeatOnce.Do(func(){
+		fpcHeartbeatMessageDefinition = &message.Definition{
+			ID:             MessageTypeFPCHeartbeat,
+			MaxBytesLength: 65535,
+			VariableLength: true,
+		}
+	})
+	return fpcHeartbeatMessageDefinition
 }
 
 // ParseFPCHeartbeat parses a slice of bytes (serialized packet) into a FPC heartbeat.

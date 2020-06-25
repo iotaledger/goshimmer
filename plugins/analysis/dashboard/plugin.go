@@ -19,12 +19,17 @@ import (
 const PluginName = "Analysis-Dashboard"
 
 var (
-	// Plugin is the plugin instance of the dashboard plugin.
-	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	// plugin is the plugin instance of the dashboard plugin.
+	plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
 
 	log    *logger.Logger
 	server *echo.Echo
 )
+
+// Plugin gets the plugin instance
+func Plugin() *node.Plugin {
+	return plugin
+}
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
@@ -40,10 +45,10 @@ func configureServer() {
 	server.HidePort = true
 	server.Use(middleware.Recover())
 
-	if config.Node.GetBool(CfgBasicAuthEnabled) {
+	if config.Node().GetBool(CfgBasicAuthEnabled) {
 		server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-			if username == config.Node.GetString(CfgBasicAuthUsername) &&
-				password == config.Node.GetString(CfgBasicAuthPassword) {
+			if username == config.Node().GetString(CfgBasicAuthUsername) &&
+				password == config.Node().GetString(CfgBasicAuthPassword) {
 				return true, nil
 			}
 			return false, nil
@@ -71,7 +76,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer log.Infof("Stopping %s ... done", PluginName)
 
 	stopped := make(chan struct{})
-	bindAddr := config.Node.GetString(CfgBindAddress)
+	bindAddr := config.Node().GetString(CfgBindAddress)
 	go func() {
 		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
 		if err := server.Start(bindAddr); err != nil {

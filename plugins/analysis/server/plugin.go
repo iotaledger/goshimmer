@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -36,12 +37,21 @@ func init() {
 }
 
 var (
-	// Plugin is the plugin instance of the analysis server plugin.
-	Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	// plugin is the plugin instance of the analysis server plugin.
+	plugin *node.Plugin
+	once   sync.Once
 	server *tcp.TCPServer
 	prot   *protocol.Protocol
 	log    *logger.Logger
 )
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	})
+	return plugin
+}
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
@@ -54,7 +64,7 @@ func configure(_ *node.Plugin) {
 }
 
 func run(_ *node.Plugin) {
-	bindAddr := config.Node.GetString(CfgAnalysisServerBindAddress)
+	bindAddr := config.Node().GetString(CfgAnalysisServerBindAddress)
 	addr, portStr, err := net.SplitHostPort(bindAddr)
 	if err != nil {
 		log.Fatal("invalid bind address in %s: %s", CfgAnalysisServerBindAddress, err)
@@ -69,7 +79,7 @@ func run(_ *node.Plugin) {
 		defer log.Infof("Stopping %s ... done", PluginName)
 
 		// connect protocol events to processors
-		prot = protocol.New(packet.AnalysisMsgRegistry)
+		prot = protocol.New(packet.AnalysisMsgRegistry())
 		wireUp(prot)
 
 		go server.Listen(addr, port)

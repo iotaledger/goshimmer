@@ -33,8 +33,8 @@ var (
 	// ErrParsingMasterNode is returned for an invalid master node.
 	ErrParsingMasterNode = errors.New("cannot parse master node")
 
-	// NetworkID specifies the autopeering network identifier.
-	NetworkID = hash32([]byte(banner.AppVersion + NetworkVersion))
+	// networkID specifies the autopeering network identifier.
+	networkID = hash32([]byte(banner.AppVersion + NetworkVersion))
 
 	// Conn contains the network connection.
 	Conn *NetConnMetric
@@ -56,6 +56,11 @@ var (
 	}{c: make(chan *server.Server, 1)}
 )
 
+// NetworkID gets the networkID.
+func NetworkID() uint32 {
+	return networkID
+}
+
 // Discovery returns the peer discovery instance.
 func Discovery() *discover.Protocol {
 	peerDiscOnce.Do(createPeerDisc)
@@ -71,7 +76,7 @@ func Selection() *selection.Protocol {
 // BindAddress returns the string form of the autopeering bind address.
 func BindAddress() string {
 	peering := local.GetInstance().Services().Get(service.PeeringKey)
-	host := config.Node.GetString(local.CfgBind)
+	host := config.Node().GetString(local.CfgBind)
 	port := strconv.Itoa(peering.Port())
 	return net.JoinHostPort(host, port)
 }
@@ -97,7 +102,7 @@ func createPeerDisc() {
 	}
 	log.Debugf("Master peers: %v", masterPeers)
 
-	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, NetworkID,
+	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, networkID,
 		discover.Logger(log),
 		discover.MasterPeers(masterPeers),
 	)
@@ -177,7 +182,7 @@ func hash32(b []byte) uint32 {
 }
 
 func parseEntryNodes() (result []*peer.Peer, err error) {
-	for _, entryNodeDefinition := range config.Node.GetStringSlice(CfgEntryNodes) {
+	for _, entryNodeDefinition := range config.Node().GetStringSlice(CfgEntryNodes) {
 		if entryNodeDefinition == "" {
 			continue
 		}

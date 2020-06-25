@@ -7,7 +7,6 @@ import (
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	drngpayload "github.com/iotaledger/goshimmer/packages/binary/drng/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tipselector"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/events"
@@ -34,7 +33,7 @@ func TestMessageCountPerPayload(t *testing.T) {
 func TestMessageTips(t *testing.T) {
 	var wg sync.WaitGroup
 	// messagelayer TipSelector not configured here, so to avoid nil pointer panic, we instantiate it
-	messagelayer.TipSelector = tipselector.New()
+	messagelayer.TipSelector()
 	metrics.Events().MessageTips.Attach(events.NewClosure(func(tips uint64) {
 		messageTips.Store(tips)
 		wg.Done()
