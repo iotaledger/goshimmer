@@ -16,7 +16,7 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 2,
+  "id": 1,
   "links": [],
   "panels": [
     {
@@ -33,6 +33,7 @@
     },
     {
       "datasource": "Prometheus",
+      "description": "Version number of node software.",
       "fieldConfig": {
         "defaults": {
           "custom": {},
@@ -95,21 +96,36 @@
     },
     {
       "datasource": "Prometheus",
-      "description": "1= node is synced, 0 = node is not synced",
+      "description": "Describes if the node is in synced state.",
       "fieldConfig": {
         "defaults": {
           "custom": {},
-          "mappings": [],
+          "mappings": [
+            {
+              "from": "",
+              "id": 0,
+              "operator": "",
+              "text": "No",
+              "to": "",
+              "type": 1,
+              "value": "0"
+            },
+            {
+              "from": "",
+              "id": 1,
+              "operator": "",
+              "text": "Yes",
+              "to": "",
+              "type": 1,
+              "value": "1"
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
@@ -154,6 +170,7 @@
     },
     {
       "datasource": "Prometheus",
+      "description": "Aggregated MPS for all message types in the communication layer.",
       "fieldConfig": {
         "defaults": {
           "custom": {},
@@ -211,6 +228,7 @@
     },
     {
       "datasource": "Prometheus",
+      "description": "Current CPU usage of the node.",
       "fieldConfig": {
         "defaults": {
           "custom": {},
@@ -268,6 +286,7 @@
     },
     {
       "datasource": "Prometheus",
+      "description": "Memory consumed by the node.",
       "fieldConfig": {
         "defaults": {
           "custom": {},
@@ -321,6 +340,7 @@
     },
     {
       "datasource": "Prometheus",
+      "description": "Size of the ledger database.",
       "fieldConfig": {
         "defaults": {
           "custom": {},
@@ -626,6 +646,7 @@
     },
     {
       "datasource": "Prometheus",
+      "description": "Number of currently connected neighbors.",
       "fieldConfig": {
         "defaults": {
           "custom": {},
@@ -677,11 +698,12 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Current Neighbor Count",
+      "title": "Current Neighbors",
       "type": "stat"
     },
     {
       "datasource": "Prometheus",
+      "description": "Calculated for each dropped neighbor.",
       "fieldConfig": {
         "defaults": {
           "custom": {},
@@ -1245,7 +1267,7 @@
       },
       "yaxes": [
         {
-          "format": "decbytes",
+          "format": "Bps",
           "label": null,
           "logBase": 1,
           "max": null,
@@ -1945,6 +1967,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
+      "description": "Describes how many FPC query requests the node has received.",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -2133,7 +2156,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
-      "description": "",
+      "description": "Describes how many FPC opinions were requested from the node.",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -2347,5 +2370,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "kjOQZ2ZMk",
-  "version": 4
+  "version": 5
 }
