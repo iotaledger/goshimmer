@@ -44,11 +44,15 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
             for (let i = 0; i < addr.output_ids.length; i++) {
                 let output = addr.output_ids[i];
 
-                let consumed = "Consumed: " 
+                let consumed = "Spent: ";
+                let conflicting = "Conflicting: false";
                 if (output.consumer_count) {
-                    consumed += output.consumer_count + " times";
+                    consumed += "true";
+                    if (output.consumer_count > 1) {
+                        conflicting = "Conflicting: true";
+                    }
                 } else {
-                    consumed += "none"
+                    consumed += "false";
                 }
 
                 let status = "Status: ";
@@ -81,6 +85,8 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
                             {status}
                             <br></br>
                             {consumed}
+                            <br></br>
+                            {conflicting}
                             <br></br>
                             {'Balance:'} {balances}   
                         </small>
