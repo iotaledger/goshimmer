@@ -45,6 +45,7 @@ var (
 	log        *logger.Logger
 )
 
+// App returns the plugin instance of the faucet dApp.
 func App() *node.Plugin {
 	pluginOnce.Do(func() {
 		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
