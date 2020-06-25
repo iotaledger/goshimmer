@@ -25,7 +25,7 @@ type Peer struct {
 	// the DockerContainer that this peer is running in
 	*DockerContainer
 
-	// Wallet
+	// Seed
 	*wallet.Seed
 
 	chosen   []autopeering.Neighbor
