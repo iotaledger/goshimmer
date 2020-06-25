@@ -1,6 +1,7 @@
 package faucet
 
 import (
+	"runtime"
 	"sync"
 	"time"
 
@@ -8,11 +9,14 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 )
@@ -38,11 +42,14 @@ func init() {
 
 var (
 	// App is the "plugin" instance of the faucet application.
-	plugin     *node.Plugin
-	pluginOnce sync.Once
-	_faucet    *faucet.Faucet
-	faucetOnce sync.Once
-	log        *logger.Logger
+	plugin                 *node.Plugin
+	pluginOnce             sync.Once
+	_faucet                *faucet.Faucet
+	faucetOnce             sync.Once
+	log                    *logger.Logger
+	fundingWorkerPool      *workerpool.WorkerPool
+	fundingWorkerCount     = runtime.GOMAXPROCS(0)
+	fundingWorkerQueueSize = 500
 )
 
 // App returns the plugin instance of the faucet dApp.
@@ -80,34 +87,47 @@ func Faucet() *faucet.Faucet {
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	Faucet()
+
+	fundingWorkerPool = workerpool.New(func(task workerpool.Task) {
+		msg := task.Param(0).(*message.Message)
+		addr := msg.Payload().(*faucetpayload.Payload).Address()
+		_, txID, err := Faucet().SendFunds(msg)
+		if err != nil {
+			log.Errorf("couldn't fulfill funding request to %s: %s", addr, err)
+			return
+		}
+		log.Infof("sent funds to address %s via tx %s", addr, txID)
+	}, workerpool.WorkerCount(fundingWorkerCount), workerpool.QueueSize(fundingWorkerQueueSize))
+
 	configureEvents()
 }
 
-func configureEvents() {
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *tangle.CachedMessageMetadata) {
-		defer cachedTransaction.Release()
-		cachedTransactionMetadata.Release()
-
-		msg := cachedTransaction.Unwrap()
-		if msg == nil {
-			log.Errorf("failed to unwrap cachedTransaction")
-			return
-		}
-
-		if !faucetpayload.IsFaucetReq(msg) {
-			return
-		}
-		log.Info("got a faucet request")
-
-		// send funds
-		addr := msg.Payload().(*faucetpayload.Payload).Address()
-		msg, txID, err := Faucet().SendFunds(msg)
-		if err != nil {
-			log.Errorf("failed to send funds: %s", err)
-			return
-		}
-		log.Infof("sent funds to address %s via tx %s embedded in message %s", addr, txID, msg.Id().String())
-	}))
+func run(*node.Plugin) {
+	if err := daemon.BackgroundWorker("[Faucet]", func(shutdownSignal <-chan struct{}) {
+		fundingWorkerPool.Start()
+		defer fundingWorkerPool.Stop()
+		<-shutdownSignal
+	}, shutdown.PriorityFaucet); err != nil {
+		log.Panicf("Failed to start daemon: %s", err)
+	}
 }
 
-func run(*node.Plugin) {}
+func configureEvents() {
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		defer cachedMessage.Release()
+		defer cachedMessageMetadata.Release()
+
+		msg := cachedMessage.Unwrap()
+		if msg == nil || !faucetpayload.IsFaucetReq(msg) {
+			return
+		}
+
+		addr := msg.Payload().(*faucetpayload.Payload).Address()
+		_, added := fundingWorkerPool.TrySubmit(msg)
+		if !added {
+			log.Info("dropped funding request for address %s as queue is full", addr)
+			return
+		}
+		log.Infof("enqueued funding request for address %s", addr)
+	}))
+}
