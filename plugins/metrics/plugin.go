@@ -130,6 +130,7 @@ func registerLocalMetrics() {
 	}))
 
 	gossip.Manager().Events().NeighborRemoved.Attach(onNeighborRemoved)
+	gossip.Manager().Events().NeighborAdded.Attach(onNeighborAdded)
 
 	autopeering.Selection().Events().IncomingPeering.Attach(onAutopeeringSelection)
 	autopeering.Selection().Events().OutgoingPeering.Attach(onAutopeeringSelection)

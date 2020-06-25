@@ -58,7 +58,7 @@ func registerAutopeeringMetrics() {
 func collectAutopeeringMetrics() {
 	neighborDropCount.Set(float64(metrics.NeighborDropCount()))
 	avgNeighborConnectionLifeTime.Set(metrics.AvgNeighborConnectionLifeTime())
-	connectionsCount.Set(float64(metrics.ConnectionsCount()))
+	connectionsCount.Set(float64(metrics.NeighborConnectionsCount()))
 	min, max, avg := metrics.AutopeeringDistanceStats()
 	minDistance.Set(float64(min))
 	maxDistance.Set(float64(max))
