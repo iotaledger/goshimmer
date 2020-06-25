@@ -90,7 +90,6 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
                             <br></br>
                             {'Balance:'} {balances}   
                         </small>
-                        
                     </ListGroup.Item>
                 );
             }

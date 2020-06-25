@@ -28,6 +28,8 @@ func run(*node.Plugin) {
 	// assure that the PoW worker is initialized
 	worker := Worker()
 
+	log.Infof("%s started: difficult=%d", PluginName, difficulty)
+
 	messagelayer.MessageParser().AddBytesFilter(builtinfilters.NewPowFilter(worker, difficulty))
 	messagelayer.MessageFactory().SetWorker(messagefactory.WorkerFunc(DoPOW))
 }
