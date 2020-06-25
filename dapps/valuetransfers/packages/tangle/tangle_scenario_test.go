@@ -44,7 +44,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 	// initialize tangle with genesis block (+GENESIS)
 	tangle.LoadSnapshot(map[transaction.ID]map[address.Address][]*balance.Balance{
 		transaction.GenesisID: {
-			seed.Address(GENESIS): {
+			seed.Address(GENESIS).Address: {
 				balance.New(balance.ColorIOTA, 3333),
 			},
 		},
@@ -60,17 +60,17 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		// create transaction + payload
 		transactions["[-GENESIS, A+, B+, C+]"] = transaction.New(
 			transaction.NewInputs(
-				transaction.NewOutputID(seed.Address(GENESIS), transaction.GenesisID),
+				transaction.NewOutputID(seed.Address(GENESIS).Address, transaction.GenesisID),
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
-				seed.Address(A): {
+				seed.Address(A).Address: {
 					balance.New(balance.ColorIOTA, 1111),
 				},
-				seed.Address(B): {
+				seed.Address(B).Address: {
 					balance.New(balance.ColorIOTA, 1111),
 				},
-				seed.Address(C): {
+				seed.Address(C).Address: {
 					balance.New(balance.ColorIOTA, 1111),
 				},
 			}),
@@ -103,7 +103,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address GENESIS is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(GENESIS)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(GENESIS).Address).Consume(func(output *Output) {
 			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 3333)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -111,7 +111,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address A is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(A)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(A).Address).Consume(func(output *Output) {
 			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -119,7 +119,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address B is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(B)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(B).Address).Consume(func(output *Output) {
 			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -127,7 +127,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address C is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(C)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(C).Address).Consume(func(output *Output) {
 			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -140,11 +140,11 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		// create transaction + payload
 		transactions["[-A, D+]"] = transaction.New(
 			transaction.NewInputs(
-				transaction.NewOutputID(seed.Address(A), transactions["[-GENESIS, A+, B+, C+]"].ID()),
+				transaction.NewOutputID(seed.Address(A).Address, transactions["[-GENESIS, A+, B+, C+]"].ID()),
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
-				seed.Address(D): {
+				seed.Address(D).Address: {
 					balance.New(balance.ColorIOTA, 1111),
 				},
 			}),
@@ -177,7 +177,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address A is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(A)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(A).Address).Consume(func(output *Output) {
 			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -185,7 +185,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address D is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(D)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(D).Address).Consume(func(output *Output) {
 			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -198,12 +198,12 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		// create transaction + payload
 		transactions["[-B, -C, E+]"] = transaction.New(
 			transaction.NewInputs(
-				transaction.NewOutputID(seed.Address(B), transactions["[-GENESIS, A+, B+, C+]"].ID()),
-				transaction.NewOutputID(seed.Address(C), transactions["[-GENESIS, A+, B+, C+]"].ID()),
+				transaction.NewOutputID(seed.Address(B).Address, transactions["[-GENESIS, A+, B+, C+]"].ID()),
+				transaction.NewOutputID(seed.Address(C).Address, transactions["[-GENESIS, A+, B+, C+]"].ID()),
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
-				seed.Address(E): {
+				seed.Address(E).Address: {
 					balance.New(balance.ColorIOTA, 2222),
 				},
 			}),
@@ -237,7 +237,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address B is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(B)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(B).Address).Consume(func(output *Output) {
 			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -245,7 +245,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address C is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(C)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(C).Address).Consume(func(output *Output) {
 			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -253,7 +253,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address E is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(E)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(E).Address).Consume(func(output *Output) {
 			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 2222)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -285,7 +285,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address B is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(B)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(B).Address).Consume(func(output *Output) {
 			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -293,7 +293,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address C is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(C)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(C).Address).Consume(func(output *Output) {
 			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -301,7 +301,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address E is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(E)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(E).Address).Consume(func(output *Output) {
 			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 2222)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -312,14 +312,14 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 	// [-A, F+]
 	{
 		// create transaction + payload
-		outputA := transaction.NewOutputID(seed.Address(A), transactions["[-GENESIS, A+, B+, C+]"].ID())
+		outputA := transaction.NewOutputID(seed.Address(A).Address, transactions["[-GENESIS, A+, B+, C+]"].ID())
 		transactions["[-A, F+]"] = transaction.New(
 			transaction.NewInputs(
 				outputA,
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
-				seed.Address(F): {
+				seed.Address(F).Address: {
 					balance.New(balance.ColorIOTA, 1111),
 				},
 			}),
@@ -357,7 +357,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address A is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(A)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(A).Address).Consume(func(output *Output) {
 			assert.Equal(t, 2, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -365,7 +365,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address F is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(F)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(F).Address).Consume(func(output *Output) {
 			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branches["B"], output.BranchID(), "the output was booked into the wrong branch")
@@ -373,7 +373,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address D is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(D)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(D).Address).Consume(func(output *Output) {
 			assert.Equal(t, 0, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branches["A"], output.BranchID(), "the output was booked into the wrong branch")
@@ -397,12 +397,12 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		// create transaction + payload
 		transactions["[-E, -F, G+]"] = transaction.New(
 			transaction.NewInputs(
-				transaction.NewOutputID(seed.Address(E), transactions["[-B, -C, E+]"].ID()),
-				transaction.NewOutputID(seed.Address(F), transactions["[-A, F+]"].ID()),
+				transaction.NewOutputID(seed.Address(E).Address, transactions["[-B, -C, E+]"].ID()),
+				transaction.NewOutputID(seed.Address(F).Address, transactions["[-A, F+]"].ID()),
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
-				seed.Address(G): {
+				seed.Address(G).Address: {
 					balance.New(balance.ColorIOTA, 3333),
 				},
 			}),
@@ -436,7 +436,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address E is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(E)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(E).Address).Consume(func(output *Output) {
 			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 2222)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -444,7 +444,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address F is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(F)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(F).Address).Consume(func(output *Output) {
 			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branches["B"], output.BranchID(), "the output was booked into the wrong branch")
@@ -452,7 +452,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address G is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(G)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(G).Address).Consume(func(output *Output) {
 			assert.Equal(t, 0, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 3333)}, output.Balances())
 			assert.Equal(t, branches["B"], output.BranchID(), "the output was booked into the wrong branch")
@@ -465,12 +465,12 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		// create transaction + payload
 		transactions["[-F, -D, Y+]"] = transaction.New(
 			transaction.NewInputs(
-				transaction.NewOutputID(seed.Address(D), transactions["[-A, D+]"].ID()),
-				transaction.NewOutputID(seed.Address(F), transactions["[-A, F+]"].ID()),
+				transaction.NewOutputID(seed.Address(D).Address, transactions["[-A, D+]"].ID()),
+				transaction.NewOutputID(seed.Address(F).Address, transactions["[-A, F+]"].ID()),
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
-				seed.Address(Y): {
+				seed.Address(Y).Address: {
 					balance.New(balance.ColorIOTA, 2222),
 				},
 			}),
@@ -500,8 +500,8 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}), "the should be approvers of the referenced output")
 		assert.False(t, tangle.Approvers(valueObjects["[-A, D+]"].ID()).Consume(func(approver *PayloadApprover) {}), "approvers should be empty")
 		assert.False(t, tangle.Attachments(transactions["[-F, -D, Y+]"].ID()).Consume(func(attachment *Attachment) {}), "the transaction should not have any attachments")
-		assert.False(t, tangle.Consumers(transaction.NewOutputID(seed.Address(D), transactions["[-A, D+]"].ID())).Consume(func(consumer *Consumer) {}), "the consumers of the used input should be empty")
-		assert.True(t, tangle.Consumers(transaction.NewOutputID(seed.Address(F), transactions["[-A, F+]"].ID())).Consume(func(consumer *Consumer) {
+		assert.False(t, tangle.Consumers(transaction.NewOutputID(seed.Address(D).Address, transactions["[-A, D+]"].ID())).Consume(func(consumer *Consumer) {}), "the consumers of the used input should be empty")
+		assert.True(t, tangle.Consumers(transaction.NewOutputID(seed.Address(F).Address, transactions["[-A, F+]"].ID())).Consume(func(consumer *Consumer) {
 			assert.NotEqual(t, consumer.TransactionID(), transactions["[-F, -D, Y+]"].ID(), "the consumers should not contain the invalid transaction")
 		}), "the consumers should not be empty")
 	}
@@ -548,14 +548,14 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 	// [-C, H+]
 	{
 		// create transaction + payload
-		outputC := transaction.NewOutputID(seed.Address(C), transactions["[-GENESIS, A+, B+, C+]"].ID())
+		outputC := transaction.NewOutputID(seed.Address(C).Address, transactions["[-GENESIS, A+, B+, C+]"].ID())
 		transactions["[-C, H+]"] = transaction.New(
 			transaction.NewInputs(
 				outputC,
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
-				seed.Address(H): {
+				seed.Address(H).Address: {
 					balance.New(balance.ColorIOTA, 1111),
 				},
 			}),
@@ -594,7 +594,7 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address C is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(C)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(C).Address).Consume(func(output *Output) {
 			assert.Equal(t, 2, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -602,7 +602,7 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address H is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(H)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(H).Address).Consume(func(output *Output) {
 			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branches["C"], output.BranchID(), "the output was booked into the wrong branch")
@@ -655,12 +655,12 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 		// create transaction + payload
 		transactions["[-H, -D, I+]"] = transaction.New(
 			transaction.NewInputs(
-				transaction.NewOutputID(seed.Address(H), transactions["[-C, H+]"].ID()),
-				transaction.NewOutputID(seed.Address(D), transactions["[-A, D+]"].ID()),
+				transaction.NewOutputID(seed.Address(H).Address, transactions["[-C, H+]"].ID()),
+				transaction.NewOutputID(seed.Address(D).Address, transactions["[-A, D+]"].ID()),
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
-				seed.Address(I): {
+				seed.Address(I).Address: {
 					balance.New(balance.ColorIOTA, 2222),
 				},
 			}),
@@ -697,7 +697,7 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address H is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(H)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(H).Address).Consume(func(output *Output) {
 			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branches["C"], output.BranchID(), "the output was booked into the wrong branch")
@@ -705,7 +705,7 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address D is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(D)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(D).Address).Consume(func(output *Output) {
 			assert.Equal(t, 1, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branches["A"], output.BranchID(), "the output was booked into the wrong branch")
@@ -713,7 +713,7 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address I is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(I)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(I).Address).Consume(func(output *Output) {
 			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 2222)}, output.Balances())
 			assert.Equal(t, branches["AC"], output.BranchID(), "the output was booked into the wrong branch")
@@ -726,11 +726,11 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 		// create transaction + payload
 		transactions["[-B, J+]"] = transaction.New(
 			transaction.NewInputs(
-				transaction.NewOutputID(seed.Address(B), transactions["[-GENESIS, A+, B+, C+]"].ID()),
+				transaction.NewOutputID(seed.Address(B).Address, transactions["[-GENESIS, A+, B+, C+]"].ID()),
 			),
 
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
-				seed.Address(J): {
+				seed.Address(J).Address: {
 					balance.New(balance.ColorIOTA, 1111),
 				},
 			}),
@@ -769,7 +769,7 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address B is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(B)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(B).Address).Consume(func(output *Output) {
 			assert.Equal(t, 2, output.ConsumerCount(), "the output should be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branchmanager.MasterBranchID, output.BranchID(), "the output was booked into the wrong branch")
@@ -777,7 +777,7 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 
 		// check if the balance on address J is found in the database
-		assert.True(t, tangle.OutputsOnAddress(seed.Address(J)).Consume(func(output *Output) {
+		assert.True(t, tangle.OutputsOnAddress(seed.Address(J).Address).Consume(func(output *Output) {
 			assert.Equal(t, 0, output.ConsumerCount(), "the output should not be spent")
 			assert.Equal(t, []*balance.Balance{balance.New(balance.ColorIOTA, 1111)}, output.Balances())
 			assert.Equal(t, branches["E"], output.BranchID(), "the output was booked into the wrong branch")
