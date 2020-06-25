@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
@@ -15,7 +16,13 @@ import (
 // It can be reused with different payload that only contains one field.
 type BasicPayload struct {
 	ContentTitle string `json:"content_title"`
-	Bytes        []byte `json:"bytes"`
+	Content      []byte `json:"content"`
+}
+
+// BasicStringPayload contains content title and string content
+type BasicStringPayload struct {
+	ContentTitle string `json:"content_title"`
+	Content      string `json:"content"`
 }
 
 // DrngPayload contains the subtype of drng payload, instance Id
@@ -70,7 +77,13 @@ func ProcessPayload(p payload.Payload) interface{} {
 		// data payload
 		return BasicPayload{
 			ContentTitle: "Data",
-			Bytes:        p.(*payload.Data).Data(),
+			Content:      p.(*payload.Data).Data(),
+		}
+	case faucetpayload.Type:
+		// faucet payload
+		return BasicStringPayload{
+			ContentTitle: "address",
+			Content:      p.(*faucetpayload.Payload).Address().String(),
 		}
 	case drngpayload.Type:
 		// drng payload
@@ -81,7 +94,7 @@ func ProcessPayload(p payload.Payload) interface{} {
 		// unknown payload
 		return BasicPayload{
 			ContentTitle: "Bytes",
-			Bytes:        p.Bytes(),
+			Content:      p.Bytes(),
 		}
 	}
 }
@@ -106,7 +119,7 @@ func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 	default:
 		subpayload = BasicPayload{
 			ContentTitle: "bytes",
-			Bytes:        drngPayload.Bytes(),
+			Content:      drngPayload.Bytes(),
 		}
 	}
 	return DrngPayload{

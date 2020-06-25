@@ -104,6 +104,9 @@ func configure(_ *node.Plugin) {
 	// configure Tangle
 	_tangle = Tangle()
 
+	// configure LedgerState
+	ledgerState = tangle.NewLedgerState(Tangle())
+
 	// read snapshot file
 	snapshotFilePath := config.Node().GetString(CfgValueLayerSnapshotFile)
 	if len(snapshotFilePath) != 0 {

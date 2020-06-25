@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/iotaledger/goshimmer/dapps/faucet"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -41,5 +42,6 @@ var PLUGINS = node.Plugins(
 	gracefulshutdown.Plugin(),
 	metrics.Plugin(),
 	drng.Plugin(),
+	faucet.App(),
 	valuetransfers.App(),
 )
