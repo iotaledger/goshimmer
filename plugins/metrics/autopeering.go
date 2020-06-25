@@ -7,6 +7,7 @@ import (
 	gossipPkg "github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/events"
+	"go.uber.org/atomic"
 )
 
 var (
@@ -14,11 +15,12 @@ var (
 	neighborConnectionsLifeTime time.Duration
 	neighborMutex               sync.RWMutex
 
-	connectionsCount uint64
-	sumDistance      uint64
-	minDistance      = uint64(^uint32(0))
-	maxDistance      uint64
-	distanceMutex    sync.RWMutex
+	neighborConnectionsCount    atomic.Uint64
+	autopeeringConnectionsCount uint64
+	sumDistance                 uint64
+	minDistance                 = uint64(^uint32(0))
+	maxDistance                 uint64
+	distanceMutex               sync.RWMutex
 )
 
 var (
@@ -29,10 +31,14 @@ var (
 		neighborConnectionsLifeTime += time.Since(n.ConnectionEstablished())
 	})
 
+	onNeighborAdded = events.NewClosure(func(_ *gossipPkg.Neighbor) {
+		neighborConnectionsCount.Inc()
+	})
+
 	onAutopeeringSelection = events.NewClosure(func(ev *selection.PeeringEvent) {
 		distanceMutex.Lock()
 		defer distanceMutex.Unlock()
-		connectionsCount++
+		autopeeringConnectionsCount++
 		distance := uint64(ev.Distance)
 		if distance < minDistance {
 			minDistance = distance
@@ -61,11 +67,9 @@ func AvgNeighborConnectionLifeTime() float64 {
 	return float64(neighborConnectionsLifeTime.Milliseconds()) / float64(neighborDropCount)
 }
 
-// ConnectionsCount returns the neighbors connections count.
-func ConnectionsCount() uint64 {
-	distanceMutex.RLock()
-	defer distanceMutex.RUnlock()
-	return connectionsCount
+// NeighborConnectionsCount returns the neighbors connections count.
+func NeighborConnectionsCount() uint64 {
+	return neighborConnectionsCount.Load()
 }
 
 // AutopeeringDistanceStats returns statistics of the autopeering distance function.
@@ -73,10 +77,10 @@ func AutopeeringDistanceStats() (min, max uint64, avg float64) {
 	distanceMutex.RLock()
 	defer distanceMutex.RUnlock()
 	min, max = minDistance, maxDistance
-	if connectionsCount == 0 {
+	if autopeeringConnectionsCount == 0 {
 		avg = 0
 		return
 	}
-	avg = float64(sumDistance) / float64(connectionsCount)
+	avg = float64(sumDistance) / float64(autopeeringConnectionsCount)
 	return
 }

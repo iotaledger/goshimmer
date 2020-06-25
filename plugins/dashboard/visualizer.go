@@ -80,14 +80,14 @@ func runVisualizer() {
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(shutdownSignal <-chan struct{}) {
-		messagelayer.Tangle.Events.MessageAttached.Attach(notifyNewMsg)
-		defer messagelayer.Tangle.Events.MessageAttached.Detach(notifyNewMsg)
-		messagelayer.Tangle.Events.MessageSolid.Attach(notifyNewMsg)
-		defer messagelayer.Tangle.Events.MessageSolid.Detach(notifyNewMsg)
-		messagelayer.TipSelector.Events.TipAdded.Attach(notifyNewTip)
-		defer messagelayer.TipSelector.Events.TipAdded.Detach(notifyNewTip)
-		messagelayer.TipSelector.Events.TipRemoved.Attach(notifyDeletedTip)
-		defer messagelayer.TipSelector.Events.TipRemoved.Detach(notifyDeletedTip)
+		messagelayer.Tangle().Events.MessageAttached.Attach(notifyNewMsg)
+		defer messagelayer.Tangle().Events.MessageAttached.Detach(notifyNewMsg)
+		messagelayer.Tangle().Events.MessageSolid.Attach(notifyNewMsg)
+		defer messagelayer.Tangle().Events.MessageSolid.Detach(notifyNewMsg)
+		messagelayer.TipSelector().Events.TipAdded.Attach(notifyNewTip)
+		defer messagelayer.TipSelector().Events.TipAdded.Detach(notifyNewTip)
+		messagelayer.TipSelector().Events.TipRemoved.Attach(notifyDeletedTip)
+		defer messagelayer.TipSelector().Events.TipRemoved.Detach(notifyDeletedTip)
 		visualizerWorkerPool.Start()
 		<-shutdownSignal
 		log.Info("Stopping Dashboard[Visualizer] ...")

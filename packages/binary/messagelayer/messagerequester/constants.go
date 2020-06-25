@@ -5,6 +5,6 @@ import (
 )
 
 const (
-	DefaultRequestWorkerCount = 1024
-	DefaultRetryInterval      = 10 * time.Second
+	// DefaultRetryInterval defines the Default Retry Interval of the message requester.
+	DefaultRetryInterval = 10 * time.Second
 )

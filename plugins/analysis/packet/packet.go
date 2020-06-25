@@ -2,6 +2,7 @@ package packet
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
@@ -12,16 +13,25 @@ var (
 	ErrMalformedPacket = errors.New("malformed packet")
 )
 
-// AnalysisMsgRegistry holds all message definitions for analysis server related messages
-var AnalysisMsgRegistry *message.Registry
+var (
+	// analysisMsgRegistry holds all message definitions for analysis server related messages
+	analysisMsgRegistry *message.Registry
+	fpcHeartBeatOnce    sync.Once
+	heartBeatOnce       sync.Once
+)
 
 func init() {
 	// message definitions to be registered in registry
 	definitions := []*message.Definition{
 		tlv.HeaderMessageDefinition,
-		HeartbeatMessageDefinition,
-		FPCHeartbeatMessageDefinition,
+		HeartBeatMessageDefinition(),
+		FPCHeartbeatMessageDefinition(),
 		MetricHeartbeatMessageDefinition,
 	}
-	AnalysisMsgRegistry = message.NewRegistry(definitions)
+	analysisMsgRegistry = message.NewRegistry(definitions)
+}
+
+// AnalysisMsgRegistry gets the analysisMsgRegistry.
+func AnalysisMsgRegistry() *message.Registry {
+	return analysisMsgRegistry
 }

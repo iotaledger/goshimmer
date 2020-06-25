@@ -28,7 +28,7 @@ var appBox = packr.New("AnalysisDashboard_App", "./frontend/build")
 var assetsBox = packr.New("AnalysisDashboard_Assets", "./frontend/src/assets")
 
 func indexRoute(e echo.Context) error {
-	if config.Node.GetBool(CfgDev) {
+	if config.Node().GetBool(CfgDev) {
 		res, err := http.Get("http://127.0.0.1:9090/")
 		if err != nil {
 			return err
@@ -48,7 +48,7 @@ func indexRoute(e echo.Context) error {
 
 func setupRoutes(e *echo.Echo) {
 
-	if config.Node.GetBool("analysis.dashboard.dev") {
+	if config.Node().GetBool("analysis.dashboard.dev") {
 		e.Static("/assets", "./plugins/analysis/dashboard/frontend/src/assets")
 	} else {
 

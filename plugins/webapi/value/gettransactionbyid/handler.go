@@ -17,12 +17,12 @@ func Handler(c echo.Context) error {
 	}
 
 	// get txn by txn id
-	cachedTxnMetaObj := valuetransfers.Tangle.TransactionMetadata(txnID)
+	cachedTxnMetaObj := valuetransfers.Tangle().TransactionMetadata(txnID)
 	defer cachedTxnMetaObj.Release()
 	if !cachedTxnMetaObj.Exists() {
 		return c.JSON(http.StatusNotFound, Response{Error: "Transaction not found"})
 	}
-	cachedTxnObj := valuetransfers.Tangle.Transaction(txnID)
+	cachedTxnObj := valuetransfers.Tangle().Transaction(txnID)
 	defer cachedTxnObj.Release()
 	if !cachedTxnObj.Exists() {
 		return c.JSON(http.StatusNotFound, Response{Error: "Transaction not found"})

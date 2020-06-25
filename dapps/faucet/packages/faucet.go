@@ -113,8 +113,8 @@ func (f *Faucet) awaitTransactionBooked(txID transaction.ID, maxAwait time.Durat
 		case <-exit:
 		}
 	})
-	valuetransfers.Tangle.Events.TransactionBooked.Attach(closure)
-	defer valuetransfers.Tangle.Events.TransactionBooked.Detach(closure)
+	valuetransfers.Tangle().Events.TransactionBooked.Attach(closure)
+	defer valuetransfers.Tangle().Events.TransactionBooked.Detach(closure)
 	select {
 	case <-time.After(maxAwait):
 		return false
@@ -132,7 +132,7 @@ func (f *Faucet) collectUTXOsForFunding() (outputIds []transaction.OutputID, rem
 	// get a list of address for inputs
 	for i = 0; total > 0; i++ {
 		addr := f.wallet.Seed().Address(i)
-		valuetransfers.Tangle.OutputsOnAddress(addr).Consume(func(output *tangle.Output) {
+		valuetransfers.Tangle().OutputsOnAddress(addr).Consume(func(output *tangle.Output) {
 			if output.ConsumerCount() > 0 || total == 0 {
 				return
 			}
@@ -161,7 +161,7 @@ func (f *Faucet) nextUnusedAddress() address.Address {
 	var index uint64
 	for index = 0; ; index++ {
 		addr := f.wallet.Seed().Address(index)
-		cachedOutputs := valuetransfers.Tangle.OutputsOnAddress(addr)
+		cachedOutputs := valuetransfers.Tangle().OutputsOnAddress(addr)
 		if len(cachedOutputs) == 0 {
 			// unused address
 			cachedOutputs.Release()

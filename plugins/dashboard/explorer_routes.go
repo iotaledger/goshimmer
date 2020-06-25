@@ -30,7 +30,7 @@ type ExplorerMessage struct {
 
 func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
 	messageID := msg.Id()
-	messageMetadata := messagelayer.Tangle.MessageMetadata(messageID)
+	messageMetadata := messagelayer.Tangle().MessageMetadata(messageID)
 	t := &ExplorerMessage{
 		ID:              messageID.String(),
 		Timestamp:       0,
@@ -119,7 +119,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 }
 
 func findMessage(messageID message.Id) (explorerMsg *ExplorerMessage, err error) {
-	if !messagelayer.Tangle.Message(messageID).Consume(func(msg *message.Message) {
+	if !messagelayer.Tangle().Message(messageID).Consume(func(msg *message.Message) {
 		explorerMsg, err = createExplorerMessage(msg)
 	}) {
 		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.String())

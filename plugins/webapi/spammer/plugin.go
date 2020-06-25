@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"sync"
 )
 
 var messageSpammer *spammer.Spammer
@@ -15,15 +16,25 @@ var messageSpammer *spammer.Spammer
 // PluginName is the name of the spammer plugin.
 const PluginName = "Spammer"
 
-// Plugin is the plugin instance of the spammer plugin.
-var Plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+var (
+	// plugin is the plugin instance of the spammer plugin.
+	plugin *node.Plugin
+	once sync.Once
+	log *logger.Logger
+)
 
-var log *logger.Logger
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	})
+	return plugin
+}
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	messageSpammer = spammer.New(issuer.IssuePayload)
-	webapi.Server.GET("spammer", handleRequest)
+	webapi.Server().GET("spammer", handleRequest)
 }
 
 func run(*node.Plugin) {

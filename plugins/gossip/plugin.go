@@ -13,17 +13,28 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"sync"
 )
 
 // PluginName is the name of the gossip plugin.
 const PluginName = "Gossip"
 
 var (
-	// Plugin is the plugin instance of the gossip plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	// plugin is the plugin instance of the gossip plugin.
+	plugin *node.Plugin
+	once sync.Once
 
 	log *logger.Logger
 )
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
+	return plugin
+}
+
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
@@ -104,11 +115,11 @@ func configureMessageLayer() {
 
 	// configure flow of incoming messages
 	mgr.Events().MessageReceived.Attach(events.NewClosure(func(event *gossip.MessageReceivedEvent) {
-		messagelayer.MessageParser.Parse(event.Data, event.Peer)
+		messagelayer.MessageParser().Parse(event.Data, event.Peer)
 	}))
 
 	// configure flow of outgoing messages (gossip on solidification)
-	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
 		cachedMessageMetadata.Release()
 		cachedMessage.Consume(func(msg *message.Message) {
 			mgr.SendMessage(msg.Bytes())
@@ -116,7 +127,7 @@ func configureMessageLayer() {
 	}))
 
 	// request missing messages
-	messagelayer.MessageRequester.Events.SendRequest.Attach(events.NewClosure(func(messageId message.Id) {
+	messagelayer.MessageRequester().Events.SendRequest.Attach(events.NewClosure(func(messageId message.Id) {
 		mgr.RequestMessage(messageId[:])
 	}))
 }

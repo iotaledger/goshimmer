@@ -27,7 +27,7 @@ func registerDBMetrics() {
 }
 
 func collectDBSize() {
-	size, err := directorySize(config.Node.GetString(database.CfgDatabaseDir))
+	size, err := directorySize(config.Node().GetString(database.CfgDatabaseDir))
 	if err == nil {
 		dbSize.Set(float64(size))
 	}

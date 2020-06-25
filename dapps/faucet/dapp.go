@@ -18,7 +18,8 @@ import (
 )
 
 const (
-	name = "Faucet" // name of the plugin
+	// PluginName is the name of the faucet dApp.
+	PluginName = "Faucet"
 
 	// CfgFaucetSeed defines the base58 encoded seed the faucet uses.
 	CfgFaucetSeed = "faucet.seed"
@@ -37,16 +38,24 @@ func init() {
 
 var (
 	// App is the "plugin" instance of the faucet application.
-	App        = node.NewPlugin(name, node.Disabled, configure, run)
+	plugin     = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	pluginOnce sync.Once
 	_faucet    *faucet.Faucet
 	faucetOnce sync.Once
 	log        *logger.Logger
 )
 
+func App() *node.Plugin {
+	pluginOnce.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
+	return plugin
+}
+
 // Faucet gets the faucet instance the faucet dApp has initialized.
 func Faucet() *faucet.Faucet {
 	faucetOnce.Do(func() {
-		base58Seed := config.Node.GetString(CfgFaucetSeed)
+		base58Seed := config.Node().GetString(CfgFaucetSeed)
 		if len(base58Seed) == 0 {
 			log.Fatal("a seed must be defined when enabling the faucet dApp")
 		}
@@ -54,11 +63,11 @@ func Faucet() *faucet.Faucet {
 		if err != nil {
 			log.Fatalf("configured seed for the faucet is invalid: %s", err)
 		}
-		tokensPerRequest := config.Node.GetInt64(CfgFaucetTokensPerRequest)
+		tokensPerRequest := config.Node().GetInt64(CfgFaucetTokensPerRequest)
 		if tokensPerRequest <= 0 {
 			log.Fatalf("the amount of tokens to fulfill per request must be above zero")
 		}
-		maxTxBookedAwaitTime := config.Node.GetInt64(CfgFaucetMaxTransactionBookedAwaitTimeSeconds)
+		maxTxBookedAwaitTime := config.Node().GetInt64(CfgFaucetMaxTransactionBookedAwaitTimeSeconds)
 		if maxTxBookedAwaitTime <= 0 {
 			log.Fatalf("the max transaction booked await time must be more than 0")
 		}
@@ -68,13 +77,13 @@ func Faucet() *faucet.Faucet {
 }
 
 func configure(*node.Plugin) {
-	log = logger.NewLogger(name)
+	log = logger.NewLogger(PluginName)
 	Faucet()
 	configureEvents()
 }
 
 func configureEvents() {
-	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *tangle.CachedMessageMetadata) {
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedTransaction *message.CachedMessage, cachedTransactionMetadata *tangle.CachedMessageMetadata) {
 		defer cachedTransaction.Release()
 		cachedTransactionMetadata.Release()
 

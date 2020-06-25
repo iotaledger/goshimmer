@@ -79,7 +79,7 @@ func configureFPC() {
 	log = logger.NewLogger(FpcPluginName)
 	lPeer := local.GetInstance()
 
-	bindAddr := config.Node.GetString(CfgFPCBindAddress)
+	bindAddr := config.Node().GetString(CfgFPCBindAddress)
 	_, portStr, err := net.SplitHostPort(bindAddr)
 	if err != nil {
 		log.Fatalf("FPC bind address '%s' is invalid: %s", bindAddr, err)
@@ -104,7 +104,7 @@ func runFPC() {
 	const ServerWorkerName = "FPCVoterServer"
 	if err := daemon.BackgroundWorker(ServerWorkerName, func(shutdownSignal <-chan struct{}) {
 		stopped := make(chan struct{})
-		bindAddr := config.Node.GetString(CfgFPCBindAddress)
+		bindAddr := config.Node().GetString(CfgFPCBindAddress)
 		voterServer = votenet.New(Voter(), func(id string) vote.Opinion {
 			branchID, err := branchmanager.BranchIDFromBase58(id)
 			if err != nil {
@@ -113,7 +113,7 @@ func runFPC() {
 				return vote.Unknown
 			}
 
-			cachedBranch := Tangle.BranchManager().Branch(branchID)
+			cachedBranch := _tangle.BranchManager().Branch(branchID)
 			defer cachedBranch.Release()
 
 			branch := cachedBranch.Unwrap()

@@ -33,7 +33,7 @@ func setupFaucetRoutes(routeGroup *echo.Group) {
 }
 
 func sendFaucetReq(addr address.Address) (res *ReqMsg, err error) {
-	msg := messagelayer.MessageFactory.IssuePayload(faucetpayload.New(addr))
+	msg := messagelayer.MessageFactory().IssuePayload(faucetpayload.New(addr))
 	if msg == nil {
 		return nil, errors.Wrapf(ErrInternalError, "Fail to send faucet request")
 	}

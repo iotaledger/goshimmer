@@ -2,6 +2,7 @@ package faucet
 
 import (
 	"net/http"
+	goSync "sync"
 
 	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
@@ -12,13 +13,29 @@ import (
 	"github.com/labstack/echo"
 )
 
-// Plugin is the plugin instance of the web API faucet request endpoint plugin.
-var Plugin = node.NewPlugin("WebAPI faucet Endpoint", node.Enabled, configure)
-var log *logger.Logger
+const (
+	// PluginName is the name of the web API faucet endpoint plugin.
+	PluginName = "WebAPI faucet Endpoint"
+)
+
+var (
+	// plugin is the plugin instance of the web API info endpoint plugin.
+	plugin *node.Plugin
+	once   goSync.Once
+	log    *logger.Logger
+)
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	})
+	return plugin
+}
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger("API-faucet")
-	webapi.Server.POST("faucet", requestFunds)
+	webapi.Server().POST("faucet", requestFunds)
 }
 
 // requestFunds creates a faucet request (0-value) message with the given destination address and
@@ -39,7 +56,7 @@ func requestFunds(c echo.Context) error {
 	}
 
 	// build faucet message with transaction factory
-	msg := messagelayer.MessageFactory.IssuePayload(faucetpayload.New(addr))
+	msg := messagelayer.MessageFactory().IssuePayload(faucetpayload.New(addr))
 	if msg == nil {
 		return c.JSON(http.StatusInternalServerError, Response{Error: "Fail to send faucetrequest"})
 	}

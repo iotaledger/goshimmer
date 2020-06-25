@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
@@ -27,11 +28,19 @@ import (
 const PluginName = "Metrics"
 
 var (
-	// Plugin is the plugin instance of the metrics plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
-
-	log *logger.Logger
+	// plugin is the plugin instance of the metrics plugin.
+	plugin *node.Plugin
+	once   sync.Once
+	log    *logger.Logger
 )
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
+	return plugin
+}
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
@@ -39,18 +48,18 @@ func configure(_ *node.Plugin) {
 
 func run(_ *node.Plugin) {
 
-	if config.Node.GetBool(CfgMetricsLocal) {
+	if config.Node().GetBool(CfgMetricsLocal) {
 		registerLocalMetrics()
 	}
 
 	// Events from analysis server
-	if config.Node.GetBool(CfgMetricsGlobal) {
+	if config.Node().GetBool(CfgMetricsGlobal) {
 		server.Events.MetricHeartbeat.Attach(onMetricHeartbeatReceived)
 	}
 
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
-		if config.Node.GetBool(CfgMetricsLocal) {
+		if config.Node().GetBool(CfgMetricsLocal) {
 			timeutil.Ticker(func() {
 				measureCPUUsage()
 				measureMemUsage()
@@ -65,7 +74,7 @@ func run(_ *node.Plugin) {
 				gossipCurrentTx.Store(uint64(g.BytesWritten))
 			}, 1*time.Second, shutdownSignal)
 		}
-		if config.Node.GetBool(CfgMetricsGlobal) {
+		if config.Node().GetBool(CfgMetricsGlobal) {
 			timeutil.Ticker(calculateNetworkDiameter, 1*time.Minute, shutdownSignal)
 		}
 
@@ -78,7 +87,7 @@ func registerLocalMetrics() {
 	//// Events declared in other packages which we want to listen to here ////
 
 	// increase received MPS counter whenever we attached a message
-	messagelayer.Tangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+	messagelayer.Tangle().Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
 		_payloadType := cachedMessage.Unwrap().Payload().Type()
 		cachedMessage.Release()
 		cachedMessageMetadata.Release()
@@ -87,7 +96,7 @@ func registerLocalMetrics() {
 	}))
 
 	// Value payload attached
-	valuetransfers.Tangle.Events.PayloadAttached.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *valuetangle.CachedPayloadMetadata) {
+	valuetransfers.Tangle().Events.PayloadAttached.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *valuetangle.CachedPayloadMetadata) {
 		cachedPayload.Release()
 		cachedPayloadMetadata.Release()
 		valueTransactionCounter.Inc()
@@ -130,6 +139,7 @@ func registerLocalMetrics() {
 	}))
 
 	gossip.Manager().Events().NeighborRemoved.Attach(onNeighborRemoved)
+	gossip.Manager().Events().NeighborAdded.Attach(onNeighborAdded)
 
 	autopeering.Selection().Events().IncomingPeering.Attach(onAutopeeringSelection)
 	autopeering.Selection().Events().OutgoingPeering.Attach(onAutopeeringSelection)

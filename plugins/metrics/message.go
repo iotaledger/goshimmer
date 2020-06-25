@@ -66,7 +66,7 @@ func increasePerPayloadCounter(p payload.Type) {
 }
 
 func measureMessageTips() {
-	metrics.Events().MessageTips.Trigger((uint64)(messagelayer.TipSelector.TipCount()))
+	metrics.Events().MessageTips.Trigger((uint64)(messagelayer.TipSelector().TipCount()))
 }
 
 // ReceivedMessagesPerSecond retrieves the current messages per second number.
