@@ -15,7 +15,7 @@ type ExplorerMessage struct {
 	// ID is the message ID.
 	ID string `json:"id"`
 	// Timestamp is the timestamp of the message.
-	Timestamp uint `json:"timestamp"`
+	Timestamp int64 `json:"timestamp"`
 	// TrunkMessageId is the Trunk ID of the message.
 	TrunkMessageID string `json:"trunk_message_id"`
 	// BranchMessageId is the Branch ID of the message.
@@ -30,13 +30,15 @@ type ExplorerMessage struct {
 
 func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
 	messageID := msg.Id()
-	messageMetadata := messagelayer.Tangle().MessageMetadata(messageID)
+	cachedMessageMetadata := messagelayer.Tangle().MessageMetadata(messageID)
+	defer cachedMessageMetadata.Release()
+	messageMetadata := cachedMessageMetadata.Unwrap()
 	t := &ExplorerMessage{
 		ID:              messageID.String(),
-		Timestamp:       0,
+		Timestamp:       messageMetadata.SoldificationTime().Unix(),
 		TrunkMessageID:  msg.TrunkId().String(),
 		BranchMessageID: msg.BranchId().String(),
-		Solid:           messageMetadata.Unwrap().IsSolid(),
+		Solid:           cachedMessageMetadata.Unwrap().IsSolid(),
 		PayloadType:     msg.Payload().Type(),
 		Payload:         ProcessPayload(msg.Payload()),
 	}
