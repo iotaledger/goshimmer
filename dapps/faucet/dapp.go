@@ -24,7 +24,7 @@ const (
 	CfgFaucetSeed = "faucet.seed"
 	// CfgFaucetTokensPerRequest defines the amount of tokens the faucet should send for each request.
 	CfgFaucetTokensPerRequest = "faucet.tokensPerRequest"
-	// CfgFaucetMaxTransactionBookedAwaitTime defines the time to await for the transaction fulfilling a funding request
+	// CfgFaucetMaxTransactionBookedAwaitTimeSeconds defines the time to await for the transaction fulfilling a funding request
 	// to become booked in the value layer.
 	CfgFaucetMaxTransactionBookedAwaitTimeSeconds = "faucet.maxTransactionBookedAwaitTimeSeconds"
 )
