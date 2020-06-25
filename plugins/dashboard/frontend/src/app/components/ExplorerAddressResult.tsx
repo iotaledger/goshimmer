@@ -48,7 +48,7 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
                 msgsEle.push(
                     <ListGroup.Item key={msg.id}>
                         <small>
-                            {dateformat(new Date(msg.timestamp * 1000), "dd.mm.yyyy HH:MM:ss")} {' '}
+                            {dateformat(new Date(msg.solidification_timestamp * 1000), "dd.mm.yyyy HH:MM:ss")} {' '}
                             <Link to={`/explorer/message/${msg.id}`}>{msg.id}</Link>
                         </small>
                     </ListGroup.Item>

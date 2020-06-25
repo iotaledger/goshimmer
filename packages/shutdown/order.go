@@ -15,6 +15,6 @@ const (
 	PriorityWebAPI
 	PriorityDashboard
 	PrioritySynchronization
-	PriorityBootstrap
 	PrioritySpammer
+	PriorityBootstrap
 )

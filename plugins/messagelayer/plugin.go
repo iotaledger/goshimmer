@@ -130,13 +130,13 @@ func configure(*node.Plugin) {
 
 func run(*node.Plugin) {
 
-	if err := daemon.BackgroundWorker("_tangle[MissingMessagesMonitor]", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Tangle[MissingMessagesMonitor]", func(shutdownSignal <-chan struct{}) {
 		_tangle.MonitorMissingMessages(shutdownSignal)
 	}, shutdown.PriorityMissingMessagesMonitoring); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 
-	if err := daemon.BackgroundWorker("_tangle", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		messageFactory.Shutdown()
 		messageParser.Shutdown()
