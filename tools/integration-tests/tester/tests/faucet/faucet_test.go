@@ -5,12 +5,18 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/stretchr/testify/require"
 )
 
 // TestFaucetPersistence sends funds by faucet request.
 func TestFaucetPersistence(t *testing.T) {
+	prevPoWDiff := framework.ParaPoWDifficulty
+	framework.ParaPoWDifficulty = 0
+	defer func() {
+		framework.ParaPoWDifficulty = prevPoWDiff
+	}()
 	n, err := f.CreateNetwork("faucet_TestPersistence", 5, 2)
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
