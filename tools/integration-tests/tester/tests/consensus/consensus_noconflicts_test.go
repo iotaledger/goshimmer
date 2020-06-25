@@ -32,11 +32,11 @@ func TestConsensusNoConflicts(t *testing.T) {
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
 	const genesisBalance = 1000000000
-	genesisWallet := wallet.New(genesisSeedBytes)
-	genesisAddr := genesisWallet.Seed().Address(0)
+	genesisSeed := wallet.NewSeed(genesisSeedBytes)
+	genesisAddr := genesisSeed.Address(0).Address
 	genesisOutputID := transaction.NewOutputID(genesisAddr, transaction.GenesisID)
 
-	firstReceiver := wallet.New()
+	firstReceiver := wallet.NewSeed()
 	const depositCount = 10
 	const deposit = genesisBalance / depositCount
 	firstReceiverAddresses := make([]string, depositCount)
@@ -44,7 +44,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	firstReceiverDepositOutputs := map[address.Address][]*balance.Balance{}
 	firstReceiverExpectedBalances := map[string]map[balance.Color]int64{}
 	for i := 0; i < depositCount; i++ {
-		addr := firstReceiver.Seed().Address(uint64(i))
+		addr := firstReceiver.Address(uint64(i)).Address
 		firstReceiverDepositAddrs[i] = addr
 		firstReceiverAddresses[i] = addr.String()
 		firstReceiverDepositOutputs[addr] = []*balance.Balance{{Value: deposit, Color: balance.ColorIOTA}}
@@ -54,7 +54,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	// issue transaction spending from the genesis output
 	log.Printf("issuing transaction spending genesis to %d addresses", depositCount)
 	tx := transaction.New(transaction.NewInputs(genesisOutputID), transaction.NewOutputs(firstReceiverDepositOutputs))
-	tx = tx.Sign(signaturescheme.ED25519(*genesisWallet.Seed().KeyPair(0)))
+	tx = tx.Sign(signaturescheme.ED25519(*genesisSeed.KeyPair(0)))
 	utilsTx := utils.ParseTransaction(tx)
 
 	txID, err := n.Peers()[0].SendTransaction(tx.Bytes())
@@ -86,20 +86,20 @@ func TestConsensusNoConflicts(t *testing.T) {
 	tests.CheckBalances(t, n.Peers(), firstReceiverExpectedBalances)
 
 	// issue transactions spending all the outputs which were just created from a random peer
-	secondReceiverWallet := wallet.New()
+	secondReceiverWallet := wallet.NewSeed()
 	secondReceiverAddresses := make([]string, depositCount)
 	secondReceiverExpectedBalances := map[string]map[balance.Color]int64{}
 	secondReceiverExpectedTransactions := map[string]*tests.ExpectedTransaction{}
 	for i := 0; i < depositCount; i++ {
-		addr := secondReceiverWallet.Seed().Address(uint64(i))
+		addr := secondReceiverWallet.Address(uint64(i)).Address
 		tx := transaction.New(
-			transaction.NewInputs(transaction.NewOutputID(firstReceiver.Seed().Address(uint64(i)), tx.ID())),
+			transaction.NewInputs(transaction.NewOutputID(firstReceiver.Address(uint64(i)).Address, tx.ID())),
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
 				addr: {{Value: deposit, Color: balance.ColorIOTA}},
 			}),
 		)
 		secondReceiverAddresses[i] = addr.String()
-		tx = tx.Sign(signaturescheme.ED25519(*firstReceiver.Seed().KeyPair(uint64(i))))
+		tx = tx.Sign(signaturescheme.ED25519(*firstReceiver.KeyPair(uint64(i))))
 		txID, err := n.Peers()[rand.Intn(len(n.Peers()))].SendTransaction(tx.Bytes())
 		require.NoError(t, err)
 

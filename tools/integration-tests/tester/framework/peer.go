@@ -26,7 +26,7 @@ type Peer struct {
 	*DockerContainer
 
 	// Wallet
-	*wallet.Wallet
+	*wallet.Seed
 
 	chosen   []autopeering.Neighbor
 	accepted []autopeering.Neighbor
@@ -34,7 +34,7 @@ type Peer struct {
 
 // newPeer creates a new instance of Peer with the given information.
 // dockerContainer needs to be started in order to determine the container's (and therefore peer's) IP correctly.
-func newPeer(name string, identity *identity.Identity, dockerContainer *DockerContainer, wallet *wallet.Wallet, network *Network) (*Peer, error) {
+func newPeer(name string, identity *identity.Identity, dockerContainer *DockerContainer, seed *wallet.Seed, network *Network) (*Peer, error) {
 	// after container is started we can get its IP
 	ip, err := dockerContainer.IP(network.name)
 	if err != nil {
@@ -47,7 +47,7 @@ func newPeer(name string, identity *identity.Identity, dockerContainer *DockerCo
 		Identity:        identity,
 		GoShimmerAPI:    client.NewGoShimmerAPI(getWebAPIBaseURL(name), http.Client{Timeout: 30 * time.Second}),
 		DockerContainer: dockerContainer,
-		Wallet:          wallet,
+		Seed:            seed,
 	}, nil
 }
 
