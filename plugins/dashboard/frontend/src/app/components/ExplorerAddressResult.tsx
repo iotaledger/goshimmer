@@ -43,20 +43,21 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
         if (addr) {
             for (let i = 0; i < addr.output_ids.length; i++) {
                 let output = addr.output_ids[i];
-                let inclusionState = "Inclusion state: "
-                if (output.inclusion_state.confirmed) {
-                    inclusionState += ' - confirmed '
-                }
-                if (output.inclusion_state.rejected) {
-                    inclusionState += ' - rejected '
-                }
-                if (output.inclusion_state.liked) {
-                    inclusionState += ' - liked '
+
+                let consumed = "Consumed: " 
+                if (output.consumer_count) {
+                    consumed += output.consumer_count + " times";
                 } else {
-                    inclusionState += ' - disliked '
+                    consumed += "none"
                 }
-                if (output.inclusion_state.finalized) {
-                    inclusionState += ' - finalized '
+
+                let status = "Status: ";
+                if (output.inclusion_state.confirmed) {
+                    status += ' confirmed ';
+                } else if (output.inclusion_state.rejected) {
+                    status += ' rejected ';
+                } else {
+                    status += ' pending ';
                 }
 
                 let balances = [];
@@ -77,7 +78,9 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
                         <small>
                             {'Output ID:'} {output.id} {' '}
                             <br></br>
-                            {inclusionState} 
+                            {status}
+                            <br></br>
+                            {consumed}
                             <br></br>
                             {'Balance:'} {balances}   
                         </small>

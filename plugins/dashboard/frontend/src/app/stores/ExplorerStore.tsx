@@ -25,6 +25,7 @@ class Output {
     id: string;
     balances: Array<Balance>;
     inclusion_state: InclusionState;
+    consumer_count: number;
 }
 
 class Balance {

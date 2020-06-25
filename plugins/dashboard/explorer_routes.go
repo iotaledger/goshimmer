@@ -50,8 +50,13 @@ func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
 
 // ExplorerAddress defines the struct of the ExplorerAddress.
 type ExplorerAddress struct {
-	Address   string                    `json:"address"`
-	OutputIDs []unspentoutputs.OutputID `json:"output_ids"`
+	Address   string           `json:"address"`
+	OutputIDs []ExplorerOutput `json:"output_ids"`
+}
+
+type ExplorerOutput struct {
+	unspentoutputs.OutputID
+	ConsumerCount int `json:"consumer_count"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -139,7 +144,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)
 	}
 
-	outputids := make([]unspentoutputs.OutputID, 0)
+	outputids := make([]ExplorerOutput, 0)
 	// get outputids by address
 	for id, cachedOutput := range valuetransfers.Tangle().OutputsOnAddress(address) {
 		defer cachedOutput.Release()
@@ -168,10 +173,14 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 			inclusionState.Conflicting = txMeta.Conflicting()
 			inclusionState.Confirmed = txMeta.Confirmed()
 		}
-		outputids = append(outputids, unspentoutputs.OutputID{
-			ID:             id.String(),
-			Balances:       b,
-			InclusionState: inclusionState,
+
+		outputids = append(outputids, ExplorerOutput{
+			OutputID: unspentoutputs.OutputID{
+				ID:             id.String(),
+				Balances:       b,
+				InclusionState: inclusionState,
+			},
+			ConsumerCount: output.ConsumerCount(),
 		})
 	}
 
