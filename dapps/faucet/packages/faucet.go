@@ -8,7 +8,6 @@ import (
 
 	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
@@ -29,11 +28,8 @@ var (
 // New creates a new faucet using the given seed and tokensPerRequest config.
 func New(seed []byte, tokensPerRequest int64, maxTxBookedAwaitTime time.Duration) *Faucet {
 	return &Faucet{
-		tokensPerRequest: tokensPerRequest,
-		wallet: wallet.New(
-			wallet.Import(wallet.NewSeed(seed), 0, []bitmask.BitMask{}),
-			wallet.ReusableAddress(true),
-		),
+		tokensPerRequest:     tokensPerRequest,
+		seed:                 wallet.NewSeed(seed),
 		maxTxBookedAwaitTime: maxTxBookedAwaitTime,
 	}
 }
@@ -43,8 +39,8 @@ type Faucet struct {
 	sync.Mutex
 	// the amount of tokens to send to every request
 	tokensPerRequest int64
-	// the wallet instance of the faucet holding the tokens
-	wallet *wallet.Wallet
+	// the seed instance of the faucet holding the tokens
+	seed *wallet.Seed
 	// the time to await for the transaction fulfilling a funding request
 	// to become booked in the value layer
 	maxTxBookedAwaitTime time.Duration
@@ -135,8 +131,8 @@ func (f *Faucet) collectUTXOsForFunding() (outputIds []transaction.OutputID, rem
 
 	// get a list of address for inputs
 	for i = 0; total > 0; i++ {
-		addr := f.wallet.Seed().Address(i)
-		valuetransfers.Tangle().OutputsOnAddress(addr.Address).Consume(func(output *tangle.Output) {
+		addr := f.seed.Address(i).Address
+		valuetransfers.Tangle().OutputsOnAddress(addr).Consume(func(output *tangle.Output) {
 			if output.ConsumerCount() > 0 || total == 0 {
 				return
 			}
@@ -164,12 +160,12 @@ func (f *Faucet) collectUTXOsForFunding() (outputIds []transaction.OutputID, rem
 func (f *Faucet) nextUnusedAddress() address.Address {
 	var index uint64
 	for index = 0; ; index++ {
-		addr := f.wallet.Seed().Address(index)
-		cachedOutputs := valuetransfers.Tangle().OutputsOnAddress(addr.Address)
+		addr := f.seed.Address(index).Address
+		cachedOutputs := valuetransfers.Tangle().OutputsOnAddress(addr)
 		if len(cachedOutputs) == 0 {
 			// unused address
 			cachedOutputs.Release()
-			return addr.Address
+			return addr
 		}
 		cachedOutputs.Release()
 	}

@@ -26,8 +26,8 @@ func main() {
 	}
 
 	const genesisBalance = 1000000000
-	genesisWallet := wallet.New(genesisSeedBytes)
-	genesisAddr := genesisWallet.Seed().Address(0)
+	genesisSeed := wallet.NewSeed(genesisSeedBytes)
+	genesisAddr := genesisSeed.Address(0).Address
 	genesisOutputID := transaction.NewOutputID(genesisAddr, transaction.GenesisID)
 
 	// issue transactions which spend the same genesis output in all partitions
@@ -38,7 +38,7 @@ func main() {
 
 		// create a new receiver wallet for the given conflict
 		receiverSeeds[i] = wallet.NewSeed()
-		destAddr := receiverSeeds[i].Address(0)
+		destAddr := receiverSeeds[i].Address(0).Address
 
 		tx := transaction.New(
 			transaction.NewInputs(genesisOutputID),
@@ -47,7 +47,7 @@ func main() {
 					{Value: genesisBalance, Color: balance.ColorIOTA},
 				},
 			}))
-		tx = tx.Sign(signaturescheme.ED25519(*genesisWallet.Seed().KeyPair(0)))
+		tx = tx.Sign(signaturescheme.ED25519(*genesisSeed.KeyPair(0)))
 		conflictingTxs[i] = tx
 
 		valueObject := valuepayload.New(valuepayload.GenesisID, valuepayload.GenesisID, tx)
