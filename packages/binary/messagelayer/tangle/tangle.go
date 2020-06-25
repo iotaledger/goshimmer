@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"container/list"
+	"runtime"
 	"time"
 
 	"github.com/iotaledger/hive.go/kvstore"
@@ -65,7 +66,7 @@ func New(store kvstore.KVStore) (result *Tangle) {
 		Events: *newEvents(),
 	}
 
-	result.solidifierWorkerPool.Tune(1024)
+	result.solidifierWorkerPool.Tune(runtime.GOMAXPROCS(0))
 	return
 }
 

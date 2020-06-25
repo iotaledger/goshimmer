@@ -19,7 +19,7 @@ func testMetricHeartbeat() *MetricHeartbeat {
 		OwnID:  nodeID[:],
 		OS:     runtime.GOOS,
 		Arch:   runtime.GOARCH,
-		NumCPU: runtime.NumCPU(),
+		NumCPU: runtime.GOMAXPROCS(0),
 		CPUUsage: func() (p float64) {
 			percent, err := cpu.Percent(time.Second, false)
 			if err == nil {

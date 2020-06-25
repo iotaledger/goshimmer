@@ -27,7 +27,7 @@ var (
 	fpcLiveFeedWorkerQueueSize = 300
 	fpcLiveFeedWorkerPool      *workerpool.WorkerPool
 
-	fpcStoreFinalizedWorkerCount     = runtime.NumCPU()
+	fpcStoreFinalizedWorkerCount     = runtime.GOMAXPROCS(0)
 	fpcStoreFinalizedWorkerQueueSize = 300
 	fpcStoreFinalizedWorkerPool      *workerpool.WorkerPool
 
