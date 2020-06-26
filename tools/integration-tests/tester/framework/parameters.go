@@ -36,7 +36,7 @@ var (
 	// ParaPoWDifficulty defines the PoW difficulty.
 	ParaPoWDifficulty = 2
 	// ParaWaitToKill defines the time to wait before killing the node.
-	ParaWaitToKill = 30
+	ParaWaitToKill = 60
 )
 
 var (
