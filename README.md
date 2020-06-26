@@ -23,7 +23,6 @@
   <a href="#design">Design</a> ◈
   <a href="#implemented-coordicide-modules">Implemented Coordicide modules</a> ◈
   <a href="#work-in-progress-modules">Work-in-progress modules</a> ◈
-  <a href="#installation">Installation</a> ◈
   <a href="#getting-started">Getting started</a> ◈
   <a href="#client-library-and-http-api-reference">Client-Library and HTTP API reference</a> ◈
   <a href="#supporting-the-project">Supporting the project</a> ◈
