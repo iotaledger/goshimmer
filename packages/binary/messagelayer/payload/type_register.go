@@ -45,6 +45,7 @@ func SetGenericUnmarshalerFactory(unmarshalerFactory func(payloadType Type) Unma
 	genericUnmarshalerFactory = unmarshalerFactory
 }
 
+// Name returns the name of a given payload type.
 func Name(payloadType Type) string {
 	typeRegisterMutex.RLock()
 	defer typeRegisterMutex.RUnlock()
