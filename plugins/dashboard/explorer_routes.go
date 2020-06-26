@@ -7,9 +7,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/webapi/value/unspentoutputs"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/labstack/echo"
 )
@@ -70,8 +70,11 @@ type ExplorerAddress struct {
 
 // ExplorerOutput defines the struct of the ExplorerOutput.
 type ExplorerOutput struct {
-	unspentoutputs.OutputID
-	ConsumerCount int `json:"consumer_count"`
+	ID                 string               `json:"id"`
+	Balances           []utils.Balance      `json:"balances"`
+	InclusionState     utils.InclusionState `json:"inclusion_state"`
+	SolidificationTime int64                `json:"solidification_time"`
+	ConsumerCount      int                  `json:"consumer_count"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -108,34 +111,40 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
 		search := c.Param("search")
 		result := &SearchResult{}
+		wg := sync.WaitGroup{}
 
-		if len(search) < 33 {
+		switch len(search) {
+
+		case address.Length:
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				addr, err := findAddress(search)
+				if err == nil {
+					result.Address = addr
+				}
+			}()
+
+		case message.IdLength:
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				messageID, err := message.NewId(search)
+				if err != nil {
+					return
+				}
+
+				msg, err := findMessage(messageID)
+				if err == nil {
+					result.Message = msg
+				}
+			}()
+
+		default:
 			return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
 		}
 
-		wg := sync.WaitGroup{}
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
-
-			messageID, err := message.NewId(search)
-			if err != nil {
-				return
-			}
-
-			msg, err := findMessage(messageID)
-			if err == nil {
-				result.Message = msg
-			}
-		}()
-
-		go func() {
-			defer wg.Done()
-			addr, err := findAddress(search)
-			if err == nil {
-				result.Address = addr
-			}
-		}()
 		wg.Wait()
 
 		return c.JSON(http.StatusOK, result)
@@ -162,40 +171,36 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	outputids := make([]ExplorerOutput, 0)
 	// get outputids by address
 	for id, cachedOutput := range valuetransfers.Tangle().OutputsOnAddress(address) {
-		defer cachedOutput.Release()
 
-		output := cachedOutput.Unwrap()
-		cachedTxMeta := valuetransfers.Tangle().TransactionMetadata(output.TransactionID())
-		// TODO: don't do this in a for
-		defer cachedTxMeta.Release()
+		cachedOutput.Consume(func(output *tangle.Output) {
 
-		// iterate balances
-		var b []utils.Balance
-		for _, balance := range output.Balances() {
-			b = append(b, utils.Balance{
-				Value: balance.Value,
-				Color: balance.Color.String(),
+			// iterate balances
+			var b []utils.Balance
+			for _, balance := range output.Balances() {
+				b = append(b, utils.Balance{
+					Value: balance.Value,
+					Color: balance.Color.String(),
+				})
+			}
+
+			valuetransfers.Tangle().TransactionMetadata(output.TransactionID()).Consume(func(txMeta *tangle.TransactionMetadata) {
+
+				inclusionState := utils.InclusionState{}
+				inclusionState.Confirmed = txMeta.Confirmed()
+				inclusionState.Liked = txMeta.Liked()
+				inclusionState.Rejected = txMeta.Rejected()
+				inclusionState.Finalized = txMeta.Finalized()
+				inclusionState.Conflicting = txMeta.Conflicting()
+				inclusionState.Confirmed = txMeta.Confirmed()
+
+				outputids = append(outputids, ExplorerOutput{
+					ID:                 id.String(),
+					Balances:           b,
+					InclusionState:     inclusionState,
+					ConsumerCount:      output.ConsumerCount(),
+					SolidificationTime: txMeta.SoldificationTime().Unix(),
+				})
 			})
-		}
-
-		inclusionState := utils.InclusionState{}
-		if cachedTxMeta.Exists() {
-			txMeta := cachedTxMeta.Unwrap()
-			inclusionState.Confirmed = txMeta.Confirmed()
-			inclusionState.Liked = txMeta.Liked()
-			inclusionState.Rejected = txMeta.Rejected()
-			inclusionState.Finalized = txMeta.Finalized()
-			inclusionState.Conflicting = txMeta.Conflicting()
-			inclusionState.Confirmed = txMeta.Confirmed()
-		}
-
-		outputids = append(outputids, ExplorerOutput{
-			OutputID: unspentoutputs.OutputID{
-				ID:             id.String(),
-				Balances:       b,
-				InclusionState: inclusionState,
-			},
-			ConsumerCount: output.ConsumerCount(),
 		})
 	}
 

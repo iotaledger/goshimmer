@@ -31,6 +31,7 @@ class Output {
     balances: Array<Balance>;
     inclusion_state: InclusionState;
     consumer_count: number;
+    solidification_time: number;
 }
 
 class Balance {
