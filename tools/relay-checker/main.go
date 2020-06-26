@@ -17,7 +17,7 @@ func testBroadcastData(api *client.GoShimmerAPI) (string, error) {
 	return msgID, nil
 }
 
-func testTargetGetMessagess(api *client.GoShimmerAPI, msgID string) error {
+func testTargetGetMessages(api *client.GoShimmerAPI, msgID string) error {
 	// query target node for broadcasted data
 	if _, err := api.FindMessageByID([]string{msgID}); err != nil {
 		return fmt.Errorf("querying the target node failed: %w", err)
@@ -56,7 +56,7 @@ func main() {
 		time.Sleep(time.Duration(cooldownTime) * time.Second)
 
 		// query target node
-		err = testTargetGetMessagess(api, msgID)
+		err = testTargetGetMessages(api, msgID)
 		if err != nil {
 			fmt.Printf("%s\n", err)
 			break

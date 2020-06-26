@@ -91,7 +91,7 @@ func (orderedMap *OrderedMap) ForEach(consumer func(key, value interface{}) bool
 	return true
 }
 
-// Delete deletes the given key (and related value) from the orederedMap.
+// Delete deletes the given key (and related value) from the orderedMap.
 // It returns false if the key is not found.
 func (orderedMap *OrderedMap) Delete(key interface{}) bool {
 	if _, valueExists := orderedMap.Get(key); !valueExists {

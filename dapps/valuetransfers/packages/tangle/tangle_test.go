@@ -247,7 +247,7 @@ func TestMoveTransactionToBranch(t *testing.T) {
 	cachedTransaction, cachedTransactionMetadata, _, _ := tangle.storeTransactionModels(valueObject)
 	txMetadata := cachedTransactionMetadata.Unwrap()
 
-	// create conflicting branche
+	// create conflicting branch
 	cachedBranch2, _ := tangle.BranchManager().Fork(branchmanager.BranchID{2}, []branchmanager.BranchID{branchmanager.MasterBranchID}, []branchmanager.ConflictID{{0}})
 	defer cachedBranch2.Release()
 

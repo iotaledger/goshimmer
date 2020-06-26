@@ -38,7 +38,7 @@ func (c conflict) isFinalized() bool {
 	return (count == len(c.NodesView))
 }
 
-// finalizedRatio returns the ratio of nodes that have finlized a given conflict.
+// finalizedRatio returns the ratio of nodes that have finalized a given conflict.
 func (c conflict) finalizedRatio() float64 {
 	if len(c.NodesView) == 0 {
 		return 0

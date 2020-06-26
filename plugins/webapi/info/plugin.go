@@ -63,7 +63,7 @@ func configure(_ *node.Plugin) {
 // 		"Graceful Shutdown",
 // 		"Logger"
 // 	],
-// 	"disabledlugins":[
+// 	"disabledplugins":[
 // 		"RemoteLog",
 // 		"Spammer",
 // 		"WebAPI Auth"

@@ -72,7 +72,7 @@ func findMessageByID(c echo.Context) error {
 		msgResp := Message{
 			Metadata: Metadata{
 				Solid:              msgMetadata.IsSolid(),
-				SolidificationTime: msgMetadata.SoldificationTime().Unix(),
+				SolidificationTime: msgMetadata.SolidificationTime().Unix(),
 			},
 			ID:              msg.Id().String(),
 			TrunkID:         msg.TrunkId().String(),
