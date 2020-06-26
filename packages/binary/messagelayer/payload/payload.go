@@ -4,11 +4,15 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
+const (
+	objectName = "data"
+)
+
 func init() {
 	// register the generic unmarshaler
 	SetGenericUnmarshalerFactory(GenericPayloadUnmarshalerFactory)
 	// register the generic data payload type
-	RegisterType(DataType, GenericPayloadUnmarshalerFactory(DataType))
+	RegisterType(DataType, objectName, GenericPayloadUnmarshalerFactory(DataType))
 }
 
 // Payload represents some kind of payload of data which only gains meaning by having

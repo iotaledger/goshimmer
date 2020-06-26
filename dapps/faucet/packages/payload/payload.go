@@ -9,6 +9,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
+const (
+	objectName = "faucet"
+)
+
 // Payload represents a request which contains an address for the faucet to send funds to.
 type Payload struct {
 	payloadType payload.Type
@@ -27,7 +31,7 @@ func New(addr address.Address) *Payload {
 }
 
 func init() {
-	payload.RegisterType(Type, GenericPayloadUnmarshalerFactory(Type))
+	payload.RegisterType(Type, objectName, GenericPayloadUnmarshalerFactory(Type))
 }
 
 // FromBytes parses the marshaled version of a Payload into an object.

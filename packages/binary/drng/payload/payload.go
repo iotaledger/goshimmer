@@ -9,6 +9,10 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 )
 
+const (
+	objectName = "dRNG"
+)
+
 // Payload defines a DRNG payload.
 type Payload struct {
 	header.Header
@@ -140,7 +144,7 @@ func (payload *Payload) Unmarshal(data []byte) (err error) {
 }
 
 func init() {
-	payload.RegisterType(Type, func(data []byte) (payload payload.Payload, err error) {
+	payload.RegisterType(Type, objectName, func(data []byte) (payload payload.Payload, err error) {
 		payload = &Payload{}
 		err = payload.Unmarshal(data)
 

@@ -57,22 +57,9 @@ func collectTangleMetrics() {
 	messageTips.Set(float64(metrics.MessageTips()))
 	msgCountPerPayload := metrics.MessageCountPerPayload()
 	for payloadType, count := range msgCountPerPayload {
-		messagePerTypeCount.WithLabelValues(convertPayloadTypeToString(payloadType)).Set(float64(count))
+		messagePerTypeCount.WithLabelValues(payload.Name(payloadType)).Set(float64(count))
 	}
 	messageTotalCount.Set(float64(metrics.MessageTotalCount()))
 	transactionCounter.Set(float64(metrics.ValueTransactionCounter()))
 	valueTips.Set(float64(metrics.ValueTips()))
-}
-
-func convertPayloadTypeToString(p payload.Type) string {
-	switch p {
-	case 0:
-		return "data"
-	case 1:
-		return "value"
-	case 111:
-		return "drng"
-	default:
-		return "unknown"
-	}
 }
