@@ -2,6 +2,7 @@ package spammer
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo"
 )
@@ -19,7 +20,7 @@ func handleRequest(c echo.Context) error {
 		}
 
 		messageSpammer.Shutdown()
-		messageSpammer.Start(request.MPS)
+		messageSpammer.Start(request.MPS, time.Second)
 		return c.JSON(http.StatusOK, Response{Message: "started spamming messages"})
 	case "stop":
 		messageSpammer.Shutdown()
