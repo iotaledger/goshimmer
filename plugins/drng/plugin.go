@@ -19,12 +19,21 @@ import (
 const PluginName = "DRNG"
 
 var (
-	// Plugin is the plugin instance of the DRNG plugin.
-	Plugin   = node.NewPlugin(PluginName, node.Enabled, configure, run)
-	instance *drng.DRNG
-	once     sync.Once
-	log      *logger.Logger
+	// plugin is the plugin instance of the DRNG plugin.
+	plugin     *node.Plugin
+	pluginOnce sync.Once
+	instance   *drng.DRNG
+	once       sync.Once
+	log        *logger.Logger
 )
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	pluginOnce.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
+	return plugin
+}
 
 func configure(_ *node.Plugin) {
 	configureEvents()
@@ -34,7 +43,7 @@ func run(*node.Plugin) {}
 
 func configureEvents() {
 	instance := Instance()
-	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
 		cachedMessageMetadata.Release()
 
 		cachedMessage.Consume(func(msg *message.Message) {

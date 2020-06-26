@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
@@ -16,8 +17,9 @@ import (
 const PluginName = "Config"
 
 var (
-	// Plugin is the plugin instance of the config plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled)
+	// plugin is the plugin instance of the config plugin.
+	plugin     *node.Plugin
+	pluginOnce sync.Once
 
 	// flags
 	configName          = flag.StringP("config", "c", "config", "Filename of the config file without the file extension")
@@ -25,19 +27,37 @@ var (
 	skipConfigAvailable = flag.Bool("skip-config", false, "Skip config file availability check")
 
 	// Node is viper
-	Node *viper.Viper
+	_node    *viper.Viper
+	nodeOnce sync.Once
 )
 
 // Init triggers the Init event.
 func Init() {
-	Plugin.Events.Init.Trigger(Plugin)
+	plugin.Events.Init.Trigger(plugin)
+}
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	pluginOnce.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled)
+	})
+	return plugin
+}
+
+// Node gets the node.
+func Node() *viper.Viper {
+	nodeOnce.Do(func() {
+		_node = viper.New()
+	})
+	return _node
 }
 
 func init() {
 	// set the default logger config
-	Node = viper.New()
+	_node = Node()
+	plugin = Plugin()
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
+	plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
 		if err := fetch(false); err != nil {
 			if !*skipConfigAvailable {
 				// we wanted a config file but it was not present
@@ -59,24 +79,25 @@ func init() {
 func fetch(printConfig bool, ignoreSettingsAtPrint ...[]string) error {
 	// replace dots with underscores in env
 	dotReplacer := strings.NewReplacer(".", "_")
-	Node.SetEnvKeyReplacer(dotReplacer)
+	_node.SetEnvKeyReplacer(dotReplacer)
 	// read in ENV variables
-	Node.AutomaticEnv()
+	// read in ENV variables
+	_node.AutomaticEnv()
 
 	flag.Parse()
-	err := parameter.LoadConfigFile(Node, *configDirPath, *configName, true, *skipConfigAvailable)
+	err := parameter.LoadConfigFile(_node, *configDirPath, *configName, true, *skipConfigAvailable)
 	if err != nil {
 		return err
 	}
 
 	if printConfig {
-		parameter.PrintConfig(Node, ignoreSettingsAtPrint...)
+		parameter.PrintConfig(_node, ignoreSettingsAtPrint...)
 	}
 
-	for _, pluginName := range Node.GetStringSlice(node.CFG_DISABLE_PLUGINS) {
+	for _, pluginName := range _node.GetStringSlice(node.CFG_DISABLE_PLUGINS) {
 		node.DisabledPlugins[node.GetPluginIdentifier(pluginName)] = true
 	}
-	for _, pluginName := range Node.GetStringSlice(node.CFG_ENABLE_PLUGINS) {
+	for _, pluginName := range _node.GetStringSlice(node.CFG_ENABLE_PLUGINS) {
 		node.EnabledPlugins[node.GetPluginIdentifier(pluginName)] = true
 	}
 

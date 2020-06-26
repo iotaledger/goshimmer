@@ -19,7 +19,7 @@ import (
 
 func BenchmarkVerifyDataMessages(b *testing.B) {
 	var pool async.WorkerPool
-	pool.Tune(runtime.NumCPU() * 2)
+	pool.Tune(runtime.GOMAXPROCS(0))
 
 	factory := messagefactory.New(mapdb.NewMapDB(), []byte(messagelayer.DBSequenceNumber), identity.GenerateLocalIdentity(), messagefactory.TipSelectorFunc(func() (message.Id, message.Id) { return message.EmptyId, message.EmptyId }))
 

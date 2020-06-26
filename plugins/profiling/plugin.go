@@ -3,6 +3,7 @@ package profiling
 import (
 	"net/http"
 	"runtime"
+	"sync"
 
 	// import required to profile
 	_ "net/http/pprof"
@@ -17,13 +18,22 @@ import (
 const PluginName = "Profiling"
 
 var (
-	// Plugin is the profiling plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	// plugin is the profiling plugin.
+	plugin *node.Plugin
+	once   sync.Once
 	log    *logger.Logger
 )
 
 // CfgProfilingBindAddress defines the config flag of the profiling binding address.
 const CfgProfilingBindAddress = "profiling.bindAddress"
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
+	return plugin
+}
 
 func init() {
 	flag.String(CfgProfilingBindAddress, "127.0.0.1:6061", "bind address for the pprof server")
@@ -34,7 +44,7 @@ func configure(_ *node.Plugin) {
 }
 
 func run(_ *node.Plugin) {
-	bindAddr := config.Node.GetString(CfgProfilingBindAddress)
+	bindAddr := config.Node().GetString(CfgProfilingBindAddress)
 
 	runtime.SetMutexProfileFraction(5)
 	runtime.SetBlockProfileRate(5)

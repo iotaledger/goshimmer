@@ -1,6 +1,7 @@
 package autopeering
 
 import (
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -16,11 +17,20 @@ import (
 const PluginName = "Autopeering"
 
 var (
-	// Plugin is the plugin instance of the autopeering plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	// plugin is the plugin instance of the autopeering plugin.
+	plugin *node.Plugin
+	once   sync.Once
 
 	log *logger.Logger
 )
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
+	return plugin
+}
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)

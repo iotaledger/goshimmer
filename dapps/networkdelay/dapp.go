@@ -1,7 +1,7 @@
 package networkdelay
 
 import (
-	"fmt"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
@@ -29,7 +29,8 @@ const (
 
 var (
 	// App is the "plugin" instance of the network delay application.
-	App = node.NewPlugin(PluginName, node.Disabled, configure)
+	app  *node.Plugin
+	once sync.Once
 
 	// log holds a reference to the logger used by this app.
 	log *logger.Logger
@@ -40,6 +41,14 @@ var (
 	myPublicKey     ed25519.PublicKey
 	originPublicKey ed25519.PublicKey
 )
+
+// App gets the plugin instance.
+func App() *node.Plugin {
+	once.Do(func() {
+		app = node.NewPlugin(PluginName, node.Disabled, configure)
+	})
+	return app
+}
 
 func configure(_ *node.Plugin) {
 	// configure logger
@@ -53,7 +62,7 @@ func configure(_ *node.Plugin) {
 	}
 
 	// get origin public key from config
-	bytes, err := base58.Decode(config.Node.GetString(CfgNetworkDelayOriginPublicKey))
+	bytes, err := base58.Decode(config.Node().GetString(CfgNetworkDelayOriginPublicKey))
 	if err != nil {
 		log.Fatalf("could not parse %s config entry as base58. %v", CfgNetworkDelayOriginPublicKey, err)
 	}
@@ -65,7 +74,7 @@ func configure(_ *node.Plugin) {
 	configureWebAPI()
 
 	// subscribe to message-layer
-	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 }
 
 func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cachedMessageMetadata *messageTangle.CachedMessageMetadata) {
@@ -101,7 +110,6 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 
 	// abort if message was sent more than 1min ago
 	// this should only happen due to a node resyncing
-	fmt.Println(time.Duration(now-networkDelayObject.sentTime), time.Minute)
 	if time.Duration(now-networkDelayObject.sentTime) > time.Minute {
 		log.Debugf("Received network delay message with >1min delay\n%s", networkDelayObject)
 		return

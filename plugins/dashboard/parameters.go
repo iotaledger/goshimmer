@@ -18,7 +18,7 @@ const (
 )
 
 func init() {
-	flag.String(CfgBindAddress, "127.0.0.1", "the bind address of the dashboard")
+	flag.String(CfgBindAddress, "127.0.0.1:8081", "the bind address of the dashboard")
 	flag.Bool(CfgDev, false, "whether the dashboard runs in dev mode")
 	flag.Bool(CfgBasicAuthEnabled, false, "whether to enable HTTP basic auth")
 	flag.String(CfgBasicAuthUsername, "goshimmer", "HTTP basic auth username")

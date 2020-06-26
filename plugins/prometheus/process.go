@@ -23,10 +23,10 @@ func registerProcessMetrics() {
 	registry.MustRegister(cpuUsage)
 	registry.MustRegister(memUsageBytes)
 
-	addCollect(collectProcesskMetrics)
+	addCollect(collectProcessMetrics)
 }
 
-func collectProcesskMetrics() {
+func collectProcessMetrics() {
 	cpuUsage.Set(float64(metrics.CPUUsage()))
 	memUsageBytes.Set(float64(metrics.MemUsage()))
 }

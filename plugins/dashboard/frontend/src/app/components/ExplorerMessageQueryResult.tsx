@@ -4,7 +4,7 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import NodeStore from "app/stores/NodeStore";
 import {inject, observer} from "mobx-react";
-import ExplorerStore from "app/stores/ExplorerStore";
+import ExplorerStore, {GenesisMessageID} from "app/stores/ExplorerStore";
 import Spinner from "react-bootstrap/Spinner";
 import ListGroup from "react-bootstrap/ListGroup";
 import Badge from "react-bootstrap/Badge";
@@ -35,6 +35,10 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
         this.props.explorerStore.searchMessage(this.props.match.params.id);
     }
 
+    componentWillUnmount() {
+        this.props.explorerStore.reset();
+    }
+
     getSnapshotBeforeUpdate(prevProps: Props, prevState) {
         if (prevProps.match.params.id !== this.props.match.params.id) {
             this.props.explorerStore.searchMessage(this.props.match.params.id);
@@ -43,34 +47,57 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
     }
 
     getPayloadType() {
-        switch(this.props.explorerStore.msg.payload_type) {
+        switch (this.props.explorerStore.msg.payload_type) {
             case PayloadType.Data:
                 return "Data"
             case PayloadType.Value:
                 return "Value"
             case PayloadType.Drng:
                 return "Drng"
+            case PayloadType.Faucet:
+                return "Faucet"
             default:
                 return "Unknown"
         }
     }
 
     renderPayload() {
-        switch(this.props.explorerStore.msg.payload_type) {
+        switch (this.props.explorerStore.msg.payload_type) {
             case PayloadType.Drng:
                 return <DrngPayload/>
             case PayloadType.Value:
                 return <ValuePayload/>
             case PayloadType.Data:
+            case PayloadType.Faucet:
             default:
-                console.log(this.props.explorerStore.msg.payload.bytes)
                 return <BasicPayload/>
         }
     }
 
     render() {
         let {id} = this.props.match.params;
-        let {msg, query_loading} = this.props.explorerStore;
+        let {msg, query_loading, query_err} = this.props.explorerStore;
+
+        if (id === GenesisMessageID) {
+            return (
+                <Container>
+                    <h3>Genesis Message</h3>
+                    <p>In the beginning there was the genesis.</p>
+                </Container>
+            );
+        }
+
+        if (query_err) {
+            return (
+                <Container>
+                    <h3>Message not available - 404</h3>
+                    <p>
+                        Message with ID {id} not found.
+                    </p>
+                </Container>
+            );
+        }
+
         return (
             <Container>
                 <h3>Message</h3>
@@ -81,8 +108,11 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                         <React.Fragment>
                             <br/>
                             <span>
+                                <Badge variant="light" style={{marginRight: 10}}>
+                                   Issuance Time: {dateformat(new Date(msg.issuance_timestamp * 1000), "dd.mm.yyyy HH:MM:ss")}
+                                </Badge>
                                 <Badge variant="light">
-                                   Time: {dateformat(new Date(msg.timestamp * 1000), "dd.mm.yyyy HH:MM:ss")}
+                                   Solidification Time: {dateformat(new Date(msg.solidification_timestamp * 1000), "dd.mm.yyyy HH:MM:ss")}
                                 </Badge>
                             </span>
                         </React.Fragment>
@@ -94,15 +124,32 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                         <Row className={"mb-3"}>
                             <Col>
                                 <ListGroup>
-                                    <ListGroup.Item>Payload Type: {this.getPayloadType()} </ListGroup.Item>
-                                </ListGroup>
-                            </Col>
-                            <Col>
-                                <ListGroup>
-                                    <ListGroup.Item>Solid: {msg.solid ? 'Yes' : 'No'}</ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Payload Type: {this.getPayloadType()}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Sequence Number: {msg.sequence_number}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Solid: {msg.solid ? 'Yes' : 'No'}
+                                    </ListGroup.Item>
                                 </ListGroup>
                             </Col>
                         </Row>
+
+                        <Row className={"mb-3"}>
+                            <Col>
+                                <ListGroup>
+                                    <ListGroup.Item>
+                                        Issuer Public Key: {msg.issuer_public_key}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Message Signature: {msg.signature}
+                                    </ListGroup.Item>
+                                </ListGroup>
+                            </Col>
+                        </Row>
+
                         <Row className={"mb-3"}>
                             <Col>
                                 <ListGroup>
@@ -125,11 +172,13 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                 </ListGroup>
                             </Col>
                         </Row>
+
                         <Row className={"mb-3"}>
                             <Col>
                                 <h4>Payload</h4>
                             </Col>
                         </Row>
+
                         <Row className={"mb-3"}>
                             <Col>
                                 <ListGroup>

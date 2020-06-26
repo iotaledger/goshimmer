@@ -14,8 +14,16 @@ import (
 type ExplorerMessage struct {
 	// ID is the message ID.
 	ID string `json:"id"`
-	// Timestamp is the timestamp of the message.
-	Timestamp uint `json:"timestamp"`
+	// SolidificationTimestamp is the timestamp of the message.
+	SolidificationTimestamp int64 `json:"solidification_timestamp"`
+	// The time when this message was issued
+	IssuanceTimestamp int64 `json:"issuance_timestamp"`
+	// The issuer's sequence number of this message.
+	SequenceNumber uint64 `json:"sequence_number"`
+	// The public key of the issuer who issued this message.
+	IssuerPublicKey string `json:"issuer_public_key"`
+	// The signature of the message.
+	Signature string `json:"signature"`
 	// TrunkMessageId is the Trunk ID of the message.
 	TrunkMessageID string `json:"trunk_message_id"`
 	// BranchMessageId is the Branch ID of the message.
@@ -30,15 +38,21 @@ type ExplorerMessage struct {
 
 func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
 	messageID := msg.Id()
-	messageMetadata := messagelayer.Tangle.MessageMetadata(messageID)
+	cachedMessageMetadata := messagelayer.Tangle().MessageMetadata(messageID)
+	defer cachedMessageMetadata.Release()
+	messageMetadata := cachedMessageMetadata.Unwrap()
 	t := &ExplorerMessage{
-		ID:              messageID.String(),
-		Timestamp:       0,
-		TrunkMessageID:  msg.TrunkId().String(),
-		BranchMessageID: msg.BranchId().String(),
-		Solid:           messageMetadata.Unwrap().IsSolid(),
-		PayloadType:     msg.Payload().Type(),
-		Payload:         ProcessPayload(msg.Payload()),
+		ID:                      messageID.String(),
+		SolidificationTimestamp: messageMetadata.SolidificationTime().Unix(),
+		IssuanceTimestamp:       msg.IssuingTime().Unix(),
+		IssuerPublicKey:         msg.IssuerPublicKey().String(),
+		Signature:               msg.Signature().String(),
+		SequenceNumber:          msg.SequenceNumber(),
+		TrunkMessageID:          msg.TrunkId().String(),
+		BranchMessageID:         msg.BranchId().String(),
+		Solid:                   cachedMessageMetadata.Unwrap().IsSolid(),
+		PayloadType:             msg.Payload().Type(),
+		Payload:                 ProcessPayload(msg.Payload()),
 	}
 
 	return t, nil
@@ -46,7 +60,7 @@ func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
 
 // ExplorerAddress defines the struct of the ExplorerAddress.
 type ExplorerAddress struct {
-	// Messagess hold the list of *ExplorerMessage.
+	// Messages hold the list of *ExplorerMessage.
 	Messages []*ExplorerMessage `json:"message"`
 }
 
@@ -119,7 +133,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 }
 
 func findMessage(messageID message.Id) (explorerMsg *ExplorerMessage, err error) {
-	if !messagelayer.Tangle.Message(messageID).Consume(func(msg *message.Message) {
+	if !messagelayer.Tangle().Message(messageID).Consume(func(msg *message.Message) {
 		explorerMsg, err = createExplorerMessage(msg)
 	}) {
 		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.String())

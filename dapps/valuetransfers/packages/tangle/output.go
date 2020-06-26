@@ -426,22 +426,23 @@ func (output *Output) ObjectStorageKey() []byte {
 // and are ignored here.
 func (output *Output) ObjectStorageValue() []byte {
 	// determine amount of balances in the output
-	balanceCount := len(output.balances)
+	balances := output.Balances()
+	balanceCount := len(balances)
 
 	// initialize helper
 	marshalUtil := marshalutil.New(branchmanager.BranchIDLength + 6*marshalutil.BOOL_SIZE + marshalutil.TIME_SIZE + transaction.IDLength + marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + balanceCount*balance.Length)
 	marshalUtil.WriteBytes(output.branchID.Bytes())
-	marshalUtil.WriteBool(output.solid)
-	marshalUtil.WriteTime(output.solidificationTime)
+	marshalUtil.WriteBool(output.Solid())
+	marshalUtil.WriteTime(output.SolidificationTime())
 	marshalUtil.WriteBytes(output.firstConsumer.Bytes())
-	marshalUtil.WriteUint32(uint32(output.consumerCount))
+	marshalUtil.WriteUint32(uint32(output.ConsumerCount()))
 	marshalUtil.WriteBool(output.Preferred())
 	marshalUtil.WriteBool(output.Finalized())
 	marshalUtil.WriteBool(output.Liked())
 	marshalUtil.WriteBool(output.Confirmed())
 	marshalUtil.WriteBool(output.Rejected())
 	marshalUtil.WriteUint32(uint32(balanceCount))
-	for _, balanceToMarshal := range output.balances {
+	for _, balanceToMarshal := range balances {
 		marshalUtil.WriteBytes(balanceToMarshal.Bytes())
 	}
 

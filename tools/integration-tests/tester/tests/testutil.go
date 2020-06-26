@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	faucet_payload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
@@ -74,6 +75,42 @@ func SendDataMessage(t *testing.T, peer *framework.Peer, data []byte, number int
 		issuerPublicKey: peer.Identity.PublicKey().String(),
 	}
 	return id, sent
+}
+
+// SendFaucetRequestOnRandomPeer sends a faucet request on a given peer and returns the id and a DataMessageSent struct.
+func SendFaucetRequestOnRandomPeer(t *testing.T, peers []*framework.Peer, numMessages int) (ids map[string]DataMessageSent, addrBalance map[string]map[balance.Color]int64) {
+	ids = make(map[string]DataMessageSent, numMessages)
+	addrBalance = make(map[string]map[balance.Color]int64)
+	for _, p := range peers {
+		addr := p.Seed().Address(0).String()
+		addrBalance[addr] = make(map[balance.Color]int64)
+		addrBalance[addr][balance.ColorIOTA] = 0
+	}
+
+	for i := 0; i < numMessages; i++ {
+		peer := peers[rand.Intn(len(peers))]
+		id, sent := SendFaucetRequest(t, peer)
+
+		ids[id] = sent
+		addrBalance[peer.Seed().Address(0).String()][balance.ColorIOTA] += framework.ParaFaucetTokensPerRequest
+	}
+
+	return ids, addrBalance
+}
+
+// SendFaucetRequest sends a data message on a given peer and returns the id and a DataMessageSent struct.
+func SendFaucetRequest(t *testing.T, peer *framework.Peer) (string, DataMessageSent) {
+	addr := peer.Seed().Address(0)
+	resp, err := peer.SendFaucetRequest(addr.String())
+	require.NoErrorf(t, err, "Could not send faucet request on %s", peer.String())
+
+	sent := DataMessageSent{
+		id: resp.ID,
+		// save payload to be able to compare API response
+		data:            faucet_payload.New(addr).Bytes(),
+		issuerPublicKey: peer.Identity.PublicKey().String(),
+	}
+	return resp.ID, sent
 }
 
 // CheckForMessageIds performs checks to make sure that all peers received all given messages defined in ids.

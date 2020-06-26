@@ -85,6 +85,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--valueLayer.fcob.averageNetworkDelay=%d", ParaFCoBAverageNetworkDelay),
 			fmt.Sprintf("--autopeering.outboundUpdateIntervalMs=%d", ParaOutboundUpdateIntervalMs),
 			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
+			fmt.Sprintf("--pow.difficulty=%d", ParaPoWDifficulty),
 			fmt.Sprintf("--node.enablePlugins=%s", func() string {
 				var plugins []string
 				if config.Bootstrap {
@@ -95,6 +96,14 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				}
 				return strings.Join(plugins[:], ",")
 			}()),
+			// define the faucet seed in case the faucet dApp is enabled
+			func() string {
+				if !config.Faucet {
+					return ""
+				}
+				return fmt.Sprintf("--faucet.seed=%s", genesisSeedBase58)
+			}(),
+			fmt.Sprintf("--faucet.tokensPerRequest=%d", ParaFaucetTokensPerRequest),
 			fmt.Sprintf("--valueLayer.snapshot.file=%s", config.SnapshotFilePath),
 			fmt.Sprintf("--bootstrap.initialIssuance.timePeriodSec=%d", config.BootstrapInitialIssuanceTimePeriodSec),
 			"--webapi.bindAddress=0.0.0.0:8080",

@@ -44,17 +44,19 @@ func init() {
 }
 
 var (
-	// App is the "plugin" instance of the value-transfers application.
-	App = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	// app is the "plugin" instance of the value-transfers application.
+	app     *node.Plugin
+	appOnce sync.Once
 
-	// Tangle represents the value tangle that is used to express votes on value transactions.
-	Tangle *tangle.Tangle
+	// _tangle represents the value tangle that is used to express votes on value transactions.
+	_tangle    *tangle.Tangle
+	tangleOnce sync.Once
 
-	// FCOB contains the fcob consensus logic.
-	FCOB *consensus.FCOB
+	// fcob contains the fcob consensus logic.
+	fcob *consensus.FCOB
 
-	// LedgerState represents the ledger state, that keeps track of the liked branches and offers an API to access funds.
-	LedgerState *tangle.LedgerState
+	// ledgerState represents the ledger state, that keeps track of the liked branches and offers an API to access funds.
+	ledgerState *tangle.LedgerState
 
 	// log holds a reference to the logger used by this app.
 	log *logger.Logger
@@ -66,15 +68,47 @@ var (
 	valueObjectFactoryOnce sync.Once
 )
 
+// App gets the plugin instance.
+func App() *node.Plugin {
+	appOnce.Do(func() {
+		app = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
+	return app
+}
+
+// Tangle gets the tangle instance.
+// tangle represents the value tangle that is used to express votes on value transactions.
+func Tangle() *tangle.Tangle {
+	tangleOnce.Do(func() {
+		_tangle = tangle.New(database.Store())
+	})
+	return _tangle
+}
+
+// FCOB gets the fcob instance.
+// fcob contains the fcob consensus logic.
+func FCOB() *consensus.FCOB {
+	return fcob
+}
+
+// LedgerState gets the ledgerState instance.
+// ledgerState represents the ledger state, that keeps track of the liked branches and offers an API to access funds.
+func LedgerState() *tangle.LedgerState {
+	return ledgerState
+}
+
 func configure(_ *node.Plugin) {
 	// configure logger
 	log = logger.NewLogger(PluginName)
 
 	// configure Tangle
-	Tangle = tangle.New(database.Store())
+	_tangle = Tangle()
+
+	// configure LedgerState
+	ledgerState = tangle.NewLedgerState(Tangle())
 
 	// read snapshot file
-	snapshotFilePath := config.Node.GetString(CfgValueLayerSnapshotFile)
+	snapshotFilePath := config.Node().GetString(CfgValueLayerSnapshotFile)
 	if len(snapshotFilePath) != 0 {
 		snapshot := tangle.Snapshot{}
 		f, err := os.Open(snapshotFilePath)
@@ -84,11 +118,11 @@ func configure(_ *node.Plugin) {
 		if _, err := snapshot.ReadFrom(f); err != nil {
 			log.Panic("could not read snapshot file:", err)
 		}
-		Tangle.LoadSnapshot(snapshot)
+		_tangle.LoadSnapshot(snapshot)
 		log.Infof("read snapshot from %s", snapshotFilePath)
 	}
 
-	Tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+	_tangle.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Error(err)
 	}))
 
@@ -96,31 +130,31 @@ func configure(_ *node.Plugin) {
 	tipManager = TipManager()
 	valueObjectFactory = ValueObjectFactory()
 
-	Tangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
+	_tangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
 		cachedMetadata.Release()
 		cachedPayload.Consume(tipManager.AddTip)
 	}))
-	Tangle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
+	_tangle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
 		cachedMetadata.Release()
 		cachedPayload.Consume(tipManager.RemoveTip)
 	}))
 
 	// configure FCOB consensus rules
-	cfgAvgNetworkDelay := config.Node.GetInt(CfgValueLayerFCOBAverageNetworkDelay)
+	cfgAvgNetworkDelay := config.Node().GetInt(CfgValueLayerFCOBAverageNetworkDelay)
 	log.Infof("avg. network delay configured to %d seconds", cfgAvgNetworkDelay)
-	FCOB = consensus.NewFCOB(Tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
-	FCOB.Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
+	fcob = consensus.NewFCOB(_tangle, time.Duration(cfgAvgNetworkDelay)*time.Second)
+	fcob.Events.Vote.Attach(events.NewClosure(func(id string, initOpn vote.Opinion) {
 		if err := voter.Vote(id, initOpn); err != nil {
 			log.Warnf("FPC vote: %s", err)
 		}
 	}))
-	FCOB.Events.Error.Attach(events.NewClosure(func(err error) {
+	fcob.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Errorf("FCOB error: %s", err)
 	}))
 
 	// configure FPC + link to consensus
 	configureFPC()
-	voter.Events().Finalized.Attach(events.NewClosure(FCOB.ProcessVoteResult))
+	voter.Events().Finalized.Attach(events.NewClosure(fcob.ProcessVoteResult))
 	voter.Events().Finalized.Attach(events.NewClosure(func(ev *vote.OpinionEvent) {
 		log.Infof("FPC finalized for transaction with id '%s' - final opinion: '%s'", ev.ID, ev.Opinion)
 	}))
@@ -129,16 +163,16 @@ func configure(_ *node.Plugin) {
 	}))
 
 	// register SignatureFilter in Parser
-	messagelayer.MessageParser.AddMessageFilter(tangle.NewSignatureFilter())
+	messagelayer.MessageParser().AddMessageFilter(tangle.NewSignatureFilter())
 
 	// subscribe to message-layer
-	messagelayer.Tangle.Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 }
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("ValueTangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
-		Tangle.Shutdown()
+		_tangle.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
@@ -169,7 +203,7 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 		return
 	}
 
-	Tangle.AttachPayload(valuePayload)
+	_tangle.AttachPayload(valuePayload)
 }
 
 // TipManager returns the TipManager singleton.

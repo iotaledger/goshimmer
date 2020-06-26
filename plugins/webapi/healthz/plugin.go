@@ -2,6 +2,7 @@ package healthz
 
 import (
 	"net/http"
+	goSync "sync"
 
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/sync"
@@ -13,11 +14,22 @@ import (
 // PluginName is the name of the web API healthz endpoint plugin.
 const PluginName = "WebAPI healthz Endpoint"
 
-// Plugin is the plugin instance of the web API info endpoint plugin.
-var Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+var (
+	// plugin is the plugin instance of the web API info endpoint plugin.
+	plugin *node.Plugin
+	once   goSync.Once
+)
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	})
+	return plugin
+}
 
 func configure(_ *node.Plugin) {
-	webapi.Server.GET("healthz", getHealthz)
+	webapi.Server().GET("healthz", getHealthz)
 }
 
 func getHealthz(c echo.Context) error {

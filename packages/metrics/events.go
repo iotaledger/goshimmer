@@ -39,7 +39,7 @@ type QueryReceivedEvent struct {
 
 // QueryReplyErrorEvent is used to pass information through a QueryReplyError event.
 type QueryReplyErrorEvent struct {
-	// ID defines the ID on the queryied node.
+	// ID defines the ID on the queried node.
 	ID string
 	// OpinionCount defines the local FPC number of opinions requested within a failed query.
 	OpinionCount int

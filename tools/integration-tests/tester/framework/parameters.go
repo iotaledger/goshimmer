@@ -31,11 +31,16 @@ var (
 	ParaOutboundUpdateIntervalMs = 100
 	// ParaBootstrapOnEveryNode whether to enable the bootstrap plugin on every node.
 	ParaBootstrapOnEveryNode = false
+	// ParaFaucetTokensPerRequest defines the tokens to send up on each faucet request message.
+	ParaFaucetTokensPerRequest int64 = 1337
+	// ParaPoWDifficulty defines the PoW difficulty.
+	ParaPoWDifficulty = 2
 )
 
 var (
 	genesisSeed = []byte{95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113,
 		104, 71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230}
+	genesisSeedBase58 = "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih"
 )
 
 //GoShimmerConfig defines the config of a GoShimmer node.

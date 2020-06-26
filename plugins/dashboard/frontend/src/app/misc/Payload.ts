@@ -1,6 +1,7 @@
 export enum PayloadType {
     Data = 0,
     Value = 1,
+    Faucet = 2,
     Drng = 111,
 }
 
@@ -12,7 +13,7 @@ export enum DrngSubtype {
 // BasicPayload
 export class BasicPayload {
     content_title: string;
-    bytes: string;
+    content: string;
 }
 
 // DrngPayload

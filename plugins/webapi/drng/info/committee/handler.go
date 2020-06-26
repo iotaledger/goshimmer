@@ -23,7 +23,7 @@ func Handler(c echo.Context) error {
 type Response struct {
 	InstanceID    uint32              `json:"instanceID,omitempty"`
 	Threshold     uint8               `json:"threshold,omitempty"`
-	Identities    []ed25519.PublicKey `json:"identitites,omitempty"`
+	Identities    []ed25519.PublicKey `json:"identities,omitempty"`
 	DistributedPK []byte              `json:"distributedPK,omitempty"`
 	Error         string              `json:"error,omitempty"`
 }

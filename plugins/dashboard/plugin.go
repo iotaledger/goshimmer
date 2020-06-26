@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"runtime"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -30,14 +31,23 @@ import (
 const PluginName = "Dashboard"
 
 var (
-	// Plugin is the plugin instance of the dashboard plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	// plugin is the plugin instance of the dashboard plugin.
+	plugin *node.Plugin
+	once   sync.Once
 
 	log    *logger.Logger
 	server *echo.Echo
 
 	nodeStartAt = time.Now()
 )
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
+	return plugin
+}
 
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
@@ -54,10 +64,10 @@ func configureServer() {
 	server.HidePort = true
 	server.Use(middleware.Recover())
 
-	if config.Node.GetBool(CfgBasicAuthEnabled) {
+	if config.Node().GetBool(CfgBasicAuthEnabled) {
 		server.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-			if username == config.Node.GetString(CfgBasicAuthUsername) &&
-				password == config.Node.GetString(CfgBasicAuthPassword) {
+			if username == config.Node().GetString(CfgBasicAuthUsername) &&
+				password == config.Node().GetString(CfgBasicAuthPassword) {
 				return true, nil
 			}
 			return false, nil
@@ -75,7 +85,7 @@ func run(*node.Plugin) {
 	// run the visualizer vertex feed
 	runVisualizer()
 	// run dRNG live feed if dRNG plugin is enabled
-	if !node.IsSkipped(drng.Plugin) {
+	if !node.IsSkipped(drng.Plugin()) {
 		runDrngLiveFeed()
 	}
 
@@ -98,7 +108,7 @@ func worker(shutdownSignal <-chan struct{}) {
 	defer metrics.Events.ReceivedMPSUpdated.Detach(notifyStatus)
 
 	stopped := make(chan struct{})
-	bindAddr := config.Node.GetString(CfgBindAddress)
+	bindAddr := config.Node().GetString(CfgBindAddress)
 	go func() {
 		log.Infof("%s started, bind-address=%s", PluginName, bindAddr)
 		if err := server.Start(bindAddr); err != nil {

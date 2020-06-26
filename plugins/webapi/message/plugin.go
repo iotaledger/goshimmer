@@ -2,6 +2,7 @@ package message
 
 import (
 	"net/http"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -15,15 +16,24 @@ import (
 const PluginName = "WebAPI message Endpoint"
 
 var (
-	// Plugin is the plugin instance of the web API message endpoint plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	// plugin is the plugin instance of the web API message endpoint plugin.
+	plugin *node.Plugin
+	once   sync.Once
 	log    *logger.Logger
 )
 
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	})
+	return plugin
+}
+
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	webapi.Server.POST("message/findById", findMessageByID)
-	webapi.Server.POST("message/sendPayload", sendPayload)
+	webapi.Server().POST("message/findById", findMessageByID)
+	webapi.Server().POST("message/sendPayload", sendPayload)
 }
 
 // findMessageByID returns the array of messages for the
@@ -48,8 +58,8 @@ func findMessageByID(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 		}
 
-		msgObject := messagelayer.Tangle.Message(msgID)
-		msgMetadataObject := messagelayer.Tangle.MessageMetadata(msgID)
+		msgObject := messagelayer.Tangle().Message(msgID)
+		msgMetadataObject := messagelayer.Tangle().MessageMetadata(msgID)
 
 		if !msgObject.Exists() || !msgMetadataObject.Exists() {
 			result = append(result, Message{})
@@ -62,7 +72,7 @@ func findMessageByID(c echo.Context) error {
 		msgResp := Message{
 			Metadata: Metadata{
 				Solid:              msgMetadata.IsSolid(),
-				SolidificationTime: msgMetadata.SoldificationTime().Unix(),
+				SolidificationTime: msgMetadata.SolidificationTime().Unix(),
 			},
 			ID:              msg.Id().String(),
 			TrunkID:         msg.TrunkId().String(),

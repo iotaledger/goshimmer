@@ -17,12 +17,12 @@ func Handler(c echo.Context) error {
 	}
 
 	// get txn by txn id
-	cachedTxnMetaObj := valuetransfers.Tangle.TransactionMetadata(txnID)
+	cachedTxnMetaObj := valuetransfers.Tangle().TransactionMetadata(txnID)
 	defer cachedTxnMetaObj.Release()
 	if !cachedTxnMetaObj.Exists() {
 		return c.JSON(http.StatusNotFound, Response{Error: "Transaction not found"})
 	}
-	cachedTxnObj := valuetransfers.Tangle.Transaction(txnID)
+	cachedTxnObj := valuetransfers.Tangle().Transaction(txnID)
 	defer cachedTxnObj.Release()
 	if !cachedTxnObj.Exists() {
 		return c.JSON(http.StatusNotFound, Response{Error: "Transaction not found"})
@@ -45,7 +45,7 @@ func Handler(c echo.Context) error {
 	})
 }
 
-// Response is the HTTP response from retreiving transaction.
+// Response is the HTTP response from retrieving transaction.
 type Response struct {
 	Transaction    utils.Transaction    `json:"transaction,omitempty"`
 	InclusionState utils.InclusionState `json:"inclusion_state,omitempty"`

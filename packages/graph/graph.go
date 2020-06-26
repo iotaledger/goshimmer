@@ -78,7 +78,7 @@ func (nl nodes) AddEdge(a, b nodeID) {
 // Diameter is the maximum length of a shortest path in the network
 func (nl nodes) Diameter() int {
 
-	cpus := runtime.NumCPU()
+	cpus := runtime.GOMAXPROCS(0)
 	numNodes := len(nl)
 	nodesPerCPU := numNodes / cpus
 

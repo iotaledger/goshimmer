@@ -5,6 +5,7 @@ const (
 	PriorityFPC
 	PriorityTangle
 	PriorityMissingMessagesMonitoring
+	PriorityFaucet
 	PriorityRemoteLog
 	PriorityAnalysis
 	PriorityPrometheus
@@ -14,6 +15,6 @@ const (
 	PriorityWebAPI
 	PriorityDashboard
 	PrioritySynchronization
-	PriorityBootstrap
 	PrioritySpammer
+	PriorityBootstrap
 )

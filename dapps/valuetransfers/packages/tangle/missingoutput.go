@@ -108,7 +108,7 @@ func (missingOutput *MissingOutput) ObjectStorageKey() []byte {
 // interface.
 func (missingOutput *MissingOutput) ObjectStorageValue() []byte {
 	return marshalutil.New(marshalutil.TIME_SIZE).
-		WriteTime(missingOutput.missingSince).
+		WriteTime(missingOutput.MissingSince()).
 		Bytes()
 }
 

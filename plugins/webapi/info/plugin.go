@@ -3,6 +3,7 @@ package info
 import (
 	"net/http"
 	"sort"
+	goSync "sync"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -15,11 +16,22 @@ import (
 // PluginName is the name of the web API info endpoint plugin.
 const PluginName = "WebAPI info Endpoint"
 
-// Plugin is the plugin instance of the web API info endpoint plugin.
-var Plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+var (
+	// plugin is the plugin instance of the web API info endpoint plugin.
+	plugin *node.Plugin
+	once   goSync.Once
+)
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure)
+	})
+	return plugin
+}
 
 func configure(_ *node.Plugin) {
-	webapi.Server.GET("info", getInfo)
+	webapi.Server().GET("info", getInfo)
 }
 
 // getInfo returns the info of the node
@@ -51,7 +63,7 @@ func configure(_ *node.Plugin) {
 // 		"Graceful Shutdown",
 // 		"Logger"
 // 	],
-// 	"disabledlugins":[
+// 	"disabledplugins":[
 // 		"RemoteLog",
 // 		"Spammer",
 // 		"WebAPI Auth"

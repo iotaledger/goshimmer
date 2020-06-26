@@ -1,6 +1,7 @@
 package client
 
 import (
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
@@ -30,16 +31,25 @@ func init() {
 }
 
 var (
-	// Plugin is the plugin instance of the analysis client plugin.
-	Plugin = node.NewPlugin(PluginName, node.Enabled, run)
-	conn   *Connector
+	// plugin is the plugin instance of the analysis client plugin.
+	plugin *node.Plugin
+	once   sync.Once
 	log    *logger.Logger
+	conn   *Connector
 )
+
+// Plugin gets the plugin instance
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, run)
+	})
+	return plugin
+}
 
 func run(_ *node.Plugin) {
 	finalized = make(map[string]vote.Opinion)
 	log = logger.NewLogger(PluginName)
-	conn = NewConnector("tcp", config.Node.GetString(CfgServerAddress))
+	conn = NewConnector("tcp", config.Node().GetString(CfgServerAddress))
 
 	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		conn.Start()

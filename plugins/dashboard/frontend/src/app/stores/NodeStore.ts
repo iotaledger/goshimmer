@@ -220,6 +220,9 @@ export class NodeStore {
 
     @action
     updateNeighborMetrics = (neighborMetrics: Array<NeighborMetric>) => {
+        if (!neighborMetrics) {
+            return;
+        }
         let updated = [];
         for (let i = 0; i < neighborMetrics.length; i++) {
             let metric = neighborMetrics[i];

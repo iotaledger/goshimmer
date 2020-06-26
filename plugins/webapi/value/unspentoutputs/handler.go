@@ -28,11 +28,11 @@ func Handler(c echo.Context) error {
 
 		outputids := make([]OutputID, 0)
 		// get outputids by address
-		for id, cachedOutput := range valuetransfers.Tangle.OutputsOnAddress(address) {
+		for id, cachedOutput := range valuetransfers.Tangle().OutputsOnAddress(address) {
 			// TODO: don't do this in a for
 			defer cachedOutput.Release()
 			output := cachedOutput.Unwrap()
-			cachedTxMeta := valuetransfers.Tangle.TransactionMetadata(output.TransactionID())
+			cachedTxMeta := valuetransfers.Tangle().TransactionMetadata(output.TransactionID())
 			// TODO: don't do this in a for
 			defer cachedTxMeta.Release()
 
@@ -79,7 +79,7 @@ type Request struct {
 	Error     string   `json:"error,omitempty"`
 }
 
-// Response is the HTTP response from retreiving value objects.
+// Response is the HTTP response from retrieving value objects.
 type Response struct {
 	UnspentOutputs []UnspentOutput `json:"unspent_outputs,omitempty"`
 	Error          string          `json:"error,omitempty"`

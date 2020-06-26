@@ -1,13 +1,18 @@
 package messagerequester
 
 import (
+	"runtime"
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/events"
+)
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+var (
+	// DefaultRequestWorkerCount defines the Default Request Worker Count of the message requester.
+	DefaultRequestWorkerCount = runtime.GOMAXPROCS(0)
 )
 
 // MessageRequester takes care of requesting messages.

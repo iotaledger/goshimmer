@@ -16,15 +16,6 @@ var (
 	ErrInvalidFPCHeartbeat = errors.New("invalid FPC heartbeat")
 )
 
-var (
-	// FPCHeartbeatMessageDefinition defines a heartbeat message's format.
-	FPCHeartbeatMessageDefinition = &message.Definition{
-		ID:             MessageTypeFPCHeartbeat,
-		MaxBytesLength: 65535,
-		VariableLength: true,
-	}
-)
-
 // FPCHeartbeat represents a heartbeat packet.
 type FPCHeartbeat struct {
 	// The ID of the node who sent the heartbeat.
@@ -34,6 +25,20 @@ type FPCHeartbeat struct {
 	RoundStats vote.RoundStats
 	// Finalized contains the finalized conflicts within the last FPC round.
 	Finalized map[string]vote.Opinion
+}
+
+// FPCHeartbeatMessageDefinition gets the fpcHeartbeatMessageDefinition.
+func FPCHeartbeatMessageDefinition() *message.Definition {
+	// fpcHeartbeatMessageDefinition defines a heartbeat message's format.
+	var fpcHeartbeatMessageDefinition *message.Definition
+	fpcHeartBeatOnce.Do(func() {
+		fpcHeartbeatMessageDefinition = &message.Definition{
+			ID:             MessageTypeFPCHeartbeat,
+			MaxBytesLength: 65535,
+			VariableLength: true,
+		}
+	})
+	return fpcHeartbeatMessageDefinition
 }
 
 // ParseFPCHeartbeat parses a slice of bytes (serialized packet) into a FPC heartbeat.

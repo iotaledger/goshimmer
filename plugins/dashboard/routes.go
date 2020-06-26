@@ -28,7 +28,7 @@ var appBox = packr.New("Dashboard_App", "./frontend/build")
 var assetsBox = packr.New("Dashboard_Assets", "./frontend/src/assets")
 
 func indexRoute(e echo.Context) error {
-	if config.Node.GetBool(CfgDev) {
+	if config.Node().GetBool(CfgDev) {
 		res, err := http.Get("http://127.0.0.1:9090/")
 		if err != nil {
 			return err
@@ -48,7 +48,7 @@ func indexRoute(e echo.Context) error {
 
 func setupRoutes(e *echo.Echo) {
 
-	if config.Node.GetBool("dashboard.dev") {
+	if config.Node().GetBool("dashboard.dev") {
 		e.Static("/assets", "./plugins/dashboard/frontend/src/assets")
 	} else {
 
@@ -71,6 +71,7 @@ func setupRoutes(e *echo.Echo) {
 	apiRoutes := e.Group("/api")
 
 	setupExplorerRoutes(apiRoutes)
+	setupFaucetRoutes(apiRoutes)
 
 	e.HTTPErrorHandler = func(err error, c echo.Context) {
 		c.Logger().Error(err)

@@ -25,23 +25,11 @@ const (
 	HeartbeatPacketPeerIDSize = sha256.Size
 	// HeartbeatPacketOutboundIDCountSize is the byte size of the counter indicating the amount of outbound IDs.
 	HeartbeatPacketOutboundIDCountSize = 1
-)
-
-var (
 	// HeartbeatPacketMinSize is the minimum byte size of a heartbeat packet.
 	HeartbeatPacketMinSize = HeartbeatPacketPeerIDSize + HeartbeatPacketOutboundIDCountSize
 	// HeartbeatPacketMaxSize is the maximum size a heartbeat packet can have.
 	HeartbeatPacketMaxSize = HeartbeatPacketPeerIDSize + HeartbeatPacketOutboundIDCountSize +
 		HeartbeatMaxOutboundPeersCount*sha256.Size + HeartbeatMaxInboundPeersCount*sha256.Size
-)
-
-var (
-	// HeartbeatMessageDefinition defines a heartbeat message's format.
-	HeartbeatMessageDefinition = &message.Definition{
-		ID:             MessageTypeHeartbeat,
-		MaxBytesLength: uint16(HeartbeatPacketMaxSize),
-		VariableLength: true,
-	}
 )
 
 // Heartbeat represents a heartbeat packet.
@@ -55,6 +43,20 @@ type Heartbeat struct {
 	// The IDs of the inbound peers. Can be empty or nil.
 	// It must not exceed HeartbeatMaxInboundPeersCount.
 	InboundIDs [][]byte
+}
+
+// HeartBeatMessageDefinition gets the heartbeatMessageDefinition.
+func HeartBeatMessageDefinition() *message.Definition {
+	// heartbeatMessageDefinition defines a heartbeat message's format.
+	var heartbeatMessageDefinition *message.Definition
+	heartBeatOnce.Do(func() {
+		heartbeatMessageDefinition = &message.Definition{
+			ID:             MessageTypeHeartbeat,
+			MaxBytesLength: uint16(HeartbeatPacketMaxSize),
+			VariableLength: true,
+		}
+	})
+	return heartbeatMessageDefinition
 }
 
 // ParseHeartbeat parses a slice of bytes (serialized packet) into a heartbeat.
