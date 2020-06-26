@@ -1,6 +1,8 @@
 package value
 
 import (
+	"sync"
+
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/attachments"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/gettransactionbyid"
@@ -8,7 +10,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/testsendtxn"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/unspentoutputs"
 	"github.com/iotaledger/hive.go/node"
-	"sync"
 )
 
 // PluginName is the name of the web API DRNG endpoint plugin.
@@ -17,7 +18,7 @@ const PluginName = "WebAPI Value Endpoint"
 var (
 	// plugin is the plugin instance of the web API DRNG endpoint plugin.
 	plugin *node.Plugin
-	once sync.Once
+	once   sync.Once
 )
 
 // Plugin gets the plugin instance.

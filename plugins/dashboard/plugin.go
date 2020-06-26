@@ -33,7 +33,7 @@ const PluginName = "Dashboard"
 var (
 	// plugin is the plugin instance of the dashboard plugin.
 	plugin *node.Plugin
-	once sync.Once
+	once   sync.Once
 
 	log    *logger.Logger
 	server *echo.Echo

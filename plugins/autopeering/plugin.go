@@ -19,7 +19,7 @@ const PluginName = "Autopeering"
 var (
 	// plugin is the plugin instance of the autopeering plugin.
 	plugin *node.Plugin
-	once sync.Once
+	once   sync.Once
 
 	log *logger.Logger
 )
@@ -27,7 +27,7 @@ var (
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin =  node.NewPlugin(PluginName, node.Enabled, configure, run)
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	})
 	return plugin
 }
