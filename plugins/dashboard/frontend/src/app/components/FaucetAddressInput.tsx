@@ -8,7 +8,6 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Button from 'react-bootstrap/Button'
 import InputGroup from "react-bootstrap/InputGroup";
-import {Link} from 'react-router-dom';
 
 interface Props {
     nodeStore?: NodeStore;
@@ -19,6 +18,10 @@ interface Props {
 @inject("faucetStore")
 @observer
 export class FaucetAddressInput extends React.Component<Props, any> {
+
+    componentWillUnmount() {
+        this.props.faucetStore.reset();
+    }
 
     updateSend = (e) => {
         this.props.faucetStore.updateSend(e.target.value);
@@ -34,7 +37,7 @@ export class FaucetAddressInput extends React.Component<Props, any> {
     };
 
     render() {
-        let {send_addr, sending} = this.props.faucetStore;
+        let {send_addr, query_error, sending} = this.props.faucetStore;
 
         return (
             <React.Fragment>
@@ -64,14 +67,14 @@ export class FaucetAddressInput extends React.Component<Props, any> {
                         </Button>
                     </Col>
                 </Row>
-                <Row className={"mb-3"}>
-                    <Col>
-                        <small>
-                            Check your funds on the explorer: <Link
-                            to={`/explorer/address/${send_addr}`}>{send_addr}</Link>
-                        </small>
-                    </Col>
-                </Row>
+                {
+                    query_error !== "" &&
+                    <Row className={"mb-3"}>
+                        <Col>
+                            Couldn't request funds: {query_error}
+                        </Col>
+                    </Row>
+                }
             </React.Fragment>
         );
     }

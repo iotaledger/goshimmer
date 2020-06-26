@@ -12,11 +12,16 @@ var (
 	ErrMaximumPayloadSizeExceeded = errors.New("maximum payload size exceeded")
 )
 
+const (
+	// ObjectName defines the name of the data object.
+	ObjectName = "data"
+)
+
 func init() {
 	// register the generic unmarshaler
 	SetGenericUnmarshalerFactory(GenericPayloadUnmarshalerFactory)
 	// register the generic data payload type
-	RegisterType(DataType, GenericPayloadUnmarshalerFactory(DataType))
+	RegisterType(DataType, ObjectName, GenericPayloadUnmarshalerFactory(DataType))
 }
 
 // Payload represents some kind of payload of data which only gains meaning by having

@@ -5,8 +5,12 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/labstack/echo"
 )
 
@@ -60,8 +64,17 @@ func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
 
 // ExplorerAddress defines the struct of the ExplorerAddress.
 type ExplorerAddress struct {
-	// Messages hold the list of *ExplorerMessage.
-	Messages []*ExplorerMessage `json:"message"`
+	Address   string           `json:"address"`
+	OutputIDs []ExplorerOutput `json:"output_ids"`
+}
+
+// ExplorerOutput defines the struct of the ExplorerOutput.
+type ExplorerOutput struct {
+	ID                 string               `json:"id"`
+	Balances           []utils.Balance      `json:"balances"`
+	InclusionState     utils.InclusionState `json:"inclusion_state"`
+	SolidificationTime int64                `json:"solidification_time"`
+	ConsumerCount      int                  `json:"consumer_count"`
 }
 
 // SearchResult defines the struct of the SearchResult.
@@ -98,34 +111,40 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
 		search := c.Param("search")
 		result := &SearchResult{}
+		wg := sync.WaitGroup{}
 
-		if len(search) < 81 {
+		switch len(search) {
+
+		case address.Length:
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				addr, err := findAddress(search)
+				if err == nil {
+					result.Address = addr
+				}
+			}()
+
+		case message.IdLength:
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				messageID, err := message.NewId(search)
+				if err != nil {
+					return
+				}
+
+				msg, err := findMessage(messageID)
+				if err == nil {
+					result.Message = msg
+				}
+			}()
+
+		default:
 			return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
 		}
 
-		wg := sync.WaitGroup{}
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
-
-			messageID, err := message.NewId(search)
-			if err != nil {
-				return
-			}
-
-			msg, err := findMessage(messageID)
-			if err == nil {
-				result.Message = msg
-			}
-		}()
-
-		go func() {
-			defer wg.Done()
-			addr, err := findAddress(search)
-			if err == nil {
-				result.Address = addr
-			}
-		}()
 		wg.Wait()
 
 		return c.JSON(http.StatusOK, result)
@@ -142,8 +161,56 @@ func findMessage(messageID message.Id) (explorerMsg *ExplorerMessage, err error)
 	return
 }
 
-func findAddress(address string) (*ExplorerAddress, error) {
-	return nil, fmt.Errorf("%w: address %s", ErrNotFound, address)
+func findAddress(strAddress string) (*ExplorerAddress, error) {
 
-	// TODO: ADD ADDRESS LOOKUPS ONCE THE VALUE TRANSFER ONTOLOGY IS MERGED
+	address, err := address.FromBase58(strAddress)
+	if err != nil {
+		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)
+	}
+
+	outputids := make([]ExplorerOutput, 0)
+	// get outputids by address
+	for id, cachedOutput := range valuetransfers.Tangle().OutputsOnAddress(address) {
+
+		cachedOutput.Consume(func(output *tangle.Output) {
+
+			// iterate balances
+			var b []utils.Balance
+			for _, balance := range output.Balances() {
+				b = append(b, utils.Balance{
+					Value: balance.Value,
+					Color: balance.Color.String(),
+				})
+			}
+
+			valuetransfers.Tangle().TransactionMetadata(output.TransactionID()).Consume(func(txMeta *tangle.TransactionMetadata) {
+
+				inclusionState := utils.InclusionState{}
+				inclusionState.Confirmed = txMeta.Confirmed()
+				inclusionState.Liked = txMeta.Liked()
+				inclusionState.Rejected = txMeta.Rejected()
+				inclusionState.Finalized = txMeta.Finalized()
+				inclusionState.Conflicting = txMeta.Conflicting()
+				inclusionState.Confirmed = txMeta.Confirmed()
+
+				outputids = append(outputids, ExplorerOutput{
+					ID:                 id.String(),
+					Balances:           b,
+					InclusionState:     inclusionState,
+					ConsumerCount:      output.ConsumerCount(),
+					SolidificationTime: txMeta.SolidificationTime().Unix(),
+				})
+			})
+		})
+	}
+
+	if len(outputids) == 0 {
+		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)
+	}
+
+	return &ExplorerAddress{
+		Address:   strAddress,
+		OutputIDs: outputids,
+	}, nil
+
 }
