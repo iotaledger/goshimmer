@@ -22,9 +22,9 @@ import (
 )
 
 var (
-	//ErrTransactionDoesNotSpendAllFunds is returned if a transaction does not spend all its inputs.
+	// ErrTransactionDoesNotSpendAllFunds is returned if a transaction does not spend all of its inputs.
 	ErrTransactionDoesNotSpendAllFunds = errors.New("transaction does not spend all funds from inputs")
-	//ErrInvalidTransactionSignature is returned if the signature of a transaction is invalid.
+	// ErrInvalidTransactionSignature is returned if the signature of a transaction is invalid.
 	ErrInvalidTransactionSignature     = errors.New("invalid transaction signatures")
 )
 // Tangle represents the value tangle that consists out of value payloads.
@@ -1583,9 +1583,8 @@ func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Tran
 	return
 }
 
-// ValidateTransactionToAttach checks that the transactions spends all funds from its inputs.
-// Then it verifies the signature of the transaction.
-// It returns error if the transaction is not valid. Else nil
+// ValidateTransactionToAttach checks that the given transaction spends all funds from its inputs and
+// that its the signature is valid.
 func (tangle *Tangle) ValidateTransactionToAttach(tx *transaction.Transaction) (err error) {
 	_, cachedInputs, consumedBalances, _, err := tangle.retrieveConsumedInputDetails(tx)
 	defer cachedInputs.Release()
