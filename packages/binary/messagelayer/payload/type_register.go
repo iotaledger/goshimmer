@@ -52,5 +52,5 @@ func Name(payloadType Type) string {
 	if definition, exists := typeRegister[payloadType]; exists {
 		return definition.Name
 	}
-	return objectName
+	return ObjectName
 }

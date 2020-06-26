@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	objectName = "faucet"
+	// ObjectName defines the name of the facuet object.
+	ObjectName = "faucet"
 )
 
 // Payload represents a request which contains an address for the faucet to send funds to.
@@ -31,7 +32,7 @@ func New(addr address.Address) *Payload {
 }
 
 func init() {
-	payload.RegisterType(Type, objectName, GenericPayloadUnmarshalerFactory(Type))
+	payload.RegisterType(Type, ObjectName, GenericPayloadUnmarshalerFactory(Type))
 }
 
 // FromBytes parses the marshaled version of a Payload into an object.

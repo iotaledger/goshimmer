@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	objectName = "networkdelay"
+	// ObjectName defines the name of the networkdelay object.
+	ObjectName = "networkdelay"
 )
 
 // ID represents a 32 byte ID of a network delay object.
@@ -149,7 +150,7 @@ func (o *Object) Unmarshal(data []byte) (err error) {
 }
 
 func init() {
-	payload.RegisterType(Type, objectName, func(data []byte) (payload payload.Payload, err error) {
+	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
 		payload = &Object{}
 		err = payload.Unmarshal(data)
 

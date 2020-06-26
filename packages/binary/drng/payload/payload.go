@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	objectName = "dRNG"
+	// ObjectName defines the name of the dRNG object.
+	ObjectName = "dRNG"
 )
 
 // Payload defines a DRNG payload.
@@ -144,7 +145,7 @@ func (payload *Payload) Unmarshal(data []byte) (err error) {
 }
 
 func init() {
-	payload.RegisterType(Type, objectName, func(data []byte) (payload payload.Payload, err error) {
+	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
 		payload = &Payload{}
 		err = payload.Unmarshal(data)
 

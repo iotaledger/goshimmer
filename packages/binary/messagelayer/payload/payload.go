@@ -5,14 +5,15 @@ import (
 )
 
 const (
-	objectName = "data"
+	// ObjectName defines the name of the data object.
+	ObjectName = "data"
 )
 
 func init() {
 	// register the generic unmarshaler
 	SetGenericUnmarshalerFactory(GenericPayloadUnmarshalerFactory)
 	// register the generic data payload type
-	RegisterType(DataType, objectName, GenericPayloadUnmarshalerFactory(DataType))
+	RegisterType(DataType, ObjectName, GenericPayloadUnmarshalerFactory(DataType))
 }
 
 // Payload represents some kind of payload of data which only gains meaning by having

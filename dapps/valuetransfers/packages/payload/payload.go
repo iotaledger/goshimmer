@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	objectName = "value"
+	// ObjectName defines the name of the value object.
+	ObjectName = "value"
 )
 
 // Payload represents the entity that forms the Tangle by referencing other Payloads using their trunk and branch.
@@ -257,7 +258,7 @@ func (payload *Payload) Unmarshal(data []byte) (err error) {
 }
 
 func init() {
-	payload.RegisterType(Type, objectName, func(data []byte) (payload payload.Payload, err error) {
+	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
 		payload, _, err = FromBytes(data)
 
 		return
