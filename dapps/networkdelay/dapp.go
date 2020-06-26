@@ -1,7 +1,6 @@
 package networkdelay
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -111,7 +110,6 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 
 	// abort if message was sent more than 1min ago
 	// this should only happen due to a node resyncing
-	fmt.Println(time.Duration(now-networkDelayObject.sentTime), time.Minute)
 	if time.Duration(now-networkDelayObject.sentTime) > time.Minute {
 		log.Debugf("Received network delay message with >1min delay\n%s", networkDelayObject)
 		return
