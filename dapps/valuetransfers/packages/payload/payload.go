@@ -12,6 +12,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
+const (
+	// ObjectName defines the name of the value object.
+	ObjectName = "value"
+)
+
 // Payload represents the entity that forms the Tangle by referencing other Payloads using their trunk and branch.
 // A Payload contains a transaction and defines, where in the Tangle a transaction is attached.
 type Payload struct {
@@ -253,7 +258,7 @@ func (payload *Payload) Unmarshal(data []byte) (err error) {
 }
 
 func init() {
-	payload.RegisterType(Type, func(data []byte) (payload payload.Payload, err error) {
+	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
 		payload, _, err = FromBytes(data)
 
 		return

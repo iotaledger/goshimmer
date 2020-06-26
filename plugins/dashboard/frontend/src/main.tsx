@@ -17,7 +17,7 @@ const routerStore = new RouterStore();
 const nodeStore = new NodeStore();
 const explorerStore = new ExplorerStore(routerStore);
 const drngStore = new DrngStore(routerStore);
-const faucetStore = new FaucetStore();
+const faucetStore = new FaucetStore(routerStore);
 const visualizerStore = new VisualizerStore(routerStore);
 const stores = {
     "routerStore": routerStore,

@@ -1,11 +1,12 @@
 package logger
 
 import (
+	"sync"
+
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"sync"
 )
 
 // PluginName is the name of the logger plugin.
@@ -14,7 +15,7 @@ const PluginName = "Logger"
 var (
 	// plugin is the plugin instance of the logger plugin.
 	plugin *node.Plugin
-	once sync.Once
+	once   sync.Once
 )
 
 // Plugin gets the plugin instance.
@@ -24,7 +25,6 @@ func Plugin() *node.Plugin {
 	})
 	return plugin
 }
-
 
 // Init triggers the Init event.
 func Init() {

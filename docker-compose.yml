@@ -10,12 +10,14 @@ services:
       dockerfile: Dockerfile
     container_name: iota_goshimmer
     restart: unless-stopped
+    command: >
+      --node.enablePlugins=prometheus
     # Mount volumes:
     # make sure to give read/write access to the folder ./mainnetdb (e.g., chmod -R 777 ./mainnetdb)
     # optionally, you can mount a config.json into the container
     volumes:
       - ./mainnetdb/:/tmp/mainnetdb/:rw
-      #- ./config.json:/config.json:ro
+      - ./config.json:/config.json:ro
     # Expose ports:
     # gossip:       - "14666:14666/tcp"
     # autopeering:  - "14626:14626/udp"
@@ -24,5 +26,35 @@ services:
     ports:
       - "14666:14666/tcp"
       - "14626:14626/udp"
-      #- "8080:8080/tcp"
-      #- "8081:8081/tcp"
+      - "9311:9311/tcp" # prometheus exporter
+      - "8080:8080/tcp" # webApi
+      - "8081:8081/tcp" # dashboard
+
+  prometheus:
+    network_mode: host
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - 9090:9090
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./tools/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - goshimmer
+
+  grafana:
+    network_mode: host
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      # path to provisioning definitions can only be defined as
+      # environment variables for grafana within docker
+      - GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning
+    ports:
+      - 3000:3000
+    user: "472"
+    volumes:
+      - ./tools/monitoring/grafana:/var/lib/grafana:rw

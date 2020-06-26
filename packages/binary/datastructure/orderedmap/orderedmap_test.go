@@ -73,7 +73,7 @@ func TestSetGetDelete(t *testing.T) {
 	assert.False(t, ok)
 
 	// when deleting an existing element, we must get true,
-	// the elemente must be removed, and size decremented.
+	// the element must be removed, and size decremented.
 	deleted := orderedMap.Delete("key")
 	assert.True(t, deleted)
 	value, ok = orderedMap.Get("key")

@@ -1,6 +1,8 @@
 package gossip
 
 import (
+	"sync"
+
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/gossip"
@@ -13,7 +15,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"sync"
 )
 
 // PluginName is the name of the gossip plugin.
@@ -22,7 +23,7 @@ const PluginName = "Gossip"
 var (
 	// plugin is the plugin instance of the gossip plugin.
 	plugin *node.Plugin
-	once sync.Once
+	once   sync.Once
 
 	log *logger.Logger
 )
@@ -34,7 +35,6 @@ func Plugin() *node.Plugin {
 	})
 	return plugin
 }
-
 
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)

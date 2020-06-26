@@ -7,9 +7,8 @@ import {inject, observer} from "mobx-react";
 import ExplorerStore from "app/stores/ExplorerStore";
 import Spinner from "react-bootstrap/Spinner";
 import ListGroup from "react-bootstrap/ListGroup";
-import {Link} from 'react-router-dom';
-import * as dateformat from 'dateformat';
 import Alert from "react-bootstrap/Alert";
+import * as dateformat from 'dateformat';
 
 interface Props {
     nodeStore?: NodeStore;
@@ -40,24 +39,104 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
 
     render() {
         let {id} = this.props.match.params;
-        let {addr, query_loading} = this.props.explorerStore;
-        let msgsEle = [];
+        let {addr, query_loading, query_err} = this.props.explorerStore;
+        let outputs = [];
+        let available_balances = [];
+        let total_balance = new Map();
+
+        let get_balances = function (balances) {
+            if (balances.length == 0) {
+                return "empty";
+            }
+            return balances;
+         }
+
+        if (query_err) {
+            return (
+                <Container>
+                    <h3>Address not available - 404</h3>
+                    <p>
+                        Address {id} not found.
+                    </p>
+                </Container>
+            );
+        }
+
         if (addr) {
-            for (let i = 0; i < addr.messages.length; i++) {
-                let msg = addr.messages[i];
-                msgsEle.push(
-                    <ListGroup.Item key={msg.id}>
+            for (let i = 0; i < addr.output_ids.length; i++) {
+                let output = addr.output_ids[i];
+
+                let consumed = "Spent: ";
+                let conflicting = "Conflicting: false";
+                if (output.consumer_count) {
+                    consumed += "true";
+                    if (output.consumer_count > 1) {
+                        conflicting = "Conflicting: true";
+                    }
+                } else {
+                    consumed += "false";
+                }
+
+                let status = "Status: ";
+                if (output.inclusion_state.confirmed) {
+                    status += ' confirmed ';
+                } else if (output.inclusion_state.rejected) {
+                    status += ' rejected ';
+                } else {
+                    status += ' pending ';
+                }
+
+                let balances = [];
+                for (let j=0; j < addr.output_ids[i].balances.length; j++) {
+                    let balance = addr.output_ids[i].balances[j]
+                    
+                    let oldBalance = 0;
+                    if (total_balance.has(balance.color)) {
+                        oldBalance = total_balance.get(balance.color);
+                    }
+                    if (addr.output_ids[i].consumer_count == 0 && addr.output_ids[i].inclusion_state.confirmed) {
+                        total_balance.set(balance.color, balance.value + oldBalance);
+                    }
+
+                    balances.push(
+                        <ListGroup.Item key={balance.color}>
+                            <small>
+                                {'Color:'} {balance.color} {' Value:'} {balance.value}
+                            </small>
+                        </ListGroup.Item>
+                    )
+                }
+
+                outputs.push(
+                    <ListGroup.Item key={output.id}>
                         <small>
-                            {dateformat(new Date(msg.solidification_timestamp * 1000), "dd.mm.yyyy HH:MM:ss")} {' '}
-                            <Link to={`/explorer/message/${msg.id}`}>{msg.id}</Link>
+                            {'Output ID:'} {output.id} {' '}
+                            <br></br>
+                            Solidification Time: {dateformat(new Date(output.solidification_time * 1000), "dd.mm.yyyy HH:MM:ss")}
+                            <br></br>
+                            {status}
+                            <br></br>
+                            {consumed}
+                            <br></br>
+                            {conflicting}
+                            <br></br>
+                            {'Balance:'} {balances}   
                         </small>
                     </ListGroup.Item>
                 );
             }
+
+            total_balance.forEach((balance: number, color: string) => {
+                available_balances.push(
+                    <ListGroup.Item key={color}>
+                            {'Color:'} {color} {' Value:'} {balance}
+                    </ListGroup.Item>
+                )
+            });
         }
         return (
             <Container>
-                <h3>Address {addr !== null && <span>({addr.messages.length} Messages)</span>}</h3>
+                <h3>Address {addr !== null && <span>({addr.output_ids.length} Ouputs)</span>}</h3>
                 <p>
                     {id} {' '}
                 </p>
@@ -65,15 +144,22 @@ export class ExplorerAddressQueryResult extends React.Component<Props, any> {
                     addr !== null ?
                         <React.Fragment>
                             {
-                                addr.messages !== null && addr.messages.length === 100 &&
+                                addr.output_ids !== null && addr.output_ids.length === 100 &&
                                 <Alert variant={"warning"}>
-                                    Max. 100 messages are shown.
+                                    Max. 100 outputs are shown.
                                 </Alert>
                             }
+                             <Row className={"mb-3"}>
+                                <Col>
+                                    <ListGroup>
+                                        {"Available balances:"} {get_balances(available_balances)} 
+                                    </ListGroup>
+                                </Col>
+                            </Row>
                             <Row className={"mb-3"}>
                                 <Col>
                                     <ListGroup variant={"flush"}>
-                                        {msgsEle}
+                                        {"Outputs detail:"} {outputs}
                                     </ListGroup>
                                 </Col>
                             </Row>

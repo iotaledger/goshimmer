@@ -2,11 +2,10 @@ package transaction
 
 import (
 	"fmt"
-	"github.com/mr-tron/base58"
-
-	"github.com/iotaledger/hive.go/marshalutil"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/mr-tron/base58"
 )
 
 // OutputID is the data type that represents the identifier for a Output.

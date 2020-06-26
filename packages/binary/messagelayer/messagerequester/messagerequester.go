@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	// DefaultRequestWorkerCount defines the Default Request Worker Count of the message reqeuster.
+	// DefaultRequestWorkerCount defines the Default Request Worker Count of the message requester.
 	DefaultRequestWorkerCount = runtime.GOMAXPROCS(0)
 )
 

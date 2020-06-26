@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"errors"
+
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
@@ -30,7 +31,7 @@ type FPCHeartbeat struct {
 func FPCHeartbeatMessageDefinition() *message.Definition {
 	// fpcHeartbeatMessageDefinition defines a heartbeat message's format.
 	var fpcHeartbeatMessageDefinition *message.Definition
-	fpcHeartBeatOnce.Do(func(){
+	fpcHeartBeatOnce.Do(func() {
 		fpcHeartbeatMessageDefinition = &message.Definition{
 			ID:             MessageTypeFPCHeartbeat,
 			MaxBytesLength: 65535,
