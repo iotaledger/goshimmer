@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -16,10 +17,6 @@ import (
 
 // PluginName is the name of the graceful shutdown plugin.
 const PluginName = "Graceful Shutdown"
-
-// WaitToKillTimeInSeconds is the maximum amount of time to wait for background processes to terminate.
-// After that the process is killed.
-const WaitToKillTimeInSeconds = 60
 
 var (
 	// plugin is the plugin instance of the graceful shutdown plugin.
@@ -32,6 +29,7 @@ var (
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
+		WaitToKillTimeInSeconds := config.Node().GetInt(CfgWaitToKillTimeInSeconds)
 		plugin = node.NewPlugin(PluginName, node.Enabled, func(plugin *node.Plugin) {
 			log = logger.NewLogger(PluginName)
 			gracefulStop = make(chan os.Signal)
@@ -52,7 +50,7 @@ func Plugin() *node.Plugin {
 					for x := range ticker.C {
 						secondsSinceStart := x.Sub(start).Seconds()
 
-						if secondsSinceStart <= WaitToKillTimeInSeconds {
+						if secondsSinceStart <= float64(WaitToKillTimeInSeconds) {
 							processList := ""
 							runningBackgroundWorkers := daemon.GetRunningBackgroundWorkers()
 							if len(runningBackgroundWorkers) >= 1 {
