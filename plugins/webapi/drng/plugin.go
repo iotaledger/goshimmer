@@ -1,12 +1,13 @@
 package drng
 
 import (
+	"sync"
+
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/drng/collectivebeacon"
 	"github.com/iotaledger/goshimmer/plugins/webapi/drng/info/committee"
 	"github.com/iotaledger/goshimmer/plugins/webapi/drng/info/randomness"
 	"github.com/iotaledger/hive.go/node"
-	"sync"
 )
 
 // PluginName is the name of the web API DRNG endpoint plugin.
@@ -15,7 +16,7 @@ const PluginName = "WebAPI DRNG Endpoint"
 var (
 	// plugin is the plugin instance of the web API DRNG endpoint plugin.
 	plugin *node.Plugin
-	once sync.Once
+	once   sync.Once
 )
 
 // Plugin gets the plugin instance.

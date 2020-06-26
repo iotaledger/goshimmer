@@ -29,7 +29,7 @@ const (
 
 var (
 	// App is the "plugin" instance of the network delay application.
-	app *node.Plugin
+	app  *node.Plugin
 	once sync.Once
 
 	// log holds a reference to the logger used by this app.
@@ -44,8 +44,8 @@ var (
 
 // App gets the plugin instance.
 func App() *node.Plugin {
-	once.Do(func () {
-		app =  node.NewPlugin(PluginName, node.Disabled, configure)
+	once.Do(func() {
+		app = node.NewPlugin(PluginName, node.Disabled, configure)
 	})
 	return app
 }

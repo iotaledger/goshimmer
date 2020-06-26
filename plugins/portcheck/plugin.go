@@ -20,7 +20,7 @@ const PluginName = "PortCheck"
 var (
 	// plugin is the plugin instance of the port check plugin.
 	plugin *node.Plugin
-	once sync.Once
+	once   sync.Once
 	log    *logger.Logger
 )
 

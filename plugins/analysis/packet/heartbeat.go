@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
 )
@@ -31,7 +32,6 @@ const (
 		HeartbeatMaxOutboundPeersCount*sha256.Size + HeartbeatMaxInboundPeersCount*sha256.Size
 )
 
-
 // Heartbeat represents a heartbeat packet.
 type Heartbeat struct {
 	// The ID of the node who sent the heartbeat.
@@ -46,10 +46,10 @@ type Heartbeat struct {
 }
 
 // HeartBeatMessageDefinition gets the heartbeatMessageDefinition.
-func HeartBeatMessageDefinition() *message.Definition{
+func HeartBeatMessageDefinition() *message.Definition {
 	// heartbeatMessageDefinition defines a heartbeat message's format.
 	var heartbeatMessageDefinition *message.Definition
-	heartBeatOnce.Do(func(){
+	heartBeatOnce.Do(func() {
 		heartbeatMessageDefinition = &message.Definition{
 			ID:             MessageTypeHeartbeat,
 			MaxBytesLength: uint16(HeartbeatPacketMaxSize),

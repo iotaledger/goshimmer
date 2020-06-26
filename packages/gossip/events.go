@@ -29,10 +29,6 @@ func peerAndErrorCaller(handler interface{}, params ...interface{}) {
 	handler.(func(*peer.Peer, error))(params[0].(*peer.Peer), params[1].(error))
 }
 
-func peerCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*peer.Peer))(params[0].(*peer.Peer))
-}
-
 func neighborCaller(handler interface{}, params ...interface{}) {
 	handler.(func(*Neighbor))(params[0].(*Neighbor))
 }

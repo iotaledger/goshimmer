@@ -23,9 +23,9 @@ const WaitToKillTimeInSeconds = 60
 
 var (
 	// plugin is the plugin instance of the graceful shutdown plugin.
- 	plugin *node.Plugin
-	once sync.Once
-	log *logger.Logger
+	plugin       *node.Plugin
+	once         sync.Once
+	log          *logger.Logger
 	gracefulStop chan os.Signal
 )
 
@@ -45,8 +45,11 @@ func Plugin() *node.Plugin {
 				log.Warnf("Received shutdown request - waiting (max %d) to finish processing ...", WaitToKillTimeInSeconds)
 
 				go func() {
+					ticker := time.NewTicker(1 * time.Second)
+					defer ticker.Stop()
+
 					start := time.Now()
-					for x := range time.Tick(1 * time.Second) {
+					for x := range ticker.C {
 						secondsSinceStart := x.Sub(start).Seconds()
 
 						if secondsSinceStart <= WaitToKillTimeInSeconds {
@@ -70,7 +73,6 @@ func Plugin() *node.Plugin {
 	})
 	return plugin
 }
-
 
 // ShutdownWithError prints out an error message and shuts down the default daemon instance.
 func ShutdownWithError(err error) {

@@ -20,7 +20,7 @@ const PluginName = "Profiling"
 var (
 	// plugin is the profiling plugin.
 	plugin *node.Plugin
-	once sync.Once
+	once   sync.Once
 	log    *logger.Logger
 )
 

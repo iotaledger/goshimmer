@@ -23,7 +23,7 @@ var (
 	plugin     *node.Plugin
 	pluginOnce sync.Once
 	// server is the web API server.
-	server *echo.Echo
+	server     *echo.Echo
 	serverOnce sync.Once
 
 	log *logger.Logger

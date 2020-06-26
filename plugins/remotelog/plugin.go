@@ -38,7 +38,7 @@ const (
 var (
 	// plugin is the plugin instance of the remote plugin instance.
 	plugin      *node.Plugin
-	pluginOnce	sync.Once
+	pluginOnce  sync.Once
 	log         *logger.Logger
 	myID        string
 	myGitHead   string
