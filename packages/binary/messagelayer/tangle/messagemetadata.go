@@ -105,7 +105,7 @@ func (messageMetadata *MessageMetadata) SetSolid(solid bool) (modified bool) {
 	return
 }
 
-func (messageMetadata *MessageMetadata) SoldificationTime() time.Time {
+func (messageMetadata *MessageMetadata) SolidificationTime() time.Time {
 	messageMetadata.solidificationTimeMutex.RLock()
 	defer messageMetadata.solidificationTimeMutex.RUnlock()
 
@@ -119,7 +119,7 @@ func (messageMetadata *MessageMetadata) ObjectStorageKey() []byte {
 func (messageMetadata *MessageMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteTime(messageMetadata.receivedTime).
-		WriteTime(messageMetadata.SoldificationTime()).
+		WriteTime(messageMetadata.SolidificationTime()).
 		WriteBool(messageMetadata.IsSolid()).
 		Bytes()
 }

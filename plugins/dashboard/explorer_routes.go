@@ -43,7 +43,7 @@ func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
 	messageMetadata := cachedMessageMetadata.Unwrap()
 	t := &ExplorerMessage{
 		ID:                      messageID.String(),
-		SolidificationTimestamp: messageMetadata.SoldificationTime().Unix(),
+		SolidificationTimestamp: messageMetadata.SolidificationTime().Unix(),
 		IssuanceTimestamp:       msg.IssuingTime().Unix(),
 		IssuerPublicKey:         msg.IssuerPublicKey().String(),
 		Signature:               msg.Signature().String(),
@@ -60,7 +60,7 @@ func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
 
 // ExplorerAddress defines the struct of the ExplorerAddress.
 type ExplorerAddress struct {
-	// Messagess hold the list of *ExplorerMessage.
+	// Messages hold the list of *ExplorerMessage.
 	Messages []*ExplorerMessage `json:"message"`
 }
 

@@ -79,7 +79,7 @@ type Request struct {
 	Error     string   `json:"error,omitempty"`
 }
 
-// Response is the HTTP response from retreiving value objects.
+// Response is the HTTP response from retrieving value objects.
 type Response struct {
 	UnspentOutputs []UnspentOutput `json:"unspent_outputs,omitempty"`
 	Error          string          `json:"error,omitempty"`
