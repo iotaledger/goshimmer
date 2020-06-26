@@ -198,7 +198,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 					Balances:           b,
 					InclusionState:     inclusionState,
 					ConsumerCount:      output.ConsumerCount(),
-					SolidificationTime: txMeta.SoldificationTime().Unix(),
+					SolidificationTime: txMeta.SolidificationTime().Unix(),
 				})
 			})
 		})
