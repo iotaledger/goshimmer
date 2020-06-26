@@ -100,7 +100,7 @@ func (wallet *Wallet) UnspentOutputs() map[Address]map[transaction.ID]Output {
 }
 
 func (wallet *Wallet) Balances() (confirmedBalances map[balance.Color]uint64, pendingBalances map[balance.Color]uint64) {
-	wallet.connector.UnspentOutputs(wallet.addressManager.Addresses()...)
+	return
 }
 
 // Seed returns the seed of this wallet that is used to generate all of the wallets addresses and private keys.
