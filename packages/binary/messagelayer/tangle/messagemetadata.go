@@ -105,6 +105,7 @@ func (messageMetadata *MessageMetadata) SetSolid(solid bool) (modified bool) {
 	return
 }
 
+// SolidificationTime returns the time when the message was marked to be solid.
 func (messageMetadata *MessageMetadata) SolidificationTime() time.Time {
 	messageMetadata.solidificationTimeMutex.RLock()
 	defer messageMetadata.solidificationTimeMutex.RUnlock()
