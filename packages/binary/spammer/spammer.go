@@ -29,7 +29,7 @@ func New(issuePayloadFunc IssuePayloadFunc) *Spammer {
 	}
 }
 
-// Start starts the spammer to spam with the given messages per period.
+// Start starts the spammer to spam with the given messages per time unit.
 func (spammer *Spammer) Start(rate int, timeUnit time.Duration) {
 	go spammer.run(rate, timeUnit, atomic.AddInt64(&spammer.processId, 1))
 }
@@ -39,12 +39,12 @@ func (spammer *Spammer) Shutdown() {
 	atomic.AddInt64(&spammer.processId, 1)
 }
 
-func (spammer *Spammer) run(rate int, timeUnit time.Duration, processId int64) {
+func (spammer *Spammer) run(rate int, timeUnit time.Duration, processID int64) {
 	currentSentCounter := 0
 	start := time.Now()
 
 	for {
-		if atomic.LoadInt64(&spammer.processId) != processId {
+		if atomic.LoadInt64(&spammer.processId) != processID {
 			return
 		}
 
