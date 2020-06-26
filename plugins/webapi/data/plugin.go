@@ -18,7 +18,7 @@ const PluginName = "WebAPI data Endpoint"
 var (
 	// plugin is the plugin instance of the web API data endpoint plugin.
 	plugin *node.Plugin
-	once sync.Once
+	once   sync.Once
 	log    *logger.Logger
 )
 

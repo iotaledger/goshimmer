@@ -34,8 +34,9 @@ type MessageFactory struct {
 	localIdentity *identity.LocalIdentity
 	selector      TipSelector
 
-	worker      Worker
-	workerMutex sync.RWMutex
+	worker        Worker
+	workerMutex   sync.RWMutex
+	issuanceMutex sync.Mutex
 }
 
 // New creates a new message factory.
@@ -65,6 +66,8 @@ func (m *MessageFactory) SetWorker(worker Worker) {
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
 func (m *MessageFactory) IssuePayload(payload payload.Payload) *message.Message {
+	m.issuanceMutex.Lock()
+	defer m.issuanceMutex.Unlock()
 	sequenceNumber, err := m.sequence.Next()
 	if err != nil {
 		m.Events.Error.Trigger(fmt.Errorf("could not create sequence number: %w", err))

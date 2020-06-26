@@ -45,7 +45,7 @@ func Handler(c echo.Context) error {
 	})
 }
 
-// Response is the HTTP response from retreiving transaction.
+// Response is the HTTP response from retrieving transaction.
 type Response struct {
 	Transaction    utils.Transaction    `json:"transaction,omitempty"`
 	InclusionState utils.InclusionState `json:"inclusion_state,omitempty"`

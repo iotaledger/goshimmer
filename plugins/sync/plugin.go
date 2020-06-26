@@ -51,7 +51,7 @@ func init() {
 var (
 	// plugin is the plugin instance of the sync plugin.
 	plugin *node.Plugin
-	once sync.Once
+	once   sync.Once
 	// ErrNodeNotSynchronized is returned when an operation can't be executed because
 	// the node is not synchronized.
 	ErrNodeNotSynchronized = errors.New("node is not synchronized")
@@ -145,8 +145,8 @@ func monitorForDesynchronization() {
 		messagelayer.Tangle().Events.MessageAttached.Attach(monitorMessageInflowClosure)
 		defer messagelayer.Tangle().Events.MessageAttached.Detach(monitorMessageInflowClosure)
 
-		desyncedIfNoMessageInSec := config.Node().GetDuration(CfgSyncDesyncedIfNoMessageAfterSec) * time.Second
-		timer := time.NewTimer(desyncedIfNoMessageInSec)
+		timeForDesync := config.Node().GetDuration(CfgSyncDesyncedIfNoMessageAfterSec) * time.Second
+		timer := time.NewTimer(timeForDesync)
 		for {
 			select {
 
@@ -156,10 +156,10 @@ func monitorForDesynchronization() {
 					<-timer.C
 				}
 				// TODO: perhaps find a better way instead of constantly resetting the timer
-				timer.Reset(desyncedIfNoMessageInSec)
+				timer.Reset(timeForDesync)
 
 			case <-timer.C:
-				log.Infof("no message received in %d seconds, marking node as desynced", int(desyncedIfNoMessageInSec.Seconds()))
+				log.Infof("no message received in %d seconds, marking node as desynced", int(timeForDesync.Seconds()))
 				markDesynced()
 				return
 

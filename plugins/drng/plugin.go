@@ -20,11 +20,11 @@ const PluginName = "DRNG"
 
 var (
 	// plugin is the plugin instance of the DRNG plugin.
-	plugin   *node.Plugin
+	plugin     *node.Plugin
 	pluginOnce sync.Once
-	instance *drng.DRNG
-	once     sync.Once
-	log      *logger.Logger
+	instance   *drng.DRNG
+	once       sync.Once
+	log        *logger.Logger
 )
 
 // Plugin gets the plugin instance.
@@ -34,7 +34,6 @@ func Plugin() *node.Plugin {
 	})
 	return plugin
 }
-
 
 func configure(_ *node.Plugin) {
 	configureEvents()

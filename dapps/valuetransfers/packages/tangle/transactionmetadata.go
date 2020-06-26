@@ -354,8 +354,8 @@ func (transactionMetadata *TransactionMetadata) FinalizationTime() time.Time {
 	return transactionMetadata.finalizationTime
 }
 
-// SoldificationTime returns the time when the Transaction was marked to be solid.
-func (transactionMetadata *TransactionMetadata) SoldificationTime() time.Time {
+// SolidificationTime returns the time when the Transaction was marked to be solid.
+func (transactionMetadata *TransactionMetadata) SolidificationTime() time.Time {
 	transactionMetadata.solidificationTimeMutex.RLock()
 	defer transactionMetadata.solidificationTimeMutex.RUnlock()
 
@@ -366,7 +366,7 @@ func (transactionMetadata *TransactionMetadata) SoldificationTime() time.Time {
 func (transactionMetadata *TransactionMetadata) Bytes() []byte {
 	return marshalutil.New(branchmanager.BranchIDLength + 2*marshalutil.TIME_SIZE + 6*marshalutil.BOOL_SIZE).
 		WriteBytes(transactionMetadata.BranchID().Bytes()).
-		WriteTime(transactionMetadata.SoldificationTime()).
+		WriteTime(transactionMetadata.SolidificationTime()).
 		WriteTime(transactionMetadata.FinalizationTime()).
 		WriteBool(transactionMetadata.Solid()).
 		WriteBool(transactionMetadata.Preferred()).
@@ -383,7 +383,7 @@ func (transactionMetadata *TransactionMetadata) String() string {
 		stringify.StructField("id", transactionMetadata.ID()),
 		stringify.StructField("branchId", transactionMetadata.BranchID()),
 		stringify.StructField("solid", transactionMetadata.Solid()),
-		stringify.StructField("solidificationTime", transactionMetadata.SoldificationTime()),
+		stringify.StructField("solidificationTime", transactionMetadata.SolidificationTime()),
 	)
 }
 

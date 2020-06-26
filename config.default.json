@@ -65,6 +65,9 @@
     "numThreads": 1,
     "timeout": "1m"
   },
+  "prometheus": {
+    "bindAddress": "127.0.0.1:9311"
+  },
   "webapi": {
     "auth": {
       "password": "goshimmer",

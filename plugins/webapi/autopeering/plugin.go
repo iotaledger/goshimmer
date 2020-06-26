@@ -20,7 +20,7 @@ const PluginName = "WebAPI autopeering Endpoint"
 var (
 	// plugin is the plugin instance of the web API autopeering endpoint plugin.
 	plugin *node.Plugin
-	once sync.Once
+	once   sync.Once
 )
 
 func configure(plugin *node.Plugin) {

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	faucet "github.com/iotaledger/goshimmer/dapps/faucet/packages"
-	"github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
+	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"

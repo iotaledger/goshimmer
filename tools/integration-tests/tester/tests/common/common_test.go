@@ -14,8 +14,8 @@ import (
 // a node that joins later solidifies, whether it is desyned after a restart
 // and becomes synced again.
 func TestSynchronization(t *testing.T) {
-	initalPeers := 4
-	n, err := f.CreateNetwork("common_TestSynchronization", initalPeers, 2)
+	initialPeers := 4
+	n, err := f.CreateNetwork("common_TestSynchronization", initialPeers, 2)
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -37,7 +37,7 @@ func TestSynchronization(t *testing.T) {
 	require.NoError(t, err)
 
 	// 3. issue some messages on old peers so that new peer can solidify
-	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initalPeers], 10, ids)
+	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], 10, ids)
 
 	// wait for peer to solidify
 	time.Sleep(15 * time.Second)
@@ -66,7 +66,7 @@ func TestSynchronization(t *testing.T) {
 	//assert.Falsef(t, resp.Synced, "Peer %s should be desynced but is synced!", newPeer.String())
 
 	// 8. issue some messages on old peers so that new peer can sync again
-	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initalPeers], 10, ids)
+	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], 10, ids)
 	// wait for peer to sync
 	time.Sleep(10 * time.Second)
 

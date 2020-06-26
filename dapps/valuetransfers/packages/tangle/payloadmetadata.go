@@ -137,8 +137,8 @@ func (payloadMetadata *PayloadMetadata) setSolid(solid bool) (modified bool) {
 	return
 }
 
-// SoldificationTime returns the time when the payload was marked to be solid.
-func (payloadMetadata *PayloadMetadata) SoldificationTime() time.Time {
+// SolidificationTime returns the time when the payload was marked to be solid.
+func (payloadMetadata *PayloadMetadata) SolidificationTime() time.Time {
 	payloadMetadata.solidificationTimeMutex.RLock()
 	defer payloadMetadata.solidificationTimeMutex.RUnlock()
 
@@ -286,7 +286,7 @@ func (payloadMetadata *PayloadMetadata) String() string {
 	return stringify.Struct("PayloadMetadata",
 		stringify.StructField("payloadId", payloadMetadata.PayloadID()),
 		stringify.StructField("solid", payloadMetadata.IsSolid()),
-		stringify.StructField("solidificationTime", payloadMetadata.SoldificationTime()),
+		stringify.StructField("solidificationTime", payloadMetadata.SolidificationTime()),
 	)
 }
 
@@ -305,7 +305,7 @@ func (payloadMetadata *PayloadMetadata) Update(other objectstorage.StorableObjec
 // ObjectStorageValue is required to match the encoding.BinaryMarshaler interface.
 func (payloadMetadata *PayloadMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New(marshalutil.TIME_SIZE + 4*marshalutil.BOOL_SIZE).
-		WriteTime(payloadMetadata.SoldificationTime()).
+		WriteTime(payloadMetadata.SolidificationTime()).
 		WriteBool(payloadMetadata.IsSolid()).
 		WriteBool(payloadMetadata.Liked()).
 		WriteBool(payloadMetadata.Confirmed()).

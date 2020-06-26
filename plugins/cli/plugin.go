@@ -5,11 +5,10 @@ import (
 	"os"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
-
-	"github.com/iotaledger/goshimmer/plugins/banner"
 )
 
 // PluginName is the name of the CLI plugin.
@@ -18,7 +17,7 @@ const PluginName = "CLI"
 var (
 	// plugin is the plugin instance of the CLI plugin.
 	plugin  *node.Plugin
-	once sync.Once
+	once    sync.Once
 	version = flag.BoolP("version", "v", false, "Prints the GoShimmer version")
 )
 

@@ -47,7 +47,7 @@ func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
 	messageMetadata := cachedMessageMetadata.Unwrap()
 	t := &ExplorerMessage{
 		ID:                      messageID.String(),
-		SolidificationTimestamp: messageMetadata.SoldificationTime().Unix(),
+		SolidificationTimestamp: messageMetadata.SolidificationTime().Unix(),
 		IssuanceTimestamp:       msg.IssuingTime().Unix(),
 		IssuerPublicKey:         msg.IssuerPublicKey().String(),
 		Signature:               msg.Signature().String(),

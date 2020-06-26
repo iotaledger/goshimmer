@@ -17,8 +17,7 @@ const PluginName = "Issuer"
 var (
 	// plugin is the plugin instance of the issuer plugin.
 	plugin *node.Plugin
-	once goSync.Once
-
+	once   goSync.Once
 )
 
 // Plugin gets the plugin instance.
