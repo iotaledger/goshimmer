@@ -8,8 +8,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-var ()
-
 const (
 	cfgNodeURI = "node"
 	cfgMessage = "message"
