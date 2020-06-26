@@ -22,8 +22,29 @@ export class Message {
 }
 
 class AddressResult {
-    balance: number;
-    messages: Array<Message>;
+    address: string;
+    output_ids: Array<Output>;
+}
+
+class Output {
+    id: string;
+    balances: Array<Balance>;
+    inclusion_state: InclusionState;
+    consumer_count: number;
+    solidification_time: number;
+}
+
+class Balance {
+    value: number;
+    color: string;
+}
+
+class InclusionState {
+	liked: boolean;
+	rejected: boolean;
+	finalized: boolean;
+	conflicting: boolean;
+	confirmed: boolean;
 }
 
 class SearchResult {
@@ -147,9 +168,6 @@ export class ExplorerStore {
 
     @action
     updateAddress = (addr: AddressResult) => {
-        addr.messages = addr.messages.sort((a, b) => {
-            return a.solidification_timestamp < b.solidification_timestamp ? 1 : -1;
-        });
         this.addr = addr;
         this.query_err = null;
         this.query_loading = false;
