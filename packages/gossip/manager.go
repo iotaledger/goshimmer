@@ -240,7 +240,6 @@ func (m *Manager) handlePacket(data []byte, nbr *Neighbor) error {
 		if err := proto.Unmarshal(data[1:], packet); err != nil {
 			return fmt.Errorf("invalid packet: %w", err)
 		}
-		m.log.Debugw("received packet", "type", packet.Name(), "peer-id", nbr.ID())
 		m.events.MessageReceived.Trigger(&MessageReceivedEvent{Data: packet.GetData(), Peer: nbr.Peer})
 
 	case pb.PacketMessageRequest:
@@ -249,7 +248,6 @@ func (m *Manager) handlePacket(data []byte, nbr *Neighbor) error {
 			return fmt.Errorf("invalid packet: %w", err)
 		}
 
-		m.log.Debugw("received packet", "type", packet.Name(), "peer-id", nbr.ID())
 		msgID, _, err := message.IdFromBytes(packet.GetId())
 		if err != nil {
 			return fmt.Errorf("invalid message id: %w", err)
