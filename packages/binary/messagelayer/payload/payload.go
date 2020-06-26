@@ -7,6 +7,11 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
+var (
+	// ErrMaximumPayloadSizeExceeded is returned if the payload exceeds the maximum size.
+	ErrMaximumPayloadSizeExceeded = errors.New("maximum payload size exceeded")
+)
+
 func init() {
 	// register the generic unmarshaler
 	SetGenericUnmarshalerFactory(GenericPayloadUnmarshalerFactory)
@@ -44,7 +49,7 @@ func FromBytes(bytes []byte) (result Payload, consumedBytes int, err error) {
 	}
 
 	if payloadSize > MaxDataPayloadSize {
-		err = errors.New(fmt.Sprintf("maximum payload size of %d bytes exceeded", MaxDataPayloadSize))
+		err = fmt.Errorf("%w: %d", ErrMaximumPayloadSizeExceeded, MaxDataPayloadSize)
 		return
 	}
 

@@ -13,6 +13,11 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
+var (
+	// ErrMaximumPayloadSizeExceeded is returned if the payload exceeds the maximum size.
+	ErrMaximumPayloadSizeExceeded = errors.New("maximum payload size exceeded")
+)
+
 // Payload is a collective beacon payload.
 type Payload struct {
 	header.Header
@@ -52,7 +57,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
 	}
 	_payload := unmarshalledPayload.(*Payload)
 	if len(_payload.bytes) > MaxCollectiveBeaconPayloadSize {
-		return &Payload{}, errors.New(fmt.Sprintf("maximum payload size of %d bytes exceeded", MaxCollectiveBeaconPayloadSize))
+		return &Payload{}, fmt.Errorf("%w: %d", ErrMaximumPayloadSizeExceeded, MaxCollectiveBeaconPayloadSize)
 	}
 	return _payload, nil
 }
