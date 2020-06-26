@@ -2,13 +2,12 @@ package transaction
 
 import (
 	"bytes"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"sort"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
+	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
+	"github.com/iotaledger/hive.go/marshalutil"
 )
 
 // Outputs represents a list of Outputs that are part of a transaction.

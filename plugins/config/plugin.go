@@ -27,7 +27,7 @@ var (
 	skipConfigAvailable = flag.Bool("skip-config", false, "Skip config file availability check")
 
 	// Node is viper
-	_node *viper.Viper
+	_node    *viper.Viper
 	nodeOnce sync.Once
 )
 
@@ -56,7 +56,6 @@ func init() {
 	// set the default logger config
 	_node = Node()
 	plugin = Plugin()
-
 
 	plugin.Events.Init.Attach(events.NewClosure(func(*node.Plugin) {
 		if err := fetch(false); err != nil {

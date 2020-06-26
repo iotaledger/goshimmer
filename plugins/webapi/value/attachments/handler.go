@@ -28,7 +28,7 @@ func Handler(c echo.Context) error {
 	}
 	txn := utils.ParseTransaction(txnObj.Unwrap())
 
-	// get attachements by txn id
+	// get attachments by txn id
 	for _, attachmentObj := range valuetransfers.Tangle().Attachments(txnID) {
 		defer attachmentObj.Release()
 		if !attachmentObj.Exists() {
@@ -56,7 +56,7 @@ func Handler(c echo.Context) error {
 	return c.JSON(http.StatusOK, Response{Attachments: valueObjs})
 }
 
-// Response is the HTTP response from retreiving value objects.
+// Response is the HTTP response from retrieving value objects.
 type Response struct {
 	Attachments []ValueObject `json:"attachments,omitempty"`
 	Error       string        `json:"error,omitempty"`

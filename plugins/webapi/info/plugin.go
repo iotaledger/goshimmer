@@ -19,7 +19,7 @@ const PluginName = "WebAPI info Endpoint"
 var (
 	// plugin is the plugin instance of the web API info endpoint plugin.
 	plugin *node.Plugin
-	once goSync.Once
+	once   goSync.Once
 )
 
 // Plugin gets the plugin instance.
@@ -63,7 +63,7 @@ func configure(_ *node.Plugin) {
 // 		"Graceful Shutdown",
 // 		"Logger"
 // 	],
-// 	"disabledlugins":[
+// 	"disabledplugins":[
 // 		"RemoteLog",
 // 		"Spammer",
 // 		"WebAPI Auth"

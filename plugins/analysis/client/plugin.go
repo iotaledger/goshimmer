@@ -32,11 +32,10 @@ func init() {
 
 var (
 	// plugin is the plugin instance of the analysis client plugin.
-	plugin   *node.Plugin
-	once     sync.Once
-	log      *logger.Logger
-	conn     *Connector
-	connLock sync.Mutex
+	plugin *node.Plugin
+	once   sync.Once
+	log    *logger.Logger
+	conn   *Connector
 )
 
 // Plugin gets the plugin instance

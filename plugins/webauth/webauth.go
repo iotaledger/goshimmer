@@ -21,7 +21,7 @@ const PluginName = "WebAPI Auth"
 var (
 	// plugin is the plugin instance of the web API auth plugin.
 	plugin     *node.Plugin
-	once 	   sync.Once
+	once       sync.Once
 	log        *logger.Logger
 	privateKey string
 )

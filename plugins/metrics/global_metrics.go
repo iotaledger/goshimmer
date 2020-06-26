@@ -24,14 +24,14 @@ type NodeInfo struct {
 }
 
 var (
-	nodesMetrics       = make(map[string]NodeInfo)
-	nodessMetricsMutex sync.RWMutex
-	networkDiameter    atomic.Int32
+	nodesMetrics      = make(map[string]NodeInfo)
+	nodesMetricsMutex sync.RWMutex
+	networkDiameter   atomic.Int32
 )
 
 var onMetricHeartbeatReceived = events.NewClosure(func(hb *packet.MetricHeartbeat) {
-	nodessMetricsMutex.Lock()
-	defer nodessMetricsMutex.Unlock()
+	nodesMetricsMutex.Lock()
+	defer nodesMetricsMutex.Unlock()
 	nodesMetrics[shortNodeIDString(hb.OwnID)] = NodeInfo{
 		OS:          hb.OS,
 		Arch:        hb.Arch,
@@ -43,8 +43,8 @@ var onMetricHeartbeatReceived = events.NewClosure(func(hb *packet.MetricHeartbea
 
 // NodesMetrics returns info about the OS, arch, number of cpu cores, cpu load and memory usage.
 func NodesMetrics() map[string]NodeInfo {
-	nodessMetricsMutex.RLock()
-	defer nodessMetricsMutex.RUnlock()
+	nodesMetricsMutex.RLock()
+	defer nodesMetricsMutex.RUnlock()
 	// create copy of the map
 	var copy = make(map[string]NodeInfo)
 	// manually copy content

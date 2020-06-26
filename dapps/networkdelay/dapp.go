@@ -1,7 +1,6 @@
 package networkdelay
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -30,7 +29,7 @@ const (
 
 var (
 	// App is the "plugin" instance of the network delay application.
-	app *node.Plugin
+	app  *node.Plugin
 	once sync.Once
 
 	// log holds a reference to the logger used by this app.
@@ -45,8 +44,8 @@ var (
 
 // App gets the plugin instance.
 func App() *node.Plugin {
-	once.Do(func () {
-		app =  node.NewPlugin(PluginName, node.Disabled, configure)
+	once.Do(func() {
+		app = node.NewPlugin(PluginName, node.Disabled, configure)
 	})
 	return app
 }
@@ -111,7 +110,6 @@ func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cach
 
 	// abort if message was sent more than 1min ago
 	// this should only happen due to a node resyncing
-	fmt.Println(time.Duration(now-networkDelayObject.sentTime), time.Minute)
 	if time.Duration(now-networkDelayObject.sentTime) > time.Minute {
 		log.Debugf("Received network delay message with >1min delay\n%s", networkDelayObject)
 		return
