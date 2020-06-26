@@ -99,6 +99,10 @@ func (wallet *Wallet) UnspentOutputs() map[Address]map[transaction.ID]Output {
 	return wallet.connector.UnspentOutputs(wallet.addressManager.Addresses()...)
 }
 
+func (wallet *Wallet) Balances() (confirmedBalances map[balance.Color]uint64, pendingBalances map[balance.Color]uint64) {
+	wallet.connector.UnspentOutputs(wallet.addressManager.Addresses()...)
+}
+
 // Seed returns the seed of this wallet that is used to generate all of the wallets addresses and private keys.
 func (wallet *Wallet) Seed() *Seed {
 	return wallet.addressManager.seed
@@ -157,7 +161,7 @@ func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *SendFundsOptio
 		}
 
 		// if outputs from this address were spent
-		if outputsFromAddressSpent {
+		if !wallet.singleAddress && outputsFromAddressSpent {
 			// add the remaining outputs as well (we want to spend only once from every address)
 			for transactionID, output := range unspentOutputsOnAddress {
 				outputsToUseAsInputs[addr][transactionID] = output

@@ -131,7 +131,7 @@ func (connector *mockConnector) UnspentOutputs(addresses ...Address) (outputs ma
 
 	for _, addr := range addresses {
 		for transactionID, output := range connector.outputs[addr] {
-			if output.inclusionState.Confirmed {
+			if !output.inclusionState.Spent {
 				if _, outputsExist := outputs[addr]; !outputsExist {
 					outputs[addr] = make(map[transaction.ID]Output)
 				}
