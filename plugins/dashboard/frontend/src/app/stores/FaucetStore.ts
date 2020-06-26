@@ -1,4 +1,5 @@
 import {action, observable} from 'mobx';
+import {RouterStore} from "mobx-react-router";
 
 class SendResult {
     MsgId: string;
@@ -13,8 +14,12 @@ export class FaucetStore {
     @observable send_addr: string = "";
     @observable sending: boolean = false;
     @observable sendResult: SendResult = null;
+    @observable query_error: string = "";
 
-    constructor() {
+    routerStore: RouterStore;
+
+    constructor(routerStore: RouterStore) {
+        this.routerStore = routerStore;
     }
 
     sendReq = async () => {
@@ -27,7 +32,9 @@ export class FaucetStore {
                 return;
             }
             let result: SendResult = await res.json();
-            this.updateSendResult(result);
+            setTimeout(() => {
+                this.updateSendResult(result);
+            }, 2000);
         } catch (err) {
             this.updateQueryError(err);
         }
@@ -37,11 +44,7 @@ export class FaucetStore {
     updateSendResult = (result: SendResult) => {
         this.sending = false;
         this.sendResult = result;
-    };
-
-    @action
-    resetSend = () => {
-        this.sending = false;
+        this.routerStore.history.push(`/explorer/address/${this.send_addr}`);
     };
 
     @action
@@ -50,16 +53,22 @@ export class FaucetStore {
     };
 
     @action
-    updateSending = (sending: boolean) => this.sending = sending;
+    updateSending = (sending: boolean) => {
+        this.sending = sending;
+        this.query_error = "";
+    };
 
     @action
     reset = () => {
         this.send_addr = null;
+        this.sending = false;
+        this.query_error = "";
     };
 
     @action
     updateQueryError = (err: any) => {
         this.sending = false;
+        this.query_error = err;
     };
 }
 
