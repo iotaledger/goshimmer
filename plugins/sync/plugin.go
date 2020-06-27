@@ -263,9 +263,11 @@ func initAnchorPoint(anchorPoints *anchorpoints, msg *message.Message) *message.
 		return nil
 	}
 
-	// add a new anchor point
+	// add a new anchor point if its issuance time is newer than any other anchor point
 	id := msg.Id()
-	anchorPoints.add(id)
+	if !anchorPoints.add(id, msg.IssuingTime()) {
+		return nil
+	}
 	return &id
 }
 
@@ -312,11 +314,21 @@ type anchorpoints struct {
 	wanted int
 	// how many anchor points have been solidified.
 	solidified int
+	// holds the highest issuance time of any message which was an anchor point.
+	// this is used to determine whether further attached messages should become an
+	// anchor point by matching their issuance time against this time.
+	issuanceTimeThreshold time.Time
 }
 
-// adds the given message to the anchor points set.
-func (ap *anchorpoints) add(id message.Id) {
+// adds the given message to the anchor points set if its issuance time is newer than
+// any other existing anchor point's.
+func (ap *anchorpoints) add(id message.Id, issuanceTime time.Time) bool {
+	if !ap.issuanceTimeThreshold.IsZero() && ap.issuanceTimeThreshold.After(issuanceTime) {
+		return false
+	}
 	ap.ids[id] = time.Now()
+	ap.issuanceTimeThreshold = issuanceTime
+	return true
 }
 
 func (ap *anchorpoints) has(id message.Id) bool {
