@@ -218,7 +218,7 @@ func monitorForSynchronization() {
 		defer messagelayer.Tangle().Events.MessageSolid.Detach(checkAnchorPointSolidityClosure)
 
 		cleanupDelta := config.Node().GetDuration(CfgSyncAnchorPointsCleanupAfterSec) * time.Second
-		ticker := time.NewTimer(config.Node().GetDuration(CfgSyncAnchorPointsCleanupIntervalSec) * time.Second)
+		ticker := time.NewTicker(config.Node().GetDuration(CfgSyncAnchorPointsCleanupIntervalSec) * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
