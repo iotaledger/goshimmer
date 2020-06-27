@@ -39,6 +39,12 @@ const (
 	// CfgSyncDesyncedIfNoMessageAfterSec defines the time period in which new messages must be received and if not
 	// the node is marked as desynced.
 	CfgSyncDesyncedIfNoMessageAfterSec = "sync.desyncedIfNoMessagesAfterSec"
+
+	// defines the max. divergence a potential new anchor point's issuance time can have
+	// from the current issuance threshold. say the current threshold is at 1000, the boundary at 10,
+	// we allow a new potential anchor point's issuance time to be within >=990 / 10 seconds older
+	// than the current threshold.
+	issuanceThresholdBeforeTimeBoundary = 20 * time.Second
 )
 
 func init() {
@@ -323,7 +329,8 @@ type anchorpoints struct {
 // adds the given message to the anchor points set if its issuance time is newer than
 // any other existing anchor point's.
 func (ap *anchorpoints) add(id message.Id, issuanceTime time.Time) bool {
-	if !ap.issuanceTimeThreshold.IsZero() && ap.issuanceTimeThreshold.After(issuanceTime) {
+	if !ap.issuanceTimeThreshold.IsZero() &&
+		ap.issuanceTimeThreshold.Add(-issuanceThresholdBeforeTimeBoundary).After(issuanceTime) {
 		return false
 	}
 	ap.ids[id] = time.Now()
