@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 )
 
-// Option is the type for the optional parameters for the SendFunds call.
-type SendFundsOption func(*SendFundsOptions) error
+// SendFundsOption is the type for the optional parameters for the SendFunds call.
+type SendFundsOption func(*sendFundsOptions) error
 
 // Destination is an option for the SendFunds call that defines a destination for funds that are supposed to be moved.
 func Destination(addr address.Address, amount uint64, optionalColor ...balance.Color) SendFundsOption {
@@ -29,7 +29,7 @@ func Destination(addr address.Address, amount uint64, optionalColor ...balance.C
 	}
 
 	// return Option
-	return func(options *SendFundsOptions) error {
+	return func(options *sendFundsOptions) error {
 		// initialize destinations property
 		if options.Destinations == nil {
 			options.Destinations = make(map[address.Address]map[balance.Color]uint64)
@@ -55,22 +55,23 @@ func Destination(addr address.Address, amount uint64, optionalColor ...balance.C
 // Remainder is an option for the SendsFunds call that allows us to specify the remainder address that is
 // supposed to be used in the corresponding transaction.
 func Remainder(addr Address) SendFundsOption {
-	return func(options *SendFundsOptions) error {
+	return func(options *sendFundsOptions) error {
 		options.RemainderAddress = addr
 
 		return nil
 	}
 }
 
-// Options is a struct that is used to aggregate the optional parameters provided in the SendFunds call.
-type SendFundsOptions struct {
+// sendFundsOptions is a struct that is used to aggregate the optional parameters provided in the SendFunds call.
+type sendFundsOptions struct {
 	Destinations     map[address.Address]map[balance.Color]uint64
 	RemainderAddress Address
 }
 
-func BuildOptions(options ...SendFundsOption) (result *SendFundsOptions, err error) {
+// buildSendFundsOptions is a utility function that constructs the sendFundsOptions.
+func buildSendFundsOptions(options ...SendFundsOption) (result *sendFundsOptions, err error) {
 	// create options to collect the arguments provided
-	result = &SendFundsOptions{}
+	result = &sendFundsOptions{}
 
 	// apply arguments to our options
 	for _, option := range options {
@@ -92,7 +93,7 @@ func BuildOptions(options ...SendFundsOption) (result *SendFundsOptions, err err
 // optionError is a utility function that returns a Option that returns the error provided in the
 // argument.
 func optionError(err error) SendFundsOption {
-	return func(options *SendFundsOptions) error {
+	return func(options *sendFundsOptions) error {
 		return err
 	}
 }

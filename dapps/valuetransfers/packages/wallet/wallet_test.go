@@ -19,7 +19,7 @@ func TestWallet_SendFunds(t *testing.T) {
 	testCases := []struct {
 		name       string
 		parameters []SendFundsOption
-		validator  func(t *testing.T, err error)
+		validator  func(t *testing.T, tx *transaction.Transaction, err error)
 	}{
 		// test if not providing a destination triggers an error
 		{
@@ -27,7 +27,8 @@ func TestWallet_SendFunds(t *testing.T) {
 			parameters: []SendFundsOption{
 				Remainder(AddressEmpty),
 			},
-			validator: func(t *testing.T, err error) {
+			validator: func(t *testing.T, tx *transaction.Transaction, err error) {
+				assert.True(t, tx == nil, "the transaction should be nil")
 				assert.Error(t, err, "calling SendFunds without a Destination should trigger an error")
 				assert.Equal(t, "you need to provide at least one Destination for a valid transfer to be issued", err.Error(), "the error message is wrong")
 			},
@@ -41,7 +42,8 @@ func TestWallet_SendFunds(t *testing.T) {
 				Destination(address.Empty, 0),
 				Destination(address.Empty, 123),
 			},
-			validator: func(t *testing.T, err error) {
+			validator: func(t *testing.T, tx *transaction.Transaction, err error) {
+				assert.True(t, tx == nil, "the transaction should be nil")
 				assert.Error(t, err, "calling SendFunds without an invalid Destination (amount <= 0) should trigger an error")
 				assert.Equal(t, "the amount provided in the destinations needs to be larger than 0", err.Error(), "the error message is wrong")
 			},
@@ -51,9 +53,10 @@ func TestWallet_SendFunds(t *testing.T) {
 		{
 			name: "validTransfer",
 			parameters: []SendFundsOption{
-				Destination(address.Empty, 1200),
+				Destination(seed.Address(1).Address, 1200),
 			},
-			validator: func(t *testing.T, err error) {
+			validator: func(t *testing.T, tx *transaction.Transaction, err error) {
+				fmt.Println(tx)
 				fmt.Println(err)
 			},
 		},
@@ -64,8 +67,8 @@ func TestWallet_SendFunds(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			// create mocked connector
 			mockedConnector := newMockConnector(
-				Output{
-					address:       seed.Address(0),
+				&Output{
+					address:       seed.Address(0).Address,
 					transactionID: transaction.GenesisID,
 					balances: map[balance.Color]uint64{
 						balance.ColorIOTA: 1337,
@@ -76,8 +79,8 @@ func TestWallet_SendFunds(t *testing.T) {
 						Confirmed: true,
 					},
 				},
-				Output{
-					address:       seed.Address(0),
+				&Output{
+					address:       seed.Address(0).Address,
 					transactionID: transaction.ID{3},
 					balances: map[balance.Color]uint64{
 						balance.ColorIOTA: 663,
@@ -92,32 +95,76 @@ func TestWallet_SendFunds(t *testing.T) {
 
 			// create our test wallet
 			wallet := New(
-				Import(seed, 0, []bitmask.BitMask{}),
+				Import(seed, 1, []bitmask.BitMask{}),
 				GenericConnector(mockedConnector),
 			)
 
+			fmt.Println(wallet.Balance())
+
 			// validate the result of the function call
-			testCase.validator(t, wallet.SendFunds(testCase.parameters...))
+			tx, err := wallet.SendFunds(testCase.parameters...)
+			testCase.validator(t, tx, err)
+
+			wallet.unspentOutputManager.Refresh()
+			fmt.Println(wallet.Balance())
+
+			tx, err = wallet.SendFunds(testCase.parameters...)
+			testCase.validator(t, tx, err)
 		})
 	}
 }
 
 type mockConnector struct {
-	outputs map[Address]map[transaction.ID]Output
+	outputs map[address.Address]map[transaction.ID]*Output
 }
 
 func (connector *mockConnector) SendTransaction(tx *transaction.Transaction) {
-	fmt.Println("SENT TRANSACTION: ", tx)
+	// mark outputs as spent
+	tx.Inputs().ForEach(func(outputId transaction.OutputID) bool {
+		connector.outputs[outputId.Address()][outputId.TransactionID()].inclusionState.Spent = true
+
+		return true
+	})
+
+	// create new outputs
+	tx.Outputs().ForEach(func(addr address.Address, balances []*balance.Balance) bool {
+		// initialize missing address entry
+		if _, addressExists := connector.outputs[addr]; !addressExists {
+			connector.outputs[addr] = make(map[transaction.ID]*Output)
+		}
+
+		// translate balances to mockConnector specific balances
+		outputBalances := make(map[balance.Color]uint64)
+		for _, coloredBalance := range balances {
+			outputBalances[coloredBalance.Color] += uint64(coloredBalance.Value)
+		}
+
+		// store new output
+		connector.outputs[addr][tx.ID()] = &Output{
+			address:       addr,
+			transactionID: tx.ID(),
+			balances:      outputBalances,
+			inclusionState: InclusionState{
+				Liked:       true,
+				Confirmed:   true,
+				Rejected:    false,
+				Conflicting: false,
+				Spent:       false,
+			},
+		}
+
+		return true
+	})
 }
 
-func newMockConnector(outputs ...Output) (connector *mockConnector) {
+func newMockConnector(outputs ...*Output) (connector *mockConnector) {
 	connector = &mockConnector{
-		outputs: make(map[Address]map[transaction.ID]Output),
+		outputs: make(map[address.Address]map[transaction.ID]*Output),
 	}
 
 	for _, output := range outputs {
 		if _, addressExists := connector.outputs[output.address]; !addressExists {
-			connector.outputs[output.address] = make(map[transaction.ID]Output)
+			connector.outputs[output.address] = make(map[transaction.ID]*Output)
 		}
 
 		connector.outputs[output.address][output.transactionID] = output
@@ -126,14 +173,14 @@ func newMockConnector(outputs ...Output) (connector *mockConnector) {
 	return
 }
 
-func (connector *mockConnector) UnspentOutputs(addresses ...Address) (outputs map[Address]map[transaction.ID]Output) {
-	outputs = make(map[Address]map[transaction.ID]Output)
+func (connector *mockConnector) UnspentOutputs(addresses ...Address) (outputs map[Address]map[transaction.ID]*Output) {
+	outputs = make(map[Address]map[transaction.ID]*Output)
 
 	for _, addr := range addresses {
-		for transactionID, output := range connector.outputs[addr] {
+		for transactionID, output := range connector.outputs[addr.Address] {
 			if !output.inclusionState.Spent {
 				if _, outputsExist := outputs[addr]; !outputsExist {
-					outputs[addr] = make(map[transaction.ID]Output)
+					outputs[addr] = make(map[transaction.ID]*Output)
 				}
 
 				outputs[addr][transactionID] = output

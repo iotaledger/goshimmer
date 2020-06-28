@@ -18,7 +18,7 @@ func Import(seed *Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMas
 // single reusable address.
 func ReusableAddress(enabled bool) Option {
 	return func(wallet *Wallet) {
-		wallet.singleAddress = enabled
+		wallet.reusableAddress = enabled
 	}
 }
 

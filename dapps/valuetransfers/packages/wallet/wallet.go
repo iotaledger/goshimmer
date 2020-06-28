@@ -2,6 +2,7 @@ package wallet
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
@@ -13,11 +14,12 @@ import (
 // Wallet represents a simple cryptocurrency wallet for the IOTA tangle. It contains the logic to manage the movement of
 // funds.
 type Wallet struct {
-	addressManager *AddressManager
-	connector      Connector
+	addressManager       *AddressManager
+	unspentOutputManager *UnspentOutputManager
+	connector            Connector
 
 	// if this option is enabled the wallet will use a single reusable address instead of changing addresses.
-	singleAddress bool
+	reusableAddress bool
 }
 
 // New is the factory method of the wallet. It either creates a new wallet or restores the wallet backup that is handed
@@ -41,13 +43,17 @@ func New(options ...Option) (wallet *Wallet) {
 		wallet.connector = &ServerConnector{}
 	}
 
+	// initialize output manager
+	wallet.unspentOutputManager = NewUnspentOutputManager(wallet.addressManager, wallet.connector)
+	wallet.unspentOutputManager.Refresh(true)
+
 	return
 }
 
 // SendFunds issues a payment of the given amount to the given address.
-func (wallet *Wallet) SendFunds(options ...SendFundsOption) (err error) {
+func (wallet *Wallet) SendFunds(options ...SendFundsOption) (tx *transaction.Transaction, err error) {
 	// build options from the parameters
-	sendFundsOptions, err := BuildOptions(options...)
+	sendFundsOptions, err := buildSendFundsOptions(options...)
 	if err != nil {
 		return
 	}
@@ -61,13 +67,20 @@ func (wallet *Wallet) SendFunds(options ...SendFundsOption) (err error) {
 	// build transaction
 	inputs, consumedFunds := wallet.buildInputs(consumedOutputs)
 	outputs := wallet.buildOutputs(sendFundsOptions, consumedFunds)
-	tx := transaction.New(inputs, outputs)
+	tx = transaction.New(inputs, outputs)
 	for addr := range consumedOutputs {
 		tx.Sign(signaturescheme.ED25519(*wallet.Seed().KeyPair(addr.Index)))
 	}
 
+	// mark outputs as spent
+	for addr, outputs := range consumedOutputs {
+		for transactionID := range outputs {
+			wallet.unspentOutputManager.MarkOutputSpent(addr, transactionID)
+		}
+	}
+
 	// mark addresses as spent
-	if !wallet.singleAddress {
+	if !wallet.reusableAddress {
 		for addr := range consumedOutputs {
 			wallet.addressManager.MarkAddressSpent(addr.Index)
 		}
@@ -95,11 +108,38 @@ func (wallet *Wallet) RemainderAddress() Address {
 }
 
 // UnspentOutputs returns the unspent outputs that are available for spending.
-func (wallet *Wallet) UnspentOutputs() map[Address]map[transaction.ID]Output {
-	return wallet.connector.UnspentOutputs(wallet.addressManager.Addresses()...)
+func (wallet *Wallet) UnspentOutputs() map[Address]map[transaction.ID]*Output {
+	return wallet.unspentOutputManager.UnspentOutputs()
 }
 
-func (wallet *Wallet) Balances() (confirmedBalances map[balance.Color]uint64, pendingBalances map[balance.Color]uint64) {
+// Balance returns the confirmed and pending balance of the funds managed by this wallet.
+func (wallet *Wallet) Balance() (confirmedBalance map[balance.Color]uint64, pendingBalance map[balance.Color]uint64) {
+	confirmedBalance = make(map[balance.Color]uint64)
+	pendingBalance = make(map[balance.Color]uint64)
+
+	// iterate through the unspent outputs
+	for _, outputsOnAddress := range wallet.unspentOutputManager.UnspentOutputs() {
+		for _, output := range outputsOnAddress {
+			// skip if the output was rejected or spent already
+			if output.inclusionState.Spent || output.inclusionState.Rejected {
+				continue
+			}
+
+			// determine target map
+			var targetMap map[balance.Color]uint64
+			if output.inclusionState.Confirmed {
+				targetMap = confirmedBalance
+			} else {
+				targetMap = pendingBalance
+			}
+
+			// store amount
+			for color, amount := range output.balances {
+				targetMap[color] += amount
+			}
+		}
+	}
+
 	return
 }
 
@@ -108,13 +148,14 @@ func (wallet *Wallet) Seed() *Seed {
 	return wallet.addressManager.seed
 }
 
+// AddressManager returns the manager for the addresses of this wallet.
 func (wallet *Wallet) AddressManager() *AddressManager {
 	return wallet.addressManager
 }
 
-func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *SendFundsOptions) (outputsToUseAsInputs map[Address]map[transaction.ID]Output, err error) {
+func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptions) (outputsToConsume map[Address]map[transaction.ID]*Output, err error) {
 	// initialize return values
-	outputsToUseAsInputs = make(map[Address]map[transaction.ID]Output)
+	outputsToConsume = make(map[Address]map[transaction.ID]*Output)
 
 	// aggregate total amount of required funds, so we now what and how many funds we need
 	requiredFunds := make(map[balance.Color]uint64)
@@ -125,7 +166,7 @@ func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *SendFundsOptio
 	}
 
 	// look for the required funds in the available unspent outputs
-	for addr, unspentOutputsOnAddress := range wallet.UnspentOutputs() {
+	for addr, unspentOutputsOnAddress := range wallet.unspentOutputManager.Refresh().UnspentOutputs() {
 		// keeps track if outputs from this address are supposed to be spent
 		outputsFromAddressSpent := false
 
@@ -150,35 +191,48 @@ func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *SendFundsOptio
 			// if we found required tokens in this output
 			if requiredColorFoundInOutput {
 				// store the output in the outputs to use for the transfer
-				if _, addressEntryExists := outputsToUseAsInputs[addr]; !addressEntryExists {
-					outputsToUseAsInputs[addr] = make(map[transaction.ID]Output)
+				if _, addressEntryExists := outputsToConsume[addr]; !addressEntryExists {
+					outputsToConsume[addr] = make(map[transaction.ID]*Output)
 				}
-				outputsToUseAsInputs[addr][transactionID] = output
+				outputsToConsume[addr][transactionID] = output
 
 				// mark address as spent
 				outputsFromAddressSpent = true
 			}
 		}
 
-		// if outputs from this address were spent
-		if !wallet.singleAddress && outputsFromAddressSpent {
-			// add the remaining outputs as well (we want to spend only once from every address)
+		// if outputs from this address were spent add the remaining outputs as well (we want to spend only once from
+		// every address if we are not using a reusable address)
+		if !wallet.reusableAddress && outputsFromAddressSpent {
 			for transactionID, output := range unspentOutputsOnAddress {
-				outputsToUseAsInputs[addr][transactionID] = output
+				outputsToConsume[addr][transactionID] = output
 			}
 		}
 	}
 
+	// update remainder address with default value (first unspent address) if none was provided
+	if sendFundsOptions.RemainderAddress.Address == address.Empty {
+		sendFundsOptions.RemainderAddress = wallet.RemainderAddress()
+	}
+	if _, remainderAddressInConsumedOutputs := outputsToConsume[sendFundsOptions.RemainderAddress]; remainderAddressInConsumedOutputs && !wallet.reusableAddress {
+		sendFundsOptions.RemainderAddress = wallet.ReceiveAddress()
+	}
+	if _, remainderAddressInConsumedOutputs := outputsToConsume[sendFundsOptions.RemainderAddress]; remainderAddressInConsumedOutputs && !wallet.reusableAddress {
+		sendFundsOptions.RemainderAddress = wallet.NewReceiveAddress()
+	}
+
+	fmt.Println(sendFundsOptions.RemainderAddress.Index)
+
 	// check if we have found all required funds
 	if len(requiredFunds) != 0 {
-		outputsToUseAsInputs = nil
+		outputsToConsume = nil
 		err = errors.New("not enough funds to create transaction")
 	}
 
 	return
 }
 
-func (wallet *Wallet) buildInputs(outputsToUseAsInputs map[Address]map[transaction.ID]Output) (inputs *transaction.Inputs, consumedFunds map[balance.Color]uint64) {
+func (wallet *Wallet) buildInputs(outputsToUseAsInputs map[Address]map[transaction.ID]*Output) (inputs *transaction.Inputs, consumedFunds map[balance.Color]uint64) {
 	consumedInputs := make([]transaction.OutputID, 0)
 	consumedFunds = make(map[balance.Color]uint64)
 	for addr, unspentOutputsOfAddress := range outputsToUseAsInputs {
@@ -195,7 +249,7 @@ func (wallet *Wallet) buildInputs(outputsToUseAsInputs map[Address]map[transacti
 	return
 }
 
-func (wallet *Wallet) buildOutputs(sendFundsOptions *SendFundsOptions, consumedFunds map[balance.Color]uint64) (outputs *transaction.Outputs) {
+func (wallet *Wallet) buildOutputs(sendFundsOptions *sendFundsOptions, consumedFunds map[balance.Color]uint64) (outputs *transaction.Outputs) {
 	// build outputs for destinations
 	outputsByColor := make(map[address.Address]map[balance.Color]uint64)
 	for walletAddress, coloredBalances := range sendFundsOptions.Destinations {
@@ -211,6 +265,19 @@ func (wallet *Wallet) buildOutputs(sendFundsOptions *SendFundsOptions, consumedF
 			}
 		}
 	}
+
+	// build outputs for remainder
+	if len(consumedFunds) != 0 {
+		if _, addressExists := outputsByColor[sendFundsOptions.RemainderAddress.Address]; !addressExists {
+			outputsByColor[sendFundsOptions.RemainderAddress.Address] = make(map[balance.Color]uint64)
+		}
+
+		for color, amount := range consumedFunds {
+			outputsByColor[sendFundsOptions.RemainderAddress.Address][color] += amount
+		}
+	}
+
+	// construct result
 	outputsBySlice := make(map[address.Address][]*balance.Balance)
 	for addr, outputs := range outputsByColor {
 		outputsBySlice[addr] = make([]*balance.Balance, 0)
@@ -218,22 +285,6 @@ func (wallet *Wallet) buildOutputs(sendFundsOptions *SendFundsOptions, consumedF
 			outputsBySlice[addr] = append(outputsBySlice[addr], balance.New(color, int64(amount)))
 		}
 	}
-
-	// update remainder address with default value (first unspent address) if none was provided
-	if sendFundsOptions.RemainderAddress.Address == address.Empty {
-		sendFundsOptions.RemainderAddress = wallet.RemainderAddress()
-	}
-
-	// build outputs for remainder
-	if len(consumedFunds) != 0 {
-		outputsBySlice[sendFundsOptions.RemainderAddress.Address] = make([]*balance.Balance, 0)
-
-		for color, amount := range consumedFunds {
-			outputsBySlice[sendFundsOptions.RemainderAddress.Address] = append(outputsBySlice[sendFundsOptions.RemainderAddress.Address], balance.New(color, int64(amount)))
-		}
-	}
-
-	// construct result
 	outputs = transaction.NewOutputs(outputsBySlice)
 
 	return
