@@ -27,13 +27,16 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	// override avg. network delay to accustom integration test slowness
 	backupFCoBAvgNetworkDelay := framework.ParaFCoBAverageNetworkDelay
 	backupBootstrapOnEveryNode := framework.ParaBootstrapOnEveryNode
+	backupParaWaitToKill := framework.ParaWaitToKill
 	framework.ParaFCoBAverageNetworkDelay = 90
 	framework.ParaBootstrapOnEveryNode = true
+	framework.ParaWaitToKill = 2 * framework.ParaFCoBAverageNetworkDelay
 
 	// reset framework paras
 	defer func() {
 		framework.ParaFCoBAverageNetworkDelay = backupFCoBAvgNetworkDelay
 		framework.ParaBootstrapOnEveryNode = backupBootstrapOnEveryNode
+		framework.ParaWaitToKill = backupParaWaitToKill
 	}()
 
 	// create two partitions with their own peers
