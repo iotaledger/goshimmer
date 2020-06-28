@@ -97,7 +97,7 @@ func (m *Manager) AddOutbound(p *peer.Peer) error {
 	defer m.mu.Unlock()
 
 	if p.ID() == m.local.ID() {
-		return ErrLoopback
+		return ErrLoopbackNeighbor
 	}
 	if m.srv == nil {
 		return ErrNotRunning
@@ -111,7 +111,7 @@ func (m *Manager) AddInbound(p *peer.Peer) error {
 	defer m.mu.Unlock()
 
 	if p.ID() == m.local.ID() {
-		return ErrLoopback
+		return ErrLoopbackNeighbor
 	}
 	if m.srv == nil {
 		return ErrNotRunning
@@ -125,7 +125,7 @@ func (m *Manager) DropNeighbor(id identity.ID) error {
 	defer m.mu.Unlock()
 
 	if _, ok := m.neighbors[id]; !ok {
-		return ErrNotANeighbor
+		return ErrUnknownNeighbor
 	}
 	n := m.neighbors[id]
 	delete(m.neighbors, id)
@@ -161,12 +161,12 @@ func (m *Manager) AllNeighbors() []*Neighbor {
 
 func (m *Manager) getNeighbors(ids ...identity.ID) []*Neighbor {
 	if len(ids) > 0 {
-		return m.getNeighborsById(ids)
+		return m.getNeighborsByID(ids)
 	}
 	return m.AllNeighbors()
 }
 
-func (m *Manager) getNeighborsById(ids []identity.ID) []*Neighbor {
+func (m *Manager) getNeighborsByID(ids []identity.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
 
 	m.mu.Lock()
