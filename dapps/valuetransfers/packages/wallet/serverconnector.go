@@ -7,7 +7,7 @@ import "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transactio
 type ServerConnector struct {
 }
 
-// SendTransaction sends a transaction into the network
+// SendTransaction sends a transaction into the network.
 func (s ServerConnector) SendTransaction(tx *transaction.Transaction) {
 	panic("implement me")
 }
