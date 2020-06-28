@@ -1,7 +1,6 @@
 package gossip
 
 import (
-	"errors"
 	"io"
 	"net"
 	"strings"
@@ -15,17 +14,13 @@ import (
 	"go.uber.org/atomic"
 )
 
-var (
-	// ErrNeighborQueueFull is returned when the send queue is already full.
-	ErrNeighborQueueFull = errors.New("send queue is full")
-)
-
 const (
 	neighborQueueSize        = 5000
 	maxNumReadErrors         = 10
 	droppedMessagesThreshold = 1000
 )
 
+// Neighbor describes the established gossip connection to another peer.
 type Neighbor struct {
 	*peer.Peer
 	*buffconn.BufferedConnection
