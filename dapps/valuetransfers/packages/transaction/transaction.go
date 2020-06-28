@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	// ErrMaxDataPayloadSizeExceed is returned if the data payload size is exceeded.
-	ErrMaxDataPayloadSizeExceed = errors.New("maximum data payload size exceeded")
+	// ErrMaxDataPayloadSizeExceeded is returned if the data payload size is exceeded.
+	ErrMaxDataPayloadSizeExceeded = errors.New("maximum data payload size exceeded")
 )
 
 // region IMPLEMENT Transaction ////////////////////////////////////////////////////////////////////////////////////////////
@@ -316,7 +316,7 @@ func (transaction *Transaction) SetDataPayload(data []byte) error {
 	defer transaction.dataPayloadMutex.Unlock()
 
 	if len(data) > MaxDataPayloadSize {
-		return fmt.Errorf("")
+		return fmt.Errorf("%w: %d", ErrMaxDataPayloadSizeExceeded, MaxDataPayloadSize)
 	}
 	transaction.dataPayload = data
 	return nil
@@ -387,7 +387,7 @@ func (transaction *Transaction) UnmarshalObjectStorageValue(bytes []byte) (consu
 		return
 	}
 	if dataPayloadSize > MaxDataPayloadSize {
-		err = fmt.Errorf("%w: %d", ErrMaxDataPayloadSizeExceed, MaxDataPayloadSize)
+		err = fmt.Errorf("%w: %d", ErrMaxDataPayloadSizeExceeded, MaxDataPayloadSize)
 		return
 	}
 

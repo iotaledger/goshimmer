@@ -53,11 +53,11 @@ func New(instanceID uint32, round uint64, prevSignature, signature, dpk []byte) 
 func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
 	unmarshalledPayload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) })
 	if err != nil {
-		return &Payload{}, err
+		return nil, err
 	}
 	_payload := unmarshalledPayload.(*Payload)
 	if len(_payload.bytes) > MaxCollectiveBeaconPayloadSize {
-		return &Payload{}, fmt.Errorf("%w: %d", ErrMaximumPayloadSizeExceeded, MaxCollectiveBeaconPayloadSize)
+		return nil, fmt.Errorf("%w: %d", ErrMaximumPayloadSizeExceeded, MaxCollectiveBeaconPayloadSize)
 	}
 	return _payload, nil
 }

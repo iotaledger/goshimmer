@@ -48,7 +48,6 @@ func broadcastData(c echo.Context) error {
 	dataPayload := payload.NewData(request.Data)
 	if len(dataPayload.Bytes()) > payload.MaxDataPayloadSize {
 		err := fmt.Errorf("%w: %d", payload.ErrMaximumPayloadSizeExceeded, payload.MaxDataPayloadSize)
-		log.Info(err.Error())
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
