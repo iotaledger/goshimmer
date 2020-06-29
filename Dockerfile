@@ -37,7 +37,11 @@ FROM gcr.io/distroless/static@sha256:23aa732bba4c8618c0d97c26a72a32997363d591807
 EXPOSE 14666/tcp
 EXPOSE 14626/udp
 
+# Copy configuration
+COPY snapshot.bin /snapshot.bin
+COPY config.default.json /config.json
+
 # Copy the Pre-built binary file from the previous stage
 COPY --from=build /go/bin/goshimmer /run/goshimmer
 
-ENTRYPOINT ["/run/goshimmer", "--config-dir=/", "--database.directory=/tmp/mainnetdb"]
+ENTRYPOINT ["/run/goshimmer", "--config-dir=/", "--valueLayer.snapshot.file=/snapshot.bin", "--database.directory=/tmp/mainnetdb"]
