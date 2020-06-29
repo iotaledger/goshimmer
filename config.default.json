@@ -53,7 +53,7 @@
     ],
     "disableEvents": true,
     "remotelog": {
-      "serverAddress": "remotelog.goshimmer.iota.cafe:5213"
+      "serverAddress": "ressims.iota.cafe:5213"
     }
   },
   "metrics": {
