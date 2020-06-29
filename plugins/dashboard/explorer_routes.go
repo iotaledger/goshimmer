@@ -162,6 +162,8 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	}
 
 	outputids := make([]ExplorerOutput, 0)
+	inclusionState := utils.InclusionState{}
+
 	// get outputids by address
 	for id, cachedOutput := range valuetransfers.Tangle().OutputsOnAddress(address) {
 
@@ -175,24 +177,30 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 					Color: balance.Color.String(),
 				})
 			}
-
-			valuetransfers.Tangle().TransactionMetadata(output.TransactionID()).Consume(func(txMeta *tangle.TransactionMetadata) {
-
-				inclusionState := utils.InclusionState{}
+			var solidificationTime int64
+			if !valuetransfers.Tangle().TransactionMetadata(output.TransactionID()).Consume(func(txMeta *tangle.TransactionMetadata) {
 				inclusionState.Confirmed = txMeta.Confirmed()
 				inclusionState.Liked = txMeta.Liked()
 				inclusionState.Rejected = txMeta.Rejected()
 				inclusionState.Finalized = txMeta.Finalized()
 				inclusionState.Conflicting = txMeta.Conflicting()
 				inclusionState.Confirmed = txMeta.Confirmed()
+				solidificationTime = txMeta.SolidificationTime().Unix()
+			}) {
+				// This is only for the genesis.
+				inclusionState.Confirmed = output.Confirmed()
+				inclusionState.Liked = output.Liked()
+				inclusionState.Rejected = output.Rejected()
+				inclusionState.Finalized = output.Finalized()
+				inclusionState.Confirmed = output.Confirmed()
+			}
 
-				outputids = append(outputids, ExplorerOutput{
-					ID:                 id.String(),
-					Balances:           b,
-					InclusionState:     inclusionState,
-					ConsumerCount:      output.ConsumerCount(),
-					SolidificationTime: txMeta.SolidificationTime().Unix(),
-				})
+			outputids = append(outputids, ExplorerOutput{
+				ID:                 id.String(),
+				Balances:           b,
+				InclusionState:     inclusionState,
+				ConsumerCount:      output.ConsumerCount(),
+				SolidificationTime: solidificationTime,
 			})
 		})
 	}
