@@ -25,8 +25,9 @@ var (
 	// ErrTransactionDoesNotSpendAllFunds is returned if a transaction does not spend all of its inputs.
 	ErrTransactionDoesNotSpendAllFunds = errors.New("transaction does not spend all funds from inputs")
 	// ErrInvalidTransactionSignature is returned if the signature of a transaction is invalid.
-	ErrInvalidTransactionSignature     = errors.New("invalid transaction signatures")
+	ErrInvalidTransactionSignature = errors.New("invalid transaction signatures")
 )
+
 // Tangle represents the value tangle that consists out of value payloads.
 // It is an independent ontology, that lives inside the tangle.
 type Tangle struct {
@@ -179,6 +180,9 @@ func (tangle *Tangle) LoadSnapshot(snapshot map[transaction.ID]map[address.Addre
 			input := NewOutput(outputAddress, transactionID, branchmanager.MasterBranchID, balances)
 			input.setSolid(true)
 			input.setBranchID(branchmanager.MasterBranchID)
+			input.setLiked(true)
+			input.setConfirmed(true)
+			input.setFinalized(true)
 
 			// store output and abort if the snapshot has already been loaded earlier (output exists in the database)
 			cachedOutput, stored := tangle.outputStorage.StoreIfAbsent(input)
