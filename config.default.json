@@ -16,14 +16,7 @@
       "4JXbv7u61TPfDkN63KK2UxDquuKsewZBMnBujTvXnmHK@35.246.104.243:14626"
     ],
     "port": 14626,
-    "seed": "",
     "outboundUpdateIntervalMs": 10
-  },
-  "bootstrap": {
-    "initialIssuance": {
-        "timePeriodSec": -1
-    },
-    "timeUnit": 5
   },
   "dashboard": {
     "bindAddress": "127.0.0.1:8081",
@@ -45,8 +38,6 @@
     "committeeMembers": []
   },
   "fpc": {
-    "querySampleSize": 21,
-    "roundInterval": 5,
     "bindAddress": "0.0.0.0:10895"
   },
   "gossip": {
@@ -63,8 +54,7 @@
     ],
     "disableEvents": true,
     "remotelog": {
-      "serverAddress": "remotelog.goshimmer.iota.cafe:5213",
-      "disableEvents": false
+      "serverAddress": "remotelog.goshimmer.iota.cafe:5213"
     }
   },
   "metrics": {
@@ -85,19 +75,10 @@
     "timeout": "1m"
   },
   "profiling": {
-    "bindAddress": "128.0.0.1:6061"
+    "bindAddress": "127.0.0.1:6061"
   },
   "prometheus": {
-    "bindAddress": "127.0.0.1:9311",
-    "goMetrics": false,
-    "promhttpMetrics": false,
-    "processMetrics": false
-  },
-  "sync": {
-    "anchorPointsCount": 3,
-    "anchorPointsCleanupIntervalSec": 10,
-    "anchorPointsCleanupAfterSec": 60,
-    "desyncedIfNoMessagesAfterSec": 300
+    "bindAddress": "127.0.0.1:9311"
   },
   "webapi": {
     "auth": {
