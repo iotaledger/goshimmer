@@ -1,11 +1,20 @@
 package wallet
 
 import (
+	"net/http"
+
 	"github.com/iotaledger/hive.go/bitmask"
 )
 
 // Option represents an optional parameter .
 type Option func(*Wallet)
+
+// WebAPI connects the wallet with the remote API of a node.
+func WebAPI(baseURL string, httpClient ...http.Client) Option {
+	return func(wallet *Wallet) {
+		wallet.connector = NewWebConnector(baseURL, httpClient...)
+	}
+}
 
 // Import restores a wallet that has previously been created.
 func Import(seed *Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask) Option {

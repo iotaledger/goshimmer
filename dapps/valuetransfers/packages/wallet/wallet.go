@@ -2,13 +2,16 @@ package wallet
 
 import (
 	"errors"
-	"fmt"
+	"reflect"
+	"time"
+	"unsafe"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/iotaledger/hive.go/marshalutil"
 )
 
 // Wallet represents a simple cryptocurrency wallet for the IOTA tangle. It contains the logic to manage the movement of
@@ -40,12 +43,15 @@ func New(options ...Option) (wallet *Wallet) {
 
 	// initialize wallet with default connector (server) if none was provided
 	if wallet.connector == nil {
-		wallet.connector = &ServerConnector{}
+		panic("you need to provide a connector for your wallet")
 	}
 
 	// initialize output manager
 	wallet.unspentOutputManager = NewUnspentOutputManager(wallet.addressManager, wallet.connector)
-	wallet.unspentOutputManager.Refresh(true)
+	err := wallet.unspentOutputManager.Refresh(true)
+	if err != nil {
+		panic(err)
+	}
 
 	return
 }
@@ -87,9 +93,31 @@ func (wallet *Wallet) SendFunds(options ...SendFundsOption) (tx *transaction.Tra
 	}
 
 	// send transaction
-	wallet.connector.SendTransaction(tx)
+	err = wallet.connector.SendTransaction(tx)
 
 	return
+}
+
+// CreateAsset creates a new colored token with the given details.
+func (wallet *Wallet) CreateAsset(asset Asset) (assetColor balance.Color, err error) {
+	if asset.Amount == 0 {
+		err = errors.New("required to provide the amount when trying to create an asset")
+
+		return
+	}
+
+	if asset.Name == "" {
+		err = errors.New("required to provide a name when trying to create an asset")
+
+		return
+	}
+
+	// initialize default address if none is provided
+	if asset.Address == address.Empty {
+		asset.Address = wallet.ReceiveAddress().Address
+	}
+
+	panic("not implemented yet")
 }
 
 // ReceiveAddress returns the last receive address of the wallet.
@@ -112,8 +140,61 @@ func (wallet *Wallet) UnspentOutputs() map[Address]map[transaction.ID]*Output {
 	return wallet.unspentOutputManager.UnspentOutputs()
 }
 
+// RequestFaucetFunds requests some funds from the faucet for testing purposes.
+func (wallet *Wallet) RequestFaucetFunds(waitForConfirmation ...bool) (err error) {
+	if len(waitForConfirmation) == 0 || !waitForConfirmation[0] {
+		err = wallet.connector.RequestFaucetFunds(wallet.ReceiveAddress())
+
+		return
+	}
+
+	if err = wallet.Refresh(); err != nil {
+		return
+	}
+	confirmedBalance, _, err := wallet.Balance()
+	if err != nil {
+		return
+	}
+
+	err = wallet.connector.RequestFaucetFunds(wallet.ReceiveAddress())
+	if err != nil {
+		return
+	}
+
+	for {
+		time.Sleep(500 * time.Millisecond)
+
+		if err = wallet.Refresh(); err != nil {
+			return
+		}
+		newConfirmedBalance, _, balanceErr := wallet.Balance()
+		if balanceErr != nil {
+			err = balanceErr
+
+			return
+		}
+
+		if !reflect.DeepEqual(confirmedBalance, newConfirmedBalance) {
+			return
+		}
+	}
+}
+
+// Refresh scans the addresses for incoming transactions. If the optional rescanSpentAddresses parameter is set to true
+// we also scan the spent addresses again (this can take longer).
+func (wallet *Wallet) Refresh(rescanSpentAddresses ...bool) (err error) {
+	err = wallet.unspentOutputManager.Refresh(rescanSpentAddresses...)
+
+	return
+}
+
 // Balance returns the confirmed and pending balance of the funds managed by this wallet.
-func (wallet *Wallet) Balance() (confirmedBalance map[balance.Color]uint64, pendingBalance map[balance.Color]uint64) {
+func (wallet *Wallet) Balance() (confirmedBalance map[balance.Color]uint64, pendingBalance map[balance.Color]uint64, err error) {
+	err = wallet.unspentOutputManager.Refresh()
+	if err != nil {
+		return
+	}
+
 	confirmedBalance = make(map[balance.Color]uint64)
 	pendingBalance = make(map[balance.Color]uint64)
 
@@ -153,6 +234,16 @@ func (wallet *Wallet) AddressManager() *AddressManager {
 	return wallet.addressManager
 }
 
+// ExportState exports the current state of the wallet to a marshaled version.
+func (wallet *Wallet) ExportState() []byte {
+	marshalUtil := marshalutil.New()
+	marshalUtil.WriteBytes(wallet.Seed().Bytes())
+	marshalUtil.WriteUint64(wallet.AddressManager().lastAddressIndex)
+	marshalUtil.WriteBytes(*(*[]byte)(unsafe.Pointer(&wallet.addressManager.spentAddresses)))
+
+	return marshalUtil.Bytes()
+}
+
 func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptions) (outputsToConsume map[Address]map[transaction.ID]*Output, err error) {
 	// initialize return values
 	outputsToConsume = make(map[Address]map[transaction.ID]*Output)
@@ -161,12 +252,22 @@ func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptio
 	requiredFunds := make(map[balance.Color]uint64)
 	for _, coloredBalances := range sendFundsOptions.Destinations {
 		for color, amount := range coloredBalances {
+			// if we want to color sth then we need fresh IOTA
+			if color == balance.ColorNew {
+				color = balance.ColorIOTA
+			}
+
 			requiredFunds[color] += amount
 		}
 	}
 
+	// refresh balances so we get the latest changes
+	if err = wallet.unspentOutputManager.Refresh(); err != nil {
+		return
+	}
+
 	// look for the required funds in the available unspent outputs
-	for addr, unspentOutputsOnAddress := range wallet.unspentOutputManager.Refresh().UnspentOutputs() {
+	for addr, unspentOutputsOnAddress := range wallet.unspentOutputManager.UnspentOutputs() {
 		// keeps track if outputs from this address are supposed to be spent
 		outputsFromAddressSpent := false
 
@@ -221,8 +322,6 @@ func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptio
 		sendFundsOptions.RemainderAddress = wallet.NewReceiveAddress()
 	}
 
-	fmt.Println(sendFundsOptions.RemainderAddress.Index)
-
 	// check if we have found all required funds
 	if len(requiredFunds) != 0 {
 		outputsToConsume = nil
@@ -258,7 +357,11 @@ func (wallet *Wallet) buildOutputs(sendFundsOptions *sendFundsOptions, consumedF
 		}
 		for color, amount := range coloredBalances {
 			outputsByColor[walletAddress][color] += amount
-			consumedFunds[color] -= amount
+			if color == balance.ColorNew {
+				consumedFunds[balance.ColorIOTA] -= amount
+			} else {
+				consumedFunds[color] -= amount
+			}
 
 			if consumedFunds[color] == 0 {
 				delete(consumedFunds, color)

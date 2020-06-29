@@ -2,7 +2,6 @@ package wallet
 
 import (
 	"runtime"
-	"unsafe"
 
 	"github.com/iotaledger/hive.go/bitmask"
 )
@@ -26,7 +25,7 @@ func NewAddressManager(seed *Seed, lastAddressIndex uint64, spentAddresses []bit
 	addressManager = &AddressManager{
 		seed:             seed,
 		lastAddressIndex: lastAddressIndex,
-		spentAddresses:   *(*[]bitmask.BitMask)(unsafe.Pointer(&spentAddresses)),
+		spentAddresses:   spentAddresses,
 	}
 	addressManager.updateFirstUnspentAddressIndex()
 	addressManager.updateLastUnspentAddressIndex()

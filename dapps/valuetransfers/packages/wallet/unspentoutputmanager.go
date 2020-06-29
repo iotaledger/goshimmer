@@ -28,7 +28,7 @@ func NewUnspentOutputManager(addressManager *AddressManager, connector Connector
 
 // Refresh retrieves the unspent outputs from the node. If includeSpentAddresses is set to true, then it also scans the
 // addresses from which we previously spent already.
-func (unspentOutputManager *UnspentOutputManager) Refresh(includeSpentAddresses ...bool) *UnspentOutputManager {
+func (unspentOutputManager *UnspentOutputManager) Refresh(includeSpentAddresses ...bool) (err error) {
 	var addressesToRefresh []Address
 	if len(includeSpentAddresses) >= 1 && includeSpentAddresses[0] {
 		addressesToRefresh = unspentOutputManager.addressManager.Addresses()
@@ -36,7 +36,12 @@ func (unspentOutputManager *UnspentOutputManager) Refresh(includeSpentAddresses 
 		addressesToRefresh = unspentOutputManager.addressManager.UnspentAddresses()
 	}
 
-	for addr, unspentOutputs := range unspentOutputManager.connector.UnspentOutputs(addressesToRefresh...) {
+	unspentOutputs, err := unspentOutputManager.connector.UnspentOutputs(addressesToRefresh...)
+	if err != nil {
+		return
+	}
+
+	for addr, unspentOutputs := range unspentOutputs {
 		for transactionID, output := range unspentOutputs {
 			if _, addressExists := unspentOutputManager.unspentOutputs[addr]; !addressExists {
 				unspentOutputManager.unspentOutputs[addr] = make(map[transaction.ID]*Output)
@@ -51,7 +56,7 @@ func (unspentOutputManager *UnspentOutputManager) Refresh(includeSpentAddresses 
 		}
 	}
 
-	return unspentOutputManager
+	return
 }
 
 // UnspentOutputs returns the outputs that have not been spent, yet.

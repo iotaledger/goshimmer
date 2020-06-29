@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"crypto/rand"
 	"fmt"
 	"testing"
 
@@ -13,7 +14,8 @@ import (
 
 func TestWallet_SendFunds(t *testing.T) {
 	// create test seed
-	seed := NewSeed()
+	senderSeed := NewSeed()
+	receiverSeed := NewSeed()
 
 	// define sub-tests by providing a list of parameters and a validator function
 	testCases := []struct {
@@ -53,7 +55,19 @@ func TestWallet_SendFunds(t *testing.T) {
 		{
 			name: "validTransfer",
 			parameters: []SendFundsOption{
-				Destination(seed.Address(1).Address, 1200),
+				Destination(receiverSeed.Address(0).Address, 1200),
+			},
+			validator: func(t *testing.T, tx *transaction.Transaction, err error) {
+				fmt.Println(tx)
+				fmt.Println(err)
+			},
+		},
+
+		// test if providing an invalid destination (amount <= 0) triggers an error
+		{
+			name: "validTransfer",
+			parameters: []SendFundsOption{
+				Destination(receiverSeed.Address(0).Address, 1200, balance.ColorNew),
 			},
 			validator: func(t *testing.T, tx *transaction.Transaction, err error) {
 				fmt.Println(tx)
@@ -68,7 +82,7 @@ func TestWallet_SendFunds(t *testing.T) {
 			// create mocked connector
 			mockedConnector := newMockConnector(
 				&Output{
-					address:       seed.Address(0).Address,
+					address:       senderSeed.Address(0).Address,
 					transactionID: transaction.GenesisID,
 					balances: map[balance.Color]uint64{
 						balance.ColorIOTA: 1337,
@@ -80,7 +94,7 @@ func TestWallet_SendFunds(t *testing.T) {
 					},
 				},
 				&Output{
-					address:       seed.Address(0).Address,
+					address:       senderSeed.Address(0).Address,
 					transactionID: transaction.ID{3},
 					balances: map[balance.Color]uint64{
 						balance.ColorIOTA: 663,
@@ -95,7 +109,7 @@ func TestWallet_SendFunds(t *testing.T) {
 
 			// create our test wallet
 			wallet := New(
-				Import(seed, 1, []bitmask.BitMask{}),
+				Import(senderSeed, 1, []bitmask.BitMask{}),
 				GenericConnector(mockedConnector),
 			)
 
@@ -118,7 +132,42 @@ type mockConnector struct {
 	outputs map[address.Address]map[transaction.ID]*Output
 }
 
-func (connector *mockConnector) SendTransaction(tx *transaction.Transaction) {
+func (connector *mockConnector) RequestFaucetFunds(addr Address) (err error) {
+	// generate random transaction id
+	idBytes := make([]byte, transaction.IDLength)
+	_, err = rand.Read(idBytes)
+	if err != nil {
+		return
+	}
+	transactionID, _, err := transaction.IDFromBytes(idBytes)
+	if err != nil {
+		return
+	}
+
+	newOutput := &Output{
+		address:       addr.Address,
+		transactionID: transactionID,
+		balances: map[balance.Color]uint64{
+			balance.ColorIOTA: 1337,
+		},
+		inclusionState: InclusionState{
+			Liked:       true,
+			Confirmed:   true,
+			Rejected:    false,
+			Conflicting: false,
+			Spent:       false,
+		},
+	}
+
+	if _, addressExists := connector.outputs[addr.Address]; !addressExists {
+		connector.outputs[addr.Address] = make(map[transaction.ID]*Output)
+	}
+	connector.outputs[addr.Address][transactionID] = newOutput
+
+	return
+}
+
+func (connector *mockConnector) SendTransaction(tx *transaction.Transaction) (err error) {
 	// mark outputs as spent
 	tx.Inputs().ForEach(func(outputId transaction.OutputID) bool {
 		connector.outputs[outputId.Address()][outputId.TransactionID()].inclusionState.Spent = true
@@ -155,6 +204,8 @@ func (connector *mockConnector) SendTransaction(tx *transaction.Transaction) {
 
 		return true
 	})
+
+	return
 }
 
 func newMockConnector(outputs ...*Output) (connector *mockConnector) {
@@ -173,7 +224,7 @@ func newMockConnector(outputs ...*Output) (connector *mockConnector) {
 	return
 }
 
-func (connector *mockConnector) UnspentOutputs(addresses ...Address) (outputs map[Address]map[transaction.ID]*Output) {
+func (connector *mockConnector) UnspentOutputs(addresses ...Address) (outputs map[Address]map[transaction.ID]*Output, err error) {
 	outputs = make(map[Address]map[transaction.ID]*Output)
 
 	for _, addr := range addresses {
