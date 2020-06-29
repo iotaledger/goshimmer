@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -25,8 +24,8 @@ import (
 
 // autopeering constants
 const (
-	ProtocolVersion = 0      // update on protocol changes
-	NetworkVersion  = "v0.3" // update on network changes
+	ProtocolVersion = 0 // update on protocol changes
+	NetworkVersion  = 2 // update on network changes
 )
 
 var (
@@ -34,7 +33,7 @@ var (
 	ErrParsingMasterNode = errors.New("cannot parse master node")
 
 	// networkID specifies the autopeering network identifier.
-	networkID = hash32([]byte(banner.AppVersion + NetworkVersion))
+	networkID = hash32([]byte{NetworkVersion})
 
 	// Conn contains the network connection.
 	Conn *NetConnMetric
