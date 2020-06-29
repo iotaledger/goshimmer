@@ -43,7 +43,7 @@ func importWalletStateFile(filename string) (seed *wallet.Seed, lastAddressIndex
 		spentAddresses = []bitmask.BitMask{}
 		err = nil
 
-		fmt.Println("GENERATING NEW WALLET (wallet.dat) ...")
+		fmt.Println("GENERATING NEW WALLET ...                                 [DONE]")
 		fmt.Println()
 		fmt.Println("================================================================")
 		fmt.Println("!!!            PLEASE CREATE A BACKUP OF YOUR SEED           !!!")

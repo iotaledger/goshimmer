@@ -28,10 +28,13 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	_, _ = fmt.Fprintf(w, "%s\t%s\n", "BALANCE", "COLOR (status)")
 	_, _ = fmt.Fprintf(w, "%s\t%s\n", "-------", "---------------------------")
 
+	if len(confirmedBalance) == 0 && len(pendingBalance) == 0 {
+		_, _ = fmt.Fprintf(w, "%s\t%s\n", "<EMPTY>", "<EMPTY>")
+	}
+
 	for color, amount := range confirmedBalance {
 		_, _ = fmt.Fprintf(w, "%d\t%s\n", amount, color.String())
 	}
-
 	for color, amount := range pendingBalance {
 		_, _ = fmt.Fprintf(w, "%d\t%s\n", amount, color.String()+" (pending)")
 	}

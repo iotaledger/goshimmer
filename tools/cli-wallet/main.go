@@ -32,7 +32,7 @@ func main() {
 		execRequestFundsCommand(requestFaucetFundsCommand, wallet)
 	case "init":
 		fmt.Println()
-		fmt.Println("GENERATING NEW WALLET (wallet.dat) ...                    [DONE]")
+		fmt.Println("CREATING WALLET STATE FILE (wallet.dat) ...               [DONE]")
 	case "help":
 		printUsage()
 	default:
