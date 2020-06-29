@@ -35,6 +35,8 @@ var (
 	ParaFaucetTokensPerRequest int64 = 1337
 	// ParaPoWDifficulty defines the PoW difficulty.
 	ParaPoWDifficulty = 2
+	// ParaWaitToKill defines the time to wait before killing the node.
+	ParaWaitToKill = 60
 )
 
 var (
