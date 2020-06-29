@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -25,16 +24,13 @@ import (
 
 // autopeering constants
 const (
-	ProtocolVersion = 0      // update on protocol changes
-	NetworkVersion  = "v0.2" // update on network changes
+	ProtocolVersion = 0 // update on protocol changes
+	NetworkVersion  = 2 // update on network changes
 )
 
 var (
 	// ErrParsingMasterNode is returned for an invalid master node.
 	ErrParsingMasterNode = errors.New("cannot parse master node")
-
-	// networkID specifies the autopeering network identifier.
-	networkID = hash32([]byte(banner.AppVersion + NetworkVersion))
 
 	// Conn contains the network connection.
 	Conn *NetConnMetric
@@ -55,11 +51,6 @@ var (
 		c    chan *server.Server
 	}{c: make(chan *server.Server, 1)}
 )
-
-// NetworkID gets the networkID.
-func NetworkID() uint32 {
-	return networkID
-}
 
 // Discovery returns the peer discovery instance.
 func Discovery() *discover.Protocol {
@@ -102,7 +93,7 @@ func createPeerDisc() {
 	}
 	log.Debugf("Master peers: %v", masterPeers)
 
-	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, networkID,
+	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, NetworkVersion,
 		discover.Logger(log),
 		discover.MasterPeers(masterPeers),
 	)
