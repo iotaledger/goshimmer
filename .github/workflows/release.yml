@@ -28,12 +28,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Get release tag
-        run: 'echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF#refs/*/})'
       - name: Publish to Docker Hub
-        uses: elgohr/Publish-Docker-Github-Action@master
+        uses: docker/build-push-action@92e71463491f2d026a477188b8ad3a0fdd9d672c
         with:
-          name: iotaledger/goshimmer
+          repository: iotaledger/goshimmer
           username: '${{ secrets.IOTALEDGER_HUB_DOCKER_LOGIN }}'
           password: '${{ secrets.IOTALEDGER_HUB_DOCKER_PASSWORD }}'
-          tags: 'latest,${{ env.RELEASE_VERSION }}'
+          tags: latest
+          tag_with_ref: true
