@@ -1,7 +1,15 @@
 package payload
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/iotaledger/hive.go/marshalutil"
+)
+
+var (
+	// ErrMaximumPayloadSizeExceeded is returned if the payload exceeds the maximum size.
+	ErrMaximumPayloadSizeExceeded = errors.New("maximum payload size exceeded")
 )
 
 const (
@@ -42,6 +50,11 @@ func FromBytes(bytes []byte) (result Payload, consumedBytes int, err error) {
 
 	payloadSize, err := marshalUtil.ReadUint32()
 	if err != nil {
+		return
+	}
+
+	if payloadSize > MaxDataPayloadSize {
+		err = fmt.Errorf("%w: %d", ErrMaximumPayloadSizeExceeded, MaxDataPayloadSize)
 		return
 	}
 

@@ -17,11 +17,9 @@ func sendPayload(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, MsgResponse{Error: err.Error()})
 	}
 
-	//TODO: to check max payload size allowed, if exceeding return an error
-
 	parsedPayload, _, err := payload.FromBytes(request.Payload)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, MsgResponse{Error: "not a valid payload"})
+		return c.JSON(http.StatusBadRequest, MsgResponse{Error: err.Error()})
 	}
 
 	msg, err := issuer.IssuePayload(parsedPayload)
