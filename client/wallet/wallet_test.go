@@ -86,7 +86,7 @@ func TestWallet_SendFunds(t *testing.T) {
 					transactionID: transaction.GenesisID,
 					balances: map[balance.Color]uint64{
 						balance.ColorIOTA: 1337,
-						balance.Color{3}:  1338,
+						{3}:               1338,
 					},
 					inclusionState: InclusionState{
 						Liked:     true,
@@ -98,7 +98,7 @@ func TestWallet_SendFunds(t *testing.T) {
 					transactionID: transaction.ID{3},
 					balances: map[balance.Color]uint64{
 						balance.ColorIOTA: 663,
-						balance.Color{4}:  1338,
+						{4}:               1338,
 					},
 					inclusionState: InclusionState{
 						Liked:     true,
