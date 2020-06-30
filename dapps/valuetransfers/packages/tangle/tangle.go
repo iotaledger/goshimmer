@@ -1593,7 +1593,7 @@ func (tangle *Tangle) ValidateTransactionToAttach(tx *transaction.Transaction) (
 	_, cachedInputs, consumedBalances, _, err := tangle.retrieveConsumedInputDetails(tx)
 	defer cachedInputs.Release()
 	if err != nil {
-		return
+		return err
 	}
 	if !tangle.checkTransactionOutputs(consumedBalances, tx.Outputs()) {
 		err = ErrTransactionDoesNotSpendAllFunds
