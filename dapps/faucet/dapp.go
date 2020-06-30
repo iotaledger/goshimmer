@@ -91,12 +91,12 @@ func configure(*node.Plugin) {
 	fundingWorkerPool = workerpool.New(func(task workerpool.Task) {
 		msg := task.Param(0).(*message.Message)
 		addr := msg.Payload().(*faucetpayload.Payload).Address()
-		_, txID, err := Faucet().SendFunds(msg)
+		msg, txID, err := Faucet().SendFunds(msg)
 		if err != nil {
 			log.Errorf("couldn't fulfill funding request to %s: %s", addr, err)
 			return
 		}
-		log.Infof("sent funds to address %s via tx %s", addr, txID)
+		log.Infof("sent funds to address %s via tx %s and msg %s", addr, txID, msg.Id().String())
 	}, workerpool.WorkerCount(fundingWorkerCount), workerpool.QueueSize(fundingWorkerQueueSize))
 
 	configureEvents()
