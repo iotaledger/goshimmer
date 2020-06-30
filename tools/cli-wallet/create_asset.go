@@ -21,7 +21,7 @@ func execCreateAssetCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 	err := command.Parse(os.Args[2:])
 	if err != nil {
-		printUsage(command, err.Error())
+		printUsage(command, "ERROR: "+err.Error())
 	}
 	if *helpPtr {
 		printUsage(command)
@@ -32,7 +32,7 @@ func execCreateAssetCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	if *namePtr == "" {
-		printUsage(command, "you need to provide a name for you asset")
+		printUsage(command, "ERROR: you need to provide a name for you asset")
 	}
 
 	assetColor, err := cliWallet.CreateAsset(wallet.Asset{
@@ -41,7 +41,7 @@ func execCreateAssetCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		Amount: *amountPtr,
 	})
 	if err != nil {
-		printUsage(command, err.Error())
+		printUsage(command, "ERROR: "+err.Error())
 	}
 
 	fmt.Println()

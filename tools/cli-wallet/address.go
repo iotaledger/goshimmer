@@ -23,7 +23,7 @@ func execAddressCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 	err := command.Parse(os.Args[2:])
 	if err != nil {
-		printUsage(command, err.Error())
+		printUsage(command, "ERROR: "+err.Error())
 	}
 	if *helpPtr {
 		printUsage(command)
@@ -50,7 +50,7 @@ func execAddressCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		printUsage(command)
 	}
 	if setFlagCount > 1 {
-		printUsage(command, "please provide only one option at a time")
+		printUsage(command, "ERROR: please provide only one option at a time")
 	}
 
 	if *receivePtr {
