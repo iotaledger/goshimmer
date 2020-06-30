@@ -9,13 +9,10 @@ import (
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
-			printUsage(nil, "FATAL ERROR: "+r.(error).Error())
-			os.Exit(0)
+			_, _ = fmt.Fprintf(os.Stderr, "\nFATAL ERROR: "+r.(error).Error())
+			os.Exit(1)
 		}
 	}()
-
-	// print banner
-	fmt.Println("IOTA Pollen CLI-Wallet 0.1")
 
 	flag.Usage = func() {
 		printUsage(nil)
