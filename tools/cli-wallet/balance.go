@@ -17,21 +17,27 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 	confirmedBalance, pendingBalance, err := cliWallet.Balance()
 	if err != nil {
-		printUsage(err.Error())
+		printUsage(nil, err.Error())
 	}
 
-	// initialize tabwriter
+	// initialize tab writer
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 2, '\t', 0)
 	defer w.Flush()
 
+	// print header
+	fmt.Println()
 	_, _ = fmt.Fprintf(w, "%s\t%s\n", "BALANCE", "COLOR (status)")
 	_, _ = fmt.Fprintf(w, "%s\t%s\n", "-------", "---------------------------")
 
+	// print empty if no balances founds
 	if len(confirmedBalance) == 0 && len(pendingBalance) == 0 {
 		_, _ = fmt.Fprintf(w, "%s\t%s\n", "<EMPTY>", "<EMPTY>")
+
+		return
 	}
 
+	// print balances
 	for color, amount := range confirmedBalance {
 		_, _ = fmt.Fprintf(w, "%d\t%s\n", amount, color.String())
 	}

@@ -9,7 +9,10 @@ import (
 func main() {
 	// print banner
 	fmt.Println("IOTA Pollen CLI-Wallet 0.1")
-	fmt.Println()
+
+	flag.Usage = func() {
+		printUsage(nil)
+	}
 
 	// load wallet
 	wallet := loadWallet()
@@ -17,12 +20,14 @@ func main() {
 
 	// check if parameter counts is large enough
 	if len(os.Args) < 2 {
-		printUsage()
+		printUsage(nil)
 	}
 
 	// define sub commands
 	balanceCommand := flag.NewFlagSet("balance", flag.ExitOnError)
-	requestFaucetFundsCommand := flag.NewFlagSet("list", flag.ExitOnError)
+	requestFaucetFundsCommand := flag.NewFlagSet("requestFunds", flag.ExitOnError)
+	addressCommand := flag.NewFlagSet("address", flag.ExitOnError)
+	sendFundsCommand := flag.NewFlagSet("sendFunds", flag.ExitOnError)
 
 	// switch logic according to provided sub command
 	switch os.Args[1] {
@@ -30,12 +35,16 @@ func main() {
 		execBalanceCommand(balanceCommand, wallet)
 	case "requestFunds":
 		execRequestFundsCommand(requestFaucetFundsCommand, wallet)
+	case "address":
+		execAddressCommand(addressCommand, wallet)
+	case "sendFunds":
+		execSendFundsCommand(sendFundsCommand, wallet)
 	case "init":
 		fmt.Println()
 		fmt.Println("CREATING WALLET STATE FILE (wallet.dat) ...               [DONE]")
 	case "help":
-		printUsage()
+		printUsage(nil)
 	default:
-		printUsage("unknown [COMMAND]: " + os.Args[1])
+		printUsage(nil, "unknown [COMMAND]: "+os.Args[1])
 	}
 }

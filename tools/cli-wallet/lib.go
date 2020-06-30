@@ -35,7 +35,7 @@ func importWalletStateFile(filename string) (seed *wallet.Seed, lastAddressIndex
 		}
 
 		if len(os.Args) < 2 || os.Args[1] != "init" {
-			printUsage("no wallet file (wallet.dat) found: please call " + filepath.Base(os.Args[0]) + " init")
+			printUsage(nil, "no wallet file (wallet.dat) found: please call "+filepath.Base(os.Args[0])+" init")
 		}
 
 		seed = wallet.NewSeed()
@@ -57,7 +57,7 @@ func importWalletStateFile(filename string) (seed *wallet.Seed, lastAddressIndex
 	}
 
 	if len(os.Args) >= 2 && os.Args[1] == "init" {
-		printUsage("please remove the wallet.dat before trying to create a new wallet")
+		printUsage(nil, "please remove the wallet.dat before trying to create a new wallet")
 	}
 
 	marshalUtil := marshalutil.New(walletStateBytes)
@@ -106,23 +106,39 @@ func writeWalletStateFile(wallet *wallet.Wallet, filename string) {
 	}
 }
 
-func printUsage(optionalErrorMessage ...string) {
+func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 	if len(optionalErrorMessage) >= 1 {
-		_, _ = fmt.Fprintf(os.Stderr, "ERROR:\n")
-		_, _ = fmt.Fprintf(os.Stderr, "    "+optionalErrorMessage[0]+"\n")
-		fmt.Println()
+		_, _ = fmt.Fprintf(os.Stderr, optionalErrorMessage[0]+"\n")
 	}
 
-	fmt.Println("USAGE:")
-	fmt.Println("    " + filepath.Base(os.Args[0]) + " [COMMAND] [OPTIONS]")
-	fmt.Println()
-	fmt.Println("COMMANDS:")
-	fmt.Println("    init")
-	fmt.Println("    balance")
-	fmt.Println("    requestFunds")
-	fmt.Println("    help")
+	if command == nil {
+		fmt.Println()
+		fmt.Println("USAGE:")
+		fmt.Println("  " + filepath.Base(os.Args[0]) + " [COMMAND]")
+		fmt.Println()
+		fmt.Println("COMMANDS:")
+		fmt.Println("  init")
+		fmt.Println("  balance")
+		fmt.Println("  address")
+		fmt.Println("  sendFunds")
+		fmt.Println("  requestFunds")
+		fmt.Println("  help")
 
-	flag.PrintDefaults()
+		flag.PrintDefaults()
+
+		if len(optionalErrorMessage) >= 1 {
+			os.Exit(1)
+		}
+
+		os.Exit(0)
+	}
+
+	fmt.Println()
+	fmt.Println("USAGE:")
+	fmt.Println("  " + filepath.Base(os.Args[0]) + " " + command.Name() + " [OPTIONS]")
+	fmt.Println()
+	fmt.Println("OPTIONS:")
+	command.PrintDefaults()
 
 	if len(optionalErrorMessage) >= 1 {
 		os.Exit(1)

@@ -2,10 +2,14 @@ package wallet
 
 import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 )
 
 // Asset represents a container for all the information regarding a colored coin.
 type Asset struct {
+	// Color contains the identifier of this asset
+	Color balance.Color
+
 	// Name of the asset
 	Name string
 

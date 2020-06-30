@@ -112,12 +112,16 @@ func (wallet *Wallet) CreateAsset(asset Asset) (assetColor balance.Color, err er
 		return
 	}
 
-	// initialize default address if none is provided
-	if asset.Address == address.Empty {
-		asset.Address = wallet.ReceiveAddress().Address
+	tx, err := wallet.SendFunds(
+		Destination(wallet.ReceiveAddress().Address, asset.Amount, balance.ColorNew),
+	)
+	if err != nil {
+		return
 	}
 
-	panic("not implemented yet")
+	assetColor, _, err = balance.ColorFromBytes(tx.ID().Bytes())
+
+	return
 }
 
 // ReceiveAddress returns the last receive address of the wallet.
