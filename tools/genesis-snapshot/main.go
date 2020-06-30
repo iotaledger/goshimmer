@@ -33,7 +33,7 @@ func main() {
 	log.Printf("creating snapshot %s...", snapshotFileName)
 
 	genesisWallet := wallet.New()
-	genesisAddress := genesisWallet.Seed().Address(0)
+	genesisAddress := genesisWallet.Seed().Address(0).Address
 
 	log.Println("genesis:")
 	log.Printf("-> seed (base58): %s", genesisWallet.Seed().String())
