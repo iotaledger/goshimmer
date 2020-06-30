@@ -7,16 +7,16 @@ import (
 	"time"
 
 	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/hive.go/events"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
+	"github.com/iotaledger/hive.go/events"
 )
 
 var (
@@ -55,7 +55,7 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	addr := msg.Payload().(*faucetpayload.Payload).Address()
 
 	// get the output ids for the inputs and remainder balance
-	outputIds, remainder := f.collectUTXOsForFunding()
+	outputIds, addrsIndices, remainder := f.collectUTXOsForFunding()
 
 	tx := transaction.New(
 		// inputs
@@ -73,6 +73,10 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	if remainder > 0 {
 		remainAddr := f.nextUnusedAddress()
 		tx.Outputs().Add(remainAddr, []*balance.Balance{balance.New(balance.ColorIOTA, remainder)})
+	}
+
+	for index := range addrsIndices {
+		tx.Sign(signaturescheme.ED25519(*f.wallet.Seed().KeyPair(index)))
 	}
 
 	// prepare value payload with value factory
@@ -125,9 +129,10 @@ func (f *Faucet) awaitTransactionBooked(txID transaction.ID, maxAwait time.Durat
 
 // collectUTXOsForFunding iterates over the faucet's UTXOs until the token threshold is reached.
 // this function also returns the remainder balance for the given outputs.
-func (f *Faucet) collectUTXOsForFunding() (outputIds []transaction.OutputID, remainder int64) {
+func (f *Faucet) collectUTXOsForFunding() (outputIds []transaction.OutputID, addrsIndices map[uint64]struct{}, remainder int64) {
 	var total = f.tokensPerRequest
 	var i uint64
+	addrsIndices = map[uint64]struct{}{}
 
 	// get a list of address for inputs
 	for i = 0; total > 0; i++ {
@@ -141,6 +146,7 @@ func (f *Faucet) collectUTXOsForFunding() (outputIds []transaction.OutputID, rem
 			for _, coloredBalance := range output.Balances() {
 				val += coloredBalance.Value
 			}
+			addrsIndices[i] = struct{}{}
 
 			// get unspent output ids and check if it's conflict
 			if val <= total {

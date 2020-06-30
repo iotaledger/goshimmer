@@ -15,6 +15,11 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 )
 
+var (
+	// ErrMaxDataPayloadSizeExceeded is returned if the data payload size is exceeded.
+	ErrMaxDataPayloadSizeExceeded = errors.New("maximum data payload size exceeded")
+)
+
 // region IMPLEMENT Transaction ////////////////////////////////////////////////////////////////////////////////////////////
 
 // Transaction represents a value transfer for IOTA. It consists out of a number of inputs, a number of outputs and their
@@ -311,7 +316,7 @@ func (transaction *Transaction) SetDataPayload(data []byte) error {
 	defer transaction.dataPayloadMutex.Unlock()
 
 	if len(data) > MaxDataPayloadSize {
-		return fmt.Errorf("maximum dataPayload size of %d bytes exceeded", MaxDataPayloadSize)
+		return fmt.Errorf("%w: %d", ErrMaxDataPayloadSizeExceeded, MaxDataPayloadSize)
 	}
 	transaction.dataPayload = data
 	return nil
@@ -382,8 +387,7 @@ func (transaction *Transaction) UnmarshalObjectStorageValue(bytes []byte) (consu
 		return
 	}
 	if dataPayloadSize > MaxDataPayloadSize {
-		err = fmt.Errorf("data payload size of %d bytes exceeds maximum limit of %d bytes",
-			dataPayloadSize, MaxDataPayloadSize)
+		err = fmt.Errorf("%w: %d", ErrMaxDataPayloadSizeExceeded, MaxDataPayloadSize)
 		return
 	}
 

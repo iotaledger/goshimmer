@@ -18,11 +18,10 @@ func Handler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	//TODO: to check max payload size allowed, if exceeding return an error
 	marshalUtil := marshalutil.New(request.Payload)
 	parsedPayload, err := payload.Parse(marshalUtil)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: "not a valid Collective Beacon payload"})
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
 	msg, err := issuer.IssuePayload(parsedPayload)

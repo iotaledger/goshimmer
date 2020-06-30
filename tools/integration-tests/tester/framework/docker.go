@@ -83,7 +83,6 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			"--skip-config=true",
 			"--logger.level=debug",
 			fmt.Sprintf("--valueLayer.fcob.averageNetworkDelay=%d", ParaFCoBAverageNetworkDelay),
-			fmt.Sprintf("--autopeering.outboundUpdateIntervalMs=%d", ParaOutboundUpdateIntervalMs),
 			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
 			fmt.Sprintf("--pow.difficulty=%d", ParaPoWDifficulty),
 			fmt.Sprintf("--gracefulshutdown.waitToKillTime=%d", ParaWaitToKill),

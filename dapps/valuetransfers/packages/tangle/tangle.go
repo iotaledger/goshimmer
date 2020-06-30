@@ -21,6 +21,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 )
 
+var (
+	// ErrTransactionDoesNotSpendAllFunds is returned if a transaction does not spend all of its inputs.
+	ErrTransactionDoesNotSpendAllFunds = errors.New("transaction does not spend all funds from inputs")
+	// ErrInvalidTransactionSignature is returned if the signature of a transaction is invalid.
+	ErrInvalidTransactionSignature = errors.New("invalid transaction signatures")
+)
+
 // Tangle represents the value tangle that consists out of value payloads.
 // It is an independent ontology, that lives inside the tangle.
 type Tangle struct {
@@ -173,6 +180,9 @@ func (tangle *Tangle) LoadSnapshot(snapshot map[transaction.ID]map[address.Addre
 			input := NewOutput(outputAddress, transactionID, branchmanager.MasterBranchID, balances)
 			input.setSolid(true)
 			input.setBranchID(branchmanager.MasterBranchID)
+			input.setLiked(true)
+			input.setConfirmed(true)
+			input.setFinalized(true)
 
 			// store output and abort if the snapshot has already been loaded earlier (output exists in the database)
 			cachedOutput, stored := tangle.outputStorage.StoreIfAbsent(input)
@@ -1577,6 +1587,27 @@ func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Tran
 	return
 }
 
+// ValidateTransactionToAttach checks that the given transaction spends all funds from its inputs and
+// that its the signature is valid.
+func (tangle *Tangle) ValidateTransactionToAttach(tx *transaction.Transaction) (err error) {
+	_, cachedInputs, consumedBalances, _, err := tangle.retrieveConsumedInputDetails(tx)
+	defer cachedInputs.Release()
+	if err != nil {
+		return
+	}
+	if !tangle.checkTransactionOutputs(consumedBalances, tx.Outputs()) {
+		err = ErrTransactionDoesNotSpendAllFunds
+		return
+	}
+
+	if !tx.SignaturesValid() {
+		err = ErrInvalidTransactionSignature
+		return
+	}
+	return
+}
+
+// retrieveConsumedInputDetails retrieves the details of the consumed inputs of a transaction.
 func (tangle *Tangle) retrieveConsumedInputDetails(tx *transaction.Transaction) (inputsSolid bool, cachedInputs CachedOutputs, consumedBalances map[balance.Color]int64, consumedBranches branchmanager.BranchIds, err error) {
 	cachedInputs = tangle.getCachedOutputsFromTransactionInputs(tx)
 	consumedBalances = make(map[balance.Color]int64)

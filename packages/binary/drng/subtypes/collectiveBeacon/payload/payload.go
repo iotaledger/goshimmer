@@ -1,6 +1,8 @@
 package payload
 
 import (
+	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/stringify"
@@ -9,6 +11,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
+)
+
+var (
+	// ErrMaximumPayloadSizeExceeded is returned if the payload exceeds the maximum size.
+	ErrMaximumPayloadSizeExceeded = errors.New("maximum payload size exceeded")
 )
 
 // Payload is a collective beacon payload.
@@ -28,6 +35,9 @@ type Payload struct {
 	bytesMutex sync.RWMutex
 }
 
+// MaxCollectiveBeaconPayloadSize defines the maximum size of a collective beacon payload.
+const MaxCollectiveBeaconPayloadSize = 64 * 1024
+
 // New creates a new collective beacon payload.
 func New(instanceID uint32, round uint64, prevSignature, signature, dpk []byte) *Payload {
 	return &Payload{
@@ -41,11 +51,15 @@ func New(instanceID uint32, round uint64, prevSignature, signature, dpk []byte) 
 
 // Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
-	if payload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) }); err != nil {
-		return &Payload{}, err
-	} else {
-		return payload.(*Payload), nil
+	unmarshalledPayload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) })
+	if err != nil {
+		return nil, err
 	}
+	_payload := unmarshalledPayload.(*Payload)
+	if len(_payload.bytes) > MaxCollectiveBeaconPayloadSize {
+		return nil, fmt.Errorf("%w: %d", ErrMaximumPayloadSizeExceeded, MaxCollectiveBeaconPayloadSize)
+	}
+	return _payload, nil
 }
 
 // FromBytes parses the marshaled version of a Payload into an object.

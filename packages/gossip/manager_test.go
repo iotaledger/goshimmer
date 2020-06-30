@@ -336,12 +336,12 @@ func TestMessageRequest(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	messageId := message.Id{}
+	id := message.Id{}
 
 	// mgrA should eventually receive the message
 	mgrA.On("messageReceived", &MessageReceivedEvent{Data: testMessageData, Peer: peerB}).Once()
 
-	b, err := proto.Marshal(&pb.MessageRequest{Id: messageId[:]})
+	b, err := proto.Marshal(&pb.MessageRequest{Id: id[:]})
 	require.NoError(t, err)
 	mgrA.RequestMessage(b)
 	time.Sleep(graceTime)

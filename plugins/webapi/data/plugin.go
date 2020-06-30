@@ -1,6 +1,7 @@
 package data
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 
@@ -44,7 +45,12 @@ func broadcastData(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
-	//TODO: to check max payload size allowed, if exceeding return an error
+	dataPayload := payload.NewData(request.Data)
+	if len(dataPayload.Bytes()) > payload.MaxDataPayloadSize {
+		err := fmt.Errorf("%w: %d", payload.ErrMaximumPayloadSizeExceeded, payload.MaxDataPayloadSize)
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
+
 	msg, err := issuer.IssuePayload(payload.NewData(request.Data))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})

@@ -39,7 +39,7 @@ const (
 )
 
 func init() {
-	flag.String(CfgValueLayerSnapshotFile, "", "the path to the snapshot file")
+	flag.String(CfgValueLayerSnapshotFile, "./snapshot.bin", "the path to the snapshot file")
 	flag.Int(CfgValueLayerFCOBAverageNetworkDelay, 5, "the avg. network delay to use for FCoB rules")
 }
 

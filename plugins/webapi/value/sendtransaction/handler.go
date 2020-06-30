@@ -22,6 +22,11 @@ func Handler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
+	err = valuetransfers.Tangle().ValidateTransactionToAttach(tx)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
+
 	// Prepare value payload and send the message to tangle
 	payload := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
 	_, err = issuer.IssuePayload(payload)
