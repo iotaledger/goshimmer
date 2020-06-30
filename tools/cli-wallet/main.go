@@ -6,6 +6,7 @@ import (
 	"os"
 )
 
+// entry point for the program
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
@@ -14,6 +15,11 @@ func main() {
 		}
 	}()
 
+	// print banner + initialize framework
+	printBanner()
+	loadConfig()
+
+	// override Usage to use our custom method
 	flag.Usage = func() {
 		printUsage(nil)
 	}
@@ -22,7 +28,7 @@ func main() {
 	wallet := loadWallet()
 	defer writeWalletStateFile(wallet, "wallet.dat")
 
-	// check if parameter counts is large enough
+	// check if parameters potentially include sub commands
 	if len(os.Args) < 2 {
 		printUsage(nil)
 	}

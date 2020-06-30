@@ -15,6 +15,10 @@ import (
 	"github.com/mr-tron/base58"
 )
 
+func printBanner() {
+	fmt.Println("IOTA Pollen CLI-Wallet 0.1")
+}
+
 func loadWallet() *wallet.Wallet {
 	seed, lastAddressIndex, spentAddresses, assetRegistry, err := importWalletStateFile("wallet.dat")
 	if err != nil {
@@ -110,6 +114,7 @@ func writeWalletStateFile(wallet *wallet.Wallet, filename string) {
 
 func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 	if len(optionalErrorMessage) >= 1 {
+		_, _ = fmt.Fprintf(os.Stderr, "\n")
 		_, _ = fmt.Fprintf(os.Stderr, optionalErrorMessage[0]+"\n")
 	}
 

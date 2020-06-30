@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 )
@@ -15,11 +14,8 @@ type configuration struct {
 // internal variable that holds the config
 var config = configuration{}
 
-// parse the config upon launching the cli-wallet
-func init() {
-	// print banner
-	fmt.Println("IOTA Pollen CLI-Wallet 0.1")
-
+// load the config file
+func loadConfig() {
 	// open config file
 	file, err := os.Open("config.json")
 	if err != nil {
