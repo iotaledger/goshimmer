@@ -58,7 +58,7 @@ func Plugin() *node.Plugin {
 }
 
 func init() {
-	flag.String(CfgLoggerRemotelogServerAddress, "remotelog.goshimmer.iota.cafe:5213", "RemoteLog server address")
+	flag.String(CfgLoggerRemotelogServerAddress, "ressims.iota.cafe:5213", "RemoteLog server address")
 }
 
 func configure(plugin *node.Plugin) {
