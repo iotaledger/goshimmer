@@ -74,8 +74,15 @@ func execAddressCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", "INDEX", "ADDRESS", "SPENT")
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", "-----", "--------------------------------------------", "-----")
 
+		addressPrinted := false
 		for _, addr := range cliWallet.AddressManager().Addresses() {
 			_, _ = fmt.Fprintf(w, "%d\t%s\t%t\n", addr.Index, addr.String(), cliWallet.AddressManager().IsAddressSpent(addr.Index))
+
+			addressPrinted = true
+		}
+
+		if !addressPrinted {
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", "<EMPTY>", "<EMPTY>", "<EMPTY>")
 		}
 	}
 
@@ -90,8 +97,15 @@ func execAddressCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", "INDEX", "ADDRESS", "SPENT")
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", "-------", "--------------------------------------------", "-------")
 
+		addressPrinted := false
 		for _, addr := range cliWallet.AddressManager().UnspentAddresses() {
 			_, _ = fmt.Fprintf(w, "%d\t%s\t%t\n", addr.Index, addr.String(), cliWallet.AddressManager().IsAddressSpent(addr.Index))
+
+			addressPrinted = true
+		}
+
+		if !addressPrinted {
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", "<EMPTY>", "<EMPTY>", "<EMPTY>")
 		}
 	}
 

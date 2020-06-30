@@ -22,7 +22,7 @@ func loadWallet() *wallet.Wallet {
 	}
 
 	return wallet.New(
-		wallet.WebAPI("http://35.225.161.201:8080"),
+		wallet.WebAPI("http://helsi.goshidev.manahub.io:9101"),
 		wallet.Import(seed, lastAddressIndex, spentAddresses),
 	)
 }
@@ -120,8 +120,9 @@ func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 		fmt.Println("  init")
 		fmt.Println("  balance")
 		fmt.Println("  address")
-		fmt.Println("  sendFunds")
-		fmt.Println("  requestFunds")
+		fmt.Println("  send-funds")
+		fmt.Println("  create-asset")
+		fmt.Println("  request-funds")
 		fmt.Println("  help")
 
 		flag.PrintDefaults()
