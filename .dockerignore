@@ -7,7 +7,6 @@ CHANGELOG.md
 docker-compose.yml
 
 images/
-client/
 tools/
 
 # Database directory
