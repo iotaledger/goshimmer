@@ -17,7 +17,7 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 	confirmedBalance, pendingBalance, err := cliWallet.Balance()
 	if err != nil {
-		printUsage(nil, "ERROR: "+err.Error())
+		printUsage(nil, err.Error())
 	}
 
 	// initialize tab writer

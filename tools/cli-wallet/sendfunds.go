@@ -26,13 +26,13 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	if *addressPtr == "" {
-		printUsage(command, "ERROR: dest-addr has to be set")
+		printUsage(command, "dest-addr has to be set")
 	}
 	if *amountPtr <= 0 {
-		printUsage(command, "ERROR: amount has to be set and be bigger than 0")
+		printUsage(command, "amount has to be set and be bigger than 0")
 	}
 	if *colorPtr == "" {
-		printUsage(command, "ERROR: color must be set")
+		printUsage(command, "color must be set")
 	}
 
 	destinationAddress, err := address.FromBase58(*addressPtr)

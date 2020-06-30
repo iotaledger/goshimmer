@@ -39,7 +39,7 @@ func importWalletStateFile(filename string) (seed *wallet.Seed, lastAddressIndex
 		}
 
 		if len(os.Args) < 2 || os.Args[1] != "init" {
-			printUsage(nil, "ERROR: no wallet file (wallet.dat) found: please call \""+filepath.Base(os.Args[0])+" init\"")
+			printUsage(nil, "no wallet file (wallet.dat) found: please call \""+filepath.Base(os.Args[0])+" init\"")
 		}
 
 		seed = wallet.NewSeed()
@@ -61,7 +61,7 @@ func importWalletStateFile(filename string) (seed *wallet.Seed, lastAddressIndex
 	}
 
 	if len(os.Args) >= 2 && os.Args[1] == "init" {
-		printUsage(nil, "ERROR: please remove the wallet.dat before trying to create a new wallet")
+		printUsage(nil, "please remove the wallet.dat before trying to create a new wallet")
 	}
 
 	marshalUtil := marshalutil.New(walletStateBytes)
@@ -115,7 +115,7 @@ func writeWalletStateFile(wallet *wallet.Wallet, filename string) {
 func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 	if len(optionalErrorMessage) >= 1 {
 		_, _ = fmt.Fprintf(os.Stderr, "\n")
-		_, _ = fmt.Fprintf(os.Stderr, optionalErrorMessage[0]+"\n")
+		_, _ = fmt.Fprintf(os.Stderr, "ERROR: "+optionalErrorMessage[0]+"\n")
 	}
 
 	if command == nil {

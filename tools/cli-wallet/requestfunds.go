@@ -11,7 +11,7 @@ import (
 func execRequestFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	err := command.Parse(os.Args[2:])
 	if err != nil {
-		printUsage(nil, "ERROR: "+err.Error())
+		printUsage(nil, err.Error())
 	}
 
 	// request funds

@@ -58,6 +58,6 @@ func main() {
 	case "help":
 		printUsage(nil)
 	default:
-		printUsage(nil, "ERROR: unknown [COMMAND]: "+os.Args[1])
+		printUsage(nil, "unknown [COMMAND]: "+os.Args[1])
 	}
 }
