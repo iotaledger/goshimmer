@@ -27,7 +27,7 @@ const (
 )
 
 func init() {
-	flag.String(CfgServerAddress, "ressims.iota.cafe:188", "tcp server for collecting analysis information")
+	flag.String(CfgServerAddress, "ressims.iota.cafe:21888", "tcp server for collecting analysis information")
 }
 
 var (
