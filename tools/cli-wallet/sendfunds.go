@@ -4,9 +4,9 @@ import (
 	"flag"
 	"os"
 
+	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	"github.com/mr-tron/base58"
 )
 

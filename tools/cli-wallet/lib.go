@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"unsafe"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
+	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"

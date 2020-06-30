@@ -4,9 +4,10 @@
 LICENSE
 README.md
 CHANGELOG.md
-images/
 docker-compose.yml
 
+images/
+client/
 tools/
 
 # Database directory

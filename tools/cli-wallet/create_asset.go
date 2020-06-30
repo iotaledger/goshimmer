@@ -6,7 +6,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
+	"github.com/iotaledger/goshimmer/client/wallet"
 )
 
 func execCreateAssetCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {

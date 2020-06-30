@@ -6,7 +6,7 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
+	"github.com/iotaledger/goshimmer/client/wallet"
 )
 
 func execAddressCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {

@@ -4,10 +4,10 @@ import (
 	"log"
 	"os"
 
+	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
