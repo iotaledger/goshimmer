@@ -37,16 +37,16 @@ This repository is where the IOTA Foundation's Research Department tests the Coo
 
 The aim of this open repository is  to give the community the opportunity to follow developments, take part in testing, and learn  more about [Coordicide](https://coordicide.iota.org/).
 
-**Note:** You can find details about future development plans in our [roadmap](https://roadmap.iota.org).
+**Note:** You can find details about future development plans on our [roadmap](https://roadmap.iota.org).
 
 ## Design
 The code in GoShimmer is modular, where each module represents either one of the [Coordicide components](https://coordicide.iota.org/) or a basic node function such as the gossip, ledger state, API just to mention a few.  
 
-![Layers](images/layers.png)
+![Layers](images/layers.jpg)
 
 GoShimmer modularity is based on a combination of event-driven and layer-based approaches.
 
-Each module is defined in the `packages` directory, with the exceptions for the dApps (e.g., Value transfer and netowrk delay) that are under the `dapps` folder. Each module can be enabled using the `plugins` directory.
+Each module is defined in the `packages` directory, with the exceptions for the dApps (e.g., value transfer, network delay and the faucet) that are under the `dapps` folder. Each module can be enabled using the `plugins` directory.
 
 **Note:** See the `main.go` file to see which plugins are currently supported.
 
@@ -56,6 +56,7 @@ The `master` branch is the stable version of the GoShimmer software, which inclu
 
 - Generic data object, and more in general, any non-value transfer can be supported with its own dApp/App. 
 - Value objects to issue transactions. 
+- Faucet funding request objects.
 
 The `master` branch includes the following Coordicide modules: 
 
@@ -65,7 +66,7 @@ The `master` branch includes the following Coordicide modules:
 
 - [Fast Probabilistic Consensus](https://coordicide.iota.org//module4.1.2).  We also have a standalone FPC simulator in this [repository](https://github.com/iotaledger/fpc-sim).
 
-- [Tips Selection Algorithm](https://coordicide.iota.org//module5)
+- [Tip Selection Algorithm](https://coordicide.iota.org//module5)
 
 - [Parallel-reality-based Ledger State](https://iota.cafe/t/parallel-reality-based-ledger-state-using-utxo/261) (using the UTXO model).
 
@@ -90,7 +91,7 @@ You can find more info about this on our [client-lib](https://github.com/iotaled
 
 ## Getting started
 
-You can find tutorials on how to [setup a GoShimmer node](https://github.com/iotaledger/goshimmer/wiki/Setting-up-a-GoShimmer-node), [writing a dApp](https://github.com/iotaledger/goshimmer/wiki/How-to-create-a-simple-dApp), [obtain tokens from the faucet](https://github.com/iotaledger/goshimmer/wiki/How-to-obtain-tokens-from-the-faucet) and more on our [wiki](https://github.com/iotaledger/goshimmer/wiki).
+You can find tutorials on how to [setup a GoShimmer node](https://github.com/iotaledger/goshimmer/wiki/Setting-up-a-GoShimmer-node), [writing a dApp](https://github.com/iotaledger/goshimmer/wiki/How-to-create-a-simple-dApp), [obtaining tokens from the faucet](https://github.com/iotaledger/goshimmer/wiki/How-to-obtain-tokens-from-the-faucet) and more on our [wiki](https://github.com/iotaledger/goshimmer/wiki).
 
 ## Supporting the project
 
