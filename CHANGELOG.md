@@ -1,7 +1,85 @@
+# v0.2.0 - 2020-06-30
+* Adds the value transfer dApp:
+    * New binary transaction layout
+    * UTXO model 
+    * Support for transactions with Ed25519 and BLS signatures
+    * Parallel reality based ledger state
+    * Support for colored tokens
+    * Conflict resolution via FPC
+    * Applied FCoB rules
+* Adds the network delay dApp which is used to gather the avg. network delay occurring in the network
+* Adds the faucet dApp giving the ability to request funds for testing via the dashboard or web API
+* Adds the DRNG dApp which is used to propagate random numbers produced by a dRand committee (this dApp is inactive)
+* Adds the base communication layer
+* Adds improved analysis server:
+    * Splits it into 3 separate plugins `analysis-client`/`analysis-dashboard`/`analysis-server`
+    * Applies heartbeat pattern for robustness on both client and server side
+    * Uses TLV denoted messages for communication
+    * Complete new dashboard with live visualisations of the network graph and ongoing conflicts
+    * Use short node IDs throughout the analysis dashboard
+    * Prometheus exporter to expose global network metrics
+    * Storage for conflicts inside a MongoDB for further processing
+    * Complete rewritten autopeering data retention
+* Adds additional HTTP API routes:
+    * "healtz" route to query the health of the node (for LBs)
+    * Query transaction attachment locations
+    * Query transactions by IDs
+    * Send transactions
+    * Get UTXOs on addresses
+    * Query info about the node
+    * Issue a faucet funding request
+    * Query dRNG committee
+    * Query dRNG random number
+    * Issue data payloads
+* Adds dashboard improvements:
+    * Tips chart
+    * Communication layer visualizer
+    * Address and UTXOs view
+    * Message payload view
+    * DRNG live feed
+    * Faucet page to request funds
+    * Support different payload views (data, value, faucet, unknown)
+* Adds integration test framework and corresponding tests:
+    * Autopeering/Network Split
+    * Message propagation 
+    * FPC 50/50 network split voting
+    * Faucet funding
+    * Value transfers
+    * Synchronization
+* Adds refactored communication layer code
+* Adds BLAKE2-based PoW for rate control
+* Adds rewritten FPC package
+* Adds possibility to change config options with environment variables
+* Adds sample Grafana dashboard for local node instances
+* Adds snapshot-file import
+* Adds "dirty-flag" to the `Database` plugin to check for corrupted databases
+* Adds BadgerDB gargbage collection on startup/shutdown and removes periodic GC
+* Adds review-dog linter and automatic integration tests execution to continuous integration pipeline
+* Adds `Prometheus` exporter plugin with exposure for [following metrics](https://github.com/iotaledger/goshimmer/issues/465)
+* Adds `Sync` plugin keeping track of the node's synchronization state
+* Adds `Issuer` plugin which takes care of issuing messages (and blocking any issuance when the node is desynced)
+* Adds `Profiling` plugin which exposes the `pprof` endpoints and is now configurable
+* Adds `Bootstrap` plugin which continuously issues messages to keep the comm. layer graph growing
+* Adds proper metrics collection in the `Metrics` plugin
+* Adds support for the new HTTP API routes to the Go client library
+* Adds `tools/docker-network` to run an isolated GoShimmer network with a chosen amount of nodes. Predefined local and global grafana dashboards are spinned up as well for the network
+* Upgrades `hive.go` with various improvements and fixes
+* Fixes bind address prints to not be normalized
+* Fixes usage of WebSocket message rate limiter
+* Fixes disabled/enabled plugins list in info response
+* Fixes the `Graceful Shutdown` plugin not showing the actual background workers during shutdown. The node operator is now
+able to see pending background workers in the order in which they are supposed to be terminated
+* Refactors display of IDs to use Base58 throughout the entire codebase
+* Increases network and database versions
+* Removes usage of non std `errors` package
+* Removes `Graph` plugin
+* Renames `SPA` plugin to `Dashboard`
+* Makes running GoShimmer with a config file mandatory if not explicitly bypassed
+
 # v0.1.3 - 2020-03-16
 
 * Update SPA plugin's JS dependencies
-* Upgrad `github.com/gobuffalo/packr` to v2.8.0
+* Upgrade `github.com/gobuffalo/packr` to v2.8.0
 * Resolves a security issue in the packr dependency, which would allow an unauthenticated attacker to read any
  file from the application's filesystem 
 
