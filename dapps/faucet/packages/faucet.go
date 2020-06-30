@@ -76,7 +76,7 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	}
 
 	for index := range addrsIndices {
-		tx.Sign(signaturescheme.ED25519(*f.wallet.Seed().KeyPair(index)))
+		tx.Sign(signaturescheme.ED25519(*f.seed.KeyPair(index)))
 	}
 
 	// prepare value payload with value factory
