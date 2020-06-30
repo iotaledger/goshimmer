@@ -1,13 +1,15 @@
 run:
     tests: true
 
+issues:
+    exclude-use-default: false
+    max-issues-per-linter: 0
+
 linters-settings:
     gofmt:
         simplify: true
     golint:
-        min-confidence: 0.9
-    gocyclo:
-        min-complexity: 15
+        min-confidence: 0.8
     govet:
         check-shadowing: true
     misspell:
@@ -19,7 +21,7 @@ linters:
         - gofmt
         - goimports
         - govet
+        - golint
     disable:
         - errcheck
         - gochecknoglobals
-        - golint

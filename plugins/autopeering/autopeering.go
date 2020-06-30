@@ -1,142 +1,179 @@
 package autopeering
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"net"
+	"strconv"
 	"strings"
+	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/netutil"
-	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/cli"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/autopeering/server"
-	"github.com/iotaledger/hive.go/autopeering/transport"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
+	"github.com/mr-tron/base58"
+)
+
+// autopeering constants
+const (
+	ProtocolVersion = 0 // update on protocol changes
+	NetworkVersion  = 2 // update on network changes
 )
 
 var (
-	// Discovery is the peer discovery protocol.
-	Discovery *discover.Protocol
-	// Selection is the peer selection protocol.
-	Selection *selection.Protocol
+	// ErrParsingMasterNode is returned for an invalid master node.
+	ErrParsingMasterNode = errors.New("cannot parse master node")
 
-	ErrParsingMasterNode = errors.New("can't parse master node")
-
-	log *logger.Logger
+	// Conn contains the network connection.
+	Conn *NetConnMetric
 )
 
-func configureAP() {
+var (
+	// the peer discovery protocol
+	peerDisc     *discover.Protocol
+	peerDiscOnce sync.Once
+
+	// the peer selection protocol
+	peerSel     *selection.Protocol
+	peerSelOnce sync.Once
+
+	// block until the peering server has been started
+	srvBarrier = struct {
+		once sync.Once
+		c    chan *server.Server
+	}{c: make(chan *server.Server, 1)}
+)
+
+// Discovery returns the peer discovery instance.
+func Discovery() *discover.Protocol {
+	peerDiscOnce.Do(createPeerDisc)
+	return peerDisc
+}
+
+// Selection returns the neighbor selection instance.
+func Selection() *selection.Protocol {
+	peerSelOnce.Do(createPeerSel)
+	return peerSel
+}
+
+// BindAddress returns the string form of the autopeering bind address.
+func BindAddress() string {
+	peering := local.GetInstance().Services().Get(service.PeeringKey)
+	host := config.Node().GetString(local.CfgBind)
+	port := strconv.Itoa(peering.Port())
+	return net.JoinHostPort(host, port)
+}
+
+// StartSelection starts the neighbor selection process.
+// It blocks until the peer discovery has been started. Multiple calls of StartSelection are ignored.
+func StartSelection() {
+	srvBarrier.once.Do(func() {
+		srv := <-srvBarrier.c
+		close(srvBarrier.c)
+
+		Selection().Start(srv)
+	})
+}
+
+func createPeerDisc() {
+	// assure that the logger is available
+	log := logger.NewLogger(PluginName).Named("disc")
+
 	masterPeers, err := parseEntryNodes()
 	if err != nil {
 		log.Errorf("Invalid entry nodes; ignoring: %v", err)
 	}
 	log.Debugf("Master peers: %v", masterPeers)
 
-	Discovery = discover.New(local.GetInstance(), discover.Config{
-		Log:         log.Named("disc"),
-		MasterPeers: masterPeers,
-	})
+	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, NetworkVersion,
+		discover.Logger(log),
+		discover.MasterPeers(masterPeers),
+	)
+}
 
-	// enable peer selection only when gossip is enabled
-	if !node.IsSkipped(gossip.PLUGIN) {
-		Selection = selection.New(local.GetInstance(), Discovery, selection.Config{
-			Log:               log.Named("sel"),
-			NeighborValidator: selection.ValidatorFunc(isValidNeighbor),
-		})
-	}
+func createPeerSel() {
+	// assure that the logger is available
+	log := logger.NewLogger(PluginName).Named("sel")
+
+	peerSel = selection.New(local.GetInstance(), Discovery(),
+		selection.Logger(log),
+		selection.NeighborValidator(selection.ValidatorFunc(isValidNeighbor)),
+	)
 }
 
 // isValidNeighbor checks whether a peer is a valid neighbor.
 func isValidNeighbor(p *peer.Peer) bool {
 	// gossip must be supported
-	gossipAddr := p.Services().Get(service.GossipKey)
-	if gossipAddr == nil {
+	gossipService := p.Services().Get(service.GossipKey)
+	if gossipService == nil {
 		return false
 	}
-	// the host for the gossip and peering service must be identical
-	gossipHost, _, err := net.SplitHostPort(gossipAddr.String())
-	if err != nil {
+	// gossip service must be valid
+	if gossipService.Network() != "tcp" || gossipService.Port() < 0 || gossipService.Port() > 65535 {
 		return false
 	}
-	peeringAddr := p.Services().Get(service.PeeringKey)
-	peeringHost, _, err := net.SplitHostPort(peeringAddr.String())
-	if err != nil {
-		return false
-	}
-	return gossipHost == peeringHost
+	return true
 }
 
 func start(shutdownSignal <-chan struct{}) {
-	defer log.Info("Stopping " + name + " ... done")
+	defer log.Info("Stopping " + PluginName + " ... done")
 
 	lPeer := local.GetInstance()
-	// use the port of the peering service
-	peeringAddr := lPeer.Services().Get(service.PeeringKey)
-	_, peeringPort, err := net.SplitHostPort(peeringAddr.String())
-	if err != nil {
-		panic(err)
-	}
+	peering := lPeer.Services().Get(service.PeeringKey)
+
 	// resolve the bind address
-	address := net.JoinHostPort(parameter.NodeConfig.GetString(local.CFG_BIND), peeringPort)
-	localAddr, err := net.ResolveUDPAddr(peeringAddr.Network(), address)
+	localAddr, err := net.ResolveUDPAddr(peering.Network(), BindAddress())
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
+		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
 	}
 
-	// check that discovery is working and the port is open
-	log.Info("Testing service ...")
-	checkConnection(localAddr, &lPeer.Peer)
-	log.Info("Testing service ... done")
-
-	conn, err := net.ListenUDP(peeringAddr.Network(), localAddr)
+	conn, err := net.ListenUDP(peering.Network(), localAddr)
 	if err != nil {
 		log.Fatalf("Error listening: %v", err)
 	}
 	defer conn.Close()
 
-	// use the UDP connection for transport
-	trans := transport.Conn(conn, func(network, address string) (net.Addr, error) { return net.ResolveUDPAddr(network, address) })
-	defer trans.Close()
+	Conn = &NetConnMetric{UDPConn: conn}
 
-	handlers := []server.Handler{Discovery}
-	if Selection != nil {
-		handlers = append(handlers, Selection)
-	}
-
-	// start a server doing discovery and peering
-	srv := server.Serve(lPeer, trans, log.Named("srv"), handlers...)
+	// start a server doing peerDisc and peering
+	srv := server.Serve(lPeer, Conn, log.Named("srv"), Discovery(), Selection())
 	defer srv.Close()
 
-	// start the discovery on that connection
-	Discovery.Start(srv)
-	defer Discovery.Close()
+	// start the peer discovery on that connection
+	Discovery().Start(srv)
+	srvBarrier.c <- srv
 
-	if Selection != nil {
-		// start the peering on that connection
-		Selection.Start(srv)
-		defer Selection.Close()
-	}
-
-	log.Infof("%s started: ID=%s Address=%s/%s", name, lPeer.ID(), peeringAddr.String(), peeringAddr.Network())
+	log.Infof("%s started: ID=%s Address=%s/%s", PluginName, lPeer.ID(), localAddr.String(), localAddr.Network())
 
 	<-shutdownSignal
 
-	log.Infof("Stopping %s ...", name)
+	log.Infof("Stopping %s ...", PluginName)
 
-	count := lPeer.Database().PersistSeeds()
-	log.Infof("%d peers persisted as seeds", count)
+	Discovery().Close()
+	Selection().Close()
+
+	lPeer.Database().Close()
+}
+
+func hash32(b []byte) uint32 {
+	hash := fnv.New32()
+	_, err := hash.Write(b)
+	if err != nil {
+		panic(err)
+	}
+	return hash.Sum32()
 }
 
 func parseEntryNodes() (result []*peer.Peer, err error) {
-	for _, entryNodeDefinition := range parameter.NodeConfig.GetStringSlice(CFG_ENTRY_NODES) {
+	for _, entryNodeDefinition := range config.Node().GetStringSlice(CfgEntryNodes) {
 		if entryNodeDefinition == "" {
 			continue
 		}
@@ -145,32 +182,24 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("%w: master node parts must be 2, is %d", ErrParsingMasterNode, len(parts))
 		}
-		pubKey, err := base64.StdEncoding.DecodeString(parts[0])
+		pubKey, err := base58.Decode(parts[0])
 		if err != nil {
-			return nil, fmt.Errorf("%w: can't decode public key: %s", ErrParsingMasterNode, err)
+			return nil, fmt.Errorf("%w: invalid public key: %s", ErrParsingMasterNode, err)
+		}
+		addr, err := net.ResolveUDPAddr("udp", parts[1])
+		if err != nil {
+			return nil, fmt.Errorf("%w: host cannot be resolved: %s", ErrParsingMasterNode, err)
+		}
+		publicKey, _, err := ed25519.PublicKeyFromBytes(pubKey)
+		if err != nil {
+			return nil, err
 		}
 
 		services := service.New()
-		services.Update(service.PeeringKey, "udp", parts[1])
+		services.Update(service.PeeringKey, addr.Network(), addr.Port)
 
-		result = append(result, peer.NewPeer(pubKey, services))
+		result = append(result, peer.NewPeer(identity.New(publicKey), addr.IP, services))
 	}
 
 	return result, nil
-}
-
-func checkConnection(localAddr *net.UDPAddr, self *peer.Peer) {
-	peering := self.Services().Get(service.PeeringKey)
-	remoteAddr, err := net.ResolveUDPAddr(peering.Network(), peering.String())
-	if err != nil {
-		panic(err)
-	}
-
-	// do not check the address as a NAT may change them for local connections
-	err = netutil.CheckUDP(localAddr, remoteAddr, false, true)
-	if err != nil {
-		log.Errorf("Error testing service: %s", err)
-		log.Panicf("Please check that %s is publicly reachable at %s/%s",
-			cli.AppName, peering.String(), peering.Network())
-	}
 }

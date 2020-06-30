@@ -1,50 +1,49 @@
 package spammer
 
 import (
-	"net/http"
+	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/transactionspammer"
+	"github.com/iotaledger/goshimmer/packages/binary/spammer"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/labstack/echo"
 )
 
-var PLUGIN = node.NewPlugin("Spammer", node.Disabled, configure)
+var messageSpammer *spammer.Spammer
+
+// PluginName is the name of the spammer plugin.
+const PluginName = "Spammer"
+
+var (
+	// plugin is the plugin instance of the spammer plugin.
+	plugin *node.Plugin
+	once   sync.Once
+	log    *logger.Logger
+)
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	})
+	return plugin
+}
 
 func configure(plugin *node.Plugin) {
-	webapi.Server.GET("spammer", WebApiHandler)
+	log = logger.NewLogger(PluginName)
+	messageSpammer = spammer.New(issuer.IssuePayload)
+	webapi.Server().GET("spammer", handleRequest)
 }
 
-func WebApiHandler(c echo.Context) error {
+func run(*node.Plugin) {
+	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
+		<-shutdownSignal
 
-	var request Request
-	if err := c.Bind(&request); err != nil {
-		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+		messageSpammer.Shutdown()
+	}, shutdown.PrioritySpammer); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
 	}
-
-	switch request.Cmd {
-	case "start":
-		if request.Tps == 0 {
-			request.Tps = 1
-		}
-
-		transactionspammer.Stop()
-		transactionspammer.Start(request.Tps)
-		return c.JSON(http.StatusOK, Response{Message: "started spamming transactions"})
-	case "stop":
-		transactionspammer.Stop()
-		return c.JSON(http.StatusOK, Response{Message: "stopped spamming transactions"})
-	default:
-		return c.JSON(http.StatusBadRequest, Response{Error: "invalid cmd in request"})
-	}
-}
-
-type Response struct {
-	Message string `json:"message"`
-	Error   string `json:"error"`
-}
-
-type Request struct {
-	Cmd string `json:"cmd"`
-	Tps uint64 `json:"tps"`
 }

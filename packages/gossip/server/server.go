@@ -7,16 +7,19 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotaledger/goshimmer/packages/netutil"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	pb "github.com/iotaledger/hive.go/autopeering/server/proto"
 	"github.com/iotaledger/hive.go/backoff"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/netutil"
 	"go.uber.org/zap"
 )
 
@@ -46,10 +49,9 @@ var dialRetryPolicy = backoff.ConstantBackOff(500 * time.Millisecond).With(backo
 
 // TCP establishes verified incoming and outgoing TCP connections to other peers.
 type TCP struct {
-	local      *peer.Local
-	publicAddr net.Addr
-	listener   *net.TCPListener
-	log        *zap.SugaredLogger
+	local    *peer.Local
+	listener *net.TCPListener
+	log      *zap.SugaredLogger
 
 	addAcceptMatcher chan *acceptMatcher
 	acceptReceived   chan accept
@@ -72,24 +74,20 @@ type acceptMatcher struct {
 }
 
 type accept struct {
-	fromID peer.ID  // ID of the connecting peer
-	req    []byte   // raw data of the handshake request
-	conn   net.Conn // the actual network connection
+	fromID identity.ID // ID of the connecting peer
+	req    []byte      // raw data of the handshake request
+	conn   net.Conn    // the actual network connection
 }
 
 // ServeTCP creates the object and starts listening for incoming connections.
 func ServeTCP(local *peer.Local, listener *net.TCPListener, log *zap.SugaredLogger) *TCP {
 	t := &TCP{
 		local:            local,
-		publicAddr:       local.Services().Get(service.GossipKey),
 		listener:         listener,
 		log:              log,
 		addAcceptMatcher: make(chan *acceptMatcher),
 		acceptReceived:   make(chan accept),
 		closing:          make(chan struct{}),
-	}
-	if t.publicAddr == nil {
-		panic(ErrNoGossip)
 	}
 
 	t.log.Debugw("server started",
@@ -123,21 +121,22 @@ func (t *TCP) LocalAddr() net.Addr {
 // DialPeer establishes a gossip connection to the given peer.
 // If the peer does not accept the connection or the handshake fails, an error is returned.
 func (t *TCP) DialPeer(p *peer.Peer) (net.Conn, error) {
-	gossipAddr := p.Services().Get(service.GossipKey)
-	if gossipAddr == nil {
+	gossipEndpoint := p.Services().Get(service.GossipKey)
+	if gossipEndpoint == nil {
 		return nil, ErrNoGossip
 	}
 
 	var conn net.Conn
 	if err := backoff.Retry(dialRetryPolicy, func() error {
 		var err error
-		conn, err = net.DialTimeout(gossipAddr.Network(), gossipAddr.String(), dialTimeout)
+		address := net.JoinHostPort(p.IP().String(), strconv.Itoa(gossipEndpoint.Port()))
+		conn, err = net.DialTimeout("tcp", address, dialTimeout)
 		if err != nil {
-			return fmt.Errorf("dial %s / %s failed: %w", gossipAddr.String(), p.ID(), err)
+			return fmt.Errorf("dial %s / %s failed: %w", address, p.ID(), err)
 		}
 
-		if err = t.doHandshake(p.PublicKey(), gossipAddr.String(), conn); err != nil {
-			return fmt.Errorf("handshake %s / %s failed: %w", gossipAddr.String(), p.ID(), err)
+		if err = t.doHandshake(p.PublicKey(), address, conn); err != nil {
+			return fmt.Errorf("handshake %s / %s failed: %w", address, p.ID(), err)
 		}
 		return nil
 	}); err != nil {
@@ -154,15 +153,15 @@ func (t *TCP) DialPeer(p *peer.Peer) (net.Conn, error) {
 // AcceptPeer awaits an incoming connection from the given peer.
 // If the peer does not establish the connection or the handshake fails, an error is returned.
 func (t *TCP) AcceptPeer(p *peer.Peer) (net.Conn, error) {
-	gossipAddr := p.Services().Get(service.GossipKey)
-	if gossipAddr == nil {
+	gossipEndpoint := p.Services().Get(service.GossipKey)
+	if gossipEndpoint == nil {
 		return nil, ErrNoGossip
 	}
 
 	// wait for the connection
 	connected := <-t.acceptPeer(p)
 	if connected.err != nil {
-		return nil, fmt.Errorf("accept %s / %s failed: %w", gossipAddr.String(), p.ID(), connected.err)
+		return nil, fmt.Errorf("accept %s / %s failed: %w", net.JoinHostPort(p.IP().String(), strconv.Itoa(gossipEndpoint.Port())), p.ID(), connected.err)
 	}
 
 	t.log.Debugw("incoming connection established",
@@ -300,7 +299,7 @@ func (t *TCP) listenLoop() {
 
 		select {
 		case t.acceptReceived <- accept{
-			fromID: key.ID(),
+			fromID: identity.NewID(key),
 			req:    req,
 			conn:   conn,
 		}:
@@ -311,15 +310,15 @@ func (t *TCP) listenLoop() {
 	}
 }
 
-func (t *TCP) doHandshake(key peer.PublicKey, remoteAddr string, conn net.Conn) error {
+func (t *TCP) doHandshake(key ed25519.PublicKey, remoteAddr string, conn net.Conn) error {
 	reqData, err := newHandshakeRequest(remoteAddr)
 	if err != nil {
 		return err
 	}
 
 	pkt := &pb.Packet{
-		PublicKey: t.local.PublicKey(),
-		Signature: t.local.Sign(reqData),
+		PublicKey: t.local.PublicKey().Bytes(),
+		Signature: t.local.Sign(reqData).Bytes(),
 		Data:      reqData,
 	}
 	b, err := proto.Marshal(pkt)
@@ -356,7 +355,7 @@ func (t *TCP) doHandshake(key peer.PublicKey, remoteAddr string, conn net.Conn) 
 	}
 
 	signer, err := peer.RecoverKeyFromSignedData(pkt)
-	if err != nil || !bytes.Equal(key, signer) {
+	if err != nil || !bytes.Equal(key.Bytes(), signer.Bytes()) {
 		return ErrInvalidHandshake
 	}
 	if !t.validateHandshakeResponse(pkt.GetData(), reqData) {
@@ -366,29 +365,29 @@ func (t *TCP) doHandshake(key peer.PublicKey, remoteAddr string, conn net.Conn) 
 	return nil
 }
 
-func (t *TCP) readHandshakeRequest(conn net.Conn) (peer.PublicKey, []byte, error) {
+func (t *TCP) readHandshakeRequest(conn net.Conn) (ed25519.PublicKey, []byte, error) {
 	if err := conn.SetReadDeadline(time.Now().Add(handshakeTimeout)); err != nil {
-		return nil, nil, err
+		return ed25519.PublicKey{}, nil, err
 	}
 	b := make([]byte, maxHandshakePacketSize)
 	n, err := conn.Read(b)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%w: %s", ErrInvalidHandshake, err.Error())
+		return ed25519.PublicKey{}, nil, fmt.Errorf("%w: %s", ErrInvalidHandshake, err.Error())
 	}
 
 	pkt := &pb.Packet{}
 	err = proto.Unmarshal(b[:n], pkt)
 	if err != nil {
-		return nil, nil, err
+		return ed25519.PublicKey{}, nil, err
 	}
 
 	key, err := peer.RecoverKeyFromSignedData(pkt)
 	if err != nil {
-		return nil, nil, err
+		return ed25519.PublicKey{}, nil, err
 	}
 
 	if !t.validateHandshakeRequest(pkt.GetData()) {
-		return nil, nil, ErrInvalidHandshake
+		return ed25519.PublicKey{}, nil, ErrInvalidHandshake
 	}
 
 	return key, pkt.GetData(), nil
@@ -401,8 +400,8 @@ func (t *TCP) writeHandshakeResponse(reqData []byte, conn net.Conn) error {
 	}
 
 	pkt := &pb.Packet{
-		PublicKey: t.local.PublicKey(),
-		Signature: t.local.Sign(data),
+		PublicKey: t.local.PublicKey().Bytes(),
+		Signature: t.local.Sign(data).Bytes(),
 		Data:      data,
 	}
 	b, err := proto.Marshal(pkt)

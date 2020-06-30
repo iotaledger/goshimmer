@@ -1,22 +1,17 @@
 package gossip
 
 import (
-	"errors"
 	"io"
 	"net"
 	"strings"
 	"sync"
+	"time"
 
-	"github.com/iotaledger/goshimmer/packages/netutil"
-	"github.com/iotaledger/goshimmer/packages/netutil/buffconn"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/netutil"
+	"github.com/iotaledger/hive.go/netutil/buffconn"
 	"go.uber.org/atomic"
-)
-
-var (
-	// ErrNeighborQueueFull is returned when the send queue is already full.
-	ErrNeighborQueueFull = errors.New("send queue is full")
 )
 
 const (
@@ -25,6 +20,7 @@ const (
 	droppedMessagesThreshold = 1000
 )
 
+// Neighbor describes the established gossip connection to another peer.
 type Neighbor struct {
 	*peer.Peer
 	*buffconn.BufferedConnection
@@ -36,6 +32,8 @@ type Neighbor struct {
 	wg             sync.WaitGroup
 	closing        chan struct{}
 	disconnectOnce sync.Once
+
+	connectionEstablished time.Time
 }
 
 // NewNeighbor creates a new neighbor from the provided peer and connection.
@@ -52,12 +50,18 @@ func NewNeighbor(peer *peer.Peer, conn net.Conn, log *logger.Logger) *Neighbor {
 	)
 
 	return &Neighbor{
-		Peer:               peer,
-		BufferedConnection: buffconn.NewBufferedConnection(conn),
-		log:                log,
-		queue:              make(chan []byte, neighborQueueSize),
-		closing:            make(chan struct{}),
+		Peer:                  peer,
+		BufferedConnection:    buffconn.NewBufferedConnection(conn),
+		log:                   log,
+		queue:                 make(chan []byte, neighborQueueSize),
+		closing:               make(chan struct{}),
+		connectionEstablished: time.Now(),
 	}
+}
+
+// ConnectionEstablished returns the connection established.
+func (n *Neighbor) ConnectionEstablished() time.Time {
+	return n.connectionEstablished
 }
 
 // Listen starts the communication to the neighbor.

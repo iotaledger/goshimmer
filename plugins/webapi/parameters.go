@@ -5,9 +5,10 @@ import (
 )
 
 const (
-	BIND_ADDRESS = "webapi.bindAddress"
+	// CfgBindAddress defines the config flag of the web API binding address.
+	CfgBindAddress = "webapi.bindAddress"
 )
 
 func init() {
-	flag.String(BIND_ADDRESS, "127.0.0.1:8080", "the bind address for the web API")
+	flag.String(CfgBindAddress, "127.0.0.1:8080", "the bind address for the web API")
 }

@@ -1,77 +1,79 @@
-// remotelog is a plugin that enables log messages being sent via UDP to a central ELK stack for debugging.
+// Package remotelog is a plugin that enables log messages being sent via UDP to a central ELK stack for debugging.
 // It is disabled by default and when enabled, additionally, logger.disableEvents=false in config.json needs to be set.
 // The destination can be set via logger.remotelog.serverAddress.
 // All events according to logger.level in config.json are sent.
 package remotelog
 
 import (
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/parameter"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/cli"
-
+	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
-
+	flag "github.com/spf13/pflag"
 	"gopkg.in/src-d/go-git.v4"
 )
 
-type logMessage struct {
-	Version   string    `json:"version"`
-	GitHead   string    `json:"gitHead,omitempty"`
-	GitBranch string    `json:"gitBranch,omitempty"`
-	NodeId    string    `json:"nodeId"`
-	Level     string    `json:"level"`
-	Name      string    `json:"name"`
-	Msg       string    `json:"msg"`
-	Timestamp time.Time `json:"timestamp"`
-}
-
 const (
-	CFG_SERVER_ADDRESS = "logger.remotelog.serverAddress"
-	CFG_DISABLE_EVENTS = "logger.disableEvents"
-	PLUGIN_NAME        = "RemoteLog"
+	// CfgLoggerRemotelogServerAddress defines the config flag of the server address.
+	CfgLoggerRemotelogServerAddress = "logger.remotelog.serverAddress"
+	// CfgDisableEvents defines the config flag for disabling logger events.
+	CfgDisableEvents = "logger.disableEvents"
+	// PluginName is the name of the remote log plugin.
+	PluginName = "RemoteLog"
+
+	remoteLogType = "log"
 )
 
 var (
-	PLUGIN      = node.NewPlugin(PLUGIN_NAME, node.Disabled, configure, run)
+	// plugin is the plugin instance of the remote plugin instance.
+	plugin      *node.Plugin
+	pluginOnce  sync.Once
 	log         *logger.Logger
-	conn        net.Conn
 	myID        string
 	myGitHead   string
 	myGitBranch string
 	workerPool  *workerpool.WorkerPool
+
+	remoteLogger     *RemoteLoggerConn
+	remoteLoggerOnce sync.Once
 )
 
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	pluginOnce.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+	})
+	return plugin
+}
+
+func init() {
+	flag.String(CfgLoggerRemotelogServerAddress, "ressims.iota.cafe:5213", "RemoteLog server address")
+}
+
 func configure(plugin *node.Plugin) {
-	log = logger.NewLogger(PLUGIN_NAME)
+	log = logger.NewLogger(PluginName)
 
-	if parameter.NodeConfig.GetBool(CFG_DISABLE_EVENTS) {
-		log.Fatalf("%s in config.json needs to be false so that events can be captured!", CFG_DISABLE_EVENTS)
+	if config.Node().GetBool(CfgDisableEvents) {
+		log.Fatalf("%s in config.json needs to be false so that events can be captured!", CfgDisableEvents)
 		return
 	}
 
-	c, err := net.Dial("udp", parameter.NodeConfig.GetString(CFG_SERVER_ADDRESS))
-	if err != nil {
-		log.Fatalf("Could not create UDP socket to '%s'. %v", parameter.NodeConfig.GetString(CFG_SERVER_ADDRESS), err)
-		return
-	}
-	conn = c
+	// initialize remote logger connection
+	RemoteLogger()
 
 	if local.GetInstance() != nil {
-		myID = hex.EncodeToString(local.GetInstance().ID().Bytes())
+		myID = local.GetInstance().ID().String()
 	}
 
 	getGitInfo()
@@ -80,7 +82,7 @@ func configure(plugin *node.Plugin) {
 		sendLogMsg(task.Param(0).(logger.Level), task.Param(1).(string), task.Param(2).(string))
 
 		task.Return(nil)
-	}, workerpool.WorkerCount(runtime.NumCPU()), workerpool.QueueSize(1000))
+	}, workerpool.WorkerCount(runtime.GOMAXPROCS(0)), workerpool.QueueSize(1000))
 }
 
 func run(plugin *node.Plugin) {
@@ -88,20 +90,22 @@ func run(plugin *node.Plugin) {
 		workerPool.TrySubmit(level, name, msg)
 	})
 
-	daemon.BackgroundWorker(PLUGIN_NAME, func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker(PluginName, func(shutdownSignal <-chan struct{}) {
 		logger.Events.AnyMsg.Attach(logEvent)
 		workerPool.Start()
 		<-shutdownSignal
-		log.Infof("Stopping %s ...", PLUGIN_NAME)
+		log.Infof("Stopping %s ...", PluginName)
 		logger.Events.AnyMsg.Detach(logEvent)
 		workerPool.Stop()
-		log.Infof("Stopping %s ... done", PLUGIN_NAME)
-	}, shutdown.ShutdownPriorityRemoteLog)
+		log.Infof("Stopping %s ... done", PluginName)
+	}, shutdown.PriorityRemoteLog); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
 }
 
 func sendLogMsg(level logger.Level, name string, msg string) {
 	m := logMessage{
-		cli.AppVersion,
+		banner.AppVersion,
 		myGitHead,
 		myGitBranch,
 		myID,
@@ -109,9 +113,10 @@ func sendLogMsg(level logger.Level, name string, msg string) {
 		name,
 		msg,
 		time.Now(),
+		remoteLogType,
 	}
-	b, _ := json.Marshal(m)
-	fmt.Fprint(conn, string(b))
+
+	_ = RemoteLogger().Send(m)
 }
 
 func getGitInfo() {
@@ -150,4 +155,31 @@ func getGitDir() string {
 	}
 
 	return gitDir
+}
+
+// RemoteLogger represents a connection to our remote log server.
+func RemoteLogger() *RemoteLoggerConn {
+	remoteLoggerOnce.Do(func() {
+		r, err := newRemoteLoggerConn(config.Node().GetString(CfgLoggerRemotelogServerAddress))
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		remoteLogger = r
+	})
+
+	return remoteLogger
+}
+
+type logMessage struct {
+	Version   string    `json:"version"`
+	GitHead   string    `json:"gitHead,omitempty"`
+	GitBranch string    `json:"gitBranch,omitempty"`
+	NodeID    string    `json:"nodeId"`
+	Level     string    `json:"level"`
+	Name      string    `json:"name"`
+	Msg       string    `json:"msg"`
+	Timestamp time.Time `json:"timestamp"`
+	Type      string    `json:"type"`
 }

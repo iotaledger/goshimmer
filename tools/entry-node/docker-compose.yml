@@ -1,0 +1,29 @@
+version: "3"
+
+services:
+  entrynode:
+    image: "iotaledger/goshimmer-entrynode:${TAG}"
+    container_name: goshimmer-entrynode
+    build:
+      context: "https://github.com/iotaledger/goshimmer.git#${TAG}"
+    volumes:
+      - entrynode:/tmp/mainnetdb
+      - entrynode:/mainnetdb
+    ports:
+      - "1888:188/tcp"    # analysis server
+      - "8080:80/tcp"     # analysis dashboard
+      - "14626:14626/udp" # autopeering discovery
+    restart: unless-stopped
+    command: >
+      --autopeering.seed=${SEED}
+      --autopeering.entryNodes=
+      --analysis.client.serverAddress=
+      --analysis.server.bindAddress=0.0.0.0:1888
+      --analysis.dashboard.bindAddress=0.0.0.0:8080
+      --node.enablePlugins=analysis-server,analysis-dashboard
+      --node.disablePlugins=analysis-client,gossip,portcheck,spa,dashboard,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+
+volumes:
+  entrynode:
+    external:
+      name: entrynode_db-${TAG}

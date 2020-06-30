@@ -1,0 +1,24 @@
+@import '../../../sass/colors';
+@import '../../../sass/fonts';
+@import '../../../sass/mixins';
+@import '../../../sass/media-queries';
+
+.fpc {
+  margin: 40px;
+
+  .header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+
+    @include tablet-down {
+      flex-direction: column;
+    }
+  }
+
+  .conflict-grid {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}

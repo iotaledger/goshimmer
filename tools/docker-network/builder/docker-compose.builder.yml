@@ -1,0 +1,15 @@
+version: "3.5"
+
+services:
+  builder:
+    container_name: builder
+    image: golang:1.14.4
+    working_dir: /tmp/goshimmer/
+    entrypoint: go install main.go
+    volumes:
+      - ../../..:/tmp/goshimmer:ro
+      - goshimmer-cache:/go
+
+volumes:
+  goshimmer-cache:
+    name: goshimmer-cache

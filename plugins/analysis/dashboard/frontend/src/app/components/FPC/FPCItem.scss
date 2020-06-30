@@ -1,0 +1,59 @@
+@import '../../../sass/colors';
+@import '../../../sass/fonts';
+@import '../../../sass/mixins';
+@import '../../../sass/media-queries';
+
+.fpc-item {
+  @include font-size(16px);
+
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  width: 200px;
+  height: 30px;
+  margin: 5px;
+  border: 1px solid $gray-4;
+  border-radius: 15px;
+  background-color: $gray-4;
+  color: $dark-gray;
+  font-family: $inter;
+  text-decoration: none;
+  overflow: hidden;
+
+  &.enter {
+    opacity: 0;
+  }
+
+  &.enter-active {
+    transition: opacity 300ms ease-in;
+    opacity: 1;
+  }
+
+  &.exit {
+    opacity: 1;
+  }
+
+  &.exit-active {
+    transition: opacity 300ms ease-out;
+    opacity: 0;
+  }
+
+  .percentage {
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    height: 30px;
+    transition: width 1s ease-in-out;
+    border-radius: 15px;
+    background-color: $main-green;
+    z-index: 1;
+  }
+
+  .label {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    color: $white;
+    z-index: 2;
+  }
+}

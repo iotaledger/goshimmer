@@ -4,11 +4,17 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
+// Events defines the events of the plugin.
 var Events = pluginEvents{
+	// ReceivedMPSUpdated triggers upon reception of a MPS update.
+	ReceivedMPSUpdated: events.NewEvent(uint64EventCaller),
 	ReceivedTPSUpdated: events.NewEvent(uint64EventCaller),
 }
 
 type pluginEvents struct {
+	// Fired when the messages per second metric is updated.
+	ReceivedMPSUpdated *events.Event
+	// Fired when the transactions per second metric is updated.
 	ReceivedTPSUpdated *events.Event
 }
 

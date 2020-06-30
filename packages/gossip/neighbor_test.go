@@ -9,7 +9,9 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -118,15 +120,18 @@ func TestNeighborParallelWrite(t *testing.T) {
 }
 
 func newTestNeighbor(name string, conn net.Conn) *Neighbor {
-	return NewNeighbor(newTestPeer(name, conn.LocalAddr()), conn, log.Named(name))
+	return NewNeighbor(newTestPeer(name, conn), conn, log.Named(name))
 }
 
-func newTestPeer(name string, addr net.Addr) *peer.Peer {
+func newTestPeer(name string, conn net.Conn) *peer.Peer {
 	services := service.New()
-	services.Update(service.PeeringKey, addr.Network(), addr.String())
-	services.Update(service.GossipKey, addr.Network(), addr.String())
+	services.Update(service.PeeringKey, conn.LocalAddr().Network(), 0)
+	services.Update(service.GossipKey, conn.LocalAddr().Network(), 0)
 
-	return peer.NewPeer([]byte(name), services)
+	var publicKey ed25519.PublicKey
+	copy(publicKey[:], name)
+
+	return peer.NewPeer(identity.New(publicKey), net.IPv4zero, services)
 }
 
 func newPipe() (net.Conn, net.Conn, func()) {

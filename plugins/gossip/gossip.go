@@ -1,66 +1,72 @@
 package gossip
 
 import (
-	"fmt"
+	"errors"
 	"net"
 	"strconv"
 	"sync"
 
-	gp "github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
-	"github.com/iotaledger/goshimmer/packages/parameter"
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/goshimmer/plugins/cli"
-	"github.com/iotaledger/goshimmer/plugins/tangle"
-	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/goshimmer/plugins/config"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/typeutils"
-	"github.com/iotaledger/iota.go/trinary"
+	"github.com/iotaledger/hive.go/netutil"
 )
 
 var (
-	log *logger.Logger
-	mgr *gp.Manager
+	// ErrMessageNotFound is returned when a message could not be found in the Tangle.
+	ErrMessageNotFound = errors.New("message not found")
 )
 
-func configureGossip() {
-	lPeer := local.GetInstance()
+var (
+	mgr     *gossip.Manager
+	mgrOnce sync.Once
+)
 
-	peeringAddr := lPeer.Services().Get(service.PeeringKey)
-	external, _, err := net.SplitHostPort(peeringAddr.String())
-	if err != nil {
-		panic(err)
-	}
+// Manager returns the manager instance of the gossip plugin.
+func Manager() *gossip.Manager {
+	mgrOnce.Do(createManager)
+	return mgr
+}
+
+func createManager() {
+	// assure that the logger is available
+	log := logger.NewLogger(PluginName)
 
 	// announce the gossip service
-	gossipPort := strconv.Itoa(parameter.NodeConfig.GetInt(GOSSIP_PORT))
-	err = lPeer.UpdateService(service.GossipKey, "tcp", net.JoinHostPort(external, gossipPort))
-	if err != nil {
-		log.Fatalf("could not update services: %s", err)
+	gossipPort := config.Node().GetInt(CfgGossipPort)
+	if !netutil.IsValidPort(gossipPort) {
+		log.Fatalf("Invalid port number (%s): %d", CfgGossipPort, gossipPort)
 	}
 
-	mgr = gp.NewManager(lPeer, getTransaction, log)
+	lPeer := local.GetInstance()
+	if err := lPeer.UpdateService(service.GossipKey, "tcp", gossipPort); err != nil {
+		log.Fatalf("could not update services: %s", err)
+	}
+	mgr = gossip.NewManager(lPeer, loadMessage, log)
 }
 
 func start(shutdownSignal <-chan struct{}) {
-	defer log.Info("Stopping " + name + " ... done")
+	defer log.Info("Stopping " + PluginName + " ... done")
 
 	lPeer := local.GetInstance()
+
 	// use the port of the gossip service
-	gossipAddr := lPeer.Services().Get(service.GossipKey)
-	_, gossipPort, err := net.SplitHostPort(gossipAddr.String())
-	if err != nil {
-		panic(err)
-	}
+	gossipEndpoint := lPeer.Services().Get(service.GossipKey)
+
 	// resolve the bind address
-	address := net.JoinHostPort(parameter.NodeConfig.GetString(local.CFG_BIND), gossipPort)
-	localAddr, err := net.ResolveTCPAddr(gossipAddr.Network(), address)
+	address := net.JoinHostPort(config.Node().GetString(local.CfgBind), strconv.Itoa(gossipEndpoint.Port()))
+	localAddr, err := net.ResolveTCPAddr(gossipEndpoint.Network(), address)
 	if err != nil {
-		log.Fatalf("Error resolving %s: %v", local.CFG_BIND, err)
+		log.Fatalf("Error resolving %s: %v", local.CfgBind, err)
 	}
 
-	listener, err := net.ListenTCP(gossipAddr.Network(), localAddr)
+	listener, err := net.ListenTCP(gossipEndpoint.Network(), localAddr)
 	if err != nil {
 		log.Fatalf("Error listening: %v", err)
 	}
@@ -69,65 +75,27 @@ func start(shutdownSignal <-chan struct{}) {
 	srv := server.ServeTCP(lPeer, listener, log)
 	defer srv.Close()
 
-	//check that the server is working and the port is open
-	log.Info("Testing service ...")
-	checkConnection(srv, &lPeer.Peer)
-	log.Info("Testing service ... done")
-
 	mgr.Start(srv)
 	defer mgr.Close()
 
-	log.Infof("%s started: Address=%s/%s", name, gossipAddr.String(), gossipAddr.Network())
+	// trigger start of the autopeering selection
+	go func() { autopeering.StartSelection() }()
+
+	log.Infof("%s started, bind-address=%s", PluginName, localAddr.String())
 
 	<-shutdownSignal
-	log.Info("Stopping " + name + " ...")
+	log.Info("Stopping " + PluginName + " ...")
+
+	// assure that the autopeering selection is always stopped before the gossip manager
+	autopeering.Selection().Close()
 }
 
-func checkConnection(srv *server.TCP, self *peer.Peer) {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		conn, err := srv.AcceptPeer(self)
-		if err != nil {
-			return
-		}
-		_ = conn.Close()
-	}()
-	conn, err := srv.DialPeer(self)
-	if err != nil {
-		log.Errorf("Error testing: %s", err)
-		addr := self.Services().Get(service.GossipKey)
-		log.Panicf("Please check that %s is publicly reachable at %s/%s",
-			cli.AppName, addr.String(), addr.Network())
+// loads the given message from the message layer or an error if not found.
+func loadMessage(messageID message.Id) (bytes []byte, err error) {
+	if !messagelayer.Tangle().Message(messageID).Consume(func(message *message.Message) {
+		bytes = message.Bytes()
+	}) {
+		err = ErrMessageNotFound
 	}
-	_ = conn.Close()
-	wg.Wait()
-}
-
-func getTransaction(hash []byte) ([]byte, error) {
-	tx, err := tangle.GetTransaction(typeutils.BytesToString(hash))
-	log.Debugw("get tx from db",
-		"hash", hash,
-		"tx", tx,
-		"err", err,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("could not get transaction: %w", err)
-	}
-	if tx == nil {
-		return nil, fmt.Errorf("transaction not found: hash=%s", hash)
-	}
-	return tx.GetBytes(), nil
-}
-
-func requestTransaction(hash trinary.Hash) {
-	mgr.RequestTransaction(typeutils.StringToBytes(hash))
-}
-
-func GetAllNeighbors() []*gp.Neighbor {
-	if mgr == nil {
-		return nil
-	}
-	return mgr.GetAllNeighbors()
+	return
 }

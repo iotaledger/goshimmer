@@ -1,0 +1,41 @@
+@import '../../../sass/colors';
+@import '../../../sass/fonts';
+@import '../../../sass/mixins';
+@import '../../../sass/media-queries';
+
+.conflict {
+  margin: 40px;
+
+  .header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+
+    @include tablet-down {
+      flex-direction: column;
+    }
+  }
+
+  .node-grid {
+    display: flex;
+    flex-direction: column;
+
+    .node-details {
+      @include font-size(16px);
+
+      &.like {
+        border-right: 4px solid $success;
+        border-left: 4px solid $success;
+      }
+
+      &.dislike {
+        border-right: 4px solid $danger;
+        border-left: 4px solid $danger;
+      }
+    }
+
+    .node-details + .node-details {
+      margin-top: 10px;
+    }
+  }
+}

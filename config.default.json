@@ -1,0 +1,93 @@
+{
+  "analysis": {
+    "client": {
+      "serverAddress": "ressims.iota.cafe:21888"
+    },
+    "server": {
+      "bindAddress": "0.0.0.0:16178"
+    },
+    "dashboard": {
+      "bindAddress": "0.0.0.0:8000",
+      "dev": false
+    }
+  },
+  "autopeering": {
+    "entryNodes": [
+      "2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@ressims.iota.cafe:15626"
+    ],
+    "port": 14626
+  },
+  "dashboard": {
+    "bindAddress": "127.0.0.1:8081",
+    "dev": false,
+    "basic_auth": {
+      "enabled": false,
+      "username": "goshimmer",
+      "password": "goshimmer"
+    }
+  },
+  "database": {
+    "directory": "mainnetdb",
+    "inMemory": false
+  },
+  "drng": {
+    "instanceId": 1,
+    "threshold": 3,
+    "distributedPubKey": "",
+    "committeeMembers": []
+  },
+  "fpc": {
+    "bindAddress": "0.0.0.0:10895"
+  },
+  "gossip": {
+    "port": 14666
+  },
+  "logger": {
+    "level": "info",
+    "disableCaller": false,
+    "disableStacktrace": false,
+    "encoding": "console",
+    "outputPaths": [
+      "stdout",
+      "goshimmer.log"
+    ],
+    "disableEvents": true,
+    "remotelog": {
+      "serverAddress": "ressims.iota.cafe:5213"
+    }
+  },
+  "metrics": {
+    "local": true,
+    "global": false
+  },
+  "network": {
+    "bindAddress": "0.0.0.0",
+    "externalAddress": "auto"
+  },
+  "node": {
+    "disablePlugins": [],
+    "enablePlugins": []
+  },
+  "pow": {
+    "difficulty": 22,
+    "numThreads": 1,
+    "timeout": "1m"
+  },
+  "profiling": {
+    "bindAddress": "127.0.0.1:6061"
+  },
+  "prometheus": {
+    "bindAddress": "127.0.0.1:9311"
+  },
+  "webapi": {
+    "auth": {
+      "password": "goshimmer",
+      "privateKey": "",
+      "username": "goshimmer"
+    },
+    "bindAddress": "127.0.0.1:8080"
+  },
+  "networkdelay": {
+    "originPublicKey": "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"
+  }
+}
