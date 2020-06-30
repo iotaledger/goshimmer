@@ -382,12 +382,16 @@ func (wallet *Wallet) buildOutputs(sendFundsOptions *sendFundsOptions, consumedF
 			outputsByColor[walletAddress][color] += amount
 			if color == balance.ColorNew {
 				consumedFunds[balance.ColorIOTA] -= amount
+
+				if consumedFunds[balance.ColorIOTA] == 0 {
+					delete(consumedFunds, balance.ColorIOTA)
+				}
 			} else {
 				consumedFunds[color] -= amount
-			}
 
-			if consumedFunds[color] == 0 {
-				delete(consumedFunds, color)
+				if consumedFunds[color] == 0 {
+					delete(consumedFunds, color)
+				}
 			}
 		}
 	}
