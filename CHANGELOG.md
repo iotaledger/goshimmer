@@ -1,4 +1,4 @@
-# v0.2.0 - 2025-xx-xx
+# v0.2.0 - 2020-06-30
 * Adds the value transfer dApp:
     * Support for transactions with Ed25519 and BLS signatures
     * Parallel reality based ledger
