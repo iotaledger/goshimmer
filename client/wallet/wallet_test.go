@@ -2,7 +2,6 @@ package wallet
 
 import (
 	"crypto/rand"
-	"fmt"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
@@ -51,27 +50,27 @@ func TestWallet_SendFunds(t *testing.T) {
 			},
 		},
 
-		// test if providing an invalid destination (amount <= 0) triggers an error
+		// test if a valid transaction can be created
 		{
 			name: "validTransfer",
 			parameters: []SendFundsOption{
 				Destination(receiverSeed.Address(0).Address, 1200),
 			},
 			validator: func(t *testing.T, tx *transaction.Transaction, err error) {
-				fmt.Println(tx)
-				fmt.Println(err)
+				assert.False(t, tx == nil, "there should be a transaction created")
+				assert.Nil(t, err)
 			},
 		},
 
-		// test if providing an invalid destination (amount <= 0) triggers an error
+		// test if a valid transaction having a colored coin can be created
 		{
-			name: "validTransfer",
+			name: "validColoredTransfer",
 			parameters: []SendFundsOption{
 				Destination(receiverSeed.Address(0).Address, 1200, balance.ColorNew),
 			},
 			validator: func(t *testing.T, tx *transaction.Transaction, err error) {
-				fmt.Println(tx)
-				fmt.Println(err)
+				assert.False(t, tx == nil, "there should be a transaction created")
+				assert.Nil(t, err)
 			},
 		},
 	}
