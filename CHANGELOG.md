@@ -1,7 +1,9 @@
 # v0.2.0 - 2020-06-30
 * Adds the value transfer dApp:
+    * New binary transaction layout
+    * UTXO model 
     * Support for transactions with Ed25519 and BLS signatures
-    * Parallel reality based ledger
+    * Parallel reality based ledger state
     * Support for colored tokens
     * Conflict resolution via FPC
     * Applied FCoB rules
@@ -11,8 +13,10 @@
 * Adds the base communication layer
 * Adds improved analysis server:
     * Splits it into 3 separate plugins `analysis-client`/`analysis-dashboard`/`analysis-server`
+    * Applies heartbeat pattern for robustness on both client and server side
     * Uses TLV denoted messages for communication
-    * Complete new dashboard with live visualisations of the network graph and ongoing conflicts.
+    * Complete new dashboard with live visualisations of the network graph and ongoing conflicts
+    * Use short node IDs throughout the analysis dashboard
     * Prometheus exporter to expose global network metrics
     * Storage for conflicts inside a MongoDB for further processing
     * Complete rewritten autopeering data retention
@@ -33,6 +37,8 @@
     * Address and UTXOs view
     * Message payload view
     * DRNG live feed
+    * Faucet page to request funds
+    * Support different payload views (data, value, faucet, unknown)
 * Adds integration test framework and corresponding tests:
     * Autopeering/Network Split
     * Message propagation 
@@ -41,7 +47,7 @@
     * Value transfers
     * Synchronization
 * Adds refactored communication layer code
-* Adds PoW requirement to messages
+* Adds BLAKE2-based PoW for rate control
 * Adds rewritten FPC package
 * Adds possibility to change config options with environment variables
 * Adds sample Grafana dashboard for local node instances
@@ -56,13 +62,13 @@
 * Adds `Bootstrap` plugin which continuously issues messages to keep the comm. layer graph growing
 * Adds proper metrics collection in the `Metrics` plugin
 * Adds support for the new HTTP API routes to the Go client library
-* Adds wallet library
-* Adds `tools/docker-network` to run an isolated GoShimmer network with a chosen amount of nodes
+* Adds `tools/docker-network` to run an isolated GoShimmer network with a chosen amount of nodes. Predefined local and global grafana dashboards are spinned up as well for the network
+* Upgrades `hive.go` with various improvements and fixes
 * Fixes bind address prints to not be normalized
 * Fixes usage of WebSocket message rate limiter
 * Fixes disabled/enabled plugins list in info response
 * Fixes the `Graceful Shutdown` plugin not showing the actual background workers during shutdown. The node operator is now
-able to see pending background workers in the order in which they are supposed to be terminated.
+able to see pending background workers in the order in which they are supposed to be terminated
 * Refactors display of IDs to use Base58 throughout the entire codebase
 * Increases network and database versions
 * Removes usage of non std `errors` package
