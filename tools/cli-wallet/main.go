@@ -7,6 +7,13 @@ import (
 )
 
 func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			printUsage(nil, "FATAL ERROR: "+r.(error).Error())
+			os.Exit(0)
+		}
+	}()
+
 	// print banner
 	fmt.Println("IOTA Pollen CLI-Wallet 0.1")
 

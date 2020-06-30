@@ -22,7 +22,7 @@ func loadWallet() *wallet.Wallet {
 	}
 
 	return wallet.New(
-		wallet.WebAPI("http://helsi.goshidev.manahub.io:9101"),
+		wallet.WebAPI(config.WebAPI),
 		wallet.Import(seed, lastAddressIndex, spentAddresses, assetRegistry),
 	)
 }
