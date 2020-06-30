@@ -115,7 +115,7 @@ func writeWalletStateFile(wallet *wallet.Wallet, filename string) {
 func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 	if len(optionalErrorMessage) >= 1 {
 		_, _ = fmt.Fprintf(os.Stderr, "\n")
-		_, _ = fmt.Fprintf(os.Stderr, "ERROR: "+optionalErrorMessage[0]+"\n")
+		_, _ = fmt.Fprintf(os.Stderr, "ERROR:\n  "+optionalErrorMessage[0]+"\n")
 	}
 
 	if command == nil {
