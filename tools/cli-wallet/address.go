@@ -14,12 +14,12 @@ func execAddressCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		printUsage(command)
 	}
 
-	helpPtr := command.Bool("help", false, "show this help screen")
+	receivePtr := command.Bool("receive", false, "show the latest receive address")
 	newReceiveAddressPtr := command.Bool("new", false, "generate a new receive address")
 	listPtr := command.Bool("list", false, "list all addresses")
 	listUnspentPtr := command.Bool("listunspent", false, "list all unspent addresses")
 	listSpentPtr := command.Bool("listspent", false, "list all spent addresses")
-	receivePtr := command.Bool("receive", false, "show the latest receive address")
+	helpPtr := command.Bool("help", false, "display this help screen")
 
 	err := command.Parse(os.Args[2:])
 	if err != nil {

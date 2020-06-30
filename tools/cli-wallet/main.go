@@ -35,23 +35,23 @@ func main() {
 
 	// define sub commands
 	balanceCommand := flag.NewFlagSet("balance", flag.ExitOnError)
-	requestFaucetFundsCommand := flag.NewFlagSet("request-funds", flag.ExitOnError)
-	addressCommand := flag.NewFlagSet("address", flag.ExitOnError)
 	sendFundsCommand := flag.NewFlagSet("send-funds", flag.ExitOnError)
 	createAssetCommand := flag.NewFlagSet("create-asset", flag.ExitOnError)
+	addressCommand := flag.NewFlagSet("address", flag.ExitOnError)
+	requestFaucetFundsCommand := flag.NewFlagSet("request-funds", flag.ExitOnError)
 
 	// switch logic according to provided sub command
 	switch os.Args[1] {
 	case "balance":
 		execBalanceCommand(balanceCommand, wallet)
-	case "request-funds":
-		execRequestFundsCommand(requestFaucetFundsCommand, wallet)
 	case "address":
 		execAddressCommand(addressCommand, wallet)
 	case "send-funds":
 		execSendFundsCommand(sendFundsCommand, wallet)
 	case "create-asset":
 		execCreateAssetCommand(createAssetCommand, wallet)
+	case "request-funds":
+		execRequestFundsCommand(requestFaucetFundsCommand, wallet)
 	case "init":
 		fmt.Println()
 		fmt.Println("CREATING WALLET STATE FILE (wallet.dat) ...               [DONE]")
