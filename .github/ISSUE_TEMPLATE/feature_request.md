@@ -1,20 +1,28 @@
 ---
-name: Feature request
-about: Suggest an idea for this project
-title: ""
-labels: feature
-assignees: ''
-
+name: Request a feature for GoShimmer
+about: Request a feature
 ---
 
-**Is your feature request related to a problem? Please describe.**
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+## Description
 
-**Describe the solution you'd like**
-A clear and concise description of what you want to happen.
+Briefly describe the feature that you are requesting.
 
-**Describe alternatives you've considered**
-A clear and concise description of any alternative solutions or features you've considered.
+## Motivation
 
-**Additional context**
-Add any other context or screenshots about the feature request here.
+Explain why this feature is needed.
+
+## Requirements
+
+Write a list of what you want this feature to do.
+
+1. 
+2. 
+3. 
+
+## Open questions (optional)
+
+Use this section to ask any questions that are related to the feature.
+
+## Are you planning to do it yourself in a pull request?
+
+Yes/No.
