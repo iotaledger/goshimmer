@@ -7,6 +7,9 @@
 *.dat
 *.dat.bkp
 
+# cli-wallet config
+tools/cli-wallet/config.json
+
 # Test binary, build with `go test -c`
 *.test
 
