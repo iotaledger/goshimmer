@@ -17,9 +17,10 @@ func WebAPI(baseURL string, httpClient ...http.Client) Option {
 }
 
 // Import restores a wallet that has previously been created.
-func Import(seed *Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask) Option {
+func Import(seed *Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask, assetRegistry *AssetRegistry) Option {
 	return func(wallet *Wallet) {
 		wallet.addressManager = NewAddressManager(seed, lastAddressIndex, spentAddresses)
+		wallet.assetRegistry = assetRegistry
 	}
 }
 

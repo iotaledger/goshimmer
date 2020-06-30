@@ -27,21 +27,21 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 	// print header
 	fmt.Println()
-	_, _ = fmt.Fprintf(w, "%s\t%s\n", "BALANCE", "COLOR (status)")
-	_, _ = fmt.Fprintf(w, "%s\t%s\n", "-------", "---------------------------")
+	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "STATUS", "BALANCE", "COLOR", "TOKEN NAME")
+	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "------", "---------------", "--------------------------------------------", "-------------------------")
 
 	// print empty if no balances founds
 	if len(confirmedBalance) == 0 && len(pendingBalance) == 0 {
-		_, _ = fmt.Fprintf(w, "%s\t%s\n", "<EMPTY>", "<EMPTY>")
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "<EMPTY>", "<EMPTY>", "<EMPTY>", "<EMPTY>")
 
 		return
 	}
 
 	// print balances
 	for color, amount := range confirmedBalance {
-		_, _ = fmt.Fprintf(w, "%d\t%s\n", amount, color.String())
+		_, _ = fmt.Fprintf(w, "%s\t%d\t%s\t%s\n", " CONF ", amount, color.String(), cliWallet.AssetRegistry().Name(color))
 	}
 	for color, amount := range pendingBalance {
-		_, _ = fmt.Fprintf(w, "%d\t%s\n", amount, color.String()+" (pending)")
+		_, _ = fmt.Fprintf(w, "%s\t%d\t%s\t%s\n", " PEND ", amount, color.String(), cliWallet.AssetRegistry().Name(color))
 	}
 }

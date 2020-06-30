@@ -18,6 +18,7 @@ import (
 // funds.
 type Wallet struct {
 	addressManager       *AddressManager
+	assetRegistry        *AssetRegistry
 	unspentOutputManager *UnspentOutputManager
 	connector            Connector
 
@@ -29,7 +30,9 @@ type Wallet struct {
 // in as an optional parameter.
 func New(options ...Option) (wallet *Wallet) {
 	// create wallet
-	wallet = &Wallet{}
+	wallet = &Wallet{
+		assetRegistry: NewAssetRegistry(),
+	}
 
 	// configure wallet
 	for _, option := range options {
@@ -39,6 +42,11 @@ func New(options ...Option) (wallet *Wallet) {
 	// initialize wallet with default address manager if we did not import a previous wallet
 	if wallet.addressManager == nil {
 		wallet.addressManager = NewAddressManager(NewSeed(), 0, []bitmask.BitMask{})
+	}
+
+	// initialize asset registry if none was provided in the options.
+	if wallet.assetRegistry == nil {
+		wallet.assetRegistry = NewAssetRegistry()
 	}
 
 	// initialize wallet with default connector (server) if none was provided
@@ -120,8 +128,18 @@ func (wallet *Wallet) CreateAsset(asset Asset) (assetColor balance.Color, err er
 	}
 
 	assetColor, _, err = balance.ColorFromBytes(tx.ID().Bytes())
+	if err != nil {
+		return
+	}
+
+	wallet.assetRegistry.RegisterAsset(assetColor, asset)
 
 	return
+}
+
+// AssetRegistry return the internal AssetRegistry instance of the wallet.
+func (wallet *Wallet) AssetRegistry() *AssetRegistry {
+	return wallet.assetRegistry
 }
 
 // ReceiveAddress returns the last receive address of the wallet.
@@ -243,6 +261,7 @@ func (wallet *Wallet) ExportState() []byte {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteBytes(wallet.Seed().Bytes())
 	marshalUtil.WriteUint64(wallet.AddressManager().lastAddressIndex)
+	marshalUtil.WriteBytes(wallet.assetRegistry.Bytes())
 	marshalUtil.WriteBytes(*(*[]byte)(unsafe.Pointer(&wallet.addressManager.spentAddresses)))
 
 	return marshalUtil.Bytes()

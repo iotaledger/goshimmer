@@ -47,14 +47,14 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	case "NEW":
 		color = balance.ColorNew
 	default:
-		colorBytes, err := base58.Decode(*colorPtr)
-		if err != nil {
-			printUsage(command, err.Error())
+		colorBytes, parseErr := base58.Decode(*colorPtr)
+		if parseErr != nil {
+			printUsage(command, parseErr.Error())
 		}
 
-		color, _, err = balance.ColorFromBytes(colorBytes)
-		if err != nil {
-			printUsage(command, err.Error())
+		color, _, parseErr = balance.ColorFromBytes(colorBytes)
+		if parseErr != nil {
+			printUsage(command, parseErr.Error())
 		}
 	}
 

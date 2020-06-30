@@ -109,20 +109,12 @@ func TestWallet_SendFunds(t *testing.T) {
 
 			// create our test wallet
 			wallet := New(
-				Import(senderSeed, 1, []bitmask.BitMask{}),
+				Import(senderSeed, 1, []bitmask.BitMask{}, NewAssetRegistry()),
 				GenericConnector(mockedConnector),
 			)
 
-			fmt.Println(wallet.Balance())
-
 			// validate the result of the function call
 			tx, err := wallet.SendFunds(testCase.parameters...)
-			testCase.validator(t, tx, err)
-
-			wallet.unspentOutputManager.Refresh()
-			fmt.Println(wallet.Balance())
-
-			tx, err = wallet.SendFunds(testCase.parameters...)
 			testCase.validator(t, tx, err)
 		})
 	}

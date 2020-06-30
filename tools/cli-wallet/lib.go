@@ -16,18 +16,18 @@ import (
 )
 
 func loadWallet() *wallet.Wallet {
-	seed, lastAddressIndex, spentAddresses, err := importWalletStateFile("wallet.dat")
+	seed, lastAddressIndex, spentAddresses, assetRegistry, err := importWalletStateFile("wallet.dat")
 	if err != nil {
 		panic(err)
 	}
 
 	return wallet.New(
 		wallet.WebAPI("http://helsi.goshidev.manahub.io:9101"),
-		wallet.Import(seed, lastAddressIndex, spentAddresses),
+		wallet.Import(seed, lastAddressIndex, spentAddresses, assetRegistry),
 	)
 }
 
-func importWalletStateFile(filename string) (seed *wallet.Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask, err error) {
+func importWalletStateFile(filename string) (seed *wallet.Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask, assetRegistry *wallet.AssetRegistry, err error) {
 	walletStateBytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -72,6 +72,8 @@ func importWalletStateFile(filename string) (seed *wallet.Seed, lastAddressIndex
 	if err != nil {
 		return
 	}
+
+	assetRegistry, _, err = wallet.ParseAssetRegistry(marshalUtil)
 
 	spentAddressesBytes := marshalUtil.ReadRemainingBytes()
 	spentAddresses = *(*[]bitmask.BitMask)(unsafe.Pointer(&spentAddressesBytes))

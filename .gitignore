@@ -4,6 +4,8 @@
 *.dll
 *.so
 *.dylib
+*.dat
+*.dat.bkp
 
 # Test binary, build with `go test -c`
 *.test
