@@ -137,7 +137,7 @@ func configureEvents() {
 		addr := fundingRequest.Address()
 
 		if Faucet().IsAddressBlacklisted(addr) {
-			log.Debugf("can't fund address since it is blacklisted", addr)
+			log.Debugf("can't fund address %s since it is blacklisted", addr)
 			return
 		}
 
@@ -147,8 +147,9 @@ func configureEvents() {
 			log.Warnf("couldn't verify PoW of funding request for address %s", addr)
 			return
 		}
-		if leadingZeroes != config.Node().GetInt(CfgFaucetPoWDifficulty) {
-			log.Debugf("funding request for address %s doesn't fulfill PoW requirement", addr)
+		targetPoWDifficulty := config.Node().GetInt(CfgFaucetPoWDifficulty)
+		if leadingZeroes < targetPoWDifficulty {
+			log.Debugf("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr, targetPoWDifficulty, leadingZeroes)
 			return
 		}
 
