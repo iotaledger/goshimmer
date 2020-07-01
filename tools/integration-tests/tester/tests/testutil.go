@@ -99,14 +99,9 @@ func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr address.Address)
 	resp, err := peer.SendFaucetRequest(addr.String())
 	require.NoErrorf(t, err, "Could not send faucet request on %s", peer.String())
 
-	findMsgResp, err := peer.FindMessageByID([]string{resp.ID})
-	require.NoErrorf(t, err, "Could not find message which just contained the faucet request on %s", peer.String())
-	fundingReqContainingMsg := findMsgResp.Messages[0]
-
 	sent := DataMessageSent{
-		id: resp.ID,
-		// save payload to be able to compare API response
-		data:            fundingReqContainingMsg.Payload,
+		id:              resp.ID,
+		data:            nil,
 		issuerPublicKey: peer.Identity.PublicKey().String(),
 	}
 	return resp.ID, sent
@@ -142,7 +137,9 @@ func CheckForMessageIds(t *testing.T, peers []*framework.Peer, ids map[string]Da
 			msgSent := ids[msg.ID]
 
 			assert.Equalf(t, msgSent.issuerPublicKey, msg.IssuerPublicKey, "messageID=%s, issuer=%s not correct issuer in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
-			assert.Equalf(t, msgSent.data, msg.Payload, "messageID=%s, issuer=%s data not equal in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
+			if msgSent.data != nil {
+				assert.Equalf(t, msgSent.data, msg.Payload, "messageID=%s, issuer=%s data not equal in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
+			}
 			assert.Truef(t, msg.Metadata.Solid, "messageID=%s, issuer=%s not solid in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
 		}
 	}
