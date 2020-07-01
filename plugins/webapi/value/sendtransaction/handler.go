@@ -2,6 +2,7 @@ package sendtransaction
 
 import (
 	"net/http"
+	"sync"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
@@ -9,8 +10,15 @@ import (
 	"github.com/labstack/echo"
 )
 
+var (
+	mutex sync.Mutex
+)
+
 // Handler sends a transaction.
 func Handler(c echo.Context) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	var request Request
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})

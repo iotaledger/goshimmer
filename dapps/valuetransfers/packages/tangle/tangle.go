@@ -1595,6 +1595,18 @@ func (tangle *Tangle) ValidateTransactionToAttach(tx *transaction.Transaction) (
 	if err != nil {
 		return
 	}
+
+	for _, cachedInput := range cachedInputs {
+		cachedInput.Consume(func(output *Output) {
+			if output.consumerCount > 0 {
+				err = ErrDoubleSpendForbidden
+			}
+		})
+		if err != nil {
+			return
+		}
+	}
+
 	if !tangle.checkTransactionOutputs(consumedBalances, tx.Outputs()) {
 		err = ErrTransactionDoesNotSpendAllFunds
 		return
