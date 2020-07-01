@@ -104,10 +104,12 @@ func SendFaucetRequest(t *testing.T, peer *framework.Peer) (string, DataMessageS
 	resp, err := peer.SendFaucetRequest(addr.String())
 	require.NoErrorf(t, err, "Could not send faucet request on %s", peer.String())
 
+	faucetPayload, err := faucet_payload.New(addr, framework.ParaPoWFaucetDifficulty)
+	require.NoErrorf(t, err, "Could not create faucet funding payload for address %s", addr)
 	sent := DataMessageSent{
 		id: resp.ID,
 		// save payload to be able to compare API response
-		data:            faucet_payload.New(addr).Bytes(),
+		data:            faucetPayload.Bytes(),
 		issuerPublicKey: peer.Identity.PublicKey().String(),
 	}
 	return resp.ID, sent

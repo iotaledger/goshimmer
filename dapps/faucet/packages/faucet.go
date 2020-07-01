@@ -1,6 +1,7 @@
 package faucet
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -13,16 +14,27 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
+	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 )
 
+var (
+	// ErrFundingTxNotBookedInTime is returned when a funding transaction didn't get booked
+	// by this node in the maximum defined await time for it to get booked.
+	ErrFundingTxNotBookedInTime = errors.New("funding transaction didn't get booked in time")
+	// ErrAddressIsBlacklisted is returned if a funding can't be processed since the address is blacklisted.
+	ErrAddressIsBlacklisted = errors.New("can't fund address as it is blacklisted")
+)
+
 // New creates a new faucet using the given seed and tokensPerRequest config.
-func New(seed []byte, tokensPerRequest int64, maxTxBookedAwaitTime time.Duration) *Faucet {
+func New(seed []byte, tokensPerRequest int64, blacklistCapacity int, maxTxBookedAwaitTime time.Duration) *Faucet {
 	return &Faucet{
 		tokensPerRequest:     tokensPerRequest,
 		wallet:               wallet.New(seed),
 		maxTxBookedAwaitTime: maxTxBookedAwaitTime,
+		blacklist:            orderedmap.New(),
+		blacklistCapacity:    blacklistCapacity,
 	}
 }
 
@@ -36,6 +48,28 @@ type Faucet struct {
 	// the time to await for the transaction fulfilling a funding request
 	// to become booked in the value layer
 	maxTxBookedAwaitTime time.Duration
+	blacklistCapacity    int
+	blacklist            *orderedmap.OrderedMap
+}
+
+// IsAddressBlacklisted checks whether the given address is currently blacklisted.
+func (f *Faucet) IsAddressBlacklisted(addr address.Address) bool {
+	_, blacklisted := f.blacklist.Get(addr)
+	return blacklisted
+}
+
+// adds the given address to the blacklist and removes the oldest blacklist entry
+// if it would go over capacity.
+func (f *Faucet) addAddressToBlacklist(addr address.Address) {
+	f.blacklist.Set(addr, true)
+	if f.blacklist.Size() > f.blacklistCapacity {
+		var headKey interface{}
+		f.blacklist.ForEach(func(key, value interface{}) bool {
+			headKey = key
+			return false
+		})
+		f.blacklist.Delete(headKey)
+	}
 }
 
 // SendFunds sends IOTA tokens to the address from faucet request.
@@ -45,6 +79,10 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	defer f.Unlock()
 
 	addr := msg.Payload().(*faucetpayload.Payload).Address()
+
+	if f.IsAddressBlacklisted(addr) {
+		return nil, "", ErrAddressIsBlacklisted
+	}
 
 	// get the output ids for the inputs and remainder balance
 	outputIds, addrsIndices, remainder := f.collectUTXOsForFunding()
@@ -89,6 +127,8 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	if err := valuetransfers.AwaitTransactionToBeBooked(tx.ID(), f.maxTxBookedAwaitTime); err != nil {
 		return nil, "", fmt.Errorf("%w: tx %s", err, tx.ID().String())
 	}
+
+	f.addAddressToBlacklist(addr)
 
 	return msg, tx.ID().String(), nil
 }

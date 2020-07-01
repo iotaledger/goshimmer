@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
@@ -19,13 +20,18 @@ func TestIsFaucetReq(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
 
+	faucetPayload, err := faucet.New(address.Random(), 4)
+	if err != nil {
+		require.NoError(t, err)
+		return
+	}
 	faucetMsg := message.New(
 		message.EmptyId,
 		message.EmptyId,
 		time.Now(),
 		local.PublicKey(),
 		0,
-		faucet.New(address.Random()),
+		faucetPayload,
 		0,
 		ed25519.EmptySignature,
 	)

@@ -1,7 +1,11 @@
 package faucetpayload
 
 import (
+	"context"
+	"crypto"
+
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
@@ -18,17 +22,28 @@ const (
 type Payload struct {
 	payloadType payload.Type
 	address     address.Address
+	nonce       uint64
 }
 
 // Type represents the identifier for the faucet Payload type.
 var Type = payload.Type(2)
+var powWorker = pow.New(crypto.BLAKE2b_512, 1)
 
 // New is the constructor of a Payload and creates a new Payload object from the given details.
-func New(addr address.Address) *Payload {
-	return &Payload{
+func New(addr address.Address, powTarget int) (*Payload, error) {
+	p := &Payload{
 		payloadType: Type,
 		address:     addr,
 	}
+
+	payloadBytes := p.Bytes()
+	powRelevantBytes := payloadBytes[:len(payloadBytes)-pow.NonceBytes]
+	nonce, err := powWorker.Mine(context.Background(), powRelevantBytes, powTarget)
+	if err != nil {
+		return nil, err
+	}
+	p.nonce = nonce
+	return p, nil
 }
 
 func init() {
@@ -64,7 +79,15 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	if err != nil {
 		return
 	}
-	result.address, _, _ = address.FromBytes(addr)
+	result.address, _, err = address.FromBytes(addr)
+	if err != nil {
+		return
+	}
+
+	result.nonce, err = marshalUtil.ReadUint64()
+	if err != nil {
+		return
+	}
 
 	// return the number of bytes we processed
 	consumedBytes = marshalUtil.ReadOffset()
@@ -91,6 +114,7 @@ func (faucetPayload *Payload) Bytes() []byte {
 	marshalUtil.WriteUint32(faucetPayload.Type())
 	marshalUtil.WriteUint32(uint32(len(faucetPayload.address)))
 	marshalUtil.WriteBytes(faucetPayload.address.Bytes())
+	marshalUtil.WriteUint64(faucetPayload.nonce)
 
 	// return result
 	return marshalUtil.Bytes()
