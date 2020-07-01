@@ -88,11 +88,13 @@ func configureTipBroadcaster() {
 		defer tipSelector.Events.TipRemoved.Detach(removedTipClosure)
 		ticker := time.NewTicker(config.Node().GetDuration(CfgGossipTipsBroadcastInterval))
 		defer ticker.Stop()
-		select {
-		case <-ticker.C:
-			broadcastOldestTips()
-		case <-shutdownSignal:
-			return
+		for {
+			select {
+			case <-ticker.C:
+				broadcastOldestTips()
+			case <-shutdownSignal:
+				return
+			}
 		}
 	}, shutdown.PriorityGossip); err != nil {
 		log.Fatal("Couldn't create demon: %s", err)
