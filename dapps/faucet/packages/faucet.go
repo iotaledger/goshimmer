@@ -80,7 +80,10 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	}
 
 	// prepare value payload with value factory
-	payload := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
+	payload, err := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
+	if err != nil {
+		return nil, "", err
+	}
 
 	// attach to message layer
 	msg, err = issuer.IssuePayload(payload)

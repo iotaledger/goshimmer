@@ -1,6 +1,9 @@
 package tangle
 
 import (
+	"errors"
+
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tipmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
@@ -25,13 +28,27 @@ func NewValueObjectFactory(tipManager *tipmanager.TipManager) *ValueObjectFactor
 
 // IssueTransaction creates a new value object including tip selection and returns it.
 // It also triggers the ValueObjectConstructed event once it's done.
-func (v *ValueObjectFactory) IssueTransaction(tx *transaction.Transaction) *payload.Payload {
+func (v *ValueObjectFactory) IssueTransaction(tx *transaction.Transaction) (valueObject *payload.Payload, err error) {
 	parent1, parent2 := v.tipManager.Tips()
 
-	valueObject := payload.New(parent1, parent2, tx)
+	// check if the tx that is supposed to be issued is a double spend
+	tx.Inputs().ForEach(func(outputId transaction.OutputID) bool {
+		valuetransfers.Tangle().TransactionOutput(outputId).Consume(func(output *Output) {
+			if output.ConsumerCount() >= 1 {
+				err = errors.New("the transaction to be issued is a double spend")
+			}
+		})
+
+		return err == nil
+	})
+	if err != nil {
+		return
+	}
+
+	valueObject = payload.New(parent1, parent2, tx)
 	v.Events.ValueObjectConstructed.Trigger(valueObject)
 
-	return valueObject
+	return
 }
 
 // ValueObjectFactoryEvents represent events happening on a ValueObjectFactory.

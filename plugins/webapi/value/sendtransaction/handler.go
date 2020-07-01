@@ -28,7 +28,10 @@ func Handler(c echo.Context) error {
 	}
 
 	// Prepare value payload and send the message to tangle
-	payload := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
+	payload, err := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
 	_, err = issuer.IssuePayload(payload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
