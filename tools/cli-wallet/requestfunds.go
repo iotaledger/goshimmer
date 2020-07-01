@@ -14,11 +14,13 @@ func execRequestFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		printUsage(nil, err.Error())
 	}
 
+	fmt.Println()
+	fmt.Println("Requesting funds from faucet ... [PERFORMING POW]          (this can take a while)")
+
 	// request funds
 	err = cliWallet.RequestFaucetFunds()
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println()
 	fmt.Println("Requesting funds from faucet ... [DONE]")
 }
