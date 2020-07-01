@@ -1,7 +1,6 @@
 package faucet
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -16,13 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
-	"github.com/iotaledger/hive.go/events"
-)
-
-var (
-	// ErrFundingTxNotBookedInTime is returned when a funding transaction didn't get booked
-	// by this node in the maximum defined await time for it to get booked.
-	ErrFundingTxNotBookedInTime = errors.New("funding transaction didn't get booked in time")
 )
 
 // New creates a new faucet using the given seed and tokensPerRequest config.
@@ -94,40 +86,11 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	// block for a certain amount of time until we know that the transaction
 	// actually got booked by this node itself
 	// TODO: replace with an actual more reactive way
-	bookedInTime := f.awaitTransactionBooked(tx.ID(), f.maxTxBookedAwaitTime)
-	if !bookedInTime {
-		return nil, "", fmt.Errorf("%w: tx %s", ErrFundingTxNotBookedInTime, tx.ID().String())
+	if err := valuetransfers.AwaitTransactionToBeBooked(tx.ID(), f.maxTxBookedAwaitTime); err != nil {
+		return nil, "", fmt.Errorf("%w: tx %s", err, tx.ID().String())
 	}
 
 	return msg, tx.ID().String(), nil
-}
-
-// awaitTransactionBooked awaits maxAwait for the given transaction to get booked.
-func (f *Faucet) awaitTransactionBooked(txID transaction.ID, maxAwait time.Duration) bool {
-	booked := make(chan struct{}, 1)
-	// exit is used to let the caller exit if for whatever
-	// reason the same transaction gets booked multiple times
-	exit := make(chan struct{})
-	defer close(exit)
-	closure := events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, decisionPending bool) {
-		defer cachedTransaction.Release()
-		defer cachedTransactionMetadata.Release()
-		if cachedTransaction.Unwrap().ID() != txID {
-			return
-		}
-		select {
-		case booked <- struct{}{}:
-		case <-exit:
-		}
-	})
-	valuetransfers.Tangle().Events.TransactionBooked.Attach(closure)
-	defer valuetransfers.Tangle().Events.TransactionBooked.Detach(closure)
-	select {
-	case <-time.After(maxAwait):
-		return false
-	case <-booked:
-		return true
-	}
 }
 
 // collectUTXOsForFunding iterates over the faucet's UTXOs until the token threshold is reached.
