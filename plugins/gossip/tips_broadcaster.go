@@ -97,14 +97,14 @@ func configureTipBroadcaster() {
 			}
 		}
 	}, shutdown.PriorityGossip); err != nil {
-		log.Fatal("Couldn't create demon: %s", err)
+		log.Panicf("Couldn't create demon: %s", err)
 	}
 }
 
 // broadcasts up to maxOldestTipsToBroadcastPerInterval tips from the tip pool
 // to all connected neighbors.
 func broadcastOldestTips() {
-	for toBroadcast := maxOldestTipsToBroadcastPerInterval; toBroadcast >= 0; toBroadcast-- {
+	for toBroadcast := maxOldestTipsToBroadcastPerInterval; toBroadcast > 0; toBroadcast-- {
 		msgID := tips.Next()
 		if msgID == message.EmptyId {
 			break
