@@ -1,3 +1,9 @@
+# v0.2.1 - 2020-07-01
+* Adds PoW requirement to faucet payloads
+* Adds tips broadcaster to ensure that all chains are getting solidified
+* Fixes being able to send a double-spend via one node
+* **Breaking**: bumps network and database versions
+
 # v0.2.0 - 2020-06-30
 * Adds the value transfer dApp:
     * New binary transaction layout

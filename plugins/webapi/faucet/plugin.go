@@ -4,8 +4,10 @@ import (
 	"net/http"
 	goSync "sync"
 
+	"github.com/iotaledger/goshimmer/dapps/faucet"
 	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/logger"
@@ -20,9 +22,10 @@ const (
 
 var (
 	// plugin is the plugin instance of the web API info endpoint plugin.
-	plugin *node.Plugin
-	once   goSync.Once
-	log    *logger.Logger
+	plugin    *node.Plugin
+	once      goSync.Once
+	log       *logger.Logger
+	fundingMu goSync.Mutex
 )
 
 // Plugin gets the plugin instance.
@@ -41,6 +44,8 @@ func configure(plugin *node.Plugin) {
 // requestFunds creates a faucet request (0-value) message with the given destination address and
 // broadcasts it to the node's neighbors. It returns the message ID if successful.
 func requestFunds(c echo.Context) error {
+	fundingMu.Lock()
+	defer fundingMu.Unlock()
 	var request Request
 	var addr address.Address
 	if err := c.Bind(&request); err != nil {
@@ -55,8 +60,11 @@ func requestFunds(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: "Invalid address"})
 	}
 
-	// build faucet message with transaction factory
-	msg := messagelayer.MessageFactory().IssuePayload(faucetpayload.New(addr))
+	faucetPayload, err := faucetpayload.New(addr, config.Node().GetInt(faucet.CfgFaucetPoWDifficulty))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
+	msg := messagelayer.MessageFactory().IssuePayload(faucetPayload)
 	if msg == nil {
 		return c.JSON(http.StatusInternalServerError, Response{Error: "Fail to send faucetrequest"})
 	}

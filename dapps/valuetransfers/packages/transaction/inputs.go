@@ -104,7 +104,7 @@ func (inputs *Inputs) Bytes() (bytes []byte) {
 
 // ForEach iterates through the referenced Outputs and calls the consumer function for every Output. The iteration can
 // be aborted by returning false in the consumer.
-func (inputs *Inputs) ForEach(consumer func(outputId OutputID) bool) bool {
+func (inputs *Inputs) ForEach(consumer func(outputID OutputID) bool) bool {
 	return inputs.OrderedMap.ForEach(func(key, value interface{}) bool {
 		return value.(*orderedmap.OrderedMap).ForEach(func(key, value interface{}) bool {
 			return consumer(value.(OutputID))

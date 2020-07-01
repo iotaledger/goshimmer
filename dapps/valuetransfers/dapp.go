@@ -1,6 +1,7 @@
 package valuetransfers
 
 import (
+	"errors"
 	"os"
 	"sync"
 	"time"
@@ -10,6 +11,7 @@ import (
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tipmanager"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	messageTangle "github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -44,6 +46,10 @@ func init() {
 }
 
 var (
+	// ErrTransactionWasNotBookedInTime is returned if a transaction did not get booked
+	// within the defined await time.
+	ErrTransactionWasNotBookedInTime = errors.New("transaction could not be booked in time")
+
 	// app is the "plugin" instance of the value-transfers application.
 	app     *node.Plugin
 	appOnce sync.Once
@@ -217,7 +223,35 @@ func TipManager() *tipmanager.TipManager {
 // ValueObjectFactory returns the ValueObjectFactory singleton.
 func ValueObjectFactory() *tangle.ValueObjectFactory {
 	valueObjectFactoryOnce.Do(func() {
-		valueObjectFactory = tangle.NewValueObjectFactory(TipManager())
+		valueObjectFactory = tangle.NewValueObjectFactory(Tangle(), TipManager())
 	})
 	return valueObjectFactory
+}
+
+// AwaitTransactionToBeBooked awaits maxAwait for the given transaction to get booked.
+func AwaitTransactionToBeBooked(txID transaction.ID, maxAwait time.Duration) error {
+	booked := make(chan struct{}, 1)
+	// exit is used to let the caller exit if for whatever
+	// reason the same transaction gets booked multiple times
+	exit := make(chan struct{})
+	defer close(exit)
+	closure := events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, decisionPending bool) {
+		defer cachedTransaction.Release()
+		defer cachedTransactionMetadata.Release()
+		if cachedTransaction.Unwrap().ID() != txID {
+			return
+		}
+		select {
+		case booked <- struct{}{}:
+		case <-exit:
+		}
+	})
+	Tangle().Events.TransactionBooked.Attach(closure)
+	defer Tangle().Events.TransactionBooked.Detach(closure)
+	select {
+	case <-time.After(maxAwait):
+		return ErrTransactionWasNotBookedInTime
+	case <-booked:
+		return nil
+	}
 }
