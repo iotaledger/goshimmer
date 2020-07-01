@@ -104,7 +104,7 @@ func configure(*node.Plugin) {
 		addr := msg.Payload().(*faucetpayload.Payload).Address()
 		msg, txID, err := Faucet().SendFunds(msg)
 		if err != nil {
-			log.Errorf("couldn't fulfill funding request to %s: %s", addr, err)
+			log.Warnf("couldn't fulfill funding request to %s: %s", addr, err)
 			return
 		}
 		log.Infof("sent funds to address %s via tx %s and msg %s", addr, txID, msg.Id().String())
@@ -135,7 +135,6 @@ func configureEvents() {
 
 		fundingRequest := msg.Payload().(*faucetpayload.Payload)
 		addr := fundingRequest.Address()
-
 		if Faucet().IsAddressBlacklisted(addr) {
 			log.Debugf("can't fund address %s since it is blacklisted", addr)
 			return

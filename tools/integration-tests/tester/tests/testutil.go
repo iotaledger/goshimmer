@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	faucet_payload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
@@ -81,35 +80,33 @@ func SendDataMessage(t *testing.T, peer *framework.Peer, data []byte, number int
 func SendFaucetRequestOnRandomPeer(t *testing.T, peers []*framework.Peer, numMessages int) (ids map[string]DataMessageSent, addrBalance map[string]map[balance.Color]int64) {
 	ids = make(map[string]DataMessageSent, numMessages)
 	addrBalance = make(map[string]map[balance.Color]int64)
-	for _, p := range peers {
-		addr := p.Seed().Address(0).String()
-		addrBalance[addr] = make(map[balance.Color]int64)
-		addrBalance[addr][balance.ColorIOTA] = 0
-	}
 
 	for i := 0; i < numMessages; i++ {
 		peer := peers[rand.Intn(len(peers))]
-		id, sent := SendFaucetRequest(t, peer)
-
+		addr := peer.Seed().Address(uint64(i))
+		id, sent := SendFaucetRequest(t, peer, addr)
 		ids[id] = sent
-		addrBalance[peer.Seed().Address(0).String()][balance.ColorIOTA] += framework.ParaFaucetTokensPerRequest
+		addrBalance[addr.String()] = map[balance.Color]int64{
+			balance.ColorIOTA: framework.ParaFaucetTokensPerRequest,
+		}
 	}
 
 	return ids, addrBalance
 }
 
 // SendFaucetRequest sends a data message on a given peer and returns the id and a DataMessageSent struct.
-func SendFaucetRequest(t *testing.T, peer *framework.Peer) (string, DataMessageSent) {
-	addr := peer.Seed().Address(0)
+func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr address.Address) (string, DataMessageSent) {
 	resp, err := peer.SendFaucetRequest(addr.String())
 	require.NoErrorf(t, err, "Could not send faucet request on %s", peer.String())
 
-	faucetPayload, err := faucet_payload.New(addr, framework.ParaPoWFaucetDifficulty)
-	require.NoErrorf(t, err, "Could not create faucet funding payload for address %s", addr)
+	findMsgResp, err := peer.FindMessageByID([]string{resp.ID})
+	require.NoErrorf(t, err, "Could not find message which just contained the faucet request on %s", peer.String())
+	fundingReqContainingMsg := findMsgResp.Messages[0]
+
 	sent := DataMessageSent{
 		id: resp.ID,
 		// save payload to be able to compare API response
-		data:            faucetPayload.Bytes(),
+		data:            fundingReqContainingMsg.Payload,
 		issuerPublicKey: peer.Identity.PublicKey().String(),
 	}
 	return resp.ID, sent

@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto"
 
+	_ "golang.org/x/crypto/blake2b"
+
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -71,11 +73,10 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	if err != nil {
 		return
 	}
-	payloadBytes, err := marshalUtil.ReadUint32()
-	if err != nil {
+	if _, err = marshalUtil.ReadUint32(); err != nil {
 		return
 	}
-	addr, err := marshalUtil.ReadBytes(int(payloadBytes))
+	addr, err := marshalUtil.ReadBytes(address.Length)
 	if err != nil {
 		return
 	}
@@ -112,7 +113,7 @@ func (faucetPayload *Payload) Bytes() []byte {
 
 	// marshal the payload specific information
 	marshalUtil.WriteUint32(faucetPayload.Type())
-	marshalUtil.WriteUint32(uint32(len(faucetPayload.address)))
+	marshalUtil.WriteUint32(uint32(address.Length + pow.NonceBytes))
 	marshalUtil.WriteBytes(faucetPayload.address.Bytes())
 	marshalUtil.WriteUint64(faucetPayload.nonce)
 
