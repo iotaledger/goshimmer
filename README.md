@@ -91,7 +91,7 @@ You can find more info about this on our [client-lib](https://github.com/iotaled
 
 ## Getting started
 
-You can find tutorials on how to [setup a GoShimmer node](https://github.com/iotaledger/goshimmer/wiki/Setting-up-a-GoShimmer-node), [writing a dApp](https://github.com/iotaledger/goshimmer/wiki/How-to-create-a-simple-dApp), [obtaining tokens from the faucet](https://github.com/iotaledger/goshimmer/wiki/How-to-obtain-tokens-from-the-faucet) and more on our [wiki](https://github.com/iotaledger/goshimmer/wiki).
+You can find tutorials on how to [setup a GoShimmer node](https://github.com/iotaledger/goshimmer/wiki/Setup-up-a-GoShimmer-node-(Joining-the-pollen-testnet)), [writing a dApp](https://github.com/iotaledger/goshimmer/wiki/How-to-create-a-simple-dApp), [obtaining tokens from the faucet](https://github.com/iotaledger/goshimmer/wiki/How-to-obtain-tokens-from-the-faucet) and more on our [wiki](https://github.com/iotaledger/goshimmer/wiki).
 
 ## Supporting the project
 
