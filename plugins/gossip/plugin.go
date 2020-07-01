@@ -42,6 +42,7 @@ func configure(*node.Plugin) {
 	configureLogging()
 	configureMessageLayer()
 	configureAutopeering()
+	configureTipBroadcaster()
 }
 
 func run(*node.Plugin) {
