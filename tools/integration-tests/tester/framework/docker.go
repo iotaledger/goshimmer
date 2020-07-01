@@ -85,6 +85,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--valueLayer.fcob.averageNetworkDelay=%d", ParaFCoBAverageNetworkDelay),
 			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
 			fmt.Sprintf("--pow.difficulty=%d", ParaPoWDifficulty),
+			fmt.Sprintf("--faucet.powDifficulty=%d", ParaPoWFaucetDifficulty),
 			fmt.Sprintf("--gracefulshutdown.waitToKillTime=%d", ParaWaitToKill),
 			fmt.Sprintf("--node.enablePlugins=%s", func() string {
 				var plugins []string

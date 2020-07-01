@@ -5,10 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
@@ -19,10 +18,10 @@ func ExamplePayload() {
 	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
 
 	// 1. create faucet payload
-	faucetPayload := New(
-		// request address
-		address.Random(),
-	)
+	faucetPayload, err := New(address.Random(), 4)
+	if err != nil {
+		panic(err)
+	}
 
 	// 2. build actual message
 	tx := message.New(
@@ -39,7 +38,10 @@ func ExamplePayload() {
 }
 
 func TestPayload(t *testing.T) {
-	originalPayload := New(address.Random())
+	originalPayload, err := New(address.Random(), 4)
+	if err != nil {
+		panic(err)
+	}
 
 	clonedPayload1, err, _ := FromBytes(originalPayload.Bytes())
 	if err != nil {
