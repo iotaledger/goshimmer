@@ -1,8 +1,6 @@
 package tangle
 
 import (
-	"errors"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tipmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
@@ -35,7 +33,7 @@ func (v *ValueObjectFactory) IssueTransaction(tx *transaction.Transaction) (valu
 	tx.Inputs().ForEach(func(outputId transaction.OutputID) bool {
 		v.tangle.TransactionOutput(outputId).Consume(func(output *Output) {
 			if output.ConsumerCount() >= 1 {
-				err = errors.New("the transaction to be issued is a double spend")
+				err = ErrDoubleSpendForbidden
 			}
 		})
 
