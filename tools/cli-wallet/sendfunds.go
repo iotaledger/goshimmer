@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
@@ -64,4 +65,7 @@ func execSendFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	if err != nil {
 		printUsage(command, err.Error())
 	}
+
+	fmt.Println()
+	fmt.Println("Sending funds ... [DONE]")
 }
