@@ -217,7 +217,7 @@ func TipManager() *tipmanager.TipManager {
 // ValueObjectFactory returns the ValueObjectFactory singleton.
 func ValueObjectFactory() *tangle.ValueObjectFactory {
 	valueObjectFactoryOnce.Do(func() {
-		valueObjectFactory = tangle.NewValueObjectFactory(TipManager())
+		valueObjectFactory = tangle.NewValueObjectFactory(Tangle(), TipManager())
 	})
 	return valueObjectFactory
 }

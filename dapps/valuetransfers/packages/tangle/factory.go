@@ -3,7 +3,6 @@ package tangle
 import (
 	"errors"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tipmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
@@ -12,12 +11,13 @@ import (
 
 // ValueObjectFactory acts as a factory to create new value objects.
 type ValueObjectFactory struct {
+	tangle     *Tangle
 	tipManager *tipmanager.TipManager
 	Events     *ValueObjectFactoryEvents
 }
 
 // NewValueObjectFactory creates a new ValueObjectFactory.
-func NewValueObjectFactory(tipManager *tipmanager.TipManager) *ValueObjectFactory {
+func NewValueObjectFactory(tangle *Tangle, tipManager *tipmanager.TipManager) *ValueObjectFactory {
 	return &ValueObjectFactory{
 		tipManager: tipManager,
 		Events: &ValueObjectFactoryEvents{
@@ -33,7 +33,7 @@ func (v *ValueObjectFactory) IssueTransaction(tx *transaction.Transaction) (valu
 
 	// check if the tx that is supposed to be issued is a double spend
 	tx.Inputs().ForEach(func(outputId transaction.OutputID) bool {
-		valuetransfers.Tangle().TransactionOutput(outputId).Consume(func(output *Output) {
+		v.tangle.TransactionOutput(outputId).Consume(func(output *Output) {
 			if output.ConsumerCount() >= 1 {
 				err = errors.New("the transaction to be issued is a double spend")
 			}
