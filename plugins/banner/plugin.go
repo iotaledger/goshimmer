@@ -18,7 +18,7 @@ var (
 
 const (
 	// AppVersion version number
-	AppVersion = "v0.2.0"
+	AppVersion = "v0.2.1"
 
 	// AppName app code name
 	AppName = "GoShimmer"
