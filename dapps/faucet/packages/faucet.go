@@ -82,7 +82,7 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	// prepare value payload with value factory
 	payload, err := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("failed to issue transaction: %w", err)
 	}
 
 	// attach to message layer
