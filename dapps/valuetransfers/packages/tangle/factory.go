@@ -17,6 +17,7 @@ type ValueObjectFactory struct {
 // NewValueObjectFactory creates a new ValueObjectFactory.
 func NewValueObjectFactory(tangle *Tangle, tipManager *tipmanager.TipManager) *ValueObjectFactory {
 	return &ValueObjectFactory{
+		tangle:     tangle,
 		tipManager: tipManager,
 		Events: &ValueObjectFactoryEvents{
 			ValueObjectConstructed: events.NewEvent(valueObjectConstructedEvent),
