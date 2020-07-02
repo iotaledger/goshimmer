@@ -26,6 +26,8 @@ var (
 	ErrTransactionDoesNotSpendAllFunds = errors.New("transaction does not spend all funds from inputs")
 	// ErrInvalidTransactionSignature is returned if the signature of a transaction is invalid.
 	ErrInvalidTransactionSignature = errors.New("invalid transaction signatures")
+	// ErrMaxTransactionInputCountExceeded is returned if the max number of inputs of the transaction is exceeded.
+	ErrMaxTransactionInputCountExceeded = errors.New("maximum transaction input count exceeded")
 )
 
 // Tangle represents the value tangle that consists out of value payloads.
@@ -1597,6 +1599,11 @@ func (tangle *Tangle) ValidateTransactionToAttach(tx *transaction.Transaction) (
 	}
 	if !tangle.checkTransactionOutputs(consumedBalances, tx.Outputs()) {
 		err = ErrTransactionDoesNotSpendAllFunds
+		return
+	}
+
+	if !tx.InputsCountValid() {
+		err = ErrMaxTransactionInputCountExceeded
 		return
 	}
 
