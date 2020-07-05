@@ -81,7 +81,7 @@ func start(shutdownSignal <-chan struct{}) {
 	// trigger start of the autopeering selection
 	go func() { autopeering.StartSelection() }()
 
-	log.Infof("%s started, bind-address=%s", PluginName, localAddr.String())
+	log.Infof("%s started: age-threshold=%v bind-address=%s", PluginName, ageThreshold, localAddr.String())
 
 	<-shutdownSignal
 	log.Info("Stopping " + PluginName + " ...")
@@ -90,12 +90,13 @@ func start(shutdownSignal <-chan struct{}) {
 	autopeering.Selection().Close()
 }
 
-// loads the given message from the message layer or an error if not found.
-func loadMessage(messageID message.Id) (bytes []byte, err error) {
-	if !messagelayer.Tangle().Message(messageID).Consume(func(message *message.Message) {
-		bytes = message.Bytes()
-	}) {
-		err = ErrMessageNotFound
+// loads the given message from the message layer and returns it or an error if not found.
+func loadMessage(msgID message.Id) ([]byte, error) {
+	cachedMessage := messagelayer.Tangle().Message(msgID)
+	defer cachedMessage.Release()
+	if !cachedMessage.Exists() {
+		return nil, ErrMessageNotFound
 	}
-	return
+	msg := cachedMessage.Unwrap()
+	return msg.Bytes(), nil
 }
