@@ -47,6 +47,7 @@ func (s *tiplist) RemoveTip(id message.Id) {
 	if !contains {
 		return
 	}
+	delete(s.dict, id)
 	s.list.Remove(elem)
 	if s.iterator == elem {
 		s.next(elem)
