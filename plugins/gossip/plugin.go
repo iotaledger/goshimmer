@@ -29,6 +29,7 @@ var (
 
 	log                     *logger.Logger
 	ageThreshold            time.Duration
+	tipsBroadcasterInterval time.Duration
 )
 
 // Plugin gets the plugin instance.
@@ -42,15 +43,18 @@ func Plugin() *node.Plugin {
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	ageThreshold = config.Node().GetDuration(CfgGossipAgeThreshold)
+	tipsBroadcasterInterval = config.Node().GetDuration(CfgGossipTipsBroadcastInterval)
 
 	configureLogging()
 	configureMessageLayer()
 	configureAutopeering()
-	configureTipBroadcaster()
 }
 
 func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, start, shutdown.PriorityGossip); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
+	if err := daemon.BackgroundWorker(tipsBroadcasterName, startTipBroadcaster, shutdown.PriorityGossip); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
 }
