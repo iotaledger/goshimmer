@@ -134,14 +134,11 @@ func configureMessageLayer() {
 
 		// only broadcast new message shortly after they have been received
 		metadata := cachedMessageMetadata.Unwrap()
-		age := time.Since(metadata.ReceivedTime())
-		if age > ageThreshold {
-			log.Debugw("skip message", "ID", cachedMessage.Unwrap().Id(), "age", age)
+		if time.Since(metadata.ReceivedTime()) > ageThreshold {
 			return
 		}
 
 		msg := cachedMessage.Unwrap()
-		log.Debugw("broadcast message", "ID", msg.Id(), "age", age)
 		mgr.SendMessage(msg.Bytes())
 	}))
 
