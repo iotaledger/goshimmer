@@ -85,7 +85,7 @@ func startTipBroadcaster(shutdownSignal <-chan struct{}) {
 	tipSelector.Events.TipAdded.Attach(addClosure)
 	defer tipSelector.Events.TipAdded.Detach(addClosure)
 
-	log.Infof("Started %s: interval=%v", tipsBroadcasterName, tipsBroadcasterInterval)
+	log.Infof("%s started: interval=%v", tipsBroadcasterName, tipsBroadcasterInterval)
 	timeutil.Ticker(broadcastNextOldestTip, tipsBroadcasterInterval, shutdownSignal)
 	log.Infof("Stopping %s ...", tipsBroadcasterName)
 }
