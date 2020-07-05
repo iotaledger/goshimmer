@@ -218,7 +218,10 @@ func (tangle *Tangle) isMessageSolid(msg *message.Message, msgMetadata *MessageM
 		return true
 	}
 
-	return tangle.isMessageMarkedAsSolid(msg.TrunkId()) && tangle.isMessageMarkedAsSolid(msg.BranchId())
+	// as missing messages are requested in isMessageMarkedAsSolid, we want to prevent short-circuit evaluation
+	trunkSolid := tangle.isMessageMarkedAsSolid(msg.TrunkId())
+	branchSolid := tangle.isMessageMarkedAsSolid(msg.BranchId())
+	return trunkSolid && branchSolid
 }
 
 // builds up a stack from the given message and tries to solidify into the present.
