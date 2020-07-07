@@ -1,6 +1,7 @@
 package client
 
 import (
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"io"
 	"strings"
 
@@ -29,6 +30,7 @@ func sendHeartbeat(w io.Writer, hb *packet.Heartbeat) {
 	}
 	log.Debugw(
 		"Heartbeat",
+		"networkID", string(hb.NetworkID),
 		"nodeID", base58.Encode(hb.OwnID),
 		"outboundIDs", out.String(),
 		"inboundIDs", in.String(),
@@ -73,5 +75,5 @@ func createHeartbeat() *packet.Heartbeat {
 		copy(inboundIDs[i], neighbor.ID().Bytes())
 	}
 
-	return &packet.Heartbeat{OwnID: nodeID, OutboundIDs: outboundIDs, InboundIDs: inboundIDs}
+	return &packet.Heartbeat{NetworkID: []byte(banner.AppVersion), OwnID: nodeID, OutboundIDs: outboundIDs, InboundIDs: inboundIDs}
 }
