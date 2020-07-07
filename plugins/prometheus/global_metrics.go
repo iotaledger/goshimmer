@@ -5,7 +5,8 @@ import (
 
 	metricspkg "github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/vote"
-	analysisdashboard "github.com/iotaledger/goshimmer/plugins/analysis/dashboard"
+	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/prometheus/client_golang/prometheus"
@@ -178,9 +179,12 @@ func collectNodesInfo() {
 		).Set(float64(nodeMetrics.MemoryUsage))
 	}
 
-	for nodeID, neighborCount := range analysisdashboard.NumOfNeighbors() {
-		nodesNeighborCount.WithLabelValues(nodeID, "in").Set(float64(neighborCount.Inbound))
-		nodesNeighborCount.WithLabelValues(nodeID, "out").Set(float64(neighborCount.Outbound))
+	// TODO: send data for all available networkIDs, not just current
+	if analysisserver.Networks[banner.AppVersion] != nil {
+		for nodeID, neighborCount := range analysisserver.Networks[banner.AppVersion].NumOfNeighbors() {
+			nodesNeighborCount.WithLabelValues(nodeID, "in").Set(float64(neighborCount.Inbound))
+			nodesNeighborCount.WithLabelValues(nodeID, "out").Set(float64(neighborCount.Outbound))
+		}
 	}
 
 	networkDiameter.Set(float64(metrics.NetworkDiameter()))

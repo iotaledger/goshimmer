@@ -124,8 +124,8 @@ func runAutopeeringFeed() {
 }
 
 // creates event handlers for replaying autopeering events on them
-func createAutopeeringEventHandlers(wsClient *websocket.Conn, nodeCallbackFactory func(*websocket.Conn, string) func(string), linkCallbackFactory func(*websocket.Conn, string) func(string, string)) *EventHandlers {
-	return &EventHandlers{
+func createAutopeeringEventHandlers(wsClient *websocket.Conn, nodeCallbackFactory func(*websocket.Conn, string) func(string), linkCallbackFactory func(*websocket.Conn, string) func(string, string)) *analysisserver.EventHandlers {
+	return &analysisserver.EventHandlers{
 		AddNode:         nodeCallbackFactory(wsClient, "A"),
 		RemoveNode:      nodeCallbackFactory(wsClient, "a"),
 		ConnectNodes:    linkCallbackFactory(wsClient, "C"),

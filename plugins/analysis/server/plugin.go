@@ -90,6 +90,7 @@ func run(_ *node.Plugin) {
 	}, shutdown.PriorityAnalysis); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
+	runEventsRecordManager()
 }
 
 // HandleConnection handles the given connection.
@@ -138,7 +139,7 @@ func processHeartbeatPacket(data []byte) {
 		Events.Error.Trigger(err)
 		return
 	}
-	Events.Heartbeat.Trigger(heartbeatPacket)
+	updateAutopeeringMap(heartbeatPacket)
 }
 
 // processHeartbeatPacket parses the serialized data into a FPC Heartbeat packet and triggers its event.
