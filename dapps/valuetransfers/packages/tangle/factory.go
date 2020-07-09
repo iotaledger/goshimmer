@@ -33,8 +33,6 @@ func (v *ValueObjectFactory) IssueTransaction(tx *transaction.Transaction) (valu
 	// validate the transaction signature
 	if !tx.SignaturesValid() {
 		err = ErrInvalidTransactionSignature
-	}
-	if err != nil {
 		return
 	}
 
