@@ -41,6 +41,7 @@
   },
   "gossip": {
     "port": 14666,
+    "ageThreshold": "5s",
     "tipsBroadcaster": {
       "interval": "10s"
     }
