@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	maxPacketSize = 2048
+	maxPacketSize = 64 * 1024
 )
 
 // LoadMessageFunc defines a function that returns the message for the given id.
