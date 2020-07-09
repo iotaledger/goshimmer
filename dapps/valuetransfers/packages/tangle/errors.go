@@ -18,5 +18,5 @@ var (
 	// ErrTransactionDoesNotSpendAllFunds is returned if a transaction does not spend all of its inputs.
 	ErrTransactionDoesNotSpendAllFunds = errors.New("transaction does not spend all funds from inputs")
 	// ErrInvalidTransactionSignature is returned if the signature of a transaction is invalid.
-	ErrInvalidTransactionSignature = errors.New("missing or invalid transaction signatures")
+	ErrInvalidTransactionSignature = errors.New("missing or invalid transaction signature")
 )
