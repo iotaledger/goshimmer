@@ -30,6 +30,12 @@ func NewValueObjectFactory(tangle *Tangle, tipManager *tipmanager.TipManager) *V
 func (v *ValueObjectFactory) IssueTransaction(tx *transaction.Transaction) (valueObject *payload.Payload, err error) {
 	parent1, parent2 := v.tipManager.Tips()
 
+	// validate the transaction signature
+	if !tx.SignaturesValid() {
+		err = ErrInvalidTransactionSignature
+		return
+	}
+
 	// check if the tx that is supposed to be issued is a double spend
 	tx.Inputs().ForEach(func(outputId transaction.OutputID) bool {
 		v.tangle.TransactionOutput(outputId).Consume(func(output *Output) {
