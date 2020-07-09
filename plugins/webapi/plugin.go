@@ -43,7 +43,9 @@ func Server() *echo.Echo {
 	serverOnce.Do(func() {
 		server = echo.New()
 		server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+			Skipper:      middleware.DefaultSkipper,
 			AllowOrigins: []string{"*"},
+			AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
 		}))
 	})
 	return server
