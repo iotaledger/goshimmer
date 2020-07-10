@@ -172,6 +172,20 @@ func (transaction *Transaction) SignaturesValid() bool {
 	return signaturesValid
 }
 
+// Signatures returns all the signatures in this transaction.
+func (transaction *Transaction) Signatures() (signatures []signaturescheme.Signature) {
+	transaction.inputs.ForEachAddress(func(address address.Address) bool {
+		signature, exists := transaction.signatures.Get(address)
+		if !exists || !signature.IsValid(transaction.EssenceBytes()) {
+			return false
+		}
+		signatures = append(signatures, signature)
+		return true
+	})
+
+	return signatures
+}
+
 // EssenceBytes return the bytes of the transaction excluding the Signatures. These bytes are later signed and used to
 // generate the Signatures.
 func (transaction *Transaction) EssenceBytes() []byte {

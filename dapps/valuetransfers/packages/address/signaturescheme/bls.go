@@ -227,5 +227,15 @@ func AggregateBLSSignatures(sigs ...Signature) (Signature, error) {
 	return NewBLSSignature(pubKeyBin, sigBin), nil
 }
 
+// PublicKeySize returns the size of the public key.
+func (sig *BLSSignature) PublicKeySize() int {
+	return BLSPublicKeySize
+}
+
+// SignatureSize returns the size of the signature.
+func (sig *BLSSignature) SignatureSize() int {
+	return BLSPrivateKeySize
+}
+
 // interface contract (allow the compiler to check if the implementation has all of the required methods).
 var _ Signature = &BLSSignature{}
