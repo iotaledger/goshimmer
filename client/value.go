@@ -15,7 +15,7 @@ const (
 	routeAttachments    = "value/attachments"
 	routeGetTxnByID     = "value/transactionByID"
 	routeSendTxn        = "value/sendTransaction"
-	routeSendTxnByJson  = "value/sendTransactionByJson"
+	routeSendTxnByJSON  = "value/sendTransactionByJson"
 	routeUnspentOutputs = "value/unspentOutputs"
 )
 
@@ -65,10 +65,10 @@ func (api *GoShimmerAPI) SendTransaction(txnBytes []byte) (string, error) {
 	return res.TransactionID, nil
 }
 
-// SendTransactionByJson sends the transaction(JSON) to the Value Tangle and returns transaction ID.
-func (api *GoShimmerAPI) SendTransactionByJson(txn webapi_sendtxnbyjson.Request) (string, error) {
+// SendTransactionByJSON sends the transaction(JSON) to the Value Tangle and returns transaction ID.
+func (api *GoShimmerAPI) SendTransactionByJSON(txn webapi_sendtxnbyjson.Request) (string, error) {
 	res := &webapi_sendtxn.Response{}
-	if err := api.do(http.MethodPost, routeSendTxnByJson,
+	if err := api.do(http.MethodPost, routeSendTxnByJSON,
 		&webapi_sendtxnbyjson.Request{
 			Inputs:     txn.Inputs,
 			Outputs:    txn.Outputs,
