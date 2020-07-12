@@ -69,3 +69,10 @@ func (requester *MessageRequester) reRequest(id message.Id) {
 		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id) })
 	}
 }
+
+// RequestQueueSize returns the number of scheduled message requests.
+func (requester *MessageRequester) RequestQueueSize() int {
+	requester.scheduledRequestsMutex.RLock()
+	defer requester.scheduledRequestsMutex.RUnlock()
+	return len(requester.scheduledRequests)
+}
