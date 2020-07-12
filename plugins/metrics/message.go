@@ -26,6 +26,9 @@ var (
 
 	// protect map from concurrent read/write.
 	messageCountPerPayloadMutex syncutils.RWMutex
+
+	// number of messages being requested by the message layer.
+	requestQueueSize atomic.Int64
 )
 
 ////// Exported functions to obtain metrics from outside //////
@@ -52,6 +55,11 @@ func MessageCountPerPayload() map[payload.Type]uint64 {
 // MessageTips returns the actual number of tips in the message tangle.
 func MessageTips() uint64 {
 	return messageTips.Load()
+}
+
+// MessageRequestQueueSize returns the number of message requests the node currently has registered.
+func MessageRequestQueueSize() int64 {
+	return requestQueueSize.Load()
 }
 
 ////// Handling data updates and measuring //////
@@ -92,4 +100,9 @@ func measureReceivedMPS() {
 
 	// trigger events for outside listeners
 	Events.ReceivedMPSUpdated.Trigger(sampledMPS)
+}
+
+func measureRequestQueueSize() {
+	size := int64(messagelayer.MessageRequester().RequestQueueSize())
+	requestQueueSize.Store(size)
 }
