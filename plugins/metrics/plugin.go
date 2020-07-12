@@ -67,6 +67,7 @@ func run(_ *node.Plugin) {
 				measureMessageTips()
 				measureValueTips()
 				measureReceivedMPS()
+				measureRequestQueueSize()
 
 				// gossip network traffic
 				g := gossipCurrentTraffic()
