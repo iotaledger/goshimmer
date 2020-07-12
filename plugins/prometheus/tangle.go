@@ -10,6 +10,7 @@ var (
 	messageTips         prometheus.Gauge
 	messagePerTypeCount *prometheus.GaugeVec
 	messageTotalCount   prometheus.Gauge
+	messageRequestCount prometheus.Gauge
 
 	transactionCounter prometheus.Gauge
 	valueTips          prometheus.Gauge
@@ -44,9 +45,15 @@ func registerTangleMetrics() {
 		Help: "current number of tips in the value tangle",
 	})
 
+	messageRequestCount = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_message_request_queue_size",
+		Help: "current number requested messages by the message tangle",
+	})
+
 	registry.MustRegister(messageTips)
 	registry.MustRegister(messagePerTypeCount)
 	registry.MustRegister(messageTotalCount)
+	registry.MustRegister(messageRequestCount)
 	registry.MustRegister(transactionCounter)
 	registry.MustRegister(valueTips)
 
@@ -60,6 +67,7 @@ func collectTangleMetrics() {
 		messagePerTypeCount.WithLabelValues(payload.Name(payloadType)).Set(float64(count))
 	}
 	messageTotalCount.Set(float64(metrics.MessageTotalCount()))
+	messageRequestCount.Set(float64(metrics.MessageRequestQueueSize()))
 	transactionCounter.Set(float64(metrics.ValueTransactionCounter()))
 	valueTips.Set(float64(metrics.ValueTips()))
 }
