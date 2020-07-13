@@ -12,6 +12,13 @@ var (
 	// Total number of processed messages since start of the node.
 	messageTotalCount atomic.Uint64
 
+	// Current number of solid messages in the node's database.
+	messageSolidCount atomic.Uint64
+
+	messageTotalCountDB atomic.Uint64
+
+	avgSolidificationTime atomic.Float64
+
 	// current number of message tips.
 	messageTips atomic.Uint64
 
@@ -62,6 +69,21 @@ func MessageRequestQueueSize() int64 {
 	return requestQueueSize.Load()
 }
 
+// MessageSolidCount returns the number of messages that are solid.
+func MessageSolidCount() uint64 {
+	return messageSolidCount.Load()
+}
+
+// MessageTotalCountDB returns the number of messages that are stored in the DB.
+func MessageTotalCountDB() uint64 {
+	return messageTotalCountDB.Load()
+}
+
+// AvgSolidificationTime returns the average time it takes for a message to become solid.
+func AvgSolidificationTime() float64 {
+	return avgSolidificationTime.Load()
+}
+
 ////// Handling data updates and measuring //////
 
 func increasePerPayloadCounter(p payload.Type) {
@@ -105,4 +127,11 @@ func measureReceivedMPS() {
 func measureRequestQueueSize() {
 	size := int64(messagelayer.MessageRequester().RequestQueueSize())
 	requestQueueSize.Store(size)
+}
+
+func measureDBStats() {
+	solid, total, avgSolidTime := messagelayer.Tangle().DBStats()
+	messageSolidCount.Store(uint64(solid))
+	messageTotalCountDB.Store(uint64(total))
+	avgSolidificationTime.Store(avgSolidTime)
 }
