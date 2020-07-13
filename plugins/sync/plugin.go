@@ -102,13 +102,13 @@ func run(_ *node.Plugin) {
 }
 
 // marks the node as synced and spawns the background worker to monitor desynchronization.
-func markSynced() {
+func MarkSynced() {
 	synced.Store(true)
 	monitorForDesynchronization()
 }
 
 // marks the node as desynced and spawns the background worker to monitor synchronization.
-func markDesynced() {
+func MarkDesynced() {
 	synced.Store(false)
 	monitorForSynchronization()
 }
@@ -166,12 +166,12 @@ func monitorForDesynchronization() {
 
 			case <-timer.C:
 				log.Infof("no message received in %d seconds, marking node as desynced", int(timeForDesync.Seconds()))
-				markDesynced()
+				MarkDesynced()
 				return
 
 			case <-noPeers:
 				log.Info("all peers have been lost, marking node as desynced")
-				markDesynced()
+				MarkDesynced()
 				return
 
 			case <-shutdownSignal:
@@ -241,7 +241,7 @@ func monitorForSynchronization() {
 				return
 			case <-synced:
 				log.Infof("all anchor messages have become solid, marking node as synced")
-				markSynced()
+				MarkSynced()
 				return
 			}
 		}
