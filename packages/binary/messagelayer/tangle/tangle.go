@@ -135,6 +135,25 @@ func (tangle *Tangle) Prune() error {
 	return nil
 }
 
+// DBStats returns the number of solid messages and total number of messages in the database, furthermore the average time it takes to solidify messages.
+func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidificationTime float64) {
+	var sumSolidificationTime time.Duration
+	tangle.messageMetadataStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		defer cachedObject.Release()
+		cachedMessageMetadata := &CachedMessageMetadata{CachedObject: cachedObject}
+		msgMetaData := cachedMessageMetadata.Unwrap()
+		messageCount++
+		received := msgMetaData.ReceivedTime()
+		if msgMetaData.IsSolid() {
+			solidCount++
+			sumSolidificationTime += msgMetaData.solidificationTime.Sub(received)
+		}
+		return true
+	})
+	avgSolidificationTime = float64(sumSolidificationTime.Milliseconds()) / float64(solidCount)
+	return
+}
+
 // worker that stores the message and calls the corresponding storage events.
 func (tangle *Tangle) storeMessageWorker(msg *message.Message) {
 	// store message
