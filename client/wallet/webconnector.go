@@ -21,6 +21,20 @@ func NewWebConnector(baseURL string, httpClient ...http.Client) *WebConnector {
 	}
 }
 
+func (webConnector *WebConnector) ServerStatus() (status ServerStatus, err error) {
+	response, err := webConnector.client.Info()
+	if err != nil {
+		return
+	}
+
+	status.ID = response.IdentityID
+	status.Synced = response.Synced
+	status.Version = response.Version
+	response.
+
+	return
+}
+
 // RequestFaucetFunds request some funds from the faucet for test purposes.
 func (webConnector *WebConnector) RequestFaucetFunds(addr Address) (err error) {
 	_, err = webConnector.client.SendFaucetRequest(addr.String())

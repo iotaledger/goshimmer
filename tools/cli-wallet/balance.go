@@ -39,7 +39,7 @@ func execBalanceCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 
 	// print balances
 	for color, amount := range confirmedBalance {
-		_, _ = fmt.Fprintf(w, "%s\t%d\t%s\t%s\n", "[ OK ]", amount, color.String(), cliWallet.AssetRegistry().Name(color))
+		_, _ = fmt.Fprintf(w, "%s\t%d %s\t%s\t%s\n", "[ OK ]", amount, cliWallet.AssetRegistry().Symbol(color), color.String(), cliWallet.AssetRegistry().Name(color))
 	}
 	for color, amount := range pendingBalance {
 		_, _ = fmt.Fprintf(w, "%s\t%d\t%s\t%s\n", "[PEND]", amount, color.String(), cliWallet.AssetRegistry().Name(color))

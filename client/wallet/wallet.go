@@ -64,6 +64,10 @@ func New(options ...Option) (wallet *Wallet) {
 	return
 }
 
+func (wallet *Wallet) ServerStatus() {
+	wallet.connector.
+}
+
 // SendFunds issues a payment of the given amount to the given address.
 func (wallet *Wallet) SendFunds(options ...SendFundsOption) (tx *transaction.Transaction, err error) {
 	// build options from the parameters
