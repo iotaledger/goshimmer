@@ -205,7 +205,7 @@ func TestPutSignatureInvalid(t *testing.T) {
 	assert.Equal(t, true, tx.SignaturesValid())
 }
 
-func TestInputCounts(t *testing.T){
+func TestInputCounts(t *testing.T) {
 	tx1 := createTransaction(MaxTransactionInputCount + 1, 1)
 	assert.False(t, tx1.InputsCountValid())
 
