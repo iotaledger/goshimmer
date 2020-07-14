@@ -70,6 +70,11 @@ func MessageMetadataFromStorageKey(key []byte) (result objectstorage.StorableObj
 	return
 }
 
+// ReceivedTime returns the time when the message was received.
+func (messageMetadata *MessageMetadata) ReceivedTime() time.Time {
+	return messageMetadata.receivedTime
+}
+
 func (messageMetadata *MessageMetadata) IsSolid() (result bool) {
 	messageMetadata.solidMutex.RLock()
 	result = messageMetadata.solid
@@ -119,7 +124,7 @@ func (messageMetadata *MessageMetadata) ObjectStorageKey() []byte {
 
 func (messageMetadata *MessageMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		WriteTime(messageMetadata.receivedTime).
+		WriteTime(messageMetadata.ReceivedTime()).
 		WriteTime(messageMetadata.SolidificationTime()).
 		WriteBool(messageMetadata.IsSolid()).
 		Bytes()
