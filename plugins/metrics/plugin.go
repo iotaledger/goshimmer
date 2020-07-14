@@ -47,7 +47,7 @@ func configure(_ *node.Plugin) {
 }
 
 func run(_ *node.Plugin) {
-
+	log.Infof("Starting %s ...", PluginName)
 	if config.Node().GetBool(CfgMetricsLocal) {
 		registerLocalMetrics()
 	}
@@ -58,7 +58,8 @@ func run(_ *node.Plugin) {
 	}
 
 	// create a background worker that update the metrics every second
-	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
+	if err := daemon.BackgroundWorker("Metrics Updater[1s]", func(shutdownSignal <-chan struct{}) {
+		defer log.Infof("Stopping Metrics Updater[1s] ... done")
 		if config.Node().GetBool(CfgMetricsLocal) {
 			timeutil.Ticker(func() {
 				measureCPUUsage()
@@ -68,7 +69,6 @@ func run(_ *node.Plugin) {
 				measureValueTips()
 				measureReceivedMPS()
 				measureRequestQueueSize()
-				measureDBStats()
 
 				// gossip network traffic
 				g := gossipCurrentTraffic()
@@ -79,9 +79,22 @@ func run(_ *node.Plugin) {
 		if config.Node().GetBool(CfgMetricsGlobal) {
 			timeutil.Ticker(calculateNetworkDiameter, 1*time.Minute, shutdownSignal)
 		}
-
+		log.Infof("Stopping Metrics Updater[1s] ...")
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
+	}
+
+	if config.Node().GetBool(CfgMetricsLocalDB) {
+		// create a background worker that updates the db metrics every 20 second
+		if err := daemon.BackgroundWorker("Metrics Updater[DB]", func(shutdownSignal <-chan struct{}) {
+			defer log.Infof("Stopping Metrics Updater[DB] ... done")
+			timeutil.Ticker(func() {
+				measureDBStats()
+			}, 20*time.Second, shutdownSignal)
+			log.Infof("Stopping Metrics Updater[DB] ...")
+		}, shutdown.PriorityMetrics); err != nil {
+			log.Panicf("Failed to start as daemon: %s", err)
+		}
 	}
 }
 
