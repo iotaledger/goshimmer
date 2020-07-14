@@ -129,13 +129,6 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
-
-	if err := daemon.BackgroundWorker("Tangle[MissingMessagesMonitor]", func(shutdownSignal <-chan struct{}) {
-		_tangle.MonitorMissingMessages(shutdownSignal)
-	}, shutdown.PriorityMissingMessagesMonitoring); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
-	}
-
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		messageFactory.Shutdown()
@@ -144,5 +137,4 @@ func run(*node.Plugin) {
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-
 }
