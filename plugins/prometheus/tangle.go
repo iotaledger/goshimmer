@@ -44,7 +44,7 @@ func registerTangleMetrics() {
 	})
 
 	messageSolidCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_message_solid_count",
+		Name: "tangle_message_solid_count_db",
 		Help: "number of solid messages on the node's database",
 	})
 
