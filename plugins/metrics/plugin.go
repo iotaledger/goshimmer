@@ -111,7 +111,6 @@ func registerLocalMetrics() {
 	// messages can only become solid once, then they stay like that, hence no .Dec() part
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
 		defer cachedMessage.Release()
-		defer cachedMessageMetadata.Release()
 		messageSolidCountDBInc.Inc()
 		solidTimeMutex.Lock()
 		defer solidTimeMutex.Unlock()
