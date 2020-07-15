@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	_ "golang.org/x/crypto/blake2b"
 )
 
@@ -45,7 +46,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 
 	t.Run("CheckProperties", func(t *testing.T) {
 		p := payload.NewData([]byte("TestCheckProperties"))
-		msg := msgFactory.IssuePayload(p)
+		msg, err := msgFactory.IssuePayload(p)
+		require.NoError(t, err)
 
 		assert.NotNil(t, msg.TrunkId())
 		assert.NotNil(t, msg.BranchId())
@@ -70,7 +72,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 				t.Parallel()
 
 				p := payload.NewData([]byte("TestParallelCreation"))
-				msg := msgFactory.IssuePayload(p)
+				msg, err := msgFactory.IssuePayload(p)
+				require.NoError(t, err)
 
 				assert.NotNil(t, msg.TrunkId())
 				assert.NotNil(t, msg.BranchId())
@@ -125,7 +128,9 @@ func TestMessageFactory_POW(t *testing.T) {
 		return worker.Mine(context.Background(), content, targetPOW)
 	}))
 
-	msg := msgFactory.IssuePayload(payload.NewData([]byte("test")))
+	msg, err := msgFactory.IssuePayload(payload.NewData([]byte("test")))
+	require.NoError(t, err)
+
 	msgBytes := msg.Bytes()
 	content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 
