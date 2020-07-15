@@ -159,7 +159,9 @@ func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidifica
 		})
 		return true
 	})
-	avgSolidificationTime = float64(sumSolidificationTime.Milliseconds()) / float64(solidCount)
+	if solidCount > 0 {
+		avgSolidificationTime = float64(sumSolidificationTime.Milliseconds()) / float64(solidCount)
+	}
 	// TODO: get rid of console printing
 	fmt.Println("solid", solidCount, "message", messageCount, "iterations", iterations)
 	return
