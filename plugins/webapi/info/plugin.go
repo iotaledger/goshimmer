@@ -90,8 +90,8 @@ func getInfo(c echo.Context) error {
 		IdentityID:        local.GetInstance().Identity.ID().String(),
 		PublicKey:         local.GetInstance().PublicKey().String(),
 		RequestQueueSize:  int(metrics.MessageRequestQueueSize()),
-		SolidMessageCount: int(metrics.MessageSolidCountIter()),
-		TotalMessageCount: int(metrics.MessageTotalCountDBIter()),
+		SolidMessageCount: int(metrics.MessageSolidCountDB()),
+		TotalMessageCount: int(metrics.MessageTotalCountDB()),
 		EnabledPlugins:    enabledPlugins,
 		DisabledPlugins:   disabledPlugins,
 	})
