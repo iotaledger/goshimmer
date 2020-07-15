@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/timeutil"
 )
 
@@ -49,7 +50,7 @@ func configure(_ *node.Plugin) {
 func run(_ *node.Plugin) {
 	log.Infof("Starting %s ...", PluginName)
 	if config.Node().GetBool(CfgMetricsLocal) {
-		// initial measurement
+		// initial measurement, since we have to know how many messages are there in the db
 		measureInitialDBStats()
 		registerLocalMetrics()
 	}
@@ -85,19 +86,6 @@ func run(_ *node.Plugin) {
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-
-	if config.Node().GetBool(CfgMetricsLocalDB) {
-		// create a background worker that updates the db metrics every 20 second
-		if err := daemon.BackgroundWorker("Metrics Updater[DB]", func(shutdownSignal <-chan struct{}) {
-			defer log.Infof("Stopping Metrics Updater[DB] ... done")
-			timeutil.Ticker(func() {
-				measureDBStats()
-			}, 20*time.Second, shutdownSignal)
-			log.Infof("Stopping Metrics Updater[DB] ...")
-		}, shutdown.PriorityMetrics); err != nil {
-			log.Panicf("Failed to start as daemon: %s", err)
-		}
-	}
 }
 
 func registerLocalMetrics() {
@@ -111,19 +99,26 @@ func registerLocalMetrics() {
 		increaseReceivedMPSCounter()
 		increasePerPayloadCounter(_payloadType)
 		// MessageAttached is triggered in storeMessageWorker that saves the msg to database
-		messageTotalCountDBInc.Inc()
+		messageTotalCountDB.Inc()
 
 	}))
 
 	messagelayer.Tangle().Events.MessageRemoved.Attach(events.NewClosure(func(messageId message.Id) {
-		// MessageRemoved triggered when the message get removed from database.
-		messageTotalCountDBInc.Dec()
+		// MessageRemoved triggered when the message gets removed from database.
+		messageTotalCountDB.Dec()
 	}))
 
+	// messages can only become solid once, then they stay like that, hence no .Dec() part
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
-		cachedMessage.Release()
-		cachedMessageMetadata.Release()
+		defer cachedMessage.Release()
+		defer cachedMessageMetadata.Release()
 		messageSolidCountDBInc.Inc()
+		solidTimeMutex.Lock()
+		defer solidTimeMutex.Unlock()
+		cachedMessageMetadata.Consume(func(object objectstorage.StorableObject) {
+			msgMetaData := object.(*tangle.MessageMetadata)
+			sumSolidificationTime += msgMetaData.SolidificationTime().Sub(msgMetaData.ReceivedTime())
+		})
 	}))
 
 	// Value payload attached

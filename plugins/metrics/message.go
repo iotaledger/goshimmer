@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -12,26 +14,26 @@ var (
 	// Total number of processed messages since start of the node.
 	messageTotalCount atomic.Uint64
 
-	// current number of solid messages in the node's database
-	messageSolidCountDBIter atomic.Uint64
+	// number of messages in the database at startup
+	initialMessageTotalCountDB atomic.Uint64
 
-	// current number of solid messages in the node's database
-	messageSolidCountDBInc atomic.Uint64
+	// current number of messages in the node's database
+	messageTotalCountDB atomic.Uint64
 
 	// number of solid messages in the database at startup
 	initialMessageSolidCountDB atomic.Uint64
 
-	// current number of messages in the node's database
-	messageTotalCountDBIter atomic.Uint64
+	// current number of solid messages in the node's database
+	messageSolidCountDBInc atomic.Uint64
 
-	// current number of messages in the node's database
-	messageTotalCountDBInc atomic.Uint64
+	// initial average solidification time
+	initialAvgSolidificationTime atomic.Float64
+	// helper variable that is only calculated at init phase. unit is milliseconds!
+	initialSumSolidificationTime float64
 
-	// number of messages in the database at startup
-	initialMessageTotalCountDB atomic.Uint64
-
-	// average time it takes to solidify a message
-	avgSolidificationTime atomic.Float64
+	// sum of solidification time (since start of the node)
+	sumSolidificationTime time.Duration
+	solidTimeMutex        syncutils.RWMutex
 
 	// current number of message tips.
 	messageTips atomic.Uint64
@@ -83,29 +85,19 @@ func MessageRequestQueueSize() int64 {
 	return requestQueueSize.Load()
 }
 
-// MessageSolidCountIter returns the number of messages that are solid.
-func MessageSolidCountIter() uint64 {
-	return messageSolidCountDBIter.Load()
-}
-
-// MessageTotalCountDBIter returns the number of messages that are stored in the DB.
-func MessageTotalCountDBIter() uint64 {
-	return messageTotalCountDBIter.Load()
-}
-
-// MessageSolidCountInc returns the number of messages that are solid.
-func MessageSolidCountInc() uint64 {
+// MessageSolidCountDB returns the number of messages that are solid in the DB.
+func MessageSolidCountDB() uint64 {
 	return initialMessageSolidCountDB.Load() + messageSolidCountDBInc.Load()
 }
 
-// MessageTotalCountDBInc returns the number of messages that are stored in the DB.
-func MessageTotalCountDBInc() uint64 {
-	return initialMessageTotalCountDB.Load() + messageTotalCountDBInc.Load()
+// MessageTotalCountDB returns the number of messages that are stored in the DB.
+func MessageTotalCountDB() uint64 {
+	return initialMessageTotalCountDB.Load() + messageTotalCountDB.Load()
 }
 
-// AvgSolidificationTime returns the average time it takes for a message to become solid.
+// AvgSolidificationTime returns the average time it takes for a message to become solid. [milliseconds]
 func AvgSolidificationTime() float64 {
-	return avgSolidificationTime.Load()
+	return (initialSumSolidificationTime + float64(sumSolidificationTime.Milliseconds())) / float64(MessageSolidCountDB())
 }
 
 // ReceivedMessagesPerSecond retrieves the current messages per second number.
@@ -153,16 +145,10 @@ func measureRequestQueueSize() {
 	requestQueueSize.Store(size)
 }
 
-func measureDBStats() {
-	solid, total, avgSolidTime := messagelayer.Tangle().DBStats()
-	messageSolidCountDBIter.Store(uint64(solid))
-	messageTotalCountDBIter.Store(uint64(total))
-	avgSolidificationTime.Store(avgSolidTime)
-}
-
 func measureInitialDBStats() {
 	solid, total, avgSolidTime := messagelayer.Tangle().DBStats()
 	initialMessageSolidCountDB.Store(uint64(solid))
 	initialMessageTotalCountDB.Store(uint64(total))
-	avgSolidificationTime.Store(avgSolidTime)
+	initialAvgSolidificationTime.Store(avgSolidTime)
+	initialSumSolidificationTime = avgSolidTime * float64(total)
 }
