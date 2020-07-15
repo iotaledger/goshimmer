@@ -64,7 +64,10 @@ type GoShimmerConfig struct {
 	DRNGInstance  int
 	DRNGThreshold int
 
-	Faucet bool
+	Faucet                      bool
+	SyncBeaconPrimary           bool
+	SyncBeaconFollowNodes       string
+	SyncBeaconBroadcastInterval int
 }
 
 // NetworkConfig defines the config of a GoShimmer Docker network.

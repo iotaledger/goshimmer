@@ -22,3 +22,10 @@ func TestPayload(t *testing.T) {
 
 	assert.Equal(t, originalPayload.SyncStatus(), clonedPayload2.SyncStatus())
 }
+
+func TestIsSyncBeaconPayload(t *testing.T) {
+	p := NewSyncBeaconPayload(true, time.Now().UnixNano())
+
+	isSyncBeaconPayload := IsSyncBeaconPayload(p)
+	assert.True(t, isSyncBeaconPayload)
+}

@@ -103,14 +103,39 @@ func run(_ *node.Plugin) {
 
 // marks the node as synced and spawns the background worker to monitor desynchronization.
 func MarkSynced() {
+	if Synced() {
+		return
+	}
 	synced.Store(true)
-	monitorForDesynchronization()
+	isRunning := false
+	for _, worker := range daemon.GetRunningBackgroundWorkers() {
+		if worker == "Desync-Monitor" {
+			isRunning = true
+			break
+		}
+	}
+	if !isRunning {
+		monitorForDesynchronization()
+	}
 }
 
 // marks the node as desynced and spawns the background worker to monitor synchronization.
 func MarkDesynced() {
+	if !Synced() {
+		return
+	}
 	synced.Store(false)
-	monitorForSynchronization()
+	isRunning := false
+	for _, worker := range daemon.GetRunningBackgroundWorkers() {
+		if worker == "Sync-Monitor" {
+			isRunning = true
+			break
+		}
+	}
+
+	if !isRunning {
+		monitorForSynchronization()
+	}
 }
 
 // starts a background worker and event handlers to check whether the node is desynchronized by checking

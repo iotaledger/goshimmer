@@ -1,7 +1,6 @@
 package syncbeacon
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -12,6 +11,7 @@ const (
 	ObjectName = "syncbeacon"
 )
 
+// Type is the type of the syncbeacon payload.
 var Type = payload.Type(200)
 
 // Payload represents the syncbeacon payload
@@ -71,7 +71,7 @@ func (p *Payload) Type() payload.Type {
 	return p.payloadType
 }
 
-// Status returns the sync sync status of the  Payload.
+// SyncStatus returns the sync sync status of the  Payload.
 func (p *Payload) SyncStatus() bool {
 	return p.syncStatus
 }
@@ -110,8 +110,8 @@ func (p *Payload) String() string {
 }
 
 // IsSyncBeaconPayload checks if the message is sync beacon payload.
-func IsSyncBeaconPayload(msg *message.Message) bool {
-	return msg.Payload().Type() == Type
+func IsSyncBeaconPayload(p *Payload) bool {
+	return p.Type() == Type
 }
 
 func init() {

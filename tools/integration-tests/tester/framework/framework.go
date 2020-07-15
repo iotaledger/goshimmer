@@ -88,6 +88,9 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 			}(i),
 			BootstrapInitialIssuanceTimePeriodSec: bootstrapInitialIssuanceTimePeriodSec,
 			Faucet:                                i == 0,
+			SyncBeaconPrimary:                     true,
+			SyncBeaconFollowNodes:                 "",
+			SyncBeaconBroadcastInterval:           10,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err

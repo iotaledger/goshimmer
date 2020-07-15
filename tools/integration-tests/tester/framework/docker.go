@@ -95,6 +95,9 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 				if config.Faucet {
 					plugins = append(plugins, "faucet")
 				}
+				if config.SyncBeaconPrimary || config.SyncBeaconFollowNodes != "" {
+					plugins = append(plugins, "Sync Beacon")
+				}
 				return strings.Join(plugins[:], ",")
 			}()),
 			// define the faucet seed in case the faucet dApp is enabled
@@ -114,6 +117,9 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--drng.threshold=%d", config.DRNGThreshold),
 			fmt.Sprintf("--drng.committeeMembers=%s", config.DRNGCommittee),
 			fmt.Sprintf("--drng.distributedPubKey=%s", config.DRNGDistKey),
+			fmt.Sprintf("--syncbeacon.primary=%v", config.SyncBeaconPrimary),
+			fmt.Sprintf("--syncbeacon.followNodes=%v", config.SyncBeaconFollowNodes),
+			fmt.Sprintf("--syncbeacon.broadcastInterval=%d", config.SyncBeaconBroadcastInterval),
 		},
 	}
 
