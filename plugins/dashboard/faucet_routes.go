@@ -44,9 +44,9 @@ func sendFaucetReq(addr address.Address) (res *ReqMsg, err error) {
 	if err != nil {
 		return nil, err
 	}
-	msg := messagelayer.MessageFactory().IssuePayload(faucetPayload)
-	if msg == nil {
-		return nil, errors.Wrapf(ErrInternalError, "Fail to send faucet request")
+	msg, err := messagelayer.MessageFactory().IssuePayload(faucetPayload)
+	if err != nil {
+		return nil, errors.Wrapf(ErrInternalError, "Failed to send faucet request: %w", err)
 	}
 
 	r := &ReqMsg{
