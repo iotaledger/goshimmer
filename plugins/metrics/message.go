@@ -97,6 +97,8 @@ func MessageTotalCountDB() uint64 {
 
 // AvgSolidificationTime returns the average time it takes for a message to become solid. [milliseconds]
 func AvgSolidificationTime() float64 {
+	solidTimeMutex.RLock()
+	defer solidTimeMutex.RUnlock()
 	return (initialSumSolidificationTime + float64(sumSolidificationTime.Milliseconds())) / float64(MessageSolidCountDB())
 }
 
@@ -150,5 +152,5 @@ func measureInitialDBStats() {
 	initialMessageSolidCountDB.Store(uint64(solid))
 	initialMessageTotalCountDB.Store(uint64(total))
 	initialAvgSolidificationTime.Store(avgSolidTime)
-	initialSumSolidificationTime = avgSolidTime * float64(total)
+	initialSumSolidificationTime = avgSolidTime * float64(solid)
 }
