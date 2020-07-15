@@ -49,6 +49,8 @@ func configure(_ *node.Plugin) {
 func run(_ *node.Plugin) {
 	log.Infof("Starting %s ...", PluginName)
 	if config.Node().GetBool(CfgMetricsLocal) {
+		// initial measurement
+		measureInitialDBStats()
 		registerLocalMetrics()
 	}
 
@@ -108,6 +110,20 @@ func registerLocalMetrics() {
 		cachedMessageMetadata.Release()
 		increaseReceivedMPSCounter()
 		increasePerPayloadCounter(_payloadType)
+		// MessageAttached is triggered in storeMessageWorker that saves the msg to database
+		messageTotalCountDBInc.Inc()
+
+	}))
+
+	messagelayer.Tangle().Events.MessageRemoved.Attach(events.NewClosure(func(messageId message.Id) {
+		// MessageRemoved triggered when the message get removed from database.
+		messageTotalCountDBInc.Dec()
+	}))
+
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		cachedMessage.Release()
+		cachedMessageMetadata.Release()
+		messageSolidCountDBInc.Inc()
 	}))
 
 	// Value payload attached

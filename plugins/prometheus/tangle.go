@@ -7,13 +7,15 @@ import (
 )
 
 var (
-	messageTips           prometheus.Gauge
-	messagePerTypeCount   *prometheus.GaugeVec
-	messageTotalCount     prometheus.Gauge
-	messageTotalCountDB   prometheus.Gauge
-	messageSolidCount     prometheus.Gauge
-	avgSolidificationTime prometheus.Gauge
-	messageRequestCount   prometheus.Gauge
+	messageTips             prometheus.Gauge
+	messagePerTypeCount     *prometheus.GaugeVec
+	messageTotalCount       prometheus.Gauge
+	messageTotalCountDBIter prometheus.Gauge
+	messageTotalCountDBInc  prometheus.Gauge
+	messageSolidCountDBIter prometheus.Gauge
+	messageSolidCountDBInc  prometheus.Gauge
+	avgSolidificationTime   prometheus.Gauge
+	messageRequestCount     prometheus.Gauge
 
 	transactionCounter prometheus.Gauge
 	valueTips          prometheus.Gauge
@@ -38,13 +40,23 @@ func registerTangleMetrics() {
 		Help: "total number of messages seen since the start of the node",
 	})
 
-	messageTotalCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_message_total_count_db",
+	messageTotalCountDBIter = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_message_total_count_db_iter",
 		Help: "total number of messages in the node's database",
 	})
 
-	messageSolidCount = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_message_solid_count",
+	messageTotalCountDBInc = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_message_total_count_db_inc",
+		Help: "total number of messages in the node's database",
+	})
+
+	messageSolidCountDBIter = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_message_solid_count_int",
+		Help: "number of solid messages on the node's database",
+	})
+
+	messageSolidCountDBInc = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_message_solid_count_inc",
 		Help: "number of solid messages on the node's database",
 	})
 
@@ -71,8 +83,10 @@ func registerTangleMetrics() {
 	registry.MustRegister(messageTips)
 	registry.MustRegister(messagePerTypeCount)
 	registry.MustRegister(messageTotalCount)
-	registry.MustRegister(messageTotalCountDB)
-	registry.MustRegister(messageSolidCount)
+	registry.MustRegister(messageTotalCountDBIter)
+	registry.MustRegister(messageSolidCountDBIter)
+	registry.MustRegister(messageTotalCountDBInc)
+	registry.MustRegister(messageSolidCountDBInc)
 	registry.MustRegister(avgSolidificationTime)
 	registry.MustRegister(messageRequestCount)
 	registry.MustRegister(transactionCounter)
@@ -83,13 +97,15 @@ func registerTangleMetrics() {
 
 func collectTangleMetrics() {
 	messageTips.Set(float64(metrics.MessageTips()))
-	msgCountPerPayload := metrics.MessageCountPerPayload()
+	msgCountPerPayload := metrics.MessageCountSinceStartPerPayload()
 	for payloadType, count := range msgCountPerPayload {
 		messagePerTypeCount.WithLabelValues(payload.Name(payloadType)).Set(float64(count))
 	}
-	messageTotalCount.Set(float64(metrics.MessageTotalCount()))
-	messageTotalCountDB.Set(float64(metrics.MessageTotalCountDB()))
-	messageSolidCount.Set(float64(metrics.MessageSolidCount()))
+	messageTotalCount.Set(float64(metrics.MessageTotalCountSinceStart()))
+	messageTotalCountDBIter.Set(float64(metrics.MessageTotalCountDBIter()))
+	messageSolidCountDBIter.Set(float64(metrics.MessageSolidCountIter()))
+	messageTotalCountDBInc.Set(float64(metrics.MessageTotalCountDBInc()))
+	messageSolidCountDBInc.Set(float64(metrics.MessageSolidCountInc()))
 	avgSolidificationTime.Set(metrics.AvgSolidificationTime())
 	messageRequestCount.Set(float64(metrics.MessageRequestQueueSize()))
 	transactionCounter.Set(float64(metrics.ValueTransactionCounter()))
