@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	maxPacketSize = 64 * 1024
+	// maxPacketSize defines the maximum packet size allowed for gossip and bufferedconn.
+	maxPacketSize = 65 * 1024
 )
 
 // LoadMessageFunc defines a function that returns the message for the given id.
