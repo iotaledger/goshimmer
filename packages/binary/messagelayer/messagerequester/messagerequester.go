@@ -56,7 +56,7 @@ func (requester *MessageRequester) ScheduleRequest(messageId message.Id) {
 			requester.Events.SendRequest.Trigger(messageId)
 
 			requester.scheduledRequestsMutex.Lock()
-			requester.scheduledRequests[messageId] = time.AfterFunc(requester.options.retryInterval, func() { retryRequest(false) })
+			requester.scheduledRequests[messageId] = time.AfterFunc(requester.options.retryInterval, func() { retryRequest(true) })
 			requester.scheduledRequestsMutex.Unlock()
 		})
 	}
