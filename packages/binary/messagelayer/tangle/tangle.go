@@ -5,24 +5,15 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/types"
-
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
-
 	"github.com/iotaledger/hive.go/async"
+	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/hive.go/types"
 )
 
 const (
-	// MaxMissingTimeBeforeCleanup is  the max. amount of time a message can be marked as missing
-	// before it is ultimately un-marked as missing.
-	MaxMissingTimeBeforeCleanup = 30 * time.Second
-	// MissingCheckInterval is the interval on which it is checked whether a missing
-	// message is still missing.
-	MissingCheckInterval = 5 * time.Second
-
 	cacheTime = 20 * time.Second
 )
 
@@ -218,7 +209,10 @@ func (tangle *Tangle) isMessageSolid(msg *message.Message, msgMetadata *MessageM
 		return true
 	}
 
-	return tangle.isMessageMarkedAsSolid(msg.TrunkId()) && tangle.isMessageMarkedAsSolid(msg.BranchId())
+	// as missing messages are requested in isMessageMarkedAsSolid, we want to prevent short-circuit evaluation
+	trunkSolid := tangle.isMessageMarkedAsSolid(msg.TrunkId())
+	branchSolid := tangle.isMessageMarkedAsSolid(msg.BranchId())
+	return trunkSolid && branchSolid
 }
 
 // builds up a stack from the given message and tries to solidify into the present.
@@ -265,46 +259,6 @@ func (tangle *Tangle) checkMessageSolidityAndPropagate(cachedMessage *message.Ca
 
 		currentCachedMessage.Release()
 		currentCachedMsgMetadata.Release()
-	}
-}
-
-// MonitorMissingMessages continuously monitors for missing messages and eventually deletes them if they
-// don't become available in a certain time frame.
-func (tangle *Tangle) MonitorMissingMessages(shutdownSignal <-chan struct{}) {
-	reCheckInterval := time.NewTicker(MissingCheckInterval)
-	defer reCheckInterval.Stop()
-	for {
-		select {
-		case <-reCheckInterval.C:
-			var toDelete []message.Id
-			var toUnmark []message.Id
-			tangle.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-				defer cachedObject.Release()
-				missingMessage := cachedObject.Get().(*MissingMessage)
-
-				if tangle.messageStorage.Contains(missingMessage.messageId.Bytes()) {
-					toUnmark = append(toUnmark, missingMessage.MessageId())
-					return true
-				}
-
-				// check whether message is missing since over our max time delta
-				if time.Since(missingMessage.MissingSince()) >= MaxMissingTimeBeforeCleanup {
-					toDelete = append(toDelete, missingMessage.MessageId())
-				}
-				return true
-			})
-			for _, msgID := range toUnmark {
-				tangle.missingMessageStorage.DeleteIfPresent(msgID.Bytes())
-			}
-			for _, msgID := range toDelete {
-				// delete the future cone of the missing message
-				tangle.Events.MessageUnsolidifiable.Trigger(msgID)
-				// TODO: obvious race condition between receiving the message and it getting deleted here
-				tangle.deleteFutureCone(msgID)
-			}
-		case <-shutdownSignal:
-			return
-		}
 	}
 }
 
