@@ -91,7 +91,7 @@ func (m *MessageFactory) IssuePayload(p payload.Payload) (*message.Message, erro
 	// do the PoW
 	nonce, err := m.doPOW(trunkID, branchID, issuingTime, issuerPublicKey, sequenceNumber, p)
 	if err != nil {
-		err := fmt.Errorf("pow failed: %w", err)
+		err = fmt.Errorf("pow failed: %w", err)
 		m.Events.Error.Trigger(err)
 		return nil, err
 	}
