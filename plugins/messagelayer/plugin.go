@@ -113,7 +113,7 @@ func configure(*node.Plugin) {
 	}))
 
 	// setup messageRequester
-	_tangle.Events.MessageMissing.Attach(events.NewClosure(messageRequester.ScheduleRequest))
+	_tangle.Events.MessageMissing.Attach(events.NewClosure(messageRequester.StartRequest))
 	_tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
 		cachedMessageMetadata.Release()
 		cachedMessage.Consume(func(msg *message.Message) {
