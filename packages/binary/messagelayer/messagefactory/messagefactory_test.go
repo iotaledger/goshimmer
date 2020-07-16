@@ -150,13 +150,13 @@ func TestWorkerFunc_PayloadSize(t *testing.T) {
 
 	// issue message with max allowed payload size
 	// dataPayload headers: type|32bit + size|32bit
-	data := make([]byte, message.MaxPayloadSize-4-4)
+	data := make([]byte, payload.MaxPayloadSize-4-4)
 	msg, err := msgFactory.IssuePayload(payload.NewData(data))
 	require.NoError(t, err)
-	assert.Truef(t, message.MaxMessageSize == len(msg.Bytes()), "message size should be exactly %d bytes but is %d", message.MaxMessageSize, len(msg.Bytes()))
+	assert.Truef(t, payload.MaxMessageSize == len(msg.Bytes()), "message size should be exactly %d bytes but is %d", payload.MaxMessageSize, len(msg.Bytes()))
 
 	// issue message bigger than max allowed payload size
-	data = make([]byte, message.MaxPayloadSize)
+	data = make([]byte, payload.MaxPayloadSize)
 	msg, err = msgFactory.IssuePayload(payload.NewData(data))
 	require.Error(t, err)
 	assert.Nil(t, msg)

@@ -1,7 +1,6 @@
 package messagefactory
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -18,9 +17,6 @@ const storeSequenceInterval = 100
 var (
 	// ZeroWorker is a PoW worker that always returns 0 as the nonce.
 	ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
-
-	// ErrMaxPayloadSizeExceeded is returned if the maximum payload size is exceeded.
-	ErrMaxPayloadSizeExceeded = errors.New(fmt.Sprintf("maximum payload size of %d bytes exceeded", message.MaxPayloadSize))
 )
 
 // A TipSelector selects two tips, branch and trunk, for a new message to attach to.
@@ -71,10 +67,10 @@ func (m *MessageFactory) SetWorker(worker Worker) {
 // IssuePayload creates a new message including sequence number and tip selection and returns it.
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
-func (m *MessageFactory) IssuePayload(payload payload.Payload) (*message.Message, error) {
-	payloadLen := len(payload.Bytes())
-	if payloadLen > message.MaxPayloadSize {
-		err := fmt.Errorf("%w: %d bytes", ErrMaxPayloadSizeExceeded, payloadLen)
+func (m *MessageFactory) IssuePayload(p payload.Payload) (*message.Message, error) {
+	payloadLen := len(p.Bytes())
+	if payloadLen > payload.MaxPayloadSize {
+		err := fmt.Errorf("%w: %d bytes", payload.ErrMaxPayloadSizeExceeded, payloadLen)
 		m.Events.Error.Trigger(err)
 		return nil, err
 	}
@@ -93,7 +89,7 @@ func (m *MessageFactory) IssuePayload(payload payload.Payload) (*message.Message
 	issuerPublicKey := m.localIdentity.PublicKey()
 
 	// do the PoW
-	nonce, err := m.doPOW(trunkID, branchID, issuingTime, issuerPublicKey, sequenceNumber, payload)
+	nonce, err := m.doPOW(trunkID, branchID, issuingTime, issuerPublicKey, sequenceNumber, p)
 	if err != nil {
 		err := fmt.Errorf("pow failed: %w", err)
 		m.Events.Error.Trigger(err)
@@ -101,7 +97,7 @@ func (m *MessageFactory) IssuePayload(payload payload.Payload) (*message.Message
 	}
 
 	// create the signature
-	signature := m.sign(trunkID, branchID, issuingTime, issuerPublicKey, sequenceNumber, payload, nonce)
+	signature := m.sign(trunkID, branchID, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 
 	msg := message.New(
 		trunkID,
@@ -109,7 +105,7 @@ func (m *MessageFactory) IssuePayload(payload payload.Payload) (*message.Message
 		issuingTime,
 		issuerPublicKey,
 		sequenceNumber,
-		payload,
+		p,
 		nonce,
 		signature,
 	)

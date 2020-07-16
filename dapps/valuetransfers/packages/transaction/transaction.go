@@ -307,17 +307,11 @@ func (transaction *Transaction) String() string {
 	)
 }
 
-// MaxDataPayloadSize defines the maximum size (in bytes) of the data payload.
-const MaxDataPayloadSize = 64 * 1024
-
 // SetDataPayload sets yhe dataPayload and its type
 func (transaction *Transaction) SetDataPayload(data []byte) error {
 	transaction.dataPayloadMutex.Lock()
 	defer transaction.dataPayloadMutex.Unlock()
 
-	if len(data) > MaxDataPayloadSize {
-		return fmt.Errorf("%w: %d", ErrMaxDataPayloadSizeExceeded, MaxDataPayloadSize)
-	}
 	transaction.dataPayload = data
 	return nil
 }
@@ -384,10 +378,6 @@ func (transaction *Transaction) UnmarshalObjectStorageValue(bytes []byte) (consu
 	var dataPayloadSize uint32
 	dataPayloadSize, err = marshalUtil.ReadUint32()
 	if err != nil {
-		return
-	}
-	if dataPayloadSize > MaxDataPayloadSize {
-		err = fmt.Errorf("%w: %d", ErrMaxDataPayloadSizeExceeded, MaxDataPayloadSize)
 		return
 	}
 

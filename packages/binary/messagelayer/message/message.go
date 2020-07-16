@@ -13,13 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
-// MaxMessageSize defines the maximum size of a message.
-const MaxMessageSize = 64 * 1024
-
-// MaxPayloadSize defines the maximum size of a payload.
-// trunkID + branchID + issuerPublicKey + issuingTime + sequenceNumber + nonce + signature
-const MaxPayloadSize = MaxMessageSize - 64 - 64 - 32 - 8 - 8 - 8 - 64
-
 // Message represents the core message for the base layer Tangle.
 type Message struct {
 	// base functionality of StorableObject
