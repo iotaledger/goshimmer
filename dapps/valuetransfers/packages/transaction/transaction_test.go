@@ -204,3 +204,28 @@ func TestPutSignatureInvalid(t *testing.T) {
 	// valid signatures expected
 	assert.Equal(t, true, tx.SignaturesValid())
 }
+
+func TestInputCounts(t *testing.T) {
+	tx1 := createTransaction(MaxTransactionInputCount + 1, 1)
+	assert.False(t, tx1.InputsCountValid())
+
+	tx2 := createTransaction(MaxTransactionInputCount - 1, 1)
+	assert.True(t, tx2.InputsCountValid())
+}
+
+func createTransaction(inputCount int, outputCount int) *Transaction {
+	outputIds := make([]OutputID, 0)
+	for i := 0; i < inputCount; i++ {
+		outputIds = append(outputIds, NewOutputID(address.Random(), RandomID()))
+	}
+	inputs := NewInputs(outputIds...)
+
+	bal := balance.New(balance.ColorIOTA, 1)
+	outputMap := make(map[address.Address][]*balance.Balance)
+	for i := 0; i < outputCount; i++ {
+		outputMap[address.Random()] = []*balance.Balance{bal}
+	}
+	outputs := NewOutputs(outputMap)
+
+	return New(inputs, outputs)
+}

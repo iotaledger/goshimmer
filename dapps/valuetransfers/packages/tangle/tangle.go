@@ -1593,6 +1593,11 @@ func (tangle *Tangle) ValidateTransactionToAttach(tx *transaction.Transaction) (
 		return
 	}
 
+	if !tx.InputsCountValid() {
+		err = ErrMaxTransactionInputCountExceeded
+		return
+	}
+
 	if !tx.SignaturesValid() {
 		err = ErrInvalidTransactionSignature
 		return
