@@ -33,17 +33,18 @@ func New(optionalOptions ...Option) *MessageRequester {
 // StartRequest initiates a regular triggering of the StartRequest event until it has been stopped using StopRequest.
 func (requester *MessageRequester) StartRequest(id message.Id) {
 	requester.scheduledRequestsMutex.Lock()
-	defer requester.scheduledRequestsMutex.Unlock()
 
 	// ignore already scheduled requests
 	if _, exists := requester.scheduledRequests[id]; exists {
+		requester.scheduledRequestsMutex.Unlock()
 		return
 	}
 
 	// trigger the event and schedule the next request
 	// make this atomic to be sure that a successive call of StartRequest does not trigger again
-	requester.Events.SendRequest.Trigger(id)
 	requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id) })
+	requester.scheduledRequestsMutex.Unlock()
+	requester.Events.SendRequest.Trigger(id)
 }
 
 // StopRequest stops requests for the given message to further happen.
