@@ -292,9 +292,14 @@ func marshal(packet pb.Packet) []byte {
 	return append([]byte{byte(packetType)}, data...)
 }
 
-// WorkerPoolStatus returns the name and the load of the workerpool.
-func (m *Manager) WorkerPoolStatus() (name string, load int) {
-	return "InboxWorkerPool", m.messageWorkerPool.GetPendingQueueSize() + m.messageRequestWorkerPool.GetPendingQueueSize()
+// MessageWorkerPoolStatus returns the name and the load of the workerpool.
+func (m *Manager) MessageWorkerPoolStatus() (name string, load int) {
+	return "messageWorkerPool", m.messageWorkerPool.GetPendingQueueSize()
+}
+
+// MessageRequestWorkerPoolStatus returns the name and the load of the workerpool.
+func (m *Manager) MessageRequestWorkerPoolStatus() (name string, load int) {
+	return "messageRequestWorkerPool", m.messageRequestWorkerPool.GetPendingQueueSize()
 }
 
 func (m *Manager) processPacketMessage(data []byte, nbr *Neighbor) {

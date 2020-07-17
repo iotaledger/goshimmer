@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/bytesfilter"
 )
@@ -17,7 +16,6 @@ type RecentlySeenBytesFilter struct {
 	bytesFilter      *bytesfilter.BytesFilter
 	onAcceptCallback func(bytes []byte, peer *peer.Peer)
 	onRejectCallback func(bytes []byte, err error, peer *peer.Peer)
-	workerPool       async.WorkerPool
 
 	onAcceptCallbackMutex sync.RWMutex
 	onRejectCallbackMutex sync.RWMutex
@@ -31,13 +29,11 @@ func NewRecentlySeenBytesFilter() *RecentlySeenBytesFilter {
 }
 
 func (filter *RecentlySeenBytesFilter) Filter(bytes []byte, peer *peer.Peer) {
-	// filter.workerPool.Submit(func() {
 	if filter.bytesFilter.Add(bytes) {
 		filter.getAcceptCallback()(bytes, peer)
 		return
 	}
 	filter.getRejectCallback()(bytes, ErrReceivedDuplicateBytes, peer)
-	// })
 }
 
 func (filter *RecentlySeenBytesFilter) OnAccept(callback func(bytes []byte, peer *peer.Peer)) {
@@ -66,11 +62,4 @@ func (filter *RecentlySeenBytesFilter) getRejectCallback() (result func(bytes []
 	return
 }
 
-func (filter *RecentlySeenBytesFilter) Shutdown() {
-	filter.workerPool.ShutdownGracefully()
-}
-
-// WorkerPoolStatus returns the name and the load of the workerpool.
-func (filter *RecentlySeenBytesFilter) WorkerPoolStatus() (name string, load int) {
-	return "RecentlySeenBytesFilter", filter.workerPool.RunningWorkers()
-}
+func (filter *RecentlySeenBytesFilter) Shutdown() {}

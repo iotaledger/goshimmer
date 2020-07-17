@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/hive.go/async"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 )
 
 // ErrInvalidSignature is returned when a message contains an invalid signature.
@@ -17,7 +15,6 @@ var ErrInvalidSignature = fmt.Errorf("invalid signature")
 type MessageSignatureFilter struct {
 	onAcceptCallback func(msg *message.Message, peer *peer.Peer)
 	onRejectCallback func(msg *message.Message, err error, peer *peer.Peer)
-	workerPool       async.WorkerPool
 
 	onAcceptCallbackMutex sync.RWMutex
 	onRejectCallbackMutex sync.RWMutex
@@ -29,13 +26,11 @@ func NewMessageSignatureFilter() *MessageSignatureFilter {
 }
 
 func (filter *MessageSignatureFilter) Filter(msg *message.Message, peer *peer.Peer) {
-	// filter.workerPool.Submit(func() {
 	if msg.VerifySignature() {
 		filter.getAcceptCallback()(msg, peer)
 		return
 	}
 	filter.getRejectCallback()(msg, ErrInvalidSignature, peer)
-	// })
 }
 
 func (filter *MessageSignatureFilter) OnAccept(callback func(msg *message.Message, peer *peer.Peer)) {
@@ -50,9 +45,7 @@ func (filter *MessageSignatureFilter) OnReject(callback func(msg *message.Messag
 	filter.onRejectCallbackMutex.Unlock()
 }
 
-func (filter *MessageSignatureFilter) Shutdown() {
-	filter.workerPool.ShutdownGracefully()
-}
+func (filter *MessageSignatureFilter) Shutdown() {}
 
 func (filter *MessageSignatureFilter) getAcceptCallback() (result func(msg *message.Message, peer *peer.Peer)) {
 	filter.onAcceptCallbackMutex.RLock()
@@ -66,9 +59,4 @@ func (filter *MessageSignatureFilter) getRejectCallback() (result func(msg *mess
 	result = filter.onRejectCallback
 	filter.onRejectCallbackMutex.RUnlock()
 	return
-}
-
-// WorkerPoolStatus returns the name and the load of the workerpool.
-func (filter *MessageSignatureFilter) WorkerPoolStatus() (name string, load int) {
-	return "MessageSignatureFilter", filter.workerPool.RunningWorkers()
 }

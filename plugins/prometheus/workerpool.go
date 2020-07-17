@@ -1,7 +1,6 @@
 package prometheus
 
 import (
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/prometheus/client_golang/prometheus"
@@ -28,7 +27,12 @@ func registerWorkerpoolMetrics() {
 }
 
 func collectWorkerpoolMetrics() {
-	name, load := gossip.Manager().WorkerPoolStatus()
+	name, load := gossip.Manager().MessageWorkerPoolStatus()
+	workerpools.WithLabelValues(
+		name,
+	).Set(float64(load))
+
+	name, load = gossip.Manager().MessageRequestWorkerPoolStatus()
 	workerpools.WithLabelValues(
 		name,
 	).Set(float64(load))
@@ -42,32 +46,4 @@ func collectWorkerpoolMetrics() {
 	workerpools.WithLabelValues(
 		name,
 	).Set(float64(load))
-
-	if messagelayer.MessageParser().MessageSignatureFilter != nil {
-		name, load = messagelayer.MessageParser().MessageSignatureFilter.WorkerPoolStatus()
-		workerpools.WithLabelValues(
-			name,
-		).Set(float64(load))
-	}
-
-	if valuetransfers.SignatureFilter != nil {
-		name, load = valuetransfers.SignatureFilter.WorkerPoolStatus()
-		workerpools.WithLabelValues(
-			name,
-		).Set(float64(load))
-	}
-
-	if messagelayer.MessageParser().RecentlySeenBytesFilter != nil {
-		name, load = messagelayer.MessageParser().RecentlySeenBytesFilter.WorkerPoolStatus()
-		workerpools.WithLabelValues(
-			name,
-		).Set(float64(load))
-	}
-
-	if messagelayer.MessageParser().PowFilter != nil {
-		name, load = messagelayer.MessageParser().PowFilter.WorkerPoolStatus()
-		workerpools.WithLabelValues(
-			name,
-		).Set(float64(load))
-	}
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messageparser"
-	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 )
 
@@ -17,7 +16,6 @@ type SignatureFilter struct {
 	onRejectCallback      func(message *message.Message, err error, peer *peer.Peer)
 	onAcceptCallbackMutex sync.RWMutex
 	onRejectCallbackMutex sync.RWMutex
-	workerPool            async.WorkerPool
 }
 
 // NewSignatureFilter is the constructor of the MessageFilter.
@@ -28,7 +26,6 @@ func NewSignatureFilter() *SignatureFilter {
 // Filter get's called whenever a new message is received. It rejects the message, if the message is not a valid value
 // message.
 func (filter *SignatureFilter) Filter(message *message.Message, peer *peer.Peer) {
-	// filter.workerPool.Submit(func() {
 	// accept message if the message is not a value message (it will be checked by other filters)
 	valuePayload := message.Payload()
 	if valuePayload.Type() != payload.Type {
@@ -54,7 +51,6 @@ func (filter *SignatureFilter) Filter(message *message.Message, peer *peer.Peer)
 
 	// if all previous checks passed: accept message
 	filter.getAcceptCallback()(message, peer)
-	// })
 }
 
 // OnAccept registers the given callback as the acceptance function of the filter.
@@ -74,9 +70,7 @@ func (filter *SignatureFilter) OnReject(callback func(message *message.Message, 
 }
 
 // Shutdown shuts down the filter.
-func (filter *SignatureFilter) Shutdown() {
-	filter.workerPool.ShutdownGracefully()
-}
+func (filter *SignatureFilter) Shutdown() {}
 
 // getAcceptCallback returns the callback that is executed when a message passes the filter.
 func (filter *SignatureFilter) getAcceptCallback() func(message *message.Message, peer *peer.Peer) {
@@ -92,11 +86,6 @@ func (filter *SignatureFilter) getRejectCallback() func(message *message.Message
 	defer filter.onRejectCallbackMutex.RUnlock()
 
 	return filter.onRejectCallback
-}
-
-// WorkerPoolStatus returns the name and the load of the workerpool.
-func (filter *SignatureFilter) WorkerPoolStatus() (name string, load int) {
-	return "SignatureFilter", filter.workerPool.RunningWorkers()
 }
 
 // interface contract (allow the compiler to check if the implementation has all of the required methods).
