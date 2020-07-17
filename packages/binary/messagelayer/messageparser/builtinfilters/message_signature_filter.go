@@ -25,6 +25,8 @@ func NewMessageSignatureFilter() *MessageSignatureFilter {
 	return &MessageSignatureFilter{}
 }
 
+// Filter filters up on the given bytes and peer and calls the acceptance callback
+// if the input passes or the rejection callback if the input is rejected.
 func (filter *MessageSignatureFilter) Filter(msg *message.Message, peer *peer.Peer) {
 	if msg.VerifySignature() {
 		filter.getAcceptCallback()(msg, peer)
@@ -33,19 +35,19 @@ func (filter *MessageSignatureFilter) Filter(msg *message.Message, peer *peer.Pe
 	filter.getRejectCallback()(msg, ErrInvalidSignature, peer)
 }
 
+// OnAccept registers the given callback as the acceptance function of the filter.
 func (filter *MessageSignatureFilter) OnAccept(callback func(msg *message.Message, peer *peer.Peer)) {
 	filter.onAcceptCallbackMutex.Lock()
 	filter.onAcceptCallback = callback
 	filter.onAcceptCallbackMutex.Unlock()
 }
 
+// OnReject registers the given callback as the rejection function of the filter.
 func (filter *MessageSignatureFilter) OnReject(callback func(msg *message.Message, err error, peer *peer.Peer)) {
 	filter.onRejectCallbackMutex.Lock()
 	filter.onRejectCallback = callback
 	filter.onRejectCallbackMutex.Unlock()
 }
-
-func (filter *MessageSignatureFilter) Shutdown() {}
 
 func (filter *MessageSignatureFilter) getAcceptCallback() (result func(msg *message.Message, peer *peer.Peer)) {
 	filter.onAcceptCallbackMutex.RLock()

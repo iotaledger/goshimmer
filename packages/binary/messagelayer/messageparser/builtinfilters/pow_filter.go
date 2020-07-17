@@ -58,9 +58,6 @@ func (f *PowFilter) OnReject(callback func([]byte, error, *peer.Peer)) {
 	f.rejectCallback = callback
 }
 
-// Shutdown shuts down the filter.
-func (f *PowFilter) Shutdown() {}
-
 func (f *PowFilter) accept(msgBytes []byte, p *peer.Peer) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

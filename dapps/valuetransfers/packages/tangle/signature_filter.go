@@ -69,9 +69,6 @@ func (filter *SignatureFilter) OnReject(callback func(message *message.Message, 
 	filter.onRejectCallback = callback
 }
 
-// Shutdown shuts down the filter.
-func (filter *SignatureFilter) Shutdown() {}
-
 // getAcceptCallback returns the callback that is executed when a message passes the filter.
 func (filter *SignatureFilter) getAcceptCallback() func(message *message.Message, peer *peer.Peer) {
 	filter.onAcceptCallbackMutex.RLock()
