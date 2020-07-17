@@ -29,13 +29,13 @@ func NewMessageSignatureFilter() *MessageSignatureFilter {
 }
 
 func (filter *MessageSignatureFilter) Filter(msg *message.Message, peer *peer.Peer) {
-	filter.workerPool.Submit(func() {
-		if msg.VerifySignature() {
-			filter.getAcceptCallback()(msg, peer)
-			return
-		}
-		filter.getRejectCallback()(msg, ErrInvalidSignature, peer)
-	})
+	// filter.workerPool.Submit(func() {
+	if msg.VerifySignature() {
+		filter.getAcceptCallback()(msg, peer)
+		return
+	}
+	filter.getRejectCallback()(msg, ErrInvalidSignature, peer)
+	// })
 }
 
 func (filter *MessageSignatureFilter) OnAccept(callback func(msg *message.Message, peer *peer.Peer)) {

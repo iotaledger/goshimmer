@@ -31,13 +31,13 @@ func NewRecentlySeenBytesFilter() *RecentlySeenBytesFilter {
 }
 
 func (filter *RecentlySeenBytesFilter) Filter(bytes []byte, peer *peer.Peer) {
-	filter.workerPool.Submit(func() {
-		if filter.bytesFilter.Add(bytes) {
-			filter.getAcceptCallback()(bytes, peer)
-			return
-		}
-		filter.getRejectCallback()(bytes, ErrReceivedDuplicateBytes, peer)
-	})
+	// filter.workerPool.Submit(func() {
+	if filter.bytesFilter.Add(bytes) {
+		filter.getAcceptCallback()(bytes, peer)
+		return
+	}
+	filter.getRejectCallback()(bytes, ErrReceivedDuplicateBytes, peer)
+	// })
 }
 
 func (filter *RecentlySeenBytesFilter) OnAccept(callback func(bytes []byte, peer *peer.Peer)) {
