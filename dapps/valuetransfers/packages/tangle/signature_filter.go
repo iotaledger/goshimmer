@@ -94,5 +94,10 @@ func (filter *SignatureFilter) getRejectCallback() func(message *message.Message
 	return filter.onRejectCallback
 }
 
+// WorkerPoolStatus returns the name and the load of the workerpool.
+func (filter *SignatureFilter) WorkerPoolStatus() (name string, load int) {
+	return "SignatureFilter", filter.workerPool.RunningWorkers()
+}
+
 // interface contract (allow the compiler to check if the implementation has all of the required methods).
 var _ messageparser.MessageFilter = &SignatureFilter{}

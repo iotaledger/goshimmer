@@ -72,6 +72,8 @@ var (
 
 	valueObjectFactory     *tangle.ValueObjectFactory
 	valueObjectFactoryOnce sync.Once
+
+	SignatureFilter *tangle.SignatureFilter
 )
 
 // App gets the plugin instance.
@@ -169,7 +171,8 @@ func configure(_ *node.Plugin) {
 	}))
 
 	// register SignatureFilter in Parser
-	messagelayer.MessageParser().AddMessageFilter(tangle.NewSignatureFilter())
+	SignatureFilter = tangle.NewSignatureFilter()
+	messagelayer.MessageParser().AddMessageFilter(SignatureFilter)
 
 	// subscribe to message-layer
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))

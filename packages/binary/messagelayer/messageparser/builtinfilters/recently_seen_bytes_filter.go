@@ -69,3 +69,8 @@ func (filter *RecentlySeenBytesFilter) getRejectCallback() (result func(bytes []
 func (filter *RecentlySeenBytesFilter) Shutdown() {
 	filter.workerPool.ShutdownGracefully()
 }
+
+// WorkerPoolStatus returns the name and the load of the workerpool.
+func (filter *RecentlySeenBytesFilter) WorkerPoolStatus() (name string, load int) {
+	return "RecentlySeenBytesFilter", filter.workerPool.RunningWorkers()
+}

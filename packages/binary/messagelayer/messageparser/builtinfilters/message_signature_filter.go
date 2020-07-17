@@ -67,3 +67,8 @@ func (filter *MessageSignatureFilter) getRejectCallback() (result func(msg *mess
 	filter.onRejectCallbackMutex.RUnlock()
 	return
 }
+
+// WorkerPoolStatus returns the name and the load of the workerpool.
+func (filter *MessageSignatureFilter) WorkerPoolStatus() (name string, load int) {
+	return "MessageSignatureFilter", filter.workerPool.RunningWorkers()
+}

@@ -280,3 +280,8 @@ func marshal(packet pb.Packet) []byte {
 	}
 	return append([]byte{byte(packetType)}, data...)
 }
+
+// WorkerPoolStatus returns the name and the load of the workerpool.
+func (m *Manager) WorkerPoolStatus() (name string, load int) {
+	return "InboxWorkerPool", m.inboxWorkerPool.RunningWorkers()
+}

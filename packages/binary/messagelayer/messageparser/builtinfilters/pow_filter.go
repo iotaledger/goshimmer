@@ -98,6 +98,11 @@ func (f *PowFilter) validate(msgBytes []byte) error {
 	return nil
 }
 
+// WorkerPoolStatus returns the name and the load of the workerpool.
+func (f *PowFilter) WorkerPoolStatus() (name string, load int) {
+	return "PowFilter", f.workerPool.RunningWorkers()
+}
+
 // powData returns the bytes over which PoW should be computed.
 func powData(msgBytes []byte) ([]byte, error) {
 	contentLength := len(msgBytes) - ed25519.SignatureSize

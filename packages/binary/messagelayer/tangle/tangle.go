@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"container/list"
-	"runtime"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
@@ -57,7 +56,7 @@ func New(store kvstore.KVStore) (result *Tangle) {
 		Events: *newEvents(),
 	}
 
-	result.solidifierWorkerPool.Tune(runtime.GOMAXPROCS(0))
+	result.solidifierWorkerPool.Tune(1024)
 	return
 }
 
@@ -293,4 +292,14 @@ func (tangle *Tangle) deleteFutureCone(messageId message.Id) {
 			}
 		})
 	}
+}
+
+// SolidifierWorkerPoolStatus returns the name and the load of the workerpool.
+func (tangle *Tangle) SolidifierWorkerPoolStatus() (name string, load int) {
+	return "Solidifier", tangle.solidifierWorkerPool.RunningWorkers()
+}
+
+// StoreMessageWorkerPoolStatus returns the name and the load of the workerpool.
+func (tangle *Tangle) StoreMessageWorkerPoolStatus() (name string, load int) {
+	return "StoreMessage", tangle.storeMessageWorkerPool.RunningWorkers()
 }
