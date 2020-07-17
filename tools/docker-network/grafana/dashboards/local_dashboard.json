@@ -20,12 +20,324 @@
   "links": [],
   "panels": [
     {
+      "collapsed": false,
       "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 0
+      },
+      "id": 71,
+      "panels": [],
+      "title": "Syncing",
+      "type": "row"
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Number of messages currently requested by the message tangle.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "hiddenSeries": false,
+      "id": 69,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "tangle_message_request_queue_size",
+          "interval": "",
+          "legendFormat": "Message Request Queue Size",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Message Request Queue Size",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Describes the amount of total, solid and not solid messages in the node's database.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 16,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "hiddenSeries": false,
+      "id": 73,
+      "legend": {
+        "alignAsTable": true,
+        "avg": false,
+        "current": true,
+        "max": false,
+        "min": false,
+        "rightSide": true,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "tangle_message_solid_count_db",
+          "interval": "",
+          "legendFormat": "Solid Messages in DB",
+          "refId": "A"
+        },
+        {
+          "expr": "tangle_message_total_count_db - tangle_message_solid_count_db",
+          "interval": "",
+          "legendFormat": "Not Solid Messages in DB",
+          "refId": "B"
+        },
+        {
+          "expr": "tangle_message_total_count_db",
+          "interval": "",
+          "legendFormat": "Total Messages in DB",
+          "refId": "C"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Messages in Database",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "hiddenSeries": false,
+      "id": 75,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "tangle_message_avg_solidification_time",
+          "interval": "",
+          "legendFormat": "Avg Solidification Time",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Average Solidification Time",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "ms",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "datasource": null,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
       },
       "id": 57,
       "title": "Status",
@@ -58,7 +370,7 @@
         "h": 2,
         "w": 2,
         "x": 0,
-        "y": 1
+        "y": 18
       },
       "id": 48,
       "options": {
@@ -74,7 +386,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "iota_info_app",
@@ -137,7 +449,7 @@
         "h": 2,
         "w": 2,
         "x": 2,
-        "y": 1
+        "y": 18
       },
       "id": 22,
       "options": {
@@ -153,7 +465,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "sync",
@@ -196,7 +508,7 @@
         "h": 2,
         "w": 2,
         "x": 4,
-        "y": 1
+        "y": 18
       },
       "id": 30,
       "options": {
@@ -212,7 +524,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "irate(tangle_message_total_count[5m])",
@@ -254,7 +566,7 @@
         "h": 2,
         "w": 2,
         "x": 6,
-        "y": 1
+        "y": 18
       },
       "id": 53,
       "options": {
@@ -270,7 +582,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "process_cpu_usage",
@@ -308,7 +620,7 @@
         "h": 2,
         "w": 2,
         "x": 8,
-        "y": 1
+        "y": 18
       },
       "id": 20,
       "options": {
@@ -324,7 +636,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "process_mem_usage_bytes/1024/1024",
@@ -366,7 +678,7 @@
         "h": 2,
         "w": 2,
         "x": 10,
-        "y": 1
+        "y": 18
       },
       "id": 58,
       "options": {
@@ -382,7 +694,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "db_size_bytes/1024/1024",
@@ -403,7 +715,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 3
+        "y": 20
       },
       "id": 55,
       "panels": [],
@@ -442,7 +754,7 @@
         "h": 11,
         "w": 11,
         "x": 0,
-        "y": 4
+        "y": 21
       },
       "hiddenSeries": false,
       "id": 32,
@@ -561,7 +873,7 @@
         "h": 8,
         "w": 13,
         "x": 11,
-        "y": 4
+        "y": 21
       },
       "hiddenSeries": false,
       "id": 4,
@@ -677,7 +989,7 @@
         "h": 4,
         "w": 3,
         "x": 11,
-        "y": 12
+        "y": 29
       },
       "id": 6,
       "options": {
@@ -693,7 +1005,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "autopeering_neighbor_connections_count - autopeering_neighbor_drop_count",
@@ -731,7 +1043,7 @@
         "h": 4,
         "w": 4,
         "x": 14,
-        "y": 12
+        "y": 29
       },
       "id": 2,
       "options": {
@@ -747,7 +1059,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "autopeering_avg_neighbor_connection_lifetime",
@@ -788,7 +1100,7 @@
         "h": 4,
         "w": 3,
         "x": 18,
-        "y": 12
+        "y": 29
       },
       "id": 8,
       "options": {
@@ -804,7 +1116,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "autopeering_neighbor_connections_count",
@@ -845,7 +1157,7 @@
         "h": 4,
         "w": 3,
         "x": 21,
-        "y": 12
+        "y": 29
       },
       "id": 10,
       "options": {
@@ -861,7 +1173,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "autopeering_neighbor_drop_count",
@@ -894,7 +1206,7 @@
         "h": 10,
         "w": 11,
         "x": 0,
-        "y": 15
+        "y": 32
       },
       "hiddenSeries": false,
       "id": 52,
@@ -994,7 +1306,7 @@
         "h": 9,
         "w": 7,
         "x": 11,
-        "y": 16
+        "y": 33
       },
       "hiddenSeries": false,
       "id": 16,
@@ -1088,7 +1400,7 @@
         "h": 9,
         "w": 6,
         "x": 18,
-        "y": 16
+        "y": 33
       },
       "hiddenSeries": false,
       "id": 18,
@@ -1182,7 +1494,7 @@
         "h": 10,
         "w": 11,
         "x": 0,
-        "y": 25
+        "y": 42
       },
       "hiddenSeries": false,
       "id": 26,
@@ -1308,7 +1620,7 @@
         "h": 3,
         "w": 6,
         "x": 11,
-        "y": 25
+        "y": 42
       },
       "id": 61,
       "mode": "markdown",
@@ -1340,7 +1652,7 @@
         "h": 2,
         "w": 2,
         "x": 11,
-        "y": 28
+        "y": 45
       },
       "id": 67,
       "options": {
@@ -1356,7 +1668,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "traffic_gossip_outbound_bytes",
@@ -1393,7 +1705,7 @@
         "h": 2,
         "w": 2,
         "x": 13,
-        "y": 28
+        "y": 45
       },
       "id": 66,
       "options": {
@@ -1409,7 +1721,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "traffic_gossip_inbound_bytes",
@@ -1446,7 +1758,7 @@
         "h": 2,
         "w": 2,
         "x": 15,
-        "y": 28
+        "y": 45
       },
       "id": 59,
       "options": {
@@ -1462,7 +1774,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "traffic_analysis_outbound_bytes",
@@ -1499,7 +1811,7 @@
         "h": 2,
         "w": 3,
         "x": 11,
-        "y": 30
+        "y": 47
       },
       "id": 63,
       "options": {
@@ -1515,7 +1827,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "traffic_autopeering_outbound_bytes",
@@ -1552,7 +1864,7 @@
         "h": 2,
         "w": 3,
         "x": 14,
-        "y": 30
+        "y": 47
       },
       "id": 62,
       "options": {
@@ -1568,7 +1880,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "traffic_autopeering_inbound_bytes",
@@ -1605,7 +1917,7 @@
         "h": 2,
         "w": 2,
         "x": 11,
-        "y": 32
+        "y": 49
       },
       "id": 64,
       "options": {
@@ -1621,7 +1933,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "traffic_fpc_inbound_bytes",
@@ -1658,7 +1970,7 @@
         "h": 2,
         "w": 2,
         "x": 13,
-        "y": 32
+        "y": 49
       },
       "id": 65,
       "options": {
@@ -1674,7 +1986,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "traffic_fpc_outbound_bytes",
@@ -1695,7 +2007,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 35
+        "y": 52
       },
       "id": 34,
       "panels": [],
@@ -1720,7 +2032,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 36
+        "y": 53
       },
       "hiddenSeries": false,
       "id": 36,
@@ -1823,7 +2135,7 @@
         "h": 8,
         "w": 4,
         "x": 12,
-        "y": 36
+        "y": 53
       },
       "id": 38,
       "options": {
@@ -1839,7 +2151,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "fpc_avg_rounds_to_finalize",
@@ -1880,7 +2192,7 @@
         "h": 8,
         "w": 3,
         "x": 16,
-        "y": 36
+        "y": 53
       },
       "id": 42,
       "options": {
@@ -1896,7 +2208,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "fpc_finalized_conflicts",
@@ -1937,7 +2249,7 @@
         "h": 8,
         "w": 3,
         "x": 19,
-        "y": 36
+        "y": 53
       },
       "id": 40,
       "options": {
@@ -1953,7 +2265,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.6",
       "targets": [
         {
           "expr": "fpc_failed_conflicts",
@@ -1986,7 +2298,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 44
+        "y": 61
       },
       "hiddenSeries": false,
       "id": 44,
@@ -2080,7 +2392,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 44
+        "y": 61
       },
       "hiddenSeries": false,
       "id": 50,
@@ -2175,7 +2487,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 52
+        "y": 69
       },
       "hiddenSeries": false,
       "id": 49,
@@ -2269,7 +2581,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 52
+        "y": 69
       },
       "hiddenSeries": false,
       "id": 46,
@@ -2376,5 +2688,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "kjOQZ2ZMk",
-  "version": 5
+  "version": 2
 }
