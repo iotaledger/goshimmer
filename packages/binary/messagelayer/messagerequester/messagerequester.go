@@ -14,7 +14,7 @@ type MessageRequester struct {
 	options           *Options
 	Events            Events
 
-	scheduledRequestsMutex sync.Mutex
+	scheduledRequestsMutex sync.RWMutex
 }
 
 // New creates a new message requester.
