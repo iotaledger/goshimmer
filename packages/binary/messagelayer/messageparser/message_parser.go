@@ -21,11 +21,6 @@ type MessageParser struct {
 	messageFiltersModified typeutils.AtomicBool
 	bytesFiltersMutex      sync.Mutex
 	messageFiltersMutex    sync.Mutex
-
-	// only used for workerpool debugging
-	MessageSignatureFilter  *builtinfilters.MessageSignatureFilter
-	PowFilter               *builtinfilters.PowFilter
-	RecentlySeenBytesFilter *builtinfilters.RecentlySeenBytesFilter
 }
 
 // New creates a new message parser.
@@ -47,10 +42,8 @@ func New() (result *MessageParser) {
 	}
 
 	// add builtin filters
-	result.RecentlySeenBytesFilter = builtinfilters.NewRecentlySeenBytesFilter()
-	result.AddBytesFilter(result.RecentlySeenBytesFilter)
-	result.MessageSignatureFilter = builtinfilters.NewMessageSignatureFilter()
-	result.AddMessageFilter(result.MessageSignatureFilter)
+	result.AddBytesFilter(builtinfilters.NewRecentlySeenBytesFilter())
+	result.AddMessageFilter(builtinfilters.NewMessageSignatureFilter())
 	return
 }
 

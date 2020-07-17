@@ -30,7 +30,6 @@ func run(*node.Plugin) {
 
 	log.Infof("%s started: difficult=%d", PluginName, difficulty)
 
-	messagelayer.MessageParser().PowFilter = builtinfilters.NewPowFilter(worker, difficulty)
-	messagelayer.MessageParser().AddBytesFilter(messagelayer.MessageParser().PowFilter)
+	messagelayer.MessageParser().AddBytesFilter(builtinfilters.NewPowFilter(worker, difficulty))
 	messagelayer.MessageFactory().SetWorker(messagefactory.WorkerFunc(DoPOW))
 }
