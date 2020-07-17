@@ -57,6 +57,7 @@ func New(store kvstore.KVStore) (result *Tangle) {
 	}
 
 	result.solidifierWorkerPool.Tune(1024)
+	result.storeMessageWorkerPool.Tune(1024)
 	return
 }
 

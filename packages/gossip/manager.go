@@ -22,8 +22,8 @@ const (
 )
 
 var (
-	messageWorkerCount     = runtime.GOMAXPROCS(0)
-	messageWorkerQueueSize = 500
+	messageWorkerCount     = runtime.GOMAXPROCS(0) * 4
+	messageWorkerQueueSize = 1000
 
 	messageRequestWorkerCount     = 1
 	messageRequestWorkerQueueSize = 100
