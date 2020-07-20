@@ -76,7 +76,7 @@ func TestNewTransactionFromJSON(t *testing.T) {
 	jsonRequest := Request{
 		Inputs:     inputsBase58,
 		Outputs:    outputsBase58,
-		Data:       base58.Encode([]byte("TEST")),
+		Data:       []byte("TEST"),
 		Signatures: signaturesBase58,
 	}
 	txFromJSON, err := NewTransactionFromJSON(jsonRequest)

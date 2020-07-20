@@ -123,12 +123,8 @@ func NewTransactionFromJSON(request Request) (*transaction.Transaction, error) {
 	tx := transaction.New(transaction.NewInputs(inputs...), transaction.NewOutputs(outputs))
 
 	// add data payload
-	if request.Data != "" {
-		data, err := base58.Decode(request.Data)
-		if err != nil {
-			return nil, ErrMalformedData
-		}
-		tx.SetDataPayload(data)
+	if request.Data != nil {
+		tx.SetDataPayload(request.Data)
 	}
 
 	// add signatures
@@ -204,7 +200,7 @@ func NewTransactionFromJSON(request Request) (*transaction.Transaction, error) {
 // 		   "color": string
 // 	   }[];
 // 	 }[],
-// 	 "data": string,
+// 	 "data": []byte,
 // 	 "signatures": {
 // 		"version": number,
 // 		"publicKey": string,
@@ -214,7 +210,7 @@ func NewTransactionFromJSON(request Request) (*transaction.Transaction, error) {
 type Request struct {
 	Inputs     []string    `json:"inputs"`
 	Outputs    []Output    `json:"outputs"`
-	Data       string      `json:"data,omitempty"`
+	Data       []byte      `json:"data,omitempty"`
 	Signatures []Signature `json:"signatures"`
 }
 
