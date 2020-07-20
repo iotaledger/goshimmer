@@ -32,7 +32,7 @@ type Manager struct {
 
 	wg sync.WaitGroup
 
-	mu        sync.Mutex
+	mu        sync.RWMutex
 	srv       *server.TCP
 	neighbors map[identity.ID]*Neighbor
 
@@ -149,8 +149,8 @@ func (m *Manager) SendMessage(msgData []byte, to ...identity.ID) {
 
 // AllNeighbors returns all the neighbors that are currently connected.
 func (m *Manager) AllNeighbors() []*Neighbor {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	result := make([]*Neighbor, 0, len(m.neighbors))
 	for _, n := range m.neighbors {
@@ -169,8 +169,8 @@ func (m *Manager) getNeighbors(ids ...identity.ID) []*Neighbor {
 func (m *Manager) getNeighborsByID(ids []identity.ID) []*Neighbor {
 	result := make([]*Neighbor, 0, len(ids))
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
 	for _, id := range ids {
 		if n, ok := m.neighbors[id]; ok {
