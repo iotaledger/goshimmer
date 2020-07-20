@@ -1,7 +1,6 @@
 package payload
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -21,7 +20,7 @@ const (
 
 var (
 	// ErrMaxPayloadSizeExceeded is returned if the maximum payload size is exceeded.
-	ErrMaxPayloadSizeExceeded = errors.New(fmt.Sprintf("maximum payload size of %d bytes exceeded", MaxPayloadSize))
+	ErrMaxPayloadSizeExceeded = fmt.Errorf("maximum payload size of %d bytes exceeded", MaxPayloadSize)
 )
 
 func init() {
