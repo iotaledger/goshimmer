@@ -49,6 +49,9 @@ func sendVertex(cachedMessage *message.CachedMessage, cachedMessageMetadata *tan
 	defer cachedMessageMetadata.Release()
 
 	msg := cachedMessage.Unwrap()
+	if msg == nil {
+		return
+	}
 	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
 		ID:       msg.Id().String(),
 		TrunkID:  msg.TrunkId().String(),
