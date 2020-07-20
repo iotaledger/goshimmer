@@ -101,7 +101,7 @@ func websocketRoute(c echo.Context) error {
 	defer removeWsClient(clientID)
 
 	// replay autopeering events from the past upon connecting a new client
-	analysisserver.ReplayAutopeeringEvents(createAutopeeringEventHandlers(ws, createSyncNodeCallback, createSyncLinkCallback))
+	analysisserver.ReplayAutopeeringEvents(createAutopeeringEventHandlers(ws))
 
 	// replay FPC past events
 	replayFPCRecords(ws)

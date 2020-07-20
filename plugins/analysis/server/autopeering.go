@@ -76,7 +76,7 @@ func (nm *NetworkMap) update(hb *packet.Heartbeat) {
 
 	// when node is new, add to graph
 	if _, isAlready := nm.nodes[nodeIDString]; !isAlready {
-		Events.AddNode.Trigger(nodeIDString)
+		Events.AddNode.Trigger(&AddNodeEvent{NetworkVersion: nm.version, NodeID: nodeIDString})
 	}
 	// save it + update timestamp
 	nm.nodes[nodeIDString] = timestamp
@@ -88,7 +88,7 @@ func (nm *NetworkMap) update(hb *packet.Heartbeat) {
 		// if no, add it and set it online
 		if _, isAlready := nm.nodes[outgoingNeighborString]; !isAlready {
 			// first time we see this particular node
-			Events.AddNode.Trigger(outgoingNeighborString)
+			Events.AddNode.Trigger(&AddNodeEvent{NetworkVersion: nm.version, NodeID: outgoingNeighborString})
 		}
 		// we have indirectly heard about the neighbor.
 		nm.nodes[outgoingNeighborString] = timestamp
@@ -101,7 +101,7 @@ func (nm *NetworkMap) update(hb *packet.Heartbeat) {
 
 		// update graph when connection hasn't been seen before
 		if _, isAlready := nm.links[nodeIDString][outgoingNeighborString]; !isAlready {
-			Events.ConnectNodes.Trigger(nodeIDString, outgoingNeighborString)
+			Events.ConnectNodes.Trigger(&ConnectNodesEvent{NetworkVersion: nm.version, SourceID: nodeIDString, TargetID: outgoingNeighborString})
 		}
 		// update links
 		nm.links[nodeIDString][outgoingNeighborString] = timestamp
@@ -114,7 +114,7 @@ func (nm *NetworkMap) update(hb *packet.Heartbeat) {
 		// if no, add it and set it online
 		if _, isAlready := nm.nodes[incomingNeighborString]; !isAlready {
 			// First time we see this particular node
-			Events.AddNode.Trigger(incomingNeighborString)
+			Events.AddNode.Trigger(&AddNodeEvent{NetworkVersion: nm.version, NodeID: incomingNeighborString})
 		}
 		// we have indirectly heard about the neighbor.
 		nm.nodes[incomingNeighborString] = timestamp
@@ -127,7 +127,7 @@ func (nm *NetworkMap) update(hb *packet.Heartbeat) {
 
 		// update graph when connection hasn't been seen before
 		if _, isAlready := nm.links[incomingNeighborString][nodeIDString]; !isAlready {
-			Events.ConnectNodes.Trigger(incomingNeighborString, nodeIDString)
+			Events.ConnectNodes.Trigger(&ConnectNodesEvent{NetworkVersion: nm.version, SourceID: incomingNeighborString, TargetID: nodeIDString})
 		}
 		// update links map
 		nm.links[incomingNeighborString][nodeIDString] = timestamp
@@ -163,7 +163,7 @@ func cleanUp(interval time.Duration) {
 			for trgNode, lastSeen := range targetMap {
 				if now.Sub(lastSeen) > interval {
 					delete(targetMap, trgNode)
-					Events.DisconnectNodes.Trigger(srcNode, trgNode)
+					Events.DisconnectNodes.Trigger(&DisconnectNodesEvent{NetworkVersion: networkMap.version, SourceID: srcNode, TargetID: trgNode})
 				}
 			}
 			// delete src node from links if it doesn't have any connections
@@ -176,12 +176,11 @@ func cleanUp(interval time.Duration) {
 		for node, lastSeen := range networkMap.nodes {
 			if now.Sub(lastSeen) > interval {
 				delete(networkMap.nodes, node)
-				Events.RemoveNode.Trigger(node)
+				Events.RemoveNode.Trigger(&RemoveNodeEvent{NetworkVersion: networkMap.version, NodeID: node})
 			}
 		}
 		networkMap.lock.Unlock()
 	}
-
 }
 
 func (nm *NetworkMap) getEventsToReplay() (map[string]time.Time, map[string]map[string]time.Time) {
@@ -212,12 +211,12 @@ func ReplayAutopeeringEvents(handlers *EventHandlers) {
 		// when a node is present in the list, it means we heard about it directly
 		// or indirectly, but within CLEAN_UP_PERIOD, therefore it is online
 		for nodeID := range copiedNodes {
-			handlers.AddNode(nodeID)
+			handlers.AddNode(&AddNodeEvent{NetworkVersion: network.version, NodeID: nodeID})
 		}
 
 		for sourceID, targetMap := range copiedLinks {
 			for targetID := range targetMap {
-				handlers.ConnectNodes(sourceID, targetID)
+				handlers.ConnectNodes(&ConnectNodesEvent{NetworkVersion: network.version, SourceID: sourceID, TargetID: targetID})
 			}
 		}
 	}
@@ -227,13 +226,13 @@ func ReplayAutopeeringEvents(handlers *EventHandlers) {
 // EventHandlers holds the handler for each event of the record manager.
 type EventHandlers struct {
 	// Addnode defines the handler called when adding a new node.
-	AddNode func(nodeId string)
+	AddNode func(event *AddNodeEvent)
 	// RemoveNode defines the handler called when adding removing a node.
-	RemoveNode func(nodeId string)
+	RemoveNode func(event *RemoveNodeEvent)
 	// ConnectNodes defines the handler called when connecting two nodes.
-	ConnectNodes func(sourceId string, targetId string)
+	ConnectNodes func(event *ConnectNodesEvent)
 	// DisconnectNodes defines the handler called when connecting two nodes.
-	DisconnectNodes func(sourceId string, targetId string)
+	DisconnectNodes func(event *DisconnectNodesEvent)
 }
 
 // EventHandlersConsumer defines the consumer function of an *EventHandlers.
