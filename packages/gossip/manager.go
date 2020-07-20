@@ -26,7 +26,7 @@ var (
 	messageWorkerCount     = runtime.GOMAXPROCS(0) * 4
 	messageWorkerQueueSize = 1000
 
-	messageRequestWorkerCount     = 1
+	messageRequestWorkerCount     = runtime.GOMAXPROCS(0)
 	messageRequestWorkerQueueSize = 100
 )
 

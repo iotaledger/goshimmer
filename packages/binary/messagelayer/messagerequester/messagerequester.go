@@ -40,8 +40,7 @@ func (requester *MessageRequester) StartRequest(id message.Id) {
 		return
 	}
 
-	// trigger the event and schedule the next request
-	// make this atomic to be sure that a successive call of StartRequest does not trigger again
+	// schedule the next request and trigger the event
 	requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id) })
 	requester.scheduledRequestsMutex.Unlock()
 	requester.Events.SendRequest.Trigger(id)
