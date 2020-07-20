@@ -79,10 +79,10 @@ func configure(_ *node.Plugin) {
 	}
 
 	if str := config.Node().GetString(CfgDatabaseDirty); str != "" {
-		val ,err := strconv.ParseBool(str)
+		val, err := strconv.ParseBool(str)
 		if err != nil {
 			log.Warnf("Invalid %s: %s", CfgDatabaseDirty, err)
-		} else if val  {
+		} else if val {
 			MarkDatabaseUnhealthy()
 		} else {
 			MarkDatabaseHealthy()
