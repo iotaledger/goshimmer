@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"container/list"
-	"fmt"
 	"runtime"
 	"time"
 
@@ -114,9 +113,6 @@ func (tangle *Tangle) Shutdown() *Tangle {
 	tangle.solidifierWorkerPool.ShutdownGracefully()
 
 	tangle.messageStorage.Shutdown()
-	// Prints the number of messages in messageMetadataStorage before shutting it down (to console).
-	// TODO: get rid of console printing
-	tangle.DBStats()
 	tangle.messageMetadataStorage.Shutdown()
 	tangle.approverStorage.Shutdown()
 	tangle.missingMessageStorage.Shutdown()
@@ -145,7 +141,6 @@ func (tangle *Tangle) Prune() error {
 func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidificationTime float64) {
 	var sumSolidificationTime time.Duration
 	var iterations int
-	// TODO: iterating over a huge database doesn't seem to be efficient...
 	tangle.messageMetadataStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		iterations++
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
@@ -162,8 +157,6 @@ func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidifica
 	if solidCount > 0 {
 		avgSolidificationTime = float64(sumSolidificationTime.Milliseconds()) / float64(solidCount)
 	}
-	// TODO: get rid of console printing
-	fmt.Println("solid", solidCount, "message", messageCount, "iterations", iterations)
 	return
 }
 
