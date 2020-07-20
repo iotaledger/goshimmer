@@ -19,4 +19,6 @@ var (
 	ErrTransactionDoesNotSpendAllFunds = errors.New("transaction does not spend all funds from inputs")
 	// ErrInvalidTransactionSignature is returned if the signature of a transaction is invalid.
 	ErrInvalidTransactionSignature = errors.New("missing or invalid transaction signature")
+	// ErrMaxTransactionInputCountExceeded is returned if the max number of inputs of the transaction is exceeded.
+	ErrMaxTransactionInputCountExceeded = errors.New("maximum transaction input count exceeded")
 )

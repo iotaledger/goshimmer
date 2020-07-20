@@ -20,6 +20,11 @@ var (
 	ErrMaxDataPayloadSizeExceeded = errors.New("maximum data payload size exceeded")
 )
 
+const (
+	// MaxTransactionInputCount is the maximum number of inputs a transaction can have
+	MaxTransactionInputCount = 100
+)
+
 // region IMPLEMENT Transaction ////////////////////////////////////////////////////////////////////////////////////////////
 
 // Transaction represents a value transfer for IOTA. It consists out of a number of inputs, a number of outputs and their
@@ -170,6 +175,11 @@ func (transaction *Transaction) SignaturesValid() bool {
 	})
 
 	return signaturesValid
+}
+
+// InputsCountValid returns true if the number of inputs in this transaction is not greater than MaxTransactionInputCount.
+func (transaction *Transaction) InputsCountValid() bool {
+	return transaction.inputs.Size() <= MaxTransactionInputCount
 }
 
 // EssenceBytes return the bytes of the transaction excluding the Signatures. These bytes are later signed and used to

@@ -119,7 +119,7 @@ func CheckForMessageIds(t *testing.T, peers []*framework.Peer, ids map[string]Da
 			// check that the peer sees itself as synchronized
 			info, err := peer.Info()
 			require.NoError(t, err)
-			require.True(t, info.Synced)
+			assert.Truef(t, info.Synced, "Node %s is not synced", peer)
 		}
 
 		resp, err := peer.FindMessageByID(idsSlice)
