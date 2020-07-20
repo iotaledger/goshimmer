@@ -3,19 +3,23 @@ import {connectWebSocket, registerHandler, WSMsgType} from "app/misc/WS";
 import {default as Viva} from 'vivagraphjs';
 
 export class AddNodeMessage {
+    networkVersion: string;
     id: string;
 }
 
 export class RemoveNodeMessage {
+    networkVersion: string;
     id: string;
 }
 
 export class ConnectNodesMessage {
+    networkVersion: string;
     source: string;
     target: string
 }
 
 export class DisconnectNodesMessage {
+    networkVersion: string;
     source: string;
     target: string
 }
