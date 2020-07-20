@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-// TestSyncBeacon checks that sync payloads are being gossiped through the network,
-// and follower nodes are using those payloads to determine if they are synced or not.
+// TestSyncBeacon checks that beacon nodes broadcast sync beacons
+// and follower nodes use those payloads to determine if they are synced or not.
 func TestSyncBeacon(t *testing.T) {
 	framework.ParaPoWDifficulty = 0
 	initialPeers := 4
@@ -41,33 +41,29 @@ func TestSyncBeacon(t *testing.T) {
 	ids := tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], 10)
 
 	log.Println("Waiting...")
-	// wait for beacon nodes to broadcast their sync status
+	// wait for beacon nodes to broadcast
 	time.Sleep(40 * time.Second)
 	log.Println("done waiting.")
 
-	// expect all beacon nodes to be synced and send their statuses.
-	// node is also synced internally. So it should be synced.
 	resp, err := peer.Info()
 	require.NoError(t, err)
 	assert.Truef(t, resp.Synced, "Peer %s should be synced but is desynced!", peer.String())
 
 	// 2. shutdown all but 1 beacon node
-	for _, p := range peers[:len(peers) - 2] {
+	for _, p := range peers[:len(peers)-2] {
 		p.Stop()
 	}
 
 	// send some messages to the still running nodes
 	// last node is the test node.
-	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[initialPeers - 2 : initialPeers - 1], 10, ids)
+	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[initialPeers-2:initialPeers-1], 10, ids)
 
 	// wait for peers to sync and broadcast
 	log.Println("Waiting...")
 	time.Sleep(40 * time.Second)
 	log.Println("done waiting.")
 
-
-	// expect majority of nodes to not have updated their status. Hence should be false.
-	// even though this node should be synced internally wrt to anchor points, it should be desynced wrt to its beacons.
+	// expect majority of nodes to not have broadcasted beacons. Hence should be desynced due to cleanup.
 	resp, err = peer.Info()
 	require.NoError(t, err)
 	assert.Falsef(t, resp.Synced, "Peer %s should be desynced but is synced!", peer.String())

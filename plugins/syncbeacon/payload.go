@@ -17,15 +17,13 @@ var Type = payload.Type(200)
 // Payload represents the syncbeacon payload
 type Payload struct {
 	payloadType payload.Type
-	syncStatus  bool
 	sentTime    int64
 }
 
 // NewSyncBeaconPayload creates a new syncbeacon payload
-func NewSyncBeaconPayload(status bool, sentTime int64) *Payload {
+func NewSyncBeaconPayload(sentTime int64) *Payload {
 	return &Payload{
 		payloadType: Type,
-		syncStatus:  status,
 		sentTime:    sentTime,
 	}
 }
@@ -51,10 +49,6 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	if err != nil {
 		return
 	}
-	result.syncStatus, err = marshalUtil.ReadBool()
-	if err != nil {
-		return
-	}
 	result.sentTime, err = marshalUtil.ReadInt64()
 	if err != nil {
 		return
@@ -71,11 +65,6 @@ func (p *Payload) Type() payload.Type {
 	return p.payloadType
 }
 
-// SyncStatus returns the sync sync status of the  Payload.
-func (p *Payload) SyncStatus() bool {
-	return p.syncStatus
-}
-
 // SentTime returns the time that payload was sent.
 func (p *Payload) SentTime() int64 {
 	return p.sentTime
@@ -88,7 +77,6 @@ func (p *Payload) Bytes() []byte {
 
 	// marshal the p specific information
 	marshalUtil.WriteUint32(p.payloadType)
-	marshalUtil.WriteBool(p.syncStatus)
 	marshalUtil.WriteInt64(p.sentTime)
 
 	// return result
@@ -105,7 +93,6 @@ func (p *Payload) Unmarshal(data []byte) (err error) {
 // String returns a human readable version of syncbeacon payload (for debug purposes).
 func (p *Payload) String() string {
 	return stringify.Struct("syncBeaconPayload",
-		stringify.StructField("syncStatus", p.syncStatus),
 		stringify.StructField("sentTime", p.sentTime))
 }
 

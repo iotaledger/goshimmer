@@ -7,24 +7,24 @@ import (
 )
 
 func TestPayload(t *testing.T) {
-	originalPayload := NewSyncBeaconPayload(true, time.Now().UnixNano())
+	originalPayload := NewSyncBeaconPayload(time.Now().UnixNano())
 	clonedPayload1, err, _ := FromBytes(originalPayload.Bytes())
 	if err != nil {
 		panic(err)
 	}
 
-	assert.Equal(t, originalPayload.SyncStatus(), clonedPayload1.SyncStatus())
+	assert.Equal(t, originalPayload.SentTime(), clonedPayload1.SentTime())
 
 	clonedPayload2, err, _ := FromBytes(clonedPayload1.Bytes())
 	if err != nil {
 		panic(err)
 	}
 
-	assert.Equal(t, originalPayload.SyncStatus(), clonedPayload2.SyncStatus())
+	assert.Equal(t, originalPayload.SentTime(), clonedPayload2.SentTime())
 }
 
 func TestIsSyncBeaconPayload(t *testing.T) {
-	p := NewSyncBeaconPayload(true, time.Now().UnixNano())
+	p := NewSyncBeaconPayload(time.Now().UnixNano())
 
 	isSyncBeaconPayload := IsSyncBeaconPayload(p)
 	assert.True(t, isSyncBeaconPayload)

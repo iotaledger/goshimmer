@@ -1,12 +1,14 @@
 package syncbeacon
 
 import (
-	gossipPkg "github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/gossip"
+	"github.com/iotaledger/goshimmer/plugins/issuer"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/sync"
-	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -39,9 +41,15 @@ const (
 	// CfgSyncBeaconCleanupInterval defines the interval that old beacon status are cleaned up.
 	CfgSyncBeaconCleanupInterval = "syncbeacon.cleanupInterval"
 
-	// The percentage of following nodes that have to be synced
+	// The percentage of following nodes that have to be synced.
 	syncPercentage = 0.6
 )
+
+// beaconSync represents the beacon payload and the sync status.
+type beaconSync struct {
+	payload *Payload
+	synced  bool
+}
 
 func init() {
 	flag.StringSlice(CfgSyncBeaconFollowNodes, []string{"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24", "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"}, "list of trusted nodes to follow their sync status")
@@ -57,8 +65,7 @@ var (
 	plugin                *node.Plugin
 	once                  goSync.Once
 	log                   *logger.Logger
-	mgr                   *gossipPkg.Manager
-	beaconNodesStatusMap  map[string]Payload
+	beaconSyncMap         map[string]beaconSync
 	beaconNodesPublicKeys []string
 )
 
@@ -74,37 +81,35 @@ func Plugin() *node.Plugin {
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	beaconNodesPublicKeys = config.Node().GetStringSlice(CfgSyncBeaconFollowNodes)
-	beaconNodesStatusMap = make(map[string]Payload, len(beaconNodesPublicKeys))
-	for _, key := range beaconNodesPublicKeys {
-		beaconNodesStatusMap[key] = Payload{}
-	}
-	mgr = gossip.Manager()
+	beaconSyncMap = make(map[string]beaconSync, len(beaconNodesPublicKeys))
 
-	gossip.Manager().Events().MessageReceived.Attach(events.NewClosure(func(event *gossipPkg.MessageReceivedEvent) {
-		payload := &Payload{}
-		err := payload.Unmarshal(event.Data)
-		if err != nil {
-			log.Info("error unmarshalling", err)
-		} else {
-			handlePayload(payload, event.Peer)
-		}
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		cachedMessageMetadata.Release()
+		cachedMessage.Consume(func(msg *message.Message) {
+			payload := &Payload{}
+			err := payload.Unmarshal(msg.Payload().Bytes())
+			if err != nil {
+				return
+			}
+			if !IsSyncBeaconPayload(payload) {
+				return
+			}
+
+			handlePayload(payload, msg.IssuerPublicKey())
+		})
 	}))
 }
 
 // handlePayload handles the received payload. It does the following checks:
-// - The payload is a syncbeacon payload. Then it checks that the issuer of the payload is a followed node.
+// - It checks that the issuer of the payload is a followed node.
 // - The time that payload was sent is not greater than  CfgSyncBeaconMaxTimeWindowSec. If the duration is longer than CfgSyncBeaconMaxTimeWindowSec, we consider that beacon to be out of sync till we receive a newer payload.
-// - If the node is synced and more than syncPercentage of followed nodes are also synced, the node is set to synced. Otherwise, its set as desynced.
-func handlePayload(syncBeaconPayload *Payload, peer *peer.Peer) {
-	if !IsSyncBeaconPayload(syncBeaconPayload) {
-		return
-	}
-	peerPublicKey := peer.PublicKey().String()
-
-	//check if peer is in configured beacon follow list
+// - More than syncPercentage of followed nodes are also synced, the node is set to synced. Otherwise, its set as desynced.
+func handlePayload(syncBeaconPayload *Payload, issuerPublicKey ed25519.PublicKey) {
+	issuerPublicKeyStr := issuerPublicKey.String()
+	//check if issuer is in configured beacon follow list
 	shouldAccept := false
 	for i := 0; i < len(beaconNodesPublicKeys); i++ {
-		if beaconNodesPublicKeys[i] == peerPublicKey {
+		if beaconNodesPublicKeys[i] == issuerPublicKeyStr {
 			shouldAccept = true
 			break
 		}
@@ -112,31 +117,36 @@ func handlePayload(syncBeaconPayload *Payload, peer *peer.Peer) {
 	if !shouldAccept {
 		return
 	}
+	_beaconSync := beaconSync{
+		payload: syncBeaconPayload,
+		synced:  true,
+	}
 
 	dur := time.Since(time.Unix(0, syncBeaconPayload.sentTime))
 	if dur.Seconds() > float64(config.Node().GetInt(CfgSyncBeaconMaxTimeWindowSec)) {
-		log.Infof("syncbeacon payload received from %s is too old", peerPublicKey)
-		syncBeaconPayload.syncStatus = false
+		log.Infof("syncbeacon received from %s is too old", issuerPublicKey)
+		_beaconSync.synced = false
 	}
 
-	beaconNodesStatusMap[peerPublicKey] = *syncBeaconPayload
+	beaconSyncMap[issuerPublicKeyStr] = _beaconSync
 	updateSynced()
 }
 
 // updateSynced checks the beacon nodes and update the nodes sync status
 func updateSynced() {
 	beaconNodesSyncedCount := 0.0
-	for _, p := range beaconNodesStatusMap {
-		if p.SyncStatus() {
+	for _, beaconSync := range beaconSyncMap {
+		if beaconSync.synced {
 			beaconNodesSyncedCount++
 		}
 	}
-	isBeaconSynced := true
-	if len(beaconNodesStatusMap) > 0 {
-		isBeaconSynced = beaconNodesSyncedCount/float64(len(beaconNodesStatusMap)) >= syncPercentage
+	synced := true
+	if len(beaconSyncMap) > 0 {
+		synced = beaconNodesSyncedCount/float64(len(beaconSyncMap)) >= syncPercentage
 	}
+
 	isLocalSynced := sync.Synced()
-	if isLocalSynced && isBeaconSynced {
+	if isLocalSynced && synced {
 		sync.MarkSynced()
 	} else {
 		sync.MarkDesynced()
@@ -145,18 +155,20 @@ func updateSynced() {
 
 // broadcastSyncBeaconPayload broadcasts its sync status to its neighbors.
 func broadcastSyncBeaconPayload() {
-	syncBeaconPayload := NewSyncBeaconPayload(sync.Synced(), time.Now().UnixNano())
-	//msg := message.New(message.EmptyId, message.EmptyId, time.Now(), local.GetInstance().LocalIdentity().PublicKey(), 0, syncBeaconPayload, 0, ed25519.Signature{})
-	mgr.SendMessage(syncBeaconPayload.Bytes())
+	syncBeaconPayload := NewSyncBeaconPayload(time.Now().UnixNano())
+	_, err := issuer.IssuePayload(syncBeaconPayload)
+	if err != nil {
+		log.Info("sync beacon issued")
+	}
 }
 
 // cleanupFollowNodes cleans up offline nodes by setting their sync status to false after a configurable time window.
 func cleanupFollowNodes() {
-	for publicKey, syncBeaconPayload := range beaconNodesStatusMap {
-		dur := time.Since(time.Unix(0, syncBeaconPayload.sentTime))
+	for publicKey, beaconSync := range beaconSyncMap {
+		dur := time.Since(time.Unix(0, beaconSync.payload.sentTime))
 		if dur.Seconds() > float64(config.Node().GetInt(CfgSyncBeaconMaxTimeOfflineSec)) {
-			syncBeaconPayload.syncStatus = false
-			beaconNodesStatusMap[publicKey] = syncBeaconPayload
+			beaconSync.synced = false
+			beaconSyncMap[publicKey] = beaconSync
 		}
 	}
 	updateSynced()
