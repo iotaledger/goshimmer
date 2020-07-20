@@ -9,6 +9,7 @@ services:
     volumes:
       - ../../..:/tmp/goshimmer:ro
       - goshimmer-cache:/go
+#      - ../../../../hive.go:/tmp/hive.go:ro
 
 volumes:
   goshimmer-cache:
