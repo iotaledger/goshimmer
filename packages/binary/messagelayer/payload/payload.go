@@ -1,20 +1,26 @@
 package payload
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
-var (
-	// ErrMaximumPayloadSizeExceeded is returned if the payload exceeds the maximum size.
-	ErrMaximumPayloadSizeExceeded = errors.New("maximum payload size exceeded")
-)
-
 const (
 	// ObjectName defines the name of the data object.
 	ObjectName = "data"
+
+	// MaxMessageSize defines the maximum size of a message.
+	MaxMessageSize = 64 * 1024
+
+	// MaxPayloadSize defines the maximum size of a payload.
+	// trunkID + branchID + issuerPublicKey + issuingTime + sequenceNumber + nonce + signature
+	MaxPayloadSize = MaxMessageSize - 64 - 64 - 32 - 8 - 8 - 8 - 64
+)
+
+var (
+	// ErrMaxPayloadSizeExceeded is returned if the maximum payload size is exceeded.
+	ErrMaxPayloadSizeExceeded = fmt.Errorf("maximum payload size of %d bytes exceeded", MaxPayloadSize)
 )
 
 func init() {
@@ -53,8 +59,8 @@ func FromBytes(bytes []byte) (result Payload, consumedBytes int, err error) {
 		return
 	}
 
-	if payloadSize > MaxDataPayloadSize {
-		err = fmt.Errorf("%w: %d", ErrMaximumPayloadSizeExceeded, MaxDataPayloadSize)
+	if payloadSize > MaxPayloadSize {
+		err = fmt.Errorf("%w: %d", ErrMaxPayloadSizeExceeded, payloadSize)
 		return
 	}
 

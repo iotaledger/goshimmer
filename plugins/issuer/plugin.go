@@ -36,5 +36,11 @@ func IssuePayload(payload payload.Payload) (*message.Message, error) {
 	if !sync.Synced() {
 		return nil, fmt.Errorf("can't issue payload: %w", sync.ErrNodeNotSynchronized)
 	}
-	return messagelayer.MessageFactory().IssuePayload(payload), nil
+
+	msg, err := messagelayer.MessageFactory().IssuePayload(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return msg, nil
 }

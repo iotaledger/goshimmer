@@ -1,6 +1,7 @@
 package faucet
 
 import (
+	"fmt"
 	"net/http"
 	goSync "sync"
 
@@ -64,9 +65,9 @@ func requestFunds(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
-	msg := messagelayer.MessageFactory().IssuePayload(faucetPayload)
-	if msg == nil {
-		return c.JSON(http.StatusInternalServerError, Response{Error: "Fail to send faucetrequest"})
+	msg, err := messagelayer.MessageFactory().IssuePayload(faucetPayload)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, Response{Error: fmt.Sprintf("Failed to send faucetrequest: %s", err.Error())})
 	}
 
 	return c.JSON(http.StatusOK, Response{ID: msg.Id().String()})
