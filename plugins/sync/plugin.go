@@ -125,6 +125,9 @@ func monitorForSyncAndDesync() {
 	})
 
 	initAnchorPointClosure := events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		if Synced() {
+			return
+		}
 		defer cachedMessage.Release()
 		defer cachedMessageMetadata.Release()
 		if addedAnchorID := initAnchorPoint(anchorPoints, cachedMessage.Unwrap()); addedAnchorID != nil {
@@ -135,6 +138,9 @@ func monitorForSyncAndDesync() {
 	})
 
 	checkAnchorPointSolidityClosure := events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		if Synced() {
+			return
+		}
 		defer cachedMessage.Release()
 		defer cachedMessageMetadata.Release()
 		allSolid, newSolidAnchorID := checkAnchorPointSolidity(anchorPoints, cachedMessage.Unwrap())
@@ -147,11 +153,8 @@ func monitorForSyncAndDesync() {
 			return
 		}
 
-		// only if the node was first desynced
-		if !Synced() {
-			synced <- types.Empty{}
-		}
-		// get new anchor points
+		synced <- types.Empty{}
+		// get new anchor points that will be filled when the node becomes desynced.
 		anchorPoints = newAnchorPoints(wantedAnchorPointsCount)
 	})
 
