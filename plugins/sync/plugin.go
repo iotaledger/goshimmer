@@ -64,6 +64,7 @@ var (
 	// tells whether the node is synced or not.
 	synced atomic.Bool
 	log    *logger.Logger
+	anchorPoints *anchorpoints
 )
 
 // Plugin gets the plugin instance.
@@ -87,6 +88,8 @@ func OverwriteSyncedState(syncedOverwrite bool) {
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
+	wantedAnchorPointsCount := config.Node().GetInt(CfgSyncAnchorPointsCount)
+	anchorPoints = newAnchorPoints(wantedAnchorPointsCount)
 }
 
 func run(_ *node.Plugin) {
@@ -136,6 +139,126 @@ func MarkDesynced() {
 	if !isRunning {
 		monitorForSynchronization()
 	}
+}
+
+// AnchorPoints gets the messages of the anchor points
+func AnchorPoints() []message.Id {
+	var messageIds []message.Id
+	for messageId, _ := range anchorPoints.ids {
+		messageIds = append(messageIds, messageId)
+	}
+	return messageIds
+}
+
+func monitorSyncAndDesynchronization() {
+	wantedAnchorPointsCount := config.Node().GetInt(CfgSyncAnchorPointsCount)
+	anchorPoints = newAnchorPoints(wantedAnchorPointsCount)
+	log.Infof("monitoring for synchronization, awaiting %d anchor point messages to become solid", wantedAnchorPointsCount)
+
+
+	// monitors the peer count of the manager and sets the node as desynced if it has no more peers.
+	noPeers := make(chan types.Empty)
+	monitorPeerCountClosure := events.NewClosure(func(_ *gossipPkg.Neighbor) {
+		anyPeers := len(gossip.Manager().AllNeighbors()) > 0
+		if anyPeers {
+			return
+		}
+		noPeers <- types.Empty{}
+	})
+
+
+	msgReceived := make(chan types.Empty, 1)
+	synced := make(chan types.Empty)
+
+	monitorMessageInflowClosure := events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		defer cachedMessage.Release()
+		defer cachedMessageMetadata.Release()
+		// ignore messages sent by the node itself
+		if local.GetInstance().LocalIdentity().PublicKey() == cachedMessage.Unwrap().IssuerPublicKey() {
+			return
+		}
+		select {
+		case msgReceived <- types.Empty{}:
+		default:
+			// via this default clause, a slow desync-monitor select-loop
+			// worker should not increase latency as it auto. falls through
+		}
+	})
+	initAnchorPointClosure := events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		defer cachedMessage.Release()
+		defer cachedMessageMetadata.Release()
+		if addedAnchorID := initAnchorPoint(anchorPoints, cachedMessage.Unwrap()); addedAnchorID != nil {
+			anchorPoints.Lock()
+			defer anchorPoints.Unlock()
+			log.Infof("added message %s as anchor point (%d of %d collected)", addedAnchorID.String()[:10], anchorPoints.collectedCount(), anchorPoints.wanted)
+		}
+	})
+
+	checkAnchorPointSolidityClosure := events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		defer cachedMessage.Release()
+		defer cachedMessageMetadata.Release()
+		allSolid, newSolidAnchorID := checkAnchorPointSolidity(anchorPoints, cachedMessage.Unwrap())
+
+		if newSolidAnchorID != nil {
+			log.Infof("anchor message %s has become solid", newSolidAnchorID.String()[:10])
+		}
+
+		if !allSolid {
+			return
+		}
+		synced <- types.Empty{}
+	})
+
+	if err := daemon.BackgroundWorker("Sync-Monitor", func(shutdownSignal <-chan struct{}) {
+		messagelayer.Tangle().Events.MessageAttached.Attach(initAnchorPointClosure)
+		defer messagelayer.Tangle().Events.MessageAttached.Detach(initAnchorPointClosure)
+		messagelayer.Tangle().Events.MessageSolid.Attach(checkAnchorPointSolidityClosure)
+		defer messagelayer.Tangle().Events.MessageSolid.Detach(checkAnchorPointSolidityClosure)
+
+		cleanupDelta := config.Node().GetDuration(CfgSyncAnchorPointsCleanupAfterSec) * time.Second
+		timer := time.NewTimer(1 * time.Second)
+		defer timer.Stop()
+		for {
+			select {
+			case <-timer.C:
+				anchorPoints.Lock()
+				for id, itGotAdded := range anchorPoints.ids {
+					if time.Since(itGotAdded) > cleanupDelta {
+						log.Infof("freeing anchor point slot of %s as it didn't become solid within %v", id.String()[:10], cleanupDelta)
+						delete(anchorPoints.ids, id)
+					}
+				}
+				anchorPoints.Unlock()
+			case <-shutdownSignal:
+				return
+			case <-synced:
+				log.Infof("all anchor messages have become solid, marking node as synced")
+				MarkSynced()
+				return
+
+			case <-msgReceived:
+				// we received a message, therefore reset the timer to check for message receives
+				if !timer.Stop() {
+					<-timer.C
+				}
+				// TODO: perhaps find a better way instead of constantly resetting the timer
+				timer.Reset(timeForDesync)
+
+			case <-timer.C:
+				log.Infof("no message received in %d seconds, marking node as desynced", int(timeForDesync.Seconds()))
+				MarkDesynced()
+				return
+
+			case <-noPeers:
+				log.Info("all peers have been lost, marking node as desynced")
+				MarkDesynced()
+				return
+			}
+		}
+	}, shutdown.PrioritySynchronization); err != nil {
+		log.Panicf("Failed to start as daemon: %s", err)
+	}
+
 }
 
 // starts a background worker and event handlers to check whether the node is desynchronized by checking
@@ -212,7 +335,7 @@ func monitorForDesynchronization() {
 // a set of newly received messages and then waiting for them to become solid.
 func monitorForSynchronization() {
 	wantedAnchorPointsCount := config.Node().GetInt(CfgSyncAnchorPointsCount)
-	anchorPoints := newAnchorPoints(wantedAnchorPointsCount)
+	anchorPoints = newAnchorPoints(wantedAnchorPointsCount)
 	log.Infof("monitoring for synchronization, awaiting %d anchor point messages to become solid", wantedAnchorPointsCount)
 
 	synced := make(chan types.Empty)
