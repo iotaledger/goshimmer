@@ -70,21 +70,6 @@ func (messageParser *MessageParser) AddMessageFilter(filter MessageFilter) {
 	messageParser.messageFiltersModified.Set()
 }
 
-// Shutdown shut downs the message parser and its corresponding registered filters.
-func (messageParser *MessageParser) Shutdown() {
-	messageParser.bytesFiltersMutex.Lock()
-	for _, bytesFilter := range messageParser.bytesFilters {
-		bytesFilter.Shutdown()
-	}
-	messageParser.bytesFiltersMutex.Unlock()
-
-	messageParser.messageFiltersMutex.Lock()
-	for _, messageFilter := range messageParser.messageFilters {
-		messageFilter.Shutdown()
-	}
-	messageParser.messageFiltersMutex.Unlock()
-}
-
 // sets up the byte filter data flow chain.
 func (messageParser *MessageParser) setupBytesFilterDataFlow() {
 	if !messageParser.byteFiltersModified.IsSet() {

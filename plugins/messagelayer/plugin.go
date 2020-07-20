@@ -132,7 +132,6 @@ func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		messageFactory.Shutdown()
-		messageParser.Shutdown()
 		_tangle.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
