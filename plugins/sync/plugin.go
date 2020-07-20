@@ -90,36 +90,32 @@ func configure(_ *node.Plugin) {
 }
 
 func run(_ *node.Plugin) {
-	// per default the node starts in a desynced state
-	if !Synced() {
-		monitorForSynchronization()
-		return
-	}
-
-	// however, another plugin might want to overwrite the synced state (i.e. the bootstrap plugin)
-	// in order to start issuing messages
-	monitorForDesynchronization()
+	monitorForSyncAndDesync()
 }
 
-// marks the node as synced and spawns the background worker to monitor desynchronization.
+// marks the node as synced.
 func markSynced() {
 	synced.Store(true)
-	monitorForDesynchronization()
 }
 
-// marks the node as desynced and spawns the background worker to monitor synchronization.
+// marks the node as desynced.
 func markDesynced() {
 	synced.Store(false)
-	monitorForSynchronization()
 }
 
-// starts a background worker and event handlers to check whether the node is desynchronized by checking
-// whether the node has no more peers or didn't receive any message in a given time period.
-func monitorForDesynchronization() {
-	log.Info("monitoring for desynchronization")
+// starts a background worker and event handlers to check whether the node is synchronized or desynchronized.
+// For synced, it collects a set of newly received messages and then waiting for them to become solid.
+// For desynced, it checks whether the node has no more peers or didn't receive any message in a given time period.
+func monitorForSyncAndDesync() {
+	log.Info("monitoring for synchronization and desynchronization")
+
+	noPeers := make(chan types.Empty)
+	synced := make(chan types.Empty)
+	msgReceived := make(chan types.Empty, 1)
+	wantedAnchorPointsCount := config.Node().GetInt(CfgSyncAnchorPointsCount)
+	anchorPoints := newAnchorPoints(wantedAnchorPointsCount)
 
 	// monitors the peer count of the manager and sets the node as desynced if it has no more peers.
-	noPeers := make(chan types.Empty)
 	monitorPeerCountClosure := events.NewClosure(func(_ *gossipPkg.Neighbor) {
 		anyPeers := len(gossip.Manager().AllNeighbors()) > 0
 		if anyPeers {
@@ -127,70 +123,6 @@ func monitorForDesynchronization() {
 		}
 		noPeers <- types.Empty{}
 	})
-
-	msgReceived := make(chan types.Empty, 1)
-
-	monitorMessageInflowClosure := events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
-		defer cachedMessage.Release()
-		defer cachedMessageMetadata.Release()
-		// ignore messages sent by the node itself
-		if local.GetInstance().LocalIdentity().PublicKey() == cachedMessage.Unwrap().IssuerPublicKey() {
-			return
-		}
-		select {
-		case msgReceived <- types.Empty{}:
-		default:
-			// via this default clause, a slow desync-monitor select-loop
-			// worker should not increase latency as it auto. falls through
-		}
-	})
-
-	if err := daemon.BackgroundWorker("Desync-Monitor", func(shutdownSignal <-chan struct{}) {
-		gossip.Manager().Events().NeighborRemoved.Attach(monitorPeerCountClosure)
-		defer gossip.Manager().Events().NeighborRemoved.Detach(monitorPeerCountClosure)
-		messagelayer.Tangle().Events.MessageAttached.Attach(monitorMessageInflowClosure)
-		defer messagelayer.Tangle().Events.MessageAttached.Detach(monitorMessageInflowClosure)
-
-		timeForDesync := config.Node().GetDuration(CfgSyncDesyncedIfNoMessageAfterSec) * time.Second
-		timer := time.NewTimer(timeForDesync)
-		for {
-			select {
-
-			case <-msgReceived:
-				// we received a message, therefore reset the timer to check for message receives
-				if !timer.Stop() {
-					<-timer.C
-				}
-				// TODO: perhaps find a better way instead of constantly resetting the timer
-				timer.Reset(timeForDesync)
-
-			case <-timer.C:
-				log.Infof("no message received in %d seconds, marking node as desynced", int(timeForDesync.Seconds()))
-				markDesynced()
-				return
-
-			case <-noPeers:
-				log.Info("all peers have been lost, marking node as desynced")
-				markDesynced()
-				return
-
-			case <-shutdownSignal:
-				return
-			}
-		}
-	}, shutdown.PrioritySynchronization); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
-	}
-}
-
-// starts a background worker and event handlers to check whether the node is synchronized by first collecting
-// a set of newly received messages and then waiting for them to become solid.
-func monitorForSynchronization() {
-	wantedAnchorPointsCount := config.Node().GetInt(CfgSyncAnchorPointsCount)
-	anchorPoints := newAnchorPoints(wantedAnchorPointsCount)
-	log.Infof("monitoring for synchronization, awaiting %d anchor point messages to become solid", wantedAnchorPointsCount)
-
-	synced := make(chan types.Empty)
 
 	initAnchorPointClosure := events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
 		defer cachedMessage.Release()
@@ -214,21 +146,66 @@ func monitorForSynchronization() {
 		if !allSolid {
 			return
 		}
-		synced <- types.Empty{}
+
+		// only if the node was first desynced
+		if !Synced() {
+			synced <- types.Empty{}
+		}
+		// get new anchor points
+		anchorPoints = newAnchorPoints(wantedAnchorPointsCount)
 	})
 
-	if err := daemon.BackgroundWorker("Sync-Monitor", func(shutdownSignal <-chan struct{}) {
+	monitorMessageInflowClosure := events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		defer cachedMessage.Release()
+		defer cachedMessageMetadata.Release()
+		// ignore messages sent by the node itself
+		if local.GetInstance().LocalIdentity().PublicKey() == cachedMessage.Unwrap().IssuerPublicKey() {
+			return
+		}
+		select {
+		case msgReceived <- types.Empty{}:
+		default:
+			// via this default clause, a slow desync-monitor select-loop
+			// worker should not increase latency as it auto. falls through
+		}
+	})
+
+	if err := daemon.BackgroundWorker("Sync-Desync-Monitor", func(shutdownSignal <-chan struct{}) {
+		gossip.Manager().Events().NeighborRemoved.Attach(monitorPeerCountClosure)
+		defer gossip.Manager().Events().NeighborRemoved.Detach(monitorPeerCountClosure)
+		messagelayer.Tangle().Events.MessageAttached.Attach(monitorMessageInflowClosure)
+		defer messagelayer.Tangle().Events.MessageAttached.Detach(monitorMessageInflowClosure)
 		messagelayer.Tangle().Events.MessageAttached.Attach(initAnchorPointClosure)
 		defer messagelayer.Tangle().Events.MessageAttached.Detach(initAnchorPointClosure)
 		messagelayer.Tangle().Events.MessageSolid.Attach(checkAnchorPointSolidityClosure)
 		defer messagelayer.Tangle().Events.MessageSolid.Detach(checkAnchorPointSolidityClosure)
 
+		timeForDesync := config.Node().GetDuration(CfgSyncDesyncedIfNoMessageAfterSec) * time.Second
+		desyncTimer := time.NewTimer(timeForDesync)
 		cleanupDelta := config.Node().GetDuration(CfgSyncAnchorPointsCleanupAfterSec) * time.Second
-		ticker := time.NewTicker(config.Node().GetDuration(CfgSyncAnchorPointsCleanupIntervalSec) * time.Second)
-		defer ticker.Stop()
+		syncTicker := time.NewTicker(config.Node().GetDuration(CfgSyncAnchorPointsCleanupIntervalSec) * time.Second)
+		defer syncTicker.Stop()
+
 		for {
 			select {
-			case <-ticker.C:
+
+			case <-msgReceived:
+				// we received a message, therefore reset the timer to check for message receives
+				if !desyncTimer.Stop() {
+					<-desyncTimer.C
+				}
+				// TODO: perhaps find a better way instead of constantly resetting the timer
+				desyncTimer.Reset(timeForDesync)
+
+			case <-desyncTimer.C:
+				log.Infof("no message received in %d seconds, marking node as desynced", int(timeForDesync.Seconds()))
+				markDesynced()
+
+			case <-noPeers:
+				log.Info("all peers have been lost, marking node as desynced")
+				markDesynced()
+
+			case <-syncTicker.C:
 				anchorPoints.Lock()
 				for id, itGotAdded := range anchorPoints.ids {
 					if time.Since(itGotAdded) > cleanupDelta {
@@ -237,11 +214,12 @@ func monitorForSynchronization() {
 					}
 				}
 				anchorPoints.Unlock()
-			case <-shutdownSignal:
-				return
+
 			case <-synced:
 				log.Infof("all anchor messages have become solid, marking node as synced")
 				markSynced()
+
+			case <-shutdownSignal:
 				return
 			}
 		}
