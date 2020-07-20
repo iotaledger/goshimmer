@@ -61,8 +61,8 @@ func run(_ *node.Plugin) {
 	}
 
 	// create a background worker that update the metrics every second
-	if err := daemon.BackgroundWorker("Metrics Updater[1s]", func(shutdownSignal <-chan struct{}) {
-		defer log.Infof("Stopping Metrics Updater[1s] ... done")
+	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
+		defer log.Infof("Stopping Metrics Updater ... done")
 		if config.Node().GetBool(CfgMetricsLocal) {
 			timeutil.Ticker(func() {
 				measureCPUUsage()
@@ -82,7 +82,7 @@ func run(_ *node.Plugin) {
 		if config.Node().GetBool(CfgMetricsGlobal) {
 			timeutil.Ticker(calculateNetworkDiameter, 1*time.Minute, shutdownSignal)
 		}
-		log.Infof("Stopping Metrics Updater[1s] ...")
+		log.Infof("Stopping Metrics Updater ...")
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}

@@ -57,8 +57,6 @@ func New(store kvstore.KVStore) (result *Tangle) {
 		Events: *newEvents(),
 	}
 
-	result.DBStats()
-
 	result.solidifierWorkerPool.Tune(runtime.GOMAXPROCS(0))
 	return
 }

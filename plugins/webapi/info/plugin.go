@@ -85,15 +85,15 @@ func getInfo(c echo.Context) error {
 	sort.Strings(disabledPlugins)
 
 	return c.JSON(http.StatusOK, Response{
-		Version:           banner.AppVersion,
-		Synced:            sync.Synced(),
-		IdentityID:        local.GetInstance().Identity.ID().String(),
-		PublicKey:         local.GetInstance().PublicKey().String(),
-		RequestQueueSize:  int(metrics.MessageRequestQueueSize()),
-		SolidMessageCount: int(metrics.MessageSolidCountDB()),
-		TotalMessageCount: int(metrics.MessageTotalCountDB()),
-		EnabledPlugins:    enabledPlugins,
-		DisabledPlugins:   disabledPlugins,
+		Version:                 banner.AppVersion,
+		Synced:                  sync.Synced(),
+		IdentityID:              local.GetInstance().Identity.ID().String(),
+		PublicKey:               local.GetInstance().PublicKey().String(),
+		MessageRequestQueueSize: int(metrics.MessageRequestQueueSize()),
+		SolidMessageCount:       int(metrics.MessageSolidCountDB()),
+		TotalMessageCount:       int(metrics.MessageTotalCountDB()),
+		EnabledPlugins:          enabledPlugins,
+		DisabledPlugins:         disabledPlugins,
 	})
 }
 
@@ -107,8 +107,8 @@ type Response struct {
 	IdentityID string `json:"identityID,omitempty"`
 	// public key of the node encoded in base58
 	PublicKey string `json:"publicKey,omitempty"`
-	// RequestQueueSize is the number of messages a node is trying to request from neighbors.
-	RequestQueueSize int `json:"requestQueueSize,omitempty"`
+	// MessageRequestQueueSize is the number of messages a node is trying to request from neighbors.
+	MessageRequestQueueSize int `json:"messageRequestQueueSize,omitempty"`
 	// SolidMessageCount is the number of solid messages in the node's database.
 	SolidMessageCount int `json:"solidMessageCount,omitempty"`
 	// TotalMessageCount is the number of messages in the node's database.
