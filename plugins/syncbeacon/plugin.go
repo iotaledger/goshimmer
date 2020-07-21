@@ -157,12 +157,13 @@ func broadcastSyncBeaconPayload() {
 	syncBeaconPayload := NewSyncBeaconPayload(time.Now().UnixNano())
 	_, err := issuer.IssuePayload(syncBeaconPayload)
 	if err != nil {
-		log.Info("sync beacon issued")
+		log.Infof("error broadcasting sync payload: %w", err)
 	}
 }
 
 // cleanupFollowNodes cleans up offline nodes by setting their sync status to false after a configurable time window.
 func cleanupFollowNodes() {
+	log.Info("cleaning up stale beacons... ", beaconSyncMap)
 	for publicKey, beaconSync := range beaconSyncMap {
 		dur := time.Since(time.Unix(0, beaconSync.payload.sentTime))
 		if dur.Seconds() > float64(config.Node().GetInt(CfgSyncBeaconMaxTimeOfflineSec)) {
@@ -170,6 +171,7 @@ func cleanupFollowNodes() {
 			beaconSyncMap[publicKey] = beaconSync
 		}
 	}
+	log.Info("done clean up", beaconSyncMap)
 	updateSynced()
 }
 
