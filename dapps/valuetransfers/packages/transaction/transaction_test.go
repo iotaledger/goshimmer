@@ -2,7 +2,6 @@ package transaction
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -73,20 +72,6 @@ func TestShortDataPayload(t *testing.T) {
 	// expect signature is not valid
 	check = tx.SignaturesValid()
 	assert.Equal(t, false, check)
-}
-
-func TestTooLongDataPayload(t *testing.T) {
-	sigScheme := signaturescheme.ED25519(ed25519.GenerateKeyPair())
-	addr := sigScheme.Address()
-	o1 := NewOutputID(addr, RandomID())
-	inputs := NewInputs(o1)
-	bal := balance.New(balance.ColorIOTA, 1)
-	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
-	tx := New(inputs, outputs)
-
-	dataPayload := []byte(strings.Repeat("1", MaxDataPayloadSize+1))
-	err := tx.SetDataPayload(dataPayload)
-	assert.Error(t, err)
 }
 
 func TestMarshalingEmptyDataPayload(t *testing.T) {
@@ -203,4 +188,29 @@ func TestPutSignatureInvalid(t *testing.T) {
 
 	// valid signatures expected
 	assert.Equal(t, true, tx.SignaturesValid())
+}
+
+func TestInputCounts(t *testing.T) {
+	tx1 := createTransaction(MaxTransactionInputCount+1, 1)
+	assert.False(t, tx1.InputsCountValid())
+
+	tx2 := createTransaction(MaxTransactionInputCount-1, 1)
+	assert.True(t, tx2.InputsCountValid())
+}
+
+func createTransaction(inputCount int, outputCount int) *Transaction {
+	outputIds := make([]OutputID, 0)
+	for i := 0; i < inputCount; i++ {
+		outputIds = append(outputIds, NewOutputID(address.Random(), RandomID()))
+	}
+	inputs := NewInputs(outputIds...)
+
+	bal := balance.New(balance.ColorIOTA, 1)
+	outputMap := make(map[address.Address][]*balance.Balance)
+	for i := 0; i < outputCount; i++ {
+		outputMap[address.Random()] = []*balance.Balance{bal}
+	}
+	outputs := NewOutputs(outputMap)
+
+	return New(inputs, outputs)
 }

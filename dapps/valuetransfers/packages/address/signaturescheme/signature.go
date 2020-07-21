@@ -12,4 +12,10 @@ type Signature interface {
 
 	// Address returns the address that this signature signs.
 	Address() address.Address
+
+	// PublicKeySize returns the size of the public key.
+	PublicKeySize() int
+
+	// SignatureSize returns the size of the signature.
+	SignatureSize() int
 }

@@ -5,4 +5,4 @@
 // and any other packr generated files.
 package dashboard
 
-import _ "github.com/iotaledger/goshimmer/plugins/dashboard/packrd"
+import _ "github.com/iotaledger/goshimmer/plugins/analysis/dashboard/packrd"

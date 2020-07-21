@@ -146,10 +146,15 @@ func processValuePayload(p payload.Payload) (vp ValuePayload) {
 	// Get outputs address and balance
 	v.Transaction().Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
 		var b []Balance
-		for _, balance := range balances {
+		for _, bal := range balances {
+			color := bal.Color.String()
+			if bal.Color == balance.ColorNew {
+				color = v.Transaction().ID().String()
+			}
+
 			b = append(b, Balance{
-				Value: balance.Value,
-				Color: balance.Color.String(),
+				Value: bal.Value,
+				Color: color,
 			})
 		}
 		t := OutputContent{

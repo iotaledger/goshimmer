@@ -166,6 +166,7 @@ type nodestatus struct {
 	ID      string      `json:"id"`
 	Version string      `json:"version"`
 	Uptime  int64       `json:"uptime"`
+	Synced  bool        `json:"synced"`
 	Mem     *memmetrics `json:"mem"`
 }
 
@@ -232,6 +233,7 @@ func currentNodeStatus() *nodestatus {
 	// node status
 	status.Version = banner.AppVersion
 	status.Uptime = time.Since(nodeStartAt).Milliseconds()
+	status.Synced = metrics.Synced()
 
 	// memory metrics
 	status.Mem = &memmetrics{

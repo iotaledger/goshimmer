@@ -22,8 +22,6 @@ func BenchmarkMessageParser_ParseBytesSame(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		msgParser.Parse(msgBytes, nil)
 	}
-
-	msgParser.Shutdown()
 }
 
 func BenchmarkMessageParser_ParseBytesDifferent(b *testing.B) {
@@ -39,8 +37,6 @@ func BenchmarkMessageParser_ParseBytesDifferent(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		msgParser.Parse(messageBytes[i], nil)
 	}
-
-	msgParser.Shutdown()
 }
 
 func TestMessageParser_ParseMessage(t *testing.T) {
@@ -52,8 +48,6 @@ func TestMessageParser_ParseMessage(t *testing.T) {
 	msgParser.Events.MessageParsed.Attach(events.NewClosure(func(msg *message.Message) {
 		log.Infof("parsed message")
 	}))
-
-	msgParser.Shutdown()
 }
 
 func newTestMessage(payloadString string) *message.Message {

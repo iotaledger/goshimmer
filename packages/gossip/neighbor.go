@@ -51,7 +51,7 @@ func NewNeighbor(peer *peer.Peer, conn net.Conn, log *logger.Logger) *Neighbor {
 
 	return &Neighbor{
 		Peer:                  peer,
-		BufferedConnection:    buffconn.NewBufferedConnection(conn),
+		BufferedConnection:    buffconn.NewBufferedConnection(conn, maxPacketSize),
 		log:                   log,
 		queue:                 make(chan []byte, neighborQueueSize),
 		closing:               make(chan struct{}),

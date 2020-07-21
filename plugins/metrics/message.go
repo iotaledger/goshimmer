@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -11,6 +13,25 @@ import (
 var (
 	// Total number of processed messages since start of the node.
 	messageTotalCount atomic.Uint64
+
+	// number of messages in the database at startup
+	initialMessageTotalCountDB uint64
+
+	// current number of messages in the node's database
+	messageTotalCountDB atomic.Uint64
+
+	// number of solid messages in the database at startup
+	initialMessageSolidCountDB uint64
+
+	// current number of solid messages in the node's database
+	messageSolidCountDBInc atomic.Uint64
+
+	// helper variable that is only calculated at init phase. unit is milliseconds!
+	initialSumSolidificationTime float64
+
+	// sum of solidification time (since start of the node)
+	sumSolidificationTime time.Duration
+	solidTimeMutex        syncutils.RWMutex
 
 	// current number of message tips.
 	messageTips atomic.Uint64
@@ -26,17 +47,20 @@ var (
 
 	// protect map from concurrent read/write.
 	messageCountPerPayloadMutex syncutils.RWMutex
+
+	// number of messages being requested by the message layer.
+	requestQueueSize atomic.Int64
 )
 
 ////// Exported functions to obtain metrics from outside //////
 
-// MessageTotalCount returns the total number of messages seen since the start of the node.
-func MessageTotalCount() uint64 {
+// MessageTotalCountSinceStart returns the total number of messages seen since the start of the node.
+func MessageTotalCountSinceStart() uint64 {
 	return messageTotalCount.Load()
 }
 
-// MessageCountPerPayload returns a map of message payload types and their count since the start of the node.
-func MessageCountPerPayload() map[payload.Type]uint64 {
+// MessageCountSinceStartPerPayload returns a map of message payload types and their count since the start of the node.
+func MessageCountSinceStartPerPayload() map[payload.Type]uint64 {
 	messageCountPerPayloadMutex.RLock()
 	defer messageCountPerPayloadMutex.RUnlock()
 
@@ -54,6 +78,37 @@ func MessageTips() uint64 {
 	return messageTips.Load()
 }
 
+// MessageRequestQueueSize returns the number of message requests the node currently has registered.
+func MessageRequestQueueSize() int64 {
+	return requestQueueSize.Load()
+}
+
+// MessageSolidCountDB returns the number of messages that are solid in the DB.
+func MessageSolidCountDB() uint64 {
+	return initialMessageSolidCountDB + messageSolidCountDBInc.Load()
+}
+
+// MessageTotalCountDB returns the number of messages that are stored in the DB.
+func MessageTotalCountDB() uint64 {
+	return initialMessageTotalCountDB + messageTotalCountDB.Load()
+}
+
+// AvgSolidificationTime returns the average time it takes for a message to become solid. [milliseconds]
+func AvgSolidificationTime() (result float64) {
+	solidTimeMutex.RLock()
+	defer solidTimeMutex.RUnlock()
+	totalSolid := MessageSolidCountDB()
+	if totalSolid > 0 {
+		result = (initialSumSolidificationTime + float64(sumSolidificationTime.Milliseconds())) / float64(totalSolid)
+	}
+	return
+}
+
+// ReceivedMessagesPerSecond retrieves the current messages per second number.
+func ReceivedMessagesPerSecond() uint64 {
+	return measuredReceivedMPS.Load()
+}
+
 ////// Handling data updates and measuring //////
 
 func increasePerPayloadCounter(p payload.Type) {
@@ -67,11 +122,6 @@ func increasePerPayloadCounter(p payload.Type) {
 
 func measureMessageTips() {
 	metrics.Events().MessageTips.Trigger((uint64)(messagelayer.TipSelector().TipCount()))
-}
-
-// ReceivedMessagesPerSecond retrieves the current messages per second number.
-func ReceivedMessagesPerSecond() uint64 {
-	return measuredReceivedMPS.Load()
 }
 
 // increases the received MPS counter
@@ -92,4 +142,16 @@ func measureReceivedMPS() {
 
 	// trigger events for outside listeners
 	Events.ReceivedMPSUpdated.Trigger(sampledMPS)
+}
+
+func measureRequestQueueSize() {
+	size := int64(messagelayer.MessageRequester().RequestQueueSize())
+	requestQueueSize.Store(size)
+}
+
+func measureInitialDBStats() {
+	solid, total, avgSolidTime := messagelayer.Tangle().DBStats()
+	initialMessageSolidCountDB = uint64(solid)
+	initialMessageTotalCountDB = uint64(total)
+	initialSumSolidificationTime = avgSolidTime * float64(solid)
 }

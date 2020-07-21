@@ -4,6 +4,7 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Uptime from "app/components/Uptime";
 import Version from "app/components/Version";
+import Synced from "app/components/Synced";
 import MPSChart from "app/components/MPSChart";
 import TipsChart from "app/components/TipsChart";
 import NodeStore from "app/stores/NodeStore";
@@ -37,6 +38,11 @@ export class Dashboard extends React.Component<Props, any> {
                                     <Col>
                                         <ListGroup variant={"flush"}>
                                             <ListGroup.Item><Version/></ListGroup.Item>
+                                        </ListGroup>
+                                    </Col>
+                                    <Col>
+                                        <ListGroup variant={"flush"}>
+                                            <ListGroup.Item><Synced/></ListGroup.Item>
                                         </ListGroup>
                                     </Col>
                                 </Row>

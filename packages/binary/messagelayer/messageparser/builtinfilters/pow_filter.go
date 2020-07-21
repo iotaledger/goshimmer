@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/pow"
-	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 )
 
@@ -22,7 +21,6 @@ var (
 type PowFilter struct {
 	worker     *pow.Worker
 	difficulty int
-	workerPool async.WorkerPool
 
 	mu             sync.Mutex
 	acceptCallback func([]byte, *peer.Peer)
@@ -39,13 +37,11 @@ func NewPowFilter(worker *pow.Worker, difficulty int) *PowFilter {
 
 // Filter checks whether the given bytes pass the PoW validation and calls the corresponding callback.
 func (f *PowFilter) Filter(msgBytes []byte, p *peer.Peer) {
-	f.workerPool.Submit(func() {
-		if err := f.validate(msgBytes); err != nil {
-			f.reject(msgBytes, err, p)
-			return
-		}
-		f.accept(msgBytes, p)
-	})
+	if err := f.validate(msgBytes); err != nil {
+		f.reject(msgBytes, err, p)
+		return
+	}
+	f.accept(msgBytes, p)
 }
 
 // OnAccept registers the given callback as the acceptance function of the filter.
@@ -60,11 +56,6 @@ func (f *PowFilter) OnReject(callback func([]byte, error, *peer.Peer)) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.rejectCallback = callback
-}
-
-// Shutdown shuts down the filter.
-func (f *PowFilter) Shutdown() {
-	f.workerPool.ShutdownGracefully()
 }
 
 func (f *PowFilter) accept(msgBytes []byte, p *peer.Peer) {
