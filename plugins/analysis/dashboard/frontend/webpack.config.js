@@ -9,7 +9,7 @@ let outPath = path.join(__dirname, './build');
 
 // plugins
 let HtmlWebpackPlugin = require('html-webpack-plugin');
-let WebpackCleanupPlugin = require('webpack-cleanup-plugin');
+let { CleanWebpackPlugin } = require('clean-webpack-plugin');
 
 module.exports = {
     context: sourcePath,
@@ -40,8 +40,8 @@ module.exports = {
                 use: [
                     !isProduction && {
                         loader: 'babel-loader',
-                        options: { 
-                            plugins: ['react-hot-loader/babel'] 
+                        options: {
+                            plugins: ['react-hot-loader/babel']
                         }
                     },
                     {
@@ -93,7 +93,7 @@ module.exports = {
             NODE_ENV: 'development', // use 'development' unless process.env.NODE_ENV is defined
             DEBUG: false
         }),
-        new WebpackCleanupPlugin(),
+        new CleanWebpackPlugin(),
         new HtmlWebpackPlugin({
             template: 'assets/index.html'
         })
