@@ -36,7 +36,7 @@ var (
 	// ErrMalformedSignature defines a malformed signature error.
 	ErrMalformedSignature = fmt.Errorf("malformed signature")
 	// ErrWrongSignature defines a wrong signature error.
-	ErrWrongSignature = fmt.Errorf("wropng signature")
+	ErrWrongSignature = fmt.Errorf("wrong signature")
 	// ErrSignatureVersion defines a unsupported signature version error.
 	ErrSignatureVersion = fmt.Errorf("unsupported signature version")
 )
