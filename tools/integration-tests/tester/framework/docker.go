@@ -214,7 +214,7 @@ func (d *DockerContainer) Remove() error {
 // Stop stops a container without terminating the process.
 // The process is blocked until the container stops or the timeout expires.
 func (d *DockerContainer) Stop() error {
-	duration := 30 * time.Second
+	duration := 3 * time.Minute
 	return d.client.ContainerStop(context.Background(), d.id, &duration)
 }
 
