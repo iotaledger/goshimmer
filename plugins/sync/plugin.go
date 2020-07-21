@@ -125,11 +125,12 @@ func monitorForSyncAndDesync() {
 	})
 
 	initAnchorPointClosure := events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		defer cachedMessage.Release()
+		defer cachedMessageMetadata.Release()
+
 		if Synced() {
 			return
 		}
-		defer cachedMessage.Release()
-		defer cachedMessageMetadata.Release()
 		if addedAnchorID := initAnchorPoint(anchorPoints, cachedMessage.Unwrap()); addedAnchorID != nil {
 			anchorPoints.Lock()
 			defer anchorPoints.Unlock()
@@ -138,11 +139,12 @@ func monitorForSyncAndDesync() {
 	})
 
 	checkAnchorPointSolidityClosure := events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		defer cachedMessage.Release()
+		defer cachedMessageMetadata.Release()
+
 		if Synced() {
 			return
 		}
-		defer cachedMessage.Release()
-		defer cachedMessageMetadata.Release()
 		allSolid, newSolidAnchorID := checkAnchorPointSolidity(anchorPoints, cachedMessage.Unwrap())
 
 		if newSolidAnchorID != nil {
