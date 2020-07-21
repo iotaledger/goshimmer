@@ -49,6 +49,10 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	if err != nil {
 		return
 	}
+	_, err = marshalUtil.ReadUint32()
+	if err != nil {
+		return
+	}
 	result.sentTime, err = marshalUtil.ReadInt64()
 	if err != nil {
 		return
@@ -74,9 +78,11 @@ func (p *Payload) SentTime() int64 {
 func (p *Payload) Bytes() []byte {
 	// initialize helper
 	marshalUtil := marshalutil.New()
+	objectLength := marshalutil.INT64_SIZE
 
 	// marshal the p specific information
-	marshalUtil.WriteUint32(p.payloadType)
+	marshalUtil.WriteUint32(Type)
+	marshalUtil.WriteUint32(uint32(objectLength))
 	marshalUtil.WriteInt64(p.sentTime)
 
 	// return result
@@ -99,15 +105,6 @@ func (p *Payload) String() string {
 // IsSyncBeaconPayload checks if the message is sync beacon payload.
 func IsSyncBeaconPayload(p *Payload) bool {
 	return p.Type() == Type
-}
-
-func init() {
-	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-		payload = &Payload{}
-		err = payload.Unmarshal(data)
-
-		return
-	})
 }
 
 func init() {

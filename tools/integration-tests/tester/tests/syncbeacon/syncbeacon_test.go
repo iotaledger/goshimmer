@@ -14,14 +14,21 @@ import (
 // TestSyncBeacon checks that beacon nodes broadcast sync beacons
 // and follower nodes use those payloads to determine if they are synced or not.
 func TestSyncBeacon(t *testing.T) {
-	framework.ParaPoWDifficulty = 0
 	initialPeers := 4
-	n, err := f.CreateNetwork("syncbeacon_TestSyncBeacon", initialPeers, 2)
+	n, err := f.CreateNetwork("syncbeacon_TestSyncBeacon", 0, 0)
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
-	// wait for peers to change their state to synchronized
-	time.Sleep(10 * time.Second)
+	for i := 0; i < initialPeers; i++ {
+		_, err := n.CreatePeer(framework.GoShimmerConfig{
+			SyncBeaconPrimary:           true,
+			SyncBeaconFollowNodes:       "",
+			SyncBeaconBroadcastInterval: 20,
+		})
+		require.NoError(t, err)
+	}
+	err = n.WaitForAutopeering(3)
+	require.NoError(t, err)
 
 	peers := n.Peers()
 	var beaconPublicKeys []string
@@ -29,37 +36,32 @@ func TestSyncBeacon(t *testing.T) {
 		beaconPublicKeys = append(beaconPublicKeys, peer.PublicKey().String())
 	}
 
-	// 1. Follow all nodes as beacon nodes
+	// follow all nodes as beacon nodes
 	peer, err := n.CreatePeer(framework.GoShimmerConfig{
-		SyncBeaconFollowNodes: strings.Join(beaconPublicKeys, ","),
+		SyncBeaconPrimary:           false,
+		SyncBeaconFollowNodes:       strings.Join(beaconPublicKeys, ","),
+		SyncBeaconBroadcastInterval: 20,
 	})
+	require.NoError(t, err)
+	err = n.WaitForAutopeering(3)
+	require.NoError(t, err)
 
-	// wait for peers to change their state to synchronized
-	time.Sleep(10 * time.Second)
-
-	// issue some messages on old peers so that new peer can solidify
-	ids := tests.SendDataMessagesOnRandomPeer(t, n.Peers()[:initialPeers], 10)
-
-	log.Println("Waiting...")
-	// wait for beacon nodes to broadcast
-	time.Sleep(40 * time.Second)
+	log.Println("Waiting...1/2")
+	// wait for node to solidify beacon messages
+	time.Sleep(60 * time.Second)
 	log.Println("done waiting.")
 
 	resp, err := peer.Info()
 	require.NoError(t, err)
 	assert.Truef(t, resp.Synced, "Peer %s should be synced but is desynced!", peer.String())
 
-	// 2. shutdown all but 1 beacon node
+	// 2. shutdown all but 2 beacon peers.
 	for _, p := range peers[:len(peers)-2] {
-		p.Stop()
+		_ = p.Stop()
 	}
 
-	// send some messages to the still running nodes
-	// last node is the test node.
-	ids = tests.SendDataMessagesOnRandomPeer(t, n.Peers()[initialPeers-2:initialPeers-1], 10, ids)
-
 	// wait for peers to sync and broadcast
-	log.Println("Waiting...")
+	log.Println("Waiting...2/2")
 	time.Sleep(40 * time.Second)
 	log.Println("done waiting.")
 
