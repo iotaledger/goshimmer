@@ -14,7 +14,7 @@ type MessageRequester struct {
 	options           *Options
 	Events            Events
 
-	scheduledRequestsMutex sync.Mutex
+	scheduledRequestsMutex sync.RWMutex
 }
 
 // New creates a new message requester.
@@ -68,4 +68,11 @@ func (requester *MessageRequester) reRequest(id message.Id) {
 	if _, exists := requester.scheduledRequests[id]; exists {
 		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id) })
 	}
+}
+
+// RequestQueueSize returns the number of scheduled message requests.
+func (requester *MessageRequester) RequestQueueSize() int {
+	requester.scheduledRequestsMutex.RLock()
+	defer requester.scheduledRequestsMutex.RUnlock()
+	return len(requester.scheduledRequests)
 }
