@@ -5,6 +5,8 @@ import React, { ReactNode } from "react";
 import "./Autopeering.scss";
 import { AutopeeringProps } from "./AutopeeringProps";
 import { NodeView } from "./NodeView";
+import Dropdown from 'react-bootstrap/Dropdown';
+import DropdownButton from 'react-bootstrap/DropdownButton';
 
 @inject("autopeeringStore")
 @observer
@@ -24,15 +26,29 @@ export default class Autopeering extends React.Component<AutopeeringProps, unkno
                 <div className="header margin-b-m">
                     <h2>Autopeering Visualizer</h2>
                     <div className="row">
+                        <DropdownButton id="dropdown-basic-button" title={this.props.autopeeringStore.selectedNetworkVersion === null ? "Select network version": "Network: " + this.props.autopeeringStore.selectedNetworkVersion}>
+                            <Dropdown.Item
+                                as="button"
+                                key={"clear"}
+                                onClick={() => this.props.autopeeringStore.handleVersionSelection("")}>
+                                clear
+                            </Dropdown.Item>
+                            {this.props.autopeeringStore.networkVersionList.map(version => (
+                                <Dropdown.Item
+                                    as="button"
+                                    key={version}
+                                    onClick={() => this.props.autopeeringStore.handleVersionSelection(version)}
+                                >
+                                    {version}
+                                </Dropdown.Item>
+                            ))}
+
+                        </DropdownButton>
                         <div className="badge neighbors">
-                            Average number of neighbors: {
-                                this.props.autopeeringStore.nodes.size > 0 ?
-                                    (2 * this.props.autopeeringStore.connections.size / this.props.autopeeringStore.nodes.size).toPrecision(2).toString()
-                                    : 0
-                            }
+                            Average number of neighbors: {this.props.autopeeringStore.AvgNumNeighbors}
                         </div>
                         <div className="badge online">
-                            Nodes online: {this.props.autopeeringStore.nodes.size.toString()}
+                            Nodes online: {this.props.autopeeringStore.NodesOnline}
                         </div>
                     </div>
                 </div>
