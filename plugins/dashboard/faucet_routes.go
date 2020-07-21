@@ -2,9 +2,12 @@ package dashboard
 
 import (
 	"net/http"
+	"sync"
 
+	"github.com/iotaledger/goshimmer/dapps/faucet"
 	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
 	"github.com/labstack/echo"
@@ -32,10 +35,18 @@ func setupFaucetRoutes(routeGroup *echo.Group) {
 	})
 }
 
+var fundingReqMu = sync.Mutex{}
+
 func sendFaucetReq(addr address.Address) (res *ReqMsg, err error) {
-	msg := messagelayer.MessageFactory().IssuePayload(faucetpayload.New(addr))
-	if msg == nil {
-		return nil, errors.Wrapf(ErrInternalError, "Fail to send faucet request")
+	fundingReqMu.Lock()
+	defer fundingReqMu.Unlock()
+	faucetPayload, err := faucetpayload.New(addr, config.Node().GetInt(faucet.CfgFaucetPoWDifficulty))
+	if err != nil {
+		return nil, err
+	}
+	msg, err := messagelayer.MessageFactory().IssuePayload(faucetPayload)
+	if err != nil {
+		return nil, errors.Wrapf(ErrInternalError, "Failed to send faucet request: %s", err.Error())
 	}
 
 	r := &ReqMsg{

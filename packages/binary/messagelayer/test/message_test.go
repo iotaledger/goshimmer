@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
@@ -49,7 +50,8 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 	msgFactory := messagefactory.New(mapdb.NewMapDB(), []byte(messagelayer.DBSequenceNumber), identity.GenerateLocalIdentity(), tipselector.New())
 	defer msgFactory.Shutdown()
 
-	testMessage := msgFactory.IssuePayload(payload.NewData([]byte("test")))
+	testMessage, err := msgFactory.IssuePayload(payload.NewData([]byte("test")))
+	require.NoError(t, err)
 	assert.Equal(t, true, testMessage.VerifySignature())
 
 	t.Log(testMessage)

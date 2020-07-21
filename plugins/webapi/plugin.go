@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
 )
 
 // PluginName is the name of the web API plugin.
@@ -41,6 +42,11 @@ func Plugin() *node.Plugin {
 func Server() *echo.Echo {
 	serverOnce.Do(func() {
 		server = echo.New()
+		server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+			Skipper:      middleware.DefaultSkipper,
+			AllowOrigins: []string{"*"},
+			AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
+		}))
 	})
 	return server
 }

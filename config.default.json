@@ -40,7 +40,11 @@
     "bindAddress": "0.0.0.0:10895"
   },
   "gossip": {
-    "port": 14666
+    "port": 14666,
+    "ageThreshold": "5s",
+    "tipsBroadcaster": {
+      "interval": "10s"
+    }
   },
   "logger": {
     "level": "info",

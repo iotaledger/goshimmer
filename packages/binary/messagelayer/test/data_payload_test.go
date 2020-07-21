@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/stretchr/testify/require"
 
 	"github.com/panjf2000/ants/v2"
 
@@ -25,7 +26,9 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 
 	messages := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
-		messages[i] = factory.IssuePayload(payload.NewData([]byte("some data"))).Bytes()
+		msg, err := factory.IssuePayload(payload.NewData([]byte("some data")))
+		require.NoError(b, err)
+		messages[i] = msg.Bytes()
 	}
 
 	b.ResetTimer()
@@ -51,7 +54,9 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	messages := make([]*message.Message, b.N)
 	for i := 0; i < b.N; i++ {
-		messages[i] = factory.IssuePayload(payload.NewData([]byte("test")))
+		msg, err := factory.IssuePayload(payload.NewData([]byte("some data")))
+		require.NoError(b, err)
+		messages[i] = msg
 		messages[i].Bytes()
 	}
 	b.ResetTimer()

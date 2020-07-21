@@ -1,6 +1,7 @@
 package faucet
 
 import (
+	"crypto"
 	"runtime"
 	"sync"
 	"time"
@@ -9,6 +10,7 @@ import (
 	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
+	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -32,12 +34,19 @@ const (
 	// CfgFaucetMaxTransactionBookedAwaitTimeSeconds defines the time to await for the transaction fulfilling a funding request
 	// to become booked in the value layer.
 	CfgFaucetMaxTransactionBookedAwaitTimeSeconds = "faucet.maxTransactionBookedAwaitTimeSeconds"
+	// CfgFaucetPoWDifficulty defines the PoW difficulty for faucet payloads.
+	CfgFaucetPoWDifficulty = "faucet.powDifficulty"
+	// CfgFaucetBlacklistCapacity holds the maximum amount the address blacklist holds.
+	// An address for which a funding was done in the past is added to the blacklist and eventually is removed from it.
+	CfgFaucetBlacklistCapacity = "faucet.blacklistCapacity"
 )
 
 func init() {
 	flag.String(CfgFaucetSeed, "", "the base58 encoded seed of the faucet, must be defined if this dApp is enabled")
 	flag.Int(CfgFaucetTokensPerRequest, 1337, "the amount of tokens the faucet should send for each request")
-	flag.Int(CfgFaucetMaxTransactionBookedAwaitTimeSeconds, 5, "the max amount of time for a funding transaction to become booked in the value layer.")
+	flag.Int(CfgFaucetMaxTransactionBookedAwaitTimeSeconds, 5, "the max amount of time for a funding transaction to become booked in the value layer")
+	flag.Int(CfgFaucetPoWDifficulty, 25, "defines the PoW difficulty for faucet payloads")
+	flag.Int(CfgFaucetBlacklistCapacity, 10000, "holds the maximum amount the address blacklist holds")
 }
 
 var (
@@ -47,6 +56,7 @@ var (
 	_faucet                *faucet.Faucet
 	faucetOnce             sync.Once
 	log                    *logger.Logger
+	powVerifier            = pow.New(crypto.BLAKE2b_512)
 	fundingWorkerPool      *workerpool.WorkerPool
 	fundingWorkerCount     = runtime.GOMAXPROCS(0)
 	fundingWorkerQueueSize = 500
@@ -79,7 +89,8 @@ func Faucet() *faucet.Faucet {
 		if maxTxBookedAwaitTime <= 0 {
 			log.Fatalf("the max transaction booked await time must be more than 0")
 		}
-		_faucet = faucet.New(seedBytes, tokensPerRequest, time.Duration(maxTxBookedAwaitTime)*time.Second)
+		blacklistCapacity := config.Node().GetInt(CfgFaucetBlacklistCapacity)
+		_faucet = faucet.New(seedBytes, tokensPerRequest, blacklistCapacity, time.Duration(maxTxBookedAwaitTime)*time.Second)
 	})
 	return _faucet
 }
@@ -93,7 +104,7 @@ func configure(*node.Plugin) {
 		addr := msg.Payload().(*faucetpayload.Payload).Address()
 		msg, txID, err := Faucet().SendFunds(msg)
 		if err != nil {
-			log.Errorf("couldn't fulfill funding request to %s: %s", addr, err)
+			log.Warnf("couldn't fulfill funding request to %s: %s", addr, err)
 			return
 		}
 		log.Infof("sent funds to address %s via tx %s and msg %s", addr, txID, msg.Id().String())
@@ -122,7 +133,26 @@ func configureEvents() {
 			return
 		}
 
-		addr := msg.Payload().(*faucetpayload.Payload).Address()
+		fundingRequest := msg.Payload().(*faucetpayload.Payload)
+		addr := fundingRequest.Address()
+		if Faucet().IsAddressBlacklisted(addr) {
+			log.Debugf("can't fund address %s since it is blacklisted", addr)
+			return
+		}
+
+		// verify PoW
+		leadingZeroes, err := powVerifier.LeadingZeros(fundingRequest.Bytes())
+		if err != nil {
+			log.Warnf("couldn't verify PoW of funding request for address %s", addr)
+			return
+		}
+		targetPoWDifficulty := config.Node().GetInt(CfgFaucetPoWDifficulty)
+		if leadingZeroes < targetPoWDifficulty {
+			log.Debugf("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr, targetPoWDifficulty, leadingZeroes)
+			return
+		}
+
+		// finally add it to the faucet to be processed
 		_, added := fundingWorkerPool.TrySubmit(msg)
 		if !added {
 			log.Info("dropped funding request for address %s as queue is full", addr)

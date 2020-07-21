@@ -76,6 +76,7 @@ archives:
       - README.md
       - LICENSE
       - config.json
+      - snapshot.bin
 
 # Checksum
 checksum:

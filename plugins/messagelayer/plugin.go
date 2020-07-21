@@ -113,7 +113,7 @@ func configure(*node.Plugin) {
 	}))
 
 	// setup messageRequester
-	_tangle.Events.MessageMissing.Attach(events.NewClosure(messageRequester.ScheduleRequest))
+	_tangle.Events.MessageMissing.Attach(events.NewClosure(messageRequester.StartRequest))
 	_tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
 		cachedMessageMetadata.Release()
 		cachedMessage.Consume(func(msg *message.Message) {
@@ -129,20 +129,11 @@ func configure(*node.Plugin) {
 }
 
 func run(*node.Plugin) {
-
-	if err := daemon.BackgroundWorker("Tangle[MissingMessagesMonitor]", func(shutdownSignal <-chan struct{}) {
-		_tangle.MonitorMissingMessages(shutdownSignal)
-	}, shutdown.PriorityMissingMessagesMonitoring); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
-	}
-
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		messageFactory.Shutdown()
-		messageParser.Shutdown()
 		_tangle.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-
 }

@@ -14,23 +14,27 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
+	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
-	"github.com/iotaledger/hive.go/events"
 )
 
 var (
 	// ErrFundingTxNotBookedInTime is returned when a funding transaction didn't get booked
 	// by this node in the maximum defined await time for it to get booked.
 	ErrFundingTxNotBookedInTime = errors.New("funding transaction didn't get booked in time")
+	// ErrAddressIsBlacklisted is returned if a funding can't be processed since the address is blacklisted.
+	ErrAddressIsBlacklisted = errors.New("can't fund address as it is blacklisted")
 )
 
 // New creates a new faucet using the given seed and tokensPerRequest config.
-func New(seed []byte, tokensPerRequest int64, maxTxBookedAwaitTime time.Duration) *Faucet {
+func New(seed []byte, tokensPerRequest int64, blacklistCapacity int, maxTxBookedAwaitTime time.Duration) *Faucet {
 	return &Faucet{
 		tokensPerRequest:     tokensPerRequest,
 		wallet:               wallet.New(seed),
 		maxTxBookedAwaitTime: maxTxBookedAwaitTime,
+		blacklist:            orderedmap.New(),
+		blacklistCapacity:    blacklistCapacity,
 	}
 }
 
@@ -44,6 +48,28 @@ type Faucet struct {
 	// the time to await for the transaction fulfilling a funding request
 	// to become booked in the value layer
 	maxTxBookedAwaitTime time.Duration
+	blacklistCapacity    int
+	blacklist            *orderedmap.OrderedMap
+}
+
+// IsAddressBlacklisted checks whether the given address is currently blacklisted.
+func (f *Faucet) IsAddressBlacklisted(addr address.Address) bool {
+	_, blacklisted := f.blacklist.Get(addr)
+	return blacklisted
+}
+
+// adds the given address to the blacklist and removes the oldest blacklist entry
+// if it would go over capacity.
+func (f *Faucet) addAddressToBlacklist(addr address.Address) {
+	f.blacklist.Set(addr, true)
+	if f.blacklist.Size() > f.blacklistCapacity {
+		var headKey interface{}
+		f.blacklist.ForEach(func(key, value interface{}) bool {
+			headKey = key
+			return false
+		})
+		f.blacklist.Delete(headKey)
+	}
 }
 
 // SendFunds sends IOTA tokens to the address from faucet request.
@@ -53,6 +79,10 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	defer f.Unlock()
 
 	addr := msg.Payload().(*faucetpayload.Payload).Address()
+
+	if f.IsAddressBlacklisted(addr) {
+		return nil, "", ErrAddressIsBlacklisted
+	}
 
 	// get the output ids for the inputs and remainder balance
 	outputIds, addrsIndices, remainder := f.collectUTXOsForFunding()
@@ -80,7 +110,10 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	}
 
 	// prepare value payload with value factory
-	payload := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
+	payload, err := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to issue transaction: %w", err)
+	}
 
 	// attach to message layer
 	msg, err = issuer.IssuePayload(payload)
@@ -91,40 +124,13 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	// block for a certain amount of time until we know that the transaction
 	// actually got booked by this node itself
 	// TODO: replace with an actual more reactive way
-	bookedInTime := f.awaitTransactionBooked(tx.ID(), f.maxTxBookedAwaitTime)
-	if !bookedInTime {
-		return nil, "", fmt.Errorf("%w: tx %s", ErrFundingTxNotBookedInTime, tx.ID().String())
+	if err := valuetransfers.AwaitTransactionToBeBooked(tx.ID(), f.maxTxBookedAwaitTime); err != nil {
+		return nil, "", fmt.Errorf("%w: tx %s", err, tx.ID().String())
 	}
+
+	f.addAddressToBlacklist(addr)
 
 	return msg, tx.ID().String(), nil
-}
-
-// awaitTransactionBooked awaits maxAwait for the given transaction to get booked.
-func (f *Faucet) awaitTransactionBooked(txID transaction.ID, maxAwait time.Duration) bool {
-	booked := make(chan struct{}, 1)
-	// exit is used to let the caller exit if for whatever
-	// reason the same transaction gets booked multiple times
-	exit := make(chan struct{})
-	defer close(exit)
-	closure := events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, decisionPending bool) {
-		defer cachedTransaction.Release()
-		defer cachedTransactionMetadata.Release()
-		if cachedTransaction.Unwrap().ID() != txID {
-			return
-		}
-		select {
-		case booked <- struct{}{}:
-		case <-exit:
-		}
-	})
-	valuetransfers.Tangle().Events.TransactionBooked.Attach(closure)
-	defer valuetransfers.Tangle().Events.TransactionBooked.Detach(closure)
-	select {
-	case <-time.After(maxAwait):
-		return false
-	case <-booked:
-		return true
-	}
 }
 
 // collectUTXOsForFunding iterates over the faucet's UTXOs until the token threshold is reached.

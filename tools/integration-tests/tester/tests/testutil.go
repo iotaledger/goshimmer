@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	faucet_payload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
@@ -81,33 +80,28 @@ func SendDataMessage(t *testing.T, peer *framework.Peer, data []byte, number int
 func SendFaucetRequestOnRandomPeer(t *testing.T, peers []*framework.Peer, numMessages int) (ids map[string]DataMessageSent, addrBalance map[string]map[balance.Color]int64) {
 	ids = make(map[string]DataMessageSent, numMessages)
 	addrBalance = make(map[string]map[balance.Color]int64)
-	for _, p := range peers {
-		addr := p.Seed().Address(0).String()
-		addrBalance[addr] = make(map[balance.Color]int64)
-		addrBalance[addr][balance.ColorIOTA] = 0
-	}
 
 	for i := 0; i < numMessages; i++ {
 		peer := peers[rand.Intn(len(peers))]
-		id, sent := SendFaucetRequest(t, peer)
-
+		addr := peer.Seed().Address(uint64(i))
+		id, sent := SendFaucetRequest(t, peer, addr)
 		ids[id] = sent
-		addrBalance[peer.Seed().Address(0).String()][balance.ColorIOTA] += framework.ParaFaucetTokensPerRequest
+		addrBalance[addr.String()] = map[balance.Color]int64{
+			balance.ColorIOTA: framework.ParaFaucetTokensPerRequest,
+		}
 	}
 
 	return ids, addrBalance
 }
 
 // SendFaucetRequest sends a data message on a given peer and returns the id and a DataMessageSent struct.
-func SendFaucetRequest(t *testing.T, peer *framework.Peer) (string, DataMessageSent) {
-	addr := peer.Seed().Address(0)
+func SendFaucetRequest(t *testing.T, peer *framework.Peer, addr address.Address) (string, DataMessageSent) {
 	resp, err := peer.SendFaucetRequest(addr.String())
 	require.NoErrorf(t, err, "Could not send faucet request on %s", peer.String())
 
 	sent := DataMessageSent{
-		id: resp.ID,
-		// save payload to be able to compare API response
-		data:            faucet_payload.New(addr).Bytes(),
+		id:              resp.ID,
+		data:            nil,
 		issuerPublicKey: peer.Identity.PublicKey().String(),
 	}
 	return resp.ID, sent
@@ -125,7 +119,7 @@ func CheckForMessageIds(t *testing.T, peers []*framework.Peer, ids map[string]Da
 			// check that the peer sees itself as synchronized
 			info, err := peer.Info()
 			require.NoError(t, err)
-			require.True(t, info.Synced)
+			assert.Truef(t, info.Synced, "Node %s is not synced", peer)
 		}
 
 		resp, err := peer.FindMessageByID(idsSlice)
@@ -143,7 +137,9 @@ func CheckForMessageIds(t *testing.T, peers []*framework.Peer, ids map[string]Da
 			msgSent := ids[msg.ID]
 
 			assert.Equalf(t, msgSent.issuerPublicKey, msg.IssuerPublicKey, "messageID=%s, issuer=%s not correct issuer in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
-			assert.Equalf(t, msgSent.data, msg.Payload, "messageID=%s, issuer=%s data not equal in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
+			if msgSent.data != nil {
+				assert.Equalf(t, msgSent.data, msg.Payload, "messageID=%s, issuer=%s data not equal in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
+			}
 			assert.Truef(t, msg.Metadata.Solid, "messageID=%s, issuer=%s not solid in %s.", msgSent.id, msgSent.issuerPublicKey, peer.String())
 		}
 	}

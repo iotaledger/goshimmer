@@ -15,6 +15,4 @@ type MessageFilter interface {
 	OnAccept(callback func(msg *message.Message, peer *peer.Peer))
 	// OnAccept registers the given callback as the rejection function of the filter.
 	OnReject(callback func(msg *message.Message, err error, peer *peer.Peer))
-	// Shutdown shuts down the filter.
-	Shutdown()
 }
