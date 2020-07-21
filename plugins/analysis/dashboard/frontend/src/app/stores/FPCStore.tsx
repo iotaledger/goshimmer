@@ -41,8 +41,7 @@ export class FPCStore {
         for (const conflictID in msg.conflictset) {
             for (const nodeID in msg.conflictset[conflictID].nodesview) {
                 const voteContext = msg.conflictset[conflictID].nodesview[nodeID];
-                const latestOpinion = voteContext.opinions[voteContext.opinions.length - 1];
-
+                
                 let conflict = this.conflicts.find(c => c.conflictID === conflictID);
                 if (!conflict) {
                     conflict = {
@@ -58,7 +57,7 @@ export class FPCStore {
                 if (!(nodeID in conflict.nodeOpinions)) {
                     conflict.nodeOpinions[nodeID] = [];
                 } 
-                conflict.nodeOpinions[nodeID].push(latestOpinion);
+                conflict.nodeOpinions[nodeID] = voteContext.opinions;
 
                 this.updateConflictState(conflict);
             }

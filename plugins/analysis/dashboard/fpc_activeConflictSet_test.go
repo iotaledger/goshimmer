@@ -23,7 +23,7 @@ func TestActiveConflictsUpdate(t *testing.T) {
 	}
 	c.update("A", conflictA)
 
-	require.Equal(t, conflictA, c.conflictSet["A"])
+	require.Equal(t, conflictA.NodesView, c.conflictSet["A"].NodesView)
 
 	// test second new update
 	conflictB := conflict{
@@ -38,7 +38,7 @@ func TestActiveConflictsUpdate(t *testing.T) {
 	}
 	c.update("B", conflictB)
 
-	require.Equal(t, conflictB, c.conflictSet["B"])
+	require.Equal(t, conflictB.NodesView, c.conflictSet["B"].NodesView)
 
 	// test modify existing entry
 	conflictB = conflict{
@@ -52,7 +52,7 @@ func TestActiveConflictsUpdate(t *testing.T) {
 		},
 	}
 	c.update("B", conflictB)
-	require.Equal(t, conflictB, c.conflictSet["B"])
+	require.Equal(t, conflictB.NodesView, c.conflictSet["B"].NodesView)
 
 	// test  entry removal
 	c.delete("B")

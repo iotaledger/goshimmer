@@ -24,8 +24,8 @@ var ErrNotFound = errors.New("not found")
 var ErrForbidden = errors.New("forbidden")
 
 // holds analysis dashboard assets
-var appBox = packr.New("AnalysisDashboardApp", "./frontend/build")
-var assetsBox = packr.New("AnalysisDashboard_Assets", "./frontend/src/assets")
+var appBox = packr.New("Analysis_Dashboard_App", "./frontend/build")
+var assetsBox = packr.New("Analysis_Dashboard_Assets", "./frontend/src/assets")
 
 func indexRoute(e echo.Context) error {
 	if config.Node().GetBool(CfgDev) {
