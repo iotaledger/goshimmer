@@ -26,8 +26,6 @@ var (
 	// current number of solid messages in the node's database
 	messageSolidCountDBInc atomic.Uint64
 
-	// initial average solidification time
-	initialAvgSolidificationTime float64
 	// helper variable that is only calculated at init phase. unit is milliseconds!
 	initialSumSolidificationTime float64
 
@@ -155,6 +153,5 @@ func measureInitialDBStats() {
 	solid, total, avgSolidTime := messagelayer.Tangle().DBStats()
 	initialMessageSolidCountDB = uint64(solid)
 	initialMessageTotalCountDB = uint64(total)
-	initialAvgSolidificationTime = avgSolidTime
 	initialSumSolidificationTime = avgSolidTime * float64(solid)
 }
