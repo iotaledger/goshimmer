@@ -3,7 +3,6 @@ import React, { ReactNode } from "react";
 import { hot } from "react-hot-loader/root";
 import { withRouter } from "react-router";
 import { Link, Redirect, Route, Switch } from "react-router-dom";
-import logoHeader from "../assets/logo-header.svg";
 import "./App.scss";
 import { AppProps } from "./AppProps";
 import Autopeering from "./components/Autopeering/Autopeering";
@@ -22,7 +21,7 @@ class App extends React.Component<AppProps, unknown> {
             <div className="root">
                 <header>
                     <Link className="brand" to="/">
-                        <img src={logoHeader} alt="GoShimmer Analyser" />
+                        <img src="/assets/logo-header.svg" alt="GoShimmer Analyser" />
                         <h1>GoShimmer Analyzer</h1>
                     </Link>
                     <div className="badge-container">
