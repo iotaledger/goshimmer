@@ -15,19 +15,19 @@ var (
 	messageTotalCount atomic.Uint64
 
 	// number of messages in the database at startup
-	initialMessageTotalCountDB atomic.Uint64
+	initialMessageTotalCountDB uint64
 
 	// current number of messages in the node's database
 	messageTotalCountDB atomic.Uint64
 
 	// number of solid messages in the database at startup
-	initialMessageSolidCountDB atomic.Uint64
+	initialMessageSolidCountDB uint64
 
 	// current number of solid messages in the node's database
 	messageSolidCountDBInc atomic.Uint64
 
 	// initial average solidification time
-	initialAvgSolidificationTime atomic.Float64
+	initialAvgSolidificationTime float64
 	// helper variable that is only calculated at init phase. unit is milliseconds!
 	initialSumSolidificationTime float64
 
@@ -87,12 +87,12 @@ func MessageRequestQueueSize() int64 {
 
 // MessageSolidCountDB returns the number of messages that are solid in the DB.
 func MessageSolidCountDB() uint64 {
-	return initialMessageSolidCountDB.Load() + messageSolidCountDBInc.Load()
+	return initialMessageSolidCountDB + messageSolidCountDBInc.Load()
 }
 
 // MessageTotalCountDB returns the number of messages that are stored in the DB.
 func MessageTotalCountDB() uint64 {
-	return initialMessageTotalCountDB.Load() + messageTotalCountDB.Load()
+	return initialMessageTotalCountDB + messageTotalCountDB.Load()
 }
 
 // AvgSolidificationTime returns the average time it takes for a message to become solid. [milliseconds]
@@ -153,8 +153,8 @@ func measureRequestQueueSize() {
 
 func measureInitialDBStats() {
 	solid, total, avgSolidTime := messagelayer.Tangle().DBStats()
-	initialMessageSolidCountDB.Store(uint64(solid))
-	initialMessageTotalCountDB.Store(uint64(total))
-	initialAvgSolidificationTime.Store(avgSolidTime)
+	initialMessageSolidCountDB = uint64(solid)
+	initialMessageTotalCountDB = uint64(total)
+	initialAvgSolidificationTime = avgSolidTime
 	initialSumSolidificationTime = avgSolidTime * float64(solid)
 }

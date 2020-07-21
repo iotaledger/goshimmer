@@ -138,9 +138,7 @@ func (tangle *Tangle) Prune() error {
 // DBStats returns the number of solid messages and total number of messages in the database, furthermore the average time it takes to solidify messages.
 func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidificationTime float64) {
 	var sumSolidificationTime time.Duration
-	var iterations int
 	tangle.messageMetadataStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		iterations++
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
 			msgMetaData := object.(*MessageMetadata)
 			messageCount++
