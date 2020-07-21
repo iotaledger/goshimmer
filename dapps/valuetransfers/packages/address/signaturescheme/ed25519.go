@@ -124,4 +124,14 @@ func (signature *ED25519Signature) Address() address.Address {
 	return address.FromED25519PubKey(signature.publicKey)
 }
 
+// PublicKeySize returns the size of the public key.
+func (signature *ED25519Signature) PublicKeySize() int {
+	return ed25519.PublicKeySize
+}
+
+// SignatureSize returns the size of the signature.
+func (signature *ED25519Signature) SignatureSize() int {
+	return ed25519.SignatureSize
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

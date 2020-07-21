@@ -177,6 +177,20 @@ func (transaction *Transaction) SignaturesValid() bool {
 	return signaturesValid
 }
 
+// Signatures returns all the signatures in this transaction.
+func (transaction *Transaction) Signatures() (signatures []signaturescheme.Signature) {
+	transaction.inputs.ForEachAddress(func(address address.Address) bool {
+		signature, exists := transaction.signatures.Get(address)
+		if !exists || !signature.IsValid(transaction.EssenceBytes()) {
+			return false
+		}
+		signatures = append(signatures, signature)
+		return true
+	})
+
+	return signatures
+}
+
 // InputsCountValid returns true if the number of inputs in this transaction is not greater than MaxTransactionInputCount.
 func (transaction *Transaction) InputsCountValid() bool {
 	return transaction.inputs.Size() <= MaxTransactionInputCount
