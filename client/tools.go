@@ -11,7 +11,7 @@ const (
 	routePastCone = "tools/pastcone"
 )
 
-// PastConeExist checks that all of the messages in the the past cone of a message are existing on the node
+// PastConeExist checks that all of the messages in the past cone of a message are existing on the node
 // down to the genesis. Returns the number of messages in the past cone as well.
 func (api *GoShimmerAPI) PastConeExist(base58EncodedMessageID string) (*webapi_tools.PastConeResponse, error) {
 	res := &webapi_tools.PastConeResponse{}
