@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"container/list"
-	"runtime"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
@@ -57,7 +56,8 @@ func New(store kvstore.KVStore) (result *Tangle) {
 		Events: *newEvents(),
 	}
 
-	result.solidifierWorkerPool.Tune(runtime.GOMAXPROCS(0))
+	result.solidifierWorkerPool.Tune(1024)
+	result.storeMessageWorkerPool.Tune(1024)
 	return
 }
 
@@ -133,6 +133,27 @@ func (tangle *Tangle) Prune() error {
 	}
 
 	return nil
+}
+
+// DBStats returns the number of solid messages and total number of messages in the database, furthermore the average time it takes to solidify messages.
+func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidificationTime float64) {
+	var sumSolidificationTime time.Duration
+	tangle.messageMetadataStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedObject.Consume(func(object objectstorage.StorableObject) {
+			msgMetaData := object.(*MessageMetadata)
+			messageCount++
+			received := msgMetaData.ReceivedTime()
+			if msgMetaData.IsSolid() {
+				solidCount++
+				sumSolidificationTime += msgMetaData.solidificationTime.Sub(received)
+			}
+		})
+		return true
+	})
+	if solidCount > 0 {
+		avgSolidificationTime = float64(sumSolidificationTime.Milliseconds()) / float64(solidCount)
+	}
+	return
 }
 
 // worker that stores the message and calls the corresponding storage events.
@@ -293,4 +314,14 @@ func (tangle *Tangle) deleteFutureCone(messageId message.Id) {
 			}
 		})
 	}
+}
+
+// SolidifierWorkerPoolStatus returns the name and the load of the workerpool.
+func (tangle *Tangle) SolidifierWorkerPoolStatus() (name string, load int) {
+	return "Solidifier", tangle.solidifierWorkerPool.RunningWorkers()
+}
+
+// StoreMessageWorkerPoolStatus returns the name and the load of the workerpool.
+func (tangle *Tangle) StoreMessageWorkerPoolStatus() (name string, load int) {
+	return "StoreMessage", tangle.storeMessageWorkerPool.RunningWorkers()
 }

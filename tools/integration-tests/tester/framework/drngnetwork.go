@@ -93,7 +93,7 @@ func (n *DRNGNetwork) CreateMember(leader bool) (*Drand, error) {
 func (n *DRNGNetwork) Shutdown() error {
 	// stop drand members
 	for _, p := range n.members {
-		err := p.Stop()
+		err := p.Stop(5 * time.Second)
 		if err != nil {
 			return err
 		}

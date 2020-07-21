@@ -18,15 +18,14 @@ import (
 )
 
 var (
-	testPayload               = payload.NewData([]byte("test"))
-	testPeer       *peer.Peer = nil
-	testWorker                = pow.New(crypto.BLAKE2b_512, 1)
-	testDifficulty            = 10
+	testPayload    = payload.NewData([]byte("test"))
+	testPeer       *peer.Peer
+	testWorker     = pow.New(crypto.BLAKE2b_512, 1)
+	testDifficulty = 10
 )
 
 func TestPowFilter_Filter(t *testing.T) {
 	filter := NewPowFilter(testWorker, testDifficulty)
-	defer filter.Shutdown()
 
 	// set callbacks
 	m := &callbackMock{}
@@ -61,7 +60,6 @@ func TestPowFilter_Filter(t *testing.T) {
 		filter.Filter(msgPOWBytes, testPeer)
 	})
 
-	filter.Shutdown()
 	m.AssertExpectations(t)
 }
 

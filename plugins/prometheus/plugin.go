@@ -29,6 +29,10 @@ var (
 func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 
+	if config.Node().GetBool(CfgPrometheusWorkerpoolMetrics) {
+		registerWorkerpoolMetrics()
+	}
+
 	if config.Node().GetBool(CfgPrometheusGoMetrics) {
 		registry.MustRegister(prometheus.NewGoCollector())
 	}

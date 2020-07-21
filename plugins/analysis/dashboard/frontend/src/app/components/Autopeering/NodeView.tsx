@@ -1,15 +1,15 @@
 import classNames from "classnames";
-import { shortenedIDCharCount } from "app/stores/AutopeeringStore";
+import { shortenedIDCharCount } from "../../stores/AutopeeringStore";
 import { inject, observer } from "mobx-react";
-import * as React from 'react';
+import React, { ReactNode } from "react";
 import "./NodeView.scss";
-import { AutopeeringProps } from './AutopeeringProps';
+import { AutopeeringProps } from "./AutopeeringProps";
 
 @inject("autopeeringStore")
 @observer
-export class NodeView extends React.Component<AutopeeringProps, any> {
-    render() {
-        return (
+export class NodeView extends React.Component<AutopeeringProps, unknown> {
+    public render(): ReactNode {
+        return !this.props.autopeeringStore.selectedNode ? null :
             <div className="card node-view">
                 <div className="card--header">
                     <h3>
@@ -20,10 +20,12 @@ export class NodeView extends React.Component<AutopeeringProps, any> {
                     <div className="col">
                         <label className="margin-b-t">
                             Incoming
-                            <span className="badge">{this.props.autopeeringStore.selectedNodeInNeighbors.size.toString()}</span>
+                            <span className="badge">{
+                                this.props.autopeeringStore.selectedNodeInNeighbors ?
+                                    this.props.autopeeringStore.selectedNodeInNeighbors.size.toString() : 0}</span>
                         </label>
                         <div className="node-view--list">
-                            {this.props.autopeeringStore.inNeighborList.map(nodeId => (
+                            {this.props.autopeeringStore.inNeighborList.map(nodeId =>
                                 <button
                                     key={nodeId}
                                     onClick={() => this.props.autopeeringStore.handleNodeSelection(nodeId)}
@@ -35,17 +37,18 @@ export class NodeView extends React.Component<AutopeeringProps, any> {
                                 >
                                     {nodeId.substr(0, shortenedIDCharCount)}
                                 </button>
-                            ))}
+                            )}
                         </div>
                     </div>
 
                     <div className="col">
                         <label className="margin-b-t">
                             Outgoing
-                            <span className="badge">{this.props.autopeeringStore.selectedNodeOutNeighbors.size.toString()}</span>
+                            <span className="badge">{this.props.autopeeringStore.selectedNodeOutNeighbors ?
+                                this.props.autopeeringStore.selectedNodeOutNeighbors.size.toString() : 0}</span>
                         </label>
                         <div className="node-view--list">
-                            {this.props.autopeeringStore.outNeighborList.map(nodeId => (
+                            {this.props.autopeeringStore.outNeighborList.map(nodeId =>
                                 <button
                                     key={nodeId}
                                     onClick={() => this.props.autopeeringStore.handleNodeSelection(nodeId)}
@@ -57,11 +60,10 @@ export class NodeView extends React.Component<AutopeeringProps, any> {
                                 >
                                     {nodeId.substr(0, shortenedIDCharCount)}
                                 </button>
-                            ))}
+                            )}
                         </div>
                     </div>
                 </div>
-            </div>
-        );
+            </div>;
     }
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/timeutil"
 )
 
@@ -47,8 +48,10 @@ func configure(_ *node.Plugin) {
 }
 
 func run(_ *node.Plugin) {
-
+	log.Infof("Starting %s ...", PluginName)
 	if config.Node().GetBool(CfgMetricsLocal) {
+		// initial measurement, since we have to know how many messages are there in the db
+		measureInitialDBStats()
 		registerLocalMetrics()
 	}
 
@@ -59,6 +62,7 @@ func run(_ *node.Plugin) {
 
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(shutdownSignal <-chan struct{}) {
+		defer log.Infof("Stopping Metrics Updater ... done")
 		if config.Node().GetBool(CfgMetricsLocal) {
 			timeutil.Ticker(func() {
 				measureCPUUsage()
@@ -67,6 +71,7 @@ func run(_ *node.Plugin) {
 				measureMessageTips()
 				measureValueTips()
 				measureReceivedMPS()
+				measureRequestQueueSize()
 
 				// gossip network traffic
 				g := gossipCurrentTraffic()
@@ -77,7 +82,7 @@ func run(_ *node.Plugin) {
 		if config.Node().GetBool(CfgMetricsGlobal) {
 			timeutil.Ticker(calculateNetworkDiameter, 1*time.Minute, shutdownSignal)
 		}
-
+		log.Infof("Stopping Metrics Updater ...")
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
@@ -93,6 +98,29 @@ func registerLocalMetrics() {
 		cachedMessageMetadata.Release()
 		increaseReceivedMPSCounter()
 		increasePerPayloadCounter(_payloadType)
+		// MessageAttached is triggered in storeMessageWorker that saves the msg to database
+		messageTotalCountDB.Inc()
+
+	}))
+
+	messagelayer.Tangle().Events.MessageRemoved.Attach(events.NewClosure(func(messageId message.Id) {
+		// MessageRemoved triggered when the message gets removed from database.
+		messageTotalCountDB.Dec()
+	}))
+
+	// messages can only become solid once, then they stay like that, hence no .Dec() part
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		cachedMessage.Release()
+		solidTimeMutex.Lock()
+		defer solidTimeMutex.Unlock()
+		// Consume should release cachedMessageMetadata
+		cachedMessageMetadata.Consume(func(object objectstorage.StorableObject) {
+			msgMetaData := object.(*tangle.MessageMetadata)
+			if msgMetaData.IsSolid() {
+				messageSolidCountDBInc.Inc()
+				sumSolidificationTime += msgMetaData.SolidificationTime().Sub(msgMetaData.ReceivedTime())
+			}
+		})
 	}))
 
 	// Value payload attached

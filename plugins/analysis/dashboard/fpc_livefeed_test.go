@@ -47,6 +47,8 @@ func TestCreateFPCUpdate(t *testing.T) {
 	}
 
 	// check that createFPCUpdate returns a matching FPCMsg
-	require.Equal(t, want, createFPCUpdate(hbTest))
+	for k, v := range createFPCUpdate(hbTest).Conflicts {
+		require.Equal(t, want.Conflicts[k].NodesView, v.NodesView)
+	}
 
 }

@@ -12,13 +12,22 @@
     "noImplicitReturns": false,
     "noUnusedLocals": true,
     "removeComments": true,
-    "strictNullChecks": false,
+    "allowSyntheticDefaultImports": true,
+    "strictNullChecks": true,
     "outDir": "build",
-    "lib": ["es6", "es7", "dom"],
-    "baseUrl": "src",
-    "paths": {
-      "app/*": ["./app/*"]
-    }
+    "lib": [
+      "es6",
+      "es7",
+      "dom"
+    ],
+    "typeRoots": []
   },
-  "exclude": ["dist", "build", "node_modules"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "dist",
+    "build",
+    "node_modules"
+  ]
 }

@@ -1,90 +1,63 @@
-import { registerHandler, WSMsgType, unregisterHandler } from "app/misc/WS";
 import { action, computed, observable } from "mobx";
-
-enum Opinion {
-    Like = 1,
-    Dislike
-}
-
-class VoteContext {
-    nodeid: string;
-    rounds: number;
-    opinions: number[];
-    outcome: number;
-}
-
-class Conflict {
-    nodesview: Map<string, VoteContext>
-}
-
-export class FPCMessage {
-    conflictset: Map<string, Conflict>
-}
+import { IStoredConflict } from "../models/IStoredConflict";
+import { IFPCMessage } from "../models/messages/IFPCMessage";
+import { Opinion } from "../models/opinion";
+import { WSMsgType } from "../models/ws/wsMsgType";
+import { registerHandler, unregisterHandler } from "../services/WS";
 
 export class FPCStore {
-    @observable msg: FPCMessage = null;
+    @observable
+    private conflicts: IStoredConflict[] = [];
 
-    @observable conflicts: {
-        conflictID: string;
-        nodeOpinions: { nodeID: string; opinion: number }[];
-        lastUpdated: number;
-        likes?: number;
-    }[] = [];
+    @observable
+    private currentConflict: string = "";
 
-    @observable currentConflict = "";
+    private timerId: number;
 
-    timerId: NodeJS.Timer;
-
-    constructor() {
+    @computed
+    public get nodeConflictGrid(): { [id: string]: number[] } | undefined {
+        if (!this.currentConflict) {
+            return undefined;
+        }
+        const currentConflict = this.conflicts.find(c => c.conflictID === this.currentConflict);
+        if (!currentConflict) {
+            return undefined;
+        }
+        return currentConflict.nodeOpinions;
     }
 
-    start() {
-        registerHandler(WSMsgType.FPC, this.addLiveFeed);
-        this.timerId = setInterval(() => this.updateConflictStates(), 2000);
-    }
-
-    stop() {
-        unregisterHandler(WSMsgType.FPC);
-        clearInterval(this.timerId);
+    @computed
+    public get conflictGrid(): IStoredConflict[] {
+        return this.conflicts.filter(c => c.likes !== undefined);
     }
 
     @action
-    updateCurrentConflict = (id: string) => {
+    public updateCurrentConflict(id: string): void {
         this.currentConflict = id;
     }
 
     @action
-    addLiveFeed = (msg: FPCMessage) => {
-        let conflictIDs = Object.keys(msg.conflictset);
-        if (!conflictIDs) return;
-
-        for (const conflictID of conflictIDs) {
-            let nodeIDs = Object.keys(msg.conflictset[conflictID].nodesview);
-            for (const nodeID of nodeIDs) {
-                let voteContext = msg.conflictset[conflictID].nodesview[nodeID];
-                let latestOpinion = voteContext.opinions[voteContext.opinions.length - 1];
-
+    private addLiveFeed(msg: IFPCMessage): void {
+        for (const conflictID in msg.conflictset) {
+            for (const nodeID in msg.conflictset[conflictID].nodesview) {
+                const voteContext = msg.conflictset[conflictID].nodesview[nodeID];
+                
                 let conflict = this.conflicts.find(c => c.conflictID === conflictID);
                 if (!conflict) {
                     conflict = {
                         conflictID,
                         lastUpdated: Date.now(),
-                        nodeOpinions: []
+                        nodeOpinions: {}
                     };
                     this.conflicts.push(conflict);
                 } else {
                     conflict.lastUpdated = Date.now();
                 }
 
-                const nodeOpinionIndex = conflict.nodeOpinions.findIndex(no => no.nodeID === nodeID);
-                if (nodeOpinionIndex >= 0) {
-                    conflict.nodeOpinions[nodeOpinionIndex].opinion = latestOpinion;
-                } else {
-                    conflict.nodeOpinions.push({
-                        nodeID,
-                        opinion: latestOpinion
-                    });
-                }
+                if (!(nodeID in conflict.nodeOpinions)) {
+                    conflict.nodeOpinions[nodeID] = [];
+                } 
+                conflict.nodeOpinions[nodeID] = voteContext.opinions;
 
                 this.updateConflictState(conflict);
             }
@@ -92,9 +65,9 @@ export class FPCStore {
     }
 
     @action
-    updateConflictStates() {
-        for (let i = 0; i < this.conflicts.length; i++) {
-            this.updateConflictState(this.conflicts[i]);
+    private updateConflictStates(): void {
+        for (const conflict of this.conflicts) {
+            this.updateConflictState(conflict);
         }
 
         const resolvedConflictIds = this.conflicts.filter(c =>
@@ -103,26 +76,30 @@ export class FPCStore {
         ).map(c => c.conflictID);
 
         for (const conflictID of resolvedConflictIds) {
-            this.conflicts = this.conflicts.filter(c => c.conflictID !== conflictID)
+            this.conflicts = this.conflicts.filter(c => c.conflictID !== conflictID);
         }
     }
 
     @action
-    updateConflictState(conflict) {
-        conflict.likes = conflict.nodeOpinions.filter((nodeOpinion) => nodeOpinion.opinion === Opinion.Like).length;
+    private updateConflictState(conflict: IStoredConflict): void {
+        let likes = 0;
+        for (const nodeConflict in conflict.nodeOpinions) {
+            if (conflict.nodeOpinions[nodeConflict].length > 0 && 
+                conflict.nodeOpinions[nodeConflict][conflict.nodeOpinions[nodeConflict].length - 1] === Opinion.like) {
+                likes++;
+            }
+        }
+        conflict.likes = likes;
     }
 
-    @computed
-    get nodeConflictGrid() {
-        if (!this.currentConflict) return;
-        const currentConflict = this.conflicts.find(c => c.conflictID === this.currentConflict);
-        if (!currentConflict) return;
-        return currentConflict.nodeOpinions;
+    public start(): void {
+        registerHandler(WSMsgType.fpc, (msg) => this.addLiveFeed(msg));
+        this.timerId = setInterval(() => this.updateConflictStates(), 2000);
     }
 
-    @computed
-    get conflictGrid() {
-        return this.conflicts.filter(c => c.likes !== undefined);
+    public stop(): void {
+        unregisterHandler(WSMsgType.fpc);
+        clearInterval(this.timerId);
     }
 }
 

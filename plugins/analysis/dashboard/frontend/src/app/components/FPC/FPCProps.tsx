@@ -1,8 +1,8 @@
-import FPCStore from "app/stores/FPCStore";
+import FPCStore from "../../stores/FPCStore";
 import { RouteComponentProps } from "react-router";
 
 export interface FPCProps extends RouteComponentProps<{
-    id?: string;
+    id: string;
 }> {
-    fpcStore?: FPCStore;
+    fpcStore: FPCStore;
 }

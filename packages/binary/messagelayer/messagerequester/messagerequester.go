@@ -14,7 +14,7 @@ type MessageRequester struct {
 	options           *Options
 	Events            Events
 
-	scheduledRequestsMutex sync.Mutex
+	scheduledRequestsMutex sync.RWMutex
 }
 
 // New creates a new message requester.
@@ -33,17 +33,17 @@ func New(optionalOptions ...Option) *MessageRequester {
 // StartRequest initiates a regular triggering of the StartRequest event until it has been stopped using StopRequest.
 func (requester *MessageRequester) StartRequest(id message.Id) {
 	requester.scheduledRequestsMutex.Lock()
-	defer requester.scheduledRequestsMutex.Unlock()
 
 	// ignore already scheduled requests
 	if _, exists := requester.scheduledRequests[id]; exists {
+		requester.scheduledRequestsMutex.Unlock()
 		return
 	}
 
-	// trigger the event and schedule the next request
-	// make this atomic to be sure that a successive call of StartRequest does not trigger again
-	requester.Events.SendRequest.Trigger(id)
+	// schedule the next request and trigger the event
 	requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id) })
+	requester.scheduledRequestsMutex.Unlock()
+	requester.Events.SendRequest.Trigger(id)
 }
 
 // StopRequest stops requests for the given message to further happen.
@@ -68,4 +68,11 @@ func (requester *MessageRequester) reRequest(id message.Id) {
 	if _, exists := requester.scheduledRequests[id]; exists {
 		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id) })
 	}
+}
+
+// RequestQueueSize returns the number of scheduled message requests.
+func (requester *MessageRequester) RequestQueueSize() int {
+	requester.scheduledRequestsMutex.RLock()
+	defer requester.scheduledRequestsMutex.RUnlock()
+	return len(requester.scheduledRequests)
 }
