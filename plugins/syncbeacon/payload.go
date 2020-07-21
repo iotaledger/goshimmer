@@ -70,7 +70,7 @@ func (p *Payload) SentTime() int64 {
 	return p.sentTime
 }
 
-// Bytes marshals the data payload into a sequence of bytes.
+// Bytes marshals the syncbeacon payload into a sequence of bytes.
 func (p *Payload) Bytes() []byte {
 	// initialize helper
 	marshalUtil := marshalutil.New()

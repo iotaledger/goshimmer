@@ -108,8 +108,8 @@ func handlePayload(syncBeaconPayload *Payload, issuerPublicKey ed25519.PublicKey
 	issuerPublicKeyStr := issuerPublicKey.String()
 	//check if issuer is in configured beacon follow list
 	shouldAccept := false
-	for i := 0; i < len(beaconNodesPublicKeys); i++ {
-		if beaconNodesPublicKeys[i] == issuerPublicKeyStr {
+	for _, pubKey := range beaconNodesPublicKeys {
+		if pubKey == issuerPublicKeyStr {
 			shouldAccept = true
 			break
 		}
@@ -145,8 +145,7 @@ func updateSynced() {
 		synced = beaconNodesSyncedCount/float64(len(beaconSyncMap)) >= syncPercentage
 	}
 
-	isLocalSynced := sync.Synced()
-	if isLocalSynced && synced {
+	if synced {
 		sync.MarkSynced()
 	} else {
 		sync.MarkDesynced()
