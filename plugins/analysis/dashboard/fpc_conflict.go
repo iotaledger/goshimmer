@@ -59,9 +59,5 @@ func (c conflict) finalizedRatio() float64 {
 
 // isOlderThan returns true if the conflict is older (i.e., last modified time) than the given duration.
 func (c conflict) isOlderThan(d time.Duration) bool {
-	if c.Modified.Add(d).After(time.Now()) {
-		return false
-	}
-
-	return true
+	return c.Modified.Add(d).After(time.Now())
 }

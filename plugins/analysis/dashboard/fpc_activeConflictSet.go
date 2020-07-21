@@ -63,9 +63,9 @@ func (cr *activeConflictSet) update(ID string, c conflict) {
 		cr.conflictSet[ID].NodesView[nodeID] = context
 	}
 
-	conflict := cr.conflictSet[ID]
-	conflict.Modified = time.Now()
-	cr.conflictSet[ID] = conflict
+	tmp := cr.conflictSet[ID]
+	tmp.Modified = time.Now()
+	cr.conflictSet[ID] = tmp
 }
 
 func (cr *activeConflictSet) delete(ID string) {
