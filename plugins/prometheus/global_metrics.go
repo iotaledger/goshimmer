@@ -49,11 +49,13 @@ var onFPCFinalized = events.NewClosure(func(ev *metricspkg.AnalysisFPCFinalizedE
 		opinionToString(ev.Outcome),
 	).Set(1)
 
-	conflictInitialOpinion.WithLabelValues(
-		ev.ConflictID,
-		ev.NodeID,
-		opinionToString(ev.Opinions[0]),
-	).Set(1)
+	if len(ev.Opinions) > 0 {
+		conflictInitialOpinion.WithLabelValues(
+			ev.ConflictID,
+			ev.NodeID,
+			opinionToString(ev.Opinions[0]),
+		).Set(1)
+	}
 })
 
 func registerClientsMetrics() {
