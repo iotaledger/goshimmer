@@ -123,6 +123,18 @@ func registerLocalMetrics() {
 		})
 	}))
 
+	// fired when a message gets added to missing message storage
+	messagelayer.Tangle().Events.MessageMissing.Attach(events.NewClosure(func(messageId message.Id) {
+		missingMessageCountDB.Inc()
+	}))
+
+	// fired when a missing message was received and removed from missing message storage
+	messagelayer.Tangle().Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		cachedMessage.Release()
+		cachedMessageMetadata.Release()
+		missingMessageCountDB.Dec()
+	}))
+
 	// Value payload attached
 	valuetransfers.Tangle().Events.PayloadAttached.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *valuetangle.CachedPayloadMetadata) {
 		cachedPayload.Release()
