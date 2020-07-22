@@ -13,6 +13,4 @@ type BytesFilter interface {
 	OnAccept(callback func(bytes []byte, peer *peer.Peer))
 	// OnReject registers the given callback as the rejection function of the filter.
 	OnReject(callback func(bytes []byte, err error, peer *peer.Peer))
-	// Shutdown shuts down the filter.
-	Shutdown()
 }

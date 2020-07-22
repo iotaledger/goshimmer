@@ -37,6 +37,8 @@ var (
 	ParaPoWDifficulty = 2
 	// ParaWaitToKill defines the time to wait before killing the node.
 	ParaWaitToKill = 60
+	// ParaPoWFaucetDifficulty defines the PoW difficulty for faucet payloads.
+	ParaPoWFaucetDifficulty = 2
 )
 
 var (

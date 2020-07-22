@@ -65,6 +65,7 @@
     "dateformat": "^3.0.3",
     "favicons-webpack-plugin": "^2.1.0",
     "history": "^4.10.1",
+    "js-yaml": "^3.13.1",
     "mobx": "^5.15.0",
     "mobx-react": "^5.4.3",
     "mobx-react-router": "^4.0.5",

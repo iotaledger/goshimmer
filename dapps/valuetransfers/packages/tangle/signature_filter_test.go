@@ -45,7 +45,9 @@ func TestSignatureFilter(t *testing.T) {
 		)
 
 		// parse message bytes
-		accepted, _, _, err := messageParser.Parse(messageFactory.IssuePayload(valuePayload.New(valuePayload.GenesisID, valuePayload.GenesisID, tx)).Bytes(), &peer.Peer{})
+		msg, err := messageFactory.IssuePayload(valuePayload.New(valuePayload.GenesisID, valuePayload.GenesisID, tx))
+		require.NoError(t, err)
+		accepted, _, _, err := messageParser.Parse(msg.Bytes(), &peer.Peer{})
 
 		// check results (should be rejected)
 		require.Equal(t, false, accepted)
@@ -69,7 +71,10 @@ func TestSignatureFilter(t *testing.T) {
 		tx.Sign(signaturescheme.ED25519(*seed.KeyPair(0)))
 
 		// parse message bytes
-		accepted, _, _, err := messageParser.Parse(messageFactory.IssuePayload(valuePayload.New(valuePayload.GenesisID, valuePayload.GenesisID, tx)).Bytes(), &peer.Peer{})
+		msg, err := messageFactory.IssuePayload(valuePayload.New(valuePayload.GenesisID, valuePayload.GenesisID, tx))
+		require.NoError(t, err)
+
+		accepted, _, _, err := messageParser.Parse(msg.Bytes(), &peer.Peer{})
 
 		// check results (should be accepted)
 		require.Equal(t, true, accepted)
@@ -90,7 +95,9 @@ func TestSignatureFilter(t *testing.T) {
 		require.NoError(t, err)
 
 		// parse message bytes
-		accepted, _, _, err := messageParser.Parse(messageFactory.IssuePayload(dataPayload).Bytes(), &peer.Peer{})
+		msg, err := messageFactory.IssuePayload(dataPayload)
+		require.NoError(t, err)
+		accepted, _, _, err := messageParser.Parse(msg.Bytes(), &peer.Peer{})
 
 		// check results (should be rejected)
 		require.Equal(t, false, accepted)

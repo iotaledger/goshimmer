@@ -21,13 +21,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 )
 
-var (
-	// ErrTransactionDoesNotSpendAllFunds is returned if a transaction does not spend all of its inputs.
-	ErrTransactionDoesNotSpendAllFunds = errors.New("transaction does not spend all funds from inputs")
-	// ErrInvalidTransactionSignature is returned if the signature of a transaction is invalid.
-	ErrInvalidTransactionSignature = errors.New("invalid transaction signatures")
-)
-
 // Tangle represents the value tangle that consists out of value payloads.
 // It is an independent ontology, that lives inside the tangle.
 type Tangle struct {
@@ -1597,6 +1590,11 @@ func (tangle *Tangle) ValidateTransactionToAttach(tx *transaction.Transaction) (
 	}
 	if !tangle.checkTransactionOutputs(consumedBalances, tx.Outputs()) {
 		err = ErrTransactionDoesNotSpendAllFunds
+		return
+	}
+
+	if !tx.InputsCountValid() {
+		err = ErrMaxTransactionInputCountExceeded
 		return
 	}
 

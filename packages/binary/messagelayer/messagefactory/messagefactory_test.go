@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	_ "golang.org/x/crypto/blake2b"
 )
 
@@ -45,7 +46,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 
 	t.Run("CheckProperties", func(t *testing.T) {
 		p := payload.NewData([]byte("TestCheckProperties"))
-		msg := msgFactory.IssuePayload(p)
+		msg, err := msgFactory.IssuePayload(p)
+		require.NoError(t, err)
 
 		assert.NotNil(t, msg.TrunkId())
 		assert.NotNil(t, msg.BranchId())
@@ -70,7 +72,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 				t.Parallel()
 
 				p := payload.NewData([]byte("TestParallelCreation"))
-				msg := msgFactory.IssuePayload(p)
+				msg, err := msgFactory.IssuePayload(p)
+				require.NoError(t, err)
 
 				assert.NotNil(t, msg.TrunkId())
 				assert.NotNil(t, msg.BranchId())
@@ -125,11 +128,36 @@ func TestMessageFactory_POW(t *testing.T) {
 		return worker.Mine(context.Background(), content, targetPOW)
 	}))
 
-	msg := msgFactory.IssuePayload(payload.NewData([]byte("test")))
+	msg, err := msgFactory.IssuePayload(payload.NewData([]byte("test")))
+	require.NoError(t, err)
+
 	msgBytes := msg.Bytes()
 	content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 
 	zeroes, err := worker.LeadingZerosWithNonce(content, msg.Nonce())
 	assert.GreaterOrEqual(t, zeroes, targetPOW)
 	assert.NoError(t, err)
+}
+
+func TestWorkerFunc_PayloadSize(t *testing.T) {
+	msgFactory := New(
+		mapdb.NewMapDB(),
+		[]byte(sequenceKey),
+		identity.GenerateLocalIdentity(),
+		TipSelectorFunc(func() (message.Id, message.Id) { return message.EmptyId, message.EmptyId }),
+	)
+	defer msgFactory.Shutdown()
+
+	// issue message with max allowed payload size
+	// dataPayload headers: type|32bit + size|32bit
+	data := make([]byte, payload.MaxPayloadSize-4-4)
+	msg, err := msgFactory.IssuePayload(payload.NewData(data))
+	require.NoError(t, err)
+	assert.Truef(t, payload.MaxMessageSize == len(msg.Bytes()), "message size should be exactly %d bytes but is %d", payload.MaxMessageSize, len(msg.Bytes()))
+
+	// issue message bigger than max allowed payload size
+	data = make([]byte, payload.MaxPayloadSize)
+	msg, err = msgFactory.IssuePayload(payload.NewData(data))
+	require.Error(t, err)
+	assert.Nil(t, msg)
 }

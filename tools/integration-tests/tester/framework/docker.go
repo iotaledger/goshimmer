@@ -85,6 +85,7 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--valueLayer.fcob.averageNetworkDelay=%d", ParaFCoBAverageNetworkDelay),
 			fmt.Sprintf("--node.disablePlugins=%s", config.DisabledPlugins),
 			fmt.Sprintf("--pow.difficulty=%d", ParaPoWDifficulty),
+			fmt.Sprintf("--faucet.powDifficulty=%d", ParaPoWFaucetDifficulty),
 			fmt.Sprintf("--gracefulshutdown.waitToKillTime=%d", ParaWaitToKill),
 			fmt.Sprintf("--node.enablePlugins=%s", func() string {
 				var plugins []string
@@ -212,8 +213,11 @@ func (d *DockerContainer) Remove() error {
 
 // Stop stops a container without terminating the process.
 // The process is blocked until the container stops or the timeout expires.
-func (d *DockerContainer) Stop() error {
-	duration := 30 * time.Second
+func (d *DockerContainer) Stop(optionalTimeout ...time.Duration) error {
+	duration := 3 * time.Minute
+	if optionalTimeout != nil {
+		duration = optionalTimeout[0]
+	}
 	return d.client.ContainerStop(context.Background(), d.id, &duration)
 }
 

@@ -2,6 +2,8 @@ package sendtransaction
 
 import (
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
@@ -9,8 +11,16 @@ import (
 	"github.com/labstack/echo"
 )
 
+var (
+	sendTxMu           sync.Mutex
+	maxBookedAwaitTime = 5 * time.Second
+)
+
 // Handler sends a transaction.
 func Handler(c echo.Context) error {
+	sendTxMu.Lock()
+	defer sendTxMu.Unlock()
+
 	var request Request
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
@@ -28,12 +38,18 @@ func Handler(c echo.Context) error {
 	}
 
 	// Prepare value payload and send the message to tangle
-	payload := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
+	payload, err := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
 	_, err = issuer.IssuePayload(payload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
+	if err := valuetransfers.AwaitTransactionToBeBooked(tx.ID(), maxBookedAwaitTime); err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
 	return c.JSON(http.StatusOK, Response{TransactionID: tx.ID().String()})
 }
 
