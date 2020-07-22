@@ -1,7 +1,6 @@
 package messagerequester
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -63,7 +62,9 @@ func (requester *MessageRequester) StopRequest(id message.Id) {
 	defer requester.scheduledRequestsMutex.Unlock()
 
 	if timer, ok := requester.scheduledRequests[id]; ok {
-		timer.Stop()
+		if !timer.Stop() {
+			<-timer.C
+		}
 		delete(requester.scheduledRequests, id)
 	}
 }
@@ -75,22 +76,22 @@ func (requester *MessageRequester) reRequest(id message.Id, count int) {
 
 	// reschedule, if the request has not been stopped in the meantime
 	if _, exists := requester.scheduledRequests[id]; exists {
-		count++
+		// count++
 
-		// if count exceeds threshold -> check for message in message tangle
-		// if count > messageExistCheckThreshold && requester.messageExistsFunc(id) {
-		if requester.messageExistsFunc(id) {
-			// if found message tangle: stop request and delete from missingMessageStorage (via event)
-			if timer, ok := requester.scheduledRequests[id]; ok {
-				if !timer.Stop() {
-					<-timer.C
-				}
-				delete(requester.scheduledRequests, id)
-			}
-			fmt.Println("reRequest: ", id, count)
-			requester.Events.MissingMessageAppeared.Trigger(id)
-			return
-		}
+		// // if count exceeds threshold -> check for message in message tangle
+		// // if count > messageExistCheckThreshold && requester.messageExistsFunc(id) {
+		// if requester.messageExistsFunc(id) {
+		// 	// if found message tangle: stop request and delete from missingMessageStorage (via event)
+		// 	if timer, ok := requester.scheduledRequests[id]; ok {
+		// 		if !timer.Stop() {
+		// 			<-timer.C
+		// 		}
+		// 		delete(requester.scheduledRequests, id)
+		// 	}
+		// 	fmt.Println("reRequest: ", id, count)
+		// 	requester.Events.MissingMessageAppeared.Trigger(id)
+		// 	return
+		// }
 		requester.Events.SendRequest.Trigger(id)
 		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id, count) })
 	}
