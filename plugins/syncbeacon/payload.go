@@ -109,9 +109,7 @@ func IsSyncBeaconPayload(p *Payload) bool {
 
 func init() {
 	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-		payload = &Payload{
-			payloadType: Type,
-		}
+		payload = &Payload{}
 		err = payload.Unmarshal(data)
 
 		return

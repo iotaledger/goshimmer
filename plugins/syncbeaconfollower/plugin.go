@@ -48,17 +48,19 @@ type beaconSync struct {
 func init() {
 	flag.StringSlice(CfgSyncBeaconFollowNodes, []string{"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24", "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"}, "list of trusted nodes to follow their sync status")
 	flag.Int(CfgSyncBeaconMaxTimeWindowSec, 10, "the maximum time window for which a sync payload would be considerable")
-	flag.Int(CfgSyncBeaconMaxTimeOfflineSec, 40, "the maximum time the node should stay without receiving updates")
+	flag.Int(CfgSyncBeaconMaxTimeOfflineSec, 40, "the maximum time the node should stay synced without receiving updates")
 	flag.Int(CfgSyncBeaconCleanupInterval, 10, "the interval at which cleanups are done")
 }
 
 var (
 	// plugin is the plugin instance of the sync beacon plugin.
-	plugin         *node.Plugin
-	once           goSync.Once
-	log            *logger.Logger
-	currentBeacons map[string]beaconSync
-	mutex          goSync.RWMutex
+	plugin                  *node.Plugin
+	once                    goSync.Once
+	log                     *logger.Logger
+	currentBeacons          map[ed25519.PublicKey]*beaconSync
+	currentBeaconPubKeys    map[ed25519.PublicKey]string
+	mutex                   goSync.RWMutex
+	beaconMaxTimeOfflineSec float64
 )
 
 var (
@@ -77,19 +79,25 @@ func Plugin() *node.Plugin {
 // configure events
 func configure(_ *node.Plugin) {
 	pubKeys := config.Node().GetStringSlice(CfgSyncBeaconFollowNodes)
-
-	if len(pubKeys) == 0 {
-		log.Panicf("Follow node list cannot be empty: %w", ErrMissingFollowNodes)
-	}
-
+	beaconMaxTimeOfflineSec = float64(config.Node().GetInt(CfgSyncBeaconMaxTimeOfflineSec))
 	log = logger.NewLogger(PluginName)
-	currentBeacons = make(map[string]beaconSync, len(pubKeys))
 
-	for _, pubKey := range pubKeys {
-		currentBeacons[pubKey] = beaconSync{
+	currentBeacons = make(map[ed25519.PublicKey]*beaconSync, len(pubKeys))
+
+	for _, str := range pubKeys {
+		pubKey, _, err := ed25519.PublicKeyFromBytes([]byte(str))
+		if err != nil {
+			log.Warnf("%s is not a valid public key: %w", err)
+			continue
+		}
+		currentBeacons[pubKey] = &beaconSync{
 			payload: nil,
 			synced:  false,
 		}
+		currentBeaconPubKeys[pubKey] = str
+	}
+	if len(currentBeaconPubKeys) == 0 {
+		log.Panicf("Follow node list cannot be empty: %w", ErrMissingFollowNodes)
 	}
 
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
@@ -102,10 +110,16 @@ func configure(_ *node.Plugin) {
 
 			payload, ok := messagePayload.(*syncbeacon.Payload)
 			if !ok {
-				log.Info("could not cast payload to network delay object")
+				log.Info("could not cast payload to sync beacon object")
 				return
 			}
-			handlePayload(payload, msg.IssuerPublicKey())
+
+			//check if issuer is in configured beacon follow list
+			if _, ok := currentBeaconPubKeys[msg.IssuerPublicKey()]; !ok {
+				return
+			}
+
+			handlePayload(payload, msg.IssuerPublicKey(), msg.Id())
 		})
 	}))
 }
@@ -114,28 +128,19 @@ func configure(_ *node.Plugin) {
 // It checks that the issuer of the payload is a followed node.
 // The time that payload was sent is not greater than  CfgSyncBeaconMaxTimeWindowSec. If the duration is longer than CfgSyncBeaconMaxTimeWindowSec, we consider that beacon to be out of sync till we receive a newer payload.
 // More than syncPercentage of followed nodes are also synced, the node is set to synced. Otherwise, its set as desynced.
-func handlePayload(syncBeaconPayload *syncbeacon.Payload, issuerPublicKey ed25519.PublicKey) {
+func handlePayload(syncBeaconPayload *syncbeacon.Payload, issuerPublicKey ed25519.PublicKey, msgId message.Id) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	issuerPublicKeyStr := issuerPublicKey.String()
-	//check if issuer is in configured beacon follow list
-	if _, ok := currentBeacons[issuerPublicKeyStr]; !ok {
-		return
-	}
-
-	_beaconSync := beaconSync{
-		payload: syncBeaconPayload,
-		synced:  true,
-	}
-
+	synced := true
 	dur := time.Since(time.Unix(0, syncBeaconPayload.SentTime()))
 	if dur.Seconds() > float64(config.Node().GetInt(CfgSyncBeaconMaxTimeWindowSec)) {
-		log.Infof("syncbeacon received from %s is too old", issuerPublicKey)
-		_beaconSync.synced = false
+		log.Infof("sync beacon %s, received from %s is too old.", msgId, issuerPublicKey)
+		synced = false
 	}
 
-	currentBeacons[issuerPublicKeyStr] = _beaconSync
+	currentBeacons[issuerPublicKey].synced = synced
+	currentBeacons[issuerPublicKey].payload = syncBeaconPayload
 	updateSynced()
 }
 
@@ -167,7 +172,7 @@ func cleanupFollowNodes() {
 	for publicKey, beaconSync := range currentBeacons {
 		if beaconSync.payload != nil {
 			dur := time.Since(time.Unix(0, beaconSync.payload.SentTime()))
-			if dur.Seconds() > float64(config.Node().GetInt(CfgSyncBeaconMaxTimeOfflineSec)) {
+			if dur.Seconds() > beaconMaxTimeOfflineSec {
 				beaconSync.synced = false
 				currentBeacons[publicKey] = beaconSync
 			}
