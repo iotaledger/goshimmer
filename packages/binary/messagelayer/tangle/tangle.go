@@ -155,7 +155,7 @@ func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidifica
 	if solidCount > 0 {
 		avgSolidificationTime = float64(sumSolidificationTime.Milliseconds()) / float64(solidCount)
 	}
-	tangle.messageMetadataStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+	tangle.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
 			missingMessageCount++
 		})
