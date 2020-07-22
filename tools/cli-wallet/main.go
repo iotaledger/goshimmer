@@ -39,7 +39,7 @@ func main() {
 	createAssetCommand := flag.NewFlagSet("create-asset", flag.ExitOnError)
 	addressCommand := flag.NewFlagSet("address", flag.ExitOnError)
 	requestFaucetFundsCommand := flag.NewFlagSet("request-funds", flag.ExitOnError)
-	serverStatusCommand := flag.NewFlagSet("request-funds", flag.ExitOnError)
+	serverStatusCommand := flag.NewFlagSet("server-status", flag.ExitOnError)
 
 	// switch logic according to provided sub command
 	switch os.Args[1] {

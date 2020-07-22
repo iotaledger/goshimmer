@@ -15,12 +15,13 @@ func execServerStatusCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	}
 
 	fmt.Println()
-	fmt.Println("Requesting funds from faucet ... [PERFORMING POW]          (this can take a while)")
 
 	// request funds
-	err = cliWallet.RequestFaucetFunds()
+	status, err := cliWallet.ServerStatus()
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Requesting funds from faucet ... [DONE]")
+	fmt.Println("Server ID: ", status.ID)
+	fmt.Println("Server Synced: ", status.Synced)
+	fmt.Println("Server Version: ", status.Version)
 }

@@ -136,6 +136,8 @@ func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 		fmt.Println("        request funds from the testnet-faucet")
 		fmt.Println("  init")
 		fmt.Println("        generate a new wallet using a random seed")
+		fmt.Println("  server-status")
+		fmt.Println("        display the server status")
 		fmt.Println("  help")
 		fmt.Println("        display this help screen")
 

@@ -64,8 +64,8 @@ func New(options ...Option) (wallet *Wallet) {
 	return
 }
 
-func (wallet *Wallet) ServerStatus() {
-	wallet.connector.
+func (wallet *Wallet) ServerStatus() (status ServerStatus, err error) {
+	return wallet.connector.(*WebConnector).ServerStatus()
 }
 
 // SendFunds issues a payment of the given amount to the given address.
