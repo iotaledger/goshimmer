@@ -66,6 +66,7 @@ func (requester *MessageRequester) StopRequest(id message.Id) {
 			<-timer.C
 		}
 		delete(requester.scheduledRequests, id)
+		requester.Events.MissingMessageAppeared.Trigger(id)
 	}
 }
 
