@@ -174,7 +174,9 @@ func (tangle *Tangle) MissingMessages() (ids []message.Id) {
 	tangle.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
 			missingMsg := object.(*MissingMessage)
-			ids = append(ids, missingMsg.messageId)
+			if !missingMsg.IsDeleted() {
+				ids = append(ids, missingMsg.messageId)
+			}
 		})
 		return true
 	})
@@ -204,10 +206,6 @@ func (tangle *Tangle) storeMessageWorker(msg *message.Message) {
 		tangle.approverStorage.Store(NewApprover(branchMsgId, messageId)).Release()
 	}
 
-	// trigger events
-	if tangle.missingMessageStorage.DeleteIfPresent(messageId[:]) {
-		tangle.Events.MissingMessageReceived.Trigger(cachedMessage, cachedMsgMetadata)
-	}
 	tangle.Events.MessageAttached.Trigger(cachedMessage, cachedMsgMetadata)
 
 	// check message solidity
