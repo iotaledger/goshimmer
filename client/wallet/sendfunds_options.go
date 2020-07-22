@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 )
 
 // SendFundsOption is the type for the optional parameters for the SendFunds call.
@@ -54,7 +55,7 @@ func Destination(addr address.Address, amount uint64, optionalColor ...balance.C
 
 // Remainder is an option for the SendsFunds call that allows us to specify the remainder address that is
 // supposed to be used in the corresponding transaction.
-func Remainder(addr Address) SendFundsOption {
+func Remainder(addr wallet.Address) SendFundsOption {
 	return func(options *sendFundsOptions) error {
 		options.RemainderAddress = addr
 
@@ -65,7 +66,7 @@ func Remainder(addr Address) SendFundsOption {
 // sendFundsOptions is a struct that is used to aggregate the optional parameters provided in the SendFunds call.
 type sendFundsOptions struct {
 	Destinations     map[address.Address]map[balance.Color]uint64
-	RemainderAddress Address
+	RemainderAddress wallet.Address
 }
 
 // buildSendFundsOptions is a utility function that constructs the sendFundsOptions.

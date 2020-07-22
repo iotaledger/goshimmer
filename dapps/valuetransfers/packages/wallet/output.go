@@ -8,10 +8,10 @@ import (
 
 // Output is a wallet specific representation of an output in the IOTA network.
 type Output struct {
-	address        address.Address
-	transactionID  transaction.ID
-	balances       map[balance.Color]uint64
-	inclusionState InclusionState
+	Address        address.Address
+	TransactionID  transaction.ID
+	Balances       map[balance.Color]uint64
+	InclusionState InclusionState
 }
 
 // InclusionState is a container for the different flags of an output that define if it was accepted in the network.

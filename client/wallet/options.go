@@ -3,6 +3,7 @@ package wallet
 import (
 	"net/http"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	"github.com/iotaledger/hive.go/bitmask"
 )
 
@@ -17,7 +18,7 @@ func WebAPI(baseURL string, httpClient ...http.Client) Option {
 }
 
 // Import restores a wallet that has previously been created.
-func Import(seed *Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask, assetRegistry *AssetRegistry) Option {
+func Import(seed *wallet.Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask, assetRegistry *AssetRegistry) Option {
 	return func(wallet *Wallet) {
 		wallet.addressManager = NewAddressManager(seed, lastAddressIndex, spentAddresses)
 		wallet.assetRegistry = assetRegistry
@@ -34,7 +35,7 @@ func ReusableAddress(enabled bool) Option {
 
 // GenericConnector allows us to provide a generic connector to the wallet. It can be used to mock the behavior of a
 // real connector in tests or to provide new connection methods for nodes.
-func GenericConnector(connector Connector) Option {
+func GenericConnector(connector wallet.Connector) Option {
 	return func(wallet *Wallet) {
 		wallet.connector = connector
 	}

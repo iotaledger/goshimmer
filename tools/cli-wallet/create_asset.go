@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
+	libwallet "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 )
 
 func execCreateAssetCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -35,7 +36,7 @@ func execCreateAssetCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		printUsage(command, "you need to provide a name for you asset")
 	}
 
-	assetColor, err := cliWallet.CreateAsset(wallet.Asset{
+	assetColor, err := cliWallet.CreateAsset(libwallet.Asset{
 		Name:   *namePtr,
 		Symbol: *symbolPtr,
 		Amount: *amountPtr,
