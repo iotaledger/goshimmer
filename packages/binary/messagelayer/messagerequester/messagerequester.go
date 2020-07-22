@@ -78,7 +78,8 @@ func (requester *MessageRequester) reRequest(id message.Id, count int) {
 		count++
 
 		// if count exceeds threshold -> check for message in message tangle
-		if count > messageExistCheckThreshold && requester.messageExistsFunc(id) {
+		// if count > messageExistCheckThreshold && requester.messageExistsFunc(id) {
+		if requester.messageExistsFunc(id) {
 			// if found message tangle: stop request and delete from missingMessageStorage (via event)
 			if timer, ok := requester.scheduledRequests[id]; ok {
 				if !timer.Stop() {
