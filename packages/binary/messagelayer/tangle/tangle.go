@@ -135,8 +135,10 @@ func (tangle *Tangle) Prune() error {
 	return nil
 }
 
-// DBStats returns the number of solid messages and total number of messages in the database, furthermore the average time it takes to solidify messages.
-func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidificationTime float64) {
+// DBStats returns the number of solid messages and total number of messages in the database (messageMetadataStorage,
+// that should contain the messages as messageStorage), the number of messages in missingMessageStorage, furthermore
+// the average time it takes to solidify messages.
+func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidificationTime float64, missingMessageCount int) {
 	var sumSolidificationTime time.Duration
 	tangle.messageMetadataStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
@@ -153,6 +155,12 @@ func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidifica
 	if solidCount > 0 {
 		avgSolidificationTime = float64(sumSolidificationTime.Milliseconds()) / float64(solidCount)
 	}
+	tangle.messageMetadataStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedObject.Consume(func(object objectstorage.StorableObject) {
+			missingMessageCount++
+		})
+		return true
+	})
 	return
 }
 

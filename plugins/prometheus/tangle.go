@@ -13,6 +13,7 @@ var (
 	messageTotalCountDB   prometheus.Gauge
 	messageSolidCountDB   prometheus.Gauge
 	avgSolidificationTime prometheus.Gauge
+	messageMissingCountDB prometheus.Gauge
 	messageRequestCount   prometheus.Gauge
 
 	transactionCounter prometheus.Gauge
@@ -53,6 +54,11 @@ func registerTangleMetrics() {
 		Help: "average time it takes for a message to become solid",
 	})
 
+	messageMissingCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "tangle_message_missing_count_db",
+		Help: "number of missing messages in the node's database",
+	})
+
 	transactionCounter = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "tangle_value_transaction_counter",
 		Help: "number of value transactions (value payloads) seen",
@@ -74,6 +80,7 @@ func registerTangleMetrics() {
 	registry.MustRegister(messageTotalCountDB)
 	registry.MustRegister(messageSolidCountDB)
 	registry.MustRegister(avgSolidificationTime)
+	registry.MustRegister(messageMissingCountDB)
 	registry.MustRegister(messageRequestCount)
 	registry.MustRegister(transactionCounter)
 	registry.MustRegister(valueTips)
@@ -91,6 +98,7 @@ func collectTangleMetrics() {
 	messageTotalCountDB.Set(float64(metrics.MessageTotalCountDB()))
 	messageSolidCountDB.Set(float64(metrics.MessageSolidCountDB()))
 	avgSolidificationTime.Set(metrics.AvgSolidificationTime())
+	messageMissingCountDB.Set(float64(metrics.MessageMissingCountDB()))
 	messageRequestCount.Set(float64(metrics.MessageRequestQueueSize()))
 	transactionCounter.Set(float64(metrics.ValueTransactionCounter()))
 	valueTips.Set(float64(metrics.ValueTips()))

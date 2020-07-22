@@ -33,6 +33,12 @@ var (
 	sumSolidificationTime time.Duration
 	solidTimeMutex        syncutils.RWMutex
 
+	// initial number of missing messages in missingMessageStorage (at startup)
+	initialMissingMessageCountDB uint64
+
+	// current number of missing messages in missingMessageStorage
+	missingMessageCountDB atomic.Uint64
+
 	// current number of message tips.
 	messageTips atomic.Uint64
 
@@ -104,6 +110,11 @@ func AvgSolidificationTime() (result float64) {
 	return
 }
 
+// MessageMissingCountDB returns the number of messages in missingMessageStore.
+func MessageMissingCountDB() uint64 {
+	return initialMissingMessageCountDB + missingMessageCountDB.Load()
+}
+
 // ReceivedMessagesPerSecond retrieves the current messages per second number.
 func ReceivedMessagesPerSecond() uint64 {
 	return measuredReceivedMPS.Load()
@@ -150,8 +161,9 @@ func measureRequestQueueSize() {
 }
 
 func measureInitialDBStats() {
-	solid, total, avgSolidTime := messagelayer.Tangle().DBStats()
+	solid, total, avgSolidTime, missing := messagelayer.Tangle().DBStats()
 	initialMessageSolidCountDB = uint64(solid)
 	initialMessageTotalCountDB = uint64(total)
 	initialSumSolidificationTime = avgSolidTime * float64(solid)
+	initialMissingMessageCountDB = uint64(missing)
 }
