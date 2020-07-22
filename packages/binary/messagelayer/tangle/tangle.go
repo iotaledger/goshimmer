@@ -164,6 +164,18 @@ func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidifica
 	return
 }
 
+// MissingMessages return the ids of messages in missingMessageStorage
+func (tangle *Tangle) MissingMessages() (ids []message.Id) {
+	tangle.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedObject.Consume(func(object objectstorage.StorableObject) {
+			missingMsg := object.(*MissingMessage)
+			ids = append(ids, missingMsg.messageId)
+		})
+		return true
+	})
+	return
+}
+
 // worker that stores the message and calls the corresponding storage events.
 func (tangle *Tangle) storeMessageWorker(msg *message.Message) {
 	// store message
