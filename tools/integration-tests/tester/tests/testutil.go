@@ -83,7 +83,7 @@ func SendFaucetRequestOnRandomPeer(t *testing.T, peers []*framework.Peer, numMes
 
 	for i := 0; i < numMessages; i++ {
 		peer := peers[rand.Intn(len(peers))]
-		addr := peer.Seed().Address(uint64(i))
+		addr := peer.Seed.Address(uint64(i)).Address
 		id, sent := SendFaucetRequest(t, peer, addr)
 		ids[id] = sent
 		addrBalance[addr.String()] = map[balance.Color]int64{
