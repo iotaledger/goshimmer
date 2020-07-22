@@ -1,11 +1,11 @@
 package messagerequester
 
 import (
-	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/sasha-s/go-deadlock"
 )
 
 const messageExistCheckThreshold = 5
@@ -17,7 +17,7 @@ type MessageRequester struct {
 	messageExistsFunc MessageExistsFunc
 	Events            Events
 
-	scheduledRequestsMutex sync.RWMutex
+	scheduledRequestsMutex deadlock.RWMutex
 }
 
 // MessageExistsFunc is a function that tells if a message exists.

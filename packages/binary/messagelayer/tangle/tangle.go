@@ -207,7 +207,7 @@ func (tangle *Tangle) storeMessageWorker(msg *message.Message) {
 	}
 
 	// trigger events
-	tangle.missingMessageStorage.Delete(messageId[:])
+	// tangle.missingMessageStorage.Delete(messageId[:])
 	tangle.Events.MissingMessageReceived.Trigger(cachedMessage, cachedMsgMetadata)
 
 	tangle.Events.MessageAttached.Trigger(cachedMessage, cachedMsgMetadata)
