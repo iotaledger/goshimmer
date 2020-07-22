@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/profiling"
 	"github.com/iotaledger/goshimmer/plugins/sync"
 	"github.com/iotaledger/goshimmer/plugins/syncbeacon"
+	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 
 	"github.com/iotaledger/hive.go/node"
 )
@@ -46,4 +47,5 @@ var PLUGINS = node.Plugins(
 	faucet.App(),
 	valuetransfers.App(),
 	syncbeacon.Plugin(),
+	syncbeaconfollower.Plugin(),
 )

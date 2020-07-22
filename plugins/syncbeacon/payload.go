@@ -108,17 +108,12 @@ func IsSyncBeaconPayload(p *Payload) bool {
 }
 
 func init() {
-	payload.RegisterType(Type, ObjectName, GenericPayloadUnmarshalerFactory(Type))
-}
-
-// GenericPayloadUnmarshalerFactory sets the generic unmarshaler.
-func GenericPayloadUnmarshalerFactory(payloadType payload.Type) payload.Unmarshaler {
-	return func(data []byte) (payload payload.Payload, err error) {
+	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
 		payload = &Payload{
-			payloadType: payloadType,
+			payloadType: Type,
 		}
 		err = payload.Unmarshal(data)
 
 		return
-	}
+	})
 }

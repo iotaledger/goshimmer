@@ -19,28 +19,25 @@ func TestSyncBeacon(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
+	// create sync beacon nodes
+	var beaconPublicKeys []string
 	for i := 0; i < initialPeers; i++ {
-		_, err := n.CreatePeer(framework.GoShimmerConfig{
-			SyncBeaconPrimary:           true,
-			SyncBeaconFollowNodes:       "",
+		peer, err := n.CreatePeer(framework.GoShimmerConfig{
+			SyncBeacon:                  true,
 			SyncBeaconBroadcastInterval: 20,
 		})
 		require.NoError(t, err)
+		beaconPublicKeys = append(beaconPublicKeys, peer.PublicKey().String())
 	}
+	peers := n.Peers()
 	err = n.WaitForAutopeering(3)
 	require.NoError(t, err)
 
-	peers := n.Peers()
-	var beaconPublicKeys []string
-	for _, peer := range peers {
-		beaconPublicKeys = append(beaconPublicKeys, peer.PublicKey().String())
-	}
 
-	// follow all nodes as beacon nodes
+	// beacon follower node to follow all previous nodes
 	peer, err := n.CreatePeer(framework.GoShimmerConfig{
-		SyncBeaconPrimary:           false,
-		SyncBeaconFollowNodes:       strings.Join(beaconPublicKeys, ","),
-		SyncBeaconBroadcastInterval: 20,
+		SyncBeaconFollower:    true,
+		SyncBeaconFollowNodes: strings.Join(beaconPublicKeys, ","),
 	})
 	require.NoError(t, err)
 	err = n.WaitForAutopeering(3)
