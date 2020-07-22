@@ -128,7 +128,7 @@ func configure(*node.Plugin) {
 	}))
 
 	MessageRequester().Events.MissingMessageAppeared.Attach(events.NewClosure(func(id message.Id) {
-		_tangle.DeleteMessage(id)
+		_tangle.DeleteMissingMessage(id)
 	}))
 }
 
