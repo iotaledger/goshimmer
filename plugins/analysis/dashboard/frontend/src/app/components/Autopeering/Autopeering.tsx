@@ -26,13 +26,7 @@ export default class Autopeering extends React.Component<AutopeeringProps, unkno
                 <div className="header margin-b-m">
                     <h2>Autopeering Visualizer</h2>
                     <div className="row">
-                        <DropdownButton id="dropdown-basic-button" title={this.props.autopeeringStore.selectedNetworkVersion === null ? "Select network version": "Network: " + this.props.autopeeringStore.selectedNetworkVersion}>
-                            <Dropdown.Item
-                                as="button"
-                                key={"clear"}
-                                onClick={() => this.props.autopeeringStore.handleVersionSelection("")}>
-                                clear
-                            </Dropdown.Item>
+                        <DropdownButton id="dropdown-basic-button" title={this.props.autopeeringStore.versions.size === 0 ? "No data for any network": "Selected network: " + this.props.autopeeringStore.selectedNetworkVersion}>
                             {this.props.autopeeringStore.networkVersionList.map(version => (
                                 <Dropdown.Item
                                     as="button"
