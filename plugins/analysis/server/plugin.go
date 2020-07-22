@@ -143,20 +143,28 @@ func processHeartbeatPacket(data []byte) {
 }
 
 // processHeartbeatPacket parses the serialized data into a FPC Heartbeat packet and triggers its event.
+// Note that the processFPCHeartbeatPacket function will return an error if the hb version field is different than banner.AppVersion,
+// thus the hb will be discarded.
 func processFPCHeartbeatPacket(data []byte) {
 	hb, err := packet.ParseFPCHeartbeat(data)
 	if err != nil {
-		Events.Error.Trigger(err)
+		if err != packet.ErrInvalidFPCHeartbeatVersion {
+			Events.Error.Trigger(err)
+		}
 		return
 	}
 	Events.FPCHeartbeat.Trigger(hb)
 }
 
 // processMetricHeartbeatPacket parses the serialized data into a Metric Heartbeat packet and triggers its event.
+// Note that the ParseMetricHeartbeat function will return an error if the hb version field is different than banner.AppVersion,
+// thus the hb will be discarded.
 func processMetricHeartbeatPacket(data []byte) {
 	hb, err := packet.ParseMetricHeartbeat(data)
 	if err != nil {
-		Events.Error.Trigger(err)
+		if err != packet.ErrInvalidMetricHeartbeatVersion {
+			Events.Error.Trigger(err)
+		}
 		return
 	}
 	Events.MetricHeartbeat.Trigger(hb)
