@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
+	libwallet "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 )
 
 func main() {
@@ -80,7 +80,7 @@ func main() {
 	// issue transactions which spend the same output
 	conflictingTxs := make([]*transaction.Transaction, 2)
 	conflictingMsgIDs := make([]string, 2)
-	receiverSeeds := make([]*wallet.Seed, 2)
+	receiverSeeds := make([]*libwallet.Seed, 2)
 
 	var wg sync.WaitGroup
 	for i := range conflictingTxs {
@@ -91,13 +91,13 @@ func main() {
 			fmt.Println(i)
 
 			// create a new receiver wallet for the given conflict
-			receiverSeeds[i] = wallet.NewSeed()
+			receiverSeeds[i] = libwallet.NewSeed()
 			destAddr := receiverSeeds[i].Address(0)
 
 			tx := transaction.New(
 				transaction.NewInputs(out),
 				transaction.NewOutputs(map[address.Address][]*balance.Balance{
-					destAddr: {
+					destAddr.Address: {
 						{Value: 1337, Color: balance.ColorIOTA},
 					},
 				}))

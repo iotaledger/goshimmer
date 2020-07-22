@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/client/wallet"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 )
 
 func main() {
