@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"errors"
 
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
 )
@@ -13,6 +14,8 @@ import (
 var (
 	// ErrInvalidMetricHeartbeat is returned for invalid Metric heartbeats.
 	ErrInvalidMetricHeartbeat = errors.New("invalid Metric heartbeat")
+	// ErrInvalidMetricHeartbeatVersion is returned for invalid Metric heartbeat versions.
+	ErrInvalidMetricHeartbeatVersion = errors.New("invalid Metric heartbeat version")
 )
 
 var (
@@ -26,6 +29,8 @@ var (
 
 // MetricHeartbeat represents a metric heartbeat packet.
 type MetricHeartbeat struct {
+	// The version of GoShimmer.
+	Version string
 	// The ID of the node who sent the heartbeat.
 	// Must be contained when a heartbeat is serialized.
 	OwnID []byte
@@ -53,6 +58,10 @@ func ParseMetricHeartbeat(data []byte) (*MetricHeartbeat, error) {
 	decoder := gob.NewDecoder(buf)
 	if err := decoder.Decode(hb); err != nil {
 		return nil, err
+	}
+
+	if hb.Version != banner.AppVersion {
+		return nil, ErrInvalidMetricHeartbeatVersion
 	}
 
 	return hb, nil
