@@ -8,6 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
+const messageExistCheckThreshold = 5
+
 // MessageRequester takes care of requesting messages.
 type MessageRequester struct {
 	scheduledRequests map[message.Id]*time.Timer
@@ -75,7 +77,14 @@ func (requester *MessageRequester) reRequest(id message.Id, count int) {
 	// reschedule, if the request has not been stopped in the meantime
 	if _, exists := requester.scheduledRequests[id]; exists {
 		count++
-		if count > 10 && requester.messageExistsFunc(id) {
+
+		// if count exceeds threshold -> check for message in message tangle
+		if count > messageExistCheckThreshold && requester.messageExistsFunc(id) {
+			// if found message tangle: stop request and delete from missingMessageStorage (via event)
+			if timer, ok := requester.scheduledRequests[id]; ok {
+				timer.Stop()
+				delete(requester.scheduledRequests, id)
+			}
 			requester.Events.MissingMessageAppeared.Trigger(id)
 			return
 		}

@@ -127,6 +127,9 @@ func configure(*node.Plugin) {
 		cachedMessage.Consume(tipSelector.AddTip)
 	}))
 
+	MessageRequester().Events.MissingMessageAppeared.Attach(events.NewClosure(func(id message.Id) {
+		_tangle.DeleteMessage(id)
+	}))
 }
 
 func run(*node.Plugin) {

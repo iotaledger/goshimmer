@@ -105,6 +105,11 @@ func (tangle *Tangle) DeleteMessage(messageId message.Id) {
 	})
 }
 
+// DeleteMissingMessage deletes a message from the missingMessageStorage.
+func (tangle *Tangle) DeleteMissingMessage(messageID message.Id) {
+	tangle.missingMessageStorage.Delete(messageID[:])
+}
+
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (tangle *Tangle) Shutdown() *Tangle {
 	tangle.storeMessageWorkerPool.ShutdownGracefully()
