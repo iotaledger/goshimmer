@@ -145,8 +145,10 @@ func run(*node.Plugin) {
 // messageExists tells if a given message is present in the node
 func messageExists(msgID message.Id) bool {
 	cachedMessage := Tangle().Message(msgID)
+	metadata := Tangle().MessageMetadata(msgID)
 	defer cachedMessage.Release()
-	if !cachedMessage.Exists() {
+	defer metadata.Release()
+	if !cachedMessage.Exists() || !metadata.Exists() {
 		return false
 	}
 	return true
