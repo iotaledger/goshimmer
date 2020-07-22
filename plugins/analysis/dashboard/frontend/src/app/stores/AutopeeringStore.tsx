@@ -125,7 +125,8 @@ export class AutopeeringStore {
         if (this.selectedNetworkVersion !== autoSelectedVersion){
             this.userSelectedNetworkVersion = "";
             // we switch network, should redraw the graph.
-            this.clearNodeSelection();
+            // no need to reset colors as the graph will be disposed anyway
+            this.clearNodeSelection(false);
             this.selectedNetworkVersion = autoSelectedVersion;
             this.stop();
             this.start();
@@ -347,8 +348,10 @@ export class AutopeeringStore {
 
     // handles clearing the node selection
     @action
-    private clearNodeSelection(): void {
-        this.resetPreviousColors();
+    private clearNodeSelection(resetPrevColors: boolean=true): void {
+        if (resetPrevColors) {
+            this.resetPreviousColors();
+        }
         this.selectedNode = undefined;
         this.selectedNodeInNeighbors = undefined;
         this.selectedNodeOutNeighbors = undefined;
@@ -590,11 +593,7 @@ export class AutopeeringStore {
 
     // disables highlighting of selectedNode, its links and neighbors
     private resetPreviousColors(skipAllLink: boolean = false, toLinkHide: boolean = false): void {
-        if (!this.selectionActive) {
-            return;
-        }
-
-        if (!this.graph) {
+        if (!this.selectionActive || !this.graph) {
             return;
         }
 
