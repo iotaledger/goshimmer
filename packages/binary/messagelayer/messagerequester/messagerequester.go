@@ -70,8 +70,6 @@ func (requester *MessageRequester) StopRequest(id message.Id) {
 
 func (requester *MessageRequester) reRequest(id message.Id, count int) {
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
-	requester.Events.SendRequest.Trigger(id)
-
 	requester.scheduledRequestsMutex.Lock()
 	defer requester.scheduledRequestsMutex.Unlock()
 
@@ -83,13 +81,16 @@ func (requester *MessageRequester) reRequest(id message.Id, count int) {
 		if count > messageExistCheckThreshold && requester.messageExistsFunc(id) {
 			// if found message tangle: stop request and delete from missingMessageStorage (via event)
 			if timer, ok := requester.scheduledRequests[id]; ok {
-				timer.Stop()
+				if !timer.Stop() {
+					<-timer.C
+				}
 				delete(requester.scheduledRequests, id)
 			}
 			fmt.Println("reRequest: ", id, count)
 			requester.Events.MissingMessageAppeared.Trigger(id)
 			return
 		}
+		requester.Events.SendRequest.Trigger(id)
 		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id, count) })
 	}
 }
