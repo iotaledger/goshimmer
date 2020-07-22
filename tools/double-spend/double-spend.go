@@ -32,8 +32,7 @@ func main() {
 	myWallet := wallet.New()
 	myAddr := myWallet.Seed().Address(0)
 
-	_, err := clients[0].SendFaucetRequest(myAddr.String())
-	if err != nil {
+	if _, err := clients[0].SendFaucetRequest(myAddr.String()); err != nil {
 		fmt.Println(err)
 		return
 	}
