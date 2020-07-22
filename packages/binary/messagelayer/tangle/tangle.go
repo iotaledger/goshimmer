@@ -206,6 +206,10 @@ func (tangle *Tangle) storeMessageWorker(msg *message.Message) {
 		tangle.approverStorage.Store(NewApprover(branchMsgId, messageId)).Release()
 	}
 
+	// trigger events
+	if tangle.missingMessageStorage.DeleteIfPresent(messageId[:]) {
+		tangle.Events.MissingMessageReceived.Trigger(cachedMessage, cachedMsgMetadata)
+	}
 	tangle.Events.MessageAttached.Trigger(cachedMessage, cachedMsgMetadata)
 
 	// check message solidity

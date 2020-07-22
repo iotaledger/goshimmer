@@ -1,6 +1,7 @@
 package messagerequester
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -80,13 +81,14 @@ func (requester *MessageRequester) reRequest(id message.Id, count int) {
 
 		// if count exceeds threshold -> check for message in message tangle
 		if count > messageExistCheckThreshold && requester.messageExistsFunc(id) {
-			// if found message tangle: stop request and delete from missingMessageStorage (via event)
-			if timer, ok := requester.scheduledRequests[id]; ok {
-				timer.Stop()
-				delete(requester.scheduledRequests, id)
-			}
-			requester.Events.MissingMessageAppeared.Trigger(id)
-			return
+			// // if found message tangle: stop request and delete from missingMessageStorage (via event)
+			// if timer, ok := requester.scheduledRequests[id]; ok {
+			// 	timer.Stop()
+			// 	delete(requester.scheduledRequests, id)
+			// }
+			// requester.Events.MissingMessageAppeared.Trigger(id)
+			// return
+			fmt.Println("reRequest: ", id, count)
 		}
 		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id, count) })
 	}
