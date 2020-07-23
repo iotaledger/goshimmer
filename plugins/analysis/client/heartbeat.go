@@ -1,7 +1,6 @@
 package client
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/banner"
 	"io"
 	"strings"
 
@@ -9,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 )
