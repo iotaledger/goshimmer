@@ -111,7 +111,12 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	config.Name = name
 	config.EntryNodeHost = n.namePrefix(containerNameEntryNode)
 	config.EntryNodePublicKey = n.entryNodePublicKey()
-	config.DisabledPlugins = disabledPluginsPeer
+	config.DisabledPlugins = func() string {
+		if !config.SyncBeaconFollower {
+			return disabledPluginsPeer + ",SyncBeaconFollower"
+		}
+		return disabledPluginsPeer
+	}()
 	config.SnapshotFilePath = snapshotFilePath
 	if config.SyncBeaconFollowNodes == "" {
 		config.SyncBeaconFollowNodes = syncBeaconPublicKey
