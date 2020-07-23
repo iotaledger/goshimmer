@@ -17,6 +17,8 @@ var (
 	ErrInvalidHeartbeat = errors.New("invalid heartbeat")
 	// ErrEmptyNetworkVersion is returned for packets not containing a network ID.
 	ErrEmptyNetworkVersion = errors.New("empty network version in heartbeat")
+	// ErrInvalidHeartbeatNetworkVersion is returned for malformed network version.
+	ErrInvalidHeartbeatNetworkVersion = errors.New("wrong or missing network version in packet")
 )
 
 const (
@@ -82,10 +84,10 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 	}
 	networkIDBytesLength := int(data[HeartbeatPacketNetworkIDBytesCountSize-1])
 	if networkIDBytesLength == 0 {
-		return nil, ErrEmptyNetworkVersion
+		return nil, ErrInvalidHeartbeatNetworkVersion
 	}
 	if networkIDBytesLength > HeartbeatPacketMaxNetworkIDBytesSize {
-		return nil, fmt.Errorf("%w: network ID exceeds maximum allowed size of %d bytes", ErrMalformedPacket, HeartbeatPacketMaxNetworkIDBytesSize)
+		return nil, ErrInvalidHeartbeatNetworkVersion
 	}
 	// sanity check: packet len - min packet - networkIDLength % id size = 0,
 	// since we're only dealing with IDs from that offset
@@ -100,7 +102,7 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 	// networkID always starts with a "v", lets check it
 	networkIDString := string(networkID)
 	if !strings.HasPrefix(networkIDString, "v") {
-		return nil, fmt.Errorf("%w: network ID doesn't start with `v`", ErrInvalidHeartbeat)
+		return nil, ErrInvalidHeartbeatNetworkVersion
 	}
 
 	offset += networkIDBytesLength

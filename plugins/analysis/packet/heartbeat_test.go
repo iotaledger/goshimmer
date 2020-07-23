@@ -249,7 +249,7 @@ func TestParseHeartbeat(t *testing.T) {
 			serializedHb, _ := NewHeartbeatMessage(hb)
 			// set networkIDByteSize to 0
 			serializedHb[tlvHeaderLength] = 0
-			return testcase{index: 8, source: serializedHb[tlvHeaderLength:], expected: nil, err: ErrEmptyNetworkVersion}
+			return testcase{index: 8, source: serializedHb[tlvHeaderLength:], expected: nil, err: ErrInvalidHeartbeatNetworkVersion}
 		}(),
 		// err network ID does not have the correct form (missing v)
 		func() testcase {
@@ -257,7 +257,7 @@ func TestParseHeartbeat(t *testing.T) {
 			// message = tlv header + packet
 			// ParseHeartbeat() expects only the packet, hence serializedHb[tlvHeaderLength:]
 			serializedHb, _ := NewHeartbeatMessage(hb)
-			return testcase{index: 9, source: serializedHb[tlvHeaderLength:], expected: nil, err: ErrInvalidHeartbeat}
+			return testcase{index: 9, source: serializedHb[tlvHeaderLength:], expected: nil, err: ErrInvalidHeartbeatNetworkVersion}
 		}(),
 		// receive an "old" heartbeat packet
 		func() testcase {
@@ -274,7 +274,7 @@ func TestParseHeartbeat(t *testing.T) {
 			serializedHb, _ := NewHeartbeatMessage(hb)
 			// heartbeat without network ID: cut the network id size byte, and network ID
 			serializedHb = serializedHb[tlvHeaderLength+1+len(networkID):]
-			return testcase{index: 10, source: serializedHb, expected: nil, err: ErrMalformedPacket}
+			return testcase{index: 10, source: serializedHb, expected: nil, err: ErrInvalidHeartbeatNetworkVersion}
 		}(),
 	}
 

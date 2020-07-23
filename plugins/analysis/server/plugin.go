@@ -61,6 +61,9 @@ func configure(_ *node.Plugin) {
 	server.Events.Error.Attach(events.NewClosure(func(err error) {
 		log.Errorf("error in server: %s", err.Error())
 	}))
+	Events.Error.Attach(events.NewClosure(func(err error) {
+		log.Errorf("error in analysis server: %s", err.Error())
+	}))
 }
 
 func run(_ *node.Plugin) {
@@ -136,7 +139,9 @@ func wireUp(p *protocol.Protocol) {
 func processHeartbeatPacket(data []byte) {
 	heartbeatPacket, err := packet.ParseHeartbeat(data)
 	if err != nil {
-		Events.Error.Trigger(err)
+		if err != packet.ErrInvalidHeartbeatNetworkVersion {
+			Events.Error.Trigger(err)
+		}
 		return
 	}
 	updateAutopeeringMap(heartbeatPacket)
