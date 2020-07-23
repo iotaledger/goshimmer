@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/mr-tron/base58/base58"
@@ -32,11 +32,11 @@ func TestConsensusNoConflicts(t *testing.T) {
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
 	const genesisBalance = 1000000000
-	genesisSeed := wallet.NewSeed(genesisSeedBytes)
+	genesisSeed := walletseed.NewSeed(genesisSeedBytes)
 	genesisAddr := genesisSeed.Address(0).Address
 	genesisOutputID := transaction.NewOutputID(genesisAddr, transaction.GenesisID)
 
-	firstReceiver := wallet.NewSeed()
+	firstReceiver := walletseed.NewSeed()
 	const depositCount = 10
 	const deposit = genesisBalance / depositCount
 	firstReceiverAddresses := make([]string, depositCount)
@@ -86,7 +86,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	tests.CheckBalances(t, n.Peers(), firstReceiverExpectedBalances)
 
 	// issue transactions spending all the outputs which were just created from a random peer
-	secondReceiverSeed := wallet.NewSeed()
+	secondReceiverSeed := walletseed.NewSeed()
 	secondReceiverAddresses := make([]string, depositCount)
 	secondReceiverExpectedBalances := map[string]map[balance.Color]int64{}
 	secondReceiverExpectedTransactions := map[string]*tests.ExpectedTransaction{}

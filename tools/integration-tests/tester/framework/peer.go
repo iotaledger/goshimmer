@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/plugins/webapi/autopeering"
 	"github.com/iotaledger/hive.go/identity"
 )
@@ -26,7 +26,7 @@ type Peer struct {
 	*DockerContainer
 
 	// Seed
-	*wallet.Seed
+	*walletseed.Seed
 
 	chosen   []autopeering.Neighbor
 	accepted []autopeering.Neighbor
@@ -34,7 +34,7 @@ type Peer struct {
 
 // newPeer creates a new instance of Peer with the given information.
 // dockerContainer needs to be started in order to determine the container's (and therefore peer's) IP correctly.
-func newPeer(name string, identity *identity.Identity, dockerContainer *DockerContainer, seed *wallet.Seed, network *Network) (*Peer, error) {
+func newPeer(name string, identity *identity.Identity, dockerContainer *DockerContainer, seed *walletseed.Seed, network *Network) (*Peer, error) {
 	// after container is started we can get its IP
 	ip, err := dockerContainer.IP(network.name)
 	if err != nil {

@@ -4,9 +4,9 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/client"
+	walletaddr "github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 )
 
 // WebConnector implements a connector that uses the web API to connect to a node to implement the required functions
@@ -37,16 +37,16 @@ func (webConnector *WebConnector) ServerStatus() (status ServerStatus, err error
 }
 
 // RequestFaucetFunds request some funds from the faucet for test purposes.
-func (webConnector *WebConnector) RequestFaucetFunds(addr wallet.Address) (err error) {
+func (webConnector *WebConnector) RequestFaucetFunds(addr walletaddr.Address) (err error) {
 	_, err = webConnector.client.SendFaucetRequest(addr.String())
 
 	return
 }
 
 // UnspentOutputs returns the outputs of transactions on the given addresses that have not been spent yet.
-func (webConnector WebConnector) UnspentOutputs(addresses ...wallet.Address) (unspentOutputs map[wallet.Address]map[transaction.ID]*wallet.Output, err error) {
+func (webConnector WebConnector) UnspentOutputs(addresses ...walletaddr.Address) (unspentOutputs map[walletaddr.Address]map[transaction.ID]*Output, err error) {
 	// build reverse lookup table + arguments for client call
-	addressReverseLookupTable := make(map[string]wallet.Address)
+	addressReverseLookupTable := make(map[string]walletaddr.Address)
 	base58EncodedAddresses := make([]string, len(addresses))
 	for i, addr := range addresses {
 		base58EncodedAddresses[i] = addr.String()
@@ -60,7 +60,7 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...wallet.Address) (un
 	}
 
 	// build result
-	unspentOutputs = make(map[wallet.Address]map[transaction.ID]*wallet.Output)
+	unspentOutputs = make(map[walletaddr.Address]map[transaction.ID]*Output)
 	for _, unspentOutput := range response.UnspentOutputs {
 		// lookup wallet address from raw address
 		addr, addressRequested := addressReverseLookupTable[unspentOutput.Address]
@@ -86,11 +86,11 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...wallet.Address) (un
 			}
 
 			// build output
-			walletOutput := &wallet.Output{
+			walletOutput := &Output{
 				Address:       addr.Address,
 				TransactionID: outputID.TransactionID(),
 				Balances:      balancesByColor,
-				InclusionState: wallet.InclusionState{
+				InclusionState: InclusionState{
 					Liked:       output.InclusionState.Liked,
 					Confirmed:   output.InclusionState.Confirmed,
 					Rejected:    output.InclusionState.Rejected,
@@ -101,7 +101,7 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...wallet.Address) (un
 
 			// store output in result
 			if _, addressExists := unspentOutputs[addr]; !addressExists {
-				unspentOutputs[addr] = make(map[transaction.ID]*wallet.Output)
+				unspentOutputs[addr] = make(map[transaction.ID]*Output)
 			}
 			unspentOutputs[addr][walletOutput.TransactionID] = walletOutput
 		}
@@ -129,4 +129,4 @@ func colorFromString(colorStr string) (color balance.Color) {
 }
 
 // Interface contract: make compiler warn if the interface is not implemented correctly.
-var _ wallet.Connector = &WebConnector{}
+var _ Connector = &WebConnector{}

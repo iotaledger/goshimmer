@@ -9,7 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	libwallet "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -32,7 +32,7 @@ func loadWallet() *wallet.Wallet {
 	)
 }
 
-func importWalletStateFile(filename string) (seed *libwallet.Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask, assetRegistry *wallet.AssetRegistry, err error) {
+func importWalletStateFile(filename string) (seed *walletseed.Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask, assetRegistry *wallet.AssetRegistry, err error) {
 	walletStateBytes, err := ioutil.ReadFile(filename)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -43,7 +43,7 @@ func importWalletStateFile(filename string) (seed *libwallet.Seed, lastAddressIn
 			printUsage(nil, "no wallet file (wallet.dat) found: please call \""+filepath.Base(os.Args[0])+" init\"")
 		}
 
-		seed = libwallet.NewSeed()
+		seed = walletseed.NewSeed()
 		lastAddressIndex = 0
 		spentAddresses = []bitmask.BitMask{}
 		err = nil
@@ -68,7 +68,7 @@ func importWalletStateFile(filename string) (seed *libwallet.Seed, lastAddressIn
 	marshalUtil := marshalutil.New(walletStateBytes)
 
 	seedBytes, err := marshalUtil.ReadBytes(ed25519.SeedSize)
-	seed = libwallet.NewSeed(seedBytes)
+	seed = walletseed.NewSeed(seedBytes)
 	if err != nil {
 		return
 	}

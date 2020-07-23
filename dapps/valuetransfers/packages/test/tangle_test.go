@@ -10,13 +10,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 )
 
 func TestTangle_ValueTransfer(t *testing.T) {
@@ -28,7 +28,7 @@ func TestTangle_ValueTransfer(t *testing.T) {
 	ledgerState := tangle.NewLedgerState(valueTangle)
 
 	// initialize seed
-	seed := wallet.NewSeed()
+	seed := walletseed.NewSeed()
 
 	// setup consensus rules
 	consensus.NewFCOB(valueTangle, 0)

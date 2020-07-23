@@ -7,11 +7,11 @@ import (
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/mr-tron/base58/base58"
@@ -57,18 +57,18 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
 	const genesisBalance = 1000000000
-	genesisSeed := wallet.NewSeed(genesisSeedBytes)
+	genesisSeed := walletseed.NewSeed(genesisSeedBytes)
 	genesisAddr := genesisSeed.Address(0).Address
 	genesisOutputID := transaction.NewOutputID(genesisAddr, transaction.GenesisID)
 
 	// issue transactions which spend the same genesis output in all partitions
 	conflictingTxs := make([]*transaction.Transaction, len(n.Partitions()))
 	conflictingTxIDs := make([]string, len(n.Partitions()))
-	receiverSeeds := make([]*wallet.Seed, len(n.Partitions()))
+	receiverSeeds := make([]*walletseed.Seed, len(n.Partitions()))
 	for i, partition := range n.Partitions() {
 
 		// create a new receiver wallet for the given partition
-		partitionReceiverSeed := wallet.NewSeed()
+		partitionReceiverSeed := walletseed.NewSeed()
 		destAddr := partitionReceiverSeed.Address(0).Address
 		receiverSeeds[i] = partitionReceiverSeed
 		tx := transaction.New(

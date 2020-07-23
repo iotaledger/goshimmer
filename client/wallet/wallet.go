@@ -6,11 +6,12 @@ import (
 	"time"
 	"unsafe"
 
+	walletaddr "github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	libwallet "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
@@ -21,7 +22,7 @@ type Wallet struct {
 	addressManager       *AddressManager
 	assetRegistry        *AssetRegistry
 	unspentOutputManager *UnspentOutputManager
-	connector            libwallet.Connector
+	connector            Connector
 
 	// if this option is enabled the wallet will use a single reusable address instead of changing addresses.
 	reusableAddress bool
@@ -42,7 +43,7 @@ func New(options ...Option) (wallet *Wallet) {
 
 	// initialize wallet with default address manager if we did not import a previous wallet
 	if wallet.addressManager == nil {
-		wallet.addressManager = NewAddressManager(libwallet.NewSeed(), 0, []bitmask.BitMask{})
+		wallet.addressManager = NewAddressManager(walletseed.NewSeed(), 0, []bitmask.BitMask{})
 	}
 
 	// initialize asset registry if none was provided in the options.
@@ -113,7 +114,7 @@ func (wallet *Wallet) SendFunds(options ...SendFundsOption) (tx *transaction.Tra
 }
 
 // CreateAsset creates a new colored token with the given details.
-func (wallet *Wallet) CreateAsset(asset libwallet.Asset) (assetColor balance.Color, err error) {
+func (wallet *Wallet) CreateAsset(asset Asset) (assetColor balance.Color, err error) {
 	if asset.Amount == 0 {
 		err = errors.New("required to provide the amount when trying to create an asset")
 
@@ -149,22 +150,22 @@ func (wallet *Wallet) AssetRegistry() *AssetRegistry {
 }
 
 // ReceiveAddress returns the last receive address of the wallet.
-func (wallet *Wallet) ReceiveAddress() libwallet.Address {
+func (wallet *Wallet) ReceiveAddress() walletaddr.Address {
 	return wallet.addressManager.LastUnspentAddress()
 }
 
 // NewReceiveAddress generates and returns a new unused receive address.
-func (wallet *Wallet) NewReceiveAddress() libwallet.Address {
+func (wallet *Wallet) NewReceiveAddress() walletaddr.Address {
 	return wallet.addressManager.NewAddress()
 }
 
 // RemainderAddress returns the address that is used for the remainder of funds.
-func (wallet *Wallet) RemainderAddress() libwallet.Address {
+func (wallet *Wallet) RemainderAddress() walletaddr.Address {
 	return wallet.addressManager.FirstUnspentAddress()
 }
 
 // UnspentOutputs returns the unspent outputs that are available for spending.
-func (wallet *Wallet) UnspentOutputs() map[libwallet.Address]map[transaction.ID]*libwallet.Output {
+func (wallet *Wallet) UnspentOutputs() map[walletaddr.Address]map[transaction.ID]*Output {
 	return wallet.unspentOutputManager.UnspentOutputs()
 }
 
@@ -253,7 +254,7 @@ func (wallet *Wallet) Balance() (confirmedBalance map[balance.Color]uint64, pend
 }
 
 // Seed returns the seed of this wallet that is used to generate all of the wallets addresses and private keys.
-func (wallet *Wallet) Seed() *libwallet.Seed {
+func (wallet *Wallet) Seed() *walletseed.Seed {
 	return wallet.addressManager.seed
 }
 
@@ -273,9 +274,9 @@ func (wallet *Wallet) ExportState() []byte {
 	return marshalUtil.Bytes()
 }
 
-func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptions) (outputsToConsume map[libwallet.Address]map[transaction.ID]*libwallet.Output, err error) {
+func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptions) (outputsToConsume map[walletaddr.Address]map[transaction.ID]*Output, err error) {
 	// initialize return values
-	outputsToConsume = make(map[libwallet.Address]map[transaction.ID]*libwallet.Output)
+	outputsToConsume = make(map[walletaddr.Address]map[transaction.ID]*Output)
 
 	// aggregate total amount of required funds, so we now what and how many funds we need
 	requiredFunds := make(map[balance.Color]uint64)
@@ -322,7 +323,7 @@ func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptio
 			if requiredColorFoundInOutput {
 				// store the output in the outputs to use for the transfer
 				if _, addressEntryExists := outputsToConsume[addr]; !addressEntryExists {
-					outputsToConsume[addr] = make(map[transaction.ID]*libwallet.Output)
+					outputsToConsume[addr] = make(map[transaction.ID]*Output)
 				}
 				outputsToConsume[addr][transactionID] = output
 
@@ -360,7 +361,7 @@ func (wallet *Wallet) determineOutputsToConsume(sendFundsOptions *sendFundsOptio
 	return
 }
 
-func (wallet *Wallet) buildInputs(outputsToUseAsInputs map[libwallet.Address]map[transaction.ID]*libwallet.Output) (inputs *transaction.Inputs, consumedFunds map[balance.Color]uint64) {
+func (wallet *Wallet) buildInputs(outputsToUseAsInputs map[walletaddr.Address]map[transaction.ID]*Output) (inputs *transaction.Inputs, consumedFunds map[balance.Color]uint64) {
 	consumedInputs := make([]transaction.OutputID, 0)
 	consumedFunds = make(map[balance.Color]uint64)
 	for addr, unspentOutputsOfAddress := range outputsToUseAsInputs {

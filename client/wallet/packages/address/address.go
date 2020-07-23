@@ -1,4 +1,4 @@
-package wallet
+package address
 
 import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"

@@ -1,8 +1,8 @@
 package wallet
 
 import (
+	walletaddr "github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 )
 
 // UnspentOutputManager is a manager for the unspent outputs of the addresses of a wallet. It allows us to keep track of
@@ -10,16 +10,16 @@ import (
 // cache results that would otherwise have to be requested by the server over and over again.
 type UnspentOutputManager struct {
 	addressManager *AddressManager
-	connector      wallet.Connector
-	unspentOutputs map[wallet.Address]map[transaction.ID]*wallet.Output
+	connector      Connector
+	unspentOutputs map[walletaddr.Address]map[transaction.ID]*Output
 }
 
 // NewUnspentOutputManager creates a new UnspentOutputManager.
-func NewUnspentOutputManager(addressManager *AddressManager, connector wallet.Connector) (outputManager *UnspentOutputManager) {
+func NewUnspentOutputManager(addressManager *AddressManager, connector Connector) (outputManager *UnspentOutputManager) {
 	outputManager = &UnspentOutputManager{
 		addressManager: addressManager,
 		connector:      connector,
-		unspentOutputs: make(map[wallet.Address]map[transaction.ID]*wallet.Output),
+		unspentOutputs: make(map[walletaddr.Address]map[transaction.ID]*Output),
 	}
 
 	outputManager.Refresh(true)
@@ -30,7 +30,7 @@ func NewUnspentOutputManager(addressManager *AddressManager, connector wallet.Co
 // Refresh retrieves the unspent outputs from the node. If includeSpentAddresses is set to true, then it also scans the
 // addresses from which we previously spent already.
 func (unspentOutputManager *UnspentOutputManager) Refresh(includeSpentAddresses ...bool) (err error) {
-	var addressesToRefresh []wallet.Address
+	var addressesToRefresh []walletaddr.Address
 	if len(includeSpentAddresses) >= 1 && includeSpentAddresses[0] {
 		addressesToRefresh = unspentOutputManager.addressManager.Addresses()
 	} else {
@@ -45,7 +45,7 @@ func (unspentOutputManager *UnspentOutputManager) Refresh(includeSpentAddresses 
 	for addr, unspentOutputs := range unspentOutputs {
 		for transactionID, output := range unspentOutputs {
 			if _, addressExists := unspentOutputManager.unspentOutputs[addr]; !addressExists {
-				unspentOutputManager.unspentOutputs[addr] = make(map[transaction.ID]*wallet.Output)
+				unspentOutputManager.unspentOutputs[addr] = make(map[transaction.ID]*Output)
 			}
 
 			// mark the output as spent if we already marked it as spent locally
@@ -61,9 +61,9 @@ func (unspentOutputManager *UnspentOutputManager) Refresh(includeSpentAddresses 
 }
 
 // UnspentOutputs returns the outputs that have not been spent, yet.
-func (unspentOutputManager *UnspentOutputManager) UnspentOutputs(addresses ...wallet.Address) (unspentOutputs map[wallet.Address]map[transaction.ID]*wallet.Output) {
+func (unspentOutputManager *UnspentOutputManager) UnspentOutputs(addresses ...walletaddr.Address) (unspentOutputs map[walletaddr.Address]map[transaction.ID]*Output) {
 	// prepare result
-	unspentOutputs = make(map[wallet.Address]map[transaction.ID]*wallet.Output)
+	unspentOutputs = make(map[walletaddr.Address]map[transaction.ID]*Output)
 
 	// retrieve the list of addresses from the address manager if none was provided
 	if len(addresses) == 0 {
@@ -87,7 +87,7 @@ func (unspentOutputManager *UnspentOutputManager) UnspentOutputs(addresses ...wa
 
 			// store unspent outputs in result
 			if _, addressExists := unspentOutputs[addr]; !addressExists {
-				unspentOutputs[addr] = make(map[transaction.ID]*wallet.Output)
+				unspentOutputs[addr] = make(map[transaction.ID]*Output)
 			}
 			unspentOutputs[addr][transactionID] = output
 		}
@@ -97,7 +97,7 @@ func (unspentOutputManager *UnspentOutputManager) UnspentOutputs(addresses ...wa
 }
 
 // MarkOutputSpent marks the output identified by the given parameters as spent.
-func (unspentOutputManager *UnspentOutputManager) MarkOutputSpent(addr wallet.Address, transactionID transaction.ID) {
+func (unspentOutputManager *UnspentOutputManager) MarkOutputSpent(addr walletaddr.Address, transactionID transaction.ID) {
 	// abort if we try to mark an unknown output as spent
 	if _, addressExists := unspentOutputManager.unspentOutputs[addr]; !addressExists {
 		return

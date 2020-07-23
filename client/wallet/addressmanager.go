@@ -3,14 +3,15 @@ package wallet
 import (
 	"runtime"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
+	walletaddr "github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/hive.go/bitmask"
 )
 
 // AddressManager is an manager struct that allows us to keep track of the used and spent addresses.
 type AddressManager struct {
 	// state of the wallet
-	seed             *wallet.Seed
+	seed             *walletseed.Seed
 	lastAddressIndex uint64
 	spentAddresses   []bitmask.BitMask
 
@@ -20,7 +21,7 @@ type AddressManager struct {
 }
 
 // NewAddressManager is the constructor for the AddressManager type.
-func NewAddressManager(seed *wallet.Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask) (addressManager *AddressManager) {
+func NewAddressManager(seed *walletseed.Seed, lastAddressIndex uint64, spentAddresses []bitmask.BitMask) (addressManager *AddressManager) {
 	defer runtime.KeepAlive(spentAddresses)
 
 	addressManager = &AddressManager{
@@ -35,7 +36,7 @@ func NewAddressManager(seed *wallet.Seed, lastAddressIndex uint64, spentAddresse
 }
 
 // Address returns the address that belongs to the given index.
-func (addressManager *AddressManager) Address(addressIndex uint64) wallet.Address {
+func (addressManager *AddressManager) Address(addressIndex uint64) walletaddr.Address {
 	// update lastUnspentAddressIndex if necessary
 	addressManager.spentAddressIndexes(addressIndex)
 
@@ -43,8 +44,8 @@ func (addressManager *AddressManager) Address(addressIndex uint64) wallet.Addres
 }
 
 // Addresses returns a list of all addresses of the wallet.
-func (addressManager *AddressManager) Addresses() (addresses []wallet.Address) {
-	addresses = make([]wallet.Address, addressManager.lastAddressIndex+1)
+func (addressManager *AddressManager) Addresses() (addresses []walletaddr.Address) {
+	addresses = make([]walletaddr.Address, addressManager.lastAddressIndex+1)
 	for i := uint64(0); i <= addressManager.lastAddressIndex; i++ {
 		addresses[i] = addressManager.Address(i)
 	}
@@ -53,8 +54,8 @@ func (addressManager *AddressManager) Addresses() (addresses []wallet.Address) {
 }
 
 // UnspentAddresses returns a list of all unspent addresses of the wallet.
-func (addressManager *AddressManager) UnspentAddresses() (addresses []wallet.Address) {
-	addresses = make([]wallet.Address, 0)
+func (addressManager *AddressManager) UnspentAddresses() (addresses []walletaddr.Address) {
+	addresses = make([]walletaddr.Address, 0)
 	for i := addressManager.firstUnspentAddressIndex; i <= addressManager.lastAddressIndex; i++ {
 		if !addressManager.IsAddressSpent(i) {
 			addresses = append(addresses, addressManager.Address(i))
@@ -65,8 +66,8 @@ func (addressManager *AddressManager) UnspentAddresses() (addresses []wallet.Add
 }
 
 // SpentAddresses returns a list of all spent addresses of the wallet.
-func (addressManager *AddressManager) SpentAddresses() (addresses []wallet.Address) {
-	addresses = make([]wallet.Address, 0)
+func (addressManager *AddressManager) SpentAddresses() (addresses []walletaddr.Address) {
+	addresses = make([]walletaddr.Address, 0)
 	for i := uint64(0); i <= addressManager.lastAddressIndex; i++ {
 		if addressManager.IsAddressSpent(i) {
 			addresses = append(addresses, addressManager.Address(i))
@@ -77,17 +78,17 @@ func (addressManager *AddressManager) SpentAddresses() (addresses []wallet.Addre
 }
 
 // FirstUnspentAddress returns the first unspent address that we know.
-func (addressManager *AddressManager) FirstUnspentAddress() wallet.Address {
+func (addressManager *AddressManager) FirstUnspentAddress() walletaddr.Address {
 	return addressManager.Address(addressManager.firstUnspentAddressIndex)
 }
 
 // LastUnspentAddress returns the last unspent address that we know.
-func (addressManager *AddressManager) LastUnspentAddress() wallet.Address {
+func (addressManager *AddressManager) LastUnspentAddress() walletaddr.Address {
 	return addressManager.Address(addressManager.lastUnspentAddressIndex)
 }
 
 // NewAddress generates and returns a new unused address.
-func (addressManager *AddressManager) NewAddress() wallet.Address {
+func (addressManager *AddressManager) NewAddress() walletaddr.Address {
 	return addressManager.Address(addressManager.lastAddressIndex + 1)
 }
 

@@ -4,18 +4,19 @@ import (
 	"crypto/rand"
 	"testing"
 
+	walletaddr "github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	libwallet "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestWallet_SendFunds(t *testing.T) {
 	// create test seed
-	senderSeed := libwallet.NewSeed()
-	receiverSeed := libwallet.NewSeed()
+	senderSeed := walletseed.NewSeed()
+	receiverSeed := walletseed.NewSeed()
 
 	// define sub-tests by providing a list of parameters and a validator function
 	testCases := []struct {
@@ -27,7 +28,7 @@ func TestWallet_SendFunds(t *testing.T) {
 		{
 			name: "missingDestination",
 			parameters: []SendFundsOption{
-				Remainder(libwallet.AddressEmpty),
+				Remainder(walletaddr.AddressEmpty),
 			},
 			validator: func(t *testing.T, tx *transaction.Transaction, err error) {
 				assert.True(t, tx == nil, "the transaction should be nil")
@@ -81,26 +82,26 @@ func TestWallet_SendFunds(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			// create mocked connector
 			mockedConnector := newMockConnector(
-				&libwallet.Output{
+				&Output{
 					Address:       senderSeed.Address(0).Address,
 					TransactionID: transaction.GenesisID,
 					Balances: map[balance.Color]uint64{
 						balance.ColorIOTA: 1337,
 						{3}:               1338,
 					},
-					InclusionState: libwallet.InclusionState{
+					InclusionState: InclusionState{
 						Liked:     true,
 						Confirmed: true,
 					},
 				},
-				&libwallet.Output{
+				&Output{
 					Address:       senderSeed.Address(0).Address,
 					TransactionID: transaction.ID{3},
 					Balances: map[balance.Color]uint64{
 						balance.ColorIOTA: 663,
 						{4}:               1338,
 					},
-					InclusionState: libwallet.InclusionState{
+					InclusionState: InclusionState{
 						Liked:     true,
 						Confirmed: true,
 					},
@@ -121,10 +122,10 @@ func TestWallet_SendFunds(t *testing.T) {
 }
 
 type mockConnector struct {
-	outputs map[address.Address]map[transaction.ID]*libwallet.Output
+	outputs map[address.Address]map[transaction.ID]*Output
 }
 
-func (connector *mockConnector) RequestFaucetFunds(addr libwallet.Address) (err error) {
+func (connector *mockConnector) RequestFaucetFunds(addr walletaddr.Address) (err error) {
 	// generate random transaction id
 	idBytes := make([]byte, transaction.IDLength)
 	_, err = rand.Read(idBytes)
@@ -136,13 +137,13 @@ func (connector *mockConnector) RequestFaucetFunds(addr libwallet.Address) (err 
 		return
 	}
 
-	newOutput := &libwallet.Output{
+	newOutput := &Output{
 		Address:       addr.Address,
 		TransactionID: transactionID,
 		Balances: map[balance.Color]uint64{
 			balance.ColorIOTA: 1337,
 		},
-		InclusionState: libwallet.InclusionState{
+		InclusionState: InclusionState{
 			Liked:       true,
 			Confirmed:   true,
 			Rejected:    false,
@@ -152,7 +153,7 @@ func (connector *mockConnector) RequestFaucetFunds(addr libwallet.Address) (err 
 	}
 
 	if _, addressExists := connector.outputs[addr.Address]; !addressExists {
-		connector.outputs[addr.Address] = make(map[transaction.ID]*libwallet.Output)
+		connector.outputs[addr.Address] = make(map[transaction.ID]*Output)
 	}
 	connector.outputs[addr.Address][transactionID] = newOutput
 
@@ -171,7 +172,7 @@ func (connector *mockConnector) SendTransaction(tx *transaction.Transaction) (er
 	tx.Outputs().ForEach(func(addr address.Address, balances []*balance.Balance) bool {
 		// initialize missing address entry
 		if _, addressExists := connector.outputs[addr]; !addressExists {
-			connector.outputs[addr] = make(map[transaction.ID]*libwallet.Output)
+			connector.outputs[addr] = make(map[transaction.ID]*Output)
 		}
 
 		// translate balances to mockConnector specific balances
@@ -181,11 +182,11 @@ func (connector *mockConnector) SendTransaction(tx *transaction.Transaction) (er
 		}
 
 		// store new output
-		connector.outputs[addr][tx.ID()] = &libwallet.Output{
+		connector.outputs[addr][tx.ID()] = &Output{
 			Address:       addr,
 			TransactionID: tx.ID(),
 			Balances:      outputBalances,
-			InclusionState: libwallet.InclusionState{
+			InclusionState: InclusionState{
 				Liked:       true,
 				Confirmed:   true,
 				Rejected:    false,
@@ -200,14 +201,14 @@ func (connector *mockConnector) SendTransaction(tx *transaction.Transaction) (er
 	return
 }
 
-func newMockConnector(outputs ...*libwallet.Output) (connector *mockConnector) {
+func newMockConnector(outputs ...*Output) (connector *mockConnector) {
 	connector = &mockConnector{
-		outputs: make(map[address.Address]map[transaction.ID]*libwallet.Output),
+		outputs: make(map[address.Address]map[transaction.ID]*Output),
 	}
 
 	for _, output := range outputs {
 		if _, addressExists := connector.outputs[output.Address]; !addressExists {
-			connector.outputs[output.Address] = make(map[transaction.ID]*libwallet.Output)
+			connector.outputs[output.Address] = make(map[transaction.ID]*Output)
 		}
 
 		connector.outputs[output.Address][output.TransactionID] = output
@@ -216,14 +217,14 @@ func newMockConnector(outputs ...*libwallet.Output) (connector *mockConnector) {
 	return
 }
 
-func (connector *mockConnector) UnspentOutputs(addresses ...libwallet.Address) (outputs map[libwallet.Address]map[transaction.ID]*libwallet.Output, err error) {
-	outputs = make(map[libwallet.Address]map[transaction.ID]*libwallet.Output)
+func (connector *mockConnector) UnspentOutputs(addresses ...walletaddr.Address) (outputs map[walletaddr.Address]map[transaction.ID]*Output, err error) {
+	outputs = make(map[walletaddr.Address]map[transaction.ID]*Output)
 
 	for _, addr := range addresses {
 		for transactionID, output := range connector.outputs[addr.Address] {
 			if !output.InclusionState.Spent {
 				if _, outputsExist := outputs[addr]; !outputsExist {
-					outputs[addr] = make(map[transaction.ID]*libwallet.Output)
+					outputs[addr] = make(map[transaction.ID]*Output)
 				}
 
 				outputs[addr][transactionID] = output

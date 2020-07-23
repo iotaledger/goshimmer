@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
@@ -13,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
@@ -31,7 +31,7 @@ var (
 func New(seed []byte, tokensPerRequest int64, blacklistCapacity int, maxTxBookedAwaitTime time.Duration) *Faucet {
 	return &Faucet{
 		tokensPerRequest:     tokensPerRequest,
-		seed:                 wallet.NewSeed(seed),
+		seed:                 walletseed.NewSeed(seed),
 		maxTxBookedAwaitTime: maxTxBookedAwaitTime,
 		blacklist:            orderedmap.New(),
 		blacklistCapacity:    blacklistCapacity,
@@ -44,7 +44,7 @@ type Faucet struct {
 	// the amount of tokens to send to every request
 	tokensPerRequest int64
 	// the seed instance of the faucet holding the tokens
-	seed *wallet.Seed
+	seed *walletseed.Seed
 	// the time to await for the transaction fulfilling a funding request
 	// to become booked in the value layer
 	maxTxBookedAwaitTime time.Duration
