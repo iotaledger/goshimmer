@@ -54,13 +54,13 @@ func TestSyncBeacon(t *testing.T) {
 	assert.Truef(t, resp.Synced, "Peer %s should be synced but is desynced!", peer.String())
 
 	// 2. shutdown all but 1 beacon peers.
-	for _, p := range peers[:len(peers)-(initialPeers-1)] {
+	for _, p := range peers[:initialPeers-1] {
 		_ = p.Stop()
 	}
 
 	// wait for peers to sync and broadcast
 	log.Println("Waiting...2/2")
-	time.Sleep(40 * time.Second)
+	time.Sleep(60 * time.Second)
 	log.Println("done waiting.")
 
 	// expect majority of nodes to not have broadcasted beacons. Hence should be desynced due to cleanup.
