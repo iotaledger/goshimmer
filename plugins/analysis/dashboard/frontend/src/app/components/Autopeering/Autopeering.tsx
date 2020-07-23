@@ -5,8 +5,6 @@ import React, { ReactNode } from "react";
 import "./Autopeering.scss";
 import { AutopeeringProps } from "./AutopeeringProps";
 import { NodeView } from "./NodeView";
-import Dropdown from 'react-bootstrap/Dropdown';
-import DropdownButton from 'react-bootstrap/DropdownButton';
 
 @inject("autopeeringStore")
 @observer
@@ -26,18 +24,17 @@ export default class Autopeering extends React.Component<AutopeeringProps, unkno
                 <div className="header margin-b-m">
                     <h2>Autopeering Visualizer</h2>
                     <div className="row">
-                        <DropdownButton id="dropdown-basic-button" title={this.props.autopeeringStore.versions.size === 0 ? "No data for any network": "Selected network: " + this.props.autopeeringStore.selectedNetworkVersion}>
+                        <select
+                            onChange={(e) => this.props.autopeeringStore.handleVersionSelection(e.target.value)}
+                            value={this.props.autopeeringStore.selectedNetworkVersion}
+                        >
+                            {this.props.autopeeringStore.versions.size === 0 && (
+                                <option>No data for any network</option>
+                            )}
                             {this.props.autopeeringStore.networkVersionList.map(version => (
-                                <Dropdown.Item
-                                    as="button"
-                                    key={version}
-                                    onClick={() => this.props.autopeeringStore.handleVersionSelection(version)}
-                                >
-                                    {version}
-                                </Dropdown.Item>
+                                <option value={version} key={version}>Network {version}</option>
                             ))}
-
-                        </DropdownButton>
+                        </select>
                         <div className="badge neighbors">
                             Average number of neighbors: {this.props.autopeeringStore.AvgNumNeighbors}
                         </div>
