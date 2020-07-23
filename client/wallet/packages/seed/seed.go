@@ -23,5 +23,8 @@ func NewSeed(optionalSeedBytes ...[]byte) *Seed {
 
 // Address returns an Address which can be used for receiving or sending funds.
 func (seed *Seed) Address(index uint64) walletaddr.Address {
-	return walletaddr.Address{address.FromED25519PubKey(seed.Seed.KeyPair(index).PublicKey), index}
+	return walletaddr.Address{
+		Address: address.FromED25519PubKey(seed.Seed.KeyPair(index).PublicKey),
+		Index:   index,
+	}
 }
