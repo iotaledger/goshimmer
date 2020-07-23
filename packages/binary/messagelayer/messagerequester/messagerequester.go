@@ -1,11 +1,12 @@
 package messagerequester
 
 import (
+	"fmt"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/sasha-s/go-deadlock"
 )
 
 const messageExistCheckThreshold = 5
@@ -17,7 +18,7 @@ type MessageRequester struct {
 	messageExistsFunc MessageExistsFunc
 	Events            Events
 
-	scheduledRequestsMutex deadlock.RWMutex
+	scheduledRequestsMutex sync.RWMutex
 }
 
 // MessageExistsFunc is a function that tells if a message exists.
@@ -66,14 +67,13 @@ func (requester *MessageRequester) StopRequest(id message.Id) {
 			<-timer.C
 		}
 		delete(requester.scheduledRequests, id)
-		requester.Events.MissingMessageAppeared.Trigger(id)
 	}
 }
 
 func (requester *MessageRequester) reRequest(id message.Id, count int) {
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
 	requester.scheduledRequestsMutex.Lock()
-	defer requester.scheduledRequestsMutex.Unlock()
+	// defer requester.scheduledRequestsMutex.Unlock()
 
 	// reschedule, if the request has not been stopped in the meantime
 	if _, exists := requester.scheduledRequests[id]; exists {
@@ -81,21 +81,25 @@ func (requester *MessageRequester) reRequest(id message.Id, count int) {
 
 		// // if count exceeds threshold -> check for message in message tangle
 		// // if count > messageExistCheckThreshold && requester.messageExistsFunc(id) {
-		// if requester.messageExistsFunc(id) {
-		// 	// if found message tangle: stop request and delete from missingMessageStorage (via event)
-		// 	if timer, ok := requester.scheduledRequests[id]; ok {
-		// 		if !timer.Stop() {
-		// 			<-timer.C
-		// 		}
-		// 		delete(requester.scheduledRequests, id)
-		// 	}
-		// 	fmt.Println("reRequest: ", id, count)
-		// 	requester.Events.MissingMessageAppeared.Trigger(id)
-		// 	return
-		// }
-		requester.Events.SendRequest.Trigger(id)
+		if requester.messageExistsFunc(id) {
+			// 	// if found message tangle: stop request and delete from missingMessageStorage (via event)
+			// 	if timer, ok := requester.scheduledRequests[id]; ok {
+			// 		if !timer.Stop() {
+			// 			<-timer.C
+			// 		}
+			// 		delete(requester.scheduledRequests, id)
+			// 	}
+			fmt.Println("reRequest: ", id, count)
+			// 	requester.Events.MissingMessageAppeared.Trigger(id)
+			// 	return
+		}
+
 		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id, count) })
+		requester.scheduledRequestsMutex.Unlock()
+		requester.Events.SendRequest.Trigger(id)
+		return
 	}
+	requester.scheduledRequestsMutex.Unlock()
 }
 
 // RequestQueueSize returns the number of scheduled message requests.
