@@ -70,7 +70,7 @@ func (requester *MessageRequester) StopRequest(id message.Id) {
 
 func (requester *MessageRequester) reRequest(id message.Id, count int) {
 	count++
-	stopRequest := count > messageExistCheckThreshold && requester.messageExistsFunc(id)
+	stopRequest := count > messageExistCheckThreshold //&& requester.messageExistsFunc(id)
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
 	requester.scheduledRequestsMutex.Lock()
 
