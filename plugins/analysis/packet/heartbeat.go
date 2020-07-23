@@ -15,7 +15,7 @@ import (
 var (
 	// ErrInvalidHeartbeat is returned for invalid heartbeats.
 	ErrInvalidHeartbeat = errors.New("invalid heartbeat")
-	// ErrEmptyNetworkVersion
+	// ErrEmptyNetworkVersion is returned for packets not containing a network ID.
 	ErrEmptyNetworkVersion = errors.New("empty network version in heartbeat")
 )
 
