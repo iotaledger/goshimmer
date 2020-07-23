@@ -126,8 +126,7 @@ func missing(c echo.Context) error {
 	return c.JSON(http.StatusOK, res)
 }
 
-// PastConeResponse is the HTTP response containing the number of messages in the past cone and if all messages of the past cone
-// exist on the node.
+// MissingResponse is the HTTP response containing all the missing messages and their count.
 type MissingResponse struct {
 	IDs   []string `json:"ids,omitempty"`
 	Count int      `json:"count,omitempty"`
