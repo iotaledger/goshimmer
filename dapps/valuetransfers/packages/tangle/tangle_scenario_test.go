@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -34,12 +33,12 @@ const (
 // TODO: clean up create scenario with some helper functions: DRY!
 
 // preparePropagationScenario1 creates a tangle according to `img/scenario1.png`.
-func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transaction.Transaction, map[string]*payload.Payload, map[string]branchmanager.BranchID, *wallet.Seed) {
+func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transaction.Transaction, map[string]*payload.Payload, map[string]branchmanager.BranchID, *seed) {
 	// create tangle
 	tangle := newEventTangle(t, New(mapdb.NewMapDB()))
 
 	// create seed for testing
-	seed := wallet.NewSeed()
+	seed := newSeed()
 
 	// initialize tangle with genesis block (+GENESIS)
 	tangle.LoadSnapshot(map[transaction.ID]map[address.Address][]*balance.Balance{
@@ -542,7 +541,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 }
 
 // preparePropagationScenario1 creates a tangle according to `img/scenario2.png`.
-func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transaction.Transaction, map[string]*payload.Payload, map[string]branchmanager.BranchID, *wallet.Seed) {
+func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transaction.Transaction, map[string]*payload.Payload, map[string]branchmanager.BranchID, *seed) {
 	tangle, transactions, valueObjects, branches, seed := preparePropagationScenario1(t)
 
 	// [-C, H+]

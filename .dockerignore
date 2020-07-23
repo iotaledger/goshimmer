@@ -4,11 +4,10 @@
 LICENSE
 README.md
 CHANGELOG.md
-images/
 docker-compose.yml
 
+images/
 tools/
-client/
 
 # Database directory
 mainnetdb/

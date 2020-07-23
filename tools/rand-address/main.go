@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 )
 
 func main() {
-	fmt.Println(wallet.New().Seed().Address(0))
+	fmt.Println(walletseed.NewSeed().Address(0))
 }

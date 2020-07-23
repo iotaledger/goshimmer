@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	valuePayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagefactory"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messageparser"
@@ -28,7 +27,7 @@ func TestSignatureFilter(t *testing.T) {
 	messageParser := newSyncMessageParser(NewSignatureFilter())
 
 	// create helper instances
-	seed := wallet.NewSeed()
+	seed := newSeed()
 	messageFactory := messagefactory.New(mapdb.NewMapDB(), []byte("sequenceKey"), identity.GenerateLocalIdentity(), tipselector.New())
 
 	// 1. test value message without signatures

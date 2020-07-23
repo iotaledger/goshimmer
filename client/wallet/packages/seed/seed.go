@@ -1,8 +1,9 @@
-package wallet
+package seed
 
 import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 
+	walletaddr "github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 )
 
@@ -20,7 +21,10 @@ func NewSeed(optionalSeedBytes ...[]byte) *Seed {
 	}
 }
 
-// Address returns an ed25519 address which can be used for receiving or sending funds.
-func (seed *Seed) Address(index uint64) address.Address {
-	return address.FromED25519PubKey(seed.Seed.KeyPair(index).PublicKey)
+// Address returns an Address which can be used for receiving or sending funds.
+func (seed *Seed) Address(index uint64) walletaddr.Address {
+	return walletaddr.Address{
+		Address: address.FromED25519PubKey(seed.Seed.KeyPair(index).PublicKey),
+		Index:   index,
+	}
 }

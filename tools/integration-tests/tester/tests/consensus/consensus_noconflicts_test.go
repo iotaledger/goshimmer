@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"github.com/mr-tron/base58/base58"
@@ -32,11 +32,11 @@ func TestConsensusNoConflicts(t *testing.T) {
 	require.NoError(t, err, "couldn't decode genesis seed from base58 seed")
 
 	const genesisBalance = 1000000000
-	genesisWallet := wallet.New(genesisSeedBytes)
-	genesisAddr := genesisWallet.Seed().Address(0)
+	genesisSeed := walletseed.NewSeed(genesisSeedBytes)
+	genesisAddr := genesisSeed.Address(0).Address
 	genesisOutputID := transaction.NewOutputID(genesisAddr, transaction.GenesisID)
 
-	firstReceiver := wallet.New()
+	firstReceiver := walletseed.NewSeed()
 	const depositCount = 10
 	const deposit = genesisBalance / depositCount
 	firstReceiverAddresses := make([]string, depositCount)
@@ -44,7 +44,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	firstReceiverDepositOutputs := map[address.Address][]*balance.Balance{}
 	firstReceiverExpectedBalances := map[string]map[balance.Color]int64{}
 	for i := 0; i < depositCount; i++ {
-		addr := firstReceiver.Seed().Address(uint64(i))
+		addr := firstReceiver.Address(uint64(i)).Address
 		firstReceiverDepositAddrs[i] = addr
 		firstReceiverAddresses[i] = addr.String()
 		firstReceiverDepositOutputs[addr] = []*balance.Balance{{Value: deposit, Color: balance.ColorIOTA}}
@@ -54,7 +54,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	// issue transaction spending from the genesis output
 	log.Printf("issuing transaction spending genesis to %d addresses", depositCount)
 	tx := transaction.New(transaction.NewInputs(genesisOutputID), transaction.NewOutputs(firstReceiverDepositOutputs))
-	tx = tx.Sign(signaturescheme.ED25519(*genesisWallet.Seed().KeyPair(0)))
+	tx = tx.Sign(signaturescheme.ED25519(*genesisSeed.KeyPair(0)))
 	utilsTx := utils.ParseTransaction(tx)
 
 	txID, err := n.Peers()[0].SendTransaction(tx.Bytes())
@@ -86,20 +86,20 @@ func TestConsensusNoConflicts(t *testing.T) {
 	tests.CheckBalances(t, n.Peers(), firstReceiverExpectedBalances)
 
 	// issue transactions spending all the outputs which were just created from a random peer
-	secondReceiverWallet := wallet.New()
+	secondReceiverSeed := walletseed.NewSeed()
 	secondReceiverAddresses := make([]string, depositCount)
 	secondReceiverExpectedBalances := map[string]map[balance.Color]int64{}
 	secondReceiverExpectedTransactions := map[string]*tests.ExpectedTransaction{}
 	for i := 0; i < depositCount; i++ {
-		addr := secondReceiverWallet.Seed().Address(uint64(i))
+		addr := secondReceiverSeed.Address(uint64(i)).Address
 		tx := transaction.New(
-			transaction.NewInputs(transaction.NewOutputID(firstReceiver.Seed().Address(uint64(i)), tx.ID())),
+			transaction.NewInputs(transaction.NewOutputID(firstReceiver.Address(uint64(i)).Address, tx.ID())),
 			transaction.NewOutputs(map[address.Address][]*balance.Balance{
 				addr: {{Value: deposit, Color: balance.ColorIOTA}},
 			}),
 		)
 		secondReceiverAddresses[i] = addr.String()
-		tx = tx.Sign(signaturescheme.ED25519(*firstReceiver.Seed().KeyPair(uint64(i))))
+		tx = tx.Sign(signaturescheme.ED25519(*firstReceiver.KeyPair(uint64(i))))
 		txID, err := n.Peers()[rand.Intn(len(n.Peers()))].SendTransaction(tx.Bytes())
 		require.NoError(t, err)
 

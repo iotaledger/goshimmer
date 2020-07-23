@@ -83,7 +83,7 @@ func SendFaucetRequestOnRandomPeer(t *testing.T, peers []*framework.Peer, numMes
 
 	for i := 0; i < numMessages; i++ {
 		peer := peers[rand.Intn(len(peers))]
-		addr := peer.Seed().Address(uint64(i))
+		addr := peer.Seed.Address(uint64(i)).Address
 		id, sent := SendFaucetRequest(t, peer, addr)
 		ids[id] = sent
 		addrBalance[addr.String()] = map[balance.Color]int64{
@@ -150,12 +150,12 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 	// initiate addrBalance map
 	addrBalance = make(map[string]map[balance.Color]int64)
 	for _, p := range peers {
-		addr := p.Seed().Address(0).String()
+		addr := p.Seed.Address(0).String()
 		addrBalance[addr] = make(map[balance.Color]int64)
 	}
 
 	faucetPeer := peers[0]
-	faucetAddrStr := faucetPeer.Seed().Address(0).String()
+	faucetAddrStr := faucetPeer.Seed.Address(0).String()
 
 	// get faucet balances
 	unspentOutputs, err := faucetPeer.GetUnspentOutputs([]string{faucetAddrStr})
@@ -204,9 +204,9 @@ func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBala
 // SendIotaTransaction sends sentValue amount of IOTA tokens and remainders from and to a given peer and returns the fail flag and the transaction ID.
 // Every peer sends and receives the transaction on the address of index 0.
 func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[balance.Color]int64, sentValue int64) (fail bool, txId string) {
-	sigScheme := signaturescheme.ED25519(*from.Seed().KeyPair(0))
-	inputAddr := from.Seed().Address(0)
-	outputAddr := to.Seed().Address(0)
+	sigScheme := signaturescheme.ED25519(*from.Seed.KeyPair(0))
+	inputAddr := from.Seed.Address(0).Address
+	outputAddr := to.Seed.Address(0).Address
 
 	// prepare inputs
 	resp, err := from.GetUnspentOutputs([]string{inputAddr.String()})
@@ -288,9 +288,9 @@ func SendColoredTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, a
 func SendColoredTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[balance.Color]int64) (fail bool, txId string) {
 	var sentValue int64 = 50
 	var balanceList []*balance.Balance
-	sigScheme := signaturescheme.ED25519(*from.Seed().KeyPair(0))
-	inputAddr := from.Seed().Address(0)
-	outputAddr := to.Seed().Address(0)
+	sigScheme := signaturescheme.ED25519(*from.Seed.KeyPair(0))
+	inputAddr := from.Seed.Address(0).Address
+	outputAddr := to.Seed.Address(0).Address
 
 	// prepare inputs
 	resp, err := from.GetUnspentOutputs([]string{inputAddr.String()})
