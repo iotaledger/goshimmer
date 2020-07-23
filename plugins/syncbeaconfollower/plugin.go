@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 	goSync "sync"
 	"time"
@@ -83,9 +84,15 @@ func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
 	currentBeacons = make(map[ed25519.PublicKey]*beaconSync, len(pubKeys))
+	currentBeaconPubKeys = make(map[ed25519.PublicKey]string, len(pubKeys))
 
 	for _, str := range pubKeys {
-		pubKey, _, err := ed25519.PublicKeyFromBytes([]byte(str))
+		bytes, err := base58.Decode(str)
+		if err != nil {
+			log.Warnf("error decoding public key: %w", err)
+			continue
+		}
+		pubKey, _, err := ed25519.PublicKeyFromBytes(bytes)
 		if err != nil {
 			log.Warnf("%s is not a valid public key: %w", err)
 			continue

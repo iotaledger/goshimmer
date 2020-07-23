@@ -47,8 +47,12 @@ func configure(_ *node.Plugin) {
 // broadcastSyncBeaconPayload broadcasts a sync beacon via communication layer.
 func broadcastSyncBeaconPayload() {
 	syncBeaconPayload := NewSyncBeaconPayload(time.Now().UnixNano())
-	msg := messagelayer.MessageFactory().IssuePayload(syncBeaconPayload)
-	log.Infof("issued sync beacon %s", msg.Id())
+	msg, err := messagelayer.MessageFactory().IssuePayload(syncBeaconPayload)
+	if err != nil {
+		log.Infof("error issuing sync beacon. %w", err)
+	} else {
+		log.Infof("issued sync beacon %s", msg.Id())
+	}
 }
 
 func run(_ *node.Plugin) {
