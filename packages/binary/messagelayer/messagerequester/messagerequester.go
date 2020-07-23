@@ -82,7 +82,7 @@ func (requester *MessageRequester) reRequest(id message.Id, count int) {
 			delete(requester.scheduledRequests, id)
 			requester.scheduledRequestsMutex.Unlock()
 
-			requester.Events.MissingMessageAppeared.Trigger(id)
+			// requester.Events.MissingMessageAppeared.Trigger(id)
 			fmt.Println("ReRequest: ", id, count)
 			return
 		}
