@@ -173,6 +173,7 @@ type nodestatus struct {
 	Mem     *memmetrics       `json:"mem"`
 }
 
+// Beacon contains a sync beacons detailed status.
 type Beacon struct {
 	MsgID    string `json:"msg_id"`
 	SentTime int64  `json:"sent_time"`
