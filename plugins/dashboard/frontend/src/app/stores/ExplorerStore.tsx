@@ -1,6 +1,6 @@
 import {action, computed, observable} from 'mobx';
 import {registerHandler, WSMsgType} from "app/misc/WS";
-import {BasicPayload, DrngCbPayload, DrngPayload, DrngSubtype, PayloadType, ValuePayload} from "app/misc/Payload";
+import {BasicPayload, DrngCbPayload, DrngPayload, DrngSubtype, PayloadType, ValuePayload, SyncBeaconPayload} from "app/misc/Payload";
 import * as React from "react";
 import {Link} from 'react-router-dom';
 import {RouterStore} from "mobx-react-router";
@@ -189,6 +189,11 @@ export class ExplorerStore {
                 break;
             case PayloadType.Value:
                 this.payload = msg.payload as ValuePayload
+                break;
+            case PayloadType.SyncBeacon:
+                this.payload = msg.payload as SyncBeaconPayload
+                console.log(this.payload.sent_time);
+                break;
             case PayloadType.Data:
             case PayloadType.Faucet:
             default:

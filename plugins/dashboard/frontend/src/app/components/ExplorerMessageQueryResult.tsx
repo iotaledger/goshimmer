@@ -13,6 +13,7 @@ import {Link} from 'react-router-dom';
 import {BasicPayload} from 'app/components/BasicPayload'
 import {DrngPayload} from 'app/components/DrngPayload'
 import {ValuePayload} from 'app/components/ValuePayload'
+import {SyncBeaconPayload} from 'app/components/SyncBeaconPayload'
 import {PayloadType} from 'app/misc/Payload'
 
 interface Props {
@@ -56,6 +57,8 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                 return "Drng"
             case PayloadType.Faucet:
                 return "Faucet"
+            case PayloadType.SyncBeacon:
+                return "SyncBeacon"
             default:
                 return "Unknown"
         }
@@ -68,6 +71,8 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
             case PayloadType.Value:
                 return <ValuePayload/>
             case PayloadType.Data:
+            case PayloadType.SyncBeacon:
+                return <SyncBeaconPayload/>
             case PayloadType.Faucet:
             default:
                 return <BasicPayload/>

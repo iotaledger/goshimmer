@@ -12,7 +12,14 @@ class Status {
     version: string;
     uptime: number;
     synced: boolean;
+    beacons: Map<string, Beacon>;
     mem: MemoryMetrics = new MemoryMetrics();
+}
+
+class Beacon {
+    msg_id: string;
+    sent_time: number;
+    synced: boolean;
 }
 
 class MemoryMetrics {
@@ -165,6 +172,7 @@ export class NodeStore {
     @observable collecting: boolean = true;
 
     constructor() {
+        this.status.beacons = new Map<string, Beacon>();
         this.registerHandlers();
     }
 
