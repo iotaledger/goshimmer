@@ -62,9 +62,7 @@ func (requester *MessageRequester) StopRequest(id message.Id) {
 	defer requester.scheduledRequestsMutex.Unlock()
 
 	if timer, ok := requester.scheduledRequests[id]; ok {
-		if !timer.Stop() {
-			<-timer.C
-		}
+		timer.Stop()
 		delete(requester.scheduledRequests, id)
 	}
 }
@@ -77,10 +75,7 @@ func (requester *MessageRequester) reRequest(id message.Id) {
 	if _, exists := requester.scheduledRequests[id]; exists {
 		if requester.messageExistsFunc(id) {
 			// if found message tangle: stop request and delete from missingMessageStorage (via event)
-			if timer, ok := requester.scheduledRequests[id]; ok {
-				if !timer.Stop() {
-					<-timer.C
-				}
+			if _, ok := requester.scheduledRequests[id]; ok {
 				delete(requester.scheduledRequests, id)
 			}
 			requester.scheduledRequestsMutex.Unlock()
