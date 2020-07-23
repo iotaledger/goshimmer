@@ -40,15 +40,13 @@ export class Dashboard extends React.Component<Props, any> {
                                             <ListGroup.Item><Version/></ListGroup.Item>
                                         </ListGroup>
                                     </Col>
-                                    <Col>
-                                        <ListGroup variant={"flush"}>
-                                            <ListGroup.Item><Synced/></ListGroup.Item>
-                                        </ListGroup>
-                                    </Col>
                                 </Row>
                             </Card.Body>
                         </Card>
                     </Col>
+                </Row>
+                <Row className={"mb-3"}>
+                    <Col><Synced/></Col>
                 </Row>
                 <Row className={"mb-3"}>
                     <Col><MPSChart/></Col>
