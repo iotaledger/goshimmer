@@ -98,7 +98,7 @@ func runFPCLiveFeed() {
 func createFPCUpdate(hb *packet.FPCHeartbeat) *FPCUpdate {
 	// prepare the update
 	conflicts := make(conflictSet)
-	nodeID := shortNodeIDString(hb.OwnID)
+	nodeID := analysis.ShortNodeIDString(hb.OwnID)
 	for ID, context := range hb.RoundStats.ActiveVoteContexts {
 		newVoteContext := voteContext{
 			NodeID:   nodeID,

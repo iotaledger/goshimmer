@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/labstack/echo"
 )
 
@@ -100,7 +101,7 @@ func websocketRoute(c echo.Context) error {
 	defer removeWsClient(clientID)
 
 	// replay autopeering events from the past upon connecting a new client
-	replayAutopeeringEvents(createAutopeeringEventHandlers(ws, createSyncNodeCallback, createSyncLinkCallback))
+	analysisserver.ReplayAutopeeringEvents(createAutopeeringEventHandlers(ws))
 
 	// replay FPC past events
 	replayFPCRecords(ws)

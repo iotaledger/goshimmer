@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/shirou/gopsutil/cpu"
 )
@@ -34,10 +35,11 @@ func createMetricHeartbeat() *packet.MetricHeartbeat {
 	}
 
 	return &packet.MetricHeartbeat{
-		OwnID:  nodeID,
-		OS:     runtime.GOOS,
-		Arch:   runtime.GOARCH,
-		NumCPU: runtime.GOMAXPROCS(0),
+		Version: banner.AppVersion,
+		OwnID:   nodeID,
+		OS:      runtime.GOOS,
+		Arch:    runtime.GOARCH,
+		NumCPU:  runtime.GOMAXPROCS(0),
 		// TODO: replace this with only the CPU usage of the GoShimmer process.
 		CPUUsage: func() (p float64) {
 			percent, err := cpu.Percent(time.Second, false)

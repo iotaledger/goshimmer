@@ -22,17 +22,24 @@ export default class Autopeering extends React.Component<AutopeeringProps, unkno
         return (
             <div className="auto-peering">
                 <div className="header margin-b-m">
-                    <h2>Autopeering Visualizer</h2>
+                    <h2>Pollen Visualizer</h2>
                     <div className="row">
+                        <select
+                            onChange={(e) => this.props.autopeeringStore.handleVersionSelection(e.target.value)}
+                            value={this.props.autopeeringStore.selectedNetworkVersion}
+                        >
+                            {this.props.autopeeringStore.versions.size === 0 && (
+                                <option>No data for any network</option>
+                            )}
+                            {this.props.autopeeringStore.networkVersionList.map(version => (
+                                <option value={version} key={version}>Network {version}</option>
+                            ))}
+                        </select>
                         <div className="badge neighbors">
-                            Average number of neighbors: {
-                                this.props.autopeeringStore.nodes.size > 0 ?
-                                    (2 * this.props.autopeeringStore.connections.size / this.props.autopeeringStore.nodes.size).toPrecision(2).toString()
-                                    : 0
-                            }
+                            Average number of neighbors: {this.props.autopeeringStore.AvgNumNeighbors}
                         </div>
                         <div className="badge online">
-                            Nodes online: {this.props.autopeeringStore.nodes.size.toString()}
+                            Nodes online: {this.props.autopeeringStore.NodesOnline}
                         </div>
                     </div>
                 </div>

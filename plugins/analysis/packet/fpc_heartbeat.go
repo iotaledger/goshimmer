@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
 )
@@ -14,10 +15,14 @@ import (
 var (
 	// ErrInvalidFPCHeartbeat is returned for invalid FPC heartbeats.
 	ErrInvalidFPCHeartbeat = errors.New("invalid FPC heartbeat")
+	// ErrInvalidFPCHeartbeatVersion is returned for invalid FPC heartbeat versions.
+	ErrInvalidFPCHeartbeatVersion = errors.New("invalid FPC heartbeat version")
 )
 
 // FPCHeartbeat represents a heartbeat packet.
 type FPCHeartbeat struct {
+	// The version of GoShimmer.
+	Version string
 	// The ID of the node who sent the heartbeat.
 	// Must be contained when a heartbeat is serialized.
 	OwnID []byte
@@ -55,6 +60,10 @@ func ParseFPCHeartbeat(data []byte) (*FPCHeartbeat, error) {
 	err = decoder.Decode(hb)
 	if err != nil {
 		return nil, err
+	}
+
+	if hb.Version != banner.AppVersion {
+		return nil, ErrInvalidFPCHeartbeatVersion
 	}
 
 	return hb, nil

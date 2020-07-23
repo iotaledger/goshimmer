@@ -35,7 +35,6 @@ func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 	configureFPCLiveFeed()
 	configureAutopeeringWorkerPool()
-	configureEventsRecording()
 	configureServer()
 }
 
@@ -63,8 +62,6 @@ func run(*node.Plugin) {
 	runFPCLiveFeed()
 	// run data reporting for autopeering visualizer
 	runAutopeeringFeed()
-	// records and organizes data that was received by analysis-server
-	runEventsRecordManager()
 
 	log.Infof("Starting %s ...", PluginName)
 	if err := daemon.BackgroundWorker(PluginName, worker, shutdown.PriorityAnalysis); err != nil {

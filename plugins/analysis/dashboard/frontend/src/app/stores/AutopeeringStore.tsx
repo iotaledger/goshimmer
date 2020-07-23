@@ -9,6 +9,7 @@ import { WSMsgType } from "../models/ws/wsMsgType";
 import { connectWebSocket, registerHandler } from "../services/WS";
 import { buildCircleNodeShader } from "../utils/circleNodeShader";
 import { parseColor } from "../utils/colorHelper";
+import {Neighbors} from "../models/Neighbors";
 
 const EDGE_COLOR_DEFAULT = "#ff7d6cff";
 const EDGE_COLOR_HIDE = "#ff7d6c40";
@@ -30,6 +31,12 @@ export class AutopeeringStore {
     public websocketConnected: boolean = false;
 
     @observable
+    public selectedNetworkVersion: string = "";
+
+    @observable
+    public userSelectedNetworkVersion: string = "";
+
+    @observable
     public search: string = "";
 
     @observable
@@ -45,13 +52,16 @@ export class AutopeeringStore {
     public selectedNodeOutNeighbors?: Set<string>;
 
     @observable
-    public readonly nodes: ObservableSet<string> = new ObservableSet<string>();
+    public readonly  versions: ObservableSet = new ObservableSet()
 
     @observable
-    public readonly connections: ObservableSet = new ObservableSet();
+    public readonly nodes: ObservableMap<string,ObservableSet<string>>  = new ObservableMap<string,ObservableSet<string>>();
 
     @observable
-    private readonly neighbors: ObservableMap<string, INeighbors> = new ObservableMap<string, INeighbors>();
+    public readonly connections: ObservableMap<string,ObservableSet<string>> = new ObservableMap<string,ObservableSet<string>>();
+
+    @observable
+    private readonly neighbors: ObservableMap<string,ObservableMap<string, INeighbors>>  = new ObservableMap<string,ObservableMap<string, INeighbors>>();
 
     @observable
     private selectionActive: boolean = false;
@@ -99,99 +109,196 @@ export class AutopeeringStore {
     }
 
     @action
+    public handleVersionSelection = (userSelectedVersion: string) => {
+        this.userSelectedNetworkVersion = userSelectedVersion;
+        if (this.selectedNetworkVersion !== userSelectedVersion){
+            // we switch network, should redraw the graph.
+            this.clearNodeSelection();
+            this.selectedNetworkVersion = userSelectedVersion;
+            this.stop();
+            this.start();
+        }
+    }
+
+    @action
+    public handleAutoVersionSelection = (autoSelectedVersion: string) => {
+        if (this.selectedNetworkVersion !== autoSelectedVersion){
+            this.userSelectedNetworkVersion = "";
+            // we switch network, should redraw the graph.
+            // no need to reset colors as the graph will be disposed anyway
+            this.clearNodeSelection(false);
+            this.selectedNetworkVersion = autoSelectedVersion;
+            this.stop();
+            this.start();
+        }
+    }
+
+    @action
+    private autoSelectNetwork = () => {
+        if (this.versions.size === 0){
+            return "";
+        }
+        let versionsArray = Array.from(this.versions);
+        versionsArray.sort((a,b) => {
+            return b.localeCompare(a);
+        })
+        return versionsArray[0];
+
+    }
+
+    @action
     private onAddNode(msg: IAddNodeMessage): void {
-        if (this.nodes.has(msg.id)) {
+        if (!this.versions.has(msg.networkVersion)){
+            this.versions.add(msg.networkVersion);
+            if (this.userSelectedNetworkVersion === ""){
+                // usert hasn't specified a network version yet, we choose the newest
+                // otherwise we display wahtever the user selected
+                this.handleAutoVersionSelection(this.autoSelectNetwork());
+            }
+        }
+        // when we see the network for the first time
+        if (this.nodes.get(msg.networkVersion) === undefined){
+            this.nodes.set(msg.networkVersion, new ObservableSet<string>());
+        }
+
+        let nodeSet = this.nodes.get(msg.networkVersion);
+        // @ts-ignore
+        if (nodeSet.has(msg.id)){
             console.log("Node %s already known.", msg.id);
             return;
         }
-        this.nodes.add(msg.id);
-        if (this.graph) {
-            this.drawNode(msg.id);
-        }
-        console.log("Node %s added.", msg.id);
+        // @ts-ignore
+        nodeSet.add(msg.id);
+        console.log("Node %s added, network: %s", msg.id, msg.networkVersion);
+        // only update visuals when the current network is displayed
+        if (this.selectedNetworkVersion === msg.networkVersion){
+            if (this.graph) {
+                this.drawNode(msg.id);
+            }
 
-        // the more nodes we have, the more spacing we need
-        if (this.nodes.size > 30) {
-            this.renderer.getLayout().simulator.springLength(this.nodes.size);
+            // the more nodes we have, the more spacing we need
+            // @ts-ignore
+            if (nodeSet.size > 30) {
+                // @ts-ignore
+                this.renderer.getLayout().simulator.springLength(nodeSet.size);
+            }
         }
     }
 
     @action
     private onRemoveNode(msg: IRemoveNodeMessage): void {
-        if (!this.nodes.has(msg.id)) {
-            console.log("Can't delete node %s, not in map.", msg.id);
+        if (this.nodes.get(msg.networkVersion) === undefined){
+            // nowhere to remove it from
             return;
         }
-
-        this.nodes.delete(msg.id);
-        if (this.graph) {
-            this.graph.removeNode(msg.id);
+        let nodeSet = this.nodes.get(msg.networkVersion);
+        // @ts-ignore
+        if (!nodeSet.has(msg.id)) {
+            console.log("Can't delete node %s, not in map.", msg.id);
+            return
         }
-        console.log("Removed node %s", msg.id);
 
-        // the less nodes we have, the less spacing we need
-        if (this.nodes.size >= 30) {
-            this.renderer.getLayout().simulator.springLength(this.nodes.size);
+        if (this.selectedNetworkVersion === msg.networkVersion) {
+            if (this.graph) {
+                this.graph.removeNode(msg.id);
+            }
+
+            // the less nodes we have, the less spacing we need
+            // @ts-ignore
+            if (nodeSet.size >= 30) {
+                // @ts-ignore
+                this.renderer.getLayout().simulator.springLength(nodeSet.size);
+            }
         }
+        // @ts-ignore
+        nodeSet.delete(msg.id);
+        // @ts-ignore
+        if (nodeSet.size === 0){
+            // this was the last node for this network version
+            this.nodes.delete(msg.networkVersion);
+            this.neighbors.delete(msg.networkVersion);
+            this.connections.delete(msg.networkVersion);
+            this.versions.delete(msg.networkVersion);
+            console.log("Removed all data for network %s", msg.networkVersion);
+
+            if (this.selectedNetworkVersion === msg.networkVersion){
+                // we were looking at this network, but it gets deleted.
+                // auto select
+                this.handleAutoVersionSelection(this.autoSelectNetwork());
+            }
+        }
+        console.log("Removed node %s, network: %s", msg.id, msg.networkVersion);
     }
 
     @action
     private onConnectNodes(msg: IConnectNodesMessage): void {
-        if (!this.nodes.has(msg.source)) {
+        if (this.nodes.get(msg.networkVersion) === undefined){
+            // we haven't seen this network before. trigger addnode (creates the set)
+            this.onAddNode({networkVersion: msg.networkVersion, id: msg.source});
+            this.onAddNode({networkVersion: msg.networkVersion, id: msg.target});
+        }
+        let nodeSet = this.nodes.get(msg.networkVersion);
+        // @ts-ignore
+        if (!nodeSet.has(msg.source)) {
             console.log("Missing source node %s from node map.", msg.source);
             return;
         }
-        if (!this.nodes.has(msg.target)) {
+        // @ts-ignore
+        if (!nodeSet.has(msg.target)) {
             console.log("Missing target node %s from node map.", msg.target);
             return;
         }
 
         // both are in the map, draw the connection on screen
-        if (this.graph) {
+        if (this.graph && this.selectedNetworkVersion === msg.networkVersion) {
             this.graph.addLink(msg.source, msg.target);
         }
 
+        // first time we see connectNodes for this network
+        if (this.connections.get(msg.networkVersion) === undefined){
+            this.connections.set(msg.networkVersion, new ObservableSet<string>());
+        }
         // update connections
-        this.connections.add(msg.source + msg.target);
+        // @ts-ignore
+        this.connections.get(msg.networkVersion).add(msg.source + msg.target);
+
+        // first time we see connectNodes for this network
+        if (this.neighbors.get(msg.networkVersion) === undefined){
+            this.neighbors.set(msg.networkVersion, new ObservableMap<string, INeighbors>());
+        }
+
+        let neighborMap = this.neighbors.get(msg.networkVersion);
 
         // Update neighbors map
-        if (this.neighbors.get(msg.source) === undefined) {
-            const neighbors: INeighbors = {
-                in: new Set<string>(),
-                out: new Set<string>()
-            };
+        // @ts-ignore
+        if (neighborMap.get(msg.source) === undefined) {
+            let neighbors = new Neighbors();
             neighbors.out.add(msg.target);
-            this.neighbors.set(msg.source, neighbors);
+            // @ts-ignore
+            neighborMap.set(msg.source, neighbors);
         } else {
-            const neighbour = this.neighbors.get(msg.source);
-
-            if (neighbour) {
-                neighbour.out.add(msg.target);
-            }
+            // @ts-ignore
+            neighborMap.get(msg.source).out.add(msg.target);
         }
 
-        if (this.neighbors.get(msg.target) === undefined) {
-            const neighbors: INeighbors = {
-                in: new Set<string>(),
-                out: new Set<string>()
-            };
+        // @ts-ignore
+        if (neighborMap.get(msg.target) === undefined) {
+            let neighbors = new Neighbors();
             neighbors.in.add(msg.source);
-            this.neighbors.set(msg.target, neighbors);
+            // @ts-ignore
+            neighborMap.set(msg.target, neighbors);
         } else {
-            const neighbour = this.neighbors.get(msg.target);
-
-            if (neighbour) {
-                neighbour.in.add(msg.source);
-            }
+            // @ts-ignore
+            neighborMap.get(msg.target).in.add(msg.source);
         }
 
-        console.log("Connected nodes %s -> %s", msg.source, msg.target);
+        console.log("Connected nodes %s -> %s, network: %s", msg.source, msg.target, msg.networkVersion);
     }
 
     @action
     private onDisconnectNodes(msg: IDisconnectNodesMessage): void {
-        if (this.graph) {
-            const existingLink = this.graph.getLink(msg.source, msg.target);
+        if (this.graph && this.selectedNetworkVersion === msg.networkVersion){
+            let existingLink = this.graph.getLink(msg.source, msg.target);
             if (!existingLink) {
                 console.log("Link %s -> %s is missing from graph", msg.source, msg.target);
                 return;
@@ -200,18 +307,23 @@ export class AutopeeringStore {
         }
 
         // update connections and neighbors
-        this.connections.delete(msg.source + msg.target);
-
-        const source = this.neighbors.get(msg.source);
-        if (source) {
-            source.out.delete(msg.target);
-        }
-        const target = this.neighbors.get(msg.target);
-        if (target) {
-            target.in.delete(msg.source);
+        if (this.connections.get(msg.networkVersion) === undefined){
+            console.log("Can't find connections set for %s", msg.networkVersion)
+        } else {
+            // @ts-ignore
+            this.connections.get(msg.networkVersion).delete(msg.source + msg.target);
         }
 
-        console.log("Disconnected nodes %s -> %s", msg.source, msg.target);
+        if (this.neighbors.get(msg.networkVersion) === undefined){
+            console.log("Can't find neighbors map for %s", msg.networkVersion)
+        } else {
+            // @ts-ignore
+            this.neighbors.get(msg.networkVersion).get(msg.source).out.delete(msg.target);
+            // @ts-ignore
+            this.neighbors.get(msg.networkVersion).get(msg.target).in.delete(msg.source);
+
+        }
+        console.log("Disconnected nodes %s -> %s, network: %s",msg.source, msg.target, msg.networkVersion);
     }
 
         
@@ -221,10 +333,13 @@ export class AutopeeringStore {
         this.selectedNode = node;
 
         // get node incoming neighbors
-        if (!this.nodes.has(this.selectedNode)) {
+        // @ts-ignore
+        if (!this.nodes.get(this.selectedNetworkVersion).has(this.selectedNode)) {
             console.log("Selected node not found (%s)", this.selectedNode);
+            return;
         }
-        const neighbors = this.neighbors.get(this.selectedNode);
+        // @ts-ignore
+        const neighbors = this.neighbors.get(this.selectedNetworkVersion).get(this.selectedNode);
         this.selectedNodeInNeighbors = neighbors ? neighbors.in : new Set();
         this.selectedNodeOutNeighbors = neighbors ? neighbors.out : new Set();
         this.selectionActive = true;
@@ -233,8 +348,10 @@ export class AutopeeringStore {
 
     // handles clearing the node selection
     @action
-    private clearNodeSelection(): void {
-        this.resetPreviousColors();
+    private clearNodeSelection(resetPrevColors: boolean=true): void {
+        if (resetPrevColors) {
+            this.resetPreviousColors();
+        }
         this.selectedNode = undefined;
         this.selectedNodeInNeighbors = undefined;
         this.selectedNodeOutNeighbors = undefined;
@@ -299,7 +416,7 @@ export class AutopeeringStore {
         this.graphics = graphics;
         this.renderer.run();
         // draw graph if we have data collected
-        this.initialDrawGraph();
+        this.initialDrawGraph(this.selectedNetworkVersion);
     }
 
     // dispose only graph, but keep the data
@@ -310,12 +427,17 @@ export class AutopeeringStore {
 
     @computed
     public get nodeListView(): string[] {
-        let results: Set<string>;
+        let nodeSet = this.nodes.get(this.selectedNetworkVersion);
+        if (nodeSet === undefined){
+            return [];
+        }
+        let results;
         if (this.search.trim().length === 0) {
-            results = this.nodes;
+            results = nodeSet;
         } else {
-            results = new Set<string>();
-            this.nodes.forEach((node) => {
+            results = new Set();
+            // @ts-ignore
+            nodeSet.forEach((node) => {
                 if (node.toLowerCase().includes(this.search.toLowerCase())) {
                     results.add(node);
                 }
@@ -338,20 +460,58 @@ export class AutopeeringStore {
         return this.selectedNodeOutNeighbors ? Array.from(this.selectedNodeOutNeighbors) : [];
     }
 
+    @computed
+    public get networkVersionList(): string[]{
+        return Array.from(this.versions).sort((a,b) => {
+            return a.localeCompare(b);
+        });
+    }
+
+    @computed
+    public get AvgNumNeighbors(): string{
+        let nodeSet = this.nodes.get(this.selectedNetworkVersion);
+        let connectionSet = this.connections.get(this.selectedNetworkVersion);
+        if ( nodeSet === undefined || connectionSet === undefined) {
+            return "0"
+        }
+        // @ts-ignore
+        return nodeSet && nodeSet.size > 0 ?
+            // @ts-ignore
+            (2 * connectionSet.size / nodeSet.size).toPrecision(2).toString()
+            : "0"
+    }
+
+    @computed
+    get NodesOnline(){
+        let nodeSet = this.nodes.get(this.selectedNetworkVersion);
+        if (nodeSet === undefined) {
+            return "0"
+        }
+
+        // @ts-ignore
+        return nodeSet.size.toString()
+    }
+
+
     // fill graph with data we have previously collected
-    private initialDrawGraph(): void {
+    private initialDrawGraph(version: string): void {
         if (this.graph) {
-            this.nodes.forEach((node) => {
-                this.drawNode(node);
-            });
-            this.neighbors.forEach((node, key) => {
-                // Only do it for one type of neighbors, as it is duplicated
-                node.out.forEach((outNeighborID) => {
-                    if (this.graph) {
+            if (this.nodes.get(version) !== undefined){
+                // @ts-ignore
+                this.nodes.get(version).forEach((node,key,map) => {
+                    this.drawNode(node);
+                })
+            }
+            if (this.neighbors.get(version) !== undefined){
+                // @ts-ignore
+                this.neighbors.get(version).forEach((node,key,map) => {
+                    // Only do it for one type of neighbors, as it is duplicated
+                    node.out.forEach((outNeighborID) =>{
+                        // @ts-ignore
                         this.graph.addLink(key, outNeighborID);
-                    }
+                    });
                 });
-            });
+            }
         }
     }
 
@@ -433,11 +593,7 @@ export class AutopeeringStore {
 
     // disables highlighting of selectedNode, its links and neighbors
     private resetPreviousColors(skipAllLink: boolean = false, toLinkHide: boolean = false): void {
-        if (!this.selectionActive) {
-            return;
-        }
-
-        if (!this.graph) {
+        if (!this.selectionActive || !this.graph) {
             return;
         }
 

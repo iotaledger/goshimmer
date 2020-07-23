@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
 	"github.com/shirou/gopsutil/cpu"
@@ -42,6 +43,13 @@ func TestMetricHeartbeat(t *testing.T) {
 	require.NoError(t, err)
 
 	hbParsed, err := ParseMetricHeartbeat(packet)
+	require.Error(t, err)
+
+	hb.Version = banner.AppVersion
+	packet, err = hb.Bytes()
+	require.NoError(t, err)
+
+	hbParsed, err = ParseMetricHeartbeat(packet)
 	require.NoError(t, err)
 
 	require.Equal(t, hb, hbParsed)

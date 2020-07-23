@@ -64,3 +64,18 @@ input {
     }
   }
 }
+
+select {
+  @include font-size(14px);
+  height: 40px;
+  margin: 0;
+  padding: 5px 10px;
+  border: 1px solid $gray-3;
+  border-radius: 6px;
+  outline: none;
+  color: $gray-5;
+  font-family: $inter;
+  &:focus {
+    box-shadow: 0 0 3px 0 $light-green;
+  }
+}

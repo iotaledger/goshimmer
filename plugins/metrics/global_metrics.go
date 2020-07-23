@@ -3,8 +3,9 @@ package metrics
 import (
 	"sync"
 
-	analysisdashboard "github.com/iotaledger/goshimmer/plugins/analysis/dashboard"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
+	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
@@ -55,8 +56,12 @@ func NodesMetrics() map[string]NodeInfo {
 }
 
 func calculateNetworkDiameter() {
-	g := analysisdashboard.NetworkGraph()
-	diameter := g.Diameter()
+	diameter := 0
+	// TODO: send data for all available networkIDs, not just current
+	if analysisserver.Networks[banner.AppVersion] != nil {
+		g := analysisserver.Networks[banner.AppVersion].NetworkGraph()
+		diameter = g.Diameter()
+	}
 	networkDiameter.Store(int32(diameter))
 }
 
