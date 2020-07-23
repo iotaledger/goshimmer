@@ -48,7 +48,6 @@
     "mobx": "^5.15.0",
     "mobx-react": "^6.2.2",
     "react": "^16.7.0",
-    "react-bootstrap": "^1.2.2",
     "react-dom": "^16.7.0",
     "react-icons": "^3.10.0",
     "react-router": "5.2.0",
