@@ -1,7 +1,6 @@
 package messagerequester
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -52,7 +51,7 @@ func (requester *MessageRequester) StartRequest(id message.Id) {
 	}
 
 	// schedule the next request and trigger the event
-	requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id, 0) })
+	requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id) })
 	requester.scheduledRequestsMutex.Unlock()
 	requester.Events.SendRequest.Trigger(id)
 }
@@ -70,31 +69,26 @@ func (requester *MessageRequester) StopRequest(id message.Id) {
 	}
 }
 
-func (requester *MessageRequester) reRequest(id message.Id, count int) {
+func (requester *MessageRequester) reRequest(id message.Id) {
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
 	requester.scheduledRequestsMutex.Lock()
-	// defer requester.scheduledRequestsMutex.Unlock()
 
 	// reschedule, if the request has not been stopped in the meantime
 	if _, exists := requester.scheduledRequests[id]; exists {
-		// count++
-
-		// // if count exceeds threshold -> check for message in message tangle
-		// // if count > messageExistCheckThreshold && requester.messageExistsFunc(id) {
 		if requester.messageExistsFunc(id) {
-			// 	// if found message tangle: stop request and delete from missingMessageStorage (via event)
-			// 	if timer, ok := requester.scheduledRequests[id]; ok {
-			// 		if !timer.Stop() {
-			// 			<-timer.C
-			// 		}
-			// 		delete(requester.scheduledRequests, id)
-			// 	}
-			fmt.Println("reRequest: ", id, count)
-			// 	requester.Events.MissingMessageAppeared.Trigger(id)
-			// 	return
+			// if found message tangle: stop request and delete from missingMessageStorage (via event)
+			if timer, ok := requester.scheduledRequests[id]; ok {
+				if !timer.Stop() {
+					<-timer.C
+				}
+				delete(requester.scheduledRequests, id)
+			}
+			requester.scheduledRequestsMutex.Unlock()
+			requester.Events.MissingMessageAppeared.Trigger(id)
+			return
 		}
 
-		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id, count) })
+		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id) })
 		requester.scheduledRequestsMutex.Unlock()
 		requester.Events.SendRequest.Trigger(id)
 		return
