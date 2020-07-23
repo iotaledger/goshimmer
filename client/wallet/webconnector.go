@@ -22,6 +22,7 @@ func NewWebConnector(baseURL string, httpClient ...http.Client) *WebConnector {
 	}
 }
 
+// ServerStatus retrieves the connected server status with Info api.
 func (webConnector *WebConnector) ServerStatus() (status ServerStatus, err error) {
 	response, err := webConnector.client.Info()
 	if err != nil {

@@ -65,6 +65,7 @@ func New(options ...Option) (wallet *Wallet) {
 	return
 }
 
+// ServerStatus retrieves the connected server status.
 func (wallet *Wallet) ServerStatus() (status ServerStatus, err error) {
 	return wallet.connector.(*WebConnector).ServerStatus()
 }
