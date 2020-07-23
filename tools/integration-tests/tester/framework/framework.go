@@ -75,8 +75,18 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int) 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
 		config := GoShimmerConfig{
-			SyncBeacon:         i == 0,
-			SyncBeaconFollower: i > 0,
+			SyncBeacon: func(i int) bool {
+				if ParaSyncBeaconOnEveryNode {
+					return true
+				}
+				return i == 0
+			}(i),
+			SyncBeaconFollower: func(i int) bool {
+				if ParaSyncBeaconOnEveryNode {
+					return false
+				}
+				return i > 0
+			}(i),
 
 			Seed: func(i int) string {
 				if i == 0 {
@@ -131,9 +141,18 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
 		config := GoShimmerConfig{
-			SyncBeacon:         i == 0,
-			SyncBeaconFollower: i > 0,
-
+			SyncBeacon: func(i int) bool {
+				if ParaSyncBeaconOnEveryNode {
+					return true
+				}
+				return i == 0
+			}(i),
+			SyncBeaconFollower: func(i int) bool {
+				if ParaSyncBeaconOnEveryNode {
+					return false
+				}
+				return i > 0
+			}(i),
 			Seed: func(i int) string {
 				if i == 0 {
 					return syncBeaconSeed

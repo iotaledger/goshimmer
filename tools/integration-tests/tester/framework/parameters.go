@@ -40,6 +40,8 @@ var (
 	ParaWaitToKill = 60
 	// ParaPoWFaucetDifficulty defines the PoW difficulty for faucet payloads.
 	ParaPoWFaucetDifficulty = 2
+	// ParaSyncBeaconOnEveryNode defines whether all nodes should be sync beacons.
+	ParaSyncBeaconOnEveryNode = false
 )
 
 var (
