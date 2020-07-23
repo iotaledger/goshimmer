@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
-	"github.com/iotaledger/goshimmer/plugins/sync"
+	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
@@ -86,7 +86,7 @@ func getInfo(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, Response{
 		Version:                 banner.AppVersion,
-		Synced:                  sync.Synced(),
+		Synced:                  syncbeaconfollower.Synced(),
 		IdentityID:              local.GetInstance().Identity.ID().String(),
 		PublicKey:               local.GetInstance().PublicKey().String(),
 		MessageRequestQueueSize: int(metrics.MessageRequestQueueSize()),

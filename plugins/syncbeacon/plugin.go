@@ -1,6 +1,9 @@
 package syncbeacon
 
 import (
+	"sync"
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -8,13 +11,11 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
-	"sync"
-	"time"
 )
 
 const (
 	// PluginName is the plugin name of the sync beacon plugin.
-	PluginName = "Sync Beacon"
+	PluginName = "SyncBeacon"
 
 	// CfgSyncBeaconBroadcastIntervalSec is the interval in seconds at which the node broadcasts its sync status.
 	CfgSyncBeaconBroadcastIntervalSec = "syncbeacon.broadcastInterval"
@@ -42,10 +43,15 @@ func Plugin() *node.Plugin {
 // configure events
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
+
+	// TODO: we're auto. synced if we start as sync beacon
+	//syncbeaconfollower.OverwriteSyncedState(true)
+	log.Infof("starting node as sync beacon")
 }
 
 // broadcastSyncBeaconPayload broadcasts a sync beacon via communication layer.
 func broadcastSyncBeaconPayload() {
+	// TODO: possibly make use of the issuer plugin?
 	syncBeaconPayload := NewSyncBeaconPayload(time.Now().UnixNano())
 	msg, err := messagelayer.MessageFactory().IssuePayload(syncBeaconPayload)
 	if err != nil {

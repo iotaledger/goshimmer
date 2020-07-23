@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/sync"
+	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/node"
 )
 
@@ -33,8 +33,8 @@ func configure(_ *node.Plugin) {}
 // IssuePayload issues a payload to the message layer.
 // If the node is not synchronized an error is returned.
 func IssuePayload(payload payload.Payload) (*message.Message, error) {
-	if !sync.Synced() {
-		return nil, fmt.Errorf("can't issue payload: %w", sync.ErrNodeNotSynchronized)
+	if !syncbeaconfollower.Synced() {
+		return nil, fmt.Errorf("can't issue payload: %w", syncbeaconfollower.ErrNodeNotSynchronized)
 	}
 
 	msg, err := messagelayer.MessageFactory().IssuePayload(payload)

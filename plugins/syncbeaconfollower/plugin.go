@@ -2,12 +2,14 @@ package syncbeaconfollower
 
 import (
 	"errors"
+	"sync"
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
-	"github.com/iotaledger/goshimmer/plugins/sync"
 	"github.com/iotaledger/goshimmer/plugins/syncbeacon"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
@@ -16,13 +18,12 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
-	goSync "sync"
-	"time"
+	"go.uber.org/atomic"
 )
 
 const (
 	// PluginName is the plugin name of the sync beacon plugin.
-	PluginName = "Sync Beacon Follower"
+	PluginName = "SyncBeaconFollower"
 
 	// CfgSyncBeaconFollowNodes defines the list of nodes this node should follow to determine its sync status.
 	CfgSyncBeaconFollowNodes = "syncbeaconfollower.followNodes"
@@ -47,7 +48,9 @@ type beaconSync struct {
 }
 
 func init() {
-	flag.StringSlice(CfgSyncBeaconFollowNodes, []string{"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24", "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"}, "list of trusted nodes to follow their sync status")
+	//flag.StringSlice(CfgSyncBeaconFollowNodes, []string{"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24", "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"}, "list of trusted nodes to follow their sync status")
+	flag.StringSlice(CfgSyncBeaconFollowNodes, []string{}, "list of trusted nodes to follow their sync status")
+
 	flag.Int(CfgSyncBeaconMaxTimeWindowSec, 10, "the maximum time window for which a sync payload would be considerable")
 	flag.Int(CfgSyncBeaconMaxTimeOfflineSec, 40, "the maximum time the node should stay synced without receiving updates")
 	flag.Int(CfgSyncBeaconCleanupInterval, 10, "the interval at which cleanups are done")
@@ -56,25 +59,49 @@ func init() {
 var (
 	// plugin is the plugin instance of the sync beacon plugin.
 	plugin                  *node.Plugin
-	once                    goSync.Once
+	once                    sync.Once
 	log                     *logger.Logger
 	currentBeacons          map[ed25519.PublicKey]*beaconSync
 	currentBeaconPubKeys    map[ed25519.PublicKey]string
-	mutex                   goSync.RWMutex
+	mutex                   sync.RWMutex
 	beaconMaxTimeOfflineSec float64
-)
+	// tells whether the node is synced or not.
+	synced atomic.Bool
 
-var (
 	// ErrMissingFollowNodes is returned if the node starts with no follow nodes list
 	ErrMissingFollowNodes = errors.New("follow nodes list is required")
+	// ErrNodeNotSynchronized is returned when an operation can't be executed because
+	// the node is not synchronized.
+	ErrNodeNotSynchronized = errors.New("node is not synchronized")
 )
 
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
-		plugin = node.NewPlugin(PluginName, node.Disabled, configure, run)
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
 	})
 	return plugin
+}
+
+// Synced tells whether the node is in a state we consider synchronized, meaning
+// it has the relevant past and present message data.
+func Synced() bool {
+	return synced.Load()
+}
+
+// MarkSynced marks the node as synced.
+func MarkSynced() {
+	synced.Store(true)
+}
+
+// MarkDesynced marks the node as desynced.
+func MarkDesynced() {
+	synced.Store(false)
+}
+
+// OverwriteSyncedState overwrites the synced state with the given value.
+func OverwriteSyncedState(syncedOverwrite bool) {
+	synced.Store(syncedOverwrite)
 }
 
 // configure events
@@ -148,6 +175,8 @@ func handlePayload(syncBeaconPayload *syncbeacon.Payload, issuerPublicKey ed2551
 
 	currentBeacons[issuerPublicKey].synced = synced
 	currentBeacons[issuerPublicKey].payload = syncBeaconPayload
+
+	// TODO: check performance for this, only update node status periodically?
 	updateSynced()
 }
 
@@ -164,11 +193,10 @@ func updateSynced() {
 		synced = beaconNodesSyncedCount/float64(len(currentBeacons)) >= syncPercentage
 	}
 
-	// TODO: get rid of sync plugin
 	if synced {
-		sync.MarkSynced()
+		MarkSynced()
 	} else {
-		sync.MarkDesynced()
+		MarkDesynced()
 	}
 }
 
