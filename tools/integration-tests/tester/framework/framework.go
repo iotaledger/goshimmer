@@ -13,6 +13,7 @@ import (
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/mr-tron/base58"
 )
 
 var (
@@ -60,7 +61,7 @@ func newFramework() (*Framework, error) {
 // CreateNetwork creates and returns a (Docker) Network that contains `peers` GoShimmer nodes.
 // It waits for the peers to autopeer until the minimum neighbors criteria is met for every peer.
 // The first peer automatically starts with the bootstrap plugin enabled.
-func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, networkConfig ...NetworkConfig) (*Network, error) {
+func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int) (*Network, error) {
 	network, err := newNetwork(f.dockerClient, strings.ToLower(name), f.tester)
 	if err != nil {
 		return nil, err
@@ -71,23 +72,19 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, 
 		return nil, err
 	}
 
-	// configuration of bootstrap plugin
-	bootstrapInitialIssuanceTimePeriodSec := -1
-	if len(networkConfig) > 0 {
-		bootstrapInitialIssuanceTimePeriodSec = networkConfig[0].BootstrapInitialIssuanceTimePeriodSec
-	}
-
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
 		config := GoShimmerConfig{
-			Bootstrap: func(i int) bool {
-				if ParaBootstrapOnEveryNode {
-					return true
+			SyncBeacon:         i == 0,
+			SyncBeaconFollower: i > 0,
+
+			Seed: func(i int) string {
+				if i == 0 {
+					return syncBeaconSeed
 				}
-				return i == 0
+				return ""
 			}(i),
-			BootstrapInitialIssuanceTimePeriodSec: bootstrapInitialIssuanceTimePeriodSec,
-			Faucet:                                i == 0,
+			Faucet: i == 0,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
@@ -133,12 +130,18 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
-		config := GoShimmerConfig{Bootstrap: func(i int) bool {
-			if ParaBootstrapOnEveryNode {
-				return true
-			}
-			return i == 0
-		}(i)}
+		config := GoShimmerConfig{
+			SyncBeacon:         i == 0,
+			SyncBeaconFollower: i > 0,
+
+			Seed: func(i int) string {
+				if i == 0 {
+					return syncBeaconSeed
+				}
+				return ""
+			}(i),
+			Faucet: i == 0,
+		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
 		}
@@ -244,16 +247,24 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 
 	// create peers/GoShimmer nodes
 	for i := 0; i < peers; i++ {
-		config.Bootstrap = func(i int) bool {
-			if ParaBootstrapOnEveryNode {
-				return true
-			}
-			return i == 0
-		}(i)
 		config.Seed = privKeys[i].Seed().String()
 		if _, err = drng.CreatePeer(config, pubKeys[i]); err != nil {
 			return nil, err
 		}
+	}
+
+	// create extra sync beacon node
+	config = GoShimmerConfig{
+		SyncBeacon:         true,
+		SyncBeaconFollower: false,
+		Seed:               syncBeaconSeed,
+	}
+	bytes, err := base58.Decode(config.Seed)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = drng.CreatePeer(config, ed25519.PrivateKeyFromSeed(bytes).Public()); err != nil {
+		return nil, err
 	}
 
 	// wait until peers are fully started and connected
