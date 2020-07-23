@@ -101,16 +101,35 @@ func run(_ *node.Plugin) {
 	monitorForDesynchronization()
 }
 
-// marks the node as synced and spawns the background worker to monitor desynchronization.
-func markSynced() {
+// MarkSynced marks the node as synced and spawns the background worker to monitor desynchronization.
+func MarkSynced() {
 	synced.Store(true)
-	monitorForDesynchronization()
+	isRunning := false
+	for _, worker := range daemon.GetRunningBackgroundWorkers() {
+		if worker == "Desync-Monitor" {
+			isRunning = true
+			break
+		}
+	}
+	if !isRunning {
+		monitorForDesynchronization()
+	}
 }
 
-// marks the node as desynced and spawns the background worker to monitor synchronization.
-func markDesynced() {
+// MarkDesynced marks the node as desynced and spawns the background worker to monitor synchronization.
+func MarkDesynced() {
 	synced.Store(false)
-	monitorForSynchronization()
+	isRunning := false
+	for _, worker := range daemon.GetRunningBackgroundWorkers() {
+		if worker == "Sync-Monitor" {
+			isRunning = true
+			break
+		}
+	}
+
+	if !isRunning {
+		monitorForSynchronization()
+	}
 }
 
 // starts a background worker and event handlers to check whether the node is desynchronized by checking
@@ -166,12 +185,12 @@ func monitorForDesynchronization() {
 
 			case <-timer.C:
 				log.Infof("no message received in %d seconds, marking node as desynced", int(timeForDesync.Seconds()))
-				markDesynced()
+				MarkDesynced()
 				return
 
 			case <-noPeers:
 				log.Info("all peers have been lost, marking node as desynced")
-				markDesynced()
+				MarkDesynced()
 				return
 
 			case <-shutdownSignal:
@@ -241,7 +260,7 @@ func monitorForSynchronization() {
 				return
 			case <-synced:
 				log.Infof("all anchor messages have become solid, marking node as synced")
-				markSynced()
+				MarkSynced()
 				return
 			}
 		}
