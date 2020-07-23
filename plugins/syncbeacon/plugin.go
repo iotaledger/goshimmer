@@ -6,7 +6,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/issuer"
+	"github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
+	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -19,10 +21,14 @@ const (
 
 	// CfgSyncBeaconBroadcastIntervalSec is the interval in seconds at which the node broadcasts its sync status.
 	CfgSyncBeaconBroadcastIntervalSec = "syncbeacon.broadcastInterval"
+
+	// CfgSyncBeaconStartSynced defines whether to start the sync beacon in synced mode so it can issue an initial sync beacon message.
+	CfgSyncBeaconStartSynced = "syncbeacon.startSynced"
 )
 
 func init() {
-	flag.Int(CfgSyncBeaconBroadcastIntervalSec, 30, "the interval at which the node will broadcast ist sync status")
+	flag.Int(CfgSyncBeaconBroadcastIntervalSec, 30, "the interval at which the node will broadcast its sync status")
+	flag.Bool(CfgSyncBeaconStartSynced, false, "set node to start as synced so it can issue an initial sync beacon message")
 }
 
 var (
@@ -44,21 +50,23 @@ func Plugin() *node.Plugin {
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
-	// TODO: we're auto. synced if we start as sync beacon
-	//syncbeaconfollower.OverwriteSyncedState(true)
+	if config.Node().GetBool(CfgSyncBeaconStartSynced) {
+		syncbeaconfollower.OverwriteSyncedState(true)
+	}
 	log.Infof("starting node as sync beacon")
 }
 
 // broadcastSyncBeaconPayload broadcasts a sync beacon via communication layer.
 func broadcastSyncBeaconPayload() {
-	// TODO: possibly make use of the issuer plugin?
-	syncBeaconPayload := NewSyncBeaconPayload(time.Now().UnixNano())
-	msg, err := messagelayer.MessageFactory().IssuePayload(syncBeaconPayload)
+	syncBeaconPayload := payload.NewSyncBeaconPayload(time.Now().UnixNano())
+	msg, err := issuer.IssuePayload(syncBeaconPayload)
+
 	if err != nil {
 		log.Infof("error issuing sync beacon. %w", err)
-	} else {
-		log.Infof("issued sync beacon %s", msg.Id())
+		return
 	}
+
+	log.Infof("issued sync beacon %s", msg.Id())
 }
 
 func run(_ *node.Plugin) {
