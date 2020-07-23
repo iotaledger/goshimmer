@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
@@ -14,6 +15,8 @@ import (
 var (
 	// ErrInvalidHeartbeat is returned for invalid heartbeats.
 	ErrInvalidHeartbeat = errors.New("invalid heartbeat")
+	// ErrEmptyNetworkVersion
+	ErrEmptyNetworkVersion = errors.New("empty network version in heartbeat")
 )
 
 const (
@@ -78,16 +81,27 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 		return nil, fmt.Errorf("%w: packet exceeds maximum heartbeat packet size of %d", ErrMalformedPacket, HeartbeatPacketMaxSize)
 	}
 	networkIDBytesLength := int(data[HeartbeatPacketNetworkIDBytesCountSize-1])
+	if networkIDBytesLength == 0 {
+		return nil, ErrEmptyNetworkVersion
+	}
+	if networkIDBytesLength > HeartbeatPacketMaxNetworkIDBytesSize {
+		return nil, fmt.Errorf("%w: network ID exceeds maximum allowed size of %d bytes", ErrMalformedPacket, HeartbeatPacketMaxNetworkIDBytesSize)
+	}
 	// sanity check: packet len - min packet - networkIDLength % id size = 0,
 	// since we're only dealing with IDs from that offset
 	if (len(data)-HeartbeatPacketMinSize-networkIDBytesLength)%HeartbeatPacketPeerIDSize != 0 {
 		return nil, fmt.Errorf("%w: heartbeat packet is malformed since the data length after the min. packet size offset isn't conforming with peer ID sizes", ErrMalformedPacket)
 	}
-
 	offset := HeartbeatPacketNetworkIDBytesCountSize
 	// copy network id
 	networkID := make([]byte, networkIDBytesLength)
 	copy(networkID, data[offset:offset+networkIDBytesLength])
+
+	// networkID always starts with a "v", lets check it
+	networkIDString := string(networkID)
+	if !strings.HasPrefix(networkIDString, "v") {
+		return nil, fmt.Errorf("%w: network ID doesn't start with `v`", ErrInvalidHeartbeat)
+	}
 
 	offset += networkIDBytesLength
 
@@ -141,6 +155,9 @@ func ParseHeartbeat(data []byte) (*Heartbeat, error) {
 func NewHeartbeatMessage(hb *Heartbeat) ([]byte, error) {
 	if len(hb.NetworkID) > HeartbeatPacketMaxNetworkIDBytesSize {
 		return nil, fmt.Errorf("%w: heartbeat exceeds maximum length of NetworkID of %d ", ErrInvalidHeartbeat, HeartbeatPacketMaxNetworkIDBytesSize)
+	}
+	if len(hb.NetworkID) == 0 {
+		return nil, fmt.Errorf("%w: heartbeat NetworkID length is 0 ", ErrInvalidHeartbeat)
 	}
 	if len(hb.InboundIDs) > HeartbeatMaxInboundPeersCount {
 		return nil, fmt.Errorf("%w: heartbeat exceeds maximum inbound IDs of %d", ErrInvalidHeartbeat, HeartbeatMaxInboundPeersCount)
