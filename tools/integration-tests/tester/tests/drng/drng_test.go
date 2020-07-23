@@ -47,7 +47,7 @@ func TestDRNG(t *testing.T) {
 			ticker.Reset(10 * time.Second)
 
 			// check for randomness on every peer
-			for _, peer := range drng.Peers() {
+			for _, peer := range drng.Peers()[:len(drng.Peers())-1] {
 				wg.Add(1)
 				go func(peer *framework.Peer) {
 					defer wg.Done()
