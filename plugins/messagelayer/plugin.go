@@ -85,7 +85,8 @@ func MessageFactory() *messagefactory.MessageFactory {
 // MessageRequester gets the messageRequester instance.
 func MessageRequester() *messagerequester.MessageRequester {
 	msgReqOnce.Do(func() {
-		messageRequester = messagerequester.New(messageExists)
+		// load all missing messages on start up
+		messageRequester = messagerequester.New(messageExists, Tangle().MissingMessages())
 	})
 	return messageRequester
 }
@@ -136,7 +137,6 @@ func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		messageFactory.Shutdown()
-		messageRequester.Shutdown()
 		_tangle.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)

@@ -24,8 +24,8 @@ type MessageRequester struct {
 type MessageExistsFunc func(messageId message.Id) bool
 
 // New creates a new message requester.
-func New(messageExists MessageExistsFunc, optionalOptions ...Option) *MessageRequester {
-	return &MessageRequester{
+func New(messageExists MessageExistsFunc, missingMessages []message.Id, optionalOptions ...Option) *MessageRequester {
+	requester := &MessageRequester{
 		scheduledRequests: make(map[message.Id]*time.Timer),
 		options:           newOptions(optionalOptions),
 		messageExistsFunc: messageExists,
@@ -38,6 +38,16 @@ func New(messageExists MessageExistsFunc, optionalOptions ...Option) *MessageReq
 			}),
 		},
 	}
+
+	// add requests for all missing messages
+	requester.scheduledRequestsMutex.Lock()
+	defer requester.scheduledRequestsMutex.Unlock()
+
+	for _, id := range missingMessages {
+		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id, 0) })
+	}
+
+	return requester
 }
 
 // StartRequest initiates a regular triggering of the StartRequest event until it has been stopped using StopRequest.
@@ -95,18 +105,4 @@ func (requester *MessageRequester) RequestQueueSize() int {
 	requester.scheduledRequestsMutex.RLock()
 	defer requester.scheduledRequestsMutex.RUnlock()
 	return len(requester.scheduledRequests)
-}
-
-// Shutdown terminates all the current active requests.
-func (requester *MessageRequester) Shutdown() {
-	requester.scheduledRequestsMutex.Lock()
-	defer requester.scheduledRequestsMutex.Unlock()
-	for id := range requester.scheduledRequests {
-		if timer, ok := requester.scheduledRequests[id]; ok {
-			if !timer.Stop() {
-				<-timer.C
-			}
-			delete(requester.scheduledRequests, id)
-		}
-	}
 }
