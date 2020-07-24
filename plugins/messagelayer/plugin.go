@@ -85,7 +85,7 @@ func MessageFactory() *messagefactory.MessageFactory {
 // MessageRequester gets the messageRequester instance.
 func MessageRequester() *messagerequester.MessageRequester {
 	msgReqOnce.Do(func() {
-		messageRequester = messagerequester.New()
+		messageRequester = messagerequester.New(messageExists)
 	})
 	return messageRequester
 }
@@ -126,6 +126,10 @@ func configure(*node.Plugin) {
 		cachedMessageMetadata.Release()
 		cachedMessage.Consume(tipSelector.AddTip)
 	}))
+
+	MessageRequester().Events.MissingMessageAppeared.Attach(events.NewClosure(func(id message.Id) {
+		_tangle.DeleteMissingMessage(id)
+	}))
 }
 
 func run(*node.Plugin) {
@@ -136,4 +140,11 @@ func run(*node.Plugin) {
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
+}
+
+// messageExists tells if a given message is present in the node
+func messageExists(msgID message.Id) bool {
+	cachedMessage := Tangle().Message(msgID)
+	defer cachedMessage.Release()
+	return cachedMessage.Exists()
 }

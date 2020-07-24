@@ -35,6 +35,7 @@ func Plugin() *node.Plugin {
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	webapi.Server().GET("tools/pastcone", pastCone)
+	webapi.Server().GET("tools/missing", missing)
 }
 
 func pastCone(c echo.Context) error {
@@ -113,4 +114,20 @@ type PastConeResponse struct {
 	Exist        bool   `json:"exist,omitempty"`
 	PastConeSize int    `json:"pastConeSize,omitempty"`
 	Error        string `json:"error,omitempty"`
+}
+
+func missing(c echo.Context) error {
+	res := &MissingResponse{}
+	missingIDs := messagelayer.Tangle().MissingMessages()
+	for _, msg := range missingIDs {
+		res.IDs = append(res.IDs, msg.String())
+	}
+	res.Count = len(missingIDs)
+	return c.JSON(http.StatusOK, res)
+}
+
+// MissingResponse is the HTTP response containing all the missing messages and their count.
+type MissingResponse struct {
+	IDs   []string `json:"ids,omitempty"`
+	Count int      `json:"count,omitempty"`
 }

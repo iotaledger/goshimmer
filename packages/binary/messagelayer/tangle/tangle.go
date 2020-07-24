@@ -105,6 +105,11 @@ func (tangle *Tangle) DeleteMessage(messageId message.Id) {
 	})
 }
 
+// DeleteMissingMessage deletes a message from the missingMessageStorage.
+func (tangle *Tangle) DeleteMissingMessage(messageID message.Id) {
+	tangle.missingMessageStorage.Delete(messageID[:])
+}
+
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (tangle *Tangle) Shutdown() *Tangle {
 	tangle.storeMessageWorkerPool.ShutdownGracefully()
@@ -164,6 +169,20 @@ func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidifica
 	return
 }
 
+// MissingMessages return the ids of messages in missingMessageStorage
+func (tangle *Tangle) MissingMessages() (ids []message.Id) {
+	tangle.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+		cachedObject.Consume(func(object objectstorage.StorableObject) {
+			missingMsg := object.(*MissingMessage)
+			if !missingMsg.IsDeleted() {
+				ids = append(ids, missingMsg.messageId)
+			}
+		})
+		return true
+	})
+	return
+}
+
 // worker that stores the message and calls the corresponding storage events.
 func (tangle *Tangle) storeMessageWorker(msg *message.Message) {
 	// store message
@@ -191,6 +210,7 @@ func (tangle *Tangle) storeMessageWorker(msg *message.Message) {
 	if tangle.missingMessageStorage.DeleteIfPresent(messageId[:]) {
 		tangle.Events.MissingMessageReceived.Trigger(cachedMessage, cachedMsgMetadata)
 	}
+
 	tangle.Events.MessageAttached.Trigger(cachedMessage, cachedMsgMetadata)
 
 	// check message solidity
