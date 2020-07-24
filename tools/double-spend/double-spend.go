@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/client/wallet"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
@@ -30,8 +29,8 @@ func main() {
 	clients[0] = client.NewGoShimmerAPI(node1APIURL, http.Client{Timeout: 60 * time.Second})
 	clients[1] = client.NewGoShimmerAPI(node2APIURL, http.Client{Timeout: 60 * time.Second})
 
-	myWallet := wallet.New()
-	myAddr := myWallet.Seed().Address(0)
+	mySeed := walletseed.NewSeed()
+	myAddr := mySeed.Address(0)
 
 	if _, err := clients[0].SendFaucetRequest(myAddr.String()); err != nil {
 		fmt.Println(err)
@@ -88,8 +87,6 @@ func main() {
 		go func(i int) {
 			defer wg.Done()
 
-			fmt.Println(i)
-
 			// create a new receiver wallet for the given conflict
 			receiverSeeds[i] = walletseed.NewSeed()
 			destAddr := receiverSeeds[i].Address(0)
@@ -101,7 +98,7 @@ func main() {
 						{Value: 1337, Color: balance.ColorIOTA},
 					},
 				}))
-			tx = tx.Sign(signaturescheme.ED25519(*myWallet.Seed().KeyPair(0)))
+			tx = tx.Sign(signaturescheme.ED25519(*mySeed.KeyPair(0)))
 			conflictingTxs[i] = tx
 
 			valueObject := valuepayload.New(valuepayload.GenesisID, valuepayload.GenesisID, tx)
