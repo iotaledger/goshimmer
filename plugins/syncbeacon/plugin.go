@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
+	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
 	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/hive.go/daemon"
@@ -53,6 +54,9 @@ func configure(_ *node.Plugin) {
 	log.Infof("starting node as sync beacon")
 
 	if config.Node().GetBool(CfgSyncBeaconStartSynced) {
+		log.Infof("Retrieving all the tips")
+		messagelayer.TipSelector().Set(messagelayer.Tangle().RetrieveAllTips()...)
+
 		syncbeaconfollower.OverwriteSyncedState(true)
 		log.Infof("overwriting synced state to 'true'")
 	}
@@ -60,6 +64,7 @@ func configure(_ *node.Plugin) {
 
 // broadcastSyncBeaconPayload broadcasts a sync beacon via communication layer.
 func broadcastSyncBeaconPayload() {
+
 	syncBeaconPayload := payload.NewSyncBeaconPayload(time.Now().UnixNano())
 	msg, err := issuer.IssuePayload(syncBeaconPayload)
 
@@ -73,6 +78,10 @@ func broadcastSyncBeaconPayload() {
 
 func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Sync-Beacon", func(shutdownSignal <-chan struct{}) {
+		// wait CfgSyncBeaconBroadcastIntervalSec to possibly retrieve new beacons
+		if config.Node().GetBool(CfgSyncBeaconStartSynced) {
+			time.Sleep(config.Node().GetDuration(CfgSyncBeaconBroadcastIntervalSec) * time.Second)
+		}
 		ticker := time.NewTicker(config.Node().GetDuration(CfgSyncBeaconBroadcastIntervalSec) * time.Second)
 		defer ticker.Stop()
 		for {

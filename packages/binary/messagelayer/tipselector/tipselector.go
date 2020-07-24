@@ -14,13 +14,26 @@ type TipSelector struct {
 }
 
 // New creates a new tip-selector.
-func New() *TipSelector {
-	return &TipSelector{
+func New(tips ...message.Id) *TipSelector {
+	tipSelector := &TipSelector{
 		tips: datastructure.NewRandomMap(),
 		Events: Events{
 			TipAdded:   events.NewEvent(messageIdEvent),
 			TipRemoved: events.NewEvent(messageIdEvent),
 		},
+	}
+
+	if tips != nil {
+		tipSelector.Set(tips...)
+	}
+
+	return tipSelector
+}
+
+// Set adds the given messageIDs as tips.
+func (tipSelector *TipSelector) Set(tips ...message.Id) {
+	for _, messageID := range tips {
+		tipSelector.tips.Set(messageID, messageID)
 	}
 }
 
