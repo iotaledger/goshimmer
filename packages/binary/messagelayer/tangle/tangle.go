@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"container/list"
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
@@ -116,15 +115,10 @@ func (tangle *Tangle) Shutdown() *Tangle {
 	tangle.storeMessageWorkerPool.ShutdownGracefully()
 	tangle.solidifierWorkerPool.ShutdownGracefully()
 
-	fmt.Println("Shuttingdown message Tangle...")
 	tangle.messageStorage.Shutdown()
-	fmt.Println("messageStorage shutdown DONE")
 	tangle.messageMetadataStorage.Shutdown()
-	fmt.Println("messageMetadataStorage shutdown DONE")
 	tangle.approverStorage.Shutdown()
-	fmt.Println("approverStorage shutdown DONE")
 	tangle.missingMessageStorage.Shutdown()
-	fmt.Println("missingMessageStorage shutdown DONE")
 	close(tangle.shutdown)
 
 	return tangle

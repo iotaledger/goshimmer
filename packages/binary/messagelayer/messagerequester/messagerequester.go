@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
-const messageExistCheckThreshold = 21
+const messageExistCheckThreshold = 10
 
 // MessageRequester takes care of requesting messages.
 type MessageRequester struct {
@@ -22,6 +22,10 @@ type MessageRequester struct {
 
 // MessageExistsFunc is a function that tells if a message exists.
 type MessageExistsFunc func(messageId message.Id) bool
+
+func createReRequest(requester *MessageRequester, msgID message.Id, count int) func() {
+	return func() { requester.reRequest(msgID, count) }
+}
 
 // New creates a new message requester.
 func New(messageExists MessageExistsFunc, missingMessages []message.Id, optionalOptions ...Option) *MessageRequester {
@@ -44,7 +48,7 @@ func New(messageExists MessageExistsFunc, missingMessages []message.Id, optional
 	defer requester.scheduledRequestsMutex.Unlock()
 
 	for _, id := range missingMessages {
-		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id, 0) })
+		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, createReRequest(requester, id, 0))
 	}
 
 	return requester
@@ -61,7 +65,7 @@ func (requester *MessageRequester) StartRequest(id message.Id) {
 	}
 
 	// schedule the next request and trigger the event
-	requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id, 0) })
+	requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { createReRequest(requester, id, 0) })
 	requester.scheduledRequestsMutex.Unlock()
 	requester.Events.SendRequest.Trigger(id)
 }
@@ -95,7 +99,7 @@ func (requester *MessageRequester) reRequest(id message.Id, count int) {
 			requester.Events.MissingMessageAppeared.Trigger(id)
 			return
 		}
-		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { requester.reRequest(id, count) })
+		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { createReRequest(requester, id, count) })
 		return
 	}
 }
