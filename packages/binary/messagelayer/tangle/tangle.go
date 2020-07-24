@@ -116,7 +116,7 @@ func (tangle *Tangle) Shutdown() *Tangle {
 	tangle.storeMessageWorkerPool.ShutdownGracefully()
 	tangle.solidifierWorkerPool.ShutdownGracefully()
 
-	fmt.Prinln("Shuttingdown message Tangle...")
+	fmt.Println("Shuttingdown message Tangle...")
 	tangle.messageStorage.Shutdown()
 	fmt.Println("messageStorage shutdown DONE")
 	tangle.messageMetadataStorage.Shutdown()
