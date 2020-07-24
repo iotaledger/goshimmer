@@ -96,3 +96,17 @@ func (requester *MessageRequester) RequestQueueSize() int {
 	defer requester.scheduledRequestsMutex.RUnlock()
 	return len(requester.scheduledRequests)
 }
+
+// Shutdown terminates all the current active requests.
+func (requester *MessageRequester) Shutdown() {
+	requester.scheduledRequestsMutex.Lock()
+	defer requester.scheduledRequestsMutex.Unlock()
+	for id := range requester.scheduledRequests {
+		if timer, ok := requester.scheduledRequests[id]; ok {
+			if !timer.Stop() {
+				<-timer.C
+			}
+			delete(requester.scheduledRequests, id)
+		}
+	}
+}
