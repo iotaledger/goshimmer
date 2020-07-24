@@ -179,7 +179,7 @@ func run(*node.Plugin) {
 	if err := daemon.BackgroundWorker("ValueTangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		// TODO: make this better
-		time.Sleep(2*time.Duration(config.Node().GetInt(CfgValueLayerFCOBAverageNetworkDelay))*time.Second + 2*time.Second)
+		time.Sleep(12 * time.Second)
 		_tangle.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
