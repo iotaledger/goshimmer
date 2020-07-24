@@ -50,10 +50,12 @@ func Plugin() *node.Plugin {
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
+	log.Infof("starting node as sync beacon")
+
 	if config.Node().GetBool(CfgSyncBeaconStartSynced) {
 		syncbeaconfollower.OverwriteSyncedState(true)
+		log.Infof("overwriting synced state to 'true'")
 	}
-	log.Infof("starting node as sync beacon")
 }
 
 // broadcastSyncBeaconPayload broadcasts a sync beacon via communication layer.
@@ -62,11 +64,11 @@ func broadcastSyncBeaconPayload() {
 	msg, err := issuer.IssuePayload(syncBeaconPayload)
 
 	if err != nil {
-		log.Infof("error issuing sync beacon. %w", err)
+		log.Warnf("error issuing sync beacon: %w", err)
 		return
 	}
 
-	log.Infof("issued sync beacon %s", msg.Id())
+	log.Debugf("issued sync beacon %s", msg.Id())
 }
 
 func run(_ *node.Plugin) {

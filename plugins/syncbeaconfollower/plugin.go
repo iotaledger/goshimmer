@@ -49,9 +49,7 @@ type Status struct {
 }
 
 func init() {
-	// TODO:
-	//flag.StringSlice(CfgSyncBeaconFollowNodes, []string{"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24", "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"}, "list of trusted nodes to follow their sync status")
-	flag.StringSlice(CfgSyncBeaconFollowNodes, []string{}, "list of trusted nodes to follow their sync status")
+	flag.StringSlice(CfgSyncBeaconFollowNodes, []string{"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24", "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"}, "list of trusted nodes to follow their sync status")
 
 	flag.Int(CfgSyncBeaconMaxTimeWindowSec, 10, "the maximum time window for which a sync payload would be considerable")
 	flag.Int(CfgSyncBeaconMaxTimeOfflineSec, 40, "the maximum time the node should stay synced without receiving updates")
@@ -87,7 +85,9 @@ func Plugin() *node.Plugin {
 }
 
 // Synced tells whether the node is in a state we consider synchronized, meaning
-// it has the relevant past and present message data.
+// it has the relevant past and present message data. The synchronized state is
+// defined by following a certain set of sync beacon nodes where for each of these
+// beacons a message needs to become solid within bounded time.
 func Synced() bool {
 	return synced.Load()
 }
@@ -124,7 +124,7 @@ func OverwriteSyncedState(syncedOverwrite bool) {
 	synced.Store(syncedOverwrite)
 }
 
-// configure events
+// configure plugin
 func configure(_ *node.Plugin) {
 	pubKeys := config.Node().GetStringSlice(CfgSyncBeaconFollowNodes)
 	beaconMaxTimeOfflineSec = float64(config.Node().GetInt(CfgSyncBeaconMaxTimeOfflineSec))
