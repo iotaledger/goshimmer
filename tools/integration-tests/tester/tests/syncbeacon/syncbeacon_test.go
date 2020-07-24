@@ -1,14 +1,15 @@
 package syncbeacon
 
 import (
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"log"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestSyncBeacon checks that beacon nodes broadcast sync beacons
@@ -24,7 +25,8 @@ func TestSyncBeacon(t *testing.T) {
 	for i := 0; i < initialPeers; i++ {
 		peer, err := n.CreatePeer(framework.GoShimmerConfig{
 			SyncBeacon:                  true,
-			SyncBeaconBroadcastInterval: 20,
+			SyncBeaconBroadcastInterval: 5,
+			SyncBeaconFollower:          false,
 		})
 		require.NoError(t, err)
 		beaconPublicKeys = append(beaconPublicKeys, peer.PublicKey().String())
@@ -32,7 +34,6 @@ func TestSyncBeacon(t *testing.T) {
 	peers := n.Peers()
 	err = n.WaitForAutopeering(3)
 	require.NoError(t, err)
-
 
 	// beacon follower node to follow all previous nodes
 	peer, err := n.CreatePeer(framework.GoShimmerConfig{
@@ -52,14 +53,14 @@ func TestSyncBeacon(t *testing.T) {
 	require.NoError(t, err)
 	assert.Truef(t, resp.Synced, "Peer %s should be synced but is desynced!", peer.String())
 
-	// 2. shutdown all but 2 beacon peers.
-	for _, p := range peers[:len(peers)-2] {
+	// 2. shutdown all but 1 beacon peers.
+	for _, p := range peers[:initialPeers-1] {
 		_ = p.Stop()
 	}
 
 	// wait for peers to sync and broadcast
 	log.Println("Waiting...2/2")
-	time.Sleep(40 * time.Second)
+	time.Sleep(60 * time.Second)
 	log.Println("done waiting.")
 
 	// expect majority of nodes to not have broadcasted beacons. Hence should be desynced due to cleanup.

@@ -1,4 +1,4 @@
-package syncbeacon
+package payload
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"

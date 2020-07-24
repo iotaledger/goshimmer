@@ -2,7 +2,7 @@ package metrics
 
 import (
 	"github.com/iotaledger/goshimmer/packages/metrics"
-	"github.com/iotaledger/goshimmer/plugins/sync"
+	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"go.uber.org/atomic"
 )
 
@@ -11,7 +11,7 @@ var (
 )
 
 func measureSynced() {
-	s := sync.Synced()
+	s := syncbeaconfollower.Synced()
 	metrics.Events().Synced.Trigger(s)
 }
 

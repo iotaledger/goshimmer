@@ -5,7 +5,7 @@ import (
 	goSync "sync"
 
 	"github.com/iotaledger/goshimmer/plugins/gossip"
-	"github.com/iotaledger/goshimmer/plugins/sync"
+	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
@@ -43,7 +43,7 @@ func getHealthz(c echo.Context) error {
 // IsNodeHealthy returns whether the node is synced, has active neighbors.
 func IsNodeHealthy() bool {
 	// Synced
-	if !sync.Synced() {
+	if !syncbeaconfollower.Synced() {
 		return false
 	}
 

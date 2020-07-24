@@ -29,7 +29,7 @@ services:
       --metrics.global=true
       --prometheus.bindAddress=0.0.0.0:9312
       --node.enablePlugins=analysis-server,analysis-dashboard,prometheus
-      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,sync,messagelayer,pow,valuetransfers,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
+      --node.disablePlugins=portcheck,dashboard,analysis-client,gossip,drng,issuer,syncbeaconfollower,messagelayer,pow,valuetransfers,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
@@ -46,9 +46,13 @@ services:
     command: >
       --config-dir=/tmp
       --database.directory=/tmp/mainnetdb
-      --node.enablePlugins=bootstrap,prometheus,spammer,faucet
+      --autopeering.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
+      --node.enablePlugins=prometheus,spammer,faucet,syncbeacon
+      --node.disablePlugins=syncbeaconfollower
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --valueLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
+      --syncbeacon.broadcastInterval=5
+      --syncbeacon.startSynced=true
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
@@ -68,7 +72,8 @@ services:
       --database.directory=/tmp/mainnetdb
       --node.enablePlugins=bootstrap
       --valueLayer.snapshot.file=/tmp/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin
-      --node.disablePlugins=dashboard,portcheck
+      --node.disablePlugins=portcheck
+      --syncbeaconfollower.followNodes=EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP
     volumes:
       - ./config.docker.json:/tmp/config.json:ro
       - goshimmer-cache:/go
