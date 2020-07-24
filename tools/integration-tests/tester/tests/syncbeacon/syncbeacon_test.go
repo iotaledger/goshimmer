@@ -37,8 +37,9 @@ func TestSyncBeacon(t *testing.T) {
 
 	// beacon follower node to follow all previous nodes
 	peer, err := n.CreatePeer(framework.GoShimmerConfig{
-		SyncBeaconFollower:    true,
-		SyncBeaconFollowNodes: strings.Join(beaconPublicKeys, ","),
+		SyncBeaconFollower:          true,
+		SyncBeaconFollowNodes:       strings.Join(beaconPublicKeys, ","),
+		SyncBeaconMaxTimeOfflineSec: 15,
 	})
 	require.NoError(t, err)
 	err = n.WaitForAutopeering(3)
@@ -46,7 +47,7 @@ func TestSyncBeacon(t *testing.T) {
 
 	log.Println("Waiting...1/2")
 	// wait for node to solidify beacon messages
-	time.Sleep(60 * time.Second)
+	time.Sleep(30 * time.Second)
 	log.Println("done waiting.")
 
 	resp, err := peer.Info()
@@ -60,7 +61,7 @@ func TestSyncBeacon(t *testing.T) {
 
 	// wait for peers to sync and broadcast
 	log.Println("Waiting...2/2")
-	time.Sleep(60 * time.Second)
+	time.Sleep(30 * time.Second)
 	log.Println("done waiting.")
 
 	// expect majority of nodes to not have broadcasted beacons. Hence should be desynced due to cleanup.

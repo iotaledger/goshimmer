@@ -119,6 +119,12 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--syncbeaconfollower.followNodes=%s", config.SyncBeaconFollowNodes),
 			fmt.Sprintf("--syncbeacon.broadcastInterval=%d", config.SyncBeaconBroadcastInterval),
 			"--syncbeacon.startSynced=true",
+			func() string {
+				if config.SyncBeaconMaxTimeOfflineSec == 0 {
+					return ""
+				}
+				return fmt.Sprintf("--syncbeaconfollower.maxTimeOffline=%d", config.SyncBeaconMaxTimeOfflineSec)
+			}(),
 		},
 	}
 
