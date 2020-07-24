@@ -21,8 +21,8 @@ class App extends React.Component<AppProps, unknown> {
             <div className="root">
                 <header>
                     <Link className="brand" to="/">
-                        <img src="/assets/logo-header.svg" alt="GoShimmer Analyser" />
-                        <h1>GoShimmer Analyzer</h1>
+                        <img src="/assets/logo-header.svg" alt="Pollen Analyzer" />
+                        <h1>Pollen Analyzer</h1>
                     </Link>
                     <div className="badge-container">
                         {!this.props.autopeeringStore.websocketConnected &&
