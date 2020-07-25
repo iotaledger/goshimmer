@@ -22,7 +22,7 @@ export default class Autopeering extends React.Component<AutopeeringProps, unkno
         return (
             <div className="auto-peering">
                 <div className="header margin-b-m">
-                    <h2>Pollen Visualizer</h2>
+                    <h2>Autopeering Visualizer</h2>
                     <div className="row">
                         <select
                             onChange={(e) => this.props.autopeeringStore.handleVersionSelection(e.target.value)}

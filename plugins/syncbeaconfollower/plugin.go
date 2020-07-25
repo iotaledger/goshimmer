@@ -52,7 +52,7 @@ func init() {
 	flag.StringSlice(CfgSyncBeaconFollowNodes, []string{"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24", "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"}, "list of trusted nodes to follow their sync status")
 
 	flag.Int(CfgSyncBeaconMaxTimeWindowSec, 10, "the maximum time window for which a sync payload would be considerable")
-	flag.Int(CfgSyncBeaconMaxTimeOfflineSec, 40, "the maximum time the node should stay synced without receiving updates")
+	flag.Int(CfgSyncBeaconMaxTimeOfflineSec, 70, "the maximum time the node should stay synced without receiving updates")
 	flag.Int(CfgSyncBeaconCleanupInterval, 10, "the interval at which cleanups are done")
 }
 
@@ -166,7 +166,7 @@ func configure(_ *node.Plugin) {
 
 			payload, ok := messagePayload.(*syncbeacon_payload.Payload)
 			if !ok {
-				log.Info("could not cast payload to sync beacon object")
+				log.Debug("could not cast payload to sync beacon object")
 				return
 			}
 
@@ -174,6 +174,14 @@ func configure(_ *node.Plugin) {
 			if _, ok := currentBeaconPubKeys[msg.IssuerPublicKey()]; !ok {
 				return
 			}
+
+			// only consider fresh beacons
+			mutex.RLock()
+			if payload.SentTime() < currentBeacons[msg.IssuerPublicKey()].SentTime {
+				mutex.RUnlock()
+				return
+			}
+			mutex.RUnlock()
 
 			handlePayload(payload, msg.IssuerPublicKey(), msg.Id())
 		})
@@ -184,16 +192,15 @@ func configure(_ *node.Plugin) {
 // The time that payload was sent is not greater than CfgSyncBeaconMaxTimeWindowSec. If the duration is longer than CfgSyncBeaconMaxTimeWindowSec, we consider that beacon to be out of sync till we receive a newer payload.
 // More than syncPercentage of followed nodes are also synced, the node is set to synced. Otherwise, its set as desynced.
 func handlePayload(syncBeaconPayload *syncbeacon_payload.Payload, issuerPublicKey ed25519.PublicKey, msgID message.Id) {
-	mutex.Lock()
-	defer mutex.Unlock()
-
 	synced := true
 	dur := time.Since(time.Unix(0, syncBeaconPayload.SentTime()))
 	if dur.Seconds() > beaconMaxTimeWindowSec {
-		log.Infof("sync beacon %s, received from %s is too old.", msgID, issuerPublicKey)
+		log.Debugf("sync beacon %s, received from %s is too old.", msgID, issuerPublicKey)
 		synced = false
 	}
 
+	mutex.Lock()
+	defer mutex.Unlock()
 	currentBeacons[issuerPublicKey].Synced = synced
 	currentBeacons[issuerPublicKey].MsgID = msgID
 	currentBeacons[issuerPublicKey].SentTime = syncBeaconPayload.SentTime()

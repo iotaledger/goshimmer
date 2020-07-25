@@ -71,7 +71,11 @@ func runVisualizer() {
 	notifyNewMsg := events.NewClosure(func(message *message.CachedMessage, metadata *tangle.CachedMessageMetadata) {
 		defer message.Release()
 		defer metadata.Release()
-		visualizerWorkerPool.TrySubmit(message.Retain(), metadata.Retain())
+		_, ok := visualizerWorkerPool.TrySubmit(message.Retain(), metadata.Retain())
+		if !ok {
+			message.Release()
+			metadata.Release()
+		}
 	})
 
 	notifyNewTip := events.NewClosure(func(messageId message.Id) {

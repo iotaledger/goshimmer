@@ -85,7 +85,8 @@ func MessageFactory() *messagefactory.MessageFactory {
 // MessageRequester gets the messageRequester instance.
 func MessageRequester() *messagerequester.MessageRequester {
 	msgReqOnce.Do(func() {
-		messageRequester = messagerequester.New(messageExists)
+		// load all missing messages on start up
+		messageRequester = messagerequester.New(messageExists, Tangle().MissingMessages())
 	})
 	return messageRequester
 }

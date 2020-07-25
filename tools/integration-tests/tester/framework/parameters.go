@@ -70,6 +70,7 @@ type GoShimmerConfig struct {
 	SyncBeaconFollower          bool
 	SyncBeaconFollowNodes       string
 	SyncBeaconBroadcastInterval int
+	SyncBeaconMaxTimeOfflineSec int
 }
 
 // NetworkConfig defines the config of a GoShimmer Docker network.
