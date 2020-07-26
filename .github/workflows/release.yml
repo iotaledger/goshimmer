@@ -8,17 +8,20 @@ jobs:
     name: GoReleaser
     runs-on:
       - ubuntu-latest
-    container:
-      image: 'iotmod/goreleaser-cgo-cross-compiler:1.14.4'
-      volumes:
-        - /repo
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
       - name: Copy config.default.json to config.json
         run: cp config.default.json config.json
-      - name: Release GoShimmer
-        run: goreleaser --rm-dist
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v2
+        with:
+          version: latest
+          args: release --rm-dist
         env:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
   docker:
