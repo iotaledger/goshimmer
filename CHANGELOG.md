@@ -20,7 +20,7 @@
     * Improves consensus visualization;
     * Improves dashboard tooling.
 * Adds a new electron-based wallet.
-* Increases max gossip packet size to allow for multiple transactions in a single value object.
+* Increases max gossip packet size.
 * Adds command to the CLI to override database dirty flag.
 * Grafana local dashboard
     * Adds messages in database chart (solid, not solid, total)
