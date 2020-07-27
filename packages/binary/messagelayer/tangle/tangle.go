@@ -354,7 +354,7 @@ func (tangle *Tangle) StoreMessageWorkerPoolStatus() (name string, load int) {
 	return "StoreMessage", tangle.storeMessageWorkerPool.RunningWorkers()
 }
 
-// RetrieveTips returns the tips (i.e., solid messages that are not part of the approvers list).
+// RetrieveAllTips returns the tips (i.e., solid messages that are not part of the approvers list).
 // It iterates over the messageMetadataStorage, thus only use this method if necessary.
 // TODO: improve this function.
 func (tangle *Tangle) RetrieveAllTips() (tips []message.Id) {
