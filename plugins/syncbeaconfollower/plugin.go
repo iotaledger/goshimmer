@@ -128,6 +128,8 @@ func OverwriteSyncedState(syncedOverwrite bool) {
 
 // configure plugin
 func configure(_ *node.Plugin) {
+	log = logger.NewLogger(PluginName)
+
 	pubKeys := config.Node().GetStringSlice(CfgSyncBeaconFollowNodes)
 	beaconMaxTimeOfflineSec = float64(config.Node().GetInt(CfgSyncBeaconMaxTimeOfflineSec))
 	beaconMaxTimeWindowSec = float64(config.Node().GetInt(CfgSyncBeaconMaxTimeWindowSec))
@@ -138,8 +140,6 @@ func configure(_ *node.Plugin) {
 		log.Warnf("setting syncPercentage to default value of 0.5")
 		syncPercentage = 0.5
 	}
-
-	log = logger.NewLogger(PluginName)
 
 	currentBeacons = make(map[ed25519.PublicKey]*Status)
 	currentBeaconPubKeys = make(map[ed25519.PublicKey]string)
