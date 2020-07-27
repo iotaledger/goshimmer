@@ -78,10 +78,6 @@ func broadcastSyncBeaconPayload() {
 
 func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Sync-Beacon", func(shutdownSignal <-chan struct{}) {
-		// wait CfgSyncBeaconBroadcastIntervalSec to possibly retrieve new beacons
-		if config.Node().GetBool(CfgSyncBeaconStartSynced) {
-			time.Sleep(config.Node().GetDuration(CfgSyncBeaconBroadcastIntervalSec) * time.Second)
-		}
 		ticker := time.NewTicker(config.Node().GetDuration(CfgSyncBeaconBroadcastIntervalSec) * time.Second)
 		defer ticker.Stop()
 		for {
