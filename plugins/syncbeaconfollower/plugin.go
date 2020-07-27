@@ -37,8 +37,8 @@ const (
 	// CfgSyncBeaconCleanupInterval defines the interval that old beacon status are cleaned up.
 	CfgSyncBeaconCleanupInterval = "syncbeaconfollower.cleanupInterval"
 
-	// syncPercentage defines the percentage of following nodes that have to be synced.
-	syncPercentage = 0.5
+	// CfgSyncBeaconSyncPercentage defines the percentage of following nodes that have to be synced.
+	CfgSyncBeaconSyncPercentage = "syncbeaconfollower.syncPercentage"
 )
 
 // Status represents the status of a beacon node consisting of latest messageID, sentTime and sync status.
@@ -54,6 +54,7 @@ func init() {
 	flag.Int(CfgSyncBeaconMaxTimeWindowSec, 10, "the maximum time window for which a sync payload would be considerable")
 	flag.Int(CfgSyncBeaconMaxTimeOfflineSec, 70, "the maximum time the node should stay synced without receiving updates")
 	flag.Int(CfgSyncBeaconCleanupInterval, 10, "the interval at which cleanups are done")
+	flag.Float64(CfgSyncBeaconSyncPercentage, 0.5, "percentage of nodes being followed that need to be synced in order to consider the node synced")
 }
 
 var (
@@ -66,6 +67,7 @@ var (
 	mutex                   sync.RWMutex
 	beaconMaxTimeOfflineSec float64
 	beaconMaxTimeWindowSec  float64
+	syncPercentage          float64
 	// tells whether the node is synced or not.
 	synced atomic.Bool
 
@@ -126,10 +128,18 @@ func OverwriteSyncedState(syncedOverwrite bool) {
 
 // configure plugin
 func configure(_ *node.Plugin) {
+	log = logger.NewLogger(PluginName)
+
 	pubKeys := config.Node().GetStringSlice(CfgSyncBeaconFollowNodes)
 	beaconMaxTimeOfflineSec = float64(config.Node().GetInt(CfgSyncBeaconMaxTimeOfflineSec))
 	beaconMaxTimeWindowSec = float64(config.Node().GetInt(CfgSyncBeaconMaxTimeWindowSec))
-	log = logger.NewLogger(PluginName)
+	syncPercentage = config.Node().GetFloat64(CfgSyncBeaconSyncPercentage)
+	if syncPercentage < 0.5 || syncPercentage > 1.0 {
+		log.Warnf("invalid syncPercentage: %f, syncPercentage has to be in [0.5, 1.0] interval", syncPercentage)
+		// set it to default
+		log.Warnf("setting syncPercentage to default value of 0.5")
+		syncPercentage = 0.5
+	}
 
 	currentBeacons = make(map[ed25519.PublicKey]*Status)
 	currentBeaconPubKeys = make(map[ed25519.PublicKey]string)
