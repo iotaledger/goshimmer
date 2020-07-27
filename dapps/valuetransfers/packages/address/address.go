@@ -133,5 +133,8 @@ func (address Address) String() string {
 	return base58.Encode(address.Bytes())
 }
 
+// Empty represents the 0-value of an address and therefore represents the "empty" address value
+var Empty = Address{}
+
 // Length contains the length of an address (digest length = 32 + version byte length = 1).
 const Length = 33

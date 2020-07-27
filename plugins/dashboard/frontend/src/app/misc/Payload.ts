@@ -3,6 +3,7 @@ export enum PayloadType {
     Value = 1,
     Faucet = 2,
     Drng = 111,
+    SyncBeacon = 200,
 }
 
 export enum DrngSubtype {
@@ -53,4 +54,9 @@ export class Outputs {
 export class Balance {
     value: number;
     color: string;
+}
+
+// Sync beacon payload
+export class SyncBeaconPayload {
+    sent_time: number;
 }

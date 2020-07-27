@@ -1,6 +1,9 @@
 package dashboard
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 // activeConflictSet contains the set of the active conflicts, not yet finalized.
 type activeConflictSet struct {
@@ -20,7 +23,7 @@ func (cr *activeConflictSet) cleanUp() {
 	defer cr.lock.Unlock()
 
 	for id, conflict := range cr.conflictSet {
-		if conflict.isFinalized() {
+		if conflict.isFinalized() || conflict.isOlderThan(1*time.Minute) {
 			delete(cr.conflictSet, id)
 		}
 	}
@@ -59,6 +62,10 @@ func (cr *activeConflictSet) update(ID string, c conflict) {
 	for nodeID, context := range c.NodesView {
 		cr.conflictSet[ID].NodesView[nodeID] = context
 	}
+
+	tmp := cr.conflictSet[ID]
+	tmp.Modified = time.Now()
+	cr.conflictSet[ID] = tmp
 }
 
 func (cr *activeConflictSet) delete(ID string) {

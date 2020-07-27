@@ -14,6 +14,11 @@ import (
 
 const storeSequenceInterval = 100
 
+var (
+	// ZeroWorker is a PoW worker that always returns 0 as the nonce.
+	ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
+)
+
 // A TipSelector selects two tips, branch and trunk, for a new message to attach to.
 type TipSelector interface {
 	Tips() (trunk message.Id, branch message.Id)
@@ -23,9 +28,6 @@ type TipSelector interface {
 type Worker interface {
 	DoPOW([]byte) (nonce uint64, err error)
 }
-
-// ZeroWorker is a PoW worker that always returns 0 as the nonce.
-var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 
 // MessageFactory acts as a factory to create new messages.
 type MessageFactory struct {
@@ -65,13 +67,21 @@ func (m *MessageFactory) SetWorker(worker Worker) {
 // IssuePayload creates a new message including sequence number and tip selection and returns it.
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
-func (m *MessageFactory) IssuePayload(payload payload.Payload) *message.Message {
+func (m *MessageFactory) IssuePayload(p payload.Payload) (*message.Message, error) {
+	payloadLen := len(p.Bytes())
+	if payloadLen > payload.MaxPayloadSize {
+		err := fmt.Errorf("%w: %d bytes", payload.ErrMaxPayloadSizeExceeded, payloadLen)
+		m.Events.Error.Trigger(err)
+		return nil, err
+	}
+
 	m.issuanceMutex.Lock()
 	defer m.issuanceMutex.Unlock()
 	sequenceNumber, err := m.sequence.Next()
 	if err != nil {
-		m.Events.Error.Trigger(fmt.Errorf("could not create sequence number: %w", err))
-		return nil
+		err = fmt.Errorf("could not create sequence number: %w", err)
+		m.Events.Error.Trigger(err)
+		return nil, err
 	}
 
 	trunkID, branchID := m.selector.Tips()
@@ -79,14 +89,15 @@ func (m *MessageFactory) IssuePayload(payload payload.Payload) *message.Message 
 	issuerPublicKey := m.localIdentity.PublicKey()
 
 	// do the PoW
-	nonce, err := m.doPOW(trunkID, branchID, issuingTime, issuerPublicKey, sequenceNumber, payload)
+	nonce, err := m.doPOW(trunkID, branchID, issuingTime, issuerPublicKey, sequenceNumber, p)
 	if err != nil {
-		m.Events.Error.Trigger(fmt.Errorf("pow failed: %w", err))
-		return nil
+		err = fmt.Errorf("pow failed: %w", err)
+		m.Events.Error.Trigger(err)
+		return nil, err
 	}
 
 	// create the signature
-	signature := m.sign(trunkID, branchID, issuingTime, issuerPublicKey, sequenceNumber, payload, nonce)
+	signature := m.sign(trunkID, branchID, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 
 	msg := message.New(
 		trunkID,
@@ -94,12 +105,12 @@ func (m *MessageFactory) IssuePayload(payload payload.Payload) *message.Message 
 		issuingTime,
 		issuerPublicKey,
 		sequenceNumber,
-		payload,
+		p,
 		nonce,
 		signature,
 	)
 	m.Events.MessageConstructed.Trigger(msg)
-	return msg
+	return msg, nil
 }
 
 // Shutdown closes the messageFactory and persists the sequence number.

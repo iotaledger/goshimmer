@@ -31,7 +31,9 @@ func TestSynchronization(t *testing.T) {
 	time.Sleep(10 * time.Second)
 
 	// 2. spawn peer without knowledge of previous messages
-	newPeer, err := n.CreatePeer(framework.GoShimmerConfig{})
+	newPeer, err := n.CreatePeer(framework.GoShimmerConfig{
+		SyncBeaconFollower: true,
+	})
 	require.NoError(t, err)
 	err = n.WaitForAutopeering(3)
 	require.NoError(t, err)

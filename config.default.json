@@ -17,6 +17,13 @@
     ],
     "port": 14626
   },
+  "syncbeaconfollower": {
+    "followNodes": [
+      "Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24",
+      "9DB3j9cWYSuEEtkvanrzqkzCQMdH1FGv3TawJdVbDxkd"
+    ],
+    "syncPercentage": 0.5
+  },
   "dashboard": {
     "bindAddress": "127.0.0.1:8081",
     "dev": false,
@@ -41,6 +48,7 @@
   },
   "gossip": {
     "port": 14666,
+    "ageThreshold": "5s",
     "tipsBroadcaster": {
       "interval": "10s"
     }

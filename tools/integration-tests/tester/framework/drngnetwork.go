@@ -38,7 +38,18 @@ func (n *DRNGNetwork) CreatePeer(c GoShimmerConfig, publicKey ed25519.PublicKey)
 	config.Name = name
 	config.EntryNodeHost = n.network.namePrefix(containerNameEntryNode)
 	config.EntryNodePublicKey = n.network.entryNodePublicKey()
-	config.DisabledPlugins = disabledPluginsPeer
+	config.DisabledPlugins = func() string {
+		if !config.SyncBeaconFollower {
+			return disabledPluginsPeer + ",SyncBeaconFollower"
+		}
+		return disabledPluginsPeer
+	}()
+	if config.SyncBeaconFollowNodes == "" {
+		config.SyncBeaconFollowNodes = syncBeaconPublicKey
+	}
+	if config.SyncBeaconBroadcastInterval == 0 {
+		config.SyncBeaconBroadcastInterval = 5
+	}
 
 	// create Docker container
 	container := NewDockerContainer(n.network.dockerClient)
@@ -93,7 +104,7 @@ func (n *DRNGNetwork) CreateMember(leader bool) (*Drand, error) {
 func (n *DRNGNetwork) Shutdown() error {
 	// stop drand members
 	for _, p := range n.members {
-		err := p.Stop()
+		err := p.Stop(5 * time.Second)
 		if err != nil {
 			return err
 		}

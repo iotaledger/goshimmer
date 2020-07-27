@@ -25,7 +25,7 @@ import (
 // autopeering constants
 const (
 	ProtocolVersion = 0 // update on protocol changes
-	NetworkVersion  = 3 // update on network changes
+	NetworkVersion  = 5 // update on network changes
 )
 
 var (

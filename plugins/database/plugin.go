@@ -3,6 +3,7 @@ package database
 
 import (
 	"errors"
+	"strconv"
 	"sync"
 	"time"
 
@@ -75,6 +76,17 @@ func configure(_ *node.Plugin) {
 			log.Fatalf("The database scheme was updated. Please delete the database folder. %s", err)
 		}
 		log.Fatalf("Failed to check database version: %s", err)
+	}
+
+	if str := config.Node().GetString(CfgDatabaseDirty); str != "" {
+		val, err := strconv.ParseBool(str)
+		if err != nil {
+			log.Warnf("Invalid %s: %s", CfgDatabaseDirty, err)
+		} else if val {
+			MarkDatabaseUnhealthy()
+		} else {
+			MarkDatabaseHealthy()
+		}
 	}
 
 	if IsDatabaseUnhealthy() {

@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 )
@@ -44,7 +43,7 @@ func TestLoadSnapshot(t *testing.T) {
 
 func TestSnapshotMarshalUnmarshal(t *testing.T) {
 	const genesisBalance = 1000000000
-	seed := wallet.NewSeed()
+	seed := newSeed()
 	genesisAddr := seed.Address(GENESIS)
 
 	snapshot := Snapshot{

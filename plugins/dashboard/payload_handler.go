@@ -9,6 +9,7 @@ import (
 	drngheader "github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	cb "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	syncbeaconpayload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
@@ -23,6 +24,11 @@ type BasicPayload struct {
 type BasicStringPayload struct {
 	ContentTitle string `json:"content_title"`
 	Content      string `json:"content"`
+}
+
+// SyncBeaconPayload contains sent time of a sync beacon.
+type SyncBeaconPayload struct {
+	SentTime int64 `json:"sent_time"`
 }
 
 // DrngPayload contains the subtype of drng payload, instance Id
@@ -88,6 +94,9 @@ func ProcessPayload(p payload.Payload) interface{} {
 	case drngpayload.Type:
 		// drng payload
 		return processDrngPayload(p)
+	case syncbeaconpayload.Type:
+		// sync beacon payload
+		return processSyncBeaconPayload(p)
 	case valuepayload.Type:
 		return processValuePayload(p)
 	default:
@@ -129,6 +138,19 @@ func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 	}
 }
 
+// processDrngPayload handles the subtypes of Drng payload
+func processSyncBeaconPayload(p payload.Payload) (dp SyncBeaconPayload) {
+	syncBeaconPayload, ok := p.(*syncbeaconpayload.Payload)
+	if !ok {
+		log.Info("could not cast payload to sync beacon object")
+		return
+	}
+
+	return SyncBeaconPayload{
+		SentTime: syncBeaconPayload.SentTime(),
+	}
+}
+
 // processValuePayload handles Value payload
 func processValuePayload(p payload.Payload) (vp ValuePayload) {
 	marshalUtil := marshalutil.New(p.Bytes())
@@ -146,10 +168,15 @@ func processValuePayload(p payload.Payload) (vp ValuePayload) {
 	// Get outputs address and balance
 	v.Transaction().Outputs().ForEach(func(address address.Address, balances []*balance.Balance) bool {
 		var b []Balance
-		for _, balance := range balances {
+		for _, bal := range balances {
+			color := bal.Color.String()
+			if bal.Color == balance.ColorNew {
+				color = v.Transaction().ID().String()
+			}
+
 			b = append(b, Balance{
-				Value: balance.Value,
-				Color: balance.Color.String(),
+				Value: bal.Value,
+				Color: color,
 			})
 		}
 		t := OutputContent{

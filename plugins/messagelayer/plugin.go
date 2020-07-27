@@ -85,7 +85,8 @@ func MessageFactory() *messagefactory.MessageFactory {
 // MessageRequester gets the messageRequester instance.
 func MessageRequester() *messagerequester.MessageRequester {
 	msgReqOnce.Do(func() {
-		messageRequester = messagerequester.New()
+		// load all missing messages on start up
+		messageRequester = messagerequester.New(messageExists, Tangle().MissingMessages())
 	})
 	return messageRequester
 }
@@ -113,7 +114,7 @@ func configure(*node.Plugin) {
 	}))
 
 	// setup messageRequester
-	_tangle.Events.MessageMissing.Attach(events.NewClosure(messageRequester.ScheduleRequest))
+	_tangle.Events.MessageMissing.Attach(events.NewClosure(messageRequester.StartRequest))
 	_tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
 		cachedMessageMetadata.Release()
 		cachedMessage.Consume(func(msg *message.Message) {
@@ -126,23 +127,25 @@ func configure(*node.Plugin) {
 		cachedMessageMetadata.Release()
 		cachedMessage.Consume(tipSelector.AddTip)
 	}))
+
+	MessageRequester().Events.MissingMessageAppeared.Attach(events.NewClosure(func(id message.Id) {
+		_tangle.DeleteMissingMessage(id)
+	}))
 }
 
 func run(*node.Plugin) {
-
-	if err := daemon.BackgroundWorker("Tangle[MissingMessagesMonitor]", func(shutdownSignal <-chan struct{}) {
-		_tangle.MonitorMissingMessages(shutdownSignal)
-	}, shutdown.PriorityMissingMessagesMonitoring); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
-	}
-
 	if err := daemon.BackgroundWorker("Tangle", func(shutdownSignal <-chan struct{}) {
 		<-shutdownSignal
 		messageFactory.Shutdown()
-		messageParser.Shutdown()
 		_tangle.Shutdown()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
+}
 
+// messageExists tells if a given message is present in the node
+func messageExists(msgID message.Id) bool {
+	cachedMessage := Tangle().Message(msgID)
+	defer cachedMessage.Release()
+	return cachedMessage.Exists()
 }

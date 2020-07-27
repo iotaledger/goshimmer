@@ -1170,6 +1170,305 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
+      "description": "Number of messages in missingMessageStore. These are the message the node knows it doesn't have and tries to requests them.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 11,
+        "x": 0,
+        "y": 25
+      },
+      "hiddenSeries": false,
+      "id": 77,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "tangle_message_missing_count_db",
+          "interval": "",
+          "legendFormat": "Missing Messages",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Missing Messages",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Describes the amount of total, solid and not solid messages in the node's database.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 16,
+        "w": 13,
+        "x": 11,
+        "y": 25
+      },
+      "hiddenSeries": false,
+      "id": 73,
+      "legend": {
+        "alignAsTable": true,
+        "avg": false,
+        "current": true,
+        "max": false,
+        "min": false,
+        "rightSide": true,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "tangle_message_solid_count_db",
+          "interval": "",
+          "legendFormat": "Solid Messages in DB",
+          "refId": "A"
+        },
+        {
+          "expr": "tangle_message_total_count_db - tangle_message_solid_count_db",
+          "interval": "",
+          "legendFormat": "Not Solid Messages in DB",
+          "refId": "B"
+        },
+        {
+          "expr": "tangle_message_total_count_db",
+          "interval": "",
+          "legendFormat": "Total Messages in DB",
+          "refId": "C"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Messages in Database",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Number of messages currently requested by the message tangle.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 11,
+        "x": 0,
+        "y": 33
+      },
+      "hiddenSeries": false,
+      "id": 69,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "tangle_message_request_queue_size",
+          "interval": "",
+          "legendFormat": "Message Request Queue Size",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Message Request Queue Size",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": false
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -1182,7 +1481,7 @@
         "h": 10,
         "w": 11,
         "x": 0,
-        "y": 25
+        "y": 41
       },
       "hiddenSeries": false,
       "id": 26,
@@ -1295,6 +1594,101 @@
       }
     },
     {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "Prometheus",
+      "description": "Average time it takes to solidify messages.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 10,
+        "w": 11,
+        "x": 11,
+        "y": 41
+      },
+      "hiddenSeries": false,
+      "id": 75,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "tangle_message_avg_solidification_time",
+          "interval": "",
+          "legendFormat": "Avg Solidification Time",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Average Solidification Time",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "ms",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
       "content": "\n# Total Network Traffic\n\n\nSince the start of the node.\n",
       "datasource": null,
       "description": "",
@@ -1305,10 +1699,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 3,
-        "w": 6,
-        "x": 11,
-        "y": 25
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 51
       },
       "id": 61,
       "mode": "markdown",
@@ -1339,8 +1733,8 @@
       "gridPos": {
         "h": 2,
         "w": 2,
-        "x": 11,
-        "y": 28
+        "x": 3,
+        "y": 51
       },
       "id": 67,
       "options": {
@@ -1392,8 +1786,8 @@
       "gridPos": {
         "h": 2,
         "w": 2,
-        "x": 13,
-        "y": 28
+        "x": 5,
+        "y": 51
       },
       "id": 66,
       "options": {
@@ -1445,61 +1839,8 @@
       "gridPos": {
         "h": 2,
         "w": 2,
-        "x": 15,
-        "y": 28
-      },
-      "id": 59,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "pluginVersion": "7.0.3",
-      "targets": [
-        {
-          "expr": "traffic_analysis_outbound_bytes",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "Analysis",
-      "type": "stat"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {},
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "decbytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 3,
-        "x": 11,
-        "y": 30
+        "x": 7,
+        "y": 51
       },
       "id": 63,
       "options": {
@@ -1550,9 +1891,9 @@
       },
       "gridPos": {
         "h": 2,
-        "w": 3,
-        "x": 14,
-        "y": 30
+        "w": 2,
+        "x": 9,
+        "y": 51
       },
       "id": 62,
       "options": {
@@ -1604,8 +1945,8 @@
       "gridPos": {
         "h": 2,
         "w": 2,
-        "x": 11,
-        "y": 32
+        "x": 3,
+        "y": 53
       },
       "id": 64,
       "options": {
@@ -1657,8 +1998,8 @@
       "gridPos": {
         "h": 2,
         "w": 2,
-        "x": 13,
-        "y": 32
+        "x": 5,
+        "y": 53
       },
       "id": 65,
       "options": {
@@ -1689,13 +2030,66 @@
       "type": "stat"
     },
     {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 2,
+        "x": 7,
+        "y": 53
+      },
+      "id": 59,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "pluginVersion": "7.0.3",
+      "targets": [
+        {
+          "expr": "traffic_analysis_outbound_bytes",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "timeFrom": null,
+      "timeShift": null,
+      "title": "Analysis",
+      "type": "stat"
+    },
+    {
       "collapsed": false,
       "datasource": "Prometheus",
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 35
+        "y": 55
       },
       "id": 34,
       "panels": [],
@@ -1720,7 +2114,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 36
+        "y": 56
       },
       "hiddenSeries": false,
       "id": 36,
@@ -1823,7 +2217,7 @@
         "h": 8,
         "w": 4,
         "x": 12,
-        "y": 36
+        "y": 56
       },
       "id": 38,
       "options": {
@@ -1880,7 +2274,7 @@
         "h": 8,
         "w": 3,
         "x": 16,
-        "y": 36
+        "y": 56
       },
       "id": 42,
       "options": {
@@ -1937,7 +2331,7 @@
         "h": 8,
         "w": 3,
         "x": 19,
-        "y": 36
+        "y": 56
       },
       "id": 40,
       "options": {
@@ -1986,7 +2380,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 44
+        "y": 64
       },
       "hiddenSeries": false,
       "id": 44,
@@ -2080,7 +2474,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 44
+        "y": 64
       },
       "hiddenSeries": false,
       "id": 50,
@@ -2175,7 +2569,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 52
+        "y": 72
       },
       "hiddenSeries": false,
       "id": 49,
@@ -2269,7 +2663,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 52
+        "y": 72
       },
       "hiddenSeries": false,
       "id": 46,
@@ -2376,5 +2770,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "kjOQZ2ZMk",
-  "version": 5
+  "version": 6
 }

@@ -13,7 +13,7 @@ const (
 
 	logsDir = "/tmp/logs/"
 
-	disabledPluginsEntryNode = "portcheck,dashboard,analysis-client,profiling,gossip,drng,issuer,sync,metrics,valuetransfers,messagelayer,pow,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint"
+	disabledPluginsEntryNode = "portcheck,dashboard,analysis-client,profiling,gossip,drng,issuer,syncbeaconfollower,metrics,valuetransfers,messagelayer,pow,webapi,webapibroadcastdataendpoint,webapifindtransactionhashesendpoint,webapigetneighborsendpoint,webapigettransactionobjectsbyhashendpoint,webapigettransactiontrytesbyhashendpoint"
 	disabledPluginsPeer      = "portcheck,dashboard,analysis-client,profiling"
 	snapshotFilePath         = "/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin"
 	dockerLogsPrefixLen      = 8
@@ -21,6 +21,9 @@ const (
 	dkgMaxTries = 50
 
 	exitStatusSuccessful = 0
+
+	syncBeaconSeed      = "Dw6dKWvQGbcijpib6A8t1vSiuDU1XWsnT71xhLSzXUGc"
+	syncBeaconPublicKey = "6wuo4zNP4MXzojmj2EXGsPEHPkWJNnbKZ9e17ufdTmp"
 )
 
 // Parameters to override before calling any peer creation function.
@@ -29,8 +32,6 @@ var (
 	ParaFCoBAverageNetworkDelay = 5
 	// ParaOutboundUpdateIntervalMs the autopeering outbound update interval in milliseconds.
 	ParaOutboundUpdateIntervalMs = 100
-	// ParaBootstrapOnEveryNode whether to enable the bootstrap plugin on every node.
-	ParaBootstrapOnEveryNode = false
 	// ParaFaucetTokensPerRequest defines the tokens to send up on each faucet request message.
 	ParaFaucetTokensPerRequest int64 = 1337
 	// ParaPoWDifficulty defines the PoW difficulty.
@@ -39,6 +40,8 @@ var (
 	ParaWaitToKill = 60
 	// ParaPoWFaucetDifficulty defines the PoW difficulty for faucet payloads.
 	ParaPoWFaucetDifficulty = 2
+	// ParaSyncBeaconOnEveryNode defines whether all nodes should be sync beacons.
+	ParaSyncBeaconOnEveryNode = false
 )
 
 var (
@@ -56,15 +59,18 @@ type GoShimmerConfig struct {
 	DisabledPlugins    string
 	SnapshotFilePath   string
 
-	Bootstrap                             bool
-	BootstrapInitialIssuanceTimePeriodSec int
-
 	DRNGCommittee string
 	DRNGDistKey   string
 	DRNGInstance  int
 	DRNGThreshold int
 
 	Faucet bool
+
+	SyncBeacon                  bool
+	SyncBeaconFollower          bool
+	SyncBeaconFollowNodes       string
+	SyncBeaconBroadcastInterval int
+	SyncBeaconMaxTimeOfflineSec int
 }
 
 // NetworkConfig defines the config of a GoShimmer Docker network.

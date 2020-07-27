@@ -1,3 +1,33 @@
+# v0.2.2 - 2020-07-27
+* Improves message and transaction validation: 
+    * Adjust max transaction inputs count;
+    * Adds signature validation before issuance; 
+    * Enforce max message size in message factory.
+* Improves API:
+    * Changes granularity of spammer API to accept messages per minute;
+    * Adds API middleware and set CORS to allow from every origin;
+    * Adds sendTransactionByJSON to allow a client to issue transactions by providing them in a JSON format;
+    * Adds tool API endpoint to facilitate debugging of the solidification status;
+    * Removes old API documentation;
+* Improves synchronization process:
+    * Refactors message requester to be more reliable;
+    * Improves solidification process;
+    * Refactors worker pool management;
+    * Replaces bootstrap plugin with the more secure and reliable beacon plugin.
+* Improves analysis-server dashboard:
+    * Adds the ability to distinguish between different GoShimmer node versions;
+    * Refactors the interaction between server side and dashboard;
+    * Improves consensus visualization;
+    * Improves dashboard tooling.
+* Adds a new electron-based wallet.
+* Increases max gossip packet size.
+* Adds command to the CLI to override database dirty flag.
+* Grafana local dashboard
+    * Adds messages in database chart (solid, not solid, total)
+    * Adds average solidification time chart
+    * Adds Message Request Queue Size chart
+* **Breaking**: bumps network and database versions
+
 # v0.2.1 - 2020-07-01
 * Adds PoW requirement to faucet payloads
 * Adds tips broadcaster to ensure that all chains are getting solidified

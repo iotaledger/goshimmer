@@ -247,3 +247,37 @@ jobs:
         with:
           name: ${{ env.TEST_NAME }}
           path: tools/integration-tests/logs
+
+  syncbeacon:
+    name: syncbeacon
+    env:
+      TEST_NAME: syncbeacon
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Build GoShimmer image
+        run: docker build -t iotaledger/goshimmer .
+
+      - name: Pull additional Docker images
+        run: |
+          docker pull angelocapossele/drand:latest
+          docker pull gaiaadm/pumba:latest
+          docker pull gaiadocker/iproute2:latest
+
+      - name: Run integration tests
+        run: docker-compose -f tools/integration-tests/tester/docker-compose.yml up --abort-on-container-exit --exit-code-from tester --build
+
+      - name: Create logs from tester
+        if: always()
+        run: |
+          docker logs tester &> tools/integration-tests/logs/tester.log
+
+      - name: Save logs as artifacts
+        if: always()
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{ env.TEST_NAME }}
+          path: tools/integration-tests/logs

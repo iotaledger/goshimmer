@@ -15,12 +15,12 @@ func handleRequest(c echo.Context) error {
 
 	switch request.Cmd {
 	case "start":
-		if request.MPS == 0 {
-			request.MPS = 1
+		if request.MPM == 0 {
+			request.MPM = 1
 		}
 
 		messageSpammer.Shutdown()
-		messageSpammer.Start(request.MPS, time.Second)
+		messageSpammer.Start(request.MPM, time.Minute)
 		return c.JSON(http.StatusOK, Response{Message: "started spamming messages"})
 	case "stop":
 		messageSpammer.Shutdown()
@@ -39,5 +39,5 @@ type Response struct {
 // Request contains the parameters of a spammer request.
 type Request struct {
 	Cmd string `json:"cmd"`
-	MPS int    `json:"mps"`
+	MPM int    `json:"mpm"`
 }

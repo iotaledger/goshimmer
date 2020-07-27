@@ -1,11 +1,14 @@
 package dashboard
 
+import "time"
+
 // conflictSet is defined as a a map of conflict IDs and their conflict.
 type conflictSet = map[string]conflict
 
 // conflict defines the struct for the opinions of the nodes regarding a given conflict.
 type conflict struct {
 	NodesView map[string]voteContext `json:"nodesview" bson:"nodesview"`
+	Modified  time.Time              `json:"modified" bson:"modified"`
 }
 
 type voteContext struct {
@@ -18,6 +21,7 @@ type voteContext struct {
 func newConflict() conflict {
 	return conflict{
 		NodesView: make(map[string]voteContext),
+		Modified:  time.Now(),
 	}
 }
 
@@ -51,4 +55,9 @@ func (c conflict) finalizedRatio() float64 {
 	}
 
 	return (float64(count) / float64(len(c.NodesView)))
+}
+
+// isOlderThan returns true if the conflict is older (i.e., last modified time) than the given duration.
+func (c conflict) isOlderThan(d time.Duration) bool {
+	return c.Modified.Add(d).Before(time.Now())
 }

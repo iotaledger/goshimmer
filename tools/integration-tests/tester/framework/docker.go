@@ -89,11 +89,14 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--gracefulshutdown.waitToKillTime=%d", ParaWaitToKill),
 			fmt.Sprintf("--node.enablePlugins=%s", func() string {
 				var plugins []string
-				if config.Bootstrap {
-					plugins = append(plugins, "Bootstrap")
-				}
 				if config.Faucet {
 					plugins = append(plugins, "faucet")
+				}
+				if config.SyncBeacon {
+					plugins = append(plugins, "SyncBeacon")
+				}
+				if config.SyncBeaconFollower {
+					plugins = append(plugins, "SyncBeaconFollower")
 				}
 				return strings.Join(plugins[:], ",")
 			}()),
@@ -106,7 +109,6 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			}(),
 			fmt.Sprintf("--faucet.tokensPerRequest=%d", ParaFaucetTokensPerRequest),
 			fmt.Sprintf("--valueLayer.snapshot.file=%s", config.SnapshotFilePath),
-			fmt.Sprintf("--bootstrap.initialIssuance.timePeriodSec=%d", config.BootstrapInitialIssuanceTimePeriodSec),
 			"--webapi.bindAddress=0.0.0.0:8080",
 			fmt.Sprintf("--autopeering.seed=base58:%s", config.Seed),
 			fmt.Sprintf("--autopeering.entryNodes=%s@%s:14626", config.EntryNodePublicKey, config.EntryNodeHost),
@@ -114,6 +116,15 @@ func (d *DockerContainer) CreateGoShimmerPeer(config GoShimmerConfig) error {
 			fmt.Sprintf("--drng.threshold=%d", config.DRNGThreshold),
 			fmt.Sprintf("--drng.committeeMembers=%s", config.DRNGCommittee),
 			fmt.Sprintf("--drng.distributedPubKey=%s", config.DRNGDistKey),
+			fmt.Sprintf("--syncbeaconfollower.followNodes=%s", config.SyncBeaconFollowNodes),
+			fmt.Sprintf("--syncbeacon.broadcastInterval=%d", config.SyncBeaconBroadcastInterval),
+			"--syncbeacon.startSynced=true",
+			func() string {
+				if config.SyncBeaconMaxTimeOfflineSec == 0 {
+					return ""
+				}
+				return fmt.Sprintf("--syncbeaconfollower.maxTimeOffline=%d", config.SyncBeaconMaxTimeOfflineSec)
+			}(),
 		},
 	}
 
@@ -213,8 +224,11 @@ func (d *DockerContainer) Remove() error {
 
 // Stop stops a container without terminating the process.
 // The process is blocked until the container stops or the timeout expires.
-func (d *DockerContainer) Stop() error {
-	duration := 30 * time.Second
+func (d *DockerContainer) Stop(optionalTimeout ...time.Duration) error {
+	duration := 3 * time.Minute
+	if optionalTimeout != nil {
+		duration = optionalTimeout[0]
+	}
 	return d.client.ContainerStop(context.Background(), d.id, &duration)
 }
 

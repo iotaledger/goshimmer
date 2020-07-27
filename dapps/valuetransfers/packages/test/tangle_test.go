@@ -10,13 +10,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 )
 
 func TestTangle_ValueTransfer(t *testing.T) {
@@ -28,31 +28,31 @@ func TestTangle_ValueTransfer(t *testing.T) {
 	ledgerState := tangle.NewLedgerState(valueTangle)
 
 	// initialize seed
-	seed := wallet.NewSeed()
+	seed := walletseed.NewSeed()
 
 	// setup consensus rules
 	consensus.NewFCOB(valueTangle, 0)
 
 	// check if ledger empty first
-	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(seed.Address(0)))
-	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(seed.Address(1)))
+	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(seed.Address(0).Address))
+	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(seed.Address(1).Address))
 
 	// load snapshot
 	valueTangle.LoadSnapshot(map[transaction.ID]map[address.Address][]*balance.Balance{
 		transaction.GenesisID: {
-			seed.Address(0): []*balance.Balance{
+			seed.Address(0).Address: []*balance.Balance{
 				balance.New(balance.ColorIOTA, 337),
 			},
 
-			seed.Address(1): []*balance.Balance{
+			seed.Address(1).Address: []*balance.Balance{
 				balance.New(balance.ColorIOTA, 1000),
 			},
 		},
 	})
 
 	// check if balance exists after loading snapshot
-	assert.Equal(t, map[balance.Color]int64{balance.ColorIOTA: 337}, ledgerState.Balances(seed.Address(0)))
-	assert.Equal(t, map[balance.Color]int64{balance.ColorIOTA: 1000}, ledgerState.Balances(seed.Address(1)))
+	assert.Equal(t, map[balance.Color]int64{balance.ColorIOTA: 337}, ledgerState.Balances(seed.Address(0).Address))
+	assert.Equal(t, map[balance.Color]int64{balance.ColorIOTA: 1000}, ledgerState.Balances(seed.Address(1).Address))
 
 	// introduce logic to record liked payloads
 	recordedLikedPayloads, resetRecordedLikedPayloads := recordLikedPayloads(valueTangle)
@@ -61,8 +61,8 @@ func TestTangle_ValueTransfer(t *testing.T) {
 	outputAddress1 := address.Random()
 	attachedPayload1 := payload.New(payload.GenesisID, payload.GenesisID, transaction.New(
 		transaction.NewInputs(
-			transaction.NewOutputID(seed.Address(0), transaction.GenesisID),
-			transaction.NewOutputID(seed.Address(1), transaction.GenesisID),
+			transaction.NewOutputID(seed.Address(0).Address, transaction.GenesisID),
+			transaction.NewOutputID(seed.Address(1).Address, transaction.GenesisID),
 		),
 
 		transaction.NewOutputs(map[address.Address][]*balance.Balance{
@@ -78,8 +78,8 @@ func TestTangle_ValueTransfer(t *testing.T) {
 	})
 
 	// check if old addresses are empty and new addresses are filled
-	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(seed.Address(0)))
-	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(seed.Address(1)))
+	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(seed.Address(0).Address))
+	assert.Equal(t, map[balance.Color]int64{}, ledgerState.Balances(seed.Address(1).Address))
 	assert.Equal(t, map[balance.Color]int64{balance.ColorIOTA: 1337}, ledgerState.Balances(outputAddress1))
 	assert.Equal(t, 1, len(recordedLikedPayloads))
 	assert.Contains(t, recordedLikedPayloads, attachedPayload1.ID())
@@ -90,8 +90,8 @@ func TestTangle_ValueTransfer(t *testing.T) {
 	outputAddress2 := address.Random()
 	valueTangle.AttachPayloadSync(payload.New(payload.GenesisID, payload.GenesisID, transaction.New(
 		transaction.NewInputs(
-			transaction.NewOutputID(seed.Address(0), transaction.GenesisID),
-			transaction.NewOutputID(seed.Address(1), transaction.GenesisID),
+			transaction.NewOutputID(seed.Address(0).Address, transaction.GenesisID),
+			transaction.NewOutputID(seed.Address(1).Address, transaction.GenesisID),
 		),
 
 		transaction.NewOutputs(map[address.Address][]*balance.Balance{

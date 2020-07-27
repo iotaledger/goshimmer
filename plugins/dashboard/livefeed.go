@@ -33,7 +33,10 @@ func runLiveFeed() {
 
 		select {
 		case <-newMsgRateLimiter.C:
-			liveFeedWorkerPool.TrySubmit(message)
+			_, ok := liveFeedWorkerPool.TrySubmit(message)
+			if !ok {
+				message.Release()
+			}
 		default:
 			message.Release()
 		}

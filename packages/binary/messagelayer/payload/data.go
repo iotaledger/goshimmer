@@ -14,9 +14,6 @@ type Data struct {
 	data        []byte
 }
 
-// MaxDataPayloadSize defines the maximum size of a data payload.
-const MaxDataPayloadSize = 64 * 1024
-
 // NewData creates new data payload.
 func NewData(data []byte) *Data {
 	return &Data{

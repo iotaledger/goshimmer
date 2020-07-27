@@ -5,7 +5,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/bootstrap"
 	"github.com/iotaledger/goshimmer/plugins/cli"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
@@ -19,7 +18,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
 	"github.com/iotaledger/goshimmer/plugins/pow"
 	"github.com/iotaledger/goshimmer/plugins/profiling"
-	"github.com/iotaledger/goshimmer/plugins/sync"
+	"github.com/iotaledger/goshimmer/plugins/syncbeacon"
+	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 
 	"github.com/iotaledger/hive.go/node"
 )
@@ -38,10 +38,10 @@ var PLUGINS = node.Plugins(
 	messagelayer.Plugin(),
 	gossip.Plugin(),
 	issuer.Plugin(),
-	bootstrap.Plugin(),
-	sync.Plugin(),
 	metrics.Plugin(),
 	drng.Plugin(),
 	faucet.App(),
 	valuetransfers.App(),
+	syncbeacon.Plugin(),
+	syncbeaconfollower.Plugin(),
 )

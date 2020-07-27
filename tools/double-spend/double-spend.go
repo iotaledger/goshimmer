@@ -3,62 +3,115 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/client"
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
-	"github.com/mr-tron/base58"
 )
 
 func main() {
+	clients := make([]*client.GoShimmerAPI, 2)
 
-	client := client.NewGoShimmerAPI("http://localhost:8080", http.Client{Timeout: 30 * time.Second})
+	node1APIURL := "http://127.0.0.1:8080"
+	node2APIURL := "http://127.0.0.1:8090"
 
-	// genesis wallet
-	genesisSeedBytes, err := base58.Decode("7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih")
-	if err != nil {
-		fmt.Println(err)
+	if node1APIURL == node2APIURL {
+		fmt.Println("Please use 2 different nodes to issue a double-spend")
+		return
 	}
 
-	const genesisBalance = 1000000000
-	genesisWallet := wallet.New(genesisSeedBytes)
-	genesisAddr := genesisWallet.Seed().Address(0)
-	genesisOutputID := transaction.NewOutputID(genesisAddr, transaction.GenesisID)
+	clients[0] = client.NewGoShimmerAPI(node1APIURL, http.Client{Timeout: 60 * time.Second})
+	clients[1] = client.NewGoShimmerAPI(node2APIURL, http.Client{Timeout: 60 * time.Second})
 
-	// issue transactions which spend the same genesis output in all partitions
-	conflictingTxs := make([]*transaction.Transaction, 2)
-	conflictingTxIDs := make([]string, 2)
-	receiverSeeds := make([]*wallet.Seed, 2)
-	for i := range conflictingTxs {
+	mySeed := walletseed.NewSeed()
+	myAddr := mySeed.Address(0)
 
-		// create a new receiver wallet for the given conflict
-		receiverSeeds[i] = wallet.NewSeed()
-		destAddr := receiverSeeds[i].Address(0)
+	if _, err := clients[0].SendFaucetRequest(myAddr.String()); err != nil {
+		fmt.Println(err)
+		return
+	}
 
-		tx := transaction.New(
-			transaction.NewInputs(genesisOutputID),
-			transaction.NewOutputs(map[address.Address][]*balance.Balance{
-				destAddr: {
-					{Value: genesisBalance, Color: balance.ColorIOTA},
-				},
-			}))
-		tx = tx.Sign(signaturescheme.ED25519(*genesisWallet.Seed().KeyPair(0)))
-		conflictingTxs[i] = tx
-
-		valueObject := valuepayload.New(valuepayload.GenesisID, valuepayload.GenesisID, tx)
-
-		// issue the value object
-		txID, err := client.SendPayload(valueObject.Bytes())
+	var myOutputID string
+	var confirmed bool
+	// wait for the funds
+	for i := 0; i < 10; i++ {
+		time.Sleep(5 * time.Second)
+		resp, err := clients[0].GetUnspentOutputs([]string{myAddr.String()})
 		if err != nil {
 			fmt.Println(err)
+			return
 		}
-		conflictingTxIDs[i] = txID
-		fmt.Printf("issued conflict transaction %s\n", txID)
-		//time.Sleep(7 * time.Second)
+		fmt.Println("Waiting for funds to be confirmed...")
+		for _, v := range resp.UnspentOutputs {
+			if len(v.OutputIDs) > 0 {
+				myOutputID = v.OutputIDs[0].ID
+				confirmed = v.OutputIDs[0].InclusionState.Confirmed
+				break
+			}
+		}
+		if myOutputID != "" && confirmed {
+			break
+		}
 	}
+
+	if myOutputID == "" {
+		fmt.Println("Could not find OutputID")
+		return
+	}
+
+	if !confirmed {
+		fmt.Println("OutputID not confirmed")
+		return
+	}
+
+	out, err := transaction.OutputIDFromBase58(myOutputID)
+	if err != nil {
+		fmt.Println("malformed OutputID")
+		return
+	}
+
+	// issue transactions which spend the same output
+	conflictingTxs := make([]*transaction.Transaction, 2)
+	conflictingMsgIDs := make([]string, 2)
+	receiverSeeds := make([]*walletseed.Seed, 2)
+
+	var wg sync.WaitGroup
+	for i := range conflictingTxs {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			// create a new receiver wallet for the given conflict
+			receiverSeeds[i] = walletseed.NewSeed()
+			destAddr := receiverSeeds[i].Address(0)
+
+			tx := transaction.New(
+				transaction.NewInputs(out),
+				transaction.NewOutputs(map[address.Address][]*balance.Balance{
+					destAddr.Address: {
+						{Value: 1337, Color: balance.ColorIOTA},
+					},
+				}))
+			tx = tx.Sign(signaturescheme.ED25519(*mySeed.KeyPair(0)))
+			conflictingTxs[i] = tx
+
+			valueObject := valuepayload.New(valuepayload.GenesisID, valuepayload.GenesisID, tx)
+
+			// issue the tx
+			conflictingMsgIDs[i], err = clients[i].SendPayload(valueObject.Bytes())
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			fmt.Printf("issued conflict transaction %s\n", conflictingMsgIDs[i])
+		}(i)
+	}
+	wg.Wait()
 }

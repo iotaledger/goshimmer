@@ -24,24 +24,57 @@ var Events = struct {
 	// MetricHeartbeat triggers when an MetricHeartbeat heartbeat has been received.
 	MetricHeartbeat *events.Event
 }{
-	events.NewEvent(stringCaller),
-	events.NewEvent(stringCaller),
-	events.NewEvent(stringStringCaller),
-	events.NewEvent(stringStringCaller),
+	events.NewEvent(addNodeCaller),
+	events.NewEvent(removeNodeCaller),
+	events.NewEvent(connectNodesCaller),
+	events.NewEvent(disconnectNodesCaller),
 	events.NewEvent(errorCaller),
 	events.NewEvent(heartbeatPacketCaller),
 	events.NewEvent(fpcHeartbeatPacketCaller),
 	events.NewEvent(metricHeartbeatPacketCaller),
 }
 
-func stringCaller(handler interface{}, params ...interface{}) {
-	handler.(func(string))(params[0].(string))
+// AddNodeEvent is the payload type of an AddNode event.
+type AddNodeEvent struct {
+	NetworkVersion string
+	NodeID         string
 }
 
-func stringStringCaller(handler interface{}, params ...interface{}) {
-	handler.(func(string, string))(params[0].(string), params[1].(string))
+// RemoveNodeEvent is the payload type of a RemoveNode event.
+type RemoveNodeEvent struct {
+	NetworkVersion string
+	NodeID         string
 }
 
+// ConnectNodesEvent is the payload type of a ConnectNodesEvent.
+type ConnectNodesEvent struct {
+	NetworkVersion string
+	SourceID       string
+	TargetID       string
+}
+
+// DisconnectNodesEvent is the payload type f a DisconnectNodesEvent.
+type DisconnectNodesEvent struct {
+	NetworkVersion string
+	SourceID       string
+	TargetID       string
+}
+
+func addNodeCaller(handler interface{}, params ...interface{}) {
+	handler.(func(*AddNodeEvent))(params[0].(*AddNodeEvent))
+}
+
+func removeNodeCaller(handler interface{}, params ...interface{}) {
+	handler.(func(*RemoveNodeEvent))(params[0].(*RemoveNodeEvent))
+}
+
+func connectNodesCaller(handler interface{}, params ...interface{}) {
+	handler.(func(*ConnectNodesEvent))(params[0].(*ConnectNodesEvent))
+}
+
+func disconnectNodesCaller(handler interface{}, params ...interface{}) {
+	handler.(func(*DisconnectNodesEvent))(params[0].(*DisconnectNodesEvent))
+}
 func errorCaller(handler interface{}, params ...interface{}) {
 	handler.(func(error))(params[0].(error))
 }

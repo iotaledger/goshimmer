@@ -1,34 +1,15 @@
-import {action, computed, observable, ObservableMap, ObservableSet} from "mobx";
-import {connectWebSocket, registerHandler, WSMsgType} from "app/misc/WS";
-import {default as Viva} from 'vivagraphjs';
-
-export class AddNodeMessage {
-    id: string;
-}
-
-export class RemoveNodeMessage {
-    id: string;
-}
-
-export class ConnectNodesMessage {
-    source: string;
-    target: string
-}
-
-export class DisconnectNodesMessage {
-    source: string;
-    target: string
-}
-
-export class Neighbors {
-    in: Set<string>;
-    out: Set<string>;
-
-    constructor() {
-        this.in = new Set();
-        this.out = new Set();
-    }
-}
+import { action, computed, observable, ObservableMap, ObservableSet } from "mobx";
+import Viva from "vivagraphjs";
+import { INeighbors } from "../models/INeigbours";
+import { IAddNodeMessage } from "../models/messages/IAddNodeMessage";
+import { IConnectNodesMessage } from "../models/messages/IConnectNodesMessage";
+import { IDisconnectNodesMessage } from "../models/messages/IDisconnectNodesMessage";
+import { IRemoveNodeMessage } from "../models/messages/IRemoveNodeMessage";
+import { WSMsgType } from "../models/ws/wsMsgType";
+import { connectWebSocket, registerHandler } from "../services/WS";
+import { buildCircleNodeShader } from "../utils/circleNodeShader";
+import { parseColor } from "../utils/colorHelper";
+import {Neighbors} from "../models/Neighbors";
 
 const EDGE_COLOR_DEFAULT = "#ff7d6cff";
 const EDGE_COLOR_HIDE = "#ff7d6c40";
@@ -46,354 +27,61 @@ const statusWebSocketPath = "/ws";
 export const shortenedIDCharCount = 8;
 
 export class AutopeeringStore {
-    @observable nodes = new ObservableSet();
-    @observable neighbors = new ObservableMap<string,Neighbors>();
-    @observable connections = new ObservableSet();
+    @observable
+    public websocketConnected: boolean = false;
 
-    graphViewActive: boolean = false;
-    @observable websocketConnected: boolean = false;
+    @observable
+    public selectedNetworkVersion: string = "";
 
-    // selecting a certain node
-    @observable selectionActive: boolean = false;
-    @observable selectedNode: string = null;
-    @observable selectedNodeInNeighbors: Set<string> = null;
-    @observable selectedNodeOutNeighbors: Set<string> = null;
-    @observable previewNode: string = null;
-    
-    // search
-    @observable search: string = "";
+    @observable
+    public userSelectedNetworkVersion: string = "";
 
-    // viva graph objects
-    graph;
-    graphics;
-    renderer;
+    @observable
+    public search: string = "";
+
+    @observable
+    public previewNode?: string;
+
+    @observable
+    public selectedNode?: string;
+
+    @observable
+    public selectedNodeInNeighbors?: Set<string>;
+
+    @observable
+    public selectedNodeOutNeighbors?: Set<string>;
+
+    @observable
+    public readonly  versions: ObservableSet = new ObservableSet()
+
+    @observable
+    public readonly nodes: ObservableMap<string,ObservableSet<string>>  = new ObservableMap<string,ObservableSet<string>>();
+
+    @observable
+    public readonly connections: ObservableMap<string,ObservableSet<string>> = new ObservableMap<string,ObservableSet<string>>();
+
+    @observable
+    private readonly neighbors: ObservableMap<string,ObservableMap<string, INeighbors>>  = new ObservableMap<string,ObservableMap<string, INeighbors>>();
+
+    @observable
+    private selectionActive: boolean = false;
+
+    private graph?: Viva.Graph.IGraph;
+
+    private graphics: Viva.Graph.View.IWebGLGraphics;
+
+    private renderer: Viva.Graph.View.IRenderer;
 
     constructor() {
-        registerHandler(WSMsgType.AddNode, this.onAddNode);
-        registerHandler(WSMsgType.RemoveNode, this.onRemoveNode);
-        registerHandler(WSMsgType.ConnectNodes, this.onConnectNodes);
-        registerHandler(WSMsgType.DisconnectNodes, this.onDisconnectNodes);
-    }
-
-    // connect to analysis server via websocket
-    connect() {
-        connectWebSocket(statusWebSocketPath,
-            () => this.updateWebSocketConnected(true),
-            () => this.updateWebSocketConnected(false),
-            () => this.updateWebSocketConnected(false))
-    }
-
-    // derive the full node ID based on the shortened nodeID (first shortenedIDCharCount chars)
-    getFullNodeID = (shortNodeID: string) => {
-        for(let fullNodeID of this.nodes.values()){
-            if (fullNodeID.startsWith(shortNodeID)) {
-                return fullNodeID;
-            }
-        }
-        return "";
-    };
-
-    @action
-    updateWebSocketConnected = (connected: boolean) => this.websocketConnected = connected;
-
-    // create a graph and fill it with data
-    start = () => {
-        this.graphViewActive = true;
-        this.graph = Viva.Graph.graph();
-
-        let graphics: any = Viva.Graph.View.webglGraphics();
-
-        let layout = Viva.Graph.Layout.forceDirected(this.graph, {
-            springLength: 30,
-            springCoeff: 0.0001,
-            dragCoeff: 0.02,
-            stableThreshold: 0.15,
-            gravity: -2,
-            timeStep: 20,
-            theta: 0.8,
-        });
-        graphics.link((link) => {
-            return Viva.Graph.View.webglLine(EDGE_COLOR_DEFAULT);
-        });
-        graphics.setNodeProgram(buildCircleNodeShader());
-
-        graphics.node((node) => {
-            return new WebGLCircle(VERTEX_SIZE, VERTEX_COLOR_DEFAULT);
-        });
-        graphics.link(() => Viva.Graph.View.webglLine(EDGE_COLOR_DEFAULT));
-        let ele = document.getElementById('visualizer');
-        this.renderer = Viva.Graph.View.renderer(this.graph, {
-            container: ele, graphics, layout, renderLinks: true,
-        });
-
-        let events = Viva.Graph.webglInputEvents(graphics, this.graph);
-
-        events.click((node) => {
-            this.handleNodeSelection(node.id);
-        });
-
-        events.mouseEnter((node) => {
-            this.previewNode = node.id;
-        });
-        
-        events.mouseLeave((node) => {
-            this.previewNode = undefined;
-        });
-
-
-        this.graphics = graphics;
-        this.renderer.run();
-        // draw graph if we have data collected
-        this.initialDrawGraph();
-    }
-
-    // fill graph with data we have previously collected
-    initialDrawGraph = () => {
-        this.nodes.forEach((node,key,map) => {
-            this.drawNode(node);
-        })
-        this.neighbors.forEach((node,key,map) => {
-            // Only do it for one type of neighbors, as it is duplicated
-            node.out.forEach((outNeighborID) =>{
-                this.graph.addLink(key, outNeighborID);
-            })
-        })
-    }
-
-    // dispose only graph, but keep the data
-    stop = () => {
-        this.graphViewActive = false;
-        this.renderer.dispose();
-        this.graph = null;
-    }
-
-    @action
-    updateSearch = (searchNode: string) => {
-        this.search = searchNode.trim();
-    }
-
-    // handlers for incoming ws messages //
-
-    @action
-    onAddNode = (msg: AddNodeMessage) => {
-        if (this.nodes.has(msg.id)){
-            console.log("Node %s already known.", msg.id);
-            return;
-        }
-        this.nodes.add(msg.id);
-        if (this.graphViewActive) {
-            this.drawNode(msg.id);
-        }
-        console.log("Node %s added.", msg.id);
-
-        // the more nodes we have, the more spacing we need
-        if (this.nodes.size > 30) {
-            this.renderer.getLayout().simulator.springLength(this.nodes.size);
-        }
-    }
-
-    @action
-    onRemoveNode = (msg: RemoveNodeMessage) => {
-        if (!this.nodes.has(msg.id)) {
-            console.log("Can't delete node %s, not in map.", msg.id);
-            return
-        }
-
-        this.nodes.delete(msg.id);
-        if (this.graphViewActive) {
-            this.graph.removeNode(msg.id);
-        }
-        console.log("Removed node %s", msg.id)
-
-        // the less nodes we have, the less spacing we need
-        if (this.nodes.size >= 30) {
-            this.renderer.getLayout().simulator.springLength(this.nodes.size);
-        }
-    }
-
-    @action
-    onConnectNodes = (msg: ConnectNodesMessage) => {
-        if (!this.nodes.has(msg.source)) {
-            console.log("Missing source node %s from node map.", msg.source);
-            return;
-        }
-        if (!this.nodes.has(msg.target)) {
-            console.log("Missing target node %s from node map.", msg.target);
-            return;
-        }
-
-        // both are in the map, draw the connection on screen
-        if (this.graphViewActive) {
-            this.graph.addLink(msg.source, msg.target);
-        }
-
-        // update connections
-        this.connections.add(msg.source + msg.target);
-
-        // Update neighbors map
-        if (this.neighbors.get(msg.source) === undefined) {
-            let neighbors = new Neighbors();
-            neighbors.out.add(msg.target);
-            this.neighbors.set(msg.source, neighbors);
-        } else {
-            this.neighbors.get(msg.source).out.add(msg.target);
-        }
-
-        if (this.neighbors.get(msg.target) === undefined) {
-            let neighbors = new Neighbors();
-            neighbors.in.add(msg.source);
-            this.neighbors.set(msg.target, neighbors);
-        } else {
-            this.neighbors.get(msg.target).in.add(msg.source);
-        }
-
-        console.log("Connected nodes %s -> %s", msg.source, msg.target);
-    }
-
-    @action
-    onDisconnectNodes = (msg: DisconnectNodesMessage) => {
-        if (this.graphViewActive){
-            let existingLink = this.graph.getLink(msg.source, msg.target);
-            if (!existingLink) {
-                console.log("Link %s -> %s is missing from graph", msg.source, msg.target);
-                return;
-            }
-            this.graph.removeLink(existingLink);
-        }
-
-        // update connections and neighbors
-        this.connections.delete(msg.source + msg.target);
-        this.neighbors.get(msg.source).out.delete(msg.target);
-        this.neighbors.get(msg.target).in.delete(msg.source);
-
-        console.log("Disconnected nodes %s -> %s",msg.source, msg.target)
-    }
-
-    // graph related updates //
-
-    drawNode = (node: string) => {
-        let existing = this.graph.getNode(node);
-
-        if (existing) {
-            return;
-        } else {
-            // add to graph structure
-            this.graph.addNode(node);
-        }
-    }
-
-    // updates color of a node (vertex) in the graph
-    updateNodeUiColor = (node, color, size) => {
-        let nodeUI = this.graphics.getNodeUI(node);
-        if (nodeUI != undefined) {
-            nodeUI.color = color;
-            nodeUI.size = size;
-        }
-    }
-
-    // updates color of a link (edge) in the graph
-    updateLinkUiColor = (idA, idB, color) => {
-        let con = this.graph.getLink(idA, idB);
-
-        if(con != null) {
-            let linkUI = this.graphics.getLinkUI(con.id);
-            if (linkUI != undefined) {
-                linkUI.color = parseColor(color);
-            }
-        }
-    }
-
-    // highlights selectedNode, its links and neighbors
-    showHighlight = () => {
-        if (!this.selectionActive) {return};
-
-        this.graph.beginUpdate();
-
-        this.graph.forEachLink((link) => {
-            let linkUi = this.graphics.getLinkUI(link.id);
-            linkUi.color = parseColor(EDGE_COLOR_HIDE);
-        })
-
-        // Highlight selected node
-        this.updateNodeUiColor(this.selectedNode, VERTEX_COLOR_ACTIVE, VERTEX_SIZE_ACTIVE);
-        this.selectedNodeInNeighbors.forEach((inNeighborID) => {
-            this.updateNodeUiColor(inNeighborID, VERTEX_COLOR_IN_NEIGHBOR, VERTEX_SIZE_CONNECTED);
-            this.updateLinkUiColor(inNeighborID, this.selectedNode, EDGE_COLOR_INCOMING);
-        })
-        this.selectedNodeOutNeighbors.forEach((outNeighborID) => {
-            this.updateNodeUiColor(outNeighborID, VERTEX_COLOR_OUT_NEIGHBOR, VERTEX_SIZE_CONNECTED);
-            this.updateLinkUiColor(this.selectedNode, outNeighborID, EDGE_COLOR_OUTGOING);
-        })
-
-        this.graph.endUpdate();
-        this.renderer.rerender();
-    }
-
-    // disables highlighting of selectedNode, its links and neighbors
-    resetPreviousColors = (skipAllLink: boolean = false, toLinkHide: boolean = false) => {
-        if (!this.selectionActive) {return};
-        this.graph.beginUpdate();
-
-        let edgeColor = EDGE_COLOR_DEFAULT;
-
-        if (toLinkHide) {
-            edgeColor = EDGE_COLOR_HIDE;
-        }
-
-        // Remove highlighting of selected node
-        this.updateNodeUiColor(this.selectedNode, VERTEX_COLOR_DEFAULT, VERTEX_SIZE);
-        this.selectedNodeInNeighbors.forEach((inNeighborID) => {
-            // Remove highlighting of neighbor
-            this.updateNodeUiColor(inNeighborID, VERTEX_COLOR_DEFAULT, VERTEX_SIZE);
-            // Remove highlighting of link
-            this.updateLinkUiColor(inNeighborID, this.selectedNode, edgeColor);
-        })
-        this.selectedNodeOutNeighbors.forEach((outNeighborID) => {
-            // Remove highlighting of neighbor
-            this.updateNodeUiColor(outNeighborID, VERTEX_COLOR_DEFAULT, VERTEX_SIZE);
-            // Remove highlighting of link
-            this.updateLinkUiColor(this.selectedNode, outNeighborID, edgeColor);
-        })
-
-        if (!skipAllLink) {
-            this.graph.forEachLink((link) => {
-                let linkUi = this.graphics.getLinkUI(link.id);
-                linkUi.color = parseColor(EDGE_COLOR_DEFAULT);
-            })
-        }
-
-        this.graph.endUpdate();
-        this.renderer.rerender();
-    }
-
-    // handlers for frontend events //
-
-    // updates the currently selected node
-    @action
-    updateSelectedNode = (node: string) => {
-        this.selectedNode = node;
-        // get node incoming neighbors
-        if (!this.nodes.has(this.selectedNode)) {
-            console.log("Selected node not found (%s)", this.selectedNode);
-        }
-        const neighbors = this.neighbors.get(this.selectedNode);
-        this.selectedNodeInNeighbors = neighbors ? neighbors.in : new Set();
-        this.selectedNodeOutNeighbors =  neighbors ? neighbors.out : new Set();
-        this.selectionActive = true;
-        this.showHighlight();
-    }
-
-       // handles click on a node button
-    @action
-    handleNodeButtonOnClick = (e) => {
-        // find node based on the first 8 characters
-        let clickedNode = this.getFullNodeID(e.target.innerHTML)
-        this.handleNodeSelection(clickedNode);
+        registerHandler(WSMsgType.addNode, msg => this.onAddNode(msg));
+        registerHandler(WSMsgType.removeNode, msg => this.onRemoveNode(msg));
+        registerHandler(WSMsgType.connectNodes, msg => this.onConnectNodes(msg));
+        registerHandler(WSMsgType.disconnectNodes, msg => this.onDisconnectNodes(msg));
     }
 
     // checks whether selection is already active, then updates selected node
     @action
-    handleNodeSelection = (clickedNode: string) => {
+    public handleNodeSelection(clickedNode: string): void {
         if (this.selectionActive) {
             if (this.selectedNode === clickedNode) {
                 // Disable selection on second click when clicked on the same node
@@ -409,214 +97,546 @@ export class AutopeeringStore {
         this.updateSelectedNode(clickedNode);
     }
 
+
+    @action
+    public updateWebSocketConnected(connected: boolean): void {
+        this.websocketConnected = connected;
+    }
+
+    @action
+    public updateSearch(searchNode: string): void {
+        this.search = searchNode.trim();
+    }
+
+    @action
+    public handleVersionSelection = (userSelectedVersion: string) => {
+        this.userSelectedNetworkVersion = userSelectedVersion;
+        if (this.selectedNetworkVersion !== userSelectedVersion){
+            // we switch network, should redraw the graph.
+            this.clearNodeSelection();
+            this.selectedNetworkVersion = userSelectedVersion;
+            this.stop();
+            this.start();
+        }
+    }
+
+    @action
+    public handleAutoVersionSelection = (autoSelectedVersion: string) => {
+        if (this.selectedNetworkVersion !== autoSelectedVersion){
+            this.userSelectedNetworkVersion = "";
+            // we switch network, should redraw the graph.
+            // no need to reset colors as the graph will be disposed anyway
+            this.clearNodeSelection(false);
+            this.selectedNetworkVersion = autoSelectedVersion;
+            this.stop();
+            this.start();
+        }
+    }
+
+    @action
+    private autoSelectNetwork = () => {
+        if (this.versions.size === 0){
+            return "";
+        }
+        let versionsArray = Array.from(this.versions);
+        versionsArray.sort((a,b) => {
+            return b.localeCompare(a);
+        })
+        return versionsArray[0];
+
+    }
+
+    @action
+    private onAddNode(msg: IAddNodeMessage): void {
+        if (!this.versions.has(msg.networkVersion)){
+            this.versions.add(msg.networkVersion);
+            if (this.userSelectedNetworkVersion === ""){
+                // usert hasn't specified a network version yet, we choose the newest
+                // otherwise we display wahtever the user selected
+                this.handleAutoVersionSelection(this.autoSelectNetwork());
+            }
+        }
+        // when we see the network for the first time
+        if (this.nodes.get(msg.networkVersion) === undefined){
+            this.nodes.set(msg.networkVersion, new ObservableSet<string>());
+        }
+
+        let nodeSet = this.nodes.get(msg.networkVersion);
+        // @ts-ignore
+        if (nodeSet.has(msg.id)){
+            console.log("Node %s already known.", msg.id);
+            return;
+        }
+        // @ts-ignore
+        nodeSet.add(msg.id);
+        console.log("Node %s added, network: %s", msg.id, msg.networkVersion);
+        // only update visuals when the current network is displayed
+        if (this.selectedNetworkVersion === msg.networkVersion){
+            if (this.graph) {
+                this.drawNode(msg.id);
+            }
+
+            // the more nodes we have, the more spacing we need
+            // @ts-ignore
+            if (nodeSet.size > 30) {
+                // @ts-ignore
+                this.renderer.getLayout().simulator.springLength(nodeSet.size);
+            }
+        }
+    }
+
+    @action
+    private onRemoveNode(msg: IRemoveNodeMessage): void {
+        if (this.nodes.get(msg.networkVersion) === undefined){
+            // nowhere to remove it from
+            return;
+        }
+        let nodeSet = this.nodes.get(msg.networkVersion);
+        // @ts-ignore
+        if (!nodeSet.has(msg.id)) {
+            console.log("Can't delete node %s, not in map.", msg.id);
+            return
+        }
+
+        if (this.selectedNetworkVersion === msg.networkVersion) {
+            if (this.graph) {
+                this.graph.removeNode(msg.id);
+            }
+
+            // the less nodes we have, the less spacing we need
+            // @ts-ignore
+            if (nodeSet.size >= 30) {
+                // @ts-ignore
+                this.renderer.getLayout().simulator.springLength(nodeSet.size);
+            }
+        }
+        // @ts-ignore
+        nodeSet.delete(msg.id);
+        // @ts-ignore
+        if (nodeSet.size === 0){
+            // this was the last node for this network version
+            this.nodes.delete(msg.networkVersion);
+            this.neighbors.delete(msg.networkVersion);
+            this.connections.delete(msg.networkVersion);
+            this.versions.delete(msg.networkVersion);
+            console.log("Removed all data for network %s", msg.networkVersion);
+
+            if (this.selectedNetworkVersion === msg.networkVersion){
+                // we were looking at this network, but it gets deleted.
+                // auto select
+                this.handleAutoVersionSelection(this.autoSelectNetwork());
+            }
+        }
+        console.log("Removed node %s, network: %s", msg.id, msg.networkVersion);
+    }
+
+    @action
+    private onConnectNodes(msg: IConnectNodesMessage): void {
+        if (this.nodes.get(msg.networkVersion) === undefined){
+            // we haven't seen this network before. trigger addnode (creates the set)
+            this.onAddNode({networkVersion: msg.networkVersion, id: msg.source});
+            this.onAddNode({networkVersion: msg.networkVersion, id: msg.target});
+        }
+        let nodeSet = this.nodes.get(msg.networkVersion);
+        // @ts-ignore
+        if (!nodeSet.has(msg.source)) {
+            console.log("Missing source node %s from node map.", msg.source);
+            return;
+        }
+        // @ts-ignore
+        if (!nodeSet.has(msg.target)) {
+            console.log("Missing target node %s from node map.", msg.target);
+            return;
+        }
+
+        // both are in the map, draw the connection on screen
+        if (this.graph && this.selectedNetworkVersion === msg.networkVersion) {
+            this.graph.addLink(msg.source, msg.target);
+        }
+
+        // first time we see connectNodes for this network
+        if (this.connections.get(msg.networkVersion) === undefined){
+            this.connections.set(msg.networkVersion, new ObservableSet<string>());
+        }
+        // update connections
+        // @ts-ignore
+        this.connections.get(msg.networkVersion).add(msg.source + msg.target);
+
+        // first time we see connectNodes for this network
+        if (this.neighbors.get(msg.networkVersion) === undefined){
+            this.neighbors.set(msg.networkVersion, new ObservableMap<string, INeighbors>());
+        }
+
+        let neighborMap = this.neighbors.get(msg.networkVersion);
+
+        // Update neighbors map
+        // @ts-ignore
+        if (neighborMap.get(msg.source) === undefined) {
+            let neighbors = new Neighbors();
+            neighbors.out.add(msg.target);
+            // @ts-ignore
+            neighborMap.set(msg.source, neighbors);
+        } else {
+            // @ts-ignore
+            neighborMap.get(msg.source).out.add(msg.target);
+        }
+
+        // @ts-ignore
+        if (neighborMap.get(msg.target) === undefined) {
+            let neighbors = new Neighbors();
+            neighbors.in.add(msg.source);
+            // @ts-ignore
+            neighborMap.set(msg.target, neighbors);
+        } else {
+            // @ts-ignore
+            neighborMap.get(msg.target).in.add(msg.source);
+        }
+
+        console.log("Connected nodes %s -> %s, network: %s", msg.source, msg.target, msg.networkVersion);
+    }
+
+    @action
+    private onDisconnectNodes(msg: IDisconnectNodesMessage): void {
+        if (this.graph && this.selectedNetworkVersion === msg.networkVersion){
+            let existingLink = this.graph.getLink(msg.source, msg.target);
+            if (!existingLink) {
+                console.log("Link %s -> %s is missing from graph", msg.source, msg.target);
+                return;
+            }
+            this.graph.removeLink(existingLink);
+        }
+
+        // update connections and neighbors
+        if (this.connections.get(msg.networkVersion) === undefined){
+            console.log("Can't find connections set for %s", msg.networkVersion)
+        } else {
+            // @ts-ignore
+            this.connections.get(msg.networkVersion).delete(msg.source + msg.target);
+        }
+
+        if (this.neighbors.get(msg.networkVersion) === undefined){
+            console.log("Can't find neighbors map for %s", msg.networkVersion)
+        } else {
+            // @ts-ignore
+            this.neighbors.get(msg.networkVersion).get(msg.source).out.delete(msg.target);
+            // @ts-ignore
+            this.neighbors.get(msg.networkVersion).get(msg.target).in.delete(msg.source);
+
+        }
+        console.log("Disconnected nodes %s -> %s, network: %s",msg.source, msg.target, msg.networkVersion);
+    }
+
+        
+    // updates the currently selected node
+    @action
+    private updateSelectedNode(node: string): void {
+        this.selectedNode = node;
+
+        // get node incoming neighbors
+        // @ts-ignore
+        if (!this.nodes.get(this.selectedNetworkVersion).has(this.selectedNode)) {
+            console.log("Selected node not found (%s)", this.selectedNode);
+            return;
+        }
+        // @ts-ignore
+        const neighbors = this.neighbors.get(this.selectedNetworkVersion).get(this.selectedNode);
+        this.selectedNodeInNeighbors = neighbors ? neighbors.in : new Set();
+        this.selectedNodeOutNeighbors = neighbors ? neighbors.out : new Set();
+        this.selectionActive = true;
+        this.showHighlight();
+    }
+
     // handles clearing the node selection
     @action
-    clearNodeSelection = () => {
-        this.resetPreviousColors();
-        this.selectedNode = null;
-        this.selectedNodeInNeighbors = null;
-        this.selectedNodeOutNeighbors = null;
+    private clearNodeSelection(resetPrevColors: boolean=true): void {
+        if (resetPrevColors) {
+            this.resetPreviousColors();
+        }
+        this.selectedNode = undefined;
+        this.selectedNodeInNeighbors = undefined;
+        this.selectedNodeOutNeighbors = undefined;
         this.selectionActive = false;
-        return;
+    }
+    
+    // connect to analysis server via websocket
+    public connect(): void {
+        connectWebSocket(statusWebSocketPath,
+            () => this.updateWebSocketConnected(true),
+            () => this.updateWebSocketConnected(false),
+            () => this.updateWebSocketConnected(false));
     }
 
-    // computed values update frontend rendering //
+    // create a graph and fill it with data
+    public start(): void {
+        this.graph = Viva.Graph.graph();
+
+        const graphics = Viva.Graph.View.webglGraphics();
+
+        const layout = Viva.Graph.Layout.forceDirected(this.graph, {
+            springLength: 30,
+            springCoeff: 0.0001,
+            dragCoeff: 0.02,
+            stableThreshold: 0.15,
+            gravity: -2,
+            timeStep: 20,
+            theta: 0.8
+        });
+        graphics.link(() => {
+            return Viva.Graph.View.webglLine(EDGE_COLOR_DEFAULT);
+        });
+        graphics.setNodeProgram(buildCircleNodeShader());
+
+        graphics.node(() => {
+            return {
+                size: VERTEX_SIZE,
+                color: VERTEX_COLOR_DEFAULT
+            };
+        });
+        graphics.link(() => Viva.Graph.View.webglLine(EDGE_COLOR_DEFAULT));
+        const ele = document.getElementById("visualizer");
+        this.renderer = Viva.Graph.View.renderer(this.graph, {
+            container: ele, graphics, layout, renderLinks: true
+        });
+
+        const events = Viva.Graph.webglInputEvents(graphics, this.graph);
+
+        events.click((node) => {
+            this.handleNodeSelection(node.id);
+        });
+
+        events.mouseEnter((node) => {
+            this.previewNode = node.id;
+        });
+
+        events.mouseLeave(() => {
+            this.previewNode = undefined;
+        });
+
+
+        this.graphics = graphics;
+        this.renderer.run();
+        // draw graph if we have data collected
+        this.initialDrawGraph(this.selectedNetworkVersion);
+    }
+
+    // dispose only graph, but keep the data
+    public stop(): void {
+        this.renderer.dispose();
+        this.graph = undefined;
+    }
 
     @computed
-    get nodeListView(){
+    public get nodeListView(): string[] {
+        let nodeSet = this.nodes.get(this.selectedNetworkVersion);
+        if (nodeSet === undefined){
+            return [];
+        }
         let results;
         if (this.search.trim().length === 0) {
-            results = this.nodes;
+            results = nodeSet;
         } else {
             results = new Set();
-            this.nodes.forEach((node) => {
-                if (node.toLowerCase().indexOf(this.search.toLowerCase()) >= 0){
+            // @ts-ignore
+            nodeSet.forEach((node) => {
+                if (node.toLowerCase().includes(this.search.toLowerCase())) {
                     results.add(node);
                 }
-            })
+            });
         }
-        let ids = [];
-
+        const ids: string[] = [];
         results.forEach((nodeID) => {
             ids.push(nodeID);
-        })
-        return ids
+        });
+        return ids;
     }
 
     @computed
-    get inNeighborList(){
-        return Array.from(this.selectedNodeInNeighbors);
+    public get inNeighborList(): string[] {
+        return this.selectedNodeInNeighbors ? Array.from(this.selectedNodeInNeighbors) : [];
     }
 
     @computed
-    get outNeighborList(){
-        return Array.from(this.selectedNodeOutNeighbors);
+    public get outNeighborList(): string[] {
+        return this.selectedNodeOutNeighbors ? Array.from(this.selectedNodeOutNeighbors) : [];
     }
 
-}
-
-export default AutopeeringStore;
-
-// vivagraph related utility functions //
-
-function parseColor(color): any {
-    let parsedColor = 0x009ee8ff;
-
-    if (typeof color === 'number') {
-        return color;
+    @computed
+    public get networkVersionList(): string[]{
+        return Array.from(this.versions).sort((a,b) => {
+            return a.localeCompare(b);
+        });
     }
 
-    if (typeof color === 'string' && color) {
-        if (color.length === 4) {
-            // #rgb, duplicate each letter except first #.
-            color = color.replace(/([^#])/g, '$1$1');
+    @computed
+    public get AvgNumNeighbors(): string{
+        let nodeSet = this.nodes.get(this.selectedNetworkVersion);
+        let connectionSet = this.connections.get(this.selectedNetworkVersion);
+        if ( nodeSet === undefined || connectionSet === undefined) {
+            return "0"
         }
-        if (color.length === 9) {
-            // #rrggbbaa
-            parsedColor = parseInt(color.substr(1), 16);
-        } else if (color.length === 7) {
-            // or #rrggbb.
-            parsedColor = (parseInt(color.substr(1), 16) << 8) | 0xff;
-        } else {
-            throw 'Color expected in hex format with preceding "#". E.g. #00ff00. Got value: ' + color;
+        // @ts-ignore
+        return nodeSet && nodeSet.size > 0 ?
+            // @ts-ignore
+            (2 * connectionSet.size / nodeSet.size).toPrecision(2).toString()
+            : "0"
+    }
+
+    @computed
+    get NodesOnline(){
+        let nodeSet = this.nodes.get(this.selectedNetworkVersion);
+        if (nodeSet === undefined) {
+            return "0"
+        }
+
+        // @ts-ignore
+        return nodeSet.size.toString()
+    }
+
+
+    // fill graph with data we have previously collected
+    private initialDrawGraph(version: string): void {
+        if (this.graph) {
+            if (this.nodes.get(version) !== undefined){
+                // @ts-ignore
+                this.nodes.get(version).forEach((node,key,map) => {
+                    this.drawNode(node);
+                })
+            }
+            if (this.neighbors.get(version) !== undefined){
+                // @ts-ignore
+                this.neighbors.get(version).forEach((node,key,map) => {
+                    // Only do it for one type of neighbors, as it is duplicated
+                    node.out.forEach((outNeighborID) =>{
+                        // @ts-ignore
+                        this.graph.addLink(key, outNeighborID);
+                    });
+                });
+            }
         }
     }
 
-    return parsedColor;
-}
+    // graph related updates //
+    private drawNode(node: string): void {
+        if (this.graph) {
+            const existing = this.graph.getNode(node);
 
-// WebGL stuff //
+            if (!existing) {
+                // add to graph structure
+                this.graph.addNode(node);
+            }
+        }
+    }
 
-function WebGLCircle(size, color) {
-    this.size = size;
-    this.color = color;
-}
-// Next comes the hard part - implementation of API for custom shader
-// program, used by webgl renderer:
-function buildCircleNodeShader() {
-    // For each primitive we need 4 attributes: x, y, color and size.
-    var ATTRIBUTES_PER_PRIMITIVE = 4,
-        nodesFS = [
-            'precision mediump float;',
-            'varying vec4 color;',
-            'void main(void) {',
-            '   if ((gl_PointCoord.x - 0.5) * (gl_PointCoord.x - 0.5) + (gl_PointCoord.y - 0.5) * (gl_PointCoord.y - 0.5) < 0.25) {',
-            '     gl_FragColor = color;',
-            '   } else {',
-            '     gl_FragColor = vec4(0);',
-            '   }',
-            '}'].join('\n'),
-        nodesVS = [
-            'attribute vec2 a_vertexPos;',
-            // Pack color and size into vector. First elemnt is color, second - size.
-            // Since it's floating point we can only use 24 bit to pack colors...
-            // thus alpha channel is dropped, and is always assumed to be 1.
-            'attribute vec2 a_customAttributes;',
-            'uniform vec2 u_screenSize;',
-            'uniform mat4 u_transform;',
-            'varying vec4 color;',
-            'void main(void) {',
-            '   gl_Position = u_transform * vec4(a_vertexPos/u_screenSize, 0, 1);',
-            '   gl_PointSize = a_customAttributes[1] * u_transform[0][0];',
-            '   float c = a_customAttributes[0];',
-            '   color.b = mod(c, 256.0); c = floor(c/256.0);',
-            '   color.g = mod(c, 256.0); c = floor(c/256.0);',
-            '   color.r = mod(c, 256.0); c = floor(c/256.0); color /= 255.0;',
-            '   color.a = 1.0;',
-            '}'].join('\n');
-    var program,
-        gl,
-        buffer,
-        locations,
-        webglUtils,
-        nodes = new Float32Array(64),
-        nodesCount = 0,
-        canvasWidth, canvasHeight, transform,
-        isCanvasDirty;
-    return {
-        /**
-         * Called by webgl renderer to load the shader into gl context.
-         */
-        load: function (glContext) {
-            gl = glContext;
-            webglUtils = Viva.Graph.webgl(glContext);
-            program = webglUtils.createProgram(nodesVS, nodesFS);
-            gl.useProgram(program);
-            locations = webglUtils.getLocations(program, ['a_vertexPos', 'a_customAttributes', 'u_screenSize', 'u_transform']);
-            gl.enableVertexAttribArray(locations.vertexPos);
-            gl.enableVertexAttribArray(locations.customAttributes);
-            buffer = gl.createBuffer();
-        },
-        /**
-         * Called by webgl renderer to update node position in the buffer array
-         *
-         * @param nodeUI - data model for the rendered node (WebGLCircle in this case)
-         * @param pos - {x, y} coordinates of the node.
-         */
-        position: function (nodeUI, pos) {
-            var idx = nodeUI.id;
-            nodes[idx * ATTRIBUTES_PER_PRIMITIVE] = pos.x;
-            nodes[idx * ATTRIBUTES_PER_PRIMITIVE + 1] = -pos.y;
-            nodes[idx * ATTRIBUTES_PER_PRIMITIVE + 2] = nodeUI.color;
-            nodes[idx * ATTRIBUTES_PER_PRIMITIVE + 3] = nodeUI.size;
-        },
-        /**
-         * Request from webgl renderer to actually draw our stuff into the
-         * gl context. This is the core of our shader.
-         */
-        render: function () {
-            gl.useProgram(program);
-            gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-            gl.bufferData(gl.ARRAY_BUFFER, nodes, gl.DYNAMIC_DRAW);
-            if (isCanvasDirty) {
-                isCanvasDirty = false;
-                gl.uniformMatrix4fv(locations.transform, false, transform);
-                gl.uniform2f(locations.screenSize, canvasWidth, canvasHeight);
+    // updates color of a node (vertex) in the graph
+    private updateNodeUiColor(node: string, color: string, size: number): void {
+        const nodeUI = this.graphics.getNodeUI(node);
+        if (nodeUI !== undefined) {
+            nodeUI.color = color;
+            nodeUI.size = size;
+        }
+    }
+
+    // updates color of a link (edge) in the graph
+    private updateLinkUiColor(idA: string, idB: string, color: string): void {
+        if (this.graph) {
+            const con = this.graph.getLink(idA, idB);
+
+            if (con !== undefined) {
+                const linkUI = this.graphics.getLinkUI(con.id);
+                if (linkUI !== undefined) {
+                    linkUI.color = parseColor(color);
+                }
             }
-            gl.vertexAttribPointer(locations.vertexPos, 2, gl.FLOAT, false, ATTRIBUTES_PER_PRIMITIVE * Float32Array.BYTES_PER_ELEMENT, 0);
-            gl.vertexAttribPointer(locations.customAttributes, 2, gl.FLOAT, false, ATTRIBUTES_PER_PRIMITIVE * Float32Array.BYTES_PER_ELEMENT, 2 * 4);
-            gl.drawArrays(gl.POINTS, 0, nodesCount);
-        },
-        /**
-         * Called by webgl renderer when user scales/pans the canvas with nodes.
-         */
-        updateTransform: function (newTransform) {
-            transform = newTransform;
-            isCanvasDirty = true;
-        },
-        /**
-         * Called by webgl renderer when user resizes the canvas with nodes.
-         */
-        updateSize: function (newCanvasWidth, newCanvasHeight) {
-            canvasWidth = newCanvasWidth;
-            canvasHeight = newCanvasHeight;
-            isCanvasDirty = true;
-        },
-        /**
-         * Called by webgl renderer to notify us that the new node was created in the graph
-         */
-        createNode: function (node) {
-            nodes = webglUtils.extendArray(nodes, nodesCount, ATTRIBUTES_PER_PRIMITIVE);
-            nodesCount += 1;
-        },
-        /**
-         * Called by webgl renderer to notify us that the node was removed from the graph
-         */
-        removeNode: function (node) {
-            if (nodesCount > 0) { nodesCount -= 1; }
-            if (node.id < nodesCount && nodesCount > 0) {
-                // we do not really delete anything from the buffer.
-                // Instead we swap deleted node with the "last" node in the
-                // buffer and decrease marker of the "last" node. Gives nice O(1)
-                // performance, but make code slightly harder than it could be:
-                webglUtils.copyArrayPart(nodes, node.id * ATTRIBUTES_PER_PRIMITIVE, nodesCount * ATTRIBUTES_PER_PRIMITIVE, ATTRIBUTES_PER_PRIMITIVE);
+        }
+    }
+
+    // highlights selectedNode, its links and neighbors
+    private showHighlight(): void {
+        if (!this.selectionActive) {
+            return;
+        }
+
+        if (!this.graph) {
+            return;
+        }
+
+        this.graph.beginUpdate();
+
+        this.graph.forEachLink((link) => {
+            const linkUi = this.graphics.getLinkUI(link.id);
+            if (linkUi) {
+                linkUi.color = parseColor(EDGE_COLOR_HIDE);
             }
-        },
-        /**
-         * This method is called by webgl renderer when it changes parts of its
-         * buffers. We don't use it here, but it's needed by API (see the comment
-         * in the removeNode() method)
-         */
-        replaceProperties: function (replacedNode, newNode) { },
-    };
+        });
+
+        // Highlight selected node
+        if (this.selectedNode) {
+            this.updateNodeUiColor(this.selectedNode, VERTEX_COLOR_ACTIVE, VERTEX_SIZE_ACTIVE);
+
+            if (this.selectedNodeInNeighbors) {
+                for (const inNeighborID of this.selectedNodeInNeighbors) {
+                    this.updateNodeUiColor(inNeighborID, VERTEX_COLOR_IN_NEIGHBOR, VERTEX_SIZE_CONNECTED);
+                    this.updateLinkUiColor(inNeighborID, this.selectedNode, EDGE_COLOR_INCOMING);
+                }
+            }
+            if (this.selectedNodeOutNeighbors) {
+                for (const outNeighborID of this.selectedNodeOutNeighbors) {
+                    this.updateNodeUiColor(outNeighborID, VERTEX_COLOR_OUT_NEIGHBOR, VERTEX_SIZE_CONNECTED);
+                    this.updateLinkUiColor(this.selectedNode, outNeighborID, EDGE_COLOR_OUTGOING);
+                }
+            }
+        }
+
+        this.graph.endUpdate();
+        this.renderer.rerender();
+    }
+
+    // disables highlighting of selectedNode, its links and neighbors
+    private resetPreviousColors(skipAllLink: boolean = false, toLinkHide: boolean = false): void {
+        if (!this.selectionActive || !this.graph) {
+            return;
+        }
+
+        this.graph.beginUpdate();
+
+        let edgeColor = EDGE_COLOR_DEFAULT;
+
+        if (toLinkHide) {
+            edgeColor = EDGE_COLOR_HIDE;
+        }
+
+        // Remove highlighting of selected node
+        if (this.selectedNode) {
+            this.updateNodeUiColor(this.selectedNode, VERTEX_COLOR_DEFAULT, VERTEX_SIZE);
+
+            if (this.selectedNodeInNeighbors) {
+                for (const inNeighborID of this.selectedNodeInNeighbors) {
+                    // Remove highlighting of neighbor
+                    this.updateNodeUiColor(inNeighborID, VERTEX_COLOR_DEFAULT, VERTEX_SIZE);
+                    // Remove highlighting of link
+                    this.updateLinkUiColor(inNeighborID, this.selectedNode, edgeColor);
+                }
+            }
+            if (this.selectedNodeOutNeighbors) {
+                for (const outNeighborID of this.selectedNodeOutNeighbors) {
+                    // Remove highlighting of neighbor
+                    this.updateNodeUiColor(outNeighborID, VERTEX_COLOR_DEFAULT, VERTEX_SIZE);
+                    // Remove highlighting of link
+                    this.updateLinkUiColor(this.selectedNode, outNeighborID, edgeColor);
+                }
+            }
+        }
+
+        if (!skipAllLink) {
+            this.graph.forEachLink((link) => {
+                const linkUi = this.graphics.getLinkUI(link.id);
+                if (linkUi) {
+                    linkUi.color = parseColor(EDGE_COLOR_DEFAULT);
+                }
+            });
+        }
+
+        this.graph.endUpdate();
+        this.renderer.rerender();
+    }
 }

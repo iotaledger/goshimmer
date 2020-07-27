@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/vote"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/protocol/message"
 	"github.com/iotaledger/hive.go/protocol/tlv"
 	"github.com/stretchr/testify/require"
@@ -43,6 +44,13 @@ func TestFPCHeartbeat(t *testing.T) {
 	require.NoError(t, err)
 
 	hbParsed, err := ParseFPCHeartbeat(packet)
+	require.Error(t, err)
+
+	hb.Version = banner.AppVersion
+	packet, err = hb.Bytes()
+	require.NoError(t, err)
+
+	hbParsed, err = ParseFPCHeartbeat(packet)
 	require.NoError(t, err)
 
 	require.Equal(t, hb, hbParsed)

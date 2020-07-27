@@ -9,9 +9,10 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/mr-tron/base58"
 )
 
 // Network represents a complete GoShimmer network within Docker.
@@ -86,28 +87,50 @@ func (n *Network) createEntryNode() error {
 // Passing bootstrap true enables the bootstrap plugin on the given peer.
 func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 	name := n.namePrefix(fmt.Sprintf("%s%d", containerNameReplica, len(n.peers)))
+	config := c
 
 	// create identity
-	publicKey, privateKey, err := ed25519.GenerateKey()
-	if err != nil {
-		return nil, err
+	var publicKey ed25519.PublicKey
+	var privateKey ed25519.PrivateKey
+	var err error
+	if config.Seed == "" {
+		publicKey, privateKey, err = ed25519.GenerateKey()
+		if err != nil {
+			return nil, err
+		}
+		seed := privateKey.Seed().String()
+		config.Seed = seed
+	} else {
+		bytes, encodeErr := base58.Decode(config.Seed)
+		if encodeErr != nil {
+			return nil, encodeErr
+		}
+		publicKey = ed25519.PrivateKeyFromSeed(bytes).Public()
 	}
-	seed := privateKey.Seed().String()
 
-	config := c
 	config.Name = name
-	config.Seed = seed
 	config.EntryNodeHost = n.namePrefix(containerNameEntryNode)
 	config.EntryNodePublicKey = n.entryNodePublicKey()
-	config.DisabledPlugins = disabledPluginsPeer
+	config.DisabledPlugins = func() string {
+		if !config.SyncBeaconFollower {
+			return disabledPluginsPeer + ",SyncBeaconFollower"
+		}
+		return disabledPluginsPeer
+	}()
 	config.SnapshotFilePath = snapshotFilePath
+	if config.SyncBeaconFollowNodes == "" {
+		config.SyncBeaconFollowNodes = syncBeaconPublicKey
+	}
+	if config.SyncBeaconBroadcastInterval == 0 {
+		config.SyncBeaconBroadcastInterval = 5
+	}
 
 	// create wallet
-	var nodeWallet *wallet.Wallet
+	var nodeSeed *walletseed.Seed
 	if c.Faucet == true {
-		nodeWallet = wallet.New(genesisSeed)
+		nodeSeed = walletseed.NewSeed(genesisSeed)
 	} else {
-		nodeWallet = wallet.New()
+		nodeSeed = walletseed.NewSeed()
 	}
 
 	// create Docker container
@@ -125,7 +148,7 @@ func (n *Network) CreatePeer(c GoShimmerConfig) (*Peer, error) {
 		return nil, err
 	}
 
-	peer, err := newPeer(name, identity.New(publicKey), container, nodeWallet, n)
+	peer, err := newPeer(name, identity.New(publicKey), container, nodeSeed, n)
 	if err != nil {
 		return nil, err
 	}

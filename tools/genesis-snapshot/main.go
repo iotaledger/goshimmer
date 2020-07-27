@@ -4,10 +4,10 @@ import (
 	"log"
 	"os"
 
+	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/wallet"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -33,7 +33,7 @@ func main() {
 	log.Printf("creating snapshot %s...", snapshotFileName)
 
 	genesisWallet := wallet.New()
-	genesisAddress := genesisWallet.Seed().Address(0)
+	genesisAddress := genesisWallet.Seed().Address(0).Address
 
 	log.Println("genesis:")
 	log.Printf("-> seed (base58): %s", genesisWallet.Seed().String())

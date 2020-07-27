@@ -15,19 +15,19 @@ import (
 
 func TestMessageCountPerPayload(t *testing.T) {
 	// it is empty initially
-	assert.Equal(t, MessageTotalCount(), (uint64)(0))
+	assert.Equal(t, MessageTotalCountSinceStart(), (uint64)(0))
 	// simulate attaching 10 value payloads in 0s < t < 1s
 	for i := 0; i < 10; i++ {
 		increasePerPayloadCounter(valuepayload.Type)
 	}
-	assert.Equal(t, MessageTotalCount(), (uint64)(10))
-	assert.Equal(t, MessageCountPerPayload(), map[payload.Type]uint64{valuepayload.Type: 10})
+	assert.Equal(t, MessageTotalCountSinceStart(), (uint64)(10))
+	assert.Equal(t, MessageCountSinceStartPerPayload(), map[payload.Type]uint64{valuepayload.Type: 10})
 	// simulate attaching 5 drng payloads
 	for i := 0; i < 5; i++ {
 		increasePerPayloadCounter(drngpayload.Type)
 	}
-	assert.Equal(t, MessageTotalCount(), (uint64)(15))
-	assert.Equal(t, MessageCountPerPayload(), map[payload.Type]uint64{valuepayload.Type: 10, drngpayload.Type: 5})
+	assert.Equal(t, MessageTotalCountSinceStart(), (uint64)(15))
+	assert.Equal(t, MessageCountSinceStartPerPayload(), map[payload.Type]uint64{valuepayload.Type: 10, drngpayload.Type: 5})
 }
 
 func TestMessageTips(t *testing.T) {

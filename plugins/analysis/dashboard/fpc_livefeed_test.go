@@ -7,13 +7,14 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
+	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/stretchr/testify/require"
 )
 
 // TestCreateFPCUpdate checks that given a FPC heartbeat, the returned FPCUpdate is ok.
 func TestCreateFPCUpdate(t *testing.T) {
 	ownID := sha256.Sum256([]byte{'A'})
-	base58OwnID := shortNodeIDString(ownID[:])
+	base58OwnID := analysisserver.ShortNodeIDString(ownID[:])
 
 	// create a FPCHeartbeat
 	hbTest := &packet.FPCHeartbeat{
@@ -47,6 +48,8 @@ func TestCreateFPCUpdate(t *testing.T) {
 	}
 
 	// check that createFPCUpdate returns a matching FPCMsg
-	require.Equal(t, want, createFPCUpdate(hbTest))
+	for k, v := range createFPCUpdate(hbTest).Conflicts {
+		require.Equal(t, want.Conflicts[k].NodesView, v.NodesView)
+	}
 
 }

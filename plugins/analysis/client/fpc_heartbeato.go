@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/hive.go/identity"
 )
 
@@ -38,6 +39,7 @@ func onRoundExecuted(roundStats *vote.RoundStats) {
 		}
 
 		hb := &packet.FPCHeartbeat{
+			Version:    banner.AppVersion,
 			OwnID:      nodeID,
 			RoundStats: rs,
 		}
