@@ -9,74 +9,73 @@ env:
 
 # Builds
 builds:
-  # macOS AMD64
-  - id: goshimmer-darwin-amd64
+  # GoShimmer AMD64 all OS
+  - id: goshimmer
     binary: goshimmer
     env:
       - CGO_ENABLED=0
     ldflags:
-      - -s -w -X github.com/iotaledger/goshimmer/plugins/cli.AppVersion={{.Version}}
-    main: main.go
-    goos:
-      - darwin
-    goarch:
-      - amd64
-  # Linux AMD64
-  - id: goshimmer-linux-amd64
-    binary: goshimmer
-    env:
-      - CGO_ENABLED=1
-    ldflags:
-      - -s -w -X github.com/iotaledger/goshimmer/plugins/cli.AppVersion={{.Version}}
-    flags:
-      - -tags=pow_avx
-    main: main.go
+      - -s -w -X github.com/iotaledger/goshimmer/plugins/banner.AppVersion={{.Version}}
     goos:
       - linux
+      - darwin
+      - windows
     goarch:
       - amd64
-  # Windows AMD64
-  - id: goshimmer-windows-amd64
-    binary: goshimmer
+
+  # cli-wallet AMD64 all OS
+  - id: cli-wallet
+    dir: ./tools/cli-wallet
+    binary: cli-wallet
     env:
-      - CGO_ENABLED=1
-      - CC=x86_64-w64-mingw32-gcc
-      - CXX=x86_64-w64-mingw32-g++
-    ldflags:
-      - -s -w -X github.com/iotaledger/goshimmer/plugins/cli.AppVersion={{.Version}}
-    flags:
-      - -tags=pow_avx
-    main: main.go
+      - CGO_ENABLED=0
     goos:
+      - linux
+      - darwin
       - windows
     goarch:
       - amd64
 
 # Archives
 archives:
-  - format: tar.gz
-    wrap_in_directory: true
-    format_overrides:
-      - goos: windows
-        format: zip
-    name_template: "{{.ProjectName}}-{{.Version}}_{{.Os}}_{{.Arch}}"
+  # GoShimmer with config and snapshot
+  - id: goshimmer
+    builds:
+      - goshimmer
+    name_template: "goshimmer-{{.Version}}_{{.Os}}_{{.Arch}}"
     replacements:
       amd64: x86_64
-      386: 32bit
       arm: ARM
       arm64: ARM64
       darwin: macOS
       linux: Linux
       windows: Windows
-      openbsd: OpenBSD
-      netbsd: NetBSD
-      freebsd: FreeBSD
-      dragonfly: DragonFlyBSD
+    format_overrides:
+      - goos: windows
+        format: zip
     files:
       - README.md
       - LICENSE
       - config.json
       - snapshot.bin
+
+  # cli-wallet
+  - id: cli-wallet
+    builds:
+      - cli-wallet
+    name_template: "cli-wallet-{{.Version}}_{{.Os}}_{{.Arch}}"
+    replacements:
+      amd64: x86_64
+      arm: ARM
+      arm64: ARM64
+      darwin: macOS
+      linux: Linux
+      windows: Windows
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
 
 # Checksum
 checksum:
