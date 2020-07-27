@@ -74,7 +74,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "iota_info_app",
@@ -153,7 +153,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "sync",
@@ -212,7 +212,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "irate(tangle_message_total_count[5m])",
@@ -270,7 +270,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "process_cpu_usage",
@@ -324,7 +324,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "process_mem_usage_bytes/1024/1024",
@@ -382,7 +382,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "db_size_bytes/1024/1024",
@@ -496,10 +496,16 @@
           "refId": "D"
         },
         {
-          "expr": "irate(tangle_messages_per_type_count{message_type=\"netowrkdelay\"}[5m])",
+          "expr": "irate(tangle_messages_per_type_count{message_type=\"networkdelay\"}[5m])",
           "interval": "",
           "legendFormat": "Network Delay Messages Per Second",
           "refId": "E"
+        },
+        {
+          "expr": "irate(tangle_messages_per_type_count{message_type=\"syncbeacon\"}[5m])",
+          "interval": "",
+          "legendFormat": "Sync Beacons Per Second",
+          "refId": "F"
         }
       ],
       "thresholds": [],
@@ -693,7 +699,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "autopeering_neighbor_connections_count - autopeering_neighbor_drop_count",
@@ -747,7 +753,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "autopeering_avg_neighbor_connection_lifetime",
@@ -804,7 +810,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "autopeering_neighbor_connections_count",
@@ -861,7 +867,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "autopeering_neighbor_drop_count",
@@ -1750,7 +1756,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "traffic_gossip_outbound_bytes",
@@ -1803,7 +1809,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "traffic_gossip_inbound_bytes",
@@ -1856,7 +1862,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "traffic_autopeering_outbound_bytes",
@@ -1909,7 +1915,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "traffic_autopeering_inbound_bytes",
@@ -1962,7 +1968,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "traffic_fpc_inbound_bytes",
@@ -2015,7 +2021,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "traffic_fpc_outbound_bytes",
@@ -2068,7 +2074,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "traffic_analysis_outbound_bytes",
@@ -2233,7 +2239,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "fpc_avg_rounds_to_finalize",
@@ -2290,7 +2296,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "fpc_finalized_conflicts",
@@ -2347,7 +2353,7 @@
           "values": false
         }
       },
-      "pluginVersion": "7.0.3",
+      "pluginVersion": "7.0.5",
       "targets": [
         {
           "expr": "fpc_failed_conflicts",
@@ -2770,5 +2776,5 @@
   "timezone": "",
   "title": "GoShimmer Local Metrics",
   "uid": "kjOQZ2ZMk",
-  "version": 6
+  "version": 3
 }
