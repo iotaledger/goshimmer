@@ -7,21 +7,21 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-// ContentId identifies the content of a message without its trunk/branch ids.
-type ContentId = Id
+// ContentID identifies the content of a message without its trunk/branch ids.
+type ContentID = ID
 
 // ID identifies a message in its entirety. Unlike the sole content id, it also incorporates
 // the trunk and branch ids.
-type Id [IdLength]byte
+type ID [IDLength]byte
 
-// NewId creates a new message id.
-func NewId(base58EncodedString string) (result Id, err error) {
+// NewID creates a new message id.
+func NewID(base58EncodedString string) (result ID, err error) {
 	bytes, err := base58.Decode(base58EncodedString)
 	if err != nil {
 		return
 	}
 
-	if len(bytes) != IdLength {
+	if len(bytes) != IDLength {
 		err = fmt.Errorf("length of base58 formatted message id is wrong")
 
 		return
@@ -32,10 +32,10 @@ func NewId(base58EncodedString string) (result Id, err error) {
 	return
 }
 
-// IdFromBytes unmarshals a message id from a sequence of bytes.
-func IdFromBytes(bytes []byte) (result Id, consumedBytes int, err error) {
+// IDFromBytes unmarshals a message id from a sequence of bytes.
+func IDFromBytes(bytes []byte) (result ID, consumedBytes int, err error) {
 	// check arguments
-	if len(bytes) < IdLength {
+	if len(bytes) < IDLength {
 		err = fmt.Errorf("bytes not long enough to encode a valid message id")
 	}
 
@@ -43,38 +43,44 @@ func IdFromBytes(bytes []byte) (result Id, consumedBytes int, err error) {
 	copy(result[:], bytes)
 
 	// return the number of bytes we processed
-	consumedBytes = IdLength
+	consumedBytes = IDLength
 
 	return
 }
 
-// ParseId is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func ParseId(marshalUtil *marshalutil.MarshalUtil) (Id, error) {
-	if id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return IdFromBytes(data) }); err != nil {
-		return Id{}, err
-	} else {
-		return id.(Id), nil
+// ParseID is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func ParseID(marshalUtil *marshalutil.MarshalUtil) (ID, error) {
+	id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return IDFromBytes(data) })
+	if err != nil {
+		return ID{}, err
 	}
+	return id.(ID), nil
 }
 
-func (id *Id) MarshalBinary() (result []byte, err error) {
+// MarshalBinary marshals the ID into bytes.
+func (id *ID) MarshalBinary() (result []byte, err error) {
 	return id.Bytes(), nil
 }
 
-func (id *Id) UnmarshalBinary(data []byte) (err error) {
+// UnmarshalBinary unmarshals the bytes into an ID.
+func (id *ID) UnmarshalBinary(data []byte) (err error) {
 	copy(id[:], data)
 
 	return
 }
 
-func (id Id) Bytes() []byte {
+// Bytes returns the bytes of the ID.
+func (id ID) Bytes() []byte {
 	return id[:]
 }
 
-func (id Id) String() string {
+// String returns the base58 encode of the ID.
+func (id ID) String() string {
 	return base58.Encode(id[:])
 }
 
-var EmptyId = Id{}
+// EmptyID is an empty id.
+var EmptyID = ID{}
 
-const IdLength = 64
+// IDLength defines the length of an ID.
+const IDLength = 64

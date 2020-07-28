@@ -21,7 +21,7 @@ var (
 
 // A TipSelector selects two tips, branch and trunk, for a new message to attach to.
 type TipSelector interface {
-	Tips() (trunk message.Id, branch message.Id)
+	Tips() (trunk message.ID, branch message.ID)
 }
 
 // A Worker performs the PoW for the provided message in serialized byte form.
@@ -120,7 +120,7 @@ func (m *MessageFactory) Shutdown() {
 	}
 }
 
-func (m *MessageFactory) doPOW(trunkID message.Id, branchID message.Id, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
+func (m *MessageFactory) doPOW(trunkID message.ID, branchID message.ID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
 	dummy := message.New(trunkID, branchID, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
 
@@ -129,7 +129,7 @@ func (m *MessageFactory) doPOW(trunkID message.Id, branchID message.Id, issuingT
 	return m.worker.DoPOW(dummy)
 }
 
-func (m *MessageFactory) sign(trunkID message.Id, branchID message.Id, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
+func (m *MessageFactory) sign(trunkID message.ID, branchID message.ID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
 	// create a dummy message to simplify marshaling
 	dummy := message.New(trunkID, branchID, issuingTime, key, seq, payload, nonce, ed25519.EmptySignature)
 	dummyBytes := dummy.Bytes()
@@ -139,10 +139,10 @@ func (m *MessageFactory) sign(trunkID message.Id, branchID message.Id, issuingTi
 }
 
 // The TipSelectorFunc type is an adapter to allow the use of ordinary functions as tip selectors.
-type TipSelectorFunc func() (message.Id, message.Id)
+type TipSelectorFunc func() (message.ID, message.ID)
 
 // Tips calls f().
-func (f TipSelectorFunc) Tips() (message.Id, message.Id) {
+func (f TipSelectorFunc) Tips() (message.ID, message.ID) {
 	return f()
 }
 

@@ -20,7 +20,9 @@ import (
 )
 
 const (
-	PluginName       = "MessageLayer"
+	// PluginName defines the plugin name.
+	PluginName = "MessageLayer"
+	// DBSequenceNumber defines the db sequence number.
 	DBSequenceNumber = "seq"
 )
 
@@ -118,7 +120,7 @@ func configure(*node.Plugin) {
 	_tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
 		cachedMessageMetadata.Release()
 		cachedMessage.Consume(func(msg *message.Message) {
-			messageRequester.StopRequest(msg.Id())
+			messageRequester.StopRequest(msg.ID())
 		})
 	}))
 
@@ -128,7 +130,7 @@ func configure(*node.Plugin) {
 		cachedMessage.Consume(tipSelector.AddTip)
 	}))
 
-	MessageRequester().Events.MissingMessageAppeared.Attach(events.NewClosure(func(id message.Id) {
+	MessageRequester().Events.MissingMessageAppeared.Attach(events.NewClosure(func(id message.ID) {
 		_tangle.DeleteMissingMessage(id)
 	}))
 }
@@ -144,7 +146,7 @@ func run(*node.Plugin) {
 }
 
 // messageExists tells if a given message is present in the node
-func messageExists(msgID message.Id) bool {
+func messageExists(msgID message.ID) bool {
 	cachedMessage := Tangle().Message(msgID)
 	defer cachedMessage.Release()
 	return cachedMessage.Exists()

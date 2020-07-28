@@ -27,7 +27,7 @@ var (
 	testMessageData = []byte("testMsg")
 )
 
-func loadTestMessage(message.Id) ([]byte, error) { return testMessageData, nil }
+func loadTestMessage(message.ID) ([]byte, error) { return testMessageData, nil }
 
 func TestClose(t *testing.T) {
 	_, teardown, _ := newMockedManager(t, "A")
@@ -336,7 +336,7 @@ func TestMessageRequest(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	id := message.Id{}
+	id := message.ID{}
 
 	// mgrA should eventually receive the message
 	mgrA.On("messageReceived", &MessageReceivedEvent{Data: testMessageData, Peer: peerB}).Once()

@@ -50,7 +50,7 @@ func New(store kvstore.KVStore) (result *Tangle) {
 		shutdown:               make(chan struct{}),
 		messageStorage:         osFactory.New(PrefixMessage, messageFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		messageMetadataStorage: osFactory.New(PrefixMessageMetadata, MessageMetadataFromStorageKey, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:        osFactory.New(PrefixApprovers, approverFactory, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(message.IdLength, message.IdLength), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:        osFactory.New(PrefixApprovers, approverFactory, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(message.IDLength, message.IDLength), objectstorage.LeakDetectionEnabled(false)),
 		missingMessageStorage:  osFactory.New(PrefixMissingMessage, missingMessageFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: *newEvents(),
@@ -67,46 +67,46 @@ func (tangle *Tangle) AttachMessage(msg *message.Message) {
 }
 
 // Message retrieves a message from the tangle.
-func (tangle *Tangle) Message(messageId message.Id) *message.CachedMessage {
-	return &message.CachedMessage{CachedObject: tangle.messageStorage.Load(messageId[:])}
+func (tangle *Tangle) Message(messageID message.ID) *message.CachedMessage {
+	return &message.CachedMessage{CachedObject: tangle.messageStorage.Load(messageID[:])}
 }
 
 // MessageMetadata retrieves the metadata of a message from the tangle.
-func (tangle *Tangle) MessageMetadata(messageId message.Id) *CachedMessageMetadata {
-	return &CachedMessageMetadata{CachedObject: tangle.messageMetadataStorage.Load(messageId[:])}
+func (tangle *Tangle) MessageMetadata(messageID message.ID) *CachedMessageMetadata {
+	return &CachedMessageMetadata{CachedObject: tangle.messageMetadataStorage.Load(messageID[:])}
 }
 
 // Approvers retrieves the approvers of a message from the tangle.
-func (tangle *Tangle) Approvers(messageId message.Id) CachedApprovers {
+func (tangle *Tangle) Approvers(messageID message.ID) CachedApprovers {
 	approvers := make(CachedApprovers, 0)
 	tangle.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		approvers = append(approvers, &CachedApprover{CachedObject: cachedObject})
 		return true
-	}, messageId[:])
+	}, messageID[:])
 	return approvers
 }
 
 // DeleteMessage deletes a message and its association to approvees by un-marking the given
 // message as an approver.
-func (tangle *Tangle) DeleteMessage(messageId message.Id) {
-	tangle.Message(messageId).Consume(func(currentMsg *message.Message) {
-		trunkMsgId := currentMsg.TrunkId()
-		tangle.deleteApprover(trunkMsgId, messageId)
+func (tangle *Tangle) DeleteMessage(messageID message.ID) {
+	tangle.Message(messageID).Consume(func(currentMsg *message.Message) {
+		trunkMsgID := currentMsg.TrunkID()
+		tangle.deleteApprover(trunkMsgID, messageID)
 
-		branchMsgId := currentMsg.BranchId()
-		if branchMsgId != trunkMsgId {
-			tangle.deleteApprover(branchMsgId, messageId)
+		branchMsgID := currentMsg.BranchID()
+		if branchMsgID != trunkMsgID {
+			tangle.deleteApprover(branchMsgID, messageID)
 		}
 
-		tangle.messageMetadataStorage.Delete(messageId[:])
-		tangle.messageStorage.Delete(messageId[:])
+		tangle.messageMetadataStorage.Delete(messageID[:])
+		tangle.messageStorage.Delete(messageID[:])
 
-		tangle.Events.MessageRemoved.Trigger(messageId)
+		tangle.Events.MessageRemoved.Trigger(messageID)
 	})
 }
 
 // DeleteMissingMessage deletes a message from the missingMessageStorage.
-func (tangle *Tangle) DeleteMissingMessage(messageID message.Id) {
+func (tangle *Tangle) DeleteMissingMessage(messageID message.ID) {
 	tangle.missingMessageStorage.Delete(messageID[:])
 }
 
@@ -170,12 +170,12 @@ func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidifica
 }
 
 // MissingMessages return the ids of messages in missingMessageStorage
-func (tangle *Tangle) MissingMessages() (ids []message.Id) {
+func (tangle *Tangle) MissingMessages() (ids []message.ID) {
 	tangle.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
 			missingMsg := object.(*MissingMessage)
 			if !missingMsg.IsDeleted() {
-				ids = append(ids, missingMsg.messageId)
+				ids = append(ids, missingMsg.messageID)
 			}
 		})
 		return true
@@ -194,20 +194,20 @@ func (tangle *Tangle) storeMessageWorker(msg *message.Message) {
 	cachedMessage = &message.CachedMessage{CachedObject: _tmp}
 
 	// store message metadata
-	messageId := msg.Id()
-	cachedMsgMetadata := &CachedMessageMetadata{CachedObject: tangle.messageMetadataStorage.Store(NewMessageMetadata(messageId))}
+	messageID := msg.ID()
+	cachedMsgMetadata := &CachedMessageMetadata{CachedObject: tangle.messageMetadataStorage.Store(NewMessageMetadata(messageID))}
 
 	// store trunk approver
-	trunkMsgId := msg.TrunkId()
-	tangle.approverStorage.Store(NewApprover(trunkMsgId, messageId)).Release()
+	trunkMsgID := msg.TrunkID()
+	tangle.approverStorage.Store(NewApprover(trunkMsgID, messageID)).Release()
 
 	// store branch approver
-	if branchMsgId := msg.BranchId(); branchMsgId != trunkMsgId {
-		tangle.approverStorage.Store(NewApprover(branchMsgId, messageId)).Release()
+	if branchMsgID := msg.BranchID(); branchMsgID != trunkMsgID {
+		tangle.approverStorage.Store(NewApprover(branchMsgID, messageID)).Release()
 	}
 
 	// trigger events
-	if tangle.missingMessageStorage.DeleteIfPresent(messageId[:]) {
+	if tangle.missingMessageStorage.DeleteIfPresent(messageID[:]) {
 		tangle.Events.MissingMessageReceived.Trigger(cachedMessage, cachedMsgMetadata)
 	}
 
@@ -220,21 +220,21 @@ func (tangle *Tangle) storeMessageWorker(msg *message.Message) {
 }
 
 // checks whether the given message is solid and marks it as missing if it isn't known.
-func (tangle *Tangle) isMessageMarkedAsSolid(messageId message.Id) bool {
-	if messageId == message.EmptyId {
+func (tangle *Tangle) isMessageMarkedAsSolid(messageID message.ID) bool {
+	if messageID == message.EmptyID {
 		return true
 	}
 
-	msgMetadataCached := tangle.MessageMetadata(messageId)
+	msgMetadataCached := tangle.MessageMetadata(messageID)
 	defer msgMetadataCached.Release()
 	msgMetadata := msgMetadataCached.Unwrap()
 
 	// mark message as missing
 	if msgMetadata == nil {
-		missingMessage := NewMissingMessage(messageId)
+		missingMessage := NewMissingMessage(messageID)
 		if cachedMissingMessage, stored := tangle.missingMessageStorage.StoreIfAbsent(missingMessage); stored {
 			cachedMissingMessage.Consume(func(object objectstorage.StorableObject) {
-				tangle.Events.MessageMissing.Trigger(messageId)
+				tangle.Events.MessageMissing.Trigger(messageID)
 			})
 		}
 		return false
@@ -259,8 +259,8 @@ func (tangle *Tangle) isMessageSolid(msg *message.Message, msgMetadata *MessageM
 	}
 
 	// as missing messages are requested in isMessageMarkedAsSolid, we want to prevent short-circuit evaluation
-	trunkSolid := tangle.isMessageMarkedAsSolid(msg.TrunkId())
-	branchSolid := tangle.isMessageMarkedAsSolid(msg.BranchId())
+	trunkSolid := tangle.isMessageMarkedAsSolid(msg.TrunkID())
+	branchSolid := tangle.isMessageMarkedAsSolid(msg.BranchID())
 	return trunkSolid && branchSolid
 }
 
@@ -297,11 +297,11 @@ func (tangle *Tangle) checkMessageSolidityAndPropagate(cachedMessage *message.Ca
 			tangle.Events.MessageSolid.Trigger(currentCachedMessage, currentCachedMsgMetadata)
 
 			// auto. push approvers of the newly solid message to propagate solidification
-			tangle.Approvers(currentMessage.Id()).Consume(func(approver *Approver) {
-				approverMessageId := approver.ApproverMessageId()
+			tangle.Approvers(currentMessage.ID()).Consume(func(approver *Approver) {
+				approverMessageID := approver.ApproverMessageID()
 				solidificationStack.PushBack([2]interface{}{
-					tangle.Message(approverMessageId),
-					tangle.MessageMetadata(approverMessageId),
+					tangle.Message(approverMessageID),
+					tangle.MessageMetadata(approverMessageID),
 				})
 			})
 		}
@@ -312,33 +312,34 @@ func (tangle *Tangle) checkMessageSolidityAndPropagate(cachedMessage *message.Ca
 }
 
 // deletes the given approver association for the given approvee to its approver.
-func (tangle *Tangle) deleteApprover(approvedMessageId message.Id, approvingMessage message.Id) {
-	idToDelete := make([]byte, message.IdLength+message.IdLength)
-	copy(idToDelete[:message.IdLength], approvedMessageId[:])
-	copy(idToDelete[message.IdLength:], approvingMessage[:])
+func (tangle *Tangle) deleteApprover(approvedMessageID message.ID, approvingMessage message.ID) {
+	idToDelete := make([]byte, message.IDLength+message.IDLength)
+	copy(idToDelete[:message.IDLength], approvedMessageID[:])
+	copy(idToDelete[message.IDLength:], approvingMessage[:])
 	tangle.approverStorage.Delete(idToDelete)
 }
 
 // deletes a message and its future cone of messages/approvers.
-func (tangle *Tangle) deleteFutureCone(messageId message.Id) {
+// nolint
+func (tangle *Tangle) deleteFutureCone(messageID message.ID) {
 	cleanupStack := list.New()
-	cleanupStack.PushBack(messageId)
+	cleanupStack.PushBack(messageID)
 
-	processedMessages := make(map[message.Id]types.Empty)
-	processedMessages[messageId] = types.Void
+	processedMessages := make(map[message.ID]types.Empty)
+	processedMessages[messageID] = types.Void
 
 	for cleanupStack.Len() >= 1 {
 		currentStackEntry := cleanupStack.Front()
-		currentMessageId := currentStackEntry.Value.(message.Id)
+		currentMessageID := currentStackEntry.Value.(message.ID)
 		cleanupStack.Remove(currentStackEntry)
 
-		tangle.DeleteMessage(currentMessageId)
+		tangle.DeleteMessage(currentMessageID)
 
-		tangle.Approvers(currentMessageId).Consume(func(approver *Approver) {
-			approverId := approver.ApproverMessageId()
-			if _, messageProcessed := processedMessages[approverId]; !messageProcessed {
-				cleanupStack.PushBack(approverId)
-				processedMessages[approverId] = types.Void
+		tangle.Approvers(currentMessageID).Consume(func(approver *Approver) {
+			approverID := approver.ApproverMessageID()
+			if _, messageProcessed := processedMessages[approverID]; !messageProcessed {
+				cleanupStack.PushBack(approverID)
+				processedMessages[approverID] = types.Void
 			}
 		})
 	}
@@ -357,14 +358,14 @@ func (tangle *Tangle) StoreMessageWorkerPoolStatus() (name string, load int) {
 // RetrieveAllTips returns the tips (i.e., solid messages that are not part of the approvers list).
 // It iterates over the messageMetadataStorage, thus only use this method if necessary.
 // TODO: improve this function.
-func (tangle *Tangle) RetrieveAllTips() (tips []message.Id) {
+func (tangle *Tangle) RetrieveAllTips() (tips []message.ID) {
 	tangle.messageMetadataStorage.ForEach(func(key []byte, cachedMessage objectstorage.CachedObject) bool {
 		cachedMessage.Consume(func(object objectstorage.StorableObject) {
 			messageMetadata := object.(*MessageMetadata)
 			if messageMetadata != nil && messageMetadata.IsSolid() {
-				cachedApprovers := tangle.Approvers(messageMetadata.messageId)
+				cachedApprovers := tangle.Approvers(messageMetadata.messageID)
 				if len(cachedApprovers) == 0 {
-					tips = append(tips, messageMetadata.messageId)
+					tips = append(tips, messageMetadata.messageID)
 				}
 				cachedApprovers.Consume(func(approver *Approver) {})
 			}

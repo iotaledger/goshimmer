@@ -74,7 +74,7 @@ func TestQueueOfferConcurrencySafe(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		value, ok := queue.Poll()
 		assert.True(t, ok)
-		counter[value.(int)] += 1
+		counter[value.(int)]++
 	}
 	assert.Equal(t, 0, queue.Size())
 

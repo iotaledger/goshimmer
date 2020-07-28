@@ -52,7 +52,7 @@ func findMessageByID(c echo.Context) error {
 	for _, id := range request.IDs {
 		log.Info("Received:", id)
 
-		msgID, err := message.NewId(id)
+		msgID, err := message.NewID(id)
 		if err != nil {
 			log.Info(err)
 			return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
@@ -74,9 +74,9 @@ func findMessageByID(c echo.Context) error {
 				Solid:              msgMetadata.IsSolid(),
 				SolidificationTime: msgMetadata.SolidificationTime().Unix(),
 			},
-			ID:              msg.Id().String(),
-			TrunkID:         msg.TrunkId().String(),
-			BranchID:        msg.BranchId().String(),
+			ID:              msg.ID().String(),
+			TrunkID:         msg.TrunkID().String(),
+			BranchID:        msg.BranchID().String(),
 			IssuerPublicKey: msg.IssuerPublicKey().String(),
 			IssuingTime:     msg.IssuingTime().Unix(),
 			SequenceNumber:  msg.SequenceNumber(),

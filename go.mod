@@ -35,5 +35,6 @@ require (
 	golang.org/x/tools v0.0.0-20200330040139-fa3cc9eebcfe // indirect
 	google.golang.org/grpc v1.30.0
 	google.golang.org/grpc/examples v0.0.0-20200617041141-9a465503579e // indirect
+	google.golang.org/protobuf v1.25.0
 	gopkg.in/src-d/go-git.v4 v4.13.1
 )

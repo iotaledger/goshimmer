@@ -41,7 +41,7 @@ type ExplorerMessage struct {
 }
 
 func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
-	messageID := msg.Id()
+	messageID := msg.ID()
 	cachedMessageMetadata := messagelayer.Tangle().MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
 	messageMetadata := cachedMessageMetadata.Unwrap()
@@ -52,8 +52,8 @@ func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
 		IssuerPublicKey:         msg.IssuerPublicKey().String(),
 		Signature:               msg.Signature().String(),
 		SequenceNumber:          msg.SequenceNumber(),
-		TrunkMessageID:          msg.TrunkId().String(),
-		BranchMessageID:         msg.BranchId().String(),
+		TrunkMessageID:          msg.TrunkID().String(),
+		BranchMessageID:         msg.BranchID().String(),
 		Solid:                   cachedMessageMetadata.Unwrap().IsSolid(),
 		PayloadType:             msg.Payload().Type(),
 		Payload:                 ProcessPayload(msg.Payload()),
@@ -87,7 +87,7 @@ type SearchResult struct {
 
 func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/message/:id", func(c echo.Context) (err error) {
-		messageID, err := message.NewId(c.Param("id"))
+		messageID, err := message.NewID(c.Param("id"))
 		if err != nil {
 			return
 		}
@@ -125,8 +125,8 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 				result.Address = addr
 			}
 
-		case message.IdLength:
-			messageID, err := message.NewId(search)
+		case message.IDLength:
+			messageID, err := message.NewID(search)
 			if err != nil {
 				return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
 			}
@@ -144,7 +144,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func findMessage(messageID message.Id) (explorerMsg *ExplorerMessage, err error) {
+func findMessage(messageID message.ID) (explorerMsg *ExplorerMessage, err error) {
 	if !messagelayer.Tangle().Message(messageID).Consume(func(msg *message.Message) {
 		explorerMsg, err = createExplorerMessage(msg)
 	}) {

@@ -43,14 +43,14 @@ func TestFPCHeartbeat(t *testing.T) {
 	packet, err := hb.Bytes()
 	require.NoError(t, err)
 
-	hbParsed, err := ParseFPCHeartbeat(packet)
+	_, err = ParseFPCHeartbeat(packet)
 	require.Error(t, err)
 
 	hb.Version = banner.AppVersion
 	packet, err = hb.Bytes()
 	require.NoError(t, err)
 
-	hbParsed, err = ParseFPCHeartbeat(packet)
+	hbParsed, err := ParseFPCHeartbeat(packet)
 	require.NoError(t, err)
 
 	require.Equal(t, hb, hbParsed)

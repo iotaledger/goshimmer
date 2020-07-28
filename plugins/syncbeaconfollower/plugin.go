@@ -43,7 +43,7 @@ const (
 
 // Status represents the status of a beacon node consisting of latest messageID, sentTime and sync status.
 type Status struct {
-	MsgID    message.Id
+	MsgID    message.ID
 	SentTime int64
 	Synced   bool
 }
@@ -156,7 +156,7 @@ func configure(_ *node.Plugin) {
 			continue
 		}
 		currentBeacons[pubKey] = &Status{
-			MsgID:    message.EmptyId,
+			MsgID:    message.EmptyID,
 			Synced:   false,
 			SentTime: 0,
 		}
@@ -193,7 +193,7 @@ func configure(_ *node.Plugin) {
 			}
 			mutex.RUnlock()
 
-			handlePayload(payload, msg.IssuerPublicKey(), msg.Id())
+			handlePayload(payload, msg.IssuerPublicKey(), msg.ID())
 		})
 	}))
 }
@@ -201,7 +201,7 @@ func configure(_ *node.Plugin) {
 // handlePayload handles the received payload. It does the following checks:
 // The time that payload was sent is not greater than CfgSyncBeaconMaxTimeWindowSec. If the duration is longer than CfgSyncBeaconMaxTimeWindowSec, we consider that beacon to be out of sync till we receive a newer payload.
 // More than syncPercentage of followed nodes are also synced, the node is set to synced. Otherwise, its set as desynced.
-func handlePayload(syncBeaconPayload *syncbeacon_payload.Payload, issuerPublicKey ed25519.PublicKey, msgID message.Id) {
+func handlePayload(syncBeaconPayload *syncbeacon_payload.Payload, issuerPublicKey ed25519.PublicKey, msgID message.ID) {
 	synced := true
 	dur := time.Since(time.Unix(0, syncBeaconPayload.SentTime()))
 	if dur.Seconds() > beaconMaxTimeWindowSec {
@@ -240,7 +240,7 @@ func cleanupFollowNodes() {
 	mutex.Lock()
 	defer mutex.Unlock()
 	for publicKey, status := range currentBeacons {
-		if status.MsgID != message.EmptyId {
+		if status.MsgID != message.EmptyID {
 			dur := time.Since(time.Unix(0, status.SentTime))
 			if dur.Seconds() > beaconMaxTimeOfflineSec {
 				currentBeacons[publicKey].Synced = false

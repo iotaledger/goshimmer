@@ -35,8 +35,11 @@ type Opinions []Opinion
 type Opinion byte
 
 const (
-	Like    Opinion = 1 << 0
+	// Like defines a Like opinion.
+	Like Opinion = 1 << 0
+	// Dislike defines a Dislike opinion.
 	Dislike Opinion = 1 << 1
+	// Unknown defines an unknown opinion.
 	Unknown Opinion = 1 << 2
 )
 

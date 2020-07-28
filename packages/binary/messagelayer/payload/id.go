@@ -3,17 +3,17 @@ package payload
 import "github.com/mr-tron/base58"
 
 // ID represents the id of a data payload.
-type Id [IdLength]byte
+type ID [IDLength]byte
 
 // Bytes returns the id as a byte slice backed by the original array,
 // therefore it should not be modified.
-func (id Id) Bytes() []byte {
+func (id ID) Bytes() []byte {
 	return id[:]
 }
 
-func (id Id) String() string {
+func (id ID) String() string {
 	return base58.Encode(id[:])
 }
 
-// IdLength is the length of a data payload id.
-const IdLength = 64
+// IDLength is the length of a data payload id.
+const IDLength = 64

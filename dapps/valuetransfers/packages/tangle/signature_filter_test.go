@@ -91,7 +91,7 @@ func TestSignatureFilter(t *testing.T) {
 		marshalUtil.WriteUint32(valuePayload.Type)
 
 		// parse modified bytes back into a payload object
-		dataPayload, err, _ := messagePayload.DataFromBytes(marshalUtil.Bytes())
+		dataPayload, _, err := messagePayload.DataFromBytes(marshalUtil.Bytes())
 		require.NoError(t, err)
 
 		// parse message bytes

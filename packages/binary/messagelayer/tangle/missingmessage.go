@@ -9,20 +9,25 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 )
 
+// MissingMessage represents a missing message.
 type MissingMessage struct {
 	objectstorage.StorableObjectFlags
 
-	messageId    message.Id
+	messageID    message.ID
 	missingSince time.Time
 }
 
-func NewMissingMessage(messageId message.Id) *MissingMessage {
+// NewMissingMessage creates new missing message with the specified messageID.
+func NewMissingMessage(messageID message.ID) *MissingMessage {
 	return &MissingMessage{
-		messageId:    messageId,
+		messageID:    messageID,
 		missingSince: time.Now(),
 	}
 }
 
+// MissingMessageFromStorageKey unmarshals the stored key into a desirable target specified by 0 or 1 optional argument.
+// The default target is MissingMessage.
+// It unmarshals into the target specified or panics if more than 1 target is specified.
 func MissingMessageFromStorageKey(key []byte, optionalTargetObject ...*MissingMessage) (result objectstorage.StorableObject, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
@@ -36,7 +41,7 @@ func MissingMessageFromStorageKey(key []byte, optionalTargetObject ...*MissingMe
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	result.(*MissingMessage).messageId, err = message.ParseId(marshalUtil)
+	result.(*MissingMessage).messageID, err = message.ParseID(marshalUtil)
 	if err != nil {
 		return
 	}
@@ -45,9 +50,9 @@ func MissingMessageFromStorageKey(key []byte, optionalTargetObject ...*MissingMe
 	return
 }
 
-// MessageId returns the id of the message.
-func (missingMessage *MissingMessage) MessageId() message.Id {
-	return missingMessage.messageId
+// MessageID returns the id of the message.
+func (missingMessage *MissingMessage) MessageID() message.ID {
+	return missingMessage.messageID
 }
 
 // MissingSince returns the time since when this message is missing.
@@ -55,14 +60,19 @@ func (missingMessage *MissingMessage) MissingSince() time.Time {
 	return missingMessage.missingSince
 }
 
+// Update update the missing message.
+// It should never happen and will panic if called.
 func (missingMessage *MissingMessage) Update(other objectstorage.StorableObject) {
 	panic("missing messages should never be overwritten and only stored once to optimize IO")
 }
 
+// ObjectStorageKey returns the key of the stored missing message.
+// This returns the bytes of the messageID of the missing message.
 func (missingMessage *MissingMessage) ObjectStorageKey() []byte {
-	return missingMessage.messageId[:]
+	return missingMessage.messageID[:]
 }
 
+// ObjectStorageValue returns the value of the stored missing message.
 func (missingMessage *MissingMessage) ObjectStorageValue() (result []byte) {
 	result, err := missingMessage.missingSince.MarshalBinary()
 	if err != nil {
@@ -72,6 +82,7 @@ func (missingMessage *MissingMessage) ObjectStorageValue() (result []byte) {
 	return
 }
 
+// UnmarshalObjectStorageValue unmarshals the stored bytes into a missing message.
 func (missingMessage *MissingMessage) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
 	missingMessage.missingSince, err = marshalUtil.ReadTime()

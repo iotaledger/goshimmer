@@ -88,9 +88,9 @@ func FromBytes(bytes []byte) (result Payload, consumedBytes int, err error) {
 
 // Parse parses a payload by using the given marshal util.
 func Parse(marshalUtil *marshalutil.MarshalUtil) (Payload, error) {
-	if payload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) }); err != nil {
+	payload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) })
+	if err != nil {
 		return nil, err
-	} else {
-		return payload.(Payload), nil
 	}
+	return payload.(Payload), nil
 }

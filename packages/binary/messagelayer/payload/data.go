@@ -23,7 +23,7 @@ func NewData(data []byte) *Data {
 }
 
 // DataFromBytes creates a new data payload from the given bytes.
-func DataFromBytes(bytes []byte, optionalTargetObject ...*Data) (result *Data, err error, consumedBytes int) {
+func DataFromBytes(bytes []byte, optionalTargetObject ...*Data) (result *Data, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParseData(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
@@ -60,6 +60,7 @@ func ParseData(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Da
 	return
 }
 
+// Type returns the payload type.
 func (dataPayload *Data) Type() Type {
 	return dataPayload.payloadType
 }
@@ -83,8 +84,9 @@ func (dataPayload *Data) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
+// Unmarshal unmarshalls the byte array to a data payload.
 func (dataPayload *Data) Unmarshal(data []byte) (err error) {
-	_, err, _ = DataFromBytes(data, dataPayload)
+	_, _, err = DataFromBytes(data, dataPayload)
 
 	return
 }

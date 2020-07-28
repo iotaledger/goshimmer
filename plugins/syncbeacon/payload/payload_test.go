@@ -9,14 +9,14 @@ import (
 
 func TestPayload(t *testing.T) {
 	originalPayload := NewSyncBeaconPayload(time.Now().UnixNano())
-	clonedPayload1, err, _ := FromBytes(originalPayload.Bytes())
+	clonedPayload1, _, err := FromBytes(originalPayload.Bytes())
 	if err != nil {
 		panic(err)
 	}
 
 	assert.Equal(t, originalPayload.SentTime(), clonedPayload1.SentTime())
 
-	clonedPayload2, err, _ := FromBytes(clonedPayload1.Bytes())
+	clonedPayload2, _, err := FromBytes(clonedPayload1.Bytes())
 	if err != nil {
 		panic(err)
 	}

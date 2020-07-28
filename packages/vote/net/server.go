@@ -39,6 +39,7 @@ type VoterServer struct {
 	queryReceivedEvent *events.Event
 }
 
+// Opinion replies the query request with an opinion and triggers the events.
 func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryReply, error) {
 	reply := &QueryReply{
 		Opinion: make([]int32, len(req.Id)),
@@ -66,6 +67,7 @@ func (vs *VoterServer) Opinion(ctx context.Context, req *QueryRequest) (*QueryRe
 	return reply, nil
 }
 
+// Run starts the voting server.
 func (vs *VoterServer) Run() error {
 	listener, err := net.Listen("tcp", vs.bindAddr)
 	if err != nil {
@@ -76,6 +78,7 @@ func (vs *VoterServer) Run() error {
 	return vs.grpcServer.Serve(listener)
 }
 
+// Shutdown shutdowns the voting server.
 func (vs *VoterServer) Shutdown() {
 	vs.grpcServer.GracefulStop()
 }

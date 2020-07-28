@@ -103,7 +103,7 @@ func registerLocalMetrics() {
 
 	}))
 
-	messagelayer.Tangle().Events.MessageRemoved.Attach(events.NewClosure(func(messageId message.Id) {
+	messagelayer.Tangle().Events.MessageRemoved.Attach(events.NewClosure(func(messageId message.ID) {
 		// MessageRemoved triggered when the message gets removed from database.
 		messageTotalCountDB.Dec()
 	}))
@@ -124,7 +124,7 @@ func registerLocalMetrics() {
 	}))
 
 	// fired when a message gets added to missing message storage
-	messagelayer.Tangle().Events.MessageMissing.Attach(events.NewClosure(func(messageId message.Id) {
+	messagelayer.Tangle().Events.MessageMissing.Attach(events.NewClosure(func(messageId message.ID) {
 		missingMessageCountDB.Inc()
 	}))
 

@@ -17,8 +17,8 @@ func Test(t *testing.T) {
 
 	// check if first tips point to genesis
 	trunk1, branch1 := tipSelector.Tips()
-	assert.Equal(t, message.EmptyId, trunk1)
-	assert.Equal(t, message.EmptyId, branch1)
+	assert.Equal(t, message.EmptyID, trunk1)
+	assert.Equal(t, message.EmptyID, branch1)
 
 	// create a message and attach it
 	message1 := newTestMessage(trunk1, branch1, "testmessage")
@@ -29,11 +29,11 @@ func Test(t *testing.T) {
 
 	// check if next tips point to our first message
 	trunk2, branch2 := tipSelector.Tips()
-	assert.Equal(t, message1.Id(), trunk2)
-	assert.Equal(t, message1.Id(), branch2)
+	assert.Equal(t, message1.ID(), trunk2)
+	assert.Equal(t, message1.ID(), branch2)
 
 	// create a 2nd message and attach it
-	message2 := newTestMessage(message.EmptyId, message.EmptyId, "testmessage")
+	message2 := newTestMessage(message.EmptyID, message.EmptyID, "testmessage")
 	tipSelector.AddTip(message2)
 
 	// check if the tip shows up in the tip count
@@ -47,10 +47,10 @@ func Test(t *testing.T) {
 	// check if the tip shows replaces the current tips
 	trunk4, branch4 := tipSelector.Tips()
 	assert.Equal(t, 1, tipSelector.TipCount())
-	assert.Equal(t, message3.Id(), trunk4)
-	assert.Equal(t, message3.Id(), branch4)
+	assert.Equal(t, message3.ID(), trunk4)
+	assert.Equal(t, message3.ID(), branch4)
 }
 
-func newTestMessage(trunk, branch message.Id, payloadString string) *message.Message {
+func newTestMessage(trunk, branch message.ID, payloadString string) *message.Message {
 	return message.New(trunk, branch, time.Now(), ed25519.PublicKey{}, 0, payload.NewData([]byte(payloadString)), 0, ed25519.Signature{})
 }

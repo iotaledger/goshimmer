@@ -1,4 +1,4 @@
-package collectiveBeacon
+package collectivebeacon
 
 import (
 	"bytes"
@@ -8,17 +8,23 @@ import (
 	"github.com/drand/drand/beacon"
 	"github.com/drand/drand/key"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/events"
+	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/events"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 )
 
 var (
+	// ErrDistributedPubKeyMismatch is returned if the distributed public key does not match.
 	ErrDistributedPubKeyMismatch = errors.New("Distributed Public Key does not match")
-	ErrInvalidRound              = errors.New("Invalid Round")
-	ErrInstanceIdMismatch        = errors.New("InstanceID does not match")
-	ErrInvalidIssuer             = errors.New("Invalid Issuer")
-	ErrNilState                  = errors.New("Nil state")
-	ErrNilData                   = errors.New("Nil data")
+	// ErrInvalidRound is returned if the round is invalid.
+	ErrInvalidRound = errors.New("Invalid Round")
+	// ErrInstanceIDMismatch is returned if the instanceID does not match.
+	ErrInstanceIDMismatch = errors.New("InstanceID does not match")
+	// ErrInvalidIssuer is returned if the issuer is invalid.
+	ErrInvalidIssuer = errors.New("Invalid Issuer")
+	// ErrNilState is returned on nil state.
+	ErrNilState = errors.New("Nil state")
+	// ErrNilData is returned on nil data.
+	ErrNilData = errors.New("Nil data")
 )
 
 // ProcessBeacon performs the following tasks:
@@ -73,7 +79,7 @@ func VerifyCollectiveBeacon(state *state.State, data *events.CollectiveBeaconEve
 	}
 
 	if data.InstanceID != state.Committee().InstanceID {
-		return ErrInstanceIdMismatch
+		return ErrInstanceIDMismatch
 	}
 
 	if err := verifySignature(data); err != nil {
