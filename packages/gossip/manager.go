@@ -6,7 +6,6 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
@@ -15,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/workerpool"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
