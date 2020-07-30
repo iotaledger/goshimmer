@@ -56,7 +56,7 @@ func (queue *Queue) Offer(element interface{}) bool {
 }
 
 // Poll returns and removes the oldest element in the queue and true if successful.
-// If returns false is the queue is empty.
+// If returns false if the queue is empty.
 func (queue *Queue) Poll() (element interface{}, success bool) {
 	queue.mutex.Lock()
 	defer queue.mutex.Unlock()
