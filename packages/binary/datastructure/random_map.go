@@ -112,7 +112,7 @@ func (rmap *RandomMap) Delete(key interface{}) (result interface{}, exists bool)
 	return
 }
 
-// Size returns the number of of key-value mappings in the map.
+// Size returns the number of key-value mappings in the map.
 func (rmap *RandomMap) Size() (result int) {
 	rmap.mutex.RLock()
 
