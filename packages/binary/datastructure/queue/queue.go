@@ -38,7 +38,7 @@ func (queue *Queue) Capacity() int {
 	return queue.capacity
 }
 
-// Offer adds an element ot the queue and returns true.
+// Offer adds an element to the queue and returns true.
 // If the queue is full, it drops it and returns false.
 func (queue *Queue) Offer(element interface{}) bool {
 	queue.mutex.Lock()
