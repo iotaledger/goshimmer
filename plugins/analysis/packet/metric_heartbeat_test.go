@@ -42,14 +42,14 @@ func TestMetricHeartbeat(t *testing.T) {
 	packet, err := hb.Bytes()
 	require.NoError(t, err)
 
-	hbParsed, err := ParseMetricHeartbeat(packet)
+	_, err = ParseMetricHeartbeat(packet)
 	require.Error(t, err)
 
 	hb.Version = banner.AppVersion
 	packet, err = hb.Bytes()
 	require.NoError(t, err)
 
-	hbParsed, err = ParseMetricHeartbeat(packet)
+	hbParsed, err := ParseMetricHeartbeat(packet)
 	require.NoError(t, err)
 
 	require.Equal(t, hb, hbParsed)

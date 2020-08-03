@@ -143,7 +143,7 @@ func configureMessageLayer() {
 	}))
 
 	// request missing messages
-	messagelayer.MessageRequester().Events.SendRequest.Attach(events.NewClosure(func(msgID message.Id) {
+	messagelayer.MessageRequester().Events.SendRequest.Attach(events.NewClosure(func(msgID message.ID) {
 		mgr.RequestMessage(msgID[:])
 	}))
 }

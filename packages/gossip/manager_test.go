@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
@@ -18,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 const graceTime = 10 * time.Millisecond
@@ -27,7 +27,7 @@ var (
 	testMessageData = []byte("testMsg")
 )
 
-func loadTestMessage(message.Id) ([]byte, error) { return testMessageData, nil }
+func loadTestMessage(message.ID) ([]byte, error) { return testMessageData, nil }
 
 func TestClose(t *testing.T) {
 	_, teardown, _ := newMockedManager(t, "A")
@@ -336,7 +336,7 @@ func TestMessageRequest(t *testing.T) {
 	// wait for the connections to establish
 	wg.Wait()
 
-	id := message.Id{}
+	id := message.ID{}
 
 	// mgrA should eventually receive the message
 	mgrA.On("messageReceived", &MessageReceivedEvent{Data: testMessageData, Peer: peerB}).Once()

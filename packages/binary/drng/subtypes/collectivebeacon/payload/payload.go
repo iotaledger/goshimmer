@@ -108,6 +108,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	return
 }
 
+// Bytes returns the collective beacon payload bytes.
 func (payload *Payload) Bytes() (bytes []byte) {
 	// acquire lock for reading bytes
 	payload.bytesMutex.RLock()
@@ -160,14 +161,17 @@ func (payload *Payload) String() string {
 
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
+// Type returns the collective beacon payload type.
 func (payload *Payload) Type() payload.Type {
 	return drngPayload.Type
 }
 
+// Marshal marshals the collective beacon payload into bytes.
 func (payload *Payload) Marshal() (bytes []byte, err error) {
 	return payload.Bytes(), nil
 }
 
+// Unmarshal returns a collective beacon payload from the given bytes.
 func (payload *Payload) Unmarshal(data []byte) (err error) {
 	_, _, err = FromBytes(data, payload)
 

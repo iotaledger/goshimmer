@@ -8,8 +8,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon"
-	cbPayload "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon"
+	cbPayload "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/require"
@@ -31,7 +31,7 @@ func init() {
 	dpkTest, _ = hex.DecodeString("80b319dbf164d852cdac3d86f0b362e0131ddeae3d87f6c3c5e3b6a9de384093b983db88f70e2008b0e945657d5980e2")
 	timestampTest = time.Now()
 
-	rand, _ := collectiveBeacon.ExtractRandomness(signatureTest)
+	rand, _ := collectivebeacon.ExtractRandomness(signatureTest)
 	randomnessTest = &state.Randomness{
 		Round:      1,
 		Randomness: rand,

@@ -36,7 +36,7 @@ func configureVisualizer() {
 		switch x := task.Param(0).(type) {
 		case *message.CachedMessage:
 			sendVertex(x, task.Param(1).(*tangle.CachedMessageMetadata))
-		case message.Id:
+		case message.ID:
 			sendTipInfo(x, task.Param(1).(bool))
 		}
 
@@ -53,14 +53,14 @@ func sendVertex(cachedMessage *message.CachedMessage, cachedMessageMetadata *tan
 		return
 	}
 	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
-		ID:       msg.Id().String(),
-		TrunkID:  msg.TrunkId().String(),
-		BranchID: msg.BranchId().String(),
+		ID:       msg.ID().String(),
+		TrunkID:  msg.TrunkID().String(),
+		BranchID: msg.BranchID().String(),
 		IsSolid:  cachedMessageMetadata.Unwrap().IsSolid(),
 	}}, true)
 }
 
-func sendTipInfo(messageID message.Id, isTip bool) {
+func sendTipInfo(messageID message.ID, isTip bool) {
 	broadcastWsMessage(&wsmsg{MsgTypeTipInfo, &tipinfo{
 		ID:    messageID.String(),
 		IsTip: isTip,
@@ -78,11 +78,11 @@ func runVisualizer() {
 		}
 	})
 
-	notifyNewTip := events.NewClosure(func(messageId message.Id) {
+	notifyNewTip := events.NewClosure(func(messageId message.ID) {
 		visualizerWorkerPool.TrySubmit(messageId, true)
 	})
 
-	notifyDeletedTip := events.NewClosure(func(messageId message.Id) {
+	notifyDeletedTip := events.NewClosure(func(messageId message.ID) {
 		visualizerWorkerPool.TrySubmit(messageId, false)
 	})
 

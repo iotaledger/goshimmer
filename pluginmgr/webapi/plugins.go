@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
+// PLUGINS is the list of webapi plugins.
 var PLUGINS = node.Plugins(
 	webapi.Plugin(),
 	webauth.Plugin(),

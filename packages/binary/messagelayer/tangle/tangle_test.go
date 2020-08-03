@@ -47,7 +47,7 @@ func TestTangle_AttachMessage(t *testing.T) {
 		cachedMessageMetadata.Release()
 
 		cachedMessage.Consume(func(msg *message.Message) {
-			fmt.Println("ATTACHED:", msg.Id())
+			fmt.Println("ATTACHED:", msg.ID())
 		})
 	}))
 
@@ -55,19 +55,19 @@ func TestTangle_AttachMessage(t *testing.T) {
 		cachedMessageMetadata.Release()
 
 		cachedMessage.Consume(func(msg *message.Message) {
-			fmt.Println("SOLID:", msg.Id())
+			fmt.Println("SOLID:", msg.ID())
 		})
 	}))
 
-	messageTangle.Events.MessageUnsolidifiable.Attach(events.NewClosure(func(messageId message.Id) {
+	messageTangle.Events.MessageUnsolidifiable.Attach(events.NewClosure(func(messageId message.ID) {
 		fmt.Println("UNSOLIDIFIABLE:", messageId)
 	}))
 
-	messageTangle.Events.MessageMissing.Attach(events.NewClosure(func(messageId message.Id) {
+	messageTangle.Events.MessageMissing.Attach(events.NewClosure(func(messageId message.ID) {
 		fmt.Println("MISSING:", messageId)
 	}))
 
-	messageTangle.Events.MessageRemoved.Attach(events.NewClosure(func(messageId message.Id) {
+	messageTangle.Events.MessageRemoved.Attach(events.NewClosure(func(messageId message.ID) {
 		fmt.Println("REMOVED:", messageId)
 	}))
 
@@ -84,5 +84,5 @@ func TestTangle_AttachMessage(t *testing.T) {
 }
 
 func newTestMessage(payloadString string) *message.Message {
-	return message.New(message.EmptyId, message.EmptyId, time.Now(), ed25519.PublicKey{}, 0, payload.NewData([]byte(payloadString)), 0, ed25519.Signature{})
+	return message.New(message.EmptyID, message.EmptyID, time.Now(), ed25519.PublicKey{}, 0, payload.NewData([]byte(payloadString)), 0, ed25519.Signature{})
 }

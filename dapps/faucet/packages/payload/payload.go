@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 
+	// Only want to use init
 	_ "golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
@@ -54,7 +55,7 @@ func init() {
 
 // FromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, err error, consumedBytes int) {
+func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -123,7 +124,7 @@ func (faucetPayload *Payload) Bytes() []byte {
 
 // Unmarshal unmarshals a given slice of bytes and fills the object.
 func (faucetPayload *Payload) Unmarshal(data []byte) (err error) {
-	_, err, _ = FromBytes(data, faucetPayload)
+	_, _, err = FromBytes(data, faucetPayload)
 
 	return
 }

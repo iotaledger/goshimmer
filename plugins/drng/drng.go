@@ -7,7 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/drng"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
-	cbPayload "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
+	cbPayload "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/payload"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/logger"

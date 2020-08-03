@@ -107,7 +107,7 @@ func configure(*node.Plugin) {
 			log.Warnf("couldn't fulfill funding request to %s: %s", addr, err)
 			return
 		}
-		log.Infof("sent funds to address %s via tx %s and msg %s", addr, txID, msg.Id().String())
+		log.Infof("sent funds to address %s via tx %s and msg %s", addr, txID, msg.ID().String())
 	}, workerpool.WorkerCount(fundingWorkerCount), workerpool.QueueSize(fundingWorkerQueueSize))
 
 	configureEvents()

@@ -14,12 +14,12 @@ type TipSelector struct {
 }
 
 // New creates a new tip-selector.
-func New(tips ...message.Id) *TipSelector {
+func New(tips ...message.ID) *TipSelector {
 	tipSelector := &TipSelector{
 		tips: datastructure.NewRandomMap(),
 		Events: Events{
-			TipAdded:   events.NewEvent(messageIdEvent),
-			TipRemoved: events.NewEvent(messageIdEvent),
+			TipAdded:   events.NewEvent(messageIDEvent),
+			TipRemoved: events.NewEvent(messageIDEvent),
 		},
 	}
 
@@ -31,7 +31,7 @@ func New(tips ...message.Id) *TipSelector {
 }
 
 // Set adds the given messageIDs as tips.
-func (tipSelector *TipSelector) Set(tips ...message.Id) {
+func (tipSelector *TipSelector) Set(tips ...message.ID) {
 	for _, messageID := range tips {
 		tipSelector.tips.Set(messageID, messageID)
 	}
@@ -39,42 +39,42 @@ func (tipSelector *TipSelector) Set(tips ...message.Id) {
 
 // AddTip adds the given message as a tip.
 func (tipSelector *TipSelector) AddTip(msg *message.Message) {
-	messageId := msg.Id()
-	if tipSelector.tips.Set(messageId, messageId) {
-		tipSelector.Events.TipAdded.Trigger(messageId)
+	messageID := msg.ID()
+	if tipSelector.tips.Set(messageID, messageID) {
+		tipSelector.Events.TipAdded.Trigger(messageID)
 	}
 
-	trunkMessageId := msg.TrunkId()
-	if _, deleted := tipSelector.tips.Delete(trunkMessageId); deleted {
-		tipSelector.Events.TipRemoved.Trigger(trunkMessageId)
+	trunkMessageID := msg.TrunkID()
+	if _, deleted := tipSelector.tips.Delete(trunkMessageID); deleted {
+		tipSelector.Events.TipRemoved.Trigger(trunkMessageID)
 	}
 
-	branchMessageId := msg.BranchId()
-	if _, deleted := tipSelector.tips.Delete(branchMessageId); deleted {
-		tipSelector.Events.TipRemoved.Trigger(branchMessageId)
+	branchMessageID := msg.BranchID()
+	if _, deleted := tipSelector.tips.Delete(branchMessageID); deleted {
+		tipSelector.Events.TipRemoved.Trigger(branchMessageID)
 	}
 }
 
 // Tips returns two tips.
-func (tipSelector *TipSelector) Tips() (trunkMessageId, branchMessageId message.Id) {
+func (tipSelector *TipSelector) Tips() (trunkMessageID, branchMessageID message.ID) {
 	tip := tipSelector.tips.RandomEntry()
 	if tip == nil {
-		trunkMessageId = message.EmptyId
-		branchMessageId = message.EmptyId
+		trunkMessageID = message.EmptyID
+		branchMessageID = message.EmptyID
 
 		return
 	}
 
-	branchMessageId = tip.(message.Id)
+	branchMessageID = tip.(message.ID)
 
 	if tipSelector.tips.Size() == 1 {
-		trunkMessageId = branchMessageId
+		trunkMessageID = branchMessageID
 		return
 	}
 
-	trunkMessageId = tipSelector.tips.RandomEntry().(message.Id)
-	for trunkMessageId == branchMessageId && tipSelector.tips.Size() > 1 {
-		trunkMessageId = tipSelector.tips.RandomEntry().(message.Id)
+	trunkMessageID = tipSelector.tips.RandomEntry().(message.ID)
+	for trunkMessageID == branchMessageID && tipSelector.tips.Size() > 1 {
+		trunkMessageID = tipSelector.tips.RandomEntry().(message.ID)
 	}
 
 	return

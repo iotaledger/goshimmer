@@ -72,7 +72,7 @@ func OpinionCaller(handler interface{}, params ...interface{}) {
 	handler.(func(ev *OpinionEvent))(params[0].(*OpinionEvent))
 }
 
-// RoundStats calls the given handler with a RoundStats.
+// RoundStatsCaller calls the given handler with a RoundStats.
 func RoundStatsCaller(handler interface{}, params ...interface{}) {
 	handler.(func(stats *RoundStats))(params[0].(*RoundStats))
 }

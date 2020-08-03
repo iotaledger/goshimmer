@@ -24,6 +24,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
+// PLUGINS is the list of core plugins.
 var PLUGINS = node.Plugins(
 	banner.Plugin(),
 	config.Plugin(),
