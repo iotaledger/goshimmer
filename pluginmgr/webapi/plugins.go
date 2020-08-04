@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/info"
 	"github.com/iotaledger/goshimmer/plugins/webapi/message"
 	"github.com/iotaledger/goshimmer/plugins/webapi/spammer"
+	"github.com/iotaledger/goshimmer/plugins/webapi/staticpeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi/tools"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value"
 	"github.com/iotaledger/goshimmer/plugins/webauth"
@@ -30,4 +31,5 @@ var PLUGINS = node.Plugins(
 	info.Plugin(),
 	value.Plugin(),
 	tools.Plugin(),
+	staticpeering.Plugin(),
 )
