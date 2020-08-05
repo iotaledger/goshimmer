@@ -65,7 +65,7 @@ func (requester *MessageRequester) StartRequest(id message.ID) {
 	}
 
 	// schedule the next request and trigger the event
-	requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { createReRequest(requester, id, 0) })
+	requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, createReRequest(requester, id, 0))
 	requester.scheduledRequestsMutex.Unlock()
 	requester.Events.SendRequest.Trigger(id)
 }
@@ -99,7 +99,7 @@ func (requester *MessageRequester) reRequest(id message.ID, count int) {
 			requester.Events.MissingMessageAppeared.Trigger(id)
 			return
 		}
-		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { createReRequest(requester, id, count) })
+		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, createReRequest(requester, id, count))
 		return
 	}
 }
