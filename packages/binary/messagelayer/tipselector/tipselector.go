@@ -1,8 +1,6 @@
 package tipselector
 
 import (
-	"github.com/iotaledger/hive.go/events"
-
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 )
@@ -16,11 +14,8 @@ type TipSelector struct {
 // New creates a new tip-selector.
 func New(tips ...message.ID) *TipSelector {
 	tipSelector := &TipSelector{
-		tips: datastructure.NewRandomMap(),
-		Events: Events{
-			TipAdded:   events.NewEvent(messageIDEvent),
-			TipRemoved: events.NewEvent(messageIDEvent),
-		},
+		tips:   datastructure.NewRandomMap(),
+		Events: *newEvents(),
 	}
 
 	if tips != nil {

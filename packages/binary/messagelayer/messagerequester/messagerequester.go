@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/hive.go/events"
 )
 
 const messageExistCheckThreshold = 10
@@ -33,14 +32,7 @@ func New(messageExists MessageExistsFunc, missingMessages []message.ID, optional
 		scheduledRequests: make(map[message.ID]*time.Timer),
 		options:           newOptions(optionalOptions),
 		messageExistsFunc: messageExists,
-		Events: Events{
-			SendRequest: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func(message.ID))(params[0].(message.ID))
-			}),
-			MissingMessageAppeared: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func(message.ID))(params[0].(message.ID))
-			}),
-		},
+		Events:            *newEvents(),
 	}
 
 	// add requests for all missing messages

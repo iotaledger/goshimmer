@@ -92,10 +92,10 @@ func registerLocalMetrics() {
 	//// Events declared in other packages which we want to listen to here ////
 
 	// increase received MPS counter whenever we attached a message
-	messagelayer.Tangle().Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
-		_payloadType := cachedMessage.Unwrap().Payload().Type()
-		cachedMessage.Release()
-		cachedMessageMetadata.Release()
+	messagelayer.Tangle().Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessage) {
+		_payloadType := cachedMessage.Message.Unwrap().Payload().Type()
+		cachedMessage.Message.Release()
+		cachedMessage.MessageMetadata.Release()
 		increaseReceivedMPSCounter()
 		increasePerPayloadCounter(_payloadType)
 		// MessageAttached is triggered in storeMessageWorker that saves the msg to database
@@ -109,12 +109,12 @@ func registerLocalMetrics() {
 	}))
 
 	// messages can only become solid once, then they stay like that, hence no .Dec() part
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
-		cachedMessage.Release()
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessage) {
+		cachedMessage.Message.Release()
 		solidTimeMutex.Lock()
 		defer solidTimeMutex.Unlock()
 		// Consume should release cachedMessageMetadata
-		cachedMessageMetadata.Consume(func(object objectstorage.StorableObject) {
+		cachedMessage.MessageMetadata.Consume(func(object objectstorage.StorableObject) {
 			msgMetaData := object.(*tangle.MessageMetadata)
 			if msgMetaData.IsSolid() {
 				messageSolidCountDBInc.Inc()
@@ -129,9 +129,9 @@ func registerLocalMetrics() {
 	}))
 
 	// fired when a missing message was received and removed from missing message storage
-	messagelayer.Tangle().Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
-		cachedMessage.Release()
-		cachedMessageMetadata.Release()
+	messagelayer.Tangle().Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessage) {
+		cachedMessage.Message.Release()
+		cachedMessage.MessageMetadata.Release()
 		missingMessageCountDB.Dec()
 	}))
 

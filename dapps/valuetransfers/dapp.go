@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tipmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	messageTangle "github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
@@ -188,11 +187,11 @@ func run(*node.Plugin) {
 	runFPC()
 }
 
-func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cachedMessageMetadata *messageTangle.CachedMessageMetadata) {
-	defer cachedMessage.Release()
-	defer cachedMessageMetadata.Release()
+func onReceiveMessageFromMessageLayer(cachedMessage *messageTangle.CachedMessage) {
+	defer cachedMessage.Message.Release()
+	defer cachedMessage.MessageMetadata.Release()
 
-	solidMessage := cachedMessage.Unwrap()
+	solidMessage := cachedMessage.Message.Unwrap()
 	if solidMessage == nil {
 		log.Debug("failed to unpack solid message from message layer")
 

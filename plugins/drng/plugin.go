@@ -43,10 +43,10 @@ func run(*node.Plugin) {}
 
 func configureEvents() {
 	instance := Instance()
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
-		cachedMessageMetadata.Release()
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessage) {
+		cachedMessage.MessageMetadata.Release()
 
-		cachedMessage.Consume(func(msg *message.Message) {
+		cachedMessage.Message.Consume(func(msg *message.Message) {
 			if msg.Payload().Type() != payload.Type {
 				return
 			}

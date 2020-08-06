@@ -128,17 +128,17 @@ func configureMessageLayer() {
 	}))
 
 	// configure flow of outgoing messages (gossip on solidification)
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
-		defer cachedMessage.Release()
-		defer cachedMessageMetadata.Release()
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessage) {
+		defer cachedMessage.Message.Release()
+		defer cachedMessage.MessageMetadata.Release()
 
 		// only broadcast new message shortly after they have been received
-		metadata := cachedMessageMetadata.Unwrap()
+		metadata := cachedMessage.MessageMetadata.Unwrap()
 		if time.Since(metadata.ReceivedTime()) > ageThreshold {
 			return
 		}
 
-		msg := cachedMessage.Unwrap()
+		msg := cachedMessage.Message.Unwrap()
 		mgr.SendMessage(msg.Bytes())
 	}))
 

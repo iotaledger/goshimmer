@@ -124,11 +124,11 @@ func run(*node.Plugin) {
 }
 
 func configureEvents() {
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
-		defer cachedMessage.Release()
-		defer cachedMessageMetadata.Release()
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessage) {
+		defer cachedMessage.Message.Release()
+		defer cachedMessage.MessageMetadata.Release()
 
-		msg := cachedMessage.Unwrap()
+		msg := cachedMessage.Message.Unwrap()
 		if msg == nil || !faucetpayload.IsFaucetReq(msg) {
 			return
 		}

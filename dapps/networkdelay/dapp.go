@@ -4,7 +4,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	messageTangle "github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
@@ -77,11 +76,11 @@ func configure(_ *node.Plugin) {
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 }
 
-func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cachedMessageMetadata *messageTangle.CachedMessageMetadata) {
-	defer cachedMessage.Release()
-	defer cachedMessageMetadata.Release()
+func onReceiveMessageFromMessageLayer(cachedMessage *messageTangle.CachedMessage) {
+	defer cachedMessage.Message.Release()
+	defer cachedMessage.MessageMetadata.Release()
 
-	solidMessage := cachedMessage.Unwrap()
+	solidMessage := cachedMessage.Message.Unwrap()
 	if solidMessage == nil {
 		log.Debug("failed to unpack solid message from message layer")
 
