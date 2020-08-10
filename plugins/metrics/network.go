@@ -11,8 +11,8 @@ var (
 	_FPCOutboundBytes atomic.Uint64
 
 	previousNeighbors = make(map[identity.ID]gossipTrafficMetric)
-	gossipOldTx       uint32
-	gossipOldRx       uint32
+	gossipOldTx       uint64
+	gossipOldRx       uint64
 	gossipCurrentTx   atomic.Uint64
 	gossipCurrentRx   atomic.Uint64
 
@@ -45,8 +45,8 @@ func AnalysisOutboundBytes() uint64 {
 }
 
 type gossipTrafficMetric struct {
-	BytesRead    uint32
-	BytesWritten uint32
+	BytesRead    uint64
+	BytesWritten uint64
 }
 
 func gossipCurrentTraffic() (g gossipTrafficMetric) {
