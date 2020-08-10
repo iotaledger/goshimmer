@@ -20,7 +20,7 @@ const (
 func init() {
 	flag.String(CfgPrometheusBindAddress, "0.0.0.0:9311", "the bind address on which the Prometheus exporter listens on")
 	flag.Bool(CfgPrometheusGoMetrics, false, "include go metrics")
-	flag.Bool(CfgPrometheusProcessMetrics, false, "include process metrics")
+	flag.Bool(CfgPrometheusProcessMetrics, true, "include process metrics")
 	flag.Bool(CfgPrometheusPromhttpMetrics, false, "include promhttp metrics")
 	flag.Bool(CfgPrometheusWorkerpoolMetrics, false, "include workerpool metrics")
 }

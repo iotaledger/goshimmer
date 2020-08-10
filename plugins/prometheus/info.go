@@ -1,6 +1,7 @@
 package prometheus
 
 import (
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/prometheus/client_golang/prometheus"
@@ -9,6 +10,7 @@ import (
 var (
 	infoApp *prometheus.GaugeVec
 	sync    prometheus.Gauge
+	nodeID  string
 )
 
 func registerInfoMetrics() {
@@ -17,9 +19,12 @@ func registerInfoMetrics() {
 			Name: "iota_info_app",
 			Help: "Node software name and version.",
 		},
-		[]string{"name", "version"},
+		[]string{"name", "version", "nodeID"},
 	)
-	infoApp.WithLabelValues(banner.AppName, banner.AppVersion).Set(1)
+	if local.GetInstance() != nil {
+		nodeID = local.GetInstance().ID().String()
+	}
+	infoApp.WithLabelValues(banner.AppName, banner.AppVersion, nodeID).Set(1)
 
 	sync = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "sync",
