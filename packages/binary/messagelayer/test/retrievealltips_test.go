@@ -23,9 +23,9 @@ func TestRetrieveAllTips(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	messageTangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
-		cachedMessage.Release()
-		cachedMessageMetadata.Release()
+	messageTangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessage) {
+		cachedMessage.Message.Release()
+		cachedMessage.MessageMetadata.Release()
 		wg.Done()
 	}))
 

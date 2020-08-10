@@ -79,8 +79,7 @@ func (messageParser *MessageParser) setupBytesFilterDataFlow() {
 			messageParser.bytesFilters[i].OnReject(func(bytes []byte, err error, peer *peer.Peer) {
 				messageParser.Events.BytesRejected.Trigger(&BytesRejected{
 					Bytes: bytes,
-					Err:   err,
-					Peer:  peer})
+					Peer:  peer}, err)
 			})
 		}
 	}
@@ -111,8 +110,7 @@ func (messageParser *MessageParser) setupMessageFilterDataFlow() {
 			messageParser.messageFilters[i].OnReject(func(msg *message.Message, err error, peer *peer.Peer) {
 				messageParser.Events.MessageRejected.Trigger(&MessageRejected{
 					Message: msg,
-					Err:     err,
-					Peer:    peer})
+					Peer:    peer}, err)
 			})
 		}
 	}
@@ -124,8 +122,7 @@ func (messageParser *MessageParser) parseMessage(bytes []byte, peer *peer.Peer) 
 	if parsedMessage, _, err := message.FromBytes(bytes); err != nil {
 		messageParser.Events.BytesRejected.Trigger(&BytesRejected{
 			Bytes: bytes,
-			Err:   err,
-			Peer:  peer})
+			Peer:  peer}, err)
 	} else {
 		messageParser.messageFilters[0].Filter(parsedMessage, peer)
 	}

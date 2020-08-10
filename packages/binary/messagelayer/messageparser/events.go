@@ -23,13 +23,11 @@ type MessageParsed struct {
 
 type BytesRejected struct {
 	Bytes []byte
-	Err   error
 	Peer  *peer.Peer
 }
 
 type MessageRejected struct {
 	Message *message.Message
-	Err     error
 	Peer    *peer.Peer
 }
 
@@ -46,9 +44,9 @@ func messageParsedEvent(handler interface{}, params ...interface{}) {
 }
 
 func bytesRejectedEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*BytesRejected))(params[0].(*BytesRejected))
+	handler.(func(*BytesRejected, error))(params[0].(*BytesRejected), params[1].(error))
 }
 
 func messageRejectedEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*MessageRejected))(params[0].(*MessageRejected))
+	handler.(func(*MessageRejected, error))(params[0].(*MessageRejected), params[1].(error))
 }
