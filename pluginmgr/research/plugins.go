@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 )
 
+// PLUGINS is the list of research plugins.
 var PLUGINS = node.Plugins(
 	remotelog.Plugin(),
 	analysisserver.Plugin(),

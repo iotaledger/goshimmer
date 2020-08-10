@@ -15,17 +15,17 @@ const (
 	tipsBroadcasterName = PluginName + "[TipsBroadcaster]"
 )
 
-var tips = tiplist{dict: make(map[message.Id]*list.Element)}
+var tips = tiplist{dict: make(map[message.ID]*list.Element)}
 
 type tiplist struct {
 	mu sync.Mutex
 
-	dict     map[message.Id]*list.Element
+	dict     map[message.ID]*list.Element
 	list     list.List
 	iterator *list.Element
 }
 
-func (s *tiplist) AddTip(id message.Id) {
+func (s *tiplist) AddTip(id message.ID) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -39,7 +39,7 @@ func (s *tiplist) AddTip(id message.Id) {
 	}
 }
 
-func (s *tiplist) RemoveTip(id message.Id) {
+func (s *tiplist) RemoveTip(id message.ID) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -54,14 +54,14 @@ func (s *tiplist) RemoveTip(id message.Id) {
 	}
 }
 
-func (s *tiplist) Next() message.Id {
+func (s *tiplist) Next() message.ID {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if s.iterator == nil {
-		return message.EmptyId
+		return message.EmptyID
 	}
-	id := s.iterator.Value.(message.Id)
+	id := s.iterator.Value.(message.ID)
 	s.next(s.iterator)
 	return id
 }
@@ -94,14 +94,14 @@ func startTipBroadcaster(shutdownSignal <-chan struct{}) {
 // broadcasts the next oldest tip from the tip pool to all connected neighbors.
 func broadcastNextOldestTip() {
 	msgID := tips.Next()
-	if msgID == message.EmptyId {
+	if msgID == message.EmptyID {
 		return
 	}
 	broadcastMessage(msgID)
 }
 
 // broadcasts the given message to all neighbors if it exists.
-func broadcastMessage(msgID message.Id) {
+func broadcastMessage(msgID message.ID) {
 	msgBytes, err := loadMessage(msgID)
 	if err != nil {
 		return

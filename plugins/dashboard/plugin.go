@@ -198,8 +198,8 @@ type neighbormetric struct {
 	ID               string `json:"id"`
 	Address          string `json:"address"`
 	ConnectionOrigin string `json:"connection_origin"`
-	BytesRead        uint32 `json:"bytes_read"`
-	BytesWritten     uint32 `json:"bytes_written"`
+	BytesRead        uint64 `json:"bytes_read"`
+	BytesWritten     uint64 `json:"bytes_written"`
 }
 
 func neighborMetrics() []neighbormetric {

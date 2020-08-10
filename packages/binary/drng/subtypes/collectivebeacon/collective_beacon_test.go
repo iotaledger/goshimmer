@@ -1,4 +1,4 @@
-package collectiveBeacon
+package collectivebeacon
 
 import (
 	"encoding/hex"
@@ -10,8 +10,8 @@ import (
 	"github.com/drand/kyber/share"
 	"github.com/drand/kyber/util/random"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/events"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/events"
+	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/require"
 )

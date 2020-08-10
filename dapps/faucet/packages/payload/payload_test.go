@@ -25,8 +25,8 @@ func ExamplePayload() {
 
 	// 2. build actual message
 	tx := message.New(
-		message.EmptyId,
-		message.EmptyId,
+		message.EmptyID,
+		message.EmptyID,
 		time.Now(),
 		local.PublicKey(),
 		0,
@@ -43,14 +43,14 @@ func TestPayload(t *testing.T) {
 		panic(err)
 	}
 
-	clonedPayload1, err, _ := FromBytes(originalPayload.Bytes())
+	clonedPayload1, _, err := FromBytes(originalPayload.Bytes())
 	if err != nil {
 		panic(err)
 	}
 
 	assert.Equal(t, originalPayload.Address(), clonedPayload1.Address())
 
-	clonedPayload2, err, _ := FromBytes(clonedPayload1.Bytes())
+	clonedPayload2, _, err := FromBytes(clonedPayload1.Bytes())
 	if err != nil {
 		panic(err)
 	}

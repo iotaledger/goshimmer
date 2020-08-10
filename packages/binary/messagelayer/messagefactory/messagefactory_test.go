@@ -31,7 +31,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 		mapdb.NewMapDB(),
 		[]byte(sequenceKey),
 		identity.GenerateLocalIdentity(),
-		TipSelectorFunc(func() (message.Id, message.Id) { return message.EmptyId, message.EmptyId }),
+		TipSelectorFunc(func() (message.ID, message.ID) { return message.EmptyID, message.EmptyID }),
 	)
 	defer msgFactory.Shutdown()
 
@@ -49,8 +49,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 		msg, err := msgFactory.IssuePayload(p)
 		require.NoError(t, err)
 
-		assert.NotNil(t, msg.TrunkId())
-		assert.NotNil(t, msg.BranchId())
+		assert.NotNil(t, msg.TrunkID())
+		assert.NotNil(t, msg.BranchID())
 
 		// time in range of 0.1 seconds
 		assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
@@ -75,8 +75,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 				msg, err := msgFactory.IssuePayload(p)
 				require.NoError(t, err)
 
-				assert.NotNil(t, msg.TrunkId())
-				assert.NotNil(t, msg.BranchId())
+				assert.NotNil(t, msg.TrunkID())
+				assert.NotNil(t, msg.BranchID())
 
 				// time in range of 0.1 seconds
 				assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
@@ -117,7 +117,7 @@ func TestMessageFactory_POW(t *testing.T) {
 		mapdb.NewMapDB(),
 		[]byte(sequenceKey),
 		identity.GenerateLocalIdentity(),
-		TipSelectorFunc(func() (message.Id, message.Id) { return message.EmptyId, message.EmptyId }),
+		TipSelectorFunc(func() (message.ID, message.ID) { return message.EmptyID, message.EmptyID }),
 	)
 	defer msgFactory.Shutdown()
 
@@ -144,7 +144,7 @@ func TestWorkerFunc_PayloadSize(t *testing.T) {
 		mapdb.NewMapDB(),
 		[]byte(sequenceKey),
 		identity.GenerateLocalIdentity(),
-		TipSelectorFunc(func() (message.Id, message.Id) { return message.EmptyId, message.EmptyId }),
+		TipSelectorFunc(func() (message.ID, message.ID) { return message.EmptyID, message.EmptyID }),
 	)
 	defer msgFactory.Shutdown()
 

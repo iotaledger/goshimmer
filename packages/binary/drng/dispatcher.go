@@ -6,9 +6,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/events"
-	cb "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
+	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon"
+	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/events"
+	cb "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/payload"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
@@ -36,7 +36,7 @@ func (drng *DRNG) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payloa
 		drng.Events.CollectiveBeacon.Trigger(cbEvent)
 
 		// process collectiveBeacon
-		if err := collectiveBeacon.ProcessBeacon(drng.State, cbEvent); err != nil {
+		if err := collectivebeacon.ProcessBeacon(drng.State, cbEvent); err != nil {
 			return err
 		}
 

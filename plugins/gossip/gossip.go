@@ -91,7 +91,7 @@ func start(shutdownSignal <-chan struct{}) {
 }
 
 // loads the given message from the message layer and returns it or an error if not found.
-func loadMessage(msgID message.Id) ([]byte, error) {
+func loadMessage(msgID message.ID) ([]byte, error) {
 	cachedMessage := messagelayer.Tangle().Message(msgID)
 	defer cachedMessage.Release()
 	if !cachedMessage.Exists() {

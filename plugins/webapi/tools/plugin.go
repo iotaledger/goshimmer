@@ -48,7 +48,7 @@ func pastCone(c echo.Context) error {
 
 	log.Info("Received:", request.ID)
 
-	msgID, err := message.NewId(request.ID)
+	msgID, err := message.NewID(request.ID)
 	if err != nil {
 		log.Info(err)
 		return c.JSON(http.StatusBadRequest, PastConeResponse{Error: err.Error()})
@@ -59,14 +59,14 @@ func pastCone(c echo.Context) error {
 	stack.PushBack(msgID)
 	// keep track of submitted checks (to not re-add something to the stack that is already in it)
 	// searching in double-linked list is quite expensive, but not in a map
-	submitted := make(map[message.Id]bool)
+	submitted := make(map[message.ID]bool)
 
 	// process messages in stack, try to request parents until we end up at the genesis
 	for stack.Len() > 0 {
 		checkedMessageCount++
 		// pop the first element from stack
 		currentMsgElement := stack.Front()
-		currentMsgID := currentMsgElement.Value.(message.Id)
+		currentMsgID := currentMsgElement.Value.(message.ID)
 		stack.Remove(currentMsgElement)
 
 		// ask node if it has it
@@ -79,22 +79,22 @@ func pastCone(c echo.Context) error {
 
 		// get trunk and branch
 		msg := msgObject.Unwrap()
-		branchID := msg.BranchId()
-		trunkID := msg.TrunkId()
+		branchID := msg.BranchID()
+		trunkID := msg.TrunkID()
 
 		// release objects
 		msgObject.Release()
 		msgMetadataObject.Release()
 
-		if branchID == message.EmptyId && msg.TrunkId() == message.EmptyId {
+		if branchID == message.EmptyID && msg.TrunkID() == message.EmptyID {
 			// msg only attaches to genesis
 			continue
 		} else {
-			if !submitted[branchID] && branchID != message.EmptyId {
+			if !submitted[branchID] && branchID != message.EmptyID {
 				stack.PushBack(branchID)
 				submitted[branchID] = true
 			}
-			if !submitted[trunkID] && trunkID != message.EmptyId {
+			if !submitted[trunkID] && trunkID != message.EmptyID {
 				stack.PushBack(trunkID)
 				submitted[trunkID] = true
 			}

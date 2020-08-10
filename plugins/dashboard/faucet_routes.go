@@ -50,7 +50,7 @@ func sendFaucetReq(addr address.Address) (res *ReqMsg, err error) {
 	}
 
 	r := &ReqMsg{
-		ID: msg.Id().String(),
+		ID: msg.ID().String(),
 	}
 	return r, nil
 }

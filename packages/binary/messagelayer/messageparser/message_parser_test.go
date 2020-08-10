@@ -51,5 +51,5 @@ func TestMessageParser_ParseMessage(t *testing.T) {
 }
 
 func newTestMessage(payloadString string) *message.Message {
-	return message.New(message.EmptyId, message.EmptyId, time.Now(), ed25519.PublicKey{}, 0, payload.NewData([]byte(payloadString)), 0, ed25519.Signature{})
+	return message.New(message.EmptyID, message.EmptyID, time.Now(), ed25519.PublicKey{}, 0, payload.NewData([]byte(payloadString)), 0, ed25519.Signature{})
 }

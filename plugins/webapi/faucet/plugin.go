@@ -70,7 +70,7 @@ func requestFunds(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, Response{Error: fmt.Sprintf("Failed to send faucetrequest: %s", err.Error())})
 	}
 
-	return c.JSON(http.StatusOK, Response{ID: msg.Id().String()})
+	return c.JSON(http.StatusOK, Response{ID: msg.ID().String()})
 }
 
 // Response contains the ID of the message sent.

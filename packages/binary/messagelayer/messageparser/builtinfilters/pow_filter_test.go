@@ -69,5 +69,5 @@ func (m *callbackMock) Accept(msg []byte, p *peer.Peer)            { m.Called(ms
 func (m *callbackMock) Reject(msg []byte, err error, p *peer.Peer) { m.Called(msg, err, p) }
 
 func newTestMessage(nonce uint64) *message.Message {
-	return message.New(message.EmptyId, message.EmptyId, time.Time{}, ed25519.PublicKey{}, 0, testPayload, nonce, ed25519.Signature{})
+	return message.New(message.EmptyID, message.EmptyID, time.Time{}, ed25519.PublicKey{}, 0, testPayload, nonce, ed25519.Signature{})
 }

@@ -2,7 +2,7 @@ package drng
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
-	cbEvents "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/events"
+	cbEvents "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/events"
 	"github.com/iotaledger/hive.go/events"
 )
 

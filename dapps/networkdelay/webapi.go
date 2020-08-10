@@ -28,7 +28,7 @@ func broadcastNetworkDelayObject(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
-	return c.JSON(http.StatusOK, Response{ID: msg.Id().String()})
+	return c.JSON(http.StatusOK, Response{ID: msg.ID().String()})
 }
 
 // Response contains the ID of the message sent.

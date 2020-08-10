@@ -17,9 +17,9 @@ import (
 func TestRetrieveAllTips(t *testing.T) {
 	messageTangle := tangle.New(mapdb.NewMapDB())
 
-	messageA := newTestMessage("A", message.EmptyId, message.EmptyId)
-	messageB := newTestMessage("B", messageA.Id(), message.EmptyId)
-	messageC := newTestMessage("C", messageA.Id(), message.EmptyId)
+	messageA := newTestMessage("A", message.EmptyID, message.EmptyID)
+	messageB := newTestMessage("B", messageA.ID(), message.EmptyID)
+	messageC := newTestMessage("C", messageA.ID(), message.EmptyID)
 
 	var wg sync.WaitGroup
 
@@ -43,6 +43,6 @@ func TestRetrieveAllTips(t *testing.T) {
 	messageTangle.Shutdown()
 }
 
-func newTestMessage(payloadString string, parent1, parent2 message.Id) *message.Message {
+func newTestMessage(payloadString string, parent1, parent2 message.ID) *message.Message {
 	return message.New(parent1, parent2, time.Now(), ed25519.PublicKey{}, 0, payload.NewData([]byte(payloadString)), 0, ed25519.Signature{})
 }

@@ -18,7 +18,7 @@ import (
 )
 
 func TestMessage_StorableObjectFromKey(t *testing.T) {
-	key, err := message.NewId("2DYebCqnZ8PS5PyXBEvAvLB1fCF77Rn9RtofNHjEb2pSTujKi889d31FmguAs5DgL7YURw4GP2Y28JdJ7K4bjudG")
+	key, err := message.NewID("2DYebCqnZ8PS5PyXBEvAvLB1fCF77Rn9RtofNHjEb2pSTujKi889d31FmguAs5DgL7YURw4GP2Y28JdJ7K4bjudG")
 	if err != nil {
 		panic(err)
 	}
@@ -28,21 +28,21 @@ func TestMessage_StorableObjectFromKey(t *testing.T) {
 		panic(err)
 	}
 
-	assert.Equal(t, message.IdLength, consumedBytes)
-	assert.Equal(t, key, messageFromKey.(*message.Message).Id())
+	assert.Equal(t, message.IDLength, consumedBytes)
+	assert.Equal(t, key, messageFromKey.(*message.Message).ID())
 }
 
 func TestMessage_VerifySignature(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	pl := payload.NewData([]byte("test"))
 
-	unsigned := message.New(message.EmptyId, message.EmptyId, time.Time{}, keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
+	unsigned := message.New(message.EmptyID, message.EmptyID, time.Time{}, keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
 	assert.False(t, unsigned.VerifySignature())
 
 	unsignedBytes := unsigned.Bytes()
 	signature := keyPair.PrivateKey.Sign(unsignedBytes[:len(unsignedBytes)-ed25519.SignatureSize])
 
-	signed := message.New(message.EmptyId, message.EmptyId, time.Time{}, keyPair.PublicKey, 0, pl, 0, signature)
+	signed := message.New(message.EmptyID, message.EmptyID, time.Time{}, keyPair.PublicKey, 0, pl, 0, signature)
 	assert.True(t, signed.VerifySignature())
 }
 
@@ -56,11 +56,11 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 
 	t.Log(testMessage)
 
-	restoredMessage, err, _ := message.FromBytes(testMessage.Bytes())
+	restoredMessage, _, err := message.FromBytes(testMessage.Bytes())
 	if assert.NoError(t, err, err) {
-		assert.Equal(t, testMessage.Id(), restoredMessage.Id())
-		assert.Equal(t, testMessage.TrunkId(), restoredMessage.TrunkId())
-		assert.Equal(t, testMessage.BranchId(), restoredMessage.BranchId())
+		assert.Equal(t, testMessage.ID(), restoredMessage.ID())
+		assert.Equal(t, testMessage.TrunkID(), restoredMessage.TrunkID())
+		assert.Equal(t, testMessage.BranchID(), restoredMessage.BranchID())
 		assert.Equal(t, testMessage.IssuerPublicKey(), restoredMessage.IssuerPublicKey())
 		assert.Equal(t, testMessage.IssuingTime().Round(time.Second), restoredMessage.IssuingTime().Round(time.Second))
 		assert.Equal(t, testMessage.SequenceNumber(), restoredMessage.SequenceNumber())
