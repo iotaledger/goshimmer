@@ -5,7 +5,7 @@ import (
 	"crypto/sha512"
 	"errors"
 
-	"github.com/drand/drand/beacon"
+	"github.com/drand/drand/chain"
 	"github.com/drand/drand/key"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/events"
@@ -106,7 +106,7 @@ func verifySignature(data *events.CollectiveBeaconEvent) error {
 		return err
 	}
 
-	msg := beacon.Message(data.Round, data.PrevSignature)
+	msg := chain.Message(data.Round, data.PrevSignature)
 
 	if err := key.Scheme.VerifyRecovered(dpk, msg, data.Signature); err != nil {
 		return err
