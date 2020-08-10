@@ -71,6 +71,7 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
             case PayloadType.Value:
                 return <ValuePayload/>
             case PayloadType.Data:
+                return <BasicPayload/>
             case PayloadType.SyncBeacon:
                 return <SyncBeaconPayload/>
             case PayloadType.Faucet:
