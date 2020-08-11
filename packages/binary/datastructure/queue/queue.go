@@ -4,6 +4,7 @@ import (
 	"sync"
 )
 
+// Queue represents a ring buffer.
 type Queue struct {
 	ringBuffer []interface{}
 	read       int
@@ -13,6 +14,7 @@ type Queue struct {
 	mutex      sync.Mutex
 }
 
+// New creates a new queue with the specified capacity.
 func New(capacity int) *Queue {
 	return &Queue{
 		ringBuffer: make([]interface{}, capacity),
@@ -20,6 +22,7 @@ func New(capacity int) *Queue {
 	}
 }
 
+// Size returns the size of the queue.
 func (queue *Queue) Size() int {
 	queue.mutex.Lock()
 	defer queue.mutex.Unlock()
@@ -27,6 +30,7 @@ func (queue *Queue) Size() int {
 	return queue.size
 }
 
+// Capacity returns the capacity of the queue.
 func (queue *Queue) Capacity() int {
 	queue.mutex.Lock()
 	defer queue.mutex.Unlock()
@@ -34,6 +38,8 @@ func (queue *Queue) Capacity() int {
 	return queue.capacity
 }
 
+// Offer adds an element to the queue and returns true.
+// If the queue is full, it drops it and returns false.
 func (queue *Queue) Offer(element interface{}) bool {
 	queue.mutex.Lock()
 	defer queue.mutex.Unlock()
@@ -49,6 +55,8 @@ func (queue *Queue) Offer(element interface{}) bool {
 	return true
 }
 
+// Poll returns and removes the oldest element in the queue and true if successful.
+// If returns false if the queue is empty.
 func (queue *Queue) Poll() (element interface{}, success bool) {
 	queue.mutex.Lock()
 	defer queue.mutex.Unlock()

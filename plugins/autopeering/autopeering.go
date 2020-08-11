@@ -3,7 +3,6 @@ package autopeering
 import (
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"net"
 	"strconv"
 	"strings"
@@ -25,7 +24,7 @@ import (
 // autopeering constants
 const (
 	ProtocolVersion = 0 // update on protocol changes
-	NetworkVersion  = 5 // update on network changes
+	NetworkVersion  = 6 // update on network changes
 )
 
 var (
@@ -161,15 +160,6 @@ func start(shutdownSignal <-chan struct{}) {
 	Selection().Close()
 
 	lPeer.Database().Close()
-}
-
-func hash32(b []byte) uint32 {
-	hash := fnv.New32()
-	_, err := hash.Write(b)
-	if err != nil {
-		panic(err)
-	}
-	return hash.Sum32()
 }
 
 func parseEntryNodes() (result []*peer.Peer, err error) {

@@ -73,7 +73,7 @@ func broadcastSyncBeaconPayload() {
 		return
 	}
 
-	log.Debugf("issued sync beacon %s", msg.Id())
+	log.Debugf("issued sync beacon %s", msg.ID())
 }
 
 func run(_ *node.Plugin) {

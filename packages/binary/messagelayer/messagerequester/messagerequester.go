@@ -12,7 +12,7 @@ const messageExistCheckThreshold = 10
 
 // MessageRequester takes care of requesting messages.
 type MessageRequester struct {
-	scheduledRequests map[message.Id]*time.Timer
+	scheduledRequests map[message.ID]*time.Timer
 	options           *Options
 	messageExistsFunc MessageExistsFunc
 	Events            Events
@@ -21,24 +21,24 @@ type MessageRequester struct {
 }
 
 // MessageExistsFunc is a function that tells if a message exists.
-type MessageExistsFunc func(messageId message.Id) bool
+type MessageExistsFunc func(messageId message.ID) bool
 
-func createReRequest(requester *MessageRequester, msgID message.Id, count int) func() {
+func createReRequest(requester *MessageRequester, msgID message.ID, count int) func() {
 	return func() { requester.reRequest(msgID, count) }
 }
 
 // New creates a new message requester.
-func New(messageExists MessageExistsFunc, missingMessages []message.Id, optionalOptions ...Option) *MessageRequester {
+func New(messageExists MessageExistsFunc, missingMessages []message.ID, optionalOptions ...Option) *MessageRequester {
 	requester := &MessageRequester{
-		scheduledRequests: make(map[message.Id]*time.Timer),
+		scheduledRequests: make(map[message.ID]*time.Timer),
 		options:           newOptions(optionalOptions),
 		messageExistsFunc: messageExists,
 		Events: Events{
 			SendRequest: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func(message.Id))(params[0].(message.Id))
+				handler.(func(message.ID))(params[0].(message.ID))
 			}),
 			MissingMessageAppeared: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func(message.Id))(params[0].(message.Id))
+				handler.(func(message.ID))(params[0].(message.ID))
 			}),
 		},
 	}
@@ -55,7 +55,7 @@ func New(messageExists MessageExistsFunc, missingMessages []message.Id, optional
 }
 
 // StartRequest initiates a regular triggering of the StartRequest event until it has been stopped using StopRequest.
-func (requester *MessageRequester) StartRequest(id message.Id) {
+func (requester *MessageRequester) StartRequest(id message.ID) {
 	requester.scheduledRequestsMutex.Lock()
 
 	// ignore already scheduled requests
@@ -65,13 +65,13 @@ func (requester *MessageRequester) StartRequest(id message.Id) {
 	}
 
 	// schedule the next request and trigger the event
-	requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { createReRequest(requester, id, 0) })
+	requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, createReRequest(requester, id, 0))
 	requester.scheduledRequestsMutex.Unlock()
 	requester.Events.SendRequest.Trigger(id)
 }
 
 // StopRequest stops requests for the given message to further happen.
-func (requester *MessageRequester) StopRequest(id message.Id) {
+func (requester *MessageRequester) StopRequest(id message.ID) {
 	requester.scheduledRequestsMutex.Lock()
 	defer requester.scheduledRequestsMutex.Unlock()
 
@@ -81,7 +81,7 @@ func (requester *MessageRequester) StopRequest(id message.Id) {
 	}
 }
 
-func (requester *MessageRequester) reRequest(id message.Id, count int) {
+func (requester *MessageRequester) reRequest(id message.ID, count int) {
 	requester.Events.SendRequest.Trigger(id)
 
 	count++
@@ -99,7 +99,7 @@ func (requester *MessageRequester) reRequest(id message.Id, count int) {
 			requester.Events.MissingMessageAppeared.Trigger(id)
 			return
 		}
-		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, func() { createReRequest(requester, id, count) })
+		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, createReRequest(requester, id, count))
 		return
 	}
 }

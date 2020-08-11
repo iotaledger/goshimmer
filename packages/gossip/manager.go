@@ -6,7 +6,6 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	pb "github.com/iotaledger/goshimmer/packages/gossip/proto"
 	"github.com/iotaledger/goshimmer/packages/gossip/server"
@@ -15,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/workerpool"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -31,7 +31,7 @@ var (
 )
 
 // LoadMessageFunc defines a function that returns the message for the given id.
-type LoadMessageFunc func(messageId message.Id) ([]byte, error)
+type LoadMessageFunc func(messageId message.ID) ([]byte, error)
 
 // The Manager handles the connected neighbors.
 type Manager struct {
@@ -166,8 +166,8 @@ func (m *Manager) DropNeighbor(id identity.ID) error {
 
 // RequestMessage requests the message with the given id from the neighbors.
 // If no peer is provided, all neighbors are queried.
-func (m *Manager) RequestMessage(messageId []byte, to ...identity.ID) {
-	msgReq := &pb.MessageRequest{Id: messageId}
+func (m *Manager) RequestMessage(messageID []byte, to ...identity.ID) {
+	msgReq := &pb.MessageRequest{Id: messageID}
 	m.send(marshal(msgReq), to...)
 }
 
@@ -317,7 +317,7 @@ func (m *Manager) processMessageRequest(data []byte, nbr *Neighbor) {
 		m.log.Debugw("invalid packet", "err", err)
 	}
 
-	msgID, _, err := message.IdFromBytes(packet.GetId())
+	msgID, _, err := message.IDFromBytes(packet.GetId())
 	if err != nil {
 		m.log.Debugw("invalid message id:", "err", err)
 	}

@@ -14,7 +14,9 @@ import (
 )
 
 var (
-	ErrVoteAlreadyOngoing       = errors.New("a vote is already ongoing for the given ID")
+	// ErrVoteAlreadyOngoing is returned if a vote is already going on for the given ID.
+	ErrVoteAlreadyOngoing = errors.New("a vote is already ongoing for the given ID")
+	// ErrNoOpinionGiversAvailable is returned if a round cannot be performed as no opinion gives are available.
 	ErrNoOpinionGiversAvailable = errors.New("can't perform round as no opinion givers are available")
 )
 
@@ -61,6 +63,7 @@ type FPC struct {
 	opinionGiverRng *rand.Rand
 }
 
+// Vote sets an initial opinion on the vote context and enqueues the vote context.
 func (f *FPC) Vote(id string, initOpn vote.Opinion) error {
 	f.queueMu.Lock()
 	defer f.queueMu.Unlock()
@@ -77,6 +80,8 @@ func (f *FPC) Vote(id string, initOpn vote.Opinion) error {
 	return nil
 }
 
+// IntermediateOpinion returns the last formed opinion.
+// If the vote is not found for the specified ID, it returns with error ErrVotingNotFound.
 func (f *FPC) IntermediateOpinion(id string) (vote.Opinion, error) {
 	f.ctxsMu.RLock()
 	defer f.ctxsMu.RUnlock()
@@ -87,6 +92,7 @@ func (f *FPC) IntermediateOpinion(id string) (vote.Opinion, error) {
 	return voteCtx.LastOpinion(), nil
 }
 
+// Events returns the events which happen on a vote.
 func (f *FPC) Events() vote.Events {
 	return f.events
 }

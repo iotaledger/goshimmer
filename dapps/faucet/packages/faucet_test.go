@@ -26,8 +26,8 @@ func TestIsFaucetReq(t *testing.T) {
 		return
 	}
 	faucetMsg := message.New(
-		message.EmptyId,
-		message.EmptyId,
+		message.EmptyID,
+		message.EmptyID,
 		time.Now(),
 		local.PublicKey(),
 		0,
@@ -37,8 +37,8 @@ func TestIsFaucetReq(t *testing.T) {
 	)
 
 	dataMsg := message.New(
-		message.EmptyId,
-		message.EmptyId,
+		message.EmptyID,
+		message.EmptyID,
 		time.Now(),
 		local.PublicKey(),
 		0,

@@ -1,3 +1,11 @@
+# v0.2.3 - 2020-08-11
+* Fixes synchronization issue where missing messages were not requested more than once
+* Fixes node's dashboard explorer crashing or not properly visualizing the payload of a given message
+* Improves Grafana local dashboard:
+    * Adds support for the sync-beacon payload type
+    * Displaying uptime and nodeID
+* Fixed all linter issues to improve code quality
+
 # v0.2.2 - 2020-07-27
 * Improves message and transaction validation: 
     * Adjust max transaction inputs count;

@@ -19,8 +19,8 @@ type Message struct {
 	objectstorage.StorableObjectFlags
 
 	// core properties (get sent over the wire)
-	trunkID         Id
-	branchID        Id
+	trunkID         ID
+	branchID        ID
 	issuerPublicKey ed25519.PublicKey
 	issuingTime     time.Time
 	sequenceNumber  uint64
@@ -29,16 +29,16 @@ type Message struct {
 	signature       ed25519.Signature
 
 	// derived properties
-	id             *Id
+	id             *ID
 	idMutex        sync.RWMutex
-	contentId      *ContentId
-	contentIdMutex sync.RWMutex
+	contentID      *ContentID
+	contentIDMutex sync.RWMutex
 	bytes          []byte
 	bytesMutex     sync.RWMutex
 }
 
 // New creates a new message with the details provided by the issuer.
-func New(trunkID Id, branchID Id, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
+func New(trunkID ID, branchID ID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
 	return &Message{
 		trunkID:         trunkID,
 		branchID:        branchID,
@@ -52,7 +52,7 @@ func New(trunkID Id, branchID Id, issuingTime time.Time, issuerPublicKey ed25519
 }
 
 // FromBytes parses the given bytes into a message.
-func FromBytes(bytes []byte, optionalTargetObject ...*Message) (result *Message, err error, consumedBytes int) {
+func FromBytes(bytes []byte, optionalTargetObject ...*Message) (result *Message, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = Parse(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
@@ -94,13 +94,13 @@ func StorableObjectFromKey(key []byte, optionalTargetObject ...*Message) (result
 	}
 
 	marshalUtil := marshalutil.New(key)
-	if id, idErr := ParseId(marshalUtil); idErr != nil {
+	id, idErr := ParseID(marshalUtil)
+	if idErr != nil {
 		err = idErr
 
 		return
-	} else {
-		result.(*Message).id = &id
 	}
+	result.(*Message).id = &id
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
@@ -119,7 +119,7 @@ func (message *Message) VerifySignature() bool {
 
 // ID returns the id of the message which is made up of the content id and trunk/branch ids.
 // This id can be used for merkle proofs.
-func (message *Message) Id() (result Id) {
+func (message *Message) ID() (result ID) {
 	message.idMutex.RLock()
 
 	if message.id == nil {
@@ -131,7 +131,7 @@ func (message *Message) Id() (result Id) {
 			result = *message.id
 			return
 		}
-		result = message.calculateId()
+		result = message.calculateID()
 		message.id = &result
 		return
 	}
@@ -142,12 +142,12 @@ func (message *Message) Id() (result Id) {
 }
 
 // TrunkID returns the id of the trunk message.
-func (message *Message) TrunkId() Id {
+func (message *Message) TrunkID() ID {
 	return message.trunkID
 }
 
 // BranchID returns the id of the branch message.
-func (message *Message) BranchId() Id {
+func (message *Message) BranchID() ID {
 	return message.branchID
 }
 
@@ -171,7 +171,7 @@ func (message *Message) Payload() payload.Payload {
 	return message.payload
 }
 
-// Payload returns the payload of the message.
+// Nonce returns the nonce of the message.
 func (message *Message) Nonce() uint64 {
 	return message.nonce
 }
@@ -181,44 +181,44 @@ func (message *Message) Signature() ed25519.Signature {
 	return message.signature
 }
 
-// ContentId returns the content id of the message which is made up of all the
+// ContentID returns the content id of the message which is made up of all the
 // parts of the message minus the trunk and branch ids.
-func (message *Message) ContentId() (result ContentId) {
-	message.contentIdMutex.RLock()
-	if message.contentId == nil {
-		message.contentIdMutex.RUnlock()
+func (message *Message) ContentID() (result ContentID) {
+	message.contentIDMutex.RLock()
+	if message.contentID == nil {
+		message.contentIDMutex.RUnlock()
 
-		message.contentIdMutex.Lock()
-		defer message.contentIdMutex.Unlock()
-		if message.contentId != nil {
-			result = *message.contentId
+		message.contentIDMutex.Lock()
+		defer message.contentIDMutex.Unlock()
+		if message.contentID != nil {
+			result = *message.contentID
 			return
 		}
-		result = message.calculateContentId()
-		message.contentId = &result
+		result = message.calculateContentID()
+		message.contentID = &result
 		return
 	}
 
-	result = *message.contentId
-	message.contentIdMutex.RUnlock()
+	result = *message.contentID
+	message.contentIDMutex.RUnlock()
 	return
 }
 
 // calculates the message id.
-func (message *Message) calculateId() Id {
+func (message *Message) calculateID() ID {
 	return blake2b.Sum512(
-		marshalutil.New(IdLength + IdLength + payload.IdLength).
+		marshalutil.New(IDLength + IDLength + payload.IDLength).
 			WriteBytes(message.trunkID.Bytes()).
 			WriteBytes(message.branchID.Bytes()).
-			WriteBytes(message.ContentId().Bytes()).
+			WriteBytes(message.ContentID().Bytes()).
 			Bytes(),
 	)
 }
 
 // calculates the content id of the message.
-func (message *Message) calculateContentId() ContentId {
+func (message *Message) calculateContentID() ContentID {
 	// compute content id from the message data (except trunk and branch ids)
-	return blake2b.Sum512(message.Bytes()[2*IdLength:])
+	return blake2b.Sum512(message.Bytes()[2*IDLength:])
 }
 
 // Bytes returns the message in serialized byte form.
@@ -254,15 +254,16 @@ func (message *Message) Bytes() []byte {
 	return message.bytes
 }
 
+// UnmarshalObjectStorageValue unmarshals the bytes into a message.
 func (message *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	// initialize helper
 	marshalUtil := marshalutil.New(data)
 
 	// parse information
-	if message.trunkID, err = ParseId(marshalUtil); err != nil {
+	if message.trunkID, err = ParseID(marshalUtil); err != nil {
 		return
 	}
-	if message.branchID, err = ParseId(marshalUtil); err != nil {
+	if message.branchID, err = ParseID(marshalUtil); err != nil {
 		return
 	}
 	if message.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
@@ -294,11 +295,14 @@ func (message *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes 
 	return
 }
 
+// ObjectStorageKey returns the key of the stored message object.
+// This returns the bytes of the message ID.
 func (message *Message) ObjectStorageKey() []byte {
-	return message.Id().Bytes()
+	return message.ID().Bytes()
 }
 
-// Since messages are immutable and do not get changed after being created, we cache the result of the marshaling.
+// ObjectStorageValue returns the value stored in object storage.
+// This returns the bytes of message.
 func (message *Message) ObjectStorageValue() []byte {
 	return message.Bytes()
 }
@@ -311,9 +315,9 @@ func (message *Message) Update(objectstorage.StorableObject) {
 
 func (message *Message) String() string {
 	return stringify.Struct("Message",
-		stringify.StructField("id", message.Id()),
-		stringify.StructField("trunkId", message.TrunkId()),
-		stringify.StructField("branchId", message.BranchId()),
+		stringify.StructField("id", message.ID()),
+		stringify.StructField("trunkId", message.TrunkID()),
+		stringify.StructField("branchId", message.BranchID()),
 		stringify.StructField("issuer", message.IssuerPublicKey()),
 		stringify.StructField("issuingTime", message.IssuingTime()),
 		stringify.StructField("sequenceNumber", message.SequenceNumber()),
@@ -323,28 +327,35 @@ func (message *Message) String() string {
 	)
 }
 
+// CachedMessage defines a cached message.
+// A wrapper for a cached object.
 type CachedMessage struct {
 	objectstorage.CachedObject
 }
 
+// Retain registers a new consumer for the cached message.
 func (cachedMessage *CachedMessage) Retain() *CachedMessage {
 	return &CachedMessage{cachedMessage.CachedObject.Retain()}
 }
 
+// Consume consumes the cached object and releases it when the callback is done.
+// It returns true if the callback was called.
 func (cachedMessage *CachedMessage) Consume(consumer func(msg *Message)) bool {
 	return cachedMessage.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Message))
 	})
 }
 
+// Unwrap returns the message wrapped by the cached message.
+// If the wrapped object cannot be cast to a Message or has been deleted, it returns nil.
 func (cachedMessage *CachedMessage) Unwrap() *Message {
-	if untypedMessage := cachedMessage.Get(); untypedMessage == nil {
+	untypedMessage := cachedMessage.Get()
+	if untypedMessage == nil {
 		return nil
-	} else {
-		if typeCastedMessage := untypedMessage.(*Message); typeCastedMessage == nil || typeCastedMessage.IsDeleted() {
-			return nil
-		} else {
-			return typeCastedMessage
-		}
 	}
+	typeCastedMessage := untypedMessage.(*Message)
+	if typeCastedMessage == nil || typeCastedMessage.IsDeleted() {
+		return nil
+	}
+	return typeCastedMessage
 }

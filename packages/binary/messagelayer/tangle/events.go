@@ -29,14 +29,14 @@ func newEvents() *Events {
 		MessageAttached:        events.NewEvent(cachedMessageEvent),
 		MessageSolid:           events.NewEvent(cachedMessageEvent),
 		MissingMessageReceived: events.NewEvent(cachedMessageEvent),
-		MessageMissing:         events.NewEvent(messageIdEvent),
-		MessageUnsolidifiable:  events.NewEvent(messageIdEvent),
-		MessageRemoved:         events.NewEvent(messageIdEvent),
+		MessageMissing:         events.NewEvent(messageIDEvent),
+		MessageUnsolidifiable:  events.NewEvent(messageIDEvent),
+		MessageRemoved:         events.NewEvent(messageIDEvent),
 	}
 }
 
-func messageIdEvent(handler interface{}, params ...interface{}) {
-	handler.(func(message.Id))(params[0].(message.Id))
+func messageIDEvent(handler interface{}, params ...interface{}) {
+	handler.(func(message.ID))(params[0].(message.ID))
 }
 
 func cachedMessageEvent(handler interface{}, params ...interface{}) {

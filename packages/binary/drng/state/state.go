@@ -35,7 +35,7 @@ type Committee struct {
 	DistributedPK []byte
 }
 
-// The state of the DRNG.
+// State represents the state of the DRNG.
 type State struct {
 	randomness *Randomness
 	committee  *Committee
@@ -73,7 +73,7 @@ func (s *State) Randomness() Randomness {
 	return *s.randomness
 }
 
-// Update committee updates the committee of the DRNG state
+// UpdateCommittee updates the committee of the DRNG state
 func (s *State) UpdateCommittee(c *Committee) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()

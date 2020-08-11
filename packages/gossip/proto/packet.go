@@ -1,7 +1,7 @@
 package proto
 
 import (
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // PacketType is the type of packet type enum.

@@ -16,6 +16,7 @@ type randomMapEntry struct {
 	keyIndex int
 }
 
+// RandomMap defines a  map with extended ability to return a random entry.
 type RandomMap struct {
 	rawMap map[interface{}]*randomMapEntry
 	keys   []interface{}
@@ -23,6 +24,7 @@ type RandomMap struct {
 	mutex  sync.RWMutex
 }
 
+// NewRandomMap creates a new random map
 func NewRandomMap() *RandomMap {
 	return &RandomMap{
 		rawMap: make(map[interface{}]*randomMapEntry),
@@ -30,6 +32,8 @@ func NewRandomMap() *RandomMap {
 	}
 }
 
+// Set associates the specified value with the specified key.
+// If the association already exists, it updates the value.
 func (rmap *RandomMap) Set(key interface{}, value interface{}) (updated bool) {
 	rmap.mutex.Lock()
 
@@ -58,6 +62,7 @@ func (rmap *RandomMap) Set(key interface{}, value interface{}) (updated bool) {
 	return
 }
 
+// Get returns the value to which the specified key is mapped.
 func (rmap *RandomMap) Get(key interface{}) (result interface{}, exists bool) {
 	rmap.mutex.RLock()
 
@@ -71,6 +76,7 @@ func (rmap *RandomMap) Get(key interface{}) (result interface{}, exists bool) {
 	return
 }
 
+// Delete removes the mapping for the specified key in the map.
 func (rmap *RandomMap) Delete(key interface{}) (result interface{}, exists bool) {
 	rmap.mutex.RLock()
 
@@ -106,6 +112,7 @@ func (rmap *RandomMap) Delete(key interface{}) (result interface{}, exists bool)
 	return
 }
 
+// Size returns the number of key-value mappings in the map.
 func (rmap *RandomMap) Size() (result int) {
 	rmap.mutex.RLock()
 
@@ -116,6 +123,7 @@ func (rmap *RandomMap) Size() (result int) {
 	return
 }
 
+// RandomEntry returns a random value from the map.
 func (rmap *RandomMap) RandomEntry() (result interface{}) {
 	rmap.mutex.RLock()
 

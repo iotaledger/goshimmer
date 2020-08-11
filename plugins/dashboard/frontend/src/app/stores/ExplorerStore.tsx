@@ -190,11 +190,13 @@ export class ExplorerStore {
             case PayloadType.Value:
                 this.payload = msg.payload as ValuePayload
                 break;
+            case PayloadType.Data:
+                this.payload = msg.payload as BasicPayload
+                break;
             case PayloadType.SyncBeacon:
                 this.payload = msg.payload as SyncBeaconPayload
-                console.log(this.payload.sent_time);
+                // console.log(this.payload.sent_time);
                 break;
-            case PayloadType.Data:
             case PayloadType.Faucet:
             default:
                 this.payload = msg.payload as BasicPayload

@@ -7,7 +7,7 @@ import (
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	drngpayload "github.com/iotaledger/goshimmer/packages/binary/drng/payload"
 	drngheader "github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
-	cb "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectiveBeacon/payload"
+	cb "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	syncbeaconpayload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -31,7 +31,7 @@ type SyncBeaconPayload struct {
 	SentTime int64 `json:"sent_time"`
 }
 
-// DrngPayload contains the subtype of drng payload, instance Id
+// DrngPayload contains the subtype of drng payload, instance ID
 // and the subpayload
 type DrngPayload struct {
 	SubPayloadType byte        `json:"subpayload_type"`
