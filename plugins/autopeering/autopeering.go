@@ -24,7 +24,6 @@ import (
 // autopeering constants
 const (
 	ProtocolVersion = 0 // update on protocol changes
-	NetworkVersion  = 6 // update on network changes
 )
 
 var (
@@ -49,6 +48,8 @@ var (
 		once sync.Once
 		c    chan *server.Server
 	}{c: make(chan *server.Server, 1)}
+
+	networkVersion uint32
 )
 
 // Discovery returns the peer discovery instance.
@@ -92,7 +93,7 @@ func createPeerDisc() {
 	}
 	log.Debugf("Master peers: %v", masterPeers)
 
-	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, NetworkVersion,
+	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, NetworkVersion(),
 		discover.Logger(log),
 		discover.MasterPeers(masterPeers),
 	)
@@ -192,4 +193,9 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 	}
 
 	return result, nil
+}
+
+// NetworkVersion returns the network version of the autopeering.
+func NetworkVersion() uint32 {
+	return networkVersion
 }

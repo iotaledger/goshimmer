@@ -59,7 +59,7 @@ func checkAutopeeringConnection() {
 	defer conn.Close()
 
 	// create a new discovery server for the port check
-	disc := discover.New(local.GetInstance(), autopeering.ProtocolVersion, autopeering.NetworkVersion, discover.Logger(log))
+	disc := discover.New(local.GetInstance(), autopeering.ProtocolVersion, autopeering.NetworkVersion(), discover.Logger(log))
 	srv := server.Serve(local.GetInstance(), conn, log, disc)
 	defer srv.Close()
 
