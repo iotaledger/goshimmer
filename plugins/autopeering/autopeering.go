@@ -48,6 +48,8 @@ var (
 		once sync.Once
 		c    chan *server.Server
 	}{c: make(chan *server.Server, 1)}
+
+	networkVersion uint32
 )
 
 // Discovery returns the peer discovery instance.
@@ -91,7 +93,7 @@ func createPeerDisc() {
 	}
 	log.Debugf("Master peers: %v", masterPeers)
 
-	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, config.Node().GetUint32(CfgNetworkVersion),
+	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, NetworkVersion(),
 		discover.Logger(log),
 		discover.MasterPeers(masterPeers),
 	)
@@ -191,4 +193,8 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 	}
 
 	return result, nil
+}
+
+func NetworkVersion() uint32 {
+	return networkVersion
 }

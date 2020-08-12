@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/autopeering/server"
@@ -60,7 +59,7 @@ func checkAutopeeringConnection() {
 	defer conn.Close()
 
 	// create a new discovery server for the port check
-	disc := discover.New(local.GetInstance(), autopeering.ProtocolVersion, config.Node().GetUint32(autopeering.CfgNetworkVersion), discover.Logger(log))
+	disc := discover.New(local.GetInstance(), autopeering.ProtocolVersion, autopeering.NetworkVersion(), discover.Logger(log))
 	srv := server.Serve(local.GetInstance(), conn, log, disc)
 	defer srv.Close()
 
