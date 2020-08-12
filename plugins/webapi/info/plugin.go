@@ -5,6 +5,7 @@ import (
 	"sort"
 	goSync "sync"
 
+	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
@@ -103,6 +104,7 @@ func getInfo(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, Response{
 		Version:                 banner.AppVersion,
+		NetworkVersion:          autopeering.NetworkVersion(),
 		Synced:                  synced,
 		Beacons:                 beaconsStatus,
 		IdentityID:              local.GetInstance().Identity.ID().String(),
@@ -119,6 +121,8 @@ func getInfo(c echo.Context) error {
 type Response struct {
 	// version of GoShimmer
 	Version string `json:"version,omitempty"`
+	// Network Version of the autopeering
+	NetworkVersion uint32 `json:"networkVersion,omitempty"`
 	// whether the node is synchronized
 	Synced bool `json:"synced"`
 	// sync beacons status
