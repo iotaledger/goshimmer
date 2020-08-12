@@ -8,7 +8,7 @@ require (
 	github.com/docker/docker v1.13.1
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0 // indirect
-	github.com/drand/drand v0.9.1
+	github.com/drand/drand v1.1.1
 	github.com/iotaledger/goshimmer v0.1.3
 	github.com/iotaledger/hive.go v0.0.0-20200810103552-94bbf59c54fa
 	github.com/mr-tron/base58 v1.2.0

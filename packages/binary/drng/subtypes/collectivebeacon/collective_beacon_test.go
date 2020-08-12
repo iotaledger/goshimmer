@@ -5,7 +5,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/drand/drand/beacon"
+	"github.com/drand/drand/chain"
 	"github.com/drand/drand/key"
 	"github.com/drand/kyber/share"
 	"github.com/drand/kyber/util/random"
@@ -118,7 +118,7 @@ func dkgShares(t *testing.T, n, threshold int) *payload.Payload {
 	err = key.Scheme.VerifyRecovered(pubPoly.Commit(), msg, sig)
 	require.NoError(t, err)
 
-	msg = beacon.Message(1, sig)
+	msg = chain.Message(1, sig)
 	sigs = make([][]byte, n)
 	// partial signatures
 	for i := 0; i < n; i++ {
