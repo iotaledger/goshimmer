@@ -221,25 +221,32 @@ func (tangle *Tangle) storeMessageWorker(msg *message.Message) {
 
 // checks whether the given message is solid and marks it as missing if it isn't known.
 func (tangle *Tangle) isMessageMarkedAsSolid(messageID message.ID) bool {
+	// return true if the message is the Genesis
 	if messageID == message.EmptyID {
 		return true
 	}
 
-	msgMetadataCached := tangle.MessageMetadata(messageID)
-	defer msgMetadataCached.Release()
-	msgMetadata := msgMetadataCached.Unwrap()
-
-	// mark message as missing
-	if msgMetadata == nil {
-		missingMessage := NewMissingMessage(messageID)
-		if cachedMissingMessage, stored := tangle.missingMessageStorage.StoreIfAbsent(missingMessage); stored {
+	// retrieve the CachedMessageMetadata and mark it as missing if it doesn't exist
+	msgMetadataCached := &CachedMessageMetadata{tangle.messageMetadataStorage.ComputeIfAbsent(messageID.Bytes(), func(key []byte) objectstorage.StorableObject {
+		// store the missing message and trigger events
+		if cachedMissingMessage, stored := tangle.missingMessageStorage.StoreIfAbsent(NewMissingMessage(messageID)); stored {
 			cachedMissingMessage.Consume(func(object objectstorage.StorableObject) {
 				tangle.Events.MessageMissing.Trigger(messageID)
 			})
 		}
+
+		// do not initialize the metadata here, we execute this in ComputeIfAbsent to be secure from race conditions
+		return nil
+	})}
+	defer msgMetadataCached.Release()
+
+	// return false if the metadata does not exist
+	msgMetadata := msgMetadataCached.Unwrap()
+	if msgMetadata == nil {
 		return false
 	}
 
+	// return the solid flag of the metadata object
 	return msgMetadata.IsSolid()
 }
 
