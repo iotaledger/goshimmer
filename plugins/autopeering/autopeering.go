@@ -24,7 +24,6 @@ import (
 // autopeering constants
 const (
 	ProtocolVersion = 0 // update on protocol changes
-	NetworkVersion  = 6 // update on network changes
 )
 
 var (
@@ -92,7 +91,7 @@ func createPeerDisc() {
 	}
 	log.Debugf("Master peers: %v", masterPeers)
 
-	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, NetworkVersion,
+	peerDisc = discover.New(local.GetInstance(), ProtocolVersion, config.Node().GetUint32(CfgNetworkVersion),
 		discover.Logger(log),
 		discover.MasterPeers(masterPeers),
 	)
