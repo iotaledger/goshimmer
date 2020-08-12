@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/client"
+	"github.com/drand/drand/net"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 )
@@ -139,8 +140,12 @@ func (n *DRNGNetwork) WaitForDKG() error {
 	defer log.Printf("Waiting for DKG... done\n")
 
 	for i := dkgMaxTries; i > 0; i-- {
-		if dkey, err := n.members[0].Client.DistKey(n.members[0].name+":8000", false); err == nil {
-			n.SetDistKey(dkey.Key)
+		if chainInfo, err := n.members[0].Client.ChainInfo(net.CreatePeer(n.members[0].name+":8000", false)); err == nil {
+			distKey, err := chainInfo.PublicKey.MarshalBinary()
+			if err != nil {
+				return err
+			}
+			n.SetDistKey(distKey)
 			log.Printf("DistKey: %v", hex.EncodeToString(n.distKey))
 			return nil
 		}
