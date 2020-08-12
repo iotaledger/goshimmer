@@ -195,6 +195,7 @@ func parseEntryNodes() (result []*peer.Peer, err error) {
 	return result, nil
 }
 
+// NetworkVersion returns the network version of the autopeering.
 func NetworkVersion() uint32 {
 	return networkVersion
 }
