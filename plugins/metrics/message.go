@@ -1,8 +1,10 @@
 package metrics
 
 import (
+	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -33,11 +35,9 @@ var (
 	sumSolidificationTime time.Duration
 	solidTimeMutex        syncutils.RWMutex
 
-	// initial number of missing messages in missingMessageStorage (at startup)
-	initialMissingMessageCountDB uint64
-
-	// current number of missing messages in missingMessageStorage
-	missingMessageCountDB atomic.Uint64
+	// map of currently missing messages
+	missingMessagesMap      map[message.ID]bool
+	missingMessagesMapMutex sync.Mutex
 
 	// current number of message tips.
 	messageTips atomic.Uint64
@@ -112,7 +112,10 @@ func AvgSolidificationTime() (result float64) {
 
 // MessageMissingCountDB returns the number of messages in missingMessageStore.
 func MessageMissingCountDB() uint64 {
-	return initialMissingMessageCountDB + missingMessageCountDB.Load()
+	missingMessagesMapMutex.Lock()
+	defer missingMessagesMapMutex.Unlock()
+
+	return uint64(len(missingMessagesMap))
 }
 
 // ReceivedMessagesPerSecond retrieves the current messages per second number.
@@ -161,9 +164,14 @@ func measureRequestQueueSize() {
 }
 
 func measureInitialDBStats() {
-	solid, total, avgSolidTime, missing := messagelayer.Tangle().DBStats()
+	solid, total, avgSolidTime, _ := messagelayer.Tangle().DBStats()
 	initialMessageSolidCountDB = uint64(solid)
 	initialMessageTotalCountDB = uint64(total)
 	initialSumSolidificationTime = avgSolidTime * float64(solid)
-	initialMissingMessageCountDB = uint64(missing)
+
+	missingMessagesMapMutex.Lock()
+	defer missingMessagesMapMutex.Unlock()
+	for _, messageID := range messagelayer.Tangle().MissingMessages() {
+		missingMessagesMap[messageID] = true
+	}
 }

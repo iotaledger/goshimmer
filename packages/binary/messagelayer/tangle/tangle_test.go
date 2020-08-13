@@ -92,7 +92,7 @@ func TestTangle_AttachMessage(t *testing.T) {
 
 func TestTangle_MissingMessages(t *testing.T) {
 	// test parameters
-	messageCount := 100000
+	messageCount := 600000
 
 	missingMessagesMap := make(map[message.ID]bool)
 	var missingMessagesMapMutex sync.Mutex
@@ -142,6 +142,8 @@ func TestTangle_MissingMessages(t *testing.T) {
 		preGeneratedMessages[i] = createNewMessage()
 	}
 
+	fmt.Println("PRE-GENERATING MESSAGES: DONE")
+
 	// increase the counter when a missing message was detected
 	tangle.Events.MessageMissing.Attach(events.NewClosure(func(messageId message.ID) {
 		atomic.AddInt32(&missingMessagesCounter, 1)
@@ -161,8 +163,14 @@ func TestTangle_MissingMessages(t *testing.T) {
 		})
 	}))
 
+	solidMessageCount := int32(0)
+
 	// mark the WaitGroup as done if all messages are solid
 	tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *CachedMessageMetadata) {
+		if newCounterValue := atomic.AddInt32(&solidMessageCount, 1); newCounterValue%1000 == 0 {
+			fmt.Println("SOLID MESSAGES: ", newCounterValue)
+		}
+
 		cachedMessageMetadata.Release()
 		cachedMessage.Consume(func(msg *message.Message) {
 			if msg.ID() == preGeneratedMessages[messageCount-1].ID() {
