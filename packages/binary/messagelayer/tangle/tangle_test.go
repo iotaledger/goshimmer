@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/testutil"
 	"github.com/magiconair/properties/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -91,16 +92,23 @@ func TestTangle_AttachMessage(t *testing.T) {
 
 func TestTangle_MissingMessages(t *testing.T) {
 	// test parameters
-	messageCount := 10000
+	messageCount := 100000
+
+	missingMessagesMap := make(map[message.ID]bool)
+	var missingMessagesMapMutex sync.Mutex
 
 	// variables required for the test
 	previousMessageID := message.EmptyID
 	missingMessagesCounter := int32(0)
 	wg := sync.WaitGroup{}
 
+	// create badger store
+	badgerDB, err := testutil.BadgerDB(t)
+	require.NoError(t, err)
+
 	// setup the message factory
 	msgFactory := messagefactory.New(
-		mapdb.NewMapDB(),
+		badgerDB,
 		[]byte("sequenceKey"),
 		identity.GenerateLocalIdentity(),
 		messagefactory.TipSelectorFunc(func() (message.ID, message.ID) { return previousMessageID, previousMessageID }),
@@ -137,6 +145,9 @@ func TestTangle_MissingMessages(t *testing.T) {
 	// increase the counter when a missing message was detected
 	tangle.Events.MessageMissing.Attach(events.NewClosure(func(messageId message.ID) {
 		atomic.AddInt32(&missingMessagesCounter, 1)
+		missingMessagesMapMutex.Lock()
+		missingMessagesMap[messageId] = true
+		missingMessagesMapMutex.Unlock()
 	}))
 
 	// decrease the counter when a missing message was received
@@ -144,6 +155,9 @@ func TestTangle_MissingMessages(t *testing.T) {
 		cachedMessageMetadata.Release()
 		cachedMessage.Consume(func(msg *message.Message) {
 			atomic.AddInt32(&missingMessagesCounter, -1)
+			missingMessagesMapMutex.Lock()
+			delete(missingMessagesMap, msg.ID())
+			missingMessagesMapMutex.Unlock()
 		})
 	}))
 
@@ -160,7 +174,8 @@ func TestTangle_MissingMessages(t *testing.T) {
 	// issue transactions in reverse order
 	wg.Add(1)
 	for i := len(preGeneratedMessages) - 1; i >= 0; i-- {
-		go tangle.AttachMessage(preGeneratedMessages[i])
+		x := i
+		go tangle.AttachMessage(preGeneratedMessages[x])
 	}
 
 	// wait for all transactions to become solid
@@ -168,6 +183,8 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// make sure that all MessageMissing events also had a corresponding MissingMessageReceived event
 	assert.Equal(t, missingMessagesCounter, int32(0))
+
+	fmt.Println(missingMessagesMap)
 
 	// shutdown the tangle
 	tangle.Shutdown()
