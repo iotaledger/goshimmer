@@ -3,7 +3,6 @@ package consensus
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
@@ -61,13 +60,13 @@ func (fcob *FCOB) ProcessVoteResult(ev *vote.OpinionEvent) {
 
 // onTransactionBooked analyzes the transaction that was booked by the Tangle and initiates the FCOB rules if it is not
 // conflicting. If it is conflicting and a decision is still pending we trigger a voting process.
-func (fcob *FCOB) onTransactionBooked(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, decisionPending bool) {
-	defer cachedTransaction.Release()
+func (fcob *FCOB) onTransactionBooked(cachedTransaction *tangle.CachedTxnBookEvent) {
+	defer cachedTransaction.Txn.Release()
 
-	cachedTransactionMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
+	cachedTransaction.TxnMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
 		if transactionMetadata.Conflicting() {
 			// abort if the previous consumers where finalized already
-			if !decisionPending {
+			if !cachedTransaction.Pending {
 				return
 			}
 
@@ -76,7 +75,7 @@ func (fcob *FCOB) onTransactionBooked(cachedTransaction *transaction.CachedTrans
 			return
 		}
 
-		fcob.scheduleSetPreferred(cachedTransactionMetadata.Retain())
+		fcob.scheduleSetPreferred(cachedTransaction.TxnMetadata.Retain())
 	})
 }
 
@@ -139,12 +138,12 @@ func (fcob *FCOB) setFinalized(cachedTransactionMetadata *tangle.CachedTransacti
 
 // onFork triggers a voting process whenever a Transaction gets forked into a new Branch. The initial opinion is derived
 // from the preferred flag that was set using the FCOB rule.
-func (fcob *FCOB) onFork(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, cachedTargetBranch *branchmanager.CachedBranch, conflictingInputs []transaction.OutputID) {
-	defer cachedTransaction.Release()
-	defer cachedTransactionMetadata.Release()
-	defer cachedTargetBranch.Release()
+func (fcob *FCOB) onFork(forkEvent *tangle.ForkEvent) {
+	defer forkEvent.Txn.Release()
+	defer forkEvent.TxnMetadata.Release()
+	defer forkEvent.Branch.Release()
 
-	transactionMetadata := cachedTransactionMetadata.Unwrap()
+	transactionMetadata := forkEvent.TxnMetadata.Unwrap()
 	if transactionMetadata == nil {
 		return
 	}

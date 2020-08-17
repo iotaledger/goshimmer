@@ -105,10 +105,10 @@ func TestTangle_ValueTransfer(t *testing.T) {
 func recordLikedPayloads(valueTangle *tangle.Tangle) (recordedLikedPayloads map[payload.ID]types.Empty, resetFunc func()) {
 	recordedLikedPayloads = make(map[payload.ID]types.Empty)
 
-	valueTangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *tangle.CachedPayloadMetadata) {
-		defer cachedPayloadMetadata.Release()
+	valueTangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayload *tangle.CachedPayloadEvent) {
+		defer cachedPayload.PayloadMetadata.Release()
 
-		cachedPayload.Consume(func(payload *payload.Payload) {
+		cachedPayload.Payload.Consume(func(payload *payload.Payload) {
 			recordedLikedPayloads[payload.ID()] = types.Void
 		})
 	}))

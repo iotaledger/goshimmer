@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tipmanager"
@@ -135,13 +134,13 @@ func configure(_ *node.Plugin) {
 	tipManager = TipManager()
 	valueObjectFactory = ValueObjectFactory()
 
-	_tangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
-		cachedMetadata.Release()
-		cachedPayload.Consume(tipManager.AddTip)
+	_tangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayload *tangle.CachedPayloadEvent) {
+		cachedPayload.PayloadMetadata.Release()
+		cachedPayload.Payload.Consume(tipManager.AddTip)
 	}))
-	_tangle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
-		cachedMetadata.Release()
-		cachedPayload.Consume(tipManager.RemoveTip)
+	_tangle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayload *tangle.CachedPayloadEvent) {
+		cachedPayload.PayloadMetadata.Release()
+		cachedPayload.Payload.Consume(tipManager.RemoveTip)
 	}))
 
 	// configure FCOB consensus rules
@@ -236,10 +235,10 @@ func AwaitTransactionToBeBooked(txID transaction.ID, maxAwait time.Duration) err
 	// reason the same transaction gets booked multiple times
 	exit := make(chan struct{})
 	defer close(exit)
-	closure := events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, decisionPending bool) {
-		defer cachedTransaction.Release()
-		defer cachedTransactionMetadata.Release()
-		if cachedTransaction.Unwrap().ID() != txID {
+	closure := events.NewClosure(func(cachedTransaction *tangle.CachedTxnEvent) {
+		defer cachedTransaction.Txn.Release()
+		defer cachedTransaction.TxnMetadata.Release()
+		if cachedTransaction.Txn.Unwrap().ID() != txID {
 			return
 		}
 		select {

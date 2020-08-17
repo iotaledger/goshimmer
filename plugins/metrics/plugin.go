@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	valuetangle "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
@@ -136,9 +135,9 @@ func registerLocalMetrics() {
 	}))
 
 	// Value payload attached
-	valuetransfers.Tangle().Events.PayloadAttached.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *valuetangle.CachedPayloadMetadata) {
-		cachedPayload.Release()
-		cachedPayloadMetadata.Release()
+	valuetransfers.Tangle().Events.PayloadAttached.Attach(events.NewClosure(func(cachedPayload *valuetangle.CachedPayloadEvent) {
+		cachedPayload.Payload.Release()
+		cachedPayload.PayloadMetadata.Release()
 		valueTransactionCounter.Inc()
 	}))
 
