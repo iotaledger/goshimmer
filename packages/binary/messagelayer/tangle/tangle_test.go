@@ -181,7 +181,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// issue transactions in reverse order
 	wg.Add(1)
-	for i := len(preGeneratedMessages) - 1; i >= 0; i-- {
+	for i := 0; i < messageCount; i++ {
 		x := i
 		go tangle.AttachMessage(preGeneratedMessages[x])
 	}
