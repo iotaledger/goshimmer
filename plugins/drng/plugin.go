@@ -43,7 +43,7 @@ func run(*node.Plugin) {}
 
 func configureEvents() {
 	instance := Instance()
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessage) {
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessageEvent) {
 		cachedMessage.MessageMetadata.Release()
 
 		cachedMessage.Message.Consume(func(msg *message.Message) {

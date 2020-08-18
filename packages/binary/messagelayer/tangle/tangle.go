@@ -208,12 +208,12 @@ func (tangle *Tangle) storeMessageWorker(msg *message.Message) {
 
 	// trigger events
 	if tangle.missingMessageStorage.DeleteIfPresent(messageID[:]) {
-		tangle.Events.MissingMessageReceived.Trigger(&CachedMessage{
+		tangle.Events.MissingMessageReceived.Trigger(&CachedMessageEvent{
 			Message:         cachedMessage,
 			MessageMetadata: cachedMsgMetadata})
 	}
 
-	tangle.Events.MessageAttached.Trigger(&CachedMessage{
+	tangle.Events.MessageAttached.Trigger(&CachedMessageEvent{
 		Message:         cachedMessage,
 		MessageMetadata: cachedMsgMetadata})
 
@@ -298,7 +298,7 @@ func (tangle *Tangle) checkMessageSolidityAndPropagate(cachedMessage *message.Ca
 
 		// mark the message as solid if it has become solid
 		if tangle.isMessageSolid(currentMessage, currentMsgMetadata) && currentMsgMetadata.SetSolid(true) {
-			tangle.Events.MessageSolid.Trigger(&CachedMessage{
+			tangle.Events.MessageSolid.Trigger(&CachedMessageEvent{
 				Message:         currentCachedMessage,
 				MessageMetadata: currentCachedMsgMetadata})
 

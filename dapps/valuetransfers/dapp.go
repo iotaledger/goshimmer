@@ -186,7 +186,7 @@ func run(*node.Plugin) {
 	runFPC()
 }
 
-func onReceiveMessageFromMessageLayer(cachedMessage *messageTangle.CachedMessage) {
+func onReceiveMessageFromMessageLayer(cachedMessage *messageTangle.CachedMessageEvent) {
 	defer cachedMessage.Message.Release()
 	defer cachedMessage.MessageMetadata.Release()
 

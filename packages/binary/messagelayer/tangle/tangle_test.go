@@ -43,7 +43,7 @@ func TestTangle_AttachMessage(t *testing.T) {
 		return
 	}
 
-	messageTangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *CachedMessage) {
+	messageTangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *CachedMessageEvent) {
 		cachedMessage.MessageMetadata.Release()
 
 		cachedMessage.Message.Consume(func(msg *message.Message) {
@@ -51,7 +51,7 @@ func TestTangle_AttachMessage(t *testing.T) {
 		})
 	}))
 
-	messageTangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *CachedMessage) {
+	messageTangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *CachedMessageEvent) {
 		cachedMessage.MessageMetadata.Release()
 
 		cachedMessage.Message.Consume(func(msg *message.Message) {

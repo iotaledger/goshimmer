@@ -166,7 +166,7 @@ func configure(_ *node.Plugin) {
 		log.Panicf("Follow node list cannot be empty: %w", ErrMissingFollowNodes)
 	}
 
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessage) {
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessageEvent) {
 		cachedMessage.MessageMetadata.Release()
 		cachedMessage.Message.Consume(func(msg *message.Message) {
 			messagePayload := msg.Payload()

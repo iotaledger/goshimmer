@@ -77,7 +77,7 @@ func (messageParser *MessageParser) setupBytesFilterDataFlow() {
 				messageParser.bytesFilters[i].OnAccept(messageParser.bytesFilters[i+1].Filter)
 			}
 			messageParser.bytesFilters[i].OnReject(func(bytes []byte, err error, peer *peer.Peer) {
-				messageParser.Events.BytesRejected.Trigger(&BytesRejected{
+				messageParser.Events.BytesRejected.Trigger(&BytesRejectedEvent{
 					Bytes: bytes,
 					Peer:  peer}, err)
 			})
@@ -100,7 +100,7 @@ func (messageParser *MessageParser) setupMessageFilterDataFlow() {
 		for i := 0; i < numberOfMessageFilters; i++ {
 			if i == numberOfMessageFilters-1 {
 				messageParser.messageFilters[i].OnAccept(func(msg *message.Message, peer *peer.Peer) {
-					messageParser.Events.MessageParsed.Trigger(&MessageParsed{
+					messageParser.Events.MessageParsed.Trigger(&MessageParsedEvent{
 						Message: msg,
 						Peer:    peer})
 				})
@@ -108,7 +108,7 @@ func (messageParser *MessageParser) setupMessageFilterDataFlow() {
 				messageParser.messageFilters[i].OnAccept(messageParser.messageFilters[i+1].Filter)
 			}
 			messageParser.messageFilters[i].OnReject(func(msg *message.Message, err error, peer *peer.Peer) {
-				messageParser.Events.MessageRejected.Trigger(&MessageRejected{
+				messageParser.Events.MessageRejected.Trigger(&MessageRejectedEvent{
 					Message: msg,
 					Peer:    peer}, err)
 			})
@@ -120,7 +120,7 @@ func (messageParser *MessageParser) setupMessageFilterDataFlow() {
 // parses the given message and emits
 func (messageParser *MessageParser) parseMessage(bytes []byte, peer *peer.Peer) {
 	if parsedMessage, _, err := message.FromBytes(bytes); err != nil {
-		messageParser.Events.BytesRejected.Trigger(&BytesRejected{
+		messageParser.Events.BytesRejected.Trigger(&BytesRejectedEvent{
 			Bytes: bytes,
 			Peer:  peer}, err)
 	} else {

@@ -16,20 +16,20 @@ type Events struct {
 	MessageRejected *events.Event
 }
 
-// MessageParsed represents the parameters of messageParsedEvent
-type MessageParsed struct {
+// MessageParsedEvent represents the parameters of messageParsedEvent
+type MessageParsedEvent struct {
 	Message *message.Message
 	Peer    *peer.Peer
 }
 
-// BytesRejected represents the parameters of bytesRejectedEvent
-type BytesRejected struct {
+// BytesRejectedEvent represents the parameters of bytesRejectedEvent
+type BytesRejectedEvent struct {
 	Bytes []byte
 	Peer  *peer.Peer
 }
 
-// MessageRejected represents the parameters of messageRejectedEvent
-type MessageRejected struct {
+// MessageRejectedEvent represents the parameters of messageRejectedEvent
+type MessageRejectedEvent struct {
 	Message *message.Message
 	Peer    *peer.Peer
 }
@@ -43,13 +43,13 @@ func newEvents() *Events {
 }
 
 func messageParsedEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*MessageParsed))(params[0].(*MessageParsed))
+	handler.(func(*MessageParsedEvent))(params[0].(*MessageParsedEvent))
 }
 
 func bytesRejectedEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*BytesRejected, error))(params[0].(*BytesRejected), params[1].(error))
+	handler.(func(*BytesRejectedEvent, error))(params[0].(*BytesRejectedEvent), params[1].(error))
 }
 
 func messageRejectedEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*MessageRejected, error))(params[0].(*MessageRejected), params[1].(error))
+	handler.(func(*MessageRejectedEvent, error))(params[0].(*MessageRejectedEvent), params[1].(error))
 }

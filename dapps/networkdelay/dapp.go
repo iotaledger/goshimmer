@@ -76,7 +76,7 @@ func configure(_ *node.Plugin) {
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 }
 
-func onReceiveMessageFromMessageLayer(cachedMessage *messageTangle.CachedMessage) {
+func onReceiveMessageFromMessageLayer(cachedMessage *messageTangle.CachedMessageEvent) {
 	defer cachedMessage.Message.Release()
 	defer cachedMessage.MessageMetadata.Release()
 

@@ -91,7 +91,7 @@ func registerLocalMetrics() {
 	//// Events declared in other packages which we want to listen to here ////
 
 	// increase received MPS counter whenever we attached a message
-	messagelayer.Tangle().Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessage) {
+	messagelayer.Tangle().Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessageEvent) {
 		_payloadType := cachedMessage.Message.Unwrap().Payload().Type()
 		cachedMessage.Message.Release()
 		cachedMessage.MessageMetadata.Release()
@@ -108,7 +108,7 @@ func registerLocalMetrics() {
 	}))
 
 	// messages can only become solid once, then they stay like that, hence no .Dec() part
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessage) {
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessageEvent) {
 		cachedMessage.Message.Release()
 		solidTimeMutex.Lock()
 		defer solidTimeMutex.Unlock()
@@ -128,7 +128,7 @@ func registerLocalMetrics() {
 	}))
 
 	// fired when a missing message was received and removed from missing message storage
-	messagelayer.Tangle().Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessage) {
+	messagelayer.Tangle().Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessageEvent) {
 		cachedMessage.Message.Release()
 		cachedMessage.MessageMetadata.Release()
 		missingMessageCountDB.Dec()

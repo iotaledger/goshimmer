@@ -121,7 +121,7 @@ func newSyncMessageParser(messageFilters ...messageparser.MessageFilter) (tester
 	}
 
 	// setup async behavior (store result + mark WaitGroup done)
-	messageParser.Events.BytesRejected.Attach(events.NewClosure(func(bytesRejected *messageparser.BytesRejected, err error) {
+	messageParser.Events.BytesRejected.Attach(events.NewClosure(func(bytesRejected *messageparser.BytesRejectedEvent, err error) {
 		tester.result = &messageParserResult{
 			accepted: false,
 			message:  nil,
@@ -131,7 +131,7 @@ func newSyncMessageParser(messageFilters ...messageparser.MessageFilter) (tester
 
 		tester.wg.Done()
 	}))
-	messageParser.Events.MessageRejected.Attach(events.NewClosure(func(message *messageparser.MessageRejected, err error) {
+	messageParser.Events.MessageRejected.Attach(events.NewClosure(func(message *messageparser.MessageRejectedEvent, err error) {
 		tester.result = &messageParserResult{
 			accepted: false,
 			message:  message.Message,
@@ -141,7 +141,7 @@ func newSyncMessageParser(messageFilters ...messageparser.MessageFilter) (tester
 
 		tester.wg.Done()
 	}))
-	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(message *messageparser.MessageParsed) {
+	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(message *messageparser.MessageParsedEvent) {
 		tester.result = &messageParserResult{
 			accepted: true,
 			message:  message.Message,
