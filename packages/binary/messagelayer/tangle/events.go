@@ -24,6 +24,7 @@ type Events struct {
 	MessageRemoved *events.Event
 }
 
+// CachedMessage represents the parameters of cachedMessageEvent
 type CachedMessage struct {
 	Message         *message.CachedMessage
 	MessageMetadata *CachedMessageMetadata

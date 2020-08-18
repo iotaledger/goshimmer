@@ -16,16 +16,19 @@ type Events struct {
 	MessageRejected *events.Event
 }
 
+// MessageParsed represents the parameters of messageParsedEvent
 type MessageParsed struct {
 	Message *message.Message
 	Peer    *peer.Peer
 }
 
+// BytesRejected represents the parameters of bytesRejectedEvent
 type BytesRejected struct {
 	Bytes []byte
 	Peer  *peer.Peer
 }
 
+// MessageRejected represents the parameters of messageRejectedEvent
 type MessageRejected struct {
 	Message *message.Message
 	Peer    *peer.Peer

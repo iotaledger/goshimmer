@@ -69,22 +69,26 @@ func (eventSource EventSource) String() string {
 	return [...]string{"EventSourceTangle", "EventSourceBranchManager"}[eventSource]
 }
 
+// CachedPayloadEvent represents the parameters of cachedPayloadEvent
 type CachedPayloadEvent struct {
 	Payload         *payload.CachedPayload
 	PayloadMetadata *CachedPayloadMetadata
 }
 
+// CachedTxnEvent represents the parameters of cachedTxnEvent
 type CachedTxnEvent struct {
 	Txn         *transaction.CachedTransaction
 	TxnMetadata *CachedTransactionMetadata
 }
 
+// CachedTxnBookEvent represents the parameters of transactionBookedEvent
 type CachedTxnBookEvent struct {
 	Txn         *transaction.CachedTransaction
 	TxnMetadata *CachedTransactionMetadata
 	Pending     bool
 }
 
+// ForkEvent represents the parameters of forkEvent
 type ForkEvent struct {
 	Txn         *transaction.CachedTransaction
 	TxnMetadata *CachedTransactionMetadata
@@ -92,6 +96,7 @@ type ForkEvent struct {
 	OutputIDs   []transaction.OutputID
 }
 
+// CachedAttachmentsEvent represents the parameters of cachedTransactionAttachmentEvent
 type CachedAttachmentsEvent struct {
 	Txn         *transaction.CachedTransaction
 	TxnMetadata *CachedTransactionMetadata
