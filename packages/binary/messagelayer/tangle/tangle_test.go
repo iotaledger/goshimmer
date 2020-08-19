@@ -100,7 +100,6 @@ func TestTangle_MissingMessages(t *testing.T) {
 	// variables required for the test
 	missingMessagesMap := make(map[message.ID]bool)
 	var missingMessagesMapMutex sync.Mutex
-	missingMessagesCounter := int32(0)
 	wg := sync.WaitGroup{}
 
 	// create badger store
@@ -177,11 +176,11 @@ func TestTangle_MissingMessages(t *testing.T) {
 	tangle.Events.MessageMissing.Attach(events.NewClosure(func(messageId message.ID) {
 		// attach the message after it has been requested
 		go func() {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(50 * time.Millisecond)
+
 			tangle.AttachMessage(preGeneratedMessages[messageId])
 		}()
 
-		atomic.AddInt32(&missingMessagesCounter, 1)
 		missingMessagesMapMutex.Lock()
 		missingMessagesMap[messageId] = true
 		missingMessagesMapMutex.Unlock()
@@ -191,25 +190,25 @@ func TestTangle_MissingMessages(t *testing.T) {
 	tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *CachedMessageMetadata) {
 		cachedMessageMetadata.Release()
 		cachedMessage.Consume(func(msg *message.Message) {
-			atomic.AddInt32(&missingMessagesCounter, -1)
 			missingMessagesMapMutex.Lock()
 			delete(missingMessagesMap, msg.ID())
 			missingMessagesMapMutex.Unlock()
 		})
 	}))
 
-	solidMessageCount := int32(0)
-
 	// mark the WaitGroup as done if all messages are solid
+	solidMessageCounter := int32(0)
 	tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *CachedMessageMetadata) {
 		defer cachedMessageMetadata.Release()
 		defer cachedMessage.Release()
 
-		newSolidCounterValue := atomic.AddInt32(&solidMessageCount, 1)
+		// print progress status message
+		newSolidCounterValue := atomic.AddInt32(&solidMessageCounter, 1)
 		if newSolidCounterValue%1000 == 0 {
 			fmt.Println("SOLID MESSAGES: ", newSolidCounterValue)
 		}
 
+		// mark WaitGroup as done when we are done solidifying everything
 		if newSolidCounterValue == int32(messageCount) {
 			fmt.Println("ALL MESSAGES SOLID")
 
@@ -217,7 +216,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 		}
 	}))
 
-	// issue transactions in reverse order
+	// issue tips to start solidification
 	wg.Add(1)
 	tips.ForEach(func(key interface{}, value interface{}) {
 		tangle.AttachMessage(preGeneratedMessages[key.(message.ID)])
@@ -227,9 +226,8 @@ func TestTangle_MissingMessages(t *testing.T) {
 	wg.Wait()
 
 	// make sure that all MessageMissing events also had a corresponding MissingMessageReceived event
-	assert.Equal(t, missingMessagesCounter, int32(0))
-
-	fmt.Println(missingMessagesMap)
+	assert.Equal(t, len(missingMessagesMap), 0)
+	assert.Equal(t, len(tangle.MissingMessages()), 0)
 
 	// shutdown the tangle
 	tangle.Shutdown()
