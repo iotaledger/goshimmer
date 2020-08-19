@@ -2,11 +2,13 @@ package tangle
 
 import (
 	"fmt"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/binary/datastructure"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagefactory"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
@@ -92,13 +94,12 @@ func TestTangle_AttachMessage(t *testing.T) {
 
 func TestTangle_MissingMessages(t *testing.T) {
 	// test parameters
-	messageCount := 600000
-
-	missingMessagesMap := make(map[message.ID]bool)
-	var missingMessagesMapMutex sync.Mutex
+	messageCount := 100000
+	widthOfTheTangle := 50
 
 	// variables required for the test
-	previousMessageID := message.EmptyID
+	missingMessagesMap := make(map[message.ID]bool)
+	var missingMessagesMapMutex sync.Mutex
 	missingMessagesCounter := int32(0)
 	wg := sync.WaitGroup{}
 
@@ -106,12 +107,18 @@ func TestTangle_MissingMessages(t *testing.T) {
 	badgerDB, err := testutil.BadgerDB(t)
 	require.NoError(t, err)
 
+	// map to keep track of the tips
+	tips := datastructure.NewRandomMap()
+	tips.Set(message.EmptyID, message.EmptyID)
+
 	// setup the message factory
 	msgFactory := messagefactory.New(
 		badgerDB,
 		[]byte("sequenceKey"),
 		identity.GenerateLocalIdentity(),
-		messagefactory.TipSelectorFunc(func() (message.ID, message.ID) { return previousMessageID, previousMessageID }),
+		messagefactory.TipSelectorFunc(func() (message.ID, message.ID) {
+			return tips.RandomEntry().(message.ID), tips.RandomEntry().(message.ID)
+		}),
 	)
 	defer msgFactory.Shutdown()
 
@@ -121,15 +128,24 @@ func TestTangle_MissingMessages(t *testing.T) {
 		msg, err := msgFactory.IssuePayload(payload.NewData([]byte("0")))
 		require.NoError(t, err)
 
-		// link the new message to the previous one
-		previousMessageID = msg.ID()
+		// remove a tip if the width of the tangle is reached
+		if tips.Size() >= widthOfTheTangle {
+			if rand.Intn(1000) < 500 {
+				tips.Delete(msg.BranchID())
+			} else {
+				tips.Delete(msg.TrunkID())
+			}
+		}
+
+		// add current message as a tip
+		tips.Set(msg.ID(), msg.ID())
 
 		// return the constructed message
 		return msg
 	}
 
 	// create the tangle
-	tangle := New(mapdb.NewMapDB())
+	tangle := New(badgerDB)
 	if err := tangle.Prune(); err != nil {
 		t.Error(err)
 
@@ -137,15 +153,34 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}
 
 	// generate the messages we want to solidify
-	preGeneratedMessages := make([]*message.Message, messageCount)
+	preGeneratedMessages := make(map[message.ID]*message.Message)
 	for i := 0; i < messageCount; i++ {
-		preGeneratedMessages[i] = createNewMessage()
+		msg := createNewMessage()
+
+		preGeneratedMessages[msg.ID()] = msg
 	}
 
 	fmt.Println("PRE-GENERATING MESSAGES: DONE")
 
+	var receivedTransactionsCounter int32
+	tangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *CachedMessageMetadata) {
+		defer cachedMessage.Release()
+		defer cachedMessageMetadata.Release()
+
+		newReceivedTransactionsCounterValue := atomic.AddInt32(&receivedTransactionsCounter, 1)
+		if newReceivedTransactionsCounterValue%1000 == 0 {
+			fmt.Println("RECEIVED MESSAGES: ", newReceivedTransactionsCounterValue)
+		}
+	}))
+
 	// increase the counter when a missing message was detected
 	tangle.Events.MessageMissing.Attach(events.NewClosure(func(messageId message.ID) {
+		// attach the message after it has been requested
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			tangle.AttachMessage(preGeneratedMessages[messageId])
+		}()
+
 		atomic.AddInt32(&missingMessagesCounter, 1)
 		missingMessagesMapMutex.Lock()
 		missingMessagesMap[messageId] = true
@@ -167,24 +202,26 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// mark the WaitGroup as done if all messages are solid
 	tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *CachedMessageMetadata) {
-		if newCounterValue := atomic.AddInt32(&solidMessageCount, 1); newCounterValue%1000 == 0 {
-			fmt.Println("SOLID MESSAGES: ", newCounterValue)
+		defer cachedMessageMetadata.Release()
+		defer cachedMessage.Release()
+
+		newSolidCounterValue := atomic.AddInt32(&solidMessageCount, 1)
+		if newSolidCounterValue%1000 == 0 {
+			fmt.Println("SOLID MESSAGES: ", newSolidCounterValue)
 		}
 
-		cachedMessageMetadata.Release()
-		cachedMessage.Consume(func(msg *message.Message) {
-			if msg.ID() == preGeneratedMessages[messageCount-1].ID() {
-				wg.Done()
-			}
-		})
+		if newSolidCounterValue == int32(messageCount) {
+			fmt.Println("ALL MESSAGES SOLID")
+
+			wg.Done()
+		}
 	}))
 
 	// issue transactions in reverse order
 	wg.Add(1)
-	for i := 0; i < messageCount; i++ {
-		x := i
-		go tangle.AttachMessage(preGeneratedMessages[x])
-	}
+	tips.ForEach(func(key interface{}, value interface{}) {
+		tangle.AttachMessage(preGeneratedMessages[key.(message.ID)])
+	})
 
 	// wait for all transactions to become solid
 	wg.Wait()
