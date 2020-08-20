@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/labstack/echo"
 )
@@ -21,6 +22,11 @@ func Handler(c echo.Context) error {
 			obj.Rejected = payloadMetadata.Rejected()
 			obj.BranchID = payloadMetadata.BranchID().String()
 		})
+
+		valuetransfers.Tangle().Payload(valueID).Consume(func(p *payload.Payload) {
+			obj.TransactionID = p.Transaction().ID().String()
+		})
+
 		result[i] = obj
 	}
 	return c.JSON(http.StatusOK, Response{ValueObjects: result})
@@ -34,10 +40,11 @@ type Response struct {
 
 // ValueObject holds the info of a ValueObject
 type ValueObject struct {
-	ID        string `json:"id"`
-	Solid     bool   `json:"solid"`
-	Liked     bool   `json:"liked"`
-	Confirmed bool   `json:"confirmed"`
-	Rejected  bool   `json:"rejected"`
-	BranchID  string `json:"branch_id"`
+	ID            string `json:"id"`
+	Solid         bool   `json:"solid"`
+	Liked         bool   `json:"liked"`
+	Confirmed     bool   `json:"confirmed"`
+	Rejected      bool   `json:"rejected"`
+	BranchID      string `json:"branch_id"`
+	TransactionID string `json:"transaction_id"`
 }
