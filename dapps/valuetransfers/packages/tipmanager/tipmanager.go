@@ -77,6 +77,15 @@ func (t *TipManager) Tips() (parent1ObjectID, parent2ObjectID payload.ID) {
 	return
 }
 
+// AllTips returns all the tips.
+func (t *TipManager) AllTips() (tips []payload.ID) {
+	tips = make([]payload.ID, t.Size())
+	for i, tip := range t.tips.Keys() {
+		tips[i] = tip.(payload.ID)
+	}
+	return
+}
+
 // Size returns the total liked tips.
 func (t *TipManager) Size() int {
 	return t.tips.Size()
