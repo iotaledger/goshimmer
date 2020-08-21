@@ -94,8 +94,8 @@ func TestTangle_AttachMessage(t *testing.T) {
 
 func TestTangle_MissingMessages(t *testing.T) {
 	// test parameters
-	messageCount := 100000
-	widthOfTheTangle := 50
+	messageCount := 200000
+	widthOfTheTangle := 2500
 
 	// variables required for the test
 	missingMessagesMap := make(map[message.ID]bool)
@@ -169,6 +169,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 		newReceivedTransactionsCounterValue := atomic.AddInt32(&receivedTransactionsCounter, 1)
 		if newReceivedTransactionsCounterValue%1000 == 0 {
 			fmt.Println("RECEIVED MESSAGES: ", newReceivedTransactionsCounterValue)
+			go fmt.Println("MISSING MESSAGES:", len(tangle.MissingMessages()))
 		}
 	}))
 
@@ -206,6 +207,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 		newSolidCounterValue := atomic.AddInt32(&solidMessageCounter, 1)
 		if newSolidCounterValue%1000 == 0 {
 			fmt.Println("SOLID MESSAGES: ", newSolidCounterValue)
+			go fmt.Println("MISSING MESSAGES:", len(tangle.MissingMessages()))
 		}
 
 		// mark WaitGroup as done when we are done solidifying everything
