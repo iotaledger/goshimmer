@@ -80,7 +80,7 @@ func Approvers(id payload.ID) []payload.ID {
 	}
 
 	ids := make([]payload.ID, 0)
-	// collecte all the ids into slice
+	// collect all the ids into slice
 	for id := range visited {
 		ids = append(ids, id)
 	}
