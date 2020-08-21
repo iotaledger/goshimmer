@@ -6,6 +6,14 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
+	valueTangle "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
+
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
+
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -36,6 +44,68 @@ func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	webapi.Server().GET("tools/pastcone", pastCone)
 	webapi.Server().GET("tools/missing", missing)
+	webapi.Server().GET("tools/messageapprovers", messageApprovers)
+	webapi.Server().GET("tools/valueapprovers", valueApprovers)
+
+}
+
+func valueApprovers(c echo.Context) error {
+	var request ValueApproversRequest
+	if err := c.Bind(&request); err != nil {
+		log.Info(err.Error())
+		return c.JSON(http.StatusBadRequest, ValueApproversResponse{Error: err.Error()})
+	}
+	id, err := payload.NewID(request.ID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ValueApproversResponse{Error: err.Error()})
+	}
+	var approvers []Approver
+	valuetransfers.Tangle().ForeachApprovers(id, func(cachedPayload *payload.CachedPayload, cachedPayloadMetadata *valueTangle.CachedPayloadMetadata, cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *valueTangle.CachedTransactionMetadata) {
+		defer cachedPayload.Release()
+		defer cachedPayloadMetadata.Release()
+		defer cachedTransaction.Release()
+		defer cachedTransactionMetadata.Release()
+
+		txMetadata := cachedTransactionMetadata.Unwrap()
+		approver := Approver{
+			PayloadID:     cachedPayload.Unwrap().ID().String(),
+			TransactionID: cachedTransaction.Unwrap().ID().String(),
+			InclusionState: utils.InclusionState{
+				Solid:       txMetadata.Solid(),
+				Confirmed:   txMetadata.Confirmed(),
+				Rejected:    txMetadata.Rejected(),
+				Liked:       txMetadata.Liked(),
+				Conflicting: txMetadata.Conflicting(),
+				Finalized:   txMetadata.Finalized(),
+				Preferred:   txMetadata.Preferred(),
+			},
+		}
+		approvers = append(approvers, approver)
+	})
+	return c.JSON(http.StatusOK, ValueApproversResponse{
+		Approvers: approvers,
+	})
+}
+
+func messageApprovers(c echo.Context) error {
+	var request MessageApproversRequest
+	if err := c.Bind(&request); err != nil {
+		log.Info(err.Error())
+		return c.JSON(http.StatusBadRequest, MessageApproversResponse{Error: err.Error()})
+	}
+
+	msgID, err := message.NewID(request.ID)
+	if err != nil {
+		log.Info(err)
+		return c.JSON(http.StatusBadRequest, MessageApproversResponse{Error: err.Error()})
+	}
+
+	var approvers []string
+	cachedApprovers := messagelayer.Tangle().Approvers(msgID)
+	cachedApprovers.Consume(func(approver *tangle.Approver) {
+		approvers = append(approvers, approver.ApproverMessageID().String())
+	})
+	return c.JSON(http.StatusOK, MessageApproversResponse{IDs: approvers})
 }
 
 func pastCone(c echo.Context) error {
@@ -101,6 +171,35 @@ func pastCone(c echo.Context) error {
 		}
 	}
 	return c.JSON(http.StatusOK, PastConeResponse{Exist: true, PastConeSize: checkedMessageCount})
+}
+
+// ValueApproversRequest represents value approver request
+type ValueApproversRequest struct {
+	ID string `json:"id"`
+}
+
+// Approver represents the approver of a value payload
+type Approver struct {
+	PayloadID      string               `json:"payloadID"`
+	TransactionID  string               `json:"transactionID"`
+	InclusionState utils.InclusionState `json:"inclusionState"`
+}
+
+// ValueApproversResponse represents the response of a ValueApproverRequest
+type ValueApproversResponse struct {
+	Approvers []Approver `json:"approvers"`
+	Error     string     `json:"error,omitempty"`
+}
+
+// MessageApproversRequest holds the message id to get its messageApprovers
+type MessageApproversRequest struct {
+	ID string `json:"id"`
+}
+
+// MessageApproversResponse holds the approver message IDs of a referenced message.
+type MessageApproversResponse struct {
+	IDs   []string `json:"ids"`
+	Error string   `json:"error,omitempty"`
 }
 
 // PastConeRequest holds the message id to query.
