@@ -6,20 +6,20 @@ import (
 )
 
 type memDB struct {
-	*mapdb.MapDB
+	kvstore.KVStore
 }
 
 // NewMemDB returns a new in-memory (not persisted) DB object.
 func NewMemDB() (DB, error) {
-	return &memDB{MapDB: mapdb.NewMapDB()}, nil
+	return &memDB{KVStore: mapdb.NewMapDB()}, nil
 }
 
 func (db *memDB) NewStore() kvstore.KVStore {
-	return db.MapDB
+	return db.KVStore
 }
 
 func (db *memDB) Close() error {
-	db.MapDB = nil
+	db.KVStore = nil
 	return nil
 }
 
