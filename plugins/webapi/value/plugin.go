@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/attachments"
+	"github.com/iotaledger/goshimmer/plugins/webapi/value/debug"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/gettransactionbyid"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/sendtransaction"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/sendtransactionbyjson"
@@ -39,4 +40,5 @@ func configure(_ *node.Plugin) {
 	webapi.Server().POST("value/testSendTxn", testsendtxn.Handler)
 	webapi.Server().GET("value/transactionByID", gettransactionbyid.Handler)
 	webapi.Server().GET("value/tips", tips.Handler)
+	webapi.Server().GET("value/debug", debug.Handler)
 }
