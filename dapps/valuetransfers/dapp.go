@@ -134,13 +134,13 @@ func configure(_ *node.Plugin) {
 	tipManager = TipManager()
 	valueObjectFactory = ValueObjectFactory()
 
-	_tangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayload *tangle.CachedPayloadEvent) {
-		cachedPayload.PayloadMetadata.Release()
-		cachedPayload.Payload.Consume(tipManager.AddTip)
+	_tangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayloadEvent *tangle.CachedPayloadEvent) {
+		cachedPayloadEvent.PayloadMetadata.Release()
+		cachedPayloadEvent.Payload.Consume(tipManager.AddTip)
 	}))
-	_tangle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayload *tangle.CachedPayloadEvent) {
-		cachedPayload.PayloadMetadata.Release()
-		cachedPayload.Payload.Consume(tipManager.RemoveTip)
+	_tangle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayloadEvent *tangle.CachedPayloadEvent) {
+		cachedPayloadEvent.PayloadMetadata.Release()
+		cachedPayloadEvent.Payload.Consume(tipManager.RemoveTip)
 	}))
 
 	// configure FCOB consensus rules
@@ -186,11 +186,11 @@ func run(*node.Plugin) {
 	runFPC()
 }
 
-func onReceiveMessageFromMessageLayer(cachedMessage *messageTangle.CachedMessageEvent) {
-	defer cachedMessage.Message.Release()
-	defer cachedMessage.MessageMetadata.Release()
+func onReceiveMessageFromMessageLayer(cachedMessageEvent *messageTangle.CachedMessageEvent) {
+	defer cachedMessageEvent.Message.Release()
+	defer cachedMessageEvent.MessageMetadata.Release()
 
-	solidMessage := cachedMessage.Message.Unwrap()
+	solidMessage := cachedMessageEvent.Message.Unwrap()
 	if solidMessage == nil {
 		log.Debug("failed to unpack solid message from message layer")
 
@@ -235,10 +235,10 @@ func AwaitTransactionToBeBooked(txID transaction.ID, maxAwait time.Duration) err
 	// reason the same transaction gets booked multiple times
 	exit := make(chan struct{})
 	defer close(exit)
-	closure := events.NewClosure(func(cachedTransaction *tangle.CachedTxnBookEvent) {
-		defer cachedTransaction.Txn.Release()
-		defer cachedTransaction.TxnMetadata.Release()
-		if cachedTransaction.Txn.Unwrap().ID() != txID {
+	closure := events.NewClosure(func(cachedTxnBookEvent *tangle.CachedTxnBookEvent) {
+		defer cachedTxnBookEvent.Txn.Release()
+		defer cachedTxnBookEvent.TxnMetadata.Release()
+		if cachedTxnBookEvent.Txn.Unwrap().ID() != txID {
 			return
 		}
 		select {

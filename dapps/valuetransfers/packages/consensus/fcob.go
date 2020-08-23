@@ -60,13 +60,13 @@ func (fcob *FCOB) ProcessVoteResult(ev *vote.OpinionEvent) {
 
 // onTransactionBooked analyzes the transaction that was booked by the Tangle and initiates the FCOB rules if it is not
 // conflicting. If it is conflicting and a decision is still pending we trigger a voting process.
-func (fcob *FCOB) onTransactionBooked(cachedTransaction *tangle.CachedTxnBookEvent) {
-	defer cachedTransaction.Txn.Release()
+func (fcob *FCOB) onTransactionBooked(cachedTxnBookEvent *tangle.CachedTxnBookEvent) {
+	defer cachedTxnBookEvent.Txn.Release()
 
-	cachedTransaction.TxnMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
+	cachedTxnBookEvent.TxnMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
 		if transactionMetadata.Conflicting() {
 			// abort if the previous consumers where finalized already
-			if !cachedTransaction.Pending {
+			if !cachedTxnBookEvent.Pending {
 				return
 			}
 
@@ -75,7 +75,7 @@ func (fcob *FCOB) onTransactionBooked(cachedTransaction *tangle.CachedTxnBookEve
 			return
 		}
 
-		fcob.scheduleSetPreferred(cachedTransaction.TxnMetadata.Retain())
+		fcob.scheduleSetPreferred(cachedTxnBookEvent.TxnMetadata.Retain())
 	})
 }
 

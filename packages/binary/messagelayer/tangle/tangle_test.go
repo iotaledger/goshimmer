@@ -43,18 +43,18 @@ func TestTangle_AttachMessage(t *testing.T) {
 		return
 	}
 
-	messageTangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *CachedMessageEvent) {
-		cachedMessage.MessageMetadata.Release()
+	messageTangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
 
-		cachedMessage.Message.Consume(func(msg *message.Message) {
+		cachedMsgEvent.Message.Consume(func(msg *message.Message) {
 			fmt.Println("ATTACHED:", msg.ID())
 		})
 	}))
 
-	messageTangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *CachedMessageEvent) {
-		cachedMessage.MessageMetadata.Release()
+	messageTangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
 
-		cachedMessage.Message.Consume(func(msg *message.Message) {
+		cachedMsgEvent.Message.Consume(func(msg *message.Message) {
 			fmt.Println("SOLID:", msg.ID())
 		})
 	}))

@@ -68,13 +68,13 @@ func sendTipInfo(messageID message.ID, isTip bool) {
 }
 
 func runVisualizer() {
-	notifyNewMsg := events.NewClosure(func(cachedMessage *tangle.CachedMessageEvent) {
-		defer cachedMessage.Message.Release()
-		defer cachedMessage.MessageMetadata.Release()
-		_, ok := visualizerWorkerPool.TrySubmit(cachedMessage.Message.Retain(), cachedMessage.MessageMetadata.Retain())
+	notifyNewMsg := events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		defer cachedMsgEvent.Message.Release()
+		defer cachedMsgEvent.MessageMetadata.Release()
+		_, ok := visualizerWorkerPool.TrySubmit(cachedMsgEvent.Message.Retain(), cachedMsgEvent.MessageMetadata.Retain())
 		if !ok {
-			cachedMessage.Message.Release()
-			cachedMessage.MessageMetadata.Release()
+			cachedMsgEvent.Message.Release()
+			cachedMsgEvent.MessageMetadata.Release()
 		}
 	})
 

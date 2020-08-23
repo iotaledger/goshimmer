@@ -76,11 +76,11 @@ func configure(_ *node.Plugin) {
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
 }
 
-func onReceiveMessageFromMessageLayer(cachedMessage *messageTangle.CachedMessageEvent) {
-	defer cachedMessage.Message.Release()
-	defer cachedMessage.MessageMetadata.Release()
+func onReceiveMessageFromMessageLayer(cachedMessageEvent *messageTangle.CachedMessageEvent) {
+	defer cachedMessageEvent.Message.Release()
+	defer cachedMessageEvent.MessageMetadata.Release()
 
-	solidMessage := cachedMessage.Message.Unwrap()
+	solidMessage := cachedMessageEvent.Message.Unwrap()
 	if solidMessage == nil {
 		log.Debug("failed to unpack solid message from message layer")
 

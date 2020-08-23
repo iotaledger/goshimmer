@@ -28,17 +28,17 @@ func configureLiveFeed() {
 
 func runLiveFeed() {
 	newMsgRateLimiter := time.NewTicker(time.Second / 10)
-	notifyNewMsg := events.NewClosure(func(cachedMessage *tangle.CachedMessageEvent) {
-		cachedMessage.MessageMetadata.Release()
+	notifyNewMsg := events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
 
 		select {
 		case <-newMsgRateLimiter.C:
-			_, ok := liveFeedWorkerPool.TrySubmit(cachedMessage.Message)
+			_, ok := liveFeedWorkerPool.TrySubmit(cachedMsgEvent.Message)
 			if !ok {
-				cachedMessage.Message.Release()
+				cachedMsgEvent.Message.Release()
 			}
 		default:
-			cachedMessage.Message.Release()
+			cachedMsgEvent.Message.Release()
 		}
 	})
 

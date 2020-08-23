@@ -91,10 +91,10 @@ func registerLocalMetrics() {
 	//// Events declared in other packages which we want to listen to here ////
 
 	// increase received MPS counter whenever we attached a message
-	messagelayer.Tangle().Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessageEvent) {
-		_payloadType := cachedMessage.Message.Unwrap().Payload().Type()
-		cachedMessage.Message.Release()
-		cachedMessage.MessageMetadata.Release()
+	messagelayer.Tangle().Events.MessageAttached.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		_payloadType := cachedMsgEvent.Message.Unwrap().Payload().Type()
+		cachedMsgEvent.Message.Release()
+		cachedMsgEvent.MessageMetadata.Release()
 		increaseReceivedMPSCounter()
 		increasePerPayloadCounter(_payloadType)
 		// MessageAttached is triggered in storeMessageWorker that saves the msg to database
@@ -108,12 +108,12 @@ func registerLocalMetrics() {
 	}))
 
 	// messages can only become solid once, then they stay like that, hence no .Dec() part
-	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessageEvent) {
-		cachedMessage.Message.Release()
+	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		cachedMsgEvent.Message.Release()
 		solidTimeMutex.Lock()
 		defer solidTimeMutex.Unlock()
 		// Consume should release cachedMessageMetadata
-		cachedMessage.MessageMetadata.Consume(func(object objectstorage.StorableObject) {
+		cachedMsgEvent.MessageMetadata.Consume(func(object objectstorage.StorableObject) {
 			msgMetaData := object.(*tangle.MessageMetadata)
 			if msgMetaData.IsSolid() {
 				messageSolidCountDBInc.Inc()
@@ -128,16 +128,16 @@ func registerLocalMetrics() {
 	}))
 
 	// fired when a missing message was received and removed from missing message storage
-	messagelayer.Tangle().Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessageEvent) {
-		cachedMessage.Message.Release()
-		cachedMessage.MessageMetadata.Release()
+	messagelayer.Tangle().Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		cachedMsgEvent.Message.Release()
+		cachedMsgEvent.MessageMetadata.Release()
 		missingMessageCountDB.Dec()
 	}))
 
 	// Value payload attached
-	valuetransfers.Tangle().Events.PayloadAttached.Attach(events.NewClosure(func(cachedPayload *valuetangle.CachedPayloadEvent) {
-		cachedPayload.Payload.Release()
-		cachedPayload.PayloadMetadata.Release()
+	valuetransfers.Tangle().Events.PayloadAttached.Attach(events.NewClosure(func(cachedPayloadEvent *valuetangle.CachedPayloadEvent) {
+		cachedPayloadEvent.Payload.Release()
+		cachedPayloadEvent.PayloadMetadata.Release()
 		valueTransactionCounter.Inc()
 	}))
 

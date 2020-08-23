@@ -109,24 +109,24 @@ func configure(*node.Plugin) {
 	}))
 
 	// setup messageParser
-	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(msg *messageparser.MessageParsedEvent) {
+	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *messageparser.MessageParsedEvent) {
 		// TODO: ADD PEER
-		_tangle.AttachMessage(msg.Message)
+		_tangle.AttachMessage(msgParsedEvent.Message)
 	}))
 
 	// setup messageRequester
 	_tangle.Events.MessageMissing.Attach(events.NewClosure(messageRequester.StartRequest))
-	_tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessageEvent) {
-		cachedMessage.MessageMetadata.Release()
-		cachedMessage.Message.Consume(func(msg *message.Message) {
+	_tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
+		cachedMsgEvent.Message.Consume(func(msg *message.Message) {
 			messageRequester.StopRequest(msg.ID())
 		})
 	}))
 
 	// setup tipSelector
-	_tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *tangle.CachedMessageEvent) {
-		cachedMessage.MessageMetadata.Release()
-		cachedMessage.Message.Consume(tipSelector.AddTip)
+	_tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
+		cachedMsgEvent.Message.Consume(tipSelector.AddTip)
 	}))
 
 	MessageRequester().Events.MissingMessageAppeared.Attach(events.NewClosure(func(id message.ID) {

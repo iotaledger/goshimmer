@@ -26,8 +26,8 @@ func TestSetTransactionPreferred(t *testing.T) {
 	valueObject := payload.New(payload.GenesisID, payload.GenesisID, tx)
 	tangle.storeTransactionModels(valueObject)
 
-	event.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTxn *CachedTxnEvent) bool {
-		return assert.ObjectsAreEqual(tx, cachedTxn.Txn.Unwrap())
+	event.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTxnEvent *CachedTxnEvent) bool {
+		return assert.ObjectsAreEqual(tx, cachedTxnEvent.Txn.Unwrap())
 	}))
 
 	modified, err := tangle.SetTransactionPreferred(tx.ID(), true)
@@ -56,8 +56,8 @@ func TestBookTransaction(t *testing.T) {
 		cachedTransaction, cachedTransactionMetadata, _, transactionIsNew := tangle.storeTransactionModels(valueObject)
 		assert.True(t, transactionIsNew)
 
-		event.Expect("TransactionSolid", mock.MatchedBy(func(cachedTxn *CachedTxnEvent) bool {
-			return assert.ObjectsAreEqual(tx, cachedTxn.Txn.Unwrap())
+		event.Expect("TransactionSolid", mock.MatchedBy(func(cachedTxnEvent *CachedTxnEvent) bool {
+			return assert.ObjectsAreEqual(tx, cachedTxnEvent.Txn.Unwrap())
 		}))
 
 		// manually trigger a booking: tx will be marked solid, but it cannot be book as its inputs are unavailable
@@ -128,8 +128,8 @@ func TestBookTransaction(t *testing.T) {
 		// assert that branchID is undefined before being booked
 		assert.Equal(t, branchmanager.UndefinedBranchID, txMetadata.BranchID())
 
-		event.Expect("TransactionSolid", mock.MatchedBy(func(cachedTxn *CachedTxnEvent) bool {
-			return assert.ObjectsAreEqual(tx1, cachedTxn.Txn.Unwrap())
+		event.Expect("TransactionSolid", mock.MatchedBy(func(cachedTxnEvent *CachedTxnEvent) bool {
+			return assert.ObjectsAreEqual(tx1, cachedTxnEvent.Txn.Unwrap())
 		}))
 		// TransactionBooked is triggered outside of bookTransaction
 
@@ -163,8 +163,8 @@ func TestBookTransaction(t *testing.T) {
 			assert.Equal(t, branchmanager.UndefinedBranchID, txMetadata.BranchID())
 
 			// manually book the double spending tx2, this will mark it as solid and trigger a fork
-			event.Expect("TransactionSolid", mock.MatchedBy(func(cachedTxn *CachedTxnEvent) bool {
-				return assert.ObjectsAreEqual(tx2, cachedTxn.Txn.Unwrap())
+			event.Expect("TransactionSolid", mock.MatchedBy(func(cachedTxnEvent *CachedTxnEvent) bool {
+				return assert.ObjectsAreEqual(tx2, cachedTxnEvent.Txn.Unwrap())
 			}))
 			event.Expect("Fork", mock.MatchedBy(func(forkEvent *ForkEvent) bool {
 				return assert.ObjectsAreEqual(tx1, forkEvent.Txn.Unwrap()) &&
@@ -404,8 +404,8 @@ func TestBookPayload(t *testing.T) {
 		txMetadata := cachedTransactionMetadata.Unwrap()
 		txMetadata.setBranchID(branchmanager.BranchID{1})
 
-		event.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayload *CachedPayloadEvent) bool {
-			return assert.ObjectsAreEqual(valueObject, cachedPayload.Payload.Unwrap())
+		event.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObject, cachedPayloadEvent.Payload.Unwrap())
 		}))
 		payloadBooked, err := tangle.bookPayload(cachedPayload.Retain(), cachedMetadata.Retain(), cachedTransactionMetadata.Retain())
 		defer func() {
@@ -436,8 +436,8 @@ func TestBookPayload(t *testing.T) {
 		txMetadata := cachedTransactionMetadata.Unwrap()
 		txMetadata.setBranchID(branchmanager.BranchID{1})
 
-		event.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayload *CachedPayloadEvent) bool {
-			return assert.ObjectsAreEqual(valueObject, cachedPayload.Payload.Unwrap())
+		event.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObject, cachedPayloadEvent.Payload.Unwrap())
 		}))
 		payloadBooked, err := tangle.bookPayload(cachedPayload.Retain(), cachedMetadata.Retain(), cachedTransactionMetadata.Retain())
 		defer func() {
@@ -1593,37 +1593,37 @@ func TestMissingPayloadReceived(t *testing.T) {
 	parent := payload.New(payload.GenesisID, payload.GenesisID, tx)
 	child := payload.New(parent.ID(), parent.ID(), tx)
 
-	event.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayload *CachedPayloadEvent) bool {
-		return assert.ObjectsAreEqual(child, cachedPayload.Payload.Unwrap())
+	event.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(child, cachedPayloadEvent.Payload.Unwrap())
 	}))
 	event.Expect("PayloadMissing", mock.MatchedBy(func(ID payload.ID) bool {
 		return assert.ObjectsAreEqual(parent.ID(), ID)
 	}))
-	event.Expect("TransactionReceived", mock.MatchedBy(func(cachedAttachments *CachedAttachmentsEvent) bool {
-		return assert.ObjectsAreEqual(tx, cachedAttachments.Txn.Unwrap())
+	event.Expect("TransactionReceived", mock.MatchedBy(func(cachedAttachmentsEvent *CachedAttachmentsEvent) bool {
+		return assert.ObjectsAreEqual(tx, cachedAttachmentsEvent.Txn.Unwrap())
 	}))
 
 	// submit the child first; it cannot be solidified
 	tangle.AttachPayloadSync(child)
 
-	event.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayload *CachedPayloadEvent) bool {
-		return assert.ObjectsAreEqual(parent, cachedPayload.Payload.Unwrap())
+	event.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(parent, cachedPayloadEvent.Payload.Unwrap())
 	}))
-	event.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayload *CachedPayloadEvent) bool {
-		return assert.ObjectsAreEqual(parent, cachedPayload.Payload.Unwrap())
+	event.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(parent, cachedPayloadEvent.Payload.Unwrap())
 	}))
-	event.Expect("MissingPayloadReceived", mock.MatchedBy(func(cachedPayload *CachedPayloadEvent) bool {
-		return assert.ObjectsAreEqual(parent, cachedPayload.Payload.Unwrap())
+	event.Expect("MissingPayloadReceived", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(parent, cachedPayloadEvent.Payload.Unwrap())
 	}))
-	event.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayload *CachedPayloadEvent) bool {
-		return assert.ObjectsAreEqual(child, cachedPayload.Payload.Unwrap())
+	event.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(child, cachedPayloadEvent.Payload.Unwrap())
 	}))
-	event.Expect("TransactionSolid", mock.MatchedBy(func(cachedTxn *CachedTxnEvent) bool {
-		return assert.ObjectsAreEqual(tx, cachedTxn.Txn.Unwrap())
+	event.Expect("TransactionSolid", mock.MatchedBy(func(cachedTxnEvent *CachedTxnEvent) bool {
+		return assert.ObjectsAreEqual(tx, cachedTxnEvent.Txn.Unwrap())
 	}))
-	event.Expect("TransactionBooked", mock.MatchedBy(func(cachedTxnBook *CachedTxnBookEvent) bool {
-		return assert.ObjectsAreEqual(tx, cachedTxnBook.Txn.Unwrap()) &&
-			assert.True(t, cachedTxnBook.Pending)
+	event.Expect("TransactionBooked", mock.MatchedBy(func(cachedTxnBookEvent *CachedTxnBookEvent) bool {
+		return assert.ObjectsAreEqual(tx, cachedTxnBookEvent.Txn.Unwrap()) &&
+			assert.True(t, cachedTxnBookEvent.Pending)
 	}))
 
 	// submitting the parent makes everything solid
