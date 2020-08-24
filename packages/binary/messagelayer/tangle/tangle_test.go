@@ -94,7 +94,7 @@ func TestTangle_AttachMessage(t *testing.T) {
 
 func TestTangle_MissingMessages(t *testing.T) {
 	// test parameters
-	messageCount := 200
+	messageCount := 200000
 	widthOfTheTangle := 2500
 
 	// variables required for the test
