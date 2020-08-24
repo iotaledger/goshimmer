@@ -126,21 +126,14 @@ func registerLocalMetrics() {
 
 	// fired when a message gets added to missing message storage
 	messagelayer.Tangle().Events.MessageMissing.Attach(events.NewClosure(func(messageId message.ID) {
-		missingMessagesMapMutex.Lock()
-		defer missingMessagesMapMutex.Unlock()
-
-		missingMessagesMap[messageId] = true
+		missingMessageCountDB.Inc()
 	}))
 
 	// fired when a missing message was received and removed from missing message storage
 	messagelayer.Tangle().Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		cachedMessage.Release()
 		cachedMessageMetadata.Release()
-		cachedMessage.Consume(func(msg *message.Message) {
-			missingMessagesMapMutex.Lock()
-			defer missingMessagesMapMutex.Unlock()
-
-			delete(missingMessagesMap, msg.ID())
-		})
+		missingMessageCountDB.Dec()
 	}))
 
 	// Value payload attached
