@@ -153,6 +153,20 @@ func (rmap *RandomMap) RandomEntry() (result interface{}) {
 	return
 }
 
+// Keys returns the list of keys stored in the RandomMap.
+func (rmap *RandomMap) Keys() (result []interface{}) {
+	rmap.mutex.RLock()
+	defer rmap.mutex.RUnlock()
+
+	result = make([]interface{}, rmap.size)
+
+	for i, item := range rmap.keys {
+		result[i] = item
+	}
+
+	return
+}
+
 func (rmap *RandomMap) randomKey() (result interface{}) {
 	return rmap.keys[rand.Intn(rmap.size)]
 }
