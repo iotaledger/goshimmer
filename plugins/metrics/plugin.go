@@ -134,6 +134,7 @@ func registerLocalMetrics() {
 
 	// fired when a missing message was received and removed from missing message storage
 	messagelayer.Tangle().Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
+		cachedMessageMetadata.Release()
 		cachedMessage.Consume(func(msg *message.Message) {
 			missingMessagesMapMutex.Lock()
 			defer missingMessagesMapMutex.Unlock()
