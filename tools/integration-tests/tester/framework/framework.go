@@ -258,7 +258,7 @@ func (f *Framework) CreateDRNGNetwork(name string, members, peers, minimumNeighb
 	}
 
 	config := GoShimmerConfig{
-		DRNGInstance:       1,
+		DRNGInstance:       111,
 		DRNGThreshold:      3,
 		DRNGDistKey:        hex.EncodeToString(drng.distKey),
 		DRNGCommittee:      drngCommittee,
