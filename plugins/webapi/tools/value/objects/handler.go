@@ -1,4 +1,4 @@
-package debug
+package objects
 
 import (
 	"container/list"

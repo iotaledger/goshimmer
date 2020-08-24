@@ -6,7 +6,7 @@ import (
 
 	webapi_missing "github.com/iotaledger/goshimmer/plugins/webapi/tools/message/missing"
 	webapi_pastcone "github.com/iotaledger/goshimmer/plugins/webapi/tools/message/pastcone"
-	webapi_value_debug "github.com/iotaledger/goshimmer/plugins/webapi/tools/value/debug"
+	webapi_value_objects "github.com/iotaledger/goshimmer/plugins/webapi/tools/value/objects"
 	webapi_value_tips "github.com/iotaledger/goshimmer/plugins/webapi/tools/value/tips"
 )
 
@@ -15,7 +15,7 @@ const (
 	routeMissing  = "tools/message/missing"
 
 	routeValueTips  = "tools/value/tips"
-	routeValueDebug = "tools/value/debug"
+	routeValueDebug = "tools/value/objects"
 )
 
 // ------------------- Communication layer -----------------------------
@@ -60,9 +60,9 @@ func (api *GoShimmerAPI) ValueTips() (*webapi_value_tips.Response, error) {
 	return res, nil
 }
 
-// ValueDebug returns returns the list of value objects.
-func (api *GoShimmerAPI) ValueDebug() (*webapi_value_debug.Response, error) {
-	res := &webapi_value_debug.Response{}
+// ValueObjects returns the list of value objects.
+func (api *GoShimmerAPI) ValueObjects() (*webapi_value_objects.Response, error) {
+	res := &webapi_value_objects.Response{}
 	if err := api.do(http.MethodGet, routeValueDebug, nil, res); err != nil {
 		return nil, err
 	}

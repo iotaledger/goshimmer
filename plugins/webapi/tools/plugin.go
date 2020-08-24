@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/tools/message/missing"
 	"github.com/iotaledger/goshimmer/plugins/webapi/tools/message/pastcone"
-	"github.com/iotaledger/goshimmer/plugins/webapi/tools/value/debug"
+	"github.com/iotaledger/goshimmer/plugins/webapi/tools/value/objects"
 	"github.com/iotaledger/goshimmer/plugins/webapi/tools/value/tips"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -35,5 +35,5 @@ func configure(_ *node.Plugin) {
 	webapi.Server().GET("tools/message/pastcone", pastcone.Handler)
 	webapi.Server().GET("tools/message/missing", missing.Handler)
 	webapi.Server().GET("tools/value/tips", tips.Handler)
-	webapi.Server().GET("tools/value/debug", debug.Handler)
+	webapi.Server().GET("tools/value/objects", objects.Handler)
 }
