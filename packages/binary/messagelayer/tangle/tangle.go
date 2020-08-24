@@ -173,11 +173,9 @@ func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidifica
 func (tangle *Tangle) MissingMessages() (ids []message.ID) {
 	tangle.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
-			missingMsg := object.(*MissingMessage)
-			if !missingMsg.IsDeleted() {
-				ids = append(ids, missingMsg.messageID)
-			}
+			ids = append(ids, object.(*MissingMessage).messageID)
 		})
+
 		return true
 	})
 	return
