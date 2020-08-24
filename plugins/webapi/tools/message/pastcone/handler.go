@@ -13,14 +13,14 @@ import (
 // Handler process a pastcone request.
 func Handler(c echo.Context) error {
 	var checkedMessageCount int
-	var request PastConeRequest
+	var request Request
 	if err := c.Bind(&request); err != nil {
-		return c.JSON(http.StatusBadRequest, PastConeResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
 	msgID, err := message.NewID(request.ID)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, PastConeResponse{Error: err.Error()})
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 
 	// create a new stack that hold messages to check
@@ -43,7 +43,7 @@ func Handler(c echo.Context) error {
 		msgMetadataObject := messagelayer.Tangle().MessageMetadata(currentMsgID)
 
 		if !msgObject.Exists() || !msgMetadataObject.Exists() {
-			return c.JSON(http.StatusOK, PastConeResponse{Exist: false, PastConeSize: checkedMessageCount, Error: fmt.Sprintf("couldn't find %s message on node", currentMsgID)})
+			return c.JSON(http.StatusOK, Response{Exist: false, PastConeSize: checkedMessageCount, Error: fmt.Sprintf("couldn't find %s message on node", currentMsgID)})
 		}
 
 		// get trunk and branch
@@ -69,17 +69,17 @@ func Handler(c echo.Context) error {
 			}
 		}
 	}
-	return c.JSON(http.StatusOK, PastConeResponse{Exist: true, PastConeSize: checkedMessageCount})
+	return c.JSON(http.StatusOK, Response{Exist: true, PastConeSize: checkedMessageCount})
 }
 
-// PastConeRequest holds the message id to query.
-type PastConeRequest struct {
+// Request holds the message id to query.
+type Request struct {
 	ID string `json:"id"`
 }
 
-// PastConeResponse is the HTTP response containing the number of messages in the past cone and if all messages of the past cone
+// Response is the HTTP response containing the number of messages in the past cone and if all messages of the past cone
 // exist on the node.
-type PastConeResponse struct {
+type Response struct {
 	Exist        bool   `json:"exist,omitempty"`
 	PastConeSize int    `json:"pastConeSize,omitempty"`
 	Error        string `json:"error,omitempty"`

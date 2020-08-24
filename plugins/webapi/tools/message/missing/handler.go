@@ -9,7 +9,7 @@ import (
 
 // Handler process missing requests.
 func Handler(c echo.Context) error {
-	res := &MissingResponse{}
+	res := &Response{}
 	missingIDs := messagelayer.Tangle().MissingMessages()
 	for _, msg := range missingIDs {
 		res.IDs = append(res.IDs, msg.String())
@@ -18,8 +18,8 @@ func Handler(c echo.Context) error {
 	return c.JSON(http.StatusOK, res)
 }
 
-// MissingResponse is the HTTP response containing all the missing messages and their count.
-type MissingResponse struct {
+// Response is the HTTP response containing all the missing messages and their count.
+type Response struct {
 	IDs   []string `json:"ids,omitempty"`
 	Count int      `json:"count,omitempty"`
 }

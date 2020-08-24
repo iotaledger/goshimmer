@@ -22,13 +22,13 @@ const (
 
 // PastConeExist checks that all of the messages in the past cone of a message are existing on the node
 // down to the genesis. Returns the number of messages in the past cone as well.
-func (api *GoShimmerAPI) PastConeExist(base58EncodedMessageID string) (*webapi_pastcone.PastConeResponse, error) {
-	res := &webapi_pastcone.PastConeResponse{}
+func (api *GoShimmerAPI) PastConeExist(base58EncodedMessageID string) (*webapi_pastcone.Response, error) {
+	res := &webapi_pastcone.Response{}
 
 	if err := api.do(
 		http.MethodGet,
 		routePastCone,
-		&webapi_pastcone.PastConeRequest{ID: base58EncodedMessageID},
+		&webapi_pastcone.Request{ID: base58EncodedMessageID},
 		res,
 	); err != nil {
 		return nil, err
@@ -41,8 +41,8 @@ func (api *GoShimmerAPI) PastConeExist(base58EncodedMessageID string) (*webapi_p
 }
 
 // Missing returns all the missing messages and their count.
-func (api *GoShimmerAPI) Missing() (*webapi_missing.MissingResponse, error) {
-	res := &webapi_missing.MissingResponse{}
+func (api *GoShimmerAPI) Missing() (*webapi_missing.Response, error) {
+	res := &webapi_missing.Response{}
 	if err := api.do(http.MethodGet, routeMissing, nil, res); err != nil {
 		return nil, err
 	}
