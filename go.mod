@@ -13,7 +13,7 @@ require (
 	github.com/gobuffalo/packr/v2 v2.8.0
 	github.com/golang/protobuf v1.4.2
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20200824081828-546247fb36d0
+	github.com/iotaledger/hive.go v0.0.0-20200824094234-625205bbb5d4
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/magiconair/properties v1.8.1
