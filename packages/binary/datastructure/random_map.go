@@ -123,6 +123,7 @@ func (rmap *RandomMap) Size() (result int) {
 	return
 }
 
+// ForEach iterates through the elements in the map and calls the consumer function for each element.
 func (rmap *RandomMap) ForEach(consumer func(key interface{}, value interface{})) {
 	rmap.mutex.RLock()
 	defer rmap.mutex.RUnlock()
@@ -159,10 +160,7 @@ func (rmap *RandomMap) Keys() (result []interface{}) {
 	defer rmap.mutex.RUnlock()
 
 	result = make([]interface{}, rmap.size)
-
-	for i, item := range rmap.keys {
-		result[i] = item
-	}
+	copy(result, rmap.keys)
 
 	return
 }
