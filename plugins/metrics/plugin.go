@@ -45,7 +45,6 @@ func Plugin() *node.Plugin {
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	missingMessagesMap = make(map[message.ID]bool)
 }
 
 func run(_ *node.Plugin) {
