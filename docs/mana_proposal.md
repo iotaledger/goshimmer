@@ -4,7 +4,7 @@ The goal of this document is to provide a high level overview of how mana will b
 
 ## Introduction
 
-Mana is a a reputation system for nodes within the IOTA network.
+Mana is a reputation system for nodes within the IOTA network.
 
 Reputation is gained by contributing to the network, i.e. creating value transfers.
 Reputation is lost when not cooperating with the network: using up all the available bandwidth, advocating for
@@ -45,7 +45,7 @@ The `mana plugin` is responsible for:
  - respond to mana related queries from other modules,
  - allowing certain modules to overwrite mana of nodes (punishing bad behavior).
 
- The proposed mana plugin in should keep track of the different mana values of nodes and handle calculation and timely
+ The proposed mana plugin should keep track of the different mana values of nodes and handle calculation and timely
  updates. Mana values are mapped to `nodeID`s and stored in a `map` data structure:
  ```go
 baseMana1Map := map[<nodeID>[]byte]<baseMana1-value>float64, and so on...
