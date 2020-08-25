@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/sendtransaction"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/sendtransactionbyjson"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/testsendtxn"
+	"github.com/iotaledger/goshimmer/plugins/webapi/value/tips"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/unspentoutputs"
 	"github.com/iotaledger/hive.go/node"
 )
@@ -37,4 +38,5 @@ func configure(_ *node.Plugin) {
 	webapi.Server().POST("value/sendTransactionByJson", sendtransactionbyjson.Handler)
 	webapi.Server().POST("value/testSendTxn", testsendtxn.Handler)
 	webapi.Server().GET("value/transactionByID", gettransactionbyid.Handler)
+	webapi.Server().GET("value/tips", tips.Handler)
 }
