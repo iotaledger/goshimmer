@@ -21,4 +21,3 @@ func TestMain(m *testing.M) {
 	// call the tests
 	os.Exit(m.Run())
 }
-

@@ -14,8 +14,8 @@ export class Message {
     sequence_number: number;
     issuer_public_key: string;
     signature: string;
-    trunk_message_id: string;
-    branch_message_id: string;
+    parent1_message_id: string;
+    parent2_message_id: string;
     solid: boolean;
     payload_type: number;
     payload: any;

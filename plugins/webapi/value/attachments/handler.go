@@ -47,8 +47,8 @@ func Handler(c echo.Context) error {
 		// append value object
 		valueObjs = append(valueObjs, ValueObject{
 			ID:          payload.ID().String(),
-			ParentID0:   payload.TrunkID().String(),
-			ParentID1:   payload.BranchID().String(),
+			Parent1ID:   payload.Parent1ID().String(),
+			Parent2ID:   payload.Parent2ID().String(),
 			Transaction: txn,
 		})
 	}
@@ -65,7 +65,7 @@ type Response struct {
 // ValueObject holds the information of a value object.
 type ValueObject struct {
 	ID          string            `json:"id"`
-	ParentID0   string            `json:"parent0_id"`
-	ParentID1   string            `json:"parent1_id"`
+	Parent1ID   string            `json:"parent1_id"`
+	Parent2ID   string            `json:"parent2_id"`
 	Transaction utils.Transaction `json:"transaction"`
 }

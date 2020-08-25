@@ -130,9 +130,9 @@ func TestTangle_MissingMessages(t *testing.T) {
 		// remove a tip if the width of the tangle is reached
 		if tips.Size() >= widthOfTheTangle {
 			if rand.Intn(1000) < 500 {
-				tips.Delete(msg.BranchID())
+				tips.Delete(msg.Parent2ID())
 			} else {
-				tips.Delete(msg.TrunkID())
+				tips.Delete(msg.Parent1ID())
 			}
 		}
 

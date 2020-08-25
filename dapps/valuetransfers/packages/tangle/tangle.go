@@ -721,7 +721,7 @@ func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(pro
 	switch confirmed {
 	case true:
 		// abort if the transaction is not preferred, the branch of the payload is not liked, the referenced value payloads are not liked or the payload was marked as liked before
-		if !currentTransactionMetadata.Preferred() || !currentTransactionMetadata.Finalized() || !tangle.BranchManager().IsBranchConfirmed(currentPayloadMetadata.BranchID()) || !tangle.ValuePayloadsConfirmed(currentPayload.TrunkID(), currentPayload.BranchID()) || !currentPayloadMetadata.setConfirmed(true) {
+		if !currentTransactionMetadata.Preferred() || !currentTransactionMetadata.Finalized() || !tangle.BranchManager().IsBranchConfirmed(currentPayloadMetadata.BranchID()) || !tangle.ValuePayloadsConfirmed(currentPayload.Parent1ID(), currentPayload.Parent2ID()) || !currentPayloadMetadata.setConfirmed(true) {
 			return
 		}
 
@@ -742,7 +742,7 @@ func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(pro
 		}
 	case false:
 		// abort if transaction is not finalized and neither of parents is rejected
-		if !currentTransactionMetadata.Finalized() && !(tangle.payloadRejected(currentPayload.BranchID()) || tangle.payloadRejected(currentPayload.TrunkID())) {
+		if !currentTransactionMetadata.Finalized() && !(tangle.payloadRejected(currentPayload.Parent2ID()) || tangle.payloadRejected(currentPayload.Parent1ID())) {
 			return
 		}
 
@@ -859,7 +859,7 @@ func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack 
 	switch liked {
 	case true:
 		// abort if the transaction is not preferred, the branch of the payload is not liked, the referenced value payloads are not liked or the payload was marked as liked before
-		if !currentTransactionMetadata.Preferred() || !tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) || !tangle.ValuePayloadsLiked(currentPayload.TrunkID(), currentPayload.BranchID()) || !currentPayloadMetadata.setLiked(liked) {
+		if !currentTransactionMetadata.Preferred() || !tangle.BranchManager().IsBranchLiked(currentPayloadMetadata.BranchID()) || !tangle.ValuePayloadsLiked(currentPayload.Parent1ID(), currentPayload.Parent2ID()) || !currentPayloadMetadata.setLiked(liked) {
 			return
 		}
 
@@ -1005,13 +1005,13 @@ func (tangle *Tangle) storeTransactionModels(solidPayload *payload.Payload) (cac
 }
 
 func (tangle *Tangle) storePayloadReferences(payload *payload.Payload) {
-	// store trunk approver
-	trunkID := payload.TrunkID()
-	tangle.approverStorage.Store(NewPayloadApprover(trunkID, payload.ID())).Release()
+	// store parent1 approver
+	parent1ID := payload.Parent1ID()
+	tangle.approverStorage.Store(NewPayloadApprover(parent1ID, payload.ID())).Release()
 
-	// store branch approver
-	if branchID := payload.BranchID(); branchID != trunkID {
-		tangle.approverStorage.Store(NewPayloadApprover(branchID, payload.ID())).Release()
+	// store parent2 approver
+	if parent2ID := payload.Parent2ID(); parent2ID != parent1ID {
+		tangle.approverStorage.Store(NewPayloadApprover(parent2ID, payload.ID())).Release()
 	}
 }
 
@@ -1158,9 +1158,9 @@ func (tangle *Tangle) deletePayloadFutureCone(payloadID payload.ID, cause error)
 			currentPayload.Delete()
 
 			// delete approvers
-			tangle.approverStorage.Delete(marshalutil.New(2 * payload.IDLength).WriteBytes(currentPayload.BranchID().Bytes()).WriteBytes(currentPayloadID.Bytes()).Bytes())
-			if currentPayload.TrunkID() != currentPayload.BranchID() {
-				tangle.approverStorage.Delete(marshalutil.New(2 * payload.IDLength).WriteBytes(currentPayload.TrunkID().Bytes()).WriteBytes(currentPayloadID.Bytes()).Bytes())
+			tangle.approverStorage.Delete(marshalutil.New(2 * payload.IDLength).WriteBytes(currentPayload.Parent2ID().Bytes()).WriteBytes(currentPayloadID.Bytes()).Bytes())
+			if currentPayload.Parent1ID() != currentPayload.Parent2ID() {
+				tangle.approverStorage.Delete(marshalutil.New(2 * payload.IDLength).WriteBytes(currentPayload.Parent1ID().Bytes()).WriteBytes(currentPayloadID.Bytes()).Bytes())
 			}
 
 			// delete attachment
@@ -1423,11 +1423,11 @@ func (tangle *Tangle) bookPayload(cachedPayload *payload.CachedPayload, cachedPa
 		return
 	}
 
-	branchBranchID := tangle.payloadBranchID(valueObject.BranchID())
-	trunkBranchID := tangle.payloadBranchID(valueObject.TrunkID())
+	parent2BranchID := tangle.payloadBranchID(valueObject.Parent2ID())
+	parent1BranchID := tangle.payloadBranchID(valueObject.Parent1ID())
 	transactionBranchID := transactionMetadata.BranchID()
 
-	if branchBranchID == branchmanager.UndefinedBranchID || trunkBranchID == branchmanager.UndefinedBranchID || transactionBranchID == branchmanager.UndefinedBranchID {
+	if parent2BranchID == branchmanager.UndefinedBranchID || parent1BranchID == branchmanager.UndefinedBranchID || transactionBranchID == branchmanager.UndefinedBranchID {
 		return
 	}
 
@@ -1439,7 +1439,7 @@ func (tangle *Tangle) bookPayload(cachedPayload *payload.CachedPayload, cachedPa
 	// trigger event if payload became solid
 	tangle.Events.PayloadSolid.Trigger(cachedPayload, cachedPayloadMetadata)
 
-	cachedAggregatedBranch, err := tangle.BranchManager().AggregateBranches([]branchmanager.BranchID{branchBranchID, trunkBranchID, transactionBranchID}...)
+	cachedAggregatedBranch, err := tangle.BranchManager().AggregateBranches([]branchmanager.BranchID{parent2BranchID, parent1BranchID, transactionBranchID}...)
 	if err != nil {
 		return
 	}
@@ -1495,17 +1495,17 @@ func (tangle *Tangle) payloadBecameNewlySolid(p *payload.Payload, payloadMetadat
 
 	combinedBranches := transactionBranches
 
-	trunkBranchID := tangle.payloadBranchID(p.TrunkID())
-	if trunkBranchID == branchmanager.UndefinedBranchID {
+	parent1BranchID := tangle.payloadBranchID(p.Parent1ID())
+	if parent1BranchID == branchmanager.UndefinedBranchID {
 		return false, nil
 	}
-	combinedBranches = append(combinedBranches, trunkBranchID)
+	combinedBranches = append(combinedBranches, parent1BranchID)
 
-	branchBranchID := tangle.payloadBranchID(p.BranchID())
-	if branchBranchID == branchmanager.UndefinedBranchID {
+	parent2BranchID := tangle.payloadBranchID(p.Parent2ID())
+	if parent2BranchID == branchmanager.UndefinedBranchID {
 		return false, nil
 	}
-	combinedBranches = append(combinedBranches, branchBranchID)
+	combinedBranches = append(combinedBranches, parent2BranchID)
 
 	branchesConflicting, err := tangle.branchManager.BranchesConflicting(combinedBranches...)
 	if err != nil {
@@ -1883,8 +1883,8 @@ func (tangle *Tangle) updateBranchOfValuePayloadsAttachingTransaction(transactio
 		// process the found element
 		currentPayloadElement.Value.(*payload.CachedPayload).Consume(func(currentPayload *payload.Payload) {
 			// determine branches of referenced payloads
-			branchIDofBranch := tangle.branchIDofPayload(currentPayload.BranchID())
-			branchIDofTrunk := tangle.branchIDofPayload(currentPayload.TrunkID())
+			branchIDofParent2 := tangle.branchIDofPayload(currentPayload.Parent2ID())
+			branchIDofParent1 := tangle.branchIDofPayload(currentPayload.Parent1ID())
 
 			// determine branch of contained transaction
 			var branchIDofTransaction branchmanager.BranchID
@@ -1895,12 +1895,12 @@ func (tangle *Tangle) updateBranchOfValuePayloadsAttachingTransaction(transactio
 			}
 
 			// abort if any of the branches is undefined
-			if branchIDofBranch == branchmanager.UndefinedBranchID || branchIDofTrunk == branchmanager.UndefinedBranchID || branchIDofTransaction == branchmanager.UndefinedBranchID {
+			if branchIDofParent2 == branchmanager.UndefinedBranchID || branchIDofParent1 == branchmanager.UndefinedBranchID || branchIDofTransaction == branchmanager.UndefinedBranchID {
 				return
 			}
 
 			// aggregate the branches or abort if we face an error
-			cachedAggregatedBranch, err := tangle.branchManager.AggregateBranches(branchIDofBranch, branchIDofTrunk, branchIDofTransaction)
+			cachedAggregatedBranch, err := tangle.branchManager.AggregateBranches(branchIDofParent2, branchIDofParent1, branchIDofTransaction)
 			if err != nil {
 				tangle.Events.Error.Trigger(err)
 

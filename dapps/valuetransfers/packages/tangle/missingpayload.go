@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 )
 
-// MissingPayload represents a payload that was referenced through branch or trunk but that is missing in our object
+// MissingPayload represents a payload that was referenced through parent2 or parent1 but that is missing in our object
 // storage.
 type MissingPayload struct {
 	objectstorage.StorableObjectFlags
