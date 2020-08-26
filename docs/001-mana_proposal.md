@@ -11,16 +11,16 @@ As time passes, earned mana of a node decays to encourage keeping up the good be
 
 ## Scope
 
-The sope of the first implementation of mana into GoShimmer is to verify that mana calculations work,
+The scope of the first implementation of mana into GoShimmer is to verify that mana calculations work,
 study base mana calculations 1 & 2, and mana distribution in the test network, furthermore to verify that nodes have
 similar view on the network.
 
 ## Mana Calculation
 
-Mana is esentially the reputation score of a node in the IOTA network. Mana is calculated locally in each node, as a
+Mana is essentially the reputation score of a node in the IOTA network. Mana is calculated locally in each node, as a
 function that takes value transactions as input and produces the Base Mana Vector as output.
 
-A each transaction has an `accessMana` and `consensusMana` field that determine which node to pledge these two types
+Each transaction has an `accessMana` and `consensusMana` field that determine which node to pledge these two types
 of mana to. Both of these fields denote a `nodeID`, the receiver of mana. `accessMana` and `consensusMana` do not have
 to be pledged to the same node, but for simplicity, in the first implementation, they will be.
 
@@ -38,7 +38,7 @@ Given a value transaction, Base Mana 1 and Base Mana 2 are determined as follows
 
 An example `Base Mana Vector` for `Access Mana` could look likt this:
 
- | 		   | Node 1 | Node 2 | ... | Node k
+ | 		    | Node 1 | Node 2 | ... | Node k
  |  ------- | --------- | ---------- | ------ | ---
  | Base Mana 1 			|0	| 1 	|...|  100.54
  | Effective Base Mana 1	|0	| 0.5 	|...|  120.7
@@ -57,49 +57,6 @@ module (FPC, Autopeering, DRNG, Rate Control, tools, etc.).
 
 The exact mathematical formulas, and their respective parameters will be determined later.
 
-## Mana Plugin in GoShimmer
-
-Mana should be implemented as a separate plugin in GoShimmer.
-
-The `mana plugin` is responsible for:
- - calculating mana from value transactions,
- - keeping a log of the different mana values of all nodes,
- - updating mana values,
- - responding to mana related queries from other modules.
-
- The proposed mana plugin should keep track of the different mana values of nodes and handle calculation
- updates. Mana values are mapped to `nodeID`s and stored in a `map` data structure, Note, that except for `Base Mana 1`,
- the time of the last update has to be stored together with the latest value:
- ```go
-type BaseMana struct {
-  BaseMana1 float
-  EffectiveBaseMana1 float
-  EBM1LastUpdated time
-  BaseMana2 float
-  BM2LastUpdated time
-  EffectiveBaseMana2 float
-  EBM2LastUpdated time
-}
-
-type BaseManaVector map[nodeID]BaseMana
-```
-
-`Access Mana` and `Consensus Mana` should have their own respective `BaseManaVector`. In the future, it should be possible
-to combine `Effective Base Mana 1` and `Effective Base Mana 2` from a `BaseManaVector` in arbitrary proportions to arrive
-at a final mana value that other modules use.
-
- The mana plugin should expose utility funtions to other modules for:
-  1. Obtaining the list of N highest `Access`/`Consensus` mana nodes.
-  2. Obtaining the `Access`/`Consensus` mana value of a particular node.
-  3. Obtaining a list of currently known peers + their mana, sorted. Useful for knowing which high mana nodes are online.
-  4. Obtaining a list of neighbors and their mana.
-  5. Obtaining the full mana maps for comparison with the perception of other nodes.
-
-  +1, consider adding new API routes for mana related infos.
-
- Such utility functions could be used for example to visualize mana distribution in node dashboard, or send neighbor
- mana data to the analysis server for further processing.
-
 ## Challenges
 
 ### Dependency on Value Tangle
@@ -109,7 +66,7 @@ Each node calculates mana locally, therefore, it is essential to determine when 
 tangle "final enough" (so that they will not be orphaned).
 
 When a transaction is `confirmed`, it is a sufficient indicator that it will not be orphaned. However, in current
-GoShimmer iplementation, confirmation is not yet a properly defined concept. This issue will be addresses in a separate
+GoShimmer implementation, confirmation is not yet a properly defined concept. This issue will be addresses in a separate
 module.
 
 The Mana module assumes, that the value tangle's `TransactionConfirmed` event is the trigger condition to update the
@@ -124,7 +81,7 @@ feature, that is, to donate the mana of a certain transaction ot an arbitrary no
 
 ## Limitations
 
-The first implementation of mana in goshimmer will:
+The first implementation of mana in GoShimmer will:
   - not have voted timestamps on value transactions,
   - lack proper `TransactionConfirmed` mechanism to trigger mana update,
   - lack integration into rate control/autopeering/fpc/etc.
@@ -157,30 +114,113 @@ A solution to this would be that upon receiving a `transaction` from a client, t
 older than a certain point in time (couple seconds ago?) and or is not in the future. Then constructs the message to have
 the same timestamp. The message and the transaction should have the same timestamp because FPC will vote on this timestamp.
 
-### Mana Module
+### Initialization
+
+- When a node starts, it will query other nodes to get their baseManaVectors that will be used for initialization.
+- When the faucet starts if queries baseManVectors from other nodes as above. If its own `nodeID` is not found, it sets
+  its mana to be equal to its available funds. Faucets mana will be pledged to the node that requests for funds.
+
+**Open Question**
+- How many nodes to query? All neighbors?
+- What is the selection algorithm? Random?
+- If the facuet restarts
+
+### Mana Package
 
 The functionality of the mana module should be implemented in a `mana` package. Then, a `mana plugin` can use the package
 structs and methods to connect the dots, for example execute `BookMana` when `TransactionConfirmed` event is triggered
 in the value tangle.
 
+`BaseMana` is a struct that holds the different mana values for a given node.
+Note that except for `Base Mana 1`, the time of the last update has to be stored together with the latest value:
+ ```go
+type BaseMana struct {
+  BaseMana1 float
+  EffectiveBaseMana1 float
+  EBM1LastUpdated time
+  BaseMana2 float
+  BM2LastUpdated time
+  EffectiveBaseMana2 float
+  EBM2LastUpdated time
+}
+```
+
+#### Events
 The mana package should have the following events:
  - `ManaBooked` when mana was booked for a node due to new transactions being confirmed.
+ ```go
+type ManaBooked struct {
+    NodeID []bytes
+    Mana BaseMana
+}
+```
  - `ManaUpdated` when mana was updated for a node due to it being accessed/modified.
+ ```go
+type ManaUpdated struct {
+    NodeID []bytes
+    OldMana BaseMana
+    NewMana BaseMana
+    Type    ManaType
+}
+```
 
+#### Methods
 The mana package should expose the following methods:
  - `BookAccessMana(nodeID, amount)`: book access mana for a particular node. Trigger `ManaBooked` event.
  - `BookConsensusMana(nodeID, amount)`: book consensus mana for a particular node. Trigger `ManaBooked` event.
- - `GetAccessMana(nodeID) mana`: access `Base Mana Vector` of `Access Mana`, update its values with respect to time,
-   and return the amount of `Access Mana` (either `Effective Base Mana 1`, `Effective Base Mana 2`, or some combination
-   of the two). Trigger `ManaUpdated` event.
- - `GetConsensusMana(nodeID) mana`: access `Base Mana Vector` of `Consensus Mana`, update its values with respect to time,
-   and returns the amount of `Consensus Mana` (either `Effective Base Mana 1`, `Effective Base Mana 2`, or some combination
-   of the two). Trigger `ManaUpdated` event.
+
+ TO BE CONTINUED
+
+### Mana Plugin
+
+The `mana plugin` is responsible for:
+ - calculating mana from value transactions,
+ - keeping a log of the different mana values of all nodes,
+ - updating mana values,
+ - responding to mana related queries from other modules.
+
+The proposed mana plugin should keeps track of the different mana values of nodes and handle calculation
+updates. Mana values are mapped to `nodeID`s and stored in a `map` data structure.
+
+```go
+type BaseManaVector map[nodeID]BaseMana
+```
+
+`Access Mana` and `Consensus Mana` should have their own respective `BaseManaVector`.
+```go
+accessManaVector BaseManaVector
+consensusManaVector BaseManaVector
+```
+In the future, it should be possible to combine `Effective Base Mana 1` and `Effective Base Mana 2` from a `BaseManaVector`
+in arbitrary proportions to arrive at a final mana value that other modules use.
+
+#### Methods
+The mana plugin should expose utility functions to other modules:
  - `GetHighestManaNodes(type, n) [n]NodeIdManaTuple`: return the `n` highest `type` mana nodes (`nodeID`,`manaValue`) in
    ascending order. Should also update their mana value.
  - `GetManaMap(type) map[nodeID]manaValue`: return `type` mana perception of the node.
+ - `GetAccessMana(nodeID) mana`: access `Base Mana Vector` of `Access Mana`, update its values with respect to time,
+    and return the amount of `Access Mana` (either `Effective Base Mana 1`, `Effective Base Mana 2`, or some combination
+    of the two). Trigger `ManaUpdated` event.
+ - `GetConsensusMana(nodeID) mana`: access `Base Mana Vector` of `Consensus Mana`, update its values with respect to time,
+    and returns the amount of `Consensus Mana` (either `Effective Base Mana 1`, `Effective Base Mana 2`, or some combination
+    of the two). Trigger `ManaUpdated` event.
+ - `GetNeighborsMana(type)`: returns the `type` mana of the nodes neighbors
+ - `GetAllManaVectors()` Obtaining the full mana maps for comparison with the perception of other nodes.
+ - `GetWeightedRandomNodes(n)`: returns a weighted random selection of `n` nodes. `Consensus Mana` is used for the weights.
+ - Obtaining a list of currently known peers + their mana, sorted. Useful for knowing which high mana nodes are online.
+ - `OverrideMana(nodeID, baseManaVector)`: Sets the nodes mana to a specific value. Can be useful for debugging, setting faucet mana, initialization, etc.. Triggers `ManaUpdated`
 
- TO BE CONTINUED
+Such utility functions could be used for example to visualize mana distribution in node dashboard, or send neighbor
+mana data to the analysis server for further processing.
+
+#### Booking Mana
+Mana is booked when a transaction is confirmed.
+ ```go
+on TransactionConfirmed (tx):
+  bookAccessMana()
+  bookConsensusMana()
+```
 
 #### Details of Mana Calculation
 To be written.
@@ -188,6 +228,16 @@ Benchmark calculations in tests to see how heavy it is to calculate EMAs and dec
 
 ### Mana Tools
 TO BE WRITTEN
-#### Mana Related API endpoints
-#### Metrics collection
-#### Visualization
+### Mana Related API endpoints
+ - `/info`: Add mana in node info
+ - `/sendtransaction`: Add `nodeId` to pledge mana to
+
+### Metrics collection
+TO BE WRITTEN
+
+### Visualization
+We maintain chart data `[]<nodeID,mana>` for each node.
+Initially, we have a certain mana at time `t0` for every node. When `ManaUpdated` event is triggered for a node, we get the new mana at time `t1` and can plot the changes for that node.
+ - Mana distribution over the network. A pie chart of `<nodeID:value>`
+ - Mana of a node wrt time. A LineGraph. The node plugs into `ManaUpdated` event.
+ Question: Should this be local to the nodes dashboard or public? i.e Any node can visualize mana charts for another node via the public analyzer?
