@@ -88,7 +88,7 @@ func MessageFactory() *messagefactory.MessageFactory {
 func MessageRequester() *messagerequester.MessageRequester {
 	msgReqOnce.Do(func() {
 		// load all missing messages on start up
-		messageRequester = messagerequester.New(messageExists, Tangle().MissingMessages())
+		messageRequester = messagerequester.New(Tangle().MissingMessages())
 	})
 	return messageRequester
 }
@@ -143,11 +143,4 @@ func run(*node.Plugin) {
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-}
-
-// messageExists tells if a given message is present in the node
-func messageExists(msgID message.ID) bool {
-	cachedMessage := Tangle().Message(msgID)
-	defer cachedMessage.Release()
-	return cachedMessage.Exists()
 }

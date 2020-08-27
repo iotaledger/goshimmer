@@ -57,15 +57,15 @@ func configureEvents() {
 			parsedPayload, err := payload.Parse(marshalUtil)
 			if err != nil {
 				//TODO: handle error
-				log.Info(err)
+				log.Debug(err)
 				return
 			}
 			if err := instance.Dispatch(msg.IssuerPublicKey(), msg.IssuingTime(), parsedPayload); err != nil {
 				//TODO: handle error
-				log.Info(err)
+				log.Debug(err)
 				return
 			}
-			log.Info(instance.State.Randomness())
+			log.Debug("New randomness: ", instance.State.Randomness())
 		})
 	}))
 }
