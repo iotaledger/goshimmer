@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messagerequester"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -143,7 +143,7 @@ func configureMessageLayer() {
 	}))
 
 	// request missing messages
-	messagelayer.MessageRequester().Events.SendRequest.Attach(events.NewClosure(func(msgID message.ID) {
-		mgr.RequestMessage(msgID[:])
+	messagelayer.MessageRequester().Events.SendRequest.Attach(events.NewClosure(func(sendRequest messagerequester.SendRequestEvent) {
+		mgr.RequestMessage(sendRequest.ID[:])
 	}))
 }
