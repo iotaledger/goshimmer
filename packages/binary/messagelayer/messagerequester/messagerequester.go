@@ -54,7 +54,7 @@ func (requester *MessageRequester) StartRequest(id message.ID) {
 	// schedule the next request and trigger the event
 	requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, requester.createReRequest(id, 0))
 	requester.scheduledRequestsMutex.Unlock()
-	requester.Events.SendRequest.Trigger(id)
+	requester.Events.SendRequest.Trigger(&SendRequestEvent{ID: id})
 }
 
 // StopRequest stops requests for the given message to further happen.
@@ -69,7 +69,7 @@ func (requester *MessageRequester) StopRequest(id message.ID) {
 }
 
 func (requester *MessageRequester) reRequest(id message.ID, count int) {
-	requester.Events.SendRequest.Trigger(id)
+	requester.Events.SendRequest.Trigger(&SendRequestEvent{ID: id})
 
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
 	requester.scheduledRequestsMutex.Lock()

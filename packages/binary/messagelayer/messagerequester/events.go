@@ -13,6 +13,16 @@ type Events struct {
 	MissingMessageAppeared *events.Event
 }
 
+// SendRequestEvent represents the parameters of sendRequestEvent
+type SendRequestEvent struct {
+	ID message.ID
+}
+
+// MissingMessageAppearedEvent represents the parameters of missingMessageAppearedEvent
+type MissingMessageAppearedEvent struct {
+	ID message.ID
+}
+
 func newEvents() *Events {
 	return &Events{
 		SendRequest:            events.NewEvent(sendRequestEvent),
@@ -21,9 +31,9 @@ func newEvents() *Events {
 }
 
 func sendRequestEvent(handler interface{}, params ...interface{}) {
-	handler.(func(message.ID))(params[0].(message.ID))
+	handler.(func(*SendRequestEvent))(params[0].(*SendRequestEvent))
 }
 
 func missingMessageAppearedEvent(handler interface{}, params ...interface{}) {
-	handler.(func(message.ID))(params[0].(message.ID))
+	handler.(func(*MissingMessageAppearedEvent))(params[0].(*MissingMessageAppearedEvent))
 }
