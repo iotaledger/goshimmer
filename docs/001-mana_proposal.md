@@ -60,7 +60,8 @@ Following figure summarizes how `Access Mana` and `Consensus Mana` is derived fr
 
 ![](https://i.imgur.com/LjfCTm9.png)
 
-The reason for having two separate `Base Mana Vectors` is the fact, that `accessMana` and `consensusMana` can be pledged to different nodes
+The reason for having two separate `Base Mana Vectors` is the fact, that `accessMana` and `consensusMana` can be pledged
+to different nodes.
 
 The exact mathematical formulas, and their respective parameters will be determined later.
 
@@ -111,6 +112,9 @@ As described above, 3 new fields will be added to the transaction layout:
 By adding these fields to the signed transaction, `valuetransfers/packages/transaction` should be modified.
  - The three new fields should be added to the transaction essence.
  - Marshalling and unmarshalling of a transaction should be modified.
+ - For calculating `Base Mana 1` values, `mana module` should be able to derive from a transaction the nodes which received
+   pledged `Base Mana 1` as a consequence of the consumed inputs of the transaction. Therefore, a lookup function should
+   be exposed from the value tangle that given an `input`, returns the `pledgedNodeID` of the transaction creating the input.
 
 **Open Question:**
 
@@ -168,15 +172,15 @@ type BaseManaVector map[nodeID]BaseMana
  - `updateAll(time)`: update `Base Mana 2`, `Effective Base Mana 1` and `Effective Base Mana 2` of all nodes with respect to `time`.
 
 `BaseMana` should have the following methods:
- - `pledgeAndUpdate(amount, time)`: pledge `amount` mana, and update `BaseMana` fields.
- - `revokeBaseMana1(amount, time)`: revoke `amount` `BaseMana1` and update `Effective Base Mana 1` with respect to `time.`
+ - `pledgeAndUpdate(amount, time)`: update `BaseMana` fields with respect to `time` and pledge `amount` mana.
+ - `revokeBaseMana1(amount, time)`:  update `BaseMana` values with respect to `time` and revoke `amount` `BaseMana1`.
  - `update(time)`: update all `BaseMana` fields with respect to `time`.
 
 #### Base Mana Calculation
 
 There are two cases when the values within `Base Mana Vector` are updated:
  1. A confirmed transaction pledges mana.
- 2. Any module accesses the `Base Mana Vector`, and hence its values are updated with respect to the `access time`.
+ 2. Any module accesses the `Base Mana Vector`, and hence its values are updated with respect to `access time`.
 
 First, let's explore the former.
 
@@ -189,19 +193,21 @@ func (bmv *BaseManaVector) BookMana(tx transaction) {
     t := tx.timestamp
     pledgedNodeID := tx.accessMana
 
-    amount := sum_balances(tx.outputs)
+    amount := sumBalances(tx.outputs)
 
     for input := range tx.inputs {
         // search for the nodeID that the input's tx pledged its mana to
         inputNodeID := loadPledgedNodeIDFromInput(input)
         bmv[inputNodeID].revokeBaseMana1(input.balance, t)
+        Events.ManaRevoked.Trigger(&ManaRevokedEvent{inputNodeID, input.balance, bmv[inputNodeID], AccessManaType})
     }
 
     bmv[pledgedNodeID].pledgeAndUpdate(amount, time)
+    Events.ManaPledged.Trigger(&ManaPledgedEvent{pledgedNodeID, amount, bmv[pledgedNodeID], AccessManaType})
 }
 ```
-`Base Mana 1` is being revoked from the nodes that pledged mana for the inputs that the current transaction consumes.
-Then the appropriate node is located in `Base Mana Vector`, and sum of the transaction outputs amount of mana is pledged to it's `BaseMana`.
+`Base Mana 1` is being revoked from the nodes that pledged mana for inputs that the current transaction consumes.
+Then, the appropriate node is located in `Base Mana Vector`, and sum of the transaction outputs amount of mana is pledged to it's `BaseMana`.
 
 Note, that `revokeBaseMana1` accesses the mana entry of the nodes within `Base Mana Vector`, therefore all values are updated regarding to `t`.
 ```go
@@ -213,8 +219,8 @@ func (bm *BaseMana) revokeBaseMana1(amount float64, t time.Time) {
     bm.updateEBM2(n)
 
     bm.LastUpdated = t
-    // revoke BM2 at `t`
-    bm.BaseMana2 -= amount
+    // revoke BM1 at `t`
+    bm.BaseMana1 -= amount
 }
 ```
 
@@ -257,7 +263,9 @@ func (bm *BaseMana) updateEBM2(n time.Duration) {
 In this case, the accessed entries within `Base Mana Vector` are updated via the method:
 ```go
 func (bmv *BaseManaVector) update(nodeID ID, t time.Time ) {
+    oldMana :=  bmv[nodeID]
     bmv[nodeID].update(t)
+    Events.ManaUpdated.Trigger(&ManaUpdatedEvent{nodeID, oldMana, bmv[nodeID], AccessManaType})
 }
 ```
 where `t` is the access time.
@@ -274,22 +282,43 @@ func (bm *BaseMana) update(t time.Time ) {
 
 #### Events
 The mana package should have the following events:
- - `ManaBooked` when mana was booked for a node due to new transactions being confirmed.
- ```go
-type ManaBookedEvent struct {
+
+ - `ManaPledged` when mana (`BM1` and `BM2`) was pledged for a node due to new transactions being confirmed.
+
+```go
+type ManaPledgedEvent struct {
     NodeID []bytes
-    Mana BaseMana
+    PledgedAmount int
+    Mana BaseMana // has info on last update time
+    Type ManaType // access or consensus
 }
 ```
- - `ManaUpdated` when mana was updated for a node due to it being accessed/modified.
- ```go
+
+- `ManaRevoked` when mana (`BM1`) was revoked from a node.
+
+```go
+type ManaRevokedEvent struct {
+    NodeID []bytes
+    RevokedAmount int
+    Mana BaseMana // has info on last update t
+    Type ManaType // access or consensus
+```
+
+ - `ManaUpdated` when mana was updated for a node due to it being accessed.
+
+```go
 type ManaUpdatedEvent struct {
     NodeID []bytes
     OldMana BaseMana
     NewMana BaseMana
-    Type    ManaType
+    Type    ManaType // access or consensus
 }
 ```
+
+#### Testing
+ - Write unit tests for all methods.
+ - Test all events and if they are correctly triggered.
+ - Benchmark calculations in tests to see how heavy it is to calculate EMAs and decays.
 
 ### Mana Plugin
 
@@ -312,10 +341,12 @@ accessManaVector BaseManaVector
 consensusManaVector BaseManaVector
 ```
 In the future, it should be possible to combine `Effective Base Mana 1` and `Effective Base Mana 2` from a `BaseManaVector`
-in arbitrary proportions to arrive at a final mana value that other modules use.
+in arbitrary proportions to arrive at a final mana value that other modules use. The `mana package` has these methods
+in place. Additionaly, a parameter could be passed to the `getMana` type of exposed functions to set the proportions.
 
 #### Methods
 The mana plugin should expose utility functions to other modules:
+
  - `GetHighestManaNodes(type, n) [n]NodeIdManaTuple`: return the `n` highest `type` mana nodes (`nodeID`,`manaValue`) in
    ascending order. Should also update their mana value.
  - `GetManaMap(type) map[nodeID]manaValue`: return `type` mana perception of the node.
@@ -336,26 +367,23 @@ mana data to the analysis server for further processing.
 
 #### Booking Mana
 Mana is booked when a transaction is confirmed.
+
  ```go
 on TransactionConfirmed (tx):
   bookAccessMana()
   bookConsensusMana()
 ```
 
-#### Details of Mana Calculation
-To be written.
-Benchmark calculations in tests to see how heavy it is to calculate EMAs and decays.
-
-### Mana Tools
+### Mana Toolkit
 TO BE WRITTEN
-### Mana Related API endpoints
+#### Mana Related API endpoints
  - `/info`: Add mana in node info
  - `/sendtransaction`: Add `nodeId` to pledge mana to
 
-### Metrics collection
+#### Metrics collection
 TO BE WRITTEN
 
-### Visualization
+#### Visualization
 We maintain chart data `[]<nodeID,mana>` for each node.
 Initially, we have a certain mana at time `t0` for every node. When `ManaUpdated` event is triggered for a node, we get the new mana at time `t1` and can plot the changes for that node.
  - Mana distribution over the network. A pie chart of `<nodeID:value>`
