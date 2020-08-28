@@ -82,10 +82,9 @@ mana state machine (base mana vectors).
 
 ### Value Transaction Layout
 
-When processing value transactions in the value layer for mana calculation, either the original message containing the
-value payload should be revisited to determine the correct `nodeID`, or a new field should be added to `Transaction`
-denoting `PledgedNodeID` for `Access Mana` and `Consensus Mana`. The latter is also beneficial to implement mana donation
-feature, that is, to donate the mana of a certain transaction ot an arbitrary node.
+A new field should be added to `Transaction` denoting `PledgedNodeID` for `Access Mana` and `Consensus Mana`.
+This is also beneficial to implement mana donation feature, that is, to donate the mana of a certain transaction ot an
+arbitrary node.
 
 ## Limitations
 
@@ -116,14 +115,27 @@ By adding these fields to the signed transaction, `valuetransfers/packages/trans
    pledged `Base Mana 1` as a consequence of the consumed inputs of the transaction. Therefore, a lookup function should
    be exposed from the value tangle that given an `input`, returns the `pledgedNodeID` of the transaction creating the input.
 
-**Open Question:**
-
 `Timestamp` is part of the signed transaction, therefore, a client sending a transaction to the node should already
 define it. In this case, this `Timestamp` will not be the same as the timestamp of the message containing the
 transaction and value payload, since the message is created on the node.
-A solution to this would be that upon receiving a `transaction` from a client, the node checks if the timestamp is not
-older than a certain point in time (couple seconds ago?) and or is not in the future. Then constructs the message to have
-the same timestamp. The message and the transaction should have the same timestamp because FPC will vote on this timestamp.
+A solution to this is that upon receiving a `transaction` from a client, the node checks if the timestamp is within
+a predefined time window, for example `t_current - delta`, where `delta` could be couple seconds. If true, then the node
+constructs the message, which must have a greater timestamp, than the transaction.
+
+`AccessManaNodeID` and `ConsensusManaNodeID` are also part of the signed transaction, so a client should fill them out.
+Node owners are free to choose to whom they pledge mana to with the transaction, so there should be a mechanism that
+lets the client know, what `AccessManaNodeID` and `ConsensusManaNodeID` are allowed. This could be a new API call
+that works like this:
+
+ 1. Client asks node, what nodeIDs can be included for pledging  a ceratin type (access, consensus) mana.
+ 2. Node answers with either:
+  - Don't care. Any node IDs are valid.
+  - List of nodeIDs that are allowed for each type.
+ 3. If a client sends back the transaction with invalid or empty mana fields, the transaction is considered invalid.
+
+This way node owners can decide who their transactions are pledging mana to. It could be only their node, or they could
+provide mana pledging as a service. They could delegate access mana to others, but hold own to consensus mana, or the
+other way around.
 
 ### Initialization
 
@@ -374,18 +386,84 @@ on TransactionConfirmed (tx):
   bookConsensusMana()
 ```
 
+#### Synchronization and Mana Calculation
+
+The mana plugin is responsible to determine when to start calculating mana locally.
+Since mana is an extension to ledger state, mana can only be reliably calculated once the node is sync. Therefore,
+mana plugin halts mana calculation until the node becomes synced. Then it either goes through all transactions in the
+value tangle that it synced and calculates mana itself, or obtains a recent `Base Mana Vector` from a trusted, high
+mana node, initializes it's own `Base Mana Vector` to the obtained values and then starts mana calculation from this
+initial state.
+
+The latter approach implies, that there should be way to determine an exact relation between the ledger state and
+the `Base Mana Vector` (time, index, transaction ID), so a node knows which transactions were already processed to arrive
+at the received `Base Mana Vector`.
+
 ### Mana Toolkit
-TO BE WRITTEN
+In this section, all tools and utility functions for mana will be outlined.
+
 #### Mana Related API endpoints
- - `/info`: Add mana in node info
- - `/sendtransaction`: Add `nodeId` to pledge mana to
+ - `/info`: Add own mana in node info response.
+ - `value/allowedManaPledge`: Endpoint that clients can query to determine which nodeIDs are allowed as part of
+   `accessMana` and `consensusMana` fields in a transaction.
+ - `value/sendTransactionByJson`: Add `accessMana`, `consensusMana` and `timestamp` fields to the JSON request.
+
+Add a new `mana` endpoint route:
+ - `/mana`: Return access and consesus mana of the node.
+ - `/mana/all`: Return whole mana map (mana perception of the node).
+ - `/mana/access/nhighest`: Return `n` highest access mana holder `nodeIDs` and their access mana values.
+ - `/mana/consensus/nhighest`: Return `n` highest consensus mana holder `nodeIDs` and their consensus mana values.
+ - `/mana/rank`: Return the top percentile the node belongs to relative to the network. For example, if there are 100 nodes in the
+   network owning mana, and a node is the 13th richest, it means that is part of the top 13% of mana holders, but not the
+   top 12%.
 
 #### Metrics collection
-TO BE WRITTEN
+To study the mana module, following metrics could be gathered:
+
+ - Amount of consensus and access mana present in the network. (amount varies because of `Base Mana 2`).
+ - Amount of mana each node holds.
+ - Number of (and amount of mana) a node was pledged with mana in the last `t` interval.
+ - Mana development of a particular node over time.
+ - Mana rank development of a node over time.
+ - Average pledge amount of a node. (how much mana it receives on average with one pledge)
+ - Mean and median mana holdings of nodes in the network. Shows how even mana distribution is.
+ - Average mana of neighbors.
 
 #### Visualization
-We maintain chart data `[]<nodeID,mana>` for each node.
-Initially, we have a certain mana at time `t0` for every node. When `ManaUpdated` event is triggered for a node, we get the new mana at time `t1` and can plot the changes for that node.
- - Mana distribution over the network. A pie chart of `<nodeID:value>`
- - Mana of a node wrt time. A LineGraph. The node plugs into `ManaUpdated` event.
- Question: Should this be local to the nodes dashboard or public? i.e Any node can visualize mana charts for another node via the public analyzer?
+
+Each node calculates mana locally, not only for themselves, but for all nodes in the network that it knows. As a result,
+mana perception of nodes may not be exactly the same at all times (due to network delay, processing cpaabilities), but
+should converge to the same state. A big question for visualization is which node's viewpoint to base mana visualization on? 
+
+When running a node, operators will be shown the mana perception of their own node, but it also makes sense to
+display the perception of high mana nodes as the global mana perception. First, let's look at how local mana perception
+is visualized for a node:
+
+##### Local Perception
+
+There are two ways to visualize mana in GoShimmer:
+ 1. Node Local Dashboard
+ 2. Grafana Dashboard
+
+While `Local Dashboard` gives flexibility in what and how to visualize, `Grafana Dashboard` is better at storing historic
+data but can only visualize time series. Therefore, both of these ways will be utilized, depending on which suits the best.
+
+`Local Dashboard` visualization:
+ - Pie chart of mana distribution within the network.
+ - List of `n` richest mana nodes, ordered.
+ - Mana rank of node.
+
+`Grafana Dashboard` visualization:
+ - Mana of a particular node with respect to time.
+ - Amount of mana in the network.
+ - Average pledge amount of a node.
+ - Mean and median mana holdings of nodes.
+ - Mana rank of the node over time.
+ - Average mana of neighbors.
+
+ ##### Global Perception
+
+Additionally, the Pollen Analyzer (analysis server) could be updated:
+ - Autopeering node graph, where size of a node corresponds to its mana value.
+ - Some of the previously described metrics could be visualized here as well, to give the chance to people without
+   a node to take a look. As an input, a high mana node's perception should be used.
