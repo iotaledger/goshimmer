@@ -124,10 +124,10 @@ constructs the message, which must have a greater timestamp, than the transactio
 
 `AccessManaNodeID` and `ConsensusManaNodeID` are also part of the signed transaction, so a client should fill them out.
 Node owners are free to choose to whom they pledge mana to with the transaction, so there should be a mechanism that
-lets the client know, what `AccessManaNodeID` and `ConsensusManaNodeID` are allowed. This could be a new API call
+lets the client know, what `AccessManaNodeID` and `ConsensusManaNodeID` are allowed. This could be a new API endpoint
 that works like this:
 
- 1. Client asks node, what nodeIDs can be included for pledging  a ceratin type (access, consensus) mana.
+ 1. Client asks node what nodeIDs can be included for pledging  a certain type (access, consensus) mana.
  2. Node answers with either:
   - Don't care. Any node IDs are valid.
   - List of nodeIDs that are allowed for each type.
@@ -179,7 +179,7 @@ type BaseManaVector map[nodeID]BaseMana
    this method also updates `BaseMana` of the node with respect to time.
  - `GetMana(nodeID, weightEBM1, weightEBM2) mana`: Return `weightEBM1` *` Effective Base Mana 1` + `weightEBM1`+`Effective Base Mana 2`.
    `weight` is a number in [0,1] interval. Notice, that `weightEBM1` = 1 and `weightEBM2`= 0 results in only returning `Effective Base Mana 1`,
-   and also the other way around. Note, that this method also updates `BaseMana` of the node with respect to time.
+   and the other way around. Note, that this method also updates `BaseMana` of the node with respect to time.
  - `update(nodeID, time)`: update `Base Mana 2`, `Effective Base Mana 1` and `Effective Base Mana 2` of a node with respect `time`.
  - `updateAll(time)`: update `Base Mana 2`, `Effective Base Mana 1` and `Effective Base Mana 2` of all nodes with respect to `time`.
 
@@ -221,7 +221,7 @@ func (bmv *BaseManaVector) BookMana(tx transaction) {
 `Base Mana 1` is being revoked from the nodes that pledged mana for inputs that the current transaction consumes.
 Then, the appropriate node is located in `Base Mana Vector`, and sum of the transaction outputs amount of mana is pledged to it's `BaseMana`.
 
-Note, that `revokeBaseMana1` accesses the mana entry of the nodes within `Base Mana Vector`, therefore all values are updated regarding to `t`.
+Note, that `revokeBaseMana1` accesses the mana entry of the nodes within `Base Mana Vector`, therefore all values are updated with respect to `t`.
 ```go
 func (bm *BaseMana) revokeBaseMana1(amount float64, t time.Time) {
     n := t - bm.LastUpdated
@@ -354,7 +354,7 @@ consensusManaVector BaseManaVector
 ```
 In the future, it should be possible to combine `Effective Base Mana 1` and `Effective Base Mana 2` from a `BaseManaVector`
 in arbitrary proportions to arrive at a final mana value that other modules use. The `mana package` has these methods
-in place. Additionaly, a parameter could be passed to the `getMana` type of exposed functions to set the proportions.
+in place. Additionally, a parameter could be passed to the `getMana` type of exposed functions to set the proportions.
 
 #### Methods
 The mana plugin should expose utility functions to other modules:
@@ -389,13 +389,13 @@ on TransactionConfirmed (tx):
 #### Synchronization and Mana Calculation
 
 The mana plugin is responsible to determine when to start calculating mana locally.
-Since mana is an extension to ledger state, mana can only be reliably calculated once the node is sync. Therefore,
+Since mana is an extension to ledger state, mana can only be reliably calculated once the node is in synced state. Therefore,
 mana plugin halts mana calculation until the node becomes synced. Then it either goes through all transactions in the
 value tangle that it synced and calculates mana itself, or obtains a recent `Base Mana Vector` from a trusted, high
-mana node, initializes it's own `Base Mana Vector` to the obtained values and then starts mana calculation from this
+mana node, initializes its own `Base Mana Vector` to the obtained values and then starts mana calculation from this
 initial state.
 
-The latter approach implies, that there should be way to determine an exact relation between the ledger state and
+The latter approach implies, that there should be a way to determine an exact relation between the ledger state and
 the `Base Mana Vector` (time, index, transaction ID), so a node knows which transactions were already processed to arrive
 at the received `Base Mana Vector`.
 
@@ -409,7 +409,7 @@ In this section, all tools and utility functions for mana will be outlined.
  - `value/sendTransactionByJson`: Add `accessMana`, `consensusMana` and `timestamp` fields to the JSON request.
 
 Add a new `mana` endpoint route:
- - `/mana`: Return access and consesus mana of the node.
+ - `/mana`: Return access and consensus mana of the node.
  - `/mana/all`: Return whole mana map (mana perception of the node).
  - `/mana/access/nhighest`: Return `n` highest access mana holder `nodeIDs` and their access mana values.
  - `/mana/consensus/nhighest`: Return `n` highest consensus mana holder `nodeIDs` and their consensus mana values.
@@ -432,7 +432,7 @@ To study the mana module, following metrics could be gathered:
 #### Visualization
 
 Each node calculates mana locally, not only for themselves, but for all nodes in the network that it knows. As a result,
-mana perception of nodes may not be exactly the same at all times (due to network delay, processing cpaabilities), but
+mana perception of nodes may not be exactly the same at all times (due to network delay, processing capabilities), but
 should converge to the same state. A big question for visualization is which node's viewpoint to base mana visualization on? 
 
 When running a node, operators will be shown the mana perception of their own node, but it also makes sense to
@@ -465,5 +465,5 @@ data but can only visualize time series. Therefore, both of these ways will be u
 
 Additionally, the Pollen Analyzer (analysis server) could be updated:
  - Autopeering node graph, where size of a node corresponds to its mana value.
- - Some of the previously described metrics could be visualized here as well, to give the chance to people without
+ - Some previously described metrics could be visualized here as well, to give the chance to people without
    a node to take a look. As an input, a high mana node's perception should be used.
