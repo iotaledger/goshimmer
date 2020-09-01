@@ -244,7 +244,7 @@ func (e *eventTangle) Fork(forkEvent *ForkEvent) {
 		Transaction:         forkEvent.Transaction,
 		TransactionMetadata: forkEvent.TransactionMetadata,
 		Branch:              forkEvent.Branch,
-		OutputIDs:           forkEvent.OutputIDs})
+		InputIDs:            forkEvent.InputIDs})
 }
 
 // TODO: Error is never tested

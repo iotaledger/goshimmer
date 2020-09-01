@@ -249,7 +249,7 @@ func (tangle *Tangle) Fork(transactionID transaction.ID, conflictingInputs []tra
 		Transaction:         cachedTransaction,
 		TransactionMetadata: cachedTransactionMetadata,
 		Branch:              cachedTargetBranch,
-		OutputIDs:           conflictingInputs})
+		InputIDs:            conflictingInputs})
 	forked = true
 
 	return

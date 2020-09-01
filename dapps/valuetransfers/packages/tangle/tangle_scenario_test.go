@@ -384,7 +384,7 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 		tangle.Expect("Fork", mock.MatchedBy(func(forkEvent *ForkEvent) bool {
 			return assert.ObjectsAreEqual(transactions["[-A, D+]"], forkEvent.Transaction.Unwrap()) &&
-				assert.ElementsMatch(t, []transaction.OutputID{outputA}, forkEvent.OutputIDs)
+				assert.ElementsMatch(t, []transaction.OutputID{outputA}, forkEvent.InputIDs)
 		}))
 
 		// attach payload
@@ -657,7 +657,7 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 		}))
 		tangle.Expect("Fork", mock.MatchedBy(func(forkEvent *ForkEvent) bool {
 			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], forkEvent.Transaction.Unwrap()) &&
-				assert.ElementsMatch(t, []transaction.OutputID{outputC}, forkEvent.OutputIDs)
+				assert.ElementsMatch(t, []transaction.OutputID{outputC}, forkEvent.InputIDs)
 		}))
 
 		// attach payload

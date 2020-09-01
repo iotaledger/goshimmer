@@ -168,7 +168,7 @@ func TestBookTransaction(t *testing.T) {
 			}))
 			event.Expect("Fork", mock.MatchedBy(func(forkEvent *ForkEvent) bool {
 				return assert.ObjectsAreEqual(tx1, forkEvent.Transaction.Unwrap()) &&
-					assert.ElementsMatch(t, inputIDs, forkEvent.OutputIDs)
+					assert.ElementsMatch(t, inputIDs, forkEvent.InputIDs)
 			}))
 
 			transactionBooked, decisionPending, err := tangle.bookTransaction(cachedTransaction, cachedTransactionMetadata)
@@ -345,7 +345,7 @@ func TestFork(t *testing.T) {
 
 		event.Expect("Fork", mock.MatchedBy(func(forkEvent *ForkEvent) bool {
 			return assert.ObjectsAreEqual(tx, forkEvent.Transaction.Unwrap()) &&
-				assert.ElementsMatch(t, []transaction.OutputID{}, forkEvent.OutputIDs)
+				assert.ElementsMatch(t, []transaction.OutputID{}, forkEvent.InputIDs)
 		}))
 
 		forked, finalized, err := tangle.Fork(tx.ID(), []transaction.OutputID{})

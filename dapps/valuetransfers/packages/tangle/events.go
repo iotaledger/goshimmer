@@ -93,7 +93,7 @@ type ForkEvent struct {
 	Transaction         *transaction.CachedTransaction
 	TransactionMetadata *CachedTransactionMetadata
 	Branch              *branchmanager.CachedBranch
-	OutputIDs           []transaction.OutputID
+	InputIDs            []transaction.OutputID
 }
 
 // CachedAttachmentsEvent represents the parameters of cachedTransactionAttachmentEvent
@@ -195,7 +195,7 @@ func forkRetain(forkEvent *ForkEvent) *ForkEvent {
 		Transaction:         forkEvent.Transaction.Retain(),
 		TransactionMetadata: forkEvent.TransactionMetadata.Retain(),
 		Branch:              forkEvent.Branch.Retain(),
-		OutputIDs:           forkEvent.OutputIDs,
+		InputIDs:            forkEvent.InputIDs,
 	}
 }
 
