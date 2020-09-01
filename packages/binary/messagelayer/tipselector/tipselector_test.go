@@ -21,7 +21,7 @@ func Test(t *testing.T) {
 	assert.Equal(t, message.EmptyID, branch1)
 
 	// create a message and attach it
-	message1 := newTestMessage(trunk1, branch1, "testmessage")
+	message1 := newTestMessage(trunk1, branch1, "testmessage1")
 	tipSelector.AddTip(message1)
 
 	// check if the tip shows up in the tip count
@@ -33,7 +33,7 @@ func Test(t *testing.T) {
 	assert.Equal(t, message1.ID(), branch2)
 
 	// create a 2nd message and attach it
-	message2 := newTestMessage(message.EmptyID, message.EmptyID, "testmessage")
+	message2 := newTestMessage(message.EmptyID, message.EmptyID, "testmessage2")
 	tipSelector.AddTip(message2)
 
 	// check if the tip shows up in the tip count
@@ -41,7 +41,7 @@ func Test(t *testing.T) {
 
 	// attach a message to our two tips
 	trunk3, branch3 := tipSelector.Tips()
-	message3 := newTestMessage(trunk3, branch3, "testmessage")
+	message3 := newTestMessage(trunk3, branch3, "testmessage3")
 	tipSelector.AddTip(message3)
 
 	// check if the tip shows replaces the current tips
