@@ -235,10 +235,10 @@ func AwaitTransactionToBeBooked(txID transaction.ID, maxAwait time.Duration) err
 	// reason the same transaction gets booked multiple times
 	exit := make(chan struct{})
 	defer close(exit)
-	closure := events.NewClosure(func(cachedTxnBookEvent *tangle.CachedTxnBookEvent) {
-		defer cachedTxnBookEvent.Txn.Release()
-		defer cachedTxnBookEvent.TxnMetadata.Release()
-		if cachedTxnBookEvent.Txn.Unwrap().ID() != txID {
+	closure := events.NewClosure(func(cachedTransactionBookEvent *tangle.CachedTransactionBookEvent) {
+		defer cachedTransactionBookEvent.Transaction.Release()
+		defer cachedTransactionBookEvent.TransactionMetadata.Release()
+		if cachedTransactionBookEvent.Transaction.Unwrap().ID() != txID {
 			return
 		}
 		select {

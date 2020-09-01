@@ -146,105 +146,105 @@ func (e *eventTangle) PayloadInvalid(cachedPayloadEvent *CachedPayloadEvent, err
 }
 
 func (e *eventTangle) TransactionReceived(cachedAttachmentsEvent *CachedAttachmentsEvent) {
-	defer cachedAttachmentsEvent.Txn.Release()
-	defer cachedAttachmentsEvent.TxnMetadata.Release()
+	defer cachedAttachmentsEvent.Transaction.Release()
+	defer cachedAttachmentsEvent.TransactionMetadata.Release()
 	defer cachedAttachmentsEvent.Attachments.Release()
 	e.Called(&CachedAttachmentsEvent{
-		Txn:         cachedAttachmentsEvent.Txn,
-		TxnMetadata: cachedAttachmentsEvent.TxnMetadata,
-		Attachments: cachedAttachmentsEvent.Attachments})
+		Transaction:         cachedAttachmentsEvent.Transaction,
+		TransactionMetadata: cachedAttachmentsEvent.TransactionMetadata,
+		Attachments:         cachedAttachmentsEvent.Attachments})
 }
 
-func (e *eventTangle) TransactionInvalid(cachedTxnEvent *CachedTxnEvent, err error) {
-	defer cachedTxnEvent.Txn.Release()
-	defer cachedTxnEvent.TxnMetadata.Release()
-	e.Called(&CachedTxnEvent{
-		Txn:         cachedTxnEvent.Txn,
-		TxnMetadata: cachedTxnEvent.TxnMetadata}, err)
+func (e *eventTangle) TransactionInvalid(cachedTransactionEvent *CachedTransactionEvent, err error) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata}, err)
 }
 
-func (e *eventTangle) TransactionSolid(cachedTxnEvent *CachedTxnEvent) {
-	defer cachedTxnEvent.Txn.Release()
-	defer cachedTxnEvent.TxnMetadata.Release()
-	e.Called(&CachedTxnEvent{
-		Txn:         cachedTxnEvent.Txn,
-		TxnMetadata: cachedTxnEvent.TxnMetadata})
+func (e *eventTangle) TransactionSolid(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
-func (e *eventTangle) TransactionBooked(cachedTxnBookEvent *CachedTxnBookEvent) {
-	defer cachedTxnBookEvent.Txn.Release()
-	defer cachedTxnBookEvent.TxnMetadata.Release()
-	e.Called(&CachedTxnBookEvent{
-		Txn:         cachedTxnBookEvent.Txn,
-		TxnMetadata: cachedTxnBookEvent.TxnMetadata,
-		Pending:     cachedTxnBookEvent.Pending})
+func (e *eventTangle) TransactionBooked(cachedTransactionBookEvent *CachedTransactionBookEvent) {
+	defer cachedTransactionBookEvent.Transaction.Release()
+	defer cachedTransactionBookEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionBookEvent{
+		Transaction:         cachedTransactionBookEvent.Transaction,
+		TransactionMetadata: cachedTransactionBookEvent.TransactionMetadata,
+		Pending:             cachedTransactionBookEvent.Pending})
 }
 
-func (e *eventTangle) TransactionPreferred(cachedTxnEvent *CachedTxnEvent) {
-	defer cachedTxnEvent.Txn.Release()
-	defer cachedTxnEvent.TxnMetadata.Release()
-	e.Called(&CachedTxnEvent{
-		Txn:         cachedTxnEvent.Txn,
-		TxnMetadata: cachedTxnEvent.TxnMetadata})
+func (e *eventTangle) TransactionPreferred(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
-func (e *eventTangle) TransactionUnpreferred(cachedTxnEvent *CachedTxnEvent) {
-	defer cachedTxnEvent.Txn.Release()
-	defer cachedTxnEvent.TxnMetadata.Release()
-	e.Called(&CachedTxnEvent{
-		Txn:         cachedTxnEvent.Txn,
-		TxnMetadata: cachedTxnEvent.TxnMetadata})
+func (e *eventTangle) TransactionUnpreferred(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
-func (e *eventTangle) TransactionLiked(cachedTxnEvent *CachedTxnEvent) {
-	defer cachedTxnEvent.Txn.Release()
-	defer cachedTxnEvent.TxnMetadata.Release()
-	e.Called(&CachedTxnEvent{
-		Txn:         cachedTxnEvent.Txn,
-		TxnMetadata: cachedTxnEvent.TxnMetadata})
+func (e *eventTangle) TransactionLiked(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
-func (e *eventTangle) TransactionDisliked(cachedTxnEvent *CachedTxnEvent) {
-	defer cachedTxnEvent.Txn.Release()
-	defer cachedTxnEvent.TxnMetadata.Release()
-	e.Called(&CachedTxnEvent{
-		Txn:         cachedTxnEvent.Txn,
-		TxnMetadata: cachedTxnEvent.TxnMetadata})
+func (e *eventTangle) TransactionDisliked(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
-func (e *eventTangle) TransactionFinalized(cachedTxnEvent *CachedTxnEvent) {
-	defer cachedTxnEvent.Txn.Release()
-	defer cachedTxnEvent.TxnMetadata.Release()
-	e.Called(&CachedTxnEvent{
-		Txn:         cachedTxnEvent.Txn,
-		TxnMetadata: cachedTxnEvent.TxnMetadata})
+func (e *eventTangle) TransactionFinalized(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
-func (e *eventTangle) TransactionConfirmed(cachedTxnEvent *CachedTxnEvent) {
-	defer cachedTxnEvent.Txn.Release()
-	defer cachedTxnEvent.TxnMetadata.Release()
-	e.Called(&CachedTxnEvent{
-		Txn:         cachedTxnEvent.Txn,
-		TxnMetadata: cachedTxnEvent.TxnMetadata})
+func (e *eventTangle) TransactionConfirmed(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
-func (e *eventTangle) TransactionRejected(cachedTxnEvent *CachedTxnEvent) {
-	defer cachedTxnEvent.Txn.Release()
-	defer cachedTxnEvent.TxnMetadata.Release()
-	e.Called(&CachedTxnEvent{
-		Txn:         cachedTxnEvent.Txn,
-		TxnMetadata: cachedTxnEvent.TxnMetadata})
+func (e *eventTangle) TransactionRejected(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
 func (e *eventTangle) Fork(forkEvent *ForkEvent) {
-	defer forkEvent.Txn.Release()
-	defer forkEvent.TxnMetadata.Release()
+	defer forkEvent.Transaction.Release()
+	defer forkEvent.TransactionMetadata.Release()
 	defer forkEvent.Branch.Release()
 	e.Called(&ForkEvent{
-		Txn:         forkEvent.Txn,
-		TxnMetadata: forkEvent.TxnMetadata,
-		Branch:      forkEvent.Branch,
-		OutputIDs:   forkEvent.OutputIDs})
+		Transaction:         forkEvent.Transaction,
+		TransactionMetadata: forkEvent.TransactionMetadata,
+		Branch:              forkEvent.Branch,
+		OutputIDs:           forkEvent.OutputIDs})
 }
 
 // TODO: Error is never tested

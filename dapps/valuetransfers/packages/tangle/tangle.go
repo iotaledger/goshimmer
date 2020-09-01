@@ -109,9 +109,9 @@ func (tangle *Tangle) AttachPayloadSync(payloadToStore *payload.Payload) {
 		PayloadMetadata: cachedPayloadMetadata})
 	if transactionIsNew {
 		tangle.Events.TransactionReceived.Trigger(&CachedAttachmentsEvent{
-			Txn:         cachedTransaction,
-			TxnMetadata: cachedTransactionMetadata,
-			Attachments: cachedAttachment})
+			Transaction:         cachedTransaction,
+			TransactionMetadata: cachedTransactionMetadata,
+			Attachments:         cachedAttachment})
 	}
 
 	// check solidity
@@ -246,10 +246,10 @@ func (tangle *Tangle) Fork(transactionID transaction.ID, conflictingInputs []tra
 
 	// trigger events + set result
 	tangle.Events.Fork.Trigger(&ForkEvent{
-		Txn:         cachedTransaction,
-		TxnMetadata: cachedTransactionMetadata,
-		Branch:      cachedTargetBranch,
-		OutputIDs:   conflictingInputs})
+		Transaction:         cachedTransaction,
+		TransactionMetadata: cachedTransactionMetadata,
+		Branch:              cachedTargetBranch,
+		OutputIDs:           conflictingInputs})
 	forked = true
 
 	return
@@ -581,9 +581,9 @@ func (tangle *Tangle) setTransactionFinalized(transactionID transaction.ID, even
 			}
 
 			// trigger the corresponding event
-			tangle.Events.TransactionFinalized.Trigger(&CachedTxnEvent{
-				Txn:         cachedTransaction,
-				TxnMetadata: cachedTransactionMetadata})
+			tangle.Events.TransactionFinalized.Trigger(&CachedTransactionEvent{
+				Transaction:         cachedTransaction,
+				TransactionMetadata: cachedTransactionMetadata})
 
 			// propagate the rejected flag
 			if !metadata.Preferred() && !metadata.Rejected() {
@@ -654,9 +654,9 @@ func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.
 						})
 					})
 
-					tangle.Events.TransactionUnpreferred.Trigger(&CachedTxnEvent{
-						Txn:         cachedTransaction,
-						TxnMetadata: cachedTransactionMetadata})
+					tangle.Events.TransactionUnpreferred.Trigger(&CachedTransactionEvent{
+						Transaction:         cachedTransaction,
+						TransactionMetadata: cachedTransactionMetadata})
 				}
 
 				// if the transaction is not finalized, yet then we set it to finalized
@@ -691,9 +691,9 @@ func (tangle *Tangle) propagateRejectedToTransactions(transactionID transaction.
 				})
 
 				// trigger event
-				tangle.Events.TransactionRejected.Trigger(&CachedTxnEvent{
-					Txn:         cachedTransaction,
-					TxnMetadata: cachedTransactionMetadata})
+				tangle.Events.TransactionRejected.Trigger(&CachedTransactionEvent{
+					Transaction:         cachedTransaction,
+					TransactionMetadata: cachedTransactionMetadata})
 			})
 		})
 	}
@@ -757,9 +757,9 @@ func (tangle *Tangle) propagateValuePayloadConfirmedRejectedUpdateStackEntry(pro
 				return true
 			})
 
-			tangle.Events.TransactionConfirmed.Trigger(&CachedTxnEvent{
-				Txn:         propagationStackEntry.CachedTransaction,
-				TxnMetadata: propagationStackEntry.CachedTransactionMetadata})
+			tangle.Events.TransactionConfirmed.Trigger(&CachedTransactionEvent{
+				Transaction:         propagationStackEntry.CachedTransaction,
+				TransactionMetadata: propagationStackEntry.CachedTransactionMetadata})
 		}
 	case false:
 		// abort if transaction is not finalized and neither of parents is rejected
@@ -812,13 +812,13 @@ func (tangle *Tangle) setTransactionPreferred(transactionID transaction.ID, pref
 
 			// trigger the correct event
 			if preferred {
-				tangle.Events.TransactionPreferred.Trigger(&CachedTxnEvent{
-					Txn:         cachedTransaction,
-					TxnMetadata: cachedTransactionMetadata})
+				tangle.Events.TransactionPreferred.Trigger(&CachedTransactionEvent{
+					Transaction:         cachedTransaction,
+					TransactionMetadata: cachedTransactionMetadata})
 			} else {
-				tangle.Events.TransactionUnpreferred.Trigger(&CachedTxnEvent{
-					Txn:         cachedTransaction,
-					TxnMetadata: cachedTransactionMetadata})
+				tangle.Events.TransactionUnpreferred.Trigger(&CachedTransactionEvent{
+					Transaction:         cachedTransaction,
+					TransactionMetadata: cachedTransactionMetadata})
 			}
 
 			// propagate changes to value tangle and branch DAG if we were called from the tangle
@@ -906,9 +906,9 @@ func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack 
 			})
 
 			// trigger event
-			tangle.Events.TransactionLiked.Trigger(&CachedTxnEvent{
-				Txn:         propagationStackEntry.CachedTransaction,
-				TxnMetadata: propagationStackEntry.CachedTransactionMetadata})
+			tangle.Events.TransactionLiked.Trigger(&CachedTransactionEvent{
+				Transaction:         propagationStackEntry.CachedTransaction,
+				TransactionMetadata: propagationStackEntry.CachedTransactionMetadata})
 		}
 	case false:
 		// abort if the payload has been marked as disliked before
@@ -941,9 +941,9 @@ func (tangle *Tangle) processValuePayloadLikedUpdateStackEntry(propagationStack 
 				})
 
 				// trigger event
-				tangle.Events.TransactionDisliked.Trigger(&CachedTxnEvent{
-					Txn:         propagationStackEntry.CachedTransaction,
-					TxnMetadata: propagationStackEntry.CachedTransactionMetadata})
+				tangle.Events.TransactionDisliked.Trigger(&CachedTransactionEvent{
+					Transaction:         propagationStackEntry.CachedTransaction,
+					TransactionMetadata: propagationStackEntry.CachedTransactionMetadata})
 			}
 		}
 	}
@@ -1113,9 +1113,9 @@ func (tangle *Tangle) deleteTransaction(transactionID transaction.ID, cause erro
 	cachedTransaction.Consume(func(tx *transaction.Transaction) {
 		// if the removal was triggered by an invalid Transaction
 		if errors.Is(cause, ErrTransactionInvalid) {
-			tangle.Events.TransactionInvalid.Trigger(&CachedTxnEvent{
-				Txn:         cachedTransaction,
-				TxnMetadata: cachedTransactionMetadata}, cause)
+			tangle.Events.TransactionInvalid.Trigger(&CachedTransactionEvent{
+				Transaction:         cachedTransaction,
+				TransactionMetadata: cachedTransactionMetadata}, cause)
 		}
 
 		// mark transaction as deleted
@@ -1270,10 +1270,10 @@ func (tangle *Tangle) processSolidificationStackEntry(solidificationStack *list.
 
 	// trigger events and schedule check of approvers / consumers
 	if transactionBooked {
-		tangle.Events.TransactionBooked.Trigger(&CachedTxnBookEvent{
-			Txn:         solidificationStackEntry.CachedTransaction,
-			TxnMetadata: solidificationStackEntry.CachedTransactionMetadata,
-			Pending:     decisionPending})
+		tangle.Events.TransactionBooked.Trigger(&CachedTransactionBookEvent{
+			Transaction:         solidificationStackEntry.CachedTransaction,
+			TransactionMetadata: solidificationStackEntry.CachedTransactionMetadata,
+			Pending:             decisionPending})
 
 		tangle.ForEachConsumers(currentTransaction, tangle.createValuePayloadFutureConeIterator(solidificationStack, processedPayloads))
 	}
@@ -1322,9 +1322,9 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 	}
 
 	// trigger event if transaction became solid
-	tangle.Events.TransactionSolid.Trigger(&CachedTxnEvent{
-		Txn:         cachedTransaction,
-		TxnMetadata: cachedTransactionMetadata})
+	tangle.Events.TransactionSolid.Trigger(&CachedTransactionEvent{
+		Transaction:         cachedTransaction,
+		TransactionMetadata: cachedTransactionMetadata})
 
 	consumedBranches := make(branchmanager.BranchIds)
 	conflictingInputs := make([]transaction.OutputID, 0)

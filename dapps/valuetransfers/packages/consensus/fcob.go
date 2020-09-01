@@ -60,13 +60,13 @@ func (fcob *FCOB) ProcessVoteResult(ev *vote.OpinionEvent) {
 
 // onTransactionBooked analyzes the transaction that was booked by the Tangle and initiates the FCOB rules if it is not
 // conflicting. If it is conflicting and a decision is still pending we trigger a voting process.
-func (fcob *FCOB) onTransactionBooked(cachedTxnBookEvent *tangle.CachedTxnBookEvent) {
-	defer cachedTxnBookEvent.Txn.Release()
+func (fcob *FCOB) onTransactionBooked(cachedTransactionBookEvent *tangle.CachedTransactionBookEvent) {
+	defer cachedTransactionBookEvent.Transaction.Release()
 
-	cachedTxnBookEvent.TxnMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
+	cachedTransactionBookEvent.TransactionMetadata.Consume(func(transactionMetadata *tangle.TransactionMetadata) {
 		if transactionMetadata.Conflicting() {
 			// abort if the previous consumers where finalized already
-			if !cachedTxnBookEvent.Pending {
+			if !cachedTransactionBookEvent.Pending {
 				return
 			}
 
@@ -75,7 +75,7 @@ func (fcob *FCOB) onTransactionBooked(cachedTxnBookEvent *tangle.CachedTxnBookEv
 			return
 		}
 
-		fcob.scheduleSetPreferred(cachedTxnBookEvent.TxnMetadata.Retain())
+		fcob.scheduleSetPreferred(cachedTransactionBookEvent.TransactionMetadata.Retain())
 	})
 }
 
@@ -139,11 +139,11 @@ func (fcob *FCOB) setFinalized(cachedTransactionMetadata *tangle.CachedTransacti
 // onFork triggers a voting process whenever a Transaction gets forked into a new Branch. The initial opinion is derived
 // from the preferred flag that was set using the FCOB rule.
 func (fcob *FCOB) onFork(forkEvent *tangle.ForkEvent) {
-	defer forkEvent.Txn.Release()
-	defer forkEvent.TxnMetadata.Release()
+	defer forkEvent.Transaction.Release()
+	defer forkEvent.TransactionMetadata.Release()
 	defer forkEvent.Branch.Release()
 
-	transactionMetadata := forkEvent.TxnMetadata.Unwrap()
+	transactionMetadata := forkEvent.TransactionMetadata.Unwrap()
 	if transactionMetadata == nil {
 		return
 	}
