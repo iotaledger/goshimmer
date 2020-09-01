@@ -34,8 +34,13 @@ From the pledged mana of a transaction, a node can calculate locally the `Base M
 A `Base Mana Vector` consists of Base Mana 1 and Base Mana 2 and their respective `Effective Base Mana`.
 Given a value transaction, Base Mana 1 and Base Mana 2 are determined as follows:
  1. Base Mana 1 is revoked from the node that created the output(s) used as input(s) in the transaction, and is pledged to
-    the node creating the new output(s).
+    the node creating the new output(s). The amount of `Base Mana 1` revoked and pledged is equal to the balance of the
+    input.
  2. Base Mana 2 is freshly created at the issuance time of the transaction, awarded to the node, but decays with time.
+    The amount of `Base Mana 2` pledged is determined with `Pending Mana` concept: funds sitting at an address generate
+    `pending mana` that grows over time, but bounded.
+    - `Mana_pending = (alpha*S)/gamma*(1-e^(-gamma*t))`, where `alpha` and `gamma` are chosen parameters, `S` is the amount
+      of funds an output transfers to the address, and `t` is the time since the funds are on that address.
 
 An example `Base Mana Vector` for `Access Mana` could look likt this:
 
@@ -78,7 +83,8 @@ GoShimmer implementation, confirmation is not yet a properly defined concept. Th
 module.
 
 The Mana module assumes, that the value tangle's `TransactionConfirmed` event is the trigger condition to update the
-mana state machine (base mana vectors).
+mana state machine (base mana vectors for access and consensus mana). Once the concept of transaction finality is
+introduced for the value tangle, the trigger conditions for access and consensus mana calculations can be adjusted.
 
 ### Value Transaction Layout
 
@@ -139,14 +145,25 @@ other way around.
 
 ### Initialization
 
-- When a node starts, it will query other nodes to get their baseManaVectors that will be used for initialization.
-- When the faucet starts if queries baseManVectors from other nodes as above. If its own `nodeID` is not found, it sets
-  its mana to be equal to its available funds. Faucets mana will be pledged to the node that requests for funds.
+Mana state machine is an extension of the ledger state, hence its calculation depends on the ledger state perception
+of the node. Snapshotting is the mechanism that saves the ledger states and prunes unnecessary transactions. Together
+with the ledger state, base mana vectors are also saved, since a certain ledger state reflects a certain mana distribution
+in the network. In future, when snapshotting is implemented in GoShimmer, nodes joining the network will be able to query
+for snapshot files that will contain initial base mana vectors as well.
 
-**Open Question**
-- How many nodes to query? All neighbors?
-- What is the selection algorithm? Random?
-- If the facuet restarts
+Until this functionality is implemented, mana calculation solely relies on transactions getting confirmed. That is, when
+a node joins the network and starts gathering messages and transactions from peers, it builds its own ledger state through
+solidification process. Essentially, the node requests all messages down to the genesis from the current tips of its neighbors.
+Once the genesis is found, messages are solidified bottom up. For the value tangle, this means that for each solidified
+and liked transaction, `TransactionConfirmed` event is triggered, updating the base mana vectors.
+
+In case of a large database, initial synching and solidification is a computationally heavy task due to the sheer amount
+of messages in the tangle. Mana calculation only adds to this burden. It will be determined through testing if additional
+"weight lifting" mechanism is needed (for example delaying mana calculation).
+
+In Pollen test network, all funds are initially held by the faucet node, therefore all mana present at bootstrap belong
+to this node. Whenever a transaction is requested from the faucet, it pledges mana to the requesting node, helping other
+nodes to increase their mana.
 
 ### Mana Package
 
@@ -201,53 +218,104 @@ For simplicity, we only describe mana calculation for one of the Base Mana Vecto
 
 First, a `TransactionConfirmed` event is triggered, therefore `BaseManaVector.BookMana(transaction)` is executed:
 ```go
-func (bmv *BaseManaVector) BookMana(tx transaction) {
-    t := tx.timestamp
+func (bmv *BaseManaVector) BookMana(tx *transaction) {
     pledgedNodeID := tx.accessMana
-
-    amount := sumBalances(tx.outputs)
 
     for input := range tx.inputs {
         // search for the nodeID that the input's tx pledged its mana to
         inputNodeID := loadPledgedNodeIDFromInput(input)
-        bmv[inputNodeID].revokeBaseMana1(input.balance, t)
-        Events.ManaRevoked.Trigger(&ManaRevokedEvent{inputNodeID, input.balance, bmv[inputNodeID], AccessManaType})
+        // save it for proper event trigger
+        oldMana := bmv[inputNodeID]
+        // revoke BM1
+        bmv[inputNodeID].revokeBaseMana1(input.balance, tx.timestamp)
+
+        // trigger events
+        Events.ManaRevoked.Trigger(&ManaRevokedEvent{inputNodeID, input.balance, tx.timestamp, AccessManaType})
+        Events.ManaUpdated.Tigger(&ManaUpdatedEvent{inputNodeID, oldMana, bmv[inputNodeID], AccessManaType})
     }
 
-    bmv[pledgedNodeID].pledgeAndUpdate(amount, time)
-    Events.ManaPledged.Trigger(&ManaPledgedEvent{pledgedNodeID, amount, bmv[pledgedNodeID], AccessManaType})
+    // save it for proper event trigger
+    oldMana :=  bmv[pledgedNodeID]
+    // actually pledge and update
+    bm1Pledged, bm2Pledged := bmv[pledgedNodeID].pledgeAndUpdate(tx)
+
+    // trigger events
+    Events.ManaPledged.Trigger(&ManaPledgedEvent{pledgedNodeID, bm1Pledged, bm2Pledged, tx.timestamp, AccessManaType})
+    Events.ManaUpdated.Trigger(&ManaUpdatedEvent{pledgedNodeID, oldMana, bmv[pledgedNodeID], AccessManaType})
 }
 ```
 `Base Mana 1` is being revoked from the nodes that pledged mana for inputs that the current transaction consumes.
-Then, the appropriate node is located in `Base Mana Vector`, and sum of the transaction outputs amount of mana is pledged to it's `BaseMana`.
+Then, the appropriate node is located in `Base Mana Vector`, and mana is pledged to its `BaseMana`.
+`Events` are essential to study what happens within the module from the outside.
 
-Note, that `revokeBaseMana1` accesses the mana entry of the nodes within `Base Mana Vector`, therefore all values are updated with respect to `t`.
+Note, that `revokeBaseMana1` accesses the mana entry of the nodes within `Base Mana Vector`, therefore all values are
+updated with respect to `t`. Notice the two branches after the condition. When `Base Mana` values had been updated before
+the transaction's timestamp, a regular update is carried out. However, if `t` is older, than the transaction timestamp,
+an update in the "past" is carried out and values are updated up to `LastUpdated`.
 ```go
 func (bm *BaseMana) revokeBaseMana1(amount float64, t time.Time) {
-    n := t - bm.LastUpdated
-    // first, update EBM1, BM2 and EBM2 until `t`
-    bm.updateEBM1(n)
-    bm.updateBM2(n)
-    bm.updateEBM2(n)
+	if t.After(bm.LastUpdated) {
+		// regular update
+		n := t.Sub(bm.LastUpdated)
+		// first, update EBM1, BM2 and EBM2 until `t`
+		bm.updateEBM1(n)
+		bm.updateBM2(n)
+		bm.updateEBM2(n)
 
-    bm.LastUpdated = t
-    // revoke BM1 at `t`
-    bm.BaseMana1 -= amount
+		bm.LastUpdated = t
+		// revoke BM1 at `t`
+		bm.BaseMana1 -= amount
+	} else {
+		// update in past
+		n := bm.LastUpdated.Sub(t)
+		// revoke BM1 at `t`
+		bm.BaseMana1 -= amount
+		// update EBM1 to `bm.LastUpdated`
+		bm.EffectiveBaseMana1 -= amount*(1-math.Pow(math.E,-EMA_coeff*n))
+	}
 }
 ```
-
+The same regular and past update scheme is applied to pledging mana too:
 ```go
-func (bm *BaseMana) pledgeAndUpdate(amount float64, t time.Time) {
-    n := t - bm.LastUpdated
-    // first, update EBM1, BM2 and EBM2 until `t`
-    bm.updateEBM1(n)
-    bm.updateBM2(n)
-    bm.updateEBM2(n)
+func (bm *BaseMana) pledgeAndUpdate(tx *transaction) (bm1Pledged int, bm2Pledged int){
+	t := tx.timestamp
+	bm1Pledged = sum_balance(tx.inputs)
 
-    bm.LastUpdated = t
-
-    bm.BaseMana1 += amount
-    bm.BaseMana2 += amount
+	if t.After(bm.LastUpdated) {
+		// regular update
+		n := t.Sub(bm.LastUpdated)
+		// first, update EBM1, BM2 and EBM2 until `t`
+		bm.updateEBM1(n)
+		bm.updateBM2(n)
+		bm.updateEBM2(n)
+		bm.LastUpdated = t
+		bm.BaseMana1 += bm1Pledged
+		// pending mana awarded, need to see how long funds sat
+		for input := range tx.inputs {
+			// search for the timestamp of the UTXO that generated the input
+			t_inp := LoadTxTimestampFromOutputID(input)
+			bm2Add := 1 / decay * input.balance * (1 - math.Pow(math.E, -decay*(t-t_inp)))
+			bm.BaseMana2 += bm2Add
+			bm2Pledged += bm2Add
+		}
+	} else {
+		// past update
+		n := bm.LastUpdated.Sub(t)
+		// update BM1 and BM2 at `t`
+		bm.BaseMana1 += bm1Pledged
+		oldMana2 = bm.BaseMana2
+		for input := range tx.inputs {
+			// search for the timestamp of the UTXO that generated the input
+			t_inp := LoadTxTimestampFromOutputID(input)
+			bm2Add := 1/decay * input.balance *(1-math.Pow( math.E,-decay*(t-t_inp) ) ) * math.Pow(math.E, -decay*n)
+			bm.BaseMana2 += bm2Add
+			bm2Pledged += bm2Add
+		}
+		// update EBM1 and EBM2 to `bm.LastUpdated`
+		bm.EffectiveBaseMana1 += amount*(1-math.Pow(math.E,-EMA_coeff*n))
+		bm.EffectiveBaseMana2 += (bm.BaseMana2-oldMana2) * (**additional term**)
+	}
+	return bm1Pledged, bm2Pledged
 }
 ```
 
@@ -300,8 +368,9 @@ The mana package should have the following events:
 ```go
 type ManaPledgedEvent struct {
     NodeID []bytes
-    PledgedAmount int
-    Mana BaseMana // has info on last update time
+    AmountBM1 int
+    AmountBM2 int
+    Time time.Time
     Type ManaType // access or consensus
 }
 ```
@@ -311,8 +380,8 @@ type ManaPledgedEvent struct {
 ```go
 type ManaRevokedEvent struct {
     NodeID []bytes
-    RevokedAmount int
-    Mana BaseMana // has info on last update t
+    AmountBM1 int
+    Time time.Time
     Type ManaType // access or consensus
 ```
 
@@ -389,15 +458,13 @@ on TransactionConfirmed (tx):
 #### Synchronization and Mana Calculation
 
 The mana plugin is responsible to determine when to start calculating mana locally.
-Since mana is an extension to ledger state, mana can only be reliably calculated once the node is in synced state. Therefore,
-mana plugin halts mana calculation until the node becomes synced. Then it either goes through all transactions in the
-value tangle that it synced and calculates mana itself, or obtains a recent `Base Mana Vector` from a trusted, high
-mana node, initializes its own `Base Mana Vector` to the obtained values and then starts mana calculation from this
-initial state.
+Since mana state is an extension to ledger state, it cna only depict realistic mana values once the node is in sync.
+During syncing, ledger state is constructed from messages coming from neighbors as described further above.
 
-The latter approach implies, that there should be a way to determine an exact relation between the ledger state and
-the `Base Mana Vector` (time, index, transaction ID), so a node knows which transactions were already processed to arrive
-at the received `Base Mana Vector`.
+In this first iteration, mana plugin relies on `TransactionConfirmed` event of the value transfers plugin, and has no
+explicit rules on when to start and stop mana calculation.
+
+In future, initial mana state (together with the initial ledger state) will be derived from a snapshot file.
 
 ### Mana Toolkit
 In this section, all tools and utility functions for mana will be outlined.
