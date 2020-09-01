@@ -23,7 +23,7 @@ type Tangle struct {
 	approverStorage        *objectstorage.ObjectStorage
 	missingMessageStorage  *objectstorage.ObjectStorage
 
-	Events Events
+	Events *Events
 
 	storeMessageWorkerPool async.WorkerPool
 	solidifierWorkerPool   async.WorkerPool
@@ -53,7 +53,7 @@ func New(store kvstore.KVStore) (result *Tangle) {
 		approverStorage:        osFactory.New(PrefixApprovers, approverFactory, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(message.IDLength, message.IDLength), objectstorage.LeakDetectionEnabled(false)),
 		missingMessageStorage:  osFactory.New(PrefixMissingMessage, missingMessageFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 
-		Events: *newEvents(),
+		Events: newEvents(),
 	}
 
 	result.solidifierWorkerPool.Tune(1024)

@@ -14,7 +14,7 @@ import (
 type MessageParser struct {
 	bytesFilters   []BytesFilter
 	messageFilters []MessageFilter
-	Events         Events
+	Events         *Events
 
 	byteFiltersModified    typeutils.AtomicBool
 	messageFiltersModified typeutils.AtomicBool
@@ -27,7 +27,7 @@ func New() (result *MessageParser) {
 	result = &MessageParser{
 		bytesFilters:   make([]BytesFilter, 0),
 		messageFilters: make([]MessageFilter, 0),
-		Events:         *newEvents(),
+		Events:         newEvents(),
 	}
 
 	// add builtin filters

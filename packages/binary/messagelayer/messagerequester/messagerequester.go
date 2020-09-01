@@ -14,7 +14,7 @@ const maxRequestThreshold = 500
 type MessageRequester struct {
 	scheduledRequests map[message.ID]*time.Timer
 	options           *Options
-	Events            Events
+	Events            *Events
 
 	scheduledRequestsMutex sync.RWMutex
 }
@@ -27,7 +27,7 @@ func New(missingMessages []message.ID, optionalOptions ...Option) *MessageReques
 	requester := &MessageRequester{
 		scheduledRequests: make(map[message.ID]*time.Timer),
 		options:           newOptions(optionalOptions),
-		Events:            *newEvents(),
+		Events:            newEvents(),
 	}
 
 	// add requests for all missing messages

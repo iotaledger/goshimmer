@@ -8,14 +8,14 @@ import (
 // TipSelector manages a map of tips and emits events for their removal and addition.
 type TipSelector struct {
 	tips   *datastructure.RandomMap
-	Events Events
+	Events *Events
 }
 
 // New creates a new tip-selector.
 func New(tips ...message.ID) *TipSelector {
 	tipSelector := &TipSelector{
 		tips:   datastructure.NewRandomMap(),
-		Events: *newEvents(),
+		Events: newEvents(),
 	}
 
 	if tips != nil {
