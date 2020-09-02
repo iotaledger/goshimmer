@@ -25,7 +25,6 @@ type Payload struct {
 	id      *ID
 	idMutex sync.RWMutex
 
-	// TODO: rename to parents
 	parent1PayloadID ID
 	parent2PayloadID ID
 	transaction      *transaction.Transaction
@@ -272,7 +271,7 @@ var _ payload.Payload = &Payload{}
 
 // region StorableObject implementation ////////////////////////////////////////////////////////////////////////////////
 
-// ObjectStorageKey returns the bytes that are used a key when storing the Parent2 in an objectstorage.
+// ObjectStorageKey returns the bytes that are used a key when storing the  Payload in an objectstorage.
 func (payload *Payload) ObjectStorageKey() []byte {
 	return payload.ID().Bytes()
 }
