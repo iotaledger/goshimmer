@@ -123,15 +123,48 @@ func (rmap *RandomMap) Size() (result int) {
 	return
 }
 
+// ForEach iterates through the elements in the map and calls the consumer function for each element.
+func (rmap *RandomMap) ForEach(consumer func(key interface{}, value interface{})) {
+	rmap.mutex.RLock()
+	defer rmap.mutex.RUnlock()
+
+	for _, key := range rmap.keys {
+		consumer(key, rmap.rawMap[key].value)
+	}
+}
+
+// RandomKey returns a random key from the map.
+func (rmap *RandomMap) RandomKey() (result interface{}) {
+	rmap.mutex.RLock()
+	defer rmap.mutex.RUnlock()
+
+	return rmap.randomKey()
+}
+
 // RandomEntry returns a random value from the map.
 func (rmap *RandomMap) RandomEntry() (result interface{}) {
 	rmap.mutex.RLock()
 
 	if rmap.size >= 1 {
-		result = rmap.rawMap[rmap.keys[rand.Intn(rmap.size)]].value
+		result = rmap.rawMap[rmap.randomKey()].value
 	}
 
 	rmap.mutex.RUnlock()
 
 	return
+}
+
+// Keys returns the list of keys stored in the RandomMap.
+func (rmap *RandomMap) Keys() (result []interface{}) {
+	rmap.mutex.RLock()
+	defer rmap.mutex.RUnlock()
+
+	result = make([]interface{}, rmap.size)
+	copy(result, rmap.keys)
+
+	return
+}
+
+func (rmap *RandomMap) randomKey() (result interface{}) {
+	return rmap.keys[rand.Intn(rmap.size)]
 }

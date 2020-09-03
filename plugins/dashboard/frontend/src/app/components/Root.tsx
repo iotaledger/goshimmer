@@ -16,6 +16,7 @@ import {Explorer404} from "app/components/Explorer404";
 import {Faucet} from "app/components/Faucet";
 import {Neighbors} from "app/components/Neighbors";
 import {Visualizer} from "app/components/Visualizer";
+import {Drng} from "app/components/Drng";
 
 interface Props {
     history: any;
@@ -60,6 +61,11 @@ export class Root extends React.Component<Props, any> {
                                 Visualizer
                             </Nav.Link>
                         </LinkContainer>
+                        <LinkContainer to="/drng">
+                            <Nav.Link>
+                                dRNG beacon
+                            </Nav.Link>
+                        </LinkContainer>
                         <LinkContainer to="/faucet">
                             <Nav.Link>
                                 Faucet 
@@ -81,6 +87,7 @@ export class Root extends React.Component<Props, any> {
                     <Route exact path="/explorer/message/:id" component={ExplorerMessageQueryResult}/>
                     <Route exact path="/explorer/address/:id" component={ExplorerAddressQueryResult}/>
                     <Route exact path="/explorer/404/:search" component={Explorer404}/>
+                    <Route exact path="/drng" component={Drng}/>
                     <Route exact path="/explorer" component={Explorer}/>
                     <Route exact path="/visualizer" component={Visualizer}/>
                     <Route exact path="/faucet" component={Faucet}/>

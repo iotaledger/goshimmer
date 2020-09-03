@@ -98,7 +98,7 @@ func (addressManager *AddressManager) MarkAddressSpent(addressIndex uint64) {
 	sliceIndex, bitIndex := addressManager.spentAddressIndexes(addressIndex)
 
 	// mark address as spent
-	addressManager.spentAddresses[sliceIndex] = addressManager.spentAddresses[sliceIndex].SetFlag(uint(bitIndex))
+	addressManager.spentAddresses[sliceIndex] = addressManager.spentAddresses[sliceIndex].SetBit(uint(bitIndex))
 
 	// update spent address indexes
 	if addressIndex == addressManager.firstUnspentAddressIndex {
@@ -113,7 +113,7 @@ func (addressManager *AddressManager) MarkAddressSpent(addressIndex uint64) {
 func (addressManager *AddressManager) IsAddressSpent(addressIndex uint64) bool {
 	sliceIndex, bitIndex := addressManager.spentAddressIndexes(addressIndex)
 
-	return addressManager.spentAddresses[sliceIndex].HasFlag(uint(bitIndex))
+	return addressManager.spentAddresses[sliceIndex].HasBit(uint(bitIndex))
 }
 
 // spentAddressIndexes retrieves the indexes for the internal representation of the spend addresses bitmask slice that
@@ -136,7 +136,7 @@ func (addressManager *AddressManager) spentAddressIndexes(addressIndex uint64) (
 	}
 
 	// update lastUnspentAddressIndex if necessary
-	if addressIndex > addressManager.lastUnspentAddressIndex && !addressManager.spentAddresses[sliceIndex].HasFlag(uint(bitIndex)) {
+	if addressIndex > addressManager.lastUnspentAddressIndex && !addressManager.spentAddresses[sliceIndex].HasBit(uint(bitIndex)) {
 		addressManager.lastUnspentAddressIndex = addressIndex
 	}
 

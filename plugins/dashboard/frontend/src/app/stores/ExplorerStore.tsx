@@ -56,7 +56,7 @@ class MessageRef {
     id: string;
 }
 
-const liveFeedSize = 10;
+const liveFeedSize = 50;
 
 enum QueryError {
     NotFound = 1
@@ -231,8 +231,8 @@ export class ExplorerStore {
         for (let i = this.latest_messages.length - 1; i >= 0; i--) {
             let msg = this.latest_messages[i];
             feed.push(
-                <tr key={msg.id}>
-                    <td>
+                <tr key={msg.id} style={{'display':'block'}}>
+                    <td style={{'display':'block'}}>
                         <Link to={`/explorer/message/${msg.id}`}>
                             {msg.id.substr(0, 35)}
                         </Link>
