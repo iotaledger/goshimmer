@@ -2,9 +2,11 @@ package branchmanager
 
 import (
 	"container/list"
+	"errors"
 	"fmt"
 	"sort"
 
+	"github.com/iotaledger/goshimmer/packages/binary/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -978,6 +980,86 @@ func (branchManager *BranchManager) collectClosestConflictAncestors(branch *Bran
 	}
 
 	return
+}
+
+func (branchManager *BranchManager) NormalizeBranches(branches ...BranchID) (normalizedBranches BranchIds, err error) {
+	// abort if the list of branches is empty
+	if len(branches) == 0 {
+		return BranchIds{MasterBranchID: types.Void}, nil
+	}
+
+	// abort if there is only a single branch
+	if len(branches) == 1 {
+		return BranchIds{branches[0]: types.Void}, nil
+	}
+
+	// iteration variables
+	traversedBranches := set.New()
+	seenConflictSets := set.New()
+	parentsToCheck := list.New()
+
+	// collect unique candidates and parents
+	normalizedBranches = make(BranchIds)
+	for _, currentBranchID := range branches {
+		// skip if branch was traversed already
+		if !traversedBranches.Add(currentBranchID) {
+			continue
+		}
+
+		branchFound := branchManager.Branch(currentBranchID).Consume(func(currentBranch *Branch) {
+			// abort if same conflict set is seen multiple times
+			for conflictSetID := range currentBranch.Conflicts() {
+				if !seenConflictSets.Add(conflictSetID) {
+					err = errors.New("branches conflicting")
+
+					return
+				}
+			}
+
+			// queue parents to be checked when traversing ancestors
+			for _, parentBranch := range currentBranch.ParentBranches() {
+				parentsToCheck.PushBack(parentBranch)
+			}
+		})
+		if !branchFound {
+			err = fmt.Errorf("could not load branch with id %v", currentBranchID)
+		}
+		if err != nil {
+			return
+		}
+
+		// store candidate
+		normalizedBranches[currentBranchID] = types.Void
+	}
+
+	// remove ancestors from the candidates
+	for parentsToCheck.Len() >= 1 {
+		currentStackElement := parentsToCheck.Front()
+		currentParent := currentStackElement.Value.(*Branch)
+		parentsToCheck.Remove(currentStackElement)
+
+		// remove ancestor from candidates
+		delete(normalizedBranches, currentParent.ID())
+
+		// skip if branch was traversed already
+		if !traversedBranches.Add(currentParent.ID()) {
+			continue
+		}
+
+		// abort if same conflict set is seen multiple times
+		for conflictSetID := range currentParent.Conflicts() {
+			if !seenConflictSets.Add(conflictSetID) {
+				return nil, errors.New("branches conflicting")
+			}
+		}
+
+		// queue parents to be checked when traversing ancestors
+		for _, parentBranch := range currentParent.ParentBranches() {
+			parentsToCheck.PushBack(parentBranch)
+		}
+	}
+
+	return normalizedBranches, nil
 }
 
 // findDeepestCommonDescendants takes a number of BranchIds and determines the most specialized Branches (furthest
