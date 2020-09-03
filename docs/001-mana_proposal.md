@@ -321,8 +321,8 @@ func (bm *BaseMana) pledgeAndUpdate(tx *transaction) (bm1Pledged int, bm2Pledged
 
 ```go
 func (bm *BaseMana) updateEBM1(n time.Duration) {
-    bm.EffectiveBaseMana1 = math.Pow(1-EMA_coeff_1, n) * bm.EffectiveBaseMana1 +
-                                 (1-math.Pow(1-EMA_coeff_1, n)) * bm.BaseMana1
+    bm.EffectiveBaseMana1 = EMA_coeff_1 * math.Pow(math.E, -EMA_coeff_1 * n) * bm.EffectiveBaseMana1 +
+                                 (1-math.Pow(math.E, -EMA_coeff_1 * n)) * bm.BaseMana1
 }
 ```
 ```go
@@ -332,9 +332,9 @@ func (bm *BaseMana) updateBM2(n time.Duration) {
 ```
 ```go
 func (bm *BaseMana) updateEBM2(n time.Duration) {
-    bm.EffectiveBaseMana2 = math.Pow(1-EMA_coeff_2, n) * bm.EffectiveBaseMana2 +
-                                (1-math.Pow(1-EMA_coeff_2, n)) * math.Pow(math.E, decay*n) /
-                                (1-(1-EMA_coeff_2)*math.Pow(math.E, decay)) * EMA_coeff_2 * bm.BaseMana2
+    bm.EffectiveBaseMana2 = EMA_coeff_2 * math.Pow(math.E, -EMA_coeff_2 * n) * bm.EffectiveBaseMana2 +
+                                (math.Pow(math.E, -decay * n) - math.Pow(math.E, -EMA_coeff_2 * n)) /
+                                (EMA_coeff_2 - decay) * EMA_coeff_2 * bm.BaseMana2
 }
 ```
 
