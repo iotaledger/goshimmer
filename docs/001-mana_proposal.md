@@ -271,7 +271,7 @@ func (bm *BaseMana) revokeBaseMana1(amount float64, t time.Time) {
 		// revoke BM1 at `t`
 		bm.BaseMana1 -= amount
 		// update EBM1 to `bm.LastUpdated`
-		bm.EffectiveBaseMana1 -= amount*(1-math.Pow(math.E,-EMA_coeff*n))
+		bm.EffectiveBaseMana1 -= amount*(1-math.Pow(math.E,-EMA_coeff_1*n))
 	}
 }
 ```
@@ -312,8 +312,8 @@ func (bm *BaseMana) pledgeAndUpdate(tx *transaction) (bm1Pledged int, bm2Pledged
 			bm2Pledged += bm2Add
 		}
 		// update EBM1 and EBM2 to `bm.LastUpdated`
-		bm.EffectiveBaseMana1 += amount*(1-math.Pow(math.E,-EMA_coeff*n))
-		bm.EffectiveBaseMana2 += (bm.BaseMana2-oldMana2) * (**additional term**)
+		bm.EffectiveBaseMana1 += amount*(1-math.Pow(math.E,-EMA_coeff_1*n))
+		bm.EffectiveBaseMana2 += (bm.BaseMana2-oldMana2)*EMA_coeff_2*(math.Pow(math.E,-decay*n)-math.Pow(math.E,-EMA_coeff_2*n))/(EMA_coeff_2-decay)
 	}
 	return bm1Pledged, bm2Pledged
 }
@@ -321,8 +321,8 @@ func (bm *BaseMana) pledgeAndUpdate(tx *transaction) (bm1Pledged int, bm2Pledged
 
 ```go
 func (bm *BaseMana) updateEBM1(n time.Duration) {
-    bm.EffectiveBaseMana1 = math.Pow(1-EMA_coeff, n) * bm.EffectiveBaseMana1 +
-                                 (1-math.Pow(1-EMA_coeff, n)) * bm.BaseMana1
+    bm.EffectiveBaseMana1 = math.Pow(1-EMA_coeff_1, n) * bm.EffectiveBaseMana1 +
+                                 (1-math.Pow(1-EMA_coeff_1, n)) * bm.BaseMana1
 }
 ```
 ```go
@@ -332,9 +332,9 @@ func (bm *BaseMana) updateBM2(n time.Duration) {
 ```
 ```go
 func (bm *BaseMana) updateEBM2(n time.Duration) {
-    bm.EffectiveBaseMana2 = math.Pow(1-EMA_coeff, n) * bm.EffectiveBaseMana2 +
-                                (1-math.Pow(1-EMA_coeff, n)) * math.Pow(math.E, decay*n) /
-                                (1-(1-EMA_coeff)*math.Pow(math.E, decay)) * EMA_coeff * bm.BaseMana2
+    bm.EffectiveBaseMana2 = math.Pow(1-EMA_coeff_2, n) * bm.EffectiveBaseMana2 +
+                                (1-math.Pow(1-EMA_coeff_2, n)) * math.Pow(math.E, decay*n) /
+                                (1-(1-EMA_coeff_2)*math.Pow(math.E, decay)) * EMA_coeff_2 * bm.BaseMana2
 }
 ```
 
@@ -407,7 +407,9 @@ The `mana plugin` is responsible for:
  - calculating mana from value transactions,
  - keeping a log of the different mana values of all nodes,
  - updating mana values,
- - responding to mana related queries from other modules.
+ - responding to mana related queries from other modules,
+ - saving base mana vectors in database when shutting down the node,
+ - trying to load base mana vectors from database when starting the node.
 
 The proposed mana plugin should keep track of the different mana values of nodes and handle calculation
 updates. Mana values are mapped to `nodeID`s and stored in a `map` data structure.
@@ -458,7 +460,7 @@ on TransactionConfirmed (tx):
 #### Synchronization and Mana Calculation
 
 The mana plugin is responsible to determine when to start calculating mana locally.
-Since mana state is an extension to ledger state, it cna only depict realistic mana values once the node is in sync.
+Since mana state is an extension to ledger state, it can only depict realistic mana values once the node is in sync.
 During syncing, ledger state is constructed from messages coming from neighbors as described further above.
 
 In this first iteration, mana plugin relies on `TransactionConfirmed` event of the value transfers plugin, and has no
