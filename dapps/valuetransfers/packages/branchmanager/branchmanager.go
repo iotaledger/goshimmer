@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/iotaledger/goshimmer/packages/binary/datastructure/set"
+	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
