@@ -42,7 +42,7 @@ Given a value transaction, Base Mana 1 and Base Mana 2 are determined as follows
     - `Mana_pending = (alpha*S)/gamma*(1-e^(-gamma*t))`, where `alpha` and `gamma` are chosen parameters, `S` is the amount
       of funds an output transfers to the address, and `t` is the time since the funds are on that address.
 
-An example `Base Mana Vector` for `Access Mana` could look likt this:
+An example `Base Mana Vector` for `Access Mana` could look like this:
 
  | 		    | Node 1 | Node 2 | ... | Node k
  |  ------- | --------- | ---------- | ------ | ---
@@ -79,7 +79,7 @@ Each node calculates mana locally, therefore, it is essential to determine when 
 tangle "final enough" (so that they will not be orphaned).
 
 When a transaction is `confirmed`, it is a sufficient indicator that it will not be orphaned. However, in current
-GoShimmer implementation, confirmation is not yet a properly defined concept. This issue will be addresses in a separate
+GoShimmer implementation, confirmation is not yet a properly defined concept. This issue will be addressed in a separate
 module.
 
 The Mana module assumes, that the value tangle's `TransactionConfirmed` event is the trigger condition to update the
@@ -89,7 +89,7 @@ introduced for the value tangle, the trigger conditions for access and consensus
 ### Value Transaction Layout
 
 A new field should be added to `Transaction` denoting `PledgedNodeID` for `Access Mana` and `Consensus Mana`.
-This is also beneficial to implement mana donation feature, that is, to donate the mana of a certain transaction ot an
+This is also beneficial to implement mana donation feature, that is, to donate the mana of a certain transaction to an
 arbitrary node.
 
 ## Limitations
