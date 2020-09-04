@@ -29,6 +29,8 @@ import (
 	"github.com/labstack/echo/middleware"
 )
 
+// TODO: mana visualization + metrics
+
 // PluginName is the name of the dashboard plugin.
 const PluginName = "Dashboard"
 

@@ -25,6 +25,10 @@ const (
 	MaxTransactionInputCount = 100
 )
 
+// TODO: add new fields to tx - accessPledgeNodeID, consensusPledgeNodeID, timestamp
+// TODO: modify marshalling and unmarshalling of a tx from object storage
+// TODO: Make sure signing the transaction works with the new fields
+
 // region IMPLEMENT Transaction ////////////////////////////////////////////////////////////////////////////////////////////
 
 // Transaction represents a value transfer for IOTA. It consists out of a number of inputs, a number of outputs and their

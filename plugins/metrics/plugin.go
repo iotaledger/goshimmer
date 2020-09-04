@@ -25,6 +25,8 @@ import (
 	"github.com/iotaledger/hive.go/timeutil"
 )
 
+// TODO: implement mana metrics
+
 // PluginName is the name of the metrics plugin.
 const PluginName = "Metrics"
 

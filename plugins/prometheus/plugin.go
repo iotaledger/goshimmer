@@ -16,6 +16,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// TODO: mana metrics export to prometheus
+
 // Plugin Prometheus
 var (
 	Plugin = node.NewPlugin("Prometheus", node.Disabled, configure, run)

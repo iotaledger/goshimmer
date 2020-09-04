@@ -41,6 +41,9 @@ const (
 	CfgFaucetBlacklistCapacity = "faucet.blacklistCapacity"
 )
 
+// TODO: when faucet starts, it should move all of its funds to its next address, to be able to pledge mana to itself
+// TODO: when faucet restarts, it checks is consumercount on the genesis ID is grater then 0, if yes, it skips this part
+
 func init() {
 	flag.String(CfgFaucetSeed, "", "the base58 encoded seed of the faucet, must be defined if this dApp is enabled")
 	flag.Int(CfgFaucetTokensPerRequest, 1337, "the amount of tokens the faucet should send for each request")

@@ -21,6 +21,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 )
 
+// TODO: method, to load pledgednodeID of the transaction that created the input
+// TODO: method, to load timestamp of the transaction that created the input
+
+// TODO: when creating a tx, by default, own nodeID goes into pledgedNodeID fields
+// TODO: When creating a valueObject and a message, make sure that tx timestamp is within bounds
+// TODO: make sure, that created message timestamp - tx timestamp is within bounds
+
 // Tangle represents the value tangle that consists out of value payloads.
 // It is an independent ontology, that lives inside the tangle.
 type Tangle struct {
