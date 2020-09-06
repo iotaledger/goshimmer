@@ -1,5 +1,12 @@
 package mana
 
+import (
+	"sync"
+
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
+)
+
 // TODO: instantiate Access and Consensus Mana Base Vectors
 
 // TODO: try to load base mana vectors from a storage when starting up + save on shutdown
@@ -18,3 +25,29 @@ package mana
 //GetWeightedRandomNodes(n): returns a weighted random selection of n nodes. Consensus Mana is used for the weights.
 //Obtaining a list of currently known peers + their mana, sorted. Useful for knowing which high mana nodes are online.
 //OverrideMana(nodeID, baseManaVector): Sets the nodes mana to a specific value. Can be useful for debugging, setting faucet mana, initialization, etc.. Triggers ManaUpdated
+
+// PluginName is the name of the mana plugin.
+const PluginName = "Mana"
+
+var (
+	// plugin is the plugin instance of the mana plugin.
+	plugin *node.Plugin
+	once   sync.Once
+	log    *logger.Logger
+)
+
+// Plugin gets the plugin instance.
+func Plugin() *node.Plugin {
+	once.Do(func() {
+		plugin = node.NewPlugin(PluginName, node.Enabled, configure, run)
+	})
+	return plugin
+}
+
+func configure(*node.Plugin) {
+	log = logger.NewLogger(PluginName)
+}
+
+func run(_ *node.Plugin) {
+	log.Infof("starting mana plugin")
+}

@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/logger"
+	"github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
@@ -45,4 +46,5 @@ var PLUGINS = node.Plugins(
 	valuetransfers.App(),
 	syncbeacon.Plugin(),
 	syncbeaconfollower.Plugin(),
+	mana.Plugin(),
 )
