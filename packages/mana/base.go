@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+var (
+	// ErrAlreadyUpdated is returned if mana is tried to be updated at a later time.
+	ErrAlreadyUpdated = errors.New("already updated to a later timestamp")
+)
+
 // BaseMana holds information about the base mana values of a single node.
 type BaseMana struct {
 	BaseMana1          float64
@@ -18,7 +23,7 @@ type BaseMana struct {
 func (bm *BaseMana) update(t time.Time) error {
 	if t.Before(bm.LastUpdated) {
 		// trying to do a time wise update to the past, that is not allowed
-		return errors.New("already updated to a later timestamp")
+		return ErrAlreadyUpdated
 	}
 	n := t.Sub(bm.LastUpdated)
 	bm.updateEBM1(n)
