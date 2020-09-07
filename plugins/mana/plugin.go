@@ -2,6 +2,7 @@ package mana
 
 import (
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/identity"
 
@@ -63,50 +64,64 @@ func configure(*node.Plugin) {
 func configureEvents() {
 	valuetransfers.Tangle().Events.TransactionConfirmed.Attach(events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
 		cachedTransactionMetadata.Release()
+		// holds all info mana pkg needs for correct mana calculations from the transaction
+		var txInfo *mana.TxInfo
+		// process transaction object to build txInfo
 		cachedTransaction.Consume(func(tx *transaction.Transaction) {
-			var inputInfo []mana.InputInfo
+			var totalAmount float64
+			var inputInfos []mana.InputInfo
+			// iterate over all inputs within the transaction
 			tx.Inputs().ForEach(func(inputID transaction.OutputID) bool {
 				var amount float64
+				var inputTimestamp time.Time
+				var accessManaNodeID identity.ID
+				var consensusManaNodeID identity.ID
+				// get output object from storage
 				cachedInput := valuetransfers.Tangle().TransactionOutput(inputID)
+				// process it to be able to build an InputInfo struct
 				cachedInput.Consume(func(input *tangle.Output) {
+					// first, sum balances of the input, calculate total amount as well for later
 					for _, inputBalance := range input.Balances() {
 						amount += float64(inputBalance.Value)
+						totalAmount += amount
 					}
+					// derive the transaction that created this input
+					cachedInputTx := valuetransfers.Tangle().Transaction(input.TransactionID())
+					// look into the transaction, we need timestamp and access & consensus pledge IDs
+					cachedInputTx.Consume(func(inputTx *transaction.Transaction) {
+						if inputTx != nil {
+							inputTimestamp = inputTx.Timestamp()
+							accessManaNodeID = inputTx.AccessManaNodeID()
+							consensusManaNodeID = inputTx.ConsensusManaNodeID()
+						}
+					})
 				})
 
+				// build InputInfo for this particular input in the transaction
 				_inputInfo := mana.InputInfo{
-					TimeStamp:         tx.Timestamp(),
+					TimeStamp:         inputTimestamp,
 					Amount:            amount,
-					AccessPledgeID:    tx.AccessManaNodeID(),
-					ConsensusPledgeID: tx.ConsensusManaNodeID(),
-					AccessRevokeID:    identity.ID{},
-					ConsensusRevokeID: identity.ID{},
+					AccessPledgeID:    accessManaNodeID,
+					ConsensusPledgeID: consensusManaNodeID,
 				}
 
-				// revoke base mana1 from the tx that created the input.
-				cachedTransaction := valuetransfers.Tangle().Transaction(inputID.TransactionID())
-				cachedTransaction.Consume(func(inputTx *transaction.Transaction) {
-					if inputTx != nil {
-						_inputInfo.AccessRevokeID = inputTx.AccessManaNodeID()
-						_inputInfo.ConsensusRevokeID = inputTx.ConsensusManaNodeID()
-					}
-				})
-
-				inputInfo = append(inputInfo, _inputInfo)
+				inputInfos = append(inputInfos, _inputInfo)
 				return true
 			})
 
-			log.Info("booking mana")
-			txInfo := &mana.TxInfo{
-				TimeStamp: tx.Timestamp(),
-				InputInfo: inputInfo,
-			}
-
-			// book in all mana vectors.
-			for _, baseManaVector := range baseManaVectors {
-				baseManaVector.BookMana(txInfo)
+			txInfo = &mana.TxInfo{
+				TimeStamp:         tx.Timestamp(),
+				TotalBalance:      totalAmount,
+				AccessPledgeID:    tx.AccessManaNodeID(),
+				ConsensusPledgeID: tx.ConsensusManaNodeID(),
+				InputInfos:        inputInfos,
 			}
 		})
+		log.Info("booking mana")
+		// book in all mana vectors.
+		for _, baseManaVector := range baseManaVectors {
+			baseManaVector.BookMana(txInfo)
+		}
 	}))
 }
 
