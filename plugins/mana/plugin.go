@@ -95,10 +95,12 @@ func configureEvents() {
 
 				// build InputInfo for this particular input in the transaction
 				_inputInfo := mana.InputInfo{
-					TimeStamp:         inputTimestamp,
-					Amount:            amount,
-					AccessPledgeID:    accessManaNodeID,
-					ConsensusPledgeID: consensusManaNodeID,
+					TimeStamp: inputTimestamp,
+					Amount:    amount,
+					PledgeID: map[mana.Type]identity.ID{
+						mana.AccessMana:    accessManaNodeID,
+						mana.ConsensusMana: consensusManaNodeID,
+					},
 				}
 
 				inputInfos = append(inputInfos, _inputInfo)
@@ -106,11 +108,13 @@ func configureEvents() {
 			})
 
 			txInfo = &mana.TxInfo{
-				TimeStamp:         tx.Timestamp(),
-				TotalBalance:      totalAmount,
-				AccessPledgeID:    tx.AccessManaNodeID(),
-				ConsensusPledgeID: tx.ConsensusManaNodeID(),
-				InputInfos:        inputInfos,
+				TimeStamp:    tx.Timestamp(),
+				TotalBalance: totalAmount,
+				PledgeID: map[mana.Type]identity.ID{
+					mana.AccessMana:    tx.AccessManaNodeID(),
+					mana.ConsensusMana: tx.ConsensusManaNodeID(),
+				},
+				InputInfos: inputInfos,
 			}
 		})
 		log.Info("booking mana")
