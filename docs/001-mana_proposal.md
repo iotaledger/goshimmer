@@ -201,7 +201,7 @@ type BaseManaVector map[nodeID]BaseMana
  - `updateAll(time)`: update `Base Mana 2`, `Effective Base Mana 1` and `Effective Base Mana 2` of all nodes with respect to `time`.
 
 `BaseMana` should have the following methods:
- - `pledgeAndUpdate(amount, time)`: update `BaseMana` fields with respect to `time` and pledge `amount` mana.
+ - `pledgeAndUpdate(transaction)`: update `BaseMana` fields and pledge mana with respect to `transaction`.
  - `revokeBaseMana1(amount, time)`:  update `BaseMana` values with respect to `time` and revoke `amount` `BaseMana1`.
  - `update(time)`: update all `BaseMana` fields with respect to `time`.
 
@@ -383,6 +383,7 @@ type ManaRevokedEvent struct {
     AmountBM1 int
     Time time.Time
     Type ManaType // access or consensus
+}
 ```
 
  - `ManaUpdated` when mana was updated for a node due to it being accessed.
