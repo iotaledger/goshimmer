@@ -31,10 +31,9 @@ export class ExplorerLiveFeed extends React.Component<Props, any> {
                                         <thead>
                                         <tr>
                                             <td>Id</td>
-                                            <td>Value</td>
                                         </tr>
                                         </thead>
-                                        <tbody>
+                                        <tbody style={{'height':'300px', 'overflow':'scroll', 'display':'block'}}>
                                         {msgsLiveFeed}
                                         </tbody>
                                     </Table>

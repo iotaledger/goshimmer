@@ -1,3 +1,11 @@
+# v0.2.4 - 2020-09-03
+* Fixes race condition that was preventing the deletion of some entries from missing messages.
+* Improves the Tangle-BadgerDB interaction.
+* Improved APIs for debug with the addition of the value-tips endpoint.
+* Improved autopeering management by adding the ability to specify a given network version.
+* Integrates initial support for the dRNG module.
+* **Breaking**: bumps network and database versions
+
 # v0.2.3 - 2020-08-11
 * Fixes synchronization issue where missing messages were not requested more than once
 * Fixes node's dashboard explorer crashing or not properly visualizing the payload of a given message
@@ -5,6 +13,7 @@
     * Adds support for the sync-beacon payload type
     * Displaying uptime and nodeID
 * Fixed all linter issues to improve code quality
+* **Breaking**: bumps network and database versions
 
 # v0.2.2 - 2020-07-27
 * Improves message and transaction validation: 
