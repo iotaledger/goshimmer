@@ -358,7 +358,7 @@ func (transaction *Transaction) String() string {
 		stringify.StructField("id", base58.Encode(id[:])),
 		stringify.StructField("inputs", transaction.inputs),
 		stringify.StructField("outputs", transaction.outputs),
-		stringify.StructField("timestamp", transaction.timestamp.Unix()),
+		stringify.StructField("timestamp", transaction.timestamp.String()),
 		stringify.StructField("accessManaNodeID", transaction.accessManaNodeID.String()),
 		stringify.StructField("consensusManaNodeID", transaction.consensusManaNodeID.String()),
 		stringify.StructField("signatures", transaction.signatures),
