@@ -1,5 +1,6 @@
 package mana // Type defines if mana is access or consensus type of mana.
 
+// Type is the mana type
 type Type int
 
 const (

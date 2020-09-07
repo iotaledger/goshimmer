@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"time"
+
+	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/events"
@@ -20,9 +23,6 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 )
-
-// TODO: method, to load pledgednodeID of the transaction that created the input
-// TODO: method, to load timestamp of the transaction that created the input
 
 // TODO: when creating a tx, by default, own nodeID goes into pledgedNodeID fields
 // TODO: When creating a valueObject and a message, make sure that tx timestamp is within bounds
@@ -128,6 +128,30 @@ func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, pref
 // propagates the changes to the BranchManager if the flag was updated.
 func (tangle *Tangle) SetTransactionFinalized(transactionID transaction.ID) (modified bool, err error) {
 	return tangle.setTransactionFinalized(transactionID, EventSourceTangle)
+}
+
+// GetAccessManaNodeID returns the accessManaNodeID pledged by the given transaction
+func (tangle *Tangle) GetAccessManaNodeID(transactionID transaction.ID) identity.ID {
+	cachedTransaction := tangle.Transaction(transactionID)
+	defer cachedTransaction.Release()
+	tx := cachedTransaction.Unwrap()
+	return tx.AccessManaNodeID()
+}
+
+// GetConsensusManaNodeID returns the consensusManaNodeID pledged by the given transaction
+func (tangle *Tangle) GetConsensusManaNodeID(transactionID transaction.ID) identity.ID {
+	cachedTransaction := tangle.Transaction(transactionID)
+	defer cachedTransaction.Release()
+	tx := cachedTransaction.Unwrap()
+	return tx.AccessManaNodeID()
+}
+
+// GetTimestamp returns the timestamp of given transaction
+func (tangle *Tangle) GetTimestamp(transactionID transaction.ID) time.Time {
+	cachedTransaction := tangle.Transaction(transactionID)
+	defer cachedTransaction.Release()
+	tx := cachedTransaction.Unwrap()
+	return tx.Timestamp()
 }
 
 // ValuePayloadsLiked is checking if the Payloads referenced by the passed in IDs are all liked.

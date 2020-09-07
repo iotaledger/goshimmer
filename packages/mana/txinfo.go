@@ -9,7 +9,7 @@ import (
 type TxInfo struct {
 	TimeStamp    time.Time
 	TotalBalance float64
-	InputInfo    []inputInfo
+	InputInfo    []InputInfo
 }
 
 func (t *TxInfo) sumInputs() float64 {
@@ -20,7 +20,7 @@ func (t *TxInfo) sumInputs() float64 {
 	return t.TotalBalance
 }
 
-type inputInfo struct {
+type InputInfo struct {
 	TimeStamp         time.Time
 	Amount            float64
 	AccessPledgeID    identity.ID
