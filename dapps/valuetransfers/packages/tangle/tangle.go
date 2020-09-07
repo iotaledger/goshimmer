@@ -4,17 +4,13 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	"math"
-	"time"
-
-	"github.com/iotaledger/hive.go/identity"
-
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
+	"math"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
@@ -130,29 +126,6 @@ func (tangle *Tangle) SetTransactionFinalized(transactionID transaction.ID) (mod
 	return tangle.setTransactionFinalized(transactionID, EventSourceTangle)
 }
 
-// GetAccessManaNodeID returns the accessManaNodeID pledged by the given transaction
-func (tangle *Tangle) GetAccessManaNodeID(transactionID transaction.ID) identity.ID {
-	cachedTransaction := tangle.Transaction(transactionID)
-	defer cachedTransaction.Release()
-	tx := cachedTransaction.Unwrap()
-	return tx.AccessManaNodeID()
-}
-
-// GetConsensusManaNodeID returns the consensusManaNodeID pledged by the given transaction
-func (tangle *Tangle) GetConsensusManaNodeID(transactionID transaction.ID) identity.ID {
-	cachedTransaction := tangle.Transaction(transactionID)
-	defer cachedTransaction.Release()
-	tx := cachedTransaction.Unwrap()
-	return tx.AccessManaNodeID()
-}
-
-// GetTimestamp returns the timestamp of given transaction
-func (tangle *Tangle) GetTimestamp(transactionID transaction.ID) time.Time {
-	cachedTransaction := tangle.Transaction(transactionID)
-	defer cachedTransaction.Release()
-	tx := cachedTransaction.Unwrap()
-	return tx.Timestamp()
-}
 
 // ValuePayloadsLiked is checking if the Payloads referenced by the passed in IDs are all liked.
 func (tangle *Tangle) ValuePayloadsLiked(payloadIDs ...payload.ID) (liked bool) {
