@@ -75,7 +75,7 @@ func TestShortDataPayload(t *testing.T) {
 	assert.Equal(t, false, check)
 }
 
-func TestUnmarshalling(t *testing.T) {
+func TestMarshallingManaIDsTimestamp(t *testing.T) {
 	sigScheme := signaturescheme.RandBLS()
 	addr := sigScheme.Address()
 	o1 := NewOutputID(addr, RandomID())
