@@ -18,8 +18,8 @@ func Handler(c echo.Context) error {
 		var obj ValueObject
 
 		valuetransfers.Tangle().Payload(valueID).Consume(func(p *payload.Payload) {
-			obj.Parent1 = p.TrunkID().String()
-			obj.Parent2 = p.BranchID().String()
+			obj.Parent1 = p.Parent1ID().String()
+			obj.Parent2 = p.Parent2ID().String()
 			obj.TransactionID = p.Transaction().ID().String()
 		})
 

@@ -14,7 +14,7 @@ const (
 	MaxMessageSize = 64 * 1024
 
 	// MaxPayloadSize defines the maximum size of a payload.
-	// trunkID + branchID + issuerPublicKey + issuingTime + sequenceNumber + nonce + signature
+	// parent1ID + parent2ID + issuerPublicKey + issuingTime + sequenceNumber + nonce + signature
 	MaxPayloadSize = MaxMessageSize - 64 - 64 - 32 - 8 - 8 - 8 - 64
 )
 

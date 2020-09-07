@@ -44,37 +44,37 @@ func (tipSelector *TipSelector) AddTip(msg *message.Message) {
 		tipSelector.Events.TipAdded.Trigger(messageID)
 	}
 
-	trunkMessageID := msg.TrunkID()
-	if _, deleted := tipSelector.tips.Delete(trunkMessageID); deleted {
-		tipSelector.Events.TipRemoved.Trigger(trunkMessageID)
+	parent1MessageID := msg.Parent1ID()
+	if _, deleted := tipSelector.tips.Delete(parent1MessageID); deleted {
+		tipSelector.Events.TipRemoved.Trigger(parent1MessageID)
 	}
 
-	branchMessageID := msg.BranchID()
-	if _, deleted := tipSelector.tips.Delete(branchMessageID); deleted {
-		tipSelector.Events.TipRemoved.Trigger(branchMessageID)
+	parent2MessageID := msg.Parent2ID()
+	if _, deleted := tipSelector.tips.Delete(parent2MessageID); deleted {
+		tipSelector.Events.TipRemoved.Trigger(parent2MessageID)
 	}
 }
 
 // Tips returns two tips.
-func (tipSelector *TipSelector) Tips() (trunkMessageID, branchMessageID message.ID) {
+func (tipSelector *TipSelector) Tips() (parent1MessageID, parent2MessageID message.ID) {
 	tip := tipSelector.tips.RandomEntry()
 	if tip == nil {
-		trunkMessageID = message.EmptyID
-		branchMessageID = message.EmptyID
+		parent1MessageID = message.EmptyID
+		parent2MessageID = message.EmptyID
 
 		return
 	}
 
-	branchMessageID = tip.(message.ID)
+	parent2MessageID = tip.(message.ID)
 
 	if tipSelector.tips.Size() == 1 {
-		trunkMessageID = branchMessageID
+		parent1MessageID = parent2MessageID
 		return
 	}
 
-	trunkMessageID = tipSelector.tips.RandomEntry().(message.ID)
-	for trunkMessageID == branchMessageID && tipSelector.tips.Size() > 1 {
-		trunkMessageID = tipSelector.tips.RandomEntry().(message.ID)
+	parent1MessageID = tipSelector.tips.RandomEntry().(message.ID)
+	for parent1MessageID == parent2MessageID && tipSelector.tips.Size() > 1 {
+		parent1MessageID = tipSelector.tips.RandomEntry().(message.ID)
 	}
 
 	return

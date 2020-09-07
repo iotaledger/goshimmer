@@ -158,16 +158,16 @@ export class Visualizer extends React.Component<Props, any> {
                             <span>{selected_approvers_count}/{selected_approvees_count}</span>
                             : '-/-'}
                             <br/>
-                            Trunk/Branch:{' '}
+                            Parent1/Parent2:{' '}
                             {
-                                selected && selected.trunk_id && selected.branch_id ?
+                                selected && selected.parent1_id && selected.parent2_id ?
                                     <span>
-                                        <Link to={` / explorer / message /${selected.trunk_id}`}>
-                                            {selected.trunk_id.substr(0, 10)}
+                                        <Link to={` / explorer / message /${selected.parent1_id}`}>
+                                            {selected.parent1_id.substr(0, 10)}
                                         </Link>
                                         /
-                                        <Link to={` / explorer / message /${selected.branch_id}`}>
-                                            {selected.branch_id.substr(0, 10)}
+                                        <Link to={` / explorer / message /${selected.parent2_id}`}>
+                                            {selected.parent2_id.substr(0, 10)}
                                         </Link>
                                     </span>
                                     : "-"}
