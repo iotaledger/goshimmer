@@ -7,12 +7,10 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tipmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	messageTangle "github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/vote"
@@ -136,13 +134,13 @@ func configure(_ *node.Plugin) {
 	tipManager = TipManager()
 	valueObjectFactory = ValueObjectFactory()
 
-	_tangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
-		cachedMetadata.Release()
-		cachedPayload.Consume(tipManager.AddTip)
+	_tangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayloadEvent *tangle.CachedPayloadEvent) {
+		cachedPayloadEvent.PayloadMetadata.Release()
+		cachedPayloadEvent.Payload.Consume(tipManager.AddTip)
 	}))
-	_tangle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayload *payload.CachedPayload, cachedMetadata *tangle.CachedPayloadMetadata) {
-		cachedMetadata.Release()
-		cachedPayload.Consume(tipManager.RemoveTip)
+	_tangle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayloadEvent *tangle.CachedPayloadEvent) {
+		cachedPayloadEvent.PayloadMetadata.Release()
+		cachedPayloadEvent.Payload.Consume(tipManager.RemoveTip)
 	}))
 
 	// configure FCOB consensus rules
@@ -188,11 +186,11 @@ func run(*node.Plugin) {
 	runFPC()
 }
 
-func onReceiveMessageFromMessageLayer(cachedMessage *message.CachedMessage, cachedMessageMetadata *messageTangle.CachedMessageMetadata) {
-	defer cachedMessage.Release()
-	defer cachedMessageMetadata.Release()
+func onReceiveMessageFromMessageLayer(cachedMessageEvent *messageTangle.CachedMessageEvent) {
+	defer cachedMessageEvent.Message.Release()
+	defer cachedMessageEvent.MessageMetadata.Release()
 
-	solidMessage := cachedMessage.Unwrap()
+	solidMessage := cachedMessageEvent.Message.Unwrap()
 	if solidMessage == nil {
 		log.Debug("failed to unpack solid message from message layer")
 
@@ -237,10 +235,10 @@ func AwaitTransactionToBeBooked(txID transaction.ID, maxAwait time.Duration) err
 	// reason the same transaction gets booked multiple times
 	exit := make(chan struct{})
 	defer close(exit)
-	closure := events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata, decisionPending bool) {
-		defer cachedTransaction.Release()
-		defer cachedTransactionMetadata.Release()
-		if cachedTransaction.Unwrap().ID() != txID {
+	closure := events.NewClosure(func(cachedTransactionBookEvent *tangle.CachedTransactionBookEvent) {
+		defer cachedTransactionBookEvent.Transaction.Release()
+		defer cachedTransactionBookEvent.TransactionMetadata.Release()
+		if cachedTransactionBookEvent.Transaction.Unwrap().ID() != txID {
 			return
 		}
 		select {

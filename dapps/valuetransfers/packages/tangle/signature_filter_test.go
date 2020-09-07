@@ -121,31 +121,31 @@ func newSyncMessageParser(messageFilters ...messageparser.MessageFilter) (tester
 	}
 
 	// setup async behavior (store result + mark WaitGroup done)
-	messageParser.Events.BytesRejected.Attach(events.NewClosure(func(bytes []byte, err error, peer *peer.Peer) {
+	messageParser.Events.BytesRejected.Attach(events.NewClosure(func(bytesRejectedEvent *messageparser.BytesRejectedEvent, err error) {
 		tester.result = &messageParserResult{
 			accepted: false,
 			message:  nil,
-			peer:     peer,
+			peer:     bytesRejectedEvent.Peer,
 			err:      err,
 		}
 
 		tester.wg.Done()
 	}))
-	messageParser.Events.MessageRejected.Attach(events.NewClosure(func(message *message.Message, err error, peer *peer.Peer) {
+	messageParser.Events.MessageRejected.Attach(events.NewClosure(func(msgRejectedEvent *messageparser.MessageRejectedEvent, err error) {
 		tester.result = &messageParserResult{
 			accepted: false,
-			message:  message,
-			peer:     peer,
+			message:  msgRejectedEvent.Message,
+			peer:     msgRejectedEvent.Peer,
 			err:      err,
 		}
 
 		tester.wg.Done()
 	}))
-	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(message *message.Message, peer *peer.Peer) {
+	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *messageparser.MessageParsedEvent) {
 		tester.result = &messageParserResult{
 			accepted: true,
-			message:  message,
-			peer:     peer,
+			message:  msgParsedEvent.Message,
+			peer:     msgParsedEvent.Peer,
 			err:      nil,
 		}
 

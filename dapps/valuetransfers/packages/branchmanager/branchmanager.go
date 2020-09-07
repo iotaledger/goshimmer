@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -48,15 +47,7 @@ func New(store kvstore.KVStore) (branchManager *BranchManager) {
 		childBranchStorage:    osFactory.New(osChildBranch, osChildBranchFactory, osChildBranchOptions...),
 		conflictStorage:       osFactory.New(osConflict, osConflictFactory, osConflictOptions...),
 		conflictMemberStorage: osFactory.New(osConflictMember, osConflictMemberFactory, osConflictMemberOptions...),
-		Events: &Events{
-			BranchPreferred:   events.NewEvent(branchCaller),
-			BranchUnpreferred: events.NewEvent(branchCaller),
-			BranchLiked:       events.NewEvent(branchCaller),
-			BranchDisliked:    events.NewEvent(branchCaller),
-			BranchFinalized:   events.NewEvent(branchCaller),
-			BranchConfirmed:   events.NewEvent(branchCaller),
-			BranchRejected:    events.NewEvent(branchCaller),
-		},
+		Events:                newEvents(),
 	}
 	branchManager.init()
 

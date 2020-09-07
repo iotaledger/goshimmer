@@ -23,7 +23,7 @@ type Tangle struct {
 	approverStorage        *objectstorage.ObjectStorage
 	missingMessageStorage  *objectstorage.ObjectStorage
 
-	Events Events
+	Events *Events
 
 	storeMessageWorkerPool async.WorkerPool
 	solidifierWorkerPool   async.WorkerPool
@@ -53,7 +53,7 @@ func New(store kvstore.KVStore) (result *Tangle) {
 		approverStorage:        osFactory.New(PrefixApprovers, approverFactory, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(message.IDLength, message.IDLength), objectstorage.LeakDetectionEnabled(false)),
 		missingMessageStorage:  osFactory.New(PrefixMissingMessage, missingMessageFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 
-		Events: *newEvents(),
+		Events: newEvents(),
 	}
 
 	result.solidifierWorkerPool.Tune(1024)
@@ -206,10 +206,14 @@ func (tangle *Tangle) storeMessageWorker(msg *message.Message) {
 
 	// trigger events
 	if tangle.missingMessageStorage.DeleteIfPresent(messageID[:]) {
-		tangle.Events.MissingMessageReceived.Trigger(cachedMessage, cachedMsgMetadata)
+		tangle.Events.MissingMessageReceived.Trigger(&CachedMessageEvent{
+			Message:         cachedMessage,
+			MessageMetadata: cachedMsgMetadata})
 	}
 
-	tangle.Events.MessageAttached.Trigger(cachedMessage, cachedMsgMetadata)
+	tangle.Events.MessageAttached.Trigger(&CachedMessageEvent{
+		Message:         cachedMessage,
+		MessageMetadata: cachedMsgMetadata})
 
 	// check message solidity
 	tangle.solidifierWorkerPool.Submit(func() {
@@ -299,7 +303,9 @@ func (tangle *Tangle) checkMessageSolidityAndPropagate(cachedMessage *message.Ca
 
 		// mark the message as solid if it has become solid
 		if tangle.isMessageSolid(currentMessage, currentMsgMetadata) && currentMsgMetadata.SetSolid(true) {
-			tangle.Events.MessageSolid.Trigger(currentCachedMessage, currentCachedMsgMetadata)
+			tangle.Events.MessageSolid.Trigger(&CachedMessageEvent{
+				Message:         currentCachedMessage,
+				MessageMetadata: currentCachedMsgMetadata})
 
 			// auto. push approvers of the newly solid message to propagate solidification
 			tangle.Approvers(currentMessage.ID()).Consume(func(approver *Approver) {
