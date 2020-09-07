@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	faucetpayload "github.com/iotaledger/goshimmer/dapps/faucet/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
@@ -131,6 +133,53 @@ func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID strin
 	f.addAddressToBlacklist(addr)
 
 	return msg, tx.ID().String(), nil
+}
+
+// MoveAllFunds moves all the faucets' funds from its first address to the next.
+// If this process has been done before, it'll not do it again.
+func (f *Faucet) MoveAllFunds() (msg *message.Message, err error) {
+	// get total funds
+	firstAddr := f.seed.Address(0).Address
+	var val int64
+	valuetransfers.Tangle().TransactionOutput(transaction.NewOutputID(firstAddr, transaction.GenesisID)).Consume(func(output *tangle.Output) {
+		// should only be done once
+		if output.ConsumerCount() > 0 {
+			return
+		}
+
+		// gather all balance
+		for _, coloredBalance := range output.Balances() {
+			val += coloredBalance.Value
+		}
+
+		// send to next address
+		nextAddr := f.nextUnusedAddress()
+		tx := transaction.New(
+			transaction.NewInputs(output.ID()),
+			transaction.NewOutputs(map[address.Address][]*balance.Balance{
+				nextAddr: {
+					balance.New(balance.ColorIOTA, val),
+				},
+			}),
+		)
+		tx.SetAccessManaNodeID(local.GetInstance().ID())
+		tx.SetConsensusManaNodeID(local.GetInstance().ID())
+		tx.SetTimestamp(time.Now())
+
+		tx.Sign(signaturescheme.ED25519(*f.seed.KeyPair(0)))
+		// prepare value payload with value factory
+		payload, err := valuetransfers.ValueObjectFactory().IssueTransaction(tx)
+		if err != nil {
+			return
+		}
+
+		// attach to message layer
+		msg, err = issuer.IssuePayload(payload)
+		if err != nil {
+			return
+		}
+	})
+	return
 }
 
 // collectUTXOsForFunding iterates over the faucet's UTXOs until the token threshold is reached.
