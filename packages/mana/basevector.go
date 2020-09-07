@@ -7,6 +7,13 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 )
 
+var (
+	// ErrNodeNotFoundInBaseManaVector is returned if the node is not found in the base mana vector.
+	ErrNodeNotFoundInBaseManaVector = errors.New("node not present in base mana vector")
+	// ErrInvalidWeightParameter is returned if an invalid weight parameter is passed.
+	ErrInvalidWeightParameter = errors.New("invalid weight parameter, outside of [0,1]")
+)
+
 // BaseManaVector represents a base mana vector
 type BaseManaVector struct {
 	vector     map[identity.ID]*BaseMana
@@ -59,7 +66,7 @@ func (bmv *BaseManaVector) BookMana(txInfo *TxInfo) {
 // Update updates the mana entries for a particular node wrt time.
 func (bmv *BaseManaVector) Update(nodeID identity.ID, t time.Time) error {
 	if _, exist := bmv.vector[nodeID]; !exist {
-		return errors.New("node not present in base mana vector")
+		return ErrNodeNotFoundInBaseManaVector
 	}
 	oldMana := bmv.vector[nodeID]
 	if err := bmv.vector[nodeID].update(t); err != nil {
@@ -83,10 +90,10 @@ func (bmv *BaseManaVector) UpdateAll(t time.Time) error {
 // mana = EBM1 * weight + EBM2 * ( 1- weight), where weight is in [0,1].
 func (bmv *BaseManaVector) GetWeightedMana(nodeID identity.ID, weight float64) (float64, error) {
 	if _, exist := bmv.vector[nodeID]; !exist {
-		return 0.0, errors.New("node not present in base mana vector")
+		return 0.0, ErrNodeNotFoundInBaseManaVector
 	}
 	if weight < 0.0 || weight > 1.0 {
-		return 0.0, errors.New("invalid weight parameter, outside of [0,1]")
+		return 0.0, ErrInvalidWeightParameter
 	}
 	bmv.Update(nodeID, time.Now())
 	baseMana := bmv.vector[nodeID]
