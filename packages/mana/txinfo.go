@@ -25,4 +25,6 @@ type InputInfo struct {
 	Amount            float64
 	AccessPledgeID    identity.ID
 	ConsensusPledgeID identity.ID
+	AccessRevokeID    identity.ID
+	ConsensusRevokeID identity.ID
 }

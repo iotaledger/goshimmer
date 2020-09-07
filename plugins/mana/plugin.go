@@ -3,6 +3,8 @@ package mana
 import (
 	"sync"
 
+	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/hive.go/daemon"
 
@@ -73,20 +75,34 @@ func configureEvents() {
 				})
 
 				_inputInfo := mana.InputInfo{
-					TimeStamp:         valuetransfers.Tangle().GetTimestamp(inputID.TransactionID()),
+					TimeStamp:         tx.Timestamp(),
 					Amount:            amount,
-					AccessPledgeID:    valuetransfers.Tangle().GetAccessManaNodeID(inputID.TransactionID()),
-					ConsensusPledgeID: valuetransfers.Tangle().GetConsensusManaNodeID(inputID.TransactionID()),
+					AccessPledgeID:    tx.AccessManaNodeID(),
+					ConsensusPledgeID: tx.ConsensusManaNodeID(),
+					AccessRevokeID:    identity.ID{},
+					ConsensusRevokeID: identity.ID{},
 				}
+
+				// revoke base mana1 from the tx that created the input.
+				cachedTransaction := valuetransfers.Tangle().Transaction(inputID.TransactionID())
+				cachedTransaction.Consume(func(inputTx *transaction.Transaction) {
+					if inputTx != nil {
+						_inputInfo.AccessRevokeID = inputTx.AccessManaNodeID()
+						_inputInfo.ConsensusRevokeID = inputTx.ConsensusManaNodeID()
+					}
+				})
+
 				inputInfo = append(inputInfo, _inputInfo)
 				return true
 			})
 
+			log.Info("booking mana")
 			txInfo := &mana.TxInfo{
 				TimeStamp: tx.Timestamp(),
 				InputInfo: inputInfo,
 			}
 
+			// book in all mana vectors.
 			for _, baseManaVector := range baseManaVectors {
 				baseManaVector.BookMana(txInfo)
 			}
