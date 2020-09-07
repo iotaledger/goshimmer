@@ -4,18 +4,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/identity"
-
-	"github.com/iotaledger/goshimmer/packages/shutdown"
-	"github.com/iotaledger/hive.go/daemon"
-
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/hive.go/events"
-
 	"github.com/iotaledger/goshimmer/packages/mana"
-
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 )
