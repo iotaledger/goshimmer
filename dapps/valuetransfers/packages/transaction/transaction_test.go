@@ -3,6 +3,7 @@ package transaction
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
@@ -72,6 +73,29 @@ func TestShortDataPayload(t *testing.T) {
 	// expect signature is not valid
 	check = tx.SignaturesValid()
 	assert.Equal(t, false, check)
+}
+
+func TestUnmarshalling(t *testing.T) {
+	sigScheme := signaturescheme.RandBLS()
+	addr := sigScheme.Address()
+	o1 := NewOutputID(addr, RandomID())
+	inputs := NewInputs(o1)
+	bal := balance.New(balance.ColorIOTA, 1)
+	outputs := NewOutputs(map[address.Address][]*balance.Balance{addr: {bal}})
+	tx := New(inputs, outputs)
+	tx.timestamp = time.Now()
+	copy(tx.accessManaNodeID[:], RandomID().Bytes())
+	copy(tx.consensusManaNodeID[:], RandomID().Bytes())
+	tx.Sign(sigScheme)
+	check := tx.SignaturesValid()
+	assert.Equal(t, true, check)
+
+	tx1, _, _ := FromBytes(tx.Bytes())
+	check1 := tx1.SignaturesValid()
+	assert.Equal(t, true, check1)
+	assert.Equal(t, tx1.accessManaNodeID.Bytes(), tx.accessManaNodeID.Bytes())
+	assert.Equal(t, tx1.consensusManaNodeID.Bytes(), tx.consensusManaNodeID.Bytes())
+	assert.Equal(t, tx1.timestamp.Unix(), tx.timestamp.Unix())
 }
 
 func TestMarshalingEmptyDataPayload(t *testing.T) {

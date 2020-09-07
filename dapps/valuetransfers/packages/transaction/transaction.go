@@ -1,9 +1,13 @@
 package transaction
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"sync"
+	"time"
+
+	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -24,10 +28,6 @@ const (
 	// MaxTransactionInputCount is the maximum number of inputs a transaction can have
 	MaxTransactionInputCount = 100
 )
-
-// TODO: add new fields to tx - accessPledgeNodeID, consensusPledgeNodeID, timestamp
-// TODO: modify marshalling and unmarshalling of a tx from object storage
-// TODO: Make sure signing the transaction works with the new fields
 
 // region IMPLEMENT Transaction ////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -55,6 +55,10 @@ type Transaction struct {
 
 	bytes      []byte
 	bytesMutex sync.RWMutex
+
+	timestamp           time.Time
+	accessManaNodeID    identity.ID
+	consensusManaNodeID identity.ID
 }
 
 // New creates a new Transaction from the given details. The signatures are omitted as signing requires us to marshal
@@ -165,6 +169,21 @@ func (transaction *Transaction) Outputs() *Outputs {
 	return transaction.outputs
 }
 
+// Timestamp returns the timestamp of the transaction
+func (transaction *Transaction) Timestamp() time.Time {
+	return transaction.timestamp
+}
+
+// AccessManaNodeID returns the node ID to whom access mana is pledged to
+func (transaction *Transaction) AccessManaNodeID() identity.ID {
+	return transaction.accessManaNodeID
+}
+
+// ConsensusManaNodeID returns the node ID to whom consensus mana is pledged to
+func (transaction *Transaction) ConsensusManaNodeID() identity.ID {
+	return transaction.consensusManaNodeID
+}
+
 // SignaturesValid returns true if the Signatures in this transaction
 func (transaction *Transaction) SignaturesValid() bool {
 	signaturesValid := true
@@ -237,6 +256,15 @@ func (transaction *Transaction) EssenceBytes() []byte {
 
 	// marshal dataPayload data
 	marshalUtil.WriteBytes(transaction.dataPayload)
+
+	// marshall timestamp
+	marshalUtil.WriteTime(transaction.timestamp)
+
+	// marshal accessManaNodeID
+	marshalUtil.WriteBytes(transaction.accessManaNodeID.Bytes())
+
+	// marshal consensusManaNodeID
+	marshalUtil.WriteBytes(transaction.consensusManaNodeID.Bytes())
 
 	// store marshaled result
 	transaction.essenceBytes = marshalUtil.Bytes()
@@ -330,6 +358,9 @@ func (transaction *Transaction) String() string {
 		stringify.StructField("id", base58.Encode(id[:])),
 		stringify.StructField("inputs", transaction.inputs),
 		stringify.StructField("outputs", transaction.outputs),
+		stringify.StructField("timestamp", transaction.timestamp.Unix()),
+		stringify.StructField("accessManaNodeID", transaction.accessManaNodeID.String()),
+		stringify.StructField("consensusManaNodeID", transaction.consensusManaNodeID.String()),
 		stringify.StructField("signatures", transaction.signatures),
 		stringify.StructField("dataPayloadSize", uint64(transaction.DataPayloadSize())),
 	)
@@ -342,6 +373,21 @@ func (transaction *Transaction) SetDataPayload(data []byte) error {
 
 	transaction.dataPayload = data
 	return nil
+}
+
+// SetTimestamp sets the timestamp of a transaction
+func (transaction *Transaction) SetTimestamp(timestamp time.Time) {
+	transaction.timestamp = timestamp
+}
+
+// SetAccessManaNodeID sets the nodeID to pledge access mana to
+func (transaction *Transaction) SetAccessManaNodeID(nodeID identity.ID) {
+	transaction.accessManaNodeID = nodeID
+}
+
+// SetConsensusManaNodeID sets the nodeID to pledge consensus mana to
+func (transaction *Transaction) SetConsensusManaNodeID(nodeID identity.ID) {
+	transaction.consensusManaNodeID = nodeID
 }
 
 // GetDataPayload gets the dataPayload and its type
@@ -414,6 +460,26 @@ func (transaction *Transaction) UnmarshalObjectStorageValue(bytes []byte) (consu
 	if err != nil {
 		return
 	}
+
+	// unmarshal timestamp
+	transaction.timestamp, err = marshalUtil.ReadTime()
+	if err != nil {
+		return
+	}
+
+	// unmarshal accessManaNodeID
+	accessNodeIDBytes, err := marshalUtil.ReadBytes(sha256.Size)
+	if err != nil {
+		return
+	}
+	copy(transaction.accessManaNodeID[:], accessNodeIDBytes)
+
+	// unmarshal consensusManaNodeID
+	consensusNodeIDBytes, err := marshalUtil.ReadBytes(sha256.Size)
+	if err != nil {
+		return
+	}
+	copy(transaction.consensusManaNodeID[:], consensusNodeIDBytes)
 
 	// store essence bytes
 	essenceBytesCount := marshalUtil.ReadOffset()
