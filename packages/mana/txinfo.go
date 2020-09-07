@@ -6,25 +6,32 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 )
 
+// TxInfo holds information related to the transaction which we are processing for mana calculation.
 type TxInfo struct {
-	TimeStamp    time.Time
+	// Timestamp is the timestamp of the transaction.
+	TimeStamp time.Time
+	// TotalBalance is the amount of funds being transferred via the transaction.
 	TotalBalance float64
-	InputInfo    []InputInfo
+	// PledgeID is a map of mana types and the node to which this transaction pledges its mana type to.
+	PledgeID map[Type]identity.ID
+	// InputInfos is a slice of InputInfo that holds mana related info about each input within the transaction.
+	InputInfos []InputInfo
 }
 
 func (t *TxInfo) sumInputs() float64 {
 	t.TotalBalance = 0
-	for _, input := range t.InputInfo {
+	for _, input := range t.InputInfos {
 		t.TotalBalance += input.Amount
 	}
 	return t.TotalBalance
 }
 
+// InputInfo holds mana related info about an input within a transaction.
 type InputInfo struct {
-	TimeStamp         time.Time
-	Amount            float64
-	AccessPledgeID    identity.ID
-	ConsensusPledgeID identity.ID
-	AccessRevokeID    identity.ID
-	ConsensusRevokeID identity.ID
+	// Timestamp is the timestamp of the transaction that created this output (input).
+	TimeStamp time.Time
+	// Amount is the balance of the input.
+	Amount float64
+	// PledgeID is a map of mana types and the node to which the transaction that created the output pledges its mana type to.
+	PledgeID map[Type]identity.ID
 }

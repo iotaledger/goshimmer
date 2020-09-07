@@ -80,7 +80,7 @@ func (bm *BaseMana) pledgeAndUpdate(tx *TxInfo) (bm1Pledged float64, bm2Pledged 
 		bm.LastUpdated = t
 		bm.BaseMana1 += bm1Pledged
 		// pending mana awarded, need to see how long funds sat
-		for _, input := range tx.InputInfo {
+		for _, input := range tx.InputInfos {
 			bm2Add := 1 / decay * input.Amount * (1 - math.Pow(math.E, -decay*(t.Sub(input.TimeStamp).Seconds())))
 			bm.BaseMana2 += bm2Add
 			bm2Pledged += bm2Add
@@ -91,7 +91,7 @@ func (bm *BaseMana) pledgeAndUpdate(tx *TxInfo) (bm1Pledged float64, bm2Pledged 
 		// update BM1 and BM2 at `t`
 		bm.BaseMana1 += bm1Pledged
 		oldMana2 := bm.BaseMana2
-		for _, input := range tx.InputInfo {
+		for _, input := range tx.InputInfos {
 			bm2Add := 1 / decay * input.Amount * (1 - math.Pow(math.E, -decay*(t.Sub(input.TimeStamp).Seconds()))) *
 				math.Pow(math.E, -decay*n.Seconds())
 			bm.BaseMana2 += bm2Add

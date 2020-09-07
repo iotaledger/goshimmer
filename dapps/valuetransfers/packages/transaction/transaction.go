@@ -41,6 +41,10 @@ type Transaction struct {
 	outputs    *Outputs
 	signatures *Signatures
 
+	timestamp           time.Time
+	accessManaNodeID    identity.ID
+	consensusManaNodeID identity.ID
+
 	id      *ID
 	idMutex sync.RWMutex
 
@@ -55,10 +59,6 @@ type Transaction struct {
 
 	bytes      []byte
 	bytesMutex sync.RWMutex
-
-	timestamp           time.Time
-	accessManaNodeID    identity.ID
-	consensusManaNodeID identity.ID
 }
 
 // New creates a new Transaction from the given details. The signatures are omitted as signing requires us to marshal
