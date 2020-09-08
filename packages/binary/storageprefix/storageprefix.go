@@ -10,4 +10,6 @@ const (
 	MessageLayer
 	// ValueTransfers defines the storage prefix for value transfer.
 	ValueTransfers
+	// Mana defines the storage prefix for base mana vectors.
+	Mana
 )

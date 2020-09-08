@@ -28,6 +28,35 @@ func NewBaseManaVector(vectorType Type) *BaseManaVector {
 	}
 }
 
+// ToPersistables converts the baseManaVector to a list of persistable mana objects.
+func (bmv *BaseManaVector) ToPersistables() []*PersistableBaseMana {
+	var result []*PersistableBaseMana
+	for nodeID, bm := range bmv.vector {
+		pbm := &PersistableBaseMana{
+			ManaType:           bmv.vectorType,
+			BaseMana1:          bm.BaseMana1,
+			EffectiveBaseMana1: bm.EffectiveBaseMana1,
+			BaseMana2:          bm.BaseMana2,
+			EffectiveBaseMana2: bm.EffectiveBaseMana2,
+			LastUpdated:        bm.LastUpdated,
+			NodeID:             nodeID,
+		}
+		result = append(result, pbm)
+	}
+	return result
+}
+
+// FromPersitable fills the basemanavector from persistable mana objects.
+func (bmv *BaseManaVector) FromPersitable(p *PersistableBaseMana) {
+	bmv.vector[p.NodeID] = &BaseMana{
+		BaseMana1:          p.BaseMana1,
+		EffectiveBaseMana1: p.EffectiveBaseMana1,
+		BaseMana2:          p.BaseMana2,
+		EffectiveBaseMana2: p.EffectiveBaseMana2,
+		LastUpdated:        p.LastUpdated,
+	}
+}
+
 // BookMana books mana for a transaction.
 func (bmv *BaseManaVector) BookMana(txInfo *TxInfo) {
 	// first, revoke mana from previous owners
