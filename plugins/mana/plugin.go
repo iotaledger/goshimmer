@@ -145,7 +145,7 @@ func configureEvents() {
 func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Mana", func(shutdownSignal <-chan struct{}) {
 		readStoredManaVectors()
-		pruneStroages()
+		pruneStorages()
 		<-shutdownSignal
 		storeManaVectors()
 		shutdownStorages()
