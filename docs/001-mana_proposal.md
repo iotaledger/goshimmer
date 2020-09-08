@@ -86,7 +86,7 @@ The Mana module assumes, that the value tangle's `TransactionConfirmed` event is
 mana state machine (base mana vectors for access and consensus mana). Once the concept of transaction finality is
 introduced for the value tangle, the trigger conditions for access and consensus mana calculations can be adjusted.
 
-### Value Transaction Layout
+### Transaction Layout
 
 A new field should be added to `Transaction` denoting `PledgedNodeID` for `Access Mana` and `Consensus Mana`.
 This is also beneficial to implement mana donation feature, that is, to donate the mana of a certain transaction to an
