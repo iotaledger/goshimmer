@@ -72,19 +72,19 @@ The exact mathematical formulas, and their respective parameters will be determi
 
 ## Challenges
 
-### Dependency on Value Tangle
+### Dependency on Tangle
 
-Since mana is awarded to nodes submitting value transfers, the value tangle is needed as input for mana calculation.
-Each node calculates mana locally, therefore, it is essential to determine when to consider transactions in the value
+Since mana is awarded to nodes submitting value transfers, the tangle is needed as input for mana calculation.
+Each node calculates mana locally, therefore, it is essential to determine when to consider transactions in the
 tangle "final enough" (so that they will not be orphaned).
 
 When a transaction is `confirmed`, it is a sufficient indicator that it will not be orphaned. However, in current
 GoShimmer implementation, confirmation is not yet a properly defined concept. This issue will be addressed in a separate
 module.
 
-The Mana module assumes, that the value tangle's `TransactionConfirmed` event is the trigger condition to update the
+The Mana module assumes, that the (value) tangle's `TransactionConfirmed` event is the trigger condition to update the
 mana state machine (base mana vectors for access and consensus mana). Once the concept of transaction finality is
-introduced for the value tangle, the trigger conditions for access and consensus mana calculations can be adjusted.
+introduced for the tangle, the trigger conditions for access and consensus mana calculations can be adjusted.
 
 ### Transaction Layout
 
@@ -192,11 +192,11 @@ type BaseManaVector map[nodeID]BaseMana
 `BaseManaVector` should have the following methods:
  - `BookMana(transaction)`: Book mana of a transaction. Trigger `ManaBooked` event. Note, that this method updates
    `BaseMana` with respect to time and to new `Base Mana 1` and `Base Mana 2` values.
- - `GetTotalMana(nodeID) mana`: Return `Effective Base Mana 1` + `Effective Base Mana 2` of a particular node. Note, that
-   this method also updates `BaseMana` of the node with respect to time.
- - `GetMana(nodeID, weightEBM1, weightEBM2) mana`: Return `weightEBM1` *` Effective Base Mana 1` + `weightEBM1`+`Effective Base Mana 2`.
-   `weight` is a number in [0,1] interval. Notice, that `weightEBM1` = 1 and `weightEBM2`= 0 results in only returning `Effective Base Mana 1`,
+ - `GetMana(nodeID, weight) mana`: Return `weight` *` Effective Base Mana 1` + (1-`weight`)+`Effective Base Mana 2`.
+   `weight` is a number in [0,1] interval. Notice, that `weight` = 1  results in only returning `Effective Base Mana 1`,
    and the other way around. Note, that this method also updates `BaseMana` of the node with respect to time.
+ - `GetMana(nodeID) mana`: Return 0.5*`Effective Base Mana 1` + 0.5*`Effective Base Mana 2` of a particular node. Note, that
+   this method also updates `BaseMana` of the node with respect to time.
  - `update(nodeID, time)`: update `Base Mana 2`, `Effective Base Mana 1` and `Effective Base Mana 2` of a node with respect `time`.
  - `updateAll(time)`: update `Base Mana 2`, `Effective Base Mana 1` and `Effective Base Mana 2` of all nodes with respect to `time`.
 
@@ -483,7 +483,7 @@ Add a new `mana` endpoint route:
  - `/mana/all`: Return whole mana map (mana perception of the node).
  - `/mana/access/nhighest`: Return `n` highest access mana holder `nodeIDs` and their access mana values.
  - `/mana/consensus/nhighest`: Return `n` highest consensus mana holder `nodeIDs` and their consensus mana values.
- - `/mana/rank`: Return the top percentile the node belongs to relative to the network. For example, if there are 100 nodes in the
+ - `/mana/percentile`: Return the top percentile the node belongs to relative to the network. For example, if there are 100 nodes in the
    network owning mana, and a node is the 13th richest, it means that is part of the top 13% of mana holders, but not the
    top 12%.
 
@@ -494,7 +494,7 @@ To study the mana module, following metrics could be gathered:
  - Amount of mana each node holds.
  - Number of (and amount of mana) a node was pledged with mana in the last `t` interval.
  - Mana development of a particular node over time.
- - Mana rank development of a node over time.
+ - Mana percentile development of a node over time.
  - Average pledge amount of a node. (how much mana it receives on average with one pledge)
  - Mean and median mana holdings of nodes in the network. Shows how even mana distribution is.
  - Average mana of neighbors.
@@ -519,7 +519,7 @@ While `Local Dashboard` gives flexibility in what and how to visualize, `Grafana
 data but can only visualize time series. Therefore, both of these ways will be utilized, depending on which suits the best.
 
 `Local Dashboard` visualization:
- - Pie chart of mana distribution within the network.
+ - Histogram of mana distribution within the network.
  - List of `n` richest mana nodes, ordered.
  - Mana rank of node.
 
