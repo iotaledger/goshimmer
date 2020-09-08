@@ -145,6 +145,7 @@ func configureEvents() {
 func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Mana", func(shutdownSignal <-chan struct{}) {
 		readStoredManaVectors()
+		pruneStroages()
 		<-shutdownSignal
 		storeManaVectors()
 		shutdownStorages()
@@ -172,6 +173,12 @@ func storeManaVectors() {
 		for _, p := range persitables {
 			storages[vectorType].Store(p).Release()
 		}
+	}
+}
+
+func pruneStroages() {
+	for vectorType := range baseManaVectors {
+		_ = storages[vectorType].Prune()
 	}
 }
 
