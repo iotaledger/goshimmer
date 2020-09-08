@@ -119,7 +119,8 @@ func (persistableBaseMana PersistableBaseMana) UnmarshalObjectStorageValue(bytes
 	if err != nil {
 		return
 	}
-	nodeID, _ := identity.ParseID(string(nodeIDBytes))
+	var nodeID identity.ID
+	copy(nodeID[:], nodeIDBytes)
 	persistableBaseMana.NodeID = nodeID
 
 	consumedBytes = marshalUtil.ReadOffset()
@@ -140,10 +141,8 @@ func FromStorageKey(key []byte, optionalTargetObject ...*PersistableBaseMana) (r
 		panic("too many arguments in call to FromStorageKey")
 	}
 
-	nodeID, err := identity.ParseID(string(key))
-	if err != nil {
-		return
-	}
+	var nodeID identity.ID
+	copy(nodeID[:], key)
 	result.(*PersistableBaseMana).NodeID = nodeID
 
 	return
