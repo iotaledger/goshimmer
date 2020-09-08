@@ -34,7 +34,6 @@ import (
 // PluginName is the name of the mana plugin.
 const (
 	PluginName = "Mana"
-	cacheTime  = 20 * time.Second
 )
 
 var (
@@ -70,8 +69,8 @@ func configure(*node.Plugin) {
 	storages = make(map[mana.Type]*objectstorage.ObjectStorage)
 	store := database.Store()
 	osFactory = objectstorage.NewFactory(store, storageprefix.Mana)
-	storages[mana.AccessMana] = osFactory.New(storageprefix.Mana, osManaFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false))
-	storages[mana.ConsensusMana] = osFactory.New(storageprefix.Mana, osManaFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false))
+	storages[mana.AccessMana] = osFactory.New(storageprefix.Mana, osManaFactory)
+	storages[mana.ConsensusMana] = osFactory.New(storageprefix.Mana, osManaFactory)
 
 	configureEvents()
 }
@@ -148,6 +147,7 @@ func run(_ *node.Plugin) {
 		readStoredManaVectors()
 		<-shutdownSignal
 		storeManaVectors()
+		shutdownStorages()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
@@ -172,5 +172,11 @@ func storeManaVectors() {
 		for _, p := range persitables {
 			storages[vectorType].Store(p).Release()
 		}
+	}
+}
+
+func shutdownStorages() {
+	for vectorType := range baseManaVectors {
+		storages[vectorType].Shutdown()
 	}
 }
