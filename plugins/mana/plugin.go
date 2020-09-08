@@ -7,13 +7,16 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/objectstorage"
 )
 
 // TODO: expose plugin functions to the outside
@@ -29,7 +32,10 @@ import (
 //OverrideMana(nodeID, baseManaVector): Sets the nodes mana to a specific value. Can be useful for debugging, setting faucet mana, initialization, etc.. Triggers ManaUpdated
 
 // PluginName is the name of the mana plugin.
-const PluginName = "Mana"
+const (
+	PluginName = "Mana"
+	cacheTime  = 20 * time.Second
+)
 
 var (
 	// plugin is the plugin instance of the mana plugin.
@@ -37,7 +43,13 @@ var (
 	once            sync.Once
 	log             *logger.Logger
 	baseManaVectors map[mana.Type]*mana.BaseManaVector
+	osFactory       *objectstorage.Factory
+	storages        map[mana.Type]*objectstorage.ObjectStorage
 )
+
+func osManaFactory(key []byte) (objectstorage.StorableObject, int, error) {
+	return mana.FromStorageKey(key)
+}
 
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
@@ -53,6 +65,13 @@ func configure(*node.Plugin) {
 	baseManaVectors = make(map[mana.Type]*mana.BaseManaVector)
 	baseManaVectors[mana.AccessMana] = mana.NewBaseManaVector(mana.AccessMana)
 	baseManaVectors[mana.ConsensusMana] = mana.NewBaseManaVector(mana.ConsensusMana)
+
+	// configure storage for each vector type
+	storages = make(map[mana.Type]*objectstorage.ObjectStorage)
+	store := database.Store()
+	osFactory = objectstorage.NewFactory(store, storageprefix.Mana)
+	storages[mana.AccessMana] = osFactory.New(storageprefix.Mana, osManaFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false))
+	storages[mana.ConsensusMana] = osFactory.New(storageprefix.Mana, osManaFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false))
 
 	configureEvents()
 }
@@ -117,7 +136,6 @@ func configureEvents() {
 				InputInfos: inputInfos,
 			}
 		})
-		log.Info("booking mana")
 		// book in all mana vectors.
 		for _, baseManaVector := range baseManaVectors {
 			baseManaVector.BookMana(txInfo)
@@ -127,10 +145,32 @@ func configureEvents() {
 
 func run(_ *node.Plugin) {
 	if err := daemon.BackgroundWorker("Mana", func(shutdownSignal <-chan struct{}) {
-		// TODO: Read base mana vectors from storage
+		readStoredManaVectors()
 		<-shutdownSignal
-		// TODO: write base mana vectors to object storage
+		storeManaVectors()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
+	}
+}
+
+func readStoredManaVectors() {
+	vectorTypes := []mana.Type{mana.AccessMana, mana.ConsensusMana}
+	for _, vectorType := range vectorTypes {
+		storages[vectorType].ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+			cachedPbm := &mana.CachedPersistableBaseMana{CachedObject: cachedObject}
+			cachedPbm.Consume(func(p *mana.PersistableBaseMana) {
+				baseManaVectors[vectorType].FromPersitable(p)
+			})
+			return true
+		})
+	}
+}
+
+func storeManaVectors() {
+	for vectorType, baseManaVector := range baseManaVectors {
+		persitables := baseManaVector.ToPersistables()
+		for _, p := range persitables {
+			storages[vectorType].Store(p).Release()
+		}
 	}
 }
