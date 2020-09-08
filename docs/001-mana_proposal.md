@@ -103,7 +103,7 @@ The first implementation of mana in GoShimmer will:
 
 In this section, detailed GoShimmer implementation design considerations will be outlined about the mana module.
 In short, changes can be classified into 3 categories:
- 1. Value Tangle (Transaction) related changes,
+ 1. Transaction related changes,
  2. Mana module functionality,
  3. and related tools/utilities, such as API, visualization, analytics.
 
