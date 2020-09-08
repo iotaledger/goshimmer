@@ -107,7 +107,7 @@ In short, changes can be classified into 3 categories:
  2. Mana module functionality,
  3. and related tools/utilities, such as API, visualization, analytics.
 
-### Value Tangle
+### Transaction
 
 As described above, 3 new fields will be added to the transaction layout:
  1. `Timestamp` time.time
