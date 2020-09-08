@@ -172,7 +172,7 @@ structs and methods to connect the dots, for example execute `BookMana` when `Tr
 in the value tangle.
 
 `BaseMana` is a struct that holds the different mana values for a given node.
-Note that except for `Base Mana 1` calculation, we need the time the `BaseMana` values were updated, so we store it in the struct:
+Note that except for `Base Mana 1` calculation, we need the time when `BaseMana` values were updated, so we store it in the struct:
  ```go
 type BaseMana struct {
   BaseMana1 float
