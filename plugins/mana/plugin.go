@@ -148,7 +148,9 @@ func run(_ *node.Plugin) {
 		pruneStorages()
 		<-shutdownSignal
 		storeManaVectors()
-		shutdownStorages()
+
+		// TODO: causes plugin to hang
+		//shutdownStorages()
 	}, shutdown.PriorityTangle); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
@@ -182,8 +184,8 @@ func pruneStorages() {
 	}
 }
 
-func shutdownStorages() {
-	for vectorType := range baseManaVectors {
-		storages[vectorType].Shutdown()
-	}
-}
+//func shutdownStorages() {
+//	for vectorType := range baseManaVectors {
+//		storages[vectorType].Shutdown()
+//	}
+//}
