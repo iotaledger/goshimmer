@@ -176,7 +176,7 @@ func storeManaVectors() {
 	}
 }
 
-func pruneStroages() {
+func pruneStorages() {
 	for vectorType := range baseManaVectors {
 		_ = storages[vectorType].Prune()
 	}
