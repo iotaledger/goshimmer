@@ -71,63 +71,63 @@ func NewRequester(missingMessages []MessageID, optionalOptions ...Option) *Reque
 }
 
 // StartRequest initiates a regular triggering of the StartRequest event until it has been stopped using StopRequest.
-func (requester *Requester) StartRequest(id MessageID) {
-	requester.scheduledRequestsMutex.Lock()
+func (r *Requester) StartRequest(id MessageID) {
+	r.scheduledRequestsMutex.Lock()
 
 	// ignore already scheduled requests
-	if _, exists := requester.scheduledRequests[id]; exists {
-		requester.scheduledRequestsMutex.Unlock()
+	if _, exists := r.scheduledRequests[id]; exists {
+		r.scheduledRequestsMutex.Unlock()
 		return
 	}
 
 	// schedule the next request and trigger the event
-	requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, requester.createReRequest(id, 0))
-	requester.scheduledRequestsMutex.Unlock()
-	requester.Events.SendRequest.Trigger(&SendRequestEvent{ID: id})
+	r.scheduledRequests[id] = time.AfterFunc(r.options.retryInterval, r.createReRequest(id, 0))
+	r.scheduledRequestsMutex.Unlock()
+	r.Events.SendRequest.Trigger(&SendRequestEvent{ID: id})
 }
 
 // StopRequest stops requests for the given message to further happen.
-func (requester *Requester) StopRequest(id MessageID) {
-	requester.scheduledRequestsMutex.Lock()
-	defer requester.scheduledRequestsMutex.Unlock()
+func (r *Requester) StopRequest(id MessageID) {
+	r.scheduledRequestsMutex.Lock()
+	defer r.scheduledRequestsMutex.Unlock()
 
-	if timer, ok := requester.scheduledRequests[id]; ok {
+	if timer, ok := r.scheduledRequests[id]; ok {
 		timer.Stop()
-		delete(requester.scheduledRequests, id)
+		delete(r.scheduledRequests, id)
 	}
 }
 
-func (requester *Requester) reRequest(id MessageID, count int) {
-	requester.Events.SendRequest.Trigger(&SendRequestEvent{ID: id})
+func (r *Requester) reRequest(id MessageID, count int) {
+	r.Events.SendRequest.Trigger(&SendRequestEvent{ID: id})
 
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
-	requester.scheduledRequestsMutex.Lock()
-	defer requester.scheduledRequestsMutex.Unlock()
+	r.scheduledRequestsMutex.Lock()
+	defer r.scheduledRequestsMutex.Unlock()
 
 	// reschedule, if the request has not been stopped in the meantime
-	if _, exists := requester.scheduledRequests[id]; exists {
+	if _, exists := r.scheduledRequests[id]; exists {
 		// increase the request counter
 		count++
 
 		// if we have requested too often => stop the requests
 		if count > maxRequestThreshold {
-			delete(requester.scheduledRequests, id)
+			delete(r.scheduledRequests, id)
 
 			return
 		}
 
-		requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, requester.createReRequest(id, count))
+		r.scheduledRequests[id] = time.AfterFunc(r.options.retryInterval, r.createReRequest(id, count))
 		return
 	}
 }
 
 // RequestQueueSize returns the number of scheduled message requests.
-func (requester *Requester) RequestQueueSize() int {
-	requester.scheduledRequestsMutex.RLock()
-	defer requester.scheduledRequestsMutex.RUnlock()
-	return len(requester.scheduledRequests)
+func (r *Requester) RequestQueueSize() int {
+	r.scheduledRequestsMutex.RLock()
+	defer r.scheduledRequestsMutex.RUnlock()
+	return len(r.scheduledRequests)
 }
 
-func (requester *Requester) createReRequest(msgID MessageID, count int) func() {
-	return func() { requester.reRequest(msgID, count) }
+func (r *Requester) createReRequest(msgID MessageID, count int) func() {
+	return func() { r.reRequest(msgID, count) }
 }
