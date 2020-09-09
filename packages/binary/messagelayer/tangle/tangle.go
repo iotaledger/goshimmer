@@ -30,10 +30,6 @@ type Tangle struct {
 	shutdown               chan struct{}
 }
 
-func messageFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return message.StorableObjectFromKey(key)
-}
-
 func approverFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return ApproverFromStorageKey(key)
 }
@@ -48,7 +44,7 @@ func New(store kvstore.KVStore) (result *Tangle) {
 
 	result = &Tangle{
 		shutdown:               make(chan struct{}),
-		messageStorage:         osFactory.New(PrefixMessage, messageFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		messageStorage:         osFactory.New(PrefixMessage, message.FromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		messageMetadataStorage: osFactory.New(PrefixMessageMetadata, MessageMetadataFromStorageKey, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		approverStorage:        osFactory.New(PrefixApprovers, approverFactory, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(message.IDLength, message.IDLength), objectstorage.LeakDetectionEnabled(false)),
 		missingMessageStorage:  osFactory.New(PrefixMissingMessage, missingMessageFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
