@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 )
 
+// PersistableBaseMana represents a base mana vector that can be persisted.
 type PersistableBaseMana struct {
 	objectstorage.StorableObjectFlags
 	ManaType           Type
@@ -61,7 +62,7 @@ func (persistableBaseMana *PersistableBaseMana) Bytes() []byte {
 }
 
 // Update updates the persistable mana in storage.
-func (persistableBaseMana *PersistableBaseMana) Update(other objectstorage.StorableObject) {
+func (persistableBaseMana *PersistableBaseMana) Update(objectstorage.StorableObject) {
 	panic("should not be updated")
 }
 

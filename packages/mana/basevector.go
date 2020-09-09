@@ -2,6 +2,8 @@ package mana
 
 import (
 	"errors"
+	"fmt"
+	"sort"
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
@@ -119,12 +121,12 @@ func (bmv *BaseManaVector) UpdateAll(t time.Time) error {
 // mana = EBM1 * weight + EBM2 * ( 1- weight), where weight is in [0,1].
 func (bmv *BaseManaVector) GetWeightedMana(nodeID identity.ID, weight float64) (float64, error) {
 	if _, exist := bmv.vector[nodeID]; !exist {
-		return 0.0, ErrNodeNotFoundInBaseManaVector
+		return 0.0, fmt.Errorf("node %s not found: %w", nodeID.String(), ErrNodeNotFoundInBaseManaVector)
 	}
 	if weight < 0.0 || weight > 1.0 {
 		return 0.0, ErrInvalidWeightParameter
 	}
-	bmv.Update(nodeID, time.Now())
+	_ = bmv.Update(nodeID, time.Now())
 	baseMana := bmv.vector[nodeID]
 	return baseMana.EffectiveBaseMana1*weight + baseMana.EffectiveBaseMana2*(1-weight), nil
 }
@@ -133,3 +135,59 @@ func (bmv *BaseManaVector) GetWeightedMana(nodeID identity.ID, weight float64) (
 func (bmv *BaseManaVector) GetMana(nodeID identity.ID) (float64, error) {
 	return bmv.GetWeightedMana(nodeID, 0.5)
 }
+
+// ForEach iterates over the vector and calls the provided callback.
+func (bmv *BaseManaVector) ForEach(callback func(ID identity.ID, bm *BaseMana) bool) {
+	for nodeID, baseMana := range bmv.vector {
+		if !callback(nodeID, baseMana) {
+			return
+		}
+	}
+}
+
+//GetManaMap return mana perception of the node.
+func (bmv *BaseManaVector) GetManaMap() Map {
+	res := make(map[identity.ID]float64)
+	for ID := range bmv.vector {
+		mana, _ := bmv.GetMana(ID)
+		res[ID] = mana
+	}
+	return res
+}
+
+// GetHighestManaNodes return the n highest mana nodes in descending order.
+// It also updates the mana values for each node.
+func (bmv *BaseManaVector) GetHighestManaNodes(n int) []NodeIDMana {
+	var res []NodeIDMana
+	for ID := range bmv.vector {
+		mana, _ := bmv.GetMana(ID)
+		res = append(res, NodeIDMana{
+			ID:   ID,
+			Mana: mana,
+		})
+	}
+
+	sort.Slice(res[:], func(i, j int) bool {
+		return res[i].Mana > res[j].Mana
+	})
+
+	if n <= len(res) {
+		return res[:n]
+	}
+	return res[:]
+}
+
+// SetMana sets the base mana for a node
+func (bmv *BaseManaVector) SetMana(nodeID identity.ID, bm *BaseMana) {
+	bmv.vector[nodeID] = bm
+	_ = bmv.Update(nodeID, time.Now())
+}
+
+// NodeIDMana represents a node and its mana value.
+type NodeIDMana struct {
+	ID   identity.ID
+	Mana float64
+}
+
+// Map is a map of nodeID and mana value.
+type Map map[identity.ID]float64
