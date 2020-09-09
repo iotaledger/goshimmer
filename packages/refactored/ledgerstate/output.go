@@ -2,10 +2,9 @@ package ledgerstate
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -62,17 +61,16 @@ type Output interface {
 }
 
 // OutputFromBytes unmarshals an Output object from a sequence of bytes.
-// It either creates a new object or fills the optionally provided object with the parsed information.
-func OutputFromBytes(bytes []byte, optionalTargetObject ...Output) (result Output, consumedBytes int, err error) {
+func OutputFromBytes(bytes []byte) (result Output, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseOutput(marshalUtil, optionalTargetObject...)
+	result, err = ParseOutput(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// ParseOutput unmarshals an Output using the given marshalUtil (for easier marshaling/unmarshaling).
-func ParseOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...Output) (result Output, err error) {
+// ParseOutput unmarshals an Output using a marshalUtil (for easier marshaling/unmarshaling).
+func ParseOutput(marshalUtil *marshalutil.MarshalUtil) (result Output, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
 		err = fmt.Errorf("error while parsing OutputType: %w", err)
@@ -98,45 +96,35 @@ func ParseOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...O
 	return
 }
 
-// OutputFromStorageKey get's called when we restore a Output from the storage.
-// In contrast to other database models, it unmarshals some information from the key so we simply store the key before
-// it gets handed over to UnmarshalObjectStorageValue (by the ObjectStorage).
-func OutputFromStorageKey(keyBytes []byte, optionalTargetObject ...Output) (result Output, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		if len(keyBytes) < 1 {
-			err = fmt.Errorf("error while parsing OutputType: %w", err)
+// OutputFromStorage get's called when we restore a Output from the ObjectStorage. In contrast to the other parse
+// methods, it automatically populated the OutputID.
+func OutputFromStorage(key []byte, data []byte) (result Output, consumedBytes int, err error) {
+	// abort if the data doesn't contain enough information to read the type
+	if len(data) < 1 {
+		err = errors.New("not enough bytes in data segment to parse OutputType")
 
-			return
-		}
+		return
+	}
 
-		switch keyBytes[0] {
-		case SigLockedSingleOutputType:
-			result = &SigLockedSingleOutput{}
-		default:
-			err = fmt.Errorf("unsupported OutputType `%X`", keyBytes[0])
-
-			return
-		}
-	case 1:
-		result = optionalTargetObject[0]
+	// create different outputs depending on the type
+	switch data[0] {
+	case SigLockedSingleOutputType:
+		result = &SigLockedSingleOutput{}
 	default:
-		panic("too many arguments in call to OutputFromStorageKey")
+		err = fmt.Errorf("unsupported OutputType `%X`", key[0])
+
+		return
 	}
 
-	// parse information
-	ParseOutputID()
-	marshalUtil := marshalutil.New(keyBytes)
-	result.address, err = address.Parse(marshalUtil)
+	// fill OutputID
+	marshalUtil := marshalutil.New(key)
+	outputID, err := ParseOutputID(marshalUtil)
 	if err != nil {
+		err = fmt.Errorf("error when parsing OutputID: %w", err)
+
 		return
 	}
-	result.transactionID, err = transaction.ParseID(marshalUtil)
-	if err != nil {
-		return
-	}
-	result.storageKey = marshalutil.New(keyBytes[:transaction.OutputIDLength]).Bytes(true)
+	result.SetID(outputID)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
