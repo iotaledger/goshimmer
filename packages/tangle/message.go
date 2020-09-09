@@ -10,8 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
-
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
 // ContentID identifies the content of a message without its parent1/parent2 ids.
@@ -106,7 +104,7 @@ type Message struct {
 	issuerPublicKey ed25519.PublicKey
 	issuingTime     time.Time
 	sequenceNumber  uint64
-	payload         payload.Payload
+	payload         Payload
 	nonce           uint64
 	signature       ed25519.Signature
 
@@ -120,7 +118,7 @@ type Message struct {
 }
 
 // New creates a new message with the details provided by the issuer.
-func NewMessage(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
+func NewMessage(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
 	return &Message{
 		parent1ID:       parent1ID,
 		parent2ID:       parent2ID,
@@ -253,7 +251,7 @@ func (m *Message) SequenceNumber() uint64 {
 }
 
 // Payload returns the payload of the message.
-func (m *Message) Payload() payload.Payload {
+func (m *Message) Payload() Payload {
 	return m.payload
 }
 
@@ -293,7 +291,7 @@ func (m *Message) ContentID() (result ContentID) {
 // calculates the message id.
 func (m *Message) calculateID() MessageID {
 	return blake2b.Sum512(
-		marshalutil.New(MessageIDLength + MessageIDLength + payload.IDLength).
+		marshalutil.New(MessageIDLength + MessageIDLength + PayloadIDLength).
 			WriteBytes(m.parent1ID.Bytes()).
 			WriteBytes(m.parent2ID.Bytes()).
 			WriteBytes(m.ContentID().Bytes()).
@@ -364,7 +362,7 @@ func (m *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, e
 		err = fmt.Errorf("failed to parse sequence number of the message from storage: %w", err)
 		return
 	}
-	if m.payload, err = payload.Parse(marshalUtil); err != nil {
+	if m.payload, err = ParsePayload(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse payload of the message from storage: %w", err)
 		return
 	}
