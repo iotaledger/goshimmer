@@ -33,38 +33,38 @@ var (
 	})
 )
 
-func osPayloadFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func osPayloadFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return payload.FromStorageKey(key)
 }
 
-func osPayloadMetadataFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func osPayloadMetadataFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return PayloadMetadataFromStorageKey(key)
 }
 
-func osMissingPayloadFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func osMissingPayloadFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return MissingPayloadFromStorageKey(key)
 }
 
-func osPayloadApproverFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func osPayloadApproverFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return PayloadApproverFromStorageKey(key)
 }
 
-func osTransactionFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func osTransactionFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return transaction.FromStorageKey(key)
 }
 
-func osTransactionMetadataFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func osTransactionMetadataFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return TransactionMetadataFromStorageKey(key)
 }
 
-func osAttachmentFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func osAttachmentFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return AttachmentFromStorageKey(key)
 }
 
-func osOutputFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func osOutputFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return OutputFromStorageKey(key)
 }
 
-func osConsumerFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func osConsumerFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return ConsumerFromStorageKey(key)
 }
