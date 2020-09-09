@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/messageparser/builtinfilters"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/typeutils"
 )
 
@@ -15,7 +14,7 @@ import (
 type MessageParser struct {
 	bytesFilters   []BytesFilter
 	messageFilters []MessageFilter
-	Events         Events
+	Events         *Events
 
 	byteFiltersModified    typeutils.AtomicBool
 	messageFiltersModified typeutils.AtomicBool
@@ -28,17 +27,7 @@ func New() (result *MessageParser) {
 	result = &MessageParser{
 		bytesFilters:   make([]BytesFilter, 0),
 		messageFilters: make([]MessageFilter, 0),
-		Events: Events{
-			MessageParsed: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func(*message.Message, *peer.Peer))(params[0].(*message.Message), params[1].(*peer.Peer))
-			}),
-			BytesRejected: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func([]byte, error, *peer.Peer))(params[0].([]byte), params[1].(error), params[2].(*peer.Peer))
-			}),
-			MessageRejected: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func(*message.Message, error, *peer.Peer))(params[0].(*message.Message), params[1].(error), params[2].(*peer.Peer))
-			}),
-		},
+		Events:         newEvents(),
 	}
 
 	// add builtin filters
@@ -88,7 +77,9 @@ func (messageParser *MessageParser) setupBytesFilterDataFlow() {
 				messageParser.bytesFilters[i].OnAccept(messageParser.bytesFilters[i+1].Filter)
 			}
 			messageParser.bytesFilters[i].OnReject(func(bytes []byte, err error, peer *peer.Peer) {
-				messageParser.Events.BytesRejected.Trigger(bytes, err, peer)
+				messageParser.Events.BytesRejected.Trigger(&BytesRejectedEvent{
+					Bytes: bytes,
+					Peer:  peer}, err)
 			})
 		}
 	}
@@ -109,13 +100,17 @@ func (messageParser *MessageParser) setupMessageFilterDataFlow() {
 		for i := 0; i < numberOfMessageFilters; i++ {
 			if i == numberOfMessageFilters-1 {
 				messageParser.messageFilters[i].OnAccept(func(msg *message.Message, peer *peer.Peer) {
-					messageParser.Events.MessageParsed.Trigger(msg, peer)
+					messageParser.Events.MessageParsed.Trigger(&MessageParsedEvent{
+						Message: msg,
+						Peer:    peer})
 				})
 			} else {
 				messageParser.messageFilters[i].OnAccept(messageParser.messageFilters[i+1].Filter)
 			}
 			messageParser.messageFilters[i].OnReject(func(msg *message.Message, err error, peer *peer.Peer) {
-				messageParser.Events.MessageRejected.Trigger(msg, err, peer)
+				messageParser.Events.MessageRejected.Trigger(&MessageRejectedEvent{
+					Message: msg,
+					Peer:    peer}, err)
 			})
 		}
 	}
@@ -125,7 +120,9 @@ func (messageParser *MessageParser) setupMessageFilterDataFlow() {
 // parses the given message and emits
 func (messageParser *MessageParser) parseMessage(bytes []byte, peer *peer.Peer) {
 	if parsedMessage, _, err := message.FromBytes(bytes); err != nil {
-		messageParser.Events.BytesRejected.Trigger(bytes, err, peer)
+		messageParser.Events.BytesRejected.Trigger(&BytesRejectedEvent{
+			Bytes: bytes,
+			Peer:  peer}, err)
 	} else {
 		messageParser.messageFilters[0].Filter(parsedMessage, peer)
 	}

@@ -2,6 +2,7 @@ package drng
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
+	cbEvents "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/events"
 	"github.com/iotaledger/hive.go/events"
 )
 
@@ -11,6 +12,13 @@ type Event struct {
 	CollectiveBeacon *events.Event
 	// Randomness is triggered each time we receive a new and valid CollectiveBeacon message.
 	Randomness *events.Event
+}
+
+func newEvent() *Event {
+	return &Event{
+		CollectiveBeacon: events.NewEvent(cbEvents.CollectiveBeaconReceived),
+		Randomness:       events.NewEvent(randomnessReceived),
+	}
 }
 
 func randomnessReceived(handler interface{}, params ...interface{}) {

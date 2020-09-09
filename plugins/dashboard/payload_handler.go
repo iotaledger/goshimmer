@@ -50,8 +50,8 @@ type DrngCollectiveBeaconPayload struct {
 // ValuePayload contains the transaction information
 type ValuePayload struct {
 	ID        string          `json:"payload_id"`
-	ParentID0 string          `json:"parent_id_0"`
-	ParentID1 string          `json:"parent_id_1"`
+	Parent1ID string          `json:"parent1_id"`
+	Parent2ID string          `json:"parent2_id"`
 	TxID      string          `json:"tx_id"`
 	Input     []InputContent  `json:"inputs"`
 	Output    []OutputContent `json:"outputs"`
@@ -190,8 +190,8 @@ func processValuePayload(p payload.Payload) (vp ValuePayload) {
 
 	return ValuePayload{
 		ID:        v.ID().String(),
-		ParentID0: v.TrunkID().String(),
-		ParentID1: v.BranchID().String(),
+		Parent1ID: v.Parent1ID().String(),
+		Parent2ID: v.Parent2ID().String(),
 		TxID:      v.Transaction().ID().String(),
 		Input:     inputs,
 		Output:    outputs,

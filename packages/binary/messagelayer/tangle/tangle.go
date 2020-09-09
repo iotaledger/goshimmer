@@ -23,7 +23,7 @@ type Tangle struct {
 	approverStorage        *objectstorage.ObjectStorage
 	missingMessageStorage  *objectstorage.ObjectStorage
 
-	Events Events
+	Events *Events
 
 	storeMessageWorkerPool async.WorkerPool
 	solidifierWorkerPool   async.WorkerPool
@@ -53,7 +53,7 @@ func New(store kvstore.KVStore) (result *Tangle) {
 		approverStorage:        osFactory.New(PrefixApprovers, approverFactory, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(message.IDLength, message.IDLength), objectstorage.LeakDetectionEnabled(false)),
 		missingMessageStorage:  osFactory.New(PrefixMissingMessage, missingMessageFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 
-		Events: *newEvents(),
+		Events: newEvents(),
 	}
 
 	result.solidifierWorkerPool.Tune(1024)
@@ -90,12 +90,12 @@ func (tangle *Tangle) Approvers(messageID message.ID) CachedApprovers {
 // message as an approver.
 func (tangle *Tangle) DeleteMessage(messageID message.ID) {
 	tangle.Message(messageID).Consume(func(currentMsg *message.Message) {
-		trunkMsgID := currentMsg.TrunkID()
-		tangle.deleteApprover(trunkMsgID, messageID)
+		parent1MsgID := currentMsg.Parent1ID()
+		tangle.deleteApprover(parent1MsgID, messageID)
 
-		branchMsgID := currentMsg.BranchID()
-		if branchMsgID != trunkMsgID {
-			tangle.deleteApprover(branchMsgID, messageID)
+		parent2MsgID := currentMsg.Parent2ID()
+		if parent2MsgID != parent1MsgID {
+			tangle.deleteApprover(parent2MsgID, messageID)
 		}
 
 		tangle.messageMetadataStorage.Delete(messageID[:])
@@ -195,21 +195,25 @@ func (tangle *Tangle) storeMessageWorker(msg *message.Message) {
 	messageID := msg.ID()
 	cachedMsgMetadata := &CachedMessageMetadata{CachedObject: tangle.messageMetadataStorage.Store(NewMessageMetadata(messageID))}
 
-	// store trunk approver
-	trunkMsgID := msg.TrunkID()
-	tangle.approverStorage.Store(NewApprover(trunkMsgID, messageID)).Release()
+	// store parent1 approver
+	parent1MsgID := msg.Parent1ID()
+	tangle.approverStorage.Store(NewApprover(parent1MsgID, messageID)).Release()
 
-	// store branch approver
-	if branchMsgID := msg.BranchID(); branchMsgID != trunkMsgID {
-		tangle.approverStorage.Store(NewApprover(branchMsgID, messageID)).Release()
+	// store parent2 approver
+	if parent2MsgID := msg.Parent2ID(); parent2MsgID != parent1MsgID {
+		tangle.approverStorage.Store(NewApprover(parent2MsgID, messageID)).Release()
 	}
 
 	// trigger events
 	if tangle.missingMessageStorage.DeleteIfPresent(messageID[:]) {
-		tangle.Events.MissingMessageReceived.Trigger(cachedMessage, cachedMsgMetadata)
+		tangle.Events.MissingMessageReceived.Trigger(&CachedMessageEvent{
+			Message:         cachedMessage,
+			MessageMetadata: cachedMsgMetadata})
 	}
 
-	tangle.Events.MessageAttached.Trigger(cachedMessage, cachedMsgMetadata)
+	tangle.Events.MessageAttached.Trigger(&CachedMessageEvent{
+		Message:         cachedMessage,
+		MessageMetadata: cachedMsgMetadata})
 
 	// check message solidity
 	tangle.solidifierWorkerPool.Submit(func() {
@@ -248,8 +252,8 @@ func (tangle *Tangle) isMessageMarkedAsSolid(messageID message.ID) bool {
 	return msgMetadata.IsSolid()
 }
 
-// checks whether the given message is solid by examining whether its trunk and
-// branch messages are solid.
+// checks whether the given message is solid by examining whether its parent1 and
+// parent2 messages are solid.
 func (tangle *Tangle) isMessageSolid(msg *message.Message, msgMetadata *MessageMetadata) bool {
 	if msg == nil || msg.IsDeleted() {
 		return false
@@ -264,9 +268,9 @@ func (tangle *Tangle) isMessageSolid(msg *message.Message, msgMetadata *MessageM
 	}
 
 	// as missing messages are requested in isMessageMarkedAsSolid, we want to prevent short-circuit evaluation
-	trunkSolid := tangle.isMessageMarkedAsSolid(msg.TrunkID())
-	branchSolid := tangle.isMessageMarkedAsSolid(msg.BranchID())
-	return trunkSolid && branchSolid
+	parent1Solid := tangle.isMessageMarkedAsSolid(msg.Parent1ID())
+	parent2Solid := tangle.isMessageMarkedAsSolid(msg.Parent2ID())
+	return parent1Solid && parent2Solid
 }
 
 // builds up a stack from the given message and tries to solidify into the present.
@@ -299,7 +303,9 @@ func (tangle *Tangle) checkMessageSolidityAndPropagate(cachedMessage *message.Ca
 
 		// mark the message as solid if it has become solid
 		if tangle.isMessageSolid(currentMessage, currentMsgMetadata) && currentMsgMetadata.SetSolid(true) {
-			tangle.Events.MessageSolid.Trigger(currentCachedMessage, currentCachedMsgMetadata)
+			tangle.Events.MessageSolid.Trigger(&CachedMessageEvent{
+				Message:         currentCachedMessage,
+				MessageMetadata: currentCachedMsgMetadata})
 
 			// auto. push approvers of the newly solid message to propagate solidification
 			tangle.Approvers(currentMessage.ID()).Consume(func(approver *Approver) {

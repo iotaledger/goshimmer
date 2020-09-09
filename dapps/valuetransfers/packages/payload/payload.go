@@ -17,7 +17,7 @@ const (
 	ObjectName = "value"
 )
 
-// Payload represents the entity that forms the Tangle by referencing other Payloads using their trunk and branch.
+// Payload represents the entity that forms the Tangle by referencing other Payloads using their parent1 and parent2.
 // A Payload contains a transaction and defines, where in the Tangle a transaction is attached.
 type Payload struct {
 	objectstorage.StorableObjectFlags
@@ -25,20 +25,19 @@ type Payload struct {
 	id      *ID
 	idMutex sync.RWMutex
 
-	// TODO: rename to parents
-	trunkPayloadID  ID
-	branchPayloadID ID
-	transaction     *transaction.Transaction
-	bytes           []byte
-	bytesMutex      sync.RWMutex
+	parent1PayloadID ID
+	parent2PayloadID ID
+	transaction      *transaction.Transaction
+	bytes            []byte
+	bytesMutex       sync.RWMutex
 }
 
 // New is the constructor of a Payload and creates a new Payload object from the given details.
-func New(trunkPayloadID, branchPayloadID ID, valueTransfer *transaction.Transaction) *Payload {
+func New(parent1PayloadID, parent2PayloadID ID, valueTransfer *transaction.Transaction) *Payload {
 	return &Payload{
-		trunkPayloadID:  trunkPayloadID,
-		branchPayloadID: branchPayloadID,
-		transaction:     valueTransfer,
+		parent1PayloadID: parent1PayloadID,
+		parent2PayloadID: parent2PayloadID,
+		transaction:      valueTransfer,
 	}
 }
 
@@ -124,8 +123,8 @@ func (payload *Payload) ID() ID {
 
 	// otherwise calculate the id
 	marshalUtil := marshalutil.New(IDLength + IDLength + transaction.IDLength)
-	marshalUtil.WriteBytes(payload.trunkPayloadID.Bytes())
-	marshalUtil.WriteBytes(payload.branchPayloadID.Bytes())
+	marshalUtil.WriteBytes(payload.parent1PayloadID.Bytes())
+	marshalUtil.WriteBytes(payload.parent2PayloadID.Bytes())
 	marshalUtil.WriteBytes(payload.Transaction().ID().Bytes())
 
 	var id ID = blake2b.Sum256(marshalUtil.Bytes())
@@ -134,14 +133,14 @@ func (payload *Payload) ID() ID {
 	return id
 }
 
-// TrunkID returns the first Payload that is referenced by this Payload.
-func (payload *Payload) TrunkID() ID {
-	return payload.trunkPayloadID
+// Parent1ID returns the first Payload that is referenced by this Payload.
+func (payload *Payload) Parent1ID() ID {
+	return payload.parent1PayloadID
 }
 
-// BranchID returns the second Payload that is referenced by this Payload.
-func (payload *Payload) BranchID() ID {
-	return payload.branchPayloadID
+// Parent2ID returns the second Payload that is referenced by this Payload.
+func (payload *Payload) Parent2ID() ID {
+	return payload.parent2PayloadID
 }
 
 // Transaction returns the Transaction that is being attached in this Payload.
@@ -157,8 +156,8 @@ func (payload *Payload) Bytes() []byte {
 func (payload *Payload) String() string {
 	return stringify.Struct("Payload",
 		stringify.StructField("id", payload.ID()),
-		stringify.StructField("trunk", payload.TrunkID()),
-		stringify.StructField("branch", payload.BranchID()),
+		stringify.StructField("parent1", payload.Parent1ID()),
+		stringify.StructField("parent2", payload.Parent2ID()),
 		stringify.StructField("transfer", payload.Transaction()),
 	)
 }
@@ -174,7 +173,7 @@ func (payload *Payload) Type() payload.Type {
 }
 
 // ObjectStorageValue returns the bytes that represent all remaining information (not stored in the key) of a marshaled
-// Branch.
+// Parent2.
 func (payload *Payload) ObjectStorageValue() (bytes []byte) {
 	// acquire lock for reading bytes
 	payload.bytesMutex.RLock()
@@ -204,8 +203,8 @@ func (payload *Payload) ObjectStorageValue() (bytes []byte) {
 	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
 	marshalUtil.WriteUint32(Type)
 	marshalUtil.WriteUint32(uint32(payloadLength))
-	marshalUtil.WriteBytes(payload.trunkPayloadID.Bytes())
-	marshalUtil.WriteBytes(payload.branchPayloadID.Bytes())
+	marshalUtil.WriteBytes(payload.parent1PayloadID.Bytes())
+	marshalUtil.WriteBytes(payload.parent2PayloadID.Bytes())
 	marshalUtil.WriteBytes(transferBytes)
 	bytes = marshalUtil.Bytes()
 
@@ -229,11 +228,11 @@ func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (consumedBytes 
 		return
 	}
 
-	// parse trunk payload id
-	if payload.trunkPayloadID, err = ParseID(marshalUtil); err != nil {
+	// parse parent1 payload id
+	if payload.parent1PayloadID, err = ParseID(marshalUtil); err != nil {
 		return
 	}
-	if payload.branchPayloadID, err = ParseID(marshalUtil); err != nil {
+	if payload.parent2PayloadID, err = ParseID(marshalUtil); err != nil {
 		return
 	}
 	if payload.transaction, err = transaction.Parse(marshalUtil); err != nil {
@@ -272,7 +271,7 @@ var _ payload.Payload = &Payload{}
 
 // region StorableObject implementation ////////////////////////////////////////////////////////////////////////////////
 
-// ObjectStorageKey returns the bytes that are used a key when storing the Branch in an objectstorage.
+// ObjectStorageKey returns the bytes that are used a key when storing the  Payload in an objectstorage.
 func (payload *Payload) ObjectStorageKey() []byte {
 	return payload.ID().Bytes()
 }
