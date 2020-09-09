@@ -58,14 +58,17 @@ func ParseDataPayload(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject
 	// parse information
 	result.payloadType, err = marshalUtil.ReadUint32()
 	if err != nil {
+		err = fmt.Errorf("failed to parse data payload type: %w", err)
 		return
 	}
 	payloadBytes, err := marshalUtil.ReadUint32()
 	if err != nil {
+		err = fmt.Errorf("failed to parse data payload size: %w", err)
 		return
 	}
 	result.data, err = marshalUtil.ReadBytes(int(payloadBytes))
 	if err != nil {
+		err = fmt.Errorf("failed to parse data payload contest: %w", err)
 		return
 	}
 
@@ -73,40 +76,40 @@ func ParseDataPayload(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject
 }
 
 // Type returns the payload type.
-func (dataPayload *DataPayload) Type() Type {
-	return dataPayload.payloadType
+func (d *DataPayload) Type() Type {
+	return d.payloadType
 }
 
 // Data returns the data of the data payload.
-func (dataPayload *DataPayload) Data() []byte {
-	return dataPayload.data
+func (d *DataPayload) Data() []byte {
+	return d.data
 }
 
 // Bytes marshals the data payload into a sequence of bytes.
-func (dataPayload *DataPayload) Bytes() []byte {
+func (d *DataPayload) Bytes() []byte {
 	// initialize helper
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(dataPayload.Type())
-	marshalUtil.WriteUint32(uint32(len(dataPayload.data)))
-	marshalUtil.WriteBytes(dataPayload.data[:])
+	marshalUtil.WriteUint32(d.Type())
+	marshalUtil.WriteUint32(uint32(len(d.data)))
+	marshalUtil.WriteBytes(d.data[:])
 
 	// return result
 	return marshalUtil.Bytes()
 }
 
 // Unmarshal unmarshalls the byte array to a data payload.
-func (dataPayload *DataPayload) Unmarshal(data []byte) (err error) {
-	_, _, err = DataPayloadFromBytes(data, dataPayload)
+func (d *DataPayload) Unmarshal(data []byte) (err error) {
+	_, _, err = DataPayloadFromBytes(data, d)
 
 	return
 }
 
-func (dataPayload *DataPayload) String() string {
+func (d *DataPayload) String() string {
 	return stringify.Struct("Data",
-		stringify.StructField("type", int(dataPayload.Type())),
-		stringify.StructField("data", string(dataPayload.Data())),
+		stringify.StructField("type", int(d.Type())),
+		stringify.StructField("data", string(d.Data())),
 	)
 }
 
