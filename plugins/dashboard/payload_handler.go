@@ -5,10 +5,8 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	drngpayload "github.com/iotaledger/goshimmer/packages/binary/drng/payload"
-	drngheader "github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
-	cb "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/packages/drng"
 	syncbeaconpayload "github.com/iotaledger/goshimmer/plugins/syncbeacon/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
@@ -91,7 +89,7 @@ func ProcessPayload(p payload.Payload) interface{} {
 			ContentTitle: "address",
 			Content:      p.(*faucetpayload.Payload).Address().String(),
 		}
-	case drngpayload.Type:
+	case drng.PayloadType:
 		// drng payload
 		return processDrngPayload(p)
 	case syncbeaconpayload.Type:
@@ -112,13 +110,13 @@ func ProcessPayload(p payload.Payload) interface{} {
 func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 	var subpayload interface{}
 	marshalUtil := marshalutil.New(p.Bytes())
-	drngPayload, _ := drngpayload.Parse(marshalUtil)
+	drngPayload, _ := drng.ParsePayload(marshalUtil)
 
 	switch drngPayload.Header.PayloadType {
-	case drngheader.TypeCollectiveBeacon:
+	case drng.TypeCollectiveBeacon:
 		// collective beacon
 		marshalUtil := marshalutil.New(p.Bytes())
-		cbp, _ := cb.Parse(marshalUtil)
+		cbp, _ := drng.ParseCollectiveBeaconPayload(marshalUtil)
 		subpayload = DrngCollectiveBeaconPayload{
 			Round:   cbp.Round,
 			PrevSig: cbp.PrevSignature,

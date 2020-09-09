@@ -3,11 +3,9 @@ package drng
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/drng"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/tangle"
+	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -47,14 +45,14 @@ func configureEvents() {
 		cachedMsgEvent.MessageMetadata.Release()
 
 		cachedMsgEvent.Message.Consume(func(msg *message.Message) {
-			if msg.Payload().Type() != payload.Type {
+			if msg.Payload().Type() != drng.PayloadType {
 				return
 			}
-			if len(msg.Payload().Bytes()) < header.Length {
+			if len(msg.Payload().Bytes()) < drng.HeaderLength {
 				return
 			}
 			marshalUtil := marshalutil.New(msg.Payload().Bytes())
-			parsedPayload, err := payload.Parse(marshalUtil)
+			parsedPayload, err := drng.ParsePayload(marshalUtil)
 			if err != nil {
 				//TODO: handle error
 				log.Debug(err)
