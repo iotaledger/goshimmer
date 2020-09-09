@@ -1,9 +1,8 @@
-package payload
+package drng
 
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -16,7 +15,7 @@ const (
 
 // Payload defines a DRNG payload.
 type Payload struct {
-	header.Header
+	Header
 	Data []byte
 
 	bytes      []byte
@@ -24,7 +23,7 @@ type Payload struct {
 }
 
 // New creates a new DRNG payload.
-func New(header header.Header, data []byte) *Payload {
+func NewPayload(header Header, data []byte) *Payload {
 	return &Payload{
 		Header: header,
 		Data:   data,
@@ -32,8 +31,8 @@ func New(header header.Header, data []byte) *Payload {
 }
 
 // Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
-	payload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) })
+func ParsePayload(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
+	payload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return PayloadFromBytes(data) })
 	if err != nil {
 		return &Payload{}, err
 	}
@@ -42,7 +41,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
 
 // FromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
+func PayloadFromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -67,12 +66,12 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	}
 
 	// parse header
-	if result.Header, err = header.Parse(marshalUtil); err != nil {
+	if result.Header, err = ParseHeader(marshalUtil); err != nil {
 		return
 	}
 
 	// parse data
-	if result.Data, err = marshalUtil.ReadBytes(int(len - header.Length)); err != nil {
+	if result.Data, err = marshalUtil.ReadBytes(int(len - HeaderLength)); err != nil {
 		return
 	}
 
@@ -109,8 +108,8 @@ func (payload *Payload) Bytes() (bytes []byte) {
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(Type)
-	marshalUtil.WriteUint32(uint32(len(payload.Data) + header.Length))
+	marshalUtil.WriteUint32(PayloadType)
+	marshalUtil.WriteUint32(uint32(len(payload.Data) + HeaderLength))
 	marshalUtil.WriteBytes(payload.Header.Bytes())
 	marshalUtil.WriteBytes(payload.Data[:])
 
@@ -130,11 +129,11 @@ func (payload *Payload) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type defines the type of the drng payload.
-var Type = payload.Type(111)
+var PayloadType = payload.Type(111)
 
 // Type returns the type of the drng payload.
 func (payload *Payload) Type() payload.Type {
-	return Type
+	return PayloadType
 }
 
 // Marshal marshals the drng payload into bytes.
@@ -144,13 +143,13 @@ func (payload *Payload) Marshal() (bytes []byte, err error) {
 
 // Unmarshal unmarshals the given bytes into a drng payload.
 func (payload *Payload) Unmarshal(data []byte) (err error) {
-	_, _, err = FromBytes(data, payload)
+	_, _, err = PayloadFromBytes(data, payload)
 
 	return
 }
 
 func init() {
-	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
+	payload.RegisterType(PayloadType, ObjectName, func(data []byte) (payload payload.Payload, err error) {
 		payload = &Payload{}
 		err = payload.Unmarshal(data)
 

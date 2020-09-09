@@ -1,16 +1,15 @@
-package payload
+package drng
 
 import (
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/require"
 )
 
-func dummyPayload() *Payload {
-	header := header.New(header.TypeCollectiveBeacon, 0)
-	return New(header.InstanceID,
+func dummyCollectiveBeaconPayload() *CollectiveBeaconPayload {
+	header := NewHeader(TypeCollectiveBeacon, 0)
+	return NewCollectiveBeaconPayload(header.InstanceID,
 		0,
 		[]byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), // prevSignature
 		[]byte("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"), // signature
@@ -18,11 +17,11 @@ func dummyPayload() *Payload {
 }
 
 func TestParse(t *testing.T) {
-	payload := dummyPayload()
+	payload := dummyCollectiveBeaconPayload()
 	bytes := payload.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)
-	parsedPayload, err := Parse(marshalUtil)
+	parsedPayload, err := ParseCollectiveBeaconPayload(marshalUtil)
 	require.NoError(t, err)
 
 	require.Equal(t, payload.Header.PayloadType, parsedPayload.Header.PayloadType)
@@ -33,7 +32,7 @@ func TestParse(t *testing.T) {
 	require.Equal(t, payload.Dpk, parsedPayload.Dpk)
 }
 
-func TestString(t *testing.T) {
+func TestCollectiveBeaconPayloadString(t *testing.T) {
 	payload := dummyPayload()
 	_ = payload.String()
 }

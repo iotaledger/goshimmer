@@ -1,4 +1,4 @@
-package state
+package drng
 
 // Options define state options of a DRNG.
 type Options struct {

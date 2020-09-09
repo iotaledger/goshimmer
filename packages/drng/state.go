@@ -1,4 +1,4 @@
-package state
+package drng
 
 import (
 	"encoding/binary"
@@ -44,7 +44,7 @@ type State struct {
 }
 
 // New creates a new State with the given optional options
-func New(setters ...Option) *State {
+func NewState(setters ...Option) *State {
 	args := &Options{}
 
 	for _, setter := range setters {

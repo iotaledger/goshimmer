@@ -1,4 +1,4 @@
-package header
+package drng
 
 import (
 	"testing"
@@ -7,12 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParse(t *testing.T) {
-	header := New(TypeCollectiveBeacon, 0)
+func TestParseHeader(t *testing.T) {
+	header := NewHeader(TypeCollectiveBeacon, 0)
 	bytes := header.Bytes()
 
 	marshalUtil := marshalutil.New(bytes)
-	parsedHeader, err := Parse(marshalUtil)
+	parsedHeader, err := ParseHeader(marshalUtil)
 	require.NoError(t, err)
 
 	require.Equal(t, header, parsedHeader)

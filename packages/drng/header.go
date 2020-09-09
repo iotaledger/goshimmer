@@ -1,10 +1,9 @@
-package header
+package drng
 
 import (
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
-// Type defines the data model of a DRNG payload type
 type Type = byte
 
 const (
@@ -12,8 +11,8 @@ const (
 	TypeCollectiveBeacon Type = 1
 )
 
-// Length defines the length of a DRNG header
-const Length = 5
+// HeaderLength defines the length of a DRNG header
+const HeaderLength = 5
 
 // Header defines defines a DRNG payload header
 type Header struct {
@@ -22,7 +21,7 @@ type Header struct {
 }
 
 // New creates a new DRNG payload header for the given type and instance id.
-func New(payloadType Type, instanceID uint32) Header {
+func NewHeader(payloadType Type, instanceID uint32) Header {
 	return Header{
 		PayloadType: payloadType,
 		InstanceID:  instanceID,
@@ -30,8 +29,8 @@ func New(payloadType Type, instanceID uint32) Header {
 }
 
 // Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func Parse(marshalUtil *marshalutil.MarshalUtil) (Header, error) {
-	header, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) })
+func ParseHeader(marshalUtil *marshalutil.MarshalUtil) (Header, error) {
+	header, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return HeaderFromBytes(data) })
 	if err != nil {
 		return Header{}, err
 	}
@@ -40,7 +39,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (Header, error) {
 
 // FromBytes unmarshals a header from a sequence of bytes.
 // It either creates a new header or fills the optionally provided object with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Header) (result Header, consumedBytes int, err error) {
+func HeaderFromBytes(bytes []byte, optionalTargetObject ...*Header) (result Header, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	var targetObject *Header
 	switch len(optionalTargetObject) {

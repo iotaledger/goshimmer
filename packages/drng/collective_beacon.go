@@ -1,4 +1,4 @@
-package collectivebeacon
+package drng
 
 import (
 	"bytes"
@@ -7,8 +7,6 @@ import (
 
 	"github.com/drand/drand/chain"
 	"github.com/drand/drand/key"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/events"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 )
 
@@ -30,10 +28,10 @@ var (
 // ProcessBeacon performs the following tasks:
 // - verify that we have a valid random
 // - update drng state
-func ProcessBeacon(drng *state.State, cb *events.CollectiveBeaconEvent) error {
+func ProcessBeacon(state *State, cb *CollectiveBeaconEvent) error {
 
 	// verify that we have a valid random
-	if err := VerifyCollectiveBeacon(drng, cb); err != nil {
+	if err := VerifyCollectiveBeacon(state, cb); err != nil {
 		//TODO: handle error
 		return err
 	}
@@ -44,45 +42,45 @@ func ProcessBeacon(drng *state.State, cb *events.CollectiveBeaconEvent) error {
 		//TODO: handle error
 		return err
 	}
-	newRandomness := &state.Randomness{
+	newRandomness := &Randomness{
 		Round:      cb.Round,
 		Randomness: randomness,
 		Timestamp:  cb.Timestamp,
 	}
 
-	drng.UpdateRandomness(newRandomness)
+	state.UpdateRandomness(newRandomness)
 
 	return nil
 }
 
 // VerifyCollectiveBeacon verifies against a given state that
 // the given CollectiveBeaconEvent contains a valid beacon.
-func VerifyCollectiveBeacon(state *state.State, data *events.CollectiveBeaconEvent) error {
+func VerifyCollectiveBeacon(state *State, cb *CollectiveBeaconEvent) error {
 	if state == nil {
 		return ErrNilState
 	}
 
-	if data == nil {
+	if cb == nil {
 		return ErrNilData
 	}
 
-	if err := verifyIssuer(state, data.IssuerPublicKey); err != nil {
+	if err := verifyIssuer(state, cb.IssuerPublicKey); err != nil {
 		return err
 	}
 
-	if !bytes.Equal(data.Dpk, state.Committee().DistributedPK) {
+	if !bytes.Equal(cb.Dpk, state.Committee().DistributedPK) {
 		return ErrDistributedPubKeyMismatch
 	}
 
-	if data.Round <= state.Randomness().Round {
+	if cb.Round <= state.Randomness().Round {
 		return ErrInvalidRound
 	}
 
-	if data.InstanceID != state.Committee().InstanceID {
+	if cb.InstanceID != state.Committee().InstanceID {
 		return ErrInstanceIDMismatch
 	}
 
-	if err := verifySignature(data); err != nil {
+	if err := verifySignature(cb); err != nil {
 		return err
 	}
 
@@ -90,7 +88,7 @@ func VerifyCollectiveBeacon(state *state.State, data *events.CollectiveBeaconEve
 }
 
 // verifyIssuer checks the given issuer is a member of the committee.
-func verifyIssuer(state *state.State, issuer ed25519.PublicKey) error {
+func verifyIssuer(state *State, issuer ed25519.PublicKey) error {
 	for _, member := range state.Committee().Identities {
 		if member == issuer {
 			return nil
@@ -100,15 +98,15 @@ func verifyIssuer(state *state.State, issuer ed25519.PublicKey) error {
 }
 
 // verifySignature checks the current signature against the distributed public key.
-func verifySignature(data *events.CollectiveBeaconEvent) error {
+func verifySignature(cb *CollectiveBeaconEvent) error {
 	dpk := key.KeyGroup.Point()
-	if err := dpk.UnmarshalBinary(data.Dpk); err != nil {
+	if err := dpk.UnmarshalBinary(cb.Dpk); err != nil {
 		return err
 	}
 
-	msg := chain.Message(data.Round, data.PrevSignature)
+	msg := chain.Message(cb.Round, cb.PrevSignature)
 
-	if err := key.Scheme.VerifyRecovered(dpk, msg, data.Signature); err != nil {
+	if err := key.Scheme.VerifyRecovered(dpk, msg, cb.Signature); err != nil {
 		return err
 	}
 

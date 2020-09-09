@@ -1,19 +1,16 @@
-package payload
+package drng
 
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/stringify"
-
-	drngPayload "github.com/iotaledger/goshimmer/packages/binary/drng/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
-// Payload is a collective beacon payload.
-type Payload struct {
-	header.Header
+// CollectiveBeaconPayload is a collective beacon payload.
+type CollectiveBeaconPayload struct {
+	Header
 
 	// Round of the current beacon
 	Round uint64
@@ -28,10 +25,10 @@ type Payload struct {
 	bytesMutex sync.RWMutex
 }
 
-// New creates a new collective beacon payload.
-func New(instanceID uint32, round uint64, prevSignature, signature, dpk []byte) *Payload {
-	return &Payload{
-		Header:        header.New(header.TypeCollectiveBeacon, instanceID),
+// NewCollectiveBeaconPayload creates a new collective beacon payload.
+func NewCollectiveBeaconPayload(instanceID uint32, round uint64, prevSignature, signature, dpk []byte) *CollectiveBeaconPayload {
+	return &CollectiveBeaconPayload{
+		Header:        NewHeader(TypeCollectiveBeacon, instanceID),
 		Round:         round,
 		PrevSignature: prevSignature,
 		Signature:     signature,
@@ -39,24 +36,24 @@ func New(instanceID uint32, round uint64, prevSignature, signature, dpk []byte) 
 	}
 }
 
-// Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
-	unmarshalledPayload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) })
+// ParseCollectiveBeaconPayload is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func ParseCollectiveBeaconPayload(marshalUtil *marshalutil.MarshalUtil) (*CollectiveBeaconPayload, error) {
+	unmarshalledPayload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return CollectiveBeaconPayloadFromBytes(data) })
 	if err != nil {
 		return nil, err
 	}
-	_payload := unmarshalledPayload.(*Payload)
+	_payload := unmarshalledPayload.(*CollectiveBeaconPayload)
 
 	return _payload, nil
 }
 
-// FromBytes parses the marshaled version of a Payload into an object.
+// CollectiveBeaconPayloadFromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
+func CollectiveBeaconPayloadFromBytes(bytes []byte, optionalTargetObject ...*CollectiveBeaconPayload) (result *CollectiveBeaconPayload, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
-		result = &Payload{}
+		result = &CollectiveBeaconPayload{}
 	case 1:
 		result = optionalTargetObject[0]
 	default:
@@ -75,7 +72,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	}
 
 	// parse header
-	if result.Header, err = header.Parse(marshalUtil); err != nil {
+	if result.Header, err = ParseHeader(marshalUtil); err != nil {
 		return
 	}
 
@@ -109,7 +106,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 }
 
 // Bytes returns the collective beacon payload bytes.
-func (payload *Payload) Bytes() (bytes []byte) {
+func (payload *CollectiveBeaconPayload) Bytes() (bytes []byte) {
 	// acquire lock for reading bytes
 	payload.bytesMutex.RLock()
 
@@ -130,9 +127,9 @@ func (payload *Payload) Bytes() (bytes []byte) {
 	}
 
 	// marshal fields
-	payloadLength := header.Length + marshalutil.UINT64_SIZE + SignatureSize*2 + PublicKeySize
+	payloadLength := HeaderLength + marshalutil.UINT64_SIZE + SignatureSize*2 + PublicKeySize
 	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
-	marshalUtil.WriteUint32(drngPayload.Type)
+	marshalUtil.WriteUint32(PayloadType)
 	marshalUtil.WriteUint32(uint32(payloadLength))
 	marshalUtil.WriteBytes(payload.Header.Bytes())
 	marshalUtil.WriteUint64(payload.Round)
@@ -148,8 +145,8 @@ func (payload *Payload) Bytes() (bytes []byte) {
 	return
 }
 
-func (payload *Payload) String() string {
-	return stringify.Struct("Payload",
+func (payload *CollectiveBeaconPayload) String() string {
+	return stringify.Struct("CollectiveBeaconPayload",
 		stringify.StructField("type", uint64(payload.Header.PayloadType)),
 		stringify.StructField("instance", uint64(payload.Header.InstanceID)),
 		stringify.StructField("round", payload.Round),
@@ -162,18 +159,18 @@ func (payload *Payload) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type returns the collective beacon payload type.
-func (payload *Payload) Type() payload.Type {
-	return drngPayload.Type
+func (payload *CollectiveBeaconPayload) Type() payload.Type {
+	return PayloadType
 }
 
 // Marshal marshals the collective beacon payload into bytes.
-func (payload *Payload) Marshal() (bytes []byte, err error) {
+func (payload *CollectiveBeaconPayload) Marshal() (bytes []byte, err error) {
 	return payload.Bytes(), nil
 }
 
 // Unmarshal returns a collective beacon payload from the given bytes.
-func (payload *Payload) Unmarshal(data []byte) (err error) {
-	_, _, err = FromBytes(data, payload)
+func (payload *CollectiveBeaconPayload) Unmarshal(data []byte) (err error) {
+	_, _, err = CollectiveBeaconPayloadFromBytes(data, payload)
 
 	return
 }
