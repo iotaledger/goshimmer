@@ -1,0 +1,20 @@
+name: Snyk monitor dependencies
+
+on: 
+  push
+    branches:
+    - develop
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+
+    - name: Run Snyk to monitor dependencies
+      uses: snyk/actions/golang@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        command: monitor
+        args: --org=iota-foundation
