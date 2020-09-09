@@ -53,11 +53,15 @@ func New(parent1ID ID, parent2ID ID, issuingTime time.Time, issuerPublicKey ed25
 
 // FromBytes parses the given bytes into a message.
 func FromBytes(bytes []byte) (result *Message, consumedBytes int, err error) {
-	return Parse(marshalutil.New(bytes))
+	marshalUtil := marshalutil.New(bytes)
+	result, err = Parse(marshalUtil)
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
 }
 
 // Parse parses a message from the given marshal util.
-func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Message, consumedBytes int, err error) {
+func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Message, err error) {
 	// determine read offset before starting to parse
 	readOffsetStart := marshalUtil.ReadOffset()
 
@@ -89,17 +93,10 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Message, consumedBytes
 	}
 
 	// return the number of bytes we processed
-	consumedBytes = marshalUtil.ReadOffset() - readOffsetStart
+	readOffsetEnd := marshalUtil.ReadOffset()
 
-	// store marshaled version
-	result.bytes = make([]byte, consumedBytes)
-	marshalUtil.ReadSeek(readOffsetStart)
-	bytes, err := marshalUtil.ReadBytes(consumedBytes)
-	if err != nil {
-		return
-	}
-	copy(result.bytes, bytes)
-	marshalUtil.ReadSeek(readOffsetStart + consumedBytes)
+	// store marshaled version as a copy
+	result.bytes, err = marshalUtil.ReadBytes(readOffsetEnd-readOffsetStart, readOffsetStart)
 
 	return
 }
@@ -108,7 +105,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Message, consumedBytes
 // The bytes and the content will be unmarshaled by an external caller (the objectStorage factory).
 func FromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	// parse the message
-	message, _, err := Parse(marshalutil.New(data))
+	message, err := Parse(marshalutil.New(data))
 	if err != nil {
 		return
 	}
