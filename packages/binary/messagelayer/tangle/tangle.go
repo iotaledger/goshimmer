@@ -30,15 +30,15 @@ type Tangle struct {
 	shutdown               chan struct{}
 }
 
-func messageFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func messageFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return message.StorableObjectFromKey(key)
 }
 
-func approverFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func approverFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return ApproverFromStorageKey(key)
 }
 
-func missingMessageFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func missingMessageFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return MissingMessageFromStorageKey(key)
 }
 
