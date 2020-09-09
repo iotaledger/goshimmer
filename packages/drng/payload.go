@@ -22,7 +22,7 @@ type Payload struct {
 	bytesMutex sync.RWMutex
 }
 
-// New creates a new DRNG payload.
+// NewPayload creates a new DRNG payload.
 func NewPayload(header Header, data []byte) *Payload {
 	return &Payload{
 		Header: header,
@@ -30,7 +30,7 @@ func NewPayload(header Header, data []byte) *Payload {
 	}
 }
 
-// Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+// ParsePayload is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func ParsePayload(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
 	payload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return PayloadFromBytes(data) })
 	if err != nil {
@@ -39,7 +39,7 @@ func ParsePayload(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
 	return payload.(*Payload), nil
 }
 
-// FromBytes parses the marshaled version of a Payload into an object.
+// PayloadFromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
 func PayloadFromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
@@ -128,7 +128,7 @@ func (payload *Payload) String() string {
 
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
-// Type defines the type of the drng payload.
+// PayloadType defines the type of the drng payload.
 var PayloadType = payload.Type(111)
 
 // Type returns the type of the drng payload.

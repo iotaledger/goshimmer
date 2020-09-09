@@ -43,7 +43,7 @@ type State struct {
 	mutex sync.RWMutex
 }
 
-// New creates a new State with the given optional options
+// NewState creates a new State with the given optional options
 func NewState(setters ...Option) *State {
 	args := &Options{}
 

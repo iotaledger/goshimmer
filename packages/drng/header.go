@@ -4,6 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
+// Type defines a drng payload type
 type Type = byte
 
 const (
@@ -20,7 +21,7 @@ type Header struct {
 	InstanceID  uint32 // identifier of the DRNG instance
 }
 
-// New creates a new DRNG payload header for the given type and instance id.
+// NewHeader creates a new DRNG payload header for the given type and instance id.
 func NewHeader(payloadType Type, instanceID uint32) Header {
 	return Header{
 		PayloadType: payloadType,
@@ -28,7 +29,7 @@ func NewHeader(payloadType Type, instanceID uint32) Header {
 	}
 }
 
-// Parse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+// ParseHeader is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func ParseHeader(marshalUtil *marshalutil.MarshalUtil) (Header, error) {
 	header, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return HeaderFromBytes(data) })
 	if err != nil {
@@ -37,7 +38,7 @@ func ParseHeader(marshalUtil *marshalutil.MarshalUtil) (Header, error) {
 	return header.(Header), nil
 }
 
-// FromBytes unmarshals a header from a sequence of bytes.
+// HeaderFromBytes unmarshals a header from a sequence of bytes.
 // It either creates a new header or fills the optionally provided object with the parsed information.
 func HeaderFromBytes(bytes []byte, optionalTargetObject ...*Header) (result Header, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
