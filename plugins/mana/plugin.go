@@ -1,6 +1,7 @@
 package mana
 
 import (
+	"math/rand"
 	"sync"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/database"
+	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
@@ -18,18 +20,6 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/objectstorage"
 )
-
-// TODO: expose plugin functions to the outside
-
-//GetHighestManaNodes(type, n) [n]NodeIdManaTuple: return the n highest type mana nodes (nodeID,manaValue) in ascending order. Should also update their mana value.
-//GetManaMap(type) map[nodeID]manaValue: return type mana perception of the node.
-//GetAccessMana(nodeID) mana: access Base Mana Vector of Access Mana, update its values with respect to time, and return the amount of Access Mana (either Effective Base Mana 1, Effective Base Mana 2, or some combination of the two). Trigger ManaUpdated event.
-//GetConsensusMana(nodeID) mana: access Base Mana Vector of Consensus Mana, update its values with respect to time, and returns the amount of Consensus Mana (either Effective Base Mana 1, Effective Base Mana 2, or some combination of the two). Trigger ManaUpdated event.
-//GetNeighborsMana(type): returns the type mana of the nodes neighbors
-//GetAllManaVectors() Obtaining the full mana maps for comparison with the perception of other nodes.
-//GetWeightedRandomNodes(n): returns a weighted random selection of n nodes. Consensus Mana is used for the weights.
-//Obtaining a list of currently known peers + their mana, sorted. Useful for knowing which high mana nodes are online.
-//OverrideMana(nodeID, baseManaVector): Sets the nodes mana to a specific value. Can be useful for debugging, setting faucet mana, initialization, etc.. Triggers ManaUpdated
 
 // PluginName is the name of the mana plugin.
 const (
@@ -189,3 +179,77 @@ func pruneStorages() {
 //		storages[vectorType].Shutdown()
 //	}
 //}
+
+// GetHighestManaNodes returns the n highest type mana nodes in descending order.
+// It also updates the mana values for each node.
+func GetHighestManaNodes(manaType mana.Type, n int) []mana.NodeIDMana {
+	bmv := baseManaVectors[manaType]
+	return bmv.GetHighestManaNodes(n)
+}
+
+// GetManaMap return type mana perception of the node.
+func GetManaMap(manaType mana.Type) mana.Map {
+	return baseManaVectors[manaType].GetManaMap()
+}
+
+// GetAccessMana returns the access mana of the node specified.
+func GetAccessMana(nodeID identity.ID) (float64, error) {
+	return baseManaVectors[mana.AccessMana].GetMana(nodeID)
+}
+
+// GetConsensusMana returns the consensus mana of the node specified.
+func GetConsensusMana(nodeID identity.ID) (float64, error) {
+	return baseManaVectors[mana.ConsensusMana].GetMana(nodeID)
+}
+
+// GetNeighborsMana returns the type mana of the nodes neighbors
+func GetNeighborsMana(manaType mana.Type) (mana.Map, error) {
+	neighbors := gossip.Manager().AllNeighbors()
+	res := make(mana.Map)
+	for _, n := range neighbors {
+		value, err := baseManaVectors[manaType].GetMana(n.ID())
+		if err != nil {
+			return nil, err
+		}
+		res[n.ID()] = value
+	}
+	return res, nil
+}
+
+// GetAllManaMaps returns the full mana maps for comparison with the perception of other nodes.
+func GetAllManaMaps() map[mana.Type]mana.Map {
+	res := make(map[mana.Type]mana.Map)
+	for manaType := range baseManaVectors {
+		res[manaType] = GetManaMap(manaType)
+	}
+	return res
+}
+
+// OverrideMana sets the nodes mana to a specific value.
+// It can be useful for debugging, setting faucet mana, initialization, etc.. Triggers ManaUpdated
+func OverrideMana(manaType mana.Type, nodeID identity.ID, bm *mana.BaseMana) {
+	baseManaVectors[manaType].SetMana(nodeID, bm)
+}
+
+//GetWeightedRandomNodes returns a weighted random selection of n nodes.
+func GetWeightedRandomNodes(n int, manaType mana.Type) mana.Map {
+	rand.Seed(time.Now().UTC().UnixNano())
+	manaMap := GetManaMap(manaType)
+	var choices []mana.RandChoice
+	for nodeID, manaValue := range manaMap {
+		choices = append(choices, mana.RandChoice{
+			Item:   nodeID,
+			Weight: int(manaValue * 1000000), //scale float mana to int
+		})
+	}
+	chooser := mana.NewRandChooser(choices...)
+	pickedNodes := chooser.Pick(n)
+	res := make(mana.Map)
+	for _, nodeID := range pickedNodes {
+		ID := nodeID.(identity.ID)
+		res[ID] = manaMap[ID]
+	}
+	return res
+}
+
+// TODO: Obtaining a list of currently known peers + their mana, sorted. Useful for knowing which high mana nodes are online.
