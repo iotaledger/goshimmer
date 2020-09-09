@@ -25,6 +25,8 @@ type MessageID [MessageIDLength]byte
 func NewMessageID(base58EncodedString string) (result MessageID, err error) {
 	bytes, err := base58.Decode(base58EncodedString)
 	if err != nil {
+		err = fmt.Errorf("failed to decode base58 encoded string '%s': %w", base58EncodedString, err)
+
 		return
 	}
 
@@ -59,6 +61,7 @@ func MessageIDFromBytes(bytes []byte) (result MessageID, consumedBytes int, err 
 func ParseMessageID(marshalUtil *marshalutil.MarshalUtil) (MessageID, error) {
 	id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return MessageIDFromBytes(data) })
 	if err != nil {
+		err = fmt.Errorf("failed to parse message ID: %w", err)
 		return MessageID{}, err
 	}
 	return id.(MessageID), nil
@@ -66,7 +69,7 @@ func ParseMessageID(marshalUtil *marshalutil.MarshalUtil) (MessageID, error) {
 
 // MarshalBinary marshals the MessageID into bytes.
 func (id *MessageID) MarshalBinary() (result []byte, err error) {
-	return id.Bytes(), nil
+	return m.Bytes(), nil
 }
 
 // UnmarshalBinary unmarshals the bytes into an MessageID.
@@ -117,7 +120,7 @@ type Message struct {
 }
 
 // New creates a new message with the details provided by the issuer.
-func New(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
+func NewMessage(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
 	return &Message{
 		parent1ID:       parent1ID,
 		parent2ID:       parent2ID,
@@ -156,6 +159,10 @@ func ParseMessage(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...
 		return
 	})
 
+	if err != nil {
+		err = fmt.Errorf("failed to parse message: %w", err)
+	}
+
 	return
 }
 
@@ -186,181 +193,187 @@ func StorableObjectFromKey(key []byte, optionalTargetObject ...*Message) (result
 }
 
 // VerifySignature verifies the signature of the message.
-func (message *Message) VerifySignature() bool {
-	msgBytes := message.Bytes()
-	signature := message.Signature()
+func (m *Message) VerifySignature() bool {
+	msgBytes := m.Bytes()
+	signature := m.Signature()
 
 	contentLength := len(msgBytes) - len(signature)
 	content := msgBytes[:contentLength]
 
-	return message.issuerPublicKey.VerifySignature(content, signature)
+	return m.issuerPublicKey.VerifySignature(content, signature)
 }
 
 // ID returns the id of the message which is made up of the content id and parent1/parent2 ids.
 // This id can be used for merkle proofs.
-func (message *Message) ID() (result MessageID) {
-	message.idMutex.RLock()
+func (m *Message) ID() (result MessageID) {
+	m.idMutex.RLock()
 
-	if message.id == nil {
-		message.idMutex.RUnlock()
+	if m.id == nil {
+		m.idMutex.RUnlock()
 
-		message.idMutex.Lock()
-		defer message.idMutex.Unlock()
-		if message.id != nil {
-			result = *message.id
+		m.idMutex.Lock()
+		defer m.idMutex.Unlock()
+		if m.id != nil {
+			result = *m.id
 			return
 		}
-		result = message.calculateID()
-		message.id = &result
+		result = m.calculateID()
+		m.id = &result
 		return
 	}
 
-	result = *message.id
-	message.idMutex.RUnlock()
+	result = *m.id
+	m.idMutex.RUnlock()
 	return
 }
 
 // Parent1ID returns the id of the parent1 message.
-func (message *Message) Parent1ID() MessageID {
-	return message.parent1ID
+func (m *Message) Parent1ID() MessageID {
+	return m.parent1ID
 }
 
 // Parent2ID returns the id of the parent2 message.
-func (message *Message) Parent2ID() MessageID {
-	return message.parent2ID
+func (m *Message) Parent2ID() MessageID {
+	return m.parent2ID
 }
 
 // IssuerPublicKey returns the public key of the message issuer.
-func (message *Message) IssuerPublicKey() ed25519.PublicKey {
-	return message.issuerPublicKey
+func (m *Message) IssuerPublicKey() ed25519.PublicKey {
+	return m.issuerPublicKey
 }
 
 // IssuingTime returns the time when this message was created.
-func (message *Message) IssuingTime() time.Time {
-	return message.issuingTime
+func (m *Message) IssuingTime() time.Time {
+	return m.issuingTime
 }
 
 // SequenceNumber returns the sequence number of this message.
-func (message *Message) SequenceNumber() uint64 {
-	return message.sequenceNumber
+func (m *Message) SequenceNumber() uint64 {
+	return m.sequenceNumber
 }
 
 // Payload returns the payload of the message.
-func (message *Message) Payload() payload.Payload {
-	return message.payload
+func (m *Message) Payload() payload.Payload {
+	return m.payload
 }
 
 // Nonce returns the nonce of the message.
-func (message *Message) Nonce() uint64 {
-	return message.nonce
+func (m *Message) Nonce() uint64 {
+	return m.nonce
 }
 
 // Signature returns the signature of the message.
-func (message *Message) Signature() ed25519.Signature {
-	return message.signature
+func (m *Message) Signature() ed25519.Signature {
+	return m.signature
 }
 
 // ContentID returns the content id of the message which is made up of all the
 // parts of the message minus the parent1 and parent2 ids.
-func (message *Message) ContentID() (result ContentID) {
-	message.contentIDMutex.RLock()
-	if message.contentID == nil {
-		message.contentIDMutex.RUnlock()
+func (m *Message) ContentID() (result ContentID) {
+	m.contentIDMutex.RLock()
+	if m.contentID == nil {
+		m.contentIDMutex.RUnlock()
 
-		message.contentIDMutex.Lock()
-		defer message.contentIDMutex.Unlock()
-		if message.contentID != nil {
-			result = *message.contentID
+		m.contentIDMutex.Lock()
+		defer m.contentIDMutex.Unlock()
+		if m.contentID != nil {
+			result = *m.contentID
 			return
 		}
-		result = message.calculateContentID()
-		message.contentID = &result
+		result = m.calculateContentID()
+		m.contentID = &result
 		return
 	}
 
-	result = *message.contentID
-	message.contentIDMutex.RUnlock()
+	result = *m.contentID
+	m.contentIDMutex.RUnlock()
 	return
 }
 
 // calculates the message id.
-func (message *Message) calculateID() MessageID {
+func (m *Message) calculateID() MessageID {
 	return blake2b.Sum512(
 		marshalutil.New(MessageIDLength + MessageIDLength + payload.IDLength).
-			WriteBytes(message.parent1ID.Bytes()).
-			WriteBytes(message.parent2ID.Bytes()).
-			WriteBytes(message.ContentID().Bytes()).
+			WriteBytes(m.parent1ID.Bytes()).
+			WriteBytes(m.parent2ID.Bytes()).
+			WriteBytes(m.ContentID().Bytes()).
 			Bytes(),
 	)
 }
 
 // calculates the content id of the message.
-func (message *Message) calculateContentID() ContentID {
+func (m *Message) calculateContentID() ContentID {
 	// compute content id from the message data (except parent1 and parent2 ids)
-	return blake2b.Sum512(message.Bytes()[2*MessageIDLength:])
+	return blake2b.Sum512(m.Bytes()[2*MessageIDLength:])
 }
 
 // Bytes returns the message in serialized byte form.
-func (message *Message) Bytes() []byte {
-	message.bytesMutex.RLock()
-	if message.bytes != nil {
-		defer message.bytesMutex.RUnlock()
+func (m *Message) Bytes() []byte {
+	m.bytesMutex.RLock()
+	if m.bytes != nil {
+		defer m.bytesMutex.RUnlock()
 
-		return message.bytes
+		return m.bytes
 	}
 
-	message.bytesMutex.RUnlock()
-	message.bytesMutex.RLock()
-	defer message.bytesMutex.RUnlock()
+	m.bytesMutex.RUnlock()
+	m.bytesMutex.RLock()
+	defer m.bytesMutex.RUnlock()
 
-	if message.bytes != nil {
-		return message.bytes
+	if m.bytes != nil {
+		return m.bytes
 	}
 
 	// marshal result
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteBytes(message.parent1ID.Bytes())
-	marshalUtil.WriteBytes(message.parent2ID.Bytes())
-	marshalUtil.WriteBytes(message.issuerPublicKey.Bytes())
-	marshalUtil.WriteTime(message.issuingTime)
-	marshalUtil.WriteUint64(message.sequenceNumber)
-	marshalUtil.WriteBytes(message.payload.Bytes())
-	marshalUtil.WriteUint64(message.nonce)
-	marshalUtil.WriteBytes(message.signature.Bytes())
+	marshalUtil.WriteBytes(m.parent1ID.Bytes())
+	marshalUtil.WriteBytes(m.parent2ID.Bytes())
+	marshalUtil.WriteBytes(m.issuerPublicKey.Bytes())
+	marshalUtil.WriteTime(m.issuingTime)
+	marshalUtil.WriteUint64(m.sequenceNumber)
+	marshalUtil.WriteBytes(m.payload.Bytes())
+	marshalUtil.WriteUint64(m.nonce)
+	marshalUtil.WriteBytes(m.signature.Bytes())
 
-	message.bytes = marshalUtil.Bytes()
+	m.bytes = marshalUtil.Bytes()
 
-	return message.bytes
+	return m.bytes
 }
 
 // UnmarshalObjectStorageValue unmarshals the bytes into a message.
-func (message *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
+func (m *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	// initialize helper
 	marshalUtil := marshalutil.New(data)
 
 	// parse information
-	if message.parent1ID, err = ParseMessageID(marshalUtil); err != nil {
+	if m.parent1ID, err = ParseMessageID(marshalUtil); err != nil {
 		return
 	}
-	if message.parent2ID, err = ParseMessageID(marshalUtil); err != nil {
+	if m.parent2ID, err = ParseMessageID(marshalUtil); err != nil {
 		return
 	}
-	if message.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
+	if m.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse issuer public key of the message from storage: %w", err)
 		return
 	}
-	if message.issuingTime, err = marshalUtil.ReadTime(); err != nil {
+	if m.issuingTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse issueing time of the message from storage: %w", err)
 		return
 	}
-	if message.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
+	if m.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
+		err = fmt.Errorf("failed to parse sequence number of the message from storage: %w", err)
 		return
 	}
-	if message.payload, err = payload.Parse(marshalUtil); err != nil {
+	if m.payload, err = payload.Parse(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse payload of the message from storage: %w", err)
 		return
 	}
-	if message.nonce, err = marshalUtil.ReadUint64(); err != nil {
+	if m.nonce, err = marshalUtil.ReadUint64(); err != nil {
+		err = fmt.Errorf("failed to parse nonce of the message from storage: %w", err)
 		return
 	}
-	if message.signature, err = ed25519.ParseSignature(marshalUtil); err != nil {
+	if m.signature, err = ed25519.ParseSignature(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse signature of the message from storage: %w", err)
 		return
 	}
 
@@ -368,41 +381,41 @@ func (message *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes 
 	consumedBytes = marshalUtil.ReadOffset()
 
 	// store marshaled version
-	message.bytes = make([]byte, consumedBytes)
-	copy(message.bytes, data)
+	m.bytes = make([]byte, consumedBytes)
+	copy(m.bytes, data)
 
 	return
 }
 
 // ObjectStorageKey returns the key of the stored message object.
 // This returns the bytes of the message ID.
-func (message *Message) ObjectStorageKey() []byte {
-	return message.ID().Bytes()
+func (m *Message) ObjectStorageKey() []byte {
+	return m.ID().Bytes()
 }
 
 // ObjectStorageValue returns the value stored in object storage.
 // This returns the bytes of message.
-func (message *Message) ObjectStorageValue() []byte {
-	return message.Bytes()
+func (m *Message) ObjectStorageValue() []byte {
+	return m.Bytes()
 }
 
 // Update updates the object with the values of another object.
 // Since a Message is immutable, this function is not implemented and panics.
-func (message *Message) Update(objectstorage.StorableObject) {
+func (m *Message) Update(objectstorage.StorableObject) {
 	panic("messages should never be overwritten and only stored once to optimize IO")
 }
 
-func (message *Message) String() string {
+func (m *Message) String() string {
 	return stringify.Struct("Message",
-		stringify.StructField("id", message.ID()),
-		stringify.StructField("parent1Id", message.Parent1ID()),
-		stringify.StructField("parent2Id", message.Parent2ID()),
-		stringify.StructField("issuer", message.IssuerPublicKey()),
-		stringify.StructField("issuingTime", message.IssuingTime()),
-		stringify.StructField("sequenceNumber", message.SequenceNumber()),
-		stringify.StructField("payload", message.Payload()),
-		stringify.StructField("nonce", message.Nonce()),
-		stringify.StructField("signature", message.Signature()),
+		stringify.StructField("id", m.ID()),
+		stringify.StructField("parent1Id", m.Parent1ID()),
+		stringify.StructField("parent2Id", m.Parent2ID()),
+		stringify.StructField("issuer", m.IssuerPublicKey()),
+		stringify.StructField("issuingTime", m.IssuingTime()),
+		stringify.StructField("sequenceNumber", m.SequenceNumber()),
+		stringify.StructField("payload", m.Payload()),
+		stringify.StructField("nonce", m.Nonce()),
+		stringify.StructField("signature", m.Signature()),
 	)
 }
 
@@ -413,22 +426,22 @@ type CachedMessage struct {
 }
 
 // Retain registers a new consumer for the cached message.
-func (cachedMessage *CachedMessage) Retain() *CachedMessage {
+func (c *CachedMessage) Retain() *CachedMessage {
 	return &CachedMessage{cachedMessage.CachedObject.Retain()}
 }
 
 // Consume consumes the cached object and releases it when the callback is done.
 // It returns true if the callback was called.
-func (cachedMessage *CachedMessage) Consume(consumer func(msg *Message)) bool {
-	return cachedMessage.CachedObject.Consume(func(object objectstorage.StorableObject) {
+func (c *CachedMessage) Consume(consumer func(msg *Message)) bool {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Message))
 	})
 }
 
 // Unwrap returns the message wrapped by the cached message.
 // If the wrapped object cannot be cast to a Message or has been deleted, it returns nil.
-func (cachedMessage *CachedMessage) Unwrap() *Message {
-	untypedMessage := cachedMessage.Get()
+func (c *CachedMessage) Unwrap() *Message {
+	untypedMessage := c.Get()
 	if untypedMessage == nil {
 		return nil
 	}
