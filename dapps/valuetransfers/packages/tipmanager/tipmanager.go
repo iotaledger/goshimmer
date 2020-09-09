@@ -2,21 +2,21 @@ package tipmanager
 
 import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	"github.com/iotaledger/goshimmer/packages/binary/datastructure"
+	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
 )
 
 // TipManager manages liked tips and emits events for their removal and addition.
 type TipManager struct {
 	// tips are all currently liked tips.
-	tips   *datastructure.RandomMap
+	tips   *randommap.RandomMap
 	Events Events
 }
 
 // New creates a new TipManager.
 func New() *TipManager {
 	return &TipManager{
-		tips: datastructure.NewRandomMap(),
+		tips: randommap.New(),
 		Events: Events{
 			TipAdded:   events.NewEvent(payloadIDEvent),
 			TipRemoved: events.NewEvent(payloadIDEvent),
