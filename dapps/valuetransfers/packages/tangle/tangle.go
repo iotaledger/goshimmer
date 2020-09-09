@@ -1282,7 +1282,7 @@ func (tangle *Tangle) bookTransaction(cachedTransaction *transaction.CachedTrans
 	// trigger event if transaction became solid
 	tangle.Events.TransactionSolid.Trigger(cachedTransaction, cachedTransactionMetadata)
 
-	consumedBranches := make(branchmanager.BranchIds)
+	consumedBranches := make(branchmanager.BranchIDs)
 	conflictingInputs := make([]transaction.OutputID, 0)
 	conflictingInputsOfFirstConsumers := make(map[transaction.ID][]transaction.OutputID)
 
@@ -1606,10 +1606,10 @@ func (tangle *Tangle) ValidateTransactionToAttach(tx *transaction.Transaction) (
 }
 
 // retrieveConsumedInputDetails retrieves the details of the consumed inputs of a transaction.
-func (tangle *Tangle) retrieveConsumedInputDetails(tx *transaction.Transaction) (inputsSolid bool, cachedInputs CachedOutputs, consumedBalances map[balance.Color]int64, consumedBranches branchmanager.BranchIds, err error) {
+func (tangle *Tangle) retrieveConsumedInputDetails(tx *transaction.Transaction) (inputsSolid bool, cachedInputs CachedOutputs, consumedBalances map[balance.Color]int64, consumedBranches branchmanager.BranchIDs, err error) {
 	cachedInputs = tangle.getCachedOutputsFromTransactionInputs(tx)
 	consumedBalances = make(map[balance.Color]int64)
-	consumedBranches = make(branchmanager.BranchIds)
+	consumedBranches = make(branchmanager.BranchIDs)
 	for _, cachedInput := range cachedInputs {
 		input := cachedInput.Unwrap()
 		if input == nil || !input.Solid() {
@@ -1943,7 +1943,7 @@ func (tangle *Tangle) branchIDofPayload(payloadID payload.ID) (branchID branchma
 }
 
 func (tangle *Tangle) calculateBranchOfTransaction(currentTransaction *transaction.Transaction) (branch *branchmanager.CachedBranch, err error) {
-	consumedBranches := make(branchmanager.BranchIds)
+	consumedBranches := make(branchmanager.BranchIDs)
 	if !currentTransaction.Inputs().ForEach(func(outputId transaction.OutputID) bool {
 		cachedTransactionOutput := tangle.TransactionOutput(outputId)
 		defer cachedTransactionOutput.Release()
