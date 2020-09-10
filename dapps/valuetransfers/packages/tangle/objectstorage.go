@@ -3,7 +3,6 @@ package tangle
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/objectstorage"
 )
 
@@ -31,10 +30,6 @@ var (
 		MaxConsumerHoldTime:   10 * time.Second,
 	})
 )
-
-func osTransactionFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return transaction.FromStorageKey(key)
-}
 
 func osTransactionMetadataFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return TransactionMetadataFromStorageKey(key)
