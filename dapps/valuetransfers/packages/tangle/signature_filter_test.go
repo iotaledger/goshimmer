@@ -97,7 +97,7 @@ func TestSignatureFilter(t *testing.T) {
 		// parse message bytes
 		msg, err := messageFactory.IssuePayload(dataPayload)
 		require.NoError(t, err)
-		accepted, msg, _, err := messageParser.Parse(msg.Bytes(), &peer.Peer{})
+		accepted, _, _, err := messageParser.Parse(msg.Bytes(), &peer.Peer{})
 
 		// check results (should be rejected)
 		require.Equal(t, false, accepted)
