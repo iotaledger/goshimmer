@@ -31,14 +31,6 @@ var (
 	})
 )
 
-func osTransactionMetadataFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return TransactionMetadataFromStorageKey(key)
-}
-
-func osAttachmentFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return AttachmentFromStorageKey(key)
-}
-
 func osOutputFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return OutputFromStorageKey(key)
 }
