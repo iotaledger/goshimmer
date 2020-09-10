@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -67,7 +68,7 @@ func ParseMessageID(marshalUtil *marshalutil.MarshalUtil) (MessageID, error) {
 
 // MarshalBinary marshals the MessageID into bytes.
 func (id *MessageID) MarshalBinary() (result []byte, err error) {
-	return m.Bytes(), nil
+	return id.Bytes(), nil
 }
 
 // UnmarshalBinary unmarshals the bytes into an MessageID.
@@ -425,7 +426,7 @@ type CachedMessage struct {
 
 // Retain registers a new consumer for the cached message.
 func (c *CachedMessage) Retain() *CachedMessage {
-	return &CachedMessage{cachedMessage.CachedObject.Retain()}
+	return &CachedMessage{c.CachedObject.Retain()}
 }
 
 // Consume consumes the cached object and releases it when the callback is done.
