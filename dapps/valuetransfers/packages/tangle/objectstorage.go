@@ -32,10 +32,6 @@ var (
 	})
 )
 
-func osPayloadMetadataFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return PayloadMetadataFromStorageKey(key)
-}
-
 func osMissingPayloadFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return MissingPayloadFromStorageKey(key)
 }
