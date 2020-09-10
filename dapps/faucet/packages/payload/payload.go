@@ -61,11 +61,11 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 
 	// read data
 	result = &Payload{}
-	result.payloadType, err = marshalUtil.ReadUint32()
-	if err != nil {
+	if _, err = marshalUtil.ReadUint32(); err != nil {
 		return
 	}
-	if _, err = marshalUtil.ReadUint32(); err != nil {
+	result.payloadType, err = marshalUtil.ReadUint32()
+	if err != nil {
 		return
 	}
 	addr, err := marshalUtil.ReadBytes(address.Length)
