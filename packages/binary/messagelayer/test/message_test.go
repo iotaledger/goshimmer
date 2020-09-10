@@ -42,6 +42,7 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 	t.Log(testMessage)
 
 	restoredMessage, _, err := message.FromBytes(testMessage.Bytes())
+
 	if assert.NoError(t, err, err) {
 		assert.Equal(t, testMessage.ID(), restoredMessage.ID())
 		assert.Equal(t, testMessage.Parent1ID(), restoredMessage.Parent1ID())

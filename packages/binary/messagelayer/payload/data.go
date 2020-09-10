@@ -23,27 +23,18 @@ func NewData(data []byte) *Data {
 }
 
 // DataFromBytes creates a new data payload from the given bytes.
-func DataFromBytes(bytes []byte, optionalTargetObject ...*Data) (result *Data, consumedBytes int, err error) {
+func DataFromBytes(bytes []byte) (result *Data, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseData(marshalUtil, optionalTargetObject...)
+	result, err = ParseData(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // ParseData parses a new data payload out of the given marshal util.
-func ParseData(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Data) (result *Data, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Data{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to ParseData")
-	}
-
+func ParseData(marshalUtil *marshalutil.MarshalUtil) (result *Data, err error) {
 	// parse information
+	result = &Data{}
 	result.payloadType, err = marshalUtil.ReadUint32()
 	if err != nil {
 		return
@@ -76,19 +67,12 @@ func (dataPayload *Data) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(dataPayload.Type())
 	marshalUtil.WriteUint32(uint32(len(dataPayload.data)))
+	marshalUtil.WriteUint32(dataPayload.Type())
 	marshalUtil.WriteBytes(dataPayload.data[:])
 
 	// return result
 	return marshalUtil.Bytes()
-}
-
-// Unmarshal unmarshalls the byte array to a data payload.
-func (dataPayload *Data) Unmarshal(data []byte) (err error) {
-	_, _, err = DataFromBytes(data, dataPayload)
-
-	return
 }
 
 func (dataPayload *Data) String() string {
@@ -98,11 +82,9 @@ func (dataPayload *Data) String() string {
 	)
 }
 
-// GenericPayloadUnmarshalerFactory is an unmarshaler for the generic data payload type.
-func GenericPayloadUnmarshalerFactory(payloadType Type) Unmarshaler {
-	return func(data []byte) (payload Payload, err error) {
-		payload = &Data{payloadType: payloadType}
-		err = payload.Unmarshal(data)
-		return
-	}
+// GenericPayloadUnmarshaler is an unmarshaler for the generic data payload type.
+func GenericPayloadUnmarshaler(data []byte) (payload Payload, err error) {
+	payload, _, err = DataFromBytes(data)
+
+	return
 }

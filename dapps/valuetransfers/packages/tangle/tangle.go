@@ -48,7 +48,7 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 	tangle = &Tangle{
 		branchManager: branchmanager.New(store),
 
-		payloadStorage:             osFactory.New(osPayload, osPayloadFactory, objectstorage.CacheTime(cacheTime)),
+		payloadStorage:             osFactory.New(osPayload, payload.FromObjectStorage, objectstorage.CacheTime(cacheTime)),
 		payloadMetadataStorage:     osFactory.New(osPayloadMetadata, osPayloadMetadataFactory, objectstorage.CacheTime(cacheTime)),
 		missingPayloadStorage:      osFactory.New(osMissingPayload, osMissingPayloadFactory, objectstorage.CacheTime(cacheTime)),
 		approverStorage:            osFactory.New(osApprover, osPayloadApproverFactory, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(payload.IDLength, payload.IDLength), objectstorage.KeysOnly(true)),

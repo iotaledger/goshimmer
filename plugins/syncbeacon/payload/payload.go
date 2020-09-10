@@ -30,21 +30,12 @@ func NewSyncBeaconPayload(sentTime int64) *Payload {
 
 // FromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Payload{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to FromBytes")
-	}
-
+func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 
 	// read data
+	result = &Payload{}
 	result.payloadType, err = marshalUtil.ReadUint32()
 	if err != nil {
 		return
@@ -81,19 +72,12 @@ func (p *Payload) Bytes() []byte {
 	objectLength := marshalutil.INT64_SIZE
 
 	// marshal the p specific information
-	marshalUtil.WriteUint32(Type)
 	marshalUtil.WriteUint32(uint32(objectLength))
+	marshalUtil.WriteUint32(Type)
 	marshalUtil.WriteInt64(p.sentTime)
 
 	// return result
 	return marshalUtil.Bytes()
-}
-
-// Unmarshal unmarshals a given slice of bytes and fills the object.
-func (p *Payload) Unmarshal(data []byte) (err error) {
-	_, _, err = FromBytes(data, p)
-
-	return
 }
 
 // String returns a human readable version of syncbeacon payload (for debug purposes).
@@ -109,8 +93,7 @@ func IsSyncBeaconPayload(p *Payload) bool {
 
 func init() {
 	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-		payload = &Payload{}
-		err = payload.Unmarshal(data)
+		payload, _, err = FromBytes(data)
 
 		return
 	})
