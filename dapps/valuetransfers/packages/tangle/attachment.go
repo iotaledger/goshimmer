@@ -52,7 +52,7 @@ func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, 
 // AttachmentFromObjectStorage gets called when we restore an Attachment from the storage - it parses the key bytes and
 // returns the new object.
 func AttachmentFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
-	result, _, err = PayloadMetadataFromBytes(byteutils.ConcatBytes(key, data))
+	result, _, err = AttachmentFromBytes(byteutils.ConcatBytes(key, data))
 
 	return
 }
