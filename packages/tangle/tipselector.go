@@ -25,33 +25,33 @@ func NewMessageTipSelector(tips ...MessageID) *MessageTipSelector {
 }
 
 // Set adds the given messageIDs as tips.
-func (tipSelector *MessageTipSelector) Set(tips ...MessageID) {
+func (t *MessageTipSelector) Set(tips ...MessageID) {
 	for _, messageID := range tips {
-		tipSelector.tips.Set(messageID, messageID)
+		t.tips.Set(messageID, messageID)
 	}
 }
 
 // AddTip adds the given message as a tip.
-func (tipSelector *MessageTipSelector) AddTip(msg *Message) {
+func (t *MessageTipSelector) AddTip(msg *Message) {
 	messageID := msg.ID()
-	if tipSelector.tips.Set(messageID, messageID) {
-		tipSelector.Events.TipAdded.Trigger(messageID)
+	if t.tips.Set(messageID, messageID) {
+		t.Events.TipAdded.Trigger(messageID)
 	}
 
 	parent1MessageID := msg.Parent1ID()
-	if _, deleted := tipSelector.tips.Delete(parent1MessageID); deleted {
-		tipSelector.Events.TipRemoved.Trigger(parent1MessageID)
+	if _, deleted := t.tips.Delete(parent1MessageID); deleted {
+		t.Events.TipRemoved.Trigger(parent1MessageID)
 	}
 
 	parent2MessageID := msg.Parent2ID()
-	if _, deleted := tipSelector.tips.Delete(parent2MessageID); deleted {
-		tipSelector.Events.TipRemoved.Trigger(parent2MessageID)
+	if _, deleted := t.tips.Delete(parent2MessageID); deleted {
+		t.Events.TipRemoved.Trigger(parent2MessageID)
 	}
 }
 
 // Tips returns two tips.
-func (tipSelector *MessageTipSelector) Tips() (parent1MessageID, parent2MessageID MessageID) {
-	tip := tipSelector.tips.RandomEntry()
+func (t *MessageTipSelector) Tips() (parent1MessageID, parent2MessageID MessageID) {
+	tip := t.tips.RandomEntry()
 	if tip == nil {
 		parent1MessageID = EmptyMessageID
 		parent2MessageID = EmptyMessageID
@@ -61,20 +61,20 @@ func (tipSelector *MessageTipSelector) Tips() (parent1MessageID, parent2MessageI
 
 	parent2MessageID = tip.(MessageID)
 
-	if tipSelector.tips.Size() == 1 {
+	if t.tips.Size() == 1 {
 		parent1MessageID = parent2MessageID
 		return
 	}
 
-	parent1MessageID = tipSelector.tips.RandomEntry().(MessageID)
-	for parent1MessageID == parent2MessageID && tipSelector.tips.Size() > 1 {
-		parent1MessageID = tipSelector.tips.RandomEntry().(MessageID)
+	parent1MessageID = t.tips.RandomEntry().(MessageID)
+	for parent1MessageID == parent2MessageID && t.tips.Size() > 1 {
+		parent1MessageID = t.tips.RandomEntry().(MessageID)
 	}
 
 	return
 }
 
 // TipCount the amount of current tips.
-func (tipSelector *MessageTipSelector) TipCount() int {
-	return tipSelector.tips.Size()
+func (t *MessageTipSelector) TipCount() int {
+	return t.tips.Size()
 }
