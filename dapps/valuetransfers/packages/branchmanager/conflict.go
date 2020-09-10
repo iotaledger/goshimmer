@@ -36,7 +36,7 @@ func ConflictFromBytes(bytes []byte) (result *Conflict, consumedBytes int, err e
 }
 
 // ConflictFromObjectStorage is a factory method that creates a new Conflict instance from the ObjectStorage.
-func ConflictFromObjectStorage(key []byte, data []byte) (result *Conflict, err error) {
+func ConflictFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = ConflictFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		return
 	}
