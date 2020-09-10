@@ -146,7 +146,7 @@ func (bmv *BaseManaVector) ForEach(callback func(ID identity.ID, bm *BaseMana) b
 }
 
 //GetManaMap return mana perception of the node.
-func (bmv *BaseManaVector) GetManaMap() Map {
+func (bmv *BaseManaVector) GetManaMap() NodeMap {
 	res := make(map[identity.ID]float64)
 	for ID := range bmv.vector {
 		mana, _ := bmv.GetMana(ID)
@@ -157,11 +157,11 @@ func (bmv *BaseManaVector) GetManaMap() Map {
 
 // GetHighestManaNodes return the n highest mana nodes in descending order.
 // It also updates the mana values for each node.
-func (bmv *BaseManaVector) GetHighestManaNodes(n int) []NodeIDMana {
-	var res []NodeIDMana
+func (bmv *BaseManaVector) GetHighestManaNodes(n uint) []Node {
+	var res []Node
 	for ID := range bmv.vector {
 		mana, _ := bmv.GetMana(ID)
-		res = append(res, NodeIDMana{
+		res = append(res, Node{
 			ID:   ID,
 			Mana: mana,
 		})
@@ -171,7 +171,7 @@ func (bmv *BaseManaVector) GetHighestManaNodes(n int) []NodeIDMana {
 		return res[i].Mana > res[j].Mana
 	})
 
-	if n <= len(res) {
+	if int(n) <= len(res) {
 		return res[:n]
 	}
 	return res[:]
@@ -180,14 +180,13 @@ func (bmv *BaseManaVector) GetHighestManaNodes(n int) []NodeIDMana {
 // SetMana sets the base mana for a node
 func (bmv *BaseManaVector) SetMana(nodeID identity.ID, bm *BaseMana) {
 	bmv.vector[nodeID] = bm
-	_ = bmv.Update(nodeID, time.Now())
 }
 
-// NodeIDMana represents a node and its mana value.
-type NodeIDMana struct {
+// Node represents a node and its mana value.
+type Node struct {
 	ID   identity.ID
 	Mana float64
 }
 
-// Map is a map of nodeID and mana value.
-type Map map[identity.ID]float64
+// NodeMap is a map of nodeID and mana value.
+type NodeMap map[identity.ID]float64

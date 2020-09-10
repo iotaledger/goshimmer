@@ -23,7 +23,8 @@ import (
 
 // PluginName is the name of the mana plugin.
 const (
-	PluginName = "Mana"
+	PluginName      = "Mana"
+	manaScaleFactor = 1000 // scale floating point mana to int
 )
 
 var (
@@ -182,13 +183,13 @@ func pruneStorages() {
 
 // GetHighestManaNodes returns the n highest type mana nodes in descending order.
 // It also updates the mana values for each node.
-func GetHighestManaNodes(manaType mana.Type, n int) []mana.NodeIDMana {
+func GetHighestManaNodes(manaType mana.Type, n uint) []mana.Node {
 	bmv := baseManaVectors[manaType]
 	return bmv.GetHighestManaNodes(n)
 }
 
 // GetManaMap return type mana perception of the node.
-func GetManaMap(manaType mana.Type) mana.Map {
+func GetManaMap(manaType mana.Type) mana.NodeMap {
 	return baseManaVectors[manaType].GetManaMap()
 }
 
@@ -203,9 +204,9 @@ func GetConsensusMana(nodeID identity.ID) (float64, error) {
 }
 
 // GetNeighborsMana returns the type mana of the nodes neighbors
-func GetNeighborsMana(manaType mana.Type) (mana.Map, error) {
+func GetNeighborsMana(manaType mana.Type) (mana.NodeMap, error) {
 	neighbors := gossip.Manager().AllNeighbors()
-	res := make(mana.Map)
+	res := make(mana.NodeMap)
 	for _, n := range neighbors {
 		value, err := baseManaVectors[manaType].GetMana(n.ID())
 		if err != nil {
@@ -217,8 +218,8 @@ func GetNeighborsMana(manaType mana.Type) (mana.Map, error) {
 }
 
 // GetAllManaMaps returns the full mana maps for comparison with the perception of other nodes.
-func GetAllManaMaps() map[mana.Type]mana.Map {
-	res := make(map[mana.Type]mana.Map)
+func GetAllManaMaps() map[mana.Type]mana.NodeMap {
+	res := make(map[mana.Type]mana.NodeMap)
 	for manaType := range baseManaVectors {
 		res[manaType] = GetManaMap(manaType)
 	}
@@ -232,19 +233,19 @@ func OverrideMana(manaType mana.Type, nodeID identity.ID, bm *mana.BaseMana) {
 }
 
 //GetWeightedRandomNodes returns a weighted random selection of n nodes.
-func GetWeightedRandomNodes(n int, manaType mana.Type) mana.Map {
+func GetWeightedRandomNodes(n int, manaType mana.Type) mana.NodeMap {
 	rand.Seed(time.Now().UTC().UnixNano())
 	manaMap := GetManaMap(manaType)
 	var choices []mana.RandChoice
 	for nodeID, manaValue := range manaMap {
 		choices = append(choices, mana.RandChoice{
 			Item:   nodeID,
-			Weight: int(manaValue * 1000000), //scale float mana to int
+			Weight: int(manaValue * manaScaleFactor), //scale float mana to int
 		})
 	}
 	chooser := mana.NewRandChooser(choices...)
 	pickedNodes := chooser.Pick(n)
-	res := make(mana.Map)
+	res := make(mana.NodeMap)
 	for _, nodeID := range pickedNodes {
 		ID := nodeID.(identity.ID)
 		res[ID] = manaMap[ID]
