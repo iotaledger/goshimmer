@@ -49,30 +49,30 @@ func MissingMessageFromStorageKey(key []byte, optionalTargetObject ...*MissingMe
 }
 
 // MessageID returns the id of the message.
-func (missingMessage *MissingMessage) MessageID() MessageID {
-	return missingMessage.messageID
+func (m *MissingMessage) MessageID() MessageID {
+	return m.messageID
 }
 
 // MissingSince returns the time since when this message is missing.
-func (missingMessage *MissingMessage) MissingSince() time.Time {
-	return missingMessage.missingSince
+func (m *MissingMessage) MissingSince() time.Time {
+	return m.missingSince
 }
 
 // Update update the missing message.
 // It should never happen and will panic if called.
-func (missingMessage *MissingMessage) Update(other objectstorage.StorableObject) {
+func (m *MissingMessage) Update(other objectstorage.StorableObject) {
 	panic("missing messages should never be overwritten and only stored once to optimize IO")
 }
 
 // ObjectStorageKey returns the key of the stored missing message.
 // This returns the bytes of the messageID of the missing message.
-func (missingMessage *MissingMessage) ObjectStorageKey() []byte {
-	return missingMessage.messageID[:]
+func (m *MissingMessage) ObjectStorageKey() []byte {
+	return m.messageID[:]
 }
 
 // ObjectStorageValue returns the value of the stored missing message.
-func (missingMessage *MissingMessage) ObjectStorageValue() (result []byte) {
-	result, err := missingMessage.missingSince.MarshalBinary()
+func (m *MissingMessage) ObjectStorageValue() (result []byte) {
+	result, err := m.missingSince.MarshalBinary()
 	if err != nil {
 		panic(err)
 	}
@@ -81,9 +81,9 @@ func (missingMessage *MissingMessage) ObjectStorageValue() (result []byte) {
 }
 
 // UnmarshalObjectStorageValue unmarshals the stored bytes into a missing message.
-func (missingMessage *MissingMessage) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
+func (m *MissingMessage) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
-	missingMessage.missingSince, err = marshalUtil.ReadTime()
+	m.missingSince, err = marshalUtil.ReadTime()
 	if err != nil {
 		return
 	}

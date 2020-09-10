@@ -74,83 +74,83 @@ func MessageMetadataFromStorageKey(key []byte) (result objectstorage.StorableObj
 }
 
 // ReceivedTime returns the time when the message was received.
-func (messageMetadata *MessageMetadata) ReceivedTime() time.Time {
-	return messageMetadata.receivedTime
+func (m *MessageMetadata) ReceivedTime() time.Time {
+	return m.receivedTime
 }
 
 // IsSolid returns true if the message represented by this metadata is solid. False otherwise.
-func (messageMetadata *MessageMetadata) IsSolid() (result bool) {
-	messageMetadata.solidMutex.RLock()
-	result = messageMetadata.solid
-	messageMetadata.solidMutex.RUnlock()
+func (m *MessageMetadata) IsSolid() (result bool) {
+	m.solidMutex.RLock()
+	result = m.solid
+	m.solidMutex.RUnlock()
 
 	return
 }
 
 // SetSolid sets the message associated with this metadata as solid.
 // It returns true if the solid status is modified. False otherwise.
-func (messageMetadata *MessageMetadata) SetSolid(solid bool) (modified bool) {
-	messageMetadata.solidMutex.RLock()
-	if messageMetadata.solid != solid {
-		messageMetadata.solidMutex.RUnlock()
+func (m *MessageMetadata) SetSolid(solid bool) (modified bool) {
+	m.solidMutex.RLock()
+	if m.solid != solid {
+		m.solidMutex.RUnlock()
 
-		messageMetadata.solidMutex.Lock()
-		if messageMetadata.solid != solid {
-			messageMetadata.solid = solid
+		m.solidMutex.Lock()
+		if m.solid != solid {
+			m.solid = solid
 			if solid {
-				messageMetadata.solidificationTimeMutex.Lock()
-				messageMetadata.solidificationTime = time.Now()
-				messageMetadata.solidificationTimeMutex.Unlock()
+				m.solidificationTimeMutex.Lock()
+				m.solidificationTime = time.Now()
+				m.solidificationTimeMutex.Unlock()
 			}
 
-			messageMetadata.SetModified()
+			m.SetModified()
 
 			modified = true
 		}
-		messageMetadata.solidMutex.Unlock()
+		m.solidMutex.Unlock()
 
 	} else {
-		messageMetadata.solidMutex.RUnlock()
+		m.solidMutex.RUnlock()
 	}
 
 	return
 }
 
 // SolidificationTime returns the time when the message was marked to be solid.
-func (messageMetadata *MessageMetadata) SolidificationTime() time.Time {
-	messageMetadata.solidificationTimeMutex.RLock()
-	defer messageMetadata.solidificationTimeMutex.RUnlock()
+func (m *MessageMetadata) SolidificationTime() time.Time {
+	m.solidificationTimeMutex.RLock()
+	defer m.solidificationTimeMutex.RUnlock()
 
-	return messageMetadata.solidificationTime
+	return m.solidificationTime
 }
 
 // ObjectStorageKey returns the key of the stored message metadata object.
 // This returns the bytes of the messageID.
-func (messageMetadata *MessageMetadata) ObjectStorageKey() []byte {
-	return messageMetadata.messageID.Bytes()
+func (m *MessageMetadata) ObjectStorageKey() []byte {
+	return m.messageID.Bytes()
 }
 
 // ObjectStorageValue returns the value of the stored message metadata object.
 // This includes the receivedTime, solidificationTime and solid status.
-func (messageMetadata *MessageMetadata) ObjectStorageValue() []byte {
+func (m *MessageMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		WriteTime(messageMetadata.ReceivedTime()).
-		WriteTime(messageMetadata.SolidificationTime()).
-		WriteBool(messageMetadata.IsSolid()).
+		WriteTime(m.ReceivedTime()).
+		WriteTime(m.SolidificationTime()).
+		WriteBool(m.IsSolid()).
 		Bytes()
 }
 
 // UnmarshalObjectStorageValue unmarshals the stored bytes into a messageMetadata.
-func (messageMetadata *MessageMetadata) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
+func (m *MessageMetadata) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(data)
 
-	if messageMetadata.receivedTime, err = marshalUtil.ReadTime(); err != nil {
+	if m.receivedTime, err = marshalUtil.ReadTime(); err != nil {
 		return
 	}
-	if messageMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+	if m.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
 		return
 	}
-	if messageMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
+	if m.solid, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
 
@@ -161,7 +161,7 @@ func (messageMetadata *MessageMetadata) UnmarshalObjectStorageValue(data []byte)
 
 // Update updates the message metadata.
 // This should never happen and will panic if attempted.
-func (messageMetadata *MessageMetadata) Update(other objectstorage.StorableObject) {
+func (m *MessageMetadata) Update(other objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 

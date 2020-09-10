@@ -1,6 +1,8 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -38,7 +40,7 @@ func ParseApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ..
 		return ApproverFromStorageKey(data, optionalTargetObject...)
 	})
 	if parseErr != nil {
-		err = parseErr
+		err = fmt.Errorf("failed to parse approver: %w", parseErr)
 		return
 	}
 	result = parsedObject.(*Approver)
@@ -66,10 +68,14 @@ func ApproverFromStorageKey(key []byte, optionalTargetObject ...*Approver) (resu
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	if result.(*Approver).referencedMessageID, err = ParseMessageID(marshalUtil); err != nil {
+	result.(*Approver).referencedMessageID, err = ParseMessageID(marshalUtil)
+	if err != nil {
+		err = fmt.Errorf("failed to parse approver referenced message ID: %w", err)
 		return
 	}
-	if result.(*Approver).approverMessageID, err = ParseMessageID(marshalUtil); err != nil {
+	result.(*Approver).approverMessageID, err = ParseMessageID(marshalUtil)
+	if err != nil {
+		err = fmt.Errorf("failed to parse approver message ID: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -78,50 +84,50 @@ func ApproverFromStorageKey(key []byte, optionalTargetObject ...*Approver) (resu
 }
 
 // ReferencedMessageID returns the ID of the message which is referenced by the approver.
-func (approver *Approver) ReferencedMessageID() MessageID {
-	return approver.referencedMessageID
+func (a *Approver) ReferencedMessageID() MessageID {
+	return a.referencedMessageID
 }
 
 // ApproverMessageID returns the ID of the message which referenced the given approved message.
-func (approver *Approver) ApproverMessageID() MessageID {
-	return approver.approverMessageID
+func (a *Approver) ApproverMessageID() MessageID {
+	return a.approverMessageID
 }
 
 // Bytes returns the bytes of the approver.
-func (approver *Approver) Bytes() []byte {
-	return approver.ObjectStorageKey()
+func (a *Approver) Bytes() []byte {
+	return a.ObjectStorageKey()
 }
 
 // String returns the string representation of the approver.
-func (approver *Approver) String() string {
+func (a *Approver) String() string {
 	return stringify.Struct("Approver",
-		stringify.StructField("referencedMessageID", approver.ReferencedMessageID()),
-		stringify.StructField("approverMessageID", approver.ApproverMessageID()),
+		stringify.StructField("referencedMessageID", a.ReferencedMessageID()),
+		stringify.StructField("approverMessageID", a.ApproverMessageID()),
 	)
 }
 
 // ObjectStorageKey marshals the keys of the stored approver into a byte array.
 // This includes the referencedMessageID and the approverMessageID.
-func (approver *Approver) ObjectStorageKey() []byte {
+func (a *Approver) ObjectStorageKey() []byte {
 	return marshalutil.New().
-		WriteBytes(approver.referencedMessageID.Bytes()).
-		WriteBytes(approver.approverMessageID.Bytes()).
+		WriteBytes(a.referencedMessageID.Bytes()).
+		WriteBytes(a.approverMessageID.Bytes()).
 		Bytes()
 }
 
 // ObjectStorageValue returns the value of the stored approver object.
-func (approver *Approver) ObjectStorageValue() (result []byte) {
+func (a *Approver) ObjectStorageValue() (result []byte) {
 	return
 }
 
 // UnmarshalObjectStorageValue unmarshals the stored bytes into an approver.
-func (approver *Approver) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
+func (a *Approver) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	return
 }
 
 // Update updates the approver.
 // This should should never happen and will panic if attempted.
-func (approver *Approver) Update(other objectstorage.StorableObject) {
+func (a *Approver) Update(other objectstorage.StorableObject) {
 	panic("approvers should never be overwritten and only stored once to optimize IO")
 }
 

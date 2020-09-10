@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"container/list"
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
@@ -61,24 +62,24 @@ func NewTangle(store kvstore.KVStore) (result *Tangle) {
 }
 
 // AttachMessage attaches a new message to the tangle.
-func (tangle *Tangle) AttachMessage(msg *Message) {
-	tangle.storeMessageWorkerPool.Submit(func() { tangle.storeMessageWorker(msg) })
+func (t *Tangle) AttachMessage(msg *Message) {
+	t.storeMessageWorkerPool.Submit(func() { t.storeMessageWorker(msg) })
 }
 
 // Message retrieves a message from the tangle.
-func (tangle *Tangle) Message(messageID MessageID) *CachedMessage {
-	return &CachedMessage{CachedObject: tangle.messageStorage.Load(messageID[:])}
+func (t *Tangle) Message(messageID MessageID) *CachedMessage {
+	return &CachedMessage{CachedObject: t.messageStorage.Load(messageID[:])}
 }
 
 // MessageMetadata retrieves the metadata of a message from the tangle.
-func (tangle *Tangle) MessageMetadata(messageID MessageID) *CachedMessageMetadata {
-	return &CachedMessageMetadata{CachedObject: tangle.messageMetadataStorage.Load(messageID[:])}
+func (t *Tangle) MessageMetadata(messageID MessageID) *CachedMessageMetadata {
+	return &CachedMessageMetadata{CachedObject: t.messageMetadataStorage.Load(messageID[:])}
 }
 
 // Approvers retrieves the approvers of a message from the tangle.
-func (tangle *Tangle) Approvers(messageID MessageID) CachedApprovers {
+func (t *Tangle) Approvers(messageID MessageID) CachedApprovers {
 	approvers := make(CachedApprovers, 0)
-	tangle.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+	t.approverStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		approvers = append(approvers, &CachedApprover{CachedObject: cachedObject})
 		return true
 	}, messageID[:])
@@ -87,51 +88,52 @@ func (tangle *Tangle) Approvers(messageID MessageID) CachedApprovers {
 
 // DeleteMessage deletes a message and its association to approvees by un-marking the given
 // message as an approver.
-func (tangle *Tangle) DeleteMessage(messageID MessageID) {
-	tangle.Message(messageID).Consume(func(currentMsg *Message) {
+func (t *Tangle) DeleteMessage(messageID MessageID) {
+	t.Message(messageID).Consume(func(currentMsg *Message) {
 		parent1MsgID := currentMsg.Parent1ID()
-		tangle.deleteApprover(parent1MsgID, messageID)
+		t.deleteApprover(parent1MsgID, messageID)
 
 		parent2MsgID := currentMsg.Parent2ID()
 		if parent2MsgID != parent1MsgID {
-			tangle.deleteApprover(parent2MsgID, messageID)
+			t.deleteApprover(parent2MsgID, messageID)
 		}
 
-		tangle.messageMetadataStorage.Delete(messageID[:])
-		tangle.messageStorage.Delete(messageID[:])
+		t.messageMetadataStorage.Delete(messageID[:])
+		t.messageStorage.Delete(messageID[:])
 
-		tangle.Events.MessageRemoved.Trigger(messageID)
+		t.Events.MessageRemoved.Trigger(messageID)
 	})
 }
 
 // DeleteMissingMessage deletes a message from the missingMessageStorage.
-func (tangle *Tangle) DeleteMissingMessage(messageID MessageID) {
-	tangle.missingMessageStorage.Delete(messageID[:])
+func (t *Tangle) DeleteMissingMessage(messageID MessageID) {
+	t.missingMessageStorage.Delete(messageID[:])
 }
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
-func (tangle *Tangle) Shutdown() *Tangle {
-	tangle.storeMessageWorkerPool.ShutdownGracefully()
-	tangle.solidifierWorkerPool.ShutdownGracefully()
+func (t *Tangle) Shutdown() *Tangle {
+	t.storeMessageWorkerPool.ShutdownGracefully()
+	t.solidifierWorkerPool.ShutdownGracefully()
 
-	tangle.messageStorage.Shutdown()
-	tangle.messageMetadataStorage.Shutdown()
-	tangle.approverStorage.Shutdown()
-	tangle.missingMessageStorage.Shutdown()
-	close(tangle.shutdown)
+	t.messageStorage.Shutdown()
+	t.messageMetadataStorage.Shutdown()
+	t.approverStorage.Shutdown()
+	t.missingMessageStorage.Shutdown()
+	close(t.shutdown)
 
-	return tangle
+	return t
 }
 
 // Prune resets the database and deletes all objects (good for testing or "node resets").
-func (tangle *Tangle) Prune() error {
+func (t *Tangle) Prune() error {
 	for _, storage := range []*objectstorage.ObjectStorage{
-		tangle.messageStorage,
-		tangle.messageMetadataStorage,
-		tangle.approverStorage,
-		tangle.missingMessageStorage,
+		t.messageStorage,
+		t.messageMetadataStorage,
+		t.approverStorage,
+		t.missingMessageStorage,
 	} {
 		if err := storage.Prune(); err != nil {
+			err = fmt.Errorf("failed to prune storage: %w", err)
 			return err
 		}
 	}
@@ -142,9 +144,9 @@ func (tangle *Tangle) Prune() error {
 // DBStats returns the number of solid messages and total number of messages in the database (messageMetadataStorage,
 // that should contain the messages as messageStorage), the number of messages in missingMessageStorage, furthermore
 // the average time it takes to solidify messages.
-func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidificationTime float64, missingMessageCount int) {
+func (t *Tangle) DBStats() (solidCount int, messageCount int, avgSolidificationTime float64, missingMessageCount int) {
 	var sumSolidificationTime time.Duration
-	tangle.messageMetadataStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+	t.messageMetadataStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
 			msgMetaData := object.(*MessageMetadata)
 			messageCount++
@@ -159,7 +161,7 @@ func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidifica
 	if solidCount > 0 {
 		avgSolidificationTime = float64(sumSolidificationTime.Milliseconds()) / float64(solidCount)
 	}
-	tangle.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+	t.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
 			missingMessageCount++
 		})
@@ -169,8 +171,8 @@ func (tangle *Tangle) DBStats() (solidCount int, messageCount int, avgSolidifica
 }
 
 // MissingMessages return the ids of messages in missingMessageStorage
-func (tangle *Tangle) MissingMessages() (ids []MessageID) {
-	tangle.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
+func (t *Tangle) MissingMessages() (ids []MessageID) {
+	t.missingMessageStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
 		cachedObject.Consume(func(object objectstorage.StorableObject) {
 			ids = append(ids, object.(*MissingMessage).messageID)
 		})
@@ -181,10 +183,10 @@ func (tangle *Tangle) MissingMessages() (ids []MessageID) {
 }
 
 // worker that stores the message and calls the corresponding storage events.
-func (tangle *Tangle) storeMessageWorker(msg *Message) {
+func (t *Tangle) storeMessageWorker(msg *Message) {
 	// store message
 	var cachedMessage *CachedMessage
-	_tmp, msgIsNew := tangle.messageStorage.StoreIfAbsent(msg)
+	_tmp, msgIsNew := t.messageStorage.StoreIfAbsent(msg)
 	if !msgIsNew {
 		return
 	}
@@ -192,47 +194,47 @@ func (tangle *Tangle) storeMessageWorker(msg *Message) {
 
 	// store message metadata
 	messageID := msg.ID()
-	cachedMsgMetadata := &CachedMessageMetadata{CachedObject: tangle.messageMetadataStorage.Store(NewMessageMetadata(messageID))}
+	cachedMsgMetadata := &CachedMessageMetadata{CachedObject: t.messageMetadataStorage.Store(NewMessageMetadata(messageID))}
 
 	// store parent1 approver
 	parent1MsgID := msg.Parent1ID()
-	tangle.approverStorage.Store(NewApprover(parent1MsgID, messageID)).Release()
+	t.approverStorage.Store(NewApprover(parent1MsgID, messageID)).Release()
 
 	// store parent2 approver
 	if parent2MsgID := msg.Parent2ID(); parent2MsgID != parent1MsgID {
-		tangle.approverStorage.Store(NewApprover(parent2MsgID, messageID)).Release()
+		t.approverStorage.Store(NewApprover(parent2MsgID, messageID)).Release()
 	}
 
 	// trigger events
-	if tangle.missingMessageStorage.DeleteIfPresent(messageID[:]) {
-		tangle.Events.MissingMessageReceived.Trigger(&CachedMessageEvent{
+	if t.missingMessageStorage.DeleteIfPresent(messageID[:]) {
+		t.Events.MissingMessageReceived.Trigger(&CachedMessageEvent{
 			Message:         cachedMessage,
 			MessageMetadata: cachedMsgMetadata})
 	}
 
-	tangle.Events.MessageAttached.Trigger(&CachedMessageEvent{
+	t.Events.MessageAttached.Trigger(&CachedMessageEvent{
 		Message:         cachedMessage,
 		MessageMetadata: cachedMsgMetadata})
 
 	// check message solidity
-	tangle.solidifierWorkerPool.Submit(func() {
-		tangle.checkMessageSolidityAndPropagate(cachedMessage, cachedMsgMetadata)
+	t.solidifierWorkerPool.Submit(func() {
+		t.checkMessageSolidityAndPropagate(cachedMessage, cachedMsgMetadata)
 	})
 }
 
 // checks whether the given message is solid and marks it as missing if it isn't known.
-func (tangle *Tangle) isMessageMarkedAsSolid(messageID MessageID) bool {
+func (t *Tangle) isMessageMarkedAsSolid(messageID MessageID) bool {
 	// return true if the message is the Genesis
 	if messageID == EmptyMessageID {
 		return true
 	}
 
 	// retrieve the CachedMessageMetadata and mark it as missing if it doesn't exist
-	msgMetadataCached := &CachedMessageMetadata{tangle.messageMetadataStorage.ComputeIfAbsent(messageID.Bytes(), func(key []byte) objectstorage.StorableObject {
+	msgMetadataCached := &CachedMessageMetadata{t.messageMetadataStorage.ComputeIfAbsent(messageID.Bytes(), func(key []byte) objectstorage.StorableObject {
 		// store the missing message and trigger events
-		if cachedMissingMessage, stored := tangle.missingMessageStorage.StoreIfAbsent(NewMissingMessage(messageID)); stored {
+		if cachedMissingMessage, stored := t.missingMessageStorage.StoreIfAbsent(NewMissingMessage(messageID)); stored {
 			cachedMissingMessage.Consume(func(object objectstorage.StorableObject) {
-				tangle.Events.MessageMissing.Trigger(messageID)
+				t.Events.MessageMissing.Trigger(messageID)
 			})
 		}
 
@@ -253,7 +255,7 @@ func (tangle *Tangle) isMessageMarkedAsSolid(messageID MessageID) bool {
 
 // checks whether the given message is solid by examining whether its parent1 and
 // parent2 messages are solid.
-func (tangle *Tangle) isMessageSolid(msg *Message, msgMetadata *MessageMetadata) bool {
+func (t *Tangle) isMessageSolid(msg *Message, msgMetadata *MessageMetadata) bool {
 	if msg == nil || msg.IsDeleted() {
 		return false
 	}
@@ -267,14 +269,14 @@ func (tangle *Tangle) isMessageSolid(msg *Message, msgMetadata *MessageMetadata)
 	}
 
 	// as missing messages are requested in isMessageMarkedAsSolid, we want to prevent short-circuit evaluation
-	parent1Solid := tangle.isMessageMarkedAsSolid(msg.Parent1ID())
-	parent2Solid := tangle.isMessageMarkedAsSolid(msg.Parent2ID())
+	parent1Solid := t.isMessageMarkedAsSolid(msg.Parent1ID())
+	parent2Solid := t.isMessageMarkedAsSolid(msg.Parent2ID())
 	return parent1Solid && parent2Solid
 }
 
 // builds up a stack from the given message and tries to solidify into the present.
 // missing messages which are needed for a message to become solid are marked as missing.
-func (tangle *Tangle) checkMessageSolidityAndPropagate(cachedMessage *CachedMessage, cachedMsgMetadata *CachedMessageMetadata) {
+func (t *Tangle) checkMessageSolidityAndPropagate(cachedMessage *CachedMessage, cachedMsgMetadata *CachedMessageMetadata) {
 
 	popElementsFromStack := func(stack *list.List) (*CachedMessage, *CachedMessageMetadata) {
 		currentSolidificationEntry := stack.Front()
@@ -301,17 +303,17 @@ func (tangle *Tangle) checkMessageSolidityAndPropagate(cachedMessage *CachedMess
 		}
 
 		// mark the message as solid if it has become solid
-		if tangle.isMessageSolid(currentMessage, currentMsgMetadata) && currentMsgMetadata.SetSolid(true) {
-			tangle.Events.MessageSolid.Trigger(&CachedMessageEvent{
+		if t.isMessageSolid(currentMessage, currentMsgMetadata) && currentMsgMetadata.SetSolid(true) {
+			t.Events.MessageSolid.Trigger(&CachedMessageEvent{
 				Message:         currentCachedMessage,
 				MessageMetadata: currentCachedMsgMetadata})
 
 			// auto. push approvers of the newly solid message to propagate solidification
-			tangle.Approvers(currentMessage.ID()).Consume(func(approver *Approver) {
+			t.Approvers(currentMessage.ID()).Consume(func(approver *Approver) {
 				approverMessageID := approver.ApproverMessageID()
 				solidificationStack.PushBack([2]interface{}{
-					tangle.Message(approverMessageID),
-					tangle.MessageMetadata(approverMessageID),
+					t.Message(approverMessageID),
+					t.MessageMetadata(approverMessageID),
 				})
 			})
 		}
@@ -322,16 +324,16 @@ func (tangle *Tangle) checkMessageSolidityAndPropagate(cachedMessage *CachedMess
 }
 
 // deletes the given approver association for the given approvee to its approver.
-func (tangle *Tangle) deleteApprover(approvedMessageID MessageID, approvingMessage MessageID) {
+func (t *Tangle) deleteApprover(approvedMessageID MessageID, approvingMessage MessageID) {
 	idToDelete := make([]byte, MessageIDLength+MessageIDLength)
 	copy(idToDelete[:MessageIDLength], approvedMessageID[:])
 	copy(idToDelete[MessageIDLength:], approvingMessage[:])
-	tangle.approverStorage.Delete(idToDelete)
+	t.approverStorage.Delete(idToDelete)
 }
 
 // deletes a message and its future cone of messages/approvers.
 // nolint
-func (tangle *Tangle) deleteFutureCone(messageID MessageID) {
+func (t *Tangle) deleteFutureCone(messageID MessageID) {
 	cleanupStack := list.New()
 	cleanupStack.PushBack(messageID)
 
@@ -343,9 +345,9 @@ func (tangle *Tangle) deleteFutureCone(messageID MessageID) {
 		currentMessageID := currentStackEntry.Value.(MessageID)
 		cleanupStack.Remove(currentStackEntry)
 
-		tangle.DeleteMessage(currentMessageID)
+		t.DeleteMessage(currentMessageID)
 
-		tangle.Approvers(currentMessageID).Consume(func(approver *Approver) {
+		t.Approvers(currentMessageID).Consume(func(approver *Approver) {
 			approverID := approver.ApproverMessageID()
 			if _, messageProcessed := processedMessages[approverID]; !messageProcessed {
 				cleanupStack.PushBack(approverID)
@@ -356,24 +358,24 @@ func (tangle *Tangle) deleteFutureCone(messageID MessageID) {
 }
 
 // SolidifierWorkerPoolStatus returns the name and the load of the workerpool.
-func (tangle *Tangle) SolidifierWorkerPoolStatus() (name string, load int) {
-	return "Solidifier", tangle.solidifierWorkerPool.RunningWorkers()
+func (t *Tangle) SolidifierWorkerPoolStatus() (name string, load int) {
+	return "Solidifier", t.solidifierWorkerPool.RunningWorkers()
 }
 
 // StoreMessageWorkerPoolStatus returns the name and the load of the workerpool.
-func (tangle *Tangle) StoreMessageWorkerPoolStatus() (name string, load int) {
-	return "StoreMessage", tangle.storeMessageWorkerPool.RunningWorkers()
+func (t *Tangle) StoreMessageWorkerPoolStatus() (name string, load int) {
+	return "StoreMessage", t.storeMessageWorkerPool.RunningWorkers()
 }
 
 // RetrieveAllTips returns the tips (i.e., solid messages that are not part of the approvers list).
 // It iterates over the messageMetadataStorage, thus only use this method if necessary.
 // TODO: improve this function.
-func (tangle *Tangle) RetrieveAllTips() (tips []MessageID) {
-	tangle.messageMetadataStorage.ForEach(func(key []byte, cachedMessage objectstorage.CachedObject) bool {
+func (t *Tangle) RetrieveAllTips() (tips []MessageID) {
+	t.messageMetadataStorage.ForEach(func(key []byte, cachedMessage objectstorage.CachedObject) bool {
 		cachedMessage.Consume(func(object objectstorage.StorableObject) {
 			messageMetadata := object.(*MessageMetadata)
 			if messageMetadata != nil && messageMetadata.IsSolid() {
-				cachedApprovers := tangle.Approvers(messageMetadata.messageID)
+				cachedApprovers := t.Approvers(messageMetadata.messageID)
 				if len(cachedApprovers) == 0 {
 					tips = append(tips, messageMetadata.messageID)
 				}
