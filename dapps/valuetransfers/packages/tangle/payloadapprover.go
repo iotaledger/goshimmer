@@ -31,59 +31,37 @@ func NewPayloadApprover(referencedPayload payload.ID, approvingPayload payload.I
 }
 
 // PayloadApproverFromBytes unmarshals a PayloadApprover from a sequence of bytes.
-func PayloadApproverFromBytes(bytes []byte, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, consumedBytes int, err error) {
+func PayloadApproverFromBytes(bytes []byte) (result *PayloadApprover, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParsePayloadApprover(marshalUtil, optionalTargetObject...)
+	result, err = ParsePayloadApprover(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // ParsePayloadApprover unmarshals a PayloadApprover using the given marshalUtil (for easier marshaling/unmarshaling).
-func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, err error) {
-	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
-		return PayloadApproverFromStorageKey(data, optionalTargetObject...)
-	})
-	if parseErr != nil {
-		err = parseErr
+func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil) (result *PayloadApprover, err error) {
+	readStartOffset := marshalUtil.ReadOffset()
 
-		return
-	}
-
-	result = parsedObject.(*PayloadApprover)
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
-
-		return
-	})
-
-	return
-}
-
-// PayloadApproverFromStorageKey get's called when we restore transaction metadata from the storage.
-// In contrast to other database models, it unmarshals the information from the key and does not use the UnmarshalObjectStorageValue
-// method.
-func PayloadApproverFromStorageKey(key []byte, optionalTargetObject ...*PayloadApprover) (result *PayloadApprover, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &PayloadApprover{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to PayloadApproverFromStorageKey")
-	}
-
-	// parse the properties that are stored in the key
-	marshalUtil := marshalutil.New(key)
+	result = &PayloadApprover{}
 	if result.referencedPayloadID, err = payload.ParseID(marshalUtil); err != nil {
 		return
 	}
 	if result.approvingPayloadID, err = payload.ParseID(marshalUtil); err != nil {
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-	result.storageKey = marshalutil.New(key[:consumedBytes]).Bytes(true)
+	if result.storageKey, err = marshalUtil.ReadBytes(marshalUtil.ReadOffset()-readStartOffset, readStartOffset); err != nil {
+		return
+	}
+
+	return
+}
+
+// PayloadApproverFromObjectStorage get's called when we restore transaction metadata from the storage.
+// In contrast to other database models, it unmarshals the information from the key and does not use the UnmarshalObjectStorageValue
+// method.
+func PayloadApproverFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
+	result, _, err = PayloadMetadataFromBytes(key)
 
 	return
 }
@@ -102,12 +80,6 @@ func (payloadApprover *PayloadApprover) ObjectStorageKey() []byte {
 // ObjectStorageValue is implemented to conform with the StorableObject interface, but it does not really do anything,
 // since all of the information about an approver are stored in the "key".
 func (payloadApprover *PayloadApprover) ObjectStorageValue() (data []byte) {
-	return
-}
-
-// UnmarshalObjectStorageValue is implemented to conform with the StorableObject interface, but it does not really do
-// anything, since all of the information about an approver are stored in the "key".
-func (payloadApprover *PayloadApprover) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
 	return
 }
 

@@ -32,14 +32,6 @@ var (
 	})
 )
 
-func osMissingPayloadFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return MissingPayloadFromStorageKey(key)
-}
-
-func osPayloadApproverFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return PayloadApproverFromStorageKey(key)
-}
-
 func osTransactionFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return transaction.FromStorageKey(key)
 }
