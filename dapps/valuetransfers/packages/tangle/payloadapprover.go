@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 )
@@ -12,21 +13,15 @@ import (
 type PayloadApprover struct {
 	objectstorage.StorableObjectFlags
 
-	storageKey          []byte
 	referencedPayloadID payload.ID
 	approvingPayloadID  payload.ID
 }
 
 // NewPayloadApprover creates an approver object that encodes a single relation between an approved and an approving payload.
 func NewPayloadApprover(referencedPayload payload.ID, approvingPayload payload.ID) *PayloadApprover {
-	marshalUtil := marshalutil.New(payload.IDLength + payload.IDLength)
-	marshalUtil.WriteBytes(referencedPayload.Bytes())
-	marshalUtil.WriteBytes(approvingPayload.Bytes())
-
 	return &PayloadApprover{
 		referencedPayloadID: referencedPayload,
 		approvingPayloadID:  approvingPayload,
-		storageKey:          marshalUtil.Bytes(),
 	}
 }
 
@@ -41,16 +36,11 @@ func PayloadApproverFromBytes(bytes []byte) (result *PayloadApprover, consumedBy
 
 // ParsePayloadApprover unmarshals a PayloadApprover using the given marshalUtil (for easier marshaling/unmarshaling).
 func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil) (result *PayloadApprover, err error) {
-	readStartOffset := marshalUtil.ReadOffset()
-
 	result = &PayloadApprover{}
 	if result.referencedPayloadID, err = payload.ParseID(marshalUtil); err != nil {
 		return
 	}
 	if result.approvingPayloadID, err = payload.ParseID(marshalUtil); err != nil {
-		return
-	}
-	if result.storageKey, err = marshalUtil.ReadBytes(marshalUtil.ReadOffset()-readStartOffset, readStartOffset); err != nil {
 		return
 	}
 
@@ -74,7 +64,7 @@ func (payloadApprover *PayloadApprover) ApprovingPayloadID() payload.ID {
 // ObjectStorageKey returns the key that is used to store the object in the database.
 // It is required to match StorableObject interface.
 func (payloadApprover *PayloadApprover) ObjectStorageKey() []byte {
-	return payloadApprover.storageKey
+	return byteutils.ConcatBytes(payloadApprover.referencedPayloadID.Bytes(), payloadApprover.approvingPayloadID.Bytes())
 }
 
 // ObjectStorageValue is implemented to conform with the StorableObject interface, but it does not really do anything,

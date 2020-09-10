@@ -16,8 +16,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 		panic(err)
 	}
 
-	assert.Equal(t, originalMetadata.PayloadID(),
-		clonedMetadata.PayloadID())
+	assert.Equal(t, originalMetadata.PayloadID(), clonedMetadata.PayloadID())
 	assert.Equal(t, originalMetadata.IsSolid(), clonedMetadata.IsSolid())
 	assert.Equal(t, originalMetadata.SolidificationTime().Round(time.Second), clonedMetadata.SolidificationTime().Round(time.Second))
 

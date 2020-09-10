@@ -36,11 +36,11 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 
 	// read data
 	result = &Payload{}
-	result.payloadType, err = marshalUtil.ReadUint32()
+	_, err = marshalUtil.ReadUint32()
 	if err != nil {
 		return
 	}
-	_, err = marshalUtil.ReadUint32()
+	result.payloadType, err = marshalUtil.ReadUint32()
 	if err != nil {
 		return
 	}
