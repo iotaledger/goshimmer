@@ -233,7 +233,7 @@ func OverrideMana(manaType mana.Type, nodeID identity.ID, bm *mana.BaseMana) {
 }
 
 //GetWeightedRandomNodes returns a weighted random selection of n nodes.
-func GetWeightedRandomNodes(n int, manaType mana.Type) mana.NodeMap {
+func GetWeightedRandomNodes(n uint, manaType mana.Type) mana.NodeMap {
 	rand.Seed(time.Now().UTC().UnixNano())
 	manaMap := GetManaMap(manaType)
 	var choices []mana.RandChoice

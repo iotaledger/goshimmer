@@ -41,7 +41,7 @@ func NewRandChooser(cs ...RandChoice) *RandChooser {
 // Pick returns N weighted random items from the RandChooser.
 //
 // Utilizes global rand as the source of randomness -- you will likely want to seed it.
-func (chs RandChooser) Pick(n int) []interface{} {
+func (chs RandChooser) Pick(n uint) []interface{} {
 	rands := rand.Perm(chs.max)
 	var res []interface{}
 	for _, r := range rands {
@@ -49,7 +49,7 @@ func (chs RandChooser) Pick(n int) []interface{} {
 		i := sort.SearchInts(chs.totals, r)
 		res = append(res, chs.data[i].Item)
 	}
-	if n <= len(res) {
+	if int(n) <= len(res) {
 		return res[:n]
 	}
 	return res[:]
