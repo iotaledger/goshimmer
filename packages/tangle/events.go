@@ -5,6 +5,21 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
+// MessageTipSelectorEvents represents event happening on the tip-selector.
+type MessageTipSelectorEvents struct {
+	// Fired when a tip is added.
+	TipAdded *events.Event
+	// Fired when a tip is removed.
+	TipRemoved *events.Event
+}
+
+func newMessageTipSelectorEvents() *MessageTipSelectorEvents {
+	return &MessageTipSelectorEvents{
+		TipAdded:   events.NewEvent(messageIDEvent),
+		TipRemoved: events.NewEvent(messageIDEvent),
+	}
+}
+
 // FactoryEvents represents events happening on a message factory.
 type FactoryEvents struct {
 	// Fired when a message is built including tips, sequence number and other metadata.
@@ -103,4 +118,8 @@ func messageRejectedEvent(handler interface{}, params ...interface{}) {
 
 func messageConstructedEvent(handler interface{}, params ...interface{}) {
 	handler.(func(*Message))(params[0].(*Message))
+}
+
+func messageIDEvent(handler interface{}, params ...interface{}) {
+	handler.(func(MessageID))(params[0].(MessageID))
 }
