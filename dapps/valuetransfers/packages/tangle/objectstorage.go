@@ -31,10 +31,6 @@ var (
 	})
 )
 
-func osOutputFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return OutputFromStorageKey(key)
-}
-
 func osConsumerFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return ConsumerFromStorageKey(key)
 }

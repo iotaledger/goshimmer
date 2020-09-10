@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -43,7 +44,6 @@ type Output struct {
 	rejectedMutex           sync.RWMutex
 
 	objectstorage.StorableObjectFlags
-	storageKey []byte
 }
 
 // NewOutput creates an Output that contains the balances and identifiers of a Transaction.
@@ -55,68 +55,81 @@ func NewOutput(address address.Address, transactionID transaction.ID, branchID b
 		solid:              false,
 		solidificationTime: time.Time{},
 		balances:           balances,
-
-		storageKey: marshalutil.New().WriteBytes(address.Bytes()).WriteBytes(transactionID.Bytes()).Bytes(),
 	}
 }
 
 // OutputFromBytes unmarshals an Output object from a sequence of bytes.
 // It either creates a new object or fills the optionally provided object with the parsed information.
-func OutputFromBytes(bytes []byte, optionalTargetObject ...*Output) (result *Output, consumedBytes int, err error) {
+func OutputFromBytes(bytes []byte) (result *Output, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseOutput(marshalUtil, optionalTargetObject...)
+	result, err = ParseOutput(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // ParseOutput unmarshals an Output using the given marshalUtil (for easier marshaling/unmarshaling).
-func ParseOutput(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Output) (result *Output, err error) {
-	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
-		return OutputFromStorageKey(data, optionalTargetObject...)
-	})
-	if parseErr != nil {
-		err = parseErr
+func ParseOutput(marshalUtil *marshalutil.MarshalUtil) (result *Output, err error) {
+	result = &Output{}
 
+	if result.address, err = address.Parse(marshalUtil); err != nil {
 		return
 	}
-
-	result = parsedObject.(*Output)
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
-
+	if result.transactionID, err = transaction.ParseID(marshalUtil); err != nil {
 		return
-	})
+	}
+	if result.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
+		return
+	}
+	if result.solid, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if result.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+		return
+	}
+	if result.firstConsumer, err = transaction.ParseID(marshalUtil); err != nil {
+		return
+	}
+	consumerCount, err := marshalUtil.ReadUint32()
+	if err != nil {
+		return
+	}
+	if result.preferred, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if result.finalized, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if result.liked, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if result.confirmed, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	if result.rejected, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
+	result.consumerCount = int(consumerCount)
+	balanceCount, err := marshalUtil.ReadUint32()
+	if err != nil {
+		return
+	}
+	result.balances = make([]*balance.Balance, balanceCount)
+	for i := uint32(0); i < balanceCount; i++ {
+		result.balances[i], err = balance.Parse(marshalUtil)
+		if err != nil {
+			return
+		}
+	}
 
 	return
 }
 
-// OutputFromStorageKey get's called when we restore a Output from the storage.
+// OutputFromObjectStorage get's called when we restore a Output from the storage.
 // In contrast to other database models, it unmarshals some information from the key so we simply store the key before
 // it gets handed over to UnmarshalObjectStorageValue (by the ObjectStorage).
-func OutputFromStorageKey(keyBytes []byte, optionalTargetObject ...*Output) (result *Output, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Output{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to OutputFromStorageKey")
-	}
-
-	// parse information
-	marshalUtil := marshalutil.New(keyBytes)
-	result.address, err = address.Parse(marshalUtil)
-	if err != nil {
-		return
-	}
-	result.transactionID, err = transaction.ParseID(marshalUtil)
-	if err != nil {
-		return
-	}
-	result.storageKey = marshalutil.New(keyBytes[:transaction.OutputIDLength]).Bytes(true)
-	consumedBytes = marshalUtil.ReadOffset()
+func OutputFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	result, _, err = OutputFromBytes(byteutils.ConcatBytes(key, data))
 
 	return
 }
@@ -407,19 +420,13 @@ func (output *Output) Balances() []*balance.Balance {
 
 // Bytes marshals the object into a sequence of bytes.
 func (output *Output) Bytes() []byte {
-	return marshalutil.New().
-		WriteBytes(output.ObjectStorageKey()).
-		WriteBytes(output.ObjectStorageValue()).
-		Bytes()
+	return byteutils.ConcatBytes(output.ObjectStorageKey(), output.ObjectStorageValue())
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database.
 // It is required to match StorableObject interface.
 func (output *Output) ObjectStorageKey() []byte {
-	return marshalutil.New(transaction.OutputIDLength).
-		WriteBytes(output.address.Bytes()).
-		WriteBytes(output.transactionID.Bytes()).
-		Bytes()
+	return byteutils.ConcatBytes(output.address.Bytes(), output.transactionID.Bytes())
 }
 
 // ObjectStorageValue marshals the balances into a sequence of bytes - the address and transaction id are stored inside the key
@@ -447,58 +454,6 @@ func (output *Output) ObjectStorageValue() []byte {
 	}
 
 	return marshalUtil.Bytes()
-}
-
-// UnmarshalObjectStorageValue restores a Output from a serialized version in the ObjectStorage with parts of the object
-// being stored in its key rather than the content of the database to reduce storage requirements.
-func (output *Output) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(data)
-	if output.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
-		return
-	}
-	if output.solid, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	if output.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		return
-	}
-	if output.firstConsumer, err = transaction.ParseID(marshalUtil); err != nil {
-		return
-	}
-	consumerCount, err := marshalUtil.ReadUint32()
-	if err != nil {
-		return
-	}
-	if output.preferred, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	if output.finalized, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	if output.liked, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	if output.confirmed, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	if output.rejected, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-	output.consumerCount = int(consumerCount)
-	balanceCount, err := marshalUtil.ReadUint32()
-	if err != nil {
-		return
-	}
-	output.balances = make([]*balance.Balance, balanceCount)
-	for i := uint32(0); i < balanceCount; i++ {
-		output.balances[i], err = balance.Parse(marshalUtil)
-		if err != nil {
-			return
-		}
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match StorableObject interface.
