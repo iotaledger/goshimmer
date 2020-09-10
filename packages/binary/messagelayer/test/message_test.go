@@ -23,12 +23,11 @@ func TestMessage_StorableObjectFromKey(t *testing.T) {
 		panic(err)
 	}
 
-	messageFromKey, consumedBytes, err := message.FromObjectStorage(key.Bytes())
+	messageFromKey, err := message.FromObjectStorage(key.Bytes(), nil)
 	if err != nil {
 		panic(err)
 	}
 
-	assert.Equal(t, message.IDLength, consumedBytes)
 	assert.Equal(t, key, messageFromKey.(*message.Message).ID())
 }
 

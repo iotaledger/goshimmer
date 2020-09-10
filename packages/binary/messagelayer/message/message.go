@@ -60,7 +60,7 @@ func FromBytes(bytes []byte) (result *Message, consumedBytes int, err error) {
 	return
 }
 
-// Parse parses a message from the given marshal util.
+// Parse parses a Message using the given marshal util.
 func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Message, err error) {
 	// determine read offset before starting to parse
 	readOffsetStart := marshalUtil.ReadOffset()
@@ -92,7 +92,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Message, err error) {
 		return
 	}
 
-	// return the number of bytes we processed
+	// retrieve the number of bytes we processed
 	readOffsetEnd := marshalUtil.ReadOffset()
 
 	// store marshaled version as a copy

@@ -48,10 +48,6 @@ var (
 	}
 )
 
-func osBranchFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return BranchFromStorageKey(key)
-}
-
 func osChildBranchFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return ChildBranchFromStorageKey(key)
 }
