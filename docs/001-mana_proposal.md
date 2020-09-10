@@ -183,16 +183,20 @@ type BaseMana struct {
 }
 ```
 
-`BaseManaVector` is a data structure that maps `nodeID`s to `BaseMana`.
+`BaseManaVector` is a data structure that maps `nodeID`s to `BaseMana`. It also has a `Type` that denotes the type
+of mana this vector deals with (Access, Consensus, etc.).
 ```go
-type BaseManaVector map[nodeID]BaseMana
+type BaseManaVector struct {
+	vector     map[identity.ID]*BaseMana
+	vectorType Type
+}
 ```
 
 #### Methods
 `BaseManaVector` should have the following methods:
  - `BookMana(transaction)`: Book mana of a transaction. Trigger `ManaBooked` event. Note, that this method updates
    `BaseMana` with respect to time and to new `Base Mana 1` and `Base Mana 2` values.
- - `GetMana(nodeID, weight) mana`: Return `weight` *` Effective Base Mana 1` + (1-`weight`)+`Effective Base Mana 2`.
+ - `GetWeightedMana(nodeID, weight) mana`: Return `weight` *` Effective Base Mana 1` + (1-`weight`)+`Effective Base Mana 2`.
    `weight` is a number in [0,1] interval. Notice, that `weight` = 1  results in only returning `Effective Base Mana 1`,
    and the other way around. Note, that this method also updates `BaseMana` of the node with respect to time.
  - `GetMana(nodeID) mana`: Return 0.5*`Effective Base Mana 1` + 0.5*`Effective Base Mana 2` of a particular node. Note, that
@@ -204,6 +208,9 @@ type BaseManaVector map[nodeID]BaseMana
  - `pledgeAndUpdate(transaction)`: update `BaseMana` fields and pledge mana with respect to `transaction`.
  - `revokeBaseMana1(amount, time)`:  update `BaseMana` values with respect to `time` and revoke `amount` `BaseMana1`.
  - `update(time)`: update all `BaseMana` fields with respect to `time`.
+ - `updateEBM1(time)`: update `Effective Base Mana 1` wrt to `time`.
+ - `updateBM2(time)`: update `Base Mana 2` wrt to `time`.
+ - `updateEBM2(time)`: update `Effective Base Mana 2` wrt to `time`.
 
 #### Base Mana Calculation
 
@@ -294,7 +301,7 @@ func (bm *BaseMana) pledgeAndUpdate(tx *transaction) (bm1Pledged int, bm2Pledged
 		for input := range tx.inputs {
 			// search for the timestamp of the UTXO that generated the input
 			t_inp := LoadTxTimestampFromOutputID(input)
-			bm2Add := 1 / decay * input.balance * (1 - math.Pow(math.E, -decay*(t-t_inp)))
+			bm2Add := input.balance * (1 - math.Pow(math.E, -decay*(t-t_inp)))
 			bm.BaseMana2 += bm2Add
 			bm2Pledged += bm2Add
 		}
@@ -307,21 +314,28 @@ func (bm *BaseMana) pledgeAndUpdate(tx *transaction) (bm1Pledged int, bm2Pledged
 		for input := range tx.inputs {
 			// search for the timestamp of the UTXO that generated the input
 			t_inp := LoadTxTimestampFromOutputID(input)
-			bm2Add := 1/decay * input.balance *(1-math.Pow( math.E,-decay*(t-t_inp) ) ) * math.Pow(math.E, -decay*n)
+			bm2Add := input.balance * (1-math.Pow( math.E,-decay*(t-t_inp) ) ) * math.Pow(math.E, -decay*n)
 			bm.BaseMana2 += bm2Add
 			bm2Pledged += bm2Add
 		}
 		// update EBM1 and EBM2 to `bm.LastUpdated`
 		bm.EffectiveBaseMana1 += amount*(1-math.Pow(math.E,-EMA_coeff_1*n))
-		bm.EffectiveBaseMana2 += (bm.BaseMana2-oldMana2)*EMA_coeff_2*(math.Pow(math.E,-decay*n)-math.Pow(math.E,-EMA_coeff_2*n))/(EMA_coeff_2-decay)
-	}
+		if EMA_coeff_2 != decay {
+			bm.EffectiveBaseMana2 += (bm.BaseMana2 - oldMana2) *EMA_coeff_2*(math.Pow(math.E,-decay*n)-
+                math.Pow(math.E,-EMA_coeff_2*n))/(EMA_coeff_2-decay) / math.Pow(math.E, -decay*n)
+		} else {
+			bm.EffectiveBaseMana2 += (bm.BaseMana2 - oldMana2) * decay * n
+		}
+}
 	return bm1Pledged, bm2Pledged
 }
 ```
+Notice, that in case of `EMA_coeff_2 = decay`, a simplified formula can be used to calculate `EffectiveBaseMana2`.
+The same approach is applied in `updateEBM2()`.
 
 ```go
 func (bm *BaseMana) updateEBM1(n time.Duration) {
-    bm.EffectiveBaseMana1 = EMA_coeff_1 * math.Pow(math.E, -EMA_coeff_1 * n) * bm.EffectiveBaseMana1 +
+    bm.EffectiveBaseMana1 = math.Pow(math.E, -EMA_coeff_1 * n) * bm.EffectiveBaseMana1 +
                                  (1-math.Pow(math.E, -EMA_coeff_1 * n)) * bm.BaseMana1
 }
 ```
@@ -332,9 +346,14 @@ func (bm *BaseMana) updateBM2(n time.Duration) {
 ```
 ```go
 func (bm *BaseMana) updateEBM2(n time.Duration) {
-    bm.EffectiveBaseMana2 = EMA_coeff_2 * math.Pow(math.E, -EMA_coeff_2 * n) * bm.EffectiveBaseMana2 +
-                                (math.Pow(math.E, -decay * n) - math.Pow(math.E, -EMA_coeff_2 * n)) /
-                                (EMA_coeff_2 - decay) * EMA_coeff_2 * bm.BaseMana2
+	if EMA_coeff_2 != decay {
+		bm.EffectiveBaseMana2 = math.Pow(math.E, -emaCoeff2 * n) * bm.EffectiveBaseMana2 +
+			(math.Pow(math.E, -decay * n) - math.Pow(math.E, -EMA_coeff_2 * n)) /
+				(EMA_coeff_2 - decay) * EMA_coeff_2 / math.Pow(math.E, -decay * n)*bm.BaseMana2
+	} else {
+		bm.EffectiveBaseMana2 = math.Pow(math.E, -decay * n)*bm.EffectiveBaseMana2 +
+			decay * n * bm.BaseMana2
+	}
 }
 ```
 
@@ -363,10 +382,10 @@ func (bm *BaseMana) update(t time.Time ) {
 #### Events
 The mana package should have the following events:
 
- - `ManaPledged` when mana (`BM1` and `BM2`) was pledged for a node due to new transactions being confirmed.
+ - `Pledged` when mana (`BM1` and `BM2`) was pledged for a node due to new transactions being confirmed.
 
 ```go
-type ManaPledgedEvent struct {
+type PledgedEvent struct {
     NodeID []bytes
     AmountBM1 int
     AmountBM2 int
@@ -375,10 +394,10 @@ type ManaPledgedEvent struct {
 }
 ```
 
-- `ManaRevoked` when mana (`BM1`) was revoked from a node.
+- `Revoked` when mana (`BM1`) was revoked from a node.
 
 ```go
-type ManaRevokedEvent struct {
+type RevokedEvent struct {
     NodeID []bytes
     AmountBM1 int
     Time time.Time
@@ -386,10 +405,10 @@ type ManaRevokedEvent struct {
 }
 ```
 
- - `ManaUpdated` when mana was updated for a node due to it being accessed.
+ - `Updated` when mana was updated for a node due to it being accessed.
 
 ```go
-type ManaUpdatedEvent struct {
+type UpdatedEvent struct {
     NodeID []bytes
     OldMana BaseMana
     NewMana BaseMana
@@ -413,16 +432,20 @@ The `mana plugin` is responsible for:
  - trying to load base mana vectors from database when starting the node.
 
 The proposed mana plugin should keep track of the different mana values of nodes and handle calculation
-updates. Mana values are mapped to `nodeID`s and stored in a `map` data structure.
+updates. Mana values are mapped to `nodeID`s and stored in a `map` data structure. The vector also stores information on
+what `Type` of mana it handles.
 
 ```go
-type BaseManaVector map[nodeID]BaseMana
+type BaseManaVector struct {
+	vector     map[identity.ID]*BaseMana
+	vectorType Type
+}
 ```
 
 `Access Mana` and `Consensus Mana` should have their own respective `BaseManaVector`.
 ```go
-accessManaVector BaseManaVector
-consensusManaVector BaseManaVector
+accessManaVector := BaseManaVector{vectorType: AccesMana}
+consensusManaVector :=  BaseManaVector{vectorType: ConsensusMana}
 ```
 In the future, it should be possible to combine `Effective Base Mana 1` and `Effective Base Mana 2` from a `BaseManaVector`
 in arbitrary proportions to arrive at a final mana value that other modules use. The `mana package` has these methods
