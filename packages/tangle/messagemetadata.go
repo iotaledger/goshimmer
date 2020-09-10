@@ -43,7 +43,7 @@ func MessageMetadataFromBytes(bytes []byte) (result *MessageMetadata, consumedBy
 // Else, delegates to UnmarshalObjectStorageValue.
 func ParseMessageMetadata(marshalUtil *marshalutil.MarshalUtil) (result *MessageMetadata, err error) {
 	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
-		return MessageMetadataFromStorageKey(data)
+		return MessageMetadataFromStorageKey(data, nil)
 	})
 	if parseErr != nil {
 		err = parseErr
@@ -60,7 +60,7 @@ func ParseMessageMetadata(marshalUtil *marshalutil.MarshalUtil) (result *Message
 }
 
 // MessageMetadataFromStorageKey unmarshals the stored bytes into a MessageMetadata.
-func MessageMetadataFromStorageKey(key []byte) (result objectstorage.StorableObject, consumedBytes int, err error) {
+func MessageMetadataFromStorageKey(key []byte, _ []byte) (result objectstorage.StorableObject, consumedBytes int, err error) {
 	result = &MessageMetadata{}
 
 	marshalUtil := marshalutil.New(key)
