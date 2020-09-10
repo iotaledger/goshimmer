@@ -5,6 +5,21 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
+// FactoryEvents represents events happening on a message factory.
+type FactoryEvents struct {
+	// Fired when a message is built including tips, sequence number and other metadata.
+	MessageConstructed *events.Event
+	// Fired when an error occurred.
+	Error *events.Event
+}
+
+func newFactoryEvents() *FactoryEvents {
+	return &FactoryEvents{
+		MessageConstructed: events.NewEvent(messageConstructedEvent),
+		Error:              events.NewEvent(events.ErrorCaller),
+	}
+}
+
 // ParserEvents represents events happening on a message parser.
 type ParserEvents struct {
 	// Fired when a message was parsed.
@@ -84,4 +99,8 @@ func bytesRejectedEvent(handler interface{}, params ...interface{}) {
 
 func messageRejectedEvent(handler interface{}, params ...interface{}) {
 	handler.(func(*MessageRejectedEvent, error))(params[0].(*MessageRejectedEvent), params[1].(error))
+}
+
+func messageConstructedEvent(handler interface{}, params ...interface{}) {
+	handler.(func(*Message))(params[0].(*Message))
 }
