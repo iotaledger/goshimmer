@@ -27,7 +27,7 @@ func BenchmarkTangle_AttachMessage(b *testing.B) {
 
 	messageBytes := make([]*Message, b.N)
 	for i := 0; i < b.N; i++ {
-		messageBytes[i] = newTestMessage("some data")
+		messageBytes[i] = newTestDataMessage("some data")
 		messageBytes[i].Bytes()
 	}
 
@@ -76,8 +76,8 @@ func TestTangle_AttachMessage(t *testing.T) {
 		fmt.Println("REMOVED:", messageId)
 	}))
 
-	newMessageOne := newTestMessage("some data")
-	newMessageTwo := newTestMessage("some other data")
+	newMessageOne := newTestDataMessage("some data")
+	newMessageTwo := newTestDataMessage("some other data")
 
 	messageTangle.AttachMessage(newMessageTwo)
 

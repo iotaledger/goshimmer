@@ -5,11 +5,9 @@ import (
 	"crypto"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	_ "golang.org/x/crypto/blake2b" // required by crypto.BLAKE2b_512
@@ -35,7 +33,7 @@ func TestPowFilter_Filter(t *testing.T) {
 		filter.Filter(nil, testPeer)
 	})
 
-	msg := newTestPoWMessage(0)
+	msg := newTestNonceMessage(0)
 	msgBytes := msg.Bytes()
 
 	t.Run("reject invalid nonce", func(t *testing.T) {
@@ -46,7 +44,7 @@ func TestPowFilter_Filter(t *testing.T) {
 	nonce, err := testWorker.Mine(context.Background(), msgBytes[:len(msgBytes)-len(msg.Signature())-pow.NonceBytes], testDifficulty)
 	require.NoError(t, err)
 
-	msgPOW := newTestPoWMessage(nonce)
+	msgPOW := newTestNonceMessage(nonce)
 	msgPOWBytes := msgPOW.Bytes()
 
 	t.Run("accept valid nonce", func(t *testing.T) {
@@ -65,7 +63,3 @@ type callbackMock struct{ mock.Mock }
 
 func (m *callbackMock) Accept(msg []byte, p *peer.Peer)            { m.Called(msg, p) }
 func (m *callbackMock) Reject(msg []byte, err error, p *peer.Peer) { m.Called(msg, err, p) }
-
-func newTestPoWMessage(nonce uint64) *Message {
-	return NewMessage(EmptyMessageID, EmptyMessageID, time.Time{}, ed25519.PublicKey{}, 0, testPayload, nonce, ed25519.Signature{})
-}
