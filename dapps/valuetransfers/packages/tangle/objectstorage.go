@@ -30,7 +30,3 @@ var (
 		MaxConsumerHoldTime:   10 * time.Second,
 	})
 )
-
-func osConsumerFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return ConsumerFromStorageKey(key)
-}

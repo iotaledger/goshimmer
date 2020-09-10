@@ -53,27 +53,26 @@ func PayloadMetadataFromBytes(bytes []byte) (result *PayloadMetadata, consumedBy
 
 // ParsePayloadMetadata is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
 func ParsePayloadMetadata(marshalUtil *marshalutil.MarshalUtil) (result *PayloadMetadata, err error) {
-	payloadMetadata := &PayloadMetadata{}
-
-	if payloadMetadata.payloadID, err = payload.ParseID(marshalUtil); err != nil {
+	result = &PayloadMetadata{}
+	if result.payloadID, err = payload.ParseID(marshalUtil); err != nil {
 		return
 	}
-	if payloadMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+	if result.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
 		return
 	}
-	if payloadMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
+	if result.solid, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
-	if payloadMetadata.liked, err = marshalUtil.ReadBool(); err != nil {
+	if result.liked, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
-	if payloadMetadata.confirmed, err = marshalUtil.ReadBool(); err != nil {
+	if result.confirmed, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
-	if payloadMetadata.rejected, err = marshalUtil.ReadBool(); err != nil {
+	if result.rejected, err = marshalUtil.ReadBool(); err != nil {
 		return
 	}
-	if payloadMetadata.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
+	if result.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
 		return
 	}
 

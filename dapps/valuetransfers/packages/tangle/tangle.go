@@ -56,7 +56,7 @@ func New(store kvstore.KVStore) (tangle *Tangle) {
 		transactionMetadataStorage: osFactory.New(osTransactionMetadata, TransactionMetadataFromObjectStorage, objectstorage.CacheTime(cacheTime), osLeakDetectionOption),
 		attachmentStorage:          osFactory.New(osAttachment, AttachmentFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(transaction.IDLength, payload.IDLength), osLeakDetectionOption),
 		outputStorage:              osFactory.New(osOutput, OutputFromObjectStorage, OutputKeyPartitions, objectstorage.CacheTime(cacheTime), osLeakDetectionOption),
-		consumerStorage:            osFactory.New(osConsumer, osConsumerFactory, ConsumerPartitionKeys, objectstorage.CacheTime(cacheTime), osLeakDetectionOption),
+		consumerStorage:            osFactory.New(osConsumer, ConsumerFromObjectStorage, ConsumerPartitionKeys, objectstorage.CacheTime(cacheTime), osLeakDetectionOption),
 
 		Events: newEvents(),
 	}
