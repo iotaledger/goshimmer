@@ -24,57 +24,32 @@ func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember
 }
 
 // ConflictMemberFromBytes unmarshals a ConflictMember from a sequence of bytes.
-func ConflictMemberFromBytes(bytes []byte, optionalTargetObject ...*ConflictMember) (result *ConflictMember, consumedBytes int, err error) {
+func ConflictMemberFromBytes(bytes []byte) (result *ConflictMember, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseConflictMember(marshalUtil, optionalTargetObject...)
+	result, err = ParseConflictMember(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// ConflictMemberFromStorageKey is a factory method that creates a new ConflictMember instance from a storage key of the
+// ConflictMemberFromObjectStorage is a factory method that creates a new ConflictMember instance from a storage key of the
 // objectstorage. It is used by the objectstorage, to create new instances of this entity.
-func ConflictMemberFromStorageKey(key []byte, optionalTargetObject ...*ConflictMember) (result *ConflictMember, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &ConflictMember{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to ConflictMemberFromStorageKey")
-	}
+func ConflictMemberFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
+	result, _, err = ConflictMemberFromBytes(key)
 
-	// parse the properties that are stored in the key
-	marshalUtil := marshalutil.New(key)
+	return
+}
+
+// ParseConflictMember unmarshals a ConflictMember using the given marshalUtil (for easier marshaling/unmarshaling).
+func ParseConflictMember(marshalUtil *marshalutil.MarshalUtil) (result *ConflictMember, err error) {
+	result = &ConflictMember{}
+
 	if result.conflictID, err = ParseConflictID(marshalUtil); err != nil {
 		return
 	}
 	if result.branchID, err = ParseBranchID(marshalUtil); err != nil {
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// ParseConflictMember unmarshals a ConflictMember using the given marshalUtil (for easier marshaling/unmarshaling).
-func ParseConflictMember(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*ConflictMember) (result *ConflictMember, err error) {
-	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
-		return ConflictMemberFromStorageKey(data, optionalTargetObject...)
-	})
-	if parseErr != nil {
-		err = parseErr
-
-		return
-	}
-
-	result = parsedObject.(*ConflictMember)
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
-
-		return
-	})
 
 	return
 }
@@ -101,12 +76,6 @@ func (conflictMember ConflictMember) ObjectStorageKey() []byte {
 // ConflictMember.
 func (conflictMember ConflictMember) ObjectStorageValue() []byte {
 	return nil
-}
-
-// UnmarshalObjectStorageValue returns the bytes that represent all remaining information (not stored in the key) of a
-// marshaled Branch.
-func (conflictMember ConflictMember) UnmarshalObjectStorageValue([]byte) (consumedBytes int, err error) {
-	return
 }
 
 // Update is disabled but needs to be implemented to be compatible with the objectstorage.

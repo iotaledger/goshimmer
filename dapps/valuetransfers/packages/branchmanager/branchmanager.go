@@ -46,7 +46,7 @@ func New(store kvstore.KVStore) (branchManager *BranchManager) {
 		branchStorage:         osFactory.New(osBranch, BranchFromObjectStorage, osBranchOptions...),
 		childBranchStorage:    osFactory.New(osChildBranch, ChildBranchFromObjectStorage, osChildBranchOptions...),
 		conflictStorage:       osFactory.New(osConflict, ConflictFromObjectStorage, osConflictOptions...),
-		conflictMemberStorage: osFactory.New(osConflictMember, osConflictMemberFactory, osConflictMemberOptions...),
+		conflictMemberStorage: osFactory.New(osConflictMember, ConflictMemberFromObjectStorage, osConflictMemberOptions...),
 		Events:                newEvents(),
 	}
 	branchManager.init()

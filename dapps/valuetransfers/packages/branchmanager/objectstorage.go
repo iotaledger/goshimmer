@@ -47,7 +47,3 @@ var (
 		osLeakDetectionOption,
 	}
 )
-
-func osConflictMemberFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return ConflictMemberFromStorageKey(key)
-}
