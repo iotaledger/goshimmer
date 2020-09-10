@@ -1,6 +1,7 @@
 package message
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -97,6 +98,11 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Message, err error) {
 
 	// store marshaled version as a copy
 	result.bytes, err = marshalUtil.ReadBytes(readOffsetEnd-readOffsetStart, readOffsetStart)
+	if err != nil {
+		err = fmt.Errorf("error trying to copy raw source bytes: %w", err)
+
+		return
+	}
 
 	return
 }
