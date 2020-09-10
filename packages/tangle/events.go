@@ -5,6 +5,41 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
+// TangleEvents represents events happening on the base layer Tangle.
+type TangleEvents struct {
+	// Fired when a message has been attached.
+	MessageAttached *events.Event
+	// Fired when a message has been solid, i.e. its past cone
+	// is known and in the database.
+	MessageSolid *events.Event
+	// Fired when a message which was previously marked as missing was received.
+	MissingMessageReceived *events.Event
+	// Fired when a message is missing which is needed to solidify a given approver message.
+	MessageMissing *events.Event
+	// Fired when a message was missing for too long and is
+	// therefore considered to be unsolidifiable.
+	MessageUnsolidifiable *events.Event
+	// Fired when a message was removed from storage.
+	MessageRemoved *events.Event
+}
+
+// CachedMessageEvent represents the parameters of cachedMessageEvent
+type CachedMessageEvent struct {
+	Message         *CachedMessage
+	MessageMetadata *CachedMessageMetadata
+}
+
+func newTangleEvents() *TangleEvents {
+	return &TangleEvents{
+		MessageAttached:        events.NewEvent(cachedMessageEvent),
+		MessageSolid:           events.NewEvent(cachedMessageEvent),
+		MissingMessageReceived: events.NewEvent(cachedMessageEvent),
+		MessageMissing:         events.NewEvent(messageIDEvent),
+		MessageUnsolidifiable:  events.NewEvent(messageIDEvent),
+		MessageRemoved:         events.NewEvent(messageIDEvent),
+	}
+}
+
 // MessageTipSelectorEvents represents event happening on the tip-selector.
 type MessageTipSelectorEvents struct {
 	// Fired when a tip is added.
@@ -122,4 +157,15 @@ func messageConstructedEvent(handler interface{}, params ...interface{}) {
 
 func messageIDEvent(handler interface{}, params ...interface{}) {
 	handler.(func(MessageID))(params[0].(MessageID))
+}
+
+func cachedMessageEvent(handler interface{}, params ...interface{}) {
+	handler.(func(*CachedMessageEvent))(cachedMessageRetain(params[0].(*CachedMessageEvent)))
+}
+
+func cachedMessageRetain(object *CachedMessageEvent) *CachedMessageEvent {
+	return &CachedMessageEvent{
+		Message:         object.Message.Retain(),
+		MessageMetadata: object.MessageMetadata.Retain(),
+	}
 }
