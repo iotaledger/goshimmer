@@ -30,10 +30,6 @@ type Tangle struct {
 	shutdown               chan struct{}
 }
 
-func missingMessageFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return MissingMessageFromStorageKey(key)
-}
-
 // New creates a new Tangle.
 func New(store kvstore.KVStore) (result *Tangle) {
 	osFactory := objectstorage.NewFactory(store, storageprefix.MessageLayer)
@@ -43,7 +39,7 @@ func New(store kvstore.KVStore) (result *Tangle) {
 		messageStorage:         osFactory.New(PrefixMessage, message.FromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		messageMetadataStorage: osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		approverStorage:        osFactory.New(PrefixApprovers, ApproverFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(message.IDLength, message.IDLength), objectstorage.LeakDetectionEnabled(false)),
-		missingMessageStorage:  osFactory.New(PrefixMissingMessage, missingMessageFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		missingMessageStorage:  osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: newEvents(),
 	}
