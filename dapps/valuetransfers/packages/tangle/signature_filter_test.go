@@ -87,7 +87,7 @@ func TestSignatureFilter(t *testing.T) {
 		marshalUtil := marshalutil.New(messagePayload.NewData([]byte("test")).Bytes())
 
 		// set the type to be a value payload
-		marshalUtil.WriteSeek(0)
+		marshalUtil.WriteSeek(4)
 		marshalUtil.WriteUint32(valuePayload.Type)
 
 		// parse modified bytes back into a payload object
@@ -97,7 +97,7 @@ func TestSignatureFilter(t *testing.T) {
 		// parse message bytes
 		msg, err := messageFactory.IssuePayload(dataPayload)
 		require.NoError(t, err)
-		accepted, _, _, err := messageParser.Parse(msg.Bytes(), &peer.Peer{})
+		accepted, msg, _, err := messageParser.Parse(msg.Bytes(), &peer.Peer{})
 
 		// check results (should be rejected)
 		require.Equal(t, false, accepted)

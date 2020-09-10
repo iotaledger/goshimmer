@@ -35,11 +35,11 @@ func DataFromBytes(bytes []byte) (result *Data, consumedBytes int, err error) {
 func ParseData(marshalUtil *marshalutil.MarshalUtil) (result *Data, err error) {
 	// parse information
 	result = &Data{}
-	result.payloadType, err = marshalUtil.ReadUint32()
+	payloadBytes, err := marshalUtil.ReadUint32()
 	if err != nil {
 		return
 	}
-	payloadBytes, err := marshalUtil.ReadUint32()
+	result.payloadType, err = marshalUtil.ReadUint32()
 	if err != nil {
 		return
 	}
