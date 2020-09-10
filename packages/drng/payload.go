@@ -85,23 +85,23 @@ func PayloadFromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *P
 }
 
 // Bytes returns the drng payload bytes.
-func (payload *Payload) Bytes() (bytes []byte) {
+func (p *Payload) Bytes() (bytes []byte) {
 	// acquire lock for reading bytes
-	payload.bytesMutex.RLock()
+	p.bytesMutex.RLock()
 
 	// return if bytes have been determined already
-	if bytes = payload.bytes; bytes != nil {
-		payload.bytesMutex.RUnlock()
+	if bytes = p.bytes; bytes != nil {
+		p.bytesMutex.RUnlock()
 		return
 	}
 
 	// switch to write lock
-	payload.bytesMutex.RUnlock()
-	payload.bytesMutex.Lock()
-	defer payload.bytesMutex.Unlock()
+	p.bytesMutex.RUnlock()
+	p.bytesMutex.Lock()
+	defer p.bytesMutex.Unlock()
 
 	// return if bytes have been determined in the mean time
-	if bytes = payload.bytes; bytes != nil {
+	if bytes = p.bytes; bytes != nil {
 		return
 	}
 	// initialize helper
@@ -109,20 +109,20 @@ func (payload *Payload) Bytes() (bytes []byte) {
 
 	// marshal the payload specific information
 	marshalUtil.WriteUint32(PayloadType)
-	marshalUtil.WriteUint32(uint32(len(payload.Data) + HeaderLength))
-	marshalUtil.WriteBytes(payload.Header.Bytes())
-	marshalUtil.WriteBytes(payload.Data[:])
+	marshalUtil.WriteUint32(uint32(len(p.Data) + HeaderLength))
+	marshalUtil.WriteBytes(p.Header.Bytes())
+	marshalUtil.WriteBytes(p.Data[:])
 
 	bytes = marshalUtil.Bytes()
 
 	return
 }
 
-func (payload *Payload) String() string {
+func (p *Payload) String() string {
 	return stringify.Struct("Payload",
-		stringify.StructField("type", uint64(payload.Header.PayloadType)),
-		stringify.StructField("instance", uint64(payload.Header.InstanceID)),
-		stringify.StructField("data", payload.Data),
+		stringify.StructField("type", uint64(p.Header.PayloadType)),
+		stringify.StructField("instance", uint64(p.Header.InstanceID)),
+		stringify.StructField("data", p.Data),
 	)
 }
 
@@ -132,18 +132,18 @@ func (payload *Payload) String() string {
 var PayloadType = payload.Type(111)
 
 // Type returns the type of the drng payload.
-func (payload *Payload) Type() payload.Type {
+func (p *Payload) Type() payload.Type {
 	return PayloadType
 }
 
 // Marshal marshals the drng payload into bytes.
-func (payload *Payload) Marshal() (bytes []byte, err error) {
-	return payload.Bytes(), nil
+func (p *Payload) Marshal() (bytes []byte, err error) {
+	return p.Bytes(), nil
 }
 
 // Unmarshal unmarshals the given bytes into a drng payload.
-func (payload *Payload) Unmarshal(data []byte) (err error) {
-	_, _, err = PayloadFromBytes(data, payload)
+func (p *Payload) Unmarshal(data []byte) (err error) {
+	_, _, err = PayloadFromBytes(data, p)
 
 	return
 }

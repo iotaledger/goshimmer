@@ -9,7 +9,7 @@ import (
 )
 
 // Dispatch parses a DRNG message and process it based on its subtype
-func (drng *DRNG) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payload *Payload) error {
+func (d *DRNG) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payload *Payload) error {
 	switch payload.PayloadType {
 	case TypeCollectiveBeacon:
 		// parse as CollectiveBeaconType
@@ -28,15 +28,15 @@ func (drng *DRNG) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payloa
 			Signature:       parsedPayload.Signature,
 			Dpk:             parsedPayload.Dpk,
 		}
-		drng.Events.CollectiveBeacon.Trigger(cbEvent)
+		d.Events.CollectiveBeacon.Trigger(cbEvent)
 
 		// process collectiveBeacon
-		if err := ProcessBeacon(drng.State, cbEvent); err != nil {
+		if err := ProcessBeacon(d.State, cbEvent); err != nil {
 			return err
 		}
 
 		// trigger RandomnessEvent
-		drng.Events.Randomness.Trigger(drng.State.Randomness())
+		d.Events.Randomness.Trigger(d.State.Randomness())
 
 		return nil
 

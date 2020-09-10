@@ -17,7 +17,7 @@ type CollectiveBeaconEvent struct {
 	InstanceID uint32
 	// Round of the current beacon.
 	Round uint64
-	// Collective signature of the previous beacon.s
+	// Collective signature of the previous beacon.
 	PrevSignature []byte
 	// Collective signature of the current beacon.
 	Signature []byte

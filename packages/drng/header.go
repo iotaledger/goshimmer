@@ -75,13 +75,13 @@ func HeaderFromBytes(bytes []byte, optionalTargetObject ...*Header) (result Head
 }
 
 // Bytes returns the header in serialized bytes form.
-func (header *Header) Bytes() (bytes []byte) {
+func (h *Header) Bytes() (bytes []byte) {
 	// initialize helper
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteByte(header.PayloadType)
-	marshalUtil.WriteUint32(header.InstanceID)
+	marshalUtil.WriteByte(h.PayloadType)
+	marshalUtil.WriteUint32(h.InstanceID)
 
 	bytes = marshalUtil.Bytes()
 
