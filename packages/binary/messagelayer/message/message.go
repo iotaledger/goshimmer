@@ -101,8 +101,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Message, err error) {
 	return
 }
 
-// FromObjectStorage gets called when we restore a message from storage.
-// The bytes and the content will be unmarshaled by an external caller (the objectStorage factory).
+// FromObjectStorage gets called when we restore a message from the ObjectStorage.
 func FromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	// parse the message
 	message, err := Parse(marshalutil.New(data))
