@@ -27,8 +27,8 @@ func New() *TipManager {
 // AddTip adds the given value object as a tip.
 func (t *TipManager) AddTip(valueObject *payload.Payload) {
 	objectID := valueObject.ID()
-	parent1ID := valueObject.TrunkID()
-	parent2ID := valueObject.BranchID()
+	parent1ID := valueObject.Parent1ID()
+	parent2ID := valueObject.Parent2ID()
 
 	if t.tips.Set(objectID, objectID) {
 		t.Events.TipAdded.Trigger(objectID)

@@ -8,7 +8,7 @@ import (
 
 // PayloadApprover is a database entity, that allows us to keep track of the "tangle structure" by encoding which
 // payload approves which other payload. It allows us to traverse the tangle in the opposite direction of the referenced
-// trunk and branch payloads.
+// parent1 and parent2 payloads.
 type PayloadApprover struct {
 	objectstorage.StorableObjectFlags
 

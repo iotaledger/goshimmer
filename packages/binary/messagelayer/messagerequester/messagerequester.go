@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
-	"github.com/iotaledger/hive.go/events"
 )
 
 // the maximum amount of requests before we abort
@@ -15,7 +14,7 @@ const maxRequestThreshold = 500
 type MessageRequester struct {
 	scheduledRequests map[message.ID]*time.Timer
 	options           *Options
-	Events            Events
+	Events            *Events
 
 	scheduledRequestsMutex sync.RWMutex
 }
@@ -28,14 +27,7 @@ func New(missingMessages []message.ID, optionalOptions ...Option) *MessageReques
 	requester := &MessageRequester{
 		scheduledRequests: make(map[message.ID]*time.Timer),
 		options:           newOptions(optionalOptions),
-		Events: Events{
-			SendRequest: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func(message.ID))(params[0].(message.ID))
-			}),
-			MissingMessageAppeared: events.NewEvent(func(handler interface{}, params ...interface{}) {
-				handler.(func(message.ID))(params[0].(message.ID))
-			}),
-		},
+		Events:            newEvents(),
 	}
 
 	// add requests for all missing messages
@@ -62,7 +54,7 @@ func (requester *MessageRequester) StartRequest(id message.ID) {
 	// schedule the next request and trigger the event
 	requester.scheduledRequests[id] = time.AfterFunc(requester.options.retryInterval, requester.createReRequest(id, 0))
 	requester.scheduledRequestsMutex.Unlock()
-	requester.Events.SendRequest.Trigger(id)
+	requester.Events.SendRequest.Trigger(&SendRequestEvent{ID: id})
 }
 
 // StopRequest stops requests for the given message to further happen.
@@ -77,7 +69,7 @@ func (requester *MessageRequester) StopRequest(id message.ID) {
 }
 
 func (requester *MessageRequester) reRequest(id message.ID, count int) {
-	requester.Events.SendRequest.Trigger(id)
+	requester.Events.SendRequest.Trigger(&SendRequestEvent{ID: id})
 
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
 	requester.scheduledRequestsMutex.Lock()

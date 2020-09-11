@@ -1,0 +1,41 @@
+version: "3.5"
+
+services:
+  mongodb_container:
+    image: mongo:latest
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+    ports:
+      - 27017:27017
+    volumes:
+      - mongodb_data_container:/data/db
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - peer_master
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      # path to provisioning definitions can only be defined as
+      # environment variables for grafana within docker
+      - GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning
+    ports:
+      - 3000:3000
+    user: "104"
+    volumes:
+      - ./grafana:/var/lib/grafana:rw
+
+volumes:
+  mongodb_data_container:

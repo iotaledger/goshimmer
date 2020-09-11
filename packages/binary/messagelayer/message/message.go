@@ -19,8 +19,8 @@ type Message struct {
 	objectstorage.StorableObjectFlags
 
 	// core properties (get sent over the wire)
-	trunkID         ID
-	branchID        ID
+	parent1ID       ID
+	parent2ID       ID
 	issuerPublicKey ed25519.PublicKey
 	issuingTime     time.Time
 	sequenceNumber  uint64
@@ -38,10 +38,10 @@ type Message struct {
 }
 
 // New creates a new message with the details provided by the issuer.
-func New(trunkID ID, branchID ID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
+func New(parent1ID ID, parent2ID ID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload payload.Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
 	return &Message{
-		trunkID:         trunkID,
-		branchID:        branchID,
+		parent1ID:       parent1ID,
+		parent2ID:       parent2ID,
 		issuerPublicKey: issuerPublicKey,
 		issuingTime:     issuingTime,
 		sequenceNumber:  sequenceNumber,
@@ -117,7 +117,7 @@ func (message *Message) VerifySignature() bool {
 	return message.issuerPublicKey.VerifySignature(content, signature)
 }
 
-// ID returns the id of the message which is made up of the content id and trunk/branch ids.
+// ID returns the id of the message which is made up of the content id and parent1/parent2 ids.
 // This id can be used for merkle proofs.
 func (message *Message) ID() (result ID) {
 	message.idMutex.RLock()
@@ -141,14 +141,14 @@ func (message *Message) ID() (result ID) {
 	return
 }
 
-// TrunkID returns the id of the trunk message.
-func (message *Message) TrunkID() ID {
-	return message.trunkID
+// Parent1ID returns the id of the parent1 message.
+func (message *Message) Parent1ID() ID {
+	return message.parent1ID
 }
 
-// BranchID returns the id of the branch message.
-func (message *Message) BranchID() ID {
-	return message.branchID
+// Parent2ID returns the id of the parent2 message.
+func (message *Message) Parent2ID() ID {
+	return message.parent2ID
 }
 
 // IssuerPublicKey returns the public key of the message issuer.
@@ -182,7 +182,7 @@ func (message *Message) Signature() ed25519.Signature {
 }
 
 // ContentID returns the content id of the message which is made up of all the
-// parts of the message minus the trunk and branch ids.
+// parts of the message minus the parent1 and parent2 ids.
 func (message *Message) ContentID() (result ContentID) {
 	message.contentIDMutex.RLock()
 	if message.contentID == nil {
@@ -208,8 +208,8 @@ func (message *Message) ContentID() (result ContentID) {
 func (message *Message) calculateID() ID {
 	return blake2b.Sum512(
 		marshalutil.New(IDLength + IDLength + payload.IDLength).
-			WriteBytes(message.trunkID.Bytes()).
-			WriteBytes(message.branchID.Bytes()).
+			WriteBytes(message.parent1ID.Bytes()).
+			WriteBytes(message.parent2ID.Bytes()).
 			WriteBytes(message.ContentID().Bytes()).
 			Bytes(),
 	)
@@ -217,7 +217,7 @@ func (message *Message) calculateID() ID {
 
 // calculates the content id of the message.
 func (message *Message) calculateContentID() ContentID {
-	// compute content id from the message data (except trunk and branch ids)
+	// compute content id from the message data (except parent1 and parent2 ids)
 	return blake2b.Sum512(message.Bytes()[2*IDLength:])
 }
 
@@ -240,8 +240,8 @@ func (message *Message) Bytes() []byte {
 
 	// marshal result
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteBytes(message.trunkID.Bytes())
-	marshalUtil.WriteBytes(message.branchID.Bytes())
+	marshalUtil.WriteBytes(message.parent1ID.Bytes())
+	marshalUtil.WriteBytes(message.parent2ID.Bytes())
 	marshalUtil.WriteBytes(message.issuerPublicKey.Bytes())
 	marshalUtil.WriteTime(message.issuingTime)
 	marshalUtil.WriteUint64(message.sequenceNumber)
@@ -260,10 +260,10 @@ func (message *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes 
 	marshalUtil := marshalutil.New(data)
 
 	// parse information
-	if message.trunkID, err = ParseID(marshalUtil); err != nil {
+	if message.parent1ID, err = ParseID(marshalUtil); err != nil {
 		return
 	}
-	if message.branchID, err = ParseID(marshalUtil); err != nil {
+	if message.parent2ID, err = ParseID(marshalUtil); err != nil {
 		return
 	}
 	if message.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
@@ -316,8 +316,8 @@ func (message *Message) Update(objectstorage.StorableObject) {
 func (message *Message) String() string {
 	return stringify.Struct("Message",
 		stringify.StructField("id", message.ID()),
-		stringify.StructField("trunkId", message.TrunkID()),
-		stringify.StructField("branchId", message.BranchID()),
+		stringify.StructField("parent1Id", message.Parent1ID()),
+		stringify.StructField("parent2Id", message.Parent2ID()),
 		stringify.StructField("issuer", message.IssuerPublicKey()),
 		stringify.StructField("issuingTime", message.IssuingTime()),
 		stringify.StructField("sequenceNumber", message.SequenceNumber()),

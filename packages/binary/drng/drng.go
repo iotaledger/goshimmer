@@ -2,8 +2,6 @@ package drng
 
 import (
 	"github.com/iotaledger/goshimmer/packages/binary/drng/state"
-	cbEvents "github.com/iotaledger/goshimmer/packages/binary/drng/subtypes/collectivebeacon/events"
-	"github.com/iotaledger/hive.go/events"
 )
 
 // DRNG holds the state and events of a drng instance.
@@ -15,10 +13,7 @@ type DRNG struct {
 // New creates a new DRNG instance.
 func New(setters ...state.Option) *DRNG {
 	return &DRNG{
-		State: state.New(setters...),
-		Events: &Event{
-			CollectiveBeacon: events.NewEvent(cbEvents.CollectiveBeaconReceived),
-			Randomness:       events.NewEvent(randomnessReceived),
-		},
+		State:  state.New(setters...),
+		Events: newEvent(),
 	}
 }

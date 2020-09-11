@@ -14,6 +14,13 @@ type Events struct {
 	TipRemoved *events.Event
 }
 
+func newEvents() *Events {
+	return &Events{
+		TipAdded:   events.NewEvent(messageIDEvent),
+		TipRemoved: events.NewEvent(messageIDEvent),
+	}
+}
+
 func messageIDEvent(handler interface{}, params ...interface{}) {
 	handler.(func(message.ID))(params[0].(message.ID))
 }

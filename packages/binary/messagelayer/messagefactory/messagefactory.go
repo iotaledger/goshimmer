@@ -19,9 +19,9 @@ var (
 	ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 )
 
-// A TipSelector selects two tips, branch and trunk, for a new message to attach to.
+// A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
 type TipSelector interface {
-	Tips() (trunk message.ID, branch message.ID)
+	Tips() (parent1 message.ID, parent2 message.ID)
 }
 
 // A Worker performs the PoW for the provided message in serialized byte form.
@@ -84,12 +84,12 @@ func (m *MessageFactory) IssuePayload(p payload.Payload) (*message.Message, erro
 		return nil, err
 	}
 
-	trunkID, branchID := m.selector.Tips()
+	parent1ID, parent2ID := m.selector.Tips()
 	issuingTime := time.Now()
 	issuerPublicKey := m.localIdentity.PublicKey()
 
 	// do the PoW
-	nonce, err := m.doPOW(trunkID, branchID, issuingTime, issuerPublicKey, sequenceNumber, p)
+	nonce, err := m.doPOW(parent1ID, parent2ID, issuingTime, issuerPublicKey, sequenceNumber, p)
 	if err != nil {
 		err = fmt.Errorf("pow failed: %w", err)
 		m.Events.Error.Trigger(err)
@@ -97,11 +97,11 @@ func (m *MessageFactory) IssuePayload(p payload.Payload) (*message.Message, erro
 	}
 
 	// create the signature
-	signature := m.sign(trunkID, branchID, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature := m.sign(parent1ID, parent2ID, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 
 	msg := message.New(
-		trunkID,
-		branchID,
+		parent1ID,
+		parent2ID,
 		issuingTime,
 		issuerPublicKey,
 		sequenceNumber,
@@ -120,18 +120,18 @@ func (m *MessageFactory) Shutdown() {
 	}
 }
 
-func (m *MessageFactory) doPOW(trunkID message.ID, branchID message.ID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
+func (m *MessageFactory) doPOW(parent1ID message.ID, parent2ID message.ID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	dummy := message.New(trunkID, branchID, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
+	dummy := message.New(parent1ID, parent2ID, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
 
 	m.workerMutex.RLock()
 	defer m.workerMutex.RUnlock()
 	return m.worker.DoPOW(dummy)
 }
 
-func (m *MessageFactory) sign(trunkID message.ID, branchID message.ID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
+func (m *MessageFactory) sign(parent1ID message.ID, parent2ID message.ID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload payload.Payload, nonce uint64) ed25519.Signature {
 	// create a dummy message to simplify marshaling
-	dummy := message.New(trunkID, branchID, issuingTime, key, seq, payload, nonce, ed25519.EmptySignature)
+	dummy := message.New(parent1ID, parent2ID, issuingTime, key, seq, payload, nonce, ed25519.EmptySignature)
 	dummyBytes := dummy.Bytes()
 
 	contentLength := len(dummyBytes) - len(dummy.Signature())

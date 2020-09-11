@@ -24,6 +24,12 @@ type Events struct {
 	MessageRemoved *events.Event
 }
 
+// CachedMessageEvent represents the parameters of cachedMessageEvent
+type CachedMessageEvent struct {
+	Message         *message.CachedMessage
+	MessageMetadata *CachedMessageMetadata
+}
+
 func newEvents() *Events {
 	return &Events{
 		MessageAttached:        events.NewEvent(cachedMessageEvent),
@@ -40,8 +46,12 @@ func messageIDEvent(handler interface{}, params ...interface{}) {
 }
 
 func cachedMessageEvent(handler interface{}, params ...interface{}) {
-	handler.(func(*message.CachedMessage, *CachedMessageMetadata))(
-		params[0].(*message.CachedMessage).Retain(),
-		params[1].(*CachedMessageMetadata).Retain(),
-	)
+	handler.(func(*CachedMessageEvent))(cachedMessageRetain(params[0].(*CachedMessageEvent)))
+}
+
+func cachedMessageRetain(object *CachedMessageEvent) *CachedMessageEvent {
+	return &CachedMessageEvent{
+		Message:         object.Message.Retain(),
+		MessageMetadata: object.MessageMetadata.Retain(),
+	}
 }

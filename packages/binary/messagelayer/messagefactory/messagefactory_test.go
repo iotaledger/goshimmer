@@ -49,8 +49,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 		msg, err := msgFactory.IssuePayload(p)
 		require.NoError(t, err)
 
-		assert.NotNil(t, msg.TrunkID())
-		assert.NotNil(t, msg.BranchID())
+		assert.NotNil(t, msg.Parent1ID())
+		assert.NotNil(t, msg.Parent2ID())
 
 		// time in range of 0.1 seconds
 		assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
@@ -75,8 +75,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 				msg, err := msgFactory.IssuePayload(p)
 				require.NoError(t, err)
 
-				assert.NotNil(t, msg.TrunkID())
-				assert.NotNil(t, msg.BranchID())
+				assert.NotNil(t, msg.Parent1ID())
+				assert.NotNil(t, msg.Parent2ID())
 
 				// time in range of 0.1 seconds
 				assert.InDelta(t, time.Now().UnixNano(), msg.IssuingTime().UnixNano(), 100000000)
