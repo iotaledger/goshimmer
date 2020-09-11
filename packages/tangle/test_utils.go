@@ -7,7 +7,7 @@ import (
 )
 
 func newTestNonceMessage(nonce uint64) *Message {
-	return NewMessage(EmptyMessageID, EmptyMessageID, time.Time{}, ed25519.PublicKey{}, 0, testPayload, nonce, ed25519.Signature{})
+	return NewMessage(EmptyMessageID, EmptyMessageID, time.Time{}, ed25519.PublicKey{}, 0, NewDataPayload([]byte("test")), nonce, ed25519.Signature{})
 }
 
 func newTestDataMessage(payloadString string) *Message {

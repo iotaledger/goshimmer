@@ -14,7 +14,6 @@ import (
 )
 
 var (
-	testPayload    = NewDataPayload([]byte("test"))
 	testPeer       *peer.Peer
 	testWorker     = pow.New(crypto.BLAKE2b_512, 1)
 	testDifficulty = 10
