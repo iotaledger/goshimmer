@@ -155,7 +155,9 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 	}
 
 	faucetPeer := peers[0]
-	faucetAddrStr := faucetPeer.Seed.Address(0).String()
+	// faucet has moved all its funds to the next address
+	faucetAddrStr := faucetPeer.Seed.Address(1).String()
+	addrBalance[faucetAddrStr] = make(map[balance.Color]int64)
 
 	// get faucet balances
 	unspentOutputs, err := faucetPeer.GetUnspentOutputs([]string{faucetAddrStr})
@@ -164,7 +166,7 @@ func SendTransactionFromFaucet(t *testing.T, peers []*framework.Peer, sentValue 
 
 	// send funds to other peers
 	for i := 1; i < len(peers); i++ {
-		fail, txId := SendIotaTransaction(t, faucetPeer, peers[i], addrBalance, sentValue)
+		fail, txId := SendIotaTransaction(t, faucetPeer, peers[i], addrBalance, sentValue, 1, 0)
 		require.False(t, fail)
 		txIds = append(txIds, txId)
 
@@ -202,11 +204,22 @@ func SendTransactionOnRandomPeer(t *testing.T, peers []*framework.Peer, addrBala
 }
 
 // SendIotaTransaction sends sentValue amount of IOTA tokens and remainders from and to a given peer and returns the fail flag and the transaction ID.
-// Every peer sends and receives the transaction on the address of index 0.
-func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[balance.Color]int64, sentValue int64) (fail bool, txId string) {
-	sigScheme := signaturescheme.ED25519(*from.Seed.KeyPair(0))
-	inputAddr := from.Seed.Address(0).Address
-	outputAddr := to.Seed.Address(0).Address
+// Every peer sends and receives the transaction on the address of index 0 by default.
+// Optionally, the address index for from and to can be specified.
+func SendIotaTransaction(t *testing.T, from *framework.Peer, to *framework.Peer, addrBalance map[string]map[balance.Color]int64, sentValue int64, fromAndToAddressIndex ...uint64) (fail bool, txId string) {
+	var sigScheme signaturescheme.SignatureScheme
+	var inputAddr address.Address
+	var outputAddr address.Address
+
+	if len(fromAndToAddressIndex) > 1 {
+		inputAddr = from.Seed.Address(fromAndToAddressIndex[0]).Address
+		outputAddr = to.Seed.Address(fromAndToAddressIndex[1]).Address
+		sigScheme = signaturescheme.ED25519(*from.Seed.KeyPair(fromAndToAddressIndex[0]))
+	} else {
+		inputAddr = from.Seed.Address(0).Address
+		outputAddr = to.Seed.Address(0).Address
+		sigScheme = signaturescheme.ED25519(*from.Seed.KeyPair(0))
+	}
 
 	// prepare inputs
 	resp, err := from.GetUnspentOutputs([]string{inputAddr.String()})
