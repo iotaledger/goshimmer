@@ -1,7 +1,6 @@
 package mana
 
 import (
-	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -19,10 +18,8 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/objectstorage"
-	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
 )
 
@@ -304,23 +301,6 @@ func GetAllowedAccessPledgeNodes(manaType mana.Type) AllowedPledge {
 
 // TODO: Obtaining a list of currently known peers + their mana, sorted. Useful for knowing which high mana nodes are online.
 
-func idFromPubKey(pubKey string) (ID identity.ID, err error) {
-	ID = identity.ID{}
-	bytes, err := base58.Decode(pubKey)
-	if err != nil {
-		err = fmt.Errorf("could not parse %s config entry as base58: %w", pubKey, err)
-		return
-	}
-	marshalUtil := marshalutil.New(bytes)
-	_identity, err := identity.Parse(marshalUtil)
-	if err != nil {
-		err = fmt.Errorf("could not parse %s config entry as identity. %w", pubKey, err)
-		return
-	}
-	ID = _identity.ID()
-	return
-}
-
 func verifyPledgeNodes() error {
 	access := AllowedPledge{
 		IsFilterEnabled: config.Node().GetBool(CfgAllowedAccessFilterEnabled),
@@ -332,7 +312,7 @@ func verifyPledgeNodes() error {
 	if access.IsFilterEnabled {
 		nodes := make(map[identity.ID]interface{})
 		for _, pubKey := range config.Node().GetStringSlice(CfgAllowedAccessPledge) {
-			ID, err := idFromPubKey(pubKey)
+			ID, err := mana.IDFromPubKey(pubKey)
 			if err != nil {
 				return err
 			}
@@ -344,7 +324,7 @@ func verifyPledgeNodes() error {
 	if consensus.IsFilterEnabled {
 		nodes := make(map[identity.ID]interface{})
 		for _, pubKey := range config.Node().GetStringSlice(CfgAllowedConsensusPledge) {
-			ID, err := idFromPubKey(pubKey)
+			ID, err := mana.IDFromPubKey(pubKey)
 			if err != nil {
 				return err
 			}

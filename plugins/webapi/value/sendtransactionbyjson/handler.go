@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -121,6 +122,17 @@ func NewTransactionFromJSON(request Request) (*transaction.Transaction, error) {
 
 	// prepare transaction
 	tx := transaction.New(transaction.NewInputs(inputs...), transaction.NewOutputs(outputs))
+	accessMana, err := mana.IDFromPubKey(request.AccessMana)
+	if err != nil {
+		return nil, err
+	}
+	tx.SetAccessManaNodeID(accessMana)
+	consensusMana, err := mana.IDFromPubKey(request.ConsensusMana)
+	if err != nil {
+		return nil, err
+	}
+	tx.SetConsensusManaNodeID(consensusMana)
+	tx.SetTimestamp(time.Unix(0, request.Timestamp))
 
 	// add data payload
 	if request.Data != nil {
@@ -208,10 +220,13 @@ func NewTransactionFromJSON(request Request) (*transaction.Transaction, error) {
 // 	   }[]
 //  }
 type Request struct {
-	Inputs     []string    `json:"inputs"`
-	Outputs    []Output    `json:"outputs"`
-	Data       []byte      `json:"data,omitempty"`
-	Signatures []Signature `json:"signatures"`
+	Inputs        []string    `json:"inputs"`
+	Outputs       []Output    `json:"outputs"`
+	Data          []byte      `json:"data,omitempty"`
+	Signatures    []Signature `json:"signatures"`
+	AccessMana    string      `json:"accessMana"`
+	ConsensusMana string      `json:"consensusMana"`
+	Timestamp     int64       `json:"timestamp"`
 }
 
 // Output defines the struct of an output.
