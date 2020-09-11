@@ -77,7 +77,7 @@ func (persistableBaseMana *PersistableBaseMana) ObjectStorageValue() []byte {
 }
 
 // UnmarshalObjectStorageValue unmarshales the bytes into a persitable mana object.
-func (persistableBaseMana PersistableBaseMana) UnmarshalObjectStorageValue(bytes []byte) (consumedBytes int, err error) {
+func (persistableBaseMana *PersistableBaseMana) UnmarshalObjectStorageValue(bytes []byte) (consumedBytes int, err error) {
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 	manaType, err := marshalUtil.ReadInt64()
@@ -131,7 +131,7 @@ func (persistableBaseMana PersistableBaseMana) UnmarshalObjectStorageValue(bytes
 }
 
 // FromStorageKey returns the persistable mana indexed by the key specified.
-func FromStorageKey(key []byte, optionalTargetObject ...*PersistableBaseMana) (result objectstorage.StorableObject, consumedBytes int, err error) {
+func FromStorageKey(key []byte, optionalTargetObject ...*PersistableBaseMana) (result *PersistableBaseMana, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -144,7 +144,7 @@ func FromStorageKey(key []byte, optionalTargetObject ...*PersistableBaseMana) (r
 
 	var nodeID identity.ID
 	copy(nodeID[:], key)
-	result.(*PersistableBaseMana).NodeID = nodeID
+	result.NodeID = nodeID
 
 	return
 }
