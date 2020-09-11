@@ -8,7 +8,8 @@ import (
 
 var (
 	// ErrAlreadyUpdated is returned if mana is tried to be updated at a later time.
-	ErrAlreadyUpdated = errors.New("already updated to a later timestamp")
+	ErrAlreadyUpdated   = errors.New("already updated to a later timestamp")
+	ErrBaseManaNegative = errors.New("base mana should never be negative")
 )
 
 // BaseMana holds information about the base mana values of a single node.
@@ -54,7 +55,7 @@ func (bm *BaseMana) updateEBM2(n time.Duration) {
 	}
 }
 
-func (bm *BaseMana) revokeBaseMana1(amount float64, t time.Time) {
+func (bm *BaseMana) revokeBaseMana1(amount float64, t time.Time) error {
 	if t.After(bm.LastUpdated) {
 		// regular update
 		n := t.Sub(bm.LastUpdated)
@@ -66,14 +67,21 @@ func (bm *BaseMana) revokeBaseMana1(amount float64, t time.Time) {
 		bm.LastUpdated = t
 		// revoke BM1 at `t`
 		bm.BaseMana1 -= amount
+		if bm.BaseMana1 < 0.0 {
+			return ErrBaseManaNegative
+		}
 	} else {
 		// update in past
 		n := bm.LastUpdated.Sub(t)
 		// revoke BM1 at `t`
 		bm.BaseMana1 -= amount
+		if bm.BaseMana1 < 0.0 {
+			return ErrBaseManaNegative
+		}
 		// update EBM1 to `bm.LastUpdated`
 		bm.EffectiveBaseMana1 -= amount * (1 - math.Pow(math.E, -emaCoeff1*n.Seconds()))
 	}
+	return nil
 }
 
 func (bm *BaseMana) pledgeAndUpdate(tx *TxInfo) (bm1Pledged float64, bm2Pledged float64) {

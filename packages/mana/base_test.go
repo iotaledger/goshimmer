@@ -170,13 +170,29 @@ func TestRevokeBaseMana1Regular(t *testing.T) {
 		LastUpdated:        baseTime,
 	}
 	revokeTime := baseTime.Add(time.Hour * 6)
-	bm.revokeBaseMana1(1.0, revokeTime)
+	err := bm.revokeBaseMana1(1.0, revokeTime)
+	assert.NoError(t, err)
 	// values are only valid for default coefficients of 0.00003209 and t = 6 hours
 	assert.Equal(t, 0.0, bm.BaseMana1)
 	assert.Equal(t, true, within(0.5, bm.EffectiveBaseMana1))
 	assert.Equal(t, true, within(0.5, bm.BaseMana2))
 	assert.Equal(t, true, within(0.346573, bm.EffectiveBaseMana2))
 	assert.Equal(t, revokeTime, bm.LastUpdated)
+}
+
+func TestRevokeBaseMana1RegularNegativeBalance(t *testing.T) {
+	baseTime := time.Now()
+	bm := &BaseMana{
+		BaseMana1:          0.0,
+		EffectiveBaseMana1: 0.0,
+		BaseMana2:          1.0,
+		EffectiveBaseMana2: 0.0,
+		LastUpdated:        baseTime,
+	}
+	revokeTime := baseTime.Add(time.Hour * 6)
+	err := bm.revokeBaseMana1(1.0, revokeTime)
+	assert.Error(t, err)
+	assert.Equal(t, ErrBaseManaNegative, err)
 }
 
 func TestRevokeBaseMana1Past(t *testing.T) {
@@ -190,12 +206,13 @@ func TestRevokeBaseMana1Past(t *testing.T) {
 	}
 	// update values until t = 6 hours
 	updateTime := baseTime.Add(time.Hour * 6)
-	bm.update(updateTime)
-
+	err := bm.update(updateTime)
+	assert.NoError(t, err)
 	assert.Equal(t, true, within(0.5, bm.EffectiveBaseMana1))
 
 	// revoke base mana 1 at t=0 in the past
-	bm.revokeBaseMana1(1.0, baseTime)
+	err = bm.revokeBaseMana1(1.0, baseTime)
+	assert.NoError(t, err)
 
 	// values are only valid for default coefficients of 0.00003209 and t = 6 hours
 	assert.Equal(t, 0.0, bm.BaseMana1)
@@ -203,6 +220,26 @@ func TestRevokeBaseMana1Past(t *testing.T) {
 	assert.Equal(t, true, within(0.5, bm.BaseMana2))
 	assert.Equal(t, true, within(0.346573, bm.EffectiveBaseMana2))
 	assert.Equal(t, updateTime, bm.LastUpdated)
+}
+
+func TestRevokeBaseMana1PastNegativeBalance(t *testing.T) {
+	baseTime := time.Now()
+	bm := &BaseMana{
+		BaseMana1:          0.0,
+		EffectiveBaseMana1: 0.0,
+		BaseMana2:          1.0,
+		EffectiveBaseMana2: 0.0,
+		LastUpdated:        baseTime,
+	}
+	// update values until t = 6 hours
+	updateTime := baseTime.Add(time.Hour * 6)
+	err := bm.update(updateTime)
+	assert.NoError(t, err)
+	assert.Equal(t, true, within(0.0, bm.EffectiveBaseMana1))
+
+	err = bm.revokeBaseMana1(1.0, baseTime)
+	assert.Error(t, err)
+	assert.Equal(t, ErrBaseManaNegative, err)
 }
 
 func TestPledgeAndUpdateRegularOldFunds(t *testing.T) {
