@@ -3,6 +3,8 @@ package value
 import (
 	"sync"
 
+	"github.com/iotaledger/goshimmer/plugins/webapi/value/allowedmanapledge"
+
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/attachments"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/gettransactionbyid"
@@ -37,4 +39,5 @@ func configure(_ *node.Plugin) {
 	webapi.Server().POST("value/sendTransactionByJson", sendtransactionbyjson.Handler)
 	webapi.Server().POST("value/testSendTxn", testsendtxn.Handler)
 	webapi.Server().GET("value/transactionByID", gettransactionbyid.Handler)
+	webapi.Server().GET("value/allowedManaPledge", allowedmanapledge.Handler)
 }
