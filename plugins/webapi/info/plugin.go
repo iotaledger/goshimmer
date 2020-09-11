@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/banner"
+	"github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 	"github.com/iotaledger/goshimmer/plugins/syncbeaconfollower"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
@@ -102,6 +103,13 @@ func getInfo(c echo.Context) error {
 		})
 	}
 
+	accessMana, _ := mana.GetAccessMana(local.GetInstance().ID())
+	consensusMana, _ := mana.GetConsensusMana(local.GetInstance().ID())
+	nodeMana := Mana{
+		Access:    accessMana,
+		Consensus: consensusMana,
+	}
+
 	return c.JSON(http.StatusOK, Response{
 		Version:                 banner.AppVersion,
 		NetworkVersion:          autopeering.NetworkVersion(),
@@ -114,6 +122,7 @@ func getInfo(c echo.Context) error {
 		TotalMessageCount:       int(metrics.MessageTotalCountDB()),
 		EnabledPlugins:          enabledPlugins,
 		DisabledPlugins:         disabledPlugins,
+		Mana:                    nodeMana,
 	})
 }
 
@@ -141,6 +150,8 @@ type Response struct {
 	EnabledPlugins []string `json:"enabledPlugins,omitempty"`
 	// list if disabled plugins
 	DisabledPlugins []string `json:"disabledPlugins,omitempty"`
+	// Mana values
+	Mana Mana `json:"mana,omitempty"`
 	// error of the response
 	Error string `json:"error,omitempty"`
 }
@@ -151,4 +162,10 @@ type Beacon struct {
 	MsgID     string `json:"msg_id"`
 	SentTime  int64  `json:"sent_time"`
 	Synced    bool   `json:"synced"`
+}
+
+// Mana contains the different mana values of the node.
+type Mana struct {
+	Access    float64 `json:"access"`
+	Consensus float64 `json:"consensus"`
 }
