@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/database"
-	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
@@ -110,28 +109,28 @@ func configure(*node.Plugin) {
 	}))
 
 	// setup messageParser
-	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(msg *message.Message, peer *peer.Peer) {
+	messageParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *messageparser.MessageParsedEvent) {
 		// TODO: ADD PEER
-		_tangle.AttachMessage(msg)
+		_tangle.AttachMessage(msgParsedEvent.Message)
 	}))
 
 	// setup messageRequester
 	_tangle.Events.MessageMissing.Attach(events.NewClosure(messageRequester.StartRequest))
-	_tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
-		cachedMessageMetadata.Release()
-		cachedMessage.Consume(func(msg *message.Message) {
+	_tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
+		cachedMsgEvent.Message.Consume(func(msg *message.Message) {
 			messageRequester.StopRequest(msg.ID())
 		})
 	}))
 
 	// setup tipSelector
-	_tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *tangle.CachedMessageMetadata) {
-		cachedMessageMetadata.Release()
-		cachedMessage.Consume(tipSelector.AddTip)
+	_tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
+		cachedMsgEvent.Message.Consume(tipSelector.AddTip)
 	}))
 
-	MessageRequester().Events.MissingMessageAppeared.Attach(events.NewClosure(func(id message.ID) {
-		_tangle.DeleteMissingMessage(id)
+	MessageRequester().Events.MissingMessageAppeared.Attach(events.NewClosure(func(missingMessageAppeared *messagerequester.MissingMessageAppearedEvent) {
+		_tangle.DeleteMissingMessage(missingMessageAppeared.ID)
 	}))
 }
 

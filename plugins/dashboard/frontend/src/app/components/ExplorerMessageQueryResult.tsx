@@ -161,8 +161,8 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                 <ListGroup>
                                     <ListGroup.Item className="text-break">
                                         Parent 1 Message ID: {' '}
-                                        <Link to={`/explorer/message/${msg.trunk_message_id}`}>
-                                            {msg.trunk_message_id}
+                                        <Link to={`/explorer/message/${msg.parent1_message_id}`}>
+                                            {msg.parent1_message_id}
                                         </Link>
                                     </ListGroup.Item>
                                 </ListGroup>
@@ -171,8 +171,8 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                 <ListGroup>
                                     <ListGroup.Item className="text-break">
                                         Parent 2 Message ID: {' '}
-                                        <Link to={`/explorer/message/${msg.branch_message_id}`}>
-                                            {msg.branch_message_id}
+                                        <Link to={`/explorer/message/${msg.parent2_message_id}`}>
+                                            {msg.parent2_message_id}
                                         </Link>
                                     </ListGroup.Item>
                                 </ListGroup>

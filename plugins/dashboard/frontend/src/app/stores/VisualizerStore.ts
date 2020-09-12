@@ -5,8 +5,8 @@ import {default as Viva} from 'vivagraphjs';
 
 export class Vertex {
     id: string;
-    trunk_id: string;
-    branch_id: string;
+    parent1_id: string;
+    parent2_id: string;
     is_solid: boolean;
     is_tip: boolean;
 }
@@ -97,10 +97,10 @@ export class VisualizerStore {
                 existing.is_solid = true;
                 this.solid_count++;
             }
-            // update trunk and branch ids since we might be dealing
+            // update parent1 and parent2 ids since we might be dealing
             // with a vertex obj only created from a tip info
-            existing.trunk_id = vert.trunk_id;
-            existing.branch_id = vert.branch_id;
+            existing.parent1_id = vert.parent1_id;
+            existing.parent2_id = vert.parent2_id;
             vert = existing
         } else {
             if (vert.is_solid) {
@@ -109,16 +109,16 @@ export class VisualizerStore {
             this.verticesIncomingOrder.push(vert.id);
             this.checkLimit();
 
-            //clear trunk and branch tip state
-            let trunkVert = this.vertices.get(vert.trunk_id)
-            let branchVert = this.vertices.get(vert.branch_id)
-            if(trunkVert) {
-                trunkVert.is_tip = false
-                this.vertices.set(trunkVert.id, trunkVert)
+            //clear parent1 and parent2 tip state
+            let parent1Vert = this.vertices.get(vert.parent1_id)
+            let parent2Vert = this.vertices.get(vert.parent2_id)
+            if(parent1Vert) {
+                parent1Vert.is_tip = false
+                this.vertices.set(parent1Vert.id, parent1Vert)
             }
-            if(branchVert){
-                branchVert.is_tip = false
-                this.vertices.set(branchVert.id, branchVert)
+            if(parent2Vert){
+                parent2Vert.is_tip = false
+                this.vertices.set(parent2Vert.id, parent2Vert)
             }
         }
 
@@ -163,8 +163,8 @@ export class VisualizerStore {
             if (vert.is_tip) {
                 this.tips_count--;
             }
-            this.deleteApproveeLink(vert.trunk_id);
-            this.deleteApproveeLink(vert.branch_id);
+            this.deleteApproveeLink(vert.parent1_id);
+            this.deleteApproveeLink(vert.parent2_id);
         }
     }
 
@@ -200,19 +200,19 @@ export class VisualizerStore {
         } else {
             node = this.graph.addNode(vert.id, vert);
         }
-        if (vert.trunk_id && (!node.links || !node.links.some(link => link.fromId === vert.trunk_id))) {
-            this.graph.addLink(vert.trunk_id, vert.id);
+        if (vert.parent1_id && (!node.links || !node.links.some(link => link.fromId === vert.parent1_id))) {
+            this.graph.addLink(vert.parent1_id, vert.id);
         }
-        if (vert.trunk_id === vert.branch_id) {
+        if (vert.parent1_id === vert.parent2_id) {
             return;
         }
-        if (vert.branch_id && (!node.links || !node.links.some(link => link.fromId === vert.branch_id))) {
-            this.graph.addLink(vert.branch_id, vert.id);
+        if (vert.parent2_id && (!node.links || !node.links.some(link => link.fromId === vert.parent2_id))) {
+            this.graph.addLink(vert.parent2_id, vert.id);
         }
     }
 
     colorForVertexState = (vert: Vertex) => {
-        if (!vert || (!vert.trunk_id && !vert.branch_id)) return "#b58900";
+        if (!vert || (!vert.parent1_id && !vert.parent2_id)) return "#b58900";
         if (vert.is_tip) {
             return "#cb4b16";
         }

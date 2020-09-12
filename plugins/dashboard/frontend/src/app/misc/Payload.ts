@@ -34,8 +34,8 @@ export class DrngCbPayload {
 // Value payload
 export class ValuePayload {
     payload_id: string;
-    parent_id_0: string;
-    parent_id_1: string;
+    parent1_id: string;
+    parent2_id: string;
     tx_id: string;
     inputs: Array<Inputs>;
     outputs: Array<Outputs>;

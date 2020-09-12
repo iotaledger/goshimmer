@@ -1,19 +1,11 @@
 version: "3.5"
 
 services:
-  mongodb_container:
-    image: mongo:latest
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: password
-    ports:
-      - 27017:27017
-    volumes:
-      - mongodb_data_container:/data/db
  
   entry_node:
     container_name: entry_node
     image: golang:1.14.4
+    stop_grace_period: 1m
     entrypoint: /go/bin/main
     command: >
       --config-dir=/tmp
@@ -23,7 +15,7 @@ services:
       --analysis.server.bindAddress=0.0.0.0:1888
       --analysis.dashboard.bindAddress=0.0.0.0:9000
       --analysis.dashboard.dev=false
-      --analysis.dashboard.mongodb.enabled=true
+      --analysis.dashboard.mongodb.enabled=${MONGO_DB_ENABLED}
       --analysis.dashboard.mongodb.hostAddress=mongodb_container:27017
       --metrics.local=false
       --metrics.global=true
@@ -43,6 +35,7 @@ services:
   peer_master:
     container_name: peer_master
     image: golang:1.14.4
+    stop_grace_period: 1m
     entrypoint: /go/bin/main
     command: >
       --config-dir=/tmp
@@ -67,6 +60,7 @@ services:
 
   peer_replica:
     image: golang:1.14.4
+    stop_grace_period: 1m
     entrypoint: /go/bin/main
     command: >
       --config-dir=/tmp
@@ -84,33 +78,6 @@ services:
     depends_on:
       - entry_node
 
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    ports:
-    - 9090:9090
-    command:
-    - --config.file=/etc/prometheus/prometheus.yml
-    volumes:
-    - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    depends_on:
-    - peer_master
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    restart: unless-stopped
-    environment:
-      # path to provisioning definitions can only be defined as
-      # environment variables for grafana within docker
-      - GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning
-    ports:
-    - 3000:3000
-    user: "104"
-    volumes:
-    - ./grafana:/var/lib/grafana:rw
-
 volumes:
   goshimmer-cache:
     name: goshimmer-cache
-  mongodb_data_container:

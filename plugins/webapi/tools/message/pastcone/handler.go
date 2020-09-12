@@ -46,26 +46,26 @@ func Handler(c echo.Context) error {
 			return c.JSON(http.StatusOK, Response{Exist: false, PastConeSize: checkedMessageCount, Error: fmt.Sprintf("couldn't find %s message on node", currentMsgID)})
 		}
 
-		// get trunk and branch
+		// get parent1 and parent2
 		msg := msgObject.Unwrap()
-		branchID := msg.BranchID()
-		trunkID := msg.TrunkID()
+		parent2ID := msg.Parent2ID()
+		parent1ID := msg.Parent1ID()
 
 		// release objects
 		msgObject.Release()
 		msgMetadataObject.Release()
 
-		if branchID == message.EmptyID && msg.TrunkID() == message.EmptyID {
+		if parent2ID == message.EmptyID && msg.Parent1ID() == message.EmptyID {
 			// msg only attaches to genesis
 			continue
 		} else {
-			if !submitted[branchID] && branchID != message.EmptyID {
-				stack.PushBack(branchID)
-				submitted[branchID] = true
+			if !submitted[parent2ID] && parent2ID != message.EmptyID {
+				stack.PushBack(parent2ID)
+				submitted[parent2ID] = true
 			}
-			if !submitted[trunkID] && trunkID != message.EmptyID {
-				stack.PushBack(trunkID)
-				submitted[trunkID] = true
+			if !submitted[parent1ID] && parent1ID != message.EmptyID {
+				stack.PushBack(parent1ID)
+				submitted[parent1ID] = true
 			}
 		}
 	}

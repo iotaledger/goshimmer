@@ -18,10 +18,10 @@ var (
 
 // vertex defines a vertex in a DAG.
 type vertex struct {
-	ID       string `json:"id"`
-	TrunkID  string `json:"trunk_id"`
-	BranchID string `json:"branch_id"`
-	IsSolid  bool   `json:"is_solid"`
+	ID        string `json:"id"`
+	Parent1ID string `json:"parent1_id"`
+	Parent2ID string `json:"parent2_id"`
+	IsSolid   bool   `json:"is_solid"`
 }
 
 // tipinfo holds information about whether a given message is a tip or not.
@@ -53,10 +53,10 @@ func sendVertex(cachedMessage *message.CachedMessage, cachedMessageMetadata *tan
 		return
 	}
 	broadcastWsMessage(&wsmsg{MsgTypeVertex, &vertex{
-		ID:       msg.ID().String(),
-		TrunkID:  msg.TrunkID().String(),
-		BranchID: msg.BranchID().String(),
-		IsSolid:  cachedMessageMetadata.Unwrap().IsSolid(),
+		ID:        msg.ID().String(),
+		Parent1ID: msg.Parent1ID().String(),
+		Parent2ID: msg.Parent2ID().String(),
+		IsSolid:   cachedMessageMetadata.Unwrap().IsSolid(),
 	}}, true)
 }
 
@@ -68,13 +68,13 @@ func sendTipInfo(messageID message.ID, isTip bool) {
 }
 
 func runVisualizer() {
-	notifyNewMsg := events.NewClosure(func(message *message.CachedMessage, metadata *tangle.CachedMessageMetadata) {
-		defer message.Release()
-		defer metadata.Release()
-		_, ok := visualizerWorkerPool.TrySubmit(message.Retain(), metadata.Retain())
+	notifyNewMsg := events.NewClosure(func(cachedMsgEvent *tangle.CachedMessageEvent) {
+		defer cachedMsgEvent.Message.Release()
+		defer cachedMsgEvent.MessageMetadata.Release()
+		_, ok := visualizerWorkerPool.TrySubmit(cachedMsgEvent.Message.Retain(), cachedMsgEvent.MessageMetadata.Retain())
 		if !ok {
-			message.Release()
-			metadata.Release()
+			cachedMsgEvent.Message.Release()
+			cachedMsgEvent.MessageMetadata.Release()
 		}
 	})
 

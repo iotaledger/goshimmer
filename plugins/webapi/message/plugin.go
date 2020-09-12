@@ -75,8 +75,8 @@ func findMessageByID(c echo.Context) error {
 				SolidificationTime: msgMetadata.SolidificationTime().Unix(),
 			},
 			ID:              msg.ID().String(),
-			TrunkID:         msg.TrunkID().String(),
-			BranchID:        msg.BranchID().String(),
+			Parent1ID:       msg.Parent1ID().String(),
+			Parent2ID:       msg.Parent2ID().String(),
 			IssuerPublicKey: msg.IssuerPublicKey().String(),
 			IssuingTime:     msg.IssuingTime().Unix(),
 			SequenceNumber:  msg.SequenceNumber(),
@@ -107,8 +107,8 @@ type Request struct {
 type Message struct {
 	Metadata        `json:"metadata,omitempty"`
 	ID              string `json:"ID,omitempty"`
-	TrunkID         string `json:"trunkId,omitempty"`
-	BranchID        string `json:"branchId,omitempty"`
+	Parent1ID       string `json:"parent1Id,omitempty"`
+	Parent2ID       string `json:"parent2Id,omitempty"`
 	IssuerPublicKey string `json:"issuerPublicKey,omitempty"`
 	IssuingTime     int64  `json:"issuingTime,omitempty"`
 	SequenceNumber  uint64 `json:"sequenceNumber,omitempty"`

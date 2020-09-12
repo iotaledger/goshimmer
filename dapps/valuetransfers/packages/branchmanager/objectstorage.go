@@ -48,18 +48,18 @@ var (
 	}
 )
 
-func osBranchFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func osBranchFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return BranchFromStorageKey(key)
 }
 
-func osChildBranchFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func osChildBranchFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return ChildBranchFromStorageKey(key)
 }
 
-func osConflictFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func osConflictFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return ConflictFromStorageKey(key)
 }
 
-func osConflictMemberFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func osConflictMemberFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return ConflictMemberFromStorageKey(key)
 }

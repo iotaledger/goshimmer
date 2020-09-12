@@ -7,11 +7,11 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-// ContentID identifies the content of a message without its trunk/branch ids.
+// ContentID identifies the content of a message without its parent1/parent2 ids.
 type ContentID = ID
 
 // ID identifies a message in its entirety. Unlike the sole content id, it also incorporates
-// the trunk and branch ids.
+// the parent1 and parent2 ids.
 type ID [IDLength]byte
 
 // NewID creates a new message id.
