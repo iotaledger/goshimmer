@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
+	"github.com/iotaledger/goshimmer/plugins/webapi/mana/all"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 )
@@ -30,6 +31,7 @@ func Plugin() *node.Plugin {
 
 func configure(_ *node.Plugin) {
 	webapi.Server().GET("mana", getMana)
+	webapi.Server().GET("mana/all", all.Handler)
 }
 
 func getMana(c echo.Context) error {
