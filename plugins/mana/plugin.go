@@ -54,7 +54,7 @@ var (
 	storages        map[mana.Type]*objectstorage.ObjectStorage
 )
 
-func osManaFactory(key []byte) (objectstorage.StorableObject, int, error) {
+func osManaFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
 	return mana.FromStorageKey(key)
 }
 
