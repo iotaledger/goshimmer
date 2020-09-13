@@ -84,12 +84,12 @@ func configure(*node.Plugin) {
 }
 
 func configureEvents() {
-	valuetransfers.Tangle().Events.TransactionConfirmed.Attach(events.NewClosure(func(cachedTransaction *transaction.CachedTransaction, cachedTransactionMetadata *tangle.CachedTransactionMetadata) {
-		cachedTransactionMetadata.Release()
+	valuetransfers.Tangle().Events.TransactionConfirmed.Attach(events.NewClosure(func(cachedTransactionEvent *tangle.CachedTransactionEvent) {
+		cachedTransactionEvent.TransactionMetadata.Release()
 		// holds all info mana pkg needs for correct mana calculations from the transaction
 		var txInfo *mana.TxInfo
 		// process transaction object to build txInfo
-		cachedTransaction.Consume(func(tx *transaction.Transaction) {
+		cachedTransactionEvent.Transaction.Consume(func(tx *transaction.Transaction) {
 			var totalAmount float64
 			var inputInfos []mana.InputInfo
 			// iterate over all inputs within the transaction
