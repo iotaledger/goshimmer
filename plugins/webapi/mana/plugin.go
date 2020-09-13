@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/mana/all"
 	"github.com/iotaledger/goshimmer/plugins/webapi/mana/nhighest"
+	"github.com/iotaledger/goshimmer/plugins/webapi/mana/percentile"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 )
@@ -35,6 +36,7 @@ func configure(_ *node.Plugin) {
 	webapi.Server().GET("mana/all", all.Handler)
 	webapi.Server().GET("/mana/access/nhighest", nhighest.AccessHandler)
 	webapi.Server().GET("/mana/consensus/nhighest", nhighest.ConsensusHandler)
+	webapi.Server().GET("/mana/percentile", percentile.Handler)
 }
 
 func getMana(c echo.Context) error {

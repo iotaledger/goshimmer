@@ -27,6 +27,6 @@ func Handler(c echo.Context, manaType mana.Type) error {
 
 // Response is the response.
 type Response struct {
-	Error string `json:"error,omitempty"`
-	Nodes []mana.NodeStr
+	Error string         `json:"error,omitempty"`
+	Nodes []mana.NodeStr `json:"nodes,omitempty"`
 }
