@@ -162,6 +162,7 @@ func (bmv *BaseManaVector) GetManaMap() NodeMap {
 
 // GetHighestManaNodes return the n highest mana nodes in descending order.
 // It also updates the mana values for each node.
+// If n is zero, it returns all nodes.
 func (bmv *BaseManaVector) GetHighestManaNodes(n uint) []Node {
 	var res []Node
 	func() {
@@ -181,10 +182,10 @@ func (bmv *BaseManaVector) GetHighestManaNodes(n uint) []Node {
 		return res[i].Mana > res[j].Mana
 	})
 
-	if int(n) <= len(res) {
-		return res[:n]
+	if n == 0 || int(n) >= len(res) {
+		return res[:]
 	}
-	return res[:]
+	return res[:n]
 }
 
 // SetMana sets the base mana for a node.
@@ -200,8 +201,38 @@ type Node struct {
 	Mana float64
 }
 
+// NodeStr defines a node and its mana value.
+// The node ID is stringified.
+type NodeStr struct {
+	ID   string
+	Mana float64
+}
+
+// ToNodeStr converts a Node to a Nodestr
+func (n Node) ToNodeStr() NodeStr {
+	return NodeStr{
+		ID:   n.ID.String(),
+		Mana: n.Mana,
+	}
+}
+
 // NodeMap is a map of nodeID and mana value.
 type NodeMap map[identity.ID]float64
+
+// NodeMapStr is a NodeMap but with string id.
+type NodeMapStr map[string]float64
+
+// ToNodeStrList converts a NodeMap to list of NodeStr.
+func (n NodeMap) ToNodeStrList() []NodeStr {
+	var list []NodeStr
+	for ID, val := range n {
+		list = append(list, NodeStr{
+			ID:   ID.String(),
+			Mana: val,
+		})
+	}
+	return list
+}
 
 //// Region Internal methods ////
 
