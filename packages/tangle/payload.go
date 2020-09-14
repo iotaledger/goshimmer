@@ -41,8 +41,6 @@ type Payload interface {
 	Type() PayloadType
 	// Bytes returns the payload bytes.
 	Bytes() []byte
-	// Unmarshal unmarshals the payload from the given bytes.
-	Unmarshal(bytes []byte) error
 	// String returns a human-friendly representation of the payload.
 	String() string
 }
@@ -52,13 +50,6 @@ func PayloadFromBytes(bytes []byte) (result Payload, consumedBytes int, err erro
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 
-	// calculate result
-	payloadType, err := marshalUtil.ReadUint32()
-	if err != nil {
-		err = fmt.Errorf("failed to unmarshal payload type from bytes: %w", err)
-		return
-	}
-
 	payloadSize, err := marshalUtil.ReadUint32()
 	if err != nil {
 		err = fmt.Errorf("failed to unmarshal payload size from bytes: %w", err)
@@ -67,6 +58,13 @@ func PayloadFromBytes(bytes []byte) (result Payload, consumedBytes int, err erro
 
 	if payloadSize > MaxPayloadSize {
 		err = fmt.Errorf("%w: %d", ErrMaxPayloadSizeExceeded, payloadSize)
+		return
+	}
+
+	// calculate result
+	payloadType, err := marshalUtil.ReadUint32()
+	if err != nil {
+		err = fmt.Errorf("failed to unmarshal payload type from bytes: %w", err)
 		return
 	}
 
@@ -82,7 +80,7 @@ func PayloadFromBytes(bytes []byte) (result Payload, consumedBytes int, err erro
 	if err != nil {
 		// fallback to the generic unmarshaler if registered type fails to unmarshal
 		marshalUtil.ReadSeek(readOffset)
-		result, err = GenericPayloadUnmarshalerFactory(payloadType)(payloadBytes)
+		result, err = GenericPayloadUnmarshaler(payloadBytes)
 		if err != nil {
 			err = fmt.Errorf("failed to unmarshal payload from bytes with generic unmarshaler: %w", err)
 			return

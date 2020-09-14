@@ -3,6 +3,7 @@ package tangle
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 )
@@ -23,27 +24,32 @@ func NewMissingMessage(messageID MessageID) *MissingMessage {
 	}
 }
 
-// MissingMessageFromStorageKey unmarshals the stored key into a desirable target specified by 0 or 1 optional argument.
-// The default target is MissingMessage.
-// It unmarshals into the target specified or panics if more than 1 target is specified.
-func MissingMessageFromStorageKey(key []byte, optionalTargetObject ...*MissingMessage) (result objectstorage.StorableObject, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &MissingMessage{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to MissingMessageFromStorageKey")
-	}
+// MissingMessageFromBytes parses the given bytes into a MissingMessage.
+func MissingMessageFromBytes(bytes []byte) (result *MissingMessage, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	result, err = MissingMessageParse(marshalUtil)
+	consumedBytes = marshalUtil.ReadOffset()
 
-	// parse the properties that are stored in the key
-	marshalUtil := marshalutil.New(key)
-	result.(*MissingMessage).messageID, err = MessageIDParse(marshalUtil)
-	if err != nil {
+	return
+}
+
+// MissingMessageParse parses a MissingMessage from the given MarshalUtil.
+func MissingMessageParse(marshalUtil *marshalutil.MarshalUtil) (result *MissingMessage, err error) {
+	result = &MissingMessage{}
+
+	if result.messageID, err = MessageIDParse(marshalUtil); err != nil {
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
+	if result.missingSince, err = marshalUtil.ReadTime(); err != nil {
+		return
+	}
+
+	return
+}
+
+// MissingMessageFromObjectStorage restores a MissingMessage from the ObjectStorage.
+func MissingMessageFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	result, _, err = MissingMessageFromBytes(byteutils.ConcatBytes(key, data))
 
 	return
 }
@@ -56,6 +62,11 @@ func (m *MissingMessage) MessageID() MessageID {
 // MissingSince returns the time since when this message is missing.
 func (m *MissingMessage) MissingSince() time.Time {
 	return m.missingSince
+}
+
+// Bytes returns a marshaled version of this MissingMessage.
+func (m *MissingMessage) Bytes() []byte {
+	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
 }
 
 // Update update the missing message.
@@ -76,18 +87,6 @@ func (m *MissingMessage) ObjectStorageValue() (result []byte) {
 	if err != nil {
 		panic(err)
 	}
-
-	return
-}
-
-// UnmarshalObjectStorageValue unmarshals the stored bytes into a missing message.
-func (m *MissingMessage) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(data)
-	m.missingSince, err = marshalUtil.ReadTime()
-	if err != nil {
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }

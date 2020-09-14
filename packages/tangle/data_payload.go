@@ -16,10 +16,8 @@ const (
 var DataType = PayloadType(0)
 
 func init() {
-	// register the generic unmarshaler
-	SetGenericUnmarshalerFactory(GenericPayloadUnmarshalerFactory)
 	// register the generic data payload type
-	RegisterPayloadType(DataType, ObjectName, GenericPayloadUnmarshalerFactory(DataType))
+	RegisterPayloadType(DataType, ObjectName, GenericPayloadUnmarshaler)
 }
 
 // DataPayload represents a payload which just contains a blob of data.
@@ -37,35 +35,26 @@ func NewDataPayload(data []byte) *DataPayload {
 }
 
 // DataPayloadFromBytes creates a new data payload from the given bytes.
-func DataPayloadFromBytes(bytes []byte, optionalTargetObject ...*DataPayload) (result *DataPayload, consumedBytes int, err error) {
+func DataPayloadFromBytes(bytes []byte) (result *DataPayload, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = DataPayloadParse(marshalUtil, optionalTargetObject...)
+	result, err = DataPayloadParse(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // DataPayloadParse parses a new data payload out of the given marshal util.
-func DataPayloadParse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*DataPayload) (result *DataPayload, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &DataPayload{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to DataPayloadParse")
-	}
-
+func DataPayloadParse(marshalUtil *marshalutil.MarshalUtil) (result *DataPayload, err error) {
 	// parse information
-	result.payloadType, err = marshalUtil.ReadUint32()
-	if err != nil {
-		err = fmt.Errorf("failed to parse data payload type: %w", err)
-		return
-	}
+	result = &DataPayload{}
 	payloadBytes, err := marshalUtil.ReadUint32()
 	if err != nil {
 		err = fmt.Errorf("failed to parse data payload size: %w", err)
+		return
+	}
+	result.payloadType, err = marshalUtil.ReadUint32()
+	if err != nil {
+		err = fmt.Errorf("failed to parse data payload type: %w", err)
 		return
 	}
 	result.data, err = marshalUtil.ReadBytes(int(payloadBytes))
@@ -93,19 +82,12 @@ func (d *DataPayload) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(d.Type())
 	marshalUtil.WriteUint32(uint32(len(d.data)))
+	marshalUtil.WriteUint32(d.Type())
 	marshalUtil.WriteBytes(d.data[:])
 
 	// return result
 	return marshalUtil.Bytes()
-}
-
-// Unmarshal unmarshalls the byte array to a data payload.
-func (d *DataPayload) Unmarshal(data []byte) (err error) {
-	_, _, err = DataPayloadFromBytes(data, d)
-
-	return
 }
 
 func (d *DataPayload) String() string {
@@ -115,11 +97,9 @@ func (d *DataPayload) String() string {
 	)
 }
 
-// GenericPayloadUnmarshalerFactory is an unmarshaler for the generic data payload type.
-func GenericPayloadUnmarshalerFactory(payloadType PayloadType) Unmarshaler {
-	return func(data []byte) (payload Payload, err error) {
-		payload = &DataPayload{payloadType: payloadType}
-		err = payload.Unmarshal(data)
-		return
-	}
+// GenericPayloadUnmarshaler is an unmarshaler for the generic data payload type.
+func GenericPayloadUnmarshaler(data []byte) (payload Payload, err error) {
+	payload, _, err = DataPayloadFromBytes(data)
+
+	return
 }
