@@ -25,9 +25,10 @@ var (
 
 func init() {
 	// register the generic unmarshaler
-	SetGenericUnmarshalerFactory(GenericPayloadUnmarshalerFactory)
+	SetGenericUnmarshaler(GenericPayloadUnmarshaler)
+
 	// register the generic data payload type
-	RegisterType(DataType, ObjectName, GenericPayloadUnmarshalerFactory(DataType))
+	RegisterType(DataType, ObjectName, GenericPayloadUnmarshaler)
 }
 
 // Payload represents some kind of payload of data which only gains meaning by having
@@ -35,10 +36,10 @@ func init() {
 type Payload interface {
 	// Type returns the type of the payload.
 	Type() Type
+
 	// Bytes returns the payload bytes.
 	Bytes() []byte
-	// Unmarshal unmarshals the payload from the given bytes.
-	Unmarshal(bytes []byte) error
+
 	// String returns a human-friendly representation of the payload.
 	String() string
 }
@@ -49,11 +50,6 @@ func FromBytes(bytes []byte) (result Payload, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 
 	// calculate result
-	payloadType, err := marshalUtil.ReadUint32()
-	if err != nil {
-		return
-	}
-
 	payloadSize, err := marshalUtil.ReadUint32()
 	if err != nil {
 		return
@@ -61,6 +57,11 @@ func FromBytes(bytes []byte) (result Payload, consumedBytes int, err error) {
 
 	if payloadSize > MaxPayloadSize {
 		err = fmt.Errorf("%w: %d", ErrMaxPayloadSizeExceeded, payloadSize)
+		return
+	}
+
+	payloadType, err := marshalUtil.ReadUint32()
+	if err != nil {
 		return
 	}
 
@@ -75,7 +76,7 @@ func FromBytes(bytes []byte) (result Payload, consumedBytes int, err error) {
 	if err != nil {
 		// fallback to the generic unmarshaler if registered type fails to unmarshal
 		marshalUtil.ReadSeek(readOffset)
-		result, err = GenericPayloadUnmarshalerFactory(payloadType)(payloadBytes)
+		result, err = genericUnmarshaler(payloadBytes)
 		if err != nil {
 			return
 		}

@@ -52,17 +52,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
 
 // FromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Payload{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to OutputFromBytes")
-	}
-
+func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 
@@ -75,6 +65,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 	}
 
 	// parse header
+	result = &Payload{}
 	if result.Header, err = header.Parse(marshalUtil); err != nil {
 		return
 	}
@@ -132,8 +123,8 @@ func (payload *Payload) Bytes() (bytes []byte) {
 	// marshal fields
 	payloadLength := header.Length + marshalutil.UINT64_SIZE + SignatureSize*2 + PublicKeySize
 	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
-	marshalUtil.WriteUint32(drngPayload.Type)
 	marshalUtil.WriteUint32(uint32(payloadLength))
+	marshalUtil.WriteUint32(drngPayload.Type)
 	marshalUtil.WriteBytes(payload.Header.Bytes())
 	marshalUtil.WriteUint64(payload.Round)
 	marshalUtil.WriteBytes(payload.PrevSignature)
@@ -169,13 +160,6 @@ func (payload *Payload) Type() payload.Type {
 // Marshal marshals the collective beacon payload into bytes.
 func (payload *Payload) Marshal() (bytes []byte, err error) {
 	return payload.Bytes(), nil
-}
-
-// Unmarshal returns a collective beacon payload from the given bytes.
-func (payload *Payload) Unmarshal(data []byte) (err error) {
-	_, _, err = FromBytes(data, payload)
-
-	return
 }
 
 // // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
