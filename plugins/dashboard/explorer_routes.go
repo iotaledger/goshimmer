@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	messageTangle "github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/labstack/echo"
@@ -40,7 +40,7 @@ type ExplorerMessage struct {
 	Payload interface{} `json:"payload"`
 }
 
-func createExplorerMessage(msg *message.Message) (*ExplorerMessage, error) {
+func createExplorerMessage(msg *messageTangle.Message) (*ExplorerMessage, error) {
 	messageID := msg.ID()
 	cachedMessageMetadata := messagelayer.Tangle().MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
@@ -87,7 +87,7 @@ type SearchResult struct {
 
 func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/message/:id", func(c echo.Context) (err error) {
-		messageID, err := message.NewID(c.Param("id"))
+		messageID, err := messageTangle.NewMessageID(c.Param("id"))
 		if err != nil {
 			return
 		}
@@ -125,8 +125,8 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 				result.Address = addr
 			}
 
-		case message.IDLength:
-			messageID, err := message.NewID(search)
+		case messageTangle.MessageIDLength:
+			messageID, err := messageTangle.NewMessageID(search)
 			if err != nil {
 				return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
 			}
@@ -144,8 +144,8 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func findMessage(messageID message.ID) (explorerMsg *ExplorerMessage, err error) {
-	if !messagelayer.Tangle().Message(messageID).Consume(func(msg *message.Message) {
+func findMessage(messageID messageTangle.MessageID) (explorerMsg *ExplorerMessage, err error) {
+	if !messagelayer.Tangle().Message(messageID).Consume(func(msg *messageTangle.Message) {
 		explorerMsg, err = createExplorerMessage(msg)
 	}) {
 		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.String())
