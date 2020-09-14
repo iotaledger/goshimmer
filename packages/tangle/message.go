@@ -13,6 +13,14 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
+const (
+	// MaxMessageSize defines the maximum size of a message.
+	MaxMessageSize = 64 * 1024
+
+	// MessageIDLength defines the length of an MessageID.
+	MessageIDLength = 64
+)
+
 // ContentID identifies the content of a message without its parent1/parent2 ids.
 type ContentID = MessageID
 
@@ -22,9 +30,6 @@ type MessageID [MessageIDLength]byte
 
 // EmptyMessageID is an empty id.
 var EmptyMessageID = MessageID{}
-
-// MessageIDLength defines the length of an MessageID.
-const MessageIDLength = 64
 
 // NewMessageID creates a new message id.
 func NewMessageID(base58EncodedString string) (result MessageID, err error) {
