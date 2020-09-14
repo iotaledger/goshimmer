@@ -141,8 +141,8 @@ type CachedApprover struct {
 
 // Unwrap unwraps the cached approver into the underlying approver.
 // If stored object cannot be cast into an approver or has been deleted, it returns nil.
-func (cachedApprover *CachedApprover) Unwrap() *Approver {
-	untypedObject := cachedApprover.Get()
+func (c *CachedApprover) Unwrap() *Approver {
+	untypedObject := c.Get()
 	if untypedObject == nil {
 		return nil
 	}
@@ -159,8 +159,8 @@ func (cachedApprover *CachedApprover) Unwrap() *Approver {
 // Consume consumes the cachedApprover.
 // It releases the object when the callback is done.
 // It returns true if the callback was called.
-func (cachedApprover *CachedApprover) Consume(consumer func(approver *Approver)) (consumed bool) {
-	return cachedApprover.CachedObject.Consume(func(object objectstorage.StorableObject) {
+func (c *CachedApprover) Consume(consumer func(approver *Approver)) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Approver))
 	})
 }
@@ -169,8 +169,8 @@ func (cachedApprover *CachedApprover) Consume(consumer func(approver *Approver))
 type CachedApprovers []*CachedApprover
 
 // Consume calls *CachedApprover.Consume on element in the list.
-func (cachedApprovers CachedApprovers) Consume(consumer func(approver *Approver)) (consumed bool) {
-	for _, cachedApprover := range cachedApprovers {
+func (c CachedApprovers) Consume(consumer func(approver *Approver)) (consumed bool) {
+	for _, cachedApprover := range c {
 		consumed = cachedApprover.Consume(func(approver *Approver) {
 			consumer(approver)
 		}) || consumed

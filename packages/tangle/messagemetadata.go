@@ -173,13 +173,13 @@ type CachedMessageMetadata struct {
 }
 
 // Retain registers a new consumer for the cached message metadata.
-func (cachedMessageMetadata *CachedMessageMetadata) Retain() *CachedMessageMetadata {
+func (c *CachedMessageMetadata) Retain() *CachedMessageMetadata {
 	return &CachedMessageMetadata{cachedMessageMetadata.CachedObject.Retain()}
 }
 
 // Unwrap returns the underlying stored message metadata wrapped by the CachedMessageMetadata.
 // If the stored object cannot be cast to MessageMetadata or is deleted, it returns nil.
-func (cachedMessageMetadata *CachedMessageMetadata) Unwrap() *MessageMetadata {
+func (c *CachedMessageMetadata) Unwrap() *MessageMetadata {
 	untypedObject := cachedMessageMetadata.Get()
 	if untypedObject == nil {
 		return nil
