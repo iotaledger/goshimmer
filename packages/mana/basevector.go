@@ -87,6 +87,11 @@ func (bmv *BaseManaVector) BookMana(txInfo *TxInfo) {
 	for _, inputInfo := range txInfo.InputInfos {
 		// which node did the input pledge mana to?
 		pledgeNodeID := inputInfo.PledgeID[bmv.vectorType]
+		// can't revoke from genesis
+		emptyID := identity.ID{}
+		if pledgeNodeID == emptyID {
+			continue
+		}
 		if _, exist := bmv.vector[pledgeNodeID]; !exist {
 			// first time we see this node
 			bmv.vector[pledgeNodeID] = &BaseMana{}
