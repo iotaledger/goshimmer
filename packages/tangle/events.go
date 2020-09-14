@@ -5,8 +5,8 @@ import (
 	"github.com/iotaledger/hive.go/events"
 )
 
-// TangleEvents represents events happening on the base layer Tangle.
-type TangleEvents struct {
+// Events represents events happening on the base layer Tangle.
+type Events struct {
 	// Fired when a message has been attached.
 	MessageAttached *events.Event
 	// Fired when a message has been solid, i.e. its past cone
@@ -29,8 +29,8 @@ type CachedMessageEvent struct {
 	MessageMetadata *CachedMessageMetadata
 }
 
-func newTangleEvents() *TangleEvents {
-	return &TangleEvents{
+func newEvents() *Events {
+	return &Events{
 		MessageAttached:        events.NewEvent(cachedMessageEvent),
 		MessageSolid:           events.NewEvent(cachedMessageEvent),
 		MissingMessageReceived: events.NewEvent(cachedMessageEvent),

@@ -118,7 +118,7 @@ type Message struct {
 	bytesMutex     sync.RWMutex
 }
 
-// New creates a new message with the details provided by the issuer.
+// NewMessage creates a new message with the details provided by the issuer.
 func NewMessage(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
 	return &Message{
 		parent1ID:       parent1ID,
@@ -132,7 +132,7 @@ func NewMessage(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time,
 	}
 }
 
-// FromBytes parses the given bytes into a message.
+// MessageFromBytes parses the given bytes into a message.
 func MessageFromBytes(bytes []byte, optionalTargetObject ...*Message) (result *Message, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParseMessage(marshalUtil, optionalTargetObject...)
@@ -356,7 +356,7 @@ func (m *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, e
 		return
 	}
 	if m.issuingTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse issueing time of the message from storage: %w", err)
+		err = fmt.Errorf("failed to parse issuing time of the message from storage: %w", err)
 		return
 	}
 	if m.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
