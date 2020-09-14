@@ -226,11 +226,11 @@ func (bmv *BaseManaVector) update(nodeID identity.ID, t time.Time) error {
 	if _, exist := bmv.vector[nodeID]; !exist {
 		return ErrNodeNotFoundInBaseManaVector
 	}
-	oldMana := bmv.vector[nodeID]
+	oldMana := *bmv.vector[nodeID]
 	if err := bmv.vector[nodeID].update(t); err != nil {
 		return err
 	}
-	Events().Updated.Trigger(&UpdatedEvent{nodeID, *oldMana, *bmv.vector[nodeID], bmv.vectorType})
+	Events().Updated.Trigger(&UpdatedEvent{nodeID, oldMana, *bmv.vector[nodeID], bmv.vectorType})
 	return nil
 }
 
