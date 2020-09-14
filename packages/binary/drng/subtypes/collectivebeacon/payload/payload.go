@@ -7,7 +7,7 @@ import (
 
 	drngPayload "github.com/iotaledger/goshimmer/packages/binary/drng/payload"
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
@@ -162,7 +162,7 @@ func (payload *Payload) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type returns the collective beacon payload type.
-func (payload *Payload) Type() payload.Type {
+func (payload *Payload) Type() tangle.PayloadType {
 	return drngPayload.Type
 }
 

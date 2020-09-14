@@ -16,8 +16,6 @@ import (
 const (
 	// PluginName defines the plugin name.
 	PluginName = "MessageLayer"
-	// DBSequenceNumber defines the db sequence number.
-	DBSequenceNumber = "seq"
 )
 
 var (
@@ -73,7 +71,7 @@ func Tangle() *tangle.Tangle {
 // MessageFactory gets the messageFactory instance.
 func MessageFactory() *tangle.Factory {
 	msgFactoryOnce.Do(func() {
-		messageFactory = tangle.NewFactory(database.Store(), []byte(DBSequenceNumber), local.GetInstance().LocalIdentity(), TipSelector())
+		messageFactory = tangle.NewFactory(database.Store(), []byte(tangle.DBSequenceNumber), local.GetInstance().LocalIdentity(), TipSelector())
 	})
 	return messageFactory
 }
