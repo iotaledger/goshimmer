@@ -196,7 +196,7 @@ func MessageParse(marshalUtil *marshalutil.MarshalUtil) (result *Message, err er
 	return
 }
 
-// MessageFromStorageKey restores a Message from the ObjectStorage.
+// MessageFromObjectStorage restores a Message from the ObjectStorage.
 func MessageFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	// parse the message
 	message, err := MessageParse(marshalutil.New(data))
