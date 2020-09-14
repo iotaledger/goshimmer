@@ -39,7 +39,7 @@ func MissingMessageFromStorageKey(key []byte, optionalTargetObject ...*MissingMe
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	result.(*MissingMessage).messageID, err = ParseMessageID(marshalUtil)
+	result.(*MissingMessage).messageID, err = MessageIDParse(marshalUtil)
 	if err != nil {
 		return
 	}

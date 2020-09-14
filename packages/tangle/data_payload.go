@@ -13,18 +13,18 @@ const (
 )
 
 // DataType is the message type of a data payload.
-var DataType = Type(0)
+var DataType = PayloadType(0)
 
 func init() {
 	// register the generic unmarshaler
 	SetGenericUnmarshalerFactory(GenericPayloadUnmarshalerFactory)
 	// register the generic data payload type
-	RegisterType(DataType, ObjectName, GenericPayloadUnmarshalerFactory(DataType))
+	RegisterPayloadType(DataType, ObjectName, GenericPayloadUnmarshalerFactory(DataType))
 }
 
 // DataPayload represents a payload which just contains a blob of data.
 type DataPayload struct {
-	payloadType Type
+	payloadType PayloadType
 	data        []byte
 }
 
@@ -39,14 +39,14 @@ func NewDataPayload(data []byte) *DataPayload {
 // DataPayloadFromBytes creates a new data payload from the given bytes.
 func DataPayloadFromBytes(bytes []byte, optionalTargetObject ...*DataPayload) (result *DataPayload, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseDataPayload(marshalUtil, optionalTargetObject...)
+	result, err = DataPayloadParse(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// ParseDataPayload parses a new data payload out of the given marshal util.
-func ParseDataPayload(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*DataPayload) (result *DataPayload, err error) {
+// DataPayloadParse parses a new data payload out of the given marshal util.
+func DataPayloadParse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*DataPayload) (result *DataPayload, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -54,7 +54,7 @@ func ParseDataPayload(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject
 	case 1:
 		result = optionalTargetObject[0]
 	default:
-		panic("too many arguments in call to ParseDataPayload")
+		panic("too many arguments in call to DataPayloadParse")
 	}
 
 	// parse information
@@ -78,7 +78,7 @@ func ParseDataPayload(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject
 }
 
 // Type returns the payload type.
-func (d *DataPayload) Type() Type {
+func (d *DataPayload) Type() PayloadType {
 	return d.payloadType
 }
 
@@ -116,7 +116,7 @@ func (d *DataPayload) String() string {
 }
 
 // GenericPayloadUnmarshalerFactory is an unmarshaler for the generic data payload type.
-func GenericPayloadUnmarshalerFactory(payloadType Type) Unmarshaler {
+func GenericPayloadUnmarshalerFactory(payloadType PayloadType) Unmarshaler {
 	return func(data []byte) (payload Payload, err error) {
 		payload = &DataPayload{payloadType: payloadType}
 		err = payload.Unmarshal(data)
