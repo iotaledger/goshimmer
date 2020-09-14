@@ -58,8 +58,13 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 
 	const genesisBalance = 1000000000
 	genesisSeed := walletseed.NewSeed(genesisSeedBytes)
-	genesisAddr := genesisSeed.Address(0).Address
-	genesisOutputID := transaction.NewOutputID(genesisAddr, transaction.GenesisID)
+	// all faucet funds have been moved. So we get the new genesis.
+	genesisAddr := genesisSeed.Address(1).Address
+	faucetPeer := n.Peers()[0]
+	unspentOutputs, err := faucetPeer.GetUnspentOutputs([]string{genesisAddr.String()})
+	require.NoError(t, err)
+	genesisOutputID, err := transaction.OutputIDFromBase58(unspentOutputs.UnspentOutputs[0].OutputIDs[0].ID)
+	require.NoError(t, err)
 
 	// issue transactions which spend the same genesis output in all partitions
 	conflictingTxs := make([]*transaction.Transaction, len(n.Partitions()))
@@ -78,7 +83,7 @@ func TestConsensusFiftyFiftyOpinionSplit(t *testing.T) {
 					{Value: genesisBalance, Color: balance.ColorIOTA},
 				},
 			}))
-		tx = tx.Sign(signaturescheme.ED25519(*genesisSeed.KeyPair(0)))
+		tx = tx.Sign(signaturescheme.ED25519(*genesisSeed.KeyPair(1)))
 		conflictingTxs[i] = tx
 
 		// issue the transaction on the first peer of the partition
