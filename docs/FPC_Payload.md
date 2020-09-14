@@ -10,13 +10,13 @@ We propose an optimization of the protocol that, in turn, should solve both of t
 ### Payload
 We need to first define the FPC Payload:
 
-```
+```go
 type Payload struct {
      Value Statements []Statement
 }
 ```
 
-```
+```go
 type Statement struct {
     ID string
     Opinions []bool
@@ -27,11 +27,11 @@ type Statement struct {
 
 We also define an Opinion Registry where nodes can store and keep track of the opinions from each node after parsing FPC Payloads.
 
-```
+```go
 type Conflicts map[string][]Opinions
 ```
 
-```
+```go
 type Registry struct {
     Entry map[NodeID]Conflicts
 }
@@ -51,8 +51,8 @@ With mana integrated into FPC, both the decision to parse an FPC Payload and thu
 
 
 ## Optimiaztion
-+ use the outputID to define the conflict set
-+ leverage monotonicity
++ use the outputID to define the conflict set: this allows to compress all the conflicting transactions into one element (i.e., the outputID) and only reference the like one (if any).
++ leverage monotonicity: this allows to use the property so that only a subset of conflcting transactions are going to be necessary to describe the opinion of the whole conflict set.
 
 
 ## Further Questions
@@ -60,15 +60,53 @@ With mana integrated into FPC, both the decision to parse an FPC Payload and thu
 + Should high mana nodes write statements even if their conflict set is empty? Let's say every 10-30s. This would also benefit Confirmation Confidence and ability to sync.
 + What should the mana threshold be to write your statement? Should the frequency of the empty statements be proportional to mana?
 
-## Timestamp
+# Timestamp
 
+## Motivation
+ToDO
+
+## Notes
 + If we do not find any opinion about a target message timestamp, we have to look at the confidence level of that message to derive its timestamp final opinion.
 + Preconsensus via FPC Payloads/Statements
++ Check every hour the synchronization of your local clock
 
 ### FPC Timestamp Payload
 We need to first define the FPC Timestamp Payload:
 
-```
+```go
 type TimestampPayload struct {
      Statements []Statement
 }
+```
+
+## Brainstorming design
++ timestamps with level of knowledge 1 will be input of FPC, that will eventually trigger the `finalized` event, after which we can set or not those message as eligible.
++ if the timestamp we are considering, has already level of knowledge >= 2, we do not need to vote. Either is eligible (marked as liked) or marked as disliked.
++ 
+
+```protobuf
+message QueryRequest {
+    repeated string conflictID = 1;
+    repeated string timestampID = 1;
+}
+
+message QueryReply {
+    repeated int32 conflictOpinion = 1;
+    repeated int32 timestampOpinion = 1;
+}
+```
+
+## Open questions
++ Deal with wrong clocks (centralized VS decentralized approaches)
+
+## Clock synchronization
++ Start with a plugin based on NTP (e.g., getCurrentTime), then change plugin with a decentralized one.
++ Define a function to get the synced current time without adjusting the system clock, but instead using an offset (e.g., getCorrectTime).
+
+## Syncing
+If it’s bad, then you should not receive it while syncying.
+To be more sure, you just need to check how much mana is in its future cone.
+
+1. We do the solidification up to being more or less in sync (we follow beacons)
+2. We derive the checkpoints
+3. You can then decide for every message their elegibility (5-10% mana min threshold)
