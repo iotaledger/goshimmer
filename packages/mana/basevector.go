@@ -67,7 +67,16 @@ func (bmv *BaseManaVector) FromPersitable(p *PersistableBaseMana) {
 
 // Type returns the type of this mana vector.
 func (bmv *BaseManaVector) Type() Type {
+	bmv.RLock()
+	defer bmv.RUnlock()
 	return bmv.vectorType
+}
+
+// Size returns the size of this mana vector.
+func (bmv *BaseManaVector) Size() int {
+	bmv.RLock()
+	defer bmv.RUnlock()
+	return len(bmv.vector)
 }
 
 // BookMana books mana for a transaction.
