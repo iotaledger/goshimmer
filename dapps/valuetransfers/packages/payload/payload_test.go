@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 func ExamplePayload() {
@@ -45,12 +45,12 @@ func ExamplePayload() {
 	)
 
 	// 3. build actual transaction (the base layer creates this and wraps the ontology provided payload)
-	tx := message.New(
+	tx := tangle.NewMessage(
 		// parent1 in "network tangle" ontology (filled by tipSelector)
-		message.EmptyID,
+		tangle.EmptyMessageID,
 
 		// parent2 in "network tangle" ontology (filled by tipSelector)
-		message.EmptyID,
+		tangle.EmptyMessageID,
 
 		// the time when the transaction was created
 		time.Now(),

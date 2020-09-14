@@ -9,7 +9,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 const (
@@ -165,10 +165,10 @@ func (payload *Payload) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type represents the identifier which addresses the value Payload type.
-const Type = payload.Type(1)
+const Type = tangle.PayloadType(1)
 
 // Type returns the type of the Payload.
-func (payload *Payload) Type() payload.Type {
+func (payload *Payload) Type() tangle.PayloadType {
 	return Type
 }
 
@@ -257,7 +257,7 @@ func (payload *Payload) Unmarshal(data []byte) (err error) {
 }
 
 func init() {
-	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
+	tangle.RegisterPayloadType(Type, ObjectName, func(data []byte) (payload tangle.Payload, err error) {
 		payload, _, err = FromBytes(data)
 
 		return
@@ -265,7 +265,7 @@ func init() {
 }
 
 // define contract (ensure that the struct fulfills the corresponding interface)
-var _ payload.Payload = &Payload{}
+var _ tangle.Payload = &Payload{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
