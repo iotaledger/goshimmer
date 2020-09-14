@@ -3,7 +3,7 @@ package networkdelay
 import (
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
@@ -135,10 +135,10 @@ func (o *Object) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type represents the identifier which addresses the network delay Object type.
-const Type = payload.Type(189)
+const Type = tangle.PayloadType(189)
 
 // Type returns the type of the Object.
-func (o *Object) Type() payload.Type {
+func (o *Object) Type() tangle.PayloadType {
 	return Type
 }
 
@@ -150,7 +150,7 @@ func (o *Object) Unmarshal(data []byte) (err error) {
 }
 
 func init() {
-	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
+	tangle.RegisterPayloadType(Type, ObjectName, func(data []byte) (payload tangle.Payload, err error) {
 		payload = &Object{}
 		err = payload.Unmarshal(data)
 
