@@ -89,8 +89,7 @@ func TestMarshalingEmptyDataPayload(t *testing.T) {
 
 	v := tx.ObjectStorageValue()
 
-	tx1 := Transaction{}
-	_, err := tx1.UnmarshalObjectStorageValue(v)
+	tx1, _, err := FromBytes(v)
 	assert.NoError(t, err)
 
 	assert.Equal(t, true, tx1.SignaturesValid())
@@ -116,8 +115,7 @@ func TestMarshalingDataPayload(t *testing.T) {
 
 	v := tx.ObjectStorageValue()
 
-	tx1 := Transaction{}
-	_, err = tx1.UnmarshalObjectStorageValue(v)
+	tx1, _, err := FromBytes(v)
 
 	assert.NoError(t, err)
 	assert.Equal(t, true, tx1.SignaturesValid())

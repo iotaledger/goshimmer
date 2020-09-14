@@ -17,21 +17,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
-func TestMessage_StorableObjectFromKey(t *testing.T) {
-	key, err := message.NewID("2DYebCqnZ8PS5PyXBEvAvLB1fCF77Rn9RtofNHjEb2pSTujKi889d31FmguAs5DgL7YURw4GP2Y28JdJ7K4bjudG")
-	if err != nil {
-		panic(err)
-	}
-
-	messageFromKey, consumedBytes, err := message.StorableObjectFromKey(key.Bytes())
-	if err != nil {
-		panic(err)
-	}
-
-	assert.Equal(t, message.IDLength, consumedBytes)
-	assert.Equal(t, key, messageFromKey.(*message.Message).ID())
-}
-
 func TestMessage_VerifySignature(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	pl := payload.NewData([]byte("test"))
@@ -57,6 +42,7 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 	t.Log(testMessage)
 
 	restoredMessage, _, err := message.FromBytes(testMessage.Bytes())
+
 	if assert.NoError(t, err, err) {
 		assert.Equal(t, testMessage.ID(), restoredMessage.ID())
 		assert.Equal(t, testMessage.Parent1ID(), restoredMessage.Parent1ID())
