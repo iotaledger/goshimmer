@@ -13,12 +13,23 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
+const (
+	// MaxMessageSize defines the maximum size of a message.
+	MaxMessageSize = 64 * 1024
+
+	// MessageIDLength defines the length of an MessageID.
+	MessageIDLength = 64
+)
+
 // ContentID identifies the content of a message without its parent1/parent2 ids.
 type ContentID = MessageID
 
 // MessageID identifies a message in its entirety. Unlike the sole content id, it also incorporates
 // the parent1 and parent2 ids.
 type MessageID [MessageIDLength]byte
+
+// EmptyMessageID is an empty id.
+var EmptyMessageID = MessageID{}
 
 // NewMessageID creates a new message id.
 func NewMessageID(base58EncodedString string) (result MessageID, err error) {
@@ -56,8 +67,8 @@ func MessageIDFromBytes(bytes []byte) (result MessageID, consumedBytes int, err 
 	return
 }
 
-// ParseMessageID is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func ParseMessageID(marshalUtil *marshalutil.MarshalUtil) (MessageID, error) {
+// MessageIDParse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func MessageIDParse(marshalUtil *marshalutil.MarshalUtil) (MessageID, error) {
 	id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return MessageIDFromBytes(data) })
 	if err != nil {
 		err = fmt.Errorf("failed to parse message ID: %w", err)
@@ -88,12 +99,6 @@ func (id MessageID) String() string {
 	return base58.Encode(id[:])
 }
 
-// EmptyMessageID is an empty id.
-var EmptyMessageID = MessageID{}
-
-// MessageIDLength defines the length of an MessageID.
-const MessageIDLength = 64
-
 // Message represents the core message for the base layer Tangle.
 type Message struct {
 	// base functionality of StorableObject
@@ -118,7 +123,7 @@ type Message struct {
 	bytesMutex     sync.RWMutex
 }
 
-// New creates a new message with the details provided by the issuer.
+// NewMessage creates a new message with the details provided by the issuer.
 func NewMessage(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, payload Payload, nonce uint64, signature ed25519.Signature) (result *Message) {
 	return &Message{
 		parent1ID:       parent1ID,
@@ -132,16 +137,16 @@ func NewMessage(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time,
 	}
 }
 
-// FromBytes parses the given bytes into a message.
+// MessageFromBytes parses the given bytes into a message.
 func MessageFromBytes(bytes []byte, optionalTargetObject ...*Message) (result *Message, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseMessage(marshalUtil, optionalTargetObject...)
+	result, err = MessageParse(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
 	return
 }
 
-// ParseMessage parses a message from the given marshal util.
-func ParseMessage(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Message) (result *Message, err error) {
+// MessageParse parses a message from the given marshal util.
+func MessageParse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Message) (result *Message, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -165,9 +170,9 @@ func ParseMessage(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...
 	return
 }
 
-// StorableObjectFromKey gets called when we restore a message from storage.
+// MessageFromStorageKey gets called when we restore a message from storage.
 // The bytes and the content will be unmarshaled by an external caller (the objectStorage factory).
-func StorableObjectFromKey(key []byte, optionalTargetObject ...*Message) (result objectstorage.StorableObject, consumedBytes int, err error) {
+func MessageFromStorageKey(key []byte, optionalTargetObject ...*Message) (result objectstorage.StorableObject, consumedBytes int, err error) {
 	// determine the target object that will hold the unmarshaled information
 	switch len(optionalTargetObject) {
 	case 0:
@@ -175,11 +180,11 @@ func StorableObjectFromKey(key []byte, optionalTargetObject ...*Message) (result
 	case 1:
 		result = optionalTargetObject[0]
 	default:
-		panic("too many arguments in call to StorableObjectFromKey")
+		panic("too many arguments in call to MessageFromStorageKey")
 	}
 
 	marshalUtil := marshalutil.New(key)
-	id, idErr := ParseMessageID(marshalUtil)
+	id, idErr := MessageIDParse(marshalUtil)
 	if idErr != nil {
 		err = idErr
 
@@ -345,10 +350,10 @@ func (m *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, e
 	marshalUtil := marshalutil.New(data)
 
 	// parse information
-	if m.parent1ID, err = ParseMessageID(marshalUtil); err != nil {
+	if m.parent1ID, err = MessageIDParse(marshalUtil); err != nil {
 		return
 	}
-	if m.parent2ID, err = ParseMessageID(marshalUtil); err != nil {
+	if m.parent2ID, err = MessageIDParse(marshalUtil); err != nil {
 		return
 	}
 	if m.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
@@ -356,14 +361,14 @@ func (m *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, e
 		return
 	}
 	if m.issuingTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse issueing time of the message from storage: %w", err)
+		err = fmt.Errorf("failed to parse issuing time of the message from storage: %w", err)
 		return
 	}
 	if m.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
 		err = fmt.Errorf("failed to parse sequence number of the message from storage: %w", err)
 		return
 	}
-	if m.payload, err = ParsePayload(marshalUtil); err != nil {
+	if m.payload, err = PayloadParse(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse payload of the message from storage: %w", err)
 		return
 	}

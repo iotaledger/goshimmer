@@ -8,9 +8,6 @@ import (
 )
 
 const (
-	// MaxMessageSize defines the maximum size of a message.
-	MaxMessageSize = 64 * 1024
-
 	// MaxPayloadSize defines the maximum size of a payload.
 	// parent1ID + parent2ID + issuerPublicKey + issuingTime + sequenceNumber + nonce + signature
 	MaxPayloadSize = MaxMessageSize - 64 - 64 - 32 - 8 - 8 - 8 - 64
@@ -40,8 +37,8 @@ const PayloadIDLength = 64
 // Payload represents some kind of payload of data which only gains meaning by having
 // corresponding node logic processing payloads of a given type.
 type Payload interface {
-	// Type returns the type of the payload.
-	Type() Type
+	// PayloadType returns the type of the payload.
+	Type() PayloadType
 	// Bytes returns the payload bytes.
 	Bytes() []byte
 	// Unmarshal unmarshals the payload from the given bytes.
@@ -97,8 +94,8 @@ func PayloadFromBytes(bytes []byte) (result Payload, consumedBytes int, err erro
 	return
 }
 
-// ParsePayload parses a payload by using the given marshal util.
-func ParsePayload(marshalUtil *marshalutil.MarshalUtil) (Payload, error) {
+// PayloadParse parses a payload by using the given marshal util.
+func PayloadParse(marshalUtil *marshalutil.MarshalUtil) (Payload, error) {
 	payload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return PayloadFromBytes(data) })
 	if err != nil {
 		err = fmt.Errorf("failed to parse payload: %w", err)

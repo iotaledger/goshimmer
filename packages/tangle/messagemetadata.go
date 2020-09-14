@@ -32,16 +32,16 @@ func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 // MessageMetadataFromBytes unmarshals the given bytes into a MessageMetadata.
 func MessageMetadataFromBytes(bytes []byte) (result *MessageMetadata, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseMessageMetadata(marshalUtil)
+	result, err = MessageMetadataParse(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// ParseMessageMetadata parses the marshalUtil into a MessageMetadata.
+// MessageMetadataParse parses the marshalUtil into a MessageMetadata.
 // If it successfully parses the marshalUtil, it delegates to MessageMetadataFromStorageKey.
 // Else, delegates to UnmarshalObjectStorageValue.
-func ParseMessageMetadata(marshalUtil *marshalutil.MarshalUtil) (result *MessageMetadata, err error) {
+func MessageMetadataParse(marshalUtil *marshalutil.MarshalUtil) (result *MessageMetadata, err error) {
 	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return MessageMetadataFromStorageKey(data, nil)
 	})
@@ -64,7 +64,7 @@ func MessageMetadataFromStorageKey(key []byte, _ []byte) (result objectstorage.S
 	result = &MessageMetadata{}
 
 	marshalUtil := marshalutil.New(key)
-	result.(*MessageMetadata).messageID, err = ParseMessageID(marshalUtil)
+	result.(*MessageMetadata).messageID, err = MessageIDParse(marshalUtil)
 	if err != nil {
 		return
 	}
@@ -173,14 +173,14 @@ type CachedMessageMetadata struct {
 }
 
 // Retain registers a new consumer for the cached message metadata.
-func (cachedMessageMetadata *CachedMessageMetadata) Retain() *CachedMessageMetadata {
-	return &CachedMessageMetadata{cachedMessageMetadata.CachedObject.Retain()}
+func (c *CachedMessageMetadata) Retain() *CachedMessageMetadata {
+	return &CachedMessageMetadata{c.CachedObject.Retain()}
 }
 
 // Unwrap returns the underlying stored message metadata wrapped by the CachedMessageMetadata.
 // If the stored object cannot be cast to MessageMetadata or is deleted, it returns nil.
-func (cachedMessageMetadata *CachedMessageMetadata) Unwrap() *MessageMetadata {
-	untypedObject := cachedMessageMetadata.Get()
+func (c *CachedMessageMetadata) Unwrap() *MessageMetadata {
+	untypedObject := c.Get()
 	if untypedObject == nil {
 		return nil
 	}

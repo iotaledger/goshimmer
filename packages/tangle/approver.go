@@ -29,13 +29,13 @@ func NewApprover(referencedMessageID MessageID, approverMessageID MessageID) *Ap
 // ApproverFromBytes parses the given bytes into an approver.
 func ApproverFromBytes(bytes []byte, optionalTargetObject ...*Approver) (result *Approver, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseApprover(marshalUtil, optionalTargetObject...)
+	result, err = ApproverParse(marshalUtil, optionalTargetObject...)
 	consumedBytes = marshalUtil.ReadOffset()
 	return
 }
 
-// ParseApprover parses a new approver from the given marshal util.
-func ParseApprover(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Approver) (result *Approver, err error) {
+// ApproverParse parses a new approver from the given marshal util.
+func ApproverParse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Approver) (result *Approver, err error) {
 	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
 		return ApproverFromStorageKey(data, optionalTargetObject...)
 	})
@@ -68,12 +68,12 @@ func ApproverFromStorageKey(key []byte, optionalTargetObject ...*Approver) (resu
 
 	// parse the properties that are stored in the key
 	marshalUtil := marshalutil.New(key)
-	result.(*Approver).referencedMessageID, err = ParseMessageID(marshalUtil)
+	result.(*Approver).referencedMessageID, err = MessageIDParse(marshalUtil)
 	if err != nil {
 		err = fmt.Errorf("failed to parse approver referenced message ID: %w", err)
 		return
 	}
-	result.(*Approver).approverMessageID, err = ParseMessageID(marshalUtil)
+	result.(*Approver).approverMessageID, err = MessageIDParse(marshalUtil)
 	if err != nil {
 		err = fmt.Errorf("failed to parse approver message ID: %w", err)
 		return
@@ -141,8 +141,8 @@ type CachedApprover struct {
 
 // Unwrap unwraps the cached approver into the underlying approver.
 // If stored object cannot be cast into an approver or has been deleted, it returns nil.
-func (cachedApprover *CachedApprover) Unwrap() *Approver {
-	untypedObject := cachedApprover.Get()
+func (c *CachedApprover) Unwrap() *Approver {
+	untypedObject := c.Get()
 	if untypedObject == nil {
 		return nil
 	}
@@ -159,8 +159,8 @@ func (cachedApprover *CachedApprover) Unwrap() *Approver {
 // Consume consumes the cachedApprover.
 // It releases the object when the callback is done.
 // It returns true if the callback was called.
-func (cachedApprover *CachedApprover) Consume(consumer func(approver *Approver)) (consumed bool) {
-	return cachedApprover.CachedObject.Consume(func(object objectstorage.StorableObject) {
+func (c *CachedApprover) Consume(consumer func(approver *Approver)) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Approver))
 	})
 }
@@ -169,8 +169,8 @@ func (cachedApprover *CachedApprover) Consume(consumer func(approver *Approver))
 type CachedApprovers []*CachedApprover
 
 // Consume calls *CachedApprover.Consume on element in the list.
-func (cachedApprovers CachedApprovers) Consume(consumer func(approver *Approver)) (consumed bool) {
-	for _, cachedApprover := range cachedApprovers {
+func (c CachedApprovers) Consume(consumer func(approver *Approver)) (consumed bool) {
+	for _, cachedApprover := range c {
 		consumed = cachedApprover.Consume(func(approver *Approver) {
 			consumer(approver)
 		}) || consumed

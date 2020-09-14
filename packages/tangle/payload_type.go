@@ -4,8 +4,8 @@ import (
 	"sync"
 )
 
-// Type represents the type id of a payload.
-type Type = uint32
+// PayloadType represents the type id of a payload.
+type PayloadType = uint32
 
 // Unmarshaler takes some data and unmarshals it into a payload.
 type Unmarshaler func(data []byte) (Payload, error)
@@ -17,13 +17,13 @@ type Definition struct {
 }
 
 var (
-	typeRegister              = make(map[Type]Definition)
+	typeRegister              = make(map[PayloadType]Definition)
 	typeRegisterMutex         sync.RWMutex
-	genericUnmarshalerFactory func(payloadType Type) Unmarshaler
+	genericUnmarshalerFactory func(payloadType PayloadType) Unmarshaler
 )
 
-// RegisterType registers a payload type with the given unmarshaler.
-func RegisterType(payloadType Type, payloadName string, unmarshaler Unmarshaler) {
+// RegisterPayloadType registers a payload type with the given unmarshaler.
+func RegisterPayloadType(payloadType PayloadType, payloadName string, unmarshaler Unmarshaler) {
 	typeRegisterMutex.Lock()
 	typeRegister[payloadType] = Definition{
 		Name:        payloadName,
@@ -34,7 +34,7 @@ func RegisterType(payloadType Type, payloadName string, unmarshaler Unmarshaler)
 
 // GetUnmarshaler returns the unmarshaler for the given type if known or
 // the generic unmarshaler if the given payload type has no associated unmarshaler.
-func GetUnmarshaler(payloadType Type) Unmarshaler {
+func GetUnmarshaler(payloadType PayloadType) Unmarshaler {
 	typeRegisterMutex.RLock()
 	defer typeRegisterMutex.RUnlock()
 	if definition, exists := typeRegister[payloadType]; exists {
@@ -44,12 +44,12 @@ func GetUnmarshaler(payloadType Type) Unmarshaler {
 }
 
 // SetGenericUnmarshalerFactory sets the generic unmarshaler.
-func SetGenericUnmarshalerFactory(unmarshalerFactory func(payloadType Type) Unmarshaler) {
+func SetGenericUnmarshalerFactory(unmarshalerFactory func(payloadType PayloadType) Unmarshaler) {
 	genericUnmarshalerFactory = unmarshalerFactory
 }
 
 // Name returns the name of a given payload type.
-func Name(payloadType Type) string {
+func Name(payloadType PayloadType) string {
 	typeRegisterMutex.RLock()
 	defer typeRegisterMutex.RUnlock()
 	if definition, exists := typeRegister[payloadType]; exists {
