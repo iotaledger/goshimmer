@@ -15,7 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	messageTangle "github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
 )
 
@@ -73,7 +73,7 @@ func (f *Faucet) addAddressToBlacklist(addr address.Address) {
 }
 
 // SendFunds sends IOTA tokens to the address from faucet request.
-func (f *Faucet) SendFunds(msg *message.Message) (m *message.Message, txID string, err error) {
+func (f *Faucet) SendFunds(msg *messageTangle.Message) (m *messageTangle.Message, txID string, err error) {
 	// ensure that only one request is being processed any given time
 	f.Lock()
 	defer f.Unlock()

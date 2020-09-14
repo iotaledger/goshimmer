@@ -7,13 +7,12 @@ import (
 	// Only want to use init
 	_ "golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
 	"github.com/iotaledger/goshimmer/packages/pow"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 )
 
 const (
@@ -23,13 +22,13 @@ const (
 
 // Payload represents a request which contains an address for the faucet to send funds to.
 type Payload struct {
-	payloadType payload.Type
+	payloadType tangle.PayloadType
 	address     address.Address
 	nonce       uint64
 }
 
 // Type represents the identifier for the faucet Payload type.
-var Type = payload.Type(2)
+var Type = tangle.PayloadType(2)
 var powWorker = pow.New(crypto.BLAKE2b_512, 1)
 
 // New is the constructor of a Payload and creates a new Payload object from the given details.
@@ -50,7 +49,7 @@ func New(addr address.Address, powTarget int) (*Payload, error) {
 }
 
 func init() {
-	payload.RegisterType(Type, ObjectName, GenericPayloadUnmarshalerFactory(Type))
+	tangle.RegisterPayloadType(Type, ObjectName, GenericPayloadUnmarshalerFactory(Type))
 }
 
 // FromBytes parses the marshaled version of a Payload into an object.
@@ -98,7 +97,7 @@ func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload,
 }
 
 // Type returns the type of the faucet Payload.
-func (faucetPayload *Payload) Type() payload.Type {
+func (faucetPayload *Payload) Type() tangle.PayloadType {
 	return faucetPayload.payloadType
 }
 
@@ -137,8 +136,8 @@ func (faucetPayload *Payload) String() string {
 }
 
 // GenericPayloadUnmarshalerFactory sets the generic unmarshaler.
-func GenericPayloadUnmarshalerFactory(payloadType payload.Type) payload.Unmarshaler {
-	return func(data []byte) (payload payload.Payload, err error) {
+func GenericPayloadUnmarshalerFactory(payloadType tangle.PayloadType) tangle.Unmarshaler {
+	return func(data []byte) (payload tangle.Payload, err error) {
 		payload = &Payload{
 			payloadType: payloadType,
 		}
@@ -149,6 +148,6 @@ func GenericPayloadUnmarshalerFactory(payloadType payload.Type) payload.Unmarsha
 }
 
 // IsFaucetReq checks if the message is faucet payload.
-func IsFaucetReq(msg *message.Message) bool {
+func IsFaucetReq(msg *tangle.Message) bool {
 	return msg.Payload().Type() == Type
 }
