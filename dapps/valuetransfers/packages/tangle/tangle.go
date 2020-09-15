@@ -4,13 +4,14 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
+	"math"
+
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
-	"math"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
@@ -132,7 +133,6 @@ func (tangle *Tangle) SetTransactionPreferred(transactionID transaction.ID, pref
 func (tangle *Tangle) SetTransactionFinalized(transactionID transaction.ID) (modified bool, err error) {
 	return tangle.setTransactionFinalized(transactionID, EventSourceTangle)
 }
-
 
 // ValuePayloadsLiked is checking if the Payloads referenced by the passed in IDs are all liked.
 func (tangle *Tangle) ValuePayloadsLiked(payloadIDs ...payload.ID) (liked bool) {
@@ -1633,8 +1633,12 @@ func (tangle *Tangle) getCachedOutputsFromTransactionInputs(tx *transaction.Tran
 // ValidateTransactionToAttach checks that the given transaction spends all funds from its inputs and
 // that its the signature is valid.
 func (tangle *Tangle) ValidateTransactionToAttach(tx *transaction.Transaction) (err error) {
-	_, cachedInputs, consumedBalances, _, err := tangle.retrieveConsumedInputDetails(tx)
-	defer cachedInputs.Release()
+	inputsSolid, cachedInputs, consumedBalances, _, err := tangle.retrieveConsumedInputDetails(tx)
+
+	if inputsSolid {
+		defer cachedInputs.Release()
+	}
+
 	if err != nil {
 		return
 	}
