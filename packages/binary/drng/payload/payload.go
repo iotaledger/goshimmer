@@ -1,6 +1,7 @@
 package payload
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"

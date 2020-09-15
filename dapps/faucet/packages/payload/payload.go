@@ -3,6 +3,7 @@ package faucetpayload
 import (
 	"context"
 	"crypto"
+	"fmt"
 
 	// Only want to use init
 	_ "golang.org/x/crypto/blake2b"

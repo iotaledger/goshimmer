@@ -1,6 +1,7 @@
 package networkdelay
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"

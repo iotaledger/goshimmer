@@ -1,6 +1,8 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"

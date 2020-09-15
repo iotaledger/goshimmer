@@ -1,6 +1,7 @@
 package branchmanager
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/byteutils"

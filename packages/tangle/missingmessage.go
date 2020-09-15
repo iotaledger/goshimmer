@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/byteutils"

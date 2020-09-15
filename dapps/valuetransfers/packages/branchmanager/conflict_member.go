@@ -1,6 +1,8 @@
 package branchmanager
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 )

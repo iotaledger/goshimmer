@@ -1,6 +1,8 @@
 package payload
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -38,14 +40,17 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	result = &Payload{}
 	_, err = marshalUtil.ReadUint32()
 	if err != nil {
+		err = fmt.Errorf("failed to parse payload size of syncbeacon payload: %w", err)
 		return
 	}
 	result.payloadType, err = marshalUtil.ReadUint32()
 	if err != nil {
+		err = fmt.Errorf("failed to parse payload type of syncbeacon payload: %w", err)
 		return
 	}
 	result.sentTime, err = marshalUtil.ReadInt64()
 	if err != nil {
+		err = fmt.Errorf("failed to parse sent time of syncbeacon payload: %w", err)
 		return
 	}
 

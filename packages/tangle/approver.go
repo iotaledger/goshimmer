@@ -1,6 +1,8 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"

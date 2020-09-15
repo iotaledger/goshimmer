@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
