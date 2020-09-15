@@ -54,10 +54,6 @@ var (
 	storages        map[mana.Type]*objectstorage.ObjectStorage
 )
 
-func osManaFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return mana.FromStorageKey(key)
-}
-
 // Plugin gets the plugin instance.
 func Plugin() *node.Plugin {
 	once.Do(func() {
@@ -77,8 +73,8 @@ func configure(*node.Plugin) {
 	storages = make(map[mana.Type]*objectstorage.ObjectStorage)
 	store := database.Store()
 	osFactory = objectstorage.NewFactory(store, storageprefix.Mana)
-	storages[mana.AccessMana] = osFactory.New(storageprefix.Mana, osManaFactory)
-	storages[mana.ConsensusMana] = osFactory.New(storageprefix.Mana, osManaFactory)
+	storages[mana.AccessMana] = osFactory.New(storageprefix.Mana, mana.FromObjectStorage)
+	storages[mana.ConsensusMana] = osFactory.New(storageprefix.Mana, mana.FromObjectStorage)
 
 	configureEvents()
 }

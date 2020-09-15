@@ -1,20 +1,20 @@
 package transaction
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
+	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
-
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 )
 
 var (
@@ -133,6 +133,26 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Transaction, err error
 	if err != nil {
 		return
 	}
+
+	// unmarshal timestamp
+	result.timestamp, err = marshalUtil.ReadTime()
+	if err != nil {
+		return
+	}
+
+	// unmarshal accessManaNodeID
+	accessNodeIDBytes, err := marshalUtil.ReadBytes(sha256.Size)
+	if err != nil {
+		return
+	}
+	copy(result.accessManaNodeID[:], accessNodeIDBytes)
+
+	// unmarshal consensusManaNodeID
+	consensusNodeIDBytes, err := marshalUtil.ReadBytes(sha256.Size)
+	if err != nil {
+		return
+	}
+	copy(result.consensusManaNodeID[:], consensusNodeIDBytes)
 
 	// store essence bytes
 	essenceBytesCount := marshalUtil.ReadOffset() - readOffsetStart
