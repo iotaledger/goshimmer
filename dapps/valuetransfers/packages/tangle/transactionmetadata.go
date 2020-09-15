@@ -60,6 +60,9 @@ func TransactionMetadataFromBytes(bytes []byte) (result *TransactionMetadata, co
 // it gets handed over to UnmarshalObjectStorageValue (by the ObjectStorage).
 func TransactionMetadataFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	result, _, err = TransactionMetadataFromBytes(byteutils.ConcatBytes(key, data))
+	if err != nil {
+		err = fmt.Errorf("failed to parse transaction metadata from object storage: %w", err)
+	}
 
 	return
 }
@@ -69,33 +72,43 @@ func ParseTransactionMetadata(marshalUtil *marshalutil.MarshalUtil) (result *Tra
 	result = &TransactionMetadata{}
 
 	if result.id, err = transaction.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse transaction ID of transaction metadata: %w", err)
 		return
 	}
 	if result.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse branch ID of transaction metadata: %w", err)
 		return
 	}
 	if result.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse solidification time of transaction metadata: %w", err)
 		return
 	}
 	if result.finalizationTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse finalization time of transaction metadata: %w", err)
 		return
 	}
 	if result.solid, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'solid' of transaction metadata: %w", err)
 		return
 	}
 	if result.preferred, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'preferred' of transaction metadata: %w", err)
 		return
 	}
 	if result.finalized, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'finalized' of transaction metadata: %w", err)
 		return
 	}
 	if result.liked, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'liked' of transaction metadata: %w", err)
 		return
 	}
 	if result.confirmed, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'confirmed' of transaction metadata: %w", err)
 		return
 	}
 	if result.rejected, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'rejected' of transaction metadata: %w", err)
 		return
 	}
 

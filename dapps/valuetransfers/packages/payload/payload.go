@@ -57,12 +57,14 @@ func FromObjectStorage(key []byte, data []byte) (result objectstorage.StorableOb
 	// parse the message
 	parsedPayload, err := Parse(marshalutil.New(data))
 	if err != nil {
+		err = fmt.Errorf("failed to parse value payload from object storage: %w", err)
 		return
 	}
 
-	// parse the ID from they key
+	// parse the ID from the key
 	payloadID, err := ParseID(marshalutil.New(key))
 	if err != nil {
+		err = fmt.Errorf("failed to parse value payload ID from object storage: %w", err)
 		return
 	}
 	parsedPayload.id = &payloadID
@@ -81,10 +83,12 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
 	// read information that are required to identify the payload from the outside
 	_, err = marshalUtil.ReadUint32()
 	if err != nil {
+		err = fmt.Errorf("failed to parse payload size of value payload: %w", err)
 		return
 	}
 	_, err = marshalUtil.ReadUint32()
 	if err != nil {
+		err = fmt.Errorf("failed to parse payload type of value payload: %w", err)
 		return
 	}
 

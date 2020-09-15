@@ -44,15 +44,19 @@ func MessageMetadataParse(marshalUtil *marshalutil.MarshalUtil) (result *Message
 	result = &MessageMetadata{}
 
 	if result.messageID, err = MessageIDParse(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse message ID of message metadata: %w", err)
 		return
 	}
 	if result.receivedTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse received time of message metadata: %w", err)
 		return
 	}
 	if result.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse solidification time of message metadata: %w", err)
 		return
 	}
 	if result.solid, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'solid' of message metadata: %w", err)
 		return
 	}
 
@@ -62,6 +66,7 @@ func MessageMetadataParse(marshalUtil *marshalutil.MarshalUtil) (result *Message
 // MessageMetadataFromObjectStorage restores a MessageMetadata object from the ObjectStorage.
 func MessageMetadataFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = MessageMetadataFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = fmt.Errorf("failed to parse message metadata from object storage: %w", err)
 		return
 	}
 

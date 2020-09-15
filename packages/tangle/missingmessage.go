@@ -38,9 +38,11 @@ func MissingMessageParse(marshalUtil *marshalutil.MarshalUtil) (result *MissingM
 	result = &MissingMessage{}
 
 	if result.messageID, err = MessageIDParse(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse message ID of missing message: %w", err)
 		return
 	}
 	if result.missingSince, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse missingSince of missing message: %w", err)
 		return
 	}
 
@@ -50,6 +52,10 @@ func MissingMessageParse(marshalUtil *marshalutil.MarshalUtil) (result *MissingM
 // MissingMessageFromObjectStorage restores a MissingMessage from the ObjectStorage.
 func MissingMessageFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	result, _, err = MissingMessageFromBytes(byteutils.ConcatBytes(key, data))
+	if err != nil {
+		err = fmt.Errorf("failed to parse missing message from object storage: %w", err)
+		return
+	}
 
 	return
 }

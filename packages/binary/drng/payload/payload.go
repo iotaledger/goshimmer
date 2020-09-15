@@ -35,6 +35,7 @@ func New(header header.Header, data []byte) *Payload {
 func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
 	payload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) })
 	if err != nil {
+		err = fmt.Errorf("failed to parse drng payload: %w", err)
 		return &Payload{}, err
 	}
 	return payload.(*Payload), nil
@@ -50,20 +51,24 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	result = &Payload{}
 	len, err := marshalUtil.ReadUint32()
 	if err != nil {
+		err = fmt.Errorf("failed to parse payload size of drng payload: %w", err)
 		return
 	}
 
 	if _, err = marshalUtil.ReadUint32(); err != nil {
+		err = fmt.Errorf("failed to parse payload type of drng payload: %w", err)
 		return
 	}
 
 	// parse header
 	if result.Header, err = header.Parse(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse header of drng payload: %w", err)
 		return
 	}
 
 	// parse data
 	if result.Data, err = marshalUtil.ReadBytes(int(len - header.Length)); err != nil {
+		err = fmt.Errorf("failed to parse data of drng payload: %w", err)
 		return
 	}
 

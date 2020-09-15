@@ -153,33 +153,35 @@ func MessageParse(marshalUtil *marshalutil.MarshalUtil) (result *Message, err er
 	// parse information
 	result = &Message{}
 	if result.parent1ID, err = MessageIDParse(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse parent1 message ID of the message: %w", err)
 		return
 	}
 	if result.parent2ID, err = MessageIDParse(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse parent1 message ID of the message: %w", err)
 		return
 	}
 	if result.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse issuer public key of the message from storage: %w", err)
+		err = fmt.Errorf("failed to parse issuer public key of the message: %w", err)
 		return
 	}
 	if result.issuingTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse issuing time of the message from storage: %w", err)
+		err = fmt.Errorf("failed to parse issuing time of the message: %w", err)
 		return
 	}
 	if result.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
-		err = fmt.Errorf("failed to parse sequence number of the message from storage: %w", err)
+		err = fmt.Errorf("failed to parse sequence number of the message: %w", err)
 		return
 	}
 	if result.payload, err = PayloadParse(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse payload of the message from storage: %w", err)
+		err = fmt.Errorf("failed to parse payload of the message: %w", err)
 		return
 	}
 	if result.nonce, err = marshalUtil.ReadUint64(); err != nil {
-		err = fmt.Errorf("failed to parse nonce of the message from storage: %w", err)
+		err = fmt.Errorf("failed to parse nonce of the message: %w", err)
 		return
 	}
 	if result.signature, err = ed25519.ParseSignature(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse signature of the message from storage: %w", err)
+		err = fmt.Errorf("failed to parse signature of the message: %w", err)
 		return
 	}
 
@@ -201,12 +203,14 @@ func MessageFromObjectStorage(key []byte, data []byte) (result objectstorage.Sto
 	// parse the message
 	message, err := MessageParse(marshalutil.New(data))
 	if err != nil {
+		err = fmt.Errorf("failed to parse message from object storage: %w", err)
 		return
 	}
 
 	// parse the ID from they key
 	id, err := MessageIDParse(marshalutil.New(key))
 	if err != nil {
+		err = fmt.Errorf("failed to parse message ID from object storage: %w", err)
 		return
 	}
 	message.id = &id

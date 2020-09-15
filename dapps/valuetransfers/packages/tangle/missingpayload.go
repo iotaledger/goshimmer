@@ -41,9 +41,11 @@ func ParseMissingPayload(marshalUtil *marshalutil.MarshalUtil) (result *MissingP
 	result = &MissingPayload{}
 
 	if result.payloadID, err = payload.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse payload id of missing payload: %w", err)
 		return
 	}
 	if result.missingSince, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse missing time of missing payload: %w", err)
 		return
 	}
 
@@ -54,6 +56,9 @@ func ParseMissingPayload(marshalUtil *marshalutil.MarshalUtil) (result *MissingP
 // the content will be unmarshaled by an external caller using the binary.ObjectStorageValue interface.
 func MissingPayloadFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	result, _, err = MissingPayloadFromBytes(byteutils.ConcatBytes(key, data))
+	if err != nil {
+		err = fmt.Errorf("failed to parse missing payload from object storage: %w", err)
+	}
 
 	return
 }

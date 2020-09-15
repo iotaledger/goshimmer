@@ -78,11 +78,13 @@ func FromObjectStorage(key []byte, data []byte) (result objectstorage.StorableOb
 	// parse the message
 	transaction, err := Parse(marshalutil.New(data))
 	if err != nil {
+		err = fmt.Errorf("failed to parse transaction from object storage: %w", err)
 		return
 	}
 
 	id, err := ParseID(marshalutil.New(key))
 	if err != nil {
+		err = fmt.Errorf("failed to parse transaction ID from object storage: %w", err)
 		return
 	}
 	transaction.id = &id
@@ -104,6 +106,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Transaction, err error
 	// unmarshal inputs
 	parsedInputs, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return InputsFromBytes(data) })
 	if err != nil {
+		err = fmt.Errorf("failed to parse inputs of transaction: %w", err)
 		return
 	}
 	result.inputs = parsedInputs.(*Inputs)
@@ -111,6 +114,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Transaction, err error
 	// unmarshal outputs
 	parsedOutputs, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return OutputsFromBytes(data) })
 	if err != nil {
+		err = fmt.Errorf("failed to parse outputs of transaction: %w", err)
 		return
 	}
 	result.outputs = parsedOutputs.(*Outputs)
@@ -119,12 +123,14 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Transaction, err error
 	var dataPayloadSize uint32
 	dataPayloadSize, err = marshalUtil.ReadUint32()
 	if err != nil {
+		err = fmt.Errorf("failed to parse data payload size of transaction: %w", err)
 		return
 	}
 
 	// unmarshal data payload
 	result.dataPayload, err = marshalUtil.ReadBytes(int(dataPayloadSize))
 	if err != nil {
+		err = fmt.Errorf("failed to parse data payload of transaction: %w", err)
 		return
 	}
 
@@ -132,12 +138,14 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Transaction, err error
 	essenceBytesCount := marshalUtil.ReadOffset() - readOffsetStart
 	result.essenceBytes, err = marshalUtil.ReadBytes(essenceBytesCount, readOffsetStart)
 	if err != nil {
+		err = fmt.Errorf("failed to parse essence bytes of transaction: %w", err)
 		return
 	}
 
-	// unmarshal outputs
+	// unmarshal signatures
 	parsedSignatures, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return SignaturesFromBytes(data) })
 	if err != nil {
+		err = fmt.Errorf("failed to parse signatures of transaction: %w", err)
 		return
 	}
 	result.signatures = parsedSignatures.(*Signatures)
@@ -146,12 +154,14 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Transaction, err error
 	signatureBytesCount := marshalUtil.ReadOffset() - readOffsetStart - essenceBytesCount
 	result.signatureBytes, err = marshalUtil.ReadBytes(signatureBytesCount, readOffsetStart+essenceBytesCount)
 	if err != nil {
+		err = fmt.Errorf("failed to parse signature bytes of transaction: %w", err)
 		return
 	}
 
 	// store bytes, so we don't have to marshal manually
 	result.bytes, err = marshalUtil.ReadBytes(essenceBytesCount+signatureBytesCount, readOffsetStart)
 	if err != nil {
+		err = fmt.Errorf("failed to parse bytes of transaction: %w", err)
 		return
 	}
 

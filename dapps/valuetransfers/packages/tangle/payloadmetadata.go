@@ -55,24 +55,31 @@ func PayloadMetadataFromBytes(bytes []byte) (result *PayloadMetadata, consumedBy
 func ParsePayloadMetadata(marshalUtil *marshalutil.MarshalUtil) (result *PayloadMetadata, err error) {
 	result = &PayloadMetadata{}
 	if result.payloadID, err = payload.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse payload id of payload metadata: %w", err)
 		return
 	}
 	if result.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse solidification time of payload metadata: %w", err)
 		return
 	}
 	if result.solid, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'solid' of payload metadata: %w", err)
 		return
 	}
 	if result.liked, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'liked' of payload metadata: %w", err)
 		return
 	}
 	if result.confirmed, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'confirmed' of payload metadata: %w", err)
 		return
 	}
 	if result.rejected, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'rejected' of payload metadata: %w", err)
 		return
 	}
 	if result.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse branch ID of payload metadata: %w", err)
 		return
 	}
 
@@ -83,6 +90,9 @@ func ParsePayloadMetadata(marshalUtil *marshalutil.MarshalUtil) (result *Payload
 // unmarshaled by an external caller using the binary.ObjectStorageValue interface.
 func PayloadMetadataFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	result, _, err = PayloadMetadataFromBytes(byteutils.ConcatBytes(key, data))
+	if err != nil {
+		err = fmt.Errorf("failed to parse payload metadata from object storage: %w", err)
+	}
 
 	return
 }

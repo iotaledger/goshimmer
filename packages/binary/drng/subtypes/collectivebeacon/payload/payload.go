@@ -43,6 +43,7 @@ func New(instanceID uint32, round uint64, prevSignature, signature, dpk []byte) 
 func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
 	unmarshalledPayload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) })
 	if err != nil {
+		err = fmt.Errorf("failed to parse collective beacon payload: %w", err)
 		return nil, err
 	}
 	_payload := unmarshalledPayload.(*Payload)
@@ -58,35 +59,42 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 
 	// read information that are required to identify the payload from the outside
 	if _, err = marshalUtil.ReadUint32(); err != nil {
+		err = fmt.Errorf("failed to parse payload size of collective beacon payload: %w", err)
 		return
 	}
 	if _, err = marshalUtil.ReadUint32(); err != nil {
+		err = fmt.Errorf("failed to parse payload type of collective beacon payload: %w", err)
 		return
 	}
 
 	// parse header
 	result = &Payload{}
 	if result.Header, err = header.Parse(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse header of collective beacon payload: %w", err)
 		return
 	}
 
 	// parse round
 	if result.Round, err = marshalUtil.ReadUint64(); err != nil {
+		err = fmt.Errorf("failed to parse round of collective beacon payload: %w", err)
 		return
 	}
 
 	// parse prevSignature
 	if result.PrevSignature, err = marshalUtil.ReadBytes(SignatureSize); err != nil {
+		err = fmt.Errorf("failed to parse prevSignature of collective beacon payload: %w", err)
 		return
 	}
 
 	// parse current signature
 	if result.Signature, err = marshalUtil.ReadBytes(SignatureSize); err != nil {
+		err = fmt.Errorf("failed to parse current signature of collective beacon payload: %w", err)
 		return
 	}
 
 	// parse distributed public key
 	if result.Dpk, err = marshalUtil.ReadBytes(PublicKeySize); err != nil {
+		err = fmt.Errorf("failed to parse distributed public key of collective beacon payload: %w", err)
 		return
 	}
 

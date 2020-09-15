@@ -37,9 +37,11 @@ func ApproverParse(marshalUtil *marshalutil.MarshalUtil) (result *Approver, err 
 	result = &Approver{}
 
 	if result.referencedMessageID, err = MessageIDParse(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse referenced message ID of approver: %w", err)
 		return
 	}
 	if result.approverMessageID, err = MessageIDParse(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse approver message ID of approver: %w", err)
 		return
 	}
 
@@ -49,6 +51,9 @@ func ApproverParse(marshalUtil *marshalutil.MarshalUtil) (result *Approver, err 
 // ApproverFromObjectStorage is the factory method for Approvers stored in the ObjectStorage.
 func ApproverFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
 	result, _, err = ApproverFromBytes(key)
+	if err != nil {
+		err = fmt.Errorf("failed to parse approver from object storage: %w", err)
+	}
 
 	return
 }
