@@ -6,16 +6,11 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
-
 	"github.com/stretchr/testify/assert"
 )
 
-// epsilon interval for checking quasi-equivalence of float64 values
-var eps = 0.0001
-
-func within(target float64, actual float64) bool {
-	return math.Abs(target-actual) < eps
-}
+// delta interval for checking quasi-equivalence of float64 values
+var delta = 0.0001
 
 func TestUpdateEBM1(t *testing.T) {
 	bm1 := BaseMana{}
@@ -30,7 +25,7 @@ func TestUpdateEBM1(t *testing.T) {
 	bm1.BaseMana1 = 1.0
 	// with default values of 0.00003209
 	bm1.updateEBM1(time.Hour * 6)
-	assert.Equal(t, true, within(0.5, bm1.EffectiveBaseMana1))
+	assert.InDelta(t, 0.5, bm1.EffectiveBaseMana1, delta)
 
 	// Update regularly
 	// BM1 was pledged a t = 0
@@ -39,7 +34,7 @@ func TestUpdateEBM1(t *testing.T) {
 	for i := 0; i < 6; i++ {
 		bm2.updateEBM1(time.Hour)
 	}
-	assert.Equal(t, true, within(0.5, bm2.EffectiveBaseMana1))
+	assert.InDelta(t, 0.5, bm2.EffectiveBaseMana1, delta)
 }
 
 func TestUpdateBM2(t *testing.T) {
@@ -53,7 +48,7 @@ func TestUpdateBM2(t *testing.T) {
 	// pledge BM2 at t = o
 	bm1.BaseMana2 = 1.0
 	bm1.updateBM2(time.Hour * 6)
-	assert.Equal(t, true, within(0.5, bm1.BaseMana2))
+	assert.InDelta(t, 0.5, bm1.BaseMana2, delta)
 
 	// pledge BM2 at t = o
 	bm2.BaseMana2 = 1.0
@@ -61,7 +56,7 @@ func TestUpdateBM2(t *testing.T) {
 	for i := 0; i < 6; i++ {
 		bm2.updateBM2(time.Hour)
 	}
-	assert.Equal(t, true, within(0.5, bm2.BaseMana2))
+	assert.InDelta(t, 0.5, bm2.BaseMana2, delta)
 }
 
 func TestUpdateEBM2CoeffEqual(t *testing.T) {
@@ -90,7 +85,7 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 	}
 
 	// compare results of the two calculations
-	assert.Equal(t, true, math.Abs(bm1.EffectiveBaseMana2-bm2.EffectiveBaseMana2) < eps)
+	assert.Equal(t, true, math.Abs(bm1.EffectiveBaseMana2-bm2.EffectiveBaseMana2) < delta)
 }
 
 //func TestUpdateEBM2CoeffNotEqual(t *testing.T) {
@@ -121,7 +116,7 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 //	}
 //
 //	// compare results of the two calculations
-//	assert.Equal(t, true, math.Abs(bm1.EffectiveBaseMana2-bm2.EffectiveBaseMana2) < eps)
+//	assert.Equal(t, true, math.Abs(bm1.EffectiveBaseMana2-bm2.EffectiveBaseMana2) < delta)
 //}
 
 func TestUpdateTimeInPast(t *testing.T) {
@@ -154,9 +149,9 @@ func TestUpdate(t *testing.T) {
 	assert.NoError(t, err)
 	// values are only valid for default coefficients of 0.00003209 and t = 6 hours
 	assert.Equal(t, 1.0, bm.BaseMana1)
-	assert.Equal(t, true, within(0.5, bm.EffectiveBaseMana1))
-	assert.Equal(t, true, within(0.5, bm.BaseMana2))
-	assert.Equal(t, true, within(0.346573, bm.EffectiveBaseMana2))
+	assert.InDelta(t, 0.5, bm.EffectiveBaseMana1, delta)
+	assert.InDelta(t, 0.5, bm.BaseMana2, delta)
+	assert.InDelta(t, 0.346573, bm.EffectiveBaseMana2, delta)
 	assert.Equal(t, updateTime, bm.LastUpdated)
 }
 
@@ -174,9 +169,9 @@ func TestRevokeBaseMana1Regular(t *testing.T) {
 	assert.NoError(t, err)
 	// values are only valid for default coefficients of 0.00003209 and t = 6 hours
 	assert.Equal(t, 0.0, bm.BaseMana1)
-	assert.Equal(t, true, within(0.5, bm.EffectiveBaseMana1))
-	assert.Equal(t, true, within(0.5, bm.BaseMana2))
-	assert.Equal(t, true, within(0.346573, bm.EffectiveBaseMana2))
+	assert.InDelta(t, 0.5, bm.EffectiveBaseMana1, delta)
+	assert.InDelta(t, 0.5, bm.BaseMana2, delta)
+	assert.InDelta(t, 0.346573, bm.EffectiveBaseMana2, delta)
 	assert.Equal(t, revokeTime, bm.LastUpdated)
 }
 
@@ -208,7 +203,7 @@ func TestRevokeBaseMana1Past(t *testing.T) {
 	updateTime := baseTime.Add(time.Hour * 6)
 	err := bm.update(updateTime)
 	assert.NoError(t, err)
-	assert.Equal(t, true, within(0.5, bm.EffectiveBaseMana1))
+	assert.InDelta(t, 0.5, bm.EffectiveBaseMana1, delta)
 
 	// revoke base mana 1 at t=0 in the past
 	err = bm.revokeBaseMana1(1.0, baseTime)
@@ -216,9 +211,9 @@ func TestRevokeBaseMana1Past(t *testing.T) {
 
 	// values are only valid for default coefficients of 0.00003209 and t = 6 hours
 	assert.Equal(t, 0.0, bm.BaseMana1)
-	assert.Equal(t, true, within(0.0, bm.EffectiveBaseMana1))
-	assert.Equal(t, true, within(0.5, bm.BaseMana2))
-	assert.Equal(t, true, within(0.346573, bm.EffectiveBaseMana2))
+	assert.InDelta(t, 0.0, bm.EffectiveBaseMana1, delta)
+	assert.InDelta(t, 0.5, bm.BaseMana2, delta)
+	assert.InDelta(t, 0.346573, bm.EffectiveBaseMana2, delta)
 	assert.Equal(t, updateTime, bm.LastUpdated)
 }
 
@@ -235,7 +230,7 @@ func TestRevokeBaseMana1PastNegativeBalance(t *testing.T) {
 	updateTime := baseTime.Add(time.Hour * 6)
 	err := bm.update(updateTime)
 	assert.NoError(t, err)
-	assert.Equal(t, true, within(0.0, bm.EffectiveBaseMana1))
+	assert.InDelta(t, 0.0, bm.EffectiveBaseMana1, delta)
 
 	err = bm.revokeBaseMana1(1.0, baseTime)
 	assert.Error(t, err)
@@ -282,10 +277,10 @@ func TestPledgeAndUpdateRegularOldFunds(t *testing.T) {
 	bm1Pledged, bm2Pledged := bm.pledgeAndUpdate(txInfo)
 
 	assert.Equal(t, 10.0, bm1Pledged)
-	assert.True(t, within(10.0, bm2Pledged))
+	assert.InDelta(t, 10.0, bm2Pledged, delta)
 	assert.Equal(t, 11.0, bm.BaseMana1)
 	// half of the original BM2 degraded away in 6 hours
-	assert.True(t, within(10.5, bm.BaseMana2))
+	assert.InDelta(t, 10.5, bm.BaseMana2, delta)
 }
 
 func TestPledgeAndUpdateRegularHalfOldFunds(t *testing.T) {
@@ -328,10 +323,10 @@ func TestPledgeAndUpdateRegularHalfOldFunds(t *testing.T) {
 	bm1Pledged, bm2Pledged := bm.pledgeAndUpdate(txInfo)
 
 	assert.Equal(t, 10.0, bm1Pledged)
-	assert.True(t, within(5.0, bm2Pledged))
+	assert.InDelta(t, 5.0, bm2Pledged, delta)
 	assert.Equal(t, 11.0, bm.BaseMana1)
 	// half of the original BM2 degraded away in 6 hours
-	assert.True(t, within(5.5, bm.BaseMana2))
+	assert.InDelta(t, 5.5, bm.BaseMana2, delta)
 }
 
 func TestPledgeAndUpdatePastOldFunds(t *testing.T) {
@@ -375,10 +370,10 @@ func TestPledgeAndUpdatePastOldFunds(t *testing.T) {
 
 	assert.Equal(t, 10.0, bm1Pledged)
 	// pledged at t=0, half of input amount is added to bm2
-	assert.True(t, within(5.0, bm2Pledged))
+	assert.InDelta(t, 5.0, bm2Pledged, delta)
 	assert.Equal(t, 10.0, bm.BaseMana1)
 	// half of the original BM2 degraded away in 6 hours
-	assert.True(t, within(5.0, bm.BaseMana2))
+	assert.InDelta(t, 5.0, bm.BaseMana2, delta)
 	// valid EBM2 at t=6 hours, after pledging 10 BM2 at t=0
-	assert.True(t, within(3.465731, bm.EffectiveBaseMana2))
+	assert.InDelta(t, 3.465731, bm.EffectiveBaseMana2, delta)
 }
