@@ -11,7 +11,7 @@ import (
 
 // TestTransactionPersistence issues messages on random peers, restarts them and checks for persistence after restart.
 func TestTransactionPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("transaction_TestPersistence", 4, 2)
+	n, err := f.CreateNetwork("transaction_TestPersistence", 4, 2, true)
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
@@ -79,7 +79,7 @@ func TestTransactionPersistence(t *testing.T) {
 
 // TestValueColoredPersistence issues colored tokens on random peers, restarts them and checks for persistence after restart.
 func TestValueColoredPersistence(t *testing.T) {
-	n, err := f.CreateNetwork("valueColor_TestPersistence", 4, 2)
+	n, err := f.CreateNetwork("valueColor_TestPersistence", 4, 2, true)
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(t, n)
 
