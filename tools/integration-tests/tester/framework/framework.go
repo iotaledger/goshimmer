@@ -61,7 +61,7 @@ func newFramework() (*Framework, error) {
 // CreateNetwork creates and returns a (Docker) Network that contains `peers` GoShimmer nodes.
 // It waits for the peers to autopeer until the minimum neighbors criteria is met for every peer.
 // The first peer automatically starts with the bootstrap plugin enabled.
-func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int) (*Network, error) {
+func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int, withFaucet ...bool) (*Network, error) {
 	network, err := newNetwork(f.dockerClient, strings.ToLower(name), f.tester)
 	if err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int) 
 				}
 				return ""
 			}(i),
-			Faucet: i == 0,
+			Faucet: len(withFaucet) > 0 && i == 0,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err
@@ -114,7 +114,7 @@ func (f *Framework) CreateNetwork(name string, peers int, minimumNeighbors int) 
 // CreateNetworkWithPartitions creates and returns a partitioned network that contains `peers` GoShimmer nodes per partition.
 // It waits for the peers to autopeer until the minimum neighbors criteria is met for every peer.
 // The first peer automatically starts with the bootstrap plugin enabled.
-func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, minimumNeighbors int) (*Network, error) {
+func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, minimumNeighbors int, withFaucet ...bool) (*Network, error) {
 	network, err := newNetwork(f.dockerClient, strings.ToLower(name), f.tester)
 	if err != nil {
 		return nil, err
@@ -159,7 +159,7 @@ func (f *Framework) CreateNetworkWithPartitions(name string, peers, partitions, 
 				}
 				return ""
 			}(i),
-			Faucet: i == 0,
+			Faucet: len(withFaucet) > 0 && i == 0,
 		}
 		if _, err = network.CreatePeer(config); err != nil {
 			return nil, err

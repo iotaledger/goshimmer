@@ -33,12 +33,8 @@ func TestConsensusNoConflicts(t *testing.T) {
 
 	const genesisBalance = 1000000000
 	genesisSeed := walletseed.NewSeed(genesisSeedBytes)
-	genesisAddr := genesisSeed.Address(1).Address
-	faucetPeer := n.Peers()[0]
-	unspentOutputs, err := faucetPeer.GetUnspentOutputs([]string{genesisAddr.String()})
-	require.NoError(t, err)
-	genesisOutputID, err := transaction.OutputIDFromBase58(unspentOutputs.UnspentOutputs[0].OutputIDs[0].ID)
-	require.NoError(t, err)
+	genesisAddr := genesisSeed.Address(0).Address
+	genesisOutputID := transaction.NewOutputID(genesisAddr, transaction.GenesisID)
 
 	firstReceiver := walletseed.NewSeed()
 	const depositCount = 10
@@ -58,7 +54,7 @@ func TestConsensusNoConflicts(t *testing.T) {
 	// issue transaction spending from the genesis output
 	log.Printf("issuing transaction spending genesis to %d addresses", depositCount)
 	tx := transaction.New(transaction.NewInputs(genesisOutputID), transaction.NewOutputs(firstReceiverDepositOutputs))
-	tx = tx.Sign(signaturescheme.ED25519(*genesisSeed.KeyPair(1)))
+	tx = tx.Sign(signaturescheme.ED25519(*genesisSeed.KeyPair(0)))
 	utilsTx := utils.ParseTransaction(tx)
 
 	txID, err := n.Peers()[0].SendTransaction(tx.Bytes())
