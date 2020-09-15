@@ -138,60 +138,85 @@ func NewMessage(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time,
 }
 
 // MessageFromBytes parses the given bytes into a message.
-func MessageFromBytes(bytes []byte, optionalTargetObject ...*Message) (result *Message, consumedBytes int, err error) {
+func MessageFromBytes(bytes []byte) (result *Message, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = MessageParse(marshalUtil, optionalTargetObject...)
+	result, err = MessageParse(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 	return
 }
 
 // MessageParse parses a message from the given marshal util.
-func MessageParse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Message) (result *Message, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Message{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to Parse")
+func MessageParse(marshalUtil *marshalutil.MarshalUtil) (result *Message, err error) {
+	// determine read offset before starting to parse
+	readOffsetStart := marshalUtil.ReadOffset()
+
+	// parse information
+	result = &Message{}
+	if result.parent1ID, err = MessageIDParse(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse parent1 message ID of the message: %w", err)
+		return
+	}
+	if result.parent2ID, err = MessageIDParse(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse parent1 message ID of the message: %w", err)
+		return
+	}
+	if result.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse issuer public key of the message: %w", err)
+		return
+	}
+	if result.issuingTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse issuing time of the message: %w", err)
+		return
+	}
+	if result.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
+		err = fmt.Errorf("failed to parse sequence number of the message: %w", err)
+		return
+	}
+	if result.payload, err = PayloadParse(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse payload of the message: %w", err)
+		return
+	}
+	if result.nonce, err = marshalUtil.ReadUint64(); err != nil {
+		err = fmt.Errorf("failed to parse nonce of the message: %w", err)
+		return
+	}
+	if result.signature, err = ed25519.ParseSignature(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse signature of the message: %w", err)
+		return
 	}
 
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
+	// retrieve the number of bytes we processed
+	readOffsetEnd := marshalUtil.ReadOffset()
 
-		return
-	})
-
+	// store marshaled version as a copy
+	result.bytes, err = marshalUtil.ReadBytes(readOffsetEnd-readOffsetStart, readOffsetStart)
 	if err != nil {
-		err = fmt.Errorf("failed to parse message: %w", err)
+		err = fmt.Errorf("error trying to copy raw source bytes: %w", err)
+		return
 	}
 
 	return
 }
 
-// MessageFromStorageKey gets called when we restore a message from storage.
-// The bytes and the content will be unmarshaled by an external caller (the objectStorage factory).
-func MessageFromStorageKey(key []byte, optionalTargetObject ...*Message) (result objectstorage.StorableObject, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Message{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to MessageFromStorageKey")
-	}
-
-	marshalUtil := marshalutil.New(key)
-	id, idErr := MessageIDParse(marshalUtil)
-	if idErr != nil {
-		err = idErr
-
+// MessageFromObjectStorage restores a Message from the ObjectStorage.
+func MessageFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	// parse the message
+	message, err := MessageParse(marshalutil.New(data))
+	if err != nil {
+		err = fmt.Errorf("failed to parse message from object storage: %w", err)
 		return
 	}
-	result.(*Message).id = &id
-	consumedBytes = marshalUtil.ReadOffset()
+
+	// parse the ID from they key
+	id, err := MessageIDParse(marshalutil.New(key))
+	if err != nil {
+		err = fmt.Errorf("failed to parse message ID from object storage: %w", err)
+		return
+	}
+	message.id = &id
+
+	// assign result
+	result = message
 
 	return
 }
@@ -342,53 +367,6 @@ func (m *Message) Bytes() []byte {
 	m.bytes = marshalUtil.Bytes()
 
 	return m.bytes
-}
-
-// UnmarshalObjectStorageValue unmarshals the bytes into a message.
-func (m *Message) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
-	// initialize helper
-	marshalUtil := marshalutil.New(data)
-
-	// parse information
-	if m.parent1ID, err = MessageIDParse(marshalUtil); err != nil {
-		return
-	}
-	if m.parent2ID, err = MessageIDParse(marshalUtil); err != nil {
-		return
-	}
-	if m.issuerPublicKey, err = ed25519.ParsePublicKey(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse issuer public key of the message from storage: %w", err)
-		return
-	}
-	if m.issuingTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse issuing time of the message from storage: %w", err)
-		return
-	}
-	if m.sequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
-		err = fmt.Errorf("failed to parse sequence number of the message from storage: %w", err)
-		return
-	}
-	if m.payload, err = PayloadParse(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse payload of the message from storage: %w", err)
-		return
-	}
-	if m.nonce, err = marshalUtil.ReadUint64(); err != nil {
-		err = fmt.Errorf("failed to parse nonce of the message from storage: %w", err)
-		return
-	}
-	if m.signature, err = ed25519.ParseSignature(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse signature of the message from storage: %w", err)
-		return
-	}
-
-	// return the number of bytes we processed
-	consumedBytes = marshalUtil.ReadOffset()
-
-	// store marshaled version
-	m.bytes = make([]byte, consumedBytes)
-	copy(m.bytes, data)
-
-	return
 }
 
 // ObjectStorageKey returns the key of the stored message object.

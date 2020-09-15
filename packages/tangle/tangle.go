@@ -33,28 +33,16 @@ type Tangle struct {
 	shutdown               chan struct{}
 }
 
-func messageFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return MessageFromStorageKey(key)
-}
-
-func approverFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return ApproverFromStorageKey(key)
-}
-
-func missingMessageFactory(key []byte, _ []byte) (objectstorage.StorableObject, int, error) {
-	return MissingMessageFromStorageKey(key)
-}
-
 // NewTangle creates a new Tangle.
 func NewTangle(store kvstore.KVStore) (result *Tangle) {
 	osFactory := objectstorage.NewFactory(store, storageprefix.MessageLayer)
 
 	result = &Tangle{
 		shutdown:               make(chan struct{}),
-		messageStorage:         osFactory.New(PrefixMessage, messageFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		messageMetadataStorage: osFactory.New(PrefixMessageMetadata, MessageMetadataFromStorageKey, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:        osFactory.New(PrefixApprovers, approverFactory, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
-		missingMessageStorage:  osFactory.New(PrefixMissingMessage, missingMessageFactory, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		messageStorage:         osFactory.New(PrefixMessage, MessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		messageMetadataStorage: osFactory.New(PrefixMessageMetadata, MessageMetadataFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:        osFactory.New(PrefixApprovers, ApproverFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false)),
+		missingMessageStorage:  osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, objectstorage.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 
 		Events: newEvents(),
 	}

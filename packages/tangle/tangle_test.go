@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/binary/datastructure"
+	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -103,7 +103,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	require.NoError(t, err)
 
 	// map to keep track of the tips
-	tips := datastructure.NewRandomMap()
+	tips := randommap.New()
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// setup the message factory

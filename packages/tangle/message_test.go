@@ -11,21 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMessage_FromStorageKey(t *testing.T) {
-	key, err := NewMessageID("2DYebCqnZ8PS5PyXBEvAvLB1fCF77Rn9RtofNHjEb2pSTujKi889d31FmguAs5DgL7YURw4GP2Y28JdJ7K4bjudG")
-	if err != nil {
-		panic(err)
-	}
-
-	messageFromKey, consumedBytes, err := MessageFromStorageKey(key.Bytes())
-	if err != nil {
-		panic(err)
-	}
-
-	assert.Equal(t, MessageIDLength, consumedBytes)
-	assert.Equal(t, key, messageFromKey.(*Message).ID())
-}
-
 func TestMessage_VerifySignature(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	pl := NewDataPayload([]byte("test"))

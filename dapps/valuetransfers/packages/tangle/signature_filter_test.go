@@ -83,7 +83,7 @@ func TestSignatureFilter(t *testing.T) {
 		marshalUtil := marshalutil.New(tangle.NewDataPayload([]byte("test")).Bytes())
 
 		// set the type to be a value payload
-		marshalUtil.WriteSeek(0)
+		marshalUtil.WriteSeek(4)
 		marshalUtil.WriteUint32(valuePayload.Type)
 
 		// parse modified bytes back into a payload object

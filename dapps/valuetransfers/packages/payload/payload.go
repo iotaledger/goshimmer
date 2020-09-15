@@ -1,6 +1,7 @@
 package payload
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -43,58 +44,76 @@ func New(parent1PayloadID, parent2PayloadID ID, valueTransfer *transaction.Trans
 
 // FromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
+func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = Parse(marshalUtil, optionalTargetObject...)
+	result, err = Parse(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// FromStorageKey is a factory method that creates a new Payload instance from a storage key of the objectstorage.
-// It is used by the objectstorage, to create new instances of this entity.
-func FromStorageKey(key []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Payload{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to MissingPayloadFromStorageKey")
-	}
-
-	// parse the properties that are stored in the key
-	marshalUtil := marshalutil.New(key)
-	payloadID, idErr := ParseID(marshalUtil)
-	if idErr != nil {
-		err = idErr
-
+// FromObjectStorage is a factory method that creates a new Payload from the ObjectStorage.
+func FromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	// parse the message
+	parsedPayload, err := Parse(marshalutil.New(data))
+	if err != nil {
+		err = fmt.Errorf("failed to parse value payload from object storage: %w", err)
 		return
 	}
-	result.id = &payloadID
-	consumedBytes = marshalUtil.ReadOffset()
+
+	// parse the ID from the key
+	payloadID, err := ParseID(marshalutil.New(key))
+	if err != nil {
+		err = fmt.Errorf("failed to parse value payload ID from object storage: %w", err)
+		return
+	}
+	parsedPayload.id = &payloadID
+
+	// assign result
+	result = parsedPayload
 
 	return
 }
 
 // Parse unmarshals a Payload using the given marshalUtil (for easier marshaling/unmarshaling).
-func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTargetObject ...*Payload) (result *Payload, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Payload{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to Parse")
+func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
+	// determine read offset before starting to parse
+	readOffsetStart := marshalUtil.ReadOffset()
+
+	// read information that are required to identify the payload from the outside
+	_, err = marshalUtil.ReadUint32()
+	if err != nil {
+		err = fmt.Errorf("failed to parse payload size of value payload: %w", err)
+		return
+	}
+	_, err = marshalUtil.ReadUint32()
+	if err != nil {
+		err = fmt.Errorf("failed to parse payload type of value payload: %w", err)
+		return
 	}
 
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
+	// parse parent1 payload id
+	result = &Payload{}
+	if result.parent1PayloadID, err = ParseID(marshalUtil); err != nil {
+		return
+	}
+	if result.parent2PayloadID, err = ParseID(marshalUtil); err != nil {
+		return
+	}
+	if result.transaction, err = transaction.Parse(marshalUtil); err != nil {
+		return
+	}
+
+	// retrieve the number of bytes we processed
+	readOffsetEnd := marshalUtil.ReadOffset()
+
+	// store marshaled version as a copy
+	result.bytes, err = marshalUtil.ReadBytes(readOffsetEnd-readOffsetStart, readOffsetStart)
+	if err != nil {
+		err = fmt.Errorf("error trying to copy raw source bytes: %w", err)
 
 		return
-	})
+	}
 
 	return
 }
@@ -201,8 +220,8 @@ func (payload *Payload) ObjectStorageValue() (bytes []byte) {
 	// marshal fields
 	payloadLength := IDLength + IDLength + len(transferBytes)
 	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
-	marshalUtil.WriteUint32(Type)
 	marshalUtil.WriteUint32(uint32(payloadLength))
+	marshalUtil.WriteUint32(Type)
 	marshalUtil.WriteBytes(payload.parent1PayloadID.Bytes())
 	marshalUtil.WriteBytes(payload.parent2PayloadID.Bytes())
 	marshalUtil.WriteBytes(transferBytes)
@@ -210,48 +229,6 @@ func (payload *Payload) ObjectStorageValue() (bytes []byte) {
 
 	// store result
 	payload.bytes = bytes
-
-	return
-}
-
-// UnmarshalObjectStorageValue unmarshals the bytes that are stored in the value of the objectstorage.
-func (payload *Payload) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(data)
-
-	// read information that are required to identify the payload from the outside
-	_, err = marshalUtil.ReadUint32()
-	if err != nil {
-		return
-	}
-	_, err = marshalUtil.ReadUint32()
-	if err != nil {
-		return
-	}
-
-	// parse parent1 payload id
-	if payload.parent1PayloadID, err = ParseID(marshalUtil); err != nil {
-		return
-	}
-	if payload.parent2PayloadID, err = ParseID(marshalUtil); err != nil {
-		return
-	}
-	if payload.transaction, err = transaction.Parse(marshalUtil); err != nil {
-		return
-	}
-
-	// return the number of bytes we processed
-	consumedBytes = marshalUtil.ReadOffset()
-
-	// store bytes, so we don't have to marshal manually
-	payload.bytes = make([]byte, consumedBytes)
-	copy(payload.bytes, data[:consumedBytes])
-
-	return
-}
-
-// Unmarshal unmarshals a given slice of bytes and fills the object with the.
-func (payload *Payload) Unmarshal(data []byte) (err error) {
-	_, _, err = FromBytes(data, payload)
 
 	return
 }
