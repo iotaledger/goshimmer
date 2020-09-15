@@ -41,26 +41,16 @@ func NewObject(id ID, sentTime int64) *Object {
 
 // FromBytes parses the marshaled version of an Object into a Go object.
 // It either returns a new Object or fills an optionally provided Object with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Object) (result *Object, consumedBytes int, err error) {
+func FromBytes(bytes []byte) (result *Object, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = Parse(marshalUtil, optionalTargetObject...)
+	result, err = Parse(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
 // Parse unmarshals an Object using the given marshalUtil (for easier marshaling/unmarshaling).
-func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTarget ...*Object) (result *Object, err error) {
-	// determine the target that will hold the unmarshaled information
-	switch len(optionalTarget) {
-	case 0:
-		result = &Object{}
-	case 1:
-		result = optionalTarget[0]
-	default:
-		panic("too many arguments in call to FromBytes")
-	}
-
+func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Object, err error) {
 	// read information that are required to identify the object from the outside
 	if _, err = marshalUtil.ReadUint32(); err != nil {
 		return
@@ -70,6 +60,7 @@ func Parse(marshalUtil *marshalutil.MarshalUtil, optionalTarget ...*Object) (res
 	}
 
 	// parse id
+	result = &Object{}
 	id, err := marshalUtil.ReadBytes(32)
 	if err != nil {
 		return
@@ -114,8 +105,8 @@ func (o *Object) Bytes() (bytes []byte) {
 	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + objectLength)
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(Type)
 	marshalUtil.WriteUint32(uint32(objectLength))
+	marshalUtil.WriteUint32(Type)
 	marshalUtil.WriteBytes(o.id[:])
 	marshalUtil.WriteInt64(o.sentTime)
 
@@ -142,17 +133,9 @@ func (o *Object) Type() payload.Type {
 	return Type
 }
 
-// Unmarshal unmarshals the payload from the given bytes.
-func (o *Object) Unmarshal(data []byte) (err error) {
-	_, _, err = FromBytes(data, o)
-
-	return
-}
-
 func init() {
 	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-		payload = &Object{}
-		err = payload.Unmarshal(data)
+		payload, _, err = FromBytes(data)
 
 		return
 	})

@@ -1,20 +1,20 @@
 package tipselector
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/datastructure"
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/message"
+	"github.com/iotaledger/hive.go/datastructure/randommap"
 )
 
 // TipSelector manages a map of tips and emits events for their removal and addition.
 type TipSelector struct {
-	tips   *datastructure.RandomMap
+	tips   *randommap.RandomMap
 	Events *Events
 }
 
 // New creates a new tip-selector.
 func New(tips ...message.ID) *TipSelector {
 	tipSelector := &TipSelector{
-		tips:   datastructure.NewRandomMap(),
+		tips:   randommap.New(),
 		Events: newEvents(),
 	}
 

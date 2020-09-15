@@ -14,9 +14,9 @@ type Definition struct {
 }
 
 var (
-	typeRegister              = make(map[Type]Definition)
-	typeRegisterMutex         sync.RWMutex
-	genericUnmarshalerFactory func(payloadType Type) Unmarshaler
+	typeRegister       = make(map[Type]Definition)
+	typeRegisterMutex  sync.RWMutex
+	genericUnmarshaler Unmarshaler
 )
 
 // RegisterType registers a payload type with the given unmarshaler.
@@ -34,15 +34,17 @@ func RegisterType(payloadType Type, payloadName string, unmarshaler Unmarshaler)
 func GetUnmarshaler(payloadType Type) Unmarshaler {
 	typeRegisterMutex.RLock()
 	defer typeRegisterMutex.RUnlock()
+
 	if definition, exists := typeRegister[payloadType]; exists {
 		return definition.Unmarshaler
 	}
-	return genericUnmarshalerFactory(payloadType)
+
+	return genericUnmarshaler
 }
 
-// SetGenericUnmarshalerFactory sets the generic unmarshaler.
-func SetGenericUnmarshalerFactory(unmarshalerFactory func(payloadType Type) Unmarshaler) {
-	genericUnmarshalerFactory = unmarshalerFactory
+// SetGenericUnmarshaler sets the generic unmarshaler.
+func SetGenericUnmarshaler(unmarshaler Unmarshaler) {
+	genericUnmarshaler = unmarshaler
 }
 
 // Name returns the name of a given payload type.
