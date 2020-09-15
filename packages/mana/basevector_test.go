@@ -144,7 +144,8 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 	})
 
 	// update to txTime - 6 hours. Effective base manas should converge to their asymptote.
-	bmv.UpdateAll(baseTime)
+	err := bmv.UpdateAll(baseTime)
+	assert.NoError(t, err)
 	updatedNodeIds := map[identity.ID]interface{}{
 		inputPledgeID1: 0,
 		inputPledgeID2: 0,
@@ -157,9 +158,9 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 		assert.Equal(t, baseTime, ev.NewMana.LastUpdated)
 		// base mana values are expected
 		assert.Equal(t, beforeBookingAmount[ev.NodeID], ev.NewMana.BaseMana1)
-		assert.True(t, within(beforeBookingAmount[ev.NodeID], ev.NewMana.EffectiveBaseMana1))
-		assert.True(t, within(0, ev.NewMana.BaseMana2))
-		assert.True(t, within(0, ev.NewMana.EffectiveBaseMana2))
+		assert.InDelta(t, beforeBookingAmount[ev.NodeID], ev.NewMana.EffectiveBaseMana1, delta)
+		assert.InDelta(t, 0, ev.NewMana.BaseMana2, delta)
+		assert.InDelta(t, 0, ev.NewMana.EffectiveBaseMana2, delta)
 		// update triggered for expected nodes
 		assert.Contains(t, updatedNodeIds, ev.NodeID)
 		// remove this one from the list of expected to make sure it was only called once
@@ -172,9 +173,9 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 		assert.Equal(t, baseTime, bm.LastUpdated)
 		// base mana values are expected
 		assert.Equal(t, beforeBookingAmount[ID], bm.BaseMana1)
-		assert.True(t, within(beforeBookingAmount[ID], bm.EffectiveBaseMana1))
-		assert.True(t, within(0, bm.BaseMana2))
-		assert.True(t, within(0, bm.EffectiveBaseMana2))
+		assert.InDelta(t, beforeBookingAmount[ID], bm.EffectiveBaseMana1, delta)
+		assert.InDelta(t, 0, bm.BaseMana2, delta)
+		assert.InDelta(t, 0, bm.EffectiveBaseMana2, delta)
 		return true
 	})
 	// update event triggered 3 times for the 3 nodes
@@ -215,16 +216,16 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 		assert.Equal(t, txTime, ev.NewMana.LastUpdated)
 		// base mana values are expected
 		assert.Equal(t, afterBookingAmount[ev.NodeID], ev.NewMana.BaseMana1)
-		assert.True(t, within(beforeBookingAmount[ev.NodeID], ev.NewMana.EffectiveBaseMana1))
-		assert.True(t, within(afterBookingAmount[ev.NodeID], ev.NewMana.BaseMana2))
-		assert.True(t, within(0, ev.NewMana.EffectiveBaseMana2))
+		assert.InDelta(t, beforeBookingAmount[ev.NodeID], ev.NewMana.EffectiveBaseMana1, delta)
+		assert.InDelta(t, afterBookingAmount[ev.NodeID], ev.NewMana.BaseMana2, delta)
+		assert.InDelta(t, 0, ev.NewMana.EffectiveBaseMana2, delta)
 		assert.Contains(t, updatedNodeIds, ev.NodeID)
 		delete(updatedNodeIds, ev.NodeID)
 	}
 	assert.Empty(t, updatedNodeIds)
 	for _, ev := range pledgeEvents {
 		assert.Equal(t, afterBookingAmount[ev.NodeID], ev.AmountBM1)
-		assert.InEpsilon(t, afterBookingAmount[ev.NodeID], ev.AmountBM2, eps)
+		assert.InDelta(t, afterBookingAmount[ev.NodeID], ev.AmountBM2, delta)
 		assert.Equal(t, txTime, ev.Time)
 		assert.Equal(t, AccessMana, ev.Type)
 		assert.Contains(t, pledgedNodeIds, ev.NodeID)
@@ -251,7 +252,7 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 	}
 
 	updateTime := txTime.Add(time.Hour * 6)
-	err := bmv.UpdateAll(updateTime)
+	err = bmv.UpdateAll(updateTime)
 	assert.NoError(t, err)
 
 	for _, ev := range updateEvents {
@@ -260,13 +261,13 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 		// base mana values are expected
 		assert.Equal(t, afterBookingAmount[ev.NodeID], ev.NewMana.BaseMana1)
 		if ev.NodeID == txPledgeID {
-			assert.InEpsilon(t, afterBookingAmount[ev.NodeID]/2, ev.NewMana.EffectiveBaseMana1, eps)
-			assert.InEpsilon(t, afterBookingAmount[ev.NodeID]/2, ev.NewMana.BaseMana2, eps)
-			assert.InEpsilon(t, 3.465731, ev.NewMana.EffectiveBaseMana2, eps)
+			assert.InDelta(t, afterBookingAmount[ev.NodeID]/2, ev.NewMana.EffectiveBaseMana1, delta)
+			assert.InDelta(t, afterBookingAmount[ev.NodeID]/2, ev.NewMana.BaseMana2, delta)
+			assert.InDelta(t, 3.465731, ev.NewMana.EffectiveBaseMana2, delta)
 		} else {
-			assert.InEpsilon(t, beforeBookingAmount[ev.NodeID]/2, ev.NewMana.EffectiveBaseMana1, eps)
-			assert.InEpsilon(t, 1.0, 1+ev.NewMana.BaseMana2, eps)
-			assert.InEpsilon(t, 1.0, 1+ev.NewMana.EffectiveBaseMana2, eps)
+			assert.InDelta(t, beforeBookingAmount[ev.NodeID]/2, ev.NewMana.EffectiveBaseMana1, delta)
+			assert.InDelta(t, 1.0, 1+ev.NewMana.BaseMana2, delta)
+			assert.InDelta(t, 1.0, 1+ev.NewMana.EffectiveBaseMana2, delta)
 		}
 		assert.Contains(t, updatedNodeIds, ev.NodeID)
 		delete(updatedNodeIds, ev.NodeID)
@@ -280,13 +281,13 @@ func TestBaseManaVector_BookMana(t *testing.T) {
 		// base mana values are expected
 		assert.Equal(t, afterBookingAmount[ID], bm.BaseMana1)
 		if ID == txPledgeID {
-			assert.InEpsilon(t, afterBookingAmount[ID]/2, bm.EffectiveBaseMana1, eps)
-			assert.InEpsilon(t, afterBookingAmount[ID]/2, bm.BaseMana2, eps)
-			assert.InEpsilon(t, 3.465731, bm.EffectiveBaseMana2, eps)
+			assert.InDelta(t, afterBookingAmount[ID]/2, bm.EffectiveBaseMana1, delta)
+			assert.InDelta(t, afterBookingAmount[ID]/2, bm.BaseMana2, delta)
+			assert.InDelta(t, 3.465731, bm.EffectiveBaseMana2, delta)
 		} else {
-			assert.InEpsilon(t, beforeBookingAmount[ID]/2, bm.EffectiveBaseMana1, eps)
-			assert.InEpsilon(t, 1.0, 1+bm.BaseMana2, eps)
-			assert.InEpsilon(t, 1.0, 1+bm.EffectiveBaseMana2, eps)
+			assert.InDelta(t, beforeBookingAmount[ID]/2, bm.EffectiveBaseMana1, delta)
+			assert.InDelta(t, 1.0, 1+bm.BaseMana2, delta)
+			assert.InDelta(t, 1.0, 1+bm.EffectiveBaseMana2, delta)
 		}
 		return true
 	})
@@ -348,9 +349,9 @@ func TestBaseManaVector_Update(t *testing.T) {
 		LastUpdated: baseTime},
 		ev.OldMana)
 	assert.Equal(t, 10.0, ev.NewMana.BaseMana1)
-	assert.InEpsilon(t, 5, ev.NewMana.EffectiveBaseMana1, eps)
-	assert.InEpsilon(t, 5, ev.NewMana.BaseMana2, eps)
-	assert.InEpsilon(t, 3.465731, ev.NewMana.EffectiveBaseMana2, eps)
+	assert.InDelta(t, 5, ev.NewMana.EffectiveBaseMana1, delta)
+	assert.InDelta(t, 5, ev.NewMana.BaseMana2, delta)
+	assert.InDelta(t, 3.465731, ev.NewMana.EffectiveBaseMana2, delta)
 	assert.Equal(t, updateTime, ev.NewMana.LastUpdated)
 }
 
@@ -418,7 +419,8 @@ func TestBaseManaVector_UpdateAll(t *testing.T) {
 	})
 
 	updateTime := baseTime.Add(time.Hour)
-	bmv.UpdateAll(updateTime)
+	err := bmv.UpdateAll(updateTime)
+	assert.NoError(t, err)
 
 	for _, mana := range bmv.vector {
 		assert.Equal(t, updateTime, mana.LastUpdated)
@@ -460,13 +462,13 @@ func TestBaseManaVector_GetWeightedMana(t *testing.T) {
 
 	mana, err = bmv.GetWeightedMana(randID, 0.5)
 	assert.NoError(t, err)
-	assert.InEpsilon(t, 5.5, mana, eps)
+	assert.InDelta(t, 5.5, mana, delta)
 	mana, err = bmv.GetWeightedMana(randID, 1)
 	assert.NoError(t, err)
-	assert.InEpsilon(t, 10.0, mana, eps)
+	assert.InDelta(t, 10.0, mana, delta)
 	mana, err = bmv.GetWeightedMana(randID, 0)
 	assert.NoError(t, err)
-	assert.InEpsilon(t, 1.0, mana, eps)
+	assert.InDelta(t, 1.0, mana, delta)
 }
 
 func TestBaseManaVector_GetMana(t *testing.T) {
@@ -484,7 +486,7 @@ func TestBaseManaVector_GetMana(t *testing.T) {
 
 	mana, err := bmv.GetMana(randID)
 	assert.NoError(t, err)
-	assert.InEpsilon(t, 5.5, mana, eps)
+	assert.InDelta(t, 5.5, mana, delta)
 }
 
 func TestBaseManaVector_ForEach(t *testing.T) {
@@ -542,7 +544,7 @@ func TestBaseManaVector_GetManaMap(t *testing.T) {
 	manaMap = bmv.GetManaMap()
 	assert.Equal(t, 100, len(manaMap))
 	for nodeID, mana := range manaMap {
-		assert.InEpsilon(t, 5.5, mana, eps)
+		assert.InDelta(t, 5.5, mana, delta)
 		assert.Contains(t, nodeIDs, nodeID)
 		delete(nodeIDs, nodeID)
 	}
@@ -576,12 +578,12 @@ func TestBaseManaVector_GetHighestManaNodes(t *testing.T) {
 	result = bmv.GetHighestManaNodes(1)
 	assert.Equal(t, 1, len(result))
 	assert.Equal(t, nodeIDs[9], result[0].ID)
-	assert.InEpsilon(t, 9.0, result[0].Mana, eps)
+	assert.InDelta(t, 9.0, result[0].Mana, delta)
 
 	// requesting top 3 mana holders
 	result = bmv.GetHighestManaNodes(3)
 	assert.Equal(t, 3, len(result))
-	assert.InEpsilon(t, 9.0, result[0].Mana, eps)
+	assert.InDelta(t, 9.0, result[0].Mana, delta)
 	for index, value := range result {
 		if index < 2 {
 			// it's greater than the next one
