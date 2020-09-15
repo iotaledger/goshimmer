@@ -52,18 +52,18 @@ func TestTangle_AttachMessage(t *testing.T) {
 		return
 	}
 
-	messageTangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *CachedMessageMetadata) {
-		cachedMessageMetadata.Release()
+	messageTangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
 
-		cachedMessage.Consume(func(msg *message.Message) {
+		cachedMsgEvent.Message.Consume(func(msg *message.Message) {
 			fmt.Println("ATTACHED:", msg.ID())
 		})
 	}))
 
-	messageTangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *CachedMessageMetadata) {
-		cachedMessageMetadata.Release()
+	messageTangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
 
-		cachedMessage.Consume(func(msg *message.Message) {
+		cachedMsgEvent.Message.Consume(func(msg *message.Message) {
 			fmt.Println("SOLID:", msg.ID())
 		})
 	}))
@@ -130,9 +130,9 @@ func TestTangle_MissingMessages(t *testing.T) {
 		// remove a tip if the width of the tangle is reached
 		if tips.Size() >= widthOfTheTangle {
 			if rand.Intn(1000) < 500 {
-				tips.Delete(msg.BranchID())
+				tips.Delete(msg.Parent2ID())
 			} else {
-				tips.Delete(msg.TrunkID())
+				tips.Delete(msg.Parent1ID())
 			}
 		}
 
@@ -162,9 +162,9 @@ func TestTangle_MissingMessages(t *testing.T) {
 	fmt.Println("PRE-GENERATING MESSAGES: DONE")
 
 	var receivedTransactionsCounter int32
-	tangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *CachedMessageMetadata) {
-		defer cachedMessage.Release()
-		defer cachedMessageMetadata.Release()
+	tangle.Events.MessageAttached.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
+		defer cachedMsgEvent.Message.Release()
+		defer cachedMsgEvent.MessageMetadata.Release()
 
 		newReceivedTransactionsCounterValue := atomic.AddInt32(&receivedTransactionsCounter, 1)
 		if newReceivedTransactionsCounterValue%1000 == 0 {
@@ -188,9 +188,9 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}))
 
 	// decrease the counter when a missing message was received
-	tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *CachedMessageMetadata) {
-		cachedMessageMetadata.Release()
-		cachedMessage.Consume(func(msg *message.Message) {
+	tangle.Events.MissingMessageReceived.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
+		cachedMsgEvent.MessageMetadata.Release()
+		cachedMsgEvent.Message.Consume(func(msg *message.Message) {
 			missingMessagesMapMutex.Lock()
 			delete(missingMessagesMap, msg.ID())
 			missingMessagesMapMutex.Unlock()
@@ -199,9 +199,9 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// mark the WaitGroup as done if all messages are solid
 	solidMessageCounter := int32(0)
-	tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMessage *message.CachedMessage, cachedMessageMetadata *CachedMessageMetadata) {
-		defer cachedMessageMetadata.Release()
-		defer cachedMessage.Release()
+	tangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
+		defer cachedMsgEvent.MessageMetadata.Release()
+		defer cachedMsgEvent.Message.Release()
 
 		// print progress status message
 		newSolidCounterValue := atomic.AddInt32(&solidMessageCounter, 1)

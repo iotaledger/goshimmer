@@ -80,11 +80,22 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		// check if signatures are valid
 		assert.True(t, transactions["[-GENESIS, A+, B+, C+]"].SignaturesValid())
 
-		tangle.Expect("PayloadAttached", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("PayloadSolid", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionReceived", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything, mock.Anything)
-		tangle.Expect("TransactionSolid", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionBooked", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything, true)
+		tangle.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-GENESIS, A+, B+, C+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-GENESIS, A+, B+, C+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionReceived", mock.MatchedBy(func(cachedAttachmentsEvent *CachedAttachmentsEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedAttachmentsEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionSolid", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionBooked", mock.MatchedBy(func(cachedTransactionBookEvent *CachedTransactionBookEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionBookEvent.Transaction.Unwrap()) &&
+				assert.True(t, cachedTransactionBookEvent.Pending)
+		}))
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-GENESIS, A+, B+, C+]"])
@@ -154,11 +165,22 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		// check if signatures are valid
 		assert.True(t, transactions["[-A, D+]"].SignaturesValid())
 
-		tangle.Expect("PayloadAttached", valueObjects["[-A, D+]"], mock.Anything)
-		tangle.Expect("PayloadSolid", valueObjects["[-A, D+]"], mock.Anything)
-		tangle.Expect("TransactionReceived", transactions["[-A, D+]"], mock.Anything, mock.Anything)
-		tangle.Expect("TransactionSolid", transactions["[-A, D+]"], mock.Anything)
-		tangle.Expect("TransactionBooked", transactions["[-A, D+]"], mock.Anything, true)
+		tangle.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, D+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, D+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionReceived", mock.MatchedBy(func(cachedAttachmentsEvent *CachedAttachmentsEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedAttachmentsEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionSolid", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionBooked", mock.MatchedBy(func(cachedTransactionBookEvent *CachedTransactionBookEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionBookEvent.Transaction.Unwrap()) &&
+				assert.True(t, cachedTransactionBookEvent.Pending)
+		}))
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-A, D+]"])
@@ -214,11 +236,22 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		// check if signatures are valid
 		assert.True(t, transactions["[-B, -C, E+]"].SignaturesValid())
 
-		tangle.Expect("PayloadAttached", valueObjects["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("PayloadSolid", valueObjects["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("TransactionReceived", transactions["[-B, -C, E+]"], mock.Anything, mock.Anything)
-		tangle.Expect("TransactionSolid", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("TransactionBooked", transactions["[-B, -C, E+]"], mock.Anything, true)
+		tangle.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionReceived", mock.MatchedBy(func(cachedAttachmentsEvent *CachedAttachmentsEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedAttachmentsEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionSolid", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionBooked", mock.MatchedBy(func(cachedTransactionBookEvent *CachedTransactionBookEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionBookEvent.Transaction.Unwrap()) &&
+				assert.True(t, cachedTransactionBookEvent.Pending)
+		}))
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-B, -C, E+]"])
@@ -265,8 +298,12 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		// create payload
 		valueObjects["[-B, -C, E+] (Reattachment)"] = payload.New(valueObjects["[-B, -C, E+]"].ID(), valueObjects["[-GENESIS, A+, B+, C+]"].ID(), transactions["[-B, -C, E+]"])
 
-		tangle.Expect("PayloadAttached", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
-		tangle.Expect("PayloadSolid", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+		tangle.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+] (Reattachment)"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+] (Reattachment)"], cachedPayloadEvent.Payload.Unwrap())
+		}))
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-B, -C, E+] (Reattachment)"])
@@ -329,12 +366,26 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		// check if signatures are valid
 		assert.True(t, transactions["[-A, F+]"].SignaturesValid())
 
-		tangle.Expect("PayloadAttached", valueObjects["[-A, F+]"], mock.Anything)
-		tangle.Expect("PayloadSolid", valueObjects["[-A, F+]"], mock.Anything)
-		tangle.Expect("TransactionReceived", transactions["[-A, F+]"], mock.Anything, mock.Anything)
-		tangle.Expect("TransactionSolid", transactions["[-A, F+]"], mock.Anything)
-		tangle.Expect("TransactionBooked", transactions["[-A, F+]"], mock.Anything, true)
-		tangle.Expect("Fork", transactions["[-A, D+]"], mock.Anything, mock.Anything, []transaction.OutputID{outputA})
+		tangle.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, F+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, F+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionReceived", mock.MatchedBy(func(cachedAttachmentsEvent *CachedAttachmentsEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedAttachmentsEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionSolid", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionBooked", mock.MatchedBy(func(cachedTransactionBookEvent *CachedTransactionBookEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionBookEvent.Transaction.Unwrap()) &&
+				assert.True(t, cachedTransactionBookEvent.Pending)
+		}))
+		tangle.Expect("Fork", mock.MatchedBy(func(forkEvent *ForkEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], forkEvent.Transaction.Unwrap()) &&
+				assert.ElementsMatch(t, []transaction.OutputID{outputA}, forkEvent.InputIDs)
+		}))
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-A, F+]"])
@@ -413,11 +464,22 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		// check if signatures are valid
 		assert.True(t, transactions["[-E, -F, G+]"].SignaturesValid())
 
-		tangle.Expect("PayloadAttached", valueObjects["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("PayloadSolid", valueObjects["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionReceived", transactions["[-E, -F, G+]"], mock.Anything, mock.Anything)
-		tangle.Expect("TransactionSolid", transactions["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionBooked", transactions["[-E, -F, G+]"], mock.Anything, true)
+		tangle.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-E, -F, G+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-E, -F, G+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionReceived", mock.MatchedBy(func(cachedAttachmentsEvent *CachedAttachmentsEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedAttachmentsEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionSolid", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionBooked", mock.MatchedBy(func(cachedTransactionBookEvent *CachedTransactionBookEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionBookEvent.Transaction.Unwrap()) &&
+				assert.True(t, cachedTransactionBookEvent.Pending)
+		}))
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-E, -F, G+]"])
@@ -481,10 +543,18 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 		// check if signatures are valid
 		assert.True(t, transactions["[-F, -D, Y+]"].SignaturesValid())
 
-		tangle.Expect("PayloadAttached", valueObjects["[-F, -D, Y+]"], mock.Anything)
-		tangle.Expect("PayloadInvalid", valueObjects["[-F, -D, Y+]"], mock.Anything, mock.MatchedBy(func(err error) bool { return assert.Error(t, err) }))
-		tangle.Expect("TransactionReceived", transactions["[-F, -D, Y+]"], mock.Anything, mock.Anything)
-		tangle.Expect("TransactionInvalid", transactions["[-F, -D, Y+]"], mock.Anything, mock.MatchedBy(func(err error) bool { return assert.Error(t, err) }))
+		tangle.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-F, -D, Y+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadInvalid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-F, -D, Y+]"], cachedPayloadEvent.Payload.Unwrap())
+		}), mock.MatchedBy(func(err error) bool { return assert.Error(t, err) }))
+		tangle.Expect("TransactionReceived", mock.MatchedBy(func(cachedAttachmentsEvent *CachedAttachmentsEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-F, -D, Y+]"], cachedAttachmentsEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionInvalid", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-F, -D, Y+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}), mock.MatchedBy(func(err error) bool { return assert.Error(t, err) }))
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-F, -D, Y+]"])
@@ -509,8 +579,12 @@ func preparePropagationScenario1(t *testing.T) (*eventTangle, map[string]*transa
 	{
 		valueObjects["[-B, -C, E+] (2nd Reattachment)"] = payload.New(valueObjects["[-A, F+]"].ID(), valueObjects["[-A, D+]"].ID(), transactions["[-B, -C, E+]"])
 
-		tangle.Expect("PayloadAttached", valueObjects["[-B, -C, E+] (2nd Reattachment)"], mock.Anything)
-		tangle.Expect("PayloadInvalid", valueObjects["[-B, -C, E+] (2nd Reattachment)"], mock.Anything, mock.MatchedBy(func(err error) bool { return assert.Error(t, err) }))
+		tangle.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+] (2nd Reattachment)"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadInvalid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+] (2nd Reattachment)"], cachedPayloadEvent.Payload.Unwrap())
+		}), mock.MatchedBy(func(err error) bool { return assert.Error(t, err) }))
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-B, -C, E+] (2nd Reattachment)"])
@@ -565,12 +639,26 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 		// check if signatures are valid
 		assert.True(t, transactions["[-C, H+]"].SignaturesValid())
 
-		tangle.Expect("PayloadAttached", valueObjects["[-C, H+]"], mock.Anything)
-		tangle.Expect("PayloadSolid", valueObjects["[-C, H+]"], mock.Anything)
-		tangle.Expect("TransactionReceived", transactions["[-C, H+]"], mock.Anything, mock.Anything)
-		tangle.Expect("TransactionSolid", transactions["[-C, H+]"], mock.Anything)
-		tangle.Expect("TransactionBooked", transactions["[-C, H+]"], mock.Anything, true)
-		tangle.Expect("Fork", transactions["[-B, -C, E+]"], mock.Anything, mock.Anything, []transaction.OutputID{outputC})
+		tangle.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-C, H+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-C, H+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionReceived", mock.MatchedBy(func(cachedAttachmentsEvent *CachedAttachmentsEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-C, H+]"], cachedAttachmentsEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionSolid", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-C, H+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionBooked", mock.MatchedBy(func(cachedTransactionBookEvent *CachedTransactionBookEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-C, H+]"], cachedTransactionBookEvent.Transaction.Unwrap()) &&
+				assert.Equal(t, true, cachedTransactionBookEvent.Pending)
+		}))
+		tangle.Expect("Fork", mock.MatchedBy(func(forkEvent *ForkEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], forkEvent.Transaction.Unwrap()) &&
+				assert.ElementsMatch(t, []transaction.OutputID{outputC}, forkEvent.InputIDs)
+		}))
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-C, H+]"])
@@ -671,11 +759,22 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 		// check if signatures are valid
 		assert.True(t, transactions["[-H, -D, I+]"].SignaturesValid())
 
-		tangle.Expect("PayloadAttached", valueObjects["[-H, -D, I+]"], mock.Anything)
-		tangle.Expect("PayloadSolid", valueObjects["[-H, -D, I+]"], mock.Anything)
-		tangle.Expect("TransactionReceived", transactions["[-H, -D, I+]"], mock.Anything, mock.Anything)
-		tangle.Expect("TransactionSolid", transactions["[-H, -D, I+]"], mock.Anything)
-		tangle.Expect("TransactionBooked", transactions["[-H, -D, I+]"], mock.Anything, true)
+		tangle.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-H, -D, I+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-H, -D, I+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionReceived", mock.MatchedBy(func(cachedAttachmentsEvent *CachedAttachmentsEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-H, -D, I+]"], cachedAttachmentsEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionSolid", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-H, -D, I+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionBooked", mock.MatchedBy(func(cachedTransactionBookEvent *CachedTransactionBookEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-H, -D, I+]"], cachedTransactionBookEvent.Transaction.Unwrap()) &&
+				assert.True(t, cachedTransactionBookEvent.Pending)
+		}))
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-H, -D, I+]"])
@@ -740,11 +839,22 @@ func preparePropagationScenario2(t *testing.T) (*eventTangle, map[string]*transa
 		// check if signatures are valid
 		assert.True(t, transactions["[-B, J+]"].SignaturesValid())
 
-		tangle.Expect("PayloadAttached", valueObjects["[-B, J+]"], mock.Anything)
-		tangle.Expect("PayloadSolid", valueObjects["[-B, J+]"], mock.Anything)
-		tangle.Expect("TransactionReceived", transactions["[-B, J+]"], mock.Anything, mock.Anything)
-		tangle.Expect("TransactionSolid", transactions["[-B, J+]"], mock.Anything)
-		tangle.Expect("TransactionBooked", transactions["[-B, J+]"], mock.Anything, true)
+		tangle.Expect("PayloadAttached", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, J+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadSolid", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, J+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionReceived", mock.MatchedBy(func(cachedAttachmentsEvent *CachedAttachmentsEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, J+]"], cachedAttachmentsEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionSolid", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, J+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionBooked", mock.MatchedBy(func(cachedTransactionBookEvent *CachedTransactionBookEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, J+]"], cachedTransactionBookEvent.Transaction.Unwrap()) &&
+				assert.True(t, cachedTransactionBookEvent.Pending)
+		}))
 
 		// attach payload
 		tangle.AttachPayloadSync(valueObjects["[-B, J+]"])
@@ -811,31 +921,59 @@ func TestPropagationScenario1(t *testing.T) {
 		}
 
 		// preferring [-GENESIS, A+, B+, C+] will get it liked
-		tangle.Expect("TransactionPreferred", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionLiked", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("PayloadLiked", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-GENESIS, A+, B+, C+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
 
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
 		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, false, true, false, false)
 
 		// finalizing [-B, -C, E+] will not get it confirmed, as [-GENESIS, A+, B+, C+] is not yet confirmed
-		tangle.Expect("TransactionPreferred", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("TransactionLiked", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+		tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+] (Reattachment)"], cachedPayloadEvent.Payload.Unwrap())
+		}))
 
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], true, true, true, false, false)
 
 		// finalize [-GENESIS, A+, B+, C+] to also get [-B, -C, E+] as well as [-B, -C, E+] (Reattachment) confirmed
-		tangle.Expect("TransactionFinalized", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionConfirmed", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionConfirmed", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("PayloadConfirmed", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("PayloadConfirmed", valueObjects["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("PayloadConfirmed", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionConfirmed", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionConfirmed", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-GENESIS, A+, B+, C+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+] (Reattachment)"], cachedPayloadEvent.Payload.Unwrap())
+		}))
 
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, true, true, true, false)
@@ -851,22 +989,54 @@ func TestPropagationScenario1(t *testing.T) {
 		defer tangle.DetachAll()
 
 		// finalizing [-GENESIS, A+, B+, C+] will get the entire future cone finalized and rejected
-		tangle.Expect("TransactionFinalized", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionRejected", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("TransactionRejected", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-A, D+]"], mock.Anything)
-		tangle.Expect("TransactionRejected", transactions["[-A, D+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-A, F+]"], mock.Anything)
-		tangle.Expect("TransactionRejected", transactions["[-A, F+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionRejected", transactions["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("PayloadRejected", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("PayloadRejected", valueObjects["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("PayloadRejected", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
-		tangle.Expect("PayloadRejected", valueObjects["[-A, D+]"], mock.Anything)
-		tangle.Expect("PayloadRejected", valueObjects["[-A, F+]"], mock.Anything)
-		tangle.Expect("PayloadRejected", valueObjects["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionRejected", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionRejected", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionRejected", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionRejected", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionRejected", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-GENESIS, A+, B+, C+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+] (Reattachment)"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, D+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, F+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-E, -F, G+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
 
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], false, true, false, false, true)
@@ -893,26 +1063,53 @@ func TestPropagationScenario1(t *testing.T) {
 			debugger.RegisterAlias(tx.ID(), "TransactionID"+name)
 		}
 
-		tangle.Expect("TransactionPreferred", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionLiked", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionConfirmed", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("PayloadLiked", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("PayloadConfirmed", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionConfirmed", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-GENESIS, A+, B+, C+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-GENESIS, A+, B+, C+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
 
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, true, true, true, false)
 
-		tangle.Expect("PayloadRejected", valueObjects["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("TransactionRejected", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("PayloadRejected", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
-		tangle.Expect("PayloadRejected", valueObjects["[-A, F+]"], mock.Anything)
-		tangle.Expect("PayloadRejected", valueObjects["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionRejected", transactions["[-E, -F, G+]"], mock.Anything)
-
+		tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionRejected", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+] (Reattachment)"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, F+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-E, -F, G+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionRejected", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
 		// finalize & reject
 		//debugger.Enable()
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
@@ -942,12 +1139,24 @@ func TestPropagationScenario1(t *testing.T) {
 		tangle, transactions, valueObjects, branches, _ := preparePropagationScenario1(t)
 		defer tangle.DetachAll()
 
-		tangle.Expect("PayloadLiked", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("PayloadConfirmed", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionPreferred", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionLiked", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionConfirmed", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-GENESIS, A+, B+, C+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-GENESIS, A+, B+, C+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionConfirmed", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
 
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
@@ -960,14 +1169,30 @@ func TestPropagationScenario1(t *testing.T) {
 		verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], false, false, false, false, false)
 		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], false, false, false, false, false)
 
-		tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("PayloadConfirmed", valueObjects["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
-		tangle.Expect("PayloadConfirmed", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
-		tangle.Expect("TransactionPreferred", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("TransactionLiked", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("TransactionConfirmed", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+] (Reattachment)"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+] (Reattachment)"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionConfirmed", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
 
 		// confirm [-B, -C, E+]
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
@@ -975,27 +1200,57 @@ func TestPropagationScenario1(t *testing.T) {
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], true, true, true, true, false)
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], true, true, true, true, false)
 
-		tangle.Expect("PayloadLiked", valueObjects["[-A, D+]"], mock.Anything)
-		tangle.Expect("TransactionPreferred", transactions["[-A, D+]"], mock.Anything)
-		tangle.Expect("TransactionLiked", transactions["[-A, D+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, D+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
 
 		// prefer [-A, D+]
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-A, D+]"], true)
 		verifyInclusionState(t, tangle, valueObjects["[-A, D+]"], true, false, true, false, false)
 		verifyBranchState(t, tangle, branches["A"], false, true, false, false)
 
-		tangle.Expect("PayloadLiked", valueObjects["[-A, F+]"], mock.Anything)
-		tangle.Expect("PayloadConfirmed", valueObjects["[-A, F+]"], mock.Anything)
-		tangle.Expect("TransactionPreferred", transactions["[-A, F+]"], mock.Anything)
-		tangle.Expect("TransactionLiked", transactions["[-A, F+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-A, F+]"], mock.Anything)
-		tangle.Expect("TransactionConfirmed", transactions["[-A, F+]"], mock.Anything)
-		tangle.Expect("PayloadRejected", valueObjects["[-A, D+]"], mock.Anything)
-		tangle.Expect("PayloadDisliked", valueObjects["[-A, D+]"], mock.Anything)
-		tangle.Expect("TransactionUnpreferred", transactions["[-A, D+]"], mock.Anything)
-		tangle.Expect("TransactionDisliked", transactions["[-A, D+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-A, D+]"], mock.Anything)
-		tangle.Expect("TransactionRejected", transactions["[-A, D+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, F+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, F+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionConfirmed", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, D+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadDisliked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, D+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionUnpreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionDisliked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionRejected", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
 
 		// simulate vote result to like [-A, F+] -> [-A, F+] becomes confirmed and [-A, D+] rejected
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-A, F+]"], true)
@@ -1006,12 +1261,24 @@ func TestPropagationScenario1(t *testing.T) {
 		verifyInclusionState(t, tangle, valueObjects["[-A, D+]"], false, true, false, false, true)
 		verifyBranchState(t, tangle, branches["A"], true, false, false, true)
 
-		tangle.Expect("PayloadLiked", valueObjects["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("PayloadConfirmed", valueObjects["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionPreferred", transactions["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionLiked", transactions["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionConfirmed", transactions["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-E, -F, G+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-E, -F, G+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionConfirmed", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
 
 		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], false, false, false, false, false)
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-E, -F, G+]"], true)
@@ -1026,68 +1293,144 @@ func TestPropagationScenario1(t *testing.T) {
 		tangle, transactions, valueObjects, branches, _ := preparePropagationScenario1(t)
 		defer tangle.DetachAll()
 
-		tangle.Expect("PayloadLiked", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("PayloadConfirmed", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionPreferred", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionLiked", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-		tangle.Expect("TransactionConfirmed", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-GENESIS, A+, B+, C+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-GENESIS, A+, B+, C+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionConfirmed", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
 
 		// confirm [-GENESIS, A+, B+, C+]
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, true, true, true, false)
 
-		tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("PayloadConfirmed", valueObjects["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
-		tangle.Expect("PayloadConfirmed", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
-		tangle.Expect("TransactionPreferred", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("TransactionLiked", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-B, -C, E+]"], mock.Anything)
-		tangle.Expect("TransactionConfirmed", transactions["[-B, -C, E+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+] (Reattachment)"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+] (Reattachment)"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionConfirmed", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
 
 		// confirm [-B, -C, E+]
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
 		setTransactionFinalizedWithCheck(t, tangle, transactions["[-B, -C, E+]"])
 		verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+]"], true, true, true, true, false)
 
-		tangle.Expect("PayloadLiked", valueObjects["[-A, F+]"], mock.Anything)
-		tangle.Expect("TransactionPreferred", transactions["[-A, F+]"], mock.Anything)
-		tangle.Expect("TransactionLiked", transactions["[-A, F+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, F+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
 
 		// prefer [-A, F+] and thus Branch B
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-A, F+]"], true)
 		verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], true, false, true, false, false)
 		verifyBranchState(t, tangle, branches["B"], false, true, false, false)
 
-		tangle.Expect("PayloadLiked", valueObjects["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionPreferred", transactions["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionLiked", transactions["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-E, -F, G+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
 
 		// prefer [-E, -F, G+]
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-E, -F, G+]"], true)
 		verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], true, false, true, false, false)
 
-		tangle.Expect("PayloadLiked", valueObjects["[-A, D+]"], mock.Anything)
-		tangle.Expect("PayloadConfirmed", valueObjects["[-A, D+]"], mock.Anything)
-		tangle.Expect("TransactionPreferred", transactions["[-A, D+]"], mock.Anything)
-		tangle.Expect("TransactionLiked", transactions["[-A, D+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-A, D+]"], mock.Anything)
-		tangle.Expect("TransactionConfirmed", transactions["[-A, D+]"], mock.Anything)
+		tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, D+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, D+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionConfirmed", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
 
-		tangle.Expect("PayloadRejected", valueObjects["[-A, F+]"], mock.Anything)
-		tangle.Expect("PayloadDisliked", valueObjects["[-A, F+]"], mock.Anything)
-		tangle.Expect("TransactionUnpreferred", transactions["[-A, F+]"], mock.Anything)
-		tangle.Expect("TransactionDisliked", transactions["[-A, F+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-A, F+]"], mock.Anything)
-		tangle.Expect("TransactionRejected", transactions["[-A, F+]"], mock.Anything)
-		tangle.Expect("PayloadRejected", valueObjects["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("PayloadDisliked", valueObjects["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionUnpreferred", transactions["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionDisliked", transactions["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionFinalized", transactions["[-E, -F, G+]"], mock.Anything)
-		tangle.Expect("TransactionRejected", transactions["[-E, -F, G+]"], mock.Anything)
+		tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, F+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadDisliked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-A, F+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionUnpreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionDisliked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionRejected", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-E, -F, G+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("PayloadDisliked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+			return assert.ObjectsAreEqual(valueObjects["[-E, -F, G+]"], cachedPayloadEvent.Payload.Unwrap())
+		}))
+		tangle.Expect("TransactionUnpreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionDisliked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
+		tangle.Expect("TransactionRejected", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+			return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+		}))
 
 		// simulate vote result to like [-A, D+] -> [-A, D+] becomes confirmed and [-A, F+], [-E, -F, G+] rejected
 		setTransactionPreferredWithCheck(t, tangle, transactions["[-A, D+]"], true)
@@ -1118,22 +1461,42 @@ func TestPropagationScenario2(t *testing.T) {
 		debugger.RegisterAlias(tx.ID(), "TransactionID"+name)
 	}
 
-	tangle.Expect("PayloadLiked", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
-	tangle.Expect("PayloadConfirmed", valueObjects["[-GENESIS, A+, B+, C+]"], mock.Anything)
-	tangle.Expect("TransactionPreferred", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-	tangle.Expect("TransactionLiked", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-	tangle.Expect("TransactionFinalized", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
-	tangle.Expect("TransactionConfirmed", transactions["[-GENESIS, A+, B+, C+]"], mock.Anything)
+	tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-GENESIS, A+, B+, C+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-GENESIS, A+, B+, C+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionConfirmed", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-GENESIS, A+, B+, C+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
 
 	// confirm [-GENESIS, A+, B+, C+]
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"], true)
 	setTransactionFinalizedWithCheck(t, tangle, transactions["[-GENESIS, A+, B+, C+]"])
 	verifyInclusionState(t, tangle, valueObjects["[-GENESIS, A+, B+, C+]"], true, true, true, true, false)
 
-	tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+]"], mock.Anything)
-	tangle.Expect("PayloadLiked", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
-	tangle.Expect("TransactionPreferred", transactions["[-B, -C, E+]"], mock.Anything)
-	tangle.Expect("TransactionLiked", transactions["[-B, -C, E+]"], mock.Anything)
+	tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+] (Reattachment)"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
 
 	// prefer [-B, -C, E+] and thus Branch D
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-B, -C, E+]"], true)
@@ -1141,18 +1504,30 @@ func TestPropagationScenario2(t *testing.T) {
 	verifyBranchState(t, tangle, branches["D"], false, true, false, false)
 	verifyInclusionState(t, tangle, valueObjects["[-B, -C, E+] (Reattachment)"], true, false, true, false, false)
 
-	tangle.Expect("PayloadLiked", valueObjects["[-A, F+]"], mock.Anything)
-	tangle.Expect("TransactionPreferred", transactions["[-A, F+]"], mock.Anything)
-	tangle.Expect("TransactionLiked", transactions["[-A, F+]"], mock.Anything)
+	tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-A, F+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
 
 	// prefer [-A, F+] and thus Branch B
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-A, F+]"], true)
 	verifyInclusionState(t, tangle, valueObjects["[-A, F+]"], true, false, true, false, false)
 	verifyBranchState(t, tangle, branches["B"], false, true, false, false)
 
-	tangle.Expect("PayloadLiked", valueObjects["[-E, -F, G+]"], mock.Anything)
-	tangle.Expect("TransactionPreferred", transactions["[-E, -F, G+]"], mock.Anything)
-	tangle.Expect("TransactionLiked", transactions["[-E, -F, G+]"], mock.Anything)
+	tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-E, -F, G+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
 
 	// prefer [-E, -F, G+]
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-E, -F, G+]"], true)
@@ -1175,33 +1550,76 @@ func TestPropagationScenario2(t *testing.T) {
 	verifyBranchState(t, tangle, branches["E"], false, false, false, false)
 	verifyBranchState(t, tangle, branches["ACE"], false, false, false, false)
 
-	tangle.Expect("PayloadLiked", valueObjects["[-H, -D, I+]"], mock.Anything)
-	tangle.Expect("TransactionPreferred", transactions["[-H, -D, I+]"], mock.Anything)
-	tangle.Expect("TransactionLiked", transactions["[-H, -D, I+]"], mock.Anything)
+	tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-H, -D, I+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-H, -D, I+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-H, -D, I+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
 
 	// prefer [-H, -D, I+] - should be liked after votes on [-A, D+] and [-C, H+]
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-H, -D, I+]"], true)
 	verifyInclusionState(t, tangle, valueObjects["[-H, -D, I+]"], true, false, false, false, false)
 
-	tangle.Expect("PayloadLiked", valueObjects["[-A, D+]"], mock.Anything)
-	tangle.Expect("PayloadConfirmed", valueObjects["[-A, D+]"], mock.Anything)
-	tangle.Expect("TransactionPreferred", transactions["[-A, D+]"], mock.Anything)
-	tangle.Expect("TransactionLiked", transactions["[-A, D+]"], mock.Anything)
-	tangle.Expect("TransactionFinalized", transactions["[-A, D+]"], mock.Anything)
-	tangle.Expect("TransactionConfirmed", transactions["[-A, D+]"], mock.Anything)
+	tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-A, D+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-A, D+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionConfirmed", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-A, D+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
 
-	tangle.Expect("PayloadRejected", valueObjects["[-A, F+]"], mock.Anything)
-	tangle.Expect("PayloadDisliked", valueObjects["[-A, F+]"], mock.Anything)
-	tangle.Expect("TransactionUnpreferred", transactions["[-A, F+]"], mock.Anything)
-	tangle.Expect("TransactionDisliked", transactions["[-A, F+]"], mock.Anything)
-	tangle.Expect("TransactionFinalized", transactions["[-A, F+]"], mock.Anything)
-	tangle.Expect("TransactionRejected", transactions["[-A, F+]"], mock.Anything)
-	tangle.Expect("PayloadRejected", valueObjects["[-E, -F, G+]"], mock.Anything)
-	tangle.Expect("PayloadDisliked", valueObjects["[-E, -F, G+]"], mock.Anything)
-	tangle.Expect("TransactionUnpreferred", transactions["[-E, -F, G+]"], mock.Anything)
-	tangle.Expect("TransactionDisliked", transactions["[-E, -F, G+]"], mock.Anything)
-	tangle.Expect("TransactionFinalized", transactions["[-E, -F, G+]"], mock.Anything)
-	tangle.Expect("TransactionRejected", transactions["[-E, -F, G+]"], mock.Anything)
+	tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-A, F+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("PayloadDisliked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-A, F+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("TransactionUnpreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionDisliked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionRejected", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-A, F+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+
+	tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-E, -F, G+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("PayloadDisliked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-E, -F, G+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("TransactionUnpreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionDisliked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionRejected", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-E, -F, G+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
 
 	// simulate vote result to like [-A, D+] -> [-A, D+] becomes confirmed and [-A, F+], [-E, -F, G+] rejected
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-A, D+]"], true)
@@ -1213,21 +1631,49 @@ func TestPropagationScenario2(t *testing.T) {
 	verifyBranchState(t, tangle, branches["B"], true, false, false, true)
 	verifyInclusionState(t, tangle, valueObjects["[-E, -F, G+]"], false, true, false, false, true)
 
-	tangle.Expect("PayloadLiked", valueObjects["[-C, H+]"], mock.Anything)
-	tangle.Expect("PayloadConfirmed", valueObjects["[-C, H+]"], mock.Anything)
-	tangle.Expect("TransactionPreferred", transactions["[-C, H+]"], mock.Anything)
-	tangle.Expect("TransactionLiked", transactions["[-C, H+]"], mock.Anything)
-	tangle.Expect("TransactionFinalized", transactions["[-C, H+]"], mock.Anything)
-	tangle.Expect("TransactionConfirmed", transactions["[-C, H+]"], mock.Anything)
+	tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-C, H+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-C, H+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-C, H+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-C, H+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-C, H+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionConfirmed", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-C, H+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
 
-	tangle.Expect("PayloadRejected", valueObjects["[-B, -C, E+]"], mock.Anything)
-	tangle.Expect("PayloadDisliked", valueObjects["[-B, -C, E+]"], mock.Anything)
-	tangle.Expect("TransactionUnpreferred", transactions["[-B, -C, E+]"], mock.Anything)
-	tangle.Expect("TransactionDisliked", transactions["[-B, -C, E+]"], mock.Anything)
-	tangle.Expect("TransactionFinalized", transactions["[-B, -C, E+]"], mock.Anything)
-	tangle.Expect("TransactionRejected", transactions["[-B, -C, E+]"], mock.Anything)
-	tangle.Expect("PayloadRejected", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
-	tangle.Expect("PayloadDisliked", valueObjects["[-B, -C, E+] (Reattachment)"], mock.Anything)
+	tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("PayloadDisliked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("TransactionUnpreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionDisliked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionRejected", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-B, -C, E+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("PayloadRejected", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+] (Reattachment)"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("PayloadDisliked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-B, -C, E+] (Reattachment)"], cachedPayloadEvent.Payload.Unwrap())
+	}))
 
 	// simulate vote result to like [-C, H+] -> [-C, H+] becomes confirmed and [-B, -C, E+], [-B, -C, E+] (Reattachment) rejected
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-C, H+]"], true)
@@ -1244,9 +1690,15 @@ func TestPropagationScenario2(t *testing.T) {
 	// TODO: BD is not finalized
 
 	// [-H, -D, I+] is already preferred
-	tangle.Expect("PayloadConfirmed", valueObjects["[-H, -D, I+]"], mock.Anything)
-	tangle.Expect("TransactionFinalized", transactions["[-H, -D, I+]"], mock.Anything)
-	tangle.Expect("TransactionConfirmed", transactions["[-H, -D, I+]"], mock.Anything)
+	tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-H, -D, I+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-H, -D, I+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionConfirmed", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-H, -D, I+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
 
 	// [-H, -D, I+] should now be liked
 	verifyInclusionState(t, tangle, valueObjects["[-H, -D, I+]"], true, false, true, false, false)
@@ -1255,12 +1707,24 @@ func TestPropagationScenario2(t *testing.T) {
 	// [-B, J+] should be unchanged
 	verifyInclusionState(t, tangle, valueObjects["[-B, J+]"], false, false, false, false, false)
 
-	tangle.Expect("PayloadLiked", valueObjects["[-B, J+]"], mock.Anything)
-	tangle.Expect("PayloadConfirmed", valueObjects["[-B, J+]"], mock.Anything)
-	tangle.Expect("TransactionPreferred", transactions["[-B, J+]"], mock.Anything)
-	tangle.Expect("TransactionLiked", transactions["[-B, J+]"], mock.Anything)
-	tangle.Expect("TransactionFinalized", transactions["[-B, J+]"], mock.Anything)
-	tangle.Expect("TransactionConfirmed", transactions["[-B, J+]"], mock.Anything)
+	tangle.Expect("PayloadLiked", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-B, J+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("PayloadConfirmed", mock.MatchedBy(func(cachedPayloadEvent *CachedPayloadEvent) bool {
+		return assert.ObjectsAreEqual(valueObjects["[-B, J+]"], cachedPayloadEvent.Payload.Unwrap())
+	}))
+	tangle.Expect("TransactionPreferred", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-B, J+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionLiked", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-B, J+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionFinalized", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-B, J+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
+	tangle.Expect("TransactionConfirmed", mock.MatchedBy(func(cachedTransactionEvent *CachedTransactionEvent) bool {
+		return assert.ObjectsAreEqual(transactions["[-B, J+]"], cachedTransactionEvent.Transaction.Unwrap())
+	}))
 
 	// [-B, J+] should become confirmed after preferring and finalizing
 	setTransactionPreferredWithCheck(t, tangle, transactions["[-B, J+]"], true)

@@ -59,8 +59,8 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 	restoredMessage, _, err := message.FromBytes(testMessage.Bytes())
 	if assert.NoError(t, err, err) {
 		assert.Equal(t, testMessage.ID(), restoredMessage.ID())
-		assert.Equal(t, testMessage.TrunkID(), restoredMessage.TrunkID())
-		assert.Equal(t, testMessage.BranchID(), restoredMessage.BranchID())
+		assert.Equal(t, testMessage.Parent1ID(), restoredMessage.Parent1ID())
+		assert.Equal(t, testMessage.Parent2ID(), restoredMessage.Parent2ID())
 		assert.Equal(t, testMessage.IssuerPublicKey(), restoredMessage.IssuerPublicKey())
 		assert.Equal(t, testMessage.IssuingTime().Round(time.Second), restoredMessage.IssuingTime().Round(time.Second))
 		assert.Equal(t, testMessage.SequenceNumber(), restoredMessage.SequenceNumber())

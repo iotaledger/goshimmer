@@ -36,12 +36,12 @@ export class ValuePayload extends React.Component<Props, any> {
                 <Row className={"mb-3"}>
                     <Col>
                         <ListGroup>
-                            <ListGroup.Item>Parent 0: {payload.parent_id_0} </ListGroup.Item>
+                            <ListGroup.Item>Parent 1: {payload.parent1_id} </ListGroup.Item>
                         </ListGroup>
                     </Col>
                     <Col>
                         <ListGroup>
-                            <ListGroup.Item>Parent 1: {payload.parent_id_1} </ListGroup.Item>
+                            <ListGroup.Item>Parent 2: {payload.parent2_id} </ListGroup.Item>
                         </ListGroup>
                     </Col>
                 </Row>

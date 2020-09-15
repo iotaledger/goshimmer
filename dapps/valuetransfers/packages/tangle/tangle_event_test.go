@@ -4,9 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/branchmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -79,130 +77,174 @@ func (e *eventTangle) Expect(eventName string, arguments ...interface{}) {
 	e.On(eventName, arguments...).Once()
 }
 
-func (e *eventTangle) PayloadAttached(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata) {
-	defer payload.Release()
-	defer payloadMetadata.Release()
-	e.Called(payload.Unwrap(), payloadMetadata.Unwrap())
+func (e *eventTangle) PayloadAttached(cachedPayloadEvent *CachedPayloadEvent) {
+	defer cachedPayloadEvent.Payload.Release()
+	defer cachedPayloadEvent.PayloadMetadata.Release()
+	e.Called(&CachedPayloadEvent{
+		Payload:         cachedPayloadEvent.Payload,
+		PayloadMetadata: cachedPayloadEvent.PayloadMetadata})
 }
 
-func (e *eventTangle) PayloadSolid(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata) {
-	defer payload.Release()
-	defer payloadMetadata.Release()
-	e.Called(payload.Unwrap(), payloadMetadata.Unwrap())
+func (e *eventTangle) PayloadSolid(cachedPayloadEvent *CachedPayloadEvent) {
+	defer cachedPayloadEvent.Payload.Release()
+	defer cachedPayloadEvent.PayloadMetadata.Release()
+	e.Called(&CachedPayloadEvent{
+		Payload:         cachedPayloadEvent.Payload,
+		PayloadMetadata: cachedPayloadEvent.PayloadMetadata})
 }
 
-func (e *eventTangle) PayloadLiked(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata) {
-	defer payload.Release()
-	defer payloadMetadata.Release()
-	e.Called(payload.Unwrap(), payloadMetadata.Unwrap())
+func (e *eventTangle) PayloadLiked(cachedPayloadEvent *CachedPayloadEvent) {
+	defer cachedPayloadEvent.Payload.Release()
+	defer cachedPayloadEvent.PayloadMetadata.Release()
+	e.Called(&CachedPayloadEvent{
+		Payload:         cachedPayloadEvent.Payload,
+		PayloadMetadata: cachedPayloadEvent.PayloadMetadata})
 }
 
-func (e *eventTangle) PayloadConfirmed(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata) {
-	defer payload.Release()
-	defer payloadMetadata.Release()
-	e.Called(payload.Unwrap(), payloadMetadata.Unwrap())
+func (e *eventTangle) PayloadConfirmed(cachedPayloadEvent *CachedPayloadEvent) {
+	defer cachedPayloadEvent.Payload.Release()
+	defer cachedPayloadEvent.PayloadMetadata.Release()
+	e.Called(&CachedPayloadEvent{
+		Payload:         cachedPayloadEvent.Payload,
+		PayloadMetadata: cachedPayloadEvent.PayloadMetadata})
 }
 
-func (e *eventTangle) PayloadRejected(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata) {
-	defer payload.Release()
-	defer payloadMetadata.Release()
-	e.Called(payload.Unwrap(), payloadMetadata.Unwrap())
+func (e *eventTangle) PayloadRejected(cachedPayloadEvent *CachedPayloadEvent) {
+	defer cachedPayloadEvent.Payload.Release()
+	defer cachedPayloadEvent.PayloadMetadata.Release()
+	e.Called(&CachedPayloadEvent{
+		Payload:         cachedPayloadEvent.Payload,
+		PayloadMetadata: cachedPayloadEvent.PayloadMetadata})
 }
 
-func (e *eventTangle) PayloadDisliked(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata) {
-	defer payload.Release()
-	defer payloadMetadata.Release()
-	e.Called(payload.Unwrap(), payloadMetadata.Unwrap())
+func (e *eventTangle) PayloadDisliked(cachedPayloadEvent *CachedPayloadEvent) {
+	defer cachedPayloadEvent.Payload.Release()
+	defer cachedPayloadEvent.PayloadMetadata.Release()
+	e.Called(&CachedPayloadEvent{
+		Payload:         cachedPayloadEvent.Payload,
+		PayloadMetadata: cachedPayloadEvent.PayloadMetadata})
 }
 
-func (e *eventTangle) MissingPayloadReceived(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata) {
-	defer payload.Release()
-	defer payloadMetadata.Release()
-	e.Called(payload.Unwrap(), payloadMetadata.Unwrap())
+func (e *eventTangle) MissingPayloadReceived(cachedPayloadEvent *CachedPayloadEvent) {
+	defer cachedPayloadEvent.Payload.Release()
+	defer cachedPayloadEvent.PayloadMetadata.Release()
+	e.Called(&CachedPayloadEvent{
+		Payload:         cachedPayloadEvent.Payload,
+		PayloadMetadata: cachedPayloadEvent.PayloadMetadata})
 }
 
 func (e *eventTangle) PayloadMissing(id payload.ID) {
 	e.Called(id)
 }
 
-func (e *eventTangle) PayloadInvalid(payload *payload.CachedPayload, payloadMetadata *CachedPayloadMetadata, err error) {
-	defer payload.Release()
-	defer payloadMetadata.Release()
-	e.Called(payload.Unwrap(), payloadMetadata.Unwrap(), err)
+func (e *eventTangle) PayloadInvalid(cachedPayloadEvent *CachedPayloadEvent, err error) {
+	defer cachedPayloadEvent.Payload.Release()
+	defer cachedPayloadEvent.PayloadMetadata.Release()
+	e.Called(&CachedPayloadEvent{
+		Payload:         cachedPayloadEvent.Payload,
+		PayloadMetadata: cachedPayloadEvent.PayloadMetadata}, err)
 }
 
-func (e *eventTangle) TransactionReceived(transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata, attachment *CachedAttachment) {
-	defer transaction.Release()
-	defer transactionMetadata.Release()
-	defer attachment.Release()
-	e.Called(transaction.Unwrap(), transactionMetadata.Unwrap(), attachment.Unwrap())
+func (e *eventTangle) TransactionReceived(cachedAttachmentsEvent *CachedAttachmentsEvent) {
+	defer cachedAttachmentsEvent.Transaction.Release()
+	defer cachedAttachmentsEvent.TransactionMetadata.Release()
+	defer cachedAttachmentsEvent.Attachments.Release()
+	e.Called(&CachedAttachmentsEvent{
+		Transaction:         cachedAttachmentsEvent.Transaction,
+		TransactionMetadata: cachedAttachmentsEvent.TransactionMetadata,
+		Attachments:         cachedAttachmentsEvent.Attachments})
 }
 
-func (e *eventTangle) TransactionInvalid(transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata, err error) {
-	defer transaction.Release()
-	defer transactionMetadata.Release()
-	e.Called(transaction.Unwrap(), transactionMetadata.Unwrap(), err)
+func (e *eventTangle) TransactionInvalid(cachedTransactionEvent *CachedTransactionEvent, err error) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata}, err)
 }
 
-func (e *eventTangle) TransactionSolid(transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata) {
-	defer transaction.Release()
-	defer transactionMetadata.Release()
-	e.Called(transaction.Unwrap(), transactionMetadata.Unwrap())
+func (e *eventTangle) TransactionSolid(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
-func (e *eventTangle) TransactionBooked(transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata, decisionPending bool) {
-	defer transaction.Release()
-	defer transactionMetadata.Release()
-	e.Called(transaction.Unwrap(), transactionMetadata.Unwrap(), decisionPending)
+func (e *eventTangle) TransactionBooked(cachedTransactionBookEvent *CachedTransactionBookEvent) {
+	defer cachedTransactionBookEvent.Transaction.Release()
+	defer cachedTransactionBookEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionBookEvent{
+		Transaction:         cachedTransactionBookEvent.Transaction,
+		TransactionMetadata: cachedTransactionBookEvent.TransactionMetadata,
+		Pending:             cachedTransactionBookEvent.Pending})
 }
 
-func (e *eventTangle) TransactionPreferred(transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata) {
-	defer transaction.Release()
-	defer transactionMetadata.Release()
-	e.Called(transaction.Unwrap(), transactionMetadata.Unwrap())
+func (e *eventTangle) TransactionPreferred(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
-func (e *eventTangle) TransactionUnpreferred(transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata) {
-	defer transaction.Release()
-	defer transactionMetadata.Release()
-	e.Called(transaction.Unwrap(), transactionMetadata.Unwrap())
+func (e *eventTangle) TransactionUnpreferred(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
-func (e *eventTangle) TransactionLiked(transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata) {
-	defer transaction.Release()
-	defer transactionMetadata.Release()
-	e.Called(transaction.Unwrap(), transactionMetadata.Unwrap())
+func (e *eventTangle) TransactionLiked(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
-func (e *eventTangle) TransactionDisliked(transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata) {
-	defer transaction.Release()
-	defer transactionMetadata.Release()
-	e.Called(transaction.Unwrap(), transactionMetadata.Unwrap())
+func (e *eventTangle) TransactionDisliked(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
-func (e *eventTangle) TransactionFinalized(transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata) {
-	defer transaction.Release()
-	defer transactionMetadata.Release()
-	e.Called(transaction.Unwrap(), transactionMetadata.Unwrap())
+func (e *eventTangle) TransactionFinalized(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
-func (e *eventTangle) TransactionConfirmed(transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata) {
-	defer transaction.Release()
-	defer transactionMetadata.Release()
-	e.Called(transaction.Unwrap(), transactionMetadata.Unwrap())
+func (e *eventTangle) TransactionConfirmed(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
-func (e *eventTangle) TransactionRejected(transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata) {
-	defer transaction.Release()
-	defer transactionMetadata.Release()
-	e.Called(transaction.Unwrap(), transactionMetadata.Unwrap())
+func (e *eventTangle) TransactionRejected(cachedTransactionEvent *CachedTransactionEvent) {
+	defer cachedTransactionEvent.Transaction.Release()
+	defer cachedTransactionEvent.TransactionMetadata.Release()
+	e.Called(&CachedTransactionEvent{
+		Transaction:         cachedTransactionEvent.Transaction,
+		TransactionMetadata: cachedTransactionEvent.TransactionMetadata})
 }
 
-func (e *eventTangle) Fork(transaction *transaction.CachedTransaction, transactionMetadata *CachedTransactionMetadata, branch *branchmanager.CachedBranch, outputIDs []transaction.OutputID) {
-	defer transaction.Release()
-	defer transactionMetadata.Release()
-	defer branch.Release()
-	e.Called(transaction.Unwrap(), transactionMetadata.Unwrap(), branch.Unwrap(), outputIDs)
+func (e *eventTangle) Fork(forkEvent *ForkEvent) {
+	defer forkEvent.Transaction.Release()
+	defer forkEvent.TransactionMetadata.Release()
+	defer forkEvent.Branch.Release()
+	e.Called(&ForkEvent{
+		Transaction:         forkEvent.Transaction,
+		TransactionMetadata: forkEvent.TransactionMetadata,
+		Branch:              forkEvent.Branch,
+		InputIDs:            forkEvent.InputIDs})
 }
 
 // TODO: Error is never tested
