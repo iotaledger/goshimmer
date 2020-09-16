@@ -18,7 +18,7 @@ import (
 )
 
 func BenchmarkTangle_AttachMessage(b *testing.B) {
-	tangle := NewTangle(mapdb.NewMapDB())
+	tangle := New(mapdb.NewMapDB())
 	if err := tangle.Prune(); err != nil {
 		b.Error(err)
 
@@ -41,7 +41,7 @@ func BenchmarkTangle_AttachMessage(b *testing.B) {
 }
 
 func TestTangle_AttachMessage(t *testing.T) {
-	messageTangle := NewTangle(mapdb.NewMapDB())
+	messageTangle := New(mapdb.NewMapDB())
 	if err := messageTangle.Prune(); err != nil {
 		t.Error(err)
 
@@ -140,7 +140,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}
 
 	// create the tangle
-	tangle := NewTangle(badgerDB)
+	tangle := New(badgerDB)
 	if err := tangle.Prune(); err != nil {
 		t.Error(err)
 
@@ -229,4 +229,33 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// shutdown the tangle
 	tangle.Shutdown()
+}
+
+func TestRetrieveAllTips(t *testing.T) {
+	messageTangle := New(mapdb.NewMapDB())
+
+	messageA := newTestParentsDataMessage("A", EmptyMessageID, EmptyMessageID)
+	messageB := newTestParentsDataMessage("B", messageA.ID(), EmptyMessageID)
+	messageC := newTestParentsDataMessage("C", messageA.ID(), EmptyMessageID)
+
+	var wg sync.WaitGroup
+
+	messageTangle.Events.MessageSolid.Attach(events.NewClosure(func(cachedMsgEvent *CachedMessageEvent) {
+		cachedMsgEvent.Message.Release()
+		cachedMsgEvent.MessageMetadata.Release()
+		wg.Done()
+	}))
+
+	wg.Add(3)
+	messageTangle.AttachMessage(messageA)
+	messageTangle.AttachMessage(messageB)
+	messageTangle.AttachMessage(messageC)
+
+	wg.Wait()
+
+	allTips := messageTangle.RetrieveAllTips()
+
+	assert.Equal(t, 2, len(allTips))
+
+	messageTangle.Shutdown()
 }
