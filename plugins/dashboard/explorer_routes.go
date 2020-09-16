@@ -6,8 +6,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
-	messageTangle "github.com/iotaledger/goshimmer/packages/tangle"
+	valuetangle "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/labstack/echo"
@@ -40,7 +40,7 @@ type ExplorerMessage struct {
 	Payload interface{} `json:"payload"`
 }
 
-func createExplorerMessage(msg *messageTangle.Message) (*ExplorerMessage, error) {
+func createExplorerMessage(msg *tangle.Message) (*ExplorerMessage, error) {
 	messageID := msg.ID()
 	cachedMessageMetadata := messagelayer.Tangle().MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
@@ -87,7 +87,7 @@ type SearchResult struct {
 
 func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/message/:id", func(c echo.Context) (err error) {
-		messageID, err := messageTangle.NewMessageID(c.Param("id"))
+		messageID, err := tangle.NewMessageID(c.Param("id"))
 		if err != nil {
 			return
 		}
@@ -125,8 +125,8 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 				result.Address = addr
 			}
 
-		case messageTangle.MessageIDLength:
-			messageID, err := messageTangle.NewMessageID(search)
+		case tangle.MessageIDLength:
+			messageID, err := tangle.NewMessageID(search)
 			if err != nil {
 				return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
 			}
@@ -144,8 +144,8 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	})
 }
 
-func findMessage(messageID messageTangle.MessageID) (explorerMsg *ExplorerMessage, err error) {
-	if !messagelayer.Tangle().Message(messageID).Consume(func(msg *messageTangle.Message) {
+func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err error) {
+	if !messagelayer.Tangle().Message(messageID).Consume(func(msg *tangle.Message) {
 		explorerMsg, err = createExplorerMessage(msg)
 	}) {
 		err = fmt.Errorf("%w: message %s", ErrNotFound, messageID.String())
@@ -167,7 +167,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	// get outputids by address
 	for id, cachedOutput := range valuetransfers.Tangle().OutputsOnAddress(address) {
 
-		cachedOutput.Consume(func(output *tangle.Output) {
+		cachedOutput.Consume(func(output *valuetangle.Output) {
 
 			// iterate balances
 			var b []utils.Balance
@@ -178,7 +178,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 				})
 			}
 			var solidificationTime int64
-			if !valuetransfers.Tangle().TransactionMetadata(output.TransactionID()).Consume(func(txMeta *tangle.TransactionMetadata) {
+			if !valuetransfers.Tangle().TransactionMetadata(output.TransactionID()).Consume(func(txMeta *valuetangle.TransactionMetadata) {
 				inclusionState.Confirmed = txMeta.Confirmed()
 				inclusionState.Liked = txMeta.Liked()
 				inclusionState.Rejected = txMeta.Rejected()

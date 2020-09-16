@@ -109,23 +109,23 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 }
 
 // Bytes returns the collective beacon payload bytes.
-func (payload *Payload) Bytes() (bytes []byte) {
+func (p *Payload) Bytes() (bytes []byte) {
 	// acquire lock for reading bytes
-	payload.bytesMutex.RLock()
+	p.bytesMutex.RLock()
 
 	// return if bytes have been determined already
-	if bytes = payload.bytes; bytes != nil {
-		payload.bytesMutex.RUnlock()
+	if bytes = p.bytes; bytes != nil {
+		p.bytesMutex.RUnlock()
 		return
 	}
 
 	// switch to write lock
-	payload.bytesMutex.RUnlock()
-	payload.bytesMutex.Lock()
-	defer payload.bytesMutex.Unlock()
+	p.bytesMutex.RUnlock()
+	p.bytesMutex.Lock()
+	defer p.bytesMutex.Unlock()
 
 	// return if bytes have been determined in the mean time
-	if bytes = payload.bytes; bytes != nil {
+	if bytes = p.bytes; bytes != nil {
 		return
 	}
 
@@ -134,41 +134,41 @@ func (payload *Payload) Bytes() (bytes []byte) {
 	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
 	marshalUtil.WriteUint32(uint32(payloadLength))
 	marshalUtil.WriteUint32(drngPayload.Type)
-	marshalUtil.WriteBytes(payload.Header.Bytes())
-	marshalUtil.WriteUint64(payload.Round)
-	marshalUtil.WriteBytes(payload.PrevSignature)
-	marshalUtil.WriteBytes(payload.Signature)
-	marshalUtil.WriteBytes(payload.Dpk)
+	marshalUtil.WriteBytes(p.Header.Bytes())
+	marshalUtil.WriteUint64(p.Round)
+	marshalUtil.WriteBytes(p.PrevSignature)
+	marshalUtil.WriteBytes(p.Signature)
+	marshalUtil.WriteBytes(p.Dpk)
 
 	bytes = marshalUtil.Bytes()
 
 	// store result
-	payload.bytes = bytes
+	p.bytes = bytes
 
 	return
 }
 
-func (payload *Payload) String() string {
+func (p *Payload) String() string {
 	return stringify.Struct("Payload",
-		stringify.StructField("type", uint64(payload.Header.PayloadType)),
-		stringify.StructField("instance", uint64(payload.Header.InstanceID)),
-		stringify.StructField("round", payload.Round),
-		stringify.StructField("prevSignature", payload.PrevSignature),
-		stringify.StructField("signature", payload.Signature),
-		stringify.StructField("distributedPK", payload.Dpk),
+		stringify.StructField("type", uint64(p.Header.PayloadType)),
+		stringify.StructField("instance", uint64(p.Header.InstanceID)),
+		stringify.StructField("round", p.Round),
+		stringify.StructField("prevSignature", p.PrevSignature),
+		stringify.StructField("signature", p.Signature),
+		stringify.StructField("distributedPK", p.Dpk),
 	)
 }
 
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type returns the collective beacon payload type.
-func (payload *Payload) Type() tangle.PayloadType {
+func (p *Payload) Type() tangle.PayloadType {
 	return drngPayload.Type
 }
 
 // Marshal marshals the collective beacon payload into bytes.
-func (payload *Payload) Marshal() (bytes []byte, err error) {
-	return payload.Bytes(), nil
+func (p *Payload) Marshal() (bytes []byte, err error) {
+	return p.Bytes(), nil
 }
 
 // // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

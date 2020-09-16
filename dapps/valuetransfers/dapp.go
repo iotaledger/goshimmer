@@ -8,11 +8,11 @@ import (
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/consensus"
 	valuepayload "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
-	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
+	valuetangle "github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tangle"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/tipmanager"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
-	messageTangle "github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/vote"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
@@ -53,14 +53,14 @@ var (
 	appOnce sync.Once
 
 	// _tangle represents the value tangle that is used to express votes on value transactions.
-	_tangle    *tangle.Tangle
+	_tangle    *valuetangle.Tangle
 	tangleOnce sync.Once
 
 	// fcob contains the fcob consensus logic.
 	fcob *consensus.FCOB
 
 	// ledgerState represents the ledger state, that keeps track of the liked branches and offers an API to access funds.
-	ledgerState *tangle.LedgerState
+	ledgerState *valuetangle.LedgerState
 
 	// log holds a reference to the logger used by this app.
 	log *logger.Logger
@@ -68,7 +68,7 @@ var (
 	tipManager     *tipmanager.TipManager
 	tipManagerOnce sync.Once
 
-	valueObjectFactory     *tangle.ValueObjectFactory
+	valueObjectFactory     *valuetangle.ValueObjectFactory
 	valueObjectFactoryOnce sync.Once
 )
 
@@ -82,9 +82,9 @@ func App() *node.Plugin {
 
 // Tangle gets the tangle instance.
 // tangle represents the value tangle that is used to express votes on value transactions.
-func Tangle() *tangle.Tangle {
+func Tangle() *valuetangle.Tangle {
 	tangleOnce.Do(func() {
-		_tangle = tangle.New(database.Store())
+		_tangle = valuetangle.New(database.Store())
 	})
 	return _tangle
 }
@@ -97,7 +97,7 @@ func FCOB() *consensus.FCOB {
 
 // LedgerState gets the ledgerState instance.
 // ledgerState represents the ledger state, that keeps track of the liked branches and offers an API to access funds.
-func LedgerState() *tangle.LedgerState {
+func LedgerState() *valuetangle.LedgerState {
 	return ledgerState
 }
 
@@ -109,12 +109,12 @@ func configure(_ *node.Plugin) {
 	_tangle = Tangle()
 
 	// configure LedgerState
-	ledgerState = tangle.NewLedgerState(Tangle())
+	ledgerState = valuetangle.NewLedgerState(Tangle())
 
 	// read snapshot file
 	snapshotFilePath := config.Node().GetString(CfgValueLayerSnapshotFile)
 	if len(snapshotFilePath) != 0 {
-		snapshot := tangle.Snapshot{}
+		snapshot := valuetangle.Snapshot{}
 		f, err := os.Open(snapshotFilePath)
 		if err != nil {
 			log.Panic("can not open snapshot file:", err)
@@ -134,11 +134,11 @@ func configure(_ *node.Plugin) {
 	tipManager = TipManager()
 	valueObjectFactory = ValueObjectFactory()
 
-	_tangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayloadEvent *tangle.CachedPayloadEvent) {
+	_tangle.Events.PayloadLiked.Attach(events.NewClosure(func(cachedPayloadEvent *valuetangle.CachedPayloadEvent) {
 		cachedPayloadEvent.PayloadMetadata.Release()
 		cachedPayloadEvent.Payload.Consume(tipManager.AddTip)
 	}))
-	_tangle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayloadEvent *tangle.CachedPayloadEvent) {
+	_tangle.Events.PayloadDisliked.Attach(events.NewClosure(func(cachedPayloadEvent *valuetangle.CachedPayloadEvent) {
 		cachedPayloadEvent.PayloadMetadata.Release()
 		cachedPayloadEvent.Payload.Consume(tipManager.RemoveTip)
 	}))
@@ -167,7 +167,7 @@ func configure(_ *node.Plugin) {
 	}))
 
 	// register SignatureFilter in Parser
-	messagelayer.MessageParser().AddMessageFilter(tangle.NewSignatureFilter())
+	messagelayer.MessageParser().AddMessageFilter(valuetangle.NewSignatureFilter())
 
 	// subscribe to message-layer
 	messagelayer.Tangle().Events.MessageSolid.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
@@ -186,7 +186,7 @@ func run(*node.Plugin) {
 	runFPC()
 }
 
-func onReceiveMessageFromMessageLayer(cachedMessageEvent *messageTangle.CachedMessageEvent) {
+func onReceiveMessageFromMessageLayer(cachedMessageEvent *tangle.CachedMessageEvent) {
 	defer cachedMessageEvent.Message.Release()
 	defer cachedMessageEvent.MessageMetadata.Release()
 
@@ -221,9 +221,9 @@ func TipManager() *tipmanager.TipManager {
 }
 
 // ValueObjectFactory returns the ValueObjectFactory singleton.
-func ValueObjectFactory() *tangle.ValueObjectFactory {
+func ValueObjectFactory() *valuetangle.ValueObjectFactory {
 	valueObjectFactoryOnce.Do(func() {
-		valueObjectFactory = tangle.NewValueObjectFactory(Tangle(), TipManager())
+		valueObjectFactory = valuetangle.NewValueObjectFactory(Tangle(), TipManager())
 	})
 	return valueObjectFactory
 }
@@ -235,7 +235,7 @@ func AwaitTransactionToBeBooked(txID transaction.ID, maxAwait time.Duration) err
 	// reason the same transaction gets booked multiple times
 	exit := make(chan struct{})
 	defer close(exit)
-	closure := events.NewClosure(func(cachedTransactionBookEvent *tangle.CachedTransactionBookEvent) {
+	closure := events.NewClosure(func(cachedTransactionBookEvent *valuetangle.CachedTransactionBookEvent) {
 		defer cachedTransactionBookEvent.Transaction.Release()
 		defer cachedTransactionBookEvent.TransactionMetadata.Release()
 		if cachedTransactionBookEvent.Transaction.Unwrap().ID() != txID {

@@ -119,65 +119,65 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
 }
 
 // ID returns the identifier if the Payload.
-func (payload *Payload) ID() ID {
+func (p *Payload) ID() ID {
 	// acquire lock for reading id
-	payload.idMutex.RLock()
+	p.idMutex.RLock()
 
 	// return if id has been calculated already
-	if payload.id != nil {
-		defer payload.idMutex.RUnlock()
+	if p.id != nil {
+		defer p.idMutex.RUnlock()
 
-		return *payload.id
+		return *p.id
 	}
 
 	// switch to write lock
-	payload.idMutex.RUnlock()
-	payload.idMutex.Lock()
-	defer payload.idMutex.Unlock()
+	p.idMutex.RUnlock()
+	p.idMutex.Lock()
+	defer p.idMutex.Unlock()
 
 	// return if id has been calculated in the mean time
-	if payload.id != nil {
-		return *payload.id
+	if p.id != nil {
+		return *p.id
 	}
 
 	// otherwise calculate the id
 	marshalUtil := marshalutil.New(IDLength + IDLength + transaction.IDLength)
-	marshalUtil.WriteBytes(payload.parent1PayloadID.Bytes())
-	marshalUtil.WriteBytes(payload.parent2PayloadID.Bytes())
-	marshalUtil.WriteBytes(payload.Transaction().ID().Bytes())
+	marshalUtil.WriteBytes(p.parent1PayloadID.Bytes())
+	marshalUtil.WriteBytes(p.parent2PayloadID.Bytes())
+	marshalUtil.WriteBytes(p.Transaction().ID().Bytes())
 
 	var id ID = blake2b.Sum256(marshalUtil.Bytes())
-	payload.id = &id
+	p.id = &id
 
 	return id
 }
 
 // Parent1ID returns the first Payload that is referenced by this Payload.
-func (payload *Payload) Parent1ID() ID {
-	return payload.parent1PayloadID
+func (p *Payload) Parent1ID() ID {
+	return p.parent1PayloadID
 }
 
 // Parent2ID returns the second Payload that is referenced by this Payload.
-func (payload *Payload) Parent2ID() ID {
-	return payload.parent2PayloadID
+func (p *Payload) Parent2ID() ID {
+	return p.parent2PayloadID
 }
 
 // Transaction returns the Transaction that is being attached in this Payload.
-func (payload *Payload) Transaction() *transaction.Transaction {
-	return payload.transaction
+func (p *Payload) Transaction() *transaction.Transaction {
+	return p.transaction
 }
 
 // Bytes returns a marshaled version of this Payload.
-func (payload *Payload) Bytes() []byte {
-	return payload.ObjectStorageValue()
+func (p *Payload) Bytes() []byte {
+	return p.ObjectStorageValue()
 }
 
-func (payload *Payload) String() string {
+func (p *Payload) String() string {
 	return stringify.Struct("Payload",
-		stringify.StructField("id", payload.ID()),
-		stringify.StructField("parent1", payload.Parent1ID()),
-		stringify.StructField("parent2", payload.Parent2ID()),
-		stringify.StructField("transfer", payload.Transaction()),
+		stringify.StructField("id", p.ID()),
+		stringify.StructField("parent1", p.Parent1ID()),
+		stringify.StructField("parent2", p.Parent2ID()),
+		stringify.StructField("transfer", p.Transaction()),
 	)
 }
 
@@ -187,48 +187,48 @@ func (payload *Payload) String() string {
 const Type = tangle.PayloadType(1)
 
 // Type returns the type of the Payload.
-func (payload *Payload) Type() tangle.PayloadType {
+func (p *Payload) Type() tangle.PayloadType {
 	return Type
 }
 
 // ObjectStorageValue returns the bytes that represent all remaining information (not stored in the key) of a marshaled
 // Parent2.
-func (payload *Payload) ObjectStorageValue() (bytes []byte) {
+func (p *Payload) ObjectStorageValue() (bytes []byte) {
 	// acquire lock for reading bytes
-	payload.bytesMutex.RLock()
+	p.bytesMutex.RLock()
 
 	// return if bytes have been determined already
-	if bytes = payload.bytes; bytes != nil {
-		defer payload.bytesMutex.RUnlock()
+	if bytes = p.bytes; bytes != nil {
+		defer p.bytesMutex.RUnlock()
 
 		return
 	}
 
 	// switch to write lock
-	payload.bytesMutex.RUnlock()
-	payload.bytesMutex.Lock()
-	defer payload.bytesMutex.Unlock()
+	p.bytesMutex.RUnlock()
+	p.bytesMutex.Lock()
+	defer p.bytesMutex.Unlock()
 
 	// return if bytes have been determined in the mean time
-	if bytes = payload.bytes; bytes != nil {
+	if bytes = p.bytes; bytes != nil {
 		return
 	}
 
 	// retrieve bytes of transfer
-	transferBytes := payload.Transaction().ObjectStorageValue()
+	transferBytes := p.Transaction().ObjectStorageValue()
 
 	// marshal fields
 	payloadLength := IDLength + IDLength + len(transferBytes)
 	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
 	marshalUtil.WriteUint32(uint32(payloadLength))
 	marshalUtil.WriteUint32(Type)
-	marshalUtil.WriteBytes(payload.parent1PayloadID.Bytes())
-	marshalUtil.WriteBytes(payload.parent2PayloadID.Bytes())
+	marshalUtil.WriteBytes(p.parent1PayloadID.Bytes())
+	marshalUtil.WriteBytes(p.parent2PayloadID.Bytes())
 	marshalUtil.WriteBytes(transferBytes)
 	bytes = marshalUtil.Bytes()
 
 	// store result
-	payload.bytes = bytes
+	p.bytes = bytes
 
 	return
 }
@@ -249,12 +249,12 @@ var _ tangle.Payload = &Payload{}
 // region StorableObject implementation ////////////////////////////////////////////////////////////////////////////////
 
 // ObjectStorageKey returns the bytes that are used a key when storing the  Payload in an objectstorage.
-func (payload *Payload) ObjectStorageKey() []byte {
-	return payload.ID().Bytes()
+func (p *Payload) ObjectStorageKey() []byte {
+	return p.ID().Bytes()
 }
 
 // Update is disabled but needs to be implemented to be compatible with the objectstorage.
-func (payload *Payload) Update(other objectstorage.StorableObject) {
+func (p *Payload) Update(other objectstorage.StorableObject) {
 	panic("a Payload should never be updated")
 }
 
@@ -273,20 +273,20 @@ type CachedPayload struct {
 }
 
 // Retain wraps the underlying method to return a new "wrapped object".
-func (cachedPayload *CachedPayload) Retain() *CachedPayload {
-	return &CachedPayload{cachedPayload.CachedObject.Retain()}
+func (c *CachedPayload) Retain() *CachedPayload {
+	return &CachedPayload{c.CachedObject.Retain()}
 }
 
 // Consume wraps the underlying method to return the correctly typed objects in the callback.
-func (cachedPayload *CachedPayload) Consume(consumer func(payload *Payload)) bool {
-	return cachedPayload.CachedObject.Consume(func(object objectstorage.StorableObject) {
+func (c *CachedPayload) Consume(consumer func(payload *Payload)) bool {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Payload))
 	})
 }
 
 // Unwrap provides a way to "Get" a type casted version of the underlying object.
-func (cachedPayload *CachedPayload) Unwrap() *Payload {
-	untypedTransaction := cachedPayload.Get()
+func (c *CachedPayload) Unwrap() *Payload {
+	untypedTransaction := c.Get()
 	if untypedTransaction == nil {
 		return nil
 	}

@@ -95,34 +95,34 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 }
 
 // Type returns the type of the faucet Payload.
-func (faucetPayload *Payload) Type() tangle.PayloadType {
-	return faucetPayload.payloadType
+func (p *Payload) Type() tangle.PayloadType {
+	return p.payloadType
 }
 
 // Address returns the address of the faucet Payload.
-func (faucetPayload *Payload) Address() address.Address {
-	return faucetPayload.address
+func (p *Payload) Address() address.Address {
+	return p.address
 }
 
 // Bytes marshals the data payload into a sequence of bytes.
-func (faucetPayload *Payload) Bytes() []byte {
+func (p *Payload) Bytes() []byte {
 	// initialize helper
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
 	marshalUtil.WriteUint32(uint32(address.Length + pow.NonceBytes))
-	marshalUtil.WriteUint32(faucetPayload.Type())
-	marshalUtil.WriteBytes(faucetPayload.address.Bytes())
-	marshalUtil.WriteUint64(faucetPayload.nonce)
+	marshalUtil.WriteUint32(p.Type())
+	marshalUtil.WriteBytes(p.address.Bytes())
+	marshalUtil.WriteUint64(p.nonce)
 
 	// return result
 	return marshalUtil.Bytes()
 }
 
 // String returns a human readable version of faucet payload (for debug purposes).
-func (faucetPayload *Payload) String() string {
+func (p *Payload) String() string {
 	return stringify.Struct("FaucetPayload",
-		stringify.StructField("address", faucetPayload.Address().String()),
+		stringify.StructField("address", p.Address().String()),
 	)
 }
 
