@@ -34,7 +34,7 @@ func Handler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
 	}
 	return c.JSON(http.StatusOK, Response{
-		Node:      request.Node,
+		Node:      base58.Encode(ID.Bytes()),
 		Access:    access,
 		Consensus: consensus,
 	})
