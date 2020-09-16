@@ -63,7 +63,7 @@ func TipSelector() *tangle.MessageTipSelector {
 func Tangle() *tangle.Tangle {
 	tangleOnce.Do(func() {
 		store := database.Store()
-		_tangle = tangle.NewTangle(store)
+		_tangle = tangle.New(store)
 	})
 	return _tangle
 }
