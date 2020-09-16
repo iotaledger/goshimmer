@@ -22,15 +22,15 @@ var (
 	// plugin is the plugin instance of the message layer plugin.
 	plugin           *node.Plugin
 	pluginOnce       sync.Once
-	messageParser    *tangle.Parser
+	messageParser    *tangle.MessageParser
 	msgParserOnce    sync.Once
-	messageRequester *tangle.Requester
+	messageRequester *tangle.MessageRequester
 	msgReqOnce       sync.Once
 	tipSelector      *tangle.MessageTipSelector
 	tipSelectorOnce  sync.Once
 	_tangle          *tangle.Tangle
 	tangleOnce       sync.Once
-	messageFactory   *tangle.Factory
+	messageFactory   *tangle.MessageFactory
 	msgFactoryOnce   sync.Once
 	log              *logger.Logger
 )
@@ -44,9 +44,9 @@ func Plugin() *node.Plugin {
 }
 
 // MessageParser gets the messageParser instance.
-func MessageParser() *tangle.Parser {
+func MessageParser() *tangle.MessageParser {
 	msgParserOnce.Do(func() {
-		messageParser = tangle.NewParser()
+		messageParser = tangle.NewMessageParser()
 	})
 	return messageParser
 }
@@ -69,18 +69,18 @@ func Tangle() *tangle.Tangle {
 }
 
 // MessageFactory gets the messageFactory instance.
-func MessageFactory() *tangle.Factory {
+func MessageFactory() *tangle.MessageFactory {
 	msgFactoryOnce.Do(func() {
-		messageFactory = tangle.NewFactory(database.Store(), []byte(tangle.DBSequenceNumber), local.GetInstance().LocalIdentity(), TipSelector())
+		messageFactory = tangle.NewMessageFactory(database.Store(), []byte(tangle.DBSequenceNumber), local.GetInstance().LocalIdentity(), TipSelector())
 	})
 	return messageFactory
 }
 
 // MessageRequester gets the messageRequester instance.
-func MessageRequester() *tangle.Requester {
+func MessageRequester() *tangle.MessageRequester {
 	msgReqOnce.Do(func() {
 		// load all missing messages on start up
-		messageRequester = tangle.NewRequester(Tangle().MissingMessages())
+		messageRequester = tangle.NewMessageRequester(Tangle().MissingMessages())
 	})
 	return messageRequester
 }

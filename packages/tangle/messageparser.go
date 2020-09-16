@@ -7,11 +7,11 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 )
 
-// Parser parses messages and bytes and emits corresponding events for parsed and rejected messages.
-type Parser struct {
+// MessageParser parses messages and bytes and emits corresponding events for parsed and rejected messages.
+type MessageParser struct {
 	bytesFilters   []BytesFilter
 	messageFilters []MessageFilter
-	Events         *ParserEvents
+	Events         *MessageParserEvents
 
 	byteFiltersModified    typeutils.AtomicBool
 	messageFiltersModified typeutils.AtomicBool
@@ -19,12 +19,12 @@ type Parser struct {
 	messageFiltersMutex    sync.Mutex
 }
 
-// NewParser creates a new message parser.
-func NewParser() (result *Parser) {
-	result = &Parser{
+// NewMessageParser creates a new message parser.
+func NewMessageParser() (result *MessageParser) {
+	result = &MessageParser{
 		bytesFilters:   make([]BytesFilter, 0),
 		messageFilters: make([]MessageFilter, 0),
-		Events:         newParserEvents(),
+		Events:         newMessageParserEvents(),
 	}
 
 	// add builtin filters
@@ -34,14 +34,14 @@ func NewParser() (result *Parser) {
 }
 
 // Parse parses the given message bytes.
-func (p *Parser) Parse(messageBytes []byte, peer *peer.Peer) {
+func (p *MessageParser) Parse(messageBytes []byte, peer *peer.Peer) {
 	p.setupBytesFilterDataFlow()
 	p.setupMessageFilterDataFlow()
 	p.bytesFilters[0].Filter(messageBytes, peer)
 }
 
 // AddBytesFilter adds the given bytes filter to the parser.
-func (p *Parser) AddBytesFilter(filter BytesFilter) {
+func (p *MessageParser) AddBytesFilter(filter BytesFilter) {
 	p.bytesFiltersMutex.Lock()
 	p.bytesFilters = append(p.bytesFilters, filter)
 	p.bytesFiltersMutex.Unlock()
@@ -49,7 +49,7 @@ func (p *Parser) AddBytesFilter(filter BytesFilter) {
 }
 
 // AddMessageFilter adds a new message filter to the parser.
-func (p *Parser) AddMessageFilter(filter MessageFilter) {
+func (p *MessageParser) AddMessageFilter(filter MessageFilter) {
 	p.messageFiltersMutex.Lock()
 	p.messageFilters = append(p.messageFilters, filter)
 	p.messageFiltersMutex.Unlock()
@@ -57,7 +57,7 @@ func (p *Parser) AddMessageFilter(filter MessageFilter) {
 }
 
 // sets up the byte filter data flow chain.
-func (p *Parser) setupBytesFilterDataFlow() {
+func (p *MessageParser) setupBytesFilterDataFlow() {
 	if !p.byteFiltersModified.IsSet() {
 		return
 	}
@@ -84,7 +84,7 @@ func (p *Parser) setupBytesFilterDataFlow() {
 }
 
 // sets up the message filter data flow chain.
-func (p *Parser) setupMessageFilterDataFlow() {
+func (p *MessageParser) setupMessageFilterDataFlow() {
 	if !p.messageFiltersModified.IsSet() {
 		return
 	}
@@ -115,7 +115,7 @@ func (p *Parser) setupMessageFilterDataFlow() {
 }
 
 // parses the given message and emits
-func (p *Parser) parseMessage(bytes []byte, peer *peer.Peer) {
+func (p *MessageParser) parseMessage(bytes []byte, peer *peer.Peer) {
 	if parsedMessage, _, err := MessageFromBytes(bytes); err != nil {
 		p.Events.BytesRejected.Trigger(&BytesRejectedEvent{
 			Bytes: bytes,

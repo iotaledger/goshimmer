@@ -92,8 +92,8 @@ func PayloadFromBytes(bytes []byte) (result Payload, consumedBytes int, err erro
 	return
 }
 
-// PayloadParse parses a payload by using the given marshal util.
-func PayloadParse(marshalUtil *marshalutil.MarshalUtil) (Payload, error) {
+// PayloadFromMarshalUtil parses a payload by using the given marshal util.
+func PayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (Payload, error) {
 	payload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return PayloadFromBytes(data) })
 	if err != nil {
 		err = fmt.Errorf("failed to parse payload: %w", err)

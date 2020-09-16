@@ -55,23 +55,23 @@ func newMessageTipSelectorEvents() *MessageTipSelectorEvents {
 	}
 }
 
-// FactoryEvents represents events happening on a message factory.
-type FactoryEvents struct {
+// MessageFactoryEvents represents events happening on a message factory.
+type MessageFactoryEvents struct {
 	// Fired when a message is built including tips, sequence number and other metadata.
 	MessageConstructed *events.Event
 	// Fired when an error occurred.
 	Error *events.Event
 }
 
-func newFactoryEvents() *FactoryEvents {
-	return &FactoryEvents{
+func newMessageFactoryEvents() *MessageFactoryEvents {
+	return &MessageFactoryEvents{
 		MessageConstructed: events.NewEvent(messageConstructedEvent),
 		Error:              events.NewEvent(events.ErrorCaller),
 	}
 }
 
-// ParserEvents represents events happening on a message parser.
-type ParserEvents struct {
+// MessageParserEvents represents events happening on a message parser.
+type MessageParserEvents struct {
 	// Fired when a message was parsed.
 	MessageParsed *events.Event
 	// Fired when submitted bytes are rejected by a filter.
@@ -98,16 +98,16 @@ type MessageRejectedEvent struct {
 	Peer    *peer.Peer
 }
 
-func newParserEvents() *ParserEvents {
-	return &ParserEvents{
+func newMessageParserEvents() *MessageParserEvents {
+	return &MessageParserEvents{
 		MessageParsed:   events.NewEvent(messageParsedEvent),
 		BytesRejected:   events.NewEvent(bytesRejectedEvent),
 		MessageRejected: events.NewEvent(messageRejectedEvent),
 	}
 }
 
-// RequesterEvents represents events happening on a message requester.
-type RequesterEvents struct {
+// MessageRequesterEvents represents events happening on a message requester.
+type MessageRequesterEvents struct {
 	// Fired when a request for a given message should be sent.
 	SendRequest *events.Event
 	// MissingMessageAppeared is triggered when a message is actually present in the node's db although it was still being requested.
@@ -124,8 +124,8 @@ type MissingMessageAppearedEvent struct {
 	ID MessageID
 }
 
-func newRequesterEvents() *RequesterEvents {
-	return &RequesterEvents{
+func newMessageRequesterEvents() *MessageRequesterEvents {
+	return &MessageRequesterEvents{
 		SendRequest:            events.NewEvent(sendRequestEvent),
 		MissingMessageAppeared: events.NewEvent(missingMessageAppearedEvent),
 	}

@@ -25,7 +25,7 @@ const (
 )
 
 func TestMessageFactory_BuildMessage(t *testing.T) {
-	msgFactory := NewFactory(
+	msgFactory := NewMessageFactory(
 		mapdb.NewMapDB(),
 		[]byte(sequenceKey),
 		identity.GenerateLocalIdentity(),
@@ -111,7 +111,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 }
 
 func TestMessageFactory_POW(t *testing.T) {
-	msgFactory := NewFactory(
+	msgFactory := NewMessageFactory(
 		mapdb.NewMapDB(),
 		[]byte(sequenceKey),
 		identity.GenerateLocalIdentity(),
@@ -138,7 +138,7 @@ func TestMessageFactory_POW(t *testing.T) {
 }
 
 func TestWorkerFunc_PayloadSize(t *testing.T) {
-	msgFactory := NewFactory(
+	msgFactory := NewMessageFactory(
 		mapdb.NewMapDB(),
 		[]byte(sequenceKey),
 		identity.GenerateLocalIdentity(),

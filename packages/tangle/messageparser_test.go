@@ -10,7 +10,7 @@ import (
 
 func BenchmarkMessageParser_ParseBytesSame(b *testing.B) {
 	msgBytes := newTestDataMessage("Test").Bytes()
-	msgParser := NewParser()
+	msgParser := NewMessageParser()
 
 	b.ResetTimer()
 
@@ -25,7 +25,7 @@ func BenchmarkMessageParser_ParseBytesDifferent(b *testing.B) {
 		messageBytes[i] = newTestDataMessage("Test" + strconv.Itoa(i)).Bytes()
 	}
 
-	msgParser := NewParser()
+	msgParser := NewMessageParser()
 
 	b.ResetTimer()
 
@@ -37,7 +37,7 @@ func BenchmarkMessageParser_ParseBytesDifferent(b *testing.B) {
 func TestMessageParser_ParseMessage(t *testing.T) {
 	msg := newTestDataMessage("Test")
 
-	msgParser := NewParser()
+	msgParser := NewMessageParser()
 	msgParser.Parse(msg.Bytes(), nil)
 
 	msgParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {

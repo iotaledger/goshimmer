@@ -24,7 +24,7 @@ func TestSignatureFilter(t *testing.T) {
 
 	// create helper instances
 	seed := newSeed()
-	messageFactory := tangle.NewFactory(mapdb.NewMapDB(), []byte("sequenceKey"), identity.GenerateLocalIdentity(), tangle.NewMessageTipSelector())
+	messageFactory := tangle.NewMessageFactory(mapdb.NewMapDB(), []byte("sequenceKey"), identity.GenerateLocalIdentity(), tangle.NewMessageTipSelector())
 
 	// 1. test value message without signatures
 	{
@@ -106,7 +106,7 @@ func TestSignatureFilter(t *testing.T) {
 // parse result.
 func newSyncMessageParser(messageFilters ...tangle.MessageFilter) (tester *syncMessageParser) {
 	// initialize MessageParser
-	messageParser := tangle.NewParser()
+	messageParser := tangle.NewMessageParser()
 	for _, messageFilter := range messageFilters {
 		messageParser.AddMessageFilter(messageFilter)
 	}
@@ -153,7 +153,7 @@ func newSyncMessageParser(messageFilters ...tangle.MessageFilter) (tester *syncM
 
 // syncMessageParser is a wrapper for the MessageParser that allows to parse Messages synchronously.
 type syncMessageParser struct {
-	messageParser *tangle.Parser
+	messageParser *tangle.MessageParser
 	result        *messageParserResult
 	wg            sync.WaitGroup
 }

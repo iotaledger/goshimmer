@@ -67,8 +67,8 @@ func MessageIDFromBytes(bytes []byte) (result MessageID, consumedBytes int, err 
 	return
 }
 
-// MessageIDParse is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func MessageIDParse(marshalUtil *marshalutil.MarshalUtil) (MessageID, error) {
+// MessageIDFromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
+func MessageIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (MessageID, error) {
 	id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return MessageIDFromBytes(data) })
 	if err != nil {
 		err = fmt.Errorf("failed to parse message ID: %w", err)
@@ -140,23 +140,23 @@ func NewMessage(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time,
 // MessageFromBytes parses the given bytes into a message.
 func MessageFromBytes(bytes []byte) (result *Message, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = MessageParse(marshalUtil)
+	result, err = MessageFromMarshalUtil(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 	return
 }
 
-// MessageParse parses a message from the given marshal util.
-func MessageParse(marshalUtil *marshalutil.MarshalUtil) (result *Message, err error) {
+// MessageFromMarshalUtil parses a message from the given marshal util.
+func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Message, err error) {
 	// determine read offset before starting to parse
 	readOffsetStart := marshalUtil.ReadOffset()
 
 	// parse information
 	result = &Message{}
-	if result.parent1ID, err = MessageIDParse(marshalUtil); err != nil {
+	if result.parent1ID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse parent1 message ID of the message: %w", err)
 		return
 	}
-	if result.parent2ID, err = MessageIDParse(marshalUtil); err != nil {
+	if result.parent2ID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse parent1 message ID of the message: %w", err)
 		return
 	}
@@ -172,7 +172,7 @@ func MessageParse(marshalUtil *marshalutil.MarshalUtil) (result *Message, err er
 		err = fmt.Errorf("failed to parse sequence number of the message: %w", err)
 		return
 	}
-	if result.payload, err = PayloadParse(marshalUtil); err != nil {
+	if result.payload, err = PayloadFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse payload of the message: %w", err)
 		return
 	}
@@ -201,14 +201,14 @@ func MessageParse(marshalUtil *marshalutil.MarshalUtil) (result *Message, err er
 // MessageFromObjectStorage restores a Message from the ObjectStorage.
 func MessageFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	// parse the message
-	message, err := MessageParse(marshalutil.New(data))
+	message, err := MessageFromMarshalUtil(marshalutil.New(data))
 	if err != nil {
 		err = fmt.Errorf("failed to parse message from object storage: %w", err)
 		return
 	}
 
 	// parse the ID from they key
-	id, err := MessageIDParse(marshalutil.New(key))
+	id, err := MessageIDFromMarshalUtil(marshalutil.New(key))
 	if err != nil {
 		err = fmt.Errorf("failed to parse message ID from object storage: %w", err)
 		return

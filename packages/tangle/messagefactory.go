@@ -27,9 +27,9 @@ type Worker interface {
 	DoPOW([]byte) (nonce uint64, err error)
 }
 
-// Factory acts as a factory to create new messages.
-type Factory struct {
-	Events        *FactoryEvents
+// MessageFactory acts as a factory to create new messages.
+type MessageFactory struct {
+	Events        *MessageFactoryEvents
 	sequence      *kvstore.Sequence
 	localIdentity *identity.LocalIdentity
 	selector      TipSelector
@@ -39,15 +39,15 @@ type Factory struct {
 	issuanceMutex sync.Mutex
 }
 
-// NewFactory creates a new message factory.
-func NewFactory(store kvstore.KVStore, sequenceKey []byte, localIdentity *identity.LocalIdentity, selector TipSelector) *Factory {
+// NewMessageFactory creates a new message factory.
+func NewMessageFactory(store kvstore.KVStore, sequenceKey []byte, localIdentity *identity.LocalIdentity, selector TipSelector) *MessageFactory {
 	sequence, err := kvstore.NewSequence(store, sequenceKey, storeSequenceInterval)
 	if err != nil {
 		panic(fmt.Sprintf("could not create message sequence number: %v", err))
 	}
 
-	return &Factory{
-		Events:        newFactoryEvents(),
+	return &MessageFactory{
+		Events:        newMessageFactoryEvents(),
 		sequence:      sequence,
 		localIdentity: localIdentity,
 		selector:      selector,
@@ -56,7 +56,7 @@ func NewFactory(store kvstore.KVStore, sequenceKey []byte, localIdentity *identi
 }
 
 // SetWorker sets the PoW worker to be used for the messages.
-func (f *Factory) SetWorker(worker Worker) {
+func (f *MessageFactory) SetWorker(worker Worker) {
 	f.workerMutex.Lock()
 	defer f.workerMutex.Unlock()
 	f.worker = worker
@@ -65,7 +65,7 @@ func (f *Factory) SetWorker(worker Worker) {
 // IssuePayload creates a new message including sequence number and tip selection and returns it.
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
-func (f *Factory) IssuePayload(p Payload) (*Message, error) {
+func (f *MessageFactory) IssuePayload(p Payload) (*Message, error) {
 	payloadLen := len(p.Bytes())
 	if payloadLen > MaxPayloadSize {
 		err := fmt.Errorf("%w: %d bytes", ErrMaxPayloadSizeExceeded, payloadLen)
@@ -111,14 +111,14 @@ func (f *Factory) IssuePayload(p Payload) (*Message, error) {
 	return msg, nil
 }
 
-// Shutdown closes the messageFactory and persists the sequence number.
-func (f *Factory) Shutdown() {
+// Shutdown closes the MessageFactory and persists the sequence number.
+func (f *MessageFactory) Shutdown() {
 	if err := f.sequence.Release(); err != nil {
 		f.Events.Error.Trigger(fmt.Errorf("could not release message sequence number: %w", err))
 	}
 }
 
-func (f *Factory) doPOW(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload Payload) (uint64, error) {
+func (f *MessageFactory) doPOW(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
 	dummy := NewMessage(parent1ID, parent2ID, issuingTime, key, seq, payload, 0, ed25519.EmptySignature).Bytes()
 
@@ -127,7 +127,7 @@ func (f *Factory) doPOW(parent1ID MessageID, parent2ID MessageID, issuingTime ti
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *Factory) sign(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload Payload, nonce uint64) ed25519.Signature {
+func (f *MessageFactory) sign(parent1ID MessageID, parent2ID MessageID, issuingTime time.Time, key ed25519.PublicKey, seq uint64, payload Payload, nonce uint64) ed25519.Signature {
 	// create a dummy message to simplify marshaling
 	dummy := NewMessage(parent1ID, parent2ID, issuingTime, key, seq, payload, nonce, ed25519.EmptySignature)
 	dummyBytes := dummy.Bytes()

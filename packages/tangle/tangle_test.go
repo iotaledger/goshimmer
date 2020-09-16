@@ -107,7 +107,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// setup the message factory
-	msgFactory := NewFactory(
+	msgFactory := NewMessageFactory(
 		badgerDB,
 		[]byte("sequenceKey"),
 		identity.GenerateLocalIdentity(),
