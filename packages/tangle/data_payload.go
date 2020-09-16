@@ -37,14 +37,14 @@ func NewDataPayload(data []byte) *DataPayload {
 // DataPayloadFromBytes creates a new data payload from the given bytes.
 func DataPayloadFromBytes(bytes []byte) (result *DataPayload, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = DataPayloadParse(marshalUtil)
+	result, err = DataPayloadFromMarshalUtil(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// DataPayloadParse parses a new data payload out of the given marshal util.
-func DataPayloadParse(marshalUtil *marshalutil.MarshalUtil) (result *DataPayload, err error) {
+// DataPayloadFromMarshalUtil parses a new data payload out of the given marshal util.
+func DataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *DataPayload, err error) {
 	// parse information
 	result = &DataPayload{}
 	payloadBytes, err := marshalUtil.ReadUint32()

@@ -29,20 +29,20 @@ func NewApprover(referencedMessageID MessageID, approverMessageID MessageID) *Ap
 // ApproverFromBytes parses the given bytes into an approver.
 func ApproverFromBytes(bytes []byte) (result *Approver, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ApproverParse(marshalUtil)
+	result, err = ApproverFromMarshalUtil(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 	return
 }
 
-// ApproverParse parses a new approver from the given marshal util.
-func ApproverParse(marshalUtil *marshalutil.MarshalUtil) (result *Approver, err error) {
+// ApproverFromMarshalUtil parses a new approver from the given marshal util.
+func ApproverFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Approver, err error) {
 	result = &Approver{}
 
-	if result.referencedMessageID, err = MessageIDParse(marshalUtil); err != nil {
+	if result.referencedMessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse referenced message ID of approver: %w", err)
 		return
 	}
-	if result.approverMessageID, err = MessageIDParse(marshalUtil); err != nil {
+	if result.approverMessageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse approver message ID of approver: %w", err)
 		return
 	}

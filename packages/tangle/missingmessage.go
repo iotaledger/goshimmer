@@ -28,17 +28,17 @@ func NewMissingMessage(messageID MessageID) *MissingMessage {
 // MissingMessageFromBytes parses the given bytes into a MissingMessage.
 func MissingMessageFromBytes(bytes []byte) (result *MissingMessage, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = MissingMessageParse(marshalUtil)
+	result, err = MissingMessageFromMarshalUtil(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// MissingMessageParse parses a MissingMessage from the given MarshalUtil.
-func MissingMessageParse(marshalUtil *marshalutil.MarshalUtil) (result *MissingMessage, err error) {
+// MissingMessageFromMarshalUtil parses a MissingMessage from the given MarshalUtil.
+func MissingMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *MissingMessage, err error) {
 	result = &MissingMessage{}
 
-	if result.messageID, err = MessageIDParse(marshalUtil); err != nil {
+	if result.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse message ID of missing message: %w", err)
 		return
 	}

@@ -34,17 +34,17 @@ func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 // MessageMetadataFromBytes unmarshals the given bytes into a MessageMetadata.
 func MessageMetadataFromBytes(bytes []byte) (result *MessageMetadata, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = MessageMetadataParse(marshalUtil)
+	result, err = MessageMetadataFromMarshalUtil(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// MessageMetadataParse parses a Message from the given MarshalUtil.
-func MessageMetadataParse(marshalUtil *marshalutil.MarshalUtil) (result *MessageMetadata, err error) {
+// MessageMetadataFromMarshalUtil parses a Message from the given MarshalUtil.
+func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *MessageMetadata, err error) {
 	result = &MessageMetadata{}
 
-	if result.messageID, err = MessageIDParse(marshalUtil); err != nil {
+	if result.messageID, err = MessageIDFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse message ID of message metadata: %w", err)
 		return
 	}
