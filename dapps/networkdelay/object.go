@@ -1,6 +1,7 @@
 package networkdelay
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/messagelayer/payload"
@@ -53,9 +54,11 @@ func FromBytes(bytes []byte) (result *Object, consumedBytes int, err error) {
 func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Object, err error) {
 	// read information that are required to identify the object from the outside
 	if _, err = marshalUtil.ReadUint32(); err != nil {
+		err = fmt.Errorf("failed to parse payload size of networkdelay object: %w", err)
 		return
 	}
 	if _, err = marshalUtil.ReadUint32(); err != nil {
+		err = fmt.Errorf("failed to parse payload type of networkdelay object: %w", err)
 		return
 	}
 
@@ -63,12 +66,14 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Object, err error) {
 	result = &Object{}
 	id, err := marshalUtil.ReadBytes(32)
 	if err != nil {
+		err = fmt.Errorf("failed to parse id of networkdelay object: %w", err)
 		return
 	}
 	copy(result.id[:], id)
 
 	// parse sent time
 	if result.sentTime, err = marshalUtil.ReadInt64(); err != nil {
+		err = fmt.Errorf("failed to parse sent time of networkdelay object: %w", err)
 		return
 	}
 

@@ -1,6 +1,8 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -38,9 +40,11 @@ func PayloadApproverFromBytes(bytes []byte) (result *PayloadApprover, consumedBy
 func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil) (result *PayloadApprover, err error) {
 	result = &PayloadApprover{}
 	if result.referencedPayloadID, err = payload.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse payload id of approver: %w", err)
 		return
 	}
 	if result.approvingPayloadID, err = payload.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse payload id of approver: %w", err)
 		return
 	}
 
@@ -52,6 +56,9 @@ func ParsePayloadApprover(marshalUtil *marshalutil.MarshalUtil) (result *Payload
 // method.
 func PayloadApproverFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
 	result, _, err = PayloadMetadataFromBytes(key)
+	if err != nil {
+		err = fmt.Errorf("failed to parse approver from object storage: %w", err)
+	}
 
 	return
 }

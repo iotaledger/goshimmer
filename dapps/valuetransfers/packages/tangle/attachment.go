@@ -1,6 +1,8 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/payload"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/byteutils"
@@ -40,9 +42,11 @@ func AttachmentFromBytes(bytes []byte) (result *Attachment, consumedBytes int, e
 func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, err error) {
 	result = &Attachment{}
 	if result.transactionID, err = transaction.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse transaction ID in attachment: %w", err)
 		return
 	}
 	if result.payloadID, err = payload.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse value payload ID in attachment: %w", err)
 		return
 	}
 
@@ -53,6 +57,9 @@ func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, 
 // returns the new object.
 func AttachmentFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	result, _, err = AttachmentFromBytes(byteutils.ConcatBytes(key, data))
+	if err != nil {
+		err = fmt.Errorf("failed to parse attachment from object storage: %w", err)
+	}
 
 	return
 }

@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -73,51 +74,65 @@ func ParseOutput(marshalUtil *marshalutil.MarshalUtil) (result *Output, err erro
 	result = &Output{}
 
 	if result.address, err = address.Parse(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse address of output: %w", err)
 		return
 	}
 	if result.transactionID, err = transaction.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse transaction ID of output: %w", err)
 		return
 	}
 	if result.branchID, err = branchmanager.ParseBranchID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse branch ID of output: %w", err)
 		return
 	}
 	if result.solid, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'solid' of output: %w", err)
 		return
 	}
 	if result.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+		err = fmt.Errorf("failed to parse solidification time of output: %w", err)
 		return
 	}
 	if result.firstConsumer, err = transaction.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse transaction ID of first consumer of output: %w", err)
 		return
 	}
 	consumerCount, err := marshalUtil.ReadUint32()
 	if err != nil {
+		err = fmt.Errorf("failed to parse consumer count of output: %w", err)
 		return
 	}
 	if result.preferred, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'preferred' of output: %w", err)
 		return
 	}
 	if result.finalized, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'finalized' of output: %w", err)
 		return
 	}
 	if result.liked, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'liked' of output: %w", err)
 		return
 	}
 	if result.confirmed, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'confirmed' of output: %w", err)
 		return
 	}
 	if result.rejected, err = marshalUtil.ReadBool(); err != nil {
+		err = fmt.Errorf("failed to parse 'rejected' of output: %w", err)
 		return
 	}
 	result.consumerCount = int(consumerCount)
 	balanceCount, err := marshalUtil.ReadUint32()
 	if err != nil {
+		err = fmt.Errorf("failed to parse balance count of output: %w", err)
 		return
 	}
 	result.balances = make([]*balance.Balance, balanceCount)
 	for i := uint32(0); i < balanceCount; i++ {
 		result.balances[i], err = balance.Parse(marshalUtil)
 		if err != nil {
+			err = fmt.Errorf("failed to parse balance of output: %w", err)
 			return
 		}
 	}
@@ -130,6 +145,9 @@ func ParseOutput(marshalUtil *marshalutil.MarshalUtil) (result *Output, err erro
 // it gets handed over to UnmarshalObjectStorageValue (by the ObjectStorage).
 func OutputFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	result, _, err = OutputFromBytes(byteutils.ConcatBytes(key, data))
+	if err != nil {
+		err = fmt.Errorf("failed to parse output from object storage: %w", err)
+	}
 
 	return
 }

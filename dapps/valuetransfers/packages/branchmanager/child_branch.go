@@ -1,6 +1,8 @@
 package branchmanager
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -48,9 +50,11 @@ func ParseChildBranch(marshalUtil *marshalutil.MarshalUtil) (result *ChildBranch
 	result = &ChildBranch{}
 
 	if result.parentID, err = ParseBranchID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse parent branch ID: %w", err)
 		return
 	}
 	if result.childID, err = ParseBranchID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse child branch ID: %w", err)
 		return
 	}
 

@@ -1,6 +1,7 @@
 package branchmanager
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/byteutils"
@@ -49,9 +50,11 @@ func ParseConflict(marshalUtil *marshalutil.MarshalUtil) (result *Conflict, err 
 	result = &Conflict{}
 
 	if result.id, err = ParseConflictID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse conflict ID: %w", err)
 		return
 	}
 	if result.memberCount, err = marshalUtil.ReadUint32(); err != nil {
+		err = fmt.Errorf("failed to parse memberCount of conflict: %w", err)
 		return
 	}
 

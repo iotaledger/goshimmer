@@ -1,6 +1,8 @@
 package branchmanager
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 )
@@ -45,9 +47,11 @@ func ParseConflictMember(marshalUtil *marshalutil.MarshalUtil) (result *Conflict
 	result = &ConflictMember{}
 
 	if result.conflictID, err = ParseConflictID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse conflict ID: %w", err)
 		return
 	}
 	if result.branchID, err = ParseBranchID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse conflict branch ID: %w", err)
 		return
 	}
 

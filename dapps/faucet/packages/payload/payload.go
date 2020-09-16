@@ -3,6 +3,7 @@ package faucetpayload
 import (
 	"context"
 	"crypto"
+	"fmt"
 
 	// Only want to use init
 	_ "golang.org/x/crypto/blake2b"
@@ -43,6 +44,7 @@ func New(addr address.Address, powTarget int) (*Payload, error) {
 	powRelevantBytes := payloadBytes[:len(payloadBytes)-pow.NonceBytes]
 	nonce, err := powWorker.Mine(context.Background(), powRelevantBytes, powTarget)
 	if err != nil {
+		err = fmt.Errorf("failed to do PoW for faucet payload: %w", err)
 		return nil, err
 	}
 	p.nonce = nonce
@@ -62,23 +64,28 @@ func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	// read data
 	result = &Payload{}
 	if _, err = marshalUtil.ReadUint32(); err != nil {
+		err = fmt.Errorf("failed to unmarshal payload size of faucet payload from bytes: %w", err)
 		return
 	}
 	result.payloadType, err = marshalUtil.ReadUint32()
 	if err != nil {
+		err = fmt.Errorf("failed to unmarshal payload type of faucet payload from bytes: %w", err)
 		return
 	}
 	addr, err := marshalUtil.ReadBytes(address.Length)
 	if err != nil {
+		err = fmt.Errorf("failed to unmarshal address of faucet payload from bytes: %w", err)
 		return
 	}
 	result.address, _, err = address.FromBytes(addr)
 	if err != nil {
+		err = fmt.Errorf("failed to unmarshal address of faucet payload from bytes: %w", err)
 		return
 	}
 
 	result.nonce, err = marshalUtil.ReadUint64()
 	if err != nil {
+		err = fmt.Errorf("failed to unmarshal nonce of faucet payload from bytes: %w", err)
 		return
 	}
 
@@ -123,6 +130,9 @@ func (faucetPayload *Payload) String() string {
 // PayloadUnmarshaler sets the generic unmarshaler.
 func PayloadUnmarshaler(data []byte) (payload payload.Payload, err error) {
 	payload, _, err = FromBytes(data)
+	if err != nil {
+		err = fmt.Errorf("failed to unmarshal faucet payload from bytes: %w", err)
+	}
 
 	return
 }

@@ -56,6 +56,7 @@ func BranchFromBytes(bytes []byte) (result *Branch, consumedBytes int, err error
 // BranchFromObjectStorage is a factory method that creates a new Branch instance from the ObjectStorage.
 func BranchFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
 	if result, _, err = BranchFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = fmt.Errorf("failed to unmarshal branch from bytes: %w", err)
 		return
 	}
 
@@ -67,36 +68,44 @@ func ParseBranch(marshalUtil *marshalutil.MarshalUtil) (result *Branch, err erro
 	result = &Branch{}
 
 	if result.id, err = ParseBranchID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse branch ID: %w", err)
 		return
 	}
 	result.preferred, err = marshalUtil.ReadBool()
 	if err != nil {
+		err = fmt.Errorf("failed to parse 'preferred' of the branch: %w", err)
 		return
 	}
 	result.liked, err = marshalUtil.ReadBool()
 	if err != nil {
+		err = fmt.Errorf("failed to parse 'liked' of the branch: %w", err)
 		return
 	}
 	result.finalized, err = marshalUtil.ReadBool()
 	if err != nil {
+		err = fmt.Errorf("failed to parse 'finalized' of the branch: %w", err)
 		return
 	}
 	result.confirmed, err = marshalUtil.ReadBool()
 	if err != nil {
+		err = fmt.Errorf("failed to parse 'confirmed' of the branch: %w", err)
 		return
 	}
 	result.rejected, err = marshalUtil.ReadBool()
 	if err != nil {
+		err = fmt.Errorf("failed to parse 'rejected' of the branch: %w", err)
 		return
 	}
 	parentBranchCount, err := marshalUtil.ReadUint32()
 	if err != nil {
+		err = fmt.Errorf("failed to parse parentBranchCount of the branch: %w", err)
 		return
 	}
 	result.parentBranches = make([]BranchID, parentBranchCount)
 	for i := uint32(0); i < parentBranchCount; i++ {
 		result.parentBranches[i], err = ParseBranchID(marshalUtil)
 		if err != nil {
+			err = fmt.Errorf("failed to parse ID of the parent branch: %w", err)
 			return
 		}
 	}

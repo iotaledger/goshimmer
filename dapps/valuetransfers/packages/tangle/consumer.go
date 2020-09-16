@@ -1,6 +1,8 @@
 package tangle
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/hive.go/byteutils"
@@ -44,9 +46,11 @@ func ParseConsumer(marshalUtil *marshalutil.MarshalUtil) (result *Consumer, err 
 	result = &Consumer{}
 
 	if result.consumedInput, err = transaction.ParseOutputID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse output ID of consumer: %w", err)
 		return
 	}
 	if result.transactionID, err = transaction.ParseID(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse transaction ID of consumer: %w", err)
 		return
 	}
 
@@ -57,6 +61,9 @@ func ParseConsumer(marshalUtil *marshalutil.MarshalUtil) (result *Consumer, err 
 // objectstorage. It is used by the objectstorage, to create new instances of this entity.
 func ConsumerFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
 	result, _, err = ConsumerFromBytes(key)
+	if err != nil {
+		err = fmt.Errorf("failed to parse consumer from object storage: %w", err)
+	}
 
 	return
 }
