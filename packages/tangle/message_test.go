@@ -27,7 +27,7 @@ func TestMessage_VerifySignature(t *testing.T) {
 }
 
 func TestMessage_MarshalUnmarshal(t *testing.T) {
-	msgFactory := NewFactory(mapdb.NewMapDB(), []byte(messagelayer.DBSequenceNumber), identity.GenerateLocalIdentity(), NewMessageTipSelector())
+	msgFactory := NewMessageFactory(mapdb.NewMapDB(), []byte(messagelayer.DBSequenceNumber), identity.GenerateLocalIdentity(), NewMessageTipSelector())
 	defer msgFactory.Shutdown()
 
 	testMessage, err := msgFactory.IssuePayload(NewDataPayload([]byte("test")))

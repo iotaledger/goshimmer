@@ -55,16 +55,16 @@ func newMessageTipSelectorEvents() *MessageTipSelectorEvents {
 	}
 }
 
-// FactoryEvents represents events happening on a message factory.
-type FactoryEvents struct {
+// MessageFactoryEvents represents events happening on a message factory.
+type MessageFactoryEvents struct {
 	// Fired when a message is built including tips, sequence number and other metadata.
 	MessageConstructed *events.Event
 	// Fired when an error occurred.
 	Error *events.Event
 }
 
-func newFactoryEvents() *FactoryEvents {
-	return &FactoryEvents{
+func newMessageFactoryEvents() *MessageFactoryEvents {
+	return &MessageFactoryEvents{
 		MessageConstructed: events.NewEvent(messageConstructedEvent),
 		Error:              events.NewEvent(events.ErrorCaller),
 	}

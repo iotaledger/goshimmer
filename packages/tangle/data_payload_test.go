@@ -18,7 +18,7 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 	var pool async.WorkerPool
 	pool.Tune(runtime.GOMAXPROCS(0))
 
-	factory := NewFactory(mapdb.NewMapDB(), []byte(messagelayer.DBSequenceNumber), identity.GenerateLocalIdentity(), TipSelectorFunc(func() (MessageID, MessageID) { return EmptyMessageID, EmptyMessageID }))
+	factory := NewMessageFactory(mapdb.NewMapDB(), []byte(messagelayer.DBSequenceNumber), identity.GenerateLocalIdentity(), TipSelectorFunc(func() (MessageID, MessageID) { return EmptyMessageID, EmptyMessageID }))
 
 	messages := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
@@ -46,7 +46,7 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 func BenchmarkVerifySignature(b *testing.B) {
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
-	factory := NewFactory(mapdb.NewMapDB(), []byte(messagelayer.DBSequenceNumber), identity.GenerateLocalIdentity(), TipSelectorFunc(func() (MessageID, MessageID) { return EmptyMessageID, EmptyMessageID }))
+	factory := NewMessageFactory(mapdb.NewMapDB(), []byte(messagelayer.DBSequenceNumber), identity.GenerateLocalIdentity(), TipSelectorFunc(func() (MessageID, MessageID) { return EmptyMessageID, EmptyMessageID }))
 
 	messages := make([]*Message, b.N)
 	for i := 0; i < b.N; i++ {
