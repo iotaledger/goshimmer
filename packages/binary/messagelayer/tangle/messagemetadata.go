@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 
@@ -41,36 +42,32 @@ func MessageMetadataFromBytes(bytes []byte) (result *MessageMetadata, consumedBy
 }
 
 // ParseMessageMetadata parses the marshalUtil into a MessageMetadata.
-// If it successfully parses the marshalUtil, it delegates to MessageMetadataFromStorageKey.
+// If it successfully parses the marshalUtil, it delegates to MessageMetadataFromObjectStorage.
 // Else, delegates to UnmarshalObjectStorageValue.
 func ParseMessageMetadata(marshalUtil *marshalutil.MarshalUtil) (result *MessageMetadata, err error) {
-	parsedObject, parseErr := marshalUtil.Parse(func(data []byte) (interface{}, int, error) {
-		return MessageMetadataFromStorageKey(data, nil)
-	})
-	if parseErr != nil {
-		err = parseErr
+	result = &MessageMetadata{}
+
+	if result.messageID, err = message.ParseID(marshalUtil); err != nil {
 		return
 	}
-	result = parsedObject.(*MessageMetadata)
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
-
+	if result.receivedTime, err = marshalUtil.ReadTime(); err != nil {
 		return
-	})
+	}
+	if result.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+		return
+	}
+	if result.solid, err = marshalUtil.ReadBool(); err != nil {
+		return
+	}
 
 	return
 }
 
-// MessageMetadataFromStorageKey unmarshals the stored bytes into a MessageMetadata.
-func MessageMetadataFromStorageKey(key []byte, _ []byte) (result objectstorage.StorableObject, consumedBytes int, err error) {
-	result = &MessageMetadata{}
-
-	marshalUtil := marshalutil.New(key)
-	result.(*MessageMetadata).messageID, err = message.ParseID(marshalUtil)
-	if err != nil {
+// MessageMetadataFromObjectStorage unmarshals the stored bytes into a MessageMetadata.
+func MessageMetadataFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = MessageMetadataFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
@@ -126,6 +123,11 @@ func (messageMetadata *MessageMetadata) SolidificationTime() time.Time {
 	return messageMetadata.solidificationTime
 }
 
+// Bytes returns a marshaled version of the whole MessageMetadata object.
+func (messageMetadata *MessageMetadata) Bytes() []byte {
+	return byteutils.ConcatBytes(messageMetadata.ObjectStorageKey(), messageMetadata.ObjectStorageValue())
+}
+
 // ObjectStorageKey returns the key of the stored message metadata object.
 // This returns the bytes of the messageID.
 func (messageMetadata *MessageMetadata) ObjectStorageKey() []byte {
@@ -140,25 +142,6 @@ func (messageMetadata *MessageMetadata) ObjectStorageValue() []byte {
 		WriteTime(messageMetadata.SolidificationTime()).
 		WriteBool(messageMetadata.IsSolid()).
 		Bytes()
-}
-
-// UnmarshalObjectStorageValue unmarshals the stored bytes into a messageMetadata.
-func (messageMetadata *MessageMetadata) UnmarshalObjectStorageValue(data []byte) (consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(data)
-
-	if messageMetadata.receivedTime, err = marshalUtil.ReadTime(); err != nil {
-		return
-	}
-	if messageMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		return
-	}
-	if messageMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
-		return
-	}
-
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
 }
 
 // Update updates the message metadata.

@@ -76,45 +76,52 @@ func (persistableBaseMana *PersistableBaseMana) ObjectStorageValue() []byte {
 	return persistableBaseMana.Bytes()
 }
 
-// UnmarshalObjectStorageValue unmarshales the bytes into a persitable mana object.
-func (persistableBaseMana *PersistableBaseMana) UnmarshalObjectStorageValue(bytes []byte) (consumedBytes int, err error) {
-	// initialize helper
+// FromBytes unmarshals a Persistable Base Mana from a sequence of bytes.
+func FromBytes(bytes []byte) (result *PersistableBaseMana, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
+	result, err = Parse(marshalUtil)
+	consumedBytes = marshalUtil.ReadOffset()
+	return
+}
+
+// Parse unmarshals a persistableBaseMana using the given marshalUtil (for easier marshaling/unmarshaling).
+func Parse(marshalUtil *marshalutil.MarshalUtil) (result *PersistableBaseMana, err error) {
+	result = &PersistableBaseMana{}
 	manaType, err := marshalUtil.ReadInt64()
 	if err != nil {
 		return
 	}
-	persistableBaseMana.ManaType = Type(manaType)
+	result.ManaType = Type(manaType)
 
 	baseMana1, err := marshalUtil.ReadUint64()
 	if err != nil {
 		return
 	}
-	persistableBaseMana.BaseMana1 = math.Float64frombits(baseMana1)
+	result.BaseMana1 = math.Float64frombits(baseMana1)
 
 	effBaseMana1, err := marshalUtil.ReadUint64()
 	if err != nil {
 		return
 	}
-	persistableBaseMana.EffectiveBaseMana1 = math.Float64frombits(effBaseMana1)
+	result.EffectiveBaseMana1 = math.Float64frombits(effBaseMana1)
 
 	baseMana2, err := marshalUtil.ReadUint64()
 	if err != nil {
 		return
 	}
-	persistableBaseMana.BaseMana2 = math.Float64frombits(baseMana2)
+	result.BaseMana2 = math.Float64frombits(baseMana2)
 
 	effBaseMana2, err := marshalUtil.ReadUint64()
 	if err != nil {
 		return
 	}
-	persistableBaseMana.EffectiveBaseMana2 = math.Float64frombits(effBaseMana2)
+	result.EffectiveBaseMana2 = math.Float64frombits(effBaseMana2)
 
 	lastUpdated, err := marshalUtil.ReadTime()
 	if err != nil {
 		return
 	}
-	persistableBaseMana.LastUpdated = lastUpdated
+	result.LastUpdated = lastUpdated
 
 	nodeIDBytes, err := marshalUtil.ReadBytes(sha256.Size)
 	if err != nil {
@@ -122,30 +129,22 @@ func (persistableBaseMana *PersistableBaseMana) UnmarshalObjectStorageValue(byte
 	}
 	var nodeID identity.ID
 	copy(nodeID[:], nodeIDBytes)
-	persistableBaseMana.NodeID = nodeID
+	result.NodeID = nodeID
 
-	consumedBytes = marshalUtil.ReadOffset()
-	persistableBaseMana.bytes = make([]byte, consumedBytes)
-	copy(persistableBaseMana.bytes, bytes[:consumedBytes])
+	consumedBytes := marshalUtil.ReadOffset()
+	result.bytes = make([]byte, consumedBytes)
+	copy(result.bytes, marshalUtil.Bytes())
 	return
 }
 
-// FromStorageKey returns the persistable mana indexed by the key specified.
-func FromStorageKey(key []byte, optionalTargetObject ...*PersistableBaseMana) (result *PersistableBaseMana, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &PersistableBaseMana{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to FromStorageKey")
+// FromObjectStorage is a factory method that creates a new PersistableBaseMana instance from a storage key of the objectstorage.
+func FromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	persistableBaseMana, err := Parse(marshalutil.New(data))
+	if err != nil {
+		return
 	}
-
-	var nodeID identity.ID
-	copy(nodeID[:], key)
-	result.NodeID = nodeID
-
+	copy(persistableBaseMana.NodeID[:], key)
+	result = persistableBaseMana
 	return
 }
 

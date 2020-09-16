@@ -44,19 +44,18 @@ func TestPersistableBaseMana_Update(t *testing.T) {
 	}, "should have paniced")
 }
 
-func TestPersistableBaseMana_UnmarshalObjectStorageValue(t *testing.T) {
+func TestPersistableBaseMana_FromBytes(t *testing.T) {
 	p1 := newPersistableMana()
-	p2 := &PersistableBaseMana{}
-	_, err := p2.UnmarshalObjectStorageValue(p1.Bytes())
+	p2, _, err := FromBytes(p1.Bytes())
 	assert.Nil(t, err, "should not have returned error")
 	assert.Equal(t, p1.Bytes(), p2.Bytes(), "should be equal")
 }
 
 func TestFromStorageKey(t *testing.T) {
 	p := newPersistableMana()
-	p1, _, err := FromStorageKey(p.NodeID.Bytes())
+	p1, err := FromObjectStorage(p.NodeID.Bytes(), p.Bytes())
 	assert.Nil(t, err, "should not have returned error")
-	assert.Equal(t, p.NodeID, p1.NodeID, "should be equal")
+	assert.Equal(t, p.NodeID, p1.(*PersistableBaseMana).NodeID, "should be equal")
 }
 
 func newPersistableMana() *PersistableBaseMana {
