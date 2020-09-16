@@ -65,7 +65,7 @@ func getMana(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, Response{
-		Node:      request.Node,
+		Node:      base58.Encode(ID.Bytes()),
 		Access:    accessMana,
 		Consensus: consensusMana,
 	})
