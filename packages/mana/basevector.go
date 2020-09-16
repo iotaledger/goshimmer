@@ -234,6 +234,25 @@ func (n NodeMap) ToNodeStrList() []NodeStr {
 	return list
 }
 
+// GetPercentile returns the top percentile the node belongs to relative to the network in terms of mana.
+func (n NodeMap) GetPercentile(node identity.ID) (float64, error) {
+	if len(n) == 0 {
+		return 0, nil
+	}
+	value, ok := n[node]
+	if !ok {
+		return 0, ErrNodeNotFoundInBaseManaVector
+	}
+	nBelow := 0.0
+	for _, val := range n {
+		if val < value {
+			nBelow++
+		}
+	}
+
+	return (nBelow / float64(len(n))) * 100, nil
+}
+
 //// Region Internal methods ////
 
 // update updates the mana entries for a particular node wrt time. Not concurrency safe.

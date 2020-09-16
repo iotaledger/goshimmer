@@ -1,19 +1,26 @@
 package sendtransaction
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/labstack/echo"
 )
 
 var (
 	sendTxMu           sync.Mutex
 	maxBookedAwaitTime = 5 * time.Second
+
+	// ErrNotAllowedToPledgeManaToNode defines an unsupported node to pledge mana to.
+	ErrNotAllowedToPledgeManaToNode = errors.New("not allowed to pledge mana to node")
 )
 
 // Handler sends a transaction.
@@ -30,6 +37,23 @@ func Handler(c echo.Context) error {
 	tx, _, err := transaction.FromBytes(request.TransactionBytes)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
+
+	allowedAccessMana := manaPlugin.GetAllowedPledgeNodes(mana.AccessMana)
+	if allowedAccessMana.IsFilterEnabled {
+		if !allowedAccessMana.Allowed.Has(tx.AccessManaNodeID()) {
+			return c.JSON(http.StatusBadRequest, Response{
+				Error: fmt.Errorf("not allowed to pledge access mana to %s: %w", tx.AccessManaNodeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
+			})
+		}
+	}
+	allowedConsensusMana := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
+	if allowedConsensusMana.IsFilterEnabled {
+		if !allowedConsensusMana.Allowed.Has(tx.ConsensusManaNodeID()) {
+			return c.JSON(http.StatusBadRequest, Response{
+				Error: fmt.Errorf("not allowed to pledge consensus mana to %s: %w", tx.ConsensusManaNodeID().String(), ErrNotAllowedToPledgeManaToNode).Error(),
+			})
+		}
 	}
 
 	err = valuetransfers.Tangle().ValidateTransactionToAttach(tx)

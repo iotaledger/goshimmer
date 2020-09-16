@@ -7,15 +7,15 @@ import (
 	"github.com/mr-tron/base58"
 )
 
-// IDFromPubKey returns the identity of a node from its public key in base58.
-func IDFromPubKey(pubKey string) (ID identity.ID, err error) {
+// IDFromStr decodes and returns an ID from base58.
+func IDFromStr(idStr string) (ID identity.ID, err error) {
 	ID = identity.ID{}
-	if pubKey == "" {
+	if idStr == "" {
 		return
 	}
-	bytes, err := base58.Decode(pubKey)
+	bytes, err := base58.Decode(idStr)
 	if err != nil {
-		err = fmt.Errorf("could not parse public key: %s, as base58: %w", pubKey, err)
+		err = fmt.Errorf("could not parse public key: %s, as base58: %w", idStr, err)
 		return
 	}
 	copy(ID[:], bytes)

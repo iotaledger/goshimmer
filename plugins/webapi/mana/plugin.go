@@ -2,7 +2,10 @@ package mana
 
 import (
 	"net/http"
-	goSync "sync"
+	"sync"
+
+	manaPkg "github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/mana"
@@ -15,12 +18,12 @@ import (
 )
 
 // PluginName is the name of the web API mana endpoint plugin.
-const PluginName = "WebAPI mana Endpoint"
+const PluginName = "WebAPI Mana Endpoint"
 
 var (
 	// plugin is the plugin instance of the web API mana endpoint plugin.
 	plugin *node.Plugin
-	once   goSync.Once
+	once   sync.Once
 )
 
 // Plugin gets the plugin instance.
@@ -40,17 +43,43 @@ func configure(_ *node.Plugin) {
 }
 
 func getMana(c echo.Context) error {
-	accessMana, _ := mana.GetAccessMana(local.GetInstance().ID())
-	consensusMana, _ := mana.GetConsensusMana(local.GetInstance().ID())
+	var request Request
+	if err := c.Bind(&request); err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
+	ID, err := manaPkg.IDFromStr(request.Node)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
+	emptyID := identity.ID{}
+	if ID == emptyID {
+		ID = local.GetInstance().ID()
+	}
+	accessMana, err := mana.GetAccessMana(ID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
+	consensusMana, err := mana.GetConsensusMana(ID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
 
 	return c.JSON(http.StatusOK, Response{
+		Node:      request.Node,
 		Access:    accessMana,
 		Consensus: consensusMana,
 	})
 }
 
+// Request is the request for get mana.
+type Request struct {
+	Node string `json:"node"`
+}
+
 // Response defines the response for get mana.
 type Response struct {
+	Error     string  `json:"error,omitempty"`
+	Node      string  `json:"node"`
 	Access    float64 `json:"access"`
 	Consensus float64 `json:"consensus"`
 }

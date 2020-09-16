@@ -3,45 +3,52 @@ package percentile
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
+	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/packages/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/labstack/echo"
 )
 
 // Handler handles the request.
 func Handler(c echo.Context) error {
-	accessNodes := manaPlugin.GetManaMap(mana.AccessMana)
-	access := getPercentile(accessNodes)
-	consensusNodes := manaPlugin.GetManaMap(mana.ConsensusMana)
-	consensus := getPercentile(consensusNodes)
+	var request Request
+	if err := c.Bind(&request); err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
+	ID, err := mana.IDFromStr(request.Node)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
+	emptyID := identity.ID{}
+	if ID == emptyID {
+		ID = local.GetInstance().ID()
+	}
+	access, err := manaPlugin.GetManaMap(mana.AccessMana).GetPercentile(ID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
+	consensus, err := manaPlugin.GetManaMap(mana.ConsensusMana).GetPercentile(ID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, Response{Error: err.Error()})
+	}
 	return c.JSON(http.StatusOK, Response{
+		Node:      request.Node,
 		Access:    access,
 		Consensus: consensus,
 	})
 }
 
-func getPercentile(nodes mana.NodeMap) float64 {
-	if len(nodes) == 0 {
-		return 0
-	}
-	mine, ok := nodes[local.GetInstance().ID()]
-	if !ok {
-		return 0
-	}
-	nBelow := 0.0
-	for _, val := range nodes {
-		if val < mine {
-			nBelow++
-		}
-	}
-
-	return (nBelow / float64(len(nodes))) * 100
+// Request is the request.
+type Request struct {
+	Node string `json:"node"`
 }
 
 // Response is the response.
 type Response struct {
 	Error     string  `json:"error,omitempty"`
+	Node      string  `json:"node"`
 	Access    float64 `json:"access"`
 	Consensus float64 `json:"consensus"`
 }

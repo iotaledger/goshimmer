@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
@@ -294,8 +295,8 @@ func GetWeightedRandomNodes(n uint, manaType mana.Type) mana.NodeMap {
 	return res
 }
 
-// GetAllowedAccessPledgeNodes returns the list of nodes that type mana is allowed to be pledged to.
-func GetAllowedAccessPledgeNodes(manaType mana.Type) AllowedPledge {
+// GetAllowedPledgeNodes returns the list of nodes that type mana is allowed to be pledged to.
+func GetAllowedPledgeNodes(manaType mana.Type) AllowedPledge {
 	return allowedPledgeNodes[manaType]
 }
 
@@ -310,25 +311,25 @@ func verifyPledgeNodes() error {
 	}
 
 	if access.IsFilterEnabled {
-		nodes := make(map[identity.ID]interface{})
+		nodes := set.New(false)
 		for _, pubKey := range config.Node().GetStringSlice(CfgAllowedAccessPledge) {
-			ID, err := mana.IDFromPubKey(pubKey)
+			ID, err := mana.IDFromStr(pubKey)
 			if err != nil {
 				return err
 			}
-			nodes[ID] = nil // don't care
+			nodes.Add(ID)
 		}
 		access.Allowed = nodes
 	}
 
 	if consensus.IsFilterEnabled {
-		nodes := make(map[identity.ID]interface{})
+		nodes := set.New(false)
 		for _, pubKey := range config.Node().GetStringSlice(CfgAllowedConsensusPledge) {
-			ID, err := mana.IDFromPubKey(pubKey)
+			ID, err := mana.IDFromStr(pubKey)
 			if err != nil {
 				return err
 			}
-			nodes[ID] = nil // don't care
+			nodes.Add(ID)
 		}
 		consensus.Allowed = nodes
 	}
@@ -341,5 +342,5 @@ func verifyPledgeNodes() error {
 // AllowedPledge represents the nodes that mana is allowed to be pledged to.
 type AllowedPledge struct {
 	IsFilterEnabled bool
-	Allowed         map[identity.ID]interface{}
+	Allowed         set.Set
 }

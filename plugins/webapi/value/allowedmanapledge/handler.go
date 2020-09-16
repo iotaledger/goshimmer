@@ -5,21 +5,23 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/mana"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
+	"github.com/mr-tron/base58"
 )
 
 // Handler handles the request.
 func Handler(c echo.Context) error {
-	access := manaPlugin.GetAllowedAccessPledgeNodes(mana.AccessMana)
+	access := manaPlugin.GetAllowedPledgeNodes(mana.AccessMana)
 	var accessNodes []string
-	for ID := range access.Allowed {
-		accessNodes = append(accessNodes, ID.String())
-	}
-	consensus := manaPlugin.GetAllowedAccessPledgeNodes(mana.ConsensusMana)
+	access.Allowed.ForEach(func(element interface{}) {
+		accessNodes = append(accessNodes, base58.Encode(element.(identity.ID).Bytes()))
+	})
+	consensus := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
 	var consensusNodes []string
-	for ID := range consensus.Allowed {
-		consensusNodes = append(consensusNodes, ID.String())
-	}
+	consensus.Allowed.ForEach(func(element interface{}) {
+		consensusNodes = append(consensusNodes, base58.Encode(element.(identity.ID).Bytes()))
+	})
 	return c.JSON(http.StatusOK, Response{
 		Access: AllowedPledge{
 			IsFilterEnabled: access.IsFilterEnabled,
