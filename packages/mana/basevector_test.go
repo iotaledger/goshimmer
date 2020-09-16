@@ -570,12 +570,8 @@ func TestBaseManaVector_GetHighestManaNodes(t *testing.T) {
 		})
 	}
 
-	// requesting zero highest mana nodes
-	result := bmv.GetHighestManaNodes(0)
-	assert.Empty(t, result)
-
 	// requesting the top mana holder
-	result = bmv.GetHighestManaNodes(1)
+	result := bmv.GetHighestManaNodes(1)
 	assert.Equal(t, 1, len(result))
 	assert.Equal(t, nodeIDs[9], result[0].ID)
 	assert.InDelta(t, 9.0, result[0].Mana, delta)
