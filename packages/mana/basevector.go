@@ -65,6 +65,20 @@ func (bmv *BaseManaVector) FromPersitable(p *PersistableBaseMana) {
 	}
 }
 
+// Type returns the type of this mana vector.
+func (bmv *BaseManaVector) Type() Type {
+	bmv.RLock()
+	defer bmv.RUnlock()
+	return bmv.vectorType
+}
+
+// Size returns the size of this mana vector.
+func (bmv *BaseManaVector) Size() int {
+	bmv.RLock()
+	defer bmv.RUnlock()
+	return len(bmv.vector)
+}
+
 // BookMana books mana for a transaction.
 func (bmv *BaseManaVector) BookMana(txInfo *TxInfo) {
 	bmv.Lock()
@@ -73,6 +87,11 @@ func (bmv *BaseManaVector) BookMana(txInfo *TxInfo) {
 	for _, inputInfo := range txInfo.InputInfos {
 		// which node did the input pledge mana to?
 		pledgeNodeID := inputInfo.PledgeID[bmv.vectorType]
+		// can't revoke from genesis
+		emptyID := identity.ID{}
+		if pledgeNodeID == emptyID {
+			continue
+		}
 		if _, exist := bmv.vector[pledgeNodeID]; !exist {
 			// first time we see this node
 			bmv.vector[pledgeNodeID] = &BaseMana{}
@@ -80,7 +99,9 @@ func (bmv *BaseManaVector) BookMana(txInfo *TxInfo) {
 		// save old mana
 		oldMana := bmv.vector[pledgeNodeID]
 		// revoke BM1
-		bmv.vector[pledgeNodeID].revokeBaseMana1(inputInfo.Amount, txInfo.TimeStamp)
+		if err := bmv.vector[pledgeNodeID].revokeBaseMana1(inputInfo.Amount, txInfo.TimeStamp); err == ErrBaseManaNegative {
+			panic(fmt.Sprintf("Revoking %f base mana 1 from node %s results in negative balance", inputInfo.Amount, pledgeNodeID.String()))
+		}
 
 		// trigger events
 		Events().Revoked.Trigger(&RevokedEvent{pledgeNodeID, inputInfo.Amount, txInfo.TimeStamp, bmv.vectorType})
@@ -260,11 +281,11 @@ func (bmv *BaseManaVector) update(nodeID identity.ID, t time.Time) error {
 	if _, exist := bmv.vector[nodeID]; !exist {
 		return ErrNodeNotFoundInBaseManaVector
 	}
-	oldMana := bmv.vector[nodeID]
+	oldMana := *bmv.vector[nodeID]
 	if err := bmv.vector[nodeID].update(t); err != nil {
 		return err
 	}
-	Events().Updated.Trigger(&UpdatedEvent{nodeID, *oldMana, *bmv.vector[nodeID], bmv.vectorType})
+	Events().Updated.Trigger(&UpdatedEvent{nodeID, oldMana, *bmv.vector[nodeID], bmv.vectorType})
 	return nil
 }
 
