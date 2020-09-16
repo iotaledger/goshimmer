@@ -15,3 +15,10 @@ func TestIDFromStr(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, _identity.ID(), ID)
 }
+
+func TestIDFromPubKey(t *testing.T) {
+	_identity := identity.GenerateIdentity()
+	ID, err := IDFromPubKey(_identity.PublicKey().String())
+	assert.NoError(t, err)
+	assert.Equal(t, _identity.ID(), ID)
+}
