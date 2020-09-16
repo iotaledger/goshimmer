@@ -70,8 +70,8 @@ func newMessageFactoryEvents() *MessageFactoryEvents {
 	}
 }
 
-// ParserEvents represents events happening on a message parser.
-type ParserEvents struct {
+// MessageParserEvents represents events happening on a message parser.
+type MessageParserEvents struct {
 	// Fired when a message was parsed.
 	MessageParsed *events.Event
 	// Fired when submitted bytes are rejected by a filter.
@@ -98,8 +98,8 @@ type MessageRejectedEvent struct {
 	Peer    *peer.Peer
 }
 
-func newParserEvents() *ParserEvents {
-	return &ParserEvents{
+func newMessageParserEvents() *MessageParserEvents {
+	return &MessageParserEvents{
 		MessageParsed:   events.NewEvent(messageParsedEvent),
 		BytesRejected:   events.NewEvent(bytesRejectedEvent),
 		MessageRejected: events.NewEvent(messageRejectedEvent),
