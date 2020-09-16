@@ -106,8 +106,8 @@ func newMessageParserEvents() *MessageParserEvents {
 	}
 }
 
-// RequesterEvents represents events happening on a message requester.
-type RequesterEvents struct {
+// MessageRequesterEvents represents events happening on a message requester.
+type MessageRequesterEvents struct {
 	// Fired when a request for a given message should be sent.
 	SendRequest *events.Event
 	// MissingMessageAppeared is triggered when a message is actually present in the node's db although it was still being requested.
@@ -124,8 +124,8 @@ type MissingMessageAppearedEvent struct {
 	ID MessageID
 }
 
-func newRequesterEvents() *RequesterEvents {
-	return &RequesterEvents{
+func newMessageRequesterEvents() *MessageRequesterEvents {
+	return &MessageRequesterEvents{
 		SendRequest:            events.NewEvent(sendRequestEvent),
 		MissingMessageAppeared: events.NewEvent(missingMessageAppearedEvent),
 	}

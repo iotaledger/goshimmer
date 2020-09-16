@@ -39,11 +39,11 @@ func RetryInterval(interval time.Duration) Option {
 	}
 }
 
-// Requester takes care of requesting messages.
-type Requester struct {
+// MessageRequester takes care of requesting messages.
+type MessageRequester struct {
 	scheduledRequests map[MessageID]*time.Timer
 	options           *Options
-	Events            *RequesterEvents
+	Events            *MessageRequesterEvents
 
 	scheduledRequestsMutex sync.RWMutex
 }
@@ -51,12 +51,12 @@ type Requester struct {
 // MessageExistsFunc is a function that tells if a message exists.
 type MessageExistsFunc func(messageId MessageID) bool
 
-// NewRequester creates a new message requester.
-func NewRequester(missingMessages []MessageID, optionalOptions ...Option) *Requester {
-	requester := &Requester{
+// NewMessageRequester creates a new message requester.
+func NewMessageRequester(missingMessages []MessageID, optionalOptions ...Option) *MessageRequester {
+	requester := &MessageRequester{
 		scheduledRequests: make(map[MessageID]*time.Timer),
 		options:           newOptions(optionalOptions),
-		Events:            newRequesterEvents(),
+		Events:            newMessageRequesterEvents(),
 	}
 
 	// add requests for all missing messages
@@ -71,7 +71,7 @@ func NewRequester(missingMessages []MessageID, optionalOptions ...Option) *Reque
 }
 
 // StartRequest initiates a regular triggering of the StartRequest event until it has been stopped using StopRequest.
-func (r *Requester) StartRequest(id MessageID) {
+func (r *MessageRequester) StartRequest(id MessageID) {
 	r.scheduledRequestsMutex.Lock()
 
 	// ignore already scheduled requests
@@ -87,7 +87,7 @@ func (r *Requester) StartRequest(id MessageID) {
 }
 
 // StopRequest stops requests for the given message to further happen.
-func (r *Requester) StopRequest(id MessageID) {
+func (r *MessageRequester) StopRequest(id MessageID) {
 	r.scheduledRequestsMutex.Lock()
 	defer r.scheduledRequestsMutex.Unlock()
 
@@ -97,7 +97,7 @@ func (r *Requester) StopRequest(id MessageID) {
 	}
 }
 
-func (r *Requester) reRequest(id MessageID, count int) {
+func (r *MessageRequester) reRequest(id MessageID, count int) {
 	r.Events.SendRequest.Trigger(&SendRequestEvent{ID: id})
 
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
@@ -122,12 +122,12 @@ func (r *Requester) reRequest(id MessageID, count int) {
 }
 
 // RequestQueueSize returns the number of scheduled message requests.
-func (r *Requester) RequestQueueSize() int {
+func (r *MessageRequester) RequestQueueSize() int {
 	r.scheduledRequestsMutex.RLock()
 	defer r.scheduledRequestsMutex.RUnlock()
 	return len(r.scheduledRequests)
 }
 
-func (r *Requester) createReRequest(msgID MessageID, count int) func() {
+func (r *MessageRequester) createReRequest(msgID MessageID, count int) func() {
 	return func() { r.reRequest(msgID, count) }
 }
