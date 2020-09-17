@@ -8,16 +8,55 @@ import (
 
 // region ColoredBalances //////////////////////////////////////////////////////////////////////////////////////////////
 
+// ColoredBalances represents a collection of balances associated to a certain Color.
 type ColoredBalances struct {
 	balances *orderedmap.OrderedMap
 }
 
+// NewColoredBalances returns an empty collection of ColoredBalances.
 func NewColoredBalances() *ColoredBalances {
 	return &ColoredBalances{balances: orderedmap.New()}
 }
 
+// Set sets the balance of the given Color.
 func (c *ColoredBalances) Set(color Color, balance uint64) bool {
 	return c.balances.Set(color, balance)
+}
+
+// Get returns the balance of the given Color and a boolean value indicating if the requested Color existed.
+func (c *ColoredBalances) Get(color Color) (uint64, bool) {
+	balance, exists := c.balances.Get(color)
+
+	return balance.(uint64), exists
+}
+
+// Delete removes the given Color from the collection and returns true if the Color was found.
+func (c *ColoredBalances) Delete(color Color) bool {
+	return c.balances.Delete(color)
+}
+
+// ForEach calls the consumer for each element in the collection and aborts the iteration if the consumer returns false.
+func (c *ColoredBalances) ForEach(consumer func(color Color, balance uint64) bool) {
+	c.balances.ForEach(func(key, value interface{}) bool {
+		return consumer(key.(Color), value.(uint64))
+	})
+}
+
+// Size returns the amount of individual balances in the ColoredBalances.
+func (c *ColoredBalances) Size() int {
+	return c.balances.Size()
+}
+
+func (c *ColoredBalances) Bytes() []byte {
+	marshalUtil := marshalutil.New()
+	marshalUtil.WriteUint32(uint32(c.balances.Size()))
+	c.ForEach(func(color Color, balance uint64) bool {
+		marshalUtil.WriteBytes(color.Bytes())
+		marshalUtil.WriteUint64(balance)
+
+		return true
+	})
+	return marshalUtil.Bytes()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -176,7 +176,7 @@ func TestBookTransaction(t *testing.T) {
 			assert.True(t, transactionBooked, "transactionBooked")
 			assert.True(t, decisionPending, "decisionPending")
 
-			// assert that first spend and double spend have different BranchIDs
+			// assert that first spend and double spend have different BranchIds
 			assert.NotEqual(t, branchmanager.MasterBranchID, txMetadata.BranchID(), "BranchID")
 		})
 
