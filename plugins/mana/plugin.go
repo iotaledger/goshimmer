@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/binary/storageprefix"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/config"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
@@ -28,13 +29,10 @@ import (
 const (
 	PluginName      = "Mana"
 	manaScaleFactor = 1000 // scale floating point mana to int
-
 	// CfgEmaCoefficient1 defines the coefficient used for Effective Base Mana 1 (moving average) calculation.
 	CfgEmaCoefficient1 = "mana.emaCoefficient1"
-
 	// CfgEmaCoefficient2 defines the coefficient used for Effective Base Mana 2 (moving average) calculation.
 	CfgEmaCoefficient2 = "mana.emaCoefficient2"
-
 	// CfgDecay defines the decay coefficient used for Base Mana 2 calculation.
 	CfgDecay = "mana.decay"
 	// CfgAllowedAccessPledge defines the list of nodes that access mana is allowed to be pledged to.
@@ -315,6 +313,8 @@ func verifyPledgeNodes() error {
 			}
 			nodes.Add(ID)
 		}
+		// own ID is allowed by default
+		nodes.Add(local.GetInstance().ID())
 		access.Allowed = nodes
 	}
 
@@ -327,6 +327,8 @@ func verifyPledgeNodes() error {
 			}
 			nodes.Add(ID)
 		}
+		// own ID is allowed by default
+		nodes.Add(local.GetInstance().ID())
 		consensus.Allowed = nodes
 	}
 
