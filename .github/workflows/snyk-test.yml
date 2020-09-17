@@ -11,6 +11,9 @@ on:
 jobs:
   security:
     runs-on: ubuntu-latest
+    # Only run on push events or PRs from iotaledger/goshimmer, skip on PRs from forks
+    # Secret variables cannot be exposed to PRs from forks
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
     - uses: actions/checkout@master
 
