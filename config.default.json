@@ -71,6 +71,12 @@
     "local": true,
     "global": false
   },
+  "mana": {
+    "allowedAccessFilterEnabled": false,
+    "allowedAccessPledge": [],
+    "allowedConsensusFilterEnabled": false,
+    "allowedConsensusPledge": []
+  },
   "network": {
     "bindAddress": "0.0.0.0",
     "externalAddress": "auto"
