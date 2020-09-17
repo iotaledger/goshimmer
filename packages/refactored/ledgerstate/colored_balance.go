@@ -3,6 +3,7 @@ package ledgerstate
 import (
 	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 )
 
@@ -30,7 +31,7 @@ func (c *ColoredBalances) Get(color Color) (uint64, bool) {
 	return balance.(uint64), exists
 }
 
-// Delete removes the given Color from the collection and returns true if the Color was found.
+// Delete removes the given Color from the collection and returns true if it was removed.
 func (c *ColoredBalances) Delete(color Color) bool {
 	return c.balances.Delete(color)
 }
@@ -47,6 +48,7 @@ func (c *ColoredBalances) Size() int {
 	return c.balances.Size()
 }
 
+// Bytes returns a marshaled version of the ColoredBalances.
 func (c *ColoredBalances) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint32(uint32(c.balances.Size()))
@@ -57,6 +59,18 @@ func (c *ColoredBalances) Bytes() []byte {
 		return true
 	})
 	return marshalUtil.Bytes()
+}
+
+// String returns a human readable version of the ColoredBalances.
+func (c *ColoredBalances) String() string {
+	structBuilder := stringify.StructBuilder("ColoredBalances")
+	c.ForEach(func(color Color, balance uint64) bool {
+		structBuilder.AddField(stringify.StructField(color.String(), balance))
+
+		return true
+	})
+
+	return structBuilder.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
