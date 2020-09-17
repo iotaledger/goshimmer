@@ -5,16 +5,16 @@ import (
 	"sync"
 
 	manaPkg "github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/hive.go/identity"
-
 	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/mana/all"
 	"github.com/iotaledger/goshimmer/plugins/webapi/mana/nhighest"
 	"github.com/iotaledger/goshimmer/plugins/webapi/mana/percentile"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
+	"github.com/mr-tron/base58"
 )
 
 // PluginName is the name of the web API mana endpoint plugin.

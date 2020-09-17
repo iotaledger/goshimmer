@@ -3,12 +3,12 @@ package percentile
 import (
 	"net/http"
 
-	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
-	"github.com/iotaledger/hive.go/identity"
-
 	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
+	"github.com/mr-tron/base58"
 )
 
 // Handler handles the request.
