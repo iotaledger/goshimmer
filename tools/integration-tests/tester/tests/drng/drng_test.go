@@ -31,7 +31,10 @@ func TestDRNG(t *testing.T) {
 
 	// randomness starts at round = 2
 	firstRound := uint64(2)
-	_, err = waitForRound(t, drng.Peers()[0], firstRound, 200)
+	resp, err := waitForRound(t, drng.Peers()[0], firstRound, 200)
+	if err != nil {
+		t.Log(resp)
+	}
 	require.NoError(t, err)
 
 	log.Printf("Waiting for randomness generation to be started... done\n")

@@ -1,6 +1,7 @@
 package payload
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/binary/drng/payload/header"
@@ -35,6 +36,7 @@ func New(header header.Header, data []byte) *Payload {
 func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
 	payload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) })
 	if err != nil {
+		err = fmt.Errorf("failed to parse drng payload: %w", err)
 		return &Payload{}, err
 	}
 	return payload.(*Payload), nil
@@ -42,37 +44,32 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
 
 // FromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Payload{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to OutputFromBytes")
-	}
-
+func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 
 	// read information that are required to identify the payload from the outside
-	if _, err = marshalUtil.ReadUint32(); err != nil {
+	result = &Payload{}
+	len, err := marshalUtil.ReadUint32()
+	if err != nil {
+		err = fmt.Errorf("failed to parse payload size of drng payload: %w", err)
 		return
 	}
 
-	len, err := marshalUtil.ReadUint32()
-	if err != nil {
+	if _, err = marshalUtil.ReadUint32(); err != nil {
+		err = fmt.Errorf("failed to parse payload type of drng payload: %w", err)
 		return
 	}
 
 	// parse header
 	if result.Header, err = header.Parse(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse header of drng payload: %w", err)
 		return
 	}
 
 	// parse data
 	if result.Data, err = marshalUtil.ReadBytes(int(len - header.Length)); err != nil {
+		err = fmt.Errorf("failed to parse data of drng payload: %w", err)
 		return
 	}
 
@@ -109,8 +106,8 @@ func (payload *Payload) Bytes() (bytes []byte) {
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(Type)
 	marshalUtil.WriteUint32(uint32(len(payload.Data) + header.Length))
+	marshalUtil.WriteUint32(Type)
 	marshalUtil.WriteBytes(payload.Header.Bytes())
 	marshalUtil.WriteBytes(payload.Data[:])
 
@@ -142,17 +139,9 @@ func (payload *Payload) Marshal() (bytes []byte, err error) {
 	return payload.Bytes(), nil
 }
 
-// Unmarshal unmarshals the given bytes into a drng payload.
-func (payload *Payload) Unmarshal(data []byte) (err error) {
-	_, _, err = FromBytes(data, payload)
-
-	return
-}
-
 func init() {
 	payload.RegisterType(Type, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-		payload = &Payload{}
-		err = payload.Unmarshal(data)
+		payload, _, err = FromBytes(data)
 
 		return
 	})

@@ -1,6 +1,7 @@
 package payload
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/stringify"
@@ -43,6 +44,7 @@ func New(instanceID uint32, round uint64, prevSignature, signature, dpk []byte) 
 func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
 	unmarshalledPayload, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) })
 	if err != nil {
+		err = fmt.Errorf("failed to parse collective beacon payload: %w", err)
 		return nil, err
 	}
 	_payload := unmarshalledPayload.(*Payload)
@@ -52,50 +54,48 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (*Payload, error) {
 
 // FromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte, optionalTargetObject ...*Payload) (result *Payload, consumedBytes int, err error) {
-	// determine the target object that will hold the unmarshaled information
-	switch len(optionalTargetObject) {
-	case 0:
-		result = &Payload{}
-	case 1:
-		result = optionalTargetObject[0]
-	default:
-		panic("too many arguments in call to OutputFromBytes")
-	}
-
+func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 
 	// read information that are required to identify the payload from the outside
 	if _, err = marshalUtil.ReadUint32(); err != nil {
+		err = fmt.Errorf("failed to parse payload size of collective beacon payload: %w", err)
 		return
 	}
 	if _, err = marshalUtil.ReadUint32(); err != nil {
+		err = fmt.Errorf("failed to parse payload type of collective beacon payload: %w", err)
 		return
 	}
 
 	// parse header
+	result = &Payload{}
 	if result.Header, err = header.Parse(marshalUtil); err != nil {
+		err = fmt.Errorf("failed to parse header of collective beacon payload: %w", err)
 		return
 	}
 
 	// parse round
 	if result.Round, err = marshalUtil.ReadUint64(); err != nil {
+		err = fmt.Errorf("failed to parse round of collective beacon payload: %w", err)
 		return
 	}
 
 	// parse prevSignature
 	if result.PrevSignature, err = marshalUtil.ReadBytes(SignatureSize); err != nil {
+		err = fmt.Errorf("failed to parse prevSignature of collective beacon payload: %w", err)
 		return
 	}
 
 	// parse current signature
 	if result.Signature, err = marshalUtil.ReadBytes(SignatureSize); err != nil {
+		err = fmt.Errorf("failed to parse current signature of collective beacon payload: %w", err)
 		return
 	}
 
 	// parse distributed public key
 	if result.Dpk, err = marshalUtil.ReadBytes(PublicKeySize); err != nil {
+		err = fmt.Errorf("failed to parse distributed public key of collective beacon payload: %w", err)
 		return
 	}
 
@@ -132,8 +132,8 @@ func (payload *Payload) Bytes() (bytes []byte) {
 	// marshal fields
 	payloadLength := header.Length + marshalutil.UINT64_SIZE + SignatureSize*2 + PublicKeySize
 	marshalUtil := marshalutil.New(marshalutil.UINT32_SIZE + marshalutil.UINT32_SIZE + payloadLength)
-	marshalUtil.WriteUint32(drngPayload.Type)
 	marshalUtil.WriteUint32(uint32(payloadLength))
+	marshalUtil.WriteUint32(drngPayload.Type)
 	marshalUtil.WriteBytes(payload.Header.Bytes())
 	marshalUtil.WriteUint64(payload.Round)
 	marshalUtil.WriteBytes(payload.PrevSignature)
@@ -169,13 +169,6 @@ func (payload *Payload) Type() payload.Type {
 // Marshal marshals the collective beacon payload into bytes.
 func (payload *Payload) Marshal() (bytes []byte, err error) {
 	return payload.Bytes(), nil
-}
-
-// Unmarshal returns a collective beacon payload from the given bytes.
-func (payload *Payload) Unmarshal(data []byte) (err error) {
-	_, _, err = FromBytes(data, payload)
-
-	return
 }
 
 // // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
