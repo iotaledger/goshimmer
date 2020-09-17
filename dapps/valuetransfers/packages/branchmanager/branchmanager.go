@@ -274,7 +274,7 @@ func (branchManager *BranchManager) BranchesConflicting(branchIds ...BranchID) (
 	return
 }
 
-// AggregateBranches takes a list of BranchIds and tries to "aggregate" the given IDs into a new Branch. It is used to
+// AggregateBranches takes a list of BranchIDs and tries to "aggregate" the given IDs into a new Branch. It is used to
 // correctly "inherit" the referenced parent Branches into a new one.
 func (branchManager *BranchManager) AggregateBranches(branches ...BranchID) (cachedAggregatedBranch *CachedBranch, err error) {
 	// return the MasterBranch if we have no branches in the parameters
@@ -345,7 +345,7 @@ func (branchManager *BranchManager) SetBranchFinalized(branchID BranchID) (modif
 	return branchManager.setBranchFinalized(branchManager.Branch(branchID))
 }
 
-// GenerateAggregatedBranchID generates an aggregated BranchID from the handed in BranchIds.
+// GenerateAggregatedBranchID generates an aggregated BranchID from the handed in BranchIDs.
 func (branchManager *BranchManager) GenerateAggregatedBranchID(branchIDs ...BranchID) BranchID {
 	sort.Slice(branchIDs, func(i, j int) bool {
 		for k := 0; k < len(branchIDs[k]); k++ {

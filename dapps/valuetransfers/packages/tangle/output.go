@@ -20,9 +20,8 @@ var OutputKeyPartitions = objectstorage.PartitionKey([]int{address.Length, trans
 
 // Output represents the output of a Transaction and contains the balances and the identifiers for this output.
 type Output struct {
-	address       address.Address
-	transactionID transaction.ID
-
+	address            address.Address
+	transactionID      transaction.ID
 	branchID           branchmanager.BranchID
 	solid              bool
 	solidificationTime time.Time
