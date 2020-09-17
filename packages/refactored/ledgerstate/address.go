@@ -1,12 +1,11 @@
 package ledgerstate
 
 import (
-	"fmt"
-
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -68,6 +67,7 @@ func AddressFromBytes(bytes []byte) (result Address, consumedBytes int, err erro
 func AddressFromBase58EncodedString(base58String string) (address Address, err error) {
 	bytes, err := base58.Decode(base58String)
 	if err != nil {
+		err = errors.Wrap(err, "error while decoding base58 encoded Address")
 		return
 	}
 
@@ -80,8 +80,7 @@ func AddressFromBase58EncodedString(base58String string) (address Address, err e
 func AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result Address, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = fmt.Errorf("error while parsing OutputType: %w", err)
-
+		err = errors.Wrap(err, "error while parsing OutputType of Address")
 		return
 	}
 	marshalUtil.ReadSeek(-1)
@@ -92,7 +91,7 @@ func AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result Addres
 	case AddressTypeBLS:
 		return BLSAddressFromMarshalUtil(marshalUtil)
 	default:
-		err = fmt.Errorf("unable to parse address: unknown address type")
+		err = errors.New("unknown address type")
 	}
 
 	return
@@ -120,17 +119,17 @@ func NewED25519Address(publicKey ed25519.PublicKey) *ED25519Address {
 func ED25519AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *ED25519Address, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = fmt.Errorf("error parsing OutputType in ED25519AddressFromMarshalUtil: %w", err)
+		err = errors.Wrap(err, "error parsing OutputType")
 		return
 	}
 	if AddressType(outputType) != AddressTypeBLS {
-		err = fmt.Errorf("error parsing OutputType in BLSAddressFromMarshalUtil: invalid OutputType `%X`", outputType)
+		err = errors.Errorf("invalid OutputType '%X'", outputType)
 		return
 	}
 
 	address = &ED25519Address{}
 	if address.digest, err = marshalUtil.ReadBytes(32); err != nil {
-		err = fmt.Errorf("error parsing digest in ED25519AddressFromMarshalUtil: %w", err)
+		err = errors.Wrap(err, "error parsing digest")
 		return
 	}
 
@@ -189,17 +188,17 @@ func NewBLSAddress(publicKey []byte) *BLSAddress {
 func BLSAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *BLSAddress, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
-		err = fmt.Errorf("error parsing OutputType in BLSAddressFromMarshalUtil: %w", err)
+		err = errors.Wrap(err, "error parsing OutputType")
 		return
 	}
 	if AddressType(outputType) != AddressTypeBLS {
-		err = fmt.Errorf("error parsing OutputType in BLSAddressFromMarshalUtil: invalid OutputType `%X`", outputType)
+		err = errors.Errorf("invalid OutputType `%X`", outputType)
 		return
 	}
 
 	address = &BLSAddress{}
 	if address.digest, err = marshalUtil.ReadBytes(32); err != nil {
-		err = fmt.Errorf("error parsing digest in BLSAddressFromMarshalUtil: %w", err)
+		err = errors.Wrap(err, "error parsing digest")
 		return
 	}
 
