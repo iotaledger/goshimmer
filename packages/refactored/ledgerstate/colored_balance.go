@@ -1,7 +1,7 @@
 package ledgerstate
 
 import (
-	"github.com/iotaledger/goshimmer/packages/binary/datastructure/orderedmap"
+	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/mr-tron/base58"
 )

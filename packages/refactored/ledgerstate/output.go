@@ -63,14 +63,14 @@ type Output interface {
 // OutputFromBytes unmarshals an Output object from a sequence of bytes.
 func OutputFromBytes(bytes []byte) (result Output, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseOutput(marshalUtil)
+	result, err = OutputFromMarshalUtil(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// ParseOutput unmarshals an Output using a marshalUtil (for easier marshaling/unmarshaling).
-func ParseOutput(marshalUtil *marshalutil.MarshalUtil) (result Output, err error) {
+// OutputFromMarshalUtil unmarshals an Output using a marshalUtil (for easier marshaling/unmarshaling).
+func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result Output, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
 		err = fmt.Errorf("error while parsing OutputType: %w", err)
@@ -80,25 +80,17 @@ func ParseOutput(marshalUtil *marshalutil.MarshalUtil) (result Output, err error
 
 	switch outputType {
 	case SigLockedSingleOutputType:
-		result = &SigLockedSingleOutput{}
+		result, err = SigLockedSingleOutputFromMarshalUtil(marshalUtil)
 	default:
 		err = fmt.Errorf("unsupported OutputType `%X`", outputType)
-
-		return
 	}
-
-	_, err = marshalUtil.Parse(func(data []byte) (parseResult interface{}, parsedBytes int, parseErr error) {
-		parsedBytes, parseErr = result.UnmarshalObjectStorageValue(data)
-
-		return
-	})
 
 	return
 }
 
-// OutputFromStorage get's called when we restore a Output from the ObjectStorage. In contrast to the other parse
+// OutputFromObjectStorage get's called when we restore a Output from the ObjectStorage. In contrast to the other parse
 // methods, it automatically populated the OutputID.
-func OutputFromStorage(key []byte, data []byte) (result Output, consumedBytes int, err error) {
+func OutputFromObjectStorage(key []byte, data []byte) (result Output, consumedBytes int, err error) {
 	// abort if the data doesn't contain enough information to read the type
 	if len(data) < 1 {
 		err = errors.New("not enough bytes in data segment to parse OutputType")
@@ -142,6 +134,23 @@ type SigLockedSingleOutput struct {
 	balance uint64
 
 	objectstorage.StorableObjectFlags
+}
+
+// TODO: ADD COMMENT
+func SigLockedSingleOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *SigLockedSingleOutput, err error) {
+	result = &SigLockedSingleOutput{}
+
+	if result.balance, err = marshalUtil.ReadUint64(); err != nil {
+		err = fmt.Errorf("error while parsing balance of SigLockedSingleOutput: %w", err)
+		return
+	}
+
+	if result.address, err = ParseAddress(marshalUtil); err != nil {
+		err = fmt.Errorf("error while parsing address of SigLockedSingleOutput: %w", err)
+		return
+	}
+
+	return
 }
 
 // ID returns the identifier of the output that is used to address the Output in the UTXODAG.
@@ -208,22 +217,6 @@ func (o *SigLockedSingleOutput) ObjectStorageValue() []byte {
 		WriteUint64(o.balance).
 		WriteBytes(o.address.Bytes()).
 		Bytes()
-}
-
-// UnmarshalObjectStorageValue restores a Output from a serialized version in the ObjectStorage with parts of the object
-// being stored in its key rather than the content of the database to reduce storage requirements.
-func (o *SigLockedSingleOutput) UnmarshalObjectStorageValue(valueBytes []byte) (consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(valueBytes)
-
-	if o.balance, err = marshalUtil.ReadUint64(); err != nil {
-		return marshalUtil.ReadOffset(), fmt.Errorf("error while parsing balance of SigLockedSingleOutput: %w", err)
-	}
-
-	if o.address, err = ParseAddress(marshalUtil); err != nil {
-		return marshalUtil.ReadOffset(), fmt.Errorf("error while parsing address of SigLockedSingleOutput: %w", err)
-	}
-
-	return marshalUtil.ReadOffset(), nil
 }
 
 // String returns a human readable version of this Output.
