@@ -570,12 +570,8 @@ func TestBaseManaVector_GetHighestManaNodes(t *testing.T) {
 		})
 	}
 
-	// requesting zero highest mana nodes
-	result := bmv.GetHighestManaNodes(0)
-	assert.Empty(t, result)
-
 	// requesting the top mana holder
-	result = bmv.GetHighestManaNodes(1)
+	result := bmv.GetHighestManaNodes(1)
 	assert.Equal(t, 1, len(result))
 	assert.Equal(t, nodeIDs[9], result[0].ID)
 	assert.InDelta(t, 9.0, result[0].Mana, delta)
@@ -623,4 +619,16 @@ func TestBaseManaVector_SetMana(t *testing.T) {
 			LastUpdated:        baseTime,
 		}, *bmv.vector[nodeIDs[i]])
 	}
+}
+
+func TestNodeMap_GetPercentile(t *testing.T) {
+	nodes := make(NodeMap)
+	nodes[identity.GenerateIdentity().ID()] = 1
+	nodes[identity.GenerateIdentity().ID()] = 2
+	nodes[identity.GenerateIdentity().ID()] = 3
+	checkID := identity.GenerateIdentity().ID()
+	nodes[checkID] = 4
+	percentile, err := nodes.GetPercentile(checkID)
+	assert.NoError(t, err)
+	assert.Equal(t, 75.0, percentile)
 }

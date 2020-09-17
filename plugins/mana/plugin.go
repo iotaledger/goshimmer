@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
@@ -36,22 +37,35 @@ const (
 
 	// CfgDecay defines the decay coefficient used for Base Mana 2 calculation.
 	CfgDecay = "mana.decay"
+	// CfgAllowedAccessPledge defines the list of nodes that access mana is allowed to be pledged to.
+	CfgAllowedAccessPledge = "mana.allowedAccessPledge"
+	// CfgAllowedAccessFilterEnabled defines if access mana pledge filter is enabled.
+	CfgAllowedAccessFilterEnabled = "mana.allowedAccessFilterEnabled"
+	// CfgAllowedConsensusPledge defines the list of nodes that consensus mana is allowed to be pledged to.
+	CfgAllowedConsensusPledge = "mana.allowedConsensusPledge"
+	// CfgAllowedConsensusFilterEnabled defines if consensus mana pledge filter is enabled.
+	CfgAllowedConsensusFilterEnabled = "mana.allowedConsensusFilterEnabled"
 )
 
 func init() {
 	flag.Float64(CfgEmaCoefficient1, 0.00003209, "coefficient used for Effective Base Mana 1 (moving average) calculation")
 	flag.Float64(CfgEmaCoefficient2, 0.00003209, "coefficient used for Effective Base Mana 2 (moving average) calculation")
 	flag.Float64(CfgDecay, 0.00003209, "decay coefficient used for Base Mana 2 calculation")
+	flag.StringSlice(CfgAllowedAccessPledge, nil, "list of nodes that access mana is allowed to be pledged to")
+	flag.StringSlice(CfgAllowedConsensusPledge, nil, "list of nodes that consensus mana is allowed to be pledge to")
+	flag.Bool(CfgAllowedAccessFilterEnabled, false, "if filtering on access mana pledge nodes is enabled")
+	flag.Bool(CfgAllowedConsensusFilterEnabled, false, "if filtering on consensus mana pledge nodes is enabled")
 }
 
 var (
 	// plugin is the plugin instance of the mana plugin.
-	plugin          *node.Plugin
-	once            sync.Once
-	log             *logger.Logger
-	baseManaVectors map[mana.Type]*mana.BaseManaVector
-	osFactory       *objectstorage.Factory
-	storages        map[mana.Type]*objectstorage.ObjectStorage
+	plugin             *node.Plugin
+	once               sync.Once
+	log                *logger.Logger
+	baseManaVectors    map[mana.Type]*mana.BaseManaVector
+	osFactory          *objectstorage.Factory
+	storages           map[mana.Type]*objectstorage.ObjectStorage
+	allowedPledgeNodes map[mana.Type]AllowedPledge
 )
 
 // Plugin gets the plugin instance.
@@ -65,6 +79,7 @@ func Plugin() *node.Plugin {
 func configure(*node.Plugin) {
 	log = logger.NewLogger(PluginName)
 
+	allowedPledgeNodes = make(map[mana.Type]AllowedPledge)
 	baseManaVectors = make(map[mana.Type]*mana.BaseManaVector)
 	baseManaVectors[mana.AccessMana] = mana.NewBaseManaVector(mana.AccessMana)
 	baseManaVectors[mana.ConsensusMana] = mana.NewBaseManaVector(mana.ConsensusMana)
@@ -75,6 +90,11 @@ func configure(*node.Plugin) {
 	osFactory = objectstorage.NewFactory(store, storageprefix.Mana)
 	storages[mana.AccessMana] = osFactory.New(storageprefix.Mana, mana.FromObjectStorage)
 	storages[mana.ConsensusMana] = osFactory.New(storageprefix.Mana, mana.FromObjectStorage)
+
+	err := verifyPledgeNodes()
+	if err != nil {
+		log.Panic(err.Error())
+	}
 
 	configureEvents()
 }
@@ -271,4 +291,52 @@ func GetWeightedRandomNodes(n uint, manaType mana.Type) mana.NodeMap {
 	return res
 }
 
+// GetAllowedPledgeNodes returns the list of nodes that type mana is allowed to be pledged to.
+func GetAllowedPledgeNodes(manaType mana.Type) AllowedPledge {
+	return allowedPledgeNodes[manaType]
+}
+
 // TODO: Obtaining a list of currently known peers + their mana, sorted. Useful for knowing which high mana nodes are online.
+
+func verifyPledgeNodes() error {
+	access := AllowedPledge{
+		IsFilterEnabled: config.Node().GetBool(CfgAllowedAccessFilterEnabled),
+	}
+	consensus := AllowedPledge{
+		IsFilterEnabled: config.Node().GetBool(CfgAllowedConsensusFilterEnabled),
+	}
+
+	if access.IsFilterEnabled {
+		nodes := set.New(false)
+		for _, pubKey := range config.Node().GetStringSlice(CfgAllowedAccessPledge) {
+			ID, err := mana.IDFromStr(pubKey)
+			if err != nil {
+				return err
+			}
+			nodes.Add(ID)
+		}
+		access.Allowed = nodes
+	}
+
+	if consensus.IsFilterEnabled {
+		nodes := set.New(false)
+		for _, pubKey := range config.Node().GetStringSlice(CfgAllowedConsensusPledge) {
+			ID, err := mana.IDFromStr(pubKey)
+			if err != nil {
+				return err
+			}
+			nodes.Add(ID)
+		}
+		consensus.Allowed = nodes
+	}
+
+	allowedPledgeNodes[mana.AccessMana] = access
+	allowedPledgeNodes[mana.ConsensusMana] = consensus
+	return nil
+}
+
+// AllowedPledge represents the nodes that mana is allowed to be pledged to.
+type AllowedPledge struct {
+	IsFilterEnabled bool
+	Allowed         set.Set
+}

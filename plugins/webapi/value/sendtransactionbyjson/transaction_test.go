@@ -1,7 +1,10 @@
 package sendtransactionbyjson
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
 	"testing"
+	"time"
 
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
@@ -9,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,11 +34,22 @@ func TestNewTransactionFromJSON(t *testing.T) {
 	bal := balance.New(balance.ColorIOTA, 1)
 	outputs := transaction.NewOutputs(map[address.Address][]*balance.Balance{address.Random(): {bal}})
 	tx := transaction.New(inputs, outputs)
+
+	timestamp := time.Now()
+	accessMana := randomID()
+	consensusMana := randomID()
+	tx.SetTimestamp(timestamp)
+	tx.SetAccessManaNodeID(accessMana)
+	tx.SetConsensusManaNodeID(consensusMana)
+
 	tx.SetDataPayload([]byte("TEST"))
 	// sign with ed25519
 	tx.Sign(sigScheme1)
 	// sign with BLS
 	tx.Sign(sigScheme2)
+
+	check := tx.SignaturesValid()
+	assert.Equal(t, true, check)
 
 	// Parse inputs to base58
 	inputsBase58 := []string{}
@@ -74,10 +89,13 @@ func TestNewTransactionFromJSON(t *testing.T) {
 
 	// create tx JSON
 	jsonRequest := Request{
-		Inputs:     inputsBase58,
-		Outputs:    outputsBase58,
-		Data:       []byte("TEST"),
-		Signatures: signaturesBase58,
+		Inputs:        inputsBase58,
+		Outputs:       outputsBase58,
+		Data:          []byte("TEST"),
+		AccessMana:    base58.Encode(accessMana.Bytes()),
+		ConsensusMana: base58.Encode(consensusMana.Bytes()),
+		Timestamp:     timestamp.UnixNano(),
+		Signatures:    signaturesBase58,
 	}
 	txFromJSON, err := NewTransactionFromJSON(jsonRequest)
 	require.NoError(t, err)
@@ -86,5 +104,13 @@ func TestNewTransactionFromJSON(t *testing.T) {
 	assert.Equal(t, tx.SignatureBytes(), txFromJSON.SignatureBytes())
 
 	// conmpare transactions
-	assert.Equal(t, tx, txFromJSON)
+	assert.Equal(t, tx.Bytes(), txFromJSON.Bytes())
+}
+
+// TODO: remove when https://github.com/iotaledger/hive.go/pull/176 is merged
+func randomID() (ID identity.ID) {
+	idBytes := make([]byte, sha256.Size)
+	_, _ = rand.Read(idBytes)
+	copy(ID[:], idBytes)
+	return
 }

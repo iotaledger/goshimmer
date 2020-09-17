@@ -11,9 +11,13 @@ import (
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/address/signaturescheme"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/plugins/autopeering/local"
 	"github.com/iotaledger/goshimmer/plugins/issuer"
+	manaPlugin "github.com/iotaledger/goshimmer/plugins/mana"
 	"github.com/iotaledger/goshimmer/plugins/webapi/value/utils"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
@@ -39,6 +43,8 @@ var (
 	ErrWrongSignature = fmt.Errorf("wrong signature")
 	// ErrSignatureVersion defines a unsupported signature version error.
 	ErrSignatureVersion = fmt.Errorf("unsupported signature version")
+	// ErrNotAllowedToPledgeManaToNode defines an unsupported node to pledge mana to.
+	ErrNotAllowedToPledgeManaToNode = fmt.Errorf("not allowed to pledge mana to node")
 )
 
 // Handler sends a transaction.
@@ -121,6 +127,38 @@ func NewTransactionFromJSON(request Request) (*transaction.Transaction, error) {
 
 	// prepare transaction
 	tx := transaction.New(transaction.NewInputs(inputs...), transaction.NewOutputs(outputs))
+	emptyID := identity.ID{}
+
+	pledgeAccessManaNode, err := mana.IDFromStr(request.AccessMana)
+	if err != nil {
+		return nil, err
+	}
+	if pledgeAccessManaNode == emptyID {
+		pledgeAccessManaNode = local.GetInstance().ID()
+	}
+	allowedAccessMana := manaPlugin.GetAllowedPledgeNodes(mana.AccessMana)
+	if allowedAccessMana.IsFilterEnabled {
+		if !allowedAccessMana.Allowed.Has(pledgeAccessManaNode) {
+			return nil, fmt.Errorf("not allowed to pledge access mana to %s: %w", request.AccessMana, ErrNotAllowedToPledgeManaToNode)
+		}
+	}
+	tx.SetAccessManaNodeID(pledgeAccessManaNode)
+
+	pledgeConsensusManaNode, err := mana.IDFromStr(request.ConsensusMana)
+	if err != nil {
+		return nil, err
+	}
+	if pledgeConsensusManaNode == emptyID {
+		pledgeConsensusManaNode = local.GetInstance().ID()
+	}
+	allowedConsensusMana := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
+	if allowedConsensusMana.IsFilterEnabled {
+		if !allowedConsensusMana.Allowed.Has(pledgeConsensusManaNode) {
+			return nil, fmt.Errorf("not allowed to pledge consensus mana to %s: %w", request.ConsensusMana, ErrNotAllowedToPledgeManaToNode)
+		}
+	}
+	tx.SetConsensusManaNodeID(pledgeConsensusManaNode)
+	tx.SetTimestamp(time.Unix(0, request.Timestamp))
 
 	// add data payload
 	if request.Data != nil {
@@ -208,10 +246,13 @@ func NewTransactionFromJSON(request Request) (*transaction.Transaction, error) {
 // 	   }[]
 //  }
 type Request struct {
-	Inputs     []string    `json:"inputs"`
-	Outputs    []Output    `json:"outputs"`
-	Data       []byte      `json:"data,omitempty"`
-	Signatures []Signature `json:"signatures"`
+	Inputs        []string    `json:"inputs"`
+	Outputs       []Output    `json:"outputs"`
+	Data          []byte      `json:"data,omitempty"`
+	Signatures    []Signature `json:"signatures"`
+	AccessMana    string      `json:"accessMana"`
+	ConsensusMana string      `json:"consensusMana"`
+	Timestamp     int64       `json:"timestamp"`
 }
 
 // Output defines the struct of an output.
