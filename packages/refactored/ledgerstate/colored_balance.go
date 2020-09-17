@@ -62,10 +62,10 @@ func (color Color) String() string {
 }
 
 // ColorIOTA is the zero value of the Color and represents vanilla IOTA tokens.
-var IOTAColor Color = [32]byte{}
+var IOTAColor = Color{}
 
 // MintColor represents a placeholder Color that will be replaced with the transaction ID that created the funds. It is
 // used to indicate that tokens should be "colored" in their Output (minting new colored coins).
-var MintColor = [32]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
+var MintColor = Color{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
