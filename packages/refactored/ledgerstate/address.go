@@ -1,140 +1,237 @@
 package ledgerstate
 
 import (
-	"crypto/rand"
 	"fmt"
 
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
-// Version represents the version of the address. Different versions are associated to different signature schemes.
-type Version = byte
+// region AddressType //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Digest represents a hashed version of the consumed public key of the address. Hashing the public key allows us to
-// maintain quantum-robustness for addresses, that have never been spent from, and it allows us to have fixed size
-// addresses.
-type Digest = []byte
+// AddressType represents the type of the Address where different types encode different signature schemes.
+type AddressType byte
 
-// Address represents an address in the IOTA ledger.
-type Address [Length]byte
+// String returns a human readable representation of the AddressType.
+func (a AddressType) String() string {
+	return [...]string{
+		"AddressTypeED25519",
+		"AddressTypeBLS",
+	}[a]
+}
 
 const (
-	// VersionED25519 represents the address version that uses ED25519 signatures.
-	VersionED25519 = byte(1)
+	// AddressTypeED25519 represents an Address secured by the ED25519 signature scheme.
+	AddressTypeED25519 AddressType = iota
 
-	// VersionBLS represents the address version that uses BLS signatures.
-	VersionBLS = byte(2)
+	// AddressTypeBLS represents an Address secured by the BLS signature scheme.
+	AddressTypeBLS
 )
 
-// Random creates a random address, which can for example be used in unit tests.
-// first byte (version) is also random
-func Random() (address Address) {
-	// generate a random sequence of bytes
-	if _, err := rand.Read(address[:]); err != nil {
-		panic(err)
-	}
-	return
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Address //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Address is an interface for the different kind of Addresses that are support by the IOTA ledger.
+type Address interface {
+	// Type returns the AddressType of the Address.
+	Type() AddressType
+
+	// Digest returns the bytes of the Address that are usually comprised of the hashed version of the public key.
+	Digest() []byte
+
+	// Bytes returns a marshaled version of the Address.
+	Bytes() []byte
+
+	// Base58 returns a base58 encoded version of the address.
+	Base58() string
+
+	// String returns a human readable version of the addresses for debug purposes.
+	String() string
 }
 
-// RandomOfType creates a random address with the given Version.
-func RandomOfType(versionByte Version) Address {
-	ret := Random()
-	ret[0] = versionByte
-	return ret
-}
-
-// FromBase58 creates an address from a base58 encoded string.
-func FromBase58(base58String string) (address Address, err error) {
-	// decode string
-	bytes, err := base58.Decode(base58String)
-	if err != nil {
-		return
-	}
-
-	// sanitize input
-	if len(bytes) != Length {
-		err = fmt.Errorf("base58 encoded string does not match the length of an address")
-
-		return
-	}
-
-	// copy bytes to result
-	copy(address[:], bytes)
-
-	return
-}
-
-// FromED25519PubKey creates an address from an ed25519 public key.
-func FromED25519PubKey(key ed25519.PublicKey) (address Address) {
-	digest := blake2b.Sum256(key[:])
-
-	address[0] = VersionED25519
-	copy(address[1:], digest[:])
-
-	return
-}
-
-// FromBLSPubKey creates an address from marshaled BLS public key
-// unmarshaled BLS public key conforms to interface kyber.Point
-func FromBLSPubKey(pubKey []byte) (address Address) {
-	digest := blake2b.Sum256(pubKey)
-
-	address[0] = VersionBLS
-	copy(address[1:], digest[:])
-
-	return
-}
-
-// FromBytes unmarshals an address from a sequence of bytes.
-func FromBytes(bytes []byte) (result Address, consumedBytes int, err error) {
-	// parse the bytes
+// AddressFromBytes unmarshals an address from a sequence of bytes.
+func AddressFromBytes(bytes []byte) (result Address, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	addressBytes, err := marshalUtil.ReadBytes(Length)
-	if err != nil {
-		return
-	}
-	copy(result[:], addressBytes)
+	result, err = AddressFromMarshalUtil(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// ParseAddress is a wrapper for simplified unmarshaling of a byte stream using the marshalUtil package.
-func ParseAddress(marshalUtil *marshalutil.MarshalUtil) (Address, error) {
-	address, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return FromBytes(data) })
+// AddressFromBase58EncodedString creates an Address from a base58 encoded string.
+func AddressFromBase58EncodedString(base58String string) (address Address, err error) {
+	bytes, err := base58.Decode(base58String)
 	if err != nil {
-		return Address{}, err
+		return
 	}
 
-	return address.(Address), nil
+	address, _, err = AddressFromBytes(bytes)
+
+	return
 }
 
-// Version returns the version of the address, which corresponds to the signature scheme that is used.
-func (address *Address) Version() Version {
-	return address[0]
+// AddressFromMarshalUtil reads an Address from the bytes in the given MarshalUtil.
+func AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result Address, err error) {
+	outputType, err := marshalUtil.ReadByte()
+	if err != nil {
+		err = fmt.Errorf("error while parsing OutputType: %w", err)
+
+		return
+	}
+	marshalUtil.ReadSeek(-1)
+
+	switch AddressType(outputType) {
+	case AddressTypeED25519:
+		return ED25519AddressFromMarshalUtil(marshalUtil)
+	case AddressTypeBLS:
+		return BLSAddressFromMarshalUtil(marshalUtil)
+	default:
+		err = fmt.Errorf("unable to parse address: unknown address type")
+	}
+
+	return
 }
 
-// Digest returns the digest part of an address (i.e. the hashed version of the ed25519 public key)-
-func (address *Address) Digest() Digest {
-	return address[1:]
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ED25519Address ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// ED25519Address represents an Address that is secured by the ED25519 signature scheme.
+type ED25519Address struct {
+	digest []byte
 }
 
-// Bytes returns a marshaled version of this address.
-func (address Address) Bytes() []byte {
-	return address[:]
+// NewED25519Address creates a new ED25519Address from then given public key.
+func NewED25519Address(publicKey ed25519.PublicKey) *ED25519Address {
+	digest := blake2b.Sum256(publicKey[:])
+
+	return &ED25519Address{
+		digest: digest[:],
+	}
 }
 
-// String returns a human readable (base58 encoded) version of the address.
-func (address Address) String() string {
-	return base58.Encode(address.Bytes())
+// ED25519AddressFromMarshalUtil is a method that parses an ED25519Address from the given MarshalUtil.
+func ED25519AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *ED25519Address, err error) {
+	outputType, err := marshalUtil.ReadByte()
+	if err != nil {
+		err = fmt.Errorf("error parsing OutputType in ED25519AddressFromMarshalUtil: %w", err)
+		return
+	}
+	if AddressType(outputType) != AddressTypeBLS {
+		err = fmt.Errorf("error parsing OutputType in BLSAddressFromMarshalUtil: invalid OutputType `%X`", outputType)
+	}
+
+	address = &ED25519Address{}
+	if address.digest, err = marshalUtil.ReadBytes(32); err != nil {
+		err = fmt.Errorf("error parsing digest in ED25519AddressFromMarshalUtil: %w", err)
+		return
+	}
+
+	return
 }
 
-// Empty represents the 0-value of an address and therefore represents the "empty" address value
-var Empty = Address{}
+// Type returns the AddressType of the Address.
+func (e *ED25519Address) Type() AddressType {
+	return AddressTypeED25519
+}
 
-// Length contains the length of an address (digest length = 32 + version byte length = 1).
-const Length = 33
+// Digest returns the bytes of the Address that are usually comprised of the hashed version of the public key.
+func (e *ED25519Address) Digest() []byte {
+	return e.digest
+}
+
+// Bytes returns a marshaled version of the Address.
+func (e *ED25519Address) Bytes() []byte {
+	return byteutils.ConcatBytes([]byte{byte(AddressTypeED25519)}, e.digest)
+}
+
+// Base58 returns a base58 encoded version of the address.
+func (e *ED25519Address) Base58() string {
+	return base58.Encode(e.Bytes())
+}
+
+// String returns a human readable version of the addresses for debug purposes.
+func (e *ED25519Address) String() string {
+	return stringify.Struct("ED25519Address",
+		stringify.StructField("Digest", e.Digest()),
+	)
+}
+
+// code contract (make sure the struct implements all required methods)
+var _ Address = &ED25519Address{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BLSAddress ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// BLSAddress represents an Address that is secured by the BLS signature scheme.
+type BLSAddress struct {
+	digest []byte
+}
+
+// NewBLSAddress creates a new BLSAddress from then given public key.
+func NewBLSAddress(publicKey []byte) *BLSAddress {
+	digest := blake2b.Sum256(publicKey)
+
+	return &BLSAddress{
+		digest: digest[:],
+	}
+}
+
+// BLSAddressFromMarshalUtil parses a BLSAddress from the given MarshalUtil.
+func BLSAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *BLSAddress, err error) {
+	outputType, err := marshalUtil.ReadByte()
+	if err != nil {
+		err = fmt.Errorf("error parsing OutputType in BLSAddressFromMarshalUtil: %w", err)
+		return
+	}
+	if AddressType(outputType) != AddressTypeBLS {
+		err = fmt.Errorf("error parsing OutputType in BLSAddressFromMarshalUtil: invalid OutputType `%X`", outputType)
+	}
+
+	address = &BLSAddress{}
+	if address.digest, err = marshalUtil.ReadBytes(32); err != nil {
+		err = fmt.Errorf("error parsing digest in BLSAddressFromMarshalUtil: %w", err)
+		return
+	}
+
+	return
+}
+
+// Type returns the AddressType of the Address.
+func (b *BLSAddress) Type() AddressType {
+	return AddressTypeBLS
+}
+
+// Digest returns the bytes of the Address that are usually comprised of the hashed version of the public key.
+func (b *BLSAddress) Digest() []byte {
+	return b.digest
+}
+
+// Bytes returns a marshaled version of the Address.
+func (b *BLSAddress) Bytes() []byte {
+	return byteutils.ConcatBytes([]byte{byte(AddressTypeBLS)}, b.digest)
+}
+
+// Base58 returns a base58 encoded version of the address.
+func (b *BLSAddress) Base58() string {
+	return base58.Encode(b.Bytes())
+}
+
+// String returns a human readable version of the addresses for debug purposes.
+func (b *BLSAddress) String() string {
+	return stringify.Struct("BLSAddress",
+		stringify.StructField("Digest", b.Digest()),
+	)
+}
+
+// code contract (make sure the struct implements all required methods)
+var _ Address = &BLSAddress{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

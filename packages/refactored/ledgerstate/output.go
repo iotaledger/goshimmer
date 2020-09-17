@@ -145,7 +145,7 @@ func SigLockedSingleOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) 
 		return
 	}
 
-	if result.address, err = ParseAddress(marshalUtil); err != nil {
+	if result.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("error while parsing address of SigLockedSingleOutput: %w", err)
 		return
 	}
