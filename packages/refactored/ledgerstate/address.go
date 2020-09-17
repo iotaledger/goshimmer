@@ -125,6 +125,7 @@ func ED25519AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (addres
 	}
 	if AddressType(outputType) != AddressTypeBLS {
 		err = fmt.Errorf("error parsing OutputType in BLSAddressFromMarshalUtil: invalid OutputType `%X`", outputType)
+		return
 	}
 
 	address = &ED25519Address{}
@@ -193,6 +194,7 @@ func BLSAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *B
 	}
 	if AddressType(outputType) != AddressTypeBLS {
 		err = fmt.Errorf("error parsing OutputType in BLSAddressFromMarshalUtil: invalid OutputType `%X`", outputType)
+		return
 	}
 
 	address = &BLSAddress{}
