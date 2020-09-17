@@ -94,7 +94,7 @@ const BranchIDLength = transaction.IDLength
 // BranchIds represents a collection of BranchIds.
 type BranchIds map[BranchID]types.Empty
 
-// ToList create a slice of BranchIds from the collection.
+// ToList create a slice of BranchIDs from the collection.
 func (branchIDs BranchIds) ToList() (result []BranchID) {
 	result = make([]BranchID, len(branchIDs))
 	i := 0
