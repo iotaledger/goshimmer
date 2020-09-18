@@ -61,12 +61,36 @@ type Transaction struct {
 
 // New creates a new Transaction from the given details. The signatures are omitted as signing requires us to marshal
 // the transaction into a sequence of bytes and these bytes are unknown at the time of the creation of the Transaction.
-func New(inputs *Inputs, outputs *Outputs) *Transaction {
-	return &Transaction{
-		inputs:     inputs,
-		outputs:    outputs,
-		signatures: NewSignatures(),
+func New(inputs *Inputs, outputs *Outputs, pledgeIDs ...identity.ID) *Transaction {
+	var tx *Transaction
+	switch len(pledgeIDs) {
+	case 1:
+		tx = &Transaction{
+			inputs:              inputs,
+			outputs:             outputs,
+			signatures:          NewSignatures(),
+			timestamp:           time.Now(),
+			accessManaNodeID:    pledgeIDs[0],
+			consensusManaNodeID: pledgeIDs[0],
+		}
+	case 2:
+		tx = &Transaction{
+			inputs:              inputs,
+			outputs:             outputs,
+			signatures:          NewSignatures(),
+			timestamp:           time.Now(),
+			accessManaNodeID:    pledgeIDs[0],
+			consensusManaNodeID: pledgeIDs[1],
+		}
+	default:
+		tx = &Transaction{
+			inputs:     inputs,
+			outputs:    outputs,
+			signatures: NewSignatures(),
+			timestamp:  time.Now(),
+		}
 	}
+	return tx
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.

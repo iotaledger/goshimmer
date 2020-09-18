@@ -7,6 +7,7 @@ import (
 	walletaddr "github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/balance"
 	"github.com/iotaledger/goshimmer/dapps/valuetransfers/packages/transaction"
+	"github.com/iotaledger/goshimmer/packages/mana"
 )
 
 // WebConnector implements a connector that uses the web API to connect to a node to implement the required functions
@@ -115,6 +116,11 @@ func (webConnector WebConnector) SendTransaction(tx *transaction.Transaction) (e
 	_, err = webConnector.client.SendTransaction(tx.Bytes())
 
 	return
+}
+
+// GetAllowedPledgeIDs gets the list of nodeIDs that the node accepts as pledgeIDs in a transaction.
+func (webConnector WebConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type][]string, err error) {
+	return webConnector.client.GetAllowedManaPledgeNodeIDs()
 }
 
 // colorFromString is an internal utility method that parses the given string into a Color.

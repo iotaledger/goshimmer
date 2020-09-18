@@ -1,9 +1,12 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
+	"github.com/iotaledger/goshimmer/packages/mana"
+	webapi_allowedmanapledge "github.com/iotaledger/goshimmer/plugins/webapi/value/allowedmanapledge"
 	webapi_attachments "github.com/iotaledger/goshimmer/plugins/webapi/value/attachments"
 	webapi_gettxn "github.com/iotaledger/goshimmer/plugins/webapi/value/gettransactionbyid"
 	webapi_sendtxn "github.com/iotaledger/goshimmer/plugins/webapi/value/sendtransaction"
@@ -12,11 +15,12 @@ import (
 )
 
 const (
-	routeAttachments    = "value/attachments"
-	routeGetTxnByID     = "value/transactionByID"
-	routeSendTxn        = "value/sendTransaction"
-	routeSendTxnByJSON  = "value/sendTransactionByJson"
-	routeUnspentOutputs = "value/unspentOutputs"
+	routeAttachments          = "value/attachments"
+	routeGetTxnByID           = "value/transactionByID"
+	routeSendTxn              = "value/sendTransaction"
+	routeSendTxnByJSON        = "value/sendTransactionByJson"
+	routeUnspentOutputs       = "value/unspentOutputs"
+	routeAllowedPledgeNodeIDs = "value/allowedManaPledge"
 )
 
 // GetAttachments gets the attachments of a transaction ID
@@ -79,4 +83,26 @@ func (api *GoShimmerAPI) SendTransactionByJSON(txn webapi_sendtxnbyjson.Request)
 	}
 
 	return res.TransactionID, nil
+}
+
+// GetAllowedManaPledgeNodeIDs returns the list of allowed mana pledge IDs.
+func (api *GoShimmerAPI) GetAllowedManaPledgeNodeIDs() (map[mana.Type][]string, error) {
+	res := &webapi_allowedmanapledge.Response{}
+	if err := api.do(http.MethodGet, routeAllowedPledgeNodeIDs, nil, res); err != nil {
+		return nil, err
+	}
+
+	if len(res.Access.Allowed) == 0 {
+		return nil, errors.New("empty list of allowed access mana pledge IDs returned")
+	}
+	if len(res.Consensus.Allowed) == 0 {
+		return nil, errors.New("empty list of allowed consensus mana pledge IDs returned")
+	}
+
+	result := map[mana.Type][]string{
+		mana.AccessMana:    res.Access.Allowed,
+		mana.ConsensusMana: res.Consensus.Allowed,
+	}
+
+	return result, nil
 }
