@@ -55,7 +55,7 @@ func (c Color) String() string {
 	case ColorMint:
 		return "MINT"
 	default:
-		return base58.Encode(c[:])
+		return c.Base58()
 	}
 }
 
