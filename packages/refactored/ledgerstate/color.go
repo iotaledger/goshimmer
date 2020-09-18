@@ -79,6 +79,43 @@ func NewColoredBalances() *ColoredBalances {
 	return &ColoredBalances{balances: orderedmap.New()}
 }
 
+// ColoredBalancesFromBytes unmarshals ColoredBalances from a sequence of bytes.
+func ColoredBalancesFromBytes(bytes []byte) (coloredBalances *ColoredBalances, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	coloredBalances, err = ColoredBalancesFromMarshalUtil(marshalUtil)
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// ColoredBalancesFromMarshalUtil parses ColoredBalances from the given MarshalUtil.
+func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (coloredBalances *ColoredBalances, err error) {
+	balancesCount, err := marshalUtil.ReadUint32()
+	if err != nil {
+		err = errors.Wrap(err, "failed to read element count")
+		return
+	}
+
+	coloredBalances = NewColoredBalances()
+	for i := uint32(0); i < balancesCount; i++ {
+		color, marshalErr := ColorFromMarshalUtil(marshalUtil)
+		if marshalErr != nil {
+			err = marshalErr
+			return
+		}
+
+		balance, marshalErr := marshalUtil.ReadUint64()
+		if marshalErr != nil {
+			err = errors.Wrap(err, "failed to read balance")
+			return
+		}
+
+		coloredBalances.Set(color, balance)
+	}
+
+	return
+}
+
 // Set sets the balance of the given Color.
 func (c *ColoredBalances) Set(color Color, balance uint64) bool {
 	return c.balances.Set(color, balance)
