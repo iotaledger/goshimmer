@@ -17,9 +17,8 @@ var (
 // AccessMana returns the access mana of the whole network.
 func AccessMana() mana.NodeMap {
 	accessLock.RLock()
-	accessLock.RUnlock()
+	defer accessLock.RUnlock()
 	result := mana.NodeMap{}
-	accessLock.RLock()
 	for k, v := range accessMap {
 		result[k] = v
 	}
@@ -29,9 +28,8 @@ func AccessMana() mana.NodeMap {
 // ConsensusMana returns the consensus mana of the whole network.
 func ConsensusMana() mana.NodeMap {
 	consensusLock.RLock()
-	consensusLock.RUnlock()
+	defer consensusLock.RUnlock()
 	result := mana.NodeMap{}
-	accessLock.RLock()
 	for k, v := range consensusMap {
 		result[k] = v
 	}
