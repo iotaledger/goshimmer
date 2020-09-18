@@ -9,3 +9,14 @@ const (
 	// ConsensusMana is mana associated with consensus weights in the network.
 	ConsensusMana
 )
+
+func (t Type) String() string {
+	switch t {
+	case AccessMana:
+		return "Access Mana"
+	case ConsensusMana:
+		return "Consensus Mana"
+	default:
+		return "Unknown Mana Type"
+	}
+}
