@@ -174,7 +174,7 @@ func (o *SigLockedSingleOutput) Type() OutputType {
 // Balances returns the funds that are associated with this Output.
 func (o *SigLockedSingleOutput) Balances() *ColoredBalances {
 	balances := NewColoredBalances()
-	balances.Set(IOTAColor, o.balance)
+	balances.Set(ColorIOTA, o.balance)
 
 	return balances
 }

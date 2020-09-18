@@ -5,7 +5,67 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 )
+
+// region Color ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ColorLength represents the length of a Color (amount of bytes).
+const ColorLength = 32
+
+// Color represents a marker that is associated to a token balance and that can give it a certain "meaning".
+type Color [ColorLength]byte
+
+// ColorFromBytes unmarshals a Color from a sequence of bytes.
+func ColorFromBytes(bytes []byte) (color Color, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	color, err = ColorFromMarshalUtil(marshalUtil)
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// ColorFromMarshalUtil parses a Color from the given MarshalUtil.
+func ColorFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color Color, err error) {
+	colorBytes, err := marshalUtil.ReadBytes(ColorLength)
+	if err != nil {
+		err = errors.Wrap(err, "failed to parse Color")
+		return
+	}
+	copy(color[:], colorBytes)
+
+	return
+}
+
+// Bytes marshals the Color into a sequence of bytes.
+func (c Color) Bytes() []byte {
+	return c[:]
+}
+
+// Base58 returns a base58 encoded version of the Color.
+func (c Color) Base58() string {
+	return base58.Encode(c.Bytes())
+}
+
+// String creates a human readable string of the Color.
+func (c Color) String() string {
+	switch c {
+	case ColorIOTA:
+		return "IOTA"
+	case ColorMint:
+		return "MINT"
+	default:
+		return base58.Encode(c[:])
+	}
+}
+
+// ColorIOTA is the zero value of the Color and represents uncolored tokens.
+var ColorIOTA = Color{}
+
+// ColorMint represents a placeholder Color that indicates that tokens should be "colored" in their Output.
+var ColorMint = Color{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ColoredBalances //////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -72,53 +132,5 @@ func (c *ColoredBalances) String() string {
 
 	return structBuilder.String()
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Color ////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// ColorLength represents the length of a Color (amount of bytes).
-const ColorLength = 32
-
-// Color represents a marker that is associated to a token balance and that gives it a certain "meaning". The zero value
-// represents "vanilla" IOTA tokens but it is also possible to define tokens that represent i.e. real world assets.
-type Color [ColorLength]byte
-
-// ColorFromBytes unmarshals a Color from a sequence of bytes.
-func ColorFromBytes(bytes []byte) (result Color, consumedBytes int, err error) {
-	colorBytes, err := marshalutil.New(bytes).ReadBytes(ColorLength)
-	if err != nil {
-		return
-	}
-	copy(result[:], colorBytes)
-
-	consumedBytes = ColorLength
-
-	return
-}
-
-// Bytes marshals the Color into a sequence of bytes.
-func (color Color) Bytes() []byte {
-	return color[:]
-}
-
-// String creates a human readable string of the Color.
-func (color Color) String() string {
-	switch color {
-	case IOTAColor:
-		return "IOTA"
-	case MintColor:
-		return "MINT"
-	default:
-		return base58.Encode(color[:])
-	}
-}
-
-// ColorIOTA is the zero value of the Color and represents vanilla IOTA tokens.
-var IOTAColor = Color{}
-
-// MintColor represents a placeholder Color that will be replaced with the transaction ID that created the funds. It is
-// used to indicate that tokens should be "colored" in their Output (minting new colored coins).
-var MintColor = Color{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

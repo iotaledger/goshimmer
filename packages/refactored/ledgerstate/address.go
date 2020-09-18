@@ -46,7 +46,7 @@ type Address interface {
 	// Bytes returns a marshaled version of the Address.
 	Bytes() []byte
 
-	// Base58 returns a base58 encoded version of the address.
+	// Base58 returns a base58 encoded version of the Address.
 	Base58() string
 
 	// String returns a human readable version of the addresses for debug purposes.
@@ -237,7 +237,7 @@ func (b *BLSAddress) Bytes() []byte {
 	return byteutils.ConcatBytes([]byte{byte(AddressTypeBLS)}, b.digest)
 }
 
-// Base58 returns a base58 encoded version of the address.
+// Base58 returns a base58 encoded version of the Address.
 func (b *BLSAddress) Base58() string {
 	return base58.Encode(b.Bytes())
 }
