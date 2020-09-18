@@ -139,6 +139,8 @@ func printUsage(command *flag.FlagSet, optionalErrorMessage ...string) {
 		fmt.Println("        generate a new wallet using a random seed")
 		fmt.Println("  server-status")
 		fmt.Println("        display the server status")
+		fmt.Println("  pledge-id")
+		fmt.Println("        query allowed mana pledge nodeIDs")
 		fmt.Println("  help")
 		fmt.Println("        display this help screen")
 
