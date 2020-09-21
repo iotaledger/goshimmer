@@ -129,7 +129,7 @@ func (p *Payload) String() string {
 var PayloadType = tangle.PayloadType(111)
 
 // Type returns the type of the drng payload.
-func (payload *Payload) Type() tangle.PayloadType {
+func (p *Payload) Type() tangle.PayloadType {
 	return PayloadType
 }
 

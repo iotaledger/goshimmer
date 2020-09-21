@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
-// Dispatch parses a DRNG message and process it based on its subtype
+// Dispatch parses a DRNG message and processes it based on its subtype
 func (d *DRNG) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payload *Payload) error {
 	switch payload.PayloadType {
 	case TypeCollectiveBeacon:
